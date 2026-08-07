@@ -303,6 +303,9 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     private _findRegionAtPoint(wx: number, wz: number): V2[] | null {
         const walls = (window.wallStore?.getAll?.() ?? []) as ReadonlyArray<{
             baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+            // §FIX-REGION-RING-PRETRIM-FRAME — the wall records ALWAYS carried this;
+            // only the types omitted it, which is why the tracer traced the wrong arc.
+            _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> | null;
             curve?: { control?: { x: number; z: number } | null; segments?: number } | null;
         }>; // TODO(TASK-08)
         const ring = traceRegionAtPoint(walls, wx, wz);

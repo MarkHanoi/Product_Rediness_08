@@ -20,6 +20,14 @@
  * Mirrors the existing THREE-free utility convention of SlabGeomUtils / SlabValidator.
  */
 
+// §FIX-REGION-RING-PRETRIM-FRAME (founder, 2026-08-07) — THE ONE curved-wall
+// tessellation for topology. Leaf subpath export: THREE-free, so this module keeps
+// the purity its header promises. See the note on `wallPlanCenterline`.
+import {
+    tessellateCurvedWallForTopology,
+    type TessPoint,
+} from '@pryzm/core-app-model/curved-wall-tessellation';
+
 /** Plain 2D point in the world XZ plane: `x` = world X, `y` = world Z. */
 export interface RegionPoint2D {
     x: number;
@@ -28,8 +36,21 @@ export interface RegionPoint2D {
 
 /** Minimal wall shape the tracer needs — a subset of WallData. */
 export interface RegionWallLike {
-    /** Wall centreline endpoints in world space. Only x/z are read. */
+    /** Wall centreline endpoints in world space. Only x/z are read. POST-trim. */
     baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+    /**
+     * The PRE-trim baseline `WallJoinResolver` archives before it shortens a wall
+     * at a junction (`WallData._sourceBaseLine`).
+     *
+     * §FIX-REGION-RING-PRETRIM-FRAME (founder, 2026-08-07) — this field was the
+     * whole defect. `curve.control` is authored in the PRE-trim frame, so fitting
+     * a Bézier through POST-trim endpoints via a PRE-trim control point yields a
+     * DIFFERENT CURVE that overshoots the authored arc. Callers were already
+     * passing real wall records carrying `_sourceBaseLine`; only this type omitted
+     * it, so the tracer could never see it. Absent (a wall never trimmed) ⇒
+     * pre-trim ≡ post-trim and the output is bit-identical to the old maths.
+     */
+    _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> | null;
     /**
      * Optional quadratic-Bézier curve descriptor (Contract §03-1.2). When
      * present the wall is an arc from baseLine[0]→baseLine[1] via `control`.
@@ -49,18 +70,63 @@ const MAX_ARC_SEGMENTS = 48;
 /** Target chord length (m) when sampling an arc — must exceed the weld tolerance. */
 const ARC_CHORD_TARGET = 0.5;
 
+/** Quadratic-Bézier sampler in the tracer's `{x, z}` world-plan frame. */
+function sampleQuadraticBezier(
+    start: TessPoint, end: TessPoint, control: TessPoint, segments: number,
+): TessPoint[] {
+    const out: TessPoint[] = [];
+    for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const mt = 1 - t;
+        out.push({
+            x: mt * mt * start.x + 2 * mt * t * control.x + t * t * end.x,
+            z: mt * mt * start.z + 2 * mt * t * control.z + t * t * end.z,
+        });
+    }
+    return out;
+}
+
 /**
  * Sample a wall's plan centreline into XZ points.
  *   • Straight wall → `[start, end]`.
- *   • Curved wall   → the quadratic-Bézier arc (baseLine[0] → control → baseLine[1])
- *                     tessellated into chords each longer than {@link REGION_WELD_TOLERANCE}
- *                     so the intermediate nodes survive the loop-builder's weld step.
+ *   • Curved wall   → the authored quadratic-Bézier arc, tessellated into chords
+ *                     each longer than {@link REGION_WELD_TOLERANCE} so the
+ *                     intermediate nodes survive the loop-builder's weld step.
+ *
+ * §FIX-REGION-RING-PRETRIM-FRAME (founder, 2026-08-07) — THE FRAME MATTERS.
+ * This function used to fit a Bézier through `baseLine[0] → curve.control →
+ * baseLine[1]`. `baseLine` is POST-trim (the join resolver shortened it at each
+ * junction); `curve.control` is PRE-trim, as the user authored it. A Bézier
+ * through TRIMMED endpoints with an UNTRIMMED control point is not the authored
+ * arc restricted to the trimmed span — it is a DIFFERENT CURVE, pinned at the
+ * ends and diverging most mid-span, and the divergence is an OVERSHOOT: the arc
+ * bulges PAST where its neighbours expect it. Push that bulge over a neighbouring
+ * edge and the traced region ring CROSSES ITSELF; feed a self-crossing ring to
+ * `THREE.ShapeUtils.triangulateShape` (earcut, whose contract requires a simple
+ * ring) and it emits triangles OUTSIDE the polygon — the dark wedges punched
+ * through the founder's roof-by-region surface.
+ *
+ * This is the identical defect `RoomDetectionEngine` was fixed for at ba7ee582
+ * (§FIX-CURVED-WALL-PRETRIM-FRAME), and `WallFragmentBuilder` before it
+ * (§V2-PRETRIM-FIX). Each fix was a COPY, so this third consumer kept the old
+ * maths. It now calls the SAME shared helper: sample in the pre-trim frame, then
+ * CLIP to the post-trim span, so the trim is still honoured exactly — the ring
+ * starts and ends on the resolver's endpoints and only the SHAPE between them is
+ * restored.
+ *
+ * A wall with no `_sourceBaseLine` (never trimmed) has pre-trim ≡ post-trim by
+ * construction and is bit-identical to the previous behaviour.
+ *
+ * NOT CHANGED HERE, deliberately: {@link MAX_ARC_SEGMENTS} / chord density. That
+ * is the separate "organic look" question, and no amount of density helps while
+ * the ring self-intersects.
  *
  * Returns `[]` when the wall has no usable baseLine.
  */
 export function wallPlanCenterline(
     baseLine: ReadonlyArray<{ x: number; z: number }> | null | undefined,
     curve?: { control?: { x: number; z: number } | null; segments?: number } | null,
+    sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> | null,
 ): RegionPoint2D[] {
     const p0 = baseLine?.[0];
     const p1 = baseLine?.[1];
@@ -72,26 +138,33 @@ export function wallPlanCenterline(
     const ctrl = curve?.control;
     if (!ctrl) return [a, b];
 
-    const cx = ctrl.x;
-    const cy = ctrl.z;
+    // The frame the arc was AUTHORED in — pre-trim when the resolver archived one.
+    const src0 = sourceBaseLine?.[0];
+    const src1 = sourceBaseLine?.[1];
+    const hasSource = !!src0 && !!src1;
+    const preStart: TessPoint = hasSource ? { x: src0.x, z: src0.z } : { x: p0.x, z: p0.z };
+    const preEnd: TessPoint = hasSource ? { x: src1.x, z: src1.z } : { x: p1.x, z: p1.z };
 
     // Segment count: honour the wall's own `segments` when supplied, else derive
     // one from the chord length. Always ≥2 (so a tiny arc still bows) and capped.
-    const chord = Math.hypot(b.x - a.x, b.y - a.y);
+    // Derived from the PRE-TRIM chord, because that is the span actually sampled.
+    const chord = Math.hypot(preEnd.x - preStart.x, preEnd.z - preStart.z);
     const fromChord = Math.ceil(chord / ARC_CHORD_TARGET);
     const requested = Number.isFinite(curve?.segments) ? (curve!.segments as number) : fromChord;
     const n = Math.max(2, Math.min(MAX_ARC_SEGMENTS, requested || fromChord || 2));
 
-    const out: RegionPoint2D[] = [];
-    for (let i = 0; i <= n; i++) {
-        const t = i / n;
-        const mt = 1 - t;
-        out.push({
-            x: mt * mt * a.x + 2 * mt * t * cx + t * t * b.x,
-            y: mt * mt * a.y + 2 * mt * t * cy + t * t * b.y,
-        });
-    }
-    return out;
+    const tessellated = tessellateCurvedWallForTopology(
+        {
+            baseLine: [{ x: p0.x, z: p0.z }, { x: p1.x, z: p1.z }],
+            sourceBaseLine: hasSource ? [preStart, preEnd] : null,
+            control: { x: ctrl.x, z: ctrl.z },
+            segments: n,
+        },
+        sampleQuadraticBezier,
+    );
+
+    // Back to the tracer's OTHER convention: RegionPoint2D is {x, y} with y = world Z.
+    return tessellated.map(p => ({ x: p.x, y: p.z }));
 }
 
 /**
@@ -103,7 +176,9 @@ export function wallsToSegments(
 ): Array<[RegionPoint2D, RegionPoint2D]> {
     const segments: Array<[RegionPoint2D, RegionPoint2D]> = [];
     for (const w of walls) {
-        const pts = wallPlanCenterline(w?.baseLine, w?.curve);
+        // §FIX-REGION-RING-PRETRIM-FRAME — pass the archived PRE-trim baseline so the
+        // arc is sampled in the frame `curve.control` belongs to.
+        const pts = wallPlanCenterline(w?.baseLine, w?.curve, w?._sourceBaseLine);
         for (let i = 0; i + 1 < pts.length; i++) {
             const u = pts[i];
             const v = pts[i + 1];

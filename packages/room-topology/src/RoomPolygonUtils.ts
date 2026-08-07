@@ -11,6 +11,10 @@
  */
 
 import { RoomVertex, RoomBoundary, RoomComputedMetrics } from './RoomTypes';
+// §FIX-REGION-RING-PRETRIM-FRAME (2026-08-07) — ONE ring-simplicity predicate,
+// shared with the slab triangulation gate. Leaf subpath, so no THREE is pulled in
+// and this file stays pure. See the note on `isSimple` below.
+import { isSimpleRing } from '@pryzm/core-app-model/ring-simplicity';
 
 export const MAX_POLYGON_VERTICES = 256;
 /**
@@ -141,45 +145,18 @@ export function ensureCCW(polygon: RoomVertex[]): RoomVertex[] {
 }
 
 /**
- * Segment-segment intersection test (exclusive of endpoints).
- * Returns true if segments (p1→p2) and (p3→p4) properly intersect.
- */
-function segmentsIntersect(
-  p1: RoomVertex, p2: RoomVertex,
-  p3: RoomVertex, p4: RoomVertex
-): boolean {
-  const d1x = p2.x - p1.x, d1z = p2.z - p1.z;
-  const d2x = p4.x - p3.x, d2z = p4.z - p3.z;
-
-  const cross = d1x * d2z - d1z * d2x;
-  if (Math.abs(cross) < 1e-10) return false; // parallel
-
-  const dx = p3.x - p1.x, dz = p3.z - p1.z;
-  const t = (dx * d2z - dz * d2x) / cross;
-  const u = (dx * d1z - dz * d1x) / cross;
-
-  // Exclusive (0,1) to avoid flagging shared endpoints
-  return t > 1e-10 && t < 1 - 1e-10 && u > 1e-10 && u < 1 - 1e-10;
-}
-
-/**
  * Returns true if the polygon has no self-intersections.
  * O(n²) — acceptable for n < 200 vertices.
+ *
+ * §FIX-REGION-RING-PRETRIM-FRAME (2026-08-07) — the maths (and its epsilons)
+ * moved verbatim to `@pryzm/core-app-model/ring-simplicity` so the SLAB
+ * triangulation path can assert earcut's precondition without depending on room
+ * topology. Rooms speak `{x, z}`; the shared predicate speaks `{x, y}` for "the
+ * two planar axes", hence the map. Behaviour is unchanged, including "fewer than
+ * 3 vertices is NOT simple".
  */
 export function isSimple(polygon: RoomVertex[]): boolean {
-  const n = polygon.length;
-  if (n < 3) return false;
-  for (let i = 0; i < n; i++) {
-    const i2 = (i + 1) % n;
-    for (let j = i + 2; j < n; j++) {
-      if (j === n - 1 && i === 0) continue; // skip closing edge vs opening edge
-      const j2 = (j + 1) % n;
-      if (segmentsIntersect(polygon[i], polygon[i2], polygon[j], polygon[j2])) {
-        return false;
-      }
-    }
-  }
-  return true;
+  return isSimpleRing(polygon.map(v => ({ x: v.x, y: v.z })));
 }
 
 /**
@@ -624,7 +601,7 @@ export function sanitisePolygon(vertices: unknown[]): RoomVertex[] | null {
 
 /**
  * Proper-intersection point of two segments, or null. Mirrors the (exclusive)
- * crossing test in `segmentsIntersect`/`isSimple` but RETURNS the crossing point
+ * crossing test in `ringSegmentsProperlyCross`/`isSimple` but RETURNS the point
  * so the repair can split the ring there.
  */
 function segmentCrossPoint(

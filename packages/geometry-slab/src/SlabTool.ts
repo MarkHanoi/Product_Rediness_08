@@ -1416,6 +1416,9 @@ export class SlabTool {
     private findRegionAtPoint(pt: THREE.Vector3): THREE.Vector2[] | null {
         const walls = this.wallStore.getAll() as ReadonlyArray<{
             baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+            // §FIX-REGION-RING-PRETRIM-FRAME — the wall records ALWAYS carried this;
+            // only the types omitted it, which is why the tracer traced the wrong arc.
+            _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> | null;
             curve?: { control?: { x: number; z: number } | null; segments?: number } | null;
         }>;
         const ring = traceRegionAtPoint(walls, pt.x, pt.z);

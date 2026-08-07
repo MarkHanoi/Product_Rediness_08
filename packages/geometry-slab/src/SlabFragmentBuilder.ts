@@ -19,6 +19,9 @@ import { HostReferenceEdge, SketchLoop } from './SketchTypes';
 import { WallFaceResolver } from './WallFaceResolver';
 import { SketchLoopIntersector, Segment2D } from './SketchLoopIntersector';
 import { outsetPolygon, SLAB_WALL_OUTSET } from './SlabGeometryUtils';
+// §REFUSE-NONSIMPLE-SLAB-RING (ADR-0299 §RECOVERY-MUST-REFUSE) — earcut's precondition,
+// asserted before triangulation. Leaf subpath: pure maths, no second THREE import.
+import { findRingSelfIntersection } from '@pryzm/core-app-model/ring-simplicity';
 import { batchCoordinator } from '@pryzm/core-app-model';
 
 // ─── §LOAD-FLOOD-GATE (2026-06-29) — slab-build timing-log gate ─────────────────
@@ -661,6 +664,94 @@ export class SlabFragmentBuilder {
         return polygon ?? null;
     }
 
+    /**
+     * §REFUSE-NONSIMPLE-SLAB-RING — ADR-0299 §RECOVERY-MUST-REFUSE (2026-08-07).
+     *
+     * `THREE.ShapeUtils.triangulateShape` is earcut, and earcut's CONTRACT REQUIRES
+     * A SIMPLE RING. It does not degrade gracefully on a self-intersecting one: it
+     * emits triangles that fall OUTSIDE the polygon. On the founder's roof-by-region
+     * slab (SB002, 77 vertices) those stray triangles were the dark wedges punched
+     * through the top surface — geometry that is wrong but plausible enough to be
+     * read as a modelling quirk, which is precisely the failure mode ADR-0299 was
+     * written about.
+     *
+     * §FIX-REGION-RING-PRETRIM-FRAME fixes the upstream producer (`SlabRegionTracer`
+     * traced a mixed pre/post-trim arc that overshot and crossed its neighbours), so
+     * rings should now arrive simple. This gate exists because "should" is not a
+     * guarantee: ANY future producer — a sketch loop, an imported profile, an outset
+     * that folds a thin concave neck — can hand us a crossing ring, and a corrupt
+     * ring must NEVER be silently rendered again.
+     *
+     * Applying ADR-0299's own test — *"if the thing I am repairing were impossible by
+     * construction, would I notice?"* — a slab ring crossing itself is impossible by
+     * construction, so this branch refuses rather than repairs. It does NOT call
+     * `repairToSimplePolygon`: an invented ring is exactly the plausible-looking
+     * output the ADR forbids.
+     *
+     * @returns a refusal reason (already logged) when a ring is not simple, else null.
+     */
+    private static refuseNonSimpleRings(
+        slabId: string,
+        sourcePolygon: { x: number; y: number }[],
+        buildPolygon: { x: number; y: number }[],
+        holes: { x: number; y: number }[][],
+    ): string | null {
+        const describe = (
+            label: string,
+            ring: { x: number; y: number }[],
+            hit: { i: number; j: number },
+        ): string => {
+            const at = (k: number) => {
+                const p = ring[k % ring.length]!;
+                return `[${p.x.toFixed(3)}, ${p.y.toFixed(3)}]`;
+            };
+            return `${label} (${ring.length} vertices) crosses itself: `
+                + `edge ${hit.i}→${hit.i + 1} ${at(hit.i)}→${at(hit.i + 1)} `
+                + `crosses edge ${hit.j}→${hit.j + 1} ${at(hit.j)}→${at(hit.j + 1)}`;
+        };
+
+        // The OUTER ring, checked in BOTH frames, because which one is broken says
+        // where to look: the traced/authored ring, or `outsetPolygon` folding it.
+        const srcHit = sourcePolygon.length >= 3 ? findRingSelfIntersection(sourcePolygon) : null;
+        const buildHit = findRingSelfIntersection(buildPolygon);
+        if (srcHit || buildHit) {
+            const detail = srcHit
+                ? `${describe('SOURCE outer ring', sourcePolygon, srcHit)} `
+                  + `— the ring arrived non-simple, so the PRODUCER is at fault `
+                  + `(region tracer / sketch loop / imported profile), not the outset.`
+                : `${describe('OUTSET outer ring', buildPolygon, buildHit!)} `
+                  + `— the SOURCE ring is simple, so outsetPolygon(SLAB_WALL_OUTSET) `
+                  + `folded it (typically a thin concave neck narrower than the outset).`;
+            const reason = `§REFUSE-NONSIMPLE-SLAB-RING slabId="${slabId}" — ${detail}`;
+            console.error(
+                `[SlabFragmentBuilder] ${reason}\n`
+                + `  REFUSING to triangulate. earcut requires a simple ring; given this one it `
+                + `would emit triangles OUTSIDE the polygon (the dark wedges in the roof-by-region `
+                + `report). Per ADR-0299 §RECOVERY-MUST-REFUSE this slab is built as a plain box `
+                + `and marked degraded rather than rendered as though it were authored geometry.`,
+            );
+            return reason;
+        }
+
+        for (let h = 0; h < holes.length; h++) {
+            const hole = holes[h]!;
+            if (hole.length < 3) continue;
+            const hit = findRingSelfIntersection(hole);
+            if (!hit) continue;
+            const reason = `§REFUSE-NONSIMPLE-SLAB-RING slabId="${slabId}" — `
+                + `${describe(`hole[${h}]`, hole, hit)}`;
+            console.error(
+                `[SlabFragmentBuilder] ${reason}\n`
+                + `  REFUSING to triangulate. A self-intersecting HOLE contour makes earcut punch `
+                + `the void outside the slab. Per ADR-0299 §RECOVERY-MUST-REFUSE this slab is built `
+                + `as a plain box and marked degraded.`,
+            );
+            return reason;
+        }
+
+        return null;
+    }
+
     /** Shoelace signed area. Positive = CCW, Negative = CW (Y-up). */
     private static signedArea2D(pts: { x: number; y: number }[]): number {
         let area = 0;
@@ -885,6 +976,10 @@ export class SlabFragmentBuilder {
         }
 
         let geometry: THREE.BufferGeometry;
+        // §REFUSE-NONSIMPLE-SLAB-RING (ADR-0299) — set when a ring failed earcut's
+        // precondition; carried onto the mesh so the degraded box is never mistaken
+        // for authored geometry by anything downstream.
+        let degradedReason: string | null = null;
 
         const __t_build_start = performance.now();
         if (resolvedPolygon && resolvedPolygon.length >= 3) {
@@ -894,7 +989,15 @@ export class SlabFragmentBuilder {
             const __t_outset_start = performance.now();
             const buildPolygon = outsetPolygon(resolvedPolygon, SLAB_WALL_OUTSET);
             const __t_tri_start = performance.now();
-            geometry = SlabFragmentBuilder.buildSlabGeometry(buildPolygon, data.thickness, allHoles);
+            // §REFUSE-NONSIMPLE-SLAB-RING — assert earcut's precondition BEFORE
+            // triangulating. See refuseNonSimpleRings() for why this is a refusal and
+            // not a repair.
+            degradedReason = SlabFragmentBuilder.refuseNonSimpleRings(
+                data.id, resolvedPolygon, buildPolygon, allHoles,
+            );
+            geometry = degradedReason
+                ? new THREE.BoxGeometry(data.width, data.thickness, data.depth)
+                : SlabFragmentBuilder.buildSlabGeometry(buildPolygon, data.thickness, allHoles);
             // §LOAD-FLOOD-GATE — per-slab timing logs gated (default OFF).
             if (slabBuildDiagOn()) {
                 console.log(`[SlabFragmentBuilder] outset slabId="${data.id}" vertices=${resolvedPolygon.length} elapsed=${(__t_tri_start - __t_outset_start).toFixed(1)}ms`);
@@ -957,7 +1060,11 @@ export class SlabFragmentBuilder {
             elementType: 'SlabPart',
             modelId: 'model-default',
             role: 'geometry',
-            selectable: false
+            selectable: false,
+            // §REFUSE-NONSIMPLE-SLAB-RING (ADR-0299 §4: "where a recovery does proceed,
+            // its output MUST be marked degraded — not returned as though it were
+            // authored data"). Absent on every healthy slab.
+            ...(degradedReason ? { degraded: degradedReason } : {}),
         };
 
         // ── Edge overlay (Doc 20 — WebGPU-compatible LineBasicMaterial) ────

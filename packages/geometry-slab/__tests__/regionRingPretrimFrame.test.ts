@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { findRingSelfIntersection } from '@pryzm/core-app-model/ring-simplicity';
 import {
   wallPlanCenterline,
   findRegionAtPoint,
@@ -16,7 +17,8 @@ import {
  * Element SB002, slab, 77 polygon vertices: in 3D the top surface is faceted into
  * huge flat panels with dark wedge-shaped notches punched through it.
  *
- * THREE CAUSES WERE ON THE TABLE. This file settles which, with numbers.
+ * THREE CAUSES WERE ON THE TABLE. This file settled which, with numbers, and now
+ * also holds the fix.
  *
  *   (1) FAN TRIANGULATION OF A CONCAVE POLYGON — REFUTED by inspection AND by the
  *       concavity test below. `SlabFragmentBuilder` uses
@@ -29,8 +31,8 @@ import {
  *   (3) WINDING / NORMALS — not needed to explain the artefacts once (2) holds, and
  *       (2) also explains the faceting, which a normals bug would not.
  *
- * ROOT CAUSE — the SAME defect I already fixed once, in a second consumer that was
- * never migrated. `SlabRegionTracer.wallPlanCenterline` tessellates a curved wall
+ * ROOT CAUSE — the SAME defect already fixed once, in a second consumer that was
+ * never migrated. `SlabRegionTracer.wallPlanCenterline` tessellated a curved wall
  * as a quadratic Bézier `baseLine[0] → curve.control → baseLine[1]`, where
  * `baseLine` is POST-trim (the join resolver shortened it) and `curve.control` is
  * PRE-trim. That mixed frame is a DIFFERENT CURVE from the authored arc — exactly
@@ -38,9 +40,21 @@ import {
  * (ba7ee582) while this tracer kept the old maths. The mis-fitted arc bulges past
  * its neighbours, the traced ring crosses itself, and earcut then produces wedges.
  *
- * The founder's log corroborates: `unresolvedLoopBreaks=6` with 847 mm / 952 mm /
- * 923 mm gaps between sub-segments of SINGLE walls — impossible by construction,
- * and the same signature as the 599 mm tear behind the floor-finish chord.
+ * THE FIX (this commit): `wallPlanCenterline` now takes the archived PRE-trim
+ * baseline (`WallData._sourceBaseLine`, which the callers were already carrying and
+ * only the TYPE omitted) and routes through the shared
+ * `tessellateCurvedWallForTopology` — sample the arc in the frame it was authored
+ * in, then CLIP to the post-trim span. The trim is still honoured exactly; only the
+ * SHAPE between the ends is restored.
+ *
+ * ── HOW THIS FILE IS STRUCTURED, AND WHY ─────────────────────────────────────
+ * The REGRESSION block below reproduces the OLD maths by calling the tracer WITHOUT
+ * a `_sourceBaseLine` — which is not a contrivance, it is the genuine fallback path
+ * (no archived pre-trim baseline ⇒ pre-trim ≡ post-trim) and therefore exactly the
+ * pre-fix computation. It asserts the defect is real and large (>200 mm, and an
+ * OVERSHOOT). The FIX block then feeds the same wall WITH its pre-trim baseline and
+ * asserts closeness. Same inputs, same measure, opposite verdicts: that is what
+ * makes these assertions evidence rather than decoration.
  *
  * NOTE ON CONVENTIONS, which cost this file a debugging round: the tracer takes
  * wall baselines as `{x, z}` but RETURNS `RegionPoint2D` as `{x, y}` where `y`
@@ -102,55 +116,102 @@ const POST_END = TRUE_ARC[Math.round(400 * 0.94)]!;
 /** The tracer's INPUT convention is {x, z}. */
 const asBaseline = (p: RegionPoint2D) => ({ x: p.x, z: p.y });
 
+/** The trimmed wall, as the tracer now receives it. */
+const POST_BASELINE = [asBaseline(POST_START), asBaseline(POST_END)];
+const PRE_BASELINE = [asBaseline(PRE_START), asBaseline(PRE_END)];
+const CURVE = { control: asBaseline(CONTROL), segments: 24 };
+
+/**
+ * A region bounded by the curved wall plus three straight ones. The straight
+ * neighbour runs at y = 4.75 — ABOVE the authored arc's apex (4.5) and BELOW the
+ * mixed-frame arc's apex (≈5.01). That 0.25 m band is the whole defect made
+ * geometric: the correct arc clears the neighbour, the overshooting one does not.
+ */
+function regionRingFrom(arc: ReadonlyArray<RegionPoint2D>): RegionPoint2D[] {
+  return [
+    ...arc,
+    { x: 11, y: POST_END.y },
+    { x: 11, y: 4.75 },
+    { x: -1, y: 4.75 },
+    { x: -1, y: POST_START.y },
+  ];
+}
+
 describe('§FIX-REGION-RING-PRETRIM-FRAME — cause (2): is the region ring simple?', () => {
 
-  describe('CONFIRMED — the mixed-frame arc is not the authored arc', () => {
+  describe('REGRESSION — the OLD maths (mixed pre/post-trim frame) is not the authored arc', () => {
+    // No `_sourceBaseLine` ⇒ the tracer samples in the post-trim frame with the
+    // pre-trim control point. That IS the pre-fix computation.
+    const old = wallPlanCenterline(POST_BASELINE, CURVE);
+
     it('the traced centreline departs from the true arc by hundreds of mm', () => {
-      const traced = wallPlanCenterline(
-        [asBaseline(POST_START), asBaseline(POST_END)],
-        { control: asBaseline(CONTROL), segments: 24 },
-      );
-      expect(traced.length).toBeGreaterThan(2);
-      const devMm = maxDeviation(traced, TRUE_ARC) * 1000;
+      expect(old.length).toBeGreaterThan(2);
+      const devMm = maxDeviation(old, TRUE_ARC) * 1000;
       // The same order as the 847/952/923 mm loop-break gaps in the founder's log,
       // and far beyond any junction snap radius.
       expect(devMm).toBeGreaterThan(200);
     });
 
     it('the departure is an OVERSHOOT — the arc bulges past where neighbours expect it', () => {
-      const traced = wallPlanCenterline(
-        [asBaseline(POST_START), asBaseline(POST_END)],
-        { control: asBaseline(CONTROL), segments: 24 },
-      );
-      expect(Math.max(...traced.map(p => p.y)))
+      expect(Math.max(...old.map(p => p.y)))
         .toBeGreaterThan(Math.max(...TRUE_ARC.map(p => p.y)));
+    });
+
+    it('MEASURED: the ring built on that overshoot SELF-INTERSECTS', () => {
+      // Crossings here are what make earcut emit triangles OUTSIDE the polygon —
+      // the dark wedges punched through the founder's roof surface.
+      expect(countSelfIntersections(regionRingFrom(old))).toBeGreaterThan(0);
     });
   });
 
-  describe('the consequence — earcut\'s precondition is violated', () => {
-    it('a correctly traced region is SIMPLE (0 crossings) — the precondition, stated', () => {
-      const good: RegionPoint2D[] = [
-        ...sampleArc(POST_START, { x: 5, y: 7.4 }, POST_END, 24),
-        { x: POST_END.x, y: -4 },
-        { x: POST_START.x, y: -4 },
-      ];
-      expect(countSelfIntersections(good)).toBe(0);
-      expect(Math.abs(polygonArea(good))).toBeGreaterThan(0);
+  describe('FIXED — sampled in the PRE-TRIM frame and clipped to the post-trim span', () => {
+    const fixed = wallPlanCenterline(POST_BASELINE, CURVE, PRE_BASELINE);
+
+    it('the traced centreline now FOLLOWS the authored arc (tessellation error only)', () => {
+      expect(fixed.length).toBeGreaterThan(2);
+      const devMm = maxDeviation(fixed, TRUE_ARC) * 1000;
+      // Floored by the 400-sample reference polyline's own discretisation, not by
+      // the tracer. Compare with >200 mm for the same wall in the REGRESSION block.
+      expect(devMm).toBeLessThan(30);
     });
 
-    it('MEASURED: a mixed-frame ring self-intersects once the bulge sweeps a neighbour', () => {
-      const bulged = wallPlanCenterline(
-        [asBaseline(POST_START), asBaseline(POST_END)],
-        { control: asBaseline({ x: 5, y: 26 }), segments: 24 },
-      );
-      const ring: RegionPoint2D[] = [
-        ...bulged,
-        { x: POST_END.x + 6, y: 8 },
-        { x: POST_START.x - 6, y: 8 },
+    it('no overshoot — the arc no longer bulges past the authored one', () => {
+      expect(Math.max(...fixed.map(p => p.y)))
+        .toBeLessThanOrEqual(Math.max(...TRUE_ARC.map(p => p.y)) + 1e-9);
+    });
+
+    it('the TRIM is still honoured exactly — the ring starts and ends on the resolver\'s endpoints', () => {
+      // Only the SHAPE between the ends is restored; the junction points are the
+      // resolver's, so the wall still meets its neighbours where it is joined.
+      expect(fixed[0]!.x).toBeCloseTo(POST_START.x, 12);
+      expect(fixed[0]!.y).toBeCloseTo(POST_START.y, 12);
+      expect(fixed[fixed.length - 1]!.x).toBeCloseTo(POST_END.x, 12);
+      expect(fixed[fixed.length - 1]!.y).toBeCloseTo(POST_END.y, 12);
+    });
+
+    it('earcut\'s precondition now HOLDS — the same region ring is SIMPLE', () => {
+      const ring = regionRingFrom(fixed);
+      expect(countSelfIntersections(ring)).toBe(0);
+      expect(findRingSelfIntersection(ring)).toBeNull();
+      expect(Math.abs(polygonArea(ring))).toBeGreaterThan(0);
+    });
+
+    it('the whole wall traces end to end through wallsToSegments / findRegionAtPoint', () => {
+      // The real entry point, with a real wall record — proving the pre-trim
+      // baseline actually reaches the tessellation and is not just parameter-passed.
+      const walls: RegionWallLike[] = [
+        { baseLine: POST_BASELINE, _sourceBaseLine: PRE_BASELINE, curve: CURVE },
+        { baseLine: [asBaseline(POST_END), { x: 11, z: POST_END.y }] },
+        { baseLine: [{ x: 11, z: POST_END.y }, { x: 11, z: 4.75 }] },
+        { baseLine: [{ x: 11, z: 4.75 }, { x: -1, z: 4.75 }] },
+        { baseLine: [{ x: -1, z: 4.75 }, { x: -1, z: POST_START.y }] },
+        { baseLine: [{ x: -1, z: POST_START.y }, asBaseline(POST_START)] },
       ];
-      // Crossings here are what make earcut emit triangles OUTSIDE the polygon —
-      // the dark wedges punched through the founder's roof surface.
-      expect(countSelfIntersections(ring)).toBeGreaterThan(0);
+      // Inside the band the ring encloses — ABOVE the arc, below the y=4.75
+      // neighbour. (5, 3) would be UNDER the arc, i.e. outside this region.
+      const ring = findRegionAtPoint(walls, 10.5, 3);
+      expect(ring).not.toBeNull();
+      expect(countSelfIntersections(ring!)).toBe(0);
     });
   });
 
@@ -162,17 +223,22 @@ describe('§FIX-REGION-RING-PRETRIM-FRAME — cause (2): is the region ring simp
         { x: 3, y: 3 }, { x: 3, y: 6 }, { x: 0, y: 6 },
       ];
       expect(countSelfIntersections(L)).toBe(0);
+      expect(findRingSelfIntersection(L)).toBeNull();
       expect(Math.abs(polygonArea(L))).toBeCloseTo(27, 6);
     });
   });
 
   describe('an UNTRIMMED curved wall is unaffected — the defect requires a trim', () => {
     it('tracing the authored endpoints reproduces the authored arc', () => {
-      const traced = wallPlanCenterline(
-        [asBaseline(PRE_START), asBaseline(PRE_END)],
-        { control: asBaseline(CONTROL), segments: 24 },
-      );
+      const traced = wallPlanCenterline(PRE_BASELINE, CURVE);
       expect(maxDeviation(traced, TRUE_ARC) * 1000).toBeLessThan(30);
+    });
+
+    it('a pre-trim baseline EQUAL to the post-trim one is bit-identical to omitting it', () => {
+      // The provable no-change guarantee for every wall the resolver never touched.
+      const without = wallPlanCenterline(PRE_BASELINE, CURVE);
+      const with_ = wallPlanCenterline(PRE_BASELINE, CURVE, PRE_BASELINE);
+      expect(with_).toEqual(without);
     });
   });
 
@@ -188,6 +254,27 @@ describe('§FIX-REGION-RING-PRETRIM-FRAME — cause (2): is the region ring simp
       expect(ring).not.toBeNull();
       expect(countSelfIntersections(ring!)).toBe(0);
       expect(Math.abs(polygonArea(ring!))).toBeCloseTo(40, 6);
+    });
+  });
+
+  /**
+   * §REFUSE-NONSIMPLE-SLAB-RING (ADR-0299 §RECOVERY-MUST-REFUSE) — the guard the
+   * fix above is supposed to make unnecessary, and which ships anyway because
+   * "should now be simple" is not a guarantee. `SlabFragmentBuilder` calls
+   * `findRingSelfIntersection` before `THREE.ShapeUtils.triangulateShape` and
+   * refuses (loud `console.error`, degraded box, `userData.degraded`) rather than
+   * emitting triangles outside the polygon.
+   */
+  describe('the downstream guard reports WHICH edges cross, not just that some do', () => {
+    it('names the offending edge pair on a bow-tie', () => {
+      const bowTie: RegionPoint2D[] = [
+        { x: 0, y: 0 }, { x: 4, y: 4 }, { x: 4, y: 0 }, { x: 0, y: 4 },
+      ];
+      const hit = findRingSelfIntersection(bowTie);
+      expect(hit).not.toBeNull();
+      // Edge 0→1 crosses edge 2→3. A refusal that can name this is actionable;
+      // "the ring is bad" is not.
+      expect(hit).toEqual({ i: 0, j: 2 });
     });
   });
 });
