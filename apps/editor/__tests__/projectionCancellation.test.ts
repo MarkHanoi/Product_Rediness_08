@@ -106,7 +106,10 @@ describe('§PERF-PROJECTION-CANCEL-SUPERSEDED — the chunk loop stops early', (
             groupsProcessed++;
             if (groupsProcessed % chunkSize === 0) {
                 await Promise.resolve();                 // stands in for the vsync yield
-                if (isSuperseded()) return { groupsProcessed, cancelled: true };
+                // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) — cancel ONLY while work remains.
+                if (groupsProcessed < groupCount && isSuperseded()) {
+                    return { groupsProcessed, cancelled: true };
+                }
             }
         }
         return { groupsProcessed, cancelled: false };
@@ -132,6 +135,34 @@ describe('§PERF-PROJECTION-CANCEL-SUPERSEDED — the chunk loop stops early', (
         const r = await runChunkedProjection(64, 4, () => noPredicate?.() === true);
         expect(r.cancelled).toBe(false);
         expect(r.groupsProcessed).toBe(64);
+    });
+
+    /**
+     * §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) — the inverted-waste case.
+     *
+     * `groupsProcessed % CHUNK_SIZE === 0` is ALSO true at the boundary that follows the
+     * LAST group whenever the group count is a multiple of CHUNK_SIZE. Cancelling there
+     * pays the entire cost of the projection and then throws the finished drawing away —
+     * the exact waste this optimisation exists to prevent, in reverse. A complete drawing
+     * is always worth handing back; `setIfCurrent()` remains the authority on whether it
+     * may be DISPLAYED, and on an empty cache §FIX-PLAN-BLANK-STALEGEN would rather have
+     * it than nothing.
+     */
+    it('never cancels after the FINAL group — a finished drawing is always handed back', async () => {
+        const CHUNK_SIZE = 4;
+        // 8 groups = exactly two chunks, so a boundary lands after the last group.
+        const r = await runChunkedProjection(8, CHUNK_SIZE, () => true);
+        expect(r.groupsProcessed).toBe(CHUNK_SIZE);   // cancelled at the FIRST boundary …
+        expect(r.cancelled).toBe(true);
+
+        // … but a pass that only becomes superseded during its last chunk completes.
+        let superseded = false;
+        const r2 = await runChunkedProjection(8, CHUNK_SIZE, () => superseded);
+        expect(r2.cancelled).toBe(false);
+        superseded = true;
+        const r3 = await runChunkedProjection(4, CHUNK_SIZE, () => superseded);
+        expect(r3.cancelled).toBe(false);             // one chunk, all of it real work
+        expect(r3.groupsProcessed).toBe(4);
     });
 
     it('becomes cancellable partway through, and stops within one chunk of that', async () => {

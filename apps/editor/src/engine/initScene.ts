@@ -1083,9 +1083,20 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // DOC-1.5f: callback now receives `gen` — the monotonic generation number from
     // ViewTechnicalDrawingCache.beginProjection(). Use setIfCurrent() to reject
     // stale completions when the user edits geometry again before this one finishes.
-    viewDependencyTracker.onReprojectionNeeded = async (viewId: string, gen: number, graftElementIds?: ReadonlySet<string>) => {
+    viewDependencyTracker.onReprojectionNeeded = async (viewId: string, genFromFlush: number, graftElementIds?: ReadonlySet<string>) => {
         const viewDef = viewDefinitionStore.get(viewId);
         if (!viewDef) return;
+
+        // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705, ADR-0299) — the generation this handler is
+        // COMMITTING under. It starts as the one `_flush()` handed us, but the incremental-
+        // graft fast-path below can decide to THROW THE DRAWING AWAY and fall back to a full
+        // projection — and throwing it away bumps the generation. Carrying `genFromFlush`
+        // past that point made the fallback pass stale-by-exactly-one against a cache the
+        // handler had itself just emptied: the precise condition §FIX-PLAN-BLANK-STALEGEN
+        // force-accepts, which is why that RECOVERY was writing this view on every edit
+        // (founder log: staleGen=54 currentGen=55 lastAcceptedGen=53). `restartProjection()`
+        // performs the invalidate and re-declares the generation as one operation.
+        let gen = genFromFlush;
 
         // §PERF-3D-SKIP (defense-in-depth): 3D views display the live THREE.js
         // scene mesh and do NOT use TechnicalDrawings from EdgeProjectorService.
@@ -1143,10 +1154,13 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     }
                     // Fell through (nothing grafted) → drop the stale warm drawing so the
                     // full path below rebuilds cleanly.
-                    viewTechnicalDrawingCache.invalidate(viewId);
+                    // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) — and RE-DECLARE the generation:
+                    // discarding the drawing bumps the counter, so continuing under
+                    // `genFromFlush` would supersede our own fallback pass before it starts.
+                    gen = viewTechnicalDrawingCache.restartProjection(viewId);
                 } catch (err) {
                     console.error(`[initScene] §FIX-PLAN-PROJECT-INCREMENTAL graft failed — full fallback for viewId=${viewId}:`, err);
-                    viewTechnicalDrawingCache.invalidate(viewId);
+                    gen = viewTechnicalDrawingCache.restartProjection(viewId);
                 }
             }
         }

@@ -3102,7 +3102,17 @@ export class EdgeProjectorService {
                     // here leaks nothing. If a newer generation was started while we were
                     // yielded, everything from this point on is guaranteed to be rejected
                     // by `setIfCurrent`, so computing it is pure waste. Cancel instead.
-                    if (isSuperseded?.() === true) {
+                    //
+                    // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) — but ONLY while work REMAINS.
+                    // `_chunkGroupIdx % CHUNK_SIZE === 0` is also true at the boundary that
+                    // follows the LAST group whenever the group count is a multiple of
+                    // CHUNK_SIZE, and cancelling there throws away a drawing that is already
+                    // COMPLETE — paying the whole cost and then discarding the result, which
+                    // is the exact waste this optimisation exists to prevent, inverted. A
+                    // finished drawing is always worth handing back: `setIfCurrent()` is
+                    // still the authority on whether it may be DISPLAYED (and, on an empty
+                    // cache, §FIX-PLAN-BLANK-STALEGEN would rather have it than nothing).
+                    if (_chunkGroupIdx < nativeMeshGroups.length && isSuperseded?.() === true) {
                         console.log(
                             `[EdgeProjectorService] §PERF-PROJECTION-CANCEL-SUPERSEDED — abandoning ` +
                             `viewId=${viewId} after ${_chunkGroupIdx}/${nativeMeshGroups.length} group(s); ` +

@@ -84,6 +84,31 @@ export class ViewTechnicalDrawingCache {
      */
     private readonly _lastAcceptedGen = new Map<string, number>();
 
+    /**
+     * §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705, ADR-0299) — consecutive stale-accepts per view.
+     *
+     * Reset ONLY by a generation-MATCHING accept (the healthy commit path) and by `clear()`
+     * — deliberately NOT by `invalidate()`, which fires once per edit on every driver path
+     * and would therefore reset the counter before it could ever reach the threshold. The
+     * question this counter answers is *"when did this view last commit a drawing on its
+     * merits?"*, and only an accept can answer it.
+     *
+     * ADR-0299: *"a recovery whose steady state is 'always on' is masking a broken normal
+     * path."* §FIX-PLAN-BLANK-STALEGEN is a RECOVERY. If it is the routine writer for a
+     * view, the normal commit path is broken and the guard is concealing it — which is
+     * exactly what happened: the founder's log carried this line on EVERY edit for hours
+     * and it read as a success message ("avoiding a blank view"), so nobody looked.
+     *
+     * It is therefore not enough for the guard to work; it must REPORT when it is doing
+     * the pipeline's job. Past {@link STALE_ACCEPT_ALARM_THRESHOLD} consecutive fires with
+     * no healthy commit in between it escalates to `console.error` and names the defect
+     * class rather than the symptom.
+     */
+    private readonly _consecutiveStaleAccepts = new Map<string, number>();
+
+    /** §FIX-PLAN-GEN-SELF-SUPERSEDE — consecutive stale-accepts tolerated before alarming. */
+    private static readonly STALE_ACCEPT_ALARM_THRESHOLD = 3;
+
     constructor() {
         this._wireDirtyTracking();
     }
@@ -232,6 +257,50 @@ export class ViewTechnicalDrawingCache {
     }
 
     /**
+     * §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705, C04 §3.3 / DOC-1.5f) — ABANDON the drawing and
+     * take a fresh generation for the pass that will replace it, ATOMICALLY.
+     *
+     * THE DEFECT THIS EXISTS TO MAKE UNREPRESENTABLE. A driver that is handed a generation
+     * (`ViewDependencyTracker._flush` takes one with `beginProjection()` and passes it into
+     * `onReprojectionNeeded`) and then discovers mid-handler that it must fall back to a
+     * FULL projection used to call `invalidate(viewId)` and carry on with the generation it
+     * already held. But `invalidate()` BUMPS the generation. The fallback pass was therefore
+     * born EXACTLY ONE GENERATION STALE, into a cache that its own `invalidate()` had just
+     * EMPTIED — which is precisely the condition §FIX-PLAN-BLANK-STALEGEN force-accepts.
+     *
+     * That is the founder's 2026-08-07 log, on every single edit, with the tell-tale
+     * arithmetic of a SELF-inflicted supersede (a real race between two drivers produces a
+     * gap of two or more, and a varying one):
+     *
+     *   §FIX-PLAN-BLANK-STALEGEN — accepting a stale projection into an EMPTY cache …
+     *     staleGen=54 currentGen=55 lastAcceptedGen=53
+     *              ▲            ▲                  ▲
+     *              │            └─ +1: the handler's own invalidate()
+     *              └─ the generation the handler was handed
+     *
+     * The blank-guard was thereby promoted from RECOVERY to PIPELINE — the ADR-0299 failure
+     * mode exactly. It also armed §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) against the
+     * pass it was supposed to protect: `currentGeneration(viewId) !== gen` is true from the
+     * instant of the self-invalidate, so once a plan carries ≥ CHUNK_SIZE native groups the
+     * fallback pass is abandoned at its first chunk boundary and produces nothing at all.
+     *
+     * A driver that throws the drawing away MUST re-declare its generation. Making that one
+     * call instead of two removes the ordering the caller can get wrong.
+     *
+     * @returns the fresh generation to tag the replacement projection with.
+     */
+    restartProjection(viewId: string): number {
+        this.invalidate(viewId);
+        const gen = this.beginProjection(viewId);
+        // P8 — every new exported entry point emits ≥1 span.
+        emitPlanViewMotionEvent('restart-projection', {
+            'pryzm.plan_view.view_id':    viewId,
+            'pryzm.plan_view.generation': gen,
+        });
+        return gen;
+    }
+
+    /**
      * §PERF-ELEV-CROP-DRAG-FLOW (L-222, C04 §3.3 / DOC-1.5f) — HOLD-LAST-GOOD generation
      * bump. Increments the monotonic generation for `viewId` (so any in-flight
      * projection tagged with an older generation is rejected by `setIfCurrent`) WITHOUT
@@ -320,12 +389,38 @@ export class ViewTechnicalDrawingCache {
             // case it was written for — do not delete it."*
             const lastAccepted = this._lastAcceptedGen.get(viewId) ?? 0;
             if (!this._cache.has(viewId) && gen > lastAccepted) {
-                console.warn(
+                const currentGen = this._generations.get(viewId) ?? 0;
+                const streak = (this._consecutiveStaleAccepts.get(viewId) ?? 0) + 1;
+                this._consecutiveStaleAccepts.set(viewId, streak);
+                const banner =
                     `[ViewTechnicalDrawingCache] §FIX-PLAN-BLANK-STALEGEN — accepting a ` +
                     `stale projection into an EMPTY cache to avoid a blank view: ` +
-                    `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)} ` +
-                    `lastAcceptedGen=${lastAccepted}`,
-                );
+                    `viewId=${viewId} staleGen=${gen} currentGen=${currentGen} ` +
+                    `lastAcceptedGen=${lastAccepted}`;
+                if (streak >= ViewTechnicalDrawingCache.STALE_ACCEPT_ALARM_THRESHOLD) {
+                    // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) / ADR-0299 — a recovery is not
+                    // allowed to be the pipeline. Name the DEFECT, not the symptom, and say
+                    // what to look for: a gap of exactly ONE is a driver superseding ITSELF
+                    // (it invalidated the view after it was handed a generation — use
+                    // `restartProjection()`); a larger or varying gap is the genuine
+                    // two-driver race (L-307).
+                    console.error(
+                        `${banner}\n` +
+                        `    ⚠ §FIX-PLAN-GEN-SELF-SUPERSEDE (ADR-0299) — this BLANK-VIEW RECOVERY has now ` +
+                        `written this view ${streak}× IN A ROW with no healthy generation-matching commit ` +
+                        `in between. A recovery whose steady state is "always on" is not a guard, it is the ` +
+                        `pipeline, and it is CONCEALING a broken commit path — the drawing you are looking ` +
+                        `at was never accepted on its merits.\n` +
+                        `    currentGen - staleGen = ${currentGen - gen}. A gap of exactly 1 means the ` +
+                        `driver SUPERSEDED ITSELF: it called invalidate() after it was handed generation ` +
+                        `${gen}, so its own projection was stale before it started. Fix the driver to take ` +
+                        `a fresh generation via ViewTechnicalDrawingCache.restartProjection(viewId). ` +
+                        `A larger or varying gap is the genuine two-driver race (L-307). ` +
+                        `DO NOT widen this guard.`,
+                    );
+                } else {
+                    console.warn(banner);
+                }
                 this.set(viewId, drawing);
                 this._lastAcceptedGen.set(viewId, gen);
 
@@ -364,6 +459,9 @@ export class ViewTechnicalDrawingCache {
         // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — a gen-matching completion is
         // the authoritative, current-crop drawing: the view is no longer provisional.
         this._provisionalStaleViewIds.delete(viewId);
+        // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) — the ONLY event that clears the alarm: this
+        // view has committed a drawing on its merits, so the recovery is a recovery again.
+        this._consecutiveStaleAccepts.delete(viewId);
         return true;
     }
 
@@ -581,6 +679,7 @@ export class ViewTechnicalDrawingCache {
         // Project A's "already showed generation N" and refuse its own first drawing.
         this._lastAcceptedGen.clear();
         this._provisionalStaleViewIds.clear();  // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124)
+        this._consecutiveStaleAccepts.clear();  // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705)
         this.staleElementIds.clear();
         this._fullRebuildRequired = false;
     }
