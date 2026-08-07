@@ -193,6 +193,19 @@ import { CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
 import { DeleteRoomBoundingLineCommand } from '@pryzm/command-registry';
 import { UpdateRoomBoundingLineCommand } from '@pryzm/command-registry';
 
+// ── Annotation commands (§ANN-REMOTE-FACTORY, C08) ────────────────────────────
+import {
+    CreateAnnotationCommand,
+    CreateManyAnnotationsCommand,
+    DeleteAnnotationCommand,
+    UpdateAnnotationCommand,
+    UpdateAnnotationPresentationCommand,
+    LockAnnotationCommand,
+    CreateSectionMarkCommand,
+    CreateElevationMarkCommand,
+    CreateCalloutDetailCommand,
+} from '@pryzm/plugin-annotations';
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 type CommandFactory = (s: SerializedCommand) => Command;
@@ -234,6 +247,48 @@ const REGISTRY = new Map<string, CommandFactory>([
         s.payload.width,
     )],
     ['CREATE_WALLS_FROM_SLAB', (s) => new CreateWallsFromSlabCommand(s.payload as any)],
+
+    // ── Annotations (§ANN-REMOTE-FACTORY, C08 collaboration) ─────────────────
+    //
+    // THE GAP THIS CLOSES. `RemoteCommandDispatcher` reaches the command bus only AFTER
+    // `CommandRegistry.create()` returns non-null. No annotation CommandType had a
+    // factory, so `create()` returned null and EVERY annotation edit made by a remote
+    // collaborator was dropped with a console line and a toast — dimensions, tags, text
+    // notes, section marks, the lot. The nine `annotation.*` bus handlers exist but were
+    // unreachable on replay, because the wire carries SCREAMING_SNAKE `CommandType` keys
+    // and the handlers live in the dotted-verb namespace. Same failure class as the
+    // furniture/stair replay gaps already fixed above (§ELEMENT-REPLAY-AUDIT).
+    //
+    // Two CommandTypes are shared by two classes each, so the factory discriminates on
+    // the payload SHAPE rather than guessing (ADR-0299 — never reconstruct the wrong
+    // command and call it a success):
+    //   CREATE_ANNOTATION  → `elements` (plural) = the batch command, else the single.
+    //   UPDATE_ANNOTATION  → `payloadKind: 'presentation'` = the presentation command.
+    ['CREATE_ANNOTATION', (s) => (
+        Array.isArray((s.payload as any)?.elements)
+            ? new CreateManyAnnotationsCommand((s.payload as any).elements)
+            : new CreateAnnotationCommand((s.payload as any).element)
+    ) as unknown as Command],
+    ['DELETE_ANNOTATION', (s) => new DeleteAnnotationCommand((s.payload as any).annotationId) as unknown as Command],
+    ['UPDATE_ANNOTATION', (s) => (
+        (s.payload as any)?.payloadKind === 'presentation'
+            ? new UpdateAnnotationPresentationCommand((s.payload as any).annotationId, (s.payload as any).patch)
+            : new UpdateAnnotationCommand((s.payload as any).annotationId, (s.payload as any).patch)
+    ) as unknown as Command],
+    ['LOCK_ANNOTATION', (s) => new LockAnnotationCommand(
+        (s.payload as any).annotationId, (s.payload as any).opts,
+    ) as unknown as Command],
+    ['CREATE_SECTION_MARK',   (s) => new CreateSectionMarkCommand((s.payload as any).params) as unknown as Command],
+    ['CREATE_ELEVATION_MARK', (s) => new CreateElevationMarkCommand((s.payload as any).params) as unknown as Command],
+    ['CREATE_CALLOUT_DETAIL', (s) => new CreateCalloutDetailCommand((s.payload as any).params) as unknown as Command],
+    //
+    // DELIBERATELY ABSENT — ADR-0299 §RECOVERY-MUST-REFUSE:
+    //   UPDATE_CONSTRAINT — `UpdateConstraintCommand.serialize()` emits `payload: {}`.
+    //     Its constructor arguments are not on the wire, so NO factory can rebuild it.
+    //     Registering one would reconstruct a command with fabricated arguments and
+    //     replay it as if it were the peer's edit. It stays unregistered so the miss is
+    //     reported to the user by RemoteCommandDispatcher. Fixing it means fixing
+    //     `serialize()` first — a constraint-solver change, not smuggled in here.
 
     // ── Doors ────────────────────────────────────────────────────────────────
     ['MOVE_DOOR', (s) => new MoveDoorCommand(s.payload.doorId, s.payload.distance, s.payload.direction)],

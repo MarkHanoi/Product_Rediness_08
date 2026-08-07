@@ -147,7 +147,12 @@ export class UpdateAnnotationPresentationCommand implements Command {
     serialize(): SerializedCommand {
         return {
             type: this.type,
-            payload: { annotationId: this._annotationId, patch: this._patch },
+            // §ANN-REMOTE-FACTORY — `UpdateAnnotationCommand` shares this CommandType and
+            // the identical `{annotationId, patch}` payload shape, so the wire format alone
+            // could not tell a remote peer which class to rebuild. `payloadKind` is the
+            // discriminator. Additive and back-compatible: an older peer omits it and
+            // CommandRegistry falls back to the general UpdateAnnotationCommand.
+            payload: { payloadKind: 'presentation', annotationId: this._annotationId, patch: this._patch },
             targetIds: this.targetIds,
             timestamp: this.timestamp,
             version: 1,
