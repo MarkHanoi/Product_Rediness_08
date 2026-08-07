@@ -67,6 +67,11 @@ import { installBriefBootstrap } from '../onboarding/briefBootstrap';
 // that does the engine `import()` dynamically), so this static import adds no
 // engine bytes to the platform critical-path chunk.
 import { ensureEngineWarm } from '@app/engine/engineWarmup';
+// §STARTUP-CESIUM-CHUNK-WARM + §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — the Cesium
+// counterpart of the engine warm above (same start-earlier-skip-nothing shape), plus the one
+// end-to-end startup phase budget every startup perf claim is measured against.
+import { ensureCesiumWarm } from '@app/engine/cesiumWarmup';
+import { beginStartupBudget, markStartupPhase } from '@app/engine/startupBudget';
 // PRYZM-EARTH-ONBOARDING PRD Phase 2 — DOM-free typology-seed resolver (see
 // resolveSeededTypologyId.ts header for why this lives outside PlatformRouter).
 import { resolveSeededTypologyId } from './resolveSeededTypologyId';
@@ -643,6 +648,14 @@ export class PlatformRouter {
         // the real #container canvas + open project) deliberately STAYS late — it
         // needs a live canvas + project context that don't exist yet.
         ensureEngineWarm();
+        // §STARTUP-BUDGET — one measured run per project-startup attempt, from here to
+        // §ENTER-CANVAS. §STARTUP-CESIUM-CHUNK-WARM — start the Cesium viewport chunk download
+        // NOW (the globe mounts on the location step seconds from now; the user's reading/typing
+        // time is free download time — same trade as ensureEngineWarm above, L-433 residual).
+        beginStartupBudget();
+        markStartupPhase('onboarding:shown');
+        markStartupPhase('cesium:warm-start');
+        ensureCesiumWarm();
 
         const registry = this.runtime?.typology?.registry;
         if (!registry) {

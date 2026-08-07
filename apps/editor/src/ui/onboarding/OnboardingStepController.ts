@@ -85,6 +85,8 @@ import { runSiteRevealSequence, type SiteRevealTarget } from './siteRevealSequen
 import { decideDrawIdleAction, DRAW_IDLE_OFFER_MS as DRAW_IDLE_OFFER_MS_DEFAULT } from './drawIdleWatchdog.js';
 import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
+// §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
+import { markStartupPhase } from '../../engine/startupBudget';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
@@ -486,6 +488,7 @@ export class OnboardingStepController {
 
     private renderLocationStep(): void {
         this.step = 'location';
+        markStartupPhase('location-step:open'); // §STARTUP-BUDGET
         this.setDrawingPresentation(false);
         this.setStepIndicator(1, 'Location');
         const body = this.clearBody();
@@ -554,7 +557,12 @@ export class OnboardingStepController {
             // test harness) degrades to the pre-fix synchronous framing rather than throwing.
             whenCameraHostReady: () => {
                 const w = window as unknown as { pryzmGetSiteEntryCameraHostReady?: () => Promise<void> };
-                try { return w.pryzmGetSiteEntryCameraHostReady?.() ?? Promise.resolve(); } catch { return Promise.resolve(); }
+                try {
+                    const ready = w.pryzmGetSiteEntryCameraHostReady?.() ?? Promise.resolve();
+                    // §STARTUP-BUDGET — when the globe's camera host is genuinely live (the chunk
+                    // + viewer construction cost sits between location-step:open and this mark).
+                    return ready.then(() => { markStartupPhase('globe:camera-host-ready'); });
+                } catch { return Promise.resolve(); }
             },
             // §17 Increment 1 (PRD §17.2 "City" row) — the SAME cache/dedup mechanism
             // §CTX-PREFETCH-ON-LOCATION (L-470, `CesiumViewport.ts:2930`) already uses to warm
@@ -574,10 +582,14 @@ export class OnboardingStepController {
             // could not know whether the content had landed and mounted the split regardless.
             // Holding it lets `revealSplitAtParcel` wait on the REAL signal instead of a timer.
             warmContextCache: (lat, lon) => {
-                this.contextWarm = fetchContextBuildingsNearAndFar(lat, lon).catch(() => {
-                    /* best-effort prefetch — a cold cache later is not a regression */
-                    return null;
-                });
+                markStartupPhase('context-warm:start'); // §STARTUP-BUDGET
+                this.contextWarm = fetchContextBuildingsNearAndFar(lat, lon)
+                    .then((r) => { markStartupPhase('context-warm:done'); return r; })
+                    .catch(() => {
+                        /* best-effort prefetch — a cold cache later is not a regression */
+                        markStartupPhase('context-warm:done');
+                        return null;
+                    });
                 void this.contextWarm;
             },
             // PRD §22 — THE REVEAL GATE. The full-screen globe owns the whole screen for the
@@ -589,6 +601,7 @@ export class OnboardingStepController {
             // reveal. §REVEAL-CONTENT-READY made the reveal async (it now waits on the context
             // load); the globe keeps flying underneath it, which IS the choreography.
             onParcelArrival: (picked) => {
+                markStartupPhase('flight:parcel-arrival'); // §STARTUP-BUDGET
                 // §REVEAL-FLIGHT-COMPLETE — ⚠ HOLD THE PROMISE. `handleGeocode` must await this
                 // before `leaveLocationStep()`, which disposes the hero and — unless
                 // `splitRevealed` is already true — hides the globe the split is about to
@@ -604,7 +617,15 @@ export class OnboardingStepController {
                 });
             },
             entries: siteEntryCoverageEntries(),
-            geocode: geocodeAddress,
+            // §STARTUP-BUDGET — the same geocoder, with phase marks around the round-trip.
+            geocode: async (q) => {
+                markStartupPhase('geocode:start');
+                try {
+                    return await geocodeAddress(q);
+                } finally {
+                    markStartupPhase('geocode:end');
+                }
+            },
         });
         void this.globeHero.mount();
         this.addCleanup(() => this.globeHero?.dispose());
@@ -706,11 +727,19 @@ export class OnboardingStepController {
                 // resolved by the time the flight reaches the parcel stage. When the warm-up never
                 // ran (a search that skipped the city stage, or an older bundle without the hook)
                 // `contextWarm` is null and the reveal mounts immediately — no stall, no timer.
-                awaitContentReady: () => this.contextWarm ?? Promise.resolve(),
-                // §REVEAL-FLIGHT-COMPLETE — the other gate: the staged descent the user is
-                // watching. Settles on cancellation too, so a user who grabs the globe mid-flight
-                // gets their split at once instead of waiting out an animation they overrode.
-                awaitFlightComplete: () => this.globeHero?.whenFlightSettled() ?? Promise.resolve(),
+                awaitContentReady: () =>
+                    (this.contextWarm ?? Promise.resolve()).then((r) => {
+                        markStartupPhase('reveal:content-ready'); // §STARTUP-BUDGET
+                        return r;
+                    }),
+                // §REVEAL-FLIGHT-COMPLETE — the other gate: the descent the user is watching
+                // (§STARTUP-DIRECT-DESCENT: now ONE short-ease flight, not the staged 3.75 s).
+                // Settles on cancellation too, so a user who grabs the globe mid-flight gets
+                // their split at once instead of waiting out an animation they overrode.
+                awaitFlightComplete: () =>
+                    (this.globeHero?.whenFlightSettled() ?? Promise.resolve()).then(() => {
+                        markStartupPhase('reveal:flight-settled'); // §STARTUP-BUDGET
+                    }),
                 mountSplit: () => {
                     if (typeof w.pryzmMountSiteAuthoringPanes !== 'function') {
                         throw new Error('pryzmMountSiteAuthoringPanes is not wired');
@@ -723,6 +752,7 @@ export class OnboardingStepController {
         );
         if (result.mounted) {
             this.splitRevealed = true;
+            markStartupPhase('reveal:split-mounted'); // §STARTUP-BUDGET
             console.log('[onboarding-step] §22 reveal: split mounted in order —', result.steps.join(' → '));
         } else {
             console.warn(

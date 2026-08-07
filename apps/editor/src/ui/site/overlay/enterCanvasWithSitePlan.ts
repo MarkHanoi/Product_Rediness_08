@@ -30,6 +30,9 @@
 // The underlay itself is already committed through CREATE_UNDERLAY on the command bus (P6)
 // by createPlanCanvasUnderlayFromSiteOverlay, BEFORE this runs — we only switch the view.
 
+// §STARTUP-BUDGET (founder 2026-08-07, 5–10× startup) — passive phase marks; behaviour-free.
+import { markStartupPhase, reportStartupBudget } from '../../../engine/startupBudget';
+
 /** The window hooks this transition drives (all registered by GISAreaLayout / initScene). */
 interface EnterCanvasHooks {
     pryzmCloseBoundaryMap2D?: () => void;
@@ -151,4 +154,8 @@ async function runLanding(): Promise<void> {
     }
 
     console.log('[site-overlay→canvas] §ENTER-CANVAS: landed — 3D + plan split view, plan underlay in both panes.');
+    // §STARTUP-BUDGET — the startup pipeline's terminal phase: the usable editor. Print the
+    // whole run as one table (idempotent — only the first arrival of a run reports).
+    markStartupPhase('enter-canvas');
+    reportStartupBudget('enter-canvas');
 }
