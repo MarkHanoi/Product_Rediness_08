@@ -817,6 +817,22 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     lightingBuilder.setScene(scene);
     window.lightingBuilder = lightingBuilder;
 
+    // §FEAT-FIXTURE-PHOTOMETRY — importance origin for the live-light budget.
+    // The fixtures NEAREST the camera get a real THREE PointLight; the rest keep
+    // only their (photometry-driven) emissive lens, so they still read as
+    // switched-on. Without a focus the ordering falls back to distance-from-origin,
+    // which is deterministic but arbitrary — so wire the camera when we have one.
+    try {
+        const cam = window.world?.camera?.three as { position?: { x: number; y: number; z: number } } | undefined;
+        if (cam?.position) {
+            lightingBuilder.setFocusProvider(() => ({
+                x: cam.position!.x, y: cam.position!.y, z: cam.position!.z,
+            }));
+        }
+    } catch (focusErr) {
+        console.warn('[initBuilders] §FEAT-FIXTURE-PHOTOMETRY light-budget focus wiring failed:', focusErr);
+    }
+
     console.log('[initBuilders] Lighting subsystem initialised');
 
     // ── Handrail subsystem ────────────────────────────────────────────────────
