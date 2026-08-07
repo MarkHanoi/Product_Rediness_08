@@ -132,6 +132,21 @@ export interface DeclaredProjectScope {
      * leave a reset field uncounted, but only in writing.
      */
     readonly uncounted: Readonly<Record<string, string>>;
+    /**
+     * L-713 — whether this owner ALSO holds a `projectScopeRegistry` teardown entry.
+     *
+     * Defaults to true, and true is the normal case: one module owns both the probe
+     * and the clear. `events.storeBus` is the exception — a registry entry would be
+     * invoked by `ClearProjectCommand.clearAll()`, which runs INSIDE the batch bracket
+     * `ProjectLoader` opened for the incoming project, and discarding there would
+     * reset the depth mid-load and strand every subsequent create event. Its
+     * switch-time owner is `BatchCoordinator.forceReset()` instead, which runs before
+     * any bracket exists. The exception must be declared so the gate stops requiring
+     * a registry entry — and so the reason is in the diff rather than in someone's head.
+     */
+    readonly ownsTeardown?: boolean;
+    /** Required when `ownsTeardown` is false: who tears this surface down instead. */
+    readonly teardownOwner?: string;
 }
 
 /**
@@ -272,6 +287,36 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
                 'In-progress boundary-draw tool cancel. Transient interaction state, not '
                 + 'per-project data — it cannot survive into a project that never drew.',
         },
+    },
+    {
+        scope: 'events.storeBus',
+        module: 'packages/core-app-model/src/StoreEventBus.ts',
+        why: 'L-713 — THE FIRST DECLARED SURFACE THAT IS A CHANNEL, NOT A VALUE. Every '
+            + 'other probe models held state and answers honestly about it; the founder '
+            + 'created a new project and saw the previous one because 74 delete events '
+            + "naming the OUTGOING project's windows sat in the bus queue that nothing "
+            + 'modelled, and were flushed into the incoming project milliseconds after '
+            + 'both audits reported clean. The stores really were clean when asked. A '
+            + 'leak can live in an undelivered message, not only in a held value.',
+        presence: 'module-scope',
+        // The bus cannot attribute a queued event to a project (StoreChangeEvent has no
+        // projectId), so the probe counts PENDENCY, not ownership, and answers with an
+        // explicit unattributed marker rather than inventing a project id.
+        resets: ['discardBatch', 'suppressDuring'],
+        counts: ['batchDepth', 'bufferedCount'],
+        uncounted: {
+            discardBatch:
+                'The switch-time discard is owned by BatchCoordinator.forceReset(), not by '
+                + 'this probe. Counting it would report every completed teardown as held state.',
+            suppressDuring:
+                'A completed suppression is reported through describe().lastSuppression so '
+                + 'the drop is always evidence, but it is not held state: by the time the '
+                + 'audit runs the region has closed and the events are already gone.',
+        },
+        ownsTeardown: false,
+        teardownOwner: 'BatchCoordinator.forceReset() on pryzm-project-switch — a '
+            + 'projectScopeRegistry entry would run inside ProjectLoader\'s open bracket '
+            + 'and reset the batch depth mid-load.',
     },
 ];
 

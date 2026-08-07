@@ -213,7 +213,18 @@ for (const d of DECLARED_PROJECT_SCOPES as readonly DeclaredProjectScope[]) {
                 `and baseline it as debt.`,
             );
         }
-        if (!reachedOnImport(body, 'projectScopeRegistry.register(')) {
+        // L-713 — `ownsTeardown: false` declares that the registry entry lives elsewhere
+        // (or nowhere, by design). The exemption must name its real owner, so it cannot
+        // be used to quietly drop a teardown.
+        const ownsTeardown = d.ownsTeardown !== false;
+        if (!ownsTeardown && (!d.teardownOwner || d.teardownOwner.length < 20)) {
+            failures.push(
+                `D6 ${d.scope}: ownsTeardown:false requires \`teardownOwner\` naming who tears ` +
+                `this surface down instead. An exemption without a named owner is how a ` +
+                `surface ends up with none at all (C13 §3.10).`,
+            );
+        }
+        if (ownsTeardown && !reachedOnImport(body, 'projectScopeRegistry.register(')) {
             failures.push(
                 `D6 ${d.scope}: declared 'module-scope' but ${d.module} does not call ` +
                 `projectScopeRegistry.register( on import. The teardown owner and the audit ` +

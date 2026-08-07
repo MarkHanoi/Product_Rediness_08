@@ -44,6 +44,22 @@
  *   `beginBatch()` / `endBatch()` deprecated and removed.
  */
 
+import { registerProjectScopeProbe } from './persistence/ProjectIsolationAudit.js';
+
+/** ADR-0298 / L-713 — the C13 scope name for the store event CHANNEL. */
+const STORE_EVENT_BUS_SCOPE = 'events.storeBus';
+
+/**
+ * The answer this probe gives when the bus is still holding events at audit time.
+ *
+ * It is deliberately NOT a real project id, and deliberately not the id of the
+ * project that just loaded. `StoreChangeEvent` carries no projectId, so the bus
+ * genuinely cannot attribute a queued event — and the one thing this defect family
+ * keeps proving is that an unknown must never be filed as a clean. Because this
+ * marker can never equal the loaded project id, the audit always reports it.
+ */
+const BUS_IN_FLIGHT_UNATTRIBUTED = '<in-flight-events-unattributed>';
+
 export interface StoreChangeEvent {
     elementId: string;
     elementType: string;
@@ -82,6 +98,15 @@ export class StoreEventBus { // TODO(TASK-08)
     private _batchDepth = 0;
     /** Events buffered while _batchDepth > 0. */
     private _buffer: StoreChangeEvent[] = [];
+
+    // ── §C13-CLEAR-EVENTS-DO-NOT-CROSS (L-713) — suppression region ───────────
+    /** Depth counter for nested `suppressDuring()` regions. */
+    private _suppressDepth = 0;
+    /** Events dropped by the current (or most recent) suppression region. */
+    private _suppressedCount = 0;
+    private _suppressedByType: Record<string, number> = {};
+    /** The most recent completed suppression, for the isolation audit and tests. */
+    private _lastSuppression: { reason: string; count: number; byType: Record<string, number> } | null = null;
 
     // ── Core Public API ───────────────────────────────────────────────────────
 
@@ -148,6 +173,14 @@ export class StoreEventBus { // TODO(TASK-08)
     static _debugEmitCallers = false;
 
     emit(event: StoreChangeEvent): void {
+        // §C13-CLEAR-EVENTS-DO-NOT-CROSS (L-713) — see `suppressDuring()`. Checked
+        // BEFORE batching so a suppressed region is inert in both immediate and batch
+        // mode; a region that only stopped buffering would still dispatch at depth 0.
+        if (this._suppressDepth > 0) {
+            this._suppressedCount++;
+            this._suppressedByType[event.elementType] = (this._suppressedByType[event.elementType] ?? 0) + 1;
+            return;
+        }
         const frozen = Object.freeze({ ...event });
         if (this._batchDepth > 0) {
             if (StoreEventBus._debugEmitCallers && (import.meta as any).env?.DEV) { // TODO(TASK-08)
@@ -162,6 +195,101 @@ export class StoreEventBus { // TODO(TASK-08)
         } else {
             this._dispatch(frozen);
         }
+    }
+
+    /**
+     * §C13-CLEAR-EVENTS-DO-NOT-CROSS (L-713) — run `fn` with every emitted event
+     * DROPPED instead of delivered, and report how many were dropped.
+     *
+     * ── WHY THIS EXISTS ──────────────────────────────────────────────────────
+     *
+     * The founder created a NEW project and saw the previous project's work. The
+     * new project loaded ZERO elements, and immediately afterwards the bus logged
+     * `endBatch() — flushed 74 buffered event(s)`, of which several named windows
+     * belonging to the PREVIOUS project. Both isolation audits then reported clean.
+     *
+     * The chain, measured (L-713):
+     *   1. `ProjectLoader.ts:590` opens the bus batch for the INCOMING project.
+     *   2. `ImportProjectCommand` runs `ClearProjectCommand` INSIDE that bracket —
+     *      deliberately, so clear-then-create ordering is preserved for builders.
+     *   3. `ClearProjectCommand` calls `projectScopeRegistry.clearAll()`, and
+     *      `WindowStore.clear()` / `DoorStore.clear()` emit one `delete` per element
+     *      OF THE OUTGOING PROJECT. They are buffered.
+     *   4. `ProjectLoader.ts:2012` flushes them — into the INCOMING project's
+     *      subscribers, after the incoming project's views have replaced the old.
+     *
+     * ⚠ NOTE WHAT IS *NOT* WRONG HERE: `beginBatch()` is NOT unbalanced, and no
+     * batch survives a project switch. The bracket belongs entirely to the incoming
+     * project. The leak is that the OUTGOING project's teardown runs inside it.
+     *
+     * ── WHY DROPPING IS CORRECT, NOT A SHORTCUT ──────────────────────────────
+     *
+     * `ClearProjectCommand` calls `elementRegistry.clear()` as its FIRST step, before
+     * any store is touched. Every delete event it subsequently emits therefore names
+     * an element that the registry no longer knows — which is exactly why
+     * `ViewDependencyTracker` logs `§G3-STALE-EVENT … unregistered element` for each
+     * one. These events are structurally un-actionable: no subscriber can resolve
+     * them, and the tracker's "fallback" was to full-invalidate every non-3D view of
+     * the NEW project, 74 times over.
+     *
+     * Nor do the subscribers need them. Every `storeEventBus` consumer is a DERIVED
+     * INDEX (SemanticIndex, DependencyResolver, ViewDependencyTracker,
+     * ViewTechnicalDrawingCache, ViewVisibilityMap, ElementSpatialIndex,
+     * TemporalGraph, …) and `ClearProjectCommand` resets each of them WHOLESALE by
+     * its own steps. Per-element deletes are redundant with a reset that has already
+     * happened. The per-store `subscribe()` channel that BUILDERS use is a different
+     * channel and is deliberately NOT suppressed — mesh teardown still fires.
+     *
+     * ── THE §9 "NO EVENT DROPS" EXCEPTION, DECLARED ──────────────────────────
+     *
+     * The Master Architecture §9 guarantee is that every `emit()` eventually reaches
+     * all subscribers. This is the SECOND declared exception to it, alongside the
+     * existing C13 `discardBatch()`. Both have the same justification and the same
+     * fence: events belonging to a project that is being destroyed must not be
+     * delivered to a different project's subscribers. The exception is:
+     *   - NAMED (this method, one §-tag),
+     *   - BOUNDED (a lexical region, not a mode),
+     *   - COUNTED (`lastSuppression`, surfaced to the isolation audit),
+     *   - and LOUD (a warn naming the reason and the per-type breakdown).
+     * A drop you cannot count is indistinguishable from a bus that stopped working.
+     *
+     * Nesting-safe. Independent of batch depth — it composes with an open batch.
+     */
+    suppressDuring<T>(reason: string, fn: () => T): T {
+        this._suppressDepth++;
+        if (this._suppressDepth === 1) {
+            this._suppressedCount = 0;
+            this._suppressedByType = {};
+        }
+        try {
+            return fn();
+        } finally {
+            this._suppressDepth--;
+            if (this._suppressDepth === 0) {
+                const count = this._suppressedCount;
+                const byType = { ...this._suppressedByType };
+                this._lastSuppression = { reason, count, byType };
+                if (count > 0) {
+                    console.warn(
+                        `[StoreEventBus] §C13-CLEAR-EVENTS-DO-NOT-CROSS — dropped ${count} event(s) ` +
+                        `emitted during "${reason}". These name elements of the OUTGOING project and ` +
+                        `must not reach the incoming project's subscribers (C13 §3.10):`,
+                        byType,
+                    );
+                }
+            }
+        }
+    }
+
+    /** True while a `suppressDuring()` region is active. */
+    get isSuppressing(): boolean { return this._suppressDepth > 0; }
+
+    /**
+     * The most recent completed suppression region — what was dropped, and why.
+     * Read by the C13 isolation audit so a drop is evidence, never a silence.
+     */
+    get lastSuppression(): { reason: string; count: number; byType: Record<string, number> } | null {
+        return this._lastSuppression;
     }
 
     /**
@@ -181,6 +309,10 @@ export class StoreEventBus { // TODO(TASK-08)
         this._listeners.clear();
         this._buffer = [];
         this._batchDepth = 0;
+        this._suppressDepth = 0;
+        this._suppressedCount = 0;
+        this._suppressedByType = {};
+        this._lastSuppression = null;
     }
 
     // ── Backward-Compatible API (for BatchCoordinator — deprecated post-P1.2) ─
@@ -247,7 +379,11 @@ export class StoreEventBus { // TODO(TASK-08)
      *   → Project B's first store event arrives at depth 0 → immediate dispatch. ✅
      */
     discardBatch(): void {
-        if (this._batchDepth === 0) return;
+        // §C13-BUS-QUEUE-OWNER (L-713) — a stray buffer at depth 0 is still a queue of
+        // undelivered events, and "depth is 0" is not the same fact as "nothing is
+        // pending". `endBatchYielded()` splices the buffer out at depth 0, so the two
+        // can legitimately disagree. Discard on either.
+        if (this._batchDepth === 0 && this._buffer.length === 0) return;
         const count = this._buffer.length;
         this._buffer = [];
         this._batchDepth = 0;
@@ -410,3 +546,51 @@ export class StoreEventBus { // TODO(TASK-08)
 
 /** Singleton instance — imported by all ElementStores and BatchCoordinator. */
 export const storeEventBus = new StoreEventBus(); // TODO(TASK-08)
+
+// ── ADR-0298 / L-713 — THE EVENT CHANNEL IS A DECLARED ISOLATION SURFACE ─────
+//
+// Every probe in the declared set until now modelled STATE: a store's contents, a
+// viewport's camera seat, a layout's closure variables. The audit asked each of
+// them "which project does the state you hold belong to?" and they answered
+// honestly — while 74 events naming the previous project's windows sat in a queue
+// nobody modelled, and were delivered milliseconds later. The stores really were
+// clean at the moment they were asked.
+//
+// ⚠ A LEAK CAN LIVE IN AN UNDELIVERED MESSAGE, NOT ONLY IN A HELD VALUE. That is
+// the fourth variant of this family (L-676 no owner → L-694 wrong property →
+// L-711 incomplete expected set → L-713 unmodelled CHANNEL), and it is why the
+// declaration now covers the bus.
+//
+// WHAT THIS PROBE CAN AND CANNOT SEE — stated, because the whole point of ADR-0298
+// is that a probe's honesty is about its own model. A `StoreChangeEvent` carries
+// no projectId (`StoreChangeEvent` above: elementId / elementType / operation /
+// timestamp), so this probe CANNOT attribute queued events to a project. What it
+// CAN do is refuse to certify a bus that is still mid-flight when a project claims
+// to have finished loading: at `pryzm-project-loaded` the batch bracket opened by
+// `ProjectLoader` has already been closed in its `finally`, so a non-zero depth or
+// a non-empty buffer at audit time means a bracket outlived the load that owns it.
+// It answers with the project that just loaded — "I am holding events, and I
+// cannot tell you whose" — which the audit reports rather than passes.
+//
+// TEARDOWN OWNERSHIP IS DELIBERATELY NOT HERE (`ownsTeardown: false` in the
+// declaration). A `projectScopeRegistry` entry would be invoked by
+// `ClearProjectCommand.clearAll()`, which runs INSIDE `ProjectLoader`'s open
+// bracket — discarding there would reset the depth mid-load and strand every
+// subsequent create event. The queue's switch-time owner is
+// `BatchCoordinator.forceReset()`, which runs before any bracket is opened.
+registerProjectScopeProbe({
+    scope: STORE_EVENT_BUS_SCOPE,
+    owningProjectId: () => (
+        (storeEventBus.batchDepth > 0 || storeEventBus.bufferedCount > 0)
+            ? BUS_IN_FLIGHT_UNATTRIBUTED
+            : null
+    ),
+    describe: () => ({
+        batchDepth: storeEventBus.batchDepth,
+        bufferedCount: storeEventBus.bufferedCount,
+        // The teardown drop is REPORTED even when the bus is clean: a suppression
+        // that happened is part of what the audit inspected, and an exclusion you
+        // cannot count is a check you deleted.
+        lastSuppression: storeEventBus.lastSuppression,
+    }),
+});

@@ -95,6 +95,14 @@ export class ViewDependencyTracker {
     private _dirtyViewIds = new Set<string>();
 
     /**
+     * §C13-STALE-AFTER-CLEAR (L-713) — how many cross-project store events this
+     * session refused. Non-zero is always a defect; exposed so a test and the
+     * isolation audit can assert on it instead of scraping the console.
+     */
+    private _staleAfterClearCount = 0;
+    get staleAfterClearCount(): number { return this._staleAfterClearCount; }
+
+    /**
      * §FIX-WALLMOVE-PLAN-INCREMENTAL (ADR-0098 F3 / queue Q6, 2026-07-02) —
      * viewId → Set<elementId> of the elements that dirtied that view via a single
      * `update` store event. INVARIANT: when a view is dirtied ONLY by discrete
@@ -623,11 +631,40 @@ export class ViewDependencyTracker {
                     this._dirtyElementsByView.delete(viewId);
                 }
             }
+        } else if (elementRegistry.clearedSince(event.timestamp)) {
+            // §C13-STALE-AFTER-CLEAR (L-713, ADR-0299 §RECOVERY-MUST-REFUSE) — REFUSE.
+            //
+            // The element is unresolvable AND the whole registry was cleared at or after
+            // this event was emitted. That is not an undo/redo race: it is an event from a
+            // project that no longer exists, arriving in the project that replaced it. The
+            // founder saw 74 of these on a brand-new project, each one silently taking the
+            // branch below and coarse-invalidating every non-3D view of the NEW project.
+            //
+            // ⚠ The old fallback was the only thing standing between this leak and a bug
+            // report, and it DOWNGRADED instead of refusing — it "handled" the anomaly so
+            // convincingly that the audit two lines later still printed clean. Under
+            // ADR-0299 a recovery that conceals is worse than the fault: refuse the event,
+            // mark nothing dirty, and say so at violation volume.
+            //
+            // Refusal is safe precisely because the clear resets every derived index
+            // wholesale — there is no state here that these events were going to repair.
+            this._staleAfterClearCount++;
+            console.error(
+                '[C13 VIOLATION] §C13-STALE-AFTER-CLEAR — a store event for element ' +
+                `${event.elementId} (type=${event.elementType}, op=${event.operation}) arrived ` +
+                'AFTER a project clear that post-dates it. This event belongs to a project ' +
+                'that no longer exists; REFUSED (no views marked dirty). Cumulative this ' +
+                `session: ${this._staleAfterClearCount}. See §C13-CLEAR-EVENTS-DO-NOT-CROSS.`,
+            );
         } else {
             // §G.3 — stale ID: element was registered then unregistered (undo/redo cycle).
             // Log the stale event for observability and apply the targeted store-type fallback
             // instead of marking ALL non-3D views dirty (which triggers a full-building
             // re-projection for every undo operation).
+            //
+            // L-713 kept this branch deliberately NARROW: it now handles only the genuine
+            // undo/redo race it was written for. The cross-project case is refused above,
+            // so widening the coarse invalidate is no longer this branch's problem.
             console.warn('[VDT] §G3-STALE-EVENT for unregistered element', event.elementId,
                 'type=', event.elementType, '— fallback to store-type view only');
             this._markViewDirtyForStoreType(event.elementType);

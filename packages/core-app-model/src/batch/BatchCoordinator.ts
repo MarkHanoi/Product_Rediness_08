@@ -2350,7 +2350,23 @@ class BatchCoordinatorImpl {
         // causing all Project B store events to be buffered indefinitely.
         // discardBatch() resets depth→0 and drops the stale Project A event buffer
         // without dispatching to listeners (Wave 35 D1 fix).
-        if (this._isBatching) {
+        //
+        // §C13-BUS-QUEUE-OWNER (L-713) — ASK THE BUS, NOT THE FLAG.
+        //
+        // This was gated on `this._isBatching` alone, which is a BatchCoordinator
+        // concept. `ProjectLoader.ts:590` opens the bus bracket by calling
+        // `storeEventBus.beginBatch()` DIRECTLY, and that never sets `_isBatching` —
+        // so a bracket opened by the loader was invisible to this teardown and its
+        // queue was never the teardown's to discard. C13 §3.7 says a switch tears the
+        // world down; it cannot exempt a queue merely because a different module
+        // opened it. Gate on the bus's OWN state as well, so the queue has a real
+        // owner at switch time regardless of who opened it.
+        //
+        // (In the L-713 reproduction this fires before any bracket exists, so it is
+        // not what fixed that defect — the fix is §C13-CLEAR-EVENTS-DO-NOT-CROSS in
+        // ClearProjectCommand. This closes the *other* half: a bracket that is
+        // genuinely open when a switch arrives.)
+        if (this._isBatching || storeEventBus.batchDepth > 0 || storeEventBus.bufferedCount > 0) {
             try { storeEventBus.discardBatch(); } catch { /* ignore — bus already clean */ }
         }
 

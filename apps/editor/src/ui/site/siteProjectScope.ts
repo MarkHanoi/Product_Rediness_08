@@ -108,6 +108,15 @@ export const GIS_SWITCH_SCOPES: readonly string[] = DECLARED_PROJECT_SCOPES
     // therefore torn down at switch time the moment it is declared — there is no second
     // list to forget, which is the §L-676 → L-694 failure mode in miniature.
     .filter(s => s.module !== SITE_PROJECT_SCOPE_MODULE)
+    // L-713 — …EXCEPT a scope that deliberately holds no `projectScopeRegistry` entry
+    // (`ownsTeardown: false`). `events.storeBus` is probe-only: its switch-time owner is
+    // `BatchCoordinator.forceReset()`, because a registry entry would be invoked by
+    // `ClearProjectCommand.clearAll()` INSIDE `ProjectLoader`'s open batch bracket and
+    // reset the depth mid-load. Reaching for it here would find nothing and report a
+    // permanent "module-scope owner not loaded, provably empty" — a statement that is
+    // both false (the module is loaded) and corrosive: a standing, meaningless line in
+    // the teardown log is how the founder's real one stopped being read.
+    .filter(s => s.ownsTeardown !== false)
     .map(s => s.scope);
 
 /**

@@ -180,6 +180,30 @@ export class ElementRegistry {
         this.idToStoreMap.clear();
         this.idToRootMap.clear();
         this.idToLastRootMap.clear();
+        this._lastClearedAt = Date.now();
+    }
+
+    /**
+     * §C13-STALE-AFTER-CLEAR (L-713) — when the registry was last wiped wholesale,
+     * or 0 if never. `clear()` is only ever called by the C13 project teardown, so
+     * this is effectively "when did the last project end".
+     */
+    private _lastClearedAt = 0;
+
+    /**
+     * True when a wholesale clear happened at or after `timestamp`.
+     *
+     * Lets a subscriber tell an UNDO/REDO stale id (element removed, registry still
+     * that project's) from a CROSS-PROJECT stale id (the registry was emptied under
+     * it). Both look identical at the point of use — `getStoreType()` returns
+     * undefined for each — and conflating them is what let 74 events from a dead
+     * project be "handled" as a routine undo race.
+     *
+     * `>=` not `>`: `ClearProjectCommand` clears the registry FIRST and the store
+     * events it triggers carry a `Date.now()` from the same millisecond.
+     */
+    clearedSince(timestamp: number): boolean {
+        return this._lastClearedAt > 0 && this._lastClearedAt >= timestamp;
     }
 
     getStoreType(id: string): StoreType | undefined {

@@ -52,6 +52,7 @@ import {
     projectScopeRegistry,
     registerProjectScopeProbe,
     readProjectScopeProbes,
+    DECLARED_PROJECT_SCOPES,
     _resetProjectScopeProbesForTest,
 } from '@pryzm/core-app-model';
 import {
@@ -430,6 +431,18 @@ describe('§L-676-B — the switch teardown reaches the GIS owners registered el
 
     it('names gis.cesiumViewport and gis.areaLayout as switch-time scopes', () => {
         expect([...GIS_SWITCH_SCOPES]).toEqual(['gis.cesiumViewport', 'gis.areaLayout']);
+    });
+
+    it('L-713 — a probe-only declared scope (ownsTeardown:false) is NOT reached here', () => {
+        // `events.storeBus` is declared and module-scope, but holds no registry entry by
+        // design — its switch-time owner is BatchCoordinator.forceReset(), because a
+        // registry entry would fire inside ProjectLoader's open batch bracket. Reaching
+        // for it would report a permanent, false "not loaded, provably empty".
+        expect(GIS_SWITCH_SCOPES).not.toContain('events.storeBus');
+        const busScope = DECLARED_PROJECT_SCOPES.find(d => d.scope === 'events.storeBus')!;
+        expect(busScope.ownsTeardown).toBe(false);
+        // The exemption must name its real owner — an unowned surface is the L-676 defect.
+        expect(busScope.teardownOwner).toContain('forceReset');
     });
 
     it('END-TO-END: Project A globe state does not survive into an empty Project B', () => {

@@ -36,6 +36,7 @@ import { scheduleStore } from '@pryzm/core-app-model';
 import { roomBoundingLineStore } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
+import { storeEventBus } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -70,6 +71,30 @@ export class ClearProjectCommand implements Command {
         const __clearCounts: Record<string, number> = {};
         const __t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
 
+        // §C13-CLEAR-EVENTS-DO-NOT-CROSS (L-713) — THE TEARDOWN'S OWN EVENTS MUST NOT
+        // REACH THE INCOMING PROJECT.
+        //
+        // This command runs INSIDE the StoreEventBus batch that `ProjectLoader` opens for
+        // the INCOMING project (ProjectLoader.ts:590 → ImportProjectCommand → here), by
+        // design, so builders see clear-then-create in order. But step 18e below
+        // (`projectScopeRegistry.clearAll()`) reaches `WindowStore.clear()` /
+        // `DoorStore.clear()`, which emit one `delete` per element OF THE OUTGOING
+        // PROJECT. Those were buffered and then flushed at ProjectLoader.ts:2012 into the
+        // NEW project's subscribers — 74 of them on a project that loaded 0 elements,
+        // which is what the founder saw as "remnants of the previous project".
+        //
+        // Step 0 clears `elementRegistry` FIRST, so by construction every event emitted
+        // below names an element nothing can resolve — `ViewDependencyTracker` logged
+        // §G3-STALE-EVENT for each and coarse-invalidated every non-3D view of the NEW
+        // project. Suppressing them loses nothing: every subscriber of this bus is a
+        // DERIVED INDEX that the steps below reset wholesale anyway, and the per-store
+        // `subscribe()` channel builders use for mesh teardown is a different channel and
+        // is deliberately NOT suppressed.
+        //
+        // The drop is counted and logged by `suppressDuring` — never silent.
+        const __clearResult = storeEventBus.suppressDuring(
+            'C13 ClearProjectCommand teardown',
+            (): CommandResult => {
         try {
             // 0. Clear ElementRegistry atomically FIRST — before any store mutations.
             //    §3.5 commands are responsible for elementRegistry registration, but
@@ -255,6 +280,9 @@ export class ClearProjectCommand implements Command {
         }
 
         return { success: true, affectedElementIds: [] };
+            },
+        );
+        return __clearResult;
     }
 
     undo(_ctx: CommandContext): CommandResult {
