@@ -154,7 +154,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 2;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 3;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -317,6 +317,36 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         teardownOwner: 'BatchCoordinator.forceReset() on pryzm-project-switch — a '
             + 'projectScopeRegistry entry would run inside ProjectLoader\'s open bracket '
             + 'and reset the batch depth mid-load.',
+    },
+    {
+        scope: 'views.mountedDrawing',
+        module: 'apps/editor/src/engine/views/mountedDrawingScope.ts',
+        why: '§C13-MOUNTED-DRAWING-OWNER (founder 2026-08-07) — THE FIRST DECLARED SURFACE '
+            + 'THAT IS A SCENE PARENTING, and the fifth variant of this family. '
+            + '`ViewController._mountDrawing` parents the projected plan/section linework '
+            + '(solid wall outlines + grey dashed hidden lines from EdgeProjectorService) '
+            + 'into the SHARED world.scene.three, and `_unmountDrawing` was reachable only '
+            + 'from view activation — ViewController subscribes to no project event at all. '
+            + 'The C13 render teardown called viewTechnicalDrawingCache.clear(), which '
+            + 'disposes the drawing and empties the map the PLAN pane reads but never calls '
+            + 'scene.remove(), because the cache does not own the mount. So a new project '
+            + "showed the previous project's wall projection in 3D while its plan pane read "
+            + '"Add walls to see the floor plan": ONE surface, TWO readers, a teardown that '
+            + 'owned only the reader it knew about. The group is OBC linework carrying no '
+            + 'elementId and no id, so no scene sweep keyed on element identity can see it — '
+            + 'it needs an owner that can be ASKED, not one that can be searched for.',
+        presence: 'module-scope',
+        resets: ['clearMountedDrawing'],
+        counts: ['_mounted?.projectId'],
+        uncounted: {
+            clearMountedDrawing:
+                'The module stamps the owning project alongside the detach handle and drops '
+                + 'both in one body, so the probe reads that stamp (_mounted?.projectId) as '
+                + 'the single source rather than mirroring the clear field-by-field. A mount '
+                + 'whose project could not be resolved answers with an explicit unattributed '
+                + 'marker, never null — "holding nothing" and "holding something I cannot '
+                + 'attribute" are the L-713 mistake if they share a value.',
+        },
     },
 ];
 

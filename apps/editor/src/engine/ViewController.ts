@@ -45,6 +45,10 @@ import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
 import { PlanViewManager } from './views/PlanViewManager';
+// §C13-MOUNTED-DRAWING-OWNER — the module that owns the mounted TechnicalDrawing for
+// the C13 teardown + the ADR-0298 isolation probe. ViewController stays the THREE
+// lifetime owner; the module holds the ownership stamp and the registry entry.
+import { noteDrawingMounted, noteDrawingUnmounted } from './views/mountedDrawingScope';
 import { ifcProjectionStore } from '@pryzm/core-app-model';
 // DOC-2.5d: level datum line injection for elevation views
 // DOC-2.5e: grid line injection for elevation views
@@ -1766,6 +1770,16 @@ export class ViewController implements IViewController {
 
         scene.add((drawing as any).three);
         this._mountedDrawing = drawing;
+        // §C13-MOUNTED-DRAWING-OWNER — hand the C13 teardown a NAMED OWNER for the
+        // group we have just parented to the SHARED scene. Until this line existed,
+        // `_unmountDrawing()` was reachable only from view activation, so a project
+        // switch left Project A's projected wall linework in Project B's 3D scene
+        // while `viewTechnicalDrawingCache.clear()` emptied the cache the PLAN pane
+        // reads — the founder's two-panes-disagree report. See mountedDrawingScope.ts.
+        noteDrawingMounted(
+            () => this._unmountDrawing(),
+            this.currentViewDefinitionId ?? null,
+        );
         // DOC-5.2: expose the mounted drawing to the tool layer via the rendering-layer ref
         // (not a store — no undo/redo; purely a snapshot for snap queries)
         activePlanDrawingRef.drawing = drawing;
@@ -1785,6 +1799,10 @@ export class ViewController implements IViewController {
             scene.remove((this._mountedDrawing as any).three);
         }
         this._mountedDrawing = null;
+        // §C13-MOUNTED-DRAWING-OWNER — the scope no longer owns anything. Safe to call
+        // from inside the scope's own `clear()` path: `clearMountedDrawing()` drops its
+        // handle in a `finally`, so this is not re-entrant.
+        noteDrawingUnmounted();
         // DOC-5.2: clear the tool-layer ref so snap falls back to 3D raycast in 3D view
         activePlanDrawingRef.drawing = null;
         console.log('[ViewController] DOC-1.5a: TechnicalDrawing unmounted from scene.');

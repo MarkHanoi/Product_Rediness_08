@@ -40,6 +40,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { initProjectOrigin, reseatProjectOrigin } from './initProjectOrigin'; // §FEAT-PROJECT-ORIGIN (L-109); §L-325 render-side origin re-seat
+import { clearMountedDrawing } from './views/mountedDrawingScope'; // §C13-MOUNTED-DRAWING-OWNER — detach Project A's projected linework from the shared scene
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import * as OBC from '@thatopen/components';
 import * as OBCF from '@thatopen/components-front';
@@ -3161,6 +3162,26 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             try { nativeElementMeshExporter.clearCache(); } catch (e) { console.warn('[initScene] §L-325 NME.clearCache failed:', e); }
             try { frustumCullingService.reset(); } catch (e) { console.warn('[initScene] §L-325 FrustumCulling.reset failed:', e); }
             try { viewTechnicalDrawingCache.clear(); } catch (e) { console.warn('[initScene] §L-325 VTDC.clear failed:', e); }
+            // §C13-MOUNTED-DRAWING-OWNER — the OTHER HALF of the line above, and it must
+            // never be separated from it again.
+            //
+            // `viewTechnicalDrawingCache.clear()` disposes the drawings and empties the
+            // map the PLAN pane reads (`PlanViewCanvas` → `viewTechnicalDrawingCache.get`).
+            // It does NOT detach the drawing's THREE group from the scene, because the
+            // cache does not own the mount — `ViewController._mountDrawing` does, and
+            // nothing on any project path called `_unmountDrawing()`. So this teardown
+            // used to clear the plan pane's source and leave the 3D pane's source in
+            // place: a new project drew Project A's projected wall linework (grey dashed
+            // hidden lines + solid outlines) under the plan pane's "Add walls to see the
+            // floor plan" empty state. That is the founder's 2026-08-07 report, and it is
+            // C13 §3.8/§3.10 — the scene graph is project-scoped state and needs a named
+            // owner.
+            //
+            // The registry entry in `mountedDrawingScope` covers every project-entry path
+            // via ClearProjectCommand; this call is the defence-in-depth sibling that runs
+            // synchronously at the switch, BEFORE Project B hydrates (C13 §3.7), exactly
+            // as `reseatProjectOrigin` does below. Idempotent + non-throwing.
+            try { clearMountedDrawing(); } catch (e) { console.warn('[initScene] §C13-MOUNTED-DRAWING-OWNER clearMountedDrawing failed:', e); }
             // P3 — re-seat the always-on ProjectOrigin blue-sphere datum into the CURRENT
             // live scene (robust to an L-324 renderer live-swap that replaced world.scene)
             // so the incoming project always renders its origin marker.
