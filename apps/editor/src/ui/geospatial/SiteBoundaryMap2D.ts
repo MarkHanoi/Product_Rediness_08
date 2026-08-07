@@ -709,10 +709,27 @@ export function mountSiteBoundaryMap2D(
     // can uncheck the toggle for a genuinely non-rectilinear site.
     let orthoEnabled = true;
 
-    // §PARCEL-SELECT (L-380 P1) — interaction mode. DRAW is the default (the select
-    // mode is opt-in this phase). In 'select', map clicks fetch the real cadastral
-    // parcel instead of adding draw vertices.
-    let interactionMode: 'draw' | 'select' = 'draw';
+    // §PARCEL-SELECT (L-380 P1) — interaction mode. In 'select', map clicks fetch the real
+    // cadastral parcel instead of adding draw vertices.
+    //
+    // §UX-PARCEL-SELECT-DEFAULT (founder 2026-08-06: "select PARCEL SELECTION by default instead
+    // of DRAW — although the user could select DRAW later if wanted") — SELECT IS NOW THE DEFAULT.
+    // It was `'draw'` because select was opt-in while the cadastral providers were being built;
+    // that phase is over (`parcelProvider: defaultParcelProvider` is wired at the mount site, and
+    // `showParcelCard` renders REAL parcels for every connected region). Selecting a legal parcel
+    // is also the better default on the merits: it yields a surveyed boundary instead of a
+    // hand-traced approximation, which is what every downstream envelope/edificabilitat
+    // computation is actually entitled to reason about.
+    //
+    // ⚠ THE USER IS NEVER TRAPPED BY THIS, which is the only reason it is safe to default to a
+    // path that depends on third-party coverage. Where no provider answers, `showStubParcelCard`
+    // states plainly that cadastral data is not connected, disables "Use this parcel", and offers
+    // "Draw instead" (§L-384) — and the mode toggle itself is always present. That honest-degrade
+    // path already existed; this change only decides which mode is armed first.
+    //
+    // ⚠ EXCEPT for `overlayOnly` (the PDF / site-plan import flow), where there is no parcel to
+    // pick and the draw tool is the entire point of the surface.
+    let interactionMode: 'draw' | 'select' = opts.overlayOnly ? 'draw' : 'select';
     // The currently highlighted parcel (null = none selected). Committed via "Use this parcel".
     let selectedParcel: ParcelFeature | null = null;
     // Guards against overlapping fetches while one click's parcel is still loading.
@@ -1940,7 +1957,17 @@ export function mountSiteBoundaryMap2D(
     // shortcuts (R/L/O/C) are handled by the overlay key listener (keyListener).
     paintModeStrip();
     refreshModeChrome();
-    // §PARCEL-SELECT — DRAW is the default interaction mode (select is opt-in this phase).
+    // §UX-PARCEL-SELECT-DEFAULT — the initial CHROME must agree with the initial MODE. Both the
+    // geometry strip and the instruction chip above were written when 'draw' was the only possible
+    // opening state; with SELECT as the default they would otherwise open showing the rectangle
+    // draw tool while clicks silently went to the parcel picker. `setInteractionMode` cannot do
+    // this for us — it early-returns when the requested mode is already current — so the select
+    // branch's chrome is applied here explicitly, in the same order it applies it.
+    if (interactionMode === 'select') {
+        modeBar.style.display = 'none';
+        chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
+        try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* map style may still be loading */ }
+    }
     paintInteractionToggle();
 
     // ── Commit / cancel ───────────────────────────────────────────────────────

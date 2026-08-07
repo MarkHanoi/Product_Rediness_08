@@ -5,7 +5,7 @@
 // (§CONTEXT-DATA-HONESTY, L-422/457/467/469), so a reader that collapsed `unavailable` into `[]`
 // would have reintroduced the exact bug it replaces. No network in this file.
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import {
     tilesCovering,
     lonToTileX,
@@ -17,6 +17,9 @@ import {
     __setContextTilesBaseUrl,
     MAX_TILES_PER_FETCH,
     CONTEXT_TILES_SAME_ORIGIN_BASE,
+    CONTEXT_TILESET_VERSION,
+    clearContextTileArchives,
+    contextTileCacheSize,
     type TileBbox,
     type ContextTileFeature,
 } from '../src/ui/geospatial/contextTiles';
@@ -203,5 +206,97 @@ describe('§L-579 far-ring budget', () => {
 
     it('defaults to the shipped total budget when the near ring is empty', () => {
         expect(resolveFarRingCap(0)).toBe(CONTEXT_TOTAL_MAX_BUILDINGS);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CTX-RANGE-URL-SOURCE + §CTX-TILE-DECODE-CACHE (L-661) — the 80-SECOND CONTEXT READ.
+//
+// WHAT THESE PROTECT, and why they assert on the TRANSPORT rather than on a duration.
+// The founder's console showed the same bbox read twice, at 79,725 ms and 79,431 ms. Measured
+// against the real archive, the work in that read is: 0.84 MB over 36–42 byte ranges, ~800–955 ms
+// when the ranges are issued CONCURRENTLY, and 67 ms to decode 13,339 features. The only way to
+// reach 80 s is to run the ranges ONE AT A TIME (their latencies sum to 26.5–30.8 s here, and more
+// on a home connection) — and the only way for the SECOND read to cost the same as the first, to
+// within 0.4%, is for there to be no HTTP cache at all.
+//
+// Both follow from `pmtiles`' own `FetchSource`, which sets `cache: "no-store"` on every range
+// request when it sniffs Windows + Chromium, and addresses every range through ONE URL. So the
+// regression that matters is not "is it fast" (untestable without the network, and a duration
+// assertion would be flaky anyway) but "does each range get its own cacheable URL, and do we ever
+// send no-store". Those are exact, cheap and deterministic.
+describe('§CTX-RANGE-URL-SOURCE — the range transport', () => {
+    interface Recorded { url: string; init: RequestInit | undefined }
+    let calls: Recorded[] = [];
+    let realFetch: typeof globalThis.fetch;
+
+    beforeEach(() => {
+        calls = [];
+        realFetch = globalThis.fetch;
+        globalThis.fetch = ((url: string, init?: RequestInit) => {
+            calls.push({ url: String(url), init });
+            // Bytes that are not a PMTiles header — the read fails honestly, which is fine: these
+            // tests are about WHAT WAS REQUESTED, not about decoding a synthetic archive.
+            return Promise.resolve({
+                status: 206,
+                headers: { get: (h: string) => (h.toLowerCase() === 'content-length' ? '16384' : null) },
+                arrayBuffer: () => Promise.resolve(new ArrayBuffer(16384)),
+            });
+        }) as unknown as typeof globalThis.fetch;
+        __setContextTilesBaseUrl('https://tiles.test/');
+    });
+
+    afterEach(() => {
+        globalThis.fetch = realFetch;
+        __setContextTilesBaseUrl(null);
+        clearContextTileArchives();
+    });
+
+    it('gives every byte range its OWN URL, so the ranges cannot contend for one cache entry', async () => {
+        await readContextTileFeatures('buildings', [2.16, 41.38, 2.18, 41.40]);
+        expect(calls.length).toBeGreaterThan(0);
+        for (const c of calls) {
+            // The per-range suffix is what makes each request independently cacheable.
+            expect(c.url).toMatch(/[?&]r=\d+-\d+/);
+        }
+    });
+
+    it('keeps the §CONTEXT-CACHE-BUST version stamp — the range suffix is ADDITIVE, never a replacement', async () => {
+        await readContextTileFeatures('buildings', [2.16, 41.38, 2.18, 41.40]);
+        for (const c of calls) expect(c.url).toContain(`v=${CONTEXT_TILESET_VERSION}`);
+    });
+
+    it('still sends a real HTTP Range header — the URL suffix is addressing, not a substitute', async () => {
+        await readContextTileFeatures('buildings', [2.16, 41.38, 2.18, 41.40]);
+        const headers = calls[0]!.init!.headers as Record<string, string>;
+        expect(headers['range']).toMatch(/^bytes=\d+-\d+$/);
+    });
+
+    it('NEVER sends cache:no-store — that is the pmtiles Windows/Chromium default that cost 80 s', async () => {
+        await readContextTileFeatures('buildings', [2.16, 41.38, 2.18, 41.40]);
+        // The whole point: the second read of a tileset must be allowed to hit the browser cache.
+        for (const c of calls) expect(c.init?.cache).toBeUndefined();
+    });
+
+    it('reports an honest failure when the bytes are not a tileset — it does NOT invent an empty city', async () => {
+        const r = await readContextTileFeatures('buildings', [2.16, 41.38, 2.18, 41.40]);
+        // §CONTEXT-DATA-HONESTY — a broken read is `unavailable`, never `ok` with zero features.
+        expect(r.status).toBe('unavailable');
+    });
+});
+
+describe('§CTX-TILE-DECODE-CACHE — one read per TILE', () => {
+    afterEach(() => { __setContextTilesBaseUrl(null); clearContextTileArchives(); });
+
+    it('starts empty and is emptied by the archive reset', () => {
+        clearContextTileArchives();
+        expect(contextTileCacheSize()).toBe(0);
+    });
+
+    it('is dropped when the tiles base URL changes — decoded features belong to ONE tileset', () => {
+        // Reconfiguring must never serve one tileset's decoded features under another's config.
+        __setContextTilesBaseUrl('https://a.test/');
+        __setContextTilesBaseUrl('https://b.test/');
+        expect(contextTileCacheSize()).toBe(0);
     });
 });

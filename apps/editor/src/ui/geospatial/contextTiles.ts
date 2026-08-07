@@ -57,7 +57,7 @@
 // A building straddling a tile boundary is emitted as one CLIPPED piece per tile; the pieces are
 // deliberately NOT deduplicated, because their union is the correct footprint and dropping either
 // half would punch a visible hole in the massing.
-import { PMTiles } from 'pmtiles';
+import { PMTiles, type Source, type RangeResponse } from 'pmtiles';
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
 
@@ -304,6 +304,10 @@ export function contextTilesetUrl(layer: ContextTileLayer): string | null {
 export function __setContextTilesBaseUrl(url: string | null): void {
     baseUrlOverride = url;
     archives.clear();
+    // §CTX-TILE-DECODE-CACHE — the decoded tiles belong to the OLD base URL. Keeping them would
+    // serve one tileset's features under another's configuration.
+    tileCache.clear();
+    tileInFlight.clear();
 }
 
 // ── tile math (standard Web Mercator XYZ) ────────────────────────────────────
@@ -340,6 +344,86 @@ export function tilesCovering(bbox: TileBbox, z: number): Array<{ x: number; y: 
 
 // ── the reader ───────────────────────────────────────────────────────────────
 
+/**
+ * §CTX-RANGE-URL-SOURCE (L-661) — a PMTiles `Source` that gives every byte range its OWN URL and
+ * lets the browser cache it. THIS IS THE FIX FOR THE 80-SECOND CONTEXT READ, and the library's own
+ * default `FetchSource` is what made it 80 seconds.
+ *
+ * MEASURED, not inferred (2026-08-06, Barcelona Eixample far extent, 36–42 tiles at z16):
+ *   • decode (VectorTile → toGeoJSON → ring filter, 13,339 features) ............   67 ms
+ *   • all range requests, DIRECT R2, issued concurrently .......................  798 ms
+ *   • all range requests, through our same-origin proxy, concurrently ..........  955 ms
+ *   • ONE range request, sequentially ..........................  273 ms (proxy) / 385 ms (R2)
+ *   • the same requests if SERIALIZED (sum of individual latencies) ...... 26,525–30,815 ms
+ * So neither the network volume (0.84 MB) nor the parse is capable of costing 80 s. The founder's
+ * 79,725 ms is ~1.9 s × 42 tiles — the signature of range requests running ONE AT A TIME. And the
+ * proxy is NOT the culprit: it measured FASTER than direct R2 here.
+ *
+ * ⚠ WHY THE LIBRARY SERIALIZES THEM. `pmtiles`' `FetchSource` sniffs the user agent and, on
+ * **Windows + any Chromium browser**, sets `cache: "no-store"` on every single range request:
+ *
+ *     const isWindows = userAgent.indexOf("Windows") > -1;
+ *     const isChromiumBased = /Chrome|Chromium|Edg|OPR|Brave/.test(userAgent);
+ *     if (isWindows && isChromiumBased) this.chromeWindowsNoCache = true;
+ *     …
+ *     } else if (this.chromeWindowsNoCache) { cache = "no-store"; }
+ *
+ * Every tile of every read therefore goes to the network, forever — which is exactly what the
+ * founder's log shows and is the single most diagnostic fact in it: the SECOND read of the same
+ * bbox cost 79,431 ms against the first's 79,725 ms. A read that had a warm HTTP cache could not
+ * possibly come back within 0.4% of the cold one. **There was no cache to hit.** On top of that,
+ * all 42 ranges address ONE URL, so they contend for a single browser cache entry instead of
+ * proceeding in parallel.
+ *
+ * THE FIX, and why it is a `Source` rather than a patch: `Source` is the library's own supported
+ * extension point (`getBytes` + `getKey`), so we replace the transport WITHOUT forking pmtiles or
+ * monkey-patching a vendor class. Each range gets a distinct, individually-cacheable URL
+ * (`…?v=<stamp>&r=<offset>-<length>`) and no `cache` override, which:
+ *   1. removes the single-cache-entry contention, so the ranges actually run concurrently;
+ *   2. restores normal HTTP caching, so a second read of the same tiles is served from disk;
+ *   3. keeps the §CONTEXT-CACHE-BUST version stamp in the URL, so a re-bake still invalidates
+ *      everything at once — the per-range suffix is ADDITIVE to the stamp, never a replacement.
+ *
+ * ⚠ The extra query parameter was VERIFIED against both backends before shipping, because a store
+ * that treated it as part of the object key would 404 every tile: R2 returned `206` with
+ * `content-range: bytes 100000000-100019999/2399042929`, and so did the same-origin proxy (which
+ * routes on `req.params.layer` and never reads the query string).
+ */
+class RangeUrlFetchSource implements Source {
+    constructor(private readonly url: string) {}
+
+    /** The archive identity for the library's internal directory cache — the range-less URL. */
+    getKey(): string {
+        return this.url;
+    }
+
+    async getBytes(offset: number, length: number, signal?: AbortSignal): Promise<RangeResponse> {
+        // Distinct URL per range — see the class note. The stamp is already on `this.url`.
+        const sep = this.url.includes('?') ? '&' : '?';
+        const rangeUrl = `${this.url}${sep}r=${offset}-${length}`;
+        const resp = await fetch(rangeUrl, {
+            signal,
+            headers: { range: `bytes=${offset}-${offset + length - 1}` },
+        });
+        if (resp.status >= 300) throw new Error(`Bad response code: ${resp.status}`);
+        // ⚠ Keep `FetchSource`'s byte-serving check. A backend that ignores `Range` answers 200 with
+        // the WHOLE 2.3 GB archive, which "works" and is catastrophic; it must be an error, not a
+        // slow success (§CTX-TILES-PROXY makes the same point about forwarding the header).
+        const contentLength = resp.headers.get('Content-Length');
+        if (resp.status === 200 && (!contentLength || Number(contentLength) > length)) {
+            throw new Error('Server returned no content-length or a body exceeding the requested range — no HTTP byte serving.');
+        }
+        const etag = resp.headers.get('ETag');
+        return {
+            data: await resp.arrayBuffer(),
+            // A weak ETag cannot prove byte identity, so it is worse than none — same rule as the library.
+            etag: etag && !etag.startsWith('W/') ? etag : undefined,
+            cacheControl: resp.headers.get('Cache-Control') ?? undefined,
+            expires: resp.headers.get('Expires') ?? undefined,
+        };
+    }
+}
+
 /** One `PMTiles` archive per layer. The library caches header + directory reads internally, so
  *  reusing the instance is what keeps the second and later tile reads to a single range request. */
 const archives = new Map<string, PMTiles>();
@@ -351,10 +435,64 @@ function archiveFor(layer: ContextTileLayer): PMTiles | null {
     if (!url) return null;
     let a = archives.get(url);
     if (!a) {
-        a = new PMTiles(url);
+        // §CTX-RANGE-URL-SOURCE — explicit Source, NOT the string overload (which builds the
+        // `FetchSource` whose Windows-Chromium `no-store` is the 80-second bug).
+        a = new PMTiles(new RangeUrlFetchSource(url));
         archives.set(url, a);
     }
     return a;
+}
+
+/**
+ * §CTX-TILE-DECODE-CACHE (L-661) — decoded features per INDIVIDUAL TILE, plus in-flight de-duplication.
+ *
+ * WHY A SECOND CACHE, WHEN `contextBuildings.fetchForBbox` ALREADY DE-DUPLICATES PER BBOX.
+ * Because it de-duplicates per bbox KEY, and the key is not stable. `bboxKey` rounds to
+ * `toFixed(4)` (~11 m) around a centre that MOVES during onboarding — the geocode anchor first,
+ * the parcel/boundary centroid after the user commits. The founder's two reads returned **10,194
+ * and 10,219** footprints: not a de-dup miss, but two genuinely different bboxes a few metres
+ * apart, each a full cache MISS, each paying the whole 42-tile read.
+ *
+ * Caching at the TILE is immune to that. At z16 a tile is ~450 m across, so a centre that shifts
+ * by metres covers the SAME tiles; the second bbox re-uses every one of them and costs only the
+ * bbox filter (sub-millisecond). It also makes panning, the near/far extent pair, and the
+ * §CTX-PREFETCH-ON-LOCATION warm-up genuinely free instead of nominally free — the prefetch's
+ * whole stated purpose, which the bbox-keyed cache could not deliver.
+ *
+ * ⚠ The cached value is the tile's features UNFILTERED by bbox. The bbox filter is applied per
+ * READ, because two bboxes sharing a tile want different subsets of it; caching a filtered set
+ * would hand the second caller the first caller's crop.
+ *
+ * ⚠ ONLY SUCCESSFUL DECODES ARE CACHED. A failed range read is never memoised — that would make a
+ * transient network failure permanent for the session, which is the §CONTEXT-DATA-HONESTY family's
+ * exact failure mode (a failure that renders as "nothing is here"). An EMPTY tile IS cached,
+ * because an empty tile is a real answer.
+ */
+const tileCache = new Map<string, ContextTileFeature[]>();
+/** Concurrent readers of the SAME tile share ONE range request instead of racing duplicates. */
+const tileInFlight = new Map<string, Promise<ContextTileFeature[] | null>>();
+
+/**
+ * Bound on the decoded-tile cache. A cache is only a cache if it is BOUNDED (§L-273 learned this
+ * the expensive way, when an unbounded per-bbox localStorage cache filled the origin and took
+ * autosave's project index down with it). 512 tiles ≈ 14 far-extent reads' worth of distinct
+ * tiles; eviction is oldest-first by insertion, which for a user panning around one site is the
+ * tiles they have moved away from.
+ */
+const MAX_CACHED_TILES = 512;
+
+function tileCacheKey(layer: ContextTileLayer, z: number, x: number, y: number): string {
+    // The tileset version belongs in the key: a re-bake must not be served stale decoded features
+    // from a previous archive (§CONTEXT-CACHE-BUST, and the L659a/L660a stale-stamp incident).
+    return `${CONTEXT_TILESET_VERSION}/${layer}/${z}/${x}/${y}`;
+}
+
+function rememberTile(key: string, features: ContextTileFeature[]): void {
+    if (tileCache.size >= MAX_CACHED_TILES) {
+        const oldest = tileCache.keys().next();
+        if (!oldest.done) tileCache.delete(oldest.value);
+    }
+    tileCache.set(key, features);
 }
 
 /** Stringify an MVT property bag (values may be number/boolean) into OSM-style tags. */
@@ -489,49 +627,25 @@ export async function readContextTileFeatures(
         };
     }
 
+    const perTile = await Promise.all(tiles.map(({ x, y }) => loadTile(archive, layer, z, x, y, signal)));
+    if (signal?.aborted) return { status: 'aborted' };
+
     const features: ContextTileFeature[] = [];
     let read = 0;
     let failed = 0;
+    // §FORMA-CTX-TREES — a POINT layer carries one-vertex features; every other layer needs a real
+    // ring/strand (≥3 vertices). `ringIntersectsBbox` handles a single point (degenerate box).
+    const minVerts = LAYER_IS_POINT[layer] ? 1 : 3;
 
-    const results = await Promise.all(tiles.map(async ({ x, y }) => {
-        try {
-            const r = await archive.getZxy(z, x, y, signal);
-            return { x, y, data: r?.data ?? null, error: null as string | null };
-        } catch (e) {
-            return { x, y, data: null, error: (e as Error)?.message ?? String(e) };
-        }
-    }));
-    if (signal?.aborted) return { status: 'aborted' };
-
-    for (const r of results) {
-        if (r.error) { failed++; continue; }
+    for (const tileFeatures of perTile) {
+        if (tileFeatures === null) { failed++; continue; }
         read++;
-        if (!r.data) continue; // a genuinely empty tile — sea, park, outside the built area.
-        let vtLayer;
-        try {
-            vtLayer = new VectorTile(new PbfReader(new Uint8Array(r.data))).layers[layer];
-        } catch {
-            failed++;
-            continue;
-        }
-        if (!vtLayer) continue;
-        for (let i = 0; i < vtLayer.length; i++) {
-            const f = vtLayer.feature(i);
-            const tags = toTags(f.properties);
-            if (!belongsToLayer(tags, layer)) continue;
-            const geometry = f.toGeoJSON(r.x, r.y, z).geometry as { type: string; coordinates: unknown };
-            // §FORMA-CTX-TREES — a POINT layer carries one-vertex features; every other layer needs a
-            // real ring/strand (≥3 vertices). `ringIntersectsBbox` handles a single point (degenerate box).
-            const minVerts = LAYER_IS_POINT[layer] ? 1 : 3;
-            const rings = ringsFor(geometry, layer).filter((ring) => ring.length >= minVerts && ringIntersectsBbox(ring, bbox));
+        // §CTX-TILE-DECODE-CACHE — the bbox crop happens HERE, per read, never in the cache. Two
+        // bboxes sharing a tile legitimately want different subsets of it.
+        for (const f of tileFeatures) {
+            const rings = f.rings.filter((ring) => ring.length >= minVerts && ringIntersectsBbox(ring, bbox));
             if (rings.length === 0) continue;
-            features.push({
-                rings,
-                tags,
-                // Stable + unique per emitted piece. `i` is the tile-local feature index, so the
-                // triple (x, y, i) identifies it; the mix keeps ids apart across tiles.
-                syntheticId: ((r.x & 0xffff) * 0x1_0000_0000 + (r.y & 0xffff) * 0x1_0000 + (i & 0xffff)),
-            });
+            features.push(rings.length === f.rings.length ? f : { ...f, rings });
         }
     }
 
@@ -542,7 +656,81 @@ export async function readContextTileFeatures(
     return { status: 'ok', features, tilesRead: read, ms: Date.now() - t0 };
 }
 
-/** Test/diagnostic helper — drop the cached archives (header + directory caches with them). */
+/**
+ * §CTX-TILE-DECODE-CACHE — one tile's features, from cache if we already have them.
+ *
+ * Returns `null` for a tile that could NOT be read or decoded, and `[]` for one that genuinely
+ * holds nothing — the same distinction the module-level result type draws, at tile granularity.
+ * A `null` is never cached (see the cache note); a `[]` is.
+ */
+async function loadTile(
+    archive: PMTiles,
+    layer: ContextTileLayer,
+    z: number,
+    x: number,
+    y: number,
+    signal?: AbortSignal,
+): Promise<ContextTileFeature[] | null> {
+    const key = tileCacheKey(layer, z, x, y);
+    const cached = tileCache.get(key);
+    if (cached) return cached;
+    const pending = tileInFlight.get(key);
+    // ⚠ The shared read deliberately takes NO abort signal — same reasoning as
+    // §CTX-ONE-READ-PER-BBOX in contextBuildings.ts: one caller's cancellation must not empty a
+    // download that other callers are awaiting. Callers still honour their own signal after the await.
+    if (pending) return pending;
+
+    const shared = (async (): Promise<ContextTileFeature[] | null> => {
+        let data: ArrayBuffer | null;
+        try {
+            const r = await archive.getZxy(z, x, y, signal);
+            data = r?.data ?? null;
+        } catch {
+            return null;
+        }
+        if (!data) return []; // a genuinely empty tile — sea, park, outside the built area.
+        let vtLayer;
+        try {
+            vtLayer = new VectorTile(new PbfReader(new Uint8Array(data))).layers[layer];
+        } catch {
+            return null; // corrupt bytes are a FAILURE, not an empty tile.
+        }
+        if (!vtLayer) return [];
+        const out: ContextTileFeature[] = [];
+        for (let i = 0; i < vtLayer.length; i++) {
+            const f = vtLayer.feature(i);
+            const tags = toTags(f.properties);
+            if (!belongsToLayer(tags, layer)) continue;
+            const geometry = f.toGeoJSON(x, y, z).geometry as { type: string; coordinates: unknown };
+            const rings = ringsFor(geometry, layer);
+            if (rings.length === 0) continue;
+            out.push({
+                rings,
+                tags,
+                // Stable + unique per emitted piece. `i` is the tile-local feature index, so the
+                // triple (x, y, i) identifies it; the mix keeps ids apart across tiles.
+                syntheticId: ((x & 0xffff) * 0x1_0000_0000 + (y & 0xffff) * 0x1_0000 + (i & 0xffff)),
+            });
+        }
+        return out;
+    })().then((res) => {
+        if (res !== null) rememberTile(key, res);
+        return res;
+    }).finally(() => { tileInFlight.delete(key); });
+
+    tileInFlight.set(key, shared);
+    return shared;
+}
+
+/** Test/diagnostic helper — drop the cached archives (header + directory caches with them) AND the
+ *  §CTX-TILE-DECODE-CACHE, so a test cannot be handed a previous test's decoded tiles. */
 export function clearContextTileArchives(): void {
     archives.clear();
+    tileCache.clear();
+    tileInFlight.clear();
+}
+
+/** §CTX-TILE-DECODE-CACHE — observable cache state, for tests and diagnostics. */
+export function contextTileCacheSize(): number {
+    return tileCache.size;
 }

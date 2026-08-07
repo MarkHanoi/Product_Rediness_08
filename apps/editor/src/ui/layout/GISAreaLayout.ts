@@ -2136,8 +2136,36 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (!btn) return;
         btn.onclick = () => {
             formaEnvelopeVisible = !formaEnvelopeVisible;
-            // Re-place the massing (no re-fly) so the envelope appears/disappears.
-            if (cesiumViewport?.renderFormaMassing && formaViewMode !== 'map2d') {
+            // §FIX-ENVELOPE-TOGGLE-VIEW-SWITCH (founder 2026-08-06: "clicking ENVELOPE OFF ALWAYS
+            // goes back to the 3D SITE view") — ⚠ A VISIBILITY TOGGLE MUST NOT CHANGE THE ACTIVE VIEW.
+            //
+            // THE COUPLING, and why it is a re-entry bug rather than a camera bug. This handler
+            // re-places the massing so the envelope appears/disappears, and it chose the renderer by
+            // `formaViewMode` ALONE. `formaViewMode` describes the SITE pane's own sub-mode
+            // (`map2d` / `3d`); it says nothing about which RESULT VIEW the user is on. That is
+            // `resultViewMode` ('2D' | '3D', where '3D' is the photoreal globe), and this branch
+            // never consulted it. So on the globe the toggle called `renderFormaMassing`, whose
+            // `CesiumViewport.renderFormaMassing` re-entry does two things that ARE a view switch:
+            //     } else if (!this.formaMode) { this.setFormaMode(true); }   // → applyFormaMode()
+            //     if (!input.keepPhotoreal) this.clearRealModelOnGlobe();
+            // i.e. it swaps the photoreal imagery/sky for the flat grey massing study and destroys
+            // the real model on the globe. The user reads that — correctly — as being thrown back
+            // into 3D Site.
+            //
+            // THE FIX IS TO PICK THE RIGHT RENDERER, NOT TO RESTORE THE VIEW AFTERWARDS. The
+            // globe-aware sibling already exists and is what every other globe-side control uses:
+            // `placeBuildingOnGlobe()` routes through `renderBuildingOnGlobe`, which forwards
+            // `keepPhotoreal` and therefore never trips `setFormaMode(true)`. It reads the SAME
+            // `resolveFormaEnvelope()`, so the toggle governs both surfaces exactly as before —
+            // only the transport differs. `setGlobeBuildingFidelity` (~line 3252) already branches
+            // this way; this handler simply never did.
+            if (resultViewMode === '3D') {
+                placeBuildingOnGlobe();
+                // `placeBuildingOnGlobe` refreshes the floor selector but not this card, and the
+                // button's own ON/OFF label lives here — refresh it so the control reflects itself.
+                refreshEnvelopePanel();
+            } else if (cesiumViewport?.renderFormaMassing && formaViewMode !== 'map2d') {
+                // Re-place the massing (no re-fly) so the envelope appears/disappears.
                 renderFormaMassing(false);
             } else {
                 refreshEnvelopePanel();

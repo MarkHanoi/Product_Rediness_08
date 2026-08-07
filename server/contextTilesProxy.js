@@ -50,7 +50,21 @@ export const CONTEXT_TILES_UPSTREAM =
  * open proxy: any path traversal or arbitrary key under the bucket would be fetchable through our
  * origin, wearing our CORS and our reputation. Only the four baked layers are reachable.
  */
-export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks', 'landuse'];
+// ⚠ THIS LIST MUST MATCH `ContextTileLayer` IN `apps/editor/src/ui/geospatial/contextTiles.ts`.
+// It had DRIFTED: the client grew `rail` (§CTX-PMTILES-READER rail) and `trees`
+// (§FORMA-CTX-TREES, L-642 Phase C) and this allowlist was never extended, so every request for
+// them was refused BY US with `404 unknown context tile layer` — indistinguishable, from the
+// client's side, from "the tileset does not exist upstream". Adding them here makes the proxy
+// report the UPSTREAM's answer instead of substituting its own.
+//
+// ⚠ AND THE UPSTREAM'S ANSWER IS ALSO 404 TODAY — probed 2026-08-06 against R2 directly:
+// `rail.pmtiles` and `trees.pmtiles` return 404 in ~163–245 ms, i.e. THOSE TWO LAYERS HAVE NEVER
+// BEEN BAKED. So this change does not make rail or trees render; it makes the failure attributable.
+// The client already handles it correctly and cheaply — `readContextTileFeatures` returns
+// `unavailable`, the console says "tiles configured but unreadable … rendering NO rail", and there
+// is NO retry and no timeout, so the two 404s cost ~0.2 s of the context load and nothing else.
+// The real fix for rail/trees is a bake that publishes them (`tools/context-bake/`), not this file.
+export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks', 'landuse', 'rail', 'trees'];
 
 export const CONTEXT_TILES_UPSTREAM_TIMEOUT_MS = 15_000;
 
