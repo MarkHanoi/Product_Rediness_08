@@ -18,6 +18,10 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { AnnotationElement } from '@pryzm/plugin-annotations';
 import { UpdateGridCommand } from '@pryzm/command-registry';
 import { RemoveGridCommand } from '@pryzm/command-registry';
+// §FIX-DIMPANEL-EDIT-REACHES-THE-ELEMENT (L-703) — the dimension panel edits the SUBSYSTEM
+// annotation record, through the command that owns it. See the APPLY handler for the full
+// root cause.
+import { UpdateAnnotationCommand, DeleteAnnotationCommand } from '@pryzm/command-registry';
 // §FIX-DIMENSION-DRIVES-MODEL (L-291b, ADR-122 = OPTION A) — the PURE rule that decides which
 // element moves, by how much, and WHY IT CANNOT. Not a branch inside a click handler.
 import { resolveDimensionDrive } from '@app/ui/documentation/driveDimension';
@@ -413,11 +417,37 @@ export function showLinearDimension(
     const applyBtn = document.createElement('button');
     applyBtn.className = 'gpp-apply-btn';
     applyBtn.textContent = 'APPLY CHANGES';
+
+    // ── §FIX-DIMPANEL-EDIT-REACHES-THE-ELEMENT (L-703) ────────────────────────
+    //
+    // FOUNDER REPORT: "tried to change the TEXT SIZE but it did not work" — the panel showed
+    // 5 mm while the drawing was unchanged. The panel state and the element state had
+    // diverged because THE EDIT NEVER REACHED THE ELEMENT.
+    //
+    // ROOT CAUSE. The old APPLY fired THREE bus verbs — `annotation.setTextHeight`,
+    // `annotation.setColor`, `annotation.update` — against `ctx.stores.annotation`
+    // (`AnnotationsState`), a store this dimension has never been in. `ann` is read from the
+    // SUBSYSTEM `annotationStore` (`dimensionSelectionPanel.getAnnotationById`, ADR-0119).
+    // So every one of the three failed, and each failed silently:
+    //   • setTextHeight / setColor  → `canExecute` returns `annotation not found` … `.catch(() => {})`
+    //   • annotation.update         → NO HANDLER EXISTS. `annotation.update` is absent from
+    //     `ANNOTATION_HANDLER_TYPES`; no class declares `type = 'annotation.update'`. It was
+    //     only ever asserted by a test that mocks the bus and checks the DISPATCH.
+    // The button then printed "✓ APPLIED" unconditionally. Three refusals, one green tick.
+    //
+    // THE FIX. One `UpdateAnnotationCommand` through the `CommandManager` that owns the
+    // subsystem store — the same path `CreateAnnotationCommand` writes and the same path
+    // `performUndoRedo` unwinds.
+    //
+    // Contract compliance:
+    //   C03 §P6 — command path only; the panel still performs no store write.
+    //   C03 §4.5-4.8 — ONE user click = ONE undo entry. Three commands were three.
+    //   L-291 rule — a rejection is shown IN THE PANEL, never swallowed.
+    const applyHint = document.createElement('div');
+    applyHint.className = 'gpp-error-row';
+    applyHint.style.cssText = 'grid-column:1/span 2;font-size:9px;margin-top:4px;display:none;';
+
     applyBtn.addEventListener('click', () => {
-        if (!cmdMgr) {
-            console.warn('[PropertyPanel.showLinearDimension] No commandManager — cannot apply');
-            return;
-        }
         const patch: Partial<AnnotationElement> = {
             parameters: {
                 ...ann.parameters,
@@ -436,19 +466,33 @@ export function showLinearDimension(
                 textColor:  textColorInp.value,
             },
         };
-        const bus = window.runtime?.bus;
-        if (bus) {
-            if (patch.style?.textSizeMm !== undefined) {
-                bus.executeCommand('annotation.setTextHeight', { annotationId: ann.id, textHeightMm: patch.style.textSizeMm }).catch(() => {});
-            }
-            if (patch.style && (patch.style.lineColor !== undefined || patch.style.textColor !== undefined)) {
-                bus.executeCommand('annotation.setColor', { annotationId: ann.id, lineColor: patch.style.lineColor, textColor: patch.style.textColor }).catch(() => {});
-            }
-            bus.executeCommand('annotation.update', { annotationId: ann.id, patch })
-               .catch((e: unknown) => console.warn('[PropertyPanel] annotation.update failed:', e));
-        } else {
-            console.warn('[PropertyPanel] No runtime bus — annotation update skipped');
+        const showFailure = (message: string): void => {
+            applyHint.textContent = `⚠ ${message}`;
+            applyHint.style.color = '#e53935';
+            applyHint.style.display = '';
+            console.warn('[PropertyPanel] dimension update rejected:', message);
+        };
+
+        if (!cmdMgr || typeof cmdMgr.execute !== 'function') {
+            showFailure('Command system not ready — try again.');
+            return;
         }
+
+        const res = cmdMgr.execute(new UpdateAnnotationCommand(ann.id, patch)) as
+            { success?: boolean; info?: string[]; error?: string } | undefined;
+
+        if (res && res.success === false) {
+            showFailure(res.error ?? res.info?.join('; ') ?? 'The model rejected this change.');
+            return;
+        }
+
+        // Keep the panel's own view of the record in step, so a second APPLY in the same
+        // session patches on top of the NEW style rather than resurrecting the old one.
+        ann = { ...ann, ...patch } as AnnotationElement;
+
+        applyHint.textContent = 'Applied.';
+        applyHint.style.color = '#8B5CF6';
+        applyHint.style.display = '';
         applyBtn.textContent = '✓ APPLIED';
         applyBtn.disabled = true;
         setTimeout(() => {
@@ -458,6 +502,7 @@ export function showLinearDimension(
         console.log('[PropertyPanel] Applied changes to dimension:', ann.id);
     });
     body.appendChild(applyBtn);
+    body.appendChild(applyHint);
 
     // ── Actions row ───────────────────────────────────────────────────────
     const actionsRow = document.createElement('div');
@@ -467,14 +512,21 @@ export function showLinearDimension(
     deleteBtn.className = 'gpp-action-btn danger';
     deleteBtn.textContent = 'Delete Dimension';
     deleteBtn.addEventListener('click', () => {
-        // Phase B (Task 3.2): annotation.delete routed via runtime.bus.
-        // DeleteAnnotationHandler (plugins/annotations/src/handlers/DeleteAnnotation.ts,
-        // type='annotation.delete') is a real handler — safe to drop cmdMgr.
-        // Falls back to cmdMgr only when bus is not yet initialised (very early boot).
-        if (window.runtime?.bus) {
-            window.runtime.bus.executeCommand('annotation.delete', { annotationId: ann.id }).catch(console.error);
-        } else {
-            console.warn('[PropertyPanel.showLinearDimension] No runtime bus — annotation delete skipped');
+        // §FIX-DIMPANEL-EDIT-REACHES-THE-ELEMENT (L-703) — same root cause as APPLY above.
+        // `annotation.delete` IS a real handler, but it deletes from `ctx.stores.annotation`
+        // (`AnnotationsState`) — a store this dimension is not in. `canExecute` returned
+        // `annotation not found`, the rejection went to `console.error`, and `host.hide()` ran
+        // ANYWAY — so a refused delete was visually indistinguishable from a successful one,
+        // which is exactly the L-214/218/220 class this file already warns about 200 lines up.
+        // `DeleteAnnotationCommand` deletes from the subsystem store and snapshots for undo.
+        if (!cmdMgr || typeof cmdMgr.execute !== 'function') {
+            console.warn('[PropertyPanel.showLinearDimension] No commandManager — delete skipped');
+            return;
+        }
+        const res = cmdMgr.execute(new DeleteAnnotationCommand(ann.id)) as
+            { success?: boolean; info?: string[]; error?: string } | undefined;
+        if (res && res.success === false) {
+            deleteBtn.textContent = res.error ?? res.info?.join('; ') ?? 'Delete refused';
             return;
         }
         console.log('[PropertyPanel] Deleted dimension:', ann.id);

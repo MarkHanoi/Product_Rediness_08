@@ -21,6 +21,8 @@
 
 import { makeAnnotationElement }        from '@pryzm/plugin-annotations';
 import { makePointRef }                 from '@pryzm/plugin-annotations';
+import { CreateAnnotationCommand }      from '@pryzm/plugin-annotations';
+import { createId }                     from '@pryzm/schemas';
 import { pryzmAnnotationInput }         from '@app/ui/AnnotationInputPanel';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import * as THREE from '@pryzm/renderer-three/three';
@@ -33,19 +35,71 @@ function _mkPt(wx: number, wz: number) {
 
 function _mp3(wx: number, wz: number) { return { x: wx, y: 0, z: wz }; }
 
-// [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
+// §FIX-PLANANN-SUBSYSTEM-STORE-SINK (L-702) — THE COMMIT CHOKEPOINT FOR EVERY PLAN
+// ANNOTATION TOOL.
+//
+// ROOT CAUSE THIS REPLACES. The previous body did two independently fatal things:
+//
+//  (1) It minted `crypto.randomUUID()`. The canonical `Annotation` schema brands its id
+//      `^annotation_<ULID>$` (`packages/schemas/src/base/BaseNode.ts` `defineElement`), so
+//      `Annotation.parse` threw `AnnotationSchemaError` on EVERY commit — the annotation was
+//      created NOWHERE, and the only trace was a `console.error` the user never sees. This is
+//      the identical defect `§FIX-AUTODIM-ANNOTATION-ID` (L-145) fixed for the linear dim.
+//
+//  (2) It dispatched the FULL subsystem `AnnotationElement` at the bus verb
+//      `annotation.create`, whose handler models a flat schema-level `Annotation`
+//      (`{viewId, kind, anchor, text}`). The payload's `ownerViewId`/`type`/`parameters`/
+//      `geometry2D`/`references` are not fields that handler reads, so even on a valid id it
+//      would have written a degenerate origin-anchored `text-note` into `AnnotationsState` —
+//      a store that NOTHING renders, NOTHING persists and NOTHING exports.
+//
+// `LinearDimPlanToolHandler` already carries the correct path and states the rule in full
+// (§FIX-AUTODIM-SUBSYSTEM-STORE-SINK, L-145 / ADR-0119): the render + persistence sink is the
+// SUBSYSTEM `annotationStore`, whose mutation and undo are owned by `CommandManager` via
+// `CreateAnnotationCommand`. That fix was applied at ONE call site and never travelled to the
+// other fifteen plan annotation tools. This is that fix, adopted at the shared chokepoint so
+// it cannot fail to travel again.
+//
+// Contract compliance:
+//   C03 §P6 — `CommandManager.execute` is the mutation path; no direct store write here.
+//   C03 §4.5-4.8 — one user click = exactly ONE undo entry (`CreateAnnotationCommand.undo`).
+//   C11 — creation goes through the declared command for the family.
+//   L-291 / L-693 rule — A REFUSAL MUST REACH THE USER. `hintCtx` paints the reason on the
+//   overlay instead of burying it in `console.error`, which is precisely how this survived.
 function _commit(
     type: string,
     viewId: string,
     refs: ReturnType<typeof _mkPt>[],
     modelPoints: { x: number; y: number; z: number }[],
     parameters: Record<string, any> = {},
-): void {
-    const id  = crypto.randomUUID();
+    hintCtx?: PlanToolDrawContext | null,
+): boolean {
+    const fail = (message: string): boolean => {
+        console.error(`[AnnotationHandler] ${type} NOT created — ${message}`);
+        if (hintCtx) _hint(hintCtx, `⚠ ${type} not created — ${message}`);
+        return false;
+    };
+
+    if (!viewId) return fail('no owning view');
+
+    // Typed id — `annotation_<ULID>`. Never `crypto.randomUUID()`.
+    const id  = createId('annotation');
     const ann = makeAnnotationElement(id, type as any, viewId, refs, { modelPoints, offset: 0 }, parameters);
-    window.runtime?.bus?.executeCommand('annotation.create', ann)
-        ?.then(() => console.log(`[AnnotationHandler] ${type} created`, id))
-        ?.catch((e: Error) => console.error(`[AnnotationHandler] ${type} failed:`, e));
+
+    const cm = window.commandManager as unknown as
+        | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
+        | undefined;
+    if (!cm || typeof cm.execute !== 'function') return fail('command system not ready');
+
+    const res = cm.execute(new CreateAnnotationCommand(ann));
+    if (res && res.success === false) {
+        // BOTH refusal shapes must reach the user: `CommandManagerImpl.execute` reports a
+        // `canExecute` rejection as `info: [reason]`, while a failed `execute` returns
+        // `error`. Reading only one of them re-buries half the refusals.
+        return fail(res.error || res.info?.join('; ') || 'the model rejected it');
+    }
+    console.log(`[AnnotationHandler] ${type} created`, id, 'in view', viewId);
+    return true;
 }
 
 function _clear(c: PlanToolDrawContext): void {
@@ -268,7 +322,7 @@ export class TextNotePlanToolHandler implements PlanToolHandler {
             _commit('text-note', c.viewDef.id,
                 [_mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(pt.worldX, pt.worldZ)],
-                { text: result.value },
+                { text: result.value }, c
             );
             _clear(c);
         });
@@ -312,7 +366,7 @@ export class ElementTagPlanToolHandler implements PlanToolHandler {
             _commit('tag', c.viewDef.id,
                 [_mkPt(near.pos.wx, near.pos.wz), _mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(near.pos.wx, near.pos.wz), _mp3(pt.worldX, pt.worldZ)],
-                { label: near.label, cachedLabel: near.label, showLeader: true, elementId: near.elementId },
+                { label: near.label, cachedLabel: near.label, showLeader: true, elementId: near.elementId }, c
             );
             _clear(c);
         } else {
@@ -328,7 +382,7 @@ export class ElementTagPlanToolHandler implements PlanToolHandler {
                 _commit('tag', c.viewDef.id,
                     [_mkPt(pt.worldX, pt.worldZ)],
                     [_mp3(pt.worldX, pt.worldZ)],
-                    { label: result.value, cachedLabel: result.value, showLeader: false },
+                    { label: result.value, cachedLabel: result.value, showLeader: false }, c
                 );
                 _clear(c);
             });
@@ -403,7 +457,7 @@ export class DoorTagPlanToolHandler implements PlanToolHandler {
                     elementId: near.elementId,
                     widthMm: wMm,
                     heightMm: hMm,
-                },
+                }, c
             );
             _clear(c);
         } else {
@@ -481,7 +535,7 @@ export class WindowTagPlanToolHandler implements PlanToolHandler {
                     elementId: near.elementId,
                     widthMm: wMm,
                     heightMm: hMm,
-                },
+                }, c
             );
             _clear(c);
         } else {
@@ -532,7 +586,7 @@ export class AngularDimPlanToolHandler implements PlanToolHandler {
                 [_mp3(this._vertex.worldX, this._vertex.worldZ),
                  _mp3(this._rayA.worldX,   this._rayA.worldZ),
                  _mp3(pt.worldX,            pt.worldZ)],
-                { unit: 'deg' },
+                { unit: 'deg' }, this._ctx
             );
             this._vertex = this._rayA = null;
             this._state = 1;
@@ -579,7 +633,7 @@ export class RadiusDimPlanToolHandler implements PlanToolHandler {
             _commit('radius-dim', this._ctx.viewDef.id,
                 [_mkPt(this._center.worldX, this._center.worldZ), _mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(this._center.worldX, this._center.worldZ), _mp3(pt.worldX, pt.worldZ)],
-                { unit: 'mm', radius: r },
+                { unit: 'mm', radius: r }, this._ctx
             );
             this._center = null; this._state = 1;
             _clear(this._ctx);
@@ -618,7 +672,7 @@ export class DiameterDimPlanToolHandler implements PlanToolHandler {
             _commit('diameter-dim', this._ctx.viewDef.id,
                 [_mkPt(this._ptA.worldX, this._ptA.worldZ), _mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(this._ptA.worldX, this._ptA.worldZ), _mp3(pt.worldX, pt.worldZ)],
-                { unit: 'mm', diameter: d },
+                { unit: 'mm', diameter: d }, this._ctx
             );
             this._ptA = null; this._state = 1;
             _clear(this._ctx);
@@ -658,7 +712,7 @@ export class SlopeDimPlanToolHandler implements PlanToolHandler {
             _commit('slope-dim', this._ctx.viewDef.id,
                 [_mkPt(this._ptA.worldX, this._ptA.worldZ), _mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(this._ptA.worldX, this._ptA.worldZ), _mp3(pt.worldX, pt.worldZ)],
-                { unit: 'ratio', slopeRatio, slopePercent: slopeRatio * 100 },
+                { unit: 'ratio', slopeRatio, slopePercent: slopeRatio * 100 }, this._ctx
             );
             this._ptA = null; this._state = 1;
             _clear(this._ctx);
@@ -706,7 +760,7 @@ export class SpotElevationPlanToolHandler implements PlanToolHandler {
             _commit('spot-elevation', c.viewDef.id,
                 [_mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(pt.worldX, pt.worldZ)],
-                { unit: 'm', elevation },
+                { unit: 'm', elevation }, c
             );
             _clear(c);
         });
@@ -748,7 +802,7 @@ export class KeynotePlanToolHandler implements PlanToolHandler {
             _commit('keynote', c.viewDef.id,
                 [_mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(pt.worldX, pt.worldZ)],
-                { key: result.value, code: result.value },
+                { key: result.value, code: result.value }, c
             );
             _clear(c);
         });
@@ -791,7 +845,7 @@ export class LevelTagPlanToolHandler implements PlanToolHandler {
         _commit('level-tag', c.viewDef.id,
             [_mkPt(pt.worldX, pt.worldZ)],
             [_mp3(pt.worldX, pt.worldZ)],
-            { elevation: lvl.elevation, label, cachedLabel: label, levelName: lvl.name },
+            { elevation: lvl.elevation, label, cachedLabel: label, levelName: lvl.name }, c
         );
         _clear(c);
     }
@@ -833,7 +887,7 @@ export class GridBubblePlanToolHandler implements PlanToolHandler {
             _commit('grid-bubble', c.viewDef.id,
                 [_mkPt(near.pos.wx, near.pos.wz)],
                 [_mp3(near.pos.wx, near.pos.wz)],
-                { label: near.label, name: near.label, cachedLabel: near.label, gridId: near.elementId },
+                { label: near.label, name: near.label, cachedLabel: near.label, gridId: near.elementId }, c
             );
             _clear(c);
         } else {
@@ -882,7 +936,7 @@ export class RevisionCloudPlanToolHandler implements PlanToolHandler {
             _commit('revision-cloud', c.viewDef.id,
                 this._pts.map(p => _mkPt(p.worldX, p.worldZ)),
                 pts3,
-                { revisionCode: result?.value ?? 'A', note: '' },
+                { revisionCode: result?.value ?? 'A', note: '' }, c
             );
             this._pts = [];
             _clear(c);
@@ -982,7 +1036,7 @@ export class CalloutDetailPlanToolHandler implements PlanToolHandler {
                 _commit('callout-detail', c.viewDef.id,
                     [_mkPt(cA.worldX, cA.worldZ), _mkPt(pt.worldX, pt.worldZ)],
                     [_mp3(cA.worldX, cA.worldZ), _mp3(pt.worldX, pt.worldZ)],
-                    { calloutLabel: result?.value ?? '' },
+                    { calloutLabel: result?.value ?? '' }, c
                 );
                 this._cornerA = null; this._state = 1;
                 _clear(c);
@@ -1018,7 +1072,7 @@ export class NorthArrowPlanToolHandler implements PlanToolHandler {
         _commit('north-arrow', c.viewDef.id,
             [_mkPt(pt.worldX, pt.worldZ)],
             [_mp3(pt.worldX, pt.worldZ)],
-            { rotationDeg: 0 },
+            { rotationDeg: 0 }, c
         );
         _clear(c);
     }
@@ -1052,7 +1106,7 @@ export class ScaleBarPlanToolHandler implements PlanToolHandler {
         _commit('scale-bar', c.viewDef.id,
             [_mkPt(pt.worldX, pt.worldZ)],
             [_mp3(pt.worldX, pt.worldZ)],
-            { scale, segments: 4, segmentLengthM: 1 },
+            { scale, segments: 4, segmentLengthM: 1 }, c
         );
         _clear(c);
     }
@@ -1103,7 +1157,7 @@ export class MatchlinePlanToolHandler implements PlanToolHandler {
                 _commit('matchline', c.viewDef.id,
                     [_mkPt(this._ptA!.worldX, this._ptA!.worldZ), _mkPt(pt.worldX, pt.worldZ)],
                     [_mp3(this._ptA!.worldX, this._ptA!.worldZ), _mp3(pt.worldX, pt.worldZ)],
-                    { sheetRef: result?.value ?? '', label: result?.value ?? 'MATCH LINE' },
+                    { sheetRef: result?.value ?? '', label: result?.value ?? 'MATCH LINE' }, c
                 );
                 this._ptA = null;
                 this._state = 1;

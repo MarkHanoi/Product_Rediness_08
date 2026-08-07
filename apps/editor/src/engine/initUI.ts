@@ -112,6 +112,9 @@ import { inlineLabelEditor }        from '@app/ui/InlineLabelEditor';
 // not only geometry Object3Ds. deleteSelectedDimension is the pure, testable seam.
 import { deleteSelectedDimension } from '@app/ui/property-panel/dimensionSelectionPanel';
 import { annotationStore }          from '@pryzm/plugin-annotations';
+// §FIX-DIMPANEL-EDIT-REACHES-THE-ELEMENT (L-703) — Delete must hit the store the annotation
+// is actually IN. See `deleteSelected` below.
+import { DeleteAnnotationCommand }  from '@pryzm/plugin-annotations';
 // §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159, C06 §7.2) — the Split View toggle shares
 // the bottom-left launcher-rail corner, so it takes a declared slot from the
 // single z-layer/no-overlap policy instead of a hand-picked bottom/z-index.
@@ -2297,22 +2300,46 @@ export async function initUI(p: UIParams): Promise<void> {
         // selectionManager.selectedObject) can never reach it — keyboard Delete/Backspace
         // on a selected dimension hit the "No element selected" early-return, leaving dims
         // undeletable (founder L-173). Route a selected-annotation delete through the
-        // annotation.delete command (P6 — DeleteAnnotationHandler), exactly like the
-        // Properties Panel "Delete Dimension" button. A live 3D BIM selection takes
-        // precedence (returns false), so element deletion is untouched.
+        // annotation delete command (P6). A live 3D BIM selection takes precedence
+        // (returns false), so element deletion is untouched.
+        //
+        // §FIX-DIMPANEL-EDIT-REACHES-THE-ELEMENT (L-703) — L-173 routed this to the BUS verb
+        // `annotation.delete`, whose handler deletes from `ctx.stores.annotation`
+        // (`AnnotationsState`). The annotation being deleted lives in the ADR-0119 SUBSYSTEM
+        // `annotationStore` — the store two lines above (`getAnnotationById`) reads. So
+        // `canExecute` answered `annotation not found`, the rejection went to `console.error`,
+        // and this block STILL ran `unselectAll()` and toasted "Dimension deleted".
+        // A refused delete was reported to the user as a successful one.
+        // `DeleteAnnotationCommand` deletes from the right store, snapshots for undo, and
+        // reports its refusal synchronously so the toast can tell the truth.
+        let _annDeleteFailed: string | null = null;
         if (deleteSelectedDimension({
             hasBimSelection: () => !!selectionManager.selectedObject,
             getSelectedAnnotationId: () => window.__pryzmSelectedAnnotationId,
             getAnnotationById: (id) => annotationStore.getById(id),
             deleteAnnotation: (id) => {
-                window.runtime?.bus?.executeCommand('annotation.delete', { annotationId: id })
-                    ?.catch((e: Error) => console.error('[deleteSelected] annotation.delete failed:', e));
+                const cm = window.commandManager as unknown as
+                    | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
+                    | undefined;
+                if (!cm || typeof cm.execute !== 'function') {
+                    _annDeleteFailed = 'Command system not ready';
+                    return;
+                }
+                const res = cm.execute(new DeleteAnnotationCommand(id));
+                if (res && res.success === false) {
+                    _annDeleteFailed = res.error ?? res.info?.join('; ') ?? 'The model refused the delete';
+                    return;
+                }
                 window.__pryzmSelectedAnnotationId = null;
             },
         })) {
+            if (_annDeleteFailed) {
+                toast(`Annotation not deleted — ${_annDeleteFailed}`, 'warn');
+                return;
+            }
             // Close the (now-stale) dimension Properties Panel + clear selection state.
             unselectAll();
-            toast('Dimension deleted', 'success');
+            toast('Annotation deleted', 'success');
             return;
         }
 

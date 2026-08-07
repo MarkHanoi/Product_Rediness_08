@@ -151,10 +151,23 @@ describe('showLinearDimension APPLY drives annotation.update (P6)', () => {
         expect(hostEl.textContent).toContain('DIMENSION');
     });
 
-    it('APPLY dispatches an annotation.update command via runtime.bus for the correct annotation', () => {
+    // ── §FIX-DIMPANEL-EDIT-REACHES-THE-ELEMENT (L-703) ────────────────────────────
+    //
+    // THIS TEST USED TO ASSERT `executeCommand('annotation.update', …)` AND PASS — while the
+    // founder's Text-size edit did nothing at all. It is the exact shape the repo has now
+    // been bitten by repeatedly: it mocked the bus and asserted the DISPATCH, so it could
+    // never observe that `annotation.update` HAS NO HANDLER (absent from
+    // `ANNOTATION_HANDLER_TYPES`; no class declares that `type`), nor that the two sibling
+    // verbs it also fired write `AnnotationsState` — a store this dimension is not in.
+    // Three refusals, and a green test.
+    //
+    // A dispatch assertion is only worth what the receiver is worth. The assertions below
+    // are about the COMMAND that mutates the record the panel read.
+
+    it('APPLY drives ONE UpdateAnnotationCommand through the CommandManager that owns the record', () => {
         const dim = makeLinearDim();
-        // cmdMgr must be truthy for the APPLY handler to proceed.
-        showLinearDimension(host, { execute: vi.fn() }, dim);
+        const execute = vi.fn(() => ({ success: true, affectedElementIds: [dim.id] }));
+        showLinearDimension(host, { execute }, dim);
 
         const applyBtn = Array.from(hostEl.querySelectorAll('button'))
             .find((b) => b.textContent?.includes('APPLY')) as HTMLButtonElement | undefined;
@@ -162,9 +175,69 @@ describe('showLinearDimension APPLY drives annotation.update (P6)', () => {
 
         applyBtn!.click();
 
-        const updateCall = executeCommand.mock.calls.find((c) => c[0] === 'annotation.update');
-        expect(updateCall, 'annotation.update dispatched (P6)').toBeTruthy();
-        expect((updateCall![1] as { annotationId: string }).annotationId).toBe(dim.id);
+        // ONE command — C03 §4.5-4.8: one user action is one undo entry. It used to be three.
+        expect(execute, 'exactly one command for one APPLY').toHaveBeenCalledTimes(1);
+        const cmd = (execute.mock.calls[0] as unknown as unknown[])[0] as {
+            type: string;
+            targetIds: string[];
+            affectedStores: readonly string[];
+            _patch: { style?: { textSizeMm?: number } };
+        };
+        expect(cmd.type).toBe('UPDATE_ANNOTATION');
+        expect(cmd.targetIds).toEqual([dim.id]);
+        expect(cmd.affectedStores).toEqual(['annotation']);
+
+        // And the founder's actual edit — Text size — is IN the patch.
+        expect(cmd._patch.style?.textSizeMm, 'the text size edit is carried').toBeTypeOf('number');
+
+        // The handlerless bus verbs must not be fired any more.
+        const busTypes = executeCommand.mock.calls.map((c) => c[0]);
+        expect(busTypes).not.toContain('annotation.update');
+        expect(busTypes).not.toContain('annotation.setTextHeight');
+        expect(busTypes).not.toContain('annotation.setColor');
+    });
+
+    it('a REFUSED apply is shown in the panel and does NOT report success', () => {
+        const dim = makeLinearDim();
+        const execute = vi.fn(() => ({ success: false, affectedElementIds: [], error: 'Annotation not found' }));
+        showLinearDimension(host, { execute }, dim);
+
+        const applyBtn = Array.from(hostEl.querySelectorAll('button'))
+            .find((b) => b.textContent?.includes('APPLY')) as HTMLButtonElement;
+        applyBtn.click();
+
+        expect(hostEl.textContent, 'the reason is on screen').toContain('Annotation not found');
+        expect(applyBtn.textContent, 'no green tick over a refusal').not.toContain('APPLIED');
+    });
+
+    it('Delete Dimension deletes through the command that owns the subsystem store', () => {
+        const dim = makeLinearDim();
+        const execute = vi.fn(() => ({ success: true, affectedElementIds: [dim.id] }));
+        showLinearDimension(host, { execute }, dim);
+
+        const delBtn = Array.from(hostEl.querySelectorAll('button'))
+            .find((b) => b.textContent?.includes('Delete Dimension')) as HTMLButtonElement;
+        expect(delBtn, 'Delete button rendered').toBeTruthy();
+        delBtn.click();
+
+        const cmd = (execute.mock.calls[0] as unknown as unknown[])[0] as { type: string; targetIds: string[] };
+        expect(cmd.type).toBe('DELETE_ANNOTATION');
+        expect(cmd.targetIds).toEqual([dim.id]);
+        expect(host.hide, 'panel closes only after a successful delete').toHaveBeenCalled();
+        // The old code dispatched the bus verb, which refused, and hid the panel anyway.
+        expect(executeCommand.mock.calls.map((c) => c[0])).not.toContain('annotation.delete');
+    });
+
+    it('a REFUSED delete leaves the panel OPEN — a refusal must not look like a success', () => {
+        const dim = makeLinearDim();
+        const execute = vi.fn(() => ({ success: false, affectedElementIds: [], error: 'Annotation not found' }));
+        showLinearDimension(host, { execute }, dim);
+
+        const delBtn = Array.from(hostEl.querySelectorAll('button'))
+            .find((b) => b.textContent?.includes('Delete Dimension')) as HTMLButtonElement;
+        delBtn.click();
+
+        expect(host.hide, 'the panel must NOT close on a refused delete').not.toHaveBeenCalled();
     });
 });
 
