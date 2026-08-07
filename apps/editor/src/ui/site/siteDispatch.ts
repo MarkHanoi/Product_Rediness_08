@@ -526,6 +526,8 @@ import { GeospatialAdapter } from '@pryzm/geospatial';
 import { fetchQualificationAtPoint } from './zoning/MucZoningProvider.js';
 import { catastroParcelProvider } from './parcel/CatastroParcelProvider.js';
 import { fetchBlockForParcel } from './parcel/CatastroBlockProvider.js';
+// §STARTUP-BUDGET (founder 2026-08-07, 5–10× startup) — passive phase marks; behaviour-free.
+import { markStartupPhase } from '../../engine/startupBudget';
 // §COR-MC-STREET-WIDTH (2026-08-04) — Córdoba MC's own analogue of the block-dissolve width
 // construction Barcelona already runs inline (§BCN-ALCADA-WIDTH); see the module header.
 import { resolveCordobaMcStreetWidth } from './parcel/resolveCordobaMcStreetWidth.js';
@@ -1276,6 +1278,40 @@ export function dispatchSiteLocation(
     ctx: SiteContext,
     location: { latitude: number; longitude: number; siteAddress?: string | null },
 ): boolean {
+    // §STARTUP-LOCATION-IDEMPOTENT (founder 2026-08-07, 5–10× startup) — A RECENTLY-DISPATCHED,
+    // UNCHANGED LOCATION EMITS NOTHING. The startup pipeline legitimately calls this from
+    // several places for the SAME picked point within one commit sequence (the §22 reveal's
+    // anchor step, `startDrawThenGenerate`'s re-anchor, the draw/select commit's
+    // ensure-location) — and every duplicate emit of `site.location-changed` used to cost a
+    // full downstream pass: a redundant camera fly plus a FORCED context re-render of thousands
+    // of entities in `CesiumViewport`'s subscriber (the founder's logged "site.location-changed
+    // → flying camera" ×2 with identical coordinates). Events notify CHANGES; a write that
+    // changes nothing is a successful no-op, not a broadcast.
+    //
+    // ⚠ TWO DELIBERATE LIMITS ON THE GUARD:
+    //   • EXACT equality (the duplicates are the same floats passed twice); a genuinely new
+    //     address label on the same coordinates still goes through.
+    //   • A RECENCY WINDOW: only a duplicate arriving within 30 s of the last accepted dispatch
+    //     is suppressed. A user who re-searches the same address minutes later, after panning
+    //     away, is asking the camera to come back — that is a real intent, not a pipeline echo.
+    const existingSite = ctx.store.getSite();
+    if (existingSite && _lastLocationDispatchAtMs !== null &&
+        Date.now() - _lastLocationDispatchAtMs < 30_000) {
+        const cur = existingSite.location;
+        const sameCoords =
+            cur.latitude === location.latitude && cur.longitude === location.longitude;
+        const sameAddress =
+            location.siteAddress == null || location.siteAddress === cur.siteAddress;
+        if (sameCoords && sameAddress) {
+            console.log(
+                '[gis] §STARTUP-LOCATION-IDEMPOTENT — site location unchanged ' +
+                    `(${location.latitude.toFixed(5)},${location.longitude.toFixed(5)}) within the ` +
+                    '30 s window; no re-emit, no re-fly, no context re-render.',
+            );
+            return true;
+        }
+    }
+
     const siteId = ensureSite(ctx, location);
     if (!siteId) return false;
 
@@ -1289,10 +1325,16 @@ export function dispatchSiteLocation(
     }
     // C19 §1.3 — rebase the LTP-ENU origin BEFORE emitting the event (guarded).
     setLtpOriginIfSafe(ctx, location.latitude, location.longitude);
+    _lastLocationDispatchAtMs = Date.now(); // §STARTUP-LOCATION-IDEMPOTENT — window anchor.
     console.log('[gis] site.location-changed', locRes.event);
     ctx.rt.events?.emit('site.location-changed', locRes.event);
     return true;
 }
+
+/** §STARTUP-LOCATION-IDEMPOTENT — when the last ACCEPTED location dispatch emitted, for the
+ *  30 s duplicate-suppression window above. Module-local like `_lastEnvelope`; a stale value
+ *  can only ever let a duplicate THROUGH (the pre-guard behaviour), never suppress a change. */
+let _lastLocationDispatchAtMs: number | null = null;
 
 /**
  * §L-384 — CLEAR the committed parcel boundary so the user can RE-DRAW (or re-select
@@ -1515,6 +1557,7 @@ export function dispatchParcelBoundary(
         return false;
     }
     console.log('[gis] site.parcel-boundary-set', boundaryRes.event, 'area(m²)=', boundaryRes.event.area);
+    markStartupPhase('parcel:committed'); // §STARTUP-BUDGET
 
     // C58 (L-398 + L-402b) + §ENVELOPE-VIA-MASSING (L-402d) — ORDERING FIX. Compute +
     // cache the buildable envelope BEFORE emitting `site.parcel-boundary-set`. The Forma
@@ -7397,7 +7440,7 @@ function bcnZoningStillCurrent(ctx: SiteContext, boundary: ZoningBoundary, tag: 
             'changed (Redraw / a different parcel selected+committed) while this real-envelope ' +
             'fetch chain was still in flight. Writing it now would overwrite the CURRENTLY active ' +
             "parcel's envelope with a DIFFERENT parcel's geometry — the \"purple volume sits on " +
-            'the neighbouring plot\" symptom. Not the 9acd599d origin-ordering bug: this is a race, ' +
+            'the neighbouring plot" symptom. Not the 9acd599d origin-ordering bug: this is a race, ' +
             'so it is intermittent and looks parcel-specific rather than universal.',
     );
     return false;
@@ -7430,10 +7473,37 @@ async function applyBcnZoningThenFallback(
         // parcel fetch is now made-then-discarded (a cheap wasted call, and such plots fall back to
         // estimated anyway); on the Eixample demo path — the one that matters — it saves a full
         // Catastro round-trip off the critical path.
-        const [qual, parcelFeat] = await Promise.all([
-            fetchQualificationAtPoint(lat, lon),
-            catastroParcelProvider.fetchParcelAtPoint(lon, lat),
-        ]);
+        const qualP = fetchQualificationAtPoint(lat, lon);
+        const parcelP = catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+        // §STARTUP-BLOCK-OVERLAP (founder 2026-08-07, 5–10× startup) — START THE BLOCK FETCH THE
+        // MOMENT THE REFCAT EXISTS, concurrent with the MUC qualification lookup still in flight.
+        // The manzana fetch was the measured worst single item on the post-commit path (founder
+        // log: `§BCN-ENVELOPE-TIMING block fetch 4626 ms`), and it used to start only after BOTH
+        // point lookups AND the disposition logic had finished — serial time the block does not
+        // need (its only input is the parcel's refcat + centroid). Chaining it off `parcelP`
+        // overlaps it with the qual round-trip, the same trade §L-516b already accepted one step
+        // earlier: on a clau that turns out to need no block (refusal / §L-591 parcel-only) the
+        // call is made-then-discarded — a cheap wasted proxy call on the paths that were cheap
+        // anyway, in exchange for starting the expensive path's longest fetch as early as the
+        // data dependency allows. `.catch(() => null)` because `fetchBlockForParcel` never
+        // throws by contract, but an unhandled rejection on a discarded branch must be
+        // structurally impossible.
+        const tParcelStart = performance.now();
+        const blockP = parcelP
+            .then((pf) => {
+                if (!pf?.refcat) return null;
+                const ring0 = Array.isArray(pf.ring) ? pf.ring : null;
+                const c =
+                    ring0 && ring0.length >= 3
+                        ? {
+                              lat: ring0.reduce((s: number, p: LatLon) => s + p.lat, 0) / ring0.length,
+                              lon: ring0.reduce((s: number, p: LatLon) => s + p.lon, 0) / ring0.length,
+                          }
+                        : undefined;
+                return fetchBlockForParcel(pf.refcat, undefined, c);
+            })
+            .catch(() => null);
+        const [qual, parcelFeat] = await Promise.all([qualP, parcelP]);
         // §STALE-ASYNC-ZONING — the first (and most common) resume point: bail before touching
         // the store at all if a different parcel is now committed.
         if (!bcnZoningStillCurrent(ctx, boundary, TAG)) return;
@@ -7752,22 +7822,17 @@ async function applyBcnZoningThenFallback(
             return;
         }
 
-        // (d) The block (manzana) this parcel belongs to.
-        // §BLOCK-CENTROID-REUSE (L-533) — hand the proxy the centroid we ALREADY have from the
-        // parcel fetch above, so it can skip its own `GetParcel` round-trip to the same slow WFS.
-        const pRing = Array.isArray(parcelFeat?.ring) ? parcelFeat.ring : null;
-        const centroid =
-            pRing && pRing.length >= 3
-                ? {
-                      lat: pRing.reduce((s: number, p: LatLon) => s + p.lat, 0) / pRing.length,
-                      lon: pRing.reduce((s: number, p: LatLon) => s + p.lon, 0) / pRing.length,
-                  }
-                : undefined;
+        // (d) The block (manzana) this parcel belongs to — ALREADY IN FLIGHT since the parcel
+        // fetch resolved (§STARTUP-BLOCK-OVERLAP above; §BLOCK-CENTROID-REUSE centroid is passed
+        // inside the chain). This await only pays whatever the overlap did not cover.
         const tBlock = performance.now();
-        const block = await fetchBlockForParcel(refcat, undefined, centroid);
+        const block = await blockP;
         console.log(
-            `${TAG} §BCN-ENVELOPE-TIMING block fetch ${(performance.now() - tBlock).toFixed(0)} ms ` +
-                `(centroid ${centroid ? 'reused — GetParcel skipped' : 'unavailable'}).`,
+            `${TAG} §BCN-ENVELOPE-TIMING block fetch — residual await ` +
+                `${(performance.now() - tBlock).toFixed(0)} ms ` +
+                `(total since parcel-fetch start ${(performance.now() - tParcelStart).toFixed(0)} ms; ` +
+                `§STARTUP-BLOCK-OVERLAP: started at refcat-resolve, overlapped with the MUC lookup ` +
+                `+ disposition).`,
         );
         if (!block || block.parcels.length < 3) {
             console.log(
@@ -8435,6 +8500,7 @@ function dispatchEnvelope(
     envelope: BuildableEnvelope,
     jurisdictionRef: string,
 ): void {
+    markStartupPhase(`envelope:dispatched(${envelope.status})`); // §STARTUP-BUDGET
     _lastEnvelope = envelope;
     noteSiteDispatchOwner(); // §L-676 — record WHICH project this envelope belongs to.
     // §NEARBY-HEIGHT-SUGGESTION — every NORMAL dispatch (this function) is, by construction, a
