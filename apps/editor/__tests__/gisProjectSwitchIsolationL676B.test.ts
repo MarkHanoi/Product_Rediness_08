@@ -56,6 +56,7 @@ import {
 } from '@pryzm/core-app-model';
 import {
     runSiteProjectTeardown,
+    classifyMissingProjectScopes,
     GIS_SWITCH_SCOPES,
     _resetSiteProjectScopeForTest,
 } from '../src/ui/site/siteProjectScope';
@@ -244,9 +245,13 @@ describe('§L-676-B — GISAreaLayout is a NAMED OWNER (it had NO lifecycle wiri
     it('clears lastGeocodeFrame — the ONLY surviving source of the founder’s stale lat/lon', () => {
         const clear = src.slice(
             src.indexOf('const clearLayoutProjectState = (): void => {'),
-            src.indexOf('projectScopeRegistry.register({'),
+            // L-712: the registration moved to MODULE scope at the TOP of the file, so
+            // 'projectScopeRegistry.register({' now PRECEDES this body and the old bound
+            // silently yielded an empty slice. Bound on the delegate assignment, which is
+            // what follows the clear body now.
+            src.indexOf('_gisLayoutDelegate = {'),
         );
-        expect(clear.length).toBeGreaterThan(200);
+        expect(clear.length).toBeGreaterThan(200); // the slice is real, not empty
         expect(clear).toContain('lastGeocodeFrame = null');
         expect(clear).toContain('isBimPlacedOnEarth = false');
         expect(clear).toContain('globeRealPlaced = false');
@@ -265,8 +270,13 @@ describe('§L-676-B — GISAreaLayout is a NAMED OWNER (it had NO lifecycle wiri
     it('each teardown step inside the layout clear is independently guarded', () => {
         const clear = src.slice(
             src.indexOf('const clearLayoutProjectState = (): void => {'),
-            src.indexOf('projectScopeRegistry.register({'),
+            // L-712: the registration moved to MODULE scope at the TOP of the file, so
+            // 'projectScopeRegistry.register({' now PRECEDES this body and the old bound
+            // silently yielded an empty slice. Bound on the delegate assignment, which is
+            // what follows the clear body now.
+            src.indexOf('_gisLayoutDelegate = {'),
         );
+        expect(clear.length).toBeGreaterThan(200); // the slice is real, not empty
         expect(clear).toContain('try { closeBoundaryMap2D(); }');
         expect(clear).toContain('try { boundaryTool?.cancel(); }');
     });
@@ -355,22 +365,52 @@ describe('§L-676-B — a throwing teardown step cannot abort the rest, and cann
         expect(said).toContain('site.dispatch');
     });
 
-    it('ADR-0298 §2 — a DECLARED owner that never registered demotes the verdict; ' +
-       '"complete" MUST NOT print alongside an unreachable owner', () => {
+    it('L-712 — a MODULE-SCOPE owner that never loaded is PROVABLY empty: complete, and said so', () => {
         // The founder's 096e12b4 log, reproduced: gis.areaLayout registered,
-        // gis.cesiumViewport never constructed. The predecessor warned about the
-        // missing owner and then logged "teardown complete" three lines later.
+        // gis.cesiumViewport absent because no globe was ever opened this session.
+        //
+        // Under declaration v1 that printed `teardown INCOMPLETE` on EVERY project
+        // switch — correct at the time (constructor registration made the absence
+        // unprovable) but permanently red, which is uninformative in the same way a
+        // permanently green verdict is. v2 registers the viewport owner at module
+        // scope, so absence now means "the module was never imported", which holds
+        // nothing. The verdict is complete AND the absence is still counted out loud.
         projectScopeRegistry.register({ scopeName: 'gis.areaLayout', clear: () => { /* no-op */ } });
 
         const report = runSiteProjectTeardown('project-switch', null);
 
-        expect(report.failures).toHaveLength(0);          // nothing THREW …
-        expect(report.missing).toEqual(['gis.cesiumViewport']); // … but one owner was unreachable.
+        expect(report.failures).toHaveLength(0);
+        expect(report.missing).toEqual(['gis.cesiumViewport']);   // still REPORTED …
+        expect(report.unprovenMissing).toEqual([]);               // … but not a failure.
         const said = logSpy.mock.calls.map(c => String(c[0])).join('\n');
-        expect(said).not.toContain('teardown complete');
-        const errors = errSpy.mock.calls.map(c => String(c[0])).join('\n');
-        expect(errors).toContain('teardown INCOMPLETE');
-        expect(errors).toContain('gis.cesiumViewport');
+        expect(said).toContain('teardown complete');
+        // An exclusion you cannot count is a check you deleted — so it is named.
+        expect(said).toContain('provably empty');
+        expect(said).toContain('gis.cesiumViewport');
+    });
+
+    it('L-712 — an UNPROVEN absence still demotes the verdict, and an UNDECLARED name counts as unproven', () => {
+        // The guarantee the test above must not be allowed to erase. Driven through
+        // the classifier directly because no declared scope is instance-scope any
+        // more — which is the point, but would otherwise leave this untestable.
+        const { unproven, provenAbsent } = classifyMissingProjectScopes([
+            'gis.cesiumViewport',    // declared module-scope  → proven absent
+            'gis.areaLayout',        // declared module-scope  → proven absent
+            'some.newSubsystem',     // NOT DECLARED AT ALL    → unproven (safe default)
+        ]);
+        expect([...provenAbsent]).toEqual(['gis.cesiumViewport', 'gis.areaLayout']);
+        expect([...unproven]).toEqual(['some.newSubsystem']);
+    });
+
+    it('L-712 — every declared owner reachable ⇒ complete with no absence note at all', () => {
+        for (const scopeName of GIS_SWITCH_SCOPES) {
+            projectScopeRegistry.register({ scopeName, clear: () => { /* no-op */ } });
+        }
+        const report = runSiteProjectTeardown('project-switch', null);
+        expect(report.missing).toEqual([]);
+        const said = logSpy.mock.calls.map(c => String(c[0])).join('\n');
+        expect(said).toContain('teardown complete');
+        expect(said).not.toContain('provably empty');
     });
 });
 

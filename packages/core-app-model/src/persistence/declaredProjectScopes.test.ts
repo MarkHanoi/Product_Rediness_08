@@ -12,6 +12,17 @@ import {
     DECLARED_SCOPES_REQUIRING_PRESENCE,
     LOAD_DERIVED_ELEMENT_TYPES,
 } from './declaredProjectScopes';
+
+// The DETECTOR behaviour is pinned against an explicit list, not against the live
+// declaration. L-712 emptied `DECLARED_SCOPES_REQUIRING_PRESENCE` (every owner now
+// registers on import, so no absence is unprovable) — and a test that read the live
+// constant would have gone VACUOUSLY GREEN at that moment while still claiming to
+// prove the mechanism. The declaration's own current state is asserted separately,
+// below, where changing it is supposed to change the test.
+const DECLARED_FOR_DETECTOR = [
+    'site.model', 'site.dispatch', 'site.neighbourFootprints',
+    'gis.cesiumViewport', 'gis.areaLayout',
+] as const;
 import { detectLeaks } from './ProjectIsolationAudit';
 
 const PROJECT_B = 'proj-1786046957876-bafedec3560a'; // the founder's 096e12b4 project
@@ -42,7 +53,7 @@ describe('ADR-0298 §2 — a DECLARED owner that did not register is a FINDING, 
     });
 
     it('with the DECLARED population it raises scope.probeMissing and names the owner', () => {
-        const report = detectLeaks({ ...world, declaredScopes: DECLARED_SCOPES_REQUIRING_PRESENCE });
+        const report = detectLeaks({ ...world, declaredScopes: DECLARED_FOR_DETECTOR });
         expect(report).not.toBeNull();
         const finding = report!.findings.find(f => f.surface === 'scope.probeMissing');
         expect(finding).toBeDefined();
@@ -51,11 +62,11 @@ describe('ADR-0298 §2 — a DECLARED owner that did not register is a FINDING, 
     });
 
     it('is exactly as loud as a registered probe reporting foreign state (same report, same channel)', () => {
-        const missing = detectLeaks({ ...world, declaredScopes: DECLARED_SCOPES_REQUIRING_PRESENCE })!;
+        const missing = detectLeaks({ ...world, declaredScopes: DECLARED_FOR_DETECTOR })!;
         const foreign = detectLeaks({
             ...world,
             scopeProbes: [...world.scopeProbes, { scope: 'gis.cesiumViewport', owningProjectId: 'proj-A' }],
-            declaredScopes: DECLARED_SCOPES_REQUIRING_PRESENCE,
+            declaredScopes: DECLARED_FOR_DETECTOR,
         })!;
         expect(missing.findings.length).toBeGreaterThan(0);
         expect(foreign.findings.length).toBeGreaterThan(0);
@@ -66,7 +77,7 @@ describe('ADR-0298 §2 — a DECLARED owner that did not register is a FINDING, 
         const report = detectLeaks({
             ...world,
             scopeProbes: DECLARED_PROJECT_SCOPE_NAMES.map(scope => ({ scope, owningProjectId: null })),
-            declaredScopes: DECLARED_SCOPES_REQUIRING_PRESENCE,
+            declaredScopes: DECLARED_FOR_DETECTOR,
         });
         expect(report).toBeNull();
     });
@@ -75,7 +86,7 @@ describe('ADR-0298 §2 — a DECLARED owner that did not register is a FINDING, 
         const report = detectLeaks({
             ...world,
             scopeProbes: DECLARED_PROJECT_SCOPE_NAMES.map(scope => ({ scope, owningProjectId: PROJECT_B })),
-            declaredScopes: DECLARED_SCOPES_REQUIRING_PRESENCE,
+            declaredScopes: DECLARED_FOR_DETECTOR,
         });
         expect(report).toBeNull();
     });
@@ -122,6 +133,36 @@ describe('ADR-0298 open question, DECIDED — the declaration carries WHAT each 
 
     it('scope names are unique — one name, one owner (C13 §3.10)', () => {
         expect(new Set(DECLARED_PROJECT_SCOPE_NAMES).size).toBe(DECLARED_PROJECT_SCOPE_NAMES.length);
+    });
+});
+
+describe('L-712 — every declared owner registers on import, so absence is PROVABLE', () => {
+    it('no declared owner is instance-scope, and the runtime presence set is therefore empty', () => {
+        // This is the assertion that must CHANGE if someone reintroduces constructor
+        // registration. It is not a restatement of the constant: it says *why* the
+        // constant is empty. `DECLARED_SCOPES_REQUIRING_PRESENCE` feeds the runtime
+        // `scope.probeMissing` check, which exists to catch UNPROVABLE absence. With
+        // every owner registering as an import side effect there is none to catch —
+        // the invariant moved to gate D6, which checks the registration really is at
+        // module scope rather than believing the declaration.
+        const instanceScoped = DECLARED_PROJECT_SCOPES.filter(d => d.presence === 'instance-scope');
+        expect(instanceScoped.map(d => d.scope)).toEqual([]);
+        expect([...DECLARED_SCOPES_REQUIRING_PRESENCE]).toEqual([]);
+    });
+
+    it('an instance-scope owner would immediately re-arm the runtime check', () => {
+        // Guards against the empty set being mistaken for "the check is gone".
+        const withDebt = [...DECLARED_PROJECT_SCOPES, {
+            scope: 'test.instanceScoped', module: 'x.ts', why: 'w',
+            presence: 'instance-scope' as const, resets: ['a'], counts: ['a'], uncounted: {},
+        }];
+        const requiring = withDebt.filter(d => d.presence === 'instance-scope').map(d => d.scope);
+        expect(requiring).toEqual(['test.instanceScoped']);
+    });
+
+    it('gis.cesiumViewport is module-scope — the founder saw this one on EVERY switch', () => {
+        const cesium = DECLARED_PROJECT_SCOPES.find(d => d.scope === 'gis.cesiumViewport')!;
+        expect(cesium.presence).toBe('module-scope');
     });
 });
 

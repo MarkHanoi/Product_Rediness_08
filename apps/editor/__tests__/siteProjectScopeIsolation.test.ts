@@ -114,17 +114,37 @@ beforeEach(() => {
 });
 
 describe('§L-676 — the GIS/site half of a project switch has a NAMED OWNER (C13 §3.10)', () => {
-    it('registers site.model / site.dispatch / site.neighbourFootprints as project scopes', () => {
+    it('L-712 — the three site scopes are registered ON IMPORT, before install is ever called', () => {
+        // ⚠ THE PREMISE OF THIS TEST INVERTED, DELIBERATELY. It used to assert
+        // `before === false` — "pre-install there was no such owner at all" — which was
+        // true and was the DEFECT: registration lived inside `installSiteProjectScope`,
+        // called once from `initScene.ts` inside a try. If that call never ran, the three
+        // owners were simply absent, and absence was indistinguishable from clean.
+        //
+        // ADR-0298 §2 (amended): the owner of project-scoped state is the MODULE. These
+        // now register as an import side effect, so merely having imported this module —
+        // which this test file has, at the top — means they are present. That is what
+        // licenses `presence: 'module-scope'` and what lets the runtime audit treat a
+        // missing owner as provably clean rather than as a violation.
+        expect(projectScopeRegistry.has(SITE_MODEL_SCOPE)).toBe(true);
+        expect(projectScopeRegistry.has(SITE_DISPATCH_SCOPE)).toBe(true);
+        expect(projectScopeRegistry.has(SITE_NEIGHBOURS_SCOPE)).toBe(true);
+    });
+
+    it('install is idempotent over the module-scope registration and does not create a second owner', () => {
         const { runtime } = makeFakeRuntime('proj-A');
-        const before = projectScopeRegistry.has(SITE_MODEL_SCOPE);
 
         installSiteProjectScope(runtime as never, (runtime.events as unknown as FakeBus));
 
         expect(projectScopeRegistry.has(SITE_MODEL_SCOPE)).toBe(true);
         expect(projectScopeRegistry.has(SITE_DISPATCH_SCOPE)).toBe(true);
         expect(projectScopeRegistry.has(SITE_NEIGHBOURS_SCOPE)).toBe(true);
-        // Sanity on the premise: pre-install there was no such owner at all.
-        expect(before).toBe(false);
+        // One name, one owner (C13 §3.10): re-registration replaces by key, so the
+        // registry must still hold exactly one entry per site scope.
+        const names = projectScopeRegistry.list().map(s => s.scopeName);
+        for (const scope of [SITE_MODEL_SCOPE, SITE_DISPATCH_SCOPE, SITE_NEIGHBOURS_SCOPE]) {
+            expect(names.filter(n => n === scope)).toHaveLength(1);
+        }
     });
 
     it('every declared site scope exposes a synchronous, non-throwing clear() (ProjectScopedStore contract)', () => {

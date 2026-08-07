@@ -28,6 +28,41 @@ import {
 
 /** §L-676-B — scope name + audit-probe key for this file's per-project closure state. */
 const GIS_LAYOUT_SCOPE = 'gis.areaLayout';
+
+// ── ADR-0298 §2 (amended) — MODULE-SCOPE PRESENCE via a delegate ─────────────
+//
+// The C13 owner + audit probe used to be registered as the LAST statement of
+// `mountGISArea()` — a ~4500-line function. Any earlier `return` or throw skipped
+// the registration while the closure state (`lastGeocodeFrame`, the placement
+// caches) stayed live and kept driving the returned callbacks. Absence therefore
+// meant either "the GIS area was never mounted" (clean) or "it was mounted and
+// registration was skipped" (the L-694a leak, unowned again) — the same value.
+//
+// The owner of this state is the MODULE. It registers once, HERE, at import time,
+// and delegates to whatever `mountGISArea` most recently installed. A `null`
+// delegate is an EARNED "I hold nothing": the module is loaded, it was asked, and no
+// layout has been mounted. Hoisting the closure state itself out of `mountGISArea`
+// would be the deeper fix and is a much larger change to a live file; the delegate
+// gets the PRESENCE guarantee without touching a line of the layout's behaviour.
+interface GisLayoutScopeDelegate {
+    clear(): void;
+    owningProjectId(): string | null;
+    describe(): Record<string, unknown>;
+}
+let _gisLayoutDelegate: GisLayoutScopeDelegate | null = null;
+
+projectScopeRegistry.register({
+    scopeName: GIS_LAYOUT_SCOPE,
+    // No delegate ⇒ no mounted layout ⇒ nothing to clear. Not an error.
+    clear: () => { _gisLayoutDelegate?.clear(); },
+});
+registerProjectScopeProbe({
+    scope: GIS_LAYOUT_SCOPE,
+    owningProjectId: () => _gisLayoutDelegate?.owningProjectId() ?? null,
+    describe: () => (
+        _gisLayoutDelegate?.describe() ?? { mounted: false }
+    ),
+});
 // §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — the SINGLE origin authority shared by the parcel-ring
 // projection (`getSiteOrigin`) and the 3D-Site render frame (`getFormaOrigin`), so the ring and the
 // ENU frame are always built about ONE origin (closes the residual translation shift).
@@ -4661,15 +4696,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         console.log('[gis] §L-676-B GIS layout project scope cleared (geocode frame + placement caches dropped).');
     };
 
-    projectScopeRegistry.register({
-        scopeName: GIS_LAYOUT_SCOPE,
+    // ADR-0298 §2 — hand this mount's closure state to the MODULE-SCOPE owner + probe
+    // registered at the top of this file. Registration itself no longer happens here,
+    // so it can no longer be skipped by an early return: the module registered at
+    // import time, and what changes here is only WHICH closure it speaks for.
+    //
+    // A second `mountGISArea` replaces the delegate, exactly as the second
+    // `register()` used to replace the first — but now the replacement is visible as a
+    // single assignment rather than buried in registry key semantics.
+    _gisLayoutDelegate = {
         clear: clearLayoutProjectState,
-    });
-    registerProjectScopeProbe({
-        scope: GIS_LAYOUT_SCOPE,
         owningProjectId: () => (layoutHoldsProjectState() ? _layoutOwningProjectId : null),
         describe: describeLayoutProjectState,
-    });
+    };
 
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }

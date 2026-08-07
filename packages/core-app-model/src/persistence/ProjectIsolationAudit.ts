@@ -66,6 +66,7 @@
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import {
+    DECLARED_PROJECT_SCOPE_NAMES,
     DECLARED_PROJECT_SCOPE_SET_VERSION,
     DECLARED_SCOPES_REQUIRING_PRESENCE,
 } from './declaredProjectScopes';
@@ -502,12 +503,20 @@ export function installProjectIsolationAudit(): void {
                 // dirty". Name the declaration it was checked against, and its version,
                 // so a log line from the field can be tied to the list in force.
                 const scopes = listProjectScopeProbes();
+                // L-712 — report ANSWERED / DECLARED, not a tautological N/N. Since every
+                // declared owner now registers on import, a declared owner that did not
+                // answer means its module was never loaded — which is a fact about
+                // coverage worth printing, even though it is not a violation.
+                const answered = DECLARED_PROJECT_SCOPE_NAMES.filter(s => scopes.includes(s));
+                const notLoaded = DECLARED_PROJECT_SCOPE_NAMES.filter(s => !scopes.includes(s));
                 console.log(
                     `[ProjectIsolationAudit] ✓ project ${projectId} loaded clean — ` +
-                    `${AUDITED_STORE_GLOBALS.length} stores + scene + all ` +
-                    `${DECLARED_SCOPES_REQUIRING_PRESENCE.length} DECLARED scope probe(s) answered ` +
-                    `(declaration v${DECLARED_PROJECT_SCOPE_SET_VERSION})` +
-                    (scopes.length > 0 ? ` [${scopes.join(', ')}]` : ''),
+                    `${AUDITED_STORE_GLOBALS.length} stores + scene + ` +
+                    `${answered.length}/${DECLARED_PROJECT_SCOPE_NAMES.length} DECLARED scope probe(s) ` +
+                    `answered (declaration v${DECLARED_PROJECT_SCOPE_SET_VERSION}) [${answered.join(', ') || 'none'}]` +
+                    (notLoaded.length > 0
+                        ? ` — ${notLoaded.length} module(s) not loaded, provably empty: [${notLoaded.join(', ')}]`
+                        : ''),
                 );
                 return;
             }

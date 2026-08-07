@@ -710,6 +710,85 @@ const GIS_CESIUM_SCOPE = 'gis.cesiumViewport';
 /** §L-676 — P8: the teardown emits a span so an isolation failure has an audit trail. */
 const _cesiumScopeTracer = trace.getTracer('pryzm.gis.projectScope');
 
+// ── ADR-0298 §2 (amended) — MODULE-SCOPE PRESENCE ────────────────────────────
+//
+// WHAT CHANGED AND WHY. The C13 owner + audit probe used to be registered in the
+// CONSTRUCTOR. `GISAreaLayout` builds this viewport lazily (`await import(...)` at
+// `GISAreaLayout.ts:408`, only when the user first opens the globe), so in a session
+// where the globe was never opened NOTHING registered — and the isolation machinery
+// could not tell that from "the viewport exists but its registration was skipped".
+// Those are the same value, and this family has produced four bugs out of failing to
+// distinguish them. The founder saw the consequence on every project switch:
+//
+//   [siteProjectScope] … teardown INCOMPLETE — 1 DECLARED owner(s) UNREACHABLE
+//     [gis.cesiumViewport]
+//
+// …on a teardown that was in fact perfectly clean, because there was no viewport.
+//
+// THE FIX IS A CHANGE OF SUBJECT, NOT A SUPPRESSION. The owner of this state is the
+// MODULE, not an instance. A module can always answer: it knows how many live
+// viewports it has made, including zero. So the registration moves here, to module
+// scope, and folds over `_liveCesiumViewports`. Absence now means exactly one thing —
+// "this module was never imported" — and a module that was never imported provably
+// holds nothing. That is why `presence: 'module-scope'` in `declaredProjectScopes.ts`
+// removes this scope from `DECLARED_SCOPES_REQUIRING_PRESENCE`: the absence became
+// PROVABLE, so it stopped being a violation. Nothing was excused.
+//
+// Registering at import time (rather than on first construction) is the whole point:
+// if this module is in the heap it HAS registered, unconditionally, before any
+// viewport exists.
+
+/**
+ * Every live `CesiumViewport` this module has constructed and not yet disposed.
+ *
+ * Insertion is the LAST statement of the constructor and removal is the LAST
+ * statement of `dispose()`, so a viewport is visible to the isolation audit for
+ * exactly as long as it can hold project state — including while it is being torn
+ * down, which is when a partial teardown must still be reportable.
+ */
+const _liveCesiumViewports = new Set<CesiumViewport>();
+
+// The C13 registry owner: `ClearProjectCommand.clearAll()` and the §3.7
+// `pryzm-project-switch` teardown both reach the viewport through this.
+projectScopeRegistry.register({
+    scopeName: GIS_CESIUM_SCOPE,
+    clear: () => {
+        // Per-viewport failure isolation: one viewport mid-recreate must not stop the
+        // others being reset. But a partial clear MUST NOT return as success — the
+        // registry's caller reports a throw as a named failure, and a named failure is
+        // what stops `runSiteProjectTeardown` claiming completion (§L-676-B).
+        const failures: string[] = [];
+        for (const v of [..._liveCesiumViewports]) {
+            try { v.resetProjectScopedState('project-switch'); }
+            catch (e) { failures.push(e instanceof Error ? e.message : String(e)); }
+        }
+        if (failures.length > 0) {
+            throw new Error(
+                `${failures.length}/${_liveCesiumViewports.size} Cesium viewport reset(s) failed: ${failures.join('; ')}`,
+            );
+        }
+    },
+});
+
+// The isolation-audit probe. `null` from an empty set is an EARNED answer: the
+// module is loaded, it was asked, and it has made no viewport (or none holds state).
+registerProjectScopeProbe({
+    scope: GIS_CESIUM_SCOPE,
+    owningProjectId: () => {
+        for (const v of _liveCesiumViewports) {
+            const owner = v.getOwningProjectId();
+            if (owner != null) return owner;
+        }
+        return null;
+    },
+    describe: () => ({
+        // Report the population as well as the state. "0 viewports" and "1 viewport
+        // holding nothing" are different facts and a leak report needs both.
+        liveViewports: _liveCesiumViewports.size,
+        viewports: [..._liveCesiumViewports].map(v => v.describeProjectScopedState()),
+    }),
+});
+
 export class CesiumViewport {
   private container: HTMLDivElement;
   private viewer: Cesium.Viewer | null = null;
@@ -1400,38 +1479,19 @@ export class CesiumViewport {
     this.container.style.display = "none";
     this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
 
-    // §L-676 (C13 §3.10) — REGISTER AS A NAMED OWNER OF PROJECT-SCOPED STATE.
+    // §L-676 (C13 §3.10) / ADR-0298 §2 — JOIN THE MODULE'S LIVE-VIEWPORT SET.
     //
-    // `GISAreaLayout` builds one viewport per tab and never disposes it on a
-    // project switch, so registration happens HERE, at the owner, rather than at
-    // the (project-lifecycle-unaware) call site. Two registrations, deliberately:
+    // The C13 registry owner and the audit probe are registered ONCE, at MODULE
+    // scope (see the block above `class CesiumViewport`), and fold over this set.
+    // They are deliberately NOT registered here: a constructor cannot register on
+    // behalf of a viewport that was never built, so constructor registration made
+    // "no globe this session" and "registration skipped" indistinguishable — the
+    // exact ambiguity that printed `teardown INCOMPLETE` on a clean switch.
     //
-    //   • `projectScopeRegistry` — makes `ClearProjectCommand.clearAll()` tear this
-    //     viewport down at the start of EVERY project load (C13 §5.4 chokepoint).
-    //   • `registerProjectScopeProbe` — gives `ProjectIsolationAudit` eyes on the
-    //     GIS half, so a surviving massing FAILS the audit instead of sailing past
-    //     it as "✓ loaded clean".
-    //
-    // Both are idempotent by key, so an HMR re-construct replaces rather than
-    // duplicates. The disposers are dropped on `dispose()` below.
-    this.projectScopeDisposers.push(
-      (() => {
-        projectScopeRegistry.register({
-          scopeName: GIS_CESIUM_SCOPE,
-          clear: () => this.resetProjectScopedState('project-switch'),
-        });
-        return () => { /* registry has no unregister; replacement is by scopeName */ };
-      })(),
-      registerProjectScopeProbe({
-        scope: GIS_CESIUM_SCOPE,
-        owningProjectId: () => this.getOwningProjectId(),
-        describe: () => this.describeProjectScopedState(),
-      }),
-    );
+    // This is the LAST statement of the constructor: a viewport that threw part-way
+    // through construction is not a viewport, and must not be handed to the audit.
+    _liveCesiumViewports.add(this);
   }
-
-  /** §L-676 — disposers for the C13 scope registrations made in the constructor. */
-  private readonly projectScopeDisposers: Array<() => void> = [];
 
   /**
    * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — resolves once the async GROUND CLAMP for
@@ -13019,11 +13079,13 @@ export class CesiumViewport {
       this.container.parentElement.removeChild(this.container);
     }
 
-    // §L-676 — drop the C13 scope registrations LAST, so a teardown that throws
-    // earlier still leaves the audit able to see this viewport.
-    for (const off of this.projectScopeDisposers.splice(0)) {
-      try { off(); } catch { /* ignore */ }
-    }
+    // §L-676 / ADR-0298 — leave the module's live set LAST, so a dispose that threw
+    // earlier still leaves the audit able to see this viewport. The module-scope
+    // owner and probe are NOT unregistered: they belong to the module, which is
+    // still loaded, and must keep answering (with an empty set) after the last
+    // viewport goes. An owner that deregisters itself on the way out reintroduces
+    // exactly the unprovable absence this migration removed.
+    _liveCesiumViewports.delete(this);
   }
 
   public getViewer(): Cesium.Viewer | null {

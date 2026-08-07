@@ -65,6 +65,12 @@ interface DebtBaseline {
      * risk is and what closes it. May only shrink.
      */
     readonly undeclaredStateCandidates: Readonly<Record<string, string>>;
+    /**
+     * D7 — scope names registered from more than one module, mapped to the decision
+     * that closes them. The registry replaces by name silently, so each entry is a
+     * store whose clear() is not reached. May only shrink.
+     */
+    readonly duplicateScopeNames?: Readonly<Record<string, string>>;
 }
 
 const failures: string[] = [];
@@ -78,6 +84,40 @@ function read(rel: string): string | null {
 /** Strip block + line comments so a doc-comment MENTION never satisfies a check. */
 function code(src: string): string {
     return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+}
+
+/**
+ * D6 helper (L-712) — is `callText` REACHED AS AN IMPORT SIDE EFFECT of this module?
+ *
+ * Two accepted shapes, both genuinely unconditional on import:
+ *   1. the call itself at column 0 (`registerProjectScopeProbe({...})`), or
+ *   2. a column-0 invocation of a module-local function whose body contains it
+ *      (`registerSiteProjectScopeOwners();`) — the shape a module uses when it needs
+ *      to be able to re-register after a test harness empties the registry.
+ *
+ * Anything nested deeper (a constructor, a mount function, a callback) is NOT reached
+ * on import and must not claim `module-scope`. This is a source-text check by design:
+ * the alternative is trusting a comment, and the whole point of ADR-0298 is that the
+ * declaration is verified against an independent artefact rather than believed.
+ */
+function reachedOnImport(body: string, callText: string): boolean {
+    const esc = callText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`^${esc}`, 'm').test(body)) return true;
+
+    // Column-0 bare invocations: `foo();`
+    for (const m of body.matchAll(/^([A-Za-z_$][\w$]*)\(\);/gm)) {
+        const fnName = m[1];
+        const declRe = new RegExp(`^(?:export\\s+)?function\\s+${fnName}\\s*\\(`, 'm');
+        const decl = declRe.exec(body);
+        if (!decl) continue;
+        // Body runs to the next column-0 `}` — sufficient for the top-level function
+        // declarations this check targets.
+        const from = decl.index;
+        const endRel = body.slice(from).search(/^\}/m);
+        const fnBody = endRel === -1 ? body.slice(from) : body.slice(from, from + endRel);
+        if (fnBody.includes(callText)) return true;
+    }
+    return false;
 }
 
 const debt: DebtBaseline = JSON.parse(readFileSync(DEBT_FILE, 'utf8')) as DebtBaseline;
@@ -154,6 +194,35 @@ for (const d of DECLARED_PROJECT_SCOPES as readonly DeclaredProjectScope[]) {
         }
     }
 
+    // D6 — MODULE-SCOPE MEANS MODULE SCOPE (L-712). `presence: 'module-scope'` is what
+    // licenses the runtime audit to treat this owner's absence as PROVEN clean ("the
+    // module was never imported"). That licence is only sound if the registration is a
+    // genuine import side effect, so it is checked, not trusted: the call must sit at
+    // column 0, not nested inside a constructor or a mount function.
+    //
+    // This check REPLACES the runtime presence check for these owners — it is the whole
+    // reason DECLARED_SCOPES_REQUIRING_PRESENCE can be empty without weakening anything.
+    if (d.presence === 'module-scope') {
+        if (!reachedOnImport(body, 'registerProjectScopeProbe(')) {
+            failures.push(
+                `D6 ${d.scope}: declared 'module-scope' but ${d.module} does not call ` +
+                `registerProjectScopeProbe( on import. A registration nested inside a ` +
+                `constructor or a mount function can be skipped by an early return, which ` +
+                `makes its absence UNPROVABLE — and the runtime audit has been told to trust ` +
+                `that absence. Either register at module scope, or declare 'instance-scope' ` +
+                `and baseline it as debt.`,
+            );
+        }
+        if (!reachedOnImport(body, 'projectScopeRegistry.register(')) {
+            failures.push(
+                `D6 ${d.scope}: declared 'module-scope' but ${d.module} does not call ` +
+                `projectScopeRegistry.register( on import. The teardown owner and the audit ` +
+                `probe must carry the SAME presence guarantee — an owner that is sometimes ` +
+                `registered is a teardown that sometimes runs.`,
+            );
+        }
+    }
+
     // D5 — instance-scope presence must be baselined debt.
     if (d.presence === 'instance-scope' && !(d.scope in debt.instanceScopePresence)) {
         failures.push(
@@ -218,6 +287,60 @@ for (const m of declaredModules) {
     if (!probeSites.includes(m)) {
         // Already reported by D1 with a better message unless the file is missing.
         if (read(m) !== null) notes.push(`(D2) declared module ${m} not seen by the sweep`);
+    }
+}
+
+// ── D7 — ONE NAME, ONE OWNER (C13 §3.10) ────────────────────────────────────
+//
+// `ProjectScopeRegistry` is a Map keyed by `scopeName`, and `register()` REPLACES an
+// existing entry silently (the branch is there for HMR). So two modules that register
+// the same name are not two owners — they are one owner and one store whose `clear()`
+// is never invoked by `ClearProjectCommand.clearAll()`, chosen by module-evaluation
+// order. Nothing warns.
+//
+// Four such pairs exist today (`doorStore`, `doorSystemTypeStore`, `windowStore`,
+// `windowSystemTypeStore`, each registered from BOTH `core-app-model` and
+// `geometry-door`/`geometry-window`). They are currently harmless ONLY BY ACCIDENT:
+// the geometry copies happen to evaluate last and are the live ones. Reordering a
+// barrel export, or a bundler decision, flips the winner — and then `clearAll()`
+// clears an empty stale fork while real doors and windows survive a project switch.
+// That is the confidentiality bug the registry was written to prevent.
+//
+// This gate cannot decide whether to delete the forks or namespace the scopes — that
+// is a package-API decision. What it CAN do is make the set closed: the four known
+// pairs are baselined, and a fifth fails CI.
+const scopeNameSites = new Map<string, Set<string>>();
+const SCOPE_NAME_RE = /scopeName:\s*['"]([a-zA-Z][\w.]*)['"]/g;
+for (const r of SCAN_ROOTS) {
+    walk(path.join(ROOT, r), (abs) => {
+        const rel = path.relative(ROOT, abs).split(path.sep).join('/');
+        const body = code(readFileSync(abs, 'utf8'));
+        SCOPE_NAME_RE.lastIndex = 0;
+        for (const m of body.matchAll(SCOPE_NAME_RE)) {
+            const set = scopeNameSites.get(m[1]) ?? new Set<string>();
+            set.add(rel);
+            scopeNameSites.set(m[1], set);
+        }
+    });
+}
+const duplicateNames: Record<string, string[]> = {};
+for (const [name, files] of scopeNameSites) {
+    if (files.size > 1) duplicateNames[name] = [...files].sort();
+}
+const baselinedDupes = new Set(Object.keys(debt.duplicateScopeNames ?? {}));
+for (const [name, files] of Object.entries(duplicateNames)) {
+    if (baselinedDupes.has(name)) continue;
+    failures.push(
+        `D7 duplicate scopeName "${name}" registered from ${files.length} modules:\n` +
+        files.map(f => `      • ${f}`).join('\n') +
+        `\n   The registry is keyed by name and replaces silently, so ONE of these stores ` +
+        `is never cleared on a project switch — decided by module-evaluation order, not by ` +
+        `design. Give each owner a distinct name, or delete the duplicate store.`,
+    );
+}
+for (const name of baselinedDupes) {
+    if (!(name in duplicateNames)) {
+        notes.push(`D7 baseline entry "${name}" is no longer duplicated — remove it from the debt file.`);
     }
 }
 
@@ -286,6 +409,8 @@ console.log(bar);
 console.log(`Declared scopes                      : ${DECLARED_PROJECT_SCOPES.length}`);
 console.log(`Probe registration sites in source   : ${probeSites.length}`);
 console.log(`instance-scope presence debt         : ${Object.keys(debt.instanceScopePresence).length}`);
+console.log(`Distinct scopeName literals in source : ${scopeNameSites.size}`);
+console.log(`Duplicate scopeNames found / baselined: ${Object.keys(duplicateNames).length} / ${baselinedDupes.size}`);
 console.log(`Undeclared state candidates (baseline): ${baselineSet.size}`);
 console.log(`Undeclared state candidates (now)    : ${candidates.length}`);
 for (const n of notes) console.log(`   ℹ ${n}`);

@@ -72,11 +72,35 @@
  *                      skipped or thrown" (a leak). Absence is UNPROVEN, and the
  *                      audit MUST report it as a C13 violation.
  *
- * Every entry below is currently `instance-scope`. That is the honest state of
- * the codebase, and it is why the founder's `096e12b4` log could say
- * "1 GIS scope(s) had NO registered owner … teardown complete" in one breath.
- * The migration to module-scope registration is tracked as debt in
- * `tools/ga-gate/declared-project-scope-debt.json`; that file may only shrink.
+ * ── L-712 — THE PRESENCE DEBT IS PAID ───────────────────────────────────────
+ *
+ * v1 of this list declared all five owners `instance-scope`. That was the honest
+ * state of the codebase, and it is why `096e12b4` could say "1 GIS scope(s) had NO
+ * registered owner … teardown complete" in one breath. It also meant the founder saw
+ * `teardown INCOMPLETE [gis.cesiumViewport]` on EVERY project switch — the audit
+ * correctly refusing to certify a viewport it could not see, on a switch that was in
+ * fact perfectly clean because no globe had ever been opened.
+ *
+ * v2 moves all five to `module-scope`. The pattern in each case is the same and is
+ * worth naming, because it is the general answer to "how do you prove absence?":
+ *
+ *   THE OWNER OF PROJECT-SCOPED STATE IS THE MODULE, NOT THE INSTANCE.
+ *   A module can always answer — it knows how many instances it has made, including
+ *   zero. An instance cannot answer on behalf of an instance that was never built.
+ *
+ * Concretely: `CesiumViewport` registers once at import and folds over a live-viewport
+ * `Set`; `GISAreaLayout` registers once at import over a delegate that `mountGISArea`
+ * installs; `siteProjectScope` registers once at import and resolves its runtime
+ * lazily. In all three, absence now means exactly one thing — the module was never
+ * imported — and a module that was never imported holds nothing.
+ *
+ * `DECLARED_SCOPES_REQUIRING_PRESENCE` is consequently empty, and that is CORRECT,
+ * not a weakening: the runtime check it feeds existed to catch UNPROVABLE absence,
+ * and there is none left to catch. The invariant is now enforced STATICALLY instead —
+ * the GA gate requires every declared owner's registration to sit at column 0 of its
+ * module. If a future owner registers from a constructor again, it must declare
+ * `instance-scope`, it must be baselined as debt, and the runtime check turns back on
+ * for it automatically.
  */
 
 /** Where a scope's probe/registry registration is executed. See the header. */
@@ -115,7 +139,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 1;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 2;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -132,7 +156,7 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         why: 'The C19 SiteModelStore holds the live parcel, boundary and location for '
             + 'the open project. It is a runtime singleton that survives a switch, and '
             + 'C19 §1.11 requires reset() to be called from the C13 teardown.',
-        presence: 'instance-scope',
+        presence: 'module-scope',
         resets: ['resolveSiteModelStore(runtimeRef)?.reset()'],
         counts: ['getSite()?.projectId'],
         uncounted: {
@@ -148,7 +172,7 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         why: 'siteDispatch module singletons (_ltpAdapter, _lastEnvelope, _lastSiteOrigin, '
             + '_lastParcelQueryPoint, _dkByggefeltProducer) are app-lifetime module state '
             + 'with no per-project keying.',
-        presence: 'instance-scope',
+        presence: 'module-scope',
         resets: ['resetSiteDispatchProjectState'],
         counts: ['getSiteDispatchOwningProjectId'],
         uncounted: {
@@ -164,7 +188,7 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         why: 'The neighbour-footprint snapshot feeds blind-facade resolution in the '
             + "apartment generator. Carried across a switch it blinds Project B's walls "
             + "against buildings that stand next to Project A.",
-        presence: 'instance-scope',
+        presence: 'module-scope',
         resets: ['clearNeighbourFootprints'],
         counts: ['getNeighbourFootprints'],
         uncounted: {
@@ -181,8 +205,9 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         why: 'One viewport per tab, never disposed on a switch: placed massing, '
             + 'formaMassingOrigin, context layers, terrain datum, ground-resolved flag, '
             + 'render mode and the CAMERA SEAT — the field L-694b proved the first probe '
-            + 'did not count.',
-        presence: 'instance-scope',
+            + 'did not count. Registered at MODULE scope over a live-viewport set, so the '
+            + 'module answers even when no globe was ever opened (L-712).',
+        presence: 'module-scope',
         resets: [
             'formaMassingOrigin',
             'contextBuildingsAt',
@@ -211,8 +236,10 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         why: 'mountGISArea() runs once per tab, so every `let` inside it is app-lifetime '
             + 'CLOSURE state. `lastGeocodeFrame` was the sole surviving source of '
             + "Project A's lat/lon in L-694a, and reflection cannot see closure variables — "
-            + 'only a declared, hand-written probe can.',
-        presence: 'instance-scope',
+            + 'only a declared, hand-written probe can. Registered at MODULE scope over a '
+            + 'delegate that mountGISArea installs, so an early return in that ~4500-line '
+            + 'function can no longer skip the registration (L-712).',
+        presence: 'module-scope',
         resets: [
             'lastGeocodeFrame',
             'isBimPlacedOnEarth',
