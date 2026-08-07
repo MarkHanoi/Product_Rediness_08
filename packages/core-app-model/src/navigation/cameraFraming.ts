@@ -51,6 +51,121 @@ const MIN_FIT_RADIUS_M = 4;
 /** The historical perspective far plane. A fit never SHRINKS the depth range below it. */
 const BASELINE_FAR_M = 2000;
 
+/* ─── §CAM-BIM-SCALE-BOUNDS (L-744) — the guard L-378 was missing ────────────
+ *
+ * FOUNDER EVIDENCE (2026-08-07, brand-new project, walls at the origin):
+ *
+ *   [MultiViewCameraManager] saveSlot("perspective") — position is globe/ECEF-scale
+ *     (-2465677, 1173796, -12121197); skipping save (L-378)
+ *   _activate3DView — perspective slot MISS
+ *   [ViewCameraStateStore] restore("3D") — MISS (0 states cached, keys: [])
+ *   _activate3DView — computing default framing
+ *   _activate3DView — controls.setLookAt() START (target=0.0,0.0,0.0, dist=6542305.9)
+ *   _activate3DView — §CAM-FRAME-INVARIANT auto-framed …; dist=6515673.6m
+ *
+ * 6,542 km — the Earth's radius — to look at a 5 m wall. The walls DID render; they
+ * were sub-pixel.
+ *
+ * ## Why L-378 could not stop this
+ *
+ * `L-378` guards the camera pose on SAVE and on RESTORE, and it worked perfectly:
+ * it refused to store the ECEF pose. But refusing to save means the slot is EMPTY,
+ * and an empty slot sends activation down the DEFAULT-FRAMING path — which derives
+ * its distance from SCENE BOUNDS. Nothing guarded the bounds. So L-378 rejected a
+ * globe-scale pose and the fallback promptly computed an equivalent one from a
+ * different input. **A guard on the stored value is not a guard on the computed
+ * value.**
+ *
+ * ## Why the fix belongs HERE and not in `computeFitPose`
+ *
+ * `computeFitPose` is deliberately HONEST — it never clamps or trims outliers,
+ * because a fit that silently shows something other than what it was asked to frame
+ * is the very defect this module exists to remove. Its contract says: *"Callers that
+ * want a subset framed must narrow the BOUNDS they pass in, never the pose."*
+ *
+ * This is that narrowing, made shared and testable rather than re-improvised per
+ * call site. Globe-scale bounds are not an "outlier" the user should be shown — they
+ * are CONTAMINATION from the Cesium/ECEF world leaking into a local BIM scene, and
+ * the honest answer is that they are not part of the model at all.
+ */
+
+/**
+ * §L-378 / §CAM-BIM-SCALE-BOUNDS — distance from the world origin (metres) beyond
+ * which a position is ECEF / globe-scale rather than BIM-editor-scale.
+ *
+ * The Cesium / Forma 3D-site view drives the SHARED OBC THREE camera to ECEF
+ * coordinates (Earth radius ≈ 6.37M units; observed return poses sit ~12.5M out). A
+ * local BIM scene never exceeds a few km, so 1,000 km is a safe, unambiguous ceiling:
+ * every legitimate BIM camera and every legitimate BIM bounding box passes, and every
+ * globe-scale value is rejected.
+ *
+ * Single source of truth: `MultiViewCameraManager` (save/restore guard, L-378) and
+ * the framing authority (bounds guard, L-744) MUST agree, or one will admit exactly
+ * what the other rejects — which is how L-744 happened.
+ */
+export const GLOBE_SCALE_LIMIT_M = 1_000_000;
+
+/**
+ * True when `(x, y, z)` is an ECEF / globe-scale position — see {@link GLOBE_SCALE_LIMIT_M}.
+ *
+ * P8: emits `pryzm.camera.is_globe_scale_position`.
+ */
+export function isGlobeScalePosition(x: number, y: number, z: number): boolean {
+    const span = TRACER.startSpan('pryzm.camera.is_globe_scale_position');
+    try {
+        const globe = !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)
+            || Math.abs(x) > GLOBE_SCALE_LIMIT_M
+            || Math.abs(y) > GLOBE_SCALE_LIMIT_M
+            || Math.abs(z) > GLOBE_SCALE_LIMIT_M;
+        span.setAttribute('pryzm.camera.globe_scale', globe);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return globe;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * §CAM-BIM-SCALE-BOUNDS (L-744) — true when `bounds` cannot describe a local BIM
+ * model: either a corner sits at ECEF distance from the origin, or the box SPANS a
+ * globe-scale extent.
+ *
+ * Both tests are needed and they catch different contamination:
+ *   • a corner test catches a single ECEF-positioned object dragging the box out;
+ *   • an EXTENT test catches the founder's case, where the box straddles the origin
+ *     (`target=0.0,0.0,0.0`) and every corner test on the CENTRE would pass while the
+ *     box is still 3,271 km across.
+ *
+ * Empty bounds are NOT globe-scale — they are simply empty, which callers already
+ * handle. P8: emits `pryzm.camera.is_globe_scale_bounds`.
+ */
+export function isGlobeScaleBounds(bounds: THREE.Box3): boolean {
+    const span = TRACER.startSpan('pryzm.camera.is_globe_scale_bounds');
+    try {
+        if (bounds.isEmpty()) {
+            span.setAttribute('pryzm.camera.bounds_empty', true);
+            span.setStatus({ code: SpanStatusCode.OK });
+            return false;
+        }
+        const { min, max } = bounds;
+        const cornerOut =
+            isGlobeScalePosition(min.x, min.y, min.z) || isGlobeScalePosition(max.x, max.y, max.z);
+        // Extent test — the founder's exact shape: centred on the origin, 3,271 km wide.
+        const size = bounds.getSize(new THREE.Vector3());
+        const extentOut =
+            !Number.isFinite(size.x) || !Number.isFinite(size.y) || !Number.isFinite(size.z)
+            || Math.max(size.x, size.y, size.z) > GLOBE_SCALE_LIMIT_M;
+
+        const globe = cornerOut || extentOut;
+        span.setAttribute('pryzm.camera.globe_scale_corner', cornerOut);
+        span.setAttribute('pryzm.camera.globe_scale_extent', extentOut);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return globe;
+    } finally {
+        span.end();
+    }
+}
+
 /** A fitted pose: where to put the camera and the depth range that keeps it rendering. */
 export interface FitPose {
     /** World-space camera position. */

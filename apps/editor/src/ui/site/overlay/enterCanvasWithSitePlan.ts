@@ -132,7 +132,22 @@ async function runLanding(): Promise<void> {
     try {
         await w.viewController?.zoomToFit?.({ animate: false });
     } catch (err) {
-        console.warn('[site-overlay→canvas] §ENTER-CANVAS: zoom-to-fit failed (non-fatal):', err);
+        // ── ADR-0299 — a FAILED USER-FACING ACTION IS NOT "non-fatal" ──────────
+        // This used to log `zoom-to-fit failed (non-fatal)` at warn level and carry on.
+        // It hid `TypeError: t is not iterable` (L-745) for as long as the bug existed,
+        // while the founder — who had just landed in a 3D view framed 6,542 km from
+        // their walls — pressed Fit All and watched nothing happen.
+        //
+        // Framing is not decoration on this path: it is the difference between landing
+        // on your site and landing in orbit. Log it as an ERROR with the real cause, so
+        // it cannot rot behind a warn line nobody reads. We still do not re-throw — the
+        // user is already in the editor and aborting the transition would be worse than
+        // an unframed camera — but the failure is now visible and attributable.
+        console.error(
+            '[site-overlay→canvas] §ENTER-CANVAS: zoom-to-fit FAILED — the 3D view may be left ' +
+            'unframed (this is a defect, not a cosmetic warning):',
+            err,
+        );
     }
 
     console.log('[site-overlay→canvas] §ENTER-CANVAS: landed — 3D + plan split view, plan underlay in both panes.');

@@ -4,6 +4,9 @@ import { LeftNavRail }         from '../LeftNavRail';
 import { ViewCube } from '../ViewCube';
 import { showExportScopeModal } from '@pryzm/file-format';
 import { apiFetch } from '@pryzm/core-app-model'; // §HUB-SERVICE-GLB — real GLB export auth gate
+// §CAM-ECEF-HANDBACK (L-746) — Home snapshots the LIVE camera, so it inherits an ECEF
+// pose whenever the globe has not yet handed back. Same predicate as L-378.
+import { isGlobeScalePosition } from '@pryzm/core-app-model';
 import { restoreDxfOverlay } from '../import/DxfImportPanel';
 import type { UIProps } from '../Layout';
 import type { BimService } from '@app/engine/BimService';
@@ -30,6 +33,25 @@ export function mountNavigationArea(
     let defaultViewPos: { x: number; y: number; z: number } | null = null;
     let defaultViewTarget: { x: number; y: number; z: number } | null = null;
 
+    /**
+     * §CAM-ECEF-HANDBACK (L-746) — Home is a SNAPSHOT of the live camera, not a derived
+     * framing, so it inherits whatever state the camera is in when the timer fires.
+     *
+     * FOUNDER EVIDENCE, two consecutive sessions, same line:
+     *   [HomeView] Default viewpoint captured: {x: 119.12,        y: 131.07, z: 192.98}
+     *   [HomeView] Default viewpoint captured: {x: -4073337.567,  y: 1021.43, z: -215808.25}
+     *
+     * The first looks like proof that a correct default already exists. The second shows
+     * it was luck: the capture runs 1.2–1.5 s after project load, and whether the Cesium
+     * globe has handed the camera back by then is a race. Home "working" was a
+     * coincidence of timing, and it very nearly became the fallback for the whole
+     * default-framing path — which would have restored users to 4,000 km.
+     *
+     * Both ends are guarded, because they fail differently: a bad CAPTURE poisons the
+     * viewpoint for the rest of the session, while a bad RESTORE would replay an
+     * already-poisoned one. Guarding capture alone would leave any viewpoint stored
+     * before this change live forever.
+     */
     const captureDefaultView = () => {
         const controls = (props.world.camera as any).controls;
         if (!controls) return;
@@ -37,6 +59,18 @@ export function mountNavigationArea(
         const tgt = new THREE.Vector3();
         controls.getPosition(pos);
         controls.getTarget(tgt);
+
+        if (isGlobeScalePosition(pos.x, pos.y, pos.z) || isGlobeScalePosition(tgt.x, tgt.y, tgt.z)) {
+            // Keep any previously captured BIM-scale viewpoint rather than overwriting it
+            // with a globe pose — the older value is strictly better than ECEF.
+            console.warn(
+                '[HomeView] §CAM-ECEF-HANDBACK (L-746) — refusing to capture a globe/ECEF-scale viewpoint ' +
+                `(position=${pos.toArray().map(v => v.toFixed(0)).join(',')}); ` +
+                `${defaultViewPos ? 'keeping the previous BIM-scale viewpoint.' : 'Home stays unset until a BIM-scale camera is available.'}`,
+            );
+            return;
+        }
+
         defaultViewPos = { x: pos.x, y: pos.y, z: pos.z };
         defaultViewTarget = { x: tgt.x, y: tgt.y, z: tgt.z };
         console.log('[HomeView] Default viewpoint captured:', defaultViewPos, defaultViewTarget);
@@ -46,6 +80,23 @@ export function mountNavigationArea(
         if (!defaultViewPos || !defaultViewTarget) return;
         const controls = (props.world.camera as any).controls;
         if (!controls) return;
+
+        // §CAM-ECEF-HANDBACK (L-746) — never replay a contaminated viewpoint, including one
+        // stored by a build that predates the capture guard above.
+        if (
+            isGlobeScalePosition(defaultViewPos.x, defaultViewPos.y, defaultViewPos.z) ||
+            isGlobeScalePosition(defaultViewTarget.x, defaultViewTarget.y, defaultViewTarget.z)
+        ) {
+            console.error(
+                '[HomeView] §CAM-ECEF-HANDBACK (L-746) — the stored Home viewpoint is globe/ECEF-scale ' +
+                'and would send the camera thousands of km from the model; discarding it. ' +
+                'Home will re-capture on the next BIM-scale camera.',
+            );
+            defaultViewPos = null;
+            defaultViewTarget = null;
+            return;
+        }
+
         await controls.setLookAt(
             defaultViewPos.x, defaultViewPos.y, defaultViewPos.z,
             defaultViewTarget.x, defaultViewTarget.y, defaultViewTarget.z,

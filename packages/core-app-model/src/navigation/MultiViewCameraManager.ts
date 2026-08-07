@@ -37,6 +37,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
+// §L-378 / §CAM-BIM-SCALE-BOUNDS (L-744) — ONE definition of "globe/ECEF-scale",
+// shared with the bounds guard in the framing authority. See the note below.
+import { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition } from './cameraFraming.js';
 
 // ── View slot types ───────────────────────────────────────────────────────────
 
@@ -62,26 +65,21 @@ const DEFAULT_PLAN_DISTANCE = 40;   // metres above scene centre — plan view d
 const DEFAULT_3D_DISTANCE   = 60;   // metres from scene centre — 3D view default
 
 /**
- * §L-378 — Positions further than this from the world origin (metres) are
- * ECEF / globe-scale, not BIM-editor-scale.
+ * §L-378 — the globe/ECEF-scale threshold and predicate now live in the framing
+ * authority (`cameraFraming.ts`) and are IMPORTED here rather than redefined.
  *
- * The Cesium / Forma 3D-site view drives the SHARED OBC THREE camera to ECEF
- * coordinates (Earth radius ≈ 6.37M units; observed return poses sit ~12.5M out).
- * A local BIM scene never exceeds a few km, so 1,000 km is a safe, unambiguous
- * ceiling: every legitimate BIM camera passes, every globe pose is rejected.
+ * ⚠ WHY THIS MOVED (L-744). This file's guard was correct and did its job: it
+ * refused to save the ECEF pose the Cesium view left on the shared camera. But a
+ * refused save leaves the slot EMPTY, which sends activation down the DEFAULT-
+ * FRAMING path — and that path derives its distance from SCENE BOUNDS, which
+ * nothing guarded. The founder's 3D view opened at 6,542 km from a 5 m wall.
  *
- * Used to reject globe-scale poses on BOTH save (stop the stale pose entering a
- * slot) and restore (never replay an already-contaminated slot against the local
- * BIM scene, which would leave the building a distant speck).
+ * Two guards on the same concept, one of them missing, is how that happened. They
+ * are now one definition used by both the pose guard (here) and the bounds guard
+ * (`isGlobeScaleBounds`), so they cannot drift apart again.
  */
-const GLOBE_SCALE_LIMIT_M = 1_000_000;
-
-/** True when (x,y,z) is an ECEF / globe-scale position — see GLOBE_SCALE_LIMIT_M. */
-function isGlobeScalePosition(x: number, y: number, z: number): boolean {
-    return Math.abs(x) > GLOBE_SCALE_LIMIT_M
-        || Math.abs(y) > GLOBE_SCALE_LIMIT_M
-        || Math.abs(z) > GLOBE_SCALE_LIMIT_M;
-}
+/* (imported at the top of the file — see the import list.) */
+void GLOBE_SCALE_LIMIT_M;
 
 function defaultState(): CameraState {
     return {

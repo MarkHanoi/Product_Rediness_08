@@ -18,6 +18,16 @@ import { BIM_LAYER, EDITOR_LAYER, ANNOTATION_LAYER, PLAN_SYMBOL_LAYER, DOCUMENTA
 import { MultiViewCameraManager } from '@pryzm/core-app-model';
 // §CAM-FRAME-INVARIANT (L-742) — the single framing authority shared with Fit All.
 import { computeFitPose, boundsFramedByCamera, shouldPersistDepartingCamera } from '@pryzm/core-app-model';
+// §CAM-BIM-SCALE-BOUNDS (L-744) — L-378 guarded the SAVED camera pose; an empty slot
+// then fell through to DEFAULT FRAMING, which reads scene bounds nothing guarded.
+import { isGlobeScaleBounds, isGlobeScalePosition } from '@pryzm/core-app-model';
+
+/**
+ * §CAM-ECEF-HANDBACK (L-746) — distance (metres) of the neutral BIM pose the camera is
+ * reset to when the globe hands it back in ECEF space. Matches the historical 3D default;
+ * `_ensureGeometryFramed()` does the real framing once bounds are trustworthy.
+ */
+const CAMERA_HANDBACK_SAFE_DISTANCE_M = 60;
 import type { UnifiedFrameLoop } from '@pryzm/core-app-model';
 import { previewRegistry } from '@pryzm/scene-committer';
 import type { LevelClipPlaneCache } from '@pryzm/core-app-model';
@@ -268,11 +278,82 @@ export class ViewController implements IViewController {
     }
 
     /**
-     * IViewController: zoom camera to frame all visible scene content.
-     * Delegates to OBC.OrthoPerspectiveCamera.fit() when available.
+     * IViewController: zoom the camera to frame all visible BIM content.
+     *
+     * ── §FIX-ZOOMTOFIT-NOT-ITERABLE (L-745) ────────────────────────────────────
+     * WAS: `await (this._camera as any).fit?.()`.
+     *
+     * OBC's `OrthoPerspectiveCamera.fit(meshes, offset)` REQUIRES an iterable of
+     * meshes. Called with no argument it iterates `undefined` and throws, which is
+     * the founder's:
+     *
+     *   [site-overlay→canvas] §ENTER-CANVAS: zoom-to-fit failed (non-fatal):
+     *     TypeError: t is not iterable
+     *         at My.fit (vendor-thatopen…)
+     *         at V9.zoomToFit (…ViewController)
+     *
+     * So "Fit All" — the ONE control the founder reached for when the 3D view opened
+     * 6,542 km away — could never work on this path. Not a degraded fit: a throw,
+     * every time, before touching the camera. That is why "the camera is too far" and
+     * "Fit All doesn't work" were one incident: the escape hatch was already broken.
+     *
+     * NOW: Fit All goes through the SAME framing authority as 3D-view activation
+     * (`computeFitPose` + the guarded, BIM-scale bounds), which is the entire point of
+     * §CAM-FRAME-INVARIANT — two disagreeing framing policies was the original defect,
+     * and delegating one of them to a vendor call with a different contract was how
+     * they disagreed. The near/far range is applied with the pose, exactly as the
+     * activation path does, so a large scene cannot be fitted past its own far plane.
+     *
+     * THROWS on failure. A user-facing action that cannot do what it says MUST NOT
+     * resolve silently (ADR-0299) — the caller decides how to surface it.
      */
     async zoomToFit(_opts?: { animate?: boolean }): Promise<void> {
-        await (this._camera as any).fit?.();
+        const bounds = this._getSceneBoundsForCamera();
+        if (bounds.isEmpty()) {
+            // Nothing to frame. Not an error, and not a lie either — say so.
+            console.warn('[ViewController] zoomToFit — no BIM-scale geometry to frame; camera unchanged.');
+            return;
+        }
+
+        const controls = (this._camera as any).controls;
+        if (!controls?.setLookAt) {
+            throw new Error('[ViewController] zoomToFit — camera controls unavailable; cannot frame.');
+        }
+
+        const cam = this._camera.three as THREE.PerspectiveCamera;
+        const pose = computeFitPose(bounds, {
+            fovDeg: cam.isPerspectiveCamera ? cam.fov : 60,
+            aspect: cam.isPerspectiveCamera ? cam.aspect : 1,
+        });
+        if (!pose) {
+            throw new Error('[ViewController] zoomToFit — could not compute a fit pose for the scene bounds.');
+        }
+
+        // The depth range MUST travel with the pose (see §CAM-FRAME-INVARIANT): an
+        // honest fit of a large scene sits outside the default far plane, and without
+        // this every fragment is depth-clipped — a "successful" fit onto a white view.
+        cam.near = pose.near;
+        cam.far  = pose.far;
+        cam.updateProjectionMatrix();
+
+        if (typeof controls.maxDistance === 'number' && controls.maxDistance < pose.distance * 1.1) {
+            controls.maxDistance = pose.distance * 1.1;
+        }
+
+        await controls.setLookAt(
+            pose.position.x, pose.position.y, pose.position.z,
+            pose.target.x,   pose.target.y,   pose.target.z,
+            _opts?.animate === true,
+        );
+
+        // ADR-0299 — verify, do not assume. Same predicate, same standard as activation.
+        cam.updateMatrixWorld();
+        if (!boundsFramedByCamera(cam, bounds)) {
+            throw new Error(
+                `[ViewController] zoomToFit — fitted to dist=${pose.distance.toFixed(1)}m but the model ` +
+                'is still not framed. Reporting failure rather than returning as if it worked.',
+            );
+        }
     }
 
     /**
@@ -671,7 +752,153 @@ export class ViewController implements IViewController {
      * getFragmentBounds() + computeSceneBounds() independently (2–4 traversals).
      */
     private _getSceneBoundsForCamera(): THREE.Box3 {
-        return this.computeSceneBounds();
+        const bounds = this.computeSceneBounds();
+
+        // ── §CAM-BIM-SCALE-BOUNDS (L-744) ──────────────────────────────────────
+        // Reject ECEF / globe-scale bounds before ANY framing decision reads them.
+        //
+        // FOUNDER EVIDENCE (2026-08-07, brand-new project, walls at the origin):
+        //   _activate3DView — controls.setLookAt() START (target=0.0,0.0,0.0, dist=6542305.9)
+        // 6,542 km — the Earth's radius — to look at a 5 m wall.
+        //
+        // The chain: the Cesium/3D-site view leaves the SHARED OBC camera at ECEF
+        // scale → L-378 correctly REFUSES to save that pose → the slot is therefore
+        // EMPTY → activation falls through to DEFAULT FRAMING → default framing
+        // derives its distance from these bounds → and nothing guarded the bounds.
+        // *L-378 guards the stored value; this guards the computed one.* Fixing only
+        // one of them means the fallback re-creates exactly what the guard rejected.
+        //
+        // This is the single choke point: `_computeCameraTarget()`,
+        // `_computeCameraDistance()` and `_ensureGeometryFramed()` all read bounds
+        // through here, so one guard covers every framing decision.
+        //
+        // Returning EMPTY (not a clamped box) is deliberate. Every caller already has
+        // a correct empty-bounds path — target (0,0,0), distance 50 m, and "do not
+        // frame" — which are BIM-scale answers. Inventing a clamped box would make up
+        // a model extent we do not have, which is the dishonesty `computeFitPose`
+        // exists to avoid ("callers narrow the BOUNDS, never the pose").
+        if (isGlobeScaleBounds(bounds)) {
+            this._reportGlobeScaleBounds(bounds);
+            return new THREE.Box3();
+        }
+        return bounds;
+    }
+
+    /**
+     * §CAM-ECEF-HANDBACK (L-746) — restore a BIM-space camera at the globe→BIM handback,
+     * BEFORE any consumer samples it.
+     *
+     * ## Why this exists, and why guarding each consumer was not enough
+     *
+     * The Cesium / 3D-site view drives the SHARED OBC THREE camera to ECEF coordinates.
+     * When it hands back, nothing puts the camera back into BIM space — L-378 guards the
+     * SAVE, and only the save. Everything that samples the live camera afterwards
+     * inherits the contamination. Three consumers found so far, each discovered
+     * separately and each looking like its own bug:
+     *
+     *   1. `MultiViewCameraManager.saveSlot()` — refuses the pose (L-378 works), which
+     *      leaves the slot EMPTY and sends activation to default framing.
+     *   2. `HomeView.captureDefaultView()` — snapshots the live camera 1.2 s after project
+     *      load and stores it as the "Home" viewpoint. Observed capturing
+     *      `x: -4073337.57`. Home is NOT an independent authority; it is downstream of the
+     *      same polluted camera, and it looked sane in one session purely by sampling
+     *      timing.
+     *   3. `EngineBootstrap` level switch — `target.Y: -2297615.50 → 3.00`. The camera
+     *      TARGET was 2,297 km out and only a level switch happened to reset it.
+     *
+     * The third was found by accident, which is the strongest argument that there are
+     * more. Guarding consumers one at a time is an unbounded task with no completion
+     * test; sealing the SOURCE bounds it. This is the barrier — belt — and the per-read
+     * guards (`isGlobeScaleBounds` on scene bounds, L-378 on save/restore, the HomeView
+     * capture guard) are braces, kept because a barrier that is ever bypassed must not be
+     * silent.
+     *
+     * Deliberately a NEUTRAL BIM pose, not a fitted one: this runs before layers,
+     * clipping and visibility are restored, so scene bounds are not yet trustworthy.
+     * `_ensureGeometryFramed()` — which runs later, with a verified outcome — is what
+     * actually frames the model. All this has to guarantee is that no consumer can ever
+     * read an ECEF value.
+     */
+    private _sanitizeLiveCameraIfGlobeScale(): void {
+        const controls = (this._camera as any)?.controls;
+        if (!controls?.getPosition || !controls?.setLookAt) return;
+        try {
+            const pos = new THREE.Vector3();
+            const tgt = new THREE.Vector3();
+            controls.getPosition(pos);
+            controls.getTarget(tgt);
+
+            const posBad = isGlobeScalePosition(pos.x, pos.y, pos.z);
+            const tgtBad = isGlobeScalePosition(tgt.x, tgt.y, tgt.z);
+            if (!posBad && !tgtBad) return;
+
+            console.error(
+                '[ViewController] §CAM-ECEF-HANDBACK (L-746) — the shared camera returned from the ' +
+                `globe still in ECEF space (position=${pos.toArray().map(v => v.toFixed(0)).join(',')}, ` +
+                `target=${tgt.toArray().map(v => v.toFixed(0)).join(',')}). Resetting to a neutral BIM ` +
+                'pose BEFORE anything samples it — otherwise every consumer of the live camera ' +
+                '(camera slots, the Home viewpoint, level switching, default framing) inherits it.',
+            );
+
+            // Neutral BIM pose. Matches the historical 3D default look angle/distance, so a
+            // scene that fails to frame later still lands somewhere a user recognises.
+            controls.setLookAt(
+                CAMERA_HANDBACK_SAFE_DISTANCE_M, CAMERA_HANDBACK_SAFE_DISTANCE_M * 0.65, CAMERA_HANDBACK_SAFE_DISTANCE_M,
+                0, 0, 0,
+                false,
+            );
+            const cam = this._camera.three as THREE.PerspectiveCamera;
+            if (cam.isPerspectiveCamera) {
+                // An ECEF camera also carries an ECEF depth range; a BIM pose behind a
+                // 14,000 km far plane has no usable depth precision.
+                cam.near = 0.1;
+                cam.far  = 2000;
+                cam.updateProjectionMatrix();
+            }
+        } catch (err) {
+            console.warn('[ViewController] §CAM-ECEF-HANDBACK sanitize failed (non-blocking):', err);
+        }
+    }
+
+    /**
+     * §CAM-BIM-SCALE-BOUNDS (L-744) — name the object that dragged the scene bounds to
+     * globe scale, once per activation, so this is diagnosable instead of merely survivable.
+     *
+     * Rejecting the bounds keeps the camera sane, but something globe-scale is still IN
+     * the BIM scene and passing `SceneObjectClassifier.shouldExcludeFromBounds` — that is
+     * a real defect in whatever added it, and silently working around it forever is how
+     * the next person inherits an unexplained 6,542 km. This runs ONLY on the reject
+     * path, so it costs nothing in the normal case.
+     */
+    private _reportGlobeScaleBounds(bounds: THREE.Box3): void {
+        const size = bounds.getSize(new THREE.Vector3());
+        let worstName = '(none identified)';
+        let worstExtent = 0;
+        try {
+            const scene = this._world.scene?.three;
+            const gridRoot = this._grid?.three ?? null;
+            scene?.traverse((obj: THREE.Object3D) => {
+                if (!obj.visible) return;
+                if (SceneObjectClassifier.shouldExcludeFromBounds(obj, gridRoot)) return;
+                if (!(obj instanceof THREE.Mesh) || !obj.geometry) return;
+                const b = new THREE.Box3().setFromObject(obj);
+                if (b.isEmpty()) return;
+                const s = b.getSize(new THREE.Vector3());
+                const extent = Math.max(Math.abs(b.min.x), Math.abs(b.min.z), s.x, s.y, s.z);
+                if (extent > worstExtent) {
+                    worstExtent = extent;
+                    worstName = `${obj.name || obj.type} (elementType=${String(obj.userData?.elementType ?? '∅')}, id=${String(obj.userData?.id ?? '∅')})`;
+                }
+            });
+        } catch { /* diagnosis must never break framing */ }
+
+        console.error(
+            '[ViewController] §CAM-BIM-SCALE-BOUNDS (L-744) — scene bounds are globe/ECEF-scale ' +
+            `(extent ${Math.max(size.x, size.y, size.z).toFixed(0)}m); REJECTING them for camera framing ` +
+            'so the 3D view does not open 6,542 km from the model. The camera is now safe, but this is ' +
+            'NOT fixed: a globe-scale object is in the BIM scene and is passing ' +
+            `shouldExcludeFromBounds. Largest contributor: ${worstName} (extent ${worstExtent.toFixed(0)}m).`,
+        );
     }
 
     /**
@@ -767,10 +994,42 @@ export class ViewController implements IViewController {
             pose.target.x,   pose.target.y,   pose.target.z,
             false,                                          // snap immediately — no tween
         );
+
+        // ── ADR-0299 — A RECOVERY MUST VERIFY ITS OUTCOME ──────────────────────
+        // This block used to log "auto-framed" unconditionally, immediately after
+        // setLookAt. The founder's log therefore read:
+        //
+        //   §CAM-FRAME-INVARIANT auto-framed (restored camera did not see the model);
+        //     dist=6515673.6m near=14.02 far=14022863
+        //
+        // A confident success message reporting a 6,515 km framing of a 5 m wall. The
+        // recovery RAN; it did not WORK. Its own predicate — "can the camera see the
+        // model?" — was never re-asked afterwards, so the one check that would have
+        // caught it was the check it skipped.
+        //
+        // We now re-run the SAME predicate against the camera we actually produced.
+        // `boundsFramedByCamera` includes the apparent-size floor
+        // (MIN_FRAMED_SCREEN_FRACTION), so "technically inside the frustum but
+        // sub-pixel" — exactly the founder's state — is a FAILURE, not a pass.
+        cam.updateMatrixWorld();
+        if (!boundsFramedByCamera(cam, bounds)) {
+            console.error(
+                '[ViewController] §CAM-FRAME-INVARIANT (ADR-0299) — auto-frame RAN BUT DID NOT WORK: ' +
+                `the model is still not framed after fitting to dist=${pose.distance.toFixed(1)}m ` +
+                `(target=${pose.target.toArray().map(v => v.toFixed(1)).join(',')}, ` +
+                `near=${pose.near} far=${pose.far.toFixed(0)}). Reporting the failure instead of ` +
+                'claiming success — the view is NOT framed and the user will see nothing usable.',
+            );
+            // Deliberately NOT seeding the perspective slot: caching a pose we have just
+            // proven does not frame the model would replay this failure on every re-entry
+            // and make it look like a remembered user preference.
+            return;
+        }
+
         this._multiViewCameraManager.seedPerspectiveSlot(pose.position, pose.target);
         this._vst(
-            `_activate3DView — §CAM-FRAME-INVARIANT auto-framed (restored camera did not see the model); ` +
-            `dist=${pose.distance.toFixed(1)}m near=${pose.near} far=${pose.far.toFixed(0)}`,
+            `_activate3DView — §CAM-FRAME-INVARIANT auto-framed and VERIFIED (restored camera did not ` +
+            `see the model); dist=${pose.distance.toFixed(1)}m near=${pose.near} far=${pose.far.toFixed(0)}`,
         );
     }
 
@@ -1117,6 +1376,9 @@ export class ViewController implements IViewController {
      */
     private async _activate3DView(_view: OBC.View | null): Promise<void> {
         this._vst(`_activate3DView() ENTRY`);
+        // §CAM-ECEF-HANDBACK (L-746) — the FIRST thing that happens on re-entering a
+        // BIM view: put the shared camera back in BIM space before anything reads it.
+        this._sanitizeLiveCameraIfGlobeScale();
         // DOC-1.5a: unmount TechnicalDrawing when returning to 3D view — vector overlay removed.
         this._unmountDrawing();
         // DOC-4.7: Clear underlay level halftone when returning to 3D view.
