@@ -68,10 +68,25 @@ export class StairPath3DToolHandler {
     private _onPointerMove: ((e: PointerEvent) => void) | null = null;
     private _onDblClick:    ((e: MouseEvent) => void) | null = null;
     private _onContextMenu: ((e: MouseEvent) => void) | null = null;
-    /** Camera-controls enabled-state captured at activate() so we can restore it. */
-    private _restoreControls: (() => void) | null = null;
-    /** SelectionManager enabled-state captured at activate() so we can restore it. */
-    private _restoreSelection: (() => void) | null = null;
+    /**
+     * §FIX-STAIR-SKETCH-SESSION-LEAK — the ONE release for everything this handler
+     * SUSPENDS for the lifetime of a sketch (camera-controls, SelectionManager, and
+     * anything added later). Composed at acquire time by `_suspend()`: the acquire
+     * RETURNS the release, so a new suspension cannot be added with a matching
+     * restore field that some exit path forgets to call. Idempotent — `_release()`
+     * nulls itself.
+     *
+     * Previously these were two independent `_restoreControls` / `_restoreSelection`
+     * fields invoked only from `_teardown()`, reachable only via `deactivate()`,
+     * reachable only via the controller's `onComplete` / `onCancel` — and the curved
+     * commit path never called either. Result: camera-controls and SelectionManager
+     * stayed off forever while our capture-phase pointer listeners kept eating every
+     * click (founder: "I can't do anything"; log shows `§STAIR-CLICK … state= idle`
+     * repeating after the commit, with no matching re-enable anywhere).
+     */
+    private _release: (() => void) | null = null;
+    /** Re-entrancy guard: `_teardown()` → `ctrl.deactivate()` → `onDeactivate` → `_teardown()`. */
+    private _tearingDown = false;
     /**
      * §FIX-STAIR-DUAL-VIEW-ACTIVATION — the API object this handler published to
      * `window.stairPathTool`. Kept so `deactivate()` only clears the global when it
@@ -214,6 +229,12 @@ export class StairPath3DToolHandler {
             },
             onCancel: () => this.deactivate(),
             onComplete: () => this.deactivate(),
+            // §FIX-STAIR-SKETCH-SESSION-LEAK — the GUARANTEED release. Every terminal
+            // path in the controller funnels through its `deactivate()`; exit-path
+            // callbacks (`onComplete`/`onCancel`) do not, which is exactly how the
+            // curved commit escaped. Those two stay wired — `_teardown()` is
+            // idempotent — but this is the one that cannot be missed by a future path.
+            onDeactivate: () => this._teardown(),
         });
         this._ctrl.activate();
 
@@ -224,19 +245,19 @@ export class StairPath3DToolHandler {
         // by the orbit gesture and our place-point click never produces a stair —
         // the exact "tool activates but clicking does nothing" symptom. Disable
         // camera-controls for the lifetime of the sketch and restore on deactivate.
-        try {
+        this._suspend('camera-controls', () => {
             const controls = (world as unknown as {
                 camera?: { controls?: { enabled?: boolean } };
             }).camera?.controls;
-            if (controls && typeof controls.enabled === 'boolean') {
-                const prev = controls.enabled;
-                controls.enabled = false;
-                this._restoreControls = () => { try { controls.enabled = prev; } catch { /* ignore */ } };
-                console.log('[Stair] §STAIR-CONTROLS-OFF camera-controls disabled while sketching');
-            }
-        } catch (err) {
-            console.warn('[Stair] could not toggle camera-controls (non-fatal):', err);
-        }
+            if (!controls || typeof controls.enabled !== 'boolean') return null;
+            const prev = controls.enabled;
+            controls.enabled = false;
+            console.log('[Stair] §STAIR-CONTROLS-OFF camera-controls disabled while sketching');
+            return () => {
+                controls.enabled = prev;
+                console.log('[Stair] §STAIR-CONTROLS-ON camera-controls restored');
+            };
+        });
 
         // §STAIR-CLICK-FIX-2 (2026-06-23) — disabling camera-controls (above)
         // stops the ORBIT gesture from eating the press, but the SelectionManager
@@ -251,17 +272,17 @@ export class StairPath3DToolHandler {
         // making it look like "the click did nothing / no start point was set".
         // Mirror ToolManager: disable selection for the lifetime of the sketch and
         // restore it on deactivate (same capture/restore shape as _restoreControls).
-        try {
+        this._suspend('SelectionManager', () => {
             const sm = window.selectionManager;
-            if (sm && typeof sm.setEnabled === 'function') {
-                const prevEnabled = sm.enabled !== false;   // default-on if unset
-                sm.setEnabled(false);
-                this._restoreSelection = () => { try { sm.setEnabled(prevEnabled); } catch { /* ignore */ } };
-                console.log('[Stair] §STAIR-SELECTION-OFF SelectionManager disabled while sketching');
-            }
-        } catch (err) {
-            console.warn('[Stair] could not toggle SelectionManager (non-fatal):', err);
-        }
+            if (!sm || typeof sm.setEnabled !== 'function') return null;
+            const prevEnabled = sm.enabled !== false;   // default-on if unset
+            sm.setEnabled(false);
+            console.log('[Stair] §STAIR-SELECTION-OFF SelectionManager disabled while sketching');
+            return () => {
+                sm.setEnabled(prevEnabled);
+                console.log('[Stair] §STAIR-SELECTION-ON SelectionManager restored');
+            };
+        });
 
         this._bindPointerEvents(camera, canvas, groundY);
 
@@ -308,9 +329,55 @@ export class StairPath3DToolHandler {
     /**
      * Tear down the live sketch (controller, canvas listeners, camera-controls and
      * SelectionManager restores, published API) WITHOUT dropping the plan-focus
-     * arbitration subscription — so a suspension can be resumed.
+     * arbitration subscription — so a suspension can be resumed. (Doc for
+     * `_teardown()` below; `_suspend()` is its counterpart.)
      */
+
+    /**
+     * §FIX-STAIR-SKETCH-SESSION-LEAK — acquire one global-input suspension for the
+     * lifetime of the sketch. `acquire` performs the disable and RETURNS its restore
+     * (or `null` when there is nothing to suspend); the restore is folded into the
+     * single `_release` chain, so there is no way to add a suspension without adding
+     * its release, and no exit path has to know how many there are.
+     *
+     * Both halves are individually try/caught: a viewport that cannot be suspended
+     * must not abort activation, and one failing restore must not strand the others.
+     */
+    private _suspend(label: string, acquire: () => (() => void) | null): void {
+        let restore: (() => void) | null = null;
+        try {
+            restore = acquire();
+        } catch (err) {
+            console.warn(`[Stair] could not suspend ${label} (non-fatal):`, err);
+            return;
+        }
+        if (!restore) return;
+        const prevRelease = this._release;
+        this._release = () => {
+            try { restore(); }
+            catch (err) { console.warn(`[Stair] could not restore ${label} (non-fatal):`, err); }
+            finally { prevRelease?.(); }
+        };
+    }
+
     private _teardown(): void {
+        // Re-entrancy: `_teardown()` deactivates the controller, whose `onDeactivate`
+        // calls back into `_teardown()`. Everything below is idempotent anyway, but
+        // the guard keeps the logs and the event emit single-shot.
+        if (this._tearingDown) return;
+        this._tearingDown = true;
+        try {
+            this._teardownInner();
+        } finally {
+            this._tearingDown = false;
+        }
+    }
+
+    private _teardownInner(): void {
+        // A session is live if ANY of its resources is still held. Used only to keep
+        // the deactivated event single-shot when teardown is re-entered or repeated.
+        const wasLive = !!(this._ctrl || this._release || this._canvas || this._publishedApi);
+
         if (this._canvas) {
             // Removal options MUST match the capture flag used at add time.
             if (this._onPointerDown) this._canvas.removeEventListener('pointerdown', this._onPointerDown, { capture: true } as EventListenerOptions);
@@ -322,15 +389,19 @@ export class StairPath3DToolHandler {
         this._onDblClick = this._onContextMenu = null;
         this._canvas = null;
 
-        // §STAIR-CLICK-FIX — restore camera-controls to its pre-sketch state.
-        if (this._restoreControls) { this._restoreControls(); this._restoreControls = null; }
-        // §STAIR-CLICK-FIX-2 — restore SelectionManager to its pre-sketch state.
-        if (this._restoreSelection) { this._restoreSelection(); this._restoreSelection = null; }
+        // §STAIR-CLICK-FIX / §STAIR-CLICK-FIX-2 / §FIX-STAIR-SKETCH-SESSION-LEAK —
+        // restore camera-controls + SelectionManager (and anything else suspended)
+        // in one un-skippable release. This runs BEFORE the controller teardown
+        // below so that even if `destroy()` throws, the viewport is already live.
+        const release = this._release;
+        this._release = null;
+        release?.();
 
         if (this._ctrl) {
-            this._ctrl.deactivate();
-            this._ctrl.destroy();
-            this._ctrl = null;
+            const ctrl = this._ctrl;
+            this._ctrl = null;          // null FIRST: ctrl.deactivate() re-enters here
+            ctrl.deactivate();
+            ctrl.destroy();
         }
         // §FIX-STAIR-DUAL-VIEW-ACTIVATION — only clear the relay global if we still
         // own it. The plan handler publishes its own API while the pointer is in the
@@ -339,7 +410,7 @@ export class StairPath3DToolHandler {
             window.stairPathTool = undefined;
         }
         this._publishedApi = null;
-        window.runtime?.events?.emit('stair-path-tool:deactivated', {});
+        if (wasLive) window.runtime?.events?.emit('stair-path-tool:deactivated', {});
     }
 
     // ── Pointer → world (ground-plane raycast) ────────────────────────────────

@@ -119,6 +119,23 @@ export interface StairPathToolConfig {
      * A stair that cannot be committed MUST tell the user why.
      */
     onInvalid?:  (validationMessage: string) => void;
+    /**
+     * §FIX-STAIR-SKETCH-SESSION-LEAK — fired from `deactivate()`, the ONE choke
+     * point every terminal path already funnels through (`_finish`, `_finishCurved`,
+     * `_cancel`, Escape). Owners that SUSPEND global input for the lifetime of a
+     * sketch (`StairPath3DToolHandler` disables camera-controls + SelectionManager)
+     * MUST release from here, not from `onComplete`/`onCancel`.
+     *
+     * WHY: `onComplete` is a per-exit-path courtesy — `_finishCurved` simply never
+     * called it, so a successful CURVED commit tore down the controller and left the
+     * viewport permanently input-dead (founder: "I can create the round stair nicely
+     * now… but I can't do anything"). A release wired to an exit-path callback is
+     * only as reliable as the newest exit path. This one cannot be missed, because a
+     * session that does not deactivate has not ended.
+     *
+     * MUST be idempotent — `deactivate()` is also called directly by owners.
+     */
+    onDeactivate?: () => void;
 }
 
 // ── Snap (90° only for plan accuracy) ────────────────────────────────────────
@@ -349,6 +366,14 @@ export class StairPathToolController {
         this._adapter.clearLivePreview();
 
         _bus.emit('stair-path-tool:deactivated', {}); // F.events.18
+
+        // §FIX-STAIR-SKETCH-SESSION-LEAK — release the owner's session LAST, and
+        // never let a throwing owner leave the controller half-torn-down.
+        try {
+            this._config.onDeactivate?.();
+        } catch (e) {
+            console.error('[StairPathToolController] onDeactivate handler threw:', e);
+        }
     }
 
     destroy(): void {
@@ -697,16 +722,32 @@ export class StairPathToolController {
             return;
         }
 
+        console.log('[Stair] §STAIR-CREATE dispatched — CreateStairCommand, points=', this._model.count);
+        this._commit(input);
+    }
+
+    /**
+     * §FIX-STAIR-SKETCH-SESSION-LEAK — the ONE commit exit, shared by the straight
+     * (`_finish`) and curved (`_finishCurved`) paths.
+     *
+     * It existed twice, and the copies diverged: the curved copy ended at
+     * `commandManager.execute(cmd)` and never called `onComplete`, so the owning
+     * handler's teardown never ran. The straight copy called `onComplete` on the last
+     * line — outside any `finally` — so a throwing `execute()` skipped it identically.
+     * Both are closed here: whatever `execute()` does, the session ENDS.
+     */
+    private _commit(input: NonNullable<ReturnType<StairPathAdapter['toCreateStairInput']>>): void {
         this._state = 'completed';
         this.deactivate();
 
-        const cmd = new CreateStairCommand(input);
-        // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('stair.create', {}).catch(() => {}); }
-        console.log('[Stair] §STAIR-CREATE dispatched — CreateStairCommand, points=', this._model.count);
-        this._config.commandManager.execute(cmd);
-
-        this._config.onComplete?.(input);
+        try {
+            const cmd = new CreateStairCommand(input as ConstructorParameters<typeof CreateStairCommand>[0]);
+            // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
+            if (window.runtime?.bus) { window.runtime.bus.executeCommand('stair.create', {}).catch(() => {}); }
+            this._config.commandManager.execute(cmd);
+        } finally {
+            this._config.onComplete?.(input);
+        }
     }
 
     private _finishCurved(): void {
@@ -795,14 +836,10 @@ export class StairPathToolController {
             typeId:             this._config.typeId,
         };
 
-        this._state = 'completed';
-        this.deactivate();
-
-        const cmd = new CreateStairCommand(input as any);
-        // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('stair.create', {}).catch(() => {}); }
-        this._config.commandManager.execute(cmd);
         console.log('[StairPathToolController] Curved stair committed:', stepN, 'steps,', `sweep=${(result.sweepAngle * 180 / Math.PI).toFixed(1)}°`);
+        // §FIX-STAIR-SKETCH-SESSION-LEAK — was a hand-rolled copy of the straight
+        // path's commit that stopped one line short of `onComplete`. Same exit now.
+        this._commit(input as NonNullable<ReturnType<StairPathAdapter['toCreateStairInput']>>);
     }
 
     private _cancel(): void {

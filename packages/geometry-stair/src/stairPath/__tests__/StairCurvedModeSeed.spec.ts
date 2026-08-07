@@ -30,7 +30,10 @@ const coordinateProvider: StairSketchCoordinateProvider = {
     worldToScreen: (x: number, z: number) => ({ x, y: z }),
 } as unknown as StairSketchCoordinateProvider;
 
-function makeController(initialShape: StairShapeChoice): StairPathToolController {
+function makeController(
+    initialShape: StairShapeChoice,
+    extra: Record<string, unknown> = {},
+): StairPathToolController {
     return new StairPathToolController({
         baseLevelId:        'level:0',
         topLevelId:         'level:1',
@@ -41,6 +44,7 @@ function makeController(initialShape: StairShapeChoice): StairPathToolController
         coordinateProvider,
         coordinateCanvas:   document.createElement('canvas'),
         initialShape,
+        ...extra,
     } as unknown as ConstructorParameters<typeof StairPathToolController>[0]);
 }
 
@@ -71,5 +75,35 @@ describe('§FIX-STAIR-CURVED-MODE-SEED — drawing mode is derived from the shap
             expect(seededMode(c)).toBe(s.mode);
             c.destroy();
         }
+    });
+});
+
+// §FIX-STAIR-SKETCH-SESSION-LEAK — the owner-release contract. See
+// apps/editor/__tests__/stairSketchSessionRelease.test.ts for the founder-level
+// repro; this pins the controller half: every terminal path funnels through
+// `deactivate()`, so `onDeactivate` is the one release that cannot be missed.
+describe('§FIX-STAIR-SKETCH-SESSION-LEAK — onDeactivate is the guaranteed release', () => {
+    it('fires when the controller ends its own session', () => {
+        let released = 0;
+        const c = makeController('C', { onDeactivate: () => { released += 1; } });
+        c.activate();
+        expect(released).toBe(0);
+        c.deactivate();                 // what a commit calls
+        expect(released).toBe(1);
+    });
+
+    it('does not fire for an already-idle controller (no spurious releases)', () => {
+        let released = 0;
+        const c = makeController('I', { onDeactivate: () => { released += 1; } });
+        c.deactivate();                 // never activated
+        expect(released).toBe(0);
+        c.destroy();
+    });
+
+    it('a throwing owner cannot break the controller teardown', () => {
+        const c = makeController('I', { onDeactivate: () => { throw new Error('owner blew up'); } });
+        c.activate();
+        expect(() => c.deactivate()).not.toThrow();
+        expect(c.state).toBe('idle');
     });
 });
