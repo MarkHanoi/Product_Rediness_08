@@ -155,6 +155,9 @@ export {
   drainGpuReleaseQueue,
   detachAndReleaseChildren,
   isDestroyedGpuResourceError,
+  // §RECOVERY-MUST-REFUSE — distinguishes a light-owned shadow resource, which a
+  // render-pipeline rebuild cannot replace, so that recovery declines instead.
+  isShadowResourceError,
 } from './safeDispose.js';
 
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).

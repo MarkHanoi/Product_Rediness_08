@@ -43,6 +43,17 @@ const DESTROYED_SHADOW_TEXTURE =
     'Destroyed texture [Texture "ShadowDepthTexture"] used in a submit. ' +
     '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])';
 
+// A destroyed resource the render pipeline DOES own, and therefore CAN replace.
+//
+// The channel mechanisms below (flood coalescing, device-swap re-subscription, the
+// one-reconstruction latch) are about the CHANNEL, not the resource kind, so they use
+// this fixture. They previously used DESTROYED_SHADOW_TEXTURE, which made them
+// incidentally depend on shadow resources being reconstructible — they are not
+// (§RECOVERY-MUST-REFUSE below), so the fixture, not the mechanism, was wrong.
+const DESTROYED_PIPELINE_TEXTURE =
+    'Destroyed texture [Texture "ssgiColor"] used in a submit. ' +
+    '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])';
+
 /** Minimal EventTarget-shaped GPUDevice double. */
 class FakeGpuDevice {
     listeners = new Map<string, Set<(ev: unknown) => void>>();
@@ -106,17 +117,35 @@ describe('RenderPipelineManager — destroyed GPU resources that never throw (§
         expect(device.uncapturedCount).toBe(1);
     });
 
-    it("the founder's ShadowDepthTexture failure is CLASSIFIED and drives ONE reconstruction", () => {
+    it("the founder's ShadowDepthTexture failure is CLASSIFIED and REFUSED (not reconstructed)", () => {
+        // ⚠ SUPERSEDES the original ADR-0297 expectation ("drives ONE reconstruction").
+        // On the founder's P0 (167 elements / 145 walls / 4 levels / 445 meshes) that
+        // reconstruction ran and the fault recurred immediately, twice. It could never
+        // have worked: a light's LightShadow.map is owned by the LIGHT and reallocated
+        // by THREE's shadow pass — it is unreachable from _rebuildPipeline(). Per
+        // ADR-0299 §RECOVERY-MUST-REFUSE, a repair that cannot perform what its name
+        // promises must decline instead of burning a multi-second rebuild first.
         const device = new FakeGpuDevice();
         const rpm = armWithDevice(device);
 
         device.emit(DESTROYED_SHADOW_TEXTURE);
 
-        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
-        // ADR-0297: recovery for this class must NOT go through onProjectSwitch().
+        expect(rpm._rebuildPipeline).not.toHaveBeenCalled();
         expect(rpm.onProjectSwitch).not.toHaveBeenCalled();
-        // Not a silent frame any more: the viewport is still alive (one repair), but
-        // the fault is now on the record.
+        // The user is told immediately rather than after a wasted rebuild.
+        expect(rpm.status.phase).toBe('error');
+    });
+
+    it('a destroyed PIPELINE-owned texture still earns its ONE reconstruction', () => {
+        // The refusal is scoped to resources we do not own — it must not disarm the
+        // ADR-0297 recovery for the ones we do.
+        const device = new FakeGpuDevice();
+        const rpm = armWithDevice(device);
+
+        device.emit(DESTROYED_PIPELINE_TEXTURE);
+
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
+        expect(rpm.onProjectSwitch).not.toHaveBeenCalled();
         expect(rpm.status.phase).not.toBe('error');
     });
 
@@ -124,7 +153,7 @@ describe('RenderPipelineManager — destroyed GPU resources that never throw (§
         const device = new FakeGpuDevice();
         const rpm = armWithDevice(device);
 
-        for (let i = 0; i < 500; i++) device.emit(DESTROYED_SHADOW_TEXTURE);
+        for (let i = 0; i < 500; i++) device.emit(DESTROYED_PIPELINE_TEXTURE);
 
         // 500 reconstructions would be a worse outage than the fault they answer.
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
@@ -134,11 +163,11 @@ describe('RenderPipelineManager — destroyed GPU resources that never throw (§
         const device = new FakeGpuDevice();
         const rpm = armWithDevice(device);
 
-        device.emit(DESTROYED_SHADOW_TEXTURE);          // window 1 → one reconstruction
+        device.emit(DESTROYED_PIPELINE_TEXTURE);        // window 1 → one reconstruction
         // A genuinely LATER occurrence (a new window), not another line of the same
         // flood — this is what "it happened again after we repaired it" looks like.
         rpm._destroyedResourceWindowStart = Date.now() - 10_000;
-        device.emit(DESTROYED_SHADOW_TEXTURE);          // window 2 → recurrence
+        device.emit(DESTROYED_PIPELINE_TEXTURE);        // window 2 → recurrence
 
         expect(rpm.status.phase).toBe('error');
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
@@ -169,7 +198,7 @@ describe('RenderPipelineManager — destroyed GPU resources that never throw (§
         expect(first.uncapturedCount).toBe(0);
         expect(second.uncapturedCount).toBe(1);
 
-        second.emit(DESTROYED_SHADOW_TEXTURE);
+        second.emit(DESTROYED_PIPELINE_TEXTURE);
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
     });
 
@@ -203,7 +232,7 @@ describe('RenderPipelineManager.recoverFromRenderFailure — the PUBLIC recovery
         const device = new FakeGpuDevice();
         const rpm = armWithDevice(device);
 
-        device.emit(DESTROYED_SHADOW_TEXTURE);
+        device.emit(DESTROYED_PIPELINE_TEXTURE);
         expect(rpm._gpuResourceResetAttempted).toBe(true);
 
         rpm.recoverFromRenderFailure();

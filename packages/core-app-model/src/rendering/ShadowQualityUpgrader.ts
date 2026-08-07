@@ -24,6 +24,11 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — a light's old ShadowDepthTexture
+// is released at the FRAME BOUNDARY (drained by RenderPipelineManager.render), never
+// on a `setTimeout(0)` guess at one. See _deferReleaseShadowMap below for the founder
+// P0 this closes.
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -106,25 +111,50 @@ export class ShadowQualityUpgrader {
     get shadowsEnabled(): boolean { return this._shadowsEnabled; }
 
     /**
-     * §SHADOW-DEVICE-LOSS-FIX (Fix 1) — release a light's old ShadowDepthTexture
-     * WITHOUT ever disposing it mid-submit.
+     * §SHADOW-DEVICE-LOSS-FIX (Fix 1) + §GPU-RESOURCE-LIFETIME (ADR-0297 L2) —
+     * release a light's old ShadowDepthTexture WITHOUT ever disposing it mid-submit.
      *
-     * Nulls `sh.map` NOW so THREE regenerates a fresh depth attachment, but DEFERS
-     * the GPU `.dispose()` of the OLD texture past the current frame's submit via
-     * `setTimeout(0)`. Disposing synchronously while the WebGPU command buffer still
-     * references the texture triggers "Destroyed texture [ShadowDepthTexture] used
-     * in a submit" → the device is lost → all pipelines/shaders become invalid →
-     * "Rendering has stopped".
+     * Nulls `sh.map` NOW so THREE regenerates a fresh depth attachment, and releases
+     * the OLD render target AT THE NEXT FRAME BOUNDARY.
      *
-     * This mirrors the deferral apply() has always used; setLevel()/restore()
-     * previously disposed `sh.map` synchronously (the mid-submit crash on the
-     * survival office when the tier flips shadow level).
+     * ── WHY THIS CHANGED (founder P0, 167 elements / 145 walls / 445 meshes) ─────
+     * This used to defer the dispose by `setTimeout(…, 0)`. That is a GUESS at a
+     * frame boundary, not the frame boundary, and on a real model it loses:
+     *
+     *   [RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU
+     *     resource reached the GPU (GPUDevice.uncapturederror: "Destroyed texture
+     *     [Texture "ShadowDepthTexture"] used in a submit. - While calling
+     *     [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])")
+     *
+     * Two independent reasons the macrotask deferral is not sufficient:
+     *
+     *   1. A WebGPU `Queue.submit()` is ASYNCHRONOUS — it returns immediately and
+     *      the command buffer keeps referencing the texture until the GPU retires
+     *      it. A macrotask can fire while that submit is still in flight. On a
+     *      loaded main thread (this project's shadow rebuild measured 1,862 ms)
+     *      macrotask ordering relative to rAF is not merely unspecified, it is
+     *      routinely wrong.
+     *   2. It consulted NOTHING. RenderPipelineManager holds an explicit shadow
+     *      guard (`_shadowRebuildPaused` + `setShadowReallocFrozen(true)`) across
+     *      the whole async rebuild, precisely so no shadow texture is touched
+     *      during it. `apply()` fired straight through that guard — the founder's
+     *      log shows `[ShadowQualityUpgrader] Level changed to "high"` INSIDE the
+     *      rebuild window. Two drivers reallocating one resource, neither aware of
+     *      the other.
+     *
+     * `scheduleGpuRelease` fixes both: the release is drained by
+     * `RenderPipelineManager.render()` at the TOP of a frame — the one instant at
+     * which the previous frame is fully encoded and submitted and the next has not
+     * begun encoding — so it is ordered against submission by construction, and it
+     * is ordered against the shadow guard because the frame owner drains it.
      */
     private static _deferReleaseShadowMap(sh: THREE.LightShadow | undefined | null): void {
         if (!sh || !sh.map) return;
         const oldMap = sh.map;
+        // Detach FIRST (invariant L2(a)) — THREE reallocates a fresh depth
+        // attachment on the next shadow pass, and nothing reaches the old one.
         (sh as { map: unknown }).map = null;
-        setTimeout(() => { try { oldMap.dispose(); } catch { /* already reclaimed */ } }, 0);
+        scheduleGpuRelease(oldMap as unknown as Parameters<typeof scheduleGpuRelease>[0]);
     }
 
     /**

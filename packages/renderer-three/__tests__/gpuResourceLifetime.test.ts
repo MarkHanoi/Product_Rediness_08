@@ -27,6 +27,7 @@ import {
     drainGpuReleaseQueue,
     detachAndReleaseChildren,
     isDestroyedGpuResourceError,
+    isShadowResourceError,
 } from '../src/safeDispose';
 
 // ── Minimal THREE-shaped doubles (no GPU, no THREE import needed) ────────────
@@ -234,5 +235,67 @@ describe('§GPU-RESOURCE-LIFETIME — destroyed-resource classification', () => 
         expect(isDestroyedGpuResourceError(new Error('network timeout'))).toBe(false);
         expect(isDestroyedGpuResourceError(null)).toBe(false);
         expect(isDestroyedGpuResourceError(undefined)).toBe(false);
+    });
+});
+
+// ── Shadow depth targets — the founder P0 (167 elements / 445 meshes) ───────
+
+describe('§GPU-RESOURCE-LIFETIME — shadow depth targets are released at the frame boundary', () => {
+    /** A THREE render-target-shaped double (LightShadow.map is a WebGLRenderTarget). */
+    function makeRenderTarget(name = 'ShadowDepthTexture') {
+        return { name, isRenderTarget: true as const, texture: makeTexture(name), dispose: vi.fn() };
+    }
+
+    it('queues a render target rather than disposing it on the mutation tick', () => {
+        // ShadowQualityUpgrader used to dispose this via setTimeout(0) — a GUESS at a
+        // frame boundary. A WebGPU Queue.submit() is async and keeps referencing the
+        // texture until the GPU retires it, so a macrotask can land mid-submit:
+        //   Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+        const rt = makeRenderTarget();
+        scheduleGpuRelease(rt as any);
+
+        expect(rt.dispose).not.toHaveBeenCalled();
+        expect(pendingGpuReleaseCount()).toBe(1);
+
+        drainGpuReleaseQueue();
+        expect(rt.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('classifies a render target as a target, NOT as its own .texture', () => {
+        // A WebGLRenderTarget carries a `.texture`, so an isTexture-shaped check must
+        // not claim it and dispose the wrong handle.
+        const rt = makeRenderTarget();
+        scheduleGpuRelease(rt as any);
+        drainGpuReleaseQueue();
+
+        expect(rt.dispose).toHaveBeenCalledTimes(1);
+        expect(rt.texture.dispose).not.toHaveBeenCalled();
+    });
+
+    it('honours L1 ownership for render targets too', () => {
+        const rt = markSharedGpuResource(makeRenderTarget('shared-rt'));
+        scheduleGpuRelease(rt as any);
+        drainGpuReleaseQueue();
+        expect(rt.dispose).not.toHaveBeenCalled();
+    });
+});
+
+describe('§RECOVERY-MUST-REFUSE — shadow-resource classification', () => {
+    it("matches the founder's ShadowDepthTexture destroyed-in-submit", () => {
+        expect(isShadowResourceError(
+            'Destroyed texture [Texture "ShadowDepthTexture"] used in a submit. ' +
+            '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])',
+        )).toBe(true);
+    });
+
+    it('does NOT match a scene attribute failure (that one IS worth reconstructing)', () => {
+        expect(isShadowResourceError(new Error(
+            "Failed to execute 'setIndexBuffer' on 'GPURenderPassEncoder': parameter 1 is not of type 'GPUBuffer'.",
+        ))).toBe(false);
+    });
+
+    it('does not match unrelated errors', () => {
+        expect(isShadowResourceError(new Error('network timeout'))).toBe(false);
+        expect(isShadowResourceError(null)).toBe(false);
     });
 });

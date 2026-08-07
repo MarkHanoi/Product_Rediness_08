@@ -180,7 +180,15 @@ type GpuReleaseEntry =
     | { readonly kind: 'object3d'; readonly root: Object3D; readonly disposeMaterials: boolean }
     | { readonly kind: 'material'; readonly material: Material }
     | { readonly kind: 'geometry'; readonly geometry: BufferGeometry }
-    | { readonly kind: 'texture'; readonly texture: Texture; readonly scene: Scene | null };
+    | { readonly kind: 'texture'; readonly texture: Texture; readonly scene: Scene | null }
+    | { readonly kind: 'renderTarget'; readonly target: DisposableGpuTarget };
+
+/**
+ * Structural shape of a THREE render target (WebGLRenderTarget / WebGLRenderTarget
+ * subclasses, including the `LightShadow.map` shadow depth target). Typed
+ * structurally so this module needs no value import of THREE (P2).
+ */
+interface DisposableGpuTarget { dispose(): void; readonly isRenderTarget?: boolean }
 
 /** Pending releases, drained at the next frame boundary. */
 let _releaseQueue: GpuReleaseEntry[] = [];
@@ -201,11 +209,20 @@ let _draining = false;
  * which is exactly the property the old in-place `dispose()` lacked.
  */
 export function scheduleGpuRelease(
-    target: Object3D | Material | BufferGeometry | Texture | null | undefined,
+    target: Object3D | Material | BufferGeometry | Texture | DisposableGpuTarget | null | undefined,
     disposeMaterials = true,
 ): void {
     if (!target) return;
-    const maybe = target as Partial<Object3D> & Partial<Material> & Partial<BufferGeometry> & Partial<Texture>;
+    const maybe = target as Partial<Object3D> & Partial<Material> & Partial<BufferGeometry> &
+        Partial<Texture> & Partial<DisposableGpuTarget>;
+    // Render targets FIRST — a WebGLRenderTarget carries a `.texture`, so an
+    // isTexture-style check must not claim it. This is the branch that carries
+    // `LightShadow.map`, the ShadowDepthTexture behind the founder's
+    // "Destroyed texture [ShadowDepthTexture] used in a submit" device loss.
+    if (maybe.isRenderTarget === true && typeof maybe.dispose === 'function') {
+        _releaseQueue.push({ kind: 'renderTarget', target: target as DisposableGpuTarget });
+        return;
+    }
     if (typeof maybe.traverse === 'function') {
         _releaseQueue.push({ kind: 'object3d', root: target as Object3D, disposeMaterials });
     } else if ((maybe as Partial<BufferGeometry>).isBufferGeometry === true) {
@@ -257,6 +274,14 @@ export function drainGpuReleaseQueue(): number {
                     safeDisposeGeometry(entry.geometry);
                 } else if (entry.kind === 'texture') {
                     safeDisposeTexture(entry.texture, entry.scene);
+                } else if (entry.kind === 'renderTarget') {
+                    if (!isSharedGpuResource(entry.target)) {
+                        try {
+                            entry.target.dispose();
+                        } catch (err) {
+                            if (!isUsedTimesDisposeError(err)) throw err; // §I2
+                        }
+                    }
                 } else {
                     safeDisposeMaterial(entry.material);
                 }
@@ -348,6 +373,32 @@ export function isDestroyedGpuResourceError(err: unknown): boolean {
     if (lc.includes('destroyed') && (lc.includes('buffer') || lc.includes('texture'))) return true;
     if (lc.includes('deleted object')) return true;
     return false;
+}
+
+/**
+ * §GPU-RESOURCE-LIFETIME — is the destroyed resource a SHADOW resource (a light's
+ * depth target / the shadow map), as opposed to a scene attribute or a pipeline
+ * render target?
+ *
+ *   "Destroyed texture [Texture "ShadowDepthTexture"] used in a submit."
+ *
+ * This distinction is load-bearing for RECOVERY, not just for logging. A light's
+ * `LightShadow.map` is owned by the LIGHT and reallocated by THREE's shadow pass —
+ * it is not reachable from, and not replaceable by, a render-pipeline rebuild.
+ * A caller that classifies here must therefore REFUSE to "repair" it by rebuilding
+ * the pipeline (ADR-0299 §RECOVERY-MUST-REFUSE): that repair cannot perform what
+ * its name promises, and attempting it costs the user a multi-second rebuild before
+ * failing anyway.
+ */
+export function isShadowResourceError(err: unknown): boolean {
+    if (!err) return false;
+    const msg =
+        typeof err === 'string'
+            ? err
+            : (err as { message?: unknown })?.message;
+    if (typeof msg !== 'string') return false;
+    const lc = msg.toLowerCase();
+    return lc.includes('shadowdepthtexture') || lc.includes('shadowmap') || lc.includes('shadow map');
 }
 
 /**

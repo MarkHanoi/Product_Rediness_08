@@ -128,8 +128,12 @@ describe('RenderPipelineManager — destroyed-GPU-resource failures never ride t
         expect(states).toContain('error'); // the crash guard is actually told
     });
 
-    it('"Destroyed texture used in a submit" takes the same non-retry path', () => {
-        const rpm = armFailingPipeline(new Error('Destroyed texture [ShadowDepthTexture] used in a submit'));
+    it('a destroyed NON-shadow texture takes the same non-retry path', () => {
+        // NOTE the deliberate non-shadow label. A *ShadowDepthTexture* is handled by
+        // §RECOVERY-MUST-REFUSE below (refused outright, because a light-owned shadow
+        // map cannot be replaced by a pipeline rebuild); a pipeline-owned target CAN
+        // be, so it still earns its one reconstruction.
+        const rpm = armFailingPipeline(new Error('Destroyed texture [Texture "ssgiColor"] used in a submit'));
         rpm.render(0.016);
         expect(rpm.status.retryCount).toBe(0);
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
@@ -178,5 +182,55 @@ describe('RenderPipelineManager.render — the frame boundary drains deferred GP
         // The queue must not grow unbounded while the pane is collapsed / suspended.
         expect(geo.dispose).toHaveBeenCalledTimes(1);
         expect(pendingGpuReleaseCount()).toBe(0);
+    });
+});
+
+// ── §RECOVERY-MUST-REFUSE (ADR-0299) applied to our own recovery ────────────
+//
+// FOUNDER P0 (project: 167 elements, 145 walls, 4 levels, 445 meshes):
+//   §GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource reached the GPU
+//     (GPUDevice.uncapturederror: "Destroyed texture [Texture "ShadowDepthTexture"]
+//      used in a submit. — While calling [Queue].Submit(…)")
+//     — Performing ONE immediate reconstruction …
+//   … RECURRED after a full reconstruction — unrecoverable. phase=error
+//
+// The reconstruction was honest but WASTEFUL: a light's LightShadow.map is owned by
+// the LIGHT and reallocated by THREE's shadow pass — it is unreachable from
+// _rebuildPipeline(). The user paid a multi-second rebuild before being told.
+
+describe('RenderPipelineManager — refuses a repair it cannot perform (shadow resources)', () => {
+    beforeEach(() => { vi.useFakeTimers(); drainGpuReleaseQueue(); });
+    afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); drainGpuReleaseQueue(); });
+
+    const SHADOW_FAILURE =
+        'Destroyed texture [Texture "ShadowDepthTexture"] used in a submit. ' +
+        '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])';
+
+    it('does NOT burn a reconstruction on a destroyed shadow depth target', () => {
+        const rpm = armFailingPipeline(new Error(SHADOW_FAILURE));
+
+        rpm.render(0.016);
+
+        expect(rpm._rebuildPipeline).not.toHaveBeenCalled();
+        expect(rpm.onProjectSwitch).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0); // and no retry ladder either
+    });
+
+    it('fails loudly IMMEDIATELY rather than after a wasted rebuild', () => {
+        const rpm = armFailingPipeline(new Error(SHADOW_FAILURE));
+        const states: string[] = [];
+        rpm.onStateChange = (s: any) => states.push(s.phase);
+
+        rpm.render(0.016);
+
+        expect(rpm.status.phase).toBe('error');
+        expect(states).toContain('error');
+    });
+
+    it('still reconstructs for a NON-shadow destroyed resource (refusal is scoped)', () => {
+        const rpm = armFailingPipeline(new Error(SET_INDEX_BUFFER_FAILURE));
+        rpm.render(0.016);
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
+        expect(rpm.status.phase).not.toBe('error');
     });
 });

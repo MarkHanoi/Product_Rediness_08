@@ -80,6 +80,9 @@ import {
     // post-FX graph) — so it must never ride the retry ladder.
     drainGpuReleaseQueue,
     isDestroyedGpuResourceError,
+    // §RECOVERY-MUST-REFUSE — a light-owned shadow map cannot be replaced by a
+    // pipeline rebuild, so that recovery must decline rather than burn a rebuild.
+    isShadowResourceError,
 } from '../safeDispose';
 const _bus = new DOMEventBus();
 /**
@@ -1151,7 +1154,19 @@ export class RenderPipelineManager implements IViewSwitchListener {
             return;
         }
 
-        console.log(`[RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=${(this as any)._scene?.children?.length ?? '?'}`);
+        // §DIAGNOSTIC-HONESTY — this used to print `scene.children.length` under the
+        // label `meshCount`. Those are TOP-LEVEL children, not meshes: on the founder's
+        // P0 project it reported 63 and 232 for a scene of 445 meshes, so every trace
+        // read off this line was misleading about the very quantity being diagnosed.
+        // A diagnostic that lies costs more than no diagnostic. Both numbers are now
+        // reported under their true names. The traverse is O(scene) but runs only on
+        // the debounced schedule path (and not at all while a rebuild is in flight).
+        let meshCount = 0;
+        this._scene?.traverse((o: THREE.Object3D) => { if ((o as THREE.Mesh).isMesh) meshCount++; });
+        console.log(
+            `[RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=${meshCount} ` +
+            `sceneChildren=${this._scene?.children?.length ?? '?'}`,
+        );
         if (this._shadowRebuildTimer !== null) {
             clearTimeout(this._shadowRebuildTimer);
         }
@@ -2684,6 +2699,34 @@ export class RenderPipelineManager implements IViewSwitchListener {
             // One action per window: the remaining 499 describe the same fault, and the
             // reconstruction they would each re-trigger is still in flight.
             if (++this._destroyedResourceReports > 1) return;
+        }
+
+        // §RECOVERY-MUST-REFUSE (ADR-0299) applied to OUR OWN recovery.
+        //
+        // A light's `LightShadow.map` (the ShadowDepthTexture) is owned by the LIGHT and
+        // reallocated by THREE's shadow pass. It is NOT reachable from
+        // `_rebuildPipeline()` and NOT replaceable by it. On the founder's P0
+        // (167 elements / 145 walls / 4 levels / 445 meshes) we burned a full
+        // reconstruction on exactly this and failed anyway — honest, but wasteful: the
+        // user paid a multi-second rebuild before being told.
+        //
+        // A repair that cannot perform what its name promises must decline. The real
+        // fix for this fault is upstream — release the shadow depth target at the FRAME
+        // BOUNDARY (§GPU-RESOURCE-LIFETIME L2, ShadowQualityUpgrader._deferReleaseShadowMap)
+        // rather than on a `setTimeout(0)` guess. If it still reaches here, the pipeline
+        // is the wrong owner and pretending otherwise only costs time.
+        if (isShadowResourceError(message)) {
+            console.error(
+                '[RenderPipelineManager] §RECOVERY-MUST-REFUSE a SHADOW depth resource was destroyed ' +
+                `while still referenced by an in-flight submit (via ${source}: "${message.slice(0, 160)}"). ` +
+                'REFUSING the pipeline reconstruction: a light-owned shadow map is not reachable from ' +
+                '_rebuildPipeline(), so that repair cannot fix this and would only cost a multi-second ' +
+                'rebuild before failing anyway. Failing loudly now. Root cause is a shadow-map realloc ' +
+                'not ordered against submission — see §GPU-RESOURCE-LIFETIME L2.',
+            );
+            this._phase = 'error';
+            this._emitState();
+            return;
         }
 
         if (this._gpuResourceResetAttempted) {
