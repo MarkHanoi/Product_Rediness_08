@@ -40,7 +40,7 @@ import { StairPreviewRenderer } from './StairPreviewRenderer';
 import { StairPathAdapter } from './StairPathAdapter';
 import { StairPathHUD } from './StairPathHUD';
 import { StairPathParamPanel, type StairLevelOption, type StairParams } from './StairPathParamPanel';
-import { expectedSegmentsFor, type StairShapeChoice } from './StairShapeRegistry';
+import { expectedSegmentsFor, stairShapeDescriptor, type StairShapeChoice } from './StairShapeRegistry';
 import { CurvedStairSolver } from './CurvedStairSolver';
 import { CurvedStairRenderer } from './CurvedStairRenderer';
 import type { PlanViewCanvas } from '@pryzm/core-app-model';
@@ -223,7 +223,26 @@ export class StairPathToolController {
             risersInRun2:        _config.risersInRun2        ?? 0,
             turnDirection:       _config.turnDirection       ?? 'left',
             uVariant:            '2-run',
-            stairMode:           'straight',
+            // §FIX-STAIR-CURVED-MODE-SEED (founder, build 096e12b4): "the new [C]
+            // button renders perfect, on creation it SELECTS the correct mode — but
+            // while DRAWING IN 3D it goes back to LINEAR".
+            //
+            // Both halves of that sentence were literally true, because the shape and
+            // the DRAWING MODE were seeded from two different places:
+            //   • `_selectedShape` was seeded from `_config.initialShape` (last ctor
+            //     argument below) — so the C button rendered as the active one, and
+            //   • `stairMode` was hard-coded 'straight' — and `_isCurvedMode()` (:410)
+            //     reads `stairMode` LIVE off the panel on every click, so every click
+            //     of a "C" session went down the straight polyline path.
+            // Clicking C after activation set BOTH (StairPathParamPanel :523-526),
+            // which is exactly why "select the normal stair and then change the mode"
+            // was the only sequence that produced a curved stair.
+            //
+            // The mode is NOT a second fact to keep in step: `STAIR_SHAPES` already
+            // declares `mode` per shape (StairShapeRegistry — "one registry owns the
+            // shape catalogue"). Derive it, so a new shape cannot be added with a
+            // rival mode and no surface can latch a stale one.
+            stairMode:           stairShapeDescriptor(_config.initialShape ?? 'I')?.mode ?? 'straight',
             innerRadius:         0.8,
             sweepAngle:          180,
         };
@@ -291,6 +310,16 @@ export class StairPathToolController {
         this._hud.show();
         this._hud.setPointCount(0);
         this._hud.setShapeHint(this._config.initialShape ?? null);
+        // §FIX-STAIR-CURVED-MODE-SEED — a session that OPENS in curved mode must open
+        // in the curved gesture's first phase, exactly as `_onParamChange` (:469-479)
+        // does when the mode is switched mid-session. Without this the HUD prompted
+        // for polyline points while `feedClick` was already routing to the arc
+        // handler — the same shape/mode disagreement, one layer up.
+        if (this._isCurvedMode()) {
+            this._curvedPhase  = 'center';
+            this._curvedCenter = null;
+            this._hud.setCurvedPhase('center');
+        }
         this._paramPanel.show(this._config.coordinateCanvas);
 
         // Overlay canvas is render-only — pointer events stay off

@@ -100,6 +100,66 @@ describe('stair.move', () => {
     undoLast(env.stair, ev);
     expect(env.stair.get(id)?.origin).toEqual({ x: 0, y: 0, z: 0 });
   });
+
+  // §FIX-STAIR-MOVE-DETACHED-STORE — the founder-reported rejection (build 096e12b4):
+  // the stair lives in the GEOMETRY store (window.stairStore, what the user sees and
+  // what StairRailingBuilder re-samples railings from), never in this plugin's Immer
+  // DTO store, and canExecute rejected it with "stair not found". A stair that exists
+  // in the authoritative store MUST move — and it must move through MoveStairCommand,
+  // which is what emits bim-stair-updated and therefore carries the railings.
+  describe('geometry-store (legacy) stair', () => {
+    const g = globalThis as unknown as { window?: unknown };
+    const hadWindow = 'window' in g;
+    const prevWindow = g.window;
+    afterEach(() => {
+      if (hadWindow) g.window = prevWindow;
+      else delete g.window;
+    });
+
+    function stubBrowser(stairId: string | null) {
+      const executed: unknown[] = [];
+      g.window = {
+        stairStore: { get: (id: string) => (id === stairId ? { id } : undefined) },
+        commandManager: { execute: (c: unknown) => { executed.push(c); } },
+      };
+      return executed;
+    }
+
+    it('accepts + bridges a stair that exists only in the geometry store', async () => {
+      env = buildEnv();
+      const id = 'stair:geometry-only';
+      const executed = stubBrowser(id);
+      const ev = await env.bus.executeCommand('stair.move', {
+        stairId: id, delta: { x: 1, y: 0, z: 2 },
+      });
+      expect(executed).toHaveLength(1);
+      expect((executed[0] as { targetIds: string[] }).targetIds).toEqual([id]);
+      // The bridged command owns the mutation + undo entry, so no Immer patches here.
+      expect(ev.forward).toEqual([]);
+      expect(ev.inverse).toEqual([]);
+    });
+
+    it('still rejects an id that exists in NEITHER store', async () => {
+      env = buildEnv();
+      stubBrowser(null);
+      await expect(
+        env.bus.executeCommand('stair.move', {
+          stairId: 'stair:nowhere', delta: { x: 1, y: 0, z: 0 },
+        }),
+      ).rejects.toThrow(/stair not found/);
+    });
+
+    it('rejects a non-finite delta before touching either store', async () => {
+      env = buildEnv();
+      const executed = stubBrowser('stair:geometry-only');
+      await expect(
+        env.bus.executeCommand('stair.move', {
+          stairId: 'stair:geometry-only', delta: { x: Number.NaN, y: 0, z: 0 },
+        }),
+      ).rejects.toThrow(/finite/);
+      expect(executed).toHaveLength(0);
+    });
+  });
 });
 
 describe('stair.setShape / setTreadCount / setRiserHeight / setWidth / rotate', () => {
