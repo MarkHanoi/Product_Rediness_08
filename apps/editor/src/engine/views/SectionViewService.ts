@@ -171,8 +171,25 @@ export class SectionViewService implements ISectionViewService {
             `(IFC=${models.length}, native=${nativeGroups.length}, ifc-scene=${ifcSceneGroups.length}, nativeFlag=${nativeFlag})`,
         );
 
+        // §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703, DOC-1.5f) — the SECTION path had NO
+        // generation discipline: it called `viewTechnicalDrawingCache.set()` directly, so
+        // two overlapping `_projectSection` calls (a scope edit while a reprojection is in
+        // flight) resolved in completion order and an OLDER section could silently clobber
+        // a NEWER one — the same ordering defect as the founder's plan-view bug (L-90 /
+        // L-703), with none of the guard the plan path has. Take a generation before the
+        // await and commit through `setIfCurrent`, which enforces INVARIANT D.
+        const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
         this._edgeProjectorService!.project(viewDef, models, nativeGroups, ifcSceneGroups).then(drawing => {
-            viewTechnicalDrawingCache.set(viewDef.id, drawing);
+            if (!viewTechnicalDrawingCache.setIfCurrent(viewDef.id, projectionGen, drawing)) {
+                // Superseded by a newer section projection — release the proxy groups and
+                // the rejected drawing rather than leaking both (§F.1 / §G1-T3, ADR-0297).
+                nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+                try { drawing.onDisposed.trigger(); } catch { /* best-effort */ }
+                console.log(
+                    `[SectionViewService] DOC-1.9: projection SUPERSEDED — discarded viewId=${viewDef.id} gen=${projectionGen}`,
+                );
+                return;
+            }
             // §F.1 — release proxy groups promptly after EPS has consumed them.
             // The success path previously never called releaseGroups(); groups leaked
             // until GC, holding wrapper Group + child Mesh objects alive across frames.

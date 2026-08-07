@@ -21,6 +21,9 @@
 import * as OBC from '@thatopen/components';
 import { storeEventBus, type StoreChangeEvent } from '../StoreEventBus'; // TODO(TASK-08)
 import { viewIntentInstanceStore } from '../presentation/ViewIntentInstanceStore';
+// ADR-0297 L2 (§GPU-RESOURCE-LIFETIME) — a displaced TechnicalDrawing is detached on
+// this tick and released at the next frame boundary, never disposed in place.
+import { unifiedFrameLoop } from '../rendering/UnifiedFrameLoop';
 // §PLAN-VIEW-INCREMENTAL-DRAWING Round 43 — P8 contract compliance for the
 // new exported `invalidateElement` method. Uses the canonical
 // `pryzm.plan-view.<verb>` span convention via the established
@@ -51,6 +54,35 @@ export class ViewTechnicalDrawingCache {
      * accept, on `invalidate()`, and on `clear()`.
      */
     private readonly _provisionalStaleViewIds = new Set<string>();
+
+    /**
+     * §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703, C04 §3.3 / DOC-1.5f) — the HIGHEST
+     * generation ever INSTALLED into the cache for a viewId (i.e. ever DISPLAYED).
+     *
+     * This is deliberately NOT cleared by `invalidate()`. `_generations` records what
+     * has been *started*; this records what has been *shown*. Only the second one can
+     * answer the question §FIX-PLAN-BLANK-STALEGEN was getting wrong:
+     *
+     *   "is this stale drawing better than nothing, or worse than what I already showed?"
+     *
+     * THE FOUNDER'S BUG (2026-08-06, "I drew 3 walls and none of them appeared"):
+     * §FIX-PLAN-BLANK-STALEGEN accepted ANY stale projection into an empty cache. In
+     * the reported session it installed `staleGen=1` (a one-wall drawing) while
+     * `currentGen=5` — after generations 2, 3 and 4 had each been rejected. The plan
+     * showed ONE wall while FIVE existed, and it fired again at staleGen 8/12/16/20 vs
+     * currentGen 9/13/17/21, so it was systemic, not a one-off.
+     *
+     * The anti-blank intent is right; the predicate was not. "Better than blank" is only
+     * true while the view has never displayed anything NEWER. Guarding the stale-accept
+     * with `gen > lastAcceptedGeneration(viewId)` keeps the original guarantee for the
+     * genuine cold-cache case it was written for (nothing shown yet → `lastAccepted=0`
+     * → any completed drawing is accepted, exactly as before) and refuses only the case
+     * it never intended to allow: REGRESSING the view to older content.
+     *
+     * INVARIANT D (displayed-generation monotonicity):
+     *   the drawing displayed for a view is never older than one already displayed there.
+     */
+    private readonly _lastAcceptedGen = new Map<string, number>();
 
     constructor() {
         this._wireDirtyTracking();
@@ -94,7 +126,75 @@ export class ViewTechnicalDrawingCache {
      * needs the old drawing disposed.
      */
     set(viewId: string, drawing: OBC.TechnicalDrawing): void {
+        // §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703) — HOLD-LAST-GOOD makes a REPLACING
+        // `set()` the normal swap path (the previous drawing was deliberately kept warm
+        // and rendering instead of being disposed at invalidate time). Whoever installs
+        // the replacement therefore owns releasing the one it displaces, or the swap
+        // leaks a full TechnicalDrawing's GPU geometry per edit.
+        //
+        // This also closes a pre-existing leak on the SECTION path: SectionViewService
+        // (_projectSection) calls `set()` directly on every reprojection with no prior
+        // `invalidate()`, so each section refresh dropped its predecessor unreleased.
+        //
+        // ADR-0297 L2 (ORDERING) — the displaced drawing may still be referenced by the
+        // frame currently being encoded, so it is DETACHED now and RELEASED at the next
+        // frame boundary; never disposed in place. Identity-checked: re-`set`ting the
+        // same object (the incremental-graft path passes the warm drawing back in) must
+        // not release the drawing we are installing.
+        const previous = this._cache.get(viewId);
         this._cache.set(viewId, drawing);
+        if (previous && previous !== drawing) {
+            this._releaseDrawingAtFrameBoundary(previous, viewId);
+        }
+    }
+
+    /**
+     * ADR-0297 L2 — defer a displaced TechnicalDrawing's release to the next frame
+     * boundary. `onDisposed.trigger()` is OBC's own teardown signal (this class never
+     * touches THREE directly — P2), but it still cascades into geometry disposal, so it
+     * must not run inside the frame that may still be drawing it.
+     */
+    private _releaseDrawingAtFrameBoundary(drawing: OBC.TechnicalDrawing, viewId: string): void {
+        const release = (): void => {
+            try { drawing.onDisposed.trigger(); }
+            catch { /* Best-effort dispose — must never break the projection pipeline. */ }
+        };
+        // ⚠ `queueLowPriority` only drains while the loop is RUNNING, so deferring
+        // unconditionally would grow an unbounded queue whenever the viewport is stopped
+        // (project close, headless, tests) — the exact hazard ADR-0297 calls out for its
+        // own release queue. When no frame is being encoded, L2's condition (b) is
+        // already satisfied and releasing inline is both safe and leak-free.
+        try {
+            if (unifiedFrameLoop.isRunning) {
+                unifiedFrameLoop.queueLowPriority(release);
+                return;
+            }
+        } catch (err) {
+            console.warn(`[ViewTechnicalDrawingCache] frame-boundary release unavailable for viewId=${viewId}; releasing inline:`, err);
+        }
+        release();
+    }
+
+    /**
+     * §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703) — the generation currently being awaited
+     * for `viewId` (0 when the view has never been projected).
+     *
+     * Exposed so a projection PRODUCER can ask "am I still the projection anyone wants?"
+     * mid-flight and abandon superseded work, instead of running to completion only to be
+     * rejected by `setIfCurrent()`. See the deferred §PERF-PROJECTION-CANCEL-SUPERSEDED
+     * item — today three complete projections per wall are computed and thrown away.
+     */
+    currentGeneration(viewId: string): number {
+        return this._generations.get(viewId) ?? 0;
+    }
+
+    /**
+     * §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703) — the highest generation ever INSTALLED
+     * (i.e. ever displayed) for `viewId`; 0 when nothing has ever been shown.
+     * Survives `invalidate()` on purpose — see `_lastAcceptedGen`.
+     */
+    lastAcceptedGeneration(viewId: string): number {
+        return this._lastAcceptedGen.get(viewId) ?? 0;
     }
 
     /**
@@ -192,13 +292,42 @@ export class ViewTechnicalDrawingCache {
             // it lands (its gen matches → normal accept path below), so this can never
             // oscillate. When the cache is NON-empty a good drawing already exists, so
             // we keep the original reject (don't clobber newer with older).
-            if (!this._cache.has(viewId)) {
+            //
+            // §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703) — ⚠ THE ABOVE REASONING HAS ONE
+            // FALSE STEP, AND IT IS THE FOUNDER'S "I drew 3 walls and none appeared".
+            //
+            // "a slightly-out-of-gen but fully-computed drawing is strictly better than a
+            // blank view" is true ONLY while the view has never displayed anything NEWER.
+            // The guard did not check that, so on the interactive draw path — where TWO
+            // uncoordinated drivers each invalidate and re-project the same view (L-307:
+            // PlanViewManager 30 ms + ViewDependencyTracker 48/300 ms) — it installed
+            // `staleGen=1` (a ONE-wall drawing) while `currentGen=5`, after generations
+            // 2, 3 and 4 had each completed and been rejected. "Stale" was NOT merely
+            // ordering: gen 1's projection exported the element set as it stood at gen 1
+            // (`native=1`), so the content really was three walls short. It recurred at
+            // staleGen 8/12/16/20 vs currentGen 9/13/17/21 — systemic, not a one-off.
+            //
+            // The mitigation is KEPT, not deleted: deleting it restores the blank plan
+            // (L-90) it was written to prevent. It is BOUNDED by INVARIANT D instead —
+            // accept a stale drawing only when it is strictly NEWER than anything this
+            // view has ever displayed. For the genuine cold-cache case the guard was
+            // written for, `lastAccepted` is 0 and every completed drawing still passes,
+            // so the anti-blank guarantee is untouched. Only the regression is refused.
+            //
+            // This is the behaviour already ratified in
+            // `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md:1835`: *"Never display
+            // a stale generation … Keep the blank-view guard for the genuine cold-cache
+            // case it was written for — do not delete it."*
+            const lastAccepted = this._lastAcceptedGen.get(viewId) ?? 0;
+            if (!this._cache.has(viewId) && gen > lastAccepted) {
                 console.warn(
                     `[ViewTechnicalDrawingCache] §FIX-PLAN-BLANK-STALEGEN — accepting a ` +
                     `stale projection into an EMPTY cache to avoid a blank view: ` +
-                    `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)}`,
+                    `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)} ` +
+                    `lastAcceptedGen=${lastAccepted}`,
                 );
                 this.set(viewId, drawing);
+                this._lastAcceptedGen.set(viewId, gen);
 
                 // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124, ties L-123) — accepting
                 // a stale drawing avoids a BLANK view, but on rapid SET_VIEW_CROP the
@@ -211,26 +340,46 @@ export class ViewTechnicalDrawingCache {
                 // (initScene → ViewDependencyTracker.forceReproject) respects the lazy
                 // active-view gate, so an inactive view simply projects on activation.
                 this._provisionalStaleViewIds.add(viewId);
-                if (typeof window !== 'undefined') {
-                    try {
-                        window.dispatchEvent(new CustomEvent('vd:reprojection-required', {
-                            detail: { viewId, reason: 'stale-accept', staleGen: gen },
-                        }));
-                    } catch { /* DOM dispatch must never throw past this guard */ }
-                }
+                this._requestCatchUpReprojection(viewId, 'stale-accept', gen);
                 return true;
             }
             console.log(
                 `[ViewTechnicalDrawingCache] Stale projection rejected — ` +
-                `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)}`,
+                `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)}` +
+                (this._cache.has(viewId) ? '' : ` (EMPTY cache; refused as REGRESSING — lastAcceptedGen=${lastAccepted})`),
             );
+            // §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703) — a regression refused into an EMPTY
+            // cache leaves the view momentarily blank, so it MUST be paired with a catch-up
+            // request or the view could stay blank until the next unrelated edit. This is
+            // the same convergence mechanism §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124)
+            // already uses; `forceReproject` calls `beginProjection()` AFTER `invalidate()`,
+            // so the catch-up is always current-generation and always wins.
+            if (!this._cache.has(viewId)) {
+                this._requestCatchUpReprojection(viewId, 'stale-regression-refused', gen);
+            }
             return false;
         }
         this.set(viewId, drawing);
+        this._lastAcceptedGen.set(viewId, gen);
         // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — a gen-matching completion is
         // the authoritative, current-crop drawing: the view is no longer provisional.
         this._provisionalStaleViewIds.delete(viewId);
         return true;
+    }
+
+    /**
+     * §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) / §FIX-PLAN-DISPLAY-GEN-MONOTONIC
+     * (L-703) — ask the driver for a fresh FULL reprojection at the CURRENT generation.
+     * Listened for by `initScene` → `viewDependencyTracker.forceReproject`, which respects
+     * the lazy active-view gate, so an inactive view simply projects on activation.
+     */
+    private _requestCatchUpReprojection(viewId: string, reason: string, staleGen: number): void {
+        if (typeof window === 'undefined') return;
+        try {
+            window.dispatchEvent(new CustomEvent('vd:reprojection-required', {
+                detail: { viewId, reason, staleGen },
+            }));
+        } catch { /* DOM dispatch must never throw past this guard */ }
     }
 
     /**
@@ -253,14 +402,15 @@ export class ViewTechnicalDrawingCache {
         // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — the drawing is gone; any
         // provisional-stale marker no longer applies (a fresh projection is coming).
         this._provisionalStaleViewIds.delete(viewId);
+        // §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703) — `_lastAcceptedGen` is DELIBERATELY not
+        // cleared here. It records what this view has ever DISPLAYED, which is exactly the
+        // fact that must survive the drawing being thrown away: it is what lets a late,
+        // older projection be recognised as a regression rather than as "better than blank".
         const drawing = this._cache.get(viewId);
         if (drawing) {
-            try {
-                drawing.onDisposed.trigger();   // signal OBC systems to clean up
-            } catch {
-                // Best-effort dispose — do not crash the projection pipeline.
-            }
             this._cache.delete(viewId);
+            // ADR-0297 L2 — detach now (the entry is gone), release at the frame boundary.
+            this._releaseDrawingAtFrameBoundary(drawing, viewId);
             console.log(`[ViewTechnicalDrawingCache] invalidated viewId=${viewId}`);
         }
     }
@@ -426,6 +576,10 @@ export class ViewTechnicalDrawingCache {
         }
         this._cache.clear();
         this._generations.clear();   // DOC-1.5f: reset all generation counters
+        // §FIX-PLAN-DISPLAY-GEN-MONOTONIC (L-703) — a project close/switch ends the
+        // display history too (C13 isolation): the next project must not inherit
+        // Project A's "already showed generation N" and refuse its own first drawing.
+        this._lastAcceptedGen.clear();
         this._provisionalStaleViewIds.clear();  // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124)
         this.staleElementIds.clear();
         this._fullRebuildRequired = false;
