@@ -761,11 +761,13 @@ export class RoomDetectionEngine {
         //
         // Sub-segments of one wall are emitted as consecutive `pts[i] → pts[i+1]` of a
         // single polyline, so `_cN.end` IS `_cN+1.start` BY CONSTRUCTION. A gap between
-        // two of them is therefore not a gap to be closed — it is proof that something
-        // upstream corrupted the geometry (it was §FIX-CURVED-WALL-PRETRIM-FRAME: an arc
-        // sampled in a mixed pre/post-trim frame). "Recovering" it invents a straight
-        // chord across the wall's own curve, which is exactly the diagonal line the
-        // founder reported in three separate sessions.
+        // two of them is therefore never a gap to be closed. It CAN indicate upstream
+        // corruption (it did once: §FIX-CURVED-WALL-PRETRIM-FRAME, an arc sampled in a
+        // mixed pre/post-trim frame) — but measurement (2026-08-07) showed the reported
+        // gap equals the TERMINAL TESSELLATION CHORD on healthy arcs at `segments:16`,
+        // so a same-parent reach is NOT by itself evidence of a defect. Either way,
+        // "recovering" it invents a straight chord across the wall's own curve, which is
+        // exactly the diagonal line the founder reported in three separate sessions.
         //
         // This refusal is the point: a recovery that silently repairs a symptom DESTROYS
         // THE EVIDENCE FOR THE DEFECT. Refusing loudly here is what turns a plausible-
@@ -775,8 +777,9 @@ export class RoomDetectionEngine {
             `[RoomDetectionEngine] §REFUSE-SAME-PARENT-REACH guest=${own.wallUUID}.${ep.side} ` +
             `would reach onto host=${o.wallUUID} — the SAME parent wall ` +
             `(${baseWallId(o.wallUUID)}), across a ${(gap * 1000).toFixed(0)}mm gap. ` +
-            `Adjacent sub-segments of one wall share endpoints by construction, so this ` +
-            `gap means the wall's own tessellation is CORRUPT — upstream geometry bug. ` +
+            `Adjacent sub-segments of one wall share endpoints by construction; this gap ` +
+            `equals the terminal tessellation chord — may be normal tessellation, not ` +
+            `corruption (measured on healthy arcs at segments:16). ` +
             `REFUSING: closing it would invent a straight chord across the wall's curve.`,
           );
           continue;

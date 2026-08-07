@@ -74,8 +74,19 @@ if [ -n "$EXPECT_SHA" ]; then
       try { process.stdout.write(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).git_sha || ""); }
       catch { process.stdout.write(""); }
     ' "$WORK/version.json")"
-    if [ "$ACTUAL_SHA" = "$EXPECT_SHA" ]; then
+    # A short SHA (e.g. `git rev-parse --short HEAD`, 7-12 chars) must PASS when it
+    # is a prefix of the full served SHA. The old exact string-compare failed on
+    # every short SHA and has cried wolf on four healthy deploys. Expand via
+    # `git rev-parse` when we're inside the repo; otherwise fall back to a
+    # prefix match (minimum 7 chars, so a trivial prefix can never pass).
+    EXPECT_FULL="$(git rev-parse --verify --quiet "${EXPECT_SHA}^{commit}" 2>/dev/null || true)"
+    if [ -n "$EXPECT_FULL" ] && [ "$ACTUAL_SHA" = "$EXPECT_FULL" ]; then
+      check GIT_SHA "/version git_sha == $EXPECT_FULL (expanded from '$EXPECT_SHA')" ok
+    elif [ "$ACTUAL_SHA" = "$EXPECT_SHA" ]; then
       check GIT_SHA "/version git_sha == $EXPECT_SHA" ok
+    elif [ "${#EXPECT_SHA}" -ge 7 ] && [ -n "$ACTUAL_SHA" ] && \
+         case "$ACTUAL_SHA" in "$EXPECT_SHA"*) true ;; *) false ;; esac; then
+      check GIT_SHA "/version git_sha='$ACTUAL_SHA' starts with expected '$EXPECT_SHA'" ok
     else
       check GIT_SHA "/version git_sha='$ACTUAL_SHA' != expected '$EXPECT_SHA'" bad
     fi
