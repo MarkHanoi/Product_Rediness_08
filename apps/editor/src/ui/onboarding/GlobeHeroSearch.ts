@@ -297,25 +297,25 @@ export class GlobeHeroSearch {
                         console.warn('[globe-hero-search] warmContextCache threw:', e);
                     }
                 }
-                // §REVEAL-FLIGHT-COMPLETE — ⚠ AWAIT THE LEG. THIS LOOP IS WHY THE FOUNDER SAW A
-                // 1.6-SECOND JUMP INSTEAD OF THE STAGED DESCENT.
+                // §STARTUP-DIRECT-DESCENT (founder 2026-08-07: 5× startup — speed wins) — ⚠ THE
+                // LEGS ARE DELIBERATELY NOT AWAITED. This loop briefly awaited each leg
+                // (§REVEAL-FLIGHT-COMPLETE, founder 2026-08-06) so the staged descent reached the
+                // screen: five flights × 0.75 s = 3.75 s, each leg COMPLETING at world/country/
+                // city altitude. The measured cost of that choreography was three full frustum
+                // loads Cesium committed to at altitudes the user never looks at again — LOD
+                // streaming that competed for bandwidth with the very context read the reveal
+                // gates on. The founder ruled the trade on 2026-08-07: pass through.
                 //
-                // Every iteration issues exactly one `camera` effect, and `viewer.camera.flyTo`
-                // CANCELS whatever is already flying. Dispatching all three descends synchronously
-                // therefore started and immediately superseded world→country and country→city; only
-                // the final city→parcel leg was ever rendered. The intermediate stages were
-                // computed, framed, and thrown away one microtask later. The chain existed in the
-                // state machine and never reached the screen — which is exactly what "takes too
-                // long / feels abrupt" looks like from the outside.
+                // Dispatching the whole chain synchronously supersedes each intermediate `flyTo`
+                // BEFORE Cesium renders a frame at that altitude, so only the terminal flight
+                // (world → parcel, `SITE_ENTRY_FLIGHT_DURATION_S` = one short ease) is rendered
+                // and the intermediate frustum loads never start. The stage machine is unchanged:
+                // every stage still reduces, and the `city`-stage cache warm above now fires at
+                // t≈0 instead of two legs in — the context read overlaps the ENTIRE flight.
                 //
-                // ⚠ THE WARM-UP IS FIRED BEFORE THIS AWAIT, NOT AFTER, and the order is load-bearing.
-                // §CTX-PREFETCH-ON-LOCATION starts at the `city` stage; if it were kicked off after
-                // the leg completed it would start a whole leg later and eat straight into the
-                // overlap this choreography exists to create. Fired here, the warm-up begins at
-                // t≈1.5 s (two legs in) and the context read (~1.4 s since §CTX-RANGE-URL-SOURCE)
-                // finishes around t≈2.9 s, while the five-flight descent lands at t≈3.75 s — the
-                // split is ready BEFORE the camera stops, which is exactly the founder's ask.
-                await this.store.whenFlightSettled();
+                // `whenFlightSettled()` still settles with the LAST issued flight (the store
+                // tracks it), so the §22 reveal gate keeps sequencing on the camera — it now waits
+                // ~1.6 s of flight instead of 3.75 s.
                 if (this.disposed) return { ok: false, message: 'Search cancelled.' };
             }
 

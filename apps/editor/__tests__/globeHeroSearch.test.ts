@@ -375,97 +375,113 @@ describe('GlobeHeroSearch', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §REVEAL-FLIGHT-COMPLETE — the staged descent must actually REACH THE SCREEN.
+// §STARTUP-DIRECT-DESCENT (founder 2026-08-07: 5× startup — speed wins) — the descent PASSES
+// THROUGH the intermediate stages instead of completing each one.
 //
-// The chain was already three discrete reducer transitions producing three camera effects, and
-// the test above asserts that. What it could not catch is that all three were dispatched in a
-// SYNCHRONOUS loop, so `viewer.camera.flyTo` cancelled each leg with the next one and the user saw
-// only the final city→parcel flight. Issuing a flight and rendering a flight are different things;
-// these tests pin the second by making each leg's completion controllable.
-describe('§REVEAL-FLIGHT-COMPLETE — each leg is awaited, so the descent is seen and not skipped', () => {
-    /** A camera host whose flights only finish when the test says so. */
-    function pacedHost() {
-        const releases: Array<() => void> = [];
+// This block used to pin the OPPOSITE property (§REVEAL-FLIGHT-COMPLETE: each leg awaited, five
+// flights × 0.75 s of staged descent). The measured cost of that choreography was three full
+// frustum loads Cesium committed to at world/country/city altitudes the user never looks at
+// again, competing for bandwidth with the context read the reveal gates on. The founder ruled the
+// trade on 2026-08-07; these tests pin the ruling so the awaited-leg choreography cannot silently
+// come back.
+describe('§STARTUP-DIRECT-DESCENT — the chain is dispatched pass-through, no leg is awaited', () => {
+    /** A camera host whose flights NEVER settle — a search that completes against it proves the
+     *  chain awaits no leg. (Under the old §REVEAL-FLIGHT-COMPLETE choreography this host would
+     *  hang `search()` forever on the first descend.) */
+    function frozenHost() {
         const flights: Array<{ altitudeM: number; durationS?: number }> = [];
         const host: GlobeCameraHost = {
             flyToGeographic: (t) => {
                 flights.push({ altitudeM: t.altitudeM, ...(t.durationS !== undefined ? { durationS: t.durationS } : {}) });
-                return new Promise<void>((resolve) => { releases.push(resolve); });
+                return new Promise<void>(() => { /* never settles */ });
             },
         };
-        return { host, releases, flights };
+        return { host, flights };
     }
 
-    it('does not start the NEXT leg until the current one has settled', async () => {
-        const { host, releases, flights } = pacedHost();
+    it('search() completes even when NO flight ever settles — the descent is not sequenced on the camera', async () => {
+        const { host, flights } = frozenHost();
         const hero = new GlobeHeroSearch({
             toggleGlobe: () => {},
             getCameraHost: () => host,
             entries: [COVERED],
             geocode: async () => [{ lat: 37.883, lon: -4.78, displayName: 'Cordoba, Spain' }],
         });
-        const running = hero.search('Cordoba');
-        const drain = async (): Promise<void> => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
-
-        // ⚠ ASSERT THE DELTA, NOT AN ABSOLUTE COUNT. The chain opens with a `site.entry.reset`
-        // flight back to the world view which is deliberately NOT awaited — in production it
-        // overlaps the geocode round-trip, so awaiting it would add dead time to every search.
-        // What must hold is the pairwise property: while a leg is in the air, no further leg is
-        // issued. That is exactly what the synchronous `while` loop violated, and it is
-        // independent of how many flights precede the descent.
-        await drain();
-        let seen = flights.length;
-        expect(seen).toBeGreaterThan(0);
-
-        for (let leg = 0; leg < 3; leg++) {
-            const before = flights.length;
-            await drain();
-            // Nothing new may appear while the current leg is still flying.
-            expect(flights.length).toBe(before);
-            // ⚠ POP, NOT SHIFT — release the flight that is actually IN THE AIR (the most recent),
-            // not the un-awaited reset still sitting at the head of the queue.
-            releases.pop()!();
-            await drain();
-            expect(flights.length).toBe(before + 1);
-            seen = flights.length;
-        }
-
-        for (let k = 0; k < 20; k++) { releases.pop()?.(); await drain(); }
-        await running;
-        // FIVE flights total, measured: reset + 3 descent legs + the terminal select-parcel
-        // confirmation. Not the four-stages-so-three-legs arithmetic that looks obvious.
+        const outcome = await hero.search('Cordoba');
+        expect(outcome.ok).toBe(true);
+        // All FIVE flights (reset + 3 descends + terminal confirmation) were ISSUED in one
+        // synchronous chain — each superseding the last before a frame renders at its altitude,
+        // which is exactly how the intermediate frustum loads are reclaimed.
         expect(flights.length).toBe(5);
-        // Monotonic descent — no leg is ever further from the ground than the one before it.
+        // Monotonic descent across the issued targets — the stage machine itself is unchanged.
         const alts = flights.map((f) => f.altitudeM);
         expect(alts).toEqual([...alts].sort((a, b) => b - a));
         expect(new Set(alts).size).toBe(4);
     });
 
-    it('carries the MODEL-declared duration to the camera, not a viewport-local constant', async () => {
-        const { host, releases, flights } = pacedHost();
+    it('fires the city-stage cache warm during the synchronous chain (t≈0), before any flight settles', async () => {
+        const { host } = frozenHost();
+        const warmCalls: Array<[number, number]> = [];
         const hero = new GlobeHeroSearch({
             toggleGlobe: () => {},
             getCameraHost: () => host,
             entries: [COVERED],
-            geocode: async () => [{ lat: 37.883, lon: -4.78, displayName: 'Córdoba, Spain' }],
+            geocode: async () => [{ lat: 37.883, lon: -4.78, displayName: 'Cordoba, Spain' }],
+            warmContextCache: (lat, lon) => warmCalls.push([lat, lon]),
         });
-        const running = hero.search('Córdoba');
-        for (let i = 0; i < 20; i++) { releases.shift()?.(); await Promise.resolve(); }
-        await running;
+        await hero.search('Cordoba');
+        // The warm fired even though no flight ever settled — the context read overlaps the
+        // WHOLE flight instead of starting two legs in.
+        expect(warmCalls).toEqual([[37.883, -4.78]]);
+    });
+
+    it('carries the MODEL-declared duration to the camera, not a viewport-local constant — and it is ONE short ease, not a 3–4 s staged descent', async () => {
+        const { flights, hero } = (() => {
+            const h = harness();
+            return { flights: h.flights, hero: h.hero };
+        })();
+        const outcome = await hero.search('Córdoba');
+        expect(outcome.ok).toBe(true);
         expect(flights.length).toBeGreaterThan(0);
         for (const f of flights) expect(f.durationS).toBe(SITE_ENTRY_FLIGHT_DURATION_S);
-        // ⚠ THE FOUNDER'S ASK, AS AN ASSERTION: "take 3–4 seconds". The awaited legs are
-        // sequential, so the total descent is (flights × duration) — and this is the guard that
-        // would have caught calibrating the constant against an assumed leg count rather than the
-        // measured flight count (3 legs × 1.3 s "looks" like 3.9 s but actually shipped 6.5 s).
-        const totalS = flights.length * SITE_ENTRY_FLIGHT_DURATION_S;
-        expect(totalS).toBeGreaterThanOrEqual(3);
-        expect(totalS).toBeLessThanOrEqual(4);
+        // §STARTUP-DIRECT-DESCENT — only the LAST issued flight is rendered (each flyTo
+        // supersedes the previous within one synchronous chain), so the user-visible descent is
+        // exactly ONE duration: a short ease. The 3.75 s staged total is the thing the founder's
+        // 2026-08-07 ruling removed; this guard keeps it from creeping back via the constant.
+        expect(SITE_ENTRY_FLIGHT_DURATION_S).toBeGreaterThanOrEqual(1);
+        expect(SITE_ENTRY_FLIGHT_DURATION_S).toBeLessThanOrEqual(2);
     });
 
     it('exposes a flight-settled signal that resolves when nothing is flying', async () => {
         const { hero } = harness();
         // Nothing has flown yet — the gate must not hang the reveal on a descent that never began.
         await expect(hero.whenFlightSettled()).resolves.toBeUndefined();
+    });
+
+    it('whenFlightSettled() tracks the LAST issued flight — the reveal gate still sequences on the real camera', async () => {
+        let resolveLast: (() => void) | null = null;
+        const flights: number[] = [];
+        const host: GlobeCameraHost = {
+            flyToGeographic: (t) => {
+                flights.push(t.altitudeM);
+                return new Promise<void>((r) => { resolveLast = r; });
+            },
+        };
+        const hero = new GlobeHeroSearch({
+            toggleGlobe: () => {},
+            getCameraHost: () => host,
+            entries: [COVERED],
+            geocode: async () => [{ lat: 37.883, lon: -4.78, displayName: 'Cordoba, Spain' }],
+        });
+        await hero.search('Cordoba');
+        expect(flights.length).toBe(5);
+        // The settled signal is pending until the FINAL (terminal confirmation) flight settles.
+        let settled = false;
+        void hero.whenFlightSettled().then(() => { settled = true; });
+        await Promise.resolve(); await Promise.resolve();
+        expect(settled).toBe(false);
+        resolveLast!();
+        await Promise.resolve(); await Promise.resolve();
+        expect(settled).toBe(true);
     });
 });
