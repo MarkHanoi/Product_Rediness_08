@@ -40,6 +40,10 @@ export * from './WallOpeningRenderData';
 export * from './LayeredWallOpeningBuilder';
 
 // ── Curved wall builders ──────────────────────────────────────────────────────
+// §FEAT-HOSTED-ON-CURVED-WALL — arc-length parameterisation of a wall centreline
+// (the generalisation of C15 §2) + the radial-band carve for hosted openings.
+export * from './WallArcParam';
+export * from './CurvedWallOpeningBuilder';
 export * from './CurvedWallLayerBuilder';
 export * from './CurvedWallCapMiter';
 export * from './MiterPrismBuilder';
