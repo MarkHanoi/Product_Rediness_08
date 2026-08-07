@@ -1224,13 +1224,27 @@ export class WallJoinResolver {
                         if (otherWallIds.size <= 1) perpShellL = true;
                     }
                     if ((wellSeparated && hasTAttacher) || perpShellL) {
-                        console.log(
-                            `[WallJoinResolver] §NEAR-CORNER-L recovered an un-pinned L-corner in cluster ` +
+                        // ADR-0299 §RECOVERY-MUST-REFUSE clause 4 — this recovery PROCEEDS
+                        // (removing it would visibly reopen every persisted drifted corner),
+                        // but its output is DEGRADED, not authored data, and the log must say
+                        // so. The previous success-toned message ("recovered … so the corner
+                        // closes") is exactly the ADR-0299 failure mode: the bisector miter
+                        // makes a corner whose endpoints do NOT meet look closed, so every
+                        // later wall builds on geometry that reads as sound. On a GENERATED /
+                        // welded shell the gap is by-design drift; on a USER-drawn corner it
+                        // is evidence of an upstream commit defect (e.g. the founder's 115 mm
+                        // gap — see §FIX-WALL-PREVIEW-COMMIT-LENGTH-LOCK, where the plan
+                        // tool's click path committed a different point than the preview
+                        // solved). Keep this WARN loud so the gap stays investigable.
+                        console.warn(
+                            `[WallJoinResolver] §NEAR-CORNER-L DEGRADED recovery (ADR-0299): un-pinned L-corner in cluster ` +
                             `@(${consensusPoint.x.toFixed(3)},${consensusPoint.z.toFixed(3)}): ` +
                             `${pp.idA}(${pp.sideA}) ↔ ${pp.idB}(${pp.sideB}) ` +
                             `gap=${(bestDist * 1000).toFixed(0)}mm |dot|=${bestDot.toFixed(3)} ` +
                             `via=${hasTAttacher ? 'T-attacher' : 'perp-pair'} — ` +
-                            `deferred to pair-wise bisector miter (NOT square-capped) so the corner closes.`,
+                            `deferred to pair-wise bisector miter (NOT square-capped) so the corner closes VISUALLY. ` +
+                            `The endpoints do NOT actually meet: on a user-drawn corner this gap is evidence of an ` +
+                            `upstream commit defect, not a corner to be trusted.`,
                         );
                     } else {
                         // Neither a mid-span T-attacher NOR an unambiguous perpendicular shell-L

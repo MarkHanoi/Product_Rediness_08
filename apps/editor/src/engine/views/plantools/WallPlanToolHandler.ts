@@ -194,51 +194,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
         // value is not overwritten (Escape / a fresh TAB returns to cursor control).
         if (this._setOutEditActive) return;
         const mode = _getMode();
-        let resolved = pt;
-        // §STRICT-ORTHO (Apr 2026):
-        //   Ortho mode is now an unconditional constraint — when active, every
-        //   point is projected onto the nearest 90° axis from the start point,
-        //   even if the raw cursor landed on an explicit object snap (endpoint,
-        //   midpoint, intersection, etc.).  Object snaps still contribute their
-        //   precision (the snapped point is what gets projected), but the wall
-        //   direction is GUARANTEED orthogonal.
-        //
-        //   The previous behaviour followed Revit/AutoCAD convention where
-        //   object snaps override ortho.  Users found this confusing — clicking
-        //   "Perpendicular" mode and ending up with a diagonal wall (because the
-        //   cursor happened to be on a snap point) is unacceptable.
-        //
-        //   Angle-step mode (any non-linear/curved/byslab) keeps the original
-        //   "snap wins" behaviour because it is a soft hint, not a strict lock.
-        if (this._wallFirstPoint) {
-            if (mode === 'ortho') {
-                resolved = _snapOrtho(this._wallFirstPoint, pt);
-            } else if (mode !== 'linear' && mode !== 'curved' && mode !== 'byslab' && !isStrongSnap(pt)) {
-                const step = window.wallModePicker?.getAngleStep?.() ?? 15;
-                resolved = _snapAngle(this._wallFirstPoint, pt, step);
-            }
-            // For curved in state 2 (arc mid set), snap to end from arc mid is not constrained
-        }
-        // §04-12: if the user has typed a length, lock the cursor to that distance
-        // Typed dimension overrides geometric snap because it is even more explicit.
-        if (this._dimInput?.isActive && this._wallFirstPoint && mode !== 'curved') {
-            const locked = this._computeLockedEndPoint(this._wallFirstPoint, resolved);
-            if (locked) resolved = locked;
-        }
-        // §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — soft-snap the placed 2nd point to
-        // alignment references (perpendicular / collinear-extension / endpoint) and
-        // capture the dashed guides for the preview. Reset first so flag-OFF or a
-        // no-candidate frame clears any prior guide (exact prior drawing restored).
-        this._alignGuides = [];
-        this._alignLabel  = null;
-        if (this._alignInferenceActive(mode) && !isStrongSnap(pt)) {
-            const inf = this._computeAlignInference(resolved);
-            if (inf) {
-                resolved = { worldX: inf.snapped.x, worldZ: inf.snapped.z };
-                this._alignGuides = inf.guides.slice();
-                this._alignLabel  = inf.label;
-            }
-        }
+        const resolved = this._resolveConstrainedPoint(pt, mode, /* captureGuides */ true);
         this._wallCursorPoint = resolved;
         if (this._wallFirstPoint) {
             this._drawWallPreview();
@@ -253,25 +209,19 @@ export class WallPlanToolHandler implements PlanToolHandler {
 
     onClick(pt: WorldPoint): void {
         const mode = _getMode();
-        let resolved = pt;
-        // §STRICT-ORTHO (Apr 2026): mirrors the onMouseMove rule — ortho is an
-        // unconditional 90° lock, even when the cursor lands on a strong snap.
-        // Without this, the preview would look orthogonal but the committed
-        // wall could end at a snap point that broke the ortho axis.
-        if (this._wallFirstPoint) {
-            if (mode === 'ortho') {
-                resolved = _snapOrtho(this._wallFirstPoint, pt);
-            } else if (mode !== 'linear' && mode !== 'curved' && mode !== 'byslab' && !isStrongSnap(pt)) {
-                const step = window.wallModePicker?.getAngleStep?.() ?? 15;
-                resolved = _snapAngle(this._wallFirstPoint, pt, step);
-            }
-            // §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — commit the SAME inferred point
-            // the preview showed (P6: only the placed point changes, not the pipeline).
-            if (this._alignInferenceActive(mode) && !isStrongSnap(pt)) {
-                const inf = this._computeAlignInference(resolved);
-                if (inf) resolved = { worldX: inf.snapped.x, worldZ: inf.snapped.z };
-            }
-        }
+        // §FIX-WALL-PREVIEW-COMMIT-LENGTH-LOCK (founder 2026-08-06) — the click commit
+        // resolves through the SAME `_resolveConstrainedPoint` the preview uses, so what
+        // the preview drew IS what commits. Before this fix, `onClick` hand-rolled a copy
+        // of the mouse-move constraint chain and OMITTED the typed-length lock — with a
+        // typed length active the preview drew the wall at the locked distance while a
+        // CLICK committed the raw, unlocked cursor point. That is the founder's report
+        // verbatim: "the preview computes the correct joint, the commit does not". The
+        // committed endpoint then lands an arbitrary cursor-distance off the intended
+        // corner, which is how a wall drawn INTO an existing corner ends up tens–hundreds
+        // of mm away from it and the junction solver sees a near-but-not-coincident
+        // cluster instead of a shared vertex. One shared resolution function; no second
+        // hand-rolled copy to diverge again.
+        const resolved = this._resolveConstrainedPoint(pt, mode, /* captureGuides */ false);
 
         if (!this._wallFirstPoint) {
             this._wallFirstPoint     = resolved;
@@ -501,6 +451,56 @@ export class WallPlanToolHandler implements PlanToolHandler {
      * direction of cursor, or null if dim input has no valid length or the
      * cursor is coincident with start.
      */
+    /**
+     * §FIX-WALL-PREVIEW-COMMIT-LENGTH-LOCK — THE single constraint-resolution chain for a
+     * stroke's second point, shared by the live preview (`onMouseMove`) and the commit
+     * (`onClick`). Order is load-bearing and mirrors what the preview has always drawn:
+     *
+     *   1. §STRICT-ORTHO (Apr 2026) — ortho is an unconditional 90° lock from the start
+     *      point, even when the cursor lands on a strong object snap (the snapped point
+     *      contributes its precision; the DIRECTION is guaranteed orthogonal). Angle-step
+     *      mode (non-linear/curved/byslab) keeps "snap wins" — it is a soft hint.
+     *   2. §04-12 typed-length lock — a typed dimension overrides geometric snap because
+     *      it is even more explicit. Inert unless a positive length has been typed.
+     *      (Curved state 2 — end point from arc mid — is deliberately unconstrained.)
+     *   3. §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — soft-snap to alignment references;
+     *      `captureGuides` additionally stores the dashed guides + label for the preview
+     *      frame (reset first so a no-candidate frame clears any prior guide). The commit
+     *      path passes false: it takes the same POINT but never touches preview state.
+     *
+     * Before this existed, `onClick` carried a hand-rolled copy of this chain that had
+     * silently dropped step 2 — the preview/commit divergence the founder reported.
+     */
+    private _resolveConstrainedPoint(pt: WorldPoint, mode: string, captureGuides: boolean): WorldPoint {
+        if (captureGuides) {
+            this._alignGuides = [];
+            this._alignLabel  = null;
+        }
+        if (!this._wallFirstPoint) return pt;
+        let resolved = pt;
+        if (mode === 'ortho') {
+            resolved = _snapOrtho(this._wallFirstPoint, pt);
+        } else if (mode !== 'linear' && mode !== 'curved' && mode !== 'byslab' && !isStrongSnap(pt)) {
+            const step = window.wallModePicker?.getAngleStep?.() ?? 15;
+            resolved = _snapAngle(this._wallFirstPoint, pt, step);
+        }
+        if (this._dimInput?.isActive && mode !== 'curved') {
+            const locked = this._computeLockedEndPoint(this._wallFirstPoint, resolved);
+            if (locked) resolved = locked;
+        }
+        if (this._alignInferenceActive(mode) && !isStrongSnap(pt)) {
+            const inf = this._computeAlignInference(resolved);
+            if (inf) {
+                resolved = { worldX: inf.snapped.x, worldZ: inf.snapped.z };
+                if (captureGuides) {
+                    this._alignGuides = inf.guides.slice();
+                    this._alignLabel  = inf.label;
+                }
+            }
+        }
+        return resolved;
+    }
+
     private _computeLockedEndPoint(start: WorldPoint, cursor: WorldPoint): WorldPoint | null {
         const length = this._dimInput?.getLengthMeters();
         if (!length || length <= 0) return null;
