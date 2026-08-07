@@ -57,6 +57,37 @@ export interface LevelWallSpec {
      *  into `WallInput.systemTypeId` so `JunctionResolverV2` can freeze an existing same-type
      *  L-corner when a DIFFERENT-type wall joins it. Optional: absent ⇒ the guard is a no-op. */
     readonly systemTypeId?: string;
+    /**
+     * §FIX-WALL-ARC-LINEAR-MITRE (founder 2026-08-06) — the wall's quadratic-Bézier control
+     * point in plan XZ (`WallData.curve.control`), when the wall is CURVED. Absent ⇒ straight.
+     *
+     * The shim (not the resolver) owns the shape→heading conversion, so `JunctionResolverV2`
+     * stays pure and shape-agnostic: it is handed unit HEADINGS, which is all a mitre ever
+     * needed. Quadratic-Bézier tangents: ∝ (control − start) at t=0, ∝ (end − control) at t=1.
+     * The legacy `WallJoinResolver._wallDirAtJoin` uses the identical formula, so the two
+     * pipelines now agree on the cut plane at an arc↔straight corner instead of one cutting
+     * on the tangent and the other square-capping on the chord (the founder's wedge).
+     */
+    readonly curveControlXZ?: Pt2;
+}
+
+/**
+ * §FIX-WALL-ARC-LINEAR-MITRE — derive the per-endpoint forward tangents for a `LevelWallSpec`.
+ * Returns `{}` for a straight wall (no control point) or a degenerate control point, so
+ * `JunctionResolverV2` falls back to the chord exactly as before.
+ */
+function curveTangents(w: LevelWallSpec): { startDir?: Pt2; endDir?: Pt2 } {
+    const c = w.curveControlXZ;
+    if (!c || !Number.isFinite(c.x) || !Number.isFinite(c.z)) return {};
+    const s = { x: c.x - w.startXZ.x, z: c.z - w.startXZ.z };   // tangent at t = 0
+    const e = { x: w.endXZ.x - c.x,   z: w.endXZ.z - c.z   };   // tangent at t = 1
+    const sl = Math.hypot(s.x, s.z);
+    const el = Math.hypot(e.x, e.z);
+    if (!(sl > 1e-9) || !(el > 1e-9)) return {};                // control ≡ an endpoint → straight
+    return {
+        startDir: { x: s.x / sl, z: s.z / sl },
+        endDir:   { x: e.x / el, z: e.z / el },
+    };
 }
 
 /**
@@ -89,6 +120,8 @@ export class WallPipelineV2Cache {
             end:   w.endXZ,
             thickness: w.thickness,
             systemTypeId: w.systemTypeId,
+            // §FIX-WALL-ARC-LINEAR-MITRE — hand the resolver the arc's true heading at each end.
+            ...curveTangents(w),
         }));
         for (const w of inputs) this._walls.set(w.id, w);
         for (const m of resolveJunctions(inputs)) this._byId.set(m.id, m);
@@ -122,7 +155,11 @@ export function buildWallV2Geometry(
     cache: WallPipelineV2Cache,
     opts: ExtrudeOpts,
 ): { geometry: THREE.BufferGeometry; footprint: WallFootprint; miter: WallMiter | null } {
-    const input: WallInput = { id: wall.id, start: wall.startXZ, end: wall.endXZ, thickness: wall.thickness, systemTypeId: wall.systemTypeId };
+    const input: WallInput = {
+        id: wall.id, start: wall.startXZ, end: wall.endXZ,
+        thickness: wall.thickness, systemTypeId: wall.systemTypeId,
+        ...curveTangents(wall),   // §FIX-WALL-ARC-LINEAR-MITRE
+    };
     const miter = cache.getMiter(wall.id);
     const footprint = buildWallFootprint(input, miter);
     const geometry  = buildWallExtrusion(footprint, opts);

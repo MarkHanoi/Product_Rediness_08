@@ -54,6 +54,37 @@ export interface WallInput {
      * only — never affects a wall's centreline baseline.
      */
     readonly systemTypeId?: string;
+
+    // ─── §FIX-WALL-ARC-LINEAR-MITRE (founder 2026-08-06) ─────────────────────────────
+    // THE founder defect (#2): "CURVED WALLS JOINING LINEAR WALLS DON'T JOIN PROPERLY IN
+    // MITRE" — a V-shaped notch / open wedge at the arc↔straight junction, overlapping
+    // footprints, a gap on the inner face.
+    //
+    // ROOT CAUSE (measured): `WallInput` carried NO shape information, so V2 derived every
+    // wall's heading from its CHORD (`unit(end − start)`). A curved wall's chord is NOT its
+    // heading at the endpoint — for a quadratic-Bézier arc the heading is the TANGENT
+    // (∝ control − start at t=0, ∝ end − control at t=1). Probe: an arc (0,0)→(4,0) with
+    // control (2,3) has end-tangent (0.5547, −0.8321) but chord (1,0) — 56° apart. Joined to
+    // a straight wall leaving (4,0) along +x, V2 compared the two CHORDS, found them
+    // anti-parallel, tripped §V2-NEAR-PARALLEL-CAP and emitted NO corner at all — the straight
+    // wall square-capped on the plane x=4 while the legacy `WallJoinResolver` (which DOES use
+    // the tangent, §CURVED-DETECT-FIX / _wallDirAtJoin) cut the arc on the oblique plane
+    // (0.8817,−0.4719). Two different cut planes at one corner ⇒ exactly the founder's wedge
+    // on one face and overlap on the other.
+    //
+    // FIX: carry the per-endpoint unit TANGENT as OPTIONAL input. `WallPipelineV2` derives it
+    // from the wall's Bézier control point; every other caller (and every pre-fix test) omits
+    // it, in which case the chord is used and behaviour is byte-identical to before. V2 stays
+    // PURE and shape-agnostic — it never learns what a "curve" is, it is simply told the
+    // heading, which is the only thing the mitre maths ever needed.
+    //
+    // Orientation convention: BOTH are oriented FORWARD along the wall (start → end), exactly
+    // like the chord they replace. The ring sweep negates `endDir` to get the direction AWAY
+    // from an end-junction, precisely as it negates the chord today.
+    /** Unit tangent at `start`, oriented start→end. Absent ⇒ chord. */
+    readonly startDir?: Pt2;
+    /** Unit tangent at `end`, oriented start→end. Absent ⇒ chord. */
+    readonly endDir?: Pt2;
 }
 
 export interface Pt2 { readonly x: number; readonly z: number }
@@ -318,6 +349,41 @@ function lenSq(a: Pt2): number { return a.x * a.x + a.z * a.z; }
 function len(a: Pt2): number { return Math.hypot(a.x, a.z); }
 function unit(a: Pt2): Pt2 { const L = len(a) || 1; return { x: a.x / L, z: a.z / L }; }
 function leftPerp(d: Pt2): Pt2 { return { x: -d.z, z: d.x }; }     // CCW 90°
+
+// ─── §FIX-WALL-ARC-LINEAR-MITRE — per-endpoint heading ────────────────────────
+//
+/** Escape hatch: set `__pryzmWallV2ArcTangent = false` to ignore the supplied per-endpoint
+ *  tangents and fall back to the pre-fix CHORD heading everywhere (diagnostics only —
+ *  this restores the founder's arc↔straight wedge). Default ON. */
+function arcTangentJoinEnabled(): boolean {
+    return (globalThis as { __pryzmWallV2ArcTangent?: boolean }).__pryzmWallV2ArcTangent !== false;
+}
+
+/**
+ * §FIX-WALL-ARC-LINEAR-MITRE — the wall's unit heading AT one endpoint, oriented FORWARD
+ * (start → end). Uses the caller-supplied tangent when present (a curved wall), else the
+ * chord. A supplied tangent that is degenerate (zero-length / non-finite) is rejected in
+ * favour of the chord, so bad input can never inject NaN into the sweep.
+ */
+function forwardDirAt(w: WallInput, isStart: boolean): Pt2 {
+    const chord = unit(sub(w.end, w.start));
+    if (!arcTangentJoinEnabled()) return chord;
+    const t = isStart ? w.startDir : w.endDir;
+    if (!t || !Number.isFinite(t.x) || !Number.isFinite(t.z)) return chord;
+    const L = Math.hypot(t.x, t.z);
+    if (!(L > 1e-9)) return chord;
+    return { x: t.x / L, z: t.z / L };
+}
+
+/**
+ * §FIX-WALL-ARC-LINEAR-MITRE — the unit heading pointing AWAY from the junction at this
+ * endpoint, along the wall body. At `start` that is +forward; at `end` it is −forward.
+ * For a straight wall this is byte-identical to the pre-fix `unit(end−start)` / `unit(start−end)`.
+ */
+function awayDirAt(w: WallInput, isStart: boolean): Pt2 {
+    const f = forwardDirAt(w, isStart);
+    return isStart ? f : { x: -f.x, z: -f.z };
+}
 
 /** 2-D line-line intersection: `p1 + t*d1 = p2 + s*d2`. Returns null when parallel. */
 function intersectLines(p1: Pt2, d1: Pt2, p2: Pt2, d2: Pt2): Pt2 | null {
@@ -952,7 +1018,11 @@ function buildSweepEntries(j: JunctionDraft, walls: readonly WallInput[]): Sweep
     for (const r of j.realEndpoints) {
         const w = walls[r.wallIdx]!;
         // direction AWAY from this endpoint along the wall body.
-        const dir = r.isStart ? unit(sub(w.end, w.start)) : unit(sub(w.start, w.end));
+        // §FIX-WALL-ARC-LINEAR-MITRE — for a CURVED wall this is the arc TANGENT at this
+        // endpoint, not the chord. A mitre is a cut plane against the wall's actual heading
+        // where it meets its neighbour; the chord is the heading only for a straight wall.
+        // Straight walls carry no tangent and resolve to the identical chord as before.
+        const dir = awayDirAt(w, r.isStart);
         entries.push({
             wallIdx: r.wallIdx, isStart: r.isStart, isPassthrough: false,
             direction: dir, thickness: w.thickness, angle: Math.atan2(dir.z, dir.x),
@@ -998,12 +1068,21 @@ function refineLJunctionPivot(j: JunctionDraft, walls: readonly WallInput[]): Pt
     if (r0.wallIdx === r1.wallIdx) return j.point;       // both ends of ONE wall — not a corner.
     const w0 = walls[r0.wallIdx]!;
     const w1 = walls[r1.wallIdx]!;
-    const d0 = unit(sub(w0.end, w0.start));
-    const d1 = unit(sub(w1.end, w1.start));
+    // §FIX-WALL-ARC-LINEAR-MITRE — the "centreline crossing" the legacy resolver trims to is
+    // the crossing of the two walls' HEADING LINES at the join (legacy `_intersect2D` is fed
+    // the TANGENT line through the joining endpoint for a curved wall — see
+    // WallJoinResolver §CURVED-DETECT-FIX ~:2019). Anchor each line at its own JOINING
+    // endpoint and aim it along that endpoint's forward heading. For a straight wall the
+    // line through `start` along the chord and the line through the joining endpoint along
+    // the chord are the SAME line, so this is a strict no-op for every straight pair.
+    const a0 = r0.isStart ? w0.start : w0.end;
+    const a1 = r1.isStart ? w1.start : w1.end;
+    const d0 = forwardDirAt(w0, r0.isStart);
+    const d1 = forwardDirAt(w1, r1.isStart);
     // Near-parallel pair has no well-defined L crossing → keep the centroid.
     const sinTheta = Math.abs(d0.x * d1.z - d0.z * d1.x);
     if (sinTheta < PIVOT_REFINE_MIN_SIN) return j.point;
-    const cross = intersectLines(w0.start, d0, w1.start, d1);
+    const cross = intersectLines(a0, d0, a1, d1);
     if (!cross) return j.point;
     // Accept only a crossing within the near-junction band of the centroid — a shallow
     // corner can otherwise place the crossing far down the wall; never teleport the pivot.

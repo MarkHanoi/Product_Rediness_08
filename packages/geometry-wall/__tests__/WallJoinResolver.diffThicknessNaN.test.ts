@@ -93,6 +93,11 @@ describe('WallJoinResolver — diff-thickness §WJR-NAN-GUARD', () => {
     });
 
     it('(c) NORMAL perpendicular 0.2/0.1 L-corner STILL trims to a valid finite join', () => {
+        // §FIX-WALL-TYPECHANGE-MITRE — this case pins the option-B BUTT specifically (it
+        // asserts the lateral endpoint offset). The butt is now opt-in; the DEFAULT for a
+        // 2-wall L is the asymmetric mitre (see WallJoinResolver.typeChangeMitre.test.ts).
+        (globalThis as { __pryzmWallDiffThicknessButt?: boolean }).__pryzmWallDiffThicknessButt = true;
+        try {
         // Classic apartment-generator L-corner: 0.2 m exterior shell meeting a
         // 0.1 m interior partition at a clean right angle. This branch must remain
         // unaffected by the guard (no over-rejection).
@@ -120,6 +125,9 @@ describe('WallJoinResolver — diff-thickness §WJR-NAN-GUARD', () => {
         const lateral = Math.hypot(ss.x - 4, ss.z - 0);
         expect(lateral).toBeGreaterThan(0.05);
         expect(lateral).toBeLessThan(0.15);
+        } finally {
+            delete (globalThis as { __pryzmWallDiffThicknessButt?: boolean }).__pryzmWallDiffThicknessButt;
+        }
     });
 });
 

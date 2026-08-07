@@ -1415,7 +1415,7 @@ export class WallRebuildCoordinator {
                 // (older runtimes) — V2 then falls back to the per-call auto path.
                 try {
                     const refresh = (builder as unknown as {
-                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number; systemTypeId?: string }>) => void;
+                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number; systemTypeId?: string; curveControlXZ?: { x: number; z: number } }>) => void;
                     }).refreshV2Cache;
                     if (typeof refresh === 'function') {
                         // §V2-PRETRIM-FIX (2026-05-27): feed the V2 resolver the
@@ -1444,6 +1444,17 @@ export class WallRebuildCoordinator {
                                     // existing same-type L-corner when a DIFFERENT-type wall joins
                                     // (mirrors WallJoinResolver §FIX-EXISTING-CORNER-IMMUTABLE).
                                     systemTypeId: (w as unknown as { systemTypeId?: string }).systemTypeId,
+                                    // §FIX-WALL-ARC-LINEAR-MITRE (founder 2026-08-06) — thread the
+                                    // CURVED wall's Bézier control point so the V2 resolver mitres
+                                    // its neighbour against the arc's TANGENT (the heading the
+                                    // legacy resolver already uses for the arc's own cap) instead
+                                    // of the arc's CHORD. Without this the two pipelines cut an
+                                    // arc↔straight corner on two different planes → the founder's
+                                    // V-notch on one face and overlap on the other. Absent for
+                                    // straight walls ⇒ chord ⇒ byte-identical to before.
+                                    curveControlXZ: w.curve
+                                        ? { x: w.curve.control.x, z: w.curve.control.z }
+                                        : undefined,
                                 };
                             });
                         refresh.call(builder, specs);

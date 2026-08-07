@@ -9,7 +9,18 @@
 // generated / legacy case) — arrives COLLINEAR with arm A and terminates at the corner.
 // The pass-through predicate pairs the committed arm A with C (collinear + laterally
 // coincident), so §PASS-THROUGH-FLUSH square-caps the WHOLE cluster to the consensus and
-// the committed L's miter normals are DELETED: A and B went from ±(0.707, −0.707) to null
+// the committed L's miter normals are DELETED: A and B went from ±(0.707, 0.707) to null
+//
+// §FIX-WALL-TYPECHANGE-MITRE (2026-08-06) — the pinned MN literals below were UPDATED from
+// ±(0.707, −0.707) to ±(0.707, 0.707). That is a CORRECTION, not a regression: the legacy
+// bisector used the two walls' CHORD directions as the mitre-plane NORMAL, which lands on the
+// correct diagonal only when the corner's two arms join with OPPOSED chord orientation (one at
+// 'start', one at 'end'). This fixture's arms BOTH join at 'start', so the old normal picked
+// the WRONG diagonal — leaving an open wedge at the convex outer corner and doubled solid at
+// the concave inner one. `_miterPlaneBase` derives the plane from the offset-edge intersection
+// instead, which is orientation-independent, and it agrees exactly with what
+// `JunctionResolverV2` computes for the identical pair (corners (−0.15, 0.15) / (0.15, −0.15)).
+// The tests' INTENT — the committed L's mitre must survive the thin newcomer — is unchanged.
 // the moment C landed. That is the founder's open corner / overlapping outlines.
 //
 // The two existing guards both miss it by construction and the code says so: the L-122
@@ -78,8 +89,8 @@ describe('§FIX-WALL-LCORNER-COLLINEAR-STEP — legacy WallJoinResolver', () => 
     it('pins the committed 2-wall L miter (the reference the newcomer must not disturb)', () => {
         const [a, b] = [A(), B()];
         const r = resolve([a, b]);
-        expect(mn(r.get(a.id)!.startMN)).toBe('(0.707,-0.707)');
-        expect(mn(r.get(b.id)!.startMN)).toBe('(-0.707,0.707)');
+        expect(mn(r.get(a.id)!.startMN)).toBe('(0.707,0.707)');
+        expect(mn(r.get(b.id)!.startMN)).toBe('(-0.707,-0.707)');
     });
 
     for (const layered of [false, true]) {
@@ -93,8 +104,8 @@ describe('§FIX-WALL-LCORNER-COLLINEAR-STEP — legacy WallJoinResolver', () => 
                     .toBe(mn([...bare.values()][0]!.startMN));
                 expect(mn(withC.get(b.id)!.startMN), 'arm B keeps its mitre')
                     .toBe(mn([...bare.values()][1]!.startMN));
-                expect(mn(withC.get(a.id)!.startMN)).toBe('(0.707,-0.707)');
-                expect(mn(withC.get(b.id)!.startMN)).toBe('(-0.707,0.707)');
+                expect(mn(withC.get(a.id)!.startMN)).toBe('(0.707,0.707)');
+                expect(mn(withC.get(b.id)!.startMN)).toBe('(-0.707,-0.707)');
             });
 
             it('butts the thin wall FLAT on arm B\'s outer face (matching the V2 preview)', () => {
@@ -115,8 +126,8 @@ describe('§FIX-WALL-LCORNER-COLLINEAR-STEP — legacy WallJoinResolver', () => 
         const [a, b] = [A(), B()];
         const c = mk([0, 4], [0, 0], THIN, 3);
         const r = resolve([a, b, c]);
-        expect(mn(r.get(a.id)!.startMN)).toBe('(0.707,-0.707)');
-        expect(mn(r.get(b.id)!.startMN)).toBe('(-0.707,0.707)');
+        expect(mn(r.get(a.id)!.startMN)).toBe('(0.707,0.707)');
+        expect(mn(r.get(b.id)!.startMN)).toBe('(-0.707,-0.707)');
         expect(bl(r.get(c.id))).toBe('(0.000,4.000)->(0.000,0.150)');
         expect(mn(r.get(c.id)!.endMN)).toBe('(0.000,1.000)');
     });
@@ -126,7 +137,7 @@ describe('§FIX-WALL-LCORNER-COLLINEAR-STEP — legacy WallJoinResolver', () => 
         const c = mk([-4, 0], [-0.15, 0], THIN, 3);
         const r = resolve([a, b, c]);
         expect(bl(r.get(c.id))).toBe('(-4.000,0.000)->(-0.150,0.000)');
-        expect(mn(r.get(a.id)!.startMN)).toBe('(0.707,-0.707)');
+        expect(mn(r.get(a.id)!.startMN)).toBe('(0.707,0.707)');
     });
 
     it('NO REGRESSION — a SAME-thickness collinear pass-through still flushes', () => {
@@ -159,7 +170,7 @@ describe('§FIX-WALL-LCORNER-COLLINEAR-STEP — legacy WallJoinResolver', () => 
         const persisted = [a, b, mk([-4, 0], [r1.get(c.id)!.baseLine[1]!.x, 0], THIN, 3)];
         const r2 = resolve(persisted);
         expect(bl(r2.get(persisted[2]!.id))).toBe(bl(r1.get(c.id)));
-        expect(mn(r2.get(a.id)!.startMN)).toBe('(0.707,-0.707)');
+        expect(mn(r2.get(a.id)!.startMN)).toBe('(0.707,0.707)');
     });
 
     it('escape hatch __pryzmWallLCornerCollinearStep = false restores the pre-fix behaviour', () => {

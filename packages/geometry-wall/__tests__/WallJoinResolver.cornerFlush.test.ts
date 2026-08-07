@@ -26,7 +26,7 @@
  * baseline/MN bookkeeping.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { WallJoinResolver } from '../src/WallJoinResolver';
 import type { WallData } from '../src/WallTypes';
@@ -364,7 +364,21 @@ describe('WallJoinResolver — §CONSENSUS-ON-CENTRELINE', () => {
     });
 });
 
-describe('WallJoinResolver — diff-thickness butt L-corner', () => {
+/**
+ * §FIX-WALL-TYPECHANGE-MITRE (founder 2026-08-06) — the option-B BUTT these two describes
+ * pin is no longer the DEFAULT. The founder's rule is "ALWAYS DEFAULT MITRE when only TWO
+ * walls join", and the butt was measurably the reason a wall TYPE change degraded a corner
+ * (it also displaced the joining endpoint laterally, breaking room-loop closure). The butt
+ * survives behind the `__pryzmWallDiffThicknessButt` escape hatch, and these tests now cover
+ * that hatch. The DEFAULT (mitre) behaviour is asserted in
+ * `WallJoinResolver.typeChangeMitre.test.ts`.
+ */
+const BUTT = globalThis as { __pryzmWallDiffThicknessButt?: boolean };
+
+describe('WallJoinResolver — diff-thickness butt L-corner (escape hatch __pryzmWallDiffThicknessButt)', () => {
+    beforeEach(() => { BUTT.__pryzmWallDiffThicknessButt = true; });
+    afterEach(() => { delete BUTT.__pryzmWallDiffThicknessButt; });
+
     it('thick horizontal + thin vertical: thin wall butts just inside the thick face', () => {
         const a = mk([0, 0], [4, 0], 0.3, 1);   // thick (0.3), end (4,0)
         const b = mk([4, 0], [4, 3], 0.1, 2);   // thin  (0.1), start (4,0)
@@ -448,7 +462,12 @@ describe('WallJoinResolver — diff-thickness butt L-corner', () => {
  * outer cap corner coincides with the subordinate's far outer cap corner, for
  * BOTH thickness orderings and BOTH lateral approach sides of the partition.
  */
-describe('WallJoinResolver — §PERIMETER-CORNER-FILL (diff-thickness L-corner)', () => {
+describe('WallJoinResolver — §PERIMETER-CORNER-FILL (diff-thickness L-corner, butt escape hatch)', () => {
+    // §FIX-WALL-TYPECHANGE-MITRE — corner-fill only exists to patch the option-B BUTT, which
+    // is now opt-in. The default asymmetric mitre closes the outer corner by construction.
+    beforeEach(() => { BUTT.__pryzmWallDiffThicknessButt = true; });
+    afterEach(() => { delete BUTT.__pryzmWallDiffThicknessButt; });
+
     // Find the dominant cap corner nearest `pt`; assert it is within EPS — i.e.
     // the outer notch is closed (the dominant body reaches the building corner).
     function expectCornerClosed(

@@ -301,6 +301,37 @@ export class WallJoinResolver {
         // PRESERVE is respected: the HOST (shell) is never moved.
         this._clampPartitionEndsToShellInnerFace(walls, bl, byId, result, thresholds);
 
+        // ── §FIX-WALL-FACE-TRIM-NO-CLASH (founder 2026-08-06) ───────────────────
+        // THE INVARIANT this pass enforces, stated plainly:
+        //
+        //   A wall that TERMINATES against another wall is trimmed to that wall's FACE.
+        //   No resolved wall footprint on a level penetrates another wall's solid by
+        //   more than `CLASH_EPS_M`.
+        //
+        // The founder: "I create a wall in the L-shape mitred join between two walls —
+        // using the MID POINT (basically the INNER JOINT MITRE POINT). Why not? Still PRYZM
+        // needs to be clear and not allow CLASHES. The joint should be similar but just
+        // CLEAN TO THE FACE of the wall." The snap stays ALLOWED; the OUTPUT must be clean.
+        //
+        // MEASURED root cause (probe, 0.30 m L-corner arms + a 0.10 m guest ending exactly
+        // on the inner mitre vertex (0.15, 0.15)): 2 520 mm² of DOUBLED SOLID — the founder's
+        // "small square notch / overlapping box". No existing pass claims it:
+        //   • `_applyT` / T-projection only fire for a MID-SPAN contact;
+        //   • `_clampEndToShellInnerFace` rejects the candidate host twice over — the
+        //     `endMargin` test (~:434) requires the perpendicular foot to be ≥ one host
+        //     half-thickness clear of the host's ENDS, and at a CORNER it never is, and the
+        //     §PARTITION-SHELL-COLLINEAR-GUARD (~:437) rejects anything more than 30° off
+        //     perpendicular, which an oblique guest out of a corner always is.
+        // So the endpoint is simply left where the author put it — inside the host's solid.
+        //
+        // WHY TRIM ALONG THE WALL'S OWN AXIS (and not laterally, as the shell clamp does):
+        // an axial pull-back never moves the endpoint OFF its own centreline. The lateral
+        // displacement used by the old §DIFF-THICKNESS-FIX butt is exactly what produced the
+        // `§DIAG-ROOM-LOOP BREAK … NNNmm from centreline` room-loop failures (see
+        // §FIX-WALL-TYPECHANGE-MITRE). This pass therefore cannot re-open that defect.
+        // The HOST is never moved (§SHELL-ANCHOR-PRESERVE holds).
+        this._trimEndsOutOfNeighbourSolids(walls, bl, byId, result, thresholds);
+
         // ── §RESOLVED-STUB-SWEEP (founder 2026-06-19) ───────────────────────────
         // FINAL net for the degenerate dead-band. A wall can be collapsed into
         // `[minWallLength, DEGENERATE_STUB_LENGTH)` = [0.05, 0.15) m by the SUM of
@@ -335,6 +366,188 @@ export class WallJoinResolver {
         }
 
         return result;
+    }
+
+    // ── §FIX-WALL-FACE-TRIM-NO-CLASH — output non-overlap invariant ─────────────
+
+    /** Penetration below this depth (m) is not a clash — it is the deliberate ~1 mm butt
+     *  overlap the T / inner-face passes leave to avoid Z-fighting, plus float noise. */
+    private static readonly CLASH_EPS_M = 0.0015;
+
+    /**
+     * Flag: `__pryzmWallFaceTrimNoClash = true` enables the clash trim. **DEFAULT OFF —
+     * deliberately, and this needs a decision before it flips.**
+     *
+     * The pass is complete and proven (see `WallJoinResolver.clashFreeFootprints.test.ts`:
+     * it takes the inner-mitre-point join from 2 520 mm² of doubled solid to the sampler
+     * floor). It is default-OFF because turning it on CHANGES A SHIPPED CONTRACT, not
+     * because it is unfinished:
+     *
+     *   §FIX-NEWWALL-LCORNER-FLUSH (L-94) seats a 3rd wall snapped to an L corner by putting
+     *   its CENTRELINE endpoint on an arm's lateral face, and pins that seat with
+     *   `hypot(join − corner) < 0.16` (WallJoinResolver.newWallLCornerFlush.test.ts:85).
+     *   For an OBLIQUE wall, a centreline-on-face seat still leaves the DEEPER cap corner
+     *   inside the arm — which is precisely the founder's residual "square notch". Clearing
+     *   the CAP (what "CLEAN TO THE FACE" requires) necessarily retreats the centreline
+     *   FURTHER than 0.16, so the two rules are in direct conflict: the clash-free invariant
+     *   supersedes the L-94 tolerance, and L-94's assertion must be re-expressed as "the cap
+     *   clears the face" rather than "the centreline is within 160 mm of the corner".
+     *
+     * Enabling it turns 20 existing assertions across 11 files red — all of them pins on the
+     * OLD seat (L-94 flush seat, consensus-star byte-identity, pass-through square caps).
+     * Re-baselining those is a founder-level call on shipped join behaviour, not something
+     * this pass should make silently. Set the flag to true to evaluate it.
+     *
+     * ⚠ KNOWN OPEN DESIGN GAP — THE CASCADE. The rule as written is symmetric: it retreats
+     * ANY endpoint whose cap penetrates ANY other wall's solid. At the founder's inner-mitre
+     * junction that is too strong. Measured (0.30 m arms + a 0.10 m guest ending on the inner
+     * mitre vertex): the guest correctly retreats 69 mm, but the two ARMS' own mitre corners
+     * — which legitimately live AT (0.15, 0.15), inside the guest's band — are read as clashes
+     * too, so both arms retreat 69 mm and LOSE their miter normals. The committed L is
+     * destroyed in order to clean up the newcomer. The missing ingredient is a PRIORITY rule:
+     * at a junction, the newcomer yields and the committed corner is immutable (the same
+     * principle §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE / §FIX-EXISTING-CORNER-IMMUTABLE already
+     * encode for detection). Until that is designed, the pass must stay off — an unprioritised
+     * clash trim trades the founder's small notch for a broken mitre, which is worse.
+     * `WallJoinResolver.clashFreeFootprints.test.ts` measures both figures so neither the
+     * defect nor this cascade can regress silently.
+     */
+    private static _faceTrimNoClashEnabled(): boolean {
+        return (globalThis as { __pryzmWallFaceTrimNoClash?: boolean }).__pryzmWallFaceTrimNoClash === true;
+    }
+
+    /**
+     * §FIX-WALL-FACE-TRIM-NO-CLASH — pull any wall endpoint whose END CAP penetrates another
+     * wall's solid back ALONG ITS OWN AXIS until the cap clears that wall's face.
+     *
+     * Runs LAST, on the fully-resolved baselines, so it can only ever REMOVE overlap that
+     * every legitimate join pass has already declined to claim. Idempotent: a second
+     * `resolveLevel` over the trimmed baselines finds penetration ≤ `CLASH_EPS_M` and does
+     * nothing, so reopening a project does not drift the geometry.
+     *
+     * DELIBERATE NON-GOALS (each would be wrong, not merely unimplemented):
+     *   • NEAR-PARALLEL pairs are skipped. Two walls drawn along one another overlap for
+     *     their whole shared run; that is an AUTHORING collision, not a joint, and no axial
+     *     trim expresses a fix for it (trimming would delete the wall). Reported, not patched.
+     *   • The trim is capped at `hostT + wallT`. A wall lying wholly inside another is the
+     *     parallel case above; it must never be annihilated by this pass.
+     *   • A trim that would take the wall below `minWallLength` is refused outright — the
+     *     §RESOLVED-STUB-SWEEP below then judges the final length as it does for every pass.
+     */
+    private static _trimEndsOutOfNeighbourSolids(
+        walls:      WallData[],
+        bl:         Map<string, [THREE.Vector3, THREE.Vector3]>,
+        byId:       Map<string, WallData>,
+        result:     Map<string, JoinData>,
+        thresholds: JoinThresholds,
+    ): void {
+        if (!this._faceTrimNoClashEnabled()) return;
+        const EPS = this.CLASH_EPS_M;
+        const MIN_LEN = thresholds.minWallLength;
+        /** cos 15° — above this the two axes are "along one another", not a joint. */
+        const PARALLEL_DOT = 0.966;
+
+        for (const w of walls) {
+            const adj = result.get(w.id);
+            if (adj?.invalid) continue;
+            for (const side of ['start', 'end'] as Side[]) {
+                const cur = bl.get(w.id);
+                if (!cur) break;
+                const [ws, we] = cur;
+                const joinPt = side === 'start' ? ws : we;
+                const freePt = side === 'start' ? we : ws;
+                const axis = new THREE.Vector3(freePt.x - joinPt.x, 0, freePt.z - joinPt.z);
+                const curLen = axis.length();
+                if (curLen < 1e-6) continue;
+                axis.divideScalar(curLen);                        // unit, pointing INTO the wall
+                const halfT = (byId.get(w.id)?.thickness ?? w.thickness) / 2;
+                const lat = new THREE.Vector3(-axis.z, 0, axis.x).multiplyScalar(halfT);
+                // The end-cap corners AS RENDERED — i.e. AFTER the miter-plane projection
+                // `buildMiterPrism` will apply. Measuring the un-mitred square cap instead
+                // would read every legitimate mitred L as a deep clash (each arm's square
+                // cap reaches the other's centreline) and trim corners that are already
+                // perfect. The invariant is about the RENDERED footprint, so measure that.
+                const mn = side === 'start' ? adj?.startMN : adj?.endMN;
+                const projectCap = (p: THREE.Vector3): THREE.Vector3 => {
+                    if (!mn) return p;
+                    // `axis` points INTO the wall; buildMiterPrism projects along the wall
+                    // direction, which at this end is −axis. Sign cancels in the ratio.
+                    const dotD = mn.nx * axis.x + mn.nz * axis.z;
+                    if (Math.abs(dotD) < 1e-9) return p;
+                    const t = (mn.nx * (joinPt.x - p.x) + mn.nz * (joinPt.z - p.z)) / dotD;
+                    return new THREE.Vector3(p.x + t * axis.x, 0, p.z + t * axis.z);
+                };
+                const capCorners = [
+                    projectCap(new THREE.Vector3(joinPt.x + lat.x, 0, joinPt.z + lat.z)),
+                    projectCap(new THREE.Vector3(joinPt.x - lat.x, 0, joinPt.z - lat.z)),
+                ];
+
+                let pullBack = 0;
+                let culprit = '';
+                for (const h of walls) {
+                    if (h.id === w.id) continue;
+                    if (result.get(h.id)?.invalid) continue;
+                    const hbl = bl.get(h.id);
+                    if (!hbl) continue;
+                    const [hs, he] = hbl;
+                    const hVec = new THREE.Vector3(he.x - hs.x, 0, he.z - hs.z);
+                    const hLen = hVec.length();
+                    if (hLen < 1e-6) continue;
+                    const hDir = hVec.clone().divideScalar(hLen);
+                    if (Math.abs(hDir.dot(axis)) > PARALLEL_DOT) continue;   // along one another — not a joint
+                    const hHalfT = (byId.get(h.id)?.thickness ?? h.thickness) / 2;
+                    const hNorm = new THREE.Vector3(-hDir.z, 0, hDir.x);
+                    // How far along OUR axis must we retreat so that EVERY cap corner is out
+                    // of this host's lateral band, considering only corners that are also
+                    // within the host's longitudinal extent (else they miss the host anyway)?
+                    const denom = Math.abs(hNorm.dot(axis));
+                    if (denom < 1e-6) continue;                              // cannot escape laterally along our axis
+                    for (const c of capCorners) {
+                        const rel = new THREE.Vector3(c.x - hs.x, 0, c.z - hs.z);
+                        const along = rel.dot(hDir);
+                        if (along < -hHalfT || along > hLen + hHalfT) continue;   // past the host's ends
+                        const lateral = Math.abs(rel.dot(hNorm));
+                        const depth = hHalfT - lateral;                     // >0 ⇒ inside the host solid
+                        if (depth <= EPS) continue;
+                        // Retreating δ along `axis` reduces the lateral penetration by
+                        // δ·|axis·hNorm|. Solve for the δ that puts the corner ON the face.
+                        const need = (depth - EPS) / denom;
+                        if (need > pullBack) { pullBack = need; culprit = h.id; }
+                    }
+                }
+
+                if (pullBack <= 0) continue;
+                const maxPull = halfT * 2 + (byId.get(culprit)?.thickness ?? 0);
+                if (pullBack > maxPull) {
+                    // Deeper than a joint can explain (a wall buried in another) — refuse.
+                    continue;
+                }
+                const newLen = curLen - pullBack;
+                if (newLen < MIN_LEN) continue;                              // never collapse a wall
+                const newPt = new THREE.Vector3(
+                    joinPt.x + axis.x * pullBack, joinPt.y, joinPt.z + axis.z * pullBack,
+                );
+                const newBL: [THREE.Vector3, THREE.Vector3] = side === 'start'
+                    ? [newPt, we.clone()]
+                    : [ws.clone(), newPt];
+                if (!Number.isFinite(newBL[0].x) || !Number.isFinite(newBL[0].z)
+                    || !Number.isFinite(newBL[1].x) || !Number.isFinite(newBL[1].z)) continue;
+                bl.set(w.id, newBL);
+                const rec = result.get(w.id) ?? { baseLine: newBL, startMN: null, endMN: null };
+                rec.baseLine = newBL;
+                // The cap now butts a FACE — a square cap is the correct, stable geometry
+                // there (a mitre normal inherited from a join this end no longer reaches
+                // would re-introduce the oblique overshoot this pass just removed).
+                if (side === 'start') rec.startMN = null; else rec.endMN = null;
+                result.set(w.id, rec);
+                if (wallJoinDiagOn()) {
+                    console.log(
+                        `[WallJoinResolver] §FIX-WALL-FACE-TRIM-NO-CLASH ${w.id}(${side}) pulled back ` +
+                        `${(pullBack * 1000).toFixed(1)}mm out of ${culprit}'s solid → clean face butt`,
+                    );
+                }
+            }
+        }
     }
 
     // ── §PARTITION-SHELL-INNER-FACE — final inner-face clamp ────────────────────
@@ -1623,10 +1836,17 @@ export class WallJoinResolver {
                                 // Compute bisector miter (same logic as _applyCorner).
                                 const dirC = this._wallDirAtJoin(wallC, ep.side,         ws,  we,  coincidentPt);
                                 const dirD = this._wallDirAtJoin(wallD, partnerEp.side,  pWS, pWE, coincidentPt);
+                                // §FIX-WALL-TYPECHANGE-MITRE — use the SAME thickness-aware
+                                // mitre plane as `_applyCorner` (this block advertises itself
+                                // as "same logic as _applyCorner", so it must stay in step).
                                 const bisectorSum = new THREE.Vector3().addVectors(dirC, dirD);
-                                const base = bisectorSum.length() > 1e-6
+                                const asymCD = WallJoinResolver._miterPlaneBase(
+                                    dirC, ep.side, wallC.thickness / 2,
+                                    dirD, partnerEp.side, wallD.thickness / 2,
+                                );
+                                const base = asymCD ?? (bisectorSum.length() > 1e-6
                                     ? bisectorSum.normalize()
-                                    : new THREE.Vector3(-dirC.z, 0, dirC.x).normalize();
+                                    : new THREE.Vector3(-dirC.z, 0, dirC.x).normalize());
                                 const mnC = WallJoinResolver._pickMiterNormal(base, dirC, ep.side);
                                 const mnD = WallJoinResolver._pickMiterNormal(base, dirD, partnerEp.side);
 
@@ -2169,7 +2389,12 @@ export class WallJoinResolver {
         // horizontal walls and a thinner vertical wall.
         const tA = wallA.thickness;
         const tB = wallB.thickness;
-        if (Math.abs(tA - tB) > 0.001) {
+        // §FIX-WALL-TYPECHANGE-MITRE (founder 2026-08-06) — the option-B butt below is now
+        // OPT-IN ONLY (`__pryzmWallDiffThicknessButt = true`). By default a 2-wall L corner
+        // ALWAYS mitres, whatever the two thicknesses are, via the asymmetric mitre plane
+        // computed further down (`_miterPlaneBase`). See the block comment on that method for
+        // the measured defect, the maths, and why this is not the pre-Apr-2026 wrap-around.
+        if (Math.abs(tA - tB) > 0.001 && this._diffThicknessButtEnabled()) {
             const isDomA       = tA >= tB;
             const dominantEp   = isDomA ? epA : epB;
             const subordinateEp = isDomA ? epB : epA;
@@ -2367,7 +2592,14 @@ export class WallJoinResolver {
         const bisectorSum = new THREE.Vector3().addVectors(dirA, dirB);
         let base: THREE.Vector3;
 
-        if (bisectorSum.length() < 1e-6) {
+        // §FIX-WALL-TYPECHANGE-MITRE — the general (thickness-aware) mitre plane. It is the
+        // SAME plane the bisector gives when tA === tB, and the correct asymmetric plane when
+        // they differ, so ONE branch now serves every 2-wall L. Only a degenerate /
+        // near-parallel pair (null) falls through to the historical bisector fallback.
+        const asymBase = this._miterPlaneBase(dirA, epA.side, tA / 2, dirB, epB.side, tB / 2);
+        if (asymBase) {
+            base = asymBase;
+        } else if (bisectorSum.length() < 1e-6) {
             base = new THREE.Vector3(-dirA.z, 0, dirA.x).normalize();
         } else {
             base = bisectorSum.normalize();
@@ -2451,7 +2683,8 @@ export class WallJoinResolver {
         // wall ids + thickness so the founder can map them. Same-thickness ⇒ mitred L.
         console.log(
             `[WallJoinResolver] §DIAG-WALL-JOIN CORNER ${epA.wallId}(${epA.side}) ↔ ${epB.wallId}(${epB.side}) ` +
-            `class=${_cls} angle=${_angDeg.toFixed(1)}° turn=${_turn} mitre=bisector(sameThk t=${tA.toFixed(3)}) ` +
+            `class=${_cls} angle=${_angDeg.toFixed(1)}° turn=${_turn} ` +
+            `mitre=${asymBase ? 'asym' : 'bisector'}(tA=${tA.toFixed(3)} tB=${tB.toFixed(3)}) ` +
             `jointGap=${(_jointGapM * 1000).toFixed(1)}mm bisectorOk=${_bisectorOk} ` +
             `closed=${_closed ? '✓' : '⚠ NOT-CLEAN'}`,
         );
@@ -2514,6 +2747,88 @@ export class WallJoinResolver {
      * If `base` already satisfies the condition it is returned as-is; otherwise
      * its negation is returned.  Both represent the same geometric plane.
      */
+    // ── §FIX-WALL-TYPECHANGE-MITRE (founder 2026-08-06) ──────────────────────────
+    //
+    // THE founder requirement, verbatim: "If I change one wall type, I would expect to STILL
+    // have robust and correct wall joints — no matter which wall joins with what. ALWAYS
+    // DEFAULT MITRE when only TWO walls join."
+    //
+    // THE defect (measured — see WallJoinResolver.typeChangeMitre.test.ts): changing ONE
+    // wall's system type changes its `thickness` (resolveWallSystemType → SetWallSystemType
+    // `w.thickness = type.totalThickness`). The moment the two arms of an L differ by >1 mm,
+    // the §DIFF-THICKNESS-FIX "option-B butt" branch below REFUSED to mitre: it square-capped
+    // both walls (startMN/endMN = null) and MOVED the thin wall's joining endpoint LATERALLY
+    // onto the thick wall's near face by `dominantT/2 − 1 mm`. Probe, 300 mm ⟂ 100 mm L at the
+    // origin: thick wall start extended to (−0.05, 0), thin wall start displaced to (0, 0.149),
+    // both MN null. The identical corner through the V2 pipeline mitres correctly, with
+    // INDEPENDENT half-thicknesses (JunctionResolverV2 ~:1060-1088 — probe corners
+    // (0.05, 0.15) / (−0.05, −0.15)). So the SAME corner rendered two different ways purely by
+    // which pipeline each wall took — and a type change is exactly what flips a wall from the
+    // V2 footprint path to the legacy path (a layered type, or any wall carrying an opening).
+    //
+    // That lateral displacement is ALSO the root of the founder's console
+    // `[RoomDetectionEngine] §DIAG-ROOM-LOOP BREAK … endpoint NNNmm from centreline EXCEEDS
+    // hostSnap 200mm`: a 430 mm layered shell displaces its partner's endpoint by
+    // 430/2 − 1 = 214 mm, just over the 200 mm floor — the reported 217 mm. The room loop then
+    // cannot close. Trimming both arms to `sharedPt` (as the equal-thickness path already
+    // does) removes the displacement at source.
+    //
+    // THE MATHS. A mitre across a thickness step IS a single plane — the earlier rationale
+    // ("geometrically wrong across a thickness step") is only true of the SYMMETRIC bisector.
+    // Offset the two walls' edge lines by their OWN half-thicknesses and intersect them: the
+    // two corner points are `sharedPt ± u`, because the intersection is a linear function of
+    // the offsets and negating both offsets negates the solution. So the corner line always
+    // passes through the centreline crossing, and the plane normal is simply `perp(u)`. When
+    // the thicknesses are equal this reduces EXACTLY to the away-direction bisector — the
+    // formula is a strict generalisation, not a replacement.
+    //
+    /**
+     * §FIX-WALL-TYPECHANGE-MITRE — the shared mitre-plane normal for a 2-wall L corner,
+     * valid for EQUAL and UNEQUAL thickness alike.
+     *
+     * Intersects wall A's LEFT offset edge line with wall B's RIGHT offset edge line, each
+     * offset by its OWN half-thickness about `sharedPt`; the plane through that corner and
+     * `sharedPt` is the mitre. Returns `null` for a degenerate / near-parallel pair, where
+     * the caller keeps the existing bisector (or square-cap) fallback.
+     *
+     * @param dirA/dirB  Wall AXIS directions (start→end), as `_wallDirAtJoin` returns them —
+     *                   arc TANGENT for a curved wall, chord for a straight one.
+     * @param sideA/sideB Which endpoint of each wall is at this corner.
+     * @param halfTA/halfTB Each wall's OWN half-thickness. Never averaged.
+     */
+    private static _miterPlaneBase(
+        dirA: THREE.Vector3, sideA: Side, halfTA: number,
+        dirB: THREE.Vector3, sideB: Side, halfTB: number,
+    ): THREE.Vector3 | null {
+        // Direction AWAY from the junction along each wall body.
+        const awayA = sideA === 'end' ? dirA.clone().negate() : dirA.clone();
+        const awayB = sideB === 'end' ? dirB.clone().negate() : dirB.clone();
+        const nA = new THREE.Vector3(-awayA.z, 0, awayA.x);   // left perpendicular
+        const nB = new THREE.Vector3(-awayB.z, 0, awayB.x);
+        const det = awayA.x * awayB.z - awayA.z * awayB.x;
+        if (!Number.isFinite(det) || Math.abs(det) < 1e-9) return null;   // parallel — no corner
+        // Solve (halfTA*nA) + t*awayA = (−halfTB*nB) + s*awayB, relative to sharedPt.
+        const p1x = halfTA * nA.x, p1z = halfTA * nA.z;
+        const p2x = -halfTB * nB.x, p2z = -halfTB * nB.z;
+        const wx = p2x - p1x, wz = p2z - p1z;
+        const t = (wx * awayB.z - wz * awayB.x) / det;
+        const ux = p1x + t * awayA.x;
+        const uz = p1z + t * awayA.z;
+        if (!Number.isFinite(ux) || !Number.isFinite(uz)) return null;
+        const uLen = Math.hypot(ux, uz);
+        // Degenerate (zero-thickness input) or a near-parallel blow-up that would throw the
+        // corner metres down the wall — both fall back to the caller's bisector.
+        if (!(uLen > 1e-9) || uLen > 20 * (halfTA + halfTB + 1e-6)) return null;
+        return new THREE.Vector3(-uz, 0, ux).normalize();
+    }
+
+    /** Escape hatch: set `__pryzmWallDiffThicknessButt = true` to restore the pre-2026-08-06
+     *  §DIFF-THICKNESS-FIX option-B butt (square caps + lateral endpoint displacement) instead
+     *  of the §FIX-WALL-TYPECHANGE-MITRE asymmetric mitre. Diagnostics only. Default OFF. */
+    private static _diffThicknessButtEnabled(): boolean {
+        return (globalThis as { __pryzmWallDiffThicknessButt?: boolean }).__pryzmWallDiffThicknessButt === true;
+    }
+
     private static _pickMiterNormal(
         base:    THREE.Vector3,
         wallDir: THREE.Vector3,
