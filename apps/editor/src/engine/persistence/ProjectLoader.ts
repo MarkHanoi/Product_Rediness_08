@@ -46,7 +46,10 @@
  */
 
 import { CommandManager } from '@pryzm/command-registry';
-import { getFrameScheduler } from '@pryzm/frame-scheduler'; // §LOAD-CHUNKED — P3-owned rAF for the chunked-load yield
+// §LOAD-CHUNKED / §PROGRESS-SCHEDULER — the chunked-load yield. Visible: the
+// P3-owned frame bus (progressive paint, unchanged). Hidden: an unclamped
+// macrotask, so the load completes instead of parking at 0 Hz. No new rAF.
+import { yieldForProgress, scheduleProgress, isHiddenForProgress } from '@pryzm/frame-scheduler';
 import { storeEventBus } from '@pryzm/core-app-model';
 // §PERF-L03-PHASE (L-03) — gated per-phase load timing; OFF unless globalThis.__pryzmPerfTrace.
 import { perfTraceOn, perfLog } from '@pryzm/core-app-model';
@@ -644,25 +647,42 @@ export class ProjectLoader {
                     // longest synchronous gap BETWEEN yields. A small max-gap proves
                     // the main thread is being released (no single LONGTASK). The
                     // summary prints once after the import resolves.
+                    //
+                    // §PROGRESS-SCHEDULER (2026-08-07) — the yield is now
+                    // VISIBILITY-INDEPENDENT. Chunking exists to keep the UI
+                    // responsive; a hidden tab has no UI to keep responsive AND
+                    // stops firing rAF entirely, so a frame-bus yield parked the
+                    // load mid-hydration for as long as the founder was in
+                    // Visual Studio — while the raw-`setTimeout` watchdogs that
+                    // guard this pipeline kept firing on real time and
+                    // force-completed work that had merely been parked. That is
+                    // the "stuck / corrupt" symptom. `yieldForProgress()` keeps
+                    // the exact frame-bus behaviour while visible and falls to an
+                    // unclamped MessageChannel macrotask while hidden, so the
+                    // load always runs to completion. P3 is untouched — no new
+                    // rAF; see `packages/frame-scheduler/src/progressScheduler.ts`.
                     let _yields = 0;
                     let _maxGapMs = 0;
+                    let _hiddenYields = 0;
                     let _lastResume = performance.now();
-                    const yieldFrame = (): Promise<void> =>
-                        new Promise<void>(resolve => {
-                            // Time the synchronous chunk that just ran (since the last resume).
-                            const gap = performance.now() - _lastResume;
-                            if (gap > _maxGapMs) _maxGapMs = gap;
-                            getFrameScheduler().scheduleOnce('project-load-chunk', () => {
-                                _yields++;
-                                _lastResume = performance.now();
-                                resolve();
-                            }, 'post-render');
-                        });
+                    const yieldFrame = async (): Promise<void> => {
+                        // Time the synchronous chunk that just ran (since the last resume).
+                        const gap = performance.now() - _lastResume;
+                        if (gap > _maxGapMs) _maxGapMs = gap;
+                        if (isHiddenForProgress()) _hiddenYields++;
+                        await yieldForProgress('project-load-chunk', 'post-render');
+                        _yields++;
+                        _lastResume = performance.now();
+                    };
                     importResult = await this.commandManager.executeChunked(importCmd, yieldFrame);
                     console.log(
-                        `[ProjectLoader] §LOAD-CHUNKED — yielded ${_yields} frame(s) during element build; ` +
+                        `[ProjectLoader] §LOAD-CHUNKED — yielded ${_yields} time(s) during element build; ` +
                         `longest synchronous chunk between yields=${_maxGapMs.toFixed(1)}ms ` +
-                        `(main thread released ${_yields} time(s), so the UI painted progressively instead of freezing).`,
+                        `(main thread released ${_yields} time(s), so the UI painted progressively instead of freezing)` +
+                        `${_hiddenYields > 0
+                            ? `; §PROGRESS-SCHEDULER — ${_hiddenYields} yield(s) ran while the tab was HIDDEN ` +
+                              `(macrotask path, rAF was stopped — the load still completed)`
+                            : ''}.`,
                     );
                 } else {
                     importResult = exec(importCmd);
@@ -2135,28 +2155,36 @@ export class ProjectLoader {
                     // §AUTOSAVE-SUPPRESS-DURING-LOAD — the drain owns closing the
                     // suppression window (on the frame AFTER the last redetect); the
                     // finally-tail fallback must NOT close it synchronously here.
+                    // §PROGRESS-SCHEDULER (2026-08-07) — this sweep is NON-VISUAL
+                    // correctness work (room topology + the autosave-suppression
+                    // window that closes behind it), so it must not stop when the
+                    // tab hides. `scheduleProgress` keeps the one-level-per-frame
+                    // cadence while visible and switches to an unclamped
+                    // macrotask while hidden. Without this, hiding the tab
+                    // mid-sweep left rooms undetected AND left autosave
+                    // suppressed indefinitely — the next snapshot would then
+                    // persist a half-redetected model.
                     __suppressCloseDeferred = true;
-                    const scheduler = getFrameScheduler();
                     const queue = [...levelsToRedetect];
                     const drainNext = (): void => {
                         const lvl = queue.shift();
                         if (!lvl) { __closeAutosaveSuppress(); return; }
                         dispatchOne(lvl);
                         if (queue.length > 0) {
-                            scheduler.scheduleOnce('project-load-redetect', drainNext, 'post-render');
+                            scheduleProgress('project-load-redetect', drainNext, 'post-render');
                         } else {
                             // §AUTOSAVE-SUPPRESS-DURING-LOAD — the LAST level's redetect has
                             // been dispatched; give its downstream store churn (room updates →
                             // spatial-tree refresh → rule re-validation) one more frame to
                             // settle, THEN re-enable autosave so the single post-load snapshot
                             // captures the fully-settled model.
-                            scheduler.scheduleOnce('project-load-redetect', __closeAutosaveSuppress, 'post-render');
+                            scheduleProgress('project-load-redetect', __closeAutosaveSuppress, 'post-render');
                         }
                     };
                     // Kick the first level off the next frame too, so the load()
                     // finally block returns (and the scene paints) before any redetect
                     // runs — the viewport is never blocked synchronously at open.
-                    scheduler.scheduleOnce('project-load-redetect', drainNext, 'post-render');
+                    scheduleProgress('project-load-redetect', drainNext, 'post-render');
                     console.log(
                         `[ProjectLoader] §LOAD-REDETECT-CHUNKED — scheduled ${levelsToRedetect.length} per-level redetect(s) ` +
                         `across frames (one level/frame) so the viewport paints progressively instead of freezing.`,

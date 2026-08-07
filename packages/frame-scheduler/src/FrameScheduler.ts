@@ -656,12 +656,24 @@ export class FrameScheduler {
   private _visibilityBridgeInstalled = false;
 
   /**
-   * §BACKGROUND-TAB-KEEPALIVE — install (once) a `visibilitychange` listener
-   * that, on becoming VISIBLE while the loop is running off the heartbeat,
-   * unsubscribes the heartbeat and re-arms the rAF pump.  Without this the
-   * scheduler would keep using the (now wasteful, but still functional)
-   * heartbeat after the tab returns to foreground; the bridge restores the
-   * exact rAF path the instant the tab is visible again.
+   * §BACKGROUND-TAB-KEEPALIVE / §PROGRESS-SCHEDULER — install (once) a
+   * `visibilitychange` listener that switches the pump between rAF and the
+   * heartbeat **in both directions**.
+   *
+   * **VISIBLE → HIDDEN (the founder's stall, fixed here).** `scheduleNext()` is
+   * the only place that consults `_shouldUseBackgroundPump()`, and it is only
+   * reachable from `tick()`, which is driven by rAF.  When the tab hides, the
+   * browser stops firing rAF — so the already-armed callback never runs, the
+   * hand-off is never evaluated, and every non-visual subscriber on the frame
+   * bus (chunked project load, room redetect, geometry drains, batch
+   * coordination) parks at 0 Hz until the tab is looked at again.  Meanwhile
+   * raw-`setTimeout` watchdogs (e.g. `BatchCoordinator`'s 8 s drain watchdog)
+   * DO keep firing on approximately real time, so they force-complete work that
+   * has merely been parked — that divergence is the corruption, not the stall.
+   * The bridge therefore abandons the dead rAF handle and arms the heartbeat.
+   *
+   * **HIDDEN → VISIBLE.** Release the heartbeat and restore the exact rAF path,
+   * so the foreground remains byte-identical to the pre-keepalive behaviour.
    *
    * No-op in headless/test hosts that have no `document` (those drive rAF via
    * an injected adapter and never enter the heartbeat path).
@@ -675,15 +687,36 @@ export class FrameScheduler {
     }).document;
     if (!doc?.addEventListener) return;
     this._visibilityBridgeInstalled = true;
-    doc.addEventListener('visibilitychange', () => {
-      if (!this.running) return;
-      const heartbeat = this._getHeartbeat();
-      if (heartbeat !== null && !heartbeat.isHidden && this.heartbeatUnsub !== null) {
-        // Back in foreground — leave the heartbeat and resume rAF immediately.
-        this._unsubscribeHeartbeat();
-        if (this.rafHandle === null) this.scheduleNext();
+    doc.addEventListener('visibilitychange', () => this._onVisibilityChange());
+  }
+
+  /**
+   * Re-evaluate which pump should be driving, given the current visibility.
+   * Extracted from the bridge listener so `_shouldUseBackgroundPump()` is
+   * consulted on a visibility EDGE as well as from inside `tick()`.
+   */
+  private _onVisibilityChange(): void {
+    if (!this.running || this.adapter === null) return;
+
+    if (this._shouldUseBackgroundPump()) {
+      // Became HIDDEN.  The armed rAF callback will never fire again, so drop
+      // it and hand the pump to the heartbeat.  `scheduleNext()` performs the
+      // subscription (and is a no-op if we are already on the heartbeat).
+      if (this.heartbeatUnsub === null) {
+        if (this.rafHandle !== null) {
+          this.adapter.cancel(this.rafHandle);
+          this.rafHandle = null;
+        }
+        this.scheduleNext();
       }
-    });
+      return;
+    }
+
+    // Became VISIBLE — leave the heartbeat and resume rAF immediately.
+    if (this.heartbeatUnsub !== null) {
+      this._unsubscribeHeartbeat();
+      if (this.rafHandle === null) this.scheduleNext();
+    }
   }
 
   private tick(now: number): void {

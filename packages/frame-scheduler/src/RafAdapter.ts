@@ -67,6 +67,14 @@ export class FakeRafAdapter implements RafAdapter {
   private clock = 0;
   private readonly pending = new Map<number, RafCallback>();
 
+  /**
+   * Number of rAF callbacks this adapter has actually invoked.  Lets a test
+   * assert that a pipeline completed WITHOUT any frame running — the
+   * §PROGRESS-SCHEDULER invariant for hidden-tab work.  `pendingCount()` cannot
+   * express that, because the scheduler's own pump keeps one callback armed.
+   */
+  pumpCount = 0;
+
   setNow(n: number): void {
     this.clock = n;
   }
@@ -98,7 +106,7 @@ export class FakeRafAdapter implements RafAdapter {
   pump(): number {
     const callbacks = [...this.pending.values()];
     this.pending.clear();
-    for (const cb of callbacks) cb(this.clock);
+    for (const cb of callbacks) { this.pumpCount++; cb(this.clock); }
     return callbacks.length;
   }
 

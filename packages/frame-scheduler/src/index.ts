@@ -24,7 +24,6 @@ export type {
 export { PRIORITIES, TICK_PRIORITIES, isPriority, isTickPriority } from './types.js';
 
 export { FrameScheduler } from './FrameScheduler.js';
-import { FrameScheduler } from './FrameScheduler.js';
 
 // §FRAME-PROFILER — per-subsystem frame-cost accumulator (founder perf request).
 // Zero cost unless `globalThis.__pryzmFrameProfile === true`; then logs one
@@ -70,6 +69,29 @@ export { deferWork } from './deferWork.js';
 export type { DeferWorkCanceller } from './deferWork.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §PROGRESS-SCHEDULER — the visibility-INDEPENDENT work driver.
+//
+// The frame bus is for work whose output is a frame.  Work that must complete
+// regardless of whether anyone is watching — loading, hydration, persistence,
+// sync, solving — yields through here instead.  P3 is intact: this is not a
+// second rAF (the single rAF call site remains `RafAdapter.ts`); when the tab is
+// visible these helpers delegate to the frame bus, and when it is hidden they
+// yield on an unclamped `MessageChannel` macrotask.  See `progressScheduler.ts`
+// for the full driver-choice rationale.
+export {
+  yieldForProgress,
+  scheduleProgress,
+  postProgressMacrotask,
+  isHiddenForProgress,
+  _setProgressChannelFactoryForTest,
+} from './progressScheduler.js';
+export type {
+  ProgressCanceller,
+  ProgressPort,
+  ProgressChannelFactory,
+} from './progressScheduler.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
 // D.7.1 — Process-singleton accessor.
 //
 // `getFrameScheduler()` returns the **single shared** `FrameScheduler`
@@ -106,21 +128,9 @@ export type { DeferWorkCanceller } from './deferWork.js';
 // the singleton is created on first access so test code can call
 // `_resetFrameSchedulerForTest()` between runs without leaking the rAF
 // pump across vitest test boundaries.
-let _instance: FrameScheduler | null = null;
-
-/** Returns the process-wide shared `FrameScheduler`.  Lazy-constructed on
- *  first call.  Canonical entry point for D.7.2–D.7.10 consumer migrations. */
-export function getFrameScheduler(): FrameScheduler {
-  if (_instance === null) {
-    _instance = new FrameScheduler();
-  }
-  return _instance;
-}
-
-/** Test-only — drops the cached singleton so the next `getFrameScheduler()`
- *  call rebuilds with a fresh `FrameScheduler`.  Vitest suites that touch
- *  the scheduler MUST call this in `afterEach` to keep tests independent.
- *  Production code never calls this. */
-export function _resetFrameSchedulerForTest(): void {
-  _instance = null;
-}
+//
+// The implementation lives in `./singleton.js` (not inline here) so sibling
+// modules such as `progressScheduler.ts` can reach the shared scheduler without
+// importing this barrel — an intra-package barrel import is a module-load cycle
+// that resolves to `undefined`.  The public API is unchanged.
+export { getFrameScheduler, _resetFrameSchedulerForTest } from './singleton.js';
