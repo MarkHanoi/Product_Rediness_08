@@ -51,6 +51,51 @@ const MIN_FIT_RADIUS_M = 4;
 /** The historical perspective far plane. A fit never SHRINKS the depth range below it. */
 const BASELINE_FAR_M = 2000;
 
+/**
+ * §CAM-NEAR-NEVER-CUTS (L-747) — the largest near plane a BIM camera may ever have.
+ *
+ * FOUNDER EVIDENCE (2026-08-07): *"BEFORE I could get close to elements and they would
+ * NEVER sectionate. NOW it creates a camera section which I might not want, because as I
+ * get closer to the element it gets sectioned."* Screenshots show walls sliced by a clean
+ * flat cut that tracks the viewpoint.
+ *
+ * That is not a section feature — `CutFill` was `enabled=false` and sets
+ * `renderer.clippingPlanes = []` when off. It is NEAR-PLANE CLIPPING. The founder's own
+ * activation log printed the value:
+ *
+ *   §CAM-FRAME-INVARIANT auto-framed …; dist=6515673.6m near=14.02 far=14022863
+ *
+ * `near = 14.02` metres. Everything within 14 m of the camera is clipped away, and the
+ * closer you walk to a wall the more of it disappears — exactly the reported symptom.
+ *
+ * ## Why the old rule produced it
+ *
+ * `near = max(0.1, far / 1e6)` is DEPTH-PRECISION reasoning: keep the near/far ratio
+ * bounded so the depth buffer stays usable. Sound in isolation, and it only bites when
+ * `far` is enormous — which it was, because the globe-scale bounds contamination
+ * (§CAM-BIM-SCALE-BOUNDS, L-744) inflated `far` to 14,000 km. So this is the SAME
+ * contamination surfacing in a second consumer.
+ *
+ * ## Why capping is right, and what it costs
+ *
+ * A precision heuristic must not be allowed to clip the model. In a BIM editor the user
+ * can walk up to any surface, and geometry vanishing at arm's length is never an
+ * acceptable outcome of a depth-buffer trade — the whole point of the tool is inspecting
+ * things closely.
+ *
+ * The cost is honest and bounded: with `near` pinned at 0.1 m, a very large `far` gives a
+ * high near/far ratio and therefore weaker depth precision (possible z-fighting on
+ * distant coplanar surfaces). That is a rendering-quality artefact on far-away geometry;
+ * clipping is a loss of the geometry the user is actually looking at. We take the
+ * artefact. In practice the trade is nearly free: with L-744 rejecting globe-scale
+ * bounds, a legitimate scene — including the deliberately-supported 6 km IFC outlier —
+ * yields `far` under ~30 km and a ratio around 3e5, which is fine.
+ *
+ * 0.1 m matches `BimWorld`'s historical default, i.e. the behaviour the founder is
+ * correctly describing as "before".
+ */
+export const MAX_BIM_NEAR_M = 0.1;
+
 /* ─── §CAM-BIM-SCALE-BOUNDS (L-744) — the guard L-378 was missing ────────────
  *
  * FOUNDER EVIDENCE (2026-08-07, brand-new project, walls at the origin):
@@ -245,7 +290,10 @@ export function computeFitPose(bounds: THREE.Box3, options: FitPoseOptions = {})
         // Depth range that keeps the whole model inside the frustum. `far` must clear the
         // BACK of the bounding sphere, not just its centre.
         const far = Math.max(BASELINE_FAR_M, (distance + radius) * 1.5);
-        const near = Math.max(0.1, far / 1e6);
+        // §CAM-NEAR-NEVER-CUTS (L-747) — a depth-precision heuristic may never clip the
+        // model. WAS `Math.max(0.1, far / 1e6)`, which on a 14,000 km far plane produced
+        // near = 14.02 m and sliced every wall the user walked up to. See MAX_BIM_NEAR_M.
+        const near = Math.min(MAX_BIM_NEAR_M, Math.max(0.1, far / 1e6));
 
         span.setAttribute('pryzm.camera.fit_distance_m', distance);
         span.setAttribute('pryzm.camera.fit_radius_m', radius);

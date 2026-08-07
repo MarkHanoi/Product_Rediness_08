@@ -39,7 +39,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 // §L-378 / §CAM-BIM-SCALE-BOUNDS (L-744) — ONE definition of "globe/ECEF-scale",
 // shared with the bounds guard in the framing authority. See the note below.
-import { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition } from './cameraFraming.js';
+import { isGlobeScalePosition } from './cameraFraming.js';
 
 // ── View slot types ───────────────────────────────────────────────────────────
 
@@ -78,8 +78,7 @@ const DEFAULT_3D_DISTANCE   = 60;   // metres from scene centre — 3D view defa
  * are now one definition used by both the pose guard (here) and the bounds guard
  * (`isGlobeScaleBounds`), so they cannot drift apart again.
  */
-/* (imported at the top of the file — see the import list.) */
-void GLOBE_SCALE_LIMIT_M;
+/* The threshold itself lives in cameraFraming.ts as GLOBE_SCALE_LIMIT_M. */
 
 function defaultState(): CameraState {
     return {

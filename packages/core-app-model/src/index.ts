@@ -230,7 +230,7 @@ export { computeFitPose, boundsVisibleToCamera, boundsFramedByCamera, shouldPers
 export type { DepartingCameraContext } from './navigation/cameraFraming.js';
 // §CAM-BIM-SCALE-BOUNDS (L-744) — L-378 guarded the SAVED pose; this guards the
 // COMPUTED one, so an empty slot cannot fall back to a globe-scale default framing.
-export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds } from './navigation/cameraFraming.js';
+export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds, MAX_BIM_NEAR_M } from './navigation/cameraFraming.js';
 export { FirstPersonController } from './navigation/FirstPersonController.js';
 export type { KeyboardOrbitCamera } from './navigation/KeyboardOrbitPlugin.js';
 export { KeyboardOrbitPlugin } from './navigation/KeyboardOrbitPlugin.js';

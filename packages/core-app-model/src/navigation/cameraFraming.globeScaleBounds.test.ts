@@ -35,6 +35,7 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import {
     GLOBE_SCALE_LIMIT_M,
+    MAX_BIM_NEAR_M,
     isGlobeScaleBounds,
     isGlobeScalePosition,
     computeFitPose,
@@ -198,6 +199,15 @@ describe('§CAM-ECEF-HANDBACK — every consumer of the live camera must refuse 
         // Guarding only the position would have let this through: a camera at a sane
         // position aimed 2,297 km away frames nothing.
         expect(isGlobeScalePosition(0, STALE_TARGET_Y, 0)).toBe(true);
+    });
+
+    it('§CAM-NEAR-NEVER-CUTS — the SAME contamination also produced the "camera section"', () => {
+        // The near plane is a THIRD consumer of the contaminated bounds, found only when
+        // the founder reported walls being sliced as they walked up to them. Their log:
+        //   §CAM-FRAME-INVARIANT auto-framed …; dist=6515673.6m near=14.02 far=14022863
+        // near = 14.02 m → every surface within 14 m of the viewpoint is clipped.
+        const pose = computeFitPose(foundersContaminatedBounds())!;
+        expect(pose.near).toBeLessThanOrEqual(MAX_BIM_NEAR_M);
     });
 
     it('the same predicate serves every consumer — one definition, no drift', () => {

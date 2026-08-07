@@ -14,7 +14,7 @@ export type { FitPose, FitPoseOptions } from './cameraFraming.js';
 export { computeFitPose, boundsVisibleToCamera, boundsFramedByCamera, shouldPersistDepartingCamera, MIN_FRAMED_SCREEN_FRACTION } from './cameraFraming.js';
 // §CAM-BIM-SCALE-BOUNDS (L-744) — the guard that stops ECEF/globe contamination
 // reaching the DEFAULT-FRAMING path (L-378 guarded only the saved pose).
-export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds } from './cameraFraming.js';
+export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds, MAX_BIM_NEAR_M } from './cameraFraming.js';
 export type { DepartingCameraContext } from './cameraFraming.js';
 export { FirstPersonController } from './FirstPersonController.js';
 export type { KeyboardOrbitCamera } from './KeyboardOrbitPlugin.js';

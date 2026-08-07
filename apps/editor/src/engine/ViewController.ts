@@ -20,7 +20,13 @@ import { MultiViewCameraManager } from '@pryzm/core-app-model';
 import { computeFitPose, boundsFramedByCamera, shouldPersistDepartingCamera } from '@pryzm/core-app-model';
 // §CAM-BIM-SCALE-BOUNDS (L-744) — L-378 guarded the SAVED camera pose; an empty slot
 // then fell through to DEFAULT FRAMING, which reads scene bounds nothing guarded.
-import { isGlobeScaleBounds, isGlobeScalePosition } from '@pryzm/core-app-model';
+import { isGlobeScaleBounds, isGlobeScalePosition, MAX_BIM_NEAR_M } from '@pryzm/core-app-model';
+
+/**
+ * §CAM-NEAR-NEVER-CUTS (L-747) — the BIM baseline far plane, restored alongside `near`
+ * when a globe-scale depth range is repaired. Matches `computeFitPose`'s BASELINE_FAR_M.
+ */
+const CAMERA_BIM_BASELINE_FAR_M = 2000;
 
 /**
  * §CAM-ECEF-HANDBACK (L-746) — distance (metres) of the neutral BIM pose the camera is
@@ -823,6 +829,19 @@ export class ViewController implements IViewController {
         const controls = (this._camera as any)?.controls;
         if (!controls?.getPosition || !controls?.setLookAt) return;
         try {
+            // ── §CAM-NEAR-NEVER-CUTS (L-747) — the DEPTH RANGE is separate state ──
+            // A contaminated near/far outlives the pose that produced it. Both paths
+            // that apply a fit (`_ensureGeometryFramed`, `zoomToFit`) return EARLY when
+            // the bounds are empty or the model is already framed — without touching
+            // near/far — so once `near` has been set to 14 m it stays there for the rest
+            // of the session and every wall the user approaches keeps getting sliced.
+            //
+            // L-744 stopped the contamination reaching `computeFitPose`, which prevents
+            // NEW occurrences; it cannot repair a camera that is already poisoned. This
+            // does, and it is checked INDEPENDENTLY of the position — a camera can sit at
+            // a perfectly sane BIM position behind a 14 m near plane.
+            this._repairCameraDepthRange();
+
             const pos = new THREE.Vector3();
             const tgt = new THREE.Vector3();
             controls.getPosition(pos);
@@ -851,13 +870,46 @@ export class ViewController implements IViewController {
             if (cam.isPerspectiveCamera) {
                 // An ECEF camera also carries an ECEF depth range; a BIM pose behind a
                 // 14,000 km far plane has no usable depth precision.
-                cam.near = 0.1;
-                cam.far  = 2000;
+                cam.near = MAX_BIM_NEAR_M;
+                cam.far  = CAMERA_BIM_BASELINE_FAR_M;
                 cam.updateProjectionMatrix();
             }
         } catch (err) {
             console.warn('[ViewController] §CAM-ECEF-HANDBACK sanitize failed (non-blocking):', err);
         }
+    }
+
+    /**
+     * §CAM-NEAR-NEVER-CUTS (L-747) — repair a near plane that is clipping the model.
+     *
+     * The founder: *"BEFORE I could get close to elements and they would NEVER sectionate.
+     * NOW it creates a camera section … as I get closer to the element it gets sectioned."*
+     * Not a section feature — `CutFill` was off (and sets `clippingPlanes = []` when off).
+     * It is the near plane, and their activation log printed it: `near=14.02 far=14022863`.
+     *
+     * Called on every 3D activation, independently of the camera position, because the
+     * depth range is state that survives the pose that created it.
+     */
+    private _repairCameraDepthRange(): void {
+        const cam = this._camera.three as THREE.PerspectiveCamera;
+        if (!cam?.isPerspectiveCamera) return;
+        if (Number.isFinite(cam.near) && cam.near <= MAX_BIM_NEAR_M) return;
+
+        const wasNear = cam.near;
+        cam.near = MAX_BIM_NEAR_M;
+        // A near plane this large only ever comes from a globe-scale `far`; bring the far
+        // plane back to the BIM baseline too, or the near/far ratio stays pathological.
+        if (!Number.isFinite(cam.far) || cam.far > CAMERA_BIM_BASELINE_FAR_M) {
+            cam.far = CAMERA_BIM_BASELINE_FAR_M;
+        }
+        cam.updateProjectionMatrix();
+        console.error(
+            `[ViewController] §CAM-NEAR-NEVER-CUTS (L-747) — the camera near plane was ${wasNear}m, ` +
+            `so every surface within ${wasNear}m of the viewpoint was being CLIPPED (the founder's ` +
+            `"camera section"). Repaired to near=${MAX_BIM_NEAR_M} far=${cam.far}. This is a stale ` +
+            'depth range left by globe-scale scene bounds (L-744); the source is guarded, this ' +
+            'repairs a camera that was already poisoned.',
+        );
     }
 
     /**
