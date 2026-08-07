@@ -24,8 +24,10 @@
 import { DEFAULT_DETAIL_LEVEL } from '@pryzm/schemas/view';
 import { viewDefinitionStore } from './ViewDefinitionStore';
 import { VIEW_PROJECTION_DIRECTIONS } from './ViewDefinitionTypes';
+import type { ViewDefinition } from './ViewDefinitionTypes';
 import { SYSTEM_INTENT_IDS } from '../presentation/SystemIntents';
 import { viewIntentInstanceStore } from '../presentation/ViewIntentInstanceStore';
+import { withViewSpan } from './otel';
 
 export const DEFAULT_3D_VIEW_ID   = 'vd-sys-3d-1';
 export const DEFAULT_PLAN_VIEW_ID = 'vd-sys-plan-l0';
@@ -265,6 +267,238 @@ function _removeElevationMarksForElevation(elevViewId: string): void {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — ONE PLAN VIEW PER LEVEL
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// THE DEFECT (founder, 2026-08-06): "when a user is creating elements on the
+// FIRST floor the references are accordingly related to THAT floor level."
+// Walls authored on Level 1 were registered on Level 1 correctly, but every
+// REFERENCE the user drew against stayed on the ground floor:
+//     [NativeElementMeshExporter] Plan view — exporting 30 elements from
+//         levels overlapping Y=[-1.20, 0.00]        ← the GROUND band
+//     [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+//     [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0
+// while Level 1 sits at 3 m.
+//
+// ROOT CAUSE — and it is NOT in any of those subsystems. Every one of them is
+// already fully parametric on `viewDef.spatial.levelId`:
+//   • NativeElementMeshExporter.exportForView()  reads viewDef.spatial.levelId
+//   • EdgeProjectorService.resolveClipRange()    reads viewDef.spatial.levelId
+//   • RoomTagAutoPopulator.populate()            reads viewDef.spatial.levelId
+//   • LevelClipPlaneCache                        already registers EVERY level
+// The level context exists and is correct; it simply never reaches the view
+// layer, because there is only ONE plan ViewDefinition in the project and its
+// `spatial.levelId` is hard-wired to the ground level. Creating a level
+// (AddLevelCommand) never created its plan view, so switching level moved the
+// camera and the authoring target but left `vd-sys-plan-l0` as the only plan
+// view — and every reference is keyed to it.
+//
+// THE FIX (architecture (a) — one plan view per level, Revit's model):
+//   • Every level gets a first-class plan ViewDefinition, minted here (the one
+//     place that already owns "views that must exist"), idempotently, on boot,
+//     on project load, and on `bim-level-added`.
+//   • The GROUND level keeps `vd-sys-plan-l0` byte-for-byte — same id, same
+//     name, same output block, no underlay. L0 is a strict no-op regression.
+//   • Levels ABOVE ground get `vd-sys-plan-<levelId>` and a deliberate
+//     Revit-style UNDERLAY of the level immediately below (§UNDERLAY below).
+//
+// MIGRATION (C13 §serialized view definitions): a project saved before this
+// change deserializes with ONLY `vd-sys-plan-l0`. `vd:store-loaded` already
+// re-runs ensureDefaultViews(); the per-level pass then TOPS UP the missing
+// upper plan views from the loaded level set. Nothing is rewritten on disk
+// until the next save. A plan view that already exists for a level — including
+// the IFC-import path's `CreatePlanViewCommand`, which uses the LEVEL id as the
+// VIEW id — is adopted by `findPlanViewForLevel()`'s scan and never duplicated.
+//
+// PERFORMANCE (C04 §3.3): N levels ⇒ N plan views, but NOT N reprojections per
+// edit. ViewDependencyTracker's §FIX-LAZY-INACTIVE-VIEW-PROJECTION gate already
+// partitions the dirty set by `setActiveViewPredicate` — only the view actually
+// mounted in the main viewport or the split pane reprojects; the other N−1 are
+// recorded in `_deferredDirtyViewIds` (an O(1) Set add) and reproject exactly
+// once, on activation. Per-edit projection cost is therefore O(1) in N, exactly
+// as it already is for the four always-present default elevations.
+
+/** Structural view of the level records this module needs from BimManager. */
+interface LevelLike {
+    id:        string;
+    name?:     string;
+    elevation: number;
+    height?:   number;
+}
+
+/** All project levels, lowest first. Empty when BimManager is not ready yet. */
+function _levels(): LevelLike[] {
+    try {
+        const bm = (typeof window !== 'undefined' ? window.bimManager : null) as
+            { getLevels?: () => LevelLike[] } | null | undefined;
+        const levels = bm?.getLevels?.();
+        if (!Array.isArray(levels)) return [];
+        return [...levels]
+            .filter(l => l && typeof l.id === 'string' && Number.isFinite(l.elevation))
+            .sort((a, b) => a.elevation - b.elevation);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * The canonical system plan-view id for a level.
+ *
+ * The GROUND level keeps the historical `vd-sys-plan-l0` so every project ever
+ * saved — and every id baked into SplitViewManager / SvpPlanToolOverlay /
+ * annotation `ownerViewId` records — keeps resolving unchanged.
+ */
+export function planViewIdForLevel(levelId: string): string {
+    return levelId === GROUND_LEVEL_ID ? DEFAULT_PLAN_VIEW_ID : `vd-sys-plan-${levelId}`;
+}
+
+/**
+ * The plan view that OWNS `levelId`, or null.
+ *
+ * Resolution order matters for migration: the canonical id first, then a scan of
+ * every plan view for a matching `spatial.levelId`. The scan is what adopts plan
+ * views this module did not mint — the IFC path (`CreatePlanViewCommand`, whose
+ * view id IS the level id) and any user-created per-level plan from the Views
+ * rail — so an existing project never grows a duplicate plan for the same level.
+ */
+export function findPlanViewForLevel(levelId: string): ViewDefinition | null {
+    const canonical = viewDefinitionStore.get(planViewIdForLevel(levelId));
+    if (canonical && canonical.viewType === 'plan') return canonical;
+    return viewDefinitionStore.getByType('plan').find(v => v.spatial?.levelId === levelId) ?? null;
+}
+
+/**
+ * §UNDERLAY — the level whose geometry an upper plan shows as a halftoned
+ * reference, i.e. the storey immediately BELOW `level`. Null for the lowest
+ * storey (the ground plan has no underlay, exactly as today).
+ *
+ * This is DELIBERATE, not accidental. Before this change the user authoring on
+ * Level 1 saw the ground floor because the view was STUCK there — the ground
+ * floor was the only thing that existed, it was fully opaque, selectable, and
+ * it defined the clip band. Now Level 1 is the view's own subject and the floor
+ * below appears only as `viewDef.underlay` — routed through the existing DOC-4.7
+ * pipeline (`ViewController._activateFloorPlanView` → `VGSceneApplicator
+ * .setUnderlayLevelId` → `UnderlayRenderService`), which renders it ghosted and
+ * NON-SELECTABLE. Revit's behaviour, and the user can clear it per view.
+ */
+function _underlayBaseLevelId(levels: LevelLike[], index: number): string | null {
+    return index > 0 ? levels[index - 1].id : null;
+}
+
+/**
+ * §REPAIR-ORPHAN-GROUND-PLAN — re-seat `vd-sys-plan-l0` when the project has no
+ * level with id `L0`.
+ *
+ * `ensureDefaultViews()` hard-codes `spatial.levelId: 'L0'`. In a project whose
+ * levels were all minted with generated ids (`level-<ts>-<rand>` — every
+ * generator and every `AddLevelCommand` after the first), that reference points
+ * at NOTHING: `resolveClipRange()` falls through to FALLBACK_CUT_ELEVATION and
+ * the "Ground Floor" plan is a dangling view that would additionally shadow the
+ * real ground plan in every `getByType('plan')[0]` fallback.
+ *
+ * Only fires when the reference is ALREADY broken, so the correct L0 case is
+ * untouched. Logged, never silent: a repair that cannot be seen is a repair that
+ * cannot be trusted.
+ */
+function _repairOrphanGroundPlan(levels: LevelLike[]): void {
+    if (levels.length === 0) return;
+    const ground = viewDefinitionStore.get(DEFAULT_PLAN_VIEW_ID);
+    if (!ground) return;
+    const seatedLevelId = ground.spatial?.levelId;
+    if (seatedLevelId && levels.some(l => l.id === seatedLevelId)) return; // seat is valid
+
+    const lowest = levels[0];
+    // Do not steal a level that already owns its own plan view.
+    const owner = findPlanViewForLevel(lowest.id);
+    if (owner && owner.id !== DEFAULT_PLAN_VIEW_ID) return;
+
+    viewDefinitionStore.setSpatial(DEFAULT_PLAN_VIEW_ID, { ...ground.spatial, levelId: lowest.id });
+    console.warn(
+        `[DefaultViewsManager] §REPAIR-ORPHAN-GROUND-PLAN — "${DEFAULT_PLAN_VIEW_ID}" referenced ` +
+        `level "${seatedLevelId ?? 'none'}" which does not exist; re-seated onto the lowest level ` +
+        `"${lowest.id}" (${lowest.name ?? 'unnamed'} @ ${lowest.elevation.toFixed(3)} m).`,
+    );
+}
+
+/**
+ * §FEAT-LEVEL-RELATIVE-PLAN-VIEWS — guarantee ONE plan view per project level.
+ *
+ * Idempotent and cheap: a project already in steady state does zero store writes.
+ * Safe to call before BimManager exists (no levels ⇒ no-op) — the boot path calls
+ * it again from `vd:store-loaded` and from every `bim-level-added`.
+ *
+ * @returns the ids of the plan views created by THIS call (empty when settled).
+ */
+export function ensurePlanViewsForLevels(): string[] {
+    return withViewSpan('view.ensurePlanViewsForLevels', {}, () => {
+        const levels = _levels();
+        if (levels.length === 0) return [];
+
+        _repairOrphanGroundPlan(levels);
+
+        const created: string[] = [];
+        for (let i = 0; i < levels.length; i++) {
+            const level = levels[i];
+            if (findPlanViewForLevel(level.id)) continue;
+
+            const id = planViewIdForLevel(level.id);
+            const name = level.name ?? `Level ${i}`;
+            const underlayBase = _underlayBaseLevelId(levels, i);
+
+            const view = viewDefinitionStore.create({
+                id,
+                name,
+                viewType:   'plan',
+                discipline: 'all',
+                spatial:    { levelId: level.id },
+                intent:     `Floor plan for "${name}" — system default (one plan view per level).`,
+                createdBy:  'system',
+                // Byte-identical to the ground-plan output block below, so an upper
+                // plan draws exactly like the ground plan the user already knows.
+                output: {
+                    scale:       100,
+                    detailLevel: DEFAULT_DETAIL_LEVEL,
+                    visualStyle: 'shadedWithEdges',
+                    shadows:     false,
+                },
+                // §UNDERLAY — the storey below, ghosted + non-selectable (DOC-4.7).
+                ...(underlayBase ? { underlay: { baseLevelId: underlayBase, orientation: 'lookingDown' as const } } : {}),
+            });
+            if (!view) continue;
+
+            _ensureVgBridge(id, name);
+            _ensureDefaultIntent(id);
+            _ensureElevationMarksForPlanView(id);
+            created.push(id);
+            console.log(
+                `[DefaultViewsManager] §FEAT-LEVEL-RELATIVE-PLAN-VIEWS — created plan view "${name}" ` +
+                `(id=${id}) for level ${level.id} @ ${level.elevation.toFixed(3)} m` +
+                (underlayBase ? ` with underlay of "${underlayBase}"` : ' (no underlay — lowest storey)'),
+            );
+        }
+        return created;
+    });
+}
+
+/**
+ * Drop the system plan view a removed level owned, so undoing `AddLevelCommand`
+ * (or deleting a storey) does not leave a plan view pointing at nothing.
+ *
+ * The ground default is NEVER removed — `ensureDefaultViews()`'s deletion guard
+ * would immediately recreate it, and it is the id every legacy project carries.
+ * A plan view the USER created for that level is left alone: deleting a level
+ * must not silently delete authored views.
+ */
+export function removePlanViewForLevel(levelId: string): boolean {
+    const id = planViewIdForLevel(levelId);
+    if (id === DEFAULT_PLAN_VIEW_ID) return false;
+    if (!viewDefinitionStore.has(id)) return false;
+    viewDefinitionStore.delete(id);
+    console.log(`[DefaultViewsManager] §FEAT-LEVEL-RELATIVE-PLAN-VIEWS — removed plan view ${id} with level ${levelId}`);
+    return true;
+}
+
 function ensureDefaultViews(): void {
     // ── 1. Default 3D view ────────────────────────────────────────────────────
     if (!viewDefinitionStore.has(DEFAULT_3D_VIEW_ID)) {
@@ -340,6 +574,14 @@ function ensureDefaultViews(): void {
         }
     }
 
+    // ── 3b. ONE PLAN VIEW PER LEVEL — §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) ──
+    // Runs AFTER the ground default exists (so `findPlanViewForLevel('L0')`
+    // adopts it rather than minting a rival) and BEFORE the elevation-mark pass
+    // (so a plan view created here is included in that pass on the same tick).
+    // On a project loaded from disk this is the MIGRATION: the upper-level plan
+    // views absent from the snapshot are topped up from the loaded level set.
+    ensurePlanViewsForLevels();
+
     // ── 4. Elevation marks on EVERY plan view — §FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158)
     // §FEAT-ELEVATION-MARKERS (L-116) originally seeded the N/E/S/W marks on the
     // Ground Floor plan only. Like Revit, every level's floor plan carries them, so
@@ -392,6 +634,19 @@ export function initDefaultViewsManager(): void {
         if (detail?.viewType === 'plan' && typeof detail.viewId === 'string') {
             _ensureElevationMarksForPlanView(detail.viewId);
         }
+    });
+
+    // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — the level lifecycle IS the plan-view
+    // lifecycle. `AddLevelCommand` emits 'bim-level-added' (DOMEventBus → window
+    // CustomEvent) and `bim-level-removed` on undo; every other level producer
+    // (generators, IFC import, project load) is covered by the ensureDefaultViews()
+    // top-up above. Both handlers are idempotent, so an overlap is a no-op.
+    window.addEventListener('bim-level-added', () => {
+        ensurePlanViewsForLevels();
+    });
+    window.addEventListener('bim-level-removed', (e: Event) => {
+        const levelId = (e as CustomEvent).detail?.id as string | undefined;
+        if (typeof levelId === 'string') removePlanViewForLevel(levelId);
     });
 
     // After a project clear: wait up to 300 ms for vd:store-loaded to fire.

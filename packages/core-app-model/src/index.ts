@@ -224,6 +224,10 @@ export { GeospatialAdapter } from './navigation/GeospatialAdapter.js';
 // ── P9-W7 Batch A (2026-05-10) — navigation files ────────────────────────────
 
 export { frameObject, frameObjects } from './navigation/CameraFramingUtils.js';
+// §CAM-FRAME-INVARIANT (L-742) — single framing authority (3D activation + Fit All).
+export type { FitPose, FitPoseOptions } from './navigation/cameraFraming.js';
+export { computeFitPose, boundsVisibleToCamera, boundsFramedByCamera, shouldPersistDepartingCamera, MIN_FRAMED_SCREEN_FRACTION } from './navigation/cameraFraming.js';
+export type { DepartingCameraContext } from './navigation/cameraFraming.js';
 export { FirstPersonController } from './navigation/FirstPersonController.js';
 export type { KeyboardOrbitCamera } from './navigation/KeyboardOrbitPlugin.js';
 export { KeyboardOrbitPlugin } from './navigation/KeyboardOrbitPlugin.js';
@@ -554,6 +558,13 @@ export { PlanView2DCreationMode, planView2DCreationMode } from './views/PlanView
 export { ViewportThumbnailRenderer, viewportThumbnailRenderer } from './views/ViewportThumbnailRenderer.js';
 export { PlanViewVisibilityCuller } from './views/PlanViewVisibilityCuller.js';
 export { DEFAULT_3D_VIEW_ID, DEFAULT_PLAN_VIEW_ID, initDefaultViewsManager } from './views/DefaultViewsManager.js';
+// §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — the level→plan-view resolver. Every
+// reference surface (mesh export band, clip range, edge projection, drawing cache,
+// room tags, plan snapping) is already parametric on `viewDef.spatial.levelId`;
+// these are what make the ACTIVE plan view follow the ACTIVE level.
+export {
+    planViewIdForLevel, findPlanViewForLevel, ensurePlanViewsForLevels, removePlanViewForLevel,
+} from './views/DefaultViewsManager.js';
 // §FIX-VIEW-DELETE-ORPHANS (G8) — per-view dependent state dies with its view (and
 // is re-instated when DeleteViewDefinitionCommand.undo() restores it).
 export { initViewDeletionCascade } from './views/ViewDeletionCascade.js';

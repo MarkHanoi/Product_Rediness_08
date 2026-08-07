@@ -163,6 +163,8 @@ export { PlanViewVisibilityCuller } from './PlanViewVisibilityCuller.js';
 
 export {
     DEFAULT_3D_VIEW_ID, DEFAULT_PLAN_VIEW_ID, initDefaultViewsManager,
+    // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — one plan view per level.
+    planViewIdForLevel, findPlanViewForLevel, ensurePlanViewsForLevels, removePlanViewForLevel,
 } from './DefaultViewsManager.js';
 
 // §FIX-VIEW-DELETE-ORPHANS (G8) — per-view dependent state dies with its view and

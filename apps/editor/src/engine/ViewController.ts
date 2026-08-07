@@ -5,6 +5,8 @@ import { PlanViewService } from '@pryzm/core-app-model';
 import { SectionViewService } from './views/SectionViewService';
 import { OrthoPlanCameraLockController } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+// §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — resolve the plan view that OWNS the active level.
+import { findPlanViewForLevel, projectContext } from '@pryzm/core-app-model';
 import { SceneBoundsCache } from '@pryzm/scene-committer';
 import { SceneObjectClassifier } from '@pryzm/scene-committer';
 import type { IViewSwitchListener } from '@pryzm/core-app-model';
@@ -14,6 +16,8 @@ import type { FrameCoordinator } from '@pryzm/core-app-model';
 import type { ViewVisibilityMap } from '@pryzm/core-app-model';
 import { BIM_LAYER, EDITOR_LAYER, ANNOTATION_LAYER, PLAN_SYMBOL_LAYER, DOCUMENTATION_LAYER } from '@pryzm/scene-committer';
 import { MultiViewCameraManager } from '@pryzm/core-app-model';
+// §CAM-FRAME-INVARIANT (L-742) — the single framing authority shared with Fit All.
+import { computeFitPose, boundsFramedByCamera, shouldPersistDepartingCamera } from '@pryzm/core-app-model';
 import type { UnifiedFrameLoop } from '@pryzm/core-app-model';
 import { previewRegistry } from '@pryzm/scene-committer';
 import type { LevelClipPlaneCache } from '@pryzm/core-app-model';
@@ -696,42 +700,78 @@ export class ViewController implements IViewController {
     }
 
     /**
-     * §VIEW-ZOOM (2026-06-08) — guarantee the geometry is framed on 3D entry.
+     * §CAM-FRAME-INVARIANT (L-742, 2026-08-07) — supersedes §VIEW-ZOOM (2026-06-08).
      *
-     * `_activate3DView` only auto-frames on a full camera-state MISS. But a restored
-     * perspective slot / saved camera state can be STALE — saved before the building was
-     * generated, or framing a previous/empty scene — leaving the house off-screen so the
-     * founder has to click "Home" every time the 3D view opens. This validates that the
-     * restored camera actually LOOKS AT the scene; when the geometry is off-frame (target
-     * far from the scene centre, or the camera absurdly far/near) it recomputes the default
-     * framing so the building is always in view. A camera that already frames the geometry
-     * is left untouched, so ordinary navigation is preserved. No-op when there's nothing to
-     * frame (empty scene). Pure read of scene bounds + one setLookAt.
+     * ## The invariant (C04)
+     *   Activating a 3D view MUST leave the model on screen. A remembered camera is kept
+     *   ONLY if the scene bounds still INTERSECT its frustum (near/far included);
+     *   otherwise the view is fitted.
+     *
+     * ## What the old §VIEW-ZOOM heuristic got wrong
+     *
+     * It asked "is the camera roughly aimed at the scene centre, at a plausible distance?"
+     * — a proxy for "can the user see the model" that is wrong in both directions — and
+     * then fitted at `maxDim * 2` metres WITHOUT touching the perspective far plane, which
+     * `_activate3DView` hard-wires to 2000 m. On a scene whose bounds exceed roughly a
+     * kilometre (an IFC import whose storeys land at ±800 m / 6 km, a site or context mesh,
+     * one stray far-away element) that fit places the camera BEYOND its own far plane and
+     * every fragment is depth-clipped: the founder's "the 3D view always comes white".
+     * Camera → Fit All then "brought the geometry back" only because `zoomToAll()` clamps
+     * its distance to ≤ 80 m and so never leaves the far plane — two disagreeing framing
+     * policies, which was the real defect.
+     *
+     * The replacement asks the question directly (`boundsVisibleToCamera`, a frustum ∩ box
+     * test that INCLUDES near/far) and fits through the shared `computeFitPose()` authority,
+     * applying the near/far range that pose requires.
+     *
+     * Intersection — not containment — preserves deliberate framing: a user zoomed into a
+     * door detail still intersects the scene bounds and is left exactly where they were.
+     *
+     * No-op on an empty scene (nothing to frame). Pure read of scene bounds + one setLookAt.
      */
     private async _ensureGeometryFramed(controls: any): Promise<void> {
         const bounds = this._getSceneBoundsForCamera();
         if (bounds.isEmpty()) return;                       // nothing to frame yet
-        const center = bounds.getCenter(new THREE.Vector3());
-        const distance = this._computeCameraDistance();
-        const tgt = new THREE.Vector3();
-        if (controls?.getTarget) controls.getTarget(tgt);
-        else tgt.copy(this._camera.three.position);
-        const camDist = this._camera.three.position.distanceTo(tgt);
-        // "Stale" = the camera is aimed away from the geometry, or sits absurdly far/near
-        // relative to the scene size. Either way the house is not usefully in frame.
-        const offFrame = tgt.distanceTo(center) > distance
-            || camDist > distance * 4
-            || camDist < distance * 0.1;
-        if (!offFrame) return;                              // already framed — keep the user's camera
-        const offset = new THREE.Vector3(distance * 0.6, distance * 0.4, distance * 0.6);
-        const position = center.clone().add(offset);
+
+        const cam = this._camera.three;
+        cam.updateMatrixWorld();
+        if (boundsFramedByCamera(cam, bounds)) {
+            // The model is genuinely on screen AND big enough to be the subject — keep the
+            // user's camera untouched (a deliberate zoom-in projects far larger than the
+            // viewport and passes trivially).
+            return;
+        }
+
+        const perspective = cam as THREE.PerspectiveCamera;
+        const pose = computeFitPose(bounds, {
+            fovDeg: perspective.isPerspectiveCamera ? perspective.fov : 60,
+            aspect: perspective.isPerspectiveCamera ? perspective.aspect : 1,
+        });
+        if (!pose) return;
+
+        // The depth range MUST be applied with the pose. This is the line that stops the
+        // white viewport: an honest fit of a large scene sits outside the default 2000 m
+        // far plane, and without this every fragment is clipped away.
+        cam.near = pose.near;
+        cam.far  = pose.far;
+        cam.updateProjectionMatrix();
+
+        // camera-controls clamps setLookAt to [minDistance, maxDistance]; a large scene
+        // needs the ceiling raised or the "fit" silently lands short and stays off-frame.
+        if (typeof controls?.maxDistance === 'number' && controls.maxDistance < pose.distance * 1.1) {
+            controls.maxDistance = pose.distance * 1.1;
+        }
+
         await controls.setLookAt(
-            position.x, position.y, position.z,
-            center.x, center.y, center.z,
+            pose.position.x, pose.position.y, pose.position.z,
+            pose.target.x,   pose.target.y,   pose.target.z,
             false,                                          // snap immediately — no tween
         );
-        this._multiViewCameraManager.seedPerspectiveSlot(position, center);
-        this._vst('_activate3DView — §VIEW-ZOOM auto-framed (restored camera was stale / geometry off-screen)');
+        this._multiViewCameraManager.seedPerspectiveSlot(pose.position, pose.target);
+        this._vst(
+            `_activate3DView — §CAM-FRAME-INVARIANT auto-framed (restored camera did not see the model); ` +
+            `dist=${pose.distance.toFixed(1)}m near=${pose.near} far=${pose.far.toFixed(0)}`,
+        );
     }
 
     /**
@@ -1005,10 +1045,20 @@ export class ViewController implements IViewController {
             // AnnotationManager can still function.
             // NOTE: this inference is intentionally skipped for 3D view activations.
             if (viewMode !== '3D' && !this._currentViewDefinitionId) {
+                // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — prefer the ACTIVE LEVEL's plan
+                // view. This inference used `getByType('plan')[0]`, which — while
+                // `vd-sys-plan-l0` was the only plan view — silently made the ground floor
+                // the answer for every level. With one plan view per level, order in the
+                // store is not a level decision, so ask the level.
+                const byLevel = findPlanViewForLevel(projectContext.activeLevelId);
                 const planViews = viewDefinitionStore.getByType('plan');
-                if (planViews.length > 0) {
-                    this._currentViewDefinitionId = planViews[0].id;
-                    console.log('[ViewController] §ANN-VIEW-INFER: inferred plan view →', this._currentViewDefinitionId);
+                const inferred = byLevel ?? (planViews.length > 0 ? planViews[0] : null);
+                if (inferred) {
+                    this._currentViewDefinitionId = inferred.id;
+                    console.log(
+                        '[ViewController] §ANN-VIEW-INFER: inferred plan view →', this._currentViewDefinitionId,
+                        `(activeLevelId=${projectContext.activeLevelId}, byLevel=${byLevel ? 'yes' : 'no'})`,
+                    );
                 }
             }
 
@@ -1143,6 +1193,17 @@ export class ViewController implements IViewController {
         this._clearClipping();
         this._restore3DRendererPresentation();
 
+        // §CAM-FRAME-INVARIANT (L-742) — re-invalidate the bounds cache HERE.
+        // activate() invalidates at its entry, which is BEFORE deactivate() runs
+        // PlanViewVisibilityCuller.deactivate() and restores the objects a plan /
+        // elevation view had hidden. Any consumer that read getBounds() in between
+        // (PlanViewService, thumbnail renderer) would have marked the cache clean over
+        // the CULLED scene, and the framing check below would then decide "the model is
+        // on screen" against a bounding box missing most of the model. One extra
+        // traversal per 3D entry is the correct price for a correct frame.
+        this._boundsCache?.invalidate();
+        this._vst(`_activate3DView — SceneBoundsCache re-invalidated (post-visibility-restore)`);
+
         // ── Phase 4.1: Fast-path — restore from MultiViewCameraManager slot ──────
         this._vst(`_activate3DView — MultiViewCameraManager.restoreSlot("perspective")`);
         let slotRestored3D = this._multiViewCameraManager.restoreSlot('perspective', this._camera);
@@ -1251,7 +1312,7 @@ export class ViewController implements IViewController {
         // 3D scene — the linework is rendered exclusively on the 2D canvas.
         // We still update activePlanDrawingRef so the PlanViewCanvas can access
         // the drawing for snap/hit-test; we just skip the scene.add() call.
-        if (this._planViewManager.isActive) {
+        if (!shouldPersistDepartingCamera({ departingViewIsCanvas2D: this._planViewManager.isActive })) {
             activePlanDrawingRef.drawing = drawing;
             console.log('[ViewController] DOC-1.5a: PlanViewManager is active — TechnicalDrawing NOT mounted to 3D scene (Canvas2D only).');
             return;
@@ -1333,9 +1394,34 @@ export class ViewController implements IViewController {
 
         // Resolve the level ID for this plan view — needed for the visibility culler
         // and EdgeProjector activation below.
-        const planViewDef: any = this._activeDefinitionId
+        const explicitViewDef: any = this._activeDefinitionId
             ? viewDefinitionStore.get(this._activeDefinitionId)
             : undefined;
+
+        // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — THE de-facto-singleton site.
+        // When the caller did not set `_activeDefinitionId` (ViewCube, BottomActionMenu,
+        // any 2D entry that is not the Views rail), activation fell through to
+        // `getByType('plan')[0]` below. While `vd-sys-plan-l0` was the only plan view,
+        // that fallback WAS the bug the founder reported: authoring on Level 1 mounted
+        // the GROUND plan, so the mesh-export band (`Y=[-1.20, 0.00]`), the clip range,
+        // the projected linework the user snaps to, and the room tags were all ground
+        // floor while the walls were correctly registered on Level 1.
+        //
+        // Resolving here — BEFORE the underlay block and the levelId consumers below —
+        // rather than at the mount site is deliberate: `planLevelId` and the DOC-4.7
+        // underlay must describe the view that is actually mounted, or the plan draws
+        // Level 1 while the culler and the ghost underlay still describe Level 0.
+        const levelPlanDef: any = (!explicitViewDef && !isCeilingPlan)
+            ? findPlanViewForLevel(projectContext.activeLevelId)
+            : null;
+        if (levelPlanDef) {
+            this._activeDefinitionId = levelPlanDef.id;
+            console.log(
+                `[ViewController] §FEAT-LEVEL-RELATIVE-PLAN-VIEWS — no explicit view definition; ` +
+                `resolved plan view "${levelPlanDef.id}" from activeLevelId="${projectContext.activeLevelId}".`,
+            );
+        }
+        const planViewDef: any = explicitViewDef ?? levelPlanDef ?? undefined;
         let planLevelId = planViewDef?.spatial?.levelId;
 
         // DOC-4.7: Pass underlay baseLevelId to VGSceneApplicator so elements on
@@ -1378,6 +1464,8 @@ export class ViewController implements IViewController {
 
         this._vst(`${logScope} — levelId="${planLevelId ?? 'UNKNOWN'}" (from ViewDefinition "${this._activeDefinitionId}")`);
 
+        // Last-resort positional fallback (project whose levels are not loaded yet —
+        // `findPlanViewForLevel` above has already been given first refusal).
         const canvasPlanViewDef = planViewDef
             ?? viewDefinitionStore.getByType(isCeilingPlan ? 'ceiling-plan' : 'plan')[0]
             ?? viewDefinitionStore.getByType('structural-plan')[0];
@@ -1870,15 +1958,41 @@ export class ViewController implements IViewController {
         // string ('3D', 'Front', etc.) for non-plan views. This must happen
         // before orthoPlanLock.deactivate() or any other camera mutation.
         const saveKey = this._currentViewDefinitionId ?? this._state.viewMode;
-        this._vst(`deactivate — ViewCameraStateStore.save("${saveKey}")`);
-        this._cameraStateStore.save(saveKey, this._camera);
 
-        // ── Phase 4.1: Save the departing slot into MultiViewCameraManager ───
-        // Runs alongside _cameraStateStore.save() — both persistence mechanisms
-        // are updated in parallel so either restore path is current.
-        const departingSlot = MultiViewCameraManager.slotForViewMode(this._state.viewMode);
-        this._vst(`deactivate — MultiViewCameraManager.saveSlot("${departingSlot}")`);
-        this._multiViewCameraManager.saveSlot(departingSlot, this._camera);
+        // §CAM-SLOT-CANVAS2D (L-742) — a Canvas2D view has NO OBC camera to save.
+        //
+        // Plan / elevation / section ViewDefinitions rendered by PlanViewManager draw to a
+        // 2D canvas; their "camera" is that canvas's own pan/zoom. The shared OBC camera is
+        // never touched while such a view is active, so saving it here records the pose of
+        // whatever view came BEFORE — the founder's log shows the identical
+        // pos(53.95, 34.66, 39.04) written under five different level view keys in a row.
+        //
+        // That is not merely useless, it is CORRUPTING. `slotForViewMode()` only recognises
+        // 'Top' / 'FloorPlan' / 'Ceiling' / 'Section' / 'Elevation' and falls through to
+        // 'perspective' for everything else — and a per-level Canvas2D view's mode string is
+        // its ViewDefinition id ('level-ifc-159'). So departing a Canvas2D plan view wrote a
+        // stale, frequently ORTHOGRAPHIC-PLAN pose straight into the PERSPECTIVE slot,
+        // destroying the user's real 3D camera. That is the "even if last time it was opened
+        // it was framed" half of the report.
+        //
+        // Skip both persistence paths when the departing view was Canvas2D. This runs BEFORE
+        // _planViewManager.deactivate() below, so isActive still reflects the departing view.
+        if (!shouldPersistDepartingCamera({ departingViewIsCanvas2D: this._planViewManager.isActive })) {
+            this._vst(
+                `deactivate — §CAM-SLOT-CANVAS2D: departing view "${saveKey}" is Canvas2D ` +
+                `(PlanViewManager); skipping camera save — it never drove the OBC camera`,
+            );
+        } else {
+            this._vst(`deactivate — ViewCameraStateStore.save("${saveKey}")`);
+            this._cameraStateStore.save(saveKey, this._camera);
+
+            // ── Phase 4.1: Save the departing slot into MultiViewCameraManager ───
+            // Runs alongside _cameraStateStore.save() — both persistence mechanisms
+            // are updated in parallel so either restore path is current.
+            const departingSlot = MultiViewCameraManager.slotForViewMode(this._state.viewMode);
+            this._vst(`deactivate — MultiViewCameraManager.saveSlot("${departingSlot}")`);
+            this._multiViewCameraManager.saveSlot(departingSlot, this._camera);
+        }
 
         // BUG-FIX (bug 2b): _cleanupAllListeners() MUST run before
         // _orthoPlanLock.deactivate().  The floor-plan view registers a 'control'

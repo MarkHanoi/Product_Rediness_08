@@ -66,6 +66,7 @@ import { semanticIndex }         from '@pryzm/core-app-model';
 import { ifcPsetAdapter }        from '@pryzm/core-app-model';
 import { viewDefinitionStore }   from '@pryzm/core-app-model';
 import { initDefaultViewsManager, initViewDeletionCascade }from '@pryzm/core-app-model';
+import { initLevelPlanViewBinder } from './views/LevelPlanViewBinder';
 import { visibilityRuleEngine }  from '@pryzm/core-app-model';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
@@ -716,7 +717,17 @@ export async function initUI(p: UIParams): Promise<void> {
     }
 
     // System default views — "{3D}" and "Ground Floor" — always present.
+    // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — this ALSO guarantees one plan view
+    // per project level (created on 'bim-level-added', topped up on every project
+    // load so a pre-L-720 snapshot gains its upper-floor plans on open).
     initDefaultViewsManager();
+
+    // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — plan-view EXISTENCE is above; this
+    // binds the ACTIVE plan view to the ACTIVE level in both directions, so every
+    // reference the user draws against upstairs (mesh-export band, clip range, edge
+    // projection, technical-drawing cache, plan snapping, room tags) resolves against
+    // the storey they are on. MUST follow initDefaultViewsManager().
+    initLevelPlanViewBinder();
 
     // §FIX-VIEW-DELETE-ORPHANS (G8) — per-view state (visibility-intent instance) is
     // purged WITH its view and re-instated when DeleteViewDefinitionCommand.undo()

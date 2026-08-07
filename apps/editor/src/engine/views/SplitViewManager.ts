@@ -36,6 +36,7 @@ import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { DEFAULT_PLAN_VIEW_ID } from '@pryzm/core-app-model';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { projectContext } from '@pryzm/core-app-model';
 import { IFC_PROJECTION_CHANGED_EVENT } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { sheetStore } from '@pryzm/core-app-model';
@@ -58,6 +59,8 @@ import { svpPlanToolOverlay } from './SvpPlanToolOverlay';
 import { shouldSuppressAutoFrameWhileDrawing } from './autoframeGuard';
 import { PlanViewInteraction } from './PlanViewInteraction';
 import { mapMirrorClientToSourceClient } from './mirrorFit';
+// §SVP-FITALL-MIRROR-STARVED (L-743) — keep the main renderer alive while we mirror it.
+import { mainRendererVisibility, MAIN_RENDERER_PIN_SVP_3D_MIRROR } from './mainRendererVisibility';
 import { repopulateViewSelectPreservingSelection } from './viewSelectRepopulate';
 import { buildViewHeaderToolbar, type ViewHeaderButtonsHandle } from '@app/ui/views/ViewHeaderButtons';
 import { escHtml } from '@pryzm/ui-base';
@@ -224,6 +227,26 @@ export class SplitViewManager implements ISplitViewManager {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /** Contract 17 Phase 2 — exposes the SVP canvas for external use (e.g. SvpPlanToolOverlay). */
+    /**
+     * §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — re-target the split pane at a
+     * different plan/section/elevation view programmatically.
+     *
+     * The pane already knew how to switch view (`_onViewSelectChange`, driven by the header
+     * dropdown); it just had no way in from outside, so `LevelPlanViewBinder`
+     * could not follow a level change here. This is the SAME path the dropdown
+     * takes — including `svpPlanToolOverlay.setViewId()` and the
+     * `PlanViewInteraction` re-attach, which is what makes the pane's SNAPPING
+     * references follow the new level — and it keeps the dropdown's own value in
+     * sync so the header never disagrees with what is drawn.
+     */
+    setPlanViewId(viewId: string): void {
+        if (!viewId || viewId === this._planViewId) return;
+        this._onViewSelectChange(viewId);
+        if (this._viewSelect) this._viewSelect.value = viewId;
+        const lv = viewDefinitionStore.get(viewId)?.spatial?.levelId;
+        if (lv && this._levelSelectRef.el) this._levelSelectRef.el.value = lv;
+    }
+
     getSvpCanvas(): HTMLCanvasElement | null {
         return this._canvas;
     }
@@ -439,10 +462,17 @@ export class SplitViewManager implements ISplitViewManager {
             });
             sel.addEventListener('change', () => {
                 const lv = levels.find(l => l.id === sel.value);
-                if (lv) {
-                    this._setCameraElevation(lv.elevation);
-                    this._hasFitProjectedDrawing = false;
-                }
+                if (!lv) return;
+                this._setCameraElevation(lv.elevation);
+                this._hasFitProjectedDrawing = false;
+                // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — this selector said "Level:"
+                // but only moved the CAMERA: the pane kept drawing, projecting, clipping
+                // and snapping against the previous level's plan view, and the app's
+                // active level did not move at all. Publishing the level through
+                // ProjectContext (the single level authority) makes the label honest —
+                // LevelPlanViewBinder then re-targets this pane AND the main viewport at
+                // that level's plan view, and new elements land on the storey shown.
+                projectContext.activeLevelId = lv.id;
             });
             this._levelSelectRef.el = sel;
 
@@ -570,6 +600,9 @@ export class SplitViewManager implements ISplitViewManager {
 
         this._embedEl?.remove();
         this._embedEl        = null;
+        // §SVP-FITALL-MIRROR-STARVED (L-743) — the pane is gone; nothing consumes the main
+        // canvas any more, so release the pin and let PlanViewManager's hide take effect.
+        mainRendererVisibility.unpin(MAIN_RENDERER_PIN_SVP_3D_MIRROR);
         this._svpMode        = 'plan';
         this._svpSpecialId   = '';
 
@@ -1026,6 +1059,21 @@ export class SplitViewManager implements ISplitViewManager {
     private _activateMode(mode: 'plan' | '3d' | 'schedule' | 'sheet'): void {
         const prev = this._svpMode;
         this._svpMode = mode;
+
+        // §SVP-FITALL-MIRROR-STARVED (L-743) — the '3d' pane is a MIRROR of the main 3D
+        // canvas with no camera and no renderer of its own, so its only source of pixels is
+        // the main renderer actually rendering. When the main pane hosts a Canvas2D
+        // plan / elevation view, PlanViewManager asks for the main renderer container to be
+        // hidden — which stops compositing and freezes the mirror. Fit All then moved the
+        // shared camera correctly and changed nothing on screen: the founder's "in the split
+        // view, right-hand side, the Fit All doesn't work". Pin the renderer visible while we
+        // are consuming its pixels; the pin vetoes the hide. The Canvas2D overlay still
+        // covers the main pane, so nothing new appears there.
+        if (mode === '3d') {
+            mainRendererVisibility.pin(MAIN_RENDERER_PIN_SVP_3D_MIRROR);
+        } else {
+            mainRendererVisibility.unpin(MAIN_RENDERER_PIN_SVP_3D_MIRROR);
+        }
 
         const isEmbed = mode === 'schedule' || mode === 'sheet';
         const wasEmbed = prev === 'schedule' || prev === 'sheet';
