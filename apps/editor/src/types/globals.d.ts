@@ -450,6 +450,20 @@ declare global {
         renderPipelineManager:
             | {
                 onProjectSwitch?: () => void;
+                /**
+                 * §GPU-RESOURCE-LIFETIME (ADR-0297) — the ONLY correct recovery lever
+                 * for a viewport that has failed into `phase='error'`. Drives a real
+                 * `_rebuildPipeline()`.
+                 *
+                 * ⚠ Do NOT reach for `onProjectSwitch()` here: it defers the pipeline
+                 * rebuild to `onProjectLoaded()` and therefore prints a confident
+                 * recovery message while leaving the viewport permanently dark.
+                 *
+                 * @returns false when there is nothing to rebuild (no WebGPU pipeline),
+                 *          so the caller must fall back to a hard reload instead of
+                 *          reporting a recovery that did not happen.
+                 */
+                recoverFromRenderFailure?: () => boolean;
                 // §L-361-WEBGPU-TRANSMISSION-GUARD (ADR-0267 §Fix-2 / L-366) — neutralize
                 // transmission glass on the NON-batched geometry-add path (resi/office
                 // generators add glass outside batchCoordinator batches, so the batch-only

@@ -7,7 +7,10 @@ import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep-dispose so the
 // `usedTimes` device-loss throw (L-303 family) can never abort a railing teardown
 // mid-traverse and leak the group into the next project.
-import { safeDisposeObject3D } from '@pryzm/renderer-three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297) — teardown DEFERS the release to the frame
+// boundary via `scheduleGpuRelease`; the queue drains through `safeDisposeObject3D`,
+// so §I2 throw-tolerance and INVARIANT L1 ownership are both preserved.
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-RAIL-INSTANCING) — optional
 // GPU-instancing bridge. Mirrors ColumnFragmentBuilder / BeamFragmentBuilder: when
 // injected AND the `__pryzmElementInstancingV1` flag is on, the REPEATED vertical
@@ -1170,13 +1173,28 @@ export class StairRailingBuilder {
         this._unregisterInstances(railingId);
         const group = this.meshGroups.get(railingId);
         if (group) {
+            // ── §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) ────────────────
+            // DETACH now, RELEASE at the next frame boundary.
+            //
+            // WAS: `scene.remove(group)` immediately followed by
+            // `safeDisposeObject3D(group)`. The detach (L2 (a)) was correct, but the
+            // RELEASE (L2 (b)) still ran in place, on whatever tick the mutation
+            // happened to be on — a UPDATE_STAIR_RAILING command's execute(), which
+            // has no relationship to the frame boundary. That destroyed the railing's
+            // index/vertex buffers while the frame that last referenced them had not
+            // finished, producing the founder's
+            //   "setIndexBuffer … parameter 1 is not of type 'GPUBuffer'"
+            // on every railing type change (three separate times in one session).
+            // This builder is on ADR-0297's L-691 "still dispose-before-detach" list.
+            //
+            // NOW: `scene.remove` detaches; `scheduleGpuRelease` hands the subtree to
+            // the queue that `RenderPipelineManager.render()` drains at the TOP of a
+            // frame, before that frame encodes any pass. The release still routes
+            // through `safeDisposeObject3D` (§I2 throw-tolerance is preserved) and
+            // now also honours INVARIANT L1 — cache-owned materials are skipped.
             this.scene?.remove(group);
-            // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep dispose.
-            // A raw geometry/material.dispose() can throw the `usedTimes`
-            // device-loss TypeError (L-303 family); before this, that throw aborted
-            // the teardown and left the railing group in the scene on project
-            // switch (the founder-seen leak).
-            safeDisposeObject3D(group);
+            group.parent = null;
+            scheduleGpuRelease(group);
             this.meshGroups.delete(railingId);
             elementRegistry.unregisterRoot(railingId);
         }

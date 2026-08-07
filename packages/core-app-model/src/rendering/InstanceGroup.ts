@@ -25,6 +25,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 
 /**
  * Maximum number of instances per InstanceGroup.
@@ -163,14 +164,39 @@ export class InstanceGroup {
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     /**
-     * Dispose the geometry and material held by the InstancedMesh.
+     * Release the geometry held by the InstancedMesh.
      * IMPORTANT: remove the mesh from the scene BEFORE calling dispose().
      *
      * Note: Material is NOT disposed here — it may be shared with other
      * InstanceGroups.  Callers are responsible for material disposal.
+     *
+     * ── §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) ─────────────────────
+     * WAS: `this.mesh.geometry.dispose()` — an IMMEDIATE, in-place release on
+     * whatever tick the caller happened to run on. That is the exact ordering
+     * ADR-0297 forbids, and this is the site the ADR's furniture fix could not
+     * reach: `FurnitureFragmentBuilder.updateFurniture()` was migrated to
+     * `detachAndReleaseChildren`, but a CHANGE_FURNITURE_TYPE re-registers the
+     * element under a NEW geometry hash, so
+     * `FurnitureInstanceBridge.register() → _releaseParts() →
+     * InstancedElementRenderer.unregister() → _removeGroup() → InstanceGroup
+     * .dispose()` destroyed the OLD group's index/vertex buffers synchronously,
+     * inside the command's execute(). The next encoded frame then reached
+     * `WebGPUBackend.draw`'s `this.get(index).buffer` with the record already
+     * deleted:
+     *   "setIndexBuffer … parameter 1 is not of type 'GPUBuffer'"
+     * — the founder's exact hard stop, on the very path the ADR believed it had
+     * closed. The same route is taken by every instanced element class (walls,
+     * columns, beams, stair railings), which is why the defect reproduced on
+     * UPDATE_STAIR_RAILING as well.
+     *
+     * NOW: the caller has already detached `mesh` from the scene (L2 (a)); the
+     * buffer release is handed to the frame-boundary queue, which
+     * `RenderPipelineManager.render()` drains before it encodes anything (L2 (b)).
+     * Deferral is unconditionally safe here — the group is dead either way; only
+     * the INSTANT of the free moves.
      */
     dispose(): void {
-        this.mesh.geometry.dispose();
+        scheduleGpuRelease(this.mesh.geometry);
         this._idToSlot.clear();
         this._freeSlots.length = 0;
         this._nextSlot = 0;

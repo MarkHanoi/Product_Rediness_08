@@ -2,7 +2,10 @@ import * as THREE from '@pryzm/renderer-three/three';
 // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep-dispose so the
 // `usedTimes` device-loss throw (L-303 family) can never abort a handrail
 // teardown mid-traverse and leak the root into the next project.
-import { safeDisposeObject3D } from '@pryzm/renderer-three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — DETACH now, RELEASE at the
+// next frame boundary. The queue drains through `safeDisposeObject3D`, so §I2
+// throw-tolerance and INVARIANT L1 ownership are preserved.
+import { detachAndReleaseChildren } from '@pryzm/renderer-three';
 import { HandrailData } from '@pryzm/core-app-model/stores';
 import { BimManager } from '@pryzm/core-app-model';
 import { elementRegistry, StoreType } from '@pryzm/core-app-model/element-registry';
@@ -88,8 +91,12 @@ export class HandrailFragmentBuilder {
         this._unregisterInstances(id);
         const root = this.handrailRoots.get(id);
         if (root) {
-            this.disposeRoot(root);
+            // §GPU-RESOURCE-LIFETIME (ADR-0297, L2 (a)) — DETACH before anything is
+            // released. The previous order (disposeRoot then scene.remove) destroyed
+            // the GPU buffers while the root was still a live descendant of the scene.
             this.scene.remove(root);
+            root.parent = null;
+            this.disposeRoot(root);
             this.handrailRoots.delete(id);
         }
         elementRegistry.unregisterRoot(id);
@@ -117,9 +124,12 @@ export class HandrailFragmentBuilder {
     }
 
     private disposeRoot(root: THREE.Group): void {
-        // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep dispose.
-        safeDisposeObject3D(root);
-        root.clear();
+        // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — L-691 migration.
+        // WAS: `safeDisposeObject3D(root); root.clear();` — dispose BEFORE detach.
+        // `removeHandrail()` compounded it by calling this BEFORE `scene.remove(root)`,
+        // so the buffers were destroyed with the root still in the scene graph.
+        // `detachAndReleaseChildren` detaches first and releases at the frame boundary.
+        detachAndReleaseChildren(root);
     }
 
     private buildHandrail(handrail: Readonly<HandrailData>): void {
