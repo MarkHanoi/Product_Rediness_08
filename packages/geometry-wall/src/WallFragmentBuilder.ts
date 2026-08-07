@@ -27,6 +27,12 @@ import {
     isWallPipelineV2Enabled,
     type LevelWallSpec,
 } from './WallPipelineV2';
+// §FIX-LAYERED-WALL-V2-PARITY (ADR-0298) — a LAYERED wall takes the same V2 footprint the
+// plain path takes, sliced into per-layer bands, instead of re-deriving its corners with the
+// legacy per-layer miter projection. See the block comment in the layered branch.
+import { buildWallFootprint } from './WallFootprint2D';
+import { buildWallExtrusion } from './WallPolygonExtruder';
+import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
 import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
 import { descriptorToBufferGeometry } from './descriptorToBufferGeometry';
@@ -1266,6 +1272,97 @@ export class WallFragmentBuilder {
             const startMN = joinData?.startMN ?? null;
             const endMN   = joinData?.endMN   ?? null;
 
+            // ── §FIX-LAYERED-WALL-V2-PARITY (founder 2026-08-06, ADR-0298) ──────────────
+            // Until now this branch was the ONLY geometry a straight layered wall ever got:
+            // one legacy `buildMiterPrism` per layer, capped on the legacy WallJoinResolver
+            // miter normals. `createWallBodyFragment` — the sole call site of the ADR-0055
+            // V2 chain — is never reached from here (this branch returns above it), so a
+            // layered wall was the one wall on the level solving its corners with a
+            // DIFFERENT resolver from its neighbours. A per-wall miter-plane projection has
+            // no cross-wall non-overlap property; V2's ring sweep does, by construction.
+            //
+            // MEASURED on the founder's scene (two 0.30 m arms mitred at the origin + a
+            // layered partition co-terminating on the corner; 2 mm grid sampler, see
+            // `LayeredWallCornerClash.test.ts`): legacy 2 520 mm² of doubled solid at 0.10 m
+            // thickness and 35 112 mm² at 0.375 m, versus 0 mm² through V2.
+            //
+            // So: take the SAME V2 footprint the plain path takes, and slice it into
+            // per-layer bands (`WallLayerFootprint2D`, pure 2-D). Every band is a SUBSET of
+            // the footprint, so the junction non-overlap is INHERITED rather than
+            // re-derived — there is no second miter solver left to disagree with the first.
+            // Band lateral extents reproduce the `cursor` walk below exactly, so no layer
+            // moves sideways; only the mitred ENDS change.
+            //
+            // ALL-OR-NOTHING: if any band fails the spike guard, the whole wall falls back
+            // to the legacy prisms. A stack must never mix the two frames — a half-migrated
+            // layer stack is worse than a uniformly-legacy one.
+            let v2LayerGeoms: Array<THREE.BufferGeometry> | null = null;
+            {
+                const _layCache = this.getEffectiveV2Cache();
+                const _layMiter = _layCache?.getMiter(wall.id) ?? null;
+                if (isWallPipelineV2Enabled() && _layCache && _layMiter && !_layMiter.invalid) {
+                    // §V2-PRETRIM-FIX frame (see createWallBodyFragment): V2's corners are
+                    // solved against the PRE-trim baselines, so the footprint defaults must
+                    // be built in that same frame or the polygon zig-zags between two frames.
+                    const _srcBL = (wall as unknown as {
+                        _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }>;
+                    })._sourceBaseLine;
+                    const _preS = _srcBL?.[0] ?? wall.baseLine[0];
+                    const _preE = _srcBL?.[1] ?? wall.baseLine[1];
+                    const _fp = buildWallFootprint(
+                        {
+                            id: wall.id,
+                            start: { x: _preS.x, z: _preS.z },
+                            end:   { x: _preE.x, z: _preE.z },
+                            thickness: wall.thickness,
+                            systemTypeId: wall.systemTypeId,
+                        },
+                        _layMiter,
+                    );
+                    const _bands = buildWallLayerBands(
+                        _fp,
+                        wall.layers.map((l: any) => l.thickness),
+                    ).bands;
+                    // Same envelope test as §V2-SPIKE-GUARD / §LEGACY-SPIKE-GUARD, applied
+                    // per band. A real layer body never exceeds the wall's own footprint.
+                    const _baseLen = Math.hypot(
+                        wall.baseLine[1].x - wall.baseLine[0].x,
+                        wall.baseLine[1].z - wall.baseLine[0].z,
+                    );
+                    const _maxExtent = _baseLen + wall.thickness + 1.0;
+                    const _geoms: THREE.BufferGeometry[] = [];
+                    let _ok = _bands.length === wall.layers.length;
+                    for (const b of _bands) {
+                        if (!_ok) break;
+                        if (b.polygon.length < 3) { _ok = false; break; }
+                        const g = buildWallExtrusion(
+                            { ...(_fp as any), polygon: b.polygon },
+                            { height: wallHeight, baseOffset: wallBaseOffset, elevation: 0 },
+                        );
+                        // World-XZ → wallGroup-local (the group sits at the POST-trim start).
+                        g.translate(-wall.baseLine[0].x, 0, -wall.baseLine[0].z);
+                        g.computeBoundingBox();
+                        const bb = g.boundingBox;
+                        const finite = !!bb
+                            && Number.isFinite(bb.min.x) && Number.isFinite(bb.max.x)
+                            && Number.isFinite(bb.min.z) && Number.isFinite(bb.max.z);
+                        const diag = finite ? Math.hypot(bb!.max.x - bb!.min.x, bb!.max.z - bb!.min.z) : Infinity;
+                        if (!finite || diag > _maxExtent) { _ok = false; (g as any).dispose?.(); break; }
+                        _geoms.push(g);
+                    }
+                    if (_ok) {
+                        v2LayerGeoms = _geoms;
+                    } else {
+                        for (const g of _geoms) (g as unknown as { dispose?: () => void }).dispose?.();
+                        // eslint-disable-next-line no-console
+                        console.warn(
+                            `[WallFragmentBuilder] §FIX-LAYERED-WALL-V2-PARITY wall ${wall.id}: ` +
+                            `a layer band failed the spike guard — falling back to legacy MiterPrism for the whole stack`,
+                        );
+                    }
+                }
+            }
+
             wall.layers.forEach((layer: any, layerIdx: number) => {
                 const layerCenter = cursor + layer.thickness / 2;
                 cursor += layer.thickness;
@@ -1289,17 +1386,21 @@ export class WallFragmentBuilder {
                 const centerlineStart = new THREE.Vector3(0, 0, 0); // wallGroup origin IS wall start
                 const centerlineEnd = new THREE.Vector3().subVectors(end, start);
 
-                const geom = buildMiterPrism(
-                    worldStart,
-                    worldEnd,
-                    centerlineStart,           // Miter planes at centerline
-                    centerlineEnd,             // Miter planes at centerline
-                    layer.thickness / 2,       // half-thickness of this layer
-                    wallHeight,
-                    wallBaseOffset,
-                    startMN,
-                    endMN,
-                );
+                // §FIX-LAYERED-WALL-V2-PARITY — the V2 band when the pipeline produced a
+                // full, guard-passing stack for this wall; otherwise the legacy prism.
+                const geom = v2LayerGeoms
+                    ? v2LayerGeoms[layerIdx]!
+                    : buildMiterPrism(
+                        worldStart,
+                        worldEnd,
+                        centerlineStart,           // Miter planes at centerline
+                        centerlineEnd,             // Miter planes at centerline
+                        layer.thickness / 2,       // half-thickness of this layer
+                        wallHeight,
+                        wallBaseOffset,
+                        startMN,
+                        endMN,
+                    );
 
                 const matColor = layer.materialColor ?? wall.materialColor ?? '#d4c5b0';
                 const mat = new THREE.MeshStandardMaterial({
