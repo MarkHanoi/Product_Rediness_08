@@ -16,8 +16,14 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-// §I2 — WebGPU-safe subtree disposal for the live ceiling-rebuild teardown.
-import { safeDisposeObject3D } from '@pryzm/renderer-three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — a ceiling rebuild/removal
+// DETACHES its old subtree on the mutation tick and RELEASES the GPU resources at
+// the next frame boundary (drained by RenderPipelineManager.render). The previous
+// §I2 pattern disposed GPU buffers while the meshes were STILL PARENTED to the
+// scene — the exact inverted ordering behind the founder's
+// "setIndexBuffer … parameter 1 is not of type 'GPUBuffer'" hard stop on the
+// furniture path. Same seam, same rule (pattern: InstanceGroup.dispose()).
+import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { CeilingData, CeilingHoleElement, CeilingVertex } from '@pryzm/core-app-model/stores';
 import { computeCeilingArea as computeArea, computeCeilingBoundingBox as computeBoundingBox, ensureCeilingCCW as ensureCCW,  } from '@pryzm/core-app-model/stores';
@@ -108,14 +114,14 @@ export class CeilingPanelBuilder {
     const root = this._ceilingRoots.get(ceilingId);
     if (!root) return;
 
-    while (root.children.length > 0) {
-      const child = root.children[0]!;
-      this._disposeObject(child);
-      root.remove(child);
-    }
+    // §GPU-RESOURCE-LIFETIME (ADR-0297 L2) — DETACH first (scene can no longer
+    // reach the subtree), then queue the GPU release for the next frame boundary.
+    // WAS: dispose-while-parented, then scene.remove — a frame encoded in between
+    // drew destroyed buffers.
     this._scene.remove(root);
     this._ceilingRoots.delete(ceilingId);
     elementRegistry.unregisterRoot(ceilingId);
+    scheduleGpuRelease(root);
   }
 
   getRootById(ceilingId: string): THREE.Group | undefined {
@@ -195,11 +201,9 @@ export class CeilingPanelBuilder {
     elementRegistry.registerRoot(ceiling.id, root);
 
     // Clear all previous children (preserve root for identity stability).
-    while (root.children.length > 0) {
-      const child = root.children[0]!;
-      this._disposeObject(child);
-      root.remove(child);
-    }
+    // §GPU-RESOURCE-LIFETIME (ADR-0297 L2) — detach NOW, release at the next
+    // frame boundary. WAS a dispose-while-parented loop (invariant L2 violation).
+    detachAndReleaseChildren(root);
 
     // Ensure CCW winding before tessellation.
     const polygon = ensureCCW(ceiling.boundary.polygon);
@@ -444,9 +448,4 @@ export class CeilingPanelBuilder {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  private _disposeObject(obj: THREE.Object3D): void {
-    safeDisposeObject3D(obj); // §I2 — WebGPU-safe subtree teardown
-  }
 }

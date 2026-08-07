@@ -106,7 +106,9 @@
 import * as THREE from '@pryzm/renderer-three/three';
 // §I2 — WebGPU-safe disposal (preserves the shared-resource guards below; only
 // the dispose CALL is hardened against the `usedTimes` device-loss throw).
-import { safeDisposeGeometry, safeDisposeMaterials } from '@pryzm/renderer-three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297) — live-rebuild teardown SCHEDULES the release
+// for the next frame boundary instead of disposing in place; see _disposeChildren.
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { CurtainWallData } from './CurtainWallTypes';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
@@ -1615,18 +1617,25 @@ export class CurtainWallBuilder {
         for (const [id] of this.roots) {
             this.remove(id);
         }
+        // §GPU-RESOURCE-LIFETIME (ADR-0297) — the CACHE OWNER releasing its own
+        // resources is L1-legitimate, but the ORDERING rule (L2) still applies:
+        // these shared mullion/panel resources are referenced by every wall the
+        // `remove(id)` loop above just detached, and a frame encoded before this
+        // tick may still draw them. Schedule, don't dispose — the frame loop
+        // persists across project switches (pipeline is built once per tab), so
+        // the boundary drain always arrives.
         for (const mat of this.mullionMaterialCache.values()) {
-            mat.dispose();
+            scheduleGpuRelease(mat);
         }
         this.mullionMaterialCache.clear();
         // §PERF-2026-Q2-CW-CREATE/F5
         for (const geo of this.mullionGeometryCache.values()) {
-            geo.dispose();
+            scheduleGpuRelease(geo);
         }
         this.mullionGeometryCache.clear();
         // §PERF-2026-Q2-CW-CREATE/F8
         for (const mat of this._fallbackPanelMatCache.values()) {
-            mat.dispose();
+            scheduleGpuRelease(mat);
         }
         this._fallbackPanelMatCache.clear();
         // §B.1 — Dispose panel geometry + material cache (owned by instanceManager).
@@ -2247,14 +2256,35 @@ export class CurtainWallBuilder {
         // immediately after wall deletions because nested mesh geometries
         // were never disposed. group.traverse() walks the whole subtree —
         // matching WallFragmentBuilder._disposeWallGroupChildren's pattern.
+        // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — SCHEDULE the release
+        // instead of disposing in place (pattern: InstanceGroup.dispose()).
+        //
+        // WAS: safeDisposeGeometry/-Materials right here — an immediate GPU release
+        // while every mesh was STILL PARENTED to the scene (all three call sites
+        // detach only AFTER this method returns). That is the exact inverted
+        // ordering behind the founder's "setIndexBuffer … parameter 1 is not of
+        // type 'GPUBuffer'" hard stop: a frame already encoded against these
+        // buffers draws after they are destroyed. The queue is drained by
+        // RenderPipelineManager.render() at the top of the NEXT frame — by which
+        // point the caller's `group.clear()` / `scene.remove(group)` (same
+        // synchronous tick as this call) has already detached everything, so the
+        // release is unobservable by any pass.
+        //
+        // The §MI-07 / §PERF-2026-Q2-CW-CREATE shared-resource guards are the L1
+        // ownership rule in its older userData form — preserved verbatim: a
+        // cache-owned mullion geometry/material is never queued at all.
         group.traverse((obj) => {
             if (!(obj instanceof THREE.Mesh) && !(obj instanceof THREE.InstancedMesh)) return;
-            // §I2 — keep the shared-resource guards; only the dispose call is hardened.
             if (!obj.userData?.sharedGeometry) {
-                safeDisposeGeometry(obj.geometry);
+                scheduleGpuRelease(obj.geometry);
             }
             if (!obj.userData?.sharedMaterial) {
-                safeDisposeMaterials(obj.material);
+                const mat = obj.material;
+                if (Array.isArray(mat)) {
+                    for (const m of mat) scheduleGpuRelease(m);
+                } else {
+                    scheduleGpuRelease(mat);
+                }
             }
         });
     }
