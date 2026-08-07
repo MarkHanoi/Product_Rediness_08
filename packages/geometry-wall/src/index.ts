@@ -57,6 +57,10 @@ export * from './JunctionResolverV2';
 export * from './WallFootprint2D';
 export * from './WallPolygonExtruder';
 export * from './WallPipelineV2';
+// §FIX-LAYERED-WALL-V2-PARITY — P2 for LAYERED walls: slice the V2 footprint into per-layer
+// bands so a layered wall inherits the resolver's clash-free corners instead of re-deriving
+// them with the legacy per-layer miter projection.
+export * from './WallLayerFootprint2D';
 
 // ── Edge overlay ──────────────────────────────────────────────────────────────
 export * from './WallEdgeOverlayBuilder';
