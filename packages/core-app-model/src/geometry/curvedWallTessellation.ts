@@ -63,6 +63,179 @@
 
 export interface TessPoint { x: number; y?: number; z: number }
 
+/* ─── §ARC-DENSITY (founder "not organic", 2026-08-07) — THE ONE chord-density
+ * authority for tessellating a quadratic-Bézier curved wall.
+ *
+ * THE SECOND HALF OF THE ROOF-BY-REGION REPORT. §FIX-REGION-RING-PRETRIM-FRAME
+ * (above) made the traced ring CORRECT; this section makes it LOOK like the arc
+ * it is. Before it, every consumer picked its own chord count — the wall schema
+ * default (16), `WallTool` (24), `SlabRegionTracer` (a local 0.5 m chord target
+ * capped at 48) — none of which knows anything about CURVATURE. A 10 m-scale
+ * arc at 16 chords departs from the true curve by ~15 mm at mid-chord
+ * (measured: |P0−2C+P1| = 10 m ⇒ 9.8 mm; the founder's slightly deeper arc ⇒
+ * the 15.0 mm residual reported by the b431a17b fix), which reads as a faceted
+ * polygon, not an "organic" curve.
+ *
+ * THE MATHS. For a quadratic Bézier sampled at uniform t into n chords, the
+ * second derivative is CONSTANT: B″ = 2·(P0 − 2C + P1). The mid-chord departure
+ * (sagitta) of each chord is therefore EXACTLY |P0 − 2C + P1|·h²/4 with
+ * h = 1/n — not an estimate. Inverting it gives the chord count that achieves a
+ * target sagitta:  n = ⌈√(|P0 − 2C + P1| / 4ε)⌉.  Verified against dense
+ * numeric sampling to <1% (scratchpad measurement, 2026-08-07: n=16 bound
+ * 9.8 mm vs measured 9.7 mm; n=48 bound 1.1 mm vs measured 1.1 mm).
+ *
+ * TWO BOUNDS, BOTH LOUD (ADR-0299 — a limit that silently truncates produces a
+ * plausible wrong answer):
+ *   • `maxSegments` — a pathological arc must not explode the triangle budget
+ *     (each ring vertex costs ~4 slab triangles: 2 caps + 2 side-quad faces).
+ *   • `minChordLength` — the consumer's vertex-weld / node-grid tolerance:
+ *     chords shorter than the weld radius get their interior vertices WELDED
+ *     AWAY by the loop builder, so density beyond that bound is not just wasted,
+ *     it corrupts the ring. Each consumer passes its own survival bound
+ *     (SlabRegionTracer: 1.5 × REGION_WELD_TOLERANCE).
+ * When either bound forces the count below what the sagitta target requires,
+ * `resolveArcSegmentCount` says so once per (tag, bound) on the console instead
+ * of silently shipping a faceted curve.
+ *
+ * FRAME RULE: pass the SAME frame you will SAMPLE in — for a trimmed wall that
+ * is the PRE-trim frame (`_sourceBaseLine` + authored control), per the header
+ * above. Density derived in one frame for a curve sampled in another is the
+ * same category of bug as the mixed-frame fit this module exists to kill.
+ */
+
+/**
+ * Default max mid-chord departure (sagitta) of a tessellated arc, metres.
+ * 5 mm at building scale: the b431a17b residual of 15 mm was the founder's
+ * "not organic"; 5 mm matches the visual quality of the 3D wall mesh itself
+ * (WallTool authors `segments: 24` ⇒ ~4–7 mm on 10 m-scale arcs), so the slab
+ * edge and the wall it sits against read as the same curve.
+ */
+export const ARC_SAGITTA_TARGET_M = 0.005;
+
+/**
+ * Hard ceiling on chords per arc. At 64 the sagitta target is met for arcs up
+ * to |P0−2C+P1| = 4·ε·64² ≈ 82 m — beyond any building-scale wall. A ring
+ * vertex costs ~4 slab triangles, so one arc is bounded at ~260 triangles.
+ */
+export const ARC_MAX_SEGMENTS = 64;
+
+/**
+ * EXACT max mid-chord departure of an n-chord uniform-t tessellation of the
+ * quadratic Bézier `start → control → end` (constant B″ ⇒ closed form).
+ */
+export function arcChordSagittaBound(
+  start: TessPoint, end: TessPoint, control: TessPoint, segments: number,
+): number {
+  const dx = start.x - 2 * control.x + end.x;
+  const dz = start.z - 2 * control.z + end.z;
+  return Math.hypot(dx, dz) / (4 * segments * segments);
+}
+
+export interface ArcDensityArgs {
+  /** Arc endpoints IN THE FRAME THAT WILL BE SAMPLED (pre-trim when archived). */
+  start: TessPoint;
+  end: TessPoint;
+  /** Quadratic-Bézier control point (authored frame). */
+  control: TessPoint;
+  /** The wall's own `curve.segments` — honoured as a FLOOR, never a ceiling. */
+  requested?: number | null;
+  /**
+   * The consumer's chord-survival bound: chords must stay LONGER than its
+   * vertex-weld / node-grid radius or the loop builder dissolves them. 0/absent
+   * disables the bound.
+   */
+  minChordLength?: number;
+  /** Max mid-chord departure (m). Default {@link ARC_SAGITTA_TARGET_M}. */
+  sagittaTarget?: number;
+  /** Ceiling on chords. Default {@link ARC_MAX_SEGMENTS}. */
+  maxSegments?: number;
+}
+
+export interface ArcDensity {
+  /** The chord count to sample at (always ≥ 2). */
+  segments: number;
+  /** What the sagitta target alone required. */
+  requiredForTarget: number;
+  /** Which bound, if any, forced `segments` BELOW `requiredForTarget`. */
+  boundedBy: 'none' | 'ceiling' | 'min-chord';
+  /** Exact sagitta bound (m) at the returned count. */
+  achievedSagittaBound: number;
+}
+
+/**
+ * Pure density solver — no logging, so tests can assert on it directly.
+ * `resolveArcSegmentCount` is the logging front door consumers call.
+ */
+export function computeArcDensity(args: ArcDensityArgs): ArcDensity {
+  const eps = args.sagittaTarget !== undefined && args.sagittaTarget > 0
+    ? args.sagittaTarget
+    : ARC_SAGITTA_TARGET_M;
+  const ceiling = Math.max(2, Math.floor(args.maxSegments ?? ARC_MAX_SEGMENTS));
+
+  const { start: s, end: e, control: c } = args;
+  const dNorm = Math.hypot(s.x - 2 * c.x + e.x, s.z - 2 * c.z + e.z);
+  const requiredForTarget = Math.max(2, Math.ceil(Math.sqrt(dNorm / (4 * eps))));
+
+  const requested = typeof args.requested === 'number'
+    && Number.isFinite(args.requested) && args.requested >= 2
+    ? Math.floor(args.requested)
+    : 0;
+
+  const target = Math.max(2, requested, requiredForTarget);
+
+  // Chord-survival cap. Arc length estimated as the mean of the control-polygon
+  // length (an upper bound) and the chord (a lower bound) — within ~3% for
+  // quadratics, and only a CAP is derived from it.
+  let chordCap = Infinity;
+  if (args.minChordLength !== undefined && args.minChordLength > 0) {
+    const chord = Math.hypot(e.x - s.x, e.z - s.z);
+    const ctrlPoly = Math.hypot(c.x - s.x, c.z - s.z) + Math.hypot(e.x - c.x, e.z - c.z);
+    const arcLenEst = (ctrlPoly + chord) / 2;
+    chordCap = Math.max(2, Math.floor(arcLenEst / args.minChordLength));
+  }
+
+  const segments = Math.min(target, ceiling, chordCap);
+  const boundedBy: ArcDensity['boundedBy'] = segments >= requiredForTarget
+    ? 'none'
+    : (chordCap < ceiling ? 'min-chord' : 'ceiling');
+
+  return {
+    segments,
+    requiredForTarget,
+    boundedBy,
+    achievedSagittaBound: arcChordSagittaBound(s, e, c, segments),
+  };
+}
+
+/** One log per (tag, bound) so a rebuild loop cannot flood the console. */
+const _arcDensityBoundLogged = new Set<string>();
+
+/**
+ * THE ONE arc chord-count resolver. When a bound forces the count below the
+ * sagitta target, that is REPORTED (once per tag+bound) — never silent
+ * (ADR-0299: an absence produced by a limit is not an absence).
+ *
+ * @param tag identifies the consumer (and ideally the wall) in the bound log.
+ */
+export function resolveArcSegmentCount(args: ArcDensityArgs & { tag?: string }): number {
+  const d = computeArcDensity(args);
+  if (d.boundedBy !== 'none') {
+    const key = `${args.tag ?? 'arc'}|${d.boundedBy}`;
+    if (!_arcDensityBoundLogged.has(key)) {
+      if (_arcDensityBoundLogged.size < 256) _arcDensityBoundLogged.add(key);
+      console.warn(
+        `[curvedWallTessellation] §ARC-DENSITY bound bit (${args.tag ?? 'arc'}): `
+        + `${d.boundedBy} capped chords at ${d.segments} where the `
+        + `${((args.sagittaTarget ?? ARC_SAGITTA_TARGET_M) * 1000).toFixed(0)}mm sagitta `
+        + `target needs ${d.requiredForTarget}; the tessellated curve departs up to `
+        + `${(d.achievedSagittaBound * 1000).toFixed(1)}mm from the authored arc. `
+        + `(Logged once per consumer+bound; further bites are silent.)`,
+      );
+    }
+  }
+  return d.segments;
+}
+
 /** Squared XZ distance — comparisons only, so the sqrt is not paid. */
 function d2(a: TessPoint, b: TessPoint): number {
   const dx = a.x - b.x, dz = a.z - b.z;

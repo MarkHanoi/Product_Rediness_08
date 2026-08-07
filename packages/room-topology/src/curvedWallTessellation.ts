@@ -18,9 +18,22 @@
  * @see packages/core-app-model/src/geometry/curvedWallTessellation.ts
  */
 
-export type { TessPoint } from '@pryzm/core-app-model/curved-wall-tessellation';
+export type {
+  TessPoint,
+  ArcDensityArgs,
+  ArcDensity,
+} from '@pryzm/core-app-model/curved-wall-tessellation';
 export {
   clipPolylineToSpan,
   tessellateCurvedWallForTopology,
   baseWallId,
+  // §ARC-DENSITY — THE ONE chord-density authority. When RoomDetectionEngine /
+  // RoomPolygonUtils adopt adaptive density they MUST resolve it here (and in
+  // lock-step with geometry-roof's wallCentreline sampler — the three pin a
+  // 1:1 chord parity; see wallCentreline.ts header).
+  resolveArcSegmentCount,
+  computeArcDensity,
+  arcChordSagittaBound,
+  ARC_SAGITTA_TARGET_M,
+  ARC_MAX_SEGMENTS,
 } from '@pryzm/core-app-model/curved-wall-tessellation';

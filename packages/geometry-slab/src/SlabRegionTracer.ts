@@ -25,6 +25,7 @@
 // the purity its header promises. See the note on `wallPlanCenterline`.
 import {
     tessellateCurvedWallForTopology,
+    resolveArcSegmentCount,
     type TessPoint,
 } from '@pryzm/core-app-model/curved-wall-tessellation';
 
@@ -61,14 +62,26 @@ export interface RegionWallLike {
 /**
  * Vertex-weld tolerance (metres). Two wall endpoints closer than this are treated
  * as the same graph node so a closed room actually closes. Tessellated arc nodes
- * are sampled coarser than this so intermediate arc vertices are NOT welded away.
+ * MUST be sampled coarser than this so intermediate arc vertices are NOT welded
+ * away — enforced by passing `minChordLength` (below) into the shared density
+ * resolver, not by a local chord constant.
  */
 export const REGION_WELD_TOLERANCE = 0.15;
 
-/** Max chords used to tessellate a single curved wall (bounds graph size). */
-const MAX_ARC_SEGMENTS = 48;
-/** Target chord length (m) when sampling an arc — must exceed the weld tolerance. */
-const ARC_CHORD_TARGET = 0.5;
+/**
+ * §ARC-DENSITY (founder "not organic", 2026-08-07) — chord-survival bound handed
+ * to the ONE density authority (`resolveArcSegmentCount`). Chords shorter than
+ * the weld radius have their interior vertices dissolved by `buildClosedLoops`'s
+ * vertex weld, so density beyond this bound CORRUPTS the ring rather than
+ * refining it. 1.5× keeps a comfortable margin over the weld radius.
+ *
+ * Deliberately NOT a chord-density constant: the former local `MAX_ARC_SEGMENTS`
+ * (48) / `ARC_CHORD_TARGET` (0.5 m) pair was the second copy of a density
+ * decision that belongs in exactly one place
+ * (`@pryzm/core-app-model/curved-wall-tessellation` §ARC-DENSITY) — the same
+ * copy-disease §FIX-REGION-RING-PRETRIM-FRAME documents for the sampling maths.
+ */
+const ARC_MIN_CHORD_FOR_WELD = REGION_WELD_TOLERANCE * 1.5;
 
 /** Quadratic-Bézier sampler in the tracer's `{x, z}` world-plan frame. */
 function sampleQuadraticBezier(
@@ -117,9 +130,12 @@ function sampleQuadraticBezier(
  * A wall with no `_sourceBaseLine` (never trimmed) has pre-trim ≡ post-trim by
  * construction and is bit-identical to the previous behaviour.
  *
- * NOT CHANGED HERE, deliberately: {@link MAX_ARC_SEGMENTS} / chord density. That
- * is the separate "organic look" question, and no amount of density helps while
- * the ring self-intersects.
+ * §ARC-DENSITY (2026-08-07, the second half of the same founder report): chord
+ * density is now ADAPTIVE — resolved from the arc's curvature against a sagitta
+ * target by the ONE shared authority (`resolveArcSegmentCount`), replacing the
+ * local `MAX_ARC_SEGMENTS`/`ARC_CHORD_TARGET` pair. Density only became safe to
+ * raise once the frame fix above landed — densifying a self-intersecting ring
+ * only draws the corruption more finely.
  *
  * Returns `[]` when the wall has no usable baseLine.
  */
@@ -145,13 +161,22 @@ export function wallPlanCenterline(
     const preStart: TessPoint = hasSource ? { x: src0.x, z: src0.z } : { x: p0.x, z: p0.z };
     const preEnd: TessPoint = hasSource ? { x: src1.x, z: src1.z } : { x: p1.x, z: p1.z };
 
-    // Segment count: honour the wall's own `segments` when supplied, else derive
-    // one from the chord length. Always ≥2 (so a tiny arc still bows) and capped.
-    // Derived from the PRE-TRIM chord, because that is the span actually sampled.
-    const chord = Math.hypot(preEnd.x - preStart.x, preEnd.z - preStart.z);
-    const fromChord = Math.ceil(chord / ARC_CHORD_TARGET);
-    const requested = Number.isFinite(curve?.segments) ? (curve!.segments as number) : fromChord;
-    const n = Math.max(2, Math.min(MAX_ARC_SEGMENTS, requested || fromChord || 2));
+    // §ARC-DENSITY — chord count from CURVATURE, resolved by the ONE shared
+    // density authority. The wall's own `curve.segments` is honoured as a FLOOR
+    // (a user-authored density is never coarsened), the sagitta target raises a
+    // coarse default (schema 16 ⇒ ~15 mm departure on the founder's 10 m-scale
+    // arc — the "not organic" facets) up to the curvature the arc actually has,
+    // and both bounds (triangle-budget ceiling, weld-survival chord length) log
+    // when they bite. Density is derived in the PRE-TRIM frame because that is
+    // the frame actually sampled (see the shared module's FRAME RULE).
+    const n = resolveArcSegmentCount({
+        start: preStart,
+        end: preEnd,
+        control: { x: ctrl.x, z: ctrl.z },
+        requested: curve?.segments,
+        minChordLength: ARC_MIN_CHORD_FOR_WELD,
+        tag: 'SlabRegionTracer',
+    });
 
     const tessellated = tessellateCurvedWallForTopology(
         {
@@ -289,9 +314,20 @@ function traceLoop(
         prevIdx = currIdx;
         currIdx = bestNeighbor;
 
-        // Safety bound: scaled for tessellated curves (each curved wall adds up to
-        // MAX_ARC_SEGMENTS nodes), so a curved room must not trip the cap.
-        if (loopIdxs.length > 400) return null;
+        // Safety bound: scaled for tessellated curves (each curved wall adds up
+        // to ARC_MAX_SEGMENTS = 64 nodes under §ARC-DENSITY), so a room bounded
+        // by many curved walls must not trip the cap. When it DOES bite it says
+        // so — a null produced by a limit must not read as "no region here"
+        // (§CONTEXT-DATA-HONESTY / ADR-0299; same rule as WallRegionDetector
+        // L-699).
+        if (loopIdxs.length > 4096) {
+            console.warn(
+                '[SlabRegionTracer] §ARC-DENSITY loop trace aborted at 4096 vertices — '
+                + 'treating as NO region. If this fires on a real room the cap, not the '
+                + 'model, is the limit.',
+            );
+            return null;
+        }
     }
 
     return loopIdxs.map((idx) => points[idx]!);
