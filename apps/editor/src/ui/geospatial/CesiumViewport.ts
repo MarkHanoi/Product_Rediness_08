@@ -345,6 +345,18 @@ export interface TileLoadProgress {
   readonly processing: number;
   /** TRUE when Cesium reports nothing outstanding for the current view. */
   readonly tilesLoaded: boolean;
+  /**
+   * §TILES-PROVIDER-READY (L-714) — CESIUM'S OWN VERDICT, uncontaminated by our counters:
+   * `globe.tilesLoaded && tileset.tilesLoaded`, i.e. "everything for the CURRENT VIEW is loaded".
+   *
+   * ⚠ THIS EXISTS BECAUSE `tilesLoaded` ABOVE IS A CONJUNCTION, NOT A PASSTHROUGH. It is defined as
+   * `pending === 0 && processing === 0 && globeLoaded && tilesetLoaded`, so it can never be true
+   * while a counter is stuck — which made it useless as an independent tie-breaker and silently
+   * turned L-713's grace period into DEAD CODE (`tilesLoaded` true ⇒ outstanding 0 ⇒ the grace
+   * branch is unreachable). Two genuinely independent signals had been collapsed into one boolean
+   * at the producer, so no amount of care at the consumer could tell them apart again.
+   */
+  readonly providerLoaded: boolean;
 }
 
 /**
@@ -1657,6 +1669,11 @@ export class CesiumViewport {
       pending,
       processing,
       tilesLoaded: pending === 0 && processing === 0 && globeLoaded && tilesetLoaded,
+      // §TILES-PROVIDER-READY (L-714) — Cesium's own answer, kept SEPARATE from our counters so a
+      // stuck queue entry cannot veto it. `globe.tilesLoaded` already means "everything for the
+      // current view is loaded", which is coverage of the current frustum — the readiness question
+      // we actually want answered. See the field's note for why collapsing the two was fatal.
+      providerLoaded: globeLoaded && tilesetLoaded,
     };
   }
 

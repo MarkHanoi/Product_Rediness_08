@@ -190,6 +190,12 @@ export interface TileStreamSnapshot {
     readonly processing: number;
     /** Cesium's own "everything for this view is loaded" flag. */
     readonly tilesLoaded: boolean;
+    /**
+     * §TILES-PROVIDER-READY (L-714) — the PROVIDER's verdict alone (`globe.tilesLoaded &&
+     * tileset.tilesLoaded`), independent of `pending`/`processing`. Optional so a caller that
+     * cannot supply it degrades to the strict counter behaviour rather than silently settling.
+     */
+    readonly providerLoaded?: boolean;
 }
 
 /**
@@ -234,10 +240,30 @@ export function tileStreamSettled(
     tilesLoadedForMs: number,
     graceMs: number = TILE_SETTLE_GRACE_MS,
 ): boolean {
-    if (!snapshot.tilesLoaded) return false;
     const outstanding = Math.max(0, snapshot.pending) + Math.max(0, snapshot.processing);
-    if (outstanding === 0) return true;
-    return tilesLoadedForMs >= graceMs;
+    // Unambiguous: our counters agree with the provider. Unchanged, and still the common path.
+    if (snapshot.tilesLoaded && outstanding === 0) return true;
+    // §TILES-PROVIDER-READY (L-714) — ⚠ GATE ON THE PROVIDER'S VERDICT, NOT ON OUR COUNTER.
+    //
+    // The founder's screenshot read `19 / 20 tiles` — outstanding === 1, forever. One queue entry
+    // that will never resolve is enough to hold the whole view hostage, because "every requested
+    // tile has arrived" was the readiness condition.
+    //
+    // ⚠ THAT WAS THE WRONG CONDITION, and this is the architectural answer rather than a patch to
+    // the count. `globe.tilesLoaded` ALREADY means "everything for the CURRENT VIEW is loaded" —
+    // Cesium computes coverage of the active frustum itself, which is exactly the readiness
+    // question worth asking. We were overriding a correct, provider-computed answer with a
+    // stricter one of our own that a single stuck request could falsify. A 3D site view is usable
+    // at full frustum coverage with stragglers still streaming; nobody's workflow is auditing tile
+    // completeness.
+    //
+    // The grace period stays, and is now REACHABLE (it could not fire before — see
+    // `TileLoadProgress.providerLoaded`): `providerLoaded` is transiently true before streaming
+    // begins, so believing it instantly would re-open L-259, the building placed on unmeasured
+    // ground ~50 m under the terrain. It must HOLD first, which a genuinely streaming view will
+    // not do.
+    if (snapshot.providerLoaded === true) return tilesLoadedForMs >= graceMs;
+    return false;
 }
 
 /**
@@ -263,6 +289,15 @@ export function tileStreamNote(snapshot: TileStreamSnapshot, peakOutstanding: nu
     const outstanding = Math.max(0, snapshot.pending) + Math.max(0, snapshot.processing);
     if (peakOutstanding <= 0) return '';
     const done = Math.max(0, peakOutstanding - outstanding);
+    // §TILES-PROVIDER-READY (L-714) — ⚠ WHEN WE REVEAL EARLY, SAY SO. Gating on the provider's
+    // coverage instead of on every requested tile means the view can open with stragglers still in
+    // flight. That is the right trade for usability, but presenting partial context as complete is
+    // the overstatement §ENVELOPE-SOLID-OVERSTATES and the L-513b honesty contract both forbid —
+    // on real land a missing neighbour is not an absent neighbour. The disclosure moves, it does
+    // not disappear.
+    if (snapshot.providerLoaded === true && outstanding > 0) {
+        return `${formatCount(done)} / ${formatCount(peakOutstanding)} tiles — still filling in`;
+    }
     return `${formatCount(done)} / ${formatCount(peakOutstanding)} tiles`;
 }
 

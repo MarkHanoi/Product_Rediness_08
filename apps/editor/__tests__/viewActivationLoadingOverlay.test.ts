@@ -407,36 +407,60 @@ describe('L-270 · view activation — dismiss on the REAL readiness signal', ()
 //   2. `lastAdvanceAt` only refreshes on a strictly-INCREASING fraction, so a bar that stopped
 //      rising because streaming FINISHED is indistinguishable from one that stopped because it
 //      STUCK — a "no progress for 25 s" test fails identically for both.
-import { tileStreamSettled, TILE_SETTLE_GRACE_MS } from '../src/ui/overlays/loadingProgress';
+import { tileStreamSettled, tileStreamNote, TILE_SETTLE_GRACE_MS } from '../src/ui/overlays/loadingProgress';
 
-describe('§TILES-SETTLED-IS-NOT-STALLED — settled and stalled are different answers', () => {
-    const snap = (pending: number, processing: number, tilesLoaded: boolean) =>
-        ({ pending, processing, tilesLoaded });
+describe('§TILES-PROVIDER-READY (L-714) — one stuck tile must not hold the view hostage', () => {
+    // `snap` models the REAL producer: CesiumViewport derives `tilesLoaded` as
+    // `pending===0 && processing===0 && globeLoaded && tilesetLoaded`, so it is a CONJUNCTION and
+    // cannot be true while a counter is stuck. `providerLoaded` is Cesium's own verdict alone.
+    const snap = (pending: number, processing: number, providerLoaded: boolean) => ({
+        pending,
+        processing,
+        providerLoaded,
+        tilesLoaded: pending === 0 && processing === 0 && providerLoaded,
+    });
 
-    it('settles AT ONCE when nothing is outstanding — the unambiguous case is unchanged', () => {
+    it('settles AT ONCE when the provider agrees and nothing is outstanding', () => {
         expect(tileStreamSettled(snap(0, 0, true), 0)).toBe(true);
     });
 
-    it('does NOT settle merely because tilesLoaded is transiently true before streaming begins', () => {
-        // ⚠ This is why the fix is a grace period and not "just trust the flag". Cesium reports
-        // tilesLoaded=true before any request is issued; trusting it there dismisses the overlay
-        // instantly and re-opens L-259 (building placed before terrain → ~50 m underground).
+    it('⚠ REGRESSION: the L-713 grace period was DEAD CODE, because tilesLoaded is a conjunction', () => {
+        // `tilesLoaded: true` with a stuck counter is UNREACHABLE at the producer — which is why
+        // gating the grace period on it could never fire, and why the founder still saw 19/20 after
+        // L-713 shipped. This test pins the shape so it cannot be reintroduced.
+        const stuck = snap(1, 0, true);
+        expect(stuck.tilesLoaded).toBe(false);          // the state L-713 waited for cannot occur
+        expect(stuck.providerLoaded).toBe(true);        // while the provider says the view IS loaded
+        expect(tileStreamSettled(stuck, TILE_SETTLE_GRACE_MS)).toBe(true);
+    });
+
+    it('reveals on the founder EXACT reading — 19 of 20, one tile that never arrives', () => {
+        const nineteenOfTwenty = snap(1, 0, true);
+        expect(tileStreamSettled(nineteenOfTwenty, TILE_SETTLE_GRACE_MS)).toBe(true);
+        expect(tileStreamSettled(nineteenOfTwenty, TILE_SETTLE_GRACE_MS - 1)).toBe(false);
+    });
+
+    it('does NOT settle on the transient provider-true before streaming begins (L-259)', () => {
+        // Believing it instantly re-opens the building-placed-on-unmeasured-ground bug.
         expect(tileStreamSettled(snap(12, 3, true), 0)).toBe(false);
     });
 
-    it('BELIEVES the flag once it has held, even with a residual counter that never drains', () => {
-        // The founder's case: Cesium says loaded, 7 terrain tiles rendered, a stuck counter.
-        expect(tileStreamSettled(snap(7, 0, true), TILE_SETTLE_GRACE_MS)).toBe(true);
-        expect(tileStreamSettled(snap(7, 0, true), TILE_SETTLE_GRACE_MS - 1)).toBe(false);
-    });
-
-    it('never settles while tiles are genuinely not loaded, however long we wait', () => {
-        // A real stall must still reach the watchdog — this fix must not silence it.
+    it('never settles while the PROVIDER says the view is not loaded, however long we wait', () => {
+        // A genuine stall must still reach the watchdog — this must not silence it.
         expect(tileStreamSettled(snap(40, 5, false), 60_000)).toBe(false);
         expect(tileStreamSettled(snap(0, 0, false), 60_000)).toBe(false);
     });
 
-    it('treats negative/garbage counters as zero rather than settling on nonsense', () => {
-        expect(tileStreamSettled(snap(-5, -5, true), 0)).toBe(true);
+    it('degrades to the STRICT counter behaviour when providerLoaded is absent', () => {
+        // An older/foreign port that cannot supply the field must not silently settle early.
+        expect(tileStreamSettled({ pending: 1, processing: 0, tilesLoaded: false }, 60_000)).toBe(false);
+        expect(tileStreamSettled({ pending: 0, processing: 0, tilesLoaded: true }, 0)).toBe(true);
+    });
+
+    it('DISCLOSES that context is still filling in when it reveals early', () => {
+        // §ENVELOPE-SOLID-OVERSTATES / L-513b — the honesty requirement moves, it does not vanish.
+        // Presenting partial context as complete is an overstatement about real land.
+        expect(tileStreamNote(snap(1, 0, true), 20)).toMatch(/still filling in/i);
+        expect(tileStreamNote(snap(0, 0, true), 20)).not.toMatch(/still filling in/i);
     });
 });

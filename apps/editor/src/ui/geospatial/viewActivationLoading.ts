@@ -179,8 +179,8 @@ export function beginViewActivationLoading(
     let stageFraction = 0;
     let lastAdvanceAt = now();
     let peakOutstanding = 0;
-    /** §TILES-SETTLED-IS-NOT-STALLED (L-713) — when Cesium's `tilesLoaded` most recently became
-     *  true, or null while it is false. Drives the grace period in `tileStreamSettled`. */
+    /** §TILES-PROVIDER-READY (L-714) — when the PROVIDER most recently reported the current view
+     *  loaded, or null while it does not. Drives the grace period in `tileStreamSettled`. */
     let tilesLoadedSince: number | null = null;
     /** The last tile snapshot seen, so the stall watchdog can tell SETTLED from STUCK. */
     let lastTileSnapshot: TileStreamSnapshot | null = null;
@@ -290,7 +290,11 @@ export function beginViewActivationLoading(
         // §TILES-SETTLED-IS-NOT-STALLED (L-713) — track how long Cesium's own `tilesLoaded` has
         // held, so a residual counter that never drains cannot veto a definitive completion.
         // See `tileStreamSettled` for why the flag is trusted only once it has HELD (L-259).
-        if (!snap.tilesLoaded) tilesLoadedSince = null;
+        // §TILES-PROVIDER-READY (L-714) — hold on the PROVIDER's verdict. Holding on `tilesLoaded`
+        // made this dead code: that field is `pending===0 && processing===0 && …`, so it can never
+        // be true while a counter is stuck, and the grace branch was unreachable.
+        const providerSaysLoaded = snap.providerLoaded ?? snap.tilesLoaded;
+        if (!providerSaysLoaded) tilesLoadedSince = null;
         else if (tilesLoadedSince === null) tilesLoadedSince = now();
         const heldMs = tilesLoadedSince === null ? 0 : now() - tilesLoadedSince;
         return tileStreamSettled(snap, heldMs);
@@ -393,7 +397,7 @@ export function beginViewActivationLoading(
         // on a strictly-increasing fraction. Cesium's own `tilesLoaded` flag is the discriminator,
         // and the founder's log is exactly this case: `tilesLoaded=true renderedTerrainTiles=7`
         // while this watchdog reported no progress and blamed the network.
-        if (stage === 'tiles' && lastTileSnapshot?.tilesLoaded === true) return;
+        if (stage === 'tiles' && (lastTileSnapshot?.providerLoaded ?? lastTileSnapshot?.tilesLoaded) === true) return;
         if (isStalled(now(), lastAdvanceAt, stallMs)) {
             // §STALL-COPY-DOES-NOT-BLAME-THE-USER (ADR-0299 honest copy; same class as ADR-0292,
             // where a crash modal blamed the user's GPU driver for our own resource bug).
