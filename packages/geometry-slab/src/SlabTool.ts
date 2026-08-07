@@ -21,6 +21,9 @@ import { snapToAxisOrDiagonal } from './SlabSnapUtils.js';
 // polyline slab drawn in 3D obeys the same ORTHO constraint and the same CURVED
 // arc gesture as one drawn in plan (C11 §3 — parity by construction).
 import { orthoConstrain, type BoundaryDrawMode } from './boundaryPath.js';
+// §FIX-COMMIT-STEALS-VIEW (2026-08-07) — consume the Enter/Escape the tool acts on
+// so it cannot also activate a focused view/camera button. See toolKeyGuard.ts.
+import { consumeToolKey, releaseFocusedControl } from './toolKeyGuard.js';
 // The arc primitive lives in boundaryArc; boundaryPath consumes it internally but
 // does not re-export it. FloorTool and CeilingTool already import it from the
 // primitive directly — this keeps all three siblings on the same path.
@@ -1239,6 +1242,9 @@ export class SlabTool {
 
     private async setupToolUI(title: string, initialStep: string): Promise<void> {
         this.clearSketch();
+        // §FIX-COMMIT-STEALS-VIEW — the toolbar button that launched this tool keeps
+        // DOM focus; drop it so Enter/Space on the canvas cannot re-activate it.
+        releaseFocusedControl();
 
         if (this.world.camera?.controls) {
             this.world.camera.controls.enabled = false;
@@ -1323,7 +1329,10 @@ export class SlabTool {
 
             if (e.key === 'Escape') {
                 // FIX-CONTINUOUS: ESC exits the whole tool session.
-                e.preventDefault();
+                // §FIX-COMMIT-STEALS-VIEW — also stopPropagation: preventDefault
+                // alone blocks the focused button's synthesized click but still
+                // lets document-level listeners act on the same key.
+                consumeToolKey(e);
                 exitTool();
                 return;
             }
@@ -1331,7 +1340,7 @@ export class SlabTool {
             if (e.key !== 'Enter') return;
             const confirmBtns = document.getElementById('confirm-btns');
             if (!confirmBtns || confirmBtns.style.display === 'none') return;
-            e.preventDefault();
+            consumeToolKey(e);
             // FIX-CONTINUOUS: confirmSlabCreation resets HUD internally — no hud.remove().
             this.confirmSlabCreation();
         };

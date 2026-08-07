@@ -87,6 +87,10 @@ import {
 } from './floorFinishDefaults';
 // §FEAT-BOUNDARY-CURVE-DRAW — the ONE arc model (wall-tool midpoint-Bézier semantics).
 import { arcSegmentThroughMidpoint } from '../boundaryArc';
+// §FIX-COMMIT-STEALS-VIEW (2026-08-07) — the Enter that commits a floor must be
+// consumed, or the browser delivers it to a focused toolbar button and the view
+// switches to 3D mid-commit. See toolKeyGuard.ts for the full root cause.
+import { consumeToolKey, releaseFocusedControl } from '../toolKeyGuard';
 export { DEFAULT_FLOOR_FINISH_BASE_OFFSET_M, DEFAULT_FLOOR_FINISH_THICKNESS_M };
 
 export interface FloorToolDeps {
@@ -306,6 +310,10 @@ export class FloorTool {
       this._attachListeners();
       console.log('[FloorTool] Activated.', { mode: this._drawingMode, ffl: this._levelElevation + this._finish().baseOffsetM });
     }
+    // §FIX-COMMIT-STEALS-VIEW — the user almost always reaches this tool by CLICKING
+    // a toolbar button, which leaves that button focused. Drop the focus now so no
+    // canvas keystroke (Enter to commit, Space to pan) can re-activate it.
+    releaseFocusedControl();
     this._showHUD();
   }
 
@@ -378,8 +386,17 @@ export class FloorTool {
       }
       if (!this._isActive) return;
       if (e.key === 'Shift') { this._shiftPressed = true; return; }
-      if (e.key === 'Escape') { this.deactivate(); return; }
-      if (e.key === 'Enter' && this._points.length >= 3) { this._commitPolygon(); }
+      if (e.key === 'Escape') { consumeToolKey(e); this.deactivate(); return; }
+      // §FIX-COMMIT-STEALS-VIEW (founder 2026-08-07): "when the user wants to
+      // finish the process and clicks ENTER — one time the view went to 3D SITE
+      // VIEW". The Enter that commits the floor MUST be consumed here. Without
+      // `preventDefault()` + `stopPropagation()` the browser delivers it to
+      // whatever control still holds DOM focus, and the camera/view buttons are
+      // focusable <button>s whose activation calls `viewController.activate('3D')`
+      // — which is precisely the spurious `activate("3D") ENTRY —
+      // activeDefinitionId=null` seen in the log 0.0 ms after this commit line,
+      // BEFORE CREATE_FLOOR ran. Committing an element must never change the view.
+      if (e.key === 'Enter' && this._points.length >= 3) { consumeToolKey(e); this._commitPolygon(); }
       if (e.key === 'Backspace') {
         // §FEAT-BOUNDARY-CURVE-DRAW — a pending arc midpoint is the most recent input.
         if (this._arcMidPt) {

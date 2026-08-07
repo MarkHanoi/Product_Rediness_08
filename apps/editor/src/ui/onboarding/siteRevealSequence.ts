@@ -73,6 +73,27 @@ export interface SiteRevealDeps {
     /** Arm the one-shot early `site.parcel-boundary-set` listener (§21.1 finding 2). Optional
      *  only so tests can omit it; production ALWAYS supplies it. */
     readonly armBoundaryListener?: () => void;
+    /**
+     * §REVEAL-CONTENT-READY (founder 2026-08-06) — THE READINESS GATE. Resolves when the work the
+     * split pane will display has actually landed; the reveal waits on it before mounting, so the
+     * expensive load overlaps the camera flight instead of following it.
+     *
+     * ⚠ THIS IS A READINESS SIGNAL, NEVER A TIMER, and the distinction is the whole ask. A fixed
+     * delay is wrong in both directions: it stalls a warm cache that was ready instantly, and it
+     * cuts to a half-built view when the load is slow. Production supplies the SAME promise the
+     * §CTX-PREFETCH-ON-LOCATION warm-up already starts one stage earlier (at `city`), so this gate
+     * introduces NO new fetch and no second readiness concept — it only stops discarding the
+     * knowledge of when that fetch finished.
+     *
+     * ⚠ NO WATCHDOG IS NEEDED HERE, and adding one would be worse than not. The production signal
+     * is `fetchContextBuildingsNearAndFar`, which never throws and carries its own per-mirror
+     * timeouts, so it always settles. A rejection is treated as "ready" — a context read that
+     * failed must not strand the user on the globe forever; the split's own honest-empty handling
+     * is the right place for that failure to surface, not this gate.
+     *
+     * Optional: when absent the reveal mounts immediately, which is exactly the pre-gate behaviour.
+     */
+    readonly awaitContentReady?: () => Promise<unknown>;
     /** `window.pryzmMountSiteAuthoringPanes()` — the ONE existing split mount (idempotent). */
     readonly mountSplit: () => void;
     /** Presentation-only fade. Never gates; a throw here does not un-mount the split. */
@@ -83,6 +104,7 @@ export type SiteRevealStep =
     | 'seed-geocode-frame'
     | 'anchor-site-location'
     | 'arm-boundary-listener'
+    | 'await-content-ready'
     | 'mount-split'
     | 'fade-in-split';
 
@@ -106,10 +128,10 @@ export interface SiteRevealResult {
  *
  * P8: carries an OTel span (this is the module's only exported function).
  */
-export function runSiteRevealSequence(
+export async function runSiteRevealSequence(
     deps: SiteRevealDeps,
     target: SiteRevealTarget,
-): SiteRevealResult {
+): Promise<SiteRevealResult> {
     const span = _tracer.startSpan('pryzm.site-entry.site-reveal-sequence.run');
     const steps: SiteRevealStep[] = [];
     try {
@@ -159,6 +181,29 @@ export function runSiteRevealSequence(
             } catch (e) {
                 console.warn('[site-reveal] armBoundaryListener threw (non-fatal):', e);
             }
+        }
+
+        // 3.5) §REVEAL-CONTENT-READY — WAIT FOR THE CONTENT, NOT FOR A CLOCK.
+        //
+        // Everything above is cheap and synchronous; this is the only step that can take real
+        // time, and it is placed here deliberately — AFTER the two preconditions and the arm (so a
+        // wiring defect still fails fast and stays on the globe, rather than failing slowly), and
+        // BEFORE the mount (so the split never appears half-built).
+        //
+        // ⚠ THIS ONLY BUYS ANYTHING BECAUSE THE READ IT WAITS ON IS NOW FAST. Against the shipped
+        // §CTX-PMTILES-READER the same wait would have been ~80 s — no camera flight can hide
+        // that, and gating on it would have replaced a half-built split with a frozen globe. It is
+        // §CTX-RANGE-URL-SOURCE / §CTX-TILE-DECODE-CACHE (same day) that bring the far-extent read
+        // to ~1.4 s cold and ~0 warm, which fits inside the staged flight the user is already
+        // watching. The two changes are one feature: the fix makes the choreography honest.
+        if (deps.awaitContentReady) {
+            try {
+                await deps.awaitContentReady();
+            } catch (e) {
+                // Ready-enough. See the dep's note: a failed context read must not strand the user.
+                console.warn('[site-reveal] awaitContentReady rejected — revealing anyway (non-fatal):', e);
+            }
+            steps.push('await-content-ready');
         }
 
         // 4) The ONE existing mount (P1 — no parallel mount path; idempotent).

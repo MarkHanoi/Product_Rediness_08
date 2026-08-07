@@ -35,6 +35,11 @@ export * from './boundaryArc';
 // carrying the WALL tool's ortho constraint verbatim (pure, THREE-free) ────────
 export * from './boundaryPath';
 
+// -- §FIX-COMMIT-STEALS-VIEW (2026-08-07) -- consume the Enter/Escape a drawing
+// tool acts on, so it cannot also activate a focused toolbar button (a commit was
+// switching the active view to 3D). Pure DOM, THREE-free.
+export * from './toolKeyGuard';
+
 // ── Fragment builder + edge-render mode ───────────────────────────────────────
 export * from './SlabFragmentBuilder';
 

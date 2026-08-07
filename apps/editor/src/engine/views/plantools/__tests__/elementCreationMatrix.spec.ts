@@ -5,6 +5,9 @@ import {
     ELEMENT_CREATION_MATRIX,
     NON_CREATION_PLAN_TOOLS,
     creationCapability,
+    creationModeIds,
+    creationModes,
+    WALL_DRAW_MODES,
     dualViewGaps,
     modeDesyncRisks,
 } from '../elementCreationMatrix';
@@ -135,7 +138,7 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
         it('FLOOR FINISH is creatable in PLAN view, in every mode, INCLUDING AUTO', () => {
             const floor = creationCapability('floor')!;
             expect(floor.views).toEqual(['plan', '3d']);
-            expect(floor.modes).toEqual(['linear', 'ortho', 'curved', 'rectangle', 'auto']);
+            expect(creationModeIds('floor')).toEqual(['linear', 'ortho', 'curved', 'rectangle', 'auto']);
             expect(floor.autoIn).toContain('plan');   // §FIX-FINISH-MODE-PLAN-UNREACHABLE
             expect(floor.autoIn).toContain('3d');
             // …and the claim is backed by a real registered handler, not a comment.
@@ -148,7 +151,7 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             const ceiling = creationCapability('ceiling')!;
             const floor = creationCapability('floor')!;
             expect(ceiling.views).toEqual(floor.views);
-            expect(ceiling.modes).toEqual(floor.modes);
+            expect(creationModeIds('ceiling')).toEqual(creationModeIds('floor'));
             expect(ceiling.autoIn).toEqual(floor.autoIn);
             expect(ceiling.modeSource).toBe('shared');
             expect(planHandlers['ceiling']).toBeDefined();
@@ -159,8 +162,8 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             for (const key of ['slab', 'floor', 'ceiling']) {
                 const cap = creationCapability(key)!;
                 for (const mode of ['linear', 'ortho', 'curved']) {
-                    expect(cap.modes, `${key} is missing the wall mode "${mode}"`).toContain(mode);
-                    expect(wall.modes).toContain(mode);
+                    expect(creationModeIds(key), `${key} is missing the wall mode "${mode}"`).toContain(mode);
+                    expect(creationModeIds('wall')).toContain(mode);
                 }
                 // …in BOTH views.
                 expect(cap.views).toEqual(['plan', '3d']);
@@ -169,8 +172,82 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
 
         it('SLAB has an AUTO-equivalent in both views (region = click inside a wall loop)', () => {
             const slab = creationCapability('slab')!;
-            expect(slab.modes).toContain('region');
+            expect(creationModeIds('slab')).toContain('region');
             expect(slab.autoIn).toEqual(['plan', '3d']);
+        });
+    });
+
+    /**
+     * §FEAT-PERSISTENT-MODE-BAR (founder, 2026-08-07) — "I would like EXACTLY THE
+     * SAME PANEL as the WALL. I want the user, DURING creation, to be able to
+     * change from LINEAR to CURVED to ORTHO etc."
+     *
+     * The persistent bar is DATA-DRIVEN from these declarations, so these specs are
+     * what stop a tool's in-draw bar and its launcher drifting apart again.
+     */
+    describe('§FEAT-PERSISTENT-MODE-BAR — the bar can be built from the declaration alone', () => {
+        const withModes = ELEMENT_CREATION_MATRIX.filter(c => c.modes.length > 0);
+
+        it.each(withModes)('$label gives every mode a key, a label and a description', (cap) => {
+            for (const m of cap.modes) {
+                expect(m.id, `${cap.tool} mode has no id`).toBeTruthy();
+                expect(m.key, `${cap.tool}/${m.id} has no accelerator`).toBeTruthy();
+                expect(m.key.length).toBeLessThanOrEqual(2);
+                expect(m.label, `${cap.tool}/${m.id} has no label`).toBeTruthy();
+                // The launcher menu's one-liners are genuinely useful copy and become
+                // the bar pill's tooltip — they must not be dropped in the move.
+                expect(m.description, `${cap.tool}/${m.id} lost its description`).toBeTruthy();
+                expect(m.description.length).toBeGreaterThan(8);
+            }
+        });
+
+        it.each(withModes)('$label has unique mode ids and unique accelerators', (cap) => {
+            const ids = cap.modes.map(m => m.id);
+            expect(new Set(ids).size, `${cap.tool} has duplicate mode ids`).toBe(ids.length);
+            const keys = cap.modes.map(m => m.key.toUpperCase());
+            // A duplicated accelerator would make one pill unreachable from the keyboard.
+            expect(new Set(keys).size, `${cap.tool} has duplicate accelerators: ${keys}`).toBe(keys.length);
+        });
+
+        it('slab, floor and ceiling keep their RICHER mode sets — the bar is not truncated to wall\'s', () => {
+            // The bar renders whatever the tool declares. Slab has seven modes;
+            // floor/ceiling five including AUTO. None may be lost to "parity".
+            expect(creationModeIds('slab')).toEqual(
+                ['linear', 'ortho', 'curved', '2point', 'region', 'hollow', 'pickWalls'],
+            );
+            expect(creationModeIds('floor')).toContain('auto');
+            expect(creationModeIds('ceiling')).toContain('auto');
+            expect(creationModes('slab').length).toBeGreaterThan(creationModes('wall').length - 1);
+        });
+
+        it('the three wall modes are the SAME declaration object everywhere — they cannot drift', () => {
+            for (const key of ['slab', 'floor', 'ceiling', 'wall']) {
+                const modes = creationModes(key);
+                for (const wallMode of WALL_DRAW_MODES) {
+                    // Identity, not deep-equality: each tool spreads WALL_DRAW_MODES.
+                    expect(modes, `${key} does not reuse the shared ${wallMode.id} declaration`)
+                        .toContain(wallMode);
+                }
+            }
+        });
+
+        it('WALL is unchanged — its four modes, in order, with By Slab still an ACTION not a mode', () => {
+            expect(creationModeIds('wall')).toEqual(['linear', 'ortho', 'curved', 'byslab']);
+            const bySlab = creationModes('wall').find(m => m.id === 'byslab')!;
+            expect(bySlab.isAction).toBe(true);
+            expect(bySlab.key).toBe('S');
+            // The three real modes must NOT be actions — they take the active highlight.
+            for (const m of WALL_DRAW_MODES) expect(m.isAction).toBeUndefined();
+        });
+
+        it('every mode a tool declares is switchable mid-draw (no mode is activation-only)', () => {
+            // A mode that only exists as an activation argument cannot be reached from
+            // the persistent bar, which is exactly the launcher-menu UX the founder
+            // rejected. `isAction` is the ONLY sanctioned exception.
+            for (const cap of withModes) {
+                const switchable = cap.modes.filter(m => !m.isAction);
+                expect(switchable.length, `${cap.tool} offers no switchable mode`).toBeGreaterThan(0);
+            }
         });
     });
 

@@ -273,6 +273,15 @@ export class OnboardingStepController {
      *  must not re-mount or tear down what is already up. */
     private splitRevealed = false;
 
+    /**
+     * §REVEAL-CONTENT-READY — the in-flight context prefetch started at the `city` stage of the
+     * camera descent, held so the reveal can WAIT on it rather than mounting the split over a load
+     * that has not landed. `null` until the warm-up fires (and if it never fires, the reveal does
+     * not wait at all). Never rejects — `warmContextCache` attaches the `.catch` at creation, so
+     * awaiting this can only resolve.
+     */
+    private contextWarm: Promise<unknown> | null = null;
+
     /** Current step — drives the indicator + guards re-entry into generate. */
     private step: StepId = 'location';
     private picked: PickedLocation | null = null;
@@ -537,17 +546,30 @@ export class OnboardingStepController {
             // `SiteBoundaryMap2D.ts:1243`) gets a cache hit instead of a cold fetch. Fire-and-
             // forget, non-fatal by construction (`fetchContextBuildingsNearAndFar` never throws;
             // the `.catch` below is a defensive backstop only).
+            // §REVEAL-CONTENT-READY (founder 2026-08-06: "KEEP THAT LOADING IN THE BACKGROUND …
+            // START ZOOMING … THEN transition to the split view") — ⚠ THE PREFETCH IS UNCHANGED;
+            // WHAT CHANGED IS THAT WE NOW REMEMBER ITS PROMISE. It already fires at the `city`
+            // stage, i.e. the expensive load already overlaps the camera flight exactly as asked.
+            // The missing half was the GATE: the promise was dropped on the floor, so the reveal
+            // could not know whether the content had landed and mounted the split regardless.
+            // Holding it lets `revealSplitAtParcel` wait on the REAL signal instead of a timer.
             warmContextCache: (lat, lon) => {
-                void fetchContextBuildingsNearAndFar(lat, lon).catch(() => {
+                this.contextWarm = fetchContextBuildingsNearAndFar(lat, lon).catch(() => {
                     /* best-effort prefetch — a cold cache later is not a regression */
+                    return null;
                 });
+                void this.contextWarm;
             },
             // PRD §22 — THE REVEAL GATE. The full-screen globe owns the whole screen for the
             // ENTIRE flight (world → country → city → parcel); only when the staged chain has
             // landed at its closest stage does the split appear, in the strict order the §21
             // revert note requires. See `revealSplitAtParcel()`.
+            // ⚠ Fire-and-forget BY CONTRACT: `onParcelArrival` is declared `=> void` and
+            // `GlobeHeroSearch` does not await it, so the camera flight is never blocked by the
+            // reveal. §REVEAL-CONTENT-READY made the reveal async (it now waits on the context
+            // load); the globe keeps flying underneath it, which IS the choreography.
             onParcelArrival: (picked) => {
-                this.revealSplitAtParcel({
+                void this.revealSplitAtParcel({
                     lat: picked.lat,
                     lon: picked.lon,
                     address: picked.address,
@@ -627,13 +649,13 @@ export class OnboardingStepController {
      * If (1) or (2) cannot be done, NOTHING is mounted and the user simply stays on the
      * full-screen globe — the pre-§21 behaviour the founder confirmed was correct.
      */
-    private revealSplitAtParcel(target: SiteRevealTarget): void {
+    private async revealSplitAtParcel(target: SiteRevealTarget): Promise<void> {
         const w = window as unknown as {
             pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
             pryzmMountSiteAuthoringPanes?: () => void;
             pryzmFadeInSiteAuthoringPanes?: () => void;
         };
-        const result = runSiteRevealSequence(
+        const result = await runSiteRevealSequence(
             {
                 seedGeocodeFrame: (frame) => {
                     if (typeof w.pryzmSetGeocodeFrame !== 'function') return false;
@@ -651,6 +673,13 @@ export class OnboardingStepController {
                     return true;
                 },
                 armBoundaryListener: () => this.armEarlySplitBoundaryListener(),
+                // §REVEAL-CONTENT-READY — the gate. This is the SAME promise the `city`-stage
+                // warm-up started (see `warmContextCache` above), not a second fetch, so the wait
+                // is genuinely "has the background load finished", and it is usually already
+                // resolved by the time the flight reaches the parcel stage. When the warm-up never
+                // ran (a search that skipped the city stage, or an older bundle without the hook)
+                // `contextWarm` is null and the reveal mounts immediately — no stall, no timer.
+                awaitContentReady: () => this.contextWarm ?? Promise.resolve(),
                 mountSplit: () => {
                     if (typeof w.pryzmMountSiteAuthoringPanes !== 'function') {
                         throw new Error('pryzmMountSiteAuthoringPanes is not wired');
@@ -748,7 +777,29 @@ export class OnboardingStepController {
             console.log('[onboarding-step] location resolved', this.picked);
             status.textContent = outcome.message;
             this.leaveLocationStep();
-            this.renderSiteStep();
+            // §UX-NO-SETUP-PANEL (founder 2026-08-06: "REMOVE THIS PANEL (Set up your project).
+            // Go for DRAW IN THE MAP by default") — a RESOLVED location goes straight to the map.
+            //
+            // The "How do you want to set your plot?" card asked a question the flow can now
+            // answer for itself: by the time it appeared, §22's reveal had ALREADY mounted the
+            // split, seeded the 2D frame, anchored the site and armed the boundary listener. The
+            // map was live and armed BEHIND the card — so the card was a modal step over a working
+            // surface, which is exactly the friction the founder is describing.
+            //
+            // `startDrawThenGenerate()` is the same handler the card's "Draw it on the map" choice
+            // invoked, and every step in it is idempotent against the reveal having run (anchor,
+            // frame-seed and `pryzmMountSiteAuthoringPanes` are all safe to repeat), so this is a
+            // shortcut through the existing path rather than a second one. It swaps the wizard card
+            // for the slim docked drawing banner and arms the commit watchdog.
+            //
+            // ⚠ THE PANEL SURVIVES ON THE SKIP PATH BELOW, DELIBERATELY. With no location there is
+            // nothing to fly to and no parcel to pick, so "⚡ Use a default footprint" is the only
+            // way to start — removing the card there would strand the user.
+            // ⚠ KNOWN REACHABILITY LOSS, flagged not hidden: "📄 Overlay a plan / PDF"
+            // (§FIX-SITE-OVERLAY-IMPORT-TERMINAL, L-70) now has no entry point on the
+            // resolved-location path. It is still reachable via skip. Whether it deserves a
+            // permanent affordance on the map surface is a founder call, not one to make silently.
+            void this.startDrawThenGenerate();
         } catch (err) {
             console.warn('[onboarding-step] geocode threw (non-fatal) — allowing skip:', err);
             if (this.disposed) return;

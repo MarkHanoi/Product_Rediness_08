@@ -64,6 +64,37 @@ export type CreationView = 'plan' | '3d';
  */
 export type ModeSource = 'shared' | 'tool-instance' | 'n/a';
 
+/**
+ * §FEAT-PERSISTENT-MODE-BAR (founder, 2026-08-07) — a mode as the UI must render it.
+ *
+ * "I would like EXACTLY THE SAME PANEL as the WALL. I want the user, DURING
+ *  creation, to be able to change from LINEAR to CURVED to ORTHO etc."
+ *
+ * The persistent `DrawingModeBar` is DATA-DRIVEN from these declarations, so the
+ * bar never hard-codes a tool's mode list and a tool cannot offer a mode in its
+ * launcher that its in-draw bar forgets (or vice versa) — the two used to be
+ * separate hand-maintained arrays in `SlabModePicker` and `FloorDrawingHUD`.
+ */
+export interface CreationMode {
+    /** Stable id — the string the tool handlers switch on. */
+    readonly id: string;
+    /** Keyboard accelerator + the chip shown in the bar. Unique within a tool. */
+    readonly key: string;
+    /** Short name shown on the bar pill. */
+    readonly label: string;
+    /**
+     * The one-liner from the old launcher menu ("Auto-detect enclosed walls",
+     * "Associative from walls"…). The compact bar has no room for it, so it is
+     * the pill's `title` tooltip — genuinely useful copy, deliberately not dropped.
+     */
+    readonly description: string;
+    /**
+     * True when picking this is a one-shot ACTION rather than a persistent mode
+     * (wall's "By Slab"). Actions never take the active-pill highlight.
+     */
+    readonly isAction?: boolean;
+}
+
 export interface ElementCreationCapability {
     /** Registry key — the same string in the plan registry and in ToolManager. */
     readonly tool: string;
@@ -71,8 +102,11 @@ export interface ElementCreationCapability {
     readonly label: string;
     /** Views this tool can be driven from TODAY. */
     readonly views: readonly CreationView[];
-    /** Drawing modes offered. `[]` means a single implicit mode (click to place). */
-    readonly modes: readonly string[];
+    /**
+     * Drawing modes offered, in bar order. `[]` means a single implicit mode
+     * (click to place) and therefore no mode bar.
+     */
+    readonly modes: readonly CreationMode[];
     /** Views in which an AUTO/derive-from-context mode is reachable. */
     readonly autoIn: readonly CreationView[];
     readonly modeSource: ModeSource;
@@ -103,6 +137,30 @@ export const NON_CREATION_PLAN_TOOLS: readonly string[] = [
 ] as const;
 
 /**
+ * THE THREE WALL MODES — declared ONCE and spread into every slab-family tool, so
+ * "the same options as during WALL creation" is true by construction rather than by
+ * four matching literals. Keys L / O / C match the wall bar's accelerators.
+ */
+const LINEAR: CreationMode = { id: 'linear', key: 'L', label: 'Linear',     description: 'Freeform straight segments' };
+const ORTHO:  CreationMode = { id: 'ortho',  key: 'O', label: 'Orthogonal', description: '90°-constrained segments' };
+const CURVED: CreationMode = { id: 'curved', key: 'C', label: 'Curved',     description: 'Arc through a clicked midpoint' };
+
+/** The three every boundary-drawing tool must offer (asserted in the spec). */
+export const WALL_DRAW_MODES: readonly CreationMode[] = [LINEAR, ORTHO, CURVED] as const;
+
+/**
+ * §FIX-STAIR-SHAPE-DESYNC — the stair shape set, shared by `stair` and
+ * `stair-path`. Ids mirror `STAIR_SHAPES` (@pryzm/geometry-stair), which remains
+ * the catalogue of record; this is only its UI face.
+ */
+const STAIR_SHAPE_MODES: readonly CreationMode[] = [
+    { id: 'I', key: 'I', label: 'Straight', description: 'Single straight flight' },
+    { id: 'L', key: 'L', label: 'L-shape',  description: 'Two flights with a quarter landing' },
+    { id: 'U', key: 'U', label: 'U-shape',  description: 'Two flights with a half landing' },
+    { id: 'C', key: 'C', label: 'Curved',   description: 'Curved flight (authored by the stair-path arc gesture)' },
+] as const;
+
+/**
  * THE MATRIX. Every element-creation tool, both registries reconciled.
  *
  * Ordering: the slab family first (this agent's subject), then the rest.
@@ -114,7 +172,15 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         views: ['plan', '3d'],
         // §FEAT-SLAB-DRAW-MODES — linear/ortho/curved added 2026-08-06; before that
         // the slab had NO ortho and NO curve, which is the founder's screenshot.
-        modes: ['linear', 'ortho', 'curved', '2point', 'region', 'hollow', 'pickWalls'],
+        // The four slab-specific modes keep the launcher menu's descriptions, which
+        // now live in the bar pills' tooltips (§FEAT-PERSISTENT-MODE-BAR).
+        modes: [
+            ...WALL_DRAW_MODES,
+            { id: '2point',    key: '2', label: '2-Point',    description: 'Rectangle by two corners' },
+            { id: 'region',    key: 'R', label: 'By Region',  description: 'Auto-detect from enclosed walls' },
+            { id: 'hollow',    key: 'H', label: 'Hollow',     description: 'Rectangle with a rectangular opening' },
+            { id: 'pickWalls', key: 'W', label: 'Pick Walls', description: 'Associative boundary from walls' },
+        ],
         // 'region' IS the slab's auto: click inside a closed wall loop.
         autoIn: ['plan', '3d'],
         modeSource: 'shared', // activeSlabDrawMode.ts
@@ -122,7 +188,11 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     {
         tool: 'floor', label: 'Floor finish',
         views: ['plan', '3d'],
-        modes: ['linear', 'ortho', 'curved', 'rectangle', 'auto'],
+        modes: [
+            ...WALL_DRAW_MODES,
+            { id: 'rectangle', key: 'R', label: 'Rectangle', description: '2-point axis-aligned box' },
+            { id: 'auto',      key: 'A', label: 'Auto',      description: 'Click inside a room to use its boundary' },
+        ],
         // §FIX-FINISH-MODE-PLAN-UNREACHABLE — AUTO became reachable in PLAN on
         // 2026-08-06. Before that it was 3D-only despite the handler existing.
         autoIn: ['plan', '3d'],
@@ -131,7 +201,11 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     {
         tool: 'ceiling', label: 'Ceiling',
         views: ['plan', '3d'],
-        modes: ['linear', 'ortho', 'curved', 'rectangle', 'auto'],
+        modes: [
+            ...WALL_DRAW_MODES,
+            { id: 'rectangle', key: 'R', label: 'Rectangle', description: '2-point axis-aligned box' },
+            { id: 'auto',      key: 'A', label: 'Auto',      description: 'Click inside a room to use its boundary' },
+        ],
         autoIn: ['plan', '3d'],
         modeSource: 'shared',
     },
@@ -140,36 +214,71 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     {
         tool: 'wall', label: 'Wall',
         views: ['plan', '3d'],
-        modes: ['linear', 'ortho', 'curved', 'byslab'],
+        modes: [
+            ...WALL_DRAW_MODES,
+            // An ACTION, not a mode: it consumes the current selection and never
+            // takes the active-pill highlight (the wall bar has always behaved so).
+            { id: 'byslab', key: 'S', label: 'By Slab', description: 'Create walls from the selected slab', isAction: true },
+        ],
         autoIn: ['plan', '3d'], // 'byslab' derives the walls from a selected slab
         modeSource: 'shared',   // wallModePicker + activeWallSystemType
     },
     {
         tool: 'curtain-wall', label: 'Curtain wall',
-        views: ['plan', '3d'], modes: ['SINGLE', 'POLYLINE_ORTHO', 'POLYLINE'],
+        views: ['plan', '3d'],
+        modes: [
+            { id: 'SINGLE',         key: 'S', label: 'Single',     description: 'One panel between two points' },
+            { id: 'POLYLINE_ORTHO', key: 'O', label: 'Orthogonal', description: '90°-constrained run' },
+            { id: 'POLYLINE',       key: 'L', label: 'Linear',     description: 'Freeform run' },
+        ],
         autoIn: [], modeSource: 'shared',
         gap: 'NOT IMPLEMENTED — no derive-from-context mode. A curtain wall has no ' +
              'unambiguous host to infer, unlike a floor finish inside a room.',
     },
-    { tool: 'column',  label: 'Column',  views: ['plan', '3d'], modes: ['rect', 'round'], autoIn: [], modeSource: 'shared',
+    { tool: 'column',  label: 'Column',  views: ['plan', '3d'],
+      modes: [
+        { id: 'rect',  key: 'R', label: 'Rectangular', description: 'Rectangular section' },
+        { id: 'round', key: 'O', label: 'Round',       description: 'Circular section' },
+      ],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no grid-intersection auto-place mode.' },
-    { tool: 'beam',    label: 'Beam',    views: ['plan', '3d'], modes: ['single', 'chain'], autoIn: [], modeSource: 'shared',
+    { tool: 'beam',    label: 'Beam',    views: ['plan', '3d'],
+      modes: [
+        { id: 'single', key: 'S', label: 'Single', description: 'One beam between two points' },
+        { id: 'chain',  key: 'C', label: 'Chain',  description: 'Continuous run of beams' },
+      ],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no auto-span-between-columns mode.' },
     { tool: 'roof',    label: 'Roof',    views: ['plan', '3d'],
-      modes: ['2point', 'polyline', 'region', 'single_slope', 'hip_roof'],
+      modes: [
+        { id: '2point',       key: '2', label: '2-Point',  description: 'Rectangle by two corners' },
+        { id: 'polyline',     key: 'L', label: 'Polyline', description: 'Freeform outline' },
+        { id: 'region',       key: 'R', label: 'By Region', description: 'Auto-detect from enclosed walls' },
+        { id: 'single_slope', key: 'S', label: 'Mono-pitch', description: 'Single sloping plane' },
+        { id: 'hip_roof',     key: 'H', label: 'Hip',      description: 'Four-sided hipped roof' },
+      ],
       autoIn: ['plan', '3d'], modeSource: 'tool-instance',
       gap: 'MODE DESYNC RISK — the roof mode is set on the 3D RoofTool instance ' +
            '(enterRegionMode etc). Same shape as the floor AUTO defect: adopt the ' +
            'activeSlabDrawMode pattern.' },
-    { tool: 'opening', label: 'Opening', views: ['plan', '3d'], modes: ['2point', 'polyline'], autoIn: [], modeSource: 'shared',
+    { tool: 'opening', label: 'Opening', views: ['plan', '3d'],
+      modes: [
+        { id: '2point',   key: '2', label: '2-Point',  description: 'Rectangular void by two corners' },
+        { id: 'polyline', key: 'L', label: 'Polyline', description: 'Freeform void outline' },
+      ],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT APPLICABLE — an opening is a deliberate void the architect positions ' +
            'in a specific host. There is no context to derive it from: an "auto opening" ' +
            'would be inventing holes in the building.' },
 
     // ── Hosted elements (C15) ────────────────────────────────────────────────
-    { tool: 'door',   label: 'Door',   views: ['plan', '3d'], modes: ['single'], autoIn: [], modeSource: 'shared',
+    { tool: 'door',   label: 'Door',   views: ['plan', '3d'],
+      modes: [{ id: 'single', key: 'D', label: 'Single', description: 'Place one door in a wall' }],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no auto-place-per-room mode from the UI (the batch/AI path has one).' },
-    { tool: 'window', label: 'Window', views: ['plan', '3d'], modes: ['single'], autoIn: [], modeSource: 'shared',
+    { tool: 'window', label: 'Window', views: ['plan', '3d'],
+      modes: [{ id: 'single', key: 'W', label: 'Single', description: 'Place one window in a wall' }],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — as door.' },
 
     // ── Circulation ──────────────────────────────────────────────────────────
@@ -179,18 +288,20 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     // NOTE: curved is authored by the stair-PATH arc gesture; the plan rectangle-drag
     // handler narrows 'C' → 'I' explicitly (StairPlanToolHandler), it does not silently
     // mislabel a straight run.
-    { tool: 'stair',      label: 'Stair',      views: ['plan', '3d'], modes: ['I', 'L', 'U', 'C'], autoIn: [], modeSource: 'shared',
+    { tool: 'stair',      label: 'Stair',      views: ['plan', '3d'], modes: STAIR_SHAPE_MODES, autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no auto-place-in-circulation-core mode. The batch/house ' +
            'generators DO place stairs automatically (§CORRIDOR-STAIR-CONTIGUITY), so the ' +
            'capability exists; it is simply not offered as an interactive tool mode.' },
     // The dual-view reference implementation: ONE tool, a plan handler AND
     // StairPath3DToolHandler. Cited as the pattern, deliberately not edited here.
-    { tool: 'stair-path', label: 'Stair path', views: ['plan', '3d'], modes: ['I', 'L', 'U', 'C'], autoIn: [], modeSource: 'shared',
+    { tool: 'stair-path', label: 'Stair path', views: ['plan', '3d'], modes: STAIR_SHAPE_MODES, autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — as stair. This tool is the DUAL-VIEW REFERENCE ' +
            'IMPLEMENTATION (one tool, StairPathPlanToolHandler + StairPath3DToolHandler ' +
            'over one StairToolConfigStore); it is the pattern the single-view gaps below ' +
            'should copy.' },
-    { tool: 'railing',    label: 'Railing',    views: ['plan', '3d'], modes: ['polyline'], autoIn: [], modeSource: 'shared',
+    { tool: 'railing',    label: 'Railing',    views: ['plan', '3d'],
+      modes: [{ id: 'polyline', key: 'L', label: 'Polyline', description: 'Freeform run of railing' }],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no auto-from-stair-flight or auto-from-slab-edge mode.' },
     {
         tool: 'lift', label: 'Lift',
@@ -204,10 +315,23 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     },
 
     // ── Spatial + services ───────────────────────────────────────────────────
-    { tool: 'room',      label: 'Room',      views: ['plan', '3d'], modes: ['detect', 'manual-boundary', 'point-pick'], autoIn: ['plan', '3d'], modeSource: 'shared' },
+    { tool: 'room',      label: 'Room',      views: ['plan', '3d'],
+      modes: [
+        { id: 'detect',          key: 'D', label: 'Detect',   description: 'Auto-detect enclosed rooms on this level' },
+        { id: 'manual-boundary', key: 'B', label: 'Boundary', description: 'Draw the room boundary by hand' },
+        { id: 'point-pick',      key: 'P', label: 'Pick',     description: 'Click inside an enclosure to make it a room' },
+      ],
+      autoIn: ['plan', '3d'], modeSource: 'shared' },
     { tool: 'furniture', label: 'Furniture', views: ['plan', '3d'], modes: [], autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED from the UI — auto-furnish exists as a batch/AI executor (D-FLE), not a tool mode.' },
-    { tool: 'plumbing',  label: 'Plumbing fixture', views: ['plan', '3d'], modes: ['toilet', 'sink', 'shower', 'bath'], autoIn: [], modeSource: 'shared',
+    { tool: 'plumbing',  label: 'Plumbing fixture', views: ['plan', '3d'],
+      modes: [
+        { id: 'toilet', key: 'T', label: 'WC',     description: 'Place a WC' },
+        { id: 'sink',   key: 'S', label: 'Basin',  description: 'Place a wash basin' },
+        { id: 'shower', key: 'H', label: 'Shower', description: 'Place a shower tray' },
+        { id: 'bath',   key: 'B', label: 'Bath',   description: 'Place a bath' },
+      ],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — auto-fit-to-wet-room exists in the deterministic furnish ' +
            'engine (D-FLE) as a batch executor, not as a tool mode in either view.' },
     {
@@ -219,7 +343,13 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
              'placed by clicking in the 3D view. Auto-layout exists only as a batch ' +
              'executor (LightingLayoutExecutor), not as a tool mode in either view.',
     },
-    { tool: 'grid', label: 'Grid', views: ['plan', '3d'], modes: ['single', 'rectangular', 'radial'], autoIn: [], modeSource: 'shared',
+    { tool: 'grid', label: 'Grid', views: ['plan', '3d'],
+      modes: [
+        { id: 'single',      key: 'S', label: 'Single',      description: 'One grid line between two points' },
+        { id: 'rectangular', key: 'R', label: 'Rectangular', description: 'Generate an orthogonal grid from spacings' },
+        { id: 'radial',      key: 'A', label: 'Radial',      description: 'Generate a radial grid from a centre' },
+      ],
+      autoIn: [], modeSource: 'shared',
       gap: 'NOT APPLICABLE — a structural grid IS the datum the architect declares; ' +
            'there is no prior context to derive it from. The `rectangular` and `radial` ' +
            'modes already generate a whole grid from parameters, which is the useful ' +
@@ -229,6 +359,19 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
 /** Lookup by tool key. */
 export function creationCapability(tool: string): ElementCreationCapability | undefined {
     return ELEMENT_CREATION_MATRIX.find(c => c.tool === tool);
+}
+
+/**
+ * The mode ids a tool offers — the list `DrawingModeBar` renders and the specs
+ * assert against. Empty for a tool with a single implicit mode (no bar).
+ */
+export function creationModeIds(tool: string): readonly string[] {
+    return creationCapability(tool)?.modes.map(m => m.id) ?? [];
+}
+
+/** The modes a tool offers, ready for the bar. */
+export function creationModes(tool: string): readonly CreationMode[] {
+    return creationCapability(tool)?.modes ?? [];
 }
 
 /** Every declared capability that does not yet serve BOTH views — the open holes. */

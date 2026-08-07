@@ -31,6 +31,9 @@ import { projectContext } from '@pryzm/core-app-model';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 // §FEAT-BOUNDARY-CURVE-DRAW — the ONE arc model (wall-tool midpoint-Bézier semantics).
 import { arcSegmentThroughMidpoint } from '../boundaryArc';
+// §FIX-COMMIT-STEALS-VIEW (2026-08-07) — see FloorTool / toolKeyGuard.ts. The
+// ceiling shares the Enter-commit path and therefore the same defect.
+import { consumeToolKey, releaseFocusedControl } from '../toolKeyGuard';
 
 export interface CeilingCreationParams {
   kind: 'ceiling';
@@ -245,6 +248,8 @@ export class CeilingTool {
       this._attachListeners();
       console.log('[CeilingTool] Activated.', { mode: this._drawingMode });
     }
+    // §FIX-COMMIT-STEALS-VIEW — drop focus from the toolbar button that launched us.
+    releaseFocusedControl();
     this._showHUD();
   }
 
@@ -315,8 +320,10 @@ export class CeilingTool {
       }
       if (!this._isActive) return;
       if (e.key === 'Shift') { this._shiftPressed = true; return; }
-      if (e.key === 'Escape') { this.deactivate(); return; }
-      if (e.key === 'Enter' && this._points.length >= 3) { this._commitPolygon(); }
+      if (e.key === 'Escape') { consumeToolKey(e); this.deactivate(); return; }
+      // §FIX-COMMIT-STEALS-VIEW — consume the committing Enter so it cannot also
+      // activate a focused view/camera button. See toolKeyGuard.ts.
+      if (e.key === 'Enter' && this._points.length >= 3) { consumeToolKey(e); this._commitPolygon(); }
       // §FEAT-BOUNDARY-CURVE-DRAW — Backspace re-picks a pending arc midpoint.
       if (e.key === 'Backspace' && this._arcMidPt) {
         this._arcMidPt = null;
