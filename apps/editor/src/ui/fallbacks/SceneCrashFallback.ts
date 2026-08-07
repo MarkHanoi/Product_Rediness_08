@@ -29,16 +29,6 @@ export interface SceneCrashFallbackOptions {
     error?: Error | null;
     /** Called when "Reload viewport" is clicked. Defaults to window.location.reload(). */
     onRetry?: () => void;
-    /**
-     * §GPU-RESOURCE-LIFETIME (ADR-0297) — replacement body copy for a crash whose
-     * cause the caller has actually CLASSIFIED.
-     *
-     * The default copy blames "a GPU driver issue or browser memory pressure".
-     * That is a guess, and for a classified PRYZM defect it is a WRONG guess that
-     * misattributes our bug to the user's hardware. When the caller knows what the
-     * fault is, it says so here and the guess is not shown.
-     */
-    diagnosis?: string;
 }
 
 const SCF_ROOT_ID = 'scf-root';
@@ -74,13 +64,9 @@ export function showSceneCrashFallback(opts: SceneCrashFallbackOptions = {}, run
     // ── Body ───────────────────────────────────────────────────────────────
     const body = document.createElement('p');
     body.className   = 'scf-body';
-    // §GPU-RESOURCE-LIFETIME (ADR-0297) — an honest, classified explanation wins over
-    // the generic driver/memory guess. Only fall back to the guess when the caller
-    // genuinely does not know the cause.
     body.textContent =
-        opts.diagnosis ??
-        ('This is usually caused by a GPU driver issue or browser memory pressure. ' +
-         'Your project data is safe.');
+        'This is usually caused by a GPU driver issue or browser memory pressure. ' +
+        'Your project data is safe.';
 
     card.append(heading, body);
 

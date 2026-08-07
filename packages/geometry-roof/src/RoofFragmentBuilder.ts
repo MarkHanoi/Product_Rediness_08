@@ -1,9 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 // §I2 — WebGPU-safe subtree disposal for the live roof-rebuild teardown.
-// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — DETACH now, RELEASE at the
-// next frame boundary. The queue drains through `safeDisposeObject3D`, so §I2
-// throw-tolerance and INVARIANT L1 ownership are preserved.
-import { detachAndReleaseChildren } from '@pryzm/renderer-three';
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { RoofData } from './RoofTypes.js';
 import { RoofGeometryBuilder } from './RoofGeometryBuilder.js';
@@ -158,13 +155,8 @@ export class RoofFragmentBuilder {
     }
 
     private _disposeChildren(root: THREE.Group): void {
-        // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — L-691 migration.
-        // WAS: `safeDisposeObject3D(root); root.clear();` — the exact inversion the
-        // ADR names: the GPU buffers were destroyed while the children were STILL
-        // parented to the scene, then detached afterwards. `detachAndReleaseChildren`
-        // is the same two operations in the correct order, with the release deferred
-        // to the frame boundary that `RenderPipelineManager.render()` owns.
-        detachAndReleaseChildren(root);
+        safeDisposeObject3D(root); // §I2 — WebGPU-safe subtree teardown
+        root.clear();
     }
 
     /**

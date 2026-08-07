@@ -38,10 +38,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 // §I2 — WebGPU-safe subtree disposal for the live column-rebuild teardown.
-// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — DETACH now, RELEASE at the
-// next frame boundary. The queue drains through `safeDisposeObject3D`, so §I2
-// throw-tolerance and INVARIANT L1 ownership are preserved.
-import { scheduleGpuRelease } from '@pryzm/renderer-three';
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { ColumnData } from './ColumnTypes';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -497,13 +494,7 @@ export class ColumnFragmentBuilder {
     }
 
     private _disposeMesh(obj: THREE.Object3D): void {
-        // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — L-691 migration.
-        // Both callers already `scene.remove(obj)` first (L2 (a) satisfied), but the
-        // RELEASE still ran in place on the mutation tick. It now waits for the frame
-        // boundary; the queue drains through `safeDisposeObject3D`, so §I2
-        // throw-tolerance and INVARIANT L1 ownership are both preserved.
-        obj.parent = null;
-        scheduleGpuRelease(obj);
+        safeDisposeObject3D(obj); // §I2 — WebGPU-safe subtree teardown
     }
 
     /**
