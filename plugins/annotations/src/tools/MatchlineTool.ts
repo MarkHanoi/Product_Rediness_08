@@ -139,7 +139,6 @@ export class MatchlineTool {
             { sheetRef: '', label: 'MATCH LINE' },
         );
 
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: ann.id, viewId: ann.ownerViewId, kind: ann.type as any }).catch(() => {}); }
         const result = this._commandManager.execute(new CreateAnnotationCommand(ann));
         if (result.success) {
             console.log('[MatchlineTool] Matchline placed from', ptA, 'to', ptB);

@@ -177,7 +177,6 @@ export class CalloutDetailTool {
 
         const y = start.y;
         const _annId = crypto.randomUUID();
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: _annId, viewId: this._activeViewId ?? '', kind: 'callout-detail' as any }).catch(() => {}); }
         this._commandManager.execute(new CreateCalloutDetailCommand({
             detailViewId:   crypto.randomUUID(),
             detailViewName: `Detail ${Date.now().toString(36).toUpperCase()}`,

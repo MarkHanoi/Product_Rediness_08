@@ -153,7 +153,6 @@ export class DoorTagTool {
         // id/viewId/kind into a different store).
         persistAnnotation(ann);
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: ann.id, viewId: ann.ownerViewId, kind: ann.type as any }).catch(() => {}); }
         console.log('[DoorTagTool] Tagged door', doorId, '→', cachedLabel, 'in view', this._activeViewId);
     }
 

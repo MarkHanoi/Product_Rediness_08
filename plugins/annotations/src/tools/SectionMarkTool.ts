@@ -152,7 +152,6 @@ export class SectionMarkTool {
             const tail = { x: dir.z, z: -dir.x };
 
             const _annId = crypto.randomUUID();
-            if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: _annId, viewId: this._activeViewId ?? '', kind: 'section-mark' as any }).catch(() => {}); }
             this._commandManager.execute(new CreateSectionMarkCommand({
                 sectionViewId:   crypto.randomUUID(),
                 sectionViewName: `Section ${Date.now().toString(36).toUpperCase()}`,

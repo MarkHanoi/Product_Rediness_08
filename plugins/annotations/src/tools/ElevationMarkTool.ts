@@ -149,7 +149,6 @@ export class ElevationMarkTool {
             this._removePreview();
 
             const _annId = crypto.randomUUID();
-            if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: _annId, viewId: this._activeViewId ?? '', kind: 'elevation-mark' as any }).catch(() => {}); }
             this._commandManager.execute(new CreateElevationMarkCommand({
                 elevationViewId:   crypto.randomUUID(),
                 elevationViewName: `Elevation ${Date.now().toString(36).toUpperCase()}`,

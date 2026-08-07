@@ -200,7 +200,6 @@ export class DiameterDimensionTool {
         // id/viewId/kind into a different store).
         persistAnnotation(element);
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: element.id, viewId: element.ownerViewId, kind: element.type as any }).catch(() => {}); }
         console.log('[DiameterDimTool] Created diameter-dim', id, `Ø=${(diameterMetres * 1000).toFixed(0)}mm in view`, this._activeViewId);
     }
 

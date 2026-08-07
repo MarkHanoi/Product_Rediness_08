@@ -1,8 +1,8 @@
 /**
  * §G9-PERSIST — Annotation persistence helper (V1 launch readiness, audit §3.6 / G9)
  *
- * ROOT CAUSE (audit G9): Every annotation tool fired the bus telemetry
- *   `window.runtime.bus.executeCommand('annotation.create', { id, viewId, kind })`
+ * ROOT CAUSE (audit G9): Every annotation tool fired the bus telemetry verb
+ * `annotation.create` with a lossy `{ id, viewId, kind }` payload,
  * but only `LinearDimensionAnnotationTool` ALSO dispatched the legacy
  * `CreateAnnotationCommand` through `commandManager`. The bus handler
  * (`CreateAnnotationHandler`) writes an ANCHOR-KEYED Zustand `AnnotationsState`

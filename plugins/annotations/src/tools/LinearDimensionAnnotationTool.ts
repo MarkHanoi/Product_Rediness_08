@@ -828,7 +828,6 @@ export class LinearDimensionAnnotationTool {
         const cmd = new CreateAnnotationCommand(element);
         // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: element.id, viewId: element.ownerViewId, kind: element.type as any }).catch(() => {}); }
         this._commandManager.execute(cmd);
         console.log('[LinearDimAnnotationTool] Created dimension', id, 'in view', this._activeViewId);
     }
@@ -907,7 +906,6 @@ export class LinearDimensionAnnotationTool {
         const cmd = new CreateAnnotationCommand(element);
         // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: element.id, viewId: element.ownerViewId, kind: element.type as any }).catch(() => {}); }
         this._commandManager.execute(cmd);
         console.log(
             '[LinearDimAnnotationTool] Created string dimension', id,

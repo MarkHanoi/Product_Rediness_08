@@ -202,7 +202,6 @@ export class ElementTagTool {
         // so it renders and survives save/load (bus telemetry below carries only
         // id/viewId/kind into a different store).
         persistAnnotation(ann);
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: ann.id, viewId: ann.ownerViewId, kind: ann.type as any }).catch(() => {}); }
         console.log('[ElementTagTool] Tagged element', elementId, '→', cachedLabel, 'in view', this._activeViewId);
     }
 

@@ -210,7 +210,6 @@ export class SlopeDimensionTool {
         // below only carries id/viewId/kind and writes a different store.
         persistAnnotation(element);
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: element.id, viewId: element.ownerViewId, kind: element.type as any }).catch(() => {}); }
         console.log(
             '[SlopeDimTool] Created slope-dim', id,
             `slope=${slopePercent.toFixed(1)}% in view`, this._activeViewId

@@ -163,7 +163,6 @@ export class SpotElevationAnnotationTool {
         // it renders and survives save/load (bus telemetry below carries only
         // id/viewId/kind into a different store).
         persistAnnotation(element);
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: element.id, viewId: element.ownerViewId, kind: element.type as any }).catch(() => {}); }
         console.log(
             '[SpotElevationTool] Placed elevation marker at Y=', worldPt.y.toFixed(3),
             'in view', this._activeViewId
