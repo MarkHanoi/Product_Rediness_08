@@ -126,6 +126,9 @@ export class LandingPage {
         el.querySelector('#lp-nav-login')!.addEventListener('click', () => this.callbacks.onLogin());
         el.querySelector('#lp-nav-contact')!.addEventListener('click', () => this.callbacks.onContactSales());
         el.querySelector('#lp-nav-cta')!.addEventListener('click', () => this.callbacks.onGetStarted());
+        // "Book a demo" — a SALES surface. In-app it routes through the same
+        // contact-sales callback the apex points at (${APP_ORIGIN}/contact).
+        el.querySelector('#lp-nav-demo')!.addEventListener('click', () => this.callbacks.onContactSales());
         el.querySelector('#lp-hero-btn')!.addEventListener('click', () => this.callbacks.onGetStarted());
         el.querySelector('#lp-nav-pricing')!.addEventListener('click', (e) => {
             e.preventDefault();
@@ -133,13 +136,6 @@ export class LandingPage {
         });
         el.querySelector('#lp-bespoke-contact')!.addEventListener('click', () => this.callbacks.onContactSales());
         el.querySelector('#lp-bespoke-learn')!.addEventListener('click', () => this.callbacks.onPricing());
-        // ── Bottom bar (temporary, nav moved for layout test) ────────────
-        el.querySelector('#lp-bot-login')!.addEventListener('click', () => this.callbacks.onLogin());
-        el.querySelector('#lp-bot-contact')!.addEventListener('click', () => this.callbacks.onContactSales());
-        el.querySelector('#lp-bot-cta')!.addEventListener('click', () => this.callbacks.onGetStarted());
-        el.querySelector('#lp-bot-pricing')!.addEventListener('click', (e) => { e.preventDefault(); this.callbacks.onPricing(); });
-        el.querySelector('#lp-bot-solutions')!.addEventListener('click', (e) => { e.preventDefault(); this.callbacks.onGetStarted(); });
-        el.querySelector('#lp-bot-resources')!.addEventListener('click', (e) => { e.preventDefault(); this.callbacks.onContactSales(); });
 
         // ── Mobile hamburger menu toggle (MOB-001-LP) ─────────────────────
         const hamburger = el.querySelector<HTMLButtonElement>('#lp-hamburger')!;
@@ -155,6 +151,7 @@ export class LandingPage {
             drawer.setAttribute('aria-hidden', String(isOpen));
             hamburger.setAttribute('aria-expanded', String(!isOpen));
         });
+        el.querySelector('#lp-mob-demo')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onContactSales(); });
         el.querySelector('#lp-mob-cta')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onGetStarted(); });
         el.querySelector('#lp-mob-login')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onLogin(); });
         el.querySelector('#lp-mob-contact')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onContactSales(); });

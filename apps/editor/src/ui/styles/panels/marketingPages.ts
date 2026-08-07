@@ -104,36 +104,33 @@ export const LANDING_PAGE_STYLES = `
         .lp-shell { animation: none; }
     }
 
-    /* ─── Navbar — very translucent glass (20% white) so gradient is
-       fully visible and the blobs drift through the bar as they move.
-       blur(18px) keeps text legible against the animated colours.
+    /* ─── Navbar — motif.io-modelled header (founder brief 2026-08-07) ──
+       Three bands on one sticky row:
+         1. brand   — pinned TIGHT to the viewport's top-left corner. The bar
+                      itself is transparent (no chrome behind the logo), so the
+                      mark reads as sitting on the gradient, exactly like Motif.
+         2. links   — a DISTINCT floating glass pill, visually separated from
+                      the logo (that separation is the whole point of the
+                      reference treatment).
+         3. actions — Contact sales (text) → Log in (outlined) → Get started
+                      (tinted) → Book a demo (SOLID brand purple), a monotonic
+                      emphasis ramp ending in the primary CTA at the far right.
+       Colour: C51 §2.1.4 / C43 §1.5 tokens only — #6600FF (pryzm-purple),
+       #4A00B7 (pryzm-purple-darker), #0A0A0F (ink). Motif's primary pill is
+       BLACK; PRYZM's brand direction is white + purple with NO black, so the
+       solid pill is #6600FF.
+       align-items:flex-start is what pins the logo to the top edge — the
+       previous 56px centred bar is what made it "sit slightly lower".
     ────────────────────────────────────────────────────────────────── */
     .lp-nav {
-        display: none;
-    }
-    /* ── Temporary bottom bar (nav moved here for layout testing) ── */
-    .lp-bottom-bar {
         display: flex;
-        align-items: center;
-        padding: 0 28px;
-        height: 56px;
-        background: rgba(255,255,255,0.20);
-        backdrop-filter: blur(18px);
-        -webkit-backdrop-filter: blur(18px);
-        border-top: 1px solid rgba(196,181,253,0.18);
-        gap: 20px;
-        flex-shrink: 0;
-    }
-    .lp-bottom-bar-links {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        flex: 1;
-    }
-    .lp-bottom-bar-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 12px 20px 10px 14px;
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        background: transparent;
         flex-shrink: 0;
     }
     .lp-nav-brand {
@@ -178,94 +175,125 @@ export const LANDING_PAGE_STYLES = `
         text-transform: uppercase;
         line-height: 1;
     }
+    /* ── The floating nav pill (Motif's rounded nav container) ──────────
+       Sits between brand and actions with auto margins so it floats free of
+       both. flex:0 0 auto (not flex:1) is what makes it a CONTAINER
+       rather than a stretched spacer. */
     .lp-nav-links {
+        box-sizing: border-box;
         display: flex;
-        gap: 4px;
-        flex: 1;
+        align-items: center;
+        gap: 2px;
+        flex: 0 0 auto;
+        margin: 5px auto 0;
+        padding: 5px 8px;
+        background: rgba(255,255,255,0.55);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255,255,255,0.72);
+        border-radius: 999px;
+        box-shadow: 0 6px 22px rgba(102,0,255,0.10);
     }
+    /* Shared by the <a> links AND by the dropdown trigger <button>s that
+       SolutionsDropdown/ResourcesDropdown inject — hence the button resets. */
     .lp-nav-link {
-        font-size: 14px;
-        color: #1a1a1a;
+        font-size: 13.5px;
+        color: #0A0A0F;
         text-decoration: none;
         font-weight: 500;
-        padding: 6px 10px;
-        border-radius: 6px;
-        transition: background 0.12s;
+        padding: 7px 13px;
+        border-radius: 999px;
+        transition: background 0.12s, color 0.12s;
         display: flex;
         align-items: center;
         gap: 3px;
+        background: none;
+        border: none;
+        font-family: var(--app-font);
+        cursor: pointer;
+        white-space: nowrap;
     }
-    .lp-nav-link:hover { background: #f5f5f5; }
+    .lp-nav-link:hover { background: rgba(102,0,255,0.09); color: #4A00B7; }
     .lp-nav-actions {
         display: flex;
         align-items: center;
         gap: 8px;
         flex-shrink: 0;
+        margin-top: 5px;
     }
-    .lp-nav-login {
-        background: none;
-        border: none;
-        font-size: 14px;
-        font-weight: 500;
-        color: #1a1a1a;
-        cursor: pointer;
-        padding: 7px 12px;
+    /* Shared pill geometry for the four action CTAs. */
+    .lp-nav-contact,
+    .lp-nav-login,
+    .lp-nav-cta,
+    .lp-nav-demo {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         border-radius: 999px;
         font-family: var(--app-font);
-        transition: background 0.12s;
+        font-size: 13.5px;
+        cursor: pointer;
+        white-space: nowrap;
+        text-decoration: none;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
+        transition: background 0.16s, border-color 0.16s, color 0.16s, transform 0.16s;
     }
-    .lp-nav-login:hover { background: rgba(0,0,0,0.06); }
+    /* 1 — Contact sales: quietest, plain text. */
     .lp-nav-contact {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(255,255,255,0.18);
+        background: none;
+        border: 1px solid transparent;
+        color: #0A0A0F;
+        font-weight: 500;
+        padding: 8px 13px;
+    }
+    .lp-nav-contact:hover { background: rgba(102,0,255,0.09); color: #4A00B7; }
+    /* 2 — Log in: outlined (Motif's outlined Login). */
+    .lp-nav-login {
+        background: rgba(255,255,255,0.55);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        color: #fff;
-        border: 1px solid rgba(255,255,255,0.28);
-        border-radius: 999px;
-        font-size: 9px;
-        font-weight: 300;
-        font-style: italic;
+        border: 1px solid rgba(102,0,255,0.32);
+        color: #4A00B7;
+        font-weight: 600;
         padding: 8px 17px;
-        cursor: pointer;
-        font-family: var(--app-font);
-        letter-spacing: 0.06em;
-        white-space: nowrap;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-        transition: background 0.18s, transform 0.18s;
     }
-    .lp-nav-contact:hover { background: rgba(255,255,255,0.30); transform: translateY(-1px); }
+    .lp-nav-login:hover { background: #ffffff; border-color: #6600FF; }
+    /* 3 — Get started for free: tinted secondary. */
     .lp-nav-cta {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(0,0,0,0.28);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        color: #fff;
-        border: 1px solid rgba(255,255,255,0.22);
-        border-radius: 999px;
-        font-size: 9px;
-        font-weight: 300;
-        font-style: italic;
+        background: rgba(102,0,255,0.10);
+        border: 1px solid rgba(102,0,255,0.28);
+        color: #4A00B7;
+        font-weight: 600;
         padding: 8px 17px;
-        cursor: pointer;
-        font-family: var(--app-font);
-        letter-spacing: 0.06em;
-        white-space: nowrap;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-        transition: background 0.18s, transform 0.18s;
     }
-    .lp-nav-cta:hover { background: rgba(0,0,0,0.42); transform: translateY(-1px); }
+    .lp-nav-cta:hover { background: rgba(102,0,255,0.18); transform: translateY(-1px); }
+    /* 4 — Book a demo: THE primary. Motif ships this pill in solid black;
+       PRYZM's brand direction is white + purple with NO black (memory:
+       preview-color-unified-pryzm-purple), so it is solid #6600FF. */
+    .lp-nav-demo {
+        background: #6600FF;
+        border: 1px solid #6600FF;
+        color: #ffffff;
+        font-weight: 600;
+        padding: 9px 19px;
+        box-shadow: 0 6px 18px rgba(102,0,255,0.28);
+    }
+    .lp-nav-demo:hover { background: #4A00B7; border-color: #4A00B7; transform: translateY(-1px); }
+    /* C43 — visible focus on every header control. The token focus-ring
+       (#C2A4FF) is specified for DARK surfaces; on this pale lavender
+       gradient it fails contrast, so the ring uses #6600FF (also a token). */
+    .lp-nav-link:focus-visible,
+    .lp-nav-contact:focus-visible,
+    .lp-nav-login:focus-visible,
+    .lp-nav-cta:focus-visible,
+    .lp-nav-demo:focus-visible,
+    .lp-nav-brand:focus-visible,
+    .lp-hamburger:focus-visible {
+        outline: 2px solid #6600FF;
+        outline-offset: 2px;
+    }
 
     /* ─── Hero — PRYZM4 full-screen centred layout ────────────────────── */
     .lp-hero {
@@ -563,6 +591,263 @@ export const LANDING_PAGE_STYLES = `
     }
     @media (max-width: 768px) {
         .lp-bespoke-inner { flex-direction: column; gap: 32px; }
+    }
+    /* RELOCATED 2026-08-07 (apex header pass): this block used to live at the
+       tail of SOLUTIONS_STYLES, which prerender-apex.mjs does NOT inline — so
+       the apex shipped with NO hamburger / drawer / responsive rules at all.
+       That was invisible only because .lp-nav was display:none; un-hiding the
+       nav exposed an unstyled drawer on desktop. These are LANDING styles and
+       belong in LANDING_PAGE_STYLES. */
+    /* ─────────────────────────────────────────────────────────────────── */
+    /* MOB-001-LP  Mobile Responsiveness                                   */
+    /* Contract: docs/05-guides/mobile/MOBILE_CONTRACT.md §2.3                       */
+    /* ─────────────────────────────────────────────────────────────────── */
+
+    /* ── Hamburger button (visible on mobile only) ─────────────────────── */
+    .lp-hamburger {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        background: none;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        color: #1a1a1a;
+        flex-shrink: 0;
+        transition: background 0.12s;
+        margin-left: auto;
+    }
+    .lp-hamburger:hover { background: #f5f5f5; }
+    .lp-hamburger svg { display: block; }
+
+    /* ── Mobile nav drawer ─────────────────────────────────────────────── */
+    .lp-mobile-drawer {
+        display: none;
+        flex-direction: column;
+        background: #ffffff;
+        border-bottom: 1px solid #ebebeb;
+        overflow: hidden;
+        max-height: 0;
+        transition: max-height 0.3s ease;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .lp-mobile-drawer--open {
+        max-height: 600px;
+    }
+    .lp-mobile-drawer-links {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .lp-mobile-drawer-link {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 10px 20px;
+        font-size: 15px;
+        font-weight: 500;
+        color: #1a1a1a;
+        text-decoration: none;
+        background: none;
+        border: none;
+        font-family: var(--app-font);
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.12s;
+    }
+    .lp-mobile-drawer-link:hover { background: #f5f5f5; }
+    .lp-mobile-drawer-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px 20px;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+    .lp-mobile-drawer-login {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        background: none;
+        border: 1.5px solid #1a1a1a;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #1a1a1a;
+        cursor: pointer;
+        font-family: var(--app-font);
+        transition: background 0.12s;
+    }
+    .lp-mobile-drawer-login:hover { background: #f5f5f5; }
+    .lp-mobile-drawer-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        background: #111111;
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: var(--app-font);
+        transition: background 0.15s;
+    }
+    .lp-mobile-drawer-cta:hover { background: #333; }
+    /* Mobile "Book a demo" — the drawer's primary, mirroring .lp-nav-demo. */
+    .lp-mobile-drawer-demo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        background: #6600FF;
+        color: #ffffff;
+        border: none;
+        border-radius: 999px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: var(--app-font);
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+    .lp-mobile-drawer-demo:hover { background: #4A00B7; }
+    .lp-mobile-drawer-contact {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        background: none;
+        border: 1.5px solid rgba(26,26,26,0.55);
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #1a1a1a;
+        cursor: pointer;
+        font-family: var(--app-font);
+        transition: background 0.12s, border-color 0.12s;
+    }
+    .lp-mobile-drawer-contact:hover { background: rgba(0,0,0,0.05); border-color: rgba(26,26,26,0.80); }
+
+    /* ─────────────────────────── @media ≤768px ─────────────────────────── */
+    @media (max-width: 768px) {
+        /* Navbar: compact. Stays position:sticky (from the base rule) so
+           the absolutely-positioned drawer still resolves against it. */
+        .lp-nav {
+            align-items: center;
+            height: 60px;
+            padding: 0 16px;
+        }
+        /* Hide desktop nav links and action buttons */
+        .lp-nav-links { display: none; }
+        .lp-nav-actions { display: none; }
+        /* Show hamburger */
+        .lp-hamburger { display: flex; }
+        /* Show mobile drawer */
+        .lp-mobile-drawer { display: flex; }
+
+        /* ── APEX mobile header (C51 §2.1.1: correct with JS DISABLED) ──
+           The hamburger + drawer are a JS affordance, so mode:'apex' does not
+           emit them at all. Instead the apex header WRAPS to two rows —
+           brand + "Book a demo" on row 1, the links pill centred on row 2 —
+           which keeps every nav destination reachable and crawlable on a
+           390px viewport with zero script. */
+        .lp-nav--apex {
+            flex-wrap: wrap;
+            height: auto;
+            align-items: center;
+            padding: 10px 14px;
+            row-gap: 8px;
+        }
+        .lp-nav--apex .lp-nav-links {
+            display: flex;
+            order: 3;
+            flex: 1 0 100%;
+            justify-content: center;
+            margin: 0;
+        }
+        .lp-nav--apex .lp-nav-link { padding: 7px 11px; font-size: 13px; }
+        .lp-nav--apex .lp-nav-actions { display: flex; margin: 0 0 0 auto; }
+        /* Only the primary CTA survives the narrow row. */
+        .lp-nav--apex .lp-nav-contact,
+        .lp-nav--apex .lp-nav-login,
+        .lp-nav--apex .lp-nav-cta { display: none; }
+        .lp-nav--apex .lp-nav-demo { padding: 9px 16px; font-size: 13px; }
+
+        /* Scale down logo */
+        .lp-logo-icon { width: 36px; height: 36px; }
+        .lp-logo-name { font-size: 16px; letter-spacing: 3px; }
+        .lp-logo-sub { font-size: 6.5px; letter-spacing: 3.5px; }
+        .lp-nav-brand { gap: 10px; min-width: 0; }
+
+        /* Hero: full-width, center card */
+        .lp-hero {
+            padding-left: 16px;
+            padding-right: 16px;
+            justify-content: center;
+            min-height: calc(100vh - 60px);
+        }
+        .lp-hero-card {
+            padding: 32px 24px 36px;
+            max-width: 100%;
+            width: 100%;
+        }
+        .lp-hero-heading {
+            font-size: 44px;
+            letter-spacing: -0.6px;
+        }
+        .lp-hero-sub {
+            font-size: 13px;
+            max-width: 100%;
+        }
+
+        /* Bespoke section */
+        .lp-bespoke { padding: 48px 16px; }
+        .lp-bespoke-inner { flex-direction: column; gap: 28px; }
+        .lp-bespoke-actions { flex-direction: column; }
+        .lp-bespoke-actions button:first-child,
+        .lp-bespoke-actions button:last-child {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Solutions/Resources dropdowns: hide on mobile (drawer replaces them) */
+        .lp-res-dropdown,
+        .lp-sol-dropdown { display: none !important; }
+
+        /* Resource/Solutions pages: reduce padding */
+        .lp-res-page-header,
+        .lp-sol-page-header { padding: 0 16px; }
+        .lp-res-page-content,
+        .lp-sol-page-content { padding: 0 16px; }
+    }
+
+    /* ─────────────────────────── @media ≤480px ─────────────────────────── */
+    @media (max-width: 480px) {
+        .lp-hero-card {
+            padding: 24px 16px 28px;
+        }
+        .lp-hero-heading {
+            font-size: 36px;
+            letter-spacing: -0.4px;
+        }
+        .lp-hero-sub { font-size: 12px; }
+        .lp-hero-btn {
+            width: 100%;
+            text-align: center;
+            padding: 15px 28px;
+        }
+        .lp-bespoke { padding: 36px 12px; }
+        .lp-bespoke-heading { font-size: 22px; }
     }
 `;
 
@@ -1324,209 +1609,5 @@ export const SOLUTIONS_STYLES = `
         font-weight: 700;
     }
 
-    /* ─────────────────────────────────────────────────────────────────── */
-    /* MOB-001-LP  Mobile Responsiveness                                   */
-    /* Contract: docs/05-guides/mobile/MOBILE_CONTRACT.md §2.3                       */
-    /* ─────────────────────────────────────────────────────────────────── */
-
-    /* ── Hamburger button (visible on mobile only) ─────────────────────── */
-    .lp-hamburger {
-        display: none;
-        align-items: center;
-        justify-content: center;
-        width: 44px;
-        height: 44px;
-        background: none;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        color: #1a1a1a;
-        flex-shrink: 0;
-        transition: background 0.12s;
-        margin-left: auto;
-    }
-    .lp-hamburger:hover { background: #f5f5f5; }
-    .lp-hamburger svg { display: block; }
-
-    /* ── Mobile nav drawer ─────────────────────────────────────────────── */
-    .lp-mobile-drawer {
-        display: none;
-        flex-direction: column;
-        background: #ffffff;
-        border-bottom: 1px solid #ebebeb;
-        overflow: hidden;
-        max-height: 0;
-        transition: max-height 0.3s ease;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 100;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    }
-    .lp-mobile-drawer--open {
-        max-height: 600px;
-    }
-    .lp-mobile-drawer-links {
-        display: flex;
-        flex-direction: column;
-        padding: 8px 0;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    .lp-mobile-drawer-link {
-        display: flex;
-        align-items: center;
-        min-height: 44px;
-        padding: 10px 20px;
-        font-size: 15px;
-        font-weight: 500;
-        color: #1a1a1a;
-        text-decoration: none;
-        background: none;
-        border: none;
-        font-family: var(--app-font);
-        cursor: pointer;
-        text-align: left;
-        transition: background 0.12s;
-    }
-    .lp-mobile-drawer-link:hover { background: #f5f5f5; }
-    .lp-mobile-drawer-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 16px 20px;
-        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    }
-    .lp-mobile-drawer-login {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 44px;
-        background: none;
-        border: 1.5px solid #1a1a1a;
-        border-radius: 10px;
-        font-size: 15px;
-        font-weight: 600;
-        color: #1a1a1a;
-        cursor: pointer;
-        font-family: var(--app-font);
-        transition: background 0.12s;
-    }
-    .lp-mobile-drawer-login:hover { background: #f5f5f5; }
-    .lp-mobile-drawer-cta {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 48px;
-        background: #111111;
-        color: #fff;
-        border: none;
-        border-radius: 999px;
-        font-size: 15px;
-        font-weight: 500;
-        cursor: pointer;
-        font-family: var(--app-font);
-        transition: background 0.15s;
-    }
-    .lp-mobile-drawer-cta:hover { background: #333; }
-    .lp-mobile-drawer-contact {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 44px;
-        background: none;
-        border: 1.5px solid rgba(26,26,26,0.55);
-        border-radius: 999px;
-        font-size: 14px;
-        font-weight: 500;
-        color: #1a1a1a;
-        cursor: pointer;
-        font-family: var(--app-font);
-        transition: background 0.12s, border-color 0.12s;
-    }
-    .lp-mobile-drawer-contact:hover { background: rgba(0,0,0,0.05); border-color: rgba(26,26,26,0.80); }
-
-    /* ─────────────────────────── @media ≤768px ─────────────────────────── */
-    @media (max-width: 768px) {
-        /* Navbar: compact */
-        .lp-nav {
-            height: 60px;
-            padding: 0 16px;
-            position: relative;
-        }
-        /* Hide desktop nav links and action buttons */
-        .lp-nav-links { display: none; }
-        .lp-nav-actions { display: none; }
-        /* Show hamburger */
-        .lp-hamburger { display: flex; }
-        /* Show mobile drawer */
-        .lp-mobile-drawer { display: flex; }
-
-        /* Scale down logo */
-        .lp-logo-icon { width: 36px; height: 36px; }
-        .lp-logo-name { font-size: 16px; letter-spacing: 3px; }
-        .lp-logo-sub { font-size: 6.5px; letter-spacing: 3.5px; }
-        .lp-nav-brand { gap: 10px; min-width: 0; }
-
-        /* Hero: full-width, center card */
-        .lp-hero {
-            padding-left: 16px;
-            padding-right: 16px;
-            justify-content: center;
-            min-height: calc(100vh - 60px);
-        }
-        .lp-hero-card {
-            padding: 32px 24px 36px;
-            max-width: 100%;
-            width: 100%;
-        }
-        .lp-hero-heading {
-            font-size: 44px;
-            letter-spacing: -0.6px;
-        }
-        .lp-hero-sub {
-            font-size: 13px;
-            max-width: 100%;
-        }
-
-        /* Bespoke section */
-        .lp-bespoke { padding: 48px 16px; }
-        .lp-bespoke-inner { flex-direction: column; gap: 28px; }
-        .lp-bespoke-actions { flex-direction: column; }
-        .lp-bespoke-actions button:first-child,
-        .lp-bespoke-actions button:last-child {
-            width: 100%;
-            justify-content: center;
-        }
-
-        /* Solutions/Resources dropdowns: hide on mobile (drawer replaces them) */
-        .lp-res-dropdown,
-        .lp-sol-dropdown { display: none !important; }
-
-        /* Resource/Solutions pages: reduce padding */
-        .lp-res-page-header,
-        .lp-sol-page-header { padding: 0 16px; }
-        .lp-res-page-content,
-        .lp-sol-page-content { padding: 0 16px; }
-    }
-
-    /* ─────────────────────────── @media ≤480px ─────────────────────────── */
-    @media (max-width: 480px) {
-        .lp-hero-card {
-            padding: 24px 16px 28px;
-        }
-        .lp-hero-heading {
-            font-size: 36px;
-            letter-spacing: -0.4px;
-        }
-        .lp-hero-sub { font-size: 12px; }
-        .lp-hero-btn {
-            width: 100%;
-            text-align: center;
-            padding: 15px 28px;
-        }
-        .lp-bespoke { padding: 36px 12px; }
-        .lp-bespoke-heading { font-size: 22px; }
-    }
 `;
 

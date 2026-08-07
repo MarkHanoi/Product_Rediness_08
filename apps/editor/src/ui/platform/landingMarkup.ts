@@ -6,9 +6,17 @@
  * The apex pre-render (`scripts/build/prerender-apex.mjs`) and the editor's
  * `LandingPage.ts` MUST emit byte-identical landing structure. Previously the
  * prerender HAND-WROTE a simplified landing, which drifted from the real
- * editor landing (missing bottom-bar Pricing/Solutions/Resources, different
- * nav). C51 §2.1.5 forbids exactly that hand-mirror drift. Both surfaces now
+ * editor landing (missing Pricing/Solutions/Resources, different nav).
+ * C51 §2.1.5 forbids exactly that hand-mirror drift. Both surfaces now
  * call this one function.
+ *
+ * HEADER TREATMENT (motif.io-modelled, founder brief 2026-08-07)
+ * -------------------------------------------------------------
+ * The nav was previously hidden (`.lp-nav { display:none }`) and duplicated
+ * into a temporary `.lp-bottom-bar` "for layout testing". That bottom bar is
+ * GONE; the nav is back at the top: brand pinned tight to the viewport's
+ * top-left corner, the links in a distinct floating glass pill, and the
+ * actions closing the row — ending in the solid brand-purple "Book a demo".
  *
  * IMPORT PURITY (NON-NEGOTIABLE)
  * ------------------------------
@@ -24,8 +32,10 @@
  *   mode:'app'   → the IDENTICAL markup the editor renders. Every id/class is
  *                  preserved so LandingPage's constructor wiring
  *                  (addEventListener on #lp-nav-login, #lp-hero-btn,
- *                  #lp-bot-pricing, #lp-bespoke-contact, …) still resolves.
+ *                  #lp-nav-demo, #lp-bespoke-contact, …) still resolves.
  *                  Interactive CTAs are <button id=…> with NO href.
+ *                  The hamburger + drawer are emitted here ONLY — they are
+ *                  JS-driven affordances and would be dead markup on apex.
  *   mode:'apex'  → same structure, but interactive CTAs become <a href>
  *                  anchors (there is no JS / no router on the apex). App
  *                  routes point at `${appOrigin}/<route>`; apex-owned content
@@ -85,10 +95,16 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
     const CONTACT = `${origin}/contact`;
     const SOLUTIONS = `${origin}/solutions`;
     const RESOURCES = `${origin}/resources`;
+    // "Book a demo" is an auth-adjacent SALES surface. C51 §2.2.1 forbids the
+    // apex from owning any such surface, so it reuses the SAME app-owned
+    // /contact route (and the SAME appOrigin mechanism) as "Contact sales",
+    // distinguished only by an intent query param the contact surface may
+    // read or ignore. No new origin constant, no hardcoded host.
+    const DEMO = `${CONTACT}?intent=demo`;
 
     return `
             <!-- ── Nav bar ──────────────────────────────────── -->
-            <nav class="lp-nav">
+            <nav class="lp-nav${apex ? ' lp-nav--apex' : ''}">
                 <div class="lp-nav-brand" aria-label="PRYZM">
                     ${PRYZM_PYRAMID_SVG}
                     <div class="lp-logo-wordmark">
@@ -97,16 +113,17 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                     </div>
                 </div>
                 <div class="lp-nav-links">
-                    <div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper"></div>
-                    <div class="lp-res-nav-wrapper" id="lp-res-nav-wrapper"></div>
+                    <div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper">${apex ? `<a class="lp-nav-link" id="lp-nav-solutions" href="${SOLUTIONS}">Solutions</a>` : ''}</div>
+                    <div class="lp-res-nav-wrapper" id="lp-res-nav-wrapper">${apex ? `<a class="lp-nav-link" id="lp-nav-resources" href="${RESOURCES}">Resources</a>` : ''}</div>
                     <a class="lp-nav-link" href="${apex ? '/pricing' : '#'}" id="lp-nav-pricing">Pricing</a>
                 </div>
                 <div class="lp-nav-actions">
-                    ${cta('lp-nav-login', 'lp-nav-login', SIGNIN, 'Log in')}
                     ${cta('lp-nav-contact', 'lp-nav-contact', CONTACT, 'Contact sales')}
+                    ${cta('lp-nav-login', 'lp-nav-login', SIGNIN, 'Log in')}
                     ${cta('lp-nav-cta', 'lp-nav-cta', SIGNUP, 'Get started for free')}
+                    ${cta('lp-nav-demo', 'lp-nav-demo', DEMO, 'Book a demo')}
                 </div>
-                <!-- ── Mobile hamburger (visible at ≤768px) ── -->
+                ${apex ? '' : `<!-- ── Mobile hamburger (visible at ≤768px) ── -->
                 <button class="lp-hamburger" id="lp-hamburger" aria-label="Open menu" aria-expanded="false">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <line x1="3" y1="6" x2="21" y2="6"/>
@@ -122,11 +139,12 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                         ${cta('lp-mob-pricing', 'lp-mobile-drawer-link', apex ? '/pricing' : '#', 'Pricing')}
                     </div>
                     <div class="lp-mobile-drawer-actions">
+                        ${cta('lp-mob-demo', 'lp-mobile-drawer-demo', DEMO, 'Book a demo')}
                         ${cta('lp-mob-cta', 'lp-mobile-drawer-cta', SIGNUP, 'Get started for free')}
                         ${cta('lp-mob-login', 'lp-mobile-drawer-login', SIGNIN, 'Log in')}
                         ${cta('lp-mob-contact', 'lp-mobile-drawer-contact', CONTACT, 'Contact sales')}
                     </div>
-                </div>
+                </div>`}
             </nav>
 
             <!-- ── Hero section — PRYZM4 centred gradient layout ─── -->
@@ -152,27 +170,6 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 </div>
 
             </section>
-
-            <!-- ── Temporary bottom bar — nav moved here for simple-layout test ── -->
-            <div class="lp-bottom-bar">
-                <div class="lp-nav-brand" aria-label="PRYZM">
-                    ${PRYZM_PYRAMID_SVG}
-                    <div class="lp-logo-wordmark">
-                        <span class="lp-logo-name">PRYZM</span>
-                        <span class="lp-logo-sub">BIM PLATFORM</span>
-                    </div>
-                </div>
-                <div class="lp-bottom-bar-links">
-                    <a class="lp-nav-link" href="${apex ? '/pricing' : '#'}" id="lp-bot-pricing">Pricing</a>
-                    <a class="lp-nav-link" href="${apex ? SOLUTIONS : '#'}" id="lp-bot-solutions">Solutions</a>
-                    <a class="lp-nav-link" href="${apex ? RESOURCES : '#'}" id="lp-bot-resources">Resources</a>
-                </div>
-                <div class="lp-bottom-bar-actions">
-                    ${cta('lp-bot-login', 'lp-nav-login', SIGNIN, 'Log in')}
-                    ${cta('lp-bot-contact', 'lp-nav-contact', CONTACT, 'Contact sales')}
-                    ${cta('lp-bot-cta', 'lp-nav-cta', SIGNUP, 'Get started for free')}
-                </div>
-            </div>
 
             <!-- ── Stream 2 — Bespoke / Enterprise section ─── -->
             <section class="lp-bespoke lp-reveal" id="lp-bespoke">

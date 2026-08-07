@@ -89,8 +89,13 @@
         display: flex; flex-direction: column;
         font-family: var(--lp-skel-font); color: #1a2035; overflow: hidden; z-index: 10;
       }
+      /* §SKEL-MATCH — this header's geometry must mirror `.lp-nav`,
+         `.lp-nav-links` and `.lp-nav-actions` in marketingPages.ts EXACTLY
+         (memory: landing-skeleton-vs-real-mismatch.md), or the header
+         visibly re-lays-out when the real LandingPage swaps in. */
       .lp-skel-nav {
-        display: none;
+        display: flex; align-items: flex-start; gap: 16px;
+        padding: 12px 20px 10px 14px; background: transparent; flex-shrink: 0;
       }
       .lp-skel-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 151px; }
       .lp-skel-logo-icon { width: 48px; height: 48px; display: block; flex-shrink: 0; overflow: visible; }
@@ -102,35 +107,59 @@
         font-size: 7.5px; font-weight: 400; letter-spacing: 4.5px; color: #9ca3af;
         text-transform: uppercase; line-height: 1;
       }
-      .lp-skel-nav-spacer { flex: 1; }
-      .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+      /* Floating nav pill — mirrors `.lp-nav-links`. */
+      .lp-skel-nav-links {
+        display: flex; align-items: center; gap: 2px; flex: 0 0 auto;
+        margin: 5px auto 0; padding: 5px 8px;
+        background: rgba(255,255,255,0.55);
+        backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255,255,255,0.72); border-radius: 999px;
+        box-shadow: 0 6px 22px rgba(102,0,255,0.10);
+      }
+      .lp-skel-nav-link {
+        font-size: 13.5px; color: #0A0A0F; font-weight: 500;
+        padding: 7px 13px; border-radius: 999px; white-space: nowrap;
+        display: flex; align-items: center; gap: 3px;
+      }
+      .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-top: 5px; }
       /* Wave 1.5c — `touch-action: manipulation` removes the 300 ms tap-delay
          mobile browsers add to non-double-tap-zoomable buttons.  Combined with
          `-webkit-tap-highlight-color: transparent` for a clean visual; the
          `:active` state below provides immediate visual feedback so the user
          knows the tap registered even before the LandingPage takes over. */
-      .lp-skel-login, .lp-skel-contact, .lp-skel-cta, .lp-skel-hero-btn {
+      .lp-skel-login, .lp-skel-contact, .lp-skel-cta, .lp-skel-demo, .lp-skel-hero-btn {
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
         transition: transform 90ms ease-out, opacity 90ms ease-out;
       }
-      .lp-skel-login:active, .lp-skel-contact:active, .lp-skel-cta:active, .lp-skel-hero-btn:active {
+      .lp-skel-login:active, .lp-skel-contact:active, .lp-skel-cta:active,
+      .lp-skel-demo:active, .lp-skel-hero-btn:active {
         transform: scale(0.97); opacity: 0.85;
       }
-      .lp-skel-login {
-        background: none; border: none; font-size: 14px; font-weight: 500; color: #1a1a1a;
-        cursor: pointer; padding: 7px 12px; border-radius: 6px; font-family: var(--lp-skel-font);
+      /* §SKEL-MATCH — the four action pills mirror .lp-nav-contact /
+         .lp-nav-login / .lp-nav-cta / .lp-nav-demo in marketingPages.ts. */
+      .lp-skel-login, .lp-skel-contact, .lp-skel-cta, .lp-skel-demo {
+        display: inline-flex; align-items: center; gap: 6px;
+        border-radius: 999px; font-family: var(--lp-skel-font);
+        font-size: 13.5px; cursor: pointer; white-space: nowrap;
       }
       .lp-skel-contact {
-        background: none; border: 1.5px solid #1a1a1a; font-size: 14px; font-weight: 600;
-        color: #1a1a1a; cursor: pointer; padding: 7px 14px; border-radius: 8px;
-        font-family: var(--lp-skel-font); white-space: nowrap;
+        background: none; border: 1px solid transparent; color: #0A0A0F;
+        font-weight: 500; padding: 8px 13px;
+      }
+      .lp-skel-login {
+        background: rgba(255,255,255,0.55); border: 1px solid rgba(102,0,255,0.32);
+        color: #4A00B7; font-weight: 600; padding: 8px 17px;
       }
       .lp-skel-cta {
-        background: #1a1a1a; color: #ffffff; border: none; border-radius: 8px;
-        font-size: 14px; font-weight: 600; padding: 8px 16px; cursor: pointer;
-        font-family: var(--lp-skel-font); white-space: nowrap;
+        background: rgba(102,0,255,0.10); border: 1px solid rgba(102,0,255,0.28);
+        color: #4A00B7; font-weight: 600; padding: 8px 17px;
+      }
+      .lp-skel-demo {
+        background: #6600FF; border: 1px solid #6600FF; color: #ffffff;
+        font-weight: 600; padding: 9px 19px;
+        box-shadow: 0 6px 18px rgba(102,0,255,0.28);
       }
       /* ── PRYZM4 skeleton hero — centred gradient layout ──────────────────
          Mirrors the real LandingPage PRYZM4 centred hero: logo-block on top,
@@ -247,7 +276,8 @@
         flex-shrink: 0; margin-left: auto; padding: 0;
       }
       @media (max-width: 768px) {
-        .lp-skel-nav { padding: 0 16px; height: 60px; }
+        .lp-skel-nav { padding: 0 16px; height: 60px; align-items: center; }
+        .lp-skel-nav-links { display: none; }
         .lp-skel-nav-actions { display: none; }
         .lp-skel-hamburger { display: flex; }
         .lp-skel-logo-icon { width: 36px; height: 36px; }
@@ -313,11 +343,16 @@
               <span class="lp-skel-sub">BIM PLATFORM</span>
             </div>
           </div>
-          <div class="lp-skel-nav-spacer"></div>
+          <div class="lp-skel-nav-links">
+            <span class="lp-skel-nav-link">Solutions</span>
+            <span class="lp-skel-nav-link">Resources</span>
+            <span class="lp-skel-nav-link">Pricing</span>
+          </div>
           <div class="lp-skel-nav-actions">
-            <button class="lp-skel-login" type="button" data-skel-action="login">Log in</button>
             <button class="lp-skel-contact" type="button" data-skel-action="contactSales">Contact sales</button>
+            <button class="lp-skel-login" type="button" data-skel-action="login">Log in</button>
             <button class="lp-skel-cta" type="button" data-skel-action="getStarted">Get started for free</button>
+            <button class="lp-skel-demo" type="button" data-skel-action="contactSales">Book a demo</button>
           </div>
           <!-- Wave 1.5c — mobile hamburger placeholder (matches `.lp-hamburger`
                in marketingPages.ts so the layout doesn't shift when the real

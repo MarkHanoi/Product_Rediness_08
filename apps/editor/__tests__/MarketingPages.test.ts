@@ -19,6 +19,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { PricingPage, mountPricingPage } from '../src/ui/marketing/PricingPage.js';
 import { ManifestoPage, mountManifestoPage } from '../src/ui/marketing/ManifestoPage.js';
 import { TrustPage, mountTrustPage } from '../src/ui/marketing/TrustPage.js';
+import { landingMarkup } from '../src/ui/platform/landingMarkup.js';
+import { LANDING_PAGE_STYLES } from '../src/ui/styles/panels/marketingPages.js';
 
 interface CallSink {
     signIn: number;
@@ -229,5 +231,114 @@ describe('TrustPage (marketing)', () => {
         expect(root.querySelector('[data-mkt-page="trust"]')).not.toBeNull();
         handle.dispose();
         expect(root.querySelector('[data-mkt-page="trust"]')).toBeNull();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// landingMarkup — the SINGLE source of the landing header (C51 §2.1.5).
+// The apex prerender and the in-app LandingPage both call this function, so
+// these tests are the guard against the two surfaces drifting apart again.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const APEX_ORIGIN = 'https://app.pryzm.test';
+
+describe('landingMarkup — motif-modelled header', () => {
+    it('emits the nav ABOVE the hero, and no temporary bottom bar', () => {
+        for (const html of [
+            landingMarkup({ mode: 'app' }),
+            landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }),
+        ]) {
+            expect(html).toContain('class="lp-nav');
+            // The nav must be the FIRST thing in the shell (logo top-left).
+            expect(html.indexOf('lp-nav')).toBeLessThan(html.indexOf('lp-hero'));
+            // The "temporary bottom bar" the nav had been exiled to is gone.
+            expect(html).not.toContain('lp-bottom-bar');
+            expect(html).not.toContain('lp-bot-');
+        }
+    });
+
+    it('nav actions carry all four CTAs, ending with Book a demo', () => {
+        for (const html of [
+            landingMarkup({ mode: 'app' }),
+            landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }),
+        ]) {
+            for (const id of ['lp-nav-contact', 'lp-nav-login', 'lp-nav-cta', 'lp-nav-demo']) {
+                expect(html).toContain(`id="${id}"`);
+            }
+            expect(html).toContain('Book a demo');
+            // Focus order follows visual order: demo is the LAST action.
+            expect(html.indexOf('lp-nav-demo')).toBeGreaterThan(html.indexOf('lp-nav-cta'));
+        }
+    });
+
+    it('app mode emits interactive <button> CTAs with no href', () => {
+        const html = landingMarkup({ mode: 'app' });
+        expect(html).toContain('<button class="lp-nav-demo" id="lp-nav-demo">Book a demo</button>');
+        expect(html).not.toContain('href="https://');
+    });
+
+    it('apex Book a demo is a cross-domain link to the APP contact surface (C51 §2.2.1)', () => {
+        const html = landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN });
+        expect(html).toContain(`<a class="lp-nav-demo" id="lp-nav-demo" href="${APEX_ORIGIN}/contact?intent=demo">`);
+        // Never an apex-owned auth/sales route, never a hardcoded host.
+        expect(html).not.toContain('href="/contact');
+        expect(html).not.toContain('app.pryzm.so');
+    });
+
+    it('apex nav is fully usable with JS DISABLED (C51 §2.1.1 / §2.1.3)', () => {
+        const html = landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN });
+        // Solutions/Resources are real crawlable anchors, not empty JS mounts.
+        expect(html).toContain(`<a class="lp-nav-link" id="lp-nav-solutions" href="${APEX_ORIGIN}/solutions">Solutions</a>`);
+        expect(html).toContain(`<a class="lp-nav-link" id="lp-nav-resources" href="${APEX_ORIGIN}/resources">Resources</a>`);
+        expect(html).toContain('id="lp-nav-pricing"');
+        // The JS-only hamburger + drawer are NOT emitted on apex — they would
+        // be dead markup. The apex header wraps instead (.lp-nav--apex).
+        expect(html).toContain('lp-nav--apex');
+        expect(html).not.toContain('lp-hamburger');
+        expect(html).not.toContain('lp-mobile-drawer');
+    });
+
+    it('app mode keeps the JS dropdown mounts empty and the mobile drawer intact', () => {
+        const html = landingMarkup({ mode: 'app' });
+        expect(html).toContain('<div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper"></div>');
+        expect(html).toContain('<div class="lp-res-nav-wrapper" id="lp-res-nav-wrapper"></div>');
+        expect(html).toContain('id="lp-hamburger"');
+        // The drawer mirrors the desktop actions — including Book a demo.
+        for (const id of ['lp-mob-demo', 'lp-mob-cta', 'lp-mob-login', 'lp-mob-contact']) {
+            expect(html).toContain(`id="${id}"`);
+        }
+        expect(html).not.toContain('lp-nav--apex');
+    });
+});
+
+describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () => {
+    it('the nav is visible and pinned to the top (no display:none)', () => {
+        expect(LANDING_PAGE_STYLES).not.toMatch(/\.lp-nav\s*\{\s*display:\s*none/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*position:\s*sticky/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*align-items:\s*flex-start/);
+    });
+
+    it('styles every header control the markup emits', () => {
+        for (const sel of [
+            '.lp-nav-links', '.lp-nav-link', '.lp-nav-actions',
+            '.lp-nav-contact', '.lp-nav-login', '.lp-nav-cta', '.lp-nav-demo',
+            // Relocated out of SOLUTIONS_STYLES — the apex prerender only
+            // inlines LANDING_PAGE_STYLES, so these must live here.
+            '.lp-hamburger', '.lp-mobile-drawer', '.lp-mobile-drawer-demo',
+            '.lp-nav--apex',
+        ]) {
+            expect(LANDING_PAGE_STYLES).toContain(sel);
+        }
+    });
+
+    it('uses a11y tokens for the new CTA colours, never an off-brand hex (C51 §2.1.4)', () => {
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*background:\s*#6600FF/);
+        // The retired ADR-0252 mirror hex must never reappear.
+        expect(LANDING_PAGE_STYLES).not.toContain('#5a4282');
+    });
+
+    it('gives every header control a visible focus ring (C43)', () => {
+        expect(LANDING_PAGE_STYLES).toContain('.lp-nav-demo:focus-visible');
+        expect(LANDING_PAGE_STYLES).toContain('.lp-nav-login:focus-visible');
     });
 });
