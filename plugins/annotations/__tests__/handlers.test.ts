@@ -1,3 +1,12 @@
+// @vitest-environment happy-dom
+//
+// §ANN-ONE-STORE — this suite needs a DOM. The handler set now projects into the
+// CANONICAL subsystem `annotationStore`, whose module graph reaches
+// @pryzm/core-app-model (storeEventBus / projectScopeRegistry) and, through that
+// barrel, @thatopen/ui — which touches `document` at module load. That is the
+// dependency the handlers genuinely have now that they write the store the
+// renderer reads; running them in a bare node env asserted an isolation the
+// production wiring does not have.
 // Annotation handler smoke suite (S34 / ADR-0024 + post-2B closeout / ADR-0030).
 //
 // One test file covers all 8 handlers + the registration helper + error
@@ -55,12 +64,12 @@ describe('annotation handler registration', () => {
     });
     const types = registerAnnotationHandlers(bus);
     expect([...types].sort()).toEqual([...ANNOTATION_HANDLER_TYPES].sort());
-    expect(types).toHaveLength(8);
+    expect(types).toHaveLength(9); // §ANN-UPDATE-VERB added annotation.update
     env.detach();
   });
 
-  it('buildAnnotationHandlerSet returns 8 handlers', () => {
-    expect(buildAnnotationHandlerSet()).toHaveLength(8);
+  it('buildAnnotationHandlerSet returns 9 handlers', () => {
+    expect(buildAnnotationHandlerSet()).toHaveLength(9); // §ANN-UPDATE-VERB
   });
 
   it('every handler has the expected type identifier', () => {

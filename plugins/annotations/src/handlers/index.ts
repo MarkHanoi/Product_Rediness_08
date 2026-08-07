@@ -3,6 +3,7 @@
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
 import { CreateAnnotationHandler } from './CreateAnnotation.js';
 import { DeleteAnnotationHandler } from './DeleteAnnotation.js';
+import { UpdateAnnotationHandler } from './UpdateAnnotation.js';
 import { MoveAnnotationHandler } from './MoveAnnotation.js';
 import { SetAnnotationTextHandler } from './SetAnnotationText.js';
 import { SetAnnotationKindHandler } from './SetAnnotationKind.js';
@@ -13,6 +14,7 @@ import { SetAnnotationColorHandler } from './SetAnnotationColor.js';
 export const ANNOTATION_HANDLER_TYPES = [
   'annotation.create',
   'annotation.delete',
+  'annotation.update',
   'annotation.move',
   'annotation.setText',
   'annotation.setKind',
@@ -27,6 +29,7 @@ export function buildAnnotationHandlerSet(): readonly CommandHandler<unknown>[] 
   return [
     new CreateAnnotationHandler() as unknown as CommandHandler<unknown>,
     new DeleteAnnotationHandler() as unknown as CommandHandler<unknown>,
+    new UpdateAnnotationHandler() as unknown as CommandHandler<unknown>,
     new MoveAnnotationHandler() as unknown as CommandHandler<unknown>,
     new SetAnnotationTextHandler() as unknown as CommandHandler<unknown>,
     new SetAnnotationKindHandler() as unknown as CommandHandler<unknown>,
@@ -43,6 +46,13 @@ export function registerAnnotationHandlers(bus: CommandBus): readonly string[] {
 
 export { CreateAnnotationHandler, type CreateAnnotationPayload } from './CreateAnnotation.js';
 export { DeleteAnnotationHandler, type DeleteAnnotationPayload } from './DeleteAnnotation.js';
+export { UpdateAnnotationHandler, type UpdateAnnotationPayload } from './UpdateAnnotation.js';
+// §ANN-ONE-STORE — THE canonical sink every annotation verb projects through.
+export {
+  type SinkResult, type FlatAnnotationPayload,
+  isFullElementPayload, liftFlatToElement, mirrorRecordFor,
+  sinkCreate, sinkUpdate, sinkDelete, sinkStyle, sinkParameters, assertNotARead,
+} from './canonicalAnnotationSink.js';
 export { MoveAnnotationHandler, type MoveAnnotationPayload } from './MoveAnnotation.js';
 export { SetAnnotationTextHandler, type SetAnnotationTextPayload } from './SetAnnotationText.js';
 export { SetAnnotationKindHandler, type SetAnnotationKindPayload } from './SetAnnotationKind.js';

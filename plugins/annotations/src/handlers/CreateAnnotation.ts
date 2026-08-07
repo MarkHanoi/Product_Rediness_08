@@ -11,6 +11,7 @@ import {
 import { Annotation, createId } from '@pryzm/plugin-sdk';
 import type { AnnotationData, AnnotationsState } from '@pryzm/plugin-sdk';
 import { AnnotationSchemaError } from '../errors.js';
+import { sinkCreate, mirrorRecordFor, isFullElementPayload, type FlatAnnotationPayload } from './canonicalAnnotationSink.js';
 import { isFiniteVec3, isAnnotationKind, ANNOTATION_TEXT_HEIGHT_MAX_MM } from '../intent.js';
 
 export interface CreateAnnotationPayload {
@@ -56,6 +57,24 @@ export class CreateAnnotationHandler
 
   execute(ctx: HandlerContext<Stores>, cmd: CreateAnnotationPayload): HandlerResult {
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
+    // §ANN-ONE-STORE — RICH PAYLOAD PASSTHROUGH.
+    // A caller that already built a full subsystem `AnnotationElement` (GridPlanToolHandler,
+    // RoofSlopeSymbolBuilder, every plugins/annotations tool) is storing a record this
+    // handler's flat schema cannot express. Flattening it destroys geometry2D / references /
+    // parameters / style, and `Annotation.parse` then rejects it outright — its `kind` enum
+    // has 11 members against the family's 28, and its id is branded `annotation_<ULID>`.
+    // That rejection is why grid bubbles placed from the plan grid tool were never created.
+    // Store it verbatim in the canonical store and keep the ledger honest with a projection.
+    if (isFullElementPayload(cmd)) {
+      const projected = sinkCreate(cmd);
+      if (!projected.ok) throw new AnnotationSchemaError(new Error(projected.reason));
+      const flat = mirrorRecordFor((cmd as { id: string }).id);
+      const [next, forward, inverse] = produceCommand<AnnotationsState>(ctx.stores.annotation, (draft) => {
+        if (flat) draft[(flat as { id: string }).id] = flat as AnnotationsState[string];
+      });
+      return { forward, inverse, nextStates: { annotation: next } };
+    }
+
     const id = (cmd.id ?? createId('annotation')) as AnnotationData['id'];
     const seed: Partial<AnnotationData> = {
       id,
@@ -72,6 +91,21 @@ export class CreateAnnotationHandler
     let a: AnnotationData;
     try { a = Annotation.parse(seed); }
     catch (err) { throw new AnnotationSchemaError(err); }
+
+    // §ANN-ONE-STORE — THE canonical write. Before this, the only effect of
+    // `annotation.create` was the ledger write below, which nothing renders, persists or
+    // exports; every caller of this verb created an annotation that did not exist.
+    //
+    // `cmd` (not `a`) is projected on purpose: callers that already built a full
+    // subsystem AnnotationElement — GridPlanToolHandler, RoofSlopeSymbolBuilder — must
+    // have it stored VERBATIM. Flattening them through the schema-level `Annotation`
+    // shape above discards geometry2D / references / parameters / style, which is how a
+    // grid bubble became an origin-anchored empty text note.
+    //
+    // ADR-0299 §RECOVERY-MUST-REFUSE: a projection that cannot land throws. A create
+    // that reached no store must never resolve as a success.
+    const projected = sinkCreate({ ...(cmd as object), id: a.id } as FlatAnnotationPayload);
+    if (!projected.ok) throw new AnnotationSchemaError(new Error(projected.reason));
 
     const [next, forward, inverse] = produceCommand<AnnotationsState>(ctx.stores.annotation, (draft) => {
       draft[a.id] = a;

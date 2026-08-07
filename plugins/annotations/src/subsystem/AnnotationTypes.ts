@@ -138,8 +138,22 @@ export interface AnnotationSemantics {
 export interface AnnotationElement {
     /** Unique stable ID */
     id: string;
-    /** Discriminant */
+    /** Discriminant — the FAMILY (what kind of annotation this is) */
     type: AnnotationType;
+    /**
+     * §ANN-TYPE — the annotation's SYSTEM TYPE: the named, reusable presentation
+     * definition it was placed with ("Title 5 mm Purple", "Note 2.5 mm Charcoal", …).
+     *
+     * This is the Revit Type/Instance split, and it is the SAME field every other
+     * PRYZM element carries: walls, slabs, floors, ceilings, doors and windows all
+     * hold `systemTypeId` pointing at their `*SystemTypeStore` record. `type` above is
+     * the family (Revit Category); `systemTypeId` is the type within it.
+     *
+     * Optional for backward compatibility: annotations authored before §ANN-TYPE have
+     * no id and fall back to DEFAULT_ANNOTATION_STYLE, exactly as they did before.
+     * `annotationSystemTypeStore.resolve()` is the single reader — never switch on it.
+     */
+    systemTypeId?: string;
     /** View that owns this annotation — invisible in all other views */
     ownerViewId: string;
     /** Resolved world-space reference points (rebuilt by DependencyGraph on element change) */
@@ -247,6 +261,50 @@ export interface LinearDimSegment {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §ANN-TYPE — family → default system type
+//
+// Kept HERE, as pure data, and not in AnnotationSystemTypeStore, for one reason:
+// `makeAnnotationElement` below is the single chokepoint through which every
+// annotation in PRYZM is born, and it must stamp a `systemTypeId` without importing
+// the store — a store↔types import cycle would evaluate a barrel at module load and
+// hand back `undefined` (the SCC failure mode). The store imports THIS; not the
+// reverse.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AnnotationTypeCategory = 'text' | 'dimension' | 'tag' | 'symbol' | 'custom';
+
+/** Family → category. Picks the DEFAULT type only; it restricts nothing. */
+export const ANNOTATION_CATEGORY_BY_FAMILY: Readonly<Record<string, AnnotationTypeCategory>> = Object.freeze({
+    'linear-dim': 'dimension', 'angular-dim': 'dimension', 'radius-dim': 'dimension',
+    'diameter-dim': 'dimension', 'slope-dim': 'dimension', 'spot-elevation': 'dimension',
+    'text-note': 'text', 'keynote': 'text', 'detail-line': 'text',
+    'tag': 'tag', 'door-tag': 'tag', 'window-tag': 'tag', 'wall-tag': 'tag',
+    'level-tag': 'tag', 'room-tag': 'tag', 'grid-bubble': 'tag',
+    'level-datum-line': 'tag', 'section-grid-line': 'tag', 'roof-slope-arrow': 'tag',
+    'revision-cloud': 'symbol', 'matchline': 'symbol', 'north-arrow': 'symbol',
+    'scale-bar': 'symbol', 'section-mark': 'symbol', 'elevation-mark': 'symbol',
+    'callout-detail': 'symbol', 'room-fill': 'symbol',
+});
+
+/** Category → built-in type id. Ids must exist in AnnotationSystemTypeStore. */
+export const ANNOTATION_DEFAULT_TYPE_BY_CATEGORY: Readonly<Record<AnnotationTypeCategory, string>> = Object.freeze({
+    text:      'at-note-3.5mm-charcoal',
+    dimension: 'at-dim-2.5mm-slate',
+    tag:       'at-tag-2.0mm-teal',
+    symbol:    'at-revision-4.0mm-crimson',
+    custom:    'at-note-3.5mm-charcoal',
+});
+
+/**
+ * The default system-type id for an annotation family. Total — an unknown family
+ * (one added next month) still gets a type instead of silently getting none.
+ */
+export function defaultAnnotationTypeIdFor(family: string): string {
+    const cat = ANNOTATION_CATEGORY_BY_FAMILY[family] ?? 'custom';
+    return ANNOTATION_DEFAULT_TYPE_BY_CATEGORY[cat];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Convenience factory
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -258,12 +316,19 @@ export function makeAnnotationElement(
     geometry2D: AnnotationGeometry2D,
     parameters: Record<string, any> = {},
     style: Partial<AnnotationStyle> = {},
-    semantics?: AnnotationSemantics
+    semantics?: AnnotationSemantics,
+    /**
+     * §ANN-TYPE — system type. Omit and the family's default type is stamped, so
+     * EVERY annotation born through this factory carries a type. Callers that let the
+     * user pick a type pass it explicitly.
+     */
+    systemTypeId?: string,
 ): AnnotationElement {
     const now = Date.now();
     return {
         id,
         type,
+        systemTypeId: systemTypeId ?? defaultAnnotationTypeIdFor(type),
         ownerViewId,
         references,
         geometry2D,

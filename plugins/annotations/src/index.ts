@@ -30,6 +30,11 @@ export {
     type LinearDimSegment,
     DEFAULT_ANNOTATION_STYLE,
     makeAnnotationElement,
+    // §ANN-TYPE — family → default system type (pure data; no store import)
+    type AnnotationTypeCategory,
+    ANNOTATION_CATEGORY_BY_FAMILY,
+    ANNOTATION_DEFAULT_TYPE_BY_CATEGORY,
+    defaultAnnotationTypeIdFor,
 } from './subsystem/AnnotationTypes.js';
 
 export {
@@ -41,6 +46,14 @@ export {
     AnnotationStore,
     annotationStore,
 } from './subsystem/AnnotationStore.js';
+
+// §ANN-TYPE — annotation SYSTEM TYPES (the Revit Type/Instance split for annotation).
+export {
+    type AnnotationSystemType,
+    AnnotationSystemTypeStore,
+    annotationSystemTypeStore,
+    BUILT_IN_ANNOTATION_TYPES,
+} from './subsystem/AnnotationSystemTypeStore.js';
 
 export {
     AnnotationDependencyGraph,
