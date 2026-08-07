@@ -7,7 +7,7 @@ import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
 import { WindowOpening } from './WindowTypes';
-import { WallStore } from '@pryzm/geometry-wall';
+import { WallStore, hostedElementFrame } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the 3D window is a DetailLevel consumer, through
@@ -753,18 +753,20 @@ export class WindowBuilder {
     private positionGroup(win: WindowOpening, group: THREE.Group, wallData: any): void {
         // Construct explicit Vector3 so the code is safe whether baseLine entries are
         // THREE.Vector3 instances (freshly placed) or plain {x,y,z} objects (deserialized).
-        const start = new THREE.Vector3(wallData.baseLine[0].x, wallData.baseLine[0].y ?? 0, wallData.baseLine[0].z);
-        const end   = new THREE.Vector3(wallData.baseLine[1].x, wallData.baseLine[1].y ?? 0, wallData.baseLine[1].z);
-
-        const dir = new THREE.Vector3().subVectors(end, start).normalize();
-        const wallAngle = Math.atan2(dir.z, dir.x);
-
         // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `win.offset` is the LEFT EDGE
-        // of the opening span [offset, offset+width] along the wall baseline (the
+        // of the opening span [offset, offset+width] along the wall CENTRELINE (the
         // convention used by every producer, the window tool, the occupancy store, and
         // C15 §2 voidStart=offset). The frame CENTRE = offset + width/2 — which is
         // exactly where WallFragmentBuilder now cuts the void and places the frame.
-        const centre = start.clone().addScaledVector(dir, win.offset + win.width / 2);
+        //
+        // §FEAT-HOSTED-ON-CURVED-WALL — the centreline is the ARC when the host is
+        // curved, so both the position AND the heading come from the local arc frame:
+        // the window is oriented to the TANGENT at its centre, never to the chord
+        // (a chord-aligned window on a curved wall visibly skews out of the reveal).
+        // For a straight host `hostedElementFrame` reduces exactly to
+        // `baseLine[0] + (offset + width/2) × wallDir` with a constant heading.
+        const _hf = hostedElementFrame(wallData, win.offset, win.width);
+        const centre = new THREE.Vector3(_hf.x, 0, _hf.z);
 
         // §WINDOW-AUDIT-2026 C2 (WIN-SPATIAL-FALLBACK) — never silently default to Y=0
         // when level membership is broken. Throwing is the §02 §1.4 spatial-authority
@@ -785,7 +787,7 @@ export class WindowBuilder {
         const y = elevation + win.sillHeight + win.height / 2;
 
         group.position.set(centre.x, y, centre.z);
-        group.rotation.y = -wallAngle;
+        group.rotation.y = _hf.rotationY;
     }
 
     /**

@@ -1,7 +1,11 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
-import { WallStore, WallFragmentBuilder, wallOccupancyStore } from '@pryzm/geometry-wall';
+import {
+    WallStore, WallFragmentBuilder, wallOccupancyStore,
+    // §FEAT-HOSTED-ON-CURVED-WALL — arc-length placement on curved hosts.
+    isArcHost, wallCentrelineLength, arcLengthAtPointXZ, arcFrameAt,
+} from '@pryzm/geometry-wall';
 // DOC-5.2 — 2D snap on projected TechnicalDrawing edges for door placement in plan view
 
 import { activePlanDrawingRef, planView2DSnapService } from '@pryzm/core-app-model';
@@ -183,7 +187,10 @@ export class DoorTool {
             const wallRoot = this.findWallRoot(hit.object);
             const wallId = wallRoot?.userData?.id || wallRoot?.uuid;
             const wallData = wallId ? this.wallStore.getById(wallId) : undefined;
-            if (wallData?.curve) {
+            // §FEAT-HOSTED-ON-CURVED-WALL — a curved wall is now a first-class host.
+            // The block below only fires when the escape hatch turns the feature off
+            // (`isArcHost` returns false for a curved wall in that mode).
+            if (wallData?.curve && !isArcHost(wallData)) {
                 this.setHudState('curved-wall-blocked');
             } else if (wallData) {
                 const refined = this._get2DRefinedHit(hit, e);
@@ -209,16 +216,12 @@ export class DoorTool {
         wallData: any,
     ): { ok: true } | { ok: false; state: 'out-of-range' | 'occupancy-blocked' } {
         try {
-            const startPt = wallData.baseLine[0];
-            const endPt   = wallData.baseLine[1];
-            const start = new THREE.Vector3(startPt.x, startPt.y, startPt.z);
-            const end   = new THREE.Vector3(endPt.x, endPt.y, endPt.z);
-            const wallDir = new THREE.Vector3().subVectors(end, start);
-            const wallLength = wallDir.length();
+            // §FEAT-HOSTED-ON-CURVED-WALL — hover feedback must use the SAME
+            // arc-length measure `placeDoor` will use, or the HUD would go green on
+            // a curved wall at a point that placement then rejects.
+            const wallLength = wallCentrelineLength(wallData);
             if (wallLength < 0.001) return { ok: false, state: 'out-of-range' };
-            const wallDirN = wallDir.clone().normalize();
-            const hitDir = new THREE.Vector3().subVectors(hit.point, start);
-            const rawOffset = hitDir.dot(wallDirN);
+            const rawOffset = arcLengthAtPointXZ(wallData, hit.point.x, hit.point.z).s;
             // §FIX-DOOR-PREVIEW-EXACT — occupancy must use the SAME width the door
             // will actually be placed at (selected type), not a hardcoded 1 m/2 m.
             const width = resolveDoorDimensions(this.systemTypeId, this.doorType).width;
@@ -321,8 +324,9 @@ export class DoorTool {
         const wallData = this.wallStore.getById(wallId);
         if (!wallData) return;
 
-        // PLAN-05: Curved walls are not supported — skip preview silently.
-        if (wallData.curve) {
+        // §FEAT-HOSTED-ON-CURVED-WALL — curved hosts preview like any other wall.
+        // Only the disabled escape-hatch mode still suppresses the preview.
+        if (wallData.curve && !isArcHost(wallData)) {
             return;
         }
 
@@ -342,20 +346,18 @@ export class DoorTool {
         // ── Position along wall baseline ──────────────────────────────────────
         // Project hit.point onto the wall baseline so the preview centre snaps
         // to the wall surface rather than floating at the raw raycast point.
-        const startPt = wallData.baseLine[0];
-        const endPt   = wallData.baseLine[1];
-        const start = new THREE.Vector3(startPt.x, startPt.y, startPt.z);
-        const end   = new THREE.Vector3(endPt.x, endPt.y, endPt.z);
-        const wallDir = new THREE.Vector3().subVectors(end, start);
-        const wallLength = wallDir.length();
-        const wallDirN = wallDir.clone().normalize();
+        // §FEAT-HOSTED-ON-CURVED-WALL — project onto the wall CENTRELINE (the arc
+        // when the host is curved) instead of the chord, so the preview snaps to the
+        // face the user is actually pointing at.
+        const wallLength = wallCentrelineLength(wallData);
 
-        // Clamp offset so the preview stays within the wall
-        let offset = new THREE.Vector3().subVectors(hit.point, start).dot(wallDirN);
-        offset = Math.max(width / 2, Math.min(offset, wallLength - width / 2));
+        // Clamp the preview CENTRE arc length so the span stays within the wall
+        let centreS = arcLengthAtPointXZ(wallData, hit.point.x, hit.point.z).s;
+        centreS = Math.max(width / 2, Math.min(centreS, wallLength - width / 2));
 
-        // Centre of preview in world XZ
-        const previewCenter = start.clone().addScaledVector(wallDirN, offset);
+        // Centre of preview in world XZ, on the centreline
+        const _pf = arcFrameAt(wallData, centreS);
+        const previewCenter = new THREE.Vector3(_pf.x, 0, _pf.z);
 
         // §DOOR-AUDIT-2026 (DOOR-PREVIEW-ELEVATION) — preview must respect the same
         // SpatialAuthority contract as the placed door: if the wall has no resolvable
@@ -379,8 +381,9 @@ export class DoorTool {
         // the preview box depth (local Z) runs perpendicular to the wall face.
         // Do NOT copy wall.quaternion — the wall root group has identity rotation;
         // the builder encodes orientation into vertex positions, not the group transform.
-        const angle = Math.atan2(wallDirN.z, wallDirN.x);
-        this.previewDoor.rotation.y = -angle;
+        // §FEAT-HOSTED-ON-CURVED-WALL — orient to the TANGENT at the preview centre,
+        // not to the chord, so the preview box sits square in the reveal on an arc.
+        this.previewDoor.rotation.y = -_pf.angleY;
 
         this.previewDoor.userData.isPreview = true;
         this.previewDoor.userData.levelId = wallData.levelId;
@@ -415,8 +418,9 @@ export class DoorTool {
         const wallData = this.wallStore.getById(wallId);
         if (!wallData) return;
 
-        // PLAN-05: Block door placement on curved walls at the tool layer.
-        if (wallData.curve) {
+        // §FEAT-HOSTED-ON-CURVED-WALL — curved walls host doors. Only the disabled
+        // escape-hatch mode still refuses them.
+        if (wallData.curve && !isArcHost(wallData)) {
             this.setHudState('curved-wall-blocked');
             return;
         }
@@ -426,23 +430,18 @@ export class DoorTool {
             throw new Error("Spatial Authority Violation: Host wall has no level context.");
         }
 
-        const startPt2 = wallData.baseLine[0];
-        const endPt2   = wallData.baseLine[1];
-        const start = new THREE.Vector3(startPt2.x, startPt2.y, startPt2.z);
-        const end   = new THREE.Vector3(endPt2.x, endPt2.y, endPt2.z);
-
-        const wallDir = new THREE.Vector3().subVectors(end, start);
-        const wallLength = wallDir.length();
+        // §FEAT-HOSTED-ON-CURVED-WALL — the stored `offset` is an ARC LENGTH along
+        // the wall centreline. Projecting the click onto the chord would put a door
+        // on a curved wall visibly away from where the user clicked, and (because the
+        // arc is longer than the chord) would compress every offset toward the start.
+        const wallLength = wallCentrelineLength(wallData);
 
         if (wallLength < 0.001) {
             console.warn("[DoorTool] Invalid wall baseline length");
             return;
         }
 
-        const wallDirNormalized = wallDir.clone().normalize();
-        const hitDir = new THREE.Vector3().subVectors(hit.point, start);
-
-        const centreAlong = hitDir.dot(wallDirNormalized);
+        const centreAlong = arcLengthAtPointXZ(wallData, hit.point.x, hit.point.z).s;
 
         // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): the stored opening `offset` is the
         // LEFT EDGE of the span [offset, offset+width] (the convention used by every

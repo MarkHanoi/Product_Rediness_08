@@ -1,4 +1,7 @@
 import type { WallData, WallStore } from '@pryzm/geometry-wall';
+// §FEAT-HOSTED-ON-CURVED-WALL — arc-length parameterisation of the host wall
+// centreline (C15 §2 generalised); straight walls are unaffected.
+import { isArcHost, wallCentrelineLength, arcLengthAtPointXZ } from '@pryzm/geometry-wall';
 // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the two chokepoints this file
 // must resolve through, and the ONLY legitimate source of a window's type or size:
 //   getWindowToolConfig()      — WHICH window the architect chose (WindowTool reads it too)
@@ -76,9 +79,13 @@ export class WindowPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        // §WINDOW-AUDIT-2026 (WIN-CURVED-WALL-BLOCK): refuse curved walls.
-        if ((targetWall as any).curve) {
-            console.warn('[WindowPlanToolHandler] Curved walls are not supported for window placement.');
+        // §FEAT-HOSTED-ON-CURVED-WALL — the block that used to live here refused
+        // curved hosts because the builder assumed a straight baseline. It no longer
+        // does: the opening `offset` is an ARC LENGTH along the wall centreline and
+        // the carve follows the arc radially (see WallArcParam +
+        // CurvedWallOpeningBuilder). Only the disabled escape-hatch mode refuses.
+        if ((targetWall as any).curve && !isArcHost(targetWall as any)) {
+            console.warn('[WindowPlanToolHandler] Curved-wall hosting is disabled (__pryzmHostedOnCurvedWall = false).');
             return;
         }
 
@@ -310,13 +317,14 @@ export class WindowPlanToolHandler implements PlanToolHandler {
         const wall = ws.getById(wallId) as WallData | undefined;
         if (!wall?.baseLine || wall.baseLine.length < 2) return 0;
 
-        const ax = wall.baseLine[0].x, az = wall.baseLine[0].z;
-        const bx = wall.baseLine[1].x, bz = wall.baseLine[1].z;
-        const dx = bx - ax, dz = bz - az;
-        const wallLen = Math.hypot(dx, dz);
+        // §FEAT-HOSTED-ON-CURVED-WALL — measure along the wall CENTRELINE: the ARC
+        // for a curved host, the chord for a straight one. `arcLengthAtPointXZ`
+        // reduces to the old dot-product projection when the wall is straight, so
+        // straight-wall placement is bit-for-bit unchanged.
+        const wallLen = wallCentrelineLength(wall);
         if (wallLen < 0.001) return 0;
 
-        const rawCentre = ((worldX - ax) * dx + (worldZ - az) * dz) / wallLen;
+        const rawCentre = arcLengthAtPointXZ(wall, worldX, worldZ).s;
         const left = rawCentre - openingWidth / 2;
         return Math.max(0, Math.min(wallLen - openingWidth, left));
     }
@@ -357,9 +365,10 @@ export class WindowPlanToolHandler implements PlanToolHandler {
 
         const a = wall.baseLine[0];
         const b = wall.baseLine[1];
-        const dx = b.x - a.x;
-        const dz = b.z - a.z;
-        const wallLen = Math.hypot(dx, dz);
+        // §FEAT-HOSTED-ON-CURVED-WALL — `wallLen` is the CENTRELINE length (arc for a
+        // curved host). An elevation/section view shows the wall UNROLLED along its
+        // centreline, so the normalised horizontal parameter `t` maps to arc length.
+        const wallLen = wallCentrelineLength(wall);
         if (wallLen < 0.001) return 0;
 
         const aH = c.viewPlane.hWorldAxis === 'x' ? a.x : a.z;

@@ -10,7 +10,7 @@ import { doorSystemTypeStore } from './DoorSystemTypeStore';
 // the placed 3D frame is dimensionally identical to what the user previewed.
 import { resolveDoorDimensions } from './DoorDimensions';
 import { DoorOpening } from './DoorTypes';
-import { WallStore } from '@pryzm/geometry-wall';
+import { WallStore, hostedElementFrame } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 // §FEAT-DOOR-3D-LOD (L-266) — the 3D door is a DetailLevel consumer, through the SAME
@@ -449,18 +449,19 @@ export class DoorBuilder {
     private positionGroup(door: DoorOpening, group: THREE.Group, wallData: any): void {
         // Construct explicit Vector3 so the code is safe whether baseLine entries are
         // THREE.Vector3 instances (freshly placed) or plain {x,y,z} objects (deserialized).
-        const start = new THREE.Vector3(wallData.baseLine[0].x, wallData.baseLine[0].y ?? 0, wallData.baseLine[0].z);
-        const end   = new THREE.Vector3(wallData.baseLine[1].x, wallData.baseLine[1].y ?? 0, wallData.baseLine[1].z);
-
-        const dir = new THREE.Vector3().subVectors(end, start).normalize();
-        const wallAngle = Math.atan2(dir.z, dir.x);
-
         // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `door.offset` is the LEFT EDGE
-        // of the opening span [offset, offset+width] along the wall baseline (the
+        // of the opening span [offset, offset+width] along the wall CENTRELINE (the
         // convention used by every producer, the door tool, the occupancy store, and
         // C15 §2 voidStart=offset). The frame CENTRE = offset + width/2 — which is
         // exactly where WallFragmentBuilder now cuts the void and places the frame.
-        const centre = start.clone().addScaledVector(dir, door.offset + door.width / 2);
+        //
+        // §FEAT-HOSTED-ON-CURVED-WALL — the centreline is the ARC when the host is
+        // curved, so both the position AND the heading come from the local arc frame:
+        // the door is oriented to the TANGENT at its centre, never to the chord. For
+        // a straight host this reduces exactly to
+        // `baseLine[0] + (offset + width/2) × wallDir` with a constant heading.
+        const _hf = hostedElementFrame(wallData, door.offset, door.width);
+        const centre = new THREE.Vector3(_hf.x, 0, _hf.z);
 
         // §DOOR-AUDIT-2026 (DOOR-SPATIAL-FALLBACK) — never silently default to Y=0
         // when level membership is broken. Throw SpatialAuthorityError so the failure
@@ -481,7 +482,7 @@ export class DoorBuilder {
         const y = elevation + door.sillHeight + door.height / 2;
 
         group.position.set(centre.x, y, centre.z);
-        group.rotation.y = -wallAngle;
+        group.rotation.y = _hf.rotationY;
     }
 
     /**

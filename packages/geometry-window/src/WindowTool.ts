@@ -1,7 +1,11 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
-import { WallStore, WallFragmentBuilder, wallOccupancyStore } from '@pryzm/geometry-wall';
+import {
+    WallStore, WallFragmentBuilder, wallOccupancyStore,
+    // §FEAT-HOSTED-ON-CURVED-WALL — arc-length placement on curved hosts.
+    isArcHost, wallCentrelineLength, arcLengthAtPointXZ, arcFrameAt,
+} from '@pryzm/geometry-wall';
 import { PREVIEW_COLOR } from '@pryzm/core-app-model';
 // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the 3D window tool no longer
 // owns any window state: it reads/writes the ONE WindowToolConfigStore and commits
@@ -176,7 +180,9 @@ export class WindowTool {
             const wallRoot = this.findWallRoot(hit.object);
             const wallId = wallRoot?.userData?.id || wallRoot?.uuid;
             const wallData = wallId ? this.wallStore.getById(wallId) : undefined;
-            if (wallData?.curve) {
+            // §FEAT-HOSTED-ON-CURVED-WALL — a curved wall is now a first-class host;
+            // this only fires when the escape hatch turns the feature off.
+            if (wallData?.curve && !isArcHost(wallData)) {
                 this.setHudState('curved-wall-blocked');
             } else if (wallData) {
                 const occupancy = this._evaluateOccupancyAt(hit, wallData);
@@ -197,16 +203,12 @@ export class WindowTool {
         wallData: any,
     ): { ok: true } | { ok: false; state: 'out-of-range' | 'occupancy-blocked' } {
         try {
-            const startPt = wallData.baseLine[0];
-            const endPt   = wallData.baseLine[1];
-            const start = new THREE.Vector3(startPt.x, startPt.y, startPt.z);
-            const end   = new THREE.Vector3(endPt.x, endPt.y, endPt.z);
-            const wallDir = new THREE.Vector3().subVectors(end, start);
-            const wallLength = wallDir.length();
+            // §FEAT-HOSTED-ON-CURVED-WALL — hover feedback uses the SAME arc-length
+            // measure `placeWindow` uses, so the HUD never goes green where placement
+            // would then be rejected.
+            const wallLength = wallCentrelineLength(wallData);
             if (wallLength < 0.001) return { ok: false, state: 'out-of-range' };
-            const wallDirN = wallDir.clone().normalize();
-            const hitDir = new THREE.Vector3().subVectors(hit.point, start);
-            const rawOffset = hitDir.dot(wallDirN);
+            const rawOffset = arcLengthAtPointXZ(wallData, hit.point.x, hit.point.z).s;
             const width = this._dims().width;
             const halfW = width / 2;
             if (rawOffset < halfW || rawOffset > wallLength - halfW) {
@@ -263,8 +265,9 @@ export class WindowTool {
         const wallData = this.wallStore.getById(wallId);
         if (!wallData) return;
 
-        // PLAN-05: Curved walls are not supported — skip preview silently.
-        if (wallData.curve) {
+        // §FEAT-HOSTED-ON-CURVED-WALL — curved hosts preview like any other wall.
+        // Only the disabled escape-hatch mode still suppresses the preview.
+        if (wallData.curve && !isArcHost(wallData)) {
             return;
         }
 
@@ -287,23 +290,19 @@ export class WindowTool {
         const mat = new THREE.MeshBasicMaterial({ color: PREVIEW_COLOR.HOSTED, transparent: true, opacity: 0.5 });
         this.previewWindow = new THREE.Mesh(geo, mat);
 
-        // ── Position along wall baseline ──────────────────────────────────────
-        // Project hit.point onto the wall baseline so the preview centre snaps
-        // to the wall surface rather than floating at the raw raycast point.
-        const startPt = wallData.baseLine[0];
-        const endPt   = wallData.baseLine[1];
-        const start = new THREE.Vector3(startPt.x, startPt.y, startPt.z);
-        const end   = new THREE.Vector3(endPt.x, endPt.y, endPt.z);
-        const wallDir = new THREE.Vector3().subVectors(end, start);
-        const wallLength = wallDir.length();
-        const wallDirN = wallDir.clone().normalize();
+        // ── Position along the wall CENTRELINE ────────────────────────────────
+        // §FEAT-HOSTED-ON-CURVED-WALL — project hit.point onto the centreline (the
+        // ARC when the host is curved) so the preview centre snaps to the face the
+        // user is pointing at, not to a chord that cuts through the wall.
+        const wallLength = wallCentrelineLength(wallData);
 
-        // Clamp offset so the preview stays within the wall
-        let offset = new THREE.Vector3().subVectors(hit.point, start).dot(wallDirN);
-        offset = Math.max(width / 2, Math.min(offset, wallLength - width / 2));
+        // Clamp the preview CENTRE arc length so the span stays within the wall
+        let centreS = arcLengthAtPointXZ(wallData, hit.point.x, hit.point.z).s;
+        centreS = Math.max(width / 2, Math.min(centreS, wallLength - width / 2));
 
-        // Centre of preview in world XZ
-        const previewCenter = start.clone().addScaledVector(wallDirN, offset);
+        // Centre of preview in world XZ, on the centreline
+        const _pf = arcFrameAt(wallData, centreS);
+        const previewCenter = new THREE.Vector3(_pf.x, 0, _pf.z);
 
         // §WINDOW-AUDIT-2026 C2 (WIN-PREVIEW-ELEVATION) — preview must respect the
         // same SpatialAuthority contract as the placed window: if the wall has no
@@ -331,8 +330,8 @@ export class WindowTool {
         // the preview box depth (local Z) runs perpendicular to the wall face.
         // Do NOT copy wall.quaternion — the wall root group has identity rotation;
         // the builder encodes orientation into vertex positions, not the group transform.
-        const angle = Math.atan2(wallDirN.z, wallDirN.x);
-        this.previewWindow.rotation.y = -angle;
+        // §FEAT-HOSTED-ON-CURVED-WALL — orient to the TANGENT at the preview centre.
+        this.previewWindow.rotation.y = -_pf.angleY;
 
         this.previewWindow.userData.isPreview = true;
         this.previewWindow.userData.levelId = wallData.levelId;
@@ -368,8 +367,9 @@ export class WindowTool {
         const wallData = this.wallStore.getById(wallId);
         if (!wallData) return;
 
-        // PLAN-05: Block window placement on curved walls at the tool layer.
-        if (wallData.curve) {
+        // §FEAT-HOSTED-ON-CURVED-WALL — curved walls host windows. Only the disabled
+        // escape-hatch mode still refuses them.
+        if (wallData.curve && !isArcHost(wallData)) {
             this.setHudState('curved-wall-blocked');
             return;
         }
@@ -379,24 +379,17 @@ export class WindowTool {
             throw new Error("Spatial Authority Violation: Host wall has no level context.");
         }
 
-        const startPt2 = wallData.baseLine[0];
-        const endPt2   = wallData.baseLine[1];
-        const start = new THREE.Vector3(startPt2.x, startPt2.y, startPt2.z);
-        const end   = new THREE.Vector3(endPt2.x, endPt2.y, endPt2.z);
-
-        // Validate wall baseline and compute offset
-        const wallDir = new THREE.Vector3().subVectors(end, start);
-        const wallLength = wallDir.length();
+        // §FEAT-HOSTED-ON-CURVED-WALL — the stored `offset` is an ARC LENGTH along the
+        // wall centreline. Chord projection would place the window away from the click
+        // on a curved wall and compress every offset toward the start (arc > chord).
+        const wallLength = wallCentrelineLength(wallData);
 
         if (wallLength < 0.001) {
             console.warn("[WindowTool] Invalid wall baseline length");
             return;
         }
 
-        const wallDirNormalized = wallDir.clone().normalize();
-        const hitDir = new THREE.Vector3().subVectors(hit.point, start);
-
-        const centreAlong = hitDir.dot(wallDirNormalized);
+        const centreAlong = arcLengthAtPointXZ(wallData, hit.point.x, hit.point.z).s;
 
         // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — dimensions come from the ONE
         // authority (record → system type → canonical). The width must be known BEFORE the

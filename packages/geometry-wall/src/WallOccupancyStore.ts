@@ -37,6 +37,7 @@
  */
 
 import { WallData, Opening } from './WallTypes';
+import { wallCentrelineLength } from './WallArcParam';
 
 /**
  * §LOAD-REDETECT-FREEZE (2026-06-25) — true while a project restore replays the
@@ -127,14 +128,18 @@ export class WallOccupancyStore {
      *     width larger than the whole wall is itself shrunk.
      *   • vertical:   height ∈ [MIN, wallHeight]; sillHeight ∈ [0, wallHeight - height].
      *
-     * PURE — reads `wall.baseLine` (planar XZ chord length; Y carries level
-     * elevation per the canonical schema) and `wall.height`; writes nothing.
+     * PURE — reads `wall.baseLine` / `wall.curve` (planar XZ CENTRELINE length; Y
+     * carries level elevation per the canonical schema) and `wall.height`;
+     * writes nothing.
+     *
+     * §FEAT-HOSTED-ON-CURVED-WALL — the horizontal extent is the CENTRELINE ARC
+     * length, not the chord. A curved wall's arc is always ≥ its chord, so the
+     * old chord clamp squeezed every opening on a curved host into the chord's
+     * shorter span and pushed it off the far end of the wall. For a straight
+     * wall `wallCentrelineLength` returns the chord, so this is a no-op there.
      */
     clampToWall(wall: WallData, dims: OpeningDims): ClampToWallResult {
-        const bl = wall.baseLine;
-        const b0 = bl[0], b1 = bl[1];
-        // Planar (XZ) chord length — Y is level elevation, not a horizontal extent.
-        const wallLength = Math.hypot(b1.x - b0.x, b1.z - b0.z);
+        const wallLength = wallCentrelineLength(wall);
         const wallHeight = (typeof wall.height === 'number' && wall.height > 0)
             ? wall.height
             : Number.POSITIVE_INFINITY;
@@ -206,9 +211,15 @@ export class WallOccupancyStore {
     ): CanPlaceResult {
 
         // ── Compute wall length ────────────────────────────────────────────
-        const bl         = wall.baseLine;
-        const _b0 = bl[0], _b1 = bl[1];
-        const wallLengthM = Math.sqrt((_b1.x-_b0.x)**2 + (_b1.y-_b0.y)**2 + (_b1.z-_b0.z)**2);
+        // §FEAT-HOSTED-ON-CURVED-WALL — the occupancy interval [offset, offset+width]
+        // is measured along the wall CENTRELINE. For a curved host that is the ARC
+        // length; chord maths would under-report the available span (arc ≥ chord),
+        // wrongly rejecting legal placements near the far end and mis-judging
+        // overlap between two openings set out along the arc.
+        // For a straight wall this is the planar chord — identical to the previous
+        // 3-D `baseLine` distance, because `baseLine[*].y` carries LEVEL ELEVATION
+        // (identical at both ends), never a vertical run.
+        const wallLengthM = wallCentrelineLength(wall);
 
         if (wallLengthM <= 0) {
             return {

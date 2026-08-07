@@ -11,6 +11,14 @@ import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
 import { PathResolver } from './PathResolver';
 import { buildCurvedLayerGeometry, computeStations } from './CurvedWallLayerBuilder';
 import { projectCapVertex } from './CurvedWallCapMiter';
+// §FEAT-HOSTED-ON-CURVED-WALL — arc-length parameterisation + radial-band carve.
+import { isArcHost, wallCentrelineLength, hostedElementFrame } from './WallArcParam';
+import {
+    computeCurvedWallBands,
+    stationArcLengths,
+    sliceStations,
+    bandCapTangents,
+} from './CurvedWallOpeningBuilder';
 import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './LayeredWallOpeningBuilder';
 import { buildMiterPrism } from './MiterPrismBuilder';
 // §WALL-PLAIN-HOLE-EXTRUDE — pure (testable) single-body geometry for a plain
@@ -27,6 +35,12 @@ import {
     isWallPipelineV2Enabled,
     type LevelWallSpec,
 } from './WallPipelineV2';
+// §FIX-LAYERED-WALL-V2-PARITY (ADR-0298) — a LAYERED wall takes the same V2 footprint the
+// plain path takes, sliced into per-layer bands, instead of re-deriving its corners with the
+// legacy per-layer miter projection. See the block comment in the layered branch.
+import { buildWallFootprint } from './WallFootprint2D';
+import { buildWallExtrusion } from './WallPolygonExtruder';
+import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
 import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
 import { descriptorToBufferGeometry } from './descriptorToBufferGeometry';
@@ -1266,6 +1280,97 @@ export class WallFragmentBuilder {
             const startMN = joinData?.startMN ?? null;
             const endMN   = joinData?.endMN   ?? null;
 
+            // ── §FIX-LAYERED-WALL-V2-PARITY (founder 2026-08-06, ADR-0298) ──────────────
+            // Until now this branch was the ONLY geometry a straight layered wall ever got:
+            // one legacy `buildMiterPrism` per layer, capped on the legacy WallJoinResolver
+            // miter normals. `createWallBodyFragment` — the sole call site of the ADR-0055
+            // V2 chain — is never reached from here (this branch returns above it), so a
+            // layered wall was the one wall on the level solving its corners with a
+            // DIFFERENT resolver from its neighbours. A per-wall miter-plane projection has
+            // no cross-wall non-overlap property; V2's ring sweep does, by construction.
+            //
+            // MEASURED on the founder's scene (two 0.30 m arms mitred at the origin + a
+            // layered partition co-terminating on the corner; 2 mm grid sampler, see
+            // `LayeredWallCornerClash.test.ts`): legacy 2 520 mm² of doubled solid at 0.10 m
+            // thickness and 35 112 mm² at 0.375 m, versus 0 mm² through V2.
+            //
+            // So: take the SAME V2 footprint the plain path takes, and slice it into
+            // per-layer bands (`WallLayerFootprint2D`, pure 2-D). Every band is a SUBSET of
+            // the footprint, so the junction non-overlap is INHERITED rather than
+            // re-derived — there is no second miter solver left to disagree with the first.
+            // Band lateral extents reproduce the `cursor` walk below exactly, so no layer
+            // moves sideways; only the mitred ENDS change.
+            //
+            // ALL-OR-NOTHING: if any band fails the spike guard, the whole wall falls back
+            // to the legacy prisms. A stack must never mix the two frames — a half-migrated
+            // layer stack is worse than a uniformly-legacy one.
+            let v2LayerGeoms: Array<THREE.BufferGeometry> | null = null;
+            {
+                const _layCache = this.getEffectiveV2Cache();
+                const _layMiter = _layCache?.getMiter(wall.id) ?? null;
+                if (isWallPipelineV2Enabled() && _layCache && _layMiter && !_layMiter.invalid) {
+                    // §V2-PRETRIM-FIX frame (see createWallBodyFragment): V2's corners are
+                    // solved against the PRE-trim baselines, so the footprint defaults must
+                    // be built in that same frame or the polygon zig-zags between two frames.
+                    const _srcBL = (wall as unknown as {
+                        _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }>;
+                    })._sourceBaseLine;
+                    const _preS = _srcBL?.[0] ?? wall.baseLine[0];
+                    const _preE = _srcBL?.[1] ?? wall.baseLine[1];
+                    const _fp = buildWallFootprint(
+                        {
+                            id: wall.id,
+                            start: { x: _preS.x, z: _preS.z },
+                            end:   { x: _preE.x, z: _preE.z },
+                            thickness: wall.thickness,
+                            systemTypeId: wall.systemTypeId,
+                        },
+                        _layMiter,
+                    );
+                    const _bands = buildWallLayerBands(
+                        _fp,
+                        wall.layers.map((l: any) => l.thickness),
+                    ).bands;
+                    // Same envelope test as §V2-SPIKE-GUARD / §LEGACY-SPIKE-GUARD, applied
+                    // per band. A real layer body never exceeds the wall's own footprint.
+                    const _baseLen = Math.hypot(
+                        wall.baseLine[1].x - wall.baseLine[0].x,
+                        wall.baseLine[1].z - wall.baseLine[0].z,
+                    );
+                    const _maxExtent = _baseLen + wall.thickness + 1.0;
+                    const _geoms: THREE.BufferGeometry[] = [];
+                    let _ok = _bands.length === wall.layers.length;
+                    for (const b of _bands) {
+                        if (!_ok) break;
+                        if (b.polygon.length < 3) { _ok = false; break; }
+                        const g = buildWallExtrusion(
+                            { ...(_fp as any), polygon: b.polygon },
+                            { height: wallHeight, baseOffset: wallBaseOffset, elevation: 0 },
+                        );
+                        // World-XZ → wallGroup-local (the group sits at the POST-trim start).
+                        g.translate(-wall.baseLine[0].x, 0, -wall.baseLine[0].z);
+                        g.computeBoundingBox();
+                        const bb = g.boundingBox;
+                        const finite = !!bb
+                            && Number.isFinite(bb.min.x) && Number.isFinite(bb.max.x)
+                            && Number.isFinite(bb.min.z) && Number.isFinite(bb.max.z);
+                        const diag = finite ? Math.hypot(bb!.max.x - bb!.min.x, bb!.max.z - bb!.min.z) : Infinity;
+                        if (!finite || diag > _maxExtent) { _ok = false; (g as any).dispose?.(); break; }
+                        _geoms.push(g);
+                    }
+                    if (_ok) {
+                        v2LayerGeoms = _geoms;
+                    } else {
+                        for (const g of _geoms) (g as unknown as { dispose?: () => void }).dispose?.();
+                        // eslint-disable-next-line no-console
+                        console.warn(
+                            `[WallFragmentBuilder] §FIX-LAYERED-WALL-V2-PARITY wall ${wall.id}: ` +
+                            `a layer band failed the spike guard — falling back to legacy MiterPrism for the whole stack`,
+                        );
+                    }
+                }
+            }
+
             wall.layers.forEach((layer: any, layerIdx: number) => {
                 const layerCenter = cursor + layer.thickness / 2;
                 cursor += layer.thickness;
@@ -1289,17 +1394,21 @@ export class WallFragmentBuilder {
                 const centerlineStart = new THREE.Vector3(0, 0, 0); // wallGroup origin IS wall start
                 const centerlineEnd = new THREE.Vector3().subVectors(end, start);
 
-                const geom = buildMiterPrism(
-                    worldStart,
-                    worldEnd,
-                    centerlineStart,           // Miter planes at centerline
-                    centerlineEnd,             // Miter planes at centerline
-                    layer.thickness / 2,       // half-thickness of this layer
-                    wallHeight,
-                    wallBaseOffset,
-                    startMN,
-                    endMN,
-                );
+                // §FIX-LAYERED-WALL-V2-PARITY — the V2 band when the pipeline produced a
+                // full, guard-passing stack for this wall; otherwise the legacy prism.
+                const geom = v2LayerGeoms
+                    ? v2LayerGeoms[layerIdx]!
+                    : buildMiterPrism(
+                        worldStart,
+                        worldEnd,
+                        centerlineStart,           // Miter planes at centerline
+                        centerlineEnd,             // Miter planes at centerline
+                        layer.thickness / 2,       // half-thickness of this layer
+                        wallHeight,
+                        wallBaseOffset,
+                        startMN,
+                        endMN,
+                    );
 
                 const matColor = layer.materialColor ?? wall.materialColor ?? '#d4c5b0';
                 const mat = new THREE.MeshStandardMaterial({
@@ -1367,6 +1476,26 @@ export class WallFragmentBuilder {
         //
         // Builder contract §4.3: builder reads WallData as Readonly — never mutates.
         // ─────────────────────────────────────────────────────────────────────────
+        // ── §FEAT-HOSTED-ON-CURVED-WALL — curved host WITH openings ──────────────
+        // The comment above ("Openings are deferred — curved walls enforce
+        // openings:[]") described the pre-feature state. A curved wall is now a
+        // first-class host: it is carved by RADIAL BANDS along the arc rather than
+        // built as one unbroken solid. Handles both the plain and the LAYERED
+        // curved paths, so neither is silently left behind. Escape hatch:
+        // `__pryzmHostedOnCurvedWall = false` restores the uncarved solid.
+        if (wall.curve && isArcHost(wall) && wall.openings && wall.openings.length > 0) {
+            const built = this._buildCurvedWallWithOpenings(
+                wall, wallGroup, fragmentIds, start, end,
+                wallThickness, wallHeight, wallBaseOffset, joinData, renderMap,
+            );
+            if (built) {
+                this.wallToFragmentsMap.set(wall.id, fragmentIds);
+                return fragmentIds;
+            }
+            // Fell through (degenerate geometry) — continue to the uncarved solid
+            // rather than emitting nothing (SPEC §4: never an empty wall).
+        }
+
         if (wall.curve && (!wall.layers || wall.layers.length === 0)) {
             // ── Single-layer curved wall (no layer support) ──
             // Build traditional curved wall geometry
@@ -2407,6 +2536,230 @@ export class WallFragmentBuilder {
     }
 
     // §4.3 FIX: renderData is pre-resolved by the subscriber; no store access here.
+    /**
+     * §FEAT-HOSTED-ON-CURVED-WALL — build a CURVED wall that hosts openings.
+     *
+     * The straight path splits a wall into BOX segments around its openings.
+     * This is the exact analogue for an arc: the wall is split into RADIAL BANDS
+     * along the centreline arc, each band being the ordinary curved-wall solid
+     * restricted to an arc span `[s0,s1]` and a vertical span `[yLo,yHi]`.
+     *
+     * WHY RADIAL AND NOT A BOX SUBTRACTION. A box has parallel jambs; the wall
+     * faces are concentric arcs. Subtracting a box therefore over-cuts the outer
+     * face into a wedge and under-cuts the inner one (or vice versa depending on
+     * which face the box is sized to). A band terminates on a station whose jamb
+     * plane contains the local centreline NORMAL, so the jamb is perpendicular to
+     * BOTH faces — which is how an opening in a curved wall is actually set out,
+     * and it needs no boolean operation at all.
+     *
+     * ONE OPENING = ONE VOID, however many tessellation chords it spans. The void
+     * is the GAP between two bands, and `sliceStations` inserts exact stations at
+     * the opening's arc-length edges, so an opening wider than a chord is never
+     * split into per-chord cuts and is never capped to a chord.
+     *
+     * Handles the LAYERED curved wall too: each layer is banded independently
+     * with its own centreline offset, exactly as the uncarved layered path does.
+     *
+     * @returns true when bands were emitted; false on degenerate geometry, so the
+     *          caller can fall through to the uncarved solid (never an empty wall).
+     */
+    private _buildCurvedWallWithOpenings(
+        wall: WallData,
+        wallGroup: THREE.Group,
+        fragmentIds: string[],
+        start: THREE.Vector3,
+        end: THREE.Vector3,
+        wallThickness: number,
+        wallHeight: number,
+        wallBaseOffset: number,
+        joinData?: JoinData | null,
+        renderMap?: OpeningRenderMap,
+    ): boolean {
+        if (!wall.curve) return false;
+
+        const ctrl = new THREE.Vector3(
+            wall.curve.control.x,
+            wall.curve.control.y,
+            wall.curve.control.z,
+        );
+        const stations = computeStations(start, end, ctrl, wall.curve.segments);
+        if (stations.length < 2) return false;
+
+        const cum = stationArcLengths(stations);
+        const totalLength = cum[cum.length - 1] ?? 0;
+        if (!(totalLength > 0) || !(wallHeight > 0)) return false;
+
+        const bands = computeCurvedWallBands(
+            (wall.openings ?? []).map(o => ({
+                offset: o.offset,
+                width: o.width,
+                height: o.height,
+                sillHeight: o.sillHeight ?? 0,
+            })),
+            totalLength,
+            wallHeight,
+        );
+        if (bands.length === 0) return false;
+
+        const startMN = joinData?.startMN ?? null;
+        const endMN   = joinData?.endMN   ?? null;
+
+        // §CURVED-STRAIGHT-FIX — exact quadratic-Bézier tangents at the arc
+        // endpoints, so a band that carries a miter cap projects along the SAME
+        // direction `WallJoinResolver._wallDirAtJoin` used to compute the normal.
+        const _sdx = ctrl.x - start.x, _sdz = ctrl.z - start.z;
+        const _sl  = Math.hypot(_sdx, _sdz) || 1;
+        const arcStartTan = { x: _sdx / _sl, z: _sdz / _sl };
+        const _edx = end.x - ctrl.x, _edz = end.z - ctrl.z;
+        const _el  = Math.hypot(_edx, _edz) || 1;
+        const arcEndTan = { x: _edx / _el, z: _edz / _el };
+
+        // Layer plan: one entry for a plain wall, N for a layered one. Each entry
+        // is a concentric band-set offset laterally from the centreline.
+        type LayerPlan = {
+            layer: import('./WallTypes').WallLayer | null;
+            centreOffset: number;
+            halfT: number;
+            colour: string | undefined;
+            index: number;
+        };
+        const layerPlans: LayerPlan[] = [];
+        if (wall.layers && wall.layers.length > 0) {
+            const totalThickness = wall.layers.reduce((s: number, l) => s + l.thickness, 0);
+            let cursor = -totalThickness / 2;
+            wall.layers.forEach((layer, i) => {
+                layerPlans.push({
+                    layer,
+                    centreOffset: cursor + layer.thickness / 2,
+                    halfT: layer.thickness / 2,
+                    colour: layer.materialColor ?? wall.materialColor,
+                    index: i,
+                });
+                cursor += layer.thickness;
+            });
+        } else {
+            layerPlans.push({
+                layer: null,
+                centreOffset: 0,
+                halfT: wallThickness / 2,
+                colour: wall.materialColor,
+                index: -1,
+            });
+        }
+
+        const baseMaterial = this.createWallMaterial(wall);
+        let emitted = 0;
+
+        for (const band of bands) {
+            const bandStations = sliceStations(stations, cum, band.s0, band.s1);
+            if (bandStations.length < 2) continue;
+            const caps = bandCapTangents(bandStations);
+
+            // A miter cap belongs ONLY to a band that actually reaches the wall
+            // end; an interior jamb must stay radial, never miter-projected.
+            const bandStartMN = band.atStart ? startMN : null;
+            const bandEndMN   = band.atEnd   ? endMN   : null;
+            const bandStartTan = band.atStart ? arcStartTan : caps.start;
+            const bandEndTan   = band.atEnd   ? arcEndTan   : caps.end;
+
+            for (const plan of layerPlans) {
+                const geom = buildCurvedLayerGeometry(
+                    (plan.layer ?? { name: 'body', function: 'structure', thickness: plan.halfT * 2 }) as import('./WallTypes').WallLayer,
+                    plan.centreOffset,
+                    bandStations,
+                    band.yHi - band.yLo,
+                    wallBaseOffset + band.yLo,
+                    plan.halfT,
+                    bandStartMN,
+                    bandEndMN,
+                    bandStartTan,
+                    bandEndTan,
+                );
+
+                const mat = baseMaterial.clone() as THREE.MeshStandardMaterial;
+                if (plan.colour) mat.color = new THREE.Color(plan.colour);
+                // Curved walls wrap around — the inner face is visible from some
+                // camera angles, exactly as on the uncarved curved path.
+                mat.side = THREE.DoubleSide;
+
+                const mesh = new THREE.Mesh(geom, mat);
+                mesh.userData = {
+                    id: wall.id,
+                    materialId: wall.materialId,
+                    materialColor: plan.colour ?? wall.materialColor,
+                    elementType: plan.layer ? 'WallLayer' : 'WallPart',
+                    modelId: 'model-default',
+                    role: 'geometry',
+                    selectable: false,
+                    wallId: wall.id,
+                    parentId: wall.id,
+                    ...(plan.layer
+                        ? { layerIndex: plan.index, layerName: plan.layer.name, layerFunction: plan.layer.function }
+                        : {}),
+                    // Diagnostics: which carve band this solid is.
+                    wallBandKind: band.kind,
+                };
+                mesh.position.set(0, 0, 0);
+                wallGroup.add(mesh);
+                wallGroup.add(buildWallEdgeOverlay(geom, wall.id));
+
+                const fragmentId = crypto.randomUUID();
+                this.fragments.set(fragmentId, {
+                    id: fragmentId,
+                    wallId: wall.id,
+                    mesh: mesh as unknown as THREE.Mesh,
+                    type: 'wall-body',
+                    parentId: wall.id,
+                    levelId: wall.levelId,
+                });
+                this.fragmentToEntityMap.set(fragmentId, {
+                    fragmentId,
+                    elementId: wall.id,
+                    type: 'wall',
+                    entityType: 'wall',
+                    entityId: wall.id,
+                });
+                fragmentIds.push(fragmentId);
+                emitted++;
+            }
+        }
+
+        safeDisposeMaterial(baseMaterial as THREE.Material);
+
+        if (emitted === 0) return false;
+
+        // ── Opening frames — identical contract to the straight / layered paths.
+        // `createDoorFrame` / `createWindowFrame` self-position along the wall and
+        // are arc-aware (see their `hostedElementFrame` call), so they sit on the
+        // curved face with the frame's local X along the TANGENT at its centre.
+        for (const op of wall.openings ?? []) {
+            if (!op.elementId) continue;
+            const existing = wallGroup.children.find(c => c.userData?.id === op.elementId);
+            if (existing) wallGroup.remove(existing);
+
+            const opRenderData = renderMap?.get(op.elementId);
+            const frame = op.type === 'door'
+                ? this.createDoorFrame(wall, op, opRenderData)
+                : this.createWindowFrame(wall, op, opRenderData);
+
+            if (frame.children.length > 0 || Object.keys(frame.userData).length > 0) {
+                wallGroup.add(frame);
+                const fragId = crypto.randomUUID();
+                this.fragments.set(fragId, {
+                    id: fragId,
+                    wallId: wall.id,
+                    mesh: frame as unknown as THREE.Mesh,
+                    type: 'opening',
+                    parentId: wall.id,
+                    levelId: wall.levelId,
+                });
+                fragmentIds.push(fragId);
+            }
+        }
+
+        return true;
+    }
+
     private createWindowFrame(wall: WallData, opening: Opening, renderData?: OpeningRenderData): THREE.Group {
         // When the new WindowBuilder owns this element, skip legacy frame geometry.
         // The wall void is still cut correctly — only the frame mesh is suppressed.
@@ -2516,8 +2869,6 @@ export class WallFragmentBuilder {
             return new THREE.Group(); // Return empty group
         }
 
-        const dir = baselineVec.clone().normalize();
-
         // Validate opening offset
         if (!isFinite(opening.offset)) {
             console.error("Invalid window offset:", opening);
@@ -2527,8 +2878,13 @@ export class WallFragmentBuilder {
         // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `opening.offset` is the LEFT
         // EDGE of the span [offset, offset+width]; the frame's CENTRE sits at
         // offset + width/2. This matches the void span computed in the cluster path.
+        // §FEAT-HOSTED-ON-CURVED-WALL — `centreAlong` is a distance along the wall
+        // CENTRELINE. On a curved host the normalised anchor `t` must divide by the
+        // ARC length, not the chord, or the stored anchor drifts away from the void
+        // the carve bands actually left.
         const centreAlong = opening.offset + opening.width / 2;
-        const t = centreAlong / wallLength;
+        const _centrelineLen = wallCentrelineLength(wall) || wallLength;
+        const t = centreAlong / _centrelineLen;
         const sillHeight = opening.sillHeight ?? 0;
         // §WALL-NAN-GUARD (2026-06-25): wall.baseOffset is optional and arrives
         // `undefined` from the generator/batch path (CreateWallBatch only spreads it
@@ -2537,12 +2893,17 @@ export class WallFragmentBuilder {
         // to 0, matching §FIX-NAN-Y on the wall-body path.
         const localY = sillHeight + opening.height / 2 + (wall.baseOffset ?? 0);
 
-        const pos = dir.clone().multiplyScalar(centreAlong);
+        // §FEAT-HOSTED-ON-CURVED-WALL — position + heading come from the local frame
+        // on the CENTRELINE at `centreAlong`, so the frame sits on the curved face
+        // and is oriented to the TANGENT there, never to the chord. `wallGroup`'s
+        // origin is the wall start, so the world frame is made start-relative.
+        // For a straight wall this reduces exactly to `dir × centreAlong`.
+        const _hf = hostedElementFrame(wall, opening.offset, opening.width);
+        const pos = new THREE.Vector3(_hf.x - start.x, 0, _hf.z - start.z);
         frameGroup.position.set(pos.x, localY, pos.z);
 
         // Correct rotation calculation
-        const angle = Math.atan2(dir.z, dir.x);
-        frameGroup.rotation.y = -angle;
+        frameGroup.rotation.y = _hf.rotationY;
 
         // Set semantic identity ONLY on the root group
         const userData = {
@@ -2690,8 +3051,6 @@ export class WallFragmentBuilder {
             return new THREE.Group(); // Return empty group
         }
 
-        const dir = baselineVec.clone().normalize();
-
         // Validate opening offset
         if (!isFinite(opening.offset)) {
             console.error("Invalid door offset:", opening);
@@ -2701,8 +3060,13 @@ export class WallFragmentBuilder {
         // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `opening.offset` is the LEFT
         // EDGE of the span [offset, offset+width]; the frame's CENTRE sits at
         // offset + width/2. This matches the void span computed in the cluster path.
+        // §FEAT-HOSTED-ON-CURVED-WALL — `centreAlong` is a distance along the wall
+        // CENTRELINE. On a curved host the normalised anchor `t` must divide by the
+        // ARC length, not the chord, or the stored anchor drifts away from the void
+        // the carve bands actually left.
         const centreAlong = opening.offset + opening.width / 2;
-        const t = centreAlong / wallLength;
+        const _centrelineLen = wallCentrelineLength(wall) || wallLength;
+        const t = centreAlong / _centrelineLen;
         const sillHeight = opening.sillHeight ?? 0;
         // §WALL-NAN-GUARD (2026-06-25): wall.baseOffset is optional and arrives
         // `undefined` from the generator/batch path (CreateWallBatch only spreads it
@@ -2711,12 +3075,17 @@ export class WallFragmentBuilder {
         // to 0, matching §FIX-NAN-Y on the wall-body path.
         const localY = sillHeight + opening.height / 2 + (wall.baseOffset ?? 0);
 
-        const pos = dir.clone().multiplyScalar(centreAlong);
+        // §FEAT-HOSTED-ON-CURVED-WALL — position + heading come from the local frame
+        // on the CENTRELINE at `centreAlong`, so the frame sits on the curved face
+        // and is oriented to the TANGENT there, never to the chord. `wallGroup`'s
+        // origin is the wall start, so the world frame is made start-relative.
+        // For a straight wall this reduces exactly to `dir × centreAlong`.
+        const _hf = hostedElementFrame(wall, opening.offset, opening.width);
+        const pos = new THREE.Vector3(_hf.x - start.x, 0, _hf.z - start.z);
         frameGroup.position.set(pos.x, localY, pos.z);
 
         // Correct rotation calculation
-        const angle = Math.atan2(dir.z, dir.x);
-        frameGroup.rotation.y = -angle;
+        frameGroup.rotation.y = _hf.rotationY;
 
         // Set semantic identity ONLY on the root group
         const userData = {

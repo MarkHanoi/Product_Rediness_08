@@ -26,6 +26,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { TransformControls } from '@pryzm/renderer-three';
+// §FEAT-HOSTED-ON-CURVED-WALL — the hosted-element drag is a 1-D motion along the
+// wall CENTRELINE; on a curved host that centreline is an arc (C15 §5 generalised).
+import { wallCentrelineLength, arcLengthAtPointXZ, arcFrameAt, wallCentreline } from '@pryzm/geometry-wall';
 
 // ── Minimal store shapes (avoids coupling to full WallStore type) ──────────────
 interface HostedElement {
@@ -37,6 +40,12 @@ interface HostedElement {
 interface WallBaseline {
     baseLine: [THREE.Vector3, THREE.Vector3];
     baseOffset: number;
+    /**
+     * §FEAT-HOSTED-ON-CURVED-WALL — present when the host is a curved wall
+     * (Contract §03-1.2 quadratic-Bézier descriptor). When present, the drag is
+     * constrained to the ARC, not the chord.
+     */
+    curve?: { control: { x: number; y?: number; z: number }; segments: number } | null;
 }
 
 interface WallStoreAccess {
@@ -152,10 +161,11 @@ export class HostedElementDragController {
 
         if (!wall || !elem) return;
 
-        const [start, end] = wall.baseLine;
-        const wallVec = new THREE.Vector3().subVectors(end, start);
-        const wallLength = wallVec.length();
-        const wallDir = wallVec.clone().normalize();
+        // §FEAT-HOSTED-ON-CURVED-WALL — C15 §5 clamps `offset + width ≤ wallLength`.
+        // On a curved host that length is the ARC length; using the chord would clamp
+        // the element short of the wall's real far end and, worse, would let the drag
+        // leave the wall face entirely as the arc bows away from the chord.
+        const wallLength = wallCentrelineLength(wall);
 
         // Compute the new offset as the projection of (worldPosition - wallStart) onto
         // wallDir.  Using obj.position directly was wrong because it projected from the
@@ -167,7 +177,9 @@ export class HostedElementDragController {
         // CENTRE (positionGroup = offset + width/2), so the projection below is the new
         // CENTRE along the wall. The stored/committed `offset` is the LEFT EDGE, so
         // convert centre → left edge before clamping the SPAN inside [0, wallLength].
-        const rawCentreOffset = new THREE.Vector3().subVectors(worldPos, start).dot(wallDir);
+        // Project the dragged world position onto the CENTRELINE. For a straight wall
+        // this returns exactly `dot(worldPos − start, wallDir)` clamped to the wall.
+        const rawCentreOffset = arcLengthAtPointXZ(wall, worldPos.x, worldPos.z).s;
         const clampedNewOffset = Math.max(0, Math.min(rawCentreOffset - elem.width / 2, wallLength - elem.width));
         const delta = clampedNewOffset - this.dragStartOffset;
 
@@ -175,8 +187,7 @@ export class HostedElementDragController {
             // Movement is negligible — snap the object back visually.
             // The store rebuild triggered by the next selection event will
             // authoratively restore the correct position anyway.
-            const wallStart = new THREE.Vector3(start.x, start.y ?? 0, start.z);
-            this.restorePosition(obj, wallStart, wallDir, this.dragStartOffset, elem.width);
+            this.restorePosition(obj, wall, this.dragStartOffset, elem.width);
             return;
         }
 
@@ -257,14 +268,15 @@ export class HostedElementDragController {
      */
     private restorePosition(
         obj: THREE.Object3D,
-        wallStart: THREE.Vector3,
-        wallDir: THREE.Vector3,
+        wall: WallBaseline,
         offset: number,
         width: number,
     ): void {
-        const correctPos = wallStart.clone().addScaledVector(wallDir, offset + width / 2);
+        // §FEAT-HOSTED-ON-CURVED-WALL — the CENTRE sits at arc length
+        // `offset + width/2` on the wall centreline (chord for a straight wall).
+        const f = arcFrameAt(wall, offset + width / 2);
         // Preserve Y (controlled by sillHeight + height/2 + baseOffset — store-authoritative)
-        obj.position.set(correctPos.x, obj.position.y, correctPos.z);
+        obj.position.set(f.x, obj.position.y, f.z);
     }
 
     // ── Constraint rail (amber gizmo along the wall baseline) ─────────────────
@@ -278,15 +290,18 @@ export class HostedElementDragController {
         const wall = wallStore.getById(obj.userData.wallId);
         if (!wall) return;
 
-        const [start, end] = wall.baseLine;
-
         // Compute world Y at the element's vertical centre
         const worldPos = new THREE.Vector3();
         obj.getWorldPosition(worldPos);
         const railY = worldPos.y;
 
-        const railStart = new THREE.Vector3(start.x, railY, start.z);
-        const railEnd   = new THREE.Vector3(end.x,   railY, end.z);
+        // §FEAT-HOSTED-ON-CURVED-WALL — the rail shows WHERE THE ELEMENT MAY GO, so it
+        // must follow the centreline the drag is constrained to. On a curved host a
+        // straight rail would promise travel through open air off the wall face.
+        const _cl = wallCentreline(wall);
+        const railPts = _cl.pts.map(p => new THREE.Vector3(p.x, railY, p.z));
+        const railStart = railPts[0];
+        const railEnd   = railPts[railPts.length - 1];
         const railDir   = new THREE.Vector3().subVectors(railEnd, railStart).normalize();
 
         this.constraintRail = new THREE.Group();
@@ -294,7 +309,7 @@ export class HostedElementDragController {
         this.constraintRail.userData.isHostedConstraintRail = true;
 
         // Main rail line
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([railStart, railEnd]);
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(railPts);
         const lineMat = new THREE.LineBasicMaterial({
             color: RAIL_COLOR,
             depthTest: false,
