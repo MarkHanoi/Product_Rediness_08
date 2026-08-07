@@ -166,18 +166,19 @@
          massive heading, subtitle, pill CTAs, feature-tag strip.
          No mosaic, no white card — the gradient shell IS the background. */
       .lp-skel-hero {
-        flex: 1; min-height: calc(100vh - 64px);
+        flex: 0 0 auto;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        padding: 72px 24px 96px; text-align: center;
+        padding: 64px 24px 40px; text-align: center;
       }
       .lp-skel-hero-logo-block {
-        display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 40px;
+        display: flex; flex-direction: column; align-items: center; gap: 10px;
+        min-height: 112px; justify-content: center; margin-bottom: 14px;
       }
       .lp-skel-hero-icon { width: 44px; height: 44px; display: block; }
       .lp-skel-hero-logoname {
-        font-size: 13px; font-weight: 700; letter-spacing: 5px; color: #1a2035;
-        text-transform: uppercase; line-height: 1;
+        font-size: 13px; font-weight: 700; letter-spacing: 0.42em; text-indent: 0.42em;
+        color: #4A00B7; text-transform: uppercase; line-height: 1; margin: 0 0 20px;
       }
       /* §SKEL-MATCH (2026-05-29) — these values must match `.lp-hero-heading`
          and `.lp-hero-sub` in apps/editor/src/ui/styles/panels/marketingPages.ts
@@ -186,16 +187,38 @@
          washed-out background ("the silent wrong landing"). See memory note
          landing-skeleton-vs-real-mismatch.md. */
       .lp-skel-heading {
-        font-size: clamp(72px, 9.8vw, 146px); font-weight: 800; line-height: 1.0;
+        font-size: clamp(30px, 6.0vw, 88px); font-weight: 800; line-height: 1.02;
         font-family: var(--lp-skel-font);
-        color: #ffffff;
-        text-shadow: 0 2px 24px rgba(90,30,200,0.22), 0 1px 4px rgba(60,20,150,0.14);
-        margin: 0 0 16px; letter-spacing: -0.03em; max-width: none; text-transform: uppercase;
+        color: #6600FF;
+        margin: 0 0 20px; letter-spacing: -0.03em; max-width: none; text-transform: uppercase;
       }
       .lp-skel-sub-copy {
-        font-size: clamp(13px, 1.3vw, 17px); color: rgba(255,255,255,0.88); line-height: 1.5;
-        margin: 0 0 40px; max-width: 480px; font-weight: 400; letter-spacing: 0.01em;
+        font-size: clamp(14px, 1.35vw, 18px); color: #4A00B7; line-height: 1.5;
+        margin: 0 0 36px; max-width: 540px; font-weight: 500; letter-spacing: 0.01em;
       }
+      /* Showcase plate — reserves the SAME 2560×1440 box as .lp-showcase-frame
+         so nothing shifts when the real landing swaps in. The skeleton never
+         requests the CDN image (it must not add a network hop before first
+         paint); it paints the same token-purple surface + caption row. */
+      .lp-skel-showcase {
+        position: relative; width: 100%; aspect-ratio: 1600 / 442; overflow: hidden;
+        background: linear-gradient(160deg, #4A00B7 0%, #6600FF 100%);
+        border-top: 1px solid rgba(255,255,255,0.55);
+        box-shadow: 0 -18px 48px rgba(102,0,255,0.14);
+        flex-shrink: 0;
+      }
+      .lp-skel-showcase-caption {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+        padding: 20px 16px; color: #ffffff;
+        font-size: clamp(9.5px, 0.86vw, 12.5px); font-weight: 600;
+        letter-spacing: 0.18em; text-transform: uppercase;
+        background: linear-gradient(to top, rgba(10,10,15,0.66) 0%, rgba(10,10,15,0.30) 55%, rgba(10,10,15,0) 100%);
+      }
+      .lp-skel-showcase-item {
+        padding: 4px 14px; border-right: 1px solid rgba(255,255,255,0.38); line-height: 1;
+      }
+      .lp-skel-showcase-item:last-child { border-right: none; }
       .lp-skel-hero-ctas {
         display: flex; gap: 12px; align-items: center; justify-content: center;
         flex-wrap: wrap; margin-bottom: 44px;
@@ -283,8 +306,14 @@
         .lp-skel-logo-icon { width: 36px; height: 36px; }
         .lp-skel-name { font-size: 16px; letter-spacing: 3px; }
         .lp-skel-sub { font-size: 6.5px; letter-spacing: 3.5px; }
-        .lp-skel-hero { padding: 40px 16px 60px; }
-        .lp-skel-heading { letter-spacing: -2px; }
+        .lp-skel-hero { padding: 12px 16px 28px; }
+        .lp-skel-hero-logo-block { min-height: 76px; margin-bottom: 10px; }
+        .lp-skel-hero-icon { width: 54px; height: 54px; }
+        .lp-skel-hero-logoname { font-size: 11px; margin-bottom: 14px; }
+        .lp-skel-heading { font-size: 34px; letter-spacing: -0.02em; }
+        .lp-skel-sub-copy { font-size: 14px; max-width: 100%; margin-bottom: 26px; }
+        .lp-skel-showcase-caption { position: static; background: #4A00B7; padding: 12px 8px; letter-spacing: 0.10em; font-size: 9.5px; row-gap: 6px; }
+        .lp-skel-showcase-item { padding: 3px 8px; }
         .lp-skel-hero-btn { padding: 14px 28px; font-size: 15px; min-height: 48px; }
         .lp-skel-hero-btn-demo { padding: 13px 24px; min-height: 48px; }
         .lp-skel-hero-ctas { flex-direction: column; width: 100%; max-width: 280px; }
@@ -383,8 +412,9 @@
             </div>
           </div>
 
-          <h1 class="lp-skel-heading">PRYZM</h1>
-          <p class="lp-skel-sub-copy">Build the future, intelligently.</p>
+          <p class="lp-skel-hero-logoname">PRYZM</p>
+          <h1 class="lp-skel-heading">DEVELOPMENT. COMPUTED.</h1>
+          <p class="lp-skel-sub-copy">Turning planning law into development intelligence.</p>
 
           <div class="lp-skel-hero-ctas">
             <button class="lp-skel-hero-btn" type="button" data-skel-action="getStarted">
@@ -394,6 +424,17 @@
           </div>
 
         </section>
+        <!-- Showcase plate — the same box as .lp-showcase-frame, no network hop. -->
+        <div class="lp-skel-showcase">
+          <div class="lp-skel-showcase-caption">
+            <span class="lp-skel-showcase-item">Site intelligence</span>
+            <span class="lp-skel-showcase-item">Design</span>
+            <span class="lp-skel-showcase-item">Feasibility</span>
+            <span class="lp-skel-showcase-item">Cost</span>
+            <span class="lp-skel-showcase-item">Documentation</span>
+            <span class="lp-skel-showcase-item">Compliance</span>
+          </div>
+        </div>
       </div>
     </div>
     <!-- Phase 1.1: dck-workspace flex row — left dock | canvas | right dock.

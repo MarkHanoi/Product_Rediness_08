@@ -63,7 +63,8 @@
  * ============================================================================
  */
 
-import { mkdirSync, writeFileSync, statSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync, cpSync, readdirSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { dirname, resolve, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Window } from 'happy-dom';
@@ -154,6 +155,10 @@ const PRYZM_PYRAMID_SVG = `
 const APEX_CSP = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
+  // No CDN entry: the hero screenshot ships INSIDE the apex (see the static
+  // asset copy below), so `'self'` is all it needs. C51 §2.2.4's CDN allowance
+  // is a permission, not a preference — staying self-contained means marketing
+  // cannot be broken by a third-party outage, and the CSP stays tight.
   "img-src 'self' data:",
   "font-src 'self' data:",
   "connect-src 'self'",
@@ -841,6 +846,32 @@ for (const route of ROUTES) {
   }
 }
 
+// ----- static assets ------------------------------------------------------
+//
+// C51 §2.2.4 — the apex is SELF-CONTAINED. Anything under
+// apps/editor/public/apex/ is copied verbatim into dist-apex/apex/, which is
+// how the hero product screenshot reaches the edge without a CDN allowlist
+// entry (and therefore without widening img-src beyond 'self'). Vite's
+// public/ copying does NOT apply here — this script writes dist-apex/ itself
+// and never runs Vite — so the copy is explicit.
+// The asset lives in the repo-root public/ — Vite's publicDir — so the SAME
+// file also serves the IN-APP landing at /apex/... . (apps/editor/public/ is
+// NOT a publicDir: nothing copies it, so an asset there would 404 in the app.)
+// The editor-local path is kept as a fallback so either layout builds.
+const publicApexDir = [
+  resolve(repoRoot, 'public', 'apex'),
+  resolve(editorRoot, 'public', 'apex'),
+].find(existsSync);
+if (publicApexDir) {
+  const destDir = resolve(outDir, 'apex');
+  cpSync(publicApexDir, destDir, { recursive: true });
+  for (const name of readdirSync(destDir)) {
+    const size = statSync(resolve(destDir, name)).size;
+    total += size;
+    console.log(`[prerender-apex]   asset       apps/editor/dist-apex/apex/${name.padEnd(24)}${size.toLocaleString().padStart(12)} bytes`);
+  }
+}
+
 // Emit Cloudflare Pages control files.
 writeFileSync(resolve(outDir, '_headers'), HEADERS_FILE, 'utf8');
 writeFileSync(resolve(outDir, '_redirects'), REDIRECTS_FILE, 'utf8');
@@ -858,10 +889,19 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-if (total > 200 * 1024) {
-  // Soft warning per spec: apex bundle should be < 200 KB total. Above that,
-  // first-paint on slow networks starts to suffer.
-  console.warn(`[prerender-apex] WARN — total output ${(total / 1024).toFixed(1)} KB exceeds 200 KB soft budget.`);
+// Soft warning per C51 §6.1.3: the apex budget is 200 KB GZIPPED, which is
+// what check-apex-size.mjs enforces. Warning on RAW bytes was fine while the
+// apex was pure HTML + inline CSS (raw >> gzip, so it erred safe), but the
+// hero WebP is ALREADY compressed — raw bytes now overstate the real payload
+// by ~35% and would warn spuriously. Measure what the gate measures.
+const walk = (dir) => readdirSync(dir).flatMap((name) => {
+  const full = resolve(dir, name);
+  if (statSync(full).isDirectory()) return walk(full);
+  return name === '_headers' || name === '_redirects' ? [] : [full];
+});
+const gzTotal = walk(outDir).reduce((sum, f) => sum + gzipSync(readFileSync(f)).length, 0);
+if (gzTotal > 200 * 1024) {
+  console.warn(`[prerender-apex] WARN — gzipped output ${(gzTotal / 1024).toFixed(1)} KB exceeds the 200 KB budget (C51 6.1.3).`);
 }
 
 console.log(`[prerender-apex] done.`);

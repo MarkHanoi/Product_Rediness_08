@@ -61,6 +61,53 @@ const PRYZM_PYRAMID_SVG = `<svg class="lp-logo-icon" viewBox="0 0 36 36" fill="n
                     </svg>`;
 
 /**
+ * HERO COPY — the ONE place it exists. Both surfaces (apex prerender and the
+ * in-app LandingPage) read these constants; nothing else may restate them.
+ * (`index.html`'s first-paint skeleton is a third, pre-JS artifact that cannot
+ * import TS — it MUST be hand-mirrored in lock-step, see its §SKEL-MATCH note.)
+ */
+export const HERO_WORDMARK = 'PRYZM';
+export const HERO_HEADLINE = 'DEVELOPMENT. COMPUTED.';
+export const HERO_SUBHEAD = 'Turning planning law into development intelligence.';
+
+/** The showcase caption row, overlaid across the bottom of the product shot. */
+export const SHOWCASE_CAPTIONS = [
+    'Site intelligence',
+    'Design',
+    'Feasibility',
+    'Cost',
+    'Documentation',
+    'Compliance',
+] as const;
+
+/**
+ * HERO_IMAGE_URL — the full-bleed product screenshot beneath the hero.
+ *
+ * WHY IT SHIPS INSIDE THE APEX (C51 §2.2.4 / §6.1.3)
+ * --------------------------------------------------
+ * §2.2.4 permits an allowlisted image CDN, but that is a PERMISSION, not a
+ * preference: an apex that serves its own hero has no cross-origin dependency,
+ * needs no CSP widening, and cannot be broken by a third party's outage. The
+ * asset is a 1600×442 WebP (~109 KB) — already compressed, so gzip is a no-op
+ * on it — which lands the whole apex around 133 KB against the 200 KB gzipped
+ * §6.1.3 ceiling. It is served from apps/editor/public/apex/, which
+ * prerender-apex.mjs copies into dist-apex/ verbatim.
+ *
+ * WHEN EMPTY the hero degrades honestly: the section still renders at its
+ * exact aspect ratio on a token-coloured surface with the caption row legible.
+ * It never shows a broken-image icon and never collapses.
+ */
+export const HERO_IMAGE_URL = '/apex/hero-site-3d.webp';
+/** Intrinsic size of the asset — drives aspect-ratio so there is ZERO CLS. */
+export const HERO_IMAGE_WIDTH = 1600;
+export const HERO_IMAGE_HEIGHT = 442;
+export const HERO_IMAGE_ALT =
+    'The PRYZM editor in 3D Site view over Paris: a glass massing tower placed among '
+    + 'the existing city blocks with the Eiffel Tower behind it, the modelling tool rail '
+    + 'on the left, and the 5D plan, 3D globe, 3D Site, Real, Massing and Fly-tour view '
+    + 'controls across the top.';
+
+/**
  * Returns the landing page's inner HTML (the contents of `.lp-shell`).
  *
  * In 'app' mode the caller (LandingPage.build) sets this as innerHTML on a
@@ -147,16 +194,19 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 </div>`}
             </nav>
 
-            <!-- ── Hero section — PRYZM4 centred gradient layout ─── -->
+            <!-- ── Hero — glyph → wordmark → display headline → subhead ───
+                 Composition per the founder's 2026-08-07 design, sitting on
+                 the EXISTING animated gradient (the palette does not change). -->
             <section class="lp-hero">
-                <!-- Pyramid spinner mount — filled by createPryzmLogoSpinner after build (app mode only) -->
-                <div class="lp-hero-logo-block" aria-hidden="true"></div>
+                <!-- Pyramid: the JS 3-D spinner mounts here in app mode; apex
+                     (no script) gets the same static mark the nav uses. -->
+                <div class="lp-hero-logo-block" aria-hidden="true">${apex ? PRYZM_PYRAMID_SVG : ''}</div>
 
-                <!-- PRYZM as the hero wordmark heading -->
-                <h1 class="lp-hero-heading">PRYZM</h1>
+                <p class="lp-hero-wordmark">${HERO_WORDMARK}</p>
 
-                <!-- Tagline as subtitle -->
-                <p class="lp-hero-sub">Build the future, intelligently.</p>
+                <h1 class="lp-hero-heading">${HERO_HEADLINE}</h1>
+
+                <p class="lp-hero-sub">${HERO_SUBHEAD}</p>
 
                 <!-- CTA button — MIAW "ask me anything" glass-pill style, delayed entrance -->
                 <div class="lp-hero-ctas">
@@ -169,6 +219,22 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                     )}
                 </div>
 
+            </section>
+
+            <!-- ── Product showcase — full-bleed screenshot + caption row ───
+                 The <img> is served from an allowlisted CDN (C51 §2.2.4) so the
+                 200 KB gzipped apex budget (§6.1.3) is untouched. With no asset
+                 configured the frame still occupies its exact aspect ratio on a
+                 deep-purple token surface — honest, and zero CLS either way. -->
+            <section class="lp-showcase" aria-label="The PRYZM editor">
+                <figure class="lp-showcase-frame${HERO_IMAGE_URL ? '' : ' lp-showcase-frame--pending'}">
+                    ${HERO_IMAGE_URL
+                        ? `<img class="lp-showcase-img" src="${HERO_IMAGE_URL}" width="${HERO_IMAGE_WIDTH}" height="${HERO_IMAGE_HEIGHT}" alt="${HERO_IMAGE_ALT}" loading="lazy" decoding="async">`
+                        : `<div class="lp-showcase-placeholder" role="img" aria-label="${HERO_IMAGE_ALT}"></div>`}
+                    <figcaption class="lp-showcase-caption">
+                        ${SHOWCASE_CAPTIONS.map((c) => `<span class="lp-showcase-caption-item">${c}</span>`).join('\n                        ')}
+                    </figcaption>
+                </figure>
             </section>
 
             <!-- ── Stream 2 — Bespoke / Enterprise section ─── -->

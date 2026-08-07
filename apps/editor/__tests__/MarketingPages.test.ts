@@ -19,7 +19,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { PricingPage, mountPricingPage } from '../src/ui/marketing/PricingPage.js';
 import { ManifestoPage, mountManifestoPage } from '../src/ui/marketing/ManifestoPage.js';
 import { TrustPage, mountTrustPage } from '../src/ui/marketing/TrustPage.js';
-import { landingMarkup } from '../src/ui/platform/landingMarkup.js';
+import {
+    landingMarkup,
+    HERO_WORDMARK, HERO_HEADLINE, HERO_SUBHEAD,
+    SHOWCASE_CAPTIONS,
+    HERO_IMAGE_URL, HERO_IMAGE_WIDTH, HERO_IMAGE_HEIGHT, HERO_IMAGE_ALT,
+} from '../src/ui/platform/landingMarkup.js';
 import { LANDING_PAGE_STYLES } from '../src/ui/styles/panels/marketingPages.js';
 
 interface CallSink {
@@ -314,7 +319,7 @@ describe('landingMarkup — motif-modelled header', () => {
 describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () => {
     it('the nav is visible and pinned to the top (no display:none)', () => {
         expect(LANDING_PAGE_STYLES).not.toMatch(/\.lp-nav\s*\{\s*display:\s*none/);
-        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*position:\s*sticky/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*position:\s*relative/);
         expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*align-items:\s*flex-start/);
     });
 
@@ -340,5 +345,73 @@ describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () 
     it('gives every header control a visible focus ring (C43)', () => {
         expect(LANDING_PAGE_STYLES).toContain('.lp-nav-demo:focus-visible');
         expect(LANDING_PAGE_STYLES).toContain('.lp-nav-login:focus-visible');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The 2026-08-07 hero — copy lives in exactly ONE place and both surfaces
+// read it. These tests are the guard against the copy being restated inline.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('landingMarkup — hero + product showcase', () => {
+    it('renders glyph → wordmark → headline → subhead, from the shared constants', () => {
+        for (const html of [
+            landingMarkup({ mode: 'app' }),
+            landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }),
+        ]) {
+            expect(html).toContain(`<p class="lp-hero-wordmark">${HERO_WORDMARK}</p>`);
+            expect(html).toContain(`<h1 class="lp-hero-heading">${HERO_HEADLINE}</h1>`);
+            expect(html).toContain(`<p class="lp-hero-sub">${HERO_SUBHEAD}</p>`);
+            // Composition order: wordmark above headline above subhead.
+            expect(html.indexOf('lp-hero-wordmark')).toBeLessThan(html.indexOf('lp-hero-heading'));
+            expect(html.indexOf('lp-hero-heading')).toBeLessThan(html.indexOf('lp-hero-sub'));
+        }
+        expect(HERO_HEADLINE).toBe('DEVELOPMENT. COMPUTED.');
+        expect(HERO_SUBHEAD).toBe('Turning planning law into development intelligence.');
+    });
+
+    it('apex gets a static pyramid glyph; app leaves the slot for the JS spinner', () => {
+        expect(landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }))
+            .toMatch(/lp-hero-logo-block[^>]*>\s*<svg/);
+        expect(landingMarkup({ mode: 'app' }))
+            .toContain('<div class="lp-hero-logo-block" aria-hidden="true"></div>');
+    });
+
+    it('the showcase image is SAME-ORIGIN, sized, lazy and described (C51 §2.2.4 / §2.1.3 / C43)', () => {
+        expect(HERO_IMAGE_URL).toMatch(/^\//);              // never cross-origin
+        expect(HERO_IMAGE_URL).not.toContain('://');
+        const html = landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN });
+        expect(html).toContain(`src="${HERO_IMAGE_URL}"`);
+        expect(html).toContain(`width="${HERO_IMAGE_WIDTH}" height="${HERO_IMAGE_HEIGHT}"`);
+        expect(html).toContain('loading="lazy"');
+        expect(html).toContain('decoding="async"');
+        expect(html).toContain(`alt="${HERO_IMAGE_ALT}"`);
+        expect(HERO_IMAGE_ALT.length).toBeGreaterThan(40); // a real description
+    });
+
+    it('renders every caption in order, from the shared list', () => {
+        const html = landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN });
+        let cursor = -1;
+        for (const caption of SHOWCASE_CAPTIONS) {
+            const at = html.indexOf(`>${caption}</span>`);
+            expect(at, caption).toBeGreaterThan(cursor);
+            cursor = at;
+        }
+    });
+
+    it('showcase CSS holds the frame open and keeps the caption legible either way', () => {
+        // aspect-ratio on the placeholder = no collapse and no CLS when the
+        // asset is absent; the <img> gets its ratio from width/height attrs.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-showcase-placeholder\s*\{[^}]*aspect-ratio:\s*1600 \/ 442/);
+        expect(LANDING_PAGE_STYLES).toContain('.lp-showcase-frame--pending');
+        // A scrim behind the white caption row so it clears AA over any shot.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-showcase-caption\s*\{[^}]*background:\s*linear-gradient/);
+    });
+
+    it('hero type uses a11y tokens — measured to pass AA on the gradient', () => {
+        // #6600FF: 6.22:1 lightest / 3.07:1 darkest → AA large text.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-heading\s*\{[^}]*color:\s*#6600FF/);
+        // #4A00B7: 4.68:1 darkest → AA normal text, which the subhead needs.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-sub\s*\{[^}]*color:\s*#4A00B7/);
     });
 });

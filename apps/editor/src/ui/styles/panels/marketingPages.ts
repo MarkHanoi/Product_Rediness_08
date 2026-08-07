@@ -127,8 +127,12 @@ export const LANDING_PAGE_STYLES = `
         align-items: flex-start;
         gap: 16px;
         padding: 12px 20px 10px 14px;
-        position: sticky;
-        top: 0;
+        /* NOT sticky: the full-bleed product plate below is deep purple, and a
+           transparent header floating over it loses all contrast (the outlined
+           and tinted CTAs disappear). The header scrolls away with the page —
+           which is also the most literal reading of "pinned to the top-left".
+           position:relative is required so the mobile drawer (top:100%) resolves. */
+        position: relative;
         z-index: 60;
         background: transparent;
         flex-shrink: 0;
@@ -295,15 +299,20 @@ export const LANDING_PAGE_STYLES = `
         outline-offset: 2px;
     }
 
-    /* ─── Hero — PRYZM4 full-screen centred layout ────────────────────── */
+    /* ─── Hero — founder design 2026-08-07 ─────────────────────────────
+       glyph → PRYZM wordmark → display headline → subhead, all centred,
+       on the EXISTING animated gradient (the palette is unchanged). The
+       hero no longer claims a full viewport: the product showcase below it
+       must be visible without scrolling, as in the design.
+    ────────────────────────────────────────────────────────────────── */
     .lp-hero {
-        flex: 1;
-        min-height: calc(100vh - 64px);
+        flex: 0 0 auto;
+        padding-top: 40px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 72px 24px 96px;
+        padding: 24px 24px 40px;
         text-align: center;
         position: relative;
     }
@@ -314,10 +323,17 @@ export const LANDING_PAGE_STYLES = `
         flex-direction: column;
         align-items: center;
         gap: 0;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
         /* Reserve space for the scaled spinner so layout doesn't shift */
         min-height: 112px;
         justify-content: center;
+    }
+    /* apex has no script, so the hero glyph is the same static mark the nav
+       uses — scaled up to stand in for the 3-D spinner. */
+    .lp-hero-logo-block .lp-logo-icon {
+        width: 74px;
+        height: 74px;
+        filter: drop-shadow(0 6px 18px rgba(80,20,180,0.26));
     }
     /* Scale the lg spinner (44×56 px base) — 50% of original 2.8× hero size */
     .lp-hero-spinner {
@@ -329,38 +345,54 @@ export const LANDING_PAGE_STYLES = `
     /* logo-name is removed from DOM in PRYZM4 hero — kept as hidden no-op */
     .lp-hero-logo-name { display: none; }
 
-    /* ─── Hero heading — "PRYZM" as the monumental wordmark ─────────────
-       Typography matched to brand reference image:
-         · Tight letter-spacing (-0.01em) — no artificial spread
-         · 900 weight grotesque (Inter / system-ui), same as the reference
-         · Smaller scale — clamp 56px → 112px (≈ half of previous 220px)
-       White-to-lavender gradient fill gives the "white with a light shade"
-       look the user asked for. drop-shadow provides legibility against the
-       light pastel background and adds depth / innovative feel.
+    /* ─── Hero wordmark — small "PRYZM" beneath the glyph ─────────────── */
+    .lp-hero-wordmark {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.42em;
+        /* letter-spacing trails the last glyph — indent restores optical centring */
+        text-indent: 0.42em;
+        color: #4A00B7;
+        text-transform: uppercase;
+        margin: 0 0 20px;
+        line-height: 1;
+    }
+
+    /* ─── Hero heading — "DEVELOPMENT. COMPUTED." ───────────────────────
+       COLOUR RULING (2026-08-07, measured — do not "restore" white).
+       The founder chose PRYZM purple over black. The background stayed the
+       animated lavender field, so the choice was re-measured against it
+       (WCAG 2.1 relative luminance, gradient sampled at its lightest #f3f0ff
+       and darkest #b8a2ff):
+         #6600FF → 6.22:1 lightest, 3.07:1 darkest → PASSES AA large text
+         #ffffff → 1.12:1 lightest, 2.27:1 darkest → FAILS everywhere
+       So purple is BOTH what the founder asked for and the only one that
+       passes. The old white treatment leaned on a text-shadow, not contrast.
+       The subhead is normal-size text (needs 4.5:1), which #6600FF does not
+       clear at the darkest point — it uses pryzm-purple-darker #4A00B7
+       (4.68:1 darkest / 9.48:1 lightest). Both are C43 §1.5 tokens.
     ────────────────────────────────────────────────────────────────── */
     .lp-hero-heading {
-        font-size: clamp(72px, 9.8vw, 146px);
+        font-size: clamp(30px, 6.0vw, 88px);
         font-weight: 800;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        line-height: 1.0;
-        color: #ffffff;
-        text-shadow: 0 2px 24px rgba(90,30,200,0.22), 0 1px 4px rgba(60,20,150,0.14);
-        margin: 0 0 16px;
+        line-height: 1.02;
+        color: #6600FF;
+        margin: 0 0 20px;
         letter-spacing: -0.03em;
         max-width: none;
         text-transform: uppercase;
     }
 
-    /* ─── Hero subtitle — "Build the future, intelligently." ────────────
-       Moved from the h1 position; slightly larger than the old subtitle.
-    ────────────────────────────────────────────────────────────────── */
+    /* ─── Hero subhead — "Turning planning law into development intelligence." */
     .lp-hero-sub {
-        font-size: clamp(13px, 1.3vw, 17px);
-        color: rgba(255,255,255,0.88);
+        font-size: clamp(14px, 1.35vw, 18px);
+        color: #4A00B7;
         line-height: 1.5;
-        margin: 0 0 40px;
-        max-width: 480px;
-        font-weight: 400;
+        margin: 0 0 36px;
+        max-width: 540px;
+        font-weight: 500;
         letter-spacing: 0.01em;
     }
 
@@ -384,15 +416,16 @@ export const LANDING_PAGE_STYLES = `
         animation-delay: 0.35s;
     }
 
-    /* ─── Hero CTA row — offset slightly right per design ───────────── */
+    /* ─── Hero CTA row — centred (the 52px right offset is retired: the
+       2026-08-07 design is a single centred column top to bottom). ───── */
     .lp-hero-ctas {
         display: flex;
         gap: 12px;
         align-items: center;
         justify-content: center;
         flex-wrap: wrap;
-        margin-bottom: 44px;
-        transform: translateX(52px);
+        margin-bottom: 8px;
+        transform: none;
     }
 
     /* ─── Floating "alive" bob — runs forever after the entrance ─────── */
@@ -446,8 +479,76 @@ export const LANDING_PAGE_STYLES = `
     }
     @media (prefers-reduced-motion: reduce) {
         .lp-hero-heading, .lp-hero-sub, .lp-hero-btn--enter { animation: none; }
-        .lp-hero-ctas { transform: translateX(52px); }
+        .lp-hero-ctas { transform: none; }
     }
+
+    /* ─── Product showcase — full-bleed screenshot + overlaid caption row ──
+       SEAM (judgement call, founder to react to the screenshot): the design
+       butts a full-bleed image straight against the section above it. On a
+       WHITE page that reads clean; on this DRIFTING gradient a hard line
+       looks accidental, and a static colour fade cannot work because the
+       colour behind it moves. So the plate stays genuinely full-bleed (as
+       designed) and the seam is softened with a white hairline plus an
+       upward purple glow — it reads as a deliberate plate laid on the field,
+       and it is immune to the animation. Swap to a contained rounded card by
+       adding a max-width + border-radius here; nothing else depends on it.
+    ────────────────────────────────────────────────────────────────── */
+    .lp-showcase {
+        width: 100%;
+        flex-shrink: 0;
+    }
+    .lp-showcase-frame {
+        position: relative;
+        margin: 0;
+        width: 100%;
+        overflow: hidden;
+        background: #4A00B7;
+        border-top: 1px solid rgba(255,255,255,0.55);
+        box-shadow: 0 -18px 48px rgba(102,0,255,0.14);
+    }
+    /* The <img> carries width=1600 height=442, so the browser reserves the
+       right box from the intrinsic ratio alone — height:auto keeps it exact at
+       every viewport and CLS is 0 (§2.1.2) without hard-coding a crop. */
+    .lp-showcase-img {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+    /* HONEST EMPTY STATE — no asset configured yet. A token-coloured surface
+       at the correct aspect ratio; never a broken-image icon, never a
+       collapsed section, and the caption row stays fully legible. */
+    .lp-showcase-frame--pending {
+        background: linear-gradient(160deg, #4A00B7 0%, #6600FF 100%);
+    }
+    /* Same box the real asset would occupy — 1600×442. */
+    .lp-showcase-placeholder {
+        width: 100%;
+        aspect-ratio: 1600 / 442;
+    }
+    .lp-showcase-caption {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 16px;
+        color: #ffffff;
+        font-size: clamp(9.5px, 0.86vw, 12.5px);
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        /* Scrim so the white caps clear AA over ANY screenshot content. */
+        background: linear-gradient(to top, rgba(10,10,15,0.66) 0%, rgba(10,10,15,0.30) 55%, rgba(10,10,15,0) 100%);
+    }
+    .lp-showcase-caption-item {
+        padding: 4px 14px;
+        border-right: 1px solid rgba(255,255,255,0.38);
+        line-height: 1;
+    }
+    .lp-showcase-caption-item:last-child { border-right: none; }
 
     /* ─── Hero feature tags ───────────────────────────────────────────── */
     .lp-hero-tags {
@@ -740,8 +841,8 @@ export const LANDING_PAGE_STYLES = `
 
     /* ─────────────────────────── @media ≤768px ─────────────────────────── */
     @media (max-width: 768px) {
-        /* Navbar: compact. Stays position:sticky (from the base rule) so
-           the absolutely-positioned drawer still resolves against it. */
+        /* Navbar: compact. Keeps position:relative from the base rule so the
+           absolutely-positioned drawer still resolves against it. */
         .lp-nav {
             align-items: center;
             height: 60px;
@@ -789,26 +890,42 @@ export const LANDING_PAGE_STYLES = `
         .lp-logo-sub { font-size: 6.5px; letter-spacing: 3.5px; }
         .lp-nav-brand { gap: 10px; min-width: 0; }
 
-        /* Hero: full-width, center card */
+        /* Hero: full-width, single centred column */
         .lp-hero {
-            padding-left: 16px;
-            padding-right: 16px;
+            padding: 12px 16px 28px;
             justify-content: center;
-            min-height: calc(100vh - 60px);
         }
         .lp-hero-card {
             padding: 32px 24px 36px;
             max-width: 100%;
             width: 100%;
         }
+        .lp-hero-logo-block { min-height: 76px; margin-bottom: 10px; }
+        .lp-hero-logo-block .lp-logo-icon { width: 54px; height: 54px; }
+        .lp-hero-wordmark { font-size: 11px; margin-bottom: 14px; }
         .lp-hero-heading {
-            font-size: 44px;
-            letter-spacing: -0.6px;
+            font-size: 34px;
+            letter-spacing: -0.02em;
         }
         .lp-hero-sub {
-            font-size: 13px;
+            font-size: 14px;
             max-width: 100%;
+            margin-bottom: 26px;
         }
+
+        /* Showcase: at 390px the 1600×442 plate is only ~108px tall, so an
+           OVERLAID caption would cover the whole screenshot. Below 768px the
+           caption drops out of the overlay and becomes a solid bar beneath the
+           image — same content, same order, still legible. */
+        .lp-showcase-caption {
+            position: static;
+            background: #4A00B7;
+            padding: 12px 8px;
+            letter-spacing: 0.10em;
+            font-size: 9.5px;
+            row-gap: 6px;
+        }
+        .lp-showcase-caption-item { padding: 3px 8px; }
 
         /* Bespoke section */
         .lp-bespoke { padding: 48px 16px; }
@@ -837,10 +954,10 @@ export const LANDING_PAGE_STYLES = `
             padding: 24px 16px 28px;
         }
         .lp-hero-heading {
-            font-size: 36px;
-            letter-spacing: -0.4px;
+            font-size: 28px;
+            letter-spacing: -0.02em;
         }
-        .lp-hero-sub { font-size: 12px; }
+        .lp-hero-sub { font-size: 13px; }
         .lp-hero-btn {
             width: 100%;
             text-align: center;
