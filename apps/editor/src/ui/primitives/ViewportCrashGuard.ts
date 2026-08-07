@@ -26,6 +26,9 @@
  */
 
 import { showSceneCrashFallback, hideSceneCrashFallback } from '../fallbacks/SceneCrashFallback';
+// §GPU-RESOURCE-LIFETIME (ADR-0297) — the SAME classifier the render pipeline uses,
+// so the guard cannot drift from the pipeline's notion of this fault class.
+import { isDestroyedGpuResourceError } from '@pryzm/renderer-three';
 
 // ── GPU/render error keywords (case-insensitive) ───────────────────────────
 
@@ -104,6 +107,11 @@ export class ViewportCrashGuard {
     private _nonFatalSuppressed  = 0;
     private _nonFatalWindowStart = 0;
 
+    // §GPU-RESOURCE-LIFETIME (ADR-0297) — latched once we have SEEN this fault
+    // class, so the honest crash copy is still chosen when the pipeline escalates
+    // later with its signature-free "retries exhausted" message. See _diagnose().
+    private _sawResourceLifetimeFault = false;
+
     /** Total non-fatal GPU internals suppressed this session (diagnostics/tests). */
     get suppressedNonFatalCount(): number { return this._nonFatalSuppressed; }
 
@@ -179,6 +187,7 @@ export class ViewportCrashGuard {
         this._lastFailureAt       = 0;
         this._nonFatalSuppressed  = 0;
         this._nonFatalWindowStart = 0;
+        this._sawResourceLifetimeFault = false;
         hideSceneCrashFallback();
         console.log('[ViewportCrashGuard] Deactivated.');
     }
@@ -236,6 +245,10 @@ export class ViewportCrashGuard {
             this._nonFatalSuppressed  = 0;
         }
         this._nonFatalSuppressed++;
+        // §GPU-RESOURCE-LIFETIME — a `usedTimes` dispose throw is the SAME defect one
+        // layer down (a resource released while the renderer still referenced it), so
+        // seeing one is enough to know a later crash is ours, not the user's driver.
+        this._sawResourceLifetimeFault = true;
 
         if (this._nonFatalSuppressed <= NONFATAL_BURST_THRESHOLD) {
             console.warn(
@@ -309,13 +322,41 @@ export class ViewportCrashGuard {
             this._consecutiveFailures = 0;
             this._lastFailureAt       = 0;
 
-            // Prefer soft recovery: rebuild the RPM pipeline (clears outline arrays,
-            // disposes GPU targets, schedules a pipeline rebuild).
+            // ── §GPU-RESOURCE-LIFETIME (ADR-0297) ──────────────────────────────
+            // Recovery MUST drive a real pipeline rebuild, NEVER `onProjectSwitch()`.
+            //
+            // ADR-0297 Consequences states this verbatim — and then pinned it only
+            // INSIDE RenderPipelineManager, leaving the forbidden call live one layer
+            // up, right here. The founder hit it three times in one session:
+            //   "[ViewportCrashGuard] Soft recovery initiated via RPM.onProjectSwitch()"
+            // `onProjectSwitch()` explicitly DEFERS the pipeline rebuild to
+            // `onProjectLoaded()`, which never arrives when the user is simply
+            // retrying the current project — and by this point `render()` has already
+            // set `_hasPipelineError` and nulled `_renderPipeline`. So it printed a
+            // confident recovery message and left the viewport permanently dark with
+            // no error: the button reported success and did nothing.
+            //
+            // `recoverFromRenderFailure()` is the lever that actually restores
+            // `_renderPipeline`. It returns false when there is nothing to rebuild, so
+            // we fall back to a hard reload rather than claiming a recovery that did
+            // not happen. Pinned by ViewportCrashGuardRecoveryLever.test.ts.
             const rpm = window.renderPipelineManager; // TODO(D.4): legacy renderPipelineManager — replace with runtime.scene.renderer.pipeline
-            if (rpm && typeof rpm.onProjectSwitch === 'function') {
+            if (rpm && typeof rpm.recoverFromRenderFailure === 'function') {
                 try {
-                    rpm.onProjectSwitch();
-                    console.log('[ViewportCrashGuard] Soft recovery initiated via RPM.onProjectSwitch().');
+                    if (rpm.recoverFromRenderFailure()) {
+                        console.log(
+                            '[ViewportCrashGuard] Recovery initiated via RPM.recoverFromRenderFailure() ' +
+                            '(real pipeline rebuild).',
+                        );
+                    } else {
+                        // Nothing to rebuild — say so, then reload. Never log a recovery
+                        // that did not occur.
+                        console.warn(
+                            '[ViewportCrashGuard] recoverFromRenderFailure() reported nothing to rebuild ' +
+                            '— falling back to a hard reload.',
+                        );
+                        window.location.reload();
+                    }
                 } catch {
                     window.location.reload();
                 }
@@ -324,7 +365,34 @@ export class ViewportCrashGuard {
             }
         };
 
-        showSceneCrashFallback({ error, onRetry });
+        showSceneCrashFallback({ error, onRetry, diagnosis: this._diagnose(error) });
+    }
+
+    /**
+     * §GPU-RESOURCE-LIFETIME (ADR-0297) — choose HONEST crash copy.
+     *
+     * The default card says *"This is usually caused by a GPU driver issue or
+     * browser memory pressure."* For this fault class that statement is simply
+     * FALSE: it is our own resource-lifetime defect — a GPU resource released
+     * while the renderer still referenced it. Telling the user to suspect their
+     * driver for our bug is misattributed blame, and it also costs us the report,
+     * because a user who believes it is their hardware does not file it.
+     *
+     * The pipeline reports this class as a generic
+     * `"Render pipeline retries exhausted — phase=error"`, which carries no
+     * signature of its own, so we latch the signature when we actually observe it
+     * (the raw `setIndexBuffer …` / `Destroyed texture …` message, or a burst of
+     * `usedTimes` dispose throws — the same defect one layer down) and use the
+     * latch when the generic escalation arrives afterwards.
+     */
+    private _diagnose(error: Error): string | undefined {
+        if (isDestroyedGpuResourceError(error)) this._sawResourceLifetimeFault = true;
+        if (!this._sawResourceLifetimeFault) return undefined;
+        return (
+            'This is a PRYZM rendering defect — a GPU resource was released while the ' +
+            'renderer was still using it. It is not a problem with your graphics driver, ' +
+            'your hardware, or your browser. Your project data is safe and nothing was lost.'
+        );
     }
 
     private _isRenderRelated(message: string): boolean {

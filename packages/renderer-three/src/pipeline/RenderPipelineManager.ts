@@ -106,6 +106,15 @@ const MAX_RETRIES     = 3;
 const RETRY_DELAY_MS  = 500;
 
 /**
+ * §GPU-RESOURCE-LIFETIME (ADR-0297) — coalescing window for destroyed-resource
+ * reports. WebGPU validation errors arrive as FLOODS (a single shadow-map rebuild
+ * produced 500 "Destroyed texture … used in a submit" in the founder's log), so
+ * reports are accounted per window and only the FIRST drives a reconstruction.
+ * Acting on each would be a worse outage than the fault it responds to.
+ */
+const DESTROYED_RESOURCE_WINDOW_MS = 2000;
+
+/**
  * §PERF-PHASE2 — shadow-rebuild debounce window (ms).
  *
  * Was a hard-coded `16` (one frame). On project LOAD, PascalSceneLighting calls
@@ -474,6 +483,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._webGpuActive = true;
         console.log('[RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...');
 
+        // §GPU-RESOURCE-LIFETIME — subscribe to the device's uncaptured-error channel
+        // BEFORE the first pipeline build, so a destroyed-resource validation failure
+        // during project load (the founder's white-viewport-on-open, 500× "Destroyed
+        // texture ShadowDepthTexture used in a submit") is classified instead of
+        // silently producing an empty frame. `bind()` also runs on every renderer
+        // swap / device-loss recovery, so the listener follows the live device.
+        this._attachUncapturedGpuErrorListener();
+
         try {
             await this._loadTSL();
             this._backgroundUniform = createBackgroundUniform(initialTheme);
@@ -809,36 +826,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
             // We therefore heal the size AND drive the one call that actually
             // restores `_renderPipeline` and clears `_hasPipelineError`.
             if (isDestroyedGpuResourceError(err)) {
-                if (!this._gpuResourceResetAttempted) {
-                    this._gpuResourceResetAttempted = true;
-                    console.warn(
-                        '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource ' +
-                        'reached a draw call — a backoff retry cannot repair renderer-side attribute ' +
-                        'state. Performing ONE immediate reconstruction instead of the retry ladder. ' +
-                        'If this recurs the pipeline will fail loudly.',
-                    );
-                    try {
-                        this._reconcileRenderSize();
-                        void this._rebuildPipeline();
-                    } catch (resetErr: unknown) {
-                        console.error(
-                            '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME reconstruction failed — ' +
-                            'failing loudly rather than leaving a dark viewport:',
-                            resetErr instanceof Error ? resetErr.message : resetErr,
-                        );
-                        this._phase = 'error';
-                        this._emitState();
-                    }
-                    return;
-                }
-                console.error(
-                    '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource ' +
-                    'RECURRED after a full reconstruction — this is an unrecoverable resource-lifetime ' +
-                    'defect, not a transient. Failing loudly (phase=error) so the user is told, rather ' +
-                    'than leaving a blocked scene behind a silent retry.',
+                this._onDestroyedGpuResource(
+                    err instanceof Error ? err.message : String(err),
+                    'render() throw',
                 );
-                this._phase = 'error';
-                this._emitState();
                 return;
             }
 
@@ -2526,6 +2517,246 @@ export class RenderPipelineManager implements IViewSwitchListener {
         } catch {
             return null;
         }
+    }
+
+    /* ─── §GPU-RESOURCE-LIFETIME — detection, classification, recovery ────────
+     *
+     * ADR-0297 made ONE path loud: a destroyed-resource fault that surfaces as a
+     * JS THROW out of `render()`. That covers `setIndexBuffer … not of type
+     * 'GPUBuffer'`, because a bad JS argument throws a TypeError synchronously.
+     *
+     * It does NOT cover the other half of the fault class, and the founder found
+     * it the hard way (fresh session, project load, 3D viewport went WHITE after
+     * ~1 s, elements still selectable, switching to WebGL restored everything):
+     *
+     *   500× "Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+     *         - While calling [Queue].Submit([[CommandBuffer …]])"
+     *
+     * That is a **WebGPU VALIDATION error**, not a JS exception. WebGPU is an
+     * error-scope API: a validation failure inside an already-recorded command
+     * buffer does not reject a promise and does not throw — it is delivered to
+     * the device's `uncapturederror` event, and if nobody listens, the browser
+     * merely prints it. `render()` returns normally, `PIPELINE_FAILURE` never
+     * fires, nothing is classified, `phase` never leaves `phase4`, and the crash
+     * guard is never told. The frame produces nothing and the user is shown a
+     * blank viewport **with no error at all** — precisely the outcome ADR-0297
+     * exists to abolish, reached by a route the ADR did not consider.
+     *
+     * The generalisation, and the reason this is a listener rather than another
+     * special case: DETECTION MUST NOT DEPEND ON THE FAULT HAPPENING TO THROW.
+     * `uncapturederror` is the device-wide channel for every WebGPU validation
+     * failure of every resource kind, so a fourth resource kind (a destroyed
+     * vertex buffer, a destroyed bind group, a destroyed sampler) is classified
+     * by the SAME `isDestroyedGpuResourceError` predicate on the SAME path,
+     * without a fourth founder discovering it by staring at a white screen.
+     *
+     * NOTE on the WebGL2 sibling reported alongside this
+     * (`glDrawElements: Mismatch between texture format and sampler type
+     * (signed/unsigned/float/shadow)` ×252, plus the `PCFSoftShadowMap has been
+     * deprecated` notice): those come from the WebGL2 fallback context and are a
+     * DIFFERENT defect — a shadow-map sampler/format mismatch, not a lifetime
+     * fault. `isDestroyedGpuResourceError` deliberately does not match them, so
+     * they neither trigger nor mask this path. They are logged as-is.
+     */
+
+    /** The GPUDevice we have already attached an `uncapturederror` listener to. */
+    private _uncapturedErrorDevice: unknown = null;
+    /** Bound listener, kept so it can be detached across a device swap. */
+    private _uncapturedErrorListener: ((ev: Event) => void) | null = null;
+    /** Destroyed-resource validation errors observed since the window opened. */
+    private _destroyedResourceReports = 0;
+    /** Start of the current reporting window (ms epoch). */
+    private _destroyedResourceWindowStart = 0;
+
+    /**
+     * §GPU-RESOURCE-LIFETIME — subscribe to the WebGPU device's `uncapturederror`
+     * channel so a destroyed-resource validation failure is CLASSIFIED even when
+     * it never throws.
+     *
+     * Idempotent, and re-attaches across a device swap / device-loss recovery (the
+     * listener is keyed on the device identity, so a new device gets a new
+     * subscription and the superseded one is released).
+     *
+     * Deliberately tolerant: if the backend exposes no device, or the device is
+     * not an EventTarget (a test double, a polyfill), this is a silent no-op —
+     * detection is a safety net and must never itself break the renderer.
+     */
+    private _attachUncapturedGpuErrorListener(): void {
+        const device = this._currentBackendDevice() as
+            | (EventTarget & { removeEventListener?: unknown })
+            | null;
+        if (device === this._uncapturedErrorDevice) return;
+
+        // Release the superseded device's subscription first.
+        if (this._uncapturedErrorDevice && this._uncapturedErrorListener) {
+            try {
+                (this._uncapturedErrorDevice as EventTarget).removeEventListener(
+                    'uncapturederror',
+                    this._uncapturedErrorListener,
+                );
+            } catch { /* superseded device already gone — nothing to release */ }
+        }
+        this._uncapturedErrorDevice   = device;
+        this._uncapturedErrorListener = null;
+
+        if (!device || typeof (device as EventTarget).addEventListener !== 'function') return;
+
+        const listener = (ev: Event): void => {
+            const message = (ev as { error?: { message?: unknown } })?.error?.message;
+            if (typeof message !== 'string') return;
+            if (!isDestroyedGpuResourceError(message)) {
+                // Not a lifetime fault (e.g. a genuine pipeline-validation bug).
+                // Surface it — an uncaptured WebGPU error is never nothing — but do
+                // not route it into the resource-lifetime recovery path.
+                console.warn('[RenderPipelineManager] uncaptured WebGPU error:', message);
+                return;
+            }
+            // coalesce=true — validation errors arrive in floods (500 from one
+            // shadow-map rebuild in the founder's log).
+            this._onDestroyedGpuResource(message, 'GPUDevice.uncapturederror', true);
+        };
+
+        try {
+            (device as EventTarget).addEventListener('uncapturederror', listener);
+            this._uncapturedErrorListener = listener;
+            console.log(
+                '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME uncapturederror listener attached — ' +
+                'destroyed-resource validation failures that never throw are now classified.',
+            );
+        } catch (err: unknown) {
+            console.warn(
+                '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME could not attach uncapturederror ' +
+                'listener (detection degraded, rendering unaffected):',
+                err instanceof Error ? err.message : err,
+            );
+        }
+    }
+
+    /**
+     * §GPU-RESOURCE-LIFETIME — the SINGLE classified handler for
+     * "a GPU resource was released while the renderer still referenced it",
+     * whatever channel it arrived on (a `render()` throw, or the device's
+     * `uncapturederror` event) and whatever resource kind it names.
+     *
+     * Policy, unchanged from ADR-0297 and now applied to both channels:
+     *   • ONE genuine reconstruction. The damage is in the RENDERER's per-attribute
+     *     / per-render-object bookkeeping, so the backoff retry ladder (which
+     *     rebuilds the POST-FX pipeline) provably cannot repair it — *a retry that
+     *     cannot repair the fault class is a defect, not a mitigation*.
+     *   • If it RECURS after that reconstruction → `phase='error'`, loudly, so the
+     *     crash guard tells the user instead of leaving a silent blank viewport.
+     *
+     * ⚠ The reconstruction is DELIBERATELY NOT `onProjectSwitch()`. That method
+     * explicitly DEFERS the pipeline rebuild to `onProjectLoaded()`, and by this
+     * point `_hasPipelineError` is set and `_renderPipeline` nulled — so routing
+     * recovery through it prints a confident recovery message and leaves the
+     * viewport permanently dark with no error. `_rebuildPipeline()` is the only
+     * call that actually restores `_renderPipeline` and clears the error latch.
+     *
+     * ── Why `coalesce` is a property of the CHANNEL, not of the fault ────────
+     * A THROWN failure is inherently self-limiting: `render()` can only throw once
+     * per frame, so every report is a distinct frame and a second one genuinely IS
+     * a recurrence. ADR-0297's policy applies to it verbatim and unmodified.
+     *
+     * An UNCAPTURED VALIDATION error is not self-limiting at all — the founder's
+     * log carried 500 from a single shadow-map rebuild, all describing the one
+     * fault. Treating each as a separate event would either fire 500
+     * reconstructions or declare a "recurrence" 16 ms after the first report, before
+     * the (async) reconstruction had any chance to land. So that channel — and only
+     * that channel — coalesces per window.
+     *
+     * Getting this backwards is how the previous revision of this method broke
+     * ADR-0297's pinned `destroyedGpuResource` recurrence test.
+     *
+     * @param coalesce true for flood-prone channels (validation errors); false for
+     *                 self-limiting ones (a `render()` throw).
+     */
+    private _onDestroyedGpuResource(message: string, source: string, coalesce = false): void {
+        // Already failed loudly — the user has been told; nothing further to do.
+        if (this._phase === 'error') return;
+
+        if (coalesce) {
+            const now = Date.now();
+            if (now - this._destroyedResourceWindowStart > DESTROYED_RESOURCE_WINDOW_MS) {
+                this._destroyedResourceWindowStart = now;
+                this._destroyedResourceReports     = 0;
+            }
+            // One action per window: the remaining 499 describe the same fault, and the
+            // reconstruction they would each re-trigger is still in flight.
+            if (++this._destroyedResourceReports > 1) return;
+        }
+
+        if (this._gpuResourceResetAttempted) {
+            console.error(
+                '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource ' +
+                `RECURRED after a full reconstruction (via ${source}: "${message.slice(0, 160)}") — this is ` +
+                'an unrecoverable resource-lifetime defect, not a transient. Failing loudly ' +
+                '(phase=error) so the user is told, rather than leaving a blocked scene behind a ' +
+                'silent retry or a blank viewport behind no error at all.',
+            );
+            this._phase = 'error';
+            this._emitState();
+            return;
+        }
+
+        this._gpuResourceResetAttempted = true;
+        console.warn(
+            '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource ' +
+            `reached the GPU (via ${source}: "${message.slice(0, 160)}") — a backoff retry cannot ` +
+            'repair renderer-side resource state. Performing ONE immediate reconstruction instead ' +
+            'of the retry ladder. If this recurs the pipeline will fail loudly.',
+        );
+        try {
+            this._reconcileRenderSize();
+            void this._rebuildPipeline();
+        } catch (resetErr: unknown) {
+            console.error(
+                '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME reconstruction failed — ' +
+                'failing loudly rather than leaving a dark viewport:',
+                resetErr instanceof Error ? resetErr.message : resetErr,
+            );
+            this._phase = 'error';
+            this._emitState();
+        }
+    }
+
+    /**
+     * §GPU-RESOURCE-LIFETIME — the PUBLIC recovery lever for a viewport that has
+     * failed into `phase='error'`. This is what `ViewportCrashGuard`'s "Reload
+     * viewport" button must call.
+     *
+     * ⚠ It exists because `onProjectSwitch()` — the codebase's habitual "soft
+     * recovery" lever — is the WRONG lever for a render failure, and ADR-0297 said
+     * so in prose while leaving the wrong call live one layer up in the crash
+     * guard. `onProjectSwitch()` reconciles size and schedules a shadow rebuild but
+     * *explicitly defers the pipeline rebuild to `onProjectLoaded()`*, which never
+     * arrives when the user is simply retrying the current project. The guard
+     * therefore logged "Soft recovery initiated" and left the viewport dark.
+     *
+     * This method drives the call that actually restores rendering, and clears the
+     * one-reconstruction latch so a genuinely-fixed scene is not permanently barred
+     * from a future recovery attempt.
+     *
+     * @returns true if a real rebuild was driven; false if there is nothing to
+     *          rebuild (no WebGPU pipeline), so the caller can fall back to a hard
+     *          reload rather than reporting a recovery that did not happen.
+     */
+    recoverFromRenderFailure(): boolean {
+        if (!this._webGpuActive) return false;
+        console.log(
+            '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME recoverFromRenderFailure — ' +
+            'reconciling size and rebuilding the render pipeline (NOT onProjectSwitch, which ' +
+            'defers the rebuild and would leave the viewport dark).',
+        );
+        this._gpuResourceResetAttempted    = false;
+        this._destroyedResourceReports     = 0;
+        this._destroyedResourceWindowStart = 0;
+        this._retryCount                   = 0;
+        try {
+            this._reconcileRenderSize();
+        } catch { /* size reconcile is best-effort; the rebuild is the load-bearing part */ }
+        void this._rebuildPipeline();
+        return true;
     }
 
     private _safeDisposeRenderPipeline(): void {

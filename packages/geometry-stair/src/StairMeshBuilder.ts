@@ -4,6 +4,9 @@
 // Builder is driven by eventBus subscriptions (§01-BIM-ENGINE-CORE §1.4) — no window.
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — element teardown DETACHES on
+// its own tick and RELEASES at the next frame boundary; it never disposes in place.
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { StairData, StairProperties, DEFAULT_STAIR_PROPERTIES } from './StairTypes';
 import { StairStore } from './StairStore';
 import { StairMaterialResolver } from './StairMaterialResolver';
@@ -229,9 +232,31 @@ export class StairMeshBuilder {
     removeStair(stairId: string, silentLog: boolean = false): void {
         const existing = this.stairRoots.get(stairId);
         if (existing) {
-            if (this.scene) {
-                this.scene.remove(existing);
-            }
+            // ── §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANTS L1 + L2) ──────────
+            // This was the rawest surviving instance of the defect ADR-0297 closed
+            // for furniture, and it is on the ADR's L-691 follow-up list:
+            //
+            //   1. ORDERING (L2). The traverse called `geometry.dispose()` /
+            //      `material.dispose()` DIRECTLY, on the mutation tick. Worse than
+            //      the furniture original: when `this.scene` is undefined the detach
+            //      never happens at all, so the buffers were destroyed while the
+            //      meshes were STILL parented — a literal use-after-dispose. On the
+            //      WebGPU backend `BufferGeometry.dispose()` synchronously deletes
+            //      the backend's per-attribute record, and the next draw reaches
+            //      `WebGPUBackend.draw`'s `this.get(index).buffer === undefined`:
+            //        "setIndexBuffer … parameter 1 is not of type 'GPUBuffer'"
+            //      The founder hit exactly this on UPDATE_ELEMENT_PARAMETER over a
+            //      stair (which routes through removeStair → rebuild).
+            //   2. OWNERSHIP (L1). `mat.dispose()` was unguarded, so a cache-owned
+            //      or shared material was destroyed out from under sibling stairs.
+            //   3. §I2. A raw `dispose()` can throw the WebGPU `usedTimes` TypeError
+            //      and abort the teardown mid-traverse, stranding the rest.
+            //
+            // The plan-symbol registry unregister must still happen NOW (it is
+            // bookkeeping, not a GPU release, and the O(k) view-activated handler
+            // must not see stale objects for even one tick). Only the GPU release
+            // moves to the frame boundary, where the queue drains it through
+            // `safeDisposeObject3D` — which fixes (2) and (3) as a side effect.
             existing.traverse(child => {
                 // Phase 5: unregister plan-representation objects from the registry
                 // so the O(k) view-activated handler does not reference stale objects.
@@ -243,19 +268,14 @@ export class StairMeshBuilder {
                 ) {
                     stairPlanSymbolRegistry.unregister(child);
                 }
-
-                const asMesh = child as THREE.Mesh;
-                const asLine = child as THREE.Line;
-                if (asMesh.isMesh || asLine.isLine) {
-                    asMesh.geometry?.dispose();
-                    const mat = asMesh.material;
-                    if (mat instanceof THREE.Material) {
-                        mat.dispose();
-                    } else if (Array.isArray(mat)) {
-                        mat.forEach(m => m.dispose());
-                    }
-                }
             });
+            // DETACH (L2 (a)) — after this the scene graph cannot reach the subtree.
+            if (this.scene) {
+                this.scene.remove(existing);
+            }
+            existing.parent = null;
+            // RELEASE (L2 (b)) — at the next frame boundary, never in place.
+            scheduleGpuRelease(existing);
             this.stairRoots.delete(stairId);
             elementRegistry.unregisterRoot(stairId);
             // §CLEAR-PROJECT-BATCH (2026-07-02) — also suppress while a project
@@ -295,16 +315,14 @@ export class StairMeshBuilder {
 
     clearPreview(): void {
         if (this.previewRoot) {
+            // §GPU-RESOURCE-LIFETIME (ADR-0297, L2) — same inversion as removeStair,
+            // and hit far more often: clearPreview runs on every pointer-move of a
+            // stair placement drag. Detach, then release at the frame boundary.
             if (this.scene) {
                 this.scene.remove(this.previewRoot);
             }
-            this.previewRoot.traverse(child => {
-                if ((child as THREE.Mesh).isMesh) {
-                    const m = child as THREE.Mesh;
-                    m.geometry?.dispose();
-                    if (m.material instanceof THREE.Material) m.material.dispose();
-                }
-            });
+            this.previewRoot.parent = null;
+            scheduleGpuRelease(this.previewRoot);
             this.previewRoot = undefined;
         }
     }
