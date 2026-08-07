@@ -43,6 +43,8 @@ import { expressCorsOptions, socketCorsOptions } from './server/corsPolicy.js';
 import { helmetMiddleware, applyEmbedHeaders, strictCspShadowMiddleware } from './server/securityHeaders.js';
 // C51 §3.1.2.2: CSP violation-report sink (evidence base for strict-CSP tightening)
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
+import { isBetaAllowed, BETA_REFUSAL_MESSAGE, BETA_ACCESS_ALLOWLIST } from './server/betaAccessAllowlist.js';
+import { notifyBlockedAccessAttempt, notifierStatus } from './server/accessAttemptNotifier.js';
 // IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
 import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
 import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
@@ -402,6 +404,16 @@ app.set('trust proxy', TRUST_PROXY_HOPS);
 // header set.  See server/securityHeaders.js for the complete header inventory.
 // Phase 0 Task 0.1 — DONE.
 app.use(helmetMiddleware);
+
+// §BETA-ACCESS-GATE — say the state out loud at boot. An operator must never have
+// to infer "is the gate on?" or "will I actually be emailed?" from a quiet inbox;
+// silence and "not configured" would otherwise be the same observation.
+{
+    const n = notifierStatus();
+    console.log(`[beta-access] GATE ACTIVE — ${BETA_ACCESS_ALLOWLIST.length} allowlisted address(es); everyone else is refused at signup, signin and both OAuth callbacks.`);
+    console.log(`[beta-access] blocked-attempt notifications: transport=${n.transport} to=${n.to}`);
+    if (n.reason) console.warn(`[beta-access] ⚠ ${n.reason}`);
+}
 
 // §CSP-STRICT-SHADOW (C51 §3.1.2.2) — the strict target policy rides alongside the
 // enforced one as Content-Security-Policy-Report-Only, so the two remaining
@@ -2047,6 +2059,14 @@ app.post('/api/auth/signup', async (req, res) => {
     if (!email || !password || !name) {
         return res.status(400).json({ error: 'email, password, and name are required.' });
     }
+    // §BETA-ACCESS-GATE (founder 2026-08-07) — private beta. Checked BEFORE any
+    // password-strength or database work, so a refused address never reaches the
+    // auth store and never creates a row. 403, not 401: the credentials are not
+    // wrong, the identity is not admitted.
+    if (!isBetaAllowed(email)) {
+        void notifyBlockedAccessAttempt({ email, surface: 'signup', ip: req.ip });
+        return res.status(403).json({ error: BETA_REFUSAL_MESSAGE });
+    }
     if (password.length < 8) {
         return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     }
@@ -2069,6 +2089,13 @@ app.post('/api/auth/signin', async (req, res) => {
     const { email, password } = req.body ?? {};
     if (!email || !password) {
         return res.status(400).json({ error: 'email and password are required.' });
+    }
+    // §BETA-ACCESS-GATE — sign-in is gated too, deliberately. Gating signup alone
+    // would leave every account created BEFORE this gate fully working, and this
+    // database holds such accounts. "Nobody else can access" has to include them.
+    if (!isBetaAllowed(email)) {
+        void notifyBlockedAccessAttempt({ email, surface: 'signin', ip: req.ip });
+        return res.status(403).json({ error: BETA_REFUSAL_MESSAGE });
     }
     const supabase = await getSupabaseClient();
     if (!supabase && !getPgPool()) {
@@ -2182,6 +2209,14 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
         if (!profile.email) throw new Error('Google did not provide an email address.');
 
+        // §BETA-ACCESS-GATE — OAuth creates users IMPLICITLY via upsertOAuthUser,
+        // so this is a signup path even though nothing here is called "signup".
+        // The check must sit BEFORE the upsert or a refused visitor still gets a row.
+        if (!isBetaAllowed(profile.email)) {
+            void notifyBlockedAccessAttempt({ email: profile.email, surface: 'oauth:google', ip: req.ip });
+            return res.send(callbackHtml({ error: BETA_REFUSAL_MESSAGE }, origin));
+        }
+
         const user  = await upsertOAuthUser({ email: profile.email, name: profile.name, provider: 'google' });
         const token = mintToken(user);
 
@@ -2227,6 +2262,12 @@ app.get('/api/auth/microsoft/callback', async (req, res) => {
         const profile = await fetchMicrosoftProfile(tokens.access_token);
 
         if (!profile.email) throw new Error('Microsoft did not provide an email address.');
+
+        // §BETA-ACCESS-GATE — same implicit-signup path as the Google callback.
+        if (!isBetaAllowed(profile.email)) {
+            void notifyBlockedAccessAttempt({ email: profile.email, surface: 'oauth:microsoft', ip: req.ip });
+            return res.send(callbackHtml({ error: BETA_REFUSAL_MESSAGE }, origin));
+        }
 
         const user  = await upsertOAuthUser({ email: profile.email, name: profile.name, provider: 'microsoft' });
         const token = mintToken(user);
