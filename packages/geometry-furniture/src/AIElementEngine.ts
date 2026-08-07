@@ -5,6 +5,12 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0281, INVARIANT L1) — this module hands out
+// CACHE-OWNED materials/textures shared across many live elements. Stamping them
+// makes that ownership visible to every disposer, so no element teardown
+// (furniture type swap, delete, rebuild) can destroy a resource its siblings
+// still draw with. Replaces the unknowable "is it in MY cache?" test.
+import { markSharedGpuResource } from '@pryzm/renderer-three';
 import { AIElementConfig, AIComponent, AIMaterial } from './AIElementConfig';
 
 const DEG2RAD = Math.PI / 180;
@@ -324,7 +330,7 @@ export class AIElementEngine {
             opacity:     mat.transparent ? (mat.opacity ?? 1) : 1,
         });
 
-        this.materialCache.set(key, material);
+        this.materialCache.set(key, markSharedGpuResource(material));
         return material;
     }
 

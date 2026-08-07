@@ -6,7 +6,10 @@ import * as THREE from '@pryzm/renderer-three/three';
 // updateFurniture() before the new mesh is built. That abort is exactly why the
 // office project's sofa_2seat items failed to render ("bim-furniture-added failed
 // ... reading 'usedTimes'"). Mirrors DoorBuilder / WallFragmentBuilder (§I2).
-import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three';
+// §GPU-RESOURCE-LIFETIME (ADR-0281) — element mutations DETACH on their own tick
+// and RELEASE at the next frame boundary; cache-owned resources are never released
+// by an element teardown. See packages/renderer-three/src/safeDispose.ts.
+import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { FurnitureData } from './FurnitureTypes';
 import { MaterialService } from './MaterialService';
 import { FurnitureFactory } from './builders/FurnitureFactory';
@@ -156,29 +159,41 @@ export class FurnitureFragmentBuilder {
             return;
         }
 
-        // CRITICAL: Properly dispose old geometries AND unique materials to prevent memory leaks
-        // Cached materials are preserved and reused
-        if (root) {
-            root.traverse(child => {
-                if (child instanceof THREE.Mesh) {
-                    safeDisposeGeometry(child.geometry); // §FIX-FURNITURE-USEDTIMES
-
-                    // Only dispose materials that are NOT from cache
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => {
-                            if (!this.materialService.isCachedMaterial(mat)) {
-                                safeDisposeMaterial(mat); // §FIX-FURNITURE-USEDTIMES
-                            }
-                        });
-                    } else {
-                        if (!this.materialService.isCachedMaterial(child.material)) {
-                            safeDisposeMaterial(child.material); // §FIX-FURNITURE-USEDTIMES
-                        }
-                    }
-                }
-            });
-            root.clear();
-        }
+        // ── §GPU-RESOURCE-LIFETIME (ADR-0281) — DETACH NOW, RELEASE AT THE FRAME
+        // BOUNDARY. This is the founder's CHANGE_FURNITURE_TYPE hard stop.
+        //
+        // WAS: traverse the LIVE, still-parented subtree calling geometry.dispose()
+        // / material.dispose() on every child, and only THEN root.clear(). Two
+        // faults in three lines:
+        //
+        //   1. ORDERING (invariant L2). The GPU buffers were destroyed while the
+        //      meshes were still descendants of `scene`. `BufferGeometry.dispose()`
+        //      synchronously deletes the WebGPU backend's per-attribute record
+        //      (three Geometries.js:185-216 → Attributes.delete → destroyAttribute),
+        //      so any frame already encoded — or encoded before the rebuild lands —
+        //      reaches `WebGPUBackend.draw`'s `this.get(index).buffer` and finds
+        //      `undefined`:
+        //        "setIndexBuffer … parameter 1 is not of type 'GPUBuffer'"
+        //      Fatal, and NOT repairable by a pipeline retry. This whole method runs
+        //      on a `bim-furniture-updated` DOM listener, which has no relationship
+        //      whatsoever to the frame boundary — so the window is always open.
+        //
+        //   2. OWNERSHIP (invariant L1). `isCachedMaterial()` only knows
+        //      MaterialService's OWN cache. geometry-furniture has SIX other
+        //      module-level material/texture caches (KitchenCabinetEngine._matCache,
+        //      WardrobeCabinetEngine._matCache, ParametricTreeEngine._matCache,
+        //      foliageCards._cardMatCache/_shellMatCache/_texCache,
+        //      AIElementEngine.materialCache) whose materials are shared across MANY
+        //      live elements. Every one of them failed the test and was DISPOSED —
+        //      killing sibling elements' materials and leaving the cache handing out
+        //      dead handles. Ownership is now stamped on the resource itself
+        //      (markSharedGpuResource), so the disposer cannot get it wrong.
+        //
+        // NOW: detach the children immediately (the scene can no longer reach them)
+        // and hand the subtree to the frame-boundary release queue, which the frame
+        // owner (RenderPipelineManager.render) drains before it encodes anything.
+        // Cache-owned resources are skipped by the seam itself.
+        detachAndReleaseChildren(root);
 
         let mesh: THREE.Group;
 
@@ -319,18 +334,22 @@ export class FurnitureFragmentBuilder {
             }
 
             if (instanced) {
-                // Item is rendered by the InstancedElementRenderer; dispose the
-                // now-unused per-item geometry/materials and keep `root` empty +
-                // invisible so it never double-draws and never costs a draw call.
+                // Item is rendered by the InstancedElementRenderer; release the
+                // now-unused per-item GEOMETRY and keep `root` empty + invisible so
+                // it never double-draws and never costs a draw call.
+                //
+                // §GPU-RESOURCE-LIFETIME (ADR-0281) — release is DEFERRED to the
+                // frame boundary (invariant L2), and MATERIALS ARE NOT RELEASED AT
+                // ALL (invariant L1): `_instanceBridge.register()` just handed these
+                // exact material objects to InstancedElementRenderer, which runs them
+                // through SharedMaterialCache.dedupInstanceMaterial — one of them may
+                // now be the CANONICAL material for an entire InstanceGroup covering
+                // many other elements. Disposing it here destroyed a material the
+                // instanced draw call still binds. The geometry is safe to release:
+                // the renderer merged its own copy at register() time.
                 mesh.traverse((child) => {
                     if (child instanceof THREE.Mesh) {
-                        safeDisposeGeometry(child.geometry); // §FIX-FURNITURE-USEDTIMES
-                        const mat = child.material;
-                        if (Array.isArray(mat)) {
-                            mat.forEach((mm) => { if (!this.materialService.isCachedMaterial(mm)) safeDisposeMaterial(mm); }); // §FIX-FURNITURE-USEDTIMES
-                        } else if (!this.materialService.isCachedMaterial(mat)) {
-                            safeDisposeMaterial(mat); // §FIX-FURNITURE-USEDTIMES
-                        }
+                        scheduleGpuRelease(child.geometry);
                     }
                 });
                 root.visible = false;
@@ -359,29 +378,16 @@ export class FurnitureFragmentBuilder {
         }
         const root = this.furnitureRoots.get(id);
         if (root) {
-            // Properly dispose geometries AND unique materials before removal
-            root.traverse(child => {
-                if (child instanceof THREE.Mesh) {
-                    safeDisposeGeometry(child.geometry); // §FIX-FURNITURE-USEDTIMES
-
-                    // Only dispose materials that are NOT from cache
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => {
-                            if (!this.materialService.isCachedMaterial(mat)) {
-                                safeDisposeMaterial(mat); // §FIX-FURNITURE-USEDTIMES
-                            }
-                        });
-                    } else {
-                        if (!this.materialService.isCachedMaterial(child.material)) {
-                            safeDisposeMaterial(child.material); // §FIX-FURNITURE-USEDTIMES
-                        }
-                    }
-                }
-            });
-
+            // §GPU-RESOURCE-LIFETIME (ADR-0281) — same DETACH-then-RELEASE order as
+            // updateFurniture(). Deletion had the identical inverted ordering: it
+            // disposed every child's GPU buffers and only afterwards removed the root
+            // from the scene, so a frame encoded in between drew destroyed buffers.
+            // Detach the root from the scene FIRST, then queue the whole subtree for
+            // release at the next frame boundary.
             this.scene.remove(root);
             this.furnitureRoots.delete(id);
             elementRegistry.unregisterRoot(id);
+            scheduleGpuRelease(root);
         }
     }
 

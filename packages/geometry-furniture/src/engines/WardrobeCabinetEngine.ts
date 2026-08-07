@@ -29,6 +29,12 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0281, INVARIANT L1) — this module hands out
+// CACHE-OWNED materials/textures shared across many live elements. Stamping them
+// makes that ownership visible to every disposer, so no element teardown
+// (furniture type swap, delete, rebuild) can destroy a resource its siblings
+// still draw with. Replaces the unknowable "is it in MY cache?" test.
+import { markSharedGpuResource } from '@pryzm/renderer-three';
 import {
     WardrobeCabinetConfig,
     WardrobeSectionConfig,
@@ -48,7 +54,7 @@ const _matCache = new Map<string, THREE.MeshStandardMaterial>();
 
 function mat(hex: string, opts: Partial<THREE.MeshStandardMaterialParameters> = {}): THREE.MeshStandardMaterial {
     const key = hex + JSON.stringify(opts);
-    if (!_matCache.has(key)) _matCache.set(key, new THREE.MeshStandardMaterial({ color: new THREE.Color(hex), ...opts }));
+    if (!_matCache.has(key)) _matCache.set(key, markSharedGpuResource(new THREE.MeshStandardMaterial({ color: new THREE.Color(hex), ...opts })));
     return _matCache.get(key)!;
 }
 

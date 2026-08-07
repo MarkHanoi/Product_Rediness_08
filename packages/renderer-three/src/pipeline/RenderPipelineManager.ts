@@ -70,7 +70,17 @@ import { DOMEventBus } from '@pryzm/event-bus';
 // "Fragment shader failed to compile" RuntimeError THREE throws after a
 // device-loss + recovery rebuild so we can downgrade to the lightweight phase-2
 // pipeline instead of letting it flip THREE's fatal "Rendering has stopped" latch.
-import { isUsedTimesDisposeError, isShaderCompileError } from '../safeDispose';
+import {
+    isUsedTimesDisposeError,
+    isShaderCompileError,
+    // §GPU-RESOURCE-LIFETIME (ADR-0281) — the frame-boundary release drain and the
+    // "a GPU resource was destroyed while still referenced" classifier. The latter
+    // exists because such a failure is UNREACHABLE from a pipeline rebuild (the
+    // damage is in the RENDERER's attribute/render-object bookkeeping, not in the
+    // post-FX graph) — so it must never ride the retry ladder.
+    drainGpuReleaseQueue,
+    isDestroyedGpuResourceError,
+} from '../safeDispose';
 const _bus = new DOMEventBus();
 /**
  * View-switch listener protocol — renderer-local definition.
@@ -203,6 +213,19 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _phase: PipelinePhase = 'idle';
     private _hasPipelineError    = false;
     private _retryCount          = 0;
+
+    /**
+     * §GPU-RESOURCE-LIFETIME (ADR-0281) — latch: a destroyed/dangling GPU-resource
+     * render failure has already consumed its ONE full-reconstruction attempt.
+     * A second occurrence is unrecoverable and fails loudly instead of looping.
+     *
+     * Cleared ONLY by {@link recoverPipeline} — i.e. when a genuinely NEW renderer
+     * (new GPU device, new attribute/render-object bookkeeping) has been bound, so
+     * a fresh attempt is actually meaningful. Deliberately NOT cleared by
+     * {@link onProjectSwitch}: that is the reconstruction this latch is guarding,
+     * and clearing it there would rebuild the unbounded retry loop we are removing.
+     */
+    private _gpuResourceResetAttempted = false;
 
     /**
      * §RPM-RECOVERY-DOWNGRADE (ADR-0087) — when true, the heavy TSL post-FX
@@ -601,6 +624,22 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     render(delta = 0.016): void {
+        // ── §GPU-RESOURCE-LIFETIME (ADR-0281, INVARIANT L2) ───────────────────
+        // THE FRAME BOUNDARY. Element mutations (a furniture type swap, a wall
+        // rebuild, …) DETACH their old subtree on their own tick and enqueue the
+        // GPU release here; this is the one instant at which releasing is safe:
+        // the previous frame's passes are fully encoded and submitted, and this
+        // frame has not yet built a draw list. Releasing anywhere else is what
+        // produced the founder's hard stop —
+        //   "Failed to execute 'setIndexBuffer' … parameter 1 is not of type
+        //    'GPUBuffer'" in _renderTransparents
+        // i.e. a draw call reaching for an index buffer a store-event listener
+        // had already destroyed. C04 §2 — the frame owner owns the boundary.
+        // Deliberately BEFORE every early-return below: a frame we decline to
+        // submit is still a frame boundary, and the queue must not grow unbounded
+        // while the viewport is zero-size / suspended / paused.
+        drainGpuReleaseQueue();
+
         // ── §L-328 SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET (P1) ─────────
         // NEVER submit a render pass against a zero-size / incomplete framebuffer.
         // Creating a documentation view (elevation) spins up a split pane whose render
@@ -741,6 +780,65 @@ export class RenderPipelineManager implements IViewSwitchListener {
                     'phase-2 pipeline. Viewport stays alive (degraded, no overlay).',
                 );
                 this._downgradeToLightweightPipeline();
+                return;
+            }
+
+            // §GPU-RESOURCE-LIFETIME (ADR-0281) — a DESTROYED-RESOURCE failure
+            // ("setIndexBuffer … parameter 1 is not of type 'GPUBuffer'",
+            // "Destroyed texture used in a submit", "deleted object") is damage in
+            // the RENDERER's per-attribute / per-render-object bookkeeping. The
+            // retry ladder below rebuilds the POST-FX PIPELINE, which cannot reach
+            // that bookkeeping — so the founder's "attempt 1/3, backoff 500ms" was
+            // guaranteed to fail and left a permanently blocked scene, blank
+            // thumbnails, and no user-visible explanation. A retry that CANNOT
+            // succeed is worse than a hard failure.
+            //
+            // Policy: ONE genuine reconstruction attempt, and if the fault RECURS we
+            // fail LOUDLY into phase='error' so ViewportCrashGuard surfaces it. We
+            // never sit in a silent retry loop on a fault class we cannot repair.
+            //
+            // ⚠ The reconstruction is DELIBERATELY NOT `onProjectSwitch()`, despite
+            // that being the app's habitual "soft recovery" lever. onProjectSwitch()
+            // reconciles size and schedules a shadow rebuild but *explicitly defers
+            // the pipeline rebuild to onProjectLoaded()* ("Pipeline rebuild is
+            // intentionally deferred…", ~line 1996). We have just set
+            // `_hasPipelineError = true` and nulled `_renderPipeline`, so calling it
+            // would log a confident recovery and leave the viewport permanently dark
+            // with no error — reproducing the very symptom this fix exists to remove.
+            // (That optimistic-log-without-the-work shape is also what L-663 pins.)
+            // We therefore heal the size AND drive the one call that actually
+            // restores `_renderPipeline` and clears `_hasPipelineError`.
+            if (isDestroyedGpuResourceError(err)) {
+                if (!this._gpuResourceResetAttempted) {
+                    this._gpuResourceResetAttempted = true;
+                    console.warn(
+                        '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource ' +
+                        'reached a draw call — a backoff retry cannot repair renderer-side attribute ' +
+                        'state. Performing ONE immediate reconstruction instead of the retry ladder. ' +
+                        'If this recurs the pipeline will fail loudly.',
+                    );
+                    try {
+                        this._reconcileRenderSize();
+                        void this._rebuildPipeline();
+                    } catch (resetErr: unknown) {
+                        console.error(
+                            '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME reconstruction failed — ' +
+                            'failing loudly rather than leaving a dark viewport:',
+                            resetErr instanceof Error ? resetErr.message : resetErr,
+                        );
+                        this._phase = 'error';
+                        this._emitState();
+                    }
+                    return;
+                }
+                console.error(
+                    '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource ' +
+                    'RECURRED after a full reconstruction — this is an unrecoverable resource-lifetime ' +
+                    'defect, not a transient. Failing loudly (phase=error) so the user is told, rather ' +
+                    'than leaving a blocked scene behind a silent retry.',
+                );
+                this._phase = 'error';
+                this._emitState();
                 return;
             }
 
@@ -2655,6 +2753,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // attempt at the full pipeline.
         this._postFxDisabled = false;
         this._retryCount     = 0;
+        // §GPU-RESOURCE-LIFETIME (ADR-0281) — a freshly-recreated renderer has
+        // brand-new attribute / render-object bookkeeping, so the destroyed-resource
+        // latch is genuinely stale here (and ONLY here). See the field's doc.
+        this._gpuResourceResetAttempted = false;
 
         try {
             await this.bind(scene, camera, renderer, 'light', backendIsWebGPU);

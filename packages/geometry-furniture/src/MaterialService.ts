@@ -1,4 +1,10 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0281, INVARIANT L1) — MaterialService hands out ONE
+// material per colour/type to EVERY furniture element. `isCachedMaterial()` alone was
+// never enough (it is only consulted by callers that remember to ask, and it cannot
+// see the other six module caches in this package). Stamping the resource makes the
+// ownership visible to the disposal seam itself, which is the only place that matters.
+import { markSharedGpuResource } from '@pryzm/renderer-three';
 
 export class MaterialService {
     private materialCache = new Map<string, THREE.Material>();
@@ -21,7 +27,7 @@ export class MaterialService {
                     roughness: 0.2
                 });
                 this.handleMaterialCache.set(key, material);
-                this.cachedMaterials.add(material);
+                this.cachedMaterials.add(markSharedGpuResource(material));
             }
             return this.handleMaterialCache.get(key)!;
         }
@@ -34,7 +40,7 @@ export class MaterialService {
                     metalness: 0.1 
                 });
                 this.doorMaterialCache.set(key, material);
-                this.cachedMaterials.add(material);
+                this.cachedMaterials.add(markSharedGpuResource(material));
             }
             return this.doorMaterialCache.get(key)!;
         }
@@ -42,7 +48,7 @@ export class MaterialService {
         if (!this.materialCache.has(key)) {
             const material = new THREE.MeshStandardMaterial({ color });
             this.materialCache.set(key, material);
-            this.cachedMaterials.add(material);
+            this.cachedMaterials.add(markSharedGpuResource(material));
         }
         return this.materialCache.get(key)!;
     }

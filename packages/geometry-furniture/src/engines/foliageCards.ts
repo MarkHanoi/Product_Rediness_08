@@ -32,6 +32,12 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0281, INVARIANT L1) — this module hands out
+// CACHE-OWNED materials/textures shared across many live elements. Stamping them
+// makes that ownership visible to every disposer, so no element teardown
+// (furniture type swap, delete, rebuild) can destroy a resource its siblings
+// still draw with. Replaces the unknowable "is it in MY cache?" test.
+import { markSharedGpuResource } from '@pryzm/renderer-three';
 
 // ── Procedural leaf-card alpha texture ───────────────────────────────────────
 //
@@ -137,7 +143,7 @@ function _leafTexture(foliageHex: string): THREE.Texture | null {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 2;
     tex.needsUpdate = true;
-    _texCache.set(key, tex);
+    _texCache.set(key, markSharedGpuResource(tex));
     return tex;
 }
 
@@ -167,7 +173,7 @@ function _cardMaterial(foliageHex: string): THREE.MeshStandardMaterial {
         // Slightly translucent leaf read without paying for true transmission.
         emissive: new THREE.Color(foliageHex).multiplyScalar(0.06),
     });
-    _cardMatCache.set(key, mat);
+    _cardMatCache.set(key, markSharedGpuResource(mat));
     return mat;
 }
 
@@ -267,7 +273,7 @@ function _innerShellMaterial(foliageHex: string): THREE.MeshStandardMaterial {
     const mat = new THREE.MeshStandardMaterial({
         color: c, roughness: 0.95, metalness: 0.0, flatShading: true,
     });
-    _shellMatCache.set(key, mat);
+    _shellMatCache.set(key, markSharedGpuResource(mat));
     return mat;
 }
 

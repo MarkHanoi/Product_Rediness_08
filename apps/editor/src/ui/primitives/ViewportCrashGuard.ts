@@ -52,6 +52,25 @@ const KNOWN_NONFATAL_KEYWORDS: string[] = [
     'usedtimes',
 ];
 
+// §GPU-RESOURCE-LIFETIME (ADR-0281) — SUPPRESSION MUST BE ACCOUNTED.
+//
+// The `usedtimes` suppression above was written for a genuinely non-fatal case: a
+// stale render object from a PREVIOUS GPU session being torn down after a project
+// switch. That reasoning is sound ONCE. It is NOT sound at volume: `usedTimes` is
+// the dispose-time symptom of the same defect family as the founder's
+// `setIndexBuffer … not of type 'GPUBuffer'` hard stop — a GPU resource released
+// while the renderer still referenced it. A guard that swallows that signal
+// silently, forever, with `preventDefault()`, is itself a defect: it is exactly
+// how a fatal resource-lifetime bug reaches production looking like nothing at all
+// (the founder saw a blocked scene and blank thumbnails, and no error).
+//
+// Policy: keep suppressing the OVERLAY (a single stale-session teardown must not
+// bounce the user), but COUNT the suppressions. A burst above the threshold inside
+// the window is not teardown noise — it is a live resource-lifetime fault — and is
+// escalated to the normal render-failure path so it can surface and be diagnosed.
+const NONFATAL_BURST_THRESHOLD  = 12;
+const NONFATAL_BURST_WINDOW_MS  = 2000;
+
 // §VCG-CONSECUTIVE-FRAME-GUARD: A SINGLE render-related throw is almost never a
 // real, persistent viewport crash. Heavy WebGL2 scenes (e.g. a 5-storey
 // residential building with the analysis side-panel open) routinely emit a
@@ -81,6 +100,13 @@ export class ViewportCrashGuard {
     private _consecutiveFailures = 0;
     private _lastFailureAt       = 0;
 
+    // §GPU-RESOURCE-LIFETIME (ADR-0281) — accounted suppression state.
+    private _nonFatalSuppressed  = 0;
+    private _nonFatalWindowStart = 0;
+
+    /** Total non-fatal GPU internals suppressed this session (diagnostics/tests). */
+    get suppressedNonFatalCount(): number { return this._nonFatalSuppressed; }
+
     private _errorHandler?:     (e: ErrorEvent) => void;
     private _rejectionHandler?: (e: PromiseRejectionEvent) => void;
 
@@ -100,7 +126,9 @@ export class ViewportCrashGuard {
             // does not log them to the console or report them as unhandled).
             if (this._isKnownNonFatal(e.message ?? '')) {
                 e.preventDefault();
-                console.warn('[ViewportCrashGuard] §I3 suppressed non-fatal GPU internal:', e.message.slice(0, 80));
+                const realError = e.error instanceof Error ? e.error : new Error(e.message ?? '');
+                // §GPU-RESOURCE-LIFETIME (ADR-0281) — accounted, not silent.
+                this._recordNonFatalSuppression(realError, 'window.onerror');
                 return;
             }
             if (this._hasCrashed) return;
@@ -118,7 +146,9 @@ export class ViewportCrashGuard {
             // §I3-USEDTIMES-SUPPRESS: same suppression for promise-rejection path.
             if (this._isKnownNonFatal(msg)) {
                 e.preventDefault();
-                console.warn('[ViewportCrashGuard] §I3 suppressed non-fatal GPU internal (rejection):', msg.slice(0, 80));
+                const reason = e.reason instanceof Error ? e.reason : new Error(msg);
+                // §GPU-RESOURCE-LIFETIME (ADR-0281) — accounted, not silent.
+                this._recordNonFatalSuppression(reason, 'unhandledrejection');
                 return;
             }
             if (this._hasCrashed) return;
@@ -147,6 +177,8 @@ export class ViewportCrashGuard {
         this._hasCrashed = false;
         this._consecutiveFailures = 0;
         this._lastFailureAt       = 0;
+        this._nonFatalSuppressed  = 0;
+        this._nonFatalWindowStart = 0;
         hideSceneCrashFallback();
         console.log('[ViewportCrashGuard] Deactivated.');
     }
@@ -185,6 +217,45 @@ export class ViewportCrashGuard {
      * within CONSECUTIVE_RESET_WINDOW_MS of each other — a genuinely persistent
      * render failure. A gap longer than the window resets the streak.
      */
+    /**
+     * §GPU-RESOURCE-LIFETIME (ADR-0281) — record a suppressed "known non-fatal"
+     * GPU internal, and ESCALATE when they arrive as a burst.
+     *
+     * One (or a few) `usedTimes` throws after a project switch really are stale
+     * previous-session teardown, and the overlay must stay hidden. A BURST of them
+     * is a live resource-lifetime fault — a resource being released while the
+     * renderer still references it — and it is the leading indicator of exactly the
+     * class of failure that blocked the founder's scene. Escalating routes it into
+     * `_recordRenderFailure`, which logs the real error + stack and (only if the
+     * failures then persist frame-after-frame) shows the crash dialog.
+     */
+    private _recordNonFatalSuppression(error: Error, source: string): void {
+        const now = Date.now();
+        if (now - this._nonFatalWindowStart > NONFATAL_BURST_WINDOW_MS) {
+            this._nonFatalWindowStart = now;
+            this._nonFatalSuppressed  = 0;
+        }
+        this._nonFatalSuppressed++;
+
+        if (this._nonFatalSuppressed <= NONFATAL_BURST_THRESHOLD) {
+            console.warn(
+                `[ViewportCrashGuard] §I3 suppressed non-fatal GPU internal (${source}) ` +
+                `${this._nonFatalSuppressed}/${NONFATAL_BURST_THRESHOLD}:`,
+                error.message.slice(0, 80),
+            );
+            return;
+        }
+
+        console.error(
+            `[ViewportCrashGuard] §GPU-RESOURCE-LIFETIME ${this._nonFatalSuppressed} "non-fatal" GPU ` +
+            `internals in ${NONFATAL_BURST_WINDOW_MS}ms — this is NOT stale-session teardown noise, it is ` +
+            'a live resource-lifetime fault (a GPU resource released while the renderer still referenced ' +
+            'it). Escalating instead of suppressing.',
+            error,
+        );
+        this._recordRenderFailure(error, `${source} (non-fatal burst ×${this._nonFatalSuppressed})`);
+    }
+
     private _recordRenderFailure(error: Error, source: string): void {
         if (this._hasCrashed) return;
 

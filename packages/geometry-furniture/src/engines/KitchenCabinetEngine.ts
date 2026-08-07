@@ -37,6 +37,12 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0281, INVARIANT L1) — this module hands out
+// CACHE-OWNED materials/textures shared across many live elements. Stamping them
+// makes that ownership visible to every disposer, so no element teardown
+// (furniture type swap, delete, rebuild) can destroy a resource its siblings
+// still draw with. Replaces the unknowable "is it in MY cache?" test.
+import { markSharedGpuResource } from '@pryzm/renderer-three';
 import {
     KitchenCabinetConfig,
     KitchenHandleStyle,
@@ -53,7 +59,7 @@ import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-librar
 const _matCache = new Map<string, THREE.MeshStandardMaterial>();
 function mat(hex: string, opts: Partial<THREE.MeshStandardMaterialParameters> = {}): THREE.MeshStandardMaterial {
     const key = hex + JSON.stringify(opts);
-    if (!_matCache.has(key)) _matCache.set(key, new THREE.MeshStandardMaterial({ color: new THREE.Color(hex), ...opts }));
+    if (!_matCache.has(key)) _matCache.set(key, markSharedGpuResource(new THREE.MeshStandardMaterial({ color: new THREE.Color(hex), ...opts })));
     return _matCache.get(key)!;
 }
 
@@ -67,7 +73,7 @@ function materialFromId(
     const params = { ...def.params, ...opts };
     const color = params.color instanceof THREE.Color ? `#${params.color.getHexString()}` : String(params.color ?? fallbackHex);
     const key = `lib:${materialId}:${color}:${JSON.stringify({ ...params, color })}`;
-    if (!_matCache.has(key)) _matCache.set(key, new THREE.MeshStandardMaterial(params));
+    if (!_matCache.has(key)) _matCache.set(key, markSharedGpuResource(new THREE.MeshStandardMaterial(params)));
     return _matCache.get(key)!;
 }
 

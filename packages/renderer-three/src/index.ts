@@ -145,6 +145,16 @@ export {
   // §FIX-DELETED-TEXTURE-BIND — shared env/PBR texture disposal safety.
   safeDisposeTexture,
   detachTextureFromScene,
+  // §GPU-RESOURCE-LIFETIME (ADR-0281) — the resource-lifetime seam.
+  // L1 (ownership): a cache stamps what it owns; no element teardown releases it.
+  // L2 (ordering):  element mutations DETACH now, RELEASE at the next frame boundary.
+  markSharedGpuResource,
+  isSharedGpuResource,
+  scheduleGpuRelease,
+  pendingGpuReleaseCount,
+  drainGpuReleaseQueue,
+  detachAndReleaseChildren,
+  isDestroyedGpuResourceError,
 } from './safeDispose.js';
 
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
