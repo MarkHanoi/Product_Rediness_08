@@ -115,6 +115,10 @@ import { annotationStore }          from '@pryzm/plugin-annotations';
 // §FIX-DIMPANEL-EDIT-REACHES-THE-ELEMENT (L-703) — Delete must hit the store the annotation
 // is actually IN. See `deleteSelected` below.
 import { DeleteAnnotationCommand }  from '@pryzm/plugin-annotations';
+// §ANN-SEED — five demo annotations for a project that has none (founder request).
+import { seedDemoAnnotations }      from '@pryzm/plugin-annotations';
+/** §ANN-SEED — one attempt per session; a refused seed is not retried on every view switch. */
+let _annotationSeedAttempted = false;
 // §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159, C06 §7.2) — the Split View toggle shares
 // the bottom-left launcher-rail corner, so it takes a declared slot from the
 // single z-layer/no-overlap policy instead of a hand-picked bottom/z-index.
@@ -2102,6 +2106,28 @@ export async function initUI(p: UIParams): Promise<void> {
         //
         // The fix routes all camera positioning through camera-controls so the internal
         // state stays in sync with the visual camera position.
+        // §ANN-SEED — five demo annotations (five text sizes, five colours) the first
+        // time a view is activated in a project that has NONE. Founder request: an empty
+        // annotation subsystem is untestable, because "no annotations exist" and
+        // "annotations exist but do not render" look identical. Runs at most once per
+        // session, only when the canonical store is empty, and every seeded annotation
+        // goes through CreateAnnotationCommand so it is undoable/redoable/deletable like
+        // any other. `seedDemoAnnotations` reports a refusal rather than a silent no-op
+        // (ADR-0299), so the console says WHY when nothing appears.
+        if (viewId && !_annotationSeedAttempted) {
+            _annotationSeedAttempted = true;
+            try {
+                const outcome = seedDemoAnnotations(viewId);
+                if (outcome.created > 0) {
+                    console.log(`[§ANN-SEED] seeded ${outcome.created} demo annotations in view ${viewId}`);
+                } else {
+                    console.log(`[§ANN-SEED] no demo annotations seeded — ${outcome.reason}`);
+                }
+            } catch (err) {
+                console.warn('[§ANN-SEED] seeding failed:', err);
+            }
+        }
+
         if (viewId) {
             const viewDef = viewDefinitionStore.get(viewId);
             const projection = viewDef?.projection;

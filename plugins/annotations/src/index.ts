@@ -225,3 +225,16 @@ export { OBCAnnotationAdapter, obcAnnotationAdapter } from './OBCAnnotationAdapt
 export { AnnotationRenderLayer, type DimHoverHint } from './AnnotationRenderLayer.js';
 export { AnnotationManager } from './AnnotationManager.js';
 export { injectAnnotationStyles } from './annotation-styles.js';
+
+// §ANN-TAG-DEFAULT — what a tag displays, per host family (wall → ID by default).
+export {
+    type TaggableRecord,
+    type TagProperty,
+    TAG_PROPERTY_CATALOGUE,
+    tagPropertiesFor,
+    defaultTagPropertyFor,
+    resolveTagLabel,
+} from './subsystem/TagPropertyResolver.js';
+
+// §ANN-SEED — five demo annotations (five sizes, five colours) for an empty project.
+export { type SeedOutcome, seedDemoAnnotations } from './subsystem/seedDemoAnnotations.js';

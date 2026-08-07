@@ -23,6 +23,8 @@ import { makeAnnotationElement }        from '@pryzm/plugin-annotations';
 import { makePointRef }                 from '@pryzm/plugin-annotations';
 import { CreateAnnotationCommand }      from '@pryzm/plugin-annotations';
 import { createId }                     from '@pryzm/schemas';
+// §ANN-TAG-DEFAULT — one catalogue decides what a tag shows, per host family.
+import { defaultTagPropertyFor, resolveTagLabel } from '@pryzm/plugin-annotations';
 import { pryzmAnnotationInput }         from '@app/ui/AnnotationInputPanel';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import * as THREE from '@pryzm/renderer-three/three';
@@ -151,7 +153,54 @@ function _line(c: PlanToolDrawContext, ax: number, az: number, bx: number, bz: n
 // These functions read model stores exposed on `window` by initTools.ts.
 // They never throw; silently fall back when stores are unavailable.
 
-interface BimCandidate { label: string; pos: { wx: number; wz: number }; elementId: string; }
+interface BimCandidate {
+    label: string;
+    pos: { wx: number; wz: number };
+    elementId: string;
+    /** §ANN-TAG-DEFAULT — the host family, so the tag knows which property catalogue applies. */
+    hostType?: string;
+    /** §ANN-TAG-DEFAULT — which property produced `label`. Stored on the annotation. */
+    labelProperty?: string;
+}
+
+// §ANN-TAG-DEFAULT (founder: "BY DEFAULT IN A WALL SHOULD BE THE ID").
+//
+// `_nearestElement` considered doors, windows and columns ONLY. Clicking a WALL — the
+// most-tagged element in any plan — found nothing and fell through to a text PROMPT
+// asking the user what to type. That is the "the tag element asks you what you want to
+// add" defect: not a missing dialog, a missing HOST. A wall is now a first-class tag
+// host and its default property is its ID, resolved through the shared catalogue in
+// `TagPropertyResolver` rather than a switch here.
+function _nearestWall(pt: WorldPoint, radius = 3.0): BimCandidate | null {
+    const wallStore = window.wallStore; // TODO(TASK-08)
+    if (!wallStore?.getAll) return null;
+    let best: BimCandidate | null = null;
+    let bestDist = radius;
+    for (const w of wallStore.getAll() as any[]) {
+        const bl = w?.baseLine;
+        if (!Array.isArray(bl) || bl.length < 2) continue;
+        const [a, b] = bl;
+        // Distance from pt to the wall's baseline SEGMENT (not its midpoint) — a long
+        // wall must be taggable anywhere along its length.
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const len2 = dx * dx + dz * dz;
+        const t = len2 < 1e-9 ? 0 : Math.max(0, Math.min(1,
+            ((pt.worldX - a.x) * dx + (pt.worldZ - a.z) * dz) / len2));
+        const cx = a.x + dx * t, cz = a.z + dz * t;
+        const dist = Math.hypot(cx - pt.worldX, cz - pt.worldZ);
+        if (dist < bestDist) {
+            const label = resolveTagLabel('wall', w as never, defaultTagPropertyFor('wall'));
+            // ADR-0299 — a wall we cannot name is NOT tagged with an invented mark.
+            if (label === null) continue;
+            bestDist = dist;
+            best = {
+                label, pos: { wx: cx, wz: cz }, elementId: w.id,
+                hostType: 'wall', labelProperty: defaultTagPropertyFor('wall'),
+            };
+        }
+    }
+    return best;
+}
 
 function _nearestDoor(pt: WorldPoint, radius = 3.0): BimCandidate | null {
     const doorStore = window.doorStore; // TODO(TASK-08)
@@ -216,11 +265,13 @@ function _nearestWindow(pt: WorldPoint, radius = 3.0): BimCandidate | null {
 }
 
 function _nearestElement(pt: WorldPoint, radius = 3.0): BimCandidate | null {
-    // Try doors first, then windows, then columns
+    // Try doors first, then windows, then columns, then WALLS (§ANN-TAG-DEFAULT).
+    // Hosted openings win over their host wall on purpose: a click near a door means
+    // the door, and the wall is always reachable by clicking away from the opening.
     const door = _nearestDoor(pt, radius);
-    if (door) return door;
+    if (door) return { ...door, hostType: 'door', labelProperty: defaultTagPropertyFor('door') };
     const win = _nearestWindow(pt, radius);
-    if (win) return win;
+    if (win) return { ...win, hostType: 'window', labelProperty: defaultTagPropertyFor('window') };
 
     const columnStore = window.columnStore; // TODO(TASK-08)
     if (columnStore?.getAll) {
@@ -238,10 +289,10 @@ function _nearestElement(pt: WorldPoint, radius = 3.0): BimCandidate | null {
                 best = { label: mark, pos: { wx: cx, wz: cz }, elementId: col.id };
             }
         }
-        if (best) return best;
+        if (best) return { ...best, hostType: 'column', labelProperty: defaultTagPropertyFor('column') };
     }
 
-    return null;
+    return _nearestWall(pt, radius);
 }
 
 function _nearestGrid(pt: WorldPoint, radius = 5.0): BimCandidate | null {
@@ -366,14 +417,25 @@ export class ElementTagPlanToolHandler implements PlanToolHandler {
             _commit('tag', c.viewDef.id,
                 [_mkPt(near.pos.wx, near.pos.wz), _mkPt(pt.worldX, pt.worldZ)],
                 [_mp3(near.pos.wx, near.pos.wz), _mp3(pt.worldX, pt.worldZ)],
-                { label: near.label, cachedLabel: near.label, showLeader: true, elementId: near.elementId }, c
+                {
+                    label: near.label, cachedLabel: near.label, showLeader: true,
+                    elementId: near.elementId, targetElementId: near.elementId,
+                    // §ANN-TAG-DEFAULT — carry the host family and the CHOSEN property so
+                    // the Revit-style picker can re-resolve the label later without
+                    // re-picking the host (annotation.update → parameters.labelProperty).
+                    hostType: near.hostType ?? 'element',
+                    labelProperty: near.labelProperty ?? defaultTagPropertyFor(near.hostType),
+                }, c
             );
             _clear(c);
         } else {
-            // Fallback — no element nearby
+            // §ANN-TAG-DEFAULT — LAST RESORT ONLY. Reached when the cursor is near no
+            // wall, door, window or column at all. Every recognised host is tagged from
+            // its default property without asking; this prompt is for a host PRYZM has
+            // no catalogue for, and it says so instead of pretending it is the norm.
             pryzmAnnotationInput({
                 title: 'ELEMENT TAG',
-                subtitle: 'No element detected at cursor',
+                subtitle: 'No wall, door, window or column within 3 m — enter a label manually',
                 label: 'Tag label',
                 placeholder: 'e.g. D-01',
                 confirmLabel: 'Place',
