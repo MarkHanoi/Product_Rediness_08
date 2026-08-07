@@ -211,6 +211,89 @@ export function isGlobeScaleBounds(bounds: THREE.Box3): boolean {
     }
 }
 
+/** A point in the scene-XZ ground plane, metres (C12 LTP-ENU) — the parcel-ring vertex shape. */
+export interface GroundPointXZ {
+    readonly x: number;
+    readonly z: number;
+}
+
+/**
+ * §CAM-FRAME-SITE-WHEN-NO-MODEL (L-748) — bounds for a committed SITE RING, so the 3D
+ * view can frame the site when there is no BIM geometry yet.
+ *
+ * ## The gap this closes
+ *
+ * FOUNDER: *"THE 3D VIEW STILL IS NOT DOING THE CORRECT ZOOM AT START UP. I NEED TO CLICK
+ * HOME — THEN I HAVE THE 3D BOUNDARY CORRECT."*
+ *
+ * On a fresh project the user has committed a parcel boundary but drawn no walls. Every
+ * guard behaves correctly and the outcome is still wrong:
+ *   • both camera caches legitimately MISS (nothing saved yet);
+ *   • scene bounds are legitimately REJECTED (globe-scale contamination, L-744);
+ *   • `zoomToFit` legitimately REFUSES ("no BIM-scale geometry to frame").
+ * …so framing falls to a hard-coded 50 m about the ORIGIN — and the parcel sits ~13 m off
+ * the origin, so the site is not what you are looking at.
+ *
+ * The precedence was **model → constant**. It must be **model → SITE → constant**: a
+ * committed boundary IS the site, and ADR-0300 already ranks it as the best evidence of
+ * site extent. The constant remains the honest answer when there is neither.
+ *
+ * ## Why this takes a LOCAL ring and not `resolveSiteFramingExtent`
+ *
+ * `siteFramingExtent.ts` is the shared authority for the GEO extent (WGS84 degrees +
+ * camera ALTITUDE) that the 2D MapLibre and 3D Cesium panes both frame from. It is the
+ * right authority for those two, and the wrong one here: this camera lives in scene-XZ
+ * metres, and the parcel ring is ALREADY in that frame (`Parcel.boundary.polygon`,
+ * `Pt{x,z}` — C12 LTP-ENU, the same space as walls). Routing a local framing decision
+ * through a geodetic extent would add a lossy degrees→metres round trip to reach a number
+ * we already hold exactly. One authority per COORDINATE SPACE, not one authority for
+ * every camera.
+ *
+ * @param ring parcel boundary vertices in scene-XZ metres. Needs ≥ 3 to be a polygon.
+ * @returns the ring's bounds at ground level, or `null` when the ring cannot describe a
+ *          site (too few vertices, non-finite, or globe-scale) — callers must then fall
+ *          through to their constant rather than frame something invented.
+ *
+ * P8: emits `pryzm.camera.bounds_from_site_ring`.
+ */
+export function boundsFromSiteRing(ring: readonly GroundPointXZ[] | null | undefined): THREE.Box3 | null {
+    const span = TRACER.startSpan('pryzm.camera.bounds_from_site_ring');
+    try {
+        if (!ring || ring.length < 3) {
+            span.setAttribute('pryzm.camera.site_ring_vertices', ring?.length ?? 0);
+            return null;
+        }
+        const box = new THREE.Box3();
+        for (const p of ring) {
+            if (!Number.isFinite(p?.x) || !Number.isFinite(p?.z)) {
+                span.setAttribute('pryzm.camera.site_ring_non_finite', true);
+                return null;
+            }
+            // Ground plane: the ring carries no height and we do not invent one. A flat
+            // box still fits correctly — `computeFitPose` floors the radius at
+            // MIN_FIT_RADIUS_M and looks down the default (1, 0.65, 1) direction.
+            box.expandByPoint(new THREE.Vector3(p.x, 0, p.z));
+        }
+        if (box.isEmpty()) return null;
+        // The same contamination guard the scene-bounds path uses: a ring is site-scale or
+        // it is not a site.
+        if (isGlobeScaleBounds(box)) {
+            span.setAttribute('pryzm.camera.site_ring_globe_scale', true);
+            return null;
+        }
+        const size = box.getSize(new THREE.Vector3());
+        span.setAttribute('pryzm.camera.site_ring_vertices', ring.length);
+        span.setAttribute('pryzm.camera.site_extent_m', Math.max(size.x, size.z));
+        span.setStatus({ code: SpanStatusCode.OK });
+        return box;
+    } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error)?.message });
+        return null;
+    } finally {
+        span.end();
+    }
+}
+
 /** A fitted pose: where to put the camera and the depth range that keeps it rendering. */
 export interface FitPose {
     /** World-space camera position. */

@@ -227,10 +227,10 @@ export { frameObject, frameObjects } from './navigation/CameraFramingUtils.js';
 // §CAM-FRAME-INVARIANT (L-742) — single framing authority (3D activation + Fit All).
 export type { FitPose, FitPoseOptions } from './navigation/cameraFraming.js';
 export { computeFitPose, boundsVisibleToCamera, boundsFramedByCamera, shouldPersistDepartingCamera, MIN_FRAMED_SCREEN_FRACTION } from './navigation/cameraFraming.js';
-export type { DepartingCameraContext } from './navigation/cameraFraming.js';
+export type { DepartingCameraContext, GroundPointXZ } from './navigation/cameraFraming.js';
 // §CAM-BIM-SCALE-BOUNDS (L-744) — L-378 guarded the SAVED pose; this guards the
 // COMPUTED one, so an empty slot cannot fall back to a globe-scale default framing.
-export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds, MAX_BIM_NEAR_M } from './navigation/cameraFraming.js';
+export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds, MAX_BIM_NEAR_M, boundsFromSiteRing } from './navigation/cameraFraming.js';
 export { FirstPersonController } from './navigation/FirstPersonController.js';
 export type { KeyboardOrbitCamera } from './navigation/KeyboardOrbitPlugin.js';
 export { KeyboardOrbitPlugin } from './navigation/KeyboardOrbitPlugin.js';

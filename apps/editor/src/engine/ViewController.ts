@@ -21,6 +21,8 @@ import { computeFitPose, boundsFramedByCamera, shouldPersistDepartingCamera } fr
 // §CAM-BIM-SCALE-BOUNDS (L-744) — L-378 guarded the SAVED camera pose; an empty slot
 // then fell through to DEFAULT FRAMING, which reads scene bounds nothing guarded.
 import { isGlobeScaleBounds, isGlobeScalePosition, MAX_BIM_NEAR_M } from '@pryzm/core-app-model';
+// §CAM-FRAME-SITE-WHEN-NO-MODEL (L-748) — framing precedence model → SITE → constant.
+import { boundsFromSiteRing } from '@pryzm/core-app-model';
 
 /**
  * §CAM-NEAR-NEVER-CUTS (L-747) — the BIM baseline far plane, restored alongside `near`
@@ -314,10 +316,15 @@ export class ViewController implements IViewController {
      * resolve silently (ADR-0299) — the caller decides how to surface it.
      */
     async zoomToFit(_opts?: { animate?: boolean }): Promise<void> {
-        const bounds = this._getSceneBoundsForCamera();
+        const bounds = this._getFramingBounds();
         if (bounds.isEmpty()) {
-            // Nothing to frame. Not an error, and not a lie either — say so.
-            console.warn('[ViewController] zoomToFit — no BIM-scale geometry to frame; camera unchanged.');
+            // Neither model NOR site (§CAM-FRAME-SITE-WHEN-NO-MODEL, L-748). Nothing to
+            // frame. Not an error, and not a lie either — say so, and do NOT invent a
+            // framing for an empty project.
+            console.warn(
+                '[ViewController] zoomToFit — no BIM geometry and no committed site boundary ' +
+                'to frame; camera unchanged.',
+            );
             return;
         }
 
@@ -791,6 +798,56 @@ export class ViewController implements IViewController {
     }
 
     /**
+     * §CAM-FRAME-SITE-WHEN-NO-MODEL (L-748) — the framing precedence:
+     * **MODEL → SITE → constant**, never model → constant.
+     *
+     * FOUNDER: *"THE 3D VIEW STILL IS NOT DOING THE CORRECT ZOOM AT START UP. I NEED TO
+     * CLICK HOME — THEN I HAVE THE 3D BOUNDARY CORRECT."*
+     *
+     * On a fresh project with a committed parcel but no walls, every guard was correct and
+     * the user still got the wrong camera: both caches MISS, scene bounds are REJECTED
+     * (L-744), `zoomToFit` REFUSES — so framing fell to a hard-coded 50 m about the ORIGIN,
+     * while the parcel sits ~13 m away. Correct components, wrong composition: the
+     * precedence simply had no SITE rung.
+     *
+     * ⚠ Home is NOT the authority this borrows from. `captureDefaultView()` only snapshots
+     * the live camera ~1.2 s after project load; it knows nothing about the site and framed
+     * correctly here only because some earlier flow happened to leave a good pose behind —
+     * the same sampling race that let it capture an ECEF pose in another session (L-746).
+     * Home working is a symptom that a correct framing EXISTED at some point, not evidence
+     * of where to get one.
+     *
+     * The site ring is read from the C19 `SiteModelStore`, already in scene-XZ metres — the
+     * same frame as walls (`Parcel.boundary.polygon`, C12 LTP-ENU). It is deliberately NOT
+     * folded into `computeSceneBounds()`: "what the model occupies" and "where the site is"
+     * are different questions, and merging them would silently widen every other consumer
+     * of model bounds (fit-to-selection, level framing, export scoping).
+     *
+     * Returns EMPTY when there is neither model nor site. An empty scene must NOT be framed
+     * as though it were authored — the constant is the honest answer there.
+     */
+    private _getFramingBounds(): THREE.Box3 {
+        const model = this._getSceneBoundsForCamera();
+        if (!model.isEmpty()) return model;
+
+        // P4: `window.runtime` is the typed PryzmRuntime handle already used throughout this
+        // file (`window.runtime?.events?.emit`), not a `(window as any)` escape hatch.
+        const ring = window.runtime?.siteModelStore?.getParcelBoundary()?.polygon;
+        const site = boundsFromSiteRing(ring);
+        if (!site) return model;   // empty — no model, no site: caller uses its constant.
+
+        const size = site.getSize(new THREE.Vector3());
+        const centre = site.getCenter(new THREE.Vector3());
+        console.log(
+            '[ViewController] §CAM-FRAME-SITE-WHEN-NO-MODEL (L-748) — no BIM geometry yet; ' +
+            `framing the committed site boundary instead of the origin constant ` +
+            `(${ring!.length} vertices, ${size.x.toFixed(1)}×${size.z.toFixed(1)}m, ` +
+            `centre ${centre.x.toFixed(1)},${centre.z.toFixed(1)}).`,
+        );
+        return site;
+    }
+
+    /**
      * §CAM-ECEF-HANDBACK (L-746) — restore a BIM-space camera at the globe→BIM handback,
      * BEFORE any consumer samples it.
      *
@@ -924,32 +981,82 @@ export class ViewController implements IViewController {
      */
     private _reportGlobeScaleBounds(bounds: THREE.Box3): void {
         const size = bounds.getSize(new THREE.Vector3());
-        let worstName = '(none identified)';
-        let worstExtent = 0;
+
+        // §CAM-BIM-SCALE-BOUNDS probe, revision 2. Revision 1 printed
+        //   `Largest contributor: X (elementType=∅, id=∅)`
+        // which established that a non-BIM object exists and NOTHING about what it is:
+        // `X` is a minified constructor name and both userData fields are empty, which is
+        // exactly what a non-element object looks like. A probe that cannot identify its
+        // subject has not done its job (ADR-0301 — report what you actually know).
+        //
+        // What identifies an anonymous THREE object is its TYPE and its ANCESTRY: a
+        // `Points` under a node named `cesium-*` is a different bug from a `Mesh` under
+        // `scene → helpers`. So we print constructor + `.type` + `.name`, the parent chain
+        // up to the scene root, geometry vertex count, and the world-space box — and we
+        // report the top THREE offenders, because "half the extent" (1,575 km of 3,152 km)
+        // means there is more than one.
+        interface Offender {
+            extent: number; label: string; box: THREE.Box3; verts: number;
+        }
+        const offenders: Offender[] = [];
+
+        const ancestry = (obj: THREE.Object3D): string => {
+            const chain: string[] = [];
+            for (let n: THREE.Object3D | null = obj.parent, hops = 0; n && hops < 8; n = n.parent, hops++) {
+                chain.push(n.name || (n as { type?: string }).type || '?');
+            }
+            return chain.length ? chain.join(' ← ') : '(no parent — detached)';
+        };
+
         try {
             const scene = this._world.scene?.three;
             const gridRoot = this._grid?.three ?? null;
             scene?.traverse((obj: THREE.Object3D) => {
                 if (!obj.visible) return;
                 if (SceneObjectClassifier.shouldExcludeFromBounds(obj, gridRoot)) return;
-                if (!(obj instanceof THREE.Mesh) || !obj.geometry) return;
-                const b = new THREE.Box3().setFromObject(obj);
-                if (b.isEmpty()) return;
-                const s = b.getSize(new THREE.Vector3());
-                const extent = Math.max(Math.abs(b.min.x), Math.abs(b.min.z), s.x, s.y, s.z);
-                if (extent > worstExtent) {
-                    worstExtent = extent;
-                    worstName = `${obj.name || obj.type} (elementType=${String(obj.userData?.elementType ?? '∅')}, id=${String(obj.userData?.id ?? '∅')})`;
-                }
+                // Revision 1 only looked at Mesh. Points / LineSegments / Sprite carry
+                // geometry too, and a globe-scale point cloud would have been invisible to
+                // the old probe — a blind spot that could have cost another whole session.
+                const geo = (obj as Partial<THREE.Mesh>).geometry as THREE.BufferGeometry | undefined;
+                if (!geo) return;
+
+                const box = new THREE.Box3().setFromObject(obj);
+                if (box.isEmpty()) return;
+                const s = box.getSize(new THREE.Vector3());
+                const extent = Math.max(
+                    Math.abs(box.min.x), Math.abs(box.min.y), Math.abs(box.min.z),
+                    Math.abs(box.max.x), Math.abs(box.max.y), Math.abs(box.max.z),
+                    s.x, s.y, s.z,
+                );
+                if (extent <= 1000) return;   // only report things that could matter
+
+                offenders.push({
+                    extent,
+                    verts: geo.getAttribute?.('position')?.count ?? -1,
+                    box,
+                    label:
+                        `ctor=${obj.constructor?.name ?? '?'} type=${obj.type} name="${obj.name || '∅'}" ` +
+                        `elementType=${String(obj.userData?.elementType ?? '∅')} ` +
+                        `id=${String(obj.userData?.id ?? '∅')} ` +
+                        `userDataKeys=[${Object.keys(obj.userData ?? {}).join(',') || '∅'}] ` +
+                        `ancestry: ${ancestry(obj)}`,
+                });
             });
         } catch { /* diagnosis must never break framing */ }
 
+        offenders.sort((a, b) => b.extent - a.extent);
+        const top = offenders.slice(0, 3).map((o, i) =>
+            `  #${i + 1} extent=${o.extent.toFixed(0)}m verts=${o.verts} ` +
+            `box=[${o.box.min.toArray().map(v => v.toFixed(0)).join(',')} → ` +
+            `${o.box.max.toArray().map(v => v.toFixed(0)).join(',')}]\n     ${o.label}`,
+        ).join('\n');
+
         console.error(
             '[ViewController] §CAM-BIM-SCALE-BOUNDS (L-744) — scene bounds are globe/ECEF-scale ' +
-            `(extent ${Math.max(size.x, size.y, size.z).toFixed(0)}m); REJECTING them for camera framing ` +
-            'so the 3D view does not open 6,542 km from the model. The camera is now safe, but this is ' +
-            'NOT fixed: a globe-scale object is in the BIM scene and is passing ' +
-            `shouldExcludeFromBounds. Largest contributor: ${worstName} (extent ${worstExtent.toFixed(0)}m).`,
+            `(extent ${Math.max(size.x, size.y, size.z).toFixed(0)}m); REJECTING them for camera framing.\n` +
+            'The camera is safe, but this is NOT fixed: a globe-scale object is in the BIM scene and is ' +
+            `passing shouldExcludeFromBounds — it is still in the render set and every traversal.\n` +
+            `${offenders.length} object(s) over 1 km. Top contributors:\n${top || '  (none identified)'}`,
         );
     }
 
@@ -958,7 +1065,7 @@ export class ViewController implements IViewController {
      * Reads from the shared bounds cache — no extra traversal.
      */
     private _computeCameraTarget(): THREE.Vector3 {
-        const bounds = this._getSceneBoundsForCamera();
+        const bounds = this._getFramingBounds();
         const target = new THREE.Vector3();
         if (!bounds.isEmpty()) {
             bounds.getCenter(target);
@@ -971,7 +1078,7 @@ export class ViewController implements IViewController {
      * Reads from the shared bounds cache — no extra traversal.
      */
     private _computeCameraDistance(): number {
-        const bounds = this._getSceneBoundsForCamera();
+        const bounds = this._getFramingBounds();
         if (bounds.isEmpty()) return 50;
         const size = bounds.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z, 10);
@@ -1009,7 +1116,7 @@ export class ViewController implements IViewController {
      * No-op on an empty scene (nothing to frame). Pure read of scene bounds + one setLookAt.
      */
     private async _ensureGeometryFramed(controls: any): Promise<void> {
-        const bounds = this._getSceneBoundsForCamera();
+        const bounds = this._getFramingBounds();
         if (bounds.isEmpty()) return;                       // nothing to frame yet
 
         const cam = this._camera.three;
