@@ -1611,16 +1611,34 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // freshly-built renderer/canvas is sized to the container before first paint.
     resizePryzmRenderer = resize;
 
-    // C2 — Debounced pipeline rebuild on window resize (Phase C polish).
-    // When the window resizes, the WebGPU render targets need to be recreated
-    // at the new dimensions. A 200ms debounce prevents thrashing during a
-    // continuous drag-resize. onProjectSwitch() handles the full rebuild.
+    // §RESIZE-IS-NOT-A-PROJECT-SWITCH (ADR-0302 §2, L-749) — a resize reconciles the
+    // render size and NOTHING else.
+    //
+    // This used to call `onProjectSwitch()`, which unconditionally runs
+    // `_reconcileRenderSize()` + `scheduleShadowRebuild()` + an outline reset, and pauses
+    // WebGPU submits for the rebuild's duration (measured at 834-1862 ms on a founder
+    // project). The ResizeObserver below fires for ANY viewport-geometry change — the
+    // inspector opening, a sidebar toggle, a panel drag, devtools, browser zoom, a CSS
+    // transition on a neighbour, the split view mounting during project load. A founder
+    // trace showed the container oscillating 677 -> 678 -> 677 px, each step taking the
+    // full reconstruction path.
+    //
+    // ADR-0297 already forbids routing RECOVERY through onProjectSwitch, and
+    // ViewportCrashGuardRecoveryLever.test.ts:79 pins "NEVER via onProjectSwitch()".
+    // This subscription was simply never audited under that rule — a
+    // §FIX-ONCE-IMPORT-EVERYWHERE instance.
+    //
+    // Verified in RenderPipelineManager.viewportResize.test.ts: post-FX targets need
+    // nothing (PassNode re-derives from renderer.getSize() every frame) and the shadow
+    // map needs nothing (its resolution is a function of quality TIER, not viewport
+    // size — and reallocating it is the very operation that destroys a
+    // ShadowDepthTexture mid-submit).
     let _resizeRebuildTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleRPMRebuild = () => {
         if (_resizeRebuildTimer !== null) clearTimeout(_resizeRebuildTimer);
         _resizeRebuildTimer = setTimeout(() => {
             _resizeRebuildTimer = null;
-            window.renderPipelineManager?.onProjectSwitch?.();
+            window.renderPipelineManager?.onViewportResize?.();
         }, 200);
     };
 

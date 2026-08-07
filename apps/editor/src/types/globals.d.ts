@@ -457,6 +457,28 @@ declare global {
             | {
                 onProjectSwitch?: () => void;
                 /**
+                 * §RESIZE-IS-NOT-A-PROJECT-SWITCH (ADR-0302 §2, L-749) — the ONLY correct
+                 * lever for a viewport-geometry change. Reconciles the render size and
+                 * NOTHING else: no shadow rebuild, no pipeline reconstruction, no outline
+                 * reset, no paused submits.
+                 *
+                 * ⚠ Do NOT reach for `onProjectSwitch()` here. It pauses WebGPU submits for
+                 * the rebuild's duration (834–1862 ms measured), and a `ResizeObserver` on
+                 * the editor container fires for the inspector opening, a sidebar toggle, a
+                 * panel drag, devtools, browser zoom, and the split view mounting during
+                 * project load — a founder trace showed 677 → 678 → 677 px oscillation, each
+                 * step taking the full reconstruction path.
+                 *
+                 * Post-FX targets need nothing (PassNode re-derives from `renderer.getSize()`
+                 * every frame) and the shadow map needs nothing (its resolution is a function
+                 * of quality TIER, not viewport size).
+                 *
+                 * @returns true when a corrective `setSize` was issued (real drift), false
+                 *          when the renderer already matched — so callers can log honestly
+                 *          instead of claiming work they did not do.
+                 */
+                onViewportResize?: () => boolean;
+                /**
                  * §GPU-RESOURCE-LIFETIME (ADR-0297) — the ONLY correct recovery lever
                  * for a viewport that has failed into `phase='error'`. Drives a real
                  * `_rebuildPipeline()`.
