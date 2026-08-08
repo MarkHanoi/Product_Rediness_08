@@ -144,6 +144,30 @@ CREATE TABLE IF NOT EXISTS panorama_gallery (
 );
 CREATE INDEX IF NOT EXISTS idx_panorama_gallery_user_id ON panorama_gallery(user_id);
 
+-- 8b. Stripe webhook idempotency ledger (L-778 §STRIPE-WEBHOOK-IDEMPOTENT)
+--
+-- Stripe delivers AT LEAST ONCE: the same event can arrive repeatedly after a
+-- timeout, a retry, or a redelivery triggered from the dashboard. Without a
+-- ledger every delivery re-ran the handler, so a duplicated
+-- `checkout.session.completed` inserted a second purchase row and a duplicated
+-- subscription event re-wrote the plan.
+--
+-- `status` is what makes this a LEDGER rather than a set. A row is claimed as
+-- 'processing' BEFORE the work runs and promoted to 'completed' only after the
+-- writes commit. So a crash mid-handler leaves a 'processing' row that a later
+-- retry can reclaim, instead of a 'completed' row that would make the retry a
+-- silent no-op and strand a paying customer un-provisioned.
+CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+    event_id     TEXT PRIMARY KEY,
+    event_type   TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'processing',
+    attempts     INTEGER NOT NULL DEFAULT 1,
+    last_error   TEXT,
+    received_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_status ON stripe_webhook_events(status);
+
 -- 9. Project Webhooks (Phase E-2 — API + Webhooks)
 CREATE TABLE IF NOT EXISTS project_webhooks (
     id          TEXT PRIMARY KEY,

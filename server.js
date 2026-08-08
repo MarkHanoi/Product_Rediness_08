@@ -2367,6 +2367,48 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         return res.status(400).json({ error: `Webhook signature error: ${err.message}` });
     }
 
+    // ── §STRIPE-WEBHOOK-IDEMPOTENT (L-778) — CLAIM THE EVENT BEFORE DOING WORK ──
+    //
+    // Stripe delivers AT LEAST ONCE. The same event arrives again after a timeout,
+    // a retry, or a manual redelivery — and nothing here deduplicated, so a
+    // repeated `checkout.session.completed` inserted a SECOND purchase row and a
+    // repeated subscription event re-wrote the plan.
+    //
+    // The claim is an atomic INSERT … ON CONFLICT DO NOTHING. Winning the insert
+    // means we own this event; losing means someone already has it.
+    //
+    // ⚠ THE STATUS COLUMN IS THE POINT, AND 'processing' IS NOT PARANOIA. If we
+    // recorded events as done-on-arrival, a crash between the claim and the
+    // writes would leave a row that makes every future retry a silent no-op —
+    // stranding a customer who has PAID with no plan and no way for Stripe to
+    // fix it. A row is promoted to 'completed' only after the writes commit; a
+    // stale 'processing' row is reclaimable.
+    let claimed = true;
+    try {
+        const claim = await pgQuery(
+            `INSERT INTO stripe_webhook_events (event_id, event_type, status)
+                  VALUES ($1, $2, 'processing')
+             ON CONFLICT (event_id) DO UPDATE
+                     SET attempts = stripe_webhook_events.attempts + 1
+                   WHERE stripe_webhook_events.status <> 'completed'
+              RETURNING event_id`,
+            [event.id, event.type],
+        );
+        // No row returned ⇒ the ON CONFLICT WHERE excluded it ⇒ already completed.
+        claimed = (claim?.rowCount ?? 0) > 0;
+    } catch (err) {
+        // ⚠ CANNOT REACH THE LEDGER ⇒ CANNOT PROVE THIS IS NOT A DUPLICATE.
+        // Processing anyway risks double-provisioning a payment. Ask Stripe to
+        // retry instead — its backoff covers ~3 days, far longer than any DB blip.
+        console.error('[stripe] idempotency ledger unavailable — asking Stripe to retry:', err?.message ?? err);
+        return res.status(503).json({ error: 'idempotency_ledger_unavailable' });
+    }
+
+    if (!claimed) {
+        console.log(`[stripe] duplicate delivery ignored: ${event.id} (${event.type}) — already completed.`);
+        return res.status(200).json({ received: true, duplicate: true });
+    }
+
     // ── Process verified events ───────────────────────────────────────────────
     console.log(`[stripe] Event received: ${event.type}`);
     try {
@@ -2384,15 +2426,40 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                     setUserPlan(userId, plan);
                     console.log(`[stripe] Plan activated via webhook: ${userId} → ${plan}`);
 
-                    // 2. Persist plan + Stripe IDs to DB (async, non-blocking)
-                    pgQuery(
+                    // 2. Persist plan + Stripe IDs to DB.
+                    //
+                    // ⚠ THIS IS AWAITED NOW, AND THAT IS THE FIX. It used to be
+                    // fire-and-forget with `.catch(warn)`, so a failed write logged
+                    // a warning while the handler fell through to `res.json({received:
+                    // true})`. Stripe treats 200 as delivered and NEVER RETRIES — so
+                    // a customer could pay, the write could fail, and the plan would
+                    // exist only in the in-memory cache until the next restart. Silent
+                    // revenue loss with nothing to reconcile from.
+                    //
+                    // Awaiting lets the failure propagate to the catch block, which
+                    // returns 500 and asks Stripe to retry. `setUserPlan` above has
+                    // already updated the in-memory authority, so the user is not
+                    // blocked while the retry lands.
+                    const upd = await pgQuery(
                         `UPDATE pryzm_users
                             SET plan = $1, plan_status = $2,
                                 stripe_customer_id     = COALESCE($3, stripe_customer_id),
                                 stripe_subscription_id = COALESCE($4, stripe_subscription_id)
                           WHERE id = $5`,
                         [plan, sub.status ?? 'active', sub.customer ?? null, sub.id ?? null, userId]
-                    ).catch(err => console.warn('[stripe] DB update failed (plan):', err.message));
+                    );
+
+                    // ⚠ A 0-ROW UPDATE IS A FAILURE, NOT A SUCCESS. Postgres reports
+                    // "no error" when the WHERE matches nothing — so an unknown or
+                    // renamed userId in Stripe metadata would have looked identical to
+                    // a successful provision. Same shape as the thumbnail 0-row UPDATE
+                    // that reported ok:true while writing nothing.
+                    if ((upd?.rowCount ?? 0) === 0) {
+                        throw new Error(
+                            `plan persist matched 0 rows for userId=${userId} — `
+                            + 'the subscription metadata names a user this database does not have.',
+                        );
+                    }
                 } else {
                     console.warn('[stripe] Subscription event missing userId or plan in metadata:', sub.id);
                 }
@@ -2474,9 +2541,36 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                 console.log(`[stripe] Unhandled event type: ${event.type}`);
         }
 
+        // §STRIPE-WEBHOOK-IDEMPOTENT (L-778) — promote the claim ONLY now, after the
+        // handler body has completed without throwing. Until this line commits, a
+        // retry is still allowed to reclaim the event.
+        await pgQuery(
+            `UPDATE stripe_webhook_events
+                SET status = 'completed', completed_at = NOW(), last_error = NULL
+              WHERE event_id = $1`,
+            [event.id],
+        );
+
         res.json({ received: true });
     } catch (err) {
         console.error('[stripe] Event processing error:', err);
+
+        // ⚠ RELEASE THE CLAIM SO STRIPE'S RETRY CAN ACTUALLY RE-RUN THIS.
+        // Leaving the row at 'processing' would be survivable (the claim reclaims
+        // a non-'completed' row), but recording WHY it failed turns a silent
+        // revenue leak into a diagnosable one. Best-effort: if this write also
+        // fails we still return 500, which is the outcome that matters.
+        await pgQuery(
+            `UPDATE stripe_webhook_events
+                SET status = 'failed', last_error = $2
+              WHERE event_id = $1`,
+            [event.id, String(err?.message ?? err).slice(0, 500)],
+        ).catch(() => { /* the 500 below is the real signal */ });
+
+        // 500 ⇒ Stripe retries with exponential backoff (~3 days). This is the
+        // whole point: the previous code let a FAILED DB write return 200, so
+        // Stripe considered it delivered and never tried again — a customer
+        // could pay and never be provisioned, with nothing to reconcile from.
         res.status(500).json({ error: 'Event processing failed.' });
     }
 });
