@@ -85,12 +85,38 @@ let anyFailed = false;
 
 console.log('[ga-gate/run-all] Running all GA convergence gates...\n');
 
+// §GA-GATE-RUNNER-COULD-NOT-SPAWN (L-774) — THE SUITE HAS NEVER RUN ON WINDOWS.
+//
+// `spawnSync('npx', …)` WITHOUT `shell: true` cannot execute `npx` on win32,
+// because the thing on PATH is `npx.cmd` and Node's spawn will not run a `.cmd`
+// through the raw CreateProcess path. Every gate therefore returned
+// `status: 1` with NO output, and the runner faithfully reported all 25 as
+// FAILED — including gates that pass in isolation seconds earlier
+// (`check-project-isolation`, `check-declared-project-scopes` both do).
+//
+// ⚠ THAT IS WHY NOBODY WIRED IT INTO CI. The launch audit correctly found this
+// suite is "invoked by nothing" and read that as neglect. The likelier story is
+// the reverse: someone tried, saw 25/25 fail on their machine, could not tell a
+// broken runner from a broken codebase, and left it out. A verification tool that
+// fails 100% of the time teaches nothing and gets switched off — the same lesson
+// as the deploy proof that once failed a healthy release.
+//
+// The tell was cheap and available the whole time: a gate that PASSES standalone
+// and FAILS inside the runner is a statement about the RUNNER. Total failure is
+// almost never 25 independent defects.
+//
+// `shell: true` is the portable fix (POSIX unaffected). The path is quoted
+// because a shell re-parses the argv.
+const NEEDS_SHELL = process.platform === 'win32';
+const spawnGate = (scriptPath: string) => spawnSync(
+  'npx',
+  ['tsx', NEEDS_SHELL ? `"${scriptPath}"` : scriptPath],
+  { stdio: 'inherit', encoding: 'utf8', shell: NEEDS_SHELL },
+);
+
 for (const gate of GATES) {
   const scriptPath = join(__dir, gate.script);
-  const result = spawnSync('npx', ['tsx', scriptPath], {
-    stdio: 'inherit',
-    encoding: 'utf8',
-  });
+  const result = spawnGate(scriptPath);
   const code = result.status ?? 1;
   if (code !== 0) {
     console.error(`\n[ga-gate/run-all] ❌ FAILED: ${gate.name} (exit ${code})`);
@@ -107,7 +133,7 @@ for (const gate of GATES) {
 // Recommendation: PRYZM3-FULL-AUDIT-2026-05-14 §25 R4 — informational post-deploy check.
 console.log('\n[ga-gate/run-all] ── Informational: convergence booleans (R4) ──');
 const convScriptPath = join(__dir, '../../scripts/check/check-pryzm3-exists.ts');
-const convResult = spawnSync('npx', ['tsx', convScriptPath], { stdio: 'inherit', encoding: 'utf8' });
+const convResult = spawnGate(convScriptPath);
 if ((convResult.status ?? 1) !== 0) {
   console.log('[ga-gate/run-all] ℹ️  Some convergence booleans FALSE (infra-pending items #7–#9 expected).');
 } else {
