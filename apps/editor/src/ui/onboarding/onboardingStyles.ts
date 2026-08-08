@@ -561,52 +561,75 @@ export const ONBOARDING_STYLES = `
    chooser, plus the two advisory registers. The advisory colours are deliberately
    DIFFERENT so "we haven't resolved zoning" (muted, informational) can never be
    mistaken for "zoning records a conflicting use" (amber, a real finding) — the
-   two answers must not look alike. Brand purple #6600FF for the selected card. */
+   two answers must not look alike.
+   §CONFIRM-PANEL-UX — every colour below now comes from the ONE injected token
+   layer (src/ui/styles/tokens.ts, whose --app-accent is the canonical #6600FF
+   that @pryzm/a11y-tokens registers as pryzm-purple). No literals here: C51
+   §2.1.4 exists because a second surface once shipped its own purple. */
 .os-onboarding-overlay .os-typology-choices {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 0.15rem;
+  gap: 5px;
+  margin-bottom: 2px;
 }
 .os-onboarding-overlay .os-typology-choices__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  /* Fixed 2-up grid rather than a wrapping flex row: with four options a flex row
+     re-flows into 4/3+1/2+2 depending on label width, so the card's height changed
+     as the user clicked. A grid keeps the panel's height CONSTANT across choices —
+     part of "smaller", since the layout no longer has to reserve the tallest case. */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
 }
 .os-onboarding-overlay .os-typology-choice {
-  flex: 1 1 auto;
-  min-width: 7.5rem;
-  padding: 0.42rem 0.6rem;
-  border: 1.5px solid rgba(20, 10, 40, 0.14);
-  border-radius: 9px;
-  background: #fff;
+  padding: 6px 8px;
+  border: 1px solid var(--app-text-muted);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-panel-bg);
   cursor: pointer;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 11px;
   font-weight: 600;
-  color: rgba(20, 10, 40, 0.72);
+  line-height: 1.2;
+  color: var(--app-text);
   text-align: center;
   transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
 }
 .os-onboarding-overlay .os-typology-choice:hover {
-  border-color: rgba(102, 0, 255, 0.45);
-  color: #6600ff;
+  border-color: var(--app-accent);
+  color: var(--app-accent);
 }
 .os-onboarding-overlay .os-typology-choice--selected {
-  border-color: #6600ff;
-  background: rgba(102, 0, 255, 0.07);
-  color: #6600ff;
+  border-color: var(--app-accent);
+  background: var(--app-violet-soft);
+  color: var(--app-accent);
+  box-shadow: inset 0 0 0 1px var(--app-accent);
 }
 .os-onboarding-overlay .os-typology-choice:focus-visible {
-  outline: 2px solid #6600ff;
+  outline: 2px solid var(--app-accent);
   outline-offset: 2px;
 }
+/* The chooser's micro-heading — the same uppercase section label the office
+   analytics card (.ob-section-title) and the residential views rail already use,
+   so the chooser reads as product chrome rather than as modal copy. */
+.os-onboarding-overlay .os-section-label {
+  margin: 0;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-accent);
+}
 .os-onboarding-overlay .os-hint--muted {
-  color: rgba(20, 10, 40, 0.45);
+  /* Measured 5.48:1 on the confirm card's opaque white — AA at this size. The old
+     rgba(20,10,40,0.45) wash measured 3.0:1 and FAILED, which mattered most for the
+     "we haven't resolved zoning" line: the least certain statement was the least
+     legible one. Italic (not a lighter colour) still carries the softer register. */
+  color: var(--app-text-2);
   font-style: italic;
 }
 .os-onboarding-overlay .os-hint--warn {
-  color: #8a5300;
+  color: var(--vg-badge-warn-color);
   font-weight: 600;
 }
 .os-onboarding-overlay .os-status {
@@ -762,24 +785,152 @@ export const ONBOARDING_STYLES = `
 
 /* ── O.7.1 — GENERATE-CONFIRM step (non-blocking, keeps boundary visible) ───────
    Reuses the non-blocking drawing presentation but restores a vertical
-   title + subtext + two-button layout via --confirm. Glass card + #6600FF. */
+   title + subtext + two-button layout via --confirm.
+
+   §CONFIRM-PANEL-UX (founder 2026-08-07: "make this panel smaller — more aligned
+   with the contractual UI/UX")
+   ---------------------------------------------------------------------------
+   The card inherited the DRAW banner's 560px width and the onboarding modal's own
+   type scale (0.95–0.98rem headings, 0.85rem buttons). That is 30–50% larger than
+   everything it now sits beside — the Site analysis card titles at 700 12px, the
+   launcher pills at 600 12px, the basemap segmented control at 12px — on a screen
+   that already carries the 2D map, the 3D site pane, Site analysis, Buildable
+   Envelope and View Properties. Two panels using two type scales is what reads as
+   "a different design language", so this block does not invent a style: it adopts
+   the measurements those neighbours already use.
+
+     surface     opaque --app-panel-bg, 1px --app-border, --app-radius-md (12px),
+                 --app-shadow-panel  →  byte-for-byte the Site analysis card.
+     width       min(360px, 92vw)     (was 560px)
+     type        12px/700 title · 11px body · 11px controls
+     controls    --app-radius-sm, 6–7px × 10–12px padding (the pill / segment box)
+
+   OPACITY IS AN ACCESSIBILITY DECISION, not a taste one. The frosted
+   rgba(255,255,255,0.74) card put every foreground over an unknown map: the body
+   copy measured 4.70:1 on white but 3.73:1 over a dark basemap — below AA — and no
+   colour choice can fix a background the user picked. The neighbouring panels are
+   already opaque white for the same reason. The card stays NON-BLOCKING (no scrim,
+   pointer events still fall through to the map) and, at 360px, occludes far less of
+   the boundary than the 560px glass one did.
+
+   Measured on this surface (WCAG 2.2, sRGB): title --app-text 16.13:1 · body
+   --app-text-2 5.48:1 · advisory-warn --vg-badge-warn-color 5.49:1 · accent
+   --app-accent 6.98:1 · white-on-accent (primary CTA) 6.98:1 · white-on-
+   --app-violet-2 (CTA hover) 5.48:1 · accent on --app-violet-soft (selected chip)
+   6.12:1 · resting chip border --app-text-muted 3.47:1 (WCAG 1.4.11 non-text ≥3:1). */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-header,
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
+  /* Narrower than the 560px draw banner — that banner is a one-line horizontal
+     instruction strip and keeps its width; only the confirm CARD shrinks. */
+  width: min(360px, 92vw);
+  border-color: var(--app-border);
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
+  /* Opaque, not frosted — see the block comment: the frosted card put the body copy
+     at 3.73:1 over a dark basemap. Only the BODY loses the glass; the header keeps
+     its purple gradient, which is the onboarding wizard's identity across all four
+     steps and is already white-on-purple at 6.98:1. */
+  background: var(--app-panel-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-header {
+  /* Compact header bar at the chrome's 12px/700 scale and padding.
+
+     C43 DEFECT FOUND WHILE MEASURING THIS PANEL — the confirm card inherits the
+     --drawing banner's header, and that rule repaints the header
+     rgba(255,255,255,0.74) (a glass strip), overriding the base .os-header purple
+     gradient at equal specificity but later in the sheet. .os-title and
+     .os-step-chip are #ffffff, so on the confirm card "New project" and
+     "STEP 3 OF 4 · CONFIRM" were rendering WHITE ON WHITE — ~1.1:1, effectively
+     invisible, which is visible in the before/after captures.
+
+     The fix repaints the bar SOLID --app-accent rather than restoring the gradient.
+     Measured: a gradient bar is only as accessible as its lightest stop, and
+     --app-gradient's light end (--app-violet-1 #8B5CF6) gives white 4.23:1 — under
+     AA — and the translucent .os-step-chip on that end 3.08:1. Solid --app-accent
+     gives 6.98:1 for the title and 5.36:1 for the chip, both AA, and matches the
+     flat solid-purple active segment of the neighbouring basemap control.
+
+     Scoped to --confirm ON PURPOSE. The DRAW banner (step 2) inherits the same
+     white-title-on-white-glass bug and is NOT fixed here: it is a different step,
+     it is live in another agent's working tree this session, and widening the blast
+     radius of a UX pass into a step nobody reported is how a small change becomes
+     an unreviewable one. It is reported, not silently absorbed. */
+  background: var(--app-accent);
+  padding: 6px 10px;
+  border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-step-chip {
+  font-size: 9px;
+  padding: 2px 6px;
+}
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  gap: 0.45rem;
-  padding: 0.75rem 0.9rem 0.85rem;
+  gap: 7px;
+  padding: 10px 12px 11px;
+  border-radius: 0 0 var(--app-radius-md) var(--app-radius-md);
+  box-shadow: var(--app-shadow-panel);
+}
+/* Title + body copy at the neighbouring panels' scale. .os-prompt / .os-hint keep
+   their larger sizes on the location/draw steps — only --confirm is retuned. */
+.os-onboarding-overlay--confirm .os-prompt {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  color: var(--app-text);
+}
+.os-onboarding-overlay--confirm .os-hint {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--app-text-2);
 }
 .os-onboarding-overlay--confirm .os-confirm-actions {
-  display: flex;
-  /* §L-384 — wrap so the added "← Back" button never overflows the docked banner. */
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.3rem;
+  /* One column: the primary CTA gets its own full-width row, the two exits share
+     the row beneath it. The old single wrapping row gave "← Back to drawing",
+     "Generate apartment" and "Not now — I'll design it myself" equal visual weight
+     at equal width, so the panel had to be wide enough for the longest of them —
+     which is most of why it was 560px. Ranking them costs no clarity: all three
+     keep their full labels. */
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  margin-top: 2px;
+}
+.os-onboarding-overlay--confirm .os-confirm-exits {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px;
 }
 .os-onboarding-overlay--confirm .os-confirm-actions .os-btn {
-  flex: 1 1 auto;
+  padding: 7px 10px;
+  font-size: 11px;
+  border-radius: var(--app-radius-sm);
+  line-height: 1.2;
 }
+.os-onboarding-overlay--confirm .os-confirm-actions .os-btn--primary {
+  font-size: 11.5px;
+  padding: 8px 12px;
+  box-shadow: var(--app-shadow-glow);
+}
+.os-onboarding-overlay--confirm .os-btn--primary:hover { background: var(--app-violet-2); }
+/* Visible focus on every control (C43 / WCAG 2.2 2.4.11). outline-offset: 2px
+   puts the ring on the card's white body, never on the button's own purple fill,
+   so it measures 6.98:1 there — comfortably past the 3:1 non-text threshold. */
+.os-onboarding-overlay--confirm .os-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+/* The resize grip is meaningless on this content-sized card. */
+.os-onboarding-overlay--confirm .os-resize-grip { display: none; }
 
 /* ── §RESI-MULTIFAMILY (Task 2) residential program panel ─────────────────────── */
 .os-onboarding-overlay .os-resi-form {

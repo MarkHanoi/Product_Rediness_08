@@ -85,6 +85,28 @@ const NOUN_BY_ROUTE: Readonly<Record<GenerateRoute, string>> = {
     office: 'office building',
 };
 
+/**
+ * §CONFIRM-PANEL-UX — the CHOOSER's button label.
+ *
+ * Deliberately NOT the pack's `displayName`. The manifests declare catalogue names
+ * — 'Casa Unifamiliar (House)', 'Office Building (Tower)', 'Residential Building
+ * (Multi-Family)' — which are correct in a pack catalogue and wrong in a 4-up
+ * chooser inside a ~400px card: the parentheticals force either a wide panel (the
+ * founder's complaint) or truncation (which would break the "smaller must not mean
+ * truncated" constraint). These are the same nouns the confirm sentence and the CTA
+ * use, so the chip the user clicks and the button they then press say the same word.
+ *
+ * A pack with no entry here falls back to its own `displayName` — the registry stays
+ * the source of truth for WHICH typologies exist; this only shortens the four we
+ * ship copy for.
+ */
+const CHOOSER_LABEL_BY_ROUTE: Readonly<Record<GenerateRoute, string>> = {
+    apartment: 'Apartment',
+    house: 'House',
+    'residential-building': 'Residential building',
+    office: 'Office building',
+};
+
 /** The manifest fields this module reads. Structurally typed so the chooser can be
  *  fed `registry.list()` packs, raw manifests, or test fixtures alike. */
 export interface TypologyManifestLike {
@@ -97,8 +119,10 @@ export interface TypologyManifestLike {
 /** One offerable typology, already proven to have a wired generator. */
 export interface TypologyChoice {
     readonly id: string;
-    /** Pack-declared display name, for the card heading. */
+    /** Pack-declared display name — the catalogue name (tooltip / long form). */
     readonly label: string;
+    /** §CONFIRM-PANEL-UX — the short label rendered ON the chooser chip. */
+    readonly chooserLabel: string;
     /** Short noun for the confirm sentence + CTA. */
     readonly noun: string;
     /** Pack-declared one-liner for the card body (may be empty). */
@@ -152,6 +176,7 @@ export function buildTypologyChoices(
             choices.push({
                 id: m.id,
                 label: m.displayName || m.id,
+                chooserLabel: CHOOSER_LABEL_BY_ROUTE[route] || m.displayName || m.id,
                 noun: NOUN_BY_ROUTE[route] || m.displayName || m.id,
                 blurb: m.description ?? '',
                 category: m.category,
@@ -165,6 +190,132 @@ export function buildTypologyChoices(
         choices.sort((a, b) => rank(a.id) - rank(b.id));
         span.setAttribute('pryzm.typology.choiceCount', choices.length);
         return choices;
+    } finally {
+        span.end();
+    }
+}
+
+// ── §CONFIRM-PANEL-UX — the confirm card's copy ───────────────────────────────
+//
+// The founder's ask was two things at once: make the card SMALLER, and let the user
+// choose the building type. Those pull against each other unless the copy is derived
+// rather than concatenated — a smaller card cannot afford a sentence that is wrong
+// for three of the four typologies and then needs a caveat.
+//
+// The pre-existing body line was hard-coded: "We'll lay out rooms, walls, doors and
+// windows inside the plot you drew." That is an APARTMENT description. It survived
+// §TYPOLOGY-CHOICE-AT-CONFIRM (which retitled the heading and the CTA off the chosen
+// typology but left this line alone), so picking "Office" produced a card promising
+// rooms, doors and windows and then opening a tower setup step. Deriving the line
+// from the route is what lets the card shrink WITHOUT cutting the clarity: one
+// accurate sentence beats a generic one plus a correction.
+//
+// Two routes (residential-building, office) open a PARAMETER STEP from Generate
+// rather than generating immediately (§RESI-SETUP-AFTER-GENERATE + §TYPOLOGY-CHOICE-
+// AT-CONFIRM). The copy SAYS SO — an unannounced second step is exactly the kind of
+// surprise the confirm card exists to remove.
+
+/** The copy the confirm card renders for one route. */
+export interface ConfirmCopy {
+    /** The card's question. */
+    readonly title: string;
+    /** One sentence stating what pressing the primary button will do. */
+    readonly body: string;
+    /** The primary button's label. */
+    readonly cta: string;
+    /** True when the primary button opens a setup step instead of generating now. */
+    readonly opensSetupStep: boolean;
+}
+
+/** Route → what the generator actually produces, phrased for the plot the user has. */
+const BODY_BY_ROUTE: Readonly<Record<GenerateRoute, string>> = {
+    apartment: "We'll lay out rooms, walls, doors and windows inside {plot}.",
+    house: "We'll lay out the storeys, rooms, stair, walls and openings inside {plot}.",
+    'residential-building':
+        "Next you'll set the floors and apartment mix, then we build it inside {plot}.",
+    office: "Next you'll set the storeys and floor plate, then we build it inside {plot}.",
+};
+
+/** Routes whose Generate button opens a setup step first — see the block comment. */
+const OPENS_SETUP_STEP: Readonly<Record<GenerateRoute, boolean>> = {
+    apartment: false,
+    house: false,
+    'residential-building': true,
+    office: true,
+};
+
+/**
+ * Build the confirm card's title / body / CTA for a chosen typology.
+ *
+ * `noun` is passed in (rather than re-derived) so the caller's ONE resolved choice
+ * drives every string on the card — the heading, the sentence and the button cannot
+ * disagree about what is being built.
+ */
+export function confirmCopyFor(
+    route: GenerateRoute | null,
+    noun: string,
+    source: 'drawn' | 'default-plot',
+): ConfirmCopy {
+    const span = _tracer.startSpan('pryzm.onboarding.confirmCopyFor');
+    try {
+        const plot = source === 'drawn' ? 'the plot you drew' : 'your plot';
+        // No route ⇒ no claim about what we will build. The controller never reaches
+        // Generate in that state, but the copy must not invent an apartment either.
+        const template = route
+            ? BODY_BY_ROUTE[route]
+            : "We'll lay out the building inside {plot}.";
+        return {
+            title: `Generate your ${noun} with AI?`,
+            body: template.replace('{plot}', plot),
+            cta: `Generate ${noun}`,
+            opensSetupStep: route ? OPENS_SETUP_STEP[route] : false,
+        };
+    } finally {
+        span.end();
+    }
+}
+
+// ── §CONFIRM-PANEL-UX — keyboard navigation (C43) ─────────────────────────────
+//
+// The chooser is an ARIA `radiogroup`, and a radiogroup is ONE tab stop whose
+// members are reached with the arrow keys (WAI-ARIA APG "Radio Group Pattern").
+// §TYPOLOGY-CHOICE-AT-CONFIRM rendered four `role="radio"` buttons that were each a
+// tab stop and ignored the arrow keys, which is the shape a screen-reader user is
+// least able to recover from: the role PROMISES arrow navigation that is not there.
+//
+// The index arithmetic lives here, pure, because `apps/editor/vitest.config.ts` runs
+// under a deliberate `environment: 'node'` — a DOM-bound handler could not be tested
+// in this suite, and an untested keyboard path is how this regressed in the first place.
+
+/** The keys the radiogroup consumes. Anything else returns `null` (do not intercept). */
+export type ChooserKey = 'ArrowRight' | 'ArrowDown' | 'ArrowLeft' | 'ArrowUp' | 'Home' | 'End';
+
+/**
+ * The index the chooser should move selection to, or `null` when the key is not one
+ * this widget owns (the caller must then leave the event alone — swallowing keys the
+ * widget does not handle is its own accessibility defect).
+ *
+ * Arrow movement WRAPS, per the APG: the group is a closed cycle, so a keyboard user
+ * never reaches a dead end at either edge.
+ */
+export function nextChoiceIndex(
+    current: number,
+    key: string,
+    count: number,
+): number | null {
+    const span = _tracer.startSpan('pryzm.onboarding.nextChoiceIndex');
+    try {
+        if (count <= 0) return null;
+        const at = current >= 0 && current < count ? current : 0;
+        switch (key) {
+            case 'ArrowRight':
+            case 'ArrowDown': return (at + 1) % count;
+            case 'ArrowLeft':
+            case 'ArrowUp': return (at - 1 + count) % count;
+            case 'Home': return 0;
+            case 'End': return count - 1;
+            default: return null;
+        }
     } finally {
         span.end();
     }
@@ -269,9 +420,12 @@ export function zoningAdvisoryFor(
             span.setAttribute('pryzm.zoning.advisory', 'unresolved');
             return {
                 kind: 'unresolved',
-                message:
-                    "We haven't resolved the permitted use for this parcel, so this is unchecked "
-                    + 'against zoning — you can still generate and review it.',
+                // §CONFIRM-PANEL-UX — three lines of advisory in a ~360px card crowded
+                // out the question it was advising on. Shortened to the two facts that
+                // matter (we don't know; nothing is blocked). The trailing "you can
+                // still generate" is dropped because the enabled Generate button one
+                // row below already says it — words cut, not clarity.
+                message: "We haven't resolved the permitted use here, so this isn't checked against zoning.",
                 blocksGeneration: false,
             };
         }
@@ -288,7 +442,7 @@ export function zoningAdvisoryFor(
             kind: 'conflict',
             message:
                 `Zoning here is recorded as ${recorded}, not ${USE_LABEL[want] ?? want} — `
-                + 'this may need a use change. You can still generate it.',
+                + 'this may need a use change.',
             blocksGeneration: false,
         };
     } finally {

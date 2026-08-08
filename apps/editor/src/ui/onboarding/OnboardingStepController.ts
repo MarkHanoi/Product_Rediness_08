@@ -92,6 +92,8 @@ import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFrom
 // advisory) and the EXISTING active-brief stash the chosen typology is written through.
 import {
     buildTypologyChoices,
+    confirmCopyFor,
+    nextChoiceIndex,
     resolveGenerateRoute,
     zoningAdvisoryFor,
     type TypologyChoice,
@@ -279,6 +281,10 @@ export class OnboardingStepController {
      *  the confirm step's chooser reassigns it (through `setTypology`, which keeps the
      *  active brief in step) when the user picks a different building type. */
     private typologyId: string;
+    /** §CONFIRM-PANEL-UX (C43) — the typology id whose chooser chip must regain focus
+     *  after the confirm step re-renders. Null on every render the chooser did not
+     *  cause, so the step never grabs focus unprompted. */
+    private pendingChooserFocus: string | null = null;
     /** O.12.c — structured brief metadata, forwarded to the generate call. §RESI-MULTIFAMILY
      *  (Task 2): the residential program step MUTATES this with the user's level/area/typology
      *  choices before generate, so it is not readonly. */
@@ -1635,20 +1641,36 @@ export class OnboardingStepController {
         if (choices.length > 1) {
             body.appendChild(this.buildTypologyChooser(choices, source));
         }
+        // §CONFIRM-PANEL-UX (C43) — selecting a chip re-renders this whole step, which
+        // destroys the element that had focus. Restore it onto the newly checked chip
+        // so keyboard selection can continue; only ever set by the chooser itself, so a
+        // fresh confirm step never steals focus from the map.
+        const restoreFocusTo = this.pendingChooserFocus;
+        this.pendingChooserFocus = null;
+        if (restoreFocusTo) {
+            const chip = body.querySelector<HTMLElement>(`[data-typology-id="${CSS.escape(restoreFocusTo)}"]`);
+            chip?.focus();
+        }
 
         const typology = this.typologyLabel();
 
+        // §CONFIRM-PANEL-UX — title / body / CTA are DERIVED from the chosen route by
+        // one pure function, so the three can never describe different buildings. The
+        // body line used to be hard-coded to "rooms, walls, doors and windows", i.e. an
+        // apartment, on a card that can now generate a house, a residential building or
+        // an office tower. See `confirmCopyFor`'s block comment.
+        const copy = confirmCopyFor(resolveGenerateRoute(this.typologyId), typology, source);
+
         const title = document.createElement('p');
         title.className = 'os-prompt';
-        title.textContent = `Generate your ${typology} with AI?`;
+        title.textContent = copy.title;
         title.setAttribute('data-testid', 'onboarding-confirm-title');
         body.appendChild(title);
 
         const sub = document.createElement('p');
         sub.className = 'os-hint';
-        sub.textContent = source === 'drawn'
-            ? `We'll lay out rooms, walls, doors and windows inside the plot you drew.`
-            : `We'll lay out rooms, walls, doors and windows inside your plot.`;
+        sub.textContent = copy.body;
+        sub.setAttribute('data-testid', 'onboarding-confirm-body');
         body.appendChild(sub);
 
         // The zoning advisory for the CURRENT choice. Advisory only — see
@@ -1669,7 +1691,7 @@ export class OnboardingStepController {
         generate.type = 'button';
         generate.className = 'os-btn os-btn--primary';
         generate.setAttribute('data-testid', 'onboarding-confirm-generate');
-        generate.textContent = `Generate ${typology}`;
+        generate.textContent = copy.cta;
 
         const notNow = document.createElement('button');
         notNow.type = 'button';
@@ -1686,9 +1708,22 @@ export class OnboardingStepController {
         back.textContent = source === 'drawn' ? '← Back to drawing' : '← Back';
         back.addEventListener('click', () => this.backFromConfirm(source));
 
-        actions.appendChild(back);
+        // §CONFIRM-PANEL-UX — the primary CTA takes its own full-width row; the two
+        // EXITS share the row beneath it. Previously all three sat in one wrapping row
+        // at equal weight, which forced the card to be as wide as the longest label
+        // ("Not now — I'll design it myself") — most of why it was 560px. Both exits
+        // keep their full wording: the founder's constraint is fewer WORDS, not less
+        // clarity, and "I'll design it myself" is a first-class outcome (§L-424), so it
+        // is de-emphasised in weight, never in legibility.
+        //
+        // DOM order IS the tab order: Generate → Back → Not now. The action the user
+        // most likely wants comes first after the chooser.
         actions.appendChild(generate);
-        actions.appendChild(notNow);
+        const exits = document.createElement('div');
+        exits.className = 'os-confirm-exits';
+        exits.appendChild(back);
+        exits.appendChild(notNow);
+        actions.appendChild(exits);
         body.appendChild(actions);
 
         generate.addEventListener('click', () => {
@@ -1761,41 +1796,76 @@ export class OnboardingStepController {
         wrap.setAttribute('aria-label', 'What do you want to build?');
         wrap.setAttribute('data-testid', 'onboarding-typology-chooser');
 
+        // §CONFIRM-PANEL-UX — a compact uppercase section label, the same one the
+        // office analytics and the residential views rail already use, instead of a
+        // full-size sentence. It reads as chrome, and it costs one line instead of two.
         const lead = document.createElement('p');
-        lead.className = 'os-hint';
-        lead.textContent = 'What do you want to build here?';
+        lead.className = 'os-section-label';
+        lead.textContent = 'What do you want to build?';
         wrap.appendChild(lead);
 
         const row = document.createElement('div');
         row.className = 'os-typology-choices__row';
 
-        for (const choice of choices) {
-            const selected = choice.id === this.typologyId
-                || resolveGenerateRoute(choice.id) === resolveGenerateRoute(this.typologyId);
+        const selectedIndex = Math.max(
+            0,
+            choices.findIndex((c) => c.id === this.typologyId
+                || resolveGenerateRoute(c.id) === resolveGenerateRoute(this.typologyId)),
+        );
+
+        const choose = (index: number): void => {
+            const next = choices[index];
+            if (!next || next.id === this.typologyId) return;
+            this.setTypology(next.id);
+            // Re-render the whole confirm step: copy, CTA and advisory are all
+            // functions of the choice, so re-deriving beats patching three nodes.
+            // The re-render destroys the focused button, so remember which chip must
+            // regain focus — a keyboard user who loses focus to <body> mid-selection
+            // has to tab the whole card again, which is the practical failure the
+            // arrow keys were added to prevent.
+            this.pendingChooserFocus = next.id;
+            this.renderGenerateConfirmStep(source);
+        };
+
+        choices.forEach((choice, index) => {
+            const selected = index === selectedIndex;
 
             const card = document.createElement('button');
             card.type = 'button';
             card.className = `os-typology-choice${selected ? ' os-typology-choice--selected' : ''}`;
             card.setAttribute('role', 'radio');
             card.setAttribute('aria-checked', selected ? 'true' : 'false');
+            // C43 / WAI-ARIA radiogroup: the GROUP is one tab stop. Only the checked
+            // radio is tabbable; the rest are reached with the arrow keys below. The
+            // previous four-tab-stops shape contradicted the role it declared.
+            card.tabIndex = selected ? 0 : -1;
             card.setAttribute('data-typology-id', choice.id);
             card.setAttribute('data-testid', `onboarding-typology-${choice.id}`);
+            // The pack's full catalogue name stays reachable on hover / to AT, while
+            // the visible chip carries the short label the small card can hold.
+            card.title = choice.label;
+            card.setAttribute('aria-label', choice.label);
 
             const name = document.createElement('span');
             name.className = 'os-typology-choice__label';
-            name.textContent = choice.label;
+            name.textContent = choice.chooserLabel;
             card.appendChild(name);
 
-            card.addEventListener('click', () => {
-                if (choice.id === this.typologyId) return;
-                this.setTypology(choice.id);
-                // Re-render the whole confirm step: copy, CTA and advisory are all
-                // functions of the choice, so re-deriving beats patching three nodes.
-                this.renderGenerateConfirmStep(source);
+            card.addEventListener('click', () => choose(index));
+            card.addEventListener('keydown', (ev: KeyboardEvent) => {
+                const target = nextChoiceIndex(index, ev.key, choices.length);
+                if (target === null) return; // not ours — leave Tab/Enter/Space alone
+                ev.preventDefault();
+                if (target === selectedIndex) {
+                    // Already the selection: no re-render, just move focus.
+                    (row.children[target] as HTMLElement | undefined)?.focus();
+                    return;
+                }
+                choose(target);
             });
 
             row.appendChild(card);
-        }
+        });
 
         wrap.appendChild(row);
         return wrap;
