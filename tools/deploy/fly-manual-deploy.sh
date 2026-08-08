@@ -66,6 +66,24 @@ GOOGLE="$(read_arg VITE_GOOGLE_MAPS_KEY)"
 GLB="$(read_arg VITE_GLB_URL)"
 TILES="$(read_arg VITE_CONTEXT_TILES_URL)"
 
+# §DEPLOY-ARG-OVERRIDE (L-776) — recovery-from-the-live-bundle is the DEFAULT, not a
+# law. An ENV value of the same name wins.
+#
+# ⚠ WHY THIS EXISTS. Recovering args from the deployed bundle is what makes this
+# path safe (§3.5) — but it also makes it SELF-PERPETUATING: a value that is wrong
+# in production copies itself into every subsequent deploy, and there was no way to
+# break the loop short of editing this script. That is exactly what happened when
+# the app moved to app.pryzm.so: the recovered `VITE_CONTEXT_TILES_URL` /
+# `VITE_GLB_URL` point straight at the R2 bucket, whose CORS allowlist names only
+# the OLD origin, so every baked tile and every GLB is refused by the browser.
+#
+# Overriding is deliberately explicit and LOGGED below — a silent override would be
+# worse than no override, because the recovered value is the thing everyone trusts.
+[ -n "${VITE_CESIUM_TOKEN:-}" ]      && CESIUM="$VITE_CESIUM_TOKEN"      && echo "  ⚠ OVERRIDE: VITE_CESIUM_TOKEN from env"
+[ -n "${VITE_GOOGLE_MAPS_KEY:-}" ]   && GOOGLE="$VITE_GOOGLE_MAPS_KEY"   && echo "  ⚠ OVERRIDE: VITE_GOOGLE_MAPS_KEY from env"
+[ -n "${VITE_GLB_URL:-}" ]           && GLB="$VITE_GLB_URL"              && echo "  ⚠ OVERRIDE: VITE_GLB_URL from env = '$VITE_GLB_URL'"
+[ -n "${VITE_CONTEXT_TILES_URL:-}" ] && TILES="$VITE_CONTEXT_TILES_URL"  && echo "  ⚠ OVERRIDE: VITE_CONTEXT_TILES_URL from env = '$VITE_CONTEXT_TILES_URL'"
+
 # FAIL CLOSED. Never ship a degraded bundle just because extraction came back
 # empty — an empty value here is indistinguishable in the build from "not passed".
 if [ -z "$CESIUM" ] || [ -z "$GOOGLE" ] || [ -z "$GLB" ] || [ -z "$TILES" ]; then
