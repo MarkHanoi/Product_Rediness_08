@@ -74,7 +74,7 @@ export class TrustPage {
                         </div>
                         <div class="mkt-pillar">
                             <h3 class="mkt-pillar-title">Recovery</h3>
-                            <p class="mkt-pillar-body">Per-tier backups. Cross-region failover. Runbooks for every failure mode. Drill cadence stamped on the trust page.</p>
+                            <p class="mkt-pillar-body">Managed Postgres backups with point-in-time recovery. Restore drills and cross-region failover are on the roadmap, not yet shipped &mdash; and this page says which is which.</p>
                             <div class="mkt-pillar-contract">C48 — Backup &amp; DR</div>
                         </div>
                     </div>
@@ -177,10 +177,10 @@ export class TrustPage {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td>Database primary failure</td><td>30-minute RTO</td><td>Promote read-replica &rarr; reconnect &rarr; verify</td></tr>
-                                <tr><td>Regional outage</td><td>4-hour RTO</td><td>Cross-region failover with cold-backup fallback</td></tr>
-                                <tr><td>Ransomware</td><td>24-hour RTO</td><td>Quarantine-first &rarr; credential rotation &rarr; mandatory disclosure</td></tr>
-                                <tr><td>Accidental deletion</td><td>Tier-keyed (see below)</td><td>Per-tier retention window &rarr; in-place restore</td></tr>
+                                <tr><td>Database primary failure</td><td><em>Not yet contracted</em></td><td>Managed Postgres recovery (Supabase). No PRYZM-run drill yet &mdash; so we publish no RTO.</td></tr>
+                                <tr><td>Accidental deletion / bad write</td><td><em>Not yet contracted</em></td><td>Point-in-time recovery within the provider&rsquo;s retention window</td></tr>
+                                <tr><td>Regional outage</td><td><em>Roadmap</em></td><td>Cross-region failover is not shipped</td></tr>
+                                <tr><td>Ransomware</td><td><em>Roadmap</em></td><td>Quarantine-first &rarr; credential rotation &rarr; disclosure. Runbook not yet written.</td></tr>
                             </tbody>
                         </table>
                         <p class="mkt-p">Per-tier retention windows scale with your plan:</p>
