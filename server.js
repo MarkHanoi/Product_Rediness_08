@@ -44,6 +44,7 @@ import { helmetMiddleware, applyEmbedHeaders, strictCspShadowMiddleware } from '
 // C51 §3.1.2.2: CSP violation-report sink (evidence base for strict-CSP tightening)
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
 import { isBetaAllowed, BETA_REFUSAL_MESSAGE, BETA_ACCESS_ALLOWLIST } from './server/betaAccessAllowlist.js';
+import { versionLimitFor, aiLimitFor } from './server/planLimits.js';
 import { notifyBlockedAccessAttempt, notifierStatus } from './server/accessAttemptNotifier.js';
 // IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
 import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
@@ -1022,6 +1023,48 @@ async function authMiddleware(req, _res, next) {
                     email = null;
                 }
             }
+            // §BETA-GATE-CHECKED-PER-REQUEST (L-754) — ADMISSION IS RE-CHECKED ON
+            // EVERY REQUEST, NOT ONLY AT TOKEN MINT.
+            //
+            // ⚠ THE HOLE THIS CLOSES. §BETA-ACCESS-GATE refuses non-allowlisted
+            // identities at the four MINT points (signup, signin, both OAuth
+            // callbacks). But a JWT is a BEARER credential with `TOKEN_EXPIRY =
+            // '30d'`, and nothing downstream re-examined it — so every token minted
+            // BEFORE the gate shipped stayed valid for up to 30 days. The gate read
+            // as "production is closed" while an unbounded set of pre-gate holders
+            // still had full access. Gating issuance is not gating access.
+            //
+            // The check is cheap because it needs no I/O: `email` is a claim inside a
+            // token whose signature we have already verified, so it is as trustworthy
+            // as `sub`.
+            //
+            // ⚠ FAILS CLOSED, DELIBERATELY, AND THE NULL CASE IS NOT AN ACCIDENT.
+            // If no email can be resolved we cannot prove admission, so we refuse.
+            // That is the right default for a closed beta — and note WHICH tokens
+            // lack the claim: it was added when the claim-carrying mint path shipped,
+            // so an email-less token is BY CONSTRUCTION an old one. Its absence is
+            // itself evidence of the age we are trying to invalidate. The cost of
+            // refusing is one sign-in; the cost of admitting is the hole above.
+            //
+            // Downgrades to anonymous rather than 401-ing, matching the existing
+            // "token present but invalid" branch below: route handlers already treat
+            // `userId === 'anonymous'` as unauthenticated, so this needs no new
+            // refusal path and cannot accidentally admit anyone by omission.
+            if (!isBetaAllowed(email)) {
+                console.warn(
+                    `[authMiddleware] §BETA-GATE-CHECKED-PER-REQUEST refused a VALID token — `
+                    + `${email ? `email=${email} is not on the allowlist` : 'token carries no email claim (pre-gate token)'}`
+                    + ` sub=${String(payload.sub).slice(0, 12)}… — downgraded to anonymous.`,
+                );
+                void notifyBlockedAccessAttempt({
+                    email: email ?? '<no-email-claim>',
+                    surface: 'token',
+                    ip: req.ip,
+                });
+                req.auth = { userId: 'anonymous', sessionId: null, email: null };
+                return next();
+            }
+
             req.auth = { userId: payload.sub, sessionId: null, email };
             // §SERVER-500-AUTH-THROW-BYPASS — defensive auto-grant-owner.
             // Same fail-safe: if the auxiliary side-effect throws, log and
@@ -2911,10 +2954,11 @@ app.get('/api/me/plan', authMiddleware, (req, res) => {
     const isPaid = plan !== 'free';
     const isOwner = plan === 'owner';
 
-    const VERSION_LIMITS = { free: 1, architect: 15, studio: -1, firm: -1, enterprise: -1, owner: -1 };
-    const AI_LIMITS      = { free: 5, architect: 50, studio: 200, firm: 500, enterprise: -1, owner: -1 };
-    const maxVersions    = VERSION_LIMITS[plan] ?? 1;
-    const aiActions      = AI_LIMITS[plan] ?? 5;
+    // §PLAN-LIMITS-ONE-AUTHORITY (L-756) — read from server/planLimits.js. This
+    // endpoint REPORTS the limit; the save path ENFORCES it. They disagreed
+    // (1 here, 0 there), so users were told they could save and then refused.
+    const maxVersions    = versionLimitFor(plan);
+    const aiActions      = aiLimitFor(plan);
 
     res.json({
         plan,
@@ -3676,7 +3720,7 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
     // ── H6: Server-side version limit enforcement ─────────────────────────────
     // Limits mirror PlanConfig.ts PLAN_LIMITS.maxVersionsPerProject.
     // The server is the authoritative gate — client-side checks are advisory only.
-    const VERSION_LIMITS = { free: 0, architect: 15, studio: -1, firm: -1, enterprise: -1, owner: -1 };
+    // §PLAN-LIMITS-ONE-AUTHORITY (L-756) — was a THIRD declaration with free:0.
     const userId = req.auth?.userId ?? 'anonymous';
     const _vEmail = req.auth?.email ?? null;
     const _vOwnerEmail = process.env.PRYZM_OWNER_EMAIL;
@@ -3684,7 +3728,7 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
         setUserPlan(userId, 'owner');
     }
     const plan = getUserPlan(userId);
-    const maxVersions = VERSION_LIMITS[plan] ?? 0;
+    const maxVersions = versionLimitFor(plan);
 
     if (maxVersions === 0) {
         return res.status(403).json({

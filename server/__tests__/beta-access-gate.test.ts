@@ -145,7 +145,66 @@ describe('§3 blocked-attempt notification', () => {
         // `void notify...` is the shape; an `await` here would let a slow mail
         // provider hold the auth response open.
         const calls = serverJs.match(/notifyBlockedAccessAttempt\(/g) ?? [];
-        expect(calls.length).toBe(4);                       // one per entry point
+        // FIVE surfaces, not four. The fifth is §BETA-GATE-CHECKED-PER-REQUEST
+        // (L-754): `authMiddleware` re-checks admission on EVERY request, because
+        // gating the four MINT points still left every token minted before the gate
+        // valid for its full 30-day life. Issuance and access are different gates.
+        expect(calls.length).toBe(5);
         expect(serverJs).not.toMatch(/await\s+notifyBlockedAccessAttempt/);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §4 — §BETA-GATE-CHECKED-PER-REQUEST (L-754): admission is re-checked on every
+// request, not only when a token is minted.
+//
+// The launch-readiness audit found the gate bypassable for up to 30 days: the four
+// mint points refused non-allowlisted identities, but `authMiddleware` never looked
+// again and `TOKEN_EXPIRY = '30d'`. Every token issued BEFORE the gate shipped kept
+// working. "Production is closed" was true of issuance and false of access.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§4 the gate is re-checked per request, not only at mint', () => {
+    it('T4.1 — authMiddleware calls isBetaAllowed', () => {
+        const start = serverJs.indexOf('async function authMiddleware(');
+        expect(start, 'authMiddleware not found — renamed?').toBeGreaterThan(-1);
+        const body = serverJs.slice(start, start + 6000);
+        expect(body, 'authMiddleware does NOT re-check the allowlist — pre-gate tokens still work')
+            .toContain('isBetaAllowed');
+    });
+
+    it('T4.2 — the re-check runs BEFORE req.auth is set to the real user', () => {
+        // If the identity is attached first and checked after, any handler reading
+        // req.auth in between sees an admitted user. Order is the control.
+        const start = serverJs.indexOf('async function authMiddleware(');
+        const body = serverJs.slice(start, start + 6000);
+        const gateAt = body.indexOf('if (!isBetaAllowed(');
+        const assignAt = body.indexOf('req.auth = { userId: payload.sub');
+        expect(gateAt).toBeGreaterThan(-1);
+        expect(assignAt).toBeGreaterThan(-1);
+        expect(gateAt, 'the allowlist re-check runs AFTER the authenticated identity is attached')
+            .toBeLessThan(assignAt);
+    });
+
+    it('T4.3 — a refused token downgrades to anonymous, it does not fall through', () => {
+        const start = serverJs.indexOf('async function authMiddleware(');
+        const body = serverJs.slice(start, start + 6000);
+        const gateAt = body.indexOf('if (!isBetaAllowed(');
+        const block = body.slice(gateAt, gateAt + 700);
+        expect(block).toContain("userId: 'anonymous'");
+        expect(block).toContain('return next()');
+    });
+
+    it('T4.4 — it fails CLOSED: a token with no email claim is refused', () => {
+        // An email-less token is BY CONSTRUCTION a pre-gate token — the claim was
+        // added with the gate. Its absence is evidence of the age we are voiding.
+        // `isBetaAllowed(null)` is already pinned false in §1; this asserts the
+        // middleware routes the null case through the same refusal rather than
+        // treating "unknown" as "allowed".
+        expect(isBetaAllowed(null)).toBe(false);
+        const start = serverJs.indexOf('async function authMiddleware(');
+        const body = serverJs.slice(start, start + 6000);
+        // The check is on `email`, which may be null — not on a truthiness guard
+        // that would skip the check entirely when the claim is missing.
+        expect(body).toMatch(/if \(!isBetaAllowed\(email\)\)/);
     });
 });
