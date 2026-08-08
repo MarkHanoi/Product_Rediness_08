@@ -209,6 +209,32 @@ function readEnvBaseUrl(): string {
  * does not apply. The moment the bucket policy lands and the variable is set, this stops being
  * used with no code change — the direct route is strictly faster and keeps our server off the
  * context hot path, which is the whole point of L-513b.
+ *
+ * ── 2026-08-08 UPDATE (L-776): PRODUCTION IS DEPLOYED ON THE PROXY, EXPLICITLY ──
+ *
+ * ⚠ The paragraph above described the bucket as sending NO CORS headers. That was true when
+ * written and is no longer the whole truth: the bucket policy DID land, but as an ORIGIN
+ * ALLOWLIST naming `https://pryzm.fly.dev`. When the app moved to `https://app.pryzm.so`
+ * (2026-08-07 DNS cutover, C51 §4) the new origin was not on that list, so every baked layer —
+ * buildings, roads, rail, water, trees, landuse, parks and the terrain `layer.json` — went back
+ * to being refused by the browser, along with the whole GLB catalogue.
+ *
+ * So `VITE_CONTEXT_TILES_URL` is now deployed as **`/api/context-tiles/`** — this same proxy,
+ * selected EXPLICITLY rather than reached as an unset-variable fallback. Both routes end at the
+ * same bytes; naming it explicitly means the deployed configuration says what it means, instead
+ * of depending on a variable being absent.
+ *
+ * ⚠ A NEW ORIGIN IS NOT A DNS TASK, IT IS A CROSS-ORIGIN-TRUST TASK. R2 CORS, Supabase allowed
+ * origins, OAuth redirect URIs and `ALLOWED_ORIGIN` are all origin-keyed, and R2's failure mode
+ * is near-silent: the app degrades to live Overpass, logs it honestly as "a DEGRADED path", and
+ * the only user-visible symptom is that context buildings lose their true heights (16% become an
+ * ASSUMED 9 m default). Nothing alerts.
+ *
+ * EXIT CRITERION UNCHANGED, only its trigger: when `app.pryzm.so` (and any future origin) is
+ * added to the bucket's AllowedOrigins — with `range` in AllowedHeaders and
+ * `content-range`/`accept-ranges` in ExposeHeaders, or the ranged read fails while the policy
+ * LOOKS green — set the variable back to the R2 base and this proxy stops being used, still with
+ * no code change.
  */
 export const CONTEXT_TILES_SAME_ORIGIN_BASE = '/api/context-tiles/';
 
