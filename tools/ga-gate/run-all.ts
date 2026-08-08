@@ -43,6 +43,7 @@
  */
 
 import { spawnSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -114,17 +115,79 @@ const spawnGate = (scriptPath: string) => spawnSync(
   { stdio: 'inherit', encoding: 'utf8', shell: NEEDS_SHELL },
 );
 
+// §GA-GATE-RATCHET (L-775) — SHRINK-ONLY DEBT BASELINE.
+//
+// Fixing L-774 let this suite run for the first time and revealed 16 genuine
+// failures — drift accumulated over however long nothing was checking. Two bad
+// options and one good one:
+//
+//   ✗ Wire it in blocking now  → every PR fails on pre-existing debt, so within a
+//                                day someone adds `continue-on-error: true` and we
+//                                are back to a gate that gates nothing. That is
+//                                exactly how the EXISTING ga-gate job ended up
+//                                advisory.
+//   ✗ Leave it unwired         → the 16 stay invisible and grow.
+//   ✓ Ratchet                  → today's failures are DECLARED DEBT; CI blocks a
+//                                gate that newly breaks, and blocks a gate that
+//                                starts passing without being removed from the
+//                                baseline. Debt can only shrink.
+//
+// This mirrors `declared-project-scope-debt.json`, the pattern already proven in
+// this repo. Keyed on `script` (a filename) not `name` (a display string that
+// carries phase tags and gets edited).
+//
+// ⚠ A BASELINED GATE THAT STARTS PASSING IS A FAILURE. Without that rule the
+// baseline is write-only: debt gets paid and nobody notices, so the file drifts
+// into a list of things that are actually fine and stops meaning anything. Being
+// forced to delete the line is what makes the number trustworthy.
+const debtPath = join(__dir, 'gate-debt.json');
+let baseline: Set<string>;
+try {
+  const raw = JSON.parse(readFileSync(debtPath, 'utf8')) as { failing?: string[] };
+  baseline = new Set(raw.failing ?? []);
+} catch {
+  // No baseline file ⇒ no declared debt ⇒ every failure is a regression. That is
+  // the correct default: absence of a debt file must not mean "tolerate anything".
+  baseline = new Set<string>();
+}
+
+const nowFailing: string[] = [];
+const nowPassing: string[] = [];
+
 for (const gate of GATES) {
   const scriptPath = join(__dir, gate.script);
   const result = spawnGate(scriptPath);
   const code = result.status ?? 1;
   if (code !== 0) {
-    console.error(`\n[ga-gate/run-all] ❌ FAILED: ${gate.name} (exit ${code})`);
-    anyFailed = true;
+    nowFailing.push(gate.script);
+    const known = baseline.has(gate.script);
+    console.error(
+      `\n[ga-gate/run-all] ${known ? '🟡 KNOWN-DEBT' : '❌ REGRESSION'}: ${gate.name} (exit ${code})`,
+    );
+    if (!known) anyFailed = true;
   } else {
+    nowPassing.push(gate.script);
     console.log(`[ga-gate/run-all] ✅ PASSED: ${gate.name}`);
   }
 }
+
+// Shrink-only enforcement: a gate on the baseline that now passes MUST be removed.
+const fixedButStillDeclared = [...baseline].filter((s) => nowPassing.includes(s));
+if (fixedButStillDeclared.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ❌ BASELINE IS STALE — ${fixedButStillDeclared.length} gate(s) now PASS but are still`
+    + ' declared as debt. Remove them from tools/ga-gate/gate-debt.json:\n'
+    + fixedButStillDeclared.map((s) => `    - ${s}`).join('\n')
+    + '\n  (The ratchet only means anything if paid debt leaves the ledger.)',
+  );
+  anyFailed = true;
+}
+
+console.log(
+  `\n[ga-gate/run-all] ── ${nowPassing.length} passing · ${nowFailing.length} failing `
+  + `(${nowFailing.filter((s) => baseline.has(s)).length} declared debt, `
+  + `${nowFailing.filter((s) => !baseline.has(s)).length} regression) ──`,
+);
 
 // ── INFORMATIONAL SECTION — convergence booleans (R4) ────────────────────────
 // Not a PR gate. Booleans #7–#9 require external infrastructure (npm publish,
@@ -142,10 +205,26 @@ if ((convResult.status ?? 1) !== 0) {
 console.log('[ga-gate/run-all] ────────────────────────────────────────────────\n');
 
 const GATE_COUNT = GATES.length;
+const declaredDebt = nowFailing.filter((s) => baseline.has(s)).length;
+
 if (anyFailed) {
-  console.error(`\n[ga-gate/run-all] One or more of ${GATE_COUNT} gates failed. Fix the above before merging.`);
+  console.error(`\n[ga-gate/run-all] BLOCKED — a gate regressed, or the debt baseline is stale. Fix the above before merging.`);
   process.exit(1);
-} else {
-  console.log(`\n[ga-gate/run-all] All ${GATE_COUNT} gates green. ✅`);
-  process.exit(0);
 }
+
+// ⚠ THIS MESSAGE MUST NOT SAY "ALL GREEN" WHILE GATES ARE FAILING.
+// The pre-ratchet version printed "All 25 gates green ✅" on exit 0, which after
+// the ratchet landed would have been a lie: 16 gates fail, they are merely
+// TOLERATED. Reporting tolerated debt as success is the §CONTEXT-DATA-HONESTY
+// failure this repo keeps paying for — it is how the 16 became invisible in the
+// first place. Exit 0 here means "no REGRESSION", never "no problems".
+if (declaredDebt > 0) {
+  console.log(
+    `\n[ga-gate/run-all] ✅ NO REGRESSION — ${nowPassing.length}/${GATE_COUNT} gates pass.`
+    + `\n[ga-gate/run-all] ⚠ ${declaredDebt} gate(s) still FAIL as declared debt (tools/ga-gate/gate-debt.json).`
+    + `\n[ga-gate/run-all]   C01 §5 requires ALL gates to pass. That is not yet true — this run did not verify it.`,
+  );
+} else {
+  console.log(`\n[ga-gate/run-all] All ${GATE_COUNT} gates green, zero declared debt. ✅ C01 §5 satisfied.`);
+}
+process.exit(0);

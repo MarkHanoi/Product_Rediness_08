@@ -47,7 +47,8 @@
     "pryzm-3-functional-day-1": "tsx scripts/legacy-pryzm3/pryzm-3-functional-day-1.ts",
     "test:ci": "pnpm -r --workspace-concurrency=1 --if-present run test:ci",
     "test:quarantined": "pnpm -r --workspace-concurrency=1 --if-present run test:quarantined",
-    "test:server": "vitest run --config vitest.server.config.ts"
+    "test:server": "vitest run --config vitest.server.config.ts",
+    "ga-gate:all": "tsx tools/ga-gate/run-all.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

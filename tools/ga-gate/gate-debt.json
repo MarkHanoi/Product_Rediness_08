@@ -1,0 +1,41 @@
+{
+  "$comment": [
+    "§GA-GATE-RATCHET (L-775) — DECLARED DEBT. SHRINK-ONLY.",
+    "",
+    "These gates fail TODAY. They are drift that accumulated while the runner was",
+    "broken (L-774: spawnSync could not execute npx on win32, so all 25 reported",
+    "FAILED with no output and the suite was never wired into CI).",
+    "",
+    "RULES:",
+    "  1. A gate NOT on this list that fails is a REGRESSION and blocks CI.",
+    "  2. A gate ON this list that starts PASSING is also a failure — remove its",
+    "     line in the same commit that fixes it. Paid debt must leave the ledger,",
+    "     or this file rots into a list of things that are secretly fine.",
+    "  3. NOTHING may be ADDED here without an explicit founder/architect decision.",
+    "     Adding a line is choosing to ship a known contract violation.",
+    "",
+    "Baselined 2026-08-08 from the first successful run of the suite:",
+    "9 passing / 16 failing. Every removal below is real progress toward C01 §5,",
+    "which states all gates MUST pass before a PR merges — currently untrue."
+  ],
+  "baselinedAt": "2026-08-08",
+  "baselinedCommit": "d0d34999",
+  "failing": [
+    "check-cast-count.ts",
+    "check-raf-count.ts",
+    "check-three-imports.ts",
+    "check-l7-boundary.ts",
+    "check-project-isolation.ts",
+    "check-no-commandmanager.ts",
+    "check-no-workspacemountbridge.ts",
+    "check-scene-graph.ts",
+    "check-geometry-ceiling.ts",
+    "check-window-store-in-packages.ts",
+    "check-custom-event-packages.ts",
+    "check-commandmanager-any.ts",
+    "check-structuredclone-new-commands.ts",
+    "check-xss-guards.ts",
+    "check-custom-event-apps.ts",
+    "check-zoning-fidelity-label.ts"
+  ]
+}

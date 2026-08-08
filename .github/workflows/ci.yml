@@ -274,10 +274,22 @@ jobs:
       - run: pnpm run test:pryzm1
 
   ga-gate:
-    name: GA-gate (P1..P8 + perf budgets)
+    name: GA-gate (25 contract gates, shrink-only ratchet)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    continue-on-error: true   # advisory until §H33/H34/H35 (ratchet broadening) lands
+    timeout-minutes: 25
+    # §GA-GATE-RATCHET (L-775) — MERGE-BLOCKING. `continue-on-error: true` is GONE.
+    #
+    # It was advisory because the job ran `pnpm run ga-gate`, which resolves to
+    # packages/release/src/ga-gate.mjs — a DIFFERENT, smaller script. The real
+    # 25-gate suite (tools/ga-gate/run-all.ts) was invoked by nothing, because the
+    # runner could not spawn on win32 and reported 25/25 FAILED to anyone who tried
+    # (L-774). An always-red tool gets switched off, and this job is the fossil of
+    # that: named for gates it never ran, and unable to fail if it had.
+    #
+    # It can be blocking now WITHOUT a big-bang cleanup because the ratchet tolerates
+    # today's 16 declared failures and blocks only:
+    #   • a gate that newly breaks              → REGRESSION
+    #   • a baselined gate that starts passing  → STALE BASELINE (debt must leave the ledger)
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -288,7 +300,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run ga-gate
+      - name: 25 contract gates (ratcheted)
+        run: pnpm run ga-gate:all
+      - name: Legacy release gate (advisory)
+        continue-on-error: true
+        run: pnpm run ga-gate
 
   build:
     name: Build (tsc + vite + prod shim)
