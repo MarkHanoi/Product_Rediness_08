@@ -84,6 +84,27 @@ TILES="$(read_arg VITE_CONTEXT_TILES_URL)"
 [ -n "${VITE_GLB_URL:-}" ]           && GLB="$VITE_GLB_URL"              && echo "  ⚠ OVERRIDE: VITE_GLB_URL from env = '$VITE_GLB_URL'"
 [ -n "${VITE_CONTEXT_TILES_URL:-}" ] && TILES="$VITE_CONTEXT_TILES_URL"  && echo "  ⚠ OVERRIDE: VITE_CONTEXT_TILES_URL from env = '$VITE_CONTEXT_TILES_URL'"
 
+# §DEPLOY-ARG-SAME-ORIGIN (L-776b) — accept a same-origin base WITHOUT a leading
+# slash, and add the slash here.
+#
+# ⚠ WHY THIS EXISTS AND WHY THE OBVIOUS FIX IS WRONG. Git Bash (MSYS) rewrites any
+# argument that looks like an absolute POSIX path into a Windows path before a
+# NATIVE binary sees it. Passing `VITE_GLB_URL=/api/catalog/items/` to `flyctl`
+# therefore baked **'C:/Program Files/Git/api/catalog/items/'** into the production
+# bundle — caught by fly-bundle-proof.sh, which earned its keep.
+#
+# The obvious fix, `MSYS_NO_PATHCONV=1`, is WORSE: this script's own `curl -o
+# "$WORK/main.js"` RELIES on that conversion to turn the mktemp POSIX path into
+# something curl.exe can write. Disabling it globally made arg-recovery die with
+# `curl: (23) client returned ERROR on write` before the build even started. A
+# global switch to fix one argument broke a different one — twice.
+#
+# So the values are passed slash-LESS (`api/context-tiles/`), which MSYS leaves
+# alone because it is not an absolute path, and the slash is restored here where no
+# shell can touch it. Absolute `https://…` values are untouched.
+case "$GLB"   in api/*) GLB="/$GLB"     && echo "  ↳ same-origin base normalised: $GLB" ;; esac
+case "$TILES" in api/*) TILES="/$TILES" && echo "  ↳ same-origin base normalised: $TILES" ;; esac
+
 # FAIL CLOSED. Never ship a degraded bundle just because extraction came back
 # empty — an empty value here is indistinguishable in the build from "not passed".
 if [ -z "$CESIUM" ] || [ -z "$GOOGLE" ] || [ -z "$GLB" ] || [ -z "$TILES" ]; then
