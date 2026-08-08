@@ -557,6 +557,58 @@ export const ONBOARDING_STYLES = `
   color: rgba(20, 10, 40, 0.58);
   line-height: 1.4;
 }
+/* §TYPOLOGY-CHOICE-AT-CONFIRM — the confirm step's "what do you want to build?"
+   chooser, plus the two advisory registers. The advisory colours are deliberately
+   DIFFERENT so "we haven't resolved zoning" (muted, informational) can never be
+   mistaken for "zoning records a conflicting use" (amber, a real finding) — the
+   two answers must not look alike. Brand purple #6600FF for the selected card. */
+.os-onboarding-overlay .os-typology-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.15rem;
+}
+.os-onboarding-overlay .os-typology-choices__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.os-onboarding-overlay .os-typology-choice {
+  flex: 1 1 auto;
+  min-width: 7.5rem;
+  padding: 0.42rem 0.6rem;
+  border: 1.5px solid rgba(20, 10, 40, 0.14);
+  border-radius: 9px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(20, 10, 40, 0.72);
+  text-align: center;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+.os-onboarding-overlay .os-typology-choice:hover {
+  border-color: rgba(102, 0, 255, 0.45);
+  color: #6600ff;
+}
+.os-onboarding-overlay .os-typology-choice--selected {
+  border-color: #6600ff;
+  background: rgba(102, 0, 255, 0.07);
+  color: #6600ff;
+}
+.os-onboarding-overlay .os-typology-choice:focus-visible {
+  outline: 2px solid #6600ff;
+  outline-offset: 2px;
+}
+.os-onboarding-overlay .os-hint--muted {
+  color: rgba(20, 10, 40, 0.45);
+  font-style: italic;
+}
+.os-onboarding-overlay .os-hint--warn {
+  color: #8a5300;
+  font-weight: 600;
+}
 .os-onboarding-overlay .os-status {
   margin: 0.15rem 0 0;
   font-size: 0.8rem;

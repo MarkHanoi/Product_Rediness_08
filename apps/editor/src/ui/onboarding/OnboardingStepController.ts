@@ -88,6 +88,15 @@ import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
 import { markStartupPhase } from '../../engine/startupBudget';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
+// §TYPOLOGY-CHOICE-AT-CONFIRM — the chooser's pure model (options + route + zoning
+// advisory) and the EXISTING active-brief stash the chosen typology is written through.
+import {
+    buildTypologyChoices,
+    resolveGenerateRoute,
+    zoningAdvisoryFor,
+    type TypologyChoice,
+} from './typologyChoiceModel.js';
+import { setActiveBrief } from '../apartment-layout/activeBrief.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
 // §OFFICE-ONBOARDING-WIRE — the office tower is a FIRST-CLASS typology from the picker.
@@ -265,8 +274,11 @@ export function findNearestFeasibleResi(input: {
 export class OnboardingStepController {
     private readonly runtime: PryzmRuntime;
     private readonly seedAddress: string;
-    /** Typology from the brief — drives the O.7.1 confirm-step copy/label. */
-    private readonly typologyId: string;
+    /** Typology from the brief — drives the O.7.1 confirm-step copy/label AND the
+     *  `generateAndFinish` route. §TYPOLOGY-CHOICE-AT-CONFIRM: no longer readonly —
+     *  the confirm step's chooser reassigns it (through `setTypology`, which keeps the
+     *  active brief in step) when the user picks a different building type. */
+    private typologyId: string;
     /** O.12.c — structured brief metadata, forwarded to the generate call. §RESI-MULTIFAMILY
      *  (Task 2): the residential program step MUTATES this with the user's level/area/typology
      *  choices before generate, so it is not readonly. */
@@ -335,13 +347,35 @@ export class OnboardingStepController {
             case 'apartment': return 'apartment';
             case 'casa-unifamiliar': return 'house';   // §A.6.c — friendly noun
             case 'house': return 'house';
-            case 'residential-multifamily': return 'residential building'; // §RESI-MULTIFAMILY
+            // §RESI-MULTIFAMILY routed under `residential-multifamily`; the pack that
+            // composeRuntime registers declares `residential-building`. Both reach here.
+            case 'residential-multifamily': return 'residential building';
+            case 'residential-building': return 'residential building';
             // §OFFICE-ONBOARDING-WIRE — the picker emits the registry pack id
             // (`office-building`); the RAC/short form may emit `office`. Accept BOTH.
             case 'office': return 'office';
             case 'office-building': return 'office';
             default: return this.typologyId || 'design';
         }
+    }
+
+    /**
+     * §TYPOLOGY-CHOICE-AT-CONFIRM — adopt the typology the user picked at the confirm
+     * step, keeping the ACTIVE BRIEF in step with it.
+     *
+     * The brief is typology-DECLARED, and `activeBrief` is the existing single source
+     * of truth the picker, the re-trigger path and `gatherLayoutPayload` all read. So
+     * the chooser writes through THAT mechanism rather than standing up a parallel one:
+     * change the typology and the stashed brief now says so too. Program metadata is
+     * carried across verbatim — this layer does not introspect field ids (a house brief's
+     * style chip is still meaningful to an apartment), and each pack's own brief resolver
+     * ignores what it does not recognise.
+     */
+    private setTypology(typologyId: string): void {
+        if (typologyId === this.typologyId) return;
+        console.log(`[onboarding-step] typology chosen: "${this.typologyId}" → "${typologyId}".`);
+        this.typologyId = typologyId;
+        setActiveBrief({ typologyId, metadata: this.briefMetadata });
     }
 
     /** §OFFICE-ONBOARDING-WIRE — true when the brief's typology is the office tower,
@@ -1567,22 +1601,42 @@ export class OnboardingStepController {
         // is reached only from the Generate button below, never before it. No third flow is invented:
         // the compact card is the existing generic one, and the setup panel is unchanged apart from
         // WHEN it opens.
-        const deferToResidentialSetup = this.typologyId === 'residential-multifamily';
+        const deferToResidentialSetup = resolveGenerateRoute(this.typologyId) === 'residential-building';
 
         // §OFFICE-PREVIEW-STEP (founder 2026-06-30) — the office tower earns its own SETUP
         // step (like the residential building): adjustable stories / floor-to-floor / radius
         // / desk-density / culture + a LIVE circular-plate preview + analytics + a "Build
         // this tower" button. Instead of straight-to-generate-and-reject, the founder SEES
         // the feasible config (Task A clamps the slider to the plate) before building.
-        if (this.isOfficeTypology()) {
-            this.renderOfficeProgramStep(source);
-            return;
-        }
+        //
+        // §TYPOLOGY-CHOICE-AT-CONFIRM — that setup step now opens from the GENERATE button
+        // below (like residential's, §RESI-SETUP-AFTER-GENERATE), not INSTEAD of the confirm
+        // card. Two reasons, and they are the same reason: the user cannot choose a typology
+        // at a step that was skipped for them, and C50 §14 KV-2 (L-670) records exactly this
+        // shape as the un-contracted defect — "the OFFICE typology then copied [residential's
+        // wrong shape]", front-loading a parameter surface before the generate opt-in. Both
+        // typologies now defer their setup until after the user has seen the parcel + envelope
+        // and explicitly asked to generate.
+        const deferToOfficeSetup = this.isOfficeTypology();
 
         const body = this.clearBody();
 
-        const typology = this.typologyLabel();
         console.log(`[onboarding-step] confirm step (source="${source}", typology="${this.typologyId}").`);
+
+        // ── §TYPOLOGY-CHOICE-AT-CONFIRM — the chooser ────────────────────────────
+        // The founder's ask (2026-08-07): let the user CHOOSE what to build at this
+        // moment, instead of inheriting the silent `'apartment'` default that
+        // `resolveSeededTypologyId` stamps for the no-modal "+ New Project" gesture.
+        // Options come from the REGISTRY (C50 §5.3 — registry-driven, never a
+        // hard-coded list), filtered to those with a wired generator so no entry can
+        // silently no-op. When only one typology is offerable the chooser is omitted
+        // entirely rather than rendering a single dead radio.
+        const choices = this.offerableTypologies();
+        if (choices.length > 1) {
+            body.appendChild(this.buildTypologyChooser(choices, source));
+        }
+
+        const typology = this.typologyLabel();
 
         const title = document.createElement('p');
         title.className = 'os-prompt';
@@ -1596,6 +1650,17 @@ export class OnboardingStepController {
             ? `We'll lay out rooms, walls, doors and windows inside the plot you drew.`
             : `We'll lay out rooms, walls, doors and windows inside your plot.`;
         body.appendChild(sub);
+
+        // The zoning advisory for the CURRENT choice. Advisory only — see
+        // `zoningAdvisoryFor`'s block comment for the C58 §10.2 justification.
+        const advisory = this.zoningAdvisory(choices);
+        if (advisory && advisory.kind !== 'permitted') {
+            const note = document.createElement('p');
+            note.className = advisory.kind === 'conflict' ? 'os-hint os-hint--warn' : 'os-hint os-hint--muted';
+            note.setAttribute('data-testid', `onboarding-confirm-zoning-${advisory.kind}`);
+            note.textContent = advisory.message;
+            body.appendChild(note);
+        }
 
         const actions = document.createElement('div');
         actions.className = 'os-confirm-actions';
@@ -1635,6 +1700,13 @@ export class OnboardingStepController {
                 this.renderResidentialProgramStep(source);
                 return;
             }
+            // §TYPOLOGY-CHOICE-AT-CONFIRM — the office tower's setup step, now reached
+            // only from this opt-in (see `deferToOfficeSetup` above).
+            if (deferToOfficeSetup) {
+                console.log('[onboarding-step] confirm → GENERATE TOWER — opening the office setup step.');
+                this.renderOfficeProgramStep(source);
+                return;
+            }
             console.log('[onboarding-step] confirm → GENERATE (AI dispatch).');
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
             void this.generateAndFinish();
@@ -1652,6 +1724,101 @@ export class OnboardingStepController {
             this.toast('Your plot + buildable envelope are in the canvas — design away, or generate any time from the AI panel.', 'info');
             void this.landInCanvasWithUnderlay();
         });
+    }
+
+    /**
+     * §TYPOLOGY-CHOICE-AT-CONFIRM — the typologies this flow can actually BUILD.
+     *
+     * Registry-driven per C50 §5.3 (never a hard-coded list, so a fifth pack appears
+     * by registering), then filtered by `resolveGenerateRoute` so an offered card
+     * always has a generator behind it. If the registry is unreachable we fall back to
+     * the CURRENT typology alone — degrading to "no choice" is safe; inventing options
+     * we cannot build is not.
+     */
+    private offerableTypologies(): readonly TypologyChoice[] {
+        try {
+            const packs = this.runtime?.typology?.registry?.list?.() ?? [];
+            const choices = buildTypologyChoices(packs.map((p) => p.manifest));
+            if (choices.length > 0) return choices;
+        } catch (err) {
+            console.warn('[onboarding-step] typology registry unavailable for the chooser (non-fatal):', err);
+        }
+        return [];
+    }
+
+    /**
+     * §TYPOLOGY-CHOICE-AT-CONFIRM — the radio-card chooser. Selecting re-renders the
+     * confirm step so the title, the CTA and the zoning advisory all follow the choice
+     * (the copy must stop hard-coding "apartment").
+     */
+    private buildTypologyChooser(
+        choices: readonly TypologyChoice[],
+        source: 'drawn' | 'default-plot',
+    ): HTMLElement {
+        const wrap = document.createElement('div');
+        wrap.className = 'os-typology-choices';
+        wrap.setAttribute('role', 'radiogroup');
+        wrap.setAttribute('aria-label', 'What do you want to build?');
+        wrap.setAttribute('data-testid', 'onboarding-typology-chooser');
+
+        const lead = document.createElement('p');
+        lead.className = 'os-hint';
+        lead.textContent = 'What do you want to build here?';
+        wrap.appendChild(lead);
+
+        const row = document.createElement('div');
+        row.className = 'os-typology-choices__row';
+
+        for (const choice of choices) {
+            const selected = choice.id === this.typologyId
+                || resolveGenerateRoute(choice.id) === resolveGenerateRoute(this.typologyId);
+
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = `os-typology-choice${selected ? ' os-typology-choice--selected' : ''}`;
+            card.setAttribute('role', 'radio');
+            card.setAttribute('aria-checked', selected ? 'true' : 'false');
+            card.setAttribute('data-typology-id', choice.id);
+            card.setAttribute('data-testid', `onboarding-typology-${choice.id}`);
+
+            const name = document.createElement('span');
+            name.className = 'os-typology-choice__label';
+            name.textContent = choice.label;
+            card.appendChild(name);
+
+            card.addEventListener('click', () => {
+                if (choice.id === this.typologyId) return;
+                this.setTypology(choice.id);
+                // Re-render the whole confirm step: copy, CTA and advisory are all
+                // functions of the choice, so re-deriving beats patching three nodes.
+                this.renderGenerateConfirmStep(source);
+            });
+
+            row.appendChild(card);
+        }
+
+        wrap.appendChild(row);
+        return wrap;
+    }
+
+    /**
+     * §TYPOLOGY-CHOICE-AT-CONFIRM — the zoning advisory for the current choice, read
+     * from the SOLVED envelope (`getLastBuildableEnvelope`) rather than any number this
+     * UI computes itself. Returns null when we cannot even name the choice's category.
+     */
+    private zoningAdvisory(choices: readonly TypologyChoice[]): ReturnType<typeof zoningAdvisoryFor> | null {
+        const current = choices.find((c) => c.id === this.typologyId);
+        if (!current) return null;
+        try {
+            const envelope = getLastBuildableEnvelope();
+            return zoningAdvisoryFor(
+                current.category,
+                envelope ? { permittedUse: envelope.permittedUse } : null,
+            );
+        } catch (err) {
+            console.warn('[onboarding-step] zoning advisory unavailable (non-fatal):', err);
+            return null;
+        }
     }
 
     /**
@@ -2711,9 +2878,17 @@ export class OnboardingStepController {
             // multi-storey HOUSE generator (levels + per-storey rooms + stair +
             // slab-void + roof); every other typology keeps the apartment path
             // byte-for-byte. ADDITIVE — the apartment branch is unchanged.
-            if (this.typologyId === 'casa-unifamiliar') {
+            // §TYPOLOGY-CHOICE-AT-CONFIRM — the switch now dispatches on the SHARED
+            // `resolveGenerateRoute` resolver (unit-tested against the real registered
+            // manifests) instead of on raw id equality. That is what makes the chooser's
+            // "only offer what is wired" filter and this dispatch provably agree: they
+            // are the same function. Id-equality was also how `residential-building`
+            // (the registered pack id) fell through to the APARTMENT generator — the
+            // user picking a residential building and silently getting a flat.
+            const route = resolveGenerateRoute(this.typologyId);
+            if (route === 'house') {
                 await this.generateHouse();
-            } else if (this.typologyId === 'residential-multifamily') {
+            } else if (route === 'residential-building') {
                 // §RESI-MULTIFAMILY — the multi-family residential building. Reads
                 // the SAME authored parcel boundary, derives the residential program
                 // (floors + per-apartment min/max m² + T1–T4 mix) from the captured
@@ -2722,7 +2897,7 @@ export class OnboardingStepController {
                 // the opt-in (no console flag on this path). ADDITIVE — neither the
                 // apartment nor the house branch is touched.
                 await generateResidentialFromBoundary(this.runtime, this.briefMetadata);
-            } else if (this.isOfficeTypology()) {
+            } else if (route === 'office') {
                 // §OFFICE-ONBOARDING-WIRE — the office TOWER. The tower is CIRCULAR
                 // (radius + stories), but the user draws a polygon parcel, so we derive
                 // the circle (centroid + a fit radius that sits inside the plot) from

@@ -990,15 +990,24 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       );
     }
     // Residential-building (multi-family) — Slice 0 / Tracker P1.A. The THIRD
-    // typology. GATED default-OFF: the pack only registers (and only then appears
-    // in the TypologyPicker + RAC) when the founder opts in by setting the global
-    // flag `globalThis.__PRYZM_RESIDENTIAL_BUILDING__ = true` BEFORE composeRuntime.
-    // This keeps production byte-identical until the orchestrator slices are
-    // browser-validated (per the task's gating rule + ADR-0075 PC2). Read via a
-    // narrow typed lookup on globalThis (NOT `(window as any)`, so P4-clean).
+    // typology. WAS gated default-OFF pending browser validation of the orchestrator
+    // slices.
+    //
+    // §TYPOLOGY-CHOICE-AT-CONFIRM (founder 2026-08-07) — now registered ON by default,
+    // mirroring the office pack's proven gate shape below: only an EXPLICIT
+    // `=== false` force-disables. The founder asked for "residential building" to be
+    // one of four typologies the user CHOOSES at the generate step, and REGISTRATION
+    // was the only thing still withholding it: the generate path itself carries no
+    // gate (`generateResidentialFromBoundary` — the gate lives only in the console
+    // trigger), and the browser-validation debt the flag was holding has since been
+    // paid down through the founder-reported L-435 / L-668 / L-669 fixes against this
+    // very generator. Leaving it OFF would have meant the chooser showing three
+    // options on production and four in a console-flagged session.
+    //
+    // Read via a narrow typed lookup on globalThis (NOT `(window as any)`, so P4-clean).
     const residentialBuildingGateOn =
       (globalThis as { __PRYZM_RESIDENTIAL_BUILDING__?: boolean })
-        .__PRYZM_RESIDENTIAL_BUILDING__ === true;
+        .__PRYZM_RESIDENTIAL_BUILDING__ !== false;
     if (residentialBuildingGateOn) {
       try {
         typologyRegistry.register(buildResidentialBuildingTypologyPack());

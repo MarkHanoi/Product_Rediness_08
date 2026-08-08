@@ -78,6 +78,10 @@
   },
   "devDependencies": {
     "@pryzm/runtime-composer": "workspace:*",
+    "@pryzm/typology-pack-apartment": "workspace:*",
+    "@pryzm/typology-pack-casa-unifamiliar": "workspace:*",
+    "@pryzm/typology-pack-office-building": "workspace:*",
+    "@pryzm/typology-pack-residential-building": "workspace:*",
     "@types/three": "^0.183.1",
     "@webgpu/types": "^0.1.69",
     "three": "^0.183.0",

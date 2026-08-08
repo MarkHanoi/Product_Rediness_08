@@ -70,6 +70,7 @@
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { startOnboardingStepFlow } from './OnboardingStepController.js';
 import { setActiveBrief } from '../apartment-layout/activeBrief.js';
+import { resolveGenerateRoute } from './typologyChoiceModel.js';
 
 /** The narrowed brief payload carried by `pryzm:onboarding-brief-ready`. */
 interface OnboardingBrief {
@@ -179,21 +180,26 @@ async function handleBriefReady(
     // in `OnboardingStepController.generateAndFinish` routes `office` to the office
     // controller (derives a circular footprint from the drawn parcel, opens the office
     // setup modal → Build), exactly the way the other wired typologies route.
-    const GENERATOR_READY_TYPOLOGIES = new Set(['apartment', 'casa-unifamiliar', 'residential-multifamily', 'office', 'office-building']);
-    if (!GENERATOR_READY_TYPOLOGIES.has(brief.typologyId)) {
+    //
+    // §TYPOLOGY-CHOICE-AT-CONFIRM — this readiness gate is now the SAME resolver the
+    // step controller dispatches on (`resolveGenerateRoute`), not a second hand-kept
+    // list. The two had already drifted: the set below omitted `residential-building`
+    // — the id the pack composeRuntime registers actually declares — so a brief
+    // captured for the registered residential pack was refused here as "not wired",
+    // while `residential-multifamily` (a routing id no manifest declares) was accepted.
+    // One resolver means that cannot recur.
+    const route = resolveGenerateRoute(brief.typologyId);
+    if (!route) {
         console.log(
-            `[onboarding-bootstrap] typology "${brief.typologyId}" is not yet auto-wired ` +
-            '(apartment + casa-unifamiliar have shipped generators today) — bailing gracefully. ' +
-            'Its Pack will slot into this same brief→project→site→generate spine.',
+            `[onboarding-bootstrap] typology "${brief.typologyId}" has no wired generate route ` +
+            '— bailing gracefully rather than generating something the user did not ask for. ' +
+            'Its Pack slots into this same brief→project→site→generate spine by adding a route.',
         );
         return;
     }
-    const isHouse = brief.typologyId === 'casa-unifamiliar';
-    const isResidentialBuilding = brief.typologyId === 'residential-multifamily';
-    const isOffice = brief.typologyId === 'office' || brief.typologyId === 'office-building'; // §OFFICE-ONBOARDING-WIRE
-    const typologyNoun = isOffice ? 'office building'
-        : isResidentialBuilding ? 'residential building'
-            : isHouse ? 'house'
+    const typologyNoun = route === 'office' ? 'office building'
+        : route === 'residential-building' ? 'residential building'
+            : route === 'house' ? 'house'
                 : 'apartment';
 
     if (typeof deps.createAndOpenProject !== 'function') {
