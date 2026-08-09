@@ -176,7 +176,7 @@ function workspacePackages(): Map<string, string> {
 
 /** Glob → RegExp for the simple `dir/**` patterns the layer table uses. */
 function patternToRe(pattern: string): RegExp {
-    const esc = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, ' ').replace(/\*/g, '[^/]*').replace(/ /g, '.*');
+    const esc = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\uE000').replace(/\*/g, '[^/]*').replace(/\uE000/g, '.*');
     return new RegExp(`^${esc}$`);
 }
 const COMPILED = ELEMENTS.map(e => ({ type: e.type, re: patternToRe(e.pattern), pattern: e.pattern }));

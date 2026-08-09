@@ -274,7 +274,7 @@ jobs:
       - run: pnpm run test:pryzm1
 
   ga-gate:
-    name: GA-gate (25 contract gates, shrink-only ratchet)
+    name: GA-gate (31 contract gates, shrink-only ratchet)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # §GA-GATE-RATCHET (L-775) — MERGE-BLOCKING. `continue-on-error: true` is GONE.
@@ -287,9 +287,22 @@ jobs:
     # that: named for gates it never ran, and unable to fail if it had.
     #
     # It can be blocking now WITHOUT a big-bang cleanup because the ratchet tolerates
-    # today's 16 declared failures and blocks only:
+    # today's declared failures and blocks only:
     #   • a gate that newly breaks              → REGRESSION
     #   • a baselined gate that starts passing  → STALE BASELINE (debt must leave the ledger)
+    #   • a gate whose SCRIPT FILE is missing   → never excusable as debt (L-812)
+    #   • a gate that exits 2 (MISCONFIGURED)   → never excusable as debt (L-811)
+    #
+    # §FIX-GATE-NEEDS-RIPGREP (L-811) — NOTE THE ABSENCE OF A `ripgrep` INSTALL STEP.
+    # Three gates (check-three-imports/P2, check-raf-count/P3, check-cast-count/P4)
+    # used to shell out to `rg`, which this workflow never installed and which is
+    # absent from a stock Windows dev box; they died with `spawnSync rg ENOENT`. The
+    # fix was deliberately NOT to add `apt-get install ripgrep` here — that would
+    # have made CI green while leaving every developer machine broken, which is the
+    # worse failure: it hides the problem exactly where a contributor first meets it.
+    # The three gates now use a Node-native scanner (tools/ga-gate/lib/sourceScan.ts)
+    # with zero external binaries. DO NOT reintroduce a gate that shells out to a
+    # tool this workflow does not install.
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -300,7 +313,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: 25 contract gates (ratcheted)
+      - name: 31 contract gates (ratcheted)
         run: pnpm run ga-gate:all
       - name: Legacy release gate (advisory)
         continue-on-error: true

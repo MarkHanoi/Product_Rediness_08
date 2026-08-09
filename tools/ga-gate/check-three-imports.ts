@@ -1,111 +1,95 @@
 #!/usr/bin/env tsx
 /**
- * Wave A15 P2 — `packages/renderer-three/` sole THREE importer tripwire.
+ * P2 — `packages/renderer-three/` is the sole THREE importer. Hard-fail at 0.
  *
  * Spec:   docs/03_PRYZM3/00-PROCESS-TRACKER.md §1 metrics #12 / #12a / #12b
- * Anchor: docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §11
+ * Anchor: docs/01-strategy/STR-03-engineering-vision.md (P2 — Single THREE owner)
  *
- * Hard-fail if any TypeScript file outside `packages/renderer-three/` contains
- * a direct import from the `three` package OR any of its sub-paths:
+ * ─── §FIX-GATE-NEEDS-RIPGREP (L-811), 2026-08-09 ─────────────────────────────
+ * This gate used to shell out to `rg`. Ripgrep is not a declared dependency, is
+ * not installed on a stock Windows box, and `.github/workflows/ci.yml` never
+ * installed it — so on any such machine the gate died with
  *
- *   import … from 'three'               ← bare (Wave 8 codemod cleaned these)
- *   import … from 'three/tsl'           ← Class A2 (Wave A15 S119 closed)
- *   import … from 'three/examples/…'    ← Class A1 (Wave A15 S119–S120 closed)
+ *     Error: spawnSync rg ENOENT
  *
- * NOT matched (intentional — these are P2-compliant paths through the owner):
- *   import … from '@pryzm/renderer-three'        ← canonical barrel
- *   import … from '@pryzm/renderer-three/three'  ← THREE namespace sub-path
- *   export * from 'three'                         ← re-export in three-re-export.ts
- *   export { X } from 'three/examples/…'          ← addon re-exports in addons/
+ * and P2, one of the eight architectural principles, was enforced by nothing.
+ * Worse, this gate was ALSO listed in `gate-debt.json`, so the crash was absorbed
+ * as "known failing" and never distinguished from a real violation. MISSING
+ * PREREQUISITE and DIRTY CODE produced the same observable state — the
+ * §CONTEXT-DATA-HONESTY failure, applied to CI itself.
  *
- * ALLOWLISTED files (intentional violations — ESLint rule fixtures):
- *   packages/eslint-plugin-pryzm/__tests__/lint-fixtures/three-outside-committer.bad.ts
- *   packages/eslint-plugin-pryzm/__tests__/lint-fixtures/three-in-kernel.bad.ts
- *   packages/geometry-kernel/__fixtures__/three-import.bad.ts
- *   attached_assets/**                             ← snapshots, not live code
+ * Rewritten on `lib/sourceScan.ts` (Node only, zero external binaries). See that
+ * file for why the fix is Node-native rather than "install ripgrep in CI".
  *
- * Pattern: `^\s*import\b.*from ['"]three(?:/[^'"]+)?['"]`
- *   – Anchored at line start — will NOT match:
- *       JSDoc comment lines   (start with " * import …")
- *       string literals        (the line does not start with import)
- *       export re-exports      (export * from 'three')
- *       dynamic imports        (await import('three'))
- *       @pryzm/ scoped paths   (start with '@pryzm/…' not 'three')
- *   – Matches bare `three`, `three/tsl`, `three/examples/jsm/…`, etc.
+ * ─── What is matched ─────────────────────────────────────────────────────────
+ *   import … from 'three'               ← bare
+ *   import … from 'three/tsl'           ← sub-path
+ *   import … from 'three/examples/…'    ← addons
  *
- * Uses execFileSync (no shell) to avoid quoting issues with the ['"] char class.
+ * NOT matched (P2-compliant paths through the owner):
+ *   '@pryzm/renderer-three'        · the canonical barrel
+ *   '@pryzm/renderer-three/three'  · the THREE namespace sub-path
+ *   export * from 'three'          · the re-export barrel inside the owner
+ *   await import('three')          · dynamic; not an import declaration
  *
- * Hard-fail = 0.  Any regression immediately breaks CI.
+ * Exit: 0 = zero violations · 1 = any violation · 2 = scan misconfigured
  */
-import { execFileSync } from 'node:child_process';
 
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { scanFiles } from './lib/sourceScan.js';
+
+const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
+const LABEL = 'three-import-tripwire';
 const HARD_FAIL = 0;
 
-function countViolatingLines(): number {
-  let out: string;
-  try {
-    out = execFileSync(
-      'rg',
-      [
-        // Wave A15: widened pattern now catches bare 'three' AND sub-paths
-        // 'three/tsl', 'three/examples/jsm/…', etc.
-        String.raw`^\s*import\b.*from ['"]three(?:/[^'"]+)?['"]`,
-        '.',
-        '--type', 'ts',
-        '-g', '!node_modules',
-        '-g', '!dist',
-        '-g', '!build',
-        '-g', '!.next',
-        '-g', '!editor/**',
-        '-g', '!attached_assets/**',
-        // Exclude the sole legitimate importer (the re-export barrel + addon wrappers)
-        '-g', '!packages/renderer-three/**',
-        // Exclude intentional ESLint rule violation fixtures
-        '-g', '!**/__fixtures__/**',
-        '-g', '!**/__tests__/lint-fixtures/**',
-        // Exclude this gate file (the pattern literal lives here)
-        '-g', '!tools/ga-gate/check-three-imports.ts',
-      ],
-      { encoding: 'utf8' },
-    );
-  } catch (err: unknown) {
-    // rg exits with code 1 when it finds no matches — that is the desired state
-    const e = err as { status?: number };
-    if (e.status === 1) return 0;
-    throw err;
-  }
-  return out.trim().split('\n').filter(Boolean).length;
+/**
+ * Everything the PRYZM 3 build owns. `editor/` is a standalone sibling
+ * sub-project (own turbo, own biome, own port, absent from pnpm-workspace.yaml);
+ * `attached_assets/` is user uploads. Neither is in any build path.
+ */
+const SCAN_DIRS = ['src', 'apps', 'packages', 'plugins', 'server', 'tools', 'scripts']
+  .filter((d) => existsSync(join(REPO_ROOT, d)));
+
+/** ~7k TS files across those trees today. */
+const MIN_FILES = 3000;
+
+function excluded(rel: string): boolean {
+  // The sole legitimate importer: the re-export barrel and its addon wrappers.
+  if (rel.startsWith('packages/renderer-three/')) return true;
+  // Intentional ESLint-rule violation fixtures — they must contain the pattern.
+  if (/(^|\/)__fixtures__\//.test(rel)) return true;
+  if (/(^|\/)__tests__\/lint-fixtures\//.test(rel)) return true;
+  if (/\.(bad|good)\.tsx?$/.test(rel)) return true;
+  // This gate file — the pattern literal lives in it.
+  if (rel === 'tools/ga-gate/check-three-imports.ts') return true;
+  return false;
 }
 
-function main(): number {
-  const n = countViolatingLines();
+// Anchored at line start, so JSDoc lines (` * import …`), string literals and
+// `export … from 'three'` re-exports do not match.
+const PATTERN = /^\s*import\b.*\bfrom\s*['"]three(?:\/[^'"]+)?['"]/;
 
-  if (n > HARD_FAIL) {
-    console.error(
-      `[three-import-tripwire] FAIL: ${n} import line(s) outside packages/renderer-three/ ` +
-        `directly import from 'three' or a three sub-path.`,
-    );
-    console.error(
-      `  All THREE consumers must use '@pryzm/renderer-three' (barrel) or`,
-    );
-    console.error(
-      `  '@pryzm/renderer-three/three' (THREE namespace) — never from 'three/*' directly.`,
-    );
-    console.error(
-      `  Find them with: rg "^\\s*import\\b.*from .three(?:/[^'"]+)?." . --type ts ` +
-        `-g '!node_modules' -g '!dist' -g '!packages/renderer-three/**' ` +
-        `-g '!**/__fixtures__/**' -g '!**/__tests__/lint-fixtures/**'`,
-    );
-    console.error(
-      `  Read: docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §11`,
-    );
-    return 1;
-  }
+const res = scanFiles({
+  root: REPO_ROOT,
+  dirs: SCAN_DIRS,
+  pattern: PATTERN,
+  minFiles: MIN_FILES,
+  exclude: excluded,
+  label: LABEL,
+});
 
-  console.log(
-    `[three-import-tripwire] OK: 0 direct 'three' or 'three/*' importers outside packages/renderer-three/.`,
+console.log(`[${LABEL}] files scanned: ${res.filesScanned} (excluded ${res.filesExcluded}) · dirs: ${SCAN_DIRS.join(', ')}`);
+
+if (res.matches.length > HARD_FAIL) {
+  console.error(`\n[${LABEL}] FAIL: ${res.matches.length} import line(s) outside packages/renderer-three/ import 'three' directly.`);
+  for (const m of res.matches) console.error(`      ${m.file}:${m.line}  ${m.text}`);
+  console.error(
+    `\n  All THREE consumers must use '@pryzm/renderer-three' (barrel) or\n` +
+    `  '@pryzm/renderer-three/three' (THREE namespace) — never 'three/*' directly.\n` +
+    `  Read: docs/01-strategy/STR-03-engineering-vision.md (P2)`,
   );
-  return 0;
+  process.exit(1);
 }
 
-process.exit(main());
+console.log(`[${LABEL}] OK: 0 direct 'three' or 'three/*' importers outside packages/renderer-three/.`);

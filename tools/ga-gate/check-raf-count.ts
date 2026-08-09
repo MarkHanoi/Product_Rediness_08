@@ -12,7 +12,32 @@
  * Counts .ts files (anywhere in repo) containing the literal token
  * `requestAnimationFrame(`. Excludes node_modules, dist, build outputs.
  */
-import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { scanFiles, tallyBy } from './lib/sourceScan.js';
+
+const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
+const LABEL = 'raf-tripwire';
+
+// `editor/` is a standalone sibling sub-project (own turbo, own biome, own port,
+// absent from pnpm-workspace.yaml); `attached_assets/` is user uploads. Neither
+// is in any PRYZM 3 build path, so neither is scanned.
+const SCAN_DIRS = ['src', 'apps', 'packages', 'plugins', 'server', 'tools']
+  .filter((d) => existsSync(join(REPO_ROOT, d)));
+
+/** ~6k TS files across those trees. A lower count means the scan is broken. */
+const MIN_FILES = 3000;
+
+function excluded(rel: string): boolean {
+  if (rel.endsWith('.d.ts')) return true;
+  if (/(^|\/)(__tests__|__fixtures__|__mocks__)\//.test(rel)) return true;
+  if (/\.(bad|good)\.tsx?$/.test(rel)) return true;
+  // Scaffolding that MUST contain the literal: this gate, and the eslint rule
+  // that bans the literal.
+  if (rel === 'tools/ga-gate/check-raf-count.ts') return true;
+  if (/^packages\/eslint-plugin-pryzm\//.test(rel)) return true;
+  return false;
+}
 
 // Wave 7 ceiling, ratcheted 2026-04-30 evening:
 //   • S85.D-finish.2 (UnifiedFrameLoop migration):   69 → 68
@@ -190,47 +215,53 @@ import { execSync } from 'node:child_process';
 //     rAF owner anywhere in PRYZM 3 build artifacts will hard-fail CI.
 // Per discipline rule 1 the ceiling ratchets down, not up.
 // Wave 7 S85 absolute target = 1 (frame-scheduler only).
+// ─── §FIX-GATE-NEEDS-RIPGREP (L-811), 2026-08-09 ─────────────────────────────
+// This gate used to run `rg … | wc -l` through execSync. TWO separate failures:
+//   • `rg` is not a declared dependency and CI never installed it, so on a stock
+//     Windows box the gate died with `Error: spawnSync rg ENOENT` and P3 was
+//     enforced by nothing.
+//   • `wc` does not exist outside a POSIX shell, so even WITH ripgrep installed
+//     the pipeline would have returned garbage on win32.
+// Because this gate was also listed in `gate-debt.json`, the crash was absorbed
+// as "known failing" and never distinguished from a real regression.
+// Rewritten on `lib/sourceScan.ts` — Node only, no external binaries. See that
+// file for why Node-native beats "install ripgrep in CI".
 const HARD_FAIL = 1;
 const SOFT_WARN = 1; // Wave 7 absolute target (the single Scheduler owner)
 
+/**
+ * Files (not call sites) containing the literal `requestAnimationFrame(`.
+ *
+ * Scope is the PRYZM 3 build artifacts. The exclusion list is the canonical
+ * definition of that scope (see the D.7.8 narrative above); editing it is a
+ * contract change on convergence boolean #3.
+ */
 function count(): number {
-  // NOTE: an explicit path arg ('.') is required — when stdin is not a TTY
-  // (e.g. under execSync / CI), ripgrep would otherwise read from stdin
-  // and silently report 0 matches.
-  //
-  // Scope: PRYZM 3 build artifacts only. The exclusion list below is the
-  // canonical definition of "owned by PRYZM 3 build" (see D.7.8 narrative
-  // above). Editing this list is a §8 row 3 contract change — only widen
-  // when you genuinely want to police a new shard, never narrow without a
-  // documented architectural reason.
-  let out: string;
-  try {
-    out = execSync(
-      `rg -l 'requestAnimationFrame\\(' . --type ts ` +
-        `-g '!node_modules' -g '!dist' -g '!build' -g '!.next' ` +
-        `-g '!editor/**' ` +
-        `-g '!attached_assets/**' ` +
-        `-g '!tools/ga-gate/check-raf-count.ts' ` +
-        `-g '!scripts/**' ` +
-        `-g '!**/__tests__/**' ` +
-        `-g '!**/*.bad.ts' ` +
-        `-g '!**/*.good.ts' ` +
-        `| wc -l`,
-      { encoding: 'utf8' },
-    );
-  } catch (err: unknown) {
-    const e = err as { status?: number };
-    if (e.status === 1) return 0;
-    throw err;
+  const res = scanFiles({
+    root: REPO_ROOT,
+    dirs: SCAN_DIRS,
+    pattern: /requestAnimationFrame\s*\(/,
+    minFiles: MIN_FILES,
+    exclude: excluded,
+    label: LABEL,
+  });
+  console.log(`[${LABEL}] files scanned: ${res.filesScanned} (excluded ${res.filesExcluded}) · dirs: ${SCAN_DIRS.join(', ')}`);
+  if (res.filesMatched) {
+    console.log('  Owners:');
+    for (const [f, n] of tallyBy(res.matches, (m) => m.file)) console.log(`      ${String(n).padStart(3)}  ${f}`);
   }
-  return parseInt(out.trim() || '0', 10);
+  return res.filesMatched;
 }
 
 function main(): number {
   const n = count();
   if (n > HARD_FAIL) {
     console.error(`[raf-tripwire] FAIL: ${n} files own requestAnimationFrame > ${HARD_FAIL} (hard fail).`);
-    console.error(`  Wave 7 target is exactly 1 file: packages/frame-scheduler/src/Scheduler.ts.`);
+    console.error(`  Wave 7 target is exactly 1 file: packages/frame-scheduler/src/RafAdapter.ts.`);
+    console.error(`  §FIX-GATE-NEEDS-RIPGREP (L-811): this gate spent its whole life crashing with`);
+    console.error(`  \`spawnSync rg ENOENT\`, so the 4 non-owner rAF sites above accumulated unseen.`);
+    console.error(`  HARD_FAIL stays at 1 — the ceiling is NOT raised to accommodate them. The gate`);
+    console.error(`  remains listed in tools/ga-gate/gate-debt.json, but now for a REAL reason.`);
     console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/11-WAVE-7-CLEANUP-PHASE-F.md §2`);
     return 1;
   }

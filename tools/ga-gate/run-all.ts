@@ -30,8 +30,22 @@
  *   20. check-xss-guards.ts                 — repo-wide HTML-sink scan, per-file ratchet (P0/OI-051, L-407)
  *   21. check-custom-event-apps.ts          — CustomEvent dispatches in apps/editor/src/ (OI-050 / Phase F.events.2)
  *   22. check-zoning-fidelity-label.ts      — estimated zoning value never rendered authoritative (C58 §6 / ADR-0279 BLOCKER-1)
- *   23. check-write-route-auth.ts          — every mutating Express route is authenticated or declared-exempt (C08 §1.2, L-406)
- *   24. check-command-naming.ts            — one domain, one command prefix spelling (L-796)
+ *   23. check-height-fidelity.ts           — 3D-Site height honesty (L-646 / L-647)
+ *   24. check-write-route-auth.ts          — every mutating Express route is authenticated or declared-exempt (C08 §1.2, L-406)
+ *   25. check-command-naming.ts            — one domain, one command prefix spelling (L-796)
+ *   26. check-layer-boundaries.ts          — THE layer gate; eslint-plugin-boundaries never was (L-809)
+ *   27. check-single-compose.ts            — P1 single composition root (L-812, was MISSING)
+ *   28. check-domain-purity.ts             — P5 schemas are pure (L-812, was MISSING)
+ *   29. check-no-direct-store-writes.ts    — P6 commands are the only mutation path (L-812, was MISSING)
+ *   30. check-visibility-intent-not-ui.ts  — P7 visibility intent ≠ UI (L-812, was MISSING)
+ *
+ * §P1/P5/P6/P7-UNENFORCED (L-812, 2026-08-09). C01 §5 listed gates 27–30 as
+ * hard-fail and merge-blocking. **None of the four script files existed.** P6 in
+ * particular — "commands are the only mutation path" — underpins undo, CRDT merge
+ * and the AI batch-apply path, and nothing in this repository checked it. The
+ * inventory described enforcement that was never written, and the only reason
+ * that survived fifteen months is that nothing ever attempted to run it. See the
+ * `missing` pre-flight below, which now makes that specific lie impossible.
  *
  * Phase 0 (OI-046 through OI-050): Gates 16–19 are the new gates added to close
  * the aliasing loophole and establish ratchets for all four remaining legacy patterns.
@@ -44,7 +58,7 @@
  */
 
 import { spawnSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -83,6 +97,12 @@ const GATES: Gate[] = [
   { name: 'write-route-auth (C08§1.2/L-406)',         script: 'check-write-route-auth.ts' },
   { name: 'command-naming (L-796)',                   script: 'check-command-naming.ts' },
   { name: 'layer-boundaries (L-809)',                 script: 'check-layer-boundaries.ts' },
+  // §P1/P5/P6/P7-UNENFORCED (L-812) — the four principles C01 §5 listed as
+  // hard-fail gates whose SCRIPT FILES DID NOT EXIST. Added 2026-08-09.
+  { name: 'single-compose (P1/L-812)',                script: 'check-single-compose.ts' },
+  { name: 'domain-purity (P5/L-812)',                 script: 'check-domain-purity.ts' },
+  { name: 'no-direct-store-writes (P6/L-812)',        script: 'check-no-direct-store-writes.ts' },
+  { name: 'visibility-intent-not-ui (P7/L-812)',      script: 'check-visibility-intent-not-ui.ts' },
 ];
 
 let anyFailed = false;
@@ -157,10 +177,43 @@ try {
 const nowFailing: string[] = [];
 const nowPassing: string[] = [];
 
+// §MISSING-GATE-IS-NOT-DEBT (L-812) — a gate whose FILE does not exist is not a
+// failing gate; it is a lie in the inventory. C01 §5 named five hard-fail gates
+// (check-single-compose, ci-check-domain-purity, ci-check-no-direct-store-writes,
+// intent-not-ui.test, ci-check-spans) that had never been written, and nothing
+// noticed for fifteen months because nothing tried to run them. This loop is
+// checked BEFORE any gate runs and is NOT eligible for the debt baseline —
+// declaring debt against a file that does not exist is meaningless.
+const missing = GATES.filter((g) => !existsSync(join(__dir, g.script)));
+if (missing.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ❌ ${missing.length} GATE SCRIPT(S) DO NOT EXIST:\n`
+    + missing.map((g) => `    - ${g.script}  (${g.name})`).join('\n')
+    + '\n  An inventory entry with no file behind it is worse than an omission: it reads as'
+    + '\n  coverage. Write the gate or delete the row — the debt baseline cannot excuse this.',
+  );
+  process.exit(1);
+}
+
 for (const gate of GATES) {
   const scriptPath = join(__dir, gate.script);
   const result = spawnGate(scriptPath);
   const code = result.status ?? 1;
+
+  // §MISCONFIG-IS-NEVER-DEBT (L-811) — exit 2 means the gate could not evaluate
+  // (unreadable root, empty walk, missing prerequisite). That is categorically
+  // different from "the code is dirty", so it is NEVER absorbed by the debt
+  // ledger. The whole ripgrep episode is what this clause exists to prevent: for
+  // months three gates died with `spawnSync rg ENOENT` and their crash was
+  // indistinguishable, to this runner, from the known failure they were
+  // baselined for.
+  if (code === 2) {
+    nowFailing.push(gate.script);
+    console.error(`\n[ga-gate/run-all] ❌ MISCONFIGURED (exit 2, never excusable as debt): ${gate.name}`);
+    anyFailed = true;
+    continue;
+  }
+
   if (code !== 0) {
     nowFailing.push(gate.script);
     const known = baseline.has(gate.script);
