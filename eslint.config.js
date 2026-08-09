@@ -20,106 +20,285 @@ import boundaries from 'eslint-plugin-boundaries';
 import pryzm from 'eslint-plugin-pryzm';
 import globals from 'globals';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THE LAYER TABLE — one authority, no second copy.
+//
 // §FIX-LAYER-GATE-BLIND (L-809) — EXPORTED so `tools/ga-gate/check-layer-boundaries.ts`
 // reads THIS table rather than keeping a second copy. Two copies of a layer table
 // drift, and a drifted layer table is worse than no gate: it reports confident
 // nonsense. This file stays the one authority for which directory is in which layer.
+//
+// §FIX-LAYER-TABLE-INVERTED (2026-08-09) — THE TABLE ITSELF WAS WRONG.
+// The moment the gate above started actually measuring, it reported 28 upward
+// imports. Most of them were not upward. The old table (a PRYZM 2 artefact) and
+// CLAUDE.md's PRYZM 3 model were two DIFFERENT models, and for several packages
+// they were INVERTED — the old table put `persistence-client` and `file-format`
+// at L0, BELOW `stores` and `command-bus`. Settled empirically:
+//
+//     packages/stores      → packages/persistence-client :  0 imports
+//     packages/command-bus → packages/persistence-client :  0 imports
+//     packages/persistence-client → {stores, command-bus}:  9 imports
+//
+// Dependencies flow persistence-client → {stores, command-bus} and never back, so
+// persistence-client sits ABOVE them. CLAUDE.md's ordering is the one that matches
+// the code. This table is now CLAUDE.md's model, verbatim for the ~25 packages it
+// names, and evidence-derived for the rest.
+//
+// ── The model ────────────────────────────────────────────────────────────────
+//   L7.5  src/                     — transitional legacy zone
+//   L7    plugins/*                — features
+//   L6    packages/plugin-sdk      — curated public SDK facade
+//   L5    apps/*                   — per-app surfaces
+//   L4    renderer, render-runtime, persistence-client, scene-committer
+//   L3    runtime-composer, ui-base, stores, view-state, file-format,
+//         sync-client, frame-scheduler
+//   L2    geometry-kernel, ai-host, constraint-solver, drawing-primitives
+//   L1    command-bus, picking, visibility, snapping, renderer-three, spatial-index
+//   L0    schemas                  — pure; no I/O, no THREE, no DOM
+//
+// ── How the packages CLAUDE.md does not name were placed ─────────────────────
+// One layer per element `type` (not one per package) so the gate's by-pair report
+// reads as "L2 → L4: n" rather than a fog of thirty type names.
+//
+// Every entry below is tagged with WHY it sits where it does:
+//   [CLAUDE.md]  named explicitly in the 8-layer model. Not moved, even where the
+//                dependency graph contradicts it — see the CONTRADICTIONS note.
+//   [forced]     the graph admits exactly one answer, or one bound is tight: e.g.
+//                `event-bus` is imported BY renderer-three (L1), so it can only be
+//                ≤ L1; it imports nothing, so L1 it is.
+//   [floor]      placed at max(layer of its own dependencies) — the lowest layer
+//                that makes all of its CURRENT imports legal.
+//   [family]     placed by a naming family whose anchor CLAUDE.md names, with at
+//                least one member verified against the graph:
+//                  geometry-*   → L2 (anchor geometry-kernel; verified geometry-pool
+//                                 imports only schemas, geometry-slab only L1/L2 + the
+//                                 frame-scheduler contradiction below)
+//                  *-host       → L2 (anchor ai-host; verified physics-host imports
+//                                 core-app-model/event-bus/renderer-three only)
+//                  typology-*   → L2 (verified all four packs import exactly
+//                                 schemas + typology-pipeline)
+//   [role]       the graph leaves a WIDE bound (e.g. "imports only schemas, used only
+//                by apps/editor" ⇒ anywhere in L1..L4). Placed at the layer whose
+//                CLAUDE.md description matches the package's job, within that bound.
+//                These are the judgement calls; they are labelled so they can be
+//                argued with.
+//
+// Packages that could NOT be placed honestly are ABSENT from this table on purpose
+// — see the UNCLASSIFIED block at the bottom. An unclassified package is better
+// than a confidently wrong one: a wrong layer emits false violations forever.
+//
+// ── CONTRADICTIONS: where CLAUDE.md and the graph disagree ───────────────────
+// Encoded as CLAUDE.md says, so the resulting violations are REAL findings against
+// the declared architecture rather than table bugs. Three clusters dominate:
+//
+//  1. `frame-scheduler` is L3 in CLAUDE.md but imports NOTHING and is imported by
+//     eleven L2 `geometry-*` packages, `core-app-model` and `physics-host`. A
+//     zero-dependency primitive consumed by L2 is, by evidence, ≤ L2. Its L3
+//     placement is the single largest source of counted violations.
+//  2. `runtime-composer` is L3 but is the composition root (P1): it necessarily
+//     imports persistence-client (L4), renderer (L4), the four typology packs and
+//     five plugins (L7), and `apps/editor` (L5). A composition root sits ABOVE
+//     everything it composes.
+//  3. `core-app-model` / `command-registry` are placed at L2 because `ai-host`
+//     (L2, named by CLAUDE.md) imports them — but they in turn import
+//     `scene-committer` and `persistence-client` (L4). That is the genuine debt:
+//     a domain model must not depend on persistence.
+//
+// Do not "fix" these by moving the table. Either the code moves or CLAUDE.md does.
+// ─────────────────────────────────────────────────────────────────────────────
 export const layerElements = [
-  // L0 Persistence
-  { type: 'L0-persistence', pattern: 'packages/persistence-client/**' },
-  { type: 'L0-persistence', pattern: 'packages/file-format/**' },
+  // ── L0 — pure data. No I/O, no THREE, no DOM. ──────────────────────────────
+  { type: 'L0', pattern: 'packages/schemas/**' },          // [CLAUDE.md]
+  { type: 'L0', pattern: 'packages/protocol/**' },         // [floor] re-exports schemas only
+  { type: 'L0', pattern: 'packages/types-builtin/**' },    // [floor] protocol+schemas; "pure data, no runtime deps"
+  { type: 'L0', pattern: 'packages/expr-eval/**' },        // [role]  leaf, "pure-TS, dependency-free"
+  { type: 'L0', pattern: 'packages/feature-flags/**' },    // [role]  leaf, "no DOM, no THREE, no Node globals"
+  { type: 'L0', pattern: 'packages/a11y-tokens/**' },      // [role]  leaf, pure contrast/token tables
+  { type: 'L0', pattern: 'packages/perf-budgets/**' },     // [role]  leaf, pure target list
 
-  // L1 Domain Stores (schemas + protocol live here per `08-VISION.md §4`)
-  { type: 'L1-schemas',     pattern: 'packages/schemas/**' },
-  { type: 'L1-protocol',    pattern: 'packages/protocol/**' },
-  { type: 'L1-stores',      pattern: 'packages/stores/**' },
+  // ── L1 — primitives. ───────────────────────────────────────────────────────
+  { type: 'L1', pattern: 'packages/command-bus/**' },      // [CLAUDE.md]
+  { type: 'L1', pattern: 'packages/picking/**' },          // [CLAUDE.md]
+  { type: 'L1', pattern: 'packages/visibility/**' },       // [CLAUDE.md]
+  { type: 'L1', pattern: 'packages/snapping/**' },         // [CLAUDE.md]
+  { type: 'L1', pattern: 'packages/renderer-three/**' },   // [CLAUDE.md] the ONE THREE owner (P2)
+  { type: 'L1', pattern: 'packages/spatial-index/**' },    // [CLAUDE.md]
+  { type: 'L1', pattern: 'packages/event-bus/**' },        // [forced] imported BY renderer-three (L1); imports nothing
+  { type: 'L1', pattern: 'packages/solar-analysis/**' },   // [forced] imported BY renderer-three (L1); imports nothing
+  { type: 'L1', pattern: 'packages/runtime-undo-stack/**' },// [forced] imported BY command-bus (L1); imports nothing
+  { type: 'L1', pattern: 'packages/crash-reporter/**' },   // [floor]  leaf
+  { type: 'L1', pattern: 'packages/keyboard-registry/**' },// [floor]  leaf
+  { type: 'L1', pattern: 'packages/geospatial/**' },       // [floor]  leaf, pure coordinate transforms (C12)
+  { type: 'L1', pattern: 'packages/street-analytics/**' }, // [floor]  leaf
+  { type: 'L1', pattern: 'packages/storage-driver/**' },   // [floor]  leaf
+  { type: 'L1', pattern: 'packages/oauth2-pkce/**' },      // [floor]  leaf, pure PKCE/RFC-7636 utils
 
-  // L2 Command Bus
-  { type: 'L2-command-bus', pattern: 'packages/command-bus/**' },
+  // ── L2 — domain. ───────────────────────────────────────────────────────────
+  { type: 'L2', pattern: 'packages/geometry-kernel/**' },     // [CLAUDE.md]
+  { type: 'L2', pattern: 'packages/ai-host/**' },             // [CLAUDE.md]
+  { type: 'L2', pattern: 'packages/constraint-solver/**' },   // [CLAUDE.md]
+  { type: 'L2', pattern: 'packages/drawing-primitives/**' },  // [CLAUDE.md]
+  // The element families. geometry-* anchored on geometry-kernel (L2).
+  { type: 'L2', pattern: 'packages/geometry-beam/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-column/**' },       // [family]
+  { type: 'L2', pattern: 'packages/geometry-curtain-wall/**' }, // [family]
+  { type: 'L2', pattern: 'packages/geometry-door/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-furniture/**' },    // [family]
+  { type: 'L2', pattern: 'packages/geometry-lift/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-lighting/**' },     // [family]
+  { type: 'L2', pattern: 'packages/geometry-plumbing/**' },     // [family]
+  { type: 'L2', pattern: 'packages/geometry-pool/**' },         // [family] verified: imports schemas only
+  { type: 'L2', pattern: 'packages/geometry-roof/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-slab/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-stair/**' },        // [family]
+  { type: 'L2', pattern: 'packages/geometry-wall/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-window/**' },       // [family]
+  // *-host anchored on ai-host (L2).
+  { type: 'L2', pattern: 'packages/climate-host/**' },      // [family] imports schemas only
+  { type: 'L2', pattern: 'packages/physics-host/**' },      // [family] verified: core-app-model/event-bus/renderer-three
+  { type: 'L2', pattern: 'packages/input-host/**' },        // [family] + [forced ceiling] imported BY ai-host (L2)
+  // Capped at L2 by an L2 consumer CLAUDE.md names.
+  { type: 'L2', pattern: 'packages/core-app-model/**' },    // [forced ceiling] imported BY ai-host + constraint-solver
+  { type: 'L2', pattern: 'packages/command-registry/**' },  // [forced ceiling] imported BY ai-host
+  { type: 'L2', pattern: 'packages/room-topology/**' },     // [forced ceiling] imported BY ai-host
+  { type: 'L2', pattern: 'packages/ai-cost/**' },           // [forced ceiling] imported BY ai-host; leaf
+  // Typology — all four packs import exactly {schemas, typology-pipeline}.
+  { type: 'L2', pattern: 'packages/typology-pipeline/**' },                  // [family]
+  { type: 'L2', pattern: 'packages/typology-pack-apartment/**' },            // [family]
+  { type: 'L2', pattern: 'packages/typology-pack-casa-unifamiliar/**' },     // [family]
+  { type: 'L2', pattern: 'packages/typology-pack-office-building/**' },      // [family]
+  { type: 'L2', pattern: 'packages/typology-pack-residential-building/**' }, // [family]
+  // Domain libraries with a wide bound, placed by role.
+  { type: 'L2', pattern: 'packages/views/**' },              // [floor] imports core-app-model (L2); type-only view contracts
+  { type: 'L2', pattern: 'packages/speculative-engine/**' }, // [floor] imports constraint-solver (L2)
+  { type: 'L2', pattern: 'packages/site-parcel-data/**' },   // [floor] imports site-validators (L2)
+  { type: 'L2', pattern: 'packages/site-validators/**' },    // [role]  bound L1..L3 (used by stores)
+  { type: 'L2', pattern: 'packages/family-runtime/**' },     // [role]  bound L0..L3; leaf
+  { type: 'L2', pattern: 'packages/auto-dimension/**' },     // [role]  bound L1..L4
+  { type: 'L2', pattern: 'packages/building-graph/**' },     // [role]  bound L1..L4; leaf
+  { type: 'L2', pattern: 'packages/entitlements/**' },       // [role]  bound L1..L4
+  { type: 'L2', pattern: 'packages/data-engine/**' },        // [role]  bound L1..∞ (no consumers)
+  { type: 'L2', pattern: 'packages/ordinance-extraction/**' },// [role] bound L1..∞ (no consumers)
+  { type: 'L2', pattern: 'packages/pdf-to-bim/**' },         // [role]  bound L0..∞ (leaf, no consumers)
+  { type: 'L2', pattern: 'packages/formula-library/**' },    // [role]  bound L0..L5; leaf
 
-  // L3 Sync
-  { type: 'L3-sync',        pattern: 'packages/sync/**' },
+  // ── L3 — runtime services. ─────────────────────────────────────────────────
+  { type: 'L3', pattern: 'packages/runtime-composer/**' },  // [CLAUDE.md] see CONTRADICTION 2
+  { type: 'L3', pattern: 'packages/ui-base/**' },           // [CLAUDE.md]
+  { type: 'L3', pattern: 'packages/stores/**' },            // [CLAUDE.md]
+  { type: 'L3', pattern: 'packages/view-state/**' },        // [CLAUDE.md]
+  { type: 'L3', pattern: 'packages/file-format/**' },       // [CLAUDE.md]
+  { type: 'L3', pattern: 'packages/sync-client/**' },       // [CLAUDE.md]
+  { type: 'L3', pattern: 'packages/frame-scheduler/**' },   // [CLAUDE.md] see CONTRADICTION 1
+  { type: 'L3', pattern: 'packages/ui/**' },                // [family] with ui-base; leaf
+  { type: 'L3', pattern: 'packages/editor-ui/**' },         // [floor]  imports runtime-composer (L3)
+  { type: 'L3', pattern: 'packages/engine/**' },            // [floor]  imports editor-ui + runtime-composer (L3)
+  { type: 'L3', pattern: 'packages/headless/**' },          // [floor]  imports runtime-composer (L3)
+  { type: 'L3', pattern: 'packages/family-instance/**' },   // [floor]  imports file-format (L3)
+  { type: 'L3', pattern: 'packages/family-loader/**' },     // [floor]  imports file-format (L3)
 
-  // L4 Geometry Kernel
-  { type: 'L4-kernel',      pattern: 'packages/geometry-kernel/**' },
-  { type: 'L4-picking',     pattern: 'packages/picking/**' },
+  // ── L4 — render + persistence surfaces. ────────────────────────────────────
+  { type: 'L4', pattern: 'packages/renderer/**' },            // [CLAUDE.md]
+  { type: 'L4', pattern: 'packages/render-runtime/**' },      // [CLAUDE.md]
+  { type: 'L4', pattern: 'packages/persistence-client/**' },  // [CLAUDE.md] was L0 in the old table — inverted
+  { type: 'L4', pattern: 'packages/scene-committer/**' },     // [CLAUDE.md]
+  { type: 'L4', pattern: 'packages/render-pipeline/**' },     // [family] with renderer (L4)
+  { type: 'L4', pattern: 'packages/pdf-export/**' },          // [role]   bound L2..L4; an output pipeline
 
-  // L5 Render Runtime
-  { type: 'L5-scheduler',   pattern: 'packages/frame-scheduler/**' },
-  { type: 'L5-committer',   pattern: 'packages/scene-committer/**' },
-  { type: 'L5-renderer',    pattern: 'packages/renderer/**' },
-  { type: 'L5-runtime',     pattern: 'packages/render-runtime/**' },
-  { type: 'L5-view-state',  pattern: 'packages/view-state/**' },
+  // ── L5 — per-app surfaces. ALL of apps/*, not just the editor. ─────────────
+  { type: 'L5', pattern: 'apps/**' },                         // [CLAUDE.md]
 
-  // L6 Plugin Host
-  { type: 'L6-plugin-host', pattern: 'packages/plugin-host/**' },
+  // ── L6 — the curated SDK facade. ───────────────────────────────────────────
+  { type: 'L6', pattern: 'packages/plugin-sdk/**' },          // [CLAUDE.md]
 
-  // L7 Presentation
-  { type: 'L7-app',         pattern: 'apps/editor/**' },
-  { type: 'L7-app',         pattern: 'apps/component-editor/**' },
-  { type: 'L7-plugin',      pattern: 'plugins/**' },
+  // ── L7 — features. ─────────────────────────────────────────────────────────
+  { type: 'L7', pattern: 'plugins/**' },                      // [CLAUDE.md]
 
-  // L7.5 AI
-  { type: 'L7-ai',          pattern: 'packages/ai-host/**' },
+  // ── L7.5 — the transitional legacy zone. ───────────────────────────────────
+  // Not in `boundaries/include`, and the ga-gate scans packages/plugins/apps only,
+  // so this fires on nothing today. Declared because CLAUDE.md declares it, and so
+  // that widening either scope classifies src/ correctly instead of silently not.
+  { type: 'L7_5', pattern: 'src/**' },
+
+  // ── DELIBERATELY UNCLASSIFIED ──────────────────────────────────────────────
+  // Absent from this table on purpose. Adding a guessed layer here would emit
+  // false violations forever; the ga-gate counts them under UNCLASSIFIED instead,
+  // which is the honest signal. Give one a layer only with evidence.
+  //
+  //   Backend-only, outside the client layer model. CLAUDE.md's 8 layers govern
+  //   "the client"; these are consumed solely by apps/api-gateway or
+  //   apps/marketplace-api and have no client dependency at all:
+  //     admin-overrides · ai-spend · api-rbac · api-spec · rate-limit ·
+  //     webhooks · email-transport · beta-signup
+  //   → OPEN QUESTION for CLAUDE.md: does the layer model extend to backend
+  //     packages, or do they need a parallel model?
+  //
+  //   Build/CI/test tooling — not runtime code, so "which runtime layer" has no
+  //   answer:
+  //     eslint-plugin-pryzm · bench-visual-diff · release · wcag-audit
+  //
+  //   Intentional lint fixture, exempted from boundaries further down this file:
+  //     legacy-shim
+  //
+  // (`packages/sync/**` and `packages/plugin-host/**` were removed in this pass:
+  //  both patterns pointed at directories that do not exist. The ga-gate's
+  //  stale-pattern check is what surfaced them.)
 ];
 
-// "from N may import to ≤ N" is encoded explicitly to keep messages readable.
+// "layer N may import any layer ≤ N" — encoded explicitly, one rule per layer.
 export const allowedDependencies = [
-  // L0 may only import from itself.
-  { from: 'L0-persistence', allow: ['L0-persistence'] },
+  { from: 'L0',   allow: ['L0'] },
+  { from: 'L1',   allow: ['L0', 'L1'] },
+  { from: 'L2',   allow: ['L0', 'L1', 'L2'] },
+  { from: 'L3',   allow: ['L0', 'L1', 'L2', 'L3'] },
+  { from: 'L4',   allow: ['L0', 'L1', 'L2', 'L3', 'L4'] },
 
-  // L1 may import L0 + itself.
-  { from: 'L1-schemas',     allow: ['L0-persistence', 'L1-schemas'] },
-  { from: 'L1-protocol',    allow: ['L0-persistence', 'L1-schemas', 'L1-protocol'] },
-  { from: 'L1-stores',      allow: ['L0-persistence', 'L1-schemas', 'L1-protocol', 'L1-stores'] },
+  // ── L5 (apps): the ONE documented deviation from CLAUDE.md's numbering ─────
+  // CLAUDE.md numbers apps L5, plugin-sdk L6 and plugins L7, which puts the app
+  // BELOW the plugins it hosts. The same edge-direction test that overturned the
+  // old eslint table says that ordering is inverted, and by a wider margin:
+  //
+  //     apps → plugins       : 142 imports        plugins → apps       :   1
+  //     apps → plugin-sdk    :   6 imports        plugin-sdk → apps    :   0
+  //     plugins → plugin-sdk : 630 imports        plugin-sdk → plugins :   0
+  //
+  // (The single plugins → apps edge is `plugins/toy-cube → apps/editor`.)
+  //
+  // An app is the composition root: `apps/editor` imports twenty-odd plugins in
+  // order to REGISTER them. That is what a host does, and it is structural, not
+  // debt. Encoding "apps may not import plugins" would mint 151 permanent false
+  // violations — exactly the failure this pass exists to undo — so apps keep the
+  // top-of-stack treatment the previous config already gave them (`L7-app: ['*']`).
+  //
+  // The package NUMBERING is left exactly as CLAUDE.md writes it, so there is no
+  // third model to reconcile; only this allow-set records the correction.
+  // → RECOMMENDED CLAUDE.md EDIT: reorder the top of the stack to
+  //   L5 plugin-sdk · L6 plugins · L7 apps, then delete this exception.
+  { from: 'L5',   allow: ['*'] },
 
-  // L2 may import L0-L1 + itself.
-  {
-    from: 'L2-command-bus',
-    allow: ['L0-persistence', 'L1-schemas', 'L1-protocol', 'L1-stores', 'L2-command-bus'],
-  },
+  { from: 'L6',   allow: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'] },
 
-  // L3
-  {
-    from: 'L3-sync',
-    allow: [
-      'L0-persistence', 'L1-schemas', 'L1-protocol', 'L1-stores',
-      'L2-command-bus', 'L3-sync',
-    ],
-  },
+  // ── L7 (plugins): why this is L0..L6 and not "L6 only" ─────────────────────
+  // CLAUDE.md says a plugin "may import L6 only". Measured against the real graph,
+  // plugins make 630 imports of @pryzm/plugin-sdk and 171 imports that go around it
+  // — renderer-three ×84, command-registry ×29, core-app-model ×27,
+  // scene-committer ×19, and a tail (geometry-curtain-wall, schemas, ai-host,
+  // geospatial, drawing-primitives, geometry-pool, apps/editor).
+  //
+  // Encoding "L6 only" here would fold those 171 into the SAME counter that holds
+  // the ~14 genuine `→ plugin-annotations` cycle violations, and the number the
+  // gate exists to publish would stop being readable. They are also not layer
+  // violations: plugin → renderer-three is DOWNWARD. The layer rule is "never a
+  // HIGHER layer", and every one of those 171 obeys it.
+  //
+  // "L6 only" is a different invariant — SDK-facade encapsulation, strictly
+  // narrower than the layer rule — so it is measured separately and frozen on its
+  // own shrink-only ratchet (`MAX_SDK_BYPASS` in check-layer-boundaries.ts). It is
+  // enforced; it just is not conflated with this one.
+  { from: 'L7',   allow: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'] },
 
-  // L4 — the kernel.  L1 (DTO schemas) is its only *upward* dependency.
-  // It MUST NOT import from stores (mutable state) or anything above.
-  { from: 'L4-kernel',  allow: ['L1-schemas', 'L1-protocol', 'L4-kernel'] },
-  { from: 'L4-picking', allow: ['L1-schemas', 'L1-protocol', 'L4-kernel', 'L4-picking'] },
-
-  // L5 may import L0-L4 + itself.
-  {
-    from: ['L5-scheduler', 'L5-committer', 'L5-renderer', 'L5-runtime', 'L5-view-state'],
-    allow: [
-      'L0-persistence', 'L1-schemas', 'L1-protocol', 'L1-stores',
-      'L2-command-bus', 'L3-sync',
-      'L4-kernel', 'L4-picking',
-      'L5-scheduler', 'L5-committer', 'L5-renderer', 'L5-runtime', 'L5-view-state',
-    ],
-  },
-
-  // L6
-  {
-    from: 'L6-plugin-host',
-    allow: [
-      'L0-persistence', 'L1-schemas', 'L1-protocol', 'L1-stores',
-      'L2-command-bus', 'L3-sync',
-      'L4-kernel', 'L4-picking',
-      'L5-scheduler', 'L5-committer', 'L5-renderer', 'L5-runtime', 'L5-view-state',
-      'L6-plugin-host',
-    ],
-  },
-
-  // L7 / L7.5 — anything goes downward.
-  { from: 'L7-app',    allow: ['*'] },
-  { from: 'L7-plugin', allow: ['*'] },
-  { from: 'L7-ai',     allow: ['*'] },
+  // L7.5 legacy src/ — anything goes downward while the zone shrinks.
+  { from: 'L7_5', allow: ['*'] },
 ];
 
 const sharedLanguageOptions = {
