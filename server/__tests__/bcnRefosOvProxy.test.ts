@@ -26,7 +26,9 @@ import {
     BCN_REFOS_ENDPOINT,
     BCN_REFOS_OV_PATH,
     BCN_REFOS_OV_LAYER,
-} from '../bcnRefosOvProxy.js';
+} from '../jurisdiction/bcnRefosOvProxy.js';
+// L-799 / CA-3 — the mount guard below now reads the real router stack.
+import { createJurisdictionRouter } from '../jurisdiction/index.js';
 
 /** A representative layer-17 Esri response (outSR=4326 ⇒ [lon,lat], closing vertex repeated). */
 const okBody = {
@@ -80,13 +82,25 @@ describe('§BCN-REFOS-OV-PROXY route constant + registration', () => {
         expect(BCN_REFOS_OV_PATH).toBe('/api/bcn-refos/ov');
     });
 
-    it('IS ACTUALLY MOUNTED in server.js — a handler nobody registers serves nothing', async () => {
+    it('IS ACTUALLY MOUNTED and reachable — a handler nobody registers serves nothing', async () => {
         // THE ORIGINAL DEFECT, as a guard. The pack, the resolver and the L5 dispatch branch were
         // all written and all unit-tested green while clau 18 rendered nothing, because no line of
         // `server.js` ever mounted this path. Deleting the registration must fail a test.
+        //
+        // L-799 / CA-3 — the route moved from a hand-written `app.get()` in server.js into the
+        // `server/jurisdiction/` router. The GUARD'S INTENT IS UNCHANGED, and is now stronger: it
+        // reads the router's REAL Express layer stack (not a source-text regex that a rename could
+        // satisfy while the route stayed dead), and separately proves server.js still mounts that
+        // router. Both halves must hold for a request to reach the handler.
+        const router = createJurisdictionRouter({ apiLimiter: (_q, _s, next) => next() });
+        const mounted = (router as unknown as { stack: any[] }).stack
+            .filter((l) => l.route)
+            .map((l) => l.route.path as string);
+        expect(mounted).toContain(BCN_REFOS_OV_PATH);
+
         const src = await readFile(new URL('../../server.js', import.meta.url), 'utf8');
-        expect(src).toContain("from './server/bcnRefosOvProxy.js'");
-        expect(src).toMatch(/app\.get\(\s*BCN_REFOS_OV_PATH\s*,[^)]*bcnRefosOvHandler\s*\)/);
+        expect(src).toContain("from './server/jurisdiction/index.js'");
+        expect(src).toMatch(/app\.use\(\s*createJurisdictionRouter\(/);
     });
 });
 

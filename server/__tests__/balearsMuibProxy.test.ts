@@ -26,7 +26,7 @@ import {
     balearsCacheStats,
     BALEARS_MUIB_SERVICE,
     BALEARS_FITXA_HOST,
-} from '../balearsMuibProxy.js';
+} from '../jurisdiction/balearsMuibProxy.js';
 
 /** The real Manacor point and the real attributes MUIB returned for it (probe, 2026-08-02). */
 const MANACOR = { lat: 39.571284, lon: 3.2042448 };

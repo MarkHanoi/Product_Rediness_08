@@ -13,7 +13,7 @@ import {
     CATALOG_PROXY_PATH,
     CATALOG_ALLOWED_EXT,
 // @ts-expect-error — the proxy is plain JS (server modules are not TS in this tree).
-} from '../catalogAssetProxy.js';
+} from '../context-delivery/catalogAssetProxy.js';
 
 function makeRes() {
     return {

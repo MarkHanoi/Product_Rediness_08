@@ -9,7 +9,7 @@ import {
     parseMatrikelGml,
     utm32nToWgs84,
     __resetDkMatrikelCache,
-} from '../dkMatrikelProxy.js';
+} from '../jurisdiction/dkMatrikelProxy.js';
 
 // ── Snyder forward TM (ETRS89/UTM32N) — TEST ONLY, to round-trip-validate the proxy's inverse. ──
 const A = 6378137.0, F = 1 / 298.257223563, K0 = 0.9996, E2 = F * (2 - F), LON0 = 9, FE = 500000;

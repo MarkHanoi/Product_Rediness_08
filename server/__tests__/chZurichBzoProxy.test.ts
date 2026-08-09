@@ -26,7 +26,7 @@ import {
     zurichBzoCacheStats,
     CH_ZURICH_BZO_PATH,
     CH_ZURICH_BZO_TYPENAME,
-} from '../chZurichBzoProxy.js';
+} from '../jurisdiction/chZurichBzoProxy.js';
 
 /** Zürich HB — the ZURICH-BZO-PROBE reference point. */
 const PT = { lat: 47.377, lon: 8.54 };

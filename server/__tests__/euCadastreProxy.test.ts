@@ -13,7 +13,7 @@ import {
     resolveEuParcelOutcome,
     __resetEuCadastreCache,
     EU_CADASTRE_SOURCES,
-} from '../euCadastreProxy.js';
+} from '../jurisdiction/euCadastreProxy.js';
 
 // ── Captured raw fixtures (one real parcel per source; ring trimmed to a small square) ──
 const FR_GEOJSON = JSON.stringify({

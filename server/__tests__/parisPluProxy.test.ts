@@ -27,7 +27,7 @@ import {
     PARIS_ECM_ENDPOINT,
     PARIS_EAL_ENDPOINT,
     PARIS_FILET_RADIUS_M,
-} from '../parisPluProxy.js';
+} from '../jurisdiction/parisPluProxy.js';
 
 const zoneBody = {
     features: [{ properties: {

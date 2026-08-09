@@ -23,7 +23,7 @@ import {
     makePlandataByggefeltHandler,
     buildByggefeltWfsUrl,
     parseByggefeltQuery,
-} from '../plandataZoningProxy.js';
+} from '../jurisdiction/plandataZoningProxy.js';
 
 /** A Silkeborg-shaped byggefelt FeatureCollection (EPSG:25832), as GeoServer serves it. */
 const BYGGEFELT_GEOJSON = JSON.stringify({

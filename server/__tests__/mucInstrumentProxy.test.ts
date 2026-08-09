@@ -24,7 +24,7 @@ import {
     MUC_AMBIT_PG_LAYER,
     MUC_TERME_MUNICIPAL_LAYER,
     MUC_INSTRUMENT_FEATURE_COUNT,
-} from '../mucInstrumentProxy.js';
+} from '../jurisdiction/mucInstrumentProxy.js';
 
 /** A square ring around (lon, lat) with the given half-size in degrees. */
 const square = (lon: number, lat: number, h: number): number[][] => [

@@ -16,7 +16,7 @@ import {
     makeNlBestemmingsplanHandler,
     __resetNlBpCache,
     NL_RP_WMS_ENDPOINT,
-} from '../nlBestemmingsplanProxy.js';
+} from '../jurisdiction/nlBestemmingsplanProxy.js';
 
 // ── fixtures — the detailed plan (carries the bouwvlak + bouwhoogte) vs a thematic overlay ────────
 const DETAIL_DOSSIER = 'NL.IMRO.0014.BP526Binnenstad';

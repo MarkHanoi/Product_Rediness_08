@@ -14,7 +14,7 @@ import {
     siuClassificationHandler,
     __resetSiuCacheForTests,
     SIU_CLASSIFICATION_PATH,
-} from '../siuClassificationProxy.js';
+} from '../jurisdiction/siuClassificationProxy.js';
 
 function mockRes() {
     return {

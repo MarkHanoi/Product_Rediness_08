@@ -21,7 +21,7 @@ import {
     __resetMucCache,
     mucCacheStats,
     MUC_QUAL_LAYER,
-} from '../mucZoningProxy.js';
+} from '../jurisdiction/mucZoningProxy.js';
 
 /** A square ring around (lon, lat) with the given half-size in degrees. */
 const square = (lon: number, lat: number, h: number): number[][] => [

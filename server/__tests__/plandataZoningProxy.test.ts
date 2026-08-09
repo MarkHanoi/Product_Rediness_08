@@ -21,7 +21,7 @@ import {
     isBindingFootprint,
     zoningCacheStats,
     __resetZoningCache,
-} from '../plandataZoningProxy.js';
+} from '../jurisdiction/plandataZoningProxy.js';
 
 // A Plandata WFS GeoJSON FeatureCollection (field names verified via DescribeFeatureType).
 const LOKALPLAN_GEOJSON = JSON.stringify({

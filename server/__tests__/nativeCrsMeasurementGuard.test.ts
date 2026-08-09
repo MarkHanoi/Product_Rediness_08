@@ -38,8 +38,8 @@ import {
     MURCIA_CALIFICACION_LAYER,
     MURCIA_SECTOR_LAYER,
     MURCIA_EJE_COMERCIAL_LAYER,
-} from '../murciaPgouProxy.js';
-import { buildCordobaManzanaUrl, CORDOBA_MANZANA_NATIVE_CRS } from '../cordobaZoningProxy.js';
+} from '../jurisdiction/murciaPgouProxy.js';
+import { buildCordobaManzanaUrl, CORDOBA_MANZANA_NATIVE_CRS } from '../jurisdiction/cordobaZoningProxy.js';
 import { isNativeMetricCrs } from '../../packages/site-parcel-data/src/geometry/nativeCrs.ts';
 
 /**
@@ -151,7 +151,7 @@ describe('§NATIVE-CRS-MEASUREMENT — the proxy DECLARES its CRS so no consumer
     });
 
     it('the proxy source states the harm, so the next reader cannot "tidy" the fix away', () => {
-        const src = readFileSync(fileURLToPath(new URL('../murciaPgouProxy.js', import.meta.url)), 'utf8');
+        const src = readFileSync(fileURLToPath(new URL('../jurisdiction/murciaPgouProxy.js', import.meta.url)), 'utf8');
         expect(src).toContain('§NATIVE-CRS-MEASUREMENT');
         expect(src).toMatch(/numDecimals/);
     });

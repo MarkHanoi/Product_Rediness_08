@@ -21,7 +21,7 @@ import {
     parseParcelGml,
     parcelCacheStats,
     __resetParcelCache,
-} from '../parcelZoningProxy.js';
+} from '../jurisdiction/parcelZoningProxy.js';
 
 // ── Fixtures (shapes verified live 2026-07-17 against Catastro) ────────────────
 // _Distancia list: two candidates; the NEARER (dis 7.03) is listed SECOND on

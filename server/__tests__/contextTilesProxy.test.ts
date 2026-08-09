@@ -11,7 +11,7 @@ import {
     CONTEXT_TILE_LAYERS,
     CONTEXT_TILES_PATH,
 // @ts-expect-error — the proxy is plain JS (server modules are not TS in this tree).
-} from '../contextTilesProxy.js';
+} from '../context-delivery/contextTilesProxy.js';
 
 /** Minimal Express-ish res double. */
 function makeRes() {

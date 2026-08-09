@@ -14,7 +14,7 @@ import {
     makeCordobaVcatastroHandler,
     __resetCordobaCache,
     CORDOBA_WFS_ENDPOINT,
-} from '../cordobaZoningProxy.js';
+} from '../jurisdiction/cordobaZoningProxy.js';
 
 const ordFc = { features: [{ properties: { ordenanza: 'Manzana Cerrada', link: 'https://x/doc/O_MC3.pdf' } }] };
 const vcFc = { features: [{ properties: { refcat: '3834946UG4933S', ordenanza: 'Colonia Tradicional Popular', actuacion: '', sup_pc_m2: 165, max_plantas: 2 } }] };

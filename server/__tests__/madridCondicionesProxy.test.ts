@@ -12,7 +12,7 @@ import {
     makeMadridCondicionesHandler,
     __resetMadridCache,
     MADRID_CONDICIONES_ENDPOINT,
-} from '../madridCondicionesProxy.js';
+} from '../jurisdiction/madridCondicionesProxy.js';
 
 /** A representative layer-6 Esri response (outSR=4326 ⇒ [lon,lat] rings, closing vertex repeated). */
 const okBody = {

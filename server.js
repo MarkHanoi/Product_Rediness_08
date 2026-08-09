@@ -55,98 +55,19 @@ import { notifyBlockedAccessAttempt, notifierStatus } from './server/accessAttem
 // IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
 import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
 import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
-// §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
+// §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context.
+// ⚠ STAYS IN THE MONOLITH ON PURPOSE — it is the fleet's only WRITE route, and the C08 §1.2
+// write-route auth gate audits `server.js` text only. See server/context-delivery/index.js.
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
-import { CONTEXT_TILES_PATH, contextTilesHandler, contextTilesTerrainHandler } from './server/contextTilesProxy.js';
-import { CATALOG_PROXY_PATH, catalogAssetHandler } from './server/catalogAssetProxy.js';
-// §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
-import { CATASTRO_PARCEL_PATH, catastroParcelHandler, CATASTRO_BLOCK_PATH, catastroBlockHandler } from './server/parcelZoningProxy.js';
-// §MUC-ZONING-PROXY (L-480) — the Catalan clau lookup: the ONE missing input that keeps
-// Barcelona envelopes at 'estimated'. Probed live before it was written (L-473's lesson).
-import { MUC_ZONING_PATH, mucZoningHandler } from './server/mucZoningProxy.js';
-// §MUC-INSTRUMENT-PROXY (L-658) — WHICH planning instrument governs a point, anywhere in Catalonia.
-// Same keyless Generalitat host as the zoning proxy above; resolves the RPUC expedient + deep link.
-import { MUC_INSTRUMENT_PATH, mucInstrumentHandler } from './server/mucInstrumentProxy.js';
-// §BCN-REFOS-OV-PROXY — the AMB Refós `OV_Trames` seam for Barcelona clau 18 (*ordenació en
-// volumetria específica*, 17.5 % of private buildable land). PGM Art. 306 states NO envelope — it
-// points at a per-site approved volumetric ordering — but the AMB publishes those orderings as
-// queryable geometry (footprint + PLANTES storey count). The client resolver + rule pack + L5
-// dispatch were already written; this route is the same-origin seam they were missing under the
-// C57 CSP. ⚠ Rendering is STILL gated on `BCN_REFOS_OV_CERTIFIED` (default OFF, L-449).
-import { BCN_REFOS_OV_PATH, bcnRefosOvHandler } from './server/bcnRefosOvProxy.js';
-// §PLANDATA-ZONING-PROXY (L-399a): same-origin KEYLESS Denmark zoning proxy + cache (real DK envelope)
-import {
-    PLANDATA_ZONING_PATH,
-    plandataZoningHandler,
-    PLANDATA_BYGGEFELT_PATH,
-    plandataByggefeltHandler,
-} from './server/plandataZoningProxy.js';
-// §L-441 Tier B — Spain's NATIONAL clasificacion-del-suelo (SIU). Same cache/forward/
-// fallback shape as the Plandata proxy above.
-import { SIU_CLASSIFICATION_PATH, siuClassificationHandler } from './server/siuClassificationProxy.js';
-// §MADRID-CONDICIONES-PROXY (L-608) — the Madrid PGOUM-97 NZ 1 buildable-footprint (explicit-area)
-// same-origin lookup. Client consumer: @pryzm/site-parcel-data → resolveMadridNZ1Ring.
-import { MADRID_CONDICIONES_PATH, madridCondicionesHandler } from './server/madridCondicionesProxy.js';
-// §MADRID-NORMAS-ZONALES-PROXY — the Madrid PGOUM-97 **zone-code** lookup (parcel point → Norma
-// Zonal `AMB_TX_ETIQ`). A SECOND Madrid service, not a flag on the first: the condiciones plane
-// answers "what footprint?", this one answers "which Norma Zonal?" — and `SOURCES.md` §0.3 states
-// the grado must be taken from `NORMAS_ZONALES.AMB_TX_ETIQ`, never from `COND_EDIF`.
-// Client consumer: @pryzm/site-parcel-data → resolveMadridNormaZonal.
-import {
-    MADRID_NORMAS_ZONALES_PATH,
-    madridNormasZonalesHandler,
-} from './server/madridNormasZonalesProxy.js';
-// §NL-BESTEMMINGSPLAN-PROXY (L-609 / §NL-NATIONWIDE) — the Netherlands bestemmingsplan bouwvlak +
-// maatvoering lookup, NATIONWIDE + KEYLESS via the PDOK "Ruimtelijke plannen" WMS (GetFeatureInfo).
-// Client consumer: @pryzm/site-parcel-data → resolveNlBestemmingsplan.
-import { NL_BESTEMMINGSPLAN_PATH, nlBestemmingsplanHandler } from './server/nlBestemmingsplanProxy.js';
-// §CORDOBA-ZONING-PROXY (WIRING-TODO 5) — the COACo PGOU-2001 subzone + refcat-join same-origin
-// lookup. Client consumer: @pryzm/site-parcel-data → resolveCordobaSubzone. ⚠ Renders NO number
-// while CORDOBA_ENVELOPE_VERIFIED is false — the DATA path that turns on with the L-449 sign-off.
-// §COR-MANZANA-PROXY (2026-08-04) — the idecordoba (Ayuntamiento IDE) `idecordoba:manzana` published
-// block-ring layer, live-verified at `ide.cordoba.es` (NOT `idecordoba.cordoba.es`, which does not
-// resolve). Client consumer: @pryzm/site-parcel-data → resolveCordobaStreetWidth. Carries no zoning
-// — base cartography only — feeding Art. 13.5.3.1's MC per-street-width height table.
-import {
-    CORDOBA_ORDENANZAS_PATH, cordobaOrdenanzasHandler,
-    CORDOBA_VCATASTRO_PATH, cordobaVcatastroHandler,
-    CORDOBA_MANZANA_PATH, cordobaManzanaHandler,
-} from './server/cordobaZoningProxy.js';
-// §ZARAGOZA-ZONING-PROXY — the IDEZar `urbanismo:Calificaciones_Urbanas` calificación lookup.
-// Client consumer: @pryzm/site-parcel-data → resolveZaragozaZone. ⚠ Renders NO number while
-// ZARAGOZA_ENVELOPE_VERIFIED is false — the DATA path that turns on with a future L-449 sign-off.
-import {
-    ZARAGOZA_CALIFICACIONES_PATH, zaragozaCalificacionesHandler,
-} from './server/zaragozaZoningProxy.js';
-// §MURCIA-PGOU-PROXY (INE 30030) — the municipal GeoServer calificación (`Murcia:pgou_alineaciones`)
-// + ámbito (`Murcia:pgou_sectores`) point lookup. Client consumer: @pryzm/site-parcel-data →
-// resolveMurciaZoning. ⚠ Returns IDENTITY only — neither layer publishes altura/edificabilidad/
-// ocupación/retranqueo, so the client's honest output is a CITED REFUSAL (PGOU Arts. 6.6.1–6.6.2 /
-// 5.24.5 remit the ordering to a prior instrument). This route makes that refusal SPECIFIC.
-import { MURCIA_PGOU_PATH, murciaPgouHandler } from './server/murciaPgouProxy.js';
-// §BALEARS-MUIB-PROXY (L-680) — the Illes Balears zone + normative *fitxa* point lookup. Client
-// consumer: @pryzm/site-parcel-data → resolveBalearsMuib. ⚠ TWO upstreams, ONE route: the ArcGIS
-// zoning layer (which our OWN CSP allowlist blocks, despite the remote sending CORS) and the fitxa
-// page (no CORS, and published as plain http:// = mixed content). Both measured before the proxy was
-// written — `tools/balears-muib-probe/r1-reachability.mjs`. Returns what the Govern publishes;
-// authorises nothing (BALEARS_ENVELOPE_VERIFIED is false).
-import { BALEARS_MUIB_PATH, balearsMuibHandler } from './server/balearsMuibProxy.js';
-// SWITZERLAND: same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch) — returns the
-// zone-identification GML so the client renders the real zone; the buildable envelope refuses (Outcome B).
-import { CH_GRUNDNUTZUNG_PATH, chGrundnutzungHandler } from './server/chGrundnutzungProxy.js';
-// §ZURICH-BZO-PROXY (BFS-Nr 261) — the CITY-of-Zürich BZO zone-ID lookup, finer than the national
-// Grundnutzung above. Client consumer: @pryzm/site-parcel-data → resolveZurichBzoZone. ⚠ THIS ROUTE
-// WAS MISSING: the client resolver and the §L-616 computed-envelope dispatch both shipped without
-// it, so every Zürich parcel resolved `endpoint-unreachable` and fell to the national refusal.
-import { CH_ZURICH_BZO_PATH, zurichBzoHandler } from './server/chZurichBzoProxy.js';
-// §PARIS-PLU-PROXY — the Ville-de-Paris PLU bioclimatique zone (GPU zone_urba) + numeric hauteur
-// plafond (opendata plub_hauteur) same-origin lookup. Client consumer: resolveParisPluZone. Zone +
-// height RENDER; the buildable envelope refuses unless FR_PARIS_PLU_CERTIFIED is signed (emprise PDF-bound).
-import { PARIS_PLU_PATH, parisPluHandler } from './server/parisPluProxy.js';
-// L-613 — the open, keyless non-Spain cadastres (FR/NL/NO/DE-NRW) under /api/parcel/:cc.
-import { EU_PARCEL_PATH, euParcelHandler } from './server/euCadastreProxy.js';
-// L-613 (Denmark slice) — the Danish Matrikel cadastral proxy (credential-gated Datafordeler).
-import { DK_PARCEL_PATH, dkParcelHandler } from './server/dkMatrikelProxy.js';
+// §CONTEXT-DELIVERY-ROUTER (L-799 / CA-3) — the context-PMTiles / catalogue-asset passthroughs are
+// a SECOND bounded context (bytes, no planning semantics, deliberately NOT rate-limited). They live
+// behind one router in `server/context-delivery/`.
+import { createContextDeliveryRouter } from './server/context-delivery/index.js';
+// §JURISDICTION-ROUTER (L-799 / CA-3) — the per-jurisdiction zoning/cadastre proxies are a bounded
+// context and now live behind ONE router in `server/jurisdiction/`. See that directory's index.js
+// for why it sits under `server/` (Dockerfile §L-442 copies only `server.js` + `server/` into the
+// runtime stage) and what an independent gateway deployment would still need.
+import { createJurisdictionRouter } from './server/jurisdiction/index.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -476,144 +397,18 @@ app.post(LEADS_PATH, leadsBodyParser, leadsHandler);
 // { elements: [] } so the client's non-fatal "no context" path still works.
 app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
 
-// §CTX-TILES-PROXY (L-578) — same-origin passthrough to the baked context PMTiles in R2.
-// The client reads R2 DIRECTLY when `VITE_CONTEXT_TILES_URL` is set; this route exists because
-// the bucket sends no CORS headers, so a browser cannot read it directly (CORS is a BROWSER
-// policy — server-to-server is unaffected). See the module header: it is a fallback that unwires
-// itself the moment the bucket's CORS policy lands.
-//
-// ⚠ DELIBERATELY NOT BEHIND `apiLimiter`. That limiter is 60 req/min/IP, and ONE 3D-Site load
-// issues ~30–35 tile reads (a byte range per tile) — so the limiter would throttle the context
-// on the second site visit of any minute and present as the exact "context randomly doesn't
-// render" complaint this whole work stream exists to end. These are cacheable static bytes, not
-// an expensive upstream query; `globalLimiter` still applies.
-// §CTX-TILES-TERRAIN — MUST be registered before the single-segment `:layer` route. Terrain tiles
-// live at multi-segment `terrain/<city>/…` paths the `:layer` route can't match; without this they
-// fell through to the SPA and returned index.html (silent flat ground). Same no-limiter reasoning.
-app.get(`${CONTEXT_TILES_PATH}/terrain/*`, contextTilesTerrainHandler);
-app.get(`${CONTEXT_TILES_PATH}/:layer`, contextTilesHandler);
+// §CONTEXT-DELIVERY-ROUTER (L-799 / CA-3) — baked context PMTiles and the
+// furniture-catalogue assets. ⚠ MUST stay mounted BEFORE the static/SPA middleware: the SPA
+// catch-all answers unknown paths with index.html AND honours Range, so a missed asset route
+// returns 206 Partial Content carrying HTML — a success-shaped failure that surfaces as a
+// "corrupt model", not as a routing mistake. The per-route limiter posture (Overpass limited,
+// static bytes deliberately NOT) is documented and asserted in that directory.
+app.use(createContextDeliveryRouter());
 
-// §CATALOG-R2-PROXY (L-578b) — the furniture catalogue (GLBs + thumbnails) over our own origin,
-// for the SAME reason as the tiles above: the R2 bucket sends no CORS headers, and three.js
-// fetches every GLB from the BROWSER, where CORS is enforced. `VITE_GLB_URL` points here.
-//
-// ⚠ Registered BEFORE the static/SPA middleware on purpose. The SPA catch-all answers unknown
-// paths with index.html — and it honours Range, so a missed route returns `206 Partial Content`
-// carrying HTML. That is a success-shaped failure: a GLTFLoader handed it reports a corrupt
-// model, not a routing mistake. (Observed live while verifying the tiles proxy.)
-//
-// ⚠ Deliberately NOT behind `apiLimiter` — opening the carousel fetches many thumbnails at once,
-// and 60 req/min/IP would throttle the catalogue into exactly the 404-shaped failure this route
-// exists to end. These are immutable, hard-cached static bytes.
-app.get(`${CATALOG_PROXY_PATH}/*`, catalogAssetHandler);
-
-// §PARCEL-PROXY (L-380 P0) — same-origin Catastro cadastral-parcel proxy + SHARED
-// server-side cache for the "select a real parcel" map mode. Public + unauthenticated
-// (cadastral geometry is public gov data, not user-specific). GET /api/catastro/parcel
-// ?lon=&lat= → the server reverse-geocodes the click to a referencia catastral (OVC
-// Consulta_RCCOOR_Distancia, keyless), then fetches the parcel polygon (INSPIRE WFS
-// GetParcel by REFCAT — the WFS has no BBOX), NORMALISES GML → a WGS84 lat/lon ring,
-// and caches by refcat (7-day TTL, bounded) so repeat clicks / demo reloads are instant
-// and gentle on the shared gov endpoints. apiLimiter (60 req/min/IP) guards abuse.
-// Same-origin → connect-src 'self' already covers it (NO CSP change). Never crashes:
-// no parcel / upstream failure → 200 { parcel: null } so the client falls back to draw.
-app.get(CATASTRO_PARCEL_PATH, apiLimiter, catastroParcelHandler);
-// ADR-0271 P4b §CATASTRO-BLOCK — the manzana ring the block-derived depth needs. Same limiter
-// and same posture as the parcel route: resolves to null on any doubt, never fabricates.
-app.get(CATASTRO_BLOCK_PATH, apiLimiter, catastroBlockHandler);
-app.get(MUC_ZONING_PATH, apiLimiter, mucZoningHandler);
-app.get(MUC_INSTRUMENT_PATH, apiLimiter, mucInstrumentHandler);
-// §BCN-REFOS-OV-PROXY — the clau-18 volumetric-ordering lookup. Same posture as the MUC route:
-// same-origin (so `connect-src 'self'` already covers it — NO CSP change), keyless public AMB data,
-// never crashes. 200 { features: [...] } (possibly empty = a genuine "no OV published here") vs 502
-// (upstream outage) are DELIBERATELY distinct — §CONTEXT-DATA-HONESTY.
-app.get(BCN_REFOS_OV_PATH, apiLimiter, bcnRefosOvHandler);
-
-// §PLANDATA-ZONING-PROXY (L-399a) — same-origin KEYLESS Denmark zoning proxy for the
-// FIRST genuine-data jurisdiction of the compliance pilot (C58 §1.2 fidelity 1). Public
-// + unauthenticated (Plandata.dk plan data is open gov data). GET /api/plandata/zoning
-// ?lat=&lon= → the server queries the Plandata GeoServer WFS for the applicable plan
-// (lokalplan, else kommuneplan-ramme) at the point and returns its RAW attributes, cached
-// by coordinate (24-h TTL, bounded). The pure Danish-field → C58 ZoningRecord mapping runs
-// client-side (@pryzm/site-parcel-data). apiLimiter (60 req/min/IP) guards abuse. Same-origin
-// → connect-src 'self' already covers it (NO CSP change). Never crashes: out-of-Denmark /
-// no plan / upstream failure → 200 { zoning: null } so the client falls back to the estimated
-// default pack (the envelope is never broken).
-app.get(PLANDATA_ZONING_PATH, apiLimiter, plandataZoningHandler);
-// §BYGGEFELT-PROXY (DK G3/G6 tier 1) — GET /api/plandata/byggefelt?minx=&miny=&maxx=&maxy=&crs=
-// &count=&startIndex=&binding= → the adopted BUILDING-FIELD polygons intersecting the bbox.
-//
-// ⚠ THIS ROUTE EXISTS BECAUSE `User-Agent` IS A FORBIDDEN BROWSER HEADER. A browser calling
-// geoserver.plandata.dk directly is an anonymous client on a public, taxpayer-funded endpoint that
-// Erhvervsstyrelsen cannot attribute or contact (and CORS + CSP `connect-src 'self'` block it
-// anyway). Going through our origin makes the identifying UA and the rate limit real, once for the
-// product rather than once per tab. It takes a BBOX, never a URL or a CQL filter, so it cannot be
-// turned into an open forwarder. Public + unauthenticated, exactly like the zoning route above.
-// STRUCTURAL-SEAM-4: upstream failure → 502 (never 200 with an empty collection, which the client
-// would read as a durable "no byggefelt at this parcel"); a clean empty → 200 with 0 features.
-app.get(PLANDATA_BYGGEFELT_PATH, apiLimiter, plandataByggefeltHandler);
-// §L-441 — SIU national land classification (urbano / urbanizable / rustico) by point.
-app.get(SIU_CLASSIFICATION_PATH, apiLimiter, siuClassificationHandler);
-// §MADRID-CONDICIONES-PROXY (L-608) — Madrid PGOUM-97 NZ 1 buildable footprint (explicit-area) at a
-// point. Same posture as the proxies above: same-origin (no CSP change), apiLimiter, never crashes —
-// upstream OK → 200 { features }, upstream failure → 502 (distinct from an empty answer, so the
-// client returns endpoint-unreachable, never no-feature).
-app.get(MADRID_CONDICIONES_PATH, apiLimiter, madridCondicionesHandler);
-// §MADRID-NORMAS-ZONALES-PROXY — GET /api/madrid/normas-zonales?lat=&lon= → { features } carrying
-// AMB_TX_ETIQ (one of the 34 live Norma-Zonal codes) + AMB_TX_DENOM. Same honesty split as the
-// condiciones proxy: upstream OK incl. genuinely zero features → 200, upstream failure → 502.
-app.get(MADRID_NORMAS_ZONALES_PATH, apiLimiter, madridNormasZonalesHandler);
-// §NL-BESTEMMINGSPLAN-PROXY — GET /api/nl/bestemmingsplan?lat=&lon= → { plan, bestemmingsvlak,
-// bouwvlak, maatvoeringen } (keyless PDOK RP WMS, governing-plan picked). Empty → { plan: null };
-// upstream failure → 502 (distinct from empty, so the client returns endpoint-unreachable). Never crashes.
-app.get(NL_BESTEMMINGSPLAN_PATH, apiLimiter, nlBestemmingsplanHandler);
-// §CORDOBA-ZONING-PROXY (WIRING-TODO 5) — COACo PGOU-2001 subzone (spatial) + refcat-join (attrs +
-// derived-planning override). ⚠ Renders NO number while CORDOBA_ENVELOPE_VERIFIED is false; the DATA
-// path that turns on with the L-449 sign-off. Same-origin, apiLimiter, never crashes.
-app.get(CORDOBA_ORDENANZAS_PATH, apiLimiter, cordobaOrdenanzasHandler);
-app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
-// §COR-MANZANA-PROXY — same-origin KEYLESS `idecordoba:manzana` published block-ring lookup at
-// `ide.cordoba.es` (the Ayuntamiento IDE GeoServer, a DIFFERENT host+publisher from COACo above).
-// GET /api/cordoba/manzana?lat=&lon= → { crs, manzanas, truncated }. Feeds resolveCordobaStreetWidth.
-app.get(CORDOBA_MANZANA_PATH, apiLimiter, cordobaManzanaHandler);
-// §ZARAGOZA-ZONING-PROXY — IDEZar `urbanismo:Calificaciones_Urbanas` spatial point lookup. ⚠
-// Renders NO number while ZARAGOZA_ENVELOPE_VERIFIED is false. Same-origin, apiLimiter, never crashes.
-app.get(ZARAGOZA_CALIFICACIONES_PATH, apiLimiter, zaragozaCalificacionesHandler);
-// §MURCIA-PGOU-PROXY — same-origin KEYLESS municipal GeoServer WFS point lookup.
-// GET /api/es/murcia-pgou?lat=&lon= → { calificaciones, sectores } (7-day coord cache). Each key is
-// `null` when THAT layer's upstream did not answer and `[]` when it answered empty — failure and
-// absence never collapse; both layers down → 502. Identity RENDERS in the refusal card; the
-// buildable envelope REFUSES (the numbers live in a prior, separately approved instrument).
-app.get(MURCIA_PGOU_PATH, apiLimiter, murciaPgouHandler);
-// §BALEARS-MUIB-PROXY — same-origin KEYLESS GOIB MUIB point lookup (ArcGIS REST + the fitxa page).
-// GET /api/es/balears-muib?lat=&lon= → { qualificacions, fitxa } (7-day coord cache).
-// `qualificacions: null` = the zoning layer did not answer (→ 502); `[]` = it answered and covers
-// nothing here; `fitxa: null` = the fitxa page did not load — three distinct facts, never one.
-// ⚠ The fitxa URL comes from the FEATURE, never from the request, and is host-allowlisted (SSRF).
-// Zone identity + the fitxa's own parameters RENDER in the refusal card; the buildable envelope
-// REFUSES — the reading is unsigned (L-449) and six constraint families are unmodelled (ADR-0293).
-app.get(BALEARS_MUIB_PATH, apiLimiter, balearsMuibHandler);
-// SWITZERLAND — same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch, NOT
-// geo-blocked). GET /api/ch/grundnutzung?lat=&lon= → the zone GML at the point (24-h coord cache).
-// Zone RENDERS client-side; buildable envelope REFUSES (density/height model+PDF-bound — Outcome B).
-app.get(CH_GRUNDNUTZUNG_PATH, apiLimiter, chGrundnutzungHandler);
-// §ZURICH-BZO-PROXY — same-origin KEYLESS City-of-Zürich BZO WFS point lookup (BFS-Nr 261).
-// GET /api/ch/zurich-bzo?lat=&lon= → { gml } (7-day coord cache), the `bzo_zone_v` zone IDENTITY:
-// the municipal `typ` code + a DIRECT link to THIS parcel's BZO 700.100 ordinance. Returns NO
-// number (the layer publishes none); the AZ/height come from the owner-signed BZO transcription
-// client-side. Every upstream form failing → 502 (distinct from an empty answer, so the client
-// returns endpoint-unreachable, never a false "no BZO zone here"). Never crashes.
-app.get(CH_ZURICH_BZO_PATH, apiLimiter, zurichBzoHandler);
-// §PARIS-PLU-PROXY — same-origin KEYLESS GPU zone_urba WFS + opendata plub_hauteur point lookups.
-// GET /api/paris/plu?lat=&lon= → { zone, hauteur }. Zone + numeric height RENDER; buildable envelope
-// refuses (emprise au sol PDF-bound) unless FR_PARIS_PLU_CERTIFIED. Never crashes.
-app.get(PARIS_PLU_PATH, apiLimiter, parisPluHandler);
-// L-613 — Spain-parity "Select parcel" for the open cadastres. ⚠ Denmark's dedicated route MUST be
-// registered BEFORE the `:cc` catch-all (Express matches specific paths before params). DK carries a
-// server-side Datafordeler credential (Matrikel is not keyless); without it → { parcel: null } →
-// client OSM footprint. FR/NL/NO/DE-NRW are keyless under /api/parcel/:cc.
-app.get(DK_PARCEL_PATH, apiLimiter, dkParcelHandler);
-app.get(`${EU_PARCEL_PATH}/:cc`, apiLimiter, euParcelHandler);
+// §JURISDICTION-ROUTER (L-799 / CA-3) — every per-jurisdiction zoning/cadastre proxy, mounted as
+// ONE bounded context. The router registers the SAME paths, with the SAME `apiLimiter`, in the SAME
+// order they were hand-wired here; `server/__tests__/jurisdictionRouter.test.ts` asserts that list.
+app.use(createJurisdictionRouter({ apiLimiter }));
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}

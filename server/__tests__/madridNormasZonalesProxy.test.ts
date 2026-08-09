@@ -18,7 +18,7 @@ import {
     __resetMadridNormasZonalesCache,
     MADRID_NORMAS_ZONALES_ENDPOINT,
     MADRID_NORMAS_ZONALES_PATH,
-} from '../madridNormasZonalesProxy.js';
+} from '../jurisdiction/madridNormasZonalesProxy.js';
 
 /** A representative layer-0 Esri response. `AMB_TX_ETIQ` is the `<zona>.<grado>` routing code. */
 const okBody = {

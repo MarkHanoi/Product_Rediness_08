@@ -19,7 +19,7 @@ import {
     BLOCK_BBOX_HALF_DEG,
     isFreeStandingBlock,
     FREE_STANDING_CLEARANCE_M,
-} from '../parcelZoningProxy.js';
+} from '../jurisdiction/parcelZoningProxy.js';
 
 /** A minimal but structurally real two-feature CadastralParcel collection. */
 function collectionGml(entries: Array<{ rc: string; pts: string; area?: string }>): string {
