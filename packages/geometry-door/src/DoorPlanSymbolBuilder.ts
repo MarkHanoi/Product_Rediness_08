@@ -27,6 +27,12 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { doorStore } from '@pryzm/geometry-door';
+// §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) — the ONE hosted-element
+// resolver. `DoorBuilder.positionGroup` calls exactly this function to place the
+// 3-D door; the plan symbol now calls it too, so the two cannot disagree about
+// where on the host the opening is or which way it faces (C15 §2 generalised to
+// the wall CENTRELINE — §FEAT-HOSTED-ON-CURVED-WALL).
+import { hostedElementFrame } from '@pryzm/geometry-wall';
 // §FIX-DOOR-PREVIEW-EXACT / §FIX-DOOR-FRAME (L-127) — same dimension source as
 // the 3D builder + the plan-tool preview so the swing symbol matches exactly.
 import { resolveDoorDimensions } from './DoorDimensions';
@@ -39,6 +45,29 @@ import { vgGovernanceStore } from '@pryzm/visibility';
 
 /** Number of line segments used to approximate the quarter-circle swing arc. */
 const ARC_SEGMENTS = 32;
+
+/**
+ * The host-station mapping returned by `hostedElementFrame()`. Named locally so the
+ * builder's signatures read as "this takes THE host resolver", not "this takes an
+ * object that happens to have these methods".
+ */
+type HostStationMapper = ReturnType<typeof hostedElementFrame>;
+
+/**
+ * Append a conforming along-wall polyline (from `host.run`) to a flat
+ * [x,0,z,…] LineSegments accumulator as consecutive segments.
+ *
+ * A straight host returns two points → one segment, byte-identical to the single
+ * `cutPositions.push(a…, b…)` this replaces. A curved host returns the wall's OWN
+ * centreline stations in between, so a lining/rebate face line follows the built
+ * face instead of chording across it.
+ */
+function pushRun(out: number[], pts: ReadonlyArray<{ x: number; z: number }>): void {
+    for (let i = 0; i + 1 < pts.length; i++) {
+        const a = pts[i]!, b = pts[i + 1]!;
+        out.push(a.x, 0, a.z, b.x, 0, b.z);
+    }
+}
 
 /**
  * §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) — what each Detail Level EMITS.
@@ -123,34 +152,40 @@ const ARC_SEGMENTS = 32;
  * (`halfWidth − frameThick`) — the leaf sits inside the frame reveal; only the
  * frame-cut tick moves out to the void edge so the wall lines close onto it.
  *
+ * §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) — the tick positions are no
+ * longer computed from a chord `centre`/`dir`/`leftNormal` triple. They are asked
+ * of the host's OWN station mapper (`hostedElementFrame(...).at`), so each tick
+ * stands at its own station on the wall centreline and is RADIAL there. On a
+ * straight host that is bit-identical to the previous chord arithmetic; on a
+ * curved host it is the difference between a watertight jamb and a swing symbol
+ * floating metres clear of the wall.
+ *
  * Returns the two frame-cut tick segments as a flat [ax,0,az, bx,0,bz, …] array
  * (4 vertices → 2 segments) in world XZ (y = 0). Pure — no store/DOM side effects.
  */
 export function computeDoorFrameJambTicks(params: {
-    /** Opening centre in world XZ (= voidStart + halfWidth·dir). */
-    centre: THREE.Vector3;
-    /** Unit wall direction in world XZ (y = 0). */
-    dir: THREE.Vector3;
-    /** Wall left-normal (−dir.z, 0, dir.x); tick runs across the wall depth. */
-    leftNormal: THREE.Vector3;
-    /** Half the opening width — distance from centre to each void edge. */
+    /**
+     * The host's station mapper: `(sLocal, n)` → world XZ, where `sLocal` is metres
+     * ALONG the wall centreline from the opening centre and `n` is metres ACROSS it
+     * on the LOCAL left-normal. Obtained from `hostedElementFrame()` — the SAME call
+     * that positions the 3-D door.
+     */
+    at: (sLocal: number, n: number) => { x: number; z: number };
+    /** Half the opening width — arc distance from centre to each void edge. */
     halfWidth: number;
     /** Half the wall thickness — tick half-length either side of the centreline. */
     halfThickness: number;
 }): number[] {
-    const { centre, dir, leftNormal, halfWidth, halfThickness } = params;
-    // Jambs on the VOID EDGES (∓ halfWidth) — coincide with the wall-line terminus.
-    const leftJamb  = centre.clone().addScaledVector(dir, -halfWidth);
-    const rightJamb = centre.clone().addScaledVector(dir, +halfWidth);
-    const tickHalf  = leftNormal.clone().multiplyScalar(halfThickness);
-    return [
-        // Left jamb tick (perpendicular line across the wall depth)
-        leftJamb.x - tickHalf.x, 0, leftJamb.z - tickHalf.z,
-        leftJamb.x + tickHalf.x, 0, leftJamb.z + tickHalf.z,
-        // Right jamb tick
-        rightJamb.x - tickHalf.x, 0, rightJamb.z - tickHalf.z,
-        rightJamb.x + tickHalf.x, 0, rightJamb.z + tickHalf.z,
-    ];
+    const { at, halfWidth, halfThickness } = params;
+    const out: number[] = [];
+    // Jambs on the VOID EDGES (∓ halfWidth along the centreline) — coincide with
+    // the wall-line terminus. Left jamb first, then right.
+    for (const sign of [-1, 1]) {
+        const a = at(sign * halfWidth, -halfThickness);
+        const b = at(sign * halfWidth, +halfThickness);
+        out.push(a.x, 0, a.z, b.x, 0, b.z);
+    }
+    return out;
 }
 
 /** ISO 13567 DXF layer for door swing symbols — must match VGSceneApplicator category map. */
@@ -330,19 +365,35 @@ export class DoorPlanSymbolBuilder {
         const bl1 = wallData.baseLine?.[1];
         if (!bl0 || !bl1) return null;
 
-        // ── Wall basis vectors in world XZ (y = 0) ───────────────────────────
-        const start = new THREE.Vector3(Number(bl0.x), 0, Number(bl0.z));
-        const end   = new THREE.Vector3(Number(bl1.x), 0, Number(bl1.z));
-        const dir   = new THREE.Vector3().subVectors(end, start).normalize();
-
-        // Wall left-normal: 90° CCW from dir in XZ plane — (−dir.z, 0, dir.x).
-        const leftNormal = new THREE.Vector3(-dir.z, 0, dir.x);
-
         // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): door.offset is the LEFT EDGE of
         // the span [offset, offset+width]; the plan-symbol CENTRE = offset + width/2.
         const width    = Number(door.width);
+        if (!Number.isFinite(width) || width <= 0) return null;
         const halfWidth = width / 2;
-        const centre   = start.clone().addScaledVector(dir, Number(door.offset) + halfWidth);
+
+        // ── The host's station mapper — §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST ─
+        //
+        // THIS IS THE SAME CALL `DoorBuilder.positionGroup` MAKES. The symbol used
+        // to build its own chord basis here (`start + (offset + width/2)·dir`, with
+        // a constant `dir`/`leftNormal`), which is the C15 §2 formula's STRAIGHT-WALL
+        // special case. On a curved host it resolved a different point and a
+        // different heading from the 3-D door — the founder's detached swing arc,
+        // displaced toward the arc's end. There is now exactly one resolver.
+        //
+        //   at(s, n)      world XZ, `s` along the CENTRELINE from the opening centre,
+        //                 `n` across it on the LOCAL normal → wall-embedded features
+        //                 (jamb ticks, linings, rebates) conform and stay radial.
+        //   run(a, b, n)  the same, as a polyline sampled at the host's own stations
+        //                 → a lining FACE line follows the built face instead of
+        //                 chording across it.
+        //   frameAt(s)    the local tangent/normal at one station → RIGID parts (the
+        //                 leaf, its swing arc, its hardware, its ghost) pivot about
+        //                 the hinge frame; a door leaf is flat and does not bend.
+        const host = hostedElementFrame(wallData, Number(door.offset), width);
+        const at = (s: number, n: number): THREE.Vector3 => {
+            const p = host.at(s, n);
+            return new THREE.Vector3(p.x, 0, p.z);
+        };
 
         // ── Frame and leaf dimensions ─────────────────────────────────────────
         // §FIX-DOOR-PREVIEW-EXACT (L-127) — resolve frame + leaf thickness from the
@@ -353,10 +404,12 @@ export class DoorPlanSymbolBuilder {
         const leafThick:  number = Math.max(0.01, dims.leafThickness);
         const halfLeaf = leafThick / 2;
 
-        // ── Swing direction (perpendicular to wall) ───────────────────────────
-        const swingDir = (door.swingDirection === 'outward')
-            ? leftNormal.clone().negate()
-            : leftNormal.clone();
+        // ── Swing side (which face of the wall the door opens toward) ─────────
+        // A SIGN, not a vector: the actual swing DIRECTION is the local normal at
+        // the hinge station, resolved in `_leafBasisAtJamb`. On a curved host the
+        // normal turns along the wall, so a vector captured here would be the
+        // chord's normal — the very error this fix removes.
+        const swingSign: 1 | -1 = (door.swingDirection === 'outward') ? -1 : 1;
 
         // L-266 — the hardware is drawn only when the RECORD says the door carries a
         // handle (`DoorOpeningSchema.handle`, the same flag DoorBuilder builds the 3D
@@ -396,9 +449,7 @@ export class DoorPlanSymbolBuilder {
         const halfThk       = wallThickness / 2;
         cutPositions.push(
             ...computeDoorFrameJambTicks({
-                centre,
-                dir,
-                leftNormal,
+                at: host.at,
                 halfWidth,
                 halfThickness: halfThk,
             }),
@@ -425,22 +476,20 @@ export class DoorPlanSymbolBuilder {
         // the profile with the inner reveal tick and the two lining FACE lines. Every
         // offset is a record dimension: the lining length is exactly `frameThickness`
         // (void edge → inner corner) and its depth is the host wall's reveal.
+        //
+        // §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST — every point below is asked of the
+        // host mapper, so the lining sits on the wall wherever the wall goes, and the
+        // two reveal ticks stay RADIAL (which is what the void carve does too).
         if (lod !== 'coarse' && clearHalf > 0) {
-            const tick = leftNormal.clone().multiplyScalar(halfThk);
             for (const sign of [-1, 1]) {
-                const outer = centre.clone().addScaledVector(dir, sign * halfWidth);   // void edge
-                const inner = centre.clone().addScaledVector(dir, sign * clearHalf);   // inner corner
                 // Inner reveal tick — the lining's inner end, across the wall depth.
-                cutPositions.push(
-                    inner.x - tick.x, 0, inner.z - tick.z,
-                    inner.x + tick.x, 0, inner.z + tick.z,
-                );
+                const ti = at(sign * clearHalf, -halfThk);
+                const to = at(sign * clearHalf, +halfThk);
+                cutPositions.push(ti.x, 0, ti.z, to.x, 0, to.z);
                 // The two lining face lines — flush with the wall faces, `frameThickness`
                 // long. These are what the wall's clipped face lines terminate onto.
                 for (const n of [-halfThk, +halfThk]) {
-                    const a = outer.clone().addScaledVector(leftNormal, n);
-                    const b = inner.clone().addScaledVector(leftNormal, n);
-                    cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
+                    pushRun(cutPositions, host.run(sign * halfWidth, sign * clearHalf, n));
                 }
             }
         }
@@ -458,12 +507,8 @@ export class DoorPlanSymbolBuilder {
         if (lod === 'fine' && clearHalf > 0) {
             const stopOffset = Math.min(halfLeaf, halfThk);
             for (const sign of [-1, 1]) {
-                const outer = centre.clone().addScaledVector(dir, sign * halfWidth);
-                const inner = centre.clone().addScaledVector(dir, sign * clearHalf);
                 for (const n of [-stopOffset, +stopOffset]) {
-                    const a = outer.clone().addScaledVector(leftNormal, n);
-                    const b = inner.clone().addScaledVector(leftNormal, n);
-                    cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
+                    pushRun(cutPositions, host.run(sign * halfWidth, sign * clearHalf, n));
                 }
             }
         }
@@ -476,9 +521,9 @@ export class DoorPlanSymbolBuilder {
             // Each leaf spans from its outer jamb inner corner to the door centre.
             // Leaf length = half the clear opening (width − 2 × frameThick) / 2.
             //
-            // Left leaf:  hinge at (centre − dir × (halfWidth − frameThick)), panelDir = +dir
-            // Right leaf: hinge at (centre + dir × (halfWidth − frameThick)), panelDir = −dir
-            // Both leaves swing toward swingDir (90° arc from closed to open).
+            // Left leaf:  hinge at the LEFT jamb  (−clearHalf), panelDir = +tangent
+            // Right leaf: hinge at the RIGHT jamb (+clearHalf), panelDir = −tangent
+            // Both leaves swing toward the swing side (90° arc, closed → open).
             //
             // This matches the DoorPlanToolHandler preview exactly:
             //   canvas left arc : centred at −halfPx, angle 0 → π/2 (CW)
@@ -486,39 +531,24 @@ export class DoorPlanSymbolBuilder {
             // ─────────────────────────────────────────────────────────────────
             const leafLength = Math.max(0.05, (width - 2 * frameThick) / 2);
 
-            // §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — THE HINGE IS ON THE
-            // WALL FACE. See `_hingeAtWallFace`: both leaves of a double door pivot on
-            // the same face line, so the pair reads as one opening.
-            const leftHinge  = this._hingeAtWallFace(centre, dir, -clearHalf, swingDir, halfThk);
-            const rightHinge = this._hingeAtWallFace(centre, dir, +clearHalf, swingDir, halfThk);
-
-            const leaves: Array<{ hinge: THREE.Vector3; panelDir: THREE.Vector3 }> = [
-                { hinge: leftHinge,  panelDir: dir.clone() },
-                { hinge: rightHinge, panelDir: dir.clone().negate() },
-            ];
-
-            for (const { hinge, panelDir } of leaves) {
-                this._addLeaf(hinge, panelDir, swingDir, leafLength, leafThick, hasHandle, lod,
+            for (const [alongOffset, panelSign] of [[-clearHalf, 1], [+clearHalf, -1]] as const) {
+                const b = this._leafBasisAtJamb(host, alongOffset, panelSign, swingSign, halfThk);
+                this._addLeaf(b.hinge, b.panelDir, b.swingDir, leafLength, leafThick, hasHandle, lod,
                               cutPositions, projPositions, ghostPositions);
             }
         } else {
             // ── Single door ──────────────────────────────────────────────────
             const leafLength: number = Math.max(0.05, width - 2 * frameThick);
 
-            const panelDir = (door.hingesSide === 'right')
-                ? dir.clone().negate()
-                : dir.clone();
-
-            // §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — THE HINGE IS ON THE
-            // WALL FACE, NOT THE WALL CENTRELINE. Derived from the OPENING (the void
-            // edge → the jamb) and the host wall's own reveal — never invented.
-            const hingePoint = this._hingeAtWallFace(
-                centre, dir,
-                (door.hingesSide === 'right') ? +clearHalf : -clearHalf,
-                swingDir, halfThk,
+            const hingesRight = door.hingesSide === 'right';
+            const b = this._leafBasisAtJamb(
+                host,
+                hingesRight ? +clearHalf : -clearHalf,
+                hingesRight ? -1 : 1,
+                swingSign, halfThk,
             );
 
-            this._addLeaf(hingePoint, panelDir, swingDir, leafLength, leafThick, hasHandle, lod,
+            this._addLeaf(b.hinge, b.panelDir, b.swingDir, leafLength, leafThick, hasHandle, lod,
                           cutPositions, projPositions, ghostPositions);
         }
 
@@ -545,11 +575,20 @@ export class DoorPlanSymbolBuilder {
 
     /**
      * §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — THE ONE HINGE POINT.
+     * §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) — …AND THE ONE LEAF FRAME.
      *
      * THE ARC'S CENTRE **IS** THE HINGE, so there may be exactly ONE definition of it.
      * This is that definition; `_addLeaf` derives the leaf, the arc AND the closed-leaf
      * ghost from the single point it returns, so they cannot drift apart (compute them
      * independently and the drawing lies about the clearance an architect reads off it).
+     *
+     * IT RETURNS A FRAME, NOT JUST A POINT, and that is the curved-host fix. A door
+     * LEAF IS RIGID: it does not bend around the wall it is hung on. So the leaf, its
+     * swing arc, its hardware and its ghost must all be built from the tangent and
+     * normal at ONE station — the HINGE's — rather than from a chord direction that is
+     * only correct on a straight wall. `hostedElementFrame(...).frameAt(alongOffset)`
+     * is that station; on a straight host its tangent is the chord direction, so the
+     * previous behaviour is reproduced exactly.
      *
      * WHERE THE HINGE IS, AND WHY IT MOVED:
      *
@@ -570,22 +609,31 @@ export class DoorPlanSymbolBuilder {
      *     towards, so the open leaf projects OUT of the wall from that face line, and
      *     the closed-leaf ghost lies flush behind it.
      *
-     * @param centre        Opening centre on the wall baseline.
-     * @param dir           Unit vector along the wall baseline.
-     * @param alongOffset   Signed distance from `centre` to the hinge jamb (±clearHalf).
-     * @param swingDir      Unit vector across the wall, pointing the way the door opens.
+     * @param host          The host's station mapper from `hostedElementFrame()` — the
+     *                      SAME resolver `DoorBuilder.positionGroup` places the 3-D
+     *                      door with.
+     * @param alongOffset   Signed arc distance from the opening centre to the hinge
+     *                      jamb (±clearHalf).
+     * @param panelSign     +1 when the closed leaf runs toward increasing arc length,
+     *                      −1 when it runs the other way (hinges on the right).
+     * @param swingSign     +1 when the door opens toward the LOCAL left-normal
+     *                      ('inward'), −1 when it opens the other way ('outward').
      * @param halfThickness Half the HOST WALL's thickness — the reveal to its face.
      */
-    private _hingeAtWallFace(
-        centre: THREE.Vector3,
-        dir: THREE.Vector3,
+    private _leafBasisAtJamb(
+        host: HostStationMapper,
         alongOffset: number,
-        swingDir: THREE.Vector3,
+        panelSign: 1 | -1,
+        swingSign: 1 | -1,
         halfThickness: number,
-    ): THREE.Vector3 {
-        return centre.clone()
-            .addScaledVector(dir, alongOffset)
-            .addScaledVector(swingDir, halfThickness);
+    ): { hinge: THREE.Vector3; panelDir: THREE.Vector3; swingDir: THREE.Vector3 } {
+        const f = host.frameAt(alongOffset);
+        const p = host.at(alongOffset, swingSign * halfThickness);
+        return {
+            hinge:    new THREE.Vector3(p.x, 0, p.z),
+            panelDir: new THREE.Vector3(f.tx * panelSign, 0, f.tz * panelSign),
+            swingDir: new THREE.Vector3(f.nx * swingSign, 0, f.nz * swingSign),
+        };
     }
 
     /**

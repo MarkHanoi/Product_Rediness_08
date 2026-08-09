@@ -74,6 +74,11 @@ import { vgGovernanceStore } from '@pryzm/visibility';
 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) / L-127 — the ONE dimension authority the
 // 3D builder also reads, so plan symbol ≡ placed window.
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
+// §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) — the ONE hosted-element
+// resolver. `WindowBuilder.positionGroup` calls exactly this function to place the
+// 3-D window; the plan symbol now calls it too, so the two cannot disagree about
+// where on the host the opening is or which way it faces.
+import { hostedElementFrame } from '@pryzm/geometry-wall';
 
 const WINDOW_LAYER = 'A-GLAZ';
 /**
@@ -208,18 +213,6 @@ export class WindowPlanSymbolBuilder {
         const bl1 = wallData.baseLine?.[1];
         if (!bl0 || !bl1) return null;
 
-        // ── Wall basis vectors in world XZ (y = 0) ───────────────────────────
-        const start = new THREE.Vector3(Number(bl0.x), 0, Number(bl0.z));
-        const end   = new THREE.Vector3(Number(bl1.x), 0, Number(bl1.z));
-        const dir   = new THREE.Vector3().subVectors(end, start);
-        if (dir.lengthSq() === 0) return null;
-        dir.normalize();
-        // Wall left-normal: 90° CCW from dir in XZ — (−dir.z, 0, dir.x). The 3D
-        // WindowBuilder rotates its group by −wallAngle, which maps the group's
-        // local +Z (the side the sill protrudes to) onto exactly this vector — so
-        // the plan sill lands on the same side of the wall as the built sill.
-        const leftNormal = new THREE.Vector3(-dir.z, 0, dir.x);
-
         // The host wall's REAL thickness — the symbol never invents one.
         const wallThickness = Number(wallData.thickness);
         if (!Number.isFinite(wallThickness) || wallThickness <= 0) {
@@ -236,7 +229,17 @@ export class WindowPlanSymbolBuilder {
         const width  = Number(win.width);
         if (!Number.isFinite(width) || width <= 0) return null;
         const halfW  = width / 2;
-        const centre = start.clone().addScaledVector(dir, Number(win.offset) + halfW);
+
+        // ── The host's station mapper — §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST ─
+        //
+        // THIS IS THE SAME CALL `WindowBuilder.positionGroup` MAKES. The symbol used
+        // to build its own CHORD basis here (`baseLine[0] + (offset + width/2)·dir`
+        // with a constant `dir` and `leftNormal`) — the C15 §2 formula's straight-wall
+        // special case. On a curved host that resolved a different point and a
+        // different heading from the 3-D window, diverging progressively along the
+        // curve. `hostedElementFrame` is now the only resolver in the path.
+        const host = hostedElementFrame(wallData, Number(win.offset), width);
+        if (!(host.length > 0)) return null;   // degenerate host — nothing to draw on
 
         // ── The window's REAL dimensions (L-127 — record → type → canonical) ──
         const dims       = resolveWindowDimensions(win);
@@ -258,14 +261,42 @@ export class WindowPlanSymbolBuilder {
         const cutPositions:  number[] = [];   // frame cut profile   → A-GLAZ-CUT  (medium)
         const projPositions: number[] = [];   // glazing + sill board → A-GLAZ-PROJ (thin)
 
-        /** World point at (along-wall `s`, across-wall `n`) from the opening centre. */
-        const at = (s: number, n: number): THREE.Vector3 =>
-            centre.clone().addScaledVector(dir, s).addScaledVector(leftNormal, n);
+        /**
+         * World point at (along-centreline `s`, across-centreline `n`) from the
+         * opening centre — asked of the host, never of a chord. `n` runs on the LOCAL
+         * left-normal at station `s`, which is what makes the jamb ticks RADIAL: the
+         * same measurement datum `CurvedWallOpeningBuilder` carves the void with, so
+         * the symbol and the void coincide by construction.
+         *
+         * The 3D WindowBuilder rotates its group by `hostedElementFrame().rotationY`
+         * = the local tangent heading, which maps the group's local +Z (the side the
+         * sill protrudes to) onto exactly this normal — so the plan sill lands on the
+         * same side of the wall as the built sill, on a curve as on a straight run.
+         */
+        const at = (s: number, n: number): THREE.Vector3 => {
+            const p = host.at(s, n);
+            return new THREE.Vector3(p.x, 0, p.z);
+        };
         const cutSeg = (a: THREE.Vector3, b: THREE.Vector3): void => {
             cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
         };
         const projSeg = (a: THREE.Vector3, b: THREE.Vector3): void => {
             projPositions.push(a.x, 0, a.z, b.x, 0, b.z);
+        };
+        /**
+         * An ALONG-WALL run (`s0`→`s1` at `n` across) emitted as a polyline sampled at
+         * the host's own centreline stations. A single chord between two conforming
+         * endpoints would still sag off a curved face — an 800 mm glazing run on a
+         * 10 m-radius wall sags ~8 mm, which is 4 % of a 200 mm wall in plan. Straight
+         * host → exactly two points → one segment, byte-identical to the previous
+         * `cutSeg(at(a,n), at(b,n))`.
+         */
+        const runSeg = (out: number[], s0: number, s1: number, n: number): void => {
+            const pts = host.run(s0, s1, n);
+            for (let i = 0; i + 1 < pts.length; i++) {
+                const a = pts[i]!, b = pts[i + 1]!;
+                out.push(a.x, 0, a.z, b.x, 0, b.z);
+            }
         };
 
         // ── 1. THE FRAMED OPENING (every LOD) ────────────────────────────────
@@ -302,7 +333,7 @@ export class WindowPlanSymbolBuilder {
         if (framed) {
             for (const sign of [-1, 1]) {
                 for (const n of [-halfThk, +halfThk]) {
-                    cutSeg(at(sign * halfW, n), at(sign * clearHalf, n));
+                    runSeg(cutPositions, sign * halfW, sign * clearHalf, n);
                 }
             }
         } else {
@@ -310,7 +341,7 @@ export class WindowPlanSymbolBuilder {
             // members and no glazing band to cross, so the full-width face line is
             // the honest reading — the cut IS solid frame all the way across.
             for (const n of [-halfThk, +halfThk]) {
-                cutSeg(at(-halfW, n), at(+halfW, n));
+                runSeg(cutPositions, -halfW, +halfW, n);
             }
         }
 
@@ -348,9 +379,9 @@ export class WindowPlanSymbolBuilder {
                 const sFace   = sign * clearHalf;              // frame inner face
                 const sPocket = sign * (clearHalf + rebate);   // rebate pocket end
                 cutSeg(at(sFace, -halfThk),  at(sFace, -halfGlaz));    // face, exterior side
-                cutSeg(at(sFace, -halfGlaz), at(sPocket, -halfGlaz));  // rebate ledge
+                runSeg(cutPositions, sFace, sPocket, -halfGlaz);       // rebate ledge
                 cutSeg(at(sPocket, -halfGlaz), at(sPocket, +halfGlaz));// pocket end (glass seat)
-                cutSeg(at(sPocket, +halfGlaz), at(sFace, +halfGlaz));  // rebate ledge
+                runSeg(cutPositions, sPocket, sFace, +halfGlaz);       // rebate ledge
                 cutSeg(at(sFace, +halfGlaz), at(sFace, +halfThk));     // face, interior side
             }
         }
@@ -397,8 +428,8 @@ export class WindowPlanSymbolBuilder {
                 const sL = s - cdt / 2;
                 const sR = s + cdt / 2;
                 // The post in section: a closed rectangle interrupting the glazing band.
-                cutSeg(at(sL, -mullionHalfDepth), at(sR, -mullionHalfDepth));
-                cutSeg(at(sL, +mullionHalfDepth), at(sR, +mullionHalfDepth));
+                runSeg(cutPositions, sL, sR, -mullionHalfDepth);
+                runSeg(cutPositions, sL, sR, +mullionHalfDepth);
                 cutSeg(at(sL, -mullionHalfDepth), at(sL, +mullionHalfDepth));
                 cutSeg(at(sR, -mullionHalfDepth), at(sR, +mullionHalfDepth));
             }
@@ -433,10 +464,10 @@ export class WindowPlanSymbolBuilder {
         for (const [a, b] of glazRuns) {
             if (b - a <= 0) continue;   // a post wider than its own pane: draw no glass
             if (lod === 'coarse' || glazThick <= 0) {
-                projSeg(at(a, 0), at(b, 0));
+                runSeg(projPositions, a, b, 0);
             } else {
                 for (const n of [-halfGlaz, +halfGlaz]) {
-                    projSeg(at(a, n), at(b, n));
+                    runSeg(projPositions, a, b, n);
                 }
             }
         }
@@ -454,7 +485,7 @@ export class WindowPlanSymbolBuilder {
             const nFace  = halfThk;                       // the wall face the sill sits on
             const nEdge  = halfThk + dims.sillDepth;      // the board's outer edge
             const sEdge  = halfW + dims.sillOverhang;     // the board's ends
-            projSeg(at(-sEdge, nEdge), at(+sEdge, nEdge));   // the board line
+            runSeg(projPositions, -sEdge, +sEdge, nEdge);    // the board line
             projSeg(at(-sEdge, nFace), at(-sEdge, nEdge));   // returns to the wall face
             projSeg(at(+sEdge, nFace), at(+sEdge, nEdge));
         }

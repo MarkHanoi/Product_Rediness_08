@@ -311,20 +311,140 @@ export function arcLengthAtPointXZ(
 }
 
 /**
- * Convenience for the two builders: the world position + Three.js Y-rotation of
- * a hosted element whose stored LEFT-EDGE offset is `offset` and whose width is
- * `width`, i.e. whose centre sits at arc length `offset + width/2`.
+ * Evaluate the frame at an ABSOLUTE arc length, EXTRAPOLATING tangentially past
+ * either end instead of clamping.
+ *
+ * `arcFrameAt` clamps, which is right for an element's own station (an opening
+ * outside its host is a placement error, not a geometry question). It is wrong
+ * for a symbol PART that legitimately overhangs — a window sill board runs
+ * `sillOverhang` past each jamb and can reach beyond a wall end, and clamping
+ * would collapse it onto the end station. Extrapolating along the end tangent is
+ * what a real board does. On a straight wall extrapolation IS the same linear
+ * formula, so nothing changes there.
+ */
+function stationFrame(wall: ArcHostWall, s: number, line: WallCentreline): WallArcFrame {
+    const L = line.length;
+    if (!(L > 0)) return arcFrameAt(wall, 0, line);
+    if (s >= 0 && s <= L) return arcFrameAt(wall, s, line);
+    const anchor = arcFrameAt(wall, s < 0 ? 0 : L, line);
+    const over = s < 0 ? s : s - L;
+    return {
+        ...anchor,
+        s,
+        x: anchor.x + anchor.tx * over,
+        z: anchor.z + anchor.tz * over,
+    };
+}
+
+/**
+ * The world position + Three.js Y-rotation of a hosted element whose stored
+ * LEFT-EDGE offset is `offset` and whose width is `width`, i.e. whose centre sits
+ * at arc length `offset + width/2`.
  *
  * Encodes the C15 §2 `worldCentre` rule in its arc-generalised form, and the
  * sign convention (`rotationY = -angleY`) that DoorBuilder / WindowBuilder /
  * `createWindowFrame` all already use.
+ *
+ * ── §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) ──────────────────────
+ *
+ * THE PLAN SYMBOL AND THE 3-D ELEMENT MUST BE THE SAME RESOLVER, NOT TWO THAT
+ * HAPPEN TO AGREE ON A STRAIGHT WALL.
+ *
+ * `DoorBuilder` / `WindowBuilder` called this function for the element's own
+ * position and heading, but `DoorPlanSymbolBuilder` / `WindowPlanSymbolBuilder`
+ * built their whole symbol on a CHORD basis of their own:
+ *
+ *     centre     = baseLine[0] + (offset + width/2) · normalise(baseLine[1] − baseLine[0])
+ *     dir        = that same chord direction, CONSTANT over the symbol
+ *     leftNormal = (−dir.z, dir.x), likewise constant
+ *
+ * On a curved host that is the wrong point AND the wrong heading, diverging
+ * progressively along the curve — the founder's detached, end-displaced swing
+ * arc. The two builders could not simply be handed `{x, z, rotationY}`, because a
+ * symbol is not a point: it is a set of features at `(along, across)` offsets
+ * from the element centre. So this function now also returns the MAPPING those
+ * offsets need, and the builders' local `at(s, n)` helpers are re-pointed at it:
+ *
+ *   • `frameAt(sLocal)` — the local station frame `sLocal` metres along the
+ *     centreline from the element centre. Rigid sub-assemblies (a door LEAF and
+ *     its swing arc pivot about the hinge and do not bend) take their tangent and
+ *     normal from ONE such frame, at the hinge station.
+ *   • `at(sLocal, n)` — the world XZ point `sLocal` along and `n` across, on the
+ *     LOCAL normal at that station. Features embedded in the wall (jamb ticks,
+ *     linings, rebates, mullions, glazing, sill) conform to the wall this way,
+ *     which also makes the jambs RADIAL — the measurement datum the module header
+ *     already declares for the CARVE (`CurvedWallOpeningBuilder`). Symbol and
+ *     void therefore agree by construction.
+ *   • `run(s0, s1, n)` — an along-wall FACE LINE from `s0` to `s1` at `n` across,
+ *     sampled at the host's OWN centreline stations. A straight chord between two
+ *     conforming endpoints would still sag off a curved face; sampling at the
+ *     wall's own tessellation makes the symbol line and the built face the same
+ *     polyline. Straight host → exactly two points, i.e. today's single segment.
+ *
+ * ⚠ These are the ONLY arc maths in the hosted-symbol path. Nothing downstream
+ * may re-derive a direction from `baseLine`; a fourth copy of this rule is the
+ * mistake that produced the defect in the first place.
  */
 export function hostedElementFrame(
     wall: ArcHostWall,
     offset: number,
     width: number,
     cl?: WallCentreline,
-): { x: number; z: number; rotationY: number; frame: WallArcFrame } {
-    const f = arcFrameAt(wall, offset + width / 2, cl);
-    return { x: f.x, z: f.z, rotationY: -f.angleY, frame: f };
+): {
+    x: number;
+    z: number;
+    rotationY: number;
+    frame: WallArcFrame;
+    /** Host centreline (arc) length, metres. */
+    length: number;
+    /** Local station frame, `sLocal` metres along the centreline from the centre. */
+    frameAt: (sLocal: number) => WallArcFrame;
+    /** World XZ at (`sLocal` along, `n` across on the LOCAL normal). */
+    at: (sLocal: number, n: number) => { x: number; z: number };
+    /** Conforming along-wall polyline from `s0` to `s1` at `n` across. */
+    run: (s0: number, s1: number, n: number) => Array<{ x: number; z: number }>;
+} {
+    const line = cl ?? wallCentreline(wall);
+    const w = Number.isFinite(width) ? width : 0;
+    const o = Number.isFinite(offset) ? offset : 0;
+
+    // The element's own station stays CLAMPED, exactly as before this change: an
+    // opening past the end of its host is a placement error and must not be
+    // silently extrapolated into thin air. Symbol parts are measured RELATIVE to
+    // that clamped station, so `frameAt(0) === frame` always.
+    const f = arcFrameAt(wall, o + w / 2, line);
+    const base = f.s;
+
+    const frameAt = (sLocal: number): WallArcFrame =>
+        sLocal === 0 ? f : stationFrame(wall, base + sLocal, line);
+
+    const at = (sLocal: number, n: number): { x: number; z: number } => {
+        const g = frameAt(sLocal);
+        return { x: g.x + g.nx * n, z: g.z + g.nz * n };
+    };
+
+    const run = (s0: number, s1: number, n: number): Array<{ x: number; z: number }> => {
+        const out: Array<{ x: number; z: number }> = [at(s0, n)];
+        // A STRAIGHT host is never subdivided. Its centreline is the 2-point chord,
+        // and its only interior "station" would be the far endpoint — which an
+        // opening sitting near the wall end WOULD fall across, silently splitting a
+        // straight symbol line in two. There is nothing to conform to on a straight
+        // wall, so the run is always the single segment it has always been.
+        if (!line.curved) { out.push(at(s1, n)); return out; }
+        const lo = Math.min(s0, s1);
+        const hi = Math.max(s0, s1);
+        const ascending = s1 >= s0;
+        // Interior host stations strictly inside the run, in run order.
+        const inner: number[] = [];
+        for (const c of line.cum) {
+            const sLocal = c - base;
+            if (sLocal > lo + ARC_EPSILON_M && sLocal < hi - ARC_EPSILON_M) inner.push(sLocal);
+        }
+        if (!ascending) inner.reverse();
+        for (const s of inner) out.push(at(s, n));
+        out.push(at(s1, n));
+        return out;
+    };
+
+    return { x: f.x, z: f.z, rotationY: -f.angleY, frame: f, length: line.length, frameAt, at, run };
 }

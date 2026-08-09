@@ -15,6 +15,11 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { computeDoorFrameJambTicks } from '@pryzm/geometry-door';
+// §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) — the ticks are placed by the
+// HOST's station mapper now, not by a chord `centre`/`dir`/`leftNormal` triple, so
+// this test builds the mapper the same way the builder does: from the one resolver
+// that also positions the 3-D door.
+import { hostedElementFrame, arcFrameAt, type ArcHostWall } from '@pryzm/geometry-wall';
 
 /** Signed distance of a world-XZ point from `start` along the unit `dir`. */
 function alongWall(px: number, pz: number, start: THREE.Vector3, dir: THREE.Vector3): number {
@@ -26,17 +31,16 @@ describe('§FIX-PLAN-DOOR-JAMB-SEAM — door frame ticks close onto the wall ope
     // Per C15 §2 the void edges (= wall-line terminations) are at along = 2.0 and 2.9.
     const start = new THREE.Vector3(0, 0, 0);
     const dir = new THREE.Vector3(1, 0, 0);
-    const leftNormal = new THREE.Vector3(-dir.z, 0, dir.x); // (0,0,1)
     const offset = 2.0;
     const width = 0.9;
     const halfWidth = width / 2;
     const wallThickness = 0.2;
     const halfThickness = wallThickness / 2;
 
-    // Opening centre = voidStart + halfWidth·dir = offset + width/2 along the wall.
-    const centre = start.clone().addScaledVector(dir, offset + halfWidth);
+    const WALL = { baseLine: [{ x: 0, z: 0 }, { x: 5, z: 0 }], thickness: wallThickness };
+    const host = hostedElementFrame(WALL, offset, width);
 
-    const ticks = computeDoorFrameJambTicks({ centre, dir, leftNormal, halfWidth, halfThickness });
+    const ticks = computeDoorFrameJambTicks({ at: host.at, halfWidth, halfThickness });
 
     it('returns exactly two jamb tick segments (4 vertices → 12 floats)', () => {
         expect(ticks).toHaveLength(12);
@@ -82,5 +86,42 @@ describe('§FIX-PLAN-DOOR-JAMB-SEAM — door frame ticks close onto the wall ope
         expect(Math.abs(perp1 - perp0)).toBeCloseTo(wallThickness, 6);
         // Centred on the wall centreline (z = 0): the two ends are symmetric.
         expect(perp0 + perp1).toBeCloseTo(0, 6);
+    });
+});
+
+describe('§FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST — the seam invariant survives a curved host', () => {
+    // Same opening, same thickness, but the host is bowed. The void edges are now
+    // ARC lengths 2.0 and 2.9 (C15 §2 generalised to the centreline), and the wall's
+    // own face lines terminate there — so the ticks must too, and RADIALLY.
+    const CURVED: ArcHostWall = {
+        baseLine: [{ x: 0, z: 0 }, { x: 5, z: 0 }],
+        curve: { control: { x: 2.5, z: -3 }, segments: 24 },
+    };
+    const offset = 2.0;
+    const width = 0.9;
+    const halfThickness = 0.1;
+
+    const host = hostedElementFrame(CURVED, offset, width);
+    const ticks = computeDoorFrameJambTicks({ at: host.at, halfWidth: width / 2, halfThickness });
+
+    it('each tick straddles the centreline point at its own ARC station', () => {
+        for (const [i, s] of [offset, offset + width].entries()) {
+            const f = arcFrameAt(CURVED, s);
+            const a = { x: ticks[i * 6]!, z: ticks[i * 6 + 2]! };
+            const b = { x: ticks[i * 6 + 3]!, z: ticks[i * 6 + 5]! };
+            const m = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+            expect(Math.hypot(m.x - f.x, m.z - f.z)).toBeLessThan(1e-9);
+            // …and is perpendicular to the LOCAL tangent (radial), not to the chord.
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const len = Math.hypot(dx, dz);
+            expect(len).toBeCloseTo(2 * halfThickness, 9);
+            expect((dx / len) * f.tx + (dz / len) * f.tz).toBeCloseTo(0, 9);
+        }
+    });
+
+    it('the tangent at the two jambs genuinely differs — the chord would be wrong', () => {
+        const a = arcFrameAt(CURVED, offset);
+        const b = arcFrameAt(CURVED, offset + width);
+        expect(Math.abs(a.angleY - b.angleY)).toBeGreaterThan(0.05);
     });
 });
