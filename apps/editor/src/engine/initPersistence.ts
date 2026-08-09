@@ -34,6 +34,7 @@
 
 import type * as OBC from '@thatopen/components';
 import { syncStateEngine }         from '@pryzm/core-app-model';
+import { SceneTheme }              from '@pryzm/core-app-model';
 // §FIX-THUMBNAIL-DURABILITY — the capture must fit the durable column's ceiling,
 // or the preview never leaves this browser. See preview/thumbnailBudget.ts.
 import { fitThumbnailToBudget, THUMBNAIL_MAX_CHARS } from '@pryzm/core-app-model';
@@ -236,7 +237,13 @@ export function initPersistence(params: {
                 // check above still measured geometry-only signal. Now the preview shows
                 // the model over the editor's backdrop instead of blank white.
                 ctx.globalCompositeOperation = 'destination-over';
-                ctx.fillStyle = '#e8edf6'; // matches the #container viewport background (index.html)
+                // §VIEWPORT-BG-ONE-AUTHORITY (2026-08-08) — was a hard-coded
+                // '#e8edf6' captioned "matches the #container viewport background".
+                // It no longer did: that literal is the app-CHROME colour, so every
+                // project preview was backed with a grey the viewport does not use.
+                // Read the live viewport colour instead, so the card matches what
+                // the user actually sees (including a custom scene background).
+                ctx.fillStyle = SceneTheme.getStoredColor();
                 ctx.fillRect(0, 0, dstW, dstH);
                 ctx.globalCompositeOperation = 'source-over';
 

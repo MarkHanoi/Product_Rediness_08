@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./three": "./src/three-re-export.ts",
+    "./background": "./src/pipeline/BackgroundUniform.ts",
     "./geospatial": "./src/geospatial/CesiumThreeBridge.ts"
   },
   "files": ["src", "dist"],

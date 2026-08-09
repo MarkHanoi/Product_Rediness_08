@@ -50,7 +50,16 @@
         flex-shrink: 0; width: 0; height: 100%; overflow: hidden;
         transition: width 0.25s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column;
       }
-      #container { flex: 1 1 0; min-width: 0; height: 100%; position: relative; background: #e8edf6; }
+      /* §VIEWPORT-BG-ONE-AUTHORITY (2026-08-08) — #container is the 3D VIEWPORT
+         host: the PRYZM overlay canvas is appended here (initScene OVERLAY_CSS,
+         z-index:2) and is cleared TRANSPARENT on the WebGPU/TSL path, so whatever
+         paints here is what the user sees as "the background of the 3D view".
+         It was #e8edf6 — the app-CHROME colour (`--app-bg`) — which is a light
+         blue-grey, not the scene background. It must mirror LIGHT_BG_HEX in
+         packages/renderer-three/src/pipeline/BackgroundUniform.ts (the single
+         authority); this literal is the ONE copy that cannot import it, because
+         this CSS is parsed before any module evaluates. Keep them in lock-step. */
+      #container { flex: 1 1 0; min-width: 0; height: 100%; position: relative; background: #ffffff; }
       bim-viewport { display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
     </style>
     <!--

@@ -1,6 +1,6 @@
 import type { ViewDefinition, ViewOutputSettings, ViewRangeSettings } from '@pryzm/core-app-model';
 import { PLAN_VIEW_TYPES } from '@pryzm/core-app-model';
-import { SceneTheme } from '@pryzm/core-app-model';
+import { SceneTheme, SCENE_BG_HEX } from '@pryzm/core-app-model';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { getInheritedFromViewId, resolveBoundIntentWithInheritance } from '@pryzm/core-app-model';
@@ -192,8 +192,7 @@ export function buildVisibilityIntentSection(host: VisIntentHost, def: ViewDefin
     editBtn.addEventListener('click', () => {
         // §FIX-INTENT-AUTHORING-DEAD-END (L-779) — pass the VIEW, not just the intent. The
         // editor needs it so a duplicate of a read-only system intent binds to the view the
-        // user opened it from; without it, authoring was a dead end (see the panel's
-        // `contextViewId`).
+        // user opened it from; without it, authoring was a dead end.
         window.visibilityIntentPanel?.open?.(instance?.intentId ?? intents[0]?.id, def.id); // TODO(F.6.5): legacy visibilityIntentPanel — replace with runtime.panelHost.get('visibilityIntent')
     });
     wrap.appendChild(editBtn);
@@ -445,7 +444,13 @@ export function buildOutputSection(host: OutputSectionHost, def: ViewDefinition)
     });
 
     bgReset.addEventListener('click', () => {
-        const defaultColor = '#e8edf6';
+        // §VIEWPORT-BG-RESET-DRIFT (2026-08-08) — this reset to a hard-coded
+        // '#e8edf6', which is the APP-CHROME colour (`--app-bg`, index.html
+        // `#container`), NOT the scene default. "Reset to default" therefore set
+        // the 3D viewport to a colour that was never the default, persisted it to
+        // localStorage via SceneTheme.setBackground, and left the user with a
+        // permanently GREY WebGL2 viewport. It now reads the single authority.
+        const defaultColor = SCENE_BG_HEX;
         bgPicker.value = defaultColor;
         host.onSceneBgChange?.(defaultColor);
     });

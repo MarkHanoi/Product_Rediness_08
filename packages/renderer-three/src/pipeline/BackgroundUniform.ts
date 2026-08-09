@@ -38,7 +38,28 @@ import type { UniformNode } from '../tsl-types';
  */
 export const DARK_BG_HEX  = '#0a0f2c' as const;
 
-/** Light-theme background. Editor: `const LIGHT_BG = '#ffffff'` */
+/**
+ * Light-theme (day) 3D-viewport background.
+ *
+ * §VIEWPORT-BG-ONE-AUTHORITY (2026-08-08) — this is THE canonical 3D-viewport
+ * background token for the whole monorepo. It sits in the lowest layer that
+ * every consumer can reach, so everything that paints the viewport reads it
+ * rather than re-declaring a literal:
+ *
+ *   • the WebGPU/TSL pipeline  — `BackgroundUniform` mixes it in as `bgUniform`
+ *   • the WebGL2 lightweight path — `RenderPipelineManager._lightweightBgColor`
+ *   • `SceneTheme.SCENE_BG_HEX`   — CSS on `<bim-viewport>`, `scene.background`
+ *                                   and the OBC clear colour
+ *   • the "Scene Background → Reset to default" control in View Properties
+ *
+ * The one place that CANNOT read it is `index.html`'s boot-critical inline CSS
+ * (`#container`), which is parsed before any module evaluates — that literal is
+ * §-tagged there and must be kept in lock-step by hand.
+ *
+ * ⚠ NOT the loading-mask tint and NOT the Cesium globe/FORMA palette. Those are
+ * separate, founder-RULED colours (§LOAD-MASK-TINT L-494, GLOBE_LOADING_COLOUR
+ * `#EDECF5`, FORMA `ground`/`background`) and must not be folded into this token.
+ */
 export const LIGHT_BG_HEX = '#ffffff' as const;
 
 export type BgTheme = 'dark' | 'light';
