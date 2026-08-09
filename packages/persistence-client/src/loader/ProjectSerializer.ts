@@ -405,6 +405,10 @@ function serializeWall(wall: any): any {
         layers: wall.layers ? wall.layers.map((l: any) => ({ ...l })) : undefined,
         systemTypeId: wall.systemTypeId,
         curve: wall.curve ? { ...wall.curve } : undefined,
+        // §WALL-RAKE — mirrors apps/editor ProjectSerializer.serializeWall. Kept in
+        // lock-step deliberately: these two allow-lists diverging is how `function` was
+        // silently dropped on reload (see §FEAT-ELEMENT-TYPE-AUTHORING root cause 3).
+        rakeAngleDeg: wall.rakeAngleDeg,
         properties: wall.properties ? { ...wall.properties } : {},
         ifcData: wall.ifcData ? { ...wall.ifcData } : undefined,
         metadata: wall.metadata ? { ...wall.metadata } : undefined,

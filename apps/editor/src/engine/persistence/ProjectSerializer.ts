@@ -523,6 +523,10 @@ function serializeWall(wall: any): any {
         layers: wall.layers ? wall.layers.map((l: any) => ({ ...l })) : undefined,
         systemTypeId: wall.systemTypeId,
         curve: wall.curve ? { ...wall.curve } : undefined,
+        // §WALL-RAKE — the wall's lean. Emitted ONLY when non-vertical, so a wall that
+        // has never been raked re-serialises byte-identically to a pre-rake snapshot
+        // (C47 §1.2: an additive optional field is forward-compatible, no MAJOR bump).
+        rakeAngleDeg: wall.rakeAngleDeg,
         properties: wall.properties ? { ...wall.properties } : {},
         ifcData: wall.ifcData ? { ...wall.ifcData } : undefined,
         metadata: wall.metadata ? { ...wall.metadata } : undefined,

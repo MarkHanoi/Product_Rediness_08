@@ -40,6 +40,8 @@ import {
 // legacy per-layer miter projection. See the block comment in the layered branch.
 import { buildWallFootprint } from './WallFootprint2D';
 import { buildWallExtrusion } from './WallPolygonExtruder';
+// §WALL-RAKE — sizing the §V2-SPIKE-GUARD budget for a legitimately overhanging raked wall.
+import { rakeLateralShift } from './WallRake';
 import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
 import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
@@ -3355,6 +3357,9 @@ export class WallFragmentBuilder {
                 // §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130) — carry the wall's type so the
                 // single-wall footprint frame matches the type-aware junction solve in the cache.
                 systemTypeId: wall.systemTypeId,
+                // §WALL-RAKE — the wall's lean from the floor plane. Absent / 90 ⇒ VERTICAL,
+                // and `buildWallV2Geometry` then takes the pre-rake path unchanged.
+                rakeAngleDeg: wall.rakeAngleDeg,
             };
             const { geometry: worldGeom } = buildWallV2Geometry(spec, v2Cache, {
                 height: wall.height,
@@ -3384,7 +3389,14 @@ export class WallFragmentBuilder {
                 wall.baseLine[1].x - wall.baseLine[0].x,
                 wall.baseLine[1].z - wall.baseLine[0].z,
             );
-            const _maxExtent = _baseLen + wall.thickness + 1.0;   // generous; real body ≤ len + thk + small miter
+            // §WALL-RAKE — a RAKED wall legitimately overhangs its own footprint by
+            // `height · |cot(rake)|` in plan, which is EXACTLY the kind of overshoot this
+            // guard exists to reject. Widen the budget by the computed shear so a correct
+            // raked wall is not silently demoted to the legacy MiterPrism path (which has
+            // no rake at all and would render it vertical — a wrong wall, reported as fine).
+            // For a vertical wall `rakeLateralShift` is 0 and the budget is unchanged.
+            const _rakeShift = rakeLateralShift(wall.rakeAngleDeg, wall.height);
+            const _maxExtent = _baseLen + wall.thickness + _rakeShift + 1.0;   // generous; real body ≤ len + thk + rake + small miter
             const _finiteBB = !!_bb
                 && Number.isFinite(_bb.min.x) && Number.isFinite(_bb.max.x)
                 && Number.isFinite(_bb.min.z) && Number.isFinite(_bb.max.z);

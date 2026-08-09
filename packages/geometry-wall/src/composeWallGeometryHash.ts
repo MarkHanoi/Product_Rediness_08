@@ -113,7 +113,13 @@ export function composeWallGeometryHash(
 
     // Dimensions — height, thickness, baseOffset (NOT in the §18.2 list but
     // documented in WallTypes.ts L208 as a wall-geometry input).
-    const dims = `${f(wall.height)}|${f(wall.thickness)}|${f(wall.baseOffset)}`;
+    // §WALL-RAKE — the lean is a GEOMETRY input (it shears the extrusion), so it MUST
+    // be in the content-addressed key or a rake edit replays stale cached vertices
+    // — exactly the "silent corruption" this composer exists to prevent. Absent ⇒
+    // `90.0000` (vertical). NOTE this lengthens the key for EVERY wall, so the first
+    // load after this change misses the persisted geometry cache once and rebuilds.
+    // That is the correct trade: a one-time rebuild beats a stale-hit wrong wall.
+    const dims = `${f(wall.height)}|${f(wall.thickness)}|${f(wall.baseOffset)}|${f(wall.rakeAngleDeg ?? 90)}`;
 
     // Curve descriptor — undefined → straight; present → arc with full params.
     const curveStr = wall.curve

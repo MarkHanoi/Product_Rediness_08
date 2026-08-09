@@ -24,6 +24,7 @@
  */
 
 import { z } from 'zod';
+import { rakeAuthorability } from './WallRake';
 
 // ─── §WALL-AUDIT-2026 (RESOLVED 2026-04-24): semantic invariant constants ─────
 
@@ -175,6 +176,11 @@ export const WallDataAddSchema = z
         childrenIds: z.array(z.string()).optional(),
         layers:     z.array(WallLayerSchema).optional(),
         curve:      WallCurveSchema.optional(),
+        // §WALL-RAKE — the wall's lean from the floor plane. Absent ⇒ 90° (vertical),
+        // which is what every pre-rake snapshot deserialises as. Range and the
+        // curve/layer/opening refusals are enforced in the superRefine below, because
+        // they depend on the REST of the wall and cannot be expressed field-locally.
+        rakeAngleDeg: z.number().finite({ message: 'wall.rakeAngleDeg must be finite' }).optional(),
         metadata:   WallMetadataSchema.optional(),
         // §STEP6: Interior/Exterior side classification (Pascal Pattern Area 5)
         frontSide:  WallSideClassificationSchema.optional(),
@@ -212,6 +218,23 @@ export const WallDataAddSchema = z
                     `wall.baseLine endpoints have inconsistent y values ` +
                     `(${wall.baseLine[0].y} vs ${wall.baseLine[1].y}); both must equal level elevation.`,
             });
+        }
+        // (2b) §WALL-RAKE — a non-vertical rake must be in range AND compatible with
+        //      the rest of the wall. The rule set lives in `WallRake.rakeAuthorability`
+        //      so create, edit and add-opening all consult ONE definition; duplicating
+        //      it here is how the curve/layer branching in this repo started drifting.
+        //      A vertical wall is never rejected, so this is a strict no-op for every
+        //      wall authored before the field existed.
+        {
+            const auth = rakeAuthorability(wall as {
+                rakeAngleDeg?: number;
+                curve?: unknown;
+                layers?: unknown[];
+                openings?: unknown[];
+            });
+            if (!auth.ok) {
+                ctx.addIssue({ code: 'custom', path: ['rakeAngleDeg'], message: auth.reason! });
+            }
         }
         // (3) Derived-index invariant: childrenIds must be a set-superset of
         //     openings[*].elementId. The runtime check in WallStore is a
@@ -262,6 +285,12 @@ export const WallDataUpdateSchema = z
         }).optional(),
         layers:     z.array(WallLayerSchema).optional(),
         curve:      WallCurveSchema.optional(),
+        // §WALL-RAKE — field-local shape only. The compatibility rules (range, and the
+        // curve / layer / hosted-opening refusals) need the MERGED wall, which a partial
+        // update does not have, so `WallStore.update()` runs `rakeAuthorability` against
+        // `nextState` instead. Validating a half-wall here would let a rake through
+        // whenever the author changed the rake and the curve in two separate calls.
+        rakeAngleDeg: z.number().finite({ message: 'rakeAngleDeg must be finite' }).optional(),
         metadata:   WallMetadataSchema.optional(),
         // §STEP6: Topology Layer stamps frontSide/backSide via update() after space analysis
         frontSide:  WallSideClassificationSchema.optional(),

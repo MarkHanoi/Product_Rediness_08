@@ -1,5 +1,11 @@
-// WallPolygonExtruder — vertical prism extrusion of a 2-D wall footprint polygon
+// WallPolygonExtruder — prism extrusion of a 2-D wall footprint polygon
 // (ADR-0055 P3a). PURE geometry builder; one call → one closed BufferGeometry.
+//
+// §WALL-RAKE (2026-08-09): the prism is VERTICAL by default and SHEARED when
+// `opts.topOffset` is supplied — the base polygon is untouched and the top polygon
+// is that same polygon translated horizontally. That single choice is what keeps a
+// raked wall cheap: the plan footprint, the junction corners and every opening
+// offset are unchanged, because they are all properties of the BASE polygon.
 //
 // Input  : a CCW polygon in plan-XZ produced by `WallFootprint2D.buildWallFootprint`
 //          (4 / 5 / 6 vertices — see ADR-0055 §4 for the layout).
@@ -27,6 +33,21 @@ export interface ExtrudeOpts {
     readonly baseOffset?: number;
     /** Level elevation (Y of the level's floor in world coords). Default 0. */
     readonly elevation?: number;
+    /**
+     * §WALL-RAKE — horizontal displacement of the TOP polygon relative to the BASE
+     * polygon, in world-XZ metres. Absent / null / (0,0) ⇒ a VERTICAL wall and the
+     * pre-existing code path runs unchanged, vertex-for-vertex and normal-for-normal.
+     *
+     * Produced by `WallRake.rakeTopOffset(rakeAngleDeg, height, direction)`; never
+     * computed here, because the sign convention lives in exactly one module.
+     *
+     * The extrusion becomes a SHEARED prism: the base polygon is untouched (so the
+     * wall's plan footprint, its junction corners and every opening offset are
+     * identical to the vertical case), and the top polygon is that same polygon
+     * translated by this vector. Top and bottom faces therefore stay HORIZONTAL —
+     * only the side faces tilt, and their normals are recomputed accordingly.
+     */
+    readonly topOffset?: { readonly x: number; readonly z: number } | null;
 }
 
 /** Vertex-count contract — useful for tests, kept here for `expect(...)` parity. */
@@ -70,6 +91,14 @@ export function buildWallExtrusion(
     const yBot = elevation + baseOffset;
     const yTop = yBot + opts.height;
 
+    // §WALL-RAKE — the top polygon's horizontal displacement. Zero (or absent) means
+    // VERTICAL, and every branch below then takes the exact original arithmetic, so a
+    // vertical wall's buffer is bit-identical to the pre-rake build.
+    const _off = opts.topOffset;
+    const dTopX = _off && Number.isFinite(_off.x) ? _off.x : 0;
+    const dTopZ = _off && Number.isFinite(_off.z) ? _off.z : 0;
+    const raked = dTopX !== 0 || dTopZ !== 0;
+
     const positions: number[] = [];
     const normals:   number[] = [];
 
@@ -104,10 +133,15 @@ export function buildWallExtrusion(
     //
     // Fix: SWAP the fan orders. Top now reverses (P0, Pi+1, Pi); bottom now
     // forwards (P0, Pi, Pi+1). Geometric normals match declared ones again.
+    //
+    // §WALL-RAKE: the top polygon is the base polygon TRANSLATED horizontally by
+    // (dTopX, dTopZ). A translation preserves both the shape and the winding, so the
+    // fan order — and the +Y normal, since the top face is still a horizontal plane —
+    // are correct unchanged. dTop* are 0 for a vertical wall.
     for (let i = 1; i < n - 1; i++) {
-        pushV(polygon[0]!.x,     yTop, polygon[0]!.z,     0, 1, 0);
-        pushV(polygon[i + 1]!.x, yTop, polygon[i + 1]!.z, 0, 1, 0);
-        pushV(polygon[i]!.x,     yTop, polygon[i]!.z,     0, 1, 0);
+        pushV(polygon[0]!.x     + dTopX, yTop, polygon[0]!.z     + dTopZ, 0, 1, 0);
+        pushV(polygon[i + 1]!.x + dTopX, yTop, polygon[i + 1]!.z + dTopZ, 0, 1, 0);
+        pushV(polygon[i]!.x     + dTopX, yTop, polygon[i]!.z     + dTopZ, 0, 1, 0);
     }
 
     // ── Bottom face (−Y) — FORWARD winding (matches CW-from-+Y polygon) ───────
@@ -133,23 +167,47 @@ export function buildWallExtrusion(
     // [a-bot, b-bot, a-top] winding had a flipped sign and the wall rendered
     // back-side-out, giving the near-black, metallic-looking surface the user
     // reported in the 2026-05-27 manual-wall test).
+    //
+    // §WALL-RAKE — under a shear each side quad is still PLANAR (a parallelogram
+    // spanned by the base edge e = b − a and the rise v = (dTopX, height, dTopZ)),
+    // but it is no longer vertical, so its normal picks up a Y component:
+    //
+    //     n ∝ v × e = ( h·ez ,  dTopZ·ex − dTopX·ez ,  −h·ex )
+    //
+    // With dTop = 0 this collapses to (h·ez, 0, −h·ex) ∝ (ez, 0, −ex) — exactly the
+    // vertical-case normal above. The vertical branch is nevertheless kept SEPARATE
+    // and untouched so a 90° wall's floats are bit-identical, not merely equal to
+    // within rounding.
     for (let i = 0; i < n; i++) {
         const a = polygon[i]!;
         const b = polygon[(i + 1) % n]!;
         const ex = b.x - a.x;
         const ez = b.z - a.z;
-        const L = Math.hypot(ex, ez) || 1;
-        const nx =  ez / L;
-        const nz = -ex / L;
+
+        let nx: number, ny: number, nz: number;
+        if (raked) {
+            const h = yTop - yBot;
+            const cx =  h * ez;
+            const cy =  dTopZ * ex - dTopX * ez;
+            const cz = -h * ex;
+            const cl = Math.hypot(cx, cy, cz) || 1;
+            nx = cx / cl; ny = cy / cl; nz = cz / cl;
+        } else {
+            const L = Math.hypot(ex, ez) || 1;
+            nx =  ez / L; ny = 0; nz = -ex / L;
+        }
+
+        const atx = a.x + dTopX, atz = a.z + dTopZ;
+        const btx = b.x + dTopX, btz = b.z + dTopZ;
 
         // Triangle 1: a-bottom → b-top → b-bottom  (CCW from outward)
-        pushV(a.x, yBot, a.z, nx, 0, nz);
-        pushV(b.x, yTop, b.z, nx, 0, nz);
-        pushV(b.x, yBot, b.z, nx, 0, nz);
+        pushV(a.x, yBot, a.z, nx, ny, nz);
+        pushV(btx, yTop, btz, nx, ny, nz);
+        pushV(b.x, yBot, b.z, nx, ny, nz);
         // Triangle 2: a-bottom → a-top → b-top    (CCW from outward)
-        pushV(a.x, yBot, a.z, nx, 0, nz);
-        pushV(a.x, yTop, a.z, nx, 0, nz);
-        pushV(b.x, yTop, b.z, nx, 0, nz);
+        pushV(a.x, yBot, a.z, nx, ny, nz);
+        pushV(atx, yTop, atz, nx, ny, nz);
+        pushV(btx, yTop, btz, nx, ny, nz);
     }
 
     const geom = new THREE.BufferGeometry();

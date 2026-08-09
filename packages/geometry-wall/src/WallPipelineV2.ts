@@ -24,6 +24,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { resolveJunctions, type Pt2, type WallInput, type WallMiter } from './JunctionResolverV2';
 import { buildWallFootprint, type WallFootprint } from './WallFootprint2D';
 import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
+import { rakeTopOffset } from './WallRake';
 
 // ─── Feature flag ─────────────────────────────────────────────────────────────
 
@@ -69,6 +70,18 @@ export interface LevelWallSpec {
      * on the tangent and the other square-capping on the chord (the founder's wedge).
      */
     readonly curveControlXZ?: Pt2;
+    /**
+     * §WALL-RAKE — the wall's lean from the floor plane in degrees (`WallData.rakeAngleDeg`).
+     * Absent or 90 ⇒ VERTICAL, and the whole pipeline behaves exactly as before.
+     *
+     * Deliberately NOT forwarded to `JunctionResolverV2`. The resolver mitres the BASE
+     * footprint, and under this rake model the base footprint is identical whatever the
+     * angle — so the resolver has nothing to learn and stays pure and shape-agnostic,
+     * exactly as §FIX-WALL-ARC-LINEAR-MITRE left it. That is also the honest limit of
+     * this foundation: the mitre is exact AT THE FLOOR and only there, which is why a
+     * rake is refused on walls that would expose the discrepancy.
+     */
+    readonly rakeAngleDeg?: number;
 }
 
 /**
@@ -162,7 +175,12 @@ export function buildWallV2Geometry(
     };
     const miter = cache.getMiter(wall.id);
     const footprint = buildWallFootprint(input, miter);
-    const geometry  = buildWallExtrusion(footprint, opts);
+    // §WALL-RAKE — derive the top-polygon shear from the wall's own direction. An explicit
+    // `opts.topOffset` from the caller wins (tests, and any future caller that computes the
+    // shear itself); otherwise it comes from the spec's angle. Vertical ⇒ null ⇒ unchanged.
+    const topOffset = opts.topOffset
+        ?? rakeTopOffset(wall.rakeAngleDeg, opts.height, footprint.direction);
+    const geometry  = buildWallExtrusion(footprint, { ...opts, topOffset });
     return { geometry, footprint, miter };
 }
 

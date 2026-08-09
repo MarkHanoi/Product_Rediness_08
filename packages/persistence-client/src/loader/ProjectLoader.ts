@@ -475,6 +475,8 @@ export class ProjectLoader {
                     materialId: wall.materialId,
                     materialColor: wall.materialColor,
                     curve: wall.curve,
+                    // §WALL-RAKE — mirrors apps/editor ProjectLoader.
+                    rakeAngleDeg: wall.rakeAngleDeg,
                     systemTypeId: wall.systemTypeId
                 });
                 const r = exec(cmd);
