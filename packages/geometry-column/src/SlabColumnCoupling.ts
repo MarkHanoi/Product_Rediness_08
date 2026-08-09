@@ -20,7 +20,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ColumnData } from './ColumnTypes';
-import { SlabStore } from '@pryzm/geometry-slab';
+import type { SlabStore } from '@pryzm/geometry-slab';
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
 

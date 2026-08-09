@@ -1,7 +1,7 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { stableCreatedId } from '../StableCreatedId';
-import { SlabData } from '@pryzm/geometry-slab';
-import { SlabSketch } from '@pryzm/geometry-slab';
+import type { SlabData } from '@pryzm/geometry-slab';
+import type { SlabSketch } from '@pryzm/geometry-slab';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 // §FIX-STAIR-SLAB-OPENING-SYMMETRY — the stair-void invariant has ONE owner; this

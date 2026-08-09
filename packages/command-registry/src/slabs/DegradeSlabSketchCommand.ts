@@ -1,5 +1,5 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { SlabData } from '@pryzm/geometry-slab';
+import type { SlabData } from '@pryzm/geometry-slab';
 
 export interface DegradeSlabSketchPayload {
     slabId: string;

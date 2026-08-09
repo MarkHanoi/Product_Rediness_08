@@ -6,8 +6,19 @@ import {
     SerializedCommand,
     CommandContext,
 } from '../types';
-import { SlabData } from '@pryzm/geometry-slab';
-import { signedArea } from '@pryzm/geometry-slab';
+import type { SlabData } from '@pryzm/geometry-slab';
+// §L-541 — import the pure-geometry helper from its LEAN subpath, NOT the
+// `@pryzm/geometry-slab` barrel. The barrel re-exports `SlabTool`, which
+// statically imports `@thatopen/ui` (a Lit custom-element library that touches
+// `document` at MODULE SCOPE). Because `@pryzm/command-registry` sits under
+// almost every plugin's import graph, that single value edge dragged a
+// browser-only UI library into every node-environment test suite in the repo and
+// killed them at COLLECTION with `ReferenceError: document is not defined`.
+// `SlabGeomUtils` is pure 2D math with no THREE / DOM / store reach, so the
+// subpath is honest. Same pattern as `@pryzm/ai-host/types`.
+// The remaining slab imports in this package are all TYPES, hence `import type`,
+// which is erased and creates no runtime edge.
+import { signedArea } from '@pryzm/geometry-slab/geom-utils';
 
 /**
  * UpdateSlabPolygonCommand
