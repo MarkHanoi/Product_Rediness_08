@@ -4,6 +4,11 @@ dist/
 # Cloudflare Pages rebuilds this from source; a committed copy would only drift.
 dist-apex/
 **/dist-apex/
+# §L-442 — precompiled server dependencies (scripts/build/build-server-deps.mjs).
+# Deliberately OUTSIDE dist/: dist/ is served by express.static, and these bundles
+# ship .map files containing server-side source. Consumed by
+# scripts/build/apply-server-deps-overlay.mjs, never served.
+dist-server-deps/
 .cache/
 *.log
 .DS_Store

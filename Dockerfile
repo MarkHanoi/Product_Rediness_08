@@ -7,16 +7,36 @@
 # is Supabase (managed), so the image is stateless — no volumes, no DB sidecar.
 #
 # Two stages:
-#   1. builder  — installs full deps (incl. devDeps) and runs `pnpm run build`,
-#                 producing `dist/` (Vite client + `dist/index.cjs` prod shim).
+#   1. builder  — installs full deps (incl. devDeps), runs `pnpm run build:docker`,
+#                 prunes to prod deps, swaps in the precompiled server deps, and
+#                 SMOKE-BOOTS the result.
 #   2. runtime  — copies only what's needed to boot, runs as non-root, exposes 5000.
 #
-# Why we still ship `node_modules/` at runtime: the build emits `dist/index.cjs`
-# which spawns `node --import tsx server.js` (see scripts/build/write-prod-shim.mjs).
-# `server.js` imports ~100 workspace packages whose `main` is `./src/index.ts`,
-# so tsx + the workspace source tree + runtime deps must all be present until
-# Phase H ships per-package tsc outputs. We minimise this with `pnpm install --prod`
-# below to drop devDeps (eslint, vitest, playwright, etc).
+# §L-442 (2026-08-09) — THE RUNTIME NO LONGER TRANSPILES AT BOOT.
+# --------------------------------------------------------------
+# Previously `dist/index.cjs` re-spawned `node --import tsx server.js`, so every
+# cold boot registered the tsx loader and transpiled workspace TypeScript before
+# `httpServer.listen()` was reached — and boot time IS scale-out latency.
+#
+# What was actually true (measured, not assumed): `server.js` and all of
+# `server/**` are already plain JavaScript. Only TWO imports crossed into
+# TypeScript — `@pryzm/crash-reporter` and `@pryzm/file-format/server` (74 source
+# modules between them, not the "~100 packages" the old comment claimed). Those
+# two are now precompiled to self-contained ESM by
+# `scripts/build/build-server-deps.mjs` and swapped over the pnpm symlinks by
+# `scripts/build/apply-server-deps-overlay.mjs`, so the runtime is plain `node`.
+#
+# Consequences for this image:
+#   • no `tsx` anywhere in the runtime command line;
+#   • `packages/`, `apps/`, `plugins/`, `tools/` are NO LONGER copied into the
+#     runtime stage (~105 MB of TypeScript source that only tsx ever read);
+#   • a hard smoke gate (`scripts/build/smoke-prod-boot.mjs`) boots the artefact
+#     inside the builder and fails `docker build` if it cannot bind and serve.
+#
+# Measured on the dev box (median of 5, warm page cache, PRYZM_FORCE_INMEMORY=1):
+#   boot→listen  BEFORE (tsx)  2500 ms      AFTER (plain node)  993 ms
+# The residual ~1 s is npm dependency loading (express, socket.io, stripe,
+# exceljs, pdf-lib…), which this change does not address.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─── Stage 1: builder ────────────────────────────────────────────────────────
@@ -76,10 +96,12 @@ RUN --mount=type=cache,target=/pnpm/store,sharing=locked \
 # `.dockerignore` already strips docs, tests, MasterMiawW, .git, etc.
 COPY . .
 
-# Build runs: project-isolation check → vite build → write-prod-shim.
+# Build runs: project-isolation check → vite build → check+build server-deps →
+# write-prod-shim.
 # We use `build:docker` (NOT `build`) which OMITS the whole-repo `tsc --skipLibCheck`
-# typecheck. Rationale: the runtime executes TS source directly via `tsx` (see the
-# prod-shim note above — nothing in the image consumes tsc's output), so tsc here is
+# typecheck. Rationale: nothing in the image consumes tsc's output — the server half
+# is hand-written JS and the two TypeScript workspace entry points are compiled by
+# esbuild in `build:server-deps` (type-checking is not esbuild's job) — so tsc here is
 # purely a CI type-gate, not an image input. CI still runs the full `build` (with tsc)
 # on every PR. Dropping it from the image build removes tsc's heap spike and ~30–60s,
 # leaving vite as the single memory peak (~5.5GB) — which is why this deploy uses a
@@ -128,6 +150,23 @@ RUN pnpm run build:docker
 RUN --mount=type=cache,target=/pnpm/store,sharing=locked \
     pnpm install --prod --frozen-lockfile --prefer-offline
 
+# §L-442 step 1 — replace the two `@pryzm/*` symlinks the server imports with the
+# precompiled bundles from dist-server-deps/. MUST come AFTER the `--prod` install
+# (that install recreates the symlinks and would undo this) and BEFORE the smoke
+# test (so the smoke test exercises exactly the graph that ships).
+RUN node scripts/build/apply-server-deps-overlay.mjs --yes
+
+# §L-442 step 2 — HARD GATE. Boot `node dist/index.cjs` for real, on a throwaway
+# port, with no database, and require that it binds, answers /api/health/live with
+# 200, answers / with a non-5xx, and shuts down on SIGTERM. Non-zero exit fails
+# `docker build` here, before the runtime stage exists.
+#
+# This is the check the old design lacked: a bundler emitting a subtly broken
+# module graph is WORSE than a slow boot, because the failure would otherwise
+# surface on a scaled-out instance under load rather than in CI. Running it after
+# the prod prune means it also proves no devDependency leaked into the boot path.
+RUN node scripts/build/smoke-prod-boot.mjs
+
 # ─── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim AS runtime
 
@@ -145,10 +184,11 @@ ENV NODE_ENV=production \
     npm_config_update_notifier=false
 
 # ── Build/deploy provenance (GET /version, server.js) ───────────────────────
-# server.js runs as LIVE source under tsx (see the prod-shim note at the top of
-# this file) — it is never bundled/inlined the way VITE_* client build-args are
-# — so these can be plain runtime ENV vars, read fresh by process.env at request
-# time, rather than needing a build-time-baked JSON file.
+# server.js ships as LIVE JavaScript source and is NOT bundled (§L-442 keeps it
+# unbundled on purpose: it computes `__dirname` from `import.meta.url` to find
+# dist/ and public/, and bundling would relocate that anchor) — so these can be
+# plain runtime ENV vars, read fresh by process.env at request time, rather than
+# needing a build-time-baked JSON file.
 #   • GitHub Actions passes real values: --build-arg GIT_SHA=${{ github.sha }}
 #     --build-arg GIT_BRANCH=${{ github.ref_name }} --build-arg BUILT_AT=<UTC ISO>
 #     --build-arg RUN_NUMBER=${{ github.run_number }} (see deploy-fly.yml).
@@ -169,14 +209,20 @@ ENV GIT_SHA=${GIT_SHA} \
 WORKDIR /app
 
 # Copy ONLY runtime artefacts from the builder. Order: largest-cache-stable first.
-# 1. Pruned node_modules — biggest layer; rarely changes vs source.
+# 1. Pruned node_modules — biggest layer; rarely changes vs source. This already
+#    contains the §L-442 overlay: node_modules/@pryzm/{crash-reporter,file-format}
+#    are real directories holding precompiled ESM, not symlinks into packages/.
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-# 2. Workspace source — required by tsx loader at runtime (see prod-shim note above).
-COPY --from=builder --chown=node:node /app/packages ./packages
-COPY --from=builder --chown=node:node /app/apps ./apps
-COPY --from=builder --chown=node:node /app/plugins ./plugins
-COPY --from=builder --chown=node:node /app/tools ./tools
-# 3. Server runtime — Express monolith + helpers.
+# 2. §L-442 — `packages/`, `apps/`, `plugins/` and `tools/` are NO LONGER copied.
+#    They existed here only so the tsx loader could read `.ts` sources at boot
+#    (~105 MB). Verified before removal: server.js + server/** contain exactly two
+#    `@pryzm/*` import specifiers (both precompiled, both enforced by
+#    scripts/build/check-server-deps.mjs) and ZERO filesystem reads of any
+#    packages//apps//plugins//tools/ path. The remaining node_modules/@pryzm/*
+#    entries are now dangling symlinks — harmless, because importing one is
+#    precisely what the build-time guard forbids.
+#    REVERT: re-add the four COPY lines and restore the tsx shim.
+# 3. Server runtime — Express monolith + helpers (plain JS, run directly).
 COPY --from=builder --chown=node:node /app/server.js ./server.js
 COPY --from=builder --chown=node:node /app/server ./server
 # 4. Client build output + static public assets the Express app serves.
@@ -186,7 +232,12 @@ COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/package.json ./package.json
 COPY --from=builder --chown=node:node /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=builder --chown=node:node /app/pnpm-lock.yaml ./pnpm-lock.yaml
-# 6. Vite config + tsconfig — tsx ESM loader reads tsconfig at boot for paths.
+# 6. Vite config + tsconfig + index.html.
+#    §L-442: these are NO LONGER read at boot (there is no tsx loader to read
+#    tsconfig "paths"). They are retained only because server.js falls back to a
+#    Vite middleware server when `dist/` is absent — a path this image never takes,
+#    but one whose absence would turn a misbuild into a confusing crash instead of
+#    a clear one. Combined size is a few KB; not worth the risk of removing.
 COPY --from=builder --chown=node:node /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=node:node /app/tsconfig.base.json ./tsconfig.base.json
 COPY --from=builder --chown=node:node /app/vite.config.ts ./vite.config.ts
@@ -199,11 +250,15 @@ EXPOSE 5000
 # /api/health already exists in server.js (line 2000) — deep schema check.
 # We use /api/health/live here (line 1988) because Docker's HEALTHCHECK is a
 # liveness probe — readiness (DB connectivity) is owned by Fly's [http_service.checks]
-# block in fly.toml. --start-period gives the tsx loader + Express init ~30s.
+# block in fly.toml. --start-period gives Express init ~30s; §L-442 removed the tsx
+# transpile that used to eat much of that budget (measured 2500 ms → 993 ms to bind
+# on the dev box). Kept at 30s deliberately: the container still has to page in a
+# large npm dependency graph from a cold layer on first boot.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -fsS http://127.0.0.1:5000/api/health/live || exit 1
 
-# tini → node (NOT npm/pnpm) so SIGTERM goes straight to the prod shim, which
-# re-spawns server.js with `--import tsx`. The shim forwards signals (stdio: inherit).
+# tini → node, ONE process. §L-442: dist/index.cjs used to `spawn()` a second node
+# under `--import tsx` and forward signals to it; it now `import()`s server.js
+# in-process, so tini's SIGTERM lands directly on the Express process.
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "./dist/index.cjs"]
