@@ -19,7 +19,13 @@
 import { getPgPool, pgPreflight } from './pgClient.js';
 import { migrateViaSupabaseRest, ensureOwnerAccountInSupabase } from './supabaseMigrate.js';
 
-const SCHEMA_SQL = `
+// §FIX-HOT-QUERY-INDEX-COVERAGE (L-788) — EXPORTED for introspection by
+// `server/__tests__/schemaIndexCoverage.test.ts`, which asserts that each hot
+// query has an index able to SERVE its shape (leading equality column + matching
+// sort direction), not merely an index that names the right table. Exporting a
+// const the migration already held is the smallest seam that lets the test read
+// the real DDL instead of a copy that can drift from it.
+export const SCHEMA_SQL = `
 -- 1. Users (custom auth — bcrypt + JWT)
 CREATE TABLE IF NOT EXISTS pryzm_users (
     id                      TEXT PRIMARY KEY,
@@ -57,6 +63,11 @@ CREATE TABLE IF NOT EXISTS projects (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
+-- §FIX-HOT-QUERY-INDEX-COVERAGE (L-788) — listProjects() is "WHERE owner_id = $1
+-- ORDER BY updated_at DESC LIMIT 50": the hub's first query on every load. The
+-- single-column index above satisfies the equality and then SORTS the whole
+-- owner's project set. The composite serves both halves.
+CREATE INDEX IF NOT EXISTS idx_projects_owner_updated ON projects(owner_id, updated_at DESC);
 
 -- 3. Project Versions (full BIM snapshots as JSONB)
 CREATE TABLE IF NOT EXISTS project_versions (
@@ -77,6 +88,33 @@ CREATE TABLE IF NOT EXISTS project_versions (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_project_versions_project_id ON project_versions(project_id);
+-- §FIX-HOT-QUERY-INDEX-COVERAGE (L-788) — THE most important index in the schema.
+--
+-- Three hot reads share one shape, "WHERE project_id = $1 ORDER BY created_at DESC
+-- LIMIT 1": getLatestVersionSnapshot() (THE PROJECT-OPEN PATH), getProjectStatus(),
+-- and listProjects()'s LEFT JOIN LATERAL (which runs once PER PROJECT ROW, so up to
+-- 50 times per hub load). The single-column index above satisfies only the equality;
+-- Postgres then reads and sorts every remaining version row for that project — and
+-- each row carries a TOASTed multi-megabyte snapshot column. Opening a project with
+-- 20 versions meant scanning hundreds of MB to find one row.
+--
+-- The old index is deliberately RETAINED rather than dropped: dbMigrate.js is
+-- purely additive by invariant (no DROP/TRUNCATE/ALTER COLUMN/RENAME), which is what
+-- makes an image rollback schema-safe by construction (L-770). It is now redundant
+-- for reads and costs a little write amplification; reclaiming that is a separate,
+-- deliberate change, not a side effect of an index addition.
+--
+-- NOT "CONCURRENTLY", deliberately. The audit suggested it, and it is wrong here:
+-- migrateViaPg() wraps SCHEMA_SQL in a BEGIN/COMMIT so a partial failure rolls back
+-- (§B9), and CREATE INDEX CONCURRENTLY cannot run inside a transaction. Worse, a
+-- failed CONCURRENTLY build leaves an INVALID index behind that nothing in this
+-- codebase detects or cleans up — a new silent-failure mode, which is exactly the
+-- class of defect this whole remediation is removing. A plain CREATE INDEX takes a
+-- SHARE lock (blocks writes, not reads) for the build; at current table sizes that
+-- is sub-second, and the blue-green deploy means the old machine serves throughout.
+-- Revisit only if project_versions grows to where the build time is measurable.
+CREATE INDEX IF NOT EXISTS idx_project_versions_project_created
+    ON project_versions(project_id, created_at DESC);
 
 -- 4. Project Members (ISO 19650 CDE roles)
 CREATE TABLE IF NOT EXISTS project_members (
@@ -90,6 +128,13 @@ CREATE TABLE IF NOT EXISTS project_members (
     UNIQUE (project_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
+-- §FIX-HOT-QUERY-INDEX-COVERAGE (L-788) — the UNIQUE (project_id, user_id) constraint
+-- above already indexes the project→members direction ("who is on this project?").
+-- It cannot serve user→projects ("which projects is this user on?"), which is the
+-- direction L-336's access gate and the membership-aware project list both need on
+-- EVERY request once membership is wired. Landing the index before the feature means
+-- L-336 does not ship a full table scan on its hottest path.
+CREATE INDEX IF NOT EXISTS idx_project_members_user_project ON project_members(user_id, project_id);
 
 -- 5. Version Audit Log (append-only ISO 19650 state transitions)
 CREATE TABLE IF NOT EXISTS version_audit_log (
