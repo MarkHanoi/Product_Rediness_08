@@ -32,6 +32,12 @@ import {
     getUserRole, listMembers, upsertMember, updateMemberRole, removeMember,
     listMembersFromSupabase, upsertMemberInSupabase, updateMemberRoleInSupabase,
     removeMemberFromSupabase, getMemberFromSupabase,
+    // §FIX-ACCESS-MEMBERSHIP (L-336) — the in-memory membership source for the
+    // access gate. Needed because without Supabase there is NO PG write path for
+    // members: the add-member route falls back to `upsertMember()`, which writes
+    // only this volatile Map (L-806). Without threading it through, dev and
+    // self-host deployments would stay owner-only after the fix.
+    getMember,
 } from './server/projectMembers.js';
 import {
     getVersionState, transitionState, transitionStateInSupabase,
@@ -745,7 +751,12 @@ try {
             const access = await canUserAccessProject(
                 socket.data.userId,
                 projectId,
-                { supabase, pgPool: getPgPool(), projectsMap: pgProjectStore.imProjectsMapAdapter }
+                {
+                    supabase,
+                    pgPool: getPgPool(),
+                    projectsMap: pgProjectStore.imProjectsMapAdapter,
+                    membersLookup: getMember,   // §FIX-ACCESS-MEMBERSHIP (L-336)
+                }
             );
 
             if (!access.allowed) {
@@ -1119,6 +1130,7 @@ async function _httpAccessResult(userId, projectId) {
             supabase,
             pgPool: getPgPool(),
             projectsMap: pgProjectStore.imProjectsMapAdapter,
+            membersLookup: getMember,   // §FIX-ACCESS-MEMBERSHIP (L-336)
         });
     } catch (err) {
         console.warn('[httpCanAccess] check failed:', err.message);

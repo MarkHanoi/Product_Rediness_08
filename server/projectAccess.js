@@ -57,7 +57,48 @@
 // PRYZM_ACCESS_CHECK_RETRYABLE=0 to fall back to the legacy plain-deny result.
 const ACCESS_CHECK_RETRYABLE_ENABLED = process.env.PRYZM_ACCESS_CHECK_RETRYABLE !== '0';
 
-export async function canUserAccessProject(userId, projectId, { supabase, pgPool, projectsMap }) {
+// ── §FIX-ACCESS-MEMBERSHIP (L-336, 2026-08-09) ───────────────────────────────
+//
+// This function resolved access purely by `owner_id` on ALL THREE backends and
+// never read `project_members`. Because `join-project` is the ONLY gate that
+// admits a socket to a project room, every non-owner was rejected — so cursors,
+// presence, remote-command relay and sheet comments were reachable only by the
+// project's owner. Real-time multi-user collaboration, the product's headline
+// capability, worked as two tabs of the same account.
+//
+// The table, `projectMembers.js`, `pendingInvites.js` and the complete ISO 19650
+// role matrix in `permissions.js` all existed and were all inert on this path.
+// Open as an "architectural launch-blocker" since 2026-07-16 (L-336). No test
+// caught it because no test exercised two distinct users.
+//
+// ⚠ TWO TRAPS, both found while implementing, both deliberate decisions:
+//
+//   1. `accepted_at` is DEAD SCHEMA. It is in the DDL and in the in-memory
+//      MemberRecord, and `acceptInvitation()` exists — but it is in-memory only,
+//      NO ROUTE CALLS IT, and nothing in server/ ever writes the column. Gating
+//      on `accepted_at IS NOT NULL` would have made this fix a SILENT NO-OP:
+//      membership would grant nothing, tests would be green, and the blocker
+//      would still be there. So a row grants access regardless. The cost — an
+//      invited-but-unaccepted user can join — is real, stated, and tracked as
+//      L-806. It is strictly better than a fix that grants nothing.
+//
+//   2. Without Supabase there is NO PG WRITE PATH for members at all
+//      (`server.js` calls `upsertMember()`, which writes only the volatile
+//      in-memory Map). Hence the optional `membersLookup` below: without it,
+//      dev and self-host deployments would still be owner-only after this fix.
+//
+// This function answers a READ question ("may this socket join the room?"), and
+// all five ISO roles have read rights, so any valid membership admits. WRITE
+// authorisation is `hasPermission(role, action)` — which is precisely why the
+// return value now carries the ROLE rather than collapsing to a boolean.
+import { ROLES } from './permissions.js';
+
+/** A role is only a role if the matrix knows it. Unknown ⇒ refuse (fail closed). */
+function _validRole(role) {
+    return typeof role === 'string' && ROLES.includes(role) ? role : null;
+}
+
+export async function canUserAccessProject(userId, projectId, { supabase, pgPool, projectsMap, membersLookup }) {
     if (!userId || userId === 'anonymous') {
         return { allowed: false, reason: 'anonymous users cannot join project rooms' };
     }
@@ -92,11 +133,37 @@ export async function canUserAccessProject(userId, projectId, { supabase, pgPool
                 console.error('[projectAccess] Supabase error checking project access (falling through):', error.message);
                 dbErrorSeen = true;
             } else if (data) {
-                // Found in Supabase — ownership check is authoritative.
-                if (data.owner_id !== userId) {
-                    return { allowed: false, reason: 'user is not the project owner' };
+                // Found in Supabase — this row is authoritative for ownership.
+                if (data.owner_id === userId) {
+                    return { allowed: true, role: 'owner', reason: 'owner verified via supabase' };
                 }
-                return { allowed: true, reason: 'owner verified via supabase' };
+                // §FIX-ACCESS-MEMBERSHIP (L-336) — not the owner is NOT the end of the
+                // question any more. Only now do we pay for a second round trip; the
+                // owner case (the overwhelming majority) still costs exactly one.
+                try {
+                    const { data: mem, error: memErr } = await supabase
+                        .from('project_members')
+                        .select('role')
+                        .eq('project_id', projectId)
+                        .eq('user_id', userId)
+                        .maybeSingle();
+                    if (memErr) {
+                        // Could not VERIFY membership — not the same as "not a member".
+                        // Fall through so PG / in-memory can still answer, and let the
+                        // retryable path own the outcome if nothing else can (L-136).
+                        console.error('[projectAccess] Supabase membership lookup failed (falling through):', memErr.message);
+                        dbErrorSeen = true;
+                    } else {
+                        const role = _validRole(mem?.role);
+                        if (role) return { allowed: true, role, reason: `member (${role}) verified via supabase` };
+                        // A row with an unrecognised role reaches here and is refused:
+                        // an authorization gate must not guess at data it cannot parse.
+                        return { allowed: false, reason: 'user is neither owner nor a member of this project' };
+                    }
+                } catch (memThrow) {
+                    console.error('[projectAccess] Supabase membership lookup threw (falling through):', memThrow.message);
+                    dbErrorSeen = true;
+                }
             }
             // data === null (and no error): project not in Supabase yet — fall through
             // to PG / in-memory. Covers (a) race window on new project creation,
@@ -106,17 +173,36 @@ export async function canUserAccessProject(userId, projectId, { supabase, pgPool
         // ── Path 2: Replit PG ─────────────────────────────────────────────────
         if (pgPool) {
             try {
+                // §FIX-ACCESS-MEMBERSHIP (L-336) — ownership AND membership in ONE
+                // round trip. This runs on EVERY socket join, so two queries would
+                // double the load on the pool L-787 just resized, on the hottest
+                // authorization path in the server. The LEFT JOIN is served by
+                // `idx_project_members_user_project (user_id, project_id)`, added in
+                // L-788 specifically ahead of this change so it would not ship a
+                // sequential scan.
                 const result = await pgPool.query(
-                    'SELECT id, owner_id FROM projects WHERE id = $1 LIMIT 1',
-                    [projectId]
+                    `SELECT p.owner_id, m.role
+                       FROM projects p
+                       LEFT JOIN project_members m
+                         ON m.project_id = p.id AND m.user_id = $2
+                      WHERE p.id = $1
+                      LIMIT 1`,
+                    [projectId, userId]
                 );
 
                 if (result.rows.length > 0) {
                     const row = result.rows[0];
-                    if (row.owner_id !== userId) {
-                        return { allowed: false, reason: 'user is not the project owner' };
+                    if (row.owner_id === userId) {
+                        return { allowed: true, role: 'owner', reason: 'owner verified via replit pg' };
                     }
-                    return { allowed: true, reason: 'owner verified via replit pg' };
+                    const role = _validRole(row.role);
+                    if (role) {
+                        return { allowed: true, role, reason: `member (${role}) verified via replit pg` };
+                    }
+                    // The project EXISTS and this user is neither its owner nor a
+                    // member with a role we recognise — a verified denial, and the one
+                    // case that must NOT fall through to the in-memory shadow store.
+                    return { allowed: false, reason: 'user is neither owner nor a member of this project' };
                 }
                 // Not found in PG either — fall through to in-memory.
             } catch (pgErr) {
@@ -133,10 +219,20 @@ export async function canUserAccessProject(userId, projectId, { supabase, pgPool
 
         if (project) {
             // In-memory has an authoritative owner for this project — verify it.
-            if (project.ownerId !== userId) {
-                return { allowed: false, reason: 'user is not the project owner' };
+            if (project.ownerId === userId) {
+                return { allowed: true, role: 'owner', reason: 'owner verified via in-memory store' };
             }
-            return { allowed: true, reason: 'owner verified via in-memory store' };
+            // §FIX-ACCESS-MEMBERSHIP (L-336) — the in-memory branch needs its own
+            // membership source, because WITHOUT SUPABASE there is no PG write path
+            // for members at all: `server.js` falls back to `upsertMember()`, which
+            // writes only the volatile `_members` Map in projectMembers.js (L-806).
+            // Omitting this would leave dev and self-host deployments owner-only even
+            // after this fix — the change would look done and be half-done.
+            const role = _validRole(membersLookup?.(projectId, userId)?.role);
+            if (role) {
+                return { allowed: true, role, reason: `member (${role}) verified via in-memory store` };
+            }
+            return { allowed: false, reason: 'user is neither owner nor a member of this project' };
         }
 
         // ── Not verified by ANY source ─────────────────────────────────────────
