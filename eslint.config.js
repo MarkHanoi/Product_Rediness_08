@@ -189,7 +189,7 @@ export const layerElements = [
   { type: 'L3', pattern: 'packages/view-state/**' },        // [CLAUDE.md]
   { type: 'L3', pattern: 'packages/file-format/**' },       // [CLAUDE.md]
   { type: 'L3', pattern: 'packages/sync-client/**' },       // [CLAUDE.md]
-  { type: 'L3', pattern: 'packages/frame-scheduler/**' },   // [CLAUDE.md] see CONTRADICTION 1
+  { type: 'L1', pattern: 'packages/frame-scheduler/**' },   // [RESOLVED 2026-08-09] imports NOTHING; consumed by eleven L2 geometry-* packages. A zero-dependency primitive consumed by L2 cannot be L3. Moving it here removes ~29 FALSE violations. CLAUDE.md updated to match.
   { type: 'L3', pattern: 'packages/ui/**' },                // [family] with ui-base; leaf
   { type: 'L3', pattern: 'packages/editor-ui/**' },         // [floor]  imports runtime-composer (L3)
   { type: 'L3', pattern: 'packages/engine/**' },            // [floor]  imports editor-ui + runtime-composer (L3)
@@ -206,13 +206,13 @@ export const layerElements = [
   { type: 'L4', pattern: 'packages/pdf-export/**' },          // [role]   bound L2..L4; an output pipeline
 
   // ── L5 — per-app surfaces. ALL of apps/*, not just the editor. ─────────────
-  { type: 'L5', pattern: 'apps/**' },                         // [CLAUDE.md]
+  { type: 'L7', pattern: 'apps/**' },                         // [RESOLVED 2026-08-09] apps are the composition root and sit ABOVE plugins. Measured apps->plugins 142, plugins->apps 0 real imports.
 
   // ── L6 — the curated SDK facade. ───────────────────────────────────────────
-  { type: 'L6', pattern: 'packages/plugin-sdk/**' },          // [CLAUDE.md]
+  { type: 'L5', pattern: 'packages/plugin-sdk/**' },          // [RESOLVED 2026-08-09] the SDK facade sits BELOW the plugins that consume it (630 imports, 0 back).
 
   // ── L7 — features. ─────────────────────────────────────────────────────────
-  { type: 'L7', pattern: 'plugins/**' },                      // [CLAUDE.md]
+  { type: 'L6', pattern: 'plugins/**' },                      // [RESOLVED 2026-08-09] plugins sit between the SDK they consume and the apps that register them.
 
   // ── L7.5 — the transitional legacy zone. ───────────────────────────────────
   // Not in `boundaries/include`, and the ga-gate scans packages/plugins/apps only,
@@ -253,48 +253,44 @@ export const allowedDependencies = [
   { from: 'L3',   allow: ['L0', 'L1', 'L2', 'L3'] },
   { from: 'L4',   allow: ['L0', 'L1', 'L2', 'L3', 'L4'] },
 
-  // ── L5 (apps): the ONE documented deviation from CLAUDE.md's numbering ─────
-  // CLAUDE.md numbers apps L5, plugin-sdk L6 and plugins L7, which puts the app
-  // BELOW the plugins it hosts. The same edge-direction test that overturned the
-  // old eslint table says that ordering is inverted, and by a wider margin:
+  // ── L5 = plugin-sdk · L6 = plugins · L7 = apps ─────────────────────────────
+  // RESOLVED 2026-08-09. CLAUDE.md used to number apps L5, plugin-sdk L6 and
+  // plugins L7 — which put the app BELOW the plugins it hosts. The same
+  // edge-direction test that overturned the previous eslint table says that
+  // ordering is inverted, by a wider margin:
   //
-  //     apps → plugins       : 142 imports        plugins → apps       :   1
+  //     apps → plugins       : 142 imports        plugins → apps       :   0
   //     apps → plugin-sdk    :   6 imports        plugin-sdk → apps    :   0
   //     plugins → plugin-sdk : 630 imports        plugin-sdk → plugins :   0
   //
-  // (The single plugins → apps edge is `plugins/toy-cube → apps/editor`.)
-  //
   // An app is the composition root: `apps/editor` imports twenty-odd plugins in
   // order to REGISTER them. That is what a host does, and it is structural, not
-  // debt. Encoding "apps may not import plugins" would mint 151 permanent false
-  // violations — exactly the failure this pass exists to undo — so apps keep the
-  // top-of-stack treatment the previous config already gave them (`L7-app: ['*']`).
-  //
-  // The package NUMBERING is left exactly as CLAUDE.md writes it, so there is no
-  // third model to reconcile; only this allow-set records the correction.
-  // → RECOMMENDED CLAUDE.md EDIT: reorder the top of the stack to
-  //   L5 plugin-sdk · L6 plugins · L7 apps, then delete this exception.
-  { from: 'L5',   allow: ['*'] },
+  // debt. The stack was therefore REORDERED (and CLAUDE.md corrected to match),
+  // rather than carrying a `{ from: 'L5', allow: ['*'] }` exception forever — an
+  // exception that permanently exempts the top of the stack is not a rule.
+  { from: 'L5',   allow: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'] },
 
+  // ── L6 (plugins): why this is L0..L5 and not "the SDK only" ────────────────
+  // CLAUDE.md says a plugin "may import the SDK only". Measured against the real
+  // graph, plugins make 630 imports of @pryzm/plugin-sdk and 171 that go around
+  // it — renderer-three ×84, command-registry ×29, core-app-model ×27,
+  // scene-committer ×19, and a tail (geometry-curtain-wall, schemas, ai-host,
+  // geospatial, drawing-primitives, geometry-pool).
+  //
+  // Encoding "SDK only" here would fold those 171 into the SAME counter that
+  // holds the genuine `→ plugin-annotations` cycle violations, and the number the
+  // gate exists to publish would stop being readable. They are also not layer
+  // violations: plugin → renderer-three is DOWNWARD, and the layer rule is "never
+  // a HIGHER layer" — every one of those 171 obeys it.
+  //
+  // SDK-facade encapsulation is a different, strictly narrower invariant, so it
+  // is measured separately and frozen on its own shrink-only ratchet
+  // (`MAX_SDK_BYPASS` in check-layer-boundaries.ts). It is enforced; it is just
+  // not conflated with this one.
   { from: 'L6',   allow: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'] },
 
-  // ── L7 (plugins): why this is L0..L6 and not "L6 only" ─────────────────────
-  // CLAUDE.md says a plugin "may import L6 only". Measured against the real graph,
-  // plugins make 630 imports of @pryzm/plugin-sdk and 171 imports that go around it
-  // — renderer-three ×84, command-registry ×29, core-app-model ×27,
-  // scene-committer ×19, and a tail (geometry-curtain-wall, schemas, ai-host,
-  // geospatial, drawing-primitives, geometry-pool, apps/editor).
-  //
-  // Encoding "L6 only" here would fold those 171 into the SAME counter that holds
-  // the ~14 genuine `→ plugin-annotations` cycle violations, and the number the
-  // gate exists to publish would stop being readable. They are also not layer
-  // violations: plugin → renderer-three is DOWNWARD. The layer rule is "never a
-  // HIGHER layer", and every one of those 171 obeys it.
-  //
-  // "L6 only" is a different invariant — SDK-facade encapsulation, strictly
-  // narrower than the layer rule — so it is measured separately and frozen on its
-  // own shrink-only ratchet (`MAX_SDK_BYPASS` in check-layer-boundaries.ts). It is
-  // enforced; it just is not conflated with this one.
+  // L7 (apps) — the composition root, top of the stack. Everything below is fair
+  // game; nothing may import an app.
   { from: 'L7',   allow: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'] },
 
   // L7.5 legacy src/ — anything goes downward while the zone shrinks.

@@ -55,19 +55,61 @@ Google/Microsoft OAuth credentials.
 ### The 8-layer model (PRYZM 3)
 
 The client is governed by a strict layered dependency rule: **a layer may import from any lower
-layer, never a higher one.** CI enforces this via `eslint-plugin-boundaries`.
+layer, never a higher one.**
+
+> ⚠ **Corrected 2026-08-09 (L-809).** This paragraph used to end "CI enforces this via
+> `eslint-plugin-boundaries`". **It did not.** `eslint.config.js` configured no `import/resolver`,
+> so boundaries could not resolve `@pryzm/*` specifiers — which is how essentially every
+> cross-package import here is written — and silently checked nothing for them. The rule was set
+> to `'error'` and matched almost none of the imports it existed to police.
+>
+> **The authority is `tools/ga-gate/check-layer-boundaries.ts`**, which maps `@pryzm/X` → directory
+> by reading each workspace `package.json`. That is exact and independent of pnpm symlink state —
+> which is precisely what made resolver-based checking unreliable here (some `@pryzm/*` packages
+> are linked into a given package and some are not, so a resolver caught a violation in one place
+> and silently skipped the identical one next door). It imports the tables from `eslint.config.js`
+> rather than copying them. `boundaries/element-types` is retained and still catches relative-path
+> violations, but it is not the layer gate.
 
 ```
-L7.5  src/                       — TRANSITIONAL legacy zone, shrinking toward src/ui/ only
-L7    plugins/* (46)             — features; may import L6 only
-L6    packages/plugin-sdk/       — curated public SDK facade (re-exports a subset)
-L5    apps/* (14)                — per-app surfaces (editor, marketplace, workers, docs-site…)
+L7    apps/* (14)                — per-app surfaces (editor, marketplace, workers, docs-site…)
+L6    plugins/* (46)             — features
+L5    packages/plugin-sdk/       — curated public SDK facade (re-exports a subset)
 L4    packages/renderer, render-runtime, persistence-client, scene-committer
-L3    packages/runtime-composer, ui-base, stores, view-state, file-format, sync-client, frame-scheduler
+L3    packages/runtime-composer, ui-base, stores, view-state, file-format, sync-client
 L2    packages/geometry-kernel, ai-host, constraint-solver, drawing-primitives
-L1    packages/command-bus, picking, visibility, snapping, renderer-three, spatial-index, …
+L1    packages/command-bus, picking, visibility, snapping, renderer-three, spatial-index,
+      frame-scheduler, …
 L0    packages/schemas/          — pure Zod schemas; no I/O, no THREE, no DOM
 ```
+
+**Two orderings above were corrected by measured edge direction, not by preference:**
+
+- **apps moved BELOW → ABOVE plugins.** The old table put apps at L5, beneath the plugins they
+  host. Measured `apps → plugins` **142**; `plugins → apps` **0** real import statements.
+  `apps/editor` imports twenty-odd plugins in order to *register* them — that is what a
+  composition root does, and it is structural, not debt. Encoding the old order minted **151
+  permanent false violations**.
+- **`frame-scheduler` L3 → L1.** It imports nothing at all, and is consumed by eleven L2
+  `geometry-*` packages plus `core-app-model`. A zero-dependency primitive consumed by L2 cannot
+  sit at L3; the old placement generated ~29 false violations.
+
+**Stated honestly as NOT-YET-TRUE, so nobody mistakes them for settled invariants:**
+
+- **"plugins may import L6 only" is a GOAL, not an invariant** — measured 630 SDK imports against
+  **171 direct bypasses** (`renderer-three` ×84, `command-registry` ×29, `core-app-model` ×27,
+  `scene-committer` ×19). Tracked on its own shrink-only ratchet rather than folded into the layer
+  count, because `plugin → renderer-three` goes *downward*: it is a facade-encapsulation breach,
+  not a layer violation, and merging the two would make both numbers unreadable.
+- **`runtime-composer` is not really L3.** It is the P1 composition root and necessarily imports
+  `persistence-client`, `renderer`, four typology packs, five plugins and `apps/editor`. Either it
+  belongs at the top or those registration edges must invert. 16 violations are this.
+- **`core-app-model` / `command-registry` sit at L2 while importing L4.** The real debt is that a
+  domain model depends on persistence.
+- **Backend packages have no layer** — `admin-overrides`, `ai-spend`, `api-rbac`, `api-spec`,
+  `rate-limit`, `webhooks`, `email-transport`, `beta-signup`. Consumed only by
+  `apps/api-gateway` / `marketplace-api`, zero client dependencies. **Open question: does this
+  model extend to the backend, or does the backend need its own?**
 
 The main editor application is `apps/editor` (`@pryzm/editor`). Each element type (wall, door,
 roof, stair, curtain-wall, slab, etc.) is split across a `packages/geometry-*` package (geometry

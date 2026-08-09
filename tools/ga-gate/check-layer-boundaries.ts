@@ -127,7 +127,7 @@ const ALLOW = allowedDependencies as readonly AllowRule[];
  * its own shrink-only ratchet instead of being dropped. Both are enforced; each
  * says what it means.
  */
-const MAX_VIOLATIONS = Number(process.env.PRYZM_LAYER_MAX_VIOLATIONS ?? 133);
+const MAX_VIOLATIONS = Number(process.env.PRYZM_LAYER_MAX_VIOLATIONS ?? 102);
 const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
 const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 171);
 
@@ -235,7 +235,13 @@ function scan(pkgs: Map<string, string>) {
             const toLayer = layerOf(targetPath);
             if (!toLayer) continue;                      // unclassified target — coverage, not violation
 
-            if (fromLayer === 'L7' && toLayer !== 'L6' && toLayer !== 'L7') {
+            // §FIX-LAYER-TABLE-INVERTED (2026-08-09) — PLUGINS are L6 and the SDK
+            // facade is L5 after the reorder. This condition previously read L7/L6,
+            // which after renumbering counted every APP import as a plugin SDK bypass
+            // and inflated the figure 171 → 2360. A gate keyed on a layer NUMBER
+            // silently changes meaning when the stack is renumbered; keyed on the
+            // plugin/SDK ROLE it does not.
+            if (fromLayer === 'L6' && toLayer !== 'L5' && toLayer !== 'L6') {
                 const pkgDir = targetPath.replace(/\/src\/index\.ts$/, '');
                 sdkBypass.push({ file, spec });
                 bypassByTarget.set(pkgDir, (bypassByTarget.get(pkgDir) ?? 0) + 1);
@@ -262,7 +268,7 @@ const { violations, byPair, sdkBypass, bypassByTarget } = scan(pkgs);
 console.log('[check-layer-boundaries] §FIX-LAYER-GATE-BLIND (L-809) · §FIX-LAYER-TABLE-INVERTED');
 console.log(`[check-layer-boundaries] workspace packages: ${pkgs.size} · classified: ${classified.length} · UNCLASSIFIED: ${unclassified.length}`);
 console.log(`[check-layer-boundaries] upward imports between classified packages: ${violations.length}`);
-console.log(`[check-layer-boundaries] L7 plugin imports bypassing the L6 SDK facade: ${sdkBypass.length}`);
+console.log(`[check-layer-boundaries] L6 plugin imports bypassing the L5 SDK facade: ${sdkBypass.length}`);
 
 if (stale.length) {
     console.log(`\n  ⚠ ${stale.length} layer pattern(s) point at a directory that does not exist — dead entries in eslint.config.js:`);
