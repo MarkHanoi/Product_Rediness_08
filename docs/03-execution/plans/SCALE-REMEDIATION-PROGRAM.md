@@ -199,13 +199,48 @@ proxies to `apps/api-gateway`), L-802 (the P3 group), plus **C17**.
 
 | Tranche | Item | Status | Commit |
 |---|---|---|---|
-| T1 | L-788 indexes | — | — |
-| T1 | L-789 degrade honesty | — | — |
-| T1 | L-787 pool + timeout | — | — |
-| T1 | L-796 namespace | — | — |
-| T1 | L-802(g) gitattributes | — | — |
-| T1 | L-770a VM resize | — | — |
-| T1 | L-800 k6 harness | — | — |
+| T1.1 | L-788 hot-query indexes | ✅ DONE — 4 tests, 3/4 red first | `1bbe0a97` |
+| T1.2 | L-789 degrade honesty | ✅ DONE — 8 tests, 6/8 red first | `97ad9f77` |
+| T1.3 | L-787 pool size + `SET LOCAL` timeout | ✅ DONE — 12 tests | `ceaddb38` |
+| T1.5 | L-802(g) scoped LF policy | ✅ DONE — 20 files renormalised | `ffae7651` |
+| T1.4 | L-796 alias seam + prefix ratchet | ✅ DONE — 13 tests; gate negative-tested | `e534a58b` |
+| T1.7 | L-800 k6 harness | ✅ AUTHORED — **not yet run**; needs staging + credentials | — |
+| T1.6 | L-770a VM resize | ⛔ **FOUNDER-GATED — not done, deliberately** | — |
 
-*(Updated as each item lands. An item is DONE when its test is green, root `tsc` passes, and its
-ISSUE-LOG row is updated — not when the code is written.)*
+*(An item is DONE when its test is green, root `tsc` passes, and its ISSUE-LOG row is updated —
+not when the code is written.)*
+
+### ⛔ T1.6 is deliberately not done — this needs a founder decision
+
+The audit recommended resizing to `performance-2x`. **I did not make that change**, because
+`fly.toml` records that this exact change was already made and then **reverted**, with reasons:
+
+> `§L-442 REVERTED 2026-07-20 — back to 512 MB / 1 CPU. I raised this to 1024/2 to fix a "slow cold
+> boot" that DOES NOT EXIST: measured boot-to-env-check is 2.9s, not 60s. The real cause was L-444
+> (the deploy gate querying a dead database). Keeping the larger VM would be paying for a diagnosis
+> that was wrong. **Beta budget: stay on the free-tier-friendly size until September.**`
+
+Three reasons to leave it alone:
+
+1. **It is a billing event the founder already ruled on**, with a stated horizon (September) that
+   has not arrived. Spending someone's money on the strength of a derived estimate is not a
+   technical call.
+2. **The last time this was raised, the diagnosis was wrong.** The comment is a warning written by
+   someone who made exactly this mistake. My case is different — capacity, not boot time — but
+   "different reasoning, same change, previously reverted" deserves an explicit decision, not a
+   silent repeat.
+3. **The evidence is not in yet.** T1.7's k6 run is what turns "1 vCPU is ~20× short" from a
+   derivation into a measurement. Resize *after* the ramp stage, sized to what it shows.
+
+**What the founder needs to decide:** whether to hold the free-tier line to September and accept a
+~50–200 concurrent-user ceiling, or to spend now. Either is defensible; the audit does not make it
+for them.
+
+### ⚠ T1.7 is authored, not run
+
+The harness cannot be run from here: it needs credentials and a target. It also **must not** be
+pointed at production at `STAGE=target` — 1,000 VUs against one 512 MB machine with
+`min_machines_running = 1` is a real outage for real users, and `fly.staging.toml` **does not
+exist** despite `fly.toml:18-19` describing it (L-770). **Creating a staging app is a prerequisite
+for the target stage**, not a nicety. `STAGE=smoke` against production is harmless and is the right
+first step.
