@@ -14,8 +14,17 @@ These are not preamble; each one has bitten this repo and each one constrains th
 
 1. **Contract-first.** Before touching a subsystem, read its contract. Where the contract is silent
    on something this program decides (concurrency limits, the source of truth for a datum, the
-   element lifecycle), **write the contract** — do not encode the decision only in code. Two new
-   contracts are in scope: **C16-CONCURRENCY-AND-SCALE**, **C17-ELEMENT-LIFECYCLE**.
+   element lifecycle), **write the contract** — do not encode the decision only in code.
+
+   ⚠ **Corrected 2026-08-09.** This plan originally proposed "C16-CONCURRENCY-AND-SCALE" and
+   "C17-ELEMENT-LIFECYCLE". **Both numbers are taken** — C16 is Command Authoring Protocol, C17 is
+   Batch Creation Catalogue — and, more usefully, **the element-lifecycle contract largely already
+   exists**: C11 (Element Creation Pipeline) + C16 (command authoring) + C17 (batch creation) +
+   C65 (Element Type System) cover it between them. Minting a second one would have been the
+   duplicate-abstraction smell the audit itself flags. So:
+   - **C66 — Concurrency & Scale** is the one genuinely new contract (**minted**; C61 is a reserved
+     slot and was not taken).
+   - The element-lifecycle work becomes **amendments to C11/C16/C17**, not a new contract.
 2. **A refusal and a success must never be the same value** (§CONTEXT-DATA-HONESTY). This program
    removes two existing violations (L-789, and the L-336 consequence) and must not add one.
 3. **Ship the probe before the fix.** Every capacity claim in the audit is derived, not measured.
@@ -206,6 +215,7 @@ proxies to `apps/api-gateway`), L-802 (the P3 group), plus **C17**.
 | T1.4 | L-796 alias seam + prefix ratchet | ✅ DONE — 13 tests; gate negative-tested | `e534a58b` |
 | T1.7 | L-800 k6 harness | ✅ AUTHORED — **not yet run**; needs staging + credentials | — |
 | T1.6 | L-770a VM resize | ⛔ **FOUNDER-GATED — not done, deliberately** | — |
+| T2.1 | **C66 — Concurrency & Scale** minted + indexed | ✅ DONE — found L-804, L-805 | — |
 
 *(An item is DONE when its test is green, root `tsc` passes, and its ISSUE-LOG row is updated —
 not when the code is written.)*
