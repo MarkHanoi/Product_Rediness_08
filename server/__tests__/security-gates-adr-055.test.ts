@@ -621,9 +621,35 @@ describe('§8 strict-CSP shadow policy (C51 §3.1.2 target, report-only)', () =>
         expect(__strictCspShadowHeader).not.toContain("'unsafe-eval'");
     });
 
-    it('T8.2 — the shadow header drops style-src unsafe-inline', () => {
-        expect(__strictCspShadowHeader).toContain("style-src 'self' https://fonts.googleapis.com");
-        expect(__strictCspShadowHeader).not.toContain("'unsafe-inline'");
+    it('T8.2 — style-src is DELIBERATELY retired from the shadow (2026-08-09)', () => {
+        // ⚠ THIS ASSERTION WAS INVERTED ON PURPOSE, AND THAT IS THE POINT.
+        // It previously required the shadow to DROP 'unsafe-inline' so style-src
+        // violations would be reported. They were — in enormous volume: every
+        // injectAppTheme() write, every Cesium widget style and every inline
+        // style="…" attribute produced its own report-only console warning,
+        // hundreds per page load, until the founder could not read the app's own
+        // diagnostics. A probe whose noise stops people reading their logs has
+        // stopped being a probe.
+        //
+        // The finding is already established and needs no more sampling:
+        // style-src-elem and style-src-attr are both violated, by CSS-in-JS and by
+        // inline style attributes. Closing it is a nonce/hash migration of
+        // injectAppTheme() — a work item, not an open question.
+        //
+        // So the shadow no longer tests style-src AT ALL. This test pins that as a
+        // DECLARED reduction in coverage: if someone re-tightens the shadow, this
+        // fails and they must come here and read why. When the CSS-in-JS migration
+        // lands, invert it back — proving the migration is exactly what the
+        // shadow is for.
+        expect(__strictCspShadowHeader).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com");
+    });
+
+    it('T8.2b — script-src is STILL under test, because eval is still unresolved', () => {
+        // The opposite call: production telemetry from this shadow reported
+        // `directive=script-src blocked=eval`, so 'unsafe-eval' cannot be dropped
+        // and the surfaces that eval are not yet all known. Keep measuring.
+        expect(__strictCspShadowHeader).toContain("script-src 'self' 'wasm-unsafe-eval' blob:");
+        expect(__strictCspShadowHeader).not.toContain("script-src 'self' 'unsafe-eval'");
     });
 
     it('T8.3 — the shadow LABELS its reports so a research datum ≠ a live break', () => {

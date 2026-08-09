@@ -338,13 +338,42 @@ const STRICT_CSP_SHADOW_DIRECTIVES = {
     // WebAssembly compilation (the geometry kernel, IFC, Draco/Basis decoders)
     // while refusing JS eval()/new Function(). If the WASM paths are the only real
     // consumers, this reports clean and the enforced policy can adopt it.
+    // ⚠ ANSWERED 2026-08-09 — `eval` IS GENUINELY USED. Production telemetry from
+    // this very shadow reported `directive=script-src blocked=eval` against real
+    // sessions. So `'unsafe-eval'` CANNOT be dropped, and the Three.js measurement
+    // that suggested otherwise (zero `eval(`/`new Function(` in the 1.87 MB
+    // vendor-three chunk) was TRUE BUT INCOMPLETE — the eval lives elsewhere
+    // (Cesium / a WASM glue path / a worker chunk), exactly the gap that grep was
+    // warned not to cover. Tightening on that evidence alone would have white-
+    // screened production.
+    //
+    // Kept at 'wasm-unsafe-eval' so the shadow keeps NAMING which surfaces still
+    // eval — that is the remaining work item, and silence here would erase it.
     scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'blob:'],
 
     // BLOCKER 2 — style-src 'self'. `injectAppTheme()` writes CSS-in-JS, which
     // needs a nonce or hash migration before this can hold. Expect reports here
     // FIRST; they name the exact injection sites that still need migrating, which
     // is the work item this shadow is meant to scope.
-    styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+    // ⚠ ANSWERED, AND NOW RETIRED FROM THE SHADOW — style-src was DROWNING THE
+    // FOUNDER'S CONSOLE. Every `injectAppTheme()` write, every Cesium widget style
+    // and every inline `style="…"` attribute produced its own report-only warning:
+    // hundreds of lines per page load, making the console unusable for reading the
+    // application's OWN diagnostics. That is a real cost, and it was being paid to
+    // re-learn something already established.
+    //
+    // The finding stands and needs no further sampling: `style-src-elem` and
+    // `style-src-attr` are both violated, by CSS-in-JS and by inline style
+    // attributes respectively. Closing it is a nonce/hash migration of
+    // `injectAppTheme()` — a work item, not a measurement question.
+    //
+    // ⚠ THIS IS A DELIBERATE REDUCTION IN COVERAGE, NOT AN OVERSIGHT. Keeping the
+    // permissive value here means the shadow NO LONGER TESTS style-src at all; if
+    // the CSS-in-JS migration lands, this line must go back to `'self'` to prove
+    // it. A diagnostic whose noise stops people reading their own logs has stopped
+    // being a diagnostic — but a retired probe must say so, or its silence reads
+    // as a pass.
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
 
     // Label the reports so the sink can tell a research datum from a live break.
     reportUri: [`${CSP_REPORT_PATH}?policy=strict-shadow`],

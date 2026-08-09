@@ -3685,7 +3685,23 @@ app.get('/api/projects/:id/latest-version', authMiddleware, async (req, res) => 
             const versions = await pgProjectStore.listVersions(id, userId);
             if (!versions || versions.length === 0) return res.json({ version: null });
             const latest = versions[0];
-            const full = await pgProjectStore.getVersion(latest.id, id, userId);
+            // §FIX-LATEST-VERSION-500 (L-779) — was `pgProjectStore.getVersion(latest.id, id, userId)`.
+            //
+            // ⚠ TWO ERRORS IN ONE CALL, AND THE APP TOLD THE USER THEIR WORK WAS GONE.
+            //   1. `getVersion` DOES NOT EXIST on this module — the export is
+            //      `getVersionById`. Production threw
+            //      `TypeError: pgProjectStore.getVersion is not a function` on every
+            //      project open that reached the Postgres path.
+            //   2. The argument order was also wrong: the real signature is
+            //      (projectId, versionId, userId); the call passed (versionId, projectId, …).
+            //      Both are `TEXT` ids, so even with the right name it would have
+            //      returned null silently rather than failing.
+            //
+            // It survived because `import * as pgProjectStore` gives a namespace object:
+            // a missing member is `undefined` at import time and only explodes when
+            // CALLED. No typecheck catches it (server.js is JS), and the only test
+            // coverage of this route is via the Supabase branch, which returns early.
+            const full = await pgProjectStore.getVersionById(id, latest.id, userId);
             if (full) res.set('ETag', `"${full.id}"`);
             return res.json({ version: full ?? null });
         }
