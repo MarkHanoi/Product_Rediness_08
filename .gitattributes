@@ -1,1 +1,41 @@
 docs/Images/PRYZM.mp4 filter=lfs diff=lfs merge=lfs -text
+
+# ── §FIX-LINE-ENDING-DRIFT (L-802g, 2026-08-09) ──────────────────────────────
+#
+# THE DEFECT: with no line-ending policy and core.autocrlf=false, an editor that
+# writes CRLF into an LF-committed file produces a WHOLE-FILE diff. During the
+# 2026-08-09 audit session this happened twice and had to be hand-corrected
+# before committing — one raked-wall change showed as 830 changed lines instead
+# of 85. A diff nobody can read is a diff nobody reviews, which is a quiet way to
+# ship an unreviewed change.
+#
+# WHY THIS IS SCOPED, AND NOT `* text=auto`
+# -----------------------------------------
+# The obvious fix is one line, `* text=auto`, and it is wrong here. Measured on
+# this repo it renormalises **8,890 files** — overwhelmingly `.agents/`
+# transcripts and `attached_assets/` pastes, none of which anyone diffs — in a
+# single commit that would blow away `git blame` across the whole tree. That is a
+# repo-wide reformatting decision; it is not a line-ending fix, and folding it
+# into an unrelated change is exactly the sort of unreviewable edit this program
+# exists to stop.
+#
+# Scoped to the extensions people actually read diffs of, the same fix touches
+# **20 files** (renormalised in the commit that introduced this block, so no
+# future author is ambushed by it mid-feature).
+#
+# Explicit `text eol=lf` per extension rather than `text=auto`: no content
+# sniffing, so no chance of a binary being mangled by a heuristic. Anything not
+# listed here keeps today's behaviour exactly.
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
