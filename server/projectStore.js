@@ -233,6 +233,45 @@ const PROJECT_COLUMNS = `
     updated_at, created_at
 `;
 
+// ── §FIX-ACCESS-MEMBERSHIP (L-336, part 2 of 2 — 2026-08-09) ─────────────────
+//
+// Part 1 taught `canUserAccessProject()` to consult `project_members`, so a
+// member can JOIN a project's socket room. Every project READ here still
+// filtered `owner_id`, so that member could join a room for a project they could
+// not list, open, or read a version of. Joining a room you cannot load anything
+// into is useless — part 1 was necessary and not sufficient.
+//
+// ⚠ THE SCOPE RULE, stated once and enforced by tests:
+//
+//     READS  (list / get / status / versions)      → owner OR member
+//     WRITES (rename / patch / delete / thumbnail) → OWNER ONLY, unchanged
+//
+// Widening reads restores the collaboration L-336 blocks. Widening WRITES is a
+// separate decision that needs the ISO 19650 role matrix enforced per action
+// (`hasPermission(role, 'edit_model')`, which `roleCheck` already provides at the
+// route layer) — and doing it silently, inside a change whose stated purpose is
+// "members can see the project", would be the worst possible way to widen a write
+// boundary. `projectStore-membership-reads.test.ts` asserts the write paths do
+// NOT carry this predicate, so a later accident cannot widen them quietly.
+//
+// EXISTS rather than a JOIN: a project must appear ONCE regardless of how many
+// membership rows match, and EXISTS short-circuits on the first hit. It is served
+// by `idx_project_members_user_project (user_id, project_id)` — added in L-788
+// ahead of this change precisely so it would not ship a sequential scan.
+//
+// C13 (project isolation) is UNCHANGED in intent: a caller still only ever sees
+// projects they are entitled to. What changes is that entitlement is now
+// "owner OR member" rather than "owner", which is what C08's access model always
+// said and the query never implemented.
+//
+// @param {string} alias  table alias for `projects` in the host query
+// @param {string} p      the bind placeholder holding the caller's userId (e.g. '$2')
+const memberOrOwner = (alias, p) =>
+    `(${alias}.owner_id = ${p} OR EXISTS (
+         SELECT 1 FROM project_members m
+          WHERE m.project_id = ${alias}.id AND m.user_id = ${p}
+     ))`;
+
 /**
  * GAP-12 fix — include latestElementCount and isEmpty in the list response.
  * Uses LEFT JOIN LATERAL to get the most recent version's element_count in a
@@ -240,7 +279,19 @@ const PROJECT_COLUMNS = `
  * empty projects without opening them.
  */
 export async function listProjects(userId) {
-    // §SERVER-V1-INMEMORY-FALLBACK — no pool → list from in-memory map
+    // §SERVER-V1-INMEMORY-FALLBACK — no pool → list from in-memory map.
+    //
+    // ⚠ §FIX-ACCESS-MEMBERSHIP (L-336) — this branch stays OWNER-ONLY, stated
+    // rather than overlooked. It has no membership source: `_inMemoryProjects`
+    // holds no roles, and threading `projectMembers`' volatile `_members` Map in
+    // here would couple the project store to it for a path that, by definition,
+    // has no database. The consequence is a real behaviour difference — a member
+    // sees a shared project on a PG/Supabase deployment and not on a no-pool dev
+    // one — which is acceptable ONLY because this branch is dev / first-boot and
+    // never production. If that ever stops being true, this is a trap: the fix
+    // would look complete and silently omit exactly one deployment shape. Note
+    // the related half of L-806 — on a PG-only deployment membership writes do
+    // not persist at all.
     if (!_hasPool()) {
         const rows = [];
         for (const row of _inMemoryProjects.values()) {
@@ -264,7 +315,7 @@ export async function listProjects(userId) {
              ORDER  BY created_at DESC
              LIMIT  1
          ) v ON true
-         WHERE p.owner_id = $1
+         WHERE ${memberOrOwner('p', '$1')}
          ORDER BY p.updated_at DESC
          LIMIT 50`,
         [userId]
@@ -339,8 +390,8 @@ export async function getProject(projectId, userId) {
     }
     const result = await query(
         `SELECT ${PROJECT_COLUMNS}
-         FROM projects
-         WHERE id = $1 AND owner_id = $2`,
+         FROM projects p
+         WHERE p.id = $1 AND ${memberOrOwner('p', '$2')}`,
         [projectId, userId]
     );
     return result.rows[0] ?? null;
@@ -625,7 +676,7 @@ export async function getProjectStatus(projectId, userId) {
              ORDER  BY created_at DESC
              LIMIT  1
          ) v ON true
-         WHERE p.id = $1 AND p.owner_id = $2`,
+         WHERE p.id = $1 AND ${memberOrOwner('p', '$2')}`,
         [projectId, userId]
     );
     if (result.rows.length === 0) return null;
@@ -654,7 +705,7 @@ export async function listVersions(projectId, userId) {
         return [];
     }
     const ownerCheck = await query(
-        `SELECT id FROM projects WHERE id = $1 AND owner_id = $2`,
+        `SELECT p.id FROM projects p WHERE p.id = $1 AND ${memberOrOwner('p', '$2')}`,
         [projectId, userId]
     );
     if (ownerCheck.rows.length === 0) return [];
@@ -709,7 +760,7 @@ export async function getVersionById(projectId, versionId, userId) {
     // Project-isolation: if userId is provided, verify ownership before returning.
     if (userId) {
         const ownerCheck = await query(
-            `SELECT id FROM projects WHERE id = $1 AND owner_id = $2`,
+            `SELECT p.id FROM projects p WHERE p.id = $1 AND ${memberOrOwner('p', '$2')}`,
             [projectId, userId]
         );
         if (ownerCheck.rows.length === 0) return null;
