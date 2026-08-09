@@ -31,6 +31,7 @@
  *   21. check-custom-event-apps.ts          — CustomEvent dispatches in apps/editor/src/ (OI-050 / Phase F.events.2)
  *   22. check-zoning-fidelity-label.ts      — estimated zoning value never rendered authoritative (C58 §6 / ADR-0279 BLOCKER-1)
  *   23. check-write-route-auth.ts          — every mutating Express route is authenticated or declared-exempt (C08 §1.2, L-406)
+ *   24. check-command-naming.ts            — one domain, one command prefix spelling (L-796)
  *
  * Phase 0 (OI-046 through OI-050): Gates 16–19 are the new gates added to close
  * the aliasing loophole and establish ratchets for all four remaining legacy patterns.
@@ -80,6 +81,7 @@ const GATES: Gate[] = [
   { name: 'zoning-fidelity-label (C58§6/ADR-0279)',   script: 'check-zoning-fidelity-label.ts' },
   { name: 'height-fidelity (L-646/L-647)',            script: 'check-height-fidelity.ts' },
   { name: 'write-route-auth (C08§1.2/L-406)',         script: 'check-write-route-auth.ts' },
+  { name: 'command-naming (L-796)',                   script: 'check-command-naming.ts' },
 ];
 
 let anyFailed = false;

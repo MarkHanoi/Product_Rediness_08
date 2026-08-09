@@ -98,8 +98,35 @@ export interface HandlerResult {
  * Parameter order is `(ctx, cmd)` — context first per `§S02-T1`.
  */
 export interface CommandHandler<TPayload, TStores extends AnyStores = AnyStores> {
-  /** Globally-unique command type, e.g. `'wall.create'`. */
+  /**
+   * Globally-unique CANONICAL command type, e.g. `'wall.create'`.
+   *
+   * House style is dot-separated kebab-case (`curtain-wall.batch.create`,
+   * `detail-view.create`). `tools/ga-gate/check-command-naming.ts` enforces it
+   * for new types against a frozen legacy baseline.
+   */
   readonly type: string;
+  /**
+   * §FIX-COMMAND-NAMESPACE (L-796) — additional type strings that resolve to
+   * THIS handler.
+   *
+   * A command type is a wire identifier: it appears in call sites, in the CRDT
+   * payload, in the persisted `project_command_log`, and in replayed history.
+   * Renaming one is therefore not a refactor, it is a protocol change, and a
+   * flag-day rename would break every unmigrated caller AND every logged command
+   * already on disk. Aliases make a rename incremental: register the canonical
+   * name, alias the old one, migrate call sites at leisure, drop the alias when
+   * the ratchet reaches zero.
+   *
+   * Mechanically this adds extra keys to the SAME registry pointing at the SAME
+   * handler — there is no second dispatch path, no resolution order and no new
+   * behaviour for handlers that do not declare aliases.
+   *
+   * ⚠ An alias is a DEPRECATION, not a synonym. Every alias needs a plan to
+   * remove it, or the namespace simply grows two names for one thing forever —
+   * which is the defect this field exists to retire.
+   */
+  readonly aliases?: readonly string[];
   /** The store ids this handler touches; the bus uses it to scope notifications. */
   readonly affectedStores: readonly (keyof TStores & string)[];
   /**

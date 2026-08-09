@@ -60,6 +60,14 @@ export interface CommandBusOptions {
 
 export class CommandBus {
   private readonly handlers = new Map<string, CommandHandler<unknown, AnyStores>>();
+  /**
+   * §FIX-COMMAND-NAMESPACE (L-796) — deprecated alias → canonical type.
+   * Only ever READ for reporting (which name a caller used); dispatch never
+   * consults it, because aliases are already keys in `handlers`.
+   */
+  private readonly aliasToCanonical = new Map<string, string>();
+  /** One deprecation warning per alias per process — never once per dispatch. */
+  private readonly warnedAliases = new Set<string>();
   private readonly emitter: PatchEmitter;
   private readonly undoStack: UndoStack;
   /** Sprint A31 — C03 §4.1: ring buffer for forward/inverse patch pairs. */
@@ -96,14 +104,65 @@ export class CommandBus {
         `${handler.type}: handler must implement both canExecute() and execute() — see ADR-002.`,
       );
     }
-    this.handlers.set(
-      handler.type,
-      handler as unknown as CommandHandler<unknown, AnyStores>,
-    );
+    const entry = handler as unknown as CommandHandler<unknown, AnyStores>;
+    this.handlers.set(handler.type, entry);
+
+    // §FIX-COMMAND-NAMESPACE (L-796) — deprecated aliases resolve to the SAME
+    // handler object via extra keys in the SAME map. No second dispatch path
+    // exists, so a handler without aliases is byte-for-byte unaffected.
+    //
+    // Collisions are FATAL rather than last-write-wins. An alias silently
+    // shadowing a real command would route a caller to the wrong handler and
+    // produce patches against the wrong store — a data defect that would be
+    // near-impossible to trace back to a registration order. Registration is a
+    // boot-time operation, so throwing here fails the app loudly at start rather
+    // than corrupting a document at runtime.
+    for (const alias of handler.aliases ?? []) {
+      if (alias === handler.type) {
+        throw new CommandBusError(
+          `${handler.type}: alias must differ from the canonical type.`,
+        );
+      }
+      const existing = this.handlers.get(alias);
+      if (existing) {
+        throw new CommandBusError(
+          `alias '${alias}' for ${handler.type} collides with an already-registered ` +
+            `type (owned by ${existing.type}). Aliases must not shadow a real command.`,
+        );
+      }
+      this.handlers.set(alias, entry);
+      this.aliasToCanonical.set(alias, handler.type);
+    }
   }
 
+  /**
+   * Remove a type. When `type` is a CANONICAL name its aliases go too —
+   * otherwise `unregister` would leave the alias keys pointing at a handler the
+   * caller believes is gone, and `has()` would answer true for a command that no
+   * longer exists.
+   */
   unregister(type: string): boolean {
-    return this.handlers.delete(type);
+    const removed = this.handlers.delete(type);
+    if (removed && !this.aliasToCanonical.has(type)) {
+      for (const [alias, canonical] of [...this.aliasToCanonical]) {
+        if (canonical === type) {
+          this.handlers.delete(alias);
+          this.aliasToCanonical.delete(alias);
+        }
+      }
+    } else if (removed) {
+      this.aliasToCanonical.delete(type);
+    }
+    return removed;
+  }
+
+  /**
+   * §FIX-COMMAND-NAMESPACE (L-796) — canonical name for a type, or `null` when
+   * `type` is not a deprecated alias. Lets tooling and tests assert the mapping
+   * without reaching into the registry.
+   */
+  canonicalTypeFor(type: string): string | null {
+    return this.aliasToCanonical.get(type) ?? null;
   }
 
   has(type: string): boolean {
@@ -253,6 +312,21 @@ export class CommandBus {
     const handler = this.handlers.get(type) as CommandHandler<T, AnyStores> | undefined;
     if (!handler) {
       throw new CommandBusError(`no handler registered for: ${type}`);
+    }
+
+    // §FIX-COMMAND-NAMESPACE (L-796) — name and shame a deprecated alias ONCE
+    // per process. The point of a deprecation is that somebody removes it, and
+    // an alias nobody can see is an alias nobody retires. Once-per-alias, not
+    // once-per-dispatch: a per-call warning on a hot command would be noise the
+    // next person silences rather than acts on.
+    const canonical = this.aliasToCanonical.get(type);
+    if (canonical && !this.warnedAliases.has(type)) {
+      this.warnedAliases.add(type);
+      console.warn(
+        `[CommandBus] §FIX-COMMAND-NAMESPACE — '${type}' is a DEPRECATED alias for ` +
+          `'${canonical}'. Update the call site; the alias will be removed once the ` +
+          `naming ratchet reaches zero (L-796).`,
+      );
     }
 
     const ctx = this.buildContext<AnyStores>(handler as CommandHandler<unknown, AnyStores>);
