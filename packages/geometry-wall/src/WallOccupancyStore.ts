@@ -38,6 +38,9 @@
 
 import { WallData, Opening } from './WallTypes';
 import { wallCentrelineLength } from './WallArcParam';
+// §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the same predicate WallStore uses,
+// so the pre-flight decline and the store's last-line guard can never disagree.
+import { isVerticalRake } from './WallRake';
 
 /**
  * §LOAD-REDETECT-FREEZE (2026-06-25) — true while a project restore replays the
@@ -226,6 +229,46 @@ export class WallOccupancyStore {
                 valid:       false,
                 conflictIds: [],
                 reason:      'Wall has zero length — cannot place openings',
+            };
+        }
+
+        // ── §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) ───────────────────────
+        //
+        // A RAKED host cannot carry an opening: the carve is a vertical band and
+        // the door/window transform assumes a vertical host face (C15, ADR-0310).
+        // `WallStore.addOpening()` already refuses this — correctly — by THROWING
+        // a `WallSchemaError`.
+        //
+        // The throw is the problem. Reported from production 2026-08-09: placing a
+        // window on a raked wall produced
+        //   `[CommandManager] FATAL ERROR DURING EXECUTION WallSchemaError: …`
+        // and the user simply saw "windows cannot be hosted". A deliberate POLICY
+        // REFUSAL was being delivered as a crash, and the carefully-written reason
+        // reached the devtools console instead of the person who needed it.
+        //
+        // Checking it HERE fixes both. `canPlace()` is already invoked on hover by
+        // every placement path (the console shows it firing continuously as the
+        // cursor moves), it already returns a human-readable `reason`, and callers
+        // already treat `valid:false` as an ordinary decline. So the refusal now
+        // happens BEFORE the command is dispatched: no fatal error, no aborted
+        // command, and the reason travels the channel built for exactly this.
+        //
+        // The store guard STAYS. It is the last line of defence for any path that
+        // bypasses this one, and defence-in-depth on a geometric invariant is
+        // cheap. What changes is that it should now be unreachable from the UI.
+        //
+        // ⚠ The panel already refused the RAKE ROW on a wall that hosts openings.
+        // The mirror case — refusing an OPENING on a wall that is raked — was
+        // simply never implemented, so the panel and the store disagreed about who
+        // enforced the rule. That asymmetry was the actual defect.
+        if (!isVerticalRake((wall as { rakeAngleDeg?: number | null }).rakeAngleDeg)) {
+            return {
+                valid:       false,
+                conflictIds: [],
+                reason:
+                    'This wall is angled (raked), so it cannot host a door or window yet — ' +
+                    'the opening is cut as a vertical band and the leaf/frame assume a ' +
+                    'vertical face. Set the wall\'s Vertical Angle back to 90° first.',
             };
         }
 
