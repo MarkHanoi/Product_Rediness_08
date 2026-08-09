@@ -149,10 +149,10 @@ CREATE INDEX IF NOT EXISTS idx_panorama_gallery_user_id ON panorama_gallery(user
 -- Stripe delivers AT LEAST ONCE: the same event can arrive repeatedly after a
 -- timeout, a retry, or a redelivery triggered from the dashboard. Without a
 -- ledger every delivery re-ran the handler, so a duplicated
--- `checkout.session.completed` inserted a second purchase row and a duplicated
+-- 'checkout.session.completed' inserted a second purchase row and a duplicated
 -- subscription event re-wrote the plan.
 --
--- `status` is what makes this a LEDGER rather than a set. A row is claimed as
+-- 'status' is what makes this a LEDGER rather than a set. A row is claimed as
 -- 'processing' BEFORE the work runs and promoted to 'completed' only after the
 -- writes commit. So a crash mid-handler leaves a 'processing' row that a later
 -- retry can reclaim, instead of a 'completed' row that would make the retry a
