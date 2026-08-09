@@ -1,6 +1,6 @@
 # Switzerland — Roads / Pedestrian (context layer)
 
-> Part of L-511 (`../../../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth:
+> Part of L-511 (`../../../ISSUE-LOG.md`). Research ground-truth:
 > `../findings/SWITZERLAND-MASTER-DATA-SOURCE-STUDY.md`. **Gate d (roads): PASSED** (2026-07-24).
 
 ## Source

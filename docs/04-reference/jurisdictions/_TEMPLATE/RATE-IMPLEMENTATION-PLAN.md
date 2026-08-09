@@ -80,7 +80,7 @@ here tracks WORK; LEGISLATION-RATE.md tracks the MEASUREMENT. Keep them distinct
 <!-- What must exist first (a contract, an ADR, a shared tool like streetWidth.ts or the OCR
      pipeline). What is BLOCKED and on what. What work here also helps another jurisdiction (a
      transcription pipeline, a shared schema) — the reuse that makes the corpus cheaper than N
-     separate builds. Link the L-NNN items in V1-LAUNCH-READINESS-AUDIT.md where they exist. -->
+     separate builds. Link the L-NNN items in ISSUE-LOG.md where they exist. -->
 
 ---
 

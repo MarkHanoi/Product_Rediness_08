@@ -1383,7 +1383,7 @@ The status folder contains operational + analytical work items beyond `remaining
 
 | Source doc | Surface | Sub-phase |
 |---|---|---|
-| [status/performance-analysis/project-open-audit-2026-04.md](../status/performance-analysis/project-open-audit-2026-04.md) | Project-open audit findings | A.OI.053 (already enumerated) |
+| status/performance-analysis/project-open-audit-2026-04.md (audit removed 2026-08-09 — recoverable from git history) | Project-open audit findings | A.OI.053 (already enumerated) |
 | [status/performance-analysis/project-open-tracker-2026-04.md](../status/performance-analysis/project-open-tracker-2026-04.md) | Tracker for the above | A.OI.053 |
 
 #### §18.3.3 — Edges + lines (`status/edges-lines/`)
@@ -1419,8 +1419,8 @@ Per [cadence-and-planning-system §7](./cadence-and-planning-system.md), per-spr
 
 | Source doc | Phase |
 |---|---|
-| [status/prior-art-audit-2026-05-31.md](../status/prior-art-audit-2026-05-31.md) | Closed (informs all Phase A) |
-| [status/senior-architect-audit.md](../status/senior-architect-audit.md) | Open issues — already absorbed in §16 + A.OI.* |
+| status/prior-art-audit-2026-05-31.md (audit removed 2026-08-09 — recoverable from git history) | Closed (informs all Phase A) |
+| status/senior-architect-audit.md (audit removed 2026-08-09 — recoverable from git history) | Open issues — already absorbed in §16 + A.OI.* |
 
 ### §18.4 — REVISED grand-total rollup (after spec + status integration)
 
@@ -2830,7 +2830,7 @@ v91 · §PREVIEW-SHELL-FIDELITY v90 · §WINDOW-MANDATORY-RESCUE v92 · §LEVEL-
 §STAIR-CONTAIN-UPSTREAM + F2b §TOPO-HARD-REJECT committed (v93). **The house-layout doctrine behind
 this wave is now recorded as [ADR-0063 — House generative-layout doctrine](../../02-decisions/adrs/ADR-0063-house-generative-layout-doctrine.md)** (per-storey apartment pipeline + multi-storey spine only;
 stair contained upstream so keep-out == footprint; stair corner-anchored). The unification audit
-[HOUSE-APARTMENT-UNIFICATION-AUDIT-2026-06-09](house-apartment-unification-audit-2026-06-09.md) is
+HOUSE-APARTMENT-UNIFICATION-AUDIT-2026-06-09 (audit removed 2026-08-09 — recoverable from git history) is
 its context doc.*
 
 ---
@@ -4701,10 +4701,10 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 - **Correct approach (Option A, sound):** stand up the SiteFrame ground authority → reseat context + envelope base + heatmap onto it → THEN un-revert the :5993 gate. Spans renderer (CesiumViewport), the context-building seat path, the heatmap drape, and the new SiteFrame authority — NOT the gate line alone.
 - **⚠ CONFLICT (escalated, NOT resolved):** founder wants terrain ON everywhere NOW (Option B: clear the gate → re-ships the white-buildings regression) vs the architecture's reseat-first order (Option A: correct but longer). Founder decision needed on accepting a known visual regression to hit "ON everywhere" sooner.
 - **Queue:** geospatial / render + **SiteFrame ground authority (C12 §9 / Seam 2)** — not the CesiumViewport gate in isolation. Contracts: C12 §9/§1.4/§7 · C58 §1.14 · C19 §1.1/§1.4 · C04 · C59. Principles P2/P3/P8.
-- **Number-collision notes:** audit **L-629 = Barcelona θ parcel-displacement** (NOT "terrain-in-Forma prereqs" as first framed); **L-630 taken** by a parallel agent (NL-envelope mislabel) → this is **L-631**; **L-626 row still reads "FIXED" but was reverted** (stale). Full write-up: `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` L-631.
+- **Number-collision notes:** audit **L-629 = Barcelona θ parcel-displacement** (NOT "terrain-in-Forma prereqs" as first framed); **L-630 taken** by a parallel agent (NL-envelope mislabel) → this is **L-631**; **L-626 row still reads "FIXED" but was reverted** (stale). Full write-up: `docs/04-reference/ISSUE-LOG.md` L-631.
 
 ## L-640 — Parcel metadata model + cadastral confidence (P2, post-launch) · OWNER: UNASSIGNED · TARGET: TBD (founder sign-off)
-- **What:** a unified, honesty-gated per-domain parcel-metadata model on the L1 layer (C57 `ParcelFeature`/`ParcelProvenance`), Litehaus-inspired but excluding ALL listing/valuation surfaces. Full write-up: `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` L-640.
+- **What:** a unified, honesty-gated per-domain parcel-metadata model on the L1 layer (C57 `ParcelFeature`/`ParcelProvenance`), Litehaus-inspired but excluding ALL listing/valuation surfaces. Full write-up: `docs/04-reference/ISSUE-LOG.md` L-640.
 - **Key finding:** NOT greenfield — C58 (per-field provenance + 6-tier confidence + `DerivationTrace` explainability), ADR-0277 (heights/terrain sourcing), C55 (environmental/infra overlays), C23 (provenance/AI-audit) already own most domains; the new piece is a unifying aggregate + a typed `UnknownReason` enum. The parcel dossier AGGREGATES per-subsystem confidence, never reinvents it.
 - **Embedded bug (C57 §13 KV-3):** `parseParcelGml` (`parcelZoningProxy.js:175-181`) collapses INSPIRE official `areaValue` + shoelace SIG area into one `areaM2` → derived shown as published (§2.1/§1.4 honesty violation). Area-delta + match-confidence are computable with zero new upstream calls.
 - **Phase 1 (free, honesty-safe):** area-delta + match confidence + geometry diagnostics + `ParcelFeature.confidence` (footprint-fallback → `match:'low'`). Later phases per-domain as sources land, unknown-reason-gated.
@@ -4713,7 +4713,7 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 - **⚠ NOT built — review + logging only. No schema/doc amendment until founder approves the plan.**
 
 ## L-641 — Parcel-select boundary offset (P1) · OWNER: UNASSIGNED · TARGET: TBD (diagnose first)
-- **What:** selected cadastral parcel boundary is offset from the real parcel (intermittent, "everywhere"). Full write-up: `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` L-641.
+- **What:** selected cadastral parcel boundary is offset from the real parcel (intermittent, "everywhere"). Full write-up: `docs/04-reference/ISSUE-LOG.md` L-641.
 - **Two candidate roots (diagnostic must separate):** (A) `parseReverseGeocode` returns the NEAREST parcel via Catastro `_Distancia` → near a boundary it resolves the ADJACENT parcel (C57, `server/parcelZoningProxy.js:108-140`); (B) L-629 Barcelona θ_write≠θ_read frame-split (C12 §9 SiteFrame, `siteDispatch.ts`).
 - **Diagnostic already available:** the L-640 `pointToParcelM` + a point-in-ring test (click vs returned ring) directly reveals root (A).
 - **Correct fix:** (A) prefer parcel-containing-click over nearest; (B) land L-629 θ write==read. NOT a constant ring nudge (masks + corrupts geometry).
@@ -5019,7 +5019,7 @@ merges the country roll-ups into §CC.1 above. OWNER: UNASSIGNED · TARGET: Phas
 
 ### §CC.6 — L-663: LAND CLASS (*clase de suelo*) as a first-class, displayed, colourable fact
 
-Audit **L-663** · plan **L-663** · gap logged in [`MISSING-CONTRACTS-AUDIT-2026-06-01.md`](../../02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md)
+Audit **L-663** · plan **L-663** · gap logged in `MISSING-CONTRACTS-AUDIT-2026-06-01.md` (audit removed 2026-08-09 — recoverable from git history)
 · pending amendment recorded in [C58](../../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md)
 *Known Violations / Pending Amendments* §1.11/§5. Closes the **ADR-0279 §6** debt line
 (*"decide whether land-type becomes a first-class AS-IS field"*) + **ENVELOPE-REPLICATION-STANDARD §8 gap 4**.
@@ -5207,7 +5207,7 @@ replied. **A city's position here is a scheduling fact, not a judgement on its w
 
 ## §PEC.4 — Audit-relevant findings feeding this workstream
 
-Full entries in [V1-LAUNCH-READINESS-AUDIT](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md):
+Full entries in [ISSUE-LOG](../../04-reference/ISSUE-LOG.md):
 **L-681** a machine opened a publication gate citing the commit that opened it (two further unattributed
 gates quarantined) · **L-682** `honestyOk` verifies a number *has* a derivation, never that it is *true*
 (**belongs in C63 §8** — flagged, not unilaterally edited) · **L-683** a parser miss published as a

@@ -195,7 +195,7 @@ This §7 is the normative invariant for placing an authored building on the Goog
 "3D globe" / "3D Site" view. Extends §1.4 (the vertical datum boundary) with the horizontal-anchor, massing,
 and coexistence invariants. **Status: Known-good ACTIVE behavior** — verified WORKING live on Fly, 2026-07-17,
 baseline tag `snapshot-cesium-3d-globe-working-2026-07-17`; the live-run evidence is logged as
-[V1-LAUNCH-READINESS-AUDIT L-365](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md).)*
+[ISSUE-LOG L-365](../../04-reference/ISSUE-LOG.md).)*
 
 - **MUST (horizontal anchor = LTP-ENU origin).** A building placed on the globe MUST be anchored via ONE
   `eastNorthUpToFixedFrame` at the **LTP-ENU origin** (`getCurrentSiteOrigin()`) — the frame the boundary and
@@ -396,7 +396,7 @@ C19 §1.12.2) and a **Copenhagen** sloped parcel (terrain reseat).
   `sampleGround` reseats context + envelope base + heatmap** — do NOT clear the :5993 gate on its own.
   ⚠ The founder wants terrain ON everywhere NOW, which CONFLICTS with this sequencing; the
   accept-a-known-regression-vs-do-it-in-order decision is escalated to the founder (see L-631 in
-  `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`). Do NOT flip this §9 to ACTIVE on the back of a
+  `docs/04-reference/ISSUE-LOG.md`). Do NOT flip this §9 to ACTIVE on the back of a
   gate-only change.
 
 ---

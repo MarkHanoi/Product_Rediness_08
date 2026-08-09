@@ -1,6 +1,6 @@
 # Switzerland — Buildings / LOD / Height (context layer)
 
-> Part of L-511 (`../../../V1-LAUNCH-READINESS-AUDIT.md`). **Gate: PASSED** (2026-07-24).
+> Part of L-511 (`../../../ISSUE-LOG.md`). **Gate: PASSED** (2026-07-24).
 > Live probes: GWR API VERIFIED LIVE, CityGML 2.0 CONFIRMED.
 
 ## Source stack

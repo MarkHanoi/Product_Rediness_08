@@ -82,8 +82,8 @@ Documents that describe **what is actually true today**. Always stamped with a d
 | Doc / folder | Purpose |
 |---|---|
 | [status/autonomous-session-runs-log.md](./status/autonomous-session-runs-log.md) | Multi-agent session record |
-| [status/prior-art-audit-2026-05-31.md](./status/prior-art-audit-2026-05-31.md) | Repository state at 2026-05-31 |
-| [status/senior-architect-audit.md](./status/senior-architect-audit.md) | Architect's snapshot |
+| status/prior-art-audit-2026-05-31.md (audit removed 2026-08-09 — recoverable from git history) | Repository state at 2026-05-31 |
+| status/senior-architect-audit.md (audit removed 2026-08-09 — recoverable from git history) | Architect's snapshot |
 | [status/apartment-layout-status.md](./status/apartment-layout-status.md) | Apartment generation progress |
 | [status/apartment-status-dashboard.md](./status/apartment-status-dashboard.md) | Dashboard view |
 | [status/remaining-work-consolidated.md](./status/remaining-work-consolidated.md) | Open-work rollup |

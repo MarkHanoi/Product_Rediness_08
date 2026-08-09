@@ -3,12 +3,12 @@
 > Part of [PRYZM2-WIREUP-PLAN-S72](./00-INDEX.md). Source slice of [PRYZM2-ENTERPRISE-WIREUP-PLAN-S72.md](../00-PLAN.md) lines 1807–1829.
 
 > **Additions since this chunk was sliced** (per [Chunk 26 §26.4](./26-plan-self-corrections.md#§264--amendment-d--32-new-sub-phases-are-orphaned-from-their-phase-chunks) banner approach):
-> - **E.6.0** — scaffold the missing `plugins/floor/` package (it does not exist on disk; 13 of the 14 element families have plugin scaffolding, only `floor` is missing). Lands in **S77-WIRE D1** as a prerequisite for **E.6** (Floor family migration). See [Chunk 24 §24.2](./24-pryzm1-src-coverage-audit.md).
+> - **E.6.0** — scaffold the missing `plugins/floor/` package (it does not exist on disk; 13 of the 14 element families have plugin scaffolding, only `floor` is missing). Lands in **S77-WIRE D1** as a prerequisite for **E.6** (Floor family migration). See Chunk 24 §24.2 (audit removed 2026-08-09 — recoverable from git history).
 > - **E.15, E.16, E.17** — three additional element families surfaced by the per-folder audit that the original §16.5 table missed:
 >   - **E.15** — `furniture` family (migrate from `src/furniture/` → `plugins/furniture/`; Alt+F hotkey + right-rail Furniture click + place + edit + delete; bench `bench/ui/furniture-place.bench.ts`)
 >   - **E.16** — `structural` family (migrate from `src/structural/` → `plugins/structural/`; column/beam draw frame; bench `bench/ui/structural-draw.bench.ts`)
 >   - **E.17** — `plumbing` family (migrate from `src/elements/plumbing/` if present, else cold-start in `plugins/plumbing/`; pipe-segment draw frame; bench `bench/ui/plumbing-draw.bench.ts`)
->   - All three land in **S78-WIRE / S79-WIRE / S80-WIRE** alongside the original 14. See [Chunk 24 §24.5](./24-pryzm1-src-coverage-audit.md#§245--new-sub-phases-summary-what-to-add-to-§16).
+>   - All three land in **S78-WIRE / S79-WIRE / S80-WIRE** alongside the original 14. See Chunk 24 §24.5 (audit removed 2026-08-09 — recoverable from git history).
 > - **Phase E total**: 14 (original) + 1 (E.6.0 scaffolding) + 3 (E.15–E.17) = **18 sub-phases** instead of the originally-stated 14.
 > - **Status as of this audit**: Phase E has **not yet started** (it opens after Phase D, which opens after the Phase C exit gate per [Chunk 26 §26.6](./26-plan-self-corrections.md#§266--amendment-f--phase-a-entry-gate-was-opened-on-red-ci-phase-d-entry-gate-must-not-be)).
 

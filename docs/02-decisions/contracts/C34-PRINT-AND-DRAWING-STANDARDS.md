@@ -5,7 +5,7 @@
 > **Depends on**: [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) (schemas + commands + state), [C16](C16-COMMAND-AUTHORING-PROTOCOL.md) (command authoring), [C19](C19-SITE-MODEL-AND-PARCEL.md) (true-north / magnetic declination from site model), [C24](C24-SHEET-COMPOSITION-ENGINE.md) (consumes this contract's standards when rendering sheets).
 > **Downstream**: [C24](C24-SHEET-COMPOSITION-ENGINE.md) (Sheet engine reads `StandardsStore` for line/text/dim resolution at render time), [C29](C29-PDF-VECTOR-EXPORT.md) (PDF backend reads calibrated line weights), [C30](C30-DRAWING-SET-MANAGEMENT.md) (SheetSet's title-block + revision-cloud styles are sourced here), `plugins/dimensions/` (DimensionStyleRegistry is the source of truth), `plugins/annotations/` (RevisionCloud + leader-text styles).
 > **Key principles**: **P5** (standards schemas are pure — no I/O, no DOM, no THREE), **P6** (mutation flows through commands only), **P8** (every standards mutation emits an OpenTelemetry span).
-> **Source audit**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 / C34 row](../MISSING-CONTRACTS-AUDIT-2026-06-01.md). PRYZM 2 prior-art: scattered enums + hard-coded constants inside `plugins/sheets/src/title-block.ts`, `plugins/dimensions/`, and `packages/drawing-primitives/`.
+> **Source audit**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 / C34 row (audit removed 2026-08-09 — recoverable from git history). PRYZM 2 prior-art: scattered enums + hard-coded constants inside `plugins/sheets/src/title-block.ts`, `plugins/dimensions/`, and `packages/drawing-primitives/`.
 
 ---
 

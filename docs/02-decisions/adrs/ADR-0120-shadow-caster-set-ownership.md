@@ -136,4 +136,4 @@ what cost the week.
 - ADR-0106 / `§FEAT-REAL-ENVIRONMENT` — real sun + L0 ground catcher
 - `92f437a0` `§FIX-SHADOW-CASTER-DENYLIST` — the fix
 - `d9b8f7cf`, `f4533641`, `f3b28961` — the three real, adjacent defects found en route
-- V1-LAUNCH-READINESS-AUDIT.md — L-205
+- ISSUE-LOG.md — L-205

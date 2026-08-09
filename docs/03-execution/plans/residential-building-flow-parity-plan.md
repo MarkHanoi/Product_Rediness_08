@@ -9,7 +9,7 @@
 > residential orchestrator and the house preview for the residential preview** at each seam.
 >
 > **Companion docs (read these first / cross-linked):**
-> - [`residential-building-multi-family-audit-and-plan.md`](./residential-building-multi-family-audit-and-plan.md) — the
+> - `residential-building-multi-family-audit-and-plan.md` (audit removed 2026-08-09 — recoverable from git history) — the
 >   engine/orchestration reuse map + 9 slices + risk register (the *generator* side).
 > - [`residential-building-implementation-tracker.md`](./residential-building-implementation-tracker.md) — the living
 >   P0–P10 phase tracker for the *engine + element + executor* (the orchestrator, packer,

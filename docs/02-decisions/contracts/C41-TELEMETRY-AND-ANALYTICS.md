@@ -7,7 +7,7 @@
 > **Downstream**: product analytics dashboards (PostHog or comparable, depending on §10) · sales weekly review · churn modelling · feature-adoption metrics · marketing-attribution pipeline.
 > **Key principles**: **P5** (event schemas pure), **P6** (consent state mutations via commandBus), **P8** (every consent-state change emits an operational span, distinct from the telemetry event itself), **P0.3** (plugin-emitted telemetry is sandbox-validated against the same event taxonomy).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §12 (Phase 6.2 commerce)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

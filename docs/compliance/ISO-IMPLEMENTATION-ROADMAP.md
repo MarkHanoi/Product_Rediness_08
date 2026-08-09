@@ -35,7 +35,7 @@ governs where **all PII lives**.
 | Settle the five provider-dashboard UNKNOWNs: Supabase project region · whether `supabase-rls.sql` and the `pryzm_save_version` RPC were ever applied · whether the committed Cesium ion token was revoked · whether the project `ON DELETE CASCADE` FKs exist · whether `apps/api-gateway` is deployed | A dated evidence note per item under `docs/compliance/evidence/` | **1 d** of checks | GAP-041 |
 | Freeze the AI system inventory | Promote Matrix §T1.3.2 to a maintained artefact | 2 h | GAP-061 |
 | Build the supplier + dependency register (one register — code and data suppliers are the same risk) | New artefact; doubles as the **L-762** decision input | 2–3 d | GAP-038, PC-11 |
-| Designate the L-NN Issue Log as the formal NCR register and add four fields (owner · due date · root cause · closure verification) | Header note in `V1-LAUNCH-READINESS-AUDIT.md` | 1 d | GAP-085, PC-16 |
+| Designate the L-NN Issue Log as the formal NCR register and add four fields (owner · due date · root cause · closure verification) | Header note in `ISSUE-LOG.md` | 1 d | GAP-085, PC-16 |
 | Record the C61 reserved-slot stub | `docs/02-decisions/contracts/` | 10 min | GAP-090 |
 
 **Documents**: the five evidence notes; the AI inventory; the supplier register.

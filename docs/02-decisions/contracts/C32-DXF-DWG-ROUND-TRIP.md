@@ -3,9 +3,9 @@
 > **Stamp**: 2026-06-01 · **Status**: DRAFT
 > **Scope**: governs the bidirectional interchange of AutoCAD `.dxf` (ASCII + binary) and `.dwg` (binary) drawings with AutoCAD, DraftSight, BricsCAD, QCAD, and ZWCAD. Codifies invariants for the `DxfDocument` schema, layer/line-type/text-style/dim-style mapping tables, block + xref resolution, paperspace + viewport translation, plot-style (CTB/STB) fidelity, and the DWG license-tier (Open Design Alliance Teigha vs LibreDWG) split. Replaces the `plugins/dxf/` F-prereq.0 stub with a production-grade plugin.
 > **Depends on**: [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md), [C04](C04-RENDERING-AND-SCHEDULING.md), [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md), [C24](C24-SHEET-COMPOSITION-ENGINE.md), [C25](C25-IFC-EXPORT-PRODUCTION.md), [C29](C29-PDF-VECTOR-EXPORT.md).
-> **Downstream**: [C30](C30-DRAWING-SET-MANAGEMENT.md) (drawing-set DXF batch export), [C34 — Print & Drawing Standards](../MISSING-CONTRACTS-AUDIT-2026-06-01.md#32--medium-priority-interchange--commerce) (layer-name standards and line-weight conventions ride on this contract).
+> **Downstream**: [C30](C30-DRAWING-SET-MANAGEMENT.md) (drawing-set DXF batch export), C34 — Print & Drawing Standards (audit removed 2026-08-09 — recoverable from git history) (layer-name standards and line-weight conventions ride on this contract).
 > **Key principles**: **P2** (DXF/DWG reader/writer MUST NOT import THREE), **P5** (DXF + layer-map schemas pure), **P6** (every import/export goes through a command), **P8** (every DXF/DWG operation opens an OpenTelemetry span).
-> **Master plan**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 C32](../MISSING-CONTRACTS-AUDIT-2026-06-01.md) (interchange gap-fill). Effort estimate: ~2 sprint-weeks (DXF) + ~3 sprint-weeks (DWG via ODA Teigha or LibreDWG).
+> **Master plan**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 C32 (audit removed 2026-08-09 — recoverable from git history) (interchange gap-fill). Effort estimate: ~2 sprint-weeks (DXF) + ~3 sprint-weeks (DWG via ODA Teigha or LibreDWG).
 > **Prior-art**: PRYZM 2 reference is the F-prereq.0 plugin shell (`plugins/dxf/`) plus the cross-reference in [C24 §5](C24-SHEET-COMPOSITION-ENGINE.md) (which named DXF as "not in scope for the sheet engine" — this contract is where DXF lives).
 
 ---
@@ -525,7 +525,7 @@ Code in `plugins/dxf/` stays where it is; only the F-prereq.0 stub gets replaced
 - **PDF export** — [C29](C29-PDF-VECTOR-EXPORT.md). PDF is print-deliverable; DXF/DWG is editable interchange. Different writers, different fidelity bars.
 - **Sheet composition** — [C24](C24-SHEET-COMPOSITION-ENGINE.md). C32 consumes PRYZM `Sheet` objects to produce DXF paperspace tabs and vice versa — it does NOT define sheets.
 - **Revit round-trip** — [C26](C26-REVIT-ROUND-TRIP.md). Revit `.rvt` uses IFC as the bridge, not DXF.
-- **Rhino interchange** — `C33 — Rhino Interchange` (proposed; see [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2](../MISSING-CONTRACTS-AUDIT-2026-06-01.md)).
+- **Rhino interchange** — `C33 — Rhino Interchange` (proposed; see MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 (audit removed 2026-08-09 — recoverable from git history)).
 - **Drawing standards** (sheet sizes, line-weight policy, north-arrow conventions, drawing stamps per AIA / RIBA) — `C34 — Print & Drawing Standards` (proposed). C32 obeys whatever standard C34 dictates; it does not define the standards.
 - **Print drivers / plotter calibration** — out of scope. C32 emits DXF / DWG; the user's CAD program drives the plotter.
 - **Raster (BMP / PNG / TIFF) interchange** — out of scope. DXF embeds raster via `IMAGE` entity per §2.2; PRYZM stores them as opaque `ImageWidget` per [C24](C24-SHEET-COMPOSITION-ENGINE.md).

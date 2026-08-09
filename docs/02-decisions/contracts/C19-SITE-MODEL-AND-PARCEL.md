@@ -7,7 +7,7 @@
 > **Downstream**: [C20 Building & Apartment Aggregates](./C20-BUILDING-AND-APARTMENT-AGGREGATES.md) (proposed — consumes the Site as the outermost element); [C21 Climate Ingestion](./C21-CLIMATE-INGESTION.md) (proposed — populates `SiteModel.climate` cache); [C22 Privacy & PII Tier](./C22-PRIVACY-AND-PII-TIER.md) (proposed — gates `SiteModel.location` storage); [C23 Provenance & AI Audit](./C23-PROVENANCE-AND-AI-AUDIT.md) (proposed — every site-derived datum carries provenance); [C25 IFC Export](./C25-IFC-EXPORT-PRODUCTION.md) §1.4 (`IfcSite` already shipped at α-1 against this schema); apartment-layout AI workflows (climate-aware after C21 ratifies); the `apps/editor/src/ui/site/` authoring surface (PG0.7 deliverable).
 > **Key principles**: **P5** (schemas pure — no THREE / no I/O in `packages/schemas/src/elements/site/`), **P6** (every Site mutation goes through `commandBus`; no direct store writes from UI), **P8** (every public site op opens an OTel span `pryzm.site.<verb>`), **P1** (single composition root — `SiteModelStore` is wired in `composeRuntime` only).
 > **Master plan**: [geospatial-foundation.md](../../03-execution/plans/geospatial-foundation.md) §13 (PG0.1, PG0.2, PG0.4, PG0.7, PG0.10, PG0.11) and [geospatial-and-site-intelligence.md](../../03-execution/plans/geospatial-and-site-intelligence.md) §5, §13 (GS0.1, GS0.2, GS0.3, GS0.6, GS0.8, GS0.9).
-> **Audit context**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.1](../MISSING-CONTRACTS-AUDIT-2026-06-01.md) — C19 is the first of the five Phase-3.5 reserved-slot fills.
+> **Audit context**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.1 (audit removed 2026-08-09 — recoverable from git history) — C19 is the first of the five Phase-3.5 reserved-slot fills.
 
 ---
 
@@ -714,7 +714,7 @@ External (non-contract) references:
 
 - [geospatial-foundation.md](../../03-execution/plans/geospatial-foundation.md) — PG0 platform plan; PG0.1, PG0.2, PG0.4, PG0.7, PG0.10, PG0.11 deliver this contract's surface.
 - [geospatial-and-site-intelligence.md](../../03-execution/plans/geospatial-and-site-intelligence.md) — apartment-consumer plan; GS0.1, GS0.2, GS0.3, GS0.6, GS0.8, GS0.9 deliver this contract's apartment-specific consumer integration.
-- [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.1](../MISSING-CONTRACTS-AUDIT-2026-06-01.md) — the audit row that scoped this contract.
+- MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.1 (audit removed 2026-08-09 — recoverable from git history) — the audit row that scoped this contract.
 
 ---
 

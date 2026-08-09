@@ -222,7 +222,7 @@ Guarded by `BCN_22A_ENVELOPE_BLOCKER` with a test that fails loudly if anyone sh
 |---|---|
 | status per jurisdiction, phases | `../../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` |
 | how the system works, what a city costs | `../../SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` |
-| issue log L-NN | `../../V1-LAUNCH-READINESS-AUDIT.md` (L-576 → L-598) |
+| issue log L-NN | `../../ISSUE-LOG.md` (L-576 → L-598) |
 | probe rules | `../../PROBE-DISCIPLINE.md` |
 | the primary ordinance | `./PGM-NNUU-metropolitana.pdf` |
 | what the PDF yielded | `./L-590-NNUU-PRIMARY-SOURCE-RECOVERED.md` |

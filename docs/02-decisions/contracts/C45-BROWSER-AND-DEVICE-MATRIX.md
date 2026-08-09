@@ -7,7 +7,7 @@
 > **Downstream**: BrowserSupportRegistry consumed by feature-detection gates · public support page at `pryzm.app/supported-browsers` · CI playwright project matrix · BrowserStack / Sauce Labs device farm config · per-release QA checklist.
 > **Key principles**: **P5** (browser detection schemas pure — no behaviour at L0), **P6** (browser-policy mutations via commandBus — admin changes a Tier 2 → Tier 3 only via the published-decision command), **P8** (every unsupported-browser landing + every WebGPU fallback emits a span).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §13 (Phase 6.3 accessibility & device)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

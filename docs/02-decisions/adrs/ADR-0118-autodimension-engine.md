@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-07-06
-- **Deciders**: architecture team (founder-driven — Issue Log **L-138**, `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`)
+- **Deciders**: architecture team (founder-driven — Issue Log **L-138**, `docs/04-reference/ISSUE-LOG.md`)
 - **Tags**: `§AUTODIM-ENGINE`
 - **Related contracts**: [C56 — AutoDimension Engine](../contracts/C56-AUTODIMENSION.md) (the normative form of this decision), [C24.1 — Auto-Documentation Sheets Protocol](../contracts/C24.1-AUTO-DOCUMENTATION-SHEETS-PROTOCOL.md) (this engine is its missing dimension provider), [C03 — Schemas, Commands & State](../contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) (the L0 `DimensionString` output + command-bus mutation), [C11 — Element Creation Pipeline](../contracts/C11-ELEMENT-CREATION-PIPELINE.md) (derived creation = one `runBatch` = one undo), [C15 — Hosted Element Contract](../contracts/C15-HOSTED-ELEMENT-CONTRACT.md) (opening offsets), [C34 — Print & Drawing Standards](../contracts/C34-PRINT-AND-DRAWING-STANDARDS.md) (injected styles)
 - **Related ADRs**: [ADR-0055](./ADR-0055-wall-junction-pascal-style.md) (the P1 junction graph the engine reuses for Stage-1 so dimension ticks and wall miters agree), [ADR-0061](./ADR-0061-building-graph-bidirectional-edit-substrate.md) (determinism as a first-class invariant — same input → byte-identical output)

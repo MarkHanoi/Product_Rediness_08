@@ -6,7 +6,7 @@
 >
 > | Register | Role | Path |
 > |---|---|---|
-> | **V1-LAUNCH-READINESS-AUDIT** | LIVING issue register — every `L-NNN` finding + area conformance | `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` |
+> | **ISSUE-LOG** | LIVING issue register — every `L-NNN` finding + area conformance | `docs/04-reference/ISSUE-LOG.md` |
 > | **V1-LAUNCH-IMPLEMENTATION-PLAN** | LIVING phased plan — the same `L-NNN` items turned into phases/gates | `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` |
 > | **ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT** | compliance-pillar gap source (L-398–L-404 origin) | `docs/04-reference/audit/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md` |
 > | **PRE-LAUNCH-EVIDENCE** | point-in-time evidence SNAPSHOT (not living) behind L-387–L-397 + L-406–L-411 | `reports/PRE-LAUNCH-EVIDENCE-2026-07-17.md` |
@@ -27,10 +27,10 @@
 > inventory, leverage map, risk register, and work-item deltas are preserved and reconciled to the new shape.
 > **Governance posture**: launch-readiness/program deliverable, NOT a `*-AUDIT.md` contract-derivative. References the
 > canonical C-contracts and the L-NNN issue log; authors none; flags conflicts; resolves none. Proposes work-item
-> deltas (§8) — LISTED here for the orchestrator to transcribe into `V1-LAUNCH-READINESS-AUDIT.md` /
+> deltas (§8) — LISTED here for the orchestrator to transcribe into `ISSUE-LOG.md` /
 > `V1-LAUNCH-IMPLEMENTATION-PLAN.md`; NOT written into those master docs here.
 > **Grounded in** (read as current-state; a couple of agents are editing the master docs for CF-1 + contract
-> cross-refs — statuses below are *as of read 2026-07-17*): `V1-LAUNCH-READINESS-AUDIT.md`,
+> cross-refs — statuses below are *as of read 2026-07-17*): `ISSUE-LOG.md`,
 > `V1-LAUNCH-IMPLEMENTATION-PLAN.md`, `ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md`,
 > `L-391-CRDT-COLLAB-PLAN.md`, `DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md`, `PARCEL-ZONING-FEATURE-SCOPING.md`,
 > `CLAUDE.md` (8-layer model, P1–P8, contracts-first governance). **No capability or traction is invented.**

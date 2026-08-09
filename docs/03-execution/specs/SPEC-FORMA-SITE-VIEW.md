@@ -231,7 +231,7 @@ timing (a node may show only the 2D plan on the very first globe click).
 > **Status:** VERIFIED WORKING live on Fly (`pryzm.fly.dev`, 2026-07-17). Baseline tag
 > `snapshot-cesium-3d-globe-working-2026-07-17`. Governed by **[C12 §7](../../02-decisions/contracts/C12-GEOSPATIAL.md)** +
 > **[ADR-0268](../../02-decisions/adrs/ADR-0268-cesium-3d-tiles-georeferenced-building-placement.md)**; extends §1.4 of C12.
-> Audit evidence: **[V1-LAUNCH-READINESS-AUDIT L-365](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md)**.
+> Audit evidence: **[ISSUE-LOG L-365](../../04-reference/ISSUE-LOG.md)**.
 
 This §11 documents the step-by-step pipeline that places an authored PRYZM building onto the Google
 Photorealistic 3D-Tiles globe so it stands at its exact real-world location, seated on the tile ground, at

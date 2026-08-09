@@ -195,7 +195,7 @@ taken; they are simply stale by a few hours. Both suites are genuinely green.
 
 ## 3 — Launch blockers, live status (JOB 3)
 
-Every row: I located the item in `V1-LAUNCH-READINESS-AUDIT.md` to learn what it *is*, then
+Every row: I located the item in `ISSUE-LOG.md` to learn what it *is*, then
 verified in code at baseline. "Claimed" = what the prior doc says. "Verified" = what I
 observed.
 
@@ -203,7 +203,7 @@ observed.
 
 **Status: FIXED-VERIFIED (code) — but the audit's own verification note is WRONG.**
 
-The audit row (`V1-LAUNCH-READINESS-AUDIT.md:506`) carries this note: *"🔎 CODE-VERIFIED
+The audit row (`ISSUE-LOG.md:506`) carries this note: *"🔎 CODE-VERIFIED
 2026-07-18 … `SnapshotIntegrity.ts` / `computeSnapshotChecksum` (cited in this row) and the
 `ProjectSerializer.ts:978-983` stamp + `ProjectLoader.ts` refuse-path do NOT exist in the
 current tree."*
@@ -458,7 +458,7 @@ was stale. Then I searched for the `§L-489-SITE-CAPTURE-DIAG` line the coordina
 and found the CAPTURE half is the broken one. **The corrected status is OPEN (P0), and
 L-188 has effectively recurred as L-489.**
 
-The evidence, from `V1-LAUNCH-READINESS-AUDIT.md:664` (L-489, founder 2026-07-20, reopening
+The evidence, from `ISSUE-LOG.md:664` (L-489, founder 2026-07-20, reopening
 a Córdoba house) and confirmed against code:
 
 - The restore path is *not* the problem, and the audit says so explicitly: *"THE RESTORE
@@ -905,7 +905,7 @@ carry is quota, and it disagrees with itself:
   not plan tiers.
 - `git log -- docs/02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md` → 3 commits, newest
   `af8dff6a`, predating the 2026-07-17 audit.
-- All live trackers still say OPEN: `V1-LAUNCH-READINESS-AUDIT.md:576`,
+- All live trackers still say OPEN: `ISSUE-LOG.md:576`,
   `SEPTEMBER-READINESS-MASTER-PROGRAM-PLAN.md:148`, `:306`, `:91`, `:392`.
 
 **Verdict: L-397 is OPEN and awaiting a founder decision.** One mitigating fact: because the

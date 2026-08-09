@@ -7,7 +7,7 @@
 > **Downstream**: every UI surface in `apps/*` + `packages/ui-base/` + plugin-emitted UI · VPAT (Voluntary Product Accessibility Template) shipped quarterly · public accessibility statement at `pryzm.app/accessibility` · CI gates (axe-core + jest-axe) blocking merges on regressions.
 > **Key principles**: **P6** (UI is the only mutation surface — accessibility rules thus all run at the UI layer), **P5** (accessibility metadata is L0-pure — aria-label, role, lang attributes are schemas not behaviour), **P8** (accessibility violations + remediations emit spans for the trust-report).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §13 (Phase 6.3 accessibility & device)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

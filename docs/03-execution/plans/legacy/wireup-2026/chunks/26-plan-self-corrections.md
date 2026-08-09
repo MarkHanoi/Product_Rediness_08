@@ -190,7 +190,7 @@ Chunk 24 added 31 sub-phases (B.6–B.10, C.14, E.6.0, E.15–E.17, G.10–G.31)
 
 **Option (b) — Banner approach** (1 PR):
 - PR-Banner: prepend a 4-line banner to each of chunks 14, 15, 19 of the form:
-  > **Additions since this chunk was sliced**: see [`24 §24.5`](./24-pryzm1-src-coverage-audit.md#§245--new-sub-phases-summary-what-to-add-to-§16) (31 IDs) and [`25 §25.8`](./25-architecture-docs-cross-alignment.md#§258--new-deliverables-added-by-this-chunk) (1 ID) and this chunk [`26 §26.6`](#§266--amendment-f--missing-deletion-ids-and-checklists) (G.33 + G.32 enumeration).
+  > **Additions since this chunk was sliced**: see `24 §24.5` (audit removed 2026-08-09 — recoverable from git history) (31 IDs) and [`25 §25.8`](./25-architecture-docs-cross-alignment.md#§258--new-deliverables-added-by-this-chunk) (1 ID) and this chunk [`26 §26.6`](#§266--amendment-f--missing-deletion-ids-and-checklists) (G.33 + G.32 enumeration).
 
 **Recommendation**: option (b). Chunks 14–19 are byte-identical slices of the monolith (per chunk 23 §23.12 re-slice contract). Authoring in place breaks the slice contract; banners preserve it and point the reader at the canonical addition source. The 3-line banner adds zero risk of slice drift on the next monolith edit.
 

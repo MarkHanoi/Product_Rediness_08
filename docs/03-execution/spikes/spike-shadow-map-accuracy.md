@@ -1,7 +1,7 @@
 # SPIKE — Ground-shadow map accuracy vs. performance (`§SPIKE-SHADOW-MAP-ACCURACY`)
 
 - **Status:** DESIGN / RECOMMENDATION — spike-first (a trivially-safe change was ALSO implemented; see §7)
-- **Logged:** founder 2026-07-08 · Issue Log **L-165** (see `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`)
+- **Logged:** founder 2026-07-08 · Issue Log **L-165** (see `docs/04-reference/ISSUE-LOG.md`)
 - **Governs / touches:** C04 (rendering & scheduling), C10 (performance budgets),
   ADR-0076 (SceneQualityTier), ADR-0094 (large-scene tier cap), ADR-0106 (real-environment sun /
   single caster), ADR-0111 + §SHADOW-DEVICE-LOSS-FIX (mid-submit shadow realloc = WebGPU device loss)

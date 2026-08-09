@@ -30,7 +30,7 @@ Everything else routes to an **existing** folder or stays at root as a hub.
 | File | Why it stays | Feeds axis |
 |---|---|---|
 | `README.md` | the folder index | — |
-| `V1-LAUNCH-READINESS-AUDIT.md` | living issue log (L-NNN), cited from dozens of docs + code | — |
+| `ISSUE-LOG.md` | living issue log (L-NNN), cited from dozens of docs + code | — |
 | `V1-LAUNCH-IMPLEMENTATION-PLAN.md` | living phased plan, cited beside the audit | — |
 | `GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` | the jurisdiction WHAT/WHEN hub; the C63 completion matrix links to it | all (jurisdiction axis) |
 

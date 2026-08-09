@@ -5,7 +5,7 @@
 **Deciders**: founder (live 3D-Site testing across Spanish cities) + architecture team
 **Related contracts**: [C12 — Geospatial & Coordinate Systems](../contracts/C12-GEOSPATIAL.md) (§10 records the quantized-mesh tile-header encoding invariants this ADR mandates), [C04 — Rendering & Scheduling](../contracts/C04-RENDERING-AND-SCHEDULING.md) (the Cesium/Forma globe this terrain renders on)
 **Related ADRs**: [ADR-0268](./ADR-0268-cesium-3d-tiles-georeferenced-building-placement.md) (the ellipsoidal WGS-84 ground datum the terrain meshes share), [ADR-0277](./ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md) (the national DTM sourcing that feeds the bake)
-**Reference docs**: [CITY-REPLICATION-STANDARD.md](../../04-reference/standards/CITY-REPLICATION-STANDARD.md) (L6 terrain layer — the encoder invariants below are now part of the replication standard), [CONTEXT-DATA-TERRAIN.md](../../04-reference/geospatial/CONTEXT-DATA-TERRAIN.md) (§ encoder invariants), [V1-LAUNCH-READINESS-AUDIT.md](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md) (L-639)
+**Reference docs**: [CITY-REPLICATION-STANDARD.md](../../04-reference/standards/CITY-REPLICATION-STANDARD.md) (L6 terrain layer — the encoder invariants below are now part of the replication standard), [CONTEXT-DATA-TERRAIN.md](../../04-reference/geospatial/CONTEXT-DATA-TERRAIN.md) (§ encoder invariants), [ISSUE-LOG.md](../../04-reference/ISSUE-LOG.md) (L-639)
 **Code**: `tools/context-bake/terrain.mjs` (`horizonOcclusionPoint`, `encodeQuantizedMesh`), `apps/editor/src/ui/geospatial/CesiumViewport.ts` (§CULL-PROBE), `apps/editor/src/ui/geospatial/terrainCoverage.ts` (`TERRAIN_TILESET_VERSION`)
 
 ## Context

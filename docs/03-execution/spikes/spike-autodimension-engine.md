@@ -1,7 +1,7 @@
 # SPIKE — Deterministic AutoDimension Engine (`packages/auto-dimension`)
 
 - **Status:** DESIGN / RESEARCH (design spike — no committed code beyond this doc)
-- **Logged:** founder 2026-07-06 · Issue Log **L-138** (see `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`)
+- **Logged:** founder 2026-07-06 · Issue Log **L-138** (see `docs/04-reference/ISSUE-LOG.md`)
 - **Governs / touches:** C24.1 (Auto-Documentation Sheets), C34 (Print & Drawing Standards),
   C03 (schemas/commands/state), C11 (creation pipeline), C15 (hosted elements), ADR-0055 (wall
   pipeline), ADR-0061 (determinism)

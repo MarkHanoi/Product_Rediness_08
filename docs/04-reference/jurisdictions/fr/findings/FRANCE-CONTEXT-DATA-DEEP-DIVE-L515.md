@@ -1,7 +1,7 @@
 # France — 3D Context Data: full deep-dive (L-515)
 
 Part of the context-data study — umbrella **L-511**, deep-dive **L-515**
-(`../../../V1-LAUNCH-READINESS-AUDIT.md`; sibling to Spain **L-512** and Portugal **L-514**).
+(`../../../ISSUE-LOG.md`; sibling to Spain **L-512** and Portugal **L-514**).
 Source: **captured founder study 2026-07-30** (*France Geospatial + Context Deep-Dive*).
 
 **Confidence discipline (§CONTEXT-DATA-HONESTY).** France's physical layers are **VERIFIED-STRONG**

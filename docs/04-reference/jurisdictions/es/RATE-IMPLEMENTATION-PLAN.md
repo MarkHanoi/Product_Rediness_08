@@ -220,7 +220,7 @@ Licence-gating (c) applies only to the height layer (PNOA LiDAR, L-584 V2), not 
   the **`dissolveParcelsToBlockRing` + street-width** machinery from Barcelona serves every
   *alineació-de-vial* zone nationwide; and Valencia's **`url_abs`** (governing-document link on the
   polygon) is the model that turns PDF enumeration into a lookup. Cross-refs in
-  `V1-LAUNCH-READINESS-AUDIT.md` (Pipeline A / L-393; §Barcelona complete-coverage L-538) and
+  `ISSUE-LOG.md` (Pipeline A / L-393; §Barcelona complete-coverage L-538) and
   `SPAIN-CADASTRAL-DISSOLVE-PROBE.md` (block-ring success measured Barcelona 2/2 · Madrid 2/4 ·
   Córdoba 0/3 — the geometry stage fails outside Barcelona *before any rule is consulted*, which is
   why rule work is sequenced behind the dissolve fix elsewhere).

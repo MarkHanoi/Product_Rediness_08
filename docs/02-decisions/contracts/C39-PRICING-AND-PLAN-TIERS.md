@@ -7,7 +7,7 @@
 > **Downstream**: every feature-gating decision in the product · in-app paywall + upgrade flows · invoicing exports · accounting reconciliation · sales-collateral pricing pages.
 > **Key principles**: **P1** (entitlement resolver is the single composition surface for feature gating), **P5** (entitlement schemas pure), **P6** (entitlement mutations via commandBus), **P8** (every entitlement check + quota tick emits a span).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §12 (Phase 6.2 commerce)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

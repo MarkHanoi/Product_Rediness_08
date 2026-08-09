@@ -324,4 +324,4 @@ but this was its **first** exercise — do not treat one success as proof. Watch
 
 **Cross-references:** `.github/workflows/deploy-fly.yml` (the authority on the arg block) ·
 `Dockerfile` L32, L96–L123, L159–L166 (the authority on ARG names) · `fly.toml` ·
-`docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` L-690 · memory `fly-production-deploy.md`
+`docs/04-reference/ISSUE-LOG.md` L-690 · memory `fly-production-deploy.md`

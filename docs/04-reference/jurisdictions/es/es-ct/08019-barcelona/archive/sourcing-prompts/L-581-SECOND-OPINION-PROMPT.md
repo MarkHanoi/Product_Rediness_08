@@ -93,7 +93,7 @@ genuinely empty), and non-front edges keep the real block boundary.
 - `docs/02-decisions/contracts/` — C58 (zoning/envelope), especially §1.4 (no fabrication) and §1.11
   (a wrong SHAPE is a confident answer to a different question, not an imprecise answer to the right
   one). ADR-0271 (Art. 242.2), ADR-0270.
-- `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` rows **L-529** (a previous inset collapse that
+- `docs/04-reference/ISSUE-LOG.md` rows **L-529** (a previous inset collapse that
   floored the depth — same family), **L-462**, **L-525b**, **L-576 → L-582**.
 - Standing rule: **legal fidelity outranks standardisation**; refusing with a cited reason beats
   fabricating.

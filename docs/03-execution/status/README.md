@@ -23,13 +23,13 @@ Live trackers + dated snapshots. Three flavours:
 | [apartment-status-dashboard.md](./apartment-status-dashboard.md) | High-level apartment dashboard |
 | [remaining-work-consolidated.md](./remaining-work-consolidated.md) | Open-work rollup across all C-contract subsystems |
 | [cut-list-log.md](./cut-list-log.md) | Operational cuts log |
-| [senior-architect-audit.md](./senior-architect-audit.md) | Architect's snapshot |
+| senior-architect-audit.md (audit removed 2026-08-09 — recoverable from git history) | Architect's snapshot |
 
 ### Dated milestone audits
 
 | File | Stamp |
 |---|---|
-| [prior-art-audit-2026-05-31.md](./prior-art-audit-2026-05-31.md) | 2026-05-31 — repository state grounding the master plan |
+| prior-art-audit-2026-05-31.md (audit removed 2026-08-09 — recoverable from git history) | 2026-05-31 — repository state grounding the master plan |
 
 ### Topic-specific status
 

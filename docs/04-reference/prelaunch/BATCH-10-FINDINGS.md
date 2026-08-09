@@ -22,7 +22,7 @@ Evidence discipline used throughout, per the DK probe standard:
 **The assigned P1 was already fixed in code; the thing that was still broken was the audit that was supposed to catch it.**
 
 L-406's route (`POST /api/event-log`) was hardened on 2026-07-18 in `065c23e2`. The
-`V1-LAUNCH-READINESS-AUDIT.md` row still reads `OPEN — UNASSIGNED / TBD` because the
+`ISSUE-LOG.md` row still reads `OPEN — UNASSIGNED / TBD` because the
 doc was never updated. That is doc-lag, not a code gap.
 
 The real, un-owned defect sits one level up. The C08 §2.1 "write route coverage matrix"
@@ -306,7 +306,7 @@ No production code changed — there was no bug, only an unverified claim.
 
 ---
 
-## 6. Audit-log prose for `V1-LAUNCH-READINESS-AUDIT.md`
+## 6. Audit-log prose for `ISSUE-LOG.md`
 
 > **L-406 — CLOSED (batch-10, `385df665`; route itself fixed earlier in `065c23e2`).**
 > Two separate things were wrong and only one was the route. **(a) The route:** `POST

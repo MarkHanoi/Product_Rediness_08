@@ -1,7 +1,7 @@
 # Portugal — 3D Context Data: full deep-dive (L-514)
 
 Part of the context-data study — umbrella **L-511**, deep-dive **L-514**
-(`../../V1-LAUNCH-READINESS-AUDIT.md`). Source: **founder deep-dive 2026-07-21**. Unlike the Spain
+(`../../ISSUE-LOG.md`). Source: **founder deep-dive 2026-07-21**. Unlike the Spain
 pass (L-512), **Portugal endpoints were NOT live-probed this session** — everything below is
 "per founder deep-dive, endpoints NOT yet live-probed". Every URL, coverage figure, licence term
 and class code marked **UNVERIFIED** must be re-probed live before Phase-2 relies on it (project

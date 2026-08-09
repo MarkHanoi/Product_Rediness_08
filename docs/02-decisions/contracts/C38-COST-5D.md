@@ -7,7 +7,7 @@
 > **Downstream**: QS / cost-consultant deliverables · client budget reporting · ERP-export pipeline (SAP / Oracle / Sage) · marketplace cost-catalogue plugins.
 > **Key principles**: **P5** (pricing schemas pure), **P6** (cost mutations via commandBus), **P8** (every import + every estimate emits an OTel span), **P0.3** (pricing-catalogue plugins are first-class marketplace artefacts).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §11 (Phase 6.1 commerce + interchange)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

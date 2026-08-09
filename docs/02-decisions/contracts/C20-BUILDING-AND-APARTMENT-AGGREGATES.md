@@ -609,7 +609,7 @@ The `ApartmentTypology` enum (`open-plan-mid-rise`, `closed-plan-mid-rise`, `com
 
 ### §10.4 — Aggregate naming localisation
 
-`Building`, `Level`, `Apartment`, `Room` are English. The IFC mapping uses these names. The user-facing label may be localised (e.g. "Étage" / "Stockwerk" / "Pisos"). Open: does C20 own the localisation key surface, or is that a downstream concern of [the future C46 i18n contract](../MISSING-CONTRACTS-AUDIT-2026-06-01.md#3.4)?
+`Building`, `Level`, `Apartment`, `Room` are English. The IFC mapping uses these names. The user-facing label may be localised (e.g. "Étage" / "Stockwerk" / "Pisos"). Open: does C20 own the localisation key surface, or is that a downstream concern of the future C46 i18n contract (audit removed 2026-08-09 — recoverable from git history)?
 
 ---
 
@@ -628,7 +628,7 @@ The `ApartmentTypology` enum (`open-plan-mid-rise`, `closed-plan-mid-rise`, `com
 - [APARTMENT-BIM2-BIM3 Data Management & Live Parametric System](../../03-execution/plans/apartment/bim2-bim3-data-mgmt.md) — D-α / D-β / D-γ workstreams that operationalise C20.
 - [SPEC-APARTMENT-LAYOUT-GENERATOR](../../03-execution/specs/SPEC-APARTMENT-LAYOUT-GENERATOR.md) — primary consumer of `apartment.create` + `room.create`.
 - [`packages/schemas/src/apartment/ApartmentParameters.ts`](../../../packages/schemas/src/apartment/ApartmentParameters.ts) — the existing parameter schemas C20 composes.
-- [MISSING-CONTRACTS-AUDIT 2026-06-01 §3.1](../MISSING-CONTRACTS-AUDIT-2026-06-01.md) — the audit row that mandated C20.
+- MISSING-CONTRACTS-AUDIT 2026-06-01 §3.1 (audit removed 2026-08-09 — recoverable from git history) — the audit row that mandated C20.
 
 ---
 

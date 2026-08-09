@@ -7,7 +7,7 @@
 > **Downstream**: migration runner registry · per-release "what's new in the file format" customer communication · the legacy-file-rejection signpost · the third-party-tool reverse-compatibility surface · the import-safety wall (rejecting suspicious or out-of-window files).
 > **Key principles**: **P5** (`.pryzm` schemas L0-pure), **P6** (every migration is a command — auditable, reversible where possible), **P8** (every migration run + every rejection emits a span), **P0.3** (plugin-defined element schemas have their own versioning track — see §1.10).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §14 (Phase 6.4 operational)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

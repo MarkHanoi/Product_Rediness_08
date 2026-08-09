@@ -1,7 +1,7 @@
 # PRYZM 3 — Consolidated Remaining Work (2026-05-29)
 
 > **Status**: SUPERSEDED 2026-07-16 by the live V1 launch trackers — the active remaining-work SSOT is now
-> [`04-reference/V1-LAUNCH-READINESS-AUDIT.md`](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md) (the L-NNN issue log)
+> [`04-reference/ISSUE-LOG.md`](../../04-reference/ISSUE-LOG.md) (the L-NNN issue log)
 > + [`04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md`](../../04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md) (the phased fix plan).
 > This 2026-05-29 snapshot is retained for historical traceability only; do not add new items here.
 

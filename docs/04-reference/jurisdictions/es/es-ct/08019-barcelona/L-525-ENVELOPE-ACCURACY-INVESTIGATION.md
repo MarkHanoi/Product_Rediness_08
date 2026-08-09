@@ -41,7 +41,7 @@
 > minutes and needed no deploy** — the public Catastro WFS is keyless and callable straight from the
 > dev box. Measure the geometry before theorising about the data.
 
-**Item:** L-525 (`../../V1-LAUNCH-READINESS-AUDIT.md`). Founder, 2026-07-21: *"the height of the
+**Item:** L-525 (`../../ISSUE-LOG.md`). Founder, 2026-07-21: *"the height of the
 envelope doesn't correspond with the environment height … the buildings nearby are super tall and
 way deeper … I want to analyse this really deep — we cannot have such mistakes."*
 

@@ -7,7 +7,7 @@
 > **Downstream**: per-locale message bundles · translation-vendor workflow · the AI host's per-locale system prompts · IFC export adaptation · sheet templates (title block per locale's drawing convention) · pricing pages per locale · customer-support per locale · trust-report per locale.
 > **Key principles**: **P5** (locale schemas L0-pure), **P6** (locale-switching is a command), **P8** (every locale switch + every translation-miss emits a span), **P0.3** (translation packs may be marketplace artefacts — community-authored translations are a first-class artefact kind).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §13 (Phase 6.3 accessibility & device)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

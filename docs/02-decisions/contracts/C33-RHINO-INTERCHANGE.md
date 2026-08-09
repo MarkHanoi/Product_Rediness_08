@@ -7,7 +7,7 @@
 > **Downstream**: design-import workflows (concept geometry from Rhino → PRYZM authoring), parametric workflows (Grasshopper definitions → P0 families), inter-firm consultant handoff.
 > **Key principles**: **P5** (Rhino mapping schemas pure — Zod-only in `packages/schemas/src/rhino/`), **P6** (every import / export mutation goes through the command bus), **P7** (Rhino layer visibility is intent, not UI state), **P8** (every reader / writer / bridge entry-point emits ≥ 1 OpenTelemetry span).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §10](../../03-execution/plans/master-implementation-plan.md) (interchange tier).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.2](../../03-execution/status/prior-art-audit-2026-05-31.md). PRYZM 2 reference: S57 (`plugins/rhino-import/` — read-only; curves / meshes / layers / points only; brep / SubD / Extrusion dropped unless render mesh present). **Verdict: AUDIT + EXTEND** — the read path exists at v0.1 fidelity; this contract codifies it and adds the writer, the Grasshopper bridge, NURBS round-trip, and the view / annotation / unit-coercion invariants the v0.1 reader skips.
+> **Prior-art**: PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.2 (audit removed 2026-08-09 — recoverable from git history). PRYZM 2 reference: S57 (`plugins/rhino-import/` — read-only; curves / meshes / layers / points only; brep / SubD / Extrusion dropped unless render mesh present). **Verdict: AUDIT + EXTEND** — the read path exists at v0.1 fidelity; this contract codifies it and adds the writer, the Grasshopper bridge, NURBS round-trip, and the view / annotation / unit-coercion invariants the v0.1 reader skips.
 
 ---
 

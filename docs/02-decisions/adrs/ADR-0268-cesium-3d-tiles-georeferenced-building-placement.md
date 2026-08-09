@@ -145,7 +145,7 @@ fallback); B is a single-seam fix at the exact suppression point keyed to the co
 - P2/P3/P5 respected: no THREE outside renderer-three, no rAF, no schema mutation; `globeGroundAnchor.ts` has
   no Cesium/THREE/DOM/I-O imports.
 - **Known-good baseline** is fixed at snapshot `snapshot-cesium-3d-globe-working-2026-07-17`; any regression is
-  measured against that tag and the live-run evidence recorded in [V1-LAUNCH-READINESS-AUDIT L-365](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md).
+  measured against that tag and the live-run evidence recorded in [ISSUE-LOG L-365](../../04-reference/ISSUE-LOG.md).
 
 ## Alternatives considered
 

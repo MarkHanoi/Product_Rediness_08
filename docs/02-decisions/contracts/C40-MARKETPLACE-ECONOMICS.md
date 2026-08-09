@@ -7,7 +7,7 @@
 > **Downstream**: developer onboarding flow · payout pipeline (Stripe Connect) · tax-form intake (Stripe Tax + Stripe 1099 reporting) · developer dashboard analytics · category curation workflow · marketplace-search ranking signals.
 > **Key principles**: **P5** (payout schemas pure), **P6** (every payout-affecting mutation via commandBus), **P8** (every payout calculation + every dispute event emits a span), **P0.3** (family / pricing-catalogue / rules-pack plugins are first-class — this contract treats them identically to code plugins for payout purposes).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §12 (Phase 6.2 commerce)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

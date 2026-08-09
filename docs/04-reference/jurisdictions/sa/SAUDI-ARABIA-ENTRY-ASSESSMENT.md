@@ -312,7 +312,7 @@ the national tables as flat law** — the override layer is real and written int
 | Top risk | **R1 — development-authority override (the Barcelona trap, present but smaller)** |
 
 **Related:** `SAUDI-PRIMARY-DECISION-EXTRACT.md` · `SAUDI-UMAPS-API-ENUMERATION.md` ·
-`../../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` (§5 Saudi row) · `../../V1-LAUNCH-READINESS-AUDIT.md` (L-606) ·
+`../../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` (§5 Saudi row) · `../../ISSUE-LOG.md` (L-606) ·
 `../../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` ·
 `../../spain/barcelona-catalonia/PROBE-DISCIPLINE.md` ·
 C58 §1.13 / §2.2 · C57 · `packages/site-parcel-data/src/geometry/streetWidth.ts`.

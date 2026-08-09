@@ -92,13 +92,13 @@ If code disagrees with a contract, **the code is wrong** — fix it or raise an 
 - **Index of ADRs**: [02-decisions/adrs/README.md](./02-decisions/adrs/README.md)
 - **Index of specs**: [03-execution/specs/README.md](./03-execution/specs/README.md)
 - **Master execution tracker**: [03-execution/plans/master-execution-tracker.md](./03-execution/plans/master-execution-tracker.md)
-- **V1 launch readiness audit** (live bug/issue log, L-NNN — the active tracker): [04-reference/V1-LAUNCH-READINESS-AUDIT.md](./04-reference/V1-LAUNCH-READINESS-AUDIT.md)
+- **V1 launch readiness audit** (live bug/issue log, L-NNN — the active tracker): [04-reference/ISSUE-LOG.md](./04-reference/ISSUE-LOG.md)
 - **V1 launch implementation plan** (phased fixes per L-NNN): [04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md](./04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md)
 - **Autonomous-session runs log**: [03-execution/status/autonomous-session-runs-log.md](./03-execution/status/autonomous-session-runs-log.md)
 - **Naming conventions** (binding for every doc + code identifier): [NAMING-CONVENTIONS.md](./NAMING-CONVENTIONS.md)
 - **Documentation authoring contract** (anatomy + immutability + style): [02-decisions/contracts/C31-DOCUMENTATION-AUTHORING-PROTOCOL.md](./02-decisions/contracts/C31-DOCUMENTATION-AUTHORING-PROTOCOL.md)
 - **Documentation gaps + 26-session plan to "enterprise-grade"**: [DOCUMENTATION-GAPS-AND-NEXT-PHASES.md](./DOCUMENTATION-GAPS-AND-NEXT-PHASES.md)
-- **Missing contracts audit** (18 contract gaps · 4 priority phases): [02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md](./02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md)
+- **Missing contracts audit** (18 contract gaps · 4 priority phases): 02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md (audit removed 2026-08-09 — recoverable from git history)
 
 ## §6 — Migration note (2026-06-01)
 

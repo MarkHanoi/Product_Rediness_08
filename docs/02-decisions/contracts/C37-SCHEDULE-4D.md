@@ -5,7 +5,7 @@
 > **Depends on**: [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) (schemas + commandBus), [C04](C04-RENDERING-AND-SCHEDULING.md) (frame scheduler P3), [C10](C10-PERFORMANCE-AND-OBSERVABILITY.md) (NFT + P8 spans), [C16](C16-COMMAND-AUTHORING-PROTOCOL.md) (command authoring), [C25](C25-IFC-EXPORT-PRODUCTION.md) (IFC4 4D MVD as the schedule wire-format).
 > **Downstream**: [C28](C28-DATA-PANEL-AND-AUTOMATION.md) §6 (read-only Gantt + task tables surfaced in the Data panel), [C36](C36-CLASH-DETECTION-AND-COORDINATION.md) (clash status MAY annotate tasks), [C38](C38-COST-5D.md) (5D cost binds quantities × rates × **time** — depends on C37 task ids).
 > **Key principles**: **P3** (timeline animator MUST be driven by the single FrameScheduler), **P5** (schedule schemas pure — no I/O, no THREE, no DOM in `packages/schemas/src/schedule/`), **P6** (all schedule mutations flow through commandBus — no direct store writes from UI), **P8** (every exported function adds ≥ 1 OpenTelemetry span).
-> **Master plan**: missing — to be added as Tier 6.1 item 11 per [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Master plan**: missing — to be added as Tier 6.1 item 11 per MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 (audit removed 2026-08-09 — recoverable from git history).
 > **Sibling contracts**: [C36 Clash Detection](C36-CLASH-DETECTION-AND-COORDINATION.md) · [C38 Cost / 5D](C38-COST-5D.md).
 
 ---
@@ -517,7 +517,7 @@ Deferred to post-ratification.
 - [C36 Clash Detection & Coordination](C36-CLASH-DETECTION-AND-COORDINATION.md) — sibling, may annotate tasks
 - [C38 Cost / 5D](C38-COST-5D.md) — sibling, binds quantities × rates × time via `TaskId`
 - [ADR-0032 Schedules plugin](../adrs/ADR-0032-schedules-plugin.md) — PRYZM 2 S41 ancestor
-- [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2](../MISSING-CONTRACTS-AUDIT-2026-06-01.md) — gap-audit row
+- MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 (audit removed 2026-08-09 — recoverable from git history) — gap-audit row
 
 ---
 

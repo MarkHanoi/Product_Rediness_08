@@ -8,7 +8,7 @@ beyond?"* Created 2026-07-22.
 >
 > | For | Read |
 > |---|---|
-> | **What is broken / reported** (issue log L-NN) | [V1-LAUNCH-READINESS-AUDIT.md](./V1-LAUNCH-READINESS-AUDIT.md) |
+> | **What is broken / reported** (issue log L-NN) | [ISSUE-LOG.md](./ISSUE-LOG.md) |
 > | **What we are building, phased** | [V1-LAUNCH-IMPLEMENTATION-PLAN.md](./V1-LAUNCH-IMPLEMENTATION-PLAN.md) |
 > | **How the system works + how it scales** | [SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md](./geospatial/SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md) |
 > | **How to REPLICATE a city end-to-end (all 8 layers, the golden recipe)** | [CITY-REPLICATION-STANDARD.md](./standards/CITY-REPLICATION-STANDARD.md) |

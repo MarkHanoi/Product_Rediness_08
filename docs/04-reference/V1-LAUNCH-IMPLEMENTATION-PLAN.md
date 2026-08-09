@@ -5,7 +5,7 @@
 > 🗺️ **`docs/04-reference/GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` — the JURISDICTION axis.** This plan owns *what we are building* across the product; the rollout tracker owns *geographic* progress — Barcelona's six layers, per-*clau* rule-pack coverage, then Madrid/Córdoba/Spain and other countries, with phases ordered by value per unit of effort. It links here and never restates. See also `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` for how the system works and what a new city costs.
 
 > **Status**: ACTIVE · **Target**: v1 launch (next week) · **Companion audit**:
-> `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` (issue log L-NN + area conformance, side-by-side).
+> `docs/04-reference/ISSUE-LOG.md` (issue log L-NN + area conformance, side-by-side).
 > Each item cites its audit id (L-NN), the queue id (Q-NN), the `§`-tag, the agent, acceptance, and a gate (G-NN).
 > **Rule**: phases are ordered by launch-criticality; a phase ships when its gate is green on `pryzm.fly.dev`
 > (root `tsc --skipLibCheck --noEmit` = exit 0). Deliver Phase 0 → 1 → 2 first; 3–5 run in parallel as capacity frees.
@@ -730,7 +730,7 @@ underlay beneath the existing building projection — one composited image, proj
 
 # L-207 / L-208 / L-209 — commercial tower, WebGPU differentiation, batch-nesting
 
-Filed 2026-07-10 from the founder's commercial-use-case report. Audit rows: `V1-LAUNCH-READINESS-AUDIT.md`.
+Filed 2026-07-10 from the founder's commercial-use-case report. Audit rows: `ISSUE-LOG.md`.
 
 **Evidence correction first.** The console pasted with the report is the **house** pipeline, not the
 tower: `[house-postgen]` is emitted only by `apps/editor/src/ui/house-layout/runHousePostGenChain.ts`,
@@ -877,7 +877,7 @@ catcher (must be cleared, not skipped) and a 40-storey tower (must still cast).
 |---|---|
 | **C04 §SHADOW** | Mental model; true root cause; **11 normative rules**; a **measure-first debugging protocol**; the nine refuted hypotheses |
 | **ADR-0120** | Decision record: the caster set is owned, explicit, receiver-never-casts, size-bounded, self-logging |
-| **V1-LAUNCH-READINESS-AUDIT.md** | L-205 row rewritten with the true root cause and the three adjacent defects |
+| **ISSUE-LOG.md** | L-205 row rewritten with the true root cause and the three adjacent defects |
 
 ## Three real defects found en route — none was the grey
 
@@ -3380,7 +3380,7 @@ Gates the L-353 / L-355 / L-356 downstream work. No target date tied to launch.
 | **P1 — ADR** | New `ADR-0268-cesium-3d-tiles-georeferenced-building-placement.md`: the georeferenced-placement decision (D1 LTP-ENU anchor · D2 photoreal-tile-clamp datum · D3 seat-and-reveal · D4 §FORMA-FULL-HEIGHT · D5 CesiumThreeBridge coexistence · D6 frame-once) with Context/Decision/Consequences/Alternatives, §-tags + file:line, baseline tag. | **DONE** |
 | **P2 — Contract** | C12 §7 (new normative section) — the georeferencing invariant (anchor == LTP-ENU origin; ground datum via photoreal-tile-clamp when no terrain provider; seat-and-reveal ordering; base height ELLIPSOIDAL WGS-84 not AMSL; full-height massing; camera-only coexistence; frame-once). Marked **Known-good ACTIVE** with live evidence; links ADR-0268. §6 history row added. | **DONE** |
 | **P3 — Spec** | SPEC-FORMA-SITE-VIEW §11 — the step-by-step reproducible globe placement pipeline (activate → CesiumThreeBridge → GLB export → renderRealModelOnGlobe → photoreal-tile-clamp datum → seat-and-reveal → full-height → frame → anchor-evidence log) + the verified-good baseline table. | **DONE** |
-| **P4 — Audit** | L-365 logged in V1-LAUNCH-READINESS-AUDIT §2 as VERIFIED WORKING (snapshot tag + live-run evidence). | **DONE** |
+| **P4 — Audit** | L-365 logged in ISSUE-LOG §2 as VERIFIED WORKING (snapshot tag + live-run evidence). | **DONE** |
 | **P5 — Index** | C00 contract README C12 row updated to note §7 + ADR-0268. | **DONE** |
 | **Verify** | DOCS deliverable — behavior already confirmed working live by the founder; no live re-run required. Regression baseline = snapshot `snapshot-cesium-3d-globe-working-2026-07-17`. | **DONE** |
 
@@ -3962,7 +3962,7 @@ Neither is addressable by a render-tier change; both need their own evidence.
 
 ## L-511 — 3D context-data country study (buildings/LOD/height · roads · pedestrian · water · parks/trees)
 
-**Links back to:** L-511 (`V1-LAUNCH-READINESS-AUDIT.md`). **Phase:** post-launch quality (P2), but
+**Links back to:** L-511 (`ISSUE-LOG.md`). **Phase:** post-launch quality (P2), but
 **Spain is founder-designated ship-first**. Full study + gates: `CONTEXT-DATA-COUNTRY-STUDY.md`.
 
 **Pattern (correct-fix):** one ingestion **adapter per country behind the existing per-country
@@ -4120,7 +4120,7 @@ rate-limit risk. **Contracts:** C12/C55/C19/C10. **NOT this item:** the grey-sca
 ## Session 2026-07-21 — Barcelona real end-to-end production hardening (deploys v243–v253)
 
 Barcelona real end-to-end (draw + select) reached **founder-confirmed SOUND** this session. Every
-item cross-links its audit row (`V1-LAUNCH-READINESS-AUDIT.md L-NNN`). ✅ = shipped + confirmed / live;
+item cross-links its audit row (`ISSUE-LOG.md L-NNN`). ✅ = shipped + confirmed / live;
 🔧 = built, needs a run; ⏳ = open, needs a machine/browser/deep pass.
 
 | L-NNN | What | Phase | Status |

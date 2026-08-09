@@ -571,7 +571,7 @@ contract (the dossier standard's authority stays here). Ratified by
 
 ### §8.3 — Amendment L-664: ONE confidence ontology (contract → schema → packs → scorecard → UI)
 
-**KNOWN VIOLATION, NOW CLOSED — audit row [L-664](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md).**
+**KNOWN VIOLATION, NOW CLOSED — audit row [L-664](../../04-reference/ISSUE-LOG.md).**
 This contract named an ENVELOPE-axis vocabulary (`certified` / `constructed-amber`) that **no code has
 ever implemented**. The governance rule is "when code disagrees with a contract, the code is wrong" —
 here the exception applied, and it is argued rather than assumed in **§3.2**: the code encoded

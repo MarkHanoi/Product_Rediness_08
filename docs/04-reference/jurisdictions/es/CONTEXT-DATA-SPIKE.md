@@ -1,6 +1,6 @@
 # Spain — 3D Context Data spike (build-order #6, **SHIP-FIRST priority**)
 
-Part of the country study — umbrella **L-511** (`../V1-LAUNCH-READINESS-AUDIT.md`).
+Part of the country study — umbrella **L-511** (`../ISSUE-LOG.md`).
 Research ground-truth: `../Pryzm_3D_Context_Data_Sourcing.md`. **Spike run live 2026-07-21.**
 (This file is the *context-data* study for Spain. The *zoning* work lives in `README.md` +
 `SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md` — do not conflate; different layer, same resolver.)

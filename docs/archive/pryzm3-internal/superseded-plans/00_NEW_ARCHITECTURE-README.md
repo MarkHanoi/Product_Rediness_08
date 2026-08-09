@@ -14,7 +14,7 @@ This folder contains the audit, vision, target architecture, As-Is/To-Be compari
 
 ### Analytical backbone (the documents that produced 08/09/10)
 
-1. **[00-AUDIT.md](../superseded-audits/00-AUDIT.md)** — current-state ground truth. Six structural failure modes with file:line evidence.
+1. **00-AUDIT.md (audit removed 2026-08-09 — recoverable from git history)** — current-state ground truth. Six structural failure modes with file:line evidence.
 2. **[01-TARGET-ARCHITECTURE.md](../../01_ARCHITECTURE/01-LAYERS-AND-PRINCIPLES.md)** — initial 7-layer sketch (now superseded by `08` §4 with L7.5 added).
 3. **[02-ORCHESTRATION.md](02-ORCHESTRATION.md)** — high-level rollout (now superseded by `10`).
 4. **[03-PASCAL-EDITOR-ANALYSIS.md](../../01_ARCHITECTURE/04-PASCAL-REFERENCE.md)** — Pascal as reference. Strategy B confirmed (`10` Pre-flight ADR-0201).

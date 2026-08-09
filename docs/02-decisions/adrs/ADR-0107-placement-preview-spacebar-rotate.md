@@ -132,7 +132,7 @@ Two related preview-correctness fixes ship under the same tag (`§FIX-PLACEMENT-
   config; plan/3D ghosts from the registry/`FOOTPRINTS`.
 
 No API change to `PrePlacementRotation` (class stays stable — a sibling builds the post-placement
-gizmo on it). The per-flow verdict table lives in `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`
+gizmo on it). The per-flow verdict table lives in `docs/04-reference/ISSUE-LOG.md`
 §3.2.
 
 ## Amendment (2026-07-04) — `§FEAT-DOOR-FLIP-ON-SPACE` (founder L-92)

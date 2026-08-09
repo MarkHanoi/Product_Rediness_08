@@ -31,7 +31,7 @@
 
 ---
 
-> **⚠️ Audit amendment — see [`24-pryzm1-src-coverage-audit.md`](./24-pryzm1-src-coverage-audit.md).** The list above covers only 6 of the 23 legacy `src/` directories that `src/ui/` imports from today. Audit §24 adds **31 new sub-phases** (B.6–B.10, C.14, E.6.0, E.15–E.17, G.10–G.31) for the remaining 17 directories (`tools/`, `monetization/`, `import/`, `generative/`, `rendering/`, `cde/`, `export/`, `portfolio/`, `physics/`, `geospatial/`, `api/`, `persistence/`, `snapping/`, `spatial/`, `topology/`, `structural/`, `migration/`, `collaboration/`, `constraints/`, `render/`, `visibility/`, `furniture/` shim, `features/` shim). Revised Phase G deletion total: **~172,880 LOC**.
+> **⚠️ Audit amendment — see `24-pryzm1-src-coverage-audit.md` (audit removed 2026-08-09 — recoverable from git history).** The list above covers only 6 of the 23 legacy `src/` directories that `src/ui/` imports from today. Audit §24 adds **31 new sub-phases** (B.6–B.10, C.14, E.6.0, E.15–E.17, G.10–G.31) for the remaining 17 directories (`tools/`, `monetization/`, `import/`, `generative/`, `rendering/`, `cde/`, `export/`, `portfolio/`, `physics/`, `geospatial/`, `api/`, `persistence/`, `snapping/`, `spatial/`, `topology/`, `structural/`, `migration/`, `collaboration/`, `constraints/`, `render/`, `visibility/`, `furniture/` shim, `features/` shim). Revised Phase G deletion total: **~172,880 LOC**.
 
 ---
 

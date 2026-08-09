@@ -7,7 +7,7 @@
 > **Downstream**: viewport meta tag · PWA manifest · per-surface route-level capability declarations · in-product "best on desktop" messaging · share-link recipient experience (an architect shares a link → recipient opens on phone → gets the viewer surface).
 > **Key principles**: **P6** (single command surface, regardless of form-factor — the same `wall.create` command flows whether the source is mouse or touch), **P3** (single frame scheduler — touch input is just another input source), **P5** (form-factor detection is a pure schema decision, not behavioural), **P8** (every form-factor downgrade emits a span).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §13 (Phase 6.3 accessibility & device)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.4 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

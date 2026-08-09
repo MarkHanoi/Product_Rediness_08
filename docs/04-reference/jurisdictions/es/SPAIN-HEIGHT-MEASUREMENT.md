@@ -1,7 +1,7 @@
 # Spain — Real Building Height: Methods, Accuracy, Implementation (L-512)
 
 Part of the context-data study — umbrella **L-511**, deep-dive **L-512**
-(`../V1-LAUNCH-READINESS-AUDIT.md`). Source: founder deep-dive 2026-07-21, endpoints re-verified live.
+(`../ISSUE-LOG.md`). Source: founder deep-dive 2026-07-21, endpoints re-verified live.
 
 **Problem:** Catastro `ALTURAS` = a real, trustworthy floor *count*, but Catastro's own 3D viewer turns
 it into height by flat-extruding every floor at 3 m — an administrative approximation, not a measurement.

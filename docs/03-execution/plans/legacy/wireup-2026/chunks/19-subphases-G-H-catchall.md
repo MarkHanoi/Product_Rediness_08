@@ -5,7 +5,7 @@
 > **Additions since this chunk was sliced** (per [Chunk 26 §26.4](./26-plan-self-corrections.md#§264--amendment-d--32-new-sub-phases-are-orphaned-from-their-phase-chunks) banner approach):
 >
 > **Phase G — additional deletions** (was 9, now **24 sub-phases**):
-> - **G.10–G.31** (22 deletions) — see [Chunk 24 §24.5](./24-pryzm1-src-coverage-audit.md#§245--new-sub-phases-summary-what-to-add-to-§16). One PR per legacy folder: `src/tools/`, `src/monetization/`, `src/import/`, `src/generative/`, `src/rendering/`, `src/cde/`, `src/export/`, `src/portfolio/`, `src/physics/`, `src/geospatial/`, `src/api/`, `src/snapping/`, `src/spatial/`, `src/topology/`, `src/structural/`, `src/migration/`, `src/collaboration/`, `src/constraints/`, `src/history/`, `src/render/`, `src/visibility/`, `src/furniture/`, `src/features/`. Each waits on the corresponding migration sub-phase from Phases B/C/D/E.
+> - **G.10–G.31** (22 deletions) — see Chunk 24 §24.5 (audit removed 2026-08-09 — recoverable from git history). One PR per legacy folder: `src/tools/`, `src/monetization/`, `src/import/`, `src/generative/`, `src/rendering/`, `src/cde/`, `src/export/`, `src/portfolio/`, `src/physics/`, `src/geospatial/`, `src/api/`, `src/snapping/`, `src/spatial/`, `src/topology/`, `src/structural/`, `src/migration/`, `src/collaboration/`, `src/constraints/`, `src/history/`, `src/render/`, `src/visibility/`, `src/furniture/`, `src/features/`. Each waits on the corresponding migration sub-phase from Phases B/C/D/E.
 > - **G.32** — PRYZM 1 lights-out. Surfaced by [Chunk 25 §25.5](./25-architecture-docs-cross-alignment.md) (customer migration story). [Chunk 26 §26.8](./26-plan-self-corrections.md#§268--amendment-h--missing-deletion-ids-and-unspecified-checklists) enumerates 9 sub-items:
 >   - **G.32.1** DNS cutover · **G.32.2** PRYZM 1 billing terminate · **G.32.3** auth-flag flip (PRYZM 1 read-only) · **G.32.4** customer data export endpoint live · **G.32.5** PRYZM 1 → PRYZM 2 migration runbook (per ADR-0244) · **G.32.6** founder-authored customer comms send · **G.32.7** PRYZM 1 OTel tags marked deprecated · **G.32.8** PRYZM 1 marketplace catalog frozen · **G.32.9** read-only window calendar started.
 >   - Lands across **S84-WIRE D1–D9**. ADR-0244 must land **before G.32.6** (revised from chunk 25's impossible "S22").
@@ -105,7 +105,7 @@ These six gates together make it physically impossible for legacy code to surviv
 
 ---
 
-> **⚠️ Audit amendment — see [`24-pryzm1-src-coverage-audit.md`](./24-pryzm1-src-coverage-audit.md).**
+> **⚠️ Audit amendment — see `24-pryzm1-src-coverage-audit.md` (audit removed 2026-08-09 — recoverable from git history).**
 >
 > Phase G is extended with **22 additional deletion sub-phases** for legacy `src/` directories the original §16.7 list did not name:
 >

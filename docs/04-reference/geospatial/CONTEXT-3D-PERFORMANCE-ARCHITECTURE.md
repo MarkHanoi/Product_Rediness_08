@@ -1,6 +1,6 @@
 # Rich Contextual 3D Data at Maximum Performance — Architecture (L-513)
 
-**Item:** L-513 (`V1-LAUNCH-READINESS-AUDIT.md`). Supersedes the ad-hoc latency fixes
+**Item:** L-513 (`ISSUE-LOG.md`). Supersedes the ad-hoc latency fixes
 (L-476/478/482/506) with a root-cause architecture. **Directly governs L-511/L-512** — the
 national-authoritative data study is the *content*; this doc is the *delivery* that makes it fast.
 

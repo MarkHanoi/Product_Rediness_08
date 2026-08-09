@@ -3,7 +3,7 @@
 > **Scope:** the minimum set of things that MUST be true before PRYZM is exposed to paying,
 > professional-BIM users. This is the *launch-critical* subset — not the full backlog. The full
 > phased roadmap lives in `V1-LAUNCH-IMPLEMENTATION-PLAN.md`; the issue register (source of truth
-> for per-item severity/status) is `V1-LAUNCH-READINESS-AUDIT.md`. This document does **not**
+> for per-item severity/status) is `ISSUE-LOG.md`. This document does **not**
 > restate those — it selects the launch-blocking items, orders them by the professional-BIM risk
 > bar, and states an exit criterion for each.
 >

@@ -1,6 +1,6 @@
 # 3D Context Data — Country-by-Country Sourcing Study
 
-**Umbrella item:** L-511 (`V1-LAUNCH-READINESS-AUDIT.md`)
+**Umbrella item:** L-511 (`ISSUE-LOG.md`)
 **Research ground-truth:** `Pryzm_3D_Context_Data_Sourcing.md` — treat as a *lead list*, not fact;
 every endpoint is re-verified live before we rely on it (project discipline: *ship the probe
 before the fix*).

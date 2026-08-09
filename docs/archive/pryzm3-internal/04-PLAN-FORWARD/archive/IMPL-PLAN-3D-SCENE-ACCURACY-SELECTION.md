@@ -11,7 +11,7 @@
 
 ## 0 · How to Read this Document
 
-The [Audit document](./AUDIT-3D-SCENE-ACCURACY-SELECTION.md) was written before a deep read of the actual production code.  
+The Audit document (audit removed 2026-08-09 — recoverable from git history) was written before a deep read of the actual production code.  
 This Implementation Plan **supersedes** the audit on every point where the live code contradicts the earlier finding. Each section explicitly states the correction.
 
 **Finding IDs** are kept stable for cross-referencing. Revised findings are marked **[REVISED]**.  

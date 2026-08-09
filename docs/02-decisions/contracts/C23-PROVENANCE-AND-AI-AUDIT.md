@@ -746,7 +746,7 @@ These are deferred to the C23 → CANONICAL ratification PR. They do not block D
 > provenance model when it has four, so they are recorded here with their evidence, explicitly
 > flagged as **ungoverned**. The decision on whether C23 absorbs them or a sibling contract is
 > written is tracked in
-> [`MISSING-CONTRACTS-AUDIT-2026-06-01.md`](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> `MISSING-CONTRACTS-AUDIT-2026-06-01.md` (audit removed 2026-08-09 — recoverable from git history).
 
 ### §11.1 — The four ladders in use
 

@@ -9,7 +9,7 @@ volumetric floor-count as a queryable attribute (`findings/BARCELONA-GIS-AUDIT-S
 > **Barcelona is the PILOT MODEL every other jurisdiction's plan cites.** Its phase SHAPE — registry →
 > per-clau packs → block-derived construction → refusal vocabulary → certification — is the template.
 > This file is the executable pilot roadmap (L-538), mirrored from
-> `BARCELONA-COMPLETE-COVERAGE-PLAN.md` and `V1-LAUNCH-READINESS-AUDIT.md` §Barcelona complete-coverage.
+> `BARCELONA-COMPLETE-COVERAGE-PLAN.md` and `ISSUE-LOG.md` §Barcelona complete-coverage.
 
 ---
 

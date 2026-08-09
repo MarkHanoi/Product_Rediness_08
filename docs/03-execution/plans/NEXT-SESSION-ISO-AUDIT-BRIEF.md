@@ -69,13 +69,13 @@ audit unanchored by stale conclusions) is served by removing two of these four k
 | **A. Archived / superseded** (`docs/archive/**`) | 72 | ✅ **DELETE.** Phase-1/2/3 trails from April–May 2026, already marked superseded. Zero current value; pure anchoring risk. |
 | **B. Point-in-time feature audits** (`docs/03-execution/analysis/**`, `docs/04-reference/audit/**`) | ~38 | ✅ **DELETE**, with one pass first: several record *root causes* that are still true (e.g. house-gen, corridor-spine, element-semantic). Extract any still-live finding into the issue log or an ADR before removing. |
 | **C. Jurisdiction evidence** (`docs/04-reference/jurisdictions/**/CAPABILITY-AUDIT-*`, `FORENSIC-BLOCKER-AUDIT-*`) | 28 | ⛔ **KEEP.** These are **measured sourcing evidence**, not opinions — they back the coverage and ROI claims per city, and one of them is the record that 9 of 14 "blockers" were refusals about the wrong product. Deleting them destroys provenance we cannot cheaply re-derive. |
-| **D. Live governance** | 8 | ⛔ **KEEP.** `V1-LAUNCH-READINESS-AUDIT.md` (761 issue rows, L-001…L-785, **57 inbound references including contracts C12/C55 and six ADRs**), `docs/compliance/**` (today's ISO baseline), `docs/04-reference/security/*-audit-2026-q4.md`, `C23-PROVENANCE-AND-AI-AUDIT.md` (a **contract**, not an audit). |
+| **D. Live governance** | 8 | ⛔ **KEEP.** `ISSUE-LOG.md` (761 issue rows, L-001…L-785, **57 inbound references including contracts C12/C55 and six ADRs**), `docs/compliance/**` (today's ISO baseline), `docs/04-reference/security/*-audit-2026-q4.md`, `C23-PROVENANCE-AND-AI-AUDIT.md` (a **contract**, not an audit). |
 
 ### ⚠ Things to say out loud before deleting
 
 - **Git preserves everything.** Deletion is recoverable via history, so this is far less
   dangerous than it looks — but the *inbound links* break immediately and silently.
-- **`V1-LAUNCH-READINESS-AUDIT.md` is the living defect tracker, not an audit report.** The
+- **`ISSUE-LOG.md` is the living defect tracker, not an audit report.** The
   standing instruction is to append every reported bug to it. If the founder wants it gone,
   something must replace it first, or the next regression has nowhere to land.
 - **`C23-PROVENANCE-AND-AI-AUDIT.md` is a CONTRACT** that merely has "AUDIT" in its name. A

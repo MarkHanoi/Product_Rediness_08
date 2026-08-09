@@ -1,7 +1,7 @@
 # Denmark — 3D Context Data (build-order #2)
 
 Part of the country-by-country 3D-context-data quality upgrade — umbrella item **L-511**
-(`../../../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth: `Pryzm_3D_Context_Data_Sourcing.md`.
+(`../../../ISSUE-LOG.md`). Research ground-truth: `Pryzm_3D_Context_Data_Sourcing.md`.
 
 > **Path note (L-609):** this context-data index moved from `docs/04-reference/jurisdictions/dk/README.md`
 > to `docs/04-reference/jurisdictions/dk/topics/README.md` under the ISO-coded jurisdiction tree

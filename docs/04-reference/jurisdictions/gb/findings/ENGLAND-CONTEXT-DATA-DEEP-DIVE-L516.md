@@ -1,7 +1,7 @@
 # England / UK — 3D Context Data: full deep-dive (L-516)
 
 Part of the context-data study — umbrella **L-511**, deep-dive **L-516**
-(`../../../V1-LAUNCH-READINESS-AUDIT.md`; sibling to Spain **L-512**, Portugal **L-514**, France
+(`../../../ISSUE-LOG.md`; sibling to Spain **L-512**, Portugal **L-514**, France
 **L-515**). Source: **captured founder study 2026-07-30** (*UK / England Geospatial + Context
 Deep-Dive*).
 

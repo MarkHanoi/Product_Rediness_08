@@ -2,7 +2,7 @@
 
 > **Stamp**: 2026-07-30 · **Status**: INVESTIGATION + TARGET ARCHITECTURE (report, not a change) · **Owner**: @MarkHanoi
 > **What this is**: a verified map of how PRYZM currently reaches production, WHY each moving part exists, and a no-shortcuts target architecture for the SOON-to-launch product. Modelled on the sister-project pipeline doc's rigor: every claim is tagged, and anything that lives only in an external dashboard is marked **⚠️ VERIFY IN DASHBOARD** and is NOT presented as confirmed.
-> **Do not edit alongside**: `V1-LAUNCH-READINESS-AUDIT.md`, `V1-LAUNCH-IMPLEMENTATION-PLAN.md`, `master-execution-tracker.md`, `docs/04-reference/jurisdictions/**` (owned by a concurrent editor). New defects below are logged as **candidate L-650+** for the orchestrator to append there.
+> **Do not edit alongside**: `ISSUE-LOG.md`, `V1-LAUNCH-IMPLEMENTATION-PLAN.md`, `master-execution-tracker.md`, `docs/04-reference/jurisdictions/**` (owned by a concurrent editor). New defects below are logged as **candidate L-650+** for the orchestrator to append there.
 
 ---
 
@@ -198,7 +198,7 @@ So "how many solutions" = **at least two live candidate brands in the code (`.so
 
 ## 8. Known pipeline defects / gaps
 
-Each is a **candidate L-650+** for the orchestrator to log in `V1-LAUNCH-READINESS-AUDIT.md` (this doc does NOT edit that file).
+Each is a **candidate L-650+** for the orchestrator to log in `ISSUE-LOG.md` (this doc does NOT edit that file).
 
 | # | Defect / gap | Severity | Evidence | Tag |
 |---|---|---|---|---|

@@ -6,7 +6,7 @@
 > **Downstream**: facility-management consumers (CAFM, CMMS, IWMS); the FM-handover preset of the Export wizard ([C06](C06-UI-SHELL-AND-TOOLS.md)); the equipment-list reporting in the Data panel ([C28 §7](C28-DATA-PANEL-AND-AUTOMATION.md)).
 > **Key principles**: **P5** (CobieDocument schema pure), **P6** (export driven through commands), **P8** (every sheet write + every validation pass opens a span).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §7](../03-execution/plans/master-implementation-plan.md). Tracked as a follow-on to IFC-δ-2.
-> **Prior-art**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2](../MISSING-CONTRACTS-AUDIT-2026-06-01.md) — C35 listed under medium-priority interchange contracts. C25 §6 currently stubs COBie as "optional Facility Management handover"; this contract replaces that stub with a binding specification.
+> **Prior-art**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.2 (audit removed 2026-08-09 — recoverable from git history) — C35 listed under medium-priority interchange contracts. C25 §6 currently stubs COBie as "optional Facility Management handover"; this contract replaces that stub with a binding specification.
 
 ---
 

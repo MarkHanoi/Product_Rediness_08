@@ -7,7 +7,7 @@
 > **Downstream**: Region-aware DNS / CDN routing (Cloudflare / AWS Route 53) · per-region S3 buckets · per-region PostgreSQL instances · per-region Stripe customer records (for tax residency) · per-region AI host endpoints (Anthropic regional endpoints when available) · per-region marketplace mirror · per-region status page · trust page sovereignty section · contracts with regulatory frameworks (UK GDPR, EU GDPR, US Section 508, etc.).
 > **Key principles**: **P5** (region-binding schemas L0-pure), **P6** (region-switching is a command, audited), **P8** (every cross-region API call emits a span), **P0.3** (plugin runtime is region-aware — plugins don't get to make uncontrolled cross-region requests).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §14 (Phase 6.4 operational)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

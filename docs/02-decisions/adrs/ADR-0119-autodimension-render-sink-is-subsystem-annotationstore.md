@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-07-07
-- **Deciders**: architecture team (founder-driven — Issue Log **L-145** / **L-138**, `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`)
+- **Deciders**: architecture team (founder-driven — Issue Log **L-145** / **L-138**, `docs/04-reference/ISSUE-LOG.md`)
 - **Tags**: `§FIX-AUTODIM-SUBSYSTEM-STORE-SINK`
 - **Supersedes (in part)**: [ADR-0118 — AutoDimension is a deterministic L2-pure engine](./ADR-0118-autodimension-engine.md) — specifically the *sink* half of its "Decision → Executor-only mutation (P6)" bullet and its "Negative" note that "achieving one-undo requires a new `dimension.createMany` batch verb". The pure-engine, determinism, purity, 8-stage, and executor-only-mutation decisions of ADR-0118 stand unchanged; only the **render sink** the executor dispatches to is corrected here.
 - **Related contracts**: [C56 — AutoDimension Engine](../contracts/C56-AUTODIMENSION.md) (§1.8 layered placement + §2 command surface — amended in place to match this ADR), [C03 — Schemas, Commands & State](../contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) (command-path-only mutation, P6; CQRS vs subsystem stores), [C11 — Element Creation Pipeline](../contracts/C11-ELEMENT-CREATION-PIPELINE.md) / [C24.1](../contracts/C24.1-AUTO-DOCUMENTATION-SHEETS-PROTOCOL.md) §1.2 (derived creation = one `runBatch` = one undo), [ADR-0002](./ADR-0002-command-handler-signature.md) (handler/affectedStores contract), [ADR-0028](./ADR-0028-plan-view-canvas-architecture.md) (`PlanViewAnnotationRenderer`), [ADR-0061](./ADR-0061-building-graph-bidirectional-edit-substrate.md) (typed ULID ids)

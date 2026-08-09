@@ -84,5 +84,5 @@ poisons the new stamp with the old bytes — strictly worse than not bumping.
 
 ### 5. Close the audit row
 
-Flip **L-730** in `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` to FIXED with the run
+Flip **L-730** in `docs/04-reference/ISSUE-LOG.md` to FIXED with the run
 id and the verification evidence (step 3), per the deploy→test feedback convention.

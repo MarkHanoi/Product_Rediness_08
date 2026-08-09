@@ -192,7 +192,7 @@ Live: **v281**.
 
 ## 8 · READ THESE
 
-- `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` — rows **L-576 → L-584**
+- `docs/04-reference/ISSUE-LOG.md` — rows **L-576 → L-584**
 - `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` — phased plan, per-clau roadmap, the two
   citations the 13b work hangs on, scaling strategy
 - `docs/04-reference/jurisdictions/es/SPAIN-GEODATA-SOURCE-COVERAGE.md` — §8 study · §9 "would it be quicker" ·

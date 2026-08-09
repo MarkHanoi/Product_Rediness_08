@@ -7,7 +7,7 @@
 > **Downstream**: [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md) (renders the envelope + derivation trace); [C50 Typology Pipeline](./C50-TYPOLOGY-PIPELINE.md) + [C53 Generative Layout Engine](./C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) (consume the envelope as generation bounds); [C19 §1.6](./C19-SITE-MODEL-AND-PARCEL.md) (footprint-in-parcel-minus-setbacks — the envelope makes the setback numbers real).
 > **Key principles**: **P5** (rule + envelope schemas pure — no THREE / no I/O), **P6** (the envelope reaches the model only via the `site.updateZoning` command bus — no direct store writes), **P8** (every exported engine / provider fn opens an OTel span `pryzm.zoning.<verb>`), **P1** (providers wired once).
 > **Strategy**: [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) (compliance-authoring pillar; Denmark-first because it has the cleanest structured zoning; jurisdiction-agnostic engine + per-jurisdiction adapters).
-> **Audit context**: [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/audit/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-ENG-1..5, G-BRG-1..3 — the single largest gap to the Archistar loop), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/geospatial/PARCEL-ZONING-FEATURE-SCOPING.md) §4/§6.2/§6.3/§7, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2.3. **This contract fills the slot C19 §9 explicitly defers ("jurisdiction-specific building-code databases — future contract") and C19 §10.2 leaves pending (the jurisdiction-registry shape).** On ratify, C19 §10.2 should reference C58.
+> **Audit context**: ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (audit removed 2026-08-09 — recoverable from git history) (G-ENG-1..5, G-BRG-1..3 — the single largest gap to the Archistar loop), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/geospatial/PARCEL-ZONING-FEATURE-SCOPING.md) §4/§6.2/§6.3/§7, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2.3. **This contract fills the slot C19 §9 explicitly defers ("jurisdiction-specific building-code databases — future contract") and C19 §10.2 leaves pending (the jurisdiction-registry shape).** On ratify, C19 §10.2 should reference C58.
 
 ---
 
@@ -777,7 +777,7 @@ Archistar-grade tools re-validate an edited design against the rules (gap audit 
 - [C55 Geodata Analytical Layers](./C55-GEODATA-ANALYTICAL-LAYERS.md) — sibling pluggable-provider-over-site precedent (ADR-0065).
 - [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) · [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md).
 
-External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/audit/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-ENG/G-BRG), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/geospatial/PARCEL-ZONING-FEATURE-SCOPING.md) §4/§6/§7, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2.3.
+External (non-contract): ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (audit removed 2026-08-09 — recoverable from git history) (G-ENG/G-BRG), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/geospatial/PARCEL-ZONING-FEATURE-SCOPING.md) §4/§6/§7, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2.3.
 
 ---
 
@@ -936,7 +936,7 @@ under-stated that land by roughly a third.** The Catalan MUC, by contrast, publi
 Pla-Parcial layer for Barcelona (`MUCPD_SECTOR`/`MUCPD_QUAL`: 0 features for INE 08019;
 `MUCVW_MUCS_SECT`: 81, all PMU). Wiring the municipal source changes the answer to a decision that
 is currently on hold and is therefore a founder re-decision, not an implementer's — see
-V1-LAUNCH-READINESS-AUDIT **L-605**.
+ISSUE-LOG **L-605**.
 
 ### KG-4 (L-538) — `explicit-area` has a schema, no engine branch and no resolver
 

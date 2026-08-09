@@ -2,7 +2,7 @@
 
 > **Companion to `PRE-LAUNCH-READINESS-PLAN.md`.** One row per launch-blocking item from that
 > plan. This is the *live* status board for the launch-critical cut only — it does **not** replace
-> `V1-LAUNCH-READINESS-AUDIT.md` (the full issue register and the authority on per-item detail).
+> `ISSUE-LOG.md` (the full issue register and the authority on per-item detail).
 > When they disagree on a status, the audit register is canonical for the *fix* and this tracker is
 > canonical for the *launch decision*.
 

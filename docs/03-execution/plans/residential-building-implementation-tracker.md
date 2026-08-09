@@ -1,7 +1,7 @@
 # Residential Building (Multi-Family) — Implementation Tracker
 
 > **Status**: LIVING TRACKER · **Started**: 2026-06-22 · **Owner**: typology/engine
-> **Plan of record** (read first): [`residential-building-multi-family-audit-and-plan.md`](./residential-building-multi-family-audit-and-plan.md)
+> **Plan of record** (read first): `residential-building-multi-family-audit-and-plan.md` (audit removed 2026-08-09 — recoverable from git history)
 > **This doc is the single source of truth for the build.** It turns the plan's 10 slices into
 > PHASES → SUBPHASES → tasks. Each task row carries: id · title · status · the files it touches
 > (file:line where known) · its acceptance-test path · the `§DIAG-*` it emits · the contract/ADR it

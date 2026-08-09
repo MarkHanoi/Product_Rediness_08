@@ -7,7 +7,7 @@
 > **Downstream**: support agent rota · escalation pager · SEV-1 post-mortem retrospective · CSAT / NPS measurement · status page · documentation gap-analysis.
 > **Key principles**: **P5** (support-ticket schemas pure), **P6** (every support-ticket state transition via commandBus), **P8** (every SLA breach + every break-glass PII access emits a span).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §12 (Phase 6.2 commerce)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.3 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 

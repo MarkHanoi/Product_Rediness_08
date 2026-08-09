@@ -7,7 +7,7 @@
 > **Downstream**: customer-facing "Version History" + "Restore" surfaces · ops runbook library at `docs/04-reference/runbooks/` · DR-drill schedule + report · accountancy / audit evidence of compliant retention · the trust-page DR section.
 > **Key principles**: **P8** (every backup run + every restore + every drill emits a span), **P5** (backup-record schemas L0-pure), **P6** (admin-side restore operations via commandBus), **P0.3** (plugin-data backup is included by default; plugin-specific exclusions explicit + announced).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §14 (Phase 6.4 operational)](../03-execution/plans/master-implementation-plan.md).
-> **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+> **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5 (audit removed 2026-08-09 — recoverable from git history).
 
 ---
 
