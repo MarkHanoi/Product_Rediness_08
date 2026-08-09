@@ -63,6 +63,103 @@ function resolveConnectionString() {
     return null;
 }
 
+// ── §FIX-POOL-CAPACITY (L-787, 2026-08-09) ───────────────────────────────────
+//
+// `max: 10` was the entire application's database capacity: every hub load,
+// project open, autosave, thumbnail PATCH, command-log insert, AI-usage write
+// and health probe shared ten connections in a single process. Overflow does not
+// fail fast — it queues for `connectionTimeoutMillis` and then 500s.
+//
+// 25 is a per-INSTANCE default, and the right value is a function of
+// (instance count × the Supabase tier's client-connection limit), which is why it
+// is an env var rather than a new literal. Raising it without the Socket.io
+// adapter work (L-770) just moves the exhaustion point; raising it past the tier
+// limit reproduces the 2026-07-06 saturation cascade (L-137) from the other side.
+const DEFAULT_POOL_MAX = 25;
+const DEFAULT_STATEMENT_TIMEOUT_MS = 60_000;
+const DEFAULT_IDLE_IN_TX_TIMEOUT_MS = 30_000;
+
+/** Positive-integer env read that falls back rather than yielding NaN/0. */
+function _posIntEnv(name, fallback) {
+    const n = Number(process.env[name]);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+/**
+ * §D7 — is this a TRANSACTION-mode pooler (Supabase Supavisor :6543 / pgbouncer)?
+ *
+ * Exported because the answer changes how timeouts must be applied, and that
+ * decision is worth testing on its own rather than inferring it from pool
+ * behaviour.
+ */
+export function isTransactionPooler(connStr) {
+    return /pooler\.supabase\.com|[:.]6543(\/|$|\?)|pgbouncer=true/i.test(connStr);
+}
+
+/**
+ * Build the `pg.Pool` options for a connection string. Pure — exported so the
+ * sizing and SSL decisions are unit-testable without opening a socket.
+ */
+export function buildPoolConfig(connStr) {
+    let connectionString = connStr;
+
+    // OPT-IN ONLY. A startup-packet `options` parameter is the one route that
+    // also bounds single statements OUTSIDE a transaction — but poolers vary in
+    // whether they accept it, and one that REJECTS it fails every connection,
+    // i.e. a total outage. We cannot verify Supavisor's behaviour from the
+    // repository, so the default is off and the transaction-scoped guard below
+    // carries the load. Enable deliberately, after testing against the real
+    // pooler, with PG_STATEMENT_TIMEOUT_VIA_OPTIONS=1.
+    if (process.env.PG_STATEMENT_TIMEOUT_VIA_OPTIONS === '1') {
+        const ms = _posIntEnv('PG_STATEMENT_TIMEOUT_MS', DEFAULT_STATEMENT_TIMEOUT_MS);
+        const opt = `options=${encodeURIComponent(`-c statement_timeout=${ms}`)}`;
+        connectionString += (connStr.includes('?') ? '&' : '?') + opt;
+    }
+
+    return {
+        connectionString,
+        ssl: connStr.includes('localhost') ? false : { rejectUnauthorized: false },
+        max: _posIntEnv('PG_POOL_MAX', DEFAULT_POOL_MAX),
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+    };
+}
+
+/**
+ * §FIX-POOL-CAPACITY (L-787) — the runaway-query guard §D7 had to remove,
+ * restored in the one form a transaction pooler can actually carry.
+ *
+ * §D7 correctly disabled the session-level `SET statement_timeout`: on a
+ * transaction pooler each statement may land on a different backend, so the SET
+ * is useless, and it could HANG — node-postgres queued it on the same freshly
+ * connected client, so the preflight `SELECT 1` sat behind it and never
+ * resolved, making a healthy database look dead. But removing it left the
+ * PRODUCTION path with no protection at all, which is exactly the configuration
+ * where one stuck statement holding a pool slot hurts most.
+ *
+ * `SET LOCAL` is the resolution. A transaction pooler pins a backend for the
+ * duration of a TRANSACTION, so transaction-scoped state is precisely the state
+ * it can carry — and it is folded into the same simple-query round trip as
+ * `BEGIN`, so the guard costs no extra latency on a hot path. (A second
+ * `client.query()` would add a round trip to every transaction, which is how a
+ * safety guard becomes a latency regression somebody later reverts.)
+ *
+ * The value is concatenated, not parameterised — `SET LOCAL` does not accept
+ * bind parameters — so it goes through `_posIntEnv`, which yields a number or
+ * the default and can never emit anything else.
+ *
+ * @returns {string} a single simple-query string: BEGIN + both SET LOCALs.
+ */
+export function buildTransactionPreamble() {
+    const stmtMs = _posIntEnv('PG_STATEMENT_TIMEOUT_MS', DEFAULT_STATEMENT_TIMEOUT_MS);
+    const idleMs = _posIntEnv('PG_IDLE_IN_TX_TIMEOUT_MS', DEFAULT_IDLE_IN_TX_TIMEOUT_MS);
+    return (
+        `BEGIN; ` +
+        `SET LOCAL statement_timeout = '${stmtMs}ms'; ` +
+        `SET LOCAL idle_in_transaction_session_timeout = '${idleMs}ms'`
+    );
+}
+
 export function getPgPool() {
     const resolved = resolveConnectionString();
     if (!resolved) return null;
@@ -80,14 +177,10 @@ export function getPgPool() {
         // even when the DB is perfectly healthy (the `client.query() when already
         // executing` warning is exactly this SET↔SELECT-1 collision). So we skip
         // the SET on a pooler; direct connections (:5432) still honour it.
-        const isTxPooler = /pooler\.supabase\.com|[:.]6543(\/|$|\?)|pgbouncer=true/i.test(connStr);
-        _pool = new Pool({
-            connectionString: connStr,
-            ssl: connStr.includes('localhost') ? false : { rejectUnauthorized: false },
-            max: 10,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000,
-        });
+        // §FIX-POOL-CAPACITY (L-787): the pooler is no longer left unguarded —
+        // see `buildTransactionPreamble()`, applied by `withTransaction`.
+        const isTxPooler = isTransactionPooler(connStr);
+        _pool = new Pool(buildPoolConfig(connStr));
         _pool.on('error', (err) => {
             console.error('[pgClient] Unexpected pool error:', err.message);
         });
@@ -106,7 +199,10 @@ export function getPgPool() {
             });
         }
         console.log(
-            `[pgClient] Pool initialised${isTxPooler ? ' (transaction pooler — session SET skipped, §D7)' : ''}`,
+            `[pgClient] Pool initialised — max=${_posIntEnv('PG_POOL_MAX', DEFAULT_POOL_MAX)}` +
+            `${isTxPooler
+                ? ' (transaction pooler — session SET skipped §D7; per-transaction SET LOCAL applied §FIX-POOL-CAPACITY)'
+                : ''}`,
         );
     }
     return _pool;
@@ -302,7 +398,12 @@ export async function withTransaction(fn) {
     if (!pool) throw new Error('PostgreSQL not configured — withTransaction requires DATABASE_URL or SUPABASE_DB_URL');
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
+        // §FIX-POOL-CAPACITY (L-787) — BEGIN carries the transaction-scoped
+        // statement / idle timeouts in the SAME round trip. This is the only form
+        // of the guard that survives a transaction pooler (§D7), and it bounds
+        // exactly the operations that most need bounding: the multi-megabyte
+        // version save and the project duplicate, both of which hold a row lock.
+        await client.query(buildTransactionPreamble());
         const result = await fn(client);
         await client.query('COMMIT');
         return result;
