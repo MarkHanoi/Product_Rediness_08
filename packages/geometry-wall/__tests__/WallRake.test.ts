@@ -74,13 +74,13 @@ describe('§WALL-RAKE — the sign convention, pinned by worked example', () => 
         expect(off).not.toBeNull();
         expect(off.x).toBeCloseTo(0, 12);
         expect(off.z).toBeCloseTo(3 * (Math.cos(80 * Math.PI / 180) / Math.sin(80 * Math.PI / 180)), 12);
-        expect(off.z).toBeCloseTo(0.5289, 4);
+        expect(off.z).toBeCloseTo(0.52898, 5);
         expect(off.z).toBeGreaterThan(0);          // ← LEFT. If this flips, walls lean wrong.
     });
 
     it('120° leans the top toward the wall RIGHT (−Z for a +X wall)', () => {
         const off = rakeTopOffset(120, 3, { x: 1, z: 0 })!;
-        expect(off.z).toBeCloseTo(-1.7321, 4);
+        expect(off.z).toBeCloseTo(-1.73205, 5);
         expect(off.z).toBeLessThan(0);
     });
 
@@ -159,8 +159,9 @@ describe('§WALL-RAKE — the sheared extrusion', () => {
         };
         const top = cen(0, nTopFan);
         const bot = cen(nTopFan, nTopFan);
-        expect(top.x - bot.x).toBeCloseTo(off.x, 10);
-        expect(top.z - bot.z).toBeCloseTo(off.z, 10);
+        // Float32BufferAttribute — assert to single-precision, not double.
+        expect(top.x - bot.x).toBeCloseTo(off.x, 5);
+        expect(top.z - bot.z).toBeCloseTo(off.z, 5);
     });
 
     it('SIDE normals acquire a Y component — a raked face is not vertical', () => {
@@ -175,32 +176,49 @@ describe('§WALL-RAKE — the sheared extrusion', () => {
         const n = normOf(g);
         for (let i = 0; i < n.length / 3; i++) {
             const L = Math.hypot(n[i * 3]!, n[i * 3 + 1]!, n[i * 3 + 2]!);
-            expect(L).toBeCloseTo(1, 10);
+            expect(L).toBeCloseTo(1, 5);   // Float32 storage
         }
     });
 
     it('side normals still point OUTWARD — a sign slip here renders the wall inside-out', () => {
-        // The long +Z face of a +X wall must have a positive Z component whatever the rake.
-        // Sample the side quad whose base edge runs from eL→sL (the +Z side of the polygon).
+        // Identify each face by its BASE EDGE, never by an averaged vertex position:
+        // under a rake the TOP of the −Z face sits at +Z, so a positional heuristic
+        // picks the wrong face and "proves" the normal is inverted when it is not.
+        // Side emission is 6 vertices per polygon edge, edges in polygon order.
         const n = normOf(g);
-        const p = posOf(g);
         const sideStart = (fp.polygon.length - 2) * 6;
-        let found = false;
-        for (let i = sideStart; i < n.length / 3; i += 3) {
-            const zAvg = (p[i * 3 + 2]! + p[(i + 1) * 3 + 2]! + p[(i + 2) * 3 + 2]!) / 3;
-            if (zAvg > 0.05) { expect(n[i * 3 + 2]).toBeGreaterThan(0); found = true; }
+        const poly = fp.polygon;
+        let checkedPlusZ = false, checkedMinusZ = false;
+        for (let e = 0; e < poly.length; e++) {
+            const a = poly[e]!, b = poly[(e + 1) % poly.length]!;
+            const v = sideStart + e * 6;             // first vertex of this edge's quad
+            const nz = n[v * 3 + 2]!;
+            const midZ = (a.z + b.z) / 2;
+            if (Math.abs(a.z - b.z) > 1e-9) continue;   // an end cap, not a long face
+            if (midZ > 0)  { expect(nz).toBeGreaterThan(0); checkedPlusZ  = true; }
+            if (midZ < 0)  { expect(nz).toBeLessThan(0);    checkedMinusZ = true; }
         }
-        expect(found).toBe(true);
+        expect(checkedPlusZ).toBe(true);
+        expect(checkedMinusZ).toBe(true);
     });
 
-    it('a 120° rake mirrors an 80° rake about the vertical', () => {
+    it('a 100° rake mirrors an 80° rake about the vertical', () => {
+        // Compare DISPLACEMENT from the vertical build, not raw z: a top vertex sits at
+        // (base_z + off_z), and base_z is ±halfThickness, so the raw coordinates of two
+        // opposite rakes are not negatives of one another.
+        const g90  = buildWallExtrusion(fp, { height: HEIGHT });
         const g80  = buildWallExtrusion(fp, { height: HEIGHT, topOffset: rakeTopOffset(80,  HEIGHT, fp.direction) });
         const g100 = buildWallExtrusion(fp, { height: HEIGHT, topOffset: rakeTopOffset(100, HEIGHT, fp.direction) });
-        const p80 = posOf(g80), p100 = posOf(g100);
+        const p90 = posOf(g90), p80 = posOf(g80), p100 = posOf(g100);
         const nTopFan = (fp.polygon.length - 2) * 3;
+        let sawNonZero = false;
         for (let i = 0; i < nTopFan; i++) {
-            expect(p100[i * 3 + 2]).toBeCloseTo(-p80[i * 3 + 2]!, 10);
+            const d80  = p80[i * 3 + 2]!  - p90[i * 3 + 2]!;
+            const d100 = p100[i * 3 + 2]! - p90[i * 3 + 2]!;
+            expect(d100).toBeCloseTo(-d80, 5);
+            if (Math.abs(d80) > 0.1) sawNonZero = true;
         }
+        expect(sawNonZero).toBe(true);   // guard against a vacuous 0 === -0 pass
     });
 });
 

@@ -751,6 +751,7 @@ export const FLOATING_CAROUSEL_CSS = `
     background: transparent;
 }
 .foc-canvas:active { cursor: grabbing; }
+/* @no-scale:end */
 
 /* ── Label overlay ───────────────────────────────────────────────────────── */
 .foc-label-layer {

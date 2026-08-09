@@ -19,8 +19,11 @@ import {
     MIN_TARGET_PX,
     MIN_FONT_PX,
     HAIRLINE_MAX_PX,
+    NO_SCALE_OPEN,
+    NO_SCALE_CLOSE,
 } from '../uiScale';
 import { DESIGN_TOKENS } from '../tokens';
+import { FLOATING_CAROUSEL_CSS } from '../panels/furnitureCarousel';
 
 describe('§UI-DENSITY-SCALE — the lever', () => {
     it('is a single declared factor in the founder-requested 15–20% band', () => {
@@ -151,5 +154,65 @@ describe('§UI-DENSITY-SCALE — swept over the real stylesheet', () => {
         expect(count(scaled, '{')).toBe(count(DESIGN_TOKENS, '{'));
         expect(count(scaled, '}')).toBe(count(DESIGN_TOKENS, '}'));
         expect(count(scaled, ';')).toBe(count(DESIGN_TOKENS, ';'));
+    });
+});
+
+/**
+ * §UI-DENSITY-SCALE — the fence must CLOSE.
+ *
+ * ⚠ This suite exists because the defect actually happened: the `@no-scale:end`
+ * marker was dropped while hand-applying the change, leaving the carousel's
+ * canvas fence open.  `noScaleDepth` never returns to 0, so EVERY declaration
+ * after that point — in this sheet and in every panel stylesheet concatenated
+ * after it — is copied through unscaled.  Nothing throws, no CSS is invalid,
+ * and the page still renders; the density silently stops applying partway
+ * down the sheet.  That is exactly the class of failure this repo keeps
+ * paying for: a wrong result and a right one that look identical.
+ *
+ * An unbalanced fence is therefore a TEST failure, not a review comment.
+ */
+describe('§UI-DENSITY-SCALE — no-scale fences are balanced', () => {
+    const SHEETS: ReadonlyArray<readonly [string, string]> = [
+        ['furnitureCarousel', FLOATING_CAROUSEL_CSS],
+        ['tokens', DESIGN_TOKENS],
+    ];
+
+    for (const [name, css] of SHEETS) {
+        it(`${name}: every @no-scale:start has a matching @no-scale:end`, () => {
+            const opens = css.split(NO_SCALE_OPEN).length - 1;
+            const closes = css.split(NO_SCALE_CLOSE).length - 1;
+            expect(opens).toBe(closes);
+        });
+    }
+
+    it('a fenced region is copied verbatim while the text AFTER it still scales', () => {
+        const css = [
+            '.before { width: 100px; }',
+            `/* ${NO_SCALE_OPEN} */`,
+            '.fenced { width: 200px; }',
+            `/* ${NO_SCALE_CLOSE} */`,
+            '.after { width: 400px; }',
+        ].join('\n');
+
+        const out = scaleCssText(css, 0.85);
+
+        expect(out).toContain('width: 85px');    // before  — scaled
+        expect(out).toContain('width: 200px');   // fenced  — untouched
+        expect(out).toContain('width: 340px');   // after   — scaling RESUMED
+    });
+
+    it('POSITIVE CONTROL — dropping the closing marker stops scaling everything after it', () => {
+        const broken = [
+            '.before { width: 100px; }',
+            `/* ${NO_SCALE_OPEN} */`,
+            '.fenced { width: 200px; }',
+            '.after { width: 400px; }',
+        ].join('\n');
+
+        const out = scaleCssText(broken, 0.85);
+
+        expect(out).toContain('width: 85px');    // before the fence — still scaled
+        expect(out).toContain('width: 400px');   // ⚠ NOT 340px — the bug, reproduced
+        expect(out).not.toContain('width: 340px');
     });
 });
