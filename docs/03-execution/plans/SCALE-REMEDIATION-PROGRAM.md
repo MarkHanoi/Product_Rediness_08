@@ -92,9 +92,22 @@ These are not preamble; each one has bitten this repo and each one constrains th
 - **T2.3 before any scale-out.** Adding a second machine without the Socket.io adapter is a
   *correctness regression* — peers in one project stop seeing each other, silently. Resizing one
   machine (T1.6) is safe; adding a second one is not, until the adapter lands.
-- **T2.6 before T2.2.** Wiring membership makes co-editing possible. Today `createVersionTransactional`
-  holds a row lock across a ~16 MB insert and 412s the loser of any concurrent save. Ship T2.2 first
-  and the very first thing invited collaborators experience is losing each other's work.
+- ~~**T2.6 before T2.2.**~~ ⚠ **WITHDRAWN 2026-08-09 — this constraint rested on a false premise.**
+  The claim was that concurrent saves 412 each other and the loser's work is stranded. Reading
+  `ServerSyncQueue.ts:474-516` before implementing it shows the client has handled this carefully
+  since 2026-05-23: `§L-B2-RECONCILE` adopts the server's actual count from the 412 body and
+  **retries once inline** (normally succeeding, appending after the concurrent writer), and on a
+  second 412 it **preserves** the snapshot as `local-only` and surfaces it via `onSaveRejected`.
+  Nothing is stranded.
+
+  The real loss is one level up and is untouched by any locking fix: the retry appends *our whole
+  document as we knew it*, so the other editor's changes are absent from current state —
+  **document-level last-writer-wins**, which is L-391/L-786's merge problem. **T2.2 is therefore
+  not gated on T2.6**, and L-792 is downgraded P1 → P2 (performance, not data loss).
+
+  Worth naming the general lesson, since this program exists because of a similar one: the audit
+  read the server and inferred the client's behaviour. The inference was wrong in the safe
+  direction, but it produced a hard ordering constraint that would have cost real days.
 - **T1.7 before T2 and T3 are *ordered*.** T1's items are cheap and independently justified, so they
   do not wait. But the sequencing of the expensive work should follow a profile.
 
