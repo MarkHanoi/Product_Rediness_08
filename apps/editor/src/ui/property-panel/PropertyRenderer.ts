@@ -38,6 +38,19 @@ export function renderPropertyRow(
             navigator.clipboard?.writeText(String(currentValue ?? '')).catch(() => {});
         });
         inputWrap.appendChild(val);
+
+        // §WALL-RAKE / §CONTEXT-DATA-HONESTY — say WHY it is disabled.
+        // A greyed row with no reason makes "derived", "not available on this
+        // element" and "broken" indistinguishable. The hint is real text in the
+        // DOM (not a `title` tooltip and not colour), so it reaches a screen
+        // reader and survives keyboard-only use — C43.
+        if (descriptor.hint) {
+            const why = document.createElement('div');
+            why.className = 'gpp-prop-hint';
+            why.textContent = descriptor.hint;
+            why.style.cssText = 'font-size:10px;line-height:1.3;opacity:0.75;margin-top:2px;';
+            inputWrap.appendChild(why);
+        }
     } else if (descriptor.type === 'number') {
         const inp = document.createElement('input');
         inp.type = 'number';

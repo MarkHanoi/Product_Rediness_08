@@ -14,6 +14,9 @@ import { PropertyDescriptor, PropertyInputType } from './types';
 // away from it. `STAIR_CONSTRAINTS` is the same set `UpdateStairParametersCommand`
 // and `CreateStairCommand` validate against. Layer-legal: apps/* (L5) → geometry-stair (L2).
 import { STAIR_CONSTRAINTS, STAIR_MATERIALS, STAIR_NOSING_TYPES, STAIR_STRINGER_TYPES } from '@pryzm/geometry-stair';
+// §WALL-RAKE — bounds come from the ONE authority (ADR-0310 §2.4). Re-typing 15/165
+// here would be the second copy of a policy, which is how this repo's drift starts.
+import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
 
 type SchemaEntry = Omit<PropertyDescriptor, 'key'>;
 
@@ -55,6 +58,12 @@ const SCHEMAS: Record<string, ElementSchema> = {
         levelId:         READONLY('Level ID', 'spatial'),
         room:            READONLY('Room', 'spatial'),
         baseOffset:      NUMBER('Base Offset', 'instance', 'instance', true, { unit: 'm' }),
+        // §WALL-RAKE (ADR-0310) — the lean, as an INSTANCE property. 90 = vertical.
+        // Bounds come from the exported constants, never re-typed: one policy, one
+        // place (C65 §3.5). Editability is decided PER WALL in generateDescriptors()
+        // because three wall shapes refuse a rake outright.
+        rakeAngleDeg:    NUMBER('Vertical Angle', 'instance', 'instance', true,
+                                { unit: '°', min: RAKE_MIN_DEG, max: RAKE_MAX_DEG }),
         startX:          READONLY('Start X', 'spatial'),
         startZ:          READONLY('Start Z', 'spatial'),
         endX:            READONLY('End X', 'spatial'),
@@ -385,10 +394,62 @@ export function generateDescriptors(elementData: Record<string, any>): PropertyD
     const type = normalizeType(rawType);
     const schema = SCHEMAS[type] ?? buildFallbackSchema(elementData);
 
-    return Object.entries(schema).map(([key, entry]) => ({
+    const descriptors = Object.entries(schema).map(([key, entry]) => ({
         key,
         ...entry,
     }));
+
+    return type === 'wall' ? applyRakeAuthorability(descriptors, elementData) : descriptors;
+}
+
+/**
+ * §WALL-RAKE (ADR-0310 §2.5) — mirror the STORE's refusals into the panel.
+ *
+ * `WallStore` rejects a non-vertical rake on three wall shapes, at all three of
+ * its doors. Those refusals are correct and are the safety property of the whole
+ * feature — but if the panel offers an editable box anyway, the user types 75,
+ * presses Apply, and the wall stays vertical with nothing said. A refusal and a
+ * success would look identical, which is the §CONTEXT-DATA-HONESTY defect this
+ * repo has paid for three times (L-716, L-752, L-779).
+ *
+ * So the panel does not TEST anything the store does not; it REPORTS the same
+ * decision, with the reason, and drops to read-only.
+ *
+ * ⚠ These predicates must track `WallStore`'s. If a fourth refusal is added there
+ * and not here, the panel silently starts lying again — which is why the spec
+ * beside this file asserts the pairing rather than the wording.
+ */
+function rakeRefusalReason(w: Record<string, any>): string | null {
+    if (w.curve) {
+        // The shear direction is the wall's plan normal, which VARIES along an arc:
+        // one shear vector is right at a single station and wrong everywhere else.
+        return 'Not available on curved walls — the lean would only be correct at one point along the arc.';
+    }
+    const layers = w.layers ?? w.wallType?.layers;
+    if (Array.isArray(layers) && layers.length > 1) {
+        // Layers are authored PERPENDICULAR; honouring that needs t/sin θ threaded
+        // through resolver + footprint + occupancy, or every layered wall silently
+        // re-thickens.
+        return 'Not available on layered walls — layer thicknesses are measured perpendicular to the wall.';
+    }
+    const openings = w.openings ?? w.childrenIds;
+    if (Array.isArray(openings) && openings.length > 0) {
+        // C15's vertical axis is not modelled: sill is a bare world-Y translate at
+        // four independent sites and `hostedElementFrame` returns a scalar rotationY.
+        return 'Not available while this wall hosts a door or window — hosted openings do not tilt yet.';
+    }
+    return null;
+}
+
+function applyRakeAuthorability(
+    descriptors: PropertyDescriptor[],
+    elementData: Record<string, any>,
+): PropertyDescriptor[] {
+    const reason = rakeRefusalReason(elementData);
+    if (!reason) return descriptors;
+    return descriptors.map(d =>
+        d.key === 'rakeAngleDeg' ? { ...d, editable: false, hint: reason } : d,
+    );
 }
 
 /**

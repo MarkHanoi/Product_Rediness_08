@@ -28,6 +28,16 @@ export interface PropertyDescriptor {
     max?: number;
     step?: number;
     group?: string;
+    /**
+     * Why this row is not editable RIGHT NOW, for this instance.
+     *
+     * ⚠ `editable: false` alone is a silent refusal: the user sees a greyed value
+     * and cannot tell "this is derived" from "this is unavailable on THIS element"
+     * from "this is broken". A refusal and a success must never look the same
+     * (§CONTEXT-DATA-HONESTY). When a descriptor is disabled for an instance-
+     * specific reason, put that reason here and the renderer shows it.
+     */
+    hint?: string;
 }
 
 /**
