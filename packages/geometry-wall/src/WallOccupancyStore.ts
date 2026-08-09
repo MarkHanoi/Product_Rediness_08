@@ -40,7 +40,12 @@ import { WallData, Opening } from './WallTypes';
 import { wallCentrelineLength } from './WallArcParam';
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the same predicate WallStore uses,
 // so the pre-flight decline and the store's last-line guard can never disagree.
-import { isVerticalRake } from './WallRake';
+// §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the SINGLE rake gate: the same one
+// WallDataSchema, WallStore.update and WallStore.addOpening consult. Calling it
+// here rather than re-deriving the rule means the pre-flight decline and the
+// store's last-line guard cannot drift apart, and the user reads the SAME
+// sentence the store would have thrown.
+import { rakeAuthorability } from './WallRake';
 
 /**
  * §LOAD-REDETECT-FREEZE (2026-06-25) — true while a project restore replays the
@@ -261,14 +266,27 @@ export class WallOccupancyStore {
         // The mirror case — refusing an OPENING on a wall that is raked — was
         // simply never implemented, so the panel and the store disagreed about who
         // enforced the rule. That asymmetry was the actual defect.
-        if (!isVerticalRake((wall as { rakeAngleDeg?: number | null }).rakeAngleDeg)) {
+        // Ask the ONE gate what the user is actually asking: may this wall, WITH an
+        // opening on it, hold the rake it currently has? A one-element `openings`
+        // array expresses the prospective opening — `rakeAuthorability` is a pure
+        // predicate over a SHAPE, not over a store.
+        //
+        // ⚠ The first draft of this fix re-derived the rule with `isVerticalRake`.
+        // That would have been a FOURTH copy of a rule that already has exactly one
+        // home — and copy-drift is what caused this bug: the panel refused
+        // rake-given-openings, nothing refused openings-given-rake. Reusing the gate
+        // also means the sentence the user reads is the sentence the store authored.
+        const rake = rakeAuthorability({
+            rakeAngleDeg: (wall as { rakeAngleDeg?: number }).rakeAngleDeg,
+            openings:     [{}],
+        } as Parameters<typeof rakeAuthorability>[0]);
+        if (!rake.ok) {
             return {
                 valid:       false,
                 conflictIds: [],
                 reason:
                     'This wall is angled (raked), so it cannot host a door or window yet — ' +
-                    'the opening is cut as a vertical band and the leaf/frame assume a ' +
-                    'vertical face. Set the wall\'s Vertical Angle back to 90° first.',
+                    "set the wall's Vertical Angle back to 90° first. " + (rake.reason ?? ''),
             };
         }
 
