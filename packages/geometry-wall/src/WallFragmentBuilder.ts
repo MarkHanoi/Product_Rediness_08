@@ -155,7 +155,32 @@ export class WallFragmentBuilder {
         if (wall._renderVersion === undefined) return null;
         const jh = this._joinHash(joinData);
         const slabTag = (slabBaseOffset ?? 0).toFixed(4);
-        return `${wall._renderVersion}|${jh}|${slabTag}`;
+        return `${wall._renderVersion}|${jh}|${slabTag}|${this._rakeTag(wall)}`;
+    }
+
+    /**
+     * §WALL-RAKE-INVALIDATION — the wall's lean, as a cache-key fragment.
+     *
+     * THE DEFECT (founder 2026-08-09): "the wall only gets angled after another
+     * element is created or modified." `rakeAngleDeg` is a real geometry input
+     * (`createWallBodyFragment` feeds it to `buildWallV2Geometry`), but neither
+     * in-process invalidation key folded it, so a rake-only edit produced a
+     * byte-identical key and `_buildWallInternal` short-circuited — leaving the
+     * VERTICAL mesh on screen while the store held a raked wall.
+     *
+     * The key was `_renderVersion`-addressed, and `_renderVersion` is bumped by
+     * every DEDICATED wall command (UpdateWallBaselineCommand, Cascade…, Join…,
+     * Cut…, Scale…) but NOT by the generic bus path the property panel uses
+     * (`element.updateParameters` → `UpdateElementParameterCommand` →
+     * `WallStore.update`). That is the L-793 two-mutation-paths class; folding
+     * the rake CONTENT into the key fixes the rake case without relying on which
+     * mutation path wrote it — content-addressing beats counter-addressing, the
+     * same argument `composeWallGeometryHash` already makes for the persisted key.
+     *
+     * Absent ⇒ `90.0000` (vertical), so no pre-rake wall is re-versioned by this.
+     */
+    private _rakeTag(wall: WallData): string {
+        return `r${(wall.rakeAngleDeg ?? 90).toFixed(4)}`;
     }
 
     /** §WALL-DEEP-2026 B3 — hash the join miter/baseline inputs. Shared by
@@ -210,7 +235,13 @@ export class WallFragmentBuilder {
             // No stable content signal — preserve legacy "unique on every build".
             return ++this._geometrySeq;
         }
-        const key = `${wall._renderVersion}|${this._joinHash(joinData)}|${(worldY ?? 0).toFixed(4)}`;
+        // §WALL-RAKE-INVALIDATION — the rake shears the extrusion, so it changes the
+        // PROJECTED geometry (the plan outline of a raked wall is its base footprint,
+        // but its section/elevation and its 3D silhouette are not). Fold it or a rake
+        // edit reuses the prior token and the EdgeProjector / NME plan-projection cache
+        // serves the pre-rake proxy — the founder's `[VDT] §G3-STALE-EVENT` /
+        // `§DIAG-GRAFT-FALLTHROUGH` symptom. See `_rakeTag`.
+        const key = `${wall._renderVersion}|${this._joinHash(joinData)}|${(worldY ?? 0).toFixed(4)}|${this._rakeTag(wall)}`;
         const prev = this._geomVersionKey.get(wall.id);
         if (prev !== undefined && prev.key === key) {
             // Inputs unchanged since the last build — reuse the token so the
