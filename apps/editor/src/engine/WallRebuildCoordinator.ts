@@ -1193,9 +1193,19 @@ export class WallRebuildCoordinator {
                 const lys = (w.layers ?? []).map((l: any) => mm(l.thickness)).join(',');
                 const cv = w.curve ? `${mm(w.curve.control?.x)},${mm(w.curve.control?.z)}` : '';
                 const mat = `${w.materialId ?? ''}/${w.materialColor ?? ''}`;
+                // §WALL-RAKE-INVALIDATION (ADR-0310 follow-up) — the lean is a rebuild
+                // input, so it MUST be in the signature. It was not, and that was the
+                // founder's "the wall only gets angled after another element is created
+                // or modified": a rake-only edit left this signature byte-identical, the
+                // no-progress gate below returned early, and the ENTIRE flush was skipped
+                // — no resolveLevel, no refreshV2Cache, no buildWall. Any later edit to
+                // any wall on the level moved the signature and the already-stored rake
+                // finally got built. Absent ⇒ 90 (vertical), so no existing level's
+                // signature changes value for a wall that has never been raked.
+                const rk = mm(w.rakeAngleDeg ?? 90);
                 parts.push(
                     `${w.id}:${mm(bl[0].x)},${mm(bl[0].z)}>${mm(bl[1].x)},${mm(bl[1].z)}` +
-                    `#${mm(w.thickness)}h${mm(w.height)}b${mm(w.baseOffset)}|o[${ops}]|l[${lys}]|c[${cv}]|m[${mat}]`,
+                    `#${mm(w.thickness)}h${mm(w.height)}b${mm(w.baseOffset)}|o[${ops}]|l[${lys}]|c[${cv}]|m[${mat}]|r[${rk}]`,
                 );
             }
             parts.sort();
