@@ -284,7 +284,52 @@ export class UpdateElementParameterCommand implements Command {
                              ?? window.wallStore // TODO(TASK-07) — last-resort legacy fallback
                              ;
                 const wall    = store?.getById?.(elementId);
-                if (wall && builder?.buildWall) builder.buildWall(wall);
+
+                // ── §DIAG-PARAM-REBUILD (L-813) ────────────────────────────
+                //
+                // Ship the PROBE before the next fix. Two fixes have now been
+                // deployed against this defect on two different hypotheses —
+                // the stale store read (above) and §WALL-RAKE-INVALIDATION in
+                // WallFragmentBuilder — and the founder still reports "the wall
+                // only gets angled after another element is created". Both fixes
+                // were real bugs; neither is demonstrably THE bug, because the
+                // guarded call below cannot be distinguished from success in a
+                // log. `builder?.buildWall` absent, `store` absent and `wall`
+                // not found ALL produce the identical observable: silence.
+                //
+                // That is the §CONTEXT-DATA-HONESTY failure — a refusal and a
+                // success must never be the same value — and it is why this has
+                // taken three rounds. Each branch now names itself, and the
+                // success branch prints the rake it is building WITH, so the
+                // next console paste settles it: either the rebuild is not
+                // running (and which of the three reasons), or it is running
+                // with the correct angle and the defect is downstream in the
+                // builder, not here.
+                if (!builder?.buildWall) {
+                    console.warn(
+                        `[UpdateElementParameterCommand] §DIAG-PARAM-REBUILD NO REBUILD for wall/${elementId} — ` +
+                        `window.wallFragmentBuilder is ${builder ? 'present but has no buildWall()' : 'absent'}. ` +
+                        `The parameter WAS written to the store; only the mesh rebuild was skipped.`,
+                    );
+                } else if (!store) {
+                    console.warn(
+                        `[UpdateElementParameterCommand] §DIAG-PARAM-REBUILD NO REBUILD for wall/${elementId} — ` +
+                        `neither context.stores.wallStore nor window.wallStore resolved.`,
+                    );
+                } else if (!wall) {
+                    console.warn(
+                        `[UpdateElementParameterCommand] §DIAG-PARAM-REBUILD NO REBUILD for wall/${elementId} — ` +
+                        `store resolved but getById() returned nothing (wrong store instance, or wall deleted).`,
+                    );
+                } else {
+                    const rake = (wall as { rakeAngleDeg?: number }).rakeAngleDeg;
+                    console.log(
+                        `[UpdateElementParameterCommand] §DIAG-PARAM-REBUILD rebuilding wall/${elementId} ` +
+                        `rakeAngleDeg=${rake ?? 'absent'} ` +
+                        `storeSource=${(context.stores as { wallStore?: unknown }).wallStore ? 'context' : 'window-fallback'}`,
+                    );
+                    builder.buildWall(wall);
+                }
 
             } else if (t === 'window' || t === 'door') {
                 const wallStore = window.wallStore // TODO(TASK-07);
