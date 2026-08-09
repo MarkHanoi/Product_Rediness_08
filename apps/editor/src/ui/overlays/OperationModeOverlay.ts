@@ -159,12 +159,45 @@ export class OperationModeOverlay {
         this._el.classList.add('oop-overlay--visible');
     }
 
+    /**
+     * §FIX-OP-REFUSAL-VISIBLE (L-813, §CONTEXT-DATA-HONESTY) — a hide request that
+     * lands while an error is on screen is SUPPRESSED until the error's own timer
+     * elapses.
+     *
+     * THE BUG THIS CLOSES. Every operation tool reports a command refusal as
+     *     `this._showError(info); this._complete();`
+     * `_complete()` synchronously fires `bim-operation-instructions {msg:null}` AND
+     * `bim-operation-completed`, both of which called `_hide()` — which cleared the
+     * error class and the message text in the SAME TICK the error was set. So the
+     * whole family of correct, well-worded refusals ("Walls are parallel", "Walls are
+     * already joined at this corner", "Join rejected: too close to parallel", "Cut
+     * would produce a wall shorter than 0.1 m", WALL_NOT_FOUND) rendered for ~0 ms.
+     * A refusal and a success were literally the same observable: nothing. That is
+     * the single reason "the wall edit tools do nothing" was so hard to diagnose.
+     *
+     * The error still auto-clears after its 2.5 s window (see `_showError`), which
+     * then performs the deferred hide — so nothing gets stuck on screen.
+     */
     private _hide(): void {
+        if (this._errorTimer !== null) {
+            // An error is currently displayed — defer the hide to the error timer.
+            this._hideDeferredByError = true;
+            return;
+        }
+        this._hideNow();
+    }
+
+    /** Unconditional hide — the error-suppression path in `_hide()` calls this. */
+    private _hideNow(): void {
+        this._hideDeferredByError = false;
         this._el.classList.remove('oop-overlay--visible', 'oop-overlay--error');
         this._msgEl.textContent   = '';
         this._badgeEl.textContent = '';
         this._currentMsg          = '';
     }
+
+    /** True when a hide was requested while an error was on screen. */
+    private _hideDeferredByError = false;
 
     private _setMessage(msg: string): void {
         this._msgEl.textContent = msg;
@@ -176,20 +209,28 @@ export class OperationModeOverlay {
     }
 
     private _showError(msg: string): void {
+        // §FIX-OP-REFUSAL-VISIBLE — snapshot the pre-error instruction BEFORE
+        // `_setMessage` and before any `_complete()`-driven hide can wipe it, so the
+        // restore below is correct even when the tool tears itself down immediately.
+        const priorMsg = this._currentMsg;
+        this._hideDeferredByError = false;
         this._setMessage(msg);
         this._show();
         this._el.classList.add('oop-overlay--error');
 
         if (this._errorTimer !== null) clearTimeout(this._errorTimer);
         this._errorTimer = setTimeout(() => {
-            this._el.classList.remove('oop-overlay--error');
-            // Restore previous message if any
-            if (this._currentMsg) {
-                this._setMessage(this._currentMsg);
-            } else {
-                this._hide();
-            }
             this._errorTimer = null;
+            this._el.classList.remove('oop-overlay--error');
+            // A hide arrived while the error was displayed (the normal case: the tool
+            // calls _complete() right after reporting the refusal) — honour it now.
+            if (this._hideDeferredByError || !priorMsg) {
+                this._hideNow();
+                return;
+            }
+            // Otherwise the operation is still running: restore its instruction.
+            this._currentMsg = priorMsg;
+            this._setMessage(priorMsg);
         }, 2500);
     }
 

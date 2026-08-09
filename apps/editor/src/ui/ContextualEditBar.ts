@@ -79,6 +79,14 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 export class ContextualEditBar {
     private readonly _el: HTMLElement;
     private _selectedObj: any | null = null;
+    /**
+     * §FIX-SELECTION-PAYLOAD-INSTANCED-ID (L-813) — the RESOLVED BIM element id for
+     * the current selection, taken from the `bim-selection-changed` payload. This is
+     * the per-instance id for instanced elements, where `_selectedObj.userData.id` is
+     * only the shared InstancedMesh's synthetic group handle. Every operation arms
+     * from THIS, never from `userData.id`.
+     */
+    private _selectedElementId: string | null = null;
     private _elementType = '';
     private _tools: OperationTools | null = null;
     private _activeOpId: string | null = null;
@@ -289,10 +297,10 @@ export class ContextualEditBar {
                 shortcut:    'J',
                 variant:     'default',
                 action:      () => {
-                    const id = this._selectedObj?.userData?.id ?? null;
-                    if (!id || !this._tools) return;
+                    const t = this._resolveOperationTarget('Join');
+                    if (!t) return;
                     this._setActiveOp('join');
-                    this._tools.joinTool.activate(id, this._elementType);
+                    this._tools!.joinTool.activate(t.id, t.type);
                     console.log('[ContextualEditBar] Join activated');
                 },
             },
@@ -304,10 +312,10 @@ export class ContextualEditBar {
                 shortcut:    'X',
                 variant:     'default',
                 action:      () => {
-                    const id = this._selectedObj?.userData?.id ?? null;
-                    if (!id || !this._tools) return;
+                    const t = this._resolveOperationTarget('Cut / Trim');
+                    if (!t) return;
                     this._setActiveOp('cut');
-                    this._tools.cutTool.activate(id, this._elementType);
+                    this._tools!.cutTool.activate(t.id, t.type);
                     console.log('[ContextualEditBar] Cut activated');
                 },
             },
@@ -319,10 +327,10 @@ export class ContextualEditBar {
                 shortcut:    'F',
                 variant:     'default',
                 action:      () => {
-                    const id = this._selectedObj?.userData?.id ?? null;
-                    if (!id || !this._tools) return;
+                    const t = this._resolveOperationTarget('Mirror');
+                    if (!t) return;
                     this._setActiveOp('mirror');
-                    this._tools.mirrorTool.activate(id, this._elementType);
+                    this._tools!.mirrorTool.activate(t.id, t.type);
                     console.log('[ContextualEditBar] Mirror activated');
                 },
             },
@@ -342,10 +350,10 @@ export class ContextualEditBar {
                         console.log('[ContextualEditBar] Underlay reference scale activated');
                         return;
                     }
-                    const id = this._selectedObj?.userData?.id ?? null;
-                    if (!id || !this._tools) return;
+                    const t = this._resolveOperationTarget('Scale');
+                    if (!t) return;
                     this._setActiveOp('scale');
-                    this._tools.scaleTool.activate(id, this._elementType);
+                    this._tools!.scaleTool.activate(t.id, t.type);
                     console.log('[ContextualEditBar] Scale activated');
                 },
             },
@@ -369,10 +377,10 @@ export class ContextualEditBar {
                 shortcut:    'O',
                 variant:     'default',
                 action:      () => {
-                    const id = this._selectedObj?.userData?.id ?? null;
-                    if (!id || !this._tools) return;
+                    const t = this._resolveOperationTarget('Offset / Parallel');
+                    if (!t) return;
                     this._setActiveOp('offset');
-                    this._tools.offsetTool.activate(id, this._elementType);
+                    this._tools!.offsetTool.activate(t.id, t.type);
                     console.log('[ContextualEditBar] Offset activated');
                 },
             },
@@ -384,10 +392,10 @@ export class ContextualEditBar {
                 shortcut:    'E',
                 variant:     'default',
                 action:      () => {
-                    const id = this._selectedObj?.userData?.id ?? null;
-                    if (!id || !this._tools) return;
+                    const t = this._resolveOperationTarget('Reference Edit');
+                    if (!t) return;
                     this._setActiveOp('reference-edit');
-                    this._tools.referenceEditTool.activate(id, this._elementType);
+                    this._tools!.referenceEditTool.activate(t.id, t.type);
                     console.log('[ContextualEditBar] Reference Edit activated');
                 },
             },
@@ -428,13 +436,20 @@ export class ContextualEditBar {
     private _wireSelectionEvent(): void {
         // F.events.16 — bim-selection-changed migrated to runtime.events typed bus.
         window.runtime?.events?.on('bim-selection-changed', (payload: unknown) => {
-            const detail = payload as { object?: any | null };
+            const detail = payload as { object?: any | null; elementId?: string | null; elementType?: string | null };
             const obj = detail?.object ?? null;
 
             this._selectedObj  = obj;
             this._activeOpId   = null;
+            // §FIX-SELECTION-PAYLOAD-INSTANCED-ID (L-813) — prefer the RESOLVED
+            // element id from the payload over `object.userData.id`. For an
+            // instanced wall the Object3D is the shared InstancedMesh whose
+            // `userData.id` is the synthetic `instanced-group-<key>` handle, NOT a
+            // store row. Arming an operation with that handle made every wall edit
+            // fail with WALL_NOT_FOUND in 3D while working in plan.
+            this._selectedElementId = detail?.elementId ?? obj?.userData?.id ?? null;
             this._elementType  = obj
-                ? (obj.userData?.elementType ?? obj.userData?.type ?? '').toLowerCase()
+                ? (detail?.elementType ?? obj.userData?.elementType ?? obj.userData?.type ?? '').toLowerCase()
                 : '';
 
             if (obj) {
@@ -590,29 +605,32 @@ export class ContextualEditBar {
                     break;
                 }
                 // Operations (capability-gated: tool.activate no-ops if canDo returns false)
+                // §FIX-OP-SILENT-NOOP (L-813) — the keyboard path goes through the
+                // SAME visible-decline resolver as the buttons, so `J` on a selection
+                // with no resolvable id reports why instead of doing nothing.
                 case 'J': {
-                    const id = this._selectedObj.userData?.id ?? null;
-                    if (id && this._tools) {
+                    const t = this._resolveOperationTarget('Join');
+                    if (t) {
                         this._setActiveOp('join');
-                        this._tools.joinTool.activate(id, this._elementType);
+                        this._tools!.joinTool.activate(t.id, t.type);
                         console.log('[ContextualEditBar] J → Join');
                     }
                     break;
                 }
                 case 'X': {
-                    const id = this._selectedObj.userData?.id ?? null;
-                    if (id && this._tools) {
+                    const t = this._resolveOperationTarget('Cut / Trim');
+                    if (t) {
                         this._setActiveOp('cut');
-                        this._tools.cutTool.activate(id, this._elementType);
+                        this._tools!.cutTool.activate(t.id, t.type);
                         console.log('[ContextualEditBar] X → Cut');
                     }
                     break;
                 }
                 case 'F': {
-                    const id = this._selectedObj.userData?.id ?? null;
-                    if (id && this._tools) {
+                    const t = this._resolveOperationTarget('Mirror');
+                    if (t) {
                         this._setActiveOp('mirror');
-                        this._tools.mirrorTool.activate(id, this._elementType);
+                        this._tools!.mirrorTool.activate(t.id, t.type);
                         console.log('[ContextualEditBar] F → Mirror');
                     }
                     break;
@@ -625,10 +643,10 @@ export class ContextualEditBar {
                         console.log('[ContextualEditBar] S → Underlay reference scale');
                         break;
                     }
-                    const id = this._selectedObj.userData?.id ?? null;
-                    if (id && this._tools) {
+                    const t = this._resolveOperationTarget('Scale');
+                    if (t) {
                         this._setActiveOp('scale');
-                        this._tools.scaleTool.activate(id, this._elementType);
+                        this._tools!.scaleTool.activate(t.id, t.type);
                         console.log('[ContextualEditBar] S → Scale');
                     }
                     break;
@@ -642,19 +660,19 @@ export class ContextualEditBar {
                     break;
                 }
                 case 'O': {
-                    const id = this._selectedObj.userData?.id ?? null;
-                    if (id && this._tools) {
+                    const t = this._resolveOperationTarget('Offset / Parallel');
+                    if (t) {
                         this._setActiveOp('offset');
-                        this._tools.offsetTool.activate(id, this._elementType);
+                        this._tools!.offsetTool.activate(t.id, t.type);
                         console.log('[ContextualEditBar] O → Offset');
                     }
                     break;
                 }
                 case 'E': {
-                    const id = this._selectedObj.userData?.id ?? null;
-                    if (id && this._tools) {
+                    const t = this._resolveOperationTarget('Reference Edit');
+                    if (t) {
                         this._setActiveOp('reference-edit');
-                        this._tools.referenceEditTool.activate(id, this._elementType);
+                        this._tools!.referenceEditTool.activate(t.id, t.type);
                         console.log('[ContextualEditBar] E → Reference Edit');
                     }
                     break;
@@ -675,6 +693,63 @@ export class ContextualEditBar {
                 }
             }
         });
+    }
+
+    /**
+     * §FIX-OP-SILENT-NOOP (L-813, §CONTEXT-DATA-HONESTY) — surface a human-readable
+     * DECLINE for an operation that cannot start.
+     *
+     * THE DEFECT THIS CLOSES. Every operation button used to begin with
+     *     `const id = this._selectedObj?.userData?.id ?? null;`
+     *     `if (!id || !this._tools) return;`
+     * A missing id, missing tools and a successful arm were the SAME OBSERVABLE:
+     * nothing happened, nothing was logged, no reason was given. That is the exact
+     * failure mode the standing repo principle forbids — a refusal and a success must
+     * never be the same value. The decline is routed through `bim-operation-error`,
+     * which OperationModeOverlay renders in its error state, so the user always learns
+     * WHY. It is never a throw: a correct guard delivered as a crash is also a bug
+     * (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH, L-812).
+     */
+    private _declineOperation(opLabel: string, reason: string): void {
+        const msg = `${opLabel} unavailable — ${reason}`;
+        window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg } }));
+        console.warn(`[ContextualEditBar] ${msg}`);
+    }
+
+    /**
+     * Resolve the target this operation should arm against, or emit a visible decline
+     * and return null. Never throws, never returns silently.
+     */
+    private _resolveOperationTarget(opLabel: string): { id: string; type: string } | null {
+        if (!this._selectedObj) {
+            this._declineOperation(opLabel, 'nothing is selected');
+            return null;
+        }
+        if (!this._tools) {
+            this._declineOperation(opLabel, 'the editing tools are not ready yet — try again in a moment');
+            return null;
+        }
+        const id = this._selectedElementId;
+        if (!id) {
+            this._declineOperation(
+                opLabel,
+                'the selected element has no resolvable id (re-select it in the plan view and try again)',
+            );
+            return null;
+        }
+        // §FIX-SELECTION-PAYLOAD-INSTANCED-ID — a synthetic instanced-group handle is
+        // NOT a BIM element. If one still reaches here (an emitter that has not been
+        // updated to carry the resolved id), decline loudly rather than arming an
+        // operation that is guaranteed to fail deep inside a command with a
+        // WALL_NOT_FOUND the user never sees.
+        if (id.startsWith('instanced-group-')) {
+            this._declineOperation(
+                opLabel,
+                'the click resolved to an instanced render group rather than a single element — click the element again',
+            );
+            return null;
+        }
+        return { id, type: this._elementType };
     }
 
     /** Mark a button as active (operation in progress). */
@@ -755,11 +830,11 @@ export class ContextualEditBar {
         if (this._activatePlanTool('copy-place')) {
             console.log('[ContextualEditBar] Copy → plan-view copy-place tool (Ctrl+C) — active plan surface');
         } else {
-            // 3-D fallback: clipboard copy
-            const id   = this._selectedObj?.userData?.id ?? null;
-            const type = this._elementType;
-            if (id && this._tools) {
-                this._tools.copyPasteTool.copy(id, type);
+            // 3-D fallback: clipboard copy. §FIX-OP-SILENT-NOOP (L-813) — a missing
+            // id now reports itself instead of silently copying nothing.
+            const t = this._resolveOperationTarget('Copy');
+            if (t) {
+                this._tools!.copyPasteTool.copy(t.id, t.type);
                 console.log('[ContextualEditBar] Copy → clipboard copy (no plan overlay)');
             }
         }
@@ -846,11 +921,27 @@ export class ContextualEditBar {
     }
 
     private _activateAlignToolForContext(): void {
+        // §FIX-OP-SILENT-NOOP (L-813) — Align was the mirror-image defect of the other
+        // buttons: it had NO id guard at all and armed unconditionally, so pressing it
+        // with an unresolvable selection put AlignPlanToolHandler into `pick-source`
+        // with `_sourceId === null`, where every click is rejected by a bare
+        // `console.warn` the user never sees. Resolve the target FIRST (visible decline
+        // if it cannot be resolved), then check the surface requirement.
+        const t = this._resolveOperationTarget('Align');
+        if (!t) { this._clearActiveOpHighlight(); this._activeOpId = null; return; }
+
         // §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95) — parity across main + split plan panes.
         if (this._activatePlanTool('align')) {
             console.log('[ContextualEditBar] Align → plan-view align tool (L) — active plan surface');
         } else {
-            console.warn('[ContextualEditBar] Align requires an active plan, section, or elevation view');
+            // Align is a 2-D reference-plane operation; it has no 3-D surface. Say so
+            // rather than warning to a console nobody is reading.
+            this._clearActiveOpHighlight();
+            this._activeOpId = null;
+            this._declineOperation(
+                'Align',
+                'it needs an open plan, section or elevation view — switch to a 2D view and try again',
+            );
         }
     }
 

@@ -1868,9 +1868,33 @@ export class SelectionManager implements ISelectionManager {
         // elements. The transformControls.attach() above is a harmless re-attach that
         // does not reset showY, so the constraint remains in effect.
 
-        // Notify UI that selection has changed to refresh menu states
-        window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: obj } })); // keep DOM for plugins
-        (window as any).runtime?.events?.emit('bim-selection-changed', { object: obj }); // F.events.16 bridge
+        // Notify UI that selection has changed to refresh menu states.
+        //
+        // §FIX-SELECTION-PAYLOAD-INSTANCED-ID (L-813) — the payload MUST carry the
+        // RESOLVED per-instance element id, not just the Object3D.
+        //
+        // THE BUG THIS CLOSES. A plain wall (no openings, not curved, not joined)
+        // renders through InstancedElementRenderer, which stamps a SYNTHETIC group id
+        // (`instanced-group-<key>`) on the shared InstancedMesh — the real per-element
+        // id lives in the slot table and is recovered here as `elementIdOverride`.
+        // Every consumer that read `detail.object.userData.id` therefore got the
+        // *group* handle: truthy, so no guard tripped, but no store row exists for it.
+        // ContextualEditBar armed Join/Cut/Mirror/Offset with `instanced-group-…`, the
+        // command's canExecute returned WALL_A_NOT_FOUND, and the refusal was swallowed
+        // (see §FIX-OP-REFUSAL-VISIBLE) — the founder's "the edit buttons do nothing in
+        // 3D". Plan view was unaffected because plan picking reads ids from the store,
+        // which is exactly the reported plan-vs-3D divergence.
+        //
+        // `pryzm-element-selected` (below) already resolved this correctly; the two
+        // payloads simply disagreed. They now agree.
+        const _resolvedElementId   = elementIdOverride ?? (obj.userData?.id as string | undefined) ?? null;
+        const _resolvedElementType = (obj.userData?.elementType ?? obj.userData?.type ?? null) as string | null;
+        window.dispatchEvent(new CustomEvent('bim-selection-changed', {
+            detail: { object: obj, elementId: _resolvedElementId, elementType: _resolvedElementType },
+        })); // keep DOM for plugins
+        (window as any).runtime?.events?.emit('bim-selection-changed', {
+            object: obj, elementId: _resolvedElementId, elementType: _resolvedElementType,
+        }); // F.events.16 bridge
 
         // ── Wardrobe run inspector ─────────────────────────────────────────────
         // Show the wardrobe run inspector immediately on click, hide on deselect.

@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import {
     Command, CommandType, CommandValidationResult,
     CommandResult, SerializedCommand, CommandContext,
@@ -100,7 +117,7 @@ export class CopyElementCommand implements Command {
 
         const bimMgr = ctx.bimManager ?? window.bimManager;
         bimMgr?.registerElement?.(this.input.newId, source.levelId);
-        try { elementRegistry.registerSemantic(this.input.newId, 'wall'); } catch (_) {}
+        try { elementRegistry.registerSemantic(this.input.newId, 'wall'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
         this.executed = true;
         return { success: true, affectedElementIds: [this.input.newId] };
@@ -139,7 +156,7 @@ export class CopyElementCommand implements Command {
         }
         bimMgr?.registerElement?.(this.input.newId, source.levelId);
         fStore.add(parentCopy);
-        try { elementRegistry.registerSemantic(this.input.newId, 'furniture'); } catch (_) {}
+        try { elementRegistry.registerSemantic(this.input.newId, 'furniture'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try {
             semanticGraphManager.addRelationship({
                 type: 'sitsOn',
@@ -160,7 +177,7 @@ export class CopyElementCommand implements Command {
             }
             bimMgr?.registerElement?.(childNewId, child.levelId);
             fStore.add(childCopy);
-            try { elementRegistry.registerSemantic(childNewId, 'furniture'); } catch (_) {}
+            try { elementRegistry.registerSemantic(childNewId, 'furniture'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             this.clonedChildIds.push(childNewId);
         }
 
@@ -180,7 +197,7 @@ export class CopyElementCommand implements Command {
                 elementRegistry.unregister(childId);
                 fStore?.remove(childId);
             }
-            try { semanticGraphManager.removeAllRelationshipsForElement(this.input.newId); } catch (_) {}
+            try { semanticGraphManager.removeAllRelationshipsForElement(this.input.newId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             bimMgr?.unregisterElement?.(this.input.newId);
             elementRegistry.unregister(this.input.newId);
             fStore?.remove(this.input.newId);

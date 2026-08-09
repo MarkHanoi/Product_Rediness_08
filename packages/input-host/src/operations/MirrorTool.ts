@@ -118,6 +118,14 @@ export class MirrorTool extends OperationToolBase {
         if (!result.success) {
             const info = result.info?.[0] ?? 'Mirror failed';
             window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg: info } })); // TODO(TASK-12)
+            // §FIX-MIRROR-STUCK-AFTER-FAILURE (L-813) — the early `return` here left
+            // the tool ACTIVE with its canvas-click listener already auto-removed by
+            // the consume guard (step1 returned true). The Mirror button stayed lit,
+            // the cursor stayed a crosshair, and no further click did anything — a
+            // dead armed tool. Join and Cut both `_complete()` on a failed command;
+            // Mirror now matches. The refusal message survives because the overlay no
+            // longer lets the completion hide wipe it (§FIX-OP-REFUSAL-VISIBLE).
+            this._complete();
             return;
         }
         this._complete();

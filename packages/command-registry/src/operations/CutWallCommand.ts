@@ -62,8 +62,9 @@ export class CutWallCommand implements Command {
     canExecute(ctx: CommandContext): CommandValidationResult {
         const wallA = ctx.stores.wallStore.getById(this.input.wallAId);
         const wallB = ctx.stores.wallStore.getById(this.input.wallBId);
-        if (!wallA) return { ok: false, reason: 'WALL_A_NOT_FOUND', blockingIssues: [`WALL_NOT_FOUND: ${this.input.wallAId}`] };
-        if (!wallB) return { ok: false, reason: 'WALL_B_NOT_FOUND', blockingIssues: [`WALL_NOT_FOUND: ${this.input.wallBId}`] };
+        // §FIX-VALIDATION-REASON-IS-HUMAN-READABLE (L-813) — see JoinWallsCommand.
+        if (!wallA) return { ok: false, reason: 'WALL_A_NOT_FOUND', blockingIssues: [`Cut cancelled — the selected element is not a wall in the model (id ${this.input.wallAId})`] };
+        if (!wallB) return { ok: false, reason: 'WALL_B_NOT_FOUND', blockingIssues: [`Cut cancelled — the element you clicked is not a wall in the model (id ${this.input.wallBId})`] };
         if (this.input.wallAId === this.input.wallBId) return { ok: false, reason: 'SAME_WALL', blockingIssues: ['Cannot cut a wall against itself'] };
 
         const ix = _lineIntersectXZ(wallA.baseLine[0], wallA.baseLine[1], wallB.baseLine[0], wallB.baseLine[1]);

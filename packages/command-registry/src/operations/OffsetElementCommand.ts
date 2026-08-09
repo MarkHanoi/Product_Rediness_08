@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import {
     Command, CommandType, CommandValidationResult,
     CommandResult, SerializedCommand, CommandContext,
@@ -56,7 +73,8 @@ export class OffsetElementCommand implements Command {
 
     canExecute(ctx: CommandContext): CommandValidationResult {
         const source = ctx.stores.wallStore.getById(this.input.sourceId);
-        if (!source) return { ok: false, reason: 'SOURCE_NOT_FOUND', blockingIssues: [`Element not found: ${this.input.sourceId}`] };
+        // §FIX-VALIDATION-REASON-IS-HUMAN-READABLE (L-813) — see MirrorElementCommand.
+        if (!source) return { ok: false, reason: 'SOURCE_NOT_FOUND', blockingIssues: [`Offset currently supports WALLS only — no wall with id ${this.input.sourceId} exists`] };
         if (ctx.stores.wallStore.getById(this.input.newId)) {
             return { ok: false, reason: 'NEW_ID_CONFLICT', blockingIssues: [`ID already in use: ${this.input.newId}`] };
         }
@@ -96,7 +114,7 @@ export class OffsetElementCommand implements Command {
 
         const bimMgr = ctx.bimManager ?? window.bimManager;
         bimMgr?.registerElement?.(this.input.newId, source.levelId);
-        try { elementRegistry.registerSemantic(this.input.newId, 'wall'); } catch (_) {}
+        try { elementRegistry.registerSemantic(this.input.newId, 'wall'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
         this.executed = true;
         return { success: true, affectedElementIds: [this.input.newId] };

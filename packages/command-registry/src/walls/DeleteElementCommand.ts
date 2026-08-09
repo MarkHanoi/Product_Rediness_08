@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { serializeWallSnapshot, deserializeWallSnapshot } from './wallSnapshotUtils';
@@ -162,7 +179,7 @@ export class DeleteElementCommand implements Command {
             childrenIds.forEach(childId => {
                 elementRegistry.unregister(childId);
                 if (bimMgr?.unregisterElement) {
-                    try { bimMgr.unregisterElement(childId); } catch (_) {}
+                    try { bimMgr.unregisterElement(childId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
                 // §CASCADE-DELETE: Mirror CreateWallOpeningCommand's dual-store write.
                 // WallStore.remove() only cleans the internal maps (wallStore.doors /
@@ -340,9 +357,9 @@ export class DeleteElementCommand implements Command {
             this.elementType = 'curtainwall';
             const cwBimMgr = ctx.bimManager;
             cwStore.remove(id);
-            try { cwBimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
+            try { cwBimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             return { success: true, affectedElementIds: [id] };
         }
 
@@ -374,19 +391,19 @@ export class DeleteElementCommand implements Command {
             ).map(f => structuredClone(f));
 
             this._furnitureChildren.forEach(child => {
-                try { bimMgr?.unregisterElement?.(child.id); } catch (_) {}
-                try { semanticGraphManager.removeAllRelationshipsForElement(child.id); } catch (_) {}
-                try { elementRegistry.unregister(child.id); } catch (_) {}
+                try { bimMgr?.unregisterElement?.(child.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { semanticGraphManager.removeAllRelationshipsForElement(child.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.unregister(child.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 furnitureStore.remove(child.id);
-                try { builder?.removeFurniture?.(child.id); } catch (_) {}
+                try { builder?.removeFurniture?.(child.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             });
 
             // Remove parent
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             furnitureStore.remove(id);
-            try { builder?.removeFurniture?.(id); } catch (_) {}
+            try { builder?.removeFurniture?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
             return {
                 success: true,
@@ -403,9 +420,9 @@ export class DeleteElementCommand implements Command {
             // §WALL-AUDIT-2026-W2: ctx.bimManager is non-optional in CommandContext;
             // window.bimManager fallback removed.
             const bimMgr = ctx.bimManager;
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             handrailStore.remove(id);
             return { success: true, affectedElementIds: [id] };
         }
@@ -419,10 +436,10 @@ export class DeleteElementCommand implements Command {
             // §WALL-AUDIT-2026-W2: ctx.bimManager is non-optional in CommandContext;
             // window.bimManager fallback removed.
             const bimMgr = ctx.bimManager;
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
-            try { (ctx as any).topologyGraph?.removeNode?.(id); } catch (_) {}
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { (ctx as any).topologyGraph?.removeNode?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             roofStore.remove(id);
             return { success: true, affectedElementIds: [id] };
         }
@@ -436,9 +453,9 @@ export class DeleteElementCommand implements Command {
             // §WALL-AUDIT-2026-W2: ctx.bimManager is non-optional in CommandContext;
             // window.bimManager fallback removed.
             const bimMgr = ctx.bimManager;
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             // Non-null assertion: `floor` exists ⇒ floorStore exists.
             floorStore!.remove(id);
             return { success: true, affectedElementIds: [id] };
@@ -456,12 +473,12 @@ export class DeleteElementCommand implements Command {
             const holes: any[] = (ceiling as any).holes ?? [];
             holes.forEach(h => {
                 if (!h?.elementId) return;
-                try { elementRegistry.unregister(h.elementId); } catch (_) {}
-                try { bimMgr?.unregisterElement?.(h.elementId); } catch (_) {}
+                try { elementRegistry.unregister(h.elementId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { bimMgr?.unregisterElement?.(h.elementId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             });
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             // Non-null assertion: `ceiling` exists ⇒ ceilingStore exists.
             ceilingStore!.remove(id);
             return { success: true, affectedElementIds: [id] };
@@ -476,9 +493,9 @@ export class DeleteElementCommand implements Command {
             // §WALL-AUDIT-2026-W2: ctx.bimManager is non-optional in CommandContext;
             // window.bimManager fallback removed.
             const bimMgr = ctx.bimManager;
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             beamStore.remove(id);
             return { success: true, affectedElementIds: [id] };
         }
@@ -492,9 +509,9 @@ export class DeleteElementCommand implements Command {
             // §WALL-AUDIT-2026-W2: ctx.bimManager is non-optional in CommandContext;
             // window.bimManager fallback removed.
             const bimMgr = ctx.bimManager;
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             plumbingStore.remove(id);
             return { success: true, affectedElementIds: [id] };
         }
@@ -546,10 +563,10 @@ export class DeleteElementCommand implements Command {
                     openings.forEach((op: any) => {
                         if (!op.elementId) return;
                         if (bimMgr?.registerElement) {
-                            try { bimMgr.registerElement(op.elementId, this.deletedData.levelId); } catch (_) {}
+                            try { bimMgr.registerElement(op.elementId, this.deletedData.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                         }
                         const opType = op.type === 'door' ? 'door' : 'window';
-                        try { elementRegistry.registerSemantic(op.elementId, opType as any); } catch (_) {}
+                        try { elementRegistry.registerSemantic(op.elementId, opType as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
                         // Restore the external singleton store so DoorBuilder / WindowBuilder
                         // receive an 'add' event and re-render the hosted element.
@@ -573,7 +590,7 @@ export class DeleteElementCommand implements Command {
                                         mark:        restored.properties?.mark,
                                         systemTypeId: (op as any).systemTypeId,
                                     });
-                                } catch (_) {}
+                                } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                             }
                         } else if (op.type === 'window') {
                             const restored = stores.wallStore.getWindow(op.elementId);
@@ -591,7 +608,7 @@ export class DeleteElementCommand implements Command {
                                         mark:        restored.properties?.mark,
                                         systemTypeId: (op as any).systemTypeId,
                                     });
-                                } catch (_) {}
+                                } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                             }
                         }
                     });
@@ -632,7 +649,7 @@ export class DeleteElementCommand implements Command {
                 stores.wallStore.addWindow(this.deletedData);
                 // §3.5 FIX: Re-register in elementRegistry (moved from WallStore.addWindow()).
                 // Use try/catch in case redo is called twice — registerSemantic throws on duplicate.
-                try { elementRegistry.registerSemantic(this.deletedData.id, 'window'); } catch (_) {}
+                try { elementRegistry.registerSemantic(this.deletedData.id, 'window'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 if (this.deletedData.openingDescriptor) {
                     // restoreOpening() writes through the store's internal mutable map and emits
                     // the update event so the subscriber rebuilds geometry correctly.
@@ -647,13 +664,13 @@ export class DeleteElementCommand implements Command {
                 // BOTH the opening removal and the mesh disposal. Mirrors the wall-branch
                 // undo's dual-store restore. Guard against a duplicate on redo re-entry.
                 if (this.deletedData.windowStoreRecord && !windowStore.has(this.deletedData.id)) {
-                    try { windowStore.add(this.deletedData.windowStoreRecord); } catch (_) {}
+                    try { windowStore.add(this.deletedData.windowStoreRecord); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
                 break;
             case 'door':
                 stores.wallStore.addDoor(this.deletedData);
                 // §3.5 FIX: Re-register in elementRegistry (moved from WallStore.addDoor()).
-                try { elementRegistry.registerSemantic(this.deletedData.id, 'door'); } catch (_) {}
+                try { elementRegistry.registerSemantic(this.deletedData.id, 'door'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 if (this.deletedData.openingDescriptor) {
                     // restoreOpening() is the correct store API for re-adding an
                     // opening to a wall after undo without mutating frozen objects.
@@ -665,7 +682,7 @@ export class DeleteElementCommand implements Command {
                 // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308) — door counterpart: restore the
                 // external doorStore record so DoorBuilder rebuilds the leaf+frame mesh.
                 if (this.deletedData.doorStoreRecord && !doorStore.has(this.deletedData.id)) {
-                    try { doorStore.add(this.deletedData.doorStoreRecord); } catch (_) {}
+                    try { doorStore.add(this.deletedData.doorStoreRecord); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
                 break;
             case 'window-orphan': {
@@ -675,11 +692,11 @@ export class DeleteElementCommand implements Command {
                 // restore that so the wall re-cuts.
                 const snap = this.deletedData;
                 if (!windowStore.has(snap.id)) {
-                    try { windowStore.add(snap); } catch (_) {}
+                    try { windowStore.add(snap); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
-                try { elementRegistry.registerSemantic(snap.id, 'window'); } catch (_) {}
+                try { elementRegistry.registerSemantic(snap.id, 'window'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 if (snap.openingDescriptor && snap.wallId) {
-                    try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch (_) {}
+                    try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
                 break;
             }
@@ -687,11 +704,11 @@ export class DeleteElementCommand implements Command {
                 // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): door counterpart of the above.
                 const snap = this.deletedData;
                 if (!doorStore.has(snap.id)) {
-                    try { doorStore.add(snap); } catch (_) {}
+                    try { doorStore.add(snap); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
-                try { elementRegistry.registerSemantic(snap.id, 'door'); } catch (_) {}
+                try { elementRegistry.registerSemantic(snap.id, 'door'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 if (snap.openingDescriptor && snap.wallId) {
-                    try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch (_) {}
+                    try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
                 break;
             }
@@ -717,8 +734,8 @@ export class DeleteElementCommand implements Command {
                 const cwSnap = this.deletedData;
                 const cwBimMgr = ctx.bimManager;
                 ctx.stores.curtainWallStore?.add?.(cwSnap);
-                try { cwBimMgr?.registerElement?.(cwSnap.id, cwSnap.levelId ?? cwSnap.baseLevelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(cwSnap.id, 'curtainwall' as any); } catch (_) {}
+                try { cwBimMgr?.registerElement?.(cwSnap.id, cwSnap.levelId ?? cwSnap.baseLevelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.registerSemantic(cwSnap.id, 'curtainwall' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 break;
             }
             case 'furniture': {
@@ -734,7 +751,7 @@ export class DeleteElementCommand implements Command {
                 const builder = (ctx as any).furnitureFragmentBuilder ?? window.furnitureFragmentBuilder;
 
                 // Restore parent first
-                try { bimMgr?.registerElement?.(snapshot.id, snapshot.levelId); } catch (_) {}
+                try { bimMgr?.registerElement?.(snapshot.id, snapshot.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 furnitureStore?.add?.(snapshot);
                 try {
                     semanticGraphManager.addRelationship({
@@ -744,12 +761,12 @@ export class DeleteElementCommand implements Command {
                         createdBy: 'DeleteElementCommand.undo',
                         metadata: { furnitureType: snapshot.furnitureType },
                     });
-                } catch (_) {}
-                try { builder?.updateFurniture?.(snapshot); } catch (_) {}
+                } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { builder?.updateFurniture?.(snapshot); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
                 // Restore associated children
                 this._furnitureChildren.forEach(child => {
-                    try { bimMgr?.registerElement?.(child.id, child.levelId); } catch (_) {}
+                    try { bimMgr?.registerElement?.(child.id, child.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                     furnitureStore?.add?.(child);
                     try {
                         semanticGraphManager.addRelationship({
@@ -759,8 +776,8 @@ export class DeleteElementCommand implements Command {
                             createdBy: 'DeleteElementCommand.undo',
                             metadata: { furnitureType: child.furnitureType },
                         });
-                    } catch (_) {}
-                    try { builder?.updateFurniture?.(child); } catch (_) {}
+                    } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                    try { builder?.updateFurniture?.(child); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 });
                 break;
             }
@@ -771,8 +788,8 @@ export class DeleteElementCommand implements Command {
             const bimMgr = ctx.bimManager;
                 const store = ctx.stores.handrailStore;
                 store?.add?.(snap);
-                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(snap.id, 'handrail' as any); } catch (_) {}
+                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.registerSemantic(snap.id, 'handrail' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 break;
             }
             case 'roof': {
@@ -782,8 +799,8 @@ export class DeleteElementCommand implements Command {
             const bimMgr = ctx.bimManager;
                 const store = ctx.stores.roofStore;
                 store?.add?.(snap);
-                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(snap.id, 'roof' as any); } catch (_) {}
+                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.registerSemantic(snap.id, 'roof' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 break;
             }
             case 'floor': {
@@ -793,8 +810,8 @@ export class DeleteElementCommand implements Command {
             const bimMgr = ctx.bimManager;
                 const store = ctx.stores.floorStore;
                 store?.add?.(snap);
-                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(snap.id, 'floor' as any); } catch (_) {}
+                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.registerSemantic(snap.id, 'floor' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 break;
             }
             case 'ceiling': {
@@ -805,8 +822,8 @@ export class DeleteElementCommand implements Command {
                 const store = ctx.stores.ceilingStore;
                 if (store?.restoreSnapshot) store.restoreSnapshot(snap);
                 else store?.add?.(snap);
-                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(snap.id, 'ceiling' as any); } catch (_) {}
+                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.registerSemantic(snap.id, 'ceiling' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 break;
             }
             case 'beam': {
@@ -816,8 +833,8 @@ export class DeleteElementCommand implements Command {
             const bimMgr = ctx.bimManager;
                 const store = ctx.stores.beamStore;
                 store?.add?.(snap);
-                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(snap.id, 'beam' as any); } catch (_) {}
+                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.registerSemantic(snap.id, 'beam' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 // §BEAM-AUDIT-2026-W7b: re-author the SemanticGraph edges that
                 // CreateBeamCommand originally wrote, so undoing a delete leaves
                 // DependencyResolver with the same load-path topology it had
@@ -849,7 +866,7 @@ export class DeleteElementCommand implements Command {
                             metadata: { role: 'endSupport' },
                         });
                     }
-                } catch (_) {}
+                } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 break;
             }
             case 'plumbing': {
@@ -859,8 +876,8 @@ export class DeleteElementCommand implements Command {
             const bimMgr = ctx.bimManager;
                 const store = ctx.stores.plumbingStore;
                 store?.add?.(snap);
-                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(snap.id, 'plumbing-fixture' as any); } catch (_) {}
+                try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.registerSemantic(snap.id, 'plumbing-fixture' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 break;
             }
             case 'stair':

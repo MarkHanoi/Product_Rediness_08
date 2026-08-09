@@ -143,7 +143,7 @@ export class ReferenceEditTool extends OperationToolBase {
             try {
                 const mat = this._hoveredMesh.material;
                 if (mat?.emissive) mat.emissive.setHex(this._savedEmissive);
-            } catch (_) {}
+            } catch { /* §SWALLOW-COSMETIC — hover glow on a duck-typed material; a mesh whose material has no writable emissive simply does not glow. Nothing downstream reads this */ }
             this._hoveredMesh  = null;
             this._savedEmissive = null;
         }
@@ -157,7 +157,7 @@ export class ReferenceEditTool extends OperationToolBase {
                 mat.emissive.setHex(0x3300cc);  // Violet accent glow
                 this._hoveredMesh = mesh;
             }
-        } catch (_) {}
+        } catch { /* §SWALLOW-COSMETIC — hover glow on a duck-typed material; a mesh whose material has no writable emissive simply does not glow. Nothing downstream reads this */ }
     }
 
     private _clearHoverHighlight(): void {

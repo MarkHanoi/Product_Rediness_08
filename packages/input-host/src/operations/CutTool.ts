@@ -71,13 +71,20 @@ export class CutTool extends OperationToolBase {
     private _handleStep1(detail: { worldPoint?: unknown; elementId?: string | null; elementType?: string | null }): boolean {
         const worldPoint = detail.worldPoint as Point3D | undefined;
         const wallBId    = detail.elementId ?? null;
-        const pickedType = detail.elementType ?? null;
+        const pickedType = (detail.elementType ?? '').toLowerCase() || null;
         if (!worldPoint || !wallBId) {
             this._showInstructions('⚠ Click on a wall — Esc to cancel');
             return false;
         }
-        if (pickedType && pickedType !== 'wall') {
-            this._showInstructions('⚠ Only walls can be cut in Phase 1 — click a wall');
+        // §FIX-JOIN-SECOND-PICK-TYPE (L-813) — same defect as JoinTool: an UNKNOWN
+        // element type used to be accepted as wall B and handed to CutWallCommand,
+        // which then failed with an invisible WALL_B_NOT_FOUND. Unknown is a refusal.
+        if (pickedType !== 'wall') {
+            this._showInstructions(
+                pickedType
+                    ? `⚠ Cut needs a WALL to cut against — you clicked a ${pickedType}. Click a wall, or Esc to cancel`
+                    : '⚠ Could not identify what you clicked — click directly on a wall, or Esc to cancel',
+            );
             return false;
         }
         if (wallBId === this._wallAId) {

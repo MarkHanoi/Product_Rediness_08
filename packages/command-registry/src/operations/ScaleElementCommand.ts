@@ -57,7 +57,8 @@ export class ScaleElementCommand implements Command {
 
     canExecute(ctx: CommandContext): CommandValidationResult {
         const wall = ctx.stores.wallStore.getById(this.input.elementId);
-        if (!wall) return { ok: false, reason: 'ELEMENT_NOT_FOUND', blockingIssues: [`Element not found: ${this.input.elementId}`] };
+        // §FIX-VALIDATION-REASON-IS-HUMAN-READABLE (L-813) — see MirrorElementCommand.
+        if (!wall) return { ok: false, reason: 'ELEMENT_NOT_FOUND', blockingIssues: [`Scale currently supports WALLS only — no wall with id ${this.input.elementId} exists`] };
         if (this.input.scaleX <= 0 || this.input.scaleZ <= 0) {
             return { ok: false, reason: 'INVALID_SCALE', blockingIssues: ['Scale factors must be positive'] };
         }

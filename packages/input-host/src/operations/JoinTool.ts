@@ -44,10 +44,28 @@ export class JoinTool extends OperationToolBase {
         this._addCanvasClickListener(
             (detail) => {
                 const pickedId   = detail.elementId ?? null;
-                const pickedType = detail.elementType ?? null;
+                const pickedType = (detail.elementType ?? '').toLowerCase() || null;
                 if (!pickedId) return false;                 // no element under cursor
-                if (pickedType && pickedType !== 'wall') {
-                    this._showInstructions('⚠ Only walls can be joined in Phase 1 — click a wall');
+
+                // §FIX-JOIN-SECOND-PICK-TYPE (L-813) — the second pick must POSITIVELY
+                // be a wall.
+                //
+                // THE BUG THIS CLOSES. The guard used to read
+                //     `if (pickedType && pickedType !== 'wall') reject`
+                // — i.e. an UNKNOWN type (null/'' because the picked root carried
+                // neither `userData.elementType` nor `userData.type`) fell straight
+                // through and was accepted as wall B. That is how the founder's log
+                // shows a JOIN executing against a FLOOR: the hover-anchor pick path
+                // resolved `elementType` to null on the floor's root while
+                // LevelPlaneConstraint independently identified it as "floor".
+                // Unknown is now a REFUSAL with a stated reason, not an acceptance —
+                // a refusal and a success must never be the same value.
+                if (pickedType !== 'wall') {
+                    this._showInstructions(
+                        pickedType
+                            ? `⚠ Join needs a WALL — you clicked a ${pickedType}. Click a wall, or Esc to cancel`
+                            : '⚠ Could not identify what you clicked — click directly on a wall, or Esc to cancel',
+                    );
                     return false;
                 }
                 if (pickedId === this._wallAId) {

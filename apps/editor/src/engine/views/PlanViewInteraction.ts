@@ -54,6 +54,44 @@ import { MoveMarkOriginCommand } from './MoveMarkOriginCommand';
  * Hover-highlight radius (separate from snap radius — hover is tighter so the
  * blue-stroke highlight only fires on direct passes).
  */
+/**
+ * §FIX-PLANDRAG-VS-ARMED-OP (L-813) — is a MODAL ContextualEditBar operation
+ * (Join / Cut / Mirror / Scale / Offset / Reference Edit) currently armed?
+ *
+ * THE BUG THIS CLOSES. The plan-view element drag arms on mousedown whenever no
+ * CREATION tool is active (`toolManager.isAnyToolActive()`), and on a hit it calls
+ * `preventDefault()` + `stopPropagation()` and claims the gesture. It knew nothing
+ * about the operation tools, which are a different modal layer: with Join armed, the
+ * user's second pick landed on a draggable wall, the drag controller swallowed the
+ * gesture, and the click that was supposed to BE the second pick never reached the
+ * operation. The founder's log shows exactly this as repeating
+ * `[PlanDrag] wall drag started` while the join tool was armed.
+ *
+ * Tracked from the events every OperationToolBase subclass already emits, so no tool
+ * needs to know this module exists. Module-scope (not `window`) keeps P4 satisfied.
+ */
+let _armedOperationId: string | null = null;
+if (typeof window !== 'undefined') {
+    window.addEventListener('bim-operation-state-changed', (e: Event) => {
+        const d = (e as CustomEvent<{ operationId?: string; active?: boolean }>).detail ?? {};
+        if (d.active === true && d.operationId) _armedOperationId = d.operationId;
+        else if (d.active === false && d.operationId === _armedOperationId) _armedOperationId = null;
+    });
+    const _disarm = (): void => { _armedOperationId = null; };
+    window.addEventListener('bim-operation-cancelled', _disarm);
+    window.addEventListener('bim-operation-completed', _disarm);
+}
+
+/**
+ * True while a modal ContextualEditBar operation owns the pointer.
+ * Deliberately NOT exported: it is an internal gate for this module's mousedown
+ * path, and P8 requires every newly-exported function to carry an OTel span —
+ * a per-mousedown span here would be pure noise.
+ */
+function _isModalOperationArmed(): boolean {
+    return _armedOperationId !== null;
+}
+
 const HOVER_RADIUS_PX = 10;
 const CLICK_MAX_DRAG_PX = 5;
 const GRID_HIT_RADIUS_PX = 12;
@@ -429,7 +467,10 @@ export class PlanViewInteraction {
         // preventDefault on mousedown suppresses the subsequent click event).
         if (!this._isDragging && this._planCanvas) {
             const tm2 = window.toolManager;
-            if (!tm2?.isAnyToolActive?.() && !window.__underlayScaleActive) {
+            // §FIX-PLANDRAG-VS-ARMED-OP (L-813) — a modal edit operation outranks the
+            // element drag. Without this the drag stole the very click that was meant
+            // to be the operation's next pick (see `_isModalOperationArmed`).
+            if (!tm2?.isAnyToolActive?.() && !window.__underlayScaleActive && !_isModalOperationArmed()) {
                 const rect2 = this._canvas!.getBoundingClientRect();
                 const hsx = e.clientX - rect2.left;
                 const hsy = e.clientY - rect2.top;

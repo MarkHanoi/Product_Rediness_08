@@ -150,7 +150,17 @@ export class CommandManager {
 
         const validation = command.canExecute(this.context);
         if (!validation.ok) {
-            return { success: false, affectedElementIds: [], info: [validation.reason || 'Validation failed'] };
+            // §FIX-VALIDATION-REASON-IS-HUMAN-READABLE (L-813, §CONTEXT-DATA-HONESTY) —
+            // surface `blockingIssues[0]` (the sentence a command author wrote for a
+            // human: "Walls are parallel — no intersection exists") in preference to
+            // `reason`, which is a machine token ("WALLS_PARALLEL", "WALL_B_NOT_FOUND").
+            // The tools render `result.info[0]` straight into the operation overlay, so
+            // the token was what the founder saw — when the message survived at all.
+            // `reason` remains the fallback, so commands that set no blockingIssues are
+            // unchanged.
+            const _human = validation.blockingIssues?.[0] || validation.reason || 'Validation failed';
+            console.warn(`[CommandManager] REFUSED ${command.type}: ${validation.reason ?? 'unspecified'} — ${_human}`);
+            return { success: false, affectedElementIds: [], info: [_human] };
         }
 
         // BEGIN TRANSACTION SNAPSHOT — Contract 01 §2.2
