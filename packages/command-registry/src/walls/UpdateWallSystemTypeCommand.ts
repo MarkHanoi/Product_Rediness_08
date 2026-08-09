@@ -1,5 +1,8 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { serializeWallSnapshot } from './wallSnapshotUtils';
+// §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the SINGLE rake gate, shared with
+// WallDataSchema / WallStore.update / WallStore.addOpening / WallOccupancyStore.
+import { rakeAuthorability } from '@pryzm/geometry-wall';
 
 export interface UpdateWallSystemTypeInput {
     wallId: string;
@@ -31,6 +34,44 @@ export class UpdateWallSystemTypeCommand implements Command {
     canExecute(ctx: CommandContext): CommandValidationResult {
         const wall = ctx.stores.wallStore.getById(this.input.wallId);
         if (!wall) return { ok: false, reason: `Wall ${this.input.wallId} not found` };
+
+        // ── §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) ───────────────────────
+        //
+        // `WallStore.update` REFUSES a non-vertical rake on a LAYERED wall, and
+        // refuses it by THROWING. Reported from production 2026-08-09: switching a
+        // raked wall to a layered type produced
+        //   `[CommandManager] FATAL ERROR DURING EXECUTION WallSchemaError:
+        //    [WallStore.update] §WALL-RAKE rejected … not supported on a LAYERED wall`
+        // and the user read it as "layered walls are broken".
+        //
+        // The refusal is correct (ADR-0310: layer thicknesses are authored
+        // PERPENDICULAR to the face, and the raked footprint that honours that —
+        // t/sin θ per layer — is not implemented). Delivering it as a crash is not.
+        //
+        // `canExecute` is the declared pre-flight gate for exactly this and already
+        // carries a human-readable `reason`, so the refusal now arrives as an
+        // ordinary validation failure the UI can show. The store's throw stays as
+        // defence in depth for any path that skips validation.
+        //
+        // Asked against the MERGED next state, not the input: the rake lives on the
+        // existing record while the layers arrive in the patch, so neither half
+        // alone can see the combination — the same reasoning WallStore.update
+        // documents for checking `nextState`.
+        const rake = rakeAuthorability({
+            rakeAngleDeg: (wall as { rakeAngleDeg?: number }).rakeAngleDeg,
+            layers:       this.input.layers ?? undefined,
+            curve:        (wall as { curve?: unknown }).curve,
+        } as Parameters<typeof rakeAuthorability>[0]);
+        if (!rake.ok) {
+            return {
+                ok: false,
+                reason:
+                    `This wall is angled (raked), so it cannot use a layered wall type yet — ` +
+                    `set its Vertical Angle back to 90° first, or pick a single-layer type. ` +
+                    `${rake.reason ?? ''}`,
+            };
+        }
+
         return { ok: true };
     }
 
