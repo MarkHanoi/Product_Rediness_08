@@ -101,7 +101,11 @@ export function resolveVgCanvasStyle(
 ): VgCanvasStyle {
     const { style, overriddenProps } = vgGovernanceStore.resolveStyle(modelId, category, viewId);
     const zone = zoneOfLayer(layerTag);
-    const s = style as Record<string, unknown>;
+    // `as unknown as` — VGCategoryStyle is a closed shape; the zone-refinement keys
+    // (beyondEdgeColor, cutLineWeight, …) are read dynamically, so an index view is
+    // needed. Going through `unknown` is the honest cast: the two types genuinely do
+    // not overlap structurally, and pretending they do would hide a real rename.
+    const s = style as unknown as Record<string, unknown>;
 
     // §FIX-VISIBILITY-INTENT-AUTHORITY — THE WHOLE FIX IS THESE TWO PREDICATES.
     //

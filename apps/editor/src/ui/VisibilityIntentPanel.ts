@@ -825,7 +825,12 @@ export class VisibilityIntentPanel {
         // binding goes through the command bus (P6) so it is one undo and syncs to peers.
         if (this.contextViewId) {
             const _res = cm?.execute?.(
-                new AssignViewIntentCommand(this.contextViewId, intent.id),
+                // §FIX-VISIBILITY-INTENT-AUTHORITY — the constructor takes a PARAMS
+                // OBJECT (`AssignViewIntentParams`), not two positional arguments.
+                // Positional args would have compiled if the signature were
+                // `(a: string, b: string)`; it is not, and the mistake is invisible
+                // at the call site because both fields are strings.
+                new AssignViewIntentCommand({ viewId: this.contextViewId, intentId: intent.id }),
                 { source: 'HUMAN_DIRECT' },
             );
             if (_res && _res.success === false) {
