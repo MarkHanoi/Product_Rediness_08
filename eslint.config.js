@@ -20,7 +20,11 @@ import boundaries from 'eslint-plugin-boundaries';
 import pryzm from 'eslint-plugin-pryzm';
 import globals from 'globals';
 
-const layerElements = [
+// §FIX-LAYER-GATE-BLIND (L-809) — EXPORTED so `tools/ga-gate/check-layer-boundaries.ts`
+// reads THIS table rather than keeping a second copy. Two copies of a layer table
+// drift, and a drifted layer table is worse than no gate: it reports confident
+// nonsense. This file stays the one authority for which directory is in which layer.
+export const layerElements = [
   // L0 Persistence
   { type: 'L0-persistence', pattern: 'packages/persistence-client/**' },
   { type: 'L0-persistence', pattern: 'packages/file-format/**' },
@@ -60,7 +64,7 @@ const layerElements = [
 ];
 
 // "from N may import to ≤ N" is encoded explicitly to keep messages readable.
-const allowedDependencies = [
+export const allowedDependencies = [
   // L0 may only import from itself.
   { from: 'L0-persistence', allow: ['L0-persistence'] },
 
@@ -206,6 +210,27 @@ export default [
     settings: {
       'boundaries/elements': layerElements,
       'boundaries/include': ['packages/**', 'tools/**', 'apps/**', 'plugins/**'],
+      // ⚠ §FIX-LAYER-GATE-BLIND (L-809) — READ THIS BEFORE TRUSTING THE RULE BELOW.
+      //
+      // There is NO `import/resolver` configured here, and adding one is a
+      // deliberate NON-choice. `eslint-plugin-boundaries` classifies a file by its
+      // RESOLVED PATH, so without a resolver it cannot map `@pryzm/geometry-wall`
+      // to `packages/geometry-wall/**` — and in this monorepo essentially every
+      // cross-package import is written that way. **The `boundaries/element-types`
+      // rule below therefore only sees RELATIVE imports.** That is still worth
+      // having, but it is not the layer gate.
+      //
+      // A resolver was rejected rather than merely skipped: pnpm symlinks some
+      // `@pryzm/*` packages into a given package's node_modules and not others, so
+      // resolver-based checking catches a violation in one package and silently
+      // skips the identical one next door. Unpredictable enforcement is worse than
+      // none, because people trust it.
+      //
+      // THE AUTHORITY FOR THE LAYER RULE IS `tools/ga-gate/check-layer-boundaries.ts`,
+      // which maps `@pryzm/X` → directory by reading each workspace package.json —
+      // exact, deterministic, independent of install state — and ratchets both the
+      // violation count and the CLASSIFICATION COVERAGE. It imports the two tables
+      // above rather than copying them.
     },
     rules: {
       ...tseslint.configs.recommended.rules,

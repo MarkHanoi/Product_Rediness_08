@@ -82,6 +82,7 @@ const GATES: Gate[] = [
   { name: 'height-fidelity (L-646/L-647)',            script: 'check-height-fidelity.ts' },
   { name: 'write-route-auth (C08§1.2/L-406)',         script: 'check-write-route-auth.ts' },
   { name: 'command-naming (L-796)',                   script: 'check-command-naming.ts' },
+  { name: 'layer-boundaries (L-809)',                 script: 'check-layer-boundaries.ts' },
 ];
 
 let anyFailed = false;
