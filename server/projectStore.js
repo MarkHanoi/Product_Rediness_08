@@ -62,6 +62,39 @@ function _inMemoryRowFor(id, name, userId) {
 function _hasPool() { return !!getPgPool(); }
 
 /**
+ * §FIX-DEGRADE-HONESTY (L-789, 2026-08-09) — the ONE gate deciding whether a
+ * FAILED durable write may silently complete against the volatile in-memory map.
+ *
+ * ⚠ Distinguish two things this file does that look alike and are not:
+ *
+ *   1. **No pool configured** → the in-memory map is the DECLARED backend for
+ *      dev / first boot. That is not a degrade and this gate does not apply.
+ *   2. **A pool EXISTS and the write THREW** → §SERVER-PG-DEGRADE used to catch
+ *      it, write to memory, and return a normal row. The caller got HTTP 201,
+ *      the project appeared in the hub, and it evaporated on the next deploy.
+ *
+ * Case 2 is the defect. A refusal and a success were the same value — the
+ * §CONTEXT-DATA-HONESTY failure this repo has paid for three times on the READ
+ * side (L-716, L-752, L-779), here on the WRITE side where it costs data. And it
+ * is worst exactly when it matters most: load is what produces the transient
+ * pooler errors it was swallowing.
+ *
+ * The fallback is GATED, not deleted. It was added for a real reason (Round 40:
+ * a developer with a misconfigured pool could not create a project at all and was
+ * blocked for fifteen rounds). That value is real in development and is worth
+ * nothing in production, where the only thing it buys is a lie.
+ *
+ * Read PER CALL, never captured at module load: a load-time constant would make
+ * the production gate depend on import order relative to whatever sets NODE_ENV,
+ * which is untestable and silently wrong under any runner that sets it late.
+ *
+ * @returns {boolean} true when a failed durable write may fall back to memory.
+ */
+function _mayDegradeToMemory() {
+    return process.env.NODE_ENV !== 'production';
+}
+
+/**
  * §SERVER-V1-INMEMORY-FALLBACK (Round 40b) — Exposed for cross-module read.
  * The unversioned /api/projects/:id/versions route (server.js) keeps its OWN
  * in-memory map for version snapshots; it needs to check whether the project
@@ -262,15 +295,32 @@ export async function createProject(name, userId) {
         return result.rows[0];
     } catch (err) {
         // §SERVER-PG-DEGRADE (2026-05-23) — a pool EXISTS but the live INSERT threw
-        // (dropped connection, transient DB outage, pending migration). The §87
-        // in-memory fallback only triggers when NO pool is configured, so a broken-but-
-        // present pool fell through to a hard 500 that blocked ALL project creation
-        // (architect: "server error 500 on create — again"). Degrade to the in-memory
-        // store (the §STORE-UNIFY single authority the no-pool path already uses) so the
-        // architect stays productive; the project is volatile until the DB recovers.
+        // (dropped connection, transient DB outage, pending migration).
+        //
+        // §FIX-DEGRADE-HONESTY (L-789, 2026-08-09) — in PRODUCTION this now RE-THROWS.
+        // The original error is propagated UNWRAPPED and with its SQL state intact so
+        // the route's `handleProjectApiError` can classify it: 57P01/08006/ECONNRESET
+        // become a retryable 503 the client's ServerSyncQueue rides out with backoff,
+        // 23503 becomes a 410, and only a genuinely unknown fault becomes a 500.
+        // Wrapping it in a store-specific error class would DESTROY that classification
+        // and force every caller to re-derive it — the mapping already exists in exactly
+        // one place, and that place is the HTTP boundary, which is where it belongs.
+        if (!_mayDegradeToMemory()) {
+            console.error(
+                `[projectStore] §FIX-DEGRADE-HONESTY createProject FAILED and was REFUSED ` +
+                `(production — no in-memory fallback). id=${id} userId=${userId} ` +
+                `code=${err?.code ?? 'n/a'}:`,
+                err?.message ?? err,
+            );
+            throw err;
+        }
+        // Development only: degrade to the in-memory store (the §STORE-UNIFY single
+        // authority the no-pool path already uses) so a misconfigured local pool does
+        // not block authoring. The project is volatile until the DB recovers.
         // Logged loudly WITH the SQL state so the underlying DB fault is still diagnosable.
         console.error(
-            `[projectStore] §SERVER-PG-DEGRADE createProject PG error → in-memory fallback. ` +
+            `[projectStore] §SERVER-PG-DEGRADE createProject PG error → in-memory fallback ` +
+            `(NON-PRODUCTION ONLY — this project is VOLATILE). ` +
             `id=${id} userId=${userId} code=${err?.code ?? 'n/a'}:`,
             err?.message ?? err,
         );
@@ -505,16 +555,36 @@ export async function deleteProject(projectId, userId) {
         return result.rows.length > 0;
     } catch (err) {
         // §SERVER-PG-DEGRADE (2026-05-23) — a pool EXISTS but the live DELETE threw, which
-        // previously surfaced as a hard 500 ("server error 500 on delete — again"). For a
-        // connection/transient fault, degrade to removing the in-memory shadow so the
-        // architect's delete still takes effect this session. Logged WITH the SQL state.
-        // CAVEAT: if code === '23503' the failure is a FOREIGN-KEY violation (a child table
-        // — project_command_log / project_members / project_visibility_intents — lacks
-        // ON DELETE CASCADE); the PG row then survives and reappears on the next PG-backed
-        // list. That case needs the targeted CASCADE / child-delete fix — the logged code
-        // pinpoints it so we stop guessing.
+        // previously surfaced as a hard 500 ("server error 500 on delete — again").
+        //
+        // §FIX-DEGRADE-HONESTY (L-789, 2026-08-09) — in PRODUCTION this now RE-THROWS,
+        // and the delete path is the WORSE of the two. The old comment already conceded
+        // the failure mode: on a FOREIGN-KEY violation (code '23503' — a child table such
+        // as project_command_log / project_members / project_visibility_intents lacking
+        // ON DELETE CASCADE) the PG row SURVIVES. The old code deleted the in-memory
+        // shadow and answered `true`, so the client removed the project from its list and
+        // the project REAPPEARED on the next PG-backed list. The user was told a durable
+        // delete happened when the opposite was true.
+        //
+        // Note the contract here is THROW, not `false`. "Not deleted" and "could not tell
+        // whether it was deleted" are different answers, and collapsing them is the same
+        // class of mistake in a smaller disguise. Throwing lets handleProjectApiError map
+        // 23503 → 410 and a dropped connection → retryable 503, which is what the client
+        // needs to decide between retrying and giving up.
+        if (!_mayDegradeToMemory()) {
+            console.error(
+                `[projectStore] §FIX-DEGRADE-HONESTY deleteProject FAILED and was REFUSED ` +
+                `(production — no in-memory fallback; the PG row may still exist). ` +
+                `id=${projectId} userId=${userId} code=${err?.code ?? 'n/a'}:`,
+                err?.message ?? err,
+            );
+            throw err;
+        }
+        // Development only: drop the in-memory shadow so a local delete still takes
+        // effect this session. Logged WITH the SQL state.
         console.error(
-            `[projectStore] §SERVER-PG-DEGRADE deleteProject PG error → in-memory fallback. ` +
+            `[projectStore] §SERVER-PG-DEGRADE deleteProject PG error → in-memory fallback ` +
+            `(NON-PRODUCTION ONLY — the PG row may still exist). ` +
             `id=${projectId} userId=${userId} code=${err?.code ?? 'n/a'}:`,
             err?.message ?? err,
         );
