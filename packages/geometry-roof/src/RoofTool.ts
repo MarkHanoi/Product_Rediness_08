@@ -325,6 +325,10 @@ export class RoofTool {
         thickness?:      number,
         autoBaseOffset?: boolean,
     ): Promise<void> {
+        // §ROOF-UPPER-LEVEL — this is the level the user DREW ON, not necessarily
+        // the level the roof will belong to. The command applies the roof's level
+        // policy (the level immediately above) so the resolution lives on the
+        // command path (P6) and is captured by undo/redo and serialisation.
         const levelId = this._projectContext.activeLevelId;
         if (!levelId) { console.error('[RoofTool] No active level'); return; }
 
@@ -349,6 +353,9 @@ export class RoofTool {
             overhang:        effectiveOverhang,
             slope:           effectiveSlope,
             materialColor:   '#c8a46e',
+            // §ROOF-UPPER-LEVEL (founder ruling 2026-08-09) — interactive creation
+            // declares the policy; the command resolves it.
+            levelPolicy:     'upper',
         });
 
         // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
