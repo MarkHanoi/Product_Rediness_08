@@ -55,7 +55,9 @@ type PanelFieldSnapshot = Record<string, { panelType: PanelType; materialOverrid
 type ReplacePanelHandlerStores = Record<string, unknown>;
 
 export const ReplacePanelHandler: CommandHandler<ReplacePanelPayload, ReplacePanelHandlerStores> = {
-  type: 'curtainwall.replacePanel',
+  type: 'curtain-wall.replacePanel',
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  aliases: ['curtainwall.replacePanel'] as const,
 
   // affectedStores is empty pending CurtainPanelStore → Store<CurtainPanelData> migration.
   // Set to ['curtainpanel'] once the store migration lands so the CommandBus undo
@@ -87,18 +89,18 @@ export const ReplacePanelHandler: CommandHandler<ReplacePanelPayload, ReplacePan
     cmd: ReplacePanelPayload,
   ): HandlerResult {
     return withHandlerSpan(
-      'curtainwall.replacePanel.handler',
-      { 'pryzm.command.type': 'curtainwall.replacePanel' },
+      'curtain-wall.replacePanel.handler',
+      { 'pryzm.command.type': 'curtain-wall.replacePanel' },
       () => {
         const panelStore = ctx.stores['curtainPanelStore'] as CurtainPanelStore | undefined;
         if (!panelStore) {
-          console.error('[curtainwall.replacePanel] curtainPanelStore not available in handler context');
+          console.error('[curtain-wall.replacePanel] curtainPanelStore not available in handler context');
           return { forward: [], inverse: [] };
         }
 
         const panel = panelStore.get(cmd.panelId);
         if (!panel) {
-          console.error('[curtainwall.replacePanel] panel not found in store:', cmd.panelId);
+          console.error('[curtain-wall.replacePanel] panel not found in store:', cmd.panelId);
           return { forward: [], inverse: [] };
         }
 

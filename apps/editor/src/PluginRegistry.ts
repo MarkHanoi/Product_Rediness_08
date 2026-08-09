@@ -377,7 +377,7 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
   // Task 1.3 (C11 §6.3) — rooms is the first plugin to declare a
   // `wireSubscriptions` callback.  `wireAllPluginSubscriptions(runtime)` calls
   // it once after `composeRuntime()` so room boundaries are recomputed
-  // event-driven (wall.created / curtain-wall.created → rooms.redetect)
+  // event-driven (wall.created / curtain-wall.created → room.redetect)
   // rather than via imperative commandManager.execute() calls.
   {
     id: 'rooms',
@@ -516,7 +516,7 @@ export function gatherAllContributions(): readonly PluginContribution[] {
 
 /** Task 1.3 (C11 §6.3) — call each plugin's `wireSubscriptions` callback
  *  once after `composeRuntime()` resolves so typed domain events (e.g.
- *  `wall.created`) drive downstream commands (e.g. `rooms.redetect`).
+ *  `wall.created`) drive downstream commands (e.g. `room.redetect`).
  *
  *  Returns a combined disposer — call it in `runtime.tearDown()` to
  *  unsubscribe all listeners and prevent leaks in hot-reload / test env. */

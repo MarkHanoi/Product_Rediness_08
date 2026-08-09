@@ -29,7 +29,9 @@ export interface SwapPanelPayload {
 type CWStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unknown>>;
 
 export class SwapPanelHandler implements CommandHandler<SwapPanelPayload, CWStores> {
-  readonly type = 'curtainwall.swapPanel';
+  readonly type = 'curtain-wall.swapPanel';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.swapPanel'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(ctx: HandlerContext<CWStores>, cmd: SwapPanelPayload): ValidationResult {

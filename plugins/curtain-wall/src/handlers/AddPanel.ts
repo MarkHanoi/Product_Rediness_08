@@ -49,7 +49,9 @@ export interface AddPanelPayload {
 type CWStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unknown>>;
 
 export class AddPanelHandler implements CommandHandler<AddPanelPayload, CWStores> {
-  readonly type = 'curtainwall.addPanel';
+  readonly type = 'curtain-wall.addPanel';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.addPanel'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(ctx: HandlerContext<CWStores>, cmd: AddPanelPayload): ValidationResult {

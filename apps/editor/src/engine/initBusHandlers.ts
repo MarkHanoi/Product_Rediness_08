@@ -82,7 +82,7 @@ import {
   // via registerFloorHandlers() in engineLauncher.ts. initTools.ts §P3.2-FL bridge mirrors
   // to legacy FloorStore for FloorFragmentBuilder mesh rendering.
   // Phase 3 exit gate: grep 'CreateFloorCommand' initBusHandlers.ts → 0 matches.
-  // CreateCurtainWallCommand removed — §P3.1-CW: curtainwall.create now routes to
+  // CreateCurtainWallCommand removed — §P3.1-CW: curtain-wall.create now routes to
   // CreateCurtainWallHandler via registerCurtainWallHandlers() in engineLauncher.ts.
   CreateOpeningCommand,
   // §P3.5-LT: CreateLightingCommand removed — lighting.create bridge retired;
@@ -162,10 +162,10 @@ import { getLightingTypeDefinition, type LightingFixtureType } from '@pryzm/geom
  * registered via registerXHandlers() calls in engineLauncher.ts (F-1.3).
  *
  * The five legacy commandManager bridge registrations that previously lived here
- * (rooms.redetect §P0-A39, curtain-wall.create-on-all-slabs §P2-A39,
+ * (room.redetect §P0-A39, curtain-wall.create-on-all-slabs §P2-A39,
  * wall.create-on-all-slabs §A40-W03, slab.create-on-all-floors §A40-W03,
  * level.duplicate-floor-plan) have been migrated to plugin-level bridge handlers:
- *   • rooms.redetect          → plugins/rooms/src/handlers/RedetectRooms.ts (CustomEvent bridge)
+ *   • room.redetect          → plugins/rooms/src/handlers/RedetectRooms.ts (CustomEvent bridge)
  *   • wall.create-on-all-slabs     → plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts
  *   • slab.create-on-all-floors    → plugins/slab/src/handlers/CreateSlabsOnAllFloors.ts
  *   • curtain-wall.create-on-all-slabs → plugins/curtain-wall/src/handlers/CreateCurtainWallsOnAllSlabs.ts
@@ -1671,7 +1671,7 @@ export function initBusHandlers(
         // for FloorFragmentBuilder mesh rendering.
         // Phase 3 exit gate: grep 'floor.create' initBusHandlers.ts → 0 bridge entries.
         // §P3.1-CW (IMPL-PLAN-2026-05-17): curtain-wall.create bridge removed.
-        // CurtainWallPlanToolHandler now dispatches 'curtainwall.create' (no hyphen)
+        // CurtainWallPlanToolHandler now dispatches 'curtain-wall.create'
         // directly to CreateCurtainWallHandler registered via registerCurtainWallHandlers()
         // in engineLauncher.ts. The initTools.ts §P3.1-CW bridge mirrors the curtain wall
         // into the legacy CurtainWallStore for mesh rebuild.

@@ -317,7 +317,7 @@ export function wireCommandEventBridge(
           break;
         }
 
-        case 'curtainwall.create': {
+        case 'curtain-wall.create': {
           // §P3.1-CW (IMPL-PLAN-2026-05-17): geometry fields added so the
           // initTools.ts legacy-store bridge can mirror the curtain wall into
           // the CurtainWallStore and trigger mesh rebuild — same pattern as
@@ -337,7 +337,7 @@ export function wireCommandEventBridge(
           };
           events.emit('curtain-wall.created', {
             commandId:        record.id,
-            commandType:      'curtainwall.create',
+            commandType:      'curtain-wall.create',
             levelId:          p.levelId ?? '',
             elementCount:     1,
             id:               p.id,
@@ -352,7 +352,7 @@ export function wireCommandEventBridge(
 
         case 'curtain-wall.batch.create': {
           // TASK-01: emit one 'curtain-wall.created' per element.
-          // commandType is set to 'curtainwall.create' (single-create value) so the
+          // commandType is set to 'curtain-wall.create' (single-create value) so the
           // initTools §P3.1-CW subscriber's commandType guard accepts each per-element event.
           // bayWidth/bayHeight are forwarded so the grid system receives valid spacings.
           const p = record.payload as {
@@ -374,7 +374,7 @@ export function wireCommandEventBridge(
             if (!cw.id || !cw.baseLine || cw.baseLine.length < 2) continue;
             events.emit('curtain-wall.created', {
               commandId:        record.id,
-              commandType:      'curtainwall.create',
+              commandType:      'curtain-wall.create',
               levelId:          cw.levelId ?? _batchCWLevelId,
               elementCount:     1,
               id:               cw.id,

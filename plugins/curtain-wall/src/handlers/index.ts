@@ -32,20 +32,20 @@ import { SetCurtainWallMaterialHandler } from './SetCurtainWallMaterial.js'; // 
 
 export const CURTAIN_WALL_HANDLER_TYPES = [
   // S12 (9)
-  'curtainwall.create',
-  'curtainwall.delete',
-  'curtainwall.move',
-  'curtainwall.setGrid',
-  'curtainwall.setMullionType',
-  'curtainwall.setTransomType',
-  'curtainwall.setPanelType',
-  'curtainwall.setOutline',
-  'curtainwall.resize',
+  'curtain-wall.create',
+  'curtain-wall.delete',
+  'curtain-wall.move',
+  'curtain-wall.setGrid',
+  'curtain-wall.setMullionType',
+  'curtain-wall.setTransomType',
+  'curtain-wall.setPanelType',
+  'curtain-wall.setOutline',
+  'curtain-wall.resize',
   // S13 (+4)
-  'curtainwall.addPanel',
-  'curtainwall.removePanel',
-  'curtainwall.swapPanel',
-  'curtainwall.rotatePanel',
+  'curtain-wall.addPanel',
+  'curtain-wall.removePanel',
+  'curtain-wall.swapPanel',
+  'curtain-wall.rotatePanel',
   // P2e: batch create (E.5.x migration — AI pipeline + slab-perimeter bulk creation)
   'curtain-wall.batch.create',
   // P2e: batch delete — undo-mirror of batch.create; keeps plugin store in sync with legacy undo()
@@ -53,14 +53,14 @@ export const CURTAIN_WALL_HANDLER_TYPES = [
   // F-1.3 bridge
   'wall.updateCurtainWall',
   // FT7 (ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18): batch update — one Immer call, one rebuild
-  'curtainwall.batch.update',
+  'curtain-wall.batch.update',
   // F-1.3 bridge
   'curtain-wall.create-on-all-slabs',
   // E.5.x migration bridges
-  'curtainwall.addGridLine',
-  'curtainwall.removeGridLine',
-  'curtainwall.replacePanel',
-  'curtainwall.setMaterial',
+  'curtain-wall.addGridLine',
+  'curtain-wall.removeGridLine',
+  'curtain-wall.replacePanel',
+  'curtain-wall.setMaterial',
 ] as const;
 
 export type CurtainWallHandlerType = (typeof CURTAIN_WALL_HANDLER_TYPES)[number];

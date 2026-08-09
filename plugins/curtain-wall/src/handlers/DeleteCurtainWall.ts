@@ -18,7 +18,9 @@ type CWStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unk
 export class DeleteCurtainWallHandler
   implements CommandHandler<DeleteCurtainWallPayload, CWStores>
 {
-  readonly type = 'curtainwall.delete';
+  readonly type = 'curtain-wall.delete';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.delete'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(ctx: HandlerContext<CWStores>, cmd: DeleteCurtainWallPayload): ValidationResult {

@@ -124,7 +124,7 @@ export interface BatchOptions {
     totalElementCount: number;
     /**
      * §FIX-SKIP-REDETECT-ROOMS (2026-05-05): When true, `_executeFinalSweep()`
-     * skips the `rooms.redetect` command for all affected levels.
+     * skips the `room.redetect` command for all affected levels.
      *
      * Set this for element types that cannot define room boundaries (e.g. curtain
      * walls, furniture, beams) so the O(n²) room-boundary detection algorithm does
@@ -272,7 +272,7 @@ class BatchCoordinatorImpl {
      * C13 §3.1 (Wave 35 I-1) — Set to `true` by `forceReset()` so that any
      * in-flight `_executeFinalSweep` frame-scheduled callbacks (`tickNextLevel`)
      * detect the cancellation on their next rAF tick and bail out without
-     * dispatching `rooms.redetect` for the stale Project A level IDs.
+     * dispatching `room.redetect` for the stale Project A level IDs.
      *
      * Reset to `false` via `Promise.resolve().then()` inside `forceReset()`
      * so the flag is cleared AFTER the current synchronous call stack
@@ -282,7 +282,7 @@ class BatchCoordinatorImpl {
     private _sweepCancelled = false;
     /**
      * §FIX-SKIP-REDETECT-ROOMS (2026-05-05): When true, _executeFinalSweep() skips the
-     * rooms.redetect command for all affected levels.  Set via BatchOptions.skipRedetectRooms.
+     * room.redetect command for all affected levels.  Set via BatchOptions.skipRedetectRooms.
      * Reset to false in forceReset() so project switches always start with a clean flag.
      */
     private _skipRedetectRooms = false;
@@ -408,7 +408,7 @@ class BatchCoordinatorImpl {
      * dynamic import which cannot resolve from the packages/ layer.
      *
      * When `_runtime` is available the bus path runs instead; this factory fires
-     * only on the fallback path (runtime not yet injected or 'rooms.redetect'
+     * only on the fallback path (runtime not yet injected or 'room.redetect'
      * not registered in the bus).
      *
      * Structural interface: BatchCoordinator holds only the factory call shape,
@@ -450,8 +450,8 @@ class BatchCoordinatorImpl {
     private _bimManager: { getLevelById(id: string): any } | null = null;
     /**
      * E.5.x (P1) — When the composed PryzmRuntime is available and the
-     * 'rooms.redetect' handler is registered in the bus, _executeFinalSweep()
-     * uses runtime.bus.executeCommand('rooms.redetect', ...) with frame yields
+     * 'room.redetect' handler is registered in the bus, _executeFinalSweep()
+     * uses runtime.bus.executeCommand('room.redetect', ...) with frame yields
      * instead of the legacy imperative dispatch path (commandManager — see F1 batch).
      * Falls back to the PRYZM 1 path when null.
      */
@@ -2169,8 +2169,8 @@ class BatchCoordinatorImpl {
                 );
 
                 const rt = this._runtime;
-                if (rt && rt.bus.registry.has('rooms.redetect')) {
-                    // P1 (E.5.x): Use runtime.bus.executeCommand('rooms.redetect', ...) with
+                if (rt && rt.bus.registry.has('room.redetect')) {
+                    // P1 (E.5.x): Use runtime.bus.executeCommand('room.redetect', ...) with
                     // frame yields between each level — same frame-yielded pattern as before.
                     let levelIndex = 0;
                     const tickNextLevel = () => {
@@ -2204,7 +2204,7 @@ class BatchCoordinatorImpl {
                             return;
                         }
                         try {
-                            rt.bus.executeCommand('rooms.redetect', {
+                            rt.bus.executeCommand('room.redetect', {
                                 levelId,
                                 elevation: level.elevation,
                                 height: level.height ?? 3.0,
@@ -2237,7 +2237,7 @@ class BatchCoordinatorImpl {
                     );
                 } else {
                     // Fallback: legacy commandManager.execute(ReDetectRoomsCommand) path.
-                    // Used when runtime is not yet injected or the rooms.redetect handler
+                    // Used when runtime is not yet injected or the room.redetect handler
                     // is not registered in the bus.
                     //
                     // P9-W4: Dynamic import('../../commands') replaced by injected factory

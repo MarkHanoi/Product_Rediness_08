@@ -121,7 +121,7 @@ export function buildCurtainGridEditor(
             setTimeout(() => { addBtn.textContent = '+ Add'; }, 1500);
             return;
         }
-        window.runtime?.bus?.executeCommand('curtainwall.addGridLine', {
+        window.runtime?.bus?.executeCommand('curtain-wall.addGridLine', {
             curtainWallId: cwId,
             axis: axisSelect.value as 'u' | 'v',
             t,
@@ -131,7 +131,7 @@ export function buildCurtainGridEditor(
             setTimeout(() => { addBtn.textContent = '+ Add'; }, 1200);
         })?.catch((e: Error) => {
             addBtn.textContent = '⚠ Failed';
-            console.warn('[CurtainGridEditor] curtainwall.addGridLine failed:', e);
+            console.warn('[CurtainGridEditor] curtain-wall.addGridLine failed:', e);
             setTimeout(() => { addBtn.textContent = '+ Add'; }, 1500);
         });
     });
@@ -180,14 +180,14 @@ export function buildCurtainGridEditor(
             removeBtn.textContent = '×';
             removeBtn.title = `Remove grid line at t=${line.t.toFixed(3)}`;
             removeBtn.addEventListener('click', () => {
-                window.runtime?.bus?.executeCommand('curtainwall.removeGridLine', {
+                window.runtime?.bus?.executeCommand('curtain-wall.removeGridLine', {
                     curtainWallId: cwId,
                     gridLineId: line.id,
                     axis,
                 })?.then(() => {
                     renderContent();
                 })?.catch((e: Error) => {
-                    console.warn('[CurtainGridEditor] curtainwall.removeGridLine failed:', e);
+                    console.warn('[CurtainGridEditor] curtain-wall.removeGridLine failed:', e);
                 });
             });
             row.appendChild(removeBtn);

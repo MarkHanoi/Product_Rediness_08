@@ -36,18 +36,18 @@ function undoLast(s: CurtainWallStore, ev: EventRecord<unknown>): void {
 const A = { x: 0, y: 0, z: 0 };
 const B = { x: 6, y: 0, z: 0 };
 
-describe('curtainwall.addPanel — happy path', () => {
+describe('curtain-wall.addPanel — happy path', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('adds a panel at (0,0) and inverts cleanly', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
     const before = snap(env.cw);
-    const ev = await env.bus.executeCommand('curtainwall.addPanel', {
+    const ev = await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 0, col: 0, kind: 'spandrel',
     });
     const cw = env.cw.get(id)!;
@@ -62,10 +62,10 @@ describe('curtainwall.addPanel — happy path', () => {
   it('mints a panel id when one is not provided', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
-    await env.bus.executeCommand('curtainwall.addPanel', {
+    await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 1, col: 2,
     });
     expect(env.cw.get(id)!.panels[0]!.id).toMatch(/^panel_[0-9A-HJKMNP-TV-Z]{26}$/);
@@ -74,49 +74,49 @@ describe('curtainwall.addPanel — happy path', () => {
   it('honours an explicit panel id', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
-    await env.bus.executeCommand('curtainwall.addPanel', {
+    await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 0, col: 1, panelId: 'my-panel',
     });
     expect(env.cw.get(id)!.panels[0]!.id).toBe('my-panel');
   });
 });
 
-describe('curtainwall.addPanel — error paths', () => {
+describe('curtain-wall.addPanel — error paths', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('rejects an out-of-grid cell', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
     await expect(
-      env.bus.executeCommand('curtainwall.addPanel', { curtainWallId: id, row: 0, col: 5 }),
+      env.bus.executeCommand('curtain-wall.addPanel', { curtainWallId: id, row: 0, col: 5 }),
     ).rejects.toThrow();
   });
 
   it('rejects overlap with an existing panel', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
-    await env.bus.executeCommand('curtainwall.addPanel', {
+    await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 0, col: 0,
     });
     await expect(
-      env.bus.executeCommand('curtainwall.addPanel', { curtainWallId: id, row: 0, col: 0 }),
+      env.bus.executeCommand('curtain-wall.addPanel', { curtainWallId: id, row: 0, col: 0 }),
     ).rejects.toThrow();
   });
 
   it('rejects unknown curtain wall id', async () => {
     env = buildEnv();
     await expect(
-      env.bus.executeCommand('curtainwall.addPanel', { curtainWallId: 'nope', row: 0, col: 0 }),
+      env.bus.executeCommand('curtain-wall.addPanel', { curtainWallId: 'nope', row: 0, col: 0 }),
     ).rejects.toThrow();
   });
 });

@@ -322,7 +322,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
             // field; we approximate the arc by issuing N straight segment commands.
             const ctrl = _bezierControl(sp, this._arcMidPt, endPt);
             const pts  = _sampleBezier(sp, ctrl, endPt, ARC_SEGMENTS);
-            // §P3.1-CW (IMPL-PLAN-2026-05-17): typed bus dispatch — curtainwall.create (no hyphen).
+            // §P3.1-CW (IMPL-PLAN-2026-05-17): typed bus dispatch — curtain-wall.create.
             // Routes directly to CreateCurtainWallHandler (registered via registerCurtainWallHandlers
             // in engineLauncher.ts). The legacy bridge in initBusHandlers.ts §E.5.4 has been removed.
             // baseLine uses [Vec3, Vec3] format as required by CreateCurtainWallPayload.
@@ -332,7 +332,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
             // The initTools §P3.1-CW bridge guards on !ev.id — if id is omitted the
             // guard silently drops every event → no mesh, no plan view projection.
             for (let i = 0; i < pts.length - 1; i++) {
-                window.runtime?.bus?.executeCommand('curtainwall.create', {
+                window.runtime?.bus?.executeCommand('curtain-wall.create', {
                     id:       createId('curtainwall'),
                     baseLine: [
                         { x: pts[i].worldX,     y: 0, z: pts[i].worldZ     },
@@ -343,7 +343,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
                     bayHeight:        DEFAULT_BAY_HEIGHT,
                     mullionThickness: DEFAULT_MULLION_DEPTH,
                     levelId,
-                })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtainwall.create arc seg', i, 'failed:', e));
+                })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtain-wall.create arc seg', i, 'failed:', e));
             }
             console.log(`[CurtainWallPlanToolHandler] Arc created (${ARC_SEGMENTS} segments)`);
             this._segmentCount += ARC_SEGMENTS;
@@ -357,7 +357,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
         }
 
         // ── Linear / Ortho: single straight segment, then chain ──────────────
-        // §P3.1-CW (IMPL-PLAN-2026-05-17): typed bus dispatch — curtainwall.create (no hyphen).
+        // §P3.1-CW (IMPL-PLAN-2026-05-17): typed bus dispatch — curtain-wall.create.
         // Routes directly to CreateCurtainWallHandler (registered via registerCurtainWallHandlers
         // in engineLauncher.ts). The legacy curtain-wall.create bridge is removed.
         //
@@ -369,7 +369,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
         // CurtainWall.parse() enforces ^curtainwall_[ULID]{26}$ — createId('curtainwall')
         // generates that format. crypto.randomUUID() must NOT be used.
         const cwId = createId('curtainwall');
-        window.runtime?.bus?.executeCommand('curtainwall.create', {
+        window.runtime?.bus?.executeCommand('curtain-wall.create', {
             id:       cwId,
             baseLine: [
                 { x: sp.worldX,    y: 0, z: sp.worldZ },
@@ -380,7 +380,7 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
             bayHeight:        DEFAULT_BAY_HEIGHT,
             mullionThickness: DEFAULT_MULLION_DEPTH,
             levelId,
-        })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtainwall.create bus failed:', e));
+        })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtain-wall.create bus failed:', e));
 
         // Optimistic chaining — advance state immediately (bus is fire-and-forget)
         console.log('[CurtainWallPlanToolHandler] Segment created mode:', mode);

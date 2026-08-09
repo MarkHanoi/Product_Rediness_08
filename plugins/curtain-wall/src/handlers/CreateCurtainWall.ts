@@ -31,7 +31,9 @@ type CWStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unk
 export class CreateCurtainWallHandler
   implements CommandHandler<CreateCurtainWallPayload, CWStores>
 {
-  readonly type = 'curtainwall.create';
+  readonly type = 'curtain-wall.create';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.create'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(_ctx: HandlerContext<CWStores>, cmd: CreateCurtainWallPayload): ValidationResult {

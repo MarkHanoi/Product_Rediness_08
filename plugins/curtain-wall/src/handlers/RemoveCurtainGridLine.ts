@@ -8,7 +8,7 @@
 // CurtainWallData snapshot (§MI-01), but via structural Immer diffing rather than
 // a manual deep-clone.
 //
-// Previously returned { forward: [], inverse: [] } causing curtainwall.removeGridLine
+// Previously returned { forward: [], inverse: [] } causing curtain-wall.removeGridLine
 // to be non-undoable. RemoveCurtainGridLineCommand in packages/command-registry/ is
 // now orphaned by this path.
 // TODO(E.5.x): ORPHANED — bridge migrated to produceCommand. Confirm no other
@@ -40,7 +40,9 @@ export interface RemoveCurtainGridLinePayload {
 type CWHandlerStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unknown>>;
 
 export const RemoveCurtainGridLineHandler: CommandHandler<RemoveCurtainGridLinePayload, CWHandlerStores> = {
-  type: 'curtainwall.removeGridLine',
+  type: 'curtain-wall.removeGridLine',
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  aliases: ['curtainwall.removeGridLine'] as const,
   affectedStores: ['curtainwall'] as const,
 
   canExecute(
@@ -77,11 +79,11 @@ export const RemoveCurtainGridLineHandler: CommandHandler<RemoveCurtainGridLineP
     ctx: HandlerContext<CWHandlerStores>,
     cmd: RemoveCurtainGridLinePayload,
   ): HandlerResult {
-    return withHandlerSpan('curtainwall.removeGridLine.handler', { 'pryzm.command.type': 'curtainwall.removeGridLine' }, () => {
+    return withHandlerSpan('curtain-wall.removeGridLine.handler', { 'pryzm.command.type': 'curtain-wall.removeGridLine' }, () => {
       const [next, forward, inverse] = produceCommand<CurtainWallsState>(ctx.stores.curtainwall, draft => {
         const cw = draft[cmd.curtainWallId];
         if (!cw) {
-          console.error('[curtainwall.removeGridLine] curtain wall not found in store:', cmd.curtainWallId);
+          console.error('[curtain-wall.removeGridLine] curtain wall not found in store:', cmd.curtainWallId);
           return;
         }
 

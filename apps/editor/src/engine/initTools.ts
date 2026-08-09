@@ -1211,7 +1211,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     }
 
     // §P3.1-CW (IMPL-PLAN-2026-05-17): bus → legacy-CurtainWallStore bridge.
-    // After a bus `curtainwall.create` command succeeds, CommandEventBridge emits
+    // After a bus `curtain-wall.create` command succeeds, CommandEventBridge emits
     // `curtain-wall.created` with the full geometry payload (id, baseLine, height,
     // bayWidth, bayHeight, mullionThickness).
     // This subscriber mirrors the new curtain wall into the legacy CurtainWallStore
@@ -1223,7 +1223,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // Without these fields the migration produces NaN→0 mullion counts → empty mesh.
     // Fix: map bayWidth → gridXSpacing, bayHeight → gridYSpacing so the migration
     // path always receives finite positive spacings.
-    // Batch creates use commandType 'curtainwall.create' (single-create value) emitted
+    // Batch creates use commandType 'curtain-wall.create' (single-create value) emitted
     // from CEB per-element loops — the guard below accepts both single and batch events.
     //
     // Duplicate guard: if the curtain wall is already in the legacy store (rare race on
@@ -1233,24 +1233,29 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // migrated to consume from the Immer store directly, this bridge can be removed.
     if (runtime) {
         runtime.events.on('curtain-wall.created', (ev) => {
-            // §51 U-B4 (Round 35, 2026-05-21) — accept BOTH curtainwall.create
-            // AND curtainwall.batch.create / curtain-wall.batch.create. The
-            // comment block above line 1047 claims "the guard below accepts
-            // both single and batch events" — but the strict equality
-            // (`!== 'curtainwall.create'`) only accepted single creates.
-            // Now matches the documented intent: batch-created curtain walls
-            // (e.g. CreateCurtainWallsOnAllSlabsCommand) reach the legacy
+            // §51 U-B4 (Round 35, 2026-05-21) — accept BOTH the single create
+            // AND the batch create. The comment block above line 1047 claims
+            // "the guard below accepts both single and batch events" — but the
+            // strict equality only accepted single creates. Now matches the
+            // documented intent: batch-created curtain walls (e.g.
+            // CreateCurtainWallsOnAllSlabsCommand) reach the legacy
             // CurtainWallStore for proper 3D mesh + plan-view projection.
-            // §51 U-B4 — widen to `string` so all four accepted command-type
-            // forms compare cleanly. `ev.commandType` is narrowed by the
-            // event-payload type to a single literal; without this widening
-            // the other three branches trigger TS2367 ("no overlap").
+            //
+            // §FIX-COMMAND-NAMESPACE (L-796) — the canonical spellings are
+            // `curtain-wall.create` / `curtain-wall.batch.create`. The un-hyphenated
+            // `curtainwall.*` forms are kept here as tolerated legacy input: a
+            // replayed pre-migration log entry, or an unmigrated emitter, can still
+            // reach this subscriber. Drop them when the aliases are dropped.
+            // §51 U-B4 — widen to `string` so all accepted command-type forms
+            // compare cleanly. `ev.commandType` is narrowed by the event-payload
+            // type to a union of literals; without this widening the legacy
+            // branches trigger TS2367 ("no overlap").
             const ct: string = ev.commandType ?? '';
             const isCurtainCreate =
-                ct === 'curtainwall.create' ||
-                ct === 'curtainwall.batch.create' ||
                 ct === 'curtain-wall.create' ||
-                ct === 'curtain-wall.batch.create';
+                ct === 'curtain-wall.batch.create' ||
+                ct === 'curtainwall.create' ||
+                ct === 'curtainwall.batch.create';
             if (
                 !isCurtainCreate ||
                 !ev.id ||

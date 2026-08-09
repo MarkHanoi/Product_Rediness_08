@@ -316,7 +316,7 @@ function buildPanelSubPanel(
             ? colorInput.value
             : null;
 
-        window.runtime?.bus?.executeCommand('curtainwall.replacePanel', {
+        window.runtime?.bus?.executeCommand('curtain-wall.replacePanel', {
             panelId: subEl.id,
             newPanelType: pendingType,
             materialOverride: colorVal,
@@ -326,7 +326,7 @@ function buildPanelSubPanel(
             applyBtn.textContent = '✓ Applied';
             setTimeout(() => { applyBtn.textContent = 'Apply Changes'; }, 1500);
         })?.catch((e: Error) => {
-            console.warn('[CurtainSubElementPanel] curtainwall.replacePanel failed:', e);
+            console.warn('[CurtainSubElementPanel] curtain-wall.replacePanel failed:', e);
             applyBtn.textContent = '✗ Failed — check console';
             setTimeout(() => { applyBtn.textContent = 'Apply Changes'; }, 2000);
         });

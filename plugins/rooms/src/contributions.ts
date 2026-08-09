@@ -6,7 +6,7 @@
 //
 // Canonical pattern (C11 §6.3):
 //   runtime.events.on('wall.created', async ({ levelId }) => {
-//     await runtime.bus.executeCommand('rooms.redetect', { levelId });
+//     await runtime.bus.executeCommand('room.redetect', { levelId });
 //   });
 //
 // Architecture note — no runtime-composer import.
@@ -62,7 +62,7 @@ const DEFAULT_HEIGHT = 3;
  *  start and cleared on release()).
  *
  *  WHY this gate: `wall.batch.create` fans out ONE `wall.created` per wall via CommandEventBridge.
- *  Each one dispatched `rooms.redetect` below → `pryzm-bus-rooms-redetect` → a SYNCHRONOUS
+ *  Each one dispatched `room.redetect` below → `pryzm-bus-rooms-redetect` → a SYNCHRONOUS
  *  `ReDetectRoomsCommand` re-running the FULL RoomDetectionEngine on the level. For a generation
  *  that lands N walls that is O(N) full redetects (each itself O(rooms)) — the dominant
  *  "finishing up" latency (rooms recomputed 1→2→…→N per wall). This is a SEPARATE trigger from
@@ -84,7 +84,7 @@ function __pryzmBuildingGenActive(): boolean {
 }
 
 /**
- * Subscribe to typed domain events and dispatch `rooms.redetect` for each
+ * Subscribe to typed domain events and dispatch `room.redetect` for each
  * affected level.  Implements the C11 §6.3 event-driven room redetection
  * contract.
  *
@@ -92,7 +92,7 @@ function __pryzmBuildingGenActive(): boolean {
  *   - `wall.created`         — fired by CommandEventBridge after `wall.create`
  *                              or `wall.batch.create` succeeds.
  *   - `curtain-wall.created` — fired by CommandEventBridge after
- *                              `curtainwall.create` or `curtain-wall.batch.create`.
+ *                              `curtain-wall.create` or `curtain-wall.batch.create`.
  *
  * Returns a disposer — call in `runtime.tearDown()` to unsubscribe all
  * listeners and prevent memory leaks.
@@ -108,13 +108,13 @@ export function wireRoomEventSubscriptions(runtime: RoomEventRuntime): () => voi
       // generation; the graph-authoritative rooms + the one release() sweep own the final state.
       if (__pryzmBuildingGenActive()) return;
       try {
-        await runtime.bus.executeCommand('rooms.redetect', {
+        await runtime.bus.executeCommand('room.redetect', {
           levelId,
           elevation: DEFAULT_ELEVATION,
           height:    DEFAULT_HEIGHT,
         });
       } catch (err) {
-        console.error('[rooms/contributions] rooms.redetect failed (wall.created):', err);
+        console.error('[rooms/contributions] room.redetect failed (wall.created):', err);
       }
     }),
   );
@@ -127,14 +127,14 @@ export function wireRoomEventSubscriptions(runtime: RoomEventRuntime): () => voi
       // batch fans out one event per element; the release() sweep owns the final redetect.
       if (__pryzmBuildingGenActive()) return;
       try {
-        await runtime.bus.executeCommand('rooms.redetect', {
+        await runtime.bus.executeCommand('room.redetect', {
           levelId,
           elevation: DEFAULT_ELEVATION,
           height:    DEFAULT_HEIGHT,
         });
       } catch (err) {
         console.error(
-          '[rooms/contributions] rooms.redetect failed (curtain-wall.created):',
+          '[rooms/contributions] room.redetect failed (curtain-wall.created):',
           err,
         );
       }

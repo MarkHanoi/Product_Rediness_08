@@ -36,21 +36,21 @@ function undoLast(s: CurtainWallStore, ev: EventRecord<unknown>): void {
 const A = { x: 0, y: 0, z: 0 };
 const B = { x: 6, y: 0, z: 0 };
 
-describe('curtainwall.removePanel', () => {
+describe('curtain-wall.removePanel', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('removes the panel and inverts cleanly', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
-    await env.bus.executeCommand('curtainwall.addPanel', {
+    await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 0, col: 1, panelId: 'P1', kind: 'spandrel',
     });
     const before = snap(env.cw);
-    const ev = await env.bus.executeCommand('curtainwall.removePanel', {
+    const ev = await env.bus.executeCommand('curtain-wall.removePanel', {
       curtainWallId: id, panelId: 'P1',
     });
     expect(env.cw.get(id)!.panels).toHaveLength(0);
@@ -61,11 +61,11 @@ describe('curtainwall.removePanel', () => {
   it('rejects an unknown panel id', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
     await expect(
-      env.bus.executeCommand('curtainwall.removePanel', {
+      env.bus.executeCommand('curtain-wall.removePanel', {
         curtainWallId: id, panelId: 'does-not-exist',
       }),
     ).rejects.toThrow();

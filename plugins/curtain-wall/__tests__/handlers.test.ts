@@ -50,7 +50,7 @@ describe('curtain-wall handler registration', () => {
   });
 });
 
-describe('curtainwall.create / delete / move', () => {
+describe('curtain-wall.create / delete / move', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
@@ -58,7 +58,7 @@ describe('curtainwall.create / delete / move', () => {
     env = buildEnv();
     const id = createId('curtainwall');
     const before = snap(env.cw);
-    const ev = await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B], height: 4 });
+    const ev = await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B], height: 4 });
     expect(env.cw.get(id)?.height).toBe(4);
     undoLast(env.cw, ev);
     expect(snap(env.cw)).toEqual(before);
@@ -67,16 +67,16 @@ describe('curtainwall.create / delete / move', () => {
   it('rejects coincident endpoints', async () => {
     env = buildEnv();
     await expect(
-      env.bus.executeCommand('curtainwall.create', { baseLine: [A, A] }),
+      env.bus.executeCommand('curtain-wall.create', { baseLine: [A, A] }),
     ).rejects.toThrow();
   });
 
   it('move translates both endpoints', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
     const before = snap(env.cw);
-    const ev = await env.bus.executeCommand('curtainwall.move', {
+    const ev = await env.bus.executeCommand('curtain-wall.move', {
       curtainWallId: id, delta: { x: 1, y: 0, z: 1 },
     });
     expect(env.cw.get(id)?.baseLine[0]).toEqual({ x: 1, y: 0, z: 1 });
@@ -85,15 +85,15 @@ describe('curtainwall.create / delete / move', () => {
   });
 });
 
-describe('curtainwall.setGrid + setMullionType + setTransomType', () => {
+describe('curtain-wall.setGrid + setMullionType + setTransomType', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('setGrid updates bay dims', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
-    await env.bus.executeCommand('curtainwall.setGrid', {
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.setGrid', {
       curtainWallId: id, bayWidth: 1.5, bayHeight: 1.0,
     });
     const c = env.cw.get(id)!;
@@ -104,17 +104,17 @@ describe('curtainwall.setGrid + setMullionType + setTransomType', () => {
   it('setGrid rejects with no fields', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
     await expect(
-      env.bus.executeCommand('curtainwall.setGrid', { curtainWallId: id }),
+      env.bus.executeCommand('curtain-wall.setGrid', { curtainWallId: id }),
     ).rejects.toThrow();
   });
 
   it('setMullionType updates thickness + materialId', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
-    await env.bus.executeCommand('curtainwall.setMullionType', {
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.setMullionType', {
       curtainWallId: id, thickness: 0.08, systemTypeId: 'mullion.alu.50x80',
     });
     const c = env.cw.get(id)!;
@@ -125,27 +125,27 @@ describe('curtainwall.setGrid + setMullionType + setTransomType', () => {
   it('setTransomType updates thickness (stub maps onto mullionThickness)', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
-    await env.bus.executeCommand('curtainwall.setTransomType', {
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.setTransomType', {
       curtainWallId: id, thickness: 0.06,
     });
     expect(env.cw.get(id)?.mullionThickness).toBe(0.06);
   });
 });
 
-describe('curtainwall.setPanelType', () => {
+describe('curtain-wall.setPanelType', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('upserts panel when not present and updates kind on subsequent call', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
-    await env.bus.executeCommand('curtainwall.setPanelType', {
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.setPanelType', {
       curtainWallId: id, panelId: 'p-0-0', kind: 'glazed', upsertAt: { row: 0, col: 0 },
     });
     expect(env.cw.get(id)?.panels.length).toBe(1);
-    await env.bus.executeCommand('curtainwall.setPanelType', {
+    await env.bus.executeCommand('curtain-wall.setPanelType', {
       curtainWallId: id, panelId: 'p-0-0', kind: 'spandrel',
     });
     expect(env.cw.get(id)?.panels[0]?.kind).toBe('spandrel');
@@ -154,24 +154,24 @@ describe('curtainwall.setPanelType', () => {
   it('rejects unknown panel without upsertAt', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
     await expect(
-      env.bus.executeCommand('curtainwall.setPanelType', {
+      env.bus.executeCommand('curtain-wall.setPanelType', {
         curtainWallId: id, panelId: 'p-1-1', kind: 'glazed',
       }),
     ).rejects.toThrow();
   });
 });
 
-describe('curtainwall.setOutline + resize', () => {
+describe('curtain-wall.setOutline + resize', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('setOutline replaces baseLine + height atomically', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
-    await env.bus.executeCommand('curtainwall.setOutline', {
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.setOutline', {
       curtainWallId: id, baseLine: [{ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }], height: 4.5,
     });
     const c = env.cw.get(id)!;
@@ -182,10 +182,10 @@ describe('curtainwall.setOutline + resize', () => {
   it('resize scales baseLine length while preserving start + direction', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [{ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }],
     });
-    await env.bus.executeCommand('curtainwall.resize', { curtainWallId: id, length: 12 });
+    await env.bus.executeCommand('curtain-wall.resize', { curtainWallId: id, length: 12 });
     const c = env.cw.get(id)!;
     expect(c.baseLine[0]).toEqual({ x: 0, y: 0, z: 0 });
     expect(c.baseLine[1]).toEqual({ x: 12, y: 0, z: 0 });
@@ -194,8 +194,8 @@ describe('curtainwall.setOutline + resize', () => {
   it('resize updates only height when length omitted', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', { id, baseLine: [A, B] });
-    await env.bus.executeCommand('curtainwall.resize', { curtainWallId: id, height: 5 });
+    await env.bus.executeCommand('curtain-wall.create', { id, baseLine: [A, B] });
+    await env.bus.executeCommand('curtain-wall.resize', { curtainWallId: id, height: 5 });
     expect(env.cw.get(id)?.height).toBe(5);
   });
 });

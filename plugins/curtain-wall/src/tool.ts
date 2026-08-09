@@ -60,7 +60,7 @@ export class CurtainWallPlacementTool {
       return undefined;
     }
     const id = createId('curtainwall');
-    await this.bus.executeCommand('curtainwall.create', {
+    await this.bus.executeCommand('curtain-wall.create', {
       id,
       baseLine: [this.firstPoint, p],
       height: this.height,

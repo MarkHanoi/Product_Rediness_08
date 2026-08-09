@@ -25,7 +25,7 @@ export const ROOM_HANDLER_TYPES = [
   'room.setMaterial',
   'room.setHeightOffset',
   'room.recomputeBoundary',
-  'rooms.redetect',
+  'room.redetect',
   'room.rename',
   'template.create',
   'template.assignToNode',

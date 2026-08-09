@@ -1,9 +1,9 @@
-// RedetectRoomsHandler — 'rooms.redetect' command-bus handler (Phase E.5.x migration).
+// RedetectRoomsHandler — 'room.redetect' command-bus handler (Phase E.5.x migration).
 //
 // Migration bridge (Phase E.5.x → Phase F.room-detection):
 //   This handler bridges the PRYZM 2 command bus to the existing PRYZM 1
 //   RoomDetectionEngine infrastructure.  When runtime.bus.executeCommand(
-//   'rooms.redetect', payload) fires (e.g. from BatchCoordinator._executeFinalSweep),
+//   'room.redetect', payload) fires (e.g. from BatchCoordinator._executeFinalSweep),
 //   this handler dispatches a CustomEvent ('pryzm-bus-rooms-redetect') that the
 //   engine layer (engineLauncher.ts) listens to and converts into the actual
 //   ReDetectRoomsCommand execution.
@@ -44,7 +44,9 @@ export interface RedetectRoomsPayload {
 export class RedetectRoomsHandler
   implements CommandHandler<RedetectRoomsPayload>
 {
-  readonly type = 'rooms.redetect';
+  readonly type = 'room.redetect';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['rooms.redetect'] as const;
   readonly affectedStores = [] as const;
 
   canExecute(
@@ -52,13 +54,13 @@ export class RedetectRoomsHandler
     cmd: RedetectRoomsPayload,
   ): ValidationResult {
     if (typeof cmd.levelId !== 'string' || cmd.levelId.length === 0) {
-      return { valid: false, reason: 'rooms.redetect: levelId must be a non-empty string' };
+      return { valid: false, reason: 'room.redetect: levelId must be a non-empty string' };
     }
     if (cmd.elevation !== undefined && typeof cmd.elevation !== 'number') {
-      return { valid: false, reason: 'rooms.redetect: elevation must be a number when provided' };
+      return { valid: false, reason: 'room.redetect: elevation must be a number when provided' };
     }
     if (cmd.height !== undefined && (typeof cmd.height !== 'number' || cmd.height <= 0)) {
-      return { valid: false, reason: 'rooms.redetect: height must be a positive number when provided' };
+      return { valid: false, reason: 'room.redetect: height must be a positive number when provided' };
     }
     return { valid: true };
   }

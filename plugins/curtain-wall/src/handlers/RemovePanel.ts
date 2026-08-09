@@ -21,7 +21,9 @@ export interface RemovePanelPayload {
 type CWStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unknown>>;
 
 export class RemovePanelHandler implements CommandHandler<RemovePanelPayload, CWStores> {
-  readonly type = 'curtainwall.removePanel';
+  readonly type = 'curtain-wall.removePanel';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.removePanel'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(ctx: HandlerContext<CWStores>, cmd: RemovePanelPayload): ValidationResult {

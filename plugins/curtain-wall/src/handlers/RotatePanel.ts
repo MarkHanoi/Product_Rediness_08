@@ -42,7 +42,9 @@ function normalizeDelta(deltaDeg: number): PanelRotationDeg {
 }
 
 export class RotatePanelHandler implements CommandHandler<RotatePanelPayload, CWStores> {
-  readonly type = 'curtainwall.rotatePanel';
+  readonly type = 'curtain-wall.rotatePanel';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.rotatePanel'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(ctx: HandlerContext<CWStores>, cmd: RotatePanelPayload): ValidationResult {

@@ -30,23 +30,23 @@ const B = { x: 6, y: 0, z: 0 };
 
 async function seedWithPanel(env: ReturnType<typeof buildEnv>): Promise<{ id: string; panelId: string }> {
   const id = createId('curtainwall');
-  await env.bus.executeCommand('curtainwall.create', {
+  await env.bus.executeCommand('curtain-wall.create', {
     id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
   });
-  await env.bus.executeCommand('curtainwall.addPanel', {
+  await env.bus.executeCommand('curtain-wall.addPanel', {
     curtainWallId: id, row: 0, col: 0, panelId: 'P1', kind: 'door',
   });
   return { id, panelId: 'P1' };
 }
 
-describe('curtainwall.rotatePanel', () => {
+describe('curtain-wall.rotatePanel', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('sets an absolute rotation', async () => {
     env = buildEnv();
     const { id, panelId } = await seedWithPanel(env);
-    await env.bus.executeCommand('curtainwall.rotatePanel', {
+    await env.bus.executeCommand('curtain-wall.rotatePanel', {
       curtainWallId: id, panelId, rotation: 90,
     });
     expect(env.cw.get(id)!.panels[0]!.rotation).toBe(90);
@@ -55,11 +55,11 @@ describe('curtainwall.rotatePanel', () => {
   it('applies a delta rotation and wraps modulo 360', async () => {
     env = buildEnv();
     const { id, panelId } = await seedWithPanel(env);
-    await env.bus.executeCommand('curtainwall.rotatePanel', {
+    await env.bus.executeCommand('curtain-wall.rotatePanel', {
       curtainWallId: id, panelId, deltaDeg: 270,
     });
     expect(env.cw.get(id)!.panels[0]!.rotation).toBe(270);
-    await env.bus.executeCommand('curtainwall.rotatePanel', {
+    await env.bus.executeCommand('curtain-wall.rotatePanel', {
       curtainWallId: id, panelId, deltaDeg: 180,
     });
     expect(env.cw.get(id)!.panels[0]!.rotation).toBe(90);
@@ -69,7 +69,7 @@ describe('curtainwall.rotatePanel', () => {
     env = buildEnv();
     const { id, panelId } = await seedWithPanel(env);
     await expect(
-      env.bus.executeCommand('curtainwall.rotatePanel', {
+      env.bus.executeCommand('curtain-wall.rotatePanel', {
         curtainWallId: id, panelId, rotation: 90, deltaDeg: 90,
       }),
     ).rejects.toThrow();
@@ -79,7 +79,7 @@ describe('curtainwall.rotatePanel', () => {
     env = buildEnv();
     const { id, panelId } = await seedWithPanel(env);
     await expect(
-      env.bus.executeCommand('curtainwall.rotatePanel', {
+      env.bus.executeCommand('curtain-wall.rotatePanel', {
         curtainWallId: id, panelId, rotation: 45,
       }),
     ).rejects.toThrow();
@@ -89,7 +89,7 @@ describe('curtainwall.rotatePanel', () => {
     env = buildEnv();
     const { id, panelId } = await seedWithPanel(env);
     await expect(
-      env.bus.executeCommand('curtainwall.rotatePanel', {
+      env.bus.executeCommand('curtain-wall.rotatePanel', {
         curtainWallId: id, panelId, deltaDeg: 17,
       }),
     ).rejects.toThrow();

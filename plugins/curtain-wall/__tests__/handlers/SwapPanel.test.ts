@@ -28,20 +28,20 @@ function buildEnv() {
 const A = { x: 0, y: 0, z: 0 };
 const B = { x: 6, y: 0, z: 0 };
 
-describe('curtainwall.swapPanel', () => {
+describe('curtain-wall.swapPanel', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
   it('swaps kind in place and preserves the panel id', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
-    await env.bus.executeCommand('curtainwall.addPanel', {
+    await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 0, col: 0, panelId: 'P1', kind: 'glazed',
     });
-    await env.bus.executeCommand('curtainwall.swapPanel', {
+    await env.bus.executeCommand('curtain-wall.swapPanel', {
       curtainWallId: id, panelId: 'P1', kind: 'spandrel',
     });
     const p = env.cw.get(id)!.panels[0]!;
@@ -52,13 +52,13 @@ describe('curtainwall.swapPanel', () => {
   it('swaps materialId in place', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
-    await env.bus.executeCommand('curtainwall.addPanel', {
+    await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 0, col: 0, panelId: 'P1', kind: 'glazed',
     });
-    await env.bus.executeCommand('curtainwall.swapPanel', {
+    await env.bus.executeCommand('curtain-wall.swapPanel', {
       curtainWallId: id, panelId: 'P1', materialId: 'panel.glass.lowE',
     });
     expect(env.cw.get(id)!.panels[0]!.materialId).toBe('panel.glass.lowE');
@@ -67,14 +67,14 @@ describe('curtainwall.swapPanel', () => {
   it('rejects when no field would actually change', async () => {
     env = buildEnv();
     const id = createId('curtainwall');
-    await env.bus.executeCommand('curtainwall.create', {
+    await env.bus.executeCommand('curtain-wall.create', {
       id, baseLine: [A, B], height: 3, bayWidth: 1.5, bayHeight: 1.5,
     });
-    await env.bus.executeCommand('curtainwall.addPanel', {
+    await env.bus.executeCommand('curtain-wall.addPanel', {
       curtainWallId: id, row: 0, col: 0, panelId: 'P1', kind: 'glazed',
     });
     await expect(
-      env.bus.executeCommand('curtainwall.swapPanel', { curtainWallId: id, panelId: 'P1' }),
+      env.bus.executeCommand('curtain-wall.swapPanel', { curtainWallId: id, panelId: 'P1' }),
     ).rejects.toThrow();
   });
 });

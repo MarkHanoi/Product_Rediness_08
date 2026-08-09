@@ -17,15 +17,15 @@
 // and `move-cube`.  Replit shared CPU is variable; the hard-fail flip
 // is owned by `scripts/check-regression.mjs`, not the assertion below.
 //
-// Spec-vs-actual reconciliation:
-// - The flows-doc §1 Flow 5 row writes the command type as
-//   `curtain-wall.create` (hyphen). Actual is `curtainwall.create`
-//   (one word, no hyphen) — see `CURTAIN_WALL_HANDLER_TYPES` in
-//   `plugins/curtain-wall/src/handlers/index.ts:25-40`. The plugin id
-//   is `curtain-wall` (with hyphen), the storeKey + command-type
-//   namespace is `curtainwall` (no hyphen). Both are the canonical
-//   wired forms; the spec's hyphenated command type is documentation
-//   shorthand.
+// Naming (§FIX-COMMAND-NAMESPACE, L-796):
+// - The canonical command prefix is `curtain-wall` (hyphenated), matching
+//   the plugin id and the flows-doc §1 Flow 5 row — see
+//   `CURTAIN_WALL_HANDLER_TYPES` in `plugins/curtain-wall/src/handlers/index.ts`.
+//   The un-hyphenated `curtainwall.*` spelling this bench used to dispatch is
+//   now a deprecated `CommandHandler.aliases` entry, kept only so replayed
+//   history and unmigrated callers still resolve.
+// - `curtainwall` REMAINS the storeKey. Store ids are a separate namespace
+//   from command types and were deliberately left alone.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -63,13 +63,13 @@ function seedCurtainWall(store: CurtainWallStore, id: string): CurtainWallData {
 }
 
 describe('command-bus.execute.curtain-wall-handlers', () => {
-  it('curtainwall.create executes under the < 1 ms p95 budget', async () => {
+  it('curtain-wall.create executes under the < 1 ms p95 budget', async () => {
     const store = new CurtainWallStore();
     const bus = buildBus(store);
     const sample = await measure(
       'command-bus.execute.curtain-wall-create',
       async () => {
-        await bus.executeCommand('curtainwall.create', {
+        await bus.executeCommand('curtain-wall.create', {
           id: createId('curtainwall'),
           levelId: 'lvl_test',
         });
@@ -80,7 +80,7 @@ describe('command-bus.execute.curtain-wall-handlers', () => {
     expect(sample.p95).toBeGreaterThan(0);
   });
 
-  it('curtainwall.delete executes under the < 1 ms p95 budget', async () => {
+  it('curtain-wall.delete executes under the < 1 ms p95 budget', async () => {
     const store = new CurtainWallStore();
     const bus = buildBus(store);
     const sample = await measure(
@@ -88,7 +88,7 @@ describe('command-bus.execute.curtain-wall-handlers', () => {
       async () => {
         const id = createId('curtainwall');
         seedCurtainWall(store, id);
-        await bus.executeCommand('curtainwall.delete', { curtainWallId: id });
+        await bus.executeCommand('curtain-wall.delete', { curtainWallId: id });
       },
       { samples: 200, warmup: 50, warnMs: 0.5, budgetMs: 1.0 },
     );
@@ -96,7 +96,7 @@ describe('command-bus.execute.curtain-wall-handlers', () => {
     expect(sample.p95).toBeGreaterThan(0);
   });
 
-  it('curtainwall.move executes under the < 1 ms p95 budget', async () => {
+  it('curtain-wall.move executes under the < 1 ms p95 budget', async () => {
     const store = new CurtainWallStore();
     const bus = buildBus(store);
     const id = createId('curtainwall');
@@ -104,7 +104,7 @@ describe('command-bus.execute.curtain-wall-handlers', () => {
     const sample = await measure(
       'command-bus.execute.curtain-wall-move',
       async () => {
-        await bus.executeCommand('curtainwall.move', {
+        await bus.executeCommand('curtain-wall.move', {
           curtainWallId: id,
           delta: { x: 0.01, y: 0, z: 0 },
         });
@@ -115,7 +115,7 @@ describe('command-bus.execute.curtain-wall-handlers', () => {
     expect(sample.p95).toBeGreaterThan(0);
   });
 
-  it('curtainwall.setGrid executes under the < 1 ms p95 budget', async () => {
+  it('curtain-wall.setGrid executes under the < 1 ms p95 budget', async () => {
     const store = new CurtainWallStore();
     const bus = buildBus(store);
     const id = createId('curtainwall');
@@ -123,7 +123,7 @@ describe('command-bus.execute.curtain-wall-handlers', () => {
     const sample = await measure(
       'command-bus.execute.curtain-wall-setGrid',
       async () => {
-        await bus.executeCommand('curtainwall.setGrid', {
+        await bus.executeCommand('curtain-wall.setGrid', {
           curtainWallId: id,
           bayWidth: 1.5,
           bayHeight: 1.8,

@@ -430,7 +430,7 @@ export async function bootstrap(
     // registered here at bootstrap.  Bridge handlers (wall.create-on-all-slabs,
     // slab.create-on-all-floors, curtain-wall.create-on-all-slabs,
     // level.duplicate-floor-plan) use (window as any).commandManager internally.
-    // rooms.redetect uses the CustomEvent bridge (RedetectRoomsHandler → listener below).
+    // room.redetect uses the CustomEvent bridge (RedetectRoomsHandler → listener below).
     if (runtime) {
         // The PryzmRuntime.bus slot is intentionally narrow ({ executeCommand,
         // register, registry }) to avoid exposing CommandBus internals through the
@@ -987,13 +987,13 @@ export async function bootstrap(
         wireCollaborationCRDT();
     }
 
-    // ── F-1.4: rooms.redetect CustomEvent bridge listener ─────────────────────
+    // ── F-1.4: room.redetect CustomEvent bridge listener ─────────────────────
     // RedetectRoomsHandler (plugins/rooms L4) dispatches 'pryzm-bus-rooms-redetect'
     // to avoid an L4→L7 import cycle (ADR-002 §3.D).  This L7 listener converts
     // the CustomEvent into a LEGACY commandManager.execute(ReDetectRoomsCommand) call.
     //
     // CRITICAL BUG FIX (F-1.4-REDETECT-LOOP):
-    //   The previous implementation called bus.executeCommand('rooms.redetect') here.
+    //   The previous implementation called bus.executeCommand('room.redetect') here.
     //   That re-entered RedetectRoomsHandler.execute() which dispatches this same
     //   CustomEvent again → infinite recursion → RangeError: Maximum call stack size exceeded.
     //   (Reported in live logs: RedetectRooms.ts:80 Uncaught RangeError.)

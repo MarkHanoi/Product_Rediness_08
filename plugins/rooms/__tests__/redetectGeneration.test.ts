@@ -1,4 +1,4 @@
-// §GEN-SINGLE-REDETECT (L-377) — the wall.created → rooms.redetect subscription must be
+// §GEN-SINGLE-REDETECT (L-377) — the wall.created → room.redetect subscription must be
 // SUPPRESSED while a building generation is in flight (globalThis.__pryzmBuildingGenActive),
 // and resume the instant the flag clears. This is the un-gated twin of the RoomTopologyObserver
 // gate (L-369): during a resi/office/house generation the CommandEventBridge fans out one
@@ -35,23 +35,23 @@ function setGenActive(active: boolean): void {
   (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive = active;
 }
 
-describe('L-377 — rooms.redetect generation gate', () => {
+describe('L-377 — room.redetect generation gate', () => {
   afterEach(() => {
     setGenActive(false);
     vi.restoreAllMocks();
   });
 
-  it('dispatches rooms.redetect on wall.created when NO generation is active', async () => {
+  it('dispatches room.redetect on wall.created when NO generation is active', async () => {
     const { runtime, executeCommand, fire } = buildRuntime();
     wireRoomEventSubscriptions(runtime);
 
     await fire('wall.created', { levelId: 'L0' });
 
     expect(executeCommand).toHaveBeenCalledTimes(1);
-    expect(executeCommand).toHaveBeenCalledWith('rooms.redetect', expect.objectContaining({ levelId: 'L0' }));
+    expect(executeCommand).toHaveBeenCalledWith('room.redetect', expect.objectContaining({ levelId: 'L0' }));
   });
 
-  it('SUPPRESSES the per-wall rooms.redetect while __pryzmBuildingGenActive is true', async () => {
+  it('SUPPRESSES the per-wall room.redetect while __pryzmBuildingGenActive is true', async () => {
     const { runtime, executeCommand, fire } = buildRuntime();
     wireRoomEventSubscriptions(runtime);
 
@@ -85,6 +85,6 @@ describe('L-377 — rooms.redetect generation gate', () => {
     await fire('wall.created', { levelId: 'L1' });
 
     expect(executeCommand).toHaveBeenCalledTimes(1);
-    expect(executeCommand).toHaveBeenCalledWith('rooms.redetect', expect.objectContaining({ levelId: 'L1' }));
+    expect(executeCommand).toHaveBeenCalledWith('room.redetect', expect.objectContaining({ levelId: 'L1' }));
   });
 });

@@ -62,8 +62,13 @@ const CANONICAL_PREFIXES = new Set([
  * failure the ratchet exists to prevent.
  */
 const BASELINE_SPLITS = new Map<string, string>([
-    ['curtainwall', 'curtain-wall'],  // 18 types — L-796
-    ['rooms',       'room'],          //  1 type  — found by this gate
+    // EMPTY — both split domains were migrated (L-796, 2026-08-09):
+    //   • `curtainwall.*` → `curtain-wall.*` (18 types)
+    //   • `rooms.redetect` → `room.redetect`  (1 type)
+    // Each handler now declares the canonical name on `type` and the old spelling
+    // in `aliases`, so already-logged commands and unmigrated callers still resolve.
+    // The aliases are the remaining debt: once no caller and no persisted log uses
+    // them, delete the `aliases` fields. Nothing may be ADDED to this map.
 ]);
 
 /**

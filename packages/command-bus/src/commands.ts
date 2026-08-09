@@ -570,8 +570,8 @@ export type WallCreatePayload = {
  *
  * Priority order per migration plan §E.5:
  *   P0  — wall.create, wall.createFromSlab, wall.batch.create,
- *          curtain-wall.batch.create, rooms.redetect  (this file)
- *   P1  — BatchCoordinator._executeFinalSweep() uses rooms.redetect
+ *          curtain-wall.batch.create, room.redetect  (this file)
+ *   P1  — BatchCoordinator._executeFinalSweep() uses room.redetect
  *   P2  — WallTool uses wall.create + wall.createFromSlab
  */
 // ---------------------------------------------------------------------------
@@ -1007,14 +1007,14 @@ export type ElementCommandBusCommands = {
      * `wall.updateCurtainWall` dispatches with a single Immer produceCommand
      * call — single rebuild, single undo-stack entry.
      *
-     * Handler: UpdateCurtainWallBatchHandler (`curtainwall.batch.update`).
+     * Handler: UpdateCurtainWallBatchHandler (`curtain-wall.batch.update`).
      * Performance target: ≤ 1 second for updating all curtain wall panels'
      * material/colour, matching `curtain-wall.create-on-all-slabs` throughput.
      *
      * Entries whose `id` is not present in the plugin store are silently
      * skipped (idempotent — safe to dispatch from AI and from undo/redo replay).
      */
-    'curtainwall.batch.update': {
+    'curtain-wall.batch.update': {
         readonly updates: ReadonlyArray<{
             readonly id: string;
             readonly updates: Record<string, unknown>;
@@ -1168,7 +1168,7 @@ export type ElementCommandBusCommands = {
      * Handled by RedetectRoomsHandler in @pryzm/plugin-rooms.
      * Replaces the legacy ReDetectRoomsCommand fired by BatchCoordinator._executeFinalSweep().
      */
-    'rooms.redetect': {
+    'room.redetect': {
         readonly levelId: string;
         /** Floor elevation above project zero, in metres.
          *  Optional — defaults to 0 when omitted (C11 §6.3 event-driven path).

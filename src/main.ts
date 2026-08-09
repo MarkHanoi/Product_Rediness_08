@@ -420,11 +420,11 @@ async function bootPlatform(): Promise<void> {
 
     // Task 1.3 (C11 §6.3) — wire event-driven room redetection subscriptions.
     // `wireAllPluginSubscriptions` calls each plugin's `wireSubscriptions`
-    // callback (currently only rooms: wall.created → rooms.redetect).
+    // callback (currently only rooms: wall.created → room.redetect).
     // The returned disposer is intentionally not stored here — runtime
     // tear-down is handled by the platform shell on process exit.
     wireAllPluginSubscriptions(runtime);
-    console.debug('[main] Task 1.3: plugin event subscriptions wired (rooms.redetect active).');
+    console.debug('[main] Task 1.3: plugin event subscriptions wired (room.redetect active).');
 
     // C06 §4 (Task 3.1) — Register all plugin tool activators with runtime.tools.
     // Must be called AFTER wireAllPluginSubscriptions so the bus is ready.

@@ -243,13 +243,13 @@ export function buildCurtainPanelEditor(
             console.warn(`[CurtainPanelEditor] No panel at cell [${i}, ${j}]`);
             return;
         }
-        window.runtime?.bus?.executeCommand('curtainwall.replacePanel', {
+        window.runtime?.bus?.executeCommand('curtain-wall.replacePanel', {
             panelId: panel.id,
             newPanelType: newType,
         })?.then(() => {
             renderGrid();
         })?.catch((e: Error) => {
-            console.warn('[CurtainPanelEditor] curtainwall.replacePanel failed:', e);
+            console.warn('[CurtainPanelEditor] curtain-wall.replacePanel failed:', e);
         });
     }
 

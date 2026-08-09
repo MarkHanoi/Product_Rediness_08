@@ -564,7 +564,7 @@ export class CreateCurtainWallsOnAllSlabsCommand implements Command {
                 totalElementCount: estimatedWallCount,
                 // §FIX-SKIP-REDETECT-ROOMS (2026-05-05): Curtain walls are transparent
                 // glass facade elements that cannot define interior room boundaries.
-                // Skipping rooms.redetect eliminates ~12,738ms + 1,271ms + 9×~1,000ms
+                // Skipping room.redetect eliminates ~12,738ms + 1,271ms + 9×~1,000ms
                 // ≈ 23 s of main-thread LONGTASKs while correctness is fully preserved
                 // (REDETECT_ROOMS for this batch produced 0 new rooms in all test runs).
                 // markLevelsDirty(levelIds) is still called so plan-view reprojection

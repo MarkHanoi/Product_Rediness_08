@@ -2117,7 +2117,7 @@ export class ProjectLoader {
 
             // ── §LOAD-REDETECT-CHUNKED (2026-06-30) — project-open FREEZE fix B ──
             // The per-level redetect sweep used to run as ONE synchronous for-loop:
-            // each `rooms.redetect` dispatch lands (via the CustomEvent bridge) on a
+            // each `room.redetect` dispatch lands (via the CustomEvent bridge) on a
             // synchronous `commandManager.execute(ReDetectRoomsCommand)` whose
             // RoomDetectionEngine.detectRoomsForLevel() graph-walk + the room-store
             // churn it drives (→ `bim-room-updated` → SpatialTree.refreshTree +
@@ -2151,14 +2151,14 @@ export class ProjectLoader {
                 const heightOf    = (lvl: any) => (typeof lvl.height === 'number' ? lvl.height : 3.0);
                 const dispatchOne = (lvl: any): void => {
                     try {
-                        // Phase F-1.2: dispatch to rooms.redetect bus handler, which calls
+                        // Phase F-1.2: dispatch to room.redetect bus handler, which calls
                         // commandManager internally (initBusHandlers.ts §P0-A39 registration).
-                        window.runtime?.bus?.executeCommand('rooms.redetect', {
+                        window.runtime?.bus?.executeCommand('room.redetect', {
                             levelId:   lvl.id,
                             elevation: elevationOf(lvl),
                             height:    heightOf(lvl),
                         })?.catch((e: unknown) => {
-                            console.warn(`[ProjectLoader] rooms.redetect bus dispatch failed for level '${lvl.id}':`, e);
+                            console.warn(`[ProjectLoader] room.redetect bus dispatch failed for level '${lvl.id}':`, e);
                         });
                     } catch (e) {
                         console.warn(`[ProjectLoader] Final REDETECT_ROOMS failed for level '${lvl.id}':`, e);

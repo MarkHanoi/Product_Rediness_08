@@ -410,16 +410,16 @@ export interface RuntimeEvents {
     readonly thickness?: number;
   };
 
-  /** Fired after `curtainwall.create` or `curtain-wall.batch.create` succeeds.
+  /** Fired after `curtain-wall.create` or `curtain-wall.batch.create` succeeds.
    *  For batch creates, CEB emits one event per element (TASK-01, 2026-05-18) using
-   *  commandType 'curtainwall.create' so initTools §P3.1-CW subscriber accepts all events.
+   *  commandType 'curtain-wall.create' so initTools §P3.1-CW subscriber accepts all events.
    *  §P3.1-CW (IMPL-PLAN-2026-05-17): geometry fields populated by CEB so initTools.ts
    *  can mirror the curtain wall into the legacy CurtainWallStore for 3D mesh rebuild.
    *  TASK-02 (MASTER-IMPL-PLAN-2026-05-18): bayWidth/bayHeight/mullionThickness added to
    *  fix the empty-mesh bug (migrateToGridSystem() NaN-spacing → 0 mullion cells). */
   'curtain-wall.created': {
     readonly commandId: string;
-    readonly commandType: 'curtainwall.create' | 'curtain-wall.batch.create';
+    readonly commandType: 'curtain-wall.create' | 'curtain-wall.batch.create';
     readonly levelId: string;
     readonly elementCount: number;
     /** Curtain wall id. */

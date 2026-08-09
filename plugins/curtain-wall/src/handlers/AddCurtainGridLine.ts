@@ -8,7 +8,7 @@
 // inverse patch (removes the line by ID). Redo applies forward.ops — ID stability
 // is automatic because the patch encodes the exact state, not a re-execution.
 //
-// Previously returned { forward: [], inverse: [] } causing curtainwall.addGridLine
+// Previously returned { forward: [], inverse: [] } causing curtain-wall.addGridLine
 // to be non-undoable. AddCurtainGridLineCommand in packages/command-registry/ is
 // now orphaned by this path.
 // TODO(E.5.x): ORPHANED — bridge migrated to produceCommand. Confirm no other
@@ -40,7 +40,9 @@ export interface AddCurtainGridLinePayload {
 type CWHandlerStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unknown>>;
 
 export const AddCurtainGridLineHandler: CommandHandler<AddCurtainGridLinePayload, CWHandlerStores> = {
-  type: 'curtainwall.addGridLine',
+  type: 'curtain-wall.addGridLine',
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  aliases: ['curtainwall.addGridLine'] as const,
   affectedStores: ['curtainwall'] as const,
 
   canExecute(
@@ -62,7 +64,7 @@ export const AddCurtainGridLineHandler: CommandHandler<AddCurtainGridLinePayload
     ctx: HandlerContext<CWHandlerStores>,
     cmd: AddCurtainGridLinePayload,
   ): HandlerResult {
-    return withHandlerSpan('curtainwall.addGridLine.handler', { 'pryzm.command.type': 'curtainwall.addGridLine' }, () => {
+    return withHandlerSpan('curtain-wall.addGridLine.handler', { 'pryzm.command.type': 'curtain-wall.addGridLine' }, () => {
       // §MI-05 preserved: pre-generate the line ID outside produceCommand so the
       // exact same ID is embedded in the forward Immer patch. Redo via
       // applyPatches(forward.ops) re-inserts the line with this stable ID, keeping
@@ -72,7 +74,7 @@ export const AddCurtainGridLineHandler: CommandHandler<AddCurtainGridLinePayload
       const [next, forward, inverse] = produceCommand<CurtainWallsState>(ctx.stores.curtainwall, draft => {
         const cw = draft[cmd.curtainWallId];
         if (!cw) {
-          console.error('[curtainwall.addGridLine] curtain wall not found in store:', cmd.curtainWallId);
+          console.error('[curtain-wall.addGridLine] curtain wall not found in store:', cmd.curtainWallId);
           return;
         }
 

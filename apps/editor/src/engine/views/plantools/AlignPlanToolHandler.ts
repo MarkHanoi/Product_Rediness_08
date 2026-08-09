@@ -352,8 +352,8 @@ export class AlignPlanToolHandler implements PlanToolHandler {
             { x: prev[0].x + dx, y: prev[0].y, z: prev[0].z + dz },
             { x: prev[1].x + dx, y: prev[1].y, z: prev[1].z + dz },
         ];
-        window.runtime?.bus?.executeCommand('curtainwall.move', { id, updates: { baseLine: next } })
-            ?.catch((e: unknown) => console.error('[AlignTool] curtainwall.move failed:', e));
+        window.runtime?.bus?.executeCommand('curtain-wall.move', { id, updates: { baseLine: next } })
+            ?.catch((e: unknown) => console.error('[AlignTool] curtain-wall.move failed:', e));
     }
 
     private async _moveBeam(id: string, dx: number, dz: number): Promise<void> {

@@ -762,7 +762,7 @@ export class FrameScheduler {
     // re-schedules itself, or a CurtainWallBuilder drain that re-arms its own
     // pre-render slot) are immediately visible to the running for-of loop and
     // execute in the SAME rAF tick.  This collapsed all 11 post-batch
-    // tickNextLevel (rooms.redetect) calls into a single 16,700ms LONGTASK,
+    // tickNextLevel (room.redetect) calls into a single 16,700ms LONGTASK,
     // and all 18 L0 curtain-wall builds into a 30,618ms LONGTASK.
     //
     // With the snapshot, any listener registered from inside a callback is

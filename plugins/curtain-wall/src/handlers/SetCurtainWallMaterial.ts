@@ -1,6 +1,6 @@
 // SetCurtainWallMaterialHandler — uniform material-set command (L-08). §FEAT-UNIFORM-MATERIAL-COMMAND
 //
-// One `curtainwall.setMaterial` handler mirroring the family-uniform shape
+// One `curtain-wall.setMaterial` handler mirroring the family-uniform shape
 // used across every element family.  The scene-committer's MATERIAL_FIELDS
 // dirty-check swaps materials on the next commit — no builder/committer
 // change is required here.
@@ -27,7 +27,9 @@ type CurtainWallHandlerStores = Readonly<{ curtainwall: CurtainWallsState } & Re
 export class SetCurtainWallMaterialHandler
   implements CommandHandler<SetCurtainWallMaterialPayload, CurtainWallHandlerStores>
 {
-  readonly type = 'curtainwall.setMaterial';
+  readonly type = 'curtain-wall.setMaterial';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.setMaterial'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(ctx: HandlerContext<CurtainWallHandlerStores>, cmd: SetCurtainWallMaterialPayload): ValidationResult {

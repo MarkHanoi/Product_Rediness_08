@@ -103,7 +103,7 @@ describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
 
     // ---- 6. curtain wall ----
     const cwId = createId('curtainwall');
-    await rt.bus.executeCommand('curtainwall.create', { id: cwId, levelId: 'lvl' });
+    await rt.bus.executeCommand('curtain-wall.create', { id: cwId, levelId: 'lvl' });
     expect((rt.stores.curtainwall as unknown as CurtainWallStore).get(cwId)).toBeDefined();
 
     // ---- 7. grid ----

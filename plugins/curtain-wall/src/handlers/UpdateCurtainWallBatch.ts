@@ -47,7 +47,9 @@ type CWBatchUpdateStores = Readonly<{ curtainwall: CurtainWallsState } & Record<
 export class UpdateCurtainWallBatchHandler
   implements CommandHandler<UpdateCurtainWallBatchPayload, CWBatchUpdateStores>
 {
-  readonly type = 'curtainwall.batch.update';
+  readonly type = 'curtain-wall.batch.update';
+  /** §FIX-COMMAND-NAMESPACE (L-796) — deprecated pre-migration spelling. */
+  readonly aliases = ['curtainwall.batch.update'] as const;
   readonly affectedStores = ['curtainwall'] as const;
 
   canExecute(
@@ -57,7 +59,7 @@ export class UpdateCurtainWallBatchHandler
     if (!Array.isArray(cmd.updates) || cmd.updates.length === 0) {
       return {
         valid: false,
-        reason: 'curtainwall.batch.update: updates array must be non-empty',
+        reason: 'curtain-wall.batch.update: updates array must be non-empty',
       };
     }
     for (let i = 0; i < cmd.updates.length; i++) {
@@ -65,13 +67,13 @@ export class UpdateCurtainWallBatchHandler
       if (!entry.id || typeof entry.id !== 'string' || entry.id.trim() === '') {
         return {
           valid: false,
-          reason: `curtainwall.batch.update: updates[${i}].id must be a non-empty string`,
+          reason: `curtain-wall.batch.update: updates[${i}].id must be a non-empty string`,
         };
       }
       if (!entry.updates || typeof entry.updates !== 'object') {
         return {
           valid: false,
-          reason: `curtainwall.batch.update: updates[${i}].updates must be a plain object`,
+          reason: `curtain-wall.batch.update: updates[${i}].updates must be a plain object`,
         };
       }
     }
@@ -97,7 +99,7 @@ export class UpdateCurtainWallBatchHandler
               if (!existing) {
                 // id not in store — idempotent skip (safe for undo/redo replay)
                 console.warn(
-                  `[curtainwall.batch.update] id '${entry.id}' not found in plugin store — skipping`,
+                  `[curtain-wall.batch.update] id '${entry.id}' not found in plugin store — skipping`,
                 );
                 skipped++;
                 continue;
@@ -109,7 +111,7 @@ export class UpdateCurtainWallBatchHandler
         );
 
         console.log(
-          `[CommandBus] DISPATCH: curtainwall.batch.update — ${applied} applied, ${skipped} skipped`,
+          `[CommandBus] DISPATCH: curtain-wall.batch.update — ${applied} applied, ${skipped} skipped`,
         );
         return { forward, inverse, nextStates: { curtainwall: next } };
       },
