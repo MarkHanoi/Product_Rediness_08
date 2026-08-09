@@ -253,8 +253,36 @@ export class UpdateElementParameterCommand implements Command {
 
         try {
             if (t === 'wall') {
+                // ── §FIX-PARAM-REBUILD-READS-STALE-STORE (L-813) ───────────
+                //
+                // Founder-reported 2026-08-09: "the vertical angle works, but the
+                // wall only gets angled after another element is created or
+                // modified."
+                //
+                // `applyParameters()` WRITES through `resolveStore()` →
+                // `context.stores.wallStore`. This read used `window.wallStore`.
+                // Those are not guaranteed to be the same instance — the editor
+                // threads its stores in explicitly at `engineLauncher.ts:781`, and
+                // the window globals are a separate legacy surface. When they
+                // differ, the rebuild re-reads a wall WITHOUT the change that was
+                // just written and faithfully rebuilds the OLD geometry. The edit
+                // then appears only when some later event triggers a rebuild that
+                // happens to read the right store — exactly "it applies after I
+                // touch something else".
+                //
+                // Reading back from the SAME store we wrote to removes the class of
+                // bug, not just the rake instance: every parameter edit routed
+                // through this command had the same latent stale-read. It also
+                // drops one `window.*` reach-through (P4).
+                //
+                // `context.stores.wallStore` is falsy-guarded rather than assumed —
+                // some legacy call sites construct a context without it, and a
+                // missing store must degrade to "no rebuild", never throw inside a
+                // command that has already mutated state.
                 const builder = window.wallFragmentBuilder;
-                const store   = window.wallStore // TODO(TASK-07);
+                const store   = (context.stores as { wallStore?: { getById?: (id: string) => unknown } }).wallStore
+                             ?? window.wallStore // TODO(TASK-07) — last-resort legacy fallback
+                             ;
                 const wall    = store?.getById?.(elementId);
                 if (wall && builder?.buildWall) builder.buildWall(wall);
 
