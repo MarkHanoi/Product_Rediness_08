@@ -24,6 +24,59 @@ export function createBimWorld(container: HTMLElement) {
     world.renderer = new OBCF.PostproductionRenderer(components, viewport);
     world.renderer.three.autoClear = false;
 
+    // ── §NO-VENDOR-LOGO (L-780) — suppress the That Open Company watermark ────
+    //
+    // WHAT IT IS. `@thatopen/components-front`'s `RendererComponent` appends a
+    // lime-green (#BCF124) "That Open Company" wordmark into whatever container
+    // the renderer is given — here, the `<bim-viewport>` created two lines above.
+    // The element is built by an internal factory and carries a
+    // `data-thatopen-logo` attribute; it is styled `position:absolute;
+    // left:.75rem; bottom:.75rem; width:6rem; opacity:.85; z-index:1`.
+    // See `RendererComponent.setupLogo()` in components-front@3.4.3.
+    //
+    // WHY IT WAS ONLY EVER SEEN AS A FLASH. Bottom-left of this viewport is a
+    // crowded corner: PRYZM's own WebGPU canvas covers the OBC WebGL canvas, and
+    // `initScene.ts` mounts the "3D detail" control at `position:fixed;
+    // bottom:12px; left:12px; z-index:40` — the same corner contest documented
+    // in `CesiumViewport.setContextLoadingVisible` (L-524c). The watermark was
+    // therefore *painted every frame but occluded*, and any relayout that briefly
+    // moved or resized an occluder (dragging the window, widening it) exposed it
+    // for a frame or two. It was never conditionally shown; it was always there.
+    //
+    // WHY REMOVING IT IS LEGITIMATE — AND WHY THAT IS NOT TRUE OF EVERY MARK.
+    // `@thatopen/*` is MIT (see its package.json `license`). MIT obliges us to
+    // retain the copyright + permission NOTICE in distributed copies of the
+    // software; it does not oblige a visible in-app logo. Upstream treats the
+    // watermark as opt-out and ships `showLogo` as the supported switch, with a
+    // docstring asking us to keep it as a courtesy rather than as a condition.
+    // We decline the courtesy in the authoring viewport, deliberately.
+    // ⚠ Do NOT copy this pattern to the geospatial viewport: the Cesium ion and
+    // Google Photorealistic 3D Tiles credits, and the OSM/ODbL attribution on
+    // OpenFreeMap data, are CONTRACTUAL and must stay visible (C55 §1.5).
+    //
+    // WHY BOTH LINES. `showLogo` is a runtime property that upstream forgot to
+    // declare in `dist/index.d.ts` (verified in 3.4.3), hence the cast. Setting
+    // it alone only sets `display:none` on a node that stays in the tree; also
+    // detaching the node means no future reflow can surface it, and no CSS
+    // `display:none` rule has to be maintained. The flag still matters: if
+    // anything ever reassigns `renderer.container`, `setupLogo()` re-runs and
+    // honours `_showLogo` when it builds the replacement.
+    {
+        const rc = world.renderer as unknown as {
+            showLogo?: boolean;
+            logo?: HTMLElement | null;
+        };
+        try {
+            rc.showLogo = false;
+            rc.logo?.remove();
+            // Belt-and-braces for a future version that renames the accessor but
+            // keeps the attribute contract.
+            viewport.querySelectorAll('[data-thatopen-logo]').forEach((el) => el.remove());
+        } catch (logoErr) {
+            console.warn('[BimWorld] §NO-VENDOR-LOGO — could not suppress the vendor watermark (non-fatal):', logoErr);
+        }
+    }
+
     world.camera = new OBC.OrthoPerspectiveCamera(components);
 
     // ── Camera Anti-Clip: Constraint 3 — Near Plane ─────────────────────────
