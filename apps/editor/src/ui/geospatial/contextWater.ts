@@ -375,12 +375,37 @@ export function buildSeaMaskFromCoastline(
     // it should follow the coastline, which it doesn't". The real shoreline is ONE long line, so
     // using only it gives a single clean seaward polygon that hugs the coast. Dropped fragments are
     // simply not drawn (§CONTEXT-DATA-HONESTY: never a fabricated plane).
+    // ── §FIX-SEA-TILE-FRAGMENTATION (L-807, 2026-08-09) ────────────────────
+    //
+    // "Only the longest" was correct against LIVE Overpass input, where the real
+    // shoreline genuinely arrives as one long way and everything else is a jetty.
+    // It is WRONG against BAKED PMTiles input, and that is what now feeds this:
+    // `readContextTileFeatures` reads tiles INDEPENDENTLY and never stitches across
+    // tile boundaries, while tippecanoe clips and quantises per tile — so one
+    // continuous coast arrives as many non-coincident fragments.
+    //
+    // Measured at Poblenou against the real production water.pmtiles: the baked
+    // path yields 19 clipped linestrings → 3 chains, longest just 40 verts, sitting
+    // at the Llobregat delta ~13 km SW of the site, producing a sea ring covering
+    // 0.02 % of the bbox. The live path on the same bbox yields 6 chains, longest
+    // 1719 verts, main ring 43.7 % of the bbox — the actual Mediterranean.
+    // "Longest fragment" is therefore an arbitrary pick, and the founder sees no sea.
+    //
+    // Fix: keep EVERY stitched chain that is a meaningful fraction of the longest,
+    // not just the single longest. That preserves the original intent — a marina
+    // wall or river mouth is orders of magnitude shorter than a coastline and still
+    // gets dropped — while surviving a coast delivered in pieces. Each surviving
+    // chain is still independently required to enter AND exit the bbox below, so a
+    // fragment that cannot bound a sea area contributes nothing.
+    const DOMINANT_FRACTION = 0.15;
     const stitched = stitchCoastlineWays(ways);
-    let dominant: ReadonlyArray<readonly [number, number]> | null = null;
     let dominantLen = -1;
-    for (const l of stitched) { const len = polylineLength(l); if (len > dominantLen) { dominantLen = len; dominant = l; } }
+    for (const l of stitched) { const len = polylineLength(l); if (len > dominantLen) dominantLen = len; }
+    const coastChains = dominantLen > 0
+        ? stitched.filter((l) => polylineLength(l) >= dominantLen * DOMINANT_FRACTION)
+        : [];
     const centre: readonly [number, number] = [(w + e) / 2, (s + n) / 2];
-    for (const line of dominant ? [dominant] : []) {
+    for (const line of coastChains) {
         for (const strand of clipPolylineToBbox(line, bbox)) {
             if (strand.length < 2) continue;
             const start = strand[0]!, end = strand[strand.length - 1]!;

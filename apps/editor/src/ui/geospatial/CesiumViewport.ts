@@ -600,6 +600,41 @@ const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 9;                   // 0.
  * of a normal 3D-Site zoom, so the coast stops reading as an island edge.
  */
 const CONTEXT_SEA_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 12.5;                 // 0.10° ≈ 11 km radius (the immensity)
+
+/**
+ * §FIX-SEA-COVERAGE-GATE (L-807) — what fraction of the seaward bbox do these sea
+ * rings actually cover?
+ *
+ * Pure shoelace over lon/lat, with longitude scaled by cos(lat) so the ratio is
+ * area-like rather than degree-like. Only the RATIO is used, so no projection is
+ * needed and none is implied.
+ *
+ * Exists because "how many sea polygons are there" turned out to be the wrong
+ * question: one 0.02 %-of-bbox sliver is a non-zero count and no sea at all.
+ */
+function seaFractionOfBbox(
+    rings: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+    lat: number,
+    lon: number,
+): number {
+    if (rings.length === 0) return 0;
+    const h = CONTEXT_SEA_HALF_DEG;
+    const kx = Math.cos((lat * Math.PI) / 180) || 1e-6;
+    const bboxArea = (2 * h * kx) * (2 * h);
+    if (!(bboxArea > 0)) return 0;
+    let total = 0;
+    for (const ring of rings) {
+        if (ring.length < 3) continue;
+        let a2 = 0;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i]!;
+            const [xj, yj] = ring[j]!;
+            a2 += ((xj - lon) * kx) * (yi - lat) - ((xi - lon) * kx) * (yj - lat);
+        }
+        total += Math.abs(a2) / 2;
+    }
+    return total / bboxArea;
+}
 /**
  * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — hard COUNT backstop on the instanced far tier.
  * The tier is cheap-by-construction (ONE primitive, one shared material, shadowless) and already
@@ -9172,8 +9207,42 @@ export class CesiumViewport {
     // bake has no `natural=coastline`), so fetch the REAL coastline live (same §OVERPASS-PROXY the
     // water loader uses) and close the sea rings with the SAME pure `buildSeaMaskFromCoastline`.
     // Inland → the supplement resolves to `[]` → a quiet no-op (never a fabricated plane).
+    //
+    // ── §FIX-SEA-COVERAGE-GATE (L-807, 2026-08-09) ─────────────────────────
+    //
+    // This used to read `collection.sea.length === 0` — a QUANTITY test where a
+    // QUALITY test is needed, and it is why the founder saw no sea in Barcelona.
+    //
+    // Once the water bake started carrying `natural=coastline`, the baked path
+    // began returning ONE ring. That ring is a 0.02 %-of-bbox sliver 13 km away
+    // (L-807: tile fragmentation defeats the dominant-coast pick), but `1 !== 0`,
+    // so this gate concluded "the sea is covered" and SUPPRESSED the live-Overpass
+    // supplement — the path that had been drawing Barcelona's sea correctly. The
+    // console then reported `1 baked + 0 live-coastline supplement`, i.e. the
+    // system announcing success.
+    //
+    // That is §CONTEXT-DATA-HONESTY exactly: a near-empty answer and a real answer
+    // were treated as the same value. So the gate now asks how much sea we actually
+    // have, not whether we have a non-zero number of polygons.
+    //
+    // ⚠ This is the SAFETY NET, not the fix. The fix is
+    // §FIX-SEA-TILE-FRAGMENTATION in contextWater.ts, which makes the baked path
+    // produce a real coastline. This gate exists so that if the baked path ever
+    // degrades again — a bake regression, a new city, a coast shaped unlike
+    // Barcelona's — the live path silently rescues it instead of the user silently
+    // losing the sea.
+    const seaCoverage = seaFractionOfBbox(collection.sea.map((a) => a.ring), lat, lon);
+    const SEA_COVERAGE_MIN = 0.02;   // 2 % of the seaward bbox — far below any real coast
     let supplementalSea: Array<Array<readonly [number, number]>> = [];
-    if (collection.sea.length === 0 && contextTilesEnabled()) {
+    if (seaCoverage < SEA_COVERAGE_MIN && contextTilesEnabled()) {
+      if (collection.sea.length > 0) {
+        console.warn(
+          `[CesiumViewport][forma] §FIX-SEA-COVERAGE-GATE — baked sea covers only ` +
+          `${(seaCoverage * 100).toFixed(3)}% of the bbox across ${collection.sea.length} ring(s); ` +
+          `treating that as NO sea and supplementing from the live coastline. ` +
+          `A non-zero ring count is not the same as a sea (L-807).`,
+        );
+      }
       try { supplementalSea = await this.fetchSeaMaskViaOverpass(lat, lon, signal); }
       catch { /* never-throw — degrade to no sea */ }
     }
