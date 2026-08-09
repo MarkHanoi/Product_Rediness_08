@@ -93,6 +93,12 @@ export class CreateWallCommand implements Command {
             materialColor?: string,
             /** Contract §03-1.2: optional curve descriptor. Omit for straight walls. */
             curve?: WallCurve,
+            /**
+             * §WALL-RAKE — the wall's lean from the floor plane, in degrees. Omit (or 90)
+             * for a vertical wall, which is every wall this repository has ever created.
+             * Sign convention and refused combinations: `@pryzm/geometry-wall` → `WallRake.ts`.
+             */
+            rakeAngleDeg?: number,
             /** Contract §03-1.3: optional wall system type ID. Omit for plain walls. */
             systemTypeId?: string,
             /**
@@ -221,6 +227,12 @@ export class CreateWallCommand implements Command {
                     segments: this.wallData.curve.segments
                 }
                 : undefined,
+
+            // §WALL-RAKE — carried straight through. `undefined` ⇒ vertical, so the
+            // stamped wall is byte-identical to a pre-rake wall unless the author
+            // asked for a lean. WallStore.add()'s Zod refinement is the gate that
+            // rejects an out-of-range angle or a refused combination.
+            rakeAngleDeg: this.wallData.rakeAngleDeg,
 
             height: this.wallData.height,
             thickness: resolvedThickness,

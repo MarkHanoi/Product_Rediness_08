@@ -5,6 +5,7 @@ import { BimManager } from '@pryzm/core-app-model';
 import { storeEventBus } from '@pryzm/core-app-model';
 import { WallDataAddSchema, WallDataUpdateSchema, OpeningSchema, formatZodError } from './WallDataSchema';
 import { wallOccupancyStore } from './WallOccupancyStore';
+import { rakeAuthorability } from './WallRake';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 import {
@@ -526,6 +527,26 @@ export class WallStore implements ILevelProvider {
                 }
         };
 
+        // §WALL-RAKE — validate the rake against the MERGED wall, not the patch.
+        // A partial update can set `rakeAngleDeg` alone while the wall's `curve` /
+        // `layers` / `openings` live only in the existing record, so the field-local
+        // schema above cannot see the combination. Checking `nextState` closes the
+        // two-call bypass (set the rake, then add the curve) that would otherwise
+        // leave the store holding a wall the builder cannot draw.
+        {
+            const auth = rakeAuthorability(nextState as unknown as {
+                rakeAngleDeg?: number;
+                curve?: unknown;
+                layers?: unknown[];
+                openings?: unknown[];
+            });
+            if (!auth.ok) {
+                throw new WallSchemaError(
+                    `[WallStore.update] §WALL-RAKE rejected for wall ${wallId}: ${auth.reason}`,
+                );
+            }
+        }
+
         // Clean up child elements that are being removed
         if (safeUpdates.childrenIds !== undefined) {
             const nextChildrenIds = safeUpdates.childrenIds;
@@ -786,6 +807,25 @@ export class WallStore implements ILevelProvider {
 
         const wall = this.walls.get(wallId);
         if (!wall) return undefined;
+
+        // §WALL-RAKE — a RAKED wall cannot host an opening: the carve is a vertical band
+        // and the door/window transform is a bare Y-rotation plus a world-Y translate
+        // (C15 §2), both of which assume a vertical host face. `addOpening` bypasses
+        // `update()`, so the gate has to be repeated here — this is the third and last
+        // door into the store, and all three consult the same `rakeAuthorability` rules.
+        {
+            const auth = rakeAuthorability({
+                rakeAngleDeg: wall.rakeAngleDeg,
+                curve: wall.curve,
+                layers: wall.layers,
+                openings: [opening],   // the opening being added is what makes it hosted
+            });
+            if (!auth.ok) {
+                throw new WallSchemaError(
+                    `[WallStore.addOpening] §WALL-RAKE rejected for wall ${wallId}: ${auth.reason}`,
+                );
+            }
+        }
 
         const openings = [...(wall.openings ?? [])];
         const childrenIds = [...(wall.childrenIds ?? [])];

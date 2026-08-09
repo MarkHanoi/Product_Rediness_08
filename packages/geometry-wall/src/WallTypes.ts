@@ -223,6 +223,38 @@ export interface WallData extends CoreElement {
      */
     curve?: WallCurve;
 
+    /**
+     * §WALL-RAKE — the wall's lean, in DEGREES, measured from the FLOOR PLANE.
+     *
+     * **90 = vertical, and that is the default.** Absent ⇒ vertical: every wall
+     * authored before this field existed loads as 90° and re-serialises without
+     * the field, so old snapshots round-trip byte-for-byte.
+     *
+     * SIGN CONVENTION — stated here and in `WallRake.ts`, and NEVER re-derived
+     * anywhere else. The angle is measured on the wall's LEFT side, where LEFT is
+     * `leftPerp(direction) = (-d.z, d.x)` in plan-XZ (the same "left" that
+     * `WallFootprint2D` and `JunctionResolverV2` already use). Below 90° the wall's
+     * TOP leans toward its LEFT; above 90° it leans toward its RIGHT. The wall
+     * pivots about its BASE centreline — `baseLine` never moves.
+     *
+     *     topOffset = height · cot(rakeAngleDeg) · leftPerp(direction)
+     *
+     * `thickness` remains the HORIZONTAL (plan) thickness, so the wall's plan
+     * footprint is unchanged at every angle and the junction solver, room
+     * detection and opening-offset maths are untouched. The TRUE perpendicular
+     * thickness is `thickness · sin(rakeAngleDeg)` — see
+     * `WallRake.perpendicularThickness`.
+     *
+     * REFUSED COMBINATIONS (C65 §3.9 — no affordance without an implementation).
+     * A non-90° value is rejected at the store boundary when the wall is CURVED,
+     * LAYERED, or HOSTS OPENINGS. See `WallRake.rakeAuthorability` for the reasons.
+     *
+     * INSTANCE state, not TYPE state: a lean is a per-placement decision. Putting
+     * it on the WallSystemType would make every wall of that type lean together
+     * (C65 §3.6), which is never what an author means by one raked feature wall.
+     */
+    rakeAngleDeg?: number;
+
     height: number;
     thickness: number;
     baseOffset: number;

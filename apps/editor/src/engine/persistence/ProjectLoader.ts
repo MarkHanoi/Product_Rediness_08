@@ -840,6 +840,9 @@ export class ProjectLoader {
                     materialId: wall.materialId,
                     materialColor: wall.materialColor,
                     curve: wall.curve,
+                    // §WALL-RAKE — restore the lean. Absent in every pre-rake snapshot,
+                    // and `undefined` resolves to 90° (vertical) in WallRake.resolveRakeDeg.
+                    rakeAngleDeg: wall.rakeAngleDeg,
                     systemTypeId: wall.systemTypeId,
                     // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239, P4 backfill) — thread the
                     // PERSISTED layer stack back in. ProjectSerializer has always written
