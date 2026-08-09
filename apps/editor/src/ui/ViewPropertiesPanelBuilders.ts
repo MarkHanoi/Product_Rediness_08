@@ -190,7 +190,11 @@ export function buildVisibilityIntentSection(host: VisIntentHost, def: ViewDefin
     editLabel.textContent = 'Open Intent Editor';
     editBtn.appendChild(editLabel);
     editBtn.addEventListener('click', () => {
-        window.visibilityIntentPanel?.open?.(instance?.intentId ?? intents[0]?.id); // TODO(F.6.5): legacy visibilityIntentPanel — replace with runtime.panelHost.get('visibilityIntent')
+        // §FIX-INTENT-AUTHORING-DEAD-END (L-779) — pass the VIEW, not just the intent. The
+        // editor needs it so a duplicate of a read-only system intent binds to the view the
+        // user opened it from; without it, authoring was a dead end (see the panel's
+        // `contextViewId`).
+        window.visibilityIntentPanel?.open?.(instance?.intentId ?? intents[0]?.id, def.id); // TODO(F.6.5): legacy visibilityIntentPanel — replace with runtime.panelHost.get('visibilityIntent')
     });
     wrap.appendChild(editBtn);
 

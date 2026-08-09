@@ -375,6 +375,9 @@ export type {
     VGGovernanceStoreImpl,
 } from './presentation/VGGovernanceStore.js';
 export { vgGovernanceStore } from './presentation/VGGovernanceStore.js';
+// §FIX-VISIBILITY-INTENT-AUTHORITY (L-776) — the ONE VG→canvas contribution resolver.
+export { resolveVgCanvasStyle } from './presentation/VgCanvasStyleResolver.js';
+export type { VgCanvasStyle } from './presentation/VgCanvasStyleResolver.js';
 
 export type { VGInstanceOverrideStoreImpl } from './presentation/VGInstanceOverrideStore.js';
 export { vgInstanceOverrideStore } from './presentation/VGInstanceOverrideStore.js';

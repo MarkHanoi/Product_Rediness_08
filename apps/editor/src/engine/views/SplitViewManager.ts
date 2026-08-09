@@ -34,7 +34,7 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { DEFAULT_PLAN_VIEW_ID } from '@pryzm/core-app-model';
-import { vgGovernanceStore } from '@pryzm/core-app-model';
+import { resolveVgCanvasStyle } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { projectContext } from '@pryzm/core-app-model';
 import { IFC_PROJECTION_CHANGED_EVENT } from '@pryzm/core-app-model';
@@ -648,32 +648,18 @@ export class SplitViewManager implements ISplitViewManager {
                 // separate reads could drift, drawing the setback line in one place while the
                 // snap fires in another.
                 siteContextProvider: readSiteContextRings,
-                styleResolver: (category, layerTag) => {
-                    // VIEW-SYSTEM-AUDIT-2026 F13 — `vgGovernanceStore.resolveStyle()`
-                    // signature is `(modelId, category, viewId?)`.  The previous code
-                    // accidentally passed `this._planViewId` as the FIRST positional
-                    // argument (modelId), which silently produced default styling
-                    // because the SVP viewId is not a registered model.  Pass the
-                    // canonical 'model-default' modelId and the SVP viewId third.
-                    // The resolver closure runs on every paint, so reading
-                    // this._planViewId each call is correct even after _setView()
-                    // switches view.
-                    const { style } = vgGovernanceStore.resolveStyle('model-default', category, this._planViewId);
-                    const isCut = /:cut$/i.test(layerTag);
-                    const isBeyond = /:beyond$/i.test(layerTag);
-                    return {
-                        visible: isBeyond ? ((style as any).beyondVisible ?? style.visible) : style.visible,
-                        edgeColor: isBeyond ? ((style as any).beyondEdgeColor ?? style.edgeColor) : style.edgeColor,
-                        fillColor: style.fillColor,
-                        fillPattern: (style as any).fillPattern,
-                        transparency: style.transparency,
-                        lineWeight: isCut
-                            ? ((style as any).cutLineWeight ?? style.lineWeight)
-                            : isBeyond
-                            ? ((style as any).beyondLineWeight ?? Math.max(1, style.lineWeight - 1))
-                            : ((style as any).projectionLineWeight ?? style.lineWeight),
-                    };
-                },
+                // VIEW-SYSTEM-AUDIT-2026 F13 — the VG signature is `(modelId, category,
+                // viewId?)`. An earlier copy of this closure passed `this._planViewId` as
+                // the FIRST positional argument (modelId) and silently produced default
+                // styling. That class of drift is why there is now ONE resolver:
+                //
+                // §FIX-VISIBILITY-INTENT-AUTHORITY (L-776) — shared with PlanViewManager.
+                // It reports a VG contribution ONLY where VG genuinely OVERRIDES, so a
+                // built-in template seed no longer outranks the bound visibility intent
+                // (C09 §4.1 / §4.5). The closure still runs on every paint, so reading
+                // `this._planViewId` per call stays correct after `_setView()` switches view.
+                styleResolver: (category, layerTag) =>
+                    resolveVgCanvasStyle(category, layerTag, this._planViewId ?? undefined),
             });
             this._syncCanvasSize();
             this._syncPlanCanvasState();

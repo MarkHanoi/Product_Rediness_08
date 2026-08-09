@@ -13,7 +13,7 @@ import { isProjectionSuperseded } from './projectionCancellation';
 import { PLAN_INCREMENTAL_SAFE_TYPES } from '@pryzm/core-app-model';
 import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
-import { vgGovernanceStore } from '@pryzm/core-app-model';
+import { resolveVgCanvasStyle } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
@@ -700,24 +700,12 @@ export class PlanViewManager implements IPlanViewManager {
         if (!this._canvas) return;
         this._planCanvas = new PlanViewCanvas(this._canvas, {
             gridVisible: this._gridOn,
-            styleResolver: (category, layerTag) => {
-                const viewId = this._viewDef?.id;
-                const { style } = vgGovernanceStore.resolveStyle('model-default', category, viewId);
-                const isCut = /:cut$/i.test(layerTag);
-                const isBeyond = /:beyond$/i.test(layerTag);
-                return {
-                    visible: isBeyond ? ((style as any).beyondVisible ?? style.visible) : style.visible,
-                    edgeColor: isBeyond ? ((style as any).beyondEdgeColor ?? style.edgeColor) : style.edgeColor,
-                    fillColor: style.fillColor,
-                    fillPattern: (style as any).fillPattern,
-                    transparency: style.transparency,
-                    lineWeight: isCut
-                        ? ((style as any).cutLineWeight ?? style.lineWeight)
-                        : isBeyond
-                        ? ((style as any).beyondLineWeight ?? Math.max(1, style.lineWeight - 1))
-                        : ((style as any).projectionLineWeight ?? style.lineWeight),
-                };
-            },
+            // §FIX-VISIBILITY-INTENT-AUTHORITY (L-776) — ONE resolver, shared with
+            // SplitViewManager. It reports a VG contribution ONLY where VG genuinely
+            // OVERRIDES; a built-in template seed no longer outranks the bound visibility
+            // intent (C09 §4.1 / §4.5). See VgCanvasStyleResolver's header for the defect.
+            styleResolver: (category, layerTag) =>
+                resolveVgCanvasStyle(category, layerTag, this._viewDef?.id),
         });
         this._planCanvas.setLevelId(this._viewDef?.spatial?.levelId ?? null);
         const viewType = this._viewDef?.viewType ?? 'plan';

@@ -76,6 +76,9 @@ declare global {
      * cross-project triple-slash reference.
      */
     pryzmExport?: unknown;
+
+    /** §VI-PROBE (L-778) — visibility-intent resolution probe. See window-shim.ts §3. */
+    pryzmExplainVisibilityIntent?: unknown;
   }
 }
 

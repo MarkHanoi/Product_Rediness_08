@@ -683,7 +683,7 @@ export async function initUI(p: UIParams): Promise<void> {
     // 3 vi:intent-* window listeners) are all gated on the user opening the
     // panel — the listeners only call `this.render()`, which is a no-op until
     // first open() anyway, so deferring construction is functionally
-    // equivalent. Proxy mirrors the real public API: `open(intentId?)` /
+    // equivalent. Proxy mirrors the real public API: `open(intentId?, viewId?)` /
     // `close()`. All four external consumers are fire-and-forget.
     {
         let _viModulePromise:
@@ -708,10 +708,13 @@ export async function initUI(p: UIParams): Promise<void> {
         };
 
         window.visibilityIntentPanel = {
-            async open(intentId?: string): Promise<void> {
+            // §FIX-INTENT-AUTHORING-DEAD-END (L-779) — the proxy must forward the VIEW too,
+            // or the panel can never bind a duplicated intent to the view it was opened from.
+            // A proxy that silently drops an argument is how a wired feature reads as unwired.
+            async open(intentId?: string, viewId?: string | null): Promise<void> {
                 try {
                     const panel = await _ensureVisibilityIntentPanel();
-                    panel.open(intentId);
+                    panel.open(intentId, viewId);
                 } catch (err) {
                     console.error('[main] VisibilityIntentPanel lazy load failed:', err);
                 }

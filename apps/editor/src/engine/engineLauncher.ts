@@ -1083,4 +1083,51 @@ export async function bootstrap(
         exposeDevHelpers({});
         exposeDevCommands({});
     }
+
+    // ── §VI-PROBE (L-778) / C09 §4.3a — the visibility-intent resolution probe ───
+    //
+    // Bound UNCONDITIONALLY (Pattern E), because the diagnosis this exists for happens on
+    // PRODUCTION: `pryzmExplainVisibilityIntent('vd-sys-plan-l0', 'wall')` prints the
+    // binding ORIGIN ('own' | 'inherited' | 'global-default' | 'none'), the intent that
+    // answered, every rule tier that contributed, and the final pen. Before this, an
+    // UNBOUND view and a view bound to the default intent produced the identical pen with
+    // nothing anywhere able to tell them apart (§CONTEXT-DATA-HONESTY). Read-only —
+    // it dispatches nothing and mutates no store.
+    {
+        const { bindLegacyBrowserGlobals } = await import('./window-shim');
+        const { graphicsRulesEngine, viewDefinitionStore } = await import('@pryzm/core-app-model');
+        bindLegacyBrowserGlobals({
+            pryzmExplainVisibilityIntent: (
+                viewId: string,
+                category = 'wall',
+                zone: 'CUT' | 'PROJECTION' | 'BEYOND' | 'HIDDEN' = 'CUT',
+                viewType?: string,
+            ) => {
+                const def = viewDefinitionStore.get(viewId);
+                const report = graphicsRulesEngine.explainStyle(zone, category, {
+                    viewId,
+                    viewType: viewType ?? def?.viewType ?? 'plan',
+                });
+                console.table([{
+                    view:    `${viewId} (${report.viewType})`,
+                    element: `${category}/${zone}`,
+                    binding: report.binding,
+                    intent:  report.intentName ?? '—',
+                    widthMm: report.pen.widthMm,
+                    colour:  report.pen.color,
+                    opacity: report.pen.opacity,
+                    dash:    report.pen.dashPx ? report.pen.dashPx.join(',') : 'solid',
+                }]);
+                console.log('[VI-PROBE] rule tiers (low → high priority):', report.tiers);
+                if (report.binding === 'global-default') {
+                    console.warn(
+                        `[VI-PROBE] view '${viewId}' has NO ViewIntentInstance — it is being ` +
+                        'drawn with the GLOBAL DEFAULT intent. Per-view intent and per-view ' +
+                        'local overrides (C09 §4.3) do NOT apply to it.',
+                    );
+                }
+                return report;
+            },
+        });
+    }
 }

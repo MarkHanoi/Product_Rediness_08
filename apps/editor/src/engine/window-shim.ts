@@ -166,6 +166,18 @@ export interface LegacyBrowserGlobalRefs {
    * `apps/editor/src/engine/window-dev-augment.d.ts` for the editor scope.
    */
   pryzmExport?: unknown;
+  /**
+   * §VI-PROBE (L-778) / C09 §4.3a — `pryzmExplainVisibilityIntent(viewId, category, zone?,
+   * viewType?)`. Answers *"which intent governs this line, and how was it found?"* for one
+   * (view x element type x zone), naming the binding ORIGIN so an UNBOUND view is
+   * distinguishable from one bound to the default intent.
+   *
+   * PATTERN E, NOT PATTERN D — deliberately NOT gated on `import.meta.env.DEV`. The dev
+   * server in this repo is unusable for real models, so every diagnosis happens against
+   * PRODUCTION; a probe that only exists in DEV is a probe nobody can run when it matters.
+   * It is read-only and dispatches nothing.
+   */
+  pryzmExplainVisibilityIntent?: unknown;
 }
 
 /**
@@ -175,5 +187,8 @@ export interface LegacyBrowserGlobalRefs {
 export function bindLegacyBrowserGlobals(refs: LegacyBrowserGlobalRefs): void {
   if (refs.pryzmExport !== undefined) {
     window.pryzmExport = refs.pryzmExport;
+  }
+  if (refs.pryzmExplainVisibilityIntent !== undefined) {
+    window.pryzmExplainVisibilityIntent = refs.pryzmExplainVisibilityIntent;
   }
 }

@@ -30,6 +30,9 @@ import { resolveIntentPenStyle } from '../presentation/IntentRuleResolver';
 import { visibilityIntentStore } from '../presentation/VisibilityIntentStore';
 import { viewIntentInstanceStore } from '../presentation/ViewIntentInstanceStore';
 import { getDefaultSystemIntentId } from '../presentation/SystemIntents';
+// §VI-PROBE (L-778) — ONE binding read for the whole product. See `_resolveBinding`.
+import { resolveBoundIntentWithInheritance } from '../presentation/IntentBindingResolver';
+import type { ViewIntentInstance, VisibilityIntent } from '../presentation/VisibilityIntentTypes';
 
 export const RULE_PRIORITY_SYSTEM   =     0;
 export const RULE_PRIORITY_CATEGORY =   100;
@@ -271,16 +274,115 @@ export class GraphicsRulesEngine {
         }];
     }
 
-    private _intentRules(zone: PenZone, category: string, ctx: StyleResolverContext): GraphicsRule[] {
+    /**
+     * §VI-PROBE (L-778) / C09 §4.3a — WHICH INTENT ANSWERED, AND HOW IT WAS FOUND.
+     *
+     * The style path used to read `viewIntentInstanceStore.get(viewId)` directly and, on a
+     * miss, silently substitute `getDefaultSystemIntentId()`. So "this view is bound to the
+     * architectural-documentation intent" and "this view is bound to NOTHING" produced the
+     * IDENTICAL pen, with no way to tell them apart — the standing §CONTEXT-DATA-HONESTY
+     * defect (a failure and an empty answer must never be the same value).
+     *
+     * It also disagreed with the OTHER two readers of the same fact:
+     * `resolveBoundIntentWithInheritance` (EdgeProjectorService's IFC visibility veto,
+     * ThreeDAppearanceResolver) walks the `parentViewId` chain; this one did not — so a
+     * dependent view could take its parent's intent for VISIBILITY and the global default
+     * for STYLE, in the same drawing.
+     *
+     * This is now the ONE read in the style path, inheritance included, and it NAMES the
+     * origin so `explainStyle()` can report it.
+     */
+    private _resolveBinding(ctx: StyleResolverContext): {
+        origin:   'own' | 'inherited' | 'global-default' | 'none';
+        viewId:   string | undefined;
+        intentId: string | null;
+        instance: ViewIntentInstance | null;
+        intent:   VisibilityIntent | null;
+    } {
         const viewId = ctx.viewId ?? ctx.intentInstanceId;
-        const instance = viewId ? viewIntentInstanceStore.get(viewId) : undefined;
-        const intentId = instance?.intentId ?? getDefaultSystemIntentId();
-        const intent = visibilityIntentStore.get(intentId);
+
+        if (viewId) {
+            const own = viewIntentInstanceStore.get(viewId);
+            const resolved = resolveBoundIntentWithInheritance(viewId);
+            if (resolved) {
+                return {
+                    origin:   own ? 'own' : 'inherited',
+                    viewId,
+                    intentId: resolved.intent.id,
+                    instance: resolved.instance,
+                    intent:   resolved.intent,
+                };
+            }
+        }
+
+        // FALL-OPEN, BUT SAY SO. An unbound view still has to be drawn, so the global
+        // default intent remains the answer — `origin: 'global-default'` is what makes the
+        // fallback LEGIBLE instead of indistinguishable from a real binding.
+        const defaultId = getDefaultSystemIntentId();
+        const intent = visibilityIntentStore.get(defaultId) ?? null;
+        return {
+            origin:   intent ? 'global-default' : 'none',
+            viewId,
+            intentId: intent ? defaultId : null,
+            instance: null,
+            intent,
+        };
+    }
+
+    /**
+     * §VI-PROBE (L-778) — the operator-facing answer to *"why does this line look like
+     * that?"*, for one (view × element type × zone). Returns the binding ORIGIN, the intent
+     * that answered, every rule tier that contributed, and the final pen — so a dead path
+     * and a live path that happens to agree can be told apart WITHOUT reading the source.
+     */
+    explainStyle(
+        zone:     PenZone,
+        category: string,
+        ctx:      StyleResolverContext = {},
+    ): {
+        viewId:     string | undefined;
+        viewType:   string;
+        zone:       PenZone;
+        category:   string;
+        binding:    'own' | 'inherited' | 'global-default' | 'none';
+        intentId:   string | null;
+        intentName: string | null;
+        tiers:      Array<{ priority: number; style: Partial<PenStyle> }>;
+        pen:        PenStyle;
+    } {
+        const binding = this._resolveBinding(ctx);
+        const tiers = [
+            ...this._intentRules(zone, category, ctx),
+            ...this._beyondDashRules(zone, ctx),
+            ...this._rules.filter(r => this._matches(r, zone, category, ctx)),
+        ]
+            .sort((a, b) => a.priority - b.priority)
+            .map(r => ({ priority: r.priority, style: r.style }));
+        return {
+            viewId:     binding.viewId,
+            viewType:   ctx.viewType ?? 'plan',
+            zone,
+            category,
+            binding:    binding.origin,
+            intentId:   binding.intentId,
+            intentName: binding.intent?.name ?? null,
+            tiers,
+            // Resolved through the REAL entry point, never a re-derivation — a probe that
+            // re-implements the thing it probes can agree with itself while the product
+            // disagrees with both (§PROBE-CAN-BE-WRONG-THREE-WAYS).
+            pen:        this.resolveStyle(zone, category, ctx),
+        };
+    }
+
+    private _intentRules(zone: PenZone, category: string, ctx: StyleResolverContext): GraphicsRule[] {
+        const binding = this._resolveBinding(ctx);
+        const intent = binding.intent;
         if (!intent) return [];
-        const virtualInstance = instance ?? {
+        const viewId = binding.viewId;
+        const virtualInstance = binding.instance ?? {
             id: ctx.intentInstanceId ?? `default-${viewId ?? 'global'}`,
             viewId: viewId ?? '',
-            intentId,
+            intentId: intent.id,
             localOverrides: {
                 visibilityOverrides: [],
                 graphicOverrides: [],

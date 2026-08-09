@@ -4,6 +4,9 @@ import { cloneDefaultElementGraphicsRules } from '@pryzm/core-app-model';
 import type { ElementState, ElementStateAppearance, PurposeModifier, VisibilityIntent, ViewTypeModifier } from '@pryzm/core-app-model';
 import { CreateVisibilityIntentCommand } from '@pryzm/command-registry';
 import { UpdateVisibilityIntentCommand } from '@pryzm/command-registry';
+// §FIX-INTENT-AUTHORING-DEAD-END (L-779) — a duplicated intent must BIND to the view
+// the user opened the editor from, or authoring it changes nothing on screen.
+import { AssignViewIntentCommand } from '@pryzm/command-registry';
 // Wave 7 / Stage A2 — mass-edit commands and clipboard helpers.
 import {
     BulkApplyAppearanceCommand,
@@ -57,6 +60,27 @@ export class VisibilityIntentPanel {
      * single (selectedElementType, selectedState) cell.
      */
     private selectedCells = new Set<string>();
+
+    /**
+     * §FIX-INTENT-AUTHORING-DEAD-END (L-779) — the view the editor was opened FROM.
+     *
+     * The panel had no view id at all: it never imported `viewIntentInstanceStore` and never
+     * dispatched `AssignViewIntentCommand`. Combined with all five SHIPPED intents being
+     * `isSystem` (and therefore hard read-only — `bind()` returns before wiring a single
+     * write handler), the ONLY authoring route in the product was:
+     *
+     *     Duplicate → edit the copy → … and the copy governed NOTHING,
+     *
+     * because binding lives in a different surface (the view header picker / the properties
+     * spine) and nothing told the user to go there. That is the founder's report — a rich
+     * authoring panel whose output never reaches the drawing — and it is a REACHABILITY
+     * defect, not a styling one. Carrying the view id closes the loop: the duplicate is bound
+     * to the originating view in the same gesture (C09 §4.4 lifecycle steps 1–2).
+     *
+     * `null` when the panel was opened globally (Ctrl+Shift+I, the Data Workbench) — in that
+     * case there is no view to bind to and the user is told so.
+     */
+    private contextViewId: string | null = null;
     private disposeDrag: (() => void) | null = null;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
@@ -75,7 +99,9 @@ export class VisibilityIntentPanel {
         window.addEventListener('vi:intent-deleted', () => this.render());
     }
 
-    open(intentId?: string): void {
+    open(intentId?: string, viewId?: string | null): void {
+        // §FIX-INTENT-AUTHORING-DEAD-END (L-779) — see `contextViewId`.
+        this.contextViewId = viewId ?? null;
         // Wave 19 (Phase 3A) — runtime.visibility evaluator wired via PryzmRuntime.
         // TODO(Phase 3A completion): call runtime.visibility.evaluate(elements, view)
         // to filter intent applicability against the current view's visibility state.
@@ -143,6 +169,13 @@ export class VisibilityIntentPanel {
                     ? `<button class="vi-btn" data-action="duplicate-intent" title="Create an editable copy of this system intent">Duplicate</button>`
                     : `<button class="vi-btn" data-action="save-meta">Save</button>`}
             </div>
+            ${intent.isSystem ? `
+            <div class="vi-readonly-banner" style="padding:6px 10px;background:#f5f0ff;border-left:3px solid #6600FF;font-size:12px;line-height:1.4;">
+                <strong>“${this.escape(intent.name)}” is a system intent and is read-only.</strong>
+                Every field below is disabled. Press <strong>Duplicate</strong> above to make an
+                editable copy${this.contextViewId ? ' — the copy is bound to this view automatically' : ''}.
+                ${this.contextViewId ? '' : '<br>You opened this editor without a view, so a copy will not be bound to anything; open it from a view’s Properties spine to bind it.'}
+            </div>` : ''}
             <div class="vi-tabbar">
                 <button class="vi-tab ${this.activeTab === 'rules' ? 'vi-tab--active' : ''}" data-tab="rules">Element Rules</button>
                 <button class="vi-tab ${this.activeTab === 'modifiers' ? 'vi-tab--active' : ''}" data-tab="modifiers">View Modifiers</button>
@@ -785,6 +818,23 @@ export class VisibilityIntentPanel {
         const cm = window.commandManager; // TODO(E.5.x): legacy commandManager — replace with runtime.bus.executeCommand(name, payload)
         cm?.execute?.(new CreateVisibilityIntentCommand(intent), { source: 'HUMAN_DIRECT' });
         this.persistIntent('POST', intent).catch(err => console.warn('[VisibilityIntentPanel] Failed to persist duplicated intent', err));
+
+        // §FIX-INTENT-AUTHORING-DEAD-END (L-779) — BIND IT, IN THE SAME GESTURE.
+        // Without this the user duplicates a read-only system intent, edits the copy, and
+        // sees no change anywhere — because the view is still bound to the ORIGINAL. The
+        // binding goes through the command bus (P6) so it is one undo and syncs to peers.
+        if (this.contextViewId) {
+            const _res = cm?.execute?.(
+                new AssignViewIntentCommand(this.contextViewId, intent.id),
+                { source: 'HUMAN_DIRECT' },
+            );
+            if (_res && _res.success === false) {
+                // Never swallow a refusal — every `cm.execute` result in this panel used to
+                // be discarded, so a rejected command was indistinguishable from a applied one.
+                console.warn('[VisibilityIntentPanel] Could not bind the duplicate to the view:', _res);
+            }
+        }
+
         this.selectedIntentId = intent.id;
         this.render();
     }

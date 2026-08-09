@@ -18,6 +18,8 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model';
+// §FIX-VIEW-INTENT-FIELD-OVERLOAD (L-777) — needed to tell an intent ID from prose.
+import { visibilityIntentStore } from '@pryzm/core-app-model';
 // VIEW-SYSTEM-AUDIT-2026 F4.1-B — replace window.vgGovernanceStore
 // with a static, type-checked import. Eliminates DI-via-globals and the
 // silent no-op when the bridge has not been wired before command execution.
@@ -95,7 +97,33 @@ export class CreateViewDefinitionCommand implements Command {
         // §GHOST-FIX — honour an explicit intent on the payload (e.g. the
         // belowLevelDepth-0 plan intent for generated storey/roof views). When
         // omitted, assign() falls back to the default system intent as before.
-        viewIntentInstanceStore.assign(this.params.id, this.params.intent);
+        //
+        // ═══ §FIX-VIEW-INTENT-FIELD-OVERLOAD (L-777) — EVERY VIEW GETS AN INSTANCE ═══
+        //
+        // `ViewDefinition.intent` is documented (ViewDefinitionTypes.ts §14) as an
+        // "AI-authored human-readable description of this view's purpose" — PROSE. Some
+        // producers (the generated documentation set, the house-layout executor) instead
+        // put a real intent ID in it, which is why this line reads as if the field were an
+        // id. It is BOTH, and that overload was silently losing views:
+        //
+        //   `ViewIntentInstanceStore.assign()` returns null when
+        //   `!visibilityIntentStore.has(intentId)` — so a view created with a DESCRIPTION
+        //   (e.g. `ViewsRailPanel._duplicateView`, which copies `view.intent` verbatim:
+        //   "Default ground floor plan — system default.") got **NO ViewIntentInstance at
+        //   all**. No instance means no per-view intent binding and no per-view local
+        //   overrides: `GraphicsRulesEngine` silently falls back to the ONE global default
+        //   intent, and `resolveBoundIntentWithInheritance` returns null so the projector's
+        //   intent visibility veto is skipped. C09 §4.3's `LocalViewOverrides` layer was
+        //   unreachable for those views, and nothing anywhere said so.
+        //
+        // FIX: only treat the field as an id when the intent store actually knows it;
+        // otherwise fall through to the default system intent, so the invariant "every
+        // ViewDefinition has a ViewIntentInstance" holds for EVERY producer. The prose
+        // meaning of the field is untouched and still round-trips on the ViewDefinition.
+        const _intentId = this.params.intent && visibilityIntentStore.has(this.params.intent)
+            ? this.params.intent
+            : undefined;
+        viewIntentInstanceStore.assign(this.params.id, _intentId);
 
         return { success: true, affectedElementIds: [this.params.id] };
     }
