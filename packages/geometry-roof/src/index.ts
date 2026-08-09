@@ -58,3 +58,13 @@ export {
     MAX_RINGS,
 } from './pure/pitchedFromOffsets';
 export type { PitchedRing, PitchedRingStack } from './pure/pitchedFromOffsets';
+
+// §ROOF-UPPER-LEVEL (founder ruling 2026-08-09) — the roof's OWN declaration of
+// which level it belongs to: the level immediately ABOVE the one it was drawn on,
+// ordered by elevation. Pure; consumed by CreateRoofCommand.
+export { resolveRoofLevel } from './pure/roofLevelPolicy';
+export type {
+    RoofLevelRef,
+    RoofLevelResolution,
+    RoofLevelResolutionReason,
+} from './pure/roofLevelPolicy';

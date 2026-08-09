@@ -1,9 +1,28 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { RoofData, RoofType, RoofFootprint } from '@pryzm/geometry-roof';
+import { RoofData, RoofType, RoofFootprint, resolveRoofLevel } from '@pryzm/geometry-roof';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 
+/**
+ * §ROOF-UPPER-LEVEL — how this command turns `payload.levelId` into the level the
+ * roof is STAMPED with.
+ *
+ *  - `'explicit'` (default): the payload names the level. Used by everything that
+ *    already knows the answer — the project loader, IFC import, the AI service
+ *    (which picks the highest level itself), and undo/redo replay of a command
+ *    whose level was already resolved. Pre-existing behaviour, unchanged.
+ *  - `'upper'`: the payload names the level the user DREW ON, and the command
+ *    re-homes the roof to the level immediately above it (founder ruling
+ *    2026-08-09). Used by the interactive roof tools.
+ */
+export type RoofLevelPolicy = 'explicit' | 'upper';
+
 export interface CreateRoofPayload {
+    /**
+     * With `levelPolicy: 'explicit'` (default) — the level to stamp.
+     * With `levelPolicy: 'upper'` — the level the roof was DRAWN ON; the command
+     * resolves the level above it.
+     */
     levelId: string;
     footprint: RoofFootprint;
     roofType: RoofType;
@@ -16,6 +35,11 @@ export interface CreateRoofPayload {
     materialId?: string;
     /** P3.3 — When true, baseOffset is auto-computed from the tallest wall on the level. */
     autoBaseOffset?: boolean;
+    /**
+     * §ROOF-UPPER-LEVEL — level-resolution policy. Defaults to `'explicit'` so
+     * every existing caller (loader, IFC import, AI, replay) keeps its behaviour.
+     */
+    levelPolicy?: RoofLevelPolicy;
 }
 
 export class CreateRoofCommand implements Command {
@@ -27,6 +51,14 @@ export class CreateRoofCommand implements Command {
 
     private readonly roofId: string;
     private createdId?: string;
+
+    // §ROOF-UPPER-LEVEL — the level policy is applied EXACTLY ONCE, on the first
+    // execute, and the outcome is frozen here. C16 (working inverse): redo after
+    // undo, and any later serialize/replay, must reproduce the SAME level and the
+    // SAME baseOffset — re-running the resolver would silently re-home the roof
+    // again if the level set had changed in between.
+    private resolvedLevelId?: string;
+    private resolvedBaseOffset?: number;
 
     constructor(roofId: string, private payload: CreateRoofPayload) {
         this.id = `cmd-roof-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -58,17 +90,21 @@ export class CreateRoofCommand implements Command {
     }
 
     execute(context: CommandContext): CommandResult {
-        const levelId = this.payload.levelId || context.projectContext.activeLevelId;
-        const level = context.bimManager.getLevelById(levelId);
-        if (!level) throw new Error(`SpatialAuthorityError: Level ${levelId} not found`);
+        // The level the roof was drawn on. Under `levelPolicy: 'upper'` this is the
+        // ORIGIN, not the answer — the walls it is being capped by live here.
+        const originLevelId = this.payload.levelId || context.projectContext.activeLevelId;
+        const originLevel = context.bimManager.getLevelById(originLevelId);
+        if (!originLevel) throw new Error(`SpatialAuthorityError: Level ${originLevelId} not found`);
 
         const now = Date.now();
 
-        // P3.3 — Auto Base Offset: compute from tallest wall on level, fallback to payload value
+        // P3.3 — Auto Base Offset: compute from tallest wall on level, fallback to payload value.
+        // ⚠ Queried against the ORIGIN level: the walls the roof sits on are the ones
+        // of the storey below, not of the level the roof will end up owned by.
         let effectiveBaseOffset = this.payload.baseOffset;
         if (this.payload.autoBaseOffset) {
             try {
-                const levelWalls = context.stores.wallStore.getByLevel(levelId);
+                const levelWalls = context.stores.wallStore.getByLevel(originLevelId);
                 if (levelWalls.length > 0) {
                     const maxH = Math.max(...levelWalls.map((w: any) => w.height ?? 0), 2.7);
                     effectiveBaseOffset = maxH;
@@ -77,6 +113,48 @@ export class CreateRoofCommand implements Command {
             } catch (e) {
                 console.warn('[CreateRoofCommand] autoBaseOffset: wall height lookup failed, using payload value', e);
             }
+        }
+
+        // ── §ROOF-UPPER-LEVEL — resolve which level OWNS this roof ────────────
+        //
+        // Founder ruling 2026-08-09: a roof belongs to the level immediately ABOVE
+        // the one it was created on. The roof does NOT move: world-Y is
+        // `level.elevation + baseOffset` (RoofFragmentBuilder), so re-homing one
+        // level up is compensated by subtracting the elevation gap from baseOffset.
+        // Ownership changes; geometry stays exactly where it was drawn.
+        let levelId = originLevelId;
+        const policyNotes: string[] = [];
+        if (this.resolvedLevelId !== undefined) {
+            // Redo / replay — reuse the frozen outcome (C16 working inverse).
+            levelId = this.resolvedLevelId;
+            effectiveBaseOffset = this.resolvedBaseOffset ?? effectiveBaseOffset;
+        } else if (this.payload.levelPolicy === 'upper') {
+            const levels = context.bimManager.getLevels();
+            const resolution = resolveRoofLevel(originLevelId, levels);
+            levelId = resolution.levelId;
+            effectiveBaseOffset -= resolution.elevationDelta;
+            if (resolution.reHomed) {
+                policyNotes.push(
+                    `Roof assigned to the level above ${originLevelId} → ${levelId} ` +
+                    `(§ROOF-UPPER-LEVEL; baseOffset compensated by ${resolution.elevationDelta}m).`,
+                );
+            } else {
+                // The topmost level (this includes the single-level project): there
+                // is no level above. The roof is kept on the level it was drawn on
+                // rather than inventing a level the user never asked for, or
+                // refusing and losing their work. Said out loud, never silent.
+                policyNotes.push(
+                    `Roof kept on ${originLevelId}: no level above it (${resolution.reason}). ` +
+                    `Add a level above and re-assign the roof if it should belong there.`,
+                );
+                console.warn(`[CreateRoofCommand] §ROOF-UPPER-LEVEL: ${policyNotes[0]}`);
+            }
+            this.resolvedLevelId = levelId;
+            this.resolvedBaseOffset = effectiveBaseOffset;
+        }
+
+        if (!context.bimManager.getLevelById(levelId)) {
+            throw new Error(`SpatialAuthorityError: Level ${levelId} not found`);
         }
 
         const roofData: RoofData = {
@@ -140,7 +218,10 @@ export class CreateRoofCommand implements Command {
         return {
             success: true,
             affectedElementIds: [this.roofId],
-            info: [`Roof created on level ${levelId} with baseOffset ${this.payload.baseOffset}m`],
+            info: [
+                `Roof created on level ${levelId} with baseOffset ${effectiveBaseOffset}m`,
+                ...policyNotes,
+            ],
         };
     }
 
@@ -160,9 +241,19 @@ export class CreateRoofCommand implements Command {
     }
 
     serialize(): SerializedCommand {
+        // §ROOF-UPPER-LEVEL — serialise the RESOLVED outcome, never the policy.
+        // A persisted or replayed roof already knows which level it belongs to;
+        // re-running the resolver on load would walk the roof up one level on
+        // every round-trip.
         return {
             type:      this.type,
-            payload:   { roofId: this.roofId, ...this.payload },
+            payload:   {
+                roofId: this.roofId,
+                ...this.payload,
+                levelId:    this.resolvedLevelId ?? this.payload.levelId,
+                baseOffset: this.resolvedBaseOffset ?? this.payload.baseOffset,
+                levelPolicy: 'explicit' as RoofLevelPolicy,
+            },
             targetIds: this.targetIds,
             timestamp: this.timestamp,
             version:   1,
