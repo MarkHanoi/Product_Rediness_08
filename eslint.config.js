@@ -629,4 +629,28 @@ export default [
       'pryzm/no-legacy-src-import': 'warn',
     },
   },
+
+  // ── k6 load harness (L-800) — runs inside the k6 runtime, not node ──────────
+  // `tools/load-test/pryzm-load.js` is executed by the k6 binary, which injects
+  // `__ENV` (and `__VU` / `__ITER`) as globals and resolves the bare `k6/*`
+  // module specifiers itself. Node and eslint know none of that, so without this
+  // block the file reports 7 `no-undef` errors for a global that is genuinely
+  // present at runtime.
+  //
+  // Declared rather than silenced: `no-undef` stays ON for this file, so a REAL
+  // typo is still caught — only the three globals k6 actually provides are
+  // exempted. Turning the rule off for the file would have been one line shorter
+  // and would have hidden the next genuine undefined reference.
+  {
+    files: ['tools/load-test/**/*.js'],
+    languageOptions: {
+      ...sharedLanguageOptions,
+      globals: {
+        ...sharedLanguageOptions.globals,
+        __ENV: 'readonly',
+        __VU: 'readonly',
+        __ITER: 'readonly',
+      },
+    },
+  },
 ];
