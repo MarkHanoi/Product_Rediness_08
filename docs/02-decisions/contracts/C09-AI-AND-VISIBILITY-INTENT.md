@@ -206,6 +206,54 @@ Each layer is evaluated in strict precedence order. Local overrides win over int
 
 Visibility intents replace Revit-style view templates. A view MUST NOT have its own stored material overrides. Override state is always computed from the intent + view lens + element state.
 
+### §4.5.1 — A DEFAULT IS NOT AN OVERRIDE (normative; ADR-0308, L-777)
+
+**The legacy VG cascade MAY contribute to a drawn line ONLY where a human explicitly set
+the property. Where it is echoing a built-in default or a template seed, it MUST
+contribute nothing.**
+
+This follows from §4.3 (LocalViewOverrides is the LAST tier, not a seed ahead of the
+intent) and §4.5 (intents REPLACE view templates). It is stated separately because the
+code violated it for every element in every view while appearing to honour it.
+
+**AS-IS defect, now fixed.** `PlanViewCanvas.render()` resolved a correct pen through
+`graphicsRulesEngine.resolveStyle()` and then overwrote it:
+
+```js
+ctx.strokeStyle = vgEdge ?? _pen.color;                       // colour discarded
+ctx.lineWidth   = max(hairline, _penPx * (vgLineWeight / 1)); // weight multiplied
+```
+
+`vgGovernanceStore.resolveStyle()` **never returns nothing** — `ensureModel()` stamps
+every model with `templateId: 'pryzm-default'`, whose built-in template hard-codes an
+`edgeColor` and `lineWeight` for wall, slab, column, beam, door, window, roof, stair,
+furniture, plumbing and grid. The `??` therefore never fell through: the intent-derived
+pen was dead code at every call. Authored colours were discarded outright; authored
+weights were doubled for wall / column / beam.
+
+**Binding rules:**
+
+1. A VG contribution is admissible only if the property appears in `overriddenProps` —
+   VG's own record of an explicit human decision, written by
+   `SetVGCategoryStyleCommand` / `SetVGViewCategoryStyleCommand`. Any future writer to
+   `vgGovernanceStore` MUST register the property there, or its value will correctly be
+   ignored as a default.
+2. There is **ONE** resolver — `VgCanvasStyleResolver` — and it is the only place the
+   legacy cascade may speak to the 2D canvas. It was previously a hand-copied closure in
+   both `PlanViewManager` and `SplitViewManager`, which had already drifted (one passed
+   the `viewId` where the other passed the `modelId`).
+3. The rule binds **plan, section and elevation** identically. `PlanViewCanvas` treats
+   `section` / `elevation` / `building-elevation` as vertical views through the same path.
+4. ⚠ **A claim that the intent governs MUST be proved by a positive control** — plant a
+   deliberately extreme rule and show the COMPOSED STROKE moves, per view type, asserting
+   that type's own `lineWeightMultiplier`. A test asserting the intent RECORD
+   (`intent.elementRules.wall.cut.line.colour === …`) scores 1.000 on a broken build and
+   is not a guard.
+
+⚠ **Known gap, not a defect of this rule:** `DefaultViewsManager` creates a 3D view, one
+plan and four elevations — **no section view**. Sections are supported and governed; none
+exists by default.
+
 ### §4.6 — THE SOLIDITY RULE (normative, all view types)
 
 > **Every element is a SOLID.** For any given view, every projected segment is in exactly one
