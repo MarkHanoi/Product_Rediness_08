@@ -37,9 +37,19 @@ describe('live-light budget — tiers', () => {
         }
     });
 
-    it('caps at the documented limit — cinematic 64, survival 8', () => {
-        expect(LIVE_LIGHT_BUDGET_BY_TIER.cinematic).toBe(64);
-        expect(LIVE_LIGHT_BUDGET_BY_TIER.survival).toBe(8);
+    // §PERF-LIGHT-COST-MODEL — the ladder is DERIVED (see LiveLightBudget.ts), so it is
+    // pinned here: changing it must be a deliberate act with a re-derivation, never drift.
+    it('caps at the derived limit — cinematic 8, survival 1', () => {
+        expect(LIVE_LIGHT_BUDGET_BY_TIER.cinematic).toBe(8);
+        expect(LIVE_LIGHT_BUDGET_BY_TIER.survival).toBe(1);
+    });
+
+    // §FIX-LIGHT-TIER-UNWIRED — the cold-start default must be at the SAFE end of the
+    // ladder. It was `balanced` (the middle) on the assumption a tier would arrive
+    // promptly; nothing ever reported one, so it was the permanent budget for every
+    // scene. It must never again be more generous than the tier below the midpoint.
+    it('the cold-start default is no more generous than the performance rung', () => {
+        expect(DEFAULT_LIVE_LIGHT_BUDGET).toBeLessThanOrEqual(LIVE_LIGHT_BUDGET_BY_TIER.performance);
     });
 
     it('an unreported tier falls back to the documented default, never to 0 or Infinity', () => {

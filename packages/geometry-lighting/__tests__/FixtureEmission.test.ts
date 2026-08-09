@@ -58,6 +58,32 @@ function rootOf(builder: LightingFragmentBuilder, id: string): THREE.Object3D {
     return scene(builder).children.find((c) => c.userData?.id === id)!;
 }
 
+/**
+ * §PERF-LIGHT-COST-MODEL (2026-08-09) — run `assert` with EXACTLY ONE fixture family
+ * present, then remove it.
+ *
+ * These coverage tests used to add all 12 families at once and assert 12 live lights.
+ * That silently encoded "the live-light budget is bigger than 12", which was only true
+ * while the budget was the (dead-wired) 48. The budget is a REAL, derived cap now, so a
+ * per-family PHOTOMETRY assertion must isolate the family under test rather than lean on
+ * a budget large enough to hold every family at once — otherwise a legitimate budget
+ * change breaks tests that are not about the budget at all.
+ */
+function forEachFamilyAlone(
+    builder: LightingFragmentBuilder,
+    assertOne: (type: LightingFixtureType, light: THREE.PointLight) => void,
+): void {
+    for (const t of ALL_FIXTURE_TYPES) {
+        builder.add(makeData(t));
+        builder.syncLights();
+        const lights = fixtureLights(builder);
+        expect(lights, t + ': exactly one fixture light').toHaveLength(1);
+        assertOne(t, lights[0]!);
+        builder.remove('light-' + t);
+        builder.syncLights();
+    }
+}
+
 describe('§FIX-LIGHT-NIGHT-CONTRIBUTION — coverage: every family emits', () => {
     let builder: LightingFragmentBuilder;
 
@@ -70,54 +96,38 @@ describe('§FIX-LIGHT-NIGHT-CONTRIBUTION — coverage: every family emits', () =
 
     it('EVERY fixture family produces a real light with intensity > 0 — in DAY mode', () => {
         builder.setDayNight('day');
-        for (const t of ALL_FIXTURE_TYPES) builder.add(makeData(t));
-        builder.syncLights();
-
-        const lights = fixtureLights(builder);
-        expect(lights).toHaveLength(ALL_FIXTURE_TYPES.length);
-        for (const l of lights) {
-            expect(l.intensity, `${l.userData.elementId} day intensity`).toBeGreaterThan(0);
-            expect(l.distance).toBeGreaterThan(0);
-        }
+        forEachFamilyAlone(builder, (t, l) => {
+            expect(l.intensity, t + ' day intensity').toBeGreaterThan(0);
+            expect(l.distance, t).toBeGreaterThan(0);
+        });
     });
 
     it('EVERY fixture family produces a real light with intensity > 0 — in NIGHT mode', () => {
-        for (const t of ALL_FIXTURE_TYPES) builder.add(makeData(t));
         builder.setDayNight('night');
-
-        const lights = fixtureLights(builder);
-        expect(lights).toHaveLength(ALL_FIXTURE_TYPES.length);
-        for (const l of lights) expect(l.intensity).toBeGreaterThan(0);
+        forEachFamilyAlone(builder, (t, l) => {
+            expect(l.intensity, t + ' night intensity').toBeGreaterThan(0);
+        });
     });
 
     it('intensity matches the photometric table exactly — no hidden scalar', () => {
         builder.setDayNight('night');
-        for (const t of ALL_FIXTURE_TYPES) builder.add(makeData(t));
-        builder.syncLights();
-
-        for (const t of ALL_FIXTURE_TYPES) {
-            const light = fixtureLights(builder).find((l) => l.userData.elementId === `light-${t}`)!;
-            expect(light, t).toBeDefined();
+        forEachFamilyAlone(builder, (t, light) => {
             expect(light.intensity, t).toBeCloseTo(sceneIntensityFor(photometryForFixture(t), true), 8);
             expect(light.distance, t).toBe(photometryForFixture(t).reachM);
             expect(light.decay, t).toBe(2);      // physical inverse-square
-        }
+        });
     });
 
     it('is at least 2× the legacy flat 1.5-candela emission for every family', () => {
         builder.setDayNight('night');
-        for (const t of ALL_FIXTURE_TYPES) builder.add(makeData(t));
-        builder.syncLights();
-        for (const l of fixtureLights(builder)) {
-            expect(l.intensity / 1.5, String(l.userData.elementId)).toBeGreaterThanOrEqual(2);
-        }
+        forEachFamilyAlone(builder, (t, l) => {
+            expect(l.intensity / 1.5, t).toBeGreaterThanOrEqual(2);
+        });
     });
 
     it('fixture lights never cast shadows — the cube-shadow-map cap belongs to the sun', () => {
         builder.setDayNight('night');
-        for (const t of ALL_FIXTURE_TYPES) builder.add(makeData(t));
-        builder.syncLights();
-        for (const l of fixtureLights(builder)) expect(l.castShadow).toBe(false);
+        forEachFamilyAlone(builder, (t, l) => expect(l.castShadow, t).toBe(false));
     });
 
     it('stamps FIXTURE_LIGHT_ROLE so the environment dimmer skips them', () => {
@@ -137,18 +147,19 @@ describe('§FIX-LIGHT-NIGHT-CONTRIBUTION — day/night behaviour', () => {
     afterEach(() => builder.dispose());
 
     it('night is BRIGHTER than day for every family (was: night-only, then dimmed)', () => {
-        for (const t of ALL_FIXTURE_TYPES) builder.add(makeData(t));
+        // §PERF-LIGHT-COST-MODEL — one family at a time; the budget is a real cap now.
+        for (const t of ALL_FIXTURE_TYPES) {
+            builder.setDayNight('day');
+            builder.add(makeData(t));
+            builder.syncLights();
+            const dayI = fixtureLights(builder)[0]!.intensity;
 
-        builder.setDayNight('day');
-        builder.syncLights();
-        const day = new Map(fixtureLights(builder).map((l) => [String(l.userData.elementId), l.intensity]));
+            builder.setDayNight('night');
+            const nightI = fixtureLights(builder)[0]!.intensity;
 
-        builder.setDayNight('night');
-        const night = new Map(fixtureLights(builder).map((l) => [String(l.userData.elementId), l.intensity]));
-
-        expect(day.size).toBe(ALL_FIXTURE_TYPES.length);
-        for (const [id, dayI] of day) {
-            expect(night.get(id)!, id).toBeGreaterThan(dayI);
+            expect(nightI, t).toBeGreaterThan(dayI);
+            builder.remove('light-' + t);
+            builder.syncLights();
         }
     });
 
@@ -167,9 +178,13 @@ describe('§FIX-LIGHT-NIGHT-CONTRIBUTION — day/night behaviour', () => {
     });
 
     it('toggling day/night repeatedly never accumulates duplicate lights', () => {
-        for (const t of ALL_FIXTURE_TYPES) builder.add(makeData(t));
+        // Exactly `budget` fixtures so this asserts NON-DUPLICATION, not the cap.
+        const n = LIVE_LIGHT_BUDGET_BY_TIER.cinematic;
+        builder.setQualityTier('cinematic');
+        for (let i = 0; i < n; i++) builder.add(makeData('downlight', 'dl-' + i, i));
         for (let i = 0; i < 6; i++) builder.setDayNight(i % 2 ? 'night' : 'day');
-        expect(fixtureLights(builder)).toHaveLength(ALL_FIXTURE_TYPES.length);
+        builder.syncLights();
+        expect(fixtureLights(builder)).toHaveLength(n);
     });
 });
 
@@ -279,12 +294,27 @@ describe('§FEAT-FIXTURE-PHOTOMETRY — live-light budget', () => {
         expect(hasLight).toBe(false);
     });
 
-    it('a typical residential scene (12 fixtures) is entirely within budget', () => {
+    /**
+     * §PERF-LIGHT-COST-MODEL — this used to assert that a 12-fixture room is "entirely
+     * within budget". That held only while the budget was 48, and 48 came from a stated
+     * per-light cost (~10 ALU/fragment) that three's own shader disproves: the unrolled
+     * NUM_POINT_LIGHTS loop runs the FULL physical BRDF per fragment per light. A room
+     * CAN exceed the budget now; the contract is that it degrades GRACEFULLY — never
+     * above the cap, never dropping the nearest, every fixture keeps its lit lens.
+     */
+    it('a 12-fixture room degrades to the cap without dropping the nearest fixture', () => {
+        builder.setQualityTier('cinematic');
+        builder.setFocusProvider(() => ({ x: 0, y: 0, z: 0 }));
         builder.setDayNight('night');
-        for (let i = 0; i < 12; i++) builder.add(makeData('downlight', `dl-${i}`, i));
+        for (let i = 0; i < 12; i++) {
+            builder.add(makeData('downlight', 'dl-' + String(i).padStart(2, '0'), i + 1));
+        }
         builder.syncLights();
-        expect(fixtureLights(builder)).toHaveLength(12);
-        expect(builder.liveLightCount).toBe(12);
+
+        const cap = LIVE_LIGHT_BUDGET_BY_TIER.cinematic;
+        expect(builder.liveLightCount).toBe(cap);
+        expect(fixtureLights(builder)).toHaveLength(cap);
+        expect(fixtureLights(builder).map((l) => l.userData.elementId)).toContain('dl-00');
     });
 });
 
