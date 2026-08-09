@@ -131,6 +131,34 @@ const MAX_VIOLATIONS = Number(process.env.PRYZM_LAYER_MAX_VIOLATIONS ?? 102);
 const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
 const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 171);
 
+/**
+ * §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — banned third-party dependencies.
+ *
+ * `eslint.config.js` bans `@thatopen/components` (OBC) outside `plugins/ifc-import/`
+ * and `express` outside the server apps. Measured **122** violations, so as a lint
+ * 'error' the rule could never be satisfied: `npm run lint` was permanently red, the
+ * CI gate was permanently red, and every deploy used the audited bypass.
+ *
+ * **A rule that can only be bypassed enforces nothing** — worse, it trains people to
+ * reach for the bypass, which is exactly what happened on 2026-08-09. The rule is now
+ * 'warn' in eslint and enforced HERE as a shrink-only ratchet: countable, attributable
+ * to a package, and able to reach green. Strictly stronger than before, not weaker.
+ *
+ * ⚠ SHRINK-ONLY. This is not permission to add more.
+ */
+const MAX_RESTRICTED_IMPORTS = Number(process.env.PRYZM_LAYER_MAX_RESTRICTED ?? 113);
+// NOTE the denominator: eslint reports 122, this gate 113. Not a discrepancy to
+// reconcile — eslint counts per LINE across every file including tests and .d.ts,
+// this gate counts resolved specifiers in non-test source. Frozen at THIS gate's
+// own measurement, because a ratchet must be comparable with itself.
+
+/** module → the ONLY path prefixes permitted to import it. */
+const RESTRICTED_MODULES: ReadonlyArray<{ readonly mod: string; readonly allowed: readonly string[] }> = [
+    { mod: '@thatopen/components-front', allowed: ['plugins/ifc-import/'] },
+    { mod: '@thatopen/components',       allowed: ['plugins/ifc-import/'] },
+    { mod: 'express',                    allowed: ['apps/sync-server/', 'apps/bake-worker/', 'apps/api-gateway/', 'apps/marketplace-api/'] },
+];
+
 // ── Workspace map: package name → directory (exact, from package.json) ───────
 function workspacePackages(): Map<string, string> {
     const out = execSync('git ls-files -- "packages/*/package.json" "plugins/*/package.json" "apps/*/package.json"', {
@@ -205,6 +233,7 @@ function scan(pkgs: Map<string, string>) {
 
     const violations: Violation[] = [];
     const byPair = new Map<string, number>();
+    const restricted: Array<{ file: string; mod: string }> = [];
     // SDK-facade bypass: a `plugins/**` file importing a workspace package that is
     // neither `@pryzm/plugin-sdk` nor another plugin. Counted separately from
     // `violations` on purpose — see MAX_SDK_BYPASS above.
@@ -220,6 +249,16 @@ function scan(pkgs: Map<string, string>) {
         while ((m = IMPORT_RE.exec(src)) !== null) {
             const spec = m[1] ?? m[2] ?? m[3];
             if (!spec) continue;
+
+            // §FIX-RESTRICTED-IMPORT-RATCHET — banned third-party modules. Checked
+            // BEFORE the @pryzm/ resolution below, because these are npm packages,
+            // not workspace packages, and would otherwise be skipped entirely.
+            for (const r of RESTRICTED_MODULES) {
+                if (spec !== r.mod && !spec.startsWith(r.mod + '/')) continue;
+                if (r.allowed.some(a => file.startsWith(a))) break;
+                restricted.push({ file, mod: r.mod });
+                break;   // a specifier can only match one rule
+            }
 
             let targetPath: string | null = null;
             if (spec.startsWith('@pryzm/')) {
@@ -254,7 +293,7 @@ function scan(pkgs: Map<string, string>) {
             byPair.set(key, (byPair.get(key) ?? 0) + 1);
         }
     }
-    return { violations, byPair, sdkBypass, bypassByTarget };
+    return { violations, byPair, sdkBypass, bypassByTarget, restricted };
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────
@@ -263,12 +302,26 @@ const classified = [...pkgs.entries()].filter(([, dir]) => layerOf(`${dir}/src/i
 const unclassified = [...pkgs.entries()].filter(([, dir]) => layerOf(`${dir}/src/index.ts`) === null);
 const stale = COMPILED.filter(c => !existsSync(c.pattern.replace(/\/\*\*$/, '')));
 
-const { violations, byPair, sdkBypass, bypassByTarget } = scan(pkgs);
+const { violations, byPair, sdkBypass, bypassByTarget, restricted } = scan(pkgs);
 
 console.log('[check-layer-boundaries] §FIX-LAYER-GATE-BLIND (L-809) · §FIX-LAYER-TABLE-INVERTED');
 console.log(`[check-layer-boundaries] workspace packages: ${pkgs.size} · classified: ${classified.length} · UNCLASSIFIED: ${unclassified.length}`);
 console.log(`[check-layer-boundaries] upward imports between classified packages: ${violations.length}`);
 console.log(`[check-layer-boundaries] L6 plugin imports bypassing the L5 SDK facade: ${sdkBypass.length}`);
+console.log(`[check-layer-boundaries] banned third-party imports (OBC / express) outside their allowed homes: ${restricted.length}`);
+
+if (restricted.length) {
+    const byPkg = new Map<string, number>();
+    for (const r of restricted) {
+        const key = `${r.file.split('/').slice(0, 2).join('/')}  [${r.mod}]`;
+        byPkg.set(key, (byPkg.get(key) ?? 0) + 1);
+    }
+    console.log(`
+  Banned third-party imports by package:`);
+    for (const [k, n] of [...byPkg.entries()].sort((a, b) => b[1] - a[1])) {
+        console.log(`      ${String(n).padStart(4)}  ${k}`);
+    }
+}
 
 if (stale.length) {
     console.log(`\n  ⚠ ${stale.length} layer pattern(s) point at a directory that does not exist — dead entries in eslint.config.js:`);
@@ -327,6 +380,17 @@ if (unclassified.length > MAX_UNCLASSIFIED) {
     console.error(`\n[check-layer-boundaries] FAIL — ${unclassified.length} unclassified package(s), baseline ${MAX_UNCLASSIFIED}.\n` +
         `A new package MUST be given a layer in eslint.config.js. Coverage ratchets too, or the gate\n` +
         `could be made green by classifying less.`);
+    failed = true;
+}
+if (restricted.length > MAX_RESTRICTED_IMPORTS) {
+    console.error(`
+[check-layer-boundaries] FAIL — ${restricted.length} banned third-party import(s), baseline ${MAX_RESTRICTED_IMPORTS}.
+` +
+        `@thatopen/components belongs only in plugins/ifc-import/; express only in the server apps.
+` +
+        `This ratchet may only SHRINK — it exists because the eslint rule could never be satisfied
+` +
+        `and therefore kept CI permanently red, which is how a rule stops enforcing anything.`);
     failed = true;
 }
 if (sdkBypass.length > MAX_SDK_BYPASS) {

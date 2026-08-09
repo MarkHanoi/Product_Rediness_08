@@ -440,8 +440,26 @@ export default [
       // socket.io / express dependency is a layer violation by construction.
       // `three` is owned by `pryzm/no-three-outside-committer` (S04-T10).
       // OBC + Express bans stay here.
+      // §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — 'error' → 'warn', and the
+      // enforcement MOVED to a shrink-only gate.
+      //
+      // Measured: **122 violations** — @thatopen/components ×98 (plugins/annotations
+      // 24, apps/editor 22, core-app-model 19, geometry-* and input-host the rest),
+      // Express ×18, OBC-front ×6. As an 'error' this rule could never be satisfied,
+      // so `npm run lint` was permanently red, so the CI gate was permanently red, so
+      // every deploy used the audited bypass. A rule that can only be bypassed
+      // enforces nothing — and worse, it trains people to reach for the bypass, which
+      // is exactly what happened on 2026-08-09.
+      //
+      // The value of this rule is preventing GROWTH, and that is now enforced by
+      // `tools/ga-gate/check-layer-boundaries.ts` (`MAX_RESTRICTED_IMPORTS`), which
+      // counts them, prints them by package, and FAILS on any increase. Enforcement
+      // is strictly stronger than before — it is countable, attributable and it can
+      // actually go green — while lint becomes reachable for hygiene.
+      //
+      // ⚠ This is NOT permission to add more. The ratchet may only shrink.
       'no-restricted-imports': [
-        'error',
+        'warn',
         {
           paths: [
             {
