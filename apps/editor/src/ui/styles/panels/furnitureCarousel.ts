@@ -731,7 +731,14 @@ export const FLOATING_CAROUSEL_CSS = `
     transform: translateY(0);
 }
 
-/* ── Three.js canvas ────────────────────────────────────────────────────── */
+/* ── Three.js canvas ────────────────────────────────────────────────────── *
+ * §UI-DENSITY-SCALE — FENCED.  This is a real <canvas> driven by its own
+ * renderer.  Its CSS box must stay in true device pixels: shrinking the box
+ * without shrinking the drawing buffer desynchronises pointer coordinates from
+ * rendered pixels, which surfaces as picking that silently targets the wrong
+ * object rather than as anything visibly broken.  Density stops at the canvas
+ * edge — the surrounding card and carousel chrome still scale normally.
+ * @no-scale:start */
 .foc-canvas {
     position: absolute;
     bottom: 0;

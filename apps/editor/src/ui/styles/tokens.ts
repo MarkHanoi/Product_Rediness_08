@@ -6,9 +6,17 @@
  *
  * CONTRACT §05 §2 — CSS layer only, zero logic.
  */
+import { UI_SCALE } from './uiScale';
+
 export const DESIGN_TOKENS = `
     :root {
-        --app-ui-scale:       0.9;
+        /* §UI-DENSITY-SCALE — published from the ONE authority in uiScale.ts.
+           Was previously hard-coded to 0.9 and referenced by nothing; the 0.9
+           had instead been hand-multiplied into the literals below (10.8 = 12 ×
+           0.9, 279 = 310 × 0.9 …).  Those residues are now scaled again by the
+           injection-time transform like every other length, so this variable is
+           reporting, not a second source of truth: read it, never re-derive it. */
+        --app-ui-scale:       ${UI_SCALE};
         --app-bg:            #e8edf6;
         --app-panel-bg:      #ffffff;
         --app-gradient:      linear-gradient(135deg, #8B5CF6 0%, #6600FF 100%);

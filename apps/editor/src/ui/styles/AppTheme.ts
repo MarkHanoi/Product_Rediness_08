@@ -27,6 +27,7 @@
  */
 
 import { DESIGN_TOKENS } from './tokens';
+import { scaleCssText, UI_SCALE } from './uiScale';
 import { APARTMENT_LAYOUT_MODAL_STYLES } from './panels/apartmentLayoutModal';
 import { TOOLS_PANEL_STYLES, VIEW_BROWSER_STYLES, VIEW_PROPERTIES_PANEL_STYLES, VIEW_PROPERTIES_SECTION_STYLES, INTENT_SPINE_STYLES } from './panels/viewerPanels';
 import { PROJECT_BROWSER_STYLES, PHYS_RAIL_PANEL_STYLES } from './panels/projectBrowser';
@@ -97,7 +98,12 @@ export function injectAppTheme(): void {
         ? existing
         : document.createElement('style');
     style.id = APP_THEME_ID;
-    style.textContent = DESIGN_TOKENS
+    // §UI-DENSITY-SCALE — the assembled sheet passes through the ONE density
+    // transform before it reaches the DOM.  Because injectAppTheme() is the sole
+    // runtime CSS injection point (§05 §2.1), this is the only place chrome
+    // density is decided; the factor itself lives in `uiScale.ts`.  See that file
+    // for why a scoped `zoom` was rejected (canvas pixel-ratio desync).
+    style.textContent = scaleCssText(DESIGN_TOKENS
         + TOOLS_PANEL_STYLES
         + VIEW_BROWSER_STYLES
         + PROJECT_BROWSER_STYLES
@@ -218,7 +224,7 @@ export function injectAppTheme(): void {
         + CLIMATE_PANEL_STYLES
         + SITE_INSPECTOR_PANEL_STYLES
         + DESIGN_PARAMS_PANEL_STYLES
-        + INSPECT_PANEL_STYLES;
+        + INSPECT_PANEL_STYLES, UI_SCALE);
     if (!existing) document.head.appendChild(style);
 }
 

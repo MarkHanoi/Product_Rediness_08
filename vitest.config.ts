@@ -52,6 +52,11 @@ export default defineConfig({
       // for the buildable-envelope flat render (confident violet vs provisional grey vs upper-bound
       // maximum-extent) — a thin adapter over the shared L2 completeness classifier.
       'apps/editor/src/ui/site/__tests__/**/*.spec.ts',
+      // §UI-DENSITY-SCALE: the chrome density transform. Pure string→string, but it
+      // rewrites every length in the ONE stylesheet the editor renders from, so its
+      // failure modes are repo-wide and silent — moved breakpoints, desynced canvas
+      // boxes, controls dropping under the WCAG 2.2 AA 24px target floor.
+      'apps/editor/src/ui/styles/__tests__/**/*.spec.ts',
       // §FIX-STAIR-PROPS-DISPLAY-DEAF / §FIX-STAIR-PANEL-* : the stair property-panel
       // REACHABILITY matrix — every editable row must resolve its current value, offer
       // only schema-valid options, respect STAIR_CONSTRAINTS, and reach a geometry
