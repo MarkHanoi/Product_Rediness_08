@@ -77,6 +77,8 @@ import type { EnhancedBloomService as _EnhancedBloomServiceImpl } from '@pryzm/c
 import type { SSGIService as _SSGIServiceImpl } from '@pryzm/core-app-model/rendering';
 import { RenderPerformanceService } from '@pryzm/core-app-model/rendering';
 import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
+// §FIX-LIGHT-TIER-UNWIRED — the render tier is also the live-light budget's tier.
+import type { SceneQualityTier } from '@pryzm/core-app-model/rendering';
 // ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget setter.
 import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
 import { probeRendererBackend, createRenderer, setRendererBackendPreference, getRendererBackendPreference, isUnintendedWebglOnlySwap } from '../rendering/createRenderer';
@@ -2538,7 +2540,36 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             'bim-stair-added',     'bim-stair-updated',
             'bim-curtainwall-added', 'bim-curtainwall-updated',
             'bim-furniture-added', 'bim-furniture-updated',
+            // §FIX-LIGHT-TIER-UNWIRED (2026-08-09) — lighting was the ONLY element type
+            // absent from this list, so placing a fixture never re-evaluated the render
+            // tier. A fixture is not a cheap element: it adds meshes AND (up to the
+            // live-light budget) a real PointLight, which is a MULTIPLIER on the whole
+            // scene's per-fragment shading and a full shader-permutation rebuild
+            // (§PERF-LIGHT-COST-MODEL). The one element type that changes the light
+            // count was invisible to the subsystem that exists to bound it.
+            'bim-lighting-added',  'bim-lighting-updated',
         ] as const;
+        /**
+         * §FIX-LIGHT-TIER-UNWIRED (2026-08-09) — push the resolved render tier into the
+         * lighting builder's LIVE-LIGHT BUDGET.
+         *
+         * `LiveLightBudget` authors a per-tier ladder and `LightingFragmentBuilder`
+         * exposes `setQualityTier` to consume it — but NOTHING in production ever called
+         * it (only `FixtureEmission.test.ts`). So `_tier` stayed `undefined` forever and
+         * the budget was pinned to `DEFAULT_LIVE_LIGHT_BUDGET` on every scene, on every
+         * backend, no matter how heavy: authored capability, unreachable in production.
+         *
+         * The tier is computed here already (`applyTierForMeshCount`); this forwards it.
+         * Structural cast, not `any` (P4): `window.lightingBuilder` is typed `unknown`.
+         */
+        const _pushTierToLightBudget = (tier: SceneQualityTier): void => {
+            try {
+                (window.lightingBuilder as { setQualityTier?: (t: SceneQualityTier) => void } | undefined)
+                    ?.setQualityTier?.(tier);
+            } catch (lightTierErr) {
+                console.warn('[initScene] §FIX-LIGHT-TIER-UNWIRED light-budget tier push failed (non-fatal):', lightTierErr);
+            }
+        };
         // §FIX-LOAD-TRAVERSE-BATCH (P2) — the per-add tier + PBR pass, extracted so
         // the SAME work can run either per-event (interactive path) or exactly ONCE
         // after a project load completes (see the consolidated post-load pass in the
@@ -2578,7 +2609,13 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // WebGPU pipeline and turning TRAA on mid-draw (visible stall +
                 // ghosted rubber-band). deferTierApply() captures the LATEST apply
                 // and runs it exactly once when the interaction ends.
-                const applyTier = () => renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                // §FIX-LIGHT-TIER-UNWIRED — the tier the coordinator resolves is also the
+                // live-light budget's tier; forward it (see _pushTierToLightBudget).
+                const applyTier = () => {
+                    const res = renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                    _pushTierToLightBudget(res.tier);
+                    return res;
+                };
                 if (!toolInteractionRef.deferTierApply(applyTier)) {
                     applyTier();
                 }
@@ -2700,7 +2737,14 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // §DEFER-TIER-DURING-DRAW — same deferral at the post-batch trigger.
                 // A batch that lands while a draw is live must not rebuild the pipeline
                 // mid-interaction; the escalation runs once the tool commits/deactivates.
-                const applyTier = () => renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                // §FIX-LIGHT-TIER-UNWIRED — same forwarding at the post-batch trigger; an
+                // AI lighting layout adds its fixtures INSIDE a batch, so this is the seam
+                // where a 60-fixture plate must degrade its live-light budget.
+                const applyTier = () => {
+                    const res = renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                    _pushTierToLightBudget(res.tier);
+                    return res;
+                };
                 if (!toolInteractionRef.deferTierApply(applyTier)) {
                     applyTier();
                 }

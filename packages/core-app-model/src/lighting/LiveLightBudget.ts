@@ -51,27 +51,89 @@ function withBudgetSpan<T>(verb: string, attrs: Attributes, fn: () => T): T {
 }
 
 /**
- * Maximum simultaneously-live fixture point lights, per render tier.
+ * §PERF-LIGHT-COST-MODEL (2026-08-09, founder "true luminance makes the scene slow")
+ * — the lighting cost model, stated once so nobody re-derives it.
  *
- * Sized against the shader cost, not a guess: a non-shadow-casting PointLight
- * adds ~1 uniform block + ~10 ALU ops per fragment. 64 of them is roughly the
- * cost of one extra full-screen post pass on the cinematic budget, which is what
- * that tier is already paying for SSGI-class effects. `survival` keeps 8 so a
- * scene that has already fallen over still shows the room's primary fixtures.
+ * ── The two costs a live fixture light actually carries ─────────────────────
+ *
+ * (1) PER-FRAGMENT SHADING. THREE is a FORWARD renderer with NO light culling:
+ *     `lights_fragment_begin.glsl.js` (three 0.183.2) unrolls
+ *
+ *         #pragma unroll_loop_start
+ *         for ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {
+ *             getPointLightInfo( pointLight, geometryPosition, directLight );
+ *             RE_Direct( directLight, …, material, reflectedLight );
+ *         }
+ *
+ *     over EVERY point light for EVERY fragment of EVERY lit mesh. On a
+ *     MeshStandardMaterial `RE_Direct` is `RE_Direct_Physical` — the full
+ *     physical BRDF (BRDF_GGX = D_GGX + V_GGX_SmithCorrelated + F_Schlick, plus
+ *     BRDF_Lambert and the multi-scatter energy terms), on the order of 70–90
+ *     ALU, NOT the "~10 ALU" the previous derivation assumed. `PointLight.
+ *     distance` bounds the ATTENUATION, not the loop: a fixture 40 m away that
+ *     contributes exactly zero light still pays the full BRDF on every fragment.
+ *
+ *     Cost is therefore O(shaded_fragments × live_lights), a MULTIPLIER on the
+ *     whole scene's shading — not the additive "one extra full-screen pass" the
+ *     old comment claimed. The Pascal base scene runs 3 directional `RE_Direct`
+ *     evaluations, so N live fixture lights multiply direct shading by (N+3)/3.
+ *
+ * (2) SHADER PERMUTATION CHURN. `numPointLights` is part of THREE's program
+ *     cache key (`WebGLPrograms.getProgramCacheKeyParameters`), and on the
+ *     WebGPU/TSL path the same fact is normative in C04 §SHADOW rule 8
+ *     (`LightsNode.customCacheKey()` hashes per LIGHT). So EVERY change in the
+ *     number of live fixture lights recompiles EVERY material program in the
+ *     scene — the founder's "Finishing up — Compiling GPU shaders" tail and the
+ *     documented PSO-compile storm that TDRs the device (ADR-0267). The budget
+ *     must therefore be small AND stable, not merely bounded.
+ *
+ * ── Re-derived ladder ───────────────────────────────────────────────────────
+ * Holding the ORIGINAL author's own ALU allowance constant and correcting only
+ * the per-light cost (10 → ~80 ALU) divides the whole ladder by ~8:
+ *
+ *     cinematic 64 → 8   balanced 48 → 6   performance 24 → 3   survival 8 → 1
+ *
+ * At `cinematic` that is a (8+3)/3 ≈ 3.7× direct-shading multiplier, which is
+ * the ceiling this tier already accepts for SSGI-class effects; at `survival`
+ * it is 1.3×.
+ *
+ * This is a REDUCTION derived from a verified shader cost, not a taste knob. It
+ * does NOT remove true luminance: EVERY fixture keeps its photometry-driven
+ * emissive lens in both modes (see LightingFragmentBuilder._syncLens), so a
+ * fixture outside the budget still reads as switched on — it just stops
+ * illuminating its neighbours. The lens is the whole reason a budget is
+ * acceptable at all.
+ *
+ * ── How to validate these numbers (they are NOT GPU-measured) ───────────────
+ * `apps/bench` cannot measure GPU wall-time (no GL context in headless Node —
+ * see render-pass-cost.bench.ts). Validating this ladder requires an in-browser
+ * orbit-FPS capture on a scene with ≥ 64 fixtures, sweeping the budget and
+ * reading frame time against C10 NFT-4 (16.6 ms p95). Until that bench exists,
+ * treat these as the DERIVED-BUT-UNMEASURED values they are.
  *
  * NOTE: fixture point lights NEVER cast shadows (see §NIGHT-ALL-LIGHTS-ON in
  * LightingFragmentBuilder) — the cube-shadow-map texture-unit cap is the
  * separate, much tighter limit and belongs to the sun/key light.
  */
 export const LIVE_LIGHT_BUDGET_BY_TIER: Readonly<Record<SceneQualityTier, number>> = {
-    cinematic:   64,
-    balanced:    48,
-    performance: 24,
-    survival:     8,
+    cinematic:   8,
+    balanced:    6,
+    performance: 3,
+    survival:    1,
 };
 
-/** The budget used when no tier has been reported yet (cold start). */
-export const DEFAULT_LIVE_LIGHT_BUDGET = LIVE_LIGHT_BUDGET_BY_TIER.balanced;
+/**
+ * The budget used when no tier has been reported yet (cold start).
+ *
+ * §FIX-LIGHT-TIER-UNWIRED — this used to be the `balanced` rung, on the
+ * assumption that a tier would be reported promptly. Nothing in production ever
+ * called `LightingFragmentBuilder.setQualityTier`, so this value was not a cold
+ * start at all: it was the PERMANENT budget for every scene on every backend.
+ * The tier is now wired (initScene's tier pass), but a cold start must still
+ * open at the SAFE end of the ladder, not the middle — an unknown scene on an
+ * unknown backend is the case with the least information, not the most.
+ */
+export const DEFAULT_LIVE_LIGHT_BUDGET = LIVE_LIGHT_BUDGET_BY_TIER.performance;
 
 /** A fixture competing for the budget. Renderer-agnostic. */
 export interface LightBudgetCandidate {
