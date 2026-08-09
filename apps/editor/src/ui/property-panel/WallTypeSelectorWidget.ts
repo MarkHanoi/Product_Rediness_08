@@ -16,6 +16,14 @@
  *  - §05: All styles via wts- CSS classes in AppTheme.ts
  */
 
+// §FEAT-ELEMENT-TYPE-AUTHORING — authoring is DECLARED per family, and the editor is
+// a shared surface. Neither is reached unless the family declares it authorable.
+import {
+    resolveElementTypeAuthoring,
+    type ElementTypeAuthoring,
+} from './ElementTypeAuthoringRegistry';
+import { openWallTypeEditor } from './WallTypeEditorModal';
+
 export interface WallTypeApplyPayload {
     systemTypeId: string | null;
     layers: any[] | null;
@@ -77,26 +85,51 @@ export function buildWallTypeSelectorWidget(
         sel.appendChild(opt);
     });
 
-    // Separator + action options
-    if (allTypes.length > 0) {
-        const sep = document.createElement('option');
-        sep.disabled = true;
-        sep.textContent = '────────────────────';
-        sep.className = 'wts-opt-sep';
-        sel.appendChild(sep);
+    // §FEAT-ELEMENT-TYPE-AUTHORING — the authoring entries are rendered ONLY when the
+    // family declares authoring (store proven project-scoped AND snapshot-round-tripping;
+    // see ElementTypeAuthoringRegistry). A dropdown entry that opens an editor whose
+    // result cannot be saved is worse than no entry at all — it is founder complaint #2
+    // manufactured on purpose.
+    const authoring = resolveElementTypeAuthoring('wall');
+
+    if (authoring) {
+        // Separator + action options
+        if (allTypes.length > 0) {
+            const sep = document.createElement('option');
+            sep.disabled = true;
+            sep.textContent = '────────────────────';
+            sep.className = 'wts-opt-sep';
+            sel.appendChild(sep);
+        }
+
+        const dupOpt = document.createElement('option');
+        dupOpt.value = '__duplicate__';
+        dupOpt.textContent = 'Duplicate Type…';
+        dupOpt.className = 'wts-opt-action';
+        sel.appendChild(dupOpt);
+
+        const newOpt = document.createElement('option');
+        newOpt.value = '__new__';
+        newOpt.textContent = 'New Type…';
+        newOpt.className = 'wts-opt-action';
+        sel.appendChild(newOpt);
     }
 
-    const dupOpt = document.createElement('option');
-    dupOpt.value = '__duplicate__';
-    dupOpt.textContent = 'Duplicate Type…';
-    dupOpt.className = 'wts-opt-action';
-    sel.appendChild(dupOpt);
-
-    const newOpt = document.createElement('option');
-    newOpt.value = '__new__';
-    newOpt.textContent = 'New Type…';
-    newOpt.className = 'wts-opt-action';
-    sel.appendChild(newOpt);
+    // §CONTEXT-DATA-HONESTY — a wall referencing a type that is NOT in the catalogue
+    // (deleted, or authored in a project whose snapshot did not carry it) previously
+    // fell through every `option.selected` test, so the dropdown displayed
+    // "— Plain Wall —" and the wall silently READ as an untyped wall. Failure and
+    // "genuinely plain" rendered as the SAME VALUE. The missing id is now shown as
+    // itself, selected, so the user can see there is something to fix.
+    const currentId = elementData.systemTypeId as string | undefined;
+    if (currentId && !typeStore?.getById?.(currentId)) {
+        const missing = document.createElement('option');
+        missing.value = currentId;
+        missing.textContent = `⚠ Missing type (${currentId})`;
+        missing.className = 'wts-opt-action';
+        missing.selected = true;
+        sel.insertBefore(missing, sel.firstChild);
+    }
 
     // ── Colour strip preview ─────────────────────────────────────────────────
     const strip = document.createElement('div');
@@ -145,14 +178,31 @@ export function buildWallTypeSelectorWidget(
     sel.addEventListener('change', () => {
         const v = sel.value;
 
-        if (v === '__duplicate__') {
+        if (v === '__duplicate__' || v === '__new__') {
+            // Restore the visible selection immediately: opening the editor must not
+            // look like a type change, and Cancel must leave the wall exactly as it was.
             sel.value = elementData.systemTypeId ?? '';
-            _handleDuplicate(elementData, typeStore, allTypes);
-            return;
-        }
-        if (v === '__new__') {
-            sel.value = elementData.systemTypeId ?? '';
-            _handleNewType(typeStore);
+            if (!authoring) return;
+            _openTypeEditor(
+                v === '__new__' ? 'create' : 'duplicate',
+                authoring, elementData, typeStore, allTypes,
+                (newType) => {
+                    // The dropdown updates ITSELF. The old prompt flow could not — it
+                    // wrote straight to the store with nothing listening — which is why
+                    // it had to alert the user to "re-select the wall to see it in the
+                    // list". A created type is now immediately selectable, and selected.
+                    const opt = document.createElement('option');
+                    opt.value = newType.id;
+                    opt.textContent = `${newType.name}  (${Math.round(newType.totalThickness * 1000)}mm)`;
+                    opt.className = 'wts-opt-dark';
+                    sel.insertBefore(opt, sel.querySelector('.wts-opt-sep'));
+                    sel.value = newType.id;
+                    refreshStrip();
+                    // Creating a type does not retype the selected wall — that is a
+                    // separate, explicit act (Apply). Consistent with the instance-owned
+                    // linkage the editor states.
+                },
+            );
             return;
         }
 
@@ -222,67 +272,94 @@ export function buildWallTypeSelectorWidget(
 
 // ─── Action helpers ──────────────────────────────────────────────────────────
 
-function _handleDuplicate(
+/**
+ * §FEAT-ELEMENT-TYPE-AUTHORING — opens the layer editor and, on save, dispatches the
+ * authoring COMMAND.
+ *
+ * This replaces `_handleDuplicate` / `_handleNewType`, which were:
+ *   • `prompt()` + `prompt()` + `alert()` (not a project-compliant surface: a wall
+ *     type is a LAYER STACK and a text prompt cannot express one, so every type the
+ *     old flow produced was a single default-coloured body layer with a custom name —
+ *     the founder's "it falls back to default", meant literally), and
+ *   • a DIRECT `typeStore.add(...)` from UI code, which is the P6 violation that cost
+ *     undo, AI/collaboration reachability, and any way to refresh the dropdown.
+ *
+ * The mutation now travels `bus.executeCommand('elementType.create' | '…duplicate')`.
+ */
+function _openTypeEditor(
+    mode: 'create' | 'duplicate',
+    authoring: ElementTypeAuthoring,
     elementData: Record<string, any>,
     typeStore: any,
-    allTypes: any[]
+    allTypes: any[],
+    onCreated: (newType: { id: string; name: string; totalThickness: number }) => void,
 ): void {
     const currentId = elementData.systemTypeId;
     const source = currentId ? typeStore?.getById?.(currentId) : null;
+    const base = source ?? allTypes[0];
 
-    if (!source && allTypes.length === 0) {
-        alert('No wall type selected to duplicate. Select a type first.');
+    if (mode === 'duplicate' && !base) {
+        // Nothing to copy FROM. Previously an `alert()`; now the editor simply is not
+        // opened for an impossible action — and the entry is only reachable when a
+        // catalogue exists, so this is a guard, not a user-facing path.
+        console.warn('[WallTypeSelectorWidget] Duplicate requested with no source type.');
         return;
     }
 
-    const base = source ?? allTypes[0];
-    const newName = prompt(`Duplicate "${base.name}" — enter a name for the copy:`, `${base.name} (Copy)`);
-    if (!newName?.trim()) return;
+    const existingNames = allTypes.map((t: any) => String(t.name).toLowerCase());
 
-    const newId = `wt-${Date.now()}`;
-    const newLayers = (structuredClone(base.layers) as any[]).map((l: any) => ({ ...l }));
-    const totalThickness = parseFloat(newLayers.reduce((s: number, l: any) => s + l.thickness, 0).toFixed(6));
+    const initial =
+        mode === 'duplicate'
+            ? {
+                // Deep copy — a duplicate must not share layer objects with its source,
+                // or editing one would silently edit the other.
+                name: _uniqueName(`${base.name} (Copy)`, existingNames),
+                description: `Duplicated from "${base.name}"`,
+                layers: (structuredClone(base.layers) as any[]).map((l: any) => ({ ...l })),
+                ...(base.function !== undefined ? { function: base.function } : {}),
+            }
+            : {
+                name: _uniqueName('Custom Wall Type', existingNames),
+                description: '',
+                // A sensible STARTING stack, presented for editing rather than committed
+                // behind a prompt. The user sees and changes every value before saving.
+                layers: [
+                    { name: 'External Render', thickness: 0.015, function: 'finish-exterior', materialColor: '#c8bfa8' },
+                    { name: 'Structure',       thickness: 0.170, function: 'structure',       materialColor: '#a0a0a0' },
+                    { name: 'Plaster',         thickness: 0.015, function: 'finish-interior', materialColor: '#f0ece4' },
+                ],
+            };
 
-    typeStore?.add?.({
-        id: newId,
-        name: newName.trim(),
-        description: `Duplicated from "${base.name}"`,
-        layers: newLayers,
-        totalThickness,
-        createdAt: Date.now(),
-        modifiedAt: Date.now(),
+    openWallTypeEditor({
+        mode,
+        authoring,
+        initial: initial as any,
+        existingNames,
+        onSave: (draft) => {
+            window.runtime?.bus?.executeCommand(
+                mode === 'create' ? 'elementType.create' : 'elementType.duplicate',
+                { family: 'wall', draft } as any,
+            )
+                ?.then(() => {
+                    // Resolve the freshly created record from the store — the command
+                    // mints the id, so the UI must READ it back rather than guess it.
+                    const created = typeStore?.getAll?.()
+                        .find((t: any) => t.name === draft.name);
+                    if (created) onCreated(created);
+                    else console.warn('[WallTypeSelectorWidget] Type created but not found in catalogue:', draft.name);
+                })
+                ?.catch((e: unknown) =>
+                    console.warn(`[WallTypeSelectorWidget] ${mode} wall type failed:`, e));
+        },
     });
-
-    console.log('[WallTypeSelectorWidget] Duplicated type:', newName.trim(), newId);
-    alert(`Wall type "${newName.trim()}" created. Re-select the wall to see it in the list.`);
 }
 
-function _handleNewType(typeStore: any): void {
-    const newName = prompt('New wall type name:', 'Custom Wall Type');
-    if (!newName?.trim()) return;
-
-    const thkStr = prompt('Total thickness (mm):', '200');
-    const thkMm = parseFloat(thkStr ?? '200');
-    if (isNaN(thkMm) || thkMm <= 0) {
-        alert('Invalid thickness. Type not created.');
-        return;
+/** Appends " 2", " 3", … until the name is free. Collision is resolved, never ignored. */
+function _uniqueName(candidate: string, taken: string[]): string {
+    if (!taken.includes(candidate.toLowerCase())) return candidate;
+    for (let n = 2; n < 999; n++) {
+        const next = `${candidate} ${n}`;
+        if (!taken.includes(next.toLowerCase())) return next;
     }
-
-    const newId = `wt-${Date.now()}`;
-    const thickness = thkMm / 1000;
-
-    typeStore?.add?.({
-        id: newId,
-        name: newName.trim(),
-        description: 'User-defined wall type',
-        layers: [
-            { name: 'Wall Body', thickness, function: 'structure', materialColor: '#d4c5b0' }
-        ],
-        totalThickness: thickness,
-        createdAt: Date.now(),
-        modifiedAt: Date.now(),
-    });
-
-    console.log('[WallTypeSelectorWidget] Created new type:', newName.trim(), newId);
-    alert(`Wall type "${newName.trim()}" created. Re-select the wall to see it in the list.`);
+    return `${candidate} ${Date.now()}`;
 }

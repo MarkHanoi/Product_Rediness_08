@@ -112,6 +112,9 @@ import { CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
 import { RoofType, RoofFootprint } from '@pryzm/geometry-roof';
 import { slabSystemTypeStore } from '@pryzm/geometry-slab';
 import { wallSystemTypeStore } from '@pryzm/geometry-wall';
+// §TYPE-SNAPSHOT-CODEC — the ONE codec shared with ProjectSerializer, so a field can
+// no longer be written by one side and dropped by the other (it dropped `function`).
+import { decodeWallSystemType } from './wallSystemTypeCodec';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
@@ -1419,21 +1422,25 @@ export class ProjectLoader {
                 let restoredWallTypeCount = 0;
                 for (const raw of snapshotWallSystemTypes) {
                     try {
-                        if (!raw.id || !raw.name || !Array.isArray(raw.layers)) {
+                        // §TYPE-SNAPSHOT-CODEC — the hand-written field list that used to
+                        // live here (`{id, name, description, layers}`) was NOT the inverse
+                        // of what ProjectSerializer writes (`structuredClone(t)` — every
+                        // field). `function` (the L-285 envelope function driving plan pen
+                        // weight) was therefore saved and silently dropped on reload, so a
+                        // user type declared 'exterior' came back UNDECLARED and the drawing
+                        // re-weighted itself on every reopen. Save and load now share ONE
+                        // codec and cannot drift field-by-field again.
+                        const params = decodeWallSystemType(raw);
+                        if (!params) {
                             console.warn('[ProjectLoader] Skipping malformed wallSystemType:', raw);
                             continue;
                         }
                         // Only restore if not already present (avoids duplicates on re-load)
-                        if (wallSystemTypeStore.getById(raw.id)) continue;
+                        if (wallSystemTypeStore.getById(params.id!)) continue;
 
                         // §M-B1 loader-side: preserve the snapshot UUID — same
                         // reasoning as the slabSystemTypeStore.add above.
-                        const restored = wallSystemTypeStore.add({
-                            id: raw.id,
-                            name: raw.name,
-                            description: raw.description,
-                            layers: raw.layers,
-                        });
+                        const restored = wallSystemTypeStore.add(params);
 
                         // Register in ElementRegistry so the ID→store mapping is complete
                         try {

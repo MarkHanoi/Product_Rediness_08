@@ -58,6 +58,8 @@ import { decisionRecordStore } from '@pryzm/core-app-model';
 // are written by S70 D8+ serialisers).
 import { SlabSystemTypeStore } from '@pryzm/geometry-slab';
 import { WallSystemTypeStore } from '@pryzm/geometry-wall';
+// §TYPE-SNAPSHOT-CODEC — shared with ProjectLoader; see wallSystemTypeCodec.ts.
+import { encodeWallSystemType } from './wallSystemTypeCodec';
 // A.R.3 (Revit round-trip · S55) — type-only ref to the L3 IfcMetaStore so the
 // snapshot can carry imported IFC/Revit element metadata (GlobalId + psets, the
 // round-trip join keys). The snapshot shape is the store's own serialize() output.
@@ -995,10 +997,14 @@ export class ProjectSerializer {
 
         // FIX-3 (M9): Persist only CUSTOM wall system types (built-ins are always
         // reconstructed from code). structuredClone ensures no frozen-object issues.
+        // §TYPE-SNAPSHOT-CODEC — projected through the SAME codec the loader decodes with
+        // (`wallSystemTypeCodec.ts`), replacing a bare `structuredClone(t)` whose inverse
+        // was a hand-written four-field list in ProjectLoader. The two sides had already
+        // drifted: `function` (L-285) was written here and dropped there.
         const wallSystemTypes = wallSystemTypeStore
             ? wallSystemTypeStore.getAll()
                 .filter(t => !wallSystemTypeStore.isBuiltIn(t.id))
-                .map(t => structuredClone(t))
+                .map(t => encodeWallSystemType(t))
             : [];
 
         // §M-H4 (DAILY-USE-AUDIT 2026-05-20) — Persist only CUSTOM door/window

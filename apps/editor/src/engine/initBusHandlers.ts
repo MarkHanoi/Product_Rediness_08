@@ -420,6 +420,166 @@ export function initBusHandlers(
         }
     };
 
+    // ── §FEAT-ELEMENT-TYPE-AUTHORING — the family adapters ───────────────────
+    //
+    // ONE adapter per authorable family. The shape is deliberately narrow (add /
+    // update / remove / getById / getAll / isBuiltIn) because that is the intersection
+    // every candidate store already supports; the five different mutating vocabularies
+    // found across the repo's type stores are normalised HERE, once, rather than
+    // leaking into the command or the UI.
+    //
+    // A family is added by adding an entry — and ONLY after its custom types are
+    // proven to round-trip the snapshot (C05) and its store is registered with
+    // `ProjectScopeRegistry` (C13). Those two proofs are recorded in
+    // `ElementTypeAuthoringRegistry`; this table and that registry must agree, and the
+    // authoring coverage spec asserts it.
+    interface TypeStoreAdapter {
+        getAll(): any[];
+        getById(id: string): any | undefined;
+        isBuiltIn(id: string): boolean;
+        add(params: any): any;
+        update(id: string, patch: any): any;
+        remove(id: string): boolean;
+    }
+
+    const _typeStoreAdapters: Record<string, () => TypeStoreAdapter | null> = {
+        wall: () => {
+            const s = window.wallSystemTypeStore as any;
+            if (!s) return null;
+            return {
+                getAll:    () => s.getAll(),
+                getById:   (id) => s.getById(id),
+                isBuiltIn: (id) => s.isBuiltIn(id),
+                add:       (p) => s.add(p),
+                update:    (id, patch) => s.update(id, patch),
+                remove:    (id) => s.remove(id),
+            };
+        },
+    };
+
+    const _resolveTypeStore = (family: unknown): TypeStoreAdapter | null => {
+        const f = String(family ?? '').toLowerCase();
+        return _typeStoreAdapters[f]?.() ?? null;
+    };
+
+    /**
+     * CA-3 — validate BEFORE any mutation. Rejects an undeclared family outright
+     * rather than silently doing nothing, and enforces the invariants a type must
+     * satisfy to be usable at all (a name, and a layer stack with real thickness).
+     */
+    const _validateTypeAuthoring = (cmd: any, mode: string): string | null => {
+        if (!cmd?.family) return 'family is required';
+        if (!_resolveTypeStore(cmd.family)) {
+            return `'${cmd.family}' types cannot be authored — no authoring adapter is declared for that family`;
+        }
+        if (mode === 'delete') return null;
+        const d = cmd.draft;
+        if (!d || typeof d !== 'object')        return 'draft is required';
+        if (!d.name || !String(d.name).trim())  return 'draft.name is required';
+        if (!Array.isArray(d.layers) || d.layers.length === 0) return 'draft.layers must be a non-empty array';
+        const total = d.layers.reduce((s: number, l: any) => s + (Number(l?.thickness) || 0), 0);
+        if (!(total > 0)) return 'draft layers have no thickness';
+        // Built-ins are factory data, not project data (C05): they are reconstructed
+        // from code on every boot, so an edit to one could never be persisted and
+        // would silently vanish on reload. Reject rather than pretend.
+        if ((mode === 'update' || mode === 'delete') && _resolveTypeStore(cmd.family)!.isBuiltIn(cmd.typeId)) {
+            return 'built-in types cannot be edited or deleted — duplicate it first';
+        }
+        return null;
+    };
+
+    /**
+     * Performs the authoring mutation and records ONE undo entry for it.
+     *
+     * CA-11 — undo. A type store is not one of the ring-buffer-covered element stores
+     * (`buildUndoStoreMap`), and a type is not an element, so the ring is the wrong
+     * mechanism. The inverse is recorded on the CommandManager as an explicit
+     * `Command`, which `performUndoRedo` already drains alongside the ring — the same
+     * arrangement the stair and annotation families use.
+     */
+    const _authorElementType = (
+        mode: 'create' | 'duplicate' | 'update' | 'delete',
+        cmd: any,
+    ): void => {
+        const store = _resolveTypeStore(cmd.family);
+        if (!store) return;   // unreachable — validate() already rejected it.
+
+        let created: any;
+        let previous: any;
+
+        if (mode === 'delete') {
+            previous = structuredClone(store.getById(cmd.typeId));
+            store.remove(cmd.typeId);
+        } else if (mode === 'update') {
+            previous = structuredClone(store.getById(cmd.typeId));
+            store.update(cmd.typeId, {
+                name:        cmd.draft.name,
+                description: cmd.draft.description,
+                layers:      cmd.draft.layers,
+                // L-285 — carried explicitly; `undefined` stays undefined ("does not say").
+                ...(cmd.draft.function !== undefined ? { function: cmd.draft.function } : {}),
+            });
+        } else {
+            // CREATE and DUPLICATE differ ONLY in where the draft came from (the UI
+            // deep-copies the source type's layers for a duplicate and pre-names it).
+            // Both mint a fresh id here, so a duplicate can never alias its source's
+            // identity — which would make the two types indistinguishable to every
+            // wall referencing either.
+            created = store.add({
+                name:        cmd.draft.name,
+                description: cmd.draft.description,
+                layers:      cmd.draft.layers,
+                ...(cmd.draft.function !== undefined ? { function: cmd.draft.function } : {}),
+            });
+        }
+
+        // CA-11 — the inverse, as one undo step.
+        try {
+            const inverse = {
+                type: 'ELEMENT_TYPE_AUTHORING' as any,
+                affectedStores: [] as any[],
+                canExecute: () => ({ ok: true }),
+                execute:    () => ({ success: true, affectedElementIds: [] }),
+                undo: () => {
+                    if (mode === 'delete' || mode === 'update') {
+                        if (!previous) return;
+                        // `add` honours an explicit id (§M-B1), so restoring a deleted or
+                        // pre-edit type restores the SAME id — every wall still pointing
+                        // at it resolves again instead of becoming a dangling reference.
+                        if (mode === 'delete') store.add(previous);
+                        else store.update(cmd.typeId, previous);
+                    } else if (created) {
+                        store.remove(created.id);
+                    }
+                    _emitElementTypeChanged(cmd.family);
+                },
+                serialize: () => ({
+                    type: 'ELEMENT_TYPE_AUTHORING',
+                    payload: { mode, family: cmd.family, typeId: cmd.typeId ?? created?.id },
+                    targetIds: [], timestamp: Date.now(), version: 1,
+                }),
+            };
+            _cmExec(inverse);
+        } catch (e) {
+            console.warn('[elementType] undo registration failed:', e);
+        }
+
+        _emitElementTypeChanged(cmd.family, created?.id ?? cmd.typeId);
+    };
+
+    /**
+     * Tells every open picker that the family's catalogue changed.
+     *
+     * This is the event whose ABSENCE forced the old prompt flow to `alert()` the user
+     * to "re-select the wall to see it in the list": the widget had written to the
+     * store and had no way to say so.
+     */
+    const _emitElementTypeChanged = (family: unknown, typeId?: string): void => {
+        try {
+            window.runtime?.events?.emit?.('elementType.changed', { family, typeId } as any);
+        } catch { /* the picker also refreshes on next open; a failed notify is not fatal */ }
+    };
+
     const __bridges: BridgeSpec[] = [
         // ── existing element update bridges (E.5.1–E.5.3) ──────────────────
         {
@@ -709,6 +869,66 @@ export function initBusHandlers(
                 null
             ),
             fn: (cmd) => { _cmExec(new UpdateHandrailCommand({ id: cmd.id, materialColor: cmd.materialColor })); },
+        },
+
+        // ── §FEAT-ELEMENT-TYPE-AUTHORING — create / duplicate / edit a TYPE ──────
+        //
+        // The uniform TYPE-AUTHORING surface, sibling to `element.changeType` below:
+        // that command changes which type an ELEMENT uses; these three change the set
+        // of types the PROJECT offers.
+        //
+        // ROOT CAUSE THIS REPLACES. Wall-type creation lived entirely in the property
+        // panel widget (`WallTypeSelectorWidget._handleNewType` / `_handleDuplicate`):
+        // two `window.prompt()` calls followed by a DIRECT `typeStore.add(...)` from
+        // UI code. That is a P6 violation with three visible consequences —
+        //   • no undo (the type could not be taken back),
+        //   • unreachable by the AI plane and by collaboration replay (C03 §2.4),
+        //   • no post-write notification, which is why the widget had to `alert()`
+        //     the user to "re-select the wall to see it in the list".
+        // Routing through the bus fixes all three at once, and the `elementType.changed`
+        // event is what lets any open picker refresh itself.
+        //
+        // FAMILY DISPATCH IS DECLARED, NOT INFERRED. Only families listed in
+        // `ElementTypeAuthoringRegistry` may be authored, and the UI offers no
+        // "New type…" entry for the rest. A family reaching here undeclared is a
+        // programming error and fails loudly rather than writing into a store whose
+        // contents are not saved with the project (stair / lift / room today).
+        //
+        // C16 §3 row "Semantic / non-geometry": a type has no geometry and no level, so
+        // CA-4 / CA-6 / CA-7 / CA-9 (level resolution, BimManager, ViewDependencyTracker,
+        // frame-deferred build) do not apply. CA-3 (validate before mutate), CA-8 (store
+        // mutation emits storeEventBus — the store's own `add`/`update`/`remove` do),
+        // CA-11 (undo) and CA-15 (serialisable payload) do, and are honoured here.
+        {
+            type: 'elementType.create',
+            stores: [] as const,
+            validate: (cmd: any) => _validateTypeAuthoring(cmd, 'create'),
+            fn: (cmd: any) => { _authorElementType('create', cmd); },
+        },
+        {
+            type: 'elementType.duplicate',
+            stores: [] as const,
+            validate: (cmd: any) => _validateTypeAuthoring(cmd, 'duplicate'),
+            fn: (cmd: any) => { _authorElementType('duplicate', cmd); },
+        },
+        {
+            type: 'elementType.update',
+            stores: [] as const,
+            validate: (cmd: any) => (
+                !cmd.family                        ? 'family is required' :
+                !cmd.typeId                        ? 'typeId is required' :
+                _validateTypeAuthoring(cmd, 'update')
+            ),
+            fn: (cmd: any) => { _authorElementType('update', cmd); },
+        },
+        {
+            type: 'elementType.delete',
+            stores: [] as const,
+            validate: (cmd: any) => (
+                !cmd.family ? 'family is required' :
+                !cmd.typeId ? 'typeId is required' : null
+            ),
+            fn: (cmd: any) => { _authorElementType('delete', cmd); },
         },
 
         // ── §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — uniform "change element type" ──
