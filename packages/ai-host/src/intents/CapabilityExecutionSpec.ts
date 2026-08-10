@@ -43,6 +43,7 @@ import {
   type ScopeDescriptor,
 } from './ScopeDescriptor.js';
 import { normalizeElementKind } from '../capabilities/ChatCapabilityRegistry.js';
+import { exampleColorNames, resolveColorRef } from './colorRef.js';
 import type {
   BusCommandRef,
   ResolverContext,
@@ -61,7 +62,8 @@ export const COMPASS_WORD: Readonly<Record<Compass4, string>> = {
  *  entry below and its ChatCapabilityRegistry metadata) is the WHOLE resolver
  *  cost of a new batch-shaped capability. */
 export type SpecDrivenIntentId =
-  | 'set-wall-type';
+  | 'set-wall-type'
+  | 'set-wall-color';
 
 export type SpecDrivenIntent = Extract<SemanticIntent, { intent: SpecDrivenIntentId }>;
 
@@ -181,6 +183,42 @@ export const EXECUTION_SPECS: SpecTable = {
     // per §CONTEXT-DATA-HONESTY. Gating it behind a Confirm card would put
     // a modal in front of the founder's exact sentence for no safety gain;
     // the reversible-and-reported path is the honest one.
+    destructive: false,
+  },
+
+  /**
+   * §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white". ONE colour
+   * table (colorRef.ts): a name or '#hex'; anything else refuses by LISTING
+   * real options, never by guessing (§CONTEXT-DATA-HONESTY).
+   */
+  'set-wall-color': {
+    elementKind: 'wall',
+    busCommand: 'wall.updateColorBatch',
+    idsField: 'wallIds',
+    noSelectionReason:
+      'No walls are selected — select some walls, or say "make all walls white" to recolour the whole project.',
+    mismatchPrefix: 'Wall colour applies to walls',
+    suggestions: ['make all walls white'],
+    spatialAbility: 'change all walls or the selected walls',
+    resolveValue: (si) => {
+      const color = resolveColorRef(si.colorRef);
+      if (color === null) {
+        return {
+          refusal: {
+            reason:
+              `I don't know the colour "${si.colorRef}". I understand names like ` +
+              `${exampleColorNames().join(', ')} — or an exact hex value like #f4f1e8.`,
+            suggestions: ['make all walls white', 'make all walls #f4f1e8'],
+          },
+        };
+      }
+      return {
+        payload: { materialColor: color.hex },
+        summary: (scopeLabel, notesTail) => `Paint ${scopeLabel} ${color.label}${notesTail}`,
+      };
+    },
+    // NOT destructive — one undo entry, deletes nothing, and the command
+    // reports "Recoloured N of M — K skipped" (same policy as set-wall-type).
     destructive: false,
   },
 
