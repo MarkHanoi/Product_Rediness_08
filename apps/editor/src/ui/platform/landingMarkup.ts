@@ -13,9 +13,10 @@
  * HEADER TREATMENT (KRETZ-modelled, founder brief 2026-08-09)
  * -----------------------------------------------------------
  * Supersedes the motif.io treatment of 2026-08-07. The reference is a slim
- * real-estate landing bar: wordmark far left, nav links optically CENTRED in
- * the bar, small utilities far right — and, per the founder, the PRYZM tile
- * mark closing the row on the RIGHT-HAND side. The reference bar is white;
+ * real-estate landing bar: brand far left, nav links optically CENTRED in
+ * the bar, small utilities far right. Per the founder pass of 2026-08-10 the
+ * PRYZM tile mark LEADS the brand on the LEFT (it closed the row on the right in
+ * the 08-09 pass, which read as a stray app icon). The reference bar is white;
  * PRYZM's is BRAND VIOLET (#6600FF), so every control inside it inverts to
  * white-on-violet. Immediately below the bar sits a full-bleed hero VIDEO
  * with the wordmark / headline / CTA floating in a glass panel over it —
@@ -60,12 +61,10 @@ export interface LandingMarkupOptions {
     appOrigin?: string;
 }
 
-/** Inline PRYZM pyramid logo — identical in nav brand and bottom-bar brand. */
-const PRYZM_PYRAMID_SVG = `<svg class="lp-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                        <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="#0b0b12" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
-                        <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.6" stroke-linecap="round"/>
-                        <path d="M18.2 2.6 26.8 33.2" stroke="#0b0b12" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`;
+// The inline PRYZM pyramid SVG constant was DELETED 2026-08-10 with the centred
+// hero glyph that was its only consumer (founder pass). The brand now appears once
+// as the raster tile mark leading the nav — see NAV_MARK_URL. Keeping an unused
+// constant "in case" is how dead code accumulates; git history holds it if needed.
 
 /**
  * HERO COPY — the ONE place it exists. Both surfaces (apex prerender and the
@@ -115,7 +114,9 @@ export const HERO_IMAGE_ALT =
     + 'controls across the top.';
 
 /**
- * NAV MARK — the PRYZM tile logo closing the header on the RIGHT.
+ * NAV MARK — the PRYZM tile logo LEADING the header on the LEFT, beside the
+ * wordmark. It is the ONLY brand image on the page (the centred hero glyph was
+ * removed in the same 2026-08-10 pass).
  *
  * Source: docs/04-reference/images/Gemini_Generated_Image_bogd6hbogd6hbogd (1).png
  * (1024×1045, 1.8 MB). That file is NOT web-served — `docs/` is not a publicDir —
