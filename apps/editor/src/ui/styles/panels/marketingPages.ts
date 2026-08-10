@@ -438,7 +438,9 @@ export const LANDING_PAGE_STYLES = `
         align-items: flex-start;
         justify-content: flex-end;
         text-align: left;
-        padding: 24px 56px 72px;
+        /* Founder 2026-08-10: block lifted off the lower edge (72 -> 148px) so
+           the title clears the bottom toolbars/pills that overlap it in-app. */
+        padding: 24px 56px 148px;
     }
 
     /* ─── The date eyebrow — small, uppercase, widely tracked ──────────
