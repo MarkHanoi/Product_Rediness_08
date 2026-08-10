@@ -447,10 +447,10 @@ describe('landingMarkup — hero + product showcase', () => {
         // video frame is the scrim — and the copy moved to the bottom-LEFT, which
         // the old bottom-only gradient did not weight. Both directions must exist.
         expect(LANDING_PAGE_STYLES).toMatch(
-            /\.lp-hero-media::after\s*\{[^}]*linear-gradient\(to right,\s*rgba\(26,6,64,0\.62\)/,
+            /\.lp-hero-media::after\s*\{[^}]*linear-gradient\(to right,\s*rgba\(26,6,64,0\.46\)/,
         );
         expect(LANDING_PAGE_STYLES).toMatch(
-            /\.lp-hero-media::after\s*\{[^}]*linear-gradient\(to bottom,[^)]*\)[^;]*rgba\(26,6,64,0\.74\)/,
+            /\.lp-hero-media::after\s*\{[^}]*linear-gradient\(to bottom,[^)]*\)[^;]*rgba\(26,6,64,0\.56\)/,
         );
         // Brand: the scrim is deep violet, never black.
         expect(LANDING_PAGE_STYLES).not.toMatch(/\.lp-hero-media::after\s*\{[^}]*rgba\(0,0,0/);

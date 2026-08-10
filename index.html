@@ -192,7 +192,7 @@
         display: flex; flex-direction: column;
         align-items: flex-start; justify-content: flex-end;
         height: calc(100dvh - 64px); min-height: 420px;
-        padding: 24px 56px 148px; text-align: left; overflow: hidden; position: relative;
+        padding: 24px 56px 190px; text-align: left; overflow: hidden; position: relative;
         background:
           radial-gradient(ellipse 85% 90% at 28% 30%, #6600FF 0%, transparent 70%),
           radial-gradient(ellipse 75% 80% at 78% 78%, #4A00B7 0%, transparent 72%),
@@ -203,8 +203,8 @@
       .lp-skel-hero::after {
         content: ''; position: absolute; inset: 0; pointer-events: none;
         background:
-          linear-gradient(to right,  rgba(26,6,64,0.62) 0%, rgba(26,6,64,0.22) 52%, rgba(26,6,64,0.00) 100%),
-          linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.20) 38%, rgba(26,6,64,0.74) 100%);
+          linear-gradient(to right,  rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.16) 52%, rgba(26,6,64,0.00) 100%),
+          linear-gradient(to bottom, rgba(26,6,64,0.34) 0%, rgba(26,6,64,0.15) 38%, rgba(26,6,64,0.56) 100%);
       }
       /* Mirrors `.lp-hero-panel` — the glass card was retired 2026-08-10; the
          copy column is now a bare left-ragged stack anchored bottom-left. */
@@ -226,12 +226,12 @@
          washed-out background ("the silent wrong landing"). See memory note
          landing-skeleton-vs-real-mismatch.md. */
       .lp-skel-heading {
-        font-size: clamp(30px, 4.0vw, 58px); font-weight: 800; line-height: 1.02;
+        font-size: clamp(30px, 4.0vw, 58px); font-weight: 900; line-height: 0.98;
         font-family: var(--lp-skel-font);
         /* White, matching `.lp-hero--video .lp-hero-heading` — the ground is
            the violet scrim now, not the pale lavender field. */
         color: #ffffff;
-        margin: 0 0 18px; letter-spacing: -0.02em; max-width: 16ch; text-transform: uppercase;
+        margin: 0 0 18px; letter-spacing: -0.035em; max-width: 16ch; text-transform: uppercase;
       }
       .lp-skel-sub-copy {
         font-size: clamp(14px, 1.35vw, 18px); color: rgba(255,255,255,0.94); line-height: 1.5;
@@ -271,10 +271,10 @@
       .lp-skel-hero-btn {
         display: inline-flex; align-items: center; gap: 10px;
         background: #ffffff; color: #4A00B7; border: 1px solid #ffffff;
-        border-radius: 999px; font-size: 15px; font-weight: 600;
-        padding: 14px 30px; min-height: 48px; cursor: pointer; font-family: var(--lp-skel-font);
+        border-radius: 999px; font-size: 13px; font-weight: 600;
+        padding: 7px 15px; min-height: 0; cursor: pointer; font-family: var(--lp-skel-font);
         letter-spacing: 0.02em; white-space: nowrap;
-        box-shadow: 0 10px 30px rgba(12,0,40,0.34);
+        box-shadow: 0 6px 18px rgba(12,0,40,0.30);
       }
       .lp-skel-hero-btn-demo {
         display: inline-flex; align-items: center; gap: 10px;
@@ -326,7 +326,7 @@
         .lp-skel-sub-copy { font-size: 14px; max-width: 100%; margin-bottom: 24px; }
         .lp-skel-showcase-caption { position: static; background: #4A00B7; padding: 12px 8px; letter-spacing: 0.10em; font-size: 9.5px; row-gap: 6px; }
         .lp-skel-showcase-item { padding: 3px 8px; }
-        .lp-skel-hero-btn { padding: 14px 28px; font-size: 15px; min-height: 48px; }
+        .lp-skel-hero-btn { padding: 7px 14px; font-size: 13px; min-height: 0; }
         .lp-skel-hero-btn-demo { padding: 13px 24px; min-height: 48px; }
         .lp-skel-hero-ctas { flex-direction: column; width: 100%; max-width: 280px; }
         .lp-skel-hero-btn, .lp-skel-hero-btn-demo { width: 100%; text-align: center; }

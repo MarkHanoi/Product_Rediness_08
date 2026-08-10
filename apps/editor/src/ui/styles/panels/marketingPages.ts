@@ -401,8 +401,8 @@ export const LANDING_PAGE_STYLES = `
         position: absolute;
         inset: 0;
         background:
-            linear-gradient(to right,  rgba(26,6,64,0.62) 0%, rgba(26,6,64,0.22) 52%, rgba(26,6,64,0.00) 100%),
-            linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.20) 38%, rgba(26,6,64,0.74) 100%);
+            linear-gradient(to right,  rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.16) 52%, rgba(26,6,64,0.00) 100%),
+            linear-gradient(to bottom, rgba(26,6,64,0.34) 0%, rgba(26,6,64,0.15) 38%, rgba(26,6,64,0.56) 100%);
         pointer-events: none;
     }
 
@@ -440,7 +440,7 @@ export const LANDING_PAGE_STYLES = `
         text-align: left;
         /* Founder 2026-08-10: block lifted off the lower edge (72 -> 148px) so
            the title clears the bottom toolbars/pills that overlap it in-app. */
-        padding: 24px 56px 148px;
+        padding: 24px 56px 190px;
     }
 
     /* ─── The date eyebrow — small, uppercase, widely tracked ──────────
@@ -541,8 +541,13 @@ export const LANDING_PAGE_STYLES = `
        eyebrow above and the supporting line below to read as one hierarchy
        rather than three competing blocks. */
     .lp-hero--video .lp-hero-heading {
+        /* Round 4 (founder, SpaceX reference): tighter leading + tracking and
+           a heavier cut so the two lines read as one dense block, per the
+           reference's condensed mission titles. */
         font-size: clamp(30px, 4.0vw, 58px);
-        letter-spacing: -0.02em;
+        letter-spacing: -0.035em;
+        line-height: 0.98;
+        font-weight: 900;
         margin: 0 0 18px;
         max-width: 16ch;
     }
@@ -553,13 +558,15 @@ export const LANDING_PAGE_STYLES = `
         background: #ffffff;
         border-color: #ffffff;
         color: #4A00B7;
-        font-size: 15px;
+        /* Round 4 (founder): CTA at ~50% — the reference's WATCH button is a
+           quiet, small affordance under the title, not a billboard. */
+        font-size: 13px;
         font-style: normal;
         font-weight: 600;
         letter-spacing: 0.02em;
-        padding: 14px 30px;
-        min-height: 48px;
-        box-shadow: 0 10px 30px rgba(12,0,40,0.34);
+        padding: 7px 15px;
+        min-height: 0;
+        box-shadow: 0 6px 18px rgba(12,0,40,0.30);
     }
     .lp-hero--video .lp-hero-btn:hover {
         background: #F2ECFF;
