@@ -375,10 +375,21 @@ primitive missing · **D** composite missing · **E** authoritative validation m
    `element.changeType` batch) — follow `UpdateWallsColorBatchCommand` precedent.
 4. **Element-props projection** for the filter IR field vocabulary.
 
-## 7. Performance notes (measured this session — see ADR-0314 for numbers)
+## 7. Performance (measured 2026-08-10, 2000 iterations/case, tsx, dev machine)
 
-Local resolution is regex/token work with bounded vocabularies; the risks are all in
-scope resolution: `getAll()` deep-clones (WallStore), `AIReadModel` full-model
-transforms per call, no query cache. Rule: scope resolution must go through indexed
-paths (`getByLevel`, tag index) where they exist and must never run inside the
-per-token loop.
+| Case | tier 0/1 p50 / p95 / p99 (µs) | full ladder p50 / p95 / p99 (µs) |
+|---|---|---|
+| "undo" | 1.9 / 4.2 / 15.4 | 2.0 / 4.5 / 16.7 |
+| "set height to 3m" | 8.3 / 15.4 / 38.5 | 8.5 / 15.7 / 44.2 |
+| "make all walls interior partition" | 10.2 / 15.6 / 28.6 | 10.3 / 15.9 / 29.7 |
+| "make all walls white" | 4.0 / 5.4 / 13.7 | 4.1 / 5.5 / 13.9 |
+| typo path ("set hieght to 3m") | 28.1 / 63.8 / 124.4 | 28.2 / 64.0 / 125.0 |
+| NL polite ("could you make this wall…") | — | 97.3 / 237.2 / 444.1 |
+| NL compound (founder's window sentence) | — | 125.8 / 280.1 / 672.3 |
+| miss → NL → LLM seam | — | 113.5 / 276.3 / 473.1 |
+
+Verdict: the deterministic semantic layer costs microseconds; worst full-ladder p99 is
+under 0.7 ms. Performance work belongs in SCOPE RESOLUTION, not language: `getAll()`
+deep-clones (WallStore), `AIReadModel` full-model transforms per call, no query cache.
+Rule: scope resolution must go through indexed paths (`getByLevel`, tag index) where
+they exist and must never run inside the per-token loop.
