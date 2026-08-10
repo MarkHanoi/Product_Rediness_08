@@ -7,8 +7,7 @@ import { DeleteDoorHandler } from './DeleteDoor.js';
 import { MoveDoorHandler } from './MoveDoor.js';
 import { SetDoorTypeHandler } from './SetDoorType.js';
 import { SetDoorSwingHandler } from './SetDoorSwing.js';
-import { SetDoorWidthHandler } from './SetDoorWidth.js';
-import { SetDoorHeightHandler } from './SetDoorHeight.js';
+// §FIX-DIMS-REACH-RECORD — SetDoorWidth/SetDoorHeight imports removed with their registration.
 import { SetDoorFireRatingHandler } from './SetDoorFireRating.js';
 import { SetDoorAccessibilityHandler } from './SetDoorAccessibility.js';
 
@@ -19,8 +18,11 @@ export const DOOR_HANDLER_TYPES = [
   'door.move',
   'door.setType',
   'door.setSwing',
-  'door.setWidth',
-  'door.setHeight',
+  // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815): 'door.setWidth' and
+  // 'door.setHeight' LEFT this set — the plugin handlers wrote the DETACHED
+  // plugin door store (silent no-op in production). The verbs are now owned
+  // by same-name legacy bridges in initBusHandlers routing through
+  // UpdateElementParameterCommand → wallStore (hosted openings).
   'door.setFireRating',
   'door.setAccessibility',
 ] as const;
@@ -40,8 +42,8 @@ export function buildDoorHandlerSet(): readonly CommandHandler<unknown>[] {
     new MoveDoorHandler() as unknown as CommandHandler<unknown>,
     new SetDoorTypeHandler() as unknown as CommandHandler<unknown>,
     new SetDoorSwingHandler() as unknown as CommandHandler<unknown>,
-    new SetDoorWidthHandler() as unknown as CommandHandler<unknown>,
-    new SetDoorHeightHandler() as unknown as CommandHandler<unknown>,
+    // §FIX-DIMS-REACH-RECORD — SetDoorWidthHandler / SetDoorHeightHandler
+    // retired (see DOOR_HANDLER_TYPES note); initBusHandlers bridges own the verbs.
     new SetDoorFireRatingHandler() as unknown as CommandHandler<unknown>,
     new SetDoorAccessibilityHandler() as unknown as CommandHandler<unknown>,
   ];

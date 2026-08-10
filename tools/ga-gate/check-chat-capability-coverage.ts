@@ -264,15 +264,14 @@ function proveCommandTargets(cap: ChatCapability): string[] {
  * handler) fails with the dead-store message; restoring the
  * UpdateStairParametersCommand proof passes.
  */
-const PLUGIN_LIVE_ALLOWLIST: ReadonlyMap<string, string> = new Map([
-  [
-    'plugins/wall/src/handlers/UpdateWallDimensions.ts',
-    '2026-08-10 (ADR-0315 U0): deliberately migrated OFF the commandManager bridge onto ' +
-    'produceCommand for ring-buffer undo (§TASK-07-PHASE-B, C20 §3). Liveness of the plugin ' +
-    "wall store in production wiring is the U1 auditor's open question — this entry is " +
-    'PENDING that verdict and must be either annotated as proven or removed with a re-route.',
-  ],
-]);
+// EMPTY since 2026-08-10 (§FIX-DIMS-REACH-RECORD, L-815): the one pending
+// entry (plugins/wall UpdateWallDimensions.ts) was RESOLVED by the U1 auditor
+// as DEAD — the plugin wall store is a fresh PluginRegistry instance nothing
+// renders or persists, and its undo routing was asymmetric with the ring
+// buffer. The verb now lives on an initBusHandlers legacy bridge and its
+// proof points at the legacy command. Every future entry needs the same
+// dated-evidence bar this one failed.
+const PLUGIN_LIVE_ALLOWLIST: ReadonlyMap<string, string> = new Map([]);
 
 function proveRouteLiveness(cap: ChatCapability, file: string, src: string): string[] {
   const norm = file.replace(/\\/g, '/');

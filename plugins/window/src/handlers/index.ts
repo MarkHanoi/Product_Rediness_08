@@ -6,8 +6,7 @@ import { CreateWindowBatchHandler } from './CreateWindowBatch.js';
 import { DeleteWindowHandler } from './DeleteWindow.js';
 import { MoveWindowHandler } from './MoveWindow.js';
 import { SetWindowTypeHandler } from './SetWindowType.js';
-import { SetWindowSizeHandler } from './SetWindowSize.js';
-import { SetWindowSillHeightHandler } from './SetWindowSillHeight.js';
+// §FIX-DIMS-REACH-RECORD — SetWindowSize/SetWindowSillHeight imports removed with their registration.
 import { SetWindowFireRatingHandler } from './SetWindowFireRating.js';
 
 export const WINDOW_HANDLER_TYPES = [
@@ -16,8 +15,11 @@ export const WINDOW_HANDLER_TYPES = [
   'window.delete',
   'window.move',
   'window.setType',
-  'window.setSize',
-  'window.setSillHeight',
+  // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815): 'window.setSize' and
+  // 'window.setSillHeight' LEFT this set — the plugin handlers wrote the
+  // DETACHED plugin window store (silent no-op in production). The verbs are
+  // now owned by same-name legacy bridges in initBusHandlers routing through
+  // UpdateElementParameterCommand → wallStore (hosted openings).
   'window.setFireRating',
 ] as const;
 
@@ -33,8 +35,8 @@ export function buildWindowHandlerSet(): readonly CommandHandler<unknown>[] {
     new DeleteWindowHandler() as unknown as CommandHandler<unknown>,
     new MoveWindowHandler() as unknown as CommandHandler<unknown>,
     new SetWindowTypeHandler() as unknown as CommandHandler<unknown>,
-    new SetWindowSizeHandler() as unknown as CommandHandler<unknown>,
-    new SetWindowSillHeightHandler() as unknown as CommandHandler<unknown>,
+    // §FIX-DIMS-REACH-RECORD — SetWindowSizeHandler / SetWindowSillHeightHandler
+    // retired (see WINDOW_HANDLER_TYPES note); initBusHandlers bridges own the verbs.
     new SetWindowFireRatingHandler() as unknown as CommandHandler<unknown>,
   ];
 }

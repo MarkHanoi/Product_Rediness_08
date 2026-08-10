@@ -405,9 +405,13 @@ const CAPABILITIES: readonly ChatCapability[] = [
     probe: { intent: 'set-thickness', value: 0.2 },
     commandProof: [
       {
-        file: 'plugins/wall/src/handlers/UpdateWallDimensions.ts',
+        // §FIX-DIMS-REACH-RECORD (L-815): the verb is now owned by the
+        // initBusHandlers bridge running this LIVE legacy command against the
+        // geometry wallStore (the plugin handler wrote a detached store and
+        // was retired from registration).
+        file: 'packages/command-registry/src/walls/UpdateWallDimensionsCommand.ts',
         mustMention: ['wallId'],
-        note: 'The payload is keyed by wallId — the command cannot address any other element kind.',
+        note: 'The payload is keyed by wallId — the command cannot address any other element kind; it writes the geometry wallStore the builders read.',
       },
       {
         file: 'packages/command-registry/src/slabs/UpdateSlabDimensionsCommand.ts',

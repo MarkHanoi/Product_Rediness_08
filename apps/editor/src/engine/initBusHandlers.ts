@@ -59,6 +59,12 @@ import {
   // window / handrail). Each was verified END TO END before being routed here: the record
   // carries the field, the command writes it to the geometry store, and the BUILDER READS IT.
   UpdateSlabDimensionsCommand,
+  // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815) — the dimension twins of the
+  // material fix: the plugin wall/window/door dimension handlers wrote the
+  // DETACHED plugin DTO stores, so chat AND the legacy inspector silently
+  // no-oped. Same remedy, same-verb legacy bridges (plugin handlers retired
+  // from registration — CommandBus.register throws on duplicates).
+  UpdateWallDimensionsCommand,
   UpdateWallColorCommand,
   UpdateDoorFrameColorCommand,
   UpdateWindowFrameColorCommand,
@@ -763,6 +769,138 @@ export function initBusHandlers(
                     thickness:     cmd.thickness,
                     materialColor: cmd.materialColor,
                     materialId:    cmd.materialId,
+                }));
+            },
+        },
+        {
+            // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815) — wall.updateDimensions
+            // was owned by a PLUGIN handler that produceCommand'd the detached
+            // plugin wall store: chat and the legacy inspector dispatched it,
+            // the bus reported success, and NOTHING rendered or persisted.
+            // Worse, buildUndoStoreMap routes 'wall' ring patches into the
+            // GEOMETRY store, so Ctrl+Z could apply an inverse for a forward
+            // write geometry never saw. The plugin handler is retired from
+            // registration; this same-verb bridge runs the legacy
+            // UpdateWallDimensionsCommand against the geometry wallStore and
+            // pushes a real before/after ring pair (the §FIX-FURNITURE-TYPE-
+            // LIST-AND-UNDO ceiling pattern), so ring-first undo is correct.
+            // The legacy command REQUIRES both height and thickness — the
+            // bridge fills the missing one from the current wall record.
+            type: 'wall.updateDimensions',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.wallId ? 'wallId is required' :
+                (cmd.height === undefined && cmd.thickness === undefined)
+                    ? 'at least one of height / thickness is required' :
+                null
+            ),
+            fn: (cmd) => {
+                const wstore = (window as unknown as {
+                    wallStore?: { getById?(id: string): { height?: number; thickness?: number } | undefined };
+                }).wallStore;
+                const current = wstore?.getById?.(cmd.wallId);
+                if (!current) {
+                    console.warn(`[wall.updateDimensions] wall not found in geometry store: ${cmd.wallId}`);
+                    return;
+                }
+                const before = structuredClone(current);
+                _cmExec(new UpdateWallDimensionsCommand({
+                    wallId:    cmd.wallId,
+                    height:    cmd.height    ?? current.height    ?? 3,
+                    thickness: cmd.thickness ?? current.thickness ?? 0.2,
+                }));
+                const after = wstore?.getById?.(cmd.wallId);
+                // Ring parity: 'wall' IS ring-covered (buildUndoStoreMap), so
+                // without a pair a ring-first Ctrl+Z would pop the wall's
+                // earlier CREATE. Push only on a real change.
+                if (after && JSON.stringify({ h: before.height, t: before.thickness })
+                          !== JSON.stringify({ h: after.height, t: after.thickness })) {
+                    try {
+                        const rb = (window.runtime?.bus as unknown as { ringBuffer?: { push?(p: unknown): void } } | undefined)?.ringBuffer;
+                        const idPtr = toJsonPointer([cmd.wallId]);
+                        rb?.push?.({
+                            forward: { ops: [{ op: 'replace', path: idPtr, value: structuredClone(after) }] },
+                            inverse: { ops: [{ op: 'replace', path: idPtr, value: before }] },
+                            affectedStores: ['wall'],
+                            timestamp: Date.now(),
+                        });
+                    } catch (e) {
+                        console.warn('[wall.updateDimensions] ring-buffer push failed (undo falls back to commandManager):', e);
+                    }
+                }
+            },
+        },
+        {
+            // §FIX-DIMS-REACH-RECORD — the opening-dimension twins. The plugin
+            // window/door size/sill handlers wrote detached plugin stores; the
+            // LIVE route is the generic parameter command (openings resolve to
+            // the wallStore and rebuild the host — production-proven by the
+            // compound-dimensions founder repro). stores: [] — hosted-opening
+            // undo lives on the CommandManager stack by design
+            // (buildUndoStoreMap deliberately omits door/window).
+            type: 'window.setSize',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.windowId ? 'windowId is required' :
+                (cmd.width === undefined && cmd.height === undefined)
+                    ? 'at least one of width / height is required' : null
+            ),
+            fn: (cmd) => {
+                const parameters: Record<string, number> = {};
+                if (cmd.width !== undefined) parameters['width'] = cmd.width;
+                if (cmd.height !== undefined) parameters['height'] = cmd.height;
+                _cmExec(new UpdateElementParameterCommand({ elementId: cmd.windowId, elementType: 'window', parameters }));
+            },
+        },
+        {
+            type: 'window.setSillHeight',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.windowId ? 'windowId is required' :
+                cmd.sillHeight === undefined ? 'sillHeight is required' : null
+            ),
+            fn: (cmd) => {
+                _cmExec(new UpdateElementParameterCommand({
+                    elementId: cmd.windowId, elementType: 'window', parameters: { sillHeight: cmd.sillHeight },
+                }));
+            },
+        },
+        {
+            type: 'door.setWidth',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.doorId ? 'doorId is required' :
+                cmd.width === undefined ? 'width is required' : null
+            ),
+            fn: (cmd) => {
+                _cmExec(new UpdateElementParameterCommand({
+                    elementId: cmd.doorId, elementType: 'door', parameters: { width: cmd.width },
+                }));
+            },
+        },
+        {
+            type: 'door.setHeight',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.doorId ? 'doorId is required' :
+                cmd.height === undefined ? 'height is required' : null
+            ),
+            fn: (cmd) => {
+                _cmExec(new UpdateElementParameterCommand({
+                    elementId: cmd.doorId, elementType: 'door', parameters: { height: cmd.height },
+                }));
+            },
+        },
+        {
+            type: 'door.setSillHeight',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.doorId ? 'doorId is required' :
+                cmd.sillHeight === undefined ? 'sillHeight is required' : null
+            ),
+            fn: (cmd) => {
+                _cmExec(new UpdateElementParameterCommand({
+                    elementId: cmd.doorId, elementType: 'door', parameters: { sillHeight: cmd.sillHeight },
                 }));
             },
         },

@@ -23,18 +23,18 @@ Chat and it must work" (the phase's founder-testable acceptance).
 🧪 Nothing new to type — this phase guarantees every FUTURE sentence is real.
 CI now prints: `maturity: M2/M3 21 · M4 2 · M5 2 · M6 0 · M7 0`.
 
-## Phase U1 — Liveness verdicts + dead-edit fixes 🔶 (auditor in flight)
+## Phase U1 — Liveness verdicts + dead-edit fixes ✅ (§FIX-DIMS-REACH-RECORD, L-815)
 
 | Sub | What | Status |
 |---|---|---|
-| U1.1 | `wall.updateDimensions` production-liveness verdict (allowlisted PENDING) | 🔶 auditor running |
-| U1.2 | If dead: re-route wall height/thickness; if live: annotate allowlist as proven | ⬜ |
-| U1.3 | Property-Inspector dead-edit findings (window.setSize etc. from the legacy panel) → ISSUE-LOG L-815 + fix or hand-off | ⬜ |
-| U1.4 | Sweep remaining chat-adjacent verbs per auditor report | ⬜ |
+| U1.1 | `wall.updateDimensions` production-liveness verdict | ✅ verdict: **DEAD** (detached plugin store; founder-approved fix) |
+| U1.2 | Re-route wall height/thickness | ✅ same-verb bridge in initBusHandlers → `UpdateWallDimensionsCommand` vs geometry wallStore + ring-parity undo pair |
+| U1.3 | Property-Inspector dead-edit verbs (window.setSize/setSillHeight, door.setWidth/setHeight/setSillHeight) | ✅ five bridges → `UpdateElementParameterCommand` (production-proven Inspector route); plugin handlers retired; ISSUE-LOG **L-815** |
+| U1.4 | Sweep remaining chat-adjacent verbs | ✅ `PLUGIN_LIVE_ALLOWLIST` emptied — gate 3d now proves route liveness with zero exemptions; 13 dead verbs pinned in DEAD_VERBS |
 
-🧪 After U1: *"make this wall 3 m tall"* is **guaranteed** real (today it is
-believed-but-unproven on the plugin wall store), and the legacy inspector's
-width/sill edits are fixed or logged.
+🧪 After U1 (now TESTABLE): *"make this wall 3 m tall"*, *"make this wall 30 cm
+thick"*, and the Inspector's window/door width & sill edits are **guaranteed**
+real — geometry store, render, persistence, and one truthful undo step each.
 
 ## Phase U5a — Conversational level duplication ✅ (`9d7ffaeb`) *(pulled ahead — zero new execution code)*
 

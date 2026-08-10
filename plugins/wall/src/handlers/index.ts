@@ -26,7 +26,7 @@ import { CutWallHandler } from './CutWall.js';
 import { UpdateWallSystemTypeHandler } from './UpdateWallSystemType.js';
 import { UpdateWallsSystemTypeBatchHandler } from './UpdateWallsSystemTypeBatch.js';
 import { UpdateWallsColorBatchHandler } from './UpdateWallsColorBatch.js';
-import { UpdateWallDimensionsHandler } from './UpdateWallDimensions.js';
+// §FIX-DIMS-REACH-RECORD — UpdateWallDimensionsHandler import removed with its registration.
 import { UpdateWallBaselineHandler } from './UpdateWallBaseline.js';
 import { CascadeWallBaselineHandler } from './CascadeWallBaseline.js';
 import { CreateWallsOnAllSlabsHandler } from './CreateWallsOnAllSlabs.js';
@@ -78,7 +78,11 @@ export const WALL_HANDLER_TYPES = [
   'wall.updateSystemTypeBatch',
   // §FEAT-WALL-COLOR-BATCH (ADR-0314) — batch recolour ('all' or explicit ids), one undo entry.
   'wall.updateColorBatch',
-  'wall.updateDimensions',
+  // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815): 'wall.updateDimensions' LEFT
+  // this set — the plugin handler wrote the DETACHED plugin store (silent
+  // no-op in production; undo-asymmetric with the ring buffer). The verb is
+  // now owned by the same-name legacy bridge in initBusHandlers, which runs
+  // UpdateWallDimensionsCommand against the geometry wallStore.
   'wall.updateBaseline',
   'wall.cascadeBaseline',
   'wall.create-on-all-slabs',
@@ -129,7 +133,8 @@ export function buildWallHandlerSet(
     UpdateWallSystemTypeHandler as unknown as CommandHandler<unknown>,
     UpdateWallsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallsColorBatchHandler as unknown as CommandHandler<unknown>,
-    UpdateWallDimensionsHandler as unknown as CommandHandler<unknown>,
+    // §FIX-DIMS-REACH-RECORD — UpdateWallDimensionsHandler retired (see
+    // WALL_HANDLER_TYPES note); the initBusHandlers bridge owns the verb.
     UpdateWallBaselineHandler as unknown as CommandHandler<unknown>,
     CascadeWallBaselineHandler as unknown as CommandHandler<unknown>,
     new CreateWallsOnAllSlabsHandler() as unknown as CommandHandler<unknown>,

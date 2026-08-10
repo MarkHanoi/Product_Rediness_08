@@ -220,9 +220,16 @@ const D_LEGACY = [
   // success and changes nothing. The chat previously dispatched all eight; each
   // is re-routed to the live legacy path named in the capability's commandProof.
   ...family('D', 'Plugin DTO-store handler nothing in production reads (§FIX-MATERIAL-DEAD-DISPATCH family) — a dispatch looks like success and changes nothing; chat drives the live legacy route instead (see the owning capability commandProof).', [
-    'window.setSize', 'window.setSillHeight', 'door.setWidth',
     'slab.setThickness', 'roof.setThickness', 'roof.setPitch',
     'stair.setWidth', 'ceiling.setHeight',
+  ]),
+  // §FIX-DIMS-REACH-RECORD (L-815): these verbs are now LIVE same-name
+  // legacy bridges in initBusHandlers (the dead plugin handlers were retired
+  // from registration). They serve the legacy inspector; chat reaches the
+  // same parameters through element.updateParameters, so a second chat route
+  // per verb would be two sources of truth for one ask.
+  ...family('D', 'Inspector single-opening route, live-bridged via initBusHandlers → UpdateElementParameterCommand; chat reaches the same parameters through element.updateParameters.', [
+    'window.setSize', 'window.setSillHeight', 'door.setWidth', 'door.setSillHeight',
   ]),
   ...family('D', 'Single-wall variant of the batch retype the chat already drives (wall.updateSystemTypeBatch covers one wall, many, or all).', ['wall.setSystemType', 'wall.updateSystemType']),
   ...family('D', 'Second dimension route for walls; the chat uses wall.updateDimensions.', ['wall.setDimensions']),
