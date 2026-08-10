@@ -6,10 +6,14 @@
 
 import type { FPState } from './FPTypes';
 import type { PDFConversionResult } from '@pryzm/file-format';
-import { setStatus } from './FPHelpers';
+import { gotoStep, setStatus } from './FPHelpers';
 import { convertImageToImportResult } from '@pryzm/file-format';
-import { detectScaleRatioFromText, pxPerMeterFromScaleRatio } from './Step2CalibrationView';
-import { handlePlaceUnderlay, handleConfirmPosition } from './Step3UnderlayView';
+import {
+    applyCalibration,
+    detectScaleRatioFromText,
+    initStep2Ruler,
+    pxPerMeterFromScaleRatio,
+} from './Step2CalibrationView';
 
 // Contract 47 §9.8 — lazy-load pdfjs-dist (vendor-pdfjs ≈ 409 KB).
 // PDFToImageConverter statically imports pdfjs-dist, so a runtime import()
@@ -42,9 +46,9 @@ export function getFloorPlanFileType(file: File): 'pdf' | 'image' | null {
 }
 
 /**
- * Pick a sensible default pxPerMeter so the underlay can be placed without
- * forcing the user through a calibration wizard. The user can always rescale
- * via the Contextual Edit Bar's 3-point reference scale tool.
+ * Pick a sensible default pxPerMeter to PRE-FILL Step 2's calibration
+ * (§FIX-PDF-BIM-WIZARD: it no longer bypasses the wizard — the user sees the
+ * pre-set scale, can accept it with one click, or recalibrate with the ruler).
  *
  *  - PDF with a "1:NNN" annotation → use that ratio.
  *  - PDF without annotation → assume 1:100 (most common architectural scale).
@@ -108,18 +112,29 @@ export async function handlePDFUpload(state: FPState, e: Event): Promise<void> {
             thumb.style.display = 'block';
         }
 
-        // Auto-place: pick a default scale and drop the underlay into the scene immediately.
+        // §FIX-PDF-BIM-WIZARD (founder 2026-08-10) — the previous "auto-place"
+        // block ended the flow HERE: default scale → underlay dropped in the scene
+        // → done, with the analyse/review/execute steps never entered ("now I can
+        // only import the pdf into the space"). The upload now proceeds INTO the
+        // wizard: Step 2 (calibration, pre-filled with the detected/default scale
+        // so one click suffices) → Step 3 (position) → Step 4 (Analyse — vector
+        // extraction first, AI fallback) → review → EXECUTE real BIM elements.
+        // "Underlay only" remains an explicit Step-3 button, never the silent end.
         const { pxPerMeter, description } = pickDefaultPxPerMeter(fileType, state.pdfConversion);
-        state.pxPerMeter = pxPerMeter;
-        state.calibrationMethod = 'manual';
 
-        setStatus(`Placing in scene (${description})…`);
-        await handlePlaceUnderlay(state);
-        handleConfirmPosition(state);
-
+        gotoStep(state, 2);
+        initStep2Ruler(state);
+        // Pre-fill the calibration with the detected/default scale — the user can
+        // accept it by clicking "Place in Scene →", or recalibrate with the ruler.
+        applyCalibration(
+            state,
+            pxPerMeter,
+            description.startsWith('auto-detected') ? 'scale_bar' : 'manual',
+            description,
+        );
         setStatus(
-            `✓ Imported (${description}). Click the plan to select it, then drag to move, ` +
-            `press R to rotate, or use the Scale tool to resize.`
+            `✓ Converted. Scale pre-set (${description}) — verify or recalibrate, ` +
+            `then "Place in Scene →" to continue to BIM analysis.`
         );
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

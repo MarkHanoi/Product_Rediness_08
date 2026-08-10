@@ -5,7 +5,7 @@
  */
 
 import type { FPState } from './FPTypes';
-import { setStatus } from './FPHelpers';
+import { gotoStep, setStatus } from './FPHelpers';
 import { FloorPlanUnderlayTool } from '@pryzm/input-host';
 import {
     CreateUnderlayCommand,
@@ -34,6 +34,9 @@ export async function handlePlaceUnderlay(state: FPState): Promise<void> {
     if (state.underlayTool) {
         state.underlayTool.dispose();
     }
+    // §FIX-PDF-BIM-WIZARD — new tool = new Import Manager identity; clear the old
+    // id so handleConfirmPosition mints a fresh one (and reuses it on re-confirm).
+    (state as any)._underlayId = undefined;
 
     const creationParams: UnderlayCreateSnapshot = {
         blobUrl:    state.pdfConversion.blobUrl,
@@ -65,28 +68,56 @@ export async function handlePlaceUnderlay(state: FPState): Promise<void> {
     window.runtime?.bus?.executeCommand(_underlayCmd.type, _underlayCmd);
 
     state.underlayConfirmed = false;
-    // Auto-import flow: do NOT navigate to a wizard step — handleConfirmPosition
-    // will hide Step 1 and reveal the persistent controls bar instead.
+    // §FIX-PDF-BIM-WIZARD (founder 2026-08-10) — navigate to Step 3 (position) so
+    // the wizard continues toward Analyse. (The removed "auto-import flow" comment
+    // deliberately skipped navigation, which stranded the panel before Step 4.)
+    gotoStep(state, 3);
+    setStatus('Plan placed — drag to position it, then continue to analysis (or finish as underlay only).');
 }
 
-export function handleConfirmPosition(state: FPState): void {
+/**
+ * Confirm the underlay position.
+ *
+ * §FIX-PDF-BIM-WIZARD — two EXPLICIT endpoints (never a silent one):
+ *  - default: continue the wizard to Step 4 (Analyse → BIM elements).
+ *  - `{ finish: true }`: "underlay only" — lock the plan, show the persistent
+ *    controls bar, and END with an honest status saying no BIM elements were
+ *    created. This is the old auto-flow endpoint, now an explicit button.
+ */
+export function handleConfirmPosition(state: FPState, opts?: { finish?: boolean }): void {
     if (!state.underlayTool) return;
     state.underlayTool.setLocked(true);
     state.underlayConfirmed = true;
 
-    // Hide the file-picker (Step 1) — it's done its job.
-    const step1 = document.getElementById('fp-step-1');
-    if (step1) step1.style.display = 'none';
-
-    // Show the persistent underlay controls bar
-    const controlsBar = document.getElementById('fp-underlay-controls-bar');
-    if (controlsBar) controlsBar.style.display = 'flex';
-
-    // Notify Import Manager — §32
-    const underlayId = `floor-plan-${Date.now()}`;
+    // Notify Import Manager — §32 (both endpoints: the underlay exists either way).
+    // Reuse the session's id on re-confirm (Back → confirm again) so the manager
+    // updates ONE row instead of accumulating duplicates (it keys rows by id).
+    const underlayId = (state as any)._underlayId ?? `floor-plan-${Date.now()}`;
     (state as any)._underlayId = underlayId;
     const fileName = state.pdfConversion
         ? (document.getElementById('fp-filename')?.textContent?.replace(/^📄\s*/, '') ?? 'Floor Plan')
         : 'Floor Plan';
     window.runtime?.events?.emit('pryzm-floor-plan-underlay-placed', { underlayId, fileName }); // F.events.13
+
+    if (opts?.finish) {
+        // Underlay-only endpoint: hide every wizard step, show the controls bar.
+        ([1, 2, 3, 4, 5, 6] as const).forEach(s => {
+            const el = document.getElementById(`fp-step-${s}`);
+            if (el) el.style.display = 'none';
+        });
+        const debugPanel = document.getElementById('fp-step-debug');
+        if (debugPanel) debugPanel.style.display = 'none';
+        const controlsBar = document.getElementById('fp-underlay-controls-bar');
+        if (controlsBar) controlsBar.style.display = 'flex';
+        setStatus(
+            '✓ Imported as underlay only — NO BIM elements were created. ' +
+            'Click the plan to move it, R to rotate, Scale to resize. ' +
+            'Re-open the panel and upload again for full PDF-to-BIM analysis.'
+        );
+        return;
+    }
+
+    // Full PDF-to-BIM path: continue to the analysis options.
+    gotoStep(state, 4);
+    setStatus('Position confirmed — choose what to detect, then Analyse.');
 }

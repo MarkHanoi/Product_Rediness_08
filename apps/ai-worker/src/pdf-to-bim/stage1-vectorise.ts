@@ -123,11 +123,6 @@ function cubicAt(
   ];
 }
 
-interface CurveRun {
-  /** Sampled points along the run, in page user space, start → end. */
-  readonly samples: ReadonlyArray<readonly [number, number]>;
-}
-
 /** Fit a circular arc to a sampled curve run. Returns the arc element
  *  (convention `[center, startPt, endPt]`) or null when the run is not
  *  circular / not door-swing-like. Exported for unit tests. */

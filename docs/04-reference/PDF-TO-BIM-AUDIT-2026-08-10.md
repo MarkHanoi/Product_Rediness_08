@@ -251,3 +251,34 @@ file-format stays logic-free (pure pass-through), so L3 never imports an app.
 sill height defaulted; furniture only via AI Stage C; multi-page PDFs use page 1 only; the
 vector path has not yet been exercised against a corpus of real CAD-exported PDFs — the
 preview-gate accuracy thresholds (`preview-gate.ts`) remain the acceptance bar.
+
+### 6.1 §FIX-PDF-BIM-WIZARD — the wizard was unreachable in production (founder P0, same day)
+
+Founder report: the AI & TOOLS "PDF Import" button ended at "✓ Imported (default 10 m wide)"
+with Scale/Settings/Remove — an underlay, no BIM elements: *"this was wired once upon a time —
+now I can only import the pdf into the space."*
+
+**Root cause — a deliberate downgrade, not a broken wire.** Three cooperating pieces in
+`apps/editor/src/ui/ai/floorplan-import/`:
+
+1. `Step1UploadView.handlePDFUpload` — an "Auto-place" block picked a default scale
+   (`pickDefaultPxPerMeter`), dropped the underlay, called `handleConfirmPosition`, and
+   STOPPED. Steps 2 and 4 were never entered.
+2. `FPHelpers.gotoStep` — `display = (s === step && s <= 3)` with the comment *"keep 4-6
+   always hidden per 3-step flow"*. The Analyse/review/execute steps were **structurally
+   unreachable** — no code path could show them.
+3. `Step3UnderlayView.handleConfirmPosition` — hid Step 1 and revealed the persistent
+   underlay controls bar (the founder's exact screenshot).
+
+The Import Manager "PDF/Image" row is **not a second import path** — it is the §32
+registration event (`pryzm-floor-plan-underlay-placed`) for a placed underlay. The founder
+used the only path that existed.
+
+**Fix (all in floorplan-import):** upload → Step 2 calibration (pre-filled with the
+detected `1:N` / default scale so one click suffices; the §VEC-WIRE path banner shows here)
+→ "Place in Scene →" → Step 3 position → the EXPLICIT fork: primary "🔍 Continue to BIM
+Analysis →" (→ Step 4 → vector-first/AI → preview → Step 5 → EXECUTE) vs secondary
+"✓ Finish — underlay only (no BIM elements)". The underlay-only endpoint now SAYS "NO BIM
+elements were created" (§CONTEXT-DATA-HONESTY) — it is a choice, never the silent default.
+The `s <= 3` clamp in `gotoStep` is deleted. Import-Manager ids are reused on re-confirm
+(Back → confirm) so the row list cannot accumulate duplicates.

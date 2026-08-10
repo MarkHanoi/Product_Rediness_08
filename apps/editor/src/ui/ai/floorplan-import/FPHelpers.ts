@@ -34,10 +34,15 @@ export function gotoStep(state: FPState, step: 1 | 2 | 3 | 4 | 5 | 6): void {
         outerContainer.style.overflow = 'hidden';
         outerContainer.style.transition = 'width 0.2s ease';
     }
-    // Update visibility for all step panels (keep 4-6 always hidden per 3-step flow)
+    // §FIX-PDF-BIM-WIZARD (founder 2026-08-10, "what I want is PDF to BIM") — the
+    // `s <= 3` clamp here was the regression that made Steps 4–6 (Analyse → review
+    // → execute) STRUCTURALLY unreachable: the whole panel was silently downgraded
+    // to a 3-step underlay-only flow. All six steps are navigable again; the
+    // underlay-only quick path is an EXPLICIT Step-3 button, never the silent
+    // endpoint.
     ([1, 2, 3, 4, 5, 6] as const).forEach(s => {
         const el = document.getElementById(`fp-step-${s}`);
-        if (el) el.style.display = (s === step && s <= 3) ? 'flex' : 'none';
+        if (el) el.style.display = (s === step) ? 'flex' : 'none';
     });
     // Update 3-step indicator dots
     ([1, 2, 3] as const).forEach(s => {

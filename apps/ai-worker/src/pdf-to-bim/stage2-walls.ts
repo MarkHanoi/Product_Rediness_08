@@ -208,7 +208,9 @@ export function computeWallConfidence(
 }
 
 /** Column confidence — per spec lines 986-993. */
-export function computeColumnConfidence(w: number, h: number, aspect: number): number {
+// `_h` retained in the signature (spec lines 986-993 define the triple) but only
+// width + aspect currently contribute to the score.
+export function computeColumnConfidence(w: number, _h: number, aspect: number): number {
   let score = 0.5;
   const nearestW = COMMON_COLUMN_SIZES_MM.reduce((a, b) =>
     Math.abs(a - w) < Math.abs(b - w) ? a : b,

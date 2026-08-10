@@ -152,15 +152,25 @@ export function buildFloorPlanDOM(
         </div>
 
         <!-- Step 3: Place Underlay -->
+        <!-- §FIX-PDF-BIM-WIZARD — Step 3 is the EXPLICIT fork: continue to BIM
+             analysis (default) or finish as a flat underlay (opt-in, clearly
+             labelled). The old single "✓ Finish Import" made underlay-only the
+             silent endpoint of every import. -->
         <div id="fp-step-3" class="fp-step" style="display:none;flex-direction:column;">
             <div class="fp-step-title">3 — Position in Scene</div>
             <div class="fp-hint">
                 Drag to move · <strong>R</strong> to rotate · <strong>Delete</strong> to remove.
             </div>
             <div class="fp-row-btns">
-                <button class="fp-btn" id="fp-confirm-pos-btn">✓ Finish Import</button>
+                <button class="fp-btn" id="fp-confirm-pos-btn"
+                        title="Lock the plan position and continue to wall/door/window detection">
+                    🔍 Continue to BIM Analysis →</button>
                 <button class="fp-btn fp-btn--secondary" id="fp-back-2-btn">← Back</button>
             </div>
+            <button class="fp-btn fp-btn--secondary" id="fp-underlay-only-btn"
+                    style="margin-top:4px;font-size:11px;"
+                    title="Keep the plan as a flat reference image only — no walls, doors, or windows are created">
+                ✓ Finish — underlay only (no BIM elements)</button>
         </div>
 
         <!-- Persistent underlay controls bar — shown after import is complete. -->
@@ -201,7 +211,8 @@ export function buildFloorPlanDOM(
             </div>
         </div>
 
-        <!-- Step 4: Analysis Options (hidden — not used in 3-step flow) -->
+        <!-- Step 4: Analysis Options (§FIX-PDF-BIM-WIZARD — reachable again;
+             vector extraction runs first for vector PDFs, AI vision otherwise) -->
         <div id="fp-step-4" class="fp-step" style="display:none;flex-direction:column;">
             <div class="fp-step-title">4 — Analysis Options</div>
             <div class="fp-check-group">
@@ -358,9 +369,12 @@ export function buildFloorPlanDOM(
             gotoStep(state, 1)
         );
 
-        // Step 3
+        // Step 3 — §FIX-PDF-BIM-WIZARD: two explicit endpoints.
         container.querySelector('#fp-confirm-pos-btn')?.addEventListener('click', () =>
-            handleConfirmPosition(state)
+            handleConfirmPosition(state)                       // → Step 4 (Analyse)
+        );
+        container.querySelector('#fp-underlay-only-btn')?.addEventListener('click', () =>
+            handleConfirmPosition(state, { finish: true })     // explicit underlay-only end
         );
         container.querySelector('#fp-back-2-btn')?.addEventListener('click', () =>
             gotoStep(state, 2)
