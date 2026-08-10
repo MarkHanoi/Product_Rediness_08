@@ -1,6 +1,6 @@
 # C67 — RAC: The Natural-Language Capability Control Plane
 
-> **Stamp**: 2026-08-10 · **Status**: CANONICAL
+> **Stamp**: 2026-08-10 (rev 2 — post-phase-3, same day) · **Status**: CANONICAL
 > **Authority**: subordinate to `STR-03-engineering-vision.md` / `STR-04-architecture.md`; peers with C03 (commands/state), C11 (element creation), C15 (hosted elements), C16 (command authoring / semantic engine), C65 (element types). Supersedes nothing; ADR-0313 records the implementation decisions under this contract.
 > **Scope**: what the chat can do today (AS-IS, verified), what it must become (TO-BE), and the binding architecture for getting there — including composite creation ("create 4 windows 2×2, sill 0.1, at equal distances").
 
@@ -53,22 +53,29 @@ All local tiers are **pure** (no DOM / store / network in the resolver; context 
 
 ### §1.3 The machinery that makes §1.2 trustworthy
 
-- **`ChatCapabilityRegistry`** — 14 capabilities covering 11 commands. Each carries: id, description, verbs/aliases, **proven** target kinds, parameters *with value source* (`wall-system-types`, `project-levels`, `measurement`…), scope, destructive flag, implementing command, a **probe** `SemanticIntent`, a **commandProof** (source anchor), and examples. Plus `CHAT_UNAVAILABLE` — the stated-reason deferral list (the `AUTHORING_UNAVAILABLE` pattern).
+- **`ChatCapabilityRegistry`** — **16 capabilities covering 18 commands** (phase 3, commit `26eec228`). Each carries: id, description, verbs/aliases, **proven** target kinds, parameters *with value source* (`wall-system-types`, `project-levels`, `measurement`…), scope, destructive flag, implementing command, a **probe** `SemanticIntent`, a **commandProof** (source anchor), and examples. Plus `CHAT_UNAVAILABLE` — the stated-reason deferral list (the `AUTHORING_UNAVAILABLE` pattern).
 - **Two proofs per target** (the ElementCapabilities lesson — a declared-but-unvalidated table *lies*):
   1. the CI gate **executes** each capability's probe across all 16 element kinds and requires *accepted set == declared set exactly, both directions*;
   2. `commandProof` anchors the claim to the deciding source file.
   This machinery immediately caught a live defect: chat said **"Done"** for "set height to 3 m" on a *room* while the command resolved no store and changed nothing (§FIX-CHAT-HEIGHT-OVERCLAIM).
-- **Coverage gate** (`check-chat-capability-coverage`, gate 31, shrink-only): 303 registered bus commands, **269 undeclared at baseline**. A new command with no chat metadata turns CI red — the exact failure (`wall.updateSystemTypeBatch` shipped chat-invisible) that motivated this architecture can no longer recur silently.
+- **Coverage gate** (`check-chat-capability-coverage`, gate 31, shrink-only): 303 registered bus commands, **UNDECLARED = 0** since phase 3 — every command is a capability (18), a truthful `CHAT_UNAVAILABLE` entry (51), or classified in `ChatCommandClassification.ts` (234: B needs-design 134 · C internal 50 · D duplicate 38 · E unsafe-without-bigger-confirmation 3 · F deferred-scope 9). A new command with no chat metadata turns CI red; the gate also hard-fails classification inconsistencies and unresolvable parameter sources.
 - **Value resolution** through the *one* existing resolver per source (e.g. `resolveWallSystemTypeRef`: exact id → exact name → case-insensitive → unambiguous word-subset → refusal-with-alternatives). "interior partition" finds `Interior – Partition 100mm` without the user reproducing an en-dash.
 
-### §1.4 AS-IS limitations (true today, not padded)
+### §1.4 AS-IS additions from phase 3 (landed same day, commit `26eec228`)
 
-1. 269 of 303 commands are undeclared to chat — mostly correctly (internal/infra), but unclassified, so the roadmap is not yet knowable from the repo.
-2. Selection context is effectively single-element in the bridge; "the three doors I selected" confirms against one.
-3. No **composite planner**: one capability maps to one command dispatch. The §3 windows request cannot execute yet.
-4. No appearance/material capabilities for walls (the founding asymmetry) — truthfully refused, not yet closed.
-5. Reference resolution knows selection + conversation, not names or spatial relations ("the north wall").
-6. A phase-3 implementation pass against these limitations is **in flight** as of this stamp; its results land in ADR-0313 and update §1 figures.
+- **Compound dimensions** — "make this window 2 m height, 2 m width, 0.1 sill" is ONE dispatch. The live failure was two bugs: first-number-wins would have set the SILL to 2 m, and multi-command sequences died on re-minted opening ids. Both fixed, pinned by a test that simulates the id re-mint.
+- **Symmetry tranche** — thickness: wall/slab/roof · width: door/window/stair · height: +ceiling · roof pitch (deg→rad at one site) · room number.
+- **Follow-ups** — "change all walls to X / actually use Y", "level 1 / actually 0", measurement revision; editor state always beats stale context.
+- Chat suites **180/180**, no-LLM proof **11/11**.
+
+### §1.5 AS-IS limitations (true today, not padded)
+
+1. Selection context is effectively single-element in the bridge; "the three doors I selected" confirms against one.
+2. No **composite planner**: one capability maps to one command dispatch. The §3 windows request cannot execute yet — it is phase 4's acceptance test.
+3. No appearance/material capabilities for walls (the founding asymmetry) — truthfully refused; class-B in the classification.
+4. Element-by-name references ("the kitchen wall") are class-B pending a name-catalogue injection; spatial references likewise.
+5. A stale **selection** id from a previous rebuild still fails at dispatch — surfaced honestly; the fix belongs to the selection manager, not chat.
+6. ~6–10 pre-existing flaky failures in unrelated ai-host layout-sweep suites (none import chat modules).
 
 ---
 
@@ -166,7 +173,7 @@ The same planner shape then gives, nearly for free: "add a door every 3 m", "mov
 | Phase | Deliverable | State |
 |---|---|---|
 | **1–2** | Registry, coverage gate, honest refusals, first proven capabilities | ✅ shipped (`603e0d32`, live `70667276`) |
-| **3** | 269-command A–F classification (the roadmap artefact) · symmetry audit across all element kinds · class-A capabilities implemented · structured follow-ups · reference precedence · `CommandPlan` validation · no-LLM proof per capability | 🔄 **in flight** (agent, brief of 2026-08-10) |
+| **3** | 269-command A–F classification (`ChatCommandClassification.ts`) · symmetry tranche · compound dimensions · structured follow-ups · coverage baseline ratcheted to **0** | ✅ shipped (`26eec228`, same day) |
 | **4** | **The planner** (§2.1 layer 4): quantity/distribution arithmetic, per-command precondition validation, plan preview + Apply/Cancel for multi-element and project-wide plans. Acceptance test = §3 verbatim | next |
 | **5** | Multi-select bridge parity ("the three doors") · named/spatial references ("the north wall") · capability-derived "what can I do with walls?" | after 4 |
 | **6** | LLM tier consumes the registry as its tool list; LLM plans pass the §4.1 validator; measured token telemetry proving the 0-token share | last |
