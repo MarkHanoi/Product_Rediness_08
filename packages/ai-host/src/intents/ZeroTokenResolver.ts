@@ -32,6 +32,11 @@ import {
   resolveChatCapability,
 } from '../capabilities/ChatCapabilityRegistry.js';
 import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
+// RAC U4 — the spec-driven capability interpreter: batch-shaped capabilities
+// are TABLE ENTRIES in CapabilityExecutionSpec.ts, executed by the ONE generic
+// arm below (the switch's default). applySemanticIntent remains the single
+// semantic authority; the spec file holds data, not a second dispatcher.
+import { applyExecutionSpec } from './CapabilityExecutionSpec.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
 import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
 import { isScopeError, type Compass4, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
@@ -1247,66 +1252,6 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
-    case 'set-wall-type': {
-      // Scope first: "the selected walls" must never silently become "all walls".
-      let wallIds: readonly string[] | 'all';
-      if (si.scope === 'selection') {
-        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
-        if (walls.length === 0) {
-          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
-          return {
-            kind: 'refusal', intent: 'set-wall-type',
-            reason: kinds.length === 0
-              ? 'No walls are selected — select some walls, or say "change all walls to …" to retype the whole project.'
-              : `Wall types apply to walls, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
-            suggestions: ['change all walls to interior partition'],
-          };
-        }
-        wallIds = walls.map((s) => s.elementId);
-      } else {
-        wallIds = 'all';
-      }
-
-      // Resolve the type through the INJECTED lookup (one implementation —
-      // `resolveWallSystemTypeRef`). Absent injection forwards the raw string
-      // and the command refuses with the same honesty; it never guesses.
-      let systemType = si.typeRef;
-      let typeLabel = `"${si.typeRef}"`;
-      if (ctx.resolveWallSystemType !== undefined) {
-        const hit = ctx.resolveWallSystemType(si.typeRef);
-        if (hit === null) {
-          const names = ctx.wallSystemTypeNames ?? [];
-          return {
-            kind: 'refusal', intent: 'set-wall-type',
-            reason: names.length === 0
-              ? `I could not find a wall type called "${si.typeRef}" in this project.`
-              : `There is no wall type called "${si.typeRef}" in this project. The wall types here are: ${names.join(', ')}.`,
-            suggestions: names.slice(0, 2).map((n) => `change all walls to ${n.toLowerCase()}`),
-          };
-        }
-        systemType = hit.id;
-        typeLabel = `"${hit.name}"`;
-      }
-
-      const scopeLabel = wallIds === 'all'
-        ? 'every wall in the project'
-        : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
-      return {
-        kind: 'commands', intent: 'set-wall-type',
-        summary: `Change ${scopeLabel} to ${typeLabel}`,
-        commands: [{
-          type: 'wall.updateSystemTypeBatch',
-          payload: { wallIds: wallIds === 'all' ? 'all' : [...wallIds], systemType },
-        }],
-        // NOT destructive. A retype is one undo entry, it deletes nothing, and
-        // the command already reports "Changed N of M — K skipped: <reason>"
-        // per §CONTEXT-DATA-HONESTY. Gating it behind a Confirm card would put
-        // a modal in front of the founder's exact sentence for no safety gain;
-        // the reversible-and-reported path is the honest one.
-        destructive: false,
-      };
-    }
-
     case 'set-wall-color': {
       // §FEAT-WALL-COLOR-BATCH (ADR-0314). Scope first, mirroring set-wall-type:
       // "the selected walls" must never silently become "all walls".
@@ -1766,6 +1711,17 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         destructive: false,
       };
     }
+
+    // ── RAC U4 — the ONE generic arm ─────────────────────────────────────────
+    // Every intent NOT hand-written above is a spec-driven batch capability:
+    // the switch narrows `si` to SpecDrivenIntent here, and the generic
+    // interpreter executes its CapabilityExecutionSpec table entry (scope
+    // discipline, value-source refusals listing real options, one batch
+    // command, honest scope label — byte-identical to the arms it replaced).
+    // Adding a capability of this shape is a table entry + registry metadata,
+    // never a new case arm (the §56 extension proof).
+    default:
+      return applyExecutionSpec(si, ctx);
   }
 }
 
