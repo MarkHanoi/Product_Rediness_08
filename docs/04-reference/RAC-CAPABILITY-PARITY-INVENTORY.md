@@ -50,6 +50,25 @@ Companion docs: `docs/02-decisions/adrs/ADR-0313-zero-token-chat-command-resolve
    dotted field paths, IFC Pset augmentation) + `VisibilityRule` + CRUD commands. What is
    missing is a **scope→element-id resolver** and a canonical element-props projection
    (§5 below).
+7. **§FIX-CHAT-DEAD-ROUTES (2026-08-10, ADR-0315 liveness audit).** Eight
+   previously-shipped chat routes (`window.setSize`, `window.setSillHeight`,
+   `door.setWidth`, `slab.setThickness`, `roof.setThickness`, `roof.setPitch`,
+   `stair.setWidth`, `ceiling.setHeight`) were plugin handlers `produceCommand`ing
+   against DETACHED plugin DTO stores — nothing in production reads them, no
+   committer bridges updates back (`initBusHandlers.ts` G7 analysis + ceiling/
+   plumbing tombstones). Chat reported success while changing nothing; gate 3b
+   pinned target-keying, not liveness. **Re-routed** (commit `8447911f`) to the
+   live legacy paths: openings → `element.updateParameters` (wallStore + host
+   rebuild), slab → `slab.updateDimensions`, roof → `roof.update` (pitch as
+   GRADIENT slope via tan), ceiling → `ceiling.update`, stair →
+   `stair.updateParameters`. A registry test now pins a DEAD_VERBS list no
+   capability may dispatch. **Open question under parallel audit:** whether
+   `wall.updateDimensions` (plugin handler, dispatched by chat AND the legacy
+   inspector `PropertyInspectorApply.ts:551`) is live in the production bus
+   wiring, and whether the legacy inspector's own `window.setSize`/`door.set*`
+   dispatches (`:562-573`) are silent no-ops in production (editor bug, to be
+   logged on verdict). **Standing rule: liveness must be proven per route —
+   UI → handler → geometry store → rebuild — before any capability ships.**
 
 ---
 
