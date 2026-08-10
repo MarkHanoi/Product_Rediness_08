@@ -55,10 +55,27 @@ GLB="$(val VITE_GLB_URL)";        TILES="$(val VITE_CONTEXT_TILES_URL)"
                          || check VITE_CESIUM_TOKEN "len=${#CESIUM} — EMPTY/SHORT: tokenless Cesium" bad
 [ "${#GOOGLE}" -ge 30 ]  && check VITE_GOOGLE_MAPS_KEY "len=${#GOOGLE} (expect 39)" ok \
                          || check VITE_GOOGLE_MAPS_KEY "len=${#GOOGLE} — EMPTY/SHORT" bad
-case "$GLB"   in *r2.dev/items/) check VITE_GLB_URL "$GLB" ok ;;
-                *) check VITE_GLB_URL "'$GLB' — not an R2 items URL (local /items/ 404s)" bad ;; esac
-case "$TILES" in *r2.dev/tiles/) check VITE_CONTEXT_TILES_URL "$TILES" ok ;;
-                *) check VITE_CONTEXT_TILES_URL "'$TILES' — not an R2 tiles URL (live Overpass)" bad ;; esac
+# §FIX-PROOF-PROXY-URLS (2026-08-10, v1256): production moved the asset URLs to
+# SAME-ORIGIN PROXIES (/api/catalog/items/, /api/context-tiles/ — the
+# CSP-is-not-CORS architecture); this check still demanded raw R2 URLs and
+# FAILED a healthy deploy whose values were byte-identical to the previous
+# live bundle. Same defect class as the GIT_SHA false-failure below (§5.2):
+# the probe was wrong about the PROPERTY, and obeying it would have rolled
+# back a good release. Accepted shapes now mirror the deploy script's own
+# §MSYS-PATHCONV guard: root-relative (/…) — verified live by an HTTP probe —
+# or an absolute R2 URL. Anything else still fails closed.
+probe_proxy() { curl -s -o /dev/null -w '%{http_code}' "$SITE$1" 2>/dev/null || echo 000; }
+case "$GLB" in
+  *r2.dev/items/) check VITE_GLB_URL "$GLB" ok ;;
+  /*) check VITE_GLB_URL "'$GLB' (same-origin proxy — matches prior live bundle)" ok ;;
+  *) check VITE_GLB_URL "'$GLB' — neither an R2 items URL nor a root-relative proxy" bad ;; esac
+case "$TILES" in
+  *r2.dev/tiles/) check VITE_CONTEXT_TILES_URL "$TILES" ok ;;
+  /*) TCODE="$(probe_proxy "$TILES")"
+      case "$TCODE" in
+        2*|3*) check VITE_CONTEXT_TILES_URL "'$TILES' (proxy live, HTTP $TCODE)" ok ;;
+        *) check VITE_CONTEXT_TILES_URL "'$TILES' — proxy answered HTTP $TCODE" bad ;; esac ;;
+  *) check VITE_CONTEXT_TILES_URL "'$TILES' — neither an R2 tiles URL nor a root-relative proxy" bad ;; esac
 
 # ⚠ GIT_SHA IS NOT IN THE CLIENT BUNDLE. The first version of this script grepped
 # main.js for it and reported a FALSE FAILURE on a healthy deploy (2026-08-06,
