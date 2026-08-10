@@ -1021,6 +1021,27 @@ describe('§GEN-CHAIN — the finishing chain as a conversational flow', () => {
     }
   });
 
+  it('§GEN-OFFER (U5c.3) — the post-duplicate offer is accepted in one reply, never automatic', () => {
+    // Without an open offer a bare "yes" means nothing and must stay a miss —
+    // otherwise the word would be a loaded gun pointing at the last intent.
+    expect(resolveFull('yes', ctxOf()).kind).toBe('miss');
+    expect(resolveNaturalLanguage('yes', ctxOf()).kind).toBe('miss');
+    // With the offer open it becomes the finishing chain — and the chain is
+    // destructive, so the Confirm card still stands between "yes" and the model.
+    for (const reply of ['yes', 'yes please', 'go ahead', 'do it', 'sure']) {
+      const nl = resolveNaturalLanguage(reply, {
+        ...ctxOf(),
+        conversation: { lastIntent: 'duplicate-level', pendingOffer: 'finish-chain' },
+      });
+      expect(nl.kind, `"${reply}" was not accepted`).toBe('resolved');
+      if (nl.kind !== 'resolved') continue;
+      expect(nl.intent).toBe('finish-apartment-chain');
+      expect(nl.resolution.kind === 'commands' && nl.resolution.destructive).toBe(true);
+      // The offer is spent: the next turn carries no pendingOffer.
+      expect(nl.conversation.pendingOffer).toBeUndefined();
+    }
+  });
+
   it('the chain outranks the single-stage grammar when both shapes match', () => {
     expect(intentOf(resolveFull('finish this apartment and light it', ctxOf())))
       .toBe('finish-apartment-chain');

@@ -497,6 +497,31 @@ async function dispatchCommands(
         );
         return;
     }
+    // §GEN-OFFER (RAC U5c.3) — the duplicate-level follow-up. DuplicateFloorPlan
+    // deliberately clones walls/openings/slabs/columns/furniture and NOT rooms,
+    // ceilings or lighting, so the new floor arrives unfinished by design. The
+    // useful next step is obvious, and offering it in one line is worth far more
+    // than making the user re-derive it — but it stays an OFFER. Finishing the
+    // level automatically would be a mutation nobody asked for, on the one
+    // command whose contract is "duplicate, and nothing else".
+    if (r.intent === 'duplicate-level') {
+        const ids = r.commands[0]?.payload['targetLevelIds'];
+        const names = Array.isArray(ids)
+            ? ids.map((id) => ctx.levels.find((l) => l.id === id)?.name ?? String(id))
+            : [];
+        const subject = names.length === 0
+            ? 'The duplicated level'
+            : names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]!}`;
+        offerFinishChain();
+        hooks.say(
+            `${r.summary}. Done — undo with Ctrl+Z. (resolved without AI tokens) ` +
+            `${subject} ${names.length > 1 ? 'have' : 'has'} walls, doors, windows, slabs, columns and furniture, ` +
+            `but no rooms, ceilings or lighting — that is what duplication copies. ` +
+            `Re-detect rooms and finish ${names.length > 1 ? 'them' : 'it'}? Say "yes" and I'll run ceilings, ` +
+            `floor finishes, furniture and lighting on the active level.`,
+        );
+        return;
+    }
     // ADR-0314 honesty: runBatch is undo-NEUTRAL, so N commands are N undo
     // steps — say so instead of implying one.
     const undoHint = r.commands.length > 1
@@ -544,6 +569,12 @@ let conversation: ConversationContext = {};
 /** Reset the cross-turn conversation context (tests / project switch). */
 export function resetZeroTokenConversation(): void {
     conversation = {};
+}
+
+/** §GEN-OFFER (RAC U5c.3) — open the one-turn finishing offer. Set AFTER a
+ *  successful dispatch, so an offer is never made for something that failed. */
+function offerFinishChain(): void {
+    conversation = { ...conversation, pendingOffer: 'finish-chain' };
 }
 
 /**

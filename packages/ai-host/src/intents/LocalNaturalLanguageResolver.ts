@@ -74,6 +74,18 @@ export interface ConversationContext {
    *  "change all walls to X" → "actually use Y" retypes the same population.
    *  Biases interpretation only; targeting is re-read from the live editor. */
   readonly lastWallTypeScope?: 'all' | 'selection';
+  /**
+   * §GEN-OFFER (RAC U5c.3) — a SUGGESTION the assistant made that the user can
+   * accept in one reply ("Level 2 duplicated. Re-detect rooms and furnish it?").
+   *
+   * It is a conversational offer and nothing more: it never mutates on its own,
+   * it survives exactly one turn, and accepting it produces the ordinary
+   * destructive intent, which still shows its own Confirm card. The alternative
+   * — finishing the duplicated level automatically — would be a mutation the
+   * user never asked for, on a command whose whole point is that it duplicates
+   * and nothing else.
+   */
+  readonly pendingOffer?: 'finish-chain';
 }
 
 export interface NaturalLanguageContext extends ResolverContext {
@@ -209,6 +221,11 @@ const SET_INTENTS: ReadonlySet<string> = new Set([
 function isSetIntent(x: string): x is SetIntentName {
   return SET_INTENTS.has(x);
 }
+
+/** §GEN-OFFER (RAC U5c.3) — one-reply acceptance of an open offer. Checked
+ *  against `plain` (filler-stripped), so "yes please" and "ok, go ahead" land. */
+const AFFIRMATIVE_RE =
+  /^(?:yes|yep|yeah|yup|sure|ok|okay|go ahead|do it|do that|please do|go for it|sounds good|lets do (?:it|that)|absolutely|definitely)\b/;
 
 const INTERROGATIVES: ReadonlySet<string> = new Set([
   'what', 'whats', 'how', 'why', 'where', 'which', 'who', 'whose', 'when',
@@ -653,6 +670,19 @@ function classify(
   const candidates: Candidate[] = [];
   const push = (c: Candidate): void => { candidates.push(c); };
   const short = tokens.length <= 3;
+
+  // §GEN-OFFER (RAC U5c.3) — accepting the post-duplicate offer. A bare "yes"
+  // is meaningless on its own and stays a miss; it becomes an intent ONLY
+  // while an offer is open, and the intent it becomes is destructive, so the
+  // Confirm card still stands between the word and the model.
+  if (conversation.pendingOffer === 'finish-chain' && AFFIRMATIVE_RE.test(n.plain)) {
+    push({
+      intent: 'finish-apartment-chain',
+      confidence: 0.95,
+      evidence: ['offer:accepted'],
+      si: { intent: 'finish-apartment-chain', withLayout: false, scope: 'active-level' },
+    });
+  }
 
   // undo / redo — natural variants already canonicalized by the phrase map.
   if (tokens.includes('undo')) {
