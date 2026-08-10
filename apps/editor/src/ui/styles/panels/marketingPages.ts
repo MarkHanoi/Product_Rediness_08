@@ -261,20 +261,20 @@ export const LANDING_PAGE_STYLES = `
        CLS is 0 (the <img> carries width/height attributes). The source PNG is
        alpha-matted around the tile, so the rounded corners sit cleanly on the
        violet bar; the subtle ring just separates the two violets. */
-    /* Founder brief 2026-08-10: the mark LEADS the brand on the LEFT (it was the
-       far-right item, which read as a stray app icon). margin-right now, not left.
-       The 1px white RING is removed — with the bar's left end now matching the
-       tile's own interior violet (§NAV-GRADIENT), the ring was the only thing
-       still drawing a box around the mark. The DROP SHADOW stays: it is what gives
-       the tile its depth, and the founder explicitly asked to keep it. */
+    /* Round 3 (founder): the mark is a SEAMLESS strip — the pyramid on its own
+       violet field, flush with the bar's left edge (negative margin cancels the
+       bar padding), full bar height, and mask-faded rightward so the strip's
+       gradient melts into the bar's token gradient. No radius, no ring, no
+       drop shadow: the shadow is baked into the photograph. */
     .lp-nav-mark {
         display: block;
-        height: 40px;
+        height: 64px;
         width: auto;
         flex-shrink: 0;
-        margin-right: 12px;
-        border-radius: 10px;
-        box-shadow: 0 4px 14px rgba(20,0,60,0.28);
+        margin-left: -18px;
+        margin-right: 4px;
+        -webkit-mask-image: linear-gradient(to right, #000 55%, transparent 100%);
+        mask-image: linear-gradient(to right, #000 55%, transparent 100%);
     }
     /* Shared pill geometry for the four action CTAs. */
     .lp-nav-login,
@@ -1045,7 +1045,7 @@ export const LANDING_PAGE_STYLES = `
             .lp-nav-login,
             .lp-nav-demo { display: none; }
         .lp-nav-actions { gap: 4px; }
-        .lp-nav-mark { height: 34px; margin-right: 8px; }
+        .lp-nav-mark { height: 56px; margin-left: -12px; margin-right: 2px; }
         /* Show hamburger */
         .lp-hamburger { display: flex; }
         /* Show mobile drawer */

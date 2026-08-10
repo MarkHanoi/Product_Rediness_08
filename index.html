@@ -138,12 +138,13 @@
         display: flex; align-items: center; gap: 3px;
       }
       .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
-      /* §SKEL-MATCH — mirrors `.lp-nav-mark`: the tile logo LEADING the bar. */
+      /* §SKEL-MATCH — mirrors `.lp-nav-mark`: the seamless strip, flush left,
+         full bar height, mask-faded into the bar gradient. */
       .lp-skel-mark {
-        display: block; height: 40px; width: auto; flex-shrink: 0; margin-right: 12px;
-        border-radius: 10px;
-        /* Ring removed with the gradient; drop shadow kept (founder). */
-        box-shadow: 0 4px 14px rgba(20,0,60,0.28);
+        display: block; height: 64px; width: auto; flex-shrink: 0;
+        margin-left: -18px; margin-right: 4px;
+        -webkit-mask-image: linear-gradient(to right, #000 55%, transparent 100%);
+        mask-image: linear-gradient(to right, #000 55%, transparent 100%);
       }
       /* Wave 1.5c — `touch-action: manipulation` removes the 300 ms tap-delay
          mobile browsers add to non-double-tap-zoomable buttons.  Combined with
@@ -315,7 +316,7 @@
         /* §SKEL-MATCH — the CTAs hide, the actions ROW stays (it carries the mark). */
         .lp-skel-login, .lp-skel-demo { display: none; }
         .lp-skel-nav-actions { gap: 4px; }
-        .lp-skel-mark { height: 34px; margin-right: 8px; }
+        .lp-skel-mark { height: 56px; margin-left: -12px; margin-right: 2px; }
         .lp-skel-hamburger { display: flex; }
         .lp-skel-logo-icon { width: 36px; height: 36px; }
         .lp-skel-hero { height: calc(100dvh - 56px); min-height: 460px; padding: 16px 20px 44px; }
@@ -376,7 +377,7 @@
                pass: the tile MARK leads on the LEFT, then the wordmark. The
                "BIM PLATFORM" descender is gone (the hero subhead says it). -->
           <div class="lp-skel-brand">
-            <img class="lp-skel-mark" src="/apex/pryzm-mark.png" width="128" height="131" alt="PRYZM" decoding="async">
+            <img class="lp-skel-mark" src="/apex/pryzm-mark-header.webp" width="178" height="128" alt="PRYZM" decoding="async">
           </div>
           <div class="lp-skel-nav-links">
             <span class="lp-skel-nav-link">Solutions</span>

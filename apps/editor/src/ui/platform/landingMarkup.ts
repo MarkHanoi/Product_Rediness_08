@@ -140,9 +140,16 @@ export const HERO_IMAGE_ALT =
  * serves the in-app landing at /apex/… and is copied into `dist-apex/apex/` by
  * `scripts/build/prerender-apex.mjs` for the apex (C51 §2.2.4 self-contained).
  */
-export const NAV_MARK_URL = '/apex/pryzm-mark.png';
-export const NAV_MARK_WIDTH = 128;
-export const NAV_MARK_HEIGHT = 131;
+// 2026-08-10 round 3 (founder): the TILE mark is replaced by a SEAMLESS header
+// strip — the pyramid photographed directly on the violet field (source:
+// public/apex/pryzm-mark-top-header.png, 1 MB), cropped to the pyramid region
+// and re-encoded to a 992-BYTE webp at 2x. No tile, no border, no box: the
+// strip's own gradient is masked out rightward into the bar's token gradient
+// (the strip's seam colour #4A17A5 sits next to pryzm-purple-darker #4A00B7,
+// which is what makes the melt invisible). The heavy source PNG is NOT shipped.
+export const NAV_MARK_URL = '/apex/pryzm-mark-header.webp';
+export const NAV_MARK_WIDTH = 178;
+export const NAV_MARK_HEIGHT = 128;
 export const NAV_MARK_ALT = 'PRYZM';
 
 /**
