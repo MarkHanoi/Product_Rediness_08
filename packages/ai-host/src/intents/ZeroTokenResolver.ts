@@ -464,6 +464,29 @@ export type SemanticIntent =
       readonly scope: 'all' | 'selection';
     }
   /**
+   * §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a
+   * window in the middle of every wall segment" / "create a 1x2m window every
+   * 3 meters in the walls on the ground floor". Dispatches
+   * `window.parametricCreate` (ONE undo entry; children are the proven
+   * CreateWallOpeningCommand with the §OCCUPANCY gate; §WINDOW-CORNER-OVERFLOW
+   * capping). destructive:true so the bridge shows the Confirm card before a
+   * mass creation; the command's report gives the exact created/skipped
+   * counts afterwards.
+   */
+  | {
+      readonly intent: 'create-windows-parametric';
+      readonly mode:
+        | { readonly kind: 'count'; readonly count: number }
+        | { readonly kind: 'spacing'; readonly spacingM: number };
+      /** Window size in metres; null = the stated defaults (1 × 1.2m). */
+      readonly widthM: number | null;
+      readonly heightM: number | null;
+      readonly scope:
+        | 'all'
+        | 'selection'
+        | { readonly kind: 'level'; readonly levelQuery: string };
+    }
+  /**
    * §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm
    * plaster finish to the inner side of the selected wall". Dispatches
    * `wall.addLayerBatch` (ONE undo entry; instance-scoped, raked walls skip
@@ -1526,6 +1549,101 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
+    case 'create-windows-parametric': {
+      // §FEAT-WINDOW-PARAMETRIC-CREATE — scope first (the batch-family shape).
+      let wallIds: readonly string[] | 'all';
+      let scopeLabelOverride: string | null = null;
+      if (typeof si.scope === 'object') {
+        if (ctx.resolveScope === undefined) {
+          return {
+            kind: 'refusal', intent: 'create-windows-parametric',
+            reason:
+              `I can't resolve "on level ${si.scope.levelQuery}" here — spatial scoping ` +
+              `isn't wired into this chat context. I can place windows in all walls or the selected walls.`,
+            suggestions: ['create a window in the middle of every wall segment'],
+          };
+        }
+        const result = ctx.resolveScope({ kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' });
+        if (isScopeError(result)) {
+          return { kind: 'refusal', intent: 'create-windows-parametric', reason: result.error, suggestions: ['create a window in the middle of every wall segment'] };
+        }
+        if (result.ids.length === 0) {
+          return {
+            kind: 'refusal', intent: 'create-windows-parametric',
+            reason: `There are no walls on level ${si.scope.levelQuery} — nothing was created.`,
+            suggestions: ['create a window in the middle of every wall segment'],
+          };
+        }
+        wallIds = result.ids;
+        const where = result.diagnostics[0] ?? si.scope.levelQuery;
+        scopeLabelOverride = `the ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} on ${where}`;
+      } else if (si.scope === 'selection') {
+        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
+        if (walls.length === 0) {
+          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
+          return {
+            kind: 'refusal', intent: 'create-windows-parametric',
+            reason: kinds.length === 0
+              ? 'No walls are selected — select some walls, or say "create a window in the middle of every wall segment".'
+              : `Windows go into walls, and the selection is ${kinds.join(' + ')}. Nothing was created.`,
+            suggestions: ['create a window in the middle of every wall segment'],
+          };
+        }
+        wallIds = walls.map((s) => s.elementId);
+      } else {
+        wallIds = 'all';
+      }
+
+      // Stated defaults, never silent ones (§CONTEXT-DATA-HONESTY): the
+      // summary the Confirm card shows names the size it will build with.
+      const width = si.widthM ?? 1.0;
+      const height = si.heightM ?? 1.2;
+      const sizeLabel = `${width}×${height}m${si.widthM === null ? ' (default size)' : ''}`;
+      if (!(width > 0) || !(height > 0) || width > 10 || height > 10) {
+        return {
+          kind: 'refusal', intent: 'create-windows-parametric',
+          reason: `A window must have a positive size in metres (got ${width}×${height}).`,
+          suggestions: ['create a 1x2m window every 3 meters in all walls'],
+        };
+      }
+      if (si.mode.kind === 'spacing' && si.mode.spacingM < width) {
+        return {
+          kind: 'refusal', intent: 'create-windows-parametric',
+          reason:
+            `Every ${si.mode.spacingM}m won't fit ${width}m-wide windows — the spacing must be ` +
+            `at least the window width, or they would overlap.`,
+          suggestions: ['create a 1x2m window every 3 meters in all walls'],
+        };
+      }
+
+      const scopeLabel = scopeLabelOverride !== null
+        ? scopeLabelOverride
+        : wallIds === 'all'
+          ? 'every wall in the project'
+          : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
+      const modeLabel = si.mode.kind === 'count'
+        ? si.mode.count === 1 ? 'a window in the middle of' : `${si.mode.count} windows evenly across`
+        : `a window every ${si.mode.spacingM}m along`;
+      return {
+        kind: 'commands', intent: 'create-windows-parametric',
+        summary:
+          `Create ${modeLabel} ${scopeLabel} — ${sizeLabel}, sill 0.9m. ` +
+          `Walls that are too short, raked, or already occupied will be skipped and reported.`,
+        commands: [{
+          type: 'window.parametricCreate',
+          payload: {
+            wallIds: wallIds === 'all' ? 'all' : [...wallIds],
+            mode: si.mode,
+            width, height,
+            sillHeight: 0.9,
+          },
+        }],
+        // destructive:true = the bridge's Confirm card — a mass creation is
+        // confirmed before it runs; ONE undo entry reverses all of it after.
+        destructive: true,
+      };
+    }
+
     case 'add-wall-layer': {
       // §FEAT-WALL-LAYER-ADD-BATCH — scope first, then honest completeness
       // refusals: the intent is CLAIMED even when thickness or finish is
@@ -2097,6 +2215,65 @@ const matchAddWallLayer: Matcher = (text, ctx) => {
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
+// §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a window
+// in the middle of every wall segment" / "create 2 windows in all the wall
+// segments" / "create a 1x2m window every 3 meters in the walls on the ground
+// floor".
+//
+// TOKEN-BASED like the layer parser: a creation verb + "window(s)" + "wall(s)/
+// wall segments" + a scope word claims the utterance; size (WxH), spacing
+// ("every 3 m") and count are extracted independently of word order. A level
+// tail ("on the ground floor" / "on level 2") maps to the level scope.
+const WINDOW_SIZE_RE = /(\d+(?:\.\d+)?)\s*(?:x|by|×)\s*(\d+(?:\.\d+)?)\s*(?:m|meters?|metres?)?\b/;
+const WINDOW_SPACING_RE = /\bevery (\d+(?:\.\d+)?) ?(?:m|meters?|metres?)\b/;
+const WINDOW_COUNT_WORDS: Readonly<Record<string, number>> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+
+export function parseWindowsParametricIntent(text: string): Extract<SemanticIntent, { intent: 'create-windows-parametric' }> | null {
+  if (!/^(?:create|add|put|place)\b/.test(text)) return null;
+  if (!/\bwindows?\b/.test(text)) return null;
+  if (!/\bwalls?\b|\bwall segments?\b/.test(text)) return null;
+
+  // Scope discipline: all / every-wall-segment / selected — or a level tail.
+  const isAll = /\b(?:all|every|each)\b[^.]*\bwalls?(?:\b| segments?\b)|\bevery wall segment\b/.test(text);
+  const isSel = /\b(?:the )?(?:selected|these|those|this) walls?\b/.test(text);
+  const levelTail = /\bon (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)\s*(?:floor\s*)?$/.exec(text);
+  const hyphenLevel = /\b(?:in|on) (?:the )?([\w]+)[- ]floor walls?\b/.exec(text);
+  if (!isAll && !isSel && levelTail === null && hyphenLevel === null) return null;
+
+  // Size (strip it before spacing/count so "1x2m" digits are never re-read).
+  const size = WINDOW_SIZE_RE.exec(text);
+  const stripped = size === null ? text : text.replace(WINDOW_SIZE_RE, ' ');
+  const widthM = size === null ? null : Number(size[1]);
+  const heightM = size === null ? null : Number(size[2]);
+
+  const spacing = WINDOW_SPACING_RE.exec(stripped);
+  let mode: Extract<SemanticIntent, { intent: 'create-windows-parametric' }>['mode'];
+  if (spacing !== null) {
+    mode = { kind: 'spacing', spacingM: Number(spacing[1]) };
+  } else {
+    const countM = /^(?:create|add|put|place) (?:(\d+|a|an|one|two|three|four|five) )?windows?\b/.exec(stripped);
+    const word = countM?.[1];
+    const count = word === undefined
+      ? 1
+      : /^\d+$/.test(word) ? Number(word) : (WINDOW_COUNT_WORDS[word] ?? 1);
+    mode = { kind: 'count', count };
+  }
+
+  const scope: Extract<SemanticIntent, { intent: 'create-windows-parametric' }>['scope'] =
+    hyphenLevel !== null
+      ? { kind: 'level', levelQuery: hyphenLevel[1]! }
+      : levelTail !== null && levelTail[1] !== undefined && !/^walls?$/.test(levelTail[1])
+        ? { kind: 'level', levelQuery: `${levelTail[1]}${/floor\s*$/.test(text) && !/\bfloors?\b/.test(levelTail[1]) ? ' floor' : ''}`.trim() }
+        : isSel ? 'selection' : 'all';
+
+  return { intent: 'create-windows-parametric', mode, widthM, heightM, scope };
+}
+
+const matchWindowsParametric: Matcher = (text, ctx) => {
+  const si = parseWindowsParametricIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
 // white" / "paint the rhino model white" / "reset the rhino model materials".
 //
@@ -2161,6 +2338,10 @@ const MATCHERS: readonly Matcher[] = [
   // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
   // it off every other grammar; claims even when underspecified (honest asks).
   matchAddWallLayer,
+  // "create a window in the middle of every wall segment" — BEFORE
+  // matchCreateWall: both start with creation verbs, but this one requires the
+  // word "window", which the wall grammar never carries.
+  matchWindowsParametric,
   matchRiserHeight,  // before matchHeight — "riser height" contains "height"
   matchTreadDepth,
   matchRoomHeightOffset, // before matchHeight — "height offset" contains "height"

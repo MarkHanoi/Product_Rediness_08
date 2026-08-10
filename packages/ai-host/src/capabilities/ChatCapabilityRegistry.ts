@@ -783,6 +783,53 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'create-windows-parametric',
+    // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a
+    // window in the middle of every wall segment" / "a 1x2m window every 3
+    // meters". Rides window.parametricCreate → CreateWindowsParametricBatchCommand:
+    // children are the proven CreateWallOpeningCommand (plan-tool/generative
+    // route: §OCCUPANCY canPlace, hosted mirroring, semantic graph, marks);
+    // §WINDOW-CORNER-OVERFLOW caps spans to the segment; raked hosts refuse
+    // (C15); ONE undo entry; destructive:true = Confirm card before the mass
+    // creation, then "Created N of M planned — K skipped" honesty.
+    description: 'create windows across walls parametrically',
+    verbs: ['create', 'add', 'place', 'put'],
+    aliases: ['windows in walls', 'window every'],
+    refusalLabel: 'window creation',
+    targets: ['wall'],
+    parameters: [
+      {
+        name: 'size',
+        description: 'window width × height in metres (default 1×1.2m, stated in the Confirm card)',
+        required: false,
+        valueSource: 'measurement',
+        example: '1x2m',
+      },
+      {
+        name: 'count or spacing',
+        description: 'N windows per wall, or "every X meters"',
+        required: false,
+        valueSource: 'user-text',
+        example: 'every 3 meters',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection', 'level'],
+    destructive: true,
+    busCommand: 'window.parametricCreate',
+    probe: { intent: 'create-windows-parametric', mode: { kind: 'count', count: 1 }, widthM: 1, heightM: 2, scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/windows/CreateWindowsParametricBatchCommand.ts',
+      mustMention: ['wallStore', 'CreateWallOpeningCommand'],
+      note: "_resolveWalls reads ctx.stores.wallStore and nothing else; per planned window it instantiates the proven CreateWallOpeningCommand (ADD_OPENING: occupancy gate, hosted door/window store mirroring, semantic graph), executed sequentially so self-collisions are detected.",
+    },
+    examples: [
+      'create a window in the middle of every wall segment',
+      'create 2 windows in all the wall segments',
+      'create a 1x2m window every 3 meters in all walls',
+    ],
+  },
+  {
     id: 'add-wall-layer',
     // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm
     // plaster finish to the inner side of the selected wall". Rides

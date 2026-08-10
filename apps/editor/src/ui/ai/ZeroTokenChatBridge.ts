@@ -356,6 +356,8 @@ async function dispatchCommands(
         'window.updateSystemTypeBatch': 'pryzm-window-type-batch-report',
         // §FEAT-WALL-LAYER-ADD-BATCH — "Added … to N of M walls — K skipped".
         'wall.addLayerBatch': 'pryzm-wall-layer-batch-report',
+        // §FEAT-WINDOW-PARAMETRIC-CREATE — "Created N of M planned — K skipped".
+        'window.parametricCreate': 'pryzm-window-parametric-report',
         // §FEAT-RHINO-CHAT-MATERIAL — the Rhino bridge reports mesh counts and
         // the honest "no Rhino model is imported" failure through this event.
         'rhino.setMaterial': 'pryzm-rhino-material-report',

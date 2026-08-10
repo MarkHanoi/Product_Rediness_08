@@ -41,6 +41,7 @@ import {
   lengthToMeters,
   parseDuplicateLevelIntent,
   parseAddWallLayerIntent,
+  parseWindowsParametricIntent,
   parseWallColorIntent,
   parseWallRakeIntent,
   parseWallTypeIntent,
@@ -982,6 +983,17 @@ function classify(
       confidence: 0.95,
       evidence: ['verb:add', 'noun:layer', `scope:${wallLayer.scope}`],
       si: wallLayer,
+    });
+  }
+
+  // create-windows-parametric (§FEAT-WINDOW-PARAMETRIC-CREATE) — shared parser.
+  const winParam = parseWindowsParametricIntent(n.plain);
+  if (winParam !== null) {
+    push({
+      intent: 'create-windows-parametric',
+      confidence: 0.95,
+      evidence: ['verb:create', 'noun:window', `scope:${typeof winParam.scope === 'string' ? winParam.scope : winParam.scope.kind}`],
+      si: winParam,
     });
   }
 

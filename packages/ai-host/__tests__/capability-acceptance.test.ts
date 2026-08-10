@@ -240,6 +240,16 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    id: 'create-windows-parametric',
+    ctx: sel('wall'),
+    phrasings: [
+      'create a window in the middle of every wall segment',
+      'create 2 windows in all the wall segments',
+      'create a 1x2m window every 3 meters in all walls',
+      'place a window in the middle of the selected walls',
+    ],
+  },
+  {
     id: 'add-wall-layer',
     ctx: sel('wall'),
     phrasings: [
@@ -1132,5 +1142,70 @@ describe('§FEAT-WALL-LAYER-ADD-BATCH — "add a 10mm plaster layer …"', () =>
   it('no scope word ⇒ no claim (same discipline as every wall batch)', () => {
     const r = resolveUtterance('add a 10mm plaster layer to walls', ctxOf());
     expect(intentOf(r)).not.toBe('add-wall-layer');
+  });
+});
+
+describe('§FEAT-WINDOW-PARAMETRIC-CREATE — "create a window in the middle of every wall segment"', () => {
+  it('count mode, all scope, default size STATED in the Confirm summary', () => {
+    const r = resolveUtterance('create a window in the middle of every wall segment', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('create-windows-parametric');
+    expect(r.commands).toEqual([{
+      type: 'window.parametricCreate',
+      payload: { wallIds: 'all', mode: { kind: 'count', count: 1 }, width: 1, height: 1.2, sillHeight: 0.9 },
+    }]);
+    expect(r.destructive).toBe(true);          // mass creation ⇒ Confirm card
+    expect(r.summary).toContain('(default size)');
+    expect(r.summary).toContain('skipped');
+  });
+
+  it('"create 2 windows in all the wall segments" carries the count', () => {
+    const r = resolveUtterance('create 2 windows in all the wall segments', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect((r.commands[0]!.payload as { mode: unknown }).mode).toEqual({ kind: 'count', count: 2 });
+  });
+
+  it('the founder sentence: 1x2m window every 3 meters — spacing mode with the explicit size', () => {
+    const r = resolveUtterance('create a 1x2m window every 3 meters in all walls', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toMatchObject({
+      wallIds: 'all', mode: { kind: 'spacing', spacingM: 3 }, width: 1, height: 2,
+    });
+    expect(r.summary).not.toContain('(default size)');
+  });
+
+  it('level scope resolves through the injected resolver ("in the walls on the ground floor")', () => {
+    const resolveScope = (scope: { kind: string; levelQuery?: string; elementKind?: string }) => {
+      expect(scope.kind).toBe('level');
+      expect(scope.elementKind).toBe('wall');
+      return { ids: ['w-a', 'w-b'], kindCounts: { wall: 2 }, skipped: [], diagnostics: ['Ground Floor'] };
+    };
+    const r = resolveUtterance('create a 1x2m window every 3 meters in the walls on the ground floor', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect((r.commands[0]!.payload as { wallIds: unknown }).wallIds).toEqual(['w-a', 'w-b']);
+    expect(r.summary).toContain('Ground Floor');
+  });
+
+  it('spacing tighter than the window width refuses with the overlap reason', () => {
+    const r = resolveUtterance('create a 2x1m window every 1 m in all walls', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('overlap');
+  });
+
+  it('selection scope with no walls selected refuses and names what IS selected', () => {
+    const r = resolveUtterance('place a window in the middle of the selected walls', ctxOf(sel('roof')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('roof');
+  });
+
+  it('"create a wall from (0,0) to (5,0)" is untouched — the window word is the claim', () => {
+    const r = resolveUtterance('create a wall from (0,0) to (5,0)', ctxOf());
+    expect(intentOf(r)).toBe('create-wall');
   });
 });
