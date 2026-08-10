@@ -99,20 +99,37 @@ Refusals name skipped kinds: "7 found, 2 are curtain walls — nothing changed t
 🧪 After U4: no new sentences — but the NEXT 50 capabilities cost metadata +
 proofs + acceptance families only. Gate maturity counts become the roadmap dial.
 
-## Phase U5b — GenerationRequest adapters (Dimension B core) ⬜
+## Phase U5b — GenerationRequest adapters (Dimension B core) ✅
 
 | Sub | What | Test unlock |
 |---|---|---|
-| U5b.1 | `GenerationRequest` union + brief mappers (`houseRequestFromBrief`, `officeRequestFromBrief`, `apartmentProgramFromBrief` — the `residentialRequestFromBrief` template) | — |
-| U5b.2 | Chat option-cards instead of the modal (card models exist) + `beginBuildingGeneration` lease for ALL chat generation (incl. apartment path's undo coalescing) | — |
-| U5b.3 | `maxHeightM` enforcement from `resolveBuildableFootprint` (first envelope compliance check) | honest "that exceeds the permitted height" |
-| U5b.4 | Engine honesty relayed (bedroom auto-iteration, storey auto-fit, per-cell rejects) | "I built a 3-bed — the envelope rejected 4" |
+| U5b.1 ✅ | `GenerationRequest` union + brief mappers (`houseRequestFromBrief`, `officeRequestFromBrief`, `apartmentRequestFromBrief`, `residentialGenerationFromBrief`) + the route-keyed `generationRequestFromBrief` dispatcher; `residentialRequestFromBrief` lifted to the pure `residentialBriefMapper.ts` (`c30fbc8f`, 10 tests) | — |
+| U5b.2 ✅ | Two chat capabilities, two bus verbs, ZERO new pipelines (`671153df`). `generation.building` → the SAME controller entry points the onboarding modal calls (`ResidentialBuildingController.request{autoBuild}`, new `HouseLayoutController.buildDirect`, shipped `OfficeBuildingController.buildDirect`); `generation.apartment` → the shared `apartmentLayoutTrigger` the AI-panel leaf already uses. `autoBuild` suppresses the MODAL only — the executors' own `beginBuildingGeneration` lease still coalesces each build into ONE undo entry. `destructive:true` ⇒ Confirm card states typology + floors (or bedrooms/bathrooms + "fills the EXISTING shell") | 29 capabilities, undeclared 0/0 |
+| U5b.3 ✅ | `maxHeightM` enforcement — `checkMaxHeightGate` (§GEN-MAXHEIGHT-GATE, `8bb9dac8`) on all three building paths incl. the new house `buildDirect`; U5b.2 CONSUMES it rather than redoing it | honest "that exceeds the permitted height", both numbers quoted |
+| U5b.4 ✅ | Engine honesty relayed on `'pryzm-generation-report'` through the existing `BATCH_REPORT_EVENTS` mechanism — resi floors/apartments-per-floor/plate-fill + per-cell rejects with the packer's own reason, house scored-variant + room/stair counts, office as-built storeys/desks + auto-fit notes verbatim. Refusals carry `success:false` so they render "Nothing was changed — …" and can never read like a build | §RESI-ZERO-APARTMENTS-REFUSE and the height gate reach the transcript unedited |
 
-🧪 After U5b:
-*"Create a four-bedroom house over two floors inside this envelope"* →
-option cards → pick → build (one coherent undo) ·
-*"Create an office building on this site"* ·
-*"Create a residential building with 12 apartments, mostly T2/T3"*.
+**Founder P0 folded into U5b.2 (2026-08-10).** "Create 3 bedroom apparment"
+(his spelling) returned *"I'm not sure how to help with that yet"* while the
+apartment-layout engine had been shipping for months — the `c1902a5a` failure
+the coverage gate exists to prevent, recurring. Fixed by the
+`generate-apartment-layout` capability, whose noun matcher is deliberately
+spelling-tolerant: **a capability that cannot be spelled at is a capability
+that does not exist.** The two generation grammars are disjoint — any building
+word ("building" / "block" / "tower" / a storey count) routes to
+`generate-building`; everything else fills the walls already drawn.
+
+🧪 After U5b — all founder-testable today:
+*"generate a 3-storey residential building"* · *"generate a 2-storey house"* ·
+*"generate an office building with 5 floors"* ·
+*"create a residential building with 2-bed and 3-bed apartments"* ·
+*"create a 3 bedroom apartment"* (fills the drawn shell) ·
+*"make a 3-bedroom apartment with 2 bathrooms"*.
+
+**Deferred, deliberately:** chat OPTION-CARDS in place of the modal. The
+building arms need no picker (the Confirm card stands in for the preview and
+the best-scored variant is built), and the apartment arm still opens the
+shipped §11 layout picker — that modal IS the post-run report on that path.
+Headless apartment auto-pick belongs with U5c's auto-chain.
 
 ## Phase U5c — Room-scale generation + chain ⬜
 
