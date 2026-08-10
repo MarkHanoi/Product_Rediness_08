@@ -551,14 +551,19 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       }
       const sill = round3(si.value);
       const n = ctx.selection.length;
+      // §FIX-CHAT-DEAD-ROUTES: `window.setSillHeight` writes the detached
+      // plugin DTO store. The LIVE route is the generic parameter command
+      // (parameters.sillHeight → wallStore + host rebuild), production-proven
+      // by the §FIX-CHAT-COMPOUND-DIMENSIONS founder repro.
       return {
         kind: 'commands', intent: 'set-sill-height',
         summary: n > 1
           ? `Set ${n} selected windows' sill height to ${fmt(sill)}`
           : `Set the selected window's sill height to ${fmt(sill)}`,
-        commands: ctx.selection.map((s) => (
-          { type: 'window.setSillHeight', payload: { windowId: s.elementId, sillHeight: sill } }
-        )),
+        commands: ctx.selection.map((s) => ({
+          type: 'element.updateParameters',
+          payload: { elementId: s.elementId, elementType: s.elementType, parameters: { sillHeight: sill } },
+        })),
         destructive: false,
       };
     }
@@ -594,12 +599,16 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // now it is wired to the command that really exists), everything else
       // goes through the generic parameter command whose store switch is the
       // ceiling on the claim.
+      // §FIX-CHAT-DEAD-ROUTES: the ceiling route moved from `ceiling.setHeight`
+      // (plugin DTO store, detached) to the LIVE legacy bridge ceiling.update →
+      // UpdateCeilingCommand (ceilingStore; the soffit math reads
+      // baseOffset + height − thickness).
       const cmdFor = (s: ResolverSelection): BusCommandRef => {
         const kind = normalizeElementKind(s.elementType);
         return kind === 'wall'
           ? { type: 'wall.updateDimensions', payload: { wallId: s.elementId, height } }
           : kind === 'ceiling'
-            ? { type: 'ceiling.setHeight', payload: { ceilingId: s.elementId, ceilingHeight: height } }
+            ? { type: 'ceiling.update', payload: { ceilingId: s.elementId, updates: { height } } }
             : {
                 type: 'element.updateParameters',
                 payload: { elementId: s.elementId, elementType: s.elementType, parameters: { height } },
@@ -636,12 +645,19 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         };
       }
       const kind = normalizeElementKind(sel.elementType);
+      // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): `slab.setThickness` /
+      // `roof.setThickness` are plugin handlers that produceCommand against the
+      // DETACHED plugin DTO store — nothing in production reads it and no
+      // committer bridges back (§FIX-MATERIAL-DEAD-DISPATCH, verified in
+      // initBusHandlers). The LIVE routes are the legacy bridges the property
+      // surfaces really use: slab.updateDimensions → UpdateSlabDimensionsCommand
+      // → slabStore + rebuild, and roof.update → UpdateRoofCommand.
       const cmdFor = (s: ResolverSelection): BusCommandRef => {
         const k = normalizeElementKind(s.elementType);
         return k === 'slab'
-          ? { type: 'slab.setThickness', payload: { slabId: s.elementId, thickness } }
+          ? { type: 'slab.updateDimensions', payload: { slabId: s.elementId, thickness } }
           : k === 'roof'
-            ? { type: 'roof.setThickness', payload: { roofId: s.elementId, thickness } }
+            ? { type: 'roof.update', payload: { id: s.elementId, updates: { thickness } } }
             : { type: 'wall.updateDimensions', payload: { wallId: s.elementId, thickness } };
       };
       const n = ctx.selection.length;
@@ -671,13 +687,21 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         };
       }
       const kind = normalizeElementKind(sel.elementType);
+      // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): `window.setSize` /
+      // `door.setWidth` / `stair.setWidth` write the detached plugin DTO
+      // stores. LIVE routes: hosted openings go through the generic parameter
+      // command (→ wallStore + host rebuild — the same route the compound
+      // §FIX-CHAT-COMPOUND-DIMENSIONS fix proved in production); stairs go
+      // through stair.updateParameters → UpdateStairParametersCommand, which
+      // validates against STAIR_CONSTRAINTS.
       const cmdFor = (s: ResolverSelection): BusCommandRef => {
         const k = normalizeElementKind(s.elementType);
-        return k === 'window'
-          ? { type: 'window.setSize', payload: { windowId: s.elementId, width } }
-          : k === 'stair'
-            ? { type: 'stair.setWidth', payload: { stairId: s.elementId, width } }
-            : { type: 'door.setWidth', payload: { doorId: s.elementId, width } };
+        return k === 'stair'
+          ? { type: 'stair.updateParameters', payload: { stairId: s.elementId, updates: { width } } }
+          : {
+              type: 'element.updateParameters',
+              payload: { elementId: s.elementId, elementType: s.elementType, parameters: { width } },
+            };
       };
       const n = ctx.selection.length;
       return {
@@ -706,7 +730,11 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           suggestions: ['set the roof pitch to 30 degrees'],
         };
       }
-      const pitch = Math.round((degrees * Math.PI / 180) * 10000) / 10000;
+      // §FIX-CHAT-DEAD-ROUTES: `roof.setPitch` (radians, plugin DTO store) is
+      // detached. The LIVE route is roof.update → UpdateRoofCommand, whose
+      // `slope` is a GRADIENT (RoofGeometryBuilder: height = slope × distance),
+      // so degrees convert via tan() — still exactly one conversion site.
+      const slope = Math.round(Math.tan(degrees * Math.PI / 180) * 10000) / 10000;
       const n = ctx.selection.length;
       return {
         kind: 'commands', intent: 'set-roof-pitch',
@@ -714,7 +742,7 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           ? `Set ${n} selected roofs' pitch to ${degrees}°`
           : `Set the selected roof's pitch to ${degrees}°`,
         commands: ctx.selection.map((s) => (
-          { type: 'roof.setPitch', payload: { roofId: s.elementId, pitch } }
+          { type: 'roof.update', payload: { id: s.elementId, updates: { slope } } }
         )),
         destructive: false,
       };

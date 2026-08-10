@@ -337,9 +337,13 @@ describe('other intents', () => {
     expect(c.commands[0]!.type).toBe('room.rename');
   });
 
-  it('"set the door width to nine hundred millimeters" → door.setWidth 0.9', () => {
+  it('"set the door width to nine hundred millimeters" → element.updateParameters width 0.9', () => {
+    // §FIX-CHAT-DEAD-ROUTES: the live opening route, not the DTO-store verb.
     const c = commandsOf(resolveNaturalLanguage('set the door width to nine hundred millimeters', baseCtx(doorSel)));
-    expect(c.commands).toEqual([{ type: 'door.setWidth', payload: { doorId: 'door-1', width: 0.9 } }]);
+    expect(c.commands).toEqual([{
+      type: 'element.updateParameters',
+      payload: { elementId: 'door-1', elementType: 'door', parameters: { width: 0.9 } },
+    }]);
   });
 });
 
@@ -488,6 +492,10 @@ describe('compound dimension binding', () => {
     const r = resolveNaturalLanguage('make this door 900mm wide', baseCtx(doorSel));
     const c = commandsOf(r);
     expect(expectResolved(r).intent).toBe('set-width');
-    expect(c.commands).toEqual([{ type: 'door.setWidth', payload: { doorId: 'door-1', width: 0.9 } }]);
+    // §FIX-CHAT-DEAD-ROUTES: the live opening route, not the DTO-store verb.
+    expect(c.commands).toEqual([{
+      type: 'element.updateParameters',
+      payload: { elementId: 'door-1', elementType: 'door', parameters: { width: 0.9 } },
+    }]);
   });
 });

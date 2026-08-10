@@ -205,7 +205,23 @@ const D_DELETE = family(
 );
 
 const D_LEGACY = [
-  ...family('D', 'Legacy property-panel update bridge; the chat reaches the same parameters through element.updateParameters (set-height) with the store switch as the proven ceiling.', ['beam.update', 'ceiling.update', 'column.update', 'floor.update', 'grid.update', 'roof.update', 'schedule.update', 'slab.update', 'slab.updateDimensions', 'furniture.updateParameters', 'stair.updateParameters', 'element.updateMark']),
+  // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): ceiling.update / roof.update /
+  // slab.updateDimensions / stair.updateParameters LEFT this family — they are
+  // now the LIVE routes the capabilities dispatch (the old reason's claim that
+  // element.updateParameters covered ceilings/roofs was wrong: resolveStore()
+  // has no case for either).
+  ...family('D', 'Legacy property-panel update bridge; the chat reaches the same parameters through element.updateParameters (set-height) with the store switch as the proven ceiling.', ['beam.update', 'column.update', 'floor.update', 'grid.update', 'schedule.update', 'slab.update', 'furniture.updateParameters', 'element.updateMark']),
+  // §FIX-CHAT-DEAD-ROUTES — plugin handlers that produceCommand against the
+  // DETACHED plugin DTO store (fresh PluginRegistry instances; nothing that
+  // renders, persists or exports reads them, and no committer bridges updates
+  // back — the §FIX-MATERIAL-DEAD-DISPATCH disease). Dispatching one LOOKS like
+  // success and changes nothing. The chat previously dispatched all eight; each
+  // is re-routed to the live legacy path named in the capability's commandProof.
+  ...family('D', 'Plugin DTO-store handler nothing in production reads (§FIX-MATERIAL-DEAD-DISPATCH family) — a dispatch looks like success and changes nothing; chat drives the live legacy route instead (see the owning capability commandProof).', [
+    'window.setSize', 'window.setSillHeight', 'door.setWidth',
+    'slab.setThickness', 'roof.setThickness', 'roof.setPitch',
+    'stair.setWidth', 'ceiling.setHeight',
+  ]),
   ...family('D', 'Single-wall variant of the batch retype the chat already drives (wall.updateSystemTypeBatch covers one wall, many, or all).', ['wall.setSystemType', 'wall.updateSystemType']),
   ...family('D', 'Second dimension route for walls; the chat uses wall.updateDimensions.', ['wall.setDimensions']),
   ...family('D', 'Dedicated height route; the chat sets column height via element.updateParameters (set-height), the same route the property panel uses.', ['column.setHeight']),

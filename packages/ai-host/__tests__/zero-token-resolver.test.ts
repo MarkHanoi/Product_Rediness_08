@@ -104,16 +104,23 @@ describe('tier 0 — hits', () => {
     expect(r.commands[0]!.payload).toEqual({ wallId: 'wall-1', thickness: 0.2 });
   });
 
-  it('"set door width to 900mm" with a door selected → door.setWidth 0.9', () => {
+  // §FIX-CHAT-DEAD-ROUTES (ADR-0315): openings route through the LIVE generic
+  // parameter command (→ wallStore + host rebuild) — door.setWidth /
+  // window.setSillHeight write a detached plugin DTO store.
+  it('"set door width to 900mm" with a door selected → element.updateParameters width 0.9', () => {
     const r = expectCommands(resolveUtterance('set door width to 900mm', baseCtx(doorSel)));
-    expect(r.commands).toEqual([{ type: 'door.setWidth', payload: { doorId: 'door-1', width: 0.9 } }]);
+    expect(r.commands).toEqual([{
+      type: 'element.updateParameters',
+      payload: { elementId: 'door-1', elementType: 'door', parameters: { width: 0.9 } },
+    }]);
   });
 
-  it('"set sill height to 1m" with a window selected → window.setSillHeight 1', () => {
+  it('"set sill height to 1m" with a window selected → element.updateParameters sillHeight 1', () => {
     const r = expectCommands(resolveUtterance('set sill height to 1m', baseCtx(windowSel)));
-    expect(r.commands).toEqual([
-      { type: 'window.setSillHeight', payload: { windowId: 'win-1', sillHeight: 1 } },
-    ]);
+    expect(r.commands).toEqual([{
+      type: 'element.updateParameters',
+      payload: { elementId: 'win-1', elementType: 'window', parameters: { sillHeight: 1 } },
+    }]);
   });
 
   it('"go to level 2" resolves the level by name → local setActiveLevel', () => {

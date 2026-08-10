@@ -322,7 +322,10 @@ const CAPABILITIES: readonly ChatCapability[] = [
     scope: 'selection',
     destructive: false,
     busCommand: 'element.updateParameters',
-    alsoDispatches: ['wall.updateDimensions', 'ceiling.setHeight'],
+    // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): ceiling.setHeight was a plugin
+    // DTO-store handler nothing in production reads; the live route is the
+    // legacy ceiling.update bridge → UpdateCeilingCommand → ceilingStore.
+    alsoDispatches: ['wall.updateDimensions', 'ceiling.update'],
     probe: { intent: 'set-height', value: 3 },
     commandProof: [
       {
@@ -331,9 +334,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
         note: "resolveStore()'s switch names every kind that resolves to a store; its default arm returns null, so any kind absent from the switch is a silent no-op and must not be claimed.",
       },
       {
-        file: 'plugins/ceiling/src/handlers/SetCeilingHeight.ts',
-        mustMention: ['ceilingId'],
-        note: 'The ceiling route is its own command, keyed by ceilingId — it cannot address any other element kind.',
+        file: 'packages/command-registry/src/ceilings/UpdateCeilingCommand.ts',
+        mustMention: ['ceilingId', 'height'],
+        note: 'The LIVE ceiling route: UpdateCeilingCommand is keyed by ceilingId and its soffit math reads baseOffset + height − thickness — the height field really drives geometry.',
       },
     ],
     examples: [
@@ -366,7 +369,11 @@ const CAPABILITIES: readonly ChatCapability[] = [
     scope: 'selection',
     destructive: false,
     busCommand: 'wall.updateDimensions',
-    alsoDispatches: ['slab.setThickness', 'roof.setThickness'],
+    // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): slab.setThickness /
+    // roof.setThickness were plugin DTO-store handlers (detached — the
+    // §FIX-MATERIAL-DEAD-DISPATCH disease, re-found by the liveness audit).
+    // Live routes are the legacy bridges the property surfaces use.
+    alsoDispatches: ['slab.updateDimensions', 'roof.update'],
     probe: { intent: 'set-thickness', value: 0.2 },
     commandProof: [
       {
@@ -375,14 +382,14 @@ const CAPABILITIES: readonly ChatCapability[] = [
         note: 'The payload is keyed by wallId — the command cannot address any other element kind.',
       },
       {
-        file: 'plugins/slab/src/handlers/SetSlabThickness.ts',
-        mustMention: ['slabId'],
-        note: 'The payload is keyed by slabId — the command cannot address any other element kind.',
+        file: 'packages/command-registry/src/slabs/UpdateSlabDimensionsCommand.ts',
+        mustMention: ['slabId', 'thickness'],
+        note: 'The LIVE slab route: keyed by slabId, writes the geometry slabStore the fragment builders read.',
       },
       {
-        file: 'plugins/roof/src/handlers/SetRoofThickness.ts',
-        mustMention: ['roofId'],
-        note: 'The payload is keyed by roofId — the command cannot address any other element kind.',
+        file: 'packages/command-registry/src/roofs/UpdateRoofCommand.ts',
+        mustMention: ['thickness'],
+        note: 'The LIVE roof route: UpdateRoofCommand (id-keyed) validates and applies thickness on the geometry roof store.',
       },
     ],
     examples: [
@@ -414,24 +421,24 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
     scope: 'selection',
     destructive: false,
-    busCommand: 'door.setWidth',
-    alsoDispatches: ['window.setSize', 'stair.setWidth'],
+    // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): door.setWidth / window.setSize /
+    // stair.setWidth were plugin DTO-store handlers (detached). Live routes:
+    // hosted openings via the generic parameter command (→ wallStore + host
+    // rebuild, production-proven by §FIX-CHAT-COMPOUND-DIMENSIONS), stairs via
+    // stair.updateParameters (STAIR_CONSTRAINTS-validated).
+    busCommand: 'element.updateParameters',
+    alsoDispatches: ['stair.updateParameters'],
     probe: { intent: 'set-width', value: 0.9 },
     commandProof: [
       {
-        file: 'plugins/door/src/handlers/SetDoorWidth.ts',
-        mustMention: ['doorId'],
-        note: 'The payload is keyed by doorId — the command cannot address any other element kind.',
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['window', 'door'],
+        note: "resolveStore() routes window and door to the wallStore (openings are hosted); parameters.width is applied before the single host rebuild.",
       },
       {
-        file: 'plugins/window/src/handlers/SetWindowSize.ts',
-        mustMention: ['windowId'],
-        note: 'The payload is keyed by windowId — the command cannot address any other element kind.',
-      },
-      {
-        file: 'plugins/stair/src/handlers/SetWidth.ts',
-        mustMention: ['stairId'],
-        note: 'The payload is keyed by stairId — the command cannot address any other element kind.',
+        file: 'packages/command-registry/src/stair/UpdateStairParametersCommand.ts',
+        mustMention: ['stairId', 'width'],
+        note: 'The LIVE stair route: keyed by stairId, validates width against STAIR_CONSTRAINTS and writes the geometry stair store.',
       },
     ],
     examples: [
@@ -463,12 +470,16 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
     scope: 'selection',
     destructive: false,
-    busCommand: 'roof.setPitch',
+    // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): roof.setPitch wrote the detached
+    // plugin DTO store. The live route is roof.update → UpdateRoofCommand;
+    // its `slope` is a gradient (RoofGeometryBuilder: height = slope×distance),
+    // degrees → tan() in applySemanticIntent — still one conversion site.
+    busCommand: 'roof.update',
     probe: { intent: 'set-roof-pitch', degrees: 30 },
     commandProof: {
-      file: 'plugins/roof/src/handlers/SetRoofPitch.ts',
-      mustMention: ['roofId'],
-      note: 'The payload is keyed by roofId — the command cannot address any other element kind. Its canExecute bounds pitch to [0, π/2) and rejects a non-zero pitch on a flat roof; those failures surface as honest dispatch errors.',
+      file: 'packages/command-registry/src/roofs/UpdateRoofCommand.ts',
+      mustMention: ['slope'],
+      note: 'The LIVE roof route: UpdateRoofCommand (id-keyed) validates slope > 0 and applies it on the geometry roof store the builder reads.',
     },
     examples: ['set the roof pitch to 30 degrees', 'change pitch to 45', 'set pitch to 22.5 degrees'],
   },
@@ -490,12 +501,16 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
     scope: 'selection',
     destructive: false,
-    busCommand: 'window.setSillHeight',
+    // §FIX-CHAT-DEAD-ROUTES (ADR-0315 audit): window.setSillHeight wrote the
+    // detached plugin DTO store. Live route: the generic parameter command's
+    // parameters.sillHeight (→ wallStore + host rebuild), production-proven by
+    // the §FIX-CHAT-COMPOUND-DIMENSIONS founder repro.
+    busCommand: 'element.updateParameters',
     probe: { intent: 'set-sill-height', value: 1 },
     commandProof: {
-      file: 'plugins/window/src/handlers/SetWindowSillHeight.ts',
-      mustMention: ['windowId'],
-      note: 'The payload is keyed by windowId — the command cannot address any other element kind.',
+      file: UPDATE_ELEMENT_PARAMETER_FILE,
+      mustMention: ['window', 'updateWindow'],
+      note: 'resolveStore() routes window to the wallStore and applyUpdate passes the WHOLE parameters object to wallStore.updateWindow — sillHeight rides that pass-through into the single host rebuild (production-proven by the compound-dimensions repro).',
     },
     examples: ['set sill height to 1m', 'raise the sill to 900mm'],
   },

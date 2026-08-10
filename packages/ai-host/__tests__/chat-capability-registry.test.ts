@@ -247,6 +247,24 @@ describe('capability-aware refusals', () => {
       expect(chatUnavailableReason(cmd), `${cmd} missing from CHAT_UNAVAILABLE`).toBeDefined();
     }
   });
+
+  it('§FIX-CHAT-DEAD-ROUTES — no capability dispatches a known dead plugin-DTO-store verb', () => {
+    // These verbs' handlers produceCommand against DETACHED plugin DTO stores
+    // (fresh PluginRegistry instances; no committer bridges updates back —
+    // §FIX-MATERIAL-DEAD-DISPATCH). A capability dispatching one reports
+    // success while changing nothing. The chat shipped exactly that for eight
+    // verbs before the ADR-0315 liveness audit; this pin keeps them out.
+    const DEAD_VERBS = [
+      'window.setSize', 'window.setSillHeight', 'door.setWidth',
+      'slab.setThickness', 'roof.setThickness', 'roof.setPitch',
+      'stair.setWidth', 'ceiling.setHeight',
+      'wall.setColor', 'wall.bulkSetVisuals',
+    ];
+    const dispatched = new Set(capabilityBusCommands());
+    for (const dead of DEAD_VERBS) {
+      expect(dispatched.has(dead), `capability dispatches DEAD verb ${dead}`).toBe(false);
+    }
+  });
 });
 
 // ─── The honest half ─────────────────────────────────────────────────────────

@@ -585,12 +585,14 @@ describe('set-height no longer over-claims element kinds', () => {
     }
   });
 
-  it('ceiling height routes through ceiling.setHeight (§FEAT-CHAT-SYMMETRY)', () => {
+  it('ceiling height routes through the LIVE ceiling.update bridge (§FIX-CHAT-DEAD-ROUTES)', () => {
+    // ceiling.setHeight wrote the detached plugin DTO store; the live route is
+    // the legacy ceiling.update bridge → UpdateCeilingCommand → ceilingStore.
     const r = resolveUtterance('set the ceiling height to 2.7m', ctxOf(sel('ceiling')));
     expect(r.kind).toBe('commands');
     if (r.kind !== 'commands') return;
     expect(r.commands).toEqual([
-      { type: 'ceiling.setHeight', payload: { ceilingId: 'ceiling-1', ceilingHeight: 2.7 } },
+      { type: 'ceiling.update', payload: { ceilingId: 'ceiling-1', updates: { height: 2.7 } } },
     ]);
   });
 
@@ -607,11 +609,11 @@ describe('set-height no longer over-claims element kinds', () => {
 // ─── §FEAT-CHAT-SYMMETRY — per-kind routing of the widened families ──────────
 
 describe('symmetric routing — the same sentence drives the right per-kind command', () => {
-  it('thickness routes wall / slab / roof to their own commands', () => {
+  it('thickness routes wall / slab / roof to their LIVE commands (§FIX-CHAT-DEAD-ROUTES)', () => {
     const cases = [
       ['wall', 'wall.updateDimensions', { wallId: 'wall-1', thickness: 0.25 }],
-      ['slab', 'slab.setThickness', { slabId: 'slab-1', thickness: 0.25 }],
-      ['roof', 'roof.setThickness', { roofId: 'roof-1', thickness: 0.25 }],
+      ['slab', 'slab.updateDimensions', { slabId: 'slab-1', thickness: 0.25 }],
+      ['roof', 'roof.update', { id: 'roof-1', updates: { thickness: 0.25 } }],
     ] as const;
     for (const [kind, type, payload] of cases) {
       const r = resolveFull('set thickness to 250mm', ctxOf(sel(kind)));
@@ -621,11 +623,11 @@ describe('symmetric routing — the same sentence drives the right per-kind comm
     }
   });
 
-  it('width routes door / window / stair to their own commands', () => {
+  it('width routes openings through the live generic command, stairs through stair.updateParameters', () => {
     const cases = [
-      ['door', 'door.setWidth', { doorId: 'door-1', width: 0.9 }],
-      ['window', 'window.setSize', { windowId: 'window-1', width: 0.9 }],
-      ['stair', 'stair.setWidth', { stairId: 'stair-1', width: 0.9 }],
+      ['door', 'element.updateParameters', { elementId: 'door-1', elementType: 'door', parameters: { width: 0.9 } }],
+      ['window', 'element.updateParameters', { elementId: 'window-1', elementType: 'window', parameters: { width: 0.9 } }],
+      ['stair', 'stair.updateParameters', { stairId: 'stair-1', updates: { width: 0.9 } }],
     ] as const;
     for (const [kind, type, payload] of cases) {
       const r = resolveFull('set width to 900mm', ctxOf(sel(kind)));
@@ -635,14 +637,17 @@ describe('symmetric routing — the same sentence drives the right per-kind comm
     }
   });
 
-  it('roof pitch converts degrees to the radians roof.setPitch takes', () => {
+  it('roof pitch converts degrees to the GRADIENT slope roof.update takes (§FIX-CHAT-DEAD-ROUTES)', () => {
+    // RoofGeometryBuilder: height = slope × distance — slope is rise/run, so
+    // 30° → tan(30°) ≈ 0.5774. (roof.setPitch, which took radians, wrote the
+    // detached plugin DTO store and is retired from chat dispatch.)
     const r = resolveFull('set the roof pitch to 30 degrees', ctxOf(sel('roof')));
     expect(r.kind).toBe('commands');
     if (r.kind !== 'commands') return;
-    expect(r.commands[0]!.type).toBe('roof.setPitch');
-    const p = r.commands[0]!.payload as { roofId: string; pitch: number };
-    expect(p.roofId).toBe('roof-1');
-    expect(p.pitch).toBeCloseTo(Math.PI / 6, 3);
+    expect(r.commands[0]!.type).toBe('roof.update');
+    const p = r.commands[0]!.payload as { id: string; updates: { slope: number } };
+    expect(p.id).toBe('roof-1');
+    expect(p.updates.slope).toBeCloseTo(Math.tan(Math.PI / 6), 3);
   });
 
   it('roof pitch on a wall refuses honestly (the twin does not exist for walls)', () => {
