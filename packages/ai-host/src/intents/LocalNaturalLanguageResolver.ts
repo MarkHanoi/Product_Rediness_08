@@ -165,6 +165,7 @@ const NL_VOCAB: readonly string[] = [
   'rename', 'call', 'go', 'tall', 'taller', 'high', 'higher', 'short',
   'shorter', 'thick', 'thicker', 'thin', 'thinner', 'wide', 'wider',
   'narrow', 'narrower', 'pitch', 'degree', 'degrees', 'number', 'ceiling',
+  'riser', 'tread', 'depth', 'offset',
   'undo', 'redo', 'zoom', 'fit', 'frame', 'meter',
   'meters', 'metre', 'metres', 'millimeter', 'millimeters', 'millimetre',
   'millimetres', 'centimeter', 'centimeters', 'centimetre', 'centimetres',
@@ -711,6 +712,59 @@ function classify(
     } else if (e.hasSetVerb || e.relativeDim) {
       ev.push('value:missing');
       push({ intent, confidence: 0.62, evidence: ev, question: CLARIFY_QUESTIONS[intent]! });
+    }
+  }
+
+  // ADR-0315 P1 — stair riser height / tread depth and room height offset.
+  // Each contains "height"/"offset" wording, so its candidate must OUTRANK the
+  // generic dimension branch (which would read "riser height" as set-height):
+  // 0.96 beats that branch's 0.95 ceiling.
+  if (tokens.includes('riser') && !creationShape) {
+    const value = e.measurements[0];
+    if (value !== undefined && !e.relativeBy) {
+      push({
+        intent: 'set-riser-height', confidence: 0.96,
+        evidence: ['dimension:riser-height', 'value:absolute'],
+        si: { intent: 'set-riser-height', value },
+      });
+    } else if (e.hasSetVerb) {
+      push({
+        intent: 'set-riser-height', confidence: 0.62,
+        evidence: ['dimension:riser-height', 'value:missing'],
+        question: 'What riser height should I set? For example "180mm".',
+      });
+    }
+  }
+  if (tokens.includes('tread') && !creationShape) {
+    const value = e.measurements[0];
+    if (value !== undefined && !e.relativeBy) {
+      push({
+        intent: 'set-tread-depth', confidence: 0.96,
+        evidence: ['dimension:tread-depth', 'value:absolute'],
+        si: { intent: 'set-tread-depth', value },
+      });
+    } else if (e.hasSetVerb) {
+      push({
+        intent: 'set-tread-depth', confidence: 0.62,
+        evidence: ['dimension:tread-depth', 'value:missing'],
+        question: 'What tread depth should I set? For example "250mm".',
+      });
+    }
+  }
+  if (tokens.includes('offset') && tokens.includes('height') && !tokens.includes('base') && !creationShape) {
+    const value = e.measurements[0];
+    if (value !== undefined && !e.relativeBy) {
+      push({
+        intent: 'set-room-height-offset', confidence: 0.96,
+        evidence: ['dimension:height-offset', 'value:absolute'],
+        si: { intent: 'set-room-height-offset', value },
+      });
+    } else if (e.hasSetVerb) {
+      push({
+        intent: 'set-room-height-offset', confidence: 0.62,
+        evidence: ['dimension:height-offset', 'value:missing'],
+        question: 'What height offset should I set? For example "0.5m" or "-0.2m".',
+      });
     }
   }
 

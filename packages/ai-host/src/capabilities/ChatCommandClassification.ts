@@ -242,14 +242,34 @@ const E_BULK = family(
 
 // ─── F — explicitly deferred (chat-ready shape, next tranche) ────────────────
 
+// §FIX-CHAT-DEAD-ROUTES (ADR-0315 liveness audit): the old F entries claimed
+// these were "chat-ready shapes, nothing blocks them but scope". FALSE for five
+// of the nine — their handlers write the DETACHED plugin DTO store, so wiring
+// them would have shipped five more silent no-ops. The truthful dispositions:
+//   · stair riser height / tread DEPTH have LIVE carriers on
+//     stair.updateParameters → now shipped capabilities (set-riser-height /
+//     set-tread-depth); the dead per-field verbs are classified D below.
+//   · room.setHeightOffset is a LIVE commandManager bridge → shipped capability.
+//   · stair tread COUNT (numRisers) has NO live carrier — UpdateStairParameters
+//     has no such field — so it is a G-class editor gap, recorded as D-dead
+//     with that reason, not resurrected as a capability.
+//   · slab.setBaseOffset / roof.setOverhang / lighting.setIntensity are dead;
+//     slab baseOffset's live carrier is element.updateParameters (future
+//     property-vocabulary tranche); roof overhang and lighting intensity have
+//     no proven live carrier yet.
 const F_NEXT = [
-  ...family('F', 'Same id-keyed measurement shape as the shipped set-thickness family; deferred only to bound this tranche.', ['roof.setOverhang'], { potentialCapability: 'set-roof-overhang' }),
-  ...family('F', 'Same id-keyed measurement shape as set-height; deferred to bound this tranche.', ['room.setHeightOffset', 'slab.setBaseOffset', 'stair.setRiserHeight'], { potentialCapability: 'set-offset / set-riser-height' }),
-  ...family('F', 'Integer count with the set-width shape; deferred to bound this tranche.', ['stair.setTreadCount'], { potentialCapability: 'set-tread-count' }),
-  ...family('F', 'Percentage/level value with the measurement shape; deferred to bound this tranche.', ['lighting.setIntensity'], { potentialCapability: 'set-light-intensity' }),
   ...family('F', 'Same user-text rename shape as rename-room; deferred to bound this tranche (needs a sheet/view reference, which selection does not provide today).', ['sheet.rename', 'view.rename'], { potentialCapability: 'rename-sheet / rename-view' }),
   ...family('F', 'Width+height pair with the set-width shape (set-width drives the width half today); deferred to bound this tranche.', ['structural.setDimensions'], { potentialCapability: 'set-structural-dimensions' }),
 ];
+
+const D_DEAD_F = family(
+  'D',
+  'Plugin DTO-store handler nothing in production reads (§FIX-MATERIAL-DEAD-DISPATCH family) — wiring it would ship a silent no-op; the live carrier (where one exists) is named in ChatCapabilityRegistry or the property-vocabulary backlog.',
+  [
+    'stair.setRiserHeight', 'stair.setTreadCount', 'slab.setBaseOffset',
+    'roof.setOverhang', 'lighting.setIntensity',
+  ],
+);
 
 // ─── The map ─────────────────────────────────────────────────────────────────
 
@@ -257,7 +277,7 @@ export const CHAT_CLASSIFIED: ReadonlyMap<string, ChatCommandClassification> = n
   ...B_CREATION, ...B_CATALOGUE, ...B_GEOMETRY_EDIT, ...B_LAYERS, ...B_DOCS,
   ...B_VIEWS, ...B_MISC,
   ...C_BATCH, ...C_PLUMBING,
-  ...D_DELETE, ...D_LEGACY,
+  ...D_DELETE, ...D_LEGACY, ...D_DEAD_F,
   ...E_BULK,
   ...F_NEXT,
 ]);

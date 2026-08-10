@@ -129,6 +129,9 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-thickness': ['wall', 'slab', 'roof'],
       'set-width': ['door', 'window', 'stair'],
       'set-sill-height': ['window'],
+      'set-riser-height': ['stair'],
+      'set-tread-depth': ['stair'],
+      'set-room-height-offset': ['room'],
       'set-wall-type': ['wall'],
       'set-wall-color': ['wall'],
       'set-roof-pitch': ['roof'],
@@ -259,6 +262,9 @@ describe('capability-aware refusals', () => {
       'slab.setThickness', 'roof.setThickness', 'roof.setPitch',
       'stair.setWidth', 'ceiling.setHeight',
       'wall.setColor', 'wall.bulkSetVisuals',
+      // ADR-0315 P1 — the ex-class-F verbs the liveness audit found dead.
+      'stair.setRiserHeight', 'stair.setTreadCount', 'slab.setBaseOffset',
+      'roof.setOverhang', 'lighting.setIntensity',
     ];
     const dispatched = new Set(capabilityBusCommands());
     for (const dead of DEAD_VERBS) {

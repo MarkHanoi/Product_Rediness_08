@@ -515,6 +515,96 @@ const CAPABILITIES: readonly ChatCapability[] = [
     examples: ['set sill height to 1m', 'raise the sill to 900mm'],
   },
   {
+    id: 'set-riser-height',
+    // ADR-0315 P1 — shipped on the LIVE stair.updateParameters carrier. The
+    // dead per-field verb (stair.setRiserHeight, plugin DTO store) is pinned
+    // out by the DEAD_VERBS registry test.
+    description: 'change the stair riser height',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['riser', 'riser height', 'risers'],
+    refusalLabel: 'riser height',
+    targets: ['stair'],
+    parameters: [
+      {
+        name: 'riserHeight',
+        description: 'the new riser height',
+        required: true,
+        valueSource: 'measurement',
+        example: '180mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'stair.updateParameters',
+    probe: { intent: 'set-riser-height', value: 0.18 },
+    commandProof: {
+      file: 'packages/command-registry/src/stair/UpdateStairParametersCommand.ts',
+      mustMention: ['stairId', 'riserHeight'],
+      note: 'The LIVE stair route: keyed by stairId; riserHeight is validated against STAIR_CONSTRAINTS (min/max and level-height consistency) and written to the geometry stair store.',
+    },
+    examples: ['set the riser height to 180mm', 'change riser height to 0.175m'],
+  },
+  {
+    id: 'set-tread-depth',
+    // ADR-0315 P1 — the sibling field on the same live carrier. Tread COUNT is
+    // deliberately absent: UpdateStairParametersCommand has no numRisers field,
+    // so that ask has no live route (G-class editor gap, not a capability).
+    description: 'change the stair tread depth',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['tread', 'tread depth', 'going'],
+    refusalLabel: 'tread depth',
+    targets: ['stair'],
+    parameters: [
+      {
+        name: 'treadDepth',
+        description: 'the new tread depth (going)',
+        required: true,
+        valueSource: 'measurement',
+        example: '250mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'stair.updateParameters',
+    probe: { intent: 'set-tread-depth', value: 0.25 },
+    commandProof: {
+      file: 'packages/command-registry/src/stair/UpdateStairParametersCommand.ts',
+      mustMention: ['stairId', 'treadDepth'],
+      note: 'The LIVE stair route: keyed by stairId; treadDepth is validated against STAIR_CONSTRAINTS.MIN_TREAD_DEPTH and written to the geometry stair store.',
+    },
+    examples: ['set the tread depth to 250mm', 'change the tread depth to 0.28m'],
+  },
+  {
+    id: 'set-room-height-offset',
+    // ADR-0315 P1 — LIVE via the room.setHeightOffset commandManager bridge
+    // (the handler deliberately mutates no plugin store); range [-10, 10] m is
+    // the handler's own gate, mirrored in the resolver for unit-honest copy.
+    description: 'change the room height offset',
+    verbs: ['set', 'change'],
+    aliases: ['height offset'],
+    refusalLabel: 'height offset',
+    targets: ['room'],
+    parameters: [
+      {
+        name: 'heightOffset',
+        description: 'the offset from the level height (may be negative)',
+        required: true,
+        valueSource: 'measurement',
+        example: '0.5m',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'room.setHeightOffset',
+    probe: { intent: 'set-room-height-offset', value: 0.5 },
+    commandProof: {
+      file: 'plugins/rooms/src/handlers/SetRoomHeightOffset.ts',
+      mustMention: ['roomId', 'heightOffset'],
+      note: 'The handler is keyed by roomId and BRIDGES to the legacy commandManager (it mutates no plugin store — the header says so), with heightOffset range-guarded to [-10, 10] m at canExecute.',
+    },
+    examples: ['set the room height offset to 0.5m', 'change the height offset to -0.2m'],
+  },
+  {
     id: 'set-wall-type',
     // §FEAT-CHAT-WALL-TYPE (2026-08-10) — the capability whose ABSENCE is the
     // reason this registry exists. `wall.updateSystemTypeBatch` shipped in

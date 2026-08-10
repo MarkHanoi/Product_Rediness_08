@@ -208,7 +208,8 @@ const SYNONYMS: Readonly<Record<string, string>> = {
 const VOCAB: readonly string[] = [
   'delete', 'selected', 'selection', 'this', 'element', 'wall', 'door',
   'window', 'room', 'slab', 'roof', 'level', 'height', 'width', 'thickness',
-  'sill', 'pitch', 'number', 'ceiling', 'stair', 'create', 'draw', 'add',
+  'sill', 'pitch', 'number', 'ceiling', 'stair', 'riser', 'tread', 'depth',
+  'offset', 'create', 'draw', 'add',
   'make', 'set', 'change', 'rename', 'go',
   'to', 'from', 'tall', 'thick', 'wide', 'undo', 'redo', 'zoom', 'fit', 'frame',
 ];
@@ -286,6 +287,16 @@ export type SemanticIntent =
    *  accident that doors got wired first. */
   | { readonly intent: 'set-width'; readonly value: number }
   | { readonly intent: 'set-sill-height'; readonly value: number }
+  /** ADR-0315 P1 — stair riser height, on the LIVE stair.updateParameters
+   *  carrier (STAIR_CONSTRAINTS-validated by the command). */
+  | { readonly intent: 'set-riser-height'; readonly value: number }
+  /** ADR-0315 P1 — stair tread depth ("going"), same live carrier. Tread
+   *  COUNT deliberately does not exist: UpdateStairParametersCommand has no
+   *  numRisers field, so that ask has no live route (G-class gap). */
+  | { readonly intent: 'set-tread-depth'; readonly value: number }
+  /** ADR-0315 P1 — room height offset, on the LIVE room.setHeightOffset
+   *  commandManager bridge (range-guarded [-10, 10] m by the handler). */
+  | { readonly intent: 'set-room-height-offset'; readonly value: number }
   /** §FEAT-CHAT-SYMMETRY — roof pitch in DEGREES as architects say it; the
    *  command (`roof.setPitch`) takes radians and the conversion lives in ONE
    *  place, applySemanticIntent. */
@@ -564,6 +575,70 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           type: 'element.updateParameters',
           payload: { elementId: s.elementId, elementType: s.elementType, parameters: { sillHeight: sill } },
         })),
+        destructive: false,
+      };
+    }
+
+    case 'set-riser-height':
+    case 'set-tread-depth': {
+      // ADR-0315 P1 — both ride the LIVE stair.updateParameters carrier; the
+      // command validates against STAIR_CONSTRAINTS and refuses with the real
+      // bound in the message, so the resolver only guards positivity.
+      const label = si.intent === 'set-riser-height' ? 'riser height' : 'tread depth';
+      const guard = needSelection(si.intent, ctx, `set its ${label}`);
+      if ('refusal' in guard) return guard.refusal;
+      for (const s of ctx.selection) {
+        const kindGuard = capabilityTargetRefusal(si.intent, s.elementType, label);
+        if (kindGuard !== null) return kindGuard;
+      }
+      const value = round3(si.value);
+      if (value <= 0) {
+        return {
+          kind: 'refusal', intent: si.intent,
+          reason: `A ${label} of ${fmt(value)} is not valid — it must be positive.`,
+          suggestions: [],
+        };
+      }
+      const field = si.intent === 'set-riser-height' ? 'riserHeight' : 'treadDepth';
+      const n = ctx.selection.length;
+      return {
+        kind: 'commands', intent: si.intent,
+        summary: n > 1
+          ? `Set ${n} selected stairs' ${label} to ${fmt(value)}`
+          : `Set the selected stair's ${label} to ${fmt(value)}`,
+        commands: ctx.selection.map((s) => (
+          { type: 'stair.updateParameters', payload: { stairId: s.elementId, updates: { [field]: value } } }
+        )),
+        destructive: false,
+      };
+    }
+
+    case 'set-room-height-offset': {
+      const guard = needSelection('set-room-height-offset', ctx, 'set its height offset');
+      if ('refusal' in guard) return guard.refusal;
+      for (const s of ctx.selection) {
+        const kindGuard = capabilityTargetRefusal('set-room-height-offset', s.elementType, 'height offset');
+        if (kindGuard !== null) return kindGuard;
+      }
+      const offset = round3(si.value);
+      // Mirrors the handler's own [-10, 10] m gate so the refusal can speak in
+      // the unit the user typed rather than as a dispatch error.
+      if (offset < -10 || offset > 10) {
+        return {
+          kind: 'refusal', intent: 'set-room-height-offset',
+          reason: `A height offset of ${fmt(offset)} is not valid — it must be between -10 m and 10 m.`,
+          suggestions: ['set the room height offset to 0.5m'],
+        };
+      }
+      const n = ctx.selection.length;
+      return {
+        kind: 'commands', intent: 'set-room-height-offset',
+        summary: n > 1
+          ? `Set ${n} selected rooms' height offset to ${fmt(offset)}`
+          : `Set the selected room's height offset to ${fmt(offset)}`,
+        commands: ctx.selection.map((s) => (
+          { type: 'room.setHeightOffset', payload: { roomId: s.elementId, heightOffset: offset } }
+        )),
         destructive: false,
       };
     }
@@ -1125,6 +1200,26 @@ const matchDeleteSelected: Matcher = (text, ctx) => {
   );
 };
 
+// ADR-0315 P1 — stair riser height / tread depth and room height offset.
+// All three contain "height"/"depth" words, so they run BEFORE matchHeight.
+const matchRiserHeight: Matcher = (text, ctx) => {
+  const m = new RegExp(`^(?:set|change|make)(?: the)?(?: stair)? risers? height(?: to)? ${LEN_SRC}$`).exec(text);
+  if (!m) return null;
+  return applySemanticIntent({ intent: 'set-riser-height', value: toMeters(m[1]!, m[2]) }, ctx);
+};
+
+const matchTreadDepth: Matcher = (text, ctx) => {
+  const m = new RegExp(`^(?:set|change|make)(?: the)?(?: stair)? (?:tread depth|going)(?: to)? ${LEN_SRC}$`).exec(text);
+  if (!m) return null;
+  return applySemanticIntent({ intent: 'set-tread-depth', value: toMeters(m[1]!, m[2]) }, ctx);
+};
+
+const matchRoomHeightOffset: Matcher = (text, ctx) => {
+  const m = new RegExp(`^(?:set|change|make)(?: the)?(?: room)? height offset(?: to)? ${LEN_SRC}$`).exec(text);
+  if (!m) return null;
+  return applySemanticIntent({ intent: 'set-room-height-offset', value: toMeters(m[1]!, m[2]) }, ctx);
+};
+
 // NOTE: sill-height must run BEFORE plain height ("sill height" contains "height").
 const matchSillHeight: Matcher = (text, ctx) => {
   const m = new RegExp(`^(?:set|change|make)(?: the)?(?: window)? sill height(?: to)? ${LEN_SRC}$`).exec(text);
@@ -1343,6 +1438,9 @@ const MATCHERS: readonly Matcher[] = [
   // BEFORE the dimension matchers: "make all walls interior partition" must not
   // be nibbled at by "make this … " shapes.
   matchWallType,
+  matchRiserHeight,  // before matchHeight — "riser height" contains "height"
+  matchTreadDepth,
+  matchRoomHeightOffset, // before matchHeight — "height offset" contains "height"
   matchSillHeight,   // before matchHeight — "sill height" contains "height"
   matchHeight,
   matchThickness,

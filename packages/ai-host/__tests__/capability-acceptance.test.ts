@@ -181,6 +181,32 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     phrasings: ['set sill height to 1m', 'change the sill height to 900mm'],
   },
   {
+    id: 'set-riser-height',
+    ctx: sel('stair'),
+    phrasings: [
+      'set the riser height to 180mm',
+      'change riser height to 0.175m',
+      'Could you set the riser height to 175mm?',
+    ],
+  },
+  {
+    id: 'set-tread-depth',
+    ctx: sel('stair'),
+    phrasings: [
+      'set the tread depth to 250mm',
+      'change the tread depth to 0.28m',
+      'please set the tread depth to 260mm',
+    ],
+  },
+  {
+    id: 'set-room-height-offset',
+    ctx: sel('room'),
+    phrasings: [
+      'set the room height offset to 0.5m',
+      'set the height offset to 200mm',
+    ],
+  },
+  {
     id: 'set-wall-type',
     ctx: {},
     phrasings: [
