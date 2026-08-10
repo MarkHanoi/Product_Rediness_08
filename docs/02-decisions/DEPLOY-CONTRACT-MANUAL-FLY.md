@@ -406,6 +406,28 @@ verify it, don't re-apply blindly.
 
 ---
 
+### 6.5.6 §DOCKER-HOST-LEAK — Docker Desktop breaks `--remote-only`
+
+Observed on the third execution day (a8f08c14 attempt): the deploy reached
+"Remote builder ready", then died with
+
+```
+Error: failed to fetch an image or build from source: failed to parse daemon
+host "npipe:////./pipe/docker_engine": missing hostname
+```
+
+Cause: Docker Desktop was running locally and its `DOCKER_HOST=npipe:////./pipe/docker_engine`
+leaked into flyctl, which tried to parse the WINDOWS NAMED PIPE as the build
+daemon even under `--remote-only`. Earlier same-day deploys succeeded because
+Docker Desktop was not yet running. Fix: strip the vars for the flyctl run:
+
+```bash
+env -u DOCKER_HOST -u DOCKER_CONTEXT bash tools/deploy/fly-manual-deploy.sh
+```
+
+Rule for the next agent: "worked an hour ago, fails now, error mentions npipe or
+docker_engine" ⇒ Docker Desktop started in between. Not the script, not the code.
+
 ## 7. OPEN ITEMS
 
 1. **Decouple build from deploy** — the real fix. Build on a datacenter box,
