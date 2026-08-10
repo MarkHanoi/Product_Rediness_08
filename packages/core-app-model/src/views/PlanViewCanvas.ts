@@ -44,6 +44,8 @@ import { graphicsRulesEngine } from '../drawing/GraphicsRulesEngine';
 import { ISO_CUT_LAYER_TO_POCHE_FILL, resolveWallLayerPocheFill } from '../drawing/PocheFillTable';
 // Contract 23 §9 (Day 9) — VGGovernanceStore view overrides → GraphicsRulesEngine injection
 import { vgGovernanceStore } from '../presentation/VGGovernanceStore';
+// §FEAT-PLAN-MULTISELECT — full multi-select set for the plan selection glow.
+import { selectionBus } from '../SelectionBus';
 // Contract 23 §14 — Worker Thread Pipeline (Stage 1)
 import { drawingPipelineOrchestrator } from '../drawing/DrawingPipelineOrchestrator';
 import type { PipelineResult } from '../drawing/DrawingPipelineTypes';
@@ -2192,7 +2194,15 @@ export class PlanViewCanvas {
         const selectedId = window.selectionManager?.selectedObject?.userData?.id as string | undefined;
         const hoveredId  = this._hoveredElementId ?? undefined;
 
-        if (!selectedId && !hoveredId) return;
+        // §FEAT-PLAN-MULTISELECT — the plan glow must show the WHOLE multi-select
+        // set, not only the primary. selectionBus.currentIds is the authoritative
+        // full set (§MARQUEE-SELECT-2026 / SHIFT+click accumulation in plan);
+        // selectedId is kept as a member too so single-select behaviour is
+        // byte-identical to before.
+        const selectedIdSet = new Set<string>(selectionBus.currentIds);
+        if (selectedId) selectedIdSet.add(selectedId);
+
+        if (selectedIdSet.size === 0 && !hoveredId) return;
 
         // ── Collect screen-space segments per entity ──────────────────────
         interface Seg { x1: number; y1: number; x2: number; y2: number }
@@ -2213,8 +2223,8 @@ export class PlanViewCanvas {
             ) as string | undefined;
             if (!uuid) return;
 
-            const isSelected = uuid === selectedId;
-            const isHovered  = uuid === hoveredId && uuid !== selectedId;
+            const isSelected = selectedIdSet.has(uuid);
+            const isHovered  = uuid === hoveredId && !isSelected;
             if (!isSelected && !isHovered) return;
 
             child.updateWorldMatrix(true, false);

@@ -354,6 +354,8 @@ export * from './walls/UpdateWallDimensionsCommand';
 export * from './walls/UpdateWallHeightCommand';
 export * from './walls/UpdateWallLayersCommand';
 export * from './walls/UpdateWallSystemTypeCommand';
+// §FEAT-WALL-TYPE-BATCH (RAC prep) — batch retype + forgiving type-ref resolver.
+export * from './walls/UpdateWallsSystemTypeBatchCommand';
 export * from './walls/wallSnapshotUtils';
 
 // ─── Migrations ───────────────────────────────────────────────────────────

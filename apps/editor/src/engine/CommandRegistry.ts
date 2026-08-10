@@ -39,6 +39,8 @@ import { UpdateWallDimensionsCommand } from '@pryzm/command-registry';
 import { UpdateWallColorCommand } from '@pryzm/command-registry';
 import { UpdateWallLayersCommand } from '@pryzm/command-registry';
 import { UpdateWallSystemTypeCommand } from '@pryzm/command-registry';
+// §FEAT-WALL-TYPE-BATCH (RAC prep) — batch retype, one undo entry.
+import { UpdateWallsSystemTypeBatchCommand } from '@pryzm/command-registry';
 import { UpdateWallBaselineCommand } from '@pryzm/command-registry';
 import { ChangeWallLevelCommand } from '@pryzm/command-registry';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
@@ -234,6 +236,8 @@ const REGISTRY = new Map<string, CommandFactory>([
     ['UPDATE_WALL_COLOR', (s) => new UpdateWallColorCommand(s.payload as any)],
     ['UPDATE_WALL_LAYERS', (s) => new UpdateWallLayersCommand(s.payload as any)],
     ['UPDATE_WALL_SYSTEM_TYPE', (s) => new UpdateWallSystemTypeCommand(s.payload as any)],
+    // §FEAT-WALL-TYPE-BATCH (RAC prep) — batch retype replays as one command remotely too.
+    ['UPDATE_WALLS_SYSTEM_TYPE_BATCH', (s) => UpdateWallsSystemTypeBatchCommand.deserialize(s)],
     ['UPDATE_WALL_BASELINE', (s) => new UpdateWallBaselineCommand(s.payload as any)],
     ['CHANGE_WALL_LEVEL', (s) => new ChangeWallLevelCommand(s.payload as any)],
     ['ADD_OPENING', (s) => new CreateWallOpeningCommand({

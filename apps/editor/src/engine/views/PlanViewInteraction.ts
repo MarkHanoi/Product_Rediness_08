@@ -729,7 +729,9 @@ export class PlanViewInteraction {
                     // Phase 1 — route through SelectionBus so the 3D viewport
                     // highlights, the Properties Panel opens, and every other
                     // surface syncs.  Replaces the bypass-style raw event.
-                    selectionBus.select(elementId, 'plan-view');
+                    // §FEAT-PLAN-MULTISELECT — SHIFT+click accumulates (parity
+                    // with the 3D marquee's selectMany additive path).
+                    this._dispatchPlanSelection(elementId, e.shiftKey);
                 }
             }
             return;
@@ -963,7 +965,9 @@ export class PlanViewInteraction {
             //      SelectionManager.select() re-emits with source='3d'.
             //   4. PlanViewManager's own bim-selection-changed handler (line 141)
             //      schedules a re-render so this canvas paints the highlight too.
-            selectionBus.select(elementId, 'plan-view');
+            // §FEAT-PLAN-MULTISELECT — SHIFT+click accumulates / toggles instead
+            // of replacing; plain click keeps the existing single-select path.
+            this._dispatchPlanSelection(elementId, e.shiftKey);
         } else if (this._hitTestUnderlay(sx, sy)) {
             // Hit the floor plan underlay — select it via the underlay tool
             const underlayTool = window.floorPlanUnderlayTool;
@@ -987,6 +991,39 @@ export class PlanViewInteraction {
                     underlayTool.deselect();
                 }
             }
+        }
+    }
+
+    /**
+     * §FEAT-PLAN-MULTISELECT (2026-08-10) — SHIFT+click multi-select in PLAN view,
+     * at parity with the 3D viewport's marquee multi-select.
+     *
+     * Drives the SAME selection authority as every other surface — `selectionBus`
+     * (Contract 27 §4 single entry point; `selectMany` is the §MARQUEE-SELECT-2026
+     * multi-select path whose LAST id is the PRIMARY driving the inspector /
+     * gizmo, with SelectionManager.applyMarqueeHighlights() wire-framing the rest
+     * in 3D). NO parallel selection set is created here: plan and 3D stay in sync
+     * by construction, and consumers (e.g. the "Selected walls → type…" AI pill)
+     * read `selectionBus.currentIds`.
+     *
+     * Semantics (Revit/common-tool convention):
+     *   • plain click            → replace selection (unchanged behaviour);
+     *   • SHIFT+click new elem   → ADD to selection (additive selectMany);
+     *   • SHIFT+click selected   → REMOVE it (toggle); removing the last one
+     *                              clears the selection explicitly.
+     */
+    private _dispatchPlanSelection(elementId: string, additive: boolean): void {
+        if (!additive) {
+            selectionBus.select(elementId, 'plan-view');
+            return;
+        }
+        const current = selectionBus.currentIds;
+        if (current.includes(elementId)) {
+            const rest = current.filter(id => id !== elementId);
+            if (rest.length > 0) selectionBus.selectMany(rest, 'plan-view', /* additive */ false);
+            else                 selectionBus.clearAll('plan-view');
+        } else {
+            selectionBus.selectMany([elementId], 'plan-view', /* additive */ true);
         }
     }
 
