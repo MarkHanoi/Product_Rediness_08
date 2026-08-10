@@ -149,12 +149,30 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
-    id: 'set-door-width',
+    id: 'set-width',
     ctx: sel('door'),
     phrasings: [
       'set door width to 900mm',
       'set the door width to nine hundred millimeters',
       'change width to 850mm',
+      'make the door 1m wide',
+    ],
+  },
+  {
+    id: 'set-roof-pitch',
+    ctx: sel('roof'),
+    phrasings: [
+      'set the roof pitch to 30 degrees',
+      'change pitch to 45',
+      'could you set the roof pitch to 22.5 degrees?',
+    ],
+  },
+  {
+    id: 'set-room-number',
+    ctx: sel('room'),
+    phrasings: [
+      'set the room number to 101',
+      'change the room number to 2.04',
     ],
   },
   {
@@ -406,13 +424,23 @@ describe('set-height no longer over-claims element kinds', () => {
   it('refuses kinds element.updateParameters cannot route, instead of reporting a silent no-op', () => {
     // UpdateElementParameterCommand.resolveStore() has no case for these; its
     // default arm returns null, so the old behaviour dispatched a command that
-    // changed nothing and the chat said "Done".
-    for (const kind of ['room', 'ceiling', 'floor', 'lighting', 'plumbing']) {
+    // changed nothing and the chat said "Done". (ceiling left this list on
+    // 2026-08-10 — it now routes through its OWN command, ceiling.setHeight.)
+    for (const kind of ['room', 'floor', 'lighting', 'plumbing']) {
       const r = resolveUtterance('set height to 3m', ctxOf(sel(kind)));
       expect(r.kind, `${kind} should refuse`).toBe('refusal');
       if (r.kind !== 'refusal') continue;
       expect(r.reason).toContain('change nothing');
     }
+  });
+
+  it('ceiling height routes through ceiling.setHeight (§FEAT-CHAT-SYMMETRY)', () => {
+    const r = resolveUtterance('set the ceiling height to 2.7m', ctxOf(sel('ceiling')));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toEqual([
+      { type: 'ceiling.setHeight', payload: { ceilingId: 'ceiling-1', ceilingHeight: 2.7 } },
+    ]);
   });
 
   it('still accepts every kind the command CAN route', () => {
@@ -422,5 +450,116 @@ describe('set-height no longer over-claims element kinds', () => {
       const r = applySemanticIntent({ intent: 'set-height', value: 3 }, ctxOf(sel(kind)));
       expect(r.kind, `${kind} should be accepted`).toBe('commands');
     }
+  });
+});
+
+// ─── §FEAT-CHAT-SYMMETRY — per-kind routing of the widened families ──────────
+
+describe('symmetric routing — the same sentence drives the right per-kind command', () => {
+  it('thickness routes wall / slab / roof to their own commands', () => {
+    const cases = [
+      ['wall', 'wall.updateDimensions', { wallId: 'wall-1', thickness: 0.25 }],
+      ['slab', 'slab.setThickness', { slabId: 'slab-1', thickness: 0.25 }],
+      ['roof', 'roof.setThickness', { roofId: 'roof-1', thickness: 0.25 }],
+    ] as const;
+    for (const [kind, type, payload] of cases) {
+      const r = resolveFull('set thickness to 250mm', ctxOf(sel(kind)));
+      expect(r.kind, kind).toBe('commands');
+      if (r.kind !== 'commands') continue;
+      expect(r.commands).toEqual([{ type, payload }]);
+    }
+  });
+
+  it('width routes door / window / stair to their own commands', () => {
+    const cases = [
+      ['door', 'door.setWidth', { doorId: 'door-1', width: 0.9 }],
+      ['window', 'window.setSize', { windowId: 'window-1', width: 0.9 }],
+      ['stair', 'stair.setWidth', { stairId: 'stair-1', width: 0.9 }],
+    ] as const;
+    for (const [kind, type, payload] of cases) {
+      const r = resolveFull('set width to 900mm', ctxOf(sel(kind)));
+      expect(r.kind, kind).toBe('commands');
+      if (r.kind !== 'commands') continue;
+      expect(r.commands).toEqual([{ type, payload }]);
+    }
+  });
+
+  it('roof pitch converts degrees to the radians roof.setPitch takes', () => {
+    const r = resolveFull('set the roof pitch to 30 degrees', ctxOf(sel('roof')));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.type).toBe('roof.setPitch');
+    const p = r.commands[0]!.payload as { roofId: string; pitch: number };
+    expect(p.roofId).toBe('roof-1');
+    expect(p.pitch).toBeCloseTo(Math.PI / 6, 3);
+  });
+
+  it('roof pitch on a wall refuses honestly (the twin does not exist for walls)', () => {
+    const r = resolveFull('set the pitch to 30 degrees', ctxOf(sel('wall')));
+    expect(r.kind).toBe('refusal');
+  });
+
+  it('an out-of-range pitch refuses in the unit the user typed', () => {
+    const r = resolveFull('set the roof pitch to 95 degrees', ctxOf(sel('roof')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('89');
+  });
+
+  it('room number dispatches room.setNumber', () => {
+    const r = resolveFull('set the room number to 101', ctxOf(sel('room')));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toEqual([{ type: 'room.setNumber', payload: { roomId: 'room-1', number: '101' } }]);
+  });
+});
+
+// ─── §FIX-CHAT-COMPOUND-DIMENSIONS — the founder's window, verbatim ──────────
+
+describe('compound dimensions resolve to ONE dispatch (live repro, build 70667276)', () => {
+  it('the founder\'s exact sentence → one element.updateParameters carrying all three values', () => {
+    const r = resolveFull(
+      'Make this window 2 meters height, 2 meters width and 0.1 meters sill height',
+      ctxOf(sel('window')),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-dimensions');
+    // ONE command. A sequence would dispatch into ids the first rebuild
+    // re-minted ("window not found: b0a84065-…").
+    expect(r.commands).toHaveLength(1);
+    expect(r.commands[0]).toEqual({
+      type: 'element.updateParameters',
+      payload: {
+        elementId: 'window-1',
+        elementType: 'window',
+        parameters: { height: 2, width: 2, sillHeight: 0.1 },
+      },
+    });
+  });
+
+  it('"make this wall 3m tall and 300mm thick" → one wall.updateDimensions', () => {
+    const r = resolveFull('make this wall 3m tall and 300mm thick', ctxOf(sel('wall')));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toEqual([
+      { type: 'wall.updateDimensions', payload: { wallId: 'wall-1', height: 3, thickness: 0.3 } },
+    ]);
+  });
+
+  it('a compound naming a property the kind does not have refuses WHOLE — no partial execution', () => {
+    // Thickness does not apply to a window; applying height+width and skipping
+    // thickness would be partial execution presented as success.
+    const r = resolveFull('make this window 2m height and 300mm thickness', ctxOf(sel('window')));
+    expect(r.kind).toBe('refusal');
+  });
+
+  it('a compound on a kind with no single multi-parameter command refuses with the reason', () => {
+    // Slab: height routes via element.updateParameters, thickness via
+    // slab.setThickness — no proven single dispatch carries both.
+    const r = resolveFull('make this slab 300mm thick and 5m height', ctxOf(sel('slab')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('one');
   });
 });

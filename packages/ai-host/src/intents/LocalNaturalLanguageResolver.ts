@@ -58,6 +58,10 @@ export interface ConversationContext {
   readonly lastReferencedElements?: readonly ResolverSelection[];
   /** Set when the previous reply was a clarifying question awaiting a value. */
   readonly pendingIntent?: string;
+  /** §FEAT-CHAT-FOLLOWUP — the SCOPE of the last set-wall-type, so
+   *  "change all walls to X" → "actually use Y" retypes the same population.
+   *  Biases interpretation only; targeting is re-read from the live editor. */
+  readonly lastWallTypeScope?: 'all' | 'selection';
 }
 
 export interface NaturalLanguageContext extends ResolverContext {
@@ -159,7 +163,8 @@ const NL_VOCAB: readonly string[] = [
   'set', 'change', 'increase', 'raise', 'decrease', 'reduce', 'lower',
   'rename', 'call', 'go', 'tall', 'taller', 'high', 'higher', 'short',
   'shorter', 'thick', 'thicker', 'thin', 'thinner', 'wide', 'wider',
-  'narrow', 'narrower', 'undo', 'redo', 'zoom', 'fit', 'frame', 'meter',
+  'narrow', 'narrower', 'pitch', 'degree', 'degrees', 'number', 'ceiling',
+  'undo', 'redo', 'zoom', 'fit', 'frame', 'meter',
   'meters', 'metre', 'metres', 'millimeter', 'millimeters', 'millimetre',
   'millimetres', 'centimeter', 'centimeters', 'centimetre', 'centimetres',
   'upstairs', 'downstairs', 'ground', 'everything', 'ordinal', 'element',
@@ -169,7 +174,8 @@ const NL_VOCAB: readonly string[] = [
 const NL_ELEMENT_NOUNS: ReadonlySet<string> = new Set([
   'wall', 'walls', 'door', 'doors', 'window', 'windows', 'room', 'rooms',
   'slab', 'slabs', 'roof', 'roofs', 'stair', 'stairs', 'column', 'columns',
-  'beam', 'beams', 'element', 'elements', 'item', 'items', 'object', 'objects',
+  'beam', 'beams', 'ceiling', 'ceilings',
+  'element', 'elements', 'item', 'items', 'object', 'objects',
 ]);
 
 const SELECTION_REF_WORDS: ReadonlySet<string> = new Set([
@@ -181,10 +187,10 @@ const SET_VERBS: ReadonlySet<string> = new Set([
   'lower', 'extend', 'shrink', 'bump',
 ]);
 
-type SetIntentName = 'set-height' | 'set-thickness' | 'set-door-width' | 'set-sill-height';
+type SetIntentName = 'set-height' | 'set-thickness' | 'set-width' | 'set-sill-height';
 
 const SET_INTENTS: ReadonlySet<string> = new Set([
-  'set-height', 'set-thickness', 'set-door-width', 'set-sill-height',
+  'set-height', 'set-thickness', 'set-width', 'set-sill-height',
 ] satisfies SetIntentName[]);
 
 function isSetIntent(x: string): x is SetIntentName {
@@ -399,6 +405,16 @@ interface Entities {
   readonly levelMentioned: boolean;
   readonly upDown: 'up' | 'down' | null;
   readonly coords: { readonly start: WallPoint2; readonly end: WallPoint2 } | null;
+  /** "30 degrees" / "30°" — an angle, for set-roof-pitch. */
+  readonly angleDeg: number | null;
+  /**
+   * §FIX-CHAT-COMPOUND-DIMENSIONS — explicit value↔dimension BINDINGS
+   * ("2 meters height, 2 meters width and 0.1 meters sill height"). When two
+   * or more distinct dimensions are bound, the utterance is a compound ask and
+   * `measurements[0]` (first-number-wins) would silently mis-assign — the
+   * founder's window got its SILL set to 2 m by that rule.
+   */
+  readonly bindings: readonly { readonly dim: Dimension; readonly value: number }[];
   readonly hasDeleteVerb: boolean;
   readonly hasNavVerb: boolean;
   readonly hasSetVerb: boolean;
@@ -508,6 +524,32 @@ function extractEntities(n: Normalized, ctx: NaturalLanguageContext): Entities {
   else if (tokens.some((t) => HEIGHT_WORDS.has(t))) dimension = 'height';
   else if (tokens.some((t) => HEIGHT_REL.has(t))) { dimension = 'height'; relativeDim = true; }
 
+  // §FIX-CHAT-COMPOUND-DIMENSIONS — value↔dimension bindings, both orders:
+  // "2 meters height" / "2m tall" AND "height 2m" / "sill height of 0.1m".
+  const DIM_WORD = String.raw`(sill height|sill|height|tall|high|width|wide|thickness|thick)`;
+  const UNIT = String.raw`(millimet(?:er|re)s?|centimet(?:er|re)s?|met(?:er|re)s?|mm|cm|m)?`;
+  const toDim = (w: string): Dimension =>
+    w.startsWith('sill') ? 'sill'
+    : w === 'width' || w === 'wide' ? 'width'
+    : w === 'thickness' || w === 'thick' ? 'thickness'
+    : 'height';
+  const bindings: { dim: Dimension; value: number }[] = [];
+  const bound = new Set<Dimension>();
+  const addBinding = (dimWord: string, num: string, unit: string | undefined): void => {
+    const dim = toDim(dimWord);
+    if (bound.has(dim)) return;
+    bound.add(dim);
+    bindings.push({ dim, value: lengthToMeters(num, unit) });
+  };
+  const VALUE_THEN_DIM = new RegExp(String.raw`(-?\d+(?:\.\d+)?)\s*${UNIT}\s+(?:in\s+|of\s+)?${DIM_WORD}\b`, 'g');
+  const DIM_THEN_VALUE = new RegExp(String.raw`\b${DIM_WORD}\s*(?:of|to|at|=|:)?\s*(-?\d+(?:\.\d+)?)\s*${UNIT}(?![\w.])`, 'g');
+  for (const m2 of text.matchAll(VALUE_THEN_DIM)) addBinding(m2[3]!, m2[1]!, m2[2]);
+  for (const m2 of text.matchAll(DIM_THEN_VALUE)) addBinding(m2[1]!, m2[2]!, m2[3]);
+
+  // Angle ("30 degrees", "30°") — for roof pitch.
+  const angleMatch = /(-?\d+(?:\.\d+)?)\s*(?:°|degrees?|degs?)(?![a-z])/.exec(text);
+  const angleDeg = angleMatch !== null ? parseFloat(angleMatch[1]!) : null;
+
   // Element noun / selection reference / verbs.
   const nounTok = tokens.find((t) => NL_ELEMENT_NOUNS.has(t)) ?? null;
   const elementNoun = nounTok !== null ? (nounTok.endsWith('s') ? nounTok.slice(0, -1) : nounTok) : null;
@@ -531,6 +573,8 @@ function extractEntities(n: Normalized, ctx: NaturalLanguageContext): Entities {
     levelMentioned,
     upDown,
     coords,
+    angleDeg,
+    bindings,
     hasDeleteVerb: tokens.includes('delete'),
     hasNavVerb: tokens.includes('go') || tokens.includes('open'),
     hasSetVerb: tokens.some((t) => SET_VERBS.has(t)),
@@ -551,21 +595,23 @@ interface Candidate {
 const DIMENSION_INTENT: Readonly<Record<Dimension, SetIntentName>> = {
   height: 'set-height',
   thickness: 'set-thickness',
-  width: 'set-door-width',
+  width: 'set-width',
   sill: 'set-sill-height',
 };
 
 const CLARIFY_QUESTIONS: Readonly<Record<string, string>> = {
   'set-height': 'What height should I set it to? For example "3m" or "2700mm".',
   'set-thickness': 'How thick should it be? For example "200mm" or "0.2m".',
-  'set-door-width': 'What width should I set? For example "900mm".',
+  'set-width': 'What width should I set? For example "900mm".',
   'set-sill-height': 'What sill height should I set? For example "1m".',
+  'set-roof-pitch': 'What pitch should I set? For example "30 degrees".',
+  'set-room-number': 'What room number should I set? For example "101".',
 };
 
 const DIMENSION_LABEL: Readonly<Record<string, string>> = {
   'set-height': 'height',
   'set-thickness': 'thickness',
-  'set-door-width': 'width',
+  'set-width': 'width',
   'set-sill-height': 'sill height',
 };
 
@@ -615,10 +661,30 @@ function classify(
     }
   }
 
-  // Dimension setting (set-height / set-thickness / set-door-width / set-sill-height).
+  // §FIX-CHAT-COMPOUND-DIMENSIONS — "2 meters height, 2 meters width and 0.1
+  // meters sill height" is ONE compound ask, resolved to ONE dispatch. It must
+  // outrank (and suppress) the single-dimension branch, whose first-number-wins
+  // rule mis-assigned the founder's 2 m to the sill.
   const creationShape =
     e.determinerNew && (tokens.includes('create') || tokens.includes('draw') || tokens.includes('build') || tokens.includes('add') || tokens.includes('make'));
-  if (e.dimension !== null && !creationShape) {
+  const compound = e.bindings.length >= 2 && !creationShape && e.coords === null;
+  if (compound) {
+    const si: SemanticIntent = { intent: 'set-dimensions' };
+    const fields: Record<string, number> = {};
+    for (const b of e.bindings) {
+      const key = b.dim === 'sill' ? 'sillHeight' : b.dim;
+      fields[key] = b.value;
+    }
+    push({
+      intent: 'set-dimensions',
+      confidence: 0.95,
+      evidence: ['compound', ...e.bindings.map((b) => `bind:${b.dim}`)],
+      si: { ...si, ...fields } as SemanticIntent,
+    });
+  }
+
+  // Dimension setting (set-height / set-thickness / set-width / set-sill-height).
+  if (e.dimension !== null && !creationShape && !compound) {
     const intent = DIMENSION_INTENT[e.dimension];
     const value = e.measurements[0];
     const ev = [`dimension:${e.dimension}`];
@@ -631,7 +697,7 @@ function classify(
         ? { intent, value }
         : intent === 'set-thickness'
           ? { intent, value }
-          : intent === 'set-door-width'
+          : intent === 'set-width'
             ? { intent, value }
             : { intent, value };
       push({ intent, confidence: conf, evidence: ev, si });
@@ -647,8 +713,44 @@ function classify(
     }
   }
 
+  // set-roof-pitch (§FEAT-CHAT-SYMMETRY). Degrees, never the length rule — a
+  // bare "30" after the word "pitch" is 30°, not 30 mm.
+  if (tokens.includes('pitch') && !creationShape) {
+    const numTok = tokens.find((t) => /^-?\d+(?:\.\d+)?$/.test(t));
+    const deg = e.angleDeg ?? (numTok !== undefined ? parseFloat(numTok) : null);
+    const ev = ['dimension:pitch'];
+    if (e.elementNoun !== null) ev.push(`noun:${e.elementNoun}`);
+    if (deg !== null) {
+      push({
+        intent: 'set-roof-pitch',
+        confidence: 0.9 + (e.selectionRef || e.elementNoun === 'roof' ? 0.05 : 0),
+        evidence: [...ev, 'value:absolute'],
+        si: { intent: 'set-roof-pitch', degrees: deg },
+      });
+    } else if (e.hasSetVerb) {
+      push({ intent: 'set-roof-pitch', confidence: 0.62, evidence: [...ev, 'value:missing'], question: CLARIFY_QUESTIONS['set-roof-pitch']! });
+    }
+  }
+
+  // set-room-number (§FEAT-CHAT-SYMMETRY). The value is user text off `plain`
+  // (a room number like "2.04" must not be read as a measurement).
+  if (tokens.includes('number') && (tokens.includes('room') || e.selectionRef)) {
+    const m = /\bnumber\b(?:\s+(?:to|as))?\s+["']?([\w.-]+)["']?\s*$/.exec(n.plain);
+    const num = m?.[1];
+    if (num !== undefined && num.length > 0) {
+      push({
+        intent: 'set-room-number', confidence: 0.9,
+        evidence: ['noun:room-number', 'value:present'],
+        si: { intent: 'set-room-number', number: num },
+      });
+    } else if (e.hasSetVerb) {
+      push({ intent: 'set-room-number', confidence: 0.6, evidence: ['noun:room-number', 'value:missing'], question: CLARIFY_QUESTIONS['set-room-number']! });
+    }
+  }
+
   // Follow-up: a value with NO dimension word — reuse the pending/last set-intent.
-  if (e.dimension === null && e.measurements.length > 0 && e.coords === null) {
+  if (e.dimension === null && e.measurements.length > 0 && e.coords === null
+      && !tokens.includes('pitch') && !tokens.includes('number')) {
     const prior = conversation.pendingIntent ?? conversation.lastIntent;
     const value = e.measurements[0]!;
     if (prior !== undefined && isSetIntent(prior)) {
@@ -657,7 +759,7 @@ function classify(
         ? { intent: prior, value }
         : prior === 'set-thickness'
           ? { intent: prior, value }
-          : prior === 'set-door-width'
+          : prior === 'set-width'
             ? { intent: prior, value }
             : { intent: prior, value };
       push({
@@ -670,6 +772,41 @@ function classify(
         intent: 'set-height', confidence: 0.5,
         evidence: ['value:absolute', 'dimension:unknown'],
         question: `Should I set the height, the thickness, or the width to ${value} m? Tell me which.`,
+      });
+    }
+  }
+
+  // Follow-up: "go to level 2" → "actually level 3" / "actually 3".
+  // A bare number re-targets the LAST level switch; a pending set-intent
+  // clarification wins by confidence (its follow-up pushes higher above).
+  if (
+    conversation.lastIntent === 'go-to-level' &&
+    e.dimension === null && e.coords === null && tokens.length <= 3 &&
+    (conversation.pendingIntent === undefined || !isSetIntent(conversation.pendingIntent))
+  ) {
+    const numTok = tokens.find((t) => /^\d+$/.test(t));
+    if (numTok !== undefined) {
+      push({
+        intent: 'go-to-level',
+        confidence: n.revision ? 0.85 : 0.78,
+        evidence: ['follow-up:go-to-level'],
+        si: { intent: 'go-to-level', levelQuery: numTok },
+      });
+    }
+  }
+
+  // Follow-up: "change all walls to X" → "actually use Y" / "try Y" — reuse the
+  // last wall-type SCOPE, resolve the new reference through the same injected
+  // catalogue lookup (an unknown Y refuses by listing the real types).
+  if (conversation.lastIntent === 'set-wall-type') {
+    const m = /^(?:use|try|go with|make (?:it|them)|change (?:it|them) to|switch (?:it|them) to)\s+(.+)$/.exec(n.plain);
+    const typeRef = m?.[1]?.trim().replace(/^["']|["']$/g, '');
+    if (typeRef !== undefined && typeRef.length > 0) {
+      push({
+        intent: 'set-wall-type',
+        confidence: n.revision ? 0.9 : 0.8,
+        evidence: ['follow-up:set-wall-type', `scope:${conversation.lastWallTypeScope ?? 'all'}`],
+        si: { intent: 'set-wall-type', typeRef, scope: conversation.lastWallTypeScope ?? 'all' },
       });
     }
   }
@@ -788,9 +925,16 @@ export function noteResolution(
           if (typeof h === 'number') measurement = h;
         }
       }
+      // §FEAT-CHAT-FOLLOWUP — remember the wall-type scope so "actually use Y"
+      // retypes the same population the user last named.
+      let wallTypeScope: 'all' | 'selection' | undefined;
+      if (resolution.intent === 'set-wall-type' && payload !== undefined) {
+        wallTypeScope = payload['wallIds'] === 'all' ? 'all' : 'selection';
+      }
       return {
         lastIntent: resolution.intent,
         ...(measurement !== undefined ? { lastMeasurement: measurement } : {}),
+        ...(wallTypeScope !== undefined ? { lastWallTypeScope: wallTypeScope } : {}),
         ...(prev.lastLevelId !== undefined ? { lastLevelId: prev.lastLevelId } : {}),
       };
     }
@@ -880,6 +1024,7 @@ export function resolveNaturalLanguage(
             const nextConversation: ConversationContext = {
               lastIntent: si.intent,
               ...(ctx.selection.length > 0 ? { lastReferencedElements: [...ctx.selection] } : {}),
+              ...(si.intent === 'set-wall-type' ? { lastWallTypeScope: si.scope } : {}),
               ...('value' in si ? { lastMeasurement: si.value } : conversation.lastMeasurement !== undefined ? { lastMeasurement: conversation.lastMeasurement } : {}),
               ...(applied.kind === 'local' && applied.action === 'setActiveLevel' && applied.levelId !== undefined
                 ? { lastLevelId: applied.levelId }

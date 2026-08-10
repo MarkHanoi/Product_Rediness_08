@@ -67,6 +67,12 @@
  *     applySemanticIntent REFUSES it" (proof 3a, the ElementCapabilities case)
  *   • an under-matching handler regex → fifteen phantom claims reported, which
  *     is how the regex bug documented below was actually found.
+ * Re-negative-tested 2026-08-10 for the new checks, both correctly rejected:
+ *   • a fabricated `nonexistent.verb` in CHAT_CLASSIFIED → "classified but not
+ *     a registered bus command — stale entry" (classification consistency)
+ *   • `mustMention: ['NOT_IN_FILE_XYZ']` on set-thickness → "never mentions
+ *     \"NOT_IN_FILE_XYZ\"" (multi-proof reader), and the missing
+ *     `handrail.delete` classification fired the baseline-0 ratchet live.
  *
  * Usage:  tsx tools/ga-gate/check-chat-capability-coverage.ts
  * Exit:   0 = at or below the baseline and all hard checks pass · 1 = otherwise
@@ -78,11 +84,16 @@ import { execSync } from 'node:child_process';
 import {
   allChatCapabilities,
   capabilityAppliesTo,
+  commandProofsOf,
   CHAT_UNAVAILABLE,
   normalizeElementKind,
   PROBE_ELEMENT_KINDS,
   type ChatCapability,
 } from '../../packages/ai-host/src/capabilities/ChatCapabilityRegistry.js';
+import {
+  CHAT_CLASSIFIED,
+  classificationBreakdown,
+} from '../../packages/ai-host/src/capabilities/ChatCommandClassification.js';
 import { unconnectedTopicCommands } from '../../packages/ai-host/src/capabilities/CapabilityRefusal.js';
 import {
   applySemanticIntent,
@@ -92,22 +103,22 @@ import {
 /**
  * ⚠ SHRINK-ONLY.
  *
- * ─── UNDECLARED = 269, frozen 2026-08-10 ─────────────────────────────────────
- * Registered bus commands with no chat declaration. It is NOT zero and pretending
- * otherwise would have meant writing 269 deferral sentences in one sitting, most
- * of them guesses — the `AUTHORING_UNAVAILABLE` precedent is explicit that a
- * stated reason must be true, not decorative. What matters is that the number can
- * only fall, and that the NEXT command to be added cannot be added silently.
+ * ─── UNDECLARED = 0 since 2026-08-10 (was 269, frozen the same day) ──────────
+ * Every registered bus command is now declared in exactly one of three places:
+ * implemented by a `ChatCapability`, deferred with a user-readable reason in
+ * `CHAT_UNAVAILABLE`, or classified (B needs-design / C internal / D duplicate /
+ * E unsafe / F deferred-next-tranche) with a truthful engineering reason in
+ * `ChatCommandClassification.ts`. The 269→0 drop was NOT flattery: each of the
+ * 269 was walked and placed; the classification file is the roadmap and the
+ * per-family reasons are checked for truth in review, not generated.
  *
- * Lowering it is the work: move a command into `CHAT_CAPABILITIES` (best) or into
- * `CHAT_UNAVAILABLE` with an honest reason (acceptable), and drop this number by
- * the same amount in the same commit.
+ * A NEW command therefore fails this gate until its author chooses: wire it
+ * (capability), refuse it out loud (CHAT_UNAVAILABLE), or classify it with a
+ * reason a reviewer can falsify. That choice being forced is the entire point.
  *
- * Raising it requires a dated justification HERE, in this comment, naming the
- * commands and why the chat cannot speak for them yet. An undocumented bump is a
- * ratchet failure and reviewers should treat it as one.
+ * Raising this above 0 requires a dated justification HERE naming the commands.
  */
-const MAX_UNDECLARED = Number(process.env.PRYZM_CHAT_MAX_UNDECLARED ?? 269);
+const MAX_UNDECLARED = Number(process.env.PRYZM_CHAT_MAX_UNDECLARED ?? 0);
 
 /** Files that register bus commands. A `type: 'x.y'` literal in one of these is
  *  a real verb the bus will accept. */
@@ -197,24 +208,66 @@ function probeTargets(cap: ChatCapability): string[] {
   return failures;
 }
 
-/** Check 3b — the source-anchored command proof. */
+/** Check 3b — the source-anchored command proof (one proof per routed command). */
 function proveCommandTargets(cap: ChatCapability): string[] {
   if (cap.targets === 'global') return [];
-  const proof = cap.commandProof;
-  if (proof === undefined) {
+  const proofs = commandProofsOf(cap);
+  if (proofs.length === 0) {
     return [`${cap.id}: declares element targets but no commandProof — the claim is unverifiable.`];
   }
-  if (!existsSync(proof.file)) {
-    return [`${cap.id}: commandProof.file "${proof.file}" does not exist.`];
-  }
-  const src = readFileSync(proof.file, 'utf8');
-  const missing = proof.mustMention.filter((needle) => !src.includes(needle));
-  return missing.length === 0
-    ? []
-    : [
+  const failures: string[] = [];
+  for (const proof of proofs) {
+    if (!existsSync(proof.file)) {
+      failures.push(`${cap.id}: commandProof.file "${proof.file}" does not exist.`);
+      continue;
+    }
+    const src = readFileSync(proof.file, 'utf8');
+    const missing = proof.mustMention.filter((needle) => !src.includes(needle));
+    if (missing.length > 0) {
+      failures.push(
         `${cap.id}: commandProof names ${proof.file}, but it never mentions ` +
         `${missing.map((s) => `"${s}"`).join(', ')} — the target claim is not proven by the command.`,
-      ];
+      );
+    }
+  }
+  return failures;
+}
+
+/**
+ * Check 5 — PARAMETER SOURCE RESOLVABILITY (hard, zero tolerance).
+ * Every declared parameter must name a KNOWN value source, and the probe must
+ * actually carry a value of that source's shape — otherwise the probe proves
+ * target behaviour with a parameter the capability could never resolve at
+ * runtime, which is a claim nobody checked.
+ */
+const KNOWN_VALUE_SOURCES = new Set([
+  'measurement', 'angle', 'wall-system-types', 'project-levels', 'user-text', 'coordinates',
+]);
+
+function proveParameterSources(cap: ChatCapability): string[] {
+  const failures: string[] = [];
+  const probe = cap.probe as unknown as Record<string, unknown>;
+  for (const p of cap.parameters) {
+    if (!KNOWN_VALUE_SOURCES.has(p.valueSource)) {
+      failures.push(`${cap.id}.${p.name}: unknown valueSource "${p.valueSource}" — nothing can resolve it.`);
+      continue;
+    }
+    if (!p.required) continue;
+    const ok =
+      p.valueSource === 'measurement' ? Object.values(probe).some((v) => typeof v === 'number')
+      : p.valueSource === 'angle' ? typeof probe['degrees'] === 'number'
+      : p.valueSource === 'wall-system-types' ? typeof probe['typeRef'] === 'string'
+      : p.valueSource === 'project-levels' ? typeof probe['levelQuery'] === 'string'
+      : p.valueSource === 'coordinates' ? probe['start'] !== undefined && probe['end'] !== undefined
+      : /* user-text */ Object.values(probe).some((v) => typeof v === 'string' && v !== cap.id);
+    if (!ok) {
+      failures.push(
+        `${cap.id}.${p.name}: required parameter (source "${p.valueSource}") is absent from the probe — ` +
+        `the target proof runs with a parameter the capability cannot resolve.`,
+      );
+    }
+  }
+  return failures;
 }
 
 // ── Run ──────────────────────────────────────────────────────────────────────
@@ -229,8 +282,29 @@ for (const c of caps) {
   for (const extra of c.alsoDispatches ?? []) covered.add(extra);
 }
 const undeclared = [...registered.keys()]
-  .filter((t) => !covered.has(t) && !CHAT_UNAVAILABLE.has(t))
+  .filter((t) => !covered.has(t) && !CHAT_UNAVAILABLE.has(t) && !CHAT_CLASSIFIED.has(t))
   .sort();
+
+// 1b. Classification consistency (hard): the three declaration surfaces are
+// DISJOINT, and nothing classified is stale (unregistered) — a stale entry
+// would silently re-declare a command that no longer exists.
+const classificationFailures: string[] = [];
+for (const cmd of CHAT_CLASSIFIED.keys()) {
+  if (!registered.has(cmd)) {
+    classificationFailures.push(`"${cmd}" is classified but not a registered bus command — stale entry.`);
+  }
+  if (covered.has(cmd)) {
+    classificationFailures.push(`"${cmd}" is BOTH a capability dispatch and classified — pick one.`);
+  }
+  if (CHAT_UNAVAILABLE.has(cmd)) {
+    classificationFailures.push(`"${cmd}" is BOTH in CHAT_UNAVAILABLE and classified — pick one.`);
+  }
+}
+for (const [cmd, c] of CHAT_CLASSIFIED) {
+  if (c.reason.trim().length < 40) {
+    classificationFailures.push(`"${cmd}": classification reason is too thin to be falsifiable.`);
+  }
+}
 
 // 2. Phantom capabilities.
 const phantoms: string[] = [];
@@ -260,6 +334,9 @@ for (const cmd of unconnectedTopicCommands()) {
 
 // 3. Targets.
 const targetFailures = caps.flatMap((c) => [...probeTargets(c), ...proveCommandTargets(c)]);
+
+// 5. Parameter sources.
+const parameterFailures = caps.flatMap((c) => proveParameterSources(c));
 
 // 3c. Normalization sanity: a declared target must survive normalizeElementKind,
 // or `capabilityAppliesTo` silently answers false forever.
@@ -298,6 +375,12 @@ console.log('[check-chat-capability-coverage] §FIX-CHAT-CAPABILITY-BLIND (ADR-0
 console.log(`[check-chat-capability-coverage] registered bus commands: ${registered.size}`);
 console.log(`[check-chat-capability-coverage] chat capabilities: ${caps.length} · covering ${covered.size} command(s)`);
 console.log(`[check-chat-capability-coverage] explicitly deferred (CHAT_UNAVAILABLE): ${CHAT_UNAVAILABLE.size}`);
+const breakdown = classificationBreakdown();
+console.log(
+  `[check-chat-capability-coverage] classified (${CHAT_CLASSIFIED.size}): ` +
+  `B needs-design ${breakdown.B} · C internal ${breakdown.C} · D duplicate ${breakdown.D} · ` +
+  `E unsafe ${breakdown.E} · F deferred ${breakdown.F}`,
+);
 console.log(`[check-chat-capability-coverage] UNDECLARED: ${undeclared.length} (baseline ${MAX_UNDECLARED})`);
 
 let failed = false;
@@ -329,6 +412,18 @@ if (targetFailures.length > 0) {
     `Offset / Scale on seven families whose commands refuse at canExecute. Do not repeat it here.`,
   );
   for (const t of targetFailures) console.error(`      ${t}`);
+  failed = true;
+}
+
+if (classificationFailures.length > 0) {
+  console.error(`\n[check-chat-capability-coverage] FAIL — ${classificationFailures.length} classification inconsistency(ies):`);
+  for (const f of classificationFailures) console.error(`      ${f}`);
+  failed = true;
+}
+
+if (parameterFailures.length > 0) {
+  console.error(`\n[check-chat-capability-coverage] FAIL — ${parameterFailures.length} unresolvable parameter source(s):`);
+  for (const f of parameterFailures) console.error(`      ${f}`);
   failed = true;
 }
 

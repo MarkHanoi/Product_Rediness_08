@@ -1,7 +1,9 @@
 # ADR-0313 — Capability-driven zero-token chat command resolver in the AI panel
 
 - **Status:** Accepted (2026-08-10; §Natural-language layer added 2026-08-10; **reframed
-  from intent-list to CAPABILITY-DRIVEN 2026-08-10 — see §Capability-driven resolution**)
+  from intent-list to CAPABILITY-DRIVEN 2026-08-10 — see §Capability-driven resolution**;
+  **§No silent gaps + §Symmetry tranche + §Compound dimensions added 2026-08-10** — every
+  registered bus command is now declared, the undeclared baseline is 0)
 - **Owners:** AI panel / ai-host
 - **Related:** C16 (command authoring), C03 (commands/state), P6 (commands-only mutation), P8 (spans), §CONTEXT-DATA-HONESTY
 
@@ -265,11 +267,98 @@ still resolve.
   and CI proves it against the real registration lists. The guarantee "a feature cannot ship
   without its chat metadata" is delivered by the gate, not by an import.
 
+## No silent gaps (2026-08-10)
+
+**Every one of the 303 registered bus commands is now declared in exactly one of three
+places**, and `check-chat-capability-coverage` fails CI (baseline **0**, shrink-only) when a
+command appears in none:
+
+1. **Implemented** — a `ChatCapability` (16 capabilities covering 18 commands).
+2. **Deferred out loud** — `CHAT_UNAVAILABLE` (51 commands), each with a reason a USER can
+   read; the refusal generator speaks these.
+3. **Classified** — `ChatCommandClassification.ts` (234 commands), the engineering roadmap:
+   **B needs-design 134** (each names its `blockedBy`: a value-source injection, a placement
+   grammar, a reference-resolution design) · **C internal 50** (batch executors, derived
+   recomputes, registry plumbing — a sentence never means these verbs) · **D duplicate 38**
+   (second routes to outcomes the chat already reaches; wiring them would mint two sources of
+   truth per ask) · **E unsafe 3** (`*-on-all-*` project-wide generators; blocked on
+   preview-before-execute, which this ADR defers) · **F deferred 9** (chat-ready shapes —
+   roof overhang, riser height, tread count, light intensity, sheet/view rename — deliberately
+   left for the next tranche; nothing blocks them but scope).
+
+The gate hard-fails on: phantom capabilities, unproven/contradicted targets (both proof
+directions), a capability with no acceptance test, a classification entry that is stale or
+overlaps another surface, and a required parameter whose value source the probe cannot
+resolve. All checks have been watched failing (negative tests recorded in the gate header).
+
+## Symmetry tranche (2026-08-10, §FEAT-CHAT-SYMMETRY)
+
+The founding incident was asymmetry (slab colour worked where wall colour did not). The same
+audit applied to dimensions found registered-but-unreachable twins, now wired **with per-route
+proofs** (a multi-command capability carries one `commandProof` per route):
+
+- `set-thickness` → wall (`wall.updateDimensions`) / slab (`slab.setThickness`) / roof
+  (`roof.setThickness`).
+- `set-width` (replaces `set-door-width`, whose id encoded the accident that doors got wired
+  first) → door (`door.setWidth`) / window (`window.setSize`, the same verb the property
+  inspector dispatches) / stair (`stair.setWidth`).
+- `set-height` gained **ceiling** via its own `ceiling.setHeight` route — the generic
+  parameter command still cannot route ceilings, so the §FIX-CHAT-HEIGHT-OVERCLAIM refusal
+  list shrank by exactly the kind that gained a real command, no further.
+- New: `set-roof-pitch` (degrees in language, radians at the command, ONE conversion site)
+  and `set-room-number` (sibling of `rename-room`).
+
+Where the editor genuinely lacks the twin, the gap is a `CHAT_UNAVAILABLE` entry with the true
+reason (all `setMaterial` twins, `handrail.updateColor`, the move/rotate family, hosted
+door/window creation, `view.switch` pending a project-views value source) — never a
+capability.
+
+## Compound dimensions (2026-08-10, §FIX-CHAT-COMPOUND-DIMENSIONS)
+
+Live repro (build 70667276): *"Make this window 2 meters height, 2 meters width and 0.1
+meters sill height"* ended in `window.setSillHeight: canExecute rejected — window not found`.
+Two defects, both fixed:
+
+1. **First-number-wins mis-binding.** The NL layer's single-dimension rule took
+   `measurements[0]` — the founder's 2 m would have gone to the SILL. The normalizer now
+   extracts explicit value↔dimension **bindings** in both orders ("2 meters height",
+   "height to 2m"); two or more distinct bindings form a `set-dimensions` compound intent
+   and suppress the single-dimension branch.
+2. **Plan shape: ONE dispatch.** A command SEQUENCE lets the first dimension change rebuild
+   the host wall and re-mint the opening id before later commands dispatch (openings have two
+   id namespaces — `elementId` vs `id` — and re-minting is routine). `set-dimensions`
+   therefore emits **one command carrying all values**: `wall.updateDimensions` for walls
+   (height+thickness in one payload), `element.updateParameters` for windows/doors (the
+   parameter set is applied before the single rebuild). Kinds with no proven single
+   multi-parameter command refuse with that reason — partial execution presented as success
+   is the exact dishonesty this resolver exists to prevent, so an inapplicable property
+   refuses the WHOLE compound.
+
+The bridge test replays the founder's sentence against a bus that re-mints ids after the
+first dispatch: one `executeCommand` call, all three values in the payload, zero LLM calls.
+
+## Follow-ups and reference precedence (2026-08-10)
+
+`ConversationContext` gained `lastWallTypeScope`. Structured follow-ups now covered (tests in
+the NL suite and the bridge spec): *"make this wall 3m / actually 3.2m"* (measurement reuse),
+*"change all walls to Interior Partition / actually use Exterior Brick"* (scope reuse through
+the SAME injected type lookup — an unknown revision still refuses by listing the catalogue),
+*"go to level 2 / actually level 3"* and bare *"actually 3"* (level re-target; a pending
+set-intent clarification outranks a stale level context by confidence). Context biases
+interpretation only; targeting is rebuilt from the live editor every message.
+
+Reference precedence, explicit: **current selection > explicit coordinates/name in the
+utterance > safe conversational reference > clarification.** The resolver never chooses
+between plausible elements; with no selection it refuses or asks. (Element-by-name lookup is
+class-B work — it needs an element-name catalogue injected into the context.)
+
 ## Consequences
 
-- ~13 intents resolve with zero tokens: delete-selected, set-height, set-thickness,
-  set-door-width, set-sill-height, create-wall(coords), go-to-level, add-level, rename-room,
-  undo, redo, zoom-fit, zoom-selected. Everything else behaves exactly as before.
+- 16 capabilities + the compound form resolve with zero tokens: delete-selected, set-height
+  (incl. ceiling), set-thickness (wall/slab/roof), set-width (door/window/stair),
+  set-sill-height, set-roof-pitch, set-dimensions (compound, one dispatch), set-wall-type,
+  create-wall(coords), go-to-level, add-level, rename-room, set-room-number, undo, redo,
+  zoom-fit, zoom-selected. Everything else behaves exactly as before.
 - Honest hit-rate expectation: tier 0/1 covers command-shaped utterances with explicit
   parameters; free-form asks ("make it cozier", "generate a layout") remain LLM/pill work.
 - Tier 2 (LLM with candidate command set) is deferred; the `miss` arm is its seam.

@@ -18,12 +18,17 @@ import {
   capabilityAppliesTo,
   capabilityBusCommands,
   chatUnavailableReason,
+  commandProofsOf,
   normalizeElementKind,
   resolveChatCapability,
   CHAT_UNAVAILABLE,
   GENERIC_PARAMETER_TARGETS,
   PROBE_ELEMENT_KINDS,
 } from '../src/capabilities/ChatCapabilityRegistry.js';
+import {
+  CHAT_CLASSIFIED,
+  classificationBreakdown,
+} from '../src/capabilities/ChatCommandClassification.js';
 import {
   capabilityGapRefusal,
   describeCapabilitiesFor,
@@ -103,13 +108,36 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
     });
   }
 
-  it('set-height claims exactly what UpdateElementParameterCommand can route', () => {
+  it('set-height claims what UpdateElementParameterCommand can route, plus the proven ceiling route', () => {
     const cap = resolveChatCapability('set-height')!;
     expect([...(cap.targets as readonly string[])].sort())
-      .toEqual([...GENERIC_PARAMETER_TARGETS].sort());
-    // …and NOT the kinds whose store lookup falls through to `default: null`.
-    for (const kind of ['room', 'ceiling', 'floor', 'lighting', 'plumbing']) {
+      .toEqual([...GENERIC_PARAMETER_TARGETS, 'ceiling'].sort());
+    // …and NOT the kinds whose store lookup falls through to `default: null`
+    // and which have no dedicated height command wired.
+    for (const kind of ['room', 'floor', 'lighting', 'plumbing']) {
       expect(capabilityAppliesTo(cap, kind), kind).toBe(false);
+    }
+  });
+
+  // §FEAT-CHAT-SYMMETRY — the capability × kind MATRIX, spelled out as a
+  // literal so drift is visible in the diff, not just in a probe failure.
+  it('the element-scoped capability matrix matches the declared literal', () => {
+    const expected: Record<string, readonly string[]> = {
+      'zoom-selected': [...PROBE_ELEMENT_KINDS],
+      'delete-selected': [...PROBE_ELEMENT_KINDS],
+      'set-height': [...GENERIC_PARAMETER_TARGETS, 'ceiling'],
+      'set-thickness': ['wall', 'slab', 'roof'],
+      'set-width': ['door', 'window', 'stair'],
+      'set-sill-height': ['window'],
+      'set-wall-type': ['wall'],
+      'set-roof-pitch': ['roof'],
+      'rename-room': ['room'],
+      'set-room-number': ['room'],
+    };
+    for (const cap of allChatCapabilities()) {
+      if (cap.targets === 'global') continue;
+      expect(expected[cap.id], `capability ${cap.id} missing from the matrix literal`).toBeDefined();
+      expect([...cap.targets].sort(), cap.id).toEqual([...expected[cap.id]!].sort());
     }
   });
 
@@ -123,11 +151,14 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
     }
   });
 
-  it('element-scoped capabilities carry a source-anchored commandProof', () => {
+  it('element-scoped capabilities carry a source-anchored commandProof per route', () => {
     for (const cap of allChatCapabilities()) {
       if (cap.targets === 'global') continue;
-      expect(cap.commandProof, `${cap.id} has no commandProof`).toBeDefined();
-      expect(cap.commandProof!.mustMention.length).toBeGreaterThan(0);
+      const proofs = commandProofsOf(cap);
+      expect(proofs.length, `${cap.id} has no commandProof`).toBeGreaterThan(0);
+      for (const proof of proofs) {
+        expect(proof.mustMention.length, `${cap.id}: ${proof.file}`).toBeGreaterThan(0);
+      }
     }
   });
 });
@@ -209,6 +240,32 @@ describe('CHAT_UNAVAILABLE is the honest half, not a dumping ground', () => {
   it('nothing is both exposed and deferred', () => {
     for (const cmd of capabilityBusCommands()) {
       expect(CHAT_UNAVAILABLE.has(cmd), `${cmd} is both a capability and deferred`).toBe(false);
+    }
+  });
+});
+
+// ─── The classification roadmap (ADR-0313 §No silent gaps) ───────────────────
+
+describe('CHAT_CLASSIFIED is a roadmap, not a dumping ground', () => {
+  it('every entry has a class and a falsifiable reason', () => {
+    for (const [cmd, c] of CHAT_CLASSIFIED) {
+      expect(['B', 'C', 'D', 'E'].concat('F').includes(c.cls), cmd).toBe(true);
+      expect(c.reason.trim().length, cmd).toBeGreaterThanOrEqual(40);
+    }
+  });
+
+  it('the three declaration surfaces are disjoint', () => {
+    const covered = new Set(capabilityBusCommands());
+    for (const cmd of CHAT_CLASSIFIED.keys()) {
+      expect(covered.has(cmd), `${cmd} is both a capability dispatch and classified`).toBe(false);
+      expect(CHAT_UNAVAILABLE.has(cmd), `${cmd} is both deferred and classified`).toBe(false);
+    }
+  });
+
+  it('every class is populated (the breakdown is real, not vestigial)', () => {
+    const b = classificationBreakdown();
+    for (const cls of ['B', 'C', 'D', 'E', 'F'] as const) {
+      expect(b[cls], cls).toBeGreaterThan(0);
     }
   });
 });

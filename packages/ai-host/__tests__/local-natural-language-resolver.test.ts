@@ -399,3 +399,95 @@ describe('misses — free-form asks fall through to the LLM tier', () => {
     expect(resolveNaturalLanguage('what is the height of this wall?', baseCtx(wallSel)).kind).toBe('miss');
   });
 });
+
+// ─── §FEAT-CHAT-FOLLOWUP — structured revision follow-ups ────────────────────
+
+describe('follow-ups — revisions reuse the last intent, live state wins for targeting', () => {
+  it('"change all walls to interior partition" → "actually use exterior brick" keeps the ALL scope', () => {
+    const first = resolveNaturalLanguage('change all walls to interior partition', baseCtx());
+    const r1 = commandsOf(first);
+    expect(r1.commands[0]!.payload).toEqual({ wallIds: 'all', systemType: 'interior partition' });
+    const conv = expectResolved(first).conversation;
+    expect(conv.lastIntent).toBe('set-wall-type');
+    expect(conv.lastWallTypeScope).toBe('all');
+
+    const second = resolveNaturalLanguage('actually use exterior brick', baseCtx({ conversation: conv }));
+    const r2 = commandsOf(second);
+    expect(expectResolved(second).intent).toBe('set-wall-type');
+    expect(r2.commands[0]!.payload).toEqual({ wallIds: 'all', systemType: 'exterior brick' });
+  });
+
+  it('the SELECTION scope survives the revision too', () => {
+    const ctx = baseCtx(wallSel);
+    const first = resolveNaturalLanguage('change these walls to interior partition', ctx);
+    const conv = expectResolved(first).conversation;
+    expect(conv.lastWallTypeScope).toBe('selection');
+    const second = resolveNaturalLanguage('actually use exterior brick', baseCtx({ ...wallSel, conversation: conv }));
+    const r2 = commandsOf(second);
+    expect(r2.commands[0]!.payload).toEqual({ wallIds: ['wall-1'], systemType: 'exterior brick' });
+  });
+
+  it('"go to level 2" → "actually level 1" and → bare "actually 1" both re-target the level switch', () => {
+    const first = resolveNaturalLanguage('take me to level 2', baseCtx());
+    const conv = expectResolved(first).conversation;
+    expect(conv.lastIntent).toBe('go-to-level');
+
+    for (const revision of ['actually level 1', 'actually 1']) {
+      const second = resolveNaturalLanguage(revision, baseCtx({ conversation: conv }));
+      const res = expectResolved(second).resolution;
+      expect(res.kind, revision).toBe('local');
+      if (res.kind !== 'local') continue;
+      expect(res.levelId, revision).toBe('L1');
+    }
+  });
+
+  it('noteResolution records the wall-type scope from a tier-0 resolution payload', () => {
+    const conv = noteResolution({}, {
+      kind: 'commands', intent: 'set-wall-type', tier: 0, summary: '',
+      commands: [{ type: 'wall.updateSystemTypeBatch', payload: { wallIds: 'all', systemType: 'wt-x' } }],
+      destructive: false,
+    });
+    expect(conv.lastWallTypeScope).toBe('all');
+  });
+
+  it('a pending set-height clarification still wins over a stale go-to-level context', () => {
+    const conv: ConversationContext = { lastIntent: 'go-to-level', pendingIntent: 'set-height' };
+    const r = resolveNaturalLanguage('2700', baseCtx({ ...wallSel, conversation: conv }));
+    const c = commandsOf(r);
+    expect(c.commands).toEqual([
+      { type: 'wall.updateDimensions', payload: { wallId: 'wall-1', height: 2.7 } },
+    ]);
+  });
+});
+
+// ─── §FIX-CHAT-COMPOUND-DIMENSIONS — binding, not first-number-wins ──────────
+
+describe('compound dimension binding', () => {
+  it('binds each value to its named dimension regardless of order', () => {
+    const r = resolveNaturalLanguage(
+      'make this window 2 meters height, 2 meters width and 0.1 meters sill height',
+      baseCtx({ selection: [{ elementId: 'w-9', elementType: 'window' }] }),
+    );
+    const c = commandsOf(r);
+    expect(c.intent).toBe('set-dimensions');
+    expect(c.commands).toEqual([{
+      type: 'element.updateParameters',
+      payload: { elementId: 'w-9', elementType: 'window', parameters: { height: 2, width: 2, sillHeight: 0.1 } },
+    }]);
+  });
+
+  it('"set the height to 3m and the thickness to 200mm" (dim-then-value order) → one wall command', () => {
+    const r = resolveNaturalLanguage('set the height to 3m and the thickness to 200mm', baseCtx(wallSel));
+    const c = commandsOf(r);
+    expect(c.commands).toEqual([
+      { type: 'wall.updateDimensions', payload: { wallId: 'wall-1', height: 3, thickness: 0.2 } },
+    ]);
+  });
+
+  it('a single bound dimension still resolves through the single-form intent', () => {
+    const r = resolveNaturalLanguage('make this door 900mm wide', baseCtx(doorSel));
+    const c = commandsOf(r);
+    expect(expectResolved(r).intent).toBe('set-width');
+    expect(c.commands).toEqual([{ type: 'door.setWidth', payload: { doorId: 'door-1', width: 0.9 } }]);
+  });
+});

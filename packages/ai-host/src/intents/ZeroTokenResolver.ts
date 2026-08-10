@@ -207,8 +207,9 @@ const SYNONYMS: Readonly<Record<string, string>> = {
 const VOCAB: readonly string[] = [
   'delete', 'selected', 'selection', 'this', 'element', 'wall', 'door',
   'window', 'room', 'slab', 'roof', 'level', 'height', 'width', 'thickness',
-  'sill', 'create', 'draw', 'add', 'make', 'set', 'change', 'rename', 'go',
-  'to', 'from', 'tall', 'thick', 'undo', 'redo', 'zoom', 'fit', 'frame',
+  'sill', 'pitch', 'number', 'ceiling', 'stair', 'create', 'draw', 'add',
+  'make', 'set', 'change', 'rename', 'go',
+  'to', 'from', 'tall', 'thick', 'wide', 'undo', 'redo', 'zoom', 'fit', 'frame',
 ];
 
 function levenshtein(a: string, b: string, max: number): number {
@@ -278,8 +279,40 @@ export type SemanticIntent =
   | { readonly intent: 'delete-selected'; readonly noun?: string }
   | { readonly intent: 'set-height'; readonly value: number }
   | { readonly intent: 'set-thickness'; readonly value: number }
-  | { readonly intent: 'set-door-width'; readonly value: number }
+  /** §FEAT-CHAT-SYMMETRY (2026-08-10) — ONE width intent for every element kind
+   *  whose editor command really takes a width (door / window / stair), routed
+   *  per kind in applySemanticIntent. The old id `set-door-width` encoded the
+   *  accident that doors got wired first. */
+  | { readonly intent: 'set-width'; readonly value: number }
   | { readonly intent: 'set-sill-height'; readonly value: number }
+  /** §FEAT-CHAT-SYMMETRY — roof pitch in DEGREES as architects say it; the
+   *  command (`roof.setPitch`) takes radians and the conversion lives in ONE
+   *  place, applySemanticIntent. */
+  | { readonly intent: 'set-roof-pitch'; readonly degrees: number }
+  /** §FEAT-CHAT-SYMMETRY — room number, the sibling of rename-room. */
+  | { readonly intent: 'set-room-number'; readonly number?: string }
+  /**
+   * §FIX-CHAT-COMPOUND-DIMENSIONS (2026-08-10) — live production repro.
+   *
+   * "Make this window 2 meters height, 2 meters width and 0.1 meters sill
+   * height" must become ONE dispatch carrying all the values, never a sequence
+   * of per-parameter commands. Window/door openings are RE-MINTED with new ids
+   * when their host wall rebuilds — which the FIRST dimension change triggers —
+   * so any later command in a sequence would address a dead id
+   * ("window not found: b0a84065-…", reported by the founder on build
+   * 70667276). One command = one rebuild = no stale-id window, and one undo.
+   *
+   * Every field is guarded by the capability that owns it (set-height /
+   * set-width / set-thickness / set-sill-height), so the compound form can
+   * never claim a property the single form would refuse.
+   */
+  | {
+      readonly intent: 'set-dimensions';
+      readonly height?: number;
+      readonly width?: number;
+      readonly thickness?: number;
+      readonly sillHeight?: number;
+    }
   | { readonly intent: 'go-to-level'; readonly levelQuery: string }
   | { readonly intent: 'add-level'; readonly elevation?: number }
   | {
@@ -517,13 +550,22 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // actually route, declared once in the capability registry.
       const kindGuard = capabilityTargetRefusal('set-height', sel.elementType, 'height');
       if (kindGuard !== null) return kindGuard;
+      // Per-kind routing, PROVEN per route (commandProof): walls have a
+      // dedicated dimension command, ceilings a dedicated height command
+      // (§FEAT-CHAT-SYMMETRY — ceiling height used to be an honest refusal;
+      // now it is wired to the command that really exists), everything else
+      // goes through the generic parameter command whose store switch is the
+      // ceiling on the claim.
+      const kind = normalizeElementKind(sel.elementType);
       const cmd: BusCommandRef =
-        sel.elementType === 'wall'
+        kind === 'wall'
           ? { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, height } }
-          : {
-              type: 'element.updateParameters',
-              payload: { elementId: sel.elementId, elementType: sel.elementType, parameters: { height } },
-            };
+          : kind === 'ceiling'
+            ? { type: 'ceiling.setHeight', payload: { ceilingId: sel.elementId, ceilingHeight: height } }
+            : {
+                type: 'element.updateParameters',
+                payload: { elementId: sel.elementId, elementType: sel.elementType, parameters: { height } },
+              };
       return {
         kind: 'commands', intent: 'set-height',
         summary: `Set the selected ${sel.elementType}'s height to ${fmt(height)}`,
@@ -535,38 +577,198 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       const guard = needSelection('set-thickness', ctx, 'set its thickness');
       if ('refusal' in guard) return guard.refusal;
       const sel = guard.sel;
-      if (sel.elementType !== 'wall') {
+      // §FEAT-CHAT-SYMMETRY — the founding incident's other half: thickness
+      // worked for walls only while slab.setThickness and roof.setThickness
+      // sat registered and unreachable. The claim is bounded by the registry
+      // (guard below) and each route by its own id-keyed command.
+      const kindGuard = capabilityTargetRefusal('set-thickness', sel.elementType, 'thickness');
+      if (kindGuard !== null) return kindGuard;
+      const thickness = round3(si.value);
+      if (thickness <= 0) {
         return {
           kind: 'refusal', intent: 'set-thickness',
-          reason: `Thickness via chat currently supports walls; the selected element is a ${sel.elementType}.`,
+          reason: `A thickness of ${fmt(thickness)} is not valid — it must be positive.`,
           suggestions: [],
         };
       }
-      const thickness = round3(si.value);
+      const kind = normalizeElementKind(sel.elementType);
+      const cmd: BusCommandRef =
+        kind === 'slab'
+          ? { type: 'slab.setThickness', payload: { slabId: sel.elementId, thickness } }
+          : kind === 'roof'
+            ? { type: 'roof.setThickness', payload: { roofId: sel.elementId, thickness } }
+            : { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, thickness } };
       return {
         kind: 'commands', intent: 'set-thickness',
-        summary: `Set the selected wall's thickness to ${fmt(thickness)}`,
-        commands: [{ type: 'wall.updateDimensions', payload: { wallId: sel.elementId, thickness } }],
+        summary: `Set the selected ${kind}'s thickness to ${fmt(thickness)}`,
+        commands: [cmd], destructive: false,
+      };
+    }
+
+    case 'set-width': {
+      const guard = needSelection('set-width', ctx, 'set its width');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      const kindGuard = capabilityTargetRefusal('set-width', sel.elementType, 'width');
+      if (kindGuard !== null) return kindGuard;
+      const width = round3(si.value);
+      if (width <= 0) {
+        return {
+          kind: 'refusal', intent: 'set-width',
+          reason: `A width of ${fmt(width)} is not valid — it must be positive.`,
+          suggestions: [],
+        };
+      }
+      const kind = normalizeElementKind(sel.elementType);
+      const cmd: BusCommandRef =
+        kind === 'window'
+          ? { type: 'window.setSize', payload: { windowId: sel.elementId, width } }
+          : kind === 'stair'
+            ? { type: 'stair.setWidth', payload: { stairId: sel.elementId, width } }
+            : { type: 'door.setWidth', payload: { doorId: sel.elementId, width } };
+      return {
+        kind: 'commands', intent: 'set-width',
+        summary: `Set the selected ${kind}'s width to ${fmt(width)}`,
+        commands: [cmd], destructive: false,
+      };
+    }
+
+    case 'set-roof-pitch': {
+      const guard = needSelection('set-roof-pitch', ctx, 'set its pitch');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      const kindGuard = capabilityTargetRefusal('set-roof-pitch', sel.elementType, 'pitch');
+      if (kindGuard !== null) return kindGuard;
+      const degrees = round3(si.degrees);
+      // roof.setPitch validates [0, π/2); the degree bound here mirrors it so
+      // the refusal can speak in the unit the user typed.
+      if (degrees < 0 || degrees >= 90) {
+        return {
+          kind: 'refusal', intent: 'set-roof-pitch',
+          reason: `A roof pitch of ${degrees}° is not valid — it must be between 0° and 89°.`,
+          suggestions: ['set the roof pitch to 30 degrees'],
+        };
+      }
+      const pitch = Math.round((degrees * Math.PI / 180) * 10000) / 10000;
+      return {
+        kind: 'commands', intent: 'set-roof-pitch',
+        summary: `Set the selected roof's pitch to ${degrees}°`,
+        commands: [{ type: 'roof.setPitch', payload: { roofId: sel.elementId, pitch } }],
         destructive: false,
       };
     }
 
-    case 'set-door-width': {
-      const guard = needSelection('set-door-width', ctx, 'set its width');
+    case 'set-dimensions': {
+      const guard = needSelection('set-dimensions', ctx, 'set its dimensions');
       if ('refusal' in guard) return guard.refusal;
       const sel = guard.sel;
-      if (sel.elementType !== 'door') {
+      const kind = normalizeElementKind(sel.elementType);
+      // Each field is owned by the capability that guards its single form —
+      // the compound form must never accept what the single form refuses.
+      const FIELD_CAP: Record<string, { cap: string; label: string }> = {
+        height: { cap: 'set-height', label: 'height' },
+        width: { cap: 'set-width', label: 'width' },
+        thickness: { cap: 'set-thickness', label: 'thickness' },
+        sillHeight: { cap: 'set-sill-height', label: 'sill height' },
+      };
+      const fields: { key: string; label: string; value: number }[] = [];
+      for (const key of ['height', 'width', 'thickness', 'sillHeight'] as const) {
+        const value = si[key];
+        if (value === undefined) continue;
+        const meta = FIELD_CAP[key]!;
+        const kindGuard = capabilityTargetRefusal(meta.cap, sel.elementType, meta.label);
+        // ALL-OR-NOTHING: one inapplicable property refuses the whole ask.
+        // Applying the applicable half would be partial execution presented
+        // as success — the exact dishonesty this resolver exists to prevent.
+        if (kindGuard !== null) {
+          return { ...kindGuard, intent: 'set-dimensions' };
+        }
+        if (key !== 'sillHeight' && round3(value) <= 0) {
+          return {
+            kind: 'refusal', intent: 'set-dimensions',
+            reason: `A ${meta.label} of ${fmt(round3(value))} is not valid — it must be positive.`,
+            suggestions: [],
+          };
+        }
+        fields.push({ key, label: meta.label, value: round3(value) });
+      }
+      if (fields.length === 0) {
         return {
-          kind: 'refusal', intent: 'set-door-width',
-          reason: `Width via chat currently supports a selected door; the selected element is a ${sel.elementType}.`,
-          suggestions: [],
+          kind: 'refusal', intent: 'set-dimensions',
+          reason: 'I need at least one dimension and value — for example "set height to 3m".',
+          suggestions: ['set height to 3m'],
         };
       }
-      const width = round3(si.value);
+      // ONE command per utterance (§FIX-CHAT-COMPOUND-DIMENSIONS): only routes
+      // proven to apply every requested field in a single dispatch are used.
+      let cmd: BusCommandRef;
+      if (kind === 'wall') {
+        // wall.updateDimensions carries height AND thickness in one payload
+        // (width/sill were already refused for walls by the field guards).
+        const payload: Record<string, unknown> = { wallId: sel.elementId };
+        for (const f of fields) payload[f.key] = f.value;
+        cmd = { type: 'wall.updateDimensions', payload };
+      } else if (kind === 'window' || kind === 'door') {
+        // element.updateParameters applies the whole parameter set to the
+        // opening in one dispatch and one host-wall rebuild — the opening id
+        // is only re-minted AFTER the values are applied, so there is no
+        // dead-id window between parameters.
+        const parameters: Record<string, number> = {};
+        for (const f of fields) parameters[f.key] = f.value;
+        cmd = {
+          type: 'element.updateParameters',
+          payload: { elementId: sel.elementId, elementType: sel.elementType, parameters },
+        };
+      } else if (fields.length === 1) {
+        // A single field on any other kind: delegate to the owning single-form
+        // intent so the routing (slab.setThickness, ceiling.setHeight, …) has
+        // exactly one implementation.
+        const f = fields[0]!;
+        const single: SemanticIntent =
+          f.key === 'height' ? { intent: 'set-height', value: f.value }
+          : f.key === 'width' ? { intent: 'set-width', value: f.value }
+          : f.key === 'thickness' ? { intent: 'set-thickness', value: f.value }
+          : { intent: 'set-sill-height', value: f.value };
+        return applySemanticIntent(single, ctx);
+      } else {
+        // No proven single command applies several dimensions to this kind in
+        // one dispatch, and a command SEQUENCE dies on re-minted ids (the
+        // founder's repro). Refusing with the reason is the honest answer.
+        return {
+          kind: 'refusal', intent: 'set-dimensions',
+          reason:
+            `I can only change one ${kind} property per message from chat — changing several ` +
+            `dispatches separate commands, and a rebuild between them can invalidate the element. ` +
+            `Ask for ${fields.map((f) => f.label).join(' and ')} one at a time.`,
+          suggestions: [`set ${fields[0]!.label} to ${fields[0]!.value}m`],
+        };
+      }
+      const parts = fields.map((f) => `${f.label} to ${fmt(f.value)}`);
       return {
-        kind: 'commands', intent: 'set-door-width',
-        summary: `Set the selected door's width to ${fmt(width)}`,
-        commands: [{ type: 'door.setWidth', payload: { doorId: sel.elementId, width } }],
+        kind: 'commands', intent: 'set-dimensions',
+        summary: `Set the selected ${kind}'s ${parts.join(', ')}`,
+        commands: [cmd], destructive: false,
+      };
+    }
+
+    case 'set-room-number': {
+      const guard = needSelection('set-room-number', ctx, 'set its number');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      const kindGuard = capabilityTargetRefusal('set-room-number', sel.elementType, 'room number');
+      if (kindGuard !== null) return kindGuard;
+      const num = (si.number ?? '').trim();
+      if (num.length === 0) {
+        return {
+          kind: 'refusal', intent: 'set-room-number',
+          reason: 'I need the room number — try: set the room number to 101.',
+          suggestions: ['set the room number to 101'],
+        };
+      }
+      return {
+        kind: 'commands', intent: 'set-room-number',
+        summary: `Set the selected room's number to "${num}"`,
+        commands: [{ type: 'room.setNumber', payload: { roomId: sel.elementId, number: num } }],
         destructive: false,
       };
     }
@@ -763,9 +965,15 @@ const matchSillHeight: Matcher = (text, ctx) => {
   return applySemanticIntent({ intent: 'set-sill-height', value: toMeters(m[1]!, m[2]) }, ctx);
 };
 
+// The optional element noun is deliberately broad ("set the ceiling height…",
+// "set the slab thickness…"): WHICH kinds are legal is the registry guard's
+// job inside applySemanticIntent, not the grammar's — a noun/selection mismatch
+// gets an honest refusal, never a silent narrow miss.
+const DIM_NOUN = String.raw`(?: wall| ceiling| slab| roof| door| window| stair| column| beam| selected)?`;
+
 const matchHeight: Matcher = (text, ctx) => {
   const m =
-    new RegExp(`^(?:set|change)(?: the)?(?: wall| selected)? height(?: of (?:this|the selection))?(?: to)? ${LEN_SRC}$`).exec(text)
+    new RegExp(`^(?:set|change)(?: the)?${DIM_NOUN} height(?: of (?:this|the selection))?(?: to)? ${LEN_SRC}$`).exec(text)
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} (?:tall|high)$`).exec(text);
   if (!m) return null;
   return applySemanticIntent({ intent: 'set-height', value: toMeters(m[1]!, m[2]) }, ctx);
@@ -773,16 +981,40 @@ const matchHeight: Matcher = (text, ctx) => {
 
 const matchThickness: Matcher = (text, ctx) => {
   const m =
-    new RegExp(`^(?:set|change)(?: the)?(?: wall)? thickness(?: to)? ${LEN_SRC}$`).exec(text)
+    new RegExp(`^(?:set|change)(?: the)?${DIM_NOUN} thickness(?: to)? ${LEN_SRC}$`).exec(text)
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} thick$`).exec(text);
   if (!m) return null;
   return applySemanticIntent({ intent: 'set-thickness', value: toMeters(m[1]!, m[2]) }, ctx);
 };
 
-const matchDoorWidth: Matcher = (text, ctx) => {
-  const m = new RegExp(`^(?:set|change)(?: the)?(?: door)? width(?: to)? ${LEN_SRC}$`).exec(text);
+const matchWidth: Matcher = (text, ctx) => {
+  const m =
+    new RegExp(`^(?:set|change)(?: the)?${DIM_NOUN} width(?: to)? ${LEN_SRC}$`).exec(text)
+    ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} wide$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-door-width', value: toMeters(m[1]!, m[2]) }, ctx);
+  return applySemanticIntent({ intent: 'set-width', value: toMeters(m[1]!, m[2]) }, ctx);
+};
+
+// §FEAT-CHAT-SYMMETRY — roof pitch, spoken in degrees.
+const DEG_SRC = String.raw`(-?\d+(?:[.,]\d+)?)\s*(?:°|deg|degs|degree|degrees)?`;
+
+const matchRoofPitch: Matcher = (text, ctx) => {
+  const m = new RegExp(`^(?:set|change|make)(?: the)?(?: roof)? pitch(?: to)? ${DEG_SRC}$`).exec(text);
+  if (!m) return null;
+  return applySemanticIntent(
+    { intent: 'set-roof-pitch', degrees: parseFloat(m[1]!.replace(',', '.')) },
+    ctx,
+  );
+};
+
+const matchRoomNumber: Matcher = (text, ctx) => {
+  const m = /^(?:set|change)(?: the)?(?: room)? number(?: to| as)? (.+)$/.exec(text);
+  if (!m) return null;
+  const num = m[1]!.trim().replace(/^["']|["']$/g, '');
+  return applySemanticIntent(
+    { intent: 'set-room-number', ...(num.length > 0 ? { number: num } : {}) },
+    ctx,
+  );
 };
 
 const matchGoToLevel: Matcher = (text, ctx) => {
@@ -899,7 +1131,9 @@ const MATCHERS: readonly Matcher[] = [
   matchSillHeight,   // before matchHeight — "sill height" contains "height"
   matchHeight,
   matchThickness,
-  matchDoorWidth,
+  matchWidth,
+  matchRoofPitch,
+  matchRoomNumber,
   matchGoToLevel,
   matchAddLevel,
   matchCreateWall,

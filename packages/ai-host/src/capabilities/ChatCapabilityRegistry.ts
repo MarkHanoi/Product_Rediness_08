@@ -96,6 +96,9 @@ function tracer(): Tracer {
 export type CapabilityValueSource =
   /** A length parsed under ADR-0313 §Units (mm/cm/m; bare > 20 is mm). */
   | 'measurement'
+  /** An angle in degrees ("30°", "30 degrees"); converted to the command's
+   *  radians inside applySemanticIntent — one conversion site. */
+  | 'angle'
   /** The project's wall system types (`wallSystemTypeStore`), resolved by
    *  `resolveWallSystemTypeRef` — exact id → exact name → case-insensitive. */
   | 'wall-system-types'
@@ -175,8 +178,10 @@ export interface ChatCapability {
   /** Minimal well-formed intent the gate/specs feed to `applySemanticIntent`
    *  to VERIFY `targets` against the live guard (proof 1). */
   readonly probe: SemanticIntent;
-  /** Proof 2 — omitted only for capabilities whose targets are `'global'`. */
-  readonly commandProof?: CapabilityCommandProof;
+  /** Proof 2 — omitted only for capabilities whose targets are `'global'`.
+   *  A capability that routes to SEVERAL commands (set-thickness → wall /
+   *  slab / roof) proves each route with its own entry. */
+  readonly commandProof?: CapabilityCommandProof | readonly CapabilityCommandProof[];
   /** Phrasings that must resolve to this capability. The acceptance suite is
    *  generated from these, and the gate fails a capability that declares none. */
   readonly examples: readonly string[];
@@ -298,7 +303,10 @@ const CAPABILITIES: readonly ChatCapability[] = [
     aliases: ['height', 'tall', 'high', 'taller'],
     refusalLabel: 'height',
     // PROVEN, not wished — see GENERIC_PARAMETER_TARGETS and the header.
-    targets: GENERIC_PARAMETER_TARGETS,
+    // §FEAT-CHAT-SYMMETRY (2026-08-10): ceiling joined via its OWN command
+    // (`ceiling.setHeight`, ceilingId-keyed) — the generic parameter command
+    // still cannot route it, so the extra route carries its own proof below.
+    targets: [...GENERIC_PARAMETER_TARGETS, 'ceiling'],
     parameters: [
       {
         name: 'height',
@@ -311,27 +319,38 @@ const CAPABILITIES: readonly ChatCapability[] = [
     scope: 'selection',
     destructive: false,
     busCommand: 'element.updateParameters',
-    alsoDispatches: ['wall.updateDimensions'],
+    alsoDispatches: ['wall.updateDimensions', 'ceiling.setHeight'],
     probe: { intent: 'set-height', value: 3 },
-    commandProof: {
-      file: UPDATE_ELEMENT_PARAMETER_FILE,
-      mustMention: GENERIC_PARAMETER_TARGETS,
-      note: "resolveStore()'s switch names every kind that resolves to a store; its default arm returns null, so any kind absent from the switch is a silent no-op and must not be claimed.",
-    },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: GENERIC_PARAMETER_TARGETS,
+        note: "resolveStore()'s switch names every kind that resolves to a store; its default arm returns null, so any kind absent from the switch is a silent no-op and must not be claimed.",
+      },
+      {
+        file: 'plugins/ceiling/src/handlers/SetCeilingHeight.ts',
+        mustMention: ['ceilingId'],
+        note: 'The ceiling route is its own command, keyed by ceilingId — it cannot address any other element kind.',
+      },
+    ],
     examples: [
       'set height to 3m',
       'make this 3m tall',
       'can you make this wall about three meters tall',
       'set height to 2700',
+      'set the ceiling height to 2.7m',
     ],
   },
   {
     id: 'set-thickness',
+    // §FEAT-CHAT-SYMMETRY (2026-08-10) — the founding incident's twin family.
+    // slab.setThickness and roof.setThickness were registered and unreachable
+    // while walls worked; each route is id-keyed and separately proven.
     description: 'change the thickness',
     verbs: ['set', 'change', 'make'],
     aliases: ['thickness', 'thick', 'thicker'],
     refusalLabel: 'thickness',
-    targets: ['wall'],
+    targets: ['wall', 'slab', 'roof'],
     parameters: [
       {
         name: 'thickness',
@@ -344,25 +363,47 @@ const CAPABILITIES: readonly ChatCapability[] = [
     scope: 'selection',
     destructive: false,
     busCommand: 'wall.updateDimensions',
+    alsoDispatches: ['slab.setThickness', 'roof.setThickness'],
     probe: { intent: 'set-thickness', value: 0.2 },
-    commandProof: {
-      file: 'plugins/wall/src/handlers/UpdateWallDimensions.ts',
-      mustMention: ['wallId'],
-      note: 'The payload is keyed by wallId — the command cannot address any other element kind.',
-    },
-    examples: ['set thickness to 200mm', 'make this wall 300mm thick', 'change the thickness to 0.2m'],
+    commandProof: [
+      {
+        file: 'plugins/wall/src/handlers/UpdateWallDimensions.ts',
+        mustMention: ['wallId'],
+        note: 'The payload is keyed by wallId — the command cannot address any other element kind.',
+      },
+      {
+        file: 'plugins/slab/src/handlers/SetSlabThickness.ts',
+        mustMention: ['slabId'],
+        note: 'The payload is keyed by slabId — the command cannot address any other element kind.',
+      },
+      {
+        file: 'plugins/roof/src/handlers/SetRoofThickness.ts',
+        mustMention: ['roofId'],
+        note: 'The payload is keyed by roofId — the command cannot address any other element kind.',
+      },
+    ],
+    examples: [
+      'set thickness to 200mm',
+      'make this wall 300mm thick',
+      'change the thickness to 0.2m',
+      'set the slab thickness to 250mm',
+      'make this roof 300mm thick',
+    ],
   },
   {
-    id: 'set-door-width',
+    id: 'set-width',
+    // §FEAT-CHAT-SYMMETRY (2026-08-10) — replaces `set-door-width`, whose id
+    // encoded the accident that doors got wired first. window.setSize and
+    // stair.setWidth were registered and unreachable.
     description: 'change the width',
     verbs: ['set', 'change', 'make'],
     aliases: ['width', 'wide', 'wider'],
     refusalLabel: 'width',
-    targets: ['door'],
+    targets: ['door', 'window', 'stair'],
     parameters: [
       {
         name: 'width',
-        description: 'the new door width',
+        description: 'the new width',
         required: true,
         valueSource: 'measurement',
         example: '900mm',
@@ -371,13 +412,62 @@ const CAPABILITIES: readonly ChatCapability[] = [
     scope: 'selection',
     destructive: false,
     busCommand: 'door.setWidth',
-    probe: { intent: 'set-door-width', value: 0.9 },
+    alsoDispatches: ['window.setSize', 'stair.setWidth'],
+    probe: { intent: 'set-width', value: 0.9 },
+    commandProof: [
+      {
+        file: 'plugins/door/src/handlers/SetDoorWidth.ts',
+        mustMention: ['doorId'],
+        note: 'The payload is keyed by doorId — the command cannot address any other element kind.',
+      },
+      {
+        file: 'plugins/window/src/handlers/SetWindowSize.ts',
+        mustMention: ['windowId'],
+        note: 'The payload is keyed by windowId — the command cannot address any other element kind.',
+      },
+      {
+        file: 'plugins/stair/src/handlers/SetWidth.ts',
+        mustMention: ['stairId'],
+        note: 'The payload is keyed by stairId — the command cannot address any other element kind.',
+      },
+    ],
+    examples: [
+      'set door width to 900mm',
+      'make the door 1m wide',
+      'change width to 850mm',
+      'set the window width to 1.2m',
+      'set the stair width to 1m',
+    ],
+  },
+  {
+    id: 'set-roof-pitch',
+    // §FEAT-CHAT-SYMMETRY (2026-08-10) — roof.setPitch was registered and
+    // unreachable. Users speak degrees; the command takes radians; the
+    // conversion has exactly one site (applySemanticIntent).
+    description: 'change the roof pitch',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['pitch', 'slope', 'steeper'],
+    refusalLabel: 'pitch',
+    targets: ['roof'],
+    parameters: [
+      {
+        name: 'pitch',
+        description: 'the new pitch in degrees (0–89)',
+        required: true,
+        valueSource: 'angle',
+        example: '30 degrees',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'roof.setPitch',
+    probe: { intent: 'set-roof-pitch', degrees: 30 },
     commandProof: {
-      file: 'plugins/door/src/handlers/SetDoorWidth.ts',
-      mustMention: ['doorId'],
-      note: 'The payload is keyed by doorId — the command cannot address any other element kind.',
+      file: 'plugins/roof/src/handlers/SetRoofPitch.ts',
+      mustMention: ['roofId'],
+      note: 'The payload is keyed by roofId — the command cannot address any other element kind. Its canExecute bounds pitch to [0, π/2) and rejects a non-zero pitch on a flat roof; those failures surface as honest dispatch errors.',
     },
-    examples: ['set door width to 900mm', 'make the door 1m wide', 'change width to 850mm'],
+    examples: ['set the roof pitch to 30 degrees', 'change pitch to 45', 'set pitch to 22.5 degrees'],
   },
   {
     id: 'set-sill-height',
@@ -548,6 +638,35 @@ const CAPABILITIES: readonly ChatCapability[] = [
     },
     examples: ['rename room to Kitchen', 'call this room the master bedroom'],
   },
+  {
+    id: 'set-room-number',
+    // §FEAT-CHAT-SYMMETRY (2026-08-10) — the sibling of rename-room;
+    // room.setNumber was registered and unreachable.
+    description: 'set the room number',
+    verbs: ['set', 'change'],
+    aliases: ['number', 'room number'],
+    refusalLabel: 'number',
+    targets: ['room'],
+    parameters: [
+      {
+        name: 'number',
+        description: 'the new room number',
+        required: true,
+        valueSource: 'user-text',
+        example: '101',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'room.setNumber',
+    probe: { intent: 'set-room-number', number: '101' },
+    commandProof: {
+      file: 'plugins/rooms/src/handlers/SetRoomNumber.ts',
+      mustMention: ['roomId'],
+      note: 'The payload is keyed by roomId — the command cannot address any other element kind.',
+    },
+    examples: ['set the room number to 101', 'change the room number to 2.04'],
+  },
 ];
 
 // ─── The honest half: commands the chat deliberately does NOT drive ──────────
@@ -558,10 +677,11 @@ const CAPABILITIES: readonly ChatCapability[] = [
 // shipping a new command still forces an explicit choice, and the choice is
 // visible in review.
 //
-// Only commands whose absence a user could plausibly notice are listed; the
-// remaining ~250 registered verbs are counted by the gate as UNDECLARED and sit
-// under its shrink-only baseline (see the gate header for that number and why it
-// is not zero on day one).
+// Only commands whose absence a user could plausibly notice are listed; every
+// OTHER registered verb is classified — with a class and a truthful reason — in
+// `ChatCommandClassification.ts` next to this file, and the coverage gate fails
+// any registered command that appears in neither place (baseline 0 since
+// 2026-08-10; NO SILENT GAPS).
 
 export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // Geometry that needs a pointer, not a sentence. These are refusable with a
@@ -574,12 +694,49 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['wall.createOpening', 'Openings are placed by pointing at a spot on the wall — use the Door or Window tool.'],
   ['wall.opening.create', 'Openings are placed by pointing at a spot on the wall — use the Door or Window tool.'],
   ['door.move', 'Moving a door along its wall needs a picked position — drag it.'],
+  ['door.setOffset', 'Moving a door along its wall needs a picked position — drag it.'],
   ['window.move', 'Moving a window along its wall needs a picked position — drag it.'],
+  ['window.setOffset', 'Moving a window along its wall needs a picked position — drag it.'],
   ['room.move', 'Rooms follow their bounding walls; move the walls instead.'],
+
+  // §FEAT-CHAT-SYMMETRY (2026-08-10) — the move/rotate twins across the other
+  // element families. Same reason as wall.move: chat has no pointer.
+  ['slab.move', 'Moving a slab from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['roof.move', 'Moving a roof from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['column.move', 'Moving a column from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['beam.move', 'Moving a beam from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['furniture.move', 'Moving furniture from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['furniture.rotate', 'Rotating from chat is not wired yet — use the Modify tools.'],
+  ['curtain-wall.move', 'Moving a curtain wall from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['stair.move', 'Moving a stair from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['stair.rotate', 'Rotating from chat is not wired yet — use the Modify tools.'],
+  ['lighting.move', 'Moving a light from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['plumbing.move', 'Moving a plumbing run from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['plumbing.moveFixture', 'Moving a fixture from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+  ['structural.move', 'Moving a structural member from chat needs a target position I cannot infer — drag it, or use the Move tool.'],
+
+  // Hosted / drawn placement — same family as wall.createOpening.
+  ['opening.create', 'Openings are placed by pointing at a spot on the wall — use the Door or Window tool.'],
+  ['door.create', 'Doors are placed by pointing at a spot on a wall — use the Door tool.'],
+  ['window.create', 'Windows are placed by pointing at a spot on a wall — use the Window tool.'],
+
+  // View switching needs the project view list wired into the resolver context
+  // (a `project-views` value source) — a real design step, tracked as class B in
+  // ChatCommandClassification.ts.
+  ['view.switch', 'Switching views from chat is not wired yet — use the view tabs.'],
 
   // Appearance. The founder's most likely next ask, so it is declared rather
   // than silently missing — `capabilityGapRefusal` names these topics in the
   // refusal it generates.
+  ['ceiling.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['floor.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['furniture.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['handrail.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['curtain-wall.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['lighting.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['plumbing.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['structural.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
+  ['handrail.updateColor', 'Handrail colour is not connected to chat yet — set it in the Properties panel.'],
   ['wall.setColor', 'Wall colour is not connected to chat yet — set it in the Properties panel.'],
   ['wall.updateColor', 'Wall colour is not connected to chat yet — set it in the Properties panel.'],
   ['wall.bulkSetVisuals', 'Bulk visual overrides are not connected to chat yet — use the Properties panel.'],
@@ -612,6 +769,13 @@ export function allChatCapabilities(): readonly ChatCapability[] {
 /** The capability reached by a `SemanticIntent.intent`, or null. */
 export function resolveChatCapability(id: string): ChatCapability | null {
   return BY_ID.get(id) ?? null;
+}
+
+/** A capability's command proofs, normalized to a list (a capability that
+ *  routes to several commands proves each route). */
+export function commandProofsOf(cap: ChatCapability): readonly CapabilityCommandProof[] {
+  if (cap.commandProof === undefined) return [];
+  return Array.isArray(cap.commandProof) ? cap.commandProof : [cap.commandProof as CapabilityCommandProof];
 }
 
 /** Normalize a selection's element type to the registry's vocabulary. */
