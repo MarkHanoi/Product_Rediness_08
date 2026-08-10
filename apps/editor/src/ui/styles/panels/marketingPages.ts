@@ -160,9 +160,16 @@ export const LANDING_PAGE_STYLES = `
            contrast), so no C43 §1.5 pair changes meaning.
            No backticks in this comment: the stylesheet is a JS template literal,
            so one would terminate it (esbuild: Expected ; but found to). */
-        background-color: #6600FF;
+        /* Founder round 8 (2026-08-10): (a) the left pool STRONGER/darker —
+           stops deepened one shade (#3A0094 at the mark); (b) the whole bar 20pc
+           TRANSLUCENT (alpha 0.80 on every stop + base) so the page reads
+           through it on scroll; a light blur keeps the white nav type legible
+           over busy video frames. */
+        background-color: rgba(102,0,255,0.80);
         background-image: radial-gradient(150% 320% at 42px 50%,
-            #4A00B7 0%, #4E03C2 22%, #5A11E2 46%, rgba(102,0,255,0) 82%);
+            rgba(58,0,148,0.86) 0%, rgba(68,2,178,0.83) 22%, rgba(90,17,226,0.81) 46%, rgba(102,0,255,0) 82%);
+        backdrop-filter: blur(10px) saturate(1.15);
+        -webkit-backdrop-filter: blur(10px) saturate(1.15);
         box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
         flex-shrink: 0;
     }
@@ -233,12 +240,13 @@ export const LANDING_PAGE_STYLES = `
        SolutionsDropdown/ResourcesDropdown inject — hence the button resets. */
     .lp-nav-link {
         /* Founder round 5 (2026-08-10): top-nav type at ~90% — 13.5px/7x13
-           -> 12px/5x11, so the pill reads quieter under the hero. */
-        font-size: 12px;
+           -> 12px/5x11; round 8 (same day): one more notch, 12 -> 11.5px and
+           5x11 -> 4x10, "Solutions / Resources / Pricing" slightly smaller. */
+        font-size: 11.5px;
         color: #ffffff;
         text-decoration: none;
         font-weight: 500;
-        padding: 5px 11px;
+        padding: 4px 10px;
         border-radius: 999px;
         transition: background 0.12s, color 0.12s;
         display: flex;
@@ -463,7 +471,9 @@ export const LANDING_PAGE_STYLES = `
            upper third on every viewport height. */
         justify-content: flex-start;
         text-align: left;
-        padding: max(96px, 14dvh) 56px 48px;
+        /* Round 8: "slightly down" from round 7's upper-third anchor —
+           max(96px,14dvh) -> max(140px,20dvh), per the founder's marked box. */
+        padding: max(140px, 20dvh) 56px 48px;
     }
 
     /* ─── The date eyebrow — small, uppercase, widely tracked ──────────

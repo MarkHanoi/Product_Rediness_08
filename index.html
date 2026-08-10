@@ -108,9 +108,12 @@
         /* §NAV-GRADIENT — mirrors `.lp-nav`: a radial pool of pryzm-purple-darker
            behind the mark dissolving into pryzm-purple. See the full rationale in
            marketingPages.ts (why radial beats a left-to-right ramp). */
-        background-color: #6600FF;
+        /* Round 8 mirror: darker-left pool + 20pc translucency + blur (lp-nav). */
+        background-color: rgba(102,0,255,0.80);
         background-image: radial-gradient(150% 320% at 42px 50%,
-            #4A00B7 0%, #4E03C2 22%, #5A11E2 46%, rgba(102,0,255,0) 82%);
+            rgba(58,0,148,0.86) 0%, rgba(68,2,178,0.83) 22%, rgba(90,17,226,0.81) 46%, rgba(102,0,255,0) 82%);
+        backdrop-filter: blur(10px) saturate(1.15);
+        -webkit-backdrop-filter: blur(10px) saturate(1.15);
         box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
       }
       .lp-skel-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 151px; margin-right: auto; }
@@ -133,8 +136,8 @@
         .lp-skel-nav-link { padding: 5px 9px; font-size: 11.5px; }
       }
       .lp-skel-nav-link {
-        font-size: 12px; color: #ffffff; font-weight: 500;
-        padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+        font-size: 11.5px; color: #ffffff; font-weight: 500;
+        padding: 4px 10px; border-radius: 999px; white-space: nowrap;
         display: flex; align-items: center; gap: 3px;
       }
       .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
@@ -195,7 +198,8 @@
         /* §SKEL-MATCH round 7 — mirrors `.lp-hero--video`'s TOP anchor:
            the block STARTS max(96px, 14dvh) below the nav (upper third),
            replacing the bottom-anchored lift that could never get there. */
-        padding: max(96px, 14dvh) 56px 48px; text-align: left; overflow: hidden; position: relative;
+        /* §SKEL-MATCH round 8 — mirrors the hero's max(140px, 20dvh) top anchor. */
+        padding: max(140px, 20dvh) 56px 48px; text-align: left; overflow: hidden; position: relative;
         background:
           radial-gradient(ellipse 85% 90% at 28% 30%, #6600FF 0%, transparent 70%),
           radial-gradient(ellipse 75% 80% at 78% 78%, #4A00B7 0%, transparent 72%),
