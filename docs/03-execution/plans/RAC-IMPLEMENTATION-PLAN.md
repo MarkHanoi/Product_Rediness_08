@@ -58,7 +58,7 @@ real — geometry store, render, persistence, and one truthful undo step each.
 Confirm card that names what is NOT copied → one undo.
 ❌ Not yet: *"duplicate to the next three floors"* (targets must exist and be named).
 
-## Phase U2 — Context wirings (the five) ⬜ → unlocks true spatial language
+## Phase U2 — Context wirings (the five) ✅ 5/5 → unlocks true spatial language
 
 | Sub | What | Test unlock |
 |---|---|---|
