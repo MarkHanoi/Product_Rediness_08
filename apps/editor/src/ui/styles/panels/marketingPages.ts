@@ -227,16 +227,18 @@ export const LANDING_PAGE_STYLES = `
        pill. Drop the two quietest (they remain reachable from /contact and
        the hero CTA respectively); the emphasis ramp keeps its top two. */
     @media (max-width: 1023px) and (min-width: 769px) {
-        .lp-nav-link { padding: 7px 10px; font-size: 13px; }
+        .lp-nav-link { padding: 5px 9px; font-size: 11.5px; }
     }
     /* Shared by the <a> links AND by the dropdown trigger <button>s that
        SolutionsDropdown/ResourcesDropdown inject — hence the button resets. */
     .lp-nav-link {
-        font-size: 13.5px;
+        /* Founder round 5 (2026-08-10): top-nav type at ~90% — 13.5px/7x13
+           -> 12px/5x11, so the pill reads quieter under the hero. */
+        font-size: 12px;
         color: #ffffff;
         text-decoration: none;
         font-weight: 500;
-        padding: 7px 13px;
+        padding: 5px 11px;
         border-radius: 999px;
         transition: background 0.12s, color 0.12s;
         display: flex;
@@ -284,7 +286,8 @@ export const LANDING_PAGE_STYLES = `
         gap: 6px;
         border-radius: 999px;
         font-family: var(--app-font);
-        font-size: 13.5px;
+        /* Founder round 5: action pills track the smaller nav type (13.5 -> 12px). */
+        font-size: 12px;
         cursor: pointer;
         white-space: nowrap;
         text-decoration: none;
@@ -306,7 +309,7 @@ export const LANDING_PAGE_STYLES = `
         border: 1px solid rgba(255,255,255,0.55);
         color: #ffffff;
         font-weight: 600;
-        padding: 8px 17px;
+        padding: 6px 14px;
     }
     .lp-nav-login:hover { background: rgba(255,255,255,0.20); border-color: #ffffff; }
     /* 3 — Get started for free: tinted secondary. */
@@ -320,7 +323,7 @@ export const LANDING_PAGE_STYLES = `
         border: 1px solid #ffffff;
         color: #4A00B7;
         font-weight: 600;
-        padding: 9px 19px;
+        padding: 7px 16px;
         box-shadow: 0 6px 18px rgba(20,0,60,0.24);
     }
     .lp-nav-demo:hover { background: #F2ECFF; border-color: #F2ECFF; transform: translateY(-1px); }
@@ -438,9 +441,10 @@ export const LANDING_PAGE_STYLES = `
         align-items: flex-start;
         justify-content: flex-end;
         text-align: left;
-        /* Founder 2026-08-10: block lifted off the lower edge (72 -> 148px) so
-           the title clears the bottom toolbars/pills that overlap it in-app. */
-        padding: 24px 56px 190px;
+        /* Founder 2026-08-10: block lifted off the lower edge (72 -> 148 ->
+           190px), then round 5 same day: FURTHER up — 190 -> 300px, so the
+           title block sits clearly above the lower third of the viewport. */
+        padding: 24px 56px 300px;
     }
 
     /* ─── The date eyebrow — small, uppercase, widely tracked ──────────
