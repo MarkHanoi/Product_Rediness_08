@@ -58,6 +58,15 @@ const BUDGET_BYTES = 200 * 1024;
 // compress/stream the hero to well under 24 MB before real launch traffic, then
 // ratchet this back down. Any further bump needs its own dated justification.
 const MEDIA_BUDGET_BYTES = 36 * 1024 * 1024;
+
+// §APEX-PAGES-FILE-LIMIT (2026-08-10) — Cloudflare Pages rejects ANY single file
+// over 25 MiB; a build containing one fails to publish and pryzm.so silently
+// freezes at the last good deploy. This happened in production: the founder's
+// 31.5 MB hero v2 passed the 36 MB TOTAL media budget above, the Fly app updated,
+// and the apex stopped publishing — app.pryzm.so showed the new hero while
+// pryzm.so served the old one. A total budget is not a per-file budget; the
+// hosting platform's constraint is per file, so the gate must be too.
+const PAGES_PER_FILE_LIMIT_BYTES = 25 * 1024 * 1024; // 25 MiB, Cloudflare Pages hard limit
 const MEDIA_EXT = /\.(mp4|webm|ogv|mov|m4v)$/i;
 
 // Cloudflare Pages control files are edge configuration, not first-paint
@@ -126,6 +135,19 @@ if (totalGz > BUDGET_BYTES) {
 if (totalMedia > MEDIA_BUDGET_BYTES) {
   console.error(`\n[check-apex-size] FAIL — media ${mediaMb} MB exceeds the ${mediaBudgetMb} MB media budget (C51 §6.1.3 carve-out).`);
   failed = true;
+}
+// §APEX-PAGES-FILE-LIMIT — per-file, every file (media AND first-paint alike):
+// one oversized file makes Cloudflare Pages reject the WHOLE deploy and the apex
+// silently freezes on the previous build. Total budgets cannot see this.
+for (const r of [...mediaRows, ...rows]) {
+  if (r.raw > PAGES_PER_FILE_LIMIT_BYTES) {
+    console.error(
+      `\n[check-apex-size] FAIL — ${r.rel} is ${(r.raw / (1024 * 1024)).toFixed(2)} MB; ` +
+      `Cloudflare Pages rejects any single file over 25 MiB, so this build CANNOT publish to pryzm.so. ` +
+      `Compress or stream the asset (§APEX-PAGES-FILE-LIMIT).`,
+    );
+    failed = true;
+  }
 }
 if (failed) process.exit(1);
 
