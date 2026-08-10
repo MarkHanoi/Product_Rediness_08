@@ -83,8 +83,13 @@ export interface ContextTileFeature {
  * NOT a failure — see the honesty contract above.
  */
 export type ContextTileResult =
-    /** Tiles are configured and were read. `features` may legitimately be empty. */
-    | { readonly status: 'ok'; readonly features: ContextTileFeature[]; readonly tilesRead: number; readonly ms: number }
+    /**
+     * Tiles are configured and were read. `features` may legitimately be empty.
+     * §CTX-TILE-READ-HONESTY (L-778) — `tilesFailed` reports how many covering tiles could NOT be
+     * read; a caller that caches this result for the session must only do so when it is 0, or a
+     * transient network blip becomes a permanent "partial city" for the whole session.
+     */
+    | { readonly status: 'ok'; readonly features: ContextTileFeature[]; readonly tilesRead: number; readonly tilesFailed: number; readonly ms: number }
     /** No tiles URL is configured (local dev / not yet rolled out) — the caller should use Overpass. */
     | { readonly status: 'disabled' }
     /**
@@ -886,6 +891,48 @@ function belongsToLayer(tags: Record<string, string>, layer: ContextTileLayer): 
 }
 
 /**
+ * §CTX-TILE-READ-HONESTY (L-778) — decide whether a multi-tile read is a real answer or a failure
+ * wearing one's clothes. PURE + testable; `readContextTileFeatures` is the only production caller.
+ *
+ * Extracted after the 2026-08-10 incident: central Barcelona (41.43562, 2.17929) rendered
+ * "0 footprints" from a read reported as SUCCESSFUL, while the production tileset — probed the same
+ * day at the same coordinate — held 6,091 footprints there. The old rule declared `unavailable` only
+ * when EVERY tile read failed; one tile that happened to read (an absent sea/edge tile decodes as an
+ * honest `[]`) plus thirty-five failed tiles therefore aggregated to `ok` with zero features — a
+ * mostly-failed read collapsed into a truthful empty, which is the §CONTEXT-DATA-HONESTY defect
+ * (failure and empty must never be the same value) at the AGGREGATION level rather than the
+ * per-request level.
+ */
+export function tileReadVerdict(
+    tilesRead: number,
+    tilesFailed: number,
+    featureCount: number,
+): { status: 'ok' } | { status: 'unavailable'; reason: string } {
+    // Every single tile request failed ⇒ this is a FAILURE, not an empty neighbourhood.
+    if (tilesRead === 0 && tilesFailed > 0) {
+        return { status: 'unavailable', reason: `all ${tilesFailed} tile read(s) failed` };
+    }
+    // ANY failure + ZERO features ⇒ the empty is not credible. The tiles that failed are exactly
+    // the ones that could have held the city; declaring "nothing is mapped here" on the strength
+    // of the few that happened to read is the founder's 2026-08-10 blank-Barcelona incident.
+    //
+    // ⚠ Deliberately NOT the reverse ("failures + features ⇒ unavailable"): a partial read that
+    // DID recover footprints renders most of the city, which beats discarding real data to
+    // re-ask a rate-limited third party. The caller sees `tilesFailed` and must not session-cache
+    // such a result — see the ok-variant note.
+    if (tilesFailed > 0 && featureCount === 0) {
+        return {
+            status: 'unavailable',
+            reason:
+                `${tilesFailed} of ${tilesRead + tilesFailed} tile read(s) failed and the ` +
+                `${tilesRead} that did read held no features — a mostly-failed read must not ` +
+                'pass as an empty neighbourhood (§CTX-TILE-READ-HONESTY)',
+        };
+    }
+    return { status: 'ok' };
+}
+
+/**
  * Read every feature of `layer` covering `bbox` from the baked PMTiles.
  *
  * NEVER throws. Individual tile failures are tolerated (a missing tile at the edge of the baked
@@ -951,7 +998,7 @@ export async function readContextTileFeatures(
     // complete is the failure mode this whole subsystem exists to avoid.
     z = zoomForExtent(bbox, z, minZoom);
     const tiles = tilesCovering(bbox, z);
-    if (tiles.length === 0) return { status: 'ok', features: [], tilesRead: 0, ms: Date.now() - t0 };
+    if (tiles.length === 0) return { status: 'ok', features: [], tilesRead: 0, tilesFailed: 0, ms: Date.now() - t0 };
     if (tiles.length > MAX_TILES_PER_FETCH) {
         return {
             status: 'unavailable',
@@ -981,11 +1028,10 @@ export async function readContextTileFeatures(
         }
     }
 
-    // Every single tile request failed ⇒ this is a FAILURE, not an empty neighbourhood.
-    if (read === 0 && failed > 0) {
-        return { status: 'unavailable', reason: `all ${failed} tile read(s) failed` };
-    }
-    return { status: 'ok', features, tilesRead: read, ms: Date.now() - t0 };
+    // §CTX-TILE-READ-HONESTY (L-778) — the aggregate verdict is a pure, tested rule.
+    const verdict = tileReadVerdict(read, failed, features.length);
+    if (verdict.status === 'unavailable') return verdict;
+    return { status: 'ok', features, tilesRead: read, tilesFailed: failed, ms: Date.now() - t0 };
 }
 
 /**

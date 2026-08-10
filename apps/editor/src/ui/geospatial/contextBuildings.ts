@@ -974,7 +974,19 @@ async function fetchForBboxUncached(bbox: Bbox): Promise<ContextBuildingCollecti
             `[gis] §CTX-PMTILES-READER buildings: ${collection.features.length} footprint(s) from ` +
                 `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call.`,
         );
-        cache.set(key, collection);
+        // §CTX-TILE-READ-HONESTY (L-778) — a PARTIAL read (some tiles failed but footprints were
+        // recovered) renders now but must NOT be memoised: caching it would pin a transient
+        // network blip as "this is the whole city" for the rest of the session. A clean read
+        // (tilesFailed === 0) caches exactly as before — including a truthful empty.
+        if (tiled.tilesFailed === 0) {
+            cache.set(key, collection);
+        } else {
+            console.warn(
+                `[gis] §CTX-TILE-READ-HONESTY buildings: ${tiled.tilesFailed} tile read(s) failed ` +
+                    `alongside the ${tiled.tilesRead} that succeeded — rendering the partial result ` +
+                    'but NOT caching it, so the next read can recover the missing tiles.',
+            );
+        }
         return collection;
     }
     if (tiled.status === 'aborted') {
