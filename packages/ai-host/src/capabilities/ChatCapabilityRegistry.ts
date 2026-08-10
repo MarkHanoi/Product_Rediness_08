@@ -731,6 +731,52 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'set-wall-rake',
+    // §FEAT-WALL-RAKE-BATCH (ADR-0315, founder ask #1) — "make all walls
+    // angled by 120 degrees". Rides the batch primitive built for it
+    // (`wall.updateRakeBatch` → UpdateWallsRakeBatchCommand): ONE undo entry,
+    // and every wall is pre-judged by geometry-wall's `rakeAuthorability`
+    // single gate — the SAME policy WallStore.update enforces — because the
+    // generic parameter route reports success on walls the store silently
+    // refuses (curved / layered / opening-hosting). "Raked N of M — K
+    // skipped: <reason>" is the honest report shape.
+    description: 'lean walls to an angle (90° = vertical)',
+    verbs: ['make', 'set', 'angle', 'tilt', 'lean', 'rake', 'slant'],
+    aliases: ['wall angle', 'vertical angle', 'wall rake', 'wall lean'],
+    refusalLabel: 'wall angle',
+    targets: ['wall'],
+    parameters: [
+      {
+        name: 'angle',
+        description: 'the lean in degrees (15–165; 90 = vertical); "vertical" means 90',
+        required: true,
+        valueSource: 'angle',
+        example: '70',
+      },
+    ],
+    scope: 'all',
+    // Same spatial-scope set as the colour batch: "make all walls on level 2
+    // angled by 60" / "rake all walls in the kitchen by 75" resolve through
+    // the injected ScopeResolver.
+    scopeModes: ['all', 'selection', 'level', 'room'],
+    destructive: false,
+    busCommand: 'wall.updateRakeBatch',
+    // Selection-scope probe (the 'all' scope never reads the selection, so it
+    // could not exercise the target guard) — same reasoning as set-wall-color.
+    probe: { intent: 'set-wall-rake', angleDeg: 70, scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/walls/UpdateWallsRakeBatchCommand.ts',
+      mustMention: ['wallStore', 'rakeAuthorability'],
+      note: "_resolveWalls reads ctx.stores.wallStore and nothing else, so the command's reachable set is walls only; per wall it consults geometry-wall's rakeAuthorability (the store's own gate) and executes through the proven UpdateElementParameterCommand rake route (geometry store → fragment rebuild, L-813-hardened).",
+    },
+    examples: [
+      'make all walls angled by 120 degrees',
+      'make the selected walls angled by 70',
+      'tilt all walls on the ground floor by 60 degrees',
+      'make all walls vertical',
+    ],
+  },
+  {
     id: 'set-rhino-material',
     // §FEAT-RHINO-CHAT-MATERIAL — the imported Rhino model is REFERENCE
     // content (THREE meshes in a tagged scene group, not store elements), so

@@ -229,6 +229,17 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    id: 'set-wall-rake',
+    ctx: {},
+    phrasings: [
+      'make all walls angled by 120 degrees',
+      'tilt all walls by 70',
+      'rake every wall to 100°',
+      'make all walls vertical',
+      'Could you make all walls angled by 70 degrees, please?',
+    ],
+  },
+  {
     id: 'set-rhino-material',
     ctx: {},
     phrasings: [
@@ -888,5 +899,89 @@ describe('compound dimensions resolve to ONE dispatch (live repro, build 7066727
     expect(r.kind).toBe('refusal');
     if (r.kind !== 'refusal') return;
     expect(r.reason).toContain('one');
+  });
+});
+
+describe('§FEAT-WALL-RAKE-BATCH — "make all walls angled by 120 degrees"', () => {
+  it('reaches wall.updateRakeBatch with scope all and the parsed angle', () => {
+    const r = resolveUtterance('make all walls angled by 120 degrees', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-wall-rake');
+    expect(r.tier).toBe(0);
+    expect(r.commands).toEqual([
+      { type: 'wall.updateRakeBatch', payload: { wallIds: 'all', rakeAngleDeg: 120 } },
+    ]);
+    expect(r.destructive).toBe(false);
+    expect(r.summary).toContain('every wall in the project');
+  });
+
+  it('"make the selected walls angled by 70" scopes to the SELECTION walls only', () => {
+    const ctx = ctxOf({
+      selection: [
+        { elementId: 'w1', elementType: 'wall' },
+        { elementId: 'w2', elementType: 'wall' },
+        { elementId: 'd1', elementType: 'door' },
+      ],
+    });
+    const r = resolveUtterance('make the selected walls angled by 70', ctx);
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ wallIds: ['w1', 'w2'], rakeAngleDeg: 70 });
+  });
+
+  it('"make all walls vertical" means 90 degrees', () => {
+    const r = resolveUtterance('make all walls vertical', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ wallIds: 'all', rakeAngleDeg: 90 });
+    expect(r.summary).toContain('(vertical)');
+  });
+
+  it('an out-of-range angle refuses with the geometry package\'s REAL bounds — a parse, never a miss', () => {
+    const r = resolveUtterance('make all walls angled by 200 degrees', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('set-wall-rake');
+    expect(r.reason).toContain('15');
+    expect(r.reason).toContain('165');
+  });
+
+  it('level scope resolves ONCE through the injected resolver ("on the ground floor")', () => {
+    const resolveScope = (scope: { kind: string; levelQuery?: string; elementKind?: string }) => {
+      expect(scope).toEqual({ kind: 'level', levelQuery: 'ground floor', elementKind: 'wall' });
+      return { ids: ['w-a', 'w-b'], kindCounts: { wall: 2 }, skipped: [], diagnostics: ['Ground Floor'] };
+    };
+    const r = resolveUtterance('tilt all walls on the ground floor by 60 degrees', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toEqual([{
+      type: 'wall.updateRakeBatch',
+      payload: { wallIds: ['w-a', 'w-b'], rakeAngleDeg: 60 },
+    }]);
+    expect(r.summary).toContain('2 walls on Ground Floor');
+  });
+
+  it('level scope with NO injected resolver refuses honestly — never guesses "all"', () => {
+    const r = resolveUtterance('tilt all walls on level 2 by 60 degrees', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain("spatial scoping isn't wired");
+  });
+
+  it('selection scope with no walls selected refuses and names what IS selected', () => {
+    const r = resolveUtterance('make these walls angled by 70', ctxOf(sel('door')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('door');
+    expect(r.reason).toContain('Nothing was changed');
+  });
+
+  it('grammar ordering holds — rake never steals colour/type/height sentences and vice versa', () => {
+    expect(intentOf(resolveUtterance('make all walls white', ctxOf()))).toBe('set-wall-color');
+    expect(intentOf(resolveUtterance('make all walls interior partition', ctxOf()))).toBe('set-wall-type');
+    const rake = resolveUtterance('make all walls angled by 70', ctxOf());
+    expect(intentOf(rake)).toBe('set-wall-rake');
+    expect(rake.kind).toBe('commands');
   });
 });

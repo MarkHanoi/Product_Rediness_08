@@ -347,7 +347,7 @@ function proveParameterSources(cap: ChatCapability): string[] {
     if (!p.required) continue;
     const ok =
       p.valueSource === 'measurement' ? Object.values(probe).some((v) => typeof v === 'number')
-      : p.valueSource === 'angle' ? typeof probe['degrees'] === 'number'
+      : p.valueSource === 'angle' ? (typeof probe['degrees'] === 'number' || typeof probe['angleDeg'] === 'number')
       : p.valueSource === 'wall-system-types' ? typeof probe['typeRef'] === 'string'
       // ADR-0315 U5a: duplicate-level carries its level refs as sourceQuery /
       // targetQueries — both resolved by the same findLevel authority.

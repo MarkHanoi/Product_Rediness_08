@@ -34,6 +34,10 @@ import {
 import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
 import { isScopeError, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
+// §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
+// constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
+// the purity note above still holds — no store instance is constructed here.
+import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -416,6 +420,27 @@ export type SemanticIntent =
       /** Colour name / '#hex' (the ONE table in colorRef.ts), or null to
        *  restore the model's original (as-imported) materials. */
       readonly colorRef: string | null;
+    }
+  /**
+   * §FEAT-WALL-RAKE-BATCH (ADR-0315, founder ask #1) — "make the selected
+   * walls angled by 70" / "make all walls on the ground floor angled by 60" /
+   * "make all walls angled by 120 degrees" / "make all walls vertical".
+   *
+   * Dispatches `wall.updateRakeBatch` (ONE undo entry). Per-wall refusals —
+   * curved / layered / opening-hosting walls cannot lean — are judged by the
+   * COMMAND through geometry-wall's `rakeAuthorability` single gate and
+   * reported honestly ("Raked N of M — K skipped"); the resolver owns only
+   * the phrase→angle mapping and the range refusal.
+   */
+  | {
+      readonly intent: 'set-wall-rake';
+      /** Target lean in degrees; 90 = vertical. Range [RAKE_MIN_DEG, RAKE_MAX_DEG]. */
+      readonly angleDeg: number;
+      readonly scope:
+        | 'all'
+        | 'selection'
+        | { readonly kind: 'level'; readonly levelQuery: string }
+        | { readonly kind: 'room'; readonly roomRef: string };
     };
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
@@ -1312,6 +1337,99 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
+    case 'set-wall-rake': {
+      // §FEAT-WALL-RAKE-BATCH — scope first, the exact set-wall-color shape:
+      // "the selected walls" must never silently become "all walls".
+      let wallIds: readonly string[] | 'all';
+      let scopeLabelOverride: string | null = null;
+      const scopeNotes: string[] = [];
+      if (typeof si.scope === 'object') {
+        const phrase = si.scope.kind === 'level'
+          ? `on level ${si.scope.levelQuery}`
+          : `in the ${si.scope.roomRef}`;
+        if (ctx.resolveScope === undefined) {
+          return {
+            kind: 'refusal', intent: 'set-wall-rake',
+            reason:
+              `I can't resolve "${phrase}" here — spatial scoping isn't wired ` +
+              `into this chat context. I can angle all walls or the selected walls.`,
+            suggestions: ['make all walls angled by 70 degrees'],
+          };
+        }
+        const descriptor: ScopeDescriptor = si.scope.kind === 'level'
+          ? { kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' }
+          : { kind: 'room', roomRef: si.scope.roomRef, elementKind: 'wall' };
+        const result = ctx.resolveScope(descriptor);
+        if (isScopeError(result)) {
+          return {
+            kind: 'refusal', intent: 'set-wall-rake',
+            reason: result.error,
+            suggestions: ['make all walls angled by 70 degrees'],
+          };
+        }
+        if (result.ids.length === 0) {
+          return {
+            kind: 'refusal', intent: 'set-wall-rake',
+            reason: `There are no walls ${phrase} — nothing was changed.`,
+            suggestions: ['make all walls angled by 70 degrees'],
+          };
+        }
+        wallIds = result.ids;
+        const where = result.diagnostics[0] ?? phrase.replace(/^on |^in the /, '');
+        scopeLabelOverride = `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} ${si.scope.kind === 'level' ? 'on' : 'bounding'} ${where}`;
+        for (const s of result.skipped) {
+          scopeNotes.push(`${s.count}× ${s.kind} skipped: ${s.reason}`);
+        }
+      } else if (si.scope === 'selection') {
+        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
+        if (walls.length === 0) {
+          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
+          return {
+            kind: 'refusal', intent: 'set-wall-rake',
+            reason: kinds.length === 0
+              ? 'No walls are selected — select some walls, or say "make all walls angled by 70 degrees".'
+              : `The wall angle applies to walls, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
+            suggestions: ['make all walls angled by 70 degrees'],
+          };
+        }
+        wallIds = walls.map((s) => s.elementId);
+      } else {
+        wallIds = 'all';
+      }
+
+      // Range refusal with the geometry package's REAL bounds (never re-typed).
+      // Per-wall shape refusals (curved / layered / hosting openings) belong to
+      // the command's rakeAuthorability pass and arrive in its honest report.
+      const deg = si.angleDeg;
+      if (!Number.isFinite(deg) || deg < RAKE_MIN_DEG || deg > RAKE_MAX_DEG) {
+        return {
+          kind: 'refusal', intent: 'set-wall-rake',
+          reason:
+            `A wall can lean between ${RAKE_MIN_DEG}° and ${RAKE_MAX_DEG}° ` +
+            `(90° = vertical); ${deg}° is outside that range.`,
+          suggestions: ['make all walls angled by 70 degrees', 'make all walls vertical'],
+        };
+      }
+
+      const scopeLabel = scopeLabelOverride !== null
+        ? scopeLabelOverride
+        : wallIds === 'all'
+          ? 'every wall in the project'
+          : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
+      const notesTail = scopeNotes.length > 0 ? ` (${scopeNotes.join(' · ')})` : '';
+      return {
+        kind: 'commands', intent: 'set-wall-rake',
+        summary: `Lean ${scopeLabel} to ${deg}°${deg === 90 ? ' (vertical)' : ''}${notesTail}`,
+        commands: [{
+          type: 'wall.updateRakeBatch',
+          payload: { wallIds: wallIds === 'all' ? 'all' : [...wallIds], rakeAngleDeg: deg },
+        }],
+        // NOT destructive — one undo entry, deletes nothing, and the command
+        // reports "Raked N of M — K skipped" (same policy as the colour batch).
+        destructive: false,
+      };
+    }
+
     case 'set-rhino-material': {
       // §FEAT-RHINO-CHAT-MATERIAL — whole-model scope by construction: the
       // Rhino import is one reference model, not a set of store elements, so
@@ -1657,6 +1775,65 @@ const matchWallColor: Matcher = (text, ctx) => {
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
+// §FEAT-WALL-RAKE-BATCH (ADR-0315, founder ask #1) — "make all walls angled by
+// 120 degrees" and its family.
+//
+// Two shapes share one intent:
+//   • make/set + adjective — "make the selected walls angled by 70",
+//     "set all walls on level 2 tilted to 60 degrees", "make all walls vertical";
+//   • rake-verb-led — "tilt all walls by 70", "angle the selected walls to 100°",
+//     "rake all walls in the kitchen by 75 degrees".
+// The rake words (angled/tilted/leaning/raked/slanted + vertical/upright) are
+// what claims the utterance, so the colour and type grammars are never nibbled
+// at; the spatial-scope captures are byte-identical to the colour grammar's.
+const WALL_RAKE_SCOPE = String.raw`(?: on (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)| in the ([\w .-]+?))?`;
+const WALL_RAKE_ANGLE = String.raw`(?:by|to|at)? ?(-?\d+(?:\.\d+)?) ?(?:°|degrees?|deg)?`;
+
+const WALL_RAKE_ADJ_RE = new RegExp(
+  `^(?:make|set) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) walls?${WALL_RAKE_SCOPE}` +
+  ` (?:(?:angled|tilted|leaning|leant|raked|slanted) ${WALL_RAKE_ANGLE}|(vertical|upright|straight))$`,
+);
+const WALL_RAKE_VERB_RE = new RegExp(
+  `^(?:angle|tilt|lean|rake|slant) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) walls?${WALL_RAKE_SCOPE}` +
+  ` ${WALL_RAKE_ANGLE}$`,
+);
+
+/**
+ * Parse the rake family into the semantic intent — SHARED by the tier-0
+ * grammar and the NL classifier, like `parseWallColorIntent`. Returns null
+ * when no rake word appears; out-of-range ANGLES still parse (the apply arm
+ * owns the range refusal, so "angled by 200" gets a real answer, not a miss).
+ */
+export function parseWallRakeIntent(text: string): Extract<SemanticIntent, { intent: 'set-wall-rake' }> | null {
+  const adj = WALL_RAKE_ADJ_RE.exec(text);
+  const verb = adj === null ? WALL_RAKE_VERB_RE.exec(text) : null;
+  const m = adj ?? verb;
+  if (!m) return null;
+  const scopeWord = m[1]!;
+  const levelQuery = m[2]?.trim();
+  const roomRef = m[3]?.trim();
+  const angleDeg = adj !== null && adj[5] !== undefined
+    ? 90 // "vertical" / "upright" / "straight"
+    : Number.parseFloat(m[4]!);
+  if (!Number.isFinite(angleDeg)) return null;
+  // Spatial phrases compose with the ALL scope only (same ruling as colour).
+  const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
+  if (levelQuery !== undefined && levelQuery.length > 0) {
+    if (!isAll) return null;
+    return { intent: 'set-wall-rake', angleDeg, scope: { kind: 'level', levelQuery } };
+  }
+  if (roomRef !== undefined && roomRef.length > 0) {
+    if (!isAll) return null;
+    return { intent: 'set-wall-rake', angleDeg, scope: { kind: 'room', roomRef } };
+  }
+  return { intent: 'set-wall-rake', angleDeg, scope: isAll ? 'all' : 'selection' };
+}
+
+const matchWallRake: Matcher = (text, ctx) => {
+  const si = parseWallRakeIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
 // white" / "paint the rhino model white" / "reset the rhino model materials".
 //
@@ -1708,6 +1885,10 @@ const MATCHERS: readonly Matcher[] = [
   // parser claims only resolvable colours (or paint/colour verbs), so type
   // sentences pass through to matchWallType untouched.
   matchWallColor,
+  // BEFORE the dimension matchers: "make all walls angled by 70" carries a bare
+  // number the matchHeight family must never nibble at; the rake words are what
+  // claims it (§FEAT-WALL-RAKE-BATCH).
+  matchWallRake,
   // BEFORE the dimension matchers: "make all walls interior partition" must not
   // be nibbled at by "make this … " shapes.
   matchWallType,

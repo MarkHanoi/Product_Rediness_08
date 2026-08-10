@@ -134,6 +134,8 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-room-height-offset': ['room'],
       'set-wall-type': ['wall'],
       'set-wall-color': ['wall'],
+      // §FEAT-WALL-RAKE-BATCH (ADR-0315) — "make all walls angled by 120 degrees".
+      'set-wall-rake': ['wall'],
       'set-roof-pitch': ['roof'],
       'rename-room': ['room'],
       'set-room-number': ['room'],

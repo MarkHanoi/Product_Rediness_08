@@ -328,6 +328,9 @@ async function dispatchCommands(
     const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         'wall.updateSystemTypeBatch': 'pryzm-wall-type-batch-report',
         'wall.updateColorBatch': 'pryzm-wall-color-batch-report',
+        // §FEAT-WALL-RAKE-BATCH — "Raked N of M — K skipped: <reason>" from the
+        // batch command's rakeAuthorability pass.
+        'wall.updateRakeBatch': 'pryzm-wall-rake-batch-report',
         // §FEAT-RHINO-CHAT-MATERIAL — the Rhino bridge reports mesh counts and
         // the honest "no Rhino model is imported" failure through this event.
         'rhino.setMaterial': 'pryzm-rhino-material-report',

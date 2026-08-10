@@ -41,6 +41,7 @@ import {
   lengthToMeters,
   parseDuplicateLevelIntent,
   parseWallColorIntent,
+  parseWallRakeIntent,
   parseWallTypeIntent,
   type ResolverContext,
   type ResolverLevel,
@@ -941,6 +942,21 @@ function classify(
       confidence: 0.95,
       evidence: ['verb:paint', 'noun:wall', `scope:${wallColor.scope}`],
       si: wallColor,
+    });
+  }
+
+  // set-wall-rake (§FEAT-WALL-RAKE-BATCH, ADR-0315) — same SHARED-parser
+  // discipline and the same 0.95 rank as colour: "make all walls angled by 70
+  // degrees" also matches the wall-type shape ("angled by 70 degrees" would be
+  // read as a type name and refused with the catalogue), and the rake reading
+  // is the resolvable one.
+  const wallRake = parseWallRakeIntent(n.plain);
+  if (wallRake !== null) {
+    push({
+      intent: 'set-wall-rake',
+      confidence: 0.95,
+      evidence: ['verb:rake', 'noun:wall', `scope:${typeof wallRake.scope === 'string' ? wallRake.scope : wallRake.scope.kind}`],
+      si: wallRake,
     });
   }
 

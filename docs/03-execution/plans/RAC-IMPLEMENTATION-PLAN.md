@@ -36,6 +36,15 @@ CI now prints: `maturity: M2/M3 21 · M4 2 · M5 2 · M6 0 · M7 0`.
 thick"*, and the Inspector's window/door width & sill edits are **guaranteed**
 real — geometry store, render, persistence, and one truthful undo step each.
 
+## Founder capability asks (2026-08-10) — interleaved with U3
+
+| # | Ask | Status |
+|---|---|---|
+| 1 | Wall rake by degrees ("make all walls angled by 120 degrees") | ✅ `set-wall-rake` — batch command (8dcaf00d) + grammar/NL/registry; scopes all·selection·level·room; per-wall `rakeAuthorability` refusals reported honestly |
+| 2 | Add finish layer to a wall type | ⬜ next |
+| 3 | Parametric window creation (count / spacing) | ⬜ |
+| 4 | Change window type by catalogue name | ⬜ |
+
 ## Phase U5a — Conversational level duplication ✅ (`9d7ffaeb`) *(pulled ahead — zero new execution code)*
 
 | Sub | What | Status |
