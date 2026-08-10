@@ -107,6 +107,16 @@ export type CapabilityValueSource =
   /** A colour name or '#hex', resolved by the ONE table in
    *  `intents/colorRef.ts` (ADR-0314 §Value sources). */
   | 'color'
+  /** ADR-0315 U2.5 — a room reference (name / occupancy), resolved by the
+   *  RoomStore predicates (findByName / findByOccupancy) via the injected
+   *  scope resolver. First consumers land with U3. */
+  | 'project-rooms'
+  /** ADR-0315 U2.5 — a compass orientation (N/E/S/W), resolved by the
+   *  θ-threaded FacadeOrientationService. */
+  | 'orientation'
+  /** ADR-0315 U2.5 — a level range ("levels 2–4"), resolved by findLevel per
+   *  bound against the injected level list. */
+  | 'level-range'
   /** Free user text (a room name). */
   | 'user-text'
   /** A pair of plan coordinates. */
@@ -120,7 +130,7 @@ export interface ChatCapabilityParameter {
   readonly example: string;
 }
 
-/** What the capability acts ON. */
+/** What the capability acts ON (its DEFAULT scope). */
 export type CapabilityScope =
   /** The current selection. Empty selection ⇒ an honest refusal, never a no-op. */
   | 'selection'
@@ -128,6 +138,20 @@ export type CapabilityScope =
   | 'all'
   /** Neither — the whole view/document (undo, zoom-fit, add-level). */
   | 'global';
+
+/**
+ * ADR-0315 U2.5 — the scope modes a capability CAN operate under, beyond its
+ * default. This is the declared half of the U3 ScopeResolver contract: a
+ * capability listing 'level' promises the resolver may hand it a
+ * level-resolved id set ("all doors on Level 2"); one listing 'room' accepts
+ * room-membership sets ("the windows in the living room"); 'orientation'
+ * accepts façade-orientation sets ("south-facing exterior walls"). The gate
+ * validates the list (known modes only, must include the default scope) so a
+ * spatial claim is a declaration, never an accident. No capability declares
+ * the spatial modes until the resolver that honours them ships (U3) — a
+ * declared-but-unresolvable scope would be the ElementCapabilities lie again.
+ */
+export type CapabilityScopeMode = CapabilityScope | 'level' | 'room' | 'orientation';
 
 /**
  * SOURCE-ANCHORED proof that the implementing command really accepts the
@@ -166,6 +190,10 @@ export interface ChatCapability {
   readonly targets: readonly string[] | 'global';
   readonly parameters: readonly ChatCapabilityParameter[];
   readonly scope: CapabilityScope;
+  /** ADR-0315 U2.5 — additional scope modes the capability supports (must
+   *  include `scope`). Absent = the default scope only. Spatial modes may only
+   *  be declared once the U3 ScopeResolver can honour them. */
+  readonly scopeModes?: readonly CapabilityScopeMode[];
   readonly destructive: boolean;
   /**
    * The bus command that implements it. `null` for the three LOCAL actions

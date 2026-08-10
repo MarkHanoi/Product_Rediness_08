@@ -309,7 +309,33 @@ const KNOWN_VALUE_SOURCES = new Set([
   // ADR-0314 §Value sources — colour name / '#hex', resolved by the ONE table
   // in packages/ai-host/src/intents/colorRef.ts.
   'color',
+  // ADR-0315 U2.5 — the spatial vocabulary. Declared now so U3 capabilities
+  // are pure metadata; the probe-shape arms below activate with their first
+  // consumer.
+  'project-rooms', 'orientation', 'level-range',
 ]);
+
+// ADR-0315 U2.5 — the scope modes a capability may declare in `scopeModes`.
+// A spatial mode is a PROMISE the U3 ScopeResolver must honour; an unknown
+// mode, or a list omitting the capability's own default scope, fails hard.
+const KNOWN_SCOPE_MODES = new Set([
+  'selection', 'all', 'global', 'level', 'room', 'orientation',
+]);
+
+function proveScopeModes(cap: ChatCapability): string[] {
+  const modes = (cap as unknown as { scopeModes?: readonly string[] }).scopeModes;
+  if (modes === undefined) return [];
+  const failures: string[] = [];
+  for (const m of modes) {
+    if (!KNOWN_SCOPE_MODES.has(m)) {
+      failures.push(`${cap.id}: unknown scope mode "${m}" — the resolver has no such scope.`);
+    }
+  }
+  if (!modes.includes(cap.scope)) {
+    failures.push(`${cap.id}: scopeModes must include the default scope "${cap.scope}".`);
+  }
+  return failures;
+}
 
 function proveParameterSources(cap: ChatCapability): string[] {
   const failures: string[] = [];
@@ -332,6 +358,10 @@ function proveParameterSources(cap: ChatCapability): string[] {
           Array.isArray(probe['targetQueries'])
       : p.valueSource === 'coordinates' ? probe['start'] !== undefined && probe['end'] !== undefined
       : p.valueSource === 'color' ? typeof probe['colorRef'] === 'string'
+      // ADR-0315 U2.5 — spatial value shapes (first consumers land with U3).
+      : p.valueSource === 'project-rooms' ? typeof probe['roomRef'] === 'string'
+      : p.valueSource === 'orientation' ? typeof probe['orientation'] === 'string'
+      : p.valueSource === 'level-range' ? Array.isArray(probe['levelRange'])
       : /* user-text */ Object.values(probe).some((v) => typeof v === 'string' && v !== cap.id);
     if (!ok) {
       failures.push(
@@ -409,7 +439,7 @@ for (const cmd of unconnectedTopicCommands()) {
 const targetFailures = caps.flatMap((c) => [...probeTargets(c), ...proveCommandTargets(c)]);
 
 // 5. Parameter sources.
-const parameterFailures = caps.flatMap((c) => proveParameterSources(c));
+const parameterFailures = caps.flatMap((c) => [...proveParameterSources(c), ...proveScopeModes(c)]);
 
 // 3c. Normalization sanity: a declared target must survive normalizeElementKind,
 // or `capabilityAppliesTo` silently answers false forever.

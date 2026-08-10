@@ -57,7 +57,7 @@ Confirm card that names what is NOT copied → one undo.
 | U2.2 ✅ | Room predicates on RoomStore: `findByName` (exact-first, ci-substring) / `findByOccupancy` / `findByArea` (no-metric ≠ 0), level-filterable, clone-returning; room-topology 81/81 | "rooms named Bedroom", "rooms > 15 m²" |
 | U2.3 ✅ | `getElementsInRoom` completed: windows (via host-wall membership, both `wallId`/`hostWallId`), columns/lighting/stairs (centroid containment); the lying doc comment fixed; `getBoundaryElements` reports real `curtain-wall` kind. Editor spec green. (Beams: no reliable centroid on record — deferred to U8 spatial service, noted honestly) | "the windows in the living room" |
 | U2.4 ✅ | Headless `SiteQueryService` in @pryzm/stores (provider-injected; θ/lat-lng/parcel/buildableRing-wins/setbacks null≠0/maxHeightM null="no cap recorded"/point-in-footprint with unknown≠outside); wired in initTools + `window.siteQueryService`; 6/6 tests | envelope/height answers for U5b |
-| U2.5 | Extend `CapabilityScope` + value sources (orientation, room-ref, level-range) — the gate currently REJECTS spatial capabilities | gates U3 |
+| U2.5 ✅ | `CapabilityScopeMode` (level/room/orientation) + optional `scopeModes` on capabilities (gate-validated: known modes only, must include default scope) + value sources `project-rooms`/`orientation`/`level-range` with probe shapes. Vocabulary only — first consumers land with U3; declaring a spatial mode before the resolver honours it would be the ElementCapabilities lie | gates U3 |
 
 🧪 After U2: no new sentences yet (U3 consumes these), but `describeGraph`/room
 queries become chat-answerable data.
