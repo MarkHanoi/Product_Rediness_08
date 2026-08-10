@@ -44,6 +44,28 @@
  *    (no real gap on the assigned wall), all accepted walls are scanned by perpendicular
  *    distance and the nearest wall WITH a confirmed gap wins instead. This fixes cases where
  *    the opening centre is equidistant from two walls and the graph picks the wrong one.
+ *
+ * DOOR FIX v3 CHANGES (PDF-TO-BIM-AUDIT-2026-08-10):
+ *  - §PDF-OFFSET-LEFTEDGE (P0): Opening.offset is the LEFT-EDGE offset repo-wide
+ *    (§OPENING-OFFSET-LEFTEDGE-UNIFY 2026-06-24; OpeningDims in WallOccupancyStore,
+ *    computeOpeningWorldPos, WallOpeningPositionResolver all use centre = offset + width/2).
+ *    This batcher passed the projected CENTRE as `offset`, shifting every imported
+ *    door/window by +width/2 along its wall. Both the main opening loop and the geometric
+ *    recovery block now convert centre → left edge before building CreateWallOpeningCommand.
+ *  - §PDF-SCALE-EFFECTIVE (P1): all pixel→metre SCALAR conversions (wall thickness, opening
+ *    width, recovery gap width, furniture dims) previously used the INTRINSIC
+ *    planWidthMeters/pxPerMeter, which ignores mesh.scale after the user rescales the
+ *    underlay in-scene (UnderlayReferenceScaleTool). Positions tracked the mesh via
+ *    pixelToWorld() but sizes did not. A single effective metresPerPixel is now measured
+ *    through pixelToWorld() itself, so sizes and positions can never disagree.
+ *  - §PDF-HOST-DIST-GUARD (P1): the gap-probe tiebreaker scanned the 6 nearest walls at ANY
+ *    distance — an opening could be re-hosted onto a wall metres away just because it had a
+ *    plausible gap. Candidates are now capped at HOST_TIEBREAK_MAX_DIST_M perpendicular.
+ *  - §PDF-OCCUPANCY-PREFLIGHT (P1): two proposed openings on the same wall could overlap;
+ *    the second was silently rejected by wallOccupancyStore.canPlace() at execute time.
+ *    Openings are now processed in confidence order (doors before windows on ties) and
+ *    span-checked against already-proposed openings on the same wall; conflicts are skipped
+ *    HONESTLY with status 'skipped_occupancy_conflict' in the diagnostics.
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
@@ -114,6 +136,43 @@ const DUPLICATE_WALL_THRESHOLD_M = 0.25;
 const DEFAULT_WALL_HEIGHT = 3.0;
 const DEFAULT_WALL_THICKNESS = 0.2;
 const DEFAULT_SLAB_THICKNESS = 0.2;
+
+/**
+ * §PDF-HOST-DIST-GUARD: maximum perpendicular distance (metres, world space) at which
+ * a wall may win an opening via the gap-probe tiebreaker. Beyond this the graph
+ * assignment (nearest wall) stands even without a confirmed pixel gap — re-hosting a
+ * door onto a wall further away than this is guaranteed to be a wrong placement.
+ */
+const HOST_TIEBREAK_MAX_DIST_M = 0.75;
+
+/**
+ * §PDF-OCCUPANCY-PREFLIGHT: minimum clear distance between two proposed opening spans
+ * on the same wall. Mirrors WallOccupancyStore.EPSILON_M (1 mm) so the pre-flight and
+ * the store's canPlace() gate cannot disagree.
+ */
+const OPENING_SPAN_EPSILON_M = 0.001;
+
+/**
+ * §PDF-SCALE-EFFECTIVE: measure the EFFECTIVE metres-per-pixel through pixelToWorld()
+ * itself, so scalar size conversions (thickness, opening width) use exactly the same
+ * transform as position conversions — including any mesh.scale applied after import by
+ * the underlay reference-scale tool. Falls back to the intrinsic plan scale when the
+ * underlay state is unavailable.
+ */
+function measureEffectiveMetersPerPixel(
+    underlayTool: FloorPlanUnderlayTool,
+    imgWidthPx: number,
+): number {
+    const PROBE_SPAN_PX = 100;
+    const a = underlayTool.pixelToWorld(0, 0);
+    const b = underlayTool.pixelToWorld(PROBE_SPAN_PX, 0);
+    if (a && b) {
+        const d = Math.hypot(b.x - a.x, b.z - a.z) / PROBE_SPAN_PX;
+        if (isFinite(d) && d > 0) return d;
+    }
+    const planWidthMeters = underlayTool.getState()?.planWidthMeters ?? 10;
+    return planWidthMeters / Math.max(1, imgWidthPx);
+}
 
 // ── Furniture type mapping ─────────────────────────────────────────────────────
 
@@ -262,6 +321,28 @@ export class FloorPlanCommandBatcher {
         const proposals: CommandProposal[] = [];
         let skipped = 0;
         const summary = { walls: 0, slab: 0, furniture: 0, plumbing: 0, openings: 0, rooms: 0 };
+
+        // §PDF-SCALE-EFFECTIVE — single source of truth for ALL px→m scalar conversions.
+        const metersPerPx = measureEffectiveMetersPerPixel(
+            underlayTool,
+            analysis.imageDimensions.widthPx,
+        );
+
+        // §PDF-OCCUPANCY-PREFLIGHT — spans already claimed on each proposed wall,
+        // as [leftEdge, leftEdge+width] intervals in metres along the wall baseline.
+        const proposedSpansByWall = new Map<string, Array<{ start: number; end: number }>>();
+        const spanConflicts = (wallUUID: string, leftEdge: number, width: number): boolean => {
+            const spans = proposedSpansByWall.get(wallUUID);
+            if (!spans) return false;
+            const s0 = leftEdge - OPENING_SPAN_EPSILON_M;
+            const s1 = leftEdge + width + OPENING_SPAN_EPSILON_M;
+            return spans.some(sp => s0 < sp.end && s1 > sp.start);
+        };
+        const claimSpan = (wallUUID: string, leftEdge: number, width: number): void => {
+            const spans = proposedSpansByWall.get(wallUUID) ?? [];
+            spans.push({ start: leftEdge, end: leftEdge + width });
+            proposedSpansByWall.set(wallUUID, spans);
+        };
 
         // ── Diagnostic tracking ────────────────────────────────────────────────
         const wallDiagnostics: WallDiagnosticRecord[] = [];
@@ -462,7 +543,9 @@ export class FloorPlanCommandBatcher {
                 type:          o.type,
             }));
 
-            const pxPerMeterForScoring = underlayTool.getState()?.pxPerMeter ?? 100;
+            // §PDF-SCALE-EFFECTIVE — scorer thresholds must see the same scale the
+            // geometry is converted with (effective, mesh.scale-aware).
+            const pxPerMeterForScoring = 1 / metersPerPx;
             const wallScoreResults = new WallCandidateScorer().score(
                 scorerResolvedWalls,
                 scorerResolvedOpenings,
@@ -487,8 +570,10 @@ export class FloorPlanCommandBatcher {
                     thicknessPx: data.thicknessPx,
                 };
 
-                const thicknessRawM = data.thicknessPx / analysis.imageDimensions.widthPx *
-                    (underlayTool.getState()?.planWidthMeters ?? 10);
+                // §PDF-SCALE-EFFECTIVE — was thicknessPx / imgWidthPx × INTRINSIC
+                // planWidthMeters, which ignored mesh.scale applied by the underlay
+                // reference-scale tool (positions tracked the mesh; sizes did not).
+                const thicknessRawM = data.thicknessPx * metersPerPx;
                 const thicknessSnapped = snapToGrid(thicknessRawM, SNAP_GRID_M);
                 const thickness = data.wallType === 'exterior'
                     ? Math.max(0.20, Math.min(0.40, thicknessSnapped))
@@ -787,10 +872,19 @@ export class FloorPlanCommandBatcher {
 
         // ── 3. Openings ─────────────────────────────────────────────────────────
         if (includeOpenings && analysis.openings.length > 0) {
-            const planWidthMeters = underlayTool.getState()?.planWidthMeters ?? 10;
-            const imgWidthPx = analysis.imageDimensions.widthPx;
+            // §PDF-OCCUPANCY-PREFLIGHT — process high-confidence openings first
+            // (doors before windows on ties) so that when two proposed spans collide
+            // on one wall, the better-evidenced opening wins and the weaker one is
+            // skipped with an honest diagnostic instead of failing at execute time.
+            const CONF_RANK: Record<'high' | 'medium' | 'low', number> = { high: 0, medium: 1, low: 2 };
+            const orderedOpenings = [...analysis.openings].sort((a, b) => {
+                const c = CONF_RANK[a.confidence] - CONF_RANK[b.confidence];
+                if (c !== 0) return c;
+                if (a.type !== b.type) return a.type === 'door' ? -1 : 1;
+                return 0;
+            });
 
-            for (const opening of analysis.openings) {
+            for (const opening of orderedOpenings) {
                 let wallEntry: { wallUUID: string; worldStart: THREE.Vector3; worldEnd: THREE.Vector3 } | undefined;
                 let diagAssignMethod: OpeningDiagnosticRecord['assignment']['method'] = 'no_host_found';
 
@@ -847,6 +941,11 @@ export class FloorPlanCommandBatcher {
                                         );
                                         return { aw, distance };
                                     })
+                                    // §PDF-HOST-DIST-GUARD — never re-host an opening onto a
+                                    // wall further than HOST_TIEBREAK_MAX_DIST_M away just
+                                    // because it has a plausible pixel gap; a distant wall is
+                                    // a guaranteed wrong placement.
+                                    .filter(c => c.distance <= HOST_TIEBREAK_MAX_DIST_M)
                                     .sort((a, b) => a.distance - b.distance)
                                     .slice(0, 6); // only check the 6 nearest walls
 
@@ -980,9 +1079,9 @@ export class FloorPlanCommandBatcher {
                 }
                 if (!isFinite(offset)) { skipped++; continue; }
 
-                // Opening width in metres
+                // Opening width in metres (§PDF-SCALE-EFFECTIVE — same transform as positions)
                 const openingWidthM = Math.max(0.5, Math.min(3.0,
-                    snapToGrid(opening.widthPx / imgWidthPx * planWidthMeters, SNAP_GRID_M),
+                    snapToGrid(opening.widthPx * metersPerPx, SNAP_GRID_M),
                 ));
 
                 // Door-fits-on-wall guard
@@ -996,7 +1095,36 @@ export class FloorPlanCommandBatcher {
                     skipped++;
                     continue;
                 }
-                const clampedOffset = Math.max(halfW, Math.min(offset, wallLength - halfW));
+
+                // §PDF-OFFSET-LEFTEDGE (P0) — `offset` here is the projected opening
+                // CENTRE along the wall baseline, but Opening.offset is defined repo-wide
+                // as the LEFT EDGE (centre = offset + width/2, §OPENING-OFFSET-LEFTEDGE-UNIFY).
+                // Clamp the centre so the span fits, then convert centre → left edge.
+                const clampedCentre = Math.max(halfW, Math.min(offset, wallLength - halfW));
+                const leftEdgeOffset = clampedCentre - halfW;
+
+                // §PDF-OCCUPANCY-PREFLIGHT — skip (honestly) if this span overlaps an
+                // opening already proposed on the same wall; the store's canPlace() gate
+                // would reject it at execute time anyway, but silently.
+                if (spanConflicts(wallEntry.wallUUID, leftEdgeOffset, openingWidthM)) {
+                    console.warn(
+                        `[FloorPlanCommandBatcher] Opening ${opening.id} skipped — ` +
+                        `span [${leftEdgeOffset.toFixed(2)}, ${(leftEdgeOffset + openingWidthM).toFixed(2)}] m ` +
+                        `overlaps an already-proposed opening on wall ${wallEntry.wallUUID}`,
+                    );
+                    skipped++;
+                    openingDiagnostics.push({
+                        aiId: opening.id,
+                        type: opening.type,
+                        aiHostWallId: opening.hostWallId,
+                        centrePx: opening.centrePx,
+                        centreWorld: { x: parseFloat(centreWorld.x.toFixed(4)), z: parseFloat(centreWorld.z.toFixed(4)) },
+                        widthM: parseFloat(openingWidthM.toFixed(4)),
+                        assignment: { method: diagAssignMethod, assignedWallUUID: wallEntry.wallUUID },
+                        status: 'skipped_occupancy_conflict',
+                    });
+                    continue;
+                }
 
                 const isWindow = opening.type === 'window';
                 const openingData = {
@@ -1007,9 +1135,10 @@ export class FloorPlanCommandBatcher {
                     ),
                     width: openingWidthM,
                     height: isWindow ? 1.2 : 2.1,
-                    offset: clampedOffset,
+                    offset: leftEdgeOffset,
                     sillHeight: isWindow ? 0.9 : 0,
                 };
+                claimSpan(wallEntry.wallUUID, leftEdgeOffset, openingWidthM);
 
                 const cmd = new CreateWallOpeningCommand({
                     wallId: wallEntry.wallUUID,
@@ -1060,8 +1189,6 @@ export class FloorPlanCommandBatcher {
             const MAX_RECOVERY_DOORS = 10;
 
             const recoveryGaps = detectGeometricDoorGaps(analysis.walls);
-            const planWidthMeters = underlayTool.getState()?.planWidthMeters ?? 10;
-            const imgWidthPx = analysis.imageDimensions.widthPx;
             let recoveryCount = 0;
 
             for (const gap of recoveryGaps) {
@@ -1083,8 +1210,8 @@ export class FloorPlanCommandBatcher {
 
                 if (!wallAEntry && !wallBEntry) continue; // neither flanking wall accepted — skip
 
-                // Convert gap width to metres and validate it's a realistic door size
-                const gapWidthM = gap.gapWidthPx / imgWidthPx * planWidthMeters;
+                // Convert gap width to metres (§PDF-SCALE-EFFECTIVE) and validate it's a realistic door size
+                const gapWidthM = gap.gapWidthPx * metersPerPx;
                 if (gapWidthM < 0.50 || gapWidthM > 2.50) continue;
                 const openingWidthM = Math.max(0.5, Math.min(2.5, snapToGrid(gapWidthM, SNAP_GRID_M)));
 
@@ -1117,7 +1244,20 @@ export class FloorPlanCommandBatcher {
 
                 const { projectedOffset } = pointToSegmentDistanceXZ(gapCentreWorld, wallStart, wallEnd);
                 const halfW = openingWidthM / 2;
-                const clampedOffset = Math.max(halfW, Math.min(projectedOffset, wallLength - halfW));
+                // §PDF-OFFSET-LEFTEDGE (P0) — clamp the CENTRE, then convert to left edge.
+                const clampedCentre = Math.max(halfW, Math.min(projectedOffset, wallLength - halfW));
+                const leftEdgeOffset = clampedCentre - halfW;
+
+                // §PDF-OCCUPANCY-PREFLIGHT — a recovery door must not overlap an opening
+                // already proposed on this wall (the pixel-radius check above only compares
+                // against B2 centres, not against placed spans).
+                if (spanConflicts(bestWall.wallUUID, leftEdgeOffset, openingWidthM)) {
+                    console.debug(
+                        `[FloorPlanCommandBatcher] Recovery gap at (${gap.centrePx.x},${gap.centrePx.y}) ` +
+                        `skipped — span overlaps an already-proposed opening on wall ${bestWall.wallUUID}`,
+                    );
+                    continue;
+                }
 
                 const cmd = new CreateWallOpeningCommand({
                     wallId: bestWall.wallUUID,
@@ -1126,10 +1266,11 @@ export class FloorPlanCommandBatcher {
                         doorType: 'single',
                         width: openingWidthM,
                         height: 2.1,
-                        offset: clampedOffset,
+                        offset: leftEdgeOffset,
                         sillHeight: 0,
                     },
                 });
+                claimSpan(bestWall.wallUUID, leftEdgeOffset, openingWidthM);
 
                 proposals.push({
                     id: uuid(),
@@ -1203,9 +1344,9 @@ export class FloorPlanCommandBatcher {
             } else if (isFurniture && includeFurniture) {
                 const furnitureId = uuid();
                 const furnitureType = FURNITURE_TYPE_MAP[f.furnitureType]!;
-                const pxPerMeter = underlayTool.getState()?.pxPerMeter ?? 100;
-                const widthM = Math.max(0.3, snapToGrid(f.widthPx / pxPerMeter, SNAP_GRID_M));
-                const depthM = Math.max(0.3, snapToGrid(f.depthPx / pxPerMeter, SNAP_GRID_M));
+                // §PDF-SCALE-EFFECTIVE — same effective scale as positions.
+                const widthM = Math.max(0.3, snapToGrid(f.widthPx * metersPerPx, SNAP_GRID_M));
+                const depthM = Math.max(0.3, snapToGrid(f.depthPx * metersPerPx, SNAP_GRID_M));
                 const defaults = FURNITURE_DEFAULTS[f.furnitureType] ?? { width: 1.0, length: 1.0, height: 1.0 };
 
                 const cmd = new CreateFurnitureCommand({

@@ -160,7 +160,13 @@ export interface OpeningDiagnosticRecord {
         assignedWallUUID: string | null;
     };
 
-    status: 'accepted' | 'skipped_no_host';
+    /**
+     * 'skipped_occupancy_conflict' — §PDF-OCCUPANCY-PREFLIGHT: the opening's span
+     * [offset, offset+width] overlapped an already-proposed opening on the same wall
+     * and was skipped at batch time (the store's canPlace() gate would have rejected
+     * it at execute time anyway, but silently).
+     */
+    status: 'accepted' | 'skipped_no_host' | 'skipped_occupancy_conflict';
 }
 
 // ── Topology diagnostic ────────────────────────────────────────────────────────
