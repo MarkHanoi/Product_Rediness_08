@@ -253,9 +253,16 @@ export class RoomQueryService {
   // ── Room Contents ─────────────────────────────────────────────────────────
 
   /**
-   * Returns all elements (furniture, doors, windows, columns, plumbing) that
-   * belong to the given room. Uses point-in-polygon for contained elements
-   * and wall-boundary probing for boundary elements.
+   * Returns all elements that belong to the given room.
+   *
+   * Coverage (ADR-0315 U2.3 — this doc comment previously PROMISED windows and
+   * columns that the implementation did not deliver):
+   *   · doors     — via bounding-wall membership + door-relationship probe
+   *   · windows   — hosted on a bounding wall (a window "belongs" to every
+   *                 room its host wall bounds; unlike doors it has no
+   *                 from/to side semantics)
+   *   · furniture / plumbing / lighting / columns / stairs — centroid
+   *                 point-in-polygon on the room's level
    */
   getElementsInRoom(roomId: string): ElementRef[] {
     const roomStore = storeRegistry.getStoreForType('room') as any;
@@ -310,6 +317,35 @@ export class RoomQueryService {
       }
     }
 
+    // Windows (ADR-0315 U2.3) — hosted openings on a bounding wall. A window
+    // has no door-style from/to semantics: it belongs to every room its host
+    // wall bounds. This is what "the windows in the living room" reads.
+    const windowStore = storeRegistry.getStoreForType('window') as any;
+    if (windowStore && typeof windowStore.getAll === 'function') {
+      for (const win of windowStore.getAll()) {
+        const hostId = win.wallId ?? win.hostWallId;
+        if (typeof hostId === 'string' && room.boundingWallIds.includes(hostId)) {
+          results.push({ id: win.id, type: 'window', levelId: room.levelId });
+        }
+      }
+    }
+
+    // Columns / lighting / stairs (ADR-0315 U2.3) — centroid containment on
+    // the room's level, same probe as furniture/plumbing.
+    for (const kind of ['column', 'lighting', 'stair'] as const) {
+      const store = storeRegistry.getStoreForType(kind) as any;
+      if (!store || typeof store.getAll !== 'function') continue;
+      for (const item of store.getAll()) {
+        if (item.levelId !== room.levelId) continue;
+        const pos = this._getElementPosition(item);
+        if (!pos) continue;
+        const ref = RoomRelationshipService.getContainingRoom(pos.x, pos.z, room.levelId);
+        if (ref?.id === roomId) {
+          results.push({ id: item.id, type: kind, levelId: room.levelId });
+        }
+      }
+    }
+
     return results;
   }
 
@@ -326,14 +362,19 @@ export class RoomQueryService {
 
     const results: BoundaryRef[] = [];
 
+    // ADR-0315 U2.3 — the type was hard-coded 'wall', so a curtain wall on a
+    // room boundary was mislabelled. Report the element's real kind.
+    const curtainStore = storeRegistry.getStoreForType('curtainwall') as any;
     for (const wallId of room.boundingWallIds) {
       const wall = wallStore.getById(wallId);
-      if (!wall) continue;
-      results.push({
-        id: wallId,
-        type: 'wall',
-        levelId: room.levelId,
-      });
+      if (wall) {
+        results.push({ id: wallId, type: 'wall', levelId: room.levelId });
+        continue;
+      }
+      const curtain = curtainStore?.getById?.(wallId) ?? curtainStore?.get?.(wallId);
+      if (curtain) {
+        results.push({ id: wallId, type: 'curtain-wall', levelId: room.levelId });
+      }
     }
 
     return results;
