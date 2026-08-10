@@ -240,6 +240,16 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
   },
   { id: 'add-level', ctx: {}, phrasings: ['add a level', 'add a level at 6m', 'could you add another floor?'] },
   {
+    id: 'duplicate-level',
+    ctx: {},
+    phrasings: [
+      'duplicate level 0 to level 1',
+      'duplicate Level 0 to Levels 1 and 2',
+      'copy level 0 onto level 2',
+      'Could you duplicate level 0 to levels 1 and 2?',
+    ],
+  },
+  {
     id: 'create-wall',
     ctx: {},
     phrasings: [
@@ -475,6 +485,44 @@ describe('§FEAT-WALL-COLOR-BATCH — "make all walls white"', () => {
     expect(r.kind).toBe('commands');
     if (r.kind !== 'commands') return;
     expect(r.commands[0]!.payload).toEqual({ wallIds: 'all', materialColor: '#cccccc' });
+  });
+});
+
+// ─── ADR-0315 U5a — conversational level duplication ─────────────────────────
+
+describe('duplicate-level — the shipped DuplicateFloorPlanCommand, conversationally', () => {
+  it('resolves source and multiple targets to ids and dispatches ONE command', () => {
+    const r = resolveUtterance('duplicate level 0 to levels 1 and 2', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('duplicate-level');
+    expect(r.commands).toEqual([{
+      type: 'level.duplicate-floor-plan',
+      payload: { sourceLevelId: 'L0', targetLevelIds: ['L1', 'L2'] },
+    }]);
+    // Consequential blast radius → the Confirm/Cancel card.
+    expect(r.destructive).toBe(true);
+    // The HONEST report: what is NOT cloned is said out loud, pre-confirmation.
+    expect(r.summary).toContain('NOT copied');
+    expect(r.summary).toContain('rooms');
+  });
+
+  it('an unresolvable TARGET refuses whole — never a partial duplication', () => {
+    const r = resolveUtterance('duplicate level 0 to levels 1 and 9', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('"9"');
+    expect(r.reason).toContain('nothing was duplicated');
+  });
+
+  it('self-duplication refuses', () => {
+    const r = resolveUtterance('duplicate level 1 to level 1', ctxOf());
+    expect(r.kind).toBe('refusal');
+  });
+
+  it('an element-noun source is NOT claimed ("copy this wall to level 2" stays a miss here)', () => {
+    const r = resolveUtterance('copy this wall to level 2', ctxOf(sel('wall')));
+    expect(intentOf(r)).not.toBe('duplicate-level');
   });
 });
 

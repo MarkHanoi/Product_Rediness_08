@@ -39,6 +39,7 @@ import {
   boundedLevenshtein,
   findLevel,
   lengthToMeters,
+  parseDuplicateLevelIntent,
   parseWallColorIntent,
   parseWallTypeIntent,
   type ResolverContext,
@@ -864,6 +865,18 @@ function classify(
         si: { intent: 'set-wall-type', typeRef, scope: conversation.lastWallTypeScope ?? 'all' },
       });
     }
+  }
+
+  // duplicate-level (ADR-0315 U5a) — parsed off `n.plain` by the SAME function
+  // the tier-0 grammar uses; a level name is user data.
+  const dupLevel = parseDuplicateLevelIntent(n.plain);
+  if (dupLevel !== null) {
+    push({
+      intent: 'duplicate-level',
+      confidence: 0.9,
+      evidence: ['verb:duplicate', `targets:${dupLevel.targetQueries.length}`],
+      si: dupLevel,
+    });
   }
 
   // go-to-level.

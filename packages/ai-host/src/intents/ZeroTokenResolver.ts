@@ -327,6 +327,21 @@ export type SemanticIntent =
     }
   | { readonly intent: 'go-to-level'; readonly levelQuery: string }
   | { readonly intent: 'add-level'; readonly elevation?: number }
+  /**
+   * ADR-0315 U5a — "Duplicate the ground floor to levels 2, 3 and 4."
+   *
+   * Rides the SHIPPED DuplicateFloorPlanCommand (deterministic dup-ids, full
+   * undo, validated) whose only blocker was "needs a target-level picker" —
+   * which conversation is. The honest report matters: the command clones
+   * walls+openings+doors+windows, slabs, columns and furniture; it does NOT
+   * clone rooms, room-bounding lines, ceilings, roofs, stairs, curtain walls
+   * or lighting — the summary says so out loud.
+   */
+  | {
+      readonly intent: 'duplicate-level';
+      readonly sourceQuery: string;
+      readonly targetQueries: readonly string[];
+    }
   | {
       readonly intent: 'create-wall';
       readonly start?: WallPoint2;
@@ -979,6 +994,63 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
+    case 'duplicate-level': {
+      const names = ctx.levels.map((l) => l.name).join(', ');
+      const source = findLevel(si.sourceQuery, ctx.levels);
+      if (source === undefined) {
+        return {
+          kind: 'refusal', intent: 'duplicate-level',
+          reason: ctx.levels.length === 0
+            ? 'No levels exist in this project yet.'
+            : `No level called "${si.sourceQuery}" to duplicate — the levels here are: ${names}.`,
+          suggestions: ctx.levels.length > 1 ? [`duplicate ${ctx.levels[0]!.name.toLowerCase()} to ${ctx.levels[1]!.name.toLowerCase()}`] : [],
+        };
+      }
+      if (si.targetQueries.length === 0) {
+        return {
+          kind: 'refusal', intent: 'duplicate-level',
+          reason: `Which level(s) should I copy ${source.name} onto? The levels here are: ${names}.`,
+          suggestions: [],
+        };
+      }
+      const targets: ResolverLevel[] = [];
+      for (const q of si.targetQueries) {
+        const hit = findLevel(q, ctx.levels);
+        if (hit === undefined) {
+          // ALL-OR-NOTHING: one unresolvable target refuses the whole ask —
+          // duplicating onto half the requested floors and reporting success
+          // is the partial-execution dishonesty this resolver exists to stop.
+          return {
+            kind: 'refusal', intent: 'duplicate-level',
+            reason: `No level called "${q}" — nothing was duplicated. The levels here are: ${names}.`,
+            suggestions: [],
+          };
+        }
+        if (hit.id === source.id) {
+          return {
+            kind: 'refusal', intent: 'duplicate-level',
+            reason: `${source.name} cannot be duplicated onto itself. Nothing was duplicated.`,
+            suggestions: [],
+          };
+        }
+        if (!targets.some((t) => t.id === hit.id)) targets.push(hit);
+      }
+      return {
+        kind: 'commands', intent: 'duplicate-level',
+        summary:
+          `Duplicate ${source.name}'s floor plan onto ${targets.map((t) => t.name).join(', ')} ` +
+          `(walls with their doors/windows, slabs, columns and furniture — rooms, ceilings, ` +
+          `roofs, stairs, curtain walls and lighting are NOT copied; re-detect rooms afterwards)`,
+        commands: [{
+          type: 'level.duplicate-floor-plan',
+          payload: { sourceLevelId: source.id, targetLevelIds: targets.map((t) => t.id) },
+        }],
+        // Consequential blast radius (whole floors of new elements) — route it
+        // through the existing Confirm/Cancel card the destructive flag drives.
+        destructive: true,
+      };
+    }
+
     case 'add-level': {
       const levelId = ctx.mintId();
       const name = `Level ${ctx.levels.length}`;
@@ -1293,6 +1365,34 @@ const matchGoToLevel: Matcher = (text, ctx) => {
   return applySemanticIntent({ intent: 'go-to-level', levelQuery: target }, ctx);
 };
 
+// ADR-0315 U5a — "duplicate the ground floor to levels 2, 3 and 4".
+// Claims only level-shaped sources: an element noun in the source position
+// ("copy this wall to …") is someone else's sentence and stays a miss.
+// SHARED by the tier-0 grammar and the NL classifier (the parseWallTypeIntent
+// pattern), so the rigid and natural paths cannot read the sentence differently.
+export function parseDuplicateLevelIntent(
+  text: string,
+): Extract<SemanticIntent, { intent: 'duplicate-level' }> | null {
+  const m = /^(?:duplicate|copy|replicate|clone)(?: the)? (?:(?:level|floor) )?(.+?) (?:to|onto) (?:the )?(.+?)[.?!]?$/.exec(text);
+  if (!m) return null;
+  const source = m[1]!.trim().replace(/^the /, '').replace(/^(?:level|floor)\s*/, '');
+  if (/\b(?:walls?|doors?|windows?|rooms?|slabs?|roofs?|stairs?|columns?|beams?|elements?|furniture|selection|selected|this)\b/.test(source)) {
+    return null;
+  }
+  const targetQueries = m[2]!
+    .trim()
+    .split(/\s*(?:,|\band\b|&)\s*/)
+    .map((t) => t.trim().replace(/^(?:levels?|floors?)\s*/, ''))
+    .filter((t) => t.length > 0);
+  if (targetQueries.length === 0) return null;
+  return { intent: 'duplicate-level', sourceQuery: source, targetQueries };
+}
+
+const matchDuplicateLevel: Matcher = (text, ctx) => {
+  const si = parseDuplicateLevelIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 const matchAddLevel: Matcher = (text, ctx) => {
   const m = new RegExp(`^(?:add|create)(?: a| a new| new)? level(?: (?:at|@) ${LEN_SRC})?$`).exec(text);
   if (!m) return null;
@@ -1448,6 +1548,7 @@ const MATCHERS: readonly Matcher[] = [
   matchRoofPitch,
   matchRoomNumber,
   matchGoToLevel,
+  matchDuplicateLevel,
   matchAddLevel,
   matchCreateWall,
   matchRenameRoom,

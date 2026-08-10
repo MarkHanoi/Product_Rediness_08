@@ -147,7 +147,9 @@ const B_VIEWS = family(
 const B_MISC = [
   ...family('B', 'Copy needs a paste, and paste needs a target position the chat cannot infer — a pointer workflow end to end.', ['copy-selection', 'paste-clipboard'], { blockedBy: 'a placement model for the pasted content' }),
   ...family('B', 'Changing an element\'s level is chat-shaped ("move this to level 2") but re-hosting semantics (joins, openings, hosted children) need a per-family design before chat may drive it.', ['wall.changeLevel', 'roof.changeLevel'], { potentialCapability: 'move-to-level', blockedBy: 'defined re-hosting semantics per element family' }),
-  ...family('B', 'Duplicating a floor plan needs an explicit source level, target level and collision policy — a guided multi-parameter flow, not one sentence.', ['level.duplicate-floor-plan'], { blockedBy: 'a multi-parameter clarification flow' }),
+  // ADR-0315 U5a: level.duplicate-floor-plan LEFT this family — it is now the
+  // duplicate-level capability; the "multi-parameter clarification flow" its
+  // blocker demanded is exactly what the conversation provides.
   ...family('B', 'Renaming a level or changing its elevation is chat-shaped, but the payload shape mixes rename with elevation re-stacking; needs the level re-stack semantics pinned down first.', ['level.update'], { potentialCapability: 'rename-level / set-level-elevation', blockedBy: 'level re-stack semantics (what happens to elements on re-elevated levels)' }),
   ...family('B', 'Joining roofs needs two picked roofs — the same two-target problem as wall.join.', ['roof.joinRoofs'], { blockedBy: 'multi-target reference resolution' }),
   ...family('B', 'Boolean/enum toggles that are chat-shaped but whose vocabulary (swing side, accessibility standard, emergency circuit) needs a value design before phrases can map deterministically.', ['door.setSwing', 'door.setAccessibility', 'lighting.setEmergency'], { blockedBy: 'value vocabulary design' }),

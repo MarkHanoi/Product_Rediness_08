@@ -324,7 +324,12 @@ function proveParameterSources(cap: ChatCapability): string[] {
       p.valueSource === 'measurement' ? Object.values(probe).some((v) => typeof v === 'number')
       : p.valueSource === 'angle' ? typeof probe['degrees'] === 'number'
       : p.valueSource === 'wall-system-types' ? typeof probe['typeRef'] === 'string'
-      : p.valueSource === 'project-levels' ? typeof probe['levelQuery'] === 'string'
+      // ADR-0315 U5a: duplicate-level carries its level refs as sourceQuery /
+      // targetQueries — both resolved by the same findLevel authority.
+      : p.valueSource === 'project-levels'
+        ? typeof probe['levelQuery'] === 'string' ||
+          typeof probe['sourceQuery'] === 'string' ||
+          Array.isArray(probe['targetQueries'])
       : p.valueSource === 'coordinates' ? probe['start'] !== undefined && probe['end'] !== undefined
       : p.valueSource === 'color' ? typeof probe['colorRef'] === 'string'
       : /* user-text */ Object.values(probe).some((v) => typeof v === 'string' && v !== cap.id);

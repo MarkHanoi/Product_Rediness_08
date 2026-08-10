@@ -738,6 +738,45 @@ const CAPABILITIES: readonly ChatCapability[] = [
     examples: ['add a level', 'create a new level at 6m'],
   },
   {
+    id: 'duplicate-level',
+    // ADR-0315 U5a — the first Dimension-B capability: no working UI exists
+    // (the batch-catalogue leaf is disabled, "needs a target-level picker"),
+    // but the SHIPPED DuplicateFloorPlanCommand is production-quality
+    // (deterministic dup-ids, full undo, validated). Conversation IS the
+    // target-level picker. The report is honest about what is NOT cloned.
+    description: 'duplicate a level\'s floor plan onto other levels',
+    verbs: ['duplicate', 'copy', 'replicate', 'clone'],
+    aliases: ['floor plan', 'duplicate level', 'duplicate floor'],
+    targets: 'global',
+    parameters: [
+      {
+        name: 'sourceLevel',
+        description: 'the level to copy from',
+        required: true,
+        valueSource: 'project-levels',
+        example: 'Ground Floor',
+      },
+      {
+        name: 'targetLevels',
+        description: 'the level(s) to copy onto',
+        required: true,
+        valueSource: 'project-levels',
+        example: 'Levels 2, 3 and 4',
+      },
+    ],
+    scope: 'global',
+    // Consequential blast radius (whole floors of new elements) — the
+    // destructive flag routes it through the existing Confirm/Cancel card.
+    destructive: true,
+    busCommand: 'level.duplicate-floor-plan',
+    probe: { intent: 'duplicate-level', sourceQuery: '0', targetQueries: ['1'] },
+    examples: [
+      'duplicate level 0 to level 1',
+      'duplicate Level 0 to Levels 1 and 2',
+      'copy level 0 onto level 2',
+    ],
+  },
+  {
     id: 'create-wall',
     description: 'create a wall between two coordinates',
     verbs: ['create', 'draw', 'add', 'build'],
