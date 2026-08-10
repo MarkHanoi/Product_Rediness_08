@@ -71,13 +71,13 @@ Confirm card that names what is NOT copied → one undo.
 🧪 After U2: no new sentences yet (U3 consumes these), but `describeGraph`/room
 queries become chat-answerable data.
 
-## Phase U3 — ScopeDescriptor + ScopeResolver ⬜ → the big sentence unlock
+## Phase U3 — ScopeDescriptor + ScopeResolver ✅ (all five arms live) → the big sentence unlock
 
 | Sub | What | Status |
 |---|---|---|
-| U3.1 🔶 | `ScopeDescriptor` union + ScopeResolution/ScopeError contracts shipped (selection/ids/all/level/room/orientation); type/exterior/range forms next | first slice ✅ |
-| U3.2 🔶 | Injected resolver live in the bridge for all/level/ids (getByLevel-indexed, ids-only, honest errors); room/orientation arms next | first slice ✅ |
-| U3.3 🔶 | "on level N" phrase live in the colour grammar (tier-0 + NL shared parse); more phrases with their arms | first slice ✅ |
+| U3.1 ✅ | `ScopeDescriptor` union + ScopeResolution/ScopeError contracts (selection/ids/all/level/room/orientation) | all forms consumed |
+| U3.2 ✅ | Injected resolver: all/level/ids + room (boundingWallIds + roomQueryService) + ORIENTATION (θ-threaded facadesByOrientation, exterior-only, detect-rooms-first refusal) | ✅ |
+| U3.3 ✅ | Phrases live: "on level N" · "in the kitchen" · "all south-facing (exterior) walls" across the colour + rake grammars | ✅ |
 | U3.4 | ids-only store accessors (kill `getAll()` deep-clones on scope paths) | ⬜ |
 | U3.5 | In-repo scope benchmarks in CI (level/type < 0.5 ms @5k; orientation < 2 ms @5k) | ⬜ |
 

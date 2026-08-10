@@ -251,7 +251,42 @@ function makeScopeResolver(
                 diagnostics: [rooms.map((r) => r.name ?? r.id).join(' + ')],
             };
         }
-        // selection / orientation scopes arrive with their U3 consumers.
+        if (scope.kind === 'orientation') {
+            // ADR-0315 U3 (orientation arm, U3 tail) — exterior walls whose
+            // outward normal faces the compass direction, θ-threaded through
+            // the U2.1 FacadeOrientationService (true north from the site
+            // model; explicit θ wins; failures degrade to 0 with a note).
+            const svc = (window as unknown as {
+                facadeOrientationService?: {
+                    facadesByOrientation?: (
+                        levelId: string | undefined,
+                        orientation: string,
+                    ) => Array<{ wallId: string; isExterior: boolean }>;
+                    exteriorWalls?: (levelId?: string) => Array<{ wallId: string }>;
+                };
+            }).facadeOrientationService;
+            if (!svc?.facadesByOrientation) {
+                return { error: `Orientation lookup isn't available here — the facade service isn't wired.` };
+            }
+            const label = ({ N: 'north', E: 'east', S: 'south', W: 'west' } as const)[scope.orientation];
+            const hits = svc.facadesByOrientation(undefined, scope.orientation);
+            if (hits.length === 0) {
+                const anyExterior = (svc.exteriorWalls?.() ?? []).length;
+                return {
+                    error: anyExterior === 0
+                        ? 'No exterior walls could be classified yet — rooms define which walls are exterior, so detect rooms first.'
+                        : `No exterior wall faces ${label} here — nothing was changed.`,
+                };
+            }
+            const ids = hits.map((f) => f.wallId);
+            return {
+                ids,
+                kindCounts: { wall: ids.length },
+                skipped: [],
+                diagnostics: [`${label}-facing exterior`],
+            };
+        }
+        // The selection scope arrives with its U3 consumer.
         return { error: `That scope isn't wired into chat yet.` };
     };
 }

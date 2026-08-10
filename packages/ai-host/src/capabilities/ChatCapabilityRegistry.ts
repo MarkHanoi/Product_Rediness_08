@@ -717,7 +717,7 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // ADR-0315 U3 — the first spatial-scope declarations: "make all walls on
     // level 2 white" / "paint all walls in the kitchen white" resolve through
     // the injected ScopeResolver.
-    scopeModes: ['all', 'selection', 'level', 'room'],
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'wall.updateColorBatch',
     // Selection-scope probe for the same reason as set-wall-type: the 'all'
@@ -764,7 +764,7 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // Same spatial-scope set as the colour batch: "make all walls on level 2
     // angled by 60" / "rake all walls in the kitchen by 75" resolve through
     // the injected ScopeResolver.
-    scopeModes: ['all', 'selection', 'level', 'room'],
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'wall.updateRakeBatch',
     // Selection-scope probe (the 'all' scope never reads the selection, so it

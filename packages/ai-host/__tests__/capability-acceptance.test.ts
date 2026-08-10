@@ -1209,3 +1209,52 @@ describe('§FEAT-WINDOW-PARAMETRIC-CREATE — "create a window in the middle of 
     expect(intentOf(r)).toBe('create-wall');
   });
 });
+
+describe('ADR-0315 U3 tail — the ORIENTATION scope arm ("all south-facing walls")', () => {
+  const orient = (ids: string[]) => ({
+    resolveScope: (scope: { kind: string; orientation?: string }) => {
+      expect(scope).toEqual({ kind: 'orientation', orientation: 'S' });
+      return { ids, kindCounts: { wall: ids.length }, skipped: [], diagnostics: ['south-facing exterior'] };
+    },
+  });
+
+  it('"paint all south-facing walls white" resolves through the orientation arm', () => {
+    const r = resolveUtterance('paint all south-facing walls white', ctxOf(orient(['w-s1', 'w-s2']) as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-wall-color');
+    expect(r.commands).toEqual([{
+      type: 'wall.updateColorBatch',
+      payload: { wallIds: ['w-s1', 'w-s2'], materialColor: '#ffffff' },
+    }]);
+    expect(r.summary).toContain('2 south-facing exterior walls');
+  });
+
+  it('"make all south facing exterior walls angled by 70" rides the same arm into the rake batch', () => {
+    const r = resolveUtterance('make all south facing exterior walls angled by 70', ctxOf(orient(['w-s1']) as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-wall-rake');
+    expect(r.commands[0]!.payload).toEqual({ wallIds: ['w-s1'], rakeAngleDeg: 70 });
+  });
+
+  it('orientation with NO injected resolver refuses honestly — never guesses "all"', () => {
+    const r = resolveUtterance('paint all south-facing walls white', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('facing south');
+  });
+
+  it('the resolver error passes through verbatim (e.g. rooms not detected yet)', () => {
+    const resolveScope = () => ({ error: 'No exterior walls could be classified yet — rooms define which walls are exterior, so detect rooms first.' });
+    const r = resolveUtterance('paint all north-facing walls white', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('detect rooms first');
+  });
+
+  it('orientation never composes with the selection scope — not claimed', () => {
+    const r = resolveUtterance('paint the selected south-facing walls white', ctxOf(sel('wall')));
+    expect(intentOf(r)).not.toBe('set-wall-color');
+  });
+});

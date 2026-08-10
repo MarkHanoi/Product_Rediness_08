@@ -34,7 +34,7 @@ import {
 import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
 import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
-import { isScopeError, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
+import { isScopeError, type Compass4, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
 // §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
 // constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
 // the purity note above still holds — no store instance is constructed here.
@@ -401,13 +401,15 @@ export type SemanticIntent =
        *  colour table in colorRef.ts inside applySemanticIntent. */
       readonly colorRef: string;
       /** ADR-0315 U3 — spatially scoped consumers: "make all walls on level 2
-       *  white" / "paint all walls in the kitchen white". Object forms are
-       *  resolved by the injected ctx.resolveScope; absence refuses honestly. */
+       *  white" / "paint all walls in the kitchen white" / "paint all
+       *  south-facing walls white". Object forms are resolved by the injected
+       *  ctx.resolveScope; absence refuses honestly. */
       readonly scope:
         | 'all'
         | 'selection'
         | { readonly kind: 'level'; readonly levelQuery: string }
-        | { readonly kind: 'room'; readonly roomRef: string };
+        | { readonly kind: 'room'; readonly roomRef: string }
+        | { readonly kind: 'orientation'; readonly orientation: Compass4 };
     }
   /**
    * §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
@@ -447,7 +449,8 @@ export type SemanticIntent =
         | 'all'
         | 'selection'
         | { readonly kind: 'level'; readonly levelQuery: string }
-        | { readonly kind: 'room'; readonly roomRef: string };
+        | { readonly kind: 'room'; readonly roomRef: string }
+        | { readonly kind: 'orientation'; readonly orientation: Compass4 };
     }
   /**
    * §FEAT-WINDOW-TYPE-BATCH (ADR-0315, founder ask #4) — "change the window
@@ -1316,7 +1319,9 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         // its absence refuses honestly, never guesses.
         const phrase = si.scope.kind === 'level'
           ? `on level ${si.scope.levelQuery}`
-          : `in the ${si.scope.roomRef}`;
+          : si.scope.kind === 'room'
+            ? `in the ${si.scope.roomRef}`
+            : `facing ${COMPASS_WORD[si.scope.orientation]}`;
         if (ctx.resolveScope === undefined) {
           return {
             kind: 'refusal', intent: 'set-wall-color',
@@ -1328,7 +1333,9 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         }
         const descriptor: ScopeDescriptor = si.scope.kind === 'level'
           ? { kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' }
-          : { kind: 'room', roomRef: si.scope.roomRef, elementKind: 'wall' };
+          : si.scope.kind === 'room'
+            ? { kind: 'room', roomRef: si.scope.roomRef, elementKind: 'wall' }
+            : { kind: 'orientation', orientation: si.scope.orientation };
         const result = ctx.resolveScope(descriptor);
         if (isScopeError(result)) {
           return {
@@ -1346,7 +1353,9 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         }
         wallIds = result.ids;
         const where = result.diagnostics[0] ?? phrase.replace(/^on |^in the /, '');
-        scopeLabelOverride = `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} ${si.scope.kind === 'level' ? 'on' : 'bounding'} ${where}`;
+        scopeLabelOverride = si.scope.kind === 'orientation'
+          ? `all ${result.ids.length} ${where} wall${result.ids.length === 1 ? '' : 's'}`
+          : `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} ${si.scope.kind === 'level' ? 'on' : 'bounding'} ${where}`;
         for (const s of result.skipped) {
           scopeNotes.push(`${s.count}× ${s.kind} skipped: ${s.reason}`);
         }
@@ -1408,7 +1417,9 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       if (typeof si.scope === 'object') {
         const phrase = si.scope.kind === 'level'
           ? `on level ${si.scope.levelQuery}`
-          : `in the ${si.scope.roomRef}`;
+          : si.scope.kind === 'room'
+            ? `in the ${si.scope.roomRef}`
+            : `facing ${COMPASS_WORD[si.scope.orientation]}`;
         if (ctx.resolveScope === undefined) {
           return {
             kind: 'refusal', intent: 'set-wall-rake',
@@ -1420,7 +1431,9 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         }
         const descriptor: ScopeDescriptor = si.scope.kind === 'level'
           ? { kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' }
-          : { kind: 'room', roomRef: si.scope.roomRef, elementKind: 'wall' };
+          : si.scope.kind === 'room'
+            ? { kind: 'room', roomRef: si.scope.roomRef, elementKind: 'wall' }
+            : { kind: 'orientation', orientation: si.scope.orientation };
         const result = ctx.resolveScope(descriptor);
         if (isScopeError(result)) {
           return {
@@ -1438,7 +1451,9 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         }
         wallIds = result.ids;
         const where = result.diagnostics[0] ?? phrase.replace(/^on |^in the /, '');
-        scopeLabelOverride = `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} ${si.scope.kind === 'level' ? 'on' : 'bounding'} ${where}`;
+        scopeLabelOverride = si.scope.kind === 'orientation'
+          ? `all ${result.ids.length} ${where} wall${result.ids.length === 1 ? '' : 's'}`
+          : `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} ${si.scope.kind === 'level' ? 'on' : 'bounding'} ${where}`;
         for (const s of result.skipped) {
           scopeNotes.push(`${s.count}× ${s.kind} skipped: ${s.reason}`);
         }
@@ -2015,8 +2030,12 @@ const matchWallType: Matcher = (text, ctx) => {
 // type matcher untouched.
 const WALL_COLOR_VERB = String.raw`(make|paint|colou?r|set|change|turn)`;
 
+const WALL_ORIENTATION_ADJ = String.raw`(?:(north|south|east|west)[- ]facing )?(?:exterior )?`;
+const ORIENTATION_TO_COMPASS: Readonly<Record<string, Compass4>> = { north: 'N', south: 'S', east: 'E', west: 'W' };
+const COMPASS_WORD: Readonly<Record<Compass4, string>> = { N: 'north', S: 'south', E: 'east', W: 'west' };
+
 const WALL_COLOR_RE = new RegExp(
-  `^${WALL_COLOR_VERB} (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? walls?` +
+  `^${WALL_COLOR_VERB} (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? ${WALL_ORIENTATION_ADJ}walls?` +
   // ADR-0315 U3 — optional LEVEL scope ("… on level 2 …") or ROOM scope
   // ("… in the kitchen …" — 'the' required, so the bare connector "in white"
   // stays a colour connector; a lookahead keeps "in the colour white" out).
@@ -2036,16 +2055,21 @@ export function parseWallColorIntent(text: string): Extract<SemanticIntent, { in
   if (!m) return null;
   const verb = m[1]!;
   const scopeWord = m[2]!;
-  const levelQuery = m[3]?.trim();
-  const roomRef = m[4]?.trim();
-  const colorRef = m[5]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+  const orientationWord = m[3];
+  const levelQuery = m[4]?.trim();
+  const roomRef = m[5]?.trim();
+  const colorRef = m[6]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
   if (colorRef.length === 0) return null;
   const colorSpecificVerb = verb === 'paint' || verb.startsWith('colo');
   if (!colorSpecificVerb && resolveColorRef(colorRef) === null) return null;
   // Spatial phrases compose with the ALL scope ("all walls on level 2 / in
-  // the kitchen"); combining them with "these/selected" would contradict the
-  // live selection and is not claimed.
+  // the kitchen" / "all south-facing walls"); combining them with
+  // "these/selected" would contradict the live selection and is not claimed.
   const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
+  if (orientationWord !== undefined) {
+    if (!isAll) return null;
+    return { intent: 'set-wall-color', colorRef, scope: { kind: 'orientation', orientation: ORIENTATION_TO_COMPASS[orientationWord]! } };
+  }
   if (levelQuery !== undefined && levelQuery.length > 0) {
     if (!isAll) return null;
     return { intent: 'set-wall-color', colorRef, scope: { kind: 'level', levelQuery } };
@@ -2077,11 +2101,11 @@ const WALL_RAKE_SCOPE = String.raw`(?: on (?:the )?(?:levels?|floors?)?\s*([\w .
 const WALL_RAKE_ANGLE = String.raw`(?:by|to|at)? ?(-?\d+(?:\.\d+)?) ?(?:°|degrees?|deg)?`;
 
 const WALL_RAKE_ADJ_RE = new RegExp(
-  `^(?:make|set) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) walls?${WALL_RAKE_SCOPE}` +
+  `^(?:make|set) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) ${WALL_ORIENTATION_ADJ}walls?${WALL_RAKE_SCOPE}` +
   ` (?:(?:angled|tilted|leaning|leant|raked|slanted) ${WALL_RAKE_ANGLE}|(vertical|upright|straight))$`,
 );
 const WALL_RAKE_VERB_RE = new RegExp(
-  `^(?:angle|tilt|lean|rake|slant) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) walls?${WALL_RAKE_SCOPE}` +
+  `^(?:angle|tilt|lean|rake|slant) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) ${WALL_ORIENTATION_ADJ}walls?${WALL_RAKE_SCOPE}` +
   ` ${WALL_RAKE_ANGLE}$`,
 );
 
@@ -2097,14 +2121,19 @@ export function parseWallRakeIntent(text: string): Extract<SemanticIntent, { int
   const m = adj ?? verb;
   if (!m) return null;
   const scopeWord = m[1]!;
-  const levelQuery = m[2]?.trim();
-  const roomRef = m[3]?.trim();
-  const angleDeg = adj !== null && adj[5] !== undefined
+  const orientationWord = m[2];
+  const levelQuery = m[3]?.trim();
+  const roomRef = m[4]?.trim();
+  const angleDeg = adj !== null && adj[6] !== undefined
     ? 90 // "vertical" / "upright" / "straight"
-    : Number.parseFloat(m[4]!);
+    : Number.parseFloat(m[5]!);
   if (!Number.isFinite(angleDeg)) return null;
   // Spatial phrases compose with the ALL scope only (same ruling as colour).
   const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
+  if (orientationWord !== undefined) {
+    if (!isAll) return null;
+    return { intent: 'set-wall-rake', angleDeg, scope: { kind: 'orientation', orientation: ORIENTATION_TO_COMPASS[orientationWord]! } };
+  }
   if (levelQuery !== undefined && levelQuery.length > 0) {
     if (!isAll) return null;
     return { intent: 'set-wall-rake', angleDeg, scope: { kind: 'level', levelQuery } };
