@@ -39,6 +39,16 @@ export {
 } from './handlers/SetWallDimensions.js';
 export { SetWallColorHandler, type SetWallColorPayload } from './handlers/SetWallColor.js';
 
+// §FEAT-WALL-TYPE-BATCH (RAC prep) — batch retype bus surface + report event
+// (thin UI wrappers subscribe to WALL_TYPE_BATCH_REPORT_EVENT for the
+// "Changed N of M — K skipped" report).
+export {
+  UpdateWallsSystemTypeBatchHandler,
+  WALL_TYPE_BATCH_REPORT_EVENT,
+  type UpdateWallsSystemTypeBatchPayload,
+  type WallTypeBatchReport,
+} from './handlers/UpdateWallsSystemTypeBatch.js';
+
 export {
   WALL_HANDLER_TYPES,
   registerWallHandlers,
