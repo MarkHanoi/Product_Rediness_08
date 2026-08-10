@@ -70,7 +70,20 @@ export async function handleExecuteInSequence(state: FPState): Promise<void> {
         if (doors   > 0) lines.push(`✓ ${doors} door${doors !== 1 ? 's' : ''}`);
         if (windows > 0) lines.push(`✓ ${windows} window${windows !== 1 ? 's' : ''}`);
         if (other   > 0) lines.push(`✓ ${other} other element${other !== 1 ? 's' : ''}`);
-        if (result.failed > 0) lines.push(`⚠ ${result.failed} failed`);
+        if (result.failed > 0) {
+            // §PDF-OCCUPANCY-PREFLIGHT (honest skip reporting) — name WHAT failed and WHY,
+            // not just a count. Occupancy rejections and missing hosts were previously
+            // invisible outside the console.
+            lines.push(`⚠ ${result.failed} failed:`);
+            const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            for (const f of result.failedProposals.slice(0, 6)) {
+                const kind = f.proposal.intentType.replace('PDF_IMPORT_', '').toLowerCase();
+                lines.push(`&nbsp;&nbsp;• ${esc(kind)} — ${esc(f.reason)}`);
+            }
+            if (result.failedProposals.length > 6) {
+                lines.push(`&nbsp;&nbsp;… and ${result.failedProposals.length - 6} more (see console)`);
+            }
+        }
         summaryEl.innerHTML = lines.join('<br>');
     }
 
