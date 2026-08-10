@@ -420,6 +420,19 @@ async function dispatchCommands(
         // the honest "no Rhino model is imported" failure through this event.
         'rhino.setMaterial': 'pryzm-rhino-material-report',
         'rhino.resetMaterial': 'pryzm-rhino-material-report',
+        // §GEN-CHAT (RAC U5b.4) — ENGINE HONESTY for whole-building and
+        // whole-plan generation. The generators already know far more than
+        // "Done": how many floors and apartments they actually placed and what
+        // share of the plate that is, how many scored layouts they compared,
+        // how many desks fitted, which apartment cells the packer REJECTED and
+        // its own most-common reason — and, when they refuse,
+        // §GEN-MAXHEIGHT-GATE's two heights and §RESI-ZERO-APARTMENTS-REFUSE's
+        // reason. All of that reaches the transcript through this same
+        // event/`{success, info}` mechanism the batch commands use, so a
+        // refusal renders as "Nothing was changed — <the engine's words>" and
+        // can never read like a successful build.
+        'generation.building': 'pryzm-generation-report',
+        'generation.apartment': 'pryzm-generation-report',
     };
     const batchReports: { success: boolean; info: readonly string[] }[] = [];
     const onBatchReport = (e: Event): void => {

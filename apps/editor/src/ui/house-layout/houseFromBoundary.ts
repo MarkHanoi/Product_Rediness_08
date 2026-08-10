@@ -46,7 +46,15 @@ export interface HouseFromBoundaryOptions {
     readonly roofKind?: 'flat' | 'gable' | 'hip';
     /** Partial program override (bedrooms/bathrooms/…). */
     readonly programOverride?: Partial<ApartmentProgram>;
+    /** §GEN-CHAT (RAC U5b.2) — skip the "Choose a house layout" modal and BUILD
+     *  the best-scored variant directly (`HouseLayoutController.buildDirect`).
+     *  The chat path sets this: its Confirm card already stood in for the
+     *  preview. Default false = the modal path, byte-identical. */
+    readonly autoBuild?: boolean;
 }
+
+/** §GEN-CHAT — the from-boundary result with the buildDirect honesty lines. */
+export type HouseFromBoundaryResult = HouseExecuteResult & { readonly report?: readonly string[] };
 
 /** A.21.k — shared controller singleton: drives the "Choose a house layout"
  *  modal so House gets layout-option parity with the apartment flow. */
@@ -78,7 +86,7 @@ export async function generateHouseFromBoundary(
     runtimeArg: PryzmRuntime | null | undefined,
     storeyCount: number,
     opts?: HouseFromBoundaryOptions,
-): Promise<HouseExecuteResult> {
+): Promise<HouseFromBoundaryResult> {
     const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
     const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
         rt?.events?.emit('pryzm:toast', { message, severity });
@@ -125,7 +133,7 @@ export async function generateHouseFromBoundary(
         const siteLat = payload?.siteLatitudeDeg;
 
         toast(`Generating ${storeyCount}-storey house options…`, 'info');
-        const res = await _controller.request(rt, {
+        const req = {
             storeyCount,
             program,
             constraints,
@@ -133,11 +141,19 @@ export async function generateHouseFromBoundary(
             ...(opts?.floorToFloorM ? { floorToFloorM: opts.floorToFloorM } : {}),
             ...(opts?.roofKind ? { roofKind: opts.roofKind } : {}),
             ...(typeof siteLat === 'number' ? { siteLatitudeDeg: siteLat } : {}),
-        });
-        // The build happens on the user's modal pick — `ok` here means the modal
-        // opened with options (or that generation was attempted). Surface the
-        // request result in the HouseExecuteResult shape the caller expects.
-        return res.ok ? { ok: true } : { ok: false, reason: res.reason };
+        };
+        // §GEN-CHAT (RAC U5b.2) — the chat path builds the best variant
+        // directly (its Confirm card was the preview); the modal path is
+        // byte-identical to before.
+        const res = opts?.autoBuild === true
+            ? await _controller.buildDirect(rt, req)
+            : await _controller.request(rt, req);
+        // The build happens on the user's modal pick (or directly on the chat
+        // path) — surface the request result in the HouseExecuteResult shape
+        // the caller expects, with the buildDirect honesty lines when present.
+        return res.ok
+            ? { ok: true, ...(res.report !== undefined ? { report: res.report } : {}) }
+            : { ok: false, ...(res.reason !== undefined ? { reason: res.reason } : {}) };
     } catch (err) {
         console.error('[house-from-boundary] threw:', err);
         toast(`House-from-boundary failed: ${String(err)}`, 'error');
@@ -152,8 +168,8 @@ export async function generateHouseFromBoundary(
 export async function generateHouseInExistingShell(
     runtimeArg: PryzmRuntime | null | undefined,
     storeyCount: number,
-    opts?: Pick<HouseFromBoundaryOptions, 'floorToFloorM' | 'roofKind' | 'programOverride'>,
-): Promise<HouseExecuteResult> {
+    opts?: Pick<HouseFromBoundaryOptions, 'floorToFloorM' | 'roofKind' | 'programOverride' | 'autoBuild'>,
+): Promise<HouseFromBoundaryResult> {
     const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
     const levelId = resolveActiveLevelId();
     if (!rt || !levelId) {

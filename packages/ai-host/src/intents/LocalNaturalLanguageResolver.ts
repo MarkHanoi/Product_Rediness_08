@@ -41,6 +41,8 @@ import {
   lengthToMeters,
   parseDuplicateLevelIntent,
   parseAddWallLayerIntent,
+  parseGenerateBuildingIntent,
+  parseApartmentLayoutIntent,
   parseWindowsParametricIntent,
   parseWallColorIntent,
   parseWallRakeIntent,
@@ -995,6 +997,35 @@ function classify(
       confidence: 0.95,
       evidence: ['verb:add', 'noun:layer', `scope:${wallLayer.scope}`],
       si: wallLayer,
+    });
+  }
+
+  // generate-building (§GEN-CHAT, RAC U5b.2) — shared parser off `n.plain`
+  // (typology/mix words are user data), same 0.95 rank as the other shared
+  // parsers; destructive resolution needs ≥0.85, which this clears — the
+  // Confirm card is the safety net, not a lowered confidence.
+  const genBuilding = parseGenerateBuildingIntent(n.plain);
+  if (genBuilding !== null) {
+    push({
+      intent: 'generate-building',
+      confidence: 0.95,
+      evidence: ['verb:generate', `typology:${genBuilding.typology}`, `floors:${genBuilding.floors ?? 'default'}`],
+      si: genBuilding,
+    });
+  }
+
+  // generate-apartment-layout (§GEN-CHAT-APARTMENT, RAC U5b.2 founder P0) —
+  // "create a 3 bedroom apparment". The tier-1 normalizer has already lowered
+  // and de-punctuated the text; the noun matcher carries the spelling
+  // tolerance, so a typo reaches the capability instead of the "I'm not sure
+  // how to help with that yet" dead end the founder hit.
+  const aptLayout = parseApartmentLayoutIntent(n.plain);
+  if (aptLayout !== null) {
+    push({
+      intent: 'generate-apartment-layout',
+      confidence: 0.95,
+      evidence: ['verb:generate', 'noun:apartment', `bedrooms:${aptLayout.bedrooms ?? 'default'}`],
+      si: aptLayout,
     });
   }
 

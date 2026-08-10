@@ -91,6 +91,18 @@ export interface ResidentialBuildingRequestResult {
     readonly reason?: string;
     /** Total apartments the preview placed (for logging/tests). */
     readonly apartmentCount?: number;
+    /** §GEN-CHAT (RAC U5b.2/U5b.4) — the engine-honesty lines the auto-build
+     *  path produces (floors, apartments per floor, fill ratio, per-cell
+     *  rejects). Absent on the modal path — the modal IS that report there. */
+    readonly report?: readonly string[];
+}
+
+/** §GEN-CHAT (RAC U5b.2) — controller request options. */
+export interface ResidentialBuildingRequestOptions {
+    /** Skip the preview modal and BUILD the computed result directly (the chat
+     *  path — its Confirm card already stood in for the modal). Refusals are
+     *  returned as {ok:false, reason} instead of opening the error modal. */
+    readonly autoBuild?: boolean;
 }
 
 /**
@@ -207,6 +219,39 @@ export function summarizeCellRejections(result: ResidentialBuildingOk): {
 }
 
 /**
+ * §GEN-CHAT (RAC U5b.4) — the engine-honesty lines for the chat transcript.
+ * Pure over the orchestrator result: floors, apartments per floor, the
+ * §RESI-CORRIDOR-ECONOMY fill ratio ("apartments NN% of plate"), and the
+ * per-cell rejects with the engine's own most-common reason (never invented).
+ */
+export function buildResidentialHonestyReport(
+    result: ResidentialBuildingOk,
+    apartmentCount: number,
+): string[] {
+    const floors = result.levels.length;
+    const aptLevels = result.perLevelApartments.length;
+    const perFloor = aptLevels > 0 ? Math.round((apartmentCount / aptLevels) * 10) / 10 : 0;
+    const fills = result.perLevelApartments
+        .map((l) => l.fillRatio)
+        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+    const fillLabel = fills.length > 0
+        ? ` (apartments ${Math.round((fills.reduce((a, b) => a + b, 0) / fills.length) * 100)}% of the plate)`
+        : '';
+    const lines: string[] = [
+        `Built ${floors} floor${floors === 1 ? '' : 's'} — ${apartmentCount} apartment${apartmentCount === 1 ? '' : 's'}, ` +
+        `${perFloor} per apartment floor on average${fillLabel}.`,
+    ];
+    const s = summarizeCellRejections(result);
+    if (s.rejected > 0) {
+        lines.push(
+            `${s.rejected} of ${s.total} apartment cell${s.total === 1 ? '' : 's'} rejected by the engine` +
+            `${s.topReason !== undefined ? ` — most common: ${s.topReason}` : ''}.`,
+        );
+    }
+    return lines;
+}
+
+/**
  * Drives the "Choose a residential building" modal. Owns the modal + executor
  * singletons. Stateless between runs apart from those singletons.
  */
@@ -228,10 +273,14 @@ export class ResidentialBuildingController {
      * it via the executor. Never throws — returns {ok,reason}. P8: one span at this
      * exported boundary.
      */
-    async request(runtime: PryzmRuntime, req: ResidentialBuildingRequest): Promise<ResidentialBuildingRequestResult> {
+    async request(
+        runtime: PryzmRuntime,
+        req: ResidentialBuildingRequest,
+        opts?: ResidentialBuildingRequestOptions,
+    ): Promise<ResidentialBuildingRequestResult> {
         return _tracer.startActiveSpan('pryzm.editor.residentialBuilding.request', async (span) => {
             try {
-                const out = await this._request(runtime, req);
+                const out = await this._request(runtime, req, opts);
                 span.setAttribute('pryzm.resi.request.ok', out.ok);
                 if (typeof out.apartmentCount === 'number') span.setAttribute('pryzm.resi.request.apartments', out.apartmentCount);
                 span.end();
@@ -244,10 +293,18 @@ export class ResidentialBuildingController {
         });
     }
 
-    private async _request(runtime: PryzmRuntime, req: ResidentialBuildingRequest): Promise<ResidentialBuildingRequestResult> {
+    private async _request(
+        runtime: PryzmRuntime,
+        req: ResidentialBuildingRequest,
+        opts?: ResidentialBuildingRequestOptions,
+    ): Promise<ResidentialBuildingRequestResult> {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };
+        // §GEN-CHAT (RAC U5b.2) — headless mode: the chat's Confirm card stood
+        // in for the preview modal, and its transcript renders the refusal, so
+        // neither the preview modal nor the error modal opens on this path.
+        const autoBuild = opts?.autoBuild === true;
 
         const ground = resolveActiveLevel();
         if (!ground?.id) { toast('No active level — draw a boundary first.', 'error'); return { ok: false, reason: 'no active level' }; }
@@ -277,7 +334,7 @@ export class ResidentialBuildingController {
         });
         if (!heightGate.ok) {
             console.warn('[resi-building] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
-            this._showReject(heightGate.reason, areaM2);
+            if (!autoBuild) this._showReject(heightGate.reason, areaM2);
             return { ok: false, reason: heightGate.reason };
         }
 
@@ -286,13 +343,13 @@ export class ResidentialBuildingController {
             result = orchestrateResidentialBuilding(input);
         } catch (err) {
             console.error('[resi-building] orchestrator threw:', err);
-            this._showReject(String(err), areaM2);
+            if (!autoBuild) this._showReject(String(err), areaM2);
             return { ok: false, reason: String(err) };
         }
 
         if (result.status === 'rejected') {
             console.warn('[resi-building] controller: rejected —', result.reason);
-            this._showReject(result.reason, areaM2);
+            if (!autoBuild) this._showReject(result.reason, areaM2);
             return { ok: false, reason: result.reason };
         }
 
@@ -310,13 +367,31 @@ export class ResidentialBuildingController {
                 `all ${s.total} apartment cell(s) failed to lay out` +
                 (s.topReason ? ` (most common: ${s.topReason})` : '');
             console.warn('[resi-building] controller: zero apartments laid out —', reason);
-            this._showReject(reason, areaM2);
+            if (!autoBuild) this._showReject(reason, areaM2);
             return { ok: false, reason, apartmentCount: 0 };
         }
         console.log(
             `[resi-building] controller: computed building — ${result.levels.length} floor(s), ` +
-            `${apartmentCount} apartment(s) placed — opening modal. ${result.diagnostic}`,
+            `${apartmentCount} apartment(s) placed — ${autoBuild ? 'auto-building (chat path)' : 'opening modal'}. ${result.diagnostic}`,
         );
+
+        // §GEN-CHAT (RAC U5b.2) — the headless build: the SAME executor call the
+        // modal's Build button makes (no second pipeline); the executor opens the
+        // beginBuildingGeneration lease itself, so undo coalesces identically.
+        if (autoBuild) {
+            toast('Building residential building…', 'info');
+            const execResult = await this.executor.execute(runtime, result, {
+                floorToFloorM: input.floorToFloorM ?? DEFAULT_FLOOR_TO_FLOOR_M,
+                roofGarden: req.roofGarden === true,
+                balconies: req.balconies !== false,
+                ...(typeof req.facadeColor === 'string' ? { facadeColor: req.facadeColor } : {}),
+                groundCommercialCurtain: req.groundCommercialCurtain === true,
+            });
+            if (!execResult.ok) {
+                return { ok: false, reason: execResult.reason ?? 'the build executor refused', apartmentCount };
+            }
+            return { ok: true, apartmentCount, report: buildResidentialHonestyReport(result, apartmentCount) };
+        }
 
         this._pending = {
             runtime,

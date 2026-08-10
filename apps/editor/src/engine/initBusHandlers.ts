@@ -2258,4 +2258,87 @@ export function initBusHandlers(
             console.error(`[initBusHandlers] §E.5.x: ${spec.type} failed (non-fatal):`, _be?.message ?? _be);
         }
     }
+
+    // ── §GEN-CHAT-SEAM (RAC U5b.2) — conversational building generation ─────
+    //
+    // ONE bus verb for "generate a 3-storey residential building" / "…house" /
+    // "…office building with 5 floors" (P6: the chat expresses intent through
+    // the bus like every other surface). The handler AWAITS the SAME
+    // controllers/executors the onboarding modal drives — mapped through the
+    // typed GenerationRequest seam (../ui/generation/generationRequest.ts),
+    // never a second pipeline — so the executors' own beginBuildingGeneration
+    // lease coalesces the whole build into ONE undo entry exactly as the modal
+    // path does. Engine honesty (§GEN-MAXHEIGHT-GATE numbers,
+    // §RESI-ZERO-APARTMENTS-REFUSE reasons, fill/desk counts) is emitted on
+    // 'pryzm-generation-report' BEFORE the promise resolves, so
+    // ZeroTokenChatBridge's report listener (attached for the duration of the
+    // dispatch) renders it verbatim in the transcript. `stores: []` — the
+    // executors own all mutation; undo lives on their coalesced batch.
+    // `generation.apartment` is the SIBLING verb for "create a 3 bedroom
+    // apartment" — laying a plan into the walls ALREADY DRAWN, not a new
+    // envelope (§GEN-CHAT-APARTMENT, founder P0 2026-08-10). Two verbs rather
+    // than one typology-tagged verb because the two are different asks with
+    // different preconditions (a site boundary vs a closed shell) and the
+    // capability registry declares them separately.
+    const __generationVerbs: Array<{
+        type: 'generation.building' | 'generation.apartment';
+        validate: (cmd: any) => string | null;
+        run: (cmd: any) => Promise<void>;
+    }> = [
+        {
+            type: 'generation.building',
+            validate: (cmd: any) => {
+                const t = cmd?.typology;
+                return t === 'residential-building' || t === 'house' || t === 'office'
+                    ? null
+                    : "typology ('residential-building' | 'house' | 'office') is required";
+            },
+            run: async (cmd: any) => {
+                const m = await import('../ui/generation/generationChatSeam.js');
+                await m.runGenerationBuilding(cmd);
+            },
+        },
+        {
+            type: 'generation.apartment',
+            validate: (cmd: any) => {
+                const b = cmd?.bedrooms;
+                return b === undefined || (Number.isInteger(b) && b >= 1)
+                    ? null
+                    : 'bedrooms, when given, must be a whole number ≥ 1';
+            },
+            run: async (cmd: any) => {
+                const m = await import('../ui/generation/generationChatSeam.js');
+                await m.runGenerationApartment(cmd);
+            },
+        },
+    ];
+    for (const spec of __generationVerbs) {
+        if (runtime.bus.registry?.has?.(spec.type as any)) continue;
+        try {
+            runtime.bus.register({
+                type: spec.type as any,
+                affectedStores: [] as any,
+                // Parameter order is (ctx, cmd) — `§S02-T1`, CommandHandler's own contract.
+                canExecute: (_ctx: any, cmd: any) => {
+                    const err = spec.validate(cmd);
+                    return err ? { valid: false, reason: err } : { valid: true };
+                },
+                execute: async (_ctx: any, cmd: any) => withHandlerSpan(
+                    `${spec.type}.handler`,
+                    { 'pryzm.command.type': spec.type, 'pryzm.generation.typology': String(cmd?.typology ?? spec.type) },
+                    async () => {
+                        await spec.run(cmd);
+                        // The executors own every mutation and every undo entry
+                        // (their own beginBuildingGeneration lease coalesces the
+                        // build). This handler contributes no patches of its own —
+                        // returning any here would double-count the build on undo.
+                        return { forward: [], inverse: [] };
+                    },
+                ),
+            } as any);
+            console.log(`[initBusHandlers] §GEN-CHAT-SEAM: ${spec.type} registered (RAC U5b.2).`);
+        } catch (_ge: any) {
+            console.error(`[initBusHandlers] §GEN-CHAT-SEAM: ${spec.type} failed (non-fatal):`, _ge?.message ?? _ge);
+        }
+    }
 }

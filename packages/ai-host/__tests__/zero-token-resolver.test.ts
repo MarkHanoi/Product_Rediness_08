@@ -231,10 +231,23 @@ describe('misses — not command-shaped, falls through to the LLM tier', () => {
   it.each([
     'make it cozier',
     'what walls are on this level?',
-    'generate an apartment layout',
     'hello',
   ])('"%s" is a miss', (utterance) => {
     expect(resolveUtterance(utterance, baseCtx(wallSel)).kind).toBe('miss');
+  });
+
+  // "generate an apartment layout" LEFT this list at §GEN-CHAT-APARTMENT (RAC
+  // U5b.2): the apartment-layout engine is now chat-reachable, so treating the
+  // sentence as unrecognised would be the very "capability exists, chat has
+  // never heard of it" defect the coverage gate was built for. Pinned here
+  // positively so the move is a decision, not a silent deletion.
+  it('"generate an apartment layout" is now a COMMAND (§GEN-CHAT-APARTMENT)', () => {
+    const r = resolveUtterance('generate an apartment layout', baseCtx(wallSel));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]?.type).toBe('generation.apartment');
+    // Consequential enough to confirm first — a whole plan is generated.
+    expect(r.destructive).toBe(true);
   });
 
   it('"show walls" is NOT misread as a level switch', () => {

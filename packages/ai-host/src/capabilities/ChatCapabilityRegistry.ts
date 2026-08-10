@@ -1172,6 +1172,154 @@ const CAPABILITIES: readonly ChatCapability[] = [
     },
     examples: ['set the room number to 101', 'change the room number to 2.04'],
   },
+  {
+    id: 'generate-building',
+    // §GEN-CHAT (RAC U5b.2, Dimension B core) — conversational building
+    // generation over the FOUR proven executors, reached through ONE bus verb
+    // (`generation.building`, registered in initBusHandlers). The handler maps
+    // the payload through the typed GenerationRequest seam
+    // (apps/editor/src/ui/generation/generationRequest.ts) and drives the SAME
+    // controllers/executors the onboarding modal drives — never a second
+    // pipeline — under the `beginBuildingGeneration` lease (ONE coalesced
+    // undo, §GEN-VIEW-COALESCE suppression). Hard stoppers live in the
+    // execution layer: §GEN-MAXHEIGHT-GATE (8bb9dac8) refuses over-cap floor
+    // counts quoting BOTH numbers, §RESI-ZERO-APARTMENTS-REFUSE surfaces the
+    // engine's real reason — all relayed verbatim into the chat transcript via
+    // 'pryzm-generation-report'.
+    description: 'generate a whole building (residential / house / office) on the site',
+    verbs: ['generate', 'create', 'build', 'make'],
+    aliases: ['residential building', 'house', 'office building', 'office tower', 'building'],
+    // targets:'global' — generation is SITE-scoped, not element-scoped: it
+    // reads the parcel boundary, never the selection, so there is no element
+    // target set to prove (same ruling as set-rhino-material). scopeModes n/a.
+    targets: 'global',
+    parameters: [
+      {
+        name: 'typology',
+        description: 'what to generate: residential building, house, or office building',
+        required: true,
+        valueSource: 'user-text',
+        example: 'residential building',
+      },
+      {
+        name: 'storeys',
+        description: 'total floor count (house 1–3, residential 2–21, office 1–40); omitted ⇒ the stated default',
+        required: false,
+        valueSource: 'measurement',
+        example: '3-storey',
+      },
+      {
+        name: 'apartment mix',
+        description: 'optional T1–T4 mix hints for residential ("with 2-bed and 3-bed apartments")',
+        required: false,
+        valueSource: 'user-text',
+        example: '2-bed and 3-bed',
+      },
+    ],
+    scope: 'global',
+    // A whole building is consequential — Confirm card (floors + typology +
+    // the adds-alongside contract) before anything is dispatched.
+    destructive: true,
+    busCommand: 'generation.building',
+    probe: { intent: 'generate-building', typology: 'residential-building', floors: 3 },
+    // Not gate-validated for a 'global' capability, but recorded so the claim
+    // is source-anchored anyway: the three executors this verb reaches all
+    // open the beginBuildingGeneration lease themselves.
+    commandProof: [
+      {
+        file: 'apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts',
+        mustMention: ['beginBuildingGeneration'],
+        note: 'The residential executor builds through the command bus inside the beginBuildingGeneration lease (one coalesced undo).',
+      },
+      {
+        file: 'apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts',
+        mustMention: ['beginBuildingGeneration'],
+        note: 'The house executor opens the same lease around its composite build.',
+      },
+      {
+        file: 'apps/editor/src/ui/office-building/OfficeBuildingExecutor.ts',
+        mustMention: ['beginBuildingGeneration'],
+        note: 'The office executor opens the same lease around its composite build.',
+      },
+    ],
+    examples: [
+      'generate a 3-storey residential building',
+      'generate a 2-storey house',
+      'generate an office building with 5 floors',
+      'create a residential building with 2-bed and 3-bed apartments',
+    ],
+  },
+  {
+    id: 'generate-apartment-layout',
+    // §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0 2026-08-10) — the founder
+    // typed "Create 3 bedroom apparment" and got "I'm not sure how to help
+    // with that yet". The apartment-layout engine has shipped for months and
+    // is driven by the AI-panel leaf and `pryzmGenerateApartmentLayout()`;
+    // nothing told the chat it was there. This declaration is that fix.
+    //
+    // DISTINCT FROM generate-building: this fills the walls ALREADY DRAWN on
+    // the active level with an ApartmentProgram (bedrooms / bathrooms /
+    // en-suite / open-plan), through the SAME shared trigger both existing
+    // entry points use — one pipeline, one shell read, one options modal.
+    description: 'lay out an apartment inside the walls already drawn on this level',
+    verbs: ['generate', 'create', 'make', 'lay out', 'plan', 'design'],
+    aliases: ['apartment', 'apartment layout', 'flat', 'bedroom apartment'],
+    // targets:'global' — the layout engine reads the LEVEL's exterior shell,
+    // never the element selection, so there is no element target set to prove
+    // (the same ruling as generate-building and set-rhino-material).
+    targets: 'global',
+    parameters: [
+      {
+        name: 'bedrooms',
+        description: 'how many bedrooms to plan; omitted ⇒ the engine\'s default programme',
+        required: false,
+        valueSource: 'measurement',
+        example: '3 bedroom',
+      },
+      {
+        name: 'bathrooms',
+        description: 'how many bathrooms to plan; omitted ⇒ the engine\'s default',
+        required: false,
+        valueSource: 'measurement',
+        example: '2 bathrooms',
+      },
+      {
+        name: 'en-suite / open-plan',
+        description: 'optional programme flags ("with an en-suite", "open-plan kitchen")',
+        required: false,
+        valueSource: 'user-text',
+        example: 'with an en-suite',
+      },
+    ],
+    scope: 'global',
+    // Generating a whole plan into the drawn shell is consequential — the
+    // Confirm card states bedrooms/bathrooms and that it fills the EXISTING
+    // shell, so nobody confirms it thinking they asked for a new building.
+    destructive: true,
+    busCommand: 'generation.apartment',
+    probe: {
+      intent: 'generate-apartment-layout',
+      bedrooms: 3,
+      bathrooms: null,
+      masterEnSuite: false,
+      openPlanKitchenDining: false,
+    },
+    // Source-anchored: the chat reaches the layout engine through the SAME
+    // shared trigger module the AI-panel leaf and the console command use.
+    commandProof: [
+      {
+        file: 'apps/editor/src/ui/apartment-layout/apartmentLayoutTrigger.ts',
+        mustMention: ['requestApartmentLayout', 'gatherLayoutPayload'],
+        note: 'The chat path calls the same shared trigger the AI-panel leaf and pryzmGenerateApartmentLayout() call — one shell read, one pipeline.',
+      },
+    ],
+    examples: [
+      'create a 3 bedroom apartment',
+      'generate a 2 bed apartment in this shell',
+      'make a 3-bedroom apartment with 2 bathrooms',
+      'create a 4 bedroom apartment with an en-suite',
+    ],
+  },
 ];
 
 // ─── The honest half: commands the chat deliberately does NOT drive ──────────

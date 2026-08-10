@@ -144,6 +144,10 @@ export interface RequestHouseLayoutResult {
     readonly reason?: string;
     /** Number of variants the modal opened with (for logging/tests). */
     readonly optionCount?: number;
+    /** §GEN-CHAT (RAC U5b.2/U5b.4) — engine-honesty lines from the headless
+     *  `buildDirect` path (variants enumerated, storeys/stairs/roof built).
+     *  Absent on the modal path — the modal IS that report there. */
+    readonly report?: readonly string[];
 }
 
 /**
@@ -308,6 +312,100 @@ export class HouseLayoutController {
         } catch (err) {
             console.error('[house-layout] controller threw:', err);
             toast(`House layout failed: ${String(err)}`, 'error');
+            return { ok: false, reason: String(err) };
+        }
+    }
+
+    /**
+     * §GEN-CHAT (RAC U5b.2) — orchestrate + BUILD in one call WITHOUT the modal
+     * (the office `buildDirect` sibling). The chat's Confirm card already stood
+     * in for the preview, so this runs the SAME pure enumeration `request()`
+     * runs, applies the SAME §GEN-MAXHEIGHT-GATE, then executes the BEST
+     * variant (variants[0] — best-first sort, the A.21.D18 equality invariant)
+     * through the SAME executor the modal's pick drives. The executor opens the
+     * beginBuildingGeneration lease itself, so undo coalesces exactly as the
+     * modal path does. Refusals return {ok:false, reason} — the chat renders
+     * them verbatim; no modal, no toast-only dead end.
+     */
+    async buildDirect(runtime: PryzmRuntime, req: HouseLayoutRequest): Promise<RequestHouseLayoutResult> {
+        try {
+            const ground = resolveActiveLevel();
+            if (!ground?.id) return { ok: false, reason: 'no active level — draw a boundary first' };
+
+            const shell = analyseActiveShell(ground.id);
+            if (!shell) return { ok: false, reason: 'need a closed exterior shell (≥3 walls) on the active level' };
+
+            const storeyCount = Math.max(1, Math.floor(req.storeyCount || 1));
+            const baseElevationM = ground.elevation ?? 0;
+            const floorToFloorM = req.floorToFloorM && req.floorToFloorM > 0 ? req.floorToFloorM : 3.0;
+            const roofKind = req.roofKind ?? 'gable';
+
+            // §GEN-MAXHEIGHT-GATE — the SAME cap the modal path enforces; the
+            // refusal (quoting BOTH numbers + the feasible storey count) rides
+            // back verbatim to the chat transcript.
+            const heightGate = checkMaxHeightGate({
+                floors: storeyCount,
+                floorToFloorM,
+                maxHeightM: siteQueryService.getMaxHeightM(),
+            });
+            if (!heightGate.ok) {
+                console.warn('[house-layout] buildDirect: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
+                return { ok: false, reason: heightGate.reason };
+            }
+
+            this._regen = {
+                runtime,
+                shell,
+                constraints: req.constraints,
+                floorToFloorM,
+                baseElevationM,
+                roofKind,
+                ...(typeof req.siteLatitudeDeg === 'number' ? { siteLatitudeDeg: req.siteLatitudeDeg } : {}),
+                storeyCount,
+                program: req.program,
+                weights: req.weights,
+            };
+            const variants = this._computeVariants(storeyCount, req.program, req.weights);
+            if (variants.length === 0) {
+                this._regen = null;
+                return {
+                    ok: false,
+                    reason: 'no house layout fits this plot at the requested programme — try a larger plot, fewer bedrooms, or smaller room sizes',
+                };
+            }
+            console.log(`[house-layout] buildDirect: ${variants.length} variant(s) — building the best (chat path)`);
+            runtime.events?.emit('pryzm:toast', { message: 'Building house layout…', severity: 'info' });
+
+            const execResult = await this.executor.execute(
+                runtime,
+                {
+                    storeyCount,
+                    floorToFloorM,
+                    roofKind,
+                    variantIndex: 0,
+                    variantCount: HOUSE_OPTION_COUNT,
+                },
+                this._mergeOverrides(req.program),
+                req.constraints,
+                req.weights,
+                req.siteLatitudeDeg,
+            );
+            this._regen = null;
+            if (!execResult.ok) {
+                return { ok: false, reason: execResult.reason ?? 'the build executor refused', optionCount: variants.length };
+            }
+            const built = variants[0];
+            const roomsBuilt = (built?.result?.perStoreyLayout ?? [])
+                .reduce((n, opt) => n + (opt?.rooms?.length ?? 0), 0);
+            const report: string[] = [
+                `Built the best of ${variants.length} scored layout${variants.length === 1 ? '' : 's'} — ` +
+                `${storeyCount} storey${storeyCount === 1 ? '' : 's'}, ${roomsBuilt} room${roomsBuilt === 1 ? '' : 's'}, ` +
+                `${roofKind} roof${typeof execResult.stairCount === 'number' && execResult.stairCount > 0 ? `, ${execResult.stairCount} stair${execResult.stairCount === 1 ? '' : 's'}` : ''}.`,
+            ];
+            return { ok: true, optionCount: variants.length, report };
+        } catch (err) {
+            console.error('[house-layout] buildDirect threw:', err);
+            this._regen = null;
             return { ok: false, reason: String(err) };
         }
     }

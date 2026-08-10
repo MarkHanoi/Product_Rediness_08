@@ -531,6 +531,63 @@ export type SemanticIntent =
       /** Finish reference ("plaster"), or null when none was recognized. */
       readonly finishRef: string | null;
       readonly scope: 'all' | 'selection';
+    }
+  /**
+   * §GEN-CHAT (RAC U5b.2, Dimension B) — "generate a 3-storey residential
+   * building" / "generate a 2-storey house" / "generate an office building
+   * with 5 floors" (+ optional apartment-mix hints: "with 2-bed and 3-bed
+   * apartments").
+   *
+   * Open language in, HARD STOPPERS at the execution layer (founder doctrine):
+   * the resolver never narrows what may be asked — it maps the sentence to ONE
+   * `generation.building` bus command, and the SAME controllers/executors the
+   * onboarding modal drives enforce the gates (§GEN-MAXHEIGHT-GATE quoting
+   * real numbers, §RESI-ZERO-APARTMENTS-REFUSE, per-cell rejects) under the
+   * `beginBuildingGeneration` lease (ONE coalesced undo). destructive:true so
+   * the bridge shows the Confirm card before a whole building is generated;
+   * the honest engine report arrives via 'pryzm-generation-report'.
+   */
+  | {
+      readonly intent: 'generate-building';
+      readonly typology: 'residential-building' | 'house' | 'office';
+      /** TOTAL storey count asked for (ground included), or null when the
+       *  sentence named none — the summary then STATES the default used. */
+      readonly floors: number | null;
+      /** Optional T1–T4 apartment-mix hints (residential only). */
+      readonly mix?: { readonly T1?: boolean; readonly T2?: boolean; readonly T3?: boolean; readonly T4?: boolean };
+      /** Optional roof-form hint (house only): "with a flat roof". */
+      readonly roofKind?: 'flat' | 'gable' | 'hip';
+    }
+  /**
+   * §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0 2026-08-10) — "create a 3
+   * bedroom apartment" / "generate a 2-bed apartment in this shell" / "make a
+   * 3-bedroom apartment with 2 bathrooms".
+   *
+   * DISTINCT FROM `generate-building`: this lays a plan out INSIDE the walls
+   * already drawn on the active level — it is the apartment-layout engine's
+   * `ApartmentProgram`, not a new envelope. The founder typed
+   * "Create 3 bedroom apparment" (his spelling) and got "I'm not sure how to
+   * help with that yet"; the noun matcher is typo-tolerant for exactly that
+   * reason. Building words ("building", "block", "tower", a storey count) are
+   * REFUSED here and belong to `generate-building` instead.
+   *
+   * Open language in, HARD STOPPERS at the execution layer: the shell read
+   * (≥3 exterior walls), the too-small-for-N-bedrooms refusal and the dropped
+   * -room reasons are all the ENGINE's own, relayed verbatim through
+   * 'pryzm-generation-report'. The resolver rules only on what it can know
+   * purely (a bedroom count must be a whole number ≥ 1).
+   */
+  | {
+      readonly intent: 'generate-apartment-layout';
+      /** Bedrooms asked for, or null when the sentence named none (the
+       *  summary then STATES the default programme the engine will use). */
+      readonly bedrooms: number | null;
+      /** Bathrooms asked for, or null when unstated. */
+      readonly bathrooms: number | null;
+      /** "with an en-suite" / "master en-suite". */
+      readonly masterEnSuite: boolean;
+      /** "open-plan kitchen/living". */
+      readonly openPlanKitchenDining: boolean;
     };
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
@@ -1402,6 +1459,156 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
+    case 'generate-building': {
+      // §GEN-CHAT (RAC U5b.2) — deliberately HAND-WRITTEN (like the creation
+      // arms; see CapabilityExecutionSpec's header): generation is not a
+      // batch-shaped capability. The resolver rules only on what it can know
+      // purely (storey bounds each generator itself enforces, quoted with the
+      // real numbers); site facts (boundary present, envelope height cap) are
+      // ruled on by the SAME controllers the onboarding modal drives, and
+      // their refusals come back verbatim via 'pryzm-generation-report'.
+      const t = si.typology;
+      const label = t === 'residential-building' ? 'residential building' : t === 'house' ? 'house' : 'office tower';
+      if (si.floors !== null && (!Number.isInteger(si.floors) || si.floors < 1)) {
+        return {
+          kind: 'refusal', intent: 'generate-building',
+          reason: `${si.floors} is not a buildable storey count — I need a whole number of floors (at least 1).`,
+          suggestions: [`generate a 2-storey ${t === 'office' ? 'office building' : label}`],
+        };
+      }
+      // Storey bounds — each generator's OWN limit, quoted honestly (the same
+      // numbers the executors clamp/refuse at; never a silent clamp from chat).
+      if (t === 'house' && si.floors !== null && si.floors > 3) {
+        return {
+          kind: 'refusal', intent: 'generate-building',
+          reason: `The house generator builds 1–3 storeys — you asked for ${si.floors}. For more floors, ask for a residential building (up to 21 storeys).`,
+          suggestions: ['generate a 3-storey house', `generate a ${si.floors}-storey residential building`],
+        };
+      }
+      if (t === 'residential-building' && si.floors !== null && si.floors < 2) {
+        return {
+          kind: 'refusal', intent: 'generate-building',
+          reason: `A multi-family residential building needs at least 2 storeys (ground + 1 apartment floor) — you asked for ${si.floors}. For a single storey, ask for a house.`,
+          suggestions: ['generate a 2-storey residential building', 'generate a 1-storey house'],
+        };
+      }
+      if (t === 'residential-building' && si.floors !== null && si.floors > 21) {
+        return {
+          kind: 'refusal', intent: 'generate-building',
+          reason: `The residential generator builds up to 21 storeys (ground + 20 apartment floors) — you asked for ${si.floors}.`,
+          suggestions: ['generate a 21-storey residential building'],
+        };
+      }
+      if (t === 'office' && si.floors !== null && si.floors > 40) {
+        return {
+          kind: 'refusal', intent: 'generate-building',
+          reason: `The office generator builds up to 40 storeys — you asked for ${si.floors}.`,
+          suggestions: ['generate a 40-storey office building'],
+        };
+      }
+      const mixEntries = si.mix !== undefined
+        ? (['T1', 'T2', 'T3', 'T4'] as const).filter((k) => si.mix?.[k] === true)
+        : [];
+      const MIX_LABEL: Record<string, string> = { T1: '1-bed', T2: '2-bed', T3: '3-bed', T4: '4-bed' };
+      const mixLabel = mixEntries.length > 0
+        ? ` with ${mixEntries.map((k) => MIX_LABEL[k]).join(' + ')} apartments`
+        : t === 'residential-building' ? ' with the default 2-bed + 3-bed mix' : '';
+      const floorsLabel = si.floors !== null
+        ? `${si.floors}-storey`
+        : t === 'house' ? '2-storey (default)'
+        : t === 'office' ? '40-storey (default)'
+        : '6-storey (default: ground + 5)';
+      const siteLabel = t === 'office'
+        ? 'on the site (circular plate fitted inside the plot)'
+        : 'from the site boundary';
+      // Stated contract (the executors' real behaviour): generation ADDS new
+      // levels/elements alongside what is drawn — it does not replace existing
+      // work — and the whole build coalesces into ONE undo entry under the
+      // beginBuildingGeneration lease. The height gate line is the doctrine's
+      // hard stopper made visible before Confirm.
+      const summary =
+        `Generate a ${floorsLabel} ${label}${mixLabel} ${siteLabel} — ` +
+        `it builds new levels and elements alongside what's drawn (nothing is replaced), as one coherent undo. ` +
+        `The recorded envelope height cap is enforced before building.`;
+      return {
+        kind: 'commands', intent: 'generate-building',
+        summary,
+        commands: [{
+          type: 'generation.building',
+          payload: {
+            typology: t,
+            ...(si.floors !== null ? { floors: si.floors } : {}),
+            ...(mixEntries.length > 0
+              ? { typologies: { T1: si.mix?.T1 === true, T2: si.mix?.T2 === true, T3: si.mix?.T3 === true, T4: si.mix?.T4 === true } }
+              : {}),
+            ...(si.roofKind !== undefined && t === 'house' ? { roofKind: si.roofKind } : {}),
+          },
+        }],
+        // A whole building is consequential — Confirm card before it runs.
+        destructive: true,
+      };
+    }
+
+    case 'generate-apartment-layout': {
+      // §GEN-CHAT-APARTMENT (RAC U5b.2) — hand-written for the same reason the
+      // generation arm is: an apartment layout is a whole-plan generation, not
+      // a batch-shaped element edit. PURE rulings only — a bedroom/bathroom
+      // count must be a whole number ≥ 1. Everything that depends on the SITE
+      // (is there a closed shell at all? does 4 bedrooms fit this plate? which
+      // rooms did the engine drop and why?) is ruled on by the SAME
+      // apartment-layout pipeline the AI-panel leaf and
+      // `pryzmGenerateApartmentLayout()` drive, and comes back verbatim.
+      const badCount = (n: number | null): boolean =>
+        n !== null && (!Number.isInteger(n) || n < 1);
+      if (badCount(si.bedrooms)) {
+        return {
+          kind: 'refusal', intent: 'generate-apartment-layout',
+          reason: `${si.bedrooms} is not a bedroom count I can plan — I need a whole number of bedrooms (at least 1).`,
+          suggestions: ['create a 3 bedroom apartment', 'create a 2 bedroom apartment with 2 bathrooms'],
+        };
+      }
+      if (badCount(si.bathrooms)) {
+        return {
+          kind: 'refusal', intent: 'generate-apartment-layout',
+          reason: `${si.bathrooms} is not a bathroom count I can plan — I need a whole number of bathrooms (at least 1).`,
+          suggestions: ['create a 3 bedroom apartment with 2 bathrooms'],
+        };
+      }
+      const bedLabel = si.bedrooms !== null
+        ? `${si.bedrooms}-bedroom`
+        : 'apartment with the default programme';
+      const bathLabel = si.bathrooms !== null
+        ? `, ${si.bathrooms} bathroom${si.bathrooms === 1 ? '' : 's'}`
+        : '';
+      const extras = [
+        ...(si.masterEnSuite ? ['a master en-suite'] : []),
+        ...(si.openPlanKitchenDining ? ['an open-plan kitchen/dining'] : []),
+      ];
+      const extraLabel = extras.length > 0 ? `, with ${extras.join(' and ')}` : '';
+      // The stated contract: this FILLS the shell that is already drawn. It
+      // does not draw walls, does not add levels, and does not touch anything
+      // outside the active level's exterior shell.
+      const summary =
+        `Lay out ${si.bedrooms !== null ? 'a ' : 'an '}${bedLabel}${bathLabel}${extraLabel} ` +
+        `inside the walls already drawn on this level — it fills the EXISTING shell (no new building, ` +
+        `nothing outside the shell changes). If there is no closed shell yet, I'll say so rather than guess.`;
+      return {
+        kind: 'commands', intent: 'generate-apartment-layout',
+        summary,
+        commands: [{
+          type: 'generation.apartment',
+          payload: {
+            ...(si.bedrooms !== null ? { bedrooms: si.bedrooms } : {}),
+            ...(si.bathrooms !== null ? { bathrooms: si.bathrooms } : {}),
+            ...(si.masterEnSuite ? { masterEnSuite: true } : {}),
+            ...(si.openPlanKitchenDining ? { openPlanKitchenDining: true } : {}),
+          },
+        }],
+        // Generating a whole plan is consequential — Confirm card first.
+        destructive: true,
+      };
+    }
+
     // ── RAC U4 — the ONE generic arm ─────────────────────────────────────────
     // Every intent NOT hand-written above is a spec-driven batch capability:
     // the switch narrows `si` to SpecDrivenIntent here, and the generic
@@ -2019,6 +2226,142 @@ const matchRhinoMaterial: Matcher = (text, ctx) => {
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
+// §GEN-CHAT (RAC U5b.2) — "generate a 3-storey residential building" /
+// "generate a 2-storey house" / "generate an office building with 5 floors".
+//
+// TOKEN-BASED like the layer/window parsers: a creation verb + a BUILDING-
+// typology noun claims the utterance; storeys, apartment mix and roof form are
+// extracted independently of word order. Element nouns (wall/door/window/…)
+// NEVER claim — "make the house walls white" stays a colour ask — and floors
+// stay optional (the apply arm STATES the default the generator will use).
+const GEN_BUILDING_VERB_RE = /^(?:generate|create|build|make)\b/;
+const GEN_ELEMENT_NOUN_RE = /\b(?:walls?|doors?|windows?|slabs?|roofs?|stairs?|columns?|beams?|ceilings?|furniture)\b/;
+const GEN_STOREY_WORDS: Readonly<Record<string, number>> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+  nine: 9, ten: 10, eleven: 11, twelve: 12,
+};
+const GEN_FLOORS_RE =
+  /(?:^|\s)(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-](?:storeys?|stor(?:y|ies)|floors?|levels?)\b/;
+const GEN_MIX_RE = /\b([1-4]|one|two|three|four)[\s-]bed(?:room)?s?\b|\bt([1-4])\b/g;
+const GEN_ROOF_RE = /\b(flat|gable|hip)(?:ped)? roof\b/;
+
+/** Parse a building-generation sentence into the semantic intent — SHARED by
+ *  the tier-0 grammar and the NL classifier (the parseWallTypeIntent pattern).
+ *  Returns null (a miss) when no building-typology noun appears. */
+export function parseGenerateBuildingIntent(
+  text: string,
+): Extract<SemanticIntent, { intent: 'generate-building' }> | null {
+  if (!GEN_BUILDING_VERB_RE.test(text)) return null;
+  // Element-level asks are someone else's sentence ("make the house walls
+  // white", "create a window …") — never claimed as generation.
+  if (GEN_ELEMENT_NOUN_RE.test(text)) return null;
+  // "make" claims only the creation shape ("make a house", "make me a new
+  // office building") — "make the house white" is NOT a generation ask.
+  if (/^make\b/.test(text) && !/^make (?:me )?(?:a|an|another|new)\b/.test(text)) return null;
+
+  // Typology — office wins over the generic "building" word, residential wins
+  // over "house" phrasings like "housing block" cannot occur (word-bounded).
+  const typology: 'residential-building' | 'house' | 'office' | null =
+    /\boffice\b/.test(text) ? 'office'
+    : /\bresidential\b|\bapartment (?:building|block|tower)\b|\bblock of flats\b|\bmulti[\s-]family\b/.test(text) ? 'residential-building'
+    : /\bhouse\b|\bvilla\b/.test(text) ? 'house'
+    : null;
+  if (typology === null) return null;
+
+  const f = GEN_FLOORS_RE.exec(text);
+  const floors = f === null
+    ? null
+    : /^\d+$/.test(f[1]!) ? Number(f[1]) : (GEN_STOREY_WORDS[f[1]!] ?? null);
+
+  // Apartment-mix hints — residential only ("with 2-bed and 3-bed apartments").
+  let mix: { T1?: boolean; T2?: boolean; T3?: boolean; T4?: boolean } | undefined;
+  if (typology === 'residential-building') {
+    const beds = new Set<number>();
+    GEN_MIX_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = GEN_MIX_RE.exec(text)) !== null) {
+      const word = m[1] ?? m[2]!;
+      const n = /^\d$/.test(word) ? Number(word) : (GEN_STOREY_WORDS[word] ?? 0);
+      if (n >= 1 && n <= 4) beds.add(n);
+    }
+    if (beds.size > 0) {
+      mix = { T1: beds.has(1), T2: beds.has(2), T3: beds.has(3), T4: beds.has(4) };
+    }
+  }
+
+  const roof = typology === 'house' ? GEN_ROOF_RE.exec(text) : null;
+  const roofKind = roof === null ? undefined : (roof[1] as 'flat' | 'gable' | 'hip');
+
+  return {
+    intent: 'generate-building',
+    typology,
+    floors,
+    ...(mix !== undefined ? { mix } : {}),
+    ...(roofKind !== undefined ? { roofKind } : {}),
+  };
+}
+
+const matchGenerateBuilding: Matcher = (text, ctx) => {
+  const si = parseGenerateBuildingIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
+// §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0) — "create a 3 bedroom apartment"
+// (fills the walls already drawn), as distinct from "generate a 3-storey
+// apartment BUILDING" (a new envelope, matchGenerateBuilding's sentence).
+//
+// TYPO-TOLERANT NOUN, deliberately. The founder typed "Create 3 bedroom
+// apparment" and the chat said "I'm not sure how to help with that yet" — a
+// capability that exists but cannot be spelled at is a capability that does
+// not exist. The alternation covers the doubled-p / dropped-t / Romance-
+// language spellings people actually type; it costs nothing and it is the
+// difference between the feature working and not.
+const APT_VERB_RE = /^(?:generate|create|make|lay ?out|plan|design|draw)\b/;
+const APT_NOUN_RE = /\b(?:apartments?|appartments?|apparments?|apartaments?|appartements?|apartmant?s?|flats?|dwellings?)\b/;
+// Building words belong to `generate-building`: an apartment BUILDING/BLOCK/
+// TOWER, or anything with a storey count, is a new envelope, not a plan laid
+// into an existing shell.
+const APT_BUILDING_RE = /\b(?:buildings?|blocks?|towers?|complex|storeys?|stor(?:y|ies)|floors?|levels?)\b/;
+const APT_BEDROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six|seven|eight)[\s-]?bed(?:room)?s?\b/;
+const APT_BATHROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six)[\s-]?bath(?:room)?s?\b/;
+const APT_ENSUITE_RE = /\ben[\s-]?suite\b/;
+const APT_OPENPLAN_RE = /\bopen[\s-]?plan\b/;
+
+/** Parse an apartment-layout sentence into the semantic intent — SHARED by the
+ *  tier-0 grammar and the NL classifier. Returns null (a miss) when no
+ *  apartment noun appears, or when the sentence is about a BUILDING. */
+export function parseApartmentLayoutIntent(
+  text: string,
+): Extract<SemanticIntent, { intent: 'generate-apartment-layout' }> | null {
+  if (!APT_VERB_RE.test(text)) return null;
+  if (!APT_NOUN_RE.test(text)) return null;
+  if (APT_BUILDING_RE.test(text)) return null;
+  // Element-level asks are someone else's sentence ("make the apartment walls
+  // white", "create a window in the apartment").
+  if (GEN_ELEMENT_NOUN_RE.test(text)) return null;
+  // "make" claims only the creation shape — "make the apartment white" is a
+  // colour ask, not a generation ask (the matchGenerateBuilding rule verbatim).
+  if (/^make\b/.test(text) && !/^make (?:me )?(?:a|an|another|new|\d)/.test(text)) return null;
+
+  const num = (m: RegExpExecArray | null): number | null => {
+    if (m === null) return null;
+    const w = m[1]!;
+    return /^\d+$/.test(w) ? Number(w) : (GEN_STOREY_WORDS[w] ?? null);
+  };
+  return {
+    intent: 'generate-apartment-layout',
+    bedrooms: num(APT_BEDROOMS_RE.exec(text)),
+    bathrooms: num(APT_BATHROOMS_RE.exec(text)),
+    masterEnSuite: APT_ENSUITE_RE.test(text),
+    openPlanKitchenDining: APT_OPENPLAN_RE.test(text),
+  };
+}
+
+const matchApartmentLayout: Matcher = (text, ctx) => {
+  const si = parseApartmentLayoutIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
@@ -2049,6 +2392,19 @@ const MATCHERS: readonly Matcher[] = [
   // matchCreateWall: both start with creation verbs, but this one requires the
   // word "window", which the wall grammar never carries.
   matchWindowsParametric,
+  // §GEN-CHAT (RAC U5b.2) — "generate a 3-storey residential building" /
+  // "…house" / "…office building with 5 floors". BEFORE matchAddLevel and
+  // matchCreateWall: those share the creation verbs, but generation requires a
+  // building-typology noun neither of them carries (and element nouns never
+  // claim here, so every element grammar above is untouched).
+  //
+  // matchApartmentLayout goes FIRST of the two: "create a 3 bedroom apartment"
+  // fills the drawn shell, "generate a 3-storey apartment building" makes a new
+  // envelope. The two grammars are already disjoint (the apartment parser
+  // refuses every building word, the building parser needs one), so the order
+  // is documentation of intent rather than a tie-break.
+  matchApartmentLayout,
+  matchGenerateBuilding,
   matchRiserHeight,  // before matchHeight — "riser height" contains "height"
   matchTreadDepth,
   matchRoomHeightOffset, // before matchHeight — "height offset" contains "height"

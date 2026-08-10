@@ -331,6 +331,38 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ctx: sel('room'),
     phrasings: ['rename room to Kitchen', 'call this room the master bedroom'],
   },
+  {
+    // §GEN-CHAT (RAC U5b.2) — whole-building generation, conversationally.
+    id: 'generate-building',
+    ctx: {},
+    phrasings: [
+      'generate a 3-storey residential building',
+      'generate a 2-storey house',
+      'generate an office building with 5 floors',
+      'create a residential building with 2-bed and 3-bed apartments',
+      'build a 4 storey residential building',
+      'generate a house',
+      'make a new office building',
+      'could you generate a 3-storey residential building?',
+    ],
+  },
+  {
+    // §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0) — filling the drawn shell.
+    id: 'generate-apartment-layout',
+    ctx: {},
+    phrasings: [
+      'create a 3 bedroom apartment',
+      'generate a 2 bed apartment in this shell',
+      'make a 3-bedroom apartment with 2 bathrooms',
+      'create a 4 bedroom apartment with an en-suite',
+      // THE FOUNDER'S SENTENCE, verbatim including the misspelling. This is the
+      // regression: 2026-08-10 it returned "I'm not sure how to help with that
+      // yet" while the layout engine had shipped months earlier.
+      'Create 3 bedroom apparment',
+      'create an apartment layout',
+      'generate a 2 bedroom flat with an open-plan kitchen',
+    ],
+  },
 ];
 
 describe('capability acceptance — a family of phrasings per capability', () => {
@@ -791,8 +823,18 @@ describe('the three states are distinguishable', () => {
   });
 
   it('MISS — not understood as a command, the LLM seam stays open', () => {
+    // Still a miss, and must stay one: this is a QUALITATIVE ask ("feel more
+    // spacious") with no programme in it, so there is nothing to dispatch.
     expect(resolveFull('make this apartment feel more spacious', ctxOf(sel('wall'))).kind).toBe('miss');
-    expect(resolveFull('generate an apartment layout', ctxOf()).kind).toBe('miss');
+    // "generate an apartment layout" was asserted here as a MISS until
+    // §GEN-CHAT-APARTMENT (RAC U5b.2). It is no longer one — deliberately.
+    // The apartment-layout engine had shipped months before the chat could
+    // reach it, which is precisely the c1902a5a failure the capability
+    // coverage gate exists to prevent, and the founder hit it live on
+    // 2026-08-10 ("Create 3 bedroom apparment" → "I'm not sure how to help
+    // with that yet"). The assertion moved to the capability's acceptance
+    // family above rather than being deleted, so the sentence is still pinned.
+    expect(resolveFull('generate an apartment layout', ctxOf()).kind).toBe('commands');
   });
 });
 
@@ -1327,5 +1369,157 @@ describe('ADR-0315 U3 tail — the ORIENTATION scope arm ("all south-facing wall
   it('orientation never composes with the selection scope — not claimed', () => {
     const r = resolveUtterance('paint the selected south-facing walls white', ctxOf(sel('wall')));
     expect(intentOf(r)).not.toBe('set-wall-color');
+  });
+});
+
+// ─── §GEN-CHAT (RAC U5b.2) — conversational GENERATION ───────────────────────
+//
+// Two capabilities that are easy to confuse and must never be: one makes a NEW
+// BUILDING from the site boundary, the other lays a plan into the walls that
+// are ALREADY DRAWN. Everything below pins that boundary, the payloads the bus
+// receives, and the refusals that quote each generator's OWN limits.
+
+describe('§GEN-CHAT — "generate a 3-storey residential building"', () => {
+  it('routes to ONE generation.building command with the typed payload', () => {
+    const r = resolveUtterance('generate a 3-storey residential building', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toHaveLength(1);
+    expect(r.commands[0]!.type).toBe('generation.building');
+    expect(r.commands[0]!.payload).toEqual({ typology: 'residential-building', floors: 3 });
+    // A whole building is consequential — the Confirm card states typology and
+    // floors before anything is dispatched.
+    expect(r.destructive).toBe(true);
+    expect(r.summary).toContain('3-storey');
+    expect(r.summary).toContain('residential building');
+  });
+
+  it('the house and office arms carry their own typology + floor count', () => {
+    const h = resolveUtterance('generate a 2-storey house', ctxOf());
+    expect(h.kind).toBe('commands');
+    if (h.kind !== 'commands') return;
+    expect(h.commands[0]!.payload).toEqual({ typology: 'house', floors: 2 });
+
+    const o = resolveUtterance('generate an office building with 5 floors', ctxOf());
+    expect(o.kind).toBe('commands');
+    if (o.kind !== 'commands') return;
+    expect(o.commands[0]!.payload).toEqual({ typology: 'office', floors: 5 });
+  });
+
+  it('apartment-mix hints reach the payload as T1–T4 flags', () => {
+    const r = resolveUtterance('create a residential building with 2-bed and 3-bed apartments', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toMatchObject({
+      typology: 'residential-building',
+      typologies: { T1: false, T2: true, T3: true, T4: false },
+    });
+  });
+
+  it('an unstated floor count STATES the default rather than inventing one', () => {
+    const r = resolveUtterance('generate a house', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    // No `floors` key at all — the generator's own default applies, and the
+    // summary says which one, so the Confirm card is never silently wrong.
+    expect(r.commands[0]!.payload).toEqual({ typology: 'house' });
+    expect(r.summary).toContain('default');
+  });
+
+  // ── The refusals quote each generator's REAL limit, with both numbers ──────
+  it('a 6-storey house is refused with the house generator own range', () => {
+    const r = resolveUtterance('generate a 6-storey house', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('1–3 storeys');
+    expect(r.reason).toContain('6');
+    // …and points at the generator that CAN do it, rather than dead-ending.
+    expect(r.suggestions.join(' ')).toContain('residential building');
+  });
+
+  it('a 1-storey residential building is refused (ground + at least 1 apartment floor)', () => {
+    const r = resolveUtterance('generate a 1-storey residential building', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('at least 2 storeys');
+    expect(r.suggestions.join(' ')).toContain('house');
+  });
+
+  it('a 30-storey residential building and a 60-storey office are refused at their caps', () => {
+    const resi = resolveUtterance('generate a 30-storey residential building', ctxOf());
+    expect(resi.kind).toBe('refusal');
+    if (resi.kind === 'refusal') expect(resi.reason).toContain('21 storeys');
+
+    const office = resolveUtterance('generate a 60-storey office building', ctxOf());
+    expect(office.kind).toBe('refusal');
+    if (office.kind === 'refusal') expect(office.reason).toContain('40 storeys');
+  });
+
+  it('element-level sentences are NEVER claimed as generation', () => {
+    // "make the house walls white" is a colour ask that happens to contain the
+    // word "house"; "create a window …" is the parametric-window grammar.
+    expect(intentOf(resolveFull('make the house walls white', ctxOf()))).not.toBe('generate-building');
+    expect(intentOf(resolveFull('create a window in the middle of every wall segment', ctxOf())))
+      .not.toBe('generate-building');
+  });
+});
+
+describe('§GEN-CHAT-APARTMENT — "create a 3 bedroom apartment" (the founder P0)', () => {
+  it('THE REGRESSION: the founder misspelling resolves instead of dead-ending', () => {
+    // 2026-08-10, typed live: "Create 3 bedroom apparment" →
+    // "I'm not sure how to help with that yet", while the apartment-layout
+    // engine had been shipping for months. A capability that cannot be spelled
+    // at is a capability that does not exist.
+    const r = resolveFull('Create 3 bedroom apparment', ctxOf());
+    expect(intentOf(r)).toBe('generate-apartment-layout');
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.type).toBe('generation.apartment');
+    expect(r.commands[0]!.payload).toEqual({ bedrooms: 3 });
+  });
+
+  it('bedrooms, bathrooms and the programme flags all reach the payload', () => {
+    const r = resolveUtterance('make a 3-bedroom apartment with 2 bathrooms', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ bedrooms: 3, bathrooms: 2 });
+
+    const e = resolveUtterance('create a 4 bedroom apartment with an en-suite', ctxOf());
+    expect(e.kind).toBe('commands');
+    if (e.kind !== 'commands') return;
+    expect(e.commands[0]!.payload).toEqual({ bedrooms: 4, masterEnSuite: true });
+
+    const o = resolveUtterance('generate a 2 bedroom flat with an open-plan kitchen', ctxOf());
+    expect(o.kind).toBe('commands');
+    if (o.kind !== 'commands') return;
+    expect(o.commands[0]!.payload).toEqual({ bedrooms: 2, openPlanKitchenDining: true });
+  });
+
+  it('the Confirm card says it fills the EXISTING shell — not a new building', () => {
+    const r = resolveUtterance('create a 3 bedroom apartment', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.summary).toContain('already drawn');
+    expect(r.summary).toContain('EXISTING shell');
+    expect(r.destructive).toBe(true);
+  });
+
+  it('the two generation grammars are DISJOINT — "apartment building" is a new envelope', () => {
+    // The distinction the founder cares about: one fills what he drew, the
+    // other puts up a tower. A sentence may only ever mean one of them.
+    expect(intentOf(resolveFull('generate a 3-storey apartment building', ctxOf())))
+      .toBe('generate-building');
+    expect(intentOf(resolveFull('generate a 6 storey apartment block', ctxOf())))
+      .toBe('generate-building');
+    expect(intentOf(resolveFull('create a 3 bedroom apartment', ctxOf())))
+      .toBe('generate-apartment-layout');
+  });
+
+  it('qualitative and element-level apartment sentences stay out of it', () => {
+    // No programme to dispatch — the LLM seam stays open (unchanged behaviour).
+    expect(resolveFull('make this apartment feel more spacious', ctxOf()).kind).toBe('miss');
+    // A colour ask that happens to name the apartment.
+    expect(intentOf(resolveFull('make the apartment walls white', ctxOf())))
+      .not.toBe('generate-apartment-layout');
   });
 });

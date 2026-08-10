@@ -57,6 +57,11 @@ export interface OfficeBuildingRequestResult {
     readonly ok: boolean;
     readonly reason?: string;
     readonly deskCount?: number;
+    /** §GEN-CHAT (RAC U5b.4) — the ENGINE's own account of what it built, for
+     *  the chat transcript: as-built storeys + desks, plus the orchestrator's
+     *  auto-fit notes verbatim (the plate it had to resize and why). Set on the
+     *  `buildDirect` path only — on the modal path the modal is that report. */
+    readonly report?: readonly string[];
 }
 
 interface WallRecord { id: string; levelId: string; baseLine?: ReadonlyArray<{ x: number; z: number }>; }
@@ -238,7 +243,19 @@ export class OfficeBuildingController {
                 span.setAttribute('pryzm.office.buildDirect.withInterior', opts?.withInterior === true);
                 span.setAttribute('pryzm.office.buildDirect.desks', result.analytics.totalDesks);
                 span.end();
-                return { ok: true, deskCount: result.analytics.totalDesks };
+                // §GEN-CHAT (RAC U5b.4) — the engine's own numbers, not a
+                // restatement of what was asked for: `result.stories` is what
+                // was BUILT and `autoFit.notes` are the orchestrator's own
+                // words about anything it had to change to make it fit.
+                return {
+                    ok: true,
+                    deskCount: result.analytics.totalDesks,
+                    report: [
+                        `Built a ${result.stories}-storey office tower on a ${radiusM.toFixed(1)} m-radius plate — ` +
+                        `${result.analytics.totalDesks} desks.`,
+                        ...result.autoFit.notes,
+                    ],
+                };
             } catch (err) {
                 span.recordException(err as Error);
                 span.end();

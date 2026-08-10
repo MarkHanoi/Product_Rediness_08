@@ -78,6 +78,91 @@ export function triggerApartmentLayout(
     }
 }
 
+/** §GEN-CHAT-APARTMENT — the chat path's result shape. */
+export type ApartmentLayoutChatResult =
+    | { readonly ok: true; readonly report: readonly string[] }
+    | { readonly ok: false; readonly reason: string };
+
+/**
+ * §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0 2026-08-10) — "create a 3 bedroom
+ * apartment", from the chat.
+ *
+ * The SAME pipeline `triggerApartmentLayout` runs (same controller/executor
+ * singletons, same `gatherLayoutPayload` shell read, same
+ * `requestApartmentLayout` submit) — this only RETURNS the outcome instead of
+ * swallowing it into a toast, so the chat transcript can state the engine's own
+ * refusal rather than the "I'm not sure how to help with that yet" dead end the
+ * founder hit. Every refusal below is a real, checkable site fact:
+ *
+ *   • no runtime / no active level  → "open a project" / "create a level"
+ *   • fewer than 3 exterior walls   → "draw the walls first" (with the count found)
+ *   • the AI runtime is stale       → the existing restart instruction
+ *
+ * The layout OPTIONS themselves arrive asynchronously on `ai.layoutOptions` and
+ * open the shipped §11 picker — that modal IS the post-run report on this path
+ * (headless auto-pick is the deliberate U5c deferral recorded in
+ * `generationRequest.ts`'s apartment arm), so the transcript says so honestly
+ * instead of claiming rooms were built.
+ */
+export async function generateApartmentLayoutForChat(
+    runtimeArg: PryzmRuntime | null | undefined,
+    programOverride: Partial<ApartmentProgram>,
+): Promise<ApartmentLayoutChatResult> {
+    const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
+    const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
+        rt?.events?.emit('pryzm:toast', { message, severity });
+    };
+    try {
+        const lid = resolveActiveLevelId();
+        if (!rt || !lid) {
+            return { ok: false, reason: 'there is no active level — create or open a level first.' };
+        }
+        const hasStore = !!(rt.ai as { layoutOptions?: unknown } | undefined)?.layoutOptions;
+        if (!hasStore) {
+            return { ok: false, reason: 'the AI runtime is stale — restart the dev server (npm run dev) and reload.' };
+        }
+
+        const payload = gatherLayoutPayload(lid, programOverride);
+        const wallCount = payload?.shellWallIds.length ?? 0;
+        if (!payload || wallCount < 3) {
+            return {
+                ok: false,
+                reason:
+                    `there is no closed shell on this level to lay out — I found ${wallCount} exterior wall` +
+                    `${wallCount === 1 ? '' : 's'} and need at least 3. Draw the walls first, ` +
+                    `or say "generate a 2-storey house" and I'll build the shell too.`,
+            };
+        }
+
+        _controller.attach(rt); // idempotent
+        _executor.attach(rt);   // idempotent
+        _controller.setLastPayload(payload, {});
+        toast('Generating apartment layouts…', 'info');
+        const r = await requestApartmentLayout(rt, payload);
+        if (!r.ok) {
+            return { ok: false, reason: r.reason ?? 'the layout engine refused without a reason.' };
+        }
+        const p = payload.program;
+        const asked = [
+            `${p.bedrooms} bedroom${p.bedrooms === 1 ? '' : 's'}`,
+            `${p.bathrooms} bathroom${p.bathrooms === 1 ? '' : 's'}`,
+            ...(p.masterEnSuite === true ? ['a master en-suite'] : []),
+            ...(p.openPlanKitchenDining === true ? ['an open-plan kitchen/dining'] : []),
+        ].join(', ');
+        return {
+            ok: true,
+            report: [
+                `Laying out ${asked} inside the ${wallCount}-wall shell on this level — ` +
+                `the layout picker opens with the options the engine finds, and anything it has to ` +
+                `drop is named there with its reason.`,
+            ],
+        };
+    } catch (err) {
+        console.error('[apartment-layout] chat path threw:', err);
+        return { ok: false, reason: `the apartment layout engine failed: ${String((err as Error)?.message ?? err)}` };
+    }
+}
+
 /** §HELP (2026-05-29) — print every pryzm…() console command for the
  *  apartment generation pipeline, with a one-line description so the
  *  architect can discover the full toolkit without grepping the source. */
