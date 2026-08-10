@@ -443,6 +443,32 @@ Also measured this execution: builder 16 GB precondition still held from
 booted `dist/index.cjs` in **720 ms** (the L-442 precompile paying off — the
 Dockerfile's original "993 ms" claim is now independently corroborated).
 
+### 6.5.7 §IMAGE-REF-RECOVERY — the standard resume after a post-push flyctl death (VERIFIED ×2)
+
+Observed 2026-08-10 (deploy of `44146931`) and previously as the L-818 multi-image
+recovery: the build **and the registry push both succeed** ("Pushing image done",
+a `deployment-…` tag printed with its digest), and *then* flyctl dies — that day
+with the §6.5.6 npipe error, **despite the DOCKER_CONFIG guard being set** (the
+guard shielded the build phase but not the post-push heartbeat/deploy phase; why
+is an open item below).
+
+**Do not rebuild.** The image is already in the registry. Resume with a
+reference-only deploy, which ships kilobytes and skips the entire upload/build:
+
+```bash
+MSYS_NO_PATHCONV=1 DOCKER_CONFIG=/tmp/empty-docker-config \
+  flyctl deploy --image registry.fly.io/pryzm:<the-printed-deployment-tag> -a pryzm --yes
+```
+
+Read the tag from the failed run's own output (the `deployment-…: digest: sha256:…`
+line). Then run the §5 bundle proof against the SHA the script printed at start,
+exactly as for any deploy. Verified end-to-end 2026-08-10: rollout completed,
+proof 6/6.
+
+Rule for the next agent: "Pushing image done" in the log ⇒ the failure is
+DELIVERY, not build. Reference-deploy the pushed tag; never re-run the full
+script (it re-uploads ~130 MB and re-builds for nothing).
+
 ## 7. OPEN ITEMS
 
 1. **Decouple build from deploy** — the real fix. Build on a datacenter box,
@@ -455,6 +481,11 @@ Dockerfile's original "993 ms" claim is now independently corroborated).
    overlapping manual paths is exactly the drift this contract exists to prevent.
 4. **Re-enable the CI gate the moment Actions recovers.** This contract is a fallback, not a
    new normal. Normalising it re-opens every gap in §6.
+5. **Why did `DOCKER_CONFIG=/tmp/empty-docker-config` not shield the post-push phase?**
+   (2026-08-10, §6.5.7.) The build phase ran clean under the guard, then the remote-builder
+   heartbeat re-resolved the npipe context. Either flyctl reads the context again through a
+   different path in that phase, or the env var was lost across an internal re-exec. Until
+   diagnosed, treat §6.5.7 as the expected occasional resume, not an anomaly.
 
 ---
 
