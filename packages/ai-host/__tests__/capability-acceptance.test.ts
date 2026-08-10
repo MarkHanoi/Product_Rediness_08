@@ -240,6 +240,16 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    id: 'add-wall-layer',
+    ctx: sel('wall'),
+    phrasings: [
+      'add a 10mm plaster layer to the inner side of the selected wall',
+      'add a 12mm plasterboard layer to all walls',
+      'add a 20mm limewash finish to the outer side of all walls',
+      'add a layer of 10 mm plaster to the selected walls',
+    ],
+  },
+  {
     id: 'set-window-type',
     // Selection-form phrasings need a selected window; the injected resolver is
     // exercised by the dedicated describe block below (raw-forward here).
@@ -1053,5 +1063,74 @@ describe('§FEAT-WINDOW-TYPE-BATCH — "change the window type to …"', () => {
   it('dimension sentences are NEVER claimed as a type ask', () => {
     const r = resolveUtterance('make all windows 1m wide', ctxOf(sel('window')));
     expect(intentOf(r)).not.toBe('set-window-type');
+  });
+});
+
+describe('§FEAT-WALL-LAYER-ADD-BATCH — "add a 10mm plaster layer …"', () => {
+  it('the canonical sentence resolves side, thickness (mm→m), finish and selection scope', () => {
+    const r = resolveUtterance(
+      'add a 10mm plaster layer to the inner side of the selected wall',
+      ctxOf(sel('wall', 'w-7')),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('add-wall-layer');
+    expect(r.commands).toEqual([{
+      type: 'wall.addLayerBatch',
+      payload: {
+        wallIds: ['w-7'], side: 'interior', thickness: 0.01,
+        name: 'Plaster · Skim Coat (Painted)', materialColor: '#f5f5f0', materialId: 'gypsum-skim',
+      },
+    }]);
+    expect(r.destructive).toBe(false);
+  });
+
+  it("the founder's loose word order still parses (thickness after finish, 'mms')", () => {
+    const r = resolveUtterance(
+      'add a finish layer on the inner side of the selected wall with 10 mms thickness of plaster',
+      ctxOf(sel('wall', 'w-7')),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    const payload = r.commands[0]!.payload as { thickness: number; materialId: string; side: string };
+    expect(payload.thickness).toBe(0.01);
+    expect(payload.materialId).toBe('gypsum-skim');
+    expect(payload.side).toBe('interior');
+  });
+
+  it('"outer side" maps to exterior; "all walls" maps to the all scope', () => {
+    const r = resolveUtterance('add a 20mm limewash finish to the outer side of all walls', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toMatchObject({ wallIds: 'all', side: 'exterior', thickness: 0.02, materialId: 'paint-limewash-cream' });
+  });
+
+  it('missing thickness CLAIMS and asks concretely — never a silent miss to the LLM', () => {
+    const r = resolveUtterance('add a plaster layer to the selected wall', ctxOf(sel('wall')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('add-wall-layer');
+    expect(r.reason).toContain('how thick');
+  });
+
+  it('an unknown finish refuses by LISTING the real vocabulary', () => {
+    const r = resolveUtterance('add a 10mm unobtainium layer to all walls', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('add-wall-layer');
+    expect(r.reason).toContain('plaster');
+    expect(r.reason).toContain('limewash');
+  });
+
+  it('selection scope with no wall selected refuses and names what IS selected', () => {
+    const r = resolveUtterance('add a 10mm plaster layer to the selected walls', ctxOf(sel('door')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('door');
+  });
+
+  it('no scope word ⇒ no claim (same discipline as every wall batch)', () => {
+    const r = resolveUtterance('add a 10mm plaster layer to walls', ctxOf());
+    expect(intentOf(r)).not.toBe('add-wall-layer');
   });
 });

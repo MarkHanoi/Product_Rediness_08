@@ -102,6 +102,9 @@ export function resolveFinishRef(ref: string): ResolvedFinish | null {
   for (const entry of FINISHES) {
     if (entry.aliases.some((a) => a === n)) return entry.finish;
   }
+  // Substring matching needs ≥4 chars — short scope/stop words otherwise hit
+  // inside longer aliases ("all" inside "drywall" was the live false positive).
+  if (n.length < 4) return null;
   const partial = FINISHES.filter((e) => e.aliases.some((a) => a.includes(n) || n.includes(a)));
   return partial.length === 1 ? partial[0]!.finish : null;
 }

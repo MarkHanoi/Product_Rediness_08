@@ -33,6 +33,7 @@ import {
 } from '../capabilities/ChatCapabilityRegistry.js';
 import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
+import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
 import { isScopeError, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
 // §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
 // constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
@@ -460,6 +461,24 @@ export type SemanticIntent =
       /** Type id OR name, as the user said it — resolved by the injected
        *  `ctx.resolveWindowSystemType`, or by the command when absent. */
       readonly typeRef: string;
+      readonly scope: 'all' | 'selection';
+    }
+  /**
+   * §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm
+   * plaster finish to the inner side of the selected wall". Dispatches
+   * `wall.addLayerBatch` (ONE undo entry; instance-scoped, raked walls skip
+   * with the L-812 gate's reason). The finish vocabulary is the ONE table in
+   * finishRef.ts; thickness/finish may arrive null from a loose sentence and
+   * refuse honestly in the apply arm — a recognized-but-underspecified layer
+   * ask must never fall through to the LLM.
+   */
+  | {
+      readonly intent: 'add-wall-layer';
+      readonly side: 'interior' | 'exterior';
+      /** Layer thickness in metres, or null when the sentence named none. */
+      readonly thicknessM: number | null;
+      /** Finish reference ("plaster"), or null when none was recognized. */
+      readonly finishRef: string | null;
       readonly scope: 'all' | 'selection';
     };
 
@@ -1507,6 +1526,79 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
+    case 'add-wall-layer': {
+      // §FEAT-WALL-LAYER-ADD-BATCH — scope first, then honest completeness
+      // refusals: the intent is CLAIMED even when thickness or finish is
+      // missing, so the answer is a concrete ask, never an LLM guess.
+      let wallIds: readonly string[] | 'all';
+      if (si.scope === 'selection') {
+        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
+        if (walls.length === 0) {
+          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
+          return {
+            kind: 'refusal', intent: 'add-wall-layer',
+            reason: kinds.length === 0
+              ? 'No walls are selected — select a wall, or say "add a 10mm plaster layer to all walls".'
+              : `Finish layers apply to walls, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
+            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+          };
+        }
+        wallIds = walls.map((s) => s.elementId);
+      } else {
+        wallIds = 'all';
+      }
+
+      if (si.thicknessM === null) {
+        return {
+          kind: 'refusal', intent: 'add-wall-layer',
+          reason: 'Tell me how thick the layer should be — e.g. "add a 10mm plaster layer to the inner side of the selected wall".',
+          suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+        };
+      }
+      if (si.finishRef === null) {
+        return {
+          kind: 'refusal', intent: 'add-wall-layer',
+          reason: `Tell me which finish — I know ${exampleFinishNames().join(', ')}.`,
+          suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+        };
+      }
+      // ONE finish table (finishRef.ts) — unknown names refuse by LISTING
+      // real options, never by guessing (§CONTEXT-DATA-HONESTY).
+      const finish = resolveFinishRef(si.finishRef);
+      if (finish === null) {
+        return {
+          kind: 'refusal', intent: 'add-wall-layer',
+          reason:
+            `I don't know the finish "${si.finishRef}". I understand ` +
+            `${exampleFinishNames().join(', ')}.`,
+          suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+        };
+      }
+
+      const mm = Number((si.thicknessM * 1000).toFixed(3));
+      const scopeLabel = wallIds === 'all'
+        ? 'every wall in the project'
+        : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
+      return {
+        kind: 'commands', intent: 'add-wall-layer',
+        summary: `Add a ${mm}mm ${finish.name} layer to the ${si.side} side of ${scopeLabel}`,
+        commands: [{
+          type: 'wall.addLayerBatch',
+          payload: {
+            wallIds: wallIds === 'all' ? 'all' : [...wallIds],
+            side: si.side,
+            thickness: si.thicknessM,
+            name: finish.name,
+            materialColor: finish.materialColor,
+            materialId: finish.materialId,
+          },
+        }],
+        // NOT destructive — one undo entry; the command reports "Added … to
+        // N of M walls — K skipped" (raked walls skip with the gate's reason).
+        destructive: false,
+      };
+    }
+
     case 'set-rhino-material': {
       // §FEAT-RHINO-CHAT-MATERIAL — whole-model scope by construction: the
       // Rhino import is one reference model, not a set of store elements, so
@@ -1951,6 +2043,60 @@ const matchWindowType: Matcher = (text, ctx) => {
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
+// §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm plaster
+// layer to the inner side of the selected wall" and its loose family.
+//
+// The founder's real sentences are word-order-free ("Add a finish layer on the
+// inner side of paint … with 10mms thickness of plaster"), so this parser is
+// TOKEN-BASED, not one rigid shape: it claims any "add …" sentence that names
+// a layer/finish/coat AND wall(s) AND a scope word, then extracts side,
+// thickness and finish independently. Missing thickness or finish still
+// CLAIMS (the ask is unambiguously a layer ask) and the apply arm refuses
+// with a concrete example — recognized-but-underspecified never reaches the
+// LLM (ADR-0313 HONESTY note).
+const WALL_LAYER_THICKNESS_RE = /(\d+(?:\.\d+)?)\s*(mm|cm|m)s?\b/;
+
+export function parseAddWallLayerIntent(text: string): Extract<SemanticIntent, { intent: 'add-wall-layer' }> | null {
+  if (!/^add\b/.test(text)) return null;
+  if (!/\b(?:layers?|finish(?:es)?|coat(?:ing)?s?)\b/.test(text)) return null;
+  if (!/\bwalls?\b/.test(text)) return null;
+  // Same explicit-scope discipline as every wall batch: no scope word, no claim.
+  const isAll = new RegExp(String.raw`\b(?:${WALL_SCOPE_ALL})(?: the)? walls?\b`).test(text);
+  const isSel = new RegExp(String.raw`\b(?:the )?(?:${WALL_SCOPE_SEL})(?: selected)? walls?\b`).test(text)
+    || /\bthe selected walls?\b/.test(text);
+  if (!isAll && !isSel) return null;
+
+  const side: 'interior' | 'exterior' =
+    /\b(?:outer|outside|exterior|external)\b/.test(text) ? 'exterior' : 'interior';
+
+  const t = WALL_LAYER_THICKNESS_RE.exec(text);
+  const thicknessM = t === null
+    ? null
+    : t[2] === 'mm' ? Number(t[1]) / 1000
+    : t[2] === 'cm' ? Number(t[1]) / 100
+    : Number(t[1]);
+
+  // The finish is found by scanning the ONE vocabulary (finishRef aliases via
+  // resolveFinishRef over shrinking word windows), so word order never
+  // matters: "10mm plaster", "plaster with 10mm", "of plaster" all resolve.
+  let finishRef: string | null = null;
+  const words = text.replace(WALL_LAYER_THICKNESS_RE, ' ').split(/[^a-z-]+/).filter((w) => w.length > 2);
+  outer:
+  for (let span = 3; span >= 1; span--) {
+    for (let i = 0; i + span <= words.length; i++) {
+      const candidate = words.slice(i, i + span).join(' ');
+      if (resolveFinishRef(candidate) !== null) { finishRef = candidate; break outer; }
+    }
+  }
+
+  return { intent: 'add-wall-layer', side, thicknessM, finishRef, scope: isAll ? 'all' : 'selection' };
+}
+
+const matchAddWallLayer: Matcher = (text, ctx) => {
+  const si = parseAddWallLayerIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
 // white" / "paint the rhino model white" / "reset the rhino model materials".
 //
@@ -2012,6 +2158,9 @@ const MATCHERS: readonly Matcher[] = [
   // Window types, same guards as wall types ("make all windows 1m wide" never
   // claimed); the word "windows"/"window type" keeps it off the wall grammars.
   matchWindowType,
+  // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
+  // it off every other grammar; claims even when underspecified (honest asks).
+  matchAddWallLayer,
   matchRiserHeight,  // before matchHeight — "riser height" contains "height"
   matchTreadDepth,
   matchRoomHeightOffset, // before matchHeight — "height offset" contains "height"

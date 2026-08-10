@@ -40,6 +40,7 @@ import {
   findLevel,
   lengthToMeters,
   parseDuplicateLevelIntent,
+  parseAddWallLayerIntent,
   parseWallColorIntent,
   parseWallRakeIntent,
   parseWallTypeIntent,
@@ -969,6 +970,18 @@ function classify(
       confidence: 0.95,
       evidence: ['verb:change', 'noun:window', `scope:${windowType.scope}`],
       si: windowType,
+    });
+  }
+
+  // add-wall-layer (§FEAT-WALL-LAYER-ADD-BATCH) — shared token-based parser,
+  // same rank; claims even when underspecified so the honest ask wins.
+  const wallLayer = parseAddWallLayerIntent(n.plain);
+  if (wallLayer !== null) {
+    push({
+      intent: 'add-wall-layer',
+      confidence: 0.95,
+      evidence: ['verb:add', 'noun:layer', `scope:${wallLayer.scope}`],
+      si: wallLayer,
     });
   }
 

@@ -138,6 +138,8 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-wall-rake': ['wall'],
       // §FEAT-WINDOW-TYPE-BATCH (ADR-0315) — "change the window type to …".
       'set-window-type': ['window'],
+      // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315) — "add a 10mm plaster layer …".
+      'add-wall-layer': ['wall'],
       'set-roof-pitch': ['roof'],
       'rename-room': ['room'],
       'set-room-number': ['room'],

@@ -105,6 +105,9 @@ export type CapabilityValueSource =
   /** The project's window system types (`windowSystemTypeStore`), resolved by
    *  `resolveWindowSystemTypeRef` — the same resolveCatalogueRef ladder. */
   | 'window-system-types'
+  /** Finish names ("plaster", "limewash"), resolved by the ONE table in
+   *  packages/ai-host/src/intents/finishRef.ts (materialLibrary-transcribed). */
+  | 'finish'
   /** The project's level list, resolved by `findLevel`. */
   | 'project-levels'
   /** A colour name or '#hex', resolved by the ONE table in
@@ -777,6 +780,60 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'make the selected walls angled by 70',
       'tilt all walls on the ground floor by 60 degrees',
       'make all walls vertical',
+    ],
+  },
+  {
+    id: 'add-wall-layer',
+    // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm
+    // plaster finish to the inner side of the selected wall". Rides
+    // wall.addLayerBatch → AddWallLayerBatchCommand: INSTANCE-scoped children
+    // on the property panel's proven UpdateWallSystemTypeCommand route
+    // (geometry wallStore; never the detached wall.setLayers store, never the
+    // sibling-restamping type-store path). Raked walls skip with the L-812
+    // gate's reason; monolithic walls keep their body as a seeded structure
+    // layer; wall.thickness re-derives per §03-WALL-THICKNESS-CONTRACT.
+    description: 'add a finish layer to walls',
+    verbs: ['add'],
+    aliases: ['finish layer', 'wall layer', 'plaster layer'],
+    refusalLabel: 'finish layer',
+    targets: ['wall'],
+    parameters: [
+      {
+        name: 'thickness',
+        description: 'the layer thickness (e.g. 10mm)',
+        required: true,
+        valueSource: 'measurement',
+        example: '10mm',
+      },
+      {
+        name: 'finish',
+        description: 'the finish, by name (plaster, plasterboard, limewash, …)',
+        required: true,
+        valueSource: 'finish',
+        example: 'plaster',
+      },
+      {
+        name: 'side',
+        description: 'inner (default) or outer face',
+        required: false,
+        valueSource: 'user-text',
+        example: 'inner side',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection'],
+    destructive: false,
+    busCommand: 'wall.addLayerBatch',
+    probe: { intent: 'add-wall-layer', side: 'interior', thicknessM: 0.01, finishRef: 'plaster', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/walls/AddWallLayerBatchCommand.ts',
+      mustMention: ['wallStore', 'UpdateWallSystemTypeCommand'],
+      note: "_resolveWalls reads ctx.stores.wallStore and nothing else, so the command's reachable set is walls only; per wall it reuses the proven instance-scoped UpdateWallSystemTypeCommand (geometry store → fragment rebuild, L-812 rake gate), never the detached plugin layer store.",
+    },
+    examples: [
+      'add a 10mm plaster layer to the inner side of the selected wall',
+      'add a 12mm plasterboard layer to all walls',
+      'add a 20mm limewash finish to the outer side of all walls',
     ],
   },
   {

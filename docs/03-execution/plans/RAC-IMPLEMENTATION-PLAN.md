@@ -41,7 +41,7 @@ real — geometry store, render, persistence, and one truthful undo step each.
 | # | Ask | Status |
 |---|---|---|
 | 1 | Wall rake by degrees ("make all walls angled by 120 degrees") | ✅ `set-wall-rake` — batch command (8dcaf00d) + grammar/NL/registry; scopes all·selection·level·room; per-wall `rakeAuthorability` refusals reported honestly |
-| 2 | Add finish layer to a wall type | ⬜ next |
+| 2 | Add finish layer to a wall type | ✅ `add-wall-layer` — `wall.addLayerBatch` (one undo, instance-scoped via UpdateWallSystemTypeCommand, exterior-first array semantics, raked walls skip honestly); finishRef.ts = the ONE finish vocabulary |
 | 3 | Parametric window creation (count / spacing) | ⬜ |
 | 4 | Change window type by catalogue name | ✅ `set-window-type` — `window.updateSystemTypeBatch` batch (one undo, L-620-proven child, host-wall reveal nudge); scopes all·selection; catalogue-listed refusals |
 
