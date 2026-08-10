@@ -166,6 +166,12 @@ export class PlanViewCanvas {
     private readonly _siteContextProvider: (() => PlanSiteContext | null) | null;
     private _frustumH = DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM;
     private _camTarget = new THREE.Vector3();
+    /**
+     * §PLAN-CAMTARGET-SANITY-DEDUP (L-814) — cm-rounded key of the last REFUSED camera
+     * target, so the L-481 refusal logs once per DISTINCT bad target instead of per frame.
+     * Cleared when a plausible target is accepted, so a recurring fault is reported again.
+     */
+    private _lastRefusedTargetKey: string | null = null;
     private _gridVisible = true;
     private _cssW = 0;
     private _cssH = 0;
@@ -810,12 +816,13 @@ export class PlanViewCanvas {
      * hunting in entirely the wrong place (the founder's report was "I lost the plan view
      * boundary and envelope").
      *
-     * ⚠ THIS DOES NOT FIX THE PRODUCER. The upstream cause is still open: `_fitCamTargetToScene`
-     * expands a Box3 over EVERY mesh in the scene unfiltered, so one far-placed mesh (the site
-     * plan underlay is the leading suspect — its position derives from a lat/lon differenced
-     * against a site origin that may be unset) drags the centre arbitrarily far. This guard
-     * REFUSES the bad value and says so loudly, which converts a silent data-corruption bug
-     * into a visible, diagnosable one — and prints the evidence needed to finish the job.
+     * THE PRODUCER IS NOW FIXED — §PLAN-FIT-BIM-ONLY (L-814). `_fitCamTargetToScene` used to
+     * expand a Box3 over EVERY mesh in the scene unfiltered, so one far-placed mesh (in the
+     * 2026-08-10 production spam: georeferenced 3D-Site context content) dragged the centre
+     * arbitrarily far. It now fits AUTHORED BIM content only, via the same shared collection
+     * Fit All uses (`computeBimFitBounds`, scene-committer). This guard REMAINS as
+     * defense-in-depth: any producer that leaks an implausible target is refused here, loudly
+     * — but once per DISTINCT target, not per frame (§PLAN-CAMTARGET-SANITY-DEDUP below).
      *
      * WHY REFUSE RATHER THAN CLAMP: clamping would invent a plausible-looking target and let
      * authoring continue at a subtly wrong place. Keeping the last known-good target means the
@@ -832,18 +839,31 @@ export class PlanViewCanvas {
             Math.abs(camTarget.z) <= PLAN_CAMTARGET_MAX_ABS_M;
 
         if (!finite || !withinPlausibleSite) {
-            console.error(
-                '[PlanViewCanvas] §PLAN-CAMTARGET-SANITY (L-481) REFUSED an implausible plan camera ' +
-                    `target (${camTarget.x}, ${camTarget.y}, ${camTarget.z}). Limit is ` +
-                    `±${PLAN_CAMTARGET_MAX_ABS_M} m from the site origin. Keeping the last good target ` +
-                    `(${this._camTarget.x.toFixed(2)}, ${this._camTarget.z.toFixed(2)}). ` +
-                    'Every plan click adds this target to its world position, so accepting it would ' +
-                    'author geometry hundreds of km away. LIKELY PRODUCER: a scene mesh placed far ' +
-                    'from the origin (site-plan underlay?) pulling SplitViewManager._fitCamTargetToScene.',
-            );
+            // §PLAN-CAMTARGET-SANITY-DEDUP (L-814) — a producer that re-pushes the SAME bad
+            // target every frame (plan `_render` → `setFrustum` at ~30 fps) used to repeat
+            // this line hundreds of times per session (observed 191× / 399× bursts), burying
+            // every other log. A guard must be visible, not deafening: log ONCE per DISTINCT
+            // rejected target (cm-rounded), and re-arm the moment a plausible target lands so
+            // a recurring fault after a recovery is reported again. Failure and silence must
+            // never look the same.
+            const refusedKey = `${camTarget.x.toFixed(2)},${camTarget.y.toFixed(2)},${camTarget.z.toFixed(2)}`;
+            if (this._lastRefusedTargetKey !== refusedKey) {
+                this._lastRefusedTargetKey = refusedKey;
+                console.error(
+                    '[PlanViewCanvas] §PLAN-CAMTARGET-SANITY (L-481) REFUSED an implausible plan camera ' +
+                        `target (${camTarget.x}, ${camTarget.y}, ${camTarget.z}). Limit is ` +
+                        `±${PLAN_CAMTARGET_MAX_ABS_M} m from the site origin. Keeping the last good target ` +
+                        `(${this._camTarget.x.toFixed(2)}, ${this._camTarget.z.toFixed(2)}). ` +
+                        'Every plan click adds this target to its world position, so accepting it would ' +
+                        'author geometry hundreds of km away. LIKELY PRODUCER: a scene mesh placed far ' +
+                        'from the origin (site-plan underlay?) pulling SplitViewManager._fitCamTargetToScene. ' +
+                        'Further refusals of this exact target are suppressed (L-814).',
+                );
+            }
             return;
         }
 
+        this._lastRefusedTargetKey = null;
         this._camTarget.copy(camTarget);
     }
 

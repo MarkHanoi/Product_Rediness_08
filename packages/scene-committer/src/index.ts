@@ -41,6 +41,14 @@ export {
   DOCUMENTATION_LAYER,
 } from './SceneLayers.js';
 export { SceneObjectClassifier } from './SceneObjectClassifier.js';
+// §PLAN-FIT-BIM-ONLY (L-814) — the ONE camera-fit bounds collection (Fit All + plan pane).
+export {
+    BIM_FIT_ELEMENT_TYPES,
+    computeBimFitBounds,
+    describeMeshAncestry,
+    type BimFitBoundsResult,
+    type FarthestIncludedMesh,
+} from './bimFitBounds.js';
 export { SceneBoundsCache } from './SceneBoundsCache.js';
 export { PreviewRegistry, previewRegistry } from './PreviewRegistry.js';
 export { StairPlanSymbolRegistry, stairPlanSymbolRegistry } from './StairPlanSymbolRegistry.js';

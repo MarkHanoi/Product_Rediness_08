@@ -2,8 +2,10 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 // §CAM-FRAME-INVARIANT (L-742) — the single framing authority shared with ViewController.
 import { computeFitPose } from '@pryzm/core-app-model';
-// §FIX-GIZMO-IN-BOUNDS (L-749) — ONE authority for "is this part of the model".
-import { SceneObjectClassifier } from '@pryzm/scene-committer';
+// §FIX-GIZMO-IN-BOUNDS (L-749) / §PLAN-FIT-BIM-ONLY (L-814) — ONE authority for
+// "is this part of the model", INCLUDING the BIM-type allow-list pass. The collection
+// formerly inlined here is now shared with SplitViewManager's plan-pane camera fit.
+import { computeBimFitBounds } from '@pryzm/scene-committer';
 
 /**
  * Registers default OBC views (3D, plans, elevations) and creates the
@@ -52,58 +54,27 @@ export function initViewSetup(params: { components: any; world: any; viewControl
     window.runtime?.events?.emit('update-views', {}); // F.events.10
 
     // ── zoomToAll ─────────────────────────────────────────────────────────────
-    const BIM_TYPES_FIT = new Set([
-        'wall', 'slab', 'furniture', 'column', 'beam', 'roof',
-        'curtainwall', 'curtain-wall', 'door', 'window',
-        'stair', 'stairs', 'railing', 'plumbing', 'ceiling', 'floor',
-    ]);
-
     const zoomToAll = async (animate = true) => {
-        const box = new THREE.Box3();
-        const _tmp = new THREE.Box3();
-        let hasGeometry = false;
-
-        // §FIX-GIZMO-IN-BOUNDS (L-749) — classification is SHARED, not re-implemented.
+        // §FIX-GIZMO-IN-BOUNDS (L-749) / §PLAN-FIT-BIM-ONLY (L-814) — classification AND
+        // collection are SHARED, not re-implemented.
         //
-        // Both passes below used to filter with `obj.userData.isPreview || isHelper` only.
-        // The TransformControls axis handles carry EMPTY userData (the founder's probe:
-        // `elementType=∅ id=∅ userDataKeys=[∅]`), so they passed straight through — and
-        // each is a ~1,575 km three.js helper line.
+        // L-749 routed both passes here through `SceneObjectClassifier` after the
+        // TransformControls axis handles (~1,575 km helper lines with EMPTY userData)
+        // were framed as "the model" by the fallback pass — the white 3D screen.
         //
-        // In the FIRST pass that was harmless: the `BIM_TYPES_FIT` allow-list rejected
-        // them for having no element type. In the FALLBACK pass — which runs precisely
-        // when there is no BIM geometry, i.e. the founder's brand-new project with a
-        // boundary and no walls — there is no allow-list, so the gizmo WAS the geometry
-        // it found. `computeFitPose` then honestly framed a 3,152 km box and flew the
-        // camera to megametres: the boundary "appears briefly, then it's gone", and the
-        // white 3D screen.
+        // L-814 went one step further: the plan-pane fit (`SplitViewManager.
+        // _fitCamTargetToScene`) still had its OWN unfiltered traversal, so a
+        // georeferenced site/context mesh dragged the PLAN camera target megametres out
+        // while Fit All stayed correct — two disagreeing collections, same defect shape.
+        // `computeBimFitBounds` (scene-committer) is now the ONE collection both use:
+        // pass 1 = BIM element types only, fallback = classified all-mesh.
         //
-        // Routing both passes through `SceneObjectClassifier` is the actual fix: two
-        // independent notions of "is this part of the model" is what let the gizmo be
-        // excluded here and included there. One authority, ancestry-aware.
         // gridRoot is null here: this traversal only visits `THREE.Mesh`, and the OBC grid
         // is line geometry, so it was never in this population and nothing changes by
-        // passing null. The helper/control exclusion below does not depend on it.
-        const gridRoot: THREE.Object3D | null = null;
+        // passing null. The helper/control exclusion does not depend on it.
+        const { bounds: box } = computeBimFitBounds(world.scene.three, null);
 
-        const collect = (requireBimType: boolean): void => {
-            world.scene.three.traverse((obj: THREE.Object3D) => {
-                if (!(obj instanceof THREE.Mesh)) return;
-                if (!obj.visible) return;
-                if (SceneObjectClassifier.shouldExcludeFromBounds(obj, gridRoot)) return;
-                if (requireBimType) {
-                    const t = (obj.userData?.elementType || obj.userData?.type || '').toLowerCase();
-                    if (!BIM_TYPES_FIT.has(t)) return;
-                }
-                _tmp.setFromObject(obj);
-                if (!_tmp.isEmpty()) { box.union(_tmp); hasGeometry = true; }
-            });
-        };
-
-        collect(true);
-        if (!hasGeometry) collect(false);
-
-        if (!hasGeometry || box.isEmpty()) {
+        if (box.isEmpty()) {
             console.warn('[zoomToAll] No geometry found in scene');
             return;
         }

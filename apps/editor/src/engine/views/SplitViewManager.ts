@@ -50,6 +50,10 @@ import {
     PLAN_CAMTARGET_MAX_ABS_M,
     PlanViewCanvas,
 } from '@pryzm/core-app-model';
+// §PLAN-FIT-BIM-ONLY (L-814) — the ONE camera-fit bounds collection, shared with
+// initViewSetup.zoomToAll (Fit All). Pass 1 = BIM element types only; context/site
+// meshes, gizmos and other non-model content are structurally outside the population.
+import { computeBimFitBounds } from '@pryzm/scene-committer';
 // Contract 27 Phase 6 — SVP canvas click → element selection
 import { selectionBus } from '@pryzm/core-app-model';
 import { frameObject } from '@pryzm/core-app-model';
@@ -1787,18 +1791,21 @@ export class SplitViewManager implements ISplitViewManager {
     /**
      * §PLAN-FIT-OUTLIER-DIAG (L-481) — name the mesh that drags the plan camera away.
      *
-     * This expands a Box3 over EVERY mesh in the scene, unfiltered, and hands the centre to the
-     * plan camera target. One mesh placed far from the origin therefore moves the target
-     * arbitrarily far — and because `PlanViewCanvas.screenToWorld` ADDS that target to every
-     * click, it silently relocates authored geometry. Live evidence: a wall committed at
-     * (181116, -253540), ~300 km out.
+     * ── §PLAN-FIT-BIM-ONLY (L-814) — THE PRODUCER IS FIXED ────────────────────────────
+     * This USED to expand a Box3 over EVERY mesh in the scene, unfiltered, and hand the
+     * centre to the plan camera target. One mesh placed far from the origin therefore moved
+     * the target arbitrarily far — and because `PlanViewCanvas.screenToWorld` ADDS that
+     * target to every click, it silently relocated authored geometry. Live evidence: a wall
+     * committed at (181116, -253540), ~300 km out; and the 2026-08-10 production spam —
+     * plan view + 3D Site context, target (114525, -1577006, 135718) refused 191×/399× per
+     * burst — was this traversal averaging georeferenced context content into the fit.
+     * The fit now reads `computeBimFitBounds` (scene-committer): the SAME BIM-typed
+     * collection Fit All uses, so context/site meshes, gizmos and helpers are structurally
+     * outside the population. The refusal below stays as defense-in-depth for the
+     * classified all-mesh FALLBACK pass (scenes with no BIM-typed content).
      *
-     * `PlanViewCanvas.setFrustum` now REFUSES such a target, so the corruption is stopped. What
-     * is still unknown is WHICH mesh is the outlier — the site-plan underlay is the leading
-     * suspect (its position derives from a lat/lon differenced against a site origin that may be
-     * unset), but that was inferred from the magnitude, NOT traced. So rather than guess and
-     * "fix" the wrong producer, this logs the offender by name the moment it appears. One run of
-     * the founder's flow then settles it, instead of another round of theorising.
+     * The outlier diagnostic is kept: it now names the farthest mesh actually INCLUDED in
+     * the fit, so a far-origin AUTHORED element is still reported by ancestry.
      *
      * ── §PLAN-FIT-DIAG-MEASURED-NOTHING (L-604) ────────────────────────────────────────
      * ⚠ THE DIAGNOSTIC ABOVE WAS BROKEN, AND ITS BREAKAGE IS WHY L-481 STAYED UNSOLVED.
@@ -1829,26 +1836,22 @@ export class SplitViewManager implements ISplitViewManager {
      * leak itself — see the L-604 audit row; it makes the leak diagnosable instead of deafening.
      */
     private _fitCamTargetToScene(): void {
-        const box = new THREE.Box3();
-        let farthestName = '';
-        let farthestDist = 0;
-        const worldPos = new THREE.Vector3();
-        this._scene.traverse(obj => {
-            if ((obj as THREE.Mesh).isMesh) {
-                box.expandByObject(obj);
-                // §PLAN-FIT-DIAG-MEASURED-NOTHING (L-604) — WORLD space, matching the box.
-                obj.getWorldPosition(worldPos);
-                const d = Math.hypot(worldPos.x, worldPos.z);
-                if (d > farthestDist) {
-                    farthestDist = d;
-                    farthestName = this._describeAncestry(obj);
-                }
-            }
-        });
-        if (farthestDist > PLAN_FIT_OUTLIER_WARN_M) {
+        // §PLAN-FIT-BIM-ONLY (L-814) — the fit population is AUTHORED BIM CONTENT, not
+        // "every mesh in the scene". This was the PRODUCER behind the L-481 refusal spam:
+        // with the 3D Site context open, georeferenced content (context/site meshes, and
+        // anything re-seated under GIS_BIM_ROOT's ECEF matrix) sat megametres from the
+        // site origin, the unfiltered Box3 averaged it into the plan camera target, and
+        // §PLAN-CAMTARGET-SANITY refused the result on every frame. The collection is now
+        // the SAME one Fit All uses (`computeBimFitBounds`, scene-committer): pass 1 keeps
+        // only BIM element types — context tiles, terrain, underlays and gizmos carry no
+        // BIM `userData.elementType`, so they are structurally outside the population —
+        // with a classified all-mesh fallback for scenes that predate element tagging.
+        // The plausibility refusal below is KEPT as defense-in-depth for the fallback.
+        const { bounds: box, farthestIncluded } = computeBimFitBounds(this._scene, null);
+        if (farthestIncluded && farthestIncluded.distanceM > PLAN_FIT_OUTLIER_WARN_M) {
             console.error(
-                `[SplitViewManager] §PLAN-FIT-OUTLIER-DIAG (L-481/L-604) — mesh "${farthestName}" sits ` +
-                    `${Math.round(farthestDist)} m from the origin IN WORLD SPACE and is being averaged ` +
+                `[SplitViewManager] §PLAN-FIT-OUTLIER-DIAG (L-481/L-604) — mesh "${farthestIncluded.ancestry}" sits ` +
+                    `${Math.round(farthestIncluded.distanceM)} m from the origin IN WORLD SPACE and is being averaged ` +
                     'into the PLAN camera target. Every plan click adds that target to its world ' +
                     'position, so this is the producer of far-away authored geometry. THE ANCESTRY IS ' +
                     'THE ANSWER — the offending transform is usually on a PARENT (e.g. CesiumThreeBridge’s ' +
@@ -1898,23 +1901,9 @@ export class SplitViewManager implements ISplitViewManager {
         this._syncPlanCanvasState();
     }
 
-    /**
-     * §PLAN-FIT-DIAG-MEASURED-NOTHING (L-604) — name a mesh AND the ancestors it hangs off,
-     * innermost-last (`GIS_BIM_ROOT › Group › Wall_12`). The leaf name alone is not the answer
-     * when the coordinate-space error lives on a parent's matrix, which is the normal case.
-     * Capped at 5 levels so the log line stays readable on a deep scene graph.
-     */
-    private _describeAncestry(obj: THREE.Object3D): string {
-        const parts: string[] = [];
-        let cursor: THREE.Object3D | null = obj;
-        let depth = 0;
-        while (cursor && cursor !== this._scene && depth < 5) {
-            parts.unshift(cursor.name || cursor.type || '(unnamed)');
-            cursor = cursor.parent;
-            depth++;
-        }
-        return parts.join(' › ') || '(unnamed)';
-    }
+    // §PLAN-FIT-DIAG-MEASURED-NOTHING (L-604) — the ancestry-naming diagnostic moved to
+    // `describeMeshAncestry` in @pryzm/scene-committer (bimFitBounds.ts) with the shared
+    // collection (§PLAN-FIT-BIM-ONLY, L-814).
 
     private _syncPlanCanvasState(): void {
         this._planCanvas?.setGridVisible(this._gridVisible);
