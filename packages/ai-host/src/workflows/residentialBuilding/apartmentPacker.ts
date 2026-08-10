@@ -124,15 +124,52 @@ export function programFor(t: Typology): ApartmentProgram {
  *  effective band is empty (user band cannot host that typology at all). */
 interface EnabledBand { typology: Typology; min: number; max: number }
 function enabledBands(input: ApartmentPackInput): EnabledBand[] {
+    // §RESI-USER-BAND-EXTEND (founder 2026-08-10: "raising the min slider does nothing" +
+    // "does T3's cap honour my band?") — the typology caps above are conservative DEFAULT
+    // targets, not engine limits (the partition already lays out ~137 m² 3-beds). When the
+    // user's EXPLICIT max exceeds the LARGEST enabled typology's default cap, that typology's
+    // effective band extends up to the user max — an explicit request overrides the default
+    // upward. Smaller enabled typologies keep their caps (a T1 must stay a T1-sized unit when
+    // a larger typology is there to take the big cells); the extension lands on the largest
+    // enabled typology only, so "T3 + max 130" packs 130 m² 3-beds instead of silently
+    // clamping back to 110. Geometric feasibility remains the partition/engine's veto.
+    const enabled = TYPOLOGY_ORDER.filter((t) => input.typologies[t]);
+    const largest = enabled[enabled.length - 1];
     const out: EnabledBand[] = [];
-    for (const t of TYPOLOGY_ORDER) {
-        if (!input.typologies[t]) continue;
+    for (const t of enabled) {
         const band = TYPOLOGY_BAND[t];
+        const bandMax = (t === largest && input.maxApartmentAreaM2 > band.max)
+            ? input.maxApartmentAreaM2
+            : band.max;
         const min = Math.max(band.min, input.minApartmentAreaM2);
-        const max = Math.min(band.max, input.maxApartmentAreaM2);
+        const max = Math.min(bandMax, input.maxApartmentAreaM2);
         if (min <= max + 1e-9) out.push({ typology: t, min, max });
     }
     return out;
+}
+
+/** §RESI-BAND-REFUSAL-NAMES-BANDS (founder 2026-08-10: "[155,255] refuses without saying why") —
+ *  the empty-intersection refusal must STATE the per-typology bands so the user knows the fix.
+ *  Names each ENABLED typology's band, then suggests the typologies (enabled or not) whose band
+ *  overlaps the user band. Pure; module-local (reaches the UI through the reject reason, which
+ *  the orchestrator/controller surface verbatim; not exported → no separate P8 span obligation). */
+function describeBandMismatch(input: ApartmentPackInput): string {
+    const enabled = TYPOLOGY_ORDER.filter((t) => input.typologies[t]);
+    if (enabled.length === 0) return 'no apartment typology is enabled — enable at least one (T1–T4)';
+    const lo = input.minApartmentAreaM2, hi = input.maxApartmentAreaM2;
+    const bandStr = (t: Typology): string => `${t} spans ${TYPOLOGY_BAND[t].min}–${TYPOLOGY_BAND[t].max} m²`;
+    const listed = enabled.map(bandStr).join(', ');
+    // A typology helps if its band (extended to the user max when it would be the largest
+    // enabled) overlaps [lo,hi]: overlap needs band.min ≤ hi and (band.max or userMax) ≥ lo.
+    const helpers = TYPOLOGY_ORDER.filter((t) =>
+        !input.typologies[t] &&
+        TYPOLOGY_BAND[t].min <= hi + 1e-9 &&
+        Math.max(TYPOLOGY_BAND[t].max, hi) >= lo - 1e-9,
+    );
+    const advice = helpers.length > 0
+        ? `enable ${helpers.map(bandStr).join(' or ')} for this band`
+        : 'widen the [min,max] band to overlap an enabled typology';
+    return `your ${lo}–${hi} m² band lies outside every enabled typology's range (${listed}) — ${advice}`;
 }
 
 function reject(levelIndex: number, reason: string): ApartmentPackRejected {
@@ -189,10 +226,8 @@ function _pack(input: ApartmentPackInput): ApartmentPackResult {
 
     const bands = enabledBands(input);
     if (bands.length === 0) {
-        return reject(
-            levelIndex,
-            'no enabled typology fits the user [min,max] band (or none enabled)',
-        );
+        // §RESI-BAND-REFUSAL-NAMES-BANDS — say WHICH bands exist and what would fix it.
+        return reject(levelIndex, describeBandMismatch(input));
     }
 
     const smallestMin = Math.min(...bands.map((b) => b.min));

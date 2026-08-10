@@ -292,6 +292,14 @@ export interface PerLevelApartments {
     readonly fillRatio?: number;
     /** §RESI-CORRIDOR-ECONOMY — the level's shipped corridor UNION area (m²). Absent on the ground. */
     readonly corridorAreaM2?: number;
+    /** §RESI-BAND-UNDERFILL (founder 2026-08-10) — set when this level's rows were left EMPTY
+     *  because the user's minimum apartment area exceeds what a row on this plate can hold. Carries
+     *  the two numbers the user can act on; the preview card turns it into a plain-language note so
+     *  the stranded floor area is never silent. See `PlatePartitionResult.bandUnderfill`. */
+    readonly bandUnderfill?: {
+        readonly largestRowUnitAreaM2: number;
+        readonly requestedMinAreaM2: number;
+    };
 }
 
 /**
@@ -351,6 +359,10 @@ export interface ResidentialBuildingOk {
     readonly groundFloor: GroundFloorDescriptor;
     /** §RESI-RIGID-TRANSFORM — maps LOCAL (principal-axis) geometry → WORLD parcel. */
     readonly transform: ResidentialRigidTransform;
+    /** §RESI-STRETCH-TO-RUN honesty — the user's requested per-apartment [min,max] band (m²),
+     *  echoed so the preview can flag units the stretch/absorb passes sized OUTSIDE it
+     *  ("unit is NN m² — above your max band") instead of hiding the deviation. */
+    readonly requestedBandM2: { readonly min: number; readonly max: number };
     readonly diagnostic: string;
 }
 
@@ -461,13 +473,22 @@ export function orchestrateResidentialBuilding(
  * Bridge a packed apartment into the plate-partition's `ApartmentDemand`. The packer has
  * already chosen the target area; we hand the partition a TIGHT band around that target
  * (clamped non-negative) so the partition places a cell at (≈) the target size.
+ *
+ * §RESI-USER-MIN-IS-A-FLOOR (founder 2026-08-10) — the ±10% is a PLACEMENT tolerance (it lets the
+ * partition snap a cell to the run's real division), NOT a licence to undercut the size the user
+ * asked for. `userMinAreaM2` therefore floors the band: the tolerance may only widen a demand
+ * UPWARD from the user's minimum. Without this floor a candidate layout with shallower rows can
+ * win the area objective by placing cells just under the slider (e.g. 59.3 m² against a stated
+ * 60 m² minimum) — the exact "the min slider does nothing" complaint, one layer down. When the
+ * target is already above the minimum the floor is inert, so ordinary plates are unchanged.
  */
-function demandFor(a: PlannedApartment): ApartmentDemand {
+function demandFor(a: PlannedApartment, userMinAreaM2: number): ApartmentDemand {
     const tol = Math.max(2, a.targetAreaM2 * 0.1); // ±10% (≥2 m²) placement tolerance
+    const minAreaM2 = Math.max(1, Math.min(a.targetAreaM2, userMinAreaM2), a.targetAreaM2 - tol);
     return {
         typology: a.typology,
-        minAreaM2: Math.max(1, a.targetAreaM2 - tol),
-        maxAreaM2: a.targetAreaM2 + tol,
+        minAreaM2,
+        maxAreaM2: Math.max(minAreaM2, a.targetAreaM2 + tol),
     };
 }
 
@@ -857,7 +878,8 @@ function _orchestrateWith(
         // plate's gross capacity lets the rows fill across their full width; the partition returns
         // however many actually fit. We pair each PLACED cell back to a plan by `i % N` below
         // (same typology ⇒ same program ⇒ reusing a plan for another same-typology cell is sound).
-        const baseDemands = packed.apartments.map(demandFor);
+        // §RESI-USER-MIN-IS-A-FLOOR — the user's own minimum floors every placement band.
+        const baseDemands = packed.apartments.map((a) => demandFor(a, minApartmentAreaM2));
         // §RESI-EDGE-TYPE-VARIETY (founder 2026-06-27) — the packer picks ONE typology for its equal
         // slots, so baseDemands is single-typology and the partition's area-driven re-stamp would have
         // nothing to vary toward. DECLARE the full ENABLED typology set to the partition (each enabled
@@ -865,16 +887,27 @@ function _orchestrateWith(
         // knows which typologies it may assign by area: corners (the largest cells) become the largest
         // enabled typology, edge-fill (the smallest cells) the smallest. The demands still drive cell
         // WIDTH/area via the packer's base sizing; the enabled set only widens the typology palette.
-        const enabledTypologyDemands: ApartmentDemand[] = (['T1', 'T2', 'T3', 'T4'] as const)
-            .filter((t) => typologies[t])
+        // §RESI-USER-BAND-HONOURED (founder 2026-08-10: "raising the min slider does nothing") —
+        // these tail demands are NOT palette-only: the residual-absorption / side-façade passes
+        // consume them as real demand, so their bands must RESPECT the user's [min,max]. The old
+        // inverted placeholder (min:=band.max when userMin exceeded the typology cap) let those
+        // passes backfill sub-userMin cells — the slider was dead because the backfill ignored it.
+        // Now: a typology that cannot meet the user band is EXCLUDED (no placeholder), and the
+        // LARGEST enabled typology's cap extends to the user max (§RESI-USER-BAND-EXTEND, mirrors
+        // the packer) so "T3 + max 130" genuinely targets 130 m² cells.
+        const enabledList = (['T1', 'T2', 'T3', 'T4'] as const).filter((t) => typologies[t]);
+        const largestEnabled = enabledList[enabledList.length - 1];
+        const enabledTypologyDemands: ApartmentDemand[] = enabledList
             .map((t) => {
                 const band = TYPOLOGY_AREA_BAND[t];
+                const bandMax = (t === largestEnabled && maxApartmentAreaM2 > band.max)
+                    ? maxApartmentAreaM2
+                    : band.max;
                 const min = Math.max(band.min, minApartmentAreaM2);
-                const max = Math.min(band.max, maxApartmentAreaM2);
-                // When the user band excludes the typology's own band, keep a non-empty placeholder
-                // band (the partition only reads `.typology` from these to populate the enabled set).
-                return { typology: t, minAreaM2: Math.min(min, max), maxAreaM2: Math.max(min, max) };
-            });
+                const max = Math.min(bandMax, maxApartmentAreaM2);
+                return min <= max + 1e-9 ? { typology: t, minAreaM2: min, maxAreaM2: max } : null;
+            })
+            .filter((d): d is ApartmentDemand => d !== null);
         const minDemandArea = Math.max(20, Math.min(...baseDemands.map((d) => d.minAreaM2)));
         // Gross plate area ÷ smallest cell area over-counts (ignores core/corridors) — but
         // over-supply is harmless (the partition caps), so a generous estimate only lets it FILL.
@@ -910,7 +943,10 @@ function _orchestrateWith(
             { x: bb.x0, z: bb.z1 },
         ];
         let partition: ReturnType<typeof partitionLevelPlate> | null = null;
-        let lastRejectReason = '';
+        // §RESI-REFUSAL-LARGEST-UNIT — keep the FIRST attempt's reason (the FULL demand list,
+        // including the enabled-typology tail whose min is the user's own slider number), not the
+        // last (the k=1 prefix, whose demandFor-derived min is a number the user never typed).
+        let firstRejectReason = '';
         for (let k = allDemands.length; k >= 1; k--) {
             const attempt = partitionLevelPlate({
                 levelIndex,
@@ -921,12 +957,16 @@ function _orchestrateWith(
                 // §RESI-CLIP-BOUNDARY — the partition tiles the bbox (platePoly) but clips cells to
                 // the REAL de-rotated parcel so an L/trapezoid stops building past the drawn line.
                 clipPolygon: footprint,
+                // §RESI-ROW-DEPTH-INFEASIBLE — the user's STATED minimum, so a row that cannot
+                // reach it at any engine-feasible width stays empty (and is explained) rather than
+                // shipping an undersized unit the user never asked for.
+                userMinApartmentAreaM2: minApartmentAreaM2,
             });
             if (attempt.status === 'ok') {
                 partition = attempt;
                 break;
             }
-            lastRejectReason = attempt.reason;
+            if (!firstRejectReason) firstRejectReason = attempt.reason;
         }
         if (!partition || partition.status !== 'ok') {
             // Surface the partition's REAL reason (no longer swallowed behind a fixed string), so
@@ -938,7 +978,7 @@ function _orchestrateWith(
             return reject(
                 `level ${levelIndex} partition placed zero apartments on a ` +
                 `${round4(plateW)} m × ${round4(plateD)} m plate` +
-                (lastRejectReason ? ` (${lastRejectReason})` : ' (core/corridor leave no usable band runs)'),
+                (firstRejectReason ? ` (${firstRejectReason})` : ' (core/corridor leave no usable band runs)'),
             );
         }
 
@@ -1036,6 +1076,8 @@ function _orchestrateWith(
             // §RESI-CORRIDOR-ECONOMY (C.4) — surface the partition's fill honesty to the preview.
             fillRatio: partition.fillRatio,
             corridorAreaM2: partition.corridorAreaM2,
+            // §RESI-BAND-UNDERFILL — carry the band-emptied-rows explanation to the preview card.
+            ...(partition.bandUnderfill !== undefined ? { bandUnderfill: partition.bandUnderfill } : {}),
         });
     }
 
@@ -1059,6 +1101,8 @@ function _orchestrateWith(
         perLevelApartments,
         groundFloor,
         transform,
+        // §RESI-STRETCH-TO-RUN honesty — echo the user band so the preview can flag deviations.
+        requestedBandM2: { min: minApartmentAreaM2, max: maxApartmentAreaM2 },
         diagnostic,
     };
 }

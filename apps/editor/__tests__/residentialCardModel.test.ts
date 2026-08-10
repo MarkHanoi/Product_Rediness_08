@@ -68,9 +68,20 @@ function okResult(over: Partial<ResidentialBuildingOk> = {}): ResidentialBuildin
             entranceCenter: { x: 10, z: 0 },
             entranceWidthM: 1.8,
         },
+        // §RESI-STRETCH-TO-RUN honesty — the user's requested per-apartment band, echoed by the
+        // orchestrator so the card can flag units it sized outside it.
+        requestedBandM2: { min: 45, max: 120 },
         diagnostic: 'test',
         ...over,
     };
+}
+
+/** A placed apartment with a REAL cell area (the fixture's default cell carries none). */
+function placedWithArea(areaM2: number, over: Partial<PlacedApartment> = {}): PlacedApartment {
+    return placed({
+        cell: { rect: { x0: 0, z0: 0, x1: 12, z1: areaM2 / 12 }, doorEdge: 'z0', areaM2 } as PlacedApartment['cell'],
+        ...over,
+    });
 }
 
 describe('floorLabel', () => {
@@ -128,5 +139,73 @@ describe('buildResidentialCardModel', () => {
     it('formats the core size as W×D m', () => {
         const m = buildResidentialCardModel(okResult());
         expect(m.coreSize).toBe('6×4 m');
+    });
+
+    // ── founder 2026-08-10 §CONTEXT-DATA-HONESTY: the two ways band and plate disagree ──────────
+
+    it('§RESI-STRETCH-TO-RUN — flags units stretched ABOVE the user max, quoting the largest', () => {
+        const m = buildResidentialCardModel(okResult({
+            requestedBandM2: { min: 45, max: 120 },
+            perLevelApartments: [
+                { levelIndex: 0, role: 'ground', apartments: [], publicCorridor: [] },
+                {
+                    levelIndex: 1, role: 'upper', publicCorridor: [],
+                    apartments: [placedWithArea(100), placedWithArea(146)],
+                },
+            ],
+        }));
+        expect(m.overBandNote).toBeDefined();
+        expect(m.overBandNote).toContain('120');   // the user's own max
+        expect(m.overBandNote).toContain('146');   // the largest stretched unit
+        expect(m.overBandNote).toContain('dead strip');
+    });
+
+    it('§RESI-STRETCH-TO-RUN — stays SILENT when every unit is inside the band', () => {
+        const m = buildResidentialCardModel(okResult({
+            requestedBandM2: { min: 45, max: 120 },
+            perLevelApartments: [
+                { levelIndex: 0, role: 'ground', apartments: [], publicCorridor: [] },
+                { levelIndex: 1, role: 'upper', publicCorridor: [], apartments: [placedWithArea(100)] },
+            ],
+        }));
+        expect(m.overBandNote).toBeUndefined();
+    });
+
+    it('§RESI-BAND-UNDERFILL — explains band-emptied rows with the number that unblocks them', () => {
+        const m = buildResidentialCardModel(okResult({
+            perLevelApartments: [
+                { levelIndex: 0, role: 'ground', apartments: [], publicCorridor: [] },
+                {
+                    levelIndex: 1, role: 'upper', publicCorridor: [], apartments: [placedWithArea(146)],
+                    bandUnderfill: { largestRowUnitAreaM2: 95.4, requestedMinAreaM2: 110 },
+                },
+            ],
+        }));
+        expect(m.underfillNote).toBeDefined();
+        expect(m.underfillNote).toContain('95.4');   // the honest row ceiling — the actionable number
+        expect(m.underfillNote).toContain('110');    // the user's own minimum
+        expect(m.underfillNote).toContain('lower the minimum');
+    });
+
+    it('§RESI-BAND-UNDERFILL — quotes the WORST level, so the number unblocks every floor', () => {
+        const m = buildResidentialCardModel(okResult({
+            perLevelApartments: [
+                { levelIndex: 0, role: 'ground', apartments: [], publicCorridor: [] },
+                {
+                    levelIndex: 1, role: 'upper', publicCorridor: [], apartments: [],
+                    bandUnderfill: { largestRowUnitAreaM2: 95.4, requestedMinAreaM2: 110 },
+                },
+                {
+                    levelIndex: 2, role: 'upper', publicCorridor: [], apartments: [],
+                    bandUnderfill: { largestRowUnitAreaM2: 71.2, requestedMinAreaM2: 110 },
+                },
+            ],
+        }));
+        expect(m.underfillNote).toContain('71.2');
+        expect(m.underfillNote).not.toContain('95.4');
+    });
+
+    it('§RESI-BAND-UNDERFILL — stays SILENT when no row was emptied on band grounds', () => {
+        expect(buildResidentialCardModel(okResult()).underfillNote).toBeUndefined();
     });
 });

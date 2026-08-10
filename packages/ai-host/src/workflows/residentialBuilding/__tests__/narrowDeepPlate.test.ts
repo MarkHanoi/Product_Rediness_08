@@ -110,6 +110,89 @@ describe('§RESI-SIDE-CORE-KEEPS-SIDE — narrow-deep plate (founder Rambla Cata
         expect(b).toEqual(a);
     }, 60_000);
 
+    // ── founder follow-up 2026-08-10: the three slider cases on the same plate class ──────────
+
+    const IRREGULAR: Pt[] = [
+        { x: 0, z: 0.4 }, { x: 11.4, z: 0 }, { x: 11.30, z: PLATE_D }, { x: 0.1, z: 34.2 },
+    ];
+
+    it('§RESI-SIDE-SPINE-FLUSH + §RESI-STRETCH-TO-RUN — [25,130] units occupy the FULL usable width (no dead side strip)', () => {
+        const r = orchestrateResidentialBuilding(input({
+            footprint: IRREGULAR, upperLevels: 1,
+            minApartmentAreaM2: 25, maxApartmentAreaM2: 130,
+            typologies: { T1: true, T2: true, T3: true, T4: false },
+        }));
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const l1 = r.perLevelApartments.find((l) => l.role === 'upper')!;
+        expect(l1.apartments.length).toBeGreaterThanOrEqual(2);
+        // Every unit spans the full single-loaded run: from the flush spine's inner face
+        // (corridor width from the plate edge) to the plate's far edge — pre-fix cells started
+        // ~1.9 m in (dead strip) and stopped at the demand-max width.
+        for (const a of l1.apartments) {
+            const w = a.cell.rect.x1 - a.cell.rect.x0;
+            expect(w).toBeGreaterThanOrEqual(10);   // ≈ 11.3 plate − 0.8 corridor, minus clip slant
+        }
+        // The fill honesty readout reflects it (pre-fix ~0.815 with the stranded strip).
+        expect(l1.fillRatio ?? 0).toBeGreaterThan(0.85);
+    }, 60_000);
+
+    it('§RESI-USER-BAND-HONOURED — [110,130] produces FEWER, LARGER units (no sub-min backfill)', () => {
+        const r = orchestrateResidentialBuilding(input({
+            footprint: IRREGULAR, upperLevels: 1,
+            minApartmentAreaM2: 110, maxApartmentAreaM2: 130,
+            typologies: { T1: true, T2: true, T3: true, T4: false },
+        }));
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const l1 = r.perLevelApartments.find((l) => l.role === 'upper')!;
+        expect(l1.apartments.length).toBeGreaterThanOrEqual(1);
+        // EVERY placed unit respects the raised minimum (within the ±10% demand tolerance) —
+        // pre-fix the absorb pass backfilled 86-95 m² cells and the slider was dead.
+        for (const a of l1.apartments) {
+            expect(a.cell.areaM2).toBeGreaterThanOrEqual(110 * 0.9 - 1e-6);
+        }
+        // §RESI-BAND-UNDERFILL (§CONTEXT-DATA-HONESTY: "never silent waste") — fewer/larger is the
+        // RIGHT answer, but it strands most of this narrow plate: an apartment row is capped at the
+        // engine-feasible depth, so a ~10.6 m run tops out near 95 m² and a 110 m² minimum empties
+        // every row. That stranded area must be EXPLAINED with the number that unblocks it, not
+        // left as unexplained white space on the preview.
+        expect(l1.bandUnderfill).toBeDefined();
+        expect(l1.bandUnderfill!.requestedMinAreaM2).toBeCloseTo(110, 3);
+        // The honest ceiling is below the user's own minimum (that is WHY the rows emptied) and is
+        // a real, buildable unit size — not a degenerate sliver.
+        expect(l1.bandUnderfill!.largestRowUnitAreaM2).toBeLessThan(110);
+        expect(l1.bandUnderfill!.largestRowUnitAreaM2).toBeGreaterThanOrEqual(18);
+    }, 60_000);
+
+    it('§RESI-BAND-UNDERFILL — a band the plate CAN satisfy carries NO under-fill note', () => {
+        // The same plate at the founder's [25,130]: it packs to ~89% of net area. A shallow
+        // off-cut row IS still skipped against T1's 35 m² floor, but that waste is invisible on a
+        // packed plate — the materiality gate must keep the preview quiet (no false alarm).
+        const r = orchestrateResidentialBuilding(input({
+            footprint: IRREGULAR, upperLevels: 1,
+            minApartmentAreaM2: 25, maxApartmentAreaM2: 130,
+            typologies: { T1: true, T2: true, T3: true, T4: false },
+        }));
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const l1 = r.perLevelApartments.find((l) => l.role === 'upper')!;
+        expect(l1.bandUnderfill).toBeUndefined();
+    }, 60_000);
+
+    it('§RESI-REFUSAL-LARGEST-UNIT — [155,255] refuses quoting the achievable size and the user minimum', () => {
+        const r = orchestrateResidentialBuilding(input({
+            footprint: IRREGULAR, upperLevels: 1,
+            minApartmentAreaM2: 155, maxApartmentAreaM2: 255,
+            typologies: { T1: true, T2: true, T3: true, T4: false },
+        }));
+        expect(r.status).toBe('rejected');
+        if (r.status !== 'rejected') return;
+        expect(r.reason).toContain('largest unit');
+        expect(r.reason).toContain('155');            // the user's own slider number, not a derived one
+        expect(r.reason).toContain('lower the minimum');
+    }, 60_000);
+
     it('KEEPS the honest refusal for a genuinely impossible plate (< MIN_PLATE_WIDTH_M wide)', () => {
         const w = 10.5;   // below the derived 11.1 m floor — no arrangement exists at any depth
         const r = orchestrateResidentialBuilding(input({

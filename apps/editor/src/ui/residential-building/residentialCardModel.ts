@@ -81,6 +81,18 @@ export interface ResidentialCardModel {
      *  averaged across the upper levels that carry a partition `fillRatio`. Drives the option
      *  card's "apartments NN% of plate" honesty readout. Absent when no level carries one. */
     readonly fillPct?: number;
+    /** §RESI-STRETCH-TO-RUN honesty (founder 2026-08-10) — present when any placed unit's real
+     *  area landed ABOVE the user's max band: the partition prefers stretching a unit to the full
+     *  usable run width over stranding a dead strip, and this line says so out loud, e.g.
+     *  "largest unit 146 m² — above your 130 m² max (stretched to fill the plate width; raise
+     *  the max or add a larger type)". Absent when every unit is inside the band. */
+    readonly overBandNote?: string;
+    /** §RESI-BAND-UNDERFILL honesty (founder 2026-08-10, §CONTEXT-DATA-HONESTY) — present when the
+     *  minimum-area slider emptied whole apartment rows: an apartment row is capped at the
+     *  engine-feasible depth, so on a narrow plate a row cannot reach a high minimum no matter what
+     *  and the floor comes out mostly bare. Names the largest unit a row CAN hold, which is exactly
+     *  the number to move the min slider to. Absent when no row was skipped on band grounds. */
+    readonly underfillNote?: string;
     readonly floors: readonly FloorCardSummary[];
 }
 
@@ -180,6 +192,42 @@ export function buildResidentialCardModel(result: ResidentialBuildingOk): Reside
     const fillPct = fillRatios.length > 0
         ? clampPct((fillRatios.reduce((s, f) => s + f, 0) / fillRatios.length) * 100)
         : undefined;
+    // §RESI-STRETCH-TO-RUN honesty — flag units the engine stretched past the user's max band
+    // (full plate width preferred over a stranded dead strip; §CONTEXT-DATA-HONESTY: say so).
+    const bandMax = result.requestedBandM2?.max;
+    let overBandNote: string | undefined;
+    if (typeof bandMax === 'number' && Number.isFinite(bandMax)) {
+        let largestOver = 0, overCount = 0;
+        for (const level of result.perLevelApartments) {
+            for (const a of level.apartments) {
+                if (a.status !== 'ok') continue;
+                const area = a.cell.areaM2;
+                if (area > bandMax * 1.02) { overCount++; largestOver = Math.max(largestOver, area); }
+            }
+        }
+        if (overCount > 0) {
+            overBandNote =
+                `${overCount} unit${overCount === 1 ? ' is' : 's are'} above your ${round1(bandMax)} m² max ` +
+                `(largest ${round1(largestOver)} m²) — stretched to fill the plate width instead of ` +
+                `leaving a dead strip; raise the max or enable a larger type to absorb it`;
+        }
+    }
+    // §RESI-BAND-UNDERFILL honesty — whole rows the min slider emptied. Quote the WORST level
+    // (smallest row capacity), so the number shown is the one that unblocks every level.
+    let underfillNote: string | undefined;
+    {
+        const uf = result.perLevelApartments
+            .map((l) => l.bandUnderfill)
+            .filter((u): u is NonNullable<typeof u> => u !== undefined)
+            .sort((a, b) => a.largestRowUnitAreaM2 - b.largestRowUnitAreaM2)[0];
+        if (uf) {
+            underfillNote =
+                `Some apartment rows were left empty: on this plate a row can hold at most ` +
+                `${round1(uf.largestRowUnitAreaM2)} m², below your ${round1(uf.requestedMinAreaM2)} m² minimum ` +
+                `(an apartment row is capped at the buildable depth, so a narrow plate cannot reach a high ` +
+                `minimum) — lower the minimum to about ${round1(uf.largestRowUnitAreaM2)} m² to fill the floor`;
+        }
+    }
     return {
         title: 'Residential building',
         floorCount: result.levels.length,
@@ -189,6 +237,8 @@ export function buildResidentialCardModel(result: ResidentialBuildingOk): Reside
         totalNetAreaM2: round1(totalNetAreaM2),
         coreSize: `${coreW}×${coreD} m`,
         ...(fillPct !== undefined ? { fillPct } : {}),
+        ...(overBandNote !== undefined ? { overBandNote } : {}),
+        ...(underfillNote !== undefined ? { underfillNote } : {}),
         floors,
     };
 }

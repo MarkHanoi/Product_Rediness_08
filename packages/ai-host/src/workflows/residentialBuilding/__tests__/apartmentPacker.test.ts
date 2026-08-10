@@ -150,11 +150,42 @@ describe('apartmentPacker — P6.1', () => {
     it('clamps a single-typology pack so each apartment stays in the user band', () => {
         // Net 240, only T2 enabled (engine band 55-80), user band 45-120.
         const r = ok(packApartments(input({ netAreaM2: 240, typologies: { T1: false, T2: true, T3: false, T4: false } })));
-        // Effective band = intersection of user [45,120] and T2 engine [55,80] = [55,80].
+        // §RESI-USER-BAND-EXTEND (founder 2026-08-10) — T2 is the LARGEST enabled typology, so
+        // its cap extends to the USER max (120), not the conservative default 80: an explicit
+        // user band overrides the default target upward. Floor stays the typology min (55).
         for (const a of r.apartments) {
             expect(a.targetAreaM2).toBeGreaterThanOrEqual(55 - 1e-6);
-            expect(a.targetAreaM2).toBeLessThanOrEqual(80 + 1e-6);
+            expect(a.targetAreaM2).toBeLessThanOrEqual(120 + 1e-6);
         }
+    });
+
+    it('§RESI-USER-BAND-EXTEND — a NON-largest enabled typology keeps its own cap', () => {
+        // T2 + T3 enabled, user band [45,200]: T3 (largest) extends to 200; T2 keeps its 80 cap.
+        const r = ok(packApartments(input({
+            netAreaM2: 400,
+            minApartmentAreaM2: 45,
+            maxApartmentAreaM2: 200,
+            typologies: { T1: false, T2: true, T3: true, T4: false },
+        })));
+        for (const a of r.apartments) {
+            if (a.typology === 'T2') expect(a.targetAreaM2).toBeLessThanOrEqual(80 + 1e-6);
+            expect(a.targetAreaM2).toBeLessThanOrEqual(200 + 1e-6);
+        }
+    });
+
+    it('§RESI-BAND-REFUSAL-NAMES-BANDS — the empty-band refusal names the per-typology bands + the fix', () => {
+        // T3-only with a band entirely BELOW its range: [20,40] vs T3 80-110.
+        const r = packApartments(input({
+            netAreaM2: 400,
+            minApartmentAreaM2: 20,
+            maxApartmentAreaM2: 40,
+            typologies: { T1: false, T2: false, T3: true, T4: false },
+        }));
+        expect(r.status).toBe('rejected');
+        if (r.status !== 'rejected') return;
+        expect(r.reason).toContain('T3 spans 80–110 m²');       // the enabled band, named
+        expect(r.reason).toContain('T1 spans 35–55 m²');        // the actionable suggestion
+        expect(r.reason).toContain('enable');
     });
 
     it('rejects when the user band excludes every enabled typology engine band', () => {

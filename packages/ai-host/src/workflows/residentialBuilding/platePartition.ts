@@ -76,6 +76,15 @@ export interface PlatePartitionInput {
      * non-rectangular support). Absent ⇒ no clipping (byte-identical to the rectangular stub).
      */
     readonly clipPolygon?: readonly Pt[];
+    /**
+     * §RESI-ROW-DEPTH-INFEASIBLE / §RESI-BAND-UNDERFILL (founder 2026-08-10) — the minimum
+     * per-apartment area the USER asked for (m²), as typed on the slider. Distinct from each
+     * demand's own `minAreaM2`, which is a per-typology target the packer derives and which the
+     * plate-filling passes may deliberately under-shoot. This is a STATED CONSTRAINT: a row whose
+     * engine-feasible cell cannot reach it is left empty and explained (`bandUnderfill`) rather
+     * than quietly under-built. Absent ⇒ no such gate (byte-identical to before it existed).
+     */
+    readonly userMinApartmentAreaM2?: number;
 }
 
 /** One placed apartment cell. */
@@ -148,6 +157,23 @@ export interface PlatePartitionResult {
     /** §RESI-CORRIDOR-ECONOMY — the shipped corridor bands' UNION area (m², overlaps counted once).
      *  The circulation cost the objective charged; surfaced beside `fillRatio` for honesty. */
     readonly corridorAreaM2: number;
+    /** §RESI-BAND-UNDERFILL (founder 2026-08-10, §CONTEXT-DATA-HONESTY: "never silent waste") —
+     *  present when apartment rows were left EMPTY *because the user's minimum apartment area
+     *  exceeds what a row on this plate can hold*. A row is a band of the engine-feasible
+     *  apartment depth (≤ MAX_APARTMENT_DEPTH_M) across the usable run width, so on a narrow
+     *  plate its area is hard-capped no matter how the sliders move: a 10.6 m run at 9 m depth
+     *  tops out near 95 m², and a 110 m² minimum silently empties EVERY row (the founder's
+     *  fill=0.39 floor). Absent when no row was skipped on band grounds — the ordinary case.
+     *
+     *  This is a *stranded-area explanation*, not a failure: the floor still builds from whatever
+     *  the residual-absorption pass could place. The preview quotes both numbers so the user can
+     *  act (`largestRowUnitAreaM2` is the honest target for the min slider). */
+    readonly bandUnderfill?: {
+        /** Largest unit (m²) any SKIPPED row could have hosted at its feasible depth. */
+        readonly largestRowUnitAreaM2: number;
+        /** The smallest per-apartment minimum the user's band asked for (m²). */
+        readonly requestedMinAreaM2: number;
+    };
     readonly diagnostic: string;
 }
 
@@ -162,6 +188,7 @@ export type PlatePartitionOutput = PlatePartitionResult | PlatePartitionRejected
 const EPS = 1e-6;
 /** Door clear width (m) — an apartment is "reached" when it shares ≥ this with the corridor. */
 const DOOR_WIDTH_M = 0.8;
+
 
 // §RESI-CELL-FEASIBLE (Task C) — the per-cell D-TGL engine soft-fails a cell that is
 // too DEEP / too SKINNY (the P7 finding: full-band ~8.3 m cells lay out; deep ~20 m
@@ -421,6 +448,8 @@ function absorbResidual(
     clipPolygon: readonly Pt[] | undefined,
     demands: readonly ApartmentDemand[],
     nextDemand: () => ApartmentDemand | undefined,
+    peekDemand?: () => ApartmentDemand | undefined,
+    onSkippedByBand?: (areaM2: number) => void,
 ): void {
     if (demands.length === 0) return;
     // Build the breakpoint grid over the plate; mark a grid cell OCCUPIED when its centre is in any
@@ -486,8 +515,20 @@ function absorbResidual(
         if (maxSide / Math.max(EPS, minSide) > MAX_ASPECT) continue;
         // The polygon must FILL most of its bbox (a near-rect pocket lays out; a thin L-arm doesn't).
         if (area < 0.75 * w * dpt) continue;
-        const demand = nextDemand();
+        // §RESI-USER-BAND-HONOURED (founder 2026-08-10: "raising min apartment surface does
+        // nothing") — an absorbed cell must MEET THE DEMAND'S OWN MINIMUM, exactly like the row
+        // packer's wMinArea gate. Pre-fix this pass gated only the flat 50 m² floor, so with a
+        // high user min (every row skipped ⇒ the whole plate residual) it backfilled sub-min
+        // cells and the min slider was dead. Peek first (a skip must NOT consume the demand);
+        // report a band-only skip so the zero-place refusal can quote the achievable size.
+        const demand = peekDemand ? peekDemand() : nextDemand();
         if (!demand) break;
+        if (area < demand.minAreaM2 - EPS) {
+            onSkippedByBand?.(area);
+            if (!peekDemand) break;   // legacy caller: demand already consumed — stop, don't strand it
+            continue;
+        }
+        if (peekDemand) nextDemand();   // gates passed — consume the peeked demand
         placements.push({
             typology: demand.typology,
             rect: normRect(rbb),
@@ -1287,9 +1328,27 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     }
 
     // §RESI-CORE-SPINE constants (shared by every candidate's spine + run carving).
+    // §RESI-SIDE-SPINE-FLUSH (founder 2026-08-10: "units don't occupy the full plate width —
+    // obvious white strips down the side") — a SIDE core (flush to a plate X-edge,
+    // §RESI-NARROW-PLATE-SIDE-CORE) used to get the same CENTRED spine as an interior core:
+    // spine at the core's X-centre, e.g. x [1.05,1.85] on a 2.9 m core at x0. Every row away
+    // from the core in Z then carved only that spine, stranding the [plate.x0, spineX0] strip
+    // (~1 m × the whole plate depth ≈ 9% of the founder's plate) OUTSIDE the single-loaded run —
+    // the visible dead strip. For a flush core the spine now hugs the SAME plate edge (still
+    // inside the core's X-span, so the channel stays continuous through the core), and the whole
+    // remaining width is ONE unbroken apartment run. An interior (centred) core keeps the centred
+    // spine byte-identically.
     const coreCx = (coreX0 + coreX1) / 2;
-    const spineX0 = round4(coreCx - halfCorr);
-    const spineX1 = round4(coreCx + halfCorr);
+    const FLUSH_TOL = 0.05;
+    const coreFlushLeft = coreX0 <= bb.x0 + FLUSH_TOL;
+    const coreFlushRight = coreX1 >= bb.x1 - FLUSH_TOL;
+    const spineCx = coreFlushLeft && !coreFlushRight
+        ? Math.min(coreX0 + halfCorr, coreCx)          // hug the x0 edge (stay inside the core span)
+        : coreFlushRight && !coreFlushLeft
+            ? Math.max(coreX1 - halfCorr, coreCx)      // hug the x1 edge
+            : coreCx;                                   // interior core — centred spine (unchanged)
+    const spineX0 = round4(spineCx - halfCorr);
+    const spineX1 = round4(spineCx + halfCorr);
 
     // The CANDIDATE corridor-line layouts. The baseline §RESI-FILL-PLATE outward walk is always a
     // candidate. §P3 DEFAULT-ON: we ALSO offer the even grid (and a couple of neighbouring corridor
@@ -1327,6 +1386,9 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
      *  plate's rows (true for the core-containing wing; for a wing WITHOUT the core the connector spine
      *  is the only channel, so that wing carves only its own connector column — passed via `connectorX`).
      *  With `plate === bb` and no overrides this is byte-identical to the pre-decomp packer. */
+    // §RESI-REFUSAL-LARGEST-UNIT — the largest unit any skipped run could have hosted (m²), across
+    // every candidate pack. Read only by the zero-place refusal to state the achievable size.
+    let maxPlaceableAreaM2 = 0;
     function packPlate(
         centreLinesIn: readonly number[],
         plate: Rect = bb,
@@ -1438,7 +1500,36 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             // place a sub-area sliver the engine then rejects (the 16× tiny rejected cells regression).
             // Testing the area floor preserves the proven behaviour: a row that can't host a min-area
             // apartment is left empty (byte-identical to before this fix on those rows).
-            if (runWidth < wMinArea - EPS) continue;
+            //
+            // §RESI-ROW-DEPTH-INFEASIBLE (founder 2026-08-10) — a cell's width has TWO independent
+            // ceilings: the run (`runWidth`) and the engine's feasible max width at this row depth
+            // (`wFeasMax`). The gate above tests only the first. When the SECOND is the binding one,
+            // `wMax`/`wMin` are silently clamped DOWN to it and the row ships an undersized cell —
+            // a 5.96 m-deep row (engine ceiling 9.96 m) shipped a 59.3 m² cell where the user had
+            // typed a 60 m² minimum. Latent since the clamp was introduced; the flush-spine fix made
+            // such a row win a candidate for the first time and surfaced it.
+            //
+            // The floor tested here is `userMinAreaM2` — the number the user actually typed — NOT
+            // the demand's own `minAreaM2`. A demand min is a per-typology TARGET the packer
+            // derives, and deliberately under-filling against it is how a large plate tiles its
+            // shallow off-cut rows (the §RESI-FILL-PLATE behaviour: a 60×40 plate reaches 0.80 fill
+            // precisely by placing cells under their target band). Gating on the target would
+            // collapse that fill to 0.50 and trade the founder's real complaint for a worse one.
+            // The USER's minimum is a different kind of number: it is a stated constraint, so a row
+            // that cannot meet it at any width must stay empty and be EXPLAINED
+            // (§RESI-BAND-UNDERFILL) rather than quietly under-built. Absent (direct partition
+            // callers / tests) ⇒ no extra gate ⇒ byte-identical to before.
+            const engineCeilingAreaAtDepth = wFeasMax * depth;
+            const userMinFloor = input.userMinApartmentAreaM2;
+            if (runWidth < wMinArea - EPS
+                || (userMinFloor !== undefined && engineCeilingAreaAtDepth < userMinFloor - EPS)) {
+                // §RESI-REFUSAL-LARGEST-UNIT — remember the LARGEST unit this run could have
+                // hosted, so a zero-place refusal can state the achievable size honestly
+                // ("largest placeable unit ≈ X m²; your minimum is Y m²") instead of the opaque
+                // "no usable band runs".
+                maxPlaceableAreaM2 = Math.max(maxPlaceableAreaM2, Math.min(runWidth, wFeasMax) * depth);
+                continue;
+            }
             // §RESI-PACKROW-EVEN (founder "fill the plate", 2026-06-23) — divide the WHOLE run into
             // EQUAL-width cells instead of greedily slicing one mid-width cell and BREAKING on the
             // sub-wMin remainder. Even division leaves NO remainder, so a 16m run hosts 2 cells (not 1)
@@ -1474,7 +1565,20 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
                     nCells = nEven;                          // even tiling fills the run, every cell on-spec
                 } else {
                     nCells = Math.max(1, Math.floor(runWidth / wMax + EPS));
-                    sliceWidth = round4(wMax);               // greedy: leave the sub-min remainder unbuilt
+                    // §RESI-STRETCH-TO-RUN (founder 2026-08-10: "obvious space to extend the
+                    // apartment to the side and occupy the full width") — the greedy slice at the
+                    // DEMAND's max width used to strand the sub-min remainder as a dead strip
+                    // beside the last unit. Prefer FULL-WIDTH honest units over stranded floor
+                    // area: widen the equal slices to swallow the remainder, bounded ONLY by the
+                    // ENGINE's own feasible width (wFeasMax) — a unit may exceed the user's max
+                    // band (surfaced honestly on the preview card), but the engine reject edge is
+                    // a hard cap (an over-wide cell would soft-fail downstream and strand MORE).
+                    const stretchedW = runWidth / nCells;
+                    if (stretchedW <= wFeasMax + EPS) {
+                        sliceWidth = undefined;              // even division at stretchedW — no strand
+                    } else {
+                        sliceWidth = round4(wFeasMax);       // engine edge: strand only the un-layable rest
+                    }
                 }
             } else {
                 // Clamp the ideal into [minByMax, maxByMin]; prefer fewer (wider → keeps the count).
@@ -1942,7 +2046,15 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // is the mechanism that lifts a deep 37×29 plate's fill materially without shallow-row regressions
     // (the absorbed cells are DEEP, not shallow — they take the leftover depth as ONE more unit row).
     if (nonRectCells) {
-        absorbResidual(placements, corridorBands, bb, coreN, clipPolygon, apartments, () => cursor < apartments.length ? apartments[cursor++] : undefined);
+        absorbResidual(
+            placements, corridorBands, bb, coreN, clipPolygon, apartments,
+            () => cursor < apartments.length ? apartments[cursor++] : undefined,
+            // §RESI-USER-BAND-HONOURED — peek/take split so a band-skip does not consume demand.
+            () => cursor < apartments.length ? apartments[cursor] : undefined,
+            // §RESI-REFUSAL-LARGEST-UNIT — a pocket skipped ONLY by the user band is still the
+            // honest "largest placeable unit" for the refusal copy.
+            (areaM2) => { maxPlaceableAreaM2 = Math.max(maxPlaceableAreaM2, areaM2); },
+        );
     }
 
     // §RESI-EDGE-TYPE-VARIETY — re-stamp each placed cell's typology from its REAL AREA, choosing among
@@ -1968,9 +2080,18 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // intentionally supplies more demand than a single band could hold). Reject ONLY when the
     // core/corridor grid leaves NO usable band run at all (a genuinely too-small plate).
     if (placements.length === 0) {
+        // §RESI-REFUSAL-LARGEST-UNIT (founder 2026-08-10, §CONTEXT-DATA-HONESTY) — when the runs
+        // COULD host units but every demand's minimum exceeds what they hold, say so in the two
+        // numbers the user can act on, instead of the opaque "no usable band runs".
+        const smallestMinM2 = Math.min(...apartments.map((a) => a.minAreaM2));
+        const bandBound = smallestMinM2 > maxPlaceableAreaM2 && maxPlaceableAreaM2 >= 18;
         return reject(
             levelIndex,
-            `core/corridor leave no usable band runs (placed 0/${apartments.length})`,
+            bandBound
+                ? `the largest unit this plate's runs can host is ~${maxPlaceableAreaM2.toFixed(0)} m², ` +
+                  `but the smallest requested unit is ${smallestMinM2.toFixed(0)} m² — lower the minimum ` +
+                  `apartment size to ≤ ${maxPlaceableAreaM2.toFixed(0)} m² (placed 0/${apartments.length})`
+                : `core/corridor leave no usable band runs (placed 0/${apartments.length})`,
         );
     }
 
@@ -2026,6 +2147,28 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // repaired network), surfaced beside fillRatio so the preview card and the diagnostic can
     // quote both honestly.
     const corridorAreaM2 = corridorUnionAreaM2(corridorBands);
+    // §RESI-BAND-UNDERFILL — rows the min-area gate emptied. `maxPlaceableAreaM2` is the largest
+    // unit any SKIPPED run could have hosted; when the smallest requested minimum is above it,
+    // those empty rows are the BAND's doing (not the plate's shape) and the preview must say so.
+    //
+    // MATERIALITY GATE (`fillRatio`): a band-skipped row is NOT news on its own. Every healthy
+    // plate skips some shallow off-cut row — the founder's own [25,130] case fills 89% of its net
+    // area while a 1.9 m-deep edge row (27 m² max) is skipped against T1's 35 m² floor. Firing
+    // there would be a FALSE alarm about a plate that is packed. The note exists to explain waste
+    // the user can SEE, so it fires only when the plate is materially under-filled: below ~⅔ of
+    // net area the empty rows dominate the drawing (the founder's 110 m² case fills 39%), above it
+    // the layout reads as packed and the skipped off-cuts are invisible.
+    const smallestRequestedMinM2 = apartments.length > 0
+        ? Math.min(...apartments.map((a) => a.minAreaM2))
+        : 0;
+    const UNDERFILL_FILL_RATIO = 0.65;
+    const bandUnderfill = (
+        fillRatio < UNDERFILL_FILL_RATIO
+        && maxPlaceableAreaM2 >= 18
+        && smallestRequestedMinM2 > maxPlaceableAreaM2 + EPS
+    )
+        ? { largestRowUnitAreaM2: round4(maxPlaceableAreaM2), requestedMinAreaM2: round4(smallestRequestedMinM2) }
+        : undefined;
     const diagnostic =
         `§DIAG-RESI-PARTITION level=${levelIndex} status=ok N=${placements.length} ` +
         `corridors=${corridorBands.length} ` +
@@ -2033,7 +2176,11 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         `clippedOutOfBoundary=${clippedOut} reshaped=${reshaped} reached=${reached}/${placements.length} ` +
         `§RESI-CORE-CIRCULATION coreReached=${coreReached}/${placements.length} ` +
         `§DIAG-RESI-FILL fillRatio=${fillRatio.toFixed(3)} (placed=${placedArea.toFixed(0)}m²/net=${netPlateArea.toFixed(0)}m²) ` +
-        `§RESI-CORRIDOR-ECONOMY corridor=${corridorAreaM2.toFixed(0)}m² trimmed=${corridorTrimmedM2.toFixed(1)}m²`;
+        `§RESI-CORRIDOR-ECONOMY corridor=${corridorAreaM2.toFixed(0)}m² trimmed=${corridorTrimmedM2.toFixed(1)}m²` +
+        (bandUnderfill
+            ? ` §RESI-BAND-UNDERFILL largestRowUnit=${bandUnderfill.largestRowUnitAreaM2.toFixed(0)}m²` +
+              ` requestedMin=${bandUnderfill.requestedMinAreaM2.toFixed(0)}m²`
+            : '');
 
     return {
         status: 'ok',
@@ -2044,6 +2191,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         apartmentsCoreReachable: coreReached,
         fillRatio,
         corridorAreaM2,
+        ...(bandUnderfill !== undefined ? { bandUnderfill } : {}),
         diagnostic,
     };
 }

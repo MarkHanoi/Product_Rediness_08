@@ -121,7 +121,10 @@ describe('residentialBuildingOrchestrator — P3', () => {
         const a = orchestrateResidentialBuilding(input({ upperLevels: 5 }));
         const b = orchestrateResidentialBuilding(input({ upperLevels: 5 }));
         expect(JSON.stringify(a)).toBe(JSON.stringify(b));
-    });
+    }, 30_000);   // §RESI-STRETCH-TO-RUN — cells now stretch to the full run width, so each of the
+                  // 2 × 5 levels lays out LARGER apartments (more per-cell engine work: ~230 ms →
+                  // ~390 ms per orchestration here). Comfortably inside 5 s alone, but it tipped
+                  // over the default when the suite runs its files in parallel. Explicit headroom.
 
     it('soft-fails (rejected) when an upper level cannot host even one apartment', () => {
         // Tiny footprint: net residential area after core + corridor cannot host a min apt.

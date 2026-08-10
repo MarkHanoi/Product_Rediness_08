@@ -235,6 +235,26 @@ export function buildResidentialModalHtml(
     // the preview/Build remain. Empty when nothing was rejected.
     const partialInner = buildResidentialPartialNoticeHtml(card.totalRejected, card.totalApartments + card.totalRejected);
     const partial = partialInner ? `<div class="alm-notice-region rb-partial-region" data-role="rb-partial">${partialInner}</div>` : '';
+    // §RESI-STRETCH-TO-RUN / §RESI-BAND-UNDERFILL honesty (founder 2026-08-10,
+    // §CONTEXT-DATA-HONESTY) — the two ways the user's [min,max] band and the plate disagree are
+    // DECLARED on the preview in the same informative notice shell as the partial-layout notice,
+    // never left as unexplained geometry. Over-band: a unit was stretched to fill the plate width
+    // and landed above the max. Under-fill: whole rows were emptied because the min is above what
+    // a row can hold. Both quote the number the user can act on.
+    const noticeHtml = (role: string, title: string, text: string): string =>
+        `<div class="alm-notice-region rb-${role}-region" data-role="rb-${role}">` +
+        `<div class="alm-notice alm-notice--reduced rb-${role}-notice" data-role="rb-${role}-notice" role="status">` +
+        '<span class="alm-notice-icon" aria-hidden="true">◐</span>' +
+        '<span class="alm-notice-body">' +
+        `<span class="alm-notice-title">${esc(title)}</span>` +
+        `<span class="alm-notice-text">${esc(text)}</span>` +
+        '</span></div></div>';
+    const overBand = card.overBandNote
+        ? noticeHtml('overband', 'Some units are larger than your maximum', card.overBandNote)
+        : '';
+    const underfill = card.underfillNote
+        ? noticeHtml('underfill', 'Your minimum apartment size left rows empty', card.underfillNote)
+        : '';
     return `
       <div class="alm-panel" role="dialog" aria-label="Choose a residential building">
         <div class="alm-header">
@@ -243,6 +263,8 @@ export function buildResidentialModalHtml(
         </div>
         ${legend}
         ${partial}
+        ${overBand}
+        ${underfill}
         <div class="alm-grid rb-grid" data-role="rb-floors">
           <section class="rb-section rb-types-section">
             <header class="rb-section-head">
