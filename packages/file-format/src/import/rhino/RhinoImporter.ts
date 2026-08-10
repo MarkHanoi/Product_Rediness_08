@@ -30,10 +30,28 @@ export interface RhinoImportStats {
     hasMaterials: boolean;
 }
 
+/**
+ * One entry of the .3dm layer table, as materialised in the scene.
+ * `index` is the Rhino layer-table index — the loader stamps it on every
+ * object as `userData.attributes.layerIndex`, so it is the join key for
+ * per-layer visibility control (C33 §1.2 / P7: layer visibility is intent).
+ */
+export interface RhinoImportLayerInfo {
+    index:       number;
+    name:        string;
+    /** Rhino nested-layer path, `Parent::Child::Leaf` (C33 §1.2). */
+    fullPath:    string;
+    /** Visibility flag as authored in the .3dm file. */
+    visible:     boolean;
+    /** Number of scene objects the importer materialised on this layer. */
+    objectCount: number;
+}
+
 export interface RhinoImportResult {
     group:    THREE.Group;
     fileName: string;
     stats:    RhinoImportStats;
+    layers:   RhinoImportLayerInfo[];
     issues:   string[];
     elapsed:  number;
 }
@@ -77,25 +95,89 @@ export async function importRhino3DM(
 
     const group = rootObject as THREE.Group;
 
-    const stats = collectStats(group, issues);
+    const layers = extractRhinoLayers(group);
+    const stats  = collectStats(group, issues, layers);
+
+    const warnings = (group.userData as Record<string, unknown>).warnings;
+    if (Array.isArray(warnings) && warnings.length > 0) {
+        issues.push(
+            `${warnings.length} object(s) could not be fully converted ` +
+            '(unsupported geometry types or missing render meshes). See the group\'s userData.warnings for the full list.',
+        );
+    }
 
     onProgress('Applying Rhino settings', 95, 'Setting up materials and display options…');
 
     applyRhinoGroupSettings(group, fileName);
+    applyRhinoUpAxisConversion(group);
 
     const elapsed = Math.round(performance.now() - t0);
     onProgress('Done', 100, `Imported ${stats.objectCount} objects in ${(elapsed / 1000).toFixed(1)}s`);
 
-    return { group, fileName, stats, issues, elapsed };
+    return { group, fileName, stats, layers, issues, elapsed };
 }
 
-function collectStats(group: THREE.Group, issues: string[]): RhinoImportStats {
+/**
+ * §RHINO-ZUP-YUP (L-816) — Rhino authors geometry Z-up; PRYZM's world (like
+ * three.js) is Y-up. three's Rhino3dmLoader performs NO axis conversion — it
+ * hands back raw Rhino coordinates — so without this rotation every import
+ * arrives lying on its side (90° off in plan).
+ *
+ * The mapping mirrors the DXF importer's per-vertex convention
+ * (DxfGeometryBuilder: `DXF Y → -THREE.Z`, DXF Z → THREE.Y): a −90° rotation
+ * about X maps (x, y, z)_rhino → (x, z, −y)_three, i.e. Rhino's Z (up) becomes
+ * THREE's Y (up) and Rhino's plan-north (+Y) becomes THREE's −Z. Upright, and
+ * plan orientation matches the DXF/plan convention.
+ *
+ * Applied ONCE at the import boundary, on the root group only — child objects
+ * keep their raw Rhino transforms, so a future .3dm re-export can strip the
+ * root rotation and recover the original coordinates.
+ */
+export function applyRhinoUpAxisConversion(group: THREE.Object3D): void {
+    group.rotation.x = -Math.PI / 2;
+    group.userData.upAxisConverted = 'rhino-z-up-to-three-y-up';
+    group.updateMatrixWorld(true);
+}
+
+/**
+ * Read the .3dm layer table off the loader's root userData (three's
+ * Rhino3dmLoader stores the raw table at `group.userData.layers`) and count
+ * the objects materialised per layer via each object's
+ * `userData.attributes.layerIndex`.
+ */
+export function extractRhinoLayers(group: THREE.Object3D): RhinoImportLayerInfo[] {
+    const raw = (group.userData as Record<string, unknown>).layers;
+    if (!Array.isArray(raw)) return [];
+
+    const counts = new Map<number, number>();
+    group.traverse((obj) => {
+        if (obj === group) return;
+        const idx = (obj.userData as Record<string, any>)?.attributes?.layerIndex;
+        if (typeof idx === 'number') counts.set(idx, (counts.get(idx) ?? 0) + 1);
+    });
+
+    return raw.map((layer: Record<string, unknown>, index: number): RhinoImportLayerInfo => {
+        const fullPath = typeof layer?.fullPath === 'string' ? layer.fullPath : '';
+        const name     = typeof layer?.name === 'string' && layer.name.length > 0
+            ? layer.name
+            : (fullPath.split('::').pop() || `Layer ${index}`);
+        return {
+            index,
+            name,
+            fullPath: fullPath || name,
+            visible:  layer?.visible !== false,
+            objectCount: counts.get(index) ?? 0,
+        };
+    });
+}
+
+function collectStats(group: THREE.Group, issues: string[], layers: RhinoImportLayerInfo[]): RhinoImportStats {
     let meshCount   = 0;
     let curveCount  = 0;
     let brepCount   = 0;
     let objectCount = 0;
     let hasMaterials = false;
-    const layerNames = new Set<string>();
+    const layerNames = new Set<string>(layers.map(l => l.name));
 
     group.traverse((obj) => {
         if (obj === group) return;

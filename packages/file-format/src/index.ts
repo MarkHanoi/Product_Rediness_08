@@ -156,8 +156,8 @@ export type { IfcConversionStats, IfcConversionReport } from './import/ifc/conve
 export { ifcConversionReportStore } from './import/ifc/conversion/IfcConversionReportStore.ts';
 
 // import/rhino
-export { importRhino3DM } from './import/rhino/RhinoImporter.ts';
-export type { RhinoImportStats, RhinoImportResult } from './import/rhino/RhinoImporter.ts';
+export { importRhino3DM, applyRhinoUpAxisConversion, extractRhinoLayers } from './import/rhino/RhinoImporter.ts';
+export type { RhinoImportStats, RhinoImportResult, RhinoImportLayerInfo } from './import/rhino/RhinoImporter.ts';
 
 // import/top-level
 export { convertImageToImportResult } from './import/ImageToImportConverter.ts';
