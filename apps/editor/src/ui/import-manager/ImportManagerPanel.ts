@@ -26,6 +26,19 @@ import { injectAppTheme } from '../styles/AppTheme';
 
 export type ImportType = 'ifc' | 'dxf' | 'floor-plan' | 'rhino';
 
+/**
+ * §RHINO-LAYER-CONTROL (L-816) — one row of an import's source-layer table
+ * (today: Rhino .3dm layers). `visible` starts from the visibility flag
+ * authored in the file; toggling dispatches per-layer visibility events.
+ */
+export interface ImportLayerEntry {
+    index: number;
+    name: string;
+    fullPath: string;
+    visible: boolean;
+    objectCount: number;
+}
+
 export interface ImportEntry {
     id: string;
     type: ImportType;
@@ -34,6 +47,10 @@ export interface ImportEntry {
     visible: boolean;
     pinned: boolean;
     noSelect: boolean;
+    /** Source-file layer table, when the importer provides one (Rhino only today). */
+    layers?: ImportLayerEntry[];
+    /** UI state: layer list expanded? */
+    layersExpanded?: boolean;
 }
 
 const TYPE_LABELS: Record<ImportType, string> = {
@@ -285,7 +302,7 @@ export class ImportManagerPanel {
 
         // F.events.2d — runtime.events subscription (dispatch migrated to runtime.events.emit below).
         window.runtime?.events?.on('pryzm-rhino-imported', (payload: unknown) => {
-            const d = payload as { modelId?: string; fileName?: string } | undefined;
+            const d = payload as { modelId?: string; fileName?: string; layers?: ImportLayerEntry[] } | undefined;
             if (!d?.modelId) return;
             this._register({
                 id:       d.modelId,
@@ -295,6 +312,9 @@ export class ImportManagerPanel {
                 visible:  true,
                 pinned:   false,
                 noSelect: false,
+                // §RHINO-LAYER-CONTROL (L-816) — per-layer visibility state seeds
+                // from the .3dm file's own layer visibility flags.
+                layers:   Array.isArray(d.layers) && d.layers.length > 0 ? d.layers.map(l => ({ ...l })) : undefined,
             });
         });
 
@@ -423,7 +443,79 @@ export class ImportManagerPanel {
             this._render();
         });
 
+        // §RHINO-LAYER-CONTROL (L-816) — per-layer show/hide sub-list.
+        if (entry.layers && entry.layers.length > 0) {
+            const card = document.createElement('div');
+            card.className = 'im-card';
+            card.appendChild(row);
+            card.appendChild(this._buildLayerSection(entry));
+            return card;
+        }
+
         return row;
+    }
+
+    /** Collapsible source-layer list with one eye toggle per layer (L-816). */
+    private _buildLayerSection(entry: ImportEntry): HTMLElement {
+        const layers = entry.layers!;
+        const section = document.createElement('div');
+        section.className = 'im-layers';
+
+        const visibleCount = layers.filter(l => l.visible).length;
+        const header = document.createElement('button');
+        header.type = 'button';
+        header.className = 'im-layers-header';
+        header.innerHTML = `
+            <span class="im-layers-caret${entry.layersExpanded ? ' im-layers-caret--open' : ''}">${svgIcon('<polyline points="9 18 15 12 9 6"/>', 10)}</span>
+            <span>Layers</span>
+            <span class="im-layers-count">${visibleCount}/${layers.length}</span>
+        `;
+        header.addEventListener('click', () => {
+            entry.layersExpanded = !entry.layersExpanded;
+            this._render();
+        });
+        section.appendChild(header);
+
+        if (entry.layersExpanded) {
+            const list = document.createElement('div');
+            list.className = 'im-layers-list';
+            for (const layer of layers) {
+                const lr = document.createElement('div');
+                lr.className = 'im-layer-row';
+                lr.innerHTML = `
+                    <span class="im-layer-name${layer.visible ? '' : ' im-layer-name--off'}" title="${this._esc(layer.fullPath)}">${this._esc(layer.name)}</span>
+                    <span class="im-layer-count">${layer.objectCount}</span>
+                    <button class="im-btn im-btn--icon im-btn--layer${layer.visible ? ' im-btn--active' : ''}"
+                        title="${layer.visible ? 'Layer visible — click to hide' : 'Layer hidden — click to show'}">
+                        ${svgIcon(layer.visible ? EYE_ON : EYE_OFF, 12)}
+                    </button>
+                `;
+                lr.querySelector('button')!.addEventListener('click', () => {
+                    layer.visible = !layer.visible;
+                    this._dispatchLayerVisibility(entry, layer);
+                    this._render();
+                });
+                list.appendChild(lr);
+            }
+            section.appendChild(list);
+        }
+
+        return section;
+    }
+
+    private _dispatchLayerVisibility(entry: ImportEntry, layer: ImportLayerEntry): void {
+        switch (entry.type) {
+            case 'rhino':
+                window.runtime?.events?.emit('pryzm-rhino-set-layer-visibility', { // F.events.15
+                    modelId:    entry.id,
+                    layerIndex: layer.index,
+                    visible:    layer.visible,
+                });
+                break;
+            default:
+                break; // only Rhino carries a source-layer table today
+        }
+        console.log(`[ImportManager] layer visibility → ${entry.type}/${entry.id} layer=${layer.index} visible=${layer.visible}`);
     }
 
     private _dispatchVisibility(entry: ImportEntry): void {

@@ -208,6 +208,93 @@ export const IMPORT_MANAGER_STYLES = `
         border-color: rgba(239,68,68,0.55);
         color: #fca5a5;
     }
+    /* §RHINO-LAYER-CONTROL (L-816) — per-layer show/hide sub-list */
+    .im-card {
+        display: flex;
+        flex-direction: column;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+    }
+    .im-card .im-row {
+        background: transparent;
+        border: none;
+        border-radius: 8px 8px 0 0;
+    }
+    .im-layers {
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .im-layers-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 9px;
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.55);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+    }
+    .im-layers-header:hover {
+        color: rgba(255,255,255,0.85);
+    }
+    .im-layers-caret {
+        display: inline-flex;
+        transition: transform 0.12s;
+    }
+    .im-layers-caret--open {
+        transform: rotate(90deg);
+    }
+    .im-layers-count {
+        margin-left: auto;
+        font-weight: 600;
+        color: rgba(255,255,255,0.4);
+    }
+    .im-layers-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 2px 9px 7px;
+        max-height: 160px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #3a2a6a transparent;
+    }
+    .im-layer-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 0;
+    }
+    .im-layer-name {
+        flex: 1;
+        min-width: 0;
+        font-size: 11px;
+        color: rgba(255,255,255,0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .im-layer-name--off {
+        color: rgba(255,255,255,0.35);
+        text-decoration: line-through;
+    }
+    .im-layer-count {
+        flex-shrink: 0;
+        font-size: 10px;
+        color: rgba(255,255,255,0.35);
+    }
+    .im-btn--layer {
+        width: 20px;
+        height: 20px;
+    }
     .im-section-label {
         font-size: 10px;
         font-weight: 700;

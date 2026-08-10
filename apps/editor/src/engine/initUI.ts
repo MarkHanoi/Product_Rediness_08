@@ -1790,7 +1790,13 @@ export async function initUI(p: UIParams): Promise<void> {
 
             // Notify Import Manager — §32
             // F.events.2d — full migration: DOM dispatch replaced with runtime.events.emit
-            window.runtime?.events?.emit('pryzm-rhino-imported', { modelId: result.group.userData.modelId, fileName: result.fileName });
+            // §RHINO-LAYER-CONTROL (L-816) — the .3dm layer table rides along so the
+            // Import Manager can render per-layer show/hide toggles.
+            window.runtime?.events?.emit('pryzm-rhino-imported', {
+                modelId:  result.group.userData.modelId,
+                fileName: result.fileName,
+                layers:   result.layers,
+            });
 
             toast(
                 `Rhino model imported: ${result.stats.objectCount.toLocaleString()} objects, ${result.stats.layerCount} layers.`,
@@ -1847,6 +1853,22 @@ export async function initUI(p: UIParams): Promise<void> {
         group.userData.locked   = p.locked   ?? true;
         group.userData.noSelect = p.noSelect  ?? false;
         console.log('[Rhino IM] setLocked', id, 'locked=', p.locked, 'noSelect=', p.noSelect);
+    });
+
+    // §RHINO-LAYER-CONTROL (L-816) — per-layer show/hide. Three's Rhino3dmLoader
+    // stamps every materialised object with its .3dm layer-table index at
+    // userData.attributes.layerIndex; visibility per layer is exactly the set of
+    // objects carrying that index. (P7: layer visibility is intent — this mirrors
+    // the visibility flags the loader itself seeds from the file on import.)
+    window.runtime?.events?.on('pryzm-rhino-set-layer-visibility', (p: { modelId: string; layerIndex: number; visible: boolean }) => { // F.events.15
+        const group = _rhinoImportGroups.get(p?.modelId);
+        if (!group || typeof p.layerIndex !== 'number') return;
+        let touched = 0;
+        group.traverse((obj) => {
+            const idx = (obj.userData as any)?.attributes?.layerIndex;
+            if (idx === p.layerIndex) { obj.visible = p.visible ?? true; touched++; }
+        });
+        console.log('[Rhino IM] setLayerVisibility', p.modelId, 'layer', p.layerIndex, 'visible=', p.visible, `(${touched} objects)`);
     });
 
     // ── Import Manager Panel — §32 ─────────────────────────────────────────────
