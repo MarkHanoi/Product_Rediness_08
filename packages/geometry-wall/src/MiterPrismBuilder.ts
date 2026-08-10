@@ -31,6 +31,24 @@ let _miterPrismNanWarned = false;
  *
  * Geometry: 6 faces (outer, inner, top, bottom, start cap, end cap).
  * Each face uses its own vertices with face-aligned normals → hard edges everywhere.
+ *
+ * §WALL-RAKE-JOINT-OPENING-HOST (ADR-0312 follow-up, founder 2026-08-10) —
+ * `startTopDrift` / `endTopDrift` displace that end's TWO TOP cap vertices
+ * horizontally (world XZ, metres), leaving the bottom ring untouched. This is how
+ * the twin-solve loft reaches a wall that HOSTS AN OPENING: such a wall's body is
+ * built as segments and its mitred END segment comes from here, not from the
+ * polygon extruder, so without this parameter the lofted corner was unreachable
+ * and the joint reverted to the ADR-0310 un-lofted state. `left` / `right` follow
+ * the footprint convention (left = `leftPerp(wallDir)` = the `outward` sign +1
+ * side below), which is the SAME convention `WallPipelineV2Cache.rakeJointCapDrift`
+ * reports — the two must not drift apart. Absent ⇒ byte-identical geometry.
+ *
+ * The drift is HORIZONTAL only, so the top face stays flat and its (0,1,0) normal
+ * stays exact. For an ORTHOGONAL joint the drift is purely along the wall axis, so
+ * the side quads also stay planar and their normals stay exact; at an oblique joint
+ * a side quad acquires a small out-of-plane twist and its flat normal becomes an
+ * approximation — the same compromise the polygon extruder already makes for a
+ * per-vertex lofted top (see WallPolygonExtruder §WALL-RAKE-JOINT).
  */
 export function buildMiterPrism(
     worldStart: THREE.Vector3,
@@ -42,6 +60,8 @@ export function buildMiterPrism(
     baseOffset: number,
     startMN?: { nx: number; nz: number } | null,
     endMN?:   { nx: number; nz: number } | null,
+    startTopDrift?: { left: { x: number; z: number }; right: { x: number; z: number } } | null,
+    endTopDrift?:   { left: { x: number; z: number }; right: { x: number; z: number } } | null,
 ): THREE.BufferGeometry {
 
     // §WALL-NAN-GUARD (2026-06-25) — coerce non-finite scalar inputs so a bad
@@ -175,15 +195,24 @@ export function buildMiterPrism(
     const sDir = wallDir.clone();
     const eDir = wallDir.clone();
 
+    // §WALL-RAKE-JOINT-OPENING-HOST — displace ONE top cap vertex by the loft drift
+    // for its side. Non-finite drift is IGNORED (never propagated into a vertex): the
+    // wall then renders with its old un-lofted corner, which is the pre-ADR-0312
+    // geometry — a visible notch, not a NaN flood that hides the wall entirely.
+    const loft = (p: P3, d?: { x: number; z: number } | null): P3 => {
+        if (!d || !Number.isFinite(d.x) || !Number.isFinite(d.z)) return p;
+        return [p[0] + d.x, p[1], p[2] + d.z];
+    };
+
     const sOB = project(startBase(+1, yBot), centerlineStart, startMN, sDir, false);
-    const sOT = project(startBase(+1, yTop), centerlineStart, startMN, sDir, false);
+    const sOT = loft(project(startBase(+1, yTop), centerlineStart, startMN, sDir, false), startTopDrift?.left);
     const sIB = project(startBase(-1, yBot), centerlineStart, startMN, sDir, false);
-    const sIT = project(startBase(-1, yTop), centerlineStart, startMN, sDir, false);
+    const sIT = loft(project(startBase(-1, yTop), centerlineStart, startMN, sDir, false), startTopDrift?.right);
 
     const eOB = project(endBase(+1, yBot), centerlineEnd, endMN, eDir, true);
-    const eOT = project(endBase(+1, yTop), centerlineEnd, endMN, eDir, true);
+    const eOT = loft(project(endBase(+1, yTop), centerlineEnd, endMN, eDir, true), endTopDrift?.left);
     const eIB = project(endBase(-1, yBot), centerlineEnd, endMN, eDir, true);
-    const eIT = project(endBase(-1, yTop), centerlineEnd, endMN, eDir, true);
+    const eIT = loft(project(endBase(-1, yTop), centerlineEnd, endMN, eDir, true), endTopDrift?.right);
 
     const pos: number[] = [];
     const nrm: number[] = [];

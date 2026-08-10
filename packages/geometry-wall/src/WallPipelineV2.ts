@@ -307,6 +307,65 @@ export class WallPipelineV2Cache {
         return offsets;
     }
 
+    /**
+     * §WALL-RAKE-JOINT-OPENING-HOST (founder 2026-08-10) — the SAME twin-solve loft
+     * as {@link rakedTopOffsets}, expressed as the FOUR NAMED CAP CORNERS
+     * (start/end × left/right) instead of a polygon-index-aligned array.
+     *
+     * WHY a second shape for the same numbers: only the no-openings body path goes
+     * through `buildWallV2Geometry` → the polygon extruder, which consumes the
+     * index-aligned array. A wall that HOSTS AN OPENING is built by
+     * `WallFragmentBuilder` as box segments around the holes, with the mitred END
+     * segments built by `MiterPrismBuilder` — a builder addressed by named cap
+     * corners, not by footprint index. Without this accessor that path had no way
+     * to consume the loft at all, so placing a door on the neighbour of a raked
+     * wall silently reverted the corner to the un-lofted (ADR-0310) state: the
+     * founder's "the wall joint goes out" notch at the top of the corner.
+     *
+     * Self-contained by design — it rebuilds the wall's BASE footprint from this
+     * cache's own base solve, so a caller cannot mis-pair a footprint with the
+     * offsets (the one way `rakedTopOffsets` can be misused).
+     *
+     * Polygon layout is the documented `buildWallFootprint` order —
+     * `[sR, eR, endPivot?, eL, sL, startPivot?]` — which is what makes the
+     * index → named-corner mapping exact rather than a guess.
+     *
+     * Returns null (⇒ the caller keeps its existing un-lofted geometry) whenever
+     * {@link rakedTopOffsets} degrades, the wall is unknown to the solve, or the
+     * polygon is shorter than the four corners the mapping needs.
+     */
+    rakeJointCapDrift(
+        wallId: string,
+        height: number,
+    ): { startLeft: Pt2; startRight: Pt2; endLeft: Pt2; endRight: Pt2 } | null {
+        if (!this._hasRake) return null;
+        const w = this._walls.get(wallId);
+        if (!w) return null;
+        const miter = this._byId.get(wallId) ?? null;
+        const fp = buildWallFootprint(w, miter);
+        if (fp.invalid) return null;
+        const offs = this.rakedTopOffsets(wallId, fp, height);
+        if (!offs) return null;
+        const iEL = 2 + (miter?.endPivot ? 1 : 0);
+        const iSL = iEL + 1;
+        if (iSL >= offs.length) return null;
+        // A wall on a raked LEVEL that is not itself at a lofted junction gets an
+        // all-zero drift. Report that as null, not as a zero vector: callers use
+        // non-null to mean "this wall needs the lofted body path", and handing them a
+        // no-op drift would push an untouched wall off its normal (seam-free) body
+        // path for no geometric gain.
+        const worst = Math.max(
+            ...[offs[0]!, offs[1]!, offs[iEL]!, offs[iSL]!].map(o => Math.hypot(o.x, o.z)),
+        );
+        if (!(worst > 1e-9)) return null;
+        return {
+            startRight: offs[0]!,
+            endRight:   offs[1]!,
+            endLeft:    offs[iEL]!,
+            startLeft:  offs[iSL]!,
+        };
+    }
+
     getMiter(wallId: string): WallMiter | null {
         return this._byId.get(wallId) ?? null;
     }

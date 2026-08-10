@@ -1976,6 +1976,47 @@ export class WallFragmentBuilder {
             const openingStartMN = joinData?.startMN ?? null;
             const openingEndMN   = joinData?.endMN   ?? null;
 
+            // ── §WALL-RAKE-JOINT-OPENING-HOST (founder 2026-08-10) ──────────────
+            //
+            // THE DEFECT: "when the user creates a door on the ADJACENT wall the wall
+            // joint goes out" — the raked mitre that was clean before the door reverts
+            // to the un-lofted (ADR-0310) state, a notch/step at the TOP of the corner.
+            //
+            // PROVEN MECHANISM, and it is NOT an invalidation bug (the whole-level
+            // flush and `refreshV2Cache` both run: an opening ADD changes the opening
+            // SET, so `classifyWallDelta` already returns `whole-level`). It is a
+            // MISSING CONSUMER. The ADR-0312 twin-solve loft is applied in exactly one
+            // place — `buildWallV2Geometry`, reached only from `createWallBodyFragment`,
+            // which this method calls ONLY in the `wall.openings.length === 0` branch
+            // above. The moment a wall hosts an opening its body is rebuilt as segments
+            // around the holes, and its mitred END segments come from
+            // `buildMiterPrism`, which had no way to express a lofted top. So the
+            // opening did not invalidate anything: it MOVED THE WALL ONTO A BODY PATH
+            // THAT CANNOT CARRY THE LOFT. (Deleting the opening moves it back — which
+            // is why the founder's undo restored the joint.)
+            //
+            // A RAKED wall cannot itself host an opening (§FIX-RAKE-REFUSAL-IS-NOT-A-
+            // CRASH, L-812), so the wall reaching this code is always VERTICAL and its
+            // own carve stays a vertical band; the ONLY thing the loft changes for it is
+            // where its mitred TOP corners sit on the shared 3-D mitre line. At an
+            // orthogonal joint that drift is purely ALONG the wall axis (the corner
+            // simply gets longer/shorter with height), so displacing the END segments'
+            // top cap reproduces the lofted solid EXACTLY over the range it covers and
+            // leaves every interior segment — and every opening reveal — untouched.
+            //
+            // Null on any level with no raked wall (⇒ every existing project builds
+            // byte-identical geometry) and on any honest degradation inside
+            // `rakedTopOffsets`.
+            const _capDrift = (isWallPipelineV2Enabled() && !wall.curve)
+                ? (this.getEffectiveV2Cache()?.rakeJointCapDrift(wall.id, wallHeight) ?? null)
+                : null;
+            const _startTopDrift = _capDrift
+                ? { left: _capDrift.startLeft, right: _capDrift.startRight }
+                : null;
+            const _endTopDrift = _capDrift
+                ? { left: _capDrift.endLeft, right: _capDrift.endRight }
+                : null;
+
             for (const cluster of sortedClusters) {
                 const openingsAtOffset = cluster.openings;
                 const minLeft = cluster.minLeft;
@@ -1987,13 +2028,19 @@ export class WallFragmentBuilder {
                 if (segmentLength > 0.01) {
                     // First segment (starts at wall origin, currentOffset===0) gets startMN applied
                     // so miter join geometry is preserved when openings are on a joined wall.
-                    if (currentOffset === 0 && openingStartMN) {
+                    // §WALL-RAKE-JOINT-OPENING-HOST — also take the prism branch when the
+                    // wall has NO miter normal at this end but DOES carry a joint loft (a
+                    // T-guest whose cap is square in plan yet still lofted at the top).
+                    // With both inputs null the prism is a square-capped box, i.e. the
+                    // BoxGeometry branch's own output.
+                    if (currentOffset === 0 && (openingStartMN || _startTopDrift)) {
                         const segStart = new THREE.Vector3(0, 0, 0);
                         const segEnd   = direction.clone().multiplyScalar(minLeft);
                         const geo = buildMiterPrism(
                             segStart, segEnd, segStart, segEnd,
                             wallThickness / 2, wallHeight, wallBaseOffset,
                             openingStartMN, null,
+                            _startTopDrift, null,
                         );
                         const mesh = new THREE.Mesh(geo, material.clone());
                         mesh.userData = {
@@ -2105,7 +2152,8 @@ export class WallFragmentBuilder {
             const finalSegmentLength = wallLength - currentOffset;
             if (finalSegmentLength > 0.01) {
                 // Last segment ends at the wall endpoint — apply endMN if wall has a join there.
-                if (openingEndMN) {
+                // §WALL-RAKE-JOINT-OPENING-HOST — same generalisation as the first segment.
+                if (openingEndMN || _endTopDrift) {
                     const segStart      = direction.clone().multiplyScalar(currentOffset);
                     const segEnd        = direction.clone().multiplyScalar(wallLength);
                     const clEnd         = direction.clone().multiplyScalar(wallLength);
@@ -2113,6 +2161,7 @@ export class WallFragmentBuilder {
                         segStart, segEnd, segStart, clEnd,
                         wallThickness / 2, wallHeight, wallBaseOffset,
                         null, openingEndMN,
+                        null, _endTopDrift,
                     );
                     const finalMesh = new THREE.Mesh(geo, material.clone());
                     finalMesh.userData = {
@@ -2148,13 +2197,17 @@ export class WallFragmentBuilder {
             // Otherwise fall back to a simple BoxGeometry (no join, perpendicular ends).
             {
                 let outlineEdges: THREE.Object3D;
-                if (openingStartMN || openingEndMN) {
+                if (openingStartMN || openingEndMN || _capDrift) {
                     const segStart = new THREE.Vector3(0, 0, 0);
                     const segEnd   = direction.clone().multiplyScalar(wallLength);
+                    // §WALL-RAKE-JOINT-OPENING-HOST — the outline must follow the LOFTED
+                    // body, or the edge overlay draws the pre-loft silhouette over the
+                    // corrected corner (a second, thinner version of the same defect).
                     const outlineGeo = buildMiterPrism(
                         segStart, segEnd, segStart, segEnd,
                         wallThickness / 2, wallHeight, wallBaseOffset,
                         openingStartMN, openingEndMN,
+                        _startTopDrift, _endTopDrift,
                     );
                     outlineEdges = buildWallEdgeOverlay(outlineGeo, wall.id);
                     outlineEdges.position.set(0, 0, 0);
@@ -2186,7 +2239,11 @@ export class WallFragmentBuilder {
             // a mitered end needs the angled end-cut the box/miter-prism path provides,
             // so that case keeps the segments + the legacy seam-merge fallback. Safe:
             // on any failure it leaves the original separate segments (merged) intact.
-            const _hasMiterEnd = !!(openingStartMN || openingEndMN);
+            // §WALL-RAKE-JOINT-OPENING-HOST — a lofted end counts as a "miter end" for
+            // this decision: the Shape-with-holes extrude runs through the thickness on
+            // ONE profile, so it cannot express a top cap that has travelled along the
+            // mitre line. Taking it would silently discard the loft we just applied.
+            const _hasMiterEnd = !!(openingStartMN || openingEndMN || _capDrift);
             const _extrudeBodyOk =
                 !_hasMiterEnd &&
                 this._rebuildPlainWallBodyAsHoleExtrude(
