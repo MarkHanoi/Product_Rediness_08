@@ -1195,7 +1195,10 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
             const svc = window.facadeOrientationService as {
                 facadesByOrientation?: (l: string, o: string, n?: number) => Array<{ wallId: string }>;
             } | undefined;
-            return svc?.facadesByOrientation?.(levelId, orientation, 0)?.map(f => f.wallId) ?? [];
+            // §FIX-FACADE-TRUE-NORTH (ADR-0315 U2.1): θ omitted so the service's
+            // injected site true-north applies — the literal 0 here made
+            // "south-facing" mean PROJECT-south on rotated sites.
+            return svc?.facadesByOrientation?.(levelId, orientation)?.map(f => f.wallId) ?? [];
         },
     };
 

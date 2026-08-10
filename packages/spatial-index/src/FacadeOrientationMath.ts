@@ -81,11 +81,21 @@ export function outwardNormal(
 }
 
 /**
- * PURE — classify every wall as interior/exterior and (for exterior walls bounded
- * by exactly one room) compute its outward normal + compass orientation.
+ * PURE — classify every wall as interior/exterior and (for exterior walls)
+ * compute its outward normal + compass orientation.
  *
- * Exterior = referenced by ≤1 room's `boundingWallIds`. Orientation is computed
- * only when exactly one room bounds the wall (gives the outward direction).
+ * Exterior = referenced by ≤1 room's `boundingWallIds`. The outward direction
+ * comes from the bounding room's centroid when exactly one room bounds the
+ * wall.
+ *
+ * §FIX-FACADE-NO-ROOMS (ADR-0315 U2.1): a wall bounded by ZERO rooms used to
+ * get `orientation: null` — so a building whose rooms were not (re)detected
+ * had NO south-facing walls, silently. The fallback derives outwardness from
+ * the LEVEL FOOTPRINT centroid (mean of all wall midpoints on that level,
+ * ≥3 walls required) — the same away-from-the-shell-centre heuristic the
+ * ai-host shell analysis uses. count===1 keeps the stronger room-centroid
+ * signal; concave-plan caveat: a midpoint-centroid outward test can mis-flip
+ * a deeply recessed wall, which room detection resolves.
  */
 export function classifyFacades(
     walls: readonly FacadeWall[],
@@ -101,6 +111,18 @@ export function classifyFacades(
         }
     }
 
+    // §FIX-FACADE-NO-ROOMS — per-level wall-midpoint centroid for the fallback.
+    const levelCentroid = new Map<string, { x: number; z: number; n: number }>();
+    for (const wall of walls) {
+        const a = wall.baseLine[0];
+        const b = wall.baseLine[1];
+        const acc = levelCentroid.get(wall.levelId) ?? { x: 0, z: 0, n: 0 };
+        acc.x += (a.x + b.x) / 2;
+        acc.z += (a.z + b.z) / 2;
+        acc.n += 1;
+        levelCentroid.set(wall.levelId, acc);
+    }
+
     const out = new Map<string, FacadeInfo>();
     for (const wall of walls) {
         const count = countByWall.get(wall.id) ?? 0;
@@ -110,8 +132,13 @@ export function classifyFacades(
         if (isExterior && count === 1) {
             const room = roomByWall.get(wall.id)!;
             normal = outwardNormal(wall, room.centroid);
-            if (normal) orientation = orientationFromNormal(normal, trueNorth);
+        } else if (isExterior && count === 0) {
+            const acc = levelCentroid.get(wall.levelId);
+            if (acc !== undefined && acc.n >= 3) {
+                normal = outwardNormal(wall, { x: acc.x / acc.n, z: acc.z / acc.n });
+            }
         }
+        if (normal) orientation = orientationFromNormal(normal, trueNorth);
         out.set(wall.id, {
             wallId: wall.id,
             levelId: wall.levelId,

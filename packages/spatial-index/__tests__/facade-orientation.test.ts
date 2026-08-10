@@ -87,3 +87,55 @@ describe('classifyFacades — shared wall between two rooms is interior', () => 
         expect(facades.get('w-out')!.orientation).toBe('N'); // z=-5 side, faces −Z
     });
 });
+
+// ─── §FIX-FACADE-NO-ROOMS + §FIX-FACADE-TRUE-NORTH (ADR-0315 U2.1) ───────────
+
+describe('classifyFacades — ZERO detected rooms (the shell case)', () => {
+    it('derives orientation from the level footprint centroid instead of returning null', () => {
+        // Before U2.1 a building with no rooms detected had NO oriented walls —
+        // "south-facing" silently matched nothing.
+        const facades = classifyFacades([W_NORTH, W_SOUTH, W_EAST, W_WEST], [], 0);
+        expect(facades.get('w-s')!.orientation).toBe('S');
+        expect(facades.get('w-n')!.orientation).toBe('N');
+        expect(facades.get('w-e')!.orientation).toBe('E');
+        expect(facades.get('w-w')!.orientation).toBe('W');
+        for (const id of ['w-n', 'w-s', 'w-e', 'w-w']) {
+            expect(facades.get(id)!.isExterior).toBe(true);
+            expect(facades.get(id)!.boundingRoomCount).toBe(0);
+        }
+    });
+
+    it('fewer than 3 walls on a level: no fallback centroid, orientation stays null', () => {
+        const facades = classifyFacades([W_NORTH, W_SOUTH], [], 0);
+        expect(facades.get('w-n')!.orientation).toBeNull();
+        expect(facades.get('w-s')!.orientation).toBeNull();
+    });
+
+    it('the fallback is PER LEVEL — a second level does not pollute the centroid', () => {
+        const upper: FacadeWall[] = [
+            { id: 'u-n', levelId: 'L1', baseLine: [{ x: 95, z: -5 }, { x: 105, z: -5 }] },
+            { id: 'u-s', levelId: 'L1', baseLine: [{ x: 95, z: 5 }, { x: 105, z: 5 }] },
+            { id: 'u-e', levelId: 'L1', baseLine: [{ x: 105, z: -5 }, { x: 105, z: 5 }] },
+            { id: 'u-w', levelId: 'L1', baseLine: [{ x: 95, z: -5 }, { x: 95, z: 5 }] },
+        ];
+        // The upper level sits 100m east; a GLOBAL centroid would flip its west wall.
+        const facades = classifyFacades([W_NORTH, W_SOUTH, W_EAST, W_WEST, ...upper], [], 0);
+        expect(facades.get('u-w')!.orientation).toBe('W');
+        expect(facades.get('u-e')!.orientation).toBe('E');
+        expect(facades.get('w-w')!.orientation).toBe('W');
+    });
+
+    it('room-bounded walls keep the stronger room-centroid signal', () => {
+        // Same geometry, one room present: identical result to the room path.
+        const withRoom = classifyFacades([W_NORTH, W_SOUTH, W_EAST, W_WEST], [ROOM], 0);
+        const without = classifyFacades([W_NORTH, W_SOUTH, W_EAST, W_WEST], [], 0);
+        for (const id of ['w-n', 'w-s', 'w-e', 'w-w']) {
+            expect(withRoom.get(id)!.orientation).toBe(without.get(id)!.orientation);
+        }
+    });
+});
+
+// The SERVICE-level provider test lives in apps/editor/__tests__/
+// facadeTrueNorthProvider.test.ts — the service imports the @pryzm/core-app-model
+// BARREL, whose module-load side effects hang this pure-Node suite
+// ([[scc-no-barrel-access-at-module-load]]); this file stays store-free.

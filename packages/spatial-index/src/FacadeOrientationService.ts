@@ -23,31 +23,74 @@ import {
 
 export class FacadeOrientationService {
     /**
-     * Per-wall façade info for a level. `trueNorth` (radians) defaults to 0 — the
-     * caller (proposal builder / command) passes the project's `trueNorth`.
+     * §FIX-FACADE-TRUE-NORTH (ADR-0315 U2.1) — the project's true-north θ,
+     * INJECTED as a provider rather than imported: this service sits below the
+     * stores that own `SiteLocation.trueNorth`, and every caller was passing
+     * the default 0, so "south-facing" meant project-south on rotated sites.
+     * The editor wires the provider from `siteModelStore` in initTools; when
+     * unset (headless/tests) the default stays 0. An EXPLICIT `trueNorth`
+     * argument always wins — the solar pipeline passes its own θ.
      */
-    getFacades(levelId: string, trueNorth = 0): Map<string, FacadeInfo> {
-        return classifyFacades(this._walls(levelId), this._rooms(levelId), trueNorth);
+    private _trueNorthProvider: () => number = () => 0;
+
+    setTrueNorthProvider(provider: () => number): void {
+        this._trueNorthProvider = provider;
     }
 
-    /** All exterior walls on the level. */
-    exteriorWalls(levelId: string, trueNorth = 0): FacadeInfo[] {
-        return [...this.getFacades(levelId, trueNorth).values()].filter(f => f.isExterior);
+    private _theta(explicit?: number): number {
+        if (explicit !== undefined) return explicit;
+        try {
+            const t = this._trueNorthProvider();
+            return Number.isFinite(t) ? t : 0;
+        } catch {
+            return 0;
+        }
     }
 
-    /** Exterior walls whose outward normal faces a given compass direction. */
-    facadesByOrientation(levelId: string, orientation: Compass4, trueNorth = 0): FacadeInfo[] {
-        return [...this.getFacades(levelId, trueNorth).values()]
+    /**
+     * Per-wall façade info for a level. `trueNorth` (radians) defaults to the
+     * injected project true-north (0 when no provider is wired).
+     */
+    getFacades(levelId: string, trueNorth?: number): Map<string, FacadeInfo> {
+        return classifyFacades(this._walls(levelId), this._rooms(levelId), this._theta(trueNorth));
+    }
+
+    /**
+     * §ADR-0315 U2.1 — ALL-LEVELS roll-up: per-wall façade info for the whole
+     * project in one call (levels partition the wall store; the classifier's
+     * footprint fallback is computed per level). This is what a project-wide
+     * "all south-facing walls" scope reads.
+     */
+    getFacadesAllLevels(trueNorth?: number): Map<string, FacadeInfo> {
+        const theta = this._theta(trueNorth);
+        return classifyFacades(this._walls(), this._rooms(), theta);
+    }
+
+    /** All exterior walls on the level (or project-wide when levelId omitted). */
+    exteriorWalls(levelId?: string, trueNorth?: number): FacadeInfo[] {
+        const facades = levelId === undefined
+            ? this.getFacadesAllLevels(trueNorth)
+            : this.getFacades(levelId, trueNorth);
+        return [...facades.values()].filter(f => f.isExterior);
+    }
+
+    /** Exterior walls whose outward normal faces a given compass direction
+     *  (project-wide when levelId omitted/undefined). */
+    facadesByOrientation(levelId: string | undefined, orientation: Compass4, trueNorth?: number): FacadeInfo[] {
+        const facades = levelId === undefined
+            ? this.getFacadesAllLevels(trueNorth)
+            : this.getFacades(levelId, trueNorth);
+        return [...facades.values()]
             .filter(f => f.isExterior && f.orientation === orientation);
     }
 
-    private _walls(levelId: string): FacadeWall[] {
+    private _walls(levelId?: string): FacadeWall[] {
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as {
             getAll?: () => Array<{ id: string; levelId: string; baseLine: Array<{ x: number; z: number }> }>;
         } | undefined;
         if (!wallStore?.getAll) return [];
         return wallStore.getAll()
-            .filter(w => w.levelId === levelId && Array.isArray(w.baseLine) && w.baseLine.length >= 2)
+            .filter(w => (levelId === undefined || w.levelId === levelId) && Array.isArray(w.baseLine) && w.baseLine.length >= 2)
             .map(w => ({
                 id: w.id,
                 levelId: w.levelId,
@@ -58,15 +101,17 @@ export class FacadeOrientationService {
             }));
     }
 
-    private _rooms(levelId: string): FacadeRoom[] {
+    private _rooms(levelId?: string): FacadeRoom[] {
         const roomStore = storeRegistry.getStoreForType('room') as unknown as {
             getByLevel?: (id: string) => Array<RoomRecord>;
             getAll?: () => Array<RoomRecord>;
         } | undefined;
         if (!roomStore) return [];
-        const rooms = typeof roomStore.getByLevel === 'function'
-            ? roomStore.getByLevel(levelId)
-            : (roomStore.getAll?.() ?? []).filter(r => r.levelId === levelId);
+        const rooms = levelId === undefined
+            ? (roomStore.getAll?.() ?? [])
+            : typeof roomStore.getByLevel === 'function'
+                ? roomStore.getByLevel(levelId)
+                : (roomStore.getAll?.() ?? []).filter(r => r.levelId === levelId);
         return rooms.map(r => ({
             id: r.id,
             boundingWallIds: r.boundingWallIds ?? [],

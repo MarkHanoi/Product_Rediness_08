@@ -523,6 +523,16 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     window.roomValidationService   = roomValidationService;
     window.roomTypeInferenceEngine = roomTypeInferenceEngine;
     window.facadeOrientationService = facadeOrientationService; // SL-3 (SPEC-SEMANTIC §3)
+    // §FIX-FACADE-TRUE-NORTH (ADR-0315 U2.1) — every caller passed θ=0, so
+    // "south-facing" meant PROJECT-south on rotated sites. The provider reads
+    // the one authority (SiteLocation.trueNorth) lazily at call time; explicit
+    // θ arguments still win, absence of a site still means 0.
+    facadeOrientationService.setTrueNorthProvider(() => {
+        const w = window as unknown as {
+            runtime?: { siteModelStore?: { getLocation?: () => { trueNorth?: number } | null } };
+        };
+        return w.runtime?.siteModelStore?.getLocation?.()?.trueNorth ?? 0;
+    });
 
     for (const evt of ['bim-room-added', 'bim-room-updated', 'bim-room-removed'] as const) {
         window.addEventListener(evt, (e: any) => {
