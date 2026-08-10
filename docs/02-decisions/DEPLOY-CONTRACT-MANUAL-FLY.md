@@ -406,27 +406,42 @@ verify it, don't re-apply blindly.
 
 ---
 
-### 6.5.6 §DOCKER-HOST-LEAK — Docker Desktop breaks `--remote-only`
+### 6.5.6 §DOCKER-HOST-LEAK — Docker Desktop breaks `--remote-only` (fix VERIFIED)
 
-Observed on the third execution day (a8f08c14 attempt): the deploy reached
-"Remote builder ready", then died with
+Observed on the third execution day: the deploy reached "Remote builder ready",
+then died with
 
 ```
 Error: failed to fetch an image or build from source: failed to parse daemon
 host "npipe:////./pipe/docker_engine": missing hostname
 ```
 
-Cause: Docker Desktop was running locally and its `DOCKER_HOST=npipe:////./pipe/docker_engine`
-leaked into flyctl, which tried to parse the WINDOWS NAMED PIPE as the build
-daemon even under `--remote-only`. Earlier same-day deploys succeeded because
-Docker Desktop was not yet running. Fix: strip the vars for the flyctl run:
+Cause: Docker Desktop was running locally. flyctl initialises a Docker client
+even under `--remote-only`, and resolves the daemon from **the Docker CLI
+context file** (`~/.docker/config.json` → `currentContext` → the Windows named
+pipe), which it cannot parse as a host.
+
+⚠ **The obvious fix does NOT work — verified by failure.** The first attempt was
+`env -u DOCKER_HOST -u DOCKER_CONTEXT …` — it failed with the *identical* error,
+because the npipe comes from the CONTEXT FILE, not the environment. Unsetting
+env vars changes nothing.
+
+**The fix that shipped `ba9d4d66` (verified):** point flyctl at an empty Docker
+config for the one invocation, so no context exists at all:
 
 ```bash
-env -u DOCKER_HOST -u DOCKER_CONTEXT bash tools/deploy/fly-manual-deploy.sh
+mkdir -p /tmp/empty-docker-config && echo '{}' > /tmp/empty-docker-config/config.json
+DOCKER_CONFIG=/tmp/empty-docker-config bash tools/deploy/fly-manual-deploy.sh
 ```
 
-Rule for the next agent: "worked an hour ago, fails now, error mentions npipe or
-docker_engine" ⇒ Docker Desktop started in between. Not the script, not the code.
+Rule for the next agent: "worked earlier, fails now, error mentions npipe or
+docker_engine" ⇒ Docker Desktop started in between. Not the script, not the
+code, not the env vars — the **context file**. Use `DOCKER_CONFIG`.
+
+Also measured this execution: builder 16 GB precondition still held from
+2026-08-06 (no re-resize needed); local smoke gate inside the Docker build
+booted `dist/index.cjs` in **720 ms** (the L-442 precompile paying off — the
+Dockerfile's original "993 ms" claim is now independently corroborated).
 
 ## 7. OPEN ITEMS
 
