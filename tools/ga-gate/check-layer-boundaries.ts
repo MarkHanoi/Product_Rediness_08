@@ -143,7 +143,17 @@ const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
 // create a brand-new SDK→legacy-command-registry coupling rather than remove a
 // bypass; the honest count is +1 under the same tracked pattern. The debt
 // remains the PATTERN (legacy bridges from plugin handlers), not this file.
-const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 173);
+// 173 → 178 (2026-08-10, ADR-0315 U-phases + founder asks 1-4): five more batch
+// bridges of the SAME tracked F-1.3 shape as 172/173's justifications — each a
+// plugin handler forwarding to a command-registry batch command so the RAC chat
+// buys ONE undo entry per mass mutation: UpdateWallsRakeBatch.ts,
+// AddWallLayerBatch.ts (plugins/wall); UpdateWindowsSystemTypeBatch.ts,
+// CreateWindowsParametricBatch.ts (plugins/window); UpdateDoorsSystemTypeBatch.ts
+// (plugins/door — U4.3). Same ruling as 173: plugin-sdk re-exports nothing from
+// command-registry, so widening the facade would mint a new SDK→legacy coupling;
+// the tracked debt remains the bridge PATTERN. Shrink resumes when the batch
+// verbs migrate to first-class SDK routes (U-phase backlog).
+const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 178);
 
 /**
  * §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — banned third-party dependencies.
