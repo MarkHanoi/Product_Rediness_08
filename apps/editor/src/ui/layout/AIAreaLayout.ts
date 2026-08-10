@@ -65,6 +65,81 @@ function _aiSaveWidth(w: number): void {
     try { localStorage.setItem(AI_WIDTH_KEY, String(Math.round(w))); } catch { /* ignore */ }
 }
 
+// -- AI Panel HEIGHT persistence (founder 2026-08-10, round 2) ---------------
+// The first-line launcher docked the panel down the WHOLE left column
+// (bottom: 12px, max-height: none). The founder asked for HALF height by
+// default and for the panel to be freely sizeable/movable, so height becomes a
+// first-class, persisted dimension like width: an explicit pixel height (never
+// top+bottom anchoring, which no drag can express) defaulting to half the
+// viewport, resizable from the bottom-right corner, remembered per browser.
+const AI_HEIGHT_KEY = 'pryzm-ai-panel-height';
+const AI_MIN_H      = 220;
+/** Half the viewport, bounded - the founder's "by default half size". */
+function _aiDefaultHeight(): number {
+    return Math.max(AI_MIN_H, Math.round(window.innerHeight * 0.5));
+}
+function _aiMaxHeight(): number {
+    return Math.max(AI_MIN_H, window.innerHeight - 24);
+}
+function _aiLoadHeight(): number {
+    try {
+        const s = localStorage.getItem(AI_HEIGHT_KEY);
+        if (s) {
+            const n = parseInt(s, 10);
+            if (!isNaN(n) && n >= AI_MIN_H) return Math.min(n, _aiMaxHeight());
+        }
+    } catch { /* ignore storage errors */ }
+    return _aiDefaultHeight();
+}
+function _aiSaveHeight(h: number): void {
+    try { localStorage.setItem(AI_HEIGHT_KEY, String(Math.round(h))); } catch { /* ignore */ }
+}
+
+/**
+ * Bottom-right CORNER resize - width AND height in one gesture (the shape users
+ * expect from a floating panel). The left-edge handle keeps width-only resizing
+ * for the docked case; this one owns the founder's "sizeable" ask.
+ *
+ * Both dimensions are written as explicit pixels and persisted, so a reload
+ * restores exactly what the user left - and `bottom` is released to `auto` so
+ * the height the user chose is the height that survives.
+ */
+function _attachCornerResize(handle: HTMLElement, container: HTMLElement): void {
+    let dragging = false;
+    let startX = 0, startY = 0, startW = 0, startH = 0;
+
+    const onMouseMove = (e: MouseEvent): void => {
+        if (!dragging) return;
+        const w = Math.max(AI_MIN_W, Math.min(AI_MAX_W, startW + (e.clientX - startX)));
+        const h = Math.max(AI_MIN_H, Math.min(_aiMaxHeight(), startH + (e.clientY - startY)));
+        container.style.width  = `${w}px`;
+        container.style.height = `${h}px`;
+    };
+    const onMouseUp = (): void => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        _aiSaveWidth(container.offsetWidth);
+        _aiSaveHeight(container.offsetHeight);
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    };
+    handle.addEventListener('mousedown', (e: MouseEvent) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();          // never start a drag-to-move at the same time
+        container.style.bottom = 'auto';
+        dragging = true;
+        startX = e.clientX; startY = e.clientY;
+        startW = container.offsetWidth; startH = container.offsetHeight;
+        document.body.style.cursor = 'nwse-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+}
+
 /**
  * Founder request 2026-08-10 — the AI panel is now FIRST-LINE: its default
  * dock is the LEFT column, flush next to the left icon rail (vb-panel /
@@ -462,11 +537,15 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
             const margin = 8; // px gap between the icon rail and the panel
             const dock   = _getLeftRailDock(margin);
             const initLeft = dock.left;
+            const h = _aiLoadHeight();              // founder: HALF the viewport by default
             container.style.left   = `${initLeft}px`;
             container.style.top    = `${dock.top}px`;
-            container.style.bottom = '12px';        // stretch down the column
-            container.style.height = 'auto';
-            container.style.maxHeight = 'none';     // let the column, not 60vh, bound it
+            // Explicit height (not top+bottom anchoring): the panel is a freely
+            // sizeable floating window, and only an explicit height survives a
+            // move. `bottom: auto` releases the old full-column stretch.
+            container.style.bottom = 'auto';
+            container.style.height = `${h}px`;
+            container.style.maxHeight = 'none';     // the user's height is the height
 
             // 3. Wire drag-to-move (header as handle)
             const dragHandle = container.querySelector('.ai-chat-header') as HTMLElement | null;
@@ -479,7 +558,14 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
             container.appendChild(resizeHandle);
             _attachWidthResize(resizeHandle, container);
 
-            console.log('[AIAreaLayout] AI panel drag + resize wired. width=%dpx left=%dpx top=%dpx (left-docked)', w, initLeft, dock.top);
+            // 5. Bottom-right CORNER handle - width + height in one gesture.
+            const cornerHandle = document.createElement('div');
+            cornerHandle.className = 'ai-resize-corner';
+            cornerHandle.title     = 'Drag to resize';
+            container.appendChild(cornerHandle);
+            _attachCornerResize(cornerHandle, container);
+
+            console.log('[AIAreaLayout] AI panel drag + resize wired. width=%dpx height=%dpx left=%dpx top=%dpx (left-docked, corner-resizable)', w, h, initLeft, dock.top);
         }, 800);
     }
 

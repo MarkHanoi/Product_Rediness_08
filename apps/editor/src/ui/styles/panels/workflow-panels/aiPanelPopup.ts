@@ -230,6 +230,29 @@ export const AI_PANEL_POPUP_STYLES = `
         background: rgba(102, 0, 255, 0.18);
     }
 
+    /* -- Bottom-right CORNER resize (founder 2026-08-10: sizeable panel) --
+       Width + height in one gesture. The visible chevron is a pure CSS
+       gradient so no asset is needed; the hit area is deliberately larger
+       (16px) than the mark so it is easy to grab on a trackpad. */
+    .ai-resize-corner {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 16px;
+        height: 16px;
+        cursor: nwse-resize;
+        z-index: 21;
+        border-radius: 0 0 var(--app-radius-md) 0;
+        background-image:
+            linear-gradient(135deg, transparent 0 46%, rgba(102, 0, 255, 0.45) 46% 54%, transparent 54% 100%),
+            linear-gradient(135deg, transparent 0 66%, rgba(102, 0, 255, 0.45) 66% 74%, transparent 74% 100%);
+        transition: background-color 0.15s;
+    }
+    .ai-resize-corner:hover,
+    .ai-resize-corner:active {
+        background-color: rgba(102, 0, 255, 0.12);
+    }
+
     /* ── Chat Panel Shell ─────────────────────────────────────────────── */
     .ai-chat-panel {
         display: flex;
