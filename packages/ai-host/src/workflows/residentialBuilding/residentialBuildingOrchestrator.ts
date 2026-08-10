@@ -712,8 +712,23 @@ function _orchestrateWith(
             if (a > bestA) { bestA = a; bestR = r; }
         }
         if (bestR) {
-            // Centre on the sub-rect, clamped so the core stays inside it.
-            const cx = (bestR.x0 + bestR.x1) / 2, cz = (bestR.z0 + bestR.z1) / 2;
+            // §RESI-SIDE-CORE-KEEPS-SIDE (founder live repro 2026-08-10, Rambla Catalunya 75:
+            // "No layout fits" on an 11.2333 × 34.6662 m plate) — THE narrow-deep-plate zero. The
+            // 1 mm probe inset above only survives a side core on a PERFECTLY straight local x0
+            // edge; every real envelope-inset parcel de-rotates to a quad whose long edge is a few
+            // centimetres slanted, so the flush core's corners fall (barely) outside the polygon,
+            // the probe fails, and this relocation used to CENTRE the core in the sub-rect — i.e.
+            // it silently converted the single-loaded side plan back into the centred plan the
+            // side fallback exists to replace. On an ~11 m plate the centred core leaves two
+            // ~4.3 m runs (both under the ~8 m min-apartment width) → zero cells → the fallback
+            // refused with the same message as the centred attempt. The fix: when the caller asked
+            // for a SIDE core, relocate it FLUSH to the sub-rect's x0 edge (the nearest
+            // in-boundary "side"), preserving the single-loaded arrangement; only a centred
+            // request re-centres. Centred plates are byte-identical (corePlacement === 'centre').
+            const cx = corePlacement === 'side'
+                ? bestR.x0 + coreWidthM / 2
+                : (bestR.x0 + bestR.x1) / 2;
+            const cz = (bestR.z0 + bestR.z1) / 2;
             fcx = Math.min(Math.max(cx, bestR.x0 + coreWidthM / 2), bestR.x1 - coreWidthM / 2);
             fcz = Math.min(Math.max(cz, bestR.z0 + coreDepthM / 2), bestR.z1 - coreDepthM / 2);
         }
