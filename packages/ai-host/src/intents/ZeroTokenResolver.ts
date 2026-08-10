@@ -1248,63 +1248,6 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
-    case 'set-window-type': {
-      // §FEAT-WINDOW-TYPE-BATCH — the exact set-wall-type shape, window kind.
-      let windowIds: readonly string[] | 'all';
-      if (si.scope === 'selection') {
-        const windows = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'window');
-        if (windows.length === 0) {
-          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
-          return {
-            kind: 'refusal', intent: 'set-window-type',
-            reason: kinds.length === 0
-              ? 'No windows are selected — select a window, or say "change all windows to …" to retype every window.'
-              : `Window types apply to windows, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
-            suggestions: ['change all windows to timber casement'],
-          };
-        }
-        windowIds = windows.map((s) => s.elementId);
-      } else {
-        windowIds = 'all';
-      }
-
-      // Resolve through the INJECTED lookup (one implementation —
-      // `resolveWindowSystemTypeRef`). Absent injection forwards the raw
-      // string and the command refuses with the same honesty; never a guess.
-      let systemType = si.typeRef;
-      let typeLabel = `"${si.typeRef}"`;
-      if (ctx.resolveWindowSystemType !== undefined) {
-        const hit = ctx.resolveWindowSystemType(si.typeRef);
-        if (hit === null) {
-          const names = ctx.windowSystemTypeNames ?? [];
-          return {
-            kind: 'refusal', intent: 'set-window-type',
-            reason: names.length === 0
-              ? `I could not find a window type called "${si.typeRef}" in this project.`
-              : `There is no window type called "${si.typeRef}" in this project. The window types here are: ${names.join(', ')}.`,
-            suggestions: names.slice(0, 2).map((n) => `change all windows to ${n.toLowerCase()}`),
-          };
-        }
-        systemType = hit.id;
-        typeLabel = `"${hit.name}"`;
-      }
-
-      const scopeLabel = windowIds === 'all'
-        ? 'every window in the project'
-        : `${windowIds.length} selected window${windowIds.length === 1 ? '' : 's'}`;
-      return {
-        kind: 'commands', intent: 'set-window-type',
-        summary: `Change ${scopeLabel} to ${typeLabel}`,
-        commands: [{
-          type: 'window.updateSystemTypeBatch',
-          payload: { windowIds: windowIds === 'all' ? 'all' : [...windowIds], systemType },
-        }],
-        // NOT destructive — one undo entry, and the command reports
-        // "Retyped N of M — K skipped" (same policy as the wall type batch).
-        destructive: false,
-      };
-    }
-
     case 'create-windows-parametric': {
       // §FEAT-WINDOW-PARAMETRIC-CREATE — scope first (the batch-family shape).
       let wallIds: readonly string[] | 'all';
@@ -1915,27 +1858,39 @@ const matchWallRake: Matcher = (text, ctx) => {
 //     window, so it maps to the selection scope.
 // Same non-claim guards as parseWallTypeIntent: dimension words and leading
 // digits are NEVER claimed, so "make all windows 1 m wide" stays a width ask.
-const WINDOW_TYPE_SCOPED_RE = new RegExp(
-  `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: selected)? windows?` +
-  `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (.+)$`,
-);
-const WINDOW_TYPE_SINGULAR_RE = new RegExp(
-  String.raw`^(?:change|set|swap) (?:the )?window(?:'s)? type (?:to|into|as) (.+)$`,
-);
+// RAC U4.3 — the SHARED hosted-type grammar: window and door type-change
+// sentences are the SAME two shapes with a different noun, so ONE parser
+// factory serves both (grammar generalization; the APPLY side of each intent
+// is a CapabilityExecutionSpec table entry riding the generic arm).
+function makeHostedTypeParser(noun: string): (text: string) => { typeRef: string; scope: 'all' | 'selection' } | null {
+  const scopedRe = new RegExp(
+    `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: selected)? ${noun}s?` +
+    `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (.+)$`,
+  );
+  const singularRe = new RegExp(
+    String.raw`^(?:change|set|swap) (?:the )?${noun}(?:'s)? type (?:to|into|as) (.+)$`,
+  );
+  return (text) => {
+    const scoped = scopedRe.exec(text);
+    const singular = scoped === null ? singularRe.exec(text) : null;
+    if (scoped === null && singular === null) return null;
+    const typeRef = (scoped?.[2] ?? singular![1]!).trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+    if (typeRef.length === 0) return null;
+    // "make all windows 1m wide" is a DIMENSION ask, not a type ask — never claim it.
+    if (/\b(?:tall|high|wide|taller|wider|height|width|sill|deep|long)\b/.test(typeRef)) return null;
+    if (/^\d/.test(typeRef)) return null;
+    const scope: 'all' | 'selection' = scoped === null
+      ? 'selection'
+      : new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!) ? 'all' : 'selection';
+    return { typeRef, scope };
+  };
+}
+
+const parseWindowTypeShape = makeHostedTypeParser('window');
 
 export function parseWindowTypeIntent(text: string): Extract<SemanticIntent, { intent: 'set-window-type' }> | null {
-  const scoped = WINDOW_TYPE_SCOPED_RE.exec(text);
-  const singular = scoped === null ? WINDOW_TYPE_SINGULAR_RE.exec(text) : null;
-  if (scoped === null && singular === null) return null;
-  const typeRef = (scoped?.[2] ?? singular![1]!).trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
-  if (typeRef.length === 0) return null;
-  // "make all windows 1m wide" is a DIMENSION ask, not a type ask — never claim it.
-  if (/\b(?:tall|high|wide|taller|wider|height|width|sill|deep|long)\b/.test(typeRef)) return null;
-  if (/^\d/.test(typeRef)) return null;
-  const scope = scoped === null
-    ? 'selection'
-    : new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!) ? 'all' : 'selection';
-  return { intent: 'set-window-type', typeRef, scope };
+  const hit = parseWindowTypeShape(text);
+  return hit === null ? null : { intent: 'set-window-type', ...hit };
 }
 
 const matchWindowType: Matcher = (text, ctx) => {

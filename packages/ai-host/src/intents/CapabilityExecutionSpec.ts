@@ -68,7 +68,8 @@ export const COMPASS_WORD: Readonly<Record<Compass4, string>> = {
 export type SpecDrivenIntentId =
   | 'set-wall-type'
   | 'set-wall-color'
-  | 'set-wall-rake';
+  | 'set-wall-rake'
+  | 'set-window-type';
 
 export type SpecDrivenIntent = Extract<SemanticIntent, { intent: SpecDrivenIntentId }>;
 
@@ -262,6 +263,49 @@ export const EXECUTION_SPECS: SpecTable = {
     },
     // NOT destructive — one undo entry, deletes nothing, and the command
     // reports "Raked N of M — K skipped" (same policy as the colour batch).
+    destructive: false,
+  },
+
+  /**
+   * §FEAT-WINDOW-TYPE-BATCH — the exact set-wall-type shape, window kind.
+   * Resolves through the INJECTED lookup (one implementation —
+   * `resolveWindowSystemTypeRef`). Absent injection forwards the raw string
+   * and the command refuses with the same honesty; never a guess.
+   */
+  'set-window-type': {
+    elementKind: 'window',
+    busCommand: 'window.updateSystemTypeBatch',
+    idsField: 'windowIds',
+    noSelectionReason:
+      'No windows are selected — select a window, or say "change all windows to …" to retype every window.',
+    mismatchPrefix: 'Window types apply to windows',
+    suggestions: ['change all windows to timber casement'],
+    resolveValue: (si, ctx) => {
+      let systemType = si.typeRef;
+      let typeLabel = `"${si.typeRef}"`;
+      if (ctx.resolveWindowSystemType !== undefined) {
+        const hit = ctx.resolveWindowSystemType(si.typeRef);
+        if (hit === null) {
+          const names = ctx.windowSystemTypeNames ?? [];
+          return {
+            refusal: {
+              reason: names.length === 0
+                ? `I could not find a window type called "${si.typeRef}" in this project.`
+                : `There is no window type called "${si.typeRef}" in this project. The window types here are: ${names.join(', ')}.`,
+              suggestions: names.slice(0, 2).map((n) => `change all windows to ${n.toLowerCase()}`),
+            },
+          };
+        }
+        systemType = hit.id;
+        typeLabel = `"${hit.name}"`;
+      }
+      return {
+        payload: { systemType },
+        summary: (scopeLabel) => `Change ${scopeLabel} to ${typeLabel}`,
+      };
+    },
+    // NOT destructive — one undo entry, and the command reports
+    // "Retyped N of M — K skipped" (same policy as the wall type batch).
     destructive: false,
   },
 
