@@ -27,7 +27,21 @@ export {
 export {
   resolveUtterance,
   withChatDispatchSpan,
+  applySemanticIntent,
+  findLevel,
+  lengthToMeters,
 } from './intents/ZeroTokenResolver.js';
+// ADR-0313 §NL — local natural-language layer (semantics only; zero tokens).
+export {
+  resolveNaturalLanguage,
+  noteResolution,
+  CONFIDENCE_THRESHOLDS,
+} from './intents/LocalNaturalLanguageResolver.js';
+export type {
+  ConversationContext,
+  NaturalLanguageContext,
+  NaturalLanguageResolution,
+} from './intents/LocalNaturalLanguageResolver.js';
 export type {
   ResolverContext,
   ResolverSelection,
@@ -35,6 +49,9 @@ export type {
   BusCommandRef,
   ZeroTokenResolution,
   ZeroTokenLocalAction,
+  SemanticIntent,
+  SemanticApplication,
+  WallPoint2,
 } from './intents/ZeroTokenResolver.js';
 export { AiBus } from './AiBus.js';
 export type { AiBusEvent, AiBusEventKind, AiBusListener, AiBusOptions } from './AiBus.js';

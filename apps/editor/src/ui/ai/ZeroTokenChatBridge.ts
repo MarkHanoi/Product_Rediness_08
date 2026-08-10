@@ -24,7 +24,10 @@
 
 import {
     resolveUtterance,
+    resolveNaturalLanguage,
+    noteResolution,
     withChatDispatchSpan,
+    type ConversationContext,
     type ResolverContext,
     type ResolverSelection,
     type ZeroTokenResolution,
@@ -175,11 +178,24 @@ async function runLocal(
     hooks.say(`${r.summary}. (resolved without AI tokens)`);
 }
 
+// ─── Conversation context (ADR-0313 §NL) ─────────────────────────────────────
+// Small explicit cross-turn state for follow-ups ("Actually, make it 3.2m.").
+// It biases INTERPRETATION only — targeting always comes from the live
+// selection/levels rebuilt in buildContext() on every message.
+
+let conversation: ConversationContext = {};
+
+/** Reset the cross-turn conversation context (tests / project switch). */
+export function resetZeroTokenConversation(): void {
+    conversation = {};
+}
+
 /**
- * Try to handle a chat utterance with the zero-token resolver.
- * Returns true when handled (dispatched OR refused with a reason) — the
- * caller must then NOT send the utterance to the LLM. Returns false on a
- * miss so the existing aiService path runs unchanged.
+ * Try to handle a chat utterance with the zero-token resolution ladder:
+ * tier 0 grammar → tier 1 synonyms/typos → local natural-language layer.
+ * Returns true when handled (dispatched, clarified, OR refused with a
+ * reason) — the caller must then NOT send the utterance to the LLM.
+ * Returns false only on a miss so the existing aiService path runs unchanged.
  */
 export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks): Promise<boolean> {
     let resolution: ZeroTokenResolution;
@@ -192,9 +208,32 @@ export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks)
         console.error('[ZeroTokenChatBridge] resolver failed, falling through:', err);
         return false;
     }
-    switch (resolution.kind) {
-        case 'miss':
+    if (resolution.kind === 'miss') {
+        // §ADR-0313 NL layer — natural phrasing, still ZERO tokens. Produces
+        // semantics only; applySemanticIntent (inside) built this resolution.
+        try {
+            const nl = resolveNaturalLanguage(query, { ...ctx, conversation });
+            conversation = nl.conversation;
+            if (nl.kind === 'miss') return false; // → LLM
+            if (nl.kind === 'clarification') {
+                // Recognized but underspecified: ask, never guess. Handled —
+                // the answer arrives as the next chat message.
+                hooks.say(nl.question);
+                return true;
+            }
+            resolution = nl.resolution;
+        } catch (err) {
+            console.error('[ZeroTokenChatBridge] NL resolver failed, falling through:', err);
             return false;
+        }
+    } else {
+        // Fold tier-0/1 understanding into the conversation so follow-ups
+        // work regardless of which tier answered the previous turn.
+        conversation = noteResolution(conversation, resolution);
+    }
+    // At this point the utterance was understood (tier 0/1 or NL) — 'miss'
+    // already returned false above.
+    switch (resolution.kind) {
         case 'refusal': {
             const tail = resolution.suggestions.length > 0
                 ? ` Try: ${resolution.suggestions.map((s) => `"${s}"`).join(' or ')}`

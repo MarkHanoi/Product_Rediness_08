@@ -63,6 +63,11 @@ export default defineConfig({
       // rebuild. A control that renders and does nothing — or that lies about its
       // current value — is the defect class these pin.
       'apps/editor/src/ui/property-panel/__tests__/**/*.spec.ts',
+      // §ADR-0313 NL layer: zero-token chat bridge behavioural specs — proves the
+      // LLM path (aiService.query) is NEVER called for locally resolvable chat,
+      // that destructive asks gate on the Confirm/Cancel card, and that the miss
+      // seam to the LLM stays open.
+      'apps/editor/src/ui/ai/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

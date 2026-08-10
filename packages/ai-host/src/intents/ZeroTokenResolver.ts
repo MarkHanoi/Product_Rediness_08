@@ -4,6 +4,10 @@
 //         local actions / explicit refusals. 0 tokens.
 // Tier 1: synonym + bounded-Levenshtein typo normalization, then tier 0 again.
 //         0 tokens.
+// NL layer (ADR-0313 §Natural language): LocalNaturalLanguageResolver reduces
+//         naturally-phrased utterances to the SemanticIntent IR defined HERE,
+//         and `applySemanticIntent` below remains the ONLY authority that
+//         turns semantics into safe commands / local actions / refusals.
 // Tier 2 (LLM fallback) is NOT here — a `miss` result is the seam where the
 // caller falls through to the existing aiService path.
 //
@@ -56,7 +60,7 @@ export type ZeroTokenResolution =
   | {
       readonly kind: 'commands';
       readonly intent: string;
-      readonly tier: 0 | 1;
+      readonly tier: 0 | 1 | 'nl';
       readonly summary: string;
       readonly commands: readonly BusCommandRef[];
       readonly destructive: boolean;
@@ -64,7 +68,7 @@ export type ZeroTokenResolution =
   | {
       readonly kind: 'local';
       readonly intent: string;
-      readonly tier: 0 | 1;
+      readonly tier: 0 | 1 | 'nl';
       readonly summary: string;
       readonly action: ZeroTokenLocalAction;
       /** For setActiveLevel. */
@@ -124,6 +128,12 @@ function toMeters(valueStr: string, unit: string | undefined): number {
   if (unit.startsWith('mm') || unit.startsWith('millimet')) return v / 1000;
   if (unit.startsWith('cm') || unit.startsWith('centimet')) return v / 100;
   return v; // m / meter / metre
+}
+
+/** The ADR-0313 unit rule, exported for the NL layer (ONE source of truth):
+ *  explicit mm/cm/m convert; a bare number > 20 is millimeters, else meters. */
+export function lengthToMeters(valueStr: string, unit: string | undefined): number {
+  return toMeters(valueStr, unit);
 }
 
 function round3(v: number): number {
@@ -187,6 +197,12 @@ function levenshtein(a: string, b: string, max: number): number {
   return prev[b.length]!;
 }
 
+/** Bounded Levenshtein distance (early exit above `max`), exported for the
+ *  NL layer's typo correction — one implementation, two vocabularies. */
+export function boundedLevenshtein(a: string, b: string, max: number): number {
+  return levenshtein(a, b, max);
+}
+
 /** Synonym-map + typo-correct each token against the grammar vocabulary.
  *  Numbers, units and parenthesized coordinates pass through untouched. */
 function tier1Normalize(text: string): string {
@@ -209,9 +225,42 @@ function tier1Normalize(text: string): string {
     .join(' ');
 }
 
-// ─── Grammar (tier 0) ────────────────────────────────────────────────────────
+// ─── Semantic intents — the shared IR (ADR-0313 §NL layer) ───────────────────
+//
+// The tier-0/1 grammar AND the NL layer both reduce utterances to this
+// discriminated union; `applySemanticIntent` is the ONE place semantics become
+// safe commands / local actions / refusals. The NL layer produces semantics
+// ONLY — it never builds commands and never dispatches.
 
-type MatchResult =
+export interface WallPoint2 {
+  readonly x: number;
+  readonly z: number;
+}
+
+export type SemanticIntent =
+  | { readonly intent: 'undo' }
+  | { readonly intent: 'redo' }
+  | { readonly intent: 'zoom-fit' }
+  | { readonly intent: 'zoom-selected' }
+  | { readonly intent: 'delete-selected'; readonly noun?: string }
+  | { readonly intent: 'set-height'; readonly value: number }
+  | { readonly intent: 'set-thickness'; readonly value: number }
+  | { readonly intent: 'set-door-width'; readonly value: number }
+  | { readonly intent: 'set-sill-height'; readonly value: number }
+  | { readonly intent: 'go-to-level'; readonly levelQuery: string }
+  | { readonly intent: 'add-level'; readonly elevation?: number }
+  | {
+      readonly intent: 'create-wall';
+      readonly start?: WallPoint2;
+      readonly end?: WallPoint2;
+      readonly height?: number;
+      readonly thickness?: number;
+    }
+  | { readonly intent: 'rename-room'; readonly name?: string };
+
+/** applySemanticIntent's result — a resolution minus the tier stamp (the
+ *  caller adds `tier: 0 | 1 | 'nl'` on non-refusal results). */
+export type SemanticApplication =
   | {
       readonly kind: 'commands';
       readonly intent: string;
@@ -234,6 +283,8 @@ type MatchResult =
       readonly suggestions: readonly string[];
     };
 
+type MatchResult = SemanticApplication;
+
 type Matcher = (text: string, ctx: ResolverContext) => MatchResult | null;
 
 const ELEMENT_NOUNS = new Set([
@@ -248,6 +299,25 @@ function singular(noun: string): string {
 
 function fmt(n: number): string {
   return `${round3(n)} m`;
+}
+
+/** Resolve a level query (exact name, or a number matched against "Level N" /
+ *  "LN" / "… N" naming) against the injected level list. Exported so the NL
+ *  layer can pre-resolve ordinal words without duplicating the lookup. */
+export function findLevel(
+  query: string,
+  levels: readonly ResolverLevel[],
+): ResolverLevel | undefined {
+  const q = query.trim().toLowerCase();
+  const byName = levels.find((l) => l.name.toLowerCase() === q);
+  if (byName !== undefined) return byName;
+  if (/^\d+$/.test(q)) {
+    return levels.find((l) => {
+      const nm = l.name.toLowerCase();
+      return nm === `level ${q}` || nm === `l${q}` || nm.endsWith(` ${q}`);
+    });
+  }
+  return undefined;
 }
 
 /** Selection guard: intent needs exactly a selected element. */
@@ -268,35 +338,261 @@ function needSelection(intent: string, ctx: ResolverContext, verbHint: string):
   return { sel };
 }
 
-const matchUndoRedo: Matcher = (text) => {
+/**
+ * Turn a SemanticIntent into a safe application: bus commands, a local
+ * action, or an honest refusal. This is the SINGLE authority on the
+ * semantics→command mapping — the tier-0/1 grammar and the NL layer both
+ * funnel through it, so the safety guards (selection required, element-type
+ * match, level exists, positive dimensions) can never diverge between the
+ * rigid and natural paths. Pure; never dispatches (P6 is the caller's job).
+ */
+export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): SemanticApplication {
+  switch (si.intent) {
+    case 'undo':
+      return { kind: 'local', intent: 'undo', summary: 'Undid the last action', action: 'undo' };
+    case 'redo':
+      return { kind: 'local', intent: 'redo', summary: 'Redid the last undone action', action: 'redo' };
+
+    case 'zoom-fit':
+      return {
+        kind: 'commands', intent: 'zoom-fit', summary: 'Zoomed to fit the model',
+        commands: [{ type: 'zoom-fit', payload: {} }], destructive: false,
+      };
+
+    case 'zoom-selected': {
+      if (ctx.selection.length === 0) {
+        return {
+          kind: 'refusal', intent: 'zoom-selected',
+          reason: 'Nothing is selected to zoom to — select an element first, or say "zoom to fit".',
+          suggestions: ['zoom to fit'],
+        };
+      }
+      return {
+        kind: 'commands', intent: 'zoom-selected', summary: 'Zoomed to the selection',
+        commands: [{ type: 'zoom-selected', payload: {} }], destructive: false,
+      };
+    }
+
+    case 'delete-selected': {
+      const guard = needSelection('delete-selected', ctx, 'ask again');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      if (si.noun !== undefined) {
+        const wanted = singular(si.noun);
+        if (!['element', 'item', 'object'].includes(wanted) && wanted !== sel.elementType) {
+          return {
+            kind: 'refusal', intent: 'delete-selected',
+            reason: `You asked to delete a ${wanted}, but the selected element is a ${sel.elementType}. Nothing was deleted.`,
+            suggestions: [`delete selected ${sel.elementType}`],
+          };
+        }
+      }
+      return {
+        kind: 'commands', intent: 'delete-selected',
+        summary: `Delete the selected ${sel.elementType}`,
+        commands: ctx.selection.map((s) => ({
+          type: 'element.delete',
+          payload: { elementId: s.elementId, elementType: s.elementType, source: 'AI_CHAT_ZERO_TOKEN' },
+        })),
+        destructive: true,
+      };
+    }
+
+    case 'set-sill-height': {
+      const guard = needSelection('set-sill-height', ctx, 'set its sill height');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      if (sel.elementType !== 'window') {
+        return {
+          kind: 'refusal', intent: 'set-sill-height',
+          reason: `Sill height applies to windows, but the selected element is a ${sel.elementType}.`,
+          suggestions: [],
+        };
+      }
+      const sill = round3(si.value);
+      return {
+        kind: 'commands', intent: 'set-sill-height',
+        summary: `Set the selected window's sill height to ${fmt(sill)}`,
+        commands: [{ type: 'window.setSillHeight', payload: { windowId: sel.elementId, sillHeight: sill } }],
+        destructive: false,
+      };
+    }
+
+    case 'set-height': {
+      const guard = needSelection('set-height', ctx, 'set its height');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      const height = round3(si.value);
+      if (height <= 0) {
+        return {
+          kind: 'refusal', intent: 'set-height',
+          reason: `A height of ${fmt(height)} is not valid — it must be positive.`,
+          suggestions: [],
+        };
+      }
+      const cmd: BusCommandRef =
+        sel.elementType === 'wall'
+          ? { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, height } }
+          : {
+              type: 'element.updateParameters',
+              payload: { elementId: sel.elementId, elementType: sel.elementType, parameters: { height } },
+            };
+      return {
+        kind: 'commands', intent: 'set-height',
+        summary: `Set the selected ${sel.elementType}'s height to ${fmt(height)}`,
+        commands: [cmd], destructive: false,
+      };
+    }
+
+    case 'set-thickness': {
+      const guard = needSelection('set-thickness', ctx, 'set its thickness');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      if (sel.elementType !== 'wall') {
+        return {
+          kind: 'refusal', intent: 'set-thickness',
+          reason: `Thickness via chat currently supports walls; the selected element is a ${sel.elementType}.`,
+          suggestions: [],
+        };
+      }
+      const thickness = round3(si.value);
+      return {
+        kind: 'commands', intent: 'set-thickness',
+        summary: `Set the selected wall's thickness to ${fmt(thickness)}`,
+        commands: [{ type: 'wall.updateDimensions', payload: { wallId: sel.elementId, thickness } }],
+        destructive: false,
+      };
+    }
+
+    case 'set-door-width': {
+      const guard = needSelection('set-door-width', ctx, 'set its width');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      if (sel.elementType !== 'door') {
+        return {
+          kind: 'refusal', intent: 'set-door-width',
+          reason: `Width via chat currently supports a selected door; the selected element is a ${sel.elementType}.`,
+          suggestions: [],
+        };
+      }
+      const width = round3(si.value);
+      return {
+        kind: 'commands', intent: 'set-door-width',
+        summary: `Set the selected door's width to ${fmt(width)}`,
+        commands: [{ type: 'door.setWidth', payload: { doorId: sel.elementId, width } }],
+        destructive: false,
+      };
+    }
+
+    case 'go-to-level': {
+      const match = findLevel(si.levelQuery, ctx.levels);
+      if (match === undefined) {
+        const names = ctx.levels.map((l) => l.name).join(', ');
+        return {
+          kind: 'refusal', intent: 'go-to-level',
+          reason: ctx.levels.length === 0
+            ? 'No levels exist in this project yet — say "add a level" first.'
+            : `No level called "${si.levelQuery}" — the levels here are: ${names}.`,
+          suggestions: ctx.levels.slice(0, 3).map((l) => `go to ${l.name.toLowerCase()}`),
+        };
+      }
+      return {
+        kind: 'local', intent: 'go-to-level',
+        summary: match.id === ctx.activeLevelId
+          ? `${match.name} is already the active level`
+          : `Switched the active level to ${match.name}`,
+        action: 'setActiveLevel', levelId: match.id, levelName: match.name,
+      };
+    }
+
+    case 'add-level': {
+      const levelId = ctx.mintId();
+      const name = `Level ${ctx.levels.length}`;
+      const elevations = ctx.levels.map((l) => l.elevation ?? 0);
+      const maxElev = elevations.length > 0 ? Math.max(...elevations) : 0;
+      const elevation = si.elevation !== undefined ? round3(si.elevation) : round3(maxElev + 3);
+      return {
+        kind: 'commands', intent: 'add-level',
+        summary: `Add "${name}" at elevation ${fmt(elevation)}`,
+        commands: [{ type: 'level.add', payload: { levelId, name, elevation, height: 3 } }],
+        destructive: false,
+      };
+    }
+
+    case 'create-wall': {
+      if (si.start === undefined || si.end === undefined) {
+        return {
+          kind: 'refusal', intent: 'create-wall',
+          reason: 'I need start and end coordinates to place a wall from chat — or use the Wall tool to draw it.',
+          suggestions: ['create a wall from (0,0) to (5,0)', 'create a wall from (0,0) to (5,0) height 3m'],
+        };
+      }
+      const payload: Record<string, unknown> = {
+        start: { x: si.start.x, z: si.start.z },
+        end: { x: si.end.x, z: si.end.z },
+      };
+      if (ctx.activeLevelId !== undefined) payload['levelId'] = ctx.activeLevelId;
+      if (si.height !== undefined) payload['height'] = round3(si.height);
+      if (si.thickness !== undefined) payload['thickness'] = round3(si.thickness);
+      return {
+        kind: 'commands', intent: 'create-wall',
+        summary: `Create a wall from (${si.start.x}, ${si.start.z}) to (${si.end.x}, ${si.end.z}) on the active level`,
+        commands: [{ type: 'wall.create', payload }], destructive: false,
+      };
+    }
+
+    case 'rename-room': {
+      const guard = needSelection('rename-room', ctx, 'rename it');
+      if ('refusal' in guard) return guard.refusal;
+      const sel = guard.sel;
+      if (sel.elementType !== 'room') {
+        return {
+          kind: 'refusal', intent: 'rename-room',
+          reason: `Rename needs a selected room; the selected element is a ${sel.elementType}.`,
+          suggestions: [],
+        };
+      }
+      const rawName = (si.name ?? '').trim();
+      if (rawName.length === 0) {
+        return {
+          kind: 'refusal', intent: 'rename-room',
+          reason: 'I need the new name — try: rename room to Kitchen.',
+          suggestions: ['rename room to Kitchen'],
+        };
+      }
+      const name = rawName.replace(/\b\w/g, (c) => c.toUpperCase());
+      return {
+        kind: 'commands', intent: 'rename-room',
+        summary: `Rename the selected room to "${name}"`,
+        commands: [{ type: 'room.rename', payload: { roomId: sel.elementId, name } }],
+        destructive: false,
+      };
+    }
+  }
+}
+
+// ─── Grammar (tier 0) ────────────────────────────────────────────────────────
+//
+// The matchers decide WHETHER a normalized utterance is claim-able and parse
+// its entities into a SemanticIntent; applySemanticIntent (above) owns the
+// semantics→command mapping and every safety guard.
+
+const matchUndoRedo: Matcher = (text, ctx) => {
   if (/^undo( this| last( \w+)?)?$/.test(text)) {
-    return { kind: 'local', intent: 'undo', summary: 'Undid the last action', action: 'undo' };
+    return applySemanticIntent({ intent: 'undo' }, ctx);
   }
   if (/^redo( this| last( \w+)?)?$/.test(text)) {
-    return { kind: 'local', intent: 'redo', summary: 'Redid the last undone action', action: 'redo' };
+    return applySemanticIntent({ intent: 'redo' }, ctx);
   }
   return null;
 };
 
 const matchZoom: Matcher = (text, ctx) => {
   if (/^(zoom( to)? ?(fit|all|extents?)|fit (view|all|model|everything)|frame (all|model|everything))$/.test(text)) {
-    return {
-      kind: 'commands', intent: 'zoom-fit', summary: 'Zoomed to fit the model',
-      commands: [{ type: 'zoom-fit', payload: {} }], destructive: false,
-    };
+    return applySemanticIntent({ intent: 'zoom-fit' }, ctx);
   }
   if (/^(zoom( to| on)? (selected|selection|this)|frame (selected|selection|this))$/.test(text)) {
-    if (ctx.selection.length === 0) {
-      return {
-        kind: 'refusal', intent: 'zoom-selected',
-        reason: 'Nothing is selected to zoom to — select an element first, or say "zoom to fit".',
-        suggestions: ['zoom to fit'],
-      };
-    }
-    return {
-      kind: 'commands', intent: 'zoom-selected', summary: 'Zoomed to the selection',
-      commands: [{ type: 'zoom-selected', payload: {} }], destructive: false,
-    };
+    return applySemanticIntent({ intent: 'zoom-selected' }, ctx);
   }
   return null;
 };
@@ -307,51 +603,17 @@ const matchDeleteSelected: Matcher = (text, ctx) => {
   if (!m) return null;
   const noun = m[1];
   if (noun !== undefined && !ELEMENT_NOUNS.has(noun)) return null; // "delete this level" etc. — not this intent
-  const guard = needSelection('delete-selected', ctx, 'ask again');
-  if ('refusal' in guard) return guard.refusal;
-  const sel = guard.sel;
-  if (noun !== undefined) {
-    const wanted = singular(noun);
-    if (!['element', 'item', 'object'].includes(wanted) && wanted !== sel.elementType) {
-      return {
-        kind: 'refusal', intent: 'delete-selected',
-        reason: `You asked to delete a ${wanted}, but the selected element is a ${sel.elementType}. Nothing was deleted.`,
-        suggestions: [`delete selected ${sel.elementType}`],
-      };
-    }
-  }
-  return {
-    kind: 'commands', intent: 'delete-selected',
-    summary: `Delete the selected ${sel.elementType}`,
-    commands: ctx.selection.map((s) => ({
-      type: 'element.delete',
-      payload: { elementId: s.elementId, elementType: s.elementType, source: 'AI_CHAT_ZERO_TOKEN' },
-    })),
-    destructive: true,
-  };
+  return applySemanticIntent(
+    { intent: 'delete-selected', ...(noun !== undefined ? { noun } : {}) },
+    ctx,
+  );
 };
 
 // NOTE: sill-height must run BEFORE plain height ("sill height" contains "height").
 const matchSillHeight: Matcher = (text, ctx) => {
   const m = new RegExp(`^(?:set|change|make)(?: the)?(?: window)? sill height(?: to)? ${LEN_SRC}$`).exec(text);
   if (!m) return null;
-  const guard = needSelection('set-sill-height', ctx, 'set its sill height');
-  if ('refusal' in guard) return guard.refusal;
-  const sel = guard.sel;
-  if (sel.elementType !== 'window') {
-    return {
-      kind: 'refusal', intent: 'set-sill-height',
-      reason: `Sill height applies to windows, but the selected element is a ${sel.elementType}.`,
-      suggestions: [],
-    };
-  }
-  const sill = round3(toMeters(m[1]!, m[2]));
-  return {
-    kind: 'commands', intent: 'set-sill-height',
-    summary: `Set the selected window's sill height to ${fmt(sill)}`,
-    commands: [{ type: 'window.setSillHeight', payload: { windowId: sel.elementId, sillHeight: sill } }],
-    destructive: false,
-  };
+  return applySemanticIntent({ intent: 'set-sill-height', value: toMeters(m[1]!, m[2]) }, ctx);
 };
 
 const matchHeight: Matcher = (text, ctx) => {
@@ -359,29 +621,7 @@ const matchHeight: Matcher = (text, ctx) => {
     new RegExp(`^(?:set|change)(?: the)?(?: wall| selected)? height(?: of (?:this|the selection))?(?: to)? ${LEN_SRC}$`).exec(text)
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} (?:tall|high)$`).exec(text);
   if (!m) return null;
-  const guard = needSelection('set-height', ctx, 'set its height');
-  if ('refusal' in guard) return guard.refusal;
-  const sel = guard.sel;
-  const height = round3(toMeters(m[1]!, m[2]));
-  if (height <= 0) {
-    return {
-      kind: 'refusal', intent: 'set-height',
-      reason: `A height of ${fmt(height)} is not valid — it must be positive.`,
-      suggestions: [],
-    };
-  }
-  const cmd: BusCommandRef =
-    sel.elementType === 'wall'
-      ? { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, height } }
-      : {
-          type: 'element.updateParameters',
-          payload: { elementId: sel.elementId, elementType: sel.elementType, parameters: { height } },
-        };
-  return {
-    kind: 'commands', intent: 'set-height',
-    summary: `Set the selected ${sel.elementType}'s height to ${fmt(height)}`,
-    commands: [cmd], destructive: false,
-  };
+  return applySemanticIntent({ intent: 'set-height', value: toMeters(m[1]!, m[2]) }, ctx);
 };
 
 const matchThickness: Matcher = (text, ctx) => {
@@ -389,45 +629,13 @@ const matchThickness: Matcher = (text, ctx) => {
     new RegExp(`^(?:set|change)(?: the)?(?: wall)? thickness(?: to)? ${LEN_SRC}$`).exec(text)
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} thick$`).exec(text);
   if (!m) return null;
-  const guard = needSelection('set-thickness', ctx, 'set its thickness');
-  if ('refusal' in guard) return guard.refusal;
-  const sel = guard.sel;
-  if (sel.elementType !== 'wall') {
-    return {
-      kind: 'refusal', intent: 'set-thickness',
-      reason: `Thickness via chat currently supports walls; the selected element is a ${sel.elementType}.`,
-      suggestions: [],
-    };
-  }
-  const thickness = round3(toMeters(m[1]!, m[2]));
-  return {
-    kind: 'commands', intent: 'set-thickness',
-    summary: `Set the selected wall's thickness to ${fmt(thickness)}`,
-    commands: [{ type: 'wall.updateDimensions', payload: { wallId: sel.elementId, thickness } }],
-    destructive: false,
-  };
+  return applySemanticIntent({ intent: 'set-thickness', value: toMeters(m[1]!, m[2]) }, ctx);
 };
 
 const matchDoorWidth: Matcher = (text, ctx) => {
   const m = new RegExp(`^(?:set|change)(?: the)?(?: door)? width(?: to)? ${LEN_SRC}$`).exec(text);
   if (!m) return null;
-  const guard = needSelection('set-door-width', ctx, 'set its width');
-  if ('refusal' in guard) return guard.refusal;
-  const sel = guard.sel;
-  if (sel.elementType !== 'door') {
-    return {
-      kind: 'refusal', intent: 'set-door-width',
-      reason: `Width via chat currently supports a selected door; the selected element is a ${sel.elementType}.`,
-      suggestions: [],
-    };
-  }
-  const width = round3(toMeters(m[1]!, m[2]));
-  return {
-    kind: 'commands', intent: 'set-door-width',
-    summary: `Set the selected door's width to ${fmt(width)}`,
-    commands: [{ type: 'door.setWidth', payload: { doorId: sel.elementId, width } }],
-    destructive: false,
-  };
+  return applySemanticIntent({ intent: 'set-door-width', value: toMeters(m[1]!, m[2]) }, ctx);
 };
 
 const matchGoToLevel: Matcher = (text, ctx) => {
@@ -441,47 +649,16 @@ const matchGoToLevel: Matcher = (text, ctx) => {
   target = target.replace(/^levels?\s*/, '');
   const byName = ctx.levels.find((l) => l.name.toLowerCase() === target);
   if (byName === undefined && !mentionedLevel && !/^\d+$/.test(target)) return null;
-  let match = byName;
-  if (match === undefined && /^\d+$/.test(target)) {
-    const n = target;
-    match = ctx.levels.find((l) => {
-      const nm = l.name.toLowerCase();
-      return nm === `level ${n}` || nm === `l${n}` || nm.endsWith(` ${n}`);
-    });
-  }
-  if (match === undefined) {
-    const names = ctx.levels.map((l) => l.name).join(', ');
-    return {
-      kind: 'refusal', intent: 'go-to-level',
-      reason: ctx.levels.length === 0
-        ? 'No levels exist in this project yet — say "add a level" first.'
-        : `No level called "${target}" — the levels here are: ${names}.`,
-      suggestions: ctx.levels.slice(0, 3).map((l) => `go to ${l.name.toLowerCase()}`),
-    };
-  }
-  return {
-    kind: 'local', intent: 'go-to-level',
-    summary: match.id === ctx.activeLevelId
-      ? `${match.name} is already the active level`
-      : `Switched the active level to ${match.name}`,
-    action: 'setActiveLevel', levelId: match.id, levelName: match.name,
-  };
+  return applySemanticIntent({ intent: 'go-to-level', levelQuery: target }, ctx);
 };
 
 const matchAddLevel: Matcher = (text, ctx) => {
   const m = new RegExp(`^(?:add|create)(?: a| a new| new)? level(?: (?:at|@) ${LEN_SRC})?$`).exec(text);
   if (!m) return null;
-  const levelId = ctx.mintId();
-  const name = `Level ${ctx.levels.length}`;
-  const elevations = ctx.levels.map((l) => l.elevation ?? 0);
-  const maxElev = elevations.length > 0 ? Math.max(...elevations) : 0;
-  const elevation = m[1] !== undefined ? round3(toMeters(m[1], m[2])) : round3(maxElev + 3);
-  return {
-    kind: 'commands', intent: 'add-level',
-    summary: `Add "${name}" at elevation ${fmt(elevation)}`,
-    commands: [{ type: 'level.add', payload: { levelId, name, elevation, height: 3 } }],
-    destructive: false,
-  };
+  return applySemanticIntent(
+    { intent: 'add-level', ...(m[1] !== undefined ? { elevation: toMeters(m[1], m[2]) } : {}) },
+    ctx,
+  );
 };
 
 const NUM = String.raw`(-?\d+(?:[.,]\d+)?)`;
@@ -494,25 +671,19 @@ const matchCreateWall: Matcher = (text, ctx) => {
   ).exec(text);
   if (withCoords) {
     const num = (s: string): number => parseFloat(s.replace(',', '.'));
-    const payload: Record<string, unknown> = {
-      start: { x: num(withCoords[1]!), z: num(withCoords[2]!) },
-      end: { x: num(withCoords[3]!), z: num(withCoords[4]!) },
-    };
-    if (ctx.activeLevelId !== undefined) payload['levelId'] = ctx.activeLevelId;
-    if (withCoords[5] !== undefined) payload['height'] = round3(toMeters(withCoords[5], withCoords[6]));
-    if (withCoords[7] !== undefined) payload['thickness'] = round3(toMeters(withCoords[7], withCoords[8]));
-    return {
-      kind: 'commands', intent: 'create-wall',
-      summary: `Create a wall from (${withCoords[1]}, ${withCoords[2]}) to (${withCoords[3]}, ${withCoords[4]}) on the active level`,
-      commands: [{ type: 'wall.create', payload }], destructive: false,
-    };
+    return applySemanticIntent(
+      {
+        intent: 'create-wall',
+        start: { x: num(withCoords[1]!), z: num(withCoords[2]!) },
+        end: { x: num(withCoords[3]!), z: num(withCoords[4]!) },
+        ...(withCoords[5] !== undefined ? { height: toMeters(withCoords[5], withCoords[6]) } : {}),
+        ...(withCoords[7] !== undefined ? { thickness: toMeters(withCoords[7], withCoords[8]) } : {}),
+      },
+      ctx,
+    );
   }
   if (/^(?:create|draw|add)(?: a| a new| new)? wall(?: here)?$/.test(text)) {
-    return {
-      kind: 'refusal', intent: 'create-wall',
-      reason: 'I need start and end coordinates to place a wall from chat — or use the Wall tool to draw it.',
-      suggestions: ['create a wall from (0,0) to (5,0)', 'create a wall from (0,0) to (5,0) height 3m'],
-    };
+    return applySemanticIntent({ intent: 'create-wall' }, ctx);
   }
   return null;
 };
@@ -521,31 +692,10 @@ const matchRenameRoom: Matcher = (text, ctx) => {
   const m = /^(?:rename|call)(?: this| the| the selected)? room(?: to| as)? (?:"([^"]+)"|(.+))$/.exec(text);
   if (!m) return null;
   const rawName = (m[1] ?? m[2] ?? '').trim();
-  const guard = needSelection('rename-room', ctx, 'rename it');
-  if ('refusal' in guard) return guard.refusal;
-  const sel = guard.sel;
-  if (sel.elementType !== 'room') {
-    return {
-      kind: 'refusal', intent: 'rename-room',
-      reason: `Rename needs a selected room; the selected element is a ${sel.elementType}.`,
-      suggestions: [],
-    };
-  }
-  if (rawName.length === 0) {
-    return {
-      kind: 'refusal', intent: 'rename-room',
-      reason: 'I need the new name — try: rename room to Kitchen.',
-      suggestions: ['rename room to Kitchen'],
-    };
-  }
-  // Preserve the user's original casing: re-extract from the raw utterance tail.
-  const name = rawName.replace(/\b\w/g, (c) => c.toUpperCase());
-  return {
-    kind: 'commands', intent: 'rename-room',
-    summary: `Rename the selected room to "${name}"`,
-    commands: [{ type: 'room.rename', payload: { roomId: sel.elementId, name } }],
-    destructive: false,
-  };
+  return applySemanticIntent(
+    { intent: 'rename-room', ...(rawName.length > 0 ? { name: rawName } : {}) },
+    ctx,
+  );
 };
 
 const MATCHERS: readonly Matcher[] = [
@@ -577,7 +727,8 @@ function runGrammar(text: string, ctx: ResolverContext, tier: 0 | 1): ZeroTokenR
 /**
  * Resolve a chat utterance to bus commands / a local action / a refusal — with
  * ZERO tokens. Returns `{ kind: 'miss' }` when the utterance is not
- * command-shaped; the caller may then fall through to the LLM tier.
+ * command-shaped; the caller may then fall through to the NL layer
+ * (LocalNaturalLanguageResolver) and only after that to the LLM tier.
  *
  * Pure: the caller injects selection/levels and executes the result (P6).
  * P8: wrapped in the `pryzm.ai.chat.resolve` span.
