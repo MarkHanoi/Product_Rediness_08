@@ -823,11 +823,21 @@ export class PlanViewManager implements IPlanViewManager {
         // Source A EdgeProjector path cannot reach them.  We collect them here and pass
         // them as Source C to EdgeProjectorService.project().
         const ifcSceneGroups: THREE.Group[] = [];
-        if (ifcProjectionStore.shouldIncludeIFC(viewDef.id)) {
+        {
+            // §RHINO-PLAN — Rhino reference groups ride the same Source C lane
+            // (projected-only linework; see EdgeProjectorService §RHINO-PLAN).
+            // Deliberately OUTSIDE the shouldIncludeIFC gate: that toggle is
+            // the IFC projection switch, and hiding Rhino with it would couple
+            // two unrelated imports. Rhino visibility is the group's own
+            // `visible` flag (Import Manager show/hide).
             const scene = (this._world.scene as any)?.three as THREE.Scene | undefined;
+            const includeIfc = ifcProjectionStore.shouldIncludeIFC(viewDef.id);
             if (scene) {
                 for (const obj of scene.children) {
-                    if ((obj as THREE.Group).isGroup && obj.userData?.source === 'ifc-import') {
+                    if (!(obj as THREE.Group).isGroup) continue;
+                    if (includeIfc && obj.userData?.source === 'ifc-import') {
+                        ifcSceneGroups.push(obj as THREE.Group);
+                    } else if (obj.userData?.isRhinoImport === true && obj.visible) {
                         ifcSceneGroups.push(obj as THREE.Group);
                     }
                 }
@@ -962,11 +972,21 @@ export class PlanViewManager implements IPlanViewManager {
             : [];
 
         const ifcSceneGroups: THREE.Group[] = [];
-        if (ifcProjectionStore.shouldIncludeIFC(viewDef.id)) {
+        {
+            // §RHINO-PLAN — Rhino reference groups ride the same Source C lane
+            // (projected-only linework; see EdgeProjectorService §RHINO-PLAN).
+            // Deliberately OUTSIDE the shouldIncludeIFC gate: that toggle is
+            // the IFC projection switch, and hiding Rhino with it would couple
+            // two unrelated imports. Rhino visibility is the group's own
+            // `visible` flag (Import Manager show/hide).
             const scene = (this._world.scene as any)?.three as THREE.Scene | undefined;
+            const includeIfc = ifcProjectionStore.shouldIncludeIFC(viewDef.id);
             if (scene) {
                 for (const obj of scene.children) {
-                    if ((obj as THREE.Group).isGroup && obj.userData?.source === 'ifc-import') {
+                    if (!(obj as THREE.Group).isGroup) continue;
+                    if (includeIfc && obj.userData?.source === 'ifc-import') {
+                        ifcSceneGroups.push(obj as THREE.Group);
+                    } else if (obj.userData?.isRhinoImport === true && obj.visible) {
                         ifcSceneGroups.push(obj as THREE.Group);
                     }
                 }
@@ -1058,11 +1078,21 @@ export class PlanViewManager implements IPlanViewManager {
 
         // Collect IFC-imported scene groups — same logic as _ensureProjection (Contract 28 §3.1).
         const ifcSceneGroups: THREE.Group[] = [];
-        if (ifcProjectionStore.shouldIncludeIFC(viewDef.id)) {
+        {
+            // §RHINO-PLAN — Rhino reference groups ride the same Source C lane
+            // (projected-only linework; see EdgeProjectorService §RHINO-PLAN).
+            // Deliberately OUTSIDE the shouldIncludeIFC gate: that toggle is
+            // the IFC projection switch, and hiding Rhino with it would couple
+            // two unrelated imports. Rhino visibility is the group's own
+            // `visible` flag (Import Manager show/hide).
             const scene = (this._world.scene as any)?.three as THREE.Scene | undefined;
+            const includeIfc = ifcProjectionStore.shouldIncludeIFC(viewDef.id);
             if (scene) {
                 for (const obj of scene.children) {
-                    if ((obj as THREE.Group).isGroup && obj.userData?.source === 'ifc-import') {
+                    if (!(obj as THREE.Group).isGroup) continue;
+                    if (includeIfc && obj.userData?.source === 'ifc-import') {
+                        ifcSceneGroups.push(obj as THREE.Group);
+                    } else if (obj.userData?.isRhinoImport === true && obj.visible) {
                         ifcSceneGroups.push(obj as THREE.Group);
                     }
                 }

@@ -1225,11 +1225,19 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // Source A EdgeProjector path cannot reach them. Collect them here so they are
         // included in every reprojection triggered by native element changes.
         const ifcSceneGroups: THREE.Group[] = [];
-        if (ifcProjectionStore.shouldIncludeIFC(viewId)) {
+        {
+            // §RHINO-PLAN — Rhino reference groups ride the same Source C lane
+            // (projected-only; see EdgeProjectorService §RHINO-PLAN). Outside
+            // the shouldIncludeIFC gate: Rhino visibility is the group's own
+            // `visible` flag, not the IFC projection toggle.
             const scene = (world.scene as any)?.three as THREE.Scene | undefined;
+            const includeIfc = ifcProjectionStore.shouldIncludeIFC(viewId);
             if (scene) {
                 for (const obj of scene.children) {
-                    if ((obj as THREE.Group).isGroup && obj.userData?.source === 'ifc-import') {
+                    if (!(obj as THREE.Group).isGroup) continue;
+                    if (includeIfc && obj.userData?.source === 'ifc-import') {
+                        ifcSceneGroups.push(obj as THREE.Group);
+                    } else if (obj.userData?.isRhinoImport === true && obj.visible) {
                         ifcSceneGroups.push(obj as THREE.Group);
                     }
                 }

@@ -160,6 +160,13 @@ const ELEMENT_TYPE_TO_PROJECTION_LAYER: Readonly<Record<string, string>> = {
     KitchenCountertop: 'A-FURN', kitchen_unit: 'A-FURN',
     // Plumbing / MEP fixtures
     PlumbingFixture: 'A-PLMB',
+    // §RHINO-PLAN — imported Rhino (.3dm) reference meshes. Mapped to A-FURN
+    // deliberately: reference content is projected-only (A-FURN is outside
+    // CUT_ELIGIBLE_PLAN_LAYERS and the poché table), and A-FURN's VG category
+    // ('furniture') gives the linework a real visibility toggle. Source C
+    // additionally forces the projected-only route for isRhinoProxy meshes so
+    // no heavy CUT-pen lines are fabricated for content with no cut semantics.
+    rhino: 'A-FURN',
 } as const;
 
 /** Layer name used for element types not covered by ELEMENT_TYPE_TO_PROJECTION_LAYER. */
@@ -3295,6 +3302,13 @@ export class EdgeProjectorService {
                     // how the case mismatch survived here in the first place.
                     const layerName   = resolveProjectionLayer(elementType);
 
+                    // §RHINO-PLAN — Rhino reference meshes have NO cut
+                    // semantics: never fabricate `:cut` linework for them
+                    // (Source B enforces this via CUT_ELIGIBLE_PLAN_LAYERS;
+                    // Source C classifies unconditionally, so the fold is
+                    // applied per-mesh here instead).
+                    const projectedOnly = mesh.userData?.isRhinoProxy === true;
+
                     mesh.updateWorldMatrix(true, false);
                     try {
                         const meshWorldBox = getMeshWorldAABB(mesh);
@@ -3341,7 +3355,9 @@ export class EdgeProjectorService {
                             // storey below is suppressed (§VIEW-RANGE-BELOW).
                             const { cutGeo, projGeo, beyondGeo } = classifyByVertexY(edgesGeo, cutPlaneY, planFloorY, CUT_LINE_EPSILON, planBelowY);
                             if (cutGeo) {
-                                addIfcLayer(cutGeo, _layerCut(layerName));
+                                // §RHINO-PLAN — fold would-be cut lines into projection for
+                                // reference meshes (no cut fills, no heavy CUT pen).
+                                addIfcLayer(cutGeo, projectedOnly ? _layerProj(layerName) : _layerCut(layerName));
                                 cutGeo.dispose();
                             }
                             if (projGeo) {
@@ -3367,7 +3383,7 @@ export class EdgeProjectorService {
                             const cutParts: THREE.BufferGeometry[] = [];
                             if (meshCutGeo) cutParts.push(meshCutGeo);
                             if (classified.cutGeo) cutParts.push(classified.cutGeo);
-                            if (viewScope.cut) {
+                            if (viewScope.cut && !projectedOnly) {
                                 const mergedCut = concatLineGeometries(cutParts);
                                 if (mergedCut) { addIfcLayer(mergedCut, _layerCut(layerName)); mergedCut.dispose(); }
                                 if (classified.projGeo) { addIfcLayer(classified.projGeo, _layerProj(layerName)); classified.projGeo.dispose(); }
