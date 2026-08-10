@@ -88,13 +88,13 @@ queries become chat-answerable data.
 *"Make all south-facing exterior walls 3 m"* (needs U2.1).
 Refusals name skipped kinds: "7 found, 2 are curtain walls — nothing changed there".
 
-## Phase U4 — Spec-driven capability interpreter ⬜ → scaling wall removed
+## Phase U4 — Spec-driven capability interpreter ✅ 2026-08-10 → scaling wall removed
 
 | Sub | What |
 |---|---|
-| U4.1 | `CapabilityExecutionSpec` (routes per kind, scopeModes, params) + ONE generic arm in `applySemanticIntent` |
-| U4.2 | Migrate the 21 existing capabilities one at a time (refusal copy pinned by tests) |
-| U4.3 | Extension test: add a capability purely via metadata (the §56 proof) |
+| U4.1 | ✅ cea504cf — `CapabilityExecutionSpec` + the ONE generic arm (`applyExecutionSpec`, the switch's default); set-wall-type first table entry. |
+| U4.2 | ✅ 1fc83042 · a14409e3 · 657f3aa5 · be4e550a — the batch-shaped family (set-wall-color, set-wall-rake, set-window-type, add-wall-layer) migrated one commit each, refusal copy byte-pinned by the 257-test suite; irregular arms (creation, level-query, rhino, selection-fan-out) documented as deliberately hand-written in the spec header. |
+| U4.3 | ✅ set-door-type shipped purely via metadata (spec table entry + registry entry; zero new resolver case code) riding new `door.updateSystemTypeBatch` → L-620-proven `UpdateDoorSystemTypeCommand` children, ONE undo. Gate: 27 capabilities, undeclared 0/0. |
 
 🧪 After U4: no new sentences — but the NEXT 50 capabilities cost metadata +
 proofs + acceptance families only. Gate maturity counts become the roadmap dial.
