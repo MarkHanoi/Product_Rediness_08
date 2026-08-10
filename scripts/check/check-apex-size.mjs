@@ -51,7 +51,13 @@ const BUDGET_BYTES = 200 * 1024;
 // §6.1.3 media carve-out. 24 MB is deliberately close to the current asset
 // (a 14.25 MB testing hero) rather than a comfortable round number: the point
 // is to notice the SECOND video, not to pre-authorise it.
-const MEDIA_BUDGET_BYTES = 24 * 1024 * 1024;
+// 24 → 36 MB (2026-08-10): the founder replaced the testing hero with a 31.5 MB
+// v2. Raised EXPLICITLY rather than snuck past — this gate exists to make weight
+// a decision, and this line is that decision. 36 keeps ~13% headroom over the
+// new asset while still refusing a careless 50 MB drop. STILL A TESTING BUDGET:
+// compress/stream the hero to well under 24 MB before real launch traffic, then
+// ratchet this back down. Any further bump needs its own dated justification.
+const MEDIA_BUDGET_BYTES = 36 * 1024 * 1024;
 const MEDIA_EXT = /\.(mp4|webm|ogv|mov|m4v)$/i;
 
 // Cloudflare Pages control files are edge configuration, not first-paint

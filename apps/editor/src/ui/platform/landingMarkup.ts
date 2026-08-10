@@ -72,8 +72,21 @@ export interface LandingMarkupOptions {
  * (`index.html`'s first-paint skeleton is a third, pre-JS artifact that cannot
  * import TS — it MUST be hand-mirrored in lock-step, see its §SKEL-MATCH note.)
  */
-export const HERO_WORDMARK = 'PRYZM';
+/**
+ * The small caps line ABOVE the headline (founder brief 2026-08-10, modelled on
+ * the reference homepage's mission-date eyebrow). It is the PROPOSED release
+ * date — provisional "for now" — so it lives as its own constant rather than
+ * being spliced into the headline: changing a date must never mean re-cutting
+ * copy in three files.
+ */
+export const HERO_DATELINE = 'SEPTEMBER 2027';
 export const HERO_HEADLINE = 'DEVELOPMENT. COMPUTED.';
+/**
+ * The product name that opens the supporting line. Rendered as its own span so
+ * it can carry more weight than the sentence it introduces without the string
+ * being duplicated or the sentence being re-typed with a prefix baked in.
+ */
+export const HERO_SUBHEAD_BRAND = 'PRYZM DESIGN:';
 export const HERO_SUBHEAD = 'Turning planning law into development intelligence.';
 
 /** The showcase caption row, overlaid across the bottom of the product shot. */
@@ -135,7 +148,7 @@ export const NAV_MARK_ALT = 'PRYZM';
 /**
  * HERO VIDEO — the full-bleed background of the hero section.
  *
- * TESTING ASSET (founder brief 2026-08-09): a 1920×1080 / 92 s / 14.25 MB MP4.
+ * TESTING ASSET (founder brief 2026-08-09): the founder-supplied hero (v2, ~31.5 MB — testing asset, compress before launch).
  * It is deliberately NOT part of the C51 §6.1.3 first-paint budget — see the
  * media carve-out in `scripts/check/check-apex-size.mjs` and the §6.1.3
  * amendment that ratifies it. It is `preload="metadata"`, so first paint costs
@@ -211,9 +224,12 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                     <a class="lp-nav-link" href="${apex ? '/pricing' : '#'}" id="lp-nav-pricing">Pricing</a>
                 </div>
                 <div class="lp-nav-actions">
-                    ${cta('lp-nav-contact', 'lp-nav-contact', CONTACT, 'Contact sales')}
+                    <!-- Founder brief 2026-08-10 round 2: "Contact sales" and "Get
+                         started for free" removed from the BAR. Log in + Book a demo
+                         remain. Both routes stay reachable elsewhere (the hero CTA
+                         goes to signup; the mobile drawer keeps all four) so no
+                         journey is lost — only the bar is quieter. -->
                     ${cta('lp-nav-login', 'lp-nav-login', SIGNIN, 'Log in')}
-                    ${cta('lp-nav-cta', 'lp-nav-cta', SIGNUP, 'Get started for free')}
                     ${cta('lp-nav-demo', 'lp-nav-demo', DEMO, 'Book a demo')}
                 </div>
                 ${apex ? '' : `<!-- ── Mobile hamburger (visible at ≤768px) ── -->
@@ -240,10 +256,15 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 </div>`}
             </nav>
 
-            <!-- ── Hero — full-bleed video with a floating control over it ───
-                 KRETZ-modelled (founder brief 2026-08-09): the video fills the
-                 viewport below the bar; the glyph → wordmark → headline →
-                 subhead → CTA column floats in a glass panel centred on it.
+            <!-- ── Hero — full-bleed video with the copy anchored bottom-left ───
+                 Founder brief 2026-08-10: restyled to the reference homepage's
+                 hierarchy — small letter-spaced DATE line → strong (but no longer
+                 viewport-filling) headline → supporting line → CTA, ragged left and
+                 sat in the bottom-left corner of the frame. The glass panel is gone:
+                 a bordered, blurred card is a *container*, and the reference reads
+                 as type laid directly on film. Legibility is carried by the scrim
+                 instead (see .lp-hero-media::after), which is now weighted toward
+                 exactly the corner the copy occupies.
 
                  THE VIDEO IS DECORATIVE. aria-hidden on the media wrapper keeps
                  it out of the accessibility tree; it has no controls attribute,
@@ -271,12 +292,17 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                          The mark now lives once, in the nav on the left; repeating it
                          over the video competed with the headline for the same focal
                          point. The 3-D spinner mount point goes with it — nothing else
-                         referenced the block, and the apex ships no JS anyway. -->
-                    <p class="lp-hero-wordmark">${HERO_WORDMARK}</p>
+                         referenced the block, and the apex ships no JS anyway.
+
+                         The small caps line that used to sit here was the product name,
+                         which now opens the supporting line below instead. Two small
+                         letter-spaced lines stacked above one headline read as an
+                         indecisive eyebrow; the reference has exactly one. -->
+                    <p class="lp-hero-dateline">${HERO_DATELINE}</p>
 
                     <h1 class="lp-hero-heading">${HERO_HEADLINE}</h1>
 
-                    <p class="lp-hero-sub">${HERO_SUBHEAD}</p>
+                    <p class="lp-hero-sub"><span class="lp-hero-sub-brand">${HERO_SUBHEAD_BRAND}</span> ${HERO_SUBHEAD}</p>
 
                     <!-- CTA button — MIAW "ask me anything" glass-pill style, delayed entrance -->
                     <div class="lp-hero-ctas">
