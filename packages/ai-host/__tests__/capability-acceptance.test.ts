@@ -507,7 +507,7 @@ describe('§FEAT-WALL-COLOR-BATCH — "make all walls white"', () => {
     const r = resolveUtterance('make all walls on level 2 white', ctxOf());
     expect(r.kind).toBe('refusal');
     if (r.kind !== 'refusal') return;
-    expect(r.reason).toContain("level scoping isn't wired");
+    expect(r.reason).toContain("spatial scoping isn't wired");
   });
 
   it('an unknown level surfaces the resolver error verbatim (listing real levels)', () => {
@@ -533,6 +533,36 @@ describe('§FEAT-WALL-COLOR-BATCH — "make all walls white"', () => {
     const r = resolveFull('Could you make all walls on level 2 white?', ctxOf({ resolveScope } as never));
     expect(intentOf(r)).toBe('set-wall-color');
     expect(r.kind).toBe('commands');
+  });
+
+  it('"paint all walls in the kitchen white" resolves a ROOM scope (U3 room arm)', () => {
+    const resolveScope = (scope: { kind: string; roomRef?: string; elementKind?: string }) => {
+      expect(scope).toEqual({ kind: 'room', roomRef: 'kitchen', elementKind: 'wall' });
+      return { ids: ['w-k1', 'w-k2'], kindCounts: { wall: 2 }, skipped: [], diagnostics: ['Kitchen'] };
+    };
+    const r = resolveUtterance('paint all walls in the kitchen white', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toEqual([{
+      type: 'wall.updateColorBatch',
+      payload: { wallIds: ['w-k1', 'w-k2'], materialColor: '#ffffff' },
+    }]);
+    expect(r.summary).toContain('2 walls bounding Kitchen');
+  });
+
+  it('an unknown room surfaces the resolver error verbatim', () => {
+    const resolveScope = () => ({ error: 'No room called "spa" — the rooms here include: Kitchen, Living Room.' });
+    const r = resolveUtterance('paint all walls in the spa white', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('No room called "spa"');
+  });
+
+  it('"paint all walls in white" stays a plain colour connector — not a room called "white"', () => {
+    const r = resolveUtterance('paint all walls in white', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ wallIds: 'all', materialColor: '#ffffff' });
   });
 
   it('US spelling and "gray" resolve identically', () => {

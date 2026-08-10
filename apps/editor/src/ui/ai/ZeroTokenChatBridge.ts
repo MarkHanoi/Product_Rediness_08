@@ -194,7 +194,64 @@ function makeScopeResolver(
                 diagnostics: [level.name],
             };
         }
-        // selection / room / orientation scopes arrive with their U3 consumers.
+        if (scope.kind === 'room') {
+            // ADR-0315 U3 (room arm) — rooms matched by the U2.2 predicates;
+            // walls come straight off RoomData.boundingWallIds. Multiple rooms
+            // matching the reference ("kitchen" ×2) all contribute — the
+            // diagnostics name them so the summary is honest about the set.
+            const roomStore = storeRegistry.getStoreForType('room') as unknown as {
+                findByName?: (pattern: string) => Array<{ id: string; name?: string; boundingWallIds?: string[] }>;
+                findByOccupancy?: (types: string[]) => Array<{ id: string; name?: string; boundingWallIds?: string[] }>;
+                getAll?: () => Array<{ id: string; name?: string }>;
+            } | undefined;
+            if (!roomStore) {
+                return { error: `I can't look up rooms here — the room store isn't available.` };
+            }
+            const byName = roomStore.findByName?.(scope.roomRef) ?? [];
+            const rooms = byName.length > 0
+                ? byName
+                : roomStore.findByOccupancy?.([scope.roomRef.replace(/\s+/g, '-')]) ?? [];
+            if (rooms.length === 0) {
+                const names = (roomStore.getAll?.() ?? [])
+                    .map((r) => r.name)
+                    .filter((n): n is string => typeof n === 'string' && n.length > 0)
+                    .slice(0, 8);
+                return {
+                    error: names.length === 0
+                        ? `There are no named rooms in this project yet — detect rooms first.`
+                        : `No room called "${scope.roomRef}" — the rooms here include: ${names.join(', ')}.`,
+                };
+            }
+            const kind = scope.elementKind ?? 'wall';
+            if (kind === 'wall') {
+                const ids = [...new Set(rooms.flatMap((r) => r.boundingWallIds ?? []))];
+                return {
+                    ids,
+                    kindCounts: ids.length > 0 ? { wall: ids.length } : {},
+                    skipped: [],
+                    diagnostics: [rooms.map((r) => r.name ?? r.id).join(' + ')],
+                };
+            }
+            // Non-wall kinds ride roomQueryService.getElementsInRoom (U2.3).
+            const rqs = (window as unknown as {
+                roomQueryService?: { getElementsInRoom?: (roomId: string) => Array<{ id: string; type: string }> };
+            }).roomQueryService;
+            if (!rqs?.getElementsInRoom) {
+                return { error: `Room contents lookup isn't available here.` };
+            }
+            const ids = [...new Set(
+                rooms.flatMap((r) => rqs.getElementsInRoom!(r.id))
+                    .filter((e) => e.type === kind)
+                    .map((e) => e.id),
+            )];
+            return {
+                ids,
+                kindCounts: ids.length > 0 ? { [kind]: ids.length } : {},
+                skipped: [],
+                diagnostics: [rooms.map((r) => r.name ?? r.id).join(' + ')],
+            };
+        }
+        // selection / orientation scopes arrive with their U3 consumers.
         return { error: `That scope isn't wired into chat yet.` };
     };
 }

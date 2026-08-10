@@ -389,10 +389,14 @@ export type SemanticIntent =
       /** Colour name ("white", "light grey") or '#hex', resolved by the ONE
        *  colour table in colorRef.ts inside applySemanticIntent. */
       readonly colorRef: string;
-      /** ADR-0315 U3 — the first LEVEL-scoped consumer: "make all walls on
-       *  level 2 white". The object form is resolved by the injected
-       *  ctx.resolveScope; absence of the resolver refuses honestly. */
-      readonly scope: 'all' | 'selection' | { readonly kind: 'level'; readonly levelQuery: string };
+      /** ADR-0315 U3 — spatially scoped consumers: "make all walls on level 2
+       *  white" / "paint all walls in the kitchen white". Object forms are
+       *  resolved by the injected ctx.resolveScope; absence refuses honestly. */
+      readonly scope:
+        | 'all'
+        | 'selection'
+        | { readonly kind: 'level'; readonly levelQuery: string }
+        | { readonly kind: 'room'; readonly roomRef: string };
     };
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
@@ -1200,20 +1204,26 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       let wallIds: readonly string[] | 'all';
       let scopeLabelOverride: string | null = null;
       const scopeNotes: string[] = [];
-      if (typeof si.scope === 'object' && si.scope.kind === 'level') {
-        // ADR-0315 U3 — the first LEVEL-scoped sentence: "make all walls on
-        // level 2 white". Resolution happens ONCE through the injected
-        // resolver; its absence refuses honestly, never guesses.
+      if (typeof si.scope === 'object') {
+        // ADR-0315 U3 — spatially scoped sentences ("on level 2" / "in the
+        // kitchen"). Resolution happens ONCE through the injected resolver;
+        // its absence refuses honestly, never guesses.
+        const phrase = si.scope.kind === 'level'
+          ? `on level ${si.scope.levelQuery}`
+          : `in the ${si.scope.roomRef}`;
         if (ctx.resolveScope === undefined) {
           return {
             kind: 'refusal', intent: 'set-wall-color',
             reason:
-              `I can't resolve "on level ${si.scope.levelQuery}" here — level scoping isn't wired ` +
+              `I can't resolve "${phrase}" here — spatial scoping isn't wired ` +
               `into this chat context. I can change all walls or the selected walls.`,
             suggestions: ['make all walls white'],
           };
         }
-        const result = ctx.resolveScope({ kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' });
+        const descriptor: ScopeDescriptor = si.scope.kind === 'level'
+          ? { kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' }
+          : { kind: 'room', roomRef: si.scope.roomRef, elementKind: 'wall' };
+        const result = ctx.resolveScope(descriptor);
         if (isScopeError(result)) {
           return {
             kind: 'refusal', intent: 'set-wall-color',
@@ -1224,12 +1234,13 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         if (result.ids.length === 0) {
           return {
             kind: 'refusal', intent: 'set-wall-color',
-            reason: `There are no walls on level "${si.scope.levelQuery}" — nothing was changed.`,
+            reason: `There are no walls ${phrase} — nothing was changed.`,
             suggestions: ['make all walls white'],
           };
         }
         wallIds = result.ids;
-        scopeLabelOverride = `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} on ${result.diagnostics[0] ?? `level ${si.scope.levelQuery}`}`;
+        const where = result.diagnostics[0] ?? phrase.replace(/^on |^in the /, '');
+        scopeLabelOverride = `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} ${si.scope.kind === 'level' ? 'on' : 'bounding'} ${where}`;
         for (const s of result.skipped) {
           scopeNotes.push(`${s.count}× ${s.kind} skipped: ${s.reason}`);
         }
@@ -1547,8 +1558,10 @@ const WALL_COLOR_VERB = String.raw`(make|paint|colou?r|set|change|turn)`;
 
 const WALL_COLOR_RE = new RegExp(
   `^${WALL_COLOR_VERB} (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? walls?` +
-  // ADR-0315 U3 — optional LEVEL scope: "… on level 2 …" / "… on the ground floor …".
-  `(?: on (?:the )?(?:levels?|floors?)?\\s*([\\w .-]+?))?` +
+  // ADR-0315 U3 — optional LEVEL scope ("… on level 2 …") or ROOM scope
+  // ("… in the kitchen …" — 'the' required, so the bare connector "in white"
+  // stays a colour connector; a lookahead keeps "in the colour white" out).
+  `(?: on (?:the )?(?:levels?|floors?)?\\s*([\\w .-]+?)| in the (?!colou?r )([\\w .-]+?))?` +
   `(?: (?:to|into|in|as|be))? (?:the )?(?:colou?r )?(.+)$`,
 );
 
@@ -1565,16 +1578,22 @@ export function parseWallColorIntent(text: string): Extract<SemanticIntent, { in
   const verb = m[1]!;
   const scopeWord = m[2]!;
   const levelQuery = m[3]?.trim();
-  const colorRef = m[4]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+  const roomRef = m[4]?.trim();
+  const colorRef = m[5]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
   if (colorRef.length === 0) return null;
   const colorSpecificVerb = verb === 'paint' || verb.startsWith('colo');
   if (!colorSpecificVerb && resolveColorRef(colorRef) === null) return null;
-  // A level phrase composes with the ALL scope ("all walls on level 2");
-  // "these walls on level 2" contradicts the live selection and is not claimed.
+  // Spatial phrases compose with the ALL scope ("all walls on level 2 / in
+  // the kitchen"); combining them with "these/selected" would contradict the
+  // live selection and is not claimed.
   const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
   if (levelQuery !== undefined && levelQuery.length > 0) {
     if (!isAll) return null;
     return { intent: 'set-wall-color', colorRef, scope: { kind: 'level', levelQuery } };
+  }
+  if (roomRef !== undefined && roomRef.length > 0) {
+    if (!isAll) return null;
+    return { intent: 'set-wall-color', colorRef, scope: { kind: 'room', roomRef } };
   }
   return { intent: 'set-wall-color', colorRef, scope: isAll ? 'all' : 'selection' };
 }
