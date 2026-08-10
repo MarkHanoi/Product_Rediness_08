@@ -113,36 +113,28 @@ if [ -z "$CESIUM" ] || [ -z "$GOOGLE" ] || [ -z "$GLB" ] || [ -z "$TILES" ]; the
   exit 1
 fi
 
-# ── §MSYS-PATHCONV (2026-08-10) — the failure this script existed to prevent,
-# arriving through a door it did not guard.
+# ── §MSYS-PATHCONV — belt to the slash-less brace above.
 #
-# On Windows/Git Bash, MSYS2 rewrites any argument that LOOKS like a Unix
-# absolute path into a Windows path before the child process sees it. The two
-# root-relative URL args are exactly that shape, so
-#     --build-arg VITE_GLB_URL=/api/catalog/items/
-# reached flyctl as
-#     --build-arg VITE_GLB_URL=C:/Program Files/Git/api/catalog/items/
-# and vite inlined THAT into the bundle. Verified in production v1246: the
-# deploy was green, /ready was ok, both lengths were 39 as expected — and every
-# furniture GLB and every context tile would have 404'd against a path that
-# exists on nobody's machine. §3.2's "empty and misspelled both ship broken"
-# has a third sibling: SILENTLY REWRITTEN.
+# The prevention lives in the slash-LESS passing documented above; that is the
+# correct fix and it is load-bearing. An earlier attempt in this session used
+# `export MSYS_NO_PATHCONV=1` instead — which the block above already warns is
+# WORSE, and it proved it: the script aborted at `curl: (23) client returned ERROR
+# on write` before the build started, because curl -o RELIES on that conversion.
+# Those exports have been REMOVED. Do not reintroduce them.
 #
-# Two defences, because either alone can be bypassed:
-#   1. Disable the conversion for this process tree.
-#   2. FAIL CLOSED if a value still looks mangled — a guard that only asks
-#      "is it non-empty?" passed this bug through unchallenged.
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL='*'
-
+# What remains is the check that was actually missing when the bug shipped: the
+# guard above only asked "is it non-empty?", and 39 characters of mangled Windows
+# path passes that test. A LENGTH CHECK IS NOT A VALUE CHECK.
 for pair in "VITE_GLB_URL=$GLB" "VITE_CONTEXT_TILES_URL=$TILES"; do
   name="${pair%%=*}"; val="${pair#*=}"
   case "$val" in
     /*|http://*|https://*) ;;   # root-relative or absolute URL — correct
     *) echo "ABORT: $name = '$val' is neither root-relative nor an absolute URL." >&2
        echo "  This is the MSYS2 path-conversion bug (§MSYS-PATHCONV): a value like" >&2
-       echo "  /api/... was rewritten to a local Windows path. Re-run under" >&2
-       echo "  MSYS_NO_PATHCONV=1, or invoke this script from PowerShell." >&2
+       echo "  api/... was rewritten to a local Windows path. Do NOT 'fix' this" >&2
+       echo "  with MSYS_NO_PATHCONV=1 — see the block above, it breaks curl -o." >&2
+       echo "  Pass the value SLASH-LESS (api/catalog/items/) so MSYS leaves it" >&2
+       echo "  alone, or run from PowerShell." >&2
        exit 1 ;;
   esac
 done
