@@ -169,6 +169,42 @@ export function countPlacedApartments(result: ResidentialBuildingOk): number {
 }
 
 /**
+ * §RESI-ZERO-APARTMENTS-REFUSE (founder 2026-08-10: "sometimes no apartments are created at
+ * all") — summarize the per-cell soft-fail reasons of an OK orchestrator result whose cells
+ * ALL rejected. The orchestrator returns `status:'ok'` whenever the partition PLACED cells,
+ * even when every per-cell D-TGL run then soft-failed (`PlacedApartment.status:'rejected'`)
+ * — so `countPlacedApartments === 0` on an 'ok' result is exactly the "empty building"
+ * failure mode. Per §CONTEXT-DATA-HONESTY a refusal must be VISIBLE with a reason, never an
+ * empty shell — this helper builds that reason from what the engine actually said. Pure.
+ */
+export function summarizeCellRejections(result: ResidentialBuildingOk): {
+    /** Total apartment cells across all floors. */
+    readonly total: number;
+    /** How many of them soft-failed (`status:'rejected'`). */
+    readonly rejected: number;
+    /** The most common per-cell `rejectReason` (undefined when none carried one). */
+    readonly topReason?: string;
+} {
+    let total = 0, rejected = 0;
+    const byReason = new Map<string, number>();
+    for (const lvl of result.perLevelApartments) {
+        for (const a of lvl.apartments) {
+            total++;
+            if (a.status !== 'rejected') continue;
+            rejected++;
+            const r = (a.rejectReason ?? '').trim();
+            if (r) byReason.set(r, (byReason.get(r) ?? 0) + 1);
+        }
+    }
+    let topReason: string | undefined;
+    let topCount = 0;
+    for (const [r, n] of byReason) {
+        if (n > topCount) { topCount = n; topReason = r; }
+    }
+    return { total, rejected, ...(topReason !== undefined ? { topReason } : {}) };
+}
+
+/**
  * Drives the "Choose a residential building" modal. Owns the modal + executor
  * singletons. Stateless between runs apart from those singletons.
  */
@@ -242,6 +278,22 @@ export class ResidentialBuildingController {
         }
 
         const apartmentCount = countPlacedApartments(result);
+        // §RESI-ZERO-APARTMENTS-REFUSE (founder 2026-08-10) — the orchestrator says 'ok' when the
+        // partition PLACED cells, even if every per-cell D-TGL layout then soft-failed. Building
+        // that result produces the founder's "empty building": a full shell + core + corridors
+        // with ZERO apartments (the executor silently skips rejected cells). A refusal must be
+        // VISIBLE with the engine's real reason (§CONTEXT-DATA-HONESTY), never an empty shell —
+        // so route the all-cells-rejected case to the SAME error modal a hard reject uses, and
+        // never open the Build modal on a building with nothing in it.
+        if (apartmentCount === 0) {
+            const s = summarizeCellRejections(result);
+            const reason =
+                `all ${s.total} apartment cell(s) failed to lay out` +
+                (s.topReason ? ` (most common: ${s.topReason})` : '');
+            console.warn('[resi-building] controller: zero apartments laid out —', reason);
+            this._showReject(reason, areaM2);
+            return { ok: false, reason, apartmentCount: 0 };
+        }
         console.log(
             `[resi-building] controller: computed building — ${result.levels.length} floor(s), ` +
             `${apartmentCount} apartment(s) placed — opening modal. ${result.diagnostic}`,

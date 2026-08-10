@@ -12,8 +12,10 @@ import { describe, expect, it } from 'vitest';
 import {
     buildOrchestratorInput,
     countPlacedApartments,
+    summarizeCellRejections,
     type ResidentialBuildingRequest,
 } from '../src/ui/residential-building/ResidentialBuildingController.js';
+import { friendlyResidentialError } from '../src/ui/residential-building/residentialError.js';
 import { isResidentialBuildingEnabled } from '../src/ui/residential-building/residentialBuildingTrigger.js';
 import type { ResidentialBuildingOk } from '@pryzm/ai-host';
 
@@ -86,6 +88,69 @@ describe('countPlacedApartments', () => {
             diagnostic: '',
         } as unknown as ResidentialBuildingOk;
         expect(countPlacedApartments(result)).toBe(3);
+    });
+});
+
+describe('summarizeCellRejections (§RESI-ZERO-APARTMENTS-REFUSE)', () => {
+    it('counts totals and picks the most common reject reason', () => {
+        const result = {
+            status: 'ok',
+            core: { x0: 0, z0: 0, x1: 1, z1: 1 },
+            levels: [],
+            perLevelApartments: [
+                { levelIndex: 1, role: 'upper', apartments: [
+                    { status: 'rejected', rejectReason: 'D-TGL produced no layout for this cell' },
+                    { status: 'rejected', rejectReason: 'D-TGL produced no layout for this cell' },
+                    { status: 'rejected', rejectReason: 'cell is degenerate (zero width/depth)' },
+                ], publicCorridor: [] },
+                { levelIndex: 2, role: 'upper', apartments: [
+                    { status: 'rejected', rejectReason: 'D-TGL produced no layout for this cell' },
+                ], publicCorridor: [] },
+            ],
+            diagnostic: '',
+        } as unknown as ResidentialBuildingOk;
+        const s = summarizeCellRejections(result);
+        expect(s.total).toBe(4);
+        expect(s.rejected).toBe(4);
+        expect(s.topReason).toBe('D-TGL produced no layout for this cell');
+    });
+
+    it('omits topReason when no cell carried one, and counts ok cells in total only', () => {
+        const result = {
+            status: 'ok',
+            core: { x0: 0, z0: 0, x1: 1, z1: 1 },
+            levels: [],
+            perLevelApartments: [
+                { levelIndex: 1, role: 'upper', apartments: [
+                    { status: 'ok' }, { status: 'rejected' },
+                ], publicCorridor: [] },
+            ],
+            diagnostic: '',
+        } as unknown as ResidentialBuildingOk;
+        const s = summarizeCellRejections(result);
+        expect(s.total).toBe(2);
+        expect(s.rejected).toBe(1);
+        expect(s.topReason).toBeUndefined();
+    });
+});
+
+describe('friendlyResidentialError — no-apartments branch (§RESI-ZERO-APARTMENTS-REFUSE)', () => {
+    it('maps the all-cells-rejected reason to the no-apartments kind, quoting the engine reason', () => {
+        const err = friendlyResidentialError(
+            'all 8 apartment cell(s) failed to lay out (most common: D-TGL produced no layout for this cell)',
+            740,
+        );
+        expect(err.kind).toBe('no-apartments');
+        expect(err.body).toContain('failed to lay out');
+        expect(err.body).toContain('D-TGL produced no layout');
+        expect(err.guidance.length).toBeGreaterThan(0);
+    });
+
+    it('keeps the existing partition-zero branch on the too-small kind (no regression)', () => {
+        const err = friendlyResidentialError(
+            'level 1 partition placed zero apartments on a 16 m × 45 m plate (no usable band runs)',
+        );
+        expect(err.kind).toBe('too-small');
     });
 });
 

@@ -252,6 +252,22 @@ export class ResidentialBuildingExecutor {
         const cm = getCommandManager();
         if (!cm?.execute) { toast('Command manager unavailable — restart the dev server.', 'error'); return { ok: false, reason: 'no command manager' }; }
 
+        // §RESI-ZERO-APARTMENTS-REFUSE (founder 2026-08-10: "sometimes no apartments are created
+        // at all") — DEFENSIVE guard mirroring the controller's gate. The orchestrator can return
+        // 'ok' with every placed cell soft-failed (`status:'rejected'`); building that result emits
+        // the full shell + core + corridors and silently skips every apartment (the founder's
+        // empty building). A refusal must be visible with a reason, never an empty shell — so
+        // refuse HERE too (this executor is also reachable headlessly, not only via the modal),
+        // BEFORE any level is minted or any store mutates.
+        const okApartments = result.perLevelApartments
+            .reduce((n, lvl) => n + lvl.apartments.filter((a) => a.status === 'ok').length, 0);
+        if (okApartments === 0) {
+            const reason = 'zero apartments laid out — refusing to build an empty building (every apartment cell soft-failed)';
+            console.warn('[resi-building] §RESI-ZERO-APARTMENTS-REFUSE —', reason);
+            toast('No apartment could be laid out on this plot — nothing was built. Try a smaller minimum apartment size or fewer floors.', 'error');
+            return { ok: false, reason };
+        }
+
         // §RESI-STAIR-VOID-IN-FINISH (2026-06-24) — clear any voids from a PRIOR generation so a
         // re-build (same session) doesn't leak stale stairwell holes into this building's finishes.
         resetStairVoids();

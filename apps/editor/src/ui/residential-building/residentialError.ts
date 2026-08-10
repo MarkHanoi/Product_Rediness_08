@@ -63,7 +63,7 @@ export interface FriendlyResidentialError {
     /** What the user can do about it (actionable). */
     readonly guidance: string;
     /** Coarse kind — drives which icon/copy + lets tests assert the branch taken. */
-    readonly kind: 'too-narrow' | 'too-small' | 'degenerate' | 'core-too-large' | 'generic';
+    readonly kind: 'too-narrow' | 'too-small' | 'degenerate' | 'core-too-large' | 'no-apartments' | 'generic';
 }
 
 /** Pull the MEASURED plate short side (m) out of the orchestrator's "too narrow" reason. */
@@ -112,6 +112,19 @@ export function friendlyResidentialError(
             title: 'This plot is too narrow for a residential building',
             body: `The buildable plate ${measured} across its short side.${needs}`,
             guidance: 'Width is the limit here, not area — a long thin plot of any size still can’t host a core plus an apartment beside it. Widen the boundary across its short side, or draw it on a wider part of the site.',
+        };
+    }
+
+    // §RESI-ZERO-APARTMENTS-REFUSE — "all N apartment cell(s) failed to lay out (most common: …)".
+    // The partition PLACED cells but every per-cell layout soft-failed, so building would produce an
+    // EMPTY building (shell + core + corridors, zero apartments). Quote the engine's own most-common
+    // per-cell reason verbatim — this module still declares no feasibility number of its own.
+    if (r.includes('failed to lay out')) {
+        return {
+            kind: 'no-apartments',
+            title: "Couldn't lay out any apartment here",
+            body: `The plate was divided into apartment cells, but none of them could be laid out into rooms: ${String(reason ?? '').trim()}.`,
+            guidance: 'Try a smaller minimum apartment size, fewer floors, or a less elongated boundary — the cells the corridor grid produces here are too small or too narrow for a real apartment plan.',
         };
     }
 
