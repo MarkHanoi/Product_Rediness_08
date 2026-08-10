@@ -335,6 +335,7 @@ export function contextTilesetUrl(layer: ContextTileLayer): string | null {
 export function __setContextTilesBaseUrl(url: string | null): void {
     baseUrlOverride = url;
     archives.clear();
+    missingArchives.clear(); // §CTX-KNOWN-MISSING — a new base may well HAVE the layer.
     // §CTX-TILE-DECODE-CACHE — the decoded tiles belong to the OLD base URL. Keeping them would
     // serve one tileset's features under another's configuration.
     tileCache.clear();
@@ -734,6 +735,29 @@ class RangeUrlFetchSource implements Source {
  *  reusing the instance is what keeps the second and later tile reads to a single range request. */
 const archives = new Map<string, PMTiles>();
 
+/**
+ * §CTX-KNOWN-MISSING (founder 2026-08-10, GIS speed) — archives whose HEADER read came back
+ * 403/404 this session, keyed by the full stamped URL.
+ *
+ * WHY: `rail.pmtiles` and `trees.pmtiles` are absent from the bucket for v=L660a, so EVERY
+ * context load re-asked for their headers, and each failed header read costs TWO round trips
+ * (the §CTX-RANGE-COALESCE span attempt + its per-member re-issue fallback) — paid again on
+ * every re-render of the session, on the same hot path the present layers are streaming on.
+ * A 403/404 on the archive itself is not transient: the OBJECT is not there, and it will not
+ * appear mid-session (a re-bake ships a new `CONTEXT_TILESET_VERSION`, which is a NEW url/key).
+ *
+ * ⚠ HONESTY UNCHANGED: the memo returns the SAME `unavailable` status with the original reason,
+ * so callers still log their honest "rendering NO rail" line — this removes the repeated network
+ * round-trips, never the answer. Network errors and 5xx are NOT memoised (transient by nature).
+ * Cleared with the archives (test seam + base-URL change), so a config change retries cold.
+ */
+const missingArchives = new Map<string, string>();
+
+/** Does this header-read failure prove the ARCHIVE OBJECT is absent (vs a transient failure)? */
+function isArchiveMissingError(message: string): boolean {
+    return /Bad response code: 40[34]\b/.test(message);
+}
+
 function archiveFor(layer: ContextTileLayer): PMTiles | null {
     // §CONTEXT-CACHE-BUST — always go through contextTilesetUrl() so the version stamp can never be
     // dropped by a new call site. A path-stable, year-immutable URL is invisible to a re-bake.
@@ -947,6 +971,16 @@ export async function readContextTileFeatures(
     const archive = archiveFor(layer);
     if (!archive) return { status: 'disabled' };
 
+    // §CTX-KNOWN-MISSING — an archive that 403/404'd its header this session is not going to
+    // materialise; answer `unavailable` immediately instead of paying the round trips again.
+    const archiveUrl = contextTilesetUrl(layer);
+    if (archiveUrl) {
+        const knownMissing = missingArchives.get(archiveUrl);
+        if (knownMissing !== undefined) {
+            return { status: 'unavailable', reason: `${knownMissing} (known missing this session — not re-fetched)` };
+        }
+    }
+
     const t0 = Date.now();
     let z = LAYER_ZOOM[layer];
     // §CTX-ZOOM-FITS-EXTENT — the tileset's own floor, so the zoom search below can never ask for
@@ -964,7 +998,18 @@ export async function readContextTileFeatures(
     } catch (e) {
         // An abort during the header read is the caller cancelling, not a broken tileset.
         if ((e as Error)?.name === 'AbortError' || signal?.aborted) return { status: 'aborted' };
-        return { status: 'unavailable', reason: `header read failed: ${(e as Error)?.message ?? e}` };
+        const reason = `header read failed: ${(e as Error)?.message ?? e}`;
+        // §CTX-KNOWN-MISSING — a 403/404 on the archive header proves the OBJECT is absent for
+        // this tileset version; memoise so the rest of the session answers without a network trip.
+        if (archiveUrl && isArchiveMissingError(String((e as Error)?.message ?? e))) {
+            missingArchives.set(archiveUrl, reason);
+            console.warn(
+                `[contextTiles] §CTX-KNOWN-MISSING ${layer}: archive header read 403/404 ` +
+                `(${archiveUrl}) — memoised as missing for this session; later reads of this ` +
+                'layer short-circuit to the same honest `unavailable` with no network round-trips.',
+            );
+        }
+        return { status: 'unavailable', reason };
     }
     if (signal?.aborted) return { status: 'aborted' };
 
@@ -1113,6 +1158,7 @@ export function __createRangeSourceForTest(url: string): Source {
  *  §CTX-TILE-DECODE-CACHE, so a test cannot be handed a previous test's decoded tiles. */
 export function clearContextTileArchives(): void {
     archives.clear();
+    missingArchives.clear(); // §CTX-KNOWN-MISSING — tests must never inherit a prior test's 404 memo.
     tileCache.clear();
     tileInFlight.clear();
 }

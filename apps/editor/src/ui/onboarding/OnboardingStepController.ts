@@ -85,6 +85,7 @@ import { runSiteRevealSequence, type SiteRevealTarget } from './siteRevealSequen
 import { decideDrawIdleAction, DRAW_IDLE_OFFER_MS as DRAW_IDLE_OFFER_MS_DEFAULT } from './drawIdleWatchdog.js';
 import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
+import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
 import { markStartupPhase } from '../../engine/startupBudget';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
@@ -623,6 +624,12 @@ export class OnboardingStepController {
             // Holding it lets `revealSplitAtParcel` wait on the REAL signal instead of a timer.
             warmContextCache: (lat, lon) => {
                 markStartupPhase('context-warm:start'); // §STARTUP-BUDGET
+                // §CTX-WARM-ALL-LAYERS (founder 2026-08-10) — warm EVERY context layer the 3D Site
+                // will render, in parallel, NOW (the moment the geocode resolved). Fire-and-forget:
+                // the reveal gate below stays on the BUILDINGS read alone, so these merely stream
+                // in behind the reveal instead of starting cold when the split mounts (measured:
+                // water/roads/parks/landuse first reads at 8.2–9.1 s post-open before this).
+                try { warmAllContextLayers(lat, lon); } catch { /* warm is never load-bearing */ }
                 this.contextWarm = fetchContextBuildingsNearAndFar(lat, lon)
                     .then((r) => { markStartupPhase('context-warm:done'); return r; })
                     .catch(() => {
