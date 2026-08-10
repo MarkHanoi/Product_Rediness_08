@@ -42,10 +42,43 @@ export type {
   NaturalLanguageContext,
   NaturalLanguageResolution,
 } from './intents/LocalNaturalLanguageResolver.js';
+// ADR-0313 §Capability-driven resolution — the capability registry is the ONE
+// place the chat's idea of the editor's abilities lives, and the coverage gate
+// (`tools/ga-gate/check-chat-capability-coverage.ts`) proves it against the real
+// bus registrations.
+export {
+  allChatCapabilities,
+  resolveChatCapability,
+  capabilitiesForElement,
+  capabilityAppliesTo,
+  capabilityBusCommands,
+  chatUnavailableReason,
+  normalizeElementKind,
+  CHAT_UNAVAILABLE,
+  PROBE_ELEMENT_KINDS,
+  GENERIC_PARAMETER_TARGETS,
+} from './capabilities/ChatCapabilityRegistry.js';
+export type {
+  ChatCapability,
+  ChatCapabilityParameter,
+  CapabilityCommandProof,
+  CapabilityScope,
+  CapabilityValueSource,
+} from './capabilities/ChatCapabilityRegistry.js';
+export {
+  capabilityGapRefusal,
+  describeCapabilitiesFor,
+  nonImperativeReason,
+  unconnectedTopicCommands,
+  unconnectedTopicLabels,
+} from './capabilities/CapabilityRefusal.js';
+export type { CapabilityGapRefusal, ChatResolutionState } from './capabilities/CapabilityRefusal.js';
+export { parseWallTypeIntent } from './intents/ZeroTokenResolver.js';
 export type {
   ResolverContext,
   ResolverSelection,
   ResolverLevel,
+  ResolverWallSystemType,
   BusCommandRef,
   ZeroTokenResolution,
   ZeroTokenLocalAction,

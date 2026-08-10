@@ -26,6 +26,12 @@
 // `pryzm.ai.chat.dispatch`) — 2 bounded span names.
 
 import { trace, type Tracer, type SpanOptions } from '@opentelemetry/api';
+import {
+  capabilityAppliesTo,
+  normalizeElementKind,
+  resolveChatCapability,
+} from '../capabilities/ChatCapabilityRegistry.js';
+import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +46,14 @@ export interface ResolverLevel {
   readonly elevation?: number;
 }
 
+/** A wall system type as the resolver needs to see it — id for the payload,
+ *  name for honest human copy. Deliberately structural, not the real
+ *  `WallSystemType`: the resolver stays at L2 with no command-registry import. */
+export interface ResolverWallSystemType {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface ResolverContext {
   /** Current selection (empty array = nothing selected). */
   readonly selection: readonly ResolverSelection[];
@@ -47,6 +61,25 @@ export interface ResolverContext {
   readonly levels: readonly ResolverLevel[];
   /** Id minter for commands whose payload REQUIRES an id (level.add). */
   readonly mintId: () => string;
+  /**
+   * §FEAT-CHAT-WALL-TYPE — the forgiving wall-type lookup, INJECTED.
+   *
+   * The value source for the `set-wall-type` capability's parameter is the
+   * project's wall-type catalogue, and there is exactly ONE implementation of
+   * that lookup: `resolveWallSystemTypeRef` in
+   * `packages/command-registry/src/walls/UpdateWallsSystemTypeBatchCommand.ts`
+   * (exact id → exact name → case-insensitive trimmed name). The resolver must
+   * stay pure and must not import it, so the bridge injects it here. Writing a
+   * second matcher inside the resolver would have re-created the two-sources-of-
+   * truth defect this whole change exists to remove.
+   *
+   * When absent (headless/tests) the raw user string is forwarded and the
+   * COMMAND does the resolution and the refusing — never a silent mismatch.
+   */
+  readonly resolveWallSystemType?: (ref: string) => ResolverWallSystemType | null;
+  /** Catalogue names, so an unresolvable type refuses by LISTING the real
+   *  options instead of inventing syntax (§CONTEXT-DATA-HONESTY). */
+  readonly wallSystemTypeNames?: readonly string[];
 }
 
 export interface BusCommandRef {
@@ -256,7 +289,23 @@ export type SemanticIntent =
       readonly height?: number;
       readonly thickness?: number;
     }
-  | { readonly intent: 'rename-room'; readonly name?: string };
+  | { readonly intent: 'rename-room'; readonly name?: string }
+  /**
+   * §FEAT-CHAT-WALL-TYPE — "make all walls interior partition".
+   *
+   * The capability whose absence proved the point: `wall.updateSystemTypeBatch`
+   * shipped in c1902a5a, the chat shipped in 48750f9c, and the founder's
+   * sentence reached neither. `scope` is explicit because "all walls" and "the
+   * selected walls" are genuinely different asks and guessing between them on a
+   * project-wide retype is not acceptable.
+   */
+  | {
+      readonly intent: 'set-wall-type';
+      /** Type id OR name, as the user said it — resolved by the injected
+       *  `ctx.resolveWallSystemType`, or by the command when absent. */
+      readonly typeRef: string;
+      readonly scope: 'all' | 'selection';
+    };
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
  *  caller adds `tier: 0 | 1 | 'nl'` on non-refusal results). */
@@ -318,6 +367,35 @@ export function findLevel(
     });
   }
   return undefined;
+}
+
+/**
+ * The ONE target guard — "does this capability really apply to this element
+ * kind?" — answered by the capability registry rather than by a hand-written
+ * `!==` in each branch.
+ *
+ * This is the anti-`ElementCapabilities` measure in executable form: the same
+ * `capabilityAppliesTo` that the coverage gate probes is the function that
+ * decides at runtime, so a capability cannot advertise a target its resolver
+ * then rejects (or reach a target it never declared). The refusal it produces
+ * lists what IS possible for the kind the user actually has selected.
+ */
+function capabilityTargetRefusal(
+  capabilityId: string,
+  elementType: string,
+  propertyLabel: string,
+): Extract<SemanticApplication, { kind: 'refusal' }> | null {
+  const cap = resolveChatCapability(capabilityId);
+  if (cap === null || capabilityAppliesTo(cap, elementType)) return null;
+  return {
+    kind: 'refusal',
+    intent: capabilityId,
+    reason:
+      `I can't set the ${propertyLabel} of a ${normalizeElementKind(elementType)} from chat — ` +
+      `the command behind it has no route for that element type, so it would look like it worked ` +
+      `and change nothing. ${describeCapabilitiesFor(elementType)}`,
+    suggestions: [],
+  };
 }
 
 /** Selection guard: intent needs exactly a selected element. */
@@ -430,6 +508,15 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           suggestions: [],
         };
       }
+      // §FIX-CHAT-HEIGHT-OVERCLAIM (2026-08-10). This used to accept ANY
+      // element type and route the non-wall case to `element.updateParameters`.
+      // That command's `resolveStore()` switch has a `default: return null`
+      // arm, so a room / ceiling / floor / lighting selection dispatched a
+      // command that resolved no store and changed nothing — the chat reported
+      // success for a no-op. The claim is now bounded by what the command can
+      // actually route, declared once in the capability registry.
+      const kindGuard = capabilityTargetRefusal('set-height', sel.elementType, 'height');
+      if (kindGuard !== null) return kindGuard;
       const cmd: BusCommandRef =
         sel.elementType === 'wall'
           ? { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, height } }
@@ -568,6 +655,66 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         destructive: false,
       };
     }
+
+    case 'set-wall-type': {
+      // Scope first: "the selected walls" must never silently become "all walls".
+      let wallIds: readonly string[] | 'all';
+      if (si.scope === 'selection') {
+        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
+        if (walls.length === 0) {
+          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
+          return {
+            kind: 'refusal', intent: 'set-wall-type',
+            reason: kinds.length === 0
+              ? 'No walls are selected — select some walls, or say "change all walls to …" to retype the whole project.'
+              : `Wall types apply to walls, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
+            suggestions: ['change all walls to interior partition'],
+          };
+        }
+        wallIds = walls.map((s) => s.elementId);
+      } else {
+        wallIds = 'all';
+      }
+
+      // Resolve the type through the INJECTED lookup (one implementation —
+      // `resolveWallSystemTypeRef`). Absent injection forwards the raw string
+      // and the command refuses with the same honesty; it never guesses.
+      let systemType = si.typeRef;
+      let typeLabel = `"${si.typeRef}"`;
+      if (ctx.resolveWallSystemType !== undefined) {
+        const hit = ctx.resolveWallSystemType(si.typeRef);
+        if (hit === null) {
+          const names = ctx.wallSystemTypeNames ?? [];
+          return {
+            kind: 'refusal', intent: 'set-wall-type',
+            reason: names.length === 0
+              ? `I could not find a wall type called "${si.typeRef}" in this project.`
+              : `There is no wall type called "${si.typeRef}" in this project. The wall types here are: ${names.join(', ')}.`,
+            suggestions: names.slice(0, 2).map((n) => `change all walls to ${n.toLowerCase()}`),
+          };
+        }
+        systemType = hit.id;
+        typeLabel = `"${hit.name}"`;
+      }
+
+      const scopeLabel = wallIds === 'all'
+        ? 'every wall in the project'
+        : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
+      return {
+        kind: 'commands', intent: 'set-wall-type',
+        summary: `Change ${scopeLabel} to ${typeLabel}`,
+        commands: [{
+          type: 'wall.updateSystemTypeBatch',
+          payload: { wallIds: wallIds === 'all' ? 'all' : [...wallIds], systemType },
+        }],
+        // NOT destructive. A retype is one undo entry, it deletes nothing, and
+        // the command already reports "Changed N of M — K skipped: <reason>"
+        // per §CONTEXT-DATA-HONESTY. Gating it behind a Confirm card would put
+        // a modal in front of the founder's exact sentence for no safety gain;
+        // the reversible-and-reported path is the honest one.
+        destructive: false,
+      };
+    }
   }
 }
 
@@ -698,10 +845,57 @@ const matchRenameRoom: Matcher = (text, ctx) => {
   );
 };
 
+// §FEAT-CHAT-WALL-TYPE — "make all walls interior partition" and its family.
+//
+// The scope word is REQUIRED and never inferred: "all/every" ⇒ the whole
+// project, "these/selected" ⇒ the selection. There is no third reading in which
+// a bare "make walls interior partition" quietly retypes the building.
+const WALL_SCOPE_ALL = String.raw`(?:all|every|each)`;
+const WALL_SCOPE_SEL = String.raw`(?:these|those|selected|this)`;
+const WALL_TYPE_VERB = String.raw`(?:make|change|set|switch|convert|turn|retype|update)`;
+
+const WALL_TYPE_RE = new RegExp(
+  `^${WALL_TYPE_VERB}(?: over)? (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? walls?` +
+  `(?: over)?(?: (?:to|into|as|be))? (?:the )?(?:wall )?(?:system )?(?:type )?(?:a |an |the )?(.+)$`,
+);
+
+/**
+ * Parse "make all walls interior partition" and its family into the semantic
+ * intent — SHARED by the tier-0 grammar and the NL classifier, so the natural
+ * and rigid paths cannot understand the sentence differently.
+ *
+ * Returns null (a miss) rather than guessing when the scope word is absent:
+ * "make walls interior partition" could mean the project or the selection, and
+ * on a project-wide retype that is not a coin worth flipping.
+ */
+export function parseWallTypeIntent(text: string): Extract<SemanticIntent, { intent: 'set-wall-type' }> | null {
+  const m = WALL_TYPE_RE.exec(text);
+  if (!m) return null;
+  const scopeWord = m[1]!;
+  const typeRef = m[2]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+  if (typeRef.length === 0) return null;
+  // "make all walls 3m tall" is a DIMENSION ask, not a type ask — never claim it.
+  if (/\b(?:tall|high|thick|wide|taller|thicker|wider|height|thickness|width|long)\b/.test(typeRef)) return null;
+  if (/^\d/.test(typeRef)) return null;
+  return {
+    intent: 'set-wall-type',
+    typeRef,
+    scope: new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord) ? 'all' : 'selection',
+  };
+}
+
+const matchWallType: Matcher = (text, ctx) => {
+  const si = parseWallTypeIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
   matchDeleteSelected,
+  // BEFORE the dimension matchers: "make all walls interior partition" must not
+  // be nibbled at by "make this … " shapes.
+  matchWallType,
   matchSillHeight,   // before matchHeight — "sill height" contains "height"
   matchHeight,
   matchThickness,

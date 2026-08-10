@@ -1,6 +1,7 @@
-# ADR-0313 — Zero-token chat command resolver (tier 0/1 + natural-language layer) in the AI panel
+# ADR-0313 — Capability-driven zero-token chat command resolver in the AI panel
 
-- **Status:** Accepted (2026-08-10; §Natural-language layer added 2026-08-10)
+- **Status:** Accepted (2026-08-10; §Natural-language layer added 2026-08-10; **reframed
+  from intent-list to CAPABILITY-DRIVEN 2026-08-10 — see §Capability-driven resolution**)
 - **Owners:** AI panel / ai-host
 - **Related:** C16 (command authoring), C03 (commands/state), P6 (commands-only mutation), P8 (spans), §CONTEXT-DATA-HONESTY
 
@@ -10,6 +11,15 @@ The AI chat panel (`apps/editor/src/ui/ai/AIPanel.ts`) routes **every** utteranc
 `aiService.query()` — an LLM round-trip — even for asks that map deterministically onto
 existing bus commands ("delete selected", "set height to 3m", "go to level 2", "undo").
 Most BIM-editor utterances are command-shaped. Tokens should be the fallback, not the default.
+
+## Principle
+
+> **Local resolution maps natural language onto the editor's REGISTERED CAPABILITIES.**
+> Capabilities are declared alongside the commands they expose and verified against them in
+> CI — never in a second, manually-synchronised list.
+
+The original framing of this ADR ("a small grammar of intents") was the defect, not the
+implementation of it. See §Capability-driven resolution for the evidence and the correction.
 
 ## Decision
 
@@ -131,6 +141,129 @@ intent classification → a structured **`SemanticIntent`** → `applySemanticIn
 
 New exported functions carry OTel spans: `pryzm.ai.chat.resolve` (with tier/kind/intent
 attributes) and `pryzm.ai.chat.dispatch`. Span names are bounded (2 names).
+
+## Capability-driven resolution (2026-08-10)
+
+### The defect that forced the reframing
+
+Commit `c1902a5a` shipped `wall.updateSystemTypeBatch` — retype every wall in the project in
+one undo step — and commit `48750f9c` shipped this chat panel, **in the same release**. The
+founder typed:
+
+> make all walls interior partition
+
+and got **"I'm not sure how to help with that yet."**
+
+Nothing was broken. The command existed, was registered on the bus, and had a deliberately
+forgiving name resolver (`resolveWallSystemTypeRef`: exact id → exact name → case-insensitive
+name) built precisely so a chat could say "interior partition" and mean `wt-interior-partition`.
+The sentence was unambiguous. **The resolver simply had no idea the command was there.**
+
+The defect is **capability discoverability, not language recognition**, and its cause is two
+sources of truth: the editor's abilities live in the command handlers, while the chat's idea of
+those abilities lived in a hand-maintained table of thirteen intents in one file. Every new
+editor capability silently required someone to remember to teach the chat a fourteenth. Nothing
+in CI compared the two lists, so nobody was told.
+
+### The correction
+
+1. **`packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts`** — capabilities are
+   DECLARED. A `ChatCapability` carries: `id` (identical to the `SemanticIntent` that reaches
+   it), a human `description`, `verbs`/`aliases`, `targets` (the element kinds it really
+   applies to), `parameters` each naming its **value source** (`wall-system-types`,
+   `project-levels`, `measurement`, `user-text`, `coordinates`), `scope`
+   (`selection` | `all` | `global`), a `destructive` flag, and the `busCommand` that implements
+   it. `CHAT_UNAVAILABLE` is the honest half: bus commands the chat deliberately does not drive,
+   **each with a stated reason**. Shape copied from
+   `apps/editor/src/ui/property-panel/ElementTypeAuthoringRegistry.ts`, including its
+   `AUTHORING_UNAVAILABLE` precedent.
+
+2. **`tools/ga-gate/check-chat-capability-coverage.ts`** — the gate that would have caught
+   `c1902a5a`. Every bus command registered in `plugins/*/src/handlers/*.ts` or
+   `apps/editor/src/engine/initBusHandlers.ts` must be DECLARED: implemented by a capability, or
+   deferred with a reason. Undeclared commands are counted on a shrink-only ratchet
+   (**baseline 269 of 303 registered bus commands, frozen 2026-08-10**), so adding a command without a declaration fails CI.
+   The gate additionally hard-fails, with zero tolerance, on phantom capabilities (a `busCommand`
+   nothing registers), unproven targets, and any capability with no acceptance test.
+
+3. **`packages/ai-host/src/capabilities/CapabilityRefusal.ts`** — refusals are GENERATED from
+   the registry. "I'm not sure how to help with that yet" is replaced by, e.g.,
+   *"Wall colour isn't connected to chat yet. I can change wall height, thickness and type."*
+   Because the offer is built by `capabilitiesForElement()`, the chat can never offer an ability
+   it will then refuse.
+
+4. **`set-wall-type`** is wired end to end: tier-0 grammar and the NL layer share one parser
+   (`parseWallTypeIntent`), and the type reference is resolved by the command's own
+   `resolveWallSystemTypeRef`, **injected** into the pure resolver as
+   `ResolverContext.resolveWallSystemType`. Writing a second matcher inside the resolver would
+   have re-created the very defect being fixed.
+
+### ⚠ A capability registry that lies is worse than none
+
+This repository already has one. `packages/input-host/src/operations/ElementCapabilities.ts`
+advertises Mirror / Offset / Scale on slab, floor, roof, door, window, column and furniture;
+those commands are **wall-only** and refuse at `canExecute` (found 2026-08-10). It was never
+checked against the commands it described, and it drifted.
+
+`targets` is therefore verified **two independent ways**, both enforced by the gate and
+mirrored in `packages/ai-host/__tests__/chat-capability-registry.test.ts`:
+
+- **Executable (chat side).** Each capability carries a `probe` `SemanticIntent`.
+  `applySemanticIntent(probe, ctxSelecting(kind))` is run for every kind in
+  `PROBE_ELEMENT_KINDS`, and the accepted set must equal the declared set **exactly**. A
+  declared target the guard refuses fails; an undeclared kind the guard *accepts* fails too —
+  silent over-reach is the same lie facing the other way.
+- **Source-anchored (command side).** `commandProof` names the file that DECIDES which element
+  kinds the implementing command can reach, and literals that must appear in it. The gate reads
+  the file. An unprovable claim fails.
+
+Neither alone is sufficient: the executable probe would happily certify a resolver that
+confidently dispatches into a command that refuses.
+
+**§FIX-CHAT-HEIGHT-OVERCLAIM.** Applying proof 2 immediately found the same lie already inside
+this chat. `set-height` accepted **any** element type and routed the non-wall case to
+`element.updateParameters`; that command's `resolveStore()` switch has a `default: return null`
+arm, so selecting a **room, ceiling, floor, lighting or plumbing** element and saying "set
+height to 3m" dispatched a command that resolved no store, changed nothing — and the chat
+reported success. `set-height.targets` is now the eleven kinds the command can actually route,
+and the other kinds get a capability-aware refusal that says what *is* possible.
+
+### Three states, properly distinguished
+
+The single sentence "I'm not sure how to help with that yet" concealed three different
+situations. They are now separate, and named in `ChatResolutionState`:
+
+| state | meaning | behaviour |
+|-------|---------|-----------|
+| `clarification` | understood; one parameter missing | ask ONE concrete question; remember the pending intent |
+| `refusal` | understood; we know we cannot safely do it | say why, and say what IS possible (generated from the registry). Never reaches the LLM |
+| `miss` | not understood as a command | fall through to the LLM, unchanged |
+
+A refusal must not be a guess: `capabilityGapRefusal` fires only when it can name **both** a
+concrete element kind **and** a topic the editor demonstrably implements but the chat
+deliberately does not drive. "Make it cozier" therefore stays a miss — we have no command for
+it, so we do not know that we cannot do it.
+
+### Adversarial guard — command-shaped utterances that must not mutate
+
+`nonImperativeReason()` runs on the **raw** utterance, before filler stripping, because the
+stripper deliberately removes "I would like to" and a hypothetical marker looks like politeness
+once it is gone. Negations ("don't change the wall height"), hypotheticals ("I was thinking
+about changing the height", "what would happen if…") and genuine questions become misses. The
+guard is narrow on purpose: "could you…" / "would you mind…" are *requests*, not questions, and
+still resolve.
+
+### Scope deliberately NOT taken
+
+- **No local semantic model.** Rule-scored classification stays; §26 of the proposal is deferred.
+- **No package restructure.** The registry is one directory inside `@pryzm/ai-host`.
+- **No preview-before-execute.**
+- **The declaration is not literally inside the handler file.** A `chatCapability` field on each
+  `CommandHandler` cannot work at runtime — the resolver is a pure L2 module that answers before
+  any plugin loads, and a `plugins → ai-host` import would add an SDK-facade bypass (baseline
+  172, shrink-only). The coupling is made STATIC instead: the declaration lives in the registry
+  and CI proves it against the real registration lists. The guarantee "a feature cannot ship
+  without its chat metadata" is delivered by the gate, not by an import.
 
 ## Consequences
 

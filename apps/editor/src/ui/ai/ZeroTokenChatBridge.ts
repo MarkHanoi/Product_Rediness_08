@@ -27,12 +27,19 @@ import {
     resolveNaturalLanguage,
     noteResolution,
     withChatDispatchSpan,
+    capabilityGapRefusal,
     type ConversationContext,
     type ResolverContext,
     type ResolverSelection,
+    type ResolverWallSystemType,
     type ZeroTokenResolution,
 } from '@pryzm/ai-host';
 import { batchCoordinator } from '@pryzm/core-app-model';
+// The ONE forgiving wall-type lookup (exact id → exact name → case-insensitive
+// name). Injected into the pure resolver rather than reimplemented inside it —
+// a second matcher here would be the same two-sources-of-truth defect the
+// capability registry exists to delete.
+import { resolveWallSystemTypeRef } from '@pryzm/command-registry';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel';
 
 // ─── Minimal window facets (P4: typed casts, no `(window as any)`) ───────────
@@ -68,17 +75,47 @@ function currentSelection(): readonly ResolverSelection[] {
     }];
 }
 
-function buildContext(): ResolverContext {
+/** The project's wall-type catalogue, read lazily so a headless/boot-time call
+ *  cannot throw. The STORE is read here (app layer); the resolver stays pure. */
+async function wallTypeCatalogue(): Promise<{
+    resolve: (ref: string) => ResolverWallSystemType | null;
+    names: readonly string[];
+}> {
+    const { wallSystemTypeStore } = await import('@pryzm/geometry-wall');
+    return {
+        resolve: (ref: string) => {
+            const hit = resolveWallSystemTypeRef(wallSystemTypeStore, ref);
+            return hit === null ? null : { id: hit.id, name: hit.name };
+        },
+        names: wallSystemTypeStore.getAll().map((t) => t.name),
+    };
+}
+
+async function buildContext(): Promise<ResolverContext> {
     const levels = (win().bimManager?.getLevels?.() ?? []).map((l, i) => ({
         id: l.id,
         name: l.name ?? `Level ${i}`,
         ...(typeof l.elevation === 'number' ? { elevation: l.elevation } : {}),
     }));
     const activeLevelId = resolveActiveLevelId();
+    // §FEAT-CHAT-WALL-TYPE — the `wall-system-types` value source, injected.
+    // A catalogue that cannot be read is reported as ABSENT (the command then
+    // does the resolving and the refusing) rather than as EMPTY, which would
+    // make "no such wall type" and "could not read the catalogue" the same
+    // sentence — §CONTEXT-DATA-HONESTY.
+    let catalogue: Awaited<ReturnType<typeof wallTypeCatalogue>> | null = null;
+    try {
+        catalogue = await wallTypeCatalogue();
+    } catch (err) {
+        console.warn('[ZeroTokenChatBridge] wall type catalogue unavailable:', err);
+    }
     return {
         selection: currentSelection(),
         levels,
         ...(activeLevelId !== undefined ? { activeLevelId } : {}),
+        ...(catalogue !== null
+            ? { resolveWallSystemType: catalogue.resolve, wallSystemTypeNames: catalogue.names }
+            : {}),
         // level.add call-site convention (ProjectTreeSection): `L${Date.now()}`.
         mintId: () => `L${Date.now()}`,
     };
@@ -112,6 +149,22 @@ async function dispatchCommands(
             return;
         }
     }
+    // §CONTEXT-DATA-HONESTY — `wall.updateSystemTypeBatch` reports partial
+    // failure ("Changed 12 of 40 walls — 28 skipped: 28× a raked wall cannot
+    // take a layered type") on a CustomEvent rather than in the bus result. The
+    // generic "Done" line below would hide exactly the information the founder
+    // needs, so when the report arrives it REPLACES that line.
+    // Collected into an ARRAY, not a `let`: the listener assigns from inside a
+    // closure, which TypeScript's control-flow analysis cannot see, so a `let`
+    // is narrowed to `null` at every later read.
+    const batchReports: { success: boolean; info: readonly string[] }[] = [];
+    const onBatchReport = (e: Event): void => {
+        const detail = (e as CustomEvent).detail as { success?: boolean; info?: string[] } | undefined;
+        if (detail) batchReports.push({ success: detail.success ?? false, info: detail.info ?? [] });
+    };
+    const wantsBatchReport = r.commands.some((c) => c.type === 'wall.updateSystemTypeBatch');
+    if (wantsBatchReport) window.addEventListener('pryzm-wall-type-batch-report', onBatchReport);
+
     const failures: string[] = [];
     await withChatDispatchSpan(async () => {
         if (r.commands.length > 1) {
@@ -141,9 +194,21 @@ async function dispatchCommands(
         }
     }, { 'pryzm.ai.chat.intent': r.intent, 'pryzm.ai.chat.tier': r.tier });
 
+    if (wantsBatchReport) window.removeEventListener('pryzm-wall-type-batch-report', onBatchReport);
+
     if (failures.length > 0) {
         // Honesty: a failed dispatch must never read like a success.
         hooks.say(`That did not complete — the model refused: ${failures.join('; ')}`);
+        return;
+    }
+    const report = batchReports[0];
+    if (report !== undefined) {
+        const lines = report.info.length > 0 ? report.info.join(' · ') : r.summary;
+        hooks.say(
+            report.success
+                ? `${lines}. Undo with Ctrl+Z. (resolved without AI tokens)`
+                : `Nothing was changed — ${lines}`,
+        );
         return;
     }
     hooks.say(`${r.summary}. Done — undo with Ctrl+Z. (resolved without AI tokens)`);
@@ -201,7 +266,7 @@ export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks)
     let resolution: ZeroTokenResolution;
     let ctx: ResolverContext;
     try {
-        ctx = buildContext();
+        ctx = await buildContext();
         resolution = resolveUtterance(query, ctx);
     } catch (err) {
         // A resolver crash must not take the chat down — fall through to the LLM.
@@ -214,14 +279,24 @@ export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks)
         try {
             const nl = resolveNaturalLanguage(query, { ...ctx, conversation });
             conversation = nl.conversation;
-            if (nl.kind === 'miss') return false; // → LLM
-            if (nl.kind === 'clarification') {
+            if (nl.kind === 'miss') {
+                // ADR-0313 §Capability-driven refusals — the LAST deterministic
+                // step before the LLM. If the ask names a topic the editor DOES
+                // implement but the chat deliberately does not drive, say so and
+                // say what IS connected, generated from the capability registry.
+                // Anything else stays a miss: an honest "I don't know" beats a
+                // confident list of unrelated abilities.
+                const gap = capabilityGapRefusal(query, ctx.selection.map((s) => s.elementType));
+                if (gap === null) return false; // → LLM
+                resolution = gap;
+            } else if (nl.kind === 'clarification') {
                 // Recognized but underspecified: ask, never guess. Handled —
                 // the answer arrives as the next chat message.
                 hooks.say(nl.question);
                 return true;
+            } else {
+                resolution = nl.resolution;
             }
-            resolution = nl.resolution;
         } catch (err) {
             console.error('[ZeroTokenChatBridge] NL resolver failed, falling through:', err);
             return false;

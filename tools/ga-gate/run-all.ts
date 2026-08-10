@@ -38,6 +38,7 @@
  *   28. check-domain-purity.ts             — P5 schemas are pure (L-812, was MISSING)
  *   29. check-no-direct-store-writes.ts    — P6 commands are the only mutation path (L-812, was MISSING)
  *   30. check-visibility-intent-not-ui.ts  — P7 visibility intent ≠ UI (L-812, was MISSING)
+ *   31. check-chat-capability-coverage.ts  — every registered bus command is declared to the chat (ADR-0313)
  *
  * §P1/P5/P6/P7-UNENFORCED (L-812, 2026-08-09). C01 §5 listed gates 27–30 as
  * hard-fail and merge-blocking. **None of the four script files existed.** P6 in
@@ -103,6 +104,10 @@ const GATES: Gate[] = [
   { name: 'domain-purity (P5/L-812)',                 script: 'check-domain-purity.ts' },
   { name: 'no-direct-store-writes (P6/L-812)',        script: 'check-no-direct-store-writes.ts' },
   { name: 'visibility-intent-not-ui (P7/L-812)',      script: 'check-visibility-intent-not-ui.ts' },
+  // §FIX-CHAT-CAPABILITY-BLIND (ADR-0313) — a registered bus command with no
+  // chat capability metadata. Added 2026-08-10 after `wall.updateSystemTypeBatch`
+  // and the chat panel shipped in the SAME release and could not reach each other.
+  { name: 'chat-capability-coverage (ADR-0313)',      script: 'check-chat-capability-coverage.ts' },
 ];
 
 let anyFailed = false;

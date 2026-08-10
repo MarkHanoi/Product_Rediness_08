@@ -33,11 +33,13 @@
 // recorded on a span.
 
 import { trace, type Tracer } from '@opentelemetry/api';
+import { nonImperativeReason } from '../capabilities/CapabilityRefusal.js';
 import {
   applySemanticIntent,
   boundedLevenshtein,
   findLevel,
   lengthToMeters,
+  parseWallTypeIntent,
   type ResolverContext,
   type ResolverLevel,
   type ResolverSelection,
@@ -239,6 +241,18 @@ const PHRASE_MAP: readonly (readonly [RegExp, string])[] = [
 
 interface Normalized {
   readonly text: string;
+  /**
+   * Filler-stripped and phrase-canonicalized, but BEFORE token synonym mapping
+   * and typo correction. Free-text values live here intact.
+   *
+   * A wall type name is user data, not vocabulary: "Interior – Partition 100mm"
+   * survives here, whereas `text` has already run every token through the
+   * synonym table and a Levenshtein corrector aimed at the intent vocabulary,
+   * which is free to rewrite an unfamiliar product name into something that
+   * scores close. Parsing catalogue references off `text` would corrupt exactly
+   * the values the user has to type most precisely.
+   */
+  readonly plain: string;
   readonly tokens: readonly string[];
   readonly evidence: string[];
   readonly typoCount: number;
@@ -349,6 +363,7 @@ function normalizeNatural(raw: string): Normalized {
     }
     re.lastIndex = 0;
   }
+  const plain = text;
   // Tokens → number words → synonyms → typo correction → synonyms again.
   let typoCount = 0;
   const tokens = convertNumberWords(text.split(' ').filter((t) => t.length > 0)).map((tok) => {
@@ -363,7 +378,7 @@ function normalizeNatural(raw: string): Normalized {
     return tok;
   });
   if (typoCount > 0) evidence.push(`typo-corrected:${typoCount}`);
-  return { text: tokens.join(' '), tokens, evidence, typoCount, revision };
+  return { text: tokens.join(' '), plain, tokens, evidence, typoCount, revision };
 }
 
 // ─── Entity extraction ───────────────────────────────────────────────────────
@@ -709,6 +724,21 @@ function classify(
     });
   }
 
+  // set-wall-type (§FEAT-CHAT-WALL-TYPE). Parsed off `n.plain` — the type name
+  // is user data and must not pass through the typo corrector — and by the SAME
+  // function the tier-0 grammar uses, so the two paths cannot read the sentence
+  // differently. Confidence is high because the shape is unambiguous: a scope
+  // word, "walls", and a catalogue reference.
+  const wallType = parseWallTypeIntent(n.plain);
+  if (wallType !== null) {
+    push({
+      intent: 'set-wall-type',
+      confidence: 0.92,
+      evidence: ['verb:retype', 'noun:wall', `scope:${wallType.scope}`],
+      si: wallType,
+    });
+  }
+
   // rename-room.
   if (tokens.includes('rename') || (tokens.includes('call') && tokens.includes('room'))) {
     const nameMatch =
@@ -811,8 +841,21 @@ export function resolveNaturalLanguage(
 
       let result: NaturalLanguageResolution;
       const first = n.tokens[0];
+      // §FIX-CHAT-NON-IMPERATIVE (2026-08-10). Checked on the RAW utterance,
+      // before filler stripping, because the stripper deliberately removes
+      // "I would like to" — and once it is gone, "I was thinking about changing
+      // the height" is indistinguishable from "change the height". Negations
+      // and hypotheticals are command-SHAPED and must never mutate:
+      //   "don't change the wall height"
+      //   "I was thinking about changing the height"
+      //   "what would happen if I made this taller?"
+      // all previously reached the set-height branch. They are misses now — the
+      // LLM can discuss them; the deterministic layer must not act on them.
+      const nonImperative = nonImperativeReason(utterance);
       if (n.text.length === 0) {
         result = miss(['empty']);
+      } else if (nonImperative !== null) {
+        result = miss([nonImperative]);
       } else if (first !== undefined && INTERROGATIVES.has(first)) {
         // Questions are for the LLM — never misread "how high is this wall?"
         // as a command to change it.

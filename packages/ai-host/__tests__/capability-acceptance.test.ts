@@ -1,0 +1,426 @@
+// ADR-0313 §Capability-driven resolution — NATURAL-LANGUAGE ACCEPTANCE.
+//
+// One family of phrasings per capability, all of which must land on the SAME
+// capability id. A capability is only as real as the sentences that reach it,
+// so `check-chat-capability-coverage.ts` fails any capability this file does
+// not name.
+//
+// Plus the adversarial half, which matters more: command-SHAPED utterances that
+// must NOT mutate. "don't change the wall height", "I was thinking about
+// changing the height" and "what would happen if…" all contain a clean
+// set-height sentence, and two of the three previously resolved with high
+// confidence. A resolver that acts on them is worse than one that understands
+// less.
+
+import { describe, it, expect } from 'vitest';
+import {
+  resolveUtterance,
+  applySemanticIntent,
+  type ResolverContext,
+  type ZeroTokenResolution,
+} from '../src/intents/ZeroTokenResolver.js';
+import { resolveNaturalLanguage } from '../src/intents/LocalNaturalLanguageResolver.js';
+import {
+  allChatCapabilities,
+  resolveChatCapability,
+} from '../src/capabilities/ChatCapabilityRegistry.js';
+import {
+  resolveWallSystemTypeRef,
+  type WallSystemTypeCatalogueReader,
+} from '@pryzm/command-registry';
+
+// ─── Context ─────────────────────────────────────────────────────────────────
+
+// The REAL built-in wall types, verbatim from
+// `packages/geometry-wall/src/WallSystemTypeStore.ts` — the en-dash and the
+// dimension suffix are the whole reason the founder's "interior partition"
+// needed a forgiving lookup, so a sanitised fixture would test nothing.
+const WALL_TYPES = [
+  { id: 'wt-monolithic', name: 'Monolithic (Default)' },
+  { id: 'wt-interior-partition', name: 'Interior – Partition 100mm' },
+  { id: 'wt-exterior-brick', name: 'Exterior – Brick 300mm' },
+  { id: 'wt-exterior-concrete', name: 'Exterior – Concrete 250mm' },
+  { id: 'wt-exposed-stone', name: 'Exposed Stone – Feature Wall 350mm' },
+  { id: 'wt-timber-frame', name: 'Timber Frame – 200mm' },
+  { id: 'wt-exposed-wooden-frames', name: 'Wooden Frames – Exposed Timber 296mm' },
+];
+
+/** Minimal catalogue reader — the read surface `resolveWallSystemTypeRef`
+ *  declares. Only `id` and `name` participate in reference resolution. */
+const catalogueReader = {
+  getById: (id: string) => WALL_TYPES.find((t) => t.id === id),
+  getAll: () => WALL_TYPES,
+} as unknown as WallSystemTypeCatalogueReader;
+
+let seq = 0;
+const ctxOf =(overrides: Partial<ResolverContext> = {}): ResolverContext => ({
+  selection: [],
+  levels: [
+    { id: 'L0', name: 'Level 0', elevation: 0 },
+    { id: 'L1', name: 'Level 1', elevation: 3 },
+    { id: 'L2', name: 'Level 2', elevation: 6 },
+  ],
+  activeLevelId: 'L0',
+  mintId: () => `acc-${++seq}`,
+  // The REAL lookup, not a re-implementation of it. This is the point of the
+  // injection: `resolveWallSystemTypeRef` is the single authority on turning a
+  // human type reference into a catalogue entry, and the acceptance test drives
+  // the actual function against a stand-in catalogue reader. A local copy of
+  // the precedence rules here would be a second source of truth inside the very
+  // test that exists to prove there is only one.
+  resolveWallSystemType: (ref) => {
+    const hit = resolveWallSystemTypeRef(catalogueReader, ref);
+    return hit === null ? null : { id: hit.id, name: hit.name };
+  },
+  wallSystemTypeNames: WALL_TYPES.map((t) => t.name),
+  ...overrides,
+});
+
+const sel = (elementType: string, elementId = `${elementType}-1`) => ({
+  selection: [{ elementId, elementType }],
+});
+
+/** Resolve through the FULL ladder the bridge uses: tier 0/1, then NL. */
+function resolveFull(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
+  const tier01 = resolveUtterance(utterance, ctx);
+  if (tier01.kind !== 'miss') return tier01;
+  const nl = resolveNaturalLanguage(utterance, ctx);
+  if (nl.kind === 'resolved') return nl.resolution;
+  return { kind: 'miss' };
+}
+
+function intentOf(r: ZeroTokenResolution): string | null {
+  return r.kind === 'commands' || r.kind === 'local' || r.kind === 'refusal' ? r.intent : null;
+}
+
+// ─── Per-capability phrasing families ────────────────────────────────────────
+//
+// Each entry names the capability id (which is what the coverage gate greps
+// for) and the context its examples need in order to be ACTED on rather than
+// honestly refused.
+
+interface AcceptanceCase {
+  readonly id: string;
+  readonly ctx: Partial<ResolverContext>;
+  readonly phrasings: readonly string[];
+}
+
+const ACCEPTANCE: readonly AcceptanceCase[] = [
+  { id: 'undo', ctx: {}, phrasings: ['undo', 'undo that', 'Actually, undo that.', 'go back'] },
+  { id: 'redo', ctx: {}, phrasings: ['redo', 'redo that', 'do that again'] },
+  {
+    id: 'zoom-fit',
+    ctx: {},
+    phrasings: ['zoom to fit', 'fit the model', 'frame everything', 'zoom out so I can see everything'],
+  },
+  {
+    id: 'zoom-selected',
+    ctx: sel('wall'),
+    phrasings: ['zoom to selection', 'frame selection', 'zoom to selected'],
+  },
+  {
+    id: 'delete-selected',
+    ctx: sel('door'),
+    phrasings: [
+      'delete selected',
+      'remove those doors',
+      "get rid of the doors I've selected",
+      'please erase the selected door',
+    ],
+  },
+  {
+    id: 'set-height',
+    ctx: sel('wall'),
+    phrasings: [
+      'set height to 3m',
+      'make this 3m tall',
+      'set the wall height to 3m',
+      'could you make this wall three metres high?',
+      'set height to 2700',
+    ],
+  },
+  {
+    id: 'set-thickness',
+    ctx: sel('wall'),
+    phrasings: [
+      'set thickness to 200mm',
+      'change the thickness to 0.2m',
+      'make this wall 300mm thick',
+    ],
+  },
+  {
+    id: 'set-door-width',
+    ctx: sel('door'),
+    phrasings: [
+      'set door width to 900mm',
+      'set the door width to nine hundred millimeters',
+      'change width to 850mm',
+    ],
+  },
+  {
+    id: 'set-sill-height',
+    ctx: sel('window'),
+    phrasings: ['set sill height to 1m', 'change the sill height to 900mm'],
+  },
+  {
+    id: 'set-wall-type',
+    ctx: {},
+    phrasings: [
+      'make all walls interior partition',
+      'change all walls to Interior – Partition 100mm',
+      'convert every wall to interior partition',
+      'set all the walls to interior partition',
+      'Could you change all walls to interior partition, please?',
+    ],
+  },
+  {
+    id: 'go-to-level',
+    ctx: {},
+    phrasings: [
+      'go to level 2',
+      'switch to level 2',
+      'take me to the second floor',
+      'go to floor 2',
+    ],
+  },
+  { id: 'add-level', ctx: {}, phrasings: ['add a level', 'add a level at 6m', 'could you add another floor?'] },
+  {
+    id: 'create-wall',
+    ctx: {},
+    phrasings: [
+      'create a wall from (0,0) to (5,0)',
+      'draw a wall from (0,0) to (5,0) height 3m',
+      'please draw a wall from (0,0) to (5,0)',
+    ],
+  },
+  {
+    id: 'rename-room',
+    ctx: sel('room'),
+    phrasings: ['rename room to Kitchen', 'call this room the master bedroom'],
+  },
+];
+
+describe('capability acceptance — a family of phrasings per capability', () => {
+  for (const c of ACCEPTANCE) {
+    it(`${c.id}: every phrasing resolves to the same capability`, () => {
+      for (const utterance of c.phrasings) {
+        const r = resolveFull(utterance, ctxOf(c.ctx));
+        expect(
+          intentOf(r),
+          `"${utterance}" resolved to ${JSON.stringify(r)} instead of ${c.id}`,
+        ).toBe(c.id);
+        // Acceptance means ACTED ON, not merely recognized: in the context each
+        // family declares, none of these may be a refusal.
+        expect(r.kind, `"${utterance}" was refused`).not.toBe('refusal');
+      }
+    });
+  }
+
+  it('every declared capability has an acceptance family (no capability ships untested)', () => {
+    const tested = new Set(ACCEPTANCE.map((c) => c.id));
+    const missing = allChatCapabilities().map((c) => c.id).filter((id) => !tested.has(id));
+    expect(missing, `capabilities with no acceptance family: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  it("every capability's own declared examples resolve to it", () => {
+    // The registry's `examples` are what the coverage gate and the refusal
+    // suggestions offer the user, so an example that does not work is a lie
+    // shipped in the UI copy.
+    const byId = new Map(ACCEPTANCE.map((c) => [c.id, c.ctx]));
+    for (const cap of allChatCapabilities()) {
+      for (const example of cap.examples) {
+        const r = resolveFull(example, ctxOf(byId.get(cap.id) ?? {}));
+        expect(intentOf(r), `example "${example}" of ${cap.id} resolved to ${intentOf(r)}`).toBe(cap.id);
+      }
+    }
+  });
+});
+
+// ─── The founder's sentence, end to end ──────────────────────────────────────
+
+describe('§FEAT-CHAT-WALL-TYPE — the sentence that started this', () => {
+  it('"make all walls interior partition" reaches wall.updateSystemTypeBatch with scope all', () => {
+    const r = resolveUtterance('make all walls interior partition', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-wall-type');
+    expect(r.tier).toBe(0);
+    expect(r.commands).toEqual([
+      {
+        type: 'wall.updateSystemTypeBatch',
+        // The NAME the user typed was resolved to the catalogue ID through the
+        // injected forgiving lookup — the command receives an unambiguous id.
+        payload: { wallIds: 'all', systemType: 'wt-interior-partition' },
+      },
+    ]);
+    expect(r.destructive).toBe(false);
+    expect(r.summary).toContain('every wall in the project');
+    expect(r.summary).toContain('Interior – Partition 100mm');
+  });
+
+  it('the forgiving lookup accepts id, exact name, casing and word-subset alike', () => {
+    for (const ref of [
+      'wt-interior-partition',
+      'Interior – Partition 100mm',
+      'interior – partition 100mm',
+      // §FIX-CHAT-TYPE-REF-TOO-STRICT — the founder's actual words. Without
+      // tier 4 the user must reproduce an en-dash and "100mm" to be understood.
+      'interior partition',
+    ]) {
+      const r = resolveUtterance(`change all walls to ${ref}`, ctxOf());
+      expect(r.kind).toBe('commands');
+      if (r.kind !== 'commands') continue;
+      expect(r.commands[0]!.payload).toEqual({ wallIds: 'all', systemType: 'wt-interior-partition' });
+    }
+  });
+
+  it('"change the selected walls to exterior brick" scopes to the SELECTION, never to all', () => {
+    const ctx = ctxOf({
+      selection: [
+        { elementId: 'w1', elementType: 'wall' },
+        { elementId: 'w2', elementType: 'wall' },
+        { elementId: 'd1', elementType: 'door' },
+      ],
+    });
+    const r = resolveUtterance('change these walls to exterior brick', ctx);
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    // The door in the selection is filtered out, not retyped and not an error.
+    expect(r.commands[0]!.payload).toEqual({
+      wallIds: ['w1', 'w2'],
+      systemType: 'wt-exterior-brick',
+    });
+  });
+
+  it('an unknown wall type refuses by LISTING the real ones (never a silent no-op)', () => {
+    const r = resolveUtterance('make all walls double glazed titanium', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('no wall type called');
+    expect(r.reason).toContain('Interior – Partition 100mm');
+    expect(r.reason).toContain('Exterior – Brick 300mm');
+  });
+
+  it('an AMBIGUOUS reference refuses rather than flipping a coin on the whole building', () => {
+    // "timber" matches BOTH "Timber Frame – 200mm" and "Wooden Frames – Exposed
+    // Timber 296mm". Picking one would silently retype a building with the
+    // wrong assembly; tier 4 returns null and the refusal lists the options.
+    const r = resolveUtterance('make all walls timber', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('Timber Frame – 200mm');
+    expect(r.reason).toContain('Wooden Frames – Exposed Timber 296mm');
+  });
+
+  it('selection scope with no walls selected refuses and names what IS selected', () => {
+    const r = resolveUtterance('change these walls to interior partition', ctxOf(sel('door')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('door');
+    expect(r.reason).toContain('Nothing was changed');
+  });
+
+  it('without an injected catalogue the RAW reference is forwarded — the command refuses, not the resolver', () => {
+    // §CONTEXT-DATA-HONESTY: "I cannot read the catalogue" must not be reported
+    // as "that type does not exist". With no lookup injected the resolver stays
+    // silent about existence and lets the command's own resolveWallSystemTypeRef
+    // decide.
+    const ctx = ctxOf({ resolveWallSystemType: undefined, wallSystemTypeNames: undefined });
+    const r = resolveUtterance('make all walls interior partition', ctx);
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ wallIds: 'all', systemType: 'interior partition' });
+  });
+
+  it('"make all walls 3m tall" is a DIMENSION ask, never a retype', () => {
+    const r = resolveFull('make all walls 3m tall', ctxOf(sel('wall')));
+    expect(intentOf(r)).not.toBe('set-wall-type');
+  });
+});
+
+// ─── Adversarial: command-shaped but must NOT mutate ─────────────────────────
+
+describe('adversarial — command-shaped utterances that must never mutate', () => {
+  const mutating = (r: ZeroTokenResolution): boolean => r.kind === 'commands' || r.kind === 'local';
+
+  it.each([
+    // Negations.
+    "don't change the wall height",
+    'do not change the wall height',
+    'never delete the selected wall',
+    // Hypotheticals.
+    'I was thinking about changing the height',
+    'I was wondering about deleting these doors',
+    'what would happen if I made this 3m tall?',
+    'what if we changed all walls to interior partition?',
+    'maybe I should set the height to 3m',
+    // Questions.
+    'how tall is the selected wall?',
+    'what is the height of this wall?',
+    'is this wall 3m tall?',
+  ])('"%s" produces no command and no local action', (utterance) => {
+    const ctx = ctxOf(sel('wall'));
+    expect(mutating(resolveUtterance(utterance, ctx)), 'tier 0/1 mutated').toBe(false);
+    const nl = resolveNaturalLanguage(utterance, ctx);
+    expect(nl.kind === 'resolved' && mutating(nl.resolution), 'NL layer mutated').toBe(false);
+  });
+
+  it('the negation guard does not swallow ordinary polite requests', () => {
+    // The guard must be narrow. "Could you…" / "Would you mind…" are requests,
+    // not questions, and they were already the most common resolved phrasings.
+    for (const u of [
+      'could you make this wall 3m tall?',
+      'Would you mind making this wall three meters high?',
+      'can you delete the selected wall?',
+    ]) {
+      const nl = resolveNaturalLanguage(u, ctxOf(sel('wall')));
+      expect(nl.kind, `"${u}" became ${nl.kind}`).toBe('resolved');
+    }
+  });
+});
+
+// ─── Capability-aware refusals: the three states ─────────────────────────────
+
+describe('the three states are distinguishable', () => {
+  it('CLARIFICATION — understood, a parameter is missing', () => {
+    const nl = resolveNaturalLanguage('make the wall taller', ctxOf(sel('wall')));
+    expect(nl.kind).toBe('clarification');
+    if (nl.kind !== 'clarification') return;
+    expect(nl.question.toLowerCase()).toContain('height');
+  });
+
+  it('REFUSAL — understood, and we know we cannot safely do it', () => {
+    const r = resolveUtterance('set sill height to 1m', ctxOf(sel('wall')));
+    expect(r.kind).toBe('refusal');
+  });
+
+  it('MISS — not understood as a command, the LLM seam stays open', () => {
+    expect(resolveFull('make this apartment feel more spacious', ctxOf(sel('wall'))).kind).toBe('miss');
+    expect(resolveFull('generate an apartment layout', ctxOf()).kind).toBe('miss');
+  });
+});
+
+// ─── §FIX-CHAT-HEIGHT-OVERCLAIM ──────────────────────────────────────────────
+
+describe('set-height no longer over-claims element kinds', () => {
+  it('refuses kinds element.updateParameters cannot route, instead of reporting a silent no-op', () => {
+    // UpdateElementParameterCommand.resolveStore() has no case for these; its
+    // default arm returns null, so the old behaviour dispatched a command that
+    // changed nothing and the chat said "Done".
+    for (const kind of ['room', 'ceiling', 'floor', 'lighting', 'plumbing']) {
+      const r = resolveUtterance('set height to 3m', ctxOf(sel(kind)));
+      expect(r.kind, `${kind} should refuse`).toBe('refusal');
+      if (r.kind !== 'refusal') continue;
+      expect(r.reason).toContain('change nothing');
+    }
+  });
+
+  it('still accepts every kind the command CAN route', () => {
+    const cap = resolveChatCapability('set-height');
+    expect(cap).not.toBeNull();
+    for (const kind of cap!.targets as readonly string[]) {
+      const r = applySemanticIntent({ intent: 'set-height', value: 3 }, ctxOf(sel(kind)));
+      expect(r.kind, `${kind} should be accepted`).toBe('commands');
+    }
+  });
+});

@@ -71,6 +71,21 @@ export interface WallSystemTypeCatalogueReader {
     getAll(): WallSystemType[];
 }
 
+/** Words that carry no discriminating meaning in a type name, so requiring the
+ *  user to type them would defeat the point of tier 4. Dimensions are dropped
+ *  too: nobody says "interior partition one hundred millimetres". */
+const TYPE_NAME_NOISE = new Set(['the', 'a', 'an', 'and', 'wall', 'walls', 'type', 'wt', 'mm', 'default']);
+
+/** Split a type name or id into comparable words: lowercase, punctuation and
+ *  en-dashes gone, pure-dimension tokens ('100mm', '250') dropped. */
+function typeNameWords(s: string): string[] {
+    return s
+        .toLowerCase()
+        .replace(/[‐-―]/g, ' ')       // – — ‒ etc.
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 0 && !TYPE_NAME_NOISE.has(w) && !/^\d+(?:mm|cm|m)?$/.test(w));
+}
+
 /**
  * Resolve a wall system type from a human/RAC-supplied reference.
  *
@@ -79,6 +94,23 @@ export interface WallSystemTypeCatalogueReader {
  *   1. exact id          ('wt-interior-partition')
  *   2. exact name        ('Interior – Partition 100mm')
  *   3. case-insensitive, whitespace-trimmed name ('interior – partition 100mm')
+ *   4. UNAMBIGUOUS word subset ('interior partition', 'exterior brick')
+ *
+ * ─── Why tier 4 exists (§FIX-CHAT-TYPE-REF-TOO-STRICT, 2026-08-10) ───────────
+ * The founder's reported sentence is "make all walls interior partition". Tiers
+ * 1-3 all miss it: the type is called "Interior – Partition 100mm", so the user
+ * would have to reproduce an en-dash and a dimension to be understood. That is
+ * not a forgiving lookup, it is a password prompt — and this helper exists
+ * precisely so a chat can say "interior partition" and mean
+ * `wt-interior-partition`.
+ *
+ * Tier 4 matches when every meaningful word the user typed appears in the
+ * type's name or id, AND EXACTLY ONE type qualifies. Ambiguity resolves to
+ * `null`, never to a coin-flip: "timber" matches both "Timber Frame – 200mm"
+ * and "Wooden Frames – Exposed Timber 296mm", so the caller refuses and lists
+ * the candidates rather than silently retyping a building with the wrong
+ * assembly (§CONTEXT-DATA-HONESTY). It is also strictly ordered last, so an
+ * exact name can never be beaten by a fuzzy one.
  *
  * Returns `null` when nothing matches — callers decide how to refuse; this
  * helper never throws. P8: emits one span per resolution.
@@ -102,11 +134,33 @@ export function resolveWallSystemTypeRef(
             }
             const needle = ref.trim().toLowerCase();
             const byLooseName = all.find(t => t.name.trim().toLowerCase() === needle) ?? null;
-            span.setAttribute(
-                'pryzm.wall.systemType.resolvedBy',
-                byLooseName ? 'name-case-insensitive' : 'unresolved',
-            );
-            return byLooseName;
+            if (byLooseName) {
+                span.setAttribute('pryzm.wall.systemType.resolvedBy', 'name-case-insensitive');
+                return byLooseName;
+            }
+
+            // Tier 4 — unambiguous word subset. See the doc comment above.
+            const wanted = typeNameWords(ref);
+            if (wanted.length > 0) {
+                const candidates = all.filter(t => {
+                    const haystack = new Set([...typeNameWords(t.name), ...typeNameWords(t.id)]);
+                    return wanted.every(w => haystack.has(w));
+                });
+                if (candidates.length === 1) {
+                    span.setAttribute('pryzm.wall.systemType.resolvedBy', 'name-word-subset');
+                    return candidates[0]!;
+                }
+                if (candidates.length > 1) {
+                    // AMBIGUOUS is not "no match" — record it so the difference is
+                    // visible in telemetry, then refuse like any other miss.
+                    span.setAttribute('pryzm.wall.systemType.resolvedBy', 'ambiguous');
+                    span.setAttribute('pryzm.wall.systemType.candidates', candidates.length);
+                    return null;
+                }
+            }
+
+            span.setAttribute('pryzm.wall.systemType.resolvedBy', 'unresolved');
+            return null;
         } finally {
             span.end();
         }
