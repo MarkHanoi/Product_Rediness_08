@@ -25,11 +25,21 @@ import { commandProposalStore } from '@pryzm/command-registry';
 import { CommandProposal, CommandType } from '@pryzm/command-registry';
 import { aiApprovalStore } from '@pryzm/ai-host';
 import { AIResponseParser } from '@pryzm/ai-host';
+// §ADR-0313 — zero-token tier 0/1 command resolution in front of the LLM path.
+import { tryHandleZeroToken } from './ZeroTokenChatBridge';
 import { getPreviewManager } from '@app/engine/preview/PreviewManager';
 import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 // C17 CB-8 — the AI panel surfaces the SAME batch catalogue as the CREATE panel,
 // dispatched through the SAME path (dispatchBatchEntry → Path-A commandManager.execute).
 import { groupCatalogue, dispatchBatchEntry, type BatchDeps } from '../create/batchCatalogue';
+// §FEAT-WALL-TYPE-BATCH (RAC prep) — two THIN pills ("All walls → type…" /
+// "Selected walls → type…") over the `wall.updateSystemTypeBatch` bus command.
+// The COMMAND is the product (UpdateWallsSystemTypeBatchCommand — one undo,
+// §CONTEXT-DATA-HONESTY partial-failure report); these pills only pick a type,
+// resolve the id scope, dispatch, and print the report the handler re-broadcasts.
+import { wallSystemTypeStore } from '@pryzm/geometry-wall';
+import { selectionBus } from '@pryzm/core-app-model';
+import { WALL_TYPE_BATCH_REPORT_EVENT, type WallTypeBatchReport } from '@pryzm/plugin-wall';
 // SPEC-SEMANTIC §3.1 / Phase 2 — surface the existing room auto-organise (tag-by-type) flow.
 // Loaded LAZILY (dynamic import at the call site) so RoomAutoOrganiser code-splits into
 // its own chunk instead of being pulled into the eager AI-panel bundle. The two other call
@@ -1105,6 +1115,48 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         renderTranscript();
     };
 
+    // §ADR-0313 — inline Confirm/Cancel card for DESTRUCTIVE zero-token
+    // resolutions (delete etc.). Nothing dispatches until Confirm is clicked;
+    // Cancel resolves false and the bridge reports "Cancelled".
+    const showZeroTokenConfirm = (summary: string): Promise<boolean> => {
+        return new Promise<boolean>((resolve) => {
+            if (!transcriptEl) { resolve(false); return; }
+            const card = document.createElement('div');
+            card.className = 'ai-chat-msg ai-chat-msg--assistant';
+            const bubble = document.createElement('div');
+            bubble.className = 'ai-chat-bubble';
+            const label = document.createElement('div');
+            label.textContent = `${summary}? This can be undone with Ctrl+Z.`;
+            bubble.appendChild(label);
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
+            const mkBtn = (text: string, primary: boolean, value: boolean): HTMLButtonElement => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = text;
+                b.style.cssText =
+                    'padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;' +
+                    (primary
+                        ? 'background:var(--app-accent, #6600FF);color:#fff;border:none;'
+                        : 'background:transparent;color:var(--app-text-muted);border:1px solid var(--app-border, #ccc);');
+                b.addEventListener('click', () => {
+                    // The bridge's follow-up message ("done" / "cancelled") is the
+                    // persistent record; the interactive card removes itself
+                    // (renderTranscript rebuilds from `messages` and would wipe it anyway).
+                    card.remove();
+                    resolve(value);
+                });
+                return b;
+            };
+            row.appendChild(mkBtn('Confirm', true, true));
+            row.appendChild(mkBtn('Cancel', false, false));
+            bubble.appendChild(row);
+            card.appendChild(bubble);
+            transcriptEl.appendChild(card);
+            scrollTranscript();
+        });
+    };
+
     // ── Send query ──────────────────────────────────────────────────────────
 
     const handleSend = async (): Promise<void> => {
@@ -1185,6 +1237,106 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         }
         return { label: 'Batch ⚡', hint: 'one-click batch creation (C17 catalogue)', category: 'create', children: disciplines };
     })();
+
+    // ── §FEAT-WALL-TYPE-BATCH (RAC prep) — "walls → type" pills ─────────────
+    //
+    // THIN wrappers by design: the deliverable is `wall.updateSystemTypeBatch`
+    // (UpdateWallsSystemTypeBatchCommand — ONE undo entry, rake-refusals skipped
+    // WITH reasons, "Changed N of M — K skipped" report), which the coming RAC
+    // chat will dispatch directly. Each pill only (a) resolves its wall-id scope
+    // ('all' = every wall on ALL levels; 'selected' = selectionBus.currentIds
+    // filtered to walls), (b) offers the live wall-type catalogue (built-ins +
+    // user types, read at CLICK time so fresh custom types appear), and
+    // (c) prints the handler's re-broadcast report into the chat.
+    const dispatchWallTypeBatch = (scope: 'all' | 'selected', typeId: string): void => {
+        let wallIds: string[] | 'all';
+        if (scope === 'all') {
+            wallIds = 'all';
+        } else {
+            // §FIX-SELECTION-PAYLOAD-INSTANCED-ID builds on RESOLVED element ids —
+            // selectionBus.currentIds carries them; filter to walls via the store
+            // so a selected slab never inflates the "M" denominator.
+            const wallStore = window.wallStore || window.commandContext?.stores?.wallStore; // TODO(E.wall.S): runtime.stores.wall
+            const ids = selectionBus.currentIds.filter(id => !!wallStore?.getById?.(id));
+            if (ids.length === 0) {
+                addMessage('assistant',
+                    'No walls selected — click a wall (SHIFT+click to add more, in the 3D or plan view), then try again.');
+                return;
+            }
+            wallIds = ids;
+        }
+        // One-shot report listener: the bridge handler re-broadcasts the
+        // command's honest report for success AND refusal, so the pill never
+        // invents its own summary.
+        const onReport = (e: Event): void => {
+            const detail = (e as CustomEvent).detail as WallTypeBatchReport | undefined;
+            const lines = detail?.info?.length ? detail.info.join('\n') : 'Wall type change produced no report.';
+            addMessage('assistant', lines);
+            if (detail?.success) {
+                window.runtime?.events?.emit('model-updated', {}); // F.events.8
+            }
+        };
+        window.addEventListener(WALL_TYPE_BATCH_REPORT_EVENT, onReport, { once: true });
+        const dispatched = window.runtime?.bus?.executeCommand('wall.updateSystemTypeBatch', {
+            wallIds,
+            systemType: typeId,
+        }) as Promise<unknown> | undefined;
+        if (!dispatched) {
+            window.removeEventListener(WALL_TYPE_BATCH_REPORT_EVENT, onReport);
+            addMessage('assistant', 'The command bus is not ready yet — try again in a moment.');
+            return;
+        }
+        dispatched.catch((err: unknown) => {
+            window.removeEventListener(WALL_TYPE_BATCH_REPORT_EVENT, onReport);
+            addMessage('assistant', `Wall type change failed: ${err instanceof Error ? err.message : String(err)}`);
+        });
+        resetSuggestions();
+    };
+
+    /** Live wall-type leaves, read from the catalogue at CLICK time. */
+    const buildWallTypeLeafNodes = (scope: 'all' | 'selected'): SuggestionNode[] =>
+        wallSystemTypeStore.getAll().map(t => ({
+            label: t.name,
+            hint: `${Math.round(t.totalThickness * 1000)}mm · ${t.layers.length} layer${t.layers.length === 1 ? '' : 's'}`,
+            action: () => dispatchWallTypeBatch(scope, t.id),
+        }));
+
+    const makeWallTypeScopeNode = (label: string, hint: string, scope: 'all' | 'selected', prompt: string): SuggestionNode => ({
+        label,
+        hint,
+        // `action` (not static `children`) so the type list reflects the LIVE
+        // catalogue and the closures always belong to THIS panel instance.
+        action: () => {
+            suggestionState.stack.push({ label, nodes: buildWallTypeLeafNodes(scope), prompt });
+            suggestionState.filterText = '';
+            renderSuggestions();
+        },
+    });
+
+    // Inject under the MODIFY pill group (the screenshot's home for these).
+    // COMMAND_TREE is module-level: strip any nodes injected by a previous
+    // panel instance (their closures are stale) before pushing fresh ones.
+    {
+        const modifyNode = COMMAND_TREE.find(n => n.label === 'Modify');
+        if (modifyNode?.children) {
+            const mine = new Set(['All walls → type…', 'Selected walls → type…']);
+            modifyNode.children = modifyNode.children.filter(c => !mine.has(c.label));
+            modifyNode.children.push(
+                makeWallTypeScopeNode(
+                    'All walls → type…',
+                    'change every wall in the project (all levels)',
+                    'all',
+                    'Change ALL walls (every level) to which wall type?',
+                ),
+                makeWallTypeScopeNode(
+                    'Selected walls → type…',
+                    'change the currently selected walls',
+                    'selected',
+                    'Change the SELECTED walls to which wall type?',
+                ),
+            );
+        }
+    }
 
     const currentNodes = (): SuggestionNode[] => {
         if (suggestionState.stack.length === 0) return [...COMMAND_TREE, batchCatalogueNode];
@@ -1367,6 +1519,23 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     // Extracted send logic (so both handleSend and auto-send pills share it)
     const _executeSend = async (query: string): Promise<void> => {
         if (!transcriptEl) return;
+
+        // §ADR-0313 — zero-token resolution ladder FIRST (tier 0 grammar,
+        // tier 1 synonyms/typos). Command-shaped utterances dispatch through
+        // the bus with 0 tokens; refusals are honest chat replies; only a
+        // MISS falls through to the LLM path below.
+        try {
+            const handled = await tryHandleZeroToken(query, {
+                say: (text: string) => addMessage('assistant', text),
+                confirm: (summary: string) => showZeroTokenConfirm(summary),
+            });
+            if (handled) return;
+        } catch (err) {
+            // Never let the zero-token path take the chat down — report and
+            // fall through (§CONTEXT-DATA-HONESTY: the user sees the failure).
+            console.error('[AIPanel] zero-token path failed:', err);
+            addMessage('assistant', 'The quick command path hit an error — falling back to the AI.');
+        }
 
         const typingEl = document.createElement('div');
         typingEl.className = 'ai-chat-typing';

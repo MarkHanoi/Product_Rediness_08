@@ -1,0 +1,617 @@
+// @pryzm/ai-host — Zero-token chat command resolver (ADR-0313).
+//
+// Tier 0: deterministic grammar over normalized utterances → bus commands /
+//         local actions / explicit refusals. 0 tokens.
+// Tier 1: synonym + bounded-Levenshtein typo normalization, then tier 0 again.
+//         0 tokens.
+// Tier 2 (LLM fallback) is NOT here — a `miss` result is the seam where the
+// caller falls through to the existing aiService path.
+//
+// PURITY: this module reads no DOM, no stores, does no I/O. The caller
+// injects everything (selection, levels, id minter) via ResolverContext and
+// executes the returned commands itself (P6: through the command bus).
+//
+// HONESTY (§CONTEXT-DATA-HONESTY): when an intent is RECOGNIZED but cannot be
+// safely completed (no selection, unknown level, missing coordinates) the
+// resolver returns `refusal` with a concrete human reason — never a guess,
+// never a silent miss. `refusal` deliberately does NOT fall through to the
+// LLM: guessing at a recognized-but-underspecified intent (especially a
+// destructive one) is worse than saying why we stopped.
+//
+// P8: the exported entry points carry OTel spans (`pryzm.ai.chat.resolve`,
+// `pryzm.ai.chat.dispatch`) — 2 bounded span names.
+
+import { trace, type Tracer, type SpanOptions } from '@opentelemetry/api';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface ResolverSelection {
+  readonly elementId: string;
+  readonly elementType: string; // normalized lowercase, e.g. 'wall' | 'door' | 'window' | 'room'
+}
+
+export interface ResolverLevel {
+  readonly id: string;
+  readonly name: string;
+  readonly elevation?: number;
+}
+
+export interface ResolverContext {
+  /** Current selection (empty array = nothing selected). */
+  readonly selection: readonly ResolverSelection[];
+  readonly activeLevelId?: string;
+  readonly levels: readonly ResolverLevel[];
+  /** Id minter for commands whose payload REQUIRES an id (level.add). */
+  readonly mintId: () => string;
+}
+
+export interface BusCommandRef {
+  readonly type: string;
+  readonly payload: Record<string, unknown>;
+}
+
+export type ZeroTokenLocalAction = 'undo' | 'redo' | 'setActiveLevel';
+
+export type ZeroTokenResolution =
+  | {
+      readonly kind: 'commands';
+      readonly intent: string;
+      readonly tier: 0 | 1;
+      readonly summary: string;
+      readonly commands: readonly BusCommandRef[];
+      readonly destructive: boolean;
+    }
+  | {
+      readonly kind: 'local';
+      readonly intent: string;
+      readonly tier: 0 | 1;
+      readonly summary: string;
+      readonly action: ZeroTokenLocalAction;
+      /** For setActiveLevel. */
+      readonly levelId?: string;
+      readonly levelName?: string;
+    }
+  | {
+      readonly kind: 'refusal';
+      readonly intent: string;
+      readonly reason: string;
+      readonly suggestions: readonly string[];
+    }
+  | { readonly kind: 'miss' };
+
+// ─── Tracing (P8) ────────────────────────────────────────────────────────────
+
+const TRACER_NAME = '@pryzm/ai-host';
+let cachedTracer: Tracer | null = null;
+function tracer(): Tracer {
+  cachedTracer ??= trace.getTracer(TRACER_NAME, '0.1.0');
+  return cachedTracer;
+}
+
+/** P8 span helper for the DISPATCH side — the editor bridge wraps its bus
+ *  dispatch in this so the execution of a zero-token resolution is a span
+ *  (`pryzm.ai.chat.dispatch`) even though the bridge lives in the app layer
+ *  which does not depend on @opentelemetry/api directly. */
+export function withChatDispatchSpan<T>(
+  fn: () => T | Promise<T>,
+  attrs?: SpanOptions['attributes'],
+): T | Promise<T> {
+  const spanOpts: SpanOptions = attrs !== undefined ? { attributes: attrs } : {};
+  return tracer().startActiveSpan('pryzm.ai.chat.dispatch', spanOpts, async (span) => {
+    try {
+      const result = await fn();
+      span.end();
+      return result;
+    } catch (err) {
+      span.recordException(err as Error);
+      span.end();
+      throw err;
+    }
+  }) as T | Promise<T>;
+}
+
+// ─── Length parsing ──────────────────────────────────────────────────────────
+//
+// "3m" | "200mm" | "30cm" | "2.5" → meters. A bare number > 20 is treated as
+// millimeters ("2700" → 2.7 m) because nobody asks for a 2700-meter wall;
+// otherwise meters. (ADR-0313 §Units.)
+
+const LEN_SRC = String.raw`(-?\d+(?:[.,]\d+)?)\s*(millimet(?:er|re)s?|centimet(?:er|re)s?|met(?:er|re)s?|mm|cm|m)?\b`;
+
+function toMeters(valueStr: string, unit: string | undefined): number {
+  const v = parseFloat(valueStr.replace(',', '.'));
+  if (unit === undefined || unit === '') return v > 20 ? v / 1000 : v;
+  if (unit.startsWith('mm') || unit.startsWith('millimet')) return v / 1000;
+  if (unit.startsWith('cm') || unit.startsWith('centimet')) return v / 100;
+  return v; // m / meter / metre
+}
+
+function round3(v: number): number {
+  return Math.round(v * 1000) / 1000;
+}
+
+// ─── Normalization ───────────────────────────────────────────────────────────
+
+function normalize(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[!?.]+$/g, '')
+    .replace(/^\s*(please|pls|hey|ok)\s+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ─── Tier-1 vocabulary: synonyms + typo correction ───────────────────────────
+
+const SYNONYMS: Readonly<Record<string, string>> = {
+  remove: 'delete',
+  erase: 'delete',
+  del: 'delete',
+  trash: 'delete',
+  storey: 'level',
+  story: 'level',
+  floor: 'level',
+  floors: 'levels',
+  switch: 'go',
+  jump: 'go',
+  navigate: 'go',
+  it: 'this',
+  that: 'this',
+  current: 'selected',
+};
+
+/** Words the grammar actually keys on — the typo-correction target set. */
+const VOCAB: readonly string[] = [
+  'delete', 'selected', 'selection', 'this', 'element', 'wall', 'door',
+  'window', 'room', 'slab', 'roof', 'level', 'height', 'width', 'thickness',
+  'sill', 'create', 'draw', 'add', 'make', 'set', 'change', 'rename', 'go',
+  'to', 'from', 'tall', 'thick', 'undo', 'redo', 'zoom', 'fit', 'frame',
+];
+
+function levenshtein(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const prev = new Array<number>(b.length + 1);
+  const curr = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    let rowMin = curr[0]!;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
+      if (curr[j]! < rowMin) rowMin = curr[j]!;
+    }
+    if (rowMin > max) return max + 1;
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j]!;
+  }
+  return prev[b.length]!;
+}
+
+/** Synonym-map + typo-correct each token against the grammar vocabulary.
+ *  Numbers, units and parenthesized coordinates pass through untouched. */
+function tier1Normalize(text: string): string {
+  return text
+    .split(' ')
+    .map((tok) => {
+      const mapped = SYNONYMS[tok];
+      if (mapped !== undefined) return mapped;
+      if (VOCAB.includes(tok)) return tok;
+      if (/[\d(),]/.test(tok) || tok.length < 4) return tok; // numbers/short words: leave alone
+      const budget = tok.length > 5 ? 2 : 1;
+      let best: string | null = null;
+      let bestD = budget + 1;
+      for (const v of VOCAB) {
+        const d = levenshtein(tok, v, budget);
+        if (d < bestD) { bestD = d; best = v; }
+      }
+      return bestD <= budget && best !== null ? best : tok;
+    })
+    .join(' ');
+}
+
+// ─── Grammar (tier 0) ────────────────────────────────────────────────────────
+
+type MatchResult =
+  | {
+      readonly kind: 'commands';
+      readonly intent: string;
+      readonly summary: string;
+      readonly commands: readonly BusCommandRef[];
+      readonly destructive: boolean;
+    }
+  | {
+      readonly kind: 'local';
+      readonly intent: string;
+      readonly summary: string;
+      readonly action: ZeroTokenLocalAction;
+      readonly levelId?: string;
+      readonly levelName?: string;
+    }
+  | {
+      readonly kind: 'refusal';
+      readonly intent: string;
+      readonly reason: string;
+      readonly suggestions: readonly string[];
+    };
+
+type Matcher = (text: string, ctx: ResolverContext) => MatchResult | null;
+
+const ELEMENT_NOUNS = new Set([
+  'wall', 'walls', 'door', 'doors', 'window', 'windows', 'room', 'rooms',
+  'slab', 'slabs', 'roof', 'roofs', 'stair', 'stairs', 'column', 'columns',
+  'beam', 'beams', 'element', 'elements', 'item', 'items', 'object', 'objects',
+]);
+
+function singular(noun: string): string {
+  return noun.endsWith('s') ? noun.slice(0, -1) : noun;
+}
+
+function fmt(n: number): string {
+  return `${round3(n)} m`;
+}
+
+/** Selection guard: intent needs exactly a selected element. */
+function needSelection(intent: string, ctx: ResolverContext, verbHint: string):
+  | { readonly sel: ResolverSelection }
+  | { readonly refusal: Extract<ZeroTokenResolution, { kind: 'refusal' }> } {
+  const sel = ctx.selection[0];
+  if (sel === undefined) {
+    return {
+      refusal: {
+        kind: 'refusal',
+        intent,
+        reason: `Nothing is selected — select an element first, then ${verbHint}.`,
+        suggestions: [],
+      },
+    };
+  }
+  return { sel };
+}
+
+const matchUndoRedo: Matcher = (text) => {
+  if (/^undo( this| last( \w+)?)?$/.test(text)) {
+    return { kind: 'local', intent: 'undo', summary: 'Undid the last action', action: 'undo' };
+  }
+  if (/^redo( this| last( \w+)?)?$/.test(text)) {
+    return { kind: 'local', intent: 'redo', summary: 'Redid the last undone action', action: 'redo' };
+  }
+  return null;
+};
+
+const matchZoom: Matcher = (text, ctx) => {
+  if (/^(zoom( to)? ?(fit|all|extents?)|fit (view|all|model|everything)|frame (all|model|everything))$/.test(text)) {
+    return {
+      kind: 'commands', intent: 'zoom-fit', summary: 'Zoomed to fit the model',
+      commands: [{ type: 'zoom-fit', payload: {} }], destructive: false,
+    };
+  }
+  if (/^(zoom( to| on)? (selected|selection|this)|frame (selected|selection|this))$/.test(text)) {
+    if (ctx.selection.length === 0) {
+      return {
+        kind: 'refusal', intent: 'zoom-selected',
+        reason: 'Nothing is selected to zoom to — select an element first, or say "zoom to fit".',
+        suggestions: ['zoom to fit'],
+      };
+    }
+    return {
+      kind: 'commands', intent: 'zoom-selected', summary: 'Zoomed to the selection',
+      commands: [{ type: 'zoom-selected', payload: {} }], destructive: false,
+    };
+  }
+  return null;
+};
+
+const matchDeleteSelected: Matcher = (text, ctx) => {
+  const m = /^delete (?:the )?(?:selected|selection|this)(?: (\w+))?$/.exec(text)
+    ?? /^delete (?:the )?selected$/.exec(text);
+  if (!m) return null;
+  const noun = m[1];
+  if (noun !== undefined && !ELEMENT_NOUNS.has(noun)) return null; // "delete this level" etc. — not this intent
+  const guard = needSelection('delete-selected', ctx, 'ask again');
+  if ('refusal' in guard) return guard.refusal;
+  const sel = guard.sel;
+  if (noun !== undefined) {
+    const wanted = singular(noun);
+    if (!['element', 'item', 'object'].includes(wanted) && wanted !== sel.elementType) {
+      return {
+        kind: 'refusal', intent: 'delete-selected',
+        reason: `You asked to delete a ${wanted}, but the selected element is a ${sel.elementType}. Nothing was deleted.`,
+        suggestions: [`delete selected ${sel.elementType}`],
+      };
+    }
+  }
+  return {
+    kind: 'commands', intent: 'delete-selected',
+    summary: `Delete the selected ${sel.elementType}`,
+    commands: ctx.selection.map((s) => ({
+      type: 'element.delete',
+      payload: { elementId: s.elementId, elementType: s.elementType, source: 'AI_CHAT_ZERO_TOKEN' },
+    })),
+    destructive: true,
+  };
+};
+
+// NOTE: sill-height must run BEFORE plain height ("sill height" contains "height").
+const matchSillHeight: Matcher = (text, ctx) => {
+  const m = new RegExp(`^(?:set|change|make)(?: the)?(?: window)? sill height(?: to)? ${LEN_SRC}$`).exec(text);
+  if (!m) return null;
+  const guard = needSelection('set-sill-height', ctx, 'set its sill height');
+  if ('refusal' in guard) return guard.refusal;
+  const sel = guard.sel;
+  if (sel.elementType !== 'window') {
+    return {
+      kind: 'refusal', intent: 'set-sill-height',
+      reason: `Sill height applies to windows, but the selected element is a ${sel.elementType}.`,
+      suggestions: [],
+    };
+  }
+  const sill = round3(toMeters(m[1]!, m[2]));
+  return {
+    kind: 'commands', intent: 'set-sill-height',
+    summary: `Set the selected window's sill height to ${fmt(sill)}`,
+    commands: [{ type: 'window.setSillHeight', payload: { windowId: sel.elementId, sillHeight: sill } }],
+    destructive: false,
+  };
+};
+
+const matchHeight: Matcher = (text, ctx) => {
+  const m =
+    new RegExp(`^(?:set|change)(?: the)?(?: wall| selected)? height(?: of (?:this|the selection))?(?: to)? ${LEN_SRC}$`).exec(text)
+    ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} (?:tall|high)$`).exec(text);
+  if (!m) return null;
+  const guard = needSelection('set-height', ctx, 'set its height');
+  if ('refusal' in guard) return guard.refusal;
+  const sel = guard.sel;
+  const height = round3(toMeters(m[1]!, m[2]));
+  if (height <= 0) {
+    return {
+      kind: 'refusal', intent: 'set-height',
+      reason: `A height of ${fmt(height)} is not valid — it must be positive.`,
+      suggestions: [],
+    };
+  }
+  const cmd: BusCommandRef =
+    sel.elementType === 'wall'
+      ? { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, height } }
+      : {
+          type: 'element.updateParameters',
+          payload: { elementId: sel.elementId, elementType: sel.elementType, parameters: { height } },
+        };
+  return {
+    kind: 'commands', intent: 'set-height',
+    summary: `Set the selected ${sel.elementType}'s height to ${fmt(height)}`,
+    commands: [cmd], destructive: false,
+  };
+};
+
+const matchThickness: Matcher = (text, ctx) => {
+  const m =
+    new RegExp(`^(?:set|change)(?: the)?(?: wall)? thickness(?: to)? ${LEN_SRC}$`).exec(text)
+    ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} thick$`).exec(text);
+  if (!m) return null;
+  const guard = needSelection('set-thickness', ctx, 'set its thickness');
+  if ('refusal' in guard) return guard.refusal;
+  const sel = guard.sel;
+  if (sel.elementType !== 'wall') {
+    return {
+      kind: 'refusal', intent: 'set-thickness',
+      reason: `Thickness via chat currently supports walls; the selected element is a ${sel.elementType}.`,
+      suggestions: [],
+    };
+  }
+  const thickness = round3(toMeters(m[1]!, m[2]));
+  return {
+    kind: 'commands', intent: 'set-thickness',
+    summary: `Set the selected wall's thickness to ${fmt(thickness)}`,
+    commands: [{ type: 'wall.updateDimensions', payload: { wallId: sel.elementId, thickness } }],
+    destructive: false,
+  };
+};
+
+const matchDoorWidth: Matcher = (text, ctx) => {
+  const m = new RegExp(`^(?:set|change)(?: the)?(?: door)? width(?: to)? ${LEN_SRC}$`).exec(text);
+  if (!m) return null;
+  const guard = needSelection('set-door-width', ctx, 'set its width');
+  if ('refusal' in guard) return guard.refusal;
+  const sel = guard.sel;
+  if (sel.elementType !== 'door') {
+    return {
+      kind: 'refusal', intent: 'set-door-width',
+      reason: `Width via chat currently supports a selected door; the selected element is a ${sel.elementType}.`,
+      suggestions: [],
+    };
+  }
+  const width = round3(toMeters(m[1]!, m[2]));
+  return {
+    kind: 'commands', intent: 'set-door-width',
+    summary: `Set the selected door's width to ${fmt(width)}`,
+    commands: [{ type: 'door.setWidth', payload: { doorId: sel.elementId, width } }],
+    destructive: false,
+  };
+};
+
+const matchGoToLevel: Matcher = (text, ctx) => {
+  const m = /^(?:go to|open|show) (?:the )?(?:level|levels)?\s*(.+)$/.exec(text);
+  if (!m) return null;
+  let target = m[1]!.trim().replace(/^the /, '');
+  // Only claim this utterance if it is level-shaped: "level ..." mentioned,
+  // a bare number, or an exact level-name match. Otherwise it's a miss
+  // ("show walls" must not become a level switch).
+  const mentionedLevel = /(?:^|\s)levels?(?:\s|$)/.test(text);
+  target = target.replace(/^levels?\s*/, '');
+  const byName = ctx.levels.find((l) => l.name.toLowerCase() === target);
+  if (byName === undefined && !mentionedLevel && !/^\d+$/.test(target)) return null;
+  let match = byName;
+  if (match === undefined && /^\d+$/.test(target)) {
+    const n = target;
+    match = ctx.levels.find((l) => {
+      const nm = l.name.toLowerCase();
+      return nm === `level ${n}` || nm === `l${n}` || nm.endsWith(` ${n}`);
+    });
+  }
+  if (match === undefined) {
+    const names = ctx.levels.map((l) => l.name).join(', ');
+    return {
+      kind: 'refusal', intent: 'go-to-level',
+      reason: ctx.levels.length === 0
+        ? 'No levels exist in this project yet — say "add a level" first.'
+        : `No level called "${target}" — the levels here are: ${names}.`,
+      suggestions: ctx.levels.slice(0, 3).map((l) => `go to ${l.name.toLowerCase()}`),
+    };
+  }
+  return {
+    kind: 'local', intent: 'go-to-level',
+    summary: match.id === ctx.activeLevelId
+      ? `${match.name} is already the active level`
+      : `Switched the active level to ${match.name}`,
+    action: 'setActiveLevel', levelId: match.id, levelName: match.name,
+  };
+};
+
+const matchAddLevel: Matcher = (text, ctx) => {
+  const m = new RegExp(`^(?:add|create)(?: a| a new| new)? level(?: (?:at|@) ${LEN_SRC})?$`).exec(text);
+  if (!m) return null;
+  const levelId = ctx.mintId();
+  const name = `Level ${ctx.levels.length}`;
+  const elevations = ctx.levels.map((l) => l.elevation ?? 0);
+  const maxElev = elevations.length > 0 ? Math.max(...elevations) : 0;
+  const elevation = m[1] !== undefined ? round3(toMeters(m[1], m[2])) : round3(maxElev + 3);
+  return {
+    kind: 'commands', intent: 'add-level',
+    summary: `Add "${name}" at elevation ${fmt(elevation)}`,
+    commands: [{ type: 'level.add', payload: { levelId, name, elevation, height: 3 } }],
+    destructive: false,
+  };
+};
+
+const NUM = String.raw`(-?\d+(?:[.,]\d+)?)`;
+const PT = String.raw`\(?\s*${NUM}\s*,\s*${NUM}\s*\)?`;
+
+const matchCreateWall: Matcher = (text, ctx) => {
+  const withCoords = new RegExp(
+    `^(?:create|draw|add)(?: a| a new| new)? wall(?: from)? ${PT}\\s*(?:to|-|->)\\s*${PT}` +
+    `(?:,? (?:with )?height(?: of)? ${LEN_SRC})?(?:,? (?:with )?thickness(?: of)? ${LEN_SRC})?$`,
+  ).exec(text);
+  if (withCoords) {
+    const num = (s: string): number => parseFloat(s.replace(',', '.'));
+    const payload: Record<string, unknown> = {
+      start: { x: num(withCoords[1]!), z: num(withCoords[2]!) },
+      end: { x: num(withCoords[3]!), z: num(withCoords[4]!) },
+    };
+    if (ctx.activeLevelId !== undefined) payload['levelId'] = ctx.activeLevelId;
+    if (withCoords[5] !== undefined) payload['height'] = round3(toMeters(withCoords[5], withCoords[6]));
+    if (withCoords[7] !== undefined) payload['thickness'] = round3(toMeters(withCoords[7], withCoords[8]));
+    return {
+      kind: 'commands', intent: 'create-wall',
+      summary: `Create a wall from (${withCoords[1]}, ${withCoords[2]}) to (${withCoords[3]}, ${withCoords[4]}) on the active level`,
+      commands: [{ type: 'wall.create', payload }], destructive: false,
+    };
+  }
+  if (/^(?:create|draw|add)(?: a| a new| new)? wall(?: here)?$/.test(text)) {
+    return {
+      kind: 'refusal', intent: 'create-wall',
+      reason: 'I need start and end coordinates to place a wall from chat — or use the Wall tool to draw it.',
+      suggestions: ['create a wall from (0,0) to (5,0)', 'create a wall from (0,0) to (5,0) height 3m'],
+    };
+  }
+  return null;
+};
+
+const matchRenameRoom: Matcher = (text, ctx) => {
+  const m = /^(?:rename|call)(?: this| the| the selected)? room(?: to| as)? (?:"([^"]+)"|(.+))$/.exec(text);
+  if (!m) return null;
+  const rawName = (m[1] ?? m[2] ?? '').trim();
+  const guard = needSelection('rename-room', ctx, 'rename it');
+  if ('refusal' in guard) return guard.refusal;
+  const sel = guard.sel;
+  if (sel.elementType !== 'room') {
+    return {
+      kind: 'refusal', intent: 'rename-room',
+      reason: `Rename needs a selected room; the selected element is a ${sel.elementType}.`,
+      suggestions: [],
+    };
+  }
+  if (rawName.length === 0) {
+    return {
+      kind: 'refusal', intent: 'rename-room',
+      reason: 'I need the new name — try: rename room to Kitchen.',
+      suggestions: ['rename room to Kitchen'],
+    };
+  }
+  // Preserve the user's original casing: re-extract from the raw utterance tail.
+  const name = rawName.replace(/\b\w/g, (c) => c.toUpperCase());
+  return {
+    kind: 'commands', intent: 'rename-room',
+    summary: `Rename the selected room to "${name}"`,
+    commands: [{ type: 'room.rename', payload: { roomId: sel.elementId, name } }],
+    destructive: false,
+  };
+};
+
+const MATCHERS: readonly Matcher[] = [
+  matchUndoRedo,
+  matchZoom,
+  matchDeleteSelected,
+  matchSillHeight,   // before matchHeight — "sill height" contains "height"
+  matchHeight,
+  matchThickness,
+  matchDoorWidth,
+  matchGoToLevel,
+  matchAddLevel,
+  matchCreateWall,
+  matchRenameRoom,
+];
+
+function runGrammar(text: string, ctx: ResolverContext, tier: 0 | 1): ZeroTokenResolution | null {
+  for (const matcher of MATCHERS) {
+    const r = matcher(text, ctx);
+    if (r !== null) {
+      return r.kind === 'refusal' ? r : { ...r, tier };
+    }
+  }
+  return null;
+}
+
+// ─── Entry point ─────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a chat utterance to bus commands / a local action / a refusal — with
+ * ZERO tokens. Returns `{ kind: 'miss' }` when the utterance is not
+ * command-shaped; the caller may then fall through to the LLM tier.
+ *
+ * Pure: the caller injects selection/levels and executes the result (P6).
+ * P8: wrapped in the `pryzm.ai.chat.resolve` span.
+ */
+export function resolveUtterance(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
+  return tracer().startActiveSpan('pryzm.ai.chat.resolve', (span) => {
+    try {
+      const text = normalize(utterance);
+      let result: ZeroTokenResolution;
+      if (text.length === 0) {
+        result = { kind: 'miss' };
+      } else {
+        // Tier 0 — exact grammar.
+        let r = runGrammar(text, ctx, 0);
+        // Tier 1 — synonym + typo normalization, then the same grammar.
+        if (r === null) {
+          const t1 = tier1Normalize(text);
+          if (t1 !== text) r = runGrammar(t1, ctx, 1);
+        }
+        result = r ?? { kind: 'miss' };
+      }
+      span.setAttribute('pryzm.ai.chat.kind', result.kind);
+      if (result.kind === 'commands' || result.kind === 'local') {
+        span.setAttribute('pryzm.ai.chat.intent', result.intent);
+        span.setAttribute('pryzm.ai.chat.tier', result.tier);
+      } else if (result.kind === 'refusal') {
+        span.setAttribute('pryzm.ai.chat.intent', result.intent);
+      }
+      span.end();
+      return result;
+    } catch (err) {
+      span.recordException(err as Error);
+      span.end();
+      throw err;
+    }
+  });
+}

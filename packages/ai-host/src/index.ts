@@ -23,6 +23,19 @@ export {
   withWorkflowSpan,
   withWorkflowSpanSync,
 } from './tracing.js';
+// ADR-0313 — zero-token chat command resolver (tier 0/1).
+export {
+  resolveUtterance,
+  withChatDispatchSpan,
+} from './intents/ZeroTokenResolver.js';
+export type {
+  ResolverContext,
+  ResolverSelection,
+  ResolverLevel,
+  BusCommandRef,
+  ZeroTokenResolution,
+  ZeroTokenLocalAction,
+} from './intents/ZeroTokenResolver.js';
 export { AiBus } from './AiBus.js';
 export type { AiBusEvent, AiBusEventKind, AiBusListener, AiBusOptions } from './AiBus.js';
 export { WorkflowRegistry } from './WorkflowRegistry.js';
