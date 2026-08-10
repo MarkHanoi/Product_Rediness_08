@@ -397,6 +397,25 @@ export type SemanticIntent =
         | 'selection'
         | { readonly kind: 'level'; readonly levelQuery: string }
         | { readonly kind: 'room'; readonly roomRef: string };
+    }
+  /**
+   * §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
+   * white" / "reset the rhino model materials".
+   *
+   * The imported Rhino model is REFERENCE content: THREE meshes in a tagged
+   * scene group, not elements in any geometry store — so this does not ride a
+   * per-element command family. It dispatches the app-registered
+   * `rhino.setMaterial` / `rhino.resetMaterial` bridges (initBusHandlers.ts),
+   * which apply ONE shared override material across the model (or restore the
+   * as-imported materials) as a single undoable commandManager entry. The
+   * bridge reports honestly via 'pryzm-rhino-material-report' — including
+   * "no Rhino model is imported", which the pure resolver cannot know.
+   */
+  | {
+      readonly intent: 'set-rhino-material';
+      /** Colour name / '#hex' (the ONE table in colorRef.ts), or null to
+       *  restore the model's original (as-imported) materials. */
+      readonly colorRef: string | null;
     };
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
@@ -1292,6 +1311,41 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         destructive: false,
       };
     }
+
+    case 'set-rhino-material': {
+      // §FEAT-RHINO-CHAT-MATERIAL — whole-model scope by construction: the
+      // Rhino import is one reference model, not a set of store elements, so
+      // there is no per-element narrowing to guess at. Existence of an
+      // imported model is checked by the BRIDGE (which reports "no Rhino
+      // model is imported" through 'pryzm-rhino-material-report'); the pure
+      // resolver only owns the colour vocabulary.
+      if (si.colorRef === null) {
+        return {
+          kind: 'commands', intent: 'set-rhino-material',
+          summary: 'Restore the imported Rhino model’s original materials',
+          commands: [{ type: 'rhino.resetMaterial', payload: {} }],
+          destructive: false,
+        };
+      }
+      const rhinoColor = resolveColorRef(si.colorRef);
+      if (rhinoColor === null) {
+        return {
+          kind: 'refusal', intent: 'set-rhino-material',
+          reason:
+            `I don't know the colour "${si.colorRef}". I understand names like ` +
+            `${exampleColorNames().join(', ')} — or an exact hex value like #f4f1e8.`,
+          suggestions: ['make the rhino model white', 'reset the rhino model materials'],
+        };
+      }
+      return {
+        kind: 'commands', intent: 'set-rhino-material',
+        summary: `Paint every element of the imported Rhino model ${rhinoColor.label}`,
+        commands: [{ type: 'rhino.setMaterial', payload: { color: rhinoColor.hex } }],
+        // NOT destructive — one undo entry, deletes nothing, and "reset the
+        // rhino model materials" restores the as-imported look at any time.
+        destructive: false,
+      };
+    }
   }
 }
 
@@ -1603,10 +1657,53 @@ const matchWallColor: Matcher = (text, ctx) => {
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
+// §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
+// white" / "paint the rhino model white" / "reset the rhino model materials".
+//
+// Same verb discipline as the wall-colour grammar: paint/colour are colour-
+// SPECIFIC verbs and claim the utterance even when the colour is unresolvable
+// (an honest colour refusal listing real options); the shared verbs
+// (make/set/change/turn) claim only what the colour table resolves. The
+// grammar requires the word "rhino", so it can never collide with the wall
+// matchers or the dimension shapes.
+const RHINO_MATERIAL_RE = new RegExp(
+  `^${WALL_COLOR_VERB} (?:all )?(?:of )?(?:the )?(?:elements? of )?(?:the )?rhino(?: model| import| geometry)?(?:s|'s)?` +
+  `(?: elements?| meshes| objects)?(?: (?:to|into|in|as|be))?(?: the)?(?: colou?r)? (.+)$`,
+);
+
+const RHINO_RESET_RE =
+  /^(?:reset|restore) (?:the )?rhino(?: model| import)?(?:s|'s)?(?: (?:original|imported))? (?:colou?rs?|materials?|appearance|look)$/;
+
+/** Parse a Rhino-model recolour/reset sentence — exported for the NL layer,
+ *  like `parseWallColorIntent`. Returns null when not claimed. */
+export function parseRhinoMaterialIntent(
+  text: string,
+): Extract<SemanticIntent, { intent: 'set-rhino-material' }> | null {
+  if (RHINO_RESET_RE.test(text)) {
+    return { intent: 'set-rhino-material', colorRef: null };
+  }
+  const m = RHINO_MATERIAL_RE.exec(text);
+  if (!m) return null;
+  const verb = m[1]!;
+  const colorRef = m[2]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+  if (colorRef.length === 0) return null;
+  const colorSpecificVerb = verb === 'paint' || verb.startsWith('colo');
+  if (!colorSpecificVerb && resolveColorRef(colorRef) === null) return null;
+  return { intent: 'set-rhino-material', colorRef };
+}
+
+const matchRhinoMaterial: Matcher = (text, ctx) => {
+  const si = parseRhinoMaterialIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
   matchDeleteSelected,
+  // BEFORE the wall matchers: any sentence naming the RHINO model is about
+  // the imported reference model, never about walls (§FEAT-RHINO-CHAT-MATERIAL).
+  matchRhinoMaterial,
   // BEFORE matchWallType: "make all walls white" is a COLOUR ask; the colour
   // parser claims only resolvable colours (or paint/colour verbs), so type
   // sentences pass through to matchWallType untouched.

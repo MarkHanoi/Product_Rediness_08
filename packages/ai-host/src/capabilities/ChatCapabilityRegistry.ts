@@ -731,6 +731,45 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'set-rhino-material',
+    // §FEAT-RHINO-CHAT-MATERIAL — the imported Rhino model is REFERENCE
+    // content (THREE meshes in a tagged scene group, not store elements), so
+    // this is deliberately targets:'global': it acts on the whole imported
+    // model, never on the element selection, and no per-element command
+    // family exists to prove targets against. The bridge (initBusHandlers
+    // `rhino.setMaterial` / `rhino.resetMaterial`) applies ONE shared override
+    // material — or restores the as-imported materials — as a single undoable
+    // commandManager entry, and reports honestly through
+    // 'pryzm-rhino-material-report' (including "no Rhino model is imported").
+    description: 'recolour the imported Rhino model',
+    verbs: ['make', 'paint', 'set', 'change', 'turn', 'reset', 'restore'],
+    aliases: ['rhino', 'rhino model', '3dm', 'imported model'],
+    // NO refusalLabel: 'colour' remains an UNCONNECTED_TOPICS label for the
+    // element kinds whose colour is still not chat-drivable (same decision as
+    // set-wall-color), and a global capability may not claim a topic word.
+    targets: 'global',
+    parameters: [
+      {
+        name: 'color',
+        description: 'the colour to apply, by name or #hex; "reset … materials" restores the original look',
+        required: true,
+        valueSource: 'color',
+        example: 'white',
+      },
+    ],
+    scope: 'global',
+    destructive: false,
+    busCommand: 'rhino.setMaterial',
+    alsoDispatches: ['rhino.resetMaterial'],
+    probe: { intent: 'set-rhino-material', colorRef: 'white' },
+    examples: [
+      'change all elements of the rhino model to white',
+      'paint the rhino model white',
+      'make the rhino model light grey',
+      'reset the rhino model materials',
+    ],
+  },
+  {
     id: 'go-to-level',
     description: 'switch to another level',
     verbs: ['go to', 'open', 'show', 'switch to'],

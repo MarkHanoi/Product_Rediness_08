@@ -157,6 +157,14 @@ export { ifcConversionReportStore } from './import/ifc/conversion/IfcConversionR
 
 // import/rhino
 export { importRhino3DM, applyRhinoUpAxisConversion, extractRhinoLayers } from './import/rhino/RhinoImporter.ts';
+// §FEAT-RHINO-CHAT-MATERIAL — material override/restore primitives for the
+// rhino.setMaterial / rhino.resetMaterial chat bridge (initBusHandlers.ts).
+export {
+    applyRhinoColorOverride,
+    restoreRhinoOriginalMaterials,
+    snapshotRhinoMaterials,
+    applyRhinoMaterialSnapshot,
+} from './import/rhino/RhinoImporter.ts';
 export type { RhinoImportStats, RhinoImportResult, RhinoImportLayerInfo } from './import/rhino/RhinoImporter.ts';
 
 // import/top-level

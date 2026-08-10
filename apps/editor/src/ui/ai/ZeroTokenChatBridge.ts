@@ -328,6 +328,10 @@ async function dispatchCommands(
     const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         'wall.updateSystemTypeBatch': 'pryzm-wall-type-batch-report',
         'wall.updateColorBatch': 'pryzm-wall-color-batch-report',
+        // §FEAT-RHINO-CHAT-MATERIAL — the Rhino bridge reports mesh counts and
+        // the honest "no Rhino model is imported" failure through this event.
+        'rhino.setMaterial': 'pryzm-rhino-material-report',
+        'rhino.resetMaterial': 'pryzm-rhino-material-report',
     };
     const batchReports: { success: boolean; info: readonly string[] }[] = [];
     const onBatchReport = (e: Event): void => {

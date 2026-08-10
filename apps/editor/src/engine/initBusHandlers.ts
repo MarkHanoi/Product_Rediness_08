@@ -1,4 +1,14 @@
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+// §FEAT-RHINO-CHAT-MATERIAL — the THREE-touching material primitives live with
+// the Rhino importer (the one legitimate owner of the imported scene graph);
+// this file only orchestrates them behind the 'rhino.setMaterial' /
+// 'rhino.resetMaterial' bus verbs and the commandManager undo stack.
+import {
+  applyRhinoColorOverride,
+  restoreRhinoOriginalMaterials,
+  snapshotRhinoMaterials,
+  applyRhinoMaterialSnapshot,
+} from '@pryzm/file-format';
 import {
   UpdateRoofCommand,
   UpdateColumnCommand,
@@ -358,6 +368,76 @@ export function initBusHandlers(
             '[initBusHandlers] §P1.4: commandManager not ready — command dropped:',
             (cmd as any)?.constructor?.name ?? 'unknown',
         );
+    }
+
+    // ── §FEAT-RHINO-CHAT-MATERIAL — Rhino reference-model recolour bridge ──────
+    //
+    // A legacy-shaped command (canExecute/execute/undo + affectedStores:[]) so
+    // ONE chat recolour is ONE Ctrl+Z entry on the CommandManager stack — the
+    // same stack that owns hosted-opening undo. `affectedStores` is empty: the
+    // snapshot machinery has no 'rhino' store to clone, and undo re-applies the
+    // per-mesh material snapshot captured in execute(). The Rhino groups come
+    // off the import registry initUI publishes at `window.__pryzmRhinoImports`
+    // (the same map the Import Manager bridge mutates on remove).
+    class RhinoChatMaterialCommand {
+        readonly affectedStores = [] as const;
+        id = crypto.randomUUID();
+        readonly type: string;
+        timestamp = Date.now();
+        targetIds: string[] = [];
+        /** Meshes touched by the last execute() — the honest report count. */
+        lastMeshCount = 0;
+        private _snapshot: ReadonlyArray<readonly [object, unknown]> | null = null;
+        constructor(
+            private readonly groups: readonly object[],
+            /** '#rrggbb' to override; null = restore the as-imported materials. */
+            private readonly color: string | null,
+        ) {
+            this.type = color === null ? 'rhino.resetMaterial' : 'rhino.setMaterial';
+        }
+        canExecute(): { ok: boolean; reason?: string } {
+            return this.groups.length > 0
+                ? { ok: true }
+                : { ok: false, reason: 'No Rhino model is imported — import a .3dm file first.' };
+        }
+        execute(): { success: boolean; affectedElementIds: string[]; info: string[] } {
+            this._snapshot = snapshotRhinoMaterials(this.groups);
+            const r = this.color === null
+                ? restoreRhinoOriginalMaterials(this.groups)
+                : applyRhinoColorOverride(this.groups, this.color);
+            this.lastMeshCount = r.meshCount;
+            console.log(`[§PERF-RHINO] ${this.type}: ${r.meshCount} meshes → ${this.color ?? 'original materials'} (one shared material while overridden)`);
+            return { success: r.meshCount > 0, affectedElementIds: [], info: [`${r.meshCount} Rhino meshes updated`] };
+        }
+        undo(): { success: boolean; affectedElementIds: string[] } {
+            if (this._snapshot === null) return { success: false, affectedElementIds: [] };
+            applyRhinoMaterialSnapshot(this._snapshot);
+            return { success: true, affectedElementIds: [] };
+        }
+        serialize(): unknown {
+            return { type: this.type, targetIds: [], timestamp: this.timestamp, version: 1, payload: { color: this.color } };
+        }
+    }
+
+    function _rhinoMaterialBridge(color: string | null): void {
+        const groups = [...((window as unknown as {
+            __pryzmRhinoImports?: Map<string, object>;
+        }).__pryzmRhinoImports?.values() ?? [])];
+        const say = (success: boolean, info: string[]): void => {
+            window.dispatchEvent(new CustomEvent('pryzm-rhino-material-report', { detail: { success, info } }));
+        };
+        if (groups.length === 0) {
+            say(false, ['no Rhino model is imported — import a .3dm file first']);
+            return;
+        }
+        const cmdObj = new RhinoChatMaterialCommand(groups, color);
+        _cmExec(cmdObj);
+        const n = cmdObj.lastMeshCount;
+        say(n > 0, [
+            color === null
+                ? `Restored the original materials on ${n} Rhino mesh${n === 1 ? '' : 'es'}`
+                : `Painted ${n} Rhino mesh${n === 1 ? '' : 'es'} ${color}`,
+        ]);
     }
 
     // ── §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — ring-buffer parity for a type swap ──
@@ -771,6 +851,41 @@ export function initBusHandlers(
                     materialId:    cmd.materialId,
                 }));
             },
+        },
+        {
+            // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino
+            // model to white" (ZeroTokenResolver 'set-rhino-material').
+            //
+            // The imported Rhino model is REFERENCE content: THREE meshes in a
+            // tagged scene group (userData.isRhinoImport), NOT elements in any
+            // geometry store — so there is no per-element command family to
+            // bridge to. Instead the whole model is recoloured with ONE shared
+            // override material (a §PERF-RHINO dedup win while overridden) as
+            // ONE undoable commandManager entry (`stores: []` — like the
+            // hosted openings, undo lives on the CommandManager stack; the
+            // ring buffer has no 'rhino' store to route patches into).
+            //
+            // Honesty (§CONTEXT-DATA-HONESTY): the resolver cannot know
+            // whether a model is imported, so the bridge reports through
+            // 'pryzm-rhino-material-report' — which ZeroTokenChatBridge's
+            // BATCH_REPORT_EVENTS table renders VERBATIM, including
+            // "No Rhino model is imported".
+            type: 'rhino.setMaterial',
+            stores: [] as const,
+            validate: (cmd) => (
+                typeof cmd.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(cmd.color)
+                    ? "color ('#rrggbb') is required — colour names are resolved by the chat layer (colorRef.ts)"
+                    : null
+            ),
+            fn: (cmd) => { _rhinoMaterialBridge(String(cmd.color).toLowerCase()); },
+        },
+        {
+            // §FEAT-RHINO-CHAT-MATERIAL — "reset the rhino model materials":
+            // restores the as-imported (deduped) materials stashed on each
+            // mesh at import time. Same undo/report machinery as above.
+            type: 'rhino.resetMaterial',
+            stores: [] as const,
+            fn: () => { _rhinoMaterialBridge(null); },
         },
         {
             // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815) — wall.updateDimensions

@@ -222,18 +222,140 @@ function applyRhinoGroupSettings(group: THREE.Group, fileName: string): void {
     group.userData.fileName       = fileName;
     group.userData.importedAt     = Date.now();
     group.userData.modelId        = `rhino-${crypto.randomUUID()}`;
+    // §RHINO-GLOBE (mirrors §FIX-IFC-IN-CESIUM L-696) — `source` is the tag the
+    // scene-level consumers key on (GLB bake counting, plan-view Source C
+    // collection). Deliberately NOT 'ifc-import': Rhino content must be
+    // distinguishable from IFC in every predicate that widens to include it.
+    group.userData.source         = 'rhino-import';
 
+    // §PERF-RHINO — the loader mints one THREE.Material PER OBJECT even when
+    // hundreds of objects share the same Rhino render colour. Every distinct
+    // material is a distinct shader/PSO variant and defeats renderer batching,
+    // so identical materials (colour × opacity × transparent × type) are
+    // collapsed onto one canonical instance BEFORE anything else sees them.
+    const materialPool = new Map<string, THREE.Material>();
+    let meshCount = 0;
+    let materialsBefore = 0;
+
+    const canonical = (m: THREE.Material): THREE.Material => {
+        materialsBefore++;
+        const std = m as THREE.MeshStandardMaterial;
+        const key = [
+            m.type,
+            std.color ? std.color.getHexString() : 'none',
+            m.opacity,
+            m.transparent ? 1 : 0,
+            std.map ? std.map.uuid : 'no-map',
+        ].join('|');
+        const hit = materialPool.get(key);
+        if (hit !== undefined) return hit;
+        m.side = THREE.DoubleSide;
+        materialPool.set(key, m);
+        return m;
+    };
+
+    let objIndex = 0;
     group.traverse((obj) => {
         if (obj instanceof THREE.Mesh) {
-            obj.userData.selectable    = false;
+            meshCount++;
+            // §RHINO-SELECT — Rhino meshes ARE pickable reference objects:
+            // `selectable` admits them to SelectionManager's cache and `id`
+            // keys them into the GPU-pick element registry. `elementType:
+            // 'rhino'` is deliberately NOT a BIM type: it keeps them OUT of
+            // computeBimFitBounds pass 1 (§PLAN-FIT-BIM-ONLY, L-814) while
+            // letting the GLB globe bake and the plan-view edge projector
+            // (ELEMENT_TYPE_TO_PROJECTION_LAYER['rhino'] → A-FURN) see them.
+            obj.userData.selectable    = true;
+            obj.userData.id            = `${group.userData.modelId}:${objIndex++}`;
+            obj.userData.elementType   = 'rhino';
+            obj.userData.source        = 'rhino-import';
             obj.userData.isRhinoProxy  = true;
             obj.userData.modelId       = group.userData.modelId;
 
+            // §PERF-RHINO — reference content neither casts nor receives
+            // shadows (PascalSceneLighting skips isRhinoProxy meshes so a
+            // later full-scene shadow pass cannot silently re-promote them).
+            obj.castShadow    = false;
+            obj.receiveShadow = false;
+
             if (Array.isArray(obj.material)) {
-                obj.material.forEach(m => { m.side = THREE.DoubleSide; });
+                obj.material = obj.material.map(canonical);
             } else if (obj.material) {
-                (obj.material as THREE.Material).side = THREE.DoubleSide;
+                obj.material = canonical(obj.material as THREE.Material);
             }
+            // The as-imported material is the restore point for
+            // `restoreRhinoOriginalMaterials` (chat recolour / reset).
+            obj.userData.__rhinoOriginalMaterial = obj.material;
         }
     });
+
+    console.log(
+        `[§PERF-RHINO] ${fileName}: ${meshCount} meshes; materials ${materialsBefore} → ` +
+        `${materialPool.size} after dedup (shared by colour×opacity); shadows off for all Rhino meshes.`,
+    );
+}
+
+// ─── §FEAT-RHINO-CHAT-MATERIAL — material override / restore primitives ──────
+//
+// The RAC chat's `rhino.setMaterial` / `rhino.resetMaterial` bridge commands
+// (apps/editor/src/engine/initBusHandlers.ts) execute through these. They live
+// HERE because this file is the one legitimate THREE-touching owner of the
+// imported Rhino scene graph (P2: THREE via @pryzm/renderer-three/three).
+//
+// Signatures take `readonly object[]` so the app-layer bridge needs no THREE
+// types: the groups come off the import registry and are narrowed here.
+
+/** One recolour = ONE shared material for the whole model (a §PERF-RHINO win:
+ *  the 230-material import collapses to a single PSO while overridden). */
+export function applyRhinoColorOverride(groups: readonly object[], hex: string): { meshCount: number } {
+    const override = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(hex),
+        side: THREE.DoubleSide,
+        name: `rhino-chat-override-${hex}`,
+    });
+    let meshCount = 0;
+    for (const g of groups as readonly THREE.Object3D[]) {
+        g.traverse((obj) => {
+            if ((obj as THREE.Mesh).isMesh && obj.userData.isRhinoProxy === true) {
+                (obj as THREE.Mesh).material = override;
+                meshCount++;
+            }
+        });
+    }
+    return { meshCount };
+}
+
+/** Restore the as-imported (deduped) materials stashed at import time. */
+export function restoreRhinoOriginalMaterials(groups: readonly object[]): { meshCount: number } {
+    let meshCount = 0;
+    for (const g of groups as readonly THREE.Object3D[]) {
+        g.traverse((obj) => {
+            const orig = obj.userData?.__rhinoOriginalMaterial;
+            if ((obj as THREE.Mesh).isMesh && obj.userData.isRhinoProxy === true && orig) {
+                (obj as THREE.Mesh).material = orig as THREE.Material | THREE.Material[];
+                meshCount++;
+            }
+        });
+    }
+    return { meshCount };
+}
+
+/** Opaque per-mesh material snapshot — the undo payload for the chat bridge. */
+export function snapshotRhinoMaterials(groups: readonly object[]): ReadonlyArray<readonly [object, unknown]> {
+    const out: Array<readonly [object, unknown]> = [];
+    for (const g of groups as readonly THREE.Object3D[]) {
+        g.traverse((obj) => {
+            if ((obj as THREE.Mesh).isMesh && obj.userData.isRhinoProxy === true) {
+                out.push([obj, (obj as THREE.Mesh).material] as const);
+            }
+        });
+    }
+    return out;
+}
+
+/** Re-apply a snapshot taken by `snapshotRhinoMaterials` (undo/redo). */
+export function applyRhinoMaterialSnapshot(snapshot: ReadonlyArray<readonly [object, unknown]>): void {
+    for (const [mesh, material] of snapshot) {
+        (mesh as THREE.Mesh).material = material as THREE.Material | THREE.Material[];
+    }
 }

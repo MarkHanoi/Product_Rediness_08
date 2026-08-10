@@ -1760,6 +1760,11 @@ export async function initUI(p: UIParams): Promise<void> {
     // Opens a file picker, imports via Three.js Rhino3dmLoader (rhino3dm WASM served
     // from /libs/rhino3dm/), adds the geometry to the scene as reference meshes.
     const _rhinoImportGroups = new Map<string, THREE.Group>();
+    // §FEAT-RHINO-CHAT-MATERIAL — the rhino.setMaterial / rhino.resetMaterial
+    // bus bridges (initBusHandlers.ts) read the live import registry through
+    // this typed facet; removals via the Import Manager mutate the same Map,
+    // so the bridge can never recolour a removed model.
+    (window as unknown as { __pryzmRhinoImports?: Map<string, THREE.Group> }).__pryzmRhinoImports = _rhinoImportGroups;
 
     async function processRhinoFile(file: File): Promise<void> {
         const overlay = createIfcImportOverlay(file.name);

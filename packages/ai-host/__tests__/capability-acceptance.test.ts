@@ -229,6 +229,18 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    id: 'set-rhino-material',
+    ctx: {},
+    phrasings: [
+      'change all elements of the rhino model to white',
+      'paint the rhino model white',
+      'make the rhino model light grey',
+      'turn the rhino model #f4f1e8',
+      'reset the rhino model materials',
+      'restore the rhino model colours',
+    ],
+  },
+  {
     id: 'go-to-level',
     ctx: {},
     phrasings: [
