@@ -358,6 +358,14 @@ export class PascalSceneLighting {
             if (role === 'edges' || role === 'edge-overlay') return;
             if (name.includes('edge') || name.includes('grid') || name.includes('collision')) return;
 
+            // §PERF-RHINO — imported reference meshes (Rhino .3dm proxies) are
+            // excluded from the shadow passes entirely. The importer sets
+            // castShadow/receiveShadow=false at import; without this guard the
+            // next full-scene pass (any wall/slab/furniture edit) silently
+            // re-promoted all N hundred of them to casters, and a 22 MB model
+            // became N hundred extra shadow-pass draw calls per frame.
+            if (obj.userData?.isRhinoProxy === true) return;
+
             const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
 
             // §FIX-SHADOW-CASTER-DENYLIST (L-205) — a mesh that EXISTS TO RECEIVE a shadow must
