@@ -328,6 +328,18 @@ export class UpdateElementParameterCommand implements Command {
                         `rakeAngleDeg=${rake ?? 'absent'} ` +
                         `storeSource=${(context.stores as { wallStore?: unknown }).wallStore ? 'context' : 'window-fallback'}`,
                     );
+                    // §WALL-RAKE-JOINT-ONE-EDIT-BEHIND (founder 2026-08-09) — contract of
+                    // this direct build: it is the IMMEDIATE-FEEDBACK path only. It runs
+                    // against whatever WallPipelineV2Cache state exists at this instant,
+                    // which for neighbour-coupled inputs (the ADR-0312 twin-solve loft) is
+                    // one refresh old. `buildWallV2Geometry` now refuses a loft whose
+                    // recorded rake mismatches the store (§WALL-RAKE-JOINT-STALE-CACHE), so
+                    // this build always renders the wall's CURRENT angle (uniform ADR-0310
+                    // shear). The authoritative cache-refresh-then-rebuild — including the
+                    // NEIGHBOURS' lofted tops — is owned by WallRebuildCoordinator._flush,
+                    // which the store write above has already scheduled for this same
+                    // mutation cycle (rake edits classify whole-level per
+                    // WallDeltaClassifier §WALL-RAKE-JOINT-ONE-EDIT-BEHIND).
                     builder.buildWall(wall);
                 }
 

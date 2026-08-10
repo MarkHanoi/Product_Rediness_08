@@ -24,7 +24,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { resolveJunctions, type Pt2, type WallInput, type WallMiter } from './JunctionResolverV2';
 import { buildWallFootprint, type WallFootprint } from './WallFootprint2D';
 import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
-import { isVerticalRake, RAKE_MIN_DEG, rakeTopOffset } from './WallRake';
+import { isVerticalRake, RAKE_MIN_DEG, rakeTopOffset, resolveRakeDeg } from './WallRake';
 
 // ─── §WALL-RAKE-JOINT (ADR-0312) — the twin-solve loft constants ──────────────
 //
@@ -157,6 +157,11 @@ export class WallPipelineV2Cache {
     /** Sorted `id:rake` of every non-vertically-raked wall — the neighbour-rake
      *  cache-key fragment (empty ⇒ no raked wall ⇒ keys byte-identical to before). */
     private _rakeJointSig = '';
+    /** §WALL-RAKE-JOINT-STALE-CACHE — the rake (normalised; absent ⇒ 90) each wall
+     *  carried at the moment of THIS refresh. `buildWallV2Geometry` compares it to
+     *  the spec's CURRENT rake and refuses the cached loft on a mismatch — a stale
+     *  probe must never override the angle the store actually holds. */
+    private _rakeUsed = new Map<string, number>();
 
     refresh(walls: readonly LevelWallSpec[]): void {
         this._byId.clear();
@@ -165,6 +170,8 @@ export class WallPipelineV2Cache {
         this._probeWalls.clear();
         this._hasRake = false;
         this._rakeJointSig = '';
+        this._rakeUsed.clear();
+        for (const w of walls) this._rakeUsed.set(w.id, resolveRakeDeg(w.rakeAngleDeg));
         if (walls.length === 0) return;
         const inputs: WallInput[] = walls.map(w => ({
             id: w.id,
@@ -227,6 +234,18 @@ export class WallPipelineV2Cache {
      */
     get rakeJointSignature(): string {
         return this._rakeJointSig;
+    }
+
+    /**
+     * §WALL-RAKE-JOINT-STALE-CACHE — the rake this cache's solves USED for one
+     * wall (normalised; absent at refresh time ⇒ 90), or null when the wall was
+     * not part of the refresh. Lets `buildWallV2Geometry` detect that the store
+     * has moved a wall's rake since the last `refresh()` and honestly degrade to
+     * the uniform ADR-0310 shear at the CURRENT angle instead of replaying the
+     * previous angle's loft (the founder's "the 80° itself did not apply").
+     */
+    rakeUsedFor(wallId: string): number | null {
+        return this._rakeUsed.get(wallId) ?? null;
     }
 
     /**
@@ -342,9 +361,23 @@ export function buildWallV2Geometry(
     // between walls of DIFFERENT rakes (incl. raked-meets-vertical) at every elevation.
     // Null (no raked wall on the level / topology fallback) ⇒ the ADR-0310 uniform shear.
     // An explicit caller-supplied `opts.topOffset` also wins here, for the same reason.
+    //
+    // §WALL-RAKE-JOINT-STALE-CACHE (founder 2026-08-09) — the loft is trusted ONLY
+    // when the cache's recorded rake for THIS wall matches the spec's current rake.
+    // The offsets are a function of the rakes the cache was REFRESHED with; consuming
+    // them after the store moved this wall's rake replays the PREVIOUS angle's loft
+    // and silently discards the new angle (the "one edit behind" render of the direct
+    // per-wall rebuild path). On a mismatch: uniform shear at the CURRENT angle —
+    // the wall's own lean is always honoured, and the joint refinement lands when the
+    // coordinator's flush re-refreshes the cache in the same mutation cycle.
+    const _cacheRake = cache.rakeUsedFor(wall.id);
+    const _cacheRakeFresh =
+        _cacheRake !== null && Math.abs(_cacheRake - resolveRakeDeg(wall.rakeAngleDeg)) <= 1e-9;
     const topOffsets = opts.topOffset !== undefined || opts.topOffsets !== undefined
         ? opts.topOffsets ?? null
-        : cache.rakedTopOffsets(wall.id, footprint, opts.height);
+        : _cacheRakeFresh
+            ? cache.rakedTopOffsets(wall.id, footprint, opts.height)
+            : null;
     const geometry  = buildWallExtrusion(footprint, { ...opts, topOffset, topOffsets });
     let maxTopDriftM = 0;
     if (topOffsets) {

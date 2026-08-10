@@ -128,6 +128,18 @@ export function joinGeometryChanged(prev: WallData, next: WallData): boolean {
  */
 export function joinGeometryChangedExcludingBaseline(prev: WallData, next: WallData): boolean {
     if ((prev.thickness ?? 0) !== (next.thickness ?? 0)) return true;
+    // §WALL-RAKE-JOINT-ONE-EDIT-BEHIND (founder 2026-08-09, ADR-0312 follow-up) —
+    // the rake is now a JOIN-GEOMETRY input. The invariance proof in this file's
+    // header ("the V2 miter cache is a function of endpoints/thickness/adjacency
+    // ONLY") was true before ADR-0312 and is FALSE after it: `refreshV2Cache`
+    // receives `rakeAngleDeg` per wall and runs the twin-solve probe from it, and
+    // every joined wall's built TOP geometry consumes that probe. Classifying a
+    // rake-only edit `openings-only` therefore sent it down `_flushOpeningsOnly`,
+    // which skips `refreshV2Cache` and never rebuilds a neighbour — the edited
+    // wall re-rendered against the PREVIOUS refresh's probe, i.e. the founder's
+    // "the joint arrives one edit late". Absent ⇒ 90 (vertical), so a wall that
+    // has never been raked cannot fail this gate.
+    if ((prev.rakeAngleDeg ?? 90) !== (next.rakeAngleDeg ?? 90)) return true;
     // Layered-wall geometry feeds the infill/footprint path — any change is unsafe.
     if ((prev.layers?.length ?? 0) !== (next.layers?.length ?? 0)) return true;
     // Curve presence/shape changes the baseline path → join geometry changes.

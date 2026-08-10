@@ -198,12 +198,26 @@ export class WallRebuildCoordinator {
         renderMap: OpeningRenderMap | undefined,
         slabBaseOffset: number,
         worldY: number,
+        rakeJointSig: string,
     ): string {
         let rm = '';
         if (renderMap) {
             for (const [id, data] of renderMap) rm += `${id}=${JSON.stringify(data)};`;
         }
-        return `${composeWallGeometryHash(wall, joinData, slabBaseOffset)}|y${worldY.toFixed(4)}|rm${rm}`;
+        // §WALL-RAKE-JOINT-ONE-EDIT-BEHIND (founder 2026-08-09, ADR-0312) — the
+        // level's rake-joint signature (sorted id:rake of every raked wall, read
+        // from the builder's V2 cache AFTER refreshV2Cache) is a genuine input of
+        // every wall's built TOP geometry: the twin-solve loft moves a wall's
+        // mitred top corners when a NEIGHBOUR's rake changes, even though nothing
+        // in `composeWallGeometryHash(wall, …)` moved. Without this fold the memo
+        // skipped the neighbour as "clean" and its lofted top stayed one edit
+        // behind. Empty on an unraked level ⇒ keys byte-identical to before, so
+        // no existing project pays a rebuild for this. Conservative by design: a
+        // rake edit re-keys every wall on the level once — the same doctrine as
+        // `WallFragmentBuilder._rakeTag`, and still a memoization (a skipped wall
+        // remains provably a no-op).
+        const rj = rakeJointSig ? `|RJ[${rakeJointSig}]` : '';
+        return `${composeWallGeometryHash(wall, joinData, slabBaseOffset)}|y${worldY.toFixed(4)}|rm${rm}${rj}`;
     }
 
     /** §PERF-WALL-MOVE-INCREMENTAL-REBUILD — default ON; `false` restores the old unconditional rebuild. */
@@ -1481,6 +1495,14 @@ export class WallRebuildCoordinator {
                 }
                 // ────────────────────────────────────────────────────────────────
 
+                // §WALL-RAKE-JOINT-ONE-EDIT-BEHIND — read the level's rake-joint
+                // signature AFTER the refresh above, so the per-wall build memo below
+                // is keyed by the SAME probe solve the builds will consume. Builders
+                // without the getter (older runtimes / render-seam stubs) degrade to
+                // '' — i.e. the pre-ADR-0312 memo key, never a throw.
+                const _rakeJointSig =
+                    (builder as unknown as { rakeJointSignature?: string }).rakeJointSignature ?? '';
+
                 const _rebuiltWallIds = new Set<string>();
                 // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — walls the resolver
                 // returned an adjustment for whose geometry inputs were byte-identical to
@@ -1759,7 +1781,7 @@ export class WallRebuildCoordinator {
                         // Guards: the builder must still own the wall's group (self-heal if
                         // another subsystem disposed the mesh), and the whole gate is
                         // disable-able via `window.__pryzmWallIncrementalRebuild = false`.
-                        const _buildKey = WallRebuildCoordinator._buildKey(updated, adjustment, _renderMap, slabOff, worldY);
+                        const _buildKey = WallRebuildCoordinator._buildKey(updated, adjustment, _renderMap, slabOff, worldY, _rakeJointSig);
                         const _clean =
                             WallRebuildCoordinator._incrementalRebuildOn()
                             && this._lastBuildKey.get(wallId) === _buildKey

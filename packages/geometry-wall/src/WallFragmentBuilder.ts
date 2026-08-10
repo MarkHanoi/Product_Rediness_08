@@ -3581,6 +3581,20 @@ export class WallFragmentBuilder {
         this._v2Cache.refresh(levelWalls);
     }
 
+    /**
+     * §WALL-RAKE-JOINT-ONE-EDIT-BEHIND (founder 2026-08-09) — the level's
+     * neighbour-rake content signature, read from the effective V2 cache.
+     * `WallRebuildCoordinator._flush` folds this into its per-wall incremental
+     * build memo (`_buildKey`) so the NEIGHBOUR of a raked wall is re-keyed —
+     * without it, a rake edit on wall A left wall B's memo byte-identical and
+     * the flush skipped B as "clean", so B's lofted top never followed the new
+     * 3-D mitre line in the same mutation cycle. Empty on a level with no raked
+     * wall, so unraked projects keep byte-identical memo keys.
+     */
+    public get rakeJointSignature(): string {
+        return this.getEffectiveV2Cache()?.rakeJointSignature ?? '';
+    }
+
     private getEffectiveV2Cache(): WallPipelineV2Cache | null {
         // Orchestrator-populated cache wins if it carries any junctions.
         if (this._v2Cache && this._v2Cache.junctionEnds > 0) return this._v2Cache;
