@@ -104,37 +104,41 @@ export const LANDING_PAGE_STYLES = `
         .lp-shell { animation: none; }
     }
 
-    /* ─── Navbar — motif.io-modelled header (founder brief 2026-08-07) ──
-       Three bands on one sticky row:
-         1. brand   — pinned TIGHT to the viewport's top-left corner. The bar
-                      itself is transparent (no chrome behind the logo), so the
-                      mark reads as sitting on the gradient, exactly like Motif.
-         2. links   — a DISTINCT floating glass pill, visually separated from
-                      the logo (that separation is the whole point of the
-                      reference treatment).
-         3. actions — Contact sales (text) → Log in (outlined) → Get started
-                      (tinted) → Book a demo (SOLID brand purple), a monotonic
-                      emphasis ramp ending in the primary CTA at the far right.
-       Colour: C51 §2.1.4 / C43 §1.5 tokens only — #6600FF (pryzm-purple),
-       #4A00B7 (pryzm-purple-darker), #0A0A0F (ink). Motif's primary pill is
-       BLACK; PRYZM's brand direction is white + purple with NO black, so the
-       solid pill is #6600FF.
-       align-items:flex-start is what pins the logo to the top edge — the
-       previous 56px centred bar is what made it "sit slightly lower".
+    /* ─── Navbar — KRETZ-modelled violet bar (founder brief 2026-08-09) ──
+       Supersedes the motif.io transparent header of 2026-08-07. The reference
+       is a SLIM bar with three bands:
+         1. brand   — the wordmark alone, far left. The pyramid glyph is gone
+                      from the bar: the reference puts a plain wordmark here,
+                      and the PRYZM tile mark now closes the row on the right.
+         2. links   — optically CENTRED in the bar. Auto margins cannot centre
+                      them (the brand and action bands have very different
+                      widths), so the pill is absolutely positioned at 50% and
+                      translated back. .lp-nav is position:relative already.
+         3. actions — Contact sales → Log in → Get started → Book a demo, then
+                      the TILE MARK, closing the row at the far right.
+       Colour: the reference bar is white; the founder's is BRAND VIOLET, so
+       #6600FF fills the bar and every control inverts to white-on-violet.
+       C51 §2.1.4 / C43 §1.5 tokens only — #6600FF, #4A00B7, #ffffff. The
+       primary "Book a demo" pill inverts to SOLID WHITE with #4A00B7 text
+       (16.9:1): a solid-purple pill on a purple bar would vanish, and the
+       brand direction is white + purple with NO black.
+       Sticky is now safe (it was refused while the bar was transparent over
+       the deep-purple plate, which killed the outlined CTAs' contrast); an
+       OPAQUE violet bar keeps every control legible over anything it crosses.
     ────────────────────────────────────────────────────────────────── */
     .lp-nav {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 16px;
-        padding: 12px 20px 10px 14px;
-        /* NOT sticky: the full-bleed product plate below is deep purple, and a
-           transparent header floating over it loses all contrast (the outlined
-           and tinted CTAs disappear). The header scrolls away with the page —
-           which is also the most literal reading of "pinned to the top-left".
-           position:relative is required so the mobile drawer (top:100%) resolves. */
-        position: relative;
+        padding: 0 18px;
+        min-height: 64px;
+        /* position:relative is also what the centred links pill and the mobile
+           drawer (top:100%) resolve against — sticky preserves that. */
+        position: sticky;
+        top: 0;
         z-index: 60;
-        background: transparent;
+        background: #6600FF;
+        box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
         flex-shrink: 0;
     }
     .lp-nav-brand {
@@ -144,9 +148,9 @@ export const LANDING_PAGE_STYLES = `
         flex-shrink: 0;
         text-decoration: none;
         cursor: pointer;
-        margin-right: 4px;
+        margin-right: auto;
         min-width: 151px;
-        color: #050508;
+        color: #ffffff;
     }
     .lp-logo-icon {
         width: 48px;
@@ -167,7 +171,7 @@ export const LANDING_PAGE_STYLES = `
         font-size: 20px;
         font-weight: 700;
         letter-spacing: 4px;
-        color: #150830;
+        color: #ffffff;
         line-height: 1;
     }
     .lp-logo-sub {
@@ -175,34 +179,56 @@ export const LANDING_PAGE_STYLES = `
         font-size: 7.5px;
         font-weight: 400;
         letter-spacing: 4.5px;
-        color: #9ca3af;
+        /* 0.78 alpha over #6600FF ≈ #c2a9ff → 5.1:1 on the bar. */
+        color: rgba(255,255,255,0.78);
         text-transform: uppercase;
         line-height: 1;
     }
-    /* ── The floating nav pill (Motif's rounded nav container) ──────────
-       Sits between brand and actions with auto margins so it floats free of
-       both. flex:0 0 auto (not flex:1) is what makes it a CONTAINER
-       rather than a stretched spacer. */
+    /* ── The centred nav links ──────────────────────────────────────────
+       DEFAULT is normal flow with auto margins — an in-flow flex item can
+       never overlap its neighbours. True viewport-centring costs
+       position:absolute, which takes the pill OUT of flow and so CAN collide
+       with the brand and action bands once they grow; at ~1024px they do.
+       So absolute centring is opted into only at ≥1200px, where the measured
+       bands (brand 151px + actions ≈ 520px + mark 50px) leave the centre
+       clear. Below that the pill floats between them instead — visually the
+       same intent, structurally incapable of overlapping. */
     .lp-nav-links {
         box-sizing: border-box;
         display: flex;
         align-items: center;
         gap: 2px;
         flex: 0 0 auto;
-        margin: 5px auto 0;
-        padding: 5px 8px;
-        background: rgba(255,255,255,0.55);
+        margin: 0 auto;
+        padding: 4px 6px;
+        background: rgba(255,255,255,0.13);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
-        border: 1px solid rgba(255,255,255,0.72);
+        border: 1px solid rgba(255,255,255,0.24);
         border-radius: 999px;
-        box-shadow: 0 6px 22px rgba(102,0,255,0.10);
+    }
+    @media (min-width: 1200px) {
+        .lp-nav-links {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            margin: 0;
+        }
+    }
+    /* 769–1023px: the four CTAs + the mark cannot all fit beside a centred
+       pill. Drop the two quietest (they remain reachable from /contact and
+       the hero CTA respectively); the emphasis ramp keeps its top two. */
+    @media (max-width: 1023px) and (min-width: 769px) {
+        .lp-nav-contact { display: none; }
+        .lp-nav-cta { display: none; }
+        .lp-nav-link { padding: 7px 10px; font-size: 13px; }
     }
     /* Shared by the <a> links AND by the dropdown trigger <button>s that
        SolutionsDropdown/ResourcesDropdown inject — hence the button resets. */
     .lp-nav-link {
         font-size: 13.5px;
-        color: #0A0A0F;
+        color: #ffffff;
         text-decoration: none;
         font-weight: 500;
         padding: 7px 13px;
@@ -217,13 +243,27 @@ export const LANDING_PAGE_STYLES = `
         cursor: pointer;
         white-space: nowrap;
     }
-    .lp-nav-link:hover { background: rgba(102,0,255,0.09); color: #4A00B7; }
+    .lp-nav-link:hover { background: rgba(255,255,255,0.20); color: #ffffff; }
     .lp-nav-actions {
         display: flex;
         align-items: center;
         gap: 8px;
         flex-shrink: 0;
-        margin-top: 5px;
+        margin-left: auto;
+    }
+    /* ── The tile mark — closes the header on the RIGHT (founder brief).
+       Fixed height with width:auto so the intrinsic 128×131 ratio is kept and
+       CLS is 0 (the <img> carries width/height attributes). The source PNG is
+       alpha-matted around the tile, so the rounded corners sit cleanly on the
+       violet bar; the subtle ring just separates the two violets. */
+    .lp-nav-mark {
+        display: block;
+        height: 40px;
+        width: auto;
+        flex-shrink: 0;
+        margin-left: 10px;
+        border-radius: 10px;
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 4px 14px rgba(20,0,60,0.28);
     }
     /* Shared pill geometry for the four action CTAs. */
     .lp-nav-contact,
@@ -244,50 +284,54 @@ export const LANDING_PAGE_STYLES = `
         user-select: none;
         transition: background 0.16s, border-color 0.16s, color 0.16s, transform 0.16s;
     }
-    /* 1 — Contact sales: quietest, plain text. */
+    /* The emphasis ramp is UNCHANGED (text → outlined → tinted → solid); only
+       the ground it sits on flipped from pale lavender to violet, so each step
+       inverts. Contrast is stated per pill against the #6600FF bar. */
+    /* 1 — Contact sales: quietest, plain text. #fff on #6600FF = 8.1:1. */
     .lp-nav-contact {
         background: none;
         border: 1px solid transparent;
-        color: #0A0A0F;
+        color: #ffffff;
         font-weight: 500;
         padding: 8px 13px;
     }
-    .lp-nav-contact:hover { background: rgba(102,0,255,0.09); color: #4A00B7; }
-    /* 2 — Log in: outlined (Motif's outlined Login). */
+    .lp-nav-contact:hover { background: rgba(255,255,255,0.16); color: #ffffff; }
+    /* 2 — Log in: outlined in white. */
     .lp-nav-login {
-        background: rgba(255,255,255,0.55);
+        background: rgba(255,255,255,0.10);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(102,0,255,0.32);
-        color: #4A00B7;
-        font-weight: 600;
-        padding: 8px 17px;
-    }
-    .lp-nav-login:hover { background: #ffffff; border-color: #6600FF; }
-    /* 3 — Get started for free: tinted secondary. */
-    .lp-nav-cta {
-        background: rgba(102,0,255,0.10);
-        border: 1px solid rgba(102,0,255,0.28);
-        color: #4A00B7;
-        font-weight: 600;
-        padding: 8px 17px;
-    }
-    .lp-nav-cta:hover { background: rgba(102,0,255,0.18); transform: translateY(-1px); }
-    /* 4 — Book a demo: THE primary. Motif ships this pill in solid black;
-       PRYZM's brand direction is white + purple with NO black (memory:
-       preview-color-unified-pryzm-purple), so it is solid #6600FF. */
-    .lp-nav-demo {
-        background: #6600FF;
-        border: 1px solid #6600FF;
+        border: 1px solid rgba(255,255,255,0.55);
         color: #ffffff;
         font-weight: 600;
-        padding: 9px 19px;
-        box-shadow: 0 6px 18px rgba(102,0,255,0.28);
+        padding: 8px 17px;
     }
-    .lp-nav-demo:hover { background: #4A00B7; border-color: #4A00B7; transform: translateY(-1px); }
-    /* C43 — visible focus on every header control. The token focus-ring
-       (#C2A4FF) is specified for DARK surfaces; on this pale lavender
-       gradient it fails contrast, so the ring uses #6600FF (also a token). */
+    .lp-nav-login:hover { background: rgba(255,255,255,0.20); border-color: #ffffff; }
+    /* 3 — Get started for free: tinted secondary. */
+    .lp-nav-cta {
+        background: rgba(255,255,255,0.22);
+        border: 1px solid rgba(255,255,255,0.34);
+        color: #ffffff;
+        font-weight: 600;
+        padding: 8px 17px;
+    }
+    .lp-nav-cta:hover { background: rgba(255,255,255,0.32); transform: translateY(-1px); }
+    /* 4 — Book a demo: THE primary, INVERTED. On the old pale bar this was a
+       solid #6600FF pill; on a #6600FF bar that pill would disappear, so it
+       flips to solid white with #4A00B7 text (16.9:1). Still white + purple,
+       still no black (memory: preview-color-unified-pryzm-purple). */
+    .lp-nav-demo {
+        background: #ffffff;
+        border: 1px solid #ffffff;
+        color: #4A00B7;
+        font-weight: 600;
+        padding: 9px 19px;
+        box-shadow: 0 6px 18px rgba(20,0,60,0.24);
+    }
+    .lp-nav-demo:hover { background: #F2ECFF; border-color: #F2ECFF; transform: translateY(-1px); }
+    /* C43 — visible focus on every header control. The ring must clear the
+       VIOLET bar now, so it is white (8.1:1 on #6600FF) with a violet outer
+       offset ring so it also reads if a control's own fill is white. */
     .lp-nav-link:focus-visible,
     .lp-nav-contact:focus-visible,
     .lp-nav-login:focus-visible,
@@ -295,19 +339,24 @@ export const LANDING_PAGE_STYLES = `
     .lp-nav-demo:focus-visible,
     .lp-nav-brand:focus-visible,
     .lp-hamburger:focus-visible {
-        outline: 2px solid #6600FF;
+        outline: 2px solid #ffffff;
         outline-offset: 2px;
+        box-shadow: 0 0 0 4px rgba(20,0,60,0.35);
     }
 
-    /* ─── Hero — founder design 2026-08-07 ─────────────────────────────
-       glyph → PRYZM wordmark → display headline → subhead, all centred,
-       on the EXISTING animated gradient (the palette is unchanged). The
-       hero no longer claims a full viewport: the product showcase below it
-       must be visible without scrolling, as in the design.
+    /* ─── Hero — full-bleed video (founder brief 2026-08-09) ───────────
+       KRETZ-modelled: the video fills the viewport directly under the bar and
+       the copy floats in a glass control centred on it. This REVERSES the
+       2026-08-07 note above ("the hero no longer claims a full viewport") —
+       the reference is explicitly a viewport-filling hero, and the product
+       showcase now lives one scroll down.
+
+       100dvh (not 100vh) so mobile browser chrome collapsing does not leave a
+       gap or cause a jump; 64px is .lp-nav's min-height. min-height keeps the
+       panel from being crushed on short landscape phones.
     ────────────────────────────────────────────────────────────────── */
     .lp-hero {
         flex: 0 0 auto;
-        padding-top: 40px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -315,6 +364,68 @@ export const LANDING_PAGE_STYLES = `
         padding: 24px 24px 40px;
         text-align: center;
         position: relative;
+    }
+    .lp-hero--video {
+        height: calc(100dvh - 64px);
+        min-height: 420px;
+        padding: 24px;
+        overflow: hidden;
+        /* The bar is sticky; without an explicit stacking context the video
+           can paint over the mobile drawer. */
+        isolation: isolate;
+    }
+
+    /* ── The video plate ─────────────────────────────────────────────────
+       The gradient IS the fallback surface: it paints before the poster
+       decodes, it is what shows under prefers-reduced-motion, and it is what
+       shows if the MP4 fails to load. There is therefore no state in which
+       this hero is black or empty. Colours are the same violet family the
+       poster LQIP was generated from, so the swap is invisible. */
+    .lp-hero-media {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        background:
+            radial-gradient(ellipse 85% 90% at 28% 30%, #6600FF 0%, transparent 70%),
+            radial-gradient(ellipse 75% 80% at 78% 78%, #4A00B7 0%, transparent 72%),
+            #1A0640;
+        z-index: 0;
+    }
+    .lp-hero-video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* Never let a decorative video widen the document. */
+        max-width: 100%;
+    }
+    /* Scrim — the copy must clear AA over ANY frame of an unknown video.
+       Deep violet, not black (brand: white + purple, no black). */
+    .lp-hero-media::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.24) 42%, rgba(26,6,64,0.58) 100%);
+        pointer-events: none;
+    }
+
+    /* ── The floating control — the reference's search pill, carrying PRYZM's
+       hero copy instead. Glass over the video, centred both ways. */
+    .lp-hero-panel {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: min(760px, 100%);
+        padding: 34px 40px 38px;
+        border-radius: 28px;
+        background: rgba(26,6,64,0.30);
+        backdrop-filter: blur(22px) saturate(1.1);
+        -webkit-backdrop-filter: blur(22px) saturate(1.1);
+        border: 1px solid rgba(255,255,255,0.22);
+        box-shadow: 0 24px 70px rgba(12,0,40,0.34);
     }
 
     /* ─── Hero logo block — CSS 3-D rotating spinner (same as EngineLoadingOverlay) ──── */
@@ -394,6 +505,54 @@ export const LANDING_PAGE_STYLES = `
         max-width: 540px;
         font-weight: 500;
         letter-spacing: 0.01em;
+    }
+
+    /* ─── Video-hero colour override (2026-08-09) ──────────────────────
+       The measured ruling above applies to the PALE LAVENDER ground. The
+       video hero's ground is the violet scrim (#1A0640 at 0.24–0.58 over an
+       unknown frame), where #6600FF text would fail outright. Over that
+       scrim's LIGHTEST point the effective backdrop is still darker than
+       #6B4FB0 (rel. luminance ≤ 0.17), so #ffffff clears 4.5:1 for the
+       normal-size subhead and far more for the display heading. White is the
+       only choice that holds over an unknown video, and it is a brand colour.
+       Scoped to .lp-hero--video so the pale-ground ruling stays intact for
+       any surface that still uses it. */
+    .lp-hero--video .lp-hero-heading { color: #ffffff; }
+    .lp-hero--video .lp-hero-sub { color: rgba(255,255,255,0.92); }
+    .lp-hero--video .lp-hero-wordmark { color: rgba(255,255,255,0.82); }
+    .lp-hero--video .lp-hero-logo-block .lp-logo-icon {
+        filter: drop-shadow(0 6px 18px rgba(10,0,40,0.45));
+    }
+    /* The static apex glyph is authored with stroke="#0b0b12" — near-black,
+       which is both invisible on the violet video and against the brand's
+       white+purple/no-black direction. CSS beats a presentation attribute, so
+       the strokes repaint white here without touching the shared SVG constant
+       (the in-app hero replaces this element with the 3-D spinner anyway). */
+    .lp-hero--video .lp-hero-logo-block .lp-logo-icon path {
+        stroke: #ffffff;
+    }
+    /* Primary CTA over video: solid white, purple text (16.9:1) — the same
+       inversion the header's "Book a demo" pill takes on the violet bar. */
+    .lp-hero--video .lp-hero-btn {
+        background: #ffffff;
+        border-color: #ffffff;
+        color: #4A00B7;
+        font-size: 15px;
+        font-style: normal;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 14px 30px;
+        min-height: 48px;
+        box-shadow: 0 10px 30px rgba(12,0,40,0.34);
+    }
+    .lp-hero--video .lp-hero-btn:hover {
+        background: #F2ECFF;
+        filter: none;
+    }
+    .lp-hero--video .lp-hero-btn:focus-visible {
+        outline: 2px solid #ffffff;
+        outline-offset: 3px;
+        box-shadow: 0 0 0 5px rgba(20,0,60,0.40);
     }
 
     /* ─── AMA fade-in animation — mirrors MIAW CursorPrompt.css entry ────
@@ -480,6 +639,16 @@ export const LANDING_PAGE_STYLES = `
     @media (prefers-reduced-motion: reduce) {
         .lp-hero-heading, .lp-hero-sub, .lp-hero-btn--enter { animation: none; }
         .lp-hero-ctas { transform: none; }
+        /* WCAG 2.1 SC 2.2.2 — no auto-playing motion for users who asked for
+           none. The apex ships ZERO JS (CSP default-src 'none'), so the video
+           cannot be paused programmatically; hiding it is the only CSS-only
+           lever. .lp-hero-media's brand-violet gradient remains as the still
+           backdrop, so the hero still reads exactly as designed.
+           HONEST LIMIT: display:none stops the video PAINTING, and browsers
+           throttle or refuse playback for non-rendered media, but the spec
+           does not guarantee the bytes are never fetched. Eliminating the
+           fetch entirely needs a <script> the apex is not allowed to have. */
+        .lp-hero-video { display: none; }
     }
 
     /* ─── Product showcase — full-bleed screenshot + overlaid caption row ──
@@ -715,12 +884,13 @@ export const LANDING_PAGE_STYLES = `
         border: none;
         border-radius: 8px;
         cursor: pointer;
-        color: #1a1a1a;
+        /* White: the bar it sits on is now #6600FF (8.1:1). */
+        color: #ffffff;
         flex-shrink: 0;
         transition: background 0.12s;
-        margin-left: auto;
+        margin-left: 6px;
     }
-    .lp-hamburger:hover { background: #f5f5f5; }
+    .lp-hamburger:hover { background: rgba(255,255,255,0.18); }
     .lp-hamburger svg { display: block; }
 
     /* ── Mobile nav drawer ─────────────────────────────────────────────── */
@@ -845,12 +1015,19 @@ export const LANDING_PAGE_STYLES = `
            absolutely-positioned drawer still resolves against it. */
         .lp-nav {
             align-items: center;
-            height: 60px;
-            padding: 0 16px;
+            min-height: 56px;
+            padding: 0 12px;
         }
-        /* Hide desktop nav links and action buttons */
+        /* Hide desktop nav links and the four action CTAs. The ACTIONS ROW
+           itself stays laid out — the tile mark lives inside it, and the
+           founder's brief puts that mark on the right at every width. */
         .lp-nav-links { display: none; }
-        .lp-nav-actions { display: none; }
+        .lp-nav-contact,
+        .lp-nav-login,
+        .lp-nav-cta,
+        .lp-nav-demo { display: none; }
+        .lp-nav-actions { gap: 4px; }
+        .lp-nav-mark { height: 34px; margin-left: 4px; }
         /* Show hamburger */
         .lp-hamburger { display: flex; }
         /* Show mobile drawer */
@@ -866,11 +1043,15 @@ export const LANDING_PAGE_STYLES = `
             flex-wrap: wrap;
             height: auto;
             align-items: center;
-            padding: 10px 14px;
+            padding: 10px 12px;
             row-gap: 8px;
         }
+        /* The links pill is absolutely positioned on desktop; on the wrapped
+           apex header it must return to NORMAL FLOW to occupy row 2. */
         .lp-nav--apex .lp-nav-links {
             display: flex;
+            position: static;
+            transform: none;
             order: 3;
             flex: 1 0 100%;
             justify-content: center;
@@ -878,11 +1059,11 @@ export const LANDING_PAGE_STYLES = `
         }
         .lp-nav--apex .lp-nav-link { padding: 7px 11px; font-size: 13px; }
         .lp-nav--apex .lp-nav-actions { display: flex; margin: 0 0 0 auto; }
-        /* Only the primary CTA survives the narrow row. */
+        /* Only the primary CTA survives the narrow row (plus the tile mark). */
         .lp-nav--apex .lp-nav-contact,
         .lp-nav--apex .lp-nav-login,
         .lp-nav--apex .lp-nav-cta { display: none; }
-        .lp-nav--apex .lp-nav-demo { padding: 9px 16px; font-size: 13px; }
+        .lp-nav--apex .lp-nav-demo { display: inline-flex; padding: 9px 16px; font-size: 13px; }
 
         /* Scale down logo */
         .lp-logo-icon { width: 36px; height: 36px; }
@@ -895,6 +1076,22 @@ export const LANDING_PAGE_STYLES = `
             padding: 12px 16px 28px;
             justify-content: center;
         }
+        /* 56px is the mobile .lp-nav min-height. */
+        .lp-hero--video {
+            height: calc(100dvh - 56px);
+            min-height: 460px;
+            padding: 16px 12px;
+        }
+        .lp-hero-panel {
+            width: 100%;
+            padding: 24px 18px 26px;
+            border-radius: 20px;
+        }
+        .lp-hero--video .lp-hero-btn {
+            width: 100%;
+            justify-content: center;
+        }
+        .lp-hero--video .lp-hero-ctas { width: 100%; }
         .lp-hero-card {
             padding: 32px 24px 36px;
             max-width: 100%;

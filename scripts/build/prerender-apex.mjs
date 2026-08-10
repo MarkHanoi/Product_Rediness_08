@@ -160,6 +160,11 @@ const APEX_CSP = [
   // is a permission, not a preference — staying self-contained means marketing
   // cannot be broken by a third-party outage, and the CSP stays tight.
   "img-src 'self' data:",
+  // The hero background video ships INSIDE the apex too (public/apex/hero.mp4).
+  // <video>/<source> is governed by media-src, which falls back to
+  // default-src 'none' — so WITHOUT this line the hero video is CSP-blocked and
+  // the section silently degrades to its gradient. 'self' only; no CDN.
+  "media-src 'self'",
   "font-src 'self' data:",
   "connect-src 'self'",
   "form-action 'self'",
@@ -893,15 +898,20 @@ if (failures.length > 0) {
 // what check-apex-size.mjs enforces. Warning on RAW bytes was fine while the
 // apex was pure HTML + inline CSS (raw >> gzip, so it erred safe), but the
 // hero WebP is ALREADY compressed — raw bytes now overstate the real payload
-// by ~35% and would warn spuriously. Measure what the gate measures.
+// by ~35% and would warn spuriously. Measure what the gate measures — which
+// since the §6.1.3.1 amendment (2026-08-09) excludes streamed media, counted
+// on its own 24 MB budget. Keeping this warning on the OLD accounting would
+// make it fire on every single build and train everyone to ignore it.
+const MEDIA_EXT = /\.(mp4|webm|ogv|mov|m4v)$/i;
 const walk = (dir) => readdirSync(dir).flatMap((name) => {
   const full = resolve(dir, name);
   if (statSync(full).isDirectory()) return walk(full);
-  return name === '_headers' || name === '_redirects' ? [] : [full];
+  if (name === '_headers' || name === '_redirects' || MEDIA_EXT.test(name)) return [];
+  return [full];
 });
 const gzTotal = walk(outDir).reduce((sum, f) => sum + gzipSync(readFileSync(f)).length, 0);
 if (gzTotal > 200 * 1024) {
-  console.warn(`[prerender-apex] WARN — gzipped output ${(gzTotal / 1024).toFixed(1)} KB exceeds the 200 KB budget (C51 6.1.3).`);
+  console.warn(`[prerender-apex] WARN — gzipped first-paint output ${(gzTotal / 1024).toFixed(1)} KB exceeds the 200 KB budget (C51 §6.1.3).`);
 }
 
 console.log(`[prerender-apex] done.`);

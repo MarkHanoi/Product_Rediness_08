@@ -10,13 +10,20 @@
  * C51 §2.1.5 forbids exactly that hand-mirror drift. Both surfaces now
  * call this one function.
  *
- * HEADER TREATMENT (motif.io-modelled, founder brief 2026-08-07)
- * -------------------------------------------------------------
- * The nav was previously hidden (`.lp-nav { display:none }`) and duplicated
- * into a temporary `.lp-bottom-bar` "for layout testing". That bottom bar is
- * GONE; the nav is back at the top: brand pinned tight to the viewport's
- * top-left corner, the links in a distinct floating glass pill, and the
- * actions closing the row — ending in the solid brand-purple "Book a demo".
+ * HEADER TREATMENT (KRETZ-modelled, founder brief 2026-08-09)
+ * -----------------------------------------------------------
+ * Supersedes the motif.io treatment of 2026-08-07. The reference is a slim
+ * real-estate landing bar: wordmark far left, nav links optically CENTRED in
+ * the bar, small utilities far right — and, per the founder, the PRYZM tile
+ * mark closing the row on the RIGHT-HAND side. The reference bar is white;
+ * PRYZM's is BRAND VIOLET (#6600FF), so every control inside it inverts to
+ * white-on-violet. Immediately below the bar sits a full-bleed hero VIDEO
+ * with the wordmark / headline / CTA floating in a glass panel over it —
+ * the reference's floating search control, carrying PRYZM's copy.
+ *
+ * The previous treatment's structure is preserved exactly (same three bands,
+ * same ids, same CTA order) so `LandingPage.ts`'s addEventListener wiring and
+ * the `MarketingPages.test.ts` structural assertions still resolve.
  *
  * IMPORT PURITY (NON-NEGOTIABLE)
  * ------------------------------
@@ -108,6 +115,40 @@ export const HERO_IMAGE_ALT =
     + 'controls across the top.';
 
 /**
+ * NAV MARK — the PRYZM tile logo closing the header on the RIGHT.
+ *
+ * Source: docs/04-reference/images/Gemini_Generated_Image_bogd6hbogd6hbogd (1).png
+ * (1024×1045, 1.8 MB). That file is NOT web-served — `docs/` is not a publicDir —
+ * and shipping 1.8 MB for a 40 px mark would be indefensible, so it was CROPPED
+ * to the tile (the pale surround alpha-matted away, giving clean rounded corners
+ * over the violet bar) and re-encoded to 128×131 (~25 KB) at
+ * `public/apex/pryzm-mark.png`. That path is Vite's publicDir, so the SAME file
+ * serves the in-app landing at /apex/… and is copied into `dist-apex/apex/` by
+ * `scripts/build/prerender-apex.mjs` for the apex (C51 §2.2.4 self-contained).
+ */
+export const NAV_MARK_URL = '/apex/pryzm-mark.png';
+export const NAV_MARK_WIDTH = 128;
+export const NAV_MARK_HEIGHT = 131;
+export const NAV_MARK_ALT = 'PRYZM';
+
+/**
+ * HERO VIDEO — the full-bleed background of the hero section.
+ *
+ * TESTING ASSET (founder brief 2026-08-09): a 1920×1080 / 92 s / 14.25 MB MP4.
+ * It is deliberately NOT part of the C51 §6.1.3 first-paint budget — see the
+ * media carve-out in `scripts/check/check-apex-size.mjs` and the §6.1.3
+ * amendment that ratifies it. It is `preload="metadata"`, so first paint costs
+ * only the poster; the body streams afterwards.
+ *
+ * The poster is a 64×36 LQIP the browser upscales — a real first frame could
+ * not be extracted (no ffmpeg in this toolchain), so it is a brand-violet field
+ * matching `.lp-hero-media`'s CSS gradient. Its only job is to make sure the
+ * hero never flashes BLACK, and at 1.7 KB it does that for free.
+ */
+export const HERO_VIDEO_URL = '/apex/hero.mp4';
+export const HERO_VIDEO_POSTER_URL = '/apex/hero-poster.png';
+
+/**
  * Returns the landing page's inner HTML (the contents of `.lp-shell`).
  *
  * In 'app' mode the caller (LandingPage.build) sets this as innerHTML on a
@@ -153,7 +194,6 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
             <!-- ── Nav bar ──────────────────────────────────── -->
             <nav class="lp-nav${apex ? ' lp-nav--apex' : ''}">
                 <div class="lp-nav-brand" aria-label="PRYZM">
-                    ${PRYZM_PYRAMID_SVG}
                     <div class="lp-logo-wordmark">
                         <span class="lp-logo-name">PRYZM</span>
                         <span class="lp-logo-sub">BIM PLATFORM</span>
@@ -169,6 +209,7 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                     ${cta('lp-nav-login', 'lp-nav-login', SIGNIN, 'Log in')}
                     ${cta('lp-nav-cta', 'lp-nav-cta', SIGNUP, 'Get started for free')}
                     ${cta('lp-nav-demo', 'lp-nav-demo', DEMO, 'Book a demo')}
+                    <img class="lp-nav-mark" src="${NAV_MARK_URL}" width="${NAV_MARK_WIDTH}" height="${NAV_MARK_HEIGHT}" alt="${NAV_MARK_ALT}" decoding="async">
                 </div>
                 ${apex ? '' : `<!-- ── Mobile hamburger (visible at ≤768px) ── -->
                 <button class="lp-hamburger" id="lp-hamburger" aria-label="Open menu" aria-expanded="false">
@@ -194,31 +235,54 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 </div>`}
             </nav>
 
-            <!-- ── Hero — glyph → wordmark → display headline → subhead ───
-                 Composition per the founder's 2026-08-07 design, sitting on
-                 the EXISTING animated gradient (the palette does not change). -->
-            <section class="lp-hero">
-                <!-- Pyramid: the JS 3-D spinner mounts here in app mode; apex
-                     (no script) gets the same static mark the nav uses. -->
-                <div class="lp-hero-logo-block" aria-hidden="true">${apex ? PRYZM_PYRAMID_SVG : ''}</div>
+            <!-- ── Hero — full-bleed video with a floating control over it ───
+                 KRETZ-modelled (founder brief 2026-08-09): the video fills the
+                 viewport below the bar; the glyph → wordmark → headline →
+                 subhead → CTA column floats in a glass panel centred on it.
 
-                <p class="lp-hero-wordmark">${HERO_WORDMARK}</p>
+                 THE VIDEO IS DECORATIVE. aria-hidden on the media wrapper keeps
+                 it out of the accessibility tree; it has no controls attribute,
+                 so it is not in the tab order and cannot trap focus. tabindex=-1 states
+                 that explicitly rather than relying on the default.
 
-                <h1 class="lp-hero-heading">${HERO_HEADLINE}</h1>
-
-                <p class="lp-hero-sub">${HERO_SUBHEAD}</p>
-
-                <!-- CTA button — MIAW "ask me anything" glass-pill style, delayed entrance -->
-                <div class="lp-hero-ctas">
-                    ${cta(
-                        'lp-hero-btn',
-                        'lp-hero-btn lp-hero-btn--enter',
-                        SIGNUP,
-                        `<svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/></svg>
-                        Start here`,
-                    )}
+                 muted+playsinline are what make autoplay legal on iOS/Safari;
+                 preload="metadata" keeps the 14 MB body off the first-paint
+                 critical path; poster paints instantly so there is never a black
+                 flash. prefers-reduced-motion is honoured in CSS by hiding the
+                 <video> outright and leaving .lp-hero-media's brand-violet
+                 gradient — the apex ships ZERO JS (CSP default-src 'none'), so a
+                 CSS-only reduced-motion path is the only one available. -->
+            <section class="lp-hero lp-hero--video">
+                <div class="lp-hero-media" aria-hidden="true">
+                    <video class="lp-hero-video" autoplay muted loop playsinline
+                           preload="metadata" poster="${HERO_VIDEO_POSTER_URL}"
+                           tabindex="-1" disablepictureinpicture>
+                        <source src="${HERO_VIDEO_URL}" type="video/mp4">
+                    </video>
                 </div>
 
+                <div class="lp-hero-panel">
+                    <!-- Pyramid: the JS 3-D spinner mounts here in app mode; apex
+                         (no script) gets the same static mark. -->
+                    <div class="lp-hero-logo-block" aria-hidden="true">${apex ? PRYZM_PYRAMID_SVG : ''}</div>
+
+                    <p class="lp-hero-wordmark">${HERO_WORDMARK}</p>
+
+                    <h1 class="lp-hero-heading">${HERO_HEADLINE}</h1>
+
+                    <p class="lp-hero-sub">${HERO_SUBHEAD}</p>
+
+                    <!-- CTA button — MIAW "ask me anything" glass-pill style, delayed entrance -->
+                    <div class="lp-hero-ctas">
+                        ${cta(
+                            'lp-hero-btn',
+                            'lp-hero-btn lp-hero-btn--enter',
+                            SIGNUP,
+                            `<svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/></svg>
+                            Start here`,
+                        )}
+                    </div>
+                </div>
             </section>
 
             <!-- ── Product showcase — full-bleed screenshot + caption row ───

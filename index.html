@@ -103,34 +103,51 @@
          (memory: landing-skeleton-vs-real-mismatch.md), or the header
          visibly re-lays-out when the real LandingPage swaps in. */
       .lp-skel-nav {
-        display: flex; align-items: flex-start; gap: 16px;
-        padding: 12px 20px 10px 14px; background: transparent; flex-shrink: 0;
+        display: flex; align-items: center; gap: 16px; position: relative;
+        padding: 0 18px; min-height: 64px; background: #6600FF; flex-shrink: 0;
+        box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
       }
-      .lp-skel-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 151px; }
+      .lp-skel-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 151px; margin-right: auto; }
       .lp-skel-logo-icon { width: 48px; height: 48px; display: block; flex-shrink: 0; overflow: visible; }
       .lp-skel-wordmark { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
       .lp-skel-name {
-        font-size: 20px; font-weight: 700; letter-spacing: 4px; color: #150830; line-height: 1;
+        font-size: 20px; font-weight: 700; letter-spacing: 4px; color: #ffffff; line-height: 1;
       }
       .lp-skel-sub {
-        font-size: 7.5px; font-weight: 400; letter-spacing: 4.5px; color: #9ca3af;
+        font-size: 7.5px; font-weight: 400; letter-spacing: 4.5px; color: rgba(255,255,255,0.78);
         text-transform: uppercase; line-height: 1;
       }
-      /* Floating nav pill — mirrors `.lp-nav-links`. */
+      /* Centred nav pill — mirrors `.lp-nav-links`, including its two-stage
+         centring (in-flow by default, absolutely centred only ≥1200px). */
       .lp-skel-nav-links {
-        display: flex; align-items: center; gap: 2px; flex: 0 0 auto;
-        margin: 5px auto 0; padding: 5px 8px;
-        background: rgba(255,255,255,0.55);
+        display: flex; align-items: center; gap: 2px; flex: 0 0 auto; margin: 0 auto;
+        padding: 4px 6px;
+        background: rgba(255,255,255,0.13);
         backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-        border: 1px solid rgba(255,255,255,0.72); border-radius: 999px;
-        box-shadow: 0 6px 22px rgba(102,0,255,0.10);
+        border: 1px solid rgba(255,255,255,0.24); border-radius: 999px;
+      }
+      @media (min-width: 1200px) {
+        .lp-skel-nav-links {
+          position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0;
+        }
+      }
+      @media (max-width: 1023px) and (min-width: 769px) {
+        .lp-skel-contact { display: none; }
+        .lp-skel-cta { display: none; }
+        .lp-skel-nav-link { padding: 7px 10px; font-size: 13px; }
       }
       .lp-skel-nav-link {
-        font-size: 13.5px; color: #0A0A0F; font-weight: 500;
+        font-size: 13.5px; color: #ffffff; font-weight: 500;
         padding: 7px 13px; border-radius: 999px; white-space: nowrap;
         display: flex; align-items: center; gap: 3px;
       }
-      .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-top: 5px; }
+      .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+      /* §SKEL-MATCH — mirrors `.lp-nav-mark`: the tile logo closing the bar. */
+      .lp-skel-mark {
+        display: block; height: 40px; width: auto; flex-shrink: 0; margin-left: 10px;
+        border-radius: 10px;
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 4px 14px rgba(20,0,60,0.28);
+      }
       /* Wave 1.5c — `touch-action: manipulation` removes the 300 ms tap-delay
          mobile browsers add to non-double-tap-zoomable buttons.  Combined with
          `-webkit-tap-highlight-color: transparent` for a clean visual; the
@@ -154,31 +171,59 @@
         font-size: 13.5px; cursor: pointer; white-space: nowrap;
       }
       .lp-skel-contact {
-        background: none; border: 1px solid transparent; color: #0A0A0F;
+        background: none; border: 1px solid transparent; color: #ffffff;
         font-weight: 500; padding: 8px 13px;
       }
       .lp-skel-login {
-        background: rgba(255,255,255,0.55); border: 1px solid rgba(102,0,255,0.32);
-        color: #4A00B7; font-weight: 600; padding: 8px 17px;
+        background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.55);
+        color: #ffffff; font-weight: 600; padding: 8px 17px;
       }
       .lp-skel-cta {
-        background: rgba(102,0,255,0.10); border: 1px solid rgba(102,0,255,0.28);
-        color: #4A00B7; font-weight: 600; padding: 8px 17px;
+        background: rgba(255,255,255,0.22); border: 1px solid rgba(255,255,255,0.34);
+        color: #ffffff; font-weight: 600; padding: 8px 17px;
       }
       .lp-skel-demo {
-        background: #6600FF; border: 1px solid #6600FF; color: #ffffff;
+        background: #ffffff; border: 1px solid #ffffff; color: #4A00B7;
         font-weight: 600; padding: 9px 19px;
-        box-shadow: 0 6px 18px rgba(102,0,255,0.28);
+        box-shadow: 0 6px 18px rgba(20,0,60,0.24);
       }
       /* ── PRYZM4 skeleton hero — centred gradient layout ──────────────────
          Mirrors the real LandingPage PRYZM4 centred hero: logo-block on top,
          massive heading, subtitle, pill CTAs, feature-tag strip.
          No mosaic, no white card — the gradient shell IS the background. */
+      /* §SKEL-MATCH (2026-08-09) — mirrors `.lp-hero--video`. The skeleton
+         does NOT request the 14 MB hero MP4: adding a video fetch before the
+         JS bundle resolves would be the opposite of paint-on-first-byte. It
+         paints the SAME violet field `.lp-hero-media` falls back to, at the
+         SAME box, with the SAME floating panel — so when the real LandingPage
+         swaps in, the only thing that changes is that the video starts. */
       .lp-skel-hero {
         flex: 0 0 auto;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        padding: 64px 24px 40px; text-align: center;
+        height: calc(100dvh - 64px); min-height: 420px;
+        padding: 24px; text-align: center; overflow: hidden; position: relative;
+        background:
+          radial-gradient(ellipse 85% 90% at 28% 30%, #6600FF 0%, transparent 70%),
+          radial-gradient(ellipse 75% 80% at 78% 78%, #4A00B7 0%, transparent 72%),
+          #1A0640;
+      }
+      /* Mirrors `.lp-hero-media::after` — the scrim, so the copy sits on the
+         identical value it will sit on once the video is behind it. */
+      .lp-skel-hero::after {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.24) 42%, rgba(26,6,64,0.58) 100%);
+      }
+      /* Mirrors `.lp-hero-panel`. */
+      .lp-skel-hero-panel {
+        position: relative; z-index: 1;
+        display: flex; flex-direction: column; align-items: center;
+        width: min(760px, 100%);
+        padding: 34px 40px 38px; border-radius: 28px;
+        background: rgba(26,6,64,0.30);
+        backdrop-filter: blur(22px) saturate(1.1); -webkit-backdrop-filter: blur(22px) saturate(1.1);
+        border: 1px solid rgba(255,255,255,0.22);
+        box-shadow: 0 24px 70px rgba(12,0,40,0.34);
       }
       .lp-skel-hero-logo-block {
         display: flex; flex-direction: column; align-items: center; gap: 10px;
@@ -187,7 +232,7 @@
       .lp-skel-hero-icon { width: 44px; height: 44px; display: block; }
       .lp-skel-hero-logoname {
         font-size: 13px; font-weight: 700; letter-spacing: 0.42em; text-indent: 0.42em;
-        color: #4A00B7; text-transform: uppercase; line-height: 1; margin: 0 0 20px;
+        color: rgba(255,255,255,0.82); text-transform: uppercase; line-height: 1; margin: 0 0 20px;
       }
       /* §SKEL-MATCH (2026-05-29) — these values must match `.lp-hero-heading`
          and `.lp-hero-sub` in apps/editor/src/ui/styles/panels/marketingPages.ts
@@ -198,11 +243,13 @@
       .lp-skel-heading {
         font-size: clamp(30px, 6.0vw, 88px); font-weight: 800; line-height: 1.02;
         font-family: var(--lp-skel-font);
-        color: #6600FF;
+        /* White, matching `.lp-hero--video .lp-hero-heading` — the ground is
+           the violet scrim now, not the pale lavender field. */
+        color: #ffffff;
         margin: 0 0 20px; letter-spacing: -0.03em; max-width: none; text-transform: uppercase;
       }
       .lp-skel-sub-copy {
-        font-size: clamp(14px, 1.35vw, 18px); color: #4A00B7; line-height: 1.5;
+        font-size: clamp(14px, 1.35vw, 18px); color: rgba(255,255,255,0.92); line-height: 1.5;
         margin: 0 0 36px; max-width: 540px; font-weight: 500; letter-spacing: 0.01em;
       }
       /* Showcase plate — reserves the SAME 2560×1440 box as .lp-showcase-frame
@@ -230,16 +277,17 @@
       .lp-skel-showcase-item:last-child { border-right: none; }
       .lp-skel-hero-ctas {
         display: flex; gap: 12px; align-items: center; justify-content: center;
-        flex-wrap: wrap; margin-bottom: 44px;
+        flex-wrap: wrap; margin-bottom: 8px;
       }
+      /* §SKEL-MATCH — mirrors `.lp-hero--video .lp-hero-btn` (solid white,
+         purple text) so the CTA does not restyle when the real page mounts. */
       .lp-skel-hero-btn {
         display: inline-flex; align-items: center; gap: 10px;
-        background: rgba(0,0,0,0.28); backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        color: #fff; border: 1px solid rgba(255,255,255,0.22);
-        border-radius: 999px; font-size: 15px; font-weight: 300; font-style: italic;
-        padding: 13px 28px; cursor: pointer; font-family: var(--lp-skel-font);
-        letter-spacing: 0.06em; white-space: nowrap;
+        background: #ffffff; color: #4A00B7; border: 1px solid #ffffff;
+        border-radius: 999px; font-size: 15px; font-weight: 600;
+        padding: 14px 30px; min-height: 48px; cursor: pointer; font-family: var(--lp-skel-font);
+        letter-spacing: 0.02em; white-space: nowrap;
+        box-shadow: 0 10px 30px rgba(12,0,40,0.34);
       }
       .lp-skel-hero-btn-demo {
         display: inline-flex; align-items: center; gap: 10px;
@@ -304,18 +352,22 @@
       .lp-skel-hamburger {
         display: none; align-items: center; justify-content: center;
         width: 44px; height: 44px; background: none; border: none;
-        border-radius: 8px; cursor: pointer; color: #1a1a1a;
-        flex-shrink: 0; margin-left: auto; padding: 0;
+        border-radius: 8px; cursor: pointer; color: #ffffff;
+        flex-shrink: 0; margin-left: 6px; padding: 0;
       }
       @media (max-width: 768px) {
-        .lp-skel-nav { padding: 0 16px; height: 60px; align-items: center; }
+        .lp-skel-nav { padding: 0 12px; min-height: 56px; align-items: center; }
         .lp-skel-nav-links { display: none; }
-        .lp-skel-nav-actions { display: none; }
+        /* §SKEL-MATCH — the CTAs hide, the actions ROW stays (it carries the mark). */
+        .lp-skel-contact, .lp-skel-login, .lp-skel-cta, .lp-skel-demo { display: none; }
+        .lp-skel-nav-actions { gap: 4px; }
+        .lp-skel-mark { height: 34px; margin-left: 4px; }
         .lp-skel-hamburger { display: flex; }
         .lp-skel-logo-icon { width: 36px; height: 36px; }
         .lp-skel-name { font-size: 16px; letter-spacing: 3px; }
         .lp-skel-sub { font-size: 6.5px; letter-spacing: 3.5px; }
-        .lp-skel-hero { padding: 12px 16px 28px; }
+        .lp-skel-hero { height: calc(100dvh - 56px); min-height: 460px; padding: 16px 12px; }
+        .lp-skel-hero-panel { width: 100%; padding: 24px 18px 26px; border-radius: 20px; }
         .lp-skel-hero-logo-block { min-height: 76px; margin-bottom: 10px; }
         .lp-skel-hero-icon { width: 54px; height: 54px; }
         .lp-skel-hero-logoname { font-size: 11px; margin-bottom: 14px; }
@@ -370,12 +422,10 @@
       -->
       <div class="lp-skel-shell" data-pryzm-skeleton="landing" aria-hidden="true">
         <nav class="lp-skel-nav">
+          <!-- §SKEL-MATCH — wordmark ONLY, as in `.lp-nav-brand`: the pyramid
+               glyph left the bar in the 2026-08-09 pass and the tile mark now
+               closes the row on the right. -->
           <div class="lp-skel-brand">
-            <svg class="lp-skel-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-              <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="#0b0b12" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
-              <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.6" stroke-linecap="round"/>
-              <path d="M18.2 2.6 26.8 33.2" stroke="#0b0b12" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
             <div class="lp-skel-wordmark">
               <span class="lp-skel-name">PRYZM</span>
               <span class="lp-skel-sub">BIM PLATFORM</span>
@@ -391,6 +441,8 @@
             <button class="lp-skel-login" type="button" data-skel-action="login">Log in</button>
             <button class="lp-skel-cta" type="button" data-skel-action="getStarted">Get started for free</button>
             <button class="lp-skel-demo" type="button" data-skel-action="contactSales">Book a demo</button>
+            <!-- §SKEL-MATCH — mirrors the `.lp-nav-mark` <img> in landingMarkup.ts. -->
+            <img class="lp-skel-mark" src="/apex/pryzm-mark.png" width="128" height="131" alt="PRYZM" decoding="async">
           </div>
           <!-- Wave 1.5c — mobile hamburger placeholder (matches `.lp-hamburger`
                in marketingPages.ts so the layout doesn't shift when the real
@@ -405,33 +457,36 @@
             </svg>
           </button>
         </nav>
-        <!-- PRYZM4 centred gradient hero skeleton -->
+        <!-- Full-bleed hero skeleton — the violet field the real hero video
+             sits on, with the same floating panel. No <video> here: see the
+             §SKEL-MATCH note on `.lp-skel-hero`. -->
         <section class="lp-skel-hero">
-          <!-- CSS 3-D spinning pyramid — identical to createPryzmLogoSpinner('lg') -->
-          <div class="lp-skel-hero-logo-block" aria-hidden="true">
-            <div class="lp-skel-spinner-wrap">
-              <div class="lp-skel-spinner-scene">
-                <div class="lp-skel-spinner-pyramid">
-                  <div class="lp-skel-spinner-face lp-skel-spinner-face--front"></div>
-                  <div class="lp-skel-spinner-face lp-skel-spinner-face--right"></div>
-                  <div class="lp-skel-spinner-face lp-skel-spinner-face--back"></div>
-                  <div class="lp-skel-spinner-face lp-skel-spinner-face--left"></div>
+          <div class="lp-skel-hero-panel">
+            <!-- CSS 3-D spinning pyramid — identical to createPryzmLogoSpinner('lg') -->
+            <div class="lp-skel-hero-logo-block" aria-hidden="true">
+              <div class="lp-skel-spinner-wrap">
+                <div class="lp-skel-spinner-scene">
+                  <div class="lp-skel-spinner-pyramid">
+                    <div class="lp-skel-spinner-face lp-skel-spinner-face--front"></div>
+                    <div class="lp-skel-spinner-face lp-skel-spinner-face--right"></div>
+                    <div class="lp-skel-spinner-face lp-skel-spinner-face--back"></div>
+                    <div class="lp-skel-spinner-face lp-skel-spinner-face--left"></div>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <p class="lp-skel-hero-logoname">PRYZM</p>
+            <h1 class="lp-skel-heading">DEVELOPMENT. COMPUTED.</h1>
+            <p class="lp-skel-sub-copy">Turning planning law into development intelligence.</p>
+
+            <div class="lp-skel-hero-ctas">
+              <button class="lp-skel-hero-btn" type="button" data-skel-action="getStarted">
+                <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/></svg>
+                Start here
+              </button>
+            </div>
           </div>
-
-          <p class="lp-skel-hero-logoname">PRYZM</p>
-          <h1 class="lp-skel-heading">DEVELOPMENT. COMPUTED.</h1>
-          <p class="lp-skel-sub-copy">Turning planning law into development intelligence.</p>
-
-          <div class="lp-skel-hero-ctas">
-            <button class="lp-skel-hero-btn" type="button" data-skel-action="getStarted">
-              <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="white"/></svg>
-              Start here
-            </button>
-          </div>
-
         </section>
         <!-- Showcase plate — the same box as .lp-showcase-frame, no network hop. -->
         <div class="lp-skel-showcase">

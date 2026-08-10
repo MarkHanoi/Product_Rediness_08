@@ -319,8 +319,16 @@ describe('landingMarkup — motif-modelled header', () => {
 describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () => {
     it('the nav is visible and pinned to the top (no display:none)', () => {
         expect(LANDING_PAGE_STYLES).not.toMatch(/\.lp-nav\s*\{\s*display:\s*none/);
-        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*position:\s*relative/);
-        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*align-items:\s*flex-start/);
+        // 2026-08-09 (KRETZ pass): position went relative → STICKY. Sticky still
+        // establishes the containing block the absolutely-positioned links pill
+        // and the mobile drawer (top:100%) resolve against, which is what the
+        // original `position: relative` assertion was really protecting.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*position:\s*sticky/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*top:\s*0/);
+        // …and align-items went flex-start → CENTER: the 2026-08-07 header hung
+        // the brand off the viewport's top edge; the 2026-08-09 one is a slim
+        // bar with everything vertically centred in it.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*align-items:\s*center/);
     });
 
     it('styles every header control the markup emits', () => {
@@ -337,7 +345,14 @@ describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () 
     });
 
     it('uses a11y tokens for the new CTA colours, never an off-brand hex (C51 §2.1.4)', () => {
-        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*background:\s*#6600FF/);
+        // 2026-08-09: the BAR is now #6600FF, so the primary pill inverted to
+        // solid white with #4A00B7 text — a solid-purple pill on a purple bar
+        // would vanish. Both are C43 §1.5 tokens; the point of this test is
+        // that the header never reaches outside the token set, not that any
+        // one control keeps a particular fill.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*background:\s*#6600FF/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*background:\s*#ffffff/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*color:\s*#4A00B7/);
         // The retired ADR-0252 mirror hex must never reappear.
         expect(LANDING_PAGE_STYLES).not.toContain('#5a4282');
     });

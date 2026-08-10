@@ -338,7 +338,18 @@ The `/pricing`, `/manifesto`, `/trust` rows also have a SPA-side `?page=` repres
 
 - §6.1.1 Pre-renders the §5 apex routes to static HTML via the pre-render step (Vite + a static-route emitter; implementation owned by `scripts/build/build-apex.mjs`, to be authored under ADR-0255 Phase A).
 - §6.1.2 Emits to `apps/editor/dist-apex/` — one `.html` per route, plus a small `assets/` tree (CSS, fonts, images).
-- §6.1.3 MUST emit a bundle ≤ 200 KB total (gzipped), measured by `check-apex-size.mjs` (planned). The 200 KB ceiling is the budget that delivers §2.1.2's sub-100 ms first paint.
+- §6.1.3 MUST emit a **first-paint payload** ≤ 200 KB (gzipped), measured by `check-apex-size.mjs`. The 200 KB ceiling is the budget that delivers §2.1.2's sub-100 ms first paint.
+
+  **§6.1.3.1 — Streamed-media carve-out (amended 2026-08-09).** Streamed media (`.mp4` / `.webm` / `.ogv` / `.mov` / `.m4v`) is measured on a SEPARATE budget of **24 MB raw** and is NOT charged against the 200 KB first-paint ceiling. Both budgets are hard-fail and both print on every gate run.
+
+  This amendment lands with the founder's full-bleed hero video (a 1920×1080 / 92 s / 14.25 MB testing asset at `public/apex/hero.mp4`). It is a correction to what the gate MEASURES, not a relaxation of what §2.1.2 PROMISES. A `<video preload="metadata" poster=…>` contributes a metadata range request to first paint, not its body; the poster paints immediately and the body streams afterwards. Summing a progressive-download asset into a time-to-first-paint ceiling would fail pages that are genuinely fast, and would push the next contributor to delete the measurement rather than the megabytes.
+
+  Two clauses that are NOT relaxed and constrain this carve-out:
+
+  - **§2.1.2 still binds.** The carve-out changes the accounting, not the promise. If a hero video measurably degrades LCP or TTFB from a PoP, §2.1.2 is violated regardless of which budget the bytes were counted under.
+  - **§2.2.4 still binds.** Media MUST be apex-served (`media-src 'self'`; no video CDN without an §2.2.4 allowlist entry + a §7 amendment). The apex CSP in `scripts/build/prerender-apex.mjs` gained `media-src 'self'` in the same change — without it `<source>` falls back to `default-src 'none'` and the video is silently blocked.
+
+  **Open item for the founder, stated rather than buried:** 14.25 MB is a TESTING asset. Before this is a production hero it wants a short, hard-cut, ~1080p-or-720p, ≤ 3 MB encode (and ideally a `.webm` sibling). The 24 MB media budget is sized to notice the SECOND video, not to bless the first one forever.
 - §6.1.4 MUST include a `_headers` file (Cloudflare Pages CSP for apex — the permissive variant per §2.1) and a `_redirects` file (www → apex, `/old-pricing` → `/pricing`, etc.).
 - §6.1.5 MUST consume `apps/editor/src/ui/platform/` as the component source — no `apps/docs-site/` imports.
 
@@ -376,7 +387,7 @@ Five went live 2026-06-02 — the three apex-output gates (`npm run check:apex`)
 | Gate | Path | Status | What it checks | Phase |
 |---|---|---|---|---|
 | `check-apex-self-contained` | `scripts/check/check-apex-self-contained.mjs` | ✅ **LIVE** (`npm run check:apex`) | Parses the rendered apex HTML for `<script src>` / `<link href>` / `<img src>` / `@import` whose URL host is `app.pryzm.so` (or any non-`pryzm.so` + non-allowlist host). Enforces §2.2.4. Current: 0 script tags, all assets same-origin. | Phase A |
-| `check-apex-size` | `scripts/check/check-apex-size.mjs` | ✅ **LIVE** (`npm run check:apex`) | Sums gzipped byte size of `dist-apex/` (excludes `_headers`/`_redirects`/dotfiles); fails if > 200 KB. Enforces §6.1.3. Current: 21.2 KB (89% headroom). | Phase A |
+| `check-apex-size` | `scripts/check/check-apex-size.mjs` | ✅ **LIVE** (`npm run check:apex`) | Sums gzipped byte size of `dist-apex/` (excludes `_headers`/`_redirects`/dotfiles **and streamed media, which is measured on its own 24 MB raw budget** — §6.1.3.1); fails if either budget is exceeded. Enforces §6.1.3. | Phase A |
 | `check-apex-no-auth-cookies` | `scripts/check/check-apex-no-auth-cookies.mjs` | ✅ **LIVE** (`npm run check:apex`) | Scans the apex build output (`dist-apex/`) + the pre-render source for any `Set-Cookie` / `document.cookie` / `req.cookies` / `res.cookie(` usage (comment lines skipped). Enforces §2.2.1. | Phase A (with the first apex deploy) |
 | `check-no-product-routes-in-docs-site` | `scripts/check/check-no-product-routes-in-docs-site.mjs` | ✅ **LIVE** (`npm run check:docs-site`, in the `apex-gates` CI job) | Fails any PR adding `apps/docs-site/src/pages/{index,pricing,manifesto,trust,start,solutions,resources}.astro` (or successors). Enforces §2.1.5 + §8 + the ADR-0255 retirement. The 5 marketing pages + `gen-docs-site-pricing.mjs` + `pricing.json` were deleted (A.17.x.14); only `404.astro` remains in the docs-site. | Phase A close |
 | `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred — §3.1.2.1: blocker 3 (`connect-src`) RESOLVED 2026-06-02; 2 remain (Three.js/Cesium `unsafe-eval` → Phase J · CSS-in-JS `unsafe-inline` → nonce migration), each needs a full-app run.** | Phase A (gates the Fly deploy) |
@@ -424,6 +435,7 @@ New subdomains (`portal.pryzm.so`, `api-v2.pryzm.so`, `internal.pryzm.so`) requi
 
 ## §10 — Change log
 
+- **2026-08-09** — **§6.1.3 split into a first-paint budget + a streamed-media budget** (new §6.1.3.1). Landed with the founder's KRETZ-modelled landing pass: a violet top bar, the tile mark on the right, and a full-bleed hero video. `check-apex-size.mjs` now measures the two separately (200 KB gz first paint / 24 MB raw media), and the apex CSP in `prerender-apex.mjs` gained `media-src 'self'` — without it `<source>` falls back to `default-src 'none'` and the hero video is silently blocked while the page still "looks fine". §2.1.2 and §2.2.4 are explicitly NOT relaxed. The 14.25 MB asset is flagged in §6.1.3.1 as a TESTING encode, not a production hero.
 - **2026-06-03** — Canonicalized the **apex→app clean entry-path routing**. Added **§3.1.8** (the clean-path → SPA `?page=` bridge, the MUST-side counterpart to §3.2.1, tagged `C51 §3.2.2` in `server.js`) + **§3.1.8.1** (the `landingMarkup.ts` single-source CTA mechanism, cross-ref §2.1.5) + **§5.3** (the entry-path routing table: path · host · behaviour · target · status for `/signup` · `/start` · `/sign-in` · `/contact` · `/solutions` · `/resources` · `/pricing` · `/manifesto` · `/trust`). Docs-only; no code change. The contract is now the source of truth for the previously-undocumented routing flow.
 - **2026-06-02** — Ratified as the normative form of ADR-0255 §0. First contract to govern PRYZM's hosting topology. Authored alongside ADR-0255's amendment pass (4 critical contract conflicts caught + corrected) so the invariants the ADR ratified are now lifted into permanent contract form. CI gates §7 declared but not yet authored.
 
