@@ -384,6 +384,7 @@ export * from './windows/UpdateWindowWidthCommand';
 // §FIX-HOSTED-TYPE-CHANGE (L-620)
 export * from './windows/UpdateWindowSystemTypeCommand';
 export * from './windows/UpdateWindowsSystemTypeBatchCommand';
+export * from './windows/CreateWindowsParametricBatchCommand';
 
 // ── Sprint AP (2026-05-13) — UndoManager extracted from src/engine/ ──────────
 export { UndoManager, AddObjectCommand, undoManager } from './UndoManager.js';

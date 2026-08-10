@@ -9,6 +9,7 @@ import { SetWindowTypeHandler } from './SetWindowType.js';
 // §FIX-DIMS-REACH-RECORD — SetWindowSize/SetWindowSillHeight imports removed with their registration.
 import { SetWindowFireRatingHandler } from './SetWindowFireRating.js';
 import { UpdateWindowsSystemTypeBatchHandler } from './UpdateWindowsSystemTypeBatch.js';
+import { CreateWindowsParametricBatchHandler } from './CreateWindowsParametricBatch.js';
 
 export const WINDOW_HANDLER_TYPES = [
   'window.create',
@@ -25,6 +26,8 @@ export const WINDOW_HANDLER_TYPES = [
   // §FEAT-WINDOW-TYPE-BATCH (ADR-0315) — batch retype ('all' or explicit ids),
   // one undo entry, bridged to the L-620-proven UpdateWindowSystemTypeCommand.
   'window.updateSystemTypeBatch',
+  // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315) — batch parametric creation, one undo entry.
+  'window.parametricCreate',
 ] as const;
 
 export type WindowHandlerType = (typeof WINDOW_HANDLER_TYPES)[number];
@@ -43,6 +46,7 @@ export function buildWindowHandlerSet(): readonly CommandHandler<unknown>[] {
     // retired (see WINDOW_HANDLER_TYPES note); initBusHandlers bridges own the verbs.
     new SetWindowFireRatingHandler() as unknown as CommandHandler<unknown>,
     UpdateWindowsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
+    CreateWindowsParametricBatchHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
