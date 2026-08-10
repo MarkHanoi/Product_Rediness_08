@@ -152,6 +152,14 @@ echo "build-arg GIT_SHA=$GIT_SHA GIT_BRANCH=$GIT_BRANCH BUILT_AT=$BUILT_AT"
 # --depot=false forces the LEGACY builder app, which (unlike the managed/Depot
 # builder) can be resized. fly-builder-autumn-headland-88 was raised to 16GB on
 # 2026-08-06 because the vite build peaks ~6GB and OOM-killed an 8GB builder.
+# §MSYS-ARG-EXCL — disable the conversion for THIS COMMAND ONLY.
+# The slash restored above is re-mangled the moment it crosses into flyctl.exe,
+# which is why v1246 AND v1247 both shipped 'C:/Program Files/Git/api/...' even
+# with a correct slash-less override: the shell VARIABLE was right and the
+# ARGUMENT was still rewritten. A global export fixes the argument but breaks
+# curl -o above (proved: curl 23). A per-command prefix fixes the argument
+# without touching any other process in this script.
+MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 \
 flyctl deploy --depot=false --remote-only -a "$APP" --yes \
   --build-arg LOWMEM=0 \
   --build-arg VITE_CESIUM_TOKEN="$CESIUM" \
