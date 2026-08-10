@@ -10,6 +10,7 @@ import { SetDoorSwingHandler } from './SetDoorSwing.js';
 // §FIX-DIMS-REACH-RECORD — SetDoorWidth/SetDoorHeight imports removed with their registration.
 import { SetDoorFireRatingHandler } from './SetDoorFireRating.js';
 import { SetDoorAccessibilityHandler } from './SetDoorAccessibility.js';
+import { UpdateDoorsSystemTypeBatchHandler } from './UpdateDoorsSystemTypeBatch.js';
 
 export const DOOR_HANDLER_TYPES = [
   'door.create',
@@ -25,6 +26,9 @@ export const DOOR_HANDLER_TYPES = [
   // UpdateElementParameterCommand → wallStore (hosted openings).
   'door.setFireRating',
   'door.setAccessibility',
+  // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — batch retype ('all' or explicit ids),
+  // one undo entry, bridged to the L-620-proven UpdateDoorSystemTypeCommand.
+  'door.updateSystemTypeBatch',
 ] as const;
 
 export type DoorHandlerType = (typeof DOOR_HANDLER_TYPES)[number];
@@ -46,6 +50,7 @@ export function buildDoorHandlerSet(): readonly CommandHandler<unknown>[] {
     // retired (see DOOR_HANDLER_TYPES note); initBusHandlers bridges own the verbs.
     new SetDoorFireRatingHandler() as unknown as CommandHandler<unknown>,
     new SetDoorAccessibilityHandler() as unknown as CommandHandler<unknown>,
+    UpdateDoorsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -65,3 +70,9 @@ export { SetDoorWidthHandler, type SetDoorWidthPayload } from './SetDoorWidth.js
 export { SetDoorHeightHandler, type SetDoorHeightPayload } from './SetDoorHeight.js';
 export { SetDoorFireRatingHandler, type SetDoorFireRatingPayload } from './SetDoorFireRating.js';
 export { SetDoorAccessibilityHandler, type SetDoorAccessibilityPayload } from './SetDoorAccessibility.js';
+export {
+  UpdateDoorsSystemTypeBatchHandler,
+  DOOR_TYPE_BATCH_REPORT_EVENT,
+  type UpdateDoorsSystemTypeBatchPayload,
+  type DoorTypeBatchReport,
+} from './UpdateDoorsSystemTypeBatch.js';

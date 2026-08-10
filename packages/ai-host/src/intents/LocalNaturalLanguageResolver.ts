@@ -46,6 +46,7 @@ import {
   parseWallRakeIntent,
   parseWallTypeIntent,
   parseWindowTypeIntent,
+  parseDoorTypeIntent,
   type ResolverContext,
   type ResolverLevel,
   type ResolverSelection,
@@ -971,6 +972,17 @@ function classify(
       confidence: 0.95,
       evidence: ['verb:change', 'noun:window', `scope:${windowType.scope}`],
       si: windowType,
+    });
+  }
+
+  // set-door-type (§FEAT-DOOR-TYPE-BATCH, RAC U4.3) — shared parser, same rank.
+  const doorType = parseDoorTypeIntent(n.plain);
+  if (doorType !== null) {
+    push({
+      intent: 'set-door-type',
+      confidence: 0.95,
+      evidence: ['verb:change', 'noun:door', `scope:${doorType.scope}`],
+      si: doorType,
     });
   }
 

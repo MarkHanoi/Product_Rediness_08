@@ -272,6 +272,19 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    id: 'set-door-type',
+    // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — the extension-proof capability.
+    // Selection-form phrasings need a selected door; the injected resolver is
+    // exercised by the dedicated describe block below (raw-forward here).
+    ctx: sel('door'),
+    phrasings: [
+      'change all doors to white primed softwood',
+      'change the door type to glazed timber',
+      'convert the selected doors to fire door fd30',
+      'Could you change all doors to white primed softwood, please?',
+    ],
+  },
+  {
     id: 'set-rhino-material',
     ctx: {},
     phrasings: [
@@ -1073,6 +1086,64 @@ describe('§FEAT-WINDOW-TYPE-BATCH — "change the window type to …"', () => {
   it('dimension sentences are NEVER claimed as a type ask', () => {
     const r = resolveUtterance('make all windows 1m wide', ctxOf(sel('window')));
     expect(intentOf(r)).not.toBe('set-window-type');
+  });
+});
+
+describe('§FEAT-DOOR-TYPE-BATCH (RAC U4.3) — "change the door type to …" (the extension proof)', () => {
+  const doorCtx = {
+    resolveDoorSystemType: (ref: string) =>
+      /white primed/i.test(ref) ? { id: 'dt-white-primed', name: 'White Primed Softwood' } : null,
+    doorSystemTypeNames: ['Solid Timber (Default)', 'White Primed Softwood', 'Fire Door FD30'],
+  };
+
+  it('"change all doors to white primed softwood" reaches door.updateSystemTypeBatch, resolved to the id', () => {
+    const r = resolveUtterance('change all doors to white primed softwood', ctxOf(doorCtx as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-door-type');
+    expect(r.commands).toEqual([{
+      type: 'door.updateSystemTypeBatch',
+      payload: { doorIds: 'all', systemType: 'dt-white-primed' },
+    }]);
+    expect(r.summary).toContain('every door in the project');
+    expect(r.summary).toContain('White Primed Softwood');
+  });
+
+  it("the founder's singular form scopes to the SELECTED door", () => {
+    const ctx = ctxOf({ ...(doorCtx as object), ...sel('door', 'door-3') } as never);
+    const r = resolveUtterance('change the door type to white primed softwood', ctx);
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ doorIds: ['door-3'], systemType: 'dt-white-primed' });
+  });
+
+  it('an unknown type refuses by LISTING the real door catalogue', () => {
+    const r = resolveUtterance('change all doors to barn door deluxe', ctxOf(doorCtx as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('set-door-type');
+    expect(r.reason).toContain('Solid Timber (Default)');
+    expect(r.reason).toContain('Fire Door FD30');
+  });
+
+  it('without the injected resolver the raw ref is FORWARDED — the command owns the refusal', () => {
+    const r = resolveUtterance('change all doors to white primed softwood', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ doorIds: 'all', systemType: 'white primed softwood' });
+  });
+
+  it('selection scope with no door selected refuses and names what IS selected', () => {
+    const r = resolveUtterance('convert the selected doors to white primed softwood', ctxOf({ ...(doorCtx as object), ...sel('wall') } as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('wall');
+    expect(r.reason).toContain('Nothing was changed');
+  });
+
+  it('dimension and swing sentences are NEVER claimed as a type ask', () => {
+    expect(intentOf(resolveUtterance('make all doors 1m wide', ctxOf(sel('door'))))).not.toBe('set-door-type');
+    expect(intentOf(resolveUtterance('change all doors to left swing', ctxOf(sel('door'))))).not.toBe('set-door-type');
   });
 });
 

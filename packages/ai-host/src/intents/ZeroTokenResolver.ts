@@ -96,6 +96,12 @@ export interface ResolverContext {
    *  resolves and refuses — never a silent mismatch. */
   readonly resolveWindowSystemType?: (ref: string) => ResolverWallSystemType | null;
   readonly windowSystemTypeNames?: readonly string[];
+  /** §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — the door twin of the window-type
+   *  injection: `resolveDoorSystemTypeRef` (command-registry) via the bridge;
+   *  the resolver stays pure. Absent ⇒ the raw ref is forwarded and the
+   *  COMMAND resolves and refuses — never a silent mismatch. */
+  readonly resolveDoorSystemType?: (ref: string) => ResolverWallSystemType | null;
+  readonly doorSystemTypeNames?: readonly string[];
   /**
    * ADR-0315 U3.2 — the injected SCOPE RESOLVER (F2). Turns a ScopeDescriptor
    * into authoritative element ids ONCE, editor-side, over indexed paths
@@ -466,6 +472,22 @@ export type SemanticIntent =
       readonly intent: 'set-window-type';
       /** Type id OR name, as the user said it — resolved by the injected
        *  `ctx.resolveWindowSystemType`, or by the command when absent. */
+      readonly typeRef: string;
+      readonly scope: 'all' | 'selection';
+    }
+  /**
+   * §FEAT-DOOR-TYPE-BATCH (RAC U4.3, the §56 extension proof) — "change the
+   * door type to …" / "change all doors to …". Dispatches
+   * `door.updateSystemTypeBatch` (ONE undo entry; children are the
+   * L-620-proven UpdateDoorSystemTypeCommand against the geometry doorStore —
+   * never the detached plugin `door.setType`). On the resolver side this
+   * capability is METADATA ONLY: a CapabilityExecutionSpec table entry
+   * executed by the ONE generic arm — no case code exists for it.
+   */
+  | {
+      readonly intent: 'set-door-type';
+      /** Type id OR name, as the user said it — resolved by the injected
+       *  `ctx.resolveDoorSystemType`, or by the command when absent. */
       readonly typeRef: string;
       readonly scope: 'all' | 'selection';
     }
@@ -1816,14 +1838,31 @@ function makeHostedTypeParser(noun: string): (text: string) => { typeRef: string
 }
 
 const parseWindowTypeShape = makeHostedTypeParser('window');
+const parseDoorTypeShape = makeHostedTypeParser('door');
 
 export function parseWindowTypeIntent(text: string): Extract<SemanticIntent, { intent: 'set-window-type' }> | null {
   const hit = parseWindowTypeShape(text);
   return hit === null ? null : { intent: 'set-window-type', ...hit };
 }
 
+// §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — "change the door type to …" / "change
+// all doors to …". Same shapes and guards via the shared factory; "swing"
+// additionally never claims, so "change all doors to left swing" stays a
+// swing ask (door.setSwing owns that verb).
+export function parseDoorTypeIntent(text: string): Extract<SemanticIntent, { intent: 'set-door-type' }> | null {
+  const hit = parseDoorTypeShape(text);
+  if (hit === null) return null;
+  if (/\bswings?\b/.test(hit.typeRef)) return null;
+  return { intent: 'set-door-type', ...hit };
+}
+
 const matchWindowType: Matcher = (text, ctx) => {
   const si = parseWindowTypeIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
+const matchDoorType: Matcher = (text, ctx) => {
+  const si = parseDoorTypeIntent(text);
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
@@ -2001,6 +2040,8 @@ const MATCHERS: readonly Matcher[] = [
   // Window types, same guards as wall types ("make all windows 1m wide" never
   // claimed); the word "windows"/"window type" keeps it off the wall grammars.
   matchWindowType,
+  // RAC U4.3 — the door twin of matchWindowType (shared hosted-type grammar).
+  matchDoorType,
   // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
   // it off every other grammar; claims even when underspecified (honest asks).
   matchAddWallLayer,

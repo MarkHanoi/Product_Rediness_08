@@ -105,6 +105,9 @@ export type CapabilityValueSource =
   /** The project's window system types (`windowSystemTypeStore`), resolved by
    *  `resolveWindowSystemTypeRef` — the same resolveCatalogueRef ladder. */
   | 'window-system-types'
+  /** The project's door system types (`doorSystemTypeStore`), resolved by
+   *  `resolveDoorSystemTypeRef` — the same resolveCatalogueRef ladder (RAC U4.3). */
+  | 'door-system-types'
   /** Finish names ("plaster", "limewash"), resolved by the ONE table in
    *  packages/ai-host/src/intents/finishRef.ts (materialLibrary-transcribed). */
   | 'finish'
@@ -921,6 +924,47 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'change the window type to steel crittal style',
       'convert the selected windows to upvc casement',
       'change all windows to aluminium triple glazed',
+    ],
+  },
+  {
+    id: 'set-door-type',
+    // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — "change the door type to solid core
+    // flush". THE EXTENSION PROOF for the U4 spec-driven arm: this entry plus
+    // a CapabilityExecutionSpec table entry is the whole resolver cost — zero
+    // new case code. Rides door.updateSystemTypeBatch, whose children are the
+    // L-620-proven UpdateDoorSystemTypeCommand against the geometry doorStore
+    // (planDoorTypeChange preserves id/openingId/host void, C15) — never the
+    // plugin `door.setType` detached-store route.
+    description: 'change the door type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['door type', 'door style'],
+    refusalLabel: 'door type',
+    targets: ['door'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the door type, by catalogue name or id',
+        required: true,
+        valueSource: 'door-system-types',
+        example: 'White Primed Softwood',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection'],
+    destructive: false,
+    busCommand: 'door.updateSystemTypeBatch',
+    // Selection-scope probe — the 'all' scope never reads the selection, so it
+    // could not exercise the target guard (same reasoning as set-window-type).
+    probe: { intent: 'set-door-type', typeRef: 'White Primed Softwood', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/doors/UpdateDoorsSystemTypeBatchCommand.ts',
+      mustMention: ['doorStore', 'UpdateDoorSystemTypeCommand'],
+      note: "_resolveDoorIds reads the geometry doorStore and nothing else, so the command's reachable set is doors only; per door it reuses the L-620-proven UpdateDoorSystemTypeCommand (doorStore.update → DoorBuilder rebuild), never the detached plugin DTO store.",
+    },
+    examples: [
+      'change all doors to white primed softwood',
+      'change the door type to glazed timber',
+      'convert the selected doors to fire door fd30',
     ],
   },
   {

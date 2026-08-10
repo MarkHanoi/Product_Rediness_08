@@ -71,6 +71,7 @@ export type SpecDrivenIntentId =
   | 'set-wall-color'
   | 'set-wall-rake'
   | 'set-window-type'
+  | 'set-door-type'
   | 'add-wall-layer';
 
 export type SpecDrivenIntent = Extract<SemanticIntent, { intent: SpecDrivenIntentId }>;
@@ -308,6 +309,52 @@ export const EXECUTION_SPECS: SpecTable = {
     },
     // NOT destructive — one undo entry, and the command reports
     // "Retyped N of M — K skipped" (same policy as the wall type batch).
+    destructive: false,
+  },
+
+  /**
+   * §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — THE EXTENSION PROOF: this entry plus
+   * its ChatCapabilityRegistry metadata is the ENTIRE resolver cost of the
+   * capability — no case arm exists for it anywhere. The exact
+   * set-window-type shape, door kind; resolves through the INJECTED
+   * `ctx.resolveDoorSystemType` (one implementation —
+   * `resolveDoorSystemTypeRef`, command-registry). Absent injection forwards
+   * the raw string and the command refuses with the same honesty.
+   */
+  'set-door-type': {
+    elementKind: 'door',
+    busCommand: 'door.updateSystemTypeBatch',
+    idsField: 'doorIds',
+    noSelectionReason:
+      'No doors are selected — select a door, or say "change all doors to …" to retype every door.',
+    mismatchPrefix: 'Door types apply to doors',
+    suggestions: ['change all doors to white primed softwood'],
+    resolveValue: (si, ctx) => {
+      let systemType = si.typeRef;
+      let typeLabel = `"${si.typeRef}"`;
+      if (ctx.resolveDoorSystemType !== undefined) {
+        const hit = ctx.resolveDoorSystemType(si.typeRef);
+        if (hit === null) {
+          const names = ctx.doorSystemTypeNames ?? [];
+          return {
+            refusal: {
+              reason: names.length === 0
+                ? `I could not find a door type called "${si.typeRef}" in this project.`
+                : `There is no door type called "${si.typeRef}" in this project. The door types here are: ${names.join(', ')}.`,
+              suggestions: names.slice(0, 2).map((n) => `change all doors to ${n.toLowerCase()}`),
+            },
+          };
+        }
+        systemType = hit.id;
+        typeLabel = `"${hit.name}"`;
+      }
+      return {
+        payload: { systemType },
+        summary: (scopeLabel) => `Change ${scopeLabel} to ${typeLabel}`,
+      };
+    },
+    // NOT destructive — one undo entry, and the command reports
+    // "Retyped N of M — K skipped" (same policy as the window type batch).
     destructive: false,
   },
 

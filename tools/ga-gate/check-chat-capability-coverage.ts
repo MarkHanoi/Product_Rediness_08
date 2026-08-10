@@ -305,6 +305,9 @@ function proveRouteLiveness(cap: ChatCapability, file: string, src: string): str
  */
 const KNOWN_VALUE_SOURCES = new Set([
   'measurement', 'angle', 'wall-system-types', 'window-system-types', 'finish', 'project-levels', 'user-text', 'coordinates',
+  // RAC U4.3 — door system types, resolved by `resolveDoorSystemTypeRef`
+  // (command-registry) injected as ctx.resolveDoorSystemType by the bridge.
+  'door-system-types',
   // ADR-0314 §Value sources — colour name / '#hex', resolved by the ONE table
   // in packages/ai-host/src/intents/colorRef.ts.
   'color',
@@ -350,6 +353,7 @@ function proveParameterSources(cap: ChatCapability): string[] {
       : p.valueSource === 'angle' ? (typeof probe['degrees'] === 'number' || typeof probe['angleDeg'] === 'number')
       : p.valueSource === 'wall-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'window-system-types' ? typeof probe['typeRef'] === 'string'
+      : p.valueSource === 'door-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'finish' ? typeof probe['finishRef'] === 'string'
       // ADR-0315 U5a: duplicate-level carries its level refs as sourceQuery /
       // targetQueries — both resolved by the same findLevel authority.

@@ -73,6 +73,8 @@ export * from './doors/UpdateDoorSillHeightCommand';
 export * from './doors/UpdateDoorWidthCommand';
 // §FIX-HOSTED-TYPE-CHANGE (L-620)
 export * from './doors/UpdateDoorSystemTypeCommand';
+// §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — batch retype, ONE undo entry (window batch's door twin).
+export * from './doors/UpdateDoorsSystemTypeBatchCommand';
 
 // ─── Floors ───────────────────────────────────────────────────────────────
 export * from './floors/CreateFloorCommand';

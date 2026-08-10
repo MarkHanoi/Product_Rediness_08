@@ -327,6 +327,24 @@ async function buildContext(): Promise<ResolverContext> {
     } catch (err) {
         console.warn('[ZeroTokenChatBridge] window type catalogue unavailable:', err);
     }
+    // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — the door twin, same one-ladder rule:
+    // `resolveDoorSystemTypeRef` is the resolver the batch command itself uses.
+    let doorCatalogue: {
+        resolve: (ref: string) => ResolverWallSystemType | null;
+        names: readonly string[];
+    } | null = null;
+    try {
+        const { resolveDoorSystemTypeRef, doorSystemTypeNames } = await import('@pryzm/command-registry');
+        doorCatalogue = {
+            resolve: (ref: string) => {
+                const hit = resolveDoorSystemTypeRef(ref);
+                return hit === null ? null : { id: hit.id, name: hit.name };
+            },
+            names: doorSystemTypeNames(),
+        };
+    } catch (err) {
+        console.warn('[ZeroTokenChatBridge] door type catalogue unavailable:', err);
+    }
     return {
         selection: currentSelection(),
         levels,
@@ -336,6 +354,9 @@ async function buildContext(): Promise<ResolverContext> {
             : {}),
         ...(windowCatalogue !== null
             ? { resolveWindowSystemType: windowCatalogue.resolve, windowSystemTypeNames: windowCatalogue.names }
+            : {}),
+        ...(doorCatalogue !== null
+            ? { resolveDoorSystemType: doorCatalogue.resolve, doorSystemTypeNames: doorCatalogue.names }
             : {}),
         // level.add call-site convention (ProjectTreeSection): `L${Date.now()}`.
         mintId: () => `L${Date.now()}`,
@@ -389,6 +410,8 @@ async function dispatchCommands(
         'wall.updateRakeBatch': 'pryzm-wall-rake-batch-report',
         // §FEAT-WINDOW-TYPE-BATCH — "Retyped N of M — K skipped".
         'window.updateSystemTypeBatch': 'pryzm-window-type-batch-report',
+        // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — the door twin's honest report.
+        'door.updateSystemTypeBatch': 'pryzm-door-type-batch-report',
         // §FEAT-WALL-LAYER-ADD-BATCH — "Added … to N of M walls — K skipped".
         'wall.addLayerBatch': 'pryzm-wall-layer-batch-report',
         // §FEAT-WINDOW-PARAMETRIC-CREATE — "Created N of M planned — K skipped".

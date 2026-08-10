@@ -138,6 +138,9 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-wall-rake': ['wall'],
       // §FEAT-WINDOW-TYPE-BATCH (ADR-0315) — "change the window type to …".
       'set-window-type': ['window'],
+      // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — "change the door type to …" (the
+      // spec-arm extension proof: metadata only, zero new case code).
+      'set-door-type': ['door'],
       // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315) — "add a 10mm plaster layer …".
       'add-wall-layer': ['wall'],
       // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315) — "a window in every wall segment".
@@ -185,7 +188,8 @@ describe('capability-aware refusals', () => {
     const r = capabilityGapRefusal('paint the door blue', []);
     expect(r).not.toBeNull();
     expect(r!.reason).toContain("Door colour isn't connected to chat yet.");
-    expect(r!.reason).toContain('I can change door height and width.');
+    // RAC U4.3 — the offer list grew truthfully: set-door-type is live now.
+    expect(r!.reason).toContain('I can change door height, width and door type.');
   });
 
   it('does NOT manufacture a colour refusal for walls — wall colour is a live capability', () => {
