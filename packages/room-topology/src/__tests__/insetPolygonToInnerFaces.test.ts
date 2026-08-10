@@ -235,12 +235,17 @@ describe('insetPolygonToInnerFaces', () => {
     let diag = '';
     const inner = insetPolygonToInnerFaces(liveKitchenRing, liveKitchenInsets, (l) => { diag += l + '\n'; });
 
-    // The full-ring inset MUST have hit the bow-tie guard (proves we reproduce the
-    // defect path), and the collinear-collapse retry MUST have rescued it.
-    expect(diag).toMatch(/self-intersecting \(bow-tie\)/);
-    expect(diag).toMatch(/collinear-collapse retry succeeded/);
+    // §FIX-FLOOR-FINISH-CURVED-COVERAGE (2026-08-10) — these two lines USED to assert the
+    // internal ROUTE: "bow-tie guard fires, collinear-collapse retry rescues it". They no
+    // longer hold, and that is the fix, not a regression: the miter clamp now emits a
+    // two-point CHAMFER (each point exactly on its own offset line) instead of a one-point
+    // bevel (on neither), so the adjacent joins no longer cross and the DIRECT pass returns
+    // a clean inner-face inset — the retry is never needed. Asserting a fall-back route is
+    // asserting that the primary path is broken; the invariant worth pinning is the RESULT
+    // below, which is unchanged and now reached one step earlier.
+    expect(diag).not.toMatch(/centreline fall-back/);
 
-    // The result is now a genuine INNER-FACE inset — NOT the centreline fall-back.
+    // The result is a genuine INNER-FACE inset — NOT the centreline fall-back.
     expect(inner).not.toBe(liveKitchenRing);          // not the same-ref fail-safe
     expect(isSimple(inner)).toBe(true);               // simple ring, no wedge
     const innerArea = polygonAreaM2(inner);
@@ -276,8 +281,9 @@ describe('insetPolygonToInnerFaces', () => {
       const centreArea = polygonAreaM2(ring);
       let diag = '';
       const inner = insetPolygonToInnerFaces(ring, insets, (l) => { diag += l + '\n'; });
-      // Defect path reproduced, then rescued by the collapse retry.
-      expect(diag).toMatch(/self-intersecting \(bow-tie\)/);
+      // See the note above: the chamfer join resolves these on the DIRECT pass, so the
+      // bow-tie route is no longer taken. Pin the outcome, not the route.
+      expect(diag).not.toMatch(/centreline fall-back/);
       expect(inner).not.toBe(ring);                    // genuinely inset
       expect(isSimple(inner)).toBe(true);
       expect(polygonAreaM2(inner)).toBeLessThan(centreArea);

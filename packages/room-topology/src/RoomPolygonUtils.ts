@@ -215,12 +215,40 @@ export function insetPolygonToInnerFaces(
   const n = polygon.length;
   if (n < 3) return polygon;
 
+  // ── §FIX-FLOOR-FINISH-CURVED-COVERAGE (founder 2026-08-10) ─────────────────
+  // NORMALISE the insets across each SMOOTH (curved) run BEFORE offsetting.
+  // See `_normaliseCurvedRunInsets` for the arithmetic; in one line: two offset
+  // lines that differ by Δ inset and meet at a turn of θ intersect Δ/sin θ away,
+  // and on a tessellated arc θ is a few degrees — so a single mis-matched chord
+  // (Δ = 100 mm, θ = 5.6°) throws the miter 1.02 m across the room. That runaway
+  // is what cascaded, via the bevel + bow-tie guards, into the centroid-shrink
+  // fall-back that produced the founder's visible gap.
+  const insets = _normaliseCurvedRunInsets(polygon, edgeInsets, onDiag);
+
   // ── §FLOOR-INSET-COLLAPSE (2026-06-16) ──────────────────────────────────────
   // FIRST attempt the inset on the ring AS GIVEN. `_insetToInnerFacesOnce` returns
   // a clean simple inset polygon, or `null` when any guard (spike / inversion /
   // bow-tie / collapse) rejects it.
-  const direct = _insetToInnerFacesOnce(polygon, edgeInsets, onDiag);
-  if (direct) return direct;
+  const capture: { ring?: RoomVertex[] | null; reason?: string } = {};
+  const direct = _insetToInnerFacesOnce(polygon, insets, onDiag, capture);
+  if (direct) return _densifyOffsetArcRuns(direct, onDiag);
+
+  // §FIX-FLOOR-FINISH-CURVED-COVERAGE — the mitered ring was rejected ONLY because
+  // it self-intersects. That is repairable: `repairToSimplePolygon` excises the
+  // crossing lobes deterministically and keeps the largest simple component, and
+  // every surviving edge is still exactly on its wall's offset line — i.e. still a
+  // TRUE constant-distance inset. Prefer that over any approximation.
+  if (capture.reason === 'self-intersecting' && capture.ring && capture.ring.length >= 3) {
+    const repaired = repairToSimplePolygon(capture.ring);
+    if (repaired && repaired.length >= 3) {
+      const ra = polygonAreaM2(repaired);
+      const sa = polygonAreaM2(polygon);
+      if (ra > 0.01 && ra < sa - 1e-6 && (computeSignedArea(repaired) >= 0) === (computeSignedArea(polygon) >= 0)) {
+        onDiag?.(`§DIAG-FLOOR-INSET bow-tie REPAIRED (${capture.ring.length}→${repaired.length} verts, area ${ra.toFixed(2)}m² < source ${sa.toFixed(2)}m²) → true inner-face inset preserved`);
+        return _densifyOffsetArcRuns(repaired, onDiag);
+      }
+    }
+  }
 
   // The given ring failed — usually a BOW-TIE on a ROTATED room whose boundary was
   // subdivided at DOOR GAPS: `CreateFloorsByRoomTypeCommand._innerFacePolygon`
@@ -238,7 +266,7 @@ export function insetPolygonToInnerFaces(
   // insets cleanly to the inner face. Accept the retry ONLY if it is SIMPLE and
   // STRICTLY SMALLER than the centreline source (an inset can never grow the floor);
   // otherwise keep the centreline fall-back so a floor is always produced.
-  const collapsed = _collapseCollinearRing(polygon, edgeInsets);
+  const collapsed = _collapseCollinearRing(polygon, insets);
   if (collapsed && collapsed.ring.length >= 3 && collapsed.ring.length < n) {
     const retry = _insetToInnerFacesOnce(collapsed.ring, collapsed.insets, onDiag);
     if (retry && isSimple(retry)) {
@@ -246,7 +274,7 @@ export function insetPolygonToInnerFaces(
       const srcArea = polygonAreaM2(polygon);
       if (retryArea > 0.01 && retryArea < srcArea - 1e-6) {
         onDiag?.(`§DIAG-FLOOR-INSET collinear-collapse retry succeeded (${n}→${collapsed.ring.length} edges, area ${retryArea.toFixed(2)}m² < source ${srcArea.toFixed(2)}m²) → inner-face inset`);
-        return retry;
+        return _densifyOffsetArcRuns(retry, onDiag);
       }
     }
   }
@@ -261,7 +289,7 @@ export function insetPolygonToInnerFaces(
   // ONLY if simple + STRICTLY SMALLER than the centreline source (an inset never grows the
   // floor); otherwise keep the centreline ring so a floor is always produced.
   const cornerRing = (collapsed && collapsed.ring.length >= 3) ? collapsed.ring : polygon;
-  const wallInset = edgeInsets.reduce((m, v) => (v > m ? v : m), 0);
+  const wallInset = insets.reduce((m, v) => (v > m ? v : m), 0);
   if (wallInset > 1e-6 && cornerRing.length >= 3) {
     const uniformInsets = cornerRing.map(() => wallInset);
     const retry2 = _insetToInnerFacesOnce(cornerRing, uniformInsets, onDiag);
@@ -270,52 +298,254 @@ export function insetPolygonToInnerFaces(
       const srcArea = polygonAreaM2(polygon);
       if (a2 > 0.01 && a2 < srcArea - 1e-6) {
         onDiag?.(`§DIAG-FLOOR-INSET uniform fall-back succeeded (inset ${wallInset.toFixed(3)}m all edges, area ${a2.toFixed(2)}m² < source ${srcArea.toFixed(2)}m²) → inner-face`);
-        return retry2;
+        return _densifyOffsetArcRuns(retry2, onDiag);
       }
     }
   }
 
-  // §FLOOR-INSET-CENTROID-SHRINK (founder 2026-06-18 "floor finishes still not fitting the
-  // inner face") — LAST resort before the centreline overshoot. On a rotated room with door-gap
-  // subdivided vertices, EVERY edge-based inset can bow-tie (the §DIAG "self-intersecting" /
-  // "winding inverted" → centreline). Returning the CENTRELINE ring makes the floor extend to
-  // the wall CENTRE → it pokes UNDER the partition and OVERLAPS the neighbour (the founder's
-  // "floor goes off"). A uniform similarity-scale toward the centroid CANNOT self-intersect
-  // (a star-shaped/convex ring stays simple), so it always yields a floor strictly INSIDE the
-  // wall face — an approximate inner face, never an overlap. Better a slightly-conservative
-  // floor that sits inside the room than one bleeding under the wall. Accept only if simple +
-  // strictly smaller than the centreline source (an inset never grows the floor).
-  // Gate to a PLAUSIBLE wall half-thickness (≤ 0.30 m). A larger requested inset means the
-  // room genuinely cannot be inset (a too-large inset that would collapse/invert the room, or
-  // a degenerate thin sliver) → keep the centreline fall-back (the original ring) so those
-  // cases are unchanged. Only the real bow-tie case (a normal room, wall inset ≈ 0.05–0.10 m,
-  // that bow-tied on a rotated corner) is rescued by the shrink.
-  const shrinkInset = edgeInsets.reduce((m, v) => (v > m ? v : m), 0);
-  if (shrinkInset > 1e-6 && shrinkInset <= 0.30) {
-    let cx = 0, cz = 0;
-    for (const v of polygon) { cx += v.x; cz += v.z; }
-    cx /= n; cz /= n;
-    let meanR = 0;
-    for (const v of polygon) meanR += Math.hypot(v.x - cx, v.z - cz);
-    meanR /= n;
-    const f = meanR > 1e-6 ? Math.min(0.45, shrinkInset / meanR) : 0;
-    if (f > 1e-6) {
-      const shrunk = polygon.map(v => ({ ...v, x: cx + (v.x - cx) * (1 - f), z: cz + (v.z - cz) * (1 - f) }));
-      if (isSimple(shrunk)) {
-        const sa = polygonAreaM2(shrunk);
-        const srcArea = polygonAreaM2(polygon);
-        if (sa > 0.01 && sa < srcArea - 1e-6) {
-          onDiag?.(`§DIAG-FLOOR-INSET centroid-shrink fall-back (f=${f.toFixed(3)}, area ${sa.toFixed(2)}m² < source ${srcArea.toFixed(2)}m²) → floor inside the wall face (approx, no overlap)`);
-          return shrunk;
-        }
-      }
-    }
-  }
-
-  // Neither the direct inset, the collapsed retry, the uniform inset, nor the centroid shrink
-  // produced a valid inner-face polygon — keep the simple centreline ring so a floor is ALWAYS
-  // produced (last-resort; the shrink above covers the rotated-room bow-tie case).
+  // ── §FIX-FLOOR-FINISH-CURVED-COVERAGE (founder 2026-08-10) — THE CENTROID SHRINK IS GONE ──
+  //
+  // What used to be here: a LAST-RESORT "uniform similarity-scale toward the centroid",
+  // justified as "an approximate inner face, never an overlap". It is not approximate — it is
+  // a DIFFERENT OPERATION. A similarity scale by f pulls each edge back in proportion to its
+  // distance from the centroid, while an inset pulls every edge back by the SAME distance.
+  //
+  //   MEASURED (20 m × 4 m room, 200 mm walls ⇒ the correct pullback is 100 mm everywhere):
+  //     meanR = 3.329 m, f = inset/meanR = 0.0300
+  //     pullback at the room's middle = 60 mm   → the finish runs 40 mm INTO the wall
+  //     pullback at the room's ends   = 540 mm  → a 44 cm GAP between finish and wall
+  //   And it survived every guard: area 74.00 m² vs the centreline's 78.65 m² is a 5.9 % loss,
+  //   indistinguishable from the correct inset's 5.9 %, so the "≥50 % of source" sanity check
+  //   could never see it — and `deriveRoomFinishBoundary` logged it as `inner-face ✓`.
+  //
+  // That is the founder's "floor finish does not cover the complete room area". The shrink was
+  // only ever reached via the bow-tie cascade that `_normaliseCurvedRunInsets` (above) and the
+  // two-point chamfer join (below) now prevent at source, and the bow-tie repair above rescues
+  // the residual cases with a TRUE constant-distance inset.
+  //
+  // The remaining fall-back is the CENTRELINE ring: a floor is still always produced, and it
+  // errs by up to half a wall thickness UNDER the wall — invisible, and recoverable — rather
+  // than by half a metre of bare slab in the middle of the room. Converge, don't compensate.
+  onDiag?.('§DIAG-FLOOR-INSET no valid inner-face inset (direct / collapse / uniform all rejected) → centreline fall-back (finish may reach the wall centreline; it will NOT gap)');
   return polygon;
+}
+
+/**
+ * §FIX-FLOOR-FINISH-CURVED-COVERAGE (founder 2026-08-10) — an ARC RUN HAS ONE BOUNDING
+ * WALL, THEREFORE ONE INSET.
+ *
+ * A curved wall reaches the room ring as a RUN of short near-collinear chords (room
+ * detection tessellates the quadratic Bézier). `_wallForFinishEdge` matches each chord
+ * INDEPENDENTLY, within 200 mm perpendicular and ~10° of direction. Any chord that misses
+ * — a trimmed wall whose centreline this module re-fits through its POST-trim endpoints is
+ * a measurably different curve from the PRE-trim one room detection walked
+ * (see `curvedWallTessellation.ts` §FIX-CURVED-WALL-PRETRIM-FRAME) — silently gets inset 0
+ * while its neighbours get thickness/2.
+ *
+ * THE ARITHMETIC that makes one missed chord catastrophic: the corner vertex of an inset
+ * ring is the intersection of two offset lines. Two lines whose offsets differ by Δ and
+ * whose directions differ by θ intersect at distance ≈ Δ/sin θ from the source corner. On
+ * a 16-chord quarter arc θ = 5.6°, so Δ = 100 mm throws the vertex
+ *   0.100 / sin(5.6°) = 1.02 m
+ * across the room. The miter clamp catches it and bevels; adjacent bevels cross; `isSimple`
+ * rejects the ring as a bow-tie; and the derivation falls through to whatever fall-back is
+ * last in the chain. The gap the founder sees is that fall-back, not the inset.
+ *
+ * The fix is to remove the Δ, not to clean up after it. Within one SMOOTH run — consecutive
+ * edges whose turn angle is small but NON-ZERO, i.e. genuinely curving — the bounding wall
+ * is one wall, so the inset is one value. Take the run MAX: an under-inset chord would push
+ * the finish INTO the wall body, and the wall face is the architectural intent.
+ *
+ * Deliberately NOT applied to COLLINEAR runs (turn ≈ 0). Those are the door-gap
+ * subdivisions `deriveRoomFinishBoundary` creates on a STRAIGHT wall, where the differing
+ * insets (thickness/2 on the solid run, 0 across the threshold) are the intended geometry —
+ * they are handled by `_collapseCollinearRing`. Pure, O(n).
+ */
+function _normaliseCurvedRunInsets(
+  polygon: RoomVertex[],
+  edgeInsets: number[],
+  onDiag?: (line: string) => void,
+): number[] {
+  const n = polygon.length;
+  const out = edgeInsets.slice();
+  if (n < 4) return out;
+
+  // Unit direction of each edge i (polygon[i] → polygon[i+1]).
+  const dir: Array<{ x: number; z: number } | null> = [];
+  for (let i = 0; i < n; i++) {
+    const a = polygon[i]!, b = polygon[(i + 1) % n]!;
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    dir.push(len < 1e-9 ? null : { x: dx / len, z: dz / len });
+  }
+
+  const len: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = polygon[i]!, b = polygon[(i + 1) % n]!;
+    len.push(Math.hypot(b.x - a.x, b.z - a.z));
+  }
+
+  // `join[i]` — do edges i and i+1 belong to the SAME tessellated arc? Two conditions,
+  // and both are needed:
+  //   • the turn at the shared vertex i+1 is small but NOT zero. Zero (below 0.05°) is a
+  //     COLLINEAR vertex — a door-gap subdivision on a straight wall, whose differing
+  //     insets are intentional — so it ends the run. Above 20° is a real room corner.
+  //   • the two chords are comparable in length (within 2.5×). Without this a long
+  //     STRAIGHT wall meeting a fillet TANGENTIALLY (turn ≈ half a chord angle: smooth,
+  //     non-zero) would be swallowed into the arc's run, and on a rounded rectangle EVERY
+  //     vertex is such a join, so the whole ring becomes one run and every wall is forced
+  //     to the thickest wall's inset. Comparable chord length is what actually
+  //     distinguishes "one arc's tessellation" from "an arc meeting a wall".
+  const SMOOTH_MIN = (0.05 * Math.PI) / 180;
+  const SMOOTH_MAX = (20 * Math.PI) / 180;
+  const join: boolean[] = new Array(n).fill(false);
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const p = dir[i], c = dir[j];
+    if (!p || !c) continue;
+    const turn = Math.abs(Math.atan2(p.x * c.z - p.z * c.x, p.x * c.x + p.z * c.z));
+    if (turn <= SMOOTH_MIN || turn > SMOOTH_MAX) continue;
+    const li = len[i]!, lj = len[j]!;
+    if (li < 1e-9 || lj < 1e-9) continue;
+    if (li > 2.5 * lj || lj > 2.5 * li) continue;
+    join[i] = true;
+  }
+
+  // Walk from a run BOUNDARY so each run is contiguous. If there is no boundary the ring
+  // is one uniform arc (a circular room) — then the whole ring genuinely is one run.
+  let start = 0;
+  while (start < n && join[(start - 1 + n) % n]) start++;
+  if (start >= n) start = 0;
+
+  let changed = 0;
+  let k = 0;
+  while (k < n) {
+    const runStart = (start + k) % n;
+    const idx: number[] = [runStart];
+    let m = 1;
+    while (m < n && join[(start + k + m - 1) % n]) { idx.push((start + k + m) % n); m++; }
+    if (idx.length >= 3) {
+      let max = 0;
+      for (const e of idx) max = Math.max(max, Number.isFinite(out[e]!) ? Math.max(0, out[e]!) : 0);
+      for (const e of idx) {
+        if (Math.abs((out[e] ?? 0) - max) > 1e-9) { out[e] = max; changed++; }
+      }
+    }
+    k += m;
+  }
+  if (changed > 0) {
+    onDiag?.(`§DIAG-FLOOR-INSET curved-run inset normalised on ${changed} chord(s) — an arc run has ONE bounding wall, so ONE inset (prevents the Δ/sinθ miter runaway)`);
+  }
+  return out;
+}
+
+/**
+ * §FIX-FLOOR-FINISH-CURVED-COVERAGE (founder 2026-08-10) — the inset ring's CHORDS must not
+ * cut inside the wall's inner FACE.
+ *
+ * Even a perfect inset returns a POLYGON. Where the wall is curved, the polygon's edges are
+ * chords of the offset arc, and a chord lies inside its arc by the sagitta
+ *   s = (L/2)·tan(θ/4)      (L = chord length, θ = turn angle per chord)
+ * — a crescent of bare slab between the finish and the wall face. Measured on a 2 m-radius
+ * corner tessellated at 16 chords: L = 0.19 m, θ = 5.6° ⇒ s = 2.3 mm. On a 10 m-scale arc at
+ * the schema's default 16 chords it is ~10 mm (see `curvedWallTessellation.ts` §ARC-DENSITY,
+ * which measured the same quantity for the wall mesh).
+ *
+ * The correction is DENSIFICATION, not outward displacement: pushing the chords out would put
+ * the finish vertices inside the wall body. Each smooth run is locally circular, so a chord is
+ * subdivided along the circle through it, k = ⌈√(s/target)⌉ ways (the sagitta falls as 1/k²).
+ * Every inserted vertex is on the offset arc, so the ring still never enters the wall.
+ *
+ * BOUNDED AND LOUD (ADR-0299): `MAX_DENSIFIED_VERTS` keeps the ring well under
+ * `MAX_POLYGON_VERTICES` (256), because `sanitisePolygon` TRUNCATES at that limit and a
+ * truncated ring is a corrupt floor, not a coarse one. When the bound bites it is reported.
+ */
+function _densifyOffsetArcRuns(
+  ring: RoomVertex[],
+  onDiag?: (line: string) => void,
+  sagittaTargetM = 0.002,
+): RoomVertex[] {
+  const MAX_DENSIFIED_VERTS = 192;
+  const n = ring.length;
+  if (n < 4 || n >= MAX_DENSIFIED_VERTS) return ring;
+
+  const SMOOTH_MIN = (0.05 * Math.PI) / 180;
+  const SMOOTH_MAX = (20 * Math.PI) / 180;
+
+  // Signed turn at each vertex (angle from the incoming edge to the outgoing edge).
+  const turn: number[] = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const a = ring[(i - 1 + n) % n]!, b = ring[i]!, c = ring[(i + 1) % n]!;
+    const p = { x: b.x - a.x, z: b.z - a.z }, q = { x: c.x - b.x, z: c.z - b.z };
+    const pl = Math.hypot(p.x, p.z), ql = Math.hypot(q.x, q.z);
+    if (pl < 1e-9 || ql < 1e-9) continue;
+    turn[i] = Math.atan2((p.x * q.z - p.z * q.x) / (pl * ql), (p.x * q.x + p.z * q.z) / (pl * ql));
+  }
+
+  const out: RoomVertex[] = [];
+  let inserted = 0;
+  let capped = false;
+  for (let i = 0; i < n; i++) {
+    const a = ring[i]!, b = ring[(i + 1) % n]!;
+    out.push({ x: a.x, z: a.z });
+
+    // The chord a→b is on a smooth run only if BOTH its ends turn smoothly, the SAME way.
+    const t0 = turn[i]!, t1 = turn[(i + 1) % n]!;
+    const s0 = Math.abs(t0), s1 = Math.abs(t1);
+    if (s0 <= SMOOTH_MIN || s0 > SMOOTH_MAX || s1 <= SMOOTH_MIN || s1 > SMOOTH_MAX) continue;
+    if (Math.sign(t0) !== Math.sign(t1)) continue;
+
+    const theta = (t0 + t1) / 2;                        // signed central angle of this chord
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    if (L < 1e-6) continue;
+
+    // A chord only carries the turn at its ends if it is one of a RUN of comparable
+    // chords — i.e. an actual tessellation. A LONG edge between two small turns is the
+    // opposite situation: a STRAIGHT wall meeting arcs tangentially at both ends, where
+    // the turns belong to the arcs, not to it. Attributing them to the straight edge fits
+    // a huge circle through it and bows it toward the wall — measured 49 mm of overshoot
+    // on an 8 m wall between two 16-chord fillets, which is the very defect this function
+    // exists to prevent, in reverse. Require both neighbours within 2.5× this chord.
+    const prevV = ring[(i - 1 + n) % n]!, nextV = ring[(i + 2) % n]!;
+    const Lprev = Math.hypot(a.x - prevV.x, a.z - prevV.z);
+    const Lnext = Math.hypot(nextV.x - b.x, nextV.z - b.z);
+    if (Lprev < 1e-6 || Lnext < 1e-6) continue;
+    if (L > 2.5 * Lprev || L > 2.5 * Lnext) continue;
+    const sag = (L / 2) * Math.tan(Math.abs(theta) / 4);
+    if (!Number.isFinite(sag) || sag <= sagittaTargetM) continue;
+
+    const k = Math.min(8, Math.ceil(Math.sqrt(sag / sagittaTargetM)));
+    if (k < 2) continue;
+    if (n + inserted + (k - 1) > MAX_DENSIFIED_VERTS) { capped = true; continue; }
+
+    // Local circle through the chord: R = (L/2)/sin(θ/2); the centre lies on the turn side.
+    const half = Math.abs(theta) / 2;
+    const R = (L / 2) / Math.sin(half);
+    if (!Number.isFinite(R) || R > 1e4) continue;
+    const ux = (b.x - a.x) / L, uz = (b.z - a.z) / L;
+    // Left normal of a→b is (-uz, ux); a LEFT turn (θ>0) curves toward it.
+    const sgn = theta > 0 ? 1 : -1;
+    const cx = (a.x + b.x) / 2 + sgn * (-uz) * R * Math.cos(half);
+    const cz = (a.z + b.z) / 2 + sgn * (ux) * R * Math.cos(half);
+    const angA = Math.atan2(a.z - cz, a.x - cx);
+    let d = Math.atan2(b.z - cz, b.x - cx) - angA;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    for (let j = 1; j < k; j++) {
+      const ang = angA + d * (j / k);
+      const px = cx + R * Math.cos(ang), pz = cz + R * Math.sin(ang);
+      if (!Number.isFinite(px) || !Number.isFinite(pz)) continue;
+      out.push({ x: px, z: pz });
+      inserted++;
+    }
+  }
+
+  if (inserted === 0) return ring;
+  if (capped) {
+    onDiag?.(`§DIAG-FLOOR-INSET arc densification CAPPED at ${MAX_DENSIFIED_VERTS} verts — some curved chords still depart up to a few mm from the wall face`);
+  }
+  onDiag?.(`§DIAG-FLOOR-INSET arc densification inserted ${inserted} vertex(es) so every curved chord sits within ${(sagittaTargetM * 1000).toFixed(0)}mm of the wall's inner face`);
+  return out;
 }
 
 /**
@@ -399,6 +629,7 @@ function _insetToInnerFacesOnce(
   polygon: RoomVertex[],
   edgeInsets: number[],
   onDiag?: (line: string) => void,
+  capture?: { ring?: RoomVertex[] | null; reason?: string },
 ): RoomVertex[] | null {
   const n = polygon.length;
   if (n < 3) return null;
@@ -446,46 +677,75 @@ function _insetToInnerFacesOnce(
   const maxMiterDist = Math.max(0.5, maxInset * 8); // ≥0.5 m, else 8× the inset
   let clampedCount = 0;
 
-  // Bevel fall-back for vertex i: average the two adjacent edges' inward normals
-  // (weighted equally) and step the original corner inward by the local inset
-  // (the larger of the two adjacent edge insets, so a thick wall still pulls back).
-  const bevelVertex = (i: number): RoomVertex => {
+  // §FIX-FLOOR-FINISH-CURVED-COVERAGE (founder 2026-08-10) — CHAMFER, NOT BEVEL.
+  //
+  // The old fall-back emitted ONE point: the source corner stepped inward along the
+  // AVERAGE of the two adjacent inward normals. That point lies on NEITHER offset line,
+  // so BOTH adjacent edges leave their wall's inner face — the join under-covers, and on
+  // a tessellated arc consecutive such joins swing far enough to cross each other, which
+  // is the bow-tie that dumped the whole derivation into the fall-back chain.
+  //
+  // The textbook join for an offset polygon emits TWO points instead: the corner projected
+  // onto EACH offset line — `orig + n_prev·inset_prev` (where the previous offset edge
+  // ends) and `orig + n_cur·inset_cur` (where the current one begins). `orig` lies on both
+  // SOURCE lines by construction, so each projection lies exactly on its own OFFSET line.
+  // Consequence: every edge of the result is exactly on its wall's inner face, whatever
+  // the join did — the join only chamfers across the corner, and a chamfer of two points
+  // in travel order cannot cross its neighbours. Coincident pairs collapse to one.
+  const chamferVertices = (i: number): RoomVertex[] => {
     const orig = polygon[i]!;
     const prevLine = lines[(i - 1 + n) % n]!;
     const curLine = lines[i]!;
+    const rawPrev = edgeInsets[(i - 1 + n) % n];
+    const rawCur = edgeInsets[i];
+    const insetPrev = (typeof rawPrev === 'number' && Number.isFinite(rawPrev)) ? Math.max(0, rawPrev) : 0;
+    const insetCur = (typeof rawCur === 'number' && Number.isFinite(rawCur)) ? Math.max(0, rawCur) : 0;
     // Inward normal of a directed edge (dx,dz) on a CCW ring is (-dz, dx).
-    const pnx = -prevLine.dz, pnz = prevLine.dx;
-    const cnx = -curLine.dz, cnz = curLine.dx;
-    let anx = pnx + cnx, anz = pnz + cnz;
-    const alen = Math.hypot(anx, anz);
-    if (alen < 1e-9) {
-      // Opposed normals (collinear spike corner) — no sensible bevel direction;
-      // keep the original corner (a 0-offset, never a spike).
-      return { x: orig.x, z: orig.z };
+    const pts: RoomVertex[] = [];
+    const degeneratePrev = prevLine.dx === 0 && prevLine.dz === 0;
+    const degenerateCur = curLine.dx === 0 && curLine.dz === 0;
+    if (!degeneratePrev) {
+      pts.push({ x: orig.x + -prevLine.dz * insetPrev, z: orig.z + prevLine.dx * insetPrev });
     }
-    anx /= alen; anz /= alen;
-    const insetPrev = Math.max(0, edgeInsets[(i - 1 + n) % n] ?? 0);
-    const insetCur = Math.max(0, edgeInsets[i] ?? 0);
-    const localInset = Math.max(
-      Number.isFinite(insetPrev) ? insetPrev : 0,
-      Number.isFinite(insetCur) ? insetCur : 0,
-    );
-    return { x: orig.x + anx * localInset, z: orig.z + anz * localInset };
+    if (!degenerateCur) {
+      const p = { x: orig.x + -curLine.dz * insetCur, z: orig.z + curLine.dx * insetCur };
+      const last = pts[pts.length - 1];
+      if (!last) {
+        pts.push(p);
+      } else {
+        // Two points are only worth emitting when the chamfer segment is BOTH long
+        // enough to matter (0.1 mm) and travels FORWARD. On a tangent-continuous join
+        // (an arc meeting its straight wall) the two projections are microns apart and
+        // float noise can order them backwards — a sub-micron reversal that `isSimple`
+        // correctly reads as a self-intersection. Collapse those to the midpoint: at
+        // that scale the chamfer and the miter are the same point anyway.
+        const sx = p.x - last.x, sz = p.z - last.z;
+        const fwd = sx * (prevLine.dx + curLine.dx) + sz * (prevLine.dz + curLine.dz);
+        if (Math.hypot(sx, sz) > 1e-4 && fwd >= 0) pts.push(p);
+        else { last.x = (last.x + p.x) / 2; last.z = (last.z + p.z) / 2; }
+      }
+    }
+    // Both edges degenerate — no offset direction exists; keep the corner (never a spike).
+    if (pts.length === 0) pts.push({ x: orig.x, z: orig.z });
+    return pts;
   };
 
   // Each NEW vertex i is the intersection of offset-line (i-1) and offset-line (i)
   // (the two edges meeting at original vertex i). Parallel / degenerate / runaway
-  // pairs fall back to a local bevel so the inset never explodes into a spike.
+  // pairs fall back to a local chamfer so the inset never explodes into a spike.
+  // `srcIdx` tracks which SOURCE corner each output vertex came from, because a
+  // chamfer emits two vertices and the per-vertex sanity check below is per-corner.
   const out: RoomVertex[] = [];
+  const srcIdx: number[] = [];
   for (let i = 0; i < n; i++) {
     const prev = lines[(i - 1 + n) % n]!;
     const cur = lines[i]!;
     const orig = polygon[i]!;
     const cross = prev.dx * cur.dz - prev.dz * cur.dx;
     // MITER CLAMP (1): near-parallel adjacent edges → intersection is unreliable
-    // (divides by ~0 → huge coordinate). Bevel instead.
+    // (divides by ~0 → huge coordinate). Chamfer instead.
     if (Math.abs(cross) < MITER_SIN_EPS || (prev.dx === 0 && prev.dz === 0) || (cur.dx === 0 && cur.dz === 0)) {
-      out.push(bevelVertex(i));
+      for (const p of chamferVertices(i)) { out.push(p); srcIdx.push(i); }
       clampedCount++;
       continue;
     }
@@ -496,17 +756,18 @@ function _insetToInnerFacesOnce(
     const vx = prev.px + t * prev.dx;
     const vz = prev.pz + t * prev.dz;
     // MITER CLAMP (2): even with a non-trivial cross the intersection can land far
-    // from the corner on a shallow/irregular join → reject + bevel.
+    // from the corner on a shallow/irregular join → reject + chamfer.
     if (!Number.isFinite(vx) || !Number.isFinite(vz) || Math.hypot(vx - orig.x, vz - orig.z) > maxMiterDist) {
-      out.push(bevelVertex(i));
+      for (const p of chamferVertices(i)) { out.push(p); srcIdx.push(i); }
       clampedCount++;
       continue;
     }
     out.push({ x: vx, z: vz });
+    srcIdx.push(i);
   }
 
   if (clampedCount > 0) {
-    onDiag?.(`§DIAG-FLOOR-INSET miter-clamp fired on ${clampedCount}/${n} corner(s) (near-parallel/runaway) → bevel fall-back`);
+    onDiag?.(`§DIAG-FLOOR-INSET miter-clamp fired on ${clampedCount}/${n} corner(s) (near-parallel/runaway) → chamfer join (both edges stay ON the wall face)`);
   }
 
   // PER-VERTEX SANITY: no output vertex may sit further than maxMiterDist from the
@@ -516,25 +777,42 @@ function _insetToInnerFacesOnce(
   // so the floor is still produced (a slightly-too-large floor beats a spike).
   for (let i = 0; i < out.length; i++) {
     const o = out[i]!;
-    const src = polygon[i]!;
+    const src = polygon[srcIdx[i]!]!;
     if (!Number.isFinite(o.x) || !Number.isFinite(o.z) || Math.hypot(o.x - src.x, o.z - src.z) > maxMiterDist + 1e-6) {
       onDiag?.(`§DIAG-FLOOR-INSET per-vertex sanity rejected vertex ${i} (${Math.hypot(o.x - src.x, o.z - src.z).toFixed(1)}m from source) → centreline fall-back`);
+      if (capture) { capture.ring = null; capture.reason = 'spike'; }
       return null;
     }
   }
 
   const sane = sanitisePolygon(out);
-  if (!sane) { onDiag?.('§DIAG-FLOOR-INSET sanitise failed → centreline fall-back'); return null; } // fail-safe — never lose the floor
-  if (polygonAreaM2(sane) < 0.01) { onDiag?.('§DIAG-FLOOR-INSET near-zero area → centreline fall-back'); return null; }
+  if (!sane) {
+    onDiag?.('§DIAG-FLOOR-INSET sanitise failed → centreline fall-back');
+    if (capture) { capture.ring = null; capture.reason = 'sanitise'; }
+    return null;
+  } // fail-safe — never lose the floor
+  if (polygonAreaM2(sane) < 0.01) {
+    onDiag?.('§DIAG-FLOOR-INSET near-zero area → centreline fall-back');
+    if (capture) { capture.ring = null; capture.reason = 'near-zero'; }
+    return null;
+  }
   // Inversion guard — a too-large inset crosses the offset edges past each other
   // and FLIPS the winding (the "polygon" turns inside-out, often with a larger
   // unsigned area, so the area check above misses it). If the signed-area sign no
   // longer matches the input, the inset has collapsed → fall back to the original.
   const srcCCW = computeSignedArea(polygon) >= 0;
   const dstCCW = computeSignedArea(sane) >= 0;
-  if (srcCCW !== dstCCW) { onDiag?.('§DIAG-FLOOR-INSET winding inverted → centreline fall-back'); return null; }
+  if (srcCCW !== dstCCW) {
+    onDiag?.('§DIAG-FLOOR-INSET winding inverted → centreline fall-back');
+    if (capture) { capture.ring = null; capture.reason = 'inverted'; }
+    return null;
+  }
   // Sanity: the inner face can never be LARGER than the centreline polygon.
-  if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) { onDiag?.('§DIAG-FLOOR-INSET larger than source → centreline fall-back'); return null; }
+  if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) {
+    onDiag?.('§DIAG-FLOOR-INSET larger than source → centreline fall-back');
+    if (capture) { capture.ring = null; capture.reason = 'larger'; }
+    return null;
+  }
   // SELF-INTERSECTION guard (§FLOOR-INSET-SIMPLE, 2026-06-16) — a too-large /
   // irregular inset (or a bevel fall-back on a near-collinear subdivided ring) can
   // cross adjacent offset edges and produce a BOW-TIE that survives EVERY check
@@ -544,7 +822,14 @@ function _insetToInnerFacesOnce(
   // Reject it → §FLOOR-INSET-COLLAPSE retry / centreline fall-back (always a simple
   // ring from detection/graph). This is the missing guard: the consumer's v213
   // area-ratio check can't catch a ~50%-area bow-tie, but `isSimple` catches it.
-  if (!isSimple(sane)) { onDiag?.('§DIAG-FLOOR-INSET self-intersecting (bow-tie) → centreline fall-back'); return null; }
+  if (!isSimple(sane)) {
+    onDiag?.('§DIAG-FLOOR-INSET self-intersecting (bow-tie) → repair / centreline fall-back');
+    // §FIX-FLOOR-FINISH-CURVED-COVERAGE — hand the rejected ring UP rather than dropping it.
+    // Its edges are all still exactly on the wall faces; only the ring's topology is wrong,
+    // and `repairToSimplePolygon` fixes topology without moving any surviving edge.
+    if (capture) { capture.ring = sane; capture.reason = 'self-intersecting'; }
+    return null;
+  }
   return sane;
 }
 
@@ -928,9 +1213,17 @@ export function deriveRoomFinishBoundary(
   const baseArea = polygonAreaM2(centreline);
   const insetSane = ok && inner.length >= 3 && baseArea > 0 && innerArea >= 0.5 * baseArea;
   const maxInset = insets.reduce((m, v) => Math.max(m, v), 0);
+  // §FIX-FLOOR-FINISH-CURVED-COVERAGE (founder 2026-08-10) — REPORT THE MEASURED PULLBACK,
+  // not just the area. The area check is blind to SHAPE: the centroid-shrink fall-back this
+  // fix deleted lost 5.9 % of area (exactly what the correct inset loses) while gapping
+  // 540 mm at one end of the room and overshooting 40 mm at the middle — and it was logged
+  // as `inner-face ✓`. A single number that would have caught it is the SPREAD of the
+  // per-edge pullback: a true inset holds it at the wall half-thickness everywhere.
+  const spread = _measurePullbackSpread(centreline, insetSane ? inner : centreline);
   onDiag?.(
     `boundary=${insetSane ? 'inner-face ✓' : (ok ? `centreline ⚠ (inset DEGENERATE: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)` : 'centreline ⚠ (inset collapsed)')} ` +
-    `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps}`,
+    `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps} ` +
+    `pullback=${(spread.min * 1000).toFixed(0)}..${(spread.max * 1000).toFixed(0)}mm`,
   );
   return insetSane ? inner : centreline;
 }
@@ -1037,6 +1330,35 @@ export function ringsCoincide(
     if (Math.abs(p.x - q.x) > eps || Math.abs(p.z - q.z) > eps) return false;
   }
   return true;
+}
+
+/**
+ * §FIX-FLOOR-FINISH-CURVED-COVERAGE — how far the derived boundary actually pulled back
+ * from the centreline, measured as the min/max distance from each DERIVED vertex to the
+ * SOURCE ring (the ring is a polyline, so this is a true perpendicular distance and works
+ * even when the derivation changed the vertex count). Pure, O(n·m); n,m ≤ 256.
+ */
+function _measurePullbackSpread(
+  source: ReadonlyArray<RoomVertex>,
+  derived: ReadonlyArray<RoomVertex>,
+): { min: number; max: number } {
+  if (source.length < 2 || derived.length === 0) return { min: 0, max: 0 };
+  let min = Infinity, max = 0;
+  for (const p of derived) {
+    let best = Infinity;
+    for (let i = 0; i < source.length; i++) {
+      const a = source[i]!, b = source[(i + 1) % source.length]!;
+      const abx = b.x - a.x, abz = b.z - a.z;
+      const len2 = abx * abx + abz * abz;
+      let t = len2 < 1e-18 ? 0 : ((p.x - a.x) * abx + (p.z - a.z) * abz) / len2;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(p.x - (a.x + abx * t), p.z - (a.z + abz * t));
+      if (d < best) best = d;
+    }
+    if (best < min) min = best;
+    if (best > max) max = best;
+  }
+  return { min: Number.isFinite(min) ? min : 0, max };
 }
 
 /** Linear interpolation between two X-Z points at parameter `t`. */
