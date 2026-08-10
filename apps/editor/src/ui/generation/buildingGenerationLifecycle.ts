@@ -40,8 +40,15 @@
  * compliance inside {@link proactivelySwitchToWebGLForBuildingGeneration}.
  */
 
+import { viewDependencyTracker } from '@pryzm/core-app-model';
 import { getLoadingOverlay, type LoadingSession } from '@app/ui/overlays/LoadingOverlayController';
 import { proactivelySwitchToWebGLForBuildingGeneration } from '@app/rendering/autoWebGLHeavyScene';
+
+/** §GEN-VIEW-COALESCE — window event dispatched exactly once per generation, at lease
+ *  release, AFTER `__pryzmBuildingGenActive` clears. Consumers that deferred work while
+ *  the flag was up (GISAreaLayout's Forma massing re-place) run their one catch-up pass
+ *  on it. A DOM event (not a runtime-bus event) so it needs no runtime handle here. */
+export const BUILDING_GENERATION_ENDED_EVENT = 'pryzm-building-generation-ended';
 
 /** Batch-idle quiet window before the continuous overlay releases. Must comfortably
  *  bridge the gap between one sub-batch draining and the next starting (per-level
@@ -130,6 +137,18 @@ class GenerationOverlayLease {
         } catch (e) {
             console.warn('[buildingGenerationLifecycle] could not suppress shadows for generation (non-fatal):', e);
             this.shadowRelease = null;
+        }
+
+        // §GEN-VIEW-COALESCE (audit §3 / P1-1) — hold view-dependency invalidation for the
+        // WHOLE lease: every chained sub-batch's batch-end used to coarse-invalidate 5-6
+        // views (a FULL re-projection wave per pass); the hold accumulates the dirtied
+        // levels and release() flushes them ONCE. Release is guaranteed (settle / explicit
+        // end / the MAX_MS hard cap all call release()), and the tracker arms its own
+        // longer watchdog besides — views can never stay frozen (L-716 class).
+        try {
+            viewDependencyTracker.beginGenerationHold();
+        } catch (e) {
+            console.warn('[buildingGenerationLifecycle] could not begin the view-invalidation hold (non-fatal):', e);
         }
 
         // ONE outer session held for the whole generation. Opened FIRST, so the overlay's
@@ -221,6 +240,26 @@ class GenerationOverlayLease {
         // `ReDetectRoomsCommand`s the executors run (e.g. house pre-naming) bypass the observer
         // and are unaffected either way.
         (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive = false;
+
+        // §GEN-VIEW-COALESCE — end the view-invalidation hold: ONE coalesced
+        // markLevelsDirtyImmediate for every level the generation dirtied (the audit's
+        // "flush ONCE at release"). Idempotent + exception-safe; the tracker's own
+        // watchdog is the backstop if this line could somehow never run.
+        try {
+            viewDependencyTracker.endGenerationHold();
+        } catch (e) {
+            console.warn('[buildingGenerationLifecycle] could not end the view-invalidation hold (non-fatal):', e);
+        }
+
+        // §GEN-VIEW-COALESCE — tell deferred consumers (Forma massing) the generation is
+        // over, AFTER the flag cleared + the hold flushed, so their catch-up pass reads
+        // settled stores and is not itself gated. Fired exactly once per generation
+        // (release() is idempotent). Best-effort: a listener failure must not break teardown.
+        try {
+            window.dispatchEvent(new CustomEvent(BUILDING_GENERATION_ENDED_EVENT));
+        } catch (e) {
+            console.warn('[buildingGenerationLifecycle] generation-ended dispatch failed (non-fatal):', e);
+        }
 
         // §GEN-UNDO-COALESCE (L-376d / L-375d) — generation done: close the CommandManager's
         // generation undo batch, flushing every accumulated legacy create into ONE composite undo

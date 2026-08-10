@@ -203,6 +203,40 @@ export class ViewDependencyTracker {
     private _batchSuppressed = false;
 
     /**
+     * §GEN-VIEW-COALESCE (audit GENERATIVE-PIPELINE-AUDIT-2026-08-10 §3 / P1-1, C04/C10):
+     * When true, view-dependency invalidation is HELD for the duration of a building-
+     * generation lease — every level a store event / batch-end would have dirtied is
+     * ACCUMULATED into `_generationHeldLevelIds` instead of marking views dirty, and
+     * `endGenerationHold()` flushes the whole set through ONE `markLevelsDirtyImmediate`.
+     *
+     * Why: each chained generation pass (apartment → ceiling → furnish → lighting) ended
+     * its sub-batch with a `markLevelsDirtyImmediate` that coarse-invalidated 5-6 views —
+     * 4-5 FULL re-projections of all N elements per generation (the graft path is
+     * structurally unreachable during generation: batch-end marks `needingFullInvalidate`
+     * and deletes the per-element dirty set). Holding for the lease collapses those waves
+     * to exactly ONE at release.
+     *
+     * ⚠ L-716 class ("can this gate ever be true?"): a hold that is never released would
+     * freeze plan/elevation views FOREVER. Guarantees, in depth:
+     *   1. The generation lease (`buildingGenerationLifecycle`) calls `endGenerationHold()`
+     *      in its `release()`, which is itself guaranteed by the lease's settle timer,
+     *      explicit end() AND a hard 6-minute cap.
+     *   2. This class arms its OWN watchdog (`GENERATION_HOLD_MAX_MS`, longer than the
+     *      lease cap) that force-ends the hold if the lease somehow never releases.
+     *   3. `markDirty` / `forceReproject` / `notifyViewActivated` deliberately BYPASS the
+     *      hold — a user opening a view mid-generation still gets its one-shot projection.
+     * Orthogonal to `_batchSuppressed` (BatchCoordinator toggles that per sub-batch; the
+     * hold spans ALL sub-batches and must not be cleared by any of them).
+     */
+    private _generationHoldActive = false;
+
+    /** §GEN-VIEW-COALESCE — the levels dirtied while the generation hold was active. */
+    private _generationHeldLevelIds = new Set<string>();
+
+    /** §GEN-VIEW-COALESCE — belt-and-braces watchdog (guarantee #2 above). */
+    private _generationHoldWatchdog: ReturnType<typeof setTimeout> | null = null;
+
+    /**
      * Optional re-projection callback — set by ViewController or engine bootstrap.
      * Called with each dirty viewId during `_flush()`.
      *
@@ -361,6 +395,11 @@ export class ViewDependencyTracker {
         // §FIX-LAZY-INACTIVE-VIEW-PROJECTION — drop deferred / forced projection state.
         this._deferredDirtyViewIds.clear();
         this._forceProjectViewIds.clear();
+        // §GEN-VIEW-COALESCE — a project clear invalidates every held level id (they
+        // belong to the cleared project). The hold FLAG itself is owned by the lease
+        // (its guaranteed release / the watchdog ends it); an end after this clear
+        // simply flushes nothing.
+        this._generationHeldLevelIds.clear();
         viewTechnicalDrawingCache.clear();
         if (this._debounceTimer !== null) {
             clearTimeout(this._debounceTimer);
@@ -460,6 +499,62 @@ export class ViewDependencyTracker {
         }
     }
 
+    // ── §GEN-VIEW-COALESCE — generation-lease hold API ────────────────────────
+
+    /** §GEN-VIEW-COALESCE — hard cap on the hold. Deliberately LONGER than the
+     *  generation lease's own 6-minute cap (buildingGenerationLifecycle MAX_MS), so it
+     *  only ever fires if the lease's guaranteed release somehow never ran. */
+    private static readonly GENERATION_HOLD_MAX_MS = 7 * 60_000;
+
+    /** True while a building-generation view-invalidation hold is active (test seam). */
+    get isGenerationHoldActive(): boolean {
+        return this._generationHoldActive;
+    }
+
+    /**
+     * §GEN-VIEW-COALESCE — begin holding view invalidation for a building generation.
+     * Idempotent (a second begin while active is a no-op — generations don't nest).
+     * Called by the generation lease's constructor; MUST be paired with
+     * `endGenerationHold()` (the lease guarantees it via settle/explicit-end/hard-cap;
+     * the watchdog here is the last-resort backstop, L-716 class).
+     */
+    beginGenerationHold(): void {
+        if (this._generationHoldActive) return;
+        this._generationHoldActive = true;
+        this._generationHeldLevelIds.clear();
+        this._generationHoldWatchdog = setTimeout(() => {
+            console.error(
+                '[ViewDependencyTracker] §GEN-VIEW-COALESCE — generation hold watchdog fired ' +
+                `after ${ViewDependencyTracker.GENERATION_HOLD_MAX_MS} ms without a release; ` +
+                'force-ending the hold so views can never stay frozen (L-716 class).',
+            );
+            this.endGenerationHold();
+        }, ViewDependencyTracker.GENERATION_HOLD_MAX_MS);
+    }
+
+    /**
+     * §GEN-VIEW-COALESCE — end the generation hold and flush every level dirtied while
+     * it was active through ONE `markLevelsDirtyImmediate` (the audit's "flush ONCE at
+     * release"). Idempotent; safe from a `finally` / watchdog / lease release.
+     */
+    endGenerationHold(): void {
+        if (!this._generationHoldActive) return;
+        this._generationHoldActive = false;
+        if (this._generationHoldWatchdog !== null) {
+            clearTimeout(this._generationHoldWatchdog);
+            this._generationHoldWatchdog = null;
+        }
+        const levelIds = [...this._generationHeldLevelIds];
+        this._generationHeldLevelIds.clear();
+        if (levelIds.length > 0) {
+            console.log(
+                `[ViewDependencyTracker] §GEN-VIEW-COALESCE — generation hold released; ` +
+                `ONE coalesced flush for ${levelIds.length} level(s).`,
+            );
+            this.markLevelsDirtyImmediate(levelIds);
+        }
+    }
+
     /**
      * §PERF-VIEW-BATCH-SUPPRESS: Mark only the plan views associated with
      * `levelIds` as dirty and start the 300ms debounce flush.
@@ -473,6 +568,12 @@ export class ViewDependencyTracker {
      */
     markLevelsDirty(levelIds: string[]): void {
         if (levelIds.length === 0) return;
+        // §GEN-VIEW-COALESCE — during a generation lease, accumulate instead of dirtying:
+        // the per-sub-batch batch-end calls land here; endGenerationHold flushes them once.
+        if (this._generationHoldActive) {
+            for (const levelId of levelIds) this._generationHeldLevelIds.add(levelId);
+            return;
+        }
         for (const levelId of levelIds) {
             for (const viewId of this._getAffectedViews('__batch__', levelId)) {
                 this._dirtyViewIds.add(viewId);
@@ -504,6 +605,13 @@ export class ViewDependencyTracker {
      */
     markLevelsDirtyImmediate(levelIds: string[]): void {
         if (levelIds.length === 0) return;
+        // §GEN-VIEW-COALESCE — during a generation lease, accumulate instead of dirtying.
+        // This is THE audit finding: every chained sub-batch's batch-end landed here and
+        // coarse-invalidated 5-6 views; the hold collapses them to one flush at release.
+        if (this._generationHoldActive) {
+            for (const levelId of levelIds) this._generationHeldLevelIds.add(levelId);
+            return;
+        }
         for (const levelId of levelIds) {
             for (const viewId of this._getAffectedViews('__batch__', levelId)) {
                 this._dirtyViewIds.add(viewId);
@@ -540,6 +648,28 @@ export class ViewDependencyTracker {
 
     // ── Private ───────────────────────────────────────────────────────────────
 
+    /**
+     * Resolve the level a store event's element belongs to: the registered map, the
+     * injected resolver, then the §CW-PANEL-PARENT composite-id fallback.
+     *
+     * §CW-PANEL-PARENT (OI-054 (a), 2026-05-24) — CHILD elements use a composite
+     * id `<parentId>::<suffix>` (curtain panels: `curtainwall_<ulid>::row:col`).
+     * They are never registered independently in `_elementLevelMap`, so without this
+     * every panel store-event (N per curtain wall, fired on create/undo/redo by
+     * CurtainPanelSyncHandler) fell into the §G3-STALE fallback — an O(views)
+     * sweep + a console.warn PER PANEL (the 300–560 ms LONGTASK storm). A child's
+     * geometry change is covered by re-projecting the PARENT's level, so attribute
+     * it to the parent (which IS registered). General for any `parent::child` id.
+     */
+    private _resolveLevelIdForEvent(elementId: string): string | undefined {
+        let levelId = this._elementLevelMap.get(elementId) ?? this._resolveElementLevelId?.(elementId);
+        if (!levelId && elementId.includes('::')) {
+            const parentId = elementId.slice(0, elementId.indexOf('::'));
+            levelId = this._elementLevelMap.get(parentId) ?? this._resolveElementLevelId?.(parentId);
+        }
+        return levelId;
+    }
+
     /** React to incoming StoreChangeEvents. */
     private _onStoreEvent(event: StoreChangeEvent): void {
         if (!GEOMETRY_ELEMENT_TYPES.has(event.elementType)) return;
@@ -561,6 +691,18 @@ export class ViewDependencyTracker {
         // targeted reprojection of only the affected plan views.
         if (this._batchSuppressed) return;
 
+        // §GEN-VIEW-COALESCE — during a generation lease, a NON-batched store event (the
+        // finish-chain tail: glass/PBR passes, room-finish sync, deferred openings) must
+        // not dirty views either; resolve its level and accumulate it for the one flush
+        // at release. Events whose level cannot be resolved are simply dropped here —
+        // the generation executors always markLevelsDirty their minted levels at each
+        // sub-batch end, so the level reaches the held set through that path regardless.
+        if (this._generationHoldActive) {
+            const heldLevelId = this._resolveLevelIdForEvent(event.elementId);
+            if (heldLevelId) this._generationHeldLevelIds.add(heldLevelId);
+            return;
+        }
+
         // §FIX-WALLMOVE-PLAN-INCREMENTAL (ADR-0098 F3 / queue Q6, 2026-07-02) —
         // INVARIANT: a wall MOVE must NOT trigger a whole-level plan re-projection on
         // every intermediate baseline update. `PlanElementDragController._moveWall`
@@ -578,20 +720,7 @@ export class ViewDependencyTracker {
             return;
         }
 
-        let levelId = this._elementLevelMap.get(event.elementId) ?? this._resolveElementLevelId?.(event.elementId);
-
-        // §CW-PANEL-PARENT (OI-054 (a), 2026-05-24) — CHILD elements use a composite
-        // id `<parentId>::<suffix>` (curtain panels: `curtainwall_<ulid>::row:col`).
-        // They are never registered independently in `_elementLevelMap`, so without this
-        // every panel store-event (N per curtain wall, fired on create/undo/redo by
-        // CurtainPanelSyncHandler) fell into the §G3-STALE fallback below — an O(views)
-        // sweep + a console.warn PER PANEL (the 300–560 ms LONGTASK storm). A child's
-        // geometry change is covered by re-projecting the PARENT's level, so attribute
-        // it to the parent (which IS registered). General for any `parent::child` id.
-        if (!levelId && event.elementId.includes('::')) {
-            const parentId = event.elementId.slice(0, event.elementId.indexOf('::'));
-            levelId = this._elementLevelMap.get(parentId) ?? this._resolveElementLevelId?.(parentId);
-        }
+        const levelId = this._resolveLevelIdForEvent(event.elementId);
 
         if (levelId) {
             // Targeted: mark only views on the same level.

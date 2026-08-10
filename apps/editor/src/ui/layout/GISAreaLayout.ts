@@ -3967,7 +3967,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // OR 3d) is the active mode (no point rebuilding entities the user isn't
     // looking at; they get rebuilt on the next Cesium activation anyway, which
     // reads live state). The 2D-map mode is skipped.
+    // §GEN-VIEW-COALESCE (audit §3 / P1-1) — TRUE when a Forma re-place was requested while
+    // a building generation was in flight; the one catch-up re-place runs at generation end.
+    let formaMassingPendingAfterGen = false;
     const liveUpdateFormaMassing = (source: string): void => {
+        // §GEN-VIEW-COALESCE — during a building generation the four chained
+        // `*.layout-executed` events each triggered a FULL clear + re-place of the Cesium
+        // massing (3 of 4 redundant — the audit's 4-rebuilds-per-chain finding). While the
+        // generation lease's flag is up we DEFER: remember that a re-place is owed and run
+        // it ONCE on the lease's 'pryzm-building-generation-ended' event (whose dispatch is
+        // guaranteed by the lease's settle / explicit-end / hard-cap release paths, so the
+        // massing can never stay stale — L-716 class). Zero behavior change outside
+        // generation: the flag is only ever true inside a lease.
+        if ((globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive === true) {
+            formaMassingPendingAfterGen = true;
+            console.log(`[gis][forma] live-update (${source}) deferred — building generation in flight (one re-place at generation end).`);
+            return;
+        }
         if (!cesiumViewport?.renderFormaMassing) return; // Cesium not mounted yet.
         // §L-412 (C59 Phase 1b) — pane-aware gate. In the single-view world the guard
         // skips the re-render when the user is on the 2D map (`formaViewMode==='map2d'`)
@@ -4064,6 +4080,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
         }
         console.log('[gis][forma] live-update subscribed: site.parcel-boundary-set + apartment/ceiling/furnish/lighting.layout-executed (furniture-timing fix).');
+        // §GEN-VIEW-COALESCE — the one catch-up re-place at generation end. The lease
+        // dispatches 'pryzm-building-generation-ended' AFTER clearing
+        // __pryzmBuildingGenActive, so the call below is not re-deferred by the gate.
+        const onGenerationEnded = (): void => {
+            if (!formaMassingPendingAfterGen) return;
+            formaMassingPendingAfterGen = false;
+            liveUpdateFormaMassing('generation-ended');
+        };
+        window.addEventListener('pryzm-building-generation-ended', onGenerationEnded);
+        formaLiveUpdateDisposers.push(() => {
+            try { window.removeEventListener('pryzm-building-generation-ended', onGenerationEnded); } catch { /* gone */ }
+        });
     };
     // Subscribe eagerly so an edit made before the user ever opens 3D is still
     // reflected the next time 3D is shown (the guard short-circuits when not 3D).
