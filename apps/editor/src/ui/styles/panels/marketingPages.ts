@@ -137,20 +137,32 @@ export const LANDING_PAGE_STYLES = `
         position: sticky;
         top: 0;
         z-index: 60;
-        /* §NAV-GRADIENT (founder brief 2026-08-10) — the bar picks up the DEEPER
-           violet that sits inside the logo tile at the left and washes to the
-           canonical brand violet by the right-hand edge, so the mark reads as part
-           of the bar instead of a lighter square pasted onto it.
-           BOTH stops are canonical a11y tokens, not eyedropped hexes:
-             pryzm-purple-darker #4A00B7  (packages/a11y-tokens PRYZM_TOKENS)
-             pryzm-purple        #6600FF
-           The gradient runs left to right, ending under the last action ("Book a
-           demo"), which is the founder's stated end point. (No backticks in this
-           comment: the whole stylesheet is a JS template literal, so a backtick
-           terminates it — esbuild fails with "Expected ; but found to".) White text clears AA on
-           BOTH stops (the darker end only raises contrast), so no pair in the
-           C43 §1.5 audit changes meaning. */
-        background: linear-gradient(to right, #4A00B7 0%, #6600FF 100%);
+        /* §NAV-GRADIENT (founder brief 2026-08-10, polished round 2) — a soft
+           RADIAL pool of the deeper violet centred behind the logo tile, dissolving
+           into the canonical brand violet across the bar.
+           WHY RADIAL, NOT A LEFT-TO-RIGHT RAMP: round 1 used
+           linear-gradient(to right, #4A00B7, #6600FF). A full-width linear ramp
+           spends its entire length inside the narrow band between two
+           nearly-identical violets, so 8-bit quantisation makes it read as BANDING
+           — and it still left a visible edge where the tile met the bar, the very
+           defect it was meant to remove. A radial pool concentrates the dark where
+           the tile actually is and then has ~80 pc of the bar to dissolve over,
+           which is enough distance for the step to vanish.
+           Anchor 42px = the mark centre (18px bar padding + half of the 40px tile
+           + its margin), so the pool tracks the MARK, not the viewport edge.
+           The outer stop is rgba(102,0,255,0) — the same rgb as the base colour at
+           zero alpha. Fading to plain transparent interpolates through
+           premultiplied black and greys the middle of the wash.
+           #4A00B7 is the canonical pryzm-purple-darker token and #6600FF the
+           canonical pryzm-purple; the two intermediate values only shape the
+           falloff between those tokens and add no new brand colour.
+           White text clears AA across the whole range (the darker end only raises
+           contrast), so no C43 §1.5 pair changes meaning.
+           No backticks in this comment: the stylesheet is a JS template literal,
+           so one would terminate it (esbuild: Expected ; but found to). */
+        background-color: #6600FF;
+        background-image: radial-gradient(150% 320% at 42px 50%,
+            #4A00B7 0%, #4E03C2 22%, #5A11E2 46%, rgba(102,0,255,0) 82%);
         box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
         flex-shrink: 0;
     }
@@ -215,8 +227,6 @@ export const LANDING_PAGE_STYLES = `
        pill. Drop the two quietest (they remain reachable from /contact and
        the hero CTA respectively); the emphasis ramp keeps its top two. */
     @media (max-width: 1023px) and (min-width: 769px) {
-        .lp-nav-contact { display: none; }
-        .lp-nav-cta { display: none; }
         .lp-nav-link { padding: 7px 10px; font-size: 13px; }
     }
     /* Shared by the <a> links AND by the dropdown trigger <button>s that
@@ -267,9 +277,7 @@ export const LANDING_PAGE_STYLES = `
         box-shadow: 0 4px 14px rgba(20,0,60,0.28);
     }
     /* Shared pill geometry for the four action CTAs. */
-    .lp-nav-contact,
     .lp-nav-login,
-    .lp-nav-cta,
     .lp-nav-demo {
         display: inline-flex;
         align-items: center;
@@ -289,13 +297,6 @@ export const LANDING_PAGE_STYLES = `
        the ground it sits on flipped from pale lavender to violet, so each step
        inverts. Contrast is stated per pill against the #6600FF bar. */
     /* 1 — Contact sales: quietest, plain text. #fff on #6600FF = 8.1:1. */
-    .lp-nav-contact {
-        background: none;
-        border: 1px solid transparent;
-        color: #ffffff;
-        font-weight: 500;
-        padding: 8px 13px;
-    }
     .lp-nav-contact:hover { background: rgba(255,255,255,0.16); color: #ffffff; }
     /* 2 — Log in: outlined in white. */
     .lp-nav-login {
@@ -309,13 +310,6 @@ export const LANDING_PAGE_STYLES = `
     }
     .lp-nav-login:hover { background: rgba(255,255,255,0.20); border-color: #ffffff; }
     /* 3 — Get started for free: tinted secondary. */
-    .lp-nav-cta {
-        background: rgba(255,255,255,0.22);
-        border: 1px solid rgba(255,255,255,0.34);
-        color: #ffffff;
-        font-weight: 600;
-        padding: 8px 17px;
-    }
     .lp-nav-cta:hover { background: rgba(255,255,255,0.32); transform: translateY(-1px); }
     /* 4 — Book a demo: THE primary, INVERTED. On the old pale bar this was a
        solid #6600FF pill; on a #6600FF bar that pill would disappear, so it
@@ -407,26 +401,59 @@ export const LANDING_PAGE_STYLES = `
         position: absolute;
         inset: 0;
         background:
-            linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.24) 42%, rgba(26,6,64,0.58) 100%);
+            linear-gradient(to right,  rgba(26,6,64,0.62) 0%, rgba(26,6,64,0.22) 52%, rgba(26,6,64,0.00) 100%),
+            linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.20) 38%, rgba(26,6,64,0.74) 100%);
         pointer-events: none;
     }
 
-    /* ── The floating control — the reference's search pill, carrying PRYZM's
-       hero copy instead. Glass over the video, centred both ways. */
+    /* ── The copy column — bottom-left, no card ──────────────────────────
+       2026-08-10 (founder brief, reference homepage). The glass panel is
+       RETIRED. The reference sets type directly on the film and anchors it
+       bottom-left; a bordered blurred card reads as a dialog and boxes the
+       hierarchy in, which is the one thing the brief asked to undo.
+
+       Removing the card removes a guaranteed backdrop, so legibility moves to
+       the scrim above, which is now weighted to the LEFT as well as the bottom.
+       Worst case is a pure-white video frame: at the bottom-left the two
+       gradients composite to ~0.90 alpha of #1A0640, i.e. an effective backdrop
+       near #33215A (rel. luminance ≈ 0.021) — #ffffff clears ~17:1 there,
+       against the 4.5:1 the normal-size supporting line needs (C43 §1.5). The
+       scrim is opaque enough that this holds for ANY frame, which is the whole
+       point of not depending on the video's own content.
+    ────────────────────────────────────────────────────────────────── */
     .lp-hero-panel {
         position: relative;
         z-index: 1;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        width: min(760px, 100%);
-        padding: 34px 40px 38px;
-        border-radius: 28px;
-        background: rgba(26,6,64,0.30);
-        backdrop-filter: blur(22px) saturate(1.1);
-        -webkit-backdrop-filter: blur(22px) saturate(1.1);
-        border: 1px solid rgba(255,255,255,0.22);
-        box-shadow: 0 24px 70px rgba(12,0,40,0.34);
+        align-items: flex-start;
+        text-align: left;
+        width: min(1180px, 100%);
+        margin-right: auto;
+        padding: 0;
+    }
+    /* Left rag + bottom anchor. Scoped to the video hero so any surface still
+       using the pale-ground centred hero is untouched. */
+    .lp-hero--video {
+        align-items: flex-start;
+        justify-content: flex-end;
+        text-align: left;
+        padding: 24px 56px 72px;
+    }
+
+    /* ─── The date eyebrow — small, uppercase, widely tracked ──────────
+       Sits ABOVE the headline and is the first thing in the reading order,
+       matching the reference's mission-date line. 13px at 600 weight in white
+       over the scrim is normal-size text and clears AA by a wide margin. */
+    .lp-hero-dateline {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: clamp(11px, 0.95vw, 13px);
+        font-weight: 600;
+        letter-spacing: 0.30em;
+        color: #4A00B7;
+        text-transform: uppercase;
+        margin: 0 0 16px;
+        line-height: 1;
     }
 
     /* Hero logo block REMOVED 2026-08-10 (founder brief): the centred pyramid
@@ -443,19 +470,10 @@ export const LANDING_PAGE_STYLES = `
     /* logo-name is removed from DOM in PRYZM4 hero — kept as hidden no-op */
     .lp-hero-logo-name { display: none; }
 
-    /* ─── Hero wordmark — small "PRYZM" beneath the glyph ─────────────── */
-    .lp-hero-wordmark {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.42em;
-        /* letter-spacing trails the last glyph — indent restores optical centring */
-        text-indent: 0.42em;
-        color: #4A00B7;
-        text-transform: uppercase;
-        margin: 0 0 20px;
-        line-height: 1;
-    }
+    /* The small product-name line that used to sit between the glyph and the
+       headline is GONE (2026-08-10): the date eyebrow above now occupies that
+       slot, and the product name opens the supporting line instead. Rules
+       deleted rather than left dead. */
 
     /* ─── Hero heading — "DEVELOPMENT. COMPUTED." ───────────────────────
        COLOUR RULING (2026-08-07, measured — do not "restore" white).
@@ -483,15 +501,22 @@ export const LANDING_PAGE_STYLES = `
         text-transform: uppercase;
     }
 
-    /* ─── Hero subhead — "Turning planning law into development intelligence." */
+    /* ─── Hero supporting line — product name + the positioning sentence ── */
     .lp-hero-sub {
         font-size: clamp(14px, 1.35vw, 18px);
         color: #4A00B7;
         line-height: 1.5;
-        margin: 0 0 36px;
+        margin: 0 0 30px;
         max-width: 540px;
         font-weight: 500;
         letter-spacing: 0.01em;
+    }
+    /* The product name leads the line at heavier weight — it is a label, not a
+       separate block, so it stays inline and inherits the same size. */
+    .lp-hero-sub-brand {
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: #4A00B7;
     }
 
     /* ─── Video-hero colour override (2026-08-09) ──────────────────────
@@ -505,8 +530,21 @@ export const LANDING_PAGE_STYLES = `
        Scoped to .lp-hero--video so the pale-ground ruling stays intact for
        any surface that still uses it. */
     .lp-hero--video .lp-hero-heading { color: #ffffff; }
-    .lp-hero--video .lp-hero-sub { color: rgba(255,255,255,0.92); }
-    .lp-hero--video .lp-hero-wordmark { color: rgba(255,255,255,0.82); }
+    .lp-hero--video .lp-hero-sub { color: rgba(255,255,255,0.94); }
+    .lp-hero--video .lp-hero-dateline { color: rgba(255,255,255,0.88); }
+    .lp-hero--video .lp-hero-sub-brand { color: #ffffff; }
+    /* The video hero's headline is SMALLER than the pale-ground one (founder
+       brief 2026-08-10): the reference keeps it bold and dominant but nowhere
+       near viewport-filling, and shrinking it is what makes room for the
+       eyebrow above and the supporting line below to read as one hierarchy
+       rather than three competing blocks. */
+    .lp-hero--video .lp-hero-heading {
+        font-size: clamp(30px, 4.0vw, 58px);
+        letter-spacing: -0.02em;
+        margin: 0 0 18px;
+        max-width: 16ch;
+    }
+    .lp-hero--video .lp-hero-sub { max-width: 620px; }
     /* Primary CTA over video: solid white, purple text (16.9:1) — the same
        inversion the header's "Book a demo" pill takes on the violet bar. */
     .lp-hero--video .lp-hero-btn {
@@ -541,25 +579,29 @@ export const LANDING_PAGE_STYLES = `
         to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* Staggered entrance on hero elements */
+    /* Staggered entrance on hero elements — the eyebrow arrives FIRST, so the
+       motion reads in the same order as the type hierarchy. */
+    .lp-hero-dateline {
+        animation: lp-ama-fadein 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: 0s;
+    }
     .lp-hero-heading {
         animation: lp-ama-fadein 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: 0.05s;
+        animation-delay: 0.15s;
     }
     .lp-hero-sub {
         animation: lp-ama-fadein 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: 0.35s;
+        animation-delay: 0.42s;
     }
 
-    /* ─── Hero CTA row — centred (the 52px right offset is retired: the
-       2026-08-07 design is a single centred column top to bottom). ───── */
+    /* ─── Hero CTA row — left-ragged with the rest of the column. ────── */
     .lp-hero-ctas {
         display: flex;
         gap: 12px;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         flex-wrap: wrap;
-        margin-bottom: 8px;
+        margin-bottom: 0;
         transform: none;
     }
 
@@ -613,7 +655,7 @@ export const LANDING_PAGE_STYLES = `
         filter: brightness(0.92);
     }
     @media (prefers-reduced-motion: reduce) {
-        .lp-hero-heading, .lp-hero-sub, .lp-hero-btn--enter { animation: none; }
+        .lp-hero-dateline, .lp-hero-heading, .lp-hero-sub, .lp-hero-btn--enter { animation: none; }
         .lp-hero-ctas { transform: none; }
         /* WCAG 2.1 SC 2.2.2 — no auto-playing motion for users who asked for
            none. The apex ships ZERO JS (CSP default-src 'none'), so the video
@@ -998,10 +1040,8 @@ export const LANDING_PAGE_STYLES = `
            itself stays laid out — the tile mark lives inside it, and the
            founder's brief puts that mark on the right at every width. */
         .lp-nav-links { display: none; }
-        .lp-nav-contact,
-        .lp-nav-login,
-        .lp-nav-cta,
-        .lp-nav-demo { display: none; }
+            .lp-nav-login,
+            .lp-nav-demo { display: none; }
         .lp-nav-actions { gap: 4px; }
         .lp-nav-mark { height: 34px; margin-right: 8px; }
         /* Show hamburger */
@@ -1038,8 +1078,7 @@ export const LANDING_PAGE_STYLES = `
         /* Only the primary CTA survives the narrow row (plus the tile mark). */
         .lp-nav--apex .lp-nav-contact,
         .lp-nav--apex .lp-nav-login,
-        .lp-nav--apex .lp-nav-cta { display: none; }
-        .lp-nav--apex .lp-nav-demo { display: inline-flex; padding: 9px 16px; font-size: 13px; }
+        .lp-nav--apex        .lp-nav--apex .lp-nav-demo { display: inline-flex; padding: 9px 16px; font-size: 13px; }
 
         /* Scale down logo */
         .lp-logo-icon { width: 36px; height: 36px; }
@@ -1054,12 +1093,11 @@ export const LANDING_PAGE_STYLES = `
         .lp-hero--video {
             height: calc(100dvh - 56px);
             min-height: 460px;
-            padding: 16px 12px;
+            padding: 16px 20px 44px;
         }
         .lp-hero-panel {
             width: 100%;
-            padding: 24px 18px 26px;
-            border-radius: 20px;
+            padding: 0;
         }
         .lp-hero--video .lp-hero-btn {
             width: 100%;
@@ -1071,15 +1109,19 @@ export const LANDING_PAGE_STYLES = `
             max-width: 100%;
             width: 100%;
         }
-        .lp-hero-wordmark { font-size: 11px; margin-bottom: 14px; }
-        .lp-hero-heading {
+        .lp-hero-dateline { font-size: 11px; letter-spacing: 0.26em; margin-bottom: 12px; }
+        .lp-hero-heading,
+        .lp-hero--video .lp-hero-heading {
             font-size: 34px;
             letter-spacing: -0.02em;
+            max-width: none;
+            margin-bottom: 14px;
         }
-        .lp-hero-sub {
+        .lp-hero-sub,
+        .lp-hero--video .lp-hero-sub {
             font-size: 14px;
             max-width: 100%;
-            margin-bottom: 26px;
+            margin-bottom: 24px;
         }
 
         /* Showcase: at 390px the 1600×442 plate is only ~108px tall, so an
@@ -1122,11 +1164,14 @@ export const LANDING_PAGE_STYLES = `
         .lp-hero-card {
             padding: 24px 16px 28px;
         }
-        .lp-hero-heading {
+        .lp-hero-heading,
+        .lp-hero--video .lp-hero-heading {
             font-size: 28px;
             letter-spacing: -0.02em;
         }
-        .lp-hero-sub { font-size: 13px; }
+        .lp-hero-sub,
+        .lp-hero--video .lp-hero-sub { font-size: 13px; }
+        .lp-hero-dateline { font-size: 10.5px; letter-spacing: 0.24em; }
         .lp-hero-btn {
             width: 100%;
             text-align: center;

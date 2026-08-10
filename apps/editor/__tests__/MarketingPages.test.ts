@@ -21,7 +21,7 @@ import { ManifestoPage, mountManifestoPage } from '../src/ui/marketing/Manifesto
 import { TrustPage, mountTrustPage } from '../src/ui/marketing/TrustPage.js';
 import {
     landingMarkup,
-    HERO_WORDMARK, HERO_HEADLINE, HERO_SUBHEAD,
+    HERO_DATELINE, HERO_HEADLINE, HERO_SUBHEAD_BRAND, HERO_SUBHEAD,
     SHOWCASE_CAPTIONS,
     HERO_IMAGE_URL, HERO_IMAGE_WIDTH, HERO_IMAGE_HEIGHT, HERO_IMAGE_ALT,
 } from '../src/ui/platform/landingMarkup.js';
@@ -267,12 +267,18 @@ describe('landingMarkup — motif-modelled header', () => {
             landingMarkup({ mode: 'app' }),
             landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }),
         ]) {
-            for (const id of ['lp-nav-contact', 'lp-nav-login', 'lp-nav-cta', 'lp-nav-demo']) {
+            // §NAV-CTA-TRIM (2026-08-10 round 2): the BAR keeps only Log in +
+            // Book a demo. "Contact sales" / "Get started for free" were removed
+            // from it — asserted absent here so they cannot creep back silently.
+            for (const id of ['lp-nav-login', 'lp-nav-demo']) {
                 expect(html).toContain(`id="${id}"`);
+            }
+            for (const id of ['lp-nav-contact', 'lp-nav-cta']) {
+                expect(html).not.toContain(`id="${id}"`);
             }
             expect(html).toContain('Book a demo');
             // Focus order follows visual order: demo is the LAST action.
-            expect(html.indexOf('lp-nav-demo')).toBeGreaterThan(html.indexOf('lp-nav-cta'));
+            expect(html.indexOf('lp-nav-demo')).toBeGreaterThan(html.indexOf('lp-nav-login'));
         }
     });
 
@@ -334,7 +340,7 @@ describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () 
     it('styles every header control the markup emits', () => {
         for (const sel of [
             '.lp-nav-links', '.lp-nav-link', '.lp-nav-actions',
-            '.lp-nav-contact', '.lp-nav-login', '.lp-nav-cta', '.lp-nav-demo',
+            '.lp-nav-login', '.lp-nav-demo',
             // Relocated out of SOLUTIONS_STYLES — the apex prerender only
             // inlines LANDING_PAGE_STYLES, so these must live here.
             '.lp-hamburger', '.lp-mobile-drawer', '.lp-mobile-drawer-demo',
@@ -350,12 +356,13 @@ describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () 
         // would vanish. Both are C43 §1.5 tokens; the point of this test is
         // that the header never reaches outside the token set, not that any
         // one control keeps a particular fill.
-        // 2026-08-10: the bar became a GRADIENT — the deeper token at the left so
-        // the logo tile reads as part of the bar, washing to the brand violet by
-        // the right-hand edge. The assertion still enforces the real invariant
-        // (the header reaches only into the token set) rather than pinning one
-        // fill: BOTH stops must be tokens, and both must be present.
-        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*background:\s*linear-gradient\([^)]*#4A00B7[^)]*#6600FF[^)]*\)/);
+        // 2026-08-10: the bar became a RADIAL gradient (§NAV-GRADIENT round 2) —
+        // a pool of the deeper token behind the mark dissolving into the brand
+        // violet. The assertion still enforces the real invariant (the header
+        // reaches only into the token set) rather than pinning one fill: the base
+        // colour and the pool's dark stop must both be canonical tokens.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*background-color:\s*#6600FF/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*background-image:\s*radial-gradient\([^;]*#4A00B7/);
         expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*background:\s*#ffffff/);
         expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*color:\s*#4A00B7/);
         // The retired ADR-0252 mirror hex must never reappear.
@@ -374,20 +381,90 @@ describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () 
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('landingMarkup — hero + product showcase', () => {
-    it('renders glyph → wordmark → headline → subhead, from the shared constants', () => {
+    // Founder brief 2026-08-10 (reference homepage): the hero hierarchy is now
+    // small date eyebrow → headline → supporting line → CTA, all from the shared
+    // constants. The order assertions below ARE the hierarchy — they are what
+    // stops a later edit from re-stacking the column by accident.
+    it('renders date → headline → subhead → CTA, from the shared constants', () => {
         for (const html of [
             landingMarkup({ mode: 'app' }),
             landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }),
         ]) {
-            expect(html).toContain(`<p class="lp-hero-wordmark">${HERO_WORDMARK}</p>`);
+            expect(html).toContain(`<p class="lp-hero-dateline">${HERO_DATELINE}</p>`);
             expect(html).toContain(`<h1 class="lp-hero-heading">${HERO_HEADLINE}</h1>`);
-            expect(html).toContain(`<p class="lp-hero-sub">${HERO_SUBHEAD}</p>`);
-            // Composition order: wordmark above headline above subhead.
-            expect(html.indexOf('lp-hero-wordmark')).toBeLessThan(html.indexOf('lp-hero-heading'));
-            expect(html.indexOf('lp-hero-heading')).toBeLessThan(html.indexOf('lp-hero-sub'));
+            // The product name opens the supporting line as its own span, so the
+            // sentence itself is never re-typed with a prefix baked in.
+            expect(html).toContain(
+                `<p class="lp-hero-sub"><span class="lp-hero-sub-brand">${HERO_SUBHEAD_BRAND}</span> ${HERO_SUBHEAD}</p>`,
+            );
+            const at = {
+                date: html.indexOf('lp-hero-dateline'),
+                heading: html.indexOf('lp-hero-heading'),
+                sub: html.indexOf('lp-hero-sub"'),
+                cta: html.indexOf('lp-hero-ctas'),
+            };
+            expect(at.date).toBeGreaterThan(-1);
+            expect(at.date).toBeLessThan(at.heading);
+            expect(at.heading).toBeLessThan(at.sub);
+            expect(at.sub).toBeLessThan(at.cta);
+            // The CTA still ships and still says what it said.
+            expect(html).toContain('id="lp-hero-btn"');
+            expect(html).toContain('Start here');
         }
+        expect(HERO_DATELINE).toBe('SEPTEMBER 2027');
         expect(HERO_HEADLINE).toBe('DEVELOPMENT. COMPUTED.');
+        expect(HERO_SUBHEAD_BRAND).toBe('PRYZM DESIGN:');
         expect(HERO_SUBHEAD).toBe('Turning planning law into development intelligence.');
+    });
+
+    it('the hero column is left-ragged and bottom-anchored, with no glass card', () => {
+        // The card is what the brief asked to drop: no blur, no border, no fill
+        // on the copy column. Asserted on the RULE, because "it looks right in
+        // one screenshot" is not a regression guard.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-panel\s*\{[^}]*align-items:\s*flex-start/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-panel\s*\{[^}]*text-align:\s*left/);
+        expect(LANDING_PAGE_STYLES).not.toMatch(/\.lp-hero-panel\s*\{[^}]*backdrop-filter/);
+        expect(LANDING_PAGE_STYLES).not.toMatch(/\.lp-hero-panel\s*\{[^}]*border:/);
+        // Bottom-left anchor on the video hero.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero--video\s*\{[^}]*justify-content:\s*flex-end/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero--video\s*\{[^}]*align-items:\s*flex-start/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-ctas\s*\{[^}]*justify-content:\s*flex-start/);
+    });
+
+    it('the headline SHRANK and the date line is small, tracked and uppercase', () => {
+        // Was clamp(30px, 6.0vw, 88px) — the brief called it "massive". The
+        // video hero now caps at 58px; the pale-ground base rule is untouched.
+        expect(LANDING_PAGE_STYLES).toMatch(
+            /\.lp-hero--video \.lp-hero-heading\s*\{[^}]*font-size:\s*clamp\(30px,\s*4\.0vw,\s*58px\)/,
+        );
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-dateline\s*\{[^}]*text-transform:\s*uppercase/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-dateline\s*\{[^}]*letter-spacing:\s*0\.30em/);
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-hero-dateline\s*\{[^}]*font-size:\s*clamp\(11px,[^)]*13px\)/);
+    });
+
+    it('losing the card does not lose contrast: the scrim gained a left weight', () => {
+        // With no card behind the copy, the ONLY guarantee of AA over an unknown
+        // video frame is the scrim — and the copy moved to the bottom-LEFT, which
+        // the old bottom-only gradient did not weight. Both directions must exist.
+        expect(LANDING_PAGE_STYLES).toMatch(
+            /\.lp-hero-media::after\s*\{[^}]*linear-gradient\(to right,\s*rgba\(26,6,64,0\.62\)/,
+        );
+        expect(LANDING_PAGE_STYLES).toMatch(
+            /\.lp-hero-media::after\s*\{[^}]*linear-gradient\(to bottom,[^)]*\)[^;]*rgba\(26,6,64,0\.74\)/,
+        );
+        // Brand: the scrim is deep violet, never black.
+        expect(LANDING_PAGE_STYLES).not.toMatch(/\.lp-hero-media::after\s*\{[^}]*rgba\(0,0,0/);
+    });
+
+    it('reduced-motion still silences every animated hero element', () => {
+        expect(LANDING_PAGE_STYLES).toContain('prefers-reduced-motion');
+        // The eyebrow is animated too, so it must be in the silence list — the
+        // whole point of the assertion is that a new animated element cannot be
+        // added to the hero without being added here as well.
+        expect(LANDING_PAGE_STYLES).toContain(
+            '.lp-hero-dateline, .lp-hero-heading, .lp-hero-sub, .lp-hero-btn--enter { animation: none; }',
+        );
+        expect(LANDING_PAGE_STYLES).toContain('.lp-hero-video { display: none; }');
     });
 
     // Founder brief 2026-08-10: the centred hero glyph is GONE — it competed with

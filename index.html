@@ -105,8 +105,12 @@
       .lp-skel-nav {
         display: flex; align-items: center; gap: 16px; position: relative;
         padding: 0 18px; min-height: 64px; flex-shrink: 0;
-        /* §NAV-GRADIENT — mirrors `.lp-nav`: canonical tokens #4A00B7 → #6600FF. */
-        background: linear-gradient(to right, #4A00B7 0%, #6600FF 100%);
+        /* §NAV-GRADIENT — mirrors `.lp-nav`: a radial pool of pryzm-purple-darker
+           behind the mark dissolving into pryzm-purple. See the full rationale in
+           marketingPages.ts (why radial beats a left-to-right ramp). */
+        background-color: #6600FF;
+        background-image: radial-gradient(150% 320% at 42px 50%,
+            #4A00B7 0%, #4E03C2 22%, #5A11E2 46%, rgba(102,0,255,0) 82%);
         box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
       }
       .lp-skel-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 151px; margin-right: auto; }
@@ -126,8 +130,6 @@
         }
       }
       @media (max-width: 1023px) and (min-width: 769px) {
-        .lp-skel-contact { display: none; }
-        .lp-skel-cta { display: none; }
         .lp-skel-nav-link { padding: 7px 10px; font-size: 13px; }
       }
       .lp-skel-nav-link {
@@ -148,33 +150,25 @@
          `-webkit-tap-highlight-color: transparent` for a clean visual; the
          `:active` state below provides immediate visual feedback so the user
          knows the tap registered even before the LandingPage takes over. */
-      .lp-skel-login, .lp-skel-contact, .lp-skel-cta, .lp-skel-demo, .lp-skel-hero-btn {
+      .lp-skel-login, .lp-skel-demo, .lp-skel-hero-btn {
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
         transition: transform 90ms ease-out, opacity 90ms ease-out;
       }
-      .lp-skel-login:active, .lp-skel-contact:active, .lp-skel-cta:active,
+      .lp-skel-login:active,
       .lp-skel-demo:active, .lp-skel-hero-btn:active {
         transform: scale(0.97); opacity: 0.85;
       }
       /* §SKEL-MATCH — the four action pills mirror .lp-nav-contact /
          .lp-nav-login / .lp-nav-cta / .lp-nav-demo in marketingPages.ts. */
-      .lp-skel-login, .lp-skel-contact, .lp-skel-cta, .lp-skel-demo {
+      .lp-skel-login, .lp-skel-demo {
         display: inline-flex; align-items: center; gap: 6px;
         border-radius: 999px; font-family: var(--lp-skel-font);
         font-size: 13.5px; cursor: pointer; white-space: nowrap;
       }
-      .lp-skel-contact {
-        background: none; border: 1px solid transparent; color: #ffffff;
-        font-weight: 500; padding: 8px 13px;
-      }
       .lp-skel-login {
         background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.55);
-        color: #ffffff; font-weight: 600; padding: 8px 17px;
-      }
-      .lp-skel-cta {
-        background: rgba(255,255,255,0.22); border: 1px solid rgba(255,255,255,0.34);
         color: #ffffff; font-weight: 600; padding: 8px 17px;
       }
       .lp-skel-demo {
@@ -195,9 +189,9 @@
       .lp-skel-hero {
         flex: 0 0 auto;
         display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
+        align-items: flex-start; justify-content: flex-end;
         height: calc(100dvh - 64px); min-height: 420px;
-        padding: 24px; text-align: center; overflow: hidden; position: relative;
+        padding: 24px 56px 72px; text-align: left; overflow: hidden; position: relative;
         background:
           radial-gradient(ellipse 85% 90% at 28% 30%, #6600FF 0%, transparent 70%),
           radial-gradient(ellipse 75% 80% at 78% 78%, #4A00B7 0%, transparent 72%),
@@ -207,27 +201,22 @@
          identical value it will sit on once the video is behind it. */
       .lp-skel-hero::after {
         content: ''; position: absolute; inset: 0; pointer-events: none;
-        background: linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.24) 42%, rgba(26,6,64,0.58) 100%);
+        background:
+          linear-gradient(to right,  rgba(26,6,64,0.62) 0%, rgba(26,6,64,0.22) 52%, rgba(26,6,64,0.00) 100%),
+          linear-gradient(to bottom, rgba(26,6,64,0.46) 0%, rgba(26,6,64,0.20) 38%, rgba(26,6,64,0.74) 100%);
       }
-      /* Mirrors `.lp-hero-panel`. */
+      /* Mirrors `.lp-hero-panel` — the glass card was retired 2026-08-10; the
+         copy column is now a bare left-ragged stack anchored bottom-left. */
       .lp-skel-hero-panel {
         position: relative; z-index: 1;
-        display: flex; flex-direction: column; align-items: center;
-        width: min(760px, 100%);
-        padding: 34px 40px 38px; border-radius: 28px;
-        background: rgba(26,6,64,0.30);
-        backdrop-filter: blur(22px) saturate(1.1); -webkit-backdrop-filter: blur(22px) saturate(1.1);
-        border: 1px solid rgba(255,255,255,0.22);
-        box-shadow: 0 24px 70px rgba(12,0,40,0.34);
+        display: flex; flex-direction: column; align-items: flex-start;
+        text-align: left; width: min(1180px, 100%); margin-right: auto; padding: 0;
       }
-      .lp-skel-hero-logo-block {
-        display: flex; flex-direction: column; align-items: center; gap: 10px;
-        min-height: 112px; justify-content: center; margin-bottom: 14px;
-      }
-      .lp-skel-hero-icon { width: 44px; height: 44px; display: block; }
-      .lp-skel-hero-logoname {
-        font-size: 13px; font-weight: 700; letter-spacing: 0.42em; text-indent: 0.42em;
-        color: rgba(255,255,255,0.82); text-transform: uppercase; line-height: 1; margin: 0 0 20px;
+      /* §SKEL-MATCH — mirrors `.lp-hero-dateline` + its video-hero colour. */
+      .lp-skel-dateline {
+        font-family: var(--lp-skel-font);
+        font-size: clamp(11px, 0.95vw, 13px); font-weight: 600; letter-spacing: 0.30em;
+        color: rgba(255,255,255,0.88); text-transform: uppercase; line-height: 1; margin: 0 0 16px;
       }
       /* §SKEL-MATCH (2026-05-29) — these values must match `.lp-hero-heading`
          and `.lp-hero-sub` in apps/editor/src/ui/styles/panels/marketingPages.ts
@@ -236,17 +225,19 @@
          washed-out background ("the silent wrong landing"). See memory note
          landing-skeleton-vs-real-mismatch.md. */
       .lp-skel-heading {
-        font-size: clamp(30px, 6.0vw, 88px); font-weight: 800; line-height: 1.02;
+        font-size: clamp(30px, 4.0vw, 58px); font-weight: 800; line-height: 1.02;
         font-family: var(--lp-skel-font);
         /* White, matching `.lp-hero--video .lp-hero-heading` — the ground is
            the violet scrim now, not the pale lavender field. */
         color: #ffffff;
-        margin: 0 0 20px; letter-spacing: -0.03em; max-width: none; text-transform: uppercase;
+        margin: 0 0 18px; letter-spacing: -0.02em; max-width: 16ch; text-transform: uppercase;
       }
       .lp-skel-sub-copy {
-        font-size: clamp(14px, 1.35vw, 18px); color: rgba(255,255,255,0.92); line-height: 1.5;
-        margin: 0 0 36px; max-width: 540px; font-weight: 500; letter-spacing: 0.01em;
+        font-size: clamp(14px, 1.35vw, 18px); color: rgba(255,255,255,0.94); line-height: 1.5;
+        margin: 0 0 30px; max-width: 620px; font-weight: 500; letter-spacing: 0.01em;
       }
+      /* Mirrors `.lp-hero-sub-brand` — the product name leading the line. */
+      .lp-skel-sub-brand { font-weight: 700; letter-spacing: 0.05em; color: #ffffff; }
       /* Showcase plate — reserves the SAME 2560×1440 box as .lp-showcase-frame
          so nothing shifts when the real landing swaps in. The skeleton never
          requests the CDN image (it must not add a network hop before first
@@ -271,8 +262,8 @@
       }
       .lp-skel-showcase-item:last-child { border-right: none; }
       .lp-skel-hero-ctas {
-        display: flex; gap: 12px; align-items: center; justify-content: center;
-        flex-wrap: wrap; margin-bottom: 8px;
+        display: flex; gap: 12px; align-items: center; justify-content: flex-start;
+        flex-wrap: wrap; margin-bottom: 0;
       }
       /* §SKEL-MATCH — mirrors `.lp-hero--video .lp-hero-btn` (solid white,
          purple text) so the CTA does not restyle when the real page mounts. */
@@ -303,43 +294,11 @@
       .lp-skel-hero-tag:last-child { border-right: none; }
       .lp-skel-hero-tag:first-child { padding-left: 0; }
 
-      /* ── CSS 3-D pyramid spinner — mirrors PryzmLogoSpinner.ts exactly ──
-         Inlined here so the skeleton paints the same solid spinning prism
-         as the real LandingPage; no flash of the old outline SVG. */
-      @keyframes pryzmLogoSpin {
-        from { transform: rotateX(-22deg) rotateY(0deg); }
-        to   { transform: rotateX(-22deg) rotateY(-360deg); }
-      }
-      .lp-skel-spinner-wrap {
-        display: inline-flex; align-items: center; justify-content: center;
-        flex-shrink: 0; overflow: visible;
-        width: 44px; height: 56px;
-        filter: drop-shadow(0px 8px 16px rgba(100,60,220,0.22));
-      }
-      .lp-skel-spinner-scene {
-        width: 36px; height: 52px;
-        position: relative; overflow: visible;
-        perspective: 220px; perspective-origin: 50% 42%;
-      }
-      .lp-skel-spinner-pyramid {
-        width: 36px; height: 52px; position: relative;
-        transform-style: preserve-3d;
-        animation: pryzmLogoSpin 4s linear infinite;
-      }
-      .lp-skel-spinner-face {
-        position: absolute; bottom: 0; left: 0;
-        width: 36px; height: 55px;
-        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-        transform-origin: 50% 100%;
-        backface-visibility: hidden;
-      }
-      .lp-skel-spinner-face--front { background: rgba(255,255,255,0.28); transform: rotateY(0deg)   translateZ(18px) rotateX(19deg); }
-      .lp-skel-spinner-face--right { background: rgba(255,255,255,0.14); transform: rotateY(90deg)  translateZ(18px) rotateX(19deg); }
-      .lp-skel-spinner-face--back  { background: rgba(255,255,255,0.10); transform: rotateY(180deg) translateZ(18px) rotateX(19deg); }
-      .lp-skel-spinner-face--left  { background: rgba(255,255,255,0.20); transform: rotateY(270deg) translateZ(18px) rotateX(19deg); }
-      @media (prefers-reduced-motion: reduce) {
-        .lp-skel-spinner-pyramid { animation-duration: 20s; }
-      }
+      /* The inlined CSS 3-D prism spinner was DELETED 2026-08-10 with the hero
+         block that was its only consumer. Dead first-paint CSS is not free — it
+         is bytes on the critical path — and leaving the selectors behind would
+         imply the skeleton still paints something the real hero no longer has. */
+
       /* Hamburger placeholder — hidden on desktop, shown on mobile.  Mirrors
          `.lp-hamburger` in marketingPages.ts (44 × 44 px touch target per
          Apple HIG / WCAG 2.5.5) so the nav layout doesn't shift when the
@@ -354,18 +313,16 @@
         .lp-skel-nav { padding: 0 12px; min-height: 56px; align-items: center; }
         .lp-skel-nav-links { display: none; }
         /* §SKEL-MATCH — the CTAs hide, the actions ROW stays (it carries the mark). */
-        .lp-skel-contact, .lp-skel-login, .lp-skel-cta, .lp-skel-demo { display: none; }
+        .lp-skel-login, .lp-skel-demo { display: none; }
         .lp-skel-nav-actions { gap: 4px; }
         .lp-skel-mark { height: 34px; margin-right: 8px; }
         .lp-skel-hamburger { display: flex; }
         .lp-skel-logo-icon { width: 36px; height: 36px; }
-        .lp-skel-hero { height: calc(100dvh - 56px); min-height: 460px; padding: 16px 12px; }
-        .lp-skel-hero-panel { width: 100%; padding: 24px 18px 26px; border-radius: 20px; }
-        .lp-skel-hero-logo-block { min-height: 76px; margin-bottom: 10px; }
-        .lp-skel-hero-icon { width: 54px; height: 54px; }
-        .lp-skel-hero-logoname { font-size: 11px; margin-bottom: 14px; }
-        .lp-skel-heading { font-size: 34px; letter-spacing: -0.02em; }
-        .lp-skel-sub-copy { font-size: 14px; max-width: 100%; margin-bottom: 26px; }
+        .lp-skel-hero { height: calc(100dvh - 56px); min-height: 460px; padding: 16px 20px 44px; }
+        .lp-skel-hero-panel { width: 100%; padding: 0; }
+        .lp-skel-dateline { font-size: 11px; letter-spacing: 0.26em; margin-bottom: 12px; }
+        .lp-skel-heading { font-size: 34px; letter-spacing: -0.02em; max-width: none; margin-bottom: 14px; }
+        .lp-skel-sub-copy { font-size: 14px; max-width: 100%; margin-bottom: 24px; }
         .lp-skel-showcase-caption { position: static; background: #4A00B7; padding: 12px 8px; letter-spacing: 0.10em; font-size: 9.5px; row-gap: 6px; }
         .lp-skel-showcase-item { padding: 3px 8px; }
         .lp-skel-hero-btn { padding: 14px 28px; font-size: 15px; min-height: 48px; }
@@ -427,9 +384,9 @@
             <span class="lp-skel-nav-link">Pricing</span>
           </div>
           <div class="lp-skel-nav-actions">
-            <button class="lp-skel-contact" type="button" data-skel-action="contactSales">Contact sales</button>
+            <!-- §SKEL-MATCH — two CTAs removed from the bar in lock-step with
+                 landingMarkup.ts (founder brief 2026-08-10 round 2). -->
             <button class="lp-skel-login" type="button" data-skel-action="login">Log in</button>
-            <button class="lp-skel-cta" type="button" data-skel-action="getStarted">Get started for free</button>
             <button class="lp-skel-demo" type="button" data-skel-action="contactSales">Book a demo</button>
           </div>
           <!-- Wave 1.5c — mobile hamburger placeholder (matches `.lp-hamburger`
@@ -450,23 +407,14 @@
              §SKEL-MATCH note on `.lp-skel-hero`. -->
         <section class="lp-skel-hero">
           <div class="lp-skel-hero-panel">
-            <!-- CSS 3-D spinning pyramid — identical to createPryzmLogoSpinner('lg') -->
-            <div class="lp-skel-hero-logo-block" aria-hidden="true">
-              <div class="lp-skel-spinner-wrap">
-                <div class="lp-skel-spinner-scene">
-                  <div class="lp-skel-spinner-pyramid">
-                    <div class="lp-skel-spinner-face lp-skel-spinner-face--front"></div>
-                    <div class="lp-skel-spinner-face lp-skel-spinner-face--right"></div>
-                    <div class="lp-skel-spinner-face lp-skel-spinner-face--back"></div>
-                    <div class="lp-skel-spinner-face lp-skel-spinner-face--left"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p class="lp-skel-hero-logoname">PRYZM</p>
+            <!-- §SKEL-MATCH (2026-08-10) — mirrors the hero column in
+                 apps/editor/src/ui/platform/landingMarkup.ts: date eyebrow →
+                 headline → supporting line → CTA, left-ragged. The centred
+                 spinning-prism block that used to open this panel is gone with
+                 the one in the real hero; the mark leads the bar above instead. -->
+            <p class="lp-skel-dateline">SEPTEMBER 2027</p>
             <h1 class="lp-skel-heading">DEVELOPMENT. COMPUTED.</h1>
-            <p class="lp-skel-sub-copy">Turning planning law into development intelligence.</p>
+            <p class="lp-skel-sub-copy"><span class="lp-skel-sub-brand">PRYZM DESIGN:</span> Turning planning law into development intelligence.</p>
 
             <div class="lp-skel-hero-ctas">
               <button class="lp-skel-hero-btn" type="button" data-skel-action="getStarted">
