@@ -34,7 +34,7 @@ import {
   describeCapabilitiesFor,
   nonImperativeReason,
   unconnectedTopicCommands,
-  unconnectedTopicLabels,
+  unconnectedTopics,
 } from '../src/capabilities/CapabilityRefusal.js';
 import {
   applySemanticIntent,
@@ -130,6 +130,7 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-width': ['door', 'window', 'stair'],
       'set-sill-height': ['window'],
       'set-wall-type': ['wall'],
+      'set-wall-color': ['wall'],
       'set-roof-pitch': ['roof'],
       'rename-room': ['room'],
       'set-room-number': ['room'],
@@ -166,17 +167,26 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
 // ─── Refusal generation ──────────────────────────────────────────────────────
 
 describe('capability-aware refusals', () => {
-  it('names the gap AND what is possible — the founder\'s example, verbatim shape', () => {
-    const r = capabilityGapRefusal('paint the wall blue', []);
+  it('names the gap AND what is possible — for a kind whose colour is still unconnected', () => {
+    // §FEAT-WALL-COLOR-BATCH (ADR-0314): WALL colour is live now, so the
+    // founder's original example moved to the DOOR — whose colour route
+    // (door.setFrameColor) is still deliberately deferred.
+    const r = capabilityGapRefusal('paint the door blue', []);
     expect(r).not.toBeNull();
-    expect(r!.reason).toBe(
-      "Wall colour isn't connected to chat yet. I can change wall height, thickness and type.",
-    );
+    expect(r!.reason).toContain("Door colour isn't connected to chat yet.");
+    expect(r!.reason).toContain('I can change door height and width.');
+  });
+
+  it('does NOT manufacture a colour refusal for walls — wall colour is a live capability', () => {
+    // The topic excludes 'wall' (excludeKinds): a wall-colour ask the grammar
+    // couldn't parse is a MISS for the LLM, never a false "isn't connected".
+    expect(capabilityGapRefusal('paint the wall blue', [])).toBeNull();
+    expect(capabilityGapRefusal('change the colour', ['wall'])).toBeNull();
   });
 
   it('falls back to the SELECTION when the utterance names no element kind', () => {
-    const r = capabilityGapRefusal('change the colour', ['wall']);
-    expect(r?.reason).toContain('Wall colour');
+    const r = capabilityGapRefusal('change the colour', ['slab']);
+    expect(r?.reason).toContain('Slab colour');
   });
 
   it('the offer is generated from the registry, so it can never offer a refused ability', () => {
@@ -212,11 +222,23 @@ describe('capability-aware refusals', () => {
   });
 
   it('no unconnected topic collides with a live capability (no manufactured refusals)', () => {
-    const liveWords = new Set(
-      allChatCapabilities().flatMap((c) => [...c.verbs, ...c.aliases, c.refusalLabel ?? '']),
-    );
-    for (const label of unconnectedTopicLabels()) {
-      expect(liveWords.has(label), `topic "${label}" is also a live capability alias`).toBe(false);
+    // ADR-0314: a topic word MAY coexist with a live capability ONLY when the
+    // topic excludes every element kind that capability targets — the refusal
+    // then never fires for a kind the resolver actually serves ('colour' is
+    // live for walls, still a gap for everything else).
+    for (const topic of unconnectedTopics()) {
+      for (const cap of allChatCapabilities()) {
+        const words = new Set([...cap.verbs, ...cap.aliases, cap.refusalLabel ?? '']);
+        if (!words.has(topic.label)) continue;
+        expect(cap.targets, `topic "${topic.label}" collides with GLOBAL capability ${cap.id}`)
+          .not.toBe('global');
+        for (const t of cap.targets as readonly string[]) {
+          expect(
+            topic.excludeKinds?.includes(t) ?? false,
+            `topic "${topic.label}" fires for kind "${t}" that capability ${cap.id} serves — manufactured refusal`,
+          ).toBe(true);
+        }
+      }
     }
   });
 

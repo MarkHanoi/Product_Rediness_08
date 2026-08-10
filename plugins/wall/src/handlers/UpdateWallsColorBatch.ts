@@ -1,0 +1,134 @@
+// UpdateWallsColorBatchHandler — §FEAT-WALL-COLOR-BATCH (ADR-0314).
+//
+// Bus surface for "make ALL walls / these walls white". Mirrors the
+// §FEAT-WALL-TYPE-BATCH bridge pattern one file over: the typed bus command is
+// the public entry point (the RAC chat dispatches it; a future pill can too),
+// and the bridge forwards to the legacy CommandManager, which owns the undo
+// stack the batch command participates in as ONE entry.
+//
+// WHY THIS BRIDGES instead of using `wall.bulkSetVisuals` (same plugin): that
+// handler `produceCommand`s the plugin's DETACHED DTO store — the
+// §FIX-MATERIAL-DEAD-DISPATCH disease; nothing that renders, exports or
+// persists reads it (see MaterialDispatch.ts:76-108 and ADR-0314 §Wall colour).
+// The geometry store the fragment builders read is only reachable through the
+// legacy command path, exactly as for the type batch.
+//
+// Payload contract (RAC-friendly, symmetric with wall.updateSystemTypeBatch):
+//   • `wallIds: 'all'`    — every wall in the project, ALL levels; or
+//   • `wallIds: string[]` — an explicit id list (e.g. the current selection).
+//   • `materialColor?`    — '#rrggbb' (the resolver owns colour-name → hex).
+//   • `materialId?`       — catalogue id, `null` clears the binding.
+//
+// Partial-failure policy (§CONTEXT-DATA-HONESTY) lives in the COMMAND
+// (`UpdateWallsColorBatchCommand`): "Recoloured N of M — K skipped", all-refused
+// = visible no-op, never a throw. The bridge re-broadcasts that report as a
+// `pryzm-wall-color-batch-report` window CustomEvent so thin UI wrappers can
+// show it without owning batch logic.
+
+import {
+  withHandlerSpan,
+  type CommandHandler,
+  type HandlerContext,
+  type HandlerResult,
+  type ValidationResult,
+} from '@pryzm/plugin-sdk';
+import { UpdateWallsColorBatchCommand } from '@pryzm/command-registry';
+
+export interface UpdateWallsColorBatchPayload {
+  /** 'all' = every wall in the project (all levels); or an explicit id list. */
+  readonly wallIds: readonly string[] | 'all';
+  /** New override colour as '#rrggbb'. */
+  readonly materialColor?: string;
+  /** Catalogue material id, or null to clear. */
+  readonly materialId?: string | null;
+}
+
+/** Detail shape of the `pryzm-wall-color-batch-report` CustomEvent. */
+export interface WallColorBatchReport {
+  readonly success: boolean;
+  /** Human-readable lines: summary first, then grouped skip reasons. */
+  readonly info: readonly string[];
+  readonly affectedElementIds: readonly string[];
+}
+
+export const WALL_COLOR_BATCH_REPORT_EVENT = 'pryzm-wall-color-batch-report';
+
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+export const UpdateWallsColorBatchHandler: CommandHandler<
+  UpdateWallsColorBatchPayload,
+  Record<string, unknown>
+> = {
+  type: 'wall.updateColorBatch',
+  affectedStores: [] as const,
+
+  canExecute(
+    _ctx: HandlerContext<Record<string, unknown>>,
+    cmd: UpdateWallsColorBatchPayload,
+  ): ValidationResult {
+    if (cmd.wallIds !== 'all' && !Array.isArray(cmd.wallIds)) {
+      return { valid: false, reason: "wallIds must be 'all' or an array of wall ids" };
+    }
+    if (cmd.materialColor === undefined && cmd.materialId === undefined) {
+      return { valid: false, reason: 'at least one of materialColor / materialId is required' };
+    }
+    if (cmd.materialColor !== undefined && !HEX_COLOR_RE.test(cmd.materialColor)) {
+      return { valid: false, reason: "materialColor must be a '#rrggbb' hex string" };
+    }
+    if (
+      cmd.materialId !== undefined &&
+      cmd.materialId !== null &&
+      (typeof cmd.materialId !== 'string' || cmd.materialId.length === 0)
+    ) {
+      return { valid: false, reason: 'materialId must be a non-empty string or null' };
+    }
+    return { valid: true };
+  },
+
+  execute(
+    _ctx: HandlerContext<Record<string, unknown>>,
+    cmd: UpdateWallsColorBatchPayload,
+  ): HandlerResult {
+    return withHandlerSpan(
+      'wall.updateColorBatch.handler',
+      { 'pryzm.command.type': 'wall.updateColorBatch' },
+      () => {
+        // CommandManagerImpl.execute always returns a CommandResult (validation
+        // refusals arrive as { success:false, info:[reason] }, never a throw).
+        const cm = window.commandManager as
+          | {
+              execute(
+                cmd: unknown,
+                options?: unknown,
+              ): { success: boolean; affectedElementIds: string[]; info?: string[] };
+            }
+          | undefined;
+        if (cm) {
+          try {
+            const result = cm.execute(
+              new UpdateWallsColorBatchCommand({
+                wallIds: cmd.wallIds === 'all' ? 'all' : [...cmd.wallIds],
+                ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
+                ...(cmd.materialId !== undefined ? { materialId: cmd.materialId } : {}),
+              }),
+            );
+            // Visible partial-failure reporting, same contract as the type batch:
+            // a refusal and a success are never the same observable at the UI.
+            const report: WallColorBatchReport = {
+              success: result?.success ?? false,
+              info: result?.info ?? [],
+              affectedElementIds: result?.affectedElementIds ?? [],
+            };
+            window.dispatchEvent(
+              new CustomEvent(WALL_COLOR_BATCH_REPORT_EVENT, { detail: report }),
+            );
+          } catch (e) {
+            console.error('[wall.updateColorBatch.handler] bridge failed:', e);
+          }
+        }
+        const empty: HandlerResult = { forward: [], inverse: [] };
+        return empty;
+      },
+    ); // withHandlerSpan — C10 §2
+  },
+};

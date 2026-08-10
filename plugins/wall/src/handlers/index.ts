@@ -25,6 +25,7 @@ import { JoinWallHandler } from './JoinWall.js';
 import { CutWallHandler } from './CutWall.js';
 import { UpdateWallSystemTypeHandler } from './UpdateWallSystemType.js';
 import { UpdateWallsSystemTypeBatchHandler } from './UpdateWallsSystemTypeBatch.js';
+import { UpdateWallsColorBatchHandler } from './UpdateWallsColorBatch.js';
 import { UpdateWallDimensionsHandler } from './UpdateWallDimensions.js';
 import { UpdateWallBaselineHandler } from './UpdateWallBaseline.js';
 import { CascadeWallBaselineHandler } from './CascadeWallBaseline.js';
@@ -75,6 +76,8 @@ export const WALL_HANDLER_TYPES = [
   'wall.updateSystemType',
   // §FEAT-WALL-TYPE-BATCH (RAC prep) — batch retype ('all' or explicit ids), one undo entry.
   'wall.updateSystemTypeBatch',
+  // §FEAT-WALL-COLOR-BATCH (ADR-0314) — batch recolour ('all' or explicit ids), one undo entry.
+  'wall.updateColorBatch',
   'wall.updateDimensions',
   'wall.updateBaseline',
   'wall.cascadeBaseline',
@@ -125,6 +128,7 @@ export function buildWallHandlerSet(
   set.push(
     UpdateWallSystemTypeHandler as unknown as CommandHandler<unknown>,
     UpdateWallsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
+    UpdateWallsColorBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallDimensionsHandler as unknown as CommandHandler<unknown>,
     UpdateWallBaselineHandler as unknown as CommandHandler<unknown>,
     CascadeWallBaselineHandler as unknown as CommandHandler<unknown>,

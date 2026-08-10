@@ -49,6 +49,14 @@ export {
   type WallTypeBatchReport,
 } from './handlers/UpdateWallsSystemTypeBatch.js';
 
+// §FEAT-WALL-COLOR-BATCH (ADR-0314) — batch recolour bus surface + report event.
+export {
+  UpdateWallsColorBatchHandler,
+  WALL_COLOR_BATCH_REPORT_EVENT,
+  type UpdateWallsColorBatchPayload,
+  type WallColorBatchReport,
+} from './handlers/UpdateWallsColorBatch.js';
+
 export {
   WALL_HANDLER_TYPES,
   registerWallHandlers,

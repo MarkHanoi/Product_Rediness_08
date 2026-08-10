@@ -108,12 +108,20 @@ export function nonImperativeReason(raw: string): 'negated' | 'hypothetical' | '
 // the same class of lie the registry exists to remove — so the invariant test
 // asserts no topic word collides with a live capability's aliases.
 
-interface UnconnectedTopic {
-  /** Sentence-initial label: "Wall colour isn't connected to chat yet." */
+export interface UnconnectedTopic {
+  /** Sentence-initial label: "Door colour isn't connected to chat yet." */
   readonly label: string;
   readonly match: RegExp;
   /** The bus command(s) that DO implement it, for the CHAT_UNAVAILABLE cross-check. */
   readonly commands: readonly string[];
+  /**
+   * ADR-0314 — element kinds for which this topic is NO LONGER a gap because a
+   * live capability now covers it. The topic must not fire for these kinds (a
+   * refusal that denies a live ability is the manufactured-false-refusal lie),
+   * and the alias-collision invariant test allows a shared word only when every
+   * colliding capability's targets are excluded here.
+   */
+  readonly excludeKinds?: readonly string[];
 }
 
 const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
@@ -121,6 +129,9 @@ const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
     label: 'colour',
     match: /\b(?:colou?r|colou?rs|colou?red|paint|painted|painting|repaint|tint|shade)\b/,
     commands: ['wall.setColor', 'wall.updateColor'],
+    // §FEAT-WALL-COLOR-BATCH — wall colour is live (set-wall-color →
+    // wall.updateColorBatch); every OTHER kind's colour remains unconnected.
+    excludeKinds: ['wall'],
   },
   {
     label: 'material',
@@ -162,6 +173,13 @@ const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
 /** Every topic label, for the invariant tests and the gate. */
 export function unconnectedTopicLabels(): readonly string[] {
   return UNCONNECTED_TOPICS.map((t) => t.label);
+}
+
+/** The full topic table (ADR-0314) — the invariant test needs `excludeKinds`
+ *  to allow a topic word to coexist with a live capability that covers only
+ *  the excluded kinds. */
+export function unconnectedTopics(): readonly UnconnectedTopic[] {
+  return UNCONNECTED_TOPICS;
 }
 
 /** Every bus command an unconnected topic points at — cross-checked against
@@ -248,12 +266,16 @@ export function capabilityGapRefusal(
   if (nonImperativeReason(utterance) !== null) return null;
 
   const text = utterance.toLowerCase();
-  const topic = UNCONNECTED_TOPICS.find((t) => t.match.test(text));
-  if (topic === undefined) return null;
-
   const kind = detectKind(text)
     ?? (selectedKinds[0] !== undefined ? normalizeElementKind(selectedKinds[0]) : null);
   if (kind === null) return null;
+
+  // ADR-0314 — a topic that is LIVE for this kind (excludeKinds) must not
+  // manufacture a refusal for it; the resolver already handles those asks.
+  const topic = UNCONNECTED_TOPICS.find(
+    (t) => t.match.test(text) && !(t.excludeKinds?.includes(kind) ?? false),
+  );
+  if (topic === undefined) return null;
 
   const caps = capabilitiesForElement(kind);
   if (caps.length === 0) return null;

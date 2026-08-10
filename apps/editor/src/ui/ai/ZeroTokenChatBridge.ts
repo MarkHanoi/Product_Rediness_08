@@ -10,9 +10,14 @@
 //
 // P6: every mutation goes through `runtime.bus.executeCommand` — the same
 //     verbs/payloads the property panel and keyboard shortcuts dispatch.
-// One undo unit: multi-command resolutions run inside
-//     `batchCoordinator.runBatch` (the AI apartment-generator pattern);
-//     single commands are already one undo entry via the bus.
+// Batching (ADR-0314, corrected): `batchCoordinator.runBatch` is the EVENT/
+//     GEOMETRY-STORM gate only — it is deliberately undo-NEUTRAL
+//     (BatchCoordinator.ts §"Undo/Redo Impact: No"; measured by
+//     batchNestingUndo.test.ts). N commands inside runBatch are N undo
+//     entries, and the summary must say so. ONE undo entry is bought only by
+//     dispatching ONE batch command (wall.updateSystemTypeBatch,
+//     wall.updateColorBatch — C16 §8.6), never by holding a batch open.
+//     This header previously claimed the opposite; the claim was false.
 // P8: dispatch runs inside the `pryzm.ai.chat.dispatch` span
 //     (`withChatDispatchSpan`, @pryzm/ai-host); resolution itself is spanned
 //     inside `resolveUtterance`.
@@ -34,7 +39,7 @@ import {
     type ResolverWallSystemType,
     type ZeroTokenResolution,
 } from '@pryzm/ai-host';
-import { batchCoordinator } from '@pryzm/core-app-model';
+import { batchCoordinator, selectionBus, storeRegistry } from '@pryzm/core-app-model';
 // The ONE forgiving wall-type lookup (exact id → exact name → case-insensitive
 // name). Injected into the pure resolver rather than reimplemented inside it —
 // a second matcher here would be the same two-sources-of-truth defect the
@@ -61,9 +66,28 @@ const win = (): WindowLike => window as unknown as WindowLike;
 
 // ─── Context building ────────────────────────────────────────────────────────
 
+/** Resolve an element id's TYPE by probing the store registry's typed stores
+ *  (O(registered types); selections are small). Returns null when no store
+ *  claims the id — the caller must then fall back or drop the id, never guess. */
+function elementTypeOf(id: string): string | null {
+    for (const type of storeRegistry.getRegisteredTypes()) {
+        const store = storeRegistry.getStoreForType(type);
+        if (store === undefined) continue;
+        try {
+            const has =
+                store.has?.(id) ??
+                (store.getById?.(id) !== undefined || store.get?.(id) !== undefined);
+            if (has) return type.toLowerCase();
+        } catch {
+            // A store that throws on probe simply doesn't claim the id.
+        }
+    }
+    return null;
+}
+
 /** Walk up from the raw selected Object3D to the BIM root that carries
  *  userData.id + userData.elementType (same walk as initUI.deleteSelected). */
-function currentSelection(): readonly ResolverSelection[] {
+function singleSelectionFromManager(): readonly ResolverSelection[] {
     let node: ObjectLike | null | undefined = win().selectionManager?.selectedObject;
     while (node && !(typeof node.userData?.id === 'string' && typeof node.userData?.elementType === 'string')) {
         node = node.parent;
@@ -73,6 +97,33 @@ function currentSelection(): readonly ResolverSelection[] {
         elementId: node.userData.id as string,
         elementType: (node.userData.elementType as string).toLowerCase(),
     }];
+}
+
+/**
+ * ADR-0314 §Selection batch — the chat sees the FULL multi-selection.
+ *
+ * `selectionBus.currentIds` is the authority on the selected SET (the same
+ * source the AI-panel "Selected walls" pill reads); the legacy single-object
+ * walk remains as the fallback for environments where the bus is empty but a
+ * primary object is highlighted. An id whose type no store claims is DROPPED
+ * (not guessed) — an unclassifiable target must never receive a command.
+ */
+function currentSelection(): readonly ResolverSelection[] {
+    let ids: readonly string[] = [];
+    try {
+        ids = selectionBus.currentIds;
+    } catch {
+        ids = [];
+    }
+    if (ids.length > 0) {
+        const out: ResolverSelection[] = [];
+        for (const id of ids) {
+            const type = elementTypeOf(id);
+            if (type !== null) out.push({ elementId: id, elementType: type });
+        }
+        if (out.length > 0) return out;
+    }
+    return singleSelectionFromManager();
 }
 
 /** The project's wall-type catalogue, read lazily so a headless/boot-time call
@@ -149,21 +200,28 @@ async function dispatchCommands(
             return;
         }
     }
-    // §CONTEXT-DATA-HONESTY — `wall.updateSystemTypeBatch` reports partial
-    // failure ("Changed 12 of 40 walls — 28 skipped: 28× a raked wall cannot
-    // take a layered type") on a CustomEvent rather than in the bus result. The
+    // §CONTEXT-DATA-HONESTY — the batch commands report partial failure
+    // ("Changed 12 of 40 walls — 28 skipped: 28× a raked wall cannot take a
+    // layered type") on a CustomEvent rather than in the bus result. The
     // generic "Done" line below would hide exactly the information the founder
     // needs, so when the report arrives it REPLACES that line.
+    // ADR-0314 — one command→event table instead of a per-command listener.
     // Collected into an ARRAY, not a `let`: the listener assigns from inside a
     // closure, which TypeScript's control-flow analysis cannot see, so a `let`
     // is narrowed to `null` at every later read.
+    const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
+        'wall.updateSystemTypeBatch': 'pryzm-wall-type-batch-report',
+        'wall.updateColorBatch': 'pryzm-wall-color-batch-report',
+    };
     const batchReports: { success: boolean; info: readonly string[] }[] = [];
     const onBatchReport = (e: Event): void => {
         const detail = (e as CustomEvent).detail as { success?: boolean; info?: string[] } | undefined;
         if (detail) batchReports.push({ success: detail.success ?? false, info: detail.info ?? [] });
     };
-    const wantsBatchReport = r.commands.some((c) => c.type === 'wall.updateSystemTypeBatch');
-    if (wantsBatchReport) window.addEventListener('pryzm-wall-type-batch-report', onBatchReport);
+    const reportEvents = [...new Set(
+        r.commands.map((c) => BATCH_REPORT_EVENTS[c.type]).filter((ev): ev is string => ev !== undefined),
+    )];
+    for (const ev of reportEvents) window.addEventListener(ev, onBatchReport);
 
     const failures: string[] = [];
     await withChatDispatchSpan(async () => {
@@ -194,7 +252,7 @@ async function dispatchCommands(
         }
     }, { 'pryzm.ai.chat.intent': r.intent, 'pryzm.ai.chat.tier': r.tier });
 
-    if (wantsBatchReport) window.removeEventListener('pryzm-wall-type-batch-report', onBatchReport);
+    for (const ev of reportEvents) window.removeEventListener(ev, onBatchReport);
 
     if (failures.length > 0) {
         // Honesty: a failed dispatch must never read like a success.
@@ -211,7 +269,12 @@ async function dispatchCommands(
         );
         return;
     }
-    hooks.say(`${r.summary}. Done — undo with Ctrl+Z. (resolved without AI tokens)`);
+    // ADR-0314 honesty: runBatch is undo-NEUTRAL, so N commands are N undo
+    // steps — say so instead of implying one.
+    const undoHint = r.commands.length > 1
+        ? `undo with Ctrl+Z (${r.commands.length} steps)`
+        : 'undo with Ctrl+Z';
+    hooks.say(`${r.summary}. Done — ${undoHint}. (resolved without AI tokens)`);
 }
 
 async function runLocal(

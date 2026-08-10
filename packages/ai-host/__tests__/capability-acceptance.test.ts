@@ -192,6 +192,17 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    id: 'set-wall-color',
+    ctx: {},
+    phrasings: [
+      'make all walls white',
+      'paint every wall light grey',
+      'turn all walls beige',
+      'Could you make all walls white, please?',
+      'make all the walls #f4f1e8',
+    ],
+  },
+  {
     id: 'go-to-level',
     ctx: {},
     phrasings: [
@@ -353,6 +364,146 @@ describe('§FEAT-CHAT-WALL-TYPE — the sentence that started this', () => {
   it('"make all walls 3m tall" is a DIMENSION ask, never a retype', () => {
     const r = resolveFull('make all walls 3m tall', ctxOf(sel('wall')));
     expect(intentOf(r)).not.toBe('set-wall-type');
+  });
+});
+
+// ─── §FEAT-WALL-COLOR-BATCH (ADR-0314) — the declared next sentence ──────────
+
+describe('§FEAT-WALL-COLOR-BATCH — "make all walls white"', () => {
+  it('reaches wall.updateColorBatch with scope all and the resolved hex', () => {
+    const r = resolveUtterance('make all walls white', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-wall-color');
+    expect(r.tier).toBe(0);
+    expect(r.commands).toEqual([
+      { type: 'wall.updateColorBatch', payload: { wallIds: 'all', materialColor: '#ffffff' } },
+    ]);
+    expect(r.destructive).toBe(false);
+    expect(r.summary).toContain('every wall in the project');
+  });
+
+  it('a colour ask never becomes a TYPE ask — the two grammars are ordered', () => {
+    const r = resolveUtterance('make all walls white', ctxOf());
+    expect(intentOf(r)).toBe('set-wall-color');
+    // …and the reverse: a type ask never becomes a colour ask.
+    const t = resolveUtterance('make all walls interior partition', ctxOf());
+    expect(intentOf(t)).toBe('set-wall-type');
+  });
+
+  it('"paint the selected walls light grey" scopes to the SELECTION walls only', () => {
+    const ctx = ctxOf({
+      selection: [
+        { elementId: 'w1', elementType: 'wall' },
+        { elementId: 'w2', elementType: 'wall' },
+        { elementId: 'd1', elementType: 'door' },
+      ],
+    });
+    const r = resolveUtterance('paint the selected walls light grey', ctx);
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ wallIds: ['w1', 'w2'], materialColor: '#cccccc' });
+  });
+
+  it('a hex literal passes through, 3-digit form expanded', () => {
+    const r6 = resolveUtterance('make all walls #a1B2c3', ctxOf());
+    expect(r6.kind).toBe('commands');
+    if (r6.kind === 'commands') {
+      expect(r6.commands[0]!.payload).toEqual({ wallIds: 'all', materialColor: '#a1b2c3' });
+    }
+    const r3 = resolveUtterance('make all walls #fff', ctxOf());
+    expect(r3.kind).toBe('commands');
+    if (r3.kind === 'commands') {
+      expect(r3.commands[0]!.payload).toEqual({ wallIds: 'all', materialColor: '#ffffff' });
+    }
+  });
+
+  it('an unknown colour with a PAINT verb refuses by listing real options — never falls into the type grammar', () => {
+    const r = resolveUtterance('paint all walls vermilion', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('set-wall-color');
+    expect(r.reason).toContain('white');
+    expect(r.reason).toContain('#');
+  });
+
+  it('with a NON-colour verb an unknown word stays a type ask (which refuses with the catalogue)', () => {
+    // "make all walls vermilion" cannot be proven a colour, so the type grammar
+    // gets it and refuses with the real wall types — deterministic, not a coin.
+    const r = resolveUtterance('make all walls vermilion', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('set-wall-type');
+  });
+
+  it('selection scope with no walls selected refuses and names what IS selected', () => {
+    const r = resolveUtterance('paint these walls white', ctxOf(sel('door')));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('door');
+    expect(r.reason).toContain('Nothing was changed');
+  });
+
+  it('US spelling and "gray" resolve identically', () => {
+    const r = resolveUtterance('paint all walls light gray', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ wallIds: 'all', materialColor: '#cccccc' });
+  });
+});
+
+// ─── ADR-0314 §Selection batch — the chat sees the full multi-selection ──────
+
+describe('multi-selection semantics (ADR-0314)', () => {
+  const threeWalls = {
+    selection: [
+      { elementId: 'w1', elementType: 'wall' },
+      { elementId: 'w2', elementType: 'wall' },
+      { elementId: 'w3', elementType: 'wall' },
+    ],
+  };
+
+  it('a dimension ask fans out one command per selected element, honestly summarized', () => {
+    const r = resolveFull('set height to 3m', ctxOf(threeWalls));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toEqual([
+      { type: 'wall.updateDimensions', payload: { wallId: 'w1', height: 3 } },
+      { type: 'wall.updateDimensions', payload: { wallId: 'w2', height: 3 } },
+      { type: 'wall.updateDimensions', payload: { wallId: 'w3', height: 3 } },
+    ]);
+    expect(r.summary).toContain('3 selected');
+  });
+
+  it('a mixed selection with an inapplicable kind refuses WHOLE — all-or-nothing', () => {
+    const ctx = ctxOf({
+      selection: [
+        { elementId: 'w1', elementType: 'wall' },
+        { elementId: 'r1', elementType: 'room' },
+      ],
+    });
+    const r = resolveFull('set height to 3m', ctx);
+    expect(r.kind).toBe('refusal');
+  });
+
+  it('deleting with a noun refuses when ANY selected element mismatches', () => {
+    const ctx = ctxOf({
+      selection: [
+        { elementId: 'w1', elementType: 'wall' },
+        { elementId: 'd1', elementType: 'door' },
+      ],
+    });
+    const r = resolveUtterance('delete selected walls', ctx);
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('Nothing was deleted');
+  });
+
+  it('the compound form stays one-element-only and says why', () => {
+    const r = resolveFull('make this wall 3m tall and 300mm thick', ctxOf(threeWalls));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('one selected element at a time');
   });
 });
 

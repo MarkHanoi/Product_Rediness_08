@@ -39,6 +39,7 @@ import {
   boundedLevenshtein,
   findLevel,
   lengthToMeters,
+  parseWallColorIntent,
   parseWallTypeIntent,
   type ResolverContext,
   type ResolverLevel,
@@ -861,13 +862,28 @@ function classify(
     });
   }
 
+  // set-wall-color (§FEAT-WALL-COLOR-BATCH, ADR-0314). Parsed off `n.plain`
+  // for the same reason as wall types — a colour name is user data — and by
+  // the SAME function the tier-0 grammar uses. It outranks the wall-type
+  // candidate below (0.95 > 0.92): "make all walls white" matches both parsers'
+  // shapes, and the colour reading is the resolvable one.
+  const wallColor = parseWallColorIntent(n.plain);
+  if (wallColor !== null) {
+    push({
+      intent: 'set-wall-color',
+      confidence: 0.95,
+      evidence: ['verb:paint', 'noun:wall', `scope:${wallColor.scope}`],
+      si: wallColor,
+    });
+  }
+
   // set-wall-type (§FEAT-CHAT-WALL-TYPE). Parsed off `n.plain` — the type name
   // is user data and must not pass through the typo corrector — and by the SAME
   // function the tier-0 grammar uses, so the two paths cannot read the sentence
   // differently. Confidence is high because the shape is unambiguous: a scope
   // word, "walls", and a catalogue reference.
   const wallType = parseWallTypeIntent(n.plain);
-  if (wallType !== null) {
+  if (wallType !== null && wallColor === null) {
     push({
       intent: 'set-wall-type',
       confidence: 0.92,

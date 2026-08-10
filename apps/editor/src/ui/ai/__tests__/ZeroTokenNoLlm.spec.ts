@@ -192,15 +192,33 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         expect(querySpy).not.toHaveBeenCalled();
     });
 
-    it('a capability-gap ask ("paint the wall blue") is an honest refusal — handled, zero tokens', async () => {
-        const { executeCommand } = installFacets({ id: 'wall-1', type: 'wall' });
+    it('a capability-gap ask ("paint the door blue") is an honest refusal — handled, zero tokens', async () => {
+        // §FEAT-WALL-COLOR-BATCH (ADR-0314): WALL colour is a live capability
+        // now, so the representative gap moved to the DOOR, whose colour route
+        // (door.setFrameColor) remains deliberately deferred.
+        const { executeCommand } = installFacets({ id: 'door-1', type: 'door' });
         const { hooks, said } = makeHooks();
 
-        const handled = await tryHandleZeroToken('paint the wall blue', hooks);
+        const handled = await tryHandleZeroToken('paint the door blue', hooks);
 
         expect(handled).toBe(true); // refusal, NOT a fall-through to the LLM
         expect(executeCommand).not.toHaveBeenCalled();
         expect(said.some((s) => s.includes("isn't connected to chat yet"))).toBe(true);
+        expect(querySpy).not.toHaveBeenCalled();
+    });
+
+    it('§FEAT-WALL-COLOR-BATCH: "make all walls white" dispatches ONE batch command — zero tokens', async () => {
+        const { executeCommand } = installFacets();
+        const { hooks, said } = makeHooks();
+
+        const handled = await tryHandleZeroToken('make all walls white', hooks);
+
+        expect(handled).toBe(true);
+        expect(executeCommand).toHaveBeenCalledTimes(1);
+        expect(executeCommand).toHaveBeenCalledWith('wall.updateColorBatch', {
+            wallIds: 'all', materialColor: '#ffffff',
+        });
+        expect(said.some((s) => s.includes('did not complete'))).toBe(false);
         expect(querySpy).not.toHaveBeenCalled();
     });
 

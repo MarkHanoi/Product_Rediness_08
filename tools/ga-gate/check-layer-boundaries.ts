@@ -136,7 +136,14 @@ const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
 // established handler shape, not a new kind of breach — the real debt is the
 // PATTERN, tracked as the plugin→SDK facade goal. Any further +1 needs its own
 // dated justification here; undocumented bumps are a ratchet failure.
-const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 172);
+// 172 → 173 (2026-08-10, ADR-0314): UpdateWallsColorBatch.ts — the §FEAT-WALL-
+// COLOR-BATCH bridge, byte-for-byte the same F-1.3 shape as its type-batch
+// sibling one file over (172's own justification). plugin-sdk re-exports
+// NOTHING from @pryzm/command-registry today, so "widen the facade" here would
+// create a brand-new SDK→legacy-command-registry coupling rather than remove a
+// bypass; the honest count is +1 under the same tracked pattern. The debt
+// remains the PATTERN (legacy bridges from plugin handlers), not this file.
+const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 173);
 
 /**
  * §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — banned third-party dependencies.

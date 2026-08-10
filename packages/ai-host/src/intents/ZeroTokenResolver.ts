@@ -32,6 +32,7 @@ import {
   resolveChatCapability,
 } from '../capabilities/ChatCapabilityRegistry.js';
 import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
+import { exampleColorNames, resolveColorRef } from './colorRef.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -338,6 +339,22 @@ export type SemanticIntent =
        *  `ctx.resolveWallSystemType`, or by the command when absent. */
       readonly typeRef: string;
       readonly scope: 'all' | 'selection';
+    }
+  /**
+   * §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white".
+   *
+   * The founder's declared next ask after the type batch, and the GAP-C case
+   * study: the batch primitive (`wall.updateColorBatch`) had to be BUILT — the
+   * shapely `wall.bulkSetVisuals` writes a detached DTO store nothing renders.
+   * Same explicit-scope discipline as `set-wall-type`: "all/every" ⇒ project,
+   * "these/selected" ⇒ selection, no scope word ⇒ never claimed.
+   */
+  | {
+      readonly intent: 'set-wall-color';
+      /** Colour name ("white", "light grey") or '#hex', resolved by the ONE
+       *  colour table in colorRef.ts inside applySemanticIntent. */
+      readonly colorRef: string;
+      readonly scope: 'all' | 'selection';
     };
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
@@ -490,17 +507,26 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       const sel = guard.sel;
       if (si.noun !== undefined) {
         const wanted = singular(si.noun);
-        if (!['element', 'item', 'object'].includes(wanted) && wanted !== sel.elementType) {
-          return {
-            kind: 'refusal', intent: 'delete-selected',
-            reason: `You asked to delete a ${wanted}, but the selected element is a ${sel.elementType}. Nothing was deleted.`,
-            suggestions: [`delete selected ${sel.elementType}`],
-          };
+        if (!['element', 'item', 'object'].includes(wanted)) {
+          // ADR-0314 §Selection batch — with a real multi-selection injected,
+          // the noun must match EVERY selected element, not just the first: a
+          // destructive "delete the selected walls" over a wall+door selection
+          // must refuse whole, never delete the door as collateral.
+          const mismatch = ctx.selection.find((s) => wanted !== s.elementType);
+          if (mismatch !== undefined) {
+            return {
+              kind: 'refusal', intent: 'delete-selected',
+              reason: `You asked to delete a ${wanted}, but the selected element is a ${mismatch.elementType}. Nothing was deleted.`,
+              suggestions: [`delete selected ${mismatch.elementType}`],
+            };
+          }
         }
       }
       return {
         kind: 'commands', intent: 'delete-selected',
-        summary: `Delete the selected ${sel.elementType}`,
+        summary: ctx.selection.length > 1
+          ? `Delete the ${ctx.selection.length} selected elements`
+          : `Delete the selected ${sel.elementType}`,
         commands: ctx.selection.map((s) => ({
           type: 'element.delete',
           payload: { elementId: s.elementId, elementType: s.elementType, source: 'AI_CHAT_ZERO_TOKEN' },
@@ -512,19 +538,27 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
     case 'set-sill-height': {
       const guard = needSelection('set-sill-height', ctx, 'set its sill height');
       if ('refusal' in guard) return guard.refusal;
-      const sel = guard.sel;
-      if (sel.elementType !== 'window') {
+      // ADR-0314 §Selection batch — ALL-OR-NOTHING over the whole selection:
+      // one non-window in the set refuses the whole ask (partial execution
+      // presented as success is the §FIX-CHAT-COMPOUND-DIMENSIONS dishonesty).
+      const nonWindow = ctx.selection.find((s) => s.elementType !== 'window');
+      if (nonWindow !== undefined) {
         return {
           kind: 'refusal', intent: 'set-sill-height',
-          reason: `Sill height applies to windows, but the selected element is a ${sel.elementType}.`,
+          reason: `Sill height applies to windows, but the selected element is a ${nonWindow.elementType}.`,
           suggestions: [],
         };
       }
       const sill = round3(si.value);
+      const n = ctx.selection.length;
       return {
         kind: 'commands', intent: 'set-sill-height',
-        summary: `Set the selected window's sill height to ${fmt(sill)}`,
-        commands: [{ type: 'window.setSillHeight', payload: { windowId: sel.elementId, sillHeight: sill } }],
+        summary: n > 1
+          ? `Set ${n} selected windows' sill height to ${fmt(sill)}`
+          : `Set the selected window's sill height to ${fmt(sill)}`,
+        commands: ctx.selection.map((s) => (
+          { type: 'window.setSillHeight', payload: { windowId: s.elementId, sillHeight: sill } }
+        )),
         destructive: false,
       };
     }
@@ -548,28 +582,36 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // command that resolved no store and changed nothing — the chat reported
       // success for a no-op. The claim is now bounded by what the command can
       // actually route, declared once in the capability registry.
-      const kindGuard = capabilityTargetRefusal('set-height', sel.elementType, 'height');
-      if (kindGuard !== null) return kindGuard;
+      // ADR-0314 §Selection batch — every selected element must pass the
+      // capability guard (all-or-nothing); then one command per element.
+      for (const s of ctx.selection) {
+        const kindGuard = capabilityTargetRefusal('set-height', s.elementType, 'height');
+        if (kindGuard !== null) return kindGuard;
+      }
       // Per-kind routing, PROVEN per route (commandProof): walls have a
       // dedicated dimension command, ceilings a dedicated height command
       // (§FEAT-CHAT-SYMMETRY — ceiling height used to be an honest refusal;
       // now it is wired to the command that really exists), everything else
       // goes through the generic parameter command whose store switch is the
       // ceiling on the claim.
-      const kind = normalizeElementKind(sel.elementType);
-      const cmd: BusCommandRef =
-        kind === 'wall'
-          ? { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, height } }
+      const cmdFor = (s: ResolverSelection): BusCommandRef => {
+        const kind = normalizeElementKind(s.elementType);
+        return kind === 'wall'
+          ? { type: 'wall.updateDimensions', payload: { wallId: s.elementId, height } }
           : kind === 'ceiling'
-            ? { type: 'ceiling.setHeight', payload: { ceilingId: sel.elementId, ceilingHeight: height } }
+            ? { type: 'ceiling.setHeight', payload: { ceilingId: s.elementId, ceilingHeight: height } }
             : {
                 type: 'element.updateParameters',
-                payload: { elementId: sel.elementId, elementType: sel.elementType, parameters: { height } },
+                payload: { elementId: s.elementId, elementType: s.elementType, parameters: { height } },
               };
+      };
+      const n = ctx.selection.length;
       return {
         kind: 'commands', intent: 'set-height',
-        summary: `Set the selected ${sel.elementType}'s height to ${fmt(height)}`,
-        commands: [cmd], destructive: false,
+        summary: n > 1
+          ? `Set ${n} selected elements' height to ${fmt(height)}`
+          : `Set the selected ${sel.elementType}'s height to ${fmt(height)}`,
+        commands: ctx.selection.map(cmdFor), destructive: false,
       };
     }
 
@@ -581,8 +623,10 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // worked for walls only while slab.setThickness and roof.setThickness
       // sat registered and unreachable. The claim is bounded by the registry
       // (guard below) and each route by its own id-keyed command.
-      const kindGuard = capabilityTargetRefusal('set-thickness', sel.elementType, 'thickness');
-      if (kindGuard !== null) return kindGuard;
+      for (const s of ctx.selection) {
+        const kindGuard = capabilityTargetRefusal('set-thickness', s.elementType, 'thickness');
+        if (kindGuard !== null) return kindGuard;
+      }
       const thickness = round3(si.value);
       if (thickness <= 0) {
         return {
@@ -592,16 +636,21 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         };
       }
       const kind = normalizeElementKind(sel.elementType);
-      const cmd: BusCommandRef =
-        kind === 'slab'
-          ? { type: 'slab.setThickness', payload: { slabId: sel.elementId, thickness } }
-          : kind === 'roof'
-            ? { type: 'roof.setThickness', payload: { roofId: sel.elementId, thickness } }
-            : { type: 'wall.updateDimensions', payload: { wallId: sel.elementId, thickness } };
+      const cmdFor = (s: ResolverSelection): BusCommandRef => {
+        const k = normalizeElementKind(s.elementType);
+        return k === 'slab'
+          ? { type: 'slab.setThickness', payload: { slabId: s.elementId, thickness } }
+          : k === 'roof'
+            ? { type: 'roof.setThickness', payload: { roofId: s.elementId, thickness } }
+            : { type: 'wall.updateDimensions', payload: { wallId: s.elementId, thickness } };
+      };
+      const n = ctx.selection.length;
       return {
         kind: 'commands', intent: 'set-thickness',
-        summary: `Set the selected ${kind}'s thickness to ${fmt(thickness)}`,
-        commands: [cmd], destructive: false,
+        summary: n > 1
+          ? `Set ${n} selected elements' thickness to ${fmt(thickness)}`
+          : `Set the selected ${kind}'s thickness to ${fmt(thickness)}`,
+        commands: ctx.selection.map(cmdFor), destructive: false,
       };
     }
 
@@ -609,8 +658,10 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       const guard = needSelection('set-width', ctx, 'set its width');
       if ('refusal' in guard) return guard.refusal;
       const sel = guard.sel;
-      const kindGuard = capabilityTargetRefusal('set-width', sel.elementType, 'width');
-      if (kindGuard !== null) return kindGuard;
+      for (const s of ctx.selection) {
+        const kindGuard = capabilityTargetRefusal('set-width', s.elementType, 'width');
+        if (kindGuard !== null) return kindGuard;
+      }
       const width = round3(si.value);
       if (width <= 0) {
         return {
@@ -620,25 +671,31 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         };
       }
       const kind = normalizeElementKind(sel.elementType);
-      const cmd: BusCommandRef =
-        kind === 'window'
-          ? { type: 'window.setSize', payload: { windowId: sel.elementId, width } }
-          : kind === 'stair'
-            ? { type: 'stair.setWidth', payload: { stairId: sel.elementId, width } }
-            : { type: 'door.setWidth', payload: { doorId: sel.elementId, width } };
+      const cmdFor = (s: ResolverSelection): BusCommandRef => {
+        const k = normalizeElementKind(s.elementType);
+        return k === 'window'
+          ? { type: 'window.setSize', payload: { windowId: s.elementId, width } }
+          : k === 'stair'
+            ? { type: 'stair.setWidth', payload: { stairId: s.elementId, width } }
+            : { type: 'door.setWidth', payload: { doorId: s.elementId, width } };
+      };
+      const n = ctx.selection.length;
       return {
         kind: 'commands', intent: 'set-width',
-        summary: `Set the selected ${kind}'s width to ${fmt(width)}`,
-        commands: [cmd], destructive: false,
+        summary: n > 1
+          ? `Set ${n} selected elements' width to ${fmt(width)}`
+          : `Set the selected ${kind}'s width to ${fmt(width)}`,
+        commands: ctx.selection.map(cmdFor), destructive: false,
       };
     }
 
     case 'set-roof-pitch': {
       const guard = needSelection('set-roof-pitch', ctx, 'set its pitch');
       if ('refusal' in guard) return guard.refusal;
-      const sel = guard.sel;
-      const kindGuard = capabilityTargetRefusal('set-roof-pitch', sel.elementType, 'pitch');
-      if (kindGuard !== null) return kindGuard;
+      for (const s of ctx.selection) {
+        const kindGuard = capabilityTargetRefusal('set-roof-pitch', s.elementType, 'pitch');
+        if (kindGuard !== null) return kindGuard;
+      }
       const degrees = round3(si.degrees);
       // roof.setPitch validates [0, π/2); the degree bound here mirrors it so
       // the refusal can speak in the unit the user typed.
@@ -650,10 +707,15 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         };
       }
       const pitch = Math.round((degrees * Math.PI / 180) * 10000) / 10000;
+      const n = ctx.selection.length;
       return {
         kind: 'commands', intent: 'set-roof-pitch',
-        summary: `Set the selected roof's pitch to ${degrees}°`,
-        commands: [{ type: 'roof.setPitch', payload: { roofId: sel.elementId, pitch } }],
+        summary: n > 1
+          ? `Set ${n} selected roofs' pitch to ${degrees}°`
+          : `Set the selected roof's pitch to ${degrees}°`,
+        commands: ctx.selection.map((s) => (
+          { type: 'roof.setPitch', payload: { roofId: s.elementId, pitch } }
+        )),
         destructive: false,
       };
     }
@@ -661,6 +723,19 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
     case 'set-dimensions': {
       const guard = needSelection('set-dimensions', ctx, 'set its dimensions');
       if ('refusal' in guard) return guard.refusal;
+      // ADR-0314 §Selection batch — the compound form stays ONE-element-only:
+      // its whole §FIX-CHAT-COMPOUND-DIMENSIONS contract is one dispatch = one
+      // rebuild for one element, and fanning that across a selection multiplies
+      // the stale-id hazard it exists to prevent. Refuse with the reason.
+      if (ctx.selection.length > 1) {
+        return {
+          kind: 'refusal', intent: 'set-dimensions',
+          reason:
+            `Changing several dimensions at once works on one selected element at a time — ` +
+            `${ctx.selection.length} are selected. Select one element, or change one dimension for all of them.`,
+          suggestions: ['set height to 3m'],
+        };
+      }
       const sel = guard.sel;
       const kind = normalizeElementKind(sel.elementType);
       // Each field is owned by the capability that guards its single form —
@@ -754,6 +829,13 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
     case 'set-room-number': {
       const guard = needSelection('set-room-number', ctx, 'set its number');
       if ('refusal' in guard) return guard.refusal;
+      if (ctx.selection.length > 1) {
+        return {
+          kind: 'refusal', intent: 'set-room-number',
+          reason: `A room number goes on exactly one selected room — ${ctx.selection.length} elements are selected.`,
+          suggestions: [],
+        };
+      }
       const sel = guard.sel;
       const kindGuard = capabilityTargetRefusal('set-room-number', sel.elementType, 'room number');
       if (kindGuard !== null) return kindGuard;
@@ -833,6 +915,13 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
     case 'rename-room': {
       const guard = needSelection('rename-room', ctx, 'rename it');
       if ('refusal' in guard) return guard.refusal;
+      if (ctx.selection.length > 1) {
+        return {
+          kind: 'refusal', intent: 'rename-room',
+          reason: `Renaming needs exactly one selected room — ${ctx.selection.length} elements are selected.`,
+          suggestions: [],
+        };
+      }
       const sel = guard.sel;
       if (sel.elementType !== 'room') {
         return {
@@ -914,6 +1003,56 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         // per §CONTEXT-DATA-HONESTY. Gating it behind a Confirm card would put
         // a modal in front of the founder's exact sentence for no safety gain;
         // the reversible-and-reported path is the honest one.
+        destructive: false,
+      };
+    }
+
+    case 'set-wall-color': {
+      // §FEAT-WALL-COLOR-BATCH (ADR-0314). Scope first, mirroring set-wall-type:
+      // "the selected walls" must never silently become "all walls".
+      let wallIds: readonly string[] | 'all';
+      if (si.scope === 'selection') {
+        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
+        if (walls.length === 0) {
+          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
+          return {
+            kind: 'refusal', intent: 'set-wall-color',
+            reason: kinds.length === 0
+              ? 'No walls are selected — select some walls, or say "make all walls white" to recolour the whole project.'
+              : `Wall colour applies to walls, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
+            suggestions: ['make all walls white'],
+          };
+        }
+        wallIds = walls.map((s) => s.elementId);
+      } else {
+        wallIds = 'all';
+      }
+
+      // ONE colour table (colorRef.ts): a name or '#hex'; anything else refuses
+      // by LISTING real options, never by guessing (§CONTEXT-DATA-HONESTY).
+      const color = resolveColorRef(si.colorRef);
+      if (color === null) {
+        return {
+          kind: 'refusal', intent: 'set-wall-color',
+          reason:
+            `I don't know the colour "${si.colorRef}". I understand names like ` +
+            `${exampleColorNames().join(', ')} — or an exact hex value like #f4f1e8.`,
+          suggestions: ['make all walls white', 'make all walls #f4f1e8'],
+        };
+      }
+
+      const scopeLabel = wallIds === 'all'
+        ? 'every wall in the project'
+        : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
+      return {
+        kind: 'commands', intent: 'set-wall-color',
+        summary: `Paint ${scopeLabel} ${color.label}`,
+        commands: [{
+          type: 'wall.updateColorBatch',
+          payload: { wallIds: wallIds === 'all' ? 'all' : [...wallIds], materialColor: color.hex },
+        }],
+        // NOT destructive — one undo entry, deletes nothing, and the command
+        // reports "Recoloured N of M — K skipped" (same policy as set-wall-type).
         destructive: false,
       };
     }
@@ -1121,10 +1260,58 @@ const matchWallType: Matcher = (text, ctx) => {
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
+// §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white" and its family.
+//
+// Same explicit-scope discipline as the type grammar. The verb set adds
+// paint/colour, which are colour-SPECIFIC: with those verbs an unresolvable
+// colour still CLAIMS the utterance (the user unambiguously asked for colour,
+// so the honest answer is a colour refusal listing real options, not a fall-
+// through into the type grammar's "no such wall type" confusion). With the
+// shared verbs (make/set/change/turn) the parser claims only what the colour
+// table resolves, so "make all walls interior partition" still reaches the
+// type matcher untouched.
+const WALL_COLOR_VERB = String.raw`(make|paint|colou?r|set|change|turn)`;
+
+const WALL_COLOR_RE = new RegExp(
+  `^${WALL_COLOR_VERB} (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? walls?` +
+  `(?: (?:to|into|in|as|be))? (?:the )?(?:colou?r )?(.+)$`,
+);
+
+/**
+ * Parse "make all walls white" / "paint the selected walls light grey" into
+ * the semantic intent — SHARED by the tier-0 grammar and the NL classifier,
+ * like `parseWallTypeIntent`. Returns null when the scope word is absent or
+ * (for the non-colour-specific verbs) the trailing text is not a known colour.
+ */
+export function parseWallColorIntent(text: string): Extract<SemanticIntent, { intent: 'set-wall-color' }> | null {
+  const m = WALL_COLOR_RE.exec(text);
+  if (!m) return null;
+  const verb = m[1]!;
+  const scopeWord = m[2]!;
+  const colorRef = m[3]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+  if (colorRef.length === 0) return null;
+  const colorSpecificVerb = verb === 'paint' || verb.startsWith('colo');
+  if (!colorSpecificVerb && resolveColorRef(colorRef) === null) return null;
+  return {
+    intent: 'set-wall-color',
+    colorRef,
+    scope: new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord) ? 'all' : 'selection',
+  };
+}
+
+const matchWallColor: Matcher = (text, ctx) => {
+  const si = parseWallColorIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
   matchDeleteSelected,
+  // BEFORE matchWallType: "make all walls white" is a COLOUR ask; the colour
+  // parser claims only resolvable colours (or paint/colour verbs), so type
+  // sentences pass through to matchWallType untouched.
+  matchWallColor,
   // BEFORE the dimension matchers: "make all walls interior partition" must not
   // be nibbled at by "make this … " shapes.
   matchWallType,

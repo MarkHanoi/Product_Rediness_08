@@ -55,6 +55,7 @@ import {
     type WallSystemType,
 } from '@pryzm/geometry-wall';
 import { UpdateWallSystemTypeCommand } from './UpdateWallSystemTypeCommand';
+import { resolveCatalogueRef } from '../catalogue/resolveCatalogueRef';
 
 let _cachedTracer: Tracer | null = null;
 function _tracer(): Tracer {
@@ -71,20 +72,10 @@ export interface WallSystemTypeCatalogueReader {
     getAll(): WallSystemType[];
 }
 
-/** Words that carry no discriminating meaning in a type name, so requiring the
- *  user to type them would defeat the point of tier 4. Dimensions are dropped
- *  too: nobody says "interior partition one hundred millimetres". */
-const TYPE_NAME_NOISE = new Set(['the', 'a', 'an', 'and', 'wall', 'walls', 'type', 'wt', 'mm', 'default']);
-
-/** Split a type name or id into comparable words: lowercase, punctuation and
- *  en-dashes gone, pure-dimension tokens ('100mm', '250') dropped. */
-function typeNameWords(s: string): string[] {
-    return s
-        .toLowerCase()
-        .replace(/[‐-―]/g, ' ')       // – — ‒ etc.
-        .split(/[^a-z0-9]+/)
-        .filter((w) => w.length > 0 && !TYPE_NAME_NOISE.has(w) && !/^\d+(?:mm|cm|m)?$/.test(w));
-}
+/** Domain noise for wall-type names, on top of the generic set inside
+ *  `resolveCatalogueRef` ('the', 'a', 'type', dimensions, …): nobody types
+ *  "wall" to discriminate one WALL type from another. */
+const WALL_TYPE_DOMAIN_NOISE: readonly string[] = ['wall', 'walls', 'wt'];
 
 /**
  * Resolve a wall system type from a human/RAC-supplied reference.
@@ -119,52 +110,13 @@ export function resolveWallSystemTypeRef(
     store: WallSystemTypeCatalogueReader,
     ref: string,
 ): WallSystemType | null {
-    return _tracer().startActiveSpan('pryzm.wall.systemType.resolveRef', (span) => {
-        try {
-            const byId = store.getById(ref);
-            if (byId) {
-                span.setAttribute('pryzm.wall.systemType.resolvedBy', 'id');
-                return byId;
-            }
-            const all = store.getAll();
-            const byName = all.find(t => t.name === ref);
-            if (byName) {
-                span.setAttribute('pryzm.wall.systemType.resolvedBy', 'name');
-                return byName;
-            }
-            const needle = ref.trim().toLowerCase();
-            const byLooseName = all.find(t => t.name.trim().toLowerCase() === needle) ?? null;
-            if (byLooseName) {
-                span.setAttribute('pryzm.wall.systemType.resolvedBy', 'name-case-insensitive');
-                return byLooseName;
-            }
-
-            // Tier 4 — unambiguous word subset. See the doc comment above.
-            const wanted = typeNameWords(ref);
-            if (wanted.length > 0) {
-                const candidates = all.filter(t => {
-                    const haystack = new Set([...typeNameWords(t.name), ...typeNameWords(t.id)]);
-                    return wanted.every(w => haystack.has(w));
-                });
-                if (candidates.length === 1) {
-                    span.setAttribute('pryzm.wall.systemType.resolvedBy', 'name-word-subset');
-                    return candidates[0]!;
-                }
-                if (candidates.length > 1) {
-                    // AMBIGUOUS is not "no match" — record it so the difference is
-                    // visible in telemetry, then refuse like any other miss.
-                    span.setAttribute('pryzm.wall.systemType.resolvedBy', 'ambiguous');
-                    span.setAttribute('pryzm.wall.systemType.candidates', candidates.length);
-                    return null;
-                }
-            }
-
-            span.setAttribute('pryzm.wall.systemType.resolvedBy', 'unresolved');
-            return null;
-        } finally {
-            span.end();
-        }
-    });
+    // ADR-0314 §Reference resolution — the ladder now lives in ONE place,
+    // `resolveCatalogueRef`, shared with every other project catalogue. This
+    // wrapper keeps the public API and the wall-specific noise words.
+    return resolveCatalogueRef<WallSystemType>(store, ref, {
+        domainNoise: WALL_TYPE_DOMAIN_NOISE,
+        spanDomain: 'pryzm.wall.systemType',
+    }).entry;
 }
 
 // ─── The batch command ───────────────────────────────────────────────────────

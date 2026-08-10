@@ -242,6 +242,9 @@ function proveCommandTargets(cap: ChatCapability): string[] {
  */
 const KNOWN_VALUE_SOURCES = new Set([
   'measurement', 'angle', 'wall-system-types', 'project-levels', 'user-text', 'coordinates',
+  // ADR-0314 §Value sources — colour name / '#hex', resolved by the ONE table
+  // in packages/ai-host/src/intents/colorRef.ts.
+  'color',
 ]);
 
 function proveParameterSources(cap: ChatCapability): string[] {
@@ -259,6 +262,7 @@ function proveParameterSources(cap: ChatCapability): string[] {
       : p.valueSource === 'wall-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'project-levels' ? typeof probe['levelQuery'] === 'string'
       : p.valueSource === 'coordinates' ? probe['start'] !== undefined && probe['end'] !== undefined
+      : p.valueSource === 'color' ? typeof probe['colorRef'] === 'string'
       : /* user-text */ Object.values(probe).some((v) => typeof v === 'string' && v !== cap.id);
     if (!ok) {
       failures.push(

@@ -104,6 +104,9 @@ export type CapabilityValueSource =
   | 'wall-system-types'
   /** The project's level list, resolved by `findLevel`. */
   | 'project-levels'
+  /** A colour name or '#hex', resolved by the ONE table in
+   *  `intents/colorRef.ts` (ADR-0314 §Value sources). */
+  | 'color'
   /** Free user text (a room name). */
   | 'user-text'
   /** A pair of plan coordinates. */
@@ -541,6 +544,52 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'set-wall-color',
+    // §FEAT-WALL-COLOR-BATCH (ADR-0314) — the founder's declared next ask
+    // ("make all walls white") and the GAP-C case study: the batch primitive
+    // had to be BUILT (`wall.updateColorBatch`), because the shapely
+    // `wall.bulkSetVisuals` writes a detached DTO store nothing renders
+    // (§FIX-MATERIAL-DEAD-DISPATCH) and `wall.updateColor` is single-wall.
+    description: 'change the wall colour',
+    verbs: ['make', 'paint', 'set', 'change', 'turn'],
+    // NOTE: 'colour'/'color' are deliberately NOT aliases here — the word
+    // stays an UNCONNECTED_TOPICS label for the element kinds whose colour
+    // is still not chat-drivable; the topic excludes 'wall' instead.
+    aliases: ['wall colour', 'wall color', 'repaint'],
+    refusalLabel: 'colour',
+    targets: ['wall'],
+    parameters: [
+      {
+        name: 'color',
+        description: 'the colour to apply, by name or #hex',
+        required: true,
+        valueSource: 'color',
+        example: 'white',
+      },
+    ],
+    // 'all' is the DEFAULT scope ("make all walls white"); the resolver
+    // narrows to the selection on "these"/"selected" — same discipline as
+    // set-wall-type, and the scope word is REQUIRED, never inferred.
+    scope: 'all',
+    destructive: false,
+    busCommand: 'wall.updateColorBatch',
+    // Selection-scope probe for the same reason as set-wall-type: the 'all'
+    // scope never reads the selection, so it could not exercise the target
+    // guard and proof 1 would prove nothing.
+    probe: { intent: 'set-wall-color', colorRef: 'white', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/walls/UpdateWallsColorBatchCommand.ts',
+      mustMention: ['wallStore', 'UpdateWallColorCommand'],
+      note: "_resolveWallIds reads ctx.stores.wallStore and nothing else, so the command's reachable set is walls only; per wall it reuses the proven single-wall UpdateWallColorCommand (geometry store → fragment rebuild), never the detached plugin DTO store.",
+    },
+    examples: [
+      'make all walls white',
+      'paint the selected walls light grey',
+      'make every wall #f4f1e8',
+      'turn all walls beige',
+    ],
+  },
+  {
     id: 'go-to-level',
     description: 'switch to another level',
     verbs: ['go to', 'open', 'show', 'switch to'],
@@ -737,9 +786,11 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['plumbing.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
   ['structural.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
   ['handrail.updateColor', 'Handrail colour is not connected to chat yet — set it in the Properties panel.'],
-  ['wall.setColor', 'Wall colour is not connected to chat yet — set it in the Properties panel.'],
-  ['wall.updateColor', 'Wall colour is not connected to chat yet — set it in the Properties panel.'],
-  ['wall.bulkSetVisuals', 'Bulk visual overrides are not connected to chat yet — use the Properties panel.'],
+  // §FEAT-WALL-COLOR-BATCH (ADR-0314) — wall colour IS chat-drivable now, via
+  // wall.updateColorBatch. These three stay deferred with the true reasons:
+  ['wall.setColor', 'Writes a detached plugin store nothing renders (§FIX-MATERIAL-DEAD-DISPATCH) — say "make all walls white"; chat drives wall.updateColorBatch instead.'],
+  ['wall.updateColor', 'The single-wall inspector route — from chat, "make all walls white" / "paint the selected walls …" drives wall.updateColorBatch (one undo entry, honest batch report).'],
+  ['wall.bulkSetVisuals', 'Writes a detached plugin store nothing renders (§FIX-MATERIAL-DEAD-DISPATCH) — chat bulk colour drives wall.updateColorBatch, which reaches the geometry store.'],
   ['slab.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
   ['roof.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
   ['room.setMaterial', 'Materials are not connected to chat yet — set them in the Properties panel.'],
