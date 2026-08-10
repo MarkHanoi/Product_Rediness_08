@@ -27,7 +27,9 @@ import {
     type ResidentialBuildingOk,
 } from '@pryzm/ai-host';
 import { storeRegistry } from '@pryzm/core-app-model';
+import { siteQueryService } from '@pryzm/stores';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { checkMaxHeightGate } from '../generation/maxHeightGate.js';
 import { ResidentialBuildingModal } from './ResidentialBuildingModal.js';
 import { ResidentialBuildingExecutor } from './ResidentialBuildingExecutor.js';
 import { friendlyResidentialError, polygonAreaM2 } from './residentialError.js';
@@ -261,6 +263,23 @@ export class ResidentialBuildingController {
         const baseElevationM = ground.elevation ?? 0;
         const input = buildOrchestratorInput(req, footprint, baseElevationM);
         const areaM2 = polygonAreaM2(footprint);
+
+        // §GEN-MAXHEIGHT-GATE (audit P0-2 / RAC U5b.3, C58) — enforce the parcel's resolved
+        // height cap BEFORE running the orchestrator: total storeys = ground + upperLevels.
+        // `getMaxHeightM()` returns null when no cap is recorded (§CONTEXT-DATA-HONESTY —
+        // proceed, say nothing false; null is NEVER 0 or ∞). A refusal routes through the
+        // SAME friendly error modal as a hard reject, quoting BOTH numbers + the feasible
+        // floor count (the §RESI-ZERO-APARTMENTS-REFUSE pattern).
+        const heightGate = checkMaxHeightGate({
+            floors: (input.upperLevels ?? 1) + 1,
+            floorToFloorM: input.floorToFloorM ?? DEFAULT_FLOOR_TO_FLOOR_M,
+            maxHeightM: siteQueryService.getMaxHeightM(),
+        });
+        if (!heightGate.ok) {
+            console.warn('[resi-building] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
+            this._showReject(heightGate.reason, areaM2);
+            return { ok: false, reason: heightGate.reason };
+        }
 
         let result: ResidentialBuildingResult;
         try {

@@ -63,7 +63,7 @@ export interface FriendlyResidentialError {
     /** What the user can do about it (actionable). */
     readonly guidance: string;
     /** Coarse kind — drives which icon/copy + lets tests assert the branch taken. */
-    readonly kind: 'too-narrow' | 'too-small' | 'degenerate' | 'core-too-large' | 'no-apartments' | 'generic';
+    readonly kind: 'too-narrow' | 'too-small' | 'degenerate' | 'core-too-large' | 'no-apartments' | 'exceeds-height' | 'generic';
 }
 
 /** Pull the MEASURED plate short side (m) out of the orchestrator's "too narrow" reason. */
@@ -112,6 +112,19 @@ export function friendlyResidentialError(
             title: 'This plot is too narrow for a residential building',
             body: `The buildable plate ${measured} across its short side.${needs}`,
             guidance: 'Width is the limit here, not area — a long thin plot of any size still can’t host a core plus an apartment beside it. Widen the boundary across its short side, or draw it on a wider part of the site.',
+        };
+    }
+
+    // §GEN-MAXHEIGHT-GATE (audit P0-2 / C58) — "building height exceeds the permitted envelope: the
+    // envelope here allows Y m; N floors × h m ≈ X m. Up to K floors (≈ Z m) would fit." The gate
+    // measured the cap (site model) and the request (arithmetic), so the copy quotes its reason
+    // VERBATIM — this module still declares no feasibility number of its own (§RESI-REFUSAL-TRUE).
+    if (r.includes('exceeds the permitted envelope')) {
+        return {
+            kind: 'exceeds-height',
+            title: 'Too tall for this plot’s envelope',
+            body: String(reason ?? '').trim(),
+            guidance: 'Reduce the number of floors to the feasible count quoted above (or lower the floor-to-floor height). The height cap comes from the resolved zoning envelope for this parcel.',
         };
     }
 

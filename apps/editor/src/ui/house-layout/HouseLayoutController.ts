@@ -33,7 +33,9 @@ import {
     type ScoredHouseLayoutOption,
 } from '@pryzm/ai-host';
 import { storeRegistry } from '@pryzm/core-app-model';
+import { siteQueryService } from '@pryzm/stores';
 import { facadeOrientationService } from '@pryzm/spatial-index';
+import { checkMaxHeightGate } from '../generation/maxHeightGate.js';
 import { HouseLayoutModal } from './HouseLayoutModal.js';
 import { HouseLayoutExecutor } from './HouseLayoutExecutor.js';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
@@ -204,6 +206,22 @@ export class HouseLayoutController {
             const baseElevationM = ground.elevation ?? 0;
             const floorToFloorM = req.floorToFloorM && req.floorToFloorM > 0 ? req.floorToFloorM : 3.0;
             const roofKind = req.roofKind ?? 'gable';
+
+            // §GEN-MAXHEIGHT-GATE (audit P0-2 / RAC U5b.3, C58) — enforce the parcel's resolved
+            // height cap BEFORE enumerating variants. null = no cap recorded ⇒ proceed silently
+            // (§CONTEXT-DATA-HONESTY — never 0, never ∞). The house flow's rejection surface is
+            // the toast (it has no error modal), so the refusal — quoting BOTH numbers + the
+            // feasible storey count — rides the same path the no-variants reject uses.
+            const heightGate = checkMaxHeightGate({
+                floors: storeyCount,
+                floorToFloorM,
+                maxHeightM: siteQueryService.getMaxHeightM(),
+            });
+            if (!heightGate.ok) {
+                console.warn('[house-layout] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
+                toast(`Can’t build ${storeyCount} storeys here — ${heightGate.reason}`, 'error');
+                return { ok: false, reason: heightGate.reason };
+            }
 
             // §MODAL-DYNAMIC: cache the regenerate context (shell + immutable
             // build opts + the editable program/storeys/weights).

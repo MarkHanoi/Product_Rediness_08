@@ -22,7 +22,9 @@ import {
     type WorkplaceCulture,
 } from '@pryzm/ai-host';
 import { storeRegistry } from '@pryzm/core-app-model';
+import { siteQueryService } from '@pryzm/stores';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { checkMaxHeightGate } from '../generation/maxHeightGate.js';
 import { OfficeBuildingModal } from './OfficeBuildingModal.js';
 import { OfficeBuildingExecutor } from './OfficeBuildingExecutor.js';
 
@@ -113,6 +115,21 @@ export class OfficeBuildingController {
         const derived = active?.id ? deriveRadiusFromShell(active.id) : null;
         const radiusM = req.radiusM && req.radiusM > 0 ? req.radiusM : (derived && derived > 8 ? derived : DEFAULT_RADIUS_M);
 
+        // §GEN-MAXHEIGHT-GATE (audit P0-2 / RAC U5b.3, C58) — enforce the parcel's resolved
+        // height cap BEFORE running the orchestrator. null = no cap recorded ⇒ proceed
+        // silently (§CONTEXT-DATA-HONESTY). Refusal rides the office flow's EXISTING honesty
+        // seam: the error modal, quoting BOTH numbers + the feasible storey count.
+        const heightGate = checkMaxHeightGate({
+            floors: Math.max(1, Math.floor(req.stories || 1)),
+            floorToFloorM: req.floorToFloorM && req.floorToFloorM > 0 ? req.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M,
+            maxHeightM: siteQueryService.getMaxHeightM(),
+        });
+        if (!heightGate.ok) {
+            console.warn('[office-building] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
+            this.modal.showError(heightGate.reason, () => { console.log('[office-building] height-gate error dismissed'); });
+            return { ok: false, reason: heightGate.reason };
+        }
+
         const result: OfficeBuildingResult = orchestrateOfficeBuilding({
             radiusM,
             stories: req.stories,
@@ -172,6 +189,20 @@ export class OfficeBuildingController {
                 const active = resolveActiveLevel();
                 const derived = active?.id ? deriveRadiusFromShell(active.id) : null;
                 const radiusM = req.radiusM && req.radiusM > 0 ? req.radiusM : (derived && derived > 8 ? derived : DEFAULT_RADIUS_M);
+                // §GEN-MAXHEIGHT-GATE — the direct (no-modal) path enforces the SAME cap; the
+                // refusal surfaces on this path's existing honesty seam (the toast).
+                const heightGate = checkMaxHeightGate({
+                    floors: Math.max(1, Math.floor(req.stories || 1)),
+                    floorToFloorM: req.floorToFloorM && req.floorToFloorM > 0 ? req.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M,
+                    maxHeightM: siteQueryService.getMaxHeightM(),
+                });
+                if (!heightGate.ok) {
+                    console.warn('[office-building] buildDirect: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
+                    runtime.events?.emit('pryzm:toast', { message: `Office: ${heightGate.reason}`, severity: 'error' });
+                    span.setAttribute('pryzm.office.buildDirect.ok', false);
+                    span.end();
+                    return { ok: false, reason: heightGate.reason };
+                }
                 const result: OfficeBuildingResult = orchestrateOfficeBuilding({
                     radiusM,
                     stories: req.stories,
