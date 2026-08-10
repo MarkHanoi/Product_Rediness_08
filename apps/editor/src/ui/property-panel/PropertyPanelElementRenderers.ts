@@ -444,3 +444,134 @@ export function _renderIfcElement(
     host.container.appendChild(body);
     host.makeVisible();
 }
+
+/**
+ * §RHINO-SELECT — read-only property panel for a selected Rhino (.3dm) mesh.
+ *
+ * Mirrors `_renderIfcElement`: the Rhino model is REFERENCE content (a THREE
+ * mesh in the tagged `rhino__*` group, not a store element), so the surface is
+ * the .3dm attributes three's Rhino3dmLoader preserves — object name and
+ * layerIndex on `mesh.userData.attributes`, the layer table on the root
+ * group's `userData.layers` — plus the import bookkeeping the importer stamps
+ * (source file, model id). Read-only is V1 by design (C33).
+ */
+export function _renderRhinoElement(
+    host: ElementRenderHost,
+    obj: THREE.Object3D,
+): void {
+    const ud = obj.userData;
+
+    // Walk up to the import root — it carries the .3dm layer table + file name.
+    let root: THREE.Object3D | null = obj;
+    while (root !== null && root.userData?.isRhinoImport !== true) root = root.parent;
+
+    const attrs = (ud.attributes ?? {}) as Record<string, any>;
+    const layerIndex: number | undefined =
+        typeof attrs.layerIndex === 'number' ? attrs.layerIndex : undefined;
+    const layerTable = Array.isArray(root?.userData?.layers)
+        ? (root!.userData.layers as Array<Record<string, unknown>>)
+        : [];
+    const layer = layerIndex !== undefined ? layerTable[layerIndex] : undefined;
+    const layerFullPath = typeof layer?.fullPath === 'string' && layer.fullPath.length > 0
+        ? layer.fullPath
+        : (typeof layer?.name === 'string' ? layer.name : undefined);
+    const layerName = layerFullPath?.split('::').pop()
+        ?? (layerIndex !== undefined ? `Layer ${layerIndex}` : '—');
+
+    const objectName: string = typeof attrs.name === 'string' && attrs.name.length > 0
+        ? attrs.name
+        : (obj.name || 'Unnamed object');
+    const objectType: string = typeof ud.objectType === 'string' ? ud.objectType : 'Mesh';
+    const mat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+    const matName = Array.isArray(mat)
+        ? mat.map((m) => m.name || m.type).join(', ')
+        : (mat?.name || mat?.type || '—');
+    const fileName: string = String(root?.userData?.fileName ?? '—');
+    const elementId: string = String(ud.id ?? '');
+
+    host.setSelectedObject(obj);
+    host.state.selectedElementId   = elementId;
+    host.state.selectedElementType = 'rhino' as any;
+    host.draft.clear();
+    host.validationErrors.clear();
+
+    host.container.innerHTML = '';
+    host.injectStyles();
+
+    // ── Header ────────────────────────────────────────────────────────────
+    const header = document.createElement('div');
+    header.className = 'gpp-header';
+
+    const typeBadge = document.createElement('div');
+    typeBadge.className = 'gpp-type-badge';
+    typeBadge.textContent = `${objectType.toUpperCase()} · RHINO`;
+    header.appendChild(typeBadge);
+
+    const nameRow = document.createElement('div');
+    nameRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    const nameInput = document.createElement('input');
+    nameInput.className = 'gpp-mark-input';
+    nameInput.value     = objectName;
+    nameInput.readOnly  = true;
+    nameInput.style.cssText += ';cursor:default;opacity:0.85;';
+    nameInput.placeholder = 'Name';
+    nameRow.appendChild(nameInput);
+    header.appendChild(nameRow);
+
+    const readOnlyBadge = document.createElement('div');
+    readOnlyBadge.style.cssText = [
+        'font-size:10px', 'color:rgba(255,255,255,0.55)',
+        'margin-top:4px', 'padding:2px 8px',
+        'background:rgba(102,0,255,0.18)', 'border-radius:4px',
+        'display:inline-flex', 'align-items:center', 'gap:5px',
+        'width:fit-content', 'border:1px solid rgba(102,0,255,0.3)',
+    ].join(';');
+    readOnlyBadge.innerHTML =
+        `<span style="width:6px;height:6px;border-radius:50%;background:#6600FF;display:inline-block;flex-shrink:0;"></span>Rhino Import · Read-only`;
+    header.appendChild(readOnlyBadge);
+
+    header.appendChild(host.buildCloseBtn());
+    host.container.appendChild(header);
+
+    // ── Body ──────────────────────────────────────────────────────────────
+    const body = document.createElement('div');
+    body.className = 'gpp-body';
+    body.style.cssText = 'padding:8px 12px 12px;overflow-y:auto;';
+
+    body.appendChild(_buildIfcSection('Identity', [
+        { label: 'Object Name', value: objectName },
+        { label: 'Object Type', value: objectType },
+        { label: 'Layer',       value: layerName },
+        ...(layerFullPath !== undefined && layerFullPath !== layerName
+            ? [{ label: 'Layer Path', value: layerFullPath }]
+            : []),
+        { label: 'Material',    value: matName },
+        { label: 'Element ID',  value: elementId },
+    ], false));
+
+    body.appendChild(_buildIfcSection('Source', [
+        { label: 'Source File', value: fileName },
+        { label: 'Model ID',    value: String(ud.modelId ?? '—') },
+        { label: 'Imported',    value: root?.userData?.importedAt
+            ? new Date(root.userData.importedAt as number).toLocaleString()
+            : '—' },
+    ], false));
+
+    // Action footer — Hide only (removal is per-model via the Import Manager).
+    const footer = document.createElement('div');
+    footer.className = 'gpp-actions';
+    let meshVisible = obj.visible;
+    const hideBtn = document.createElement('button');
+    hideBtn.className   = 'gpp-action-btn';
+    hideBtn.textContent = meshVisible ? 'Hide' : 'Show';
+    hideBtn.addEventListener('click', () => {
+        meshVisible = !meshVisible;
+        obj.visible = meshVisible;
+        hideBtn.textContent = meshVisible ? 'Hide' : 'Show';
+    });
+    footer.appendChild(hideBtn);
+    body.appendChild(footer);
+
+    host.container.appendChild(body);
+    host.makeVisible();
+}

@@ -67,6 +67,7 @@ import {
     ElementRenderHost,
     _renderUnderlayPanel as _renderUnderlayPanelFn,
     _renderIfcElement as _renderIfcElementFn,
+    _renderRhinoElement as _renderRhinoElementFn,
 } from './PropertyPanelElementRenderers';
 import {
     BodyRendererHost,
@@ -824,6 +825,12 @@ export class PropertyPanel {
             return;
         }
 
+        // ── Rhino import path — §RHINO-SELECT (read-only .3dm attributes) ────
+        if (target.userData?.isRhinoProxy === true) {
+            this._renderRhinoElement(target);
+            return;
+        }
+
         // Standard path (unchanged) ──────────────────────────────────────────
         this.selectedObject = target;
         const rawData = target.userData;
@@ -855,6 +862,12 @@ export class PropertyPanel {
 
     private _renderIfcElement(obj: THREE.Object3D): void {
         _renderIfcElementFn(this._asElementRenderHost(), obj);
+    }
+
+    // ── Rhino Element Panel — §RHINO-SELECT ──────────────────────────────────
+
+    private _renderRhinoElement(obj: THREE.Object3D): void {
+        _renderRhinoElementFn(this._asElementRenderHost(), obj);
     }
 
 
