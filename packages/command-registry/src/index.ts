@@ -358,6 +358,7 @@ export * from './walls/UpdateWallSystemTypeCommand';
 export * from './walls/UpdateWallsSystemTypeBatchCommand';
 // §FEAT-WALL-COLOR-BATCH (ADR-0314) — batch recolour, the GAP-C fix for "make all walls white".
 export * from './walls/UpdateWallsColorBatchCommand';
+export * from './walls/UpdateWallsRakeBatchCommand';
 // ADR-0314 §Reference resolution — the generic catalogue ref resolver (wall resolver delegates).
 export * from './catalogue/resolveCatalogueRef';
 export * from './walls/wallSnapshotUtils';

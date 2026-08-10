@@ -26,6 +26,7 @@ import { CutWallHandler } from './CutWall.js';
 import { UpdateWallSystemTypeHandler } from './UpdateWallSystemType.js';
 import { UpdateWallsSystemTypeBatchHandler } from './UpdateWallsSystemTypeBatch.js';
 import { UpdateWallsColorBatchHandler } from './UpdateWallsColorBatch.js';
+import { UpdateWallsRakeBatchHandler } from './UpdateWallsRakeBatch.js';
 // §FIX-DIMS-REACH-RECORD — UpdateWallDimensionsHandler import removed with its registration.
 import { UpdateWallBaselineHandler } from './UpdateWallBaseline.js';
 import { CascadeWallBaselineHandler } from './CascadeWallBaseline.js';
@@ -78,6 +79,9 @@ export const WALL_HANDLER_TYPES = [
   'wall.updateSystemTypeBatch',
   // §FEAT-WALL-COLOR-BATCH (ADR-0314) — batch recolour ('all' or explicit ids), one undo entry.
   'wall.updateColorBatch',
+  // §FEAT-WALL-RAKE-BATCH (ADR-0315) — batch rake ('all' or explicit ids), one undo
+  // entry, per-wall rakeAuthorability refusals reported honestly.
+  'wall.updateRakeBatch',
   // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815): 'wall.updateDimensions' LEFT
   // this set — the plugin handler wrote the DETACHED plugin store (silent
   // no-op in production; undo-asymmetric with the ring buffer). The verb is
@@ -133,6 +137,7 @@ export function buildWallHandlerSet(
     UpdateWallSystemTypeHandler as unknown as CommandHandler<unknown>,
     UpdateWallsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallsColorBatchHandler as unknown as CommandHandler<unknown>,
+    UpdateWallsRakeBatchHandler as unknown as CommandHandler<unknown>,
     // §FIX-DIMS-REACH-RECORD — UpdateWallDimensionsHandler retired (see
     // WALL_HANDLER_TYPES note); the initBusHandlers bridge owns the verb.
     UpdateWallBaselineHandler as unknown as CommandHandler<unknown>,

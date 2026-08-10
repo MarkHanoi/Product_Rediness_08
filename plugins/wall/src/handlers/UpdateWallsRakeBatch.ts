@@ -1,0 +1,117 @@
+// UpdateWallsRakeBatchHandler — §FEAT-WALL-RAKE-BATCH (ADR-0315).
+//
+// Bus surface for "make ALL walls / these walls angled by 70°". Mirrors the
+// §FEAT-WALL-COLOR-BATCH bridge one file over: the typed bus command is the
+// public entry point (the RAC chat dispatches it; a future pill can too), and
+// the bridge forwards to the legacy CommandManager, which owns the undo stack
+// the batch command participates in as ONE entry.
+//
+// WHY THIS BRIDGES: the one live single-wall rake route is the generic
+// `element.updateParameters` (the property panel's path) — single-wall by
+// payload, and it does NOT consult `rakeAuthorability`, so a naive chat
+// fan-out would report success on walls the store silently refused (curved /
+// layered / opening-hosting). The batch COMMAND owns that honesty
+// (`UpdateWallsRakeBatchCommand`): "Raked N of M — K skipped: <reason>",
+// all-refused = visible no-op, never a throw. The bridge re-broadcasts the
+// report as a `pryzm-wall-rake-batch-report` window CustomEvent so thin UI
+// wrappers can show it without owning batch logic.
+//
+// Payload contract (RAC-friendly, symmetric with wall.updateColorBatch):
+//   • `wallIds: 'all'`    — every wall in the project, ALL levels; or
+//   • `wallIds: string[]` — an explicit id list (selection / level / room).
+//   • `rakeAngleDeg`      — degrees, 90 = vertical, range [15, 165].
+
+import {
+  withHandlerSpan,
+  type CommandHandler,
+  type HandlerContext,
+  type HandlerResult,
+  type ValidationResult,
+} from '@pryzm/plugin-sdk';
+import { UpdateWallsRakeBatchCommand } from '@pryzm/command-registry';
+
+export interface UpdateWallsRakeBatchPayload {
+  /** 'all' = every wall in the project (all levels); or an explicit id list. */
+  readonly wallIds: readonly string[] | 'all';
+  /** Target lean in degrees; 90 = vertical. Range [15, 165]. */
+  readonly rakeAngleDeg: number;
+}
+
+/** Detail shape of the `pryzm-wall-rake-batch-report` CustomEvent. */
+export interface WallRakeBatchReport {
+  readonly success: boolean;
+  /** Human-readable lines: summary first, then grouped skip reasons. */
+  readonly info: readonly string[];
+  readonly affectedElementIds: readonly string[];
+}
+
+export const WALL_RAKE_BATCH_REPORT_EVENT = 'pryzm-wall-rake-batch-report';
+
+export const UpdateWallsRakeBatchHandler: CommandHandler<
+  UpdateWallsRakeBatchPayload,
+  Record<string, unknown>
+> = {
+  type: 'wall.updateRakeBatch',
+  affectedStores: [] as const,
+
+  canExecute(
+    _ctx: HandlerContext<Record<string, unknown>>,
+    cmd: UpdateWallsRakeBatchPayload,
+  ): ValidationResult {
+    if (cmd.wallIds !== 'all' && !Array.isArray(cmd.wallIds)) {
+      return { valid: false, reason: "wallIds must be 'all' or an array of wall ids" };
+    }
+    if (typeof cmd.rakeAngleDeg !== 'number' || !Number.isFinite(cmd.rakeAngleDeg)) {
+      return { valid: false, reason: 'rakeAngleDeg must be a finite number of degrees' };
+    }
+    // Range policy is judged by the COMMAND via the geometry-wall single gate
+    // (isRakeInRange) — not re-typed here, so the bounds live in one place.
+    return { valid: true };
+  },
+
+  execute(
+    _ctx: HandlerContext<Record<string, unknown>>,
+    cmd: UpdateWallsRakeBatchPayload,
+  ): HandlerResult {
+    return withHandlerSpan(
+      'wall.updateRakeBatch.handler',
+      { 'pryzm.command.type': 'wall.updateRakeBatch' },
+      () => {
+        // CommandManagerImpl.execute always returns a CommandResult (validation
+        // refusals arrive as { success:false, info:[reason] }, never a throw).
+        const cm = window.commandManager as
+          | {
+              execute(
+                cmd: unknown,
+                options?: unknown,
+              ): { success: boolean; affectedElementIds: string[]; info?: string[] };
+            }
+          | undefined;
+        if (cm) {
+          try {
+            const result = cm.execute(
+              new UpdateWallsRakeBatchCommand({
+                wallIds: cmd.wallIds === 'all' ? 'all' : [...cmd.wallIds],
+                rakeAngleDeg: cmd.rakeAngleDeg,
+              }),
+            );
+            // Visible partial-failure reporting, same contract as the colour
+            // batch: a refusal and a success are never the same observable.
+            const report: WallRakeBatchReport = {
+              success: result?.success ?? false,
+              info: result?.info ?? [],
+              affectedElementIds: result?.affectedElementIds ?? [],
+            };
+            window.dispatchEvent(
+              new CustomEvent(WALL_RAKE_BATCH_REPORT_EVENT, { detail: report }),
+            );
+          } catch (e) {
+            console.error('[wall.updateRakeBatch.handler] bridge failed:', e);
+          }
+        }
+        const empty: HandlerResult = { forward: [], inverse: [] };
+        return empty;
+      },
+    ); // withHandlerSpan — C10 §2
+  },
+};
