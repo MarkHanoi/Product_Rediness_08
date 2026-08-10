@@ -274,12 +274,33 @@ async function buildContext(): Promise<ResolverContext> {
     } catch (err) {
         console.warn('[ZeroTokenChatBridge] wall type catalogue unavailable:', err);
     }
+    // §FEAT-WINDOW-TYPE-BATCH — the window twin, from the SAME command-registry
+    // resolver the batch command itself uses (one ladder, one vocabulary).
+    let windowCatalogue: {
+        resolve: (ref: string) => ResolverWallSystemType | null;
+        names: readonly string[];
+    } | null = null;
+    try {
+        const { resolveWindowSystemTypeRef, windowSystemTypeNames } = await import('@pryzm/command-registry');
+        windowCatalogue = {
+            resolve: (ref: string) => {
+                const hit = resolveWindowSystemTypeRef(ref);
+                return hit === null ? null : { id: hit.id, name: hit.name };
+            },
+            names: windowSystemTypeNames(),
+        };
+    } catch (err) {
+        console.warn('[ZeroTokenChatBridge] window type catalogue unavailable:', err);
+    }
     return {
         selection: currentSelection(),
         levels,
         ...(activeLevelId !== undefined ? { activeLevelId } : {}),
         ...(catalogue !== null
             ? { resolveWallSystemType: catalogue.resolve, wallSystemTypeNames: catalogue.names }
+            : {}),
+        ...(windowCatalogue !== null
+            ? { resolveWindowSystemType: windowCatalogue.resolve, windowSystemTypeNames: windowCatalogue.names }
             : {}),
         // level.add call-site convention (ProjectTreeSection): `L${Date.now()}`.
         mintId: () => `L${Date.now()}`,
@@ -331,6 +352,8 @@ async function dispatchCommands(
         // §FEAT-WALL-RAKE-BATCH — "Raked N of M — K skipped: <reason>" from the
         // batch command's rakeAuthorability pass.
         'wall.updateRakeBatch': 'pryzm-wall-rake-batch-report',
+        // §FEAT-WINDOW-TYPE-BATCH — "Retyped N of M — K skipped".
+        'window.updateSystemTypeBatch': 'pryzm-window-type-batch-report',
         // §FEAT-RHINO-CHAT-MATERIAL — the Rhino bridge reports mesh counts and
         // the honest "no Rhino model is imported" failure through this event.
         'rhino.setMaterial': 'pryzm-rhino-material-report',

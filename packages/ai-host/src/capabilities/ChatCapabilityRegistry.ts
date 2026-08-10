@@ -102,6 +102,9 @@ export type CapabilityValueSource =
   /** The project's wall system types (`wallSystemTypeStore`), resolved by
    *  `resolveWallSystemTypeRef` — exact id → exact name → case-insensitive. */
   | 'wall-system-types'
+  /** The project's window system types (`windowSystemTypeStore`), resolved by
+   *  `resolveWindowSystemTypeRef` — the same resolveCatalogueRef ladder. */
+  | 'window-system-types'
   /** The project's level list, resolved by `findLevel`. */
   | 'project-levels'
   /** A colour name or '#hex', resolved by the ONE table in
@@ -774,6 +777,46 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'make the selected walls angled by 70',
       'tilt all walls on the ground floor by 60 degrees',
       'make all walls vertical',
+    ],
+  },
+  {
+    id: 'set-window-type',
+    // §FEAT-WINDOW-TYPE-BATCH (ADR-0315, founder ask #4) — "change the window
+    // type to Steel Crittal Style". Rides window.updateSystemTypeBatch, whose
+    // children are the L-620-proven UpdateWindowSystemTypeCommand against the
+    // geometry windowStore (planWindowTypeChange preserves id/openingId/host
+    // void, C15) — never the plugin `window.setType` detached-store route.
+    description: 'change the window type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['window type', 'window style'],
+    refusalLabel: 'window type',
+    targets: ['window'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the window type, by catalogue name or id',
+        required: true,
+        valueSource: 'window-system-types',
+        example: 'Timber Casement',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection'],
+    destructive: false,
+    busCommand: 'window.updateSystemTypeBatch',
+    // Selection-scope probe — the 'all' scope never reads the selection, so it
+    // could not exercise the target guard (same reasoning as set-wall-type).
+    probe: { intent: 'set-window-type', typeRef: 'Timber Casement', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/windows/UpdateWindowsSystemTypeBatchCommand.ts',
+      mustMention: ['windowStore', 'UpdateWindowSystemTypeCommand'],
+      note: "_resolveWindowIds reads the geometry windowStore and nothing else, so the command's reachable set is windows only; per window it reuses the L-620-proven UpdateWindowSystemTypeCommand (windowStore.update → WindowBuilder rebuild), never the detached plugin DTO store.",
+    },
+    examples: [
+      'change all windows to timber casement',
+      'change the window type to steel crittal style',
+      'convert the selected windows to upvc casement',
+      'change all windows to aluminium triple glazed',
     ],
   },
   {

@@ -240,6 +240,18 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    id: 'set-window-type',
+    // Selection-form phrasings need a selected window; the injected resolver is
+    // exercised by the dedicated describe block below (raw-forward here).
+    ctx: sel('window'),
+    phrasings: [
+      'change all windows to timber casement',
+      'change the window type to steel crittal style',
+      'convert the selected windows to upvc casement',
+      'Could you change all windows to timber casement, please?',
+    ],
+  },
+  {
     id: 'set-rhino-material',
     ctx: {},
     phrasings: [
@@ -983,5 +995,63 @@ describe('§FEAT-WALL-RAKE-BATCH — "make all walls angled by 120 degrees"', ()
     const rake = resolveUtterance('make all walls angled by 70', ctxOf());
     expect(intentOf(rake)).toBe('set-wall-rake');
     expect(rake.kind).toBe('commands');
+  });
+});
+
+describe('§FEAT-WINDOW-TYPE-BATCH — "change the window type to …"', () => {
+  const windowCtx = {
+    resolveWindowSystemType: (ref: string) =>
+      /timber casement/i.test(ref) ? { id: 'wt-timber-casement', name: 'Timber Casement' } : null,
+    windowSystemTypeNames: ['Single Pane (Default)', 'Timber Casement', 'Steel Crittal Style'],
+  };
+
+  it('"change all windows to timber casement" reaches window.updateSystemTypeBatch, resolved to the id', () => {
+    const r = resolveUtterance('change all windows to timber casement', ctxOf(windowCtx as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-window-type');
+    expect(r.commands).toEqual([{
+      type: 'window.updateSystemTypeBatch',
+      payload: { windowIds: 'all', systemType: 'wt-timber-casement' },
+    }]);
+    expect(r.summary).toContain('every window in the project');
+    expect(r.summary).toContain('Timber Casement');
+  });
+
+  it("the founder's singular form scopes to the SELECTED window", () => {
+    const ctx = ctxOf({ ...(windowCtx as object), ...sel('window', 'win-9') } as never);
+    const r = resolveUtterance('change the window type to timber casement', ctx);
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ windowIds: ['win-9'], systemType: 'wt-timber-casement' });
+  });
+
+  it('an unknown type refuses by LISTING the real window catalogue', () => {
+    const r = resolveUtterance('change all windows to bay window deluxe', ctxOf(windowCtx as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('set-window-type');
+    expect(r.reason).toContain('Timber Casement');
+    expect(r.reason).toContain('Steel Crittal Style');
+  });
+
+  it('without the injected resolver the raw ref is FORWARDED — the command owns the refusal', () => {
+    const r = resolveUtterance('change all windows to timber casement', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({ windowIds: 'all', systemType: 'timber casement' });
+  });
+
+  it('selection scope with no window selected refuses and names what IS selected', () => {
+    const r = resolveUtterance('convert the selected windows to timber casement', ctxOf({ ...(windowCtx as object), ...sel('wall') } as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('wall');
+    expect(r.reason).toContain('Nothing was changed');
+  });
+
+  it('dimension sentences are NEVER claimed as a type ask', () => {
+    const r = resolveUtterance('make all windows 1m wide', ctxOf(sel('window')));
+    expect(intentOf(r)).not.toBe('set-window-type');
   });
 });

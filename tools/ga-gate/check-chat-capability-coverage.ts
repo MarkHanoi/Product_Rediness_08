@@ -304,7 +304,7 @@ function proveRouteLiveness(cap: ChatCapability, file: string, src: string): str
  * runtime, which is a claim nobody checked.
  */
 const KNOWN_VALUE_SOURCES = new Set([
-  'measurement', 'angle', 'wall-system-types', 'project-levels', 'user-text', 'coordinates',
+  'measurement', 'angle', 'wall-system-types', 'window-system-types', 'project-levels', 'user-text', 'coordinates',
   // ADR-0314 §Value sources — colour name / '#hex', resolved by the ONE table
   // in packages/ai-host/src/intents/colorRef.ts.
   'color',
@@ -349,6 +349,7 @@ function proveParameterSources(cap: ChatCapability): string[] {
       p.valueSource === 'measurement' ? Object.values(probe).some((v) => typeof v === 'number')
       : p.valueSource === 'angle' ? (typeof probe['degrees'] === 'number' || typeof probe['angleDeg'] === 'number')
       : p.valueSource === 'wall-system-types' ? typeof probe['typeRef'] === 'string'
+      : p.valueSource === 'window-system-types' ? typeof probe['typeRef'] === 'string'
       // ADR-0315 U5a: duplicate-level carries its level refs as sourceQuery /
       // targetQueries — both resolved by the same findLevel authority.
       : p.valueSource === 'project-levels'

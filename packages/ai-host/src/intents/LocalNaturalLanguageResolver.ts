@@ -43,6 +43,7 @@ import {
   parseWallColorIntent,
   parseWallRakeIntent,
   parseWallTypeIntent,
+  parseWindowTypeIntent,
   type ResolverContext,
   type ResolverLevel,
   type ResolverSelection,
@@ -957,6 +958,17 @@ function classify(
       confidence: 0.95,
       evidence: ['verb:rake', 'noun:wall', `scope:${typeof wallRake.scope === 'string' ? wallRake.scope : wallRake.scope.kind}`],
       si: wallRake,
+    });
+  }
+
+  // set-window-type (§FEAT-WINDOW-TYPE-BATCH) — shared parser, same rank.
+  const windowType = parseWindowTypeIntent(n.plain);
+  if (windowType !== null) {
+    push({
+      intent: 'set-window-type',
+      confidence: 0.95,
+      evidence: ['verb:change', 'noun:window', `scope:${windowType.scope}`],
+      si: windowType,
     });
   }
 
