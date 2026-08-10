@@ -480,6 +480,61 @@ describe('§FEAT-WALL-COLOR-BATCH — "make all walls white"', () => {
     expect(r.reason).toContain('Nothing was changed');
   });
 
+  // ─── ADR-0315 U3 — the first LEVEL-scoped sentence ─────────────────────────
+
+  it('"make all walls on level 2 white" resolves the scope ONCE through the injected resolver', () => {
+    const resolveScope = (scope: { kind: string; levelQuery?: string; elementKind?: string }) => {
+      expect(scope).toEqual({ kind: 'level', levelQuery: '2', elementKind: 'wall' });
+      return {
+        ids: ['w-a', 'w-b', 'w-c'],
+        kindCounts: { wall: 3 },
+        skipped: [],
+        diagnostics: ['Level 2'],
+      };
+    };
+    const r = resolveUtterance('make all walls on level 2 white', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-wall-color');
+    expect(r.commands).toEqual([{
+      type: 'wall.updateColorBatch',
+      payload: { wallIds: ['w-a', 'w-b', 'w-c'], materialColor: '#ffffff' },
+    }]);
+    expect(r.summary).toContain('3 walls on Level 2');
+  });
+
+  it('level scope with NO injected resolver refuses honestly — never guesses "all"', () => {
+    const r = resolveUtterance('make all walls on level 2 white', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain("level scoping isn't wired");
+  });
+
+  it('an unknown level surfaces the resolver error verbatim (listing real levels)', () => {
+    const resolveScope = () => ({ error: 'No level called "9" — the levels here are: Level 0, Level 1, Level 2.' });
+    const r = resolveUtterance('make all walls on level 9 white', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('No level called "9"');
+  });
+
+  it('an empty level (0 walls) refuses rather than dispatching an empty batch', () => {
+    const resolveScope = () => ({ ids: [], kindCounts: {}, skipped: [], diagnostics: ['Level 2'] });
+    const r = resolveUtterance('make all walls on level 2 white', ctxOf({ resolveScope } as never));
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('no walls on level');
+  });
+
+  it('the polite NL form reaches the same scoped intent', () => {
+    const resolveScope = () => ({
+      ids: ['w-a'], kindCounts: { wall: 1 }, skipped: [], diagnostics: ['Level 2'],
+    });
+    const r = resolveFull('Could you make all walls on level 2 white?', ctxOf({ resolveScope } as never));
+    expect(intentOf(r)).toBe('set-wall-color');
+    expect(r.kind).toBe('commands');
+  });
+
   it('US spelling and "gray" resolve identically', () => {
     const r = resolveUtterance('paint all walls light gray', ctxOf());
     expect(r.kind).toBe('commands');

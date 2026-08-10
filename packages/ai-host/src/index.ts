@@ -74,6 +74,16 @@ export {
 } from './capabilities/CapabilityRefusal.js';
 export type { CapabilityGapRefusal, ChatResolutionState } from './capabilities/CapabilityRefusal.js';
 export { parseWallTypeIntent } from './intents/ZeroTokenResolver.js';
+// ADR-0315 U3 — the canonical scope representation + the injected resolver's
+// result contract (F1/F2).
+export { isScopeError } from './intents/ScopeDescriptor.js';
+export type {
+  ScopeDescriptor,
+  ScopeResolution,
+  ScopeError,
+  ScopeResult,
+  ScopeSkip,
+} from './intents/ScopeDescriptor.js';
 export type {
   ResolverContext,
   ResolverSelection,

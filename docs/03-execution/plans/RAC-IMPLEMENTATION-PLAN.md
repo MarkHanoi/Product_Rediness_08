@@ -66,9 +66,9 @@ queries become chat-answerable data.
 
 | Sub | What | Status |
 |---|---|---|
-| U3.1 | `ScopeDescriptor` union (selection · all(kind) · ids · level(range) · type · room · orientation · exterior) | ⬜ |
-| U3.2 | Injected `ScopeResolver` over indexed paths, result = `{ids, kindCounts, skipped[], diagnostics}` | ⬜ |
-| U3.3 | Grammar/NL scope phrases ("on level 2", "on floors 2–4", "exterior", "south-facing", "in the kitchen") | ⬜ |
+| U3.1 🔶 | `ScopeDescriptor` union + ScopeResolution/ScopeError contracts shipped (selection/ids/all/level/room/orientation); type/exterior/range forms next | first slice ✅ |
+| U3.2 🔶 | Injected resolver live in the bridge for all/level/ids (getByLevel-indexed, ids-only, honest errors); room/orientation arms next | first slice ✅ |
+| U3.3 🔶 | "on level N" phrase live in the colour grammar (tier-0 + NL shared parse); more phrases with their arms | first slice ✅ |
 | U3.4 | ids-only store accessors (kill `getAll()` deep-clones on scope paths) | ⬜ |
 | U3.5 | In-repo scope benchmarks in CI (level/type < 0.5 ms @5k; orientation < 2 ms @5k) | ⬜ |
 

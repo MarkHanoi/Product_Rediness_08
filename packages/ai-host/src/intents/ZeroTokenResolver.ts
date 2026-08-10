@@ -33,6 +33,7 @@ import {
 } from '../capabilities/ChatCapabilityRegistry.js';
 import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
+import { isScopeError, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,14 @@ export interface ResolverContext {
   /** Catalogue names, so an unresolvable type refuses by LISTING the real
    *  options instead of inventing syntax (§CONTEXT-DATA-HONESTY). */
   readonly wallSystemTypeNames?: readonly string[];
+  /**
+   * ADR-0315 U3.2 — the injected SCOPE RESOLVER (F2). Turns a ScopeDescriptor
+   * into authoritative element ids ONCE, editor-side, over indexed paths
+   * (storeRegistry / getByLevel / room predicates / θ-threaded facades). The
+   * resolver stays pure; absence means scoped asks refuse honestly ("scope
+   * resolution isn't available here"), never guess.
+   */
+  readonly resolveScope?: (scope: ScopeDescriptor) => ScopeResult;
 }
 
 export interface BusCommandRef {
@@ -380,7 +389,10 @@ export type SemanticIntent =
       /** Colour name ("white", "light grey") or '#hex', resolved by the ONE
        *  colour table in colorRef.ts inside applySemanticIntent. */
       readonly colorRef: string;
-      readonly scope: 'all' | 'selection';
+      /** ADR-0315 U3 — the first LEVEL-scoped consumer: "make all walls on
+       *  level 2 white". The object form is resolved by the injected
+       *  ctx.resolveScope; absence of the resolver refuses honestly. */
+      readonly scope: 'all' | 'selection' | { readonly kind: 'level'; readonly levelQuery: string };
     };
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
@@ -1186,7 +1198,42 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // §FEAT-WALL-COLOR-BATCH (ADR-0314). Scope first, mirroring set-wall-type:
       // "the selected walls" must never silently become "all walls".
       let wallIds: readonly string[] | 'all';
-      if (si.scope === 'selection') {
+      let scopeLabelOverride: string | null = null;
+      const scopeNotes: string[] = [];
+      if (typeof si.scope === 'object' && si.scope.kind === 'level') {
+        // ADR-0315 U3 — the first LEVEL-scoped sentence: "make all walls on
+        // level 2 white". Resolution happens ONCE through the injected
+        // resolver; its absence refuses honestly, never guesses.
+        if (ctx.resolveScope === undefined) {
+          return {
+            kind: 'refusal', intent: 'set-wall-color',
+            reason:
+              `I can't resolve "on level ${si.scope.levelQuery}" here — level scoping isn't wired ` +
+              `into this chat context. I can change all walls or the selected walls.`,
+            suggestions: ['make all walls white'],
+          };
+        }
+        const result = ctx.resolveScope({ kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' });
+        if (isScopeError(result)) {
+          return {
+            kind: 'refusal', intent: 'set-wall-color',
+            reason: result.error,
+            suggestions: ['make all walls white'],
+          };
+        }
+        if (result.ids.length === 0) {
+          return {
+            kind: 'refusal', intent: 'set-wall-color',
+            reason: `There are no walls on level "${si.scope.levelQuery}" — nothing was changed.`,
+            suggestions: ['make all walls white'],
+          };
+        }
+        wallIds = result.ids;
+        scopeLabelOverride = `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} on ${result.diagnostics[0] ?? `level ${si.scope.levelQuery}`}`;
+        for (const s of result.skipped) {
+          scopeNotes.push(`${s.count}× ${s.kind} skipped: ${s.reason}`);
+        }
+      } else if (si.scope === 'selection') {
         const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
         if (walls.length === 0) {
           const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
@@ -1216,12 +1263,15 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         };
       }
 
-      const scopeLabel = wallIds === 'all'
-        ? 'every wall in the project'
-        : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
+      const scopeLabel = scopeLabelOverride !== null
+        ? scopeLabelOverride
+        : wallIds === 'all'
+          ? 'every wall in the project'
+          : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
+      const notesTail = scopeNotes.length > 0 ? ` (${scopeNotes.join(' · ')})` : '';
       return {
         kind: 'commands', intent: 'set-wall-color',
-        summary: `Paint ${scopeLabel} ${color.label}`,
+        summary: `Paint ${scopeLabel} ${color.label}${notesTail}`,
         commands: [{
           type: 'wall.updateColorBatch',
           payload: { wallIds: wallIds === 'all' ? 'all' : [...wallIds], materialColor: color.hex },
@@ -1497,29 +1547,36 @@ const WALL_COLOR_VERB = String.raw`(make|paint|colou?r|set|change|turn)`;
 
 const WALL_COLOR_RE = new RegExp(
   `^${WALL_COLOR_VERB} (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? walls?` +
+  // ADR-0315 U3 — optional LEVEL scope: "… on level 2 …" / "… on the ground floor …".
+  `(?: on (?:the )?(?:levels?|floors?)?\\s*([\\w .-]+?))?` +
   `(?: (?:to|into|in|as|be))? (?:the )?(?:colou?r )?(.+)$`,
 );
 
 /**
- * Parse "make all walls white" / "paint the selected walls light grey" into
- * the semantic intent — SHARED by the tier-0 grammar and the NL classifier,
- * like `parseWallTypeIntent`. Returns null when the scope word is absent or
- * (for the non-colour-specific verbs) the trailing text is not a known colour.
+ * Parse "make all walls white" / "paint the selected walls light grey" /
+ * "make all walls on level 2 white" into the semantic intent — SHARED by the
+ * tier-0 grammar and the NL classifier, like `parseWallTypeIntent`. Returns
+ * null when the scope word is absent or (for the non-colour-specific verbs)
+ * the trailing text is not a known colour.
  */
 export function parseWallColorIntent(text: string): Extract<SemanticIntent, { intent: 'set-wall-color' }> | null {
   const m = WALL_COLOR_RE.exec(text);
   if (!m) return null;
   const verb = m[1]!;
   const scopeWord = m[2]!;
-  const colorRef = m[3]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+  const levelQuery = m[3]?.trim();
+  const colorRef = m[4]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
   if (colorRef.length === 0) return null;
   const colorSpecificVerb = verb === 'paint' || verb.startsWith('colo');
   if (!colorSpecificVerb && resolveColorRef(colorRef) === null) return null;
-  return {
-    intent: 'set-wall-color',
-    colorRef,
-    scope: new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord) ? 'all' : 'selection',
-  };
+  // A level phrase composes with the ALL scope ("all walls on level 2");
+  // "these walls on level 2" contradicts the live selection and is not claimed.
+  const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
+  if (levelQuery !== undefined && levelQuery.length > 0) {
+    if (!isAll) return null;
+    return { intent: 'set-wall-color', colorRef, scope: { kind: 'level', levelQuery } };
+  }
+  return { intent: 'set-wall-color', colorRef, scope: isAll ? 'all' : 'selection' };
 }
 
 const matchWallColor: Matcher = (text, ctx) => {

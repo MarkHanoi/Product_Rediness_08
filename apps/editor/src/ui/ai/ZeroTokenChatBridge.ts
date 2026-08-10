@@ -33,10 +33,13 @@ import {
     noteResolution,
     withChatDispatchSpan,
     capabilityGapRefusal,
+    findLevel,
     type ConversationContext,
     type ResolverContext,
     type ResolverSelection,
     type ResolverWallSystemType,
+    type ScopeDescriptor,
+    type ScopeResult,
     type ZeroTokenResolution,
 } from '@pryzm/ai-host';
 import { batchCoordinator, selectionBus, storeRegistry } from '@pryzm/core-app-model';
@@ -142,6 +145,60 @@ async function wallTypeCatalogue(): Promise<{
     };
 }
 
+/**
+ * ADR-0315 U3.2 — the editor-side SCOPE RESOLVER (F2), injected into the pure
+ * resolver. Turns a ScopeDescriptor into element ids ONCE, over indexed paths:
+ * level → the store's own `getByLevel` (Map-indexed on WallStore) with a
+ * getAll-filter fallback; kinds come from `storeRegistry`. Ids-only mapping —
+ * never a deep-clone `getAll()` walk when an index exists. Unresolvable scope
+ * ⇒ `{ error }` with refusal-grade copy (§CONTEXT-DATA-HONESTY).
+ */
+function makeScopeResolver(
+    levels: readonly { id: string; name: string; elevation?: number }[],
+): (scope: ScopeDescriptor) => ScopeResult {
+    return (scope) => {
+        const count = (ids: readonly string[], kind: string): Record<string, number> =>
+            ids.length > 0 ? { [kind]: ids.length } : {};
+        if (scope.kind === 'ids') {
+            return { ids: scope.ids, kindCounts: {}, skipped: [], diagnostics: [] };
+        }
+        if (scope.kind === 'level' || scope.kind === 'all') {
+            const kind = scope.elementKind ?? 'wall';
+            const store = storeRegistry.getStoreForType(kind) as unknown as {
+                getByLevel?: (levelId: string) => Array<{ id: string }>;
+                getAll?: () => Array<{ id: string; levelId?: string }>;
+            } | undefined;
+            if (!store) {
+                return { error: `I can't enumerate ${kind}s here — the ${kind} store isn't available.` };
+            }
+            if (scope.kind === 'all') {
+                const ids = (store.getAll?.() ?? []).map((e) => e.id);
+                return { ids, kindCounts: count(ids, kind), skipped: [], diagnostics: [] };
+            }
+            const level = findLevel(scope.levelQuery, levels);
+            if (level === undefined) {
+                const names = levels.map((l) => l.name).join(', ');
+                return {
+                    error: levels.length === 0
+                        ? 'No levels exist in this project yet.'
+                        : `No level called "${scope.levelQuery}" — the levels here are: ${names}.`,
+                };
+            }
+            const ids = typeof store.getByLevel === 'function'
+                ? store.getByLevel(level.id).map((e) => e.id)
+                : (store.getAll?.() ?? []).filter((e) => e.levelId === level.id).map((e) => e.id);
+            return {
+                ids,
+                kindCounts: count(ids, kind),
+                skipped: [],
+                diagnostics: [level.name],
+            };
+        }
+        // selection / room / orientation scopes arrive with their U3 consumers.
+        return { error: `That scope isn't wired into chat yet.` };
+    };
+}
+
 async function buildContext(): Promise<ResolverContext> {
     const levels = (win().bimManager?.getLevels?.() ?? []).map((l, i) => ({
         id: l.id,
@@ -169,6 +226,8 @@ async function buildContext(): Promise<ResolverContext> {
             : {}),
         // level.add call-site convention (ProjectTreeSection): `L${Date.now()}`.
         mintId: () => `L${Date.now()}`,
+        // ADR-0315 U3.2 — the injected scope resolver (level/all/ids today).
+        resolveScope: makeScopeResolver(levels),
     };
 }
 

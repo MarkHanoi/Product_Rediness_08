@@ -704,6 +704,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // narrows to the selection on "these"/"selected" — same discipline as
     // set-wall-type, and the scope word is REQUIRED, never inferred.
     scope: 'all',
+    // ADR-0315 U3 — the first spatial-scope declaration: "make all walls on
+    // level 2 white" resolves through the injected ScopeResolver.
+    scopeModes: ['all', 'selection', 'level'],
     destructive: false,
     busCommand: 'wall.updateColorBatch',
     // Selection-scope probe for the same reason as set-wall-type: the 'all'
