@@ -140,8 +140,14 @@ export interface PlatePartitionResult {
      *  marooned stub, which this does NOT count). */
     readonly apartmentsCoreReachable: number;
     /** §DIAG-RESI-FILL — placed-apartment footprint ÷ net plate area (plate − core), 0..~1. The
-     *  headline §RESI-PLATE-UNDERFILL metric; a well-packed plate fills a strong majority of its net. */
+     *  headline §RESI-PLATE-UNDERFILL metric; a well-packed plate fills a strong majority of its net.
+     *  §RESI-CORRIDOR-ECONOMY (audit P1-2) — no longer diagnostic-only: the candidate objective now
+     *  charges corridor area (so tighter layouts win) and the orchestrator surfaces this ratio to the
+     *  preview card ("apartments NN% of plate"). */
     readonly fillRatio: number;
+    /** §RESI-CORRIDOR-ECONOMY — the shipped corridor bands' UNION area (m², overlaps counted once).
+     *  The circulation cost the objective charged; surfaced beside `fillRatio` for honesty. */
+    readonly corridorAreaM2: number;
     readonly diagnostic: string;
 }
 
@@ -743,6 +749,102 @@ function clipCorridorBandsToCore(bands: readonly Rect[], core: Rect): Rect[] {
         // core lobby strip — dropped, since the core perimeter encloses that space, never a corridor wall).
     }
     return out;
+}
+
+// ── §RESI-CORRIDOR-ECONOMY (audit GENERATIVE-PIPELINE-AUDIT-2026-08-10 §2.4 / P1-2, C53) ─────────
+// The candidate objective used to be (feasibleCount, cellCount, placedArea) — corridor area appeared
+// in NO term, so "a candidate that buys +2 m² of placed area with +40 m² of corridor wins". The two
+// helpers below make circulation a CHARGED cost:
+//   • `corridorUnionAreaM2` — the bands' union area (the spine crosses every horizontal band, so a
+//     plain sum double-counts every crossing; union counts each m² once).
+//   • `trimCorridorBandsToServedCells` — trims each horizontal band's X-extent to the hull of the
+//     spans it actually SERVES (its fronting cells' door spans) plus every span it needs for
+//     CONNECTIVITY (vertical spine/connector crossings, the core-butt faces) — so a band never runs
+//     past its last served door into dead corridor. Mirrors the §RESI-FILL-SIDEFACADE precedent
+//     (mid-zone bands trimmed to the core X-span). Objective steers, gates decide: the trim runs
+//     BEFORE `repairCoreCirculation`/`tagCoreReachability`, so §RESI-CORE-CIRCULATION and the
+//     downstream §CORRIDOR-STAIR-CONTIGUITY gate still veto any layout the trim would starve.
+// Kill-switch idiom (mirrors `__pryzmCorridorGrid`): `__pryzmCorridorEconomy === false` restores the
+// old objective + untrimmed bands byte-identically.
+
+/** §RESI-CORRIDOR-ECONOMY — corridor-per-m² charge in the candidate score. 1 ⇒ a corridor m² costs
+ *  exactly a placed m² (corridor is pure loss of net plate), so the audit's "+2 m² placed for
+ *  +40 m² corridor" candidate now loses by 38. */
+const CORRIDOR_AREA_LAMBDA = 1;
+
+/** §RESI-CORRIDOR-ECONOMY — UNION area (m²) of the corridor bands: each band contributes only the
+ *  part not already covered by an earlier band (guillotine subtraction), so spine/band crossings
+ *  count once. Pure + deterministic. */
+function corridorUnionAreaM2(bands: readonly Rect[]): number {
+    let area = 0;
+    const prior: Rect[] = [];
+    for (const b of bands) {
+        const n = normRect(b);
+        for (const r of subtractRectsFromRects([n], prior, 0.01)) area += rectArea(r);
+        prior.push(n);
+    }
+    return round4(area);
+}
+
+/** §RESI-CORRIDOR-ECONOMY — trim each HORIZONTAL corridor band's X-extent to the hull of
+ *  (a) the door spans of the cells it serves, (b) every VERTICAL band (spine / wing connector)
+ *  interval crossing its Z, and (c) its core-butt face when it terminates on the core — so the
+ *  band keeps every door + every network junction but sheds the dead run past its last served
+ *  cell. Vertical bands are the network's trunks and are kept verbatim (the spine must span the
+ *  depth to link the rows). A band with NO keep-interval at all is left verbatim (repair/tag own
+ *  it — never silently deleted). Mutates `bands` in place; returns the m² trimmed. Deterministic. */
+function trimCorridorBandsToServedCells(
+    bands: Rect[],
+    cells: readonly ApartmentCell[],
+    core: Rect,
+): number {
+    const TOL = 0.05;   // adjacency tolerance — same as computeCoreDoorPlacement's boundary test
+    const cx0 = Math.min(core.x0, core.x1), cx1 = Math.max(core.x0, core.x1);
+    const cz0 = Math.min(core.z0, core.z1), cz1 = Math.max(core.z0, core.z1);
+    let trimmedM2 = 0;
+    for (let i = 0; i < bands.length; i++) {
+        const b = bands[i]!;
+        const bx0 = Math.min(b.x0, b.x1), bx1 = Math.max(b.x0, b.x1);
+        const bz0 = Math.min(b.z0, b.z1), bz1 = Math.max(b.z0, b.z1);
+        if ((bx1 - bx0) < (bz1 - bz0)) continue;   // vertical trunk — keep verbatim
+        const keep: Array<readonly [number, number]> = [];
+        // (a) Door spans of the cells this band serves (door edge coincident with a band face).
+        for (const c of cells) {
+            if (c.doorEdge !== 'z0' && c.doorEdge !== 'z1') continue;
+            const r = c.rect;
+            const edgeZ = c.doorEdge === 'z0' ? Math.min(r.z0, r.z1) : Math.max(r.z0, r.z1);
+            if (Math.abs(edgeZ - bz1) >= TOL && Math.abs(edgeZ - bz0) >= TOL) continue;
+            const lo = Math.max(bx0, Math.min(r.x0, r.x1)), hi = Math.min(bx1, Math.max(r.x0, r.x1));
+            if (hi - lo >= DOOR_WIDTH_M - EPS) keep.push([lo, hi]);
+        }
+        // (b) Vertical bands (core spine, wing connectors) whose Z touches this band's Z.
+        for (let j = 0; j < bands.length; j++) {
+            if (j === i) continue;
+            const v = bands[j]!;
+            const vx0 = Math.min(v.x0, v.x1), vx1 = Math.max(v.x0, v.x1);
+            const vz0 = Math.min(v.z0, v.z1), vz1 = Math.max(v.z0, v.z1);
+            if ((vx1 - vx0) >= (vz1 - vz0)) continue;   // not vertical
+            if (Math.min(vz1, bz1) - Math.max(vz0, bz0) < -TOL) continue;   // no Z contact
+            const lo = Math.max(bx0, vx0), hi = Math.min(bx1, vx1);
+            if (hi - lo > EPS) keep.push([lo, hi]);
+        }
+        // (c) The core-butt face: a band split by clipCorridorBandsToCore terminates ON the core
+        // face (zero X-overlap), so keep that endpoint as a point interval — the band must stay
+        // touching the core or it would fall out of the core component.
+        const zTouchesCore = Math.min(bz1, cz1) - Math.max(bz0, cz0) > -TOL;
+        if (zTouchesCore) {
+            if (Math.abs(bx1 - cx0) < TOL) keep.push([bx1, bx1]);   // butts core's left face
+            if (Math.abs(bx0 - cx1) < TOL) keep.push([bx0, bx0]);   // butts core's right face
+        }
+        if (keep.length === 0) continue;   // nothing measurable to keep → leave verbatim (repair/tag own it)
+        const lo = Math.min(...keep.map((k) => k[0]));
+        const hi = Math.max(...keep.map((k) => k[1]));
+        if (lo > bx0 + EPS || hi < bx1 - EPS) {
+            trimmedM2 += ((bx1 - bx0) - (hi - lo)) * (bz1 - bz0);
+            bands[i] = normRect({ x0: round4(lo), z0: round4(bz0), x1: round4(hi), z1: round4(bz1) });
+        }
+    }
+    return round4(trimmedM2);
 }
 
 // ── §RESI-CORE-DOOR (founder 2026-06-30, plan-view arrow: "the door should always be well calculated")
@@ -1722,19 +1824,33 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // regression. Flag opt-out ⇒ exactly one candidate (the baseline) ⇒ byte-identical. Deterministic.
     const feasibleCount = (cells: readonly ApartmentCell[]): number =>
         cells.filter((c) => Math.abs(c.rect.z1 - c.rect.z0) >= ENGINE_MIN_ROW_DEPTH_M - EPS).length;
+    // §RESI-CORRIDOR-ECONOMY (audit §2.4 / P1-2, C53) — the area term now CHARGES corridor: the
+    // third tiebreak is `placedArea − λ·corridorUnionArea` instead of raw placed area, so among
+    // candidates tied on feasible/total count the one that buys its area with LESS circulation wins
+    // (the audit's "+2 m² placed for +40 m² corridor" candidate now loses by 38). feasibleCount and
+    // cellCount precedence are RETAINED — the economy term never trades an apartment away for
+    // corridor savings. Kill-switch `__pryzmCorridorEconomy === false` restores the raw-area
+    // objective byte-identically (same idiom as `__pryzmCorridorGrid`).
+    const corridorEconomy = (globalThis as { __pryzmCorridorEconomy?: boolean }).__pryzmCorridorEconomy !== false;
+    const candScore = (cand: { placements: ApartmentCell[]; corridorBands: Rect[] }): number => {
+        const placedArea = cand.placements.reduce((s, c) => s + c.areaM2, 0);
+        return corridorEconomy
+            ? placedArea - CORRIDOR_AREA_LAMBDA * corridorUnionAreaM2(cand.corridorBands)
+            : placedArea;
+    };
     let best = packPlate(candidateLineSets[0]!);
-    let bestArea = best.placements.reduce((s, c) => s + c.areaM2, 0);
+    let bestScore = candScore(best);
     let bestFeasible = feasibleCount(best.placements);
     const considerCandidate = (cand: { placements: ApartmentCell[]; corridorBands: Rect[] } | null): void => {
         if (!cand) return;
-        const candArea = cand.placements.reduce((s, c) => s + c.areaM2, 0);
+        const candAreaScore = candScore(cand);
         const candFeasible = feasibleCount(cand.placements);
         if (candFeasible > bestFeasible ||
             (candFeasible === bestFeasible && cand.placements.length > best.placements.length) ||
-            (candFeasible === bestFeasible && cand.placements.length === best.placements.length && candArea > bestArea + EPS)) {
+            (candFeasible === bestFeasible && cand.placements.length === best.placements.length && candAreaScore > bestScore + EPS)) {
             best = cand;
             bestFeasible = candFeasible;
-            bestArea = candArea;
+            bestScore = candAreaScore;
         }
     };
     for (let ci = 1; ci < candidateLineSets.length; ci++) {
@@ -1864,6 +1980,16 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return w >= DOOR_WIDTH_M - EPS;
     }).length;
 
+    // §RESI-CORRIDOR-ECONOMY (C.2) — trim each horizontal band to the hull of its served door
+    // spans + its network junctions (spine crossings, core-butt faces), shedding the dead corridor
+    // run past the last served cell. Runs AFTER the cells are final (clip/reshape/absorb done) and
+    // BEFORE the repair/tag passes, so §RESI-CORE-CIRCULATION re-verifies the trimmed network and
+    // the downstream contiguity gates still veto — objective steers, gates decide. Kill-switch
+    // `__pryzmCorridorEconomy === false` skips the trim (byte-identical bands).
+    const corridorTrimmedM2 = corridorEconomy
+        ? trimCorridorBandsToServedCells(corridorBands, placements, coreN)
+        : 0;
+
     // ── §RESI-CORE-CIRCULATION — make circulation strictly CORE-CENTRIC (founder 2026-06-30: "always
     // needs to be at the CORE"). Fronting SOME corridor is not enough — a band could be a marooned
     // stub. (1) REPAIR: bridge any serving-but-disconnected band to the core component with a short
@@ -1896,13 +2022,18 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     const placedArea = placements.reduce((s, c) => s + c.areaM2, 0);
     const netPlateArea = Math.max(EPS, bbArea - rectArea(coreN));
     const fillRatio = round4(placedArea / netPlateArea);
+    // §RESI-CORRIDOR-ECONOMY — the SHIPPED circulation cost (union m² of the final, possibly
+    // repaired network), surfaced beside fillRatio so the preview card and the diagnostic can
+    // quote both honestly.
+    const corridorAreaM2 = corridorUnionAreaM2(corridorBands);
     const diagnostic =
         `§DIAG-RESI-PARTITION level=${levelIndex} status=ok N=${placements.length} ` +
         `corridors=${corridorBands.length} ` +
         `mix=[${mix.join(',')}] areas=[${areas.map((a) => a.toFixed(1)).join(',')}] ` +
         `clippedOutOfBoundary=${clippedOut} reshaped=${reshaped} reached=${reached}/${placements.length} ` +
         `§RESI-CORE-CIRCULATION coreReached=${coreReached}/${placements.length} ` +
-        `§DIAG-RESI-FILL fillRatio=${fillRatio.toFixed(3)} (placed=${placedArea.toFixed(0)}m²/net=${netPlateArea.toFixed(0)}m²)`;
+        `§DIAG-RESI-FILL fillRatio=${fillRatio.toFixed(3)} (placed=${placedArea.toFixed(0)}m²/net=${netPlateArea.toFixed(0)}m²) ` +
+        `§RESI-CORRIDOR-ECONOMY corridor=${corridorAreaM2.toFixed(0)}m² trimmed=${corridorTrimmedM2.toFixed(1)}m²`;
 
     return {
         status: 'ok',
@@ -1912,6 +2043,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         apartmentsReached: reached,
         apartmentsCoreReachable: coreReached,
         fillRatio,
+        corridorAreaM2,
         diagnostic,
     };
 }

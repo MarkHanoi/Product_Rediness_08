@@ -286,6 +286,12 @@ export interface PerLevelApartments {
     readonly apartments: readonly PlacedApartment[];
     /** The public-corridor band(s) on this level (empty on the ground). */
     readonly publicCorridor: readonly Rect[];
+    /** §RESI-CORRIDOR-ECONOMY (audit P1-2, C.4) — the partition's apartment fill ratio (placed
+     *  footprint ÷ net plate area, 0..~1) for THIS level, surfaced so the preview card can quote
+     *  "apartments NN% of plate". Absent on the ground floor (no partition runs there). */
+    readonly fillRatio?: number;
+    /** §RESI-CORRIDOR-ECONOMY — the level's shipped corridor UNION area (m²). Absent on the ground. */
+    readonly corridorAreaM2?: number;
 }
 
 /**
@@ -1027,6 +1033,9 @@ function _orchestrateWith(
         levels.push({ levelIndex, role, elevationM, floorToFloorM, footprint: footprintWorld });
         perLevelApartments.push({
             levelIndex, role, apartments, publicCorridor: partition.publicCorridor,
+            // §RESI-CORRIDOR-ECONOMY (C.4) — surface the partition's fill honesty to the preview.
+            fillRatio: partition.fillRatio,
+            corridorAreaM2: partition.corridorAreaM2,
         });
     }
 

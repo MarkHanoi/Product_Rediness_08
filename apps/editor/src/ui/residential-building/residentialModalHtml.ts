@@ -212,6 +212,8 @@ export function buildResidentialModalHtml(
         `${card.totalApartments} apartment${card.totalApartments === 1 ? '' : 's'} across `
         + `${card.upperLevels} residential floor${card.upperLevels === 1 ? '' : 's'} · `
         + `${card.totalNetAreaM2} m² net · core ${esc(card.coreSize)}`
+        // §RESI-CORRIDOR-ECONOMY (C.4) — the plate-fill honesty readout ("apartments 72% of plate").
+        + (card.fillPct !== undefined ? ` · apartments ${card.fillPct}% of plate` : '')
         + (card.totalRejected > 0 ? ` · <span class="rb-floor-reject">${card.totalRejected} over-programmed</span>` : '');
     // The "Apartment types" gallery — one card per distinct type (deduped), index-aligned
     // with `typeThumbs`.

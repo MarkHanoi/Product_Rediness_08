@@ -77,6 +77,10 @@ export interface ResidentialCardModel {
     readonly totalNetAreaM2: number;
     /** Centred-core size as "W×D m" for the totals readout. */
     readonly coreSize: string;
+    /** §RESI-CORRIDOR-ECONOMY (audit P1-2, C.4) — apartments as a % of the net plate (0-100),
+     *  averaged across the upper levels that carry a partition `fillRatio`. Drives the option
+     *  card's "apartments NN% of plate" honesty readout. Absent when no level carries one. */
+    readonly fillPct?: number;
     readonly floors: readonly FloorCardSummary[];
 }
 
@@ -168,6 +172,14 @@ export function buildResidentialCardModel(result: ResidentialBuildingOk): Reside
     const coreD = round1(result.core.z1 - result.core.z0);
     // upperLevels = total floors minus the single ground floor.
     const upperLevels = Math.max(0, result.levels.length - 1);
+    // §RESI-CORRIDOR-ECONOMY (C.4) — the "apartments NN% of plate" honesty readout: average the
+    // partition fillRatio over the levels that carry one (the ground floor never does).
+    const fillRatios = result.perLevelApartments
+        .map((l) => l.fillRatio)
+        .filter((f): f is number => typeof f === 'number' && Number.isFinite(f));
+    const fillPct = fillRatios.length > 0
+        ? clampPct((fillRatios.reduce((s, f) => s + f, 0) / fillRatios.length) * 100)
+        : undefined;
     return {
         title: 'Residential building',
         floorCount: result.levels.length,
@@ -176,6 +188,7 @@ export function buildResidentialCardModel(result: ResidentialBuildingOk): Reside
         totalRejected,
         totalNetAreaM2: round1(totalNetAreaM2),
         coreSize: `${coreW}×${coreD} m`,
+        ...(fillPct !== undefined ? { fillPct } : {}),
         floors,
     };
 }
