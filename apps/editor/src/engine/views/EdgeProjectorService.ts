@@ -15,6 +15,14 @@
 
 import * as OBC from '@thatopen/components';
 import * as THREE from '@pryzm/renderer-three/three';
+// §FIX-PLAN-OPENING-CLIP-ARC — arc-length measurement for curved hosts; the
+// same single resolver the door/window plan symbols use (no third arc-math copy).
+import {
+    arcLengthAtPointXZ,
+    arcFrameAt,
+    wallCentreline,
+    type ArcHostWall,
+} from '@pryzm/geometry-wall';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { mergeGeometries } from '@pryzm/renderer-three';
 // A-1: DrawingSelectionIndex — per-element UUID tagging for plan-view hitTest
@@ -546,13 +554,51 @@ export function _suppressPlanViewOpeningLines(
     // world XZ coordinates (Y is flattened to 0):
     //   posAttr.getX(i) = worldX
     //   posAttr.getZ(i) = worldZ
-    const getAlong = (wx: number, wz: number): number =>
-        (wx - startPt.x) * wallDir.x + (wz - startPt.z) * wallDir.z;
+    //
+    // §FIX-PLAN-OPENING-CLIP-ARC — on a CURVED wall the opening zones are ARC
+    // lengths (WallOccupancyStore measures `offset` on the centreline), so the
+    // along-coordinate of a projected point must be measured the same way. This
+    // used `dot(p − start, wallDir)` — the CHORD — unconditionally, which
+    // diverges progressively along the curve (measured 3.1 m at offset 6 on an
+    // 8 m-chord/10.4 m-arc host when the same defect was fixed for door/window
+    // plan SYMBOLS in 118367e2). Result: the suppressor clipped the wall face
+    // lines at the wrong stations — this is the same arc-vs-chord bug in its
+    // THIRD location. `arcLengthAtPointXZ` returns exactly the old dot product
+    // for a straight wall, so the straight path is numerically unchanged.
+    const curve = group.userData?.curve as
+        { control: { x: number; z: number }; segments: number } | null | undefined;
+    const arcWall: ArcHostWall = {
+        baseLine: [
+            { x: startPt.x, z: startPt.z },
+            { x: endPt.x,   z: endPt.z },
+        ],
+        curve: curve ?? null,
+    };
+    const centreline = curve ? wallCentreline(arcWall) : undefined;
+
+    const getAlong = curve
+        ? (wx: number, wz: number): number => arcLengthAtPointXZ(arcWall, wx, wz, centreline).s
+        : (wx: number, wz: number): number =>
+              (wx - startPt.x) * wallDir.x + (wz - startPt.z) * wallDir.z;
 
     const getPerpSq = (wx: number, wz: number, wx2: number, wz2: number): number => {
         // Squared perpendicular-to-wall span between two drawing-space points.
-        const perpX = -wallDir.z;
-        const perpZ =  wallDir.x;
+        // On a curved wall the reference direction is the LOCAL tangent at the
+        // segment midpoint (projected edge segments are short chords of the
+        // tessellated arc, so one tangent per segment is accurate); on a straight
+        // wall it is the global wall direction, as before.
+        let dirX = wallDir.x;
+        let dirZ = wallDir.z;
+        if (curve) {
+            const mid = arcLengthAtPointXZ(
+                arcWall, (wx + wx2) / 2, (wz + wz2) / 2, centreline,
+            );
+            const frame = arcFrameAt(arcWall, mid.s, centreline);
+            dirX = frame.tx;
+            dirZ = frame.tz;
+        }
+        const perpX = -dirZ;
+        const perpZ =  dirX;
         const dp = (wx2 - wx) * perpX + (wz2 - wz) * perpZ;
         return dp * dp;
     };
@@ -570,6 +616,8 @@ export function _suppressPlanViewOpeningLines(
     const MIN_SEG = 0.008;     // discard sub-8mm output fragments
 
     const kept: number[] = [];
+    /** True once any along-wall segment has actually been clipped or dropped. */
+    let clipped = false;
 
     for (let i = 0; i + 1 < posAttr.count; i += 2) {
         const x0 = posAttr.getX(i),     y0 = posAttr.getY(i),     z0 = posAttr.getZ(i);
@@ -623,6 +671,14 @@ export function _suppressPlanViewOpeningLines(
             if (intervals.length === 0) break;
         }
 
+        // Did this segment actually change? Either it was wholly suppressed, or
+        // it came back as more than one piece, or its single piece is shorter
+        // than the original span.
+        if (intervals.length !== 1 ||
+            Math.abs((intervals[0]![1] - intervals[0]![0]) - (segMax - segMin)) > 1e-9) {
+            clipped = true;
+        }
+
         if (intervals.length === 0) continue; // Whole segment suppressed
 
         // Reconstruct geometry: linearly interpolate each kept interval back to 3-D.
@@ -648,7 +704,18 @@ export function _suppressPlanViewOpeningLines(
         }
     }
 
-    if (kept.length >= posAttr.count * 3) return; // Nothing changed — avoid realloc
+    // §FIX-PLAN-OPENING-CLIP-SPLIT — this guard used to read
+    //     if (kept.length >= posAttr.count * 3) return;
+    // i.e. "output is no smaller than input ⇒ nothing changed ⇒ skip the realloc".
+    // That inference is FALSE whenever a clip SPLITS one segment into two: a face
+    // line crossing an opening in its middle yields 2 output segments from 1
+    // input, so the output is BIGGER and the guard discarded the clip entirely,
+    // leaving the wall line drawn straight through the door. Size is not a proxy
+    // for "unchanged" — an explicit flag is. Found by the straight-wall control
+    // case of PlanOpeningClipArc.test.ts, which is the single-span geometry where
+    // this is guaranteed to bite; multi-segment projections usually shrink overall
+    // and so masked it.
+    if (!clipped) return; // Nothing was suppressed — avoid realloc
     projected.geometry.dispose();
     projected.geometry = new THREE.BufferGeometry();
     projected.geometry.setAttribute('position', new THREE.Float32BufferAttribute(kept, 3));

@@ -921,6 +921,15 @@ export class WallFragmentBuilder {
         wallGroup.userData.thickness = wall.thickness;
         wallGroup.userData.baseOffset = wall.baseOffset;
         wallGroup.userData.openings = wall.openings ?? [];
+        // §FIX-PLAN-OPENING-CLIP-ARC — the plan-view opening-line suppressor
+        // (EdgeProjectorService._suppressPlanViewOpeningLines) measures opening
+        // zones ALONG the wall. Opening offsets are ARC lengths on a curved wall
+        // (WallOccupancyStore measures them on the centreline), so the suppressor
+        // must know the wall is curved to measure the same way. Without this stamp
+        // it cannot tell, and silently falls back to the chord — the same
+        // arc-vs-chord divergence fixed for door/window plan SYMBOLS in 118367e2,
+        // in its third location.
+        wallGroup.userData.curve = wall.curve ?? null;
 
         // Root group origin at wall start point
         // Phase B DTO migration: baseLine is [Point3D, Point3D]; reconstruct THREE.Vector3
