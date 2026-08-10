@@ -51,7 +51,7 @@ real — geometry store, render, persistence, and one truthful undo step each.
 |---|---|---|
 | U5a.1 | `duplicate-level` intent + all-or-nothing target resolution + honest not-cloned summary + Confirm card | ✅ |
 | U5a.2 | NL/polite forms via shared parse (tier-0 + NL) | ✅ |
-| U5a.3 | Post-duplicate offer: re-detect rooms + finishing chain (conversational follow-up) | ⬜ with U5c |
+| U5a.3 | Post-duplicate offer: re-detect rooms + finishing chain (conversational follow-up) | ✅ `442d4d30` (U5c.3) |
 | U5a.4 | "the next three floors" / auto-create missing target levels | ⬜ |
 
 🧪 NOW (after current deploy): *"Duplicate level 0 to levels 1 and 2"* →
@@ -131,14 +131,66 @@ the best-scored variant is built), and the apartment arm still opens the
 shipped §11 layout picker — that modal IS the post-run report on that path.
 Headless apartment auto-pick belongs with U5c's auto-chain.
 
-## Phase U5c — Room-scale generation + chain ⬜
+## Phase U5c — Room-scale generation + chain ✅
 
 | Sub | What | Test unlock |
 |---|---|---|
-| U5c.1 | Chain intent ("furnished apartment" = ONE apartment event; never double-fire the auto-chain) | *"Generate a furnished apartment layout on this floor"* |
-| U5c.2 | Level-scoped ceiling/furnish/floor/lighting intents | *"Furnish this floor"*, *"add ceilings to level 2"* |
-| U5c.3 | Room-scoped furnish (engine is room-wise already) + U2 room scopes | *"Furnish every bedroom"*, *"add kitchen furniture to all kitchens"* |
-| U5c.4 | Duplicate-then-chain follow-up (closes U5a.3) | *"…and re-detect rooms + furnish the new floors"* |
+| U5c.1 ✅ | `generate-room-finishes` → `generation.rooms` (`7c18a187`). Four engines that had shipped for months behind console entries only — D-CE ceilings, the room-type floor-finish pass, D-FLE furniture, D-LE lighting — driven from chat through the **same shared triggers** `pryzmCeilAllRooms` / `pryzmFloorAllRooms` / `pryzmFurnishAllRooms` / `pryzmFurnishAllFloors` / `pryzmLightAllRooms` call. Any combination of steps in ONE ask, ordered by the pipeline's own order | *"furnish all rooms"* · *"add ceilings to every room"* · *"add floor finishes to all rooms"* · *"light all rooms"* · *"furnish and light this floor"* · *"add ceilings to level 1"* · *"furnish every floor"* |
+| U5c.2 ✅ | `finish-apartment-chain` → `generation.finish-chain` (`7c18a187`). ONE Confirm card naming the stages in order; the seam fires the FIRST link and then OBSERVES the shipped cascade (`apartment/ceiling/furnish.layout-executed`), because firing the later links itself would double-place. `withLayout` distinguishes "generate and finish" from "finish what's here" | *"finish this apartment"* · *"finish this floor"* · *"generate and finish an apartment"* |
+| U5c.3 ✅ | Post-duplicate offer (`442d4d30`) — `ConversationContext.pendingOffer`, one turn, accepted by a bare *"yes"*; never an automatic mutation, and the accepted chain still shows its own Confirm card. **Closes U5a.3** | *"duplicate level 0 to level 2"* → *"yes"* |
+
+**Granularity is a HARD STOPPER, not a language limit.** Every room-scale engine
+reads *"every qualifying room on ONE level"* and has no per-room entry point, so
+*"furnish the kitchen"* is RECOGNIZED and then refused with that reason — never
+silently widened to the level, which would furnish rooms the user did not name.
+Only furnishing has a shipped every-floor driver (`triggerFurnishAllFloors`), so
+*"add ceilings to every floor"* refuses by naming that exact gap rather than
+inventing a capability. An unknown level refuses by listing the real ones. The
+Confirm card also states §FURNISH-ALWAYS-LIGHTS: the shipped cascade lights after
+every furnish run, so a "furnish" ask really does place fixtures too — a surprise
+is a small dishonesty.
+
+**Honest partial outcomes.** Every transcript line is read off the engines' own
+`*.layout-executed` payloads (`roomCount` / `roomsFurnished` / `roomsSkipped` /
+`skipped[]` / `placedCount`), e.g. *"Ceilings 24/24 · Furniture 22/24 — 2 rooms
+skipped: \<the engine's own reason\> · Lighting 24/24"*. A stage that reports
+nothing within its budget is NAMED — the trigger modules' 12 s §CHAIN-TIMEOUT
+fallback is reported, never hidden. Gate after U5c: **31 capabilities,
+undeclared 0/0**.
+
+**Deferred, deliberately:** per-room furnishing (needs a room-scoped entry point
+on the D-FLE engine — an ENGINE change, not a chat change, so it is refused
+honestly today rather than faked); an every-floor driver for ceilings / floor
+finishes / lighting (same shape as `triggerFurnishAllFloors`, three more of it);
+and headless apartment auto-pick, still on the §11 layout picker.
+
+### Founder P0 folded into U5c (2026-08-10) — the chat acted on its own report
+
+Two live repros, both fixed with hard stoppers rather than narrower language.
+
+- **§FIX-CHAT-REPORT-PASTEBACK (`795cbec1`).** The founder pasted the assistant's
+  own line — `Built 6 floors — 18 apartments, 3 per apartment floor on average
+  (apartments 72% of the plate)` — back into the chat and the ladder CREATED A
+  LEVEL from it, twice, stacking two levels at 6.000 m. Mechanism: the NL typo
+  corrector rewrote *built → build*, the synonym table rewrote *floors → level*,
+  and the add-level branch read the bare 6 as an elevation. Fixed by
+  `descriptiveReportReason` (past-tense report openers + report shape), checked
+  at the LADDER level in both `resolveUtterance` and `nonImperativeReason` —
+  every intent reachable by "a bare number + a noun" had the same weakness — plus
+  an add-level grammar that now requires an UNCORRECTED creation verb in opener
+  position. Typo correction may repair a word the user meant; it must never
+  MANUFACTURE the imperative that authorises a mutation.
+- **§FIX-CHAT-LEVEL-ELEVATION-CLASH (`795cbec1`).** `add-level` now refuses an
+  occupied elevation: *"Level 2 is already at 6 m — nothing was added, because
+  two levels at the same elevation stack invisibly. Say "add a level at 9 m", or
+  "duplicate level 2" to copy its floor plan."*
+- **§FIX-CHAT-STOPWORD-CORRECTION (`05930960`).** `Created Aparment with 2
+  bedrooms and 1 bathroom` → *"select an element first, then set its width"*.
+  Bounded Levenshtein had rewritten the function word **with → width**. Fixed by
+  `PROTECTED_FUNCTION_WORDS`, one list shared by both correctors: a correctly
+  spelled English function word is never a misspelled domain term, while
+  *aparment → apartment* is exactly what tier 1 exists to do. The sentence he
+  MEANT now works end to end, bathrooms included.
 
 ## Phase U6 — Plan executor (compound sentences) ⬜
 
@@ -203,7 +255,7 @@ phrasing · *"orient the living spaces for the best south exposure"* (M8).
 ## Explicitly NOT ready yet (do not expect these to work)
 
 Level/room/orientation/filter scopes (U3/U8) · any "create a building/house/
-office" sentence (U5b) · furnish/ceiling by sentence (U5c) · compound plans
+office" sentence (U5b — SHIPPED) · furnish/ceiling by sentence (U5c — SHIPPED) · compound plans
 (U6) · property-panel breadth (U7) · parametric creation (U9) · free-phrasing
 LLM planning and solar objectives (U10). Tread COUNT has no live carrier at
 all (editor gap). `wall.updateDimensions` liveness is PENDING the auditor (U1).
