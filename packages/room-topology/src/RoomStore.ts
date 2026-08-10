@@ -351,6 +351,59 @@ export class RoomStore {
     return result;
   }
 
+  // ── Typed room predicates (ADR-0315 U2.2) ─────────────────────────────────
+  //
+  // The scope resolver's room vocabulary: "the living room" / "rooms named
+  // Bedroom" / "all bedrooms" / "rooms larger than 15 m²". Before these, the
+  // only name lookup in the repo was an NL-driven substring inside the legacy
+  // SemanticQueryEngine — not a typed API anything could reuse. All three are
+  // case-insensitive where text is involved, level-filterable, and return
+  // clones (the store's uniform contract).
+
+  /** Rooms whose name contains `pattern` (case-insensitive; exact-name matches
+   *  first so "Bedroom 1" outranks "Bedroom 10" for a full-name query). */
+  findByName(pattern: string, levelId?: string): RoomData[] {
+    const needle = pattern.trim().toLowerCase();
+    if (needle.length === 0) return [];
+    const exact: RoomData[] = [];
+    const partial: RoomData[] = [];
+    for (const room of this.rooms.values()) {
+      if (levelId !== undefined && room.levelId !== levelId) continue;
+      const name = (room.name ?? '').toLowerCase();
+      if (name === needle) exact.push(cloneRoomData(room));
+      else if (name.includes(needle)) partial.push(cloneRoomData(room));
+    }
+    return [...exact, ...partial];
+  }
+
+  /** Rooms of the given occupancy type(s) ("all bedrooms"). */
+  findByOccupancy(types: readonly string[], levelId?: string): RoomData[] {
+    const wanted = new Set(types.map((t) => t.trim().toLowerCase()).filter((t) => t.length > 0));
+    if (wanted.size === 0) return [];
+    const result: RoomData[] = [];
+    for (const room of this.rooms.values()) {
+      if (levelId !== undefined && room.levelId !== levelId) continue;
+      if (wanted.has((room.occupancyType ?? '').toLowerCase())) result.push(cloneRoomData(room));
+    }
+    return result;
+  }
+
+  /** Rooms whose computed area (m²) lies in [min, max]. A room with no
+   *  computed area NEVER matches — absence of a metric is not zero
+   *  (§CONTEXT-DATA-HONESTY). */
+  findByArea(range: { min?: number; max?: number }, levelId?: string): RoomData[] {
+    const min = range.min ?? -Infinity;
+    const max = range.max ?? Infinity;
+    const result: RoomData[] = [];
+    for (const room of this.rooms.values()) {
+      if (levelId !== undefined && room.levelId !== levelId) continue;
+      const area = room.computed?.area;
+      if (typeof area !== 'number' || !Number.isFinite(area)) continue;
+      if (area >= min && area <= max) result.push(cloneRoomData(room));
+    }
+    return result;
+  }
+
   /**
    * Returns all rooms whose polygon contains the given XZ point on the given level.
    *

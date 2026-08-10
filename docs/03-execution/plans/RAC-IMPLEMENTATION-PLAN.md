@@ -54,7 +54,7 @@ Confirm card that names what is NOT copied → one undo.
 | Sub | What | Test unlock |
 |---|---|---|
 | U2.1 ✅ | θ-provider injected (initTools ← `runtime.siteModelStore.trueNorth`; explicit θ still wins, failures degrade to 0) + `getFacadesAllLevels` roll-up + zero-rooms footprint-centroid fallback (per level) + AIPanel literal-0 removed. Tests: spatial-index 20/20 (pure math) + editor spec (service/provider) | "south-facing" is TRUE south |
-| U2.2 | Room predicates on RoomStore: `findByName / findByOccupancy / findByArea` | "rooms named Bedroom", "rooms > 15 m²" |
+| U2.2 ✅ | Room predicates on RoomStore: `findByName` (exact-first, ci-substring) / `findByOccupancy` / `findByArea` (no-metric ≠ 0), level-filterable, clone-returning; room-topology 81/81 | "rooms named Bedroom", "rooms > 15 m²" |
 | U2.3 | Complete `getElementsInRoom` (windows/columns/beams/lighting/stairs) + curtain-wall boundary type | "the windows in the living room" |
 | U2.4 | Headless `SiteQueryService` (θ, lat/lng, parcel, buildableRing, setbacks, maxHeightM) | envelope/height answers for U5b |
 | U2.5 | Extend `CapabilityScope` + value sources (orientation, room-ref, level-range) — the gate currently REJECTS spatial capabilities | gates U3 |
