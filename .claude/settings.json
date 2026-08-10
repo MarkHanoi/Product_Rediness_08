@@ -25,7 +25,9 @@
       "Bash(node scripts/build/build-server-deps.mjs)",
       "Bash(cd \"C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor\" && npx vitest run __tests__/MarketingPages.test.ts 2>&1 | tail -6; cd ../.. && npm run check:route-surface 2>&1 | tail -3 && npm run check:docs-site 2>&1 | tail -3)",
       "Read(//c/Users/LENOVO/OneDrive/Desktop/**)",
-      "Bash(grep -n \"needs:\\\\|^  [a-z-]*:$\" .github/workflows/ci.yml)"
+      "Bash(grep -n \"needs:\\\\|^  [a-z-]*:$\" .github/workflows/ci.yml)",
+      "Bash(python3 -)",
+      "Bash(bash -n tools/deploy/fly-manual-deploy.sh)"
     ]
   }
 }

@@ -124,8 +124,14 @@ export class LandingPage {
         el.innerHTML = landingMarkup({ mode: 'app' });
 
         el.querySelector('#lp-nav-login')!.addEventListener('click', () => this.callbacks.onLogin());
-        el.querySelector('#lp-nav-contact')!.addEventListener('click', () => this.callbacks.onContactSales());
-        el.querySelector('#lp-nav-cta')!.addEventListener('click', () => this.callbacks.onGetStarted());
+        // §NAV-CTA-TRIM (founder brief 2026-08-10 round 2) — "Contact sales" and
+        // "Get started for free" were removed from the BAR. These two are now
+        // OPTIONAL-chained rather than `!`-asserted: the non-null assertion would
+        // have thrown a TypeError on mount the moment the markup stopped emitting
+        // them, taking the whole in-app landing page down. They are still wired
+        // when present, because the MOBILE DRAWER emits the same two ids.
+        el.querySelector('#lp-nav-contact')?.addEventListener('click', () => this.callbacks.onContactSales());
+        el.querySelector('#lp-nav-cta')?.addEventListener('click', () => this.callbacks.onGetStarted());
         // "Book a demo" — a SALES surface. In-app it routes through the same
         // contact-sales callback the apex points at (${APP_ORIGIN}/contact).
         el.querySelector('#lp-nav-demo')!.addEventListener('click', () => this.callbacks.onContactSales());
