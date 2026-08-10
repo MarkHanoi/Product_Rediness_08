@@ -229,8 +229,72 @@ function proveCommandTargets(cap: ChatCapability): string[] {
         `${missing.map((s) => `"${s}"`).join(', ')} — the target claim is not proven by the command.`,
       );
     }
+    failures.push(...proveRouteLiveness(cap, proof.file, src));
   }
   return failures;
+}
+
+/**
+ * Check 3d — ROUTE LIVENESS (hard, zero tolerance). ADR-0315 U0.
+ *
+ * The §FIX-CHAT-DEAD-ROUTES incident (8447911f): thirteen dead routes shipped
+ * across two sessions because proofs pinned target-KEYING while the handlers
+ * `produceCommand`ed against DETACHED plugin DTO stores — fresh PluginRegistry
+ * instances nothing in production reads, with no committer bridging updates
+ * back (§FIX-MATERIAL-DEAD-DISPATCH). Chat said "Done" and changed nothing.
+ *
+ * This check classifies every commandProof file by EXECUTION AUTHORITY:
+ *
+ *   (i)   packages/command-registry/**            → LIVE by construction — the
+ *         legacy commands mutate the geometry stores the fragment builders,
+ *         plan projector, exporters and persistence read.
+ *   (ii)  apps/editor/**                          → LIVE — app-registered
+ *         handlers/bridges wired against the real runtime.
+ *   (iii) plugins/** with the BRIDGE signature    → LIVE — the handler
+ *         delegates to window.commandManager and declares `affectedStores`
+ *         empty (undo lives on the legacy stack). Both literals must appear.
+ *   (iv)  plugins/** on PLUGIN_LIVE_ALLOWLIST     → conditionally accepted;
+ *         every entry carries a dated justification and is expected to SHRINK.
+ *
+ * Anything else FAILS — a plugin produceCommand store is presumed detached
+ * until proven otherwise, because that presumption has been right 13/13 times.
+ *
+ * Negative-tested: pointing set-riser-height's proof at
+ * plugins/stair/src/handlers/SetRiserHeight.ts (the dead per-field verb's
+ * handler) fails with the dead-store message; restoring the
+ * UpdateStairParametersCommand proof passes.
+ */
+const PLUGIN_LIVE_ALLOWLIST: ReadonlyMap<string, string> = new Map([
+  [
+    'plugins/wall/src/handlers/UpdateWallDimensions.ts',
+    '2026-08-10 (ADR-0315 U0): deliberately migrated OFF the commandManager bridge onto ' +
+    'produceCommand for ring-buffer undo (§TASK-07-PHASE-B, C20 §3). Liveness of the plugin ' +
+    "wall store in production wiring is the U1 auditor's open question — this entry is " +
+    'PENDING that verdict and must be either annotated as proven or removed with a re-route.',
+  ],
+]);
+
+function proveRouteLiveness(cap: ChatCapability, file: string, src: string): string[] {
+  const norm = file.replace(/\\/g, '/');
+  if (norm.startsWith('packages/command-registry/')) return [];
+  if (norm.startsWith('apps/editor/')) return [];
+  if (norm.startsWith('plugins/')) {
+    const isBridge =
+      src.includes('commandManager') &&
+      (src.includes('affectedStores: [] as const') || src.includes('affectedStores = [] as const'));
+    if (isBridge) return [];
+    if (PLUGIN_LIVE_ALLOWLIST.has(norm)) return [];
+    return [
+      `${cap.id}: commandProof file "${norm}" is a PLUGIN handler with neither the legacy-bridge ` +
+      `signature (commandManager + empty affectedStores) nor a PLUGIN_LIVE_ALLOWLIST entry. ` +
+      `Plugin produceCommand stores are presumed DETACHED (§FIX-CHAT-DEAD-ROUTES, 13/13 dead so far) — ` +
+      `route through the live legacy path, or allowlist it WITH dated liveness evidence.`,
+    ];
+  }
+  return [
+    `${cap.id}: commandProof file "${norm}" is outside every known execution-authority root ` +
+    `(packages/command-registry, apps/editor, plugins) — liveness cannot be classified.`,
+  ];
 }
 
 /**
@@ -384,6 +448,19 @@ console.log(
   `[check-chat-capability-coverage] classified (${CHAT_CLASSIFIED.size}): ` +
   `B needs-design ${breakdown.B} · C internal ${breakdown.C} · D duplicate ${breakdown.D} · ` +
   `E unsafe ${breakdown.E} · F deferred ${breakdown.F}`,
+);
+// ADR-0315 U0 — the M-maturity report (RAC-UNIVERSAL-CAPABILITY-ARCHITECTURE §3):
+// makes the universal-layer roadmap measurable in CI. M2/M3 = live capabilities
+// (multi-selection landed with ADR-0314); M4 = capabilities with a beyond-selection
+// scope; M5 = capabilities dispatching a true batch verb (one history entry);
+// M6 plans and M7 generative adapters count 0 until their executors land.
+const m4 = caps.filter((c) => c.scope === 'all').length;
+const m5 = caps.filter((c) =>
+  [c.busCommand, ...(c.alsoDispatches ?? [])].some((v) => v !== null && /Batch$/.test(v ?? '')),
+).length;
+console.log(
+  `[check-chat-capability-coverage] maturity: M2/M3 direct+selection ${caps.length} · ` +
+  `M4 scope ${m4} · M5 true-batch ${m5} · M6 plans 0 · M7 generative 0`,
 );
 console.log(`[check-chat-capability-coverage] UNDECLARED: ${undeclared.length} (baseline ${MAX_UNDECLARED})`);
 
