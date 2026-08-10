@@ -60,6 +60,8 @@ import { SlabSystemTypeStore } from '@pryzm/geometry-slab';
 import { WallSystemTypeStore } from '@pryzm/geometry-wall';
 // §TYPE-SNAPSHOT-CODEC — shared with ProjectLoader; see wallSystemTypeCodec.ts.
 import { encodeWallSystemType } from './wallSystemTypeCodec';
+// §TYPE-SNAPSHOT-CODEC (C65) — door/window types share their own codec with the loader.
+import { encodeHostedSystemType } from './hostedSystemTypeCodec';
 // A.R.3 (Revit round-trip · S55) — type-only ref to the L3 IfcMetaStore so the
 // snapshot can carry imported IFC/Revit element metadata (GlobalId + psets, the
 // round-trip join keys). The snapshot shape is the store's own serialize() output.
@@ -1016,13 +1018,17 @@ export class ProjectSerializer {
         // `isBuiltIn(id)` API on wall/slab/ceiling/floor) is a small surface
         // divergence we accept here rather than refactor 4 stores. Built-in
         // presets are re-seeded from code each boot, so omitting them keeps
-        // snapshot size minimal. Structured-clone strips any frozen flag.
+        // snapshot size minimal.
+        // §TYPE-SNAPSHOT-CODEC (C65 §3.1) — projected through the SAME codec the
+        // loader decodes with (`hostedSystemTypeCodec.ts`), so the two sides
+        // cannot drift — the wallSystemTypeCodec arrangement, applied here when
+        // door/window types became user-authorable.
         const doorSystemTypes = doorSystemTypeStore.getAll()
             .filter(t => !t.isBuiltIn)
-            .map(t => structuredClone(t));
+            .map(t => encodeHostedSystemType(t));
         const windowSystemTypes = windowSystemTypeStore.getAll()
             .filter(t => !t.isBuiltIn)
-            .map(t => structuredClone(t));
+            .map(t => encodeHostedSystemType(t));
 
         const elementCount =
             walls.length + slabs.length + ceilings.length + floors.length + columns.length + stairs.length +

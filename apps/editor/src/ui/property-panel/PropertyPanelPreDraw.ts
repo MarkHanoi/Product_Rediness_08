@@ -22,6 +22,15 @@ import { buildCeilingTypeSelectorWidget } from './CeilingTypeSelectorWidget';
 import { buildFloorTypeSelectorWidget } from './FloorTypeSelectorWidget';
 import { doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowSystemTypeStore } from '@pryzm/geometry-window';
+// §FEAT-HOSTED-TYPE-AUTHORING (C65) — shared Duplicate/New machinery for the
+// door/window pre-draw pickers (same entries the property-panel widgets render).
+import {
+    appendTypeAuthoringOptions,
+    handleFinishTypeAuthoring,
+    DUPLICATE_TYPE_OPTION,
+    NEW_TYPE_OPTION,
+    type ReadableTypeStore,
+} from './FinishTypeAuthoringActions';
 import { plumbingSystemTypeStore, TOILET_VARIANT_LABELS, SHOWER_VARIANT_LABELS } from '@pryzm/geometry-plumbing';
 import type { ToiletVariant } from '@pryzm/geometry-plumbing';
 import type { ShowerVariant } from '@pryzm/geometry-plumbing';
@@ -47,7 +56,12 @@ function buildOpeningTypeSelector(
     defaultText: string,
     allTypes: Array<{ id: string; name: string; category?: string }>,
     currentTypeId: string,
-    onApply: (systemTypeId: string | null) => void
+    onApply: (systemTypeId: string | null) => void,
+    // §FEAT-HOSTED-TYPE-AUTHORING (C65) — when given, the picker also offers the
+    // "Duplicate Type… / New Type…" entries (rendered ONLY if the family declares
+    // authoring in ElementTypeAuthoringRegistry). This is the violet pre-draw
+    // panel the founder screenshotted with a FIXED list — parity with wall.
+    authoringOpts?: { family: string; store: ReadableTypeStore },
 ): HTMLElement {
     const outer = document.createElement('div');
     outer.className = 'wts-outer';
@@ -78,10 +92,46 @@ function buildOpeningTypeSelector(
     }
     sel.value = currentTypeId ?? '';
 
+    if (authoringOpts) {
+        const authoring = appendTypeAuthoringOptions(sel, authoringOpts.family, allTypes.length > 0);
+        if (authoring) {
+            // Duplicate copies the type the user last BROWSED TO in this dropdown
+            // (there is no placed element yet to read a type from).
+            let lastRealSelection = currentTypeId ?? '';
+            sel.addEventListener('change', () => {
+                const v = sel.value;
+                if (v !== DUPLICATE_TYPE_OPTION && v !== NEW_TYPE_OPTION) {
+                    lastRealSelection = v;
+                    return;
+                }
+                // Opening the editor must not look like a selection; Cancel restores.
+                sel.value = lastRealSelection;
+                handleFinishTypeAuthoring({
+                    mode: v === NEW_TYPE_OPTION ? 'create' : 'duplicate',
+                    family: authoringOpts.family,
+                    store: authoringOpts.store,
+                    currentTypeId: lastRealSelection || undefined,
+                    onCreated: (created) => {
+                        // Self-refresh: the new type becomes selectable and selected;
+                        // the user then Applies it to the tool explicitly.
+                        const opt = document.createElement('option');
+                        opt.value = created.id;
+                        opt.textContent = created.name;
+                        opt.className = 'wts-opt-dark';
+                        sel.insertBefore(opt, sel.querySelector('.wts-opt-sep'));
+                        sel.value = created.id;
+                        lastRealSelection = created.id;
+                    },
+                });
+            });
+        }
+    }
+
     const applyBtn = document.createElement('button');
     applyBtn.textContent = 'Apply';
     applyBtn.className = 'wts-apply-btn';
     applyBtn.addEventListener('click', () => {
+        if (sel.value.startsWith('__')) return;
         onApply(sel.value || null);
         applyBtn.textContent = '✓ Applied';
         setTimeout(() => {
@@ -294,7 +344,8 @@ export function showDoorPreDraw(host: PreDrawPanelHost, doorTool: any): void {
                 ? '✓ Type set — click on a wall to place'
                 : '✓ Default Door — click on a wall to place';
             hint.style.color = 'rgba(255,255,255,0.85)';
-        }
+        },
+        { family: 'door', store: doorSystemTypeStore as ReadableTypeStore },
     );
     header.appendChild(typeWidget);
 
@@ -443,7 +494,8 @@ export function showWindowPreDraw(host: PreDrawPanelHost, windowTool: any): void
                 ? '✓ Type set — click on a wall to place'
                 : '✓ Default Window — click on a wall to place';
             hint.style.color = 'rgba(255,255,255,0.85)';
-        }
+        },
+        { family: 'window', store: windowSystemTypeStore as ReadableTypeStore },
     );
     header.appendChild(typeWidget);
 

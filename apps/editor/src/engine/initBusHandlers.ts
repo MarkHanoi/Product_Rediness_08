@@ -154,6 +154,13 @@ import { resolveStairRailingTypeFields } from '@pryzm/geometry-stair';
 // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the lighting fixture catalogue. Identity only;
 // what a fixture EMITS stays in LIGHTING_FIXTURE_PHOTOMETRY.
 import { getLightingTypeDefinition, type LightingFixtureType } from '@pryzm/geometry-lighting';
+// §FEAT-ELEMENT-TYPE-AUTHORING (C65) — the per-family type-store adapters behind the
+// `elementType.*` commands (wall + door + window today). Extracted so the adapters
+// and their per-family draft validation are testable and shared, not closures here.
+import {
+    performElementTypeAuthoring,
+    validateElementTypeCommand,
+} from './elementTypeAuthoringAdapters';
 
 /**
  * Registers structural command-bus stubs (§A40-W04 — column/beam/door/window/ceiling/stair).
@@ -422,71 +429,18 @@ export function initBusHandlers(
 
     // ── §FEAT-ELEMENT-TYPE-AUTHORING — the family adapters ───────────────────
     //
-    // ONE adapter per authorable family. The shape is deliberately narrow (add /
-    // update / remove / getById / getAll / isBuiltIn) because that is the intersection
-    // every candidate store already supports; the five different mutating vocabularies
-    // found across the repo's type stores are normalised HERE, once, rather than
-    // leaking into the command or the UI.
+    // ONE adapter per authorable family, now living in
+    // `elementTypeAuthoringAdapters.ts` (extracted when door + window joined wall:
+    // the five different mutating vocabularies across the repo's type stores are
+    // normalised there, once, and the per-family draft validation with them —
+    // C65 §3.5 forbids family branches in shared code, and `draft.layers` checks
+    // in a shared validator were exactly that).
     //
-    // A family is added by adding an entry — and ONLY after its custom types are
-    // proven to round-trip the snapshot (C05) and its store is registered with
-    // `ProjectScopeRegistry` (C13). Those two proofs are recorded in
-    // `ElementTypeAuthoringRegistry`; this table and that registry must agree, and the
-    // authoring coverage spec asserts it.
-    interface TypeStoreAdapter {
-        getAll(): any[];
-        getById(id: string): any | undefined;
-        isBuiltIn(id: string): boolean;
-        add(params: any): any;
-        update(id: string, patch: any): any;
-        remove(id: string): boolean;
-    }
-
-    const _typeStoreAdapters: Record<string, () => TypeStoreAdapter | null> = {
-        wall: () => {
-            const s = window.wallSystemTypeStore as any;
-            if (!s) return null;
-            return {
-                getAll:    () => s.getAll(),
-                getById:   (id) => s.getById(id),
-                isBuiltIn: (id) => s.isBuiltIn(id),
-                add:       (p) => s.add(p),
-                update:    (id, patch) => s.update(id, patch),
-                remove:    (id) => s.remove(id),
-            };
-        },
-    };
-
-    const _resolveTypeStore = (family: unknown): TypeStoreAdapter | null => {
-        const f = String(family ?? '').toLowerCase();
-        return _typeStoreAdapters[f]?.() ?? null;
-    };
-
-    /**
-     * CA-3 — validate BEFORE any mutation. Rejects an undeclared family outright
-     * rather than silently doing nothing, and enforces the invariants a type must
-     * satisfy to be usable at all (a name, and a layer stack with real thickness).
-     */
-    const _validateTypeAuthoring = (cmd: any, mode: string): string | null => {
-        if (!cmd?.family) return 'family is required';
-        if (!_resolveTypeStore(cmd.family)) {
-            return `'${cmd.family}' types cannot be authored — no authoring adapter is declared for that family`;
-        }
-        if (mode === 'delete') return null;
-        const d = cmd.draft;
-        if (!d || typeof d !== 'object')        return 'draft is required';
-        if (!d.name || !String(d.name).trim())  return 'draft.name is required';
-        if (!Array.isArray(d.layers) || d.layers.length === 0) return 'draft.layers must be a non-empty array';
-        const total = d.layers.reduce((s: number, l: any) => s + (Number(l?.thickness) || 0), 0);
-        if (!(total > 0)) return 'draft layers have no thickness';
-        // Built-ins are factory data, not project data (C05): they are reconstructed
-        // from code on every boot, so an edit to one could never be persisted and
-        // would silently vanish on reload. Reject rather than pretend.
-        if ((mode === 'update' || mode === 'delete') && _resolveTypeStore(cmd.family)!.isBuiltIn(cmd.typeId)) {
-            return 'built-in types cannot be edited or deleted — duplicate it first';
-        }
-        return null;
-    };
+    // A family is added by adding an adapter there — and ONLY after its custom
+    // types are proven to round-trip the snapshot (C05) and its store is
+    // registered with `ProjectScopeRegistry` (C13). Those two proofs are recorded
+    // in `ElementTypeAuthoringRegistry`; the adapter table and that registry must
+    // agree, and the authoring coverage spec asserts it.
 
     /**
      * Performs the authoring mutation and records ONE undo entry for it.
@@ -501,37 +455,9 @@ export function initBusHandlers(
         mode: 'create' | 'duplicate' | 'update' | 'delete',
         cmd: any,
     ): void => {
-        const store = _resolveTypeStore(cmd.family);
-        if (!store) return;   // unreachable — validate() already rejected it.
-
-        let created: any;
-        let previous: any;
-
-        if (mode === 'delete') {
-            previous = structuredClone(store.getById(cmd.typeId));
-            store.remove(cmd.typeId);
-        } else if (mode === 'update') {
-            previous = structuredClone(store.getById(cmd.typeId));
-            store.update(cmd.typeId, {
-                name:        cmd.draft.name,
-                description: cmd.draft.description,
-                layers:      cmd.draft.layers,
-                // L-285 — carried explicitly; `undefined` stays undefined ("does not say").
-                ...(cmd.draft.function !== undefined ? { function: cmd.draft.function } : {}),
-            });
-        } else {
-            // CREATE and DUPLICATE differ ONLY in where the draft came from (the UI
-            // deep-copies the source type's layers for a duplicate and pre-names it).
-            // Both mint a fresh id here, so a duplicate can never alias its source's
-            // identity — which would make the two types indistinguishable to every
-            // wall referencing either.
-            created = store.add({
-                name:        cmd.draft.name,
-                description: cmd.draft.description,
-                layers:      cmd.draft.layers,
-                ...(cmd.draft.function !== undefined ? { function: cmd.draft.function } : {}),
-            });
-        }
+        const result = performElementTypeAuthoring(mode, cmd);
+        if (!result) return;   // unreachable — validate() already rejected it.
+        const { adapter, created, previous } = result;
 
         // CA-11 — the inverse, as one undo step.
         try {
@@ -543,13 +469,13 @@ export function initBusHandlers(
                 undo: () => {
                     if (mode === 'delete' || mode === 'update') {
                         if (!previous) return;
-                        // `add` honours an explicit id (§M-B1), so restoring a deleted or
-                        // pre-edit type restores the SAME id — every wall still pointing
-                        // at it resolves again instead of becoming a dangling reference.
-                        if (mode === 'delete') store.add(previous);
-                        else store.update(cmd.typeId, previous);
+                        // `restore` keeps the ORIGINAL id (§M-B1), so restoring a deleted
+                        // or pre-edit type restores the SAME id — every element still
+                        // pointing at it resolves again instead of dangling.
+                        if (mode === 'delete') adapter.restore(previous);
+                        else adapter.update(cmd.typeId, previous);
                     } else if (created) {
-                        store.remove(created.id);
+                        adapter.remove(created.id);
                     }
                     _emitElementTypeChanged(cmd.family);
                 },
@@ -902,32 +828,25 @@ export function initBusHandlers(
         {
             type: 'elementType.create',
             stores: [] as const,
-            validate: (cmd: any) => _validateTypeAuthoring(cmd, 'create'),
+            validate: (cmd: any) => validateElementTypeCommand(cmd, 'create'),
             fn: (cmd: any) => { _authorElementType('create', cmd); },
         },
         {
             type: 'elementType.duplicate',
             stores: [] as const,
-            validate: (cmd: any) => _validateTypeAuthoring(cmd, 'duplicate'),
+            validate: (cmd: any) => validateElementTypeCommand(cmd, 'duplicate'),
             fn: (cmd: any) => { _authorElementType('duplicate', cmd); },
         },
         {
             type: 'elementType.update',
             stores: [] as const,
-            validate: (cmd: any) => (
-                !cmd.family                        ? 'family is required' :
-                !cmd.typeId                        ? 'typeId is required' :
-                _validateTypeAuthoring(cmd, 'update')
-            ),
+            validate: (cmd: any) => validateElementTypeCommand(cmd, 'update'),
             fn: (cmd: any) => { _authorElementType('update', cmd); },
         },
         {
             type: 'elementType.delete',
             stores: [] as const,
-            validate: (cmd: any) => (
-                !cmd.family ? 'family is required' :
-                !cmd.typeId ? 'typeId is required' : null
-            ),
+            validate: (cmd: any) => validateElementTypeCommand(cmd, 'delete'),
             fn: (cmd: any) => { _authorElementType('delete', cmd); },
         },
 

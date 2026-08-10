@@ -18,6 +18,15 @@
  */
 
 import { doorSystemTypeStore } from '@pryzm/geometry-door';
+// §FEAT-HOSTED-TYPE-AUTHORING (C65) — the shared "Duplicate Type… / New Type…"
+// machinery. Entries render ONLY when the family declares authoring; the mutation
+// travels the elementType.* bus commands (P6), never a store write from here.
+import {
+    appendTypeAuthoringOptions,
+    handleFinishTypeAuthoring,
+    DUPLICATE_TYPE_OPTION,
+    NEW_TYPE_OPTION,
+} from './FinishTypeAuthoringActions';
 
 export interface DoorTypeApplyPayload {
     systemTypeId: string | null;
@@ -70,12 +79,20 @@ export function buildDoorTypeSelectorWidget(
         sel.appendChild(opt);
     });
 
-    if (allTypes.length > 0) {
-        const sep = document.createElement('option');
-        sep.disabled = true;
-        sep.textContent = '────────────────────';
-        sep.className = 'dts-opt-sep';
-        sel.appendChild(sep);
+    // §FEAT-HOSTED-TYPE-AUTHORING — separator + Duplicate/New entries, iff declared.
+    const authoring = appendTypeAuthoringOptions(sel, 'door', allTypes.length > 0);
+
+    // §CONTEXT-DATA-HONESTY (C65 §3.4) — a door referencing a type that is NOT in
+    // the catalogue must show AS the missing reference, selected — never render as
+    // "— Plain Door —" so that failure and "genuinely plain" read as the same value.
+    const currentId = elementData.systemTypeId as string | undefined;
+    if (currentId && !doorSystemTypeStore.getById?.(currentId)) {
+        const missing = document.createElement('option');
+        missing.value = currentId;
+        missing.textContent = `⚠ Missing type (${currentId})`;
+        missing.className = 'dts-opt-dark';
+        missing.selected = true;
+        sel.insertBefore(missing, sel.firstChild);
     }
 
     const swatch = document.createElement('div');
@@ -110,11 +127,38 @@ export function buildDoorTypeSelectorWidget(
     applyBtn.className = 'dts-apply-btn';
 
     sel.addEventListener('change', () => {
+        const v = sel.value;
+        if (v === DUPLICATE_TYPE_OPTION || v === NEW_TYPE_OPTION) {
+            // Opening the editor must not look like a type change, and Cancel must
+            // leave the door exactly as it was.
+            sel.value = elementData.systemTypeId ?? '';
+            if (!authoring) return;
+            handleFinishTypeAuthoring({
+                mode: v === NEW_TYPE_OPTION ? 'create' : 'duplicate',
+                family: 'door',
+                store: doorSystemTypeStore,
+                currentTypeId: elementData.systemTypeId,
+                onCreated: (created) => {
+                    // The dropdown updates ITSELF — a created type is immediately
+                    // selectable, and selected. Creating a type does not retype the
+                    // selected door; that is a separate, explicit act (Apply).
+                    const opt = document.createElement('option');
+                    opt.value = created.id;
+                    opt.textContent = created.name;
+                    opt.className = 'dts-opt-dark';
+                    sel.insertBefore(opt, sel.querySelector('.wts-opt-sep'));
+                    sel.value = created.id;
+                    refreshSwatch();
+                },
+            });
+            return;
+        }
         refreshSwatch();
     });
 
     applyBtn.addEventListener('click', () => {
         const selectedId = sel.value;
+        if (selectedId.startsWith('__')) return;
         const payload: DoorTypeApplyPayload = {
             systemTypeId: selectedId || null,
         };

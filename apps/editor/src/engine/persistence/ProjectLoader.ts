@@ -115,6 +115,8 @@ import { wallSystemTypeStore } from '@pryzm/geometry-wall';
 // §TYPE-SNAPSHOT-CODEC — the ONE codec shared with ProjectSerializer, so a field can
 // no longer be written by one side and dropped by the other (it dropped `function`).
 import { decodeWallSystemType } from './wallSystemTypeCodec';
+// §TYPE-SNAPSHOT-CODEC (C65) — door/window types share their own codec with the serializer.
+import { decodeHostedSystemType } from './hostedSystemTypeCodec';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
@@ -1559,22 +1561,27 @@ export class ProjectLoader {
             // duplicate-skip guard prevents re-adding a type already seeded
             // from code (e.g. when a future build re-classifies a previously-
             // custom type as built-in).
+            // §TYPE-SNAPSHOT-CODEC (C65 §3.1) — decoded through the SAME codec the
+            // serializer encodes with (`hostedSystemTypeCodec.ts`), which owns the
+            // validation and the isBuiltIn-forced-false identity policy that used to
+            // be spelled inline here.
             const snapshotDoorSystemTypes = (snapshot as { doorSystemTypes?: unknown[] }).doorSystemTypes;
             if (Array.isArray(snapshotDoorSystemTypes) && snapshotDoorSystemTypes.length > 0) {
                 let restoredDoorTypeCount = 0;
-                for (const raw of snapshotDoorSystemTypes as Array<{ id?: string; name?: string; isBuiltIn?: boolean; [k: string]: unknown }>) {
+                for (const raw of snapshotDoorSystemTypes) {
                     try {
-                        if (!raw.id || !raw.name) {
+                        const decoded = decodeHostedSystemType(raw, 'door');
+                        if (!decoded) {
                             console.warn('[ProjectLoader] Skipping malformed doorSystemType:', raw);
                             continue;
                         }
-                        const existing = doorSystemTypeStore.getById?.(raw.id);
+                        const existing = doorSystemTypeStore.getById?.(decoded.id as string);
                         if (existing) continue; // already seeded (built-in or earlier custom)
-                        doorSystemTypeStore.add({ ...raw, isBuiltIn: false } as Parameters<typeof doorSystemTypeStore.add>[0]);
+                        doorSystemTypeStore.add(decoded as unknown as Parameters<typeof doorSystemTypeStore.add>[0]);
                         // 'doorSystemType' is not (yet) in the StoreType enum; cast
                         // via unknown so type registration is safe even though
                         // the registry's enum doesn't list this kind today.
-                        try { elementRegistry.registerSemantic(raw.id, 'doorSystemType' as unknown as Parameters<typeof elementRegistry.registerSemantic>[1]); } catch { /* already registered */ }
+                        try { elementRegistry.registerSemantic(decoded.id as string, 'doorSystemType' as unknown as Parameters<typeof elementRegistry.registerSemantic>[1]); } catch { /* already registered */ }
                         restoredDoorTypeCount++;
                     } catch (e) {
                         console.warn('[ProjectLoader] Failed to restore doorSystemType:', raw, e);
@@ -1589,16 +1596,17 @@ export class ProjectLoader {
             const snapshotWindowSystemTypes = (snapshot as { windowSystemTypes?: unknown[] }).windowSystemTypes;
             if (Array.isArray(snapshotWindowSystemTypes) && snapshotWindowSystemTypes.length > 0) {
                 let restoredWindowTypeCount = 0;
-                for (const raw of snapshotWindowSystemTypes as Array<{ id?: string; name?: string; isBuiltIn?: boolean; [k: string]: unknown }>) {
+                for (const raw of snapshotWindowSystemTypes) {
                     try {
-                        if (!raw.id || !raw.name) {
+                        const decoded = decodeHostedSystemType(raw, 'window');
+                        if (!decoded) {
                             console.warn('[ProjectLoader] Skipping malformed windowSystemType:', raw);
                             continue;
                         }
-                        const existing = windowSystemTypeStore.getById?.(raw.id);
+                        const existing = windowSystemTypeStore.getById?.(decoded.id as string);
                         if (existing) continue;
-                        windowSystemTypeStore.add({ ...raw, isBuiltIn: false } as Parameters<typeof windowSystemTypeStore.add>[0]);
-                        try { elementRegistry.registerSemantic(raw.id, 'windowSystemType' as unknown as Parameters<typeof elementRegistry.registerSemantic>[1]); } catch { /* already registered */ }
+                        windowSystemTypeStore.add(decoded as unknown as Parameters<typeof windowSystemTypeStore.add>[0]);
+                        try { elementRegistry.registerSemantic(decoded.id as string, 'windowSystemType' as unknown as Parameters<typeof elementRegistry.registerSemantic>[1]); } catch { /* already registered */ }
                         restoredWindowTypeCount++;
                     } catch (e) {
                         console.warn('[ProjectLoader] Failed to restore windowSystemType:', raw, e);
@@ -1712,7 +1720,13 @@ export class ProjectLoader {
             // Phase 8.2 — Style cache pre-warming (background micro-task)
             // Pre-resolves styles for all known element types so the first render
             // frame is served from cache (Contract 25a §8.2 — target < 0.5ms cold resolve).
-            setTimeout(() => { try { prewarmIntentStyleCache(); } catch { } }, 0);
+            setTimeout(() => {
+        // §SWALLOW-OPTIONAL — cache PREWARM only. Every consumer of the intent-style
+        // cache populates it lazily on first use, so a failed prewarm costs one frame
+        // of latency and changes no result. It is deliberately fired off the load path
+        // (setTimeout 0) precisely so it can never fail a project open.
+        try { prewarmIntentStyleCache(); } catch { /* §SWALLOW-OPTIONAL */ }
+    }, 0);
 
             // Phase III: Restore Sheet store from snapshot
             if ((snapshot as any).sheets) {

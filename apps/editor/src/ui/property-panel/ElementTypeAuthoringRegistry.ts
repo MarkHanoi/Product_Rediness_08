@@ -71,7 +71,20 @@
 export type ElementTypeEditorKind =
     /** An ordered stack of named, thickness-bearing, material-bearing layers, drawn in
      *  section. Serves wall today; slab / floor / ceiling are the same shape. */
-    | 'layer-stack';
+    | 'layer-stack'
+    /** A set of NAMED FINISH SLOTS (frame / leaf / sill …) plus a glazing opacity —
+     *  the shape of the hosted-opening families. Serves door and window; the slots
+     *  are declared per family in `finishEditor`, so the editor stays generic
+     *  (C65 §3.5: specialise in the declaration, never with a family branch). */
+    | 'finish-set';
+
+/** One finish slot a 'finish-set' family's type carries. */
+export interface ElementTypeFinishSlot {
+    /** The record field the finish lives at (e.g. 'frameFinish', 'leafFinish'). */
+    key: string;
+    /** UI label: "Frame", "Leaf", "Sill". */
+    label: string;
+}
 
 /** A family's authoring declaration. */
 export interface ElementTypeAuthoring {
@@ -81,6 +94,16 @@ export interface ElementTypeAuthoring {
     noun: string;
     /** The editor surface this family's type is authored in. */
     editorKind: ElementTypeEditorKind;
+    /**
+     * REQUIRED when `editorKind === 'finish-set'` — the finish slots this family's
+     * type carries, in display order. The generic finish editor renders exactly
+     * these; the family adapter validates exactly these.
+     */
+    finishEditor?: {
+        slots: ElementTypeFinishSlot[];
+        /** Whether the family carries a `glazingOpacity` (0 = clear … 1 = opaque). */
+        glazingOpacity: boolean;
+    };
     /**
      * PROOF, not intent (C05). The serializer field its custom types are written to,
      * and which round-trips through a shared codec. A family cannot be listed here
@@ -116,6 +139,51 @@ const AUTHORING: ElementTypeAuthoring[] = [
         projectScope: 'wallSystemTypeStore',
         instanceLinkage: 'instance-owned',
     },
+    // §FEAT-HOSTED-TYPE-AUTHORING (C65, founder 2026-08-09: door/window parity with
+    // wall). Both families already satisfied the two gates when they were declared:
+    //   C05 — custom types round-trip `ProjectSerializer` ⇄ `ProjectLoader` through
+    //         the shared `hostedSystemTypeCodec.ts` (snapshot fields below, §M-H4).
+    //   C13 — both stores register with `projectScopeRegistry` at module scope
+    //         (see the bottom of each store file), clearing custom types on switch.
+    // `instance-owned` is the honest linkage for both: placing a door/window STAMPS
+    // the type's finishes onto the opening record (CreateWallOpeningCommand), so a
+    // later type edit does not restyle placed elements.
+    {
+        family: 'door',
+        noun: 'Door Type',
+        editorKind: 'finish-set',
+        finishEditor: {
+            slots: [
+                { key: 'frameFinish', label: 'Frame' },
+                { key: 'leafFinish',  label: 'Leaf' },
+            ],
+            glazingOpacity: true,
+        },
+        persisted: {
+            snapshotField: 'doorSystemTypes',
+            codec: 'apps/editor/src/engine/persistence/hostedSystemTypeCodec.ts',
+        },
+        projectScope: 'doorSystemTypeStore',
+        instanceLinkage: 'instance-owned',
+    },
+    {
+        family: 'window',
+        noun: 'Window Type',
+        editorKind: 'finish-set',
+        finishEditor: {
+            slots: [
+                { key: 'frameFinish', label: 'Frame' },
+                { key: 'sillFinish',  label: 'Sill' },
+            ],
+            glazingOpacity: true,
+        },
+        persisted: {
+            snapshotField: 'windowSystemTypes',
+            codec: 'apps/editor/src/engine/persistence/hostedSystemTypeCodec.ts',
+        },
+        projectScope: 'windowSystemTypeStore',
+        instanceLinkage: 'instance-owned',
+    },
 ];
 
 /**
@@ -131,10 +199,9 @@ export const AUTHORING_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
     ['slab',    'Slab types are not yet user-authorable — the editor is not wired for this family.'],
     ['floor',   'Floor types are not yet user-authorable — the editor is not wired for this family.'],
     ['ceiling', 'Ceiling types are not yet user-authorable — the editor is not wired for this family.'],
-    // Persisted + project-scoped, but a door/window type is not a layer stack: it
-    // needs a panel/frame/leaf editor that does not exist.
-    ['door',    'Door types are not yet user-authorable — a door type needs a panel and frame editor.'],
-    ['window',  'Window types are not yet user-authorable — a window type needs a frame and glazing editor.'],
+    // door / window moved OUT of this list 2026-08-10 (§FEAT-HOSTED-TYPE-AUTHORING):
+    // the finish-set editor now exists and both families were already persisted +
+    // project-scoped, so all five extension steps are complete.
     // BLOCKED ON PERSISTENCE + ISOLATION, not on UI. Authoring these today would
     // create types that are silently lost on save and leak into the next project.
     ['stair',   'Stair types cannot be saved with the project yet, so creating one would lose it on reload.'],

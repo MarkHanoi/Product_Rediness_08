@@ -135,6 +135,16 @@ MUST show what is being built: an ordered layer stack with per-layer thickness a
 the layers, never entered independently — two sources for one number is §3.5's defect at field
 scale.
 
+For the **hosted-opening families (door, window)** a type is not a layer stack: it is a set of
+**named finish slots** (door: frame + leaf; window: frame + sill) plus a glazing opacity, with
+ride-along data (standard dimensions, leaf segments, sidelight, tags) the user does not re-enter.
+Their editor MUST show the finish slots with a live preview, and everything it does not show MUST
+**carry verbatim** through duplicate — a duplicate that re-enters only the visible fields is a
+lossy copy, which violates §3.7. The slots are DECLARED per family
+(`ElementTypeAuthoringRegistry.finishEditor`) and rendered by ONE generic editor
+(`FinishTypeEditorModal`), never by a per-family branch (§3.5). *(Added 2026-08-10 when door and
+window became authorable; the section previously described only the layered families.)*
+
 Accessibility is not optional ([C43](./C43-ACCESSIBILITY.md)): keyboard-complete, AA contrast,
 focus order following visual order.
 
@@ -150,18 +160,35 @@ sites). **Ship families one at a time, fully.**
 
 ## §4 — AS-IS
 
-**PENDING.** A three-axis audit — EXISTS · WIRED · PERSISTED, per element family — is in progress
-(`agent/c12-element-types`). It will be recorded here rather than assumed.
+**Verified 2026-08-10 for wall, door, window** (read at the code, per file — not inferred). The
+remaining families stay PENDING on the three-axis audit (EXISTS · WIRED · PERSISTED,
+`agent/c12-element-types`) and MUST be recorded here from that audit, not assumed.
 
-What is already known from production logs: system types exist and resolve through per-family
-chokepoints (`systemTypeId=dt-solid-timber` via `DoorToolConfigStore`,
-`systemTypeId=wt-timber-casement` via `WindowToolConfigStore`, `Wall + Slab system type stores
-loaded`). So T1 exists and is wired for at least four families. **Whether any family reaches §3.1
-(snapshot round-trip) is the open question, and the founder's report — "it falls back to default" —
-is direct evidence that at least one does not.**
+| Family | Store (T1+T2) | C13 scope | C05 round-trip | Commands (§3.2) | UI authoring |
+|---|---|---|---|---|---|
+| **wall** | `@pryzm/geometry-wall` `WallSystemTypeStore` | ✓ `wallSystemTypeStore` | ✓ `wallSystemTypeCodec.ts` (`wallSystemTypes`) | ✓ `elementType.*` bus bridges | ✓ Duplicate/New via `WallTypeEditorModal` |
+| **door** | `@pryzm/geometry-door` `DoorSystemTypeStore` | ✓ `doorSystemTypeStore` | ✓ `hostedSystemTypeCodec.ts` (`doorSystemTypes`) | ✓ same bridges, door adapter | ✓ Duplicate/New via `FinishTypeEditorModal` (2026-08-10) |
+| **window** | `@pryzm/geometry-window` `WindowSystemTypeStore` | ✓ `windowSystemTypeStore` | ✓ `hostedSystemTypeCodec.ts` (`windowSystemTypes`) | ✓ same bridges, window adapter | ✓ Duplicate/New via `FinishTypeEditorModal` (2026-08-10) |
 
-⚠ This section MUST be filled from the audit, not from inference. Writing a confident AS-IS on top
-of an unknown is how a contract comes to disagree with its code.
+The command chokepoint is `elementType.create / duplicate / update / delete`
+(`apps/editor/src/engine/initBusHandlers.ts`), with per-family store adapters and per-family draft
+validation in `apps/editor/src/engine/elementTypeAuthoringAdapters.ts` (§3.5: validation moved out
+of shared code when door/window arrived, because the shared validator was checking `draft.layers`).
+Which families MAY author is declared in `ElementTypeAuthoringRegistry`
+(`apps/editor/src/ui/property-panel/`), with a stated reason for every family that may not (§3.9).
+
+Two defects found and fixed during the 2026-08-10 door/window wiring, recorded so the next audit
+does not re-derive them:
+- The window property-panel picker read `window.windowSystemTypeStore`, a global **assigned
+  nowhere** — its dropdown listed only "— Plain Window —" while the pre-draw picker (direct module
+  import) showed the full catalogue. The picker now imports the singleton directly.
+- The same picker painted its swatch from `t.glazingFinish`, a field that does not exist on
+  `WindowSystemType` (the second slot is `sillFinish`) — the swatch always showed the fallback.
+
+⚠ There is a SECOND, divergent pair of door/window system-type stores in
+`packages/core-app-model/src/stores/` (older shapes, no `dimensions` field). Production persistence,
+builders and pickers all use the `geometry-door` / `geometry-window` singletons; the core-app-model
+pair is §3.5 drift-in-waiting and should be retired by the audit.
 
 ---
 

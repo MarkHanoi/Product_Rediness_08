@@ -38,7 +38,13 @@ describe('§FEAT-ELEMENT-TYPE-AUTHORING — declaration completeness', () => {
 
     it('every authorable family declares its editor and its instance linkage', () => {
         for (const a of allElementTypeAuthoring()) {
-            expect(a.editorKind).toBe('layer-stack');
+            expect(['layer-stack', 'finish-set']).toContain(a.editorKind);
+            // A finish-set family without slots would render an EMPTY editor —
+            // an affordance over a hole (§3.9). The declaration must carry them.
+            if (a.editorKind === 'finish-set') {
+                expect(a.finishEditor, `${a.family} finishEditor`).toBeTruthy();
+                expect(a.finishEditor!.slots.length, `${a.family} slots`).toBeGreaterThan(0);
+            }
             // The Revit-semantics question, answered explicitly rather than left for
             // the user to discover after editing a type and seeing nothing change.
             expect(a.instanceLinkage).toBe('instance-owned');
@@ -52,6 +58,24 @@ describe('§FEAT-ELEMENT-TYPE-AUTHORING — declaration completeness', () => {
         expect(wall!.persisted.snapshotField).toBe('wallSystemTypes');
         expect(wall!.persisted.codec).toContain('wallSystemTypeCodec');
         expect(wall!.projectScope).toBe('wallSystemTypeStore');
+    });
+
+    it('door and window are authorable finish-set families with the shared hosted codec', () => {
+        for (const [family, snapshotField, secondSlot] of [
+            ['door',   'doorSystemTypes',   'leafFinish'],
+            ['window', 'windowSystemTypes', 'sillFinish'],
+        ] as const) {
+            const a = resolveElementTypeAuthoring(family);
+            expect(a, family).not.toBeNull();
+            expect(a!.editorKind).toBe('finish-set');
+            expect(a!.persisted.snapshotField).toBe(snapshotField);
+            expect(a!.persisted.codec).toContain('hostedSystemTypeCodec');
+            expect(a!.projectScope).toBe(`${family}SystemTypeStore`);
+            // The slots must name the REAL record fields — window's second finish is
+            // sillFinish, not the glazingFinish a stale widget once painted from.
+            expect(a!.finishEditor!.slots.map(s => s.key)).toEqual(['frameFinish', secondSlot]);
+            expect(authoringUnavailableReason(family)).toBeUndefined();
+        }
     });
 
     it('a family is never BOTH authorable and declared unavailable', () => {
