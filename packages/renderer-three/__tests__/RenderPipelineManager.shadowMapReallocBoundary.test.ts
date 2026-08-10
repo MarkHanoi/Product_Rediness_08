@@ -38,6 +38,7 @@ import {
     scheduleShadowMapRealloc,
     pendingShadowMapReallocCount,
     drainShadowMapReallocQueue,
+    isShadowResourceError,
     type ReallocatableLightShadow,
 } from '../src/safeDispose.js';
 import { RenderPipelineManager } from '../src/pipeline/RenderPipelineManager.js';
@@ -225,6 +226,181 @@ describe('§RECOVERY-MUST-REFUSE companion — recovery re-owns light shadow map
         rpm._rebuildPipeline = vi.fn(async () => {});
         rpm._scene = null;
         expect(rpm.recoverFromRenderFailure()).toBe(true);
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY (L-819) — the mapSize WRITE itself is
+// deferred to the drain.
+//
+// PRODUCTION EVIDENCE (app.pryzm.so, saved-project open, 2026-08-10): the first
+// revision of this queue had callers write `shadow.mapSize` on the mutation tick
+// and deferred only the resize. During the load-window freeze the drain is held,
+// so mapSize (2048) and the allocated map (512) DISAGREED across many frames —
+// and `needsUpdate = true` from any freeze-bypassing writer (live offender:
+// RenderPerformanceService.setQualityLevel's per-light poke) made three's
+// ShadowNode run its OWN `shadowMap.setSize(shadow.mapSize…)` MID-PASS
+// (updateBefore runs after backend.beginRender has opened the frame's command
+// encoder), destroying the ShadowDepthTexture that encoder's earlier draws
+// referenced → "Destroyed texture [ShadowDepthTexture] used in a submit …
+// CommandEncoder renderContext_1" → §RECOVERY-MUST-REFUSE → crash modal.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§SHADOW-MAPSIZE-WRITE-AT-BOUNDARY — mapSize and the allocated map can never disagree across a frame', () => {
+    beforeEach(() => {
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        drainShadowMapReallocQueue();
+    });
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    it('scheduling a resolution change does NOT write mapSize on the mutation tick', () => {
+        const sh = makeShadow(1024, 1024, 1024, 1024);
+        scheduleShadowMapRealloc(sh, 4096, 4096);
+
+        // TOOTH: the old contract had the caller write mapSize first. That opened
+        // the divergence window three's ShadowNode turns into a mid-encode destroy.
+        expect(sh.mapSize.width).toBe(1024);
+        expect(sh.map.setSize).not.toHaveBeenCalled();
+
+        drainShadowMapReallocQueue();
+        // The drain lands BOTH, atomically, at the boundary.
+        expect(sh.mapSize.width).toBe(4096);
+        expect(sh.map.setSize).toHaveBeenCalledWith(4096, 4096);
+        expect(sh.needsUpdate).toBe(true);
+    });
+
+    it('a not-yet-allocated shadow still receives its mapSize at the boundary (mint path)', () => {
+        const sh: ReallocatableLightShadow = { map: null, mapSize: { width: 512, height: 512 } };
+        scheduleShadowMapRealloc(sh, 2048, 2048);
+        expect(sh.mapSize.width).toBe(512); // unchanged until the boundary
+
+        expect(drainShadowMapReallocQueue()).toBe(0); // no live map — nothing realloc'd
+        expect(sh.mapSize.width).toBe(2048);          // …but THREE will mint at 2048
+    });
+
+    it('a burst of requests coalesces to the LAST requested size', () => {
+        const sh = makeShadow(512, 512, 512, 512);
+        scheduleShadowMapRealloc(sh, 2048, 2048); // tier → high
+        scheduleShadowMapRealloc(sh, 4096, 4096); // tier → ultra before the boundary
+
+        expect(pendingShadowMapReallocCount()).toBe(1);
+        drainShadowMapReallocQueue();
+        expect(sh.map.setSize).toHaveBeenCalledTimes(1);
+        expect(sh.map.setSize).toHaveBeenCalledWith(4096, 4096);
+        expect(sh.mapSize.width).toBe(4096);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §L-819 — the dangling-shadow-node TypeError is a SHADOW-lifetime fault, and
+// the recovery lever must actually heal it.
+// ─────────────────────────────────────────────────────────────────────────────
+const DANGLING_SHADOW_NODE_TYPEERROR =
+    "Cannot read properties of null (reading 'depthTexture')";
+
+describe('§L-819 — dangling-shadow-node TypeError classification + non-retry routing', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+    afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
+
+    it('isShadowResourceError matches the ShadowNode.updateShadow null-map TypeError', () => {
+        expect(isShadowResourceError(new TypeError(DANGLING_SHADOW_NODE_TYPEERROR))).toBe(true);
+        // The original signatures still match…
+        expect(isShadowResourceError('Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.')).toBe(true);
+        // …and unrelated failures still do not.
+        expect(isShadowResourceError(new Error('some transient pass failure'))).toBe(false);
+    });
+
+    it('a render() throw of the TypeError REFUSES loudly instead of burning the 3× retry ladder', () => {
+        // Production burned "rebuild attempt 1/3" against a fault a pipeline rebuild
+        // provably cannot fix (the cached node states are not recompiled), then hit
+        // the SAME destroyed-texture error and exhausted into the modal.
+        const rpm = makeRpm();
+        rpm._scene = { traverse: () => {} };
+        rpm._camera = {};
+        rpm._renderer.setClearAlpha = () => {};
+        rpm._renderPipeline = { render: () => { throw new TypeError(DANGLING_SHADOW_NODE_TYPEERROR); }, dispose: () => {} };
+        rpm._rebuildPipeline = vi.fn(async () => {});
+
+        rpm.render(0.016);
+
+        expect(rpm.status.phase).toBe('error');       // refused loudly → crash guard → recovery lever
+        expect(rpm.status.retryCount).toBe(0);        // never entered the ladder
+        expect(vi.getTimerCount()).toBe(0);           // no 500ms backoff armed
+        expect(rpm._rebuildPipeline).not.toHaveBeenCalled(); // no wasted rebuild either
+    });
+});
+
+describe('§L-819 — recoverFromRenderFailure heals the whole shadow fault class', () => {
+    beforeEach(() => {
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    it('nulls the LightShadow.map corpse after the re-own signal', () => {
+        // ShadowNode._reset() (via the light's 'dispose' listener) nulls only the
+        // NODE's reference; `shadow.map` kept pointing at the DISPOSED target.
+        const rpm = makeRpm();
+        rpm._rebuildPipeline = vi.fn(async () => {});
+        const disposedTarget = { dispose: vi.fn() };
+        const caster = {
+            isLight: true, castShadow: true,
+            shadow: { map: disposedTarget } as { map: unknown },
+            dispatchEvent: vi.fn(),
+        };
+        rpm._scene = { traverse: (cb: (o: unknown) => void) => cb(caster) };
+
+        expect(rpm.recoverFromRenderFailure()).toBe(true);
+
+        expect(caster.dispatchEvent).toHaveBeenCalledWith({ type: 'dispose' });
+        expect(caster.shadow.map).toBeNull();
+    });
+
+    it('resets the compiled node states (three teardown order) BEFORE the pipeline rebuild', () => {
+        // LightsNode reuses AnalyticLightNode by light.id and NodeManager serves
+        // cached nodeBuilderStates — a pipeline rebuild invalidates neither, so the
+        // disposed ShadowNode's updateBefore kept firing (the null-depthTexture
+        // TypeError) and its sampler kept referencing the destroyed texture
+        // (renderContext_6/7 recurrence). Only a node-state reset mints the fresh
+        // ShadowNode at the next build.
+        const calls: string[] = [];
+        const rpm = makeRpm();
+        rpm._renderer._objects   = { dispose: vi.fn(() => calls.push('_objects')) };
+        rpm._renderer._pipelines = { dispose: vi.fn(() => calls.push('_pipelines')) };
+        rpm._renderer._nodes     = { dispose: vi.fn(() => calls.push('_nodes')) };
+        rpm._renderer._bindings  = { dispose: vi.fn(() => calls.push('_bindings')) };
+        rpm._rebuildPipeline = vi.fn(async () => { calls.push('rebuild'); });
+        rpm._scene = { traverse: () => {} };
+
+        expect(rpm.recoverFromRenderFailure()).toBe(true);
+
+        // three r183 Renderer.dispose() order, then the rebuild LAST.
+        expect(calls).toEqual(['_objects', '_pipelines', '_nodes', '_bindings', 'rebuild']);
+    });
+
+    it('a renderer without the internal caches still recovers (structural access is optional)', () => {
+        const rpm = makeRpm(); // fake renderer has none of _objects/_pipelines/_nodes/_bindings
+        rpm._rebuildPipeline = vi.fn(async () => {});
+        rpm._scene = { traverse: () => {} };
+        expect(rpm.recoverFromRenderFailure()).toBe(true);
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
+    });
+
+    it('a throwing internal dispose does not abort the recovery', () => {
+        const rpm = makeRpm();
+        rpm._renderer._nodes = { dispose: vi.fn(() => { throw new Error("Cannot read properties of undefined (reading 'usedTimes')"); }) };
+        rpm._renderer._bindings = { dispose: vi.fn() };
+        rpm._rebuildPipeline = vi.fn(async () => {});
+        rpm._scene = { traverse: () => {} };
+
+        expect(rpm.recoverFromRenderFailure()).toBe(true);
+        expect(rpm._renderer._bindings.dispose).toHaveBeenCalled(); // later caches still reset
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
     });
 });

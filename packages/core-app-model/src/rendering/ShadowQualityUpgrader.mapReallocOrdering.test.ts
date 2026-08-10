@@ -82,10 +82,19 @@ describe('§SHADOW-MAP-REALLOC-AT-BOUNDARY — ShadowQualityUpgrader never destr
         drainGpuReleaseQueue();
         expect(map.dispose).not.toHaveBeenCalled();
 
-        // The mapSize write landed, and the realloc request is queued for the
-        // frame boundary instead.
-        expect(light.shadow.mapSize.width).toBe(2048);
+        // §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY (L-819): the mapSize write is DEFERRED
+        // to the frame boundary along with the resize. Writing it on the mutation
+        // tick opened a frames-long mapSize≠allocated divergence window in which any
+        // freeze-bypassing `needsUpdate=true` made three's ShadowNode destroy the
+        // depth texture MID-ENCODE ("Destroyed texture … used in a submit",
+        // renderContext_1 — the saved-project-open P0).
+        expect(light.shadow.mapSize.width).toBe(512); // the THREE default — untouched pre-boundary
         expect(pendingShadowMapReallocCount()).toBeGreaterThan(0);
+
+        // The drain (frame owner, top of render()) lands BOTH atomically.
+        drainShadowMapReallocQueue();
+        expect(light.shadow.mapSize.width).toBe(2048);
+        expect(map.width).toBe(2048);
     });
 
     it('the frame-boundary drain performs the realloc via the target\'s OWN setSize()', () => {

@@ -24,7 +24,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
-import { drainGpuReleaseQueue } from '@pryzm/renderer-three';
+import { drainGpuReleaseQueue, drainShadowMapReallocQueue } from '@pryzm/renderer-three';
 import { ShadowQualityUpgrader, type ShadowQualityLevel } from './ShadowQualityUpgrader';
 
 const LEVELS: ShadowQualityLevel[] = ['standard', 'high', 'ultra'];
@@ -88,6 +88,9 @@ describe('§FIX-SHADOW-SAMPLER-TYPE-PARITY — intended shadow type === actual s
         upgrader.apply(renderer, scene, 'ultra');
 
         expect((light.shadow as unknown as { radius: number }).radius).toBe(8);
+        // §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY (L-819): the resolution lands at the
+        // frame boundary (mapSize + resize together), not on the mutation tick.
+        drainShadowMapReallocQueue();
         expect(light.shadow.mapSize.width).toBe(4096);
     });
 });

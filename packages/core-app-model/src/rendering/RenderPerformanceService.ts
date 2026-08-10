@@ -15,9 +15,12 @@
  *     - Ultra    : 125 % of native DPR → supersampling for final review / screenshot.
  *     DPR is clamped to 2.5 max to avoid memory pressure on HiDPI displays.
  *
- *  2. Shadow map memory management.
- *     Enumerates all shadow-casting lights and calls needsUpdate = true after any
- *     DPR change so stale depth buffers are rebuilt at the new ratio.
+ *  2. Shadow map memory management — REMOVED (§L-819). Shadow-map resolution is a
+ *     function of the quality tier (`shadow.mapSize`), not of DPR; the old
+ *     per-light `needsUpdate = true` traverse defeated the renderer's shadow
+ *     freeze latches (L-197 defect class) and helped destroy a submit-referenced
+ *     ShadowDepthTexture on project load. Shadow refresh is owned by
+ *     §SHADOW-MAP-REALLOC-AT-BOUNDARY + RenderPipelineManager.requestShadowRefresh().
  *
  *  3. Renderer statistics snapshot.
  *     getStats() returns a lightweight copy of renderer.info for the UI status bar
@@ -59,7 +62,11 @@ export interface RenderStats {
 export class RenderPerformanceService {
 
     private _renderer:       THREE.WebGLRenderer | null = null;
-    private _scene:          THREE.Scene         | null = null;
+    /**
+     * Retained for API compatibility with bind(renderer, scene) callers; no longer
+     * read since §L-819 removed the freeze-defeating per-light shadow poke.
+     */
+    protected _scene:        THREE.Scene         | null = null;
     private _savedPixelRatio: number                    = 1;
     private _currentLevel:   RenderQualityLevel | null = null;
 
@@ -105,17 +112,26 @@ export class RenderPerformanceService {
         this._renderer.setPixelRatio(targetDpr);
         this._currentLevel = level;
 
-        // Invalidate shadow maps so depth buffers rebuild at the new DPR
-        if (this._scene) {
-            this._scene.traverse((obj) => {
-                if ((obj as THREE.Light).isLight) {
-                    const light = obj as THREE.Light;
-                    if ((light as any).shadow) {
-                        (light as any).shadow.needsUpdate = true;
-                    }
-                }
-            });
-        }
+        // §L-819 — the per-light `shadow.needsUpdate = true` traverse that used to
+        // live here is REMOVED, for two reasons:
+        //
+        //   1. It was FALSE in premise: a shadow map's resolution is a function of
+        //      `light.shadow.mapSize` (quality tier), not of the renderer's DPR. A
+        //      DPR change never invalidates a shadow depth buffer, so the poke bought
+        //      no correctness — the comment "rebuild at the new DPR" described a
+        //      dependency that does not exist.
+        //   2. It was the SECOND freeze-defeating writer of the L-197 defect class:
+        //      `needsUpdate` OVERRIDES `autoUpdate=false` in three's ShadowNode
+        //      (`needsUpdate || autoUpdate`), so this direct poke forced the shadow
+        //      depth pass to run inside every freeze window (project-load tier
+        //      escalation, the L-231 shadow-rebuild guard). Combined with a pending
+        //      mapSize change it made three's ShadowNode perform its own mid-encode
+        //      `shadowMap.setSize()` → "Destroyed texture [ShadowDepthTexture] used
+        //      in a submit (renderContext_1)" — the saved-project-open P0.
+        //
+        // Shadow refreshes are owned by the frame-boundary realloc queue
+        // (§SHADOW-MAP-REALLOC-AT-BOUNDARY, @pryzm/renderer-three) and the
+        // freeze-aware RenderPipelineManager.requestShadowRefresh() (L-197).
 
         console.log(
             `[RenderPerformanceService] Quality → ${level} | DPR: ${targetDpr.toFixed(2)}`,

@@ -176,19 +176,39 @@ export class ShadowQualityUpgrader {
      * never re-created it, and a pipeline rebuild cannot reach a light-owned map
      * (§RECOVERY-MUST-REFUSE) — the founder's infinite refuse/recover loop.
      *
-     * The correct realloc: write the new `mapSize` (done by our callers) and let
-     * THREE's own target perform its resize — but ORDERED, at the frame boundary,
+     * The correct realloc: hand the REQUESTED resolution to the queue and let
+     * THREE's own target perform its resize — ORDERED, at the frame boundary,
      * not wherever the depth pass happens to run mid-encode.
-     * `scheduleShadowMapRealloc` enqueues the shadow; `RenderPipelineManager.render()`
+     * `scheduleShadowMapRealloc` captures the request; `RenderPipelineManager.render()`
      * drains the queue at the top of a frame (after the previous submit, before any
-     * encoder exists, never while the map is frozen) and calls
-     * `shadow.map.setSize(mapSize)` — the one instant at which THREE's internal
+     * encoder exists, never while the map is frozen), writes `shadow.mapSize` and
+     * calls `shadow.map.setSize(…)` — the one instant at which THREE's internal
      * dispose-and-recreate cannot land inside a submit. `sh.map` is NEVER nulled and
      * the old target is NEVER disposed from here (ADR-0111 / C04 §SHADOW).
+     *
+     * §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY (L-819) — `shadow.mapSize` is NOT written
+     * here anymore either. The first revision wrote mapSize on the mutation tick and
+     * deferred only the resize, leaving a frames-long window in which mapSize (2048)
+     * disagreed with the allocated map (512). Any `needsUpdate = true` from ANY
+     * writer (needsUpdate OVERRIDES every freeze — the L-197 lesson; the live
+     * offender was RenderPerformanceService.setQualityLevel's per-light poke) made
+     * three's ShadowNode run its OWN `shadowMap.setSize(mapSize)` MID-PASS, inside
+     * the open command encoder — destroying the ShadowDepthTexture that encoder's
+     * earlier draws referenced → "Destroyed texture … used in a submit
+     * (renderContext_1)" on saved-project open. Deferring the WRITE removes the
+     * divergence window entirely.
      */
-    private static _scheduleShadowMapRealloc(sh: THREE.LightShadow | undefined | null): void {
+    private static _scheduleShadowMapRealloc(
+        sh: THREE.LightShadow | undefined | null,
+        width: number,
+        height: number,
+    ): void {
         if (!sh) return;
-        scheduleShadowMapRealloc(sh as unknown as Parameters<typeof scheduleShadowMapRealloc>[0]);
+        scheduleShadowMapRealloc(
+            sh as unknown as Parameters<typeof scheduleShadowMapRealloc>[0],
+            width,
+            height,
+        );
     }
 
     /**
@@ -237,19 +257,23 @@ export class ShadowQualityUpgrader {
                     shadowNormalBias: obj.shadow.normalBias,
                 });
 
-                // Apply upgrade
-                obj.shadow.mapSize.set(cfg.mapWidth, cfg.mapHeight);
+                // Apply upgrade. Timing/quality scalars are safe to write on this
+                // tick; the RESOLUTION is not — see §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY.
                 obj.shadow.bias       = cfg.bias;
                 obj.shadow.normalBias = cfg.normalBias;
                 if ('radius' in obj.shadow) {
                     (obj.shadow as any).radius = cfg.radius;
                 }
 
-                // §SHADOW-MAP-REALLOC-AT-BOUNDARY — request a frame-ordered realloc at
-                // the new resolution. The map is NOT nulled and the old target is NOT
-                // disposed here: the WebGPU ShadowNode owns it and would keep submitting
-                // the destroyed texture forever (the founder's dead-viewport P0).
-                ShadowQualityUpgrader._scheduleShadowMapRealloc(obj.shadow);
+                // §SHADOW-MAP-REALLOC-AT-BOUNDARY / §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY
+                // (L-819) — request a frame-ordered realloc to the new resolution.
+                // BOTH the `mapSize` write and the target resize land at the frame
+                // boundary, so the allocated map and `mapSize` can never disagree
+                // across a frame (the divergence three's ShadowNode turns into a
+                // mid-encode destroy). The map is NOT nulled and the old target is
+                // NOT disposed here: the WebGPU ShadowNode owns it and would keep
+                // submitting the destroyed texture forever (the founder's P0).
+                ShadowQualityUpgrader._scheduleShadowMapRealloc(obj.shadow, cfg.mapWidth, cfg.mapHeight);
             }
         });
 
@@ -283,15 +307,15 @@ export class ShadowQualityUpgrader {
         for (const snap of this._snapshots) {
             const sh = snap.light.shadow;
             if (!sh) continue;
-            sh.mapSize.copy(snap.mapSize);
             sh.bias       = snap.shadowBias;
             sh.normalBias = snap.shadowNormalBias;
             if ('radius' in sh) {
                 (sh as any).radius = snap.shadowRadius;
             }
-            // §SHADOW-MAP-REALLOC-AT-BOUNDARY — frame-ordered realloc back to the
-            // restored resolution; never disposes the light-owned target from here.
-            ShadowQualityUpgrader._scheduleShadowMapRealloc(sh);
+            // §SHADOW-MAP-REALLOC-AT-BOUNDARY / §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY —
+            // frame-ordered realloc back to the restored resolution (mapSize write
+            // included); never disposes the light-owned target from here.
+            ShadowQualityUpgrader._scheduleShadowMapRealloc(sh, snap.mapSize.width, snap.mapSize.height);
         }
 
         this._snapshots    = [];
@@ -322,15 +346,15 @@ export class ShadowQualityUpgrader {
         for (const snap of this._snapshots) {
             const sh = snap.light.shadow;
             if (!sh) continue;
-            sh.mapSize.set(cfg.mapWidth, cfg.mapHeight);
             sh.bias       = cfg.bias;
             sh.normalBias = cfg.normalBias;
             if ('radius' in sh) {
                 (sh as any).radius = cfg.radius;
             }
-            // §SHADOW-MAP-REALLOC-AT-BOUNDARY — frame-ordered realloc at the new
-            // resolution; never nulls/disposes the light-owned target from here.
-            ShadowQualityUpgrader._scheduleShadowMapRealloc(sh);
+            // §SHADOW-MAP-REALLOC-AT-BOUNDARY / §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY —
+            // frame-ordered realloc at the new resolution (mapSize write deferred to
+            // the boundary too); never nulls/disposes the light-owned target here.
+            ShadowQualityUpgrader._scheduleShadowMapRealloc(sh, cfg.mapWidth, cfg.mapHeight);
         }
 
         console.log(`[ShadowQualityUpgrader] Level changed to "${level}"`);

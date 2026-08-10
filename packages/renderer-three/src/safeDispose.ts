@@ -351,28 +351,62 @@ export function drainGpuReleaseQueue(): number {
 export interface ReallocatableLightShadow {
     /** The light-owned render target (ShadowNode.shadowMap === shadow.map), or null before first allocation. */
     map?: { setSize(width: number, height: number): void; width?: number; height?: number } | null;
-    /** The requested resolution (THREE.Vector2 exposes width/height accessors). */
-    mapSize: { width: number; height: number };
+    /** The live resolution (THREE.Vector2 exposes width/height accessors and set()). */
+    mapSize: { width: number; height: number; set?(width: number, height: number): void };
     /** Set true after a boundary realloc so the depth pass regenerates once. */
     needsUpdate?: boolean;
 }
 
-/** Shadows whose map size changed and must realloc at the next frame boundary. */
-const _shadowReallocQueue = new Set<ReallocatableLightShadow>();
+/**
+ * Shadows with a pending frame-boundary resolution change, mapped to the
+ * REQUESTED size. Map (not Set) so the request itself is deferred — see
+ * {@link scheduleShadowMapRealloc}. Last write per shadow wins.
+ */
+const _shadowReallocQueue = new Map<ReallocatableLightShadow, { width: number; height: number }>();
 
 /**
  * §SHADOW-MAP-REALLOC-AT-BOUNDARY — request a frame-ordered reallocation of a
- * light-owned shadow map after its `mapSize` changed.
+ * light-owned shadow map to a new resolution.
+ *
+ * §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY (L-819) — the requested size is CAPTURED
+ * here and `shadow.mapSize` itself is written only by the DRAIN, at the frame
+ * boundary. The first revision of this queue had callers write `mapSize`
+ * immediately and deferred only the target resize — which left a window in
+ * which `mapSize` (say 2048) disagreed with the allocated map (512). Inside
+ * that window ANY depth pass — and three r183 runs `ShadowNode.updateBefore`
+ * MID-PASS, after `backend.beginRender` has opened the frame's command encoder
+ * (Renderer.js `renderObject` → `_nodes.updateBefore`) — hits the node's own
+ * `shadowMap.setSize(shadow.mapSize…)` (ShadowNode.js:662), which disposes the
+ * old GPU texture while the OPEN encoder's earlier draws already reference it:
+ * "Destroyed texture [ShadowDepthTexture] used in a submit …
+ * CommandEncoder renderContext_1" — the founder's saved-project-open crash.
+ * The window exists because `needsUpdate = true` OVERRIDES every freeze
+ * (`needsUpdate || autoUpdate`, the L-197 lesson), so a freeze cannot be
+ * trusted to hold the depth pass shut while mapSize diverges. Deferring the
+ * `mapSize` WRITE removes the divergence itself: outside the boundary the
+ * allocated size and `mapSize` always agree, so the node's mid-encode setSize
+ * is structurally a no-op no matter which writer sets `needsUpdate`.
  *
  * O(1), touches no GPU state, callable from any tick (store listener, tier
- * apply, command handler). Idempotent per shadow (Set-deduplicated) — a burst
- * of tier changes coalesces into one boundary realloc at the final mapSize.
- * The caller must NOT null `shadow.map` and must NOT dispose the old target —
- * both are exactly the defect this queue exists to remove.
+ * apply, command handler). Idempotent per shadow (Map-keyed) — a burst of tier
+ * changes coalesces into one boundary realloc at the FINAL requested size.
+ * The caller must NOT null `shadow.map`, must NOT dispose the old target, and
+ * (post-L-819) must NOT write `shadow.mapSize` — all three are the defect this
+ * queue exists to remove.
+ *
+ * @param width  requested width;  defaults to the shadow's current `mapSize.width`.
+ * @param height requested height; defaults to the shadow's current `mapSize.height`.
  */
-export function scheduleShadowMapRealloc(sh: ReallocatableLightShadow | null | undefined): void {
+export function scheduleShadowMapRealloc(
+    sh: ReallocatableLightShadow | null | undefined,
+    width?: number,
+    height?: number,
+): void {
     if (!sh || !sh.mapSize) return;
-    _shadowReallocQueue.add(sh);
+    _shadowReallocQueue.set(sh, {
+        width:  width  ?? sh.mapSize.width,
+        height: height ?? sh.mapSize.height,
+    });
 }
 
 /** Number of shadows awaiting a boundary realloc (diagnostics + tests). */
@@ -388,25 +422,33 @@ export function pendingShadowMapReallocCount(): number {
  * texture would be sampled by the main pass — the caller gates on the freeze latch
  * and the queue simply holds entries until the first unfrozen frame).
  *
- * For each queued shadow with a live map whose allocated size disagrees with
- * `mapSize`, calls the target's own `setSize()` — THREE disposes the old GPU
+ * For each queued shadow, first writes the REQUESTED size into `shadow.mapSize`
+ * (§SHADOW-MAPSIZE-WRITE-AT-BOUNDARY, L-819 — mapSize and the allocated map may
+ * only ever disagree AT this instant, never across a frame), then, if a live map
+ * disagrees, calls the target's own `setSize()` — THREE disposes the old GPU
  * textures here, at the boundary, ordered against submission by construction —
  * and sets `needsUpdate = true` so the depth pass regenerates exactly once at
- * the new resolution. A shadow with no live map needs nothing: THREE allocates
- * at the live `mapSize` on its next shadow pass. Never throws.
+ * the new resolution. A shadow with no live map needs only the `mapSize` write:
+ * THREE mints at the live `mapSize` on its next shadow pass. Never throws.
  *
  * @returns the number of maps actually reallocated.
  */
 export function drainShadowMapReallocQueue(): number {
     if (_shadowReallocQueue.size === 0) return 0;
-    const batch = Array.from(_shadowReallocQueue);
+    const batch = Array.from(_shadowReallocQueue.entries());
     _shadowReallocQueue.clear();
     let realloced = 0;
-    for (const sh of batch) {
+    for (const [sh, req] of batch) {
         try {
-            const w = sh.mapSize?.width;
-            const h = sh.mapSize?.height;
+            const w = req.width;
+            const h = req.height;
             if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) continue;
+            // §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY — the deferred mapSize write lands
+            // here, at the boundary, immediately before the matching realloc.
+            if (sh.mapSize.width !== w || sh.mapSize.height !== h) {
+                if (typeof sh.mapSize.set === 'function') sh.mapSize.set(w, h);
+                else { sh.mapSize.width = w; sh.mapSize.height = h; }
+            }
             const map = sh.map;
             if (!map || typeof map.setSize !== 'function') continue; // not yet allocated — THREE will mint at mapSize
             if (map.width === w && map.height === h) continue;       // already consistent — no churn
@@ -514,6 +556,17 @@ export function isDestroyedGpuResourceError(err: unknown): boolean {
  * the pipeline (ADR-0299 §RECOVERY-MUST-REFUSE): that repair cannot perform what
  * its name promises, and attempting it costs the user a multi-second rebuild before
  * failing anyway.
+ *
+ * §L-819 — also matches the DANGLING-SHADOW-NODE TypeError,
+ *
+ *   TypeError: Cannot read properties of null (reading 'depthTexture')
+ *       at ShadowNode.updateShadow (three r183: `shadowMap.depthTexture.version`)
+ *
+ * which is the same fault class one step later: a ShadowNode whose target was
+ * dropped (`_reset()` nulls `node.shadowMap`) while its compiled `updateBefore`
+ * registration survived in a cached node-builder state. A pipeline rebuild does
+ * not recompile cached material node states, so the backoff retry ladder can
+ * NEVER fix it either — it must route to the same refuse-then-real-recovery path.
  */
 export function isShadowResourceError(err: unknown): boolean {
     if (!err) return false;
@@ -523,7 +576,10 @@ export function isShadowResourceError(err: unknown): boolean {
             : (err as { message?: unknown })?.message;
     if (typeof msg !== 'string') return false;
     const lc = msg.toLowerCase();
-    return lc.includes('shadowdepthtexture') || lc.includes('shadowmap') || lc.includes('shadow map');
+    return lc.includes('shadowdepthtexture')
+        || lc.includes('shadowmap')
+        || lc.includes('shadow map')
+        || lc.includes("depthtexture");
 }
 
 /**

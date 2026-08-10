@@ -856,6 +856,25 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 return;
             }
 
+            // §L-819 — a SHADOW-classified throw that is not a destroyed-resource
+            // message is the dangling-shadow-node TypeError ("Cannot read properties
+            // of null (reading 'depthTexture')" in ShadowNode.updateShadow): a
+            // ShadowNode whose target was dropped while its compiled updateBefore
+            // registration survived in a cached node-builder state. The retry
+            // ladder below rebuilds the POST-FX pipeline, which does not recompile
+            // cached material node states — so on production it burned attempt 1/3
+            // against the same dangling node and exhausted into the crash modal.
+            // Route it to the classified handler, which refuses loudly; the crash
+            // guard's recoverFromRenderFailure() then performs the one repair that
+            // works (light re-own + compiled-node-state reset + rebuild).
+            if (isShadowResourceError(err)) {
+                this._onDestroyedGpuResource(
+                    err instanceof Error ? err.message : String(err),
+                    'render() throw (shadow lifetime)',
+                );
+                return;
+            }
+
             if (this._retryCount < MAX_RETRIES) {
                 this._retryCount++;
                 const backoffMs = RETRY_DELAY_MS * Math.pow(2, this._retryCount - 1);
@@ -2906,11 +2925,84 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // to recover from. Harmless for non-shadow faults: the fresh maps simply
         // regenerate on the next shadow pass.
         this._recreateLightOwnedShadowMaps();
+        // §L-819 — the re-own signal above is NECESSARY but was NOT SUFFICIENT, and
+        // the gap is why the production recovery livelocked. Three r183's LightsNode
+        // REUSES AnalyticLightNode instances by light.id (LightsNode.js:216) and
+        // NodeManager caches nodeBuilderStates by the render object's initialCacheKey
+        // (NodeManager.js:171-247) — neither is invalidated by a pipeline rebuild. So
+        // after the 'dispose' dispatch, the compiled material node states still
+        // embedded the now-disposed ShadowNode: its updateBefore registration kept
+        // firing ("Cannot read properties of null (reading 'depthTexture')" in
+        // updateShadow — node.shadowMap was nulled by _reset()) and its sampler
+        // still referenced the destroyed ShadowDepthTexture (renderContext_6/7
+        // recurrence). A fresh ShadowNode is only minted at the next NODE BUILD
+        // (AnalyticLightNode.setup → shadowNode === null → setupShadowNode), which
+        // never came. Reset the compiled node states so the first post-recovery
+        // render rebuilds the graph — fresh ShadowNode, fresh target, no stale
+        // updateBefore, no stale bindings.
+        this._resetCompiledNodeStates();
         try {
             this._reconcileRenderSize();
         } catch { /* size reconcile is best-effort; the rebuild is the load-bearing part */ }
         void this._rebuildPipeline();
         return true;
+    }
+
+    /**
+     * §L-819 — drop every compiled node-builder state, render-object record,
+     * pipeline and bind-group record on the CURRENT renderer, so the next render
+     * recompiles the full node graph from live scene state.
+     *
+     * This is the render-side "reconstruction boundary" reset applied to crash
+     * recovery: mirrors the exact subset (and ORDER) of three r183's own
+     * `Renderer.dispose()` teardown — `_objects → _pipelines → _nodes → _bindings`
+     * (Renderer.js:2361-2376) — without touching the backend, the textures or the
+     * render contexts, all of which remain valid. Every cleared cache is rebuilt
+     * on demand by `RenderObjects.get` / `NodeManager.getForRender` /
+     * `Pipelines.updateForRender`, so the cost is one full shader recompile on
+     * the first post-recovery frame — acceptable at a crash boundary, and the
+     * only lever that reaches a cached nodeBuilderState (a pipeline rebuild does
+     * not: the cache is keyed by initialCacheKey, which the rebuild leaves
+     * unchanged).
+     *
+     * Structural access into three internals is confined to this package (P2 —
+     * renderer-three is the sole THREE owner). Never throws; a partial reset is
+     * still strictly better than none, and the §I2 `usedTimes` family is
+     * swallowed like every other dispose path here.
+     */
+    private _resetCompiledNodeStates(): void {
+        const r = this._renderer as unknown as {
+            _objects?:   { dispose?: () => void };
+            _pipelines?: { dispose?: () => void };
+            _nodes?:     { dispose?: () => void };
+            _bindings?:  { dispose?: () => void };
+        } | null;
+        if (!r) return;
+        let resetCount = 0;
+        // three's own teardown order (Renderer.dispose, r183).
+        for (const key of ['_objects', '_pipelines', '_nodes', '_bindings'] as const) {
+            try {
+                const sub = r[key];
+                if (sub && typeof sub.dispose === 'function') {
+                    sub.dispose();
+                    resetCount++;
+                }
+            } catch (err: unknown) {
+                if (!isUsedTimesDisposeError(err)) {
+                    console.warn(
+                        `[RenderPipelineManager] §L-819 compiled-node-state reset: ${key}.dispose() failed (non-fatal):`,
+                        err instanceof Error ? err.message : err,
+                    );
+                }
+            }
+        }
+        if (resetCount > 0) {
+            console.log(
+                `[RenderPipelineManager] §L-819 compiled node states reset (${resetCount}/4 caches) — ` +
+                'the next render rebuilds the node graph, minting fresh light-owned shadow maps ' +
+                'with no stale ShadowNode updateBefore registrations or destroyed-texture bindings.',
+            );
+        }
     }
 
     /**
@@ -2923,10 +3015,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * (`ShadowNode._reset()`) and nulls the node's reference. Dispatching the
      * event (WITHOUT calling `light.dispose()`, which would also tear down the
      * light itself) is therefore the one sanctioned signal that reaches the
-     * light-owned GPU resource from outside the renderer. The pipeline rebuild
-     * that follows recreates the lighting node graph, which mints a FRESH
-     * ShadowNode + ShadowDepthTexture at the light's current `mapSize`
-     * (AnalyticLightNode.setup → setupShadowNode).
+     * light-owned GPU resource from outside the renderer.
+     *
+     * ⚠ §L-819 — a pipeline rebuild alone does NOT recreate the lighting node
+     * graph (this method's original comment claimed it did, and that false claim
+     * was the recovery livelock): LightsNode reuses AnalyticLightNode by light.id
+     * and NodeManager serves cached nodeBuilderStates, so the disposed ShadowNode
+     * stayed live in the compiled graph. The caller MUST follow this sweep with
+     * {@link _resetCompiledNodeStates} — only a node-state rebuild mints the
+     * fresh ShadowNode + ShadowDepthTexture (AnalyticLightNode.setup →
+     * setupShadowNode, at the light's current `mapSize`).
      *
      * Called only from the recovery path (never per-frame): at that point the
      * previous frame's submits have completed, so the dispose is ordered against
@@ -2947,6 +3045,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 if (light.isLight && light.castShadow && light.shadow) {
                     try {
                         light.dispatchEvent?.({ type: 'dispose' } as never);
+                        // §L-819 — ShadowNode._reset() (reached via AnalyticLightNode's
+                        // 'dispose' listener) nulls only the NODE's reference
+                        // (`node.shadowMap`); `LightShadow.map` keeps pointing at the
+                        // now-DISPOSED render target. Null it so no external reader
+                        // (the realloc drain, diagnostics, the WebGL path) can touch
+                        // the corpse — the rebuilt node graph assigns a fresh target
+                        // to both slots at its next setup (ShadowNode.js:563-564).
+                        (light.shadow as { map?: unknown }).map = null;
                         count++;
                     } catch { /* one bad light must not abort the recovery sweep */ }
                 }

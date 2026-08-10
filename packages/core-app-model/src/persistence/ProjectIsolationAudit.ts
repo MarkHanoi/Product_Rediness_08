@@ -600,8 +600,18 @@ export function installProjectIsolationAudit(): void {
             _leakHistory.push(report);
             (window as unknown as { __pryzmIsolationLeaks?: IsolationLeakReport[] }).__pryzmIsolationLeaks = _leakHistory;
 
+            // §L-820 — name the leaking SURFACE(S) in the message string itself. The
+            // production console showed "[C13 VIOLATION] … Array(1)" collapsed, so the
+            // one fact that matters — WHICH surface leaked (a scene underlay? a store
+            // id? a GIS scope probe?) — was invisible without expanding the object in
+            // devtools nobody had open. The structured findings still follow for
+            // detail; the summary makes the collapsed line self-sufficient.
+            const surfaceSummary = report.findings
+                .map((f) => `${f.surface}×${f.count}`)
+                .join(', ');
             console.error(
-                `[C13 VIOLATION] Project-isolation leak detected on load of ${projectId}:\n`,
+                `[C13 VIOLATION] Project-isolation leak detected on load of ${projectId} — ` +
+                `${report.findings.length} finding(s): [${surfaceSummary}]\n`,
                 report.findings,
             );
             window.dispatchEvent(new CustomEvent('pryzm-project-isolation-leak', { detail: report }));
