@@ -48,6 +48,21 @@ export interface ExtrudeOpts {
      * only the side faces tilt, and their normals are recomputed accordingly.
      */
     readonly topOffset?: { readonly x: number; readonly z: number } | null;
+    /**
+     * §WALL-RAKE-JOINT (ADR-0312) — PER-VERTEX horizontal displacements of the top
+     * polygon, index-aligned with `footprint.polygon`. Supersedes `topOffset` when
+     * present and valid. Produced by `WallPipelineV2Cache.rakedTopOffsets()` (the
+     * twin-solve loft): each base vertex travels along the true 3-D mitre line it
+     * shares with its neighbour walls, so a joint between walls of DIFFERENT rake
+     * angles (including raked-meets-vertical) closes at every elevation, not just
+     * the floor.
+     *
+     * Honest degradation: a length mismatch or a non-finite entry means the caller
+     * and this builder disagree about the polygon — the array is IGNORED and the
+     * uniform `topOffset` (floor-exact ADR-0310 behaviour) is used instead. Never
+     * a throw (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH).
+     */
+    readonly topOffsets?: ReadonlyArray<{ readonly x: number; readonly z: number }> | null;
 }
 
 /** Vertex-count contract — useful for tests, kept here for `expect(...)` parity. */
@@ -97,7 +112,20 @@ export function buildWallExtrusion(
     const _off = opts.topOffset;
     const dTopX = _off && Number.isFinite(_off.x) ? _off.x : 0;
     const dTopZ = _off && Number.isFinite(_off.z) ? _off.z : 0;
-    const raked = dTopX !== 0 || dTopZ !== 0;
+
+    // §WALL-RAKE-JOINT (ADR-0312) — per-vertex top offsets, when supplied AND valid
+    // (index-aligned with the polygon, every entry finite). Invalid input degrades to
+    // the uniform `topOffset` path — never a throw.
+    const _pv = opts.topOffsets;
+    const perVertex =
+        !!_pv && _pv.length === n && _pv.every(o => o && Number.isFinite(o.x) && Number.isFinite(o.z));
+    /** Top-polygon X displacement of vertex i. */
+    const offX = (i: number): number => (perVertex ? _pv![i]!.x : dTopX);
+    /** Top-polygon Z displacement of vertex i. */
+    const offZ = (i: number): number => (perVertex ? _pv![i]!.z : dTopZ);
+    const raked = perVertex
+        ? _pv!.some(o => o.x !== 0 || o.z !== 0)
+        : (dTopX !== 0 || dTopZ !== 0);
 
     const positions: number[] = [];
     const normals:   number[] = [];
@@ -138,10 +166,13 @@ export function buildWallExtrusion(
     // (dTopX, dTopZ). A translation preserves both the shape and the winding, so the
     // fan order — and the +Y normal, since the top face is still a horizontal plane —
     // are correct unchanged. dTop* are 0 for a vertical wall.
+    // §WALL-RAKE-JOINT: with per-vertex offsets the top face is still HORIZONTAL
+    // (all vertices at yTop) — only the in-plane shape differs vertex-by-vertex —
+    // so the +Y normal and the reversed fan order remain correct.
     for (let i = 1; i < n - 1; i++) {
-        pushV(polygon[0]!.x     + dTopX, yTop, polygon[0]!.z     + dTopZ, 0, 1, 0);
-        pushV(polygon[i + 1]!.x + dTopX, yTop, polygon[i + 1]!.z + dTopZ, 0, 1, 0);
-        pushV(polygon[i]!.x     + dTopX, yTop, polygon[i]!.z     + dTopZ, 0, 1, 0);
+        pushV(polygon[0]!.x     + offX(0),     yTop, polygon[0]!.z     + offZ(0),     0, 1, 0);
+        pushV(polygon[i + 1]!.x + offX(i + 1), yTop, polygon[i + 1]!.z + offZ(i + 1), 0, 1, 0);
+        pushV(polygon[i]!.x     + offX(i),     yTop, polygon[i]!.z     + offZ(i),     0, 1, 0);
     }
 
     // ── Bottom face (−Y) — FORWARD winding (matches CW-from-+Y polygon) ───────
@@ -178,11 +209,53 @@ export function buildWallExtrusion(
     // vertical-case normal above. The vertical branch is nevertheless kept SEPARATE
     // and untouched so a 90° wall's floats are bit-identical, not merely equal to
     // within rounding.
+    // §WALL-RAKE-JOINT — with PER-VERTEX offsets a side quad's two top corners can
+    // drift by different vectors, so the quad need not stay planar (a cap or pivot
+    // edge between two differently-raked mitre lines). Its two triangles then get
+    // their own GEOMETRIC normals (normalised cross products, same winding). A
+    // wall's true SIDE faces remain planar — both their top corners lie on the
+    // wall's own sheared face plane — so those two triangle normals coincide and
+    // the render is indistinguishable from a single-quad normal there.
     for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
         const a = polygon[i]!;
-        const b = polygon[(i + 1) % n]!;
+        const b = polygon[j]!;
         const ex = b.x - a.x;
         const ez = b.z - a.z;
+
+        const atx = a.x + offX(i), atz = a.z + offZ(i);
+        const btx = b.x + offX(j), btz = b.z + offZ(j);
+
+        if (perVertex) {
+            const edgeL = Math.hypot(ex, ez) || 1;
+            const fx = ez / edgeL, fz = -ex / edgeL;      // horizontal edge-perp fallback
+            /** Outward geometric normal of triangle (v0, v1, v2) — (v1−v0)×(v2−v0). */
+            const triN = (
+                x0: number, y0: number, z0: number,
+                x1: number, y1: number, z1: number,
+                x2: number, y2: number, z2: number,
+            ): readonly [number, number, number] => {
+                const ux = x1 - x0, uy = y1 - y0, uz = z1 - z0;
+                const vx = x2 - x0, vy = y2 - y0, vz = z2 - z0;
+                const cx = uy * vz - uz * vy;
+                const cy = uz * vx - ux * vz;
+                const cz = ux * vy - uy * vx;
+                const cl = Math.hypot(cx, cy, cz);
+                if (!(cl > 1e-12)) return [fx, 0, fz];    // degenerate sliver → horizontal perp
+                return [cx / cl, cy / cl, cz / cl];
+            };
+            // Triangle 1: a-bottom → b-top → b-bottom  (CCW from outward)
+            const n1 = triN(a.x, yBot, a.z, btx, yTop, btz, b.x, yBot, b.z);
+            pushV(a.x, yBot, a.z, n1[0], n1[1], n1[2]);
+            pushV(btx, yTop, btz, n1[0], n1[1], n1[2]);
+            pushV(b.x, yBot, b.z, n1[0], n1[1], n1[2]);
+            // Triangle 2: a-bottom → a-top → b-top    (CCW from outward)
+            const n2 = triN(a.x, yBot, a.z, atx, yTop, atz, btx, yTop, btz);
+            pushV(a.x, yBot, a.z, n2[0], n2[1], n2[2]);
+            pushV(atx, yTop, atz, n2[0], n2[1], n2[2]);
+            pushV(btx, yTop, btz, n2[0], n2[1], n2[2]);
+            continue;
+        }
 
         let nx: number, ny: number, nz: number;
         if (raked) {
@@ -196,9 +269,6 @@ export function buildWallExtrusion(
             const L = Math.hypot(ex, ez) || 1;
             nx =  ez / L; ny = 0; nz = -ex / L;
         }
-
-        const atx = a.x + dTopX, atz = a.z + dTopZ;
-        const btx = b.x + dTopX, btz = b.z + dTopZ;
 
         // Triangle 1: a-bottom → b-top → b-bottom  (CCW from outward)
         pushV(a.x, yBot, a.z, nx, ny, nz);

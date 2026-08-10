@@ -180,7 +180,16 @@ export class WallFragmentBuilder {
      * Absent ⇒ `90.0000` (vertical), so no pre-rake wall is re-versioned by this.
      */
     private _rakeTag(wall: WallData): string {
-        return `r${(wall.rakeAngleDeg ?? 90).toFixed(4)}`;
+        // §WALL-RAKE-JOINT (ADR-0312) — a wall's built TOP geometry now also depends on
+        // the rakes of the walls it JOINS (the twin-solve loft moves its mitred top
+        // corners along the shared 3-D mitre line). Fold the level's rake-joint
+        // signature — sorted id:rake of every raked wall, from the V2 cache — so a
+        // NEIGHBOUR rake edit re-keys this wall (gates 1+2 of
+        // §DIAG-INVALIDATION-COMPLETENESS; the L-813 bug class). Empty on a level with
+        // no raked wall ⇒ the key is byte-identical to the pre-ADR-0312 build.
+        const jointSig = this.getEffectiveV2Cache()?.rakeJointSignature ?? '';
+        const own = `r${(wall.rakeAngleDeg ?? 90).toFixed(4)}`;
+        return jointSig ? `${own}|RJ[${jointSig}]` : own;
     }
 
     /** §WALL-DEEP-2026 B3 — hash the join miter/baseline inputs. Shared by
@@ -3401,7 +3410,7 @@ export class WallFragmentBuilder {
                 // and `buildWallV2Geometry` then takes the pre-rake path unchanged.
                 rakeAngleDeg: wall.rakeAngleDeg,
             };
-            const { geometry: worldGeom } = buildWallV2Geometry(spec, v2Cache, {
+            const { geometry: worldGeom, maxTopDriftM } = buildWallV2Geometry(spec, v2Cache, {
                 height: wall.height,
                 baseOffset: wall.baseOffset ?? 0,
                 elevation: 0,
@@ -3435,7 +3444,15 @@ export class WallFragmentBuilder {
             // raked wall is not silently demoted to the legacy MiterPrism path (which has
             // no rake at all and would render it vertical — a wrong wall, reported as fine).
             // For a vertical wall `rakeLateralShift` is 0 and the budget is unchanged.
-            const _rakeShift = rakeLateralShift(wall.rakeAngleDeg, wall.height);
+            // §WALL-RAKE-JOINT (ADR-0312) — a joint-lofted top corner can legitimately drift
+            // FARTHER than the wall's own shear (two opposing rakes meeting at a shallow plan
+            // angle push the shared mitre corner out along the mitre line), and a VERTICAL
+            // wall joined to a raked one drifts despite its own shift being 0. Budget with the
+            // build's ACTUAL max top-vertex drift (reported by buildWallV2Geometry) so a
+            // correct lofted joint is never demoted to the rake-less legacy prism — which
+            // would render the wall vertical while reporting success. For an unraked level
+            // `maxTopDriftM` is 0 and the budget is byte-identical to before.
+            const _rakeShift = Math.max(rakeLateralShift(wall.rakeAngleDeg, wall.height), maxTopDriftM);
             const _maxExtent = _baseLen + wall.thickness + _rakeShift + 1.0;   // generous; real body ≤ len + thk + rake + small miter
             const _finiteBB = !!_bb
                 && Number.isFinite(_bb.min.x) && Number.isFinite(_bb.max.x)

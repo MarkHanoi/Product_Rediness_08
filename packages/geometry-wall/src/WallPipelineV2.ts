@@ -24,7 +24,31 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { resolveJunctions, type Pt2, type WallInput, type WallMiter } from './JunctionResolverV2';
 import { buildWallFootprint, type WallFootprint } from './WallFootprint2D';
 import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
-import { rakeTopOffset } from './WallRake';
+import { isVerticalRake, RAKE_MIN_DEG, rakeTopOffset } from './WallRake';
+
+// ─── §WALL-RAKE-JOINT (ADR-0312) — the twin-solve loft constants ──────────────
+//
+// The probe elevation for the SECOND junction solve. Every corner point
+// `JunctionResolverV2` constructs is an AFFINE function of the elevation at which
+// the wall centrelines are sampled (constant directions, linearly-translating
+// anchors → line∩line, centroids, projections and caps are all affine), so the
+// per-vertex drift PER METRE recovered by differencing the base solve against a
+// probe solve at this tiny elevation is EXACT (to floating point) — provided both
+// solves see the SAME junction topology. The probe displacement is bounded by
+// `PROBE_H · |cot(RAKE_MIN_DEG)| ≈ 2e-5 · 3.732 ≈ 0.075 mm`, two orders of
+// magnitude below the resolver's 1 mm SHARED_CORNER_TIGHT_M band and three below
+// its 0.20 m cluster band, so topology is pinned everywhere except a measure-zero
+// knife's-edge — and THAT case is caught by the footprint-alignment fallback in
+// `rakedTopOffsets`, which degrades to the ADR-0310 uniform shear, never a throw.
+const RAKE_JOINT_PROBE_H = 2e-5;
+
+/** Per-metre drift cap for a lofted vertex. A mitre corner between two walls with
+ *  per-metre shears s₁, s₂ meeting at plan angle φ drifts at most (|s₁|+|s₂|)/sin φ
+ *  per metre, and the ring sweep refuses |sin φ| < 0.05 (its near-parallel cap) —
+ *  so 2·max|cot(RAKE_MIN_DEG)|/0.05 bounds every legitimate corner. Anything past
+ *  it is a degenerate probe artefact → fall back to the uniform shear. */
+const RAKE_JOINT_MAX_DRIFT_PER_M =
+    (2 * Math.abs(1 / Math.tan((RAKE_MIN_DEG * Math.PI) / 180))) / 0.05;
 
 // ─── Feature flag ─────────────────────────────────────────────────────────────
 
@@ -123,9 +147,24 @@ export class WallPipelineV2Cache {
     private _byId = new Map<string, WallMiter>();
     private _walls = new Map<string, WallInput>();
 
+    // ── §WALL-RAKE-JOINT (ADR-0312) — the probe (twin) solve ──────────────────
+    /** Probe-solve miters (base solve re-run at elevation RAKE_JOINT_PROBE_H). */
+    private _probeMiters = new Map<string, WallMiter>();
+    /** Probe-solve wall inputs (endpoints translated by ε · shear per wall). */
+    private _probeWalls = new Map<string, WallInput>();
+    /** TRUE when ≥1 wall on the level has a non-vertical rake. */
+    private _hasRake = false;
+    /** Sorted `id:rake` of every non-vertically-raked wall — the neighbour-rake
+     *  cache-key fragment (empty ⇒ no raked wall ⇒ keys byte-identical to before). */
+    private _rakeJointSig = '';
+
     refresh(walls: readonly LevelWallSpec[]): void {
         this._byId.clear();
         this._walls.clear();
+        this._probeMiters.clear();
+        this._probeWalls.clear();
+        this._hasRake = false;
+        this._rakeJointSig = '';
         if (walls.length === 0) return;
         const inputs: WallInput[] = walls.map(w => ({
             id: w.id,
@@ -138,6 +177,115 @@ export class WallPipelineV2Cache {
         }));
         for (const w of inputs) this._walls.set(w.id, w);
         for (const m of resolveJunctions(inputs)) this._byId.set(m.id, m);
+
+        // §WALL-RAKE-JOINT — the PROBE solve, run only when a rake exists on the
+        // level (a vertical-only level pays nothing and stays byte-identical).
+        // Each wall's endpoints translate by ε · (its per-metre shear vector); a
+        // vertical wall — and every curved wall, since curve × rake is refused —
+        // translates by zero. Directions (and curve tangents) are unchanged by a
+        // translation, so the resolver sees the same headings.
+        const rakedTags: string[] = [];
+        const shearOf = new Map<string, Pt2>();
+        for (const w of walls) {
+            if (isVerticalRake(w.rakeAngleDeg)) continue;
+            const dir = { x: w.endXZ.x - w.startXZ.x, z: w.endXZ.z - w.startXZ.z };
+            const s = rakeTopOffset(w.rakeAngleDeg, 1, dir);   // shear per metre of height
+            if (!s) continue;
+            shearOf.set(w.id, s);
+            rakedTags.push(`${w.id}:${(w.rakeAngleDeg ?? 90).toFixed(4)}`);
+        }
+        if (rakedTags.length === 0) return;
+        this._hasRake = true;
+        this._rakeJointSig = rakedTags.sort().join(',');
+
+        const probeInputs: WallInput[] = inputs.map(w => {
+            const s = shearOf.get(w.id);
+            if (!s) return w;
+            const dx = s.x * RAKE_JOINT_PROBE_H;
+            const dz = s.z * RAKE_JOINT_PROBE_H;
+            return {
+                ...w,
+                start: { x: w.start.x + dx, z: w.start.z + dz },
+                end:   { x: w.end.x   + dx, z: w.end.z   + dz },
+            };
+        });
+        for (const w of probeInputs) this._probeWalls.set(w.id, w);
+        for (const m of resolveJunctions(probeInputs)) this._probeMiters.set(m.id, m);
+    }
+
+    /** §WALL-RAKE-JOINT — TRUE when the refreshed level carries ≥1 raked wall. */
+    get hasRake(): boolean {
+        return this._hasRake;
+    }
+
+    /**
+     * §WALL-RAKE-JOINT — the neighbour-rake content signature for the level. A
+     * wall's built TOP geometry depends on the rakes of the walls it joins, so
+     * `WallFragmentBuilder._rakeTag` folds this into the per-wall cache keys
+     * (gates 1+2 of §DIAG-INVALIDATION-COMPLETENESS). Empty on a level with no
+     * raked wall — those keys stay byte-identical to the pre-ADR-0312 build.
+     */
+    get rakeJointSignature(): string {
+        return this._rakeJointSig;
+    }
+
+    /**
+     * §WALL-RAKE-JOINT — the PER-VERTEX top-polygon offsets for one wall, or null
+     * when the uniform ADR-0310 shear should be used instead.
+     *
+     * `baseFootprint` MUST be the footprint built from this cache's base solve
+     * (same polygon the extruder will receive). Returns `polygon.length` offsets:
+     * vertex i of the TOP polygon = base vertex i + offsets[i], placing every
+     * mitred corner on the true 3-D mitre line it shares with its neighbours.
+     *
+     * Honest degradation to null (→ caller uses the uniform shear, floor-exact):
+     *   · no raked wall on the level, or this wall unknown to the probe solve;
+     *   · probe footprint does not index-align with the base footprint (the
+     *     topology bifurcated within 0.075 mm of a classification threshold);
+     *   · any per-vertex drift beyond the geometric bound, or non-finite;
+     *   · the lofted top polygon inverts (its signed area flips sign).
+     */
+    rakedTopOffsets(
+        wallId: string,
+        baseFootprint: WallFootprint,
+        height: number,
+    ): Pt2[] | null {
+        if (!this._hasRake || !Number.isFinite(height) || height === 0) return null;
+        const probeWall = this._probeWalls.get(wallId);
+        if (!probeWall) return null;
+        const base = baseFootprint.polygon;
+        if (base.length < 3) return null;
+        const probeFp = buildWallFootprint(probeWall, this._probeMiters.get(wallId) ?? null);
+        if (probeFp.invalid || probeFp.polygon.length !== base.length) return null;
+
+        const offsets: Pt2[] = [];
+        for (let i = 0; i < base.length; i++) {
+            const b = base[i]!;
+            const p = probeFp.polygon[i]!;
+            const vx = (p.x - b.x) / RAKE_JOINT_PROBE_H;   // drift per metre of height
+            const vz = (p.z - b.z) / RAKE_JOINT_PROBE_H;
+            if (!Number.isFinite(vx) || !Number.isFinite(vz)) return null;
+            if (Math.hypot(vx, vz) > RAKE_JOINT_MAX_DRIFT_PER_M) return null;
+            offsets.push({ x: vx * height, z: vz * height });
+        }
+
+        // The lofted top polygon must keep the base polygon's orientation — an
+        // inverted (bow-tie / negative-area) top would render inside-out. Compare
+        // shoelace signs; on flip, degrade to the uniform shear.
+        const area = (pts: ReadonlyArray<Pt2>): number => {
+            let a2 = 0;
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i]!;
+                const q = pts[(i + 1) % pts.length]!;
+                a2 += p.x * q.z - q.x * p.z;
+            }
+            return a2 / 2;
+        };
+        const baseArea = area(base);
+        const topArea = area(base.map((p, i) => ({ x: p.x + offsets[i]!.x, z: p.z + offsets[i]!.z })));
+        if (!(Math.sign(topArea) === Math.sign(baseArea) && Math.abs(topArea) > 1e-9)) return null;
+
+        return offsets;
     }
 
     getMiter(wallId: string): WallMiter | null {
@@ -167,7 +315,16 @@ export function buildWallV2Geometry(
     wall: LevelWallSpec,
     cache: WallPipelineV2Cache,
     opts: ExtrudeOpts,
-): { geometry: THREE.BufferGeometry; footprint: WallFootprint; miter: WallMiter | null } {
+): {
+    geometry: THREE.BufferGeometry;
+    footprint: WallFootprint;
+    miter: WallMiter | null;
+    /** §WALL-RAKE-JOINT (ADR-0312) — the largest horizontal top-vertex drift (m) this build
+     *  actually used. 0 for a vertical wall on an unraked level. The §V2-SPIKE-GUARD sizes
+     *  its overshoot budget with this, so a legitimately-lofted joint corner is never
+     *  demoted to the rake-less legacy prism (which would render the wall VERTICAL). */
+    maxTopDriftM: number;
+} {
     const input: WallInput = {
         id: wall.id, start: wall.startXZ, end: wall.endXZ,
         thickness: wall.thickness, systemTypeId: wall.systemTypeId,
@@ -180,8 +337,22 @@ export function buildWallV2Geometry(
     // shear itself); otherwise it comes from the spec's angle. Vertical ⇒ null ⇒ unchanged.
     const topOffset = opts.topOffset
         ?? rakeTopOffset(wall.rakeAngleDeg, opts.height, footprint.direction);
-    const geometry  = buildWallExtrusion(footprint, { ...opts, topOffset });
-    return { geometry, footprint, miter };
+    // §WALL-RAKE-JOINT (ADR-0312) — the twin-solve loft. Per-vertex top offsets place every
+    // mitred corner on the true 3-D mitre line shared with its neighbours, closing joints
+    // between walls of DIFFERENT rakes (incl. raked-meets-vertical) at every elevation.
+    // Null (no raked wall on the level / topology fallback) ⇒ the ADR-0310 uniform shear.
+    // An explicit caller-supplied `opts.topOffset` also wins here, for the same reason.
+    const topOffsets = opts.topOffset !== undefined || opts.topOffsets !== undefined
+        ? opts.topOffsets ?? null
+        : cache.rakedTopOffsets(wall.id, footprint, opts.height);
+    const geometry  = buildWallExtrusion(footprint, { ...opts, topOffset, topOffsets });
+    let maxTopDriftM = 0;
+    if (topOffsets) {
+        for (const o of topOffsets) maxTopDriftM = Math.max(maxTopDriftM, Math.hypot(o.x, o.z));
+    } else if (topOffset) {
+        maxTopDriftM = Math.hypot(topOffset.x, topOffset.z);
+    }
+    return { geometry, footprint, miter, maxTopDriftM };
 }
 
 /**
@@ -193,7 +364,7 @@ export function buildWallV2GeometryOneShot(
     wall: LevelWallSpec,
     levelWalls: readonly LevelWallSpec[],
     opts: ExtrudeOpts,
-): { geometry: THREE.BufferGeometry; footprint: WallFootprint; miter: WallMiter | null } {
+): { geometry: THREE.BufferGeometry; footprint: WallFootprint; miter: WallMiter | null; maxTopDriftM: number } {
     const cache = new WallPipelineV2Cache();
     cache.refresh(levelWalls);
     return buildWallV2Geometry(wall, cache, opts);

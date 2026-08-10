@@ -1,6 +1,9 @@
 # ADR-0310 — A raked wall is an INSTANCE PROPERTY, and every case it cannot serve is REFUSED
 
-**Status:** ACCEPTED · **Date:** 2026-08-09 · **Context tag:** `§WALL-RAKE`
+**Status:** SUPERSEDED by [ADR-0312](./ADR-0312-raked-wall-joints-twin-solve-loft.md) (2026-08-10) —
+the §3 floor-only-mitre consequence is replaced by the twin-solve loft (joints are now exact at
+every elevation); the instance-property model, thickness convention, sign convention and the
+curve/layered/openings refusals carry forward unchanged. · **Date:** 2026-08-09 · **Context tag:** `§WALL-RAKE`
 **Implements:** founder request 2026-08-09 — *"I want to add another element — angled walls"*
 **Amends:** [C03](../contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) §3 · [C15](../contracts/C15-HOSTED-ELEMENT-CONTRACT.md) §2 · [C47](../contracts/C47-FILE-FORMAT-VERSIONING.md)
 **Related:** [C65](../contracts/C65-ELEMENT-TYPE-SYSTEM.md) §3.6, §3.9 · [ADR-0055](./ADR-0055-pascal-wall-pipeline.md)

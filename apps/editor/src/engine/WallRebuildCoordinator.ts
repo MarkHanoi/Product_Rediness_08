@@ -1425,7 +1425,7 @@ export class WallRebuildCoordinator {
                 // (older runtimes) — V2 then falls back to the per-call auto path.
                 try {
                     const refresh = (builder as unknown as {
-                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number; systemTypeId?: string; curveControlXZ?: { x: number; z: number } }>) => void;
+                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number; systemTypeId?: string; curveControlXZ?: { x: number; z: number }; rakeAngleDeg?: number }>) => void;
                     }).refreshV2Cache;
                     if (typeof refresh === 'function') {
                         // §V2-PRETRIM-FIX (2026-05-27): feed the V2 resolver the
@@ -1465,6 +1465,13 @@ export class WallRebuildCoordinator {
                                     curveControlXZ: w.curve
                                         ? { x: w.curve.control.x, z: w.curve.control.z }
                                         : undefined,
+                                    // §WALL-RAKE-JOINT (ADR-0312) — thread every wall's rake into
+                                    // the V2 cache so its twin-solve loft can place each mitred TOP
+                                    // corner on the true 3-D mitre line shared with its neighbours.
+                                    // Without this the cache sees a rake-less level and joints stay
+                                    // floor-exact only (the ADR-0310 uniform shear). Absent / 90 ⇒
+                                    // vertical, and the probe solve is skipped entirely.
+                                    rakeAngleDeg: (w as unknown as { rakeAngleDeg?: number }).rakeAngleDeg,
                                 };
                             });
                         refresh.call(builder, specs);
