@@ -24,11 +24,11 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — a light's old ShadowDepthTexture
-// is released at the FRAME BOUNDARY (drained by RenderPipelineManager.render), never
-// on a `setTimeout(0)` guess at one. See _deferReleaseShadowMap below for the founder
-// P0 this closes.
-import { scheduleGpuRelease } from '@pryzm/renderer-three';
+// §SHADOW-MAP-REALLOC-AT-BOUNDARY (founder P0, 2026-08-10) — a light-owned shadow
+// map is NEVER nulled or disposed from here. Its resolution change is enqueued and
+// performed by the frame owner (RenderPipelineManager.render) at the frame
+// boundary via the target's OWN setSize(). See _scheduleShadowMapRealloc below.
+import { scheduleShadowMapRealloc } from '@pryzm/renderer-three';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -151,50 +151,44 @@ export class ShadowQualityUpgrader {
     get shadowsEnabled(): boolean { return this._shadowsEnabled; }
 
     /**
-     * §SHADOW-DEVICE-LOSS-FIX (Fix 1) + §GPU-RESOURCE-LIFETIME (ADR-0297 L2) —
-     * release a light's old ShadowDepthTexture WITHOUT ever disposing it mid-submit.
+     * §SHADOW-MAP-REALLOC-AT-BOUNDARY (founder P0, 2026-08-10) — apply a mapSize
+     * change to a live light WITHOUT ever destroying a texture the renderer still
+     * uses. Supersedes §SHADOW-DEVICE-LOSS-FIX Fix 1 / the ADR-0297 L2 deferred
+     * release, both of which were built on a WebGL-era assumption that is FALSE
+     * on the WebGPU node path.
      *
-     * Nulls `sh.map` NOW so THREE regenerates a fresh depth attachment, and releases
-     * the OLD render target AT THE NEXT FRAME BOUNDARY.
+     * ── WHY THIS CHANGED (founder P0 crash: new project → a few walls → dead viewport) ──
+     * The previous revision nulled `sh.map` and queued the old render target on the
+     * frame-boundary GPU release queue. On the WebGL renderer that is correct:
+     * `WebGLShadowMap` re-reads `shadow.map` and allocates a fresh target when it is
+     * null. On the WebGPU node path it is a use-after-free BY CONSTRUCTION:
+     * three r183's `ShadowNode` keeps ITS OWN reference to the same render target
+     * (`this.shadowMap`, ShadowNode.js:563-564 assigns both) and never re-reads
+     * `shadow.map`. So the boundary drain destroyed the ShadowDepthTexture while the
+     * node kept rendering into and sampling it every subsequent frame:
      *
-     * ── WHY THIS CHANGED (founder P0, 167 elements / 145 walls / 445 meshes) ─────
-     * This used to defer the dispose by `setTimeout(…, 0)`. That is a GUESS at a
-     * frame boundary, not the frame boundary, and on a real model it loses:
+     *   Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+     *     — While calling [Queue].Submit([[CommandBuffer from CommandEncoder
+     *       "renderContext_1"]])
      *
-     *   [RenderPipelineManager] §GPU-RESOURCE-LIFETIME destroyed/dangling GPU
-     *     resource reached the GPU (GPUDevice.uncapturederror: "Destroyed texture
-     *     [Texture "ShadowDepthTexture"] used in a submit. - While calling
-     *     [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])")
+     * …on EVERY frame, unrecoverably: the destroyed target's size still matched
+     * `mapSize`, so `ShadowNode.renderShadow()`'s own `setSize` (ShadowNode.js:662)
+     * never re-created it, and a pipeline rebuild cannot reach a light-owned map
+     * (§RECOVERY-MUST-REFUSE) — the founder's infinite refuse/recover loop.
      *
-     * Two independent reasons the macrotask deferral is not sufficient:
-     *
-     *   1. A WebGPU `Queue.submit()` is ASYNCHRONOUS — it returns immediately and
-     *      the command buffer keeps referencing the texture until the GPU retires
-     *      it. A macrotask can fire while that submit is still in flight. On a
-     *      loaded main thread (this project's shadow rebuild measured 1,862 ms)
-     *      macrotask ordering relative to rAF is not merely unspecified, it is
-     *      routinely wrong.
-     *   2. It consulted NOTHING. RenderPipelineManager holds an explicit shadow
-     *      guard (`_shadowRebuildPaused` + `setShadowReallocFrozen(true)`) across
-     *      the whole async rebuild, precisely so no shadow texture is touched
-     *      during it. `apply()` fired straight through that guard — the founder's
-     *      log shows `[ShadowQualityUpgrader] Level changed to "high"` INSIDE the
-     *      rebuild window. Two drivers reallocating one resource, neither aware of
-     *      the other.
-     *
-     * `scheduleGpuRelease` fixes both: the release is drained by
-     * `RenderPipelineManager.render()` at the TOP of a frame — the one instant at
-     * which the previous frame is fully encoded and submitted and the next has not
-     * begun encoding — so it is ordered against submission by construction, and it
-     * is ordered against the shadow guard because the frame owner drains it.
+     * The correct realloc: write the new `mapSize` (done by our callers) and let
+     * THREE's own target perform its resize — but ORDERED, at the frame boundary,
+     * not wherever the depth pass happens to run mid-encode.
+     * `scheduleShadowMapRealloc` enqueues the shadow; `RenderPipelineManager.render()`
+     * drains the queue at the top of a frame (after the previous submit, before any
+     * encoder exists, never while the map is frozen) and calls
+     * `shadow.map.setSize(mapSize)` — the one instant at which THREE's internal
+     * dispose-and-recreate cannot land inside a submit. `sh.map` is NEVER nulled and
+     * the old target is NEVER disposed from here (ADR-0111 / C04 §SHADOW).
      */
-    private static _deferReleaseShadowMap(sh: THREE.LightShadow | undefined | null): void {
-        if (!sh || !sh.map) return;
-        const oldMap = sh.map;
-        // Detach FIRST (invariant L2(a)) — THREE reallocates a fresh depth
-        // attachment on the next shadow pass, and nothing reaches the old one.
-        (sh as { map: unknown }).map = null;
-        scheduleGpuRelease(oldMap as unknown as Parameters<typeof scheduleGpuRelease>[0]);
+    private static _scheduleShadowMapRealloc(sh: THREE.LightShadow | undefined | null): void {
+        if (!sh) return;
+        scheduleShadowMapRealloc(sh as unknown as Parameters<typeof scheduleShadowMapRealloc>[0]);
     }
 
     /**
@@ -251,13 +245,11 @@ export class ShadowQualityUpgrader {
                     (obj.shadow as any).radius = cfg.radius;
                 }
 
-                // Invalidate shadow map so it is regenerated at new resolution.
-                // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) / §SHADOW-DEVICE-LOSS-FIX —
-                // null the map NOW so THREE regenerates it, but DEFER the GPU dispose past
-                // the current frame's submit. Disposing synchronously while a command
-                // buffer still references the texture triggers "Destroyed texture
-                // [ShadowDepthTexture] used in a submit" → device-loss cascade.
-                ShadowQualityUpgrader._deferReleaseShadowMap(obj.shadow);
+                // §SHADOW-MAP-REALLOC-AT-BOUNDARY — request a frame-ordered realloc at
+                // the new resolution. The map is NOT nulled and the old target is NOT
+                // disposed here: the WebGPU ShadowNode owns it and would keep submitting
+                // the destroyed texture forever (the founder's dead-viewport P0).
+                ShadowQualityUpgrader._scheduleShadowMapRealloc(obj.shadow);
             }
         });
 
@@ -297,9 +289,9 @@ export class ShadowQualityUpgrader {
             if ('radius' in sh) {
                 (sh as any).radius = snap.shadowRadius;
             }
-            // §SHADOW-DEVICE-LOSS-FIX — defer the ShadowDepthTexture dispose past the
-            // current submit (was a synchronous sh.map.dispose() — the mid-submit crash).
-            ShadowQualityUpgrader._deferReleaseShadowMap(sh);
+            // §SHADOW-MAP-REALLOC-AT-BOUNDARY — frame-ordered realloc back to the
+            // restored resolution; never disposes the light-owned target from here.
+            ShadowQualityUpgrader._scheduleShadowMapRealloc(sh);
         }
 
         this._snapshots    = [];
@@ -336,10 +328,9 @@ export class ShadowQualityUpgrader {
             if ('radius' in sh) {
                 (sh as any).radius = cfg.radius;
             }
-            // §SHADOW-DEVICE-LOSS-FIX — defer the ShadowDepthTexture dispose past the
-            // current submit (was a synchronous sh.map.dispose() while the WebGPU queue
-            // still referenced it → "Destroyed texture used in a submit" → device lost).
-            ShadowQualityUpgrader._deferReleaseShadowMap(sh);
+            // §SHADOW-MAP-REALLOC-AT-BOUNDARY — frame-ordered realloc at the new
+            // resolution; never nulls/disposes the light-owned target from here.
+            ShadowQualityUpgrader._scheduleShadowMapRealloc(sh);
         }
 
         console.log(`[ShadowQualityUpgrader] Level changed to "${level}"`);
@@ -371,8 +362,11 @@ export class ShadowQualityUpgrader {
         this._renderer.shadowMap.enabled = enabled;
 
         if (!enabled) {
-            // Turn shadows OFF: clear castShadow on the upgraded lights and defer the
-            // release of their ShadowDepthTexture past the current submit.
+            // Turn shadows OFF: clear castShadow on the upgraded lights. The light-owned
+            // shadow map is deliberately LEFT ALONE (§SHADOW-MAP-REALLOC-AT-BOUNDARY /
+            // ADR-0111): on the WebGPU node path, clearing castShadow makes THREE's own
+            // AnalyticLightNode drop its ShadowNode (and the map) on its own schedule;
+            // destroying it from here is the mid-submit use-after-free this fix removes.
             this._lightsShadowDisabled = [];
             for (const snap of this._snapshots) {
                 const light = snap.light;
@@ -380,7 +374,6 @@ export class ShadowQualityUpgrader {
                     light.castShadow = false;
                     this._lightsShadowDisabled.push(light);
                 }
-                ShadowQualityUpgrader._deferReleaseShadowMap(light.shadow);
             }
             console.log(
                 `[ShadowQualityUpgrader] §SHADOW-DEVICE-LOSS-FIX shadows OFF ` +

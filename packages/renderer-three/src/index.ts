@@ -62,7 +62,9 @@ export type { CSS2DParameters } from './addons/CSS2DRenderer.js';
 
 export { mergeGeometries, toCreasedNormals, mergeVertices } from './addons/BufferGeometryUtils.js';
 
-export { EffectComposer, Pass } from './addons/postprocessing/EffectComposer.js';
+export { EffectComposer, Pass, FullScreenQuad } from './addons/postprocessing/EffectComposer.js';
+
+export { Rhino3dmLoader } from './addons/Rhino3dmLoader.js';
 export { RenderPass } from './addons/postprocessing/RenderPass.js';
 export { UnrealBloomPass } from './addons/postprocessing/UnrealBloomPass.js';
 export { OutputPass } from './addons/postprocessing/OutputPass.js';
@@ -158,7 +160,14 @@ export {
   // §RECOVERY-MUST-REFUSE — distinguishes a light-owned shadow resource, which a
   // render-pipeline rebuild cannot replace, so that recovery declines instead.
   isShadowResourceError,
+  // §SHADOW-MAP-REALLOC-AT-BOUNDARY — a light-owned shadow map is NEVER disposed
+  // externally; its resolution change is enqueued here and performed by the frame
+  // owner at the frame boundary (ordered against submission by construction).
+  scheduleShadowMapRealloc,
+  pendingShadowMapReallocCount,
+  drainShadowMapReallocQueue,
 } from './safeDispose.js';
+export type { ReallocatableLightShadow } from './safeDispose.js';
 
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
 // DO NOT REMOVE — auto-fixer guard

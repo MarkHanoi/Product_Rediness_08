@@ -83,6 +83,12 @@ import {
     // §RECOVERY-MUST-REFUSE — a light-owned shadow map cannot be replaced by a
     // pipeline rebuild, so that recovery must decline rather than burn a rebuild.
     isShadowResourceError,
+    // §SHADOW-MAP-REALLOC-AT-BOUNDARY — light-owned shadow-map resolution changes
+    // are queued by their writers (ShadowQualityUpgrader) and performed HERE, at
+    // the frame boundary, so the old texture's destroy is ordered against the
+    // previous frame's submit and the depth pass regenerates before any encoder
+    // references the new one.
+    drainShadowMapReallocQueue,
 } from '../safeDispose';
 const _bus = new DOMEventBus();
 /**
@@ -659,6 +665,20 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // submit is still a frame boundary, and the queue must not grow unbounded
         // while the viewport is zero-size / suspended / paused.
         drainGpuReleaseQueue();
+
+        // ── §SHADOW-MAP-REALLOC-AT-BOUNDARY (founder P0, 2026-08-10) ──────────
+        // Perform any queued light-owned shadow-map resolution changes HERE, at
+        // the same boundary: the previous frame's Queue.submit() has returned
+        // (destroy-after-submit is legal WebGPU) and this frame has not yet
+        // opened a command encoder. `shadow.map.setSize()` lets THREE dispose
+        // and re-create ITS OWN target — external code never destroys a
+        // light-owned texture (ADR-0111 / C04 §SHADOW) — and the following
+        // shadow pass regenerates the depth texture before the main pass samples
+        // it. NOT drained while the shadow map is frozen: a frozen map's depth
+        // pass is suppressed, so a resize-now would leave the main pass sampling
+        // a destroyed, never-regenerated texture; the queue holds the request
+        // until the first unfrozen frame (the thaw's needsUpdate covers regen).
+        if (!this._shadowFrozenState) drainShadowMapReallocQueue();
 
         // ── §L-328 SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET (P1) ─────────
         // NEVER submit a render pass against a zero-size / incomplete framebuffer.
@@ -2791,6 +2811,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 'rebuild before failing anyway. Failing loudly now. Root cause is a shadow-map realloc ' +
                 'not ordered against submission — see §GPU-RESOURCE-LIFETIME L2.',
             );
+            // §RECOVERY-MUST-REFUSE-NO-FLOOD — stop submitting frames we KNOW will
+            // fail validation. Without this latch the render loop kept submitting
+            // against the destroyed ShadowDepthTexture every frame, producing an
+            // endless uncapturederror flood behind the crash dialog (half of the
+            // founder's refuse/recover livelock). The last good frame stays on
+            // screen under the dialog; recoverFromRenderFailure() clears the latch
+            // when it drives its rebuild.
+            this._hasPipelineError = true;
             this._phase = 'error';
             this._emitState();
             return;
@@ -2804,6 +2832,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 '(phase=error) so the user is told, rather than leaving a blocked scene behind a ' +
                 'silent retry or a blank viewport behind no error at all.',
             );
+            // §RECOVERY-MUST-REFUSE-NO-FLOOD — same latch as the shadow refusal above:
+            // once we have declared the fault unrecoverable, keep the render loop from
+            // re-submitting provably-failing frames behind the crash dialog.
+            this._hasPipelineError = true;
             this._phase = 'error';
             this._emitState();
             return;
@@ -2862,11 +2894,72 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._destroyedResourceReports     = 0;
         this._destroyedResourceWindowStart = 0;
         this._retryCount                   = 0;
+        // §RECOVERY-MUST-REFUSE (ADR-0299) companion — do the ONE thing a pipeline
+        // rebuild cannot: force every shadow-casting light to RE-OWN a fresh shadow
+        // map. A shadow-class destroyed-resource fault ("Destroyed texture
+        // [ShadowDepthTexture] used in a submit") lives in the light's WebGPU
+        // ShadowNode, which is unreachable from _rebuildPipeline() — so before this
+        // call the guard's retry rebuilt the post-FX graph, hit the SAME destroyed
+        // light-owned texture on the next submit, refused again, and looped forever
+        // (the founder's refuse/recover livelock). Recreating the light-owned maps
+        // first, then rebuilding, repairs the whole fault class this lever is asked
+        // to recover from. Harmless for non-shadow faults: the fresh maps simply
+        // regenerate on the next shadow pass.
+        this._recreateLightOwnedShadowMaps();
         try {
             this._reconcileRenderSize();
         } catch { /* size reconcile is best-effort; the rebuild is the load-bearing part */ }
         void this._rebuildPipeline();
         return true;
+    }
+
+    /**
+     * §RECOVERY-MUST-REFUSE companion — make every shadow-casting light drop and
+     * re-own its shadow map.
+     *
+     * Mechanism: three r183's `AnalyticLightNode` subscribes to its light's
+     * `'dispose'` event (AnalyticLightNode.js:107) and responds by disposing its
+     * `ShadowNode` — which disposes the node-owned shadow render target
+     * (`ShadowNode._reset()`) and nulls the node's reference. Dispatching the
+     * event (WITHOUT calling `light.dispose()`, which would also tear down the
+     * light itself) is therefore the one sanctioned signal that reaches the
+     * light-owned GPU resource from outside the renderer. The pipeline rebuild
+     * that follows recreates the lighting node graph, which mints a FRESH
+     * ShadowNode + ShadowDepthTexture at the light's current `mapSize`
+     * (AnalyticLightNode.setup → setupShadowNode).
+     *
+     * Called only from the recovery path (never per-frame): at that point the
+     * previous frame's submits have completed, so the dispose is ordered against
+     * submission. Never throws.
+     *
+     * @returns the number of lights signalled.
+     */
+    private _recreateLightOwnedShadowMaps(): number {
+        let count = 0;
+        try {
+            this._scene?.traverse((obj) => {
+                const light = obj as unknown as {
+                    isLight?: boolean;
+                    castShadow?: boolean;
+                    shadow?: unknown;
+                    dispatchEvent?: (ev: { type: string }) => void;
+                };
+                if (light.isLight && light.castShadow && light.shadow) {
+                    try {
+                        light.dispatchEvent?.({ type: 'dispose' } as never);
+                        count++;
+                    } catch { /* one bad light must not abort the recovery sweep */ }
+                }
+            });
+        } catch { /* traverse is best-effort — recovery proceeds to the rebuild */ }
+        if (count > 0) {
+            console.log(
+                `[RenderPipelineManager] §RECOVERY-MUST-REFUSE companion — signalled ${count} ` +
+                'shadow-casting light(s) to re-own fresh shadow maps before the pipeline rebuild ' +
+                '(a light-owned ShadowDepthTexture is unreachable from the rebuild itself).',
+            );
+        }
+        return count;
     }
 
     private _safeDisposeRenderPipeline(): void {

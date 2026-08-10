@@ -216,9 +216,11 @@ export function scheduleGpuRelease(
     const maybe = target as Partial<Object3D> & Partial<Material> & Partial<BufferGeometry> &
         Partial<Texture> & Partial<DisposableGpuTarget>;
     // Render targets FIRST — a WebGLRenderTarget carries a `.texture`, so an
-    // isTexture-style check must not claim it. This is the branch that carries
-    // `LightShadow.map`, the ShadowDepthTexture behind the founder's
-    // "Destroyed texture [ShadowDepthTexture] used in a submit" device loss.
+    // isTexture-style check must not claim it. NOTE (§SHADOW-MAP-REALLOC-AT-
+    // BOUNDARY): a LIGHT-OWNED shadow map (`LightShadow.map`) must NOT be routed
+    // here — the WebGPU ShadowNode keeps its own live reference and would keep
+    // submitting the destroyed texture forever. Use scheduleShadowMapRealloc()
+    // for those; this branch is for targets whose sole owner is the caller.
     if (maybe.isRenderTarget === true && typeof maybe.dispose === 'function') {
         _releaseQueue.push({ kind: 'renderTarget', target: target as DisposableGpuTarget });
         return;
@@ -298,6 +300,129 @@ export function drainGpuReleaseQueue(): number {
         _draining = false;
     }
     return batch.length;
+}
+
+/* ─── §SHADOW-MAP-REALLOC-AT-BOUNDARY (founder P0, 2026-08-10) ────────────────
+ *
+ * A LIGHT-OWNED shadow map must NEVER be destroyed from outside the renderer,
+ * not even via the deferred release queue above. On the WebGPU node path,
+ * three r183's `ShadowNode` holds ITS OWN reference to the render target
+ * (`this.shadowMap`, assigned alongside `shadow.map` — ShadowNode.js:563-564)
+ * and keeps rendering into / sampling it EVERY frame. Externally nulling
+ * `shadow.map` does nothing (the node never re-reads it), and externally
+ * disposing the target destroys the ShadowDepthTexture while:
+ *   • the node's next depth pass still renders into it, and
+ *   • the main pass's cached bind groups still sample it,
+ * so EVERY subsequent `Queue.submit()` references a destroyed texture:
+ *
+ *   Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ *     — While calling [Queue].Submit([[CommandBuffer from CommandEncoder
+ *       "renderContext_1"]])
+ *
+ * — permanently, because the target's SIZE still matches `shadow.mapSize`, so
+ * `ShadowNode.renderShadow()`'s own `shadowMap.setSize()` (ShadowNode.js:662)
+ * never triggers a recreate. No pipeline rebuild can reach it
+ * (§RECOVERY-MUST-REFUSE) → the founder's dead viewport + refuse/recover loop.
+ *
+ * The ONLY safe way to change a live light's shadow-map resolution is to make
+ * THREE's own realloc happen AT A FRAME BOUNDARY: resize the light-owned target
+ * (`shadow.map.setSize(mapSize)`) at the top of a frame — after the previous
+ * frame's `Queue.submit()` has returned (destroy-after-submit is legal WebGPU;
+ * destroy-BEFORE-the-submit-of-a-referencing-command-buffer is the validation
+ * error) and before this frame opens a command encoder. The subsequent shadow
+ * pass then re-creates the GPU textures at the new size through the normal
+ * `updateRenderTarget` path (the same proven-safe mechanism `renderer.setSize`
+ * uses in `_reconcileRenderSize`), and `ShadowNode.renderShadow()`'s own
+ * mid-encode `setSize` becomes a no-op because the sizes already agree.
+ *
+ * Callers (ShadowQualityUpgrader and any other mapSize writer) therefore write
+ * the NEW `shadow.mapSize` on their own tick and enqueue the shadow here; the
+ * frame owner (`RenderPipelineManager.render()`) drains the queue at the frame
+ * boundary. ADR-0111 / C04 §SHADOW rule set: external code never disposes a
+ * light-owned texture — this queue keeps that invariant while still letting the
+ * resolution change land.
+ */
+
+/**
+ * Structural shape of a `THREE.LightShadow` whose map realloc must be ordered
+ * against submission. Structural so this module needs no THREE value import (P2)
+ * and unit tests need no GPU.
+ */
+export interface ReallocatableLightShadow {
+    /** The light-owned render target (ShadowNode.shadowMap === shadow.map), or null before first allocation. */
+    map?: { setSize(width: number, height: number): void; width?: number; height?: number } | null;
+    /** The requested resolution (THREE.Vector2 exposes width/height accessors). */
+    mapSize: { width: number; height: number };
+    /** Set true after a boundary realloc so the depth pass regenerates once. */
+    needsUpdate?: boolean;
+}
+
+/** Shadows whose map size changed and must realloc at the next frame boundary. */
+const _shadowReallocQueue = new Set<ReallocatableLightShadow>();
+
+/**
+ * §SHADOW-MAP-REALLOC-AT-BOUNDARY — request a frame-ordered reallocation of a
+ * light-owned shadow map after its `mapSize` changed.
+ *
+ * O(1), touches no GPU state, callable from any tick (store listener, tier
+ * apply, command handler). Idempotent per shadow (Set-deduplicated) — a burst
+ * of tier changes coalesces into one boundary realloc at the final mapSize.
+ * The caller must NOT null `shadow.map` and must NOT dispose the old target —
+ * both are exactly the defect this queue exists to remove.
+ */
+export function scheduleShadowMapRealloc(sh: ReallocatableLightShadow | null | undefined): void {
+    if (!sh || !sh.mapSize) return;
+    _shadowReallocQueue.add(sh);
+}
+
+/** Number of shadows awaiting a boundary realloc (diagnostics + tests). */
+export function pendingShadowMapReallocCount(): number {
+    return _shadowReallocQueue.size;
+}
+
+/**
+ * §SHADOW-MAP-REALLOC-AT-BOUNDARY — perform every queued shadow-map realloc.
+ * MUST be called only at a frame boundary (top of `RenderPipelineManager.render()`,
+ * alongside {@link drainGpuReleaseQueue}), and NOT while the shadow map is frozen
+ * (a frozen map's depth pass is suppressed, so a destroyed-and-not-yet-regenerated
+ * texture would be sampled by the main pass — the caller gates on the freeze latch
+ * and the queue simply holds entries until the first unfrozen frame).
+ *
+ * For each queued shadow with a live map whose allocated size disagrees with
+ * `mapSize`, calls the target's own `setSize()` — THREE disposes the old GPU
+ * textures here, at the boundary, ordered against submission by construction —
+ * and sets `needsUpdate = true` so the depth pass regenerates exactly once at
+ * the new resolution. A shadow with no live map needs nothing: THREE allocates
+ * at the live `mapSize` on its next shadow pass. Never throws.
+ *
+ * @returns the number of maps actually reallocated.
+ */
+export function drainShadowMapReallocQueue(): number {
+    if (_shadowReallocQueue.size === 0) return 0;
+    const batch = Array.from(_shadowReallocQueue);
+    _shadowReallocQueue.clear();
+    let realloced = 0;
+    for (const sh of batch) {
+        try {
+            const w = sh.mapSize?.width;
+            const h = sh.mapSize?.height;
+            if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) continue;
+            const map = sh.map;
+            if (!map || typeof map.setSize !== 'function') continue; // not yet allocated — THREE will mint at mapSize
+            if (map.width === w && map.height === h) continue;       // already consistent — no churn
+            map.setSize(w, h); // THREE's own dispose+resize, AT the boundary
+            sh.needsUpdate = true;
+            realloced++;
+        } catch (err) {
+            // One bad handle must not strand the rest, and a realloc error at a
+            // frame boundary must never kill the frame.
+            console.warn(
+                '[renderer-three] §SHADOW-MAP-REALLOC-AT-BOUNDARY realloc failed (non-fatal):',
+                err instanceof Error ? err.message : err,
+            );
+        }
+    }
+    return realloced;
 }
 
 /**

@@ -589,11 +589,17 @@ export class RealSunService {
             this._sunLight.castShadow = isAboveHorizon;
             if (this._sunLight.shadow) {
                 this._sunLight.shadow.camera.updateProjectionMatrix();
-                if (this._sunLight.shadow.map) {
-                    const _oldMap = this._sunLight.shadow.map;
-                    (this._sunLight.shadow as any).map = null;
-                    setTimeout(() => { try { _oldMap.dispose(); } catch { /* already gone */ } }, 0);
-                }
+                // §SHADOW-MAP-REALLOC-AT-BOUNDARY (founder P0, 2026-08-10) — this used
+                // to null `shadow.map` and dispose the old target on a setTimeout(0).
+                // On the WebGPU node path that is a use-after-free by construction:
+                // three r183's ShadowNode holds ITS OWN reference to the same target
+                // (ShadowNode.js:563-564) and never re-reads `shadow.map`, so the
+                // deferred dispose destroyed a texture the node kept rendering into and
+                // sampling — "Destroyed texture [ShadowDepthTexture] used in a submit"
+                // on every subsequent frame, unrecoverable by a pipeline rebuild.
+                // Moving a light needs NO map realloc at all: request a one-shot depth
+                // regen via the timing flag (ADR-0111: flags only, never dispose).
+                (this._sunLight.shadow as unknown as { needsUpdate?: boolean }).needsUpdate = true;
             }
         }
 
