@@ -234,6 +234,17 @@ describe('capability-aware refusals', () => {
     expect(nonImperativeReason('how tall is this wall?')).toBe('interrogative');
     expect(nonImperativeReason("don't change the height")).toBe('negated');
     expect(nonImperativeReason('I was thinking about changing the height')).toBe('hypothetical');
+    // §FIX-CHAT-REPORT-PASTEBACK (founder P0) — a DESCRIPTION of what already
+    // happened is never an instruction, however command-shaped it reads.
+    expect(
+      nonImperativeReason(
+        'Built 6 floors — 18 apartments, 3 per apartment floor on average (apartments 72% of the plate)',
+      ),
+    ).toBe('descriptive');
+    expect(nonImperativeReason('Built 6 floors')).toBe('descriptive');
+    expect(nonImperativeReason('3 per apartment floor on average')).toBe('descriptive');
+    expect(nonImperativeReason('add a level at 9m')).toBeNull();
+    expect(nonImperativeReason('build a wall from (0,0) to (5,0)')).toBeNull();
   });
 
   it('no unconnected topic collides with a live capability (no manufactured refusals)', () => {

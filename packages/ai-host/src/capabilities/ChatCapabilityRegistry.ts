@@ -1047,7 +1047,7 @@ const CAPABILITIES: readonly ChatCapability[] = [
     destructive: false,
     busCommand: 'level.add',
     probe: { intent: 'add-level' },
-    examples: ['add a level', 'create a new level at 6m'],
+    examples: ['add a level', 'create a new level at 9m'],
   },
   {
     id: 'duplicate-level',

@@ -68,6 +68,7 @@ export type {
 export {
   capabilityGapRefusal,
   describeCapabilitiesFor,
+  descriptiveReportReason,
   nonImperativeReason,
   unconnectedTopicCommands,
   unconnectedTopicLabels,

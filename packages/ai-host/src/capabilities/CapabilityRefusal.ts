@@ -70,6 +70,53 @@ const NEGATION =
 const HYPOTHETICAL =
   /\b(?:what would happen|what if|would it be possible|i was thinking|i am thinking|i'm thinking|im thinking|i was wondering|i am wondering|i'm wondering|thinking about|wondering about|considering|hypothetically|for example|suppose|imagine|in theory|might want|maybe i should|should i)\b/i;
 
+// ─── Descriptive / report-shaped text — the paste-back guard ─────────────────
+//
+// §FIX-CHAT-REPORT-PASTEBACK (2026-08-10, founder P0, reproduced twice on the
+// live deploy). The founder pasted the assistant's OWN report line back into
+// the chat as a message —
+//
+//   "Built 6 floors — 18 apartments, 3 per apartment floor on average
+//    (apartments 72% of the plate)"
+//
+// — and the ladder CREATED A LEVEL from it. The NL typo corrector rewrote
+// "built" → "build" (distance 1 against the intent vocabulary), the synonym
+// table rewrote "floors" → "level", and the add-level branch fired with the
+// bare 6 read as an elevation: `Add "Level 1" at elevation 6 m`. Repeating the
+// paste stacked a SECOND level at the same 6.000 m.
+//
+// A description of something that already happened is never an instruction.
+// The gate lives HERE, at the ladder level, rather than inside the add-level
+// grammar: every intent reachable by "a bare number + a noun" has the same
+// weakness, and one gate that no grammar can bypass is the only honest fix.
+// (The add-level grammar was hardened too — belt and braces — but the ladder
+// gate is what generalises.)
+
+/** Past-tense report verbs in OPENER position. None of these is ever an
+ *  imperative form ("built" vs "build", "added" vs "add"), so claiming them
+ *  costs the user no expressiveness. */
+const PAST_TENSE_REPORT_OPENER =
+  /^\s*(?:built|created|generated|added|duplicated|furnished|lit|placed|inserted|updated|changed|deleted|removed|renamed|painted|raked|drew|laid|done|finished|completed|applied|resolved|undid|redid|nothing was (?:changed|added|created))\b/i;
+
+/** Report SHAPE anywhere in the text — statistics, percentages, and the chat's
+ *  own transcript furniture. These are things our reports say, not things a
+ *  user instructs with. */
+const REPORT_SHAPE =
+  /(?:\bon average\b|\d\s*%|\bof the plate\b|\bresolved without ai tokens\b|\bundo with ctrl\s*\+?\s*z\b|—\s*\d)/i;
+
+/**
+ * Why an utterance reads as a REPORT rather than an instruction, or `null`.
+ * Exported so the tier-0/1 resolver and the NL layer share ONE definition —
+ * a guard that only half the ladder honours is not a guard.
+ */
+export function descriptiveReportReason(raw: string): 'descriptive' | null {
+  const text = raw.trim();
+  if (text.length === 0) return null;
+  if (PAST_TENSE_REPORT_OPENER.test(text)) return 'descriptive';
+  if (REPORT_SHAPE.test(text)) return 'descriptive';
+  return null;
+}
+
 /**
  * Why an utterance must NOT be executed even though it is command-shaped, or
  * `null` when it is a genuine imperative.
@@ -79,9 +126,12 @@ const HYPOTHETICAL =
  * already handles those, and they ARE imperatives. So the interrogative test
  * fires only for a genuine question: an opener with no polite-request shape.
  */
-export function nonImperativeReason(raw: string): 'negated' | 'hypothetical' | 'interrogative' | null {
+export function nonImperativeReason(
+  raw: string,
+): 'negated' | 'hypothetical' | 'interrogative' | 'descriptive' | null {
   const text = raw.toLowerCase().trim();
   if (text.length === 0) return null;
+  if (descriptiveReportReason(raw) !== null) return 'descriptive';
   if (HYPOTHETICAL.test(text)) return 'hypothetical';
   if (NEGATION.test(text)) return 'negated';
   // "can/could/would you …" and "will you …" are requests, not questions.

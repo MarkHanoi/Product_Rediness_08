@@ -272,6 +272,14 @@ interface Normalized {
   readonly tokens: readonly string[];
   readonly evidence: string[];
   readonly typoCount: number;
+  /**
+   * §FIX-CHAT-REPORT-PASTEBACK — token indices the Levenshtein corrector
+   * REWROTE. The founder's report line reached add-level because "built" was
+   * corrected into the creation verb "build": typo correction may repair a
+   * word the user meant, but it must never MANUFACTURE the imperative that
+   * authorises a mutation. Grammars that key on a verb consult this set.
+   */
+  readonly corrected: ReadonlySet<number>;
   /** "actually / instead / no wait" — the user is revising the last ask. */
   readonly revision: boolean;
 }
@@ -382,19 +390,21 @@ function normalizeNatural(raw: string): Normalized {
   const plain = text;
   // Tokens → number words → synonyms → typo correction → synonyms again.
   let typoCount = 0;
-  const tokens = convertNumberWords(text.split(' ').filter((t) => t.length > 0)).map((tok) => {
+  const corrected = new Set<number>();
+  const tokens = convertNumberWords(text.split(' ').filter((t) => t.length > 0)).map((tok, i) => {
     const syn = NL_SYNONYMS[tok];
     if (syn !== undefined) return syn;
     if (NL_VOCAB.includes(tok) || NL_ELEMENT_NOUNS.has(tok) || SELECTION_REF_WORDS.has(tok) || tok in ORDINALS) return tok;
     const fixed = typoCorrect(tok);
     if (fixed !== null) {
       typoCount += 1;
+      corrected.add(i);
       return NL_SYNONYMS[fixed] ?? fixed;
     }
     return tok;
   });
   if (typoCount > 0) evidence.push(`typo-corrected:${typoCount}`);
-  return { text: tokens.join(' '), plain, tokens, evidence, typoCount, revision };
+  return { text: tokens.join(' '), plain, tokens, evidence, typoCount, revision, corrected };
 }
 
 // ─── Entity extraction ───────────────────────────────────────────────────────
@@ -904,10 +914,21 @@ function classify(
   }
 
   // add-level.
+  //
+  // §FIX-CHAT-REPORT-PASTEBACK — the creation verb must be a REAL imperative:
+  // an uncorrected token in opener position (index 0 or 1 after filler
+  // stripping, which is where an instruction's verb lives). "Built 6 floors —
+  // 18 apartments…" reached this branch because the corrector turned "built"
+  // into "build" and the synonym table turned "floors" into "level"; a bare
+  // "build" is no longer a trigger on its own for the same reason.
+  const imperativeVerbAt = (words: readonly string[]): boolean =>
+    tokens.some((t, i) => i <= 1 && words.includes(t) && !n.corrected.has(i));
   if (
     (tokens.includes('level') || tokens.includes('levels')) &&
-    (tokens.includes('add') || tokens.includes('create') || tokens.includes('build') ||
-      ((tokens.includes('new') || tokens.includes('another')) && e.hasSetVerb)) &&
+    (imperativeVerbAt(['add', 'create']) ||
+      ((tokens.includes('new') || tokens.includes('another')) &&
+        e.hasSetVerb &&
+        imperativeVerbAt(['make', 'set', 'change', 'build', 'add', 'create']))) &&
     !e.hasNavVerb
   ) {
     const elevation = e.measurements[0];

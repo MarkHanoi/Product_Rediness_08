@@ -306,7 +306,10 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
       'go to floor 2',
     ],
   },
-  { id: 'add-level', ctx: {}, phrasings: ['add a level', 'add a level at 6m', 'could you add another floor?'] },
+  // "at 9m" not "at 6m": the acceptance context already has a level at 6 m, and
+  // §FIX-CHAT-LEVEL-ELEVATION-CLASH now refuses an occupied elevation rather
+  // than stacking a second level on top of it (founder P0, 2026-08-10).
+  { id: 'add-level', ctx: {}, phrasings: ['add a level', 'add a level at 9m', 'could you add another floor?'] },
   {
     id: 'duplicate-level',
     ctx: {},
@@ -786,11 +789,47 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     'how tall is the selected wall?',
     'what is the height of this wall?',
     'is this wall 3m tall?',
+    // §FIX-CHAT-REPORT-PASTEBACK (founder P0, 2026-08-10, reproduced twice on
+    // the live deploy). The founder pasted the assistant's OWN report back into
+    // the chat and the ladder CREATED A LEVEL from it — twice, stacking two
+    // levels at 6.000 m. These are the exact strings, verbatim.
+    'Built 6 floors — 18 apartments, 3 per apartment floor on average (apartments 72% of the plate)',
+    'Built 6 floors',
+    '3 per apartment floor on average',
+    'Done — undo with Ctrl+Z. (resolved without AI tokens)',
+    'Created 3 rooms and 12 walls',
+    'Furnished 22 of 24 rooms',
   ])('"%s" produces no command and no local action', (utterance) => {
     const ctx = ctxOf(sel('wall'));
     expect(mutating(resolveUtterance(utterance, ctx)), 'tier 0/1 mutated').toBe(false);
     const nl = resolveNaturalLanguage(utterance, ctx);
     expect(nl.kind === 'resolved' && mutating(nl.resolution), 'NL layer mutated').toBe(false);
+  });
+
+  it('§FIX-CHAT-REPORT-PASTEBACK — the report line is a MISS on every rung of the ladder', () => {
+    // Not merely non-mutating: it must not be RECOGNIZED at all, on tier 0, on
+    // the tier-1 typo path, or by the NL classifier at any confidence. A
+    // clarification ("which level did you mean?") would be almost as wrong —
+    // the user did not ask for anything.
+    const line =
+      'Built 6 floors — 18 apartments, 3 per apartment floor on average (apartments 72% of the plate)';
+    const ctx = ctxOf();
+    expect(resolveUtterance(line, ctx).kind, 'tier 0/1 claimed the report').toBe('miss');
+    expect(resolveNaturalLanguage(line, ctx).kind, 'NL claimed the report').toBe('miss');
+    expect(resolveFull(line, ctx).kind).toBe('miss');
+  });
+
+  it('§FIX-CHAT-REPORT-PASTEBACK — the guard does not swallow real imperatives', () => {
+    // The gate claims past-tense OPENERS and report SHAPE only; every live
+    // creation sentence still lands.
+    for (const [u, id] of [
+      ['add a level', 'add-level'],
+      ['create a new level at 9m', 'add-level'],
+      ['make all walls white', 'set-wall-color'],
+      ['generate a 3-storey residential building', 'generate-building'],
+    ] as const) {
+      expect(intentOf(resolveFull(u, ctxOf())), `"${u}" stopped resolving`).toBe(id);
+    }
   });
 
   it('the negation guard does not swallow ordinary polite requests', () => {
@@ -804,6 +843,34 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
       const nl = resolveNaturalLanguage(u, ctxOf(sel('wall')));
       expect(nl.kind, `"${u}" became ${nl.kind}`).toBe('resolved');
     }
+  });
+});
+
+// ─── §FIX-CHAT-LEVEL-ELEVATION-CLASH (founder P0) ────────────────────────────
+
+describe('add-level never silently stacks two levels at one elevation', () => {
+  it('refuses an occupied elevation, quoting the occupant and the next free one', () => {
+    // The live defect created L1786395410745 @ 6.000 m and then a SECOND level
+    // at the same 6.000 m, with no warning of any kind.
+    const r = resolveFull('add a level at 6m', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('add-level');
+    expect(r.reason).toContain('Level 2 is already at 6 m');
+    expect(r.reason).toContain('nothing was added');
+    expect(r.reason).toContain('add a level at 9 m');
+    expect(r.reason).toContain('duplicate level 2');
+  });
+
+  it('a free elevation still adds, and the default keeps climbing', () => {
+    const explicit = resolveFull('add a level at 9m', ctxOf());
+    expect(explicit.kind).toBe('commands');
+    if (explicit.kind !== 'commands') return;
+    expect(explicit.commands[0]!.payload['elevation']).toBe(9);
+    const dflt = resolveFull('add a level', ctxOf());
+    expect(dflt.kind).toBe('commands');
+    if (dflt.kind !== 'commands') return;
+    expect(dflt.commands[0]!.payload['elevation']).toBe(9);
   });
 });
 

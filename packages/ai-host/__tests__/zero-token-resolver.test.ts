@@ -129,13 +129,31 @@ describe('tier 0 — hits', () => {
     expect(r.levelId).toBe('L2');
   });
 
-  it('"add a level at 6m" → level.add with minted id and elevation 6', () => {
-    const r = expectCommands(resolveUtterance('add a level at 6m', baseCtx()));
+  it('"add a level at 9m" → level.add with minted id and elevation 9', () => {
+    const r = expectCommands(resolveUtterance('add a level at 9m', baseCtx()));
     expect(r.commands[0]!.type).toBe('level.add');
     const p = r.commands[0]!.payload as { levelId: string; name: string; elevation: number };
     expect(p.levelId).toMatch(/^test-id-/);
     expect(p.name).toBe('Level 3');
-    expect(p.elevation).toBe(6);
+    expect(p.elevation).toBe(9);
+  });
+
+  it('§FIX-CHAT-LEVEL-ELEVATION-CLASH — an OCCUPIED elevation refuses, it never stacks', () => {
+    // baseCtx already holds Level 2 @ 6 m. The live founder defect added a
+    // second level at exactly 6.000 m twice over, silently.
+    const r = expectRefusal(resolveUtterance('add a level at 6m', baseCtx()));
+    expect(r.intent).toBe('add-level');
+    expect(r.reason).toContain('Level 2 is already at 6 m');
+    expect(r.suggestions).toContain('add a level at 9 m');
+  });
+
+  it('§FIX-CHAT-REPORT-PASTEBACK — the assistant\'s own report is a MISS, not a command', () => {
+    expect(
+      resolveUtterance(
+        'Built 6 floors — 18 apartments, 3 per apartment floor on average (apartments 72% of the plate)',
+        baseCtx(),
+      ).kind,
+    ).toBe('miss');
   });
 
   it('"create a wall from (0,0) to (5,0) height 3m" → wall.create on the active level', () => {

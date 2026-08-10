@@ -31,7 +31,7 @@ import {
   normalizeElementKind,
   resolveChatCapability,
 } from '../capabilities/ChatCapabilityRegistry.js';
-import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
+import { describeCapabilitiesFor, descriptiveReportReason } from '../capabilities/CapabilityRefusal.js';
 // RAC U4 — the spec-driven capability interpreter: batch-shaped capabilities
 // are TABLE ENTRIES in CapabilityExecutionSpec.ts, executed by the ONE generic
 // arm below (the switch's default). applySemanticIntent remains the single
@@ -1264,6 +1264,30 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       const elevations = ctx.levels.map((l) => l.elevation ?? 0);
       const maxElev = elevations.length > 0 ? Math.max(...elevations) : 0;
       const elevation = si.elevation !== undefined ? round3(si.elevation) : round3(maxElev + 3);
+      // §FIX-CHAT-LEVEL-ELEVATION-CLASH (founder P0, 2026-08-10). The
+      // paste-back defect created TWO levels at 6.000 m with no warning at all
+      // — a silently stacked pair that renders as one floor and breaks every
+      // level-scoped query downstream. Open language in, HARD STOPPER at the
+      // execution layer: an occupied elevation refuses with the real occupant's
+      // name and elevation and the next free elevation, never a silent stack.
+      const EPS = 0.0005;
+      const clash = ctx.levels.find(
+        (l) => Math.abs(round3(l.elevation ?? 0) - elevation) < EPS,
+      );
+      if (clash !== undefined) {
+        let free = round3(maxElev + 3);
+        while (ctx.levels.some((l) => Math.abs(round3(l.elevation ?? 0) - free) < EPS)) {
+          free = round3(free + 3);
+        }
+        return {
+          kind: 'refusal', intent: 'add-level',
+          reason:
+            `${clash.name} is already at ${fmt(elevation)} — nothing was added, because two levels ` +
+            `at the same elevation stack invisibly. Say "add a level at ${fmt(free)}", or ` +
+            `"duplicate ${clash.name.toLowerCase()}" to copy its floor plan.`,
+          suggestions: [`add a level at ${fmt(free)}`, `duplicate ${clash.name.toLowerCase()}`],
+        };
+      }
       return {
         kind: 'commands', intent: 'add-level',
         summary: `Add "${name}" at elevation ${fmt(elevation)}`,
@@ -2447,7 +2471,11 @@ export function resolveUtterance(utterance: string, ctx: ResolverContext): ZeroT
     try {
       const text = normalize(utterance);
       let result: ZeroTokenResolution;
-      if (text.length === 0) {
+      // §FIX-CHAT-REPORT-PASTEBACK — a DESCRIPTION of something that already
+      // happened is never an instruction. Checked on the RAW utterance before
+      // any normalization, and on BOTH tiers, so no grammar can be reached by
+      // pasting the assistant's own report back into the chat.
+      if (text.length === 0 || descriptiveReportReason(utterance) !== null) {
         result = { kind: 'miss' };
       } else {
         // Tier 0 — exact grammar.
