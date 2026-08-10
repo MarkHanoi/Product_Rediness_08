@@ -600,11 +600,34 @@ let _resetDebounce: ReturnType<typeof setTimeout> | null = null;
 /**
  * Call once from EngineBootstrap after viewDefinitionStore is initialized.
  * Registers all event listeners and ensures defaults exist on first call.
+ *
+ * §STARTUP-NO-DOUBLE-DEFAULT-VIEWS (founder 2026-08-10, 3× startup) — `bootEnsure`:
+ *   • 'immediate' (default) — create the defaults synchronously at init, exactly as
+ *     before. Every existing caller and test keeps this behaviour.
+ *   • 'deferred' — the editor's boot path. `bootstrap()` only ever runs while a project
+ *     OPEN is in flight (it needs a live canvas + project context), and that open
+ *     resets/loads `viewDefinitionStore` moments later — so the immediate boot-time
+ *     ensure created all 6 system views into a store that was about to be wiped, and
+ *     the production log showed every "Created default …" line TWICE per startup.
+ *     Deferred mode arms the SAME 300 ms fallback the `vd:store-reset` path already
+ *     uses: if the project open resets/loads the store first (the normal case), that
+ *     pass is the ONLY creation; if nothing arrives in 300 ms, the fallback creates
+ *     the defaults anyway — the guarantee is kept, just no longer paid twice.
  */
-export function initDefaultViewsManager(): void {
-    // Boot-time guarantee: create defaults immediately (handles brand-new
-    // projects and projects that were already loaded before this call).
-    ensureDefaultViews();
+export function initDefaultViewsManager(opts?: { bootEnsure?: 'immediate' | 'deferred' }): void {
+    if (opts?.bootEnsure === 'deferred') {
+        // §STARTUP-NO-DOUBLE-DEFAULT-VIEWS — one deferred pass; superseded by
+        // vd:store-loaded (which clears this debounce below) or re-armed by vd:store-reset.
+        if (_resetDebounce !== null) clearTimeout(_resetDebounce);
+        _resetDebounce = setTimeout(() => {
+            _resetDebounce = null;
+            ensureDefaultViews();
+        }, 300);
+    } else {
+        // Boot-time guarantee: create defaults immediately (handles brand-new
+        // projects and projects that were already loaded before this call).
+        ensureDefaultViews();
+    }
 
     // After every project snapshot deserialize: top-up any missing defaults.
     // This covers projects saved before this feature was added.

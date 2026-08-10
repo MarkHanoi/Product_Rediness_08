@@ -78,6 +78,13 @@ export interface IsolationLeakReport {
         surface: string;
         count: number;
         details?: unknown;
+        /** §STARTUP-C13-IDENTITY (founder 2026-08-10) — human-readable WHO for each
+         *  leaked id (`"<id> ⇐ <elementType> \"<scene name>\""`), so the collapsed
+         *  console line names the culprit without devtools expansion. Report-only:
+         *  the audit still never auto-repairs (ADR-0298). Only `scene.foreignElement`
+         *  populates this today; `details` keeps its bare-id shape (pinned by tests +
+         *  downstream consumers). */
+        identities?: string[];
     }>;
 }
 
@@ -276,6 +283,9 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     // §C13-SCENE-ID-KEY — deduped so a wall's root + its N part meshes (which all
     // carry the SAME id) count as ONE foreign element, not N.
     const foreignSceneIdSet = new Set<string>();
+    // §STARTUP-C13-IDENTITY — first-seen identity per foreign id (type + scene name),
+    // so the report can NAME the leaked object, not just number it.
+    const foreignSceneIdentity = new Map<string, string>();
 
     for (const obj of sceneObjects) {
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
@@ -295,6 +305,14 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
             const id = sceneElementId(ud);
             if (id !== null && sceneElementType(ud) != null && !expectedIds!.has(id)) {
                 foreignSceneIdSet.add(id);
+                // §STARTUP-C13-IDENTITY — keep the first-seen identity (the root usually
+                // scans before its part meshes; any of them names the same element).
+                if (!foreignSceneIdentity.has(id)) {
+                    foreignSceneIdentity.set(
+                        id,
+                        `${id} ⇐ ${String(sceneElementType(ud))}${name ? ` "${name}"` : ''}`,
+                    );
+                }
             }
         }
     }
@@ -347,7 +365,7 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (underlayCount > 0)        findings.push({ surface: 'scene.underlay',        count: underlayCount });
     if (ifcCount > 0)             findings.push({ surface: 'scene.ifc',             count: ifcCount });
     if (dxfCount > 0)             findings.push({ surface: 'scene.dxf',             count: dxfCount });
-    if (foreignSceneIds.length)   findings.push({ surface: 'scene.foreignElement',  count: foreignSceneIds.length, details: foreignSceneIds.slice(0, 20) });
+    if (foreignSceneIds.length)   findings.push({ surface: 'scene.foreignElement',  count: foreignSceneIds.length, details: foreignSceneIds.slice(0, 20), identities: foreignSceneIds.slice(0, 20).map(id => foreignSceneIdentity.get(id) ?? id) });
     if (foreignStoreCount > 0)    findings.push({ surface: 'store.foreignElement',  count: foreignStoreCount, details: foreignStoreDetails });
     if (globals.length > 0)       findings.push({ surface: 'window.globals',        count: globals.length, details: globals });
     if (foreignScopes.length)     findings.push({ surface: 'scope.foreignProject',   count: foreignScopes.length, details: foreignScopes });
@@ -606,8 +624,17 @@ export function installProjectIsolationAudit(): void {
             // id? a GIS scope probe?) — was invisible without expanding the object in
             // devtools nobody had open. The structured findings still follow for
             // detail; the summary makes the collapsed line self-sufficient.
+            // §STARTUP-C13-IDENTITY (founder 2026-08-10) — when a finding carries
+            // identities (scene.foreignElement), put the first few IN the string, so the
+            // empty-first-load `scene.foreignElement×1` names its culprit right in the
+            // collapsed line. Report-only — the audit never auto-repairs (ADR-0298).
             const surfaceSummary = report.findings
-                .map((f) => `${f.surface}×${f.count}`)
+                .map((f) => {
+                    const who = Array.isArray(f.identities) && f.identities.length > 0
+                        ? ` (${f.identities.slice(0, 3).join('; ')}${f.count > 3 ? '; …' : ''})`
+                        : '';
+                    return `${f.surface}×${f.count}${who}`;
+                })
                 .join(', ');
             console.error(
                 `[C13 VIOLATION] Project-isolation leak detected on load of ${projectId} — ` +

@@ -71,6 +71,7 @@ import { ensureEngineWarm } from '@app/engine/engineWarmup';
 // counterpart of the engine warm above (same start-earlier-skip-nothing shape), plus the one
 // end-to-end startup phase budget every startup perf claim is measured against.
 import { ensureCesiumWarm } from '@app/engine/cesiumWarmup';
+import { requestEagerGlobeStart } from '@app/engine/eagerGlobeStart';
 import { beginStartupBudget, markStartupPhase } from '@app/engine/startupBudget';
 // PRYZM-EARTH-ONBOARDING PRD Phase 2 — DOM-free typology-seed resolver (see
 // resolveSeededTypologyId.ts header for why this lives outside PlatformRouter).
@@ -656,6 +657,12 @@ export class PlatformRouter {
         markStartupPhase('onboarding:shown');
         markStartupPhase('cesium:warm-start');
         ensureCesiumWarm();
+        // §STARTUP-EAGER-GLOBE (founder 2026-08-10) — beyond warming the CHUNK, ask the engine
+        // boot this onboarding is about to trigger to CONSTRUCT + MOUNT the Cesium viewer
+        // eagerly (warm-hidden), in parallel with the rest of the boot, so the location step's
+        // `toggleGIS(true)` is a visibility flip instead of a cold viewer construction. One-shot;
+        // consumed by `mountGISArea` during the boot.
+        requestEagerGlobeStart();
 
         const registry = this.runtime?.typology?.registry;
         if (!registry) {

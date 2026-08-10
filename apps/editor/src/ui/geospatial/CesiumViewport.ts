@@ -63,6 +63,7 @@ import { zCss } from "../layout/zLayers";
 // single colour authority), and extrudes `[baseHeightM, topHeightM]` — it never re-derives a height.
 import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS, SUGGESTED_AMBER_CSS } from "../site/envelopeRenderStyle";
 import type { MassingSolid } from "@pryzm/site-parcel-data";
+import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from "./contextExtents";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, buildSeaMaskFromCoastline, type ContextWaterCollection } from "./contextWater";
 // §FEAT-FORMA-SEA-CONTEXT (L-637) — the live coastline supplement only exists to compensate for
@@ -590,7 +591,8 @@ const CONTEXT_FAR_RENDER_RADIUS_M = CONTEXT_BBOX_FAR_HALF_DEG * 111_320;   // ~1
  * no land-use still degrades to a quiet no-op — and where OSM simply has NO land-use polygon (a real
  * coverage gap) the base brown honestly shows through; it is never fabricated grey.
  */
-const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 9;                   // 0.072° ≈ 8 km radius (city ground)
+// §CTX-WARM-ALL-LAYERS (founder 2026-08-10) — now imported from `contextExtents.ts` (ONE
+// authority shared with the onboarding warm-up, so warm + render hit the same tile keys).
 /**
  * §FORMA-CTX-SEA-EXTENT (L-642, founder — "the sea should not be a square … it should cover all the
  * sea, the immensity") — the SEA gets its OWN, much larger extent than the city ground so the open
@@ -599,7 +601,7 @@ const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 9;                   // 0.
  * + honest — inland (no coastline in range) it is still a quiet no-op. ~11 km radius: past the horizon
  * of a normal 3D-Site zoom, so the coast stops reading as an island edge.
  */
-const CONTEXT_SEA_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 12.5;                 // 0.10° ≈ 11 km radius (the immensity)
+// §CTX-WARM-ALL-LAYERS — see `contextExtents.ts` (imported below with the wide extent).
 
 /**
  * §FIX-SEA-COVERAGE-GATE (L-807) — what fraction of the seaward bbox do these sea
@@ -2115,7 +2117,26 @@ export class CesiumViewport {
       // Cesium builds took a positional `key` argument.
       //
       // Branch order: ion token → google key → keyless fallback.
-      let photogrammetryLoaded = false;
+      //
+      // §STARTUP-GLOBE-COMPLETE-FIRST (founder 2026-08-10, 3× first paint) — the photoreal
+      // tileset is now attached ASYNCHRONOUSLY instead of `await`-ed on the mount critical
+      // path. Two measured costs motivated this:
+      //   (a) `fromIonAssetId` is an ion-endpoint metadata round-trip (asset resolve +
+      //       tileset.json) that sat between "viewer constructed" and `resolveReady()`, so
+      //       `globe:camera-host-ready` paid a network RTT before the user saw ANYTHING; and
+      //   (b) the old `globe.show = !photogrammetryLoaded` hid the ellipsoid the moment the
+      //       tileset object existed — long before its tiles had STREAMED — so the first
+      //       visible frames were a PARTIAL sphere (patches of photoreal tiles over the void).
+      // Now the viewer becomes ready immediately with the COMPLETE base-imagery globe
+      // (ESRI World Imagery streams in seconds at world LOD); the photoreal skin attaches
+      // when its metadata resolves and the ellipsoid is hidden only on the tileset's OWN
+      // `initialTilesLoaded` signal — i.e. when the photoreal surface genuinely covers the
+      // view. First paint is always a complete globe that REFINES, never a partial sphere.
+      //
+      // Late-attach is an already-supported state: §PLOT-CLEAR-PHOTOREAL (L-429) re-applies
+      // the parcel void to a tileset that loads after commit, and the ground clamp
+      // (§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF) retries ~14 s + re-arms its tiles-loaded
+      // hook on every pass, so a placement racing the attach re-clamps once tiles land.
 
       // Apply the shared sharpness/quality props to whichever tileset we load.
       const applyTilesetQuality = (tileset: Cesium.Cesium3DTileset): void => {
@@ -2162,16 +2183,22 @@ export class CesiumViewport {
         } catch { /* unknown Cesium build — leave tileset defaults */ }
       };
 
-      if (_cesiumToken) try {
-        const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(
-          2275207 // Google Photorealistic 3D Tiles
-        );
-
+      // §STARTUP-GLOBE-COMPLETE-FIRST — attach a resolved photoreal tileset to the live
+      // scene. Runs whenever the async factory resolves (typically well under a second);
+      // everything here is the EXACT body the old awaited branches ran, plus the
+      // initialTilesLoaded-gated ellipsoid hide that closes the partial-sphere window.
+      const attachPhotorealTileset = (tileset: Cesium.Cesium3DTileset, path: string): void => {
+        if (!this.isViewerLive()) {
+          // Viewer disposed while the metadata round-trip was in flight (quick open→close).
+          try { tileset.destroy(); } catch { /* best-effort */ }
+          return;
+        }
         applyTilesetQuality(tileset);
-
+        // Respect a Forma mode entered while the tileset was resolving — applyFormaMode
+        // hides every Cesium3DTileset (§2); a late arrival must not punch through it.
+        tileset.show = !this.formaMode;
         // Add tileset without auto-zoom
-        this.viewer.scene.primitives.add(tileset);
-        photogrammetryLoaded = true;
+        this.viewer!.scene.primitives.add(tileset);
         // §GLOBE-TILE-CLAMP-FLUSH — keep the primitive so the clamp can bounding-sphere
         // it as a fallback ground height when picking returns ellipsoid-0.
         this.photorealTileset = tileset;
@@ -2181,10 +2208,40 @@ export class CesiumViewport {
         // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
         // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
         this.photorealTilesActive = true;
-        console.log("✅ Google Photorealistic 3D Tiles loaded — ion-token path (no auto zoom)");
-      } catch (err) {
-        console.error("❌ Failed to load photogrammetry (ion-token path):", err);
-      } else if (_googleMapsKey) try {
+        // Hide the base-imagery ellipsoid only once the photoreal skin actually COVERS the
+        // current view — `initialTilesLoaded` fires when the tileset's initial LOD for the
+        // camera has streamed. Until then the complete base globe is the ground truth on
+        // screen. Guarded: an old Cesium build without the event keeps the base globe under
+        // the tiles (visually fine — tiles draw on top; restorePhotorealMode() later applies
+        // `globe.show = !tilesetShown` on the next view round-trip anyway).
+        try {
+          const ev = tileset as unknown as {
+            initialTilesLoaded?: { addEventListener?: (cb: () => void) => void };
+          };
+          ev.initialTilesLoaded?.addEventListener?.(() => {
+            if (!this.isViewerLive()) return;
+            if (this.formaMode) return; // Forma owns the globe surface (flat ground) — leave it.
+            this.viewer!.scene.globe.show = false;
+            this.viewer!.scene.requestRender();
+            console.log(
+              '[gis][cesium] §STARTUP-GLOBE-COMPLETE-FIRST — photoreal initial tiles loaded; ' +
+                'base-imagery globe handed off to the photoreal surface.',
+            );
+          });
+        } catch { /* no initialTilesLoaded on this build — base globe stays underneath */ }
+        this.viewer!.scene.requestRender();
+        console.log(`✅ Google Photorealistic 3D Tiles loaded — ${path} (attached async, no auto zoom)`);
+      };
+
+      if (_cesiumToken) {
+        void Cesium.Cesium3DTileset.fromIonAssetId(
+          2275207 // Google Photorealistic 3D Tiles
+        ).then((tileset) => {
+          attachPhotorealTileset(tileset, 'ion-token path');
+        }).catch((err) => {
+          console.error("❌ Failed to load photogrammetry (ion-token path):", err);
+        });
+      } else if (_googleMapsKey) {
         // Feature-detect the direct Google Maps Platform path. Modern Cesium:
         // `createGooglePhotorealistic3DTileset(options)` with `{ key }`; some
         // builds accept a positional `(key, options)`. Guard for both.
@@ -2204,30 +2261,15 @@ export class CesiumViewport {
           );
         } else {
           // Try the modern option-bag signature first; fall back to positional.
-          let tileset: Cesium.Cesium3DTileset;
-          try {
-            tileset = await factory({ key: _googleMapsKey });
-          } catch {
-            tileset = await factory(_googleMapsKey);
-          }
-
-          applyTilesetQuality(tileset);
-
-          // Add tileset without auto-zoom
-          this.viewer.scene.primitives.add(tileset);
-          photogrammetryLoaded = true;
-          // §GLOBE-TILE-CLAMP-FLUSH — keep the primitive for the bounding-sphere fallback.
-          this.photorealTileset = tileset;
-        // §PLOT-CLEAR-PHOTOREAL (L-429) — a tileset can load AFTER the parcel was committed
-        // (globe entered post-draw), so re-apply the parcel void to the freshly-placed tiles.
-        this.applyParcelClipToPhotorealTiles();
-          // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
-          // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
-          this.photorealTilesActive = true;
-          console.log("✅ Google Photorealistic 3D Tiles loaded — google-key path (no auto zoom)");
+          void factory({ key: _googleMapsKey })
+            .catch(() => factory(_googleMapsKey))
+            .then((tileset) => {
+              attachPhotorealTileset(tileset, 'google-key path');
+            })
+            .catch((err) => {
+              console.error("❌ Failed to load photogrammetry (google-key path):", err);
+            });
         }
-      } catch (err) {
-        console.error("❌ Failed to load photogrammetry (google-key path):", err);
       } else {
         console.log(
           '[gis][cesium] no credential (VITE_CESIUM_TOKEN / VITE_GOOGLE_MAPS_KEY) → ' +
@@ -2235,10 +2277,31 @@ export class CesiumViewport {
         );
       }
 
-      // Only hide globe if photogrammetry actually loaded
-      this.viewer.scene.globe.show = !photogrammetryLoaded;
+      // §STARTUP-GLOBE-COMPLETE-FIRST — the base-imagery globe is ALWAYS shown at mount so
+      // the first visible frame is a complete earth; the photoreal attach above hides it on
+      // its own initialTilesLoaded. (Previously `globe.show = !photogrammetryLoaded` here —
+      // an ellipsoid hidden before the photoreal tiles had streamed = partial sphere.)
+      this.viewer.scene.globe.show = true;
 
-      if (!photogrammetryLoaded) {
+      // §STARTUP-GLOBE-COMPLETE-FIRST — bias the globe SURFACE cache toward "complete
+      // fast": preload the sibling/ancestor tiles around the visible set so a coarse but
+      // COMPLETE globe is resident immediately (ancestors are the safety net that paints
+      // the whole sphere at low LOD while leaves stream), and give the surface cache room
+      // (default 100 tiles) so world→city descent doesn't evict-and-refetch the frames the
+      // user just watched. Costs memory only while the base globe is shown; it is hidden
+      // once photoreal tiles cover the view.
+      try {
+        const globeSurface = this.viewer.scene.globe as unknown as {
+          preloadSiblings?: boolean;
+          preloadAncestors?: boolean;
+          tileCacheSize?: number;
+        };
+        if (typeof globeSurface.preloadSiblings === 'boolean') globeSurface.preloadSiblings = true;
+        if (typeof globeSurface.preloadAncestors === 'boolean') globeSurface.preloadAncestors = true;
+        if (typeof globeSurface.tileCacheSize === 'number') globeSurface.tileCacheSize = 600;
+      } catch { /* older Cesium build — defaults are still correct, just slower to complete */ }
+
+      if (!_cesiumToken && !_googleMapsKey) {
         console.warn("⚠️ Falling back to default Cesium globe");
       }
 
@@ -8015,12 +8078,22 @@ export class CesiumViewport {
     // building seats on its OWN relief. THE FIX for "buildings sit below the terrain": getHeight is
     // unusable in Forma (globe show=false → garbage), so without this every building sat at one flat base
     // while roads draped on the real relief. `sampleGround` reads this cache first. No-op on flat/keyless.
-    const groundCentroids: Array<{ lat: number; lon: number }> = [];
-    for (const f of nearTiers.shadowed) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) groundCentroids.push(c); }
-    for (const f of nearTiers.demoted) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) groundCentroids.push(c); }
-    for (const f of far.features) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) groundCentroids.push(c); }
-    await this.sampleContextGroundsBatch(groundCentroids);
-    if (signal.aborted || !this.viewer || this.viewer !== viewer) return; // a newer load superseded us during the sample.
+    // §STARTUP-TERRAIN-SAMPLE-SPLIT (founder 2026-08-10, GIS speed) — the single 6,000-point
+    // batch (`resolved 6332/6332` on the founder's run) gated the ENTIRE context paint on the
+    // slowest far-tier terrain tile. Split it: the NEAR tiers (the buildings the user is looking
+    // at) await only their OWN sample, while the FAR ring's sample starts NOW in parallel and is
+    // awaited just before the far tier is placed (below) — so the near neighbourhood paints as
+    // soon as its ground is known, and total wall time is max(near, far) instead of one combined
+    // round-trip sized by the far ring. Cache + honesty semantics unchanged (same method, same
+    // per-point cache, §STARTUP-TERRAIN-SAMPLE-REUSE retention).
+    const nearGroundCentroids: Array<{ lat: number; lon: number }> = [];
+    for (const f of nearTiers.shadowed) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
+    for (const f of nearTiers.demoted) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
+    const farGroundCentroids: Array<{ lat: number; lon: number }> = [];
+    for (const f of far.features) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) farGroundCentroids.push(c); }
+    const farGroundSample = this.sampleContextGroundsBatch(farGroundCentroids); // starts immediately, in parallel
+    await this.sampleContextGroundsBatch(nearGroundCentroids);
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) { void farGroundSample.catch(() => { /* superseded */ }); return; } // a newer load superseded us during the sample.
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — resolve the SAFE base ONCE for this placement so an
     // un-tessellated footprint under attached relief can never fall back to a depth-culling ~0.
@@ -8223,6 +8296,11 @@ export class CesiumViewport {
     // beyond the near circle (the far fetch + the demoted corners) rendered as ONE batched, shadowless,
     // single-shared-material low-poly primitive — RADIALLY culled to a disc + count-capped, so the
     // ADR-0094 large-scene budget holds (no 4× solid extrusions, the rejected fast-but-wrong path).
+    // §STARTUP-TERRAIN-SAMPLE-SPLIT — the far ring's own ground sample (started in parallel with
+    // the near one, above) must land before the far tier seats, or its footprints would fall back
+    // to the safe base on relief cities. The near tiers are already on screen at this point.
+    await farGroundSample;
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return; // superseded during the far sample.
     const farSplit = this.plotClearSplit(far.features, parcelLonLat);
     this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
 
@@ -12971,8 +13049,35 @@ export class CesiumViewport {
     this.reflowContainer();
   }
 
+  /**
+   * §STARTUP-EAGER-GLOBE (founder 2026-08-10, 3× project-launch globe) — put the container into
+   * a WARM-HIDDEN state: laid out (display:block ⇒ the canvas gets its real dimensions, so the
+   * viewer starts requesting imagery/terrain tiles immediately) but invisible and inert
+   * (visibility:hidden + pointer-events:none ⇒ nothing paints over the BIM/hub surface and no
+   * clicks are intercepted). The old default — display:none until the GIS toggle — left the
+   * container 0×0 at viewer creation, so tile streaming only STARTED when the globe became
+   * visible; this state lets the eager boot-parallel mount stream the whole first frustum while
+   * the engine is still booting. `setVisible(true|false)` both clear this state fully.
+   */
+  public enterWarmHiddenState(): void {
+    if (!this.container) return;
+    this.container.style.display = "block";
+    this.container.style.visibility = "hidden";
+    this.container.style.pointerEvents = "none";
+    console.log('[gis][cesium] §STARTUP-EAGER-GLOBE — warm-hidden state: laid out (tiles can stream), invisible + inert.');
+    if (this.viewer) this.forceResizeAndRender('enterWarmHiddenState');
+    else void this.whenReady().then(() => {
+      // Still warm-hidden (or now visible) → measure the real container; torn down → no-op.
+      if (this.container.style.display !== 'none') this.forceResizeAndRender('warmHidden→whenReady');
+    });
+  }
+
   public setVisible(visible: boolean): void {
     if (!this.container) return;
+    // §STARTUP-EAGER-GLOBE — leaving the warm-hidden state by EITHER direction restores the
+    // container's normal visibility/pointer contract.
+    this.container.style.visibility = "";
+    this.container.style.pointerEvents = "auto";
     if (visible) {
       this.container.style.display = "block";
       this.container.style.zIndex = String(CESIUM_Z);

@@ -730,7 +730,13 @@ export async function initUI(p: UIParams): Promise<void> {
     // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — this ALSO guarantees one plan view
     // per project level (created on 'bim-level-added', topped up on every project
     // load so a pre-L-720 snapshot gains its upper-floor plans on open).
-    initDefaultViewsManager();
+    // §STARTUP-NO-DOUBLE-DEFAULT-VIEWS (founder 2026-08-10) — 'deferred': bootstrap()
+    // only runs while a project open is in flight, and that open resets/loads the view
+    // store moments later — the old immediate ensure created all 6 system views TWICE
+    // per startup (once here into a store about to be wiped, once on project load).
+    // Deferred mode leans on the manager's own 300 ms vd:store-reset fallback, so the
+    // guarantee ("defaults always exist") is unchanged; only the wasted pass is gone.
+    initDefaultViewsManager({ bootEnsure: 'deferred' });
 
     // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — plan-view EXISTENCE is above; this
     // binds the ACTIVE plan view to the ACTIVE level in both directions, so every

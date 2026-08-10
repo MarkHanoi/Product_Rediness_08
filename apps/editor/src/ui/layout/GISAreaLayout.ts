@@ -14,6 +14,11 @@ import type { UIProps } from '../Layout';
 // always-on pills under root-level chrome (toolbar 9000, nav rail 9999).
 import { launcherRailStyle } from './zLayers';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+// §STARTUP-EAGER-GLOBE (founder 2026-08-10) — the one-shot onboarding→engine-boot seam that asks
+// this layout to start the Cesium init in parallel with the rest of the boot, plus the startup
+// budget marks the eager path reports on.
+import { consumeEagerGlobeStart } from '../../engine/eagerGlobeStart';
+import { markStartupPhase } from '../../engine/startupBudget';
 // L-445 — `getLastBuildableEnvelope` is the FULL envelope incl. the derivation trace (facts
 // card only; legitimately null after a reload, and shown as such rather than fabricated).
 // `resolveRenderableBuildableEnvelope` is the GEOMETRY read for renderers — it falls back to
@@ -220,6 +225,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let _resolveCameraHostReady: (() => void) | null = null;
     let isBimPlacedOnEarth = false;
     let _gisActive = false;
+    // §STARTUP-EAGER-GLOBE (founder 2026-08-10) — the ONE in-flight/settled first-init promise.
+    // Both entry points (an eager boot-parallel start requested by onboarding, and the classic
+    // `toggleGIS(true)` first activation) funnel through `ensureGisInitialized()`, so the viewer
+    // is constructed at most once no matter how the two race.
+    let gisInitPromise: Promise<void> | null = null;
+    // §STARTUP-EAGER-GLOBE — TRUE once the first `toggleGIS(true)` visibility flip has run.
+    // Distinguishes "initialized eagerly but never yet shown" (a plain visibility flip — the
+    // behaviour the classic first activation had) from a genuine RE-activation (which re-runs
+    // the §L-193 placement restore). Without this, an eager init would make the hero's very
+    // first `toggleGIS(true)` take the re-entry branch and run a placement restore the classic
+    // first activation never ran.
+    let gisEverActivated = false;
     // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193, Symptom B) — set true
     // by an orchestrator (applyResultView('3D') globe entry / engageFormaCesium Forma entry)
     // around its own `toggleGIS(true)` call so the re-activation branch does NOT ALSO place
@@ -419,6 +436,161 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         });
     };
 
+    // §CESIUM-GIZMO-DETACH (founder 2026-06-19) — the BIM TransformControls gizmo's
+    // stock three.js "helper" axis lines (scaled ~1e6, recolored to PRYZM violet in
+    // initTransformControllers: X→#6600FF, Z→#7B3FF2) are the near-infinite
+    // green/purple lines at the building corner that composite through into the
+    // Cesium view when a wall is selected. Detach the gizmo on GIS entry so no helper
+    // lines are live; it reattaches on reselect back in the BIM view (real geometry +
+    // in-editor snapping untouched). Carrier-independent: kills the lines whether or
+    // not the BIM canvas is fully hidden. (§STARTUP-EAGER-GLOBE — hoisted to mount
+    // scope so the shared first-activation flip below can use it too.)
+    const detachBimGizmoForGis = () => {
+        try {
+            (globalThis as unknown as { transformControls?: { detach?: () => void } }).transformControls?.detach?.();
+        } catch { /* noop */ }
+    };
+
+    /**
+     * §STARTUP-EAGER-GLOBE (founder 2026-08-10, 3× project-launch globe) — THE first-init body
+     * `toggleGIS(true)` always ran, extracted so it can ALSO start EAGERLY, in parallel with the
+     * rest of the engine boot (consumed from `requestEagerGlobeStart()` below). Everything here
+     * is the exact work the old first-activation branch did — construct + mount the ONE
+     * CesiumViewport, wire the bridge and the site-authoring surfaces — EXCEPT visibility:
+     * the viewer mounts HIDDEN (warm-hidden in eager mode so the canvas has real dimensions and
+     * tiles stream; plain display:none in activation mode, as before) and the visibility flip
+     * lives in `finishFirstGisActivation()`, which the activation path runs the moment the init
+     * settles. Idempotent: one promise, shared by both entry points, however they race.
+     */
+    const ensureGisInitialized = (mode: 'activation' | 'eager'): Promise<void> => {
+        if (gisInitPromise) return gisInitPromise;
+        const viewport = document.getElementById('container');
+        if (!viewport) {
+            console.error("GIS: Viewport container not found");
+            return Promise.resolve();
+        }
+        // §SITE-ENTRY-GLOBE-READY — arm the gate for this first init; resolved once
+        // `cesiumViewport.mount()` (and its post-mount camera placement) settles, whichever way
+        // (success or failure — a failed mount must not hang a caller awaiting readiness forever).
+        _cameraHostReady = new Promise<void>((resolve) => { _resolveCameraHostReady = resolve; });
+        // PERF-FIX-#1: Load Cesium and CesiumThreeBridge dynamically here,
+        // co-located with the CesiumViewport import that already fires on first use.
+        // Both imports are batched in Promise.all so they download in parallel.
+        gisInitPromise = Promise.all([
+            import('../geospatial/CesiumViewport'),
+            getCesium(),
+            import('@pryzm/plugin-geospatial'),
+            // A.8.a/A.8.c — GIS site-authoring surfaces (lazy-loaded with Cesium).
+            import('../site/siteGeocodeSearchBox'),
+            import('../geospatial/SiteBoundaryDrawTool'),
+        ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }]) => {
+            if (!cesiumViewport) {
+                cesiumViewport = new CesiumViewport(viewport, runtime ?? null /* B-runtime-thread CesiumViewport */);
+                // §L-446 — resolve CAPTURED-THEN-WINDOW, the pattern §L-412 already established
+                // here and `getFormaBoundary` uses for the store. The captured `runtime` is NULL
+                // on the live boot path by DESIGN (`createMainLayout(props, null)`); `window.runtime`
+                // IS published at bootstrap() start, BEFORE initUI, so it is populated by the time
+                // this lazy import resolves. setRuntime() is idempotent and never downgrades a
+                // live runtime to null.
+                const resolvedRuntime =
+                    runtime ??
+                    (typeof window !== 'undefined'
+                        ? ((window as { runtime?: unknown }).runtime as
+                            | import('@pryzm/runtime-composer/types').PryzmRuntime
+                            | undefined) ?? null
+                        : null);
+                cesiumViewport.setRuntime(resolvedRuntime);
+                // §STARTUP-EAGER-GLOBE — in eager mode the container lays out INVISIBLY so the
+                // viewer is created at real dimensions and base-imagery tiles stream during the
+                // engine boot, instead of starting 0×0 and waiting for the visibility flip.
+                if (mode === 'eager') cesiumViewport.enterWarmHiddenState();
+                await cesiumViewport.mount();
+                console.log(`GIS: Cesium viewer mounted successfully (${mode} init)`);
+                // §SITE-ENTRY-GLOBE-READY — the viewer is genuinely live now (mount() above
+                // already awaited `resolveReady()`); a camera command issued from here on lands
+                // on the real viewer, not a dropped no-op. (Visibility is a separate flip —
+                // Cesium camera state is independent of it.)
+                _resolveCameraHostReady?.();
+                _resolveCameraHostReady = null;
+                const viewer = cesiumViewport.getViewer();
+                if (viewer) {
+                    // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — wire the bridge to the
+                    // OWNER via a provider, not a captured viewer.
+                    bridge = new CesiumThreeBridge(() => cesiumViewport?.getViewer() ?? null, props.world);
+                    bridge.activate();
+
+                    // Set anchor for Sydney Opera House (Default)
+                    const lon = 151.2153;
+                    const lat = -33.8568;
+                    const height = 0;
+                    const cartesian = Cesium.Cartesian3.fromDegrees(lon, lat, height);
+                    bridge.setAnchor(cartesian);
+
+                    isGisInitialized = true;
+
+                    // A.8.a — mount the address-search box. Mounted HIDDEN — the first
+                    // activation flip (or the re-activation branch) shows it, so an EAGER init
+                    // never floats a search box over the boot/hub surface.
+                    geocodeBox = mountSiteGeocodeSearchBox({
+                        parent: viewport,
+                        runtime: runtime ?? null,
+                        onFlyTo: (result) => {
+                            // A.8.c.f.2 — capture the bbox so the 2D Hektar
+                            // map can fit the exact plot when opened.
+                            lastGeocodeFrame = { lat: result.lat, lon: result.lon, bbox: result.bbox };
+                            noteLayoutOwner(); // §L-676-B — this frame belongs to THIS project.
+                            // §SITE-FRAME-ON-TERRAIN (L-635) — DO NOT fly here at a raw ellipsoid
+                            // altitude; the geocode box dispatches site.updateLocation →
+                            // CesiumViewport's terrain-aware frameSiteLocation samples the REAL
+                            // ground height and frames the §SITE-VIEWPOINT-CONSISTENT preset
+                            // above it — correct on every city.
+                            console.log('[gis] camera → terrain-aware site framing for', result.displayName);
+                        },
+                    });
+                    geocodeBox.element.style.display = 'none';
+
+                    // A.8.c — construct the polygon-draw tool (started on demand
+                    // via startBoundaryDraw()).
+                    boundaryTool = new SiteBoundaryDrawTool({
+                        viewer,
+                        Cesium,
+                        runtime: runtime ?? null,
+                        getOrigin: getSiteOrigin,
+                    });
+                    // A.8.c.f — DevTools console entry points. The default
+                    // pryzmStartBoundaryDraw() now opens the Hektar 2D map
+                    // (the draw surface); pryzmStartBoundaryDraw3D() keeps the
+                    // legacy Cesium-globe draw as a fallback.
+                    window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
+                    window.pryzmStartBoundaryDraw3D = () => boundaryTool?.start();
+                    window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
+                    console.log('[gis] site-authoring surfaces ready (geocode search + 2D Hektar boundary map). Run pryzmStartBoundaryDraw() for the 2D draw, pryzmStartBoundaryDraw3D() for the Cesium draw.');
+                }
+            }
+        }).catch((err: any) => {
+            console.error("GIS: Error mounting Cesium viewer:", err);
+            // §SITE-ENTRY-GLOBE-READY — a failed mount must not hang a caller awaiting
+            // readiness forever; resolve (not reject) so `frameCurrent()` still runs its
+            // best-effort attempt against whatever `getCameraHost()` returns.
+            _resolveCameraHostReady?.();
+            _resolveCameraHostReady = null;
+            // Allow the next activation to retry cold — same best-effort recovery as before.
+            gisInitPromise = null;
+        });
+        return gisInitPromise;
+    };
+
+    /** §STARTUP-EAGER-GLOBE — the FIRST activation's visibility flip (the only part of the old
+     *  first-activation branch that `ensureGisInitialized` deliberately does not do). Guarded on
+     *  `_gisActive` so an init that settles AFTER the user already left GIS stays hidden. */
+    const finishFirstGisActivation = (): void => {
+        if (!_gisActive || !cesiumViewport) return;
+        gisEverActivated = true;
+        detachBimGizmoForGis();
+        cesiumViewport.setVisible(true);
+        if (geocodeBox) geocodeBox.element.style.display = '';
+    };
+
     const toggleGIS = (active: boolean) => {
         _gisActive = active;
         console.log("GIS toggle activated:", active);
@@ -427,20 +599,6 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.error("GIS: Viewport container not found");
             return;
         }
-
-        // §CESIUM-GIZMO-DETACH (founder 2026-06-19) — the BIM TransformControls gizmo's
-        // stock three.js "helper" axis lines (scaled ~1e6, recolored to PRYZM violet in
-        // initTransformControllers: X→#6600FF, Z→#7B3FF2) are the near-infinite
-        // green/purple lines at the building corner that composite through into the
-        // Cesium view when a wall is selected. Detach the gizmo on GIS entry so no helper
-        // lines are live; it reattaches on reselect back in the BIM view (real geometry +
-        // in-editor snapping untouched). Carrier-independent: kills the lines whether or
-        // not the BIM canvas is fully hidden.
-        const detachBimGizmoForGis = () => {
-            try {
-                (globalThis as unknown as { transformControls?: { detach?: () => void } }).transformControls?.detach?.();
-            } catch { /* noop */ }
-        };
 
         if (active) {
             console.log("GIS: Activating geospatial view...");
@@ -454,140 +612,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
 
             if (!isGisInitialized) {
-                // §SITE-ENTRY-GLOBE-READY — arm the gate for this first activation; resolved
-                // once `cesiumViewport.mount()` (and its post-mount camera placement) settles,
-                // whichever way (success or failure — a failed mount must not hang a caller
-                // awaiting readiness forever).
-                _cameraHostReady = new Promise<void>((resolve) => { _resolveCameraHostReady = resolve; });
-                // PERF-FIX-#1: Load Cesium and CesiumThreeBridge dynamically here,
-                // co-located with the CesiumViewport import that already fires on first use.
-                // Both imports are batched in Promise.all so they download in parallel.
-                Promise.all([
-                    import('../geospatial/CesiumViewport'),
-                    getCesium(),
-                    import('@pryzm/plugin-geospatial'),
-                    // A.8.a/A.8.c — GIS site-authoring surfaces (lazy-loaded with Cesium).
-                    import('../site/siteGeocodeSearchBox'),
-                    import('../geospatial/SiteBoundaryDrawTool'),
-                ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }]) => {
-                    if (!cesiumViewport) {
-                        cesiumViewport = new CesiumViewport(viewport, runtime ?? null /* B-runtime-thread CesiumViewport */);
-                        // §L-446 — re-inject on every activation. The constructor above runs
-                        // inside a lazy Promise.all import that can resolve BEFORE a runtime
-                        // exists; the probe confirmed runtime=NULL in production, which pinned
-                        // project north at 0 permanently and rendered the model in PROJECT
-                        // space on a TRUE-north globe. setRuntime() is idempotent and never
-                        // downgrades a live runtime to null, so calling it here is safe and
-                        // heals the viewport as soon as the runtime is available.
-                        // §L-446 — resolve CAPTURED-THEN-WINDOW, the pattern §L-412 already
-                        // established here and `getFormaBoundary` uses for the store.
-                        //
-                        // The captured `runtime` is NULL on the live boot path by DESIGN:
-                        // `createMainLayout(props, null)` (Layout.ts:86, initUI.ts). The §L-446
-                        // probe confirmed the consequence in production —
-                        //   [§L-446] runtime=NULL siteModelStore=MISSING trueNorth=undefined
-                        // — so project north read 0 forever and the model rendered in PROJECT
-                        // space on a TRUE-north globe.
-                        //
-                        // `window.runtime` IS published at bootstrap() start, BEFORE initUI, so
-                        // it is populated by the time this lazy import resolves. This is the
-                        // third consumer of the same documented boot-order gap, and it uses the
-                        // same resolution rather than inventing a new one.
-                        const resolvedRuntime =
-                            runtime ??
-                            (typeof window !== 'undefined'
-                                ? ((window as { runtime?: unknown }).runtime as
-                                    | import('@pryzm/runtime-composer/types').PryzmRuntime
-                                    | undefined) ?? null
-                                : null);
-                        cesiumViewport.setRuntime(resolvedRuntime);
-                        await cesiumViewport.mount();
-                        // GIS-CESIUM-ZRAISE — the Cesium container now defaults to
-                        // display:none (so it never floats over the BIM view before
-                        // GIS is toggled). The FIRST-init path mounts but previously
-                        // relied on the container being visible by default — now we
-                        // must explicitly show it (raises z-index above the BIM
-                        // WebGPU overlay + hides the BIM canvases + resizes).
-                        detachBimGizmoForGis();
-                        cesiumViewport.setVisible(true);
-                        console.log("GIS: Cesium viewer mounted successfully");
-                        // §SITE-ENTRY-GLOBE-READY — the viewer is genuinely live now (mount()
-                        // above already awaited `resolveReady()`) and visible; a camera command
-                        // issued from here on lands on the real viewer, not a dropped no-op.
-                        _resolveCameraHostReady?.();
-                        _resolveCameraHostReady = null;
-                        const viewer = cesiumViewport.getViewer();
-                        if (viewer) {
-                            // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — wire the bridge to the
-                            // OWNER via a provider, not a captured viewer. A WebGPU device-loss
-                            // recovery disposes+recreates CesiumViewport's viewer; the provider
-                            // re-reads the CURRENT one on every activate() so the bridge never
-                            // binds to (and reads `.scene` off) a disposed viewer.
-                            bridge = new CesiumThreeBridge(() => cesiumViewport?.getViewer() ?? null, props.world);
-                            bridge.activate();
-
-                            // Set anchor for Sydney Opera House (Default)
-                            const lon = 151.2153;
-                            const lat = -33.8568;
-                            const height = 0;
-                            const cartesian = Cesium.Cartesian3.fromDegrees(lon, lat, height);
-                            bridge.setAnchor(cartesian);
-
-                            isGisInitialized = true;
-
-                            // A.8.a — mount the address-search box. onFlyTo flies the
-                            // Cesium camera to the picked result (bbox if available,
-                            // else a framed point); the box itself dispatches
-                            // site.updateLocation (no Cesium import in that module).
-                            geocodeBox = mountSiteGeocodeSearchBox({
-                                parent: viewport,
-                                runtime: runtime ?? null,
-                                onFlyTo: (result) => {
-                                    // A.8.c.f.2 — capture the bbox so the 2D Hektar
-                                    // map can fit the exact plot when opened.
-                                    lastGeocodeFrame = { lat: result.lat, lon: result.lon, bbox: result.bbox };
-                                    noteLayoutOwner(); // §L-676-B — this frame belongs to THIS project.
-                                    // §SITE-FRAME-ON-TERRAIN (L-635) — DO NOT fly here at a raw ellipsoid
-                                    // altitude (bbox at ellipsoid 0 / point at 600 m). On a high-relief city
-                                    // (Madrid ~700 m) that lands the camera UNDER the terrain, so the 3D Site
-                                    // reads BLANK until the user zooms out (Barcelona's ~12 m ground stayed
-                                    // below the 600 m frame, so it looked fine). The geocode box dispatches
-                                    // site.updateLocation → CesiumViewport's now terrain-aware frameSiteLocation
-                                    // samples the REAL ground height and frames the §SITE-VIEWPOINT-CONSISTENT
-                                    // preset ABOVE it — correct on every city, and it IS the founder's
-                                    // "always the same camera position" request. So we no longer suppress it
-                                    // nor double-fly a coarser ellipsoid frame here; we delegate to it.
-                                    console.log('[gis] camera → terrain-aware site framing for', result.displayName);
-                                },
-                            });
-
-                            // A.8.c — construct the polygon-draw tool (started on demand
-                            // via startBoundaryDraw()).
-                            boundaryTool = new SiteBoundaryDrawTool({
-                                viewer,
-                                Cesium,
-                                runtime: runtime ?? null,
-                                getOrigin: getSiteOrigin,
-                            });
-                            // A.8.c.f — DevTools console entry points. The default
-                            // pryzmStartBoundaryDraw() now opens the Hektar 2D map
-                            // (the draw surface); pryzmStartBoundaryDraw3D() keeps the
-                            // legacy Cesium-globe draw as a fallback.
-                            window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
-                            window.pryzmStartBoundaryDraw3D = () => boundaryTool?.start();
-                            window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
-                            console.log('[gis] site-authoring surfaces ready (geocode search + 2D Hektar boundary map). Run pryzmStartBoundaryDraw() for the 2D draw, pryzmStartBoundaryDraw3D() for the Cesium draw.');
-                        }
-                    }
-                }).catch((err: any) => {
-                    console.error("GIS: Error mounting Cesium viewer:", err);
-                    // §SITE-ENTRY-GLOBE-READY — a failed mount must not hang a caller awaiting
-                    // readiness forever; resolve (not reject) so `frameCurrent()` still runs its
-                    // best-effort attempt against whatever `getCameraHost()` returns (possibly
-                    // `null`, which the camera port already handles by logging and no-op'ing).
-                    _resolveCameraHostReady?.();
-                    _resolveCameraHostReady = null;
-                });
+                // §STARTUP-EAGER-GLOBE — the classic first activation. If an eager boot-parallel
+                // init is already in flight this JOINS it (one shared promise); otherwise it
+                // starts the same init cold, exactly as before. The visibility flip runs the
+                // moment the init settles (guarded on _gisActive, so a user who left GIS while
+                // the mount was in flight never gets a surprise globe).
+                void ensureGisInitialized('activation').then(() => finishFirstGisActivation());
+            } else if (!gisEverActivated) {
+                // §STARTUP-EAGER-GLOBE — the eager init finished BEFORE the first activation:
+                // the viewer is live and warm-hidden with its first frustum already streamed.
+                // A plain visibility flip is the WHOLE cost of entering the globe now — and it
+                // deliberately does NOT run the §L-193 re-entry placement restore, because this
+                // is the FIRST activation, which never ran one.
+                console.log("GIS: first activation of the eagerly-initialized Cesium viewer — visibility flip only.");
+                finishFirstGisActivation();
             } else {
                 console.log("GIS: Re-activating existing Cesium viewer");
                 // A.8.a — re-show the geocode search box overlay with the GIS view.
@@ -1317,6 +1355,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // pryzmStartBoundaryDraw. Registered here (not inside the async Cesium mount)
     // so it works BEFORE Cesium has mounted — calling it kicks off the mount.
     window.pryzmToggleGIS = (active: boolean) => toggleGIS(active);
+
+    // §STARTUP-EAGER-GLOBE (founder 2026-08-10, 3× project-launch globe) — onboarding announced
+    // a globe-first flow BEFORE this engine boot started (`PlatformRouter.showOnboarding` →
+    // `requestEagerGlobeStart()`). Start the Cesium init NOW, in parallel with the remaining
+    // boot (stores/bridges/tools/UI still to come), into a WARM-HIDDEN container so the base
+    // imagery streams while the user is still watching the loading overlay. One-shot + scoped:
+    // a hub project open (no onboarding) never consumes the flag, so nothing eager-mounts there.
+    if (consumeEagerGlobeStart()) {
+        markStartupPhase('globe:eager-init-start'); // §STARTUP-BUDGET
+        void ensureGisInitialized('eager').then(() => {
+            markStartupPhase('globe:eager-init-done'); // §STARTUP-BUDGET
+        });
+    }
 
     // PRYZM-EARTH-ONBOARDING PRD Milestone 2 (§9/§10) — resolve the ONE Cesium viewport as a
     // `GlobeCameraHost` for `GlobeHeroSearch`/`SiteEntryStore`. A resolver over the closure
