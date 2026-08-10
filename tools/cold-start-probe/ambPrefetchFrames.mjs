@@ -4,7 +4,7 @@
 // Writes nothing to out/ — everything lands in the gitignored .cache/.
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fetchMunicipalityGml } from './catastroParcelFrame.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

@@ -102,7 +102,7 @@ for (const [isl, k] of Object.entries(UNIFORM_PER_ISLAND)) {
 // ── ARM C · certainty stratum (largest fitxes, censused) ────────────────────
 const byArea = [...inventory].sort((a, b) => b.areaM2 - a.areaM2);
 const armC = byArea.slice(0, CERTAINTY_N);
-const armCUrls = new Set(armC.map((e) => e.url));
+const _armCUrls = new Set(armC.map((e) => e.url));
 const remainder = byArea.slice(CERTAINTY_N);
 const totalArea = inventory.reduce((s, e) => s + e.areaM2, 0);
 const certaintyArea = armC.reduce((s, e) => s + e.areaM2, 0);
@@ -150,7 +150,7 @@ const results = new Map();
 const errors = [];
 const queue = [...fetchSet.values()];
 let done = 0;
-async function worker(wid) {
+async function worker(_wid) {
   while (queue.length) {
     const item = queue.shift();
     if (!item) break;
@@ -242,7 +242,7 @@ const uRows = [...results.values()].filter((r) => r.arms.includes('U'));
 const islandFitxaTotals = Object.fromEntries(
   Object.entries(byIsland).map(([k, v]) => [k, v.length]),
 );
-const allFitxaTotal = Object.values(islandFitxaTotals).reduce((s, n) => s + n, 0);
+const _allFitxaTotal = Object.values(islandFitxaTotals).reduce((s, n) => s + n, 0);
 function d1(indicator) {
   let acc = 0, wsum = 0;
   const per = {};

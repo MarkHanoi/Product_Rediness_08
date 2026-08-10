@@ -1189,6 +1189,10 @@ export class PlanViewManager implements IPlanViewManager {
         try {
             drawing.onDisposed.trigger();
         } catch {
+            // §SWALLOW-TEARDOWN — this drawing was REJECTED before it was ever shown;
+            // firing its disposal hook is a courtesy to listeners that may not exist.
+            // A throwing hook must not propagate out of a rejection path and mask the
+            // rejection itself, which the caller has already handled.
         }
     }
 

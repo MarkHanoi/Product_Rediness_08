@@ -82,7 +82,13 @@ export async function importIfcLevelsAndViews(
     const getExistingLevels = (): LevelRecord[] => {
         try {
             if (typeof bimManager?.getLevels === 'function') return bimManager.getLevels();
-        } catch (_) {}
+        } catch (err) {
+            // §HONESTY — this used to be silent, and the `return []` below is
+            // indistinguishable from "the project genuinely has no levels". That is the
+            // difference between skipping a duplicate storey and creating a second copy
+            // of every level in the project.
+            console.warn('[IfcLevelImporter] bimManager.getLevels() FAILED — treating the project as having no levels; duplicate levels may be created.', err);
+        }
         return [];
     };
 

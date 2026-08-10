@@ -177,7 +177,7 @@ const num = (s) => {
 
 const PCT_UNIT = /^(%|percentatge)/i;
 const M2_UNIT = /(m2|m²)/i;
-const M_UNIT = /^m\b|^metres|^m$/i;
+const _M_UNIT = /^m\b|^metres|^m$/i;
 
 /**
  * Classify one parameter into { status, value, units, verdict, why }.

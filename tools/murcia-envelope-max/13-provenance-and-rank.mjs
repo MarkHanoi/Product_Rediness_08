@@ -19,19 +19,19 @@
 //   is not the same object, and reporting "Murcia cites more" would be comparing a
 //   provenance rate for a thing Murcia does not publish.
 
-import { wfsJson, writeOut, HERE } from './lib.mjs';
+import { writeOut, HERE } from './lib.mjs';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { classify } from './detect.mjs';
 import { join } from 'node:path';
 
 const REFRESH = process.argv.includes('--refresh');
-const O = { refresh: REFRESH };
+const _O = { refresh: REFRESH };
 const report = { step: 13, measuredAt: new Date().toISOString(), notes: [] };
 
 // ── 13a · CHANNEL A — instrument provenance, per municipality ───────────────
 console.log('\n== 13a · CHANNEL A: BORM instrument citation, per municipality ==');
 const s3 = JSON.parse(readFileSync(join(HERE, 'out', '03-universes-and-currency.json'), 'utf8'));
-const s12 = JSON.parse(readFileSync(join(HERE, 'out', '12-currency-verdict.json'), 'utf8'));
+const _s12 = JSON.parse(readFileSync(join(HERE, 'out', '12-currency-verdict.json'), 'utf8'));
 const s9 = JSON.parse(readFileSync(join(HERE, 'out', '09-wfs-parameter-census.json'), 'utf8'));
 
 const zoned = new Set(s9.perMunicipality.map((r) => r.municipio));
@@ -64,7 +64,7 @@ console.log(`  ⚠ this cites the INSTRUMENT, not a parameter`);
 // ── 13b · CHANNEL B — article strings inside harvested fichas ───────────────
 console.log('\n== 13b · CHANNEL B: article strings inside the ficha ==');
 const RAW = join(HERE, 'raw-fichas');
-const ART = /\b(?:art[íi]?culo?s?\.?|art\.?|artº|arts?\.)\s*º?\s*\d+[\d.\-\/]*/gi;
+const ART = /\b(?:art[íi]?culo?s?\.?|art\.?|artº|arts?\.)\s*º?\s*\d+[\d.\-/]*/gi;
 const fichas = [];
 if (existsSync(RAW)) {
   for (const f of readdirSync(RAW)) {

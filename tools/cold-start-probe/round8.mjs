@@ -18,7 +18,7 @@ for (const [cc, u] of T) {
   const r = await get(u);
   const rec = { cc, url: u, http: r.http, bytes: r.body?.length };
   if (r.ok) {
-    const urls = [...new Set([...r.body.matchAll(/https?:\/\/[A-Za-z0-9._\-]+(?:\/[A-Za-z0-9._\-~%/]*)?/g)].map((m) => m[0]))];
+    const urls = [...new Set([...r.body.matchAll(/https?:\/\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._\-~%/]*)?/g)].map((m) => m[0]))];
     rec.svc = urls.filter((x) => /geoserver|arcgis|wms|wfs|rest\/services|MapServer|ows|mapas|servicios|geoportal/i.test(x)).slice(0, 30);
     const ft = [...new Set([...r.body.matchAll(/<(?:wfs:)?Name>([^<]+)<\/(?:wfs:)?Name>/g)].map((x) => x[1]))];
     if (ft.length) rec.layers = ft.slice(0, 60);

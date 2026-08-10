@@ -28,6 +28,47 @@ import { debug } from '@pryzm/core-app-model';
 import type { IfcElementRecord } from './IfcModelStore';
 import { resolveLengthUnitScale, type IfcLengthUnitRecord } from './IfcUnitScale';
 
+// ── §HONESTY-IFC-SKIP (lint sweep 2026-08-09) ───────────────────────────────
+// Sixteen `catch (_) {}` blocks in this file used to swallow per-entity parse
+// failures outright. That made a malformed IFC indistinguishable from a small
+// one: sites, buildings, storeys, space boundaries and whole property sets
+// vanished from the import and the importer reported success. §CONTEXT-DATA-
+// HONESTY — a refusal and an empty result must not be the same value.
+//
+// Skipping the entity is still the right RECOVERY (one bad line must not abort
+// a 200 MB model), so the control flow is unchanged; only the silence is gone.
+// Logging is capped per scope so a systematically broken file cannot flood the
+// console, and `getIfcSkipTotals()` exposes the true counts to callers that
+// want to surface them in the import summary.
+const IFC_SKIP_LOG_CAP = 5;
+const ifcSkipCounts = new Map<string, number>();
+
+function noteIfcSkip(scope: string, err: unknown): void {
+    const n = (ifcSkipCounts.get(scope) ?? 0) + 1;
+    ifcSkipCounts.set(scope, n);
+    if (n <= IFC_SKIP_LOG_CAP) {
+        console.warn(
+            `[IfcImporter] SKIPPED a ${scope} entity — it is MISSING from the imported model.`,
+            err,
+        );
+    } else if (n === IFC_SKIP_LOG_CAP + 1) {
+        console.warn(
+            `[IfcImporter] further ${scope} skips suppressed; call getIfcSkipTotals() for the count.`,
+        );
+    }
+}
+
+/** Per-scope count of IFC entities dropped during import. Never silently zero. */
+export function getIfcSkipTotals(): Record<string, number> {
+    return Object.fromEntries(ifcSkipCounts);
+}
+
+/** Reset the skip tally — call before starting a fresh import. */
+export function resetIfcSkipTotals(): void {
+    ifcSkipCounts.clear();
+}
+
+
 // ── Result Types ─────────────────────────────────────────────────────────────
 
 export interface ImportedRoom {
@@ -250,7 +291,7 @@ export class IfcImporter {
                     name: this.extractLabel(site.Name) ?? `Site ${lineID}`,
                     type: 'site',
                 });
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFCSITE', err); }
         }
 
         // ── Hierarchy: Buildings ─────────────────────────────────────────────
@@ -265,7 +306,7 @@ export class IfcImporter {
                     type: 'building',
                     parentId: parentSiteId,
                 });
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFCBUILDING', err); }
         }
 
         // ── Hierarchy: Storeys ───────────────────────────────────────────────
@@ -298,7 +339,7 @@ export class IfcImporter {
                     elevation,
                 });
                 storeyRecords.push({ id: levelId, name, elevation });
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFCBUILDINGSTOREY', err); }
         }
 
         // Sort ascending by elevation so levels are always bottom → top
@@ -324,7 +365,7 @@ export class IfcImporter {
                         if (spaceId) spaceToStorey.set(spaceId, storeyLabel);
                     }
                 }
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFCRELCONTAINEDINSPATIALSTRUCTURE (space→storey)', err); }
         }
 
         // ── Property sets: map IfcSpace → pset map ───────────────────────────
@@ -366,7 +407,7 @@ export class IfcImporter {
                                 ? (nomVal.value ?? String(nomVal))
                                 : nomVal;
                         }
-                    } catch (_) {}
+                    } catch (err) { noteIfcSkip('IFCPROPERTYSINGLEVALUE (space pset property)', err); }
                 }
 
                 for (const objId of relObjects) {
@@ -374,7 +415,7 @@ export class IfcImporter {
                     if (!spacePsets.has(objId)) spacePsets.set(objId, new Map());
                     spacePsets.get(objId)!.set(psetName, psetProps);
                 }
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFCRELDEFINESBYPROPERTIES (space pset)', err); }
         }
 
         // ── Spaces ───────────────────────────────────────────────────────────
@@ -449,7 +490,7 @@ export class IfcImporter {
                     const relType = name === 'PRYZM_AdjacentTo' ? 'adjacentTo' : 'boundedBy';
                     relationships.push({ type: relType, sourceId: srcPryzm, targetId: tgtPryzm });
                 }
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFCRELSPACEBOUNDARY', err); }
         }
 
         const isPryzmExported = rooms.some(r => r.pryzmTemplateCode != null || r.pryzmTemplateName != null);
@@ -691,9 +732,9 @@ export class IfcImporter {
                 try {
                     const storey = this.api.GetLine(modelID, lineID, false);
                     storeyNames.set(lineID, this.extractLabel(storey.Name) ?? `Level ${lineID}`);
-                } catch (_) {}
+                } catch (err) { noteIfcSkip('IFCBUILDINGSTOREY (name lookup)', err); }
             }
-        } catch (_) {}
+        } catch (err) { noteIfcSkip('IFCBUILDINGSTOREY sweep', err); }
 
         try {
             const containmentLines = this.api.GetLineIDsWithType(modelID, WEBIFC.IFCRELCONTAINEDINSPATIALSTRUCTURE);
@@ -711,9 +752,9 @@ export class IfcImporter {
                     for (const elId of relatedIds) {
                         elementToStorey.set(elId, relatingId);
                     }
-                } catch (_) {}
+                } catch (err) { noteIfcSkip('IFCRELCONTAINEDINSPATIALSTRUCTURE (element→storey)', err); }
             }
-        } catch (_) {}
+        } catch (err) { noteIfcSkip('IFCRELCONTAINEDINSPATIALSTRUCTURE sweep', err); }
 
         // ── Query each physical type ──────────────────────────────────────────
         for (const [typeConstant, typeName, rawIfcType] of IFC_PHYSICAL_TYPES) {
@@ -737,9 +778,9 @@ export class IfcImporter {
                             storeyExpressID,
                             psets:           {},
                         });
-                    } catch (_) {}
+                    } catch (err) { noteIfcSkip('IFC element record', err); }
                 }
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFC element type sweep', err); }
         }
 
         // ── Extract property sets for all physical elements (§28 §3.3) ────────
@@ -790,16 +831,16 @@ export class IfcImporter {
                                         ? (nomVal.value ?? String(nomVal))
                                         : nomVal;
                                 }
-                            } catch (_) {}
+                            } catch (err) { noteIfcSkip('IFCPROPERTYSINGLEVALUE (element pset property)', err); }
                         }
 
                         for (const objId of relevantIds) {
                             if (!elementPsets.has(objId)) elementPsets.set(objId, {});
                             elementPsets.get(objId)![psetName] = psetProps;
                         }
-                    } catch (_) {}
+                    } catch (err) { noteIfcSkip('IFCRELDEFINESBYPROPERTIES (element pset)', err); }
                 }
-            } catch (_) {}
+            } catch (err) { noteIfcSkip('IFCRELDEFINESBYPROPERTIES sweep', err); }
 
             // Attach psets to records
             for (const record of records) {

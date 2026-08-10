@@ -81,6 +81,11 @@ export function escapeHtml(s: string): string {
  */
 export function safeHref(url: string): string {
   const raw = (url ?? '').trim();
+  // Matching C0/C1 control characters IS the point of this line: it strips the
+  // `java\tscript:` / `java\nscript:` scheme-splitting bypasses before the scheme
+  // is parsed. The rule that forbids control characters in regexes cannot also
+  // govern the sanitiser whose whole job is to find them.
+  // eslint-disable-next-line no-control-regex
   const probe = raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(probe);
   if (scheme && !/^https?$/i.test(scheme[1] ?? '')) {

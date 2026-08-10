@@ -68,10 +68,14 @@ function sameLoop(
   return true;
 }
 
+// eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6: mirrors
+// CreatePool — four stores is the truthful declaration; see the rationale there.
 export class DeletePoolHandler implements CommandHandler<DeletePoolPayload, PoolHandlerStores> {
   readonly type = 'pool.delete';
 
   /** The same four stores the create touched — the delete must be able to undo it. */
+  // eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6: mirrors
+  // CreatePool — four stores is the truthful declaration; see the rationale there.
   readonly affectedStores = ['pool', 'wall', 'slab', 'water'] as const;
 
   canExecute(ctx: HandlerContext<PoolHandlerStores>, cmd: DeletePoolPayload): ValidationResult {

@@ -145,7 +145,7 @@ async function entryChunkGate() {
     console.error(`[bundle-size] entry-chunk FAIL — esbuild error: ${err.message ?? err}`);
     failed++;
   } finally {
-    try { rmSync(outDir, { recursive: true, force: true }); } catch {}
+    try { rmSync(outDir, { recursive: true, force: true }); } catch { /* §SWALLOW-TEARDOWN — scratch dir cleanup; force:true already tolerates ENOENT */ }
   }
 }
 

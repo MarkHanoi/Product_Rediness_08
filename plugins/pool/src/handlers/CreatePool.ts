@@ -98,6 +98,10 @@ type PoolHandlerStores = Readonly<
   } & Record<string, unknown>
 >;
 
+// eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6: this command
+// REALLY writes four stores; declaring fewer drops the undeclared stores' patches
+// from undo routing (Ctrl+Z would remove the pool but leave the hole in the floor).
+// The rule has no multi-store option; the declaration below is the truth.
 export class CreatePoolHandler implements CommandHandler<CreatePoolPayload, PoolHandlerStores> {
   readonly type = 'pool.create';
 
@@ -107,6 +111,10 @@ export class CreatePoolHandler implements CommandHandler<CreatePoolPayload, Pool
    * Ctrl+Z would then remove the pool but LEAVE THE HOLE IN THE FLOOR, which the
    * ticket names as "worse than no feature".
    */
+  // eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6: this command
+  // REALLY writes four stores; declaring fewer drops the undeclared stores' patches
+  // from undo routing (Ctrl+Z would remove the pool but leave the hole in the
+  // floor). The rule has no multi-store option; the declaration is the truth.
   readonly affectedStores = ['pool', 'wall', 'slab', 'water'] as const;
 
   canExecute(ctx: HandlerContext<PoolHandlerStores>, cmd: CreatePoolPayload): ValidationResult {

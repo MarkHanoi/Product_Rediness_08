@@ -29,7 +29,7 @@ const rows = [];
 for (const city of ['barcelona', 'murcia', 'madrid', 'valencia', 'cordoba']) {
     const j = JSON.parse(readFileSync(join(HERE, 'out', `${city}.determination.json`), 'utf8'));
     const pred = RECLASS[city];
-    let env = 0, refT = 0, refD = 0, noPack = 0, nonB = 0, moved = 0;
+    let env = 0, refT = 0, refD = 0, noPack = 0, _nonB = 0, moved = 0;
     for (const r of j.rows) {
         if (!r.cat) continue;
         let cat = r.cat;
@@ -38,7 +38,7 @@ for (const city of ['barcelona', 'murcia', 'madrid', 'valencia', 'cordoba']) {
         else if (cat === 'refusal-terminal') refT++;
         else if (cat === 'refusal-delegated') refD++;
         else if (cat === 'no-pack') noPack++;
-        else if (cat === 'nonBuildable') nonB++;
+        else if (cat === 'nonBuildable') _nonB++;
     }
     const n = env + refT + refD + noPack;
     const det = (env + refT + refD) / n;

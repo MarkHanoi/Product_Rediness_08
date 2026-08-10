@@ -1080,7 +1080,13 @@ export class ProjectLoader {
             // Phase 8.2 — Style cache pre-warming (background micro-task)
             // Pre-resolves styles for all known element types so the first render
             // frame is served from cache (Contract 25a §8.2 — target < 0.5ms cold resolve).
-            setTimeout(() => { try { prewarmIntentStyleCache(); } catch { } }, 0);
+            setTimeout(() => {
+        // §SWALLOW-OPTIONAL — cache PREWARM only. Every consumer of the intent-style
+        // cache populates it lazily on first use, so a failed prewarm costs one frame
+        // of latency and changes no result. It is deliberately fired off the load path
+        // (setTimeout 0) precisely so it can never fail a project open.
+        try { prewarmIntentStyleCache(); } catch { /* §SWALLOW-OPTIONAL */ }
+    }, 0);
 
             // Phase III: Restore Sheet store from snapshot
             if ((snapshot as any).sheets) {

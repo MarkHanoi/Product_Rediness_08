@@ -1,7 +1,7 @@
 // §ANDALUCIA-ENVELOPE-MAX / step 9 — MÁLAGA muralPGOU workspace: the real zoning layers.
 // POLCALIF_T = polígonos de CALIFICACIÓN (the zone polygons). LINALIN_T = líneas de ALINEACIÓN.
 // Dump the FULL declared schema AND the observed key union AND the value space of every field.
-import { get, getJson, isValid } from './lib.mjs';
+import { get, getJson } from './lib.mjs';
 import { writeFileSync } from 'node:fs';
 
 const GS = 'https://sig.malaga.eu/geoserver/wfs';

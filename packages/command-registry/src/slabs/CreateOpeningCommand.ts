@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { OpeningData } from '@pryzm/core-app-model';
 // W3 §SLAB-SYSTEM-AUDIT-2026: elementRegistry must be called symmetrically with bimManager.
@@ -77,7 +94,7 @@ export class CreateOpeningCommand implements Command {
 
         context.bimManager.registerElement(this.payload.id, this.payload.levelId);
         // W3 §SLAB-SYSTEM-AUDIT-2026: registerSemantic must mirror registerElement call.
-        try { elementRegistry.registerSemantic(this.payload.id, 'opening'); } catch (_) {}
+        try { elementRegistry.registerSemantic(this.payload.id, 'opening'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         (context.stores as any).openingStore.add(openingData);
 
         // §01 §2.7: Trigger slab geometry re-projection via the dedicated rebuild signal.

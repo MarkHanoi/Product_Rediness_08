@@ -35,7 +35,7 @@ for (const ine of ['28023', '28047', '28113', '28058', '28065']) {
         try {
           const j = JSON.parse(r.body); const n = (j.features || []).length;
           if (n) { rec.hit = { key: k, val, n, props: j.features[0].properties }; break; }
-        } catch {}
+        } catch { /* §SWALLOW-PROBE — a body that does not parse as JSON means this key/value guess missed; `rec.hit` stays unset and the miss is what gets reported */ }
       }
     }
     if (rec.hit) break;

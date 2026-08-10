@@ -1946,6 +1946,10 @@ export class SplitViewManager implements ISplitViewManager {
         try {
             localStorage.setItem('pryzm.splitView.gridVisible', String(value));
         } catch {
+            // §SWALLOW-STORAGE — localStorage throws on private-mode/quota/blocked-cookie
+            // browsers. This is a UI PREFERENCE: the read side (`_readGridPreference`)
+            // already defaults to `true` when storage is unavailable, so failing to
+            // persist degrades to "grid visible next session" and nothing else.
         }
     }
 

@@ -11,7 +11,7 @@
 // SAMPLE DESIGN: stratified — up to N_PER municipality from BUILDABLE-NOW ámbitos, drawn
 // with a seeded PRNG so the draw is reproducible. Per-municipality, never a mean.
 
-import { wfsJson, politeFetch, writeOut, sha256, mulberry32, sleep, HERE } from './lib.mjs';
+import { wfsJson, politeFetch, writeOut, mulberry32, sleep, HERE } from './lib.mjs';
 import { classify } from './detect.mjs';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -63,7 +63,7 @@ for (const r of pool) {
 }
 const rnd = mulberry32(SEED);
 const sample = [];
-for (const [muni, list] of [...byMuni.entries()].sort()) {
+for (const [_muni, list] of [...byMuni.entries()].sort()) {
   // de-duplicate by wide: one ámbito can back many polygons
   const uniq = [...new Map(list.map((r) => [r.wide, r])).values()];
   const shuffled = uniq.map((r) => ({ r, k: rnd() })).sort((a, b) => a.k - b.k).map((x) => x.r);

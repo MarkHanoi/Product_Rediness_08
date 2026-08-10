@@ -30,6 +30,18 @@
 
 ---
 
+## §2.4.9 — Scheduled: raked-wall capability lifts (founder-accepted 2026-08-10)
+
+Both are DELIBERATE refusals today (ADR-0310, superseded-in-part by ADR-0312 which
+implemented raked JOINTS). The founder wants both as features; costs were stated in
+ADR-0312 and accepted for later scheduling. Until then each declines politely via
+the single `rakeAuthorability()` gate — never a throw (L-812).
+
+| Phase | Goal | Description + references | Status |
+|---|---|---|---|
+| A.RK.1 | Layered × rake | Per-layer `t/sinθ` footprints through slicer/plan-lines/occupancy; the failure mode to guard is silently re-thickening every layered wall. Refusal today: `WallRake.ts:216`, enforced at schema-create, `WallStore.update` merged-state check (`WallStore.ts:530`) and `addOpening`. Est. 1–2 wk. ADR-0312 §layered. | ⛔ scheduled |
+| A.RK.2 | Windows/doors hosted on raked walls | C15 §2 must widen from a 1-param line to a 2-param surface + quaternion frame; the vertical opening carve (`WallHoleBodyBuilder` + 4 sill-translate sites) becomes an inclined band. Collides with the C65 door/window type track — sequence after it. Refusal today: `WallRake.ts:226` + `addOpening` gate (`WallStore.ts:816`), pinned by `rakedHostRefusal.test.ts`. Est. 3–4 wk. ADR-0312 §openings. | ⛔ scheduled |
+
 ## §2.5 — CONSOLIDATED PHASE-BY-PHASE INDEX (the single canonical view)
 
 The audits in §12, §16, §18, §19, §20 surfaced ~584 sub-phases across Phases A/B/C/D + cross-cutting X.*. This §2.5 indexes the canonical tables — §3 (Phase A), §4 (Phase B), §5 (Phase C), §6 (Phase D), §7 (X cross-cutting) — and points to the sub-section for each category.

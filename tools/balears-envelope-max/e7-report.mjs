@@ -85,7 +85,7 @@ for (const e of e4.inventory) {
 }
 const isNotCurrent = (r) => notCurrentNames.some((n) => String(r.municipi || '').toUpperCase().startsWith(n));
 
-const invByUrl = new Map(e4.inventory.map((e) => [e.url, e]));
+const _invByUrl = new Map(e4.inventory.map((e) => [e.url, e]));
 const totalBuildableArea = e4.inventory.reduce((s, e) => s + e.areaM2, 0);
 const notCurrentArea = e4.inventory
   .filter((e) => notCurrentNames.some((n) => String(e.exampleMunicipi || '').toUpperCase().startsWith(n)))

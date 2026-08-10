@@ -26,7 +26,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // (C) ⚠ ROW-WEIGHTED vs LAND-WEIGHTED answer different questions. Both are emitted, labelled.
 
-import { wfsJson, wfsCount, writeOut, areaOf, assertSums } from './lib.mjs';
+import { wfsJson, wfsCount, writeOut, areaOf } from './lib.mjs';
 
 const REFRESH = process.argv.includes('--refresh');
 const O = { refresh: REFRESH };

@@ -13,7 +13,7 @@
 // cold, no Referer, no cookie, bare UA — because "reachable after a redirect I
 // discovered by hand" is not the same capability as "addressable".
 
-import { politeFetch, wfsJson, writeOut, sha256 } from './lib.mjs';
+import { politeFetch, writeOut, sha256 } from './lib.mjs';
 
 const REFRESH = process.argv.includes('--refresh');
 const O = { refresh: REFRESH };

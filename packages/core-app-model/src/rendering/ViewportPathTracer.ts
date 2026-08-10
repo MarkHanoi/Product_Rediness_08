@@ -274,9 +274,7 @@ export class ViewportPathTracer {
         const { PathTracingSceneGenerator, PathTracingRenderer, PhysicalPathTracingMaterial }
             = ptLib as any;
 
-        const { FullScreenQuad } = await import(
-            'three/examples/jsm/postprocessing/Pass.js'
-        );
+        const { FullScreenQuad } = await import('@pryzm/renderer-three');
 
         // ── 1. Load HDRI (applies to main scene environment temporarily) ──
 
@@ -430,9 +428,9 @@ export class ViewportPathTracer {
     private _disposePathTracer(): void {
         this._stopLoop();
 
-        try { this._fsQuad?.dispose();                   } catch {}
-        try { (this._ptRenderer as any)?.dispose?.();   } catch {}
-        try { this._bvh?.dispose();                     } catch {}
+        try { this._fsQuad?.dispose();                   } catch { /* §SWALLOW-TEARDOWN — the object is being discarded; a dispose() that throws cannot make it any less discarded, and re-throwing would abort the rest of the teardown */ }
+        try { (this._ptRenderer as any)?.dispose?.();   } catch { /* §SWALLOW-TEARDOWN — the object is being discarded; a dispose() that throws cannot make it any less discarded, and re-throwing would abort the rest of the teardown */ }
+        try { this._bvh?.dispose();                     } catch { /* §SWALLOW-TEARDOWN — the object is being discarded; a dispose() that throws cannot make it any less discarded, and re-throwing would abort the rest of the teardown */ }
 
         this._fsQuad     = null;
         this._ptRenderer = null;

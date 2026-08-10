@@ -7,7 +7,7 @@
 //       every downstream count meaningless.
 //   (c) whether resultType=hits is supported (exact counts without truncation risk);
 //   (d) whether hits agrees with a full download (the anti-truncation cross-check).
-import { sweepFeature, ineFilter, featureUrl, get, owsException, countMembers, parseFeatures, save, BASE } from './lib.mjs';
+import { sweepFeature, ineFilter, featureUrl, get, owsException, countMembers, parseFeatures, save } from './lib.mjs';
 
 const TN = 'ms:Planeamiento.Zonificacion';
 const out = { controls: {}, hits: {}, sample: {} };

@@ -23,11 +23,11 @@
 //   • It samples LAND, not user sessions. A slice that is measured as `not-determined` but which the
 //     SHIPPED runtime never reaches is flagged separately (the `shipped` field), not folded in.
 // ─────────────────────────────────────────────────────────────────────────────
-import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mulberry32, politeGet } from '../city-completion/parcelSampleProbe.mjs';
-import { calificacionFamily, delegationGround, GROUND_ARTICLE, PACKED_FAMILIES, GENERICA_FAMILIES, REMITTED_FAMILIES, REFUSED_DIRECT_FAMILIES, CODE_PACKED_EXACT } from '../murcia-coverage-crosstab/classify.mjs';
+import { calificacionFamily, delegationGround, GROUND_ARTICLE, CODE_PACKED_EXACT } from '../murcia-coverage-crosstab/classify.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SEED = 20260802;

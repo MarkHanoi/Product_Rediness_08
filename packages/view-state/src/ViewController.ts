@@ -165,7 +165,7 @@ export class ViewController {
               }
             } catch (inner) {
               disposer();
-              try { this.scheduler.endMotion(); } catch {}
+              try { this.scheduler.endMotion(); } catch { /* §SWALLOW-TEARDOWN — endMotion() on a scheduler with no motion in flight is a no-op */ }
               reject(inner);
             }
           },
@@ -173,7 +173,7 @@ export class ViewController {
         );
       });
     } catch (err) {
-      try { this.scheduler.endMotion(); } catch {}
+      try { this.scheduler.endMotion(); } catch { /* §SWALLOW-TEARDOWN — endMotion() on a scheduler with no motion in flight is a no-op */ }
       endSpanError(span, err);
       throw err;
     }

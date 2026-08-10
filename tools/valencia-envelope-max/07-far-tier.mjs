@@ -15,7 +15,7 @@
 // ⛔ TWO INDEPENDENT AREAS, DELIBERATELY. `sup_m2` is a DECLARED attribute; the polygon is
 // MEASURED. Reporting only the declared figure would leave a systematic error undetectable, so
 // both are computed and their ratio is printed. They are not assumed to agree.
-import { wfsUrl, likeFilter, get, owsException, parseFeatures, featureArea, save, load, pool, pct } from './lib.mjs';
+import { wfsUrl, likeFilter, get, owsException, featureArea, save, load, pool, pct } from './lib.mjs';
 
 const MUNIS = load('_01_urlabs.json').municipalities;
 const TN = 'ms:InventarioSuSuz';

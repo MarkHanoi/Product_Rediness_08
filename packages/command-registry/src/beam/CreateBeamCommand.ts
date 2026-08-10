@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import { Command, CommandContext, CommandValidationResult, CommandResult, CommandType } from '../types';
 import { BeamData, BEAM_CONSTRAINTS } from '@pryzm/core-app-model';
 import { semanticGraphManager } from '@pryzm/core-app-model';
@@ -170,7 +187,7 @@ export class CreateBeamCommand implements Command {
         // can resolve `beamId → 'beam'` without scanning every store. Mirrors
         // CreateColumnCommand and CreateRoofCommand. Best-effort: a registry
         // already containing this id (e.g. via wire-replay race) is not fatal.
-        try { elementRegistry.registerSemantic(beamId, 'beam' as any); } catch (_) {}
+        try { elementRegistry.registerSemantic(beamId, 'beam' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
         // Gap 7 — SemanticGraph: beam sitsOn its level.
         // If supports are defined, also write supports relationships so the
@@ -231,7 +248,7 @@ export class CreateBeamCommand implements Command {
         // §BEAM-AUDIT-2026-W8: symmetric counterpart to registerSemantic in
         // execute(). Without this, undo leaks an entry in ElementRegistry that
         // resolves to 'beam' for an id whose store record has been removed.
-        try { elementRegistry.unregister(this.createdBeamId); } catch (_) {}
+        try { elementRegistry.unregister(this.createdBeamId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
         const beamStore = context.stores.beamStore;
         if (beamStore) {

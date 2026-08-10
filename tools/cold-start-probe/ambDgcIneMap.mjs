@@ -23,7 +23,7 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { findEnclosure, normName } from './catastroParcelFrame.mjs';
+import { findEnclosure } from './catastroParcelFrame.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, 'out');

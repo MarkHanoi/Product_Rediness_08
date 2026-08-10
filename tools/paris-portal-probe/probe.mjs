@@ -64,7 +64,7 @@ const UA =
 
 const DELAY_MS = 1200;       // between clicks — be a polite client
 const NAV_TIMEOUT = 45_000;
-const DOWNLOAD_TIMEOUT = 120_000;
+const _DOWNLOAD_TIMEOUT = 120_000;
 
 const args = process.argv.slice(2);
 const OUT = resolve(

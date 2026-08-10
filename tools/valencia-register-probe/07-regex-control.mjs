@@ -37,7 +37,7 @@ const PARAMS = {
     far: /edificabilidad|coeficiente\s+de\s+edificabilidad|m2t\/m2s|m²t\/m²s/gi,
     parcelMin: /parcela\s+m[ií]nima|superficie\s+m[ií]nima\s+de\s+parcela/gi,
 };
-const ARTICLE = /\bArt(?:[ií]culo|\.)\s*\d+(?:[.\-]\d+)*/gi;
+const ARTICLE = /\bArt(?:[ií]culo|\.)\s*\d+(?:[.-]\d+)*/gi;
 
 const out = { controls: [] };
 for (const c of CONTROLS) {

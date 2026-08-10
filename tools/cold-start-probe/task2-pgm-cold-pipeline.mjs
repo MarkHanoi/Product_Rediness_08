@@ -32,7 +32,7 @@
 //   L2/3 Variable resolution — the C64 §4 ladder, per variable
 //   L6  Constraint composition
 //   L7  Envelope synthesis  — envelope Y/N
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { buildFrame, drawUniform } from './catastroParcelFrame.mjs';
@@ -186,13 +186,13 @@ async function runCity(ine, name, role) {
     const clocks = {};
     const t = (k) => { clocks[k] = { start: Date.now() }; };
     const e = (k) => { clocks[k].ms = Date.now() - clocks[k].start; delete clocks[k].start; };
-    const blockers = [];
+    const _blockers = [];
     const bcnPaths = [];
 
     // ── S0 — dataset discovery (abbreviated: publisher and service already in the evidence register)
     t('S0_discovery');
-    const svcMeta = await read(`${SVC}?f=json`, `${ine}:service-meta`);
-    const layer16Meta = await read(`${SVC}/16?f=json`, `${ine}:layer16-meta`);
+    const _svcMeta = await read(`${SVC}?f=json`, `${ine}:service-meta`);
+    const _layer16Meta = await read(`${SVC}/16?f=json`, `${ine}:layer16-meta`);
     e('S0_discovery');
 
     // ── L0 — ParcelContext: the cadastral parcel frame (the denominator) ─────────────────────────

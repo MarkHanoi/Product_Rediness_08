@@ -19,7 +19,7 @@ for (const [cc, u] of VIEWERS) {
   const r = await get(u);
   const rec = { cc, viewer: u, http: r.http };
   if (r.ok) {
-    const urls = [...new Set([...r.body.matchAll(/https?:\/\/[A-Za-z0-9._\-]+(?:\/[A-Za-z0-9._\-~%/]*)?/g)].map((m) => m[0]))];
+    const urls = [...new Set([...r.body.matchAll(/https?:\/\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._\-~%/]*)?/g)].map((m) => m[0]))];
     rec.services = urls.filter((x) => /geoserver|arcgis|wms|wfs|rest\/services|MapServer|ows|geoserveis|cartografia|servicios|mapas/i.test(x)).slice(0, 40);
     rec.allHosts = [...new Set(urls.map((x) => x.split('/')[2]))].slice(0, 25);
     // also look for JS config files that might carry the endpoints

@@ -1121,7 +1121,7 @@ export function rdToWgs84(X, Y) {
 const WGS84_A = 6378137.0, WGS84_B = 6356752.314245179;
 const E2 = 1 - (WGS84_B * WGS84_B) / (WGS84_A * WGS84_A);
 const ONE_OVER_RADII = [1 / WGS84_A, 1 / WGS84_A, 1 / WGS84_B];
-const RADII = [WGS84_A, WGS84_A, WGS84_B];
+const _RADII = [WGS84_A, WGS84_A, WGS84_B];
 const D2R = Math.PI / 180;
 
 export function ecefFromLonLatH(lon, lat, h) {
@@ -1612,13 +1612,13 @@ export async function fetchDtmRaster(sourceKey, bboxWsen, { geotiffMod, env = pr
 
   if (cfg.kind === 'wms') {
     const proj = getProjector(cfg.requestCrs);
-    let bx, W, H, order;
+    let W, H, order;
     if (proj.geographic) {
-      bx = [w, s, e, n]; order = [w, s, e, n]; // WMS 1.3.0 CRS:84 → lon,lat
+      order = [w, s, e, n]; // WMS 1.3.0 CRS:84 → lon,lat
       const dims = pxDims((e - w) * mPerDegLon((s + n) / 2), (n - s) * M_PER_DEG_LAT, cfg.maxPx);
       W = dims.width; H = dims.height;
     } else {
-      const nb = nativeBoxForBbox(bbox, proj, 0); bx = nb; order = nb; // projected → minx,miny,maxx,maxy
+      const nb = nativeBoxForBbox(bbox, proj, 0); order = nb; // projected → minx,miny,maxx,maxy
       const dims = pxDims(nb[2] - nb[0], nb[3] - nb[1], cfg.maxPx); W = dims.width; H = dims.height;
     }
     const url = `${cfg.endpoint}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${cfg.layer}&STYLES=`

@@ -30,7 +30,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { buildFrame, drawUniform } from './catastroParcelFrame.mjs';
-import { SVC, readJson, readDistinct, readReconciled, countOnly, netLog } from './ambService.mjs';
+import { SVC, readDistinct, readReconciled, netLog } from './ambService.mjs';
 import {
     ART327_BARCELONA_MPGM2007, ART327_BASE_METROPOLITAN,
     ART328_BARCELONA_MPGM2007, ART328_BASE_METROPOLITAN,
@@ -176,7 +176,7 @@ function registeredBarcelonaClaus() {
     return set;
 }
 const REGISTERED_CLAUS = registeredBarcelonaClaus();
-const PUBLISHED_INE = (() => {
+const _PUBLISHED_INE = (() => {
     const ov = readFileSync(join(MAIN_CHECKOUT, 'packages', 'site-parcel-data', 'src', 'providers', 'bcnRefosOVProvider.ts'), 'utf8');
     return /BCN_INE_CODE = '(\d{5})'/.exec(ov)?.[1] ?? null;
 })();

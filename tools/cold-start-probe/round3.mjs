@@ -40,7 +40,7 @@ for (const ine of ['03130', '12126', '46190']) {
 
 // ---- IB: restrict to Eivissa itself ----
 {
-  const m = byIne['07026'];
+  const _m = byIne['07026'];
   for (const where of ["MUNICIPI='EIVISSA'", "CODIMUNI='026'", "MUNICIPI LIKE '%EIVISSA%'", "MUNICIPI LIKE '%IBIZA%'"]) {
     const u = `https://ideib.caib.es/geoserveis/rest/services/public/GOIB_MUIB/MapServer/10/query?where=${encodeURIComponent(where)}&outFields=*&returnGeometry=false&resultRecordCount=3&returnCountOnly=false&f=json`;
     const r = await get(u);

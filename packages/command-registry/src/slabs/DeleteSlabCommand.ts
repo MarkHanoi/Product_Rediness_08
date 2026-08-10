@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
@@ -107,7 +124,7 @@ export class DeleteSlabCommand implements Command {
         bimManager?.registerElement?.(this.slabId, levelId);
 
         // 2. Re-register semantic type (C1).
-        try { elementRegistry.registerSemantic(this.slabId, 'slab'); } catch (_) {}
+        try { elementRegistry.registerSemantic(this.slabId, 'slab'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
         // 3. Restore SemanticGraph sitsOn relationship (C1).
         try {
@@ -129,7 +146,7 @@ export class DeleteSlabCommand implements Command {
         const affectedIds: string[] = [this.slabId];
         for (const op of this._deletedOpenings) {
             bimManager?.registerElement?.(op.id, op.levelId);
-            try { elementRegistry.registerSemantic(op.id, 'opening'); } catch (_) {}
+            try { elementRegistry.registerSemantic(op.id, 'opening'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             openingStore?.add?.(op);
             affectedIds.push(op.id);
         }

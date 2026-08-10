@@ -122,7 +122,16 @@ export class UpdateDoorParameterCommand implements Command {
             const ws = context.stores.wallStore;
             if (!ws.getDoor(this.doorId)) return;
             ws.updateDoor(this.doorId, delta as any);
-        } catch {
+        } catch (err) {
+            // §HONESTY — this used to be silent. The wall store holds a MIRROR of the
+            // door opening; if the mirror write fails the two stores disagree and the
+            // wall renders the OLD opening while the property panel shows the new one.
+            // That divergence must not look identical to a successful sync.
+            console.warn(
+                `[UpdateDoorParameterCommand] wall-store mirror write FAILED for ${this.doorId} — ` +
+                `wall geometry now disagrees with the door store.`,
+                err,
+            );
         }
     }
 }

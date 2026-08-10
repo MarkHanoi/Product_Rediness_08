@@ -22,7 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LAYER, count, stats, distinct, sleep } from './lib.mjs';
+import { LAYER, count, stats, distinct } from './lib.mjs';
 
 const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
 fs.mkdirSync(OUT, { recursive: true });

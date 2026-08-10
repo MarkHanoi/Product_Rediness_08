@@ -117,7 +117,7 @@ const SITE_MARKERS = [
 const SUBJECT_MARKERS = [
     { re: /al[çc]a[dr]|al[çc][àa]ria|n(ombre|úmero)\s+de\s+plantes/i, article: '239 (alçada reguladora)' },
     { re: /profunditat\s+edificable/i, article: '327/328 (profunditat edificable)' },
-    { re: /interior\s+d[\'’]?\s*illa|pati\s+d[\'’]?\s*illa/i, article: '327/328 (interior d\'illa)' },
+    { re: /interior\s+d['’]?\s*illa|pati\s+d['’]?\s*illa/i, article: '327/328 (interior d\'illa)' },
     { re: /nucli\s+antic/i, article: '320 (clau 12, nucli antic)' },
     { re: /alineaci[óo]\s+de\s+vial/i, article: '239 (ordenació segons alineació de vial)' },
     { re: /normes\s+urban|normativa\s+del\s+pla|articulat/i, article: 'ANY (edits the articulat)' },

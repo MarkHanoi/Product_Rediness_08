@@ -1551,6 +1551,7 @@ export async function initUI(p: UIParams): Promise<void> {
             // Write relationships to SemanticGraph
             const sgm = window.semanticGraphManager;
             if (sgm) {
+                let relFailures = 0;
                 for (const rel of result.relationships) {
                     try {
                         sgm.addRelationship({
@@ -1560,9 +1561,19 @@ export async function initUI(p: UIParams): Promise<void> {
                             metadata:  rel.metadata ?? {},
                             createdBy: 'ifc-import',
                         });
-                    } catch (_) {}
+                    } catch (err) {
+                        // §HONESTY — this used to be silent while the log below still
+                        // claimed every relationship had been written. Count the failures
+                        // and report the real number.
+                        relFailures++;
+                        console.warn('[IFC Import] SemanticGraph.addRelationship FAILED', rel, err);
+                    }
                 }
-                console.log(`[IFC Import] ${result.relationships.length} relationships written to SemanticGraph`);
+                const relWritten = result.relationships.length - relFailures;
+                console.log(`[IFC Import] ${relWritten}/${result.relationships.length} relationships written to SemanticGraph`);
+                if (relFailures > 0) {
+                    console.warn(`[IFC Import] ${relFailures} relationship(s) were REJECTED by the SemanticGraph and are missing from the model.`);
+                }
             }
 
             // Fire event so other subsystems can consume the result.

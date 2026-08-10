@@ -22,7 +22,7 @@
 //      carry superseded records at all? Test by counting OVERLAPPING zonificación polygons for
 //      one municipality with many expedientes — a register that keeps superseded geometry
 //      alongside current geometry must overlap itself.
-import { WFS, get, owsException, save, likeFilter, wfsUrl, parseFeatures, countMembers } from './lib.mjs';
+import { get, owsException, save, likeFilter, wfsUrl, parseFeatures } from './lib.mjs';
 
 const out = { A_services: [], B_fieldUnion: null, C_currency: null };
 

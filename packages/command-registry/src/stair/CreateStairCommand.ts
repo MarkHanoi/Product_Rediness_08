@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import {
     Command,
     CommandType,
@@ -491,8 +508,8 @@ export class CreateStairCommand implements Command {
             const slabStore = stores.slabStore;
             try {
                 if (openingStore) openingStore.remove(this.createdOpeningId);
-                try { ctx.bimManager.unregisterElement(this.createdOpeningId); } catch (_) {}
-                try { elementRegistry.unregister(this.createdOpeningId); } catch (_) {}
+                try { ctx.bimManager.unregisterElement(this.createdOpeningId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.unregister(this.createdOpeningId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 if (slabStore) slabStore.triggerRebuild(this.createdOpeningHostSlabId);
             } catch (err) {
                 console.warn('[CreateStairCommand.undo] Auto-opening cleanup failed (non-fatal):', err);
@@ -510,8 +527,8 @@ export class CreateStairCommand implements Command {
             const railings = ctx.stores.stairRailingStore.getByStairId(this.createdStairId);
             ctx.stores.stairRailingStore.removeByStairId(this.createdStairId);
             railings.forEach(r => {
-                try { ctx.bimManager.unregisterElement(r.id); } catch (_) {}
-                try { elementRegistry.unregister(r.id); } catch (_) {}
+                try { ctx.bimManager.unregisterElement(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                try { elementRegistry.unregister(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             });
         }
 

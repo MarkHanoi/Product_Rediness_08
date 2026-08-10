@@ -42,7 +42,7 @@ let text = '';
 for (const c of chunks) {
     const s = c.toString('latin1');
     if (!/(TJ|Tj)/.test(s)) continue;
-    for (const m of s.matchAll(/\[((?:[^\[\]\\]|\\.)*)\]\s*TJ|\(((?:[^()\\]|\\.)*)\)\s*Tj|\bTd\b|\bTD\b|\bT\*\b|\bET\b/g)) {
+    for (const m of s.matchAll(/\[((?:[^[\]\\]|\\.)*)\]\s*TJ|\(((?:[^()\\]|\\.)*)\)\s*Tj|\bTd\b|\bTD\b|\bT\*\b|\bET\b/g)) {
         if (m[1] !== undefined) {
             for (const p of m[1].matchAll(/\(((?:[^()\\]|\\.)*)\)/g)) text += unescapePdf(p[1]);
         } else if (m[2] !== undefined) {

@@ -89,13 +89,13 @@ function applyUnicode(text: string): { text: string; ligatures: number; softHyph
         ligatures += countOf(out, re);
         out = out.replace(re, replacement);
     }
-    const softHyphens = countOf(out, /­/g);
-    out = out.replace(/­/g, '');
+    const softHyphens = countOf(out, /\u00AD/g);
+    out = out.replace(/\u00AD/g, '');
     // Normalise the several space-ish and dash-ish characters PDFs emit.
     out = out
-        .replace(/[       ]/g, ' ')
-        .replace(/[​‌‍﻿]/g, '')
-        .replace(/[‐‑]/g, '-');
+        .replace(/[\u00A0\u2007\u202F\u2009\u200A\u2002\u2003]/g, ' ')
+        .replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
+        .replace(/[\u2010\u2011]/g, '-');
     return { text: out, ligatures, softHyphens };
 }
 

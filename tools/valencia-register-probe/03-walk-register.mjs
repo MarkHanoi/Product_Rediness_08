@@ -7,9 +7,7 @@
 //
 // ⛔ A FILENAME IS NOT A DOCUMENT. This step records names and HEAD metadata only. The
 // classification (a)-(e) is NOT made here.
-import fs from 'node:fs';
-import path from 'node:path';
-import { get, head, save, load, ensureDocs, DIR } from './lib.mjs';
+import { get, save, load, ensureDocs } from './lib.mjs';
 
 ensureDocs();
 const sample = load('_01_sample.json').sample;

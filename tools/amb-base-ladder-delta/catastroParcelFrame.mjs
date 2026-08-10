@@ -32,7 +32,7 @@
 //   node catastroParcelFrame.mjs --ine 14021                 # build/refresh one frame
 //   node catastroParcelFrame.mjs --ine 08019 --sample 400 --seed 20260802
 // ─────────────────────────────────────────────────────────────────────────────
-import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -127,7 +127,7 @@ export function normName(s) {
  * than picking one. Without a name we refuse too — an unverified code match is exactly the Turís bug.
  */
 export function findEnclosure(xml, ine, name) {
-    const prov = ine.slice(0, 2);
+    const _prov = ine.slice(0, 2);
     const entries = [...xml.matchAll(/href="([^"]*A\.ES\.SDGC\.CP\.(\d{5})\.zip)"/gi)]
         .map((m) => ({ url: m[1], code: m[2] }));
     const titles = new Map(

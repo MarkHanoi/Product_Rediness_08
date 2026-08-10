@@ -115,6 +115,11 @@ for (const b of bodies) {
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/<[^>]+>/g, '')
+    // U+0001 is used deliberately as a cell-boundary sentinel: every HTML tag is
+    // collapsed to it on the line above, and runs are squashed here. It cannot occur
+    // in the source HTML, which is exactly why a control character was chosen over a
+    // printable delimiter.
+    // eslint-disable-next-line no-control-regex
     .replace(/+/g, '');
   const cells = flat.split('').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
   for (let i = 0; i < cells.length; i++) {

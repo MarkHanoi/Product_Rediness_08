@@ -13,7 +13,7 @@
 // ⚠ ENGINE NOTE: this endpoint is MapServer (msWFSGetFeature/msPostGISLayerWhichShapes in its
 // error strings), not GeoServer. The sortBy remedy is a GeoServer behaviour; whether MapServer
 // honours startindex/sortBy is the actual question, so it is measured rather than assumed.
-import { BASE, get, owsException, countMembers, parseFeatures, save } from './lib.mjs';
+import { BASE, get, owsException, countMembers, save } from './lib.mjs';
 
 const TN = 'ms:Planeamiento.Zonificacion';
 const out = { engine: 'MapServer (per OWS exception strings)', tests: [] };

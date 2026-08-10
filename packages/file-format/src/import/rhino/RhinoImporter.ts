@@ -48,7 +48,7 @@ export async function importRhino3DM(
 
     onProgress('Loading Rhino geometry engine', 10, 'Initialising the rhino3dm WebAssembly module…');
 
-    const { Rhino3dmLoader } = await import('three/examples/jsm/loaders/3DMLoader.js');
+    const { Rhino3dmLoader } = await import('@pryzm/renderer-three');
 
     const loader = new Rhino3dmLoader();
     loader.setLibraryPath('/libs/rhino3dm/');

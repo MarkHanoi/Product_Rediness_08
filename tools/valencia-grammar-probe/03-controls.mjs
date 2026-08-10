@@ -1,7 +1,7 @@
 // STEP 3 — CONTROLS ON THE WORKING TRANSPORT (CQL).
 // Re-runs the known-answer controls, establishes hits support, and cross-checks hits against a
 // full download to expose truncation. Nothing downstream may be trusted until this passes.
-import { cqlSweep, cqlHits, cqlUrl, get, owsException, countMembers, parseFeatures, save } from './lib.mjs';
+import { cqlSweep, cqlHits, cqlUrl, get, owsException, countMembers, save } from './lib.mjs';
 
 const TN = 'ms:Planeamiento.Zonificacion';
 const out = { transport: 'CQL_FILTER', controls: {}, hits: {}, truncation: {}, sample: {} };

@@ -9,7 +9,7 @@
 // against it (Aragón `fiab_geom`; Balears `DFIVIGEN`). So we do not trust a
 // field name — we count its DISTINCT VALUES and its INFORMATION CONTENT.
 
-import { politeFetch, wfsJson, wfsCount, proveFilterApplied, writeOut, WFS, WS, GEOSERVER_ROOT, qs, truncationSuspect } from './lib.mjs';
+import { politeFetch, wfsJson, proveFilterApplied, writeOut, WFS, WS, GEOSERVER_ROOT, qs, truncationSuspect } from './lib.mjs';
 
 const REFRESH = process.argv.includes('--refresh');
 const O = { refresh: REFRESH };

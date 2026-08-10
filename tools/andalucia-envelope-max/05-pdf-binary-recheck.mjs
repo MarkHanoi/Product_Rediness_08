@@ -77,7 +77,7 @@ for (const u of urls) {
     rec.producer = (s.match(/\/Producer\s*\(([^)]{0,120})\)/) || [])[1] ?? null;
     rec.creator = (s.match(/\/Creator\s*\(([^)]{0,120})\)/) || [])[1] ?? null;
     rec.pages = (s.match(/\/Type\s*\/Page[^s]/g) || []).length;
-    rec.fonts = (s.match(/\/BaseFont\s*\/([A-Za-z0-9+,\-]+)/g) || []).map(x => x.split('/').pop());
+    rec.fonts = (s.match(/\/BaseFont\s*\/([A-Za-z0-9+,-]+)/g) || []).map(x => x.split('/').pop());
     const e = extract(r.buf);
     rec.streams = e.streams; rec.inflated = e.inflated; rec.imageXObjects = e.imageXObjects;
     rec.chars = e.text.replace(/\s/g, '').length;

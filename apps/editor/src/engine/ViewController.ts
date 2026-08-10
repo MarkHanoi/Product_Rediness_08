@@ -524,6 +524,10 @@ export class ViewController implements IViewController {
         try {
             drawing.onDisposed.trigger();
         } catch {
+            // §SWALLOW-TEARDOWN — this drawing was REJECTED before it was ever shown;
+            // firing its disposal hook is a courtesy to listeners that may not exist.
+            // A throwing hook must not propagate out of a rejection path and mask the
+            // rejection itself, which the caller has already handled.
         }
     }
 
@@ -1937,168 +1941,17 @@ export class ViewController implements IViewController {
         });
         return;
 
-        // ── Phase 3: Disable annotation layer in plan view (Task 3.2) ────────
-        // Annotation geometry (dimensions, tags, grid bubbles) is drawn in
-        // screen-space by the annotation pipeline. Disabling ANNOTATION_LAYER
-        // on the camera prevents it from being rasterised into the 3D depth
-        // buffer, eliminating depth-fighting and overdraw artefacts.
-        this._vst(`_activateFloorPlanView — camera.layers.disable(ANNOTATION_LAYER)`);
-        this._camera.three.layers.disable(ANNOTATION_LAYER);
-        // §L-431 (founder 2026-07-19) — the PARCEL OUTLINE + BUILDABLE ENVELOPE are site
-        // context an architect needs while drawing IN PLAN (you set out walls against the
-        // setback line). They live on EDITOR_LAYER, which this activation never enabled —
-        // so the plan view showed neither, even after L-426 fixed 3D/elevation/section.
-        // The plan-specific fill gate (`_applyParcelFillVisibilityForView`) still hides the
-        // translucent parcel FILL slab where appropriate; only the crisp outline + envelope show.
-        this._vst(`_activateFloorPlanView — camera.layers.enable(EDITOR_LAYER) (§L-431 parcel + envelope in plan)`);
-        this._camera.three.layers.enable(EDITOR_LAYER);
-
-        // ── Phase 2: Apply per-level element visibility culling (Task 2.2) ───
-        // Hide elements not on the active plan view's level before camera setup
-        // so the GPU processes only relevant geometry.
-        const scene = this._world.scene?.three as any;
-        if (planLevelId && scene && !isCeilingPlan) {
-            this._vst(`${logScope} — PlanViewVisibilityCuller.activateForLevel("${planLevelId}") START`);
-            this._visibilityCuller.activateForLevel(planLevelId, scene);
-            this._vst(`${logScope} — PlanViewVisibilityCuller.activateForLevel DONE`);
-        }
-
-        // ── Layer flip: BIM_LAYER / PLAN_SYMBOL_LAYER ─────────────────────────
-        // BIM_LAYER (0) is DISABLED in regular plan views so 3D geometry is
-        // hidden while PLAN_SYMBOL_LAYER (3) carries EdgeProjector linework.
-        // _activate3DView() / _activateElevationView() / _activateSectionView()
-        // all call camera.layers.enableAll() which restores BIM_LAYER on exit.
-        // RCP (ceiling plan) keeps BIM_LAYER enabled — it uses projected geometry.
-        if (isCeilingPlan) {
-            this._vst(`${logScope} — layer flip: enable BIM_LAYER=0, disable PLAN_SYMBOL_LAYER=3 (RCP uses projected/model ceiling geometry)`);
-            this._camera.three.layers.enable(BIM_LAYER);
-            this._camera.three.layers.disable(PLAN_SYMBOL_LAYER);
-        } else {
-            this._vst(`${logScope} — layer flip: disable BIM_LAYER=0, enable PLAN_SYMBOL_LAYER=3`);
-            this._camera.three.layers.disable(BIM_LAYER);
-            this._camera.three.layers.enable(PLAN_SYMBOL_LAYER);
-        }
-
-        // Multi-Camera Single-Pipeline — Phase A.
-        // Arm the RPM fast path BEFORE applyFloorPlan() triggers projection.set().
-        // applyFloorPlan() → applyOrthographicView() → camera.projection.set('Ortho')
-        // which fires OBC's internal event.  The window 'view-activated' event (which
-        // triggers rpm.updateCamera()) is dispatched later by ViewController.activate().
-        // notifyProjectionToggle(true) ensures that updateCamera() uses the fast path
-        // — swaps camera on existing PassNodes and builds a Phase 2 graph without
-        // calling _fullRebuild() (no WebGPU shader recompile).
-        this._vst(`${logScope} — rpm.notifyProjectionToggle(true) (fast path armed)`);
-        window.renderPipelineManager?.notifyProjectionToggle?.(true);
-
-        // Use animate=false to snap the camera immediately instead of tweening.
-        // A multi-frame tween (animate=true) creates a long window during which
-        // the PASCAL render loop fires concurrently with scene mutation, increasing
-        // the risk of race conditions. The view switch itself provides the visual
-        // context change; a sub-100ms snap is imperceptible.
-        this._vst(`${logScope} — PlanViewService.${isCeilingPlan ? 'applyCeilingPlan' : 'applyFloorPlan'}() START (animate=false)`);
-        if (isCeilingPlan) {
-            await this._planViewService.applyCeilingPlan(this._camera, false);
-        } else {
-            await this._planViewService.applyFloorPlan(this._camera, false);
-        }
-        this._vst(`${logScope} — PlanViewService.${isCeilingPlan ? 'applyCeilingPlan' : 'applyFloorPlan'}() DONE`);
-
-        // ── Phase 4.1: Fast-path — restore from MultiViewCameraManager plan slot ──
-        // Replaces the default framing from applyFloorPlan() if the plan slot was
-        // saved on a previous visit. Single Map lookup — no bounds traversal.
-        this._vst(`${logScope} — MultiViewCameraManager.restoreSlot("plan")`);
-        const slotRestoredFP = this._multiViewCameraManager.restoreSlot('plan', this._camera);
-        this._vst(`${logScope} — plan slot ${slotRestoredFP ? 'HIT (instant restore)' : `MISS (using ${isCeilingPlan ? 'applyCeilingPlan' : 'applyFloorPlan'} default framing)`}`);
-
-        if (!slotRestoredFP) {
-            // ── Phase 2: Restore saved camera state (Task 2.3) ─────────────────
-            // Override the default framing from applyFloorPlan() if the user has
-            // previously navigated within this view. Falls through to the
-            // applyFloorPlan framing when no saved state exists.
-            const restoreKeyFP = this._activeDefinitionId ?? (isCeilingPlan ? 'Ceiling' : 'Top');
-            const restoredFP = this._cameraStateStore.restore(restoreKeyFP, this._camera);
-            this._vst(`${logScope} — ViewCameraStateStore.restore("${restoreKeyFP}") ${restoredFP ? 'HIT' : 'MISS — using default framing'}`);
-        }
-
-        this._vst(`${logScope} — OrthoPlanCameraLockController.activate()`);
-        this._orthoPlanLock.activate();
-
-        const controls = this._camera.controls;
-        const lockHandler = () => {
-            if (this._state.viewMode === 'Top' || this._state.viewMode === 'Ceiling' || this._state.viewMode === 'ceiling-plan') {
-                controls.mouseButtons.left = 2;
-                (controls.touches as any).one = 2;
-            }
-        };
-
-        this._registerListener('floorplan-lock', controls as unknown as EventTarget, 'control', lockHandler);
-
-        // ── DOC-1.7 / DOC-1.8: IFC + native element projection ───────────────
-        // Trigger EdgeProjector for loaded IFC Fragment models (always, when present).
-        // DOC-1.8: when EDGE_PROJECTOR_NATIVE flag is ON, also pass native mesh
-        // groups so EdgeProjector linework covers native elements too.
-        // Runs after all camera/layer/symbol setup so view switch never blocks.
-        // §02 §1.2 — level elevation resolved by EdgeProjectorService; never cached here.
-        if (planViewDef && this._edgeProjectorService) {
-            const fragmentsMgr = this._components.get(OBC.FragmentsManager);
-            const allModels = fragmentsMgr.list.size > 0 ? Array.from(fragmentsMgr.list.values()) : [];
-            // Apply IFC toggle — respect user's include/exclude preference for this view
-            const models = ifcProjectionStore.filterModels(allModels, planViewDef.id);
-
-            // DOC-1.8: native groups only when feature flag is ON.
-            const nativeGroups = useEdgeProjectorNative()
-                ? nativeElementMeshExporter.exportForView(planViewDef)
-                : [];
-
-            // §28 / Contract 22 §4.1 — Collect IFC-imported scene groups (Source C).
-            // IfcGeometryRenderer adds THREE.Group nodes with userData.source === 'ifc-import'
-            // directly to the Three.js scene. They are NOT in OBC FragmentsManager so the
-            // Source A EdgeProjector path cannot reach them.
-            const ifcSceneGroups: THREE.Group[] = [];
-            if (ifcProjectionStore.shouldIncludeIFC(planViewDef.id)) {
-                const sceneThree = (this._world.scene as any)?.three;
-                if (sceneThree) {
-                    for (const obj of (sceneThree as THREE.Scene).children) {
-                        if ((obj as THREE.Group).isGroup && obj.userData?.source === 'ifc-import') {
-                            ifcSceneGroups.push(obj as THREE.Group);
-                        }
-                    }
-                }
-            }
-
-            if (models.length > 0 || nativeGroups.length > 0 || ifcSceneGroups.length > 0) {
-                this._vst(
-                    `${logScope} — EdgeProjectorService.project() START ` +
-                    `(${models.length} IFC model(s), ${nativeGroups.length} native group(s), ` +
-                    `${ifcSceneGroups.length} ifc-scene group(s), nativeFlag=${useEdgeProjectorNative()})`,
-                );
-                const projectionGen = viewTechnicalDrawingCache.beginProjection(planViewDef.id);
-                this._edgeProjectorService!.project(planViewDef, models, nativeGroups, ifcSceneGroups).then(drawing => {
-                    const accepted = viewTechnicalDrawingCache.setIfCurrent(planViewDef.id, projectionGen, drawing);
-                    if (!accepted) {
-                        // §F.1 — superseded plan projection; release proxy groups.
-                        nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
-                        this._disposeRejectedDrawing(drawing);
-                        return;
-                    }
-                    this._vst(`${logScope} — EdgeProjectorService.project() DONE → cached viewId=${planViewDef.id}`);
-                    console.log(`[ViewController] DOC-1.10: projection cached for ${isCeilingPlan ? 'ceiling-plan' : 'plan'} view "${planViewDef.id}" (IFC=${models.length}, native=${nativeGroups.length}, ifc-scene=${ifcSceneGroups.length})`);
-                    // DOC-1.13: apply VG category visibility/colour to projection layers
-                    const vgApplicator = window.vgSceneApplicator;
-                    if (vgApplicator && typeof vgApplicator.applyToProjectionLayers === 'function') {
-                        vgApplicator.applyToProjectionLayers(drawing, planViewDef.id);
-                    }
-                    // DOC-1.5a / DOC-1.5f: mount only if this view is still active after async projection.
-                    this.mountReprojectedDrawing(planViewDef.id, drawing);
-                }).catch(err => {
-                    // Release native groups on error to avoid memory leak (§02 §4.3).
-                    nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
-                    console.error(`[ViewController] DOC-1.10: EdgeProjectorService.project() failed for ${isCeilingPlan ? 'ceiling-plan' : 'plan'} view:`, err);
-                });
-            }
-        }
-
-        this._vst(`${logScope}() COMPLETE`);
+        // §DEAD-PLAN-TAIL (lint sweep 2026-08-09) — ~160 lines of unreachable code
+        // were removed from here. Every path above returns: the Canvas2D
+        // `PlanViewManager.activate()` branch returns, and the no-ViewDefinition
+        // branch warns, emits `plan-view-unavailable`, and returns. The tail was the
+        // legacy in-viewport plan activation (ANNOTATION_LAYER/BIM_LAYER flips,
+        // PlanViewService.applyFloorPlan, MultiViewCameraManager slot restore,
+        // OrthoPlanCameraLockController, EdgeProjector projection) and had not
+        // executed since plan views moved to the Canvas2D PlanViewManager.
+        // ESLint reported it as three `no-unreachable` errors; it is deleted rather
+        // than suppressed. Recover it from git history if the Canvas2D path is ever
+        // reverted.
     }
 
     private async _activateCeilingPlanView(view: OBC.View | null): Promise<void> {

@@ -17,7 +17,7 @@
 // ⛔ TRANSPORT: PropertyIsLike only, with BOTH halves of the filter gate applied —
 //   (1) every returned feature must carry the requested cod_ine_mun, and
 //   (2) a value known to be OUTSIDE the region (Madrid 28079) must return ZERO.
-import { WFS, likeFilter, wfsUrl, get, owsException, countMembers, parseFeatures, save } from './lib.mjs';
+import { likeFilter, wfsUrl, get, owsException, countMembers, parseFeatures, save } from './lib.mjs';
 
 const SAMPLE = [
     { ine: '46250', name: 'València', prov: 'València', klass: 'large-urban', why: 'regional capital; the polygon set the grammar hypothesis was refuted on' },

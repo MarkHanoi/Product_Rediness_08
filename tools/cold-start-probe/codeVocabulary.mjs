@@ -2,7 +2,7 @@
 // branch. A default that silently maps an unknown code to `envelope` would over-credit exactly the
 // way the withdrawn survey did.
 const UA = 'PRYZM-cold-start-probe/1.0 (+pryzmhello@gmail.com)';
-const BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36';
+const _BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36';
 
 async function j(url, ua = UA) {
     const res = await fetch(url, { headers: { 'user-agent': ua } });

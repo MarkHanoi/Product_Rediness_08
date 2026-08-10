@@ -900,9 +900,13 @@ export class WallFragmentBuilder {
         const idDesc = Object.getOwnPropertyDescriptor(ud, 'id');
         if (!idDesc || idDesc.writable) {
             // Re-define from scratch so the lock is consistent across creation paths.
-            try { delete ud.id; } catch (_) {}
-            try { delete ud.type; } catch (_) {}
-            try { delete ud.elementType; } catch (_) {}
+            // The swallow is deliberate and CORRECT here (no-empty): `delete` on a
+            // non-configurable property throws in strict mode, and "already locked
+            // by a prior build" is exactly the state we are about to (re)assert with
+            // defineProperty below — there is nothing to report and nothing to fix.
+            try { delete ud.id; } catch { /* already locked — reasserted below */ }
+            try { delete ud.type; } catch { /* already locked — reasserted below */ }
+            try { delete ud.elementType; } catch { /* already locked — reasserted below */ }
             Object.defineProperty(ud, 'id',          { value: wall.id, writable: false, configurable: false, enumerable: true });
             Object.defineProperty(ud, 'type',        { value: 'wall',  writable: false, configurable: false, enumerable: true });
             Object.defineProperty(ud, 'elementType', { value: 'wall',  writable: false, configurable: false, enumerable: true });

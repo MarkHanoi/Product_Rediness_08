@@ -109,7 +109,7 @@ export class AnalyticsPanel {
     private _buildAllCharts(): void {
         if (!this._root) return;
         this._root.innerHTML = '';
-        this._charts.forEach(c => { try { c.destroy(); } catch {} });
+        this._charts.forEach(c => { try { c.destroy(); } catch { /* §SWALLOW-TEARDOWN — the object is being discarded; a dispose() that throws cannot make it any less discarded, and re-throwing would abort the rest of the teardown */ } });
         this._charts = [];
 
         this._root.appendChild(this._buildSectionTitle('Area Stacking by Level'));

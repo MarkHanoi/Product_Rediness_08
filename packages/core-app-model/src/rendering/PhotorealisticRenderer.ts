@@ -208,9 +208,7 @@ export class PhotorealisticRenderer {
         const { PathTracingSceneGenerator, PathTracingRenderer, PhysicalPathTracingMaterial }
             = ptLib as any;
 
-        const { FullScreenQuad } = await import(
-            'three/examples/jsm/postprocessing/Pass.js'
-        );
+        const { FullScreenQuad } = await import('@pryzm/renderer-three');
 
         // Build BVH from scene meshes
         const generator = new PathTracingSceneGenerator();
@@ -301,8 +299,8 @@ export class PhotorealisticRenderer {
             return blobUrl;
         } finally {
             fsQuad.dispose();
-            try { (ptRenderer as any).dispose?.(); } catch {}
-            try { bvh.dispose(); } catch {}
+            try { (ptRenderer as any).dispose?.(); } catch { /* §SWALLOW-TEARDOWN — the object is being discarded; a dispose() that throws cannot make it any less discarded, and re-throwing would abort the rest of the teardown */ }
+            try { bvh.dispose(); } catch { /* §SWALLOW-TEARDOWN — the object is being discarded; a dispose() that throws cannot make it any less discarded, and re-throwing would abort the rest of the teardown */ }
         }
     }
 
@@ -348,7 +346,7 @@ export class PhotorealisticRenderer {
 
         // Downsample to final canvas size
         const downsampleMat = new THREE.MeshBasicMaterial({ map: rt.texture });
-        const { FullScreenQuad } = await import('three/examples/jsm/postprocessing/Pass.js');
+        const { FullScreenQuad } = await import('@pryzm/renderer-three');
         const fsq = new FullScreenQuad(downsampleMat);
         renderer.setRenderTarget(null);
         renderer.setSize(opts.width, opts.height);

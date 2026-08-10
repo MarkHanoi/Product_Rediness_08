@@ -262,7 +262,7 @@ export class AnnotationDxfBridge {
             } catch {
                 const entry = item.drawing.annotations.get(item.uuid) as any;
                 if (entry?.three) this._disposeObject(entry.three, true);
-                try { item.drawing.annotations.delete(item.uuid); } catch {}
+                try { item.drawing.annotations.delete(item.uuid); } catch { /* §SWALLOW-TEARDOWN — deleting an annotation the drawing no longer holds is a no-op */ }
             }
         }
         state.annotations = [];

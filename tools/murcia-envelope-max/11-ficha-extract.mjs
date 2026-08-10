@@ -148,7 +148,7 @@ for (const p of perDoc) {
 // Two kinds, counted separately:
 //   GRANTING  — an article cited as the source of an envelope parameter
 //   MODIFYING — an article cited in "Documentación adicional" as a plan modification
-const ART = /\b(?:art[íi]?culo?s?\.?|art\.?|artº|arts?\.)\s*º?\s*\d+[\d.\-\/]*/gi;
+const ART = /\b(?:art[íi]?culo?s?\.?|art\.?|artº|arts?\.)\s*º?\s*\d+[\d.\-/]*/gi;
 console.log('\n== 11e · article citations ==');
 for (const p of perDoc) {
   const d = docs.find((x) => x.wide === p.wide);

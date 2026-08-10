@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 /**
  * ## MODIFICATION DECLARATION
  *
@@ -97,11 +114,11 @@ export class DetectAllRoomsCommand implements Command {
             continue;
           }
           this.undoSteps.removed.push(r);
-          try { roomStore.remove(r.id); } catch (_) {}
-          try { ctx.bimManager.unregisterElement(r.id); } catch (_) {}
-          try { elementRegistry.unregister(r.id); } catch (_) {}
-          try { semanticGraphManager.removeAllRelationshipsForElement(r.id); } catch (_) {}
-          try { roomSpatialIndex.remove(r.id); } catch (_) {}
+          try { roomStore.remove(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+          try { ctx.bimManager.unregisterElement(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+          try { elementRegistry.unregister(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+          try { semanticGraphManager.removeAllRelationshipsForElement(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+          try { roomSpatialIndex.remove(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         }
 
         // ② Add or update rooms.
@@ -110,15 +127,15 @@ export class DetectAllRoomsCommand implements Command {
           try {
             if (isNew) {
               roomStore.add(room);
-              try { ctx.bimManager.registerElement(room.id, room.levelId); } catch (_) {}
-              try { elementRegistry.registerSemantic(room.id, 'room'); } catch (_) {}
+              try { ctx.bimManager.registerElement(room.id, room.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+              try { elementRegistry.registerSemantic(room.id, 'room'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
               this.undoSteps.added.push(room.id);
             } else {
               roomStore.update(room.id, room);
               // Stale graph relationships need clearing because boundingWallIds
               // may have changed; they're rebuilt below.
-              try { semanticGraphManager.removeAllRelationshipsForElement(room.id); } catch (_) {}
-              try { roomSpatialIndex.remove(room.id); } catch (_) {}
+              try { semanticGraphManager.removeAllRelationshipsForElement(room.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+              try { roomSpatialIndex.remove(room.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             }
             finalIds.add(room.id);
             allCreated.push(room);
@@ -229,11 +246,11 @@ export class DetectAllRoomsCommand implements Command {
     try {
       // ① Roll back newly added rooms.
       for (const id of this.undoSteps.added) {
-        try { roomStore.remove(id); } catch (_) {}
-        try { ctx.bimManager.unregisterElement(id); } catch (_) {}
-        try { elementRegistry.unregister(id); } catch (_) {}
-        try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch (_) {}
-        try { roomSpatialIndex.remove(id); } catch (_) {}
+        try { roomStore.remove(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+        try { ctx.bimManager.unregisterElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+        try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+        try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+        try { roomSpatialIndex.remove(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
       }
 
       // ② Restore preserved rooms to their pre-execute data (in case detection

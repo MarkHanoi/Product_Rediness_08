@@ -213,7 +213,7 @@ function minDistToSegs(px, py, segs) {
 }
 
 /** Shoelace area of one ring, absolute, in native m². */
-function ringArea(ring) {
+function _ringArea(ring) {
     let a = 0;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
         a += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];

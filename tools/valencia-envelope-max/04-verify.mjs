@@ -19,7 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { get, sniff, save, load, pool, pct, DOCS, ensureDocs } from './lib.mjs';
+import { get, save, load, pool, pct, DOCS, ensureDocs } from './lib.mjs';
 import { textLayer } from './pdftext.mjs';
 
 ensureDocs();

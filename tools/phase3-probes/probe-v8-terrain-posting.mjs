@@ -68,7 +68,7 @@ const log = (...a) => { if (!asJson) console.log(...a); };
 // ── honest fetch: always report status + bytes + content-type ────────────────
 async function fetchRaw(url, { accept, timeoutMs = 90_000 } = {}) {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  const _t = setTimeout(() => ctl.abort(), timeoutMs);
   const entry = { url: url.length > 260 ? `${url.slice(0, 260)}…` : url };
   try {
     const res = await fetch(url, { signal: ctl.signal, headers: accept ? { accept } : {} });

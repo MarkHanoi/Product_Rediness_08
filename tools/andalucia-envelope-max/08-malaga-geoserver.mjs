@@ -1,7 +1,7 @@
 // §ANDALUCIA-ENVELOPE-MAX / step 8 — MÁLAGA GeoServer. sig.malaga.eu ROOT fails DNS but
 // /geoserver/wfs answers 200 with a capabilities doc. ⭐ A dead host list is not an answer:
 // the root being dead says nothing about the service path.
-import { get, getJson } from './lib.mjs';
+import { get } from './lib.mjs';
 import { writeFileSync } from 'node:fs';
 
 const GS = 'https://sig.malaga.eu/geoserver/wfs';

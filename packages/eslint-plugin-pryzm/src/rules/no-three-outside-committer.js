@@ -35,6 +35,18 @@
 import path from 'node:path';
 
 const ALLOW_FRAGMENTS = [
+  // ⚠ §RULE-SCOPE-FIX (2026-08-09). The header note above claimed this package
+  // "does NOT need to be in ALLOW_FRAGMENTS" because its files use
+  // `export … from 'three/…'` (ExportDeclaration) rather than ImportDeclaration.
+  // That stopped being true: measured on this tree, 14 of the 18 errors this rule
+  // reported were inside packages/renderer-three/ itself — real `import` and
+  // `await import()` statements in RendererHandle.ts, the WebGL/WebGPU adapters,
+  // CesiumThreeBridge.ts, the TSL passes, RenderPipelineManager.ts and
+  // three-webgpu-types.d.ts. The rule is named "no three OUTSIDE committer" and
+  // its own docstring says "forbidden outside packages/renderer-three/"; reporting
+  // the sole authorised owner is a scope bug, not an architecture finding. Adding
+  // the fragment restores the rule's stated contract — it does not weaken it.
+  'packages/renderer-three/',
   'packages/scene-committer/',
   'apps/bench/',
 ];

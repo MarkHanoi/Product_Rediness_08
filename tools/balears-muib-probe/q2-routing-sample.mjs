@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { agsGet, rng, sleep, EsriError } from './lib.mjs';
 
 const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
-const HERE = path.dirname(fileURLToPath(import.meta.url));
+const _HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // ── REPRODUCIBILITY ──────────────────────────────────────────────────────────
 const SEED = 20260802;

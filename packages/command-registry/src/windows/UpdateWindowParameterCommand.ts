@@ -158,7 +158,16 @@ export class UpdateWindowParameterCommand implements Command {
             const ws = context.stores.wallStore;
             if (!ws.getWindow(this.windowId)) return;
             ws.updateWindow(this.windowId, delta as any);
-        } catch {
+        } catch (err) {
+            // §HONESTY — this used to be silent. The wall store holds a MIRROR of the
+            // window opening; if the mirror write fails the two stores disagree and the
+            // wall renders the OLD opening while the property panel shows the new one.
+            // That divergence must not look identical to a successful sync.
+            console.warn(
+                `[UpdateWindowParameterCommand] wall-store mirror write FAILED for ${this.windowId} — ` +
+                `wall geometry now disagrees with the window store.`,
+                err,
+            );
         }
     }
 }

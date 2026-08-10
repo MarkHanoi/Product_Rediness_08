@@ -13,7 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { agsGet, count, distinct, queryRows, sleep, EsriError } from './lib.mjs';
+import { agsGet, count, distinct, sleep, EsriError } from './lib.mjs';
 
 const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
 

@@ -8,7 +8,7 @@
 // to the viewer — and then repeated with each affordance added, so that any
 // dependence is attributable to a single variable.
 
-import { politeFetch, wfsJson, writeOut, sha256, sleep, UA } from './lib.mjs';
+import { politeFetch, wfsJson, writeOut, sha256 } from './lib.mjs';
 
 const REFRESH = process.argv.includes('--refresh');
 const O = { refresh: REFRESH };

@@ -110,7 +110,7 @@ export async function wfsJson(typeName, extra = {}, opts = {}) {
   let j;
   try {
     j = JSON.parse(text);
-  } catch (e) {
+  } catch {
     throw new Error(`WFS non-JSON on ${typeName}: ${text.slice(0, 600)}`);
   }
   return j;

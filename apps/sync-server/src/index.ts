@@ -173,7 +173,7 @@ export async function createSyncServer(
       for (const ws of wss.clients) {
         try {
           (ws as WebSocket).close(1001, `sync-server shutdown: ${reason}`);
-        } catch {}
+        } catch { /* §SWALLOW-TEARDOWN — the socket is already gone; shutdown must still close the remaining clients */ }
       }
       wss.close();
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));

@@ -9,10 +9,10 @@ import { join } from 'node:path';
 import { writeOut, HERE } from './lib.mjs';
 
 const R = (n) => JSON.parse(readFileSync(join(HERE, 'out', n), 'utf8'));
-const s1 = R('01-schema-and-validity.json');
+const _s1 = R('01-schema-and-validity.json');
 const s3 = R('03-universes-and-currency.json');
-const s6 = R('06-ficha-live-matrix.json');
-const s8 = R('08-control-28-09.json');
+const _s6 = R('06-ficha-live-matrix.json');
+const _s8 = R('08-control-28-09.json');
 const s9 = R('09-wfs-parameter-census.json');
 const s12 = R('12-currency-verdict.json');
 const s13 = R('13-provenance-and-rank.json');

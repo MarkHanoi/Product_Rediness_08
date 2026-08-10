@@ -137,7 +137,7 @@ P('');
 // and CTP fixes it at a hard 15 METRES from the public vial, with the FAR banded across that line
 // (1,80 / 2,60 m²t/m²s inside the band, 0,60 outside). MC defers it to a PERI or Estudio de
 // Detalle. CH ties it to the PEPRI Centro.
-const depth = R('22-fondo-negative-proof');
+const _depth = R('22-fondo-negative-proof');
 out.malaga.closedBlockDepth = {
     lexemeUsed: 'profundidad edificable', lexemeSearchedByPriorProbes: 'fondo edificable',
     CTP: 'HARD VALUE — Profundidad Máxima Edificable desde vial público de 15 metros, with edificabilidad banded across it',

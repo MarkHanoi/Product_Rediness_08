@@ -17,7 +17,7 @@ const BBOX25830 = '366000,4064000,374000,4070000';   // EPSG:25830 easting,north
 const BBOX4326 = '-4.52,36.68,-4.36,36.76';          // lon,lat  (axis-order trap #1)
 const BBOX4326rev = '36.68,-4.52,36.76,-4.36';       // lat,lon
 
-async function T(label, url, expect = 'features') {
+async function T(label, url, _expect = 'features') {
     const r = await get(url, { timeout: 60000 });
     let n = null, note = '';
     if (r.body) {

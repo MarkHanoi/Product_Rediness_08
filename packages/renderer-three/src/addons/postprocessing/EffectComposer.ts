@@ -6,4 +6,4 @@
 //
 // Wave A15 S119 — Class A1 violation closure.
 export { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-export { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
+export { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';

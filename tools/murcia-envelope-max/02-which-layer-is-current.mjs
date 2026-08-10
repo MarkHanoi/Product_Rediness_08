@@ -14,7 +14,7 @@
 //   (iii) content — do they disagree on the same municipality
 //   (iv)  the ficha links — do both point at the same document channel
 
-import { politeFetch, wfsJson, wfsCount, writeOut, GEOSERVER_ROOT, qs, truncationSuspect } from './lib.mjs';
+import { politeFetch, wfsJson, writeOut, GEOSERVER_ROOT, qs, truncationSuspect } from './lib.mjs';
 
 const REFRESH = process.argv.includes('--refresh');
 const O = { refresh: REFRESH };

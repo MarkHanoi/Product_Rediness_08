@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { get, save, ensureDocs, DOCS, DIR } from './lib.mjs';
+import { get, save, ensureDocs, DOCS } from './lib.mjs';
 
 const PDFTOTEXT = 'C:\\Program Files\\Git\\mingw64\\bin\\pdftotext.exe';
 ensureDocs();
@@ -57,7 +57,7 @@ const PARAMS = {
     parcelMin: /parcela\s+m[ií]nima|superficie\s+m[ií]nima\s+de\s+parcela/gi,
 };
 // Article structure. The Spanish planning ordinance convention is `Artículo N.` or `Art. N.N.N`.
-const ARTICLE = /\bArt(?:[ií]culo|\.)\s*\d+(?:[.\-]\d+)*/gi;
+const ARTICLE = /\bArt(?:[ií]culo|\.)\s*\d+(?:[.-]\d+)*/gi;
 
 function textOf(pdfPath) {
     const txtPath = pdfPath.replace(/\.pdf$/i, '.txt');

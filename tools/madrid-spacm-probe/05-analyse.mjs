@@ -156,13 +156,13 @@ for (const [v, n] of [...figTally].sort((a, b) => b[1] - a[1])) {
 say('\n2b · Does ORDENANZA join to AMBITO?  (ORDENANZA.DS_NOM_AMB -> AMBITO.DS_NOMB_AMB, same municipality)');
 const ambIndex = new Map();
 for (const a of AMB) ambIndex.set(`${a.CD_MUNICIPIO}|${(a.DS_NOMB_AMB ?? '').trim().toUpperCase()}`, a);
-let joined = 0, ordWithAmbName = 0, joinedDev = 0;
+let joined = 0, ordWithAmbName = 0, _joinedDev = 0;
 for (const o of ORD) {
   const nm = (o.DS_NOM_AMB ?? '').trim();
   if (!nm) continue;
   ordWithAmbName++;
   const a = ambIndex.get(`${o.CD_MUNICIPIO}|${nm.toUpperCase()}`);
-  if (a) { joined++; if (DEV_FIGS.has(a.DS_FIG_DES)) joinedDev++; }
+  if (a) { joined++; if (DEV_FIGS.has(a.DS_FIG_DES)) _joinedDev++; }
 }
 say(`   ORDENANZA rows carrying DS_NOM_AMB : ${ordWithAmbName} / ${ORD.length} (${(ordWithAmbName / ORD.length * 100).toFixed(2)} %)`);
 say(`   of those, resolving to an AMBITO   : ${joined} (${(joined / Math.max(ordWithAmbName, 1) * 100).toFixed(2)} % of named)`);

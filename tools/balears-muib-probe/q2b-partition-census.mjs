@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { agsGet, count, sleep, EsriError } from './lib.mjs';
+import { agsGet, sleep, EsriError } from './lib.mjs';
 
 const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
 const QUAL = 10, RUSTIC = 11, CLASSIF = 12;

@@ -97,10 +97,10 @@ export class DataCommandCenter {
     // null-default ctor arg, so we re-instantiate to preserve immutability).
     if (this._strategize && this._audit && this._validate && this._lifecycle) {
       // Detach + dispose old buckets (they hold no critical state in B.18 scope).
-      try { this._strategize.element.remove(); } catch {}
-      try { this._audit.element.remove();      } catch {}
-      try { this._validate.element.remove();   } catch {}
-      try { this._lifecycle.element.remove();  } catch {}
+      try { this._strategize.element.remove(); } catch { /* §SWALLOW-TEARDOWN — removing an element already detached from the DOM is a no-op, not a failure */ }
+      try { this._audit.element.remove();      } catch { /* §SWALLOW-TEARDOWN — removing an element already detached from the DOM is a no-op, not a failure */ }
+      try { this._validate.element.remove();   } catch { /* §SWALLOW-TEARDOWN — removing an element already detached from the DOM is a no-op, not a failure */ }
+      try { this._lifecycle.element.remove();  } catch { /* §SWALLOW-TEARDOWN — removing an element already detached from the DOM is a no-op, not a failure */ }
       this._buildBuckets();
     }
   }

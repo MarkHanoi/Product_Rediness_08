@@ -6,7 +6,7 @@
 //
 // The denominator is BUILDABLE land (C63 §L-656): private, buildable urban parcels. Dotacional /
 // viario / zona verde is NOT buildable-by-a-private-owner and is excluded, with the count stated.
-import { get, getJson, isValid, pct } from './lib.mjs';
+import { getJson, isValid, pct } from './lib.mjs';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const GS = 'https://geoserver.pgou.coacordoba.org/geoserver/wfs';

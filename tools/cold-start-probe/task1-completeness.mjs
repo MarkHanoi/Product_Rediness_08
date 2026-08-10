@@ -44,7 +44,7 @@ const INE = '08196';
 
 const PROD = join(HERE, '..', '..', 'packages', 'site-parcel-data', 'src');
 const PROD_OV = readFileSync(join(PROD, 'providers', 'bcnRefosOVProvider.ts'), 'utf8');
-const PROD_ALC = readFileSync(join(PROD, 'rulepacks', 'bcnAlcadaReguladora.ts'), 'utf8');
+const _PROD_ALC = readFileSync(join(PROD, 'rulepacks', 'bcnAlcadaReguladora.ts'), 'utf8');
 const RE_LIT = String.raw`/^(B|PX)\+(\d{1,2})(\+A)?$/`;
 if (!PROD_OV.includes(RE_LIT)) throw new Error('REPLICA DRIFT: shipped parsePlantes regex changed. Fix the probe.');
 function parsePlantes(raw) {

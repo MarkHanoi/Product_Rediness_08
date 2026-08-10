@@ -155,7 +155,12 @@ function buildSemanticData(w: any): {
             const graphJson = sgManager.serialize();
             relationships.push(...(graphJson.relationships ?? []));
         }
-    } catch (_) {}
+    } catch (err) {
+        // §HONESTY — this used to be silent. An empty `relationships` array is what a
+        // project with no semantic graph produces AND what a crashed read produces;
+        // the exported IFC would silently lose every relationship with no diagnostic.
+        console.warn('[ExportIFC] SemanticGraph read FAILED — exported IFC will carry NO relationships.', err);
+    }
 
     // ── Extract room semantic data ─────────────────────────────────────────────
     try {

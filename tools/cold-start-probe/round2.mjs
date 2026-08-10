@@ -29,7 +29,7 @@ for (const ine of ['03130', '12126', '46190']) {
         const u = `https://terramapas.icv.gva.es/0702_Planeamiento?service=WFS&version=1.1.0&request=GetFeature&typename=${encodeURIComponent(tn)}&bbox=${encodeURIComponent(bbox)}&maxfeatures=3&outputformat=${encodeURIComponent(fmt)}&srsname=EPSG:4326`;
         const r = await get(u);
         if (r.ok && r.body.trim().startsWith('{')) {
-          try { const j = JSON.parse(r.body); if ((j.features || []).length) { got = { axis, fmt, n: j.features.length, props: j.features[0].properties }; } } catch {}
+          try { const j = JSON.parse(r.body); if ((j.features || []).length) { got = { axis, fmt, n: j.features.length, props: j.features[0].properties }; } } catch { /* §SWALLOW-PROBE — a body that does not parse as JSON is the NEGATIVE RESULT this probe is measuring; `got` stays unset and the caller records the miss */ }
         }
         if (got) break;
         if (!got && r.ok && /Exception/i.test(r.body)) rows.push({ tn, axis, fmt, fail: 'OWS-EXCEPTION ' + r.body.slice(0, 160).replace(/\s+/g, ' ') });

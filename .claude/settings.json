@@ -22,7 +22,10 @@
       "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishRules.test.ts __tests__/furnishFoundations.test.ts __tests__/programRules.test.ts)",
       "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishSolver.test.ts __tests__/furnishRules.test.ts __tests__/furnishFoundations.test.ts __tests__/furnishEmit.test.ts)",
       "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishSolver.test.ts __tests__/furnishRules.test.ts __tests__/furnishFoundations.test.ts __tests__/furnishEmit.test.ts __tests__/programRules.test.ts)",
-      "Bash(node scripts/build/build-server-deps.mjs)"
+      "Bash(node scripts/build/build-server-deps.mjs)",
+      "Bash(cd \"C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor\" && npx vitest run __tests__/MarketingPages.test.ts 2>&1 | tail -6; cd ../.. && npm run check:route-surface 2>&1 | tail -3 && npm run check:docs-site 2>&1 | tail -3)",
+      "Read(//c/Users/LENOVO/OneDrive/Desktop/**)",
+      "Bash(grep -n \"needs:\\\\|^  [a-z-]*:$\" .github/workflows/ci.yml)"
     ]
   }
 }

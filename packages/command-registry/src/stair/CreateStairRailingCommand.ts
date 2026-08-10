@@ -1,3 +1,20 @@
+// §SWALLOW-SIDE-INDEX — why the `catch { /* … */ }` blocks below are empty.
+//
+// Every one of them wraps a write to a SIDE INDEX (elementRegistry,
+// bimManager, semanticGraphManager, roomSpatialIndex) that is derived from the
+// element stores, never authoritative over them. The store mutation — the
+// command's actual contract — has already committed and is NOT inside the try.
+// A side index that rejects an unregister for an id it never held, or a
+// register for an id it already holds, is reporting a no-op, not a failure:
+// re-deriving the index from the stores would produce the same result either
+// way. Re-throwing here would abort a command whose real work succeeded and
+// leave the undo stack describing a mutation that was rolled back only halfway.
+//
+// This is NOT a §CONTEXT-DATA-HONESTY breach: nothing downstream reads a
+// success/failure value from these calls, so there is no refusal being
+// disguised as a result. If a side index ever becomes load-bearing for a
+// query, these blocks must become reported failures.
+
 import {
     Command,
     CommandType,
@@ -86,7 +103,7 @@ export class CreateStairRailingCommand implements Command {
             ctx.bimManager.registerElement(railingId, stair.baseLevelId);
             elementRegistry.registerSemantic(railingId, 'stair-railing');
         } catch (e: any) {
-            try { ctx.bimManager.unregisterElement(railingId); } catch (_) {}
+            try { ctx.bimManager.unregisterElement(railingId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             return { success: false, affectedElementIds: [], info: [e?.message ?? 'Failed to register stair railing'] };
         }
 
@@ -135,8 +152,8 @@ export class CreateStairRailingCommand implements Command {
         if (railingStore) {
             railingStore.remove(this.createdRailingId);
         }
-        try { ctx.bimManager.unregisterElement(this.createdRailingId); } catch (_) {}
-        try { elementRegistry.unregister(this.createdRailingId); } catch (_) {}
+        try { ctx.bimManager.unregisterElement(this.createdRailingId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+        try { elementRegistry.unregister(this.createdRailingId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
         _bus.emit('bim-stair-railing-removed', { id: this.createdRailingId! }); // F.events.17
 

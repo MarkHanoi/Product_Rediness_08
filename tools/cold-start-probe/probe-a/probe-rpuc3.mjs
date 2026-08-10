@@ -24,5 +24,5 @@ for (const v of ['Sant Andreu de la Barca', '08196', '196']) {
     const b = await r.text();
     console.log(`v="${v}" ${String(r.status).padEnd(4)} ${String(b.length).padStart(8)}B  ${b.slice(0, 90).replace(/\s+/g, ' ')}`);
     if (r.status === 200 && b.length > 100) { writeFileSync(OUT + 'rpuc_basica.json', b); console.log('  ⭐ SAVED'); break; }
-  } catch (e) { console.log(`v="${v}" ERR`); }
+  } catch { console.log(`v="${v}" ERR`); }
 }

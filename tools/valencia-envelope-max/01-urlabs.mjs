@@ -11,7 +11,7 @@
 //
 // The unfiltered pull is then reconciled against `resultType=hits`, so a truncated response
 // cannot masquerade as a complete census.
-import { WFS, wfsUrl, likeFilter, get, owsException, countMembers, parseFeatures, save } from './lib.mjs';
+import { wfsUrl, likeFilter, get, owsException, countMembers, parseFeatures, save } from './lib.mjs';
 
 const TN = 'ms:Planeamiento.Zonificacion';
 const PROPS = 'cod_ine_mun,noms_mun,url_abs,zon_suelo,clas_suelo,dotacion,expediente';

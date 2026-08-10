@@ -22,7 +22,7 @@
 // contaminated by this run.
 
 import { readFileSync } from 'node:fs';
-import { writeOut, assertSums } from './lib.mjs';
+import { writeOut } from './lib.mjs';
 
 const MAIN = 'C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08';
 const report = { step: 8, measuredAt: new Date().toISOString(), notes: [] };
