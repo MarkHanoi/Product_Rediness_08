@@ -33,13 +33,21 @@
     "    RenderingPipelineCoordinator. HARD_FAIL stays at 1; the ceiling was NOT",
     "    raised to accommodate them.",
     "  • cast-count: 20 `(window as any)` in apps/editor/src/engine (strict scope,",
-    "    ceiling 0, untouched) and 215 repo-wide on a new second ratchet."
+    "    ceiling 0, untouched) and 215 repo-wide on a new second ratchet.",
+    "",
+    "2026-08-10 · §RAF-GATE-COMMENT-BLIND — REMOVED check-raf-count.ts. The 4",
+    "extra 'owners' above were never rAF calls: all four matches were COMMENT",
+    "lines (three of them doc comments asserting P3 compliance). With comment",
+    "lines filtered before counting (lib/rafOwners.ts, the same idiom as the P6",
+    "gate) the measured owner count is exactly 1 — RafAdapter.ts, the canonical",
+    "owner. P3 had already converged; the gate was counting sentences. HARD_FAIL",
+    "unchanged at 1. Convergence boolean #3 now imports the SAME count instead of",
+    "spawning a nonexistent script and reporting its failure as a pass."
   ],
   "baselinedAt": "2026-08-08",
   "baselinedCommit": "d0d34999",
   "failing": [
     "check-cast-count.ts",
-    "check-raf-count.ts",
     "check-l7-boundary.ts",
     "check-project-isolation.ts",
     "check-no-commandmanager.ts",

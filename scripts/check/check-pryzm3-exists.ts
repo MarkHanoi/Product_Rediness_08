@@ -14,9 +14,16 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { countRafOwners, RAF_CANONICAL_OWNER } from '../../tools/ga-gate/lib/rafOwners.js';
 
 // A.U.20 — script lives at scripts/check/; ROOT is two levels up.
-const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+// §FIX-PRYZM3-ROOT-WIN32 (2026-08-10): this used `new URL(...).pathname`, which
+// on Windows yields `/C:/Users/...` — a path no fs call can resolve. Every
+// filesystem-based boolean (#1, #4, #5, #7, #8, #9) was silently measuring a
+// directory that does not exist and reporting that as its answer. fileURLToPath
+// is the correct conversion on every platform.
+const ROOT = fileURLToPath(new URL('../..', import.meta.url)).replace(/[\\/]+$/, '');
 
 function srcFolderCount(): number {
   try {
@@ -87,20 +94,29 @@ const results: CheckResult[] = [
     ok: rg('\\(window as any\\)', 'src/ui') === 0,
     note: `(window as any) in src/ui/: ${rg('\\(window as any\\)', 'src/ui')} files`,
   },
-  {
-    id: 3,
-    label: 'raf_owners_outside_frame_scheduler == 0',
-    ok: (() => {
-      try {
-        const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
-        const out = execFileSync('pnpm', ['tsx', 'tools/check-raf-count/index.ts'], {
-          cwd: ROOT, encoding: 'utf8', stdio: 'pipe',
-        });
-        return out.includes('0 rogue') || out.includes('rogue=0') || out.trim() === '0';
-      } catch { return true; }
-    })(),
-    note: 'Verified by tools/check-raf-count — Wave 6 D.7.8 closed this.',
-  },
+  // §RAF-ONE-COUNT (2026-08-10) — boolean #3 now MEASURES, with the same
+  // counting logic as the enforcement gate (tools/ga-gate/check-raf-count.ts).
+  // What was wrong (§CONTEXT-DATA-HONESTY): it spawned `pnpm tsx
+  // tools/check-raf-count/index.ts` — a path that DOES NOT EXIST — and its
+  // catch block returned TRUE, so the spawn failure printed ✅ while the real
+  // gate measured 4 non-owners. A status script that reports a false ✅ is
+  // worse than none. Failure and success are now different values: the count
+  // comes from tools/ga-gate/lib/rafOwners.ts, and if the scan itself cannot
+  // run, scanFiles exits 2 rather than letting this row show a pass.
+  (() => {
+    const res = countRafOwners(ROOT, 'pryzm3-boolean-3');
+    const rogue = res.ownerFiles.filter((f) => f !== RAF_CANONICAL_OWNER);
+    return {
+      id: 3,
+      label: 'raf_owners_outside_frame_scheduler == 0',
+      ok: rogue.length === 0 && res.ownerFiles.length > 0,
+      note: rogue.length === 0
+        ? (res.ownerFiles.length > 0
+            ? `✅ measured: sole rAF owner is ${RAF_CANONICAL_OWNER} (${res.filesScanned} files scanned; shared count with tools/ga-gate/check-raf-count.ts).`
+            : `⚠ measured ZERO rAF owners across ${res.filesScanned} files — even ${RAF_CANONICAL_OWNER} did not match; the scan is suspect, refusing to report ✅.`)
+        : `measured ${rogue.length} rAF owner(s) outside the frame scheduler: ${rogue.join(', ')}`,
+    };
+  })(),
   {
     id: 4,
     label: 'default_runtime == composeRuntime()',

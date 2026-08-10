@@ -22,7 +22,7 @@
  * unchanged.
  */
 
-import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
+import { viewIntentInstanceStore, getDefaultSystemIntentId } from '@pryzm/core-app-model/presentation';
 import type { GraphicOverride, VisibilityOverride } from '@pryzm/core-app-model';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import type { ElementState, OverrideLayer, VisibilityIntent } from '@pryzm/core-app-model';
@@ -61,8 +61,24 @@ export class OverridePanel {
         this.activeViewId = viewId;
         // Ensure every view has an instance so the picker reflects + writes the
         // chosen intent on first open.
+        //
+        // §FIX-P6-DEFAULT-INTENT-BIND (2026-08-10) — this used to call
+        // `viewIntentInstanceStore.assign(viewId)` DIRECTLY, a P6 violation:
+        // view-intent instances are persisted in the project snapshot, so the
+        // binding created here was committed model data that never reached the
+        // undo stack or the event log. The `vg.assignIntent` bus command
+        // (AssignViewIntentCommand) is the prescribed channel and already
+        // existed — it snapshots the previous instance for undo and emits
+        // 'vi:instance-updated', which this panel listens to for re-render.
+        // BEHAVIOUR NOTE, stated deliberately: the command validates that the
+        // viewId exists in viewDefinitionStore (the raw store call did not);
+        // for a viewId with no ViewDefinition the panel now renders unbound
+        // instead of minting an orphan instance — a correctness gain.
         if (!viewIntentInstanceStore.has(viewId)) {
-            viewIntentInstanceStore.assign(viewId);
+            this.runtime?.bus?.executeCommand('vg.assignIntent', {
+                viewId,
+                intentId: getDefaultSystemIntentId(),
+            });
         }
         panelManager.notifyOpened(PANEL_ID);
         this.panel.style.display = 'flex';

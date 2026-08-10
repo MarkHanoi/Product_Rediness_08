@@ -95,8 +95,39 @@ const LABEL = 'no-direct-store-writes';
  * `commandBus.dispatch(...)` against an existing or new command, which is what
  * makes it undoable and replicable. Pay it down in the plugin/domain sprint that
  * owns the store in question.
+ *
+ * ─── Ratchet history ─────────────────────────────────────────────────────────
+ * 41 → 37 (2026-08-10, P6 burn-down):
+ *   • −3  MaterialsBucket wall/door/windowSystemTypeStore.update → the
+ *         `elementType.update` bus command (§FIX-P6-ELEMENT-TYPE-MATERIAL,
+ *         commit ea1f2644).
+ *   • −1  OverridePanel viewIntentInstanceStore.assign → the `vg.assignIntent`
+ *         bus command (§FIX-P6-DEFAULT-INTENT-BIND). View-intent instances are
+ *         persisted in the snapshot — committed model data.
+ * The 37 that remain were TRIAGED, not ignored (2026-08-10):
+ *   • STAGING / PRESENCE / REPLICATION — legitimate direct writes, left alone:
+ *     DxfImportPanel ×12 (pre-commit wizard state), ValidatePanel ×6 (AI
+ *     proposal staging), SheetEditorSidebar ×4 (2 presence-cursor writes; 2
+ *     socket-replication applies of REMOTE comments — dispatching a command
+ *     there would re-broadcast the event).
+ *   • COMMITTED MODEL DATA WITH NO COMMAND YET — the real residue; each needs
+ *     a command authored by the owning domain, not invented in a sweep:
+ *     userMaterialStore.create/delete ×3 (MaterialsBucket — user material
+ *     library, snapshot-persisted; needs userMaterial.create/delete),
+ *     decisionRecordStore.add ×1 (IntentPrompt — snapshot-persisted audit
+ *     record; undo semantics of an audit log need a decision, not a reflex),
+ *     scheduleStore.seedDefaultSchedules ×1 (AuditBucket — idempotent built-in
+ *     seeding at panel mount; needs a schedule.seedDefaults command or a move
+ *     out of UI), sheetCommentStore.addComment ×1 local post (placeComment —
+ *     socket-persisted, needs a sheetComment.post command à la comment.post).
+ *   • EPHEMERAL VIEW STATE — ifcProjectionStore.setForView ×2
+ *     (ViewHeaderButtons): NOT in the project snapshot, per-view display flag;
+ *     harmless to undo but a view.setIfcProjection command would be tidier.
+ *   • ui/ai + ui/geospatial files (AIPanel ×4, Step6CommitView ×2,
+ *     AICreatePanel ×1, FormaSiteAnalysisControls ×1) were owned by other live
+ *     agents during this pass and left untouched.
  */
-const MAX_VIOLATIONS = Number(process.env.PRYZM_P6_MAX_WRITES ?? 41);
+const MAX_VIOLATIONS = Number(process.env.PRYZM_P6_MAX_WRITES ?? 37);
 
 /**
  * Minimum files the walk must reach. The UI tree is ~730 files today; a floor of

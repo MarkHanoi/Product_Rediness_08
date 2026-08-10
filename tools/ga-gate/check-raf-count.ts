@@ -12,32 +12,14 @@
  * Counts .ts files (anywhere in repo) containing the literal token
  * `requestAnimationFrame(`. Excludes node_modules, dist, build outputs.
  */
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { scanFiles, tallyBy } from './lib/sourceScan.js';
+import { countRafOwners } from './lib/rafOwners.js';
 
 const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const LABEL = 'raf-tripwire';
 
-// `editor/` is a standalone sibling sub-project (own turbo, own biome, own port,
-// absent from pnpm-workspace.yaml); `attached_assets/` is user uploads. Neither
-// is in any PRYZM 3 build path, so neither is scanned.
-const SCAN_DIRS = ['src', 'apps', 'packages', 'plugins', 'server', 'tools']
-  .filter((d) => existsSync(join(REPO_ROOT, d)));
-
-/** ~6k TS files across those trees. A lower count means the scan is broken. */
-const MIN_FILES = 3000;
-
-function excluded(rel: string): boolean {
-  if (rel.endsWith('.d.ts')) return true;
-  if (/(^|\/)(__tests__|__fixtures__|__mocks__)\//.test(rel)) return true;
-  if (/\.(bad|good)\.tsx?$/.test(rel)) return true;
-  // Scaffolding that MUST contain the literal: this gate, and the eslint rule
-  // that bans the literal.
-  if (rel === 'tools/ga-gate/check-raf-count.ts') return true;
-  if (/^packages\/eslint-plugin-pryzm\//.test(rel)) return true;
-  return false;
-}
+// Scan scope, exclusions, MIN_FILES floor and the comment-line filter all live
+// in lib/rafOwners.ts — the ONE definition shared with convergence boolean #3
+// (scripts/check/check-pryzm3-exists.ts). §RAF-ONE-COUNT (2026-08-10).
 
 // Wave 7 ceiling, ratcheted 2026-04-30 evening:
 //   • S85.D-finish.2 (UnifiedFrameLoop migration):   69 → 68
@@ -226,42 +208,42 @@ function excluded(rel: string): boolean {
 // as "known failing" and never distinguished from a real regression.
 // Rewritten on `lib/sourceScan.ts` — Node only, no external binaries. See that
 // file for why Node-native beats "install ripgrep in CI".
+// ─── §RAF-GATE-COMMENT-BLIND (L-811 follow-up), 2026-08-10 ───────────────────
+// The L-811 rewrite finally made the gate RUN — and it reported 4 non-owner
+// "rAF sites". Every one was a COMMENT: three were doc comments ASSERTING P3
+// compliance ("no requestAnimationFrame — P3-safe") and one was prose about
+// OBC's own loop (livingGraphSelection.ts, RendererSwapOverlay.ts, BimWorld.ts,
+// RenderingPipelineCoordinator.ts — none contains a rAF call in code). P3 had
+// in fact ALREADY converged to the single RafAdapter owner; the gate was
+// counting sentences. Fixed by filtering comment LINES before counting owners
+// (the same stated idiom the P6 gate uses) — a precision fix, not a weakening:
+// a comment cannot start an animation loop. HARD_FAIL stays 1. The counting
+// logic moved to lib/rafOwners.ts so convergence boolean #3 measures the SAME
+// number (it used to spawn a nonexistent script and report ✅ on the failure —
+// see §RAF-ONE-COUNT in that file, plus the stated alias-reference limitation:
+// BimWorld's §WEBGL2-VIEW-UNSTICK `raf` alias is a repair of OBC's third-party
+// loop, deliberately outside the scheduler, and invisible to a literal-token
+// scan either way).
 const HARD_FAIL = 1;
 const SOFT_WARN = 1; // Wave 7 absolute target (the single Scheduler owner)
 
-/**
- * Files (not call sites) containing the literal `requestAnimationFrame(`.
- *
- * Scope is the PRYZM 3 build artifacts. The exclusion list is the canonical
- * definition of that scope (see the D.7.8 narrative above); editing it is a
- * contract change on convergence boolean #3.
- */
-function count(): number {
-  const res = scanFiles({
-    root: REPO_ROOT,
-    dirs: SCAN_DIRS,
-    pattern: /requestAnimationFrame\s*\(/,
-    minFiles: MIN_FILES,
-    exclude: excluded,
-    label: LABEL,
-  });
-  console.log(`[${LABEL}] files scanned: ${res.filesScanned} (excluded ${res.filesExcluded}) · dirs: ${SCAN_DIRS.join(', ')}`);
-  if (res.filesMatched) {
-    console.log('  Owners:');
-    for (const [f, n] of tallyBy(res.matches, (m) => m.file)) console.log(`      ${String(n).padStart(3)}  ${f}`);
-  }
-  return res.filesMatched;
-}
-
 function main(): number {
-  const n = count();
+  const res = countRafOwners(REPO_ROOT, LABEL);
+  const n = res.ownerFiles.length;
+  console.log(`[${LABEL}] files scanned: ${res.filesScanned} (excluded ${res.filesExcluded})`);
+  if (n) {
+    console.log('  Owners (code lines only):');
+    for (const f of res.ownerFiles) console.log(`      ${f}`);
+  }
+  if (res.commentOnlyFiles.length) {
+    console.log(`  Comment-only mentions (not owners): ${res.commentOnlyFiles.length} file(s)`);
+    for (const f of res.commentOnlyFiles) console.log(`      ${f}`);
+  }
   if (n > HARD_FAIL) {
     console.error(`[raf-tripwire] FAIL: ${n} files own requestAnimationFrame > ${HARD_FAIL} (hard fail).`);
     console.error(`  Wave 7 target is exactly 1 file: packages/frame-scheduler/src/RafAdapter.ts.`);
-    console.error(`  §FIX-GATE-NEEDS-RIPGREP (L-811): this gate spent its whole life crashing with`);
-    console.error(`  \`spawnSync rg ENOENT\`, so the 4 non-owner rAF sites above accumulated unseen.`);
-    console.error(`  HARD_FAIL stays at 1 — the ceiling is NOT raised to accommodate them. The gate`);
-    console.error(`  remains listed in tools/ga-gate/gate-debt.json, but now for a REAL reason.`);
+    console.error(`  P3: all animation subscribes to the frame bus (packages/frame-scheduler) —`);
+    console.error(`  use getFrameScheduler().scheduleOnce(...) or addTickListener(...).`);
     console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/11-WAVE-7-CLEANUP-PHASE-F.md §2`);
     return 1;
   }
