@@ -354,6 +354,7 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     id: 'generate-apartment-layout',
     ctx: {},
     phrasings: [
+      'create an apartment with 2 bedrooms and 1 bathroom',
       'create a 3 bedroom apartment',
       'generate a 2 bed apartment in this shell',
       'make a 3-bedroom apartment with 2 bathrooms',
@@ -799,6 +800,10 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     'Done — undo with Ctrl+Z. (resolved without AI tokens)',
     'Created 3 rooms and 12 walls',
     'Furnished 22 of 24 rooms',
+    // §FIX-CHAT-STOPWORD-CORRECTION — the SECOND founder repro. This was
+    // answered with "Nothing is selected — select an element first, then set
+    // its width": tier-1 rewrote the function word "with" into "width".
+    'Created Aparment with 2 bedrooms and 1 bathroom',
   ])('"%s" produces no command and no local action', (utterance) => {
     const ctx = ctxOf(sel('wall'));
     expect(mutating(resolveUtterance(utterance, ctx)), 'tier 0/1 mutated').toBe(false);
@@ -817,6 +822,25 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     expect(resolveUtterance(line, ctx).kind, 'tier 0/1 claimed the report').toBe('miss');
     expect(resolveNaturalLanguage(line, ctx).kind, 'NL claimed the report').toBe('miss');
     expect(resolveFull(line, ctx).kind).toBe('miss');
+  });
+
+  it('§FIX-CHAT-STOPWORD-CORRECTION — "with" is never corrected into "width"', () => {
+    // The founder's sentence must be a MISS on every rung — not a set-width
+    // refusal, which is what shipped.
+    const line = 'Created Aparment with 2 bedrooms and 1 bathroom';
+    const ctx = ctxOf(sel('wall'));
+    expect(resolveUtterance(line, ctx).kind, 'tier 0/1 claimed it').toBe('miss');
+    expect(resolveNaturalLanguage(line, ctx).kind, 'NL claimed it').toBe('miss');
+    expect(intentOf(resolveFull(line, ctx))).not.toBe('set-width');
+    // And the sentence the founder MEANT works, bathrooms included.
+    const r = resolveFull('create an apartment with 2 bedrooms and 1 bathroom', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('generate-apartment-layout');
+    expect(r.commands[0]!.payload).toMatchObject({ bedrooms: 2, bathrooms: 1 });
+    // The typo tolerance that DOES belong to tier 1 is untouched.
+    expect(intentOf(resolveFull('create an aparment with 2 bedrooms', ctxOf())))
+      .toBe('generate-apartment-layout');
   });
 
   it('§FIX-CHAT-REPORT-PASTEBACK — the guard does not swallow real imperatives', () => {

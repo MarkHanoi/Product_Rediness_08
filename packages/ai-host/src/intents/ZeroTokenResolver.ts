@@ -243,6 +243,51 @@ const VOCAB: readonly string[] = [
   'to', 'from', 'tall', 'thick', 'wide', 'undo', 'redo', 'zoom', 'fit', 'frame',
 ];
 
+/**
+ * §FIX-CHAT-STOPWORD-CORRECTION (founder P0, 2026-08-10, second repro).
+ *
+ * "Created Aparment with 2 bedrooms and 1 bathroom" was answered with
+ * *"Nothing is selected — select an element first, then set its width."* The
+ * sentence contains no width: bounded-Levenshtein typo correction rewrote the
+ * FUNCTION WORD "with" into the domain term "width" (edit distance 1, and
+ * "width" is in both correction vocabularies), after which the set-width
+ * grammar claimed a past-tense sentence about something that had already
+ * happened.
+ *
+ * The guard is surgical, and the asymmetry is the whole point: "aparment" →
+ * "apartment" is exactly what tier-1 exists to do, while "with" → "width" is
+ * never a repair — "with" is already a correctly spelled English word doing a
+ * grammatical job. A token that IS a common function word is therefore
+ * immutable, whatever its edit distance to a domain term. Only words with no
+ * domain meaning of their own are listed: "this", "that", "set", "make",
+ * "add", "high", "wide" and friends are real grammar vocabulary and are
+ * deliberately absent.
+ *
+ * Shared by BOTH correctors (tier-1 here, and the NL layer's `typoCorrect`) so
+ * the two tiers cannot disagree about what a word means.
+ */
+const PROTECTED_FUNCTION_WORDS: ReadonlySet<string> = new Set([
+  'with', 'without', 'within', 'from', 'into', 'onto', 'upon', 'over',
+  'under', 'above', 'below', 'between', 'through', 'during', 'after',
+  'before', 'than', 'then', 'they', 'them', 'their', 'there', 'these',
+  'those', 'here', 'what', 'when', 'where', 'which', 'while', 'whose',
+  'will', 'would', 'could', 'should', 'shall', 'must', 'might', 'have',
+  'having', 'been', 'being', 'does', 'doing', 'done', 'also', 'just',
+  'only', 'very', 'some', 'such', 'same', 'each', 'every', 'many',
+  'much', 'more', 'most', 'other', 'another', 'about', 'again',
+  'against', 'because', 'both', 'once', 'ours', 'yours', 'your', 'mine',
+  'like', 'want', 'need', 'please', 'thanks', 'thank', 'sure', 'okay',
+  'yeah', 'well', 'still', 'even', 'ever', 'never', 'none', 'nothing',
+  'something', 'anything', 'everything', 'somewhere', 'anywhere',
+]);
+
+/** True when a token is a correctly spelled English function word and must
+ *  therefore never be rewritten into a domain term (§FIX-CHAT-STOPWORD-
+ *  CORRECTION). Exported so the NL layer's corrector shares ONE list. */
+export function isProtectedFunctionWord(token: string): boolean {
+  return PROTECTED_FUNCTION_WORDS.has(token);
+}
+
 function levenshtein(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1;
   const prev = new Array<number>(b.length + 1);
@@ -277,6 +322,8 @@ function tier1Normalize(text: string): string {
       const mapped = SYNONYMS[tok];
       if (mapped !== undefined) return mapped;
       if (VOCAB.includes(tok)) return tok;
+      // §FIX-CHAT-STOPWORD-CORRECTION — "with" is not a misspelling of "width".
+      if (isProtectedFunctionWord(tok)) return tok;
       if (/[\d(),]/.test(tok) || tok.length < 4) return tok; // numbers/short words: leave alone
       const budget = tok.length > 5 ? 2 : 1;
       let best: string | null = null;
@@ -2341,7 +2388,11 @@ const matchGenerateBuilding: Matcher = (text, ctx) => {
 // language spellings people actually type; it costs nothing and it is the
 // difference between the feature working and not.
 const APT_VERB_RE = /^(?:generate|create|make|lay ?out|plan|design|draw)\b/;
-const APT_NOUN_RE = /\b(?:apartments?|appartments?|apparments?|apartaments?|appartements?|apartmant?s?|flats?|dwellings?)\b/;
+// "aparments?" is the founder's own second-repro spelling ("Created Aparment
+// with 2 bedrooms and 1 bathroom") — single p, dropped t. Added here for the
+// same reason the rest of the alternation exists: a capability that cannot be
+// spelled at is a capability that does not exist.
+const APT_NOUN_RE = /\b(?:apartments?|appartments?|apparments?|aparments?|apartaments?|appartements?|apartmant?s?|flats?|dwellings?)\b/;
 // Building words belong to `generate-building`: an apartment BUILDING/BLOCK/
 // TOWER, or anything with a storey count, is a new envelope, not a plan laid
 // into an existing shell.

@@ -38,6 +38,7 @@ import {
   applySemanticIntent,
   boundedLevenshtein,
   findLevel,
+  isProtectedFunctionWord,
   lengthToMeters,
   parseDuplicateLevelIntent,
   parseAddWallLayerIntent,
@@ -338,6 +339,11 @@ function convertNumberWords(tokens: readonly string[]): string[] {
 
 function typoCorrect(tok: string): string | null {
   if (tok.length < 4 || /[\d(),.]/.test(tok)) return null;
+  // §FIX-CHAT-STOPWORD-CORRECTION (founder P0) — a correctly spelled English
+  // function word is never a misspelled domain term. "with" → "width" put the
+  // set-width grammar on a sentence with no width in it. ONE shared list with
+  // the tier-1 corrector.
+  if (isProtectedFunctionWord(tok)) return null;
   const budget = tok.length > 5 ? 2 : 1;
   let best: string | null = null;
   let bestD = budget + 1;

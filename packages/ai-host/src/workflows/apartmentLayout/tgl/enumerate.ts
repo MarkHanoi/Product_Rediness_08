@@ -13,7 +13,7 @@
 import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
-import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, rectPolygon, type DroppedRoom, type RoomPlacement } from './subdivide.js';
+import { subdivideWithReport, withFeasibilityReportSession, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, rectPolygon, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { subdividePolygon, subtractRectFromCell, cellBBoxRect, shouldUsePolygonConcaveRoute } from './polySubdivide.js';
 import { growStairCellsToCorridor } from './corridorReach.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
@@ -2747,6 +2747,15 @@ export function preferInBoundsCandidates(pool: readonly TglCandidate[]): readonl
  * weighted-sorted. Deterministic: same input ⇒ identical output (graphs + GUIDs).
  */
 export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
+    // §FEASIBILITY-LOG-SESSION (founder defect, 2026-08-10) — one preview runs the
+    // subdivider once per strategy × per rect, so the per-drop warning flooded the
+    // console during slider drags. Open ONE reporting session around the whole
+    // enumeration: every nested subdivide joins it and a single summary line
+    // ("N rooms dropped across M rects: living×2, kitchen×1") is emitted at the end.
+    return withFeasibilityReportSession(() => enumerateLayoutsImpl(input));
+}
+
+function enumerateLayoutsImpl(input: EnumerateInput): TglCandidate[] {
     const decomposedArea = decomposeToRects(input.shellPolygon).reduce((s, r) => s + rectArea(r), 0);
     const shellArea = input.shellAreaM2 && input.shellAreaM2 > 0 ? input.shellAreaM2 : decomposedArea;
     if (shellArea <= 0) return [];

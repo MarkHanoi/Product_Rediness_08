@@ -32,14 +32,17 @@ const rm = (id: string, type: RoomType, area: number): ProgramRoom =>
 const WEIGHTS: ScoringWeights = { naturalLight: 1, privacy: 1, kitchenWorkflow: 1, corridorEfficiency: 1 };
 
 describe('§FEASIBILITY-ALLOC (Fix A) — no silent room drops', () => {
-    // (a) A single rect that genuinely cannot host three bedrooms at their
-    //     2.6 m floor. Without the fix the subdivider drops one SILENTLY; with
-    //     it the drop is REPORTED via droppedRooms and every PLACED room still
-    //     clears its per-type floor (the hard-min invariant is preserved).
-    it('reports a dropped room rather than silently losing it on a too-tight rect', () => {
-        // A long thin 3-bedroom strip: 2.4 m deep × 18 m wide = 43.2 m². At 2.4 m
-        // depth NO bedroom can reach the 2.6 m short-side floor no matter how the
-        // area is shared → at least one must be dropped, and it must be reported.
+    // (a) §SHAPE-INFEASIBLE-ACCEPT (founder defect, 2026-08-10) — a rect SHALLOWER
+    //     than a room's short-side floor. No allocation (and no drop of a neighbour)
+    //     can ever widen a cell past the rect's own short dimension, so dropping is
+    //     pointless: it only empties floor area the room's minimum AREA fits in.
+    //     The engine now KEEPS such rooms and drops none. (This test previously
+    //     asserted the drop; that behaviour was the defect — the log even "justified"
+    //     it with a false arithmetic claim, "37.38 m² < 14.00 m²".)
+    it('keeps rooms in a rect shallower than their floor (drop cannot help — area suffices)', () => {
+        // A long thin 3-bedroom strip: 2.4 m deep × 18 m wide = 43.2 m². 2.4 m < the
+        // bedroom's 2.6 m floor for EVERY possible cell, but each full-depth cell
+        // carries 14.4 m² ≥ the bedroom's 11.5 m² minimum area.
         const rect: Rect = { x0: 0, z0: 0, x1: 18, z1: 2.4 };
         const rooms: ProgramRoom[] = [
             rm('r0', 'bedroom', 14), rm('r1', 'bedroom', 14), rm('r2', 'bedroom', 14),
@@ -47,22 +50,16 @@ describe('§FEASIBILITY-ALLOC (Fix A) — no silent room drops', () => {
         const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: null };
         const { placements, droppedRooms } = subdivideWithReport([rect], g);
 
-        // Every PLACED room still clears its per-type floor (hard-min kept).
+        expect(droppedRooms).toEqual([]);
+        expect(placements.map(p => p.roomId).sort()).toEqual(['r0', 'r1', 'r2']);
         for (const p of placements) {
             const type = rooms.find(r => r.id === p.roomId)!.type;
-            // A bedroom rect 2.4 m deep cannot clear 2.6 m — so any SURVIVOR here
-            // must also be reported/dropped. Assert the survivors that DID place
-            // clear their floor on the squarified axis.
-            expect(shortSide(p.rect)).toBeGreaterThan(0);
-            void type;
+            // Kept rooms span the rect's full depth (as wide as geometry permits)…
+            expect(shortSide(p.rect)).toBeCloseTo(2.4, 3);
+            // …and carry at least their per-type minimum AREA — the accept condition.
+            expect(rectArea(p.rect)).toBeGreaterThanOrEqual(roomRule(type).minAreaM2 - 1e-6);
         }
-        // The shortfall is reported, not silent.
-        expect(droppedRooms.length).toBeGreaterThan(0);
-        for (const d of droppedRooms) {
-            expect(rooms.some(r => r.id === d.roomId)).toBe(true);
-            expect(d.minShortSideM).toBeCloseTo(floorFor(d.type), 3);
-        }
-        // Reported drops + placed rooms account for the whole request (no loss).
+        // Nothing is lost: every requested room is accounted for.
         const accounted = new Set([...placements.map(p => p.roomId), ...droppedRooms.map(d => d.roomId)]);
         expect(accounted.size).toBe(rooms.length);
     });

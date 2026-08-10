@@ -20,6 +20,7 @@ import {
   type NaturalLanguageResolution,
   type ConversationContext,
 } from '../src/intents/LocalNaturalLanguageResolver.js';
+import { isProtectedFunctionWord } from '../src/intents/ZeroTokenResolver.js';
 import type { ResolverContext, ZeroTokenResolution } from '../src/intents/ZeroTokenResolver.js';
 
 let seq = 0;
@@ -361,6 +362,23 @@ describe('typo + synonym normalization', () => {
   it('"make this wall 3 metrs tall" resolves set-height 3', () => {
     const c = commandsOf(resolveNaturalLanguage('make this wall 3 metrs tall', baseCtx(wallSel)));
     expect(c.commands[0]!.payload).toEqual({ wallId: 'wall-1', height: 3 });
+  });
+
+  it('§FIX-CHAT-STOPWORD-CORRECTION — "with" stays "with", it never becomes "width"', () => {
+    // Edit distance 1 to a live domain term, and the corrector took it. The
+    // founder got "select an element first, then set its width" for a sentence
+    // containing no width at all.
+    expect(isProtectedFunctionWord('with')).toBe(true);
+    for (const w of ['with', 'from', 'their', 'there', 'about', 'other']) {
+      expect(isProtectedFunctionWord(w), `${w} is correctable`).toBe(true);
+    }
+    // The guard is surgical: real grammar vocabulary is NOT protected (it does
+    // not need to be — it is already whitelisted), and domain typos still fix.
+    for (const w of ['width', 'height', 'wall', 'this', 'make', 'wide']) {
+      expect(isProtectedFunctionWord(w), `${w} should not be in the stopword list`).toBe(false);
+    }
+    const r = resolveNaturalLanguage('make this wall 2m with a nice finish', baseCtx(wallSel));
+    if (r.kind === 'resolved') expect(r.intent).not.toBe('set-width');
   });
 });
 

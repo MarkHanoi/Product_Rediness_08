@@ -435,6 +435,103 @@ function dropRankFor(type: RoomType): number {
     return DROP_PRIORITY_RANK[type] ?? 40;
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+ * §FEASIBILITY-LOG-SESSION (founder defect, 2026-08-10) — the drop warning used
+ * to be a `console.warn` PER DROP ATTEMPT inside `placeInRectReported`, which
+ * runs once per rect × per strategy × per enumerated candidate: a single preview
+ * flooded the console with dozens of identical lines and made it unusable during
+ * a slider drag. Drops are now ACCUMULATED for the duration of a session and
+ * flushed as ONE summary line ("N rooms dropped across M rects: living×2,
+ * kitchen×1") carrying the distinct, arithmetically-true reasons.
+ *
+ * Sessions nest (ref-counted): `enumerateLayouts` opens one around a whole
+ * preview, and `subdivideWithReport` opens one around a standalone call, so a
+ * direct subdivide still reports exactly one line.
+ * ─────────────────────────────────────────────────────────────────────────── */
+interface FeasibilityDropRecord {
+    readonly roomId: string;
+    readonly type: RoomType;
+    /** Arithmetically-true statement of the operands that justify THIS drop. */
+    readonly reason: string;
+}
+let feasSessionDepth = 0;
+let feasDrops: FeasibilityDropRecord[] = [];
+let feasRectKeys = new Set<string>();
+/** Rooms KEPT below their short-side floor by §SHAPE-INFEASIBLE-ACCEPT (honest:
+ *  they are sub-floor, but the rect itself is shallower than the floor, so no
+ *  allocation could widen them and dropping them would only empty the rect). */
+let feasKeptSubFloor = 0;
+
+function recordFeasibilityDrop(rectKey: string, rec: FeasibilityDropRecord): void {
+    feasRectKeys.add(rectKey);
+    feasDrops.push(rec);
+}
+function recordKeptSubFloor(): void { feasKeptSubFloor++; }
+
+/**
+ * §SHAPE-INFEASIBLE-ACCEPT scope gate. The accept rule (see `cellAcceptable`) applies
+ * to the APARTMENT / plain-plate path, where a dropped room simply leaves usable floor
+ * area empty. It is DISABLED on the multi-storey HOUSE path (a stair keep-out was
+ * carved): there the sub-rects include deliberately-unusable stair-clearance SLIVERS,
+ * and keeping a room in one of them re-opens the §STAIR-KEEP-OUT invariant ("no
+ * non-stair room may overlap the core"). With the gate off, the house path is
+ * byte-identical to the pre-fix engine.
+ */
+let shapeAcceptEnabled = true;
+
+function flushFeasibilityLog(): void {
+    if (feasDrops.length === 0 && feasKeptSubFloor === 0) return;
+    const byType = new Map<RoomType, number>();
+    for (const d of feasDrops) byType.set(d.type, (byType.get(d.type) ?? 0) + 1);
+    const tally = [...byType.entries()]
+        .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+        .map(([t, n]) => `${t}×${n}`)
+        .join(', ');
+    const reasons = [...new Set(feasDrops.map(d => d.reason))].slice(0, 3);
+    const parts: string[] = [];
+    if (feasDrops.length > 0) {
+        parts.push(
+            `${feasDrops.length} room(s) dropped across ${feasRectKeys.size} rect(s): ${tally}. ` +
+            `Reason${reasons.length > 1 ? 's' : ''} (distinct, up to 3): ${reasons.join(' | ')}. ` +
+            `Every drop is reported structurally via droppedRooms — never silent.`,
+        );
+    }
+    if (feasKeptSubFloor > 0) {
+        parts.push(
+            `${feasKeptSubFloor} room(s) KEPT below their short-side floor ` +
+            `(§SHAPE-INFEASIBLE-ACCEPT: the rect is shallower than the floor, so no allocation ` +
+            `could widen the cell and dropping would only empty the rect).`,
+        );
+    }
+    console.warn(`[D-TGL subdivide] §FEASIBILITY-ALLOC: ${parts.join(' ')}`);
+}
+
+/**
+ * §FEASIBILITY-LOG-SESSION — run `fn` inside one drop-reporting session. Nested
+ * calls join the outer session; the summary line is emitted when the OUTERMOST
+ * session closes. Exceptions still flush (the `finally`), so a throw mid-preview
+ * does not swallow the diagnostic.
+ */
+export function withFeasibilityReportSession<T>(fn: () => T): T {
+    if (feasSessionDepth === 0) {
+        feasDrops = [];
+        feasRectKeys = new Set<string>();
+        feasKeptSubFloor = 0;
+    }
+    feasSessionDepth++;
+    try {
+        return fn();
+    } finally {
+        feasSessionDepth--;
+        if (feasSessionDepth === 0) {
+            flushFeasibilityLog();
+            feasDrops = [];
+            feasRectKeys = new Set<string>();
+            feasKeptSubFloor = 0;
+        }
+    }
+}
+
 /**
  * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — squarify a room set into one rect →
  * footprints (rounded). The previous behaviour DROPPED the lowest-priority room
@@ -459,6 +556,48 @@ function dropRankFor(type: RoomType): number {
 function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): SubdivideResult {
     const rectArea_ = Math.max(EPS, rectArea(rect));
     const droppedRooms: DroppedRoom[] = [];
+    /** The rect's own SHORT dimension — the hard ceiling on any sub-cell's short
+     *  side, since every squarified cell is contained in the rect. */
+    const rectShortDim = Math.min(rect.x1 - rect.x0, rect.z1 - rect.z0);
+    /** Rooms accepted below their floor by §SHAPE-INFEASIBLE-ACCEPT in the WINNING
+     *  seeding (tallied into the session summary by the caller of the fit). */
+    let acceptedSubFloor = 0;
+
+    /**
+     * §SHAPE-INFEASIBLE-ACCEPT (founder defect, 2026-08-10) — is this cell good
+     * enough to KEEP the room?
+     *
+     * The historical rule was "short side ≥ the type's floor, else the room is a
+     * needer (and, when no donor slack remains, is DROPPED)". That rule is unsound
+     * when the RECT ITSELF is shallower than the floor: every cell of the rect has
+     * short side ≤ `rectShortDim`, so NO area reallocation — and no drop of a
+     * neighbour — can ever lift the room over its floor. The old code nonetheless
+     * dropped, emptying a rect that comfortably carried the room's minimum AREA
+     * (the founder's "37.38 m² rect drops its 14 m² living room" report), and then
+     * blamed an area over-program that the same log line disproved.
+     *
+     * The corrected rule: a room is kept when EITHER
+     *   (a) its cell clears its short-side floor (unchanged, the normal case), OR
+     *   (b) the floor is UNATTAINABLE in this rect (`floor > rectShortDim`) AND the
+     *       cell already spans the rect's full short dimension (it is as wide as
+     *       geometry permits) AND the cell carries at least the type's minimum AREA.
+     * Case (b) keeps a room whose only defect is the SHELL's shallowness — an
+     * honest, reported compromise — while a genuine over-program (cell area below
+     * the type's minimum) still fails and still drops.
+     */
+    const cellAcceptable = (type: RoomType, cell: Rect): boolean => {
+        const floor = floorFor(type);
+        const s = shortSideM(cell);
+        if (s >= floor - EPS) return true;
+        if (shapeAcceptEnabled
+            && floor > rectShortDim + EPS
+            && s >= rectShortDim - 1e-3
+            && rectArea(cell) >= minAreaFor(type) - EPS) return true;
+        return false;
+    };
+    /** True when the room is kept ONLY by branch (b) — i.e. sub-floor but accepted. */
+    const keptSubFloor = (type: RoomType, cell: Rect): boolean =>
+        shortSideM(cell) < floorFor(type) - EPS && cellAcceptable(type, cell);
 
     const squarifyPool = (
         cur: ReadonlyArray<{ room: ProgramRoom; area: number }>,
@@ -491,9 +630,17 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
             ({ placements, byId } = squarifyPool(pool));
             const needers = pool.filter(e => {
                 const p = byId.get(e.room.id);
-                return p && shortSideM(p.rect) < floorFor(e.room.type) - EPS;
+                return p !== undefined && !cellAcceptable(e.room.type, p.rect);
             });
-            if (needers.length === 0) return { placements, byId };   // all clear → done
+            if (needers.length === 0) {
+                // §SHAPE-INFEASIBLE-ACCEPT — count the rooms kept sub-floor so the
+                // session summary states the compromise instead of hiding it.
+                acceptedSubFloor = pool.reduce((n, e) => {
+                    const p = byId.get(e.room.id);
+                    return n + (p !== undefined && keptSubFloor(e.room.type, p.rect) ? 1 : 0);
+                }, 0);
+                return { placements, byId };   // all acceptable → done
+            }
             if (iter === MAX_REBALANCE) return null;                  // can't fit → drop
 
             // Required extra area for a needer so its scaled cell clears its
@@ -507,7 +654,6 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
             // so convert that scaled target back to pool units.
             const poolAreaSum = pool.reduce((s, e) => s + e.area, 0) || EPS;
             const scale = rectArea_ / poolAreaSum;
-            const rectShortDim = Math.min(rect.x1 - rect.x0, rect.z1 - rect.z0);
             let deficitTotal = 0;
             const wantById = new Map<string, number>();
             for (const e of needers) {
@@ -590,7 +736,10 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
     let working = rooms.slice();
     while (working.length > 0) {
         const fit = tryFitAll(working);
-        if (fit) return { placements: fit.placements, droppedRooms };
+        if (fit) {
+            for (let i = 0; i < acceptedSubFloor; i++) recordKeptSubFloor();
+            return { placements: fit.placements, droppedRooms };
+        }
 
         // Could not fit every room at its minimum — REAL over-program for this
         // rect. Drop the lowest-priority room: lowest drop-rank wins, ties broken
@@ -608,14 +757,22 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
             shortSideM: 0,
             minShortSideM: floorFor(dropped.type),
         });
+        // §FEASIBILITY-LOG-HONESTY (founder defect, 2026-08-10) — the old line ALWAYS
+        // claimed "rect area A < Σ minimum areas B" even when A > B (37.38 m² "<" 14.00 m²),
+        // because the real failure was a SHORT-SIDE one. State the operands that actually
+        // justify the decision, and distinguish the two genuine causes.
         const minTotal = working.reduce((s, r) => s + minAreaFor(r.type), 0);
-        console.warn(
-            `[D-TGL subdivide] §FEASIBILITY-ALLOC: rect area ${rectArea_.toFixed(2)} m² ` +
-            `< Σ per-type minimum areas ${minTotal.toFixed(2)} m² for ${working.length} room(s) — ` +
-            `genuine over-program. Dropping the LOWEST-PRIORITY room "${dropped.id}" ` +
-            `(${dropped.type}, drop-rank ${dropRankFor(dropped.type)}) and re-fitting the rest ` +
-            `(reported via droppedRooms — NOT silent; never a bathroom/bedroom before a ` +
-            `lower-priority service room).`,
+        const w = (rect.x1 - rect.x0), d = (rect.z1 - rect.z0);
+        const dims = `${w.toFixed(2)}×${d.toFixed(2)} m (${rectArea_.toFixed(2)} m²)`;
+        const reason = rectArea_ + EPS < minTotal
+            ? `over-program — rect ${dims} < Σ per-type min areas ${minTotal.toFixed(2)} m² ` +
+              `for ${working.length} room(s)`
+            : `shape-infeasible — rect ${dims} ≥ Σ per-type min areas ${minTotal.toFixed(2)} m² ` +
+              `for ${working.length} room(s), but the rect is only ${rectShortDim.toFixed(2)} m deep ` +
+              `and no allocation gives every room both its short-side floor and its minimum area`;
+        recordFeasibilityDrop(
+            `${rect.x0},${rect.z0},${rect.x1},${rect.z1}`,
+            { roomId: dropped.id, type: dropped.type, reason },
         );
         working = working.filter((_, i) => i !== dropIdx);
     }
@@ -4074,7 +4231,29 @@ function isAxisAlignedRect4(poly: readonly Pt[], eps = 1e-3): boolean {
     return true;
 }
 
+/**
+ * §FEASIBILITY-LOG-SESSION — public entry: identical behaviour to the impl, wrapped
+ * in a drop-reporting session so a STANDALONE subdivide emits exactly one summary
+ * line. When the caller (`enumerateLayouts`) already opened a session, this joins it
+ * (ref-counted) and the single line covers the whole preview.
+ */
 export function subdivideWithReport(
+    rects: readonly Rect[],
+    graph: BubbleGraph,
+    options: SubdivideOptions = {},
+): SubdivideResult {
+    // §SHAPE-INFEASIBLE-ACCEPT scope — off for the stair-keep-out (house) path; see the
+    // `shapeAcceptEnabled` doc. Saved/restored so nested subdivides can't leak the flag.
+    const prevShapeAccept = shapeAcceptEnabled;
+    shapeAcceptEnabled = options.stairCarved !== true && (options.keepOutRects ?? []).length === 0;
+    try {
+        return withFeasibilityReportSession(() => subdivideWithReportImpl(rects, graph, options));
+    } finally {
+        shapeAcceptEnabled = prevShapeAccept;
+    }
+}
+
+function subdivideWithReportImpl(
     rects: readonly Rect[],
     graph: BubbleGraph,
     options: SubdivideOptions = {},
