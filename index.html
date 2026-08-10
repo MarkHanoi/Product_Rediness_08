@@ -190,12 +190,12 @@
       .lp-skel-hero {
         flex: 0 0 auto;
         display: flex; flex-direction: column;
-        align-items: flex-start; justify-content: flex-end;
+        align-items: flex-start; justify-content: flex-start;
         height: calc(100dvh - 64px); min-height: 420px;
-        /* §SKEL-MATCH rounds 6 — mirrors `.lp-hero--video`'s viewport-scaled
-           lift: max(300px, 38dvh), so the CTA clears the fold at 1080p AND
-           ~900px laptop heights exactly as the real hero does. */
-        padding: 24px 56px max(300px, 38dvh); text-align: left; overflow: hidden; position: relative;
+        /* §SKEL-MATCH round 7 — mirrors `.lp-hero--video`'s TOP anchor:
+           the block STARTS max(96px, 14dvh) below the nav (upper third),
+           replacing the bottom-anchored lift that could never get there. */
+        padding: max(96px, 14dvh) 56px 48px; text-align: left; overflow: hidden; position: relative;
         background:
           radial-gradient(ellipse 85% 90% at 28% 30%, #6600FF 0%, transparent 70%),
           radial-gradient(ellipse 75% 80% at 78% 78%, #4A00B7 0%, transparent 72%),

@@ -127,7 +127,14 @@ export function createMainLayout(props: UIProps, runtime: PryzmRuntime | null = 
     // ── BUI layout root ──────────────────────────────────────────────────────
     return BUI.Component.create<any>(() => {
         return BUI.html`
-            <div style="display: flex; height: 100vh; width: 100vw; font-family: var(--app-font); overflow: hidden; position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none;">
+            <!-- §FIX-FLOAT-PANELS-UNDER-CESIUM (founder 2026-08-10): this overlay hosts
+                 every floating panel (AI chat, AI Create, PDF Import, DXF). At z-index 10
+                 it sat UNDER the Cesium viewport (z-index 15 in the GIS/3D-Site view), so
+                 "PDF Import" opened invisibly behind the globe — reported as "not
+                 available". z-index 20 puts UI chrome above every viewport surface; the
+                 wrapper stays pointer-events:none, so the globe remains fully interactive
+                 except where a panel is actually open. -->
+            <div style="display: flex; height: 100vh; width: 100vw; font-family: var(--app-font); overflow: hidden; position: absolute; top: 0; left: 0; z-index: 20; pointer-events: none;">
                 <!-- Phase 1.1: LEFT PANEL placeholder — vb-panel icon strip (52 px).
                      When pinned, applyDockLayout() moves vbPanelWrapper from here
                      into #dck-left-dock (sibling of #container in dck-workspace). -->

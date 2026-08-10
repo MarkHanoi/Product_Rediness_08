@@ -455,17 +455,15 @@ export const LANDING_PAGE_STYLES = `
        using the pale-ground centred hero is untouched. */
     .lp-hero--video {
         align-items: flex-start;
-        justify-content: flex-end;
+        /* Founder round 7 (2026-08-10): rounds 4-6 kept lifting a BOTTOM-anchored
+           block (72 → 148 → 190 → 300px → 38dvh) and the founder still marked it
+           too low — a bottom anchor can never reach the upper third. The block is
+           now TOP-anchored: it STARTS max(96px, 14dvh) below the nav (~150px at
+           1080p), putting eyebrow + headline + subtitle + "Start here" in the
+           upper third on every viewport height. */
+        justify-content: flex-start;
         text-align: left;
-        /* Founder 2026-08-10: block lifted off the lower edge (72 -> 148 ->
-           190px), then round 5 same day: 190 -> 300px. Round 6 (same day):
-           the CTA was STILL below the fold on the founder's screen, and a
-           fixed pixel offset can never track the viewport — so the offset now
-           SCALES with viewport height: max(300px, 38dvh). At 1080p that is
-           ~410px, at a ~900px laptop ~342px — eyebrow, headline, subtitle AND
-           the "Start here" button all sit comfortably in the upper two-thirds
-           at both heights, and 300px remains the floor on short viewports. */
-        padding: 24px 56px max(300px, 38dvh);
+        padding: max(96px, 14dvh) 56px 48px;
     }
 
     /* ─── The date eyebrow — small, uppercase, widely tracked ──────────
