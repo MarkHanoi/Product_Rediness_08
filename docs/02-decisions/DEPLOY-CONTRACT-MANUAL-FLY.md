@@ -307,6 +307,105 @@ but this was its **first** exercise — do not treat one success as proof. Watch
 
 ---
 
+## 6.5 SECOND EXECUTION — v1246, 2026-08-10 (`4081ac3a`)
+
+Read this section before running the script. It records what actually happened the second
+time, including a production bug this contract's own §5 proof caught **after** a green deploy.
+
+### 6.5.1 The trigger was NOT the 2026-08-06 outage signature
+
+| Signature | Job lifetime | Steps run |
+|---|---|---|
+| Billing block ([[github-actions-billing-blocks-deploy]]) | 3–4 s | 0 |
+| Actions outage (§1, first execution) | queued 34+ min | 0 |
+| **This session** | **11–12 s** | **0** |
+
+Two dispatches, both identical. It sits **between** the two documented signatures, so which
+one it was is **not established** — the run-log blob 404'd on every retry, so there is no
+step-level evidence either way. What was ruled out, with evidence:
+
+* **Not the code.** `npm run check:isolation` + a full local `vite build` both passed on the
+  same SHA that "failed" in CI.
+* **Not the workflow files.** `.github/workflows/` was untouched since a run that deployed
+  green (`bd423c4a`).
+* **Not repo visibility.** §1 already says this, and it was re-confirmed: the repo is
+  **private** here and was **public** during the 2026-08-06 outage. Visibility is irrelevant
+  to both. ⚠ An earlier diagnosis in this session wrongly suggested "make the repo public" —
+  that advice contradicts this document and is withdrawn.
+
+**Rule for the next agent:** a job that dies in seconds with **zero steps** is never a build
+failure. Do not read build logs, do not re-dispatch a third time. Go to the manual path.
+
+### 6.5.2 ⚠ §MSYS-PATHCONV — the bug that shipped green
+
+**This is the most important thing in this section.** On Windows/Git Bash, MSYS2 rewrites any
+argument shaped like a Unix absolute path into a Windows path before the child process sees
+it. The two root-relative URL args are exactly that shape:
+
+```
+passed:    --build-arg VITE_GLB_URL=/api/catalog/items/
+flyctl saw: --build-arg VITE_GLB_URL=C:/Program Files/Git/api/catalog/items/
+```
+
+Vite inlined the mangled value. **Everything looked correct:** deploy exit 0, release
+`complete`, `/api/health/ready` → `{"ok":true}`, `/version` stamping the right SHA, and both
+recovered lengths were the expected 39. Only reading the *values* out of the bundle exposed
+it — every furniture GLB and every context tile would have requested a path that exists on
+nobody's machine.
+
+§3.2 said an **empty** or **misspelled** build-arg ships broken. There is a third sibling:
+**silently rewritten**. And the script's own guard did not catch it, because the guard only
+asked *"is it non-empty?"* — 39 characters of garbage passes that test.
+
+**Fixed in the script (both defences, because either alone is bypassable):**
+1. `export MSYS_NO_PATHCONV=1` + `export MSYS2_ARG_CONV_EXCL='*'`.
+2. A **fail-closed shape check**: each URL arg must be root-relative (`/…`) or an absolute
+   `http(s)://` URL, or the script aborts naming §MSYS-PATHCONV and how to re-run.
+
+**Generalisable lesson:** a length check is not a value check. When a build-arg's *content*
+determines whether production works, assert its **shape**, not just its presence.
+
+### 6.5.3 The §5 proof is not optional, and it must read VALUES
+
+The bundle proof was the only thing between a green dashboard and a broken product. Run it
+**every time**, and check all four values — not just the two lengths CI happens to echo:
+
+```
+VITE_CESIUM_TOKEN       len 257
+VITE_GOOGLE_MAPS_KEY    len 39
+VITE_GLB_URL            → must start with / or http(s)://
+VITE_CONTEXT_TILES_URL  → must start with / or http(s)://
+```
+
+### 6.5.4 Measured timings (compare with §4.2)
+
+| Stage | v1204 (2026-08-06) | **v1246 (2026-08-10)** |
+|---|---|---|
+| Upload + build + push | ~19 min | **~13 min** |
+| Blue-green rollout | ~1 min | **~1.5 min** |
+| **Total** | ~21 min | **~14.5 min** |
+
+Faster, but **do not treat ~14 min as the new expectation** — uplink is the dominant term and
+it varies. The §2.1 builder resize (`shared-cpu-8x:16384MB`) **persisted** from 2026-08-06;
+verify it, don't re-apply blindly.
+
+### 6.5.5 Operational notes for the next agent
+
+* **`flyctl` was already installed and authenticated** (`v0.4.74`, `markhanoi@outlook.com`).
+  Check with `flyctl auth whoami` before assuming a login step is needed.
+* **Do not pipe the script through `tail`/`head`.** `bash …sh 2>&1 | tail -60` buffers the
+  entire run, so you see nothing for ~13 minutes and cannot tell progress from a hang. Let it
+  stream, or watch `flyctl releases -a pryzm` in parallel.
+* **`/version` lags the release.** For ~90 s after `complete`, the endpoint still serves the
+  OLD SHA while blue-green finishes swapping. Poll until the SHA matches; a stale read is not
+  a failed deploy.
+* **Watch for failure, not just success.** A watcher that only greps for a new release is
+  silent through a crash. Include "flyctl exited with no new release" as an event.
+* `GIT_SHA` is captured at script start (§2.3) — this run stamped `4081ac3a` while later
+  commits landed during the ~13 min window. Compare against the printed SHA, not `HEAD`.
+
+---
+
 ## 7. OPEN ITEMS
 
 1. **Decouple build from deploy** — the real fix. Build on a datacenter box,

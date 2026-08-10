@@ -629,6 +629,49 @@ export function mountElementTypes(panel: HTMLElement): void {
         });
     });
 
+    /**
+     * §FIX-P6-ELEMENT-TYPE-MATERIAL (2026-08-10) — route a type's material change
+     * through the BUS, not straight into the store.
+     *
+     * THE DEFECT this closes: these three handlers called
+     * `wall|door|windowSystemTypeStore.update(...)` DIRECTLY. That is a P6
+     * violation ("commands are the only mutation path") and it was not academic —
+     * a direct store write never reaches the undo stack, so changing a wall type's
+     * layer material or a door's frame finish was SILENTLY NOT UNDOABLE. Ctrl+Z
+     * appeared to do nothing. It was one of the 41 direct UI store writes the new
+     * P6 gate measured, and the most dangerous kind: committed model data.
+     *
+     * The `elementType.update` bus command (added with the C65 door/window
+     * authoring work) is the correct channel — it snapshots for undo and emits
+     * `elementType.changed`. It takes a WHOLE draft, so each caller merges its
+     * patch onto the current record rather than sending a partial.
+     *
+     * BEHAVIOUR CHANGE, stated deliberately: the command REFUSES built-in types
+     * ("duplicate it first"). Walls already refused them here; doors and windows
+     * did not — but editing a built-in's finish was never actually persisted
+     * (built-ins are excluded from the snapshot), so that edit silently vanished
+     * on reload. A visible refusal replaces a silent loss, and the escape hatch
+     * now exists: "Duplicate Type…" shipped for doors and windows in the same
+     * release. Returns a reason the caller surfaces.
+     */
+    const authorTypeUpdate = (
+        family: 'wall' | 'door' | 'window',
+        typeId: string,
+        current: Record<string, unknown>,
+        patch: Record<string, unknown>,
+    ): void => {
+        const bus = window.runtime?.bus;
+        if (!bus) {
+            console.warn(`[ElementTypes] no runtime bus — ${family} ${typeId} material change NOT applied`);
+            return;
+        }
+        void bus.executeCommand('elementType.update', {
+            family,
+            typeId,
+            draft: { ...current, ...patch },
+        } as never);
+    };
+
     panel.addEventListener('change', (e) => {
         const sel = (e.target as HTMLElement);
         if (!sel.matches('[data-material-select]')) return;
@@ -650,7 +693,7 @@ export function mountElementTypes(panel: HTMLElement): void {
                     ? { ...l, materialId: materialId || undefined, ...(newColor ? { materialColor: newColor } : {}) }
                     : l
                 );
-                wallSystemTypeStore.update(typeId, { layers: newLayers });
+                authorTypeUpdate('wall', typeId, wType as unknown as Record<string, unknown>, { layers: newLayers });
                 if (newColor) {
                     const swatch = panel.querySelector(`[data-layer-swatch="${CSS.escape(typeId)}-${layerIdx}"]`) as HTMLElement | null;
                     if (swatch) swatch.style.background = newColor;
@@ -666,7 +709,7 @@ export function mountElementTypes(panel: HTMLElement): void {
             if (dType) {
                 const finishKey = finish === 'frame' ? 'frameFinish' : 'leafFinish';
                 const current   = dType[finishKey];
-                doorSystemTypeStore.update(typeId, {
+                authorTypeUpdate('door', typeId, dType as unknown as Record<string, unknown>, {
                     [finishKey]: { ...current, materialId: materialId || undefined, ...(newColor ? { materialColor: newColor } : {}) }
                 });
                 if (newColor) {
@@ -685,7 +728,7 @@ export function mountElementTypes(panel: HTMLElement): void {
             if (wType) {
                 const finishKey = finish === 'frame' ? 'frameFinish' : 'sillFinish';
                 const current   = wType[finishKey];
-                windowSystemTypeStore.update(typeId, {
+                authorTypeUpdate('window', typeId, wType as unknown as Record<string, unknown>, {
                     [finishKey]: { ...current, materialId: materialId || undefined, ...(newColor ? { materialColor: newColor } : {}) }
                 });
                 if (newColor) {

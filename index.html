@@ -104,15 +104,13 @@
          visibly re-lays-out when the real LandingPage swaps in. */
       .lp-skel-nav {
         display: flex; align-items: center; gap: 16px; position: relative;
-        padding: 0 18px; min-height: 64px; background: #6600FF; flex-shrink: 0;
+        padding: 0 18px; min-height: 64px; flex-shrink: 0;
+        /* §NAV-GRADIENT — mirrors `.lp-nav`: canonical tokens #4A00B7 → #6600FF. */
+        background: linear-gradient(to right, #4A00B7 0%, #6600FF 100%);
         box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
       }
       .lp-skel-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 151px; margin-right: auto; }
       .lp-skel-logo-icon { width: 48px; height: 48px; display: block; flex-shrink: 0; overflow: visible; }
-      .lp-skel-wordmark { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
-      .lp-skel-name {
-        font-size: 20px; font-weight: 700; letter-spacing: 4px; color: #ffffff; line-height: 1;
-      }
       /* Centred nav pill — mirrors `.lp-nav-links`, including its two-stage
          centring (in-flow by default, absolutely centred only ≥1200px). */
       .lp-skel-nav-links {
@@ -142,7 +140,8 @@
       .lp-skel-mark {
         display: block; height: 40px; width: auto; flex-shrink: 0; margin-right: 12px;
         border-radius: 10px;
-        box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 4px 14px rgba(20,0,60,0.28);
+        /* Ring removed with the gradient; drop shadow kept (founder). */
+        box-shadow: 0 4px 14px rgba(20,0,60,0.28);
       }
       /* Wave 1.5c — `touch-action: manipulation` removes the 300 ms tap-delay
          mobile browsers add to non-double-tap-zoomable buttons.  Combined with
@@ -360,7 +359,6 @@
         .lp-skel-mark { height: 34px; margin-right: 8px; }
         .lp-skel-hamburger { display: flex; }
         .lp-skel-logo-icon { width: 36px; height: 36px; }
-        .lp-skel-name { font-size: 16px; letter-spacing: 3px; }
         .lp-skel-hero { height: calc(100dvh - 56px); min-height: 460px; padding: 16px 12px; }
         .lp-skel-hero-panel { width: 100%; padding: 24px 18px 26px; border-radius: 20px; }
         .lp-skel-hero-logo-block { min-height: 76px; margin-bottom: 10px; }
@@ -422,9 +420,6 @@
                "BIM PLATFORM" descender is gone (the hero subhead says it). -->
           <div class="lp-skel-brand">
             <img class="lp-skel-mark" src="/apex/pryzm-mark.png" width="128" height="131" alt="PRYZM" decoding="async">
-            <div class="lp-skel-wordmark">
-              <span class="lp-skel-name">PRYZM</span>
-            </div>
           </div>
           <div class="lp-skel-nav-links">
             <span class="lp-skel-nav-link">Solutions</span>

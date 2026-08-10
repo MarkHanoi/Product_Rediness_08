@@ -202,11 +202,8 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                      NB this comment ships in the rendered HTML, so it deliberately does
                      not quote the removed strings: MarketingPages.test.ts asserts the
                      page contains no trace of them. -->
-                <div class="lp-nav-brand" aria-label="PRYZM">
+                <div class="lp-nav-brand">
                     <img class="lp-nav-mark" src="${NAV_MARK_URL}" width="${NAV_MARK_WIDTH}" height="${NAV_MARK_HEIGHT}" alt="${NAV_MARK_ALT}" decoding="async">
-                    <div class="lp-logo-wordmark">
-                        <span class="lp-logo-name">PRYZM</span>
-                    </div>
                 </div>
                 <div class="lp-nav-links">
                     <div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper">${apex ? `<a class="lp-nav-link" id="lp-nav-solutions" href="${SOLUTIONS}">Solutions</a>` : ''}</div>

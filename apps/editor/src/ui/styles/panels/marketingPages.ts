@@ -137,7 +137,20 @@ export const LANDING_PAGE_STYLES = `
         position: sticky;
         top: 0;
         z-index: 60;
-        background: #6600FF;
+        /* §NAV-GRADIENT (founder brief 2026-08-10) — the bar picks up the DEEPER
+           violet that sits inside the logo tile at the left and washes to the
+           canonical brand violet by the right-hand edge, so the mark reads as part
+           of the bar instead of a lighter square pasted onto it.
+           BOTH stops are canonical a11y tokens, not eyedropped hexes:
+             pryzm-purple-darker #4A00B7  (packages/a11y-tokens PRYZM_TOKENS)
+             pryzm-purple        #6600FF
+           The gradient runs left to right, ending under the last action ("Book a
+           demo"), which is the founder's stated end point. (No backticks in this
+           comment: the whole stylesheet is a JS template literal, so a backtick
+           terminates it — esbuild fails with "Expected ; but found to".) White text clears AA on
+           BOTH stops (the darker end only raises contrast), so no pair in the
+           C43 §1.5 audit changes meaning. */
+        background: linear-gradient(to right, #4A00B7 0%, #6600FF 100%);
         box-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 6px 20px rgba(40,0,110,0.18);
         flex-shrink: 0;
     }
@@ -159,20 +172,6 @@ export const LANDING_PAGE_STYLES = `
         filter: drop-shadow(0 1px 6px rgba(80,20,180,0.22));
         flex-shrink: 0;
         overflow: visible;
-    }
-    .lp-logo-wordmark {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        flex-shrink: 0;
-    }
-    .lp-logo-name {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-        font-size: 20px;
-        font-weight: 700;
-        letter-spacing: 4px;
-        color: #ffffff;
-        line-height: 1;
     }
     /* The brand descender under the wordmark was REMOVED 2026-08-10 per founder
        brief — the hero subhead already states what PRYZM is, so repeating it in the
@@ -253,7 +252,11 @@ export const LANDING_PAGE_STYLES = `
        alpha-matted around the tile, so the rounded corners sit cleanly on the
        violet bar; the subtle ring just separates the two violets. */
     /* Founder brief 2026-08-10: the mark LEADS the brand on the LEFT (it was the
-       far-right item, which read as a stray app icon). margin-right now, not left. */
+       far-right item, which read as a stray app icon). margin-right now, not left.
+       The 1px white RING is removed — with the bar's left end now matching the
+       tile's own interior violet (§NAV-GRADIENT), the ring was the only thing
+       still drawing a box around the mark. The DROP SHADOW stays: it is what gives
+       the tile its depth, and the founder explicitly asked to keep it. */
     .lp-nav-mark {
         display: block;
         height: 40px;
@@ -261,7 +264,7 @@ export const LANDING_PAGE_STYLES = `
         flex-shrink: 0;
         margin-right: 12px;
         border-radius: 10px;
-        box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 4px 14px rgba(20,0,60,0.28);
+        box-shadow: 0 4px 14px rgba(20,0,60,0.28);
     }
     /* Shared pill geometry for the four action CTAs. */
     .lp-nav-contact,
@@ -1040,7 +1043,6 @@ export const LANDING_PAGE_STYLES = `
 
         /* Scale down logo */
         .lp-logo-icon { width: 36px; height: 36px; }
-        .lp-logo-name { font-size: 16px; letter-spacing: 3px; }
         .lp-nav-brand { gap: 10px; min-width: 0; }
 
         /* Hero: full-width, single centred column */

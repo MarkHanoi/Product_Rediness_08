@@ -350,7 +350,12 @@ describe('LANDING_PAGE_STYLES — apex-inlined CSS covers the whole header', () 
         // would vanish. Both are C43 §1.5 tokens; the point of this test is
         // that the header never reaches outside the token set, not that any
         // one control keeps a particular fill.
-        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*background:\s*#6600FF/);
+        // 2026-08-10: the bar became a GRADIENT — the deeper token at the left so
+        // the logo tile reads as part of the bar, washing to the brand violet by
+        // the right-hand edge. The assertion still enforces the real invariant
+        // (the header reaches only into the token set) rather than pinning one
+        // fill: BOTH stops must be tokens, and both must be present.
+        expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav\s*\{[^}]*background:\s*linear-gradient\([^)]*#4A00B7[^)]*#6600FF[^)]*\)/);
         expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*background:\s*#ffffff/);
         expect(LANDING_PAGE_STYLES).toMatch(/\.lp-nav-demo\s*\{[^}]*color:\s*#4A00B7/);
         // The retired ADR-0252 mirror hex must never reappear.
@@ -396,12 +401,16 @@ describe('landingMarkup — hero + product showcase', () => {
             expect(html).not.toContain('lp-hero-logo-block');
             // Exactly ONE brand image in the whole page — the nav mark.
             expect(html.match(/lp-nav-mark/g) ?? []).toHaveLength(1);
-            // It sits INSIDE the brand block (left), not in the actions band (right).
-            expect(html.indexOf('lp-nav-mark')).toBeLessThan(html.indexOf('lp-logo-wordmark'));
+            // It leads the bar: inside the brand block, before the actions band.
             expect(html.indexOf('lp-nav-mark')).toBeLessThan(html.indexOf('lp-nav-actions'));
-            // And the "BIM PLATFORM" descender is gone from the bar.
+            // The mark is now the ONLY brand element in the bar — no wordmark text,
+            // no descender. It therefore carries the accessible name itself, which is
+            // why its alt text must be non-empty (asserted below).
+            expect(html).not.toContain('lp-logo-wordmark');
+            expect(html).not.toContain('lp-logo-name');
             expect(html).not.toContain('BIM PLATFORM');
             expect(html).not.toContain('lp-logo-sub');
+            expect(html).toMatch(/lp-nav-mark[^>]*alt="PRYZM"/);
         }
     });
 
