@@ -127,6 +127,8 @@ import { doorStore, buildDoorStoreRecord } from '@pryzm/geometry-door';
 import { windowStore, buildWindowStoreRecord } from '@pryzm/geometry-window';
 import { generateMark } from '@pryzm/core-app-model';
 import { roomGraphService, roomQueryService, roomValidationService, roomTypeInferenceEngine, facadeOrientationService } from '@pryzm/spatial-index';
+// ADR-0315 U2.4 — the headless site read surface (provider wired below).
+import { siteQueryService } from '@pryzm/stores';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { temporalGraphManager } from '@pryzm/core-app-model';
 import { initGhostOverlayRenderer } from '@pryzm/core-app-model';
@@ -533,6 +535,17 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         };
         return w.runtime?.siteModelStore?.getLocation?.()?.trueNorth ?? 0;
     });
+    // ADR-0315 U2.4 — the headless site read surface, wired to the production
+    // SiteModelStore and exposed beside roomQueryService. Scope resolution
+    // (U3) and generation adapters (U5b) read site context through THIS, not
+    // through the siteDispatch UI module.
+    siteQueryService.setSiteProvider(() => {
+        const w = window as unknown as {
+            runtime?: { siteModelStore?: { getSite?: () => unknown } };
+        };
+        return (w.runtime?.siteModelStore?.getSite?.() ?? null) as never;
+    });
+    (window as unknown as { siteQueryService?: unknown }).siteQueryService = siteQueryService;
 
     for (const evt of ['bim-room-added', 'bim-room-updated', 'bim-room-removed'] as const) {
         window.addEventListener(evt, (e: any) => {

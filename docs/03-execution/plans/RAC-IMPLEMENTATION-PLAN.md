@@ -56,7 +56,7 @@ Confirm card that names what is NOT copied → one undo.
 | U2.1 ✅ | θ-provider injected (initTools ← `runtime.siteModelStore.trueNorth`; explicit θ still wins, failures degrade to 0) + `getFacadesAllLevels` roll-up + zero-rooms footprint-centroid fallback (per level) + AIPanel literal-0 removed. Tests: spatial-index 20/20 (pure math) + editor spec (service/provider) | "south-facing" is TRUE south |
 | U2.2 ✅ | Room predicates on RoomStore: `findByName` (exact-first, ci-substring) / `findByOccupancy` / `findByArea` (no-metric ≠ 0), level-filterable, clone-returning; room-topology 81/81 | "rooms named Bedroom", "rooms > 15 m²" |
 | U2.3 ✅ | `getElementsInRoom` completed: windows (via host-wall membership, both `wallId`/`hostWallId`), columns/lighting/stairs (centroid containment); the lying doc comment fixed; `getBoundaryElements` reports real `curtain-wall` kind. Editor spec green. (Beams: no reliable centroid on record — deferred to U8 spatial service, noted honestly) | "the windows in the living room" |
-| U2.4 | Headless `SiteQueryService` (θ, lat/lng, parcel, buildableRing, setbacks, maxHeightM) | envelope/height answers for U5b |
+| U2.4 ✅ | Headless `SiteQueryService` in @pryzm/stores (provider-injected; θ/lat-lng/parcel/buildableRing-wins/setbacks null≠0/maxHeightM null="no cap recorded"/point-in-footprint with unknown≠outside); wired in initTools + `window.siteQueryService`; 6/6 tests | envelope/height answers for U5b |
 | U2.5 | Extend `CapabilityScope` + value sources (orientation, room-ref, level-range) — the gate currently REJECTS spatial capabilities | gates U3 |
 
 🧪 After U2: no new sentences yet (U3 consumes these), but `describeGraph`/room

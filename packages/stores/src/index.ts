@@ -32,6 +32,15 @@ export { buildCoreFamilySeeds } from './seedCoreFamilies.js';
 // per [C19 §1.13]. The `site.*` command surface in A.7.c will call
 // `set()` after running cross-schema validation.
 export { SiteModelStore } from './SiteModelStore.js';
+// ADR-0315 U2.4 — the headless site read surface (scope resolver / generation
+// adapters / validation). Provider-injected; the editor wires it in initTools.
+export {
+    SiteQueryService,
+    siteQueryService,
+    pointInPolygonXZ,
+    type SitePointXZ,
+    type BuildableFootprint,
+} from './SiteQueryService.js';
 // §FEAT-PROJECT-ORIGIN (L-109) — L3 ProjectOriginStore.
 // Reactive singleton wrapper around the L0 `ProjectOrigin` element (P1).
 // One Project Base Point per project (the shared-coordinate datum);
