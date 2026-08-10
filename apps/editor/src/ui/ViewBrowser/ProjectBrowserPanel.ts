@@ -105,6 +105,11 @@ export class ProjectBrowserPanel {
      *  isolation animator + store subscriptions don't leak across re-opens. */
     private _inspectHandle: InspectPanelHandle | null = null;
 
+    /** Founder 2026-08-10 — first-line AI chat launcher button (top of rail,
+     *  directly under the PRYZM logo). Kept as a field so the active-state
+     *  observer can toggle its highlight when the AI panel opens/closes. */
+    private _aiLauncherBtn: HTMLButtonElement | null = null;
+
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
@@ -175,6 +180,10 @@ export class ProjectBrowserPanel {
         // ── Logo button — sits above all section icons ─────────────────────
         this._root.appendChild(this._buildLogoButton());
 
+        // ── First-line AI Design Assistant launcher (founder request) ──────
+        // Sits directly under the PRYZM logo, above every section icon.
+        this._root.appendChild(this._buildAiLauncherButton());
+
         const sections: Array<{
             id:      string;
             label:   string;
@@ -222,6 +231,82 @@ export class ProjectBrowserPanel {
 
         wrapper.appendChild(btn);
         return wrapper;
+    }
+
+    /**
+     * Founder request 2026-08-10 — FIRST-LINE AI chat entry point.
+     *
+     * A dedicated launcher at the very top of the left icon rail (directly
+     * under the PRYZM pyramid logo) that toggles the AI Design Assistant chat
+     * panel — the same `toggleAIPanel()` closure from AIAreaLayout that the
+     * "AI & Tools" section already uses. ADDITIVE: the existing AIRailPanel
+     * "Open AI Chat" button keeps working; this only promotes the chat to a
+     * one-click first-line action.
+     *
+     * Active state: the AI panel can be closed by re-toggle, its Esc handler,
+     * or PanelManager closing it when another exclusive panel opens — none of
+     * which route through this button. A MutationObserver on the panel's
+     * `style` attribute keeps the button highlight in sync with the truth
+     * (inline `display: flex` = open) instead of guessing from clicks.
+     */
+    private _buildAiLauncherButton(): HTMLElement {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pb-ai-launcher-wrapper';
+
+        const btn = document.createElement('button');
+        btn.type      = 'button';
+        btn.className = 'pb-section-header pb-ai-launcher';
+        btn.title     = 'AI Design Assistant';
+        btn.setAttribute('aria-label', 'AI Design Assistant');
+        btn.setAttribute('aria-pressed', 'false');
+
+        const iconEl = document.createElement('span');
+        iconEl.className = 'pb-section-icon';
+        iconEl.setAttribute('aria-hidden', 'true');
+        // Chat bubble + sparkle — inline SVG so it inherits currentColor and
+        // matches the rail's 22px stroke-icon pattern.
+        iconEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 14a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>
+            <path d="M12 6.6l1.05 2.35L15.4 10l-2.35 1.05L12 13.4l-1.05-2.35L8.6 10l2.35-1.05z" fill="currentColor" stroke="none"/>
+        </svg>`;
+        btn.appendChild(iconEl);
+
+        btn.addEventListener('click', () => {
+            this._props.onToggleAIPanel?.();
+            // Immediate sync for the click path; the observer covers external closes.
+            this._syncAiLauncherState();
+        });
+
+        this._aiLauncherBtn = btn;
+        this._wireAiLauncherObserver();
+        wrapper.appendChild(btn);
+        return wrapper;
+    }
+
+    /** Toggle the launcher highlight from the AI panel's real visibility. */
+    private _syncAiLauncherState(): void {
+        const panel = document.getElementById('ai-panel-container');
+        const open  = !!panel && panel.style.display === 'flex';
+        this._aiLauncherBtn?.classList.toggle('pb-ai-launcher--active', open);
+        this._aiLauncherBtn?.setAttribute('aria-pressed', String(open));
+    }
+
+    /**
+     * Attach the visibility observer once #ai-panel-container exists. The BUI
+     * layout template renders asynchronously relative to this rail, so retry
+     * briefly instead of assuming mount order (mirrors AIAreaLayout's own
+     * settle-delay pattern). Gives up quietly after ~10 s — e.g. when the AI
+     * panel is disabled by the owner feature flag and never mounts.
+     */
+    private _wireAiLauncherObserver(attempt = 0): void {
+        const panel = document.getElementById('ai-panel-container');
+        if (!panel) {
+            if (attempt < 25) setTimeout(() => this._wireAiLauncherObserver(attempt + 1), 400);
+            return;
+        }
+        new MutationObserver(() => this._syncAiLauncherState())
+            .observe(panel, { attributes: true, attributeFilter: ['style'] });
+        this._syncAiLauncherState();
     }
 
     private _buildHubPanel(): HTMLElement {

@@ -66,22 +66,24 @@ function _aiSaveWidth(w: number): void {
 }
 
 /**
- * Returns the left-edge x-coordinate of the right tools rail, used to
- * anchor the AI panel's default position just to its left.
- * Falls back to (window.innerWidth - 56) if the rail is not yet in the DOM.
+ * Founder request 2026-08-10 — the AI panel is now FIRST-LINE: its default
+ * dock is the LEFT column, flush next to the left icon rail (vb-panel /
+ * pb-container) and top-aligned with the rail (i.e. directly under the
+ * header). Returns the {left, top} the panel should open at.
+ * Falls back to a 52px rail + typical header height if the rail is not yet
+ * in the DOM.
  */
-function _getRightRailLeft(): number {
-    // Right tools panel — try both known selectors
+function _getLeftRailDock(margin: number): { left: number; top: number } {
     const rail = (
-        document.querySelector('.tpr-panel') ??
-        document.querySelector('.tp-panel')
+        document.querySelector('.vb-panel') ??
+        document.querySelector('.pb-container')
     ) as HTMLElement | null;
     if (rail) {
         const rect = rail.getBoundingClientRect();
-        return rect.left;
+        return { left: rect.right + margin, top: Math.max(0, rect.top) };
     }
-    // Fallback: assume the right rail spine is ~52px wide
-    return window.innerWidth - 56;
+    // Fallback: left rail spine is ~52px wide; header ~48px tall.
+    return { left: 52 + margin, top: 48 + margin };
 }
 
 /**
@@ -150,9 +152,13 @@ function makeDraggable(container: HTMLElement, handle: HTMLElement): void {
     const onMouseDown = (e: MouseEvent): void => {
         if (e.button !== 0) return;
         // Convert bottom/left to top/left once so subsequent moves are simple.
+        // Freeze the current height too — when the panel is column-docked its
+        // height comes from top+bottom anchoring, which `bottom: auto` would
+        // otherwise collapse mid-drag.
         const rect = container.getBoundingClientRect();
         container.style.left   = `${rect.left}px`;
         container.style.top    = `${rect.top}px`;
+        container.style.height = `${rect.height}px`;
         container.style.bottom = 'auto';
         container.style.right  = 'auto';
 
@@ -341,6 +347,22 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
         }
     };
 
+    // Founder request 2026-08-10 (first-line AI chat, non-intrusive): Esc closes
+    // the AI panel when it is open. Registered once at mount; checks the inline
+    // display flag (open = 'flex') so it never fights hidden/unmounted states.
+    // Modal-owned Escape handlers (e.g. AIPanel's cancel flow) stopPropagation
+    // or run their own keydown listeners independently, so this stays additive.
+    if (_aiEnabled) {
+        document.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            const panel = document.getElementById(aiPanelId);
+            if (panel && panel.style.display === 'flex') {
+                panel.style.display = 'none';
+                panelManager.notifyClosed('panel:ai');
+            }
+        });
+    }
+
     const toggleSpatialTree = () => {
         const tree = document.getElementById('spatial-tree-container-wrapper');
         if (tree) {
@@ -432,13 +454,19 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
             const w = _aiLoadWidth();
             container.style.width = `${w}px`;
 
-            // 2. Set default position: just to the left of the right tools rail,
-            //    near the bottom of the viewport (keep CSS bottom: 12px intact).
-            //    Override the CSS `left: 224px` default with a right-anchored calc.
-            const railLeft = _getRightRailLeft();
-            const margin   = 8; // px gap between AI panel and right rail
-            const initLeft = Math.max(0, railLeft - w - margin);
-            container.style.left = `${initLeft}px`;
+            // 2. Set default position — founder request 2026-08-10 (first-line
+            //    AI chat): dock LEFT, flush next to the left icon rail and
+            //    top-aligned with it (under the header), occupying the left
+            //    column. Overrides the CSS `left: 224px` / `bottom: 12px`
+            //    defaults; drag-to-move still lets users float it anywhere.
+            const margin = 8; // px gap between the icon rail and the panel
+            const dock   = _getLeftRailDock(margin);
+            const initLeft = dock.left;
+            container.style.left   = `${initLeft}px`;
+            container.style.top    = `${dock.top}px`;
+            container.style.bottom = '12px';        // stretch down the column
+            container.style.height = 'auto';
+            container.style.maxHeight = 'none';     // let the column, not 60vh, bound it
 
             // 3. Wire drag-to-move (header as handle)
             const dragHandle = container.querySelector('.ai-chat-header') as HTMLElement | null;
@@ -451,7 +479,7 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
             container.appendChild(resizeHandle);
             _attachWidthResize(resizeHandle, container);
 
-            console.log('[AIAreaLayout] AI panel drag + resize wired. width=%dpx left=%dpx', w, initLeft);
+            console.log('[AIAreaLayout] AI panel drag + resize wired. width=%dpx left=%dpx top=%dpx (left-docked)', w, initLeft, dock.top);
         }, 800);
     }
 

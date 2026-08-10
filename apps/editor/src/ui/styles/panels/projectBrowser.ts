@@ -933,6 +933,31 @@ export const PROJECT_BROWSER_STYLES = `
     .pb-camera-vp-list::-webkit-scrollbar-track { background: transparent; }
     .pb-camera-vp-list::-webkit-scrollbar-thumb { background: #c4cde0; border-radius: 2px; }
 
+    /* ─── First-line AI Design Assistant launcher (founder 2026-08-10) ────
+       Sits directly under the pb-logo button, above every section icon.
+       Reuses the pb-section-header base; the extra class carries the brand
+       purple (#6600FF = --app-accent) accent + active (panel-open) state. */
+    .pb-ai-launcher-wrapper {
+        border-bottom: 1px solid var(--app-border-light);
+    }
+    .pb-ai-launcher .pb-section-icon svg {
+        color: var(--app-accent);
+    }
+    .pb-ai-launcher:hover .pb-section-icon {
+        background: rgba(102,0,255,0.10);
+    }
+    .pb-ai-launcher--active {
+        background: var(--app-violet-soft);
+        box-shadow: inset 2px 0 0 0 var(--app-accent);
+    }
+    .pb-ai-launcher--active .pb-section-icon {
+        background: rgba(102,0,255,0.14);
+        transform: scale(1.08);
+    }
+    .pb-ai-launcher--active .pb-section-icon svg {
+        color: var(--app-accent);
+    }
+
     /* ─── Logo button — top of the icon rail, above BROWSER ─────────────── */
     .pb-logo-wrapper {
         border-bottom: 1px solid var(--app-border-light);
