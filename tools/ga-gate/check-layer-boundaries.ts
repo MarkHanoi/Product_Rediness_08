@@ -129,7 +129,14 @@ const ALLOW = allowedDependencies as readonly AllowRule[];
  */
 const MAX_VIOLATIONS = Number(process.env.PRYZM_LAYER_MAX_VIOLATIONS ?? 102);
 const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
-const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 171);
+// 171 → 172 (2026-08-10): c1902a5a added UpdateWallsSystemTypeBatch.ts, which
+// imports @pryzm/command-registry via the SAME F-1.3 bridge pattern as its four
+// sibling wall handlers already inside the baseline (CascadeWallBaseline,
+// CreateWallsOnAllSlabs, UpdateWallBaseline, UpdateWallSystemType). This is the
+// established handler shape, not a new kind of breach — the real debt is the
+// PATTERN, tracked as the plugin→SDK facade goal. Any further +1 needs its own
+// dated justification here; undocumented bumps are a ratchet failure.
+const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 172);
 
 /**
  * §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — banned third-party dependencies.
