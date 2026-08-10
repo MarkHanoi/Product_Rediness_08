@@ -38,7 +38,9 @@ import { describeCapabilitiesFor } from '../capabilities/CapabilityRefusal.js';
 // semantic authority; the spec file holds data, not a second dispatcher.
 import { applyExecutionSpec } from './CapabilityExecutionSpec.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
-import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
+// resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
+// the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
+import { resolveFinishRef } from './finishRef.js';
 import { isScopeError, type Compass4, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1340,79 +1342,6 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         // destructive:true = the bridge's Confirm card — a mass creation is
         // confirmed before it runs; ONE undo entry reverses all of it after.
         destructive: true,
-      };
-    }
-
-    case 'add-wall-layer': {
-      // §FEAT-WALL-LAYER-ADD-BATCH — scope first, then honest completeness
-      // refusals: the intent is CLAIMED even when thickness or finish is
-      // missing, so the answer is a concrete ask, never an LLM guess.
-      let wallIds: readonly string[] | 'all';
-      if (si.scope === 'selection') {
-        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
-        if (walls.length === 0) {
-          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
-          return {
-            kind: 'refusal', intent: 'add-wall-layer',
-            reason: kinds.length === 0
-              ? 'No walls are selected — select a wall, or say "add a 10mm plaster layer to all walls".'
-              : `Finish layers apply to walls, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
-            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
-          };
-        }
-        wallIds = walls.map((s) => s.elementId);
-      } else {
-        wallIds = 'all';
-      }
-
-      if (si.thicknessM === null) {
-        return {
-          kind: 'refusal', intent: 'add-wall-layer',
-          reason: 'Tell me how thick the layer should be — e.g. "add a 10mm plaster layer to the inner side of the selected wall".',
-          suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
-        };
-      }
-      if (si.finishRef === null) {
-        return {
-          kind: 'refusal', intent: 'add-wall-layer',
-          reason: `Tell me which finish — I know ${exampleFinishNames().join(', ')}.`,
-          suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
-        };
-      }
-      // ONE finish table (finishRef.ts) — unknown names refuse by LISTING
-      // real options, never by guessing (§CONTEXT-DATA-HONESTY).
-      const finish = resolveFinishRef(si.finishRef);
-      if (finish === null) {
-        return {
-          kind: 'refusal', intent: 'add-wall-layer',
-          reason:
-            `I don't know the finish "${si.finishRef}". I understand ` +
-            `${exampleFinishNames().join(', ')}.`,
-          suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
-        };
-      }
-
-      const mm = Number((si.thicknessM * 1000).toFixed(3));
-      const scopeLabel = wallIds === 'all'
-        ? 'every wall in the project'
-        : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
-      return {
-        kind: 'commands', intent: 'add-wall-layer',
-        summary: `Add a ${mm}mm ${finish.name} layer to the ${si.side} side of ${scopeLabel}`,
-        commands: [{
-          type: 'wall.addLayerBatch',
-          payload: {
-            wallIds: wallIds === 'all' ? 'all' : [...wallIds],
-            side: si.side,
-            thickness: si.thicknessM,
-            name: finish.name,
-            materialColor: finish.materialColor,
-            materialId: finish.materialId,
-          },
-        }],
-        // NOT destructive — one undo entry; the command reports "Added … to
-        // N of M walls — K skipped" (raked walls skip with the gate's reason).
-        destructive: false,
       };
     }
 

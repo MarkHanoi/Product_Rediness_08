@@ -44,6 +44,7 @@ import {
 } from './ScopeDescriptor.js';
 import { normalizeElementKind } from '../capabilities/ChatCapabilityRegistry.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
+import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
 // §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
 // constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
 // the purity note above still holds — no store instance is constructed here.
@@ -69,7 +70,8 @@ export type SpecDrivenIntentId =
   | 'set-wall-type'
   | 'set-wall-color'
   | 'set-wall-rake'
-  | 'set-window-type';
+  | 'set-window-type'
+  | 'add-wall-layer';
 
 export type SpecDrivenIntent = Extract<SemanticIntent, { intent: SpecDrivenIntentId }>;
 
@@ -306,6 +308,67 @@ export const EXECUTION_SPECS: SpecTable = {
     },
     // NOT destructive — one undo entry, and the command reports
     // "Retyped N of M — K skipped" (same policy as the wall type batch).
+    destructive: false,
+  },
+
+  /**
+   * §FEAT-WALL-LAYER-ADD-BATCH — "add a 10mm plaster layer to the inner side
+   * of the selected wall". Honest completeness refusals: the intent is CLAIMED
+   * even when thickness or finish is missing, so the answer is a concrete ask,
+   * never an LLM guess. ONE finish table (finishRef.ts) — unknown names refuse
+   * by LISTING real options, never by guessing (§CONTEXT-DATA-HONESTY).
+   */
+  'add-wall-layer': {
+    elementKind: 'wall',
+    busCommand: 'wall.addLayerBatch',
+    idsField: 'wallIds',
+    noSelectionReason:
+      'No walls are selected — select a wall, or say "add a 10mm plaster layer to all walls".',
+    mismatchPrefix: 'Finish layers apply to walls',
+    suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+    resolveValue: (si) => {
+      if (si.thicknessM === null) {
+        return {
+          refusal: {
+            reason: 'Tell me how thick the layer should be — e.g. "add a 10mm plaster layer to the inner side of the selected wall".',
+            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+          },
+        };
+      }
+      if (si.finishRef === null) {
+        return {
+          refusal: {
+            reason: `Tell me which finish — I know ${exampleFinishNames().join(', ')}.`,
+            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+          },
+        };
+      }
+      const finish = resolveFinishRef(si.finishRef);
+      if (finish === null) {
+        return {
+          refusal: {
+            reason:
+              `I don't know the finish "${si.finishRef}". I understand ` +
+              `${exampleFinishNames().join(', ')}.`,
+            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+          },
+        };
+      }
+      const thicknessM = si.thicknessM;
+      const mm = Number((thicknessM * 1000).toFixed(3));
+      return {
+        payload: {
+          side: si.side,
+          thickness: thicknessM,
+          name: finish.name,
+          materialColor: finish.materialColor,
+          materialId: finish.materialId,
+        },
+        summary: (scopeLabel) => `Add a ${mm}mm ${finish.name} layer to the ${si.side} side of ${scopeLabel}`,
+      };
+    },
+    // NOT destructive — one undo entry; the command reports "Added … to
+    // N of M walls — K skipped" (raked walls skip with the gate's reason).
     destructive: false,
   },
 
