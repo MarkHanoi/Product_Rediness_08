@@ -208,46 +208,29 @@ describe('window.setType', () => {
   });
 });
 
-describe('window.setSize', () => {
+describe('window.setSize / window.setSillHeight — RETIRED from this plugin (§FIX-DIMS-REACH-RECORD, L-815)', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('updates width and height and round-trips on undo', async () => {
-    env = buildEnv();
-    const id = createId('window');
-    await env.bus.executeCommand('window.create', {
-      id, wallId: createId('wall'), openingId: 'op_1',
-    });
-    const before = snap(env.window);
-    const ev = await env.bus.executeCommand('window.setSize', {
-      windowId: id, width: 1.6, height: 1.5,
-    });
-    expect(env.window.get(id)?.width).toBe(1.6);
-    expect(env.window.get(id)?.height).toBe(1.5);
-    undoLast(env.window, ev);
-    expect(snap(env.window)).toEqual(before);
-  });
-
-  it('rejects width <= 2 * frameWidth', async () => {
-    env = buildEnv();
-    const id = createId('window');
-    await env.bus.executeCommand('window.create', {
-      id, wallId: createId('wall'), openingId: 'op_1',
-      frameWidth: 0.1,
-    });
-    await expect(
-      env.bus.executeCommand('window.setSize', { windowId: id, width: 0.15 }),
-    ).rejects.toThrow();
-  });
-
-  it('requires at least one of width / height', async () => {
+  // The plugin handlers wrote the DETACHED plugin window store — accepted,
+  // logged, rendered nothing, persisted nothing in production. The verbs are
+  // now owned by same-name legacy bridges in apps/editor initBusHandlers
+  // routing through UpdateElementParameterCommand → the geometry wallStore.
+  // This pin asserts the plugin no longer claims them: registering the plugin
+  // set must leave the verbs UNHANDLED on a bare bus (the production bus gets
+  // them from the bridge registrations, which CommandBus would reject as
+  // duplicates if these handlers ever returned).
+  it('the plugin handler set no longer registers the dimension verbs', async () => {
     env = buildEnv();
     const id = createId('window');
     await env.bus.executeCommand('window.create', {
       id, wallId: createId('wall'), openingId: 'op_1',
     });
     await expect(
-      env.bus.executeCommand('window.setSize', { windowId: id }),
-    ).rejects.toThrow();
+      env.bus.executeCommand('window.setSize', { windowId: id, width: 1.6, height: 1.5 }),
+    ).rejects.toThrow(/no handler/i);
+    await expect(
+      env.bus.executeCommand('window.setSillHeight', { windowId: id, sillHeight: 1 }),
+    ).rejects.toThrow(/no handler/i);
   });
 });

@@ -169,7 +169,11 @@ describe('door.move + setWidth + setType + setSwing — round-trips', () => {
     expect(snap(env.door)).toEqual(before);
   });
 
-  it('door.setWidth enforces frameWidth*2 <= width', async () => {
+  it('door.setWidth/setHeight are RETIRED from this plugin (§FIX-DIMS-REACH-RECORD, L-815)', async () => {
+    // The plugin handlers wrote the DETACHED plugin door store (silent no-op
+    // in production). The verbs are now owned by same-name legacy bridges in
+    // apps/editor initBusHandlers → UpdateElementParameterCommand → the
+    // geometry wallStore. The plugin set must leave them unhandled here.
     env = buildEnv();
     const id = createId('door');
     await env.bus.executeCommand('door.create', {
@@ -180,11 +184,11 @@ describe('door.move + setWidth + setType + setSwing — round-trips', () => {
       frameWidth: 0.05,
     });
     await expect(
-      env.bus.executeCommand('door.setWidth', { doorId: id, width: 0.05 }),
-    ).rejects.toThrow();
-    const ev = await env.bus.executeCommand('door.setWidth', { doorId: id, width: 1.2 });
-    expect(env.door.get(id)?.width).toBe(1.2);
-    expect(ev.forward.length).toBeGreaterThan(0);
+      env.bus.executeCommand('door.setWidth', { doorId: id, width: 1.2 }),
+    ).rejects.toThrow(/no handler/i);
+    await expect(
+      env.bus.executeCommand('door.setHeight', { doorId: id, height: 2.1 }),
+    ).rejects.toThrow(/no handler/i);
   });
 
   it('door.setType applies catalogue defaults', async () => {
