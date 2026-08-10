@@ -44,6 +44,10 @@ import {
 } from './ScopeDescriptor.js';
 import { normalizeElementKind } from '../capabilities/ChatCapabilityRegistry.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
+// §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
+// constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
+// the purity note above still holds — no store instance is constructed here.
+import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
 import type {
   BusCommandRef,
   ResolverContext,
@@ -63,7 +67,8 @@ export const COMPASS_WORD: Readonly<Record<Compass4, string>> = {
  *  cost of a new batch-shaped capability. */
 export type SpecDrivenIntentId =
   | 'set-wall-type'
-  | 'set-wall-color';
+  | 'set-wall-color'
+  | 'set-wall-rake';
 
 export type SpecDrivenIntent = Extract<SemanticIntent, { intent: SpecDrivenIntentId }>;
 
@@ -219,6 +224,44 @@ export const EXECUTION_SPECS: SpecTable = {
     },
     // NOT destructive — one undo entry, deletes nothing, and the command
     // reports "Recoloured N of M — K skipped" (same policy as set-wall-type).
+    destructive: false,
+  },
+
+  /**
+   * §FEAT-WALL-RAKE-BATCH — "make all walls angled by 70 degrees". Range
+   * refusal with the geometry package's REAL bounds (never re-typed).
+   * Per-wall shape refusals (curved / layered / hosting openings) belong to
+   * the command's rakeAuthorability pass and arrive in its honest report.
+   */
+  'set-wall-rake': {
+    elementKind: 'wall',
+    busCommand: 'wall.updateRakeBatch',
+    idsField: 'wallIds',
+    noSelectionReason:
+      'No walls are selected — select some walls, or say "make all walls angled by 70 degrees".',
+    mismatchPrefix: 'The wall angle applies to walls',
+    suggestions: ['make all walls angled by 70 degrees'],
+    spatialAbility: 'angle all walls or the selected walls',
+    resolveValue: (si) => {
+      const deg = si.angleDeg;
+      if (!Number.isFinite(deg) || deg < RAKE_MIN_DEG || deg > RAKE_MAX_DEG) {
+        return {
+          refusal: {
+            reason:
+              `A wall can lean between ${RAKE_MIN_DEG}° and ${RAKE_MAX_DEG}° ` +
+              `(90° = vertical); ${deg}° is outside that range.`,
+            suggestions: ['make all walls angled by 70 degrees', 'make all walls vertical'],
+          },
+        };
+      }
+      return {
+        payload: { rakeAngleDeg: deg },
+        summary: (scopeLabel, notesTail) =>
+          `Lean ${scopeLabel} to ${deg}°${deg === 90 ? ' (vertical)' : ''}${notesTail}`,
+      };
+    },
+    // NOT destructive — one undo entry, deletes nothing, and the command
+    // reports "Raked N of M — K skipped" (same policy as the colour batch).
     destructive: false,
   },
 

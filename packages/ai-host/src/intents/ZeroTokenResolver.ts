@@ -40,10 +40,6 @@ import { applyExecutionSpec } from './CapabilityExecutionSpec.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
 import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
 import { isScopeError, type Compass4, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
-// §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
-// constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
-// the purity note above still holds — no store instance is constructed here.
-import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1252,105 +1248,6 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
-    case 'set-wall-rake': {
-      // §FEAT-WALL-RAKE-BATCH — scope first, the exact set-wall-color shape:
-      // "the selected walls" must never silently become "all walls".
-      let wallIds: readonly string[] | 'all';
-      let scopeLabelOverride: string | null = null;
-      const scopeNotes: string[] = [];
-      if (typeof si.scope === 'object') {
-        const phrase = si.scope.kind === 'level'
-          ? `on level ${si.scope.levelQuery}`
-          : si.scope.kind === 'room'
-            ? `in the ${si.scope.roomRef}`
-            : `facing ${COMPASS_WORD[si.scope.orientation]}`;
-        if (ctx.resolveScope === undefined) {
-          return {
-            kind: 'refusal', intent: 'set-wall-rake',
-            reason:
-              `I can't resolve "${phrase}" here — spatial scoping isn't wired ` +
-              `into this chat context. I can angle all walls or the selected walls.`,
-            suggestions: ['make all walls angled by 70 degrees'],
-          };
-        }
-        const descriptor: ScopeDescriptor = si.scope.kind === 'level'
-          ? { kind: 'level', levelQuery: si.scope.levelQuery, elementKind: 'wall' }
-          : si.scope.kind === 'room'
-            ? { kind: 'room', roomRef: si.scope.roomRef, elementKind: 'wall' }
-            : { kind: 'orientation', orientation: si.scope.orientation };
-        const result = ctx.resolveScope(descriptor);
-        if (isScopeError(result)) {
-          return {
-            kind: 'refusal', intent: 'set-wall-rake',
-            reason: result.error,
-            suggestions: ['make all walls angled by 70 degrees'],
-          };
-        }
-        if (result.ids.length === 0) {
-          return {
-            kind: 'refusal', intent: 'set-wall-rake',
-            reason: `There are no walls ${phrase} — nothing was changed.`,
-            suggestions: ['make all walls angled by 70 degrees'],
-          };
-        }
-        wallIds = result.ids;
-        const where = result.diagnostics[0] ?? phrase.replace(/^on |^in the /, '');
-        scopeLabelOverride = si.scope.kind === 'orientation'
-          ? `all ${result.ids.length} ${where} wall${result.ids.length === 1 ? '' : 's'}`
-          : `all ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} ${si.scope.kind === 'level' ? 'on' : 'bounding'} ${where}`;
-        for (const s of result.skipped) {
-          scopeNotes.push(`${s.count}× ${s.kind} skipped: ${s.reason}`);
-        }
-      } else if (si.scope === 'selection') {
-        const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
-        if (walls.length === 0) {
-          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
-          return {
-            kind: 'refusal', intent: 'set-wall-rake',
-            reason: kinds.length === 0
-              ? 'No walls are selected — select some walls, or say "make all walls angled by 70 degrees".'
-              : `The wall angle applies to walls, and the selection is ${kinds.join(' + ')}. Nothing was changed.`,
-            suggestions: ['make all walls angled by 70 degrees'],
-          };
-        }
-        wallIds = walls.map((s) => s.elementId);
-      } else {
-        wallIds = 'all';
-      }
-
-      // Range refusal with the geometry package's REAL bounds (never re-typed).
-      // Per-wall shape refusals (curved / layered / hosting openings) belong to
-      // the command's rakeAuthorability pass and arrive in its honest report.
-      const deg = si.angleDeg;
-      if (!Number.isFinite(deg) || deg < RAKE_MIN_DEG || deg > RAKE_MAX_DEG) {
-        return {
-          kind: 'refusal', intent: 'set-wall-rake',
-          reason:
-            `A wall can lean between ${RAKE_MIN_DEG}° and ${RAKE_MAX_DEG}° ` +
-            `(90° = vertical); ${deg}° is outside that range.`,
-          suggestions: ['make all walls angled by 70 degrees', 'make all walls vertical'],
-        };
-      }
-
-      const scopeLabel = scopeLabelOverride !== null
-        ? scopeLabelOverride
-        : wallIds === 'all'
-          ? 'every wall in the project'
-          : `${wallIds.length} selected wall${wallIds.length === 1 ? '' : 's'}`;
-      const notesTail = scopeNotes.length > 0 ? ` (${scopeNotes.join(' · ')})` : '';
-      return {
-        kind: 'commands', intent: 'set-wall-rake',
-        summary: `Lean ${scopeLabel} to ${deg}°${deg === 90 ? ' (vertical)' : ''}${notesTail}`,
-        commands: [{
-          type: 'wall.updateRakeBatch',
-          payload: { wallIds: wallIds === 'all' ? 'all' : [...wallIds], rakeAngleDeg: deg },
-        }],
-        // NOT destructive — one undo entry, deletes nothing, and the command
-        // reports "Raked N of M — K skipped" (same policy as the colour batch).
-        destructive: false,
-      };
-    }
-
     case 'set-window-type': {
       // §FEAT-WINDOW-TYPE-BATCH — the exact set-wall-type shape, window kind.
       let windowIds: readonly string[] | 'all';
@@ -1887,7 +1784,8 @@ const WALL_COLOR_VERB = String.raw`(make|paint|colou?r|set|change|turn)`;
 
 const WALL_ORIENTATION_ADJ = String.raw`(?:(north|south|east|west)[- ]facing )?(?:exterior )?`;
 const ORIENTATION_TO_COMPASS: Readonly<Record<string, Compass4>> = { north: 'N', south: 'S', east: 'E', west: 'W' };
-const COMPASS_WORD: Readonly<Record<Compass4, string>> = { N: 'north', S: 'south', E: 'east', W: 'west' };
+// COMPASS_WORD lives in CapabilityExecutionSpec.ts now — the generic arm owns
+// the orientation-phrase copy; the grammar only maps words → Compass4 above.
 
 const WALL_COLOR_RE = new RegExp(
   `^${WALL_COLOR_VERB} (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? ${WALL_ORIENTATION_ADJ}walls?` +
