@@ -19,6 +19,7 @@ import { injectAppTheme } from '../styles/AppTheme';
 import { landingMarkup } from './landingMarkup';
 import { LandingPageMosaic } from './LandingPageMosaic';
 import { initLandingScrollReveal } from './LandingPageScrollReveal';
+import { initLandingVideoLazy } from './LandingPageVideoLazy';
 import { ResourcesDropdown } from './ResourcesDropdown';
 import { SolutionsDropdown } from './SolutionsDropdown';
 import { createPryzmLogoSpinner } from '../overlays/PryzmLogoSpinner';
@@ -35,6 +36,7 @@ export class LandingPage {
     private el: HTMLElement;
     private mosaic: LandingPageMosaic | null = null;
     private scrollRevealCleanup: (() => void) | null = null;
+    private videoLazyCleanup: (() => void) | null = null;
     private resourcesDropdown: ResourcesDropdown | null = null;
     private solutionsDropdown: SolutionsDropdown | null = null;
 
@@ -110,6 +112,9 @@ export class LandingPage {
         }
 
         this.scrollRevealCleanup = initLandingScrollReveal(this.el);
+        // Rounds 6 — the stacked video sections stream lazily: play/pause is
+        // viewport-driven so four ~24 MB MP4s never load eagerly (brief §5).
+        this.videoLazyCleanup = initLandingVideoLazy(this.el);
     }
 
     private build(): HTMLElement {
@@ -175,6 +180,8 @@ export class LandingPage {
         this.resourcesDropdown = null;
         this.scrollRevealCleanup?.();
         this.scrollRevealCleanup = null;
+        this.videoLazyCleanup?.();
+        this.videoLazyCleanup = null;
         this.mosaic?.destroy();
         this.mosaic = null;
         this.el.remove();

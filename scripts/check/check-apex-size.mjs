@@ -57,7 +57,14 @@ const BUDGET_BYTES = 200 * 1024;
 // new asset while still refusing a careless 50 MB drop. STILL A TESTING BUDGET:
 // compress/stream the hero to well under 24 MB before real launch traffic, then
 // ratchet this back down. Any further bump needs its own dated justification.
-const MEDIA_BUDGET_BYTES = 36 * 1024 * 1024;
+// 36 → 104 MB (2026-08-10 rounds 6): the landing became a SpaceX-style stack of
+// FOUR full-viewport videos (hero.mp4 + hero_02/03 + Hero_04, ~93 MB together,
+// each individually under the 25 MiB Pages per-file limit below). Raised
+// EXPLICITLY, per this gate's charter — this line is that decision. The videos
+// are lazy (preload="none"; in-app play is IntersectionObserver-driven), so
+// this is streamed-on-scroll weight, NOT first paint. STILL A TESTING BUDGET:
+// compress all four before real launch traffic, then ratchet back down.
+const MEDIA_BUDGET_BYTES = 104 * 1024 * 1024;
 
 // §APEX-PAGES-FILE-LIMIT (2026-08-10) — Cloudflare Pages rejects ANY single file
 // over 25 MiB; a build containing one fails to publish and pryzm.so silently

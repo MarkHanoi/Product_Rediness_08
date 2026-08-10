@@ -408,6 +408,22 @@ export const LANDING_PAGE_STYLES = `
             linear-gradient(to bottom, rgba(26,6,64,0.34) 0%, rgba(26,6,64,0.15) 38%, rgba(26,6,64,0.56) 100%);
         pointer-events: none;
     }
+    /* ── White outro bridge (rounds 6) ───────────────────────────────────
+       hero.mp4 ENDS on a white frame; the next section (.lp-vsec--fade)
+       opens under a matching white gradient. This ::before paints the hero's
+       half of that bridge: a short white ramp at the very bottom of the
+       frame, ABOVE the scrim (z-index 1 beats the ::after's auto), so the
+       video's white outro melts across the section boundary instead of
+       hitting the violet scrim. CSS-only — no scroll-jacking, no JS. */
+    .lp-hero-media::before {
+        content: '';
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        height: 16dvh;
+        z-index: 1;
+        background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.82) 72%, #ffffff 100%);
+        pointer-events: none;
+    }
 
     /* ── The copy column — bottom-left, no card ──────────────────────────
        2026-08-10 (founder brief, reference homepage). The glass panel is
@@ -442,9 +458,14 @@ export const LANDING_PAGE_STYLES = `
         justify-content: flex-end;
         text-align: left;
         /* Founder 2026-08-10: block lifted off the lower edge (72 -> 148 ->
-           190px), then round 5 same day: FURTHER up — 190 -> 300px, so the
-           title block sits clearly above the lower third of the viewport. */
-        padding: 24px 56px 300px;
+           190px), then round 5 same day: 190 -> 300px. Round 6 (same day):
+           the CTA was STILL below the fold on the founder's screen, and a
+           fixed pixel offset can never track the viewport — so the offset now
+           SCALES with viewport height: max(300px, 38dvh). At 1080p that is
+           ~410px, at a ~900px laptop ~342px — eyebrow, headline, subtitle AND
+           the "Start here" button all sit comfortably in the upper two-thirds
+           at both heights, and 300px remains the floor on short viewports. */
+        padding: 24px 56px max(300px, 38dvh);
     }
 
     /* ─── The date eyebrow — small, uppercase, widely tracked ──────────
@@ -680,75 +701,115 @@ export const LANDING_PAGE_STYLES = `
            does not guarantee the bytes are never fetched. Eliminating the
            fetch entirely needs a <script> the apex is not allowed to have. */
         .lp-hero-video { display: none; }
+        .lp-vsec-video { display: none; }
     }
 
-    /* ─── Product showcase — full-bleed screenshot + overlaid caption row ──
-       SEAM (judgement call, founder to react to the screenshot): the design
-       butts a full-bleed image straight against the section above it. On a
-       WHITE page that reads clean; on this DRIFTING gradient a hard line
-       looks accidental, and a static colour fade cannot work because the
-       colour behind it moves. So the plate stays genuinely full-bleed (as
-       designed) and the seam is softened with a white hairline plus an
-       upward purple glow — it reads as a deliberate plate laid on the field,
-       and it is immune to the animation. Swap to a contained rounded card by
-       adding a max-width + border-radius here; nothing else depends on it.
-    ────────────────────────────────────────────────────────────────── */
-    .lp-showcase {
-        width: 100%;
-        flex-shrink: 0;
-    }
-    .lp-showcase-frame {
+    /* ─── Stacked full-viewport video sections (rounds 6, SpaceX ref) ─────
+       Three more 100dvh sections after the hero: hero_02 → hero_03 → Hero_04.
+       The nav bar is sticky, so these deliberately run the FULL viewport and
+       slide under it — the SpaceX treatment. Each carries a small bottom-left
+       caption block (eyebrow + label) over the same violet scrim family as
+       the hero, so legibility never depends on the video's own content.
+       Fallback ground (paints before/without the video) is the same violet
+       radial field as .lp-hero-media — there is no state where a section is
+       empty or black-on-white. */
+    .lp-vsec {
         position: relative;
-        margin: 0;
-        width: 100%;
+        height: 100dvh;
+        min-height: 420px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-end;
         overflow: hidden;
-        background: #4A00B7;
-        border-top: 1px solid rgba(255,255,255,0.55);
-        box-shadow: 0 -18px 48px rgba(102,0,255,0.14);
+        isolation: isolate;
+        padding: 24px 56px 96px;
     }
-    /* The <img> carries width=1600 height=442, so the browser reserves the
-       right box from the intrinsic ratio alone — height:auto keeps it exact at
-       every viewport and CLS is 0 (§2.1.2) without hard-coding a crop. */
-    .lp-showcase-img {
+    .lp-vsec-media {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        background:
+            radial-gradient(ellipse 85% 90% at 28% 30%, #6600FF 0%, transparent 70%),
+            radial-gradient(ellipse 75% 80% at 78% 78%, #4A00B7 0%, transparent 72%),
+            #1A0640;
+        z-index: 0;
+    }
+    .lp-vsec-video {
         display: block;
         width: 100%;
-        height: auto;
+        height: 100%;
+        object-fit: cover;
+        max-width: 100%;
     }
-    /* HONEST EMPTY STATE — no asset configured yet. A token-coloured surface
-       at the correct aspect ratio; never a broken-image icon, never a
-       collapsed section, and the caption row stays fully legible. */
-    .lp-showcase-frame--pending {
-        background: linear-gradient(160deg, #4A00B7 0%, #6600FF 100%);
-    }
-    /* Same box the real asset would occupy — 1600×442. */
-    .lp-showcase-placeholder {
-        width: 100%;
-        aspect-ratio: 1600 / 442;
-    }
-    .lp-showcase-caption {
+    /* Caption scrim — lighter than the hero's (a label, not a headline, sits
+       here) but still weighted to the bottom-left corner the copy occupies.
+       Deep violet, never black (brand ruling). */
+    .lp-vsec-media::after {
+        content: '';
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: center;
-        padding: 20px 16px;
-        color: #ffffff;
-        font-size: clamp(9.5px, 0.86vw, 12.5px);
-        font-weight: 600;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        /* Scrim so the white caps clear AA over ANY screenshot content. */
-        background: linear-gradient(to top, rgba(10,10,15,0.66) 0%, rgba(10,10,15,0.30) 55%, rgba(10,10,15,0) 100%);
+        inset: 0;
+        background:
+            linear-gradient(to right,  rgba(26,6,64,0.32) 0%, rgba(26,6,64,0.10) 48%, rgba(26,6,64,0.00) 100%),
+            linear-gradient(to bottom, rgba(26,6,64,0.00) 55%, rgba(26,6,64,0.52) 100%);
+        pointer-events: none;
     }
-    .lp-showcase-caption-item {
-        padding: 4px 14px;
-        border-right: 1px solid rgba(255,255,255,0.38);
+    .lp-vsec-panel {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        width: min(1180px, 100%);
+        margin-right: auto;
+    }
+    .lp-vsec-eyebrow {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: clamp(11px, 0.95vw, 13px);
+        font-weight: 600;
+        letter-spacing: 0.30em;
+        color: rgba(255,255,255,0.88);
+        text-transform: uppercase;
+        margin: 0 0 12px;
         line-height: 1;
     }
-    .lp-showcase-caption-item:last-child { border-right: none; }
+    .lp-vsec-title {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: clamp(24px, 2.6vw, 40px);
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        line-height: 1.0;
+        color: #ffffff;
+        text-transform: uppercase;
+        margin: 0;
+        max-width: 20ch;
+    }
+    /* Transition 1 — hero → hero_02: SMOOTH. hero.mp4's white outro (bridged
+       by .lp-hero-media::before above) melts into this section under a long
+       white gradient falling from its top edge. Scroll-linked in effect but
+       purely paint: as the boundary crosses the viewport the two gradients
+       read as one continuous white field dissolving into the video. */
+    .lp-vsec--fade::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 30dvh;
+        z-index: 2;
+        background: linear-gradient(to bottom, #ffffff 0%, rgba(255,255,255,0.55) 42%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+    /* Transition 3 — hero_03 → Hero_04: STRAIGHT. Video 4 is dark content;
+       the section takes a clean hard edge (no bridge, no blend) and its
+       fallback ground drops to the deepest violet so even the pre-video
+       frame reads dark. */
+    .lp-vsec--dark .lp-vsec-media {
+        background: #0E0420;
+    }
+
+    /* Product-showcase styles (the Paris 3D-Site screenshot plate) DELETED
+       2026-08-10 (founder, rounds 6) with the section itself — the stacked
+       video sections carry the product story now. */
 
     /* ─── Hero feature tags ───────────────────────────────────────────── */
     .lp-hero-tags {
@@ -1137,19 +1198,7 @@ export const LANDING_PAGE_STYLES = `
             margin-bottom: 24px;
         }
 
-        /* Showcase: at 390px the 1600×442 plate is only ~108px tall, so an
-           OVERLAID caption would cover the whole screenshot. Below 768px the
-           caption drops out of the overlay and becomes a solid bar beneath the
-           image — same content, same order, still legible. */
-        .lp-showcase-caption {
-            position: static;
-            background: #4A00B7;
-            padding: 12px 8px;
-            letter-spacing: 0.10em;
-            font-size: 9.5px;
-            row-gap: 6px;
-        }
-        .lp-showcase-caption-item { padding: 3px 8px; }
+        /* Showcase responsive rules deleted with the section (2026-08-10). */
 
         /* Bespoke section */
         .lp-bespoke { padding: 48px 16px; }

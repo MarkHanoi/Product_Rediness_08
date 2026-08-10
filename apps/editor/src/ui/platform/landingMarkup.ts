@@ -99,32 +99,11 @@ export const SHOWCASE_CAPTIONS = [
     'Compliance',
 ] as const;
 
-/**
- * HERO_IMAGE_URL — the full-bleed product screenshot beneath the hero.
- *
- * WHY IT SHIPS INSIDE THE APEX (C51 §2.2.4 / §6.1.3)
- * --------------------------------------------------
- * §2.2.4 permits an allowlisted image CDN, but that is a PERMISSION, not a
- * preference: an apex that serves its own hero has no cross-origin dependency,
- * needs no CSP widening, and cannot be broken by a third party's outage. The
- * asset is a 1600×442 WebP (~109 KB) — already compressed, so gzip is a no-op
- * on it — which lands the whole apex around 133 KB against the 200 KB gzipped
- * §6.1.3 ceiling. It is served from apps/editor/public/apex/, which
- * prerender-apex.mjs copies into dist-apex/ verbatim.
- *
- * WHEN EMPTY the hero degrades honestly: the section still renders at its
- * exact aspect ratio on a token-coloured surface with the caption row legible.
- * It never shows a broken-image icon and never collapses.
- */
-export const HERO_IMAGE_URL = '/apex/hero-site-3d.webp';
-/** Intrinsic size of the asset — drives aspect-ratio so there is ZERO CLS. */
-export const HERO_IMAGE_WIDTH = 1600;
-export const HERO_IMAGE_HEIGHT = 442;
-export const HERO_IMAGE_ALT =
-    'The PRYZM editor in 3D Site view over Paris: a glass massing tower placed among '
-    + 'the existing city blocks with the Eiffel Tower behind it, the modelling tool rail '
-    + 'on the left, and the 5D plan, 3D globe, 3D Site, Real, Massing and Fly-tour view '
-    + 'controls across the top.';
+/* HERO_IMAGE_* constants DELETED 2026-08-10 (founder, rounds 6): the Paris
+ * 3D-Site screenshot and its showcase section are REMOVED from the landing —
+ * the stacked video sections carry the product story now. The caption
+ * vocabulary (SHOWCASE_CAPTIONS above) survives as the video-section labels.
+ * Git history holds the section + `/apex/hero-site-3d.webp` if ever needed. */
 
 /**
  * NAV MARK — the PRYZM tile logo LEADING the header on the LEFT, beside the
@@ -168,6 +147,34 @@ export const NAV_MARK_ALT = 'PRYZM';
  */
 export const HERO_VIDEO_URL = '/apex/hero.mp4';
 export const HERO_VIDEO_POSTER_URL = '/apex/hero-poster.png';
+
+/**
+ * STACKED VIDEO SECTIONS — rounds 6 (founder brief 2026-08-10, SpaceX reference).
+ *
+ * The landing is now a sequence of FOUR full-viewport video sections the user
+ * scrolls through: the hero above, then these three. Each carries a small
+ * bottom-left caption block (eyebrow + label). The labels REUSE the existing
+ * showcase caption vocabulary — they are minimal placeholders the founder can
+ * edit, not new marketing copy.
+ *
+ * Filenames are case-EXACT as shipped in public/apex/ (the Fly/CF hosts are
+ * case-sensitive): hero_02.mp4, hero_03.mp4, Hero_04.mp4.
+ *
+ * variant:
+ *   'fade'  — the hero's MP4 ends on a WHITE frame; this section opens under a
+ *             white gradient bridge so the outro melts into it (CSS-only,
+ *             no scroll-jacking). Used for the section directly after the hero.
+ *   'plain' — normal butt joint.
+ *   'dark'  — the video is dark content; the section takes a HARD edge (no
+ *             blend) and a near-black-violet fallback ground.
+ */
+export const VIDEO_SECTIONS = [
+    { src: '/apex/hero_02.mp4', label: SHOWCASE_CAPTIONS[0], variant: 'fade' },
+    { src: '/apex/hero_03.mp4', label: SHOWCASE_CAPTIONS[1], variant: 'plain' },
+    { src: '/apex/Hero_04.mp4', label: SHOWCASE_CAPTIONS[2], variant: 'dark' },
+] as const;
+/** The small caps line above each section label — the brand, reused, not new copy. */
+export const VIDEO_SECTION_EYEBROW = 'PRYZM DESIGN';
 
 /**
  * Returns the landing page's inner HTML (the contents of `.lp-shell`).
@@ -324,21 +331,37 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 </div>
             </section>
 
-            <!-- ── Product showcase — full-bleed screenshot + caption row ───
-                 The <img> is served from an allowlisted CDN (C51 §2.2.4) so the
-                 200 KB gzipped apex budget (§6.1.3) is untouched. With no asset
-                 configured the frame still occupies its exact aspect ratio on a
-                 deep-purple token surface — honest, and zero CLS either way. -->
-            <section class="lp-showcase" aria-label="The PRYZM editor">
-                <figure class="lp-showcase-frame${HERO_IMAGE_URL ? '' : ' lp-showcase-frame--pending'}">
-                    ${HERO_IMAGE_URL
-                        ? `<img class="lp-showcase-img" src="${HERO_IMAGE_URL}" width="${HERO_IMAGE_WIDTH}" height="${HERO_IMAGE_HEIGHT}" alt="${HERO_IMAGE_ALT}" loading="lazy" decoding="async">`
-                        : `<div class="lp-showcase-placeholder" role="img" aria-label="${HERO_IMAGE_ALT}"></div>`}
-                    <figcaption class="lp-showcase-caption">
-                        ${SHOWCASE_CAPTIONS.map((c) => `<span class="lp-showcase-caption-item">${c}</span>`).join('\n                        ')}
-                    </figcaption>
-                </figure>
-            </section>
+            <!-- ── Stacked full-viewport video sections (rounds 6, SpaceX ref) ──
+                 LOADING STRATEGY (founder brief §5): these three MUST NOT
+                 autoplay-load eagerly — that would stream ~72 MB before the
+                 user scrolls. Two modes:
+                   app  — preload="none", NO autoplay. LandingPageVideoLazy.ts
+                          (IntersectionObserver, same pattern as
+                          LandingPageScrollReveal) calls .play() as a section
+                          approaches the viewport and .pause() when it leaves.
+                   apex — ships ZERO JS (CSP default-src 'none'), so the videos
+                          carry autoplay + preload="none". HONEST LIMIT: with
+                          autoplay the browser decides when to fetch; modern
+                          engines defer/pause offscreen muted autoplay, but the
+                          spec does not guarantee laziness without a script.
+                 Videos are decorative: aria-hidden wrapper, no controls,
+                 tabindex=-1, disablepictureinpicture — same ruling as the hero. -->
+            ${VIDEO_SECTIONS.map((s) => `<section class="lp-vsec${s.variant === 'plain' ? '' : ` lp-vsec--${s.variant}`}" aria-label="${s.label}">
+                <div class="lp-vsec-media" aria-hidden="true">
+                    <video class="lp-vsec-video" ${apex ? 'autoplay ' : ''}muted loop playsinline
+                           preload="none" tabindex="-1" disablepictureinpicture>
+                        <source src="${s.src}" type="video/mp4">
+                    </video>
+                </div>
+                <div class="lp-vsec-panel">
+                    <p class="lp-vsec-eyebrow">${VIDEO_SECTION_EYEBROW}</p>
+                    <h2 class="lp-vsec-title">${s.label}</h2>
+                </div>
+            </section>`).join('\n\n            ')}
+
+            <!-- Product-showcase section (the Paris 3D-Site screenshot) REMOVED
+                 2026-08-10 (founder, rounds 6) — the stacked video sections
+                 above carry the product story now. -->
 
             <!-- ── Stream 2 — Bespoke / Enterprise section ─── -->
             <section class="lp-bespoke lp-reveal" id="lp-bespoke">
