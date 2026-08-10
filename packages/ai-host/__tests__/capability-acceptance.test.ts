@@ -105,7 +105,7 @@ interface AcceptanceCase {
   readonly phrasings: readonly string[];
 }
 
-const ACCEPTANCE: readonly AcceptanceCase[] = [
+const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   { id: 'undo', ctx: {}, phrasings: ['undo', 'undo that', 'Actually, undo that.', 'go back'] },
   { id: 'redo', ctx: {}, phrasings: ['redo', 'redo that', 'do that again'] },
   {
@@ -368,6 +368,37 @@ const ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
 ];
+
+// §GEN-ROOMS / §GEN-CHAIN (RAC U5c) — appended rather than inlined above so
+// the two families sit next to the tests that pin their refusals.
+const U5C_ACCEPTANCE: readonly AcceptanceCase[] = [
+  {
+    id: 'generate-room-finishes',
+    ctx: {},
+    phrasings: [
+      'furnish all rooms',
+      'add ceilings to every room',
+      'add floor finishes to all rooms',
+      'light all rooms',
+      'furnish and light this floor',
+      'furnish every floor',
+      'add ceilings to level 1',
+      'could you furnish all the rooms please?',
+    ],
+  },
+  {
+    id: 'finish-apartment-chain',
+    ctx: {},
+    phrasings: [
+      'finish this apartment',
+      'finish this floor',
+      'generate and finish an apartment',
+      'complete this apartment',
+    ],
+  },
+];
+
+const ACCEPTANCE: readonly AcceptanceCase[] = [...BASE_ACCEPTANCE, ...U5C_ACCEPTANCE];
 
 describe('capability acceptance — a family of phrasings per capability', () => {
   for (const c of ACCEPTANCE) {
@@ -895,6 +926,104 @@ describe('add-level never silently stacks two levels at one elevation', () => {
     expect(dflt.kind).toBe('commands');
     if (dflt.kind !== 'commands') return;
     expect(dflt.commands[0]!.payload['elevation']).toBe(9);
+  });
+});
+
+// ─── §GEN-ROOMS / §GEN-CHAIN (RAC U5c) — granularity is a hard stopper ───────
+
+describe('§GEN-ROOMS — the room-scale engines, and what they honestly cannot do', () => {
+  it('"furnish all rooms" runs the furnish engine on the active level, and SAYS it also lights', () => {
+    const r = resolveFull('furnish all rooms', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('generate-room-finishes');
+    expect(r.commands[0]!.type).toBe('generation.rooms');
+    expect(r.commands[0]!.payload).toMatchObject({ steps: ['furnish'], levelId: 'L0' });
+    // §FURNISH-ALWAYS-LIGHTS is a shipped cascade the user did not ask for —
+    // a surprise is a small dishonesty, so the Confirm card states it.
+    expect(r.summary).toContain('auto-lights');
+    expect(r.destructive).toBe(true);
+  });
+
+  it('"furnish and light this floor" is ONE ask with both engines, in pipeline order', () => {
+    const r = resolveFull('furnish and light this floor', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload['steps']).toEqual(['furnish', 'lighting']);
+  });
+
+  it('"add ceilings to level 1" targets the NAMED level, not the active one', () => {
+    const r = resolveFull('add ceilings to level 1', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toMatchObject({ steps: ['ceilings'], levelId: 'L1' });
+  });
+
+  it('a room-scoped ask is RECOGNIZED and refused with the engine\'s real granularity', () => {
+    // Never widened to the level: "furnish the kitchen" must not furnish the
+    // bedrooms too, and must not pretend it did only the kitchen.
+    const r = resolveFull('furnish the kitchen', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('generate-room-finishes');
+    expect(r.reason).toContain('whole level at a time');
+    expect(r.reason).toContain('kitchen');
+    expect(r.reason).toContain('Nothing was changed');
+  });
+
+  it('every-floor asks are honest about which engine actually has that driver', () => {
+    const furnish = resolveFull('furnish every floor', ctxOf());
+    expect(furnish.kind).toBe('commands');
+    if (furnish.kind === 'commands') {
+      expect(furnish.commands[0]!.payload).toMatchObject({ allLevels: true });
+    }
+    const ceilings = resolveFull('add ceilings to every floor', ctxOf());
+    expect(ceilings.kind).toBe('refusal');
+    if (ceilings.kind !== 'refusal') return;
+    expect(ceilings.reason).toContain('Only furnishing has an every-floor driver');
+    expect(ceilings.reason).toContain('Nothing was changed');
+  });
+
+  it('an unknown level refuses by LISTING the real ones', () => {
+    const r = resolveFull('furnish level 9', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('Level 0, Level 1, Level 2');
+  });
+});
+
+describe('§GEN-CHAIN — the finishing chain as a conversational flow', () => {
+  it('"finish this apartment" names every stage in the Confirm card, in order', () => {
+    const r = resolveFull('finish this apartment', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('finish-apartment-chain');
+    expect(r.commands[0]!.type).toBe('generation.finish-chain');
+    expect(r.commands[0]!.payload).toMatchObject({ withLayout: false, levelId: 'L0' });
+    // The user is authorising a multi-stage mutation — the card must say what
+    // the stages are BEFORE it runs.
+    expect(r.summary).toContain('ceilings, floor finishes, furniture, then lighting');
+    expect(r.summary).toContain('rooms it cannot complete are named');
+    expect(r.destructive).toBe(true);
+  });
+
+  it('"generate and finish an apartment" re-plans first; "finish" alone never does', () => {
+    const withLayout = resolveFull('generate and finish an apartment', ctxOf());
+    expect(withLayout.kind).toBe('commands');
+    if (withLayout.kind === 'commands') {
+      expect(withLayout.commands[0]!.payload['withLayout']).toBe(true);
+      expect(withLayout.summary).toContain('lay out the apartment');
+    }
+    const without = resolveFull('finish this floor', ctxOf());
+    expect(without.kind).toBe('commands');
+    if (without.kind === 'commands') {
+      expect(without.commands[0]!.payload['withLayout']).toBe(false);
+    }
+  });
+
+  it('the chain outranks the single-stage grammar when both shapes match', () => {
+    expect(intentOf(resolveFull('finish this apartment and light it', ctxOf())))
+      .toBe('finish-apartment-chain');
   });
 });
 

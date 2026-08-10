@@ -1320,6 +1320,97 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'create a 4 bedroom apartment with an en-suite',
     ],
   },
+  {
+    id: 'generate-room-finishes',
+    // §GEN-ROOMS (RAC U5c.1) — the authored-but-unreachable case AGAIN, four
+    // times over. The D-CE ceiling engine, the room-type floor-finish pass,
+    // the D-FLE furniture engine and the D-LE lighting engine have all shipped
+    // and all run today from `pryzmCeilAllRooms()` / `pryzmFloorAllRooms()` /
+    // `pryzmFurnishAllRooms()` / `pryzmLightAllRooms()` and the AI-panel
+    // leaves. The chat reached NONE of them. This declaration is that fix, and
+    // it drives the SAME triggers — not a second pipeline.
+    description: 'run the room-scale engines (ceilings, floor finishes, furniture, lighting) on a level',
+    verbs: ['furnish', 'light', 'add', 'apply', 'run', 'place'],
+    aliases: ['furnish', 'furniture', 'ceilings', 'floor finishes', 'lighting', 'lights'],
+    // targets:'global' — every one of these engines reads the LEVEL's rooms,
+    // never the element selection (which is exactly why a selection-scoped ask
+    // is refused rather than reinterpreted).
+    targets: 'global',
+    parameters: [
+      {
+        name: 'steps',
+        description: 'which engines to run — ceilings, floor finishes, furniture, lighting (any combination)',
+        required: true,
+        valueSource: 'user-text',
+        example: 'furnish and light',
+      },
+      {
+        name: 'scope',
+        description: 'this floor (default), a named level, or every floor (furnishing only — the other three have no every-floor driver)',
+        required: false,
+        valueSource: 'user-text',
+        example: 'on level 2',
+      },
+    ],
+    scope: 'global',
+    // Creating furniture / ceilings / finishes across a whole floor is
+    // consequential — the Confirm card names the engines and the level.
+    destructive: true,
+    busCommand: 'generation.rooms',
+    probe: { intent: 'generate-room-finishes', steps: ['furnish'], scope: 'active-level' },
+    commandProof: [
+      {
+        file: 'apps/editor/src/ui/generation/roomFinishChatSeam.ts',
+        mustMention: ['triggerFurnishLayout', 'triggerCeilingLayout', 'triggerFloorLayout', 'triggerLightingLayout'],
+        note: 'The chat path calls the SAME shared triggers the console entries and AI-panel leaves call — one engine, four entry points.',
+      },
+    ],
+    examples: [
+      'furnish all rooms',
+      'add ceilings to every room',
+      'add floor finishes to all rooms',
+      'light all rooms',
+      'furnish and light this floor',
+      'furnish every floor',
+    ],
+  },
+  {
+    id: 'finish-apartment-chain',
+    // §GEN-CHAIN (RAC U5c.2) — the auto-chain (apartment → ceilings + floor
+    // finishes → furniture → lighting) as a conversational flow. The chain is
+    // ALREADY WIRED between the trigger modules, each link with its own
+    // §CHAIN-TIMEOUT fallback; this capability starts it and REPORTS it stage
+    // by stage. It re-implements nothing and must never double-fire a link.
+    description: 'run the whole finishing chain on a level — ceilings, floor finishes, furniture, lighting',
+    verbs: ['finish', 'complete', 'fit out'],
+    aliases: ['finish apartment', 'finish this floor', 'fit out'],
+    targets: 'global',
+    parameters: [
+      {
+        name: 'with layout',
+        description: 'whether to re-plan the apartment first ("generate and finish") or finish the rooms that already exist',
+        required: false,
+        valueSource: 'user-text',
+        example: 'generate and finish an apartment',
+      },
+    ],
+    scope: 'global',
+    destructive: true,
+    busCommand: 'generation.finish-chain',
+    probe: { intent: 'finish-apartment-chain', withLayout: false, scope: 'active-level' },
+    commandProof: [
+      {
+        file: 'apps/editor/src/ui/generation/roomFinishChatSeam.ts',
+        mustMention: ['runGenerationFinishChain', 'ceiling.layout-executed', 'furnish.layout-executed'],
+        note: 'The chain seam OBSERVES the shipped cascade rather than re-driving it — it fires the first link and reports every stage from the engines own executed events.',
+      },
+    ],
+    examples: [
+      'finish this apartment',
+      'finish this floor',
+      'generate and finish an apartment',
+    ],
+  },
 ];
 
 // ─── The honest half: commands the chat deliberately does NOT drive ──────────

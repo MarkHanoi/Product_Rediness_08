@@ -635,7 +635,75 @@ export type SemanticIntent =
       readonly masterEnSuite: boolean;
       /** "open-plan kitchen/living". */
       readonly openPlanKitchenDining: boolean;
+    }
+  /**
+   * §GEN-ROOMS (RAC U5c.1) — the ROOM-SCALE engines by sentence: "furnish all
+   * rooms", "add ceilings to every room", "add floor finishes to all rooms",
+   * "light all rooms", "furnish and light this floor", "furnish every floor".
+   *
+   * These four engines (D-CE ceilings, the room-type floor-finish pass, D-FLE
+   * furniture, D-LE lighting) have shipped for months behind console entries
+   * and panel leaves. Chat drives the SAME triggers — no second pipeline.
+   *
+   * GRANULARITY IS A HARD STOPPER, not a language limit. Every one of these
+   * engines reads "every qualifying room on ONE level" and has no per-room
+   * entry point, so a room-scoped or selection-scoped ask is RECOGNIZED and
+   * then refused with that reason rather than silently widened to the level
+   * (which would furnish the whole flat when the user said "the kitchen").
+   * Only furnishing has an every-floor driver (`triggerFurnishAllFloors`); the
+   * other three refuse an all-levels ask by naming that gap.
+   */
+  | {
+      readonly intent: 'generate-room-finishes';
+      /** Engines to run, in the pipeline's own order. */
+      readonly steps: readonly RoomFinishStep[];
+      readonly scope:
+        | 'active-level'
+        | 'all-levels'
+        | { readonly kind: 'level'; readonly levelQuery: string }
+        | { readonly kind: 'room'; readonly roomRef: string }
+        | 'selection';
+    }
+  /**
+   * §GEN-CHAIN (RAC U5c.2) — "finish this apartment" / "furnish and light the
+   * whole building": the proven auto-chain as a conversational flow.
+   *
+   * The chain itself is ALREADY WIRED in the editor (apartment.layout-executed
+   * → ceilings + floor finishes; ceiling.layout-executed → furnish;
+   * furnish.layout-executed → lighting, each link with its own §CHAIN-TIMEOUT
+   * fallback). This intent starts it and REPORTS it — it does not re-implement
+   * it and it must never double-fire a link.
+   *
+   * `withLayout` distinguishes the two real asks: "generate and finish an
+   * apartment" re-plans the shell first (the apartment engine, whose own
+   * `apartment.layout-executed` starts the chain), while "finish this
+   * apartment" leaves the existing rooms alone and runs only the finishing
+   * stages over them.
+   */
+  | {
+      readonly intent: 'finish-apartment-chain';
+      readonly withLayout: boolean;
+      readonly scope:
+        | 'active-level'
+        | { readonly kind: 'level'; readonly levelQuery: string };
     };
+
+/** The room-scale engines, in the order the shipped pipeline runs them
+ *  (§GEN-ROOMS). Exported so the capability registry, the parsers and the
+ *  editor seam all name the same four steps. */
+export type RoomFinishStep = 'ceilings' | 'floors' | 'furnish' | 'lighting';
+
+/** Human labels for the four steps — ONE table, used by every summary and
+ *  refusal so the transcript never invents a synonym. */
+export const ROOM_FINISH_LABELS: Readonly<Record<RoomFinishStep, string>> = {
+  ceilings: 'ceilings',
+  floors: 'floor finishes',
+  furnish: 'furniture',
+  lighting: 'lighting',
+};
+
+/** Pipeline order — the order the shipped auto-chain fires them in. */
+const ROOM_FINISH_ORDER: readonly RoomFinishStep[] = ['ceilings', 'floors', 'furnish', 'lighting'];
 
 /** applySemanticIntent's result — a resolution minus the tier stamp (the
  *  caller adds `tier: 0 | 1 | 'nl'` on non-refusal results). */
@@ -678,6 +746,14 @@ function singular(noun: string): string {
 
 function fmt(n: number): string {
   return `${round3(n)} m`;
+}
+
+/** "ceilings, furniture and lighting" — the ONE list joiner the room-scale
+ *  summaries and refusals share (§GEN-ROOMS). */
+function joinLabels(items: readonly string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0]!;
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]!}`;
 }
 
 /** Resolve a level query (exact name, or a number matched against "Level N" /
@@ -1340,6 +1416,138 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         summary: `Add "${name}" at elevation ${fmt(elevation)}`,
         commands: [{ type: 'level.add', payload: { levelId, name, elevation, height: 3 } }],
         destructive: false,
+      };
+    }
+
+    // §GEN-ROOMS (RAC U5c.1) — the four room-scale engines.
+    case 'generate-room-finishes': {
+      const steps = ROOM_FINISH_ORDER.filter((s) => si.steps.includes(s));
+      if (steps.length === 0) {
+        return {
+          kind: 'refusal', intent: 'generate-room-finishes',
+          reason: 'I did not catch which finish you want — ceilings, floor finishes, furniture or lighting.',
+          suggestions: ['furnish all rooms', 'add ceilings to every room'],
+        };
+      }
+      const named = joinLabels(steps.map((s) => ROOM_FINISH_LABELS[s]));
+      // HARD STOPPER — engine granularity. Every one of these engines reads
+      // "every qualifying room on ONE level"; there is no per-room entry
+      // point. Widening "furnish the kitchen" to the whole level would furnish
+      // rooms the user did not name, which is the over-claim this whole phase
+      // exists to prevent.
+      if (typeof si.scope === 'object' && si.scope.kind === 'room') {
+        return {
+          kind: 'refusal', intent: 'generate-room-finishes',
+          reason:
+            `The ${named} engine${steps.length > 1 ? 's run' : ' runs'} a whole level at a time — ` +
+            `${steps.length > 1 ? 'they have' : 'it has'} no per-room entry point, so I cannot do ` +
+            `just "${si.scope.roomRef}" without doing every room on the level. Nothing was changed.`,
+          suggestions: ['furnish this floor', 'add ceilings to every room'],
+        };
+      }
+      if (si.scope === 'selection') {
+        return {
+          kind: 'refusal', intent: 'generate-room-finishes',
+          reason:
+            `The ${named} engine${steps.length > 1 ? 's take' : ' takes'} a level, not a selection — ` +
+            `${steps.length > 1 ? 'they read' : 'it reads'} every qualifying room on the level and ` +
+            `ignore${steps.length > 1 ? '' : 's'} what happens to be selected. Nothing was changed.`,
+          suggestions: ['furnish this floor'],
+        };
+      }
+      // Only FURNISHING has a shipped every-floor driver
+      // (triggerFurnishAllFloors, §FIX-FURNISH-ALL-FLOORS-COVERAGE). Claiming
+      // an all-floors ceiling pass would be inventing a capability.
+      if (si.scope === 'all-levels') {
+        const unsupported = steps.filter((s) => s !== 'furnish');
+        if (unsupported.length > 0) {
+          return {
+            kind: 'refusal', intent: 'generate-room-finishes',
+            reason:
+              `Only furnishing has an every-floor driver — ${joinLabels(unsupported.map((s) => ROOM_FINISH_LABELS[s]))} ` +
+              `run one level at a time. Nothing was changed.`,
+            suggestions: ['furnish every floor', `add ${ROOM_FINISH_LABELS[unsupported[0]!]} to this floor`],
+          };
+        }
+        return {
+          kind: 'commands', intent: 'generate-room-finishes',
+          summary: 'Furnish every room on every floor (one pass per floor, each floor reported separately)',
+          commands: [{ type: 'generation.rooms', payload: { steps, allLevels: true } }],
+          destructive: true,
+        };
+      }
+      let levelId: string | undefined;
+      let levelLabel = 'this floor';
+      if (typeof si.scope === 'object') {
+        const lvl = findLevel(si.scope.levelQuery, ctx.levels);
+        if (lvl === undefined) {
+          return {
+            kind: 'refusal', intent: 'generate-room-finishes',
+            reason:
+              `I could not find a level called "${si.scope.levelQuery}". ` +
+              `The levels here are: ${ctx.levels.map((l) => l.name).join(', ')}.`,
+            suggestions: [],
+          };
+        }
+        levelId = lvl.id;
+        levelLabel = lvl.name;
+      } else if (ctx.activeLevelId !== undefined) {
+        levelId = ctx.activeLevelId;
+        levelLabel = ctx.levels.find((l) => l.id === ctx.activeLevelId)?.name ?? 'this floor';
+      }
+      return {
+        kind: 'commands', intent: 'generate-room-finishes',
+        summary:
+          `Run ${named} on every qualifying room on ${levelLabel}` +
+          (steps.includes('furnish') && !steps.includes('lighting')
+            // §FURNISH-ALWAYS-LIGHTS — the shipped cascade lights after every
+            // furnish run. Say so: a surprise is a small dishonesty.
+            ? ' (furnishing also auto-lights the rooms — that cascade is always on)'
+            : ''),
+        commands: [{
+          type: 'generation.rooms',
+          payload: { steps, ...(levelId !== undefined ? { levelId } : {}) },
+        }],
+        destructive: true,
+      };
+    }
+
+    // §GEN-CHAIN (RAC U5c.2) — the proven chain as a conversational flow.
+    case 'finish-apartment-chain': {
+      let levelId: string | undefined;
+      let levelLabel = 'this floor';
+      if (typeof si.scope === 'object') {
+        const lvl = findLevel(si.scope.levelQuery, ctx.levels);
+        if (lvl === undefined) {
+          return {
+            kind: 'refusal', intent: 'finish-apartment-chain',
+            reason:
+              `I could not find a level called "${si.scope.levelQuery}". ` +
+              `The levels here are: ${ctx.levels.map((l) => l.name).join(', ')}.`,
+            suggestions: [],
+          };
+        }
+        levelId = lvl.id;
+        levelLabel = lvl.name;
+      } else if (ctx.activeLevelId !== undefined) {
+        levelId = ctx.activeLevelId;
+        levelLabel = ctx.levels.find((l) => l.id === ctx.activeLevelId)?.name ?? 'this floor';
+      }
+      // The Confirm card NAMES the steps, in order — the user is authorising a
+      // multi-stage mutation and must know what the stages are before it runs.
+      const stepList = si.withLayout
+        ? 'lay out the apartment, then ceilings, floor finishes, furniture and lighting'
+        : 'ceilings, floor finishes, furniture, then lighting';
+      return {
+        kind: 'commands', intent: 'finish-apartment-chain',
+        summary:
+          `Finish ${levelLabel} — ${stepList}, in that order. ` +
+          `Each stage reports its own counts, and rooms it cannot complete are named with the engine's reason`,
+        commands: [{
+          type: 'generation.finish-chain',
+          payload: { withLayout: si.withLayout, ...(levelId !== undefined ? { levelId } : {}) },
+        }],
+        destructive: true,
       };
     }
 
@@ -2437,6 +2645,110 @@ const matchApartmentLayout: Matcher = (text, ctx) => {
   return si === null ? null : applySemanticIntent(si, ctx);
 };
 
+// ─── §GEN-ROOMS / §GEN-CHAIN (RAC U5c) — the room-scale grammar ──────────────
+//
+// SHARED by the tier-0 grammar and the NL classifier, like every other parser
+// in this file: the two paths cannot read the same sentence differently.
+
+/** Which engine each verb/noun family names. Order inside a value does not
+ *  matter — applySemanticIntent re-sorts into pipeline order. */
+const ROOM_FINISH_PATTERNS: readonly (readonly [RoomFinishStep, RegExp])[] = [
+  ['ceilings', /\bceilings?\b|\bceil\b/],
+  ['floors', /\bfloor (?:finish|finishes|covering|coverings)\b|\bfloor[\s-]?finish(?:es)?\b|\bflooring\b/],
+  ['furnish', /\bfurnish(?:es|ing)?\b|\bfurnitures?\b|\bfurnished\b/],
+  ['lighting', /\blights?\b|\blighting\b|\blight up\b|\billuminate\b/],
+];
+
+/** Verbs that authorise a room-scale run. "furnish"/"light" are themselves
+ *  verbs, so a bare "furnish all rooms" needs no separate verb word. */
+const ROOM_FINISH_VERB_RE =
+  /^(?:add|create|place|put|apply|generate|make|run|do|furnish|light|finish|fit)\b/;
+
+/** All-floors words vs this-floor words. "every room" is NOT an all-floors
+ *  ask — the engines' natural unit IS "every room on the level", which is
+ *  exactly what "all rooms" means to an architect standing on a floor. */
+const ROOM_SCOPE_ALL_FLOORS_RE =
+  /\b(?:every|all|each)\s+(?:floors?|levels?|storeys?|stor(?:y|ies))\b|\bwhole building\b|\bentire building\b|\ball floors\b/;
+const ROOM_SCOPE_LEVEL_RE =
+  /\b(?:on|to|for|in)\s+(?:the\s+)?(?:level|floor|storey)\s+([\w.-]+)\b|\b(?:level|floor|storey)\s+(\d+)\b/;
+const ROOM_SCOPE_SELECTION_RE = /\b(?:selected|selection|these|those)\b/;
+/** A NAMED room ("the kitchen", "every bedroom") — recognized so it can be
+ *  refused with the engines' real granularity, never silently widened. */
+const ROOM_SCOPE_ROOM_RE =
+  /\b(?:the|this|that|every|each|all)\s+((?:master\s+)?(?:kitchen|bathroom|bedroom|living\s*room|dining\s*room|hallway|hall|corridor|study|office|wc|toilet|utility|storage|balcony|terrace)s?)\b/;
+
+/**
+ * Parse a room-scale finish sentence (§GEN-ROOMS, RAC U5c.1). Returns null
+ * when no room-scale engine is named — the sentence then belongs to some other
+ * grammar (or to the LLM).
+ */
+export function parseRoomFinishIntent(
+  text: string,
+): Extract<SemanticIntent, { intent: 'generate-room-finishes' }> | null {
+  const steps = ROOM_FINISH_PATTERNS.filter(([, re]) => re.test(text)).map(([s]) => s);
+  if (steps.length === 0) return null;
+  if (!ROOM_FINISH_VERB_RE.test(text)) return null;
+  // A room/level/finish NOUN must be present, so "make the lights white" (a
+  // colour ask about a fixture) never lands here.
+  if (!/\brooms?\b|\bfloors?\b|\blevels?\b|\bstoreys?\b|\bapartment\b|\bflat\b|\bhere\b|\bbuilding\b/.test(text)
+      && ROOM_SCOPE_ROOM_RE.exec(text) === null) {
+    return null;
+  }
+  // Element-level asks belong to the property grammars, not here.
+  if (/\bwalls?\b|\bwindows?\b|\bdoors?\b|\bslabs?\b|\bstairs?\b|\bcolumns?\b/.test(text)) return null;
+  // Colour/type words mean this is a property ask about a finish, not a run.
+  if (/\bwhite\b|\bblack\b|\bcolou?r\b|\bpaint\b|#[0-9a-f]{3,6}\b/.test(text)) return null;
+
+  const roomM = ROOM_SCOPE_ROOM_RE.exec(text);
+  const scope: Extract<SemanticIntent, { intent: 'generate-room-finishes' }>['scope'] =
+    roomM !== null
+      ? { kind: 'room', roomRef: roomM[1]!.replace(/\s+/g, ' ').trim() }
+      : ROOM_SCOPE_ALL_FLOORS_RE.test(text)
+        ? 'all-levels'
+        : (() => {
+            const lm = ROOM_SCOPE_LEVEL_RE.exec(text);
+            const q = lm?.[1] ?? lm?.[2];
+            if (q !== undefined && !['this', 'the', 'active', 'current'].includes(q)) {
+              return { kind: 'level' as const, levelQuery: q };
+            }
+            return ROOM_SCOPE_SELECTION_RE.test(text) && !/\bthese rooms?\b|\bthis floor\b/.test(text)
+              ? 'selection' as const
+              : 'active-level' as const;
+          })();
+  return { intent: 'generate-room-finishes', steps, scope };
+}
+
+/** "finish this apartment" / "furnish and light the whole building" /
+ *  "generate and finish an apartment" (§GEN-CHAIN, RAC U5c.2). */
+const CHAIN_RE =
+  /\b(?:finish|complete|fit ?out|do everything (?:to|for))\b[^.]*\b(?:apartment|flat|floor|level|building|place|unit)\b/;
+const CHAIN_WITH_LAYOUT_RE = /\b(?:generate|create|lay ?out|plan|design)\b/;
+
+export function parseFinishChainIntent(
+  text: string,
+): Extract<SemanticIntent, { intent: 'finish-apartment-chain' }> | null {
+  if (!CHAIN_RE.test(text)) return null;
+  // "furnish and light …" alone is a two-step room-scale ask, not the chain;
+  // the chain word ("finish"/"complete"/"fit out") is what claims here.
+  const lm = ROOM_SCOPE_LEVEL_RE.exec(text);
+  const q = lm?.[1] ?? lm?.[2];
+  const scope: Extract<SemanticIntent, { intent: 'finish-apartment-chain' }>['scope'] =
+    q !== undefined && !['this', 'the', 'active', 'current'].includes(q)
+      ? { kind: 'level', levelQuery: q }
+      : 'active-level';
+  return { intent: 'finish-apartment-chain', withLayout: CHAIN_WITH_LAYOUT_RE.test(text), scope };
+}
+
+const matchFinishChain: Matcher = (text, ctx) => {
+  const si = parseFinishChainIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
+const matchRoomFinishes: Matcher = (text, ctx) => {
+  const si = parseRoomFinishIntent(text);
+  return si === null ? null : applySemanticIntent(si, ctx);
+};
+
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
@@ -2478,6 +2790,16 @@ const MATCHERS: readonly Matcher[] = [
   // envelope. The two grammars are already disjoint (the apartment parser
   // refuses every building word, the building parser needs one), so the order
   // is documentation of intent rather than a tie-break.
+  // §GEN-CHAIN (RAC U5c.2) BEFORE §GEN-ROOMS: "finish this apartment and light
+  // it" names a room-scale engine too, but the chain word is the stronger
+  // claim — the user asked for the whole flow, not one stage of it.
+  matchFinishChain,
+  // §GEN-ROOMS (RAC U5c.1) — "furnish all rooms" / "add ceilings to every
+  // room". BEFORE the apartment/building grammars: "furnish an apartment" is
+  // a finishing ask over rooms that already exist, while "create a 3 bedroom
+  // apartment" is a layout ask; the room grammar requires a finish ENGINE word
+  // (ceiling / floor finish / furnish / light) that neither generator carries.
+  matchRoomFinishes,
   matchApartmentLayout,
   matchGenerateBuilding,
   matchRiserHeight,  // before matchHeight — "riser height" contains "height"

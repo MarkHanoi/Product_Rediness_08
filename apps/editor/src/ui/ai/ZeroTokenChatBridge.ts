@@ -433,6 +433,13 @@ async function dispatchCommands(
         // can never read like a successful build.
         'generation.building': 'pryzm-generation-report',
         'generation.apartment': 'pryzm-generation-report',
+        // §GEN-ROOMS / §GEN-CHAIN (RAC U5c) — the room-scale engines and the
+        // finishing chain relay their OWN per-stage counts through the same
+        // event: "Ceilings 24/24 · Furniture 22/24 — 2 rooms skipped: <the
+        // engine's reason> · Lighting 24/24". A stage that never reported
+        // within its budget says so rather than being quietly dropped.
+        'generation.rooms': 'pryzm-generation-report',
+        'generation.finish-chain': 'pryzm-generation-report',
     };
     const batchReports: { success: boolean; info: readonly string[] }[] = [];
     const onBatchReport = (e: Event): void => {

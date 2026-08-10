@@ -2281,7 +2281,7 @@ export function initBusHandlers(
     // different preconditions (a site boundary vs a closed shell) and the
     // capability registry declares them separately.
     const __generationVerbs: Array<{
-        type: 'generation.building' | 'generation.apartment';
+        type: 'generation.building' | 'generation.apartment' | 'generation.rooms' | 'generation.finish-chain';
         validate: (cmd: any) => string | null;
         run: (cmd: any) => Promise<void>;
     }> = [
@@ -2309,6 +2309,35 @@ export function initBusHandlers(
             run: async (cmd: any) => {
                 const m = await import('../ui/generation/generationChatSeam.js');
                 await m.runGenerationApartment(cmd);
+            },
+        },
+        // ── §GEN-ROOMS / §GEN-CHAIN (RAC U5c) ───────────────────────────────
+        //
+        // The room-scale engines and the finishing chain, on the SAME seam
+        // discipline: the handler calls the shared TRIGGERS the console entries
+        // (pryzmCeilAllRooms / pryzmFloorAllRooms / pryzmFurnishAllRooms /
+        // pryzmLightAllRooms) and the AI-panel leaves call, so there is exactly
+        // one path into each engine. `stores: []` and no patches returned —
+        // each executor opens its own batch and owns its own undo entry.
+        {
+            type: 'generation.rooms',
+            validate: (cmd: any) => {
+                const s = cmd?.steps;
+                return Array.isArray(s) && s.length > 0
+                    ? null
+                    : 'steps (ceilings | floors | furnish | lighting) is required';
+            },
+            run: async (cmd: any) => {
+                const m = await import('../ui/generation/roomFinishChatSeam.js');
+                await m.runGenerationRooms(cmd);
+            },
+        },
+        {
+            type: 'generation.finish-chain',
+            validate: () => null,
+            run: async (cmd: any) => {
+                const m = await import('../ui/generation/roomFinishChatSeam.js');
+                await m.runGenerationFinishChain(cmd);
             },
         },
     ];

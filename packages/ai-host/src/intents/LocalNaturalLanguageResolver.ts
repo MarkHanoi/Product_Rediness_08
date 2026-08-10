@@ -44,6 +44,8 @@ import {
   parseAddWallLayerIntent,
   parseGenerateBuildingIntent,
   parseApartmentLayoutIntent,
+  parseFinishChainIntent,
+  parseRoomFinishIntent,
   parseWindowsParametricIntent,
   parseWallColorIntent,
   parseWallRakeIntent,
@@ -1057,6 +1059,34 @@ function classify(
   }
 
   // create-windows-parametric (§FEAT-WINDOW-PARAMETRIC-CREATE) — shared parser.
+  // §GEN-CHAIN (RAC U5c.2) — the whole finishing flow. Ranked ABOVE the
+  // room-scale parser (0.96 > 0.95) for the same reason the tier-0 matcher
+  // runs first: "finish this apartment and light it" names a stage too, but
+  // the user asked for the flow.
+  const finishChain = parseFinishChainIntent(n.plain);
+  if (finishChain !== null) {
+    push({
+      intent: 'finish-apartment-chain',
+      confidence: 0.96,
+      evidence: ['verb:finish', `layout:${finishChain.withLayout}`],
+      si: finishChain,
+    });
+  }
+
+  // §GEN-ROOMS (RAC U5c.1) — the four room-scale engines, shared parser.
+  const roomFinish = parseRoomFinishIntent(n.plain);
+  if (roomFinish !== null) {
+    push({
+      intent: 'generate-room-finishes',
+      confidence: 0.95,
+      evidence: [
+        `steps:${roomFinish.steps.join('+')}`,
+        `scope:${typeof roomFinish.scope === 'string' ? roomFinish.scope : roomFinish.scope.kind}`,
+      ],
+      si: roomFinish,
+    });
+  }
+
   const winParam = parseWindowsParametricIntent(n.plain);
   if (winParam !== null) {
     push({
