@@ -45,6 +45,9 @@ importers:
       '@pryzm/ai-spend':
         specifier: workspace:*
         version: link:packages/ai-spend
+      '@pryzm/ai-worker':
+        specifier: workspace:*
+        version: link:apps/ai-worker
       '@pryzm/api-rbac':
         specifier: workspace:*
         version: link:packages/api-rbac

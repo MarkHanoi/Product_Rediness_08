@@ -651,9 +651,15 @@ export { AIElementFactory } from './AIElementFactory.js';
 export { AIApprovalStore, aiApprovalStore } from './AIApprovalStore.js';
 export type { AIApprovalRecord } from './AIApprovalRecord.js';
 export { FloorPlanAIFactory } from './FloorPlanAIFactory.js';
-export type { FloorPlanAnalysis, DetectedWall } from './FloorPlanAIFactory.js';
+export type {
+    FloorPlanAnalysis,
+    DetectedWall,
+    DetectedOpening,
+    DetectedFurniture,
+    DetectedSlabOutline,
+} from './FloorPlanAIFactory.js';
 export { FloorPlanBatchExecutor } from './FloorPlanBatchExecutor.js';
-export { FloorPlanCommandBatcher } from './FloorPlanCommandBatcher.js';
+export { FloorPlanCommandBatcher, measureEffectiveMetersPerPixel } from './FloorPlanCommandBatcher.js';
 export * from './FloorPlanDiagnostics.js';
 export * from './FloorPlanImageEnhancer.js';
 export * from './ImagePreprocessor.js';

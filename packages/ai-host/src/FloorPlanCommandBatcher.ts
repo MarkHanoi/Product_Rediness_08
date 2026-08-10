@@ -159,7 +159,9 @@ const OPENING_SPAN_EPSILON_M = 0.001;
  * the underlay reference-scale tool. Falls back to the intrinsic plan scale when the
  * underlay state is unavailable.
  */
-function measureEffectiveMetersPerPixel(
+// Exported (§VEC-WIRE) so the vector-extraction path in the import wizard can
+// derive its pt→mm classification scale from the SAME effective transform.
+export function measureEffectiveMetersPerPixel(
     underlayTool: FloorPlanUnderlayTool,
     imgWidthPx: number,
 ): number {

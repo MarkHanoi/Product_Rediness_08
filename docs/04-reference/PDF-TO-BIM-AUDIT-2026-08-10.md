@@ -189,3 +189,65 @@ Root `npx tsc --skipLibCheck --noEmit` green.
 - **Curved walls** are out of scope for the whole pipeline (straight segments only).
 - Executor still runs through the legacy CommandManager bridge (deferred item 2); it works,
   but is a P6 ratchet debt, not a placement bug.
+
+---
+
+## 6. Vector path wired (§VEC-WIRE, same day — closes deferred item 1)
+
+Deferred item 1 shipped: vector PDFs now get **deterministic** walls + door arcs, with AI
+recognition as the raster fallback and the furniture/plumbing enricher.
+
+**Integration design (which path runs when):**
+
+```
+Step 1  PDFToImageConverter — NEW pass-through seam: page.getOperatorList() stored on
+        PDFConversionResult.vector (+ sourceKind 'pdf'|'image'). null = "operator list
+        UNREADABLE", distinct from "page has no vectors" (§CONTEXT-DATA-HONESTY:
+        failure ≠ empty). Raster images always carry vector:null.
+Step 2  Calibration view states UP FRONT which path this file will get (counts drawn
+        constructPath ops; ≥ 8 → "vector extraction will run first").
+Step 4  handleAnalyse → tryVectorRecognition() FIRST (when walls/slab/openings requested):
+          stage1-vectorise (NEW)  decode fnArray/argsArray → VectorElement[] in page pt
+                                  (save/restore/transform CTM simulated; cubic Béziers
+                                  circle-fitted → door-swing arcs; clip paths skipped)
+          stage2-walls            wall-pair centrelines + thickness in mm
+          stage2-openings         door-arc template match + window glazing detection
+          adapter-floorplan (NEW) → the SAME FloorPlanAnalysis shape the AI path emits
+        Fallback to AI (Stage A/B1/B2) when: vector:null · < 24 line primitives ·
+        < VECTOR_MIN_WALLS (4) wall pairs. Every fallback states its reason in the UI.
+        On the vector path, AI still runs Stage C ONLY (includeStructure:false) for
+        furniture/plumbing when requested — and its failure degrades gracefully.
+Step 4b UNCHANGED — FloorPlanCommandBatcher (all §PDF-* fixes above apply identically:
+        the adapter emits gap CENTRES; the batcher converts centre → LEFT-EDGE offset).
+```
+
+**Conventions the adapter honours (the regression traps of §2):**
+
+- **§PDF-OFFSET-LEFTEDGE** — the extractor's door `position` is the swing-arc centre = the
+  **HINGE** (a jamb, off by width/2). `OpeningCandidate.arcEndpointsMm` (new field) carries the
+  arc's endpoints; the adapter projects hinge + the on-wall endpoint (far jamb) onto the wall
+  centreline and emits the **midpoint** as `centrePx`, so batcher `offset = centre − w/2` lands
+  the left edge exactly on the hinge. Unit-tested end-to-end in
+  `apps/ai-worker/__tests__/pdf-to-bim/adapter-floorplan.test.ts`.
+- **§PDF-SCALE-EFFECTIVE** — the pt→mm classification scale is derived from the SAME
+  `measureEffectiveMetersPerPixel()` probe the batcher uses (now exported from ai-host), so an
+  in-scene underlay rescale re-calibrates the mm thresholds (wall 50–600 mm etc.) too.
+- Vector walls are classified `wallType:'unknown'` — honest: the pair detector has no
+  exterior/interior evidence. Slab stays `null` (topology outer face owns it downstream).
+- **§VEC-ARC-SPAN-GATE** — `matchDoorTemplate` now halves the score when the arc span misses the
+  template's 90° by ≥ the relaxed tolerance, so panel + width-hint evidence alone can no longer
+  clear `DOOR_MATCH_THRESHOLD` for a non-door arc.
+
+**Honesty surfaces (§CONTEXT-DATA-HONESTY):** Step 2 pre-announces the path; the detection
+preview stats table's first row names the path ("Vector extraction (deterministic)" vs "AI
+recognition (Claude vision)"); the Step 5 summary is prefixed `[Vector extraction (N walls, M
+doors, K windows raw)]` or `[AI recognition]`; the Step 6 commit summary repeats it.
+
+**Wiring:** `@pryzm/ai-worker` gains the `./pdf-to-bim` export subpath and is a root workspace
+dep (link-only, zero new external packages); the editor (L7) composes it — L7→L7, layer-legal.
+file-format stays logic-free (pure pass-through), so L3 never imports an app.
+
+**Limits (still true):** door swing side/hand not detected; curved walls out of scope; window
+sill height defaulted; furniture only via AI Stage C; multi-page PDFs use page 1 only; the
+vector path has not yet been exercised against a corpus of real CAD-exported PDFs — the
+preview-gate accuracy thresholds (`preview-gate.ts`) remain the acceptance bar.

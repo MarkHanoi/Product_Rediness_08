@@ -65,6 +65,14 @@ export async function handleExecuteInSequence(state: FPState): Promise<void> {
     if (summaryEl) {
         const { walls, slab, doors, windows, other } = result.summary;
         const lines: string[] = [];
+        // §VEC-WIRE / §CONTEXT-DATA-HONESTY — name WHICH recognition path
+        // produced what was just built.
+        if (state.recognitionPath === 'vector') {
+            const vs = state.vectorStats;
+            lines.push(`Recognition path: vector extraction${vs ? ` (${vs.walls} walls, ${vs.doors} doors, ${vs.windows} windows detected)` : ''}`);
+        } else if (state.recognitionPath === 'ai') {
+            lines.push('Recognition path: AI recognition (Claude vision)');
+        }
         if (walls   > 0) lines.push(`✓ ${walls} wall${walls !== 1 ? 's' : ''}`);
         if (slab    > 0) lines.push(`✓ ${slab} floor slab`);
         if (doors   > 0) lines.push(`✓ ${doors} door${doors !== 1 ? 's' : ''}`);
@@ -182,6 +190,8 @@ export function resetState(state: FPState): void {
     state.detectedScaleRatio = null;
     state.diagnosticReport = null;
     state.rawAnalysis = null;
+    state.recognitionPath = null;
+    state.vectorStats = null;
 
     // Reset Step-1 UI so the same file can be re-selected
     const fileInput = document.getElementById('fp-file-input') as HTMLInputElement | null;

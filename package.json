@@ -111,6 +111,7 @@
     "@pryzm/ai-cost": "workspace:*",
     "@pryzm/ai-host": "workspace:*",
     "@pryzm/ai-spend": "workspace:*",
+    "@pryzm/ai-worker": "workspace:*",
     "@pryzm/api-rbac": "workspace:*",
     "@pryzm/api-spec": "workspace:*",
     "@pryzm/bench-visual-diff": "workspace:*",

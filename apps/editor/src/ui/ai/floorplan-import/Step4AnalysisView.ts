@@ -8,7 +8,7 @@ import type { FPState } from './FPTypes';
 import type { FloorPlanAnalysis } from '@pryzm/ai-host';
 import { FloorPlanAIFactory } from '@pryzm/ai-host';
 import { detectLineSegmentsFromBase64 } from '@pryzm/ai-host';
-import { FloorPlanCommandBatcher } from '@pryzm/ai-host';
+import { FloorPlanCommandBatcher, measureEffectiveMetersPerPixel } from '@pryzm/ai-host';
 import { buildReportMetadata } from '@pryzm/ai-host';
 import { renderDetectionOverlay } from '../FloorPlanDebugOverlay';
 import type { FloorPlanUnderlayTool } from '@pryzm/input-host';
@@ -32,6 +32,85 @@ export function readOptions(state: FPState): void {
     state.includePlumbing  = plmbEl?.checked  ?? true;
     state.includeOpenings  = openEl?.checked  ?? true;
     state.wallHeight = heightEl ? parseFloat(heightEl.value) || 3.0 : 3.0;
+}
+
+// ── Vector-first recognition (§VEC-WIRE, PDF-TO-BIM-AUDIT-2026-08-10 §4.1) ────
+
+/**
+ * Attempt the deterministic vector path: decode the PDF's stored operator
+ * list into vector primitives, classify wall pairs + door arcs + window
+ * glazing in mm space, and adapt the result into the SAME FloorPlanAnalysis
+ * shape the AI path produces — so FloorPlanCommandBatcher runs unchanged.
+ *
+ * Returns null (with an honest status line) when the PDF has no usable
+ * vector line-work or too few wall pairs — the caller then falls back to AI
+ * recognition. Never throws for data reasons; a thrown error means a real
+ * bug and is surfaced by handleAnalyse's catch.
+ */
+async function tryVectorRecognition(state: FPState): Promise<FloorPlanAnalysis | null> {
+    const conv = state.pdfConversion;
+    const vec = conv?.vector;
+    if (!conv || !vec || !state.underlayTool) return null;
+
+    const {
+        extractVectorElements,
+        explodeVectorLines,
+        hasUsableVectorLineWork,
+        classifyWallsAndColumns,
+        matchOpeningSymbols,
+        vectorResultToFloorPlanAnalysis,
+        composeMmToPx,
+        VECTOR_MIN_WALLS,
+    } = await import('@pryzm/ai-worker/pdf-to-bim');
+
+    // The stored ops table is the full pdfjs OPS map; the vectoriser needs
+    // its save/restore/transform/constructPath/… subset.
+    const rawVectors = extractVectorElements(
+        { fnArray: vec.fnArray, argsArray: vec.argsArray },
+        vec.ops as unknown as import('@pryzm/ai-worker/pdf-to-bim').PdfOpsSubset,
+    );
+    if (!hasUsableVectorLineWork(rawVectors)) {
+        setStatus(`Vector check: only ${rawVectors.length} vector primitives on the page — using AI recognition.`);
+        return null;
+    }
+
+    // pt → mm scale. §PDF-SCALE-EFFECTIVE: derive it from the SAME effective
+    // transform the batcher will use (mesh.scale-aware), so the classifier's
+    // mm thresholds (wall thickness 50–600 mm, door widths…) see true sizes
+    // even after the user rescales the underlay in-scene.
+    const metersPerPx = measureEffectiveMetersPerPixel(state.underlayTool, conv.widthPx);
+    const mmPerPt = conv.renderScale * metersPerPx * 1000;
+    if (!isFinite(mmPerPt) || mmPerPt <= 0) return null;
+
+    const vectors = explodeVectorLines(rawVectors);
+    const page = {
+        pageId: 'page-1',
+        pageWidthPt: conv.viewportWidthPt,
+        pageHeightPt: vec.pageHeightPt,
+        vectors,
+    };
+    const { walls } = classifyWallsAndColumns(page, mmPerPt);
+    if (walls.length < VECTOR_MIN_WALLS) {
+        setStatus(
+            `Vector extraction found only ${walls.length} wall pair${walls.length === 1 ? '' : 's'} ` +
+            `(need ≥ ${VECTOR_MIN_WALLS}) — falling back to AI recognition.`,
+        );
+        return null;
+    }
+    const openings = matchOpeningSymbols(page, walls, mmPerPt);
+
+    const analysis = vectorResultToFloorPlanAnalysis({
+        walls,
+        openings,
+        mmToPx: composeMmToPx(vec.viewportTransform, mmPerPt),
+        imageWidthPx: conv.widthPx,
+        imageHeightPx: conv.heightPx,
+    });
+
+    const doors = analysis.openings.filter(o => o.type === 'door').length;
+    const windows = analysis.openings.length - doors;
+    state.vectorStats = { walls: analysis.walls.length, doors, windows };
+    return analysis;
 }
 
 // ── Run AI analysis ────────────────────────────────────────────────────────────
@@ -64,40 +143,93 @@ export async function handleAnalyse(
     // AI relay call) is now inside ONE try/finally so it ALWAYS recovers the button
     // and surfaces a clear message.
     try {
-        setStatus('Phase F1: Pre-processing image for line detection…');
-        const preprocessed = await detectLineSegmentsFromBase64(
-            state.pdfConversion.base64,
-            'image/jpeg',
-        );
-        if (preprocessed.hasUsableData) {
-            setStatus(`Phase F1 complete: ${preprocessed.segments.length} segments detected — activating guided AI mode…`);
-        } else {
-            setStatus(`Phase F1: insufficient segments (${preprocessed.segments.length}) — using standard AI detection…`);
+        // ── §VEC-WIRE: vector-first for vector PDFs ───────────────────────
+        // Deterministic geometry replaces probabilistic vision when the PDF
+        // carries usable vector line-work. AI remains (a) the fallback for
+        // raster/scanned plans and (b) the only source of furniture/plumbing
+        // symbols (Stage C), which the vector classifier does not cover.
+        state.recognitionPath = null;
+        state.vectorStats = null;
+        let analysis: FloorPlanAnalysis | null = null;
+        let preprocessedSegmentCount = 0;
+        let guidedModeActive = false;
+
+        if (state.includeWalls || state.includeSlab || state.includeOpenings) {
+            setStatus('Checking for vector line-work (deterministic path)…');
+            analysis = await tryVectorRecognition(state);
         }
 
-        const analysis = await FloorPlanAIFactory.analyse(
-            {
-                base64Image:      state.pdfConversion.base64,
-                widthPx:          state.pdfConversion.widthPx,
-                heightPx:         state.pdfConversion.heightPx,
-                extractedText:    state.pdfConversion.textContent,
-                includeStructure: state.includeWalls || state.includeSlab || state.includeOpenings,
-                includeFurniture: state.includeFurniture,
-                includePlumbing:  state.includePlumbing,
-                includeSlab:      state.includeSlab,
-                detectedSegments: preprocessed.segments,
-                textAnnotations:  state.pdfConversion.textItems,
-            },
-            (stage) => setStatus(stage)
-        );
+        if (analysis) {
+            state.recognitionPath = 'vector';
+            const vs = state.vectorStats!;
+            setStatus(`Vector extraction: ${vs.walls} walls, ${vs.doors} doors, ${vs.windows} windows (deterministic — no AI wall recognition).`);
+
+            if (state.includeFurniture || state.includePlumbing) {
+                // Stage C enrichment only — includeStructure:false skips A/B1/B2.
+                try {
+                    const furnitureOnly = await FloorPlanAIFactory.analyse(
+                        {
+                            base64Image:      state.pdfConversion.base64,
+                            widthPx:          state.pdfConversion.widthPx,
+                            heightPx:         state.pdfConversion.heightPx,
+                            extractedText:    state.pdfConversion.textContent,
+                            includeStructure: false,
+                            includeFurniture: state.includeFurniture,
+                            includePlumbing:  state.includePlumbing,
+                            includeSlab:      false,
+                            textAnnotations:  state.pdfConversion.textItems,
+                        },
+                        (stage) => setStatus(stage)
+                    );
+                    analysis = { ...analysis, furniture: furnitureOnly.furniture };
+                } catch (furnErr) {
+                    // Walls/openings are already deterministic — do not let an
+                    // unreachable AI relay kill the import. Report honestly.
+                    console.warn('[FloorPlanImportPanel] Furniture stage failed on vector path:', furnErr);
+                    setStatus('⚠ Furniture/plumbing AI stage unavailable — continuing with walls & openings from vector extraction only.', true);
+                }
+            }
+        } else {
+            state.recognitionPath = 'ai';
+            setStatus('Phase F1: Pre-processing image for line detection…');
+            const preprocessed = await detectLineSegmentsFromBase64(
+                state.pdfConversion.base64,
+                'image/jpeg',
+            );
+            preprocessedSegmentCount = preprocessed.segments.length;
+            guidedModeActive = preprocessed.hasUsableData;
+            if (preprocessed.hasUsableData) {
+                setStatus(`Phase F1 complete: ${preprocessed.segments.length} segments detected — activating guided AI mode…`);
+            } else {
+                setStatus(`Phase F1: insufficient segments (${preprocessed.segments.length}) — using standard AI detection…`);
+            }
+
+            analysis = await FloorPlanAIFactory.analyse(
+                {
+                    base64Image:      state.pdfConversion.base64,
+                    widthPx:          state.pdfConversion.widthPx,
+                    heightPx:         state.pdfConversion.heightPx,
+                    extractedText:    state.pdfConversion.textContent,
+                    includeStructure: state.includeWalls || state.includeSlab || state.includeOpenings,
+                    includeFurniture: state.includeFurniture,
+                    includePlumbing:  state.includePlumbing,
+                    includeSlab:      state.includeSlab,
+                    detectedSegments: preprocessed.segments,
+                    textAnnotations:  state.pdfConversion.textItems,
+                },
+                (stage) => setStatus(stage)
+            );
+        }
 
         state.rawAnalysis = analysis;
 
         setStatus('Rendering detection preview…');
-        await renderDebugPreviewStep(state, analysis, preprocessed.segments.length, preprocessed.hasUsableData, runtime);
+        await renderDebugPreviewStep(state, analysis, preprocessedSegmentCount, guidedModeActive, runtime);
 
         showDebugStep();
-        setStatus(`✓ AI analysis complete — review detected elements below, then continue.`);
+        setStatus(state.recognitionPath === 'vector'
+            ? `✓ Vector extraction complete (${state.vectorStats!.walls} walls, ${state.vectorStats!.doors} doors, ${state.vectorStats!.windows} windows) — review below, then continue.`
+            : `✓ AI analysis complete — review detected elements below, then continue.`);
 
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -155,7 +287,7 @@ async function renderDebugPreviewStep(
         result.canvas.style.borderRadius = '4px';
         wrapEl.appendChild(result.canvas);
 
-        populateDebugStats(analysis, result.stats, preprocessedSegmentCount, guidedModeActive);
+        populateDebugStats(analysis, result.stats, preprocessedSegmentCount, guidedModeActive, state);
 
     } catch (err) {
         wrapEl.innerHTML = `<div style="color:#dc3545;font-size:12px;">Preview unavailable: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
@@ -169,19 +301,30 @@ function populateDebugStats(
     stats: { exteriorWalls: number; interiorWalls: number; unknownWalls: number; doors: number; windows: number },
     preprocessedSegmentCount: number,
     guidedModeActive: boolean,
+    state: FPState,
 ): void {
     const totalWalls    = analysis.walls.length;
     const totalOpenings = analysis.openings.length;
 
+    // §CONTEXT-DATA-HONESTY — name WHICH path produced these numbers.
+    const isVector  = state.recognitionPath === 'vector';
+    const pathLabel = isVector
+        ? 'Vector extraction (deterministic)'
+        : 'AI recognition (Claude vision)';
+    const rawLabel  = isVector ? 'raw vector' : 'raw AI';
+
     const rows: Array<{ label: string; value: string; color?: string }> = [
+        { label: 'Recognition path',              value: pathLabel,                     color: isVector ? '#6600FF' : undefined },
         { label: 'Exterior walls detected',      value: String(stats.exteriorWalls),   color: '#22c55e' },
         { label: 'Interior partitions detected',  value: String(stats.interiorWalls),   color: '#f472b6' },
         { label: 'Unknown-type walls',            value: String(stats.unknownWalls),    color: '#9ca3af' },
-        { label: 'Total walls (raw AI)',           value: String(totalWalls) },
+        { label: `Total walls (${rawLabel})`,      value: String(totalWalls) },
         { label: 'Doors detected',                value: String(stats.doors),           color: '#3b82f6' },
         { label: 'Windows detected',              value: String(stats.windows),         color: '#f97316' },
-        { label: 'Total openings (raw AI)',        value: String(totalOpenings) },
-        { label: 'F1 pre-processed segments',     value: `${preprocessedSegmentCount} (${guidedModeActive ? 'guided' : 'free'} mode)` },
+        { label: `Total openings (${rawLabel})`,   value: String(totalOpenings) },
+        ...(isVector
+            ? []
+            : [{ label: 'F1 pre-processed segments', value: `${preprocessedSegmentCount} (${guidedModeActive ? 'guided' : 'free'} mode)` }]),
     ];
 
     const tableEl = document.getElementById('fp-debug-stats-table');
@@ -302,7 +445,11 @@ export async function handleContinueFromDebug(state: FPState): Promise<void> {
             `${furniture} furniture item${furniture !== 1 ? 's' : ''}`,
             `${plumbing} plumbing fixture${plumbing !== 1 ? 's' : ''}`,
         ];
-        state.summaryText = `Found: ${parts.join(' · ')}.${result.skippedCount > 0 ? ` (${result.skippedCount} skipped)` : ''}`;
+        // §CONTEXT-DATA-HONESTY — say WHICH recognition path produced this.
+        const pathNote = state.recognitionPath === 'vector'
+            ? `Vector extraction${state.vectorStats ? ` (${state.vectorStats.walls} walls, ${state.vectorStats.doors} doors, ${state.vectorStats.windows} windows raw)` : ''}`
+            : 'AI recognition';
+        state.summaryText = `[${pathNote}] Found: ${parts.join(' · ')}.${result.skippedCount > 0 ? ` (${result.skippedCount} skipped)` : ''}`;
 
         if (result.rooms.length > 0 && state.underlayTool && state.pdfConversion) {
             renderRoomOverlayOnDebugCanvas(

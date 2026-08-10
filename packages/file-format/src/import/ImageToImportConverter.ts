@@ -97,6 +97,9 @@ export async function convertImageToImportResult(file: File): Promise<PDFConvers
             textItems: [],
             renderScale,
             viewportWidthPt: outW,
+            sourceKind: 'image',
+            // §VEC-WIRE — raster inputs have no vector content by nature.
+            vector: null,
         };
     } finally {
         URL.revokeObjectURL(objectUrl);

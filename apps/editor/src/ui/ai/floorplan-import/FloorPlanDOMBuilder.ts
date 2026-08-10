@@ -85,6 +85,9 @@ export function buildFloorPlanDOM(
 
             <!-- Scale bar auto-detection strip -->
             <div id="fp-scale-detect" class="fp-hint fp-hint--success" style="display:none;"></div>
+
+            <!-- §VEC-WIRE / §CONTEXT-DATA-HONESTY — which recognition path this file will use -->
+            <div id="fp-vector-info" class="fp-hint" style="display:none;"></div>
             <button id="fp-use-detected-btn" class="fp-btn" style="display:none;margin-top:-4px;">
                 ✓ Use Detected Scale
             </button>

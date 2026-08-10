@@ -140,6 +140,17 @@ export interface OpeningCandidate {
   /** Confidence [0, 1] from `matchDoorTemplate` /
    *  `detectWindowBreaks`. */
   readonly confidence: number;
+  /** Door only — the swing arc's two extreme points in millimetres
+   *  (`[startPoint, endPoint]`). One of them lies on (or near) the
+   *  host wall centreline: that end is the far jamb of the opening,
+   *  while `position` (the arc centre) is the hinge. Downstream
+   *  adapters need both to compute the opening's true CENTRE along
+   *  the wall — the hinge alone is a jamb, not the centre. Absent
+   *  for windows and for candidates built by older callers. */
+  readonly arcEndpointsMm?: readonly [
+    readonly [number, number],
+    readonly [number, number],
+  ];
 }
 
 /** Internal arc descriptor used by `findArcs` + `matchDoorTemplate`

@@ -68,6 +68,25 @@ export {
   snapToNearestWall,
 } from './stage2-openings.js';
 
+// §VEC-WIRE 2026-08-10 — Stage 1 vectoriser + FloorPlanAnalysis adapter
+// (the wiring the audit's §4.1 called for).
+export {
+  explodeVectorLines,
+  extractVectorElements,
+  fitArc,
+  hasUsableVectorLineWork,
+  type PdfOperatorList,
+  type PdfOpsSubset,
+} from './stage1-vectorise.js';
+export {
+  VECTOR_MIN_WALLS,
+  composeMmToPx,
+  openingCentreMm,
+  vectorResultToFloorPlanAnalysis,
+  type Affine2D,
+  type VectorAnalysisInput,
+} from './adapter-floorplan.js';
+
 // S70 D8 — PDF-to-BIM preview gate per ADR-029 Part E + ADR-0052 §B.5.
 export {
   PDF_TO_BIM_ACCURACY_THRESHOLDS,

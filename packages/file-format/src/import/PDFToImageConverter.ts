@@ -75,6 +75,38 @@ export interface PDFConversionResult {
      * Relationship: widthPx = viewportWidthPt × renderScale
      */
     viewportWidthPt: number;
+    /**
+     * §VEC-WIRE — what the ORIGINAL upload was. Lets the wizard distinguish
+     * "raster image (vector data cannot exist)" from "PDF whose vector
+     * content could not be read" — different statements (§CONTEXT-DATA-HONESTY).
+     */
+    sourceKind: 'pdf' | 'image';
+    /**
+     * §VEC-WIRE (2026-08-10) — raw vector-content seam for the deterministic
+     * PDF-to-BIM path. Pure PASS-THROUGH of pdf.js page-1 data; all decoding
+     * lives in `@pryzm/ai-worker/pdf-to-bim` (stage1-vectorise), composed by
+     * the editor — this converter stays logic-free so file-format (L3) never
+     * depends on an app.
+     *
+     * `null` when the operator list could not be read (encrypted/corrupt
+     * page) — callers must treat that as "no vector data", not as an empty
+     * page (§CONTEXT-DATA-HONESTY: failure ≠ empty).
+     */
+    vector: {
+        /** pdf.js operator function codes for page 1. */
+        fnArray: number[];
+        /** Parallel operator arguments (opaque — decoded by the vectoriser). */
+        argsArray: unknown[];
+        /** The `pdfjsLib.OPS` name → code table of THIS pdf.js build. */
+        ops: Record<string, number>;
+        /**
+         * Affine [a,b,c,d,e,f] mapping page user space (pt, y-up) → rendered
+         * image pixels (y-down, includes renderScale and any page rotation).
+         */
+        viewportTransform: number[];
+        /** Page height in PDF user units (points). */
+        pageHeightPt: number;
+    } | null;
 }
 
 /**
@@ -200,6 +232,24 @@ export async function convertPDFPage1ToImage(file: File): Promise<PDFConversionR
         };
     }).filter(item => item.x < canvas.width && item.y < canvas.height);
 
+    // ── §VEC-WIRE — raw vector-content pass-through ───────────────────────────
+    // The page is already parsed; getOperatorList() reuses that work. Failure
+    // yields null (not []) so callers can tell "no vector data readable" from
+    // "vector data read, page empty" (§CONTEXT-DATA-HONESTY).
+    let vector: PDFConversionResult['vector'] = null;
+    try {
+        const opList = await page.getOperatorList();
+        vector = {
+            fnArray: Array.from(opList.fnArray),
+            argsArray: Array.from(opList.argsArray),
+            ops: pdfjsLib.OPS as unknown as Record<string, number>,
+            viewportTransform: Array.from(scaledViewport.transform),
+            pageHeightPt: viewport.height,
+        };
+    } catch (err) {
+        console.warn('[PDFToImageConverter] Operator list unavailable — vector path disabled for this PDF:', err);
+    }
+
     return {
         base64,
         mimeType: 'image/jpeg',
@@ -210,5 +260,7 @@ export async function convertPDFPage1ToImage(file: File): Promise<PDFConversionR
         textItems,
         renderScale,
         viewportWidthPt: viewport.width,
+        sourceKind: 'pdf',
+        vector,
     };
 }

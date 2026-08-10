@@ -166,6 +166,16 @@ export function matchOpeningSymbols(
           openingWidthMm: estimateOpeningWidth(arc, best.template, scaleFactor),
           hostWallCenterLine: nearestWall.centerLine,
           confidence: best.score,
+          arcEndpointsMm: [
+            [
+              (arc.center[0] + arc.radius * Math.cos(arc.startAngle)) * scaleFactor,
+              (arc.center[1] + arc.radius * Math.sin(arc.startAngle)) * scaleFactor,
+            ],
+            [
+              (arc.center[0] + arc.radius * Math.cos(arc.endAngle)) * scaleFactor,
+              (arc.center[1] + arc.radius * Math.sin(arc.endAngle)) * scaleFactor,
+            ],
+          ],
         };
         openings.push(candidate);
       }
@@ -267,6 +277,15 @@ export function matchDoorTemplate(
   const hint = template.openingWidthMmHint;
   if (hint !== undefined && radiusMm > 0) {
     if (Math.abs(radiusMm - hint) / hint < 0.10) score += 0.15;
+  }
+
+  // §VEC-ARC-SPAN-GATE (2026-08-10) — the arc span is the template's defining
+  // feature. Without this gate a 120° arc with a matching panel + width hint
+  // scored 0.65 (> DOOR_MATCH_THRESHOLD) and was accepted as 'single-swing-90'.
+  // A span outside the RELAXED tolerance halves the score so secondary evidence
+  // alone can never clear the match threshold.
+  if (Math.abs(arcSpan - Math.PI / 2) >= DOOR_ARC_TOLERANCE_RELAXED) {
+    score *= 0.5;
   }
 
   return Math.min(1.0, score);

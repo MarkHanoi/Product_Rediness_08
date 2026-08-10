@@ -52,6 +52,21 @@ export interface FPState {
      * Used by the Detection Preview step. Cleared on Start Over.
      */
     rawAnalysis: FloorPlanAnalysis | null;
+    /**
+     * §VEC-WIRE / §CONTEXT-DATA-HONESTY — WHICH recognition path produced
+     * `rawAnalysis`. 'vector' = deterministic vector extraction
+     * (@pryzm/ai-worker/pdf-to-bim); 'ai' = Claude vision stages A/B1/B2.
+     * null until an analysis has run. Surfaced in Step 2, the detection
+     * preview stats, and the Step 5/6 summaries.
+     */
+    recognitionPath: 'vector' | 'ai' | null;
+    /**
+     * Vector-path result counts for honest reporting ("vector extraction:
+     * 34 walls, 8 doors"), null when the vector path did not run or was
+     * rejected (counts of the REJECTED attempt are folded into the status
+     * line instead).
+     */
+    vectorStats: { walls: number; doors: number; windows: number } | null;
 }
 
 /** Create a fresh FPState — the singleton lives inside createFloorPlanImportPanel(). */
@@ -77,5 +92,7 @@ export function makeFPState(): FPState {
         detectedScaleRatio: null,
         diagnosticReport: null,
         rawAnalysis: null,
+        recognitionPath: null,
+        vectorStats: null,
     };
 }

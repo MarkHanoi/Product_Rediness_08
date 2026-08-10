@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./queue": "./src/queue.ts",
     "./handlers": "./src/handlers.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./pdf-to-bim": "./src/pdf-to-bim/index.ts"
   },
   "files": ["src"],
   "scripts": {
