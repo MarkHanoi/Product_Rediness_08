@@ -385,11 +385,24 @@ describe('landingMarkup — hero + product showcase', () => {
         expect(HERO_SUBHEAD).toBe('Turning planning law into development intelligence.');
     });
 
-    it('apex gets a static pyramid glyph; app leaves the slot for the JS spinner', () => {
-        expect(landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }))
-            .toMatch(/lp-hero-logo-block[^>]*>\s*<svg/);
-        expect(landingMarkup({ mode: 'app' }))
-            .toContain('<div class="lp-hero-logo-block" aria-hidden="true"></div>');
+    // Founder brief 2026-08-10: the centred hero glyph is GONE — it competed with
+    // the headline for the same focal point, and the mark now appears exactly once,
+    // leading the nav on the LEFT. This test inverts: it used to assert the glyph
+    // existed, and now pins that it does not come back by accident, and that the
+    // brand appears once rather than twice.
+    it('the hero has NO centred glyph; the mark leads the nav on the left, once', () => {
+        for (const mode of ['apex', 'app'] as const) {
+            const html = landingMarkup(mode === 'apex' ? { mode, appOrigin: APEX_ORIGIN } : { mode });
+            expect(html).not.toContain('lp-hero-logo-block');
+            // Exactly ONE brand image in the whole page — the nav mark.
+            expect(html.match(/lp-nav-mark/g) ?? []).toHaveLength(1);
+            // It sits INSIDE the brand block (left), not in the actions band (right).
+            expect(html.indexOf('lp-nav-mark')).toBeLessThan(html.indexOf('lp-logo-wordmark'));
+            expect(html.indexOf('lp-nav-mark')).toBeLessThan(html.indexOf('lp-nav-actions'));
+            // And the "BIM PLATFORM" descender is gone from the bar.
+            expect(html).not.toContain('BIM PLATFORM');
+            expect(html).not.toContain('lp-logo-sub');
+        }
     });
 
     it('the showcase image is SAME-ORIGIN, sized, lazy and described (C51 §2.2.4 / §2.1.3 / C43)', () => {

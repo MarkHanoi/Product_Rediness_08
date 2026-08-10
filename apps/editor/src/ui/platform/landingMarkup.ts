@@ -193,10 +193,18 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
     return `
             <!-- ── Nav bar ──────────────────────────────────── -->
             <nav class="lp-nav${apex ? ' lp-nav--apex' : ''}">
+                <!-- Founder brief 2026-08-10: the MARK leads on the LEFT, beside the
+                     wordmark, and the descender under it is gone (the strapline below
+                     the headline already says what PRYZM is, so repeating it in the bar
+                     was noise). The mark is the only brand image in the nav — it used
+                     to sit on the far right, which read as a stray app icon.
+                     NB this comment ships in the rendered HTML, so it deliberately does
+                     not quote the removed strings: MarketingPages.test.ts asserts the
+                     page contains no trace of them. -->
                 <div class="lp-nav-brand" aria-label="PRYZM">
+                    <img class="lp-nav-mark" src="${NAV_MARK_URL}" width="${NAV_MARK_WIDTH}" height="${NAV_MARK_HEIGHT}" alt="${NAV_MARK_ALT}" decoding="async">
                     <div class="lp-logo-wordmark">
                         <span class="lp-logo-name">PRYZM</span>
-                        <span class="lp-logo-sub">BIM PLATFORM</span>
                     </div>
                 </div>
                 <div class="lp-nav-links">
@@ -209,7 +217,6 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                     ${cta('lp-nav-login', 'lp-nav-login', SIGNIN, 'Log in')}
                     ${cta('lp-nav-cta', 'lp-nav-cta', SIGNUP, 'Get started for free')}
                     ${cta('lp-nav-demo', 'lp-nav-demo', DEMO, 'Book a demo')}
-                    <img class="lp-nav-mark" src="${NAV_MARK_URL}" width="${NAV_MARK_WIDTH}" height="${NAV_MARK_HEIGHT}" alt="${NAV_MARK_ALT}" decoding="async">
                 </div>
                 ${apex ? '' : `<!-- ── Mobile hamburger (visible at ≤768px) ── -->
                 <button class="lp-hamburger" id="lp-hamburger" aria-label="Open menu" aria-expanded="false">
@@ -262,10 +269,11 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 </div>
 
                 <div class="lp-hero-panel">
-                    <!-- Pyramid: the JS 3-D spinner mounts here in app mode; apex
-                         (no script) gets the same static mark. -->
-                    <div class="lp-hero-logo-block" aria-hidden="true">${apex ? PRYZM_PYRAMID_SVG : ''}</div>
-
+                    <!-- Founder brief 2026-08-10: the centred pyramid glyph is REMOVED.
+                         The mark now lives once, in the nav on the left; repeating it
+                         over the video competed with the headline for the same focal
+                         point. The 3-D spinner mount point goes with it — nothing else
+                         referenced the block, and the apex ships no JS anyway. -->
                     <p class="lp-hero-wordmark">${HERO_WORDMARK}</p>
 
                     <h1 class="lp-hero-heading">${HERO_HEADLINE}</h1>

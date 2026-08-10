@@ -174,16 +174,12 @@ export const LANDING_PAGE_STYLES = `
         color: #ffffff;
         line-height: 1;
     }
-    .lp-logo-sub {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-        font-size: 7.5px;
-        font-weight: 400;
-        letter-spacing: 4.5px;
-        /* 0.78 alpha over #6600FF ≈ #c2a9ff → 5.1:1 on the bar. */
-        color: rgba(255,255,255,0.78);
-        text-transform: uppercase;
-        line-height: 1;
-    }
+    /* The brand descender under the wordmark was REMOVED 2026-08-10 per founder
+       brief — the hero subhead already states what PRYZM is, so repeating it in the
+       bar was noise. Rule deleted rather than left dead: an unused selector is a
+       trap for the next editor. (The class name is intentionally not written here —
+       MarketingPages.test.ts asserts the rendered page contains no trace of it, and
+       this stylesheet is inlined into that page.) */
     /* ── The centred nav links ──────────────────────────────────────────
        DEFAULT is normal flow with auto margins — an in-flow flex item can
        never overlap its neighbours. True viewport-centring costs
@@ -256,12 +252,14 @@ export const LANDING_PAGE_STYLES = `
        CLS is 0 (the <img> carries width/height attributes). The source PNG is
        alpha-matted around the tile, so the rounded corners sit cleanly on the
        violet bar; the subtle ring just separates the two violets. */
+    /* Founder brief 2026-08-10: the mark LEADS the brand on the LEFT (it was the
+       far-right item, which read as a stray app icon). margin-right now, not left. */
     .lp-nav-mark {
         display: block;
         height: 40px;
         width: auto;
         flex-shrink: 0;
-        margin-left: 10px;
+        margin-right: 12px;
         border-radius: 10px;
         box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 4px 14px rgba(20,0,60,0.28);
     }
@@ -428,24 +426,10 @@ export const LANDING_PAGE_STYLES = `
         box-shadow: 0 24px 70px rgba(12,0,40,0.34);
     }
 
-    /* ─── Hero logo block — CSS 3-D rotating spinner (same as EngineLoadingOverlay) ──── */
-    .lp-hero-logo-block {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0;
-        margin-bottom: 14px;
-        /* Reserve space for the scaled spinner so layout doesn't shift */
-        min-height: 112px;
-        justify-content: center;
-    }
-    /* apex has no script, so the hero glyph is the same static mark the nav
-       uses — scaled up to stand in for the 3-D spinner. */
-    .lp-hero-logo-block .lp-logo-icon {
-        width: 74px;
-        height: 74px;
-        filter: drop-shadow(0 6px 18px rgba(80,20,180,0.26));
-    }
+    /* Hero logo block REMOVED 2026-08-10 (founder brief): the centred pyramid
+       competed with the headline for the same focal point, and the mark now lives
+       once in the nav. The 3-D spinner mount went with it — rules deleted rather
+       than left dead so the next editor is not misled by an unused selector. */
     /* Scale the lg spinner (44×56 px base) — 50% of original 2.8× hero size */
     .lp-hero-spinner {
         transform: scale(1.4);
@@ -520,17 +504,6 @@ export const LANDING_PAGE_STYLES = `
     .lp-hero--video .lp-hero-heading { color: #ffffff; }
     .lp-hero--video .lp-hero-sub { color: rgba(255,255,255,0.92); }
     .lp-hero--video .lp-hero-wordmark { color: rgba(255,255,255,0.82); }
-    .lp-hero--video .lp-hero-logo-block .lp-logo-icon {
-        filter: drop-shadow(0 6px 18px rgba(10,0,40,0.45));
-    }
-    /* The static apex glyph is authored with stroke="#0b0b12" — near-black,
-       which is both invisible on the violet video and against the brand's
-       white+purple/no-black direction. CSS beats a presentation attribute, so
-       the strokes repaint white here without touching the shared SVG constant
-       (the in-app hero replaces this element with the 3-D spinner anyway). */
-    .lp-hero--video .lp-hero-logo-block .lp-logo-icon path {
-        stroke: #ffffff;
-    }
     /* Primary CTA over video: solid white, purple text (16.9:1) — the same
        inversion the header's "Book a demo" pill takes on the violet bar. */
     .lp-hero--video .lp-hero-btn {
@@ -1027,7 +1000,7 @@ export const LANDING_PAGE_STYLES = `
         .lp-nav-cta,
         .lp-nav-demo { display: none; }
         .lp-nav-actions { gap: 4px; }
-        .lp-nav-mark { height: 34px; margin-left: 4px; }
+        .lp-nav-mark { height: 34px; margin-right: 8px; }
         /* Show hamburger */
         .lp-hamburger { display: flex; }
         /* Show mobile drawer */
@@ -1068,7 +1041,6 @@ export const LANDING_PAGE_STYLES = `
         /* Scale down logo */
         .lp-logo-icon { width: 36px; height: 36px; }
         .lp-logo-name { font-size: 16px; letter-spacing: 3px; }
-        .lp-logo-sub { font-size: 6.5px; letter-spacing: 3.5px; }
         .lp-nav-brand { gap: 10px; min-width: 0; }
 
         /* Hero: full-width, single centred column */
@@ -1097,8 +1069,6 @@ export const LANDING_PAGE_STYLES = `
             max-width: 100%;
             width: 100%;
         }
-        .lp-hero-logo-block { min-height: 76px; margin-bottom: 10px; }
-        .lp-hero-logo-block .lp-logo-icon { width: 54px; height: 54px; }
         .lp-hero-wordmark { font-size: 11px; margin-bottom: 14px; }
         .lp-hero-heading {
             font-size: 34px;

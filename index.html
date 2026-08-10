@@ -113,10 +113,6 @@
       .lp-skel-name {
         font-size: 20px; font-weight: 700; letter-spacing: 4px; color: #ffffff; line-height: 1;
       }
-      .lp-skel-sub {
-        font-size: 7.5px; font-weight: 400; letter-spacing: 4.5px; color: rgba(255,255,255,0.78);
-        text-transform: uppercase; line-height: 1;
-      }
       /* Centred nav pill — mirrors `.lp-nav-links`, including its two-stage
          centring (in-flow by default, absolutely centred only ≥1200px). */
       .lp-skel-nav-links {
@@ -142,9 +138,9 @@
         display: flex; align-items: center; gap: 3px;
       }
       .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
-      /* §SKEL-MATCH — mirrors `.lp-nav-mark`: the tile logo closing the bar. */
+      /* §SKEL-MATCH — mirrors `.lp-nav-mark`: the tile logo LEADING the bar. */
       .lp-skel-mark {
-        display: block; height: 40px; width: auto; flex-shrink: 0; margin-left: 10px;
+        display: block; height: 40px; width: auto; flex-shrink: 0; margin-right: 12px;
         border-radius: 10px;
         box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 4px 14px rgba(20,0,60,0.28);
       }
@@ -361,11 +357,10 @@
         /* §SKEL-MATCH — the CTAs hide, the actions ROW stays (it carries the mark). */
         .lp-skel-contact, .lp-skel-login, .lp-skel-cta, .lp-skel-demo { display: none; }
         .lp-skel-nav-actions { gap: 4px; }
-        .lp-skel-mark { height: 34px; margin-left: 4px; }
+        .lp-skel-mark { height: 34px; margin-right: 8px; }
         .lp-skel-hamburger { display: flex; }
         .lp-skel-logo-icon { width: 36px; height: 36px; }
         .lp-skel-name { font-size: 16px; letter-spacing: 3px; }
-        .lp-skel-sub { font-size: 6.5px; letter-spacing: 3.5px; }
         .lp-skel-hero { height: calc(100dvh - 56px); min-height: 460px; padding: 16px 12px; }
         .lp-skel-hero-panel { width: 100%; padding: 24px 18px 26px; border-radius: 20px; }
         .lp-skel-hero-logo-block { min-height: 76px; margin-bottom: 10px; }
@@ -422,13 +417,13 @@
       -->
       <div class="lp-skel-shell" data-pryzm-skeleton="landing" aria-hidden="true">
         <nav class="lp-skel-nav">
-          <!-- §SKEL-MATCH — wordmark ONLY, as in `.lp-nav-brand`: the pyramid
-               glyph left the bar in the 2026-08-09 pass and the tile mark now
-               closes the row on the right. -->
+          <!-- §SKEL-MATCH — mirrors `.lp-nav-brand` after the 2026-08-10 founder
+               pass: the tile MARK leads on the LEFT, then the wordmark. The
+               "BIM PLATFORM" descender is gone (the hero subhead says it). -->
           <div class="lp-skel-brand">
+            <img class="lp-skel-mark" src="/apex/pryzm-mark.png" width="128" height="131" alt="PRYZM" decoding="async">
             <div class="lp-skel-wordmark">
               <span class="lp-skel-name">PRYZM</span>
-              <span class="lp-skel-sub">BIM PLATFORM</span>
             </div>
           </div>
           <div class="lp-skel-nav-links">
@@ -441,8 +436,6 @@
             <button class="lp-skel-login" type="button" data-skel-action="login">Log in</button>
             <button class="lp-skel-cta" type="button" data-skel-action="getStarted">Get started for free</button>
             <button class="lp-skel-demo" type="button" data-skel-action="contactSales">Book a demo</button>
-            <!-- §SKEL-MATCH — mirrors the `.lp-nav-mark` <img> in landingMarkup.ts. -->
-            <img class="lp-skel-mark" src="/apex/pryzm-mark.png" width="128" height="131" alt="PRYZM" decoding="async">
           </div>
           <!-- Wave 1.5c — mobile hamburger placeholder (matches `.lp-hamburger`
                in marketingPages.ts so the layout doesn't shift when the real
