@@ -72,11 +72,33 @@ const MAX_PROD_CALLERS = Number(process.env.PRYZM_P1_MAX_CALLERS ?? 2);
  * The one rival is `apps/component-editor/src/app/familyEditorRuntime.ts`
  * → `createFamilyEditorRuntime()`. It is a GENUINE second composition root: it
  * builds its own command bus (`createCommandBus()`), its own sketch/constraint/
- * selection stores, and its own solver runner, with no reference to
- * `composeRuntime`. It serves the family/component editor app, which is a
- * separate surface — but "separate surface" is a reason to argue the case in an
- * ADR, not a reason the gate should be blind to it. Baselined so it is visible
- * and cannot grow, rather than allowlisted so it disappears.
+ * selection/referencePlane/solid stores, and its own solver runner, with no
+ * reference to `composeRuntime`.
+ *
+ * ─── The case was argued: **ADR-0316** ───────────────────────────────────────
+ * `docs/02-decisions/adrs/ADR-0316-family-creator-is-a-second-composition-root.md`
+ *
+ * This number used to be a magic constant standing in for a decision nobody had
+ * made — the docstring above said "separate surface" is a reason to argue the
+ * case in an ADR, and the ADR did not exist. It does now, and it is ACCEPTED:
+ * the Family Creator is a different product surface (no project, no site, no
+ * collaboration, no renderer) under a hard 180 KB gzip first-paint budget, while
+ * `composeRuntime()` statically imports `@pryzm/renderer-three` — THREE's core
+ * alone measures 281 KB gzip, 1.53× that entire budget — and requires a
+ * `bootstrapFn` supplied by `@pryzm/editor`. Delegation is not merely costly
+ * there; it makes the app's own contract unsatisfiable.
+ *
+ * The blessing is CONDITIONAL, and the conditions are executable:
+ * `apps/component-editor/__tests__/app/secondCompositionRoot.invariants.test.ts`
+ * pins what the two roots must keep in common (P6 command-only mutation, verb
+ * reachability, one-batch-is-one-undo, P8 spans, total dispose) and forbids the
+ * imports that would collapse the "second surface" argument. ADR-0316 §5 lists
+ * what would make the decision wrong later.
+ *
+ * ⚠ Baselined, NOT allowlisted — deliberately. Adding the file to
+ * FACTORY_ALLOWLIST would make the rival disappear from this gate's output;
+ * baselining keeps it counted and named on every CI run while forbidding growth.
+ * 1 → 2 is a new ADR or a bug. Never raise it to go green.
  */
 const MAX_RIVALS = Number(process.env.PRYZM_P1_MAX_RIVALS ?? 1);
 

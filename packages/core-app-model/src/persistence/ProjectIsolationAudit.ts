@@ -40,6 +40,22 @@
  *   4. `window.floorPlanUnderlayTool` / `window._ifcServerUploadIds` survived.
  *   5. §L-676 — a registered PROJECT-SCOPE PROBE reports that its live state
  *      belongs to a DIFFERENT project than the one that just loaded.
+ *   6. §C13-AUDIT-BLIND-CLASSES — a COALESCED INSTANCED ROOT
+ *      (`InstancedMeshCoalescer`) whose `coalescedKey` names a level outside the
+ *      loaded project. It carries no element id at all, only the level — and the
+ *      level is enough, because §L-711 put `snapshot.levels` in the expectation.
+ *
+ * §C13-AUDIT-BLIND-CLASSES — WHAT THIS AUDIT STRUCTURALLY CANNOT SEE. The scene
+ * half of this audit traverses exactly ONE graph, `window.scene`. The running app
+ * holds at least three more (Cesium's `viewer.scene.primitives`, the furniture
+ * carousel's private `THREE.Scene`, the drag-drop `indicatorScene`) — see
+ * {@link SCENE_GRAPHS_NOT_TRAVERSED}, which is printed next to EVERY verdict,
+ * clean or violating, so no count of "scene roots" can be read as a count of
+ * everything on screen. Attribution below a scene root is by INHERITANCE and is
+ * counted, never asserted: nothing in a scene graph distinguishes a wall's
+ * legitimately-unstamped layer mesh from a foreign group parented under that wall,
+ * which is exactly why `views.mountedDrawing` needed a declared PROBE rather than
+ * a sweep.
  *
  * §L-676 — WHY (5) EXISTS. Surfaces 1–4 inspect the THREE scene, fifteen element
  * stores and two window globals. That is the whole BIM half. The GIS/site half —
@@ -110,6 +126,20 @@ export interface SceneObjectLike {
     type?: string;
     /** True when this object is a DIRECT child of the scene (a scene ROOT). */
     isRoot?: boolean;
+    /**
+     * §C13-AUDIT-BLIND-CLASSES — true when some ANCESTOR of this object carries an
+     * element id, so this object's attribution is INHERITED from that ancestor and
+     * was never checked on its own.
+     *
+     * The coverage floor inspects scene ROOTS. Everything below a root is attributed
+     * by inheritance, which is correct for a wall's layer meshes and WRONG for a
+     * foreign group that happens to have been parented under an owned element — and
+     * nothing in the scene graph distinguishes the two (this is precisely why
+     * `views.mountedDrawing` needed a declared PROBE rather than a scene sweep).
+     * The audit therefore does not invent a violation for them; it COUNTS them, so
+     * "N/M roots" can never be read as "M objects were checked".
+     */
+    attributedByAncestor?: boolean;
 }
 
 /** One element store's live ids, tagged with the store name for reporting. */
@@ -307,43 +337,188 @@ const GEOMETRY_BEARING_TYPES: ReadonlySet<string> = new Set([
     'Group', 'Object3D',
 ]);
 
+/**
+ * §C13-AUDIT-BLIND-CLASSES — scene graphs this sweep STRUCTURALLY CANNOT REACH.
+ *
+ * `gatherSceneObjects()` traverses exactly ONE graph: `window.scene`. The word
+ * "scene" in the coverage line therefore over-claims — the running app holds at
+ * least three more object graphs, each of which has already been observed holding
+ * the previous project's state. Naming them next to the count is the only thing
+ * that stops "N/M scene roots" being read as "N/M of everything on screen".
+ *
+ * DECLARED, not sniffed, for the same reason `declaredProjectScopes.uncounted` is:
+ * an exclusion you cannot count is indistinguishable from a check you deleted.
+ */
+export const SCENE_GRAPHS_NOT_TRAVERSED: readonly string[] = [
+    // apps/editor/src/ui/geospatial/CesiumViewport.ts — six `scene.primitives.add()`
+    // sites (tilesets, placed massing models, context layers). A Cesium
+    // PrimitiveCollection is a SECOND renderer's graph: it is not reachable from
+    // `window.scene` and exposes no `.traverse()`. Covered ONLY by the
+    // `gis.cesiumViewport` probe, which counts EIGHT NAMED FIELDS — not primitives.
+    'cesium viewer.scene.primitives (probe gis.cesiumViewport counts 8 named fields, NOT primitives)',
+    // apps/editor/src/ui/furniture-carousel/FloatingObjectCarousel.ts:305 — its own
+    // `new THREE.Scene()`. Its GLB-404 handler (:427) adds a completely unstamped
+    // grey box to it.
+    'apps/editor furniture-carousel private THREE.Scene (GLB-404 fallback boxes)',
+    // apps/editor/src/ui/furniture-carousel/FurnitureDragDropHandler.ts — `indicatorScene`.
+    'apps/editor FurnitureDragDropHandler indicatorScene',
+];
+
 export interface SceneCoverage {
     /** Direct children of the scene that were inspected. */
     readonly rootCount: number;
     /** Geometry-bearing roots the audit could not attribute to any project. */
     readonly unattributed: readonly string[];
+    /**
+     * Non-root objects whose attribution is INHERITED from an id-bearing ancestor
+     * and which were therefore never checked individually. See
+     * {@link SceneObjectLike.attributedByAncestor}.
+     */
+    readonly inheritedCount: number;
+    /** {@link SCENE_GRAPHS_NOT_TRAVERSED}, carried so every renderer of a verdict
+     *  states the limitation without having to remember to. */
+    readonly excludedGraphs: readonly string[];
+}
+
+/**
+ * §C13-AUDIT-BLIND-CLASSES — the ONE predicate for "this object carries an identity
+ * the id-based checks will actually act on".
+ *
+ * It must be the SAME predicate `detectLeaks` gates its scene check on, or objects
+ * fall through the seam between the two functions and VANISH — reported by neither.
+ * Measured on current main before this fix: a root stamped `{ id, levelId }` and no
+ * type produced NO finding AND NO unattributed entry, because `detectLeaks` skipped
+ * it as untyped while `summariseSceneCoverage` waved it through as "attributed by
+ * id". That is the Class-E under-counting defect in one line of disagreement.
+ */
+function isIdAttributable(ud: Record<string, unknown>): boolean {
+    return sceneElementId(ud) !== null && sceneElementType(ud) != null;
+}
+
+/**
+ * §C13-AUDIT-BLIND-CLASSES — name the CLASS of a root the audit cannot attribute.
+ *
+ * The audit cannot say WHOSE an unattributed root is. It can very often say WHAT it
+ * is, and a floor that reads `Mesh (unnamed)` three times is far harder to act on
+ * than one that reads `coalesced instanced root`. Keyed on the stamps the production
+ * builders really write, cited by file:line so a rename breaks the classification
+ * rather than silently degrading it back to `(unnamed)`.
+ */
+function classifyUnattributedRoot(ud: Record<string, unknown>, type: string, name: string): string {
+    // packages/scene-committer/src/InstancedMeshCoalescer.ts:326 / :417
+    if (ud.isCoalesced === true) return 'coalesced instanced root';
+    // packages/core-app-model/src/rendering/LevelMassingRenderer.ts:296
+    if (ud.isMassingLod === true) return 'level massing LOD';
+    if (ud.isHelper === true) return 'render helper';
+    // packages/room-topology/src/RoomLabelRenderer.ts:57 — `userData.type='room-label'`
+    if (ud.type === 'room-label' || ud.roomId != null) return 'room label sprite';
+    if (type === 'Sprite') return 'label sprite';
+    // apps/editor/src/ui/site/ParcelBoundarySceneRenderer.ts:388
+    if (ud.isBuildableEnvelopeVolume === true) return 'buildable envelope volume';
+    if (type === 'LineSegments' || type === 'Line' || type === 'LineLoop') return 'linework';
+    if (name.length === 0 && Object.keys(ud).length === 0) return 'UNSTAMPED';
+    return 'unclassified';
 }
 
 /**
  * Summarise how much of the scene the id-based checks could actually attribute.
- * PURE — no window, no THREE. A root is "attributed" when it carries an element id,
- * or is one of the declared exempt singletons; anything else is geometry the audit
- * is blind to, and is named here rather than silently counted as clean.
+ * PURE — no window, no THREE. A root is "attributed" when it carries an element id
+ * AND a type (the predicate `detectLeaks` acts on), or is one of the declared exempt
+ * singletons; anything else is geometry the audit is blind to, and is named — and
+ * now CLASSIFIED — here rather than silently counted as clean.
  */
 export function summariseSceneCoverage(sceneObjects: Iterable<SceneObjectLike>): SceneCoverage {
     let rootCount = 0;
+    let inheritedCount = 0;
     const unattributed: string[] = [];
     for (const obj of sceneObjects) {
-        if (obj.isRoot !== true) continue;
+        if (obj.isRoot !== true) {
+            // §C13-AUDIT-BLIND-CLASSES — a descendant of an id-bearing root is
+            // attributed by INHERITANCE and never checked. Count it; do not accuse
+            // it (a wall's layer meshes are legitimately unstamped, and an audit that
+            // cries wolf on every part mesh gets muted, which costs what
+            // under-counting costs).
+            if (obj.attributedByAncestor === true) inheritedCount += 1;
+            continue;
+        }
         rootCount += 1;
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
         if (isExemptSceneSingleton(ud)) continue;
-        if (sceneElementId(ud) !== null) continue;             // attributed by id
+        if (isIdAttributable(ud)) continue;                    // attributed by id + type
         if (!GEOMETRY_BEARING_TYPES.has(obj.type ?? '')) continue; // lights/cameras/helpers
-        unattributed.push(`${obj.type ?? 'Object3D'}${obj.name ? ` "${obj.name}"` : ' (unnamed)'}`);
+        const type = obj.type ?? 'Object3D';
+        const name = obj.name ?? '';
+        const klass = classifyUnattributedRoot(ud, type, name);
+        unattributed.push(`${type}${name ? ` "${name}"` : ' (unnamed)'} [${klass}]`);
     }
-    return { rootCount, unattributed };
+    return {
+        rootCount,
+        unattributed,
+        inheritedCount,
+        excludedGraphs: SCENE_GRAPHS_NOT_TRAVERSED,
+    };
+}
+
+/**
+ * §C13-AUDIT-BLIND-CLASSES — the limitation clause EVERY verdict carries.
+ *
+ * Printed unconditionally, on the clean path and the violation path alike, because
+ * the graphs below are excluded on every run regardless of what was found in the one
+ * graph that was traversed.
+ */
+function formatExcludedGraphs(c: SceneCoverage): string {
+    // The exclusion is UNCONDITIONAL — it holds on every run regardless of what the
+    // caller passed. A caller that omits the field must not thereby receive a SHORTER,
+    // over-claiming verdict, so fall back to the declaration rather than to silence.
+    const graphs = Array.isArray(c.excludedGraphs) ? c.excludedGraphs : SCENE_GRAPHS_NOT_TRAVERSED;
+    const inherited = (typeof c.inheritedCount === 'number' ? c.inheritedCount : 0) > 0
+        ? ` · ${c.inheritedCount} descendant(s) attributed BY INHERITANCE from an id-bearing ancestor, never checked individually`
+        : '';
+    return (
+        `${inherited} · this count covers ONE scene graph (window.scene) and EXCLUDES ` +
+        `${graphs.length} graph(s) it cannot traverse: [${graphs.join('; ')}]`
+    );
 }
 
 /** Render {@link SceneCoverage} as the honesty clause appended to every verdict. */
 export function formatSceneCoverage(c: SceneCoverage): string {
-    if (c.rootCount === 0) return ' — scene had NO roots to inspect';
-    if (c.unattributed.length === 0) return ` — all ${c.rootCount} scene root(s) attributable`;
-    return (
-        ` — ⚠ ${c.unattributed.length}/${c.rootCount} scene root(s) UNATTRIBUTED, i.e. outside this ` +
-        `audit's reach, neither proven clean nor proven leaked: [${c.unattributed.slice(0, 8).join(', ')}` +
-        `${c.unattributed.length > 8 ? `, +${c.unattributed.length - 8} more` : ''}]`
-    );
+    const head = c.rootCount === 0
+        ? ' — scene had NO roots to inspect'
+        : c.unattributed.length === 0
+            ? ` — all ${c.rootCount} scene root(s) attributable`
+            : (
+                ` — ⚠ ${c.unattributed.length}/${c.rootCount} scene root(s) UNATTRIBUTED, i.e. outside this ` +
+                `audit's reach, neither proven clean nor proven leaked: [${c.unattributed.slice(0, 8).join(', ')}` +
+                `${c.unattributed.length > 8 ? `, +${c.unattributed.length - 8} more` : ''}]`
+            );
+    return head + formatExcludedGraphs(c);
+}
+
+/**
+ * §C13-AUDIT-BLIND-CLASSES — the level a coalesced instanced root belongs to.
+ *
+ * `packages/scene-committer/src/InstancedMeshCoalescer.ts:303` builds the key as
+ *
+ *     const key = `${levelId}:${geoUUID}:${matUUID}`;
+ *
+ * and stamps it on the merged root (`:327`, `:418`) before `scene.add(merged)`. So
+ * the merged root is NOT unattributable: the owning LEVEL is written on it in plain
+ * text, and levels ARE part of the loader expectation (§L-711 put `snapshot.levels`
+ * there alongside `snapshot.lighting`). The audit simply never read it.
+ *
+ * This is the one blind class of the five that closes with a real ATTRIBUTION rather
+ * than a bigger floor. Returns null when the key is absent or malformed — in which
+ * case the root falls through to the unattributed floor, which is the honest answer.
+ *
+ * NOTE the geometry/material UUIDs are v4 UUIDs containing no ':' , and levelId is a
+ * UUID likewise, so the FIRST segment is the level. Split defensively anyway.
+ */
+function coalescedLevelId(ud: Record<string, unknown>): string | null {
+    if (ud.isCoalesced !== true) return null;
+    const key = ud.coalescedKey;
+    if (typeof key !== 'string') return null;
+    const levelId = key.split(':')[0];
+    return levelId && levelId.length > 0 ? levelId : null;
 }
 
 /**
@@ -366,6 +541,10 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     // §STARTUP-C13-IDENTITY — first-seen identity per foreign id (type + scene name),
     // so the report can NAME the leaked object, not just number it.
     const foreignSceneIdentity = new Map<string, string>();
+    // §C13-AUDIT-BLIND-CLASSES — coalesced instanced roots whose key names a level
+    // the loaded project does not have. Deduped by key: one merged root per
+    // (level × geometry × material), and a project switch leaves several.
+    const foreignCoalesced = new Map<string, string>();
 
     for (const obj of sceneObjects) {
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
@@ -379,6 +558,19 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
         }
         if (ud.isDxfOverlay === true || ud.dxfId != null) {
             dxfCount += 1;
+        }
+        // §C13-AUDIT-BLIND-CLASSES — a coalesced instanced root whose key names a
+        // level outside the loaded project is Project A's merged geometry, still
+        // drawn. Independent of the element-id path: the merged root carries no
+        // element id at all, only the level.
+        if (idKnown) {
+            const lvl = coalescedLevelId(ud);
+            if (lvl !== null && !expectedIds!.has(lvl)) {
+                const key = String(ud.coalescedKey);
+                if (!foreignCoalesced.has(key)) {
+                    foreignCoalesced.set(key, `level ${lvl} ⇐ coalesced instanced root (key ${key})`);
+                }
+            }
         }
         // A BIM element whose id is NOT part of the loaded project is foreign.
         if (idKnown && !isExemptSceneSingleton(ud)) {
@@ -446,6 +638,7 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (ifcCount > 0)             findings.push({ surface: 'scene.ifc',             count: ifcCount });
     if (dxfCount > 0)             findings.push({ surface: 'scene.dxf',             count: dxfCount });
     if (foreignSceneIds.length)   findings.push({ surface: 'scene.foreignElement',  count: foreignSceneIds.length, details: foreignSceneIds.slice(0, 20), identities: foreignSceneIds.slice(0, 20).map(id => foreignSceneIdentity.get(id) ?? id) });
+    if (foreignCoalesced.size)    findings.push({ surface: 'scene.foreignCoalescedRoot', count: foreignCoalesced.size, details: [...foreignCoalesced.keys()].slice(0, 20), identities: [...foreignCoalesced.values()].slice(0, 20) });
     if (foreignStoreCount > 0)    findings.push({ surface: 'store.foreignElement',  count: foreignStoreCount, details: foreignStoreDetails });
     if (globals.length > 0)       findings.push({ surface: 'window.globals',        count: globals.length, details: globals });
     if (foreignScopes.length)     findings.push({ surface: 'scope.foreignProject',   count: foreignScopes.length, details: foreignScopes });
@@ -548,38 +741,69 @@ function w<T = unknown>(name: string): T | undefined {
     return (window as unknown as Record<string, T>)[name];
 }
 
+/** Structural view of a traversable THREE.Object3D graph — no THREE import (P5). */
+interface TraversableNode {
+    name?: string;
+    type?: string;
+    parent?: unknown;
+    userData?: Record<string, unknown>;
+    traverse?: (cb: (o: TraversableNode) => void) => void;
+}
+
 /**
- * Gather the live scene objects (flattened) from `window.scene`.
+ * §C13-AUDIT-BLIND-CLASSES — does any ancestor of `node` (up to, but excluding, the
+ * scene) carry an element identity? If so this object is attributed by INHERITANCE.
+ * Bounded so a cyclic or absurdly deep graph cannot hang the audit.
+ */
+function hasIdBearingAncestor(node: TraversableNode, scene: TraversableNode): boolean {
+    let p = node.parent as TraversableNode | undefined;
+    for (let depth = 0; p != null && p !== scene && depth < 256; depth += 1) {
+        const ud = (p.userData ?? {}) as Record<string, unknown>;
+        if (sceneElementId(ud) !== null) return true;
+        p = p.parent as TraversableNode | undefined;
+    }
+    return false;
+}
+
+/**
+ * Flatten a THREE scene graph into the audit's structural view.
+ *
+ * EXPORTED so the injection experiment can drive the REAL traversal against a REAL
+ * THREE.Scene. Pinning the detector against a hand-written object literal is the
+ * §C13-SCENE-ID-KEY mistake — the positive control then validates the detector
+ * against the detector's own model of the world rather than against the world.
  *
  * §CONTEXT-DATA-HONESTY — returns `null` (not `[]`) when there is no traversable
  * scene, so the caller can tell "the scene is empty" from "there was no scene".
  */
-function gatherSceneObjects(): SceneObjectLike[] | null {
-    type Node = {
-        name?: string;
-        type?: string;
-        parent?: unknown;
-        userData?: Record<string, unknown>;
-        traverse?: (cb: (o: Node) => void) => void;
-    };
-    const scene = w<Node>('scene');
+export function collectSceneObjects(sceneRoot: unknown): SceneObjectLike[] | null {
+    const scene = sceneRoot as TraversableNode | undefined;
     if (!scene || typeof scene.traverse !== 'function') return null;
     const out: SceneObjectLike[] = [];
     try {
         scene.traverse((o) => {
             // `traverse` visits the scene itself first; it is not a root OF the scene.
             if (o === scene) return;
+            const isRoot = o.parent === scene;
             out.push({
                 name: o.name,
                 userData: o.userData,
                 // §C13-SCENE-ROOT-COVERAGE — carried so the audit can report the
                 // scene it CANNOT attribute, not only the elements it recognises.
                 type: o.type,
-                isRoot: o.parent === scene,
+                isRoot,
+                // §C13-AUDIT-BLIND-CLASSES — walk to the scene, so the coverage line
+                // can state how much of the graph it never checked individually.
+                attributedByAncestor: isRoot ? false : hasIdBearingAncestor(o, scene),
             });
         });
     } catch { return null; }
     return out;
+}
+
+/** Gather the live scene objects (flattened) from `window.scene`. */
+function gatherSceneObjects(): SceneObjectLike[] | null {
+    return collectSceneObjects(w('scene'));
 }
 
 /**

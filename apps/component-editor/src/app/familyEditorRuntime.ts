@@ -7,6 +7,24 @@
 // already pushes it close to 250 LoC).
 //
 // LAYER — L7 chrome-side. No THREE, no DOM, no `(window as any)`.
+//
+// ⚠ P1 — THIS IS A SECOND COMPOSITION ROOT, AND THAT IS DELIBERATE.
+// See **ADR-0316** (`docs/02-decisions/adrs/
+// ADR-0316-family-creator-is-a-second-composition-root.md`). The Family
+// Creator is a different product surface from the BIM editor: no project,
+// no site, no collaboration, no renderer, and a hard 180 KB gzip
+// first-paint budget (`__tests__/quality-gates/bundle-budget.test.ts`).
+// `composeRuntime()` statically imports `@pryzm/renderer-three`, whose
+// THREE core alone is ~281 KB gzip — 1.5× this app's ENTIRE budget — and
+// it requires a `bootstrapFn` supplied by `@pryzm/editor`. Delegating
+// would buy nothing and cost first paint.
+//
+// The blessing is conditional. `tools/ga-gate/check-single-compose.ts`
+// holds `MAX_RIVALS = 1` citing ADR-0316, and
+// `__tests__/app/secondCompositionRoot.invariants.test.ts` pins what the
+// two roots MUST keep in common. If you are here to add a project store,
+// a persistence client, a sync client or a renderer, ADR-0316 no longer
+// applies — go delegate.
 
 import { MockSolver, loadSolver, type SolverPorter } from '@pryzm/constraint-solver';
 
@@ -21,9 +39,16 @@ import { MockSolver, loadSolver, type SolverPorter } from '@pryzm/constraint-sol
 // is fetched lazily on first solve attempt — not at boot.
 import { createCommandBus, type CommandBus } from './commandBus.js';
 import { registerConstraintCommands } from '../commands/constraint/index.js';
+import { registerReferencePlaneCommands } from '../commands/referencePlane/index.js';
+import { registerSolidCommands } from '../commands/solid/index.js';
 import { createConstraintStore, type ConstraintStore } from '../stores/constraintStore.js';
+import {
+  createReferencePlaneStore,
+  type ReferencePlaneStore,
+} from '../stores/referencePlaneStore.js';
 import { createSelectionStore, type SelectionStore } from '../stores/selectionStore.js';
 import { createSketchDocStore, type SketchDocStore } from '../stores/sketchDocStore.js';
+import { createSolidStore, type SolidStore } from '../stores/solidStore.js';
 import {
   createSolverRunner,
   type SolverRunner,
@@ -36,6 +61,10 @@ export interface FamilyEditorRuntime {
   readonly sketchStore: SketchDocStore;
   readonly constraintStore: ConstraintStore;
   readonly selectionStore: SelectionStore;
+  /** S53 D5 — reference planes the sketch/solid commands are anchored to. */
+  readonly referencePlaneStore: ReferencePlaneStore;
+  /** S53 D6 — extrude/sweep/loft/revolve results + their §12.2 LOD bitmasks. */
+  readonly solidStore: SolidStore;
   readonly solverRunner: SolverRunner;
   /** The currently-active solver (may upgrade from MockSolver to planegcs). */
   solver: SolverPorter;
@@ -59,8 +88,22 @@ export function createFamilyEditorRuntime(
   const sketchDocStore = createSketchDocStore();
   const constraintStore = createConstraintStore();
   const selectionStore = createSelectionStore();
+  const referencePlaneStore = createReferencePlaneStore();
+  const solidStore = createSolidStore();
   const commandBus = createCommandBus();
+  // ⚠ EVERY authored command family must be registered here.
+  //
+  // Until 2026-08-11 only `registerConstraintCommands` was called: the
+  // `referencePlane.*` and `solid.*` families were authored, unit-tested,
+  // and constructed ONLY inside their own tests — no user could reach
+  // them, because the app's composition root never wired them. That is
+  // precisely the class of defect a SECOND composition root hides best,
+  // and it is why ADR-0316 requires `secondCompositionRoot.invariants`
+  // to assert reachability of every `*_VERB` in `src/commands/**` rather
+  // than merely asserting the files exist.
   registerConstraintCommands(commandBus, { constraintStore });
+  registerReferencePlaneCommands(commandBus, { store: referencePlaneStore });
+  registerSolidCommands(commandBus, { store: solidStore });
 
   // Start with MockSolver so first paint is instant and deterministic.
   // Hot-swap via `runtime.solver = …` once the planegcs upgrade lands.
@@ -87,6 +130,8 @@ export function createFamilyEditorRuntime(
     sketchStore: sketchDocStore,
     constraintStore,
     selectionStore,
+    referencePlaneStore,
+    solidStore,
     solverRunner,
     solver,
     solverReady,
