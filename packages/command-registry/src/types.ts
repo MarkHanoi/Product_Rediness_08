@@ -55,6 +55,11 @@ export enum CommandType {
     UPDATE_CEILINGS_SYSTEM_TYPE_BATCH = 'UPDATE_CEILINGS_SYSTEM_TYPE_BATCH',
     // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315) — create windows across a wall set in ONE undo step.
     CREATE_WINDOWS_PARAMETRIC_BATCH = 'CREATE_WINDOWS_PARAMETRIC_BATCH',
+    // §FEAT-SCOPED-DELETE (RAC U9.2) — delete a RESOLVED id set in ONE undo
+    // step ("delete all furniture in the kitchen"). Composes the existing
+    // DeleteElementCommand per id rather than re-deriving its per-kind
+    // cascade/undo semantics.
+    DELETE_ELEMENTS_BATCH = 'DELETE_ELEMENTS_BATCH',
     MOVE_DOOR = 'MOVE_DOOR',
     UPDATE_WINDOW_FRAME_COLOR = 'UPDATE_WINDOW_FRAME_COLOR',
     MOVE_WINDOW = 'MOVE_WINDOW',

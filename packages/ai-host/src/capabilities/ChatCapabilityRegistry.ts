@@ -80,6 +80,10 @@
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import type { SemanticIntent } from '../intents/ZeroTokenResolver.js';
+// RAC U9.2 — the delete families' metadata is GENERATED from the same table
+// that generates their execution spec. One-way dependency: this module imports
+// the pure table; the table imports nothing from here.
+import { DELETE_FAMILIES, deleteFamilyTargets } from '../intents/DeleteFamilies.js';
 
 const TRACER_NAME = '@pryzm/ai-host';
 let cachedTracer: Tracer | null = null;
@@ -272,9 +276,68 @@ export const GENERIC_PARAMETER_TARGETS: readonly string[] = [
 const UPDATE_ELEMENT_PARAMETER_FILE =
   'packages/command-registry/src/generic/UpdateElementParameterCommand.ts';
 
+// ─── RAC U9.2 — the DELETE FAMILIES, as generated metadata ───────────────────
+//
+// The U7.2 lesson applied to the destructive tranche: a family is ONE record in
+// `DeleteFamilies.ts`, and BOTH its execution spec and this metadata are built
+// from it. The dependency runs one way only (registry → DeleteFamilies →
+// FilterScope, all pure) so there is no barrel cycle to trip over
+// (§SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD), and the `targets` claim is generated
+// rather than restated — a kind removed from the table is a target removed, in
+// the same edit.
+//
+// Every one of these is `destructive: true`. That is not decoration: the bridge
+// draws a Confirm card for it, and the summary the card shows is required by
+// the spec generator to carry a REAL resolved count ("This deletes 42 furniture
+// items on Level 1"). See the DeleteFamilies header for why deletion can be
+// confirmed honestly where ADR-0313's deferred bulk GENERATION could not.
+const DELETE_FAMILY_CAPABILITIES: readonly ChatCapability[] = DELETE_FAMILIES.map((family) => ({
+  id: family.intent,
+  description: `delete ${family.nounPlural} in a scope`,
+  verbs: ['delete', 'remove', 'clear', 'erase', 'get rid of'],
+  aliases: [family.elementKind, family.nounPlural, ...family.nounAliases],
+  targets: deleteFamilyTargets(family.intent),
+  parameters: [],
+  scope: 'all',
+  // NOT 'selection': `delete-selected` owns the selection ask and always has.
+  // A scoped delete claims a PLACE or the whole project — see the
+  // DeleteFamilies header for why claiming both would be two capabilities for
+  // one sentence.
+  scopeModes: ['all', 'level', 'room'],
+  destructive: true,
+  busCommand: 'element.deleteBatch',
+  // The probe carries the SELECTION scope, not 'all', and that is a statement
+  // about what proof 3a is for: it asks "does the arm accept this element
+  // kind and refuse every other one", and the selection scope is the only
+  // form that answers per-KIND. An 'all' probe would refuse for every kind in
+  // the harness (no resolveScope is injected there) and prove nothing. The
+  // GRAMMAR still never produces a selection scope for these — delete-selected
+  // owns that ask.
+  probe: { intent: family.intent, scope: 'selection' } as SemanticIntent,
+  commandProof: [
+    {
+      file: 'plugins/view/src/handlers/DeleteElementsBatch.ts',
+      mustMention: ['element.deleteBatch', 'commandManager', 'affectedStores: [] as const'],
+      note: 'The LIVE route: a legacy bridge (commandManager + empty affectedStores — undo lives on the legacy stack) forwarding to DeleteElementsBatchCommand, so N deletes are ONE undo entry instead of N.',
+    },
+    {
+      file: 'packages/command-registry/src/generic/DeleteElementsBatchCommand.ts',
+      mustMention: ['DeleteElementCommand', 'Deleted', 'skipped'],
+      note: 'The batch COMPOSES the per-element DeleteElementCommand (rather than re-deriving its per-kind cascade and undo), undoes children in REVERSE order so a host comes back before anything it cascaded, and reports "Deleted N of M — K skipped: <reason>".',
+    },
+    {
+      file: 'packages/command-registry/src/walls/DeleteElementCommand.ts',
+      mustMention: [family.elementKind],
+      note: family.branchNote,
+    },
+  ],
+  examples: [...family.suggestions],
+}));
+
 // ─── The capabilities ────────────────────────────────────────────────────────
 
 const CAPABILITIES: readonly ChatCapability[] = [
+  ...DELETE_FAMILY_CAPABILITIES,
   {
     id: 'undo',
     description: 'undo the last change',

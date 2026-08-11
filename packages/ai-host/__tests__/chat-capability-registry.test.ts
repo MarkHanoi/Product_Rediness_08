@@ -159,6 +159,11 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-base-offset': ['wall', 'slab', 'column', 'roof', 'curtain-wall', 'furniture', 'handrail'],
       // RAC U7.3 — the extension proof: four properties added as table rows +
       // registry metadata, zero resolver lines.
+      // RAC U9.2 — the four generated scoped-delete families.
+      'delete-furniture-scoped': ['furniture'],
+      'delete-windows-scoped': ['window'],
+      'delete-doors-scoped': ['door'],
+      'delete-columns-scoped': ['column'],
       'set-mullion-size': ['curtain-wall'],
       'set-panel-thickness': ['curtain-wall'],
       'set-baluster-spacing': ['handrail'],

@@ -41,6 +41,11 @@ import { applyExecutionSpec, type SpecDrivenIntent } from './CapabilityExecution
 // ENTRIES: one record generates both the CapabilityExecutionSpec and the
 // grammar below. Adding a family costs zero lines in this file.
 import { CATALOGUE_FAMILIES, type CatalogueLookup } from './CatalogueFamilies.js';
+// RAC U9.2 — delete families (furniture / window / door / column) are TABLE
+// ENTRIES on exactly the same seam: one record generates the spec AND the
+// grammar. The only line this file spends on the whole family is the matcher
+// below, which delegates to the generated parser.
+import { parseDeleteScopedIntent, type DeleteFamilyIntentId } from './DeleteFamilies.js';
 // RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
 // ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
 // it, the live route per kind, bounds), executed by the ONE generic property arm
@@ -443,6 +448,12 @@ export type SemanticIntent =
       readonly thickness?: number;
       readonly sillHeight?: number;
     }
+  /** RAC U9.2 — the SAFE DESTRUCTIVE tranche: scoped deletion, one union
+   *  member for the whole family however many kinds DeleteFamilies.ts lists.
+   *  It carries only a scope, because a delete has no value to resolve; what
+   *  makes it safe is declared in the table (Confirm card + a REAL resolved
+   *  count), not here. */
+  | { readonly intent: DeleteFamilyIntentId; readonly scope: IntentScope }
   | { readonly intent: 'go-to-level'; readonly levelQuery: string }
   | { readonly intent: 'add-level'; readonly elevation?: number }
   /**
@@ -2897,6 +2908,12 @@ export function parseRhinoMaterialIntent(
 
 const matchRhinoMaterial: Matcher = (text) => parseRhinoMaterialIntent(text);
 
+// RAC U9.2 — the SAFE DESTRUCTIVE tranche. Generated per family from
+// DeleteFamilies.ts; the parser claims only unambiguous scopes, so an
+// under-specified "delete the furniture" falls through to an honest
+// "I'm not sure" rather than a coin flip on a destructive verb.
+const matchDeleteScoped: Matcher = (text, ctx) => parseDeleteScopedIntent(text, ctx);
+
 // §GEN-CHAT (RAC U5b.2) — "generate a 3-storey residential building" /
 // "generate a 2-storey house" / "generate an office building with 5 floors".
 //
@@ -3133,6 +3150,12 @@ const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
   matchDeleteSelected,
+  // RAC U9.2 — AFTER matchDeleteSelected, deliberately: "delete the selected
+  // window" already resolves and a generic table must never quietly
+  // re-interpret a sentence that works. The two are disjoint by construction
+  // anyway (matchDeleteSelected requires selected/selection/this and NO place
+  // tail), and the ordering keeps it provably so.
+  matchDeleteScoped,
   // BEFORE the wall matchers: any sentence naming the RHINO model is about
   // the imported reference model, never about walls (§FEAT-RHINO-CHAT-MATERIAL).
   matchRhinoMaterial,

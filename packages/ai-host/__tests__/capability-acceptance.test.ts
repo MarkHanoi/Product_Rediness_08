@@ -107,9 +107,94 @@ interface AcceptanceCase {
   readonly id: string;
   readonly ctx: Partial<ResolverContext>;
   readonly phrasings: readonly string[];
+  /**
+   * RAC U9.2 — this family's `ctx` injects a `resolveScope`. The GA gate reads
+   * this file as literal text (it cannot import a vitest module), so it cannot
+   * see a resolver built by a helper; this one word is how the suite tells it,
+   * and it is what lets the gate execute spatially-scoped examples instead of
+   * counting them all as "spatial scoping isn't wired into this chat context".
+   */
+  readonly scoped?: boolean;
 }
 
+/**
+ * RAC U9.2 — the scoped-delete families need a resolver for EVERY scope form,
+ * including bare "all": `requireResolvedIds` forbids the unbounded payload so
+ * the Confirm card can state a real count. This stub returns three ids for any
+ * descriptor, which is exactly what the acceptance question is — did the
+ * sentence reach the capability with a resolvable scope — and nothing more.
+ */
+const deleteScopeCtx = (elementType: string): Partial<ResolverContext> => ({
+  selection: [{ elementId: `${elementType}-1`, elementType }],
+  resolveScope: (() => ({
+    ids: [`${elementType}-1`, `${elementType}-2`, `${elementType}-3`],
+    kindCounts: { [elementType]: 3 },
+    skipped: [],
+    diagnostics: ['Level 0'],
+  })) as never,
+});
+
+/**
+ * RAC U9.2 (gate closure) — a family whose ctx offers BOTH a selection of the
+ * right kind and a scope resolver. It exists because the C68 §6.3-G2 check
+ * executes a capability's own `examples`, and three wall capabilities declare
+ * selection-form and level-form examples their family context could not
+ * satisfy — so each was counted as "unresolved" while being perfectly correct
+ * in the app. Widening the context is the fix the ratchet's own note asked
+ * for; the all-scope phrasings below are unaffected by a selection being
+ * present, because an 'all' sentence never consults it.
+ */
+const scopedSel = (elementType: string): Partial<ResolverContext> => ({
+  selection: [{ elementId: `${elementType}-1`, elementType }],
+  resolveScope: (() => ({
+    ids: [`${elementType}-1`, `${elementType}-2`, `${elementType}-3`],
+    kindCounts: { [elementType]: 3 },
+    skipped: [],
+    diagnostics: ['Level 0'],
+  })) as never,
+});
+
 const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
+  // ── RAC U9.2 — the SAFE DESTRUCTIVE tranche ─────────────────────────────
+  {
+    id: 'delete-furniture-scoped',
+    ctx: deleteScopeCtx('furniture'),
+    scoped: true,
+    phrasings: [
+      'delete all furniture in the kitchen',
+      'clear the furniture on this floor',
+      'remove all furniture',
+      'delete every furnishing on level 2',
+    ],
+  },
+  {
+    id: 'delete-windows-scoped',
+    ctx: deleteScopeCtx('window'),
+    scoped: true,
+    phrasings: [
+      'remove every window on level 2',
+      'delete all windows in the kitchen',
+      'delete all windows',
+    ],
+  },
+  {
+    id: 'delete-doors-scoped',
+    ctx: deleteScopeCtx('door'),
+    scoped: true,
+    phrasings: [
+      'delete all doors on level 2',
+      'remove every door in the kitchen',
+    ],
+  },
+  {
+    id: 'delete-columns-scoped',
+    ctx: deleteScopeCtx('column'),
+    scoped: true,
+    phrasings: [
+      'delete all columns on level 2',
+      'remove every column',
+    ],
+  },
   { id: 'undo', ctx: {}, phrasings: ['undo', 'undo that', 'Actually, undo that.', 'go back'] },
   { id: 'redo', ctx: {}, phrasings: ['redo', 'redo that', 'do that again'] },
   {
@@ -299,7 +384,8 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   },
   {
     id: 'set-wall-type',
-    ctx: {},
+    ctx: scopedSel('wall'),
+    scoped: true,
     phrasings: [
       'make all walls interior partition',
       'change all walls to Interior – Partition 100mm',
@@ -310,7 +396,8 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   },
   {
     id: 'set-wall-color',
-    ctx: {},
+    ctx: scopedSel('wall'),
+    scoped: true,
     phrasings: [
       'make all walls white',
       'paint every wall light grey',
@@ -321,7 +408,8 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   },
   {
     id: 'set-wall-rake',
-    ctx: {},
+    ctx: scopedSel('wall'),
+    scoped: true,
     phrasings: [
       'make all walls angled by 120 degrees',
       'tilt all walls by 70',

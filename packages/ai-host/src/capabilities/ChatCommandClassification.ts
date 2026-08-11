@@ -195,9 +195,15 @@ const C_PLUMBING = family(
 
 // ─── D — duplicates / implementation detail ──────────────────────────────────
 
+// RAC U9.2 — the reason is UPDATED, not just re-stated. The chat now has TWO
+// generic delete routes and neither is per-kind: `element.delete` for the
+// selection, and `element.deleteBatch` for a RESOLVED scope ("delete all
+// furniture in the kitchen"). A per-kind verb would be a third source of truth
+// for the same ask, and would lose the property the batch exists for — N
+// deletes in ONE undo entry.
 const D_DELETE = family(
   'D',
-  'Per-kind delete route. The chat deletes through the generic element.delete verb on the current selection ("delete selected"), which is the selection manager\'s own route for every kind — a second chat path per kind would be two sources of truth for one ask.',
+  'Per-kind delete route. The chat deletes through the generic element.delete verb on the current selection ("delete selected") and element.deleteBatch on a resolved scope ("delete all furniture in the kitchen") — both kind-agnostic, both landing on the same DeleteElementCommand. A second chat path per kind would be two sources of truth for one ask.',
   [
     'beam.delete', 'ceiling.delete', 'column.delete', 'curtain-wall.delete',
     'door.delete', 'furniture.delete', 'handrail.delete', 'lighting.delete', 'plumbing.delete',
@@ -241,7 +247,26 @@ const D_LEGACY = [
 ];
 
 // ─── E — unsafe without a bigger confirmation model ──────────────────────────
-
+//
+// ── RAC U9.2: WHAT GRADUATED, AND WHY THESE THREE DID NOT ───────────────────
+//
+// E's stated blocker is "the inline Confirm/Cancel card shows no preview of
+// what will appear". Read carefully, that is an argument about GENERATION, and
+// U9.2 is the moment it stopped covering everything destructive. Deletion is
+// the opposite shape: everything it touches ALREADY EXISTS and has already been
+// counted, so the card can state the exact truth before anything happens —
+// "This deletes 42 furniture items on Level 1." Scoped deletion therefore
+// shipped as four capabilities (DeleteFamilies.ts) rather than sitting here,
+// with the count made real by `requireResolvedIds` (the unbounded 'all' payload
+// form is forbidden on a destructive spec), an empty scope refusing, and ONE
+// undo entry via element.deleteBatch.
+//
+// The three below did NOT graduate, and the reason is unchanged and still true:
+// they CREATE. "Create a curtain wall on every slab" produces geometry whose
+// size, count and placement the user cannot see until it exists, so a card
+// saying "this creates 37 curtain walls" is a number without a shape. The
+// missing piece is still preview-before-execute — genuinely missing, not merely
+// unbuilt confidence.
 const E_BULK = family(
   'E',
   'Project-wide generation in one verb (every slab / every floor). Reversible, but the blast radius is the whole model and the inline Confirm/Cancel card shows no preview of what will appear — needs preview-before-execute, which ADR-0313 explicitly defers.',

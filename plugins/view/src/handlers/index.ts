@@ -16,6 +16,7 @@ import { SetViewCropHandler } from './SetViewCrop.js';
 import { SetViewUnderlayHandler } from './SetViewUnderlay.js';
 import { UpdateViewDefinitionHandler } from './UpdateViewDefinition.js';
 import { DeleteElementHandler } from './DeleteElement.js';
+import { DeleteElementsBatchHandler } from './DeleteElementsBatch.js';
 import { HideElementInViewHandler } from './HideElementInView.js';
 import { IsolateElementInViewHandler } from './IsolateElementInView.js';
 import { SetElementGraphicOverrideHandler } from './SetElementGraphicOverride.js';
@@ -32,6 +33,13 @@ export { SetViewCropHandler } from './SetViewCrop.js';
 export { SetViewUnderlayHandler } from './SetViewUnderlay.js';
 export { UpdateViewDefinitionHandler } from './UpdateViewDefinition.js';
 export { DeleteElementHandler, type DeleteElementPayload } from './DeleteElement.js';
+// §FEAT-SCOPED-DELETE (RAC U9.2) — N deletes, ONE undo entry.
+export {
+  DeleteElementsBatchHandler,
+  DELETE_BATCH_REPORT_EVENT,
+  type DeleteElementsBatchPayload,
+  type DeleteBatchReport,
+} from './DeleteElementsBatch.js';
 export { HideElementInViewHandler, type HideElementInViewPayload } from './HideElementInView.js';
 export { IsolateElementInViewHandler, type IsolateElementInViewPayload } from './IsolateElementInView.js';
 export { SetElementGraphicOverrideHandler, type SetElementGraphicOverridePayload } from './SetElementGraphicOverride.js';
@@ -75,6 +83,7 @@ const ALL_HANDLERS = [
   SetViewUnderlayHandler,
   UpdateViewDefinitionHandler,
   DeleteElementHandler,
+  DeleteElementsBatchHandler,
   HideElementInViewHandler,
   IsolateElementInViewHandler,
   SetElementGraphicOverrideHandler,

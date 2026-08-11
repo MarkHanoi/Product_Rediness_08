@@ -34,6 +34,16 @@ export interface AcceptanceFamily {
   readonly id: string;
   /** The element kind the family's `ctx: sel('kind')` selects, or null for `{}`. */
   readonly selectionKind: string | null;
+  /**
+   * RAC U9.2 — the family declares `scoped: true`, meaning its ctx injects a
+   * `resolveScope`. The parser reads LITERALS, so it cannot see the resolver
+   * itself (it may be built by a helper); this flag is how the suite TELLS the
+   * gate, in one word, that spatial examples in this family are meant to
+   * resolve. Without it a spatially-scoped example can only ever be counted as
+   * "refused: spatial scoping isn't wired into this chat context", which says
+   * something about the harness and nothing about the capability.
+   */
+  readonly declaresScopeResolver: boolean;
   readonly phrasings: readonly string[];
 }
 
@@ -92,10 +102,12 @@ function parseFamilies(src: string): AcceptanceFamily[] {
     if (arrIdx === -1) continue;
     const phrasings = stringLiterals(balancedSlice(obj, arrIdx, '[', ']'));
     // `ctx: sel('wall')` | `ctx: sel('door', 'x')` | `ctx: {}`
-    const ctxMatch = /ctx:\s*sel\(\s*'([a-z-]+)'/.exec(obj);
+    // `ctx: sel('wall')` | `ctx: sel('door', 'x')` | `ctx: helper('furniture')`
+    const ctxMatch = /ctx:\s*\w+\(\s*'([a-z-]+)'/.exec(obj);
     out.push({
       id: m[1]!,
       selectionKind: ctxMatch === null ? null : ctxMatch[1]!,
+      declaresScopeResolver: /scoped:\s*true/.test(obj),
       phrasings,
     });
   }

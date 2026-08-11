@@ -752,6 +752,11 @@ const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         'wall.addLayerBatch': 'pryzm-wall-layer-batch-report',
         // §FEAT-WINDOW-PARAMETRIC-CREATE — "Created N of M planned — K skipped".
         'window.parametricCreate': 'pryzm-window-parametric-report',
+        // §FEAT-SCOPED-DELETE (RAC U9.2) — "Deleted 40 of 42 furniture items
+        // (plus 6 hosted/child elements) — 2 skipped: …". The cascade count is
+        // reported SEPARATELY from the N-of-M the user agreed to on the Confirm
+        // card, because folding them together would overstate the ask.
+        'element.deleteBatch': 'pryzm-delete-batch-report',
         // §FEAT-RHINO-CHAT-MATERIAL — the Rhino bridge reports mesh counts and
         // the honest "no Rhino model is imported" failure through this event.
         'rhino.setMaterial': 'pryzm-rhino-material-report',

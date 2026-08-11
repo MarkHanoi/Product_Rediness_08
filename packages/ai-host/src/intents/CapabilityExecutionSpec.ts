@@ -57,6 +57,11 @@ import {
   catalogueFamilySpec,
   type CatalogueFamilyIntentId,
 } from './CatalogueFamilies.js';
+import {
+  DELETE_FAMILIES,
+  deleteFamilySpec,
+  type DeleteFamilyIntentId,
+} from './DeleteFamilies.js';
 import type {
   BusCommandRef,
   ResolverContext,
@@ -84,6 +89,11 @@ export type SpecDrivenIntentId =
   // CatalogueFamilies.ts; nothing about them is written here by hand.
   | 'set-slab-type'
   | 'set-ceiling-type'
+  // RAC U9.2 — the SAFE DESTRUCTIVE tranche, generated from DeleteFamilies.ts.
+  // Nothing about them is written here by hand either; what makes them
+  // different from every spec above is `destructive: true` +
+  // `requireResolvedIds: true`, both set by the generator.
+  | DeleteFamilyIntentId
   | 'add-wall-layer';
 
 export type SpecDrivenIntent = Extract<SemanticIntent, { intent: SpecDrivenIntentId }>;
@@ -146,6 +156,25 @@ export interface CapabilityExecutionSpec<I extends SpecDrivenIntent = SpecDriven
   /** All current spec capabilities are reversible one-undo batches; kept
    *  explicit so a future destructive spec is a visible decision. */
   readonly destructive: boolean;
+  /**
+   * RAC U9.2 — the plural noun, when adding an "s" is wrong ("furnitures").
+   * Absent ⇒ `${elementKind}s`, which is what every pre-U9 spec produced, so
+   * the pinned acceptance copy is byte-identical.
+   */
+  readonly nounPlural?: string;
+  /**
+   * RAC U9.2 — forbid the unbounded `'all'` payload form.
+   *
+   * A non-destructive batch may send `idsField: 'all'` and let the command
+   * enumerate: the outcome is one undo entry and an honest "Changed N of M"
+   * report either way. A DESTRUCTIVE one may not, because the Confirm card is
+   * shown BEFORE the command runs and "delete every window in the project"
+   * with no number in it is a card that cannot be read. When this is set, an
+   * `'all'` scope is resolved to real ids through `ctx.resolveScope` first —
+   * and an ABSENT resolver refuses rather than widening, because widening is
+   * exactly the failure the flag exists to prevent.
+   */
+  readonly requireResolvedIds?: boolean;
 }
 
 // ─── The table ───────────────────────────────────────────────────────────────
@@ -300,6 +329,22 @@ export const EXECUTION_SPECS: SpecTable = {
     CATALOGUE_FAMILIES.map((f) => [f.intent, catalogueFamilySpec(f)]),
   ) as unknown as Pick<SpecTable, CatalogueFamilyIntentId>),
 
+  // ── RAC U9.2 — the DELETE FAMILIES, generated ─────────────────────────────
+  //
+  // Scoped deletion ("delete all furniture in the kitchen"), which the chat
+  // could not say at all: `delete-selected` only ever meant the thing already
+  // clicked. Same generation seam as the catalogue families above, and the
+  // same double check on it — `DeleteFamilyIntentId` is a subset of
+  // `SpecDrivenIntentId`, and the registry test asserts a capability exists
+  // for every family. What the generator ADDS is the safety contract these
+  // are the first capabilities to need: `destructive: true` (Confirm card) and
+  // `requireResolvedIds: true` (the card's number is a real count, never the
+  // unbounded 'all' form). Both are set in ONE place — DeleteFamilies.ts —
+  // so a fifth deletable kind cannot arrive without them.
+  ...(Object.fromEntries(
+    DELETE_FAMILIES.map((f) => [f.intent, deleteFamilySpec(f)]),
+  ) as unknown as Pick<SpecTable, DeleteFamilyIntentId>),
+
   /**
    * §FEAT-WALL-LAYER-ADD-BATCH — "add a 10mm plaster layer to the inner side
    * of the selected wall". Honest completeness refusals: the intent is CLAIMED
@@ -404,6 +449,10 @@ export function applyExecutionSpec(
 ): SemanticApplication {
   const spec = EXECUTION_SPECS[si.intent] as CapabilityExecutionSpec<SpecDrivenIntent>;
   const kind = spec.elementKind;
+  /** The noun in the plural the capability speaks — "furniture", not
+   *  "furnitures". Defaults to the pre-U9 `${kind}s`. */
+  const plural = (n: number): string =>
+    n === 1 ? kind : (spec.nounPlural ?? `${kind}s`);
   const refuse = (reason: string, suggestions: readonly string[] = spec.suggestions): Refusal => ({
     kind: 'refusal',
     intent: si.intent,
@@ -472,12 +521,11 @@ export function applyExecutionSpec(
     const where = result.diagnostics[0]
       ?? (basePhrase.length > 0 ? basePhrase.replace(/^on |^in the /, '') : '');
     const n = result.ids.length;
-    const plural = n === 1 ? '' : 's';
     const head = base === 'all' || base === 'selection'
-      ? (base === 'all' ? `all ${n} ${kind}${plural}` : `${n} selected ${kind}${plural}`)
+      ? (base === 'all' ? `all ${n} ${plural(n)}` : `${n} selected ${plural(n)}`)
       : base.kind === 'orientation'
-        ? `all ${n} ${where} ${kind}${plural}`
-        : `all ${n} ${kind}${plural} ${base.kind === 'level' ? 'on' : 'bounding'} ${where}`;
+        ? `all ${n} ${where} ${plural(n)}`
+        : `all ${n} ${plural(n)} ${base.kind === 'level' ? 'on' : 'bounding'} ${where}`;
     scopeLabelOverride = filterPhrase.length > 0 ? `${head} ${filterPhrase}` : head;
     for (const s of result.skipped) {
       scopeNotes.push(`${s.count}× ${s.kind} skipped: ${s.reason}`);
@@ -486,6 +534,24 @@ export function applyExecutionSpec(
     const matches = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === kind);
     if (matches.length === 0) return refuse(selectionRefusal(spec, ctx));
     ids = matches.map((s) => s.elementId);
+  } else if (spec.requireResolvedIds === true) {
+    // RAC U9.2 — a destructive capability may not dispatch the unbounded
+    // 'all' form: the Confirm card has to state a COUNT before the user
+    // agrees to it. Resolve the project-wide scope to real ids here, and
+    // refuse if the resolver is absent rather than silently widening.
+    if (ctx.resolveScope === undefined) {
+      return refuse(
+        `I can't count every ${kind} here — scope resolution isn't wired into this chat ` +
+        `context, and I won't run a delete without telling you how many first.`,
+      );
+    }
+    const result = ctx.resolveScope({ kind: 'all', elementKind: kind });
+    if (isScopeError(result)) return refuse(result.error);
+    if (result.ids.length === 0) {
+      return refuse(`There are no ${spec.nounPlural ?? `${kind}s`} in this project — nothing was changed.`);
+    }
+    ids = result.ids;
+    scopeLabelOverride = `all ${result.ids.length} ${plural(result.ids.length)} in the project`;
   } else {
     ids = 'all';
   }
@@ -501,7 +567,7 @@ export function applyExecutionSpec(
     ? scopeLabelOverride
     : ids === 'all'
       ? `every ${kind} in the project`
-      : `${ids.length} selected ${kind}${ids.length === 1 ? '' : 's'}`;
+      : `${ids.length} selected ${plural(ids.length)}`;
   const notesTail = scopeNotes.length > 0 ? ` (${scopeNotes.join(' · ')})` : '';
   const command: BusCommandRef = {
     type: spec.busCommand,

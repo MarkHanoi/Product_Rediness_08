@@ -525,6 +525,20 @@ function gateCtx(
   } as ResolverContext;
 }
 
+/**
+ * RAC U9.2 — the stub scope resolution the gate hands to families that declare
+ * one. Three ids and a named level: enough for the arm to produce a real count
+ * and a real label, and deliberately NOT enough to be mistaken for a model —
+ * the question 4b asks is "does this example reach its own capability without
+ * being refused", not "is the count right".
+ */
+const GATE_STUB_SCOPE = (): ScopeResult => ({
+  ids: ['gate-scope-1', 'gate-scope-2', 'gate-scope-3'],
+  kindCounts: {},
+  skipped: [],
+  diagnostics: ['Level 0'],
+});
+
 /** The FULL ladder the chat bridge uses, in the bridge's order. */
 function resolveFull(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
   const plan = resolveCompoundUtterance(utterance, ctx);
@@ -550,50 +564,37 @@ const FAMILY_BY_ID = new Map(CORPUS.families.map((f) => [f.id, f]));
 /**
  * ⚠ SHRINK-ONLY — check 4b, EXAMPLES THAT DO NOT RESOLVE IN THEIR FAMILY'S CTX.
  *
- * Baseline 11, frozen 2026-08-11 (was 5 the same day). RAC U9.2 added SIX, all
- * of them the SPATIAL-example case already recorded below, and all of them
- * structural rather than optional:
+ * Baseline 1, frozen 2026-08-11. It was 5, then 11, then this, all on the same
+ * day, and the middle number is the interesting one: RAC U9.2's six
+ * scoped-delete examples ("delete all furniture in the kitchen", "clear the
+ * furniture on this floor", "remove every window on level 2", "delete all
+ * windows in the kitchen", "delete all doors on level 2", "delete all columns
+ * on level 2") ALL failed this check while being perfectly correct in the app.
  *
- *   • delete-furniture-scoped  "delete all furniture in the kitchen"
- *   • delete-furniture-scoped  "clear the furniture on this floor"
- *   • delete-windows-scoped    "remove every window on level 2"
- *   • delete-windows-scoped    "delete all windows in the kitchen"
- *   • delete-doors-scoped      "delete all doors on level 2"
- *   • delete-columns-scoped    "delete all columns on level 2"
+ * That was the harness, not the resolver. Every scoped delete refuses without a
+ * real scope resolver — that is the `requireResolvedIds` safety property doing
+ * its job, since a Confirm card with no count may not be shown — and the gate
+ * injected none. Raising the baseline to 11 would have recorded six healthy
+ * capabilities as debt forever, so the reader was taught instead: an acceptance
+ * family may now declare `scoped: true`, and the gate hands it a stub
+ * `resolveScope` (GATE_STUB_SCOPE). The same fix retired set-wall-rake's
+ * "tilt all walls on the ground floor by 60 degrees", and widening three wall
+ * families from `ctx: {}` to `ctx: scopedSel('wall')` retired their three
+ * selection-form examples — which is precisely what the old note said the fix
+ * would be.
  *
- * These capabilities cannot HAVE an example that resolves in this harness, and
- * that is the safety property working, not a defect: `requireResolvedIds` means
- * a scoped delete refuses unless a real scope resolver hands it a real count,
- * so even a bare "delete all furniture" correctly answers "I won't run a delete
- * without telling you how many first". The acceptance suite injects a stub
- * resolver and all six pass there (`deleteScopeCtx` in
- * capability-acceptance.test.ts); the gate's corpus reader parses `ctx:
- * sel('kind')` LITERALS only and cannot see it. The honest fix is to teach the
- * reader about a family that declares a scope resolver — which lowers this
- * number by seven, counting set-wall-rake's — and it belongs to whoever owns
- * acceptanceCorpus.ts.
+ * The ONE that remains is a genuine family-context mismatch, not a resolver
+ * defect:
  *
- * The original five are declared
- * examples whose phrasing needs a context the family does not declare, NOT
- * resolver defects — each was walked:
+ *   • delete-selected  "remove this wall" — the family's ctx is sel('door'), so
+ *     the resolver correctly answers "You asked to delete a wall, but the
+ *     selected element is a door." A family cannot declare two selections at
+ *     once; splitting it is the fix, and it costs a second family entry.
  *
- *   • delete-selected  "remove this wall"                       — family ctx is sel('door')
- *   • set-wall-type    "set the selected walls to exterior brick"
- *   • set-wall-color   "paint the selected walls light grey"
- *   • set-wall-rake    "make the selected walls angled by 70"   — the three
- *     SELECTION-form examples of capabilities whose family ctx is `{}` (their
- *     phrasings are all-scope), so each correctly refuses "No walls are selected".
- *   • set-wall-rake    "tilt all walls on the ground floor by 60 degrees" — a
- *     SPATIAL example; the gate injects no `resolveScope`, so the arm correctly
- *     answers "spatial scoping isn't wired into this chat context".
- *
- * Each is a refusal the resolver is RIGHT to give. The debt is that the
- * acceptance families do not declare the contexts their capabilities' own
- * examples need — fixable only inside the acceptance suite, which this pass
- * does not own. Lowering this baseline means widening a family's ctx; it may
- * never rise without naming the new example here.
+ * Lowering this to 0 means splitting that family. It may never rise without
+ * naming the new example here AND stating why the context cannot be widened.
  */
-const MAX_UNRESOLVED_EXAMPLES = Number(process.env.PRYZM_CHAT_MAX_UNRESOLVED_EXAMPLES ?? 11);
+const MAX_UNRESOLVED_EXAMPLES = Number(process.env.PRYZM_CHAT_MAX_UNRESOLVED_EXAMPLES ?? 1);
 
 /**
  * ⚠ SHRINK-ONLY — check 4c, CAPABILITIES WITH NO ADVERSARIAL PIN.
@@ -629,9 +630,8 @@ const MAX_UNPINNED_CAPABILITIES = Number(process.env.PRYZM_CHAT_MAX_UNPINNED ?? 
 /**
  * ⚠ SHRINK-ONLY — check 5c, SPATIAL MODES HONOURED BUT NOT DECLARED.
  *
- * Baseline 28, frozen 2026-08-11 (was 20 the same day; RAC U9.2 added the four
- * scoped-delete families, each honouring `selection` and `orientation` without
- * declaring them —
+ * Baseline 24, frozen 2026-08-11 (was 20 the same day; RAC U9.2 added the four
+ * scoped-delete families, each honouring `orientation` without declaring it —
  * the identical mechanism as the twenty below, for the identical reason: the
  * arm handles the superset, and no delete grammar produces "all south-facing
  * windows". Declaring the mode instead would have been the ElementCapabilities
@@ -653,7 +653,7 @@ const MAX_UNPINNED_CAPABILITIES = Number(process.env.PRYZM_CHAT_MAX_UNPINNED ?? 
  * can, and it shrinks either by declaring the mode (once the grammar produces
  * it) or by narrowing the arm. It may not rise silently.
  */
-const MAX_UNDECLARED_SPATIAL_REACH = Number(process.env.PRYZM_CHAT_MAX_SPATIAL_REACH ?? 28);
+const MAX_UNDECLARED_SPATIAL_REACH = Number(process.env.PRYZM_CHAT_MAX_SPATIAL_REACH ?? 24);
 
 /**
  * ⚠ SHRINK-ONLY — check 3e, GLOBAL CAPABILITIES WHOSE ROUTE IS UNCLASSIFIED.
@@ -1169,7 +1169,17 @@ for (const c of caps) {
     examplesRun += 1;
     let r: ZeroTokenResolution;
     try {
-      r = resolveFull(example, gateCtx(family.selectionKind));
+      // RAC U9.2 — a family that declares `scoped: true` gets the stub scope
+      // resolver its ctx injects in the suite. Without this the gate could
+      // only ever report "spatial scoping isn't wired into this chat context"
+      // for every spatially-scoped example, which measures the HARNESS, not
+      // the capability — and for the scoped-delete families, whose safety
+      // property (`requireResolvedIds`) makes a resolver mandatory even for
+      // "delete all furniture", it would have been every example they have.
+      r = resolveFull(
+        example,
+        gateCtx(family.selectionKind, family.declaresScopeResolver ? GATE_STUB_SCOPE : undefined),
+      );
     } catch (err) {
       unresolvedExamples.push(`${c.id}: example "${example}" threw — ${String(err)}`);
       continue;
