@@ -1543,3 +1543,110 @@ These are **not green**. They are unmeasured, and the reason is stated so the ne
 - **L-753's stated conclusion is challenged, not contradicted**, by **L-772**. The measurement is real; the interpretation needs one more run.
 - **L-391 (no CRDT network backend), L-345 (GDPR), L-344/L-396 (DR), L-409 (device matrix), L-584 (façade rasant), L-663 (recovery loop), L-02 (heavy-tower nav), L-752 (isolation variant five)** are pre-existing OPEN rows folded into this assessment rather than re-derived. They are still open and are counted in §7.2.
 - **CLAUDE.md needs a one-line correction**: the 8 principles are *not* currently CI-enforced and merge-blocking. Fix the CI (**L-754**) or fix the sentence — but they must not disagree, because that sentence is why nobody checked.
+
+---
+
+# §8 AUDIT REMEDIATION SESSION — 2026-08-11 (baseline `e205864e`)
+
+Worked against `ENGINEERING-AUDIT-2026-08-11.md` + `AUDIT-REMEDIATION-SESSION-PROMPT.md`.
+GA suite **before: 15 passing · 17 failing (14 declared debt, 3 regression)**.
+GA suite **after Waves 1–3 partial: 20 passing · 12 failing (10 declared debt, 2 regression)**.
+
+## §8.1 THE HEADLINE — four gates were measuring nothing, and three were clean all along
+
+The audit reported 3 regressions blocking CI. The larger finding is that **the enforcement
+layer itself was the least trustworthy part of the repo.** Of the five gates closed so far,
+**four were never measuring their subject**, and three of those had been green-worthy for
+months while the ledger asserted the opposite. This is the FOURTH occurrence of the shape
+(after P2/L-811) and should be treated as a standing class: **a gate claiming to have measured
+something is worth nothing until you have watched it fail.**
+
+- **L-827 · `check-project-isolation` was 100 % blind, and did not crash.** `execSync` runs
+  under `cmd.exe` on Windows, where `2>/dev/null` is an invalid path; the `|| echo 0` fallback
+  then fired and the gate read a literal `0` for **all four** C13 anchors — while all four were
+  present (measured 33 / 3 / 1 / 1). Worse than L-811: a crash is honest, this returned a
+  **well-formed number that looked like a measurement**. And it sat on `gate-debt.json`, so its
+  permanent red was the one state nobody investigates. **C13 isolation was intact and
+  unmeasured; the ledger said the opposite.** Ported Node-native → PASSES. A missing subject
+  now exits **2** (never absorbable). Counts are comment-stripped — `BatchCoordinator.ts`
+  mentions `forceReset` 33 times and uses it twice, so raw counting let *prose* satisfy the
+  gate. Thresholds unchanged; they simply evaluate now.
+- **L-828 · `check-scene-graph` + `check-geometry-ceiling`** died on `spawnSync rg ENOENT` at
+  **exit 1 — the same code a real violation produces** — and were absorbed as declared debt.
+  Ported: each reads 4,694 files and **both PASS ON MERIT**.
+- **L-829 · `check-zoning-fidelity-label` was FALSELY ACCUSING honest source.** The audit
+  recorded "2 of 6 refusal arms omit `r.code`". **The render was already correct.** The gate
+  sliced its region to a later statement and harvested arms with a naive backtick regex,
+  sweeping in a quoted path **inside a comment** and an **admin button**. Complying with the
+  audit would have meant stamping a refusal code onto a button. Source NOT modified. Rewritten
+  with a template-literal-aware tokenizer, content-based subject discovery (a rename can no
+  longer blind it) and four honesty floors; 19 specs where it had none. ⚠ **A lying gate is
+  worse than a blind one**: while it accused a phantom, a real codeless arm added next door
+  would have been invisible inside the same count.
+- **L-830 · P8 was ENFORCEMENT-BLIND.** `check-otel-spans` printed `255/256 … OK` and **exited
+  0** — it reported the violation in its own headline number. Discovery walked
+  `plugins/*/src/handlers/` only; the test was an **absolute floor**, never a ratio, leaving 42
+  files of slack. Now three zones: A zero-tolerance, B a named shrink-only baseline over the
+  families discovery never reached, C a census printing the true gap — **1,641 of 1,878
+  exported-function files carry no span**, printed and never counted as a pass.
+
+## §8.2 Product defects proven
+
+- **L-831 · Sync never carried property mutations; the mechanism is worse than reported.** No
+  allowlist exists — `CommandBus` routes every command generically. The filter is one line:
+  `if (!elementId) return;` — a **silent drop, no log, no counter**. The synced set is not
+  "create verbs", it is *payloads with a top-level `id` key*. ~50 property verbs key
+  `wallId`/`elementId`/… and were dropped without trace, including the property panel live
+  route. Writes also went to a Y.Map named after the **command type**, so an edit could never
+  land on the create record of its element. **The received value was `3`, not `undefined`** —
+  the collaborator keeps the creation-time height forever, confidently. 25 verbs wired, 32
+  declared NOT-SYNCED with reasons, new `check-sync-disposition` gate. **Still not
+  end-to-end**: nothing reads the element map back into local stores, and no CRDT transport is
+  deployed (L-391).
+- **L-832 · The C63 denominator was a distinction the model could not represent.** No
+  `buildableLand`/`netLand`/`grossLand`/`landBasis` identifier existed in TypeScript.
+  `DensityScope` was a metadata string **no consumer read**, and the German GRZ matcher passed
+  `undefined` deliberately. So `densityCoherence()` validated that FAR, coverage and height
+  agreed: **a healthy aggregate over an unmodelled denominator**. Probe: FAR 0.9 over *gross*
+  land, coverage 0.5 over the *parcel* → verdict `pass`; the assertion reads
+  `expected 'pass' not to be 'pass'`. Now an invariant branded L0 type — mixing bases is a
+  **compile error**. `'buildable'` is declared and deliberately **unreachable**, so the C63
+  ratified denominator is still unscoreable, but the gap is legible instead of invisible.
+- **L-833 · Undo ordering is decided by a stopwatch, and one Ctrl+Z corrupts a second edit.**
+  Three mutations of one wall use three mechanisms, reconciled by a 250 ms **wall clock**. At
+  400 ms pacing it is correct (the audit "always fails" is too strong — stated as measured).
+  At 80 ms apart, one keypress reverts the **oldest** mutation, leaves the **newest**, and
+  **silently clobbers the colour edit**. The cliff sits at gap = 125 ms, so a **2 ms**
+  difference in click speed changes the result. Also `performUndo()` returns `void`, so
+  "nothing to undo" and "I undid something" are the same value (C03 §4.6 U-4); and 16 live
+  door/window handlers declare `affectedStores` that `buildUndoStoreMap` cannot cover,
+  stranding their entries permanently. Encoded as `it.fails` — green while broken, **red the
+  day it is fixed**. NOT yet fixed: the repair is a gesture id stamped at dispatch, which a
+  monotonic counter cannot substitute for.
+
+## §8.3 Decisions taken, with evidence
+
+- **L-834 · The SDK facade cannot absorb the batch-bridge pattern.** Widening
+  `@pryzm/plugin-sdk` was **proved impossible**, not merely awkward: it closes the cycle
+  `plugin-sdk → command-registry → plugin-annotations → plugin-sdk`, and independently
+  `command-registry` is `private:true` while the SDK publishes publicly as `@pryzm/sdk`.
+  Verified independently of the agent proposing it. The bypass baseline moved **178 → 181 —
+  the only raise this session** — with a dated justification naming the real exit (invert the
+  dependency; the SDK re-exports only an accessor).
+
+## §8.4 Still open from this session
+
+1. **`check-visibility-intent-not-ui` 45>43 remains RED.** The intent path was dead — five
+   handlers were `console.debug` and nothing else. **Founder ruling 2026-08-11: take the
+   structurally sound path — wire the store into `composeRuntime` (P1), do not ledger it.**
+   Until that lands, visibility has no persistence, no undo, no sync, and does not survive
+   save/load.
+2. **`check-layer-boundaries` violations 102 → 103** — one new upward import from concurrent
+   work this session; to be attributed and reverted.
+3. **Ten gates remain in the shell-out bug class.** Two of them — `check-motion-gate-coverage`
+   and `check-l7-boundary` — **currently PASS**, which given §8.1 is unproven, not clean.
+4. **~15 further codeless-refusal render sites.** The worst is `maxHeightGate.ts`, whose
+   refusal arm has **no `code` field at all** despite citing C58 — an ordinance-grounded
+   refusal unattributable *by construction*, rendered at 5 call sites.
+5. **8 batch verbs cannot declare a sync subject** — on `xIds: 'all'` the subject set does not
+   exist in the payload; it is resolved inside the command and surfaces only on a CustomEvent.
