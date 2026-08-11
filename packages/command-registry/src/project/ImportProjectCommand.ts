@@ -678,6 +678,16 @@ export class ImportProjectCommand implements Command {
             for (const stair of snapshot.stairs) {
                 try {
                     const cmd = new CreateStairCommand({
+                        // §PERSIST-L1 (W1-1) — preserve the original UUID so railings,
+                        // openings, room boundaries, schedules and selection state all
+                        // continue to resolve after reload. Without it every reference to
+                        // this stair dangles and `level.childrenIds` gains an orphan on
+                        // each round-trip. `ProjectLoader` received this fix in May 2026
+                        // (§PERSIST-L1); this — the default-on import path — did not.
+                        // Also makes the derived `opening-stair-<id>` auto-punch stable,
+                        // so `carveStairOpening`'s idempotency guard stops re-carving a
+                        // fresh duplicate void on every load.
+                        id:                stair.id,
                         baseLevelId:       stair.baseLevelId,
                         topLevelId:        stair.topLevelId,
                         shape:             stair.shape,
@@ -873,6 +883,13 @@ export class ImportProjectCommand implements Command {
             for (const b of snapshot.beams) {
                 try {
                     const cmd = new CreateBeamCommand({
+                        // §PERSIST-L1 (W1-1) — preserve the original UUID so support
+                        // assignments (AssignBeamSupports), schedules, IFC references and
+                        // selection state keep pointing at this beam after reload. The
+                        // constructor mints one only when the field is absent
+                        // (§BEAM-AUDIT-2026-C5), so omitting it re-identified every beam
+                        // on every load and left an orphan in `level.childrenIds`.
+                        beamId:      b.id,
                         startPoint:  b.startPoint,
                         endPoint:    b.endPoint,
                         width:       b.width,

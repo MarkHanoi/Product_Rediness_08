@@ -136,7 +136,7 @@ describe('§GATE-VIS-INTENT — the bridge dispatches the compose-root verbs and
             { type: 'visibility.isolate.selection', payload: { elementIds: ['w2'] } },
         ]);
         // Everything that carries an id is re-projected (non-isolated hides).
-        expect(world.projected[0]!.ids.sort()).toEqual(['edge-1', 'w1', 'w2']);
+        expect([...world.projected[0]!.ids].sort()).toEqual(['edge-1', 'w1', 'w2']);
     });
 
     it('"reveal all" → visibility.reveal.all {}, projects all non-edge ids and resets the panel', async () => {
@@ -144,7 +144,7 @@ describe('§GATE-VIS-INTENT — the bridge dispatches the compose-root verbs and
         await runUtterance('reveal all', ctxOf([]), said, h);
         expect(world.dispatched).toEqual([{ type: 'visibility.reveal.all', payload: {} }]);
         // The legacy restore excludes `role: 'edges'` nodes — mirrored here.
-        expect(world.projected[0]!.ids.sort()).toEqual(['w1', 'w2']);
+        expect([...world.projected[0]!.ids].sort()).toEqual(['w1', 'w2']);
         // The ViewBrowser checkbox state resets through the same event the
         // legacy restore handler used.
         expect(world.restoreEvents).toEqual([{ action: 'restore', target: 'all', value: '' }]);
