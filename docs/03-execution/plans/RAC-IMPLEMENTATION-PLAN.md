@@ -78,8 +78,8 @@ queries become chat-answerable data.
 | U3.1 ✅ | `ScopeDescriptor` union + ScopeResolution/ScopeError contracts (selection/ids/all/level/room/orientation) | all forms consumed |
 | U3.2 ✅ | Injected resolver: all/level/ids + room (boundingWallIds + roomQueryService) + ORIENTATION (θ-threaded facadesByOrientation, exterior-only, detect-rooms-first refusal) | ✅ |
 | U3.3 ✅ | Phrases live: "on level N" · "in the kitchen" · "all south-facing (exterior) walls" across the colour + rake grammars | ✅ |
-| U3.4 | ids-only store accessors (kill `getAll()` deep-clones on scope paths) | ⬜ |
-| U3.5 | In-repo scope benchmarks in CI (level/type < 0.5 ms @5k; orientation < 2 ms @5k) | ⬜ |
+| U3.4 ✅ | ids-only store accessors — `WallStore.getAllIds()` / `getIdsByLevel()` off the Map keys and the secondary level index; the bridge prefers them and keeps the clone walk only as the fallback for stores without the twin. A scope needs identity, not state, and `getAll()` was deep-cloning the whole project to read one string per record | `f86935bc` (U8.2) |
+| U3.5 | In-repo scope benchmarks in CI (level/type < 0.5 ms @5k; orientation < 2 ms @5k) — see the note under Phase U8 for why this belongs in the EDITOR suite, not ai-host | ⬜ |
 
 🧪 After U3:
 *"Make all doors on Level 2 900 mm wide"* ·
@@ -285,14 +285,29 @@ fire ratings) · U7.4 marks, frame colours, room occupancy/fill.
 🧪 *"Set the base offset to 150 mm"* · *"change these doors to fire doors"* ·
 *"make this door accessible"* · *"set the mark to W-101"*.
 
-## Phase U8 — Filter scopes + spatial service ⬜
+## Phase U8 — Filter scopes + spatial service ✅ 3/4 (2026-08-11)
 
-U8.1 `ElementProjection` (versioned, cheap) · U8.2 filter scope over
-`SemanticQueryExpression` · U8.3 near/within element service + `adjacentTo`
-traversal · U8.4 50k-element benchmarks.
+| Sub | What | Status |
+|---|---|---|
+| U8.1 ✅ | `FilterScopeDescriptor` — a base scope NARROWED by predicates, never replaced by them: `PropertyFilter` (area/width/height/thickness/length/sillHeight × `>` `<` `>=` `<=` `=` between, SI values + the unit the user SPOKE) and `TypeFilter` (a catalogue id resolved at parse time). Plus the grammar as a PRE-STRIPPER — filter clauses are lifted out and the capability grammar parses the remainder unchanged, so composition with level/room/orientation is automatic in either word order and cost no capability a single line. `IntentScope` widened every spec-driven capability at once | `5da99e10` |
+| U8.2 ✅ | The editor-side resolution service: base scope first, then ONE record read per surviving id (never a `getAll()` project clone). Missing property ⇒ SKIP with the property named, never a silent 0; unreadable record ⇒ skip with its own reason; `filterStats` carries the extrema. **Closes U3.4** — `WallStore.getAllIds()` / `getIdsByLevel()` are the ids-only twins, and the bridge prefers them | `f86935bc` |
+| U8.3 ✅ | Refusals + summaries that QUOTE the filter: *"No wall is thicker than 300 mm — the thickest is 250 mm (Interior – Partition). Nothing was changed."* · *"Paint all 2 walls on Level 2 thicker than 300 mm white"*. When nothing carried the property at all the copy says THAT ("3 windows have no recorded area") rather than inventing an extremum. 23 tests in `filter-scope.test.ts` | `⟨grammar wiring pending⟩` |
+| U8.4 | 50k-element benchmarks (and U3.5's 5k scope budgets) | ⬜ |
 
-🧪 *"…all windows with sill below 900 mm"* · *"walls thicker than 200 mm"* ·
-*"furniture near the entrance"*.
+🧪 *"make all walls thicker than 300 mm on level 2 white"* · *"paint all
+south-facing walls longer than 4 m white"* · *"change all doors narrower than
+900 mm on level 2 to fire door"* · *"change all interior – partition walls to
+exterior – brick"* · *"all windows with a sill below 900 mm"*.
+
+❌ Not yet: proximity (*"furniture near the entrance"*) and `adjacentTo`
+traversal — those need a spatial-index service, not a predicate over a record.
+
+> **U3.5 / U8.4 stay open, and the reason is not time.** The thing worth
+> measuring — the indexed store walk and the per-id record read — lives
+> editor-side in the bridge, and the ai-host suite is a Node environment with
+> no stores in it. A benchmark there would time a synthetic stand-in and report
+> a number about the wrong system ([[probe-can-be-wrong-three-ways]]). The
+> honest home for it is the editor spec suite, against real stores.
 
 ## Phase U9 — Batch-creation parametrics + safe E-class ⬜
 
