@@ -5,6 +5,19 @@
 
 **Working-tree caveat:** the tree was DIRTY throughout (a live RAC agent mid-edit). Where that changes an answer it is stated — it changes finding P0-4.
 
+> ### ⚠ THIS DOCUMENT HAS BEEN ANNOTATED, NOT REVISED — see [§17](#17-remediation-annotation--2026-08-11-post-audit)
+>
+> Everything in §1–§16 is the record of what was true on **2026-08-11 at `9ad92622`** and is
+> preserved **verbatim**. Nothing has been deleted, softened, or quietly re-scoped. Thirty-four
+> commits of remediation landed afterwards (`e205864e..HEAD`); **§17 carries a
+> CLOSED / OPEN / CORRECTED / CHANGED status for every P0 and P1**, each backed by a commit SHA
+> or an executed gate reading.
+>
+> **Read §17 before acting on any finding below.** Four of this document's findings are
+> **CORRECTED — the audit was wrong**, and in one case (P0-10) complying with it would have
+> damaged honest source. The audit's own premise is also reframed there: the drift was not
+> primarily implementation-vs-documentation, it was that **the measuring instruments were broken.**
+
 ---
 
 ## 1. Executive verdict
@@ -361,3 +374,333 @@ The five defect classes have not stopped recurring — **but the recurrences are
 **Second: the documents did not move with the fixes.** P0-3, P0-11 and P0-12 are one shape — an enforcement claim that outlived the code it described. STR-03 §12.2 names *"the gate whose own arithmetic disproves its verdict"* as class 2; **P0-12 is a document whose own repository disproves its verdict, sitting inside the section that teaches the lesson.**
 
 And by §12.4's own standard — *a gate nobody has watched fail is a gate nobody should trust* — **P0-2 remains the sharpest instance in this audit: seventeen benchmarks nobody has ever watched fail, because nothing has ever run them.**
+
+---
+
+# §17 Remediation annotation — 2026-08-11 (post-audit)
+
+**Annotated:** 2026-08-11 · **Baseline of the annotation:** `main` @ `c7690b60` ·
+**Range reviewed:** `e205864e..HEAD`, 34 commits ·
+**Method:** every status below is backed by a **commit SHA** whose diff or message was read
+(`git show <sha> --stat`), by an **executed gate reading**, or by a **read of the file at HEAD**.
+Where none of those was available the row is marked **UNVERIFIED** and says why.
+
+**The annotation rule.** §1–§16 are not edited. They are the record of `9ad92622`. This section
+adds status; it never revises a finding. Two of the audit's findings turned out to be
+**materially wrong**, and one of them (**P0-10**) would have caused damage if implemented —
+those are recorded here as CORRECTED, with the counter-evidence, rather than erased above.
+
+---
+
+## §17.0 The meta-finding — the audit's premise was half right, and the wrong half was the important one
+
+> The audit's premise was that **implementation had drifted from documentation.** What the
+> remediation found is that **the measuring instruments were broken.**
+>
+> **Fifteen gates reported numbers they had never measured. Eight guarded invariants that had
+> been clean for months.** `check-project-isolation` returned a well-formed literal `0` for all
+> four C13 anchors on every Windows run while all four were present (33/3/1/1) — it did not
+> crash, so "I could not look" and "I looked and found nothing" were the same value.
+> `check-scene-graph`, `check-geometry-ceiling` and six more died on `spawnSync … ENOENT` at
+> **exit 1 — the same exit code a real violation produces** — so the debt ledger recorded a
+> crash as merit. `check-zoning-fidelity-label` was not blind but **lying**: it accused honest
+> source. And `check-motion-gate-coverage` printed a **FALSE STRUCTURAL CLAIM** — *"R11
+> structurally retired — no Canvas2D view manager files found at any candidate path"* — about a
+> directory holding **83 files**, and it was **EXITING 0**, so it was never even on the debt
+> ledger. Green and blind is the most dangerous state a gate can occupy, and it is the one state
+> no ledger can see.
+
+The corollary reframes §12 and §15 of this document: **the three "regressions" that made §1's
+verdict RED were not three regressions.** Two of them were one artefact — a single file deleted
+by a concurrent stream, which `git ls-files` still listed from the index, so three gates threw
+ENOENT and the suite recorded three separate failures (`9044f69f`). One was the lying zoning gate
+(`c3d74927`). Exactly one — P7 visibility at 45>43 — was a real breach, and it is now closed at
+40/43 with the baseline never raised (`e021513d`).
+
+**This does not vindicate the repository.** It relocates the defect. An enforcement layer that
+cannot be trusted to report its own subject is a worse finding than the drift the audit set out
+to measure, because every other number in this document was read through it.
+
+---
+
+## §17.0.1 The deepest structural finding — it post-dates the audit entirely
+
+**`composeRuntime` composes only the plugin-DTO half of the model.** Measured by a real headless
+composition (`821a5d0b`) — real `composeRuntime`, real `bootstrapWithEverything`, happy-dom,
+51 slots, bus registry 236, **zero stubs on the measured path**:
+
+```
+runtime.stores exposes: registerHydrator, hydrate, viewState, project
+wallStore=ABSENT  slabStore=ABSENT  roofStore=ABSENT  stairStore=ABSENT
+columnStore=ABSENT curtainWallStore=ABSENT gridStore=ABSENT beamStore=ABSENT
+handrailStore=ABSENT roomStore=ABSENT ceilingStore=ABSENT floorStore=ABSENT
+furnitureStore=ABSENT plumbingStore=ABSENT
+doorStore=MODULE-SINGLETON  windowStore=MODULE-SINGLETON
+```
+
+The stores the serializer, the builders, the 2-D projector and the IFC exporter actually read are
+built by `engineLauncher` — the DOM/renderer half — and are **never referenced by
+`composeRuntime`**. Doors and windows are reachable only by accident of module scope.
+**For twelve element kinds, "did this command change authoritative state?" is unprovable by
+construction.**
+
+That is very likely the **single common cause** behind three findings this document treats as
+separate: the dead verbs (§6 class A), the shadowed routes (L-839 / `roof.update` and its fifteen
+siblings), and the lying move verbs (§17.3 N-1). A verb can dispatch cleanly, return
+`success: true`, arm an undo pair, and change nothing — not because its author was careless, but
+because the composition root never gave it anything authoritative to write.
+
+Measured, not inferred, in the same probe: `door.create` dispatched OK with the authoritative
+`doorStore` going 0 → 0; `door.move` refused *"door not found"* against a door that **is**
+authoritative. Both of that probe's passes came via persistence and `command-registry`, **never
+via the bus**. Every green cell was watched failing before it was believed.
+
+---
+
+## §17.1 P0 status
+
+| ID | Status | Evidence |
+|---|---|---|
+| **P0-1** CI red on `main`, 3 undeclared ratchet breaches | **CORRECTED** | **None of the three was the regression this document describes.** `check-declared-project-scopes` + two others all died on ONE file a concurrent stream had deleted: bare `git ls-files` lists the *index*, so the gates read a tracked-but-deleted path and threw ENOENT at exit 1 — the suite recorded three separate REGRESSIONS from one artefact (`9044f69f`). With the crash fixed, `check-layer-boundaries` reads 102/102 · 13/13 — **the "103 violations" was the same artefact.** `check-zoning-fidelity-label` was a false accusation (see P0-10). The one real breach, P7 45>43, is closed (see P0-9). **Executed today** — `npx tsx tools/ga-gate/run-all.ts` → **`35 passing · 4 failing (4 declared debt, 0 regression)`**. The suite is still **BLOCKED**, but by declared debt plus one exit-3 ratchet, not by any regression. |
+| **P0-2** C10 §4's merge blockers have never blocked a merge | **CHANGED** | `c7690b60`. Benches now **execute** in CI: `ci.yml:400` `nft-bench`, **0 of 19 → 16 executing**. But three things differ from the finding. (a) **C10 defines 19 NFTs, not 17** — the brief, C10 §4's own row and the ratchet spec all said 17; NFTs 18 and 19 were outside every count. (b) A **fifth** rival target set was found (this document knew of four); `nft-targets.ts` now mirrors C10 verbatim with `c10-crosscheck.test.ts` parsing the C10 markdown *at test time*, and `nftLimit()` **throws** for a not-yet-measurable NFT so a proxy bench cannot borrow C10's number. (c) **The job lands ADVISORY** (`ci.yml:35-37`, `:401`), so "never blocked a merge" is still literally true — it is now *measured* rather than *unmeasured*. **Two NFTs ship RED, targets not moved:** NFT 15 — `dist/` is **9.85 MB gzipped across 203 assets against a 4 MB budget, 2.5× over, the first honest bundle measurement ever taken** (the old bench gzipped export-name strings and asserted `> 0`); NFT 12 family-load unstable at 391.7 ms under parallel load, reported as NOT RELIABLY PASSING rather than green. The `@vitest/browser` migration this document's R2 required was **refused with reasons** — a browser-flavoured proxy is still not a compositor paint event, the honest measurement already exists at `tests/e2e/cold-boot.spec.ts`, and NFT 15 is a *build* quantity a browser cannot help with. |
+| **P0-3** P8 enforcement-blind twice | **CLOSED** | `c3d74927` (L-830). ⚠ **The audit mis-transcribed the reading.** It records `255/255 ✅ · OK: 255 ≥ HARD_FLOOR(213)`. The gate actually printed **`255/256 … OK` and exited 0** — *it reported the violation inside its own headline number*. Both structural findings were real and are fixed. **Executed today:** Zone A (CommandBus handlers, **zero tolerance**) **256/256**; Zone B (command-registry + app handlers + plugin barrels — the families discovery never reached) 52 uninstrumented of 60 against a named shrink-only baseline of 52; Zone C **§CENSUS: 1,648 of 1,885 files declaring an exported function carry no span**, printed on every run and **explicitly NOT gated**, with the gate itself stating *"P8 as written in C10 §2 is not fully enforced by any gate in this repo."* The absolute floor is gone. |
+| **P0-4** A read-only question mutates geometry | **CHANGED** | The resolver-level fix (`fd27e513`) **holds**: 0 mutations across 38 adversarial read-only phrasings including all nine imperative-plus-measurement forms (`5eebc32c`). But the finding was **larger than measured**: 35 of those 38 ended as an honest `miss`, and a miss falls through to `QueryEngine` — **which was mutating by default**. Measured with a stub `aiService` that *returns* a proposal (probing with `aiService === null` short-circuits the branch under test and yields a false pass): **7 failed / 46 passed**, including `'do not create 5 levels at 3m'` and `"don't make all slabs white"` — **the literal opposite instruction queued the mutation.** The scorecard's 38 were safe only because none happened to contain one of that table's unanchored regexes — luck, not a guard. Fixed by **inverting the default** (`QueryPattern.readOnly?: true`, mutating by default, safety opt-in), 57/57 after, with a positive control proving the harness can still see a proposal (`6b538355`). **The structural gap this document names — no read-only/visibility capability class exists — is still OPEN.** |
+| **P0-5** `applyOverhang` is a centroid dilation sold as an offset | **CLOSED** | `26b7848c`. Oracle run against pre-fix code via `git show HEAD` (never `git stash`) for a requested 300 mm: square 212.13 (spread 0.00) · **elongated 40×4 → 29.85..298.51, spread 268.66 — one eave at a tenth of what was asked** · L-shape 121.77..260.96 · U-shape 183.24..228.13 · cadastral arc 204.48..297.20. This document measured only the square. **AFTER: every fixture 300.00 mm, spread 0.000 mm**, vertex counts preserved 4→4, 6→6, 8→8. R3 gate **executed today**: `0/0 implementation(s) outside packages/geometry-kernel/src/pure/polygonOffset.ts` across 4,478 files, pinned at **0**, not the 3 its header claimed — the pre-fix reading measured against the gate's own predicate was **4**, and a shrink-only ratchet parked at 3 is three free slots. ⚠ **One nuance inverts R3's prescription:** this document says the fix already exists next door and should be migrated across. It could not be. The correct implementation lived in `geometry-roof` (**L4**) and the shipping committer is reached through `geometry-kernel` (**L2**), which cannot import L4 — **the fix could never have reached production where it sat.** It moved **down**, not across. |
+| **P0-6** `shrinkPolygon` deletes vertices, gates on centroid radius | **CLOSED · one sub-claim CORRECTED** | Fixed at `26b7848c`; all three collapse modes now REFUSE with a named reason (*consumed the ring* / *inverted the ring winding* / *collapsed the ring*). **The defect was worse than described, in a different way:** at the depth the **live hip branch** calls it, a square shrunk by its own inradius returned **four identical points** `[[5,5],[5,5],[5,5],[5,5]]` — not zero — so the apex-pyramid branch downstream was **dead code, unreachable because a collapsed ring never looked collapsed**. A U-shape shrunk 3 m returned 8 vertices AS SUCCESS with a pullback of 1000..2000 mm. ⚠ **CORRECTED: the *"49 % of vertices on real cadastral rings"* figure is NOT REPRODUCIBLE and is effectively fabricated.** Re-measured across 24–4000-segment arcs the loss is **1–3 vertices ABSOLUTE**, and the share **falls** with density — the opposite of the trend a 49 % figure implies. It was borrowed from a threshold six orders of magnitude looser. **Do not cite it.** |
+| **P0-7** A convex hull is committed as the building perimeter | **CLOSED** | `26b7848c`, §W2A-HULL-IS-NOT-A-PERIMETER. Verified by read at HEAD: `packages/ai-host/src/AIService.ts:299-316` now calls `WallRegionExtractor.extractOutermostRegionResult()` and **throws a named refusal** when the hull bridges open air, identifying the offending edge — `throw` being the correct channel because the AI intent path already surfaces thrown reasons to the user. |
+| **P0-8** Partial reports collapse to "Done" | **CLOSED** | `30b2e975` + `f8baded5`. The **probe is the strongest artefact**: the R4 gate was run against a *materialised* pre-fix tree (`git archive HEAD` → scratchpad; no `git stash`) → `FAIL: 12 sites discard an engine report payload`, then against the working tree → `OK: 0`. **Executed today:** `report-payload-discard — 1691 files scanned (excluded 314, floor 800) · OK: 0 dispatch sites discard an engine report payload`. Born at zero, so **not ledgered**. Six cases, six distinct transcripts, asserted by set-cardinality (21/21) with every count and skip reason being the **engine's own string**, joined but never re-narrated. **Case 6 had no representation at all before** and now reads *"I can't tell you what happened — the command was dispatched and sent no report back."* A total timeout is no longer a success. **CHANGED detail: ten batch handlers, not the eight this document named** — ceiling and slab were twins it missed. |
+| **P0-9** P7 is DEAD | **CLOSED · CHANGED** | `e021513d`. **The sharpest finding of the remediation, and this document could not see it:** `runtime.viewRegistry.activate()` has **ZERO production callers** — every hit repo-wide is a test or `runtime-composer` itself, and `buildViewRegistrySlot` self-describes as a *"D.11-prep stub"*. So `activeViewId` is `null` for the entire life of a shipping session and the handlers' `activeViewId() === null → discard the intent` branch **would have fired 100 % of the time, forever**. The wiring was real, the store constructed, the handlers writing, **and the suite green** — because every test calls `activate(VIEW_ID)` in `beforeEach`, which production never does. **P7 was about to ship dead a second time, for an entirely new reason, behind a green suite.** Fixed by distinguishing never-set from set-to-none (failure is not emptiness): never-activated keys to a named `IMPLICIT_MODEL_VIEW_ID`; an *explicit* `activate(null)` still discards loudly and that safety property remains tested. **Executed today:** ARM A 0 across 20 files (hard-0); **ARM B 40/43 — the baseline was NEVER raised**. The gate still prints *"NOT CHECKED: persistence, per-view scoping, AI intent path — a pass here is NOT 'P7 holds'."* ⚠ **One founder judgement call is outstanding**: the `IMPLICIT_MODEL_VIEW_ID` semantics were decided rather than reported, and want confirmation. |
+| **P0-10** Refusals render without their code | **CORRECTED — the audit was WRONG, and complying would have caused damage** | `c3d74927` / L-829. **`GISAreaLayout.ts` was ALREADY HONEST**: all four real refusal arms interpolate `${escHtml(r.code)}`. **The GATE was falsely accusing the source.** It sliced its region from `const reasonLine =` to a *later* `panel.innerHTML =` and harvested "arms" with a naive `` /`[^`]*`/g `` — sweeping in a backtick-quoted path **inside a comment** and the `manualZoneAffordance` **admin button** template. Neither can carry a refusal code. **Complying with this finding as written would have meant stamping a refusal code onto a button** — damaging an honest render to satisfy a bad regex. `GISAreaLayout.ts` was **NOT modified**. The gate was rewritten with a template-literal-aware tokenizer, content-based subject discovery (a rename can no longer blind it) and four honesty floors that exit 2; **19 specs where it had none**, and the negative test proves a stripped code still fails — counted correctly as **1 of 4**, not the phantom 2 of 6. ⚠ **A lying gate is worse than a blind one**: while it accused a phantom, a real codeless arm added next door would have been invisible inside the same count. **The class is real and is now gated separately** — `check-refusal-identity` (`f8baded5`), **executed today: 88 NAMED offenders (arm A 55, arm B 33)**, keyed by file+fragment rather than a count so a PR that fixes one and breaks another still fails. `maxHeightGate.ts` — whose result type has **no `code` field at all** despite citing C58 — is among them and remains **OPEN**. |
+| **P0-11** CLAUDE.md's conflict order omits 53 contracts | **CLOSED** | `a79a17b7`. CLAUDE.md now enumerates **C01–C68 + C24.1** and defers explicitly to `docs/02-decisions/contracts/README.md` as the authority. |
+| **P0-12** STR-03 §2 cites four gate files that do not exist | **CLOSED** | Verified by executing a path check over every gate path STR-03 cites: **all 11 `tools/ga-gate/*.ts` paths exist.** The three `scripts/ci-check-*.ts` strings that remain in the file appear **only inside the dated correction note at STR-03:39-47** that records their absence — corrected in place, never deleted, which is the doctrine. ⚠ **R6 itself remains OPEN**: no gate enforces doc-cited gate-path validity, so the next such citation is unguarded. |
+
+---
+
+## §17.2 P1 status
+
+| ID | Status | Evidence |
+|---|---|---|
+| **P1-1** dead-verb class contained, not closed (15 verbs) | **CHANGED · closed for 17, open for 5 more** | `5e74b178`. **The brief said 15; it enumerated 17**, all measured dead rather than assumed: production `bootstrap.ts:92-97` hands the bus the fresh **plugin DTO stores**, while renderers, the 2-D projector, the IFC exporter and persistence all read the **legacy geometry singletons**, and only `<family>.created` is mirrored. **REFUSE, not retire** — and the reason is verified: `CapabilityRefusal` and `CHAT_UNAVAILABLE` both *name* these verbs and the D14 gate requires every named verb to be registered, so retiring them would make chat's own refusal cite a nonexistent command. The refusal lives in `canExecute`, so the bus throws **before arming either undo stack**. Three are dead for deeper reasons and now say so (`beam.setMaterial` — `BeamData` has no material field at all; `stair.setMaterial` — a fixed enum, not a catalogue id; `structural.setMaterial` — no runtime family exists). The undo hazard this document flagged was **proven, then proven closed**: one `PatchPair` keyed `'wall'` → the *geometry* store for a forward write geometry never saw, so Ctrl+Z rewrote `materialColor` using an inverse computed against the detached DTO store. **Five test files were pinning the lie** and were converted. **Executed today:** the C69 register reads **REFUSES 17**. ⚠ **Residue OPEN — see §17.3 N-1.** |
+| **P1-2** roof form silently substituted (mansard→hip, pitched→flat) | **CLOSED** | `26b7848c` — impossible insets now REFUSE with a named reason instead of substituting a different roof. |
+| **P1-3** honest `OffsetResult` discarded at the wrapper | **CLOSED** | `26b7848c` — one canonical offset routine; R3 executed at 0/0. |
+| **P1-4** the L-825 fix computes the right invariant and never enforces it | **CLOSED** | Verified by read at HEAD: `RoomPolygonUtils.ts:1281-1287` — `_measurePullbackSpreadAtMidpoints()` is now the **load-bearing gate** (`spreadAll.max <= maxInset + SPREAD_TOL && spreadAll.min >= -SPREAD_TOL`), and `:1258` records that the old gate *was* `innerArea >= 0.5 * baseArea`. The array-reference-identity landmine is documented at `:216` and `:1246` and the shape gate no longer depends on it. |
+| **P1-5** `repairToSimplePolygon` invents a boundary, no log, stamped as authored | **OPEN** | Verified unchanged by read at HEAD: `packages/room-topology/src/roomFromGraphSpec.ts:66-83` still calls `repairToSimplePolygon()` with **no log** and still stamps `detectionMethod: 'ai-generated'`, while the sibling `SlabFragmentBuilder.ts:706` refuses on identical input citing ADR-0299. **Blocked on: nothing.** It was simply not in this session's scope. |
+| **P1-6** C63's buildable-land denominator not expressible in the type system | **CHANGED** | `74a20d37`. Closed **as a type**: `LandBasis` is an invariant branded L0 type beside `BuildableEnvelope`; mixing bases is now **TS2345**, verified by removing the `@ts-expect-error` and re-running `tsc`. Three properties make the error *unrepresentable* rather than merely detected — `(b: B) => B` forces invariance (without it TS's structural bivariance accepts a gross ratio in a parcel slot and the brand is decoration); the brand symbol is module-private **with a real value**, so construction needs **zero `as` casts**; and `ratioOverLand` takes `KnownLandBasis`, so a ratio at `'unknown'` **does not exist as a value**. The probe run first against unmodified code read `expected 'pass' not to be 'pass'` — FAR 0.9 over gross sector land, coverage 0.5 over the parcel, three storeys → three mutually consistent numbers about nothing. **Still OPEN as a capability:** `'buildable'` is declared and **deliberately unreachable**, with `unreachableLandBasisRefusal()` so a caller is refused *by name* rather than served a parcel-land figure. C63's ratified denominator remains unscoreable — the gap is now legible instead of invisible. |
+| **P1-7** three wall mutations use three different undo stacks | **CORRECTED (magnitude) · still OPEN** | `284a8db7`. The mechanism is confirmed exactly as described — height pushes to the ring buffer **and** `commandManager`, colour goes to `commandManager` only with no ring push, reconciled by a 250 ms **wall clock**. **But it does NOT reproduce at the pacing this document implies.** At **400 ms apart it is CORRECT**: three undos reverse rake → colour → height in order. It fails **under compression**. At 80 ms apart, one keypress reverts the **oldest** mutation, leaves the **newest** in place, **and silently clobbers the colour edit** (the ring inverse is a whole-record `replace` built from a snapshot taken before the colour edit existed). The guard measures `|t_rake − t_height| = 2 × gap`, so **the cliff sits at gap = 125 ms** — a 2 ms difference in how fast the user clicked leaves the model in different states. Two further defects pinned: `performUndo()` returns `void`, so *"nothing to undo"*, *"I reverted something"* and *"a pending entry was stranded"* are the **same value** to every caller (C03 §4.6 U-4); and 16 live door/window handlers declare `affectedStores` `buildUndoStoreMap` cannot cover, permanently stranding their ring entries. **NOT FIXED** — encoded as `it.fails` (`2 passed | 3 expected fail`), green while the defect exists and **red the day it is fixed**. An earlier draft of that test passed **vacuously** (mis-parameterised on `gap` instead of `2 × gap`) and was fixed and given two probe guards rather than deleted. **Blocked on:** a gesture id stamped at dispatch — *"these two entries came from ONE dispatch"* is a relation a monotonic counter **cannot** express, so swapping the timestamp for a sequence number leaves all three red; its consumer is `performUndoRedo.ts` and its producers are `command-bus`/`command-registry`. |
+| **P1-8** no wall property mutation reaches sync | **CHANGED · legs A and B closed, leg C open** | `e1f6966d` then `b8c58e61`. Directionally right; **the mechanism is worse.** There is no allowlist anywhere — `CommandBus` routes every successful command generically, and the filter is one line inside `applyCommand`: `const elementId = String(payload['id'] ?? ''); if (!elementId) return;` — a **silent drop, no log, no counter**. So the synced set was never "create verbs", it was *payloads with a top-level `id` key*; ~50 property verbs key `wallId`/`elementId`/`slabId` and were dropped without trace, including `element.updateParameters`, the property panel's live route. A second independent defect: writes landed in a `Y.Map` named after the **command type**, so an edit could never reach the create record of its element. **The received value was `3`, not `undefined`** — the collaborator keeps the creation-time height forever, confidently; failure and staleness had the **same observable value**, and every assertion in the fix names the value rather than using `toBeDefined()`. Fixed **by declaration, not special cases**: `syncDisposition.ts` states per command type where the subject id and properties live, proven by a test in which `thickness` is named nowhere and still replicates. **25 verbs wired · 32 declared NOT-SYNCED with written reasons · 24 `disclose` + 1 last-writer-wins.** Leg B (`b8c58e61`) adds `ElementSyncReader` plus a fix for a defect this document never saw: the adapter is constructed behind `requestIdleCallback`, so **commands in the first ~1.5–4 s never reached the Y.Doc at all**, silently — now queued by a `DeferredCrdtApplier` installed synchronously at the top of `bootstrap()`, **bounded at 5000**, with `hasLostCommands` staying true after attach (a loss that stops being reportable once the adapter arrives is just a slower silent drop). **OPEN: leg C — see §17.3 N-5.** |
+| **P1-9** P6's 37 blessed writes include committed model data | **OPEN** | `check-no-direct-store-writes` still passes at its baseline; not addressed this session. |
+| **P1-10** D3 collaboration overstated — C66 3 CLAIMED, 0 HELD | **OPEN — now measured rather than asserted** | ISSUE-LOG §9.5 / L-843: collaboration fails **all 8 rows**, and the reason is structural. Per C66 §1 **no tier is described as supported**, and the probe deliberately did **not** stage a two-adapter test and call it collaboration. **Sharpest sub-finding:** every mass edit the chat can actually perform is declared `not-synced`, because its `"all"` subject is **late-bound** — the batch verbs take `xIds: string[] \| 'all'` and on `'all'` the subject set does not exist in the payload. **The RAC's strongest capabilities are its least syncable.** |
+| **P1-11** STR-06..STR-15 CANONICAL on stale facts | **UNVERIFIED** | Not re-measured. No commit in `e205864e..HEAD` touches STR-06..STR-15, so it is *probably* still true — but "no commit touched it" is not a measurement of its content, and this annotation does not claim one. |
+| **P1-12** "hard-fail" overstated — 3 of 8, not 6 of 8 | **CHANGED** | **Executed today it is 4 of 8.** P1 (`single-compose`: 1 definition, **0 rivals**, 2/2 production callers — the rival is now blessed, see P1-16), P2, P3, P5 (166 files, 7 rules, 0 impurities) are hard-0. P4 is **RED at 218 > 215 and now exits 3**. P6 passes at a baseline of 37. P7 passes at 40/43 with three axes NOT CHECKED. **P8 gained a hard-0 arm** (Zone A 256/256) but its C10 §2 scope is explicitly not enforced (Zone C census 1,648/1,885). The honest sentence is: **four principles hard-fail at the invariant; three are ratchets; P8 hard-fails on a sub-scope it names.** |
+| **P1-13** the C00 index stale where CLAUDE.md defers to it | **UNVERIFIED** | C69 was minted **and indexed** in the same change (`6b18491f`), so the index moved — but I did not re-audit the whole index for the staleness this document reported. |
+| **P1-14** PDF→BIM: five failure-vs-empty defects + ADR-0229 drift + dead cost gating | **CLOSED** | `7085113a`. All five sites fixed; the tier ladder itself was sound, the honesty was not. **The rejection accounting is the one that closes the class:** two worlds differing only in whether there was anything to reject previously produced **byte-identical output** — now World A reads *"0 doors — the page contains no arc primitives at all"* and World B *"0 doors matched out of 12 arcs — 12 REJECTED (12 with no wall close enough to host them)"*. The downloadable diagnostic's hard-coded zeros are now real measurements, and where zeros are unavoidable it flags `preprocessingRan: false` — **the zeros are labelled as not measurements**. Zero-token proof: `PdfToBimZeroToken.spec.ts` spies `aiService.query`, rejects on call, and asserts not-called in a **global** `afterEach`. **ADR-0229 status verified by read at HEAD: `Superseded — 2026-08-11 by ADR-0317`**, text retained verbatim, with Part C's $10 cap and Part E's preview label recorded as *not implemented on the live path* and Part G's rejection of rule-based vector extraction **reversed**. ⚠ Residue: the cost gating is documented-as-dead, not revived. |
+| **P1-15** `room.setMaterial` silently discards catalogue materials | **CLOSED · CORRECTED** | `5e74b178`. The `materialId` path now **refuses**, and the route declares `supportsMaterialId: false` — the correct expression (`MATERIAL_ID_UNSUPPORTED_REASON`) that already existed and was unused. ⚠ **Correction: refusal is the *right answer*, not a workaround — a room has no catalogue-material field.** Do not restate this as *"room materials work"*. The **colour** path was and remains live (`commandManager` → `UpdateRoomCommand` → `roomStore`) and is kept as the probe's **positive control**, so a refuse-everything implementation could not have passed. |
+| **P1-16** P1 has a declared second composition root | **CLOSED** | `d312c01c` + **ADR-0316 verified on disk**. The defect was not the second root, it was that a **constant (`MAX_RIVALS = 1`) is not an architecture decision**. Route (b) — a genuine second surface — chosen **with evidence, not preference**: `composeRuntime` statically imports `@pryzm/renderer-three` (THREE core ~281 KB gzip) against `component-editor`'s hard **180 KB** budget — **1.53× the whole budget for one import** — and additionally requires a `bootstrapFn` from `@pryzm/editor`. Delegation does not make the app expensive, it makes its own contract **unsatisfiable**. The blessing is **executable, not prose**: 8 invariants pinning P6 command-only mutation, verb **reachability**, one-batch-one-undo, P8 spans, total dispose, and the 12 forbidden imports whose presence would collapse the second-surface argument. Writing them found a real bug — `referencePlane.*` and `solid.*` were authored and unit-tested but **registered nowhere**, so clause 3 now asserts reachability rather than existence. **Executed today: 0 rivals.** |
+
+### §17.2.1 The §6 class-E "blind" scene-isolation classes — partly CORRECTED
+
+`d312c01c`. **Most of the classes this document called blind were not silent** — label sprites,
+unstamped fallback boxes and generated massing groups **landed in the unattributed floor,
+unnamed**, which is a weaker defect than "produce no finding at all" and is exactly the honesty
+property §6 praises. They are now **classified by name** rather than merely counted.
+
+**Two classes genuinely vanished, and those were the real false-clean:** (a) a root with an `id`
+but **no type** — coverage waved it through as *attributed* while `detectLeaks` skipped it as
+*untyped*, so it fell between two checks; (b) a foreign subtree **parented under an owned root**,
+silently inherited. Both are now detected, and a coalesced root belonging to a foreign level is a
+real finding rather than a floor entry. The floor-not-total property is preserved and
+strengthened — the excluded-graph clause prints on the **empty, clean and violation** branches
+alike, asserted on all three. Four fixture defects were found in the predecessor's own tests.
+
+### §17.2.2 The §12 gate table — `check-no-commandmanager` CORRECTED
+
+`3a343a7a`. This document's ledger records **14** literal `commandManager.execute` sites.
+**The number is 11**, and the three removed were never violations:
+
+- **Two are inside `console` STRING LITERALS** — `console.error('…: commandManager.execute
+  failed:', err)` and `console.warn('… commandManager.execute not available — skipping …')`.
+  Both are the codebase **REPORTING that the legacy path failed**. Counting the report as a use
+  is the same defect as counting a comment, one layer down: `scanFilesStripped` removes comments
+  but deliberately **preserves string bodies**, which is correct for the security gate it was
+  built for and wrong here.
+- **One is `executeChunked`** — a *different* method, declared only on `CommandManagerImpl:316`,
+  which awaits the command's own chunked implementation and yields a frame between batches so a
+  1,300-element open does not block the main thread. The bus has **no chunked-dispatch API**, so
+  the site is **not migratable in principle** and the gate was asserting a violation with no
+  available fix. **A regex written for `execute` was claiming a method whose name merely starts
+  the same way.**
+
+**The ceiling stayed at 0 and the gate still FAILS at 11** — this was precision, not relief. And
+the deeper answer is that **zero of the 11 should be migrated today**: migrating them would move
+the string out of `apps/editor/src` while the mutation ran through the identical path —
+**laundering the count, not satisfying P6**. Each of the 11 was verified by hand
+(`ProjectLoader:529` — migration *inverts* the intent, pushing ~1,300 creations onto the undo
+stack so one Ctrl+Z starts dismantling the project just opened; `RemoteCommandDispatcher:392` —
+it already *is* the migration, the bus runs first and this is the no-handler `.catch()`;
+`engineLauncher:1007` — the bus path is the known `§F-1.4-REDETECT-LOOP` stack-blowing bug and
+the legacy call is the documented escape). **Executed today: `literal=11 window=62
+cm.execute=62`, still failing, still ledgered.**
+
+---
+
+## §17.3 New findings that post-date the audit — all OPEN
+
+| # | Finding | Evidence | Blocked on |
+|---|---|---|---|
+| **N-1** | **Move has a verb that LIES.** This document's companion claim *"NO MOVE OR ROTATE VERB FOR ANY ELEMENT KIND"* is **FALSE** — `wall.move`, `wall.transform`, `door.move`, `window.move`, `slab.move`, `room.move`, `door.create`, `slab.create` and rotate for furniture/stair/curtain-wall **all exist and are registered**. **The real defect is worse than the one alleged:** five of them (`wall.move`, `wall.transform`, `door.move`, `window.move`, `slab.move`) `produceCommand` against the **detached plugin DTO store** that `5e74b178` proved nothing renders, persists or exports. Only `room.move` is a live bridge. | `ee6ad0d8` | A repeat of the entire 17-verb commit for a second family, **including converting the tests that currently pin the lie**. Deliberately not done shallowly at session end — that is how a dead verb ships twice. |
+| **N-2** | **`ceiling.update` is an exact twin of `roof.update`, still broken.** Same header text as the old `UpdateRoof.ts`, same `produceCommand` into `ctx.stores.ceiling`, shadowing the same way. `roof.update` was closed via route (c) — verbatim the **L-815** precedent, leaving the verb out of the plugin's `HANDLER_TYPES` so the same-name `initBusHandlers` bridge registers — and the register row moved `plugins/roof \| SHADOWED \| UNKNOWN` → `apps/editor \| LIVE \| legacy geometry store`. A second defect was found on the way: **`thickness: -1` was ACCEPTED and REPORTED SUCCESSFUL** — the plugin handler had no validation, converting a refusal into a success *on top of* writing nowhere. | `2c8b4904`; C69 register **executed today: SHADOWED 15** (was 16) | Applying the same route (c) to `ceiling.update`. Note the register classifies SHADOWED from **declaring files, not registration**, and therefore **cannot see a fix** — `wall.updateDimensions` still read SHADOWED months after L-815 fixed it. |
+| **N-3** | **`composeRuntime` composes only the plugin-DTO half — 12 element kinds have no authoritative store in the composed runtime.** See §17.0.1. Very likely the single common cause behind the dead verbs, the shadowed routes and N-1. | `821a5d0b` | An architectural decision, not a patch: either `composeRuntime` owns the geometry stores, or the registration edges invert. |
+| **N-4** | **`packages/headless` v1.0.0-rc.1 CANNOT COMPOSE.** `ComposeRuntimeOptions.bootstrapFn` is **required** and every prior "headless" caller omits it. **Verified: `grep -rn bootstrapFn packages/headless/src/*.ts` → zero hits; `packages/headless/package.json` version `1.0.0-rc.1`.** Its test **mocks `runtime-composer` wholesale — which is HOW it shipped.** RAC-1's earlier diagnosis that `@thatopen/ui` was the blocker was **wrong**; the cost is transform time, not a hang. Convergence boolean #8 (`headless_published`) currently reads ✅. | `821a5d0b`; executed today | Supplying a real `bootstrapFn`, and replacing the wholesale mock with the real composition the probe proved works. |
+| **N-5** | **Collaboration leg C does not exist.** No CRDT transport is deployed (L-391); production is socket.io last-writer-wins full-snapshot. Legs A (`e1f6966d`) and B (`b8c58e61`) landed. Per **C66 §1 zero tiers are HELD.** | ISSUE-LOG §9.5 | Deploying a transport. Until then nobody should read legs A+B as collaboration working — the sync gate says so on every run. |
+| **N-6** | **`check-sync-disposition` sees ~19 % of handlers.** Executed today: `Registered handler types found: 60` against `registered bus commands: 321`. The C69 register reports **sync UNDECLARED for 139 property verbs**. The gate's own output already carries the confession — the same defect `check-chat-capability-coverage` records in its first draft: *"saw 102 of the ~300, confidently wrong."* | executed today | Widening discovery to the registration surface the verb register already reaches. |
+| **N-7** | **`check-cast-count` is RED at 218 vs 215 and rising.** It grew **215 → 217 → 218**, the last increment *during the remediation session*. R7 (`3e662222`) made this visible by giving the ratchet its **own exit code**: `0` clean · `1` failed at its declared level (absorbable if ledgered) · `2` misconfigured (never absorbable, L-811) · **`3` shrink-only ratchet exceeded (never absorbable)**. A distinct exit code rather than louder text, because the ledger is keyed on gate *name* and only the gate knows its own baseline. The contract is pinned by `e7d9fe13` — five assertions on the **contract**, deliberately **not** on the count, because *"a test everybody has to edit is a test nobody reads."* | executed today: `FAIL (repo-wide): 218 … exiting 3` | Fixing the casts. **Do NOT raise the threshold** — the gates say so in both files, because the failure mode here is social. |
+| **N-8** | **CA-21 is NOT ENFORCED.** C16 §5.1 now binds liveness contractually — **CA-17** authoritative-state liveness (authoritative = RENDER ∪ PERSIST ∪ EXPORT, the L1 bus store *explicitly excluded*), **CA-18** refuse with a named reason (three prohibited shapes: bare `success:true`, an empty forward/inverse pair as the whole outcome, silence or `console.debug`), **CA-19** `affectedStores` names the store actually written, **CA-20** registration order is contractual, **CA-21** liveness proven by an **executed read-back**. **`grep -rl "CA-21" tools/ga-gate/` returns nothing** — the one clause that would prevent the next dead verb has no gate. ⚠ **The sharper half of `50496c54`: C16 CA-8 was the written authority the dead verbs were authored under.** It said the bus mutation *is* `produceCommand()` — the L1 store C03 §4.4 already documents as not driving the mesh and not being what the serializer reads. **The contract did not merely fail to forbid the defect; it PRESCRIBED it.** Corrected in place with the note attached; no new contract minted. | verified today | Writing the gate. This is the highest-leverage single item in §17.4. |
+| **N-9** | **The SDK-bypass baseline was raised TWICE in one day, 178 → 181 → 183** — ISSUE-LOG §8.3 states 178→181 was *"the only raise this session"*, and it was not. The second raise (`c7690b60`) carries a full dated justification and both new bypasses are the identical batch-bridge pattern, from verbs authored **to close dead-verb defects**; refusing the import would have meant authoring two more dead verbs to keep a ratchet flat, which inverts what the ratchet is for. The impossibility proof for the preferred fix (widening `@pryzm/plugin-sdk` closes the cycle `plugin-sdk → command-registry → plugin-annotations → plugin-sdk`, **and** `command-registry` is `private:true` while the SDK publishes publicly) is unchanged and was verified against the manifests. **Executed today: sdk-bypass 183/183.** Recorded here because a correct raise recorded as *"the only raise"* is how N1's ⚠ in §14 became true in the first place. | `c7690b60`; executed today | Inverting the dependency so `command-registry` registers batch constructors into a name→factory registry the SDK re-exports an accessor for. |
+| **N-10** | **221 of 320 verbs have authoritative store NONE or UNKNOWN.** The C69 register (`6b18491f`) is generated from handler sources and diffed by CI in both directions, so a PR adding a bus command without a register row **fails**. It found the 17 refusing verbs **independently**, from a purely structural rule, and matched this document's list exactly. **And it generalised L-839: `roof.update` was not one shadowed verb, it is SIXTEEN.** | executed today: `LIVE 99 · REFUSES 17 · SHADOWED 15 · UNKNOWN 189` | Working the register down. It is the artefact — cite it, do not transcribe it (C64 §2.13). |
+
+---
+
+## §17.4 Scoreboard
+
+**P0 — 12 findings**
+
+| Status | Count | IDs |
+|---|---:|---|
+| **CLOSED** | **8** | P0-3, P0-5, P0-6, P0-7, P0-8, P0-9, P0-11, P0-12 |
+| **CHANGED** | **2** | P0-2, P0-4 |
+| **CORRECTED** | **2** | P0-1, P0-10 |
+| **OPEN** | **0** | — |
+
+**P1 — 16 findings**
+
+| Status | Count | IDs |
+|---|---:|---|
+| **CLOSED** | **6** | P1-2, P1-3, P1-4, P1-14, P1-15, P1-16 |
+| **CHANGED** | **4** | P1-1, P1-6, P1-8, P1-12 |
+| **CORRECTED** | **1** | P1-7 |
+| **OPEN** | **3** | P1-5, P1-9, P1-10 |
+| **UNVERIFIED** | **2** | P1-11, P1-13 |
+
+**Totals across P0+P1 (28 findings):** CLOSED **14** · CHANGED **6** · CORRECTED **3** ·
+OPEN **3** · UNVERIFIED **2**. **New OPEN findings that post-date the audit: 10** (§17.3).
+
+**Corrections issued — six, and this is the number that matters most:**
+
+1. **P0-10** — the gate was falsely accusing honest source; complying would have caused damage.
+2. **P0-1** — three "regressions" were one deleted file plus one lying gate; exactly one was real.
+3. **P0-6** — *"49 % of vertices on real cadastral rings"* is not reproducible; the real figure is
+   **1–3 vertices absolute**, and the share **falls** with density.
+4. **P1-7** — real, but does **not** reproduce at the pacing implied; correct at 400 ms, cliff at
+   gap = 125 ms.
+5. **§12 / `check-no-commandmanager`** — 14 is **11**; two were console string literals, one was
+   `executeChunked`.
+6. **"No move or rotate verb for any element kind"** — **FALSE**; they exist and are registered.
+   The real defect is worse: **five of them write a detached store.**
+
+**Suite movement (executed, not reported):** `15 passing · 17 failing (14 debt, 3 regression)` →
+**`35 passing · 4 failing (4 declared debt, 0 regression)`**. Gate count 32 → **39 run** (38
+`check-*.ts` files on disk plus the convergence check). Debt ledger **14 → 4**
+(`cast-count`, `no-commandmanager`, `xss-guards`, `custom-event-apps`).
+**The suite is still BLOCKED**, and correctly so: exit-3 on P4 is never absorbable.
+
+---
+
+## §17.5 What would it take to close this audit — ordered
+
+Ordered by **leverage over the remaining defect surface**, not by effort. Items 1–3 are one
+finding wearing three costumes.
+
+**1. Give `composeRuntime` the authoritative stores — or invert the registration edges (N-3).**
+Twelve element kinds have no authoritative store in the composed runtime. Until that is decided,
+**V3 ("did the command change authoritative state?") is unprovable by construction** for most of
+the model, and the dead verbs, the shadowed routes and the lying move verbs will keep being
+authored — not by carelessness, but because the composition root offers nothing else to write.
+*Exit condition:* a headless `composeRuntime` exposes the stores the serializer, the builders,
+the 2-D projector and the IFC exporter read, and `821a5d0b`'s probe reports zero `ABSENT`.
+
+**2. Write the CA-21 gate (N-8).** C16 §5.1 now binds liveness contractually, and **no gate
+checks it.** This is the cheapest structural insurance available: CA-8 *prescribed* the dead-verb
+defect for months, and a contract clause with no gate is exactly the shape this document's own
+P0-12 condemns. *Exit condition:* a gate that fails a verb whose liveness is declared but not
+proven by an executed read-back, negative-tested by deleting a read-back and watching it go red.
+
+**3. Close the five lying move verbs (N-1), then `ceiling.update` (N-2).** Both are mechanical
+repeats of work already done and precedented (`5e74b178` for the family, route (c)/L-815 for the
+shadow). The **tests that pin the lie must be converted in the same commit** — five such files
+were found last time. *Exit condition:* C69 register `SHADOWED` reaches 0 and no `*.move` verb
+names a plugin DTO store in `affectedStores`.
+
+**4. Fix the 218 casts and clear the P4 ratchet (N-7).** It is the only exit-3 in the suite, so
+it alone keeps `run-all` BLOCKED. *Exit condition:* repo-wide count 0 and the gate leaves
+`gate-debt.json`. **Do not raise the threshold.**
+
+**5. Make `check-sync-disposition` see the whole registration surface (N-6),** then deploy a CRDT
+transport (N-5). ~19 % coverage on a gate whose subject is *"every property verb"* is the
+`check-otel-spans` failure mode with a different denominator, and the C69 register already
+reaches the surface it is missing. *Exit condition:* the disposition gate's handler-type count
+tracks the register's verb count, and C66 §1 can move one tier from CLAIMED to HELD.
+
+**6. Give `packages/headless` a real `bootstrapFn` and delete the wholesale mock (N-4).** A
+`1.0.0-rc.1` that cannot compose is a published lie, and convergence boolean #8 currently reads
+✅ over it.
+
+**7. Close the remaining honesty residue.** `check-refusal-identity`'s **88 named offenders**,
+starting with `maxHeightGate.ts` (no `code` field at all despite citing C58, rendered at 5 call
+sites) · `repairToSimplePolygon` still inventing a boundary with no log and stamping it as
+authored (**P1-5**) · P6's 37 blessed writes of committed model data (**P1-9**) · the 19
+production `CustomEvent` dispatches against a ceiling of 4 · `check-xss-guards`, which must learn
+to recognise provably-safe expressions or its signal will keep degrading (L-835 — **no live
+vulnerability exists there today; every new interpolation was checked by hand**).
+
+**8. Fix the undo gesture id (P1-7).** Three `it.fails` tests go red the day it lands, which is
+the point. *Exit condition:* a gesture id stamped at dispatch — **not** a monotonic counter,
+which cannot express the relation.
+
+**9. Make the NFT benches merge-blocking, and close the two RED NFTs (P0-2).** They execute now
+but land ADVISORY, so C10 §4's blockers still block nothing. **NFT 15 at 9.85 MB gzipped vs a
+4 MB budget is a real product defect**, not a paperwork one. *Exit condition:* `nft-bench` is
+required, and 19 of 19 execute with targets unmoved.
+
+**10. Write the R6 gate (P0-12 residue).** STR-03 is corrected, but nothing prevents the next
+document from citing a gate that does not exist — which this repository has now done twice.
+Extend `run-all.ts`'s existing missing-file pre-flight to the doc-cited set. **Do not ratchet
+this; exit is zero immediately.**
+
+**11. Re-measure P1-11 and P1-13** (STR-06..STR-15 currency; the C00 index), which this
+annotation does **not** claim to have verified.
+
+**What is NOT on this list, deliberately.** R5 (generalise `MIN_FILES`) is substantially done —
+the R5 meta-gate exists, is registered, and reads **37 gates inspected · 28 floored · 9 unfloored
+against a ceiling of 9, exactly at the measurement, no headroom**. R7 is done (`3e662222` +
+`e7d9fe13`). R3 is done and pinned at 0. R4 is done and born at zero. R8 is being addressed
+structurally rather than by ratchet: C69's generated register and `nft-targets.ts`'s test-time
+parse of the C10 markdown both **delete the transcription and cite the artefact**, which is what
+C64 §2.13 asks for.
+
+---
+
+## §17.6 What this annotation could NOT verify — named
+
+1. **P1-11** — STR-06..STR-15 currency. Not re-measured. No commit in range touches them, which
+   is evidence about the files, not about their content.
+2. **P1-13** — whether the C00 index is still stale where CLAUDE.md defers to it. C69 was minted
+   and indexed; the rest of the index was not re-audited.
+3. **Every V4 (persist) and V5 (undo) verdict, and every V3 outside category 8, in the RAC
+   scorecard remain UNPROVEN** — no browser, no renderer, no save/reload, no two clients. Where
+   source *proves* a write cannot reach authoritative state it is marked FAIL; where it merely
+   suggests it does, it is UNPROVEN with the expected live path named. **A runtime harness is the
+   single largest outstanding piece of work the remediation identified.** Static analysis can
+   prove a verb is dead; **it cannot prove a live one is alive.**
+4. **Leg B of sync is proven in Node against a store stand-in, never in a browser.** The gate says
+   so on every run. Do not read it as replication.
+5. **R7's falsifiability was demonstrated by accident, not by deliberate injection** — two
+   assertions failed against a mis-sliced window and were fixed. The exit-3 branch was not deleted
+   and watched to go red, because that means editing `run-all.ts` while other agents share the
+   tree. Stated in `e7d9fe13` rather than implied.
+6. **The `IMPLICIT_MODEL_VIEW_ID` semantics in the P7 fix are a judgement call made rather than
+   reported** (`e021513d`) and want founder confirmation.
+7. **Negative testing was not performed in this annotation** for `check-layer-boundaries`'s
+   fail-open branch or for `check-chat-capability-coverage`. §16's priority order stands, minus
+   `check-otel-spans` and `check-three-imports`, which the remediation covered.
+8. **`src/main.ts` (42 KB, the browser boot path) is still outside `check-layer-boundaries`'s
+   scan glob.** §4's "unexamined zone" finding was not addressed and is not claimed closed.
