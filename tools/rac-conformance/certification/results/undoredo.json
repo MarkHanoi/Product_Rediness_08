@@ -1,0 +1,322 @@
+{
+  "harness": "H2-undoredo",
+  "generatedAt": "2026-08-11T16:44:13.009Z",
+  "seedLog": [
+    "level L1: OK",
+    "wall u-wall-1: OK",
+    "wall u-wall-2: OK",
+    "door: OK",
+    "window: OK",
+    "slab: OK",
+    "roof: OK",
+    "ceiling: OK",
+    "room: OK"
+  ],
+  "registrationFailures": [],
+  "rows": [
+    {
+      "capability": "roof.update",
+      "intent": "set roof thickness",
+      "command": "roof.update",
+      "authoritativeState": "PROVEN — authoritative state moved: roof.u-roof-1.thickness, roof.u-roof-1.metadata.modifiedAt, roof.u-roof-1.metadata.version",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: roof.u-roof-1.metadata.modifiedAt: expected 1786466652868 got 1786466652875",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=roof.u-roof-1.thickness",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "wall.updateDimensions",
+      "intent": "set wall height",
+      "command": "wall.updateDimensions",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.height, wall.u-wall-1._renderVersion, wall.u-wall-1.metadata.modifiedAt, wall.u-wall-1.metadata.version",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-1.metadata.modifiedAt: expected 1786466652888 got 1786466652892",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=wall.u-wall-1.height",
+        "A→B divergences=4"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "wall.updateBaseline",
+      "intent": "move a wall (baseline)",
+      "command": "wall.updateBaseline",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-2.baseLine.0.z, wall.u-wall-2.baseLine.1.z, wall.u-wall-2._renderVersion, wall.u-wall-2.metadata.modifiedAt, wall.u-wall-2.metadata.version, wall.u-wall-2._sourceBaseLine",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-2.metadata.modifiedAt: expected 1786466652895 got 1786466652898",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=wall.u-wall-2.baseLine",
+        "A→B divergences=6"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "element.updateParameters",
+      "intent": "set wall colour via the generic parameter path",
+      "command": "element.updateParameters",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.materialColor, wall.u-wall-1.metadata.modifiedAt, wall.u-wall-1.metadata.version",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "FAIL — after undo, 2 divergence(s) from State A: wall.u-wall-1.metadata.modifiedAt: expected 1786466652892 got 1786466652905 | wall.u-wall-1.metadata.version: expected 2 got 4",
+      "redo": "FAIL — after redo, 2 divergence(s) from State B: wall.u-wall-1.metadata.modifiedAt: expected 1786466652902 got 1786466652906 | wall.u-wall-1.metadata.version: expected 3 got 5",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=wall.u-wall-1.materialColor",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "wall.updateColor",
+      "intent": "set wall colour",
+      "command": "wall.updateColor",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-2._renderVersion, wall.u-wall-2.metadata.modifiedAt, wall.u-wall-2.metadata.version, wall.u-wall-2._sourceBaseLine, wall.u-wall-2.materialColor",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-2.metadata.modifiedAt: expected 1786466652910 got 1786466652913",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=wall.u-wall-2.materialColor",
+        "A→B divergences=5"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "slab.updateDimensions",
+      "intent": "set slab thickness",
+      "command": "slab.updateDimensions",
+      "authoritativeState": "PROVEN — authoritative state moved: slab.u-slab-1.thickness",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store)",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=slab.u-slab-1.thickness",
+        "A→B divergences=1"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "ceiling.update",
+      "intent": "set ceiling height",
+      "command": "ceiling.update",
+      "authoritativeState": "PROVEN — authoritative state moved: ceiling.u-ce-1.metadata.modifiedAt, ceiling.u-ce-1.metadata.version, ceiling.u-ce-1.height",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "FAIL — after undo, 1 divergence(s) from State A: ceiling.u-ce-1.metadata.modifiedAt: expected 1786466652848 got 1786466652928",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: ceiling.u-ce-1.metadata.modifiedAt: expected 1786466652925 got 1786466652929",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=ceiling.u-ce-1.height",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "door.setOffset",
+      "intent": "move a door along its wall",
+      "command": "door.setOffset",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.openings.0.offset, wall.u-wall-1._renderVersion, door.da47e151-772c-4753-8d95-5886731bf569.offset",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "FAIL — after undo, 1 divergence(s) from State A: wall.u-wall-1._renderVersion: expected 3 got 5",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-1._renderVersion: expected 4 got 6",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=door.<id>.offset",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "window.setOffset",
+      "intent": "move a window along its wall",
+      "command": "window.setOffset",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-2.openings.0.offset, wall.u-wall-2._renderVersion, window.f33c5162-675a-4593-89d9-957d22ea82a3.offset",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "FAIL — after undo, 1 divergence(s) from State A: wall.u-wall-2._renderVersion: expected 4 got 6",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-2._renderVersion: expected 5 got 7",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=window.<id>.offset",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "door.setSillHeight",
+      "intent": "set door sill height (generic parameter bridge)",
+      "command": "door.setSillHeight",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.openings.0.sillHeight, wall.u-wall-1._renderVersion, door.da47e151-772c-4753-8d95-5886731bf569.sillHeight",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "FAIL — after undo, 1 divergence(s) from State A: wall.u-wall-1._renderVersion: expected 6 got 8",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-1._renderVersion: expected 7 got 9",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=door.<id>.sillHeight",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "room.setMaterial (colour)",
+      "intent": "set room fill colour",
+      "command": "room.setMaterial",
+      "authoritativeState": "PROVEN — authoritative state moved: room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt, room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.version, room.b9edeb43-475e-4d99-8580-c18747303a80.colour",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt: expected 1786466652958 got 1786466652962",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=room.<id>.colour",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "room.setName",
+      "intent": "rename a room",
+      "command": "room.setName",
+      "authoritativeState": "PROVEN — authoritative state moved: room.b9edeb43-475e-4d99-8580-c18747303a80.name, room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt, room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.version",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "FAIL — after redo, 1 divergence(s) from State B: room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt: expected 1786466652968 got 1786466652970",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=room.<id>.name",
+        "A→B divergences=3"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "wall.updateSystemTypeBatch",
+      "intent": "change ALL walls to a named type (batch = ONE undo)",
+      "command": "wall.updateSystemTypeBatch",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.thickness, wall.u-wall-1._renderVersion, wall.u-wall-1.metadata.modifiedAt, wall.u-wall-1.metadata.version, wall.u-wall-1.systemTypeId, wall.u-wall-1.layers … +6",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "FAIL — after redo, 2 divergence(s) from State B: wall.u-wall-1.metadata.modifiedAt: expected 1786466652974 got 1786466652977 | wall.u-wall-2.metadata.modifiedAt: expected 1786466652975 got 1786466652977",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=wall.*.systemTypeId",
+        "A→B divergences=12"
+      ],
+      "status": "FAILED"
+    },
+    {
+      "capability": "door.updateSystemTypeBatch",
+      "intent": "change ALL doors to a named type (batch = ONE undo)",
+      "command": "door.updateSystemTypeBatch",
+      "authoritativeState": "PROVEN — authoritative state moved: door.da47e151-772c-4753-8d95-5886731bf569.frameThickness, door.da47e151-772c-4753-8d95-5886731bf569.frameColor, door.da47e151-772c-4753-8d95-5886731bf569.leafThickness, door.da47e151-772c-4753-8d95-5886731bf569.leafColor, door.da47e151-772c-4753-8d95-5886731bf569.frameFinish, door.da47e151-772c-4753-8d95-5886731bf569.leafFinish … +2",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store)",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=door.*.systemTypeId",
+        "A→B divergences=8"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "window.updateSystemTypeBatch",
+      "intent": "change ALL windows to a named type (batch = ONE undo)",
+      "command": "window.updateSystemTypeBatch",
+      "authoritativeState": "PROVEN — authoritative state moved: window.f33c5162-675a-4593-89d9-957d22ea82a3.glazingThickness, window.f33c5162-675a-4593-89d9-957d22ea82a3.rebateDepth, window.f33c5162-675a-4593-89d9-957d22ea82a3.frameFinish, window.f33c5162-675a-4593-89d9-957d22ea82a3.sillFinish, window.f33c5162-675a-4593-89d9-957d22ea82a3.finishMaterial, window.f33c5162-675a-4593-89d9-957d22ea82a3.systemTypeId",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store)",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=1",
+        "watched=window.*.systemTypeId",
+        "A→B divergences=6"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "slab.updateSystemTypeBatch",
+      "intent": "change ALL slabs to a named type (batch = ONE undo)",
+      "command": "slab.updateSystemTypeBatch",
+      "authoritativeState": "REFUSES-CORRECTLY — no store changed and the bridge broadcast its refusal: The slab type catalogue is not available here.",
+      "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
+      "persistence": "n/a — measured by Harness 1",
+      "undo": "UNPROVEN — no state change to undo",
+      "redo": "UNPROVEN — no state change to redo",
+      "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
+      "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
+      "evidence": [
+        "dispatch=OK",
+        "entriesAdded=0",
+        "watched=slab.*.systemTypeId",
+        "A→B divergences=0"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    }
+  ]
+}
