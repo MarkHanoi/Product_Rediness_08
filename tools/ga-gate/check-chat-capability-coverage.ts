@@ -58,6 +58,42 @@
  *     `examples`, and every example must be exercised by the acceptance suite.
  *     A capability with no natural-language test is a claim nobody checked.
  *
+ *  ── C68 §6.3 CLOSURE PASS, 2026-08-11 ──────────────────────────────────────
+ *  C68 shipped with nine honestly-stated gaps. These checks close or narrow
+ *  them; each says in its own header WHAT IT CANNOT SEE.
+ *
+ *  4b. EXAMPLE EXECUTION (C68 §6.3-G2, ratcheted). Check 4 only asserted that
+ *      `examples` was non-empty and that the capability ID appeared SOMEWHERE
+ *      in the acceptance file — a grep, not a proof. 4b now RUNS every declared
+ *      example through the real ladder (compound → tier 0/1 → NL) in the
+ *      context the acceptance family declares, and requires it to land on its
+ *      OWN capability and not be refused.
+ *  4c. ADVERSARIAL CORPUS (C68 §6.3-G2, hard + ratchet). The declared
+ *      adversarial corpus — report-shaped paste-backs, negations, hypotheticals,
+ *      the `with → width` stopword repro — is EXECUTED, and any utterance that
+ *      produces a command or a local action fails. Per-capability pin coverage
+ *      is ratcheted separately.
+ *  3e. GLOBAL ROUTE LIVENESS (C68 §6.3-G7, ratchet). `targets: 'global'`
+ *      capabilities return early from 3a/3b/3d, so their route was never
+ *      classified. 3e classifies the HANDLER file that registers their
+ *      `busCommand` by the same execution-authority rule as 3d.
+ *  5c. SCOPE MODES HONOURED (C68 §6.3-G3, hard + ratchet). `scopeModes` was
+ *      name-checked only. 5c drives each declared spatial mode through
+ *      `applySemanticIntent` with an injected stub `resolveScope` and requires
+ *      the resolver to actually receive a descriptor OF THAT KIND — and
+ *      requires an ABSENT resolver to refuse, never to widen to 'all'.
+ *  6.  ONE DISPATCH + HONEST REPORT (C68 §6.3-G4/G6, hard). A mass-mutation
+ *      capability must emit exactly ONE bus command (the provable half of "one
+ *      undo"), and its proof file must carry the partial-outcome vocabulary.
+ *  7.  CATALOGUE SOURCE EXISTS (C68 §6.3-G8, hard). A catalogue-kind
+ *      `valueSource` must name a resolver module + export that really exists.
+ *  8.  RESOLVER CASE-ARM RATCHET (C68 §6.3-G5, shrink-only). "Zero new resolver
+ *      LOC" made measurable: the number of hand-written `case` arms in
+ *      `applySemanticIntent` may not rise.
+ *  9.  PROPERTY SURFACE RATCHET (C68 §6.3-G1, shrink-only). The verb ratchet
+ *      cannot see a new ATTRIBUTE routed through an existing generic verb. 9
+ *      counts panel-editable (kind, field) pairs with no chat route.
+ *
  * ─── Negative-tested 2026-08-10 ──────────────────────────────────────────────
  * A gate nobody has watched fail is a gate nobody should trust. Three injected
  * faults, all correctly rejected:
@@ -73,6 +109,33 @@
  *   • `mustMention: ['NOT_IN_FILE_XYZ']` on set-thickness → "never mentions
  *     \"NOT_IN_FILE_XYZ\"" (multi-proof reader), and the missing
  *     `handrail.delete` classification fired the baseline-0 ratchet live.
+ *
+ * ─── Negative-tested 2026-08-11 (the C68 §6.3 closure checks) ────────────────
+ * Every check above was watched failing before it was trusted. Fault injected →
+ * failure text observed → injection removed:
+ *   • corpus `+ 'make all walls white'` → "tier 0/1 MUTATED on \"make all walls
+ *     white\" (intent set-wall-color)."                                    [4c]
+ *   • parser skips the `set-height` family → "set-height: no acceptance FAMILY
+ *     in packages/ai-host/__tests__/capability-acceptance.test.ts."        [4b]
+ *   • `PRYZM_CHAT_MAX_UNRESOLVED_EXAMPLES=4` → "5 declared example(s) that do
+ *     not resolve to their own capability, baseline 4", listing all five [4b ratchet]
+ *   • `PRYZM_CHAT_MAX_UNCLASSIFIED_GLOBAL=0` → "create-wall: commandProof file
+ *     \"plugins/wall/src/handlers/CreateWall.ts\" is a PLUGIN handler with
+ *     neither the legacy-bridge signature … nor a PLUGIN_LIVE_ALLOWLIST entry." [3e]
+ *   • stub `resolveScope` returns a ScopeError → "declares scope mode \"level\"
+ *     and the descriptor reached the resolver, but the result was refusal, not
+ *     a dispatch."                                                         [5c]
+ *   • a resolver ALWAYS injected → "with NO resolveScope injected, scope mode
+ *     \"level\" produced \"commands\" instead of an honest refusal."       [5c]
+ *   • `commands.length !== 2` → nine mass-edit capabilities reported, proving the
+ *     one-dispatch arm runs on every one of them.                           [6a]
+ *   • `HONEST_REPORT_NEEDLES = ['NOT_IN_ANY_FILE_XYZ']` → thirteen capabilities
+ *     "…none of its proof files mention a partial outcome".                 [6b]
+ *   • `exported: 'resolveColorRefXYZ'` → "colorRef.ts no longer exports
+ *     \"resolveColorRefXYZ\" — the ONE resolveCatalogueRef ladder entry point
+ *     for \"color\" moved or was renamed."                                  [7]
+ *   • `PRYZM_CHAT_MAX_CASE_ARMS=26` and `PRYZM_CHAT_MAX_UNREACHABLE_PROPS=41`
+ *     → both ratchets fired with their banners.                          [8, 9]
  *
  * Usage:  tsx tools/ga-gate/check-chat-capability-coverage.ts
  * Exit:   0 = at or below the baseline and all hard checks pass · 1 = otherwise
@@ -97,8 +160,18 @@ import {
 import { unconnectedTopicCommands } from '../../packages/ai-host/src/capabilities/CapabilityRefusal.js';
 import {
   applySemanticIntent,
+  resolveUtterance,
   type ResolverContext,
+  type SemanticIntent,
+  type ZeroTokenResolution,
 } from '../../packages/ai-host/src/intents/ZeroTokenResolver.js';
+import { resolveNaturalLanguage } from '../../packages/ai-host/src/intents/LocalNaturalLanguageResolver.js';
+import { resolveCompoundUtterance } from '../../packages/ai-host/src/intents/SemanticPlan.js';
+import type {
+  ScopeDescriptor,
+  ScopeResult,
+} from '../../packages/ai-host/src/intents/ScopeDescriptor.js';
+import { readAcceptanceCorpus } from './lib/acceptanceCorpus.js';
 
 /**
  * ⚠ SHRINK-ONLY.
@@ -419,6 +492,526 @@ function proveParameterSources(cap: ChatCapability): string[] {
   return failures;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// C68 §6.3 CLOSURE PASS (2026-08-11) — the checks that turn review-only
+// obligations into machine-enforced ones. Every ratchet below carries a dated
+// justification naming what it counts, exactly like MAX_UNDECLARED.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A resolver context the gate can drive the real ladder with. Deliberately
+ *  carries NO catalogue injection: `resolveWallSystemType` and friends are
+ *  editor-side, and every spec's value stage forwards the raw reference when
+ *  they are absent — so the gate exercises the GRAMMAR and the SCOPE stages
+ *  without owning a copy of the catalogues. Levels mirror the acceptance
+ *  suite's three (0 / 3 / 6 m), because `add-level`'s occupied-elevation
+ *  refusal is defined against exactly that ladder. */
+let gateSeq = 0;
+function gateCtx(
+  selectionKind: string | null,
+  resolveScope?: (d: ScopeDescriptor) => ScopeResult,
+): ResolverContext {
+  return {
+    selection: selectionKind === null
+      ? []
+      : [{ elementId: `gate-${selectionKind}-1`, elementType: selectionKind }],
+    levels: [
+      { id: 'L0', name: 'Level 0', elevation: 0 },
+      { id: 'L1', name: 'Level 1', elevation: 3 },
+      { id: 'L2', name: 'Level 2', elevation: 6 },
+    ],
+    activeLevelId: 'L0',
+    mintId: () => `gate-mint-${++gateSeq}`,
+    ...(resolveScope === undefined ? {} : { resolveScope }),
+  } as ResolverContext;
+}
+
+/** The FULL ladder the chat bridge uses, in the bridge's order. */
+function resolveFull(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
+  const plan = resolveCompoundUtterance(utterance, ctx);
+  if (plan !== null) return plan;
+  const tier01 = resolveUtterance(utterance, ctx);
+  if (tier01.kind !== 'miss') return tier01;
+  const nl = resolveNaturalLanguage(utterance, ctx);
+  if (nl.kind === 'resolved') return nl.resolution;
+  return { kind: 'miss' };
+}
+
+function intentOf(r: ZeroTokenResolution): string | null {
+  return r.kind === 'commands' || r.kind === 'local' || r.kind === 'refusal' ? r.intent : null;
+}
+
+function mutates(r: ZeroTokenResolution): boolean {
+  return r.kind === 'commands' || r.kind === 'local';
+}
+
+const CORPUS = readAcceptanceCorpus(ACCEPTANCE_SPEC);
+const FAMILY_BY_ID = new Map(CORPUS.families.map((f) => [f.id, f]));
+
+/**
+ * ⚠ SHRINK-ONLY — check 4b, EXAMPLES THAT DO NOT RESOLVE IN THEIR FAMILY'S CTX.
+ *
+ * Baseline 11, frozen 2026-08-11 (was 5 the same day). RAC U9.2 added SIX, all
+ * of them the SPATIAL-example case already recorded below, and all of them
+ * structural rather than optional:
+ *
+ *   • delete-furniture-scoped  "delete all furniture in the kitchen"
+ *   • delete-furniture-scoped  "clear the furniture on this floor"
+ *   • delete-windows-scoped    "remove every window on level 2"
+ *   • delete-windows-scoped    "delete all windows in the kitchen"
+ *   • delete-doors-scoped      "delete all doors on level 2"
+ *   • delete-columns-scoped    "delete all columns on level 2"
+ *
+ * These capabilities cannot HAVE an example that resolves in this harness, and
+ * that is the safety property working, not a defect: `requireResolvedIds` means
+ * a scoped delete refuses unless a real scope resolver hands it a real count,
+ * so even a bare "delete all furniture" correctly answers "I won't run a delete
+ * without telling you how many first". The acceptance suite injects a stub
+ * resolver and all six pass there (`deleteScopeCtx` in
+ * capability-acceptance.test.ts); the gate's corpus reader parses `ctx:
+ * sel('kind')` LITERALS only and cannot see it. The honest fix is to teach the
+ * reader about a family that declares a scope resolver — which lowers this
+ * number by seven, counting set-wall-rake's — and it belongs to whoever owns
+ * acceptanceCorpus.ts.
+ *
+ * The original five are declared
+ * examples whose phrasing needs a context the family does not declare, NOT
+ * resolver defects — each was walked:
+ *
+ *   • delete-selected  "remove this wall"                       — family ctx is sel('door')
+ *   • set-wall-type    "set the selected walls to exterior brick"
+ *   • set-wall-color   "paint the selected walls light grey"
+ *   • set-wall-rake    "make the selected walls angled by 70"   — the three
+ *     SELECTION-form examples of capabilities whose family ctx is `{}` (their
+ *     phrasings are all-scope), so each correctly refuses "No walls are selected".
+ *   • set-wall-rake    "tilt all walls on the ground floor by 60 degrees" — a
+ *     SPATIAL example; the gate injects no `resolveScope`, so the arm correctly
+ *     answers "spatial scoping isn't wired into this chat context".
+ *
+ * Each is a refusal the resolver is RIGHT to give. The debt is that the
+ * acceptance families do not declare the contexts their capabilities' own
+ * examples need — fixable only inside the acceptance suite, which this pass
+ * does not own. Lowering this baseline means widening a family's ctx; it may
+ * never rise without naming the new example here.
+ */
+const MAX_UNRESOLVED_EXAMPLES = Number(process.env.PRYZM_CHAT_MAX_UNRESOLVED_EXAMPLES ?? 11);
+
+/**
+ * ⚠ SHRINK-ONLY — check 4c, CAPABILITIES WITH NO ADVERSARIAL PIN.
+ *
+ * Baseline 9, frozen 2026-08-11. A capability is PINNED when the declared
+ * adversarial corpus contains at least one utterance carrying one of its verbs,
+ * aliases or refusal label — a command-SHAPED sentence aimed at it that must
+ * not mutate. 32 of 41 are pinned today; the nine that are not are
+ *
+ *   redo · zoom-fit · zoom-selected · set-wall-rake · add-wall-layer ·
+ *   duplicate-level · rename-room · finish-apartment-chain · execute-plan
+ *
+ * and two of them matter most: `duplicate-level` and `execute-plan` are the
+ * capabilities the §FIX-CHAT-REPORT-PASTEBACK sentences come CLOSEST to
+ * reaching, since a pasted report line is exactly a level/plan-shaped noun
+ * phrase. Whoever writes them must add the utterance to the acceptance suite's
+ * adversarial `it.each` — the gate then executes it automatically.
+ *
+ * ⚠ WHAT THE PIN HEURISTIC CANNOT SEE: it matches VERBS and ALIASES, so an
+ * adversarial sentence that attacks a capability without using any of its
+ * declared words counts as no pin, and one that happens to share a common verb
+ * ("change", "set") counts as a pin for every capability declaring that verb.
+ * It measures whether anyone has aimed a hostile sentence at the capability's
+ * own vocabulary — not the strength of the attack.
+ *
+ * This is the honest half of C68 §5.f: the corpus itself is executed HARD (any
+ * mutation fails, zero tolerance); what is ratcheted is the COVERAGE of that
+ * corpus across capabilities, because writing a new pin requires editing the
+ * acceptance suite, which this pass does not own.
+ */
+const MAX_UNPINNED_CAPABILITIES = Number(process.env.PRYZM_CHAT_MAX_UNPINNED ?? 9);
+
+/**
+ * ⚠ SHRINK-ONLY — check 5c, SPATIAL MODES HONOURED BUT NOT DECLARED.
+ *
+ * Baseline 28, frozen 2026-08-11 (was 20 the same day; RAC U9.2 added the four
+ * scoped-delete families, each honouring `selection` and `orientation` without
+ * declaring them —
+ * the identical mechanism as the twenty below, for the identical reason: the
+ * arm handles the superset, and no delete grammar produces "all south-facing
+ * windows". Declaring the mode instead would have been the ElementCapabilities
+ * lie, advertising a sentence nobody can type).
+ *
+ * `applyExecutionSpec` handles the scope
+ * SUPERSET with one implementation (that is the whole point of U4), so every
+ * spec-driven capability's ARM accepts a level / room / orientation descriptor
+ * whether or not its `scopeModes` claims one. The 20 counted are six
+ * capabilities × three modes — set-wall-type, add-wall-layer, set-window-type,
+ * set-door-type, set-slab-type, set-ceiling-type — plus
+ * create-windows-parametric on room + orientation (it already declares 'level').
+ *
+ * ⚠ WHAT THIS NUMBER IS NOT. It is ARM reach, not LANGUAGE reach: the gate
+ * injects the descriptor directly, bypassing the grammar, and no grammar
+ * produces "in the kitchen" for `set-slab-type` today. So this is NOT the
+ * ElementCapabilities lie — nothing user-visible over-claims. It is the
+ * distance between what the generic arm can do and what the registry says it
+ * can, and it shrinks either by declaring the mode (once the grammar produces
+ * it) or by narrowing the arm. It may not rise silently.
+ */
+const MAX_UNDECLARED_SPATIAL_REACH = Number(process.env.PRYZM_CHAT_MAX_SPATIAL_REACH ?? 28);
+
+/**
+ * ⚠ SHRINK-ONLY — check 3e, GLOBAL CAPABILITIES WHOSE ROUTE IS UNCLASSIFIED.
+ *
+ * Baseline 1, frozen 2026-08-11, and it is `create-wall` → `wall.create` →
+ * `plugins/wall/src/handlers/CreateWall.ts`: a plugin handler that
+ * `produceCommand`s against the plugin `wall` store with
+ * `affectedStores = ['wall'] as const` and NO `commandManager` delegation — the
+ * exact signature §FIX-CHAT-DEAD-ROUTES found dead 13/13 times. It is NOT
+ * asserted dead here: `composeRuntime` registers this handler as the
+ * authoritative one and the P1 wall path is the flagship plugin route, so the
+ * presumption that condemned the DTO stores may not hold. What is true is that
+ * NOBODY HAS PROVEN IT EITHER WAY, and until someone does, the honest state is
+ * "unclassified", not "live". Lower this to 0 by supplying `create-wall` with a
+ * `commandProof` naming the committer that carries plugin wall patches into the
+ * geometry store — or by re-routing the verb, as L-815 did for
+ * `wall.updateDimensions`.
+ */
+const MAX_UNCLASSIFIED_GLOBAL_ROUTES = Number(process.env.PRYZM_CHAT_MAX_UNCLASSIFIED_GLOBAL ?? 1);
+
+/**
+ * ⚠ SHRINK-ONLY — check 8, HAND-WRITTEN RESOLVER CASE ARMS (C68 §6.3-G5).
+ *
+ * Baseline 27, frozen 2026-08-11 — the `case '<intent>':` arms in
+ * `applySemanticIntent`'s switch. C68 §5.i's target is "zero new resolver case
+ * code": a batch-shaped capability is a `CapabilityExecutionSpec` row and a
+ * property is a `PropertyVocabulary` row, both served by ONE generic arm.
+ *
+ * A git-diff check ("a new capability id in the same commit as a new case arm")
+ * was considered and rejected: it needs a reliable merge base, it is silent on
+ * a two-commit PR, and it says nothing at all when run on a clean tree. A count
+ * that may not rise is weaker per-commit but true on every run, and it fails
+ * the same PR the diff check would have.
+ *
+ * WHAT IT CANNOT SEE: LOC inside an existing arm. An author who grows
+ * `case 'set-height'` by 200 lines passes. It measures the number of shapes the
+ * resolver hand-writes, which is the thing §5.i is actually about.
+ */
+const MAX_RESOLVER_CASE_ARMS = Number(process.env.PRYZM_CHAT_MAX_CASE_ARMS ?? 27);
+
+/**
+ * ⚠ SHRINK-ONLY — check 9, PANEL-EDITABLE PROPERTIES THE CHAT CANNOT REACH.
+ *
+ * Baseline 42, frozen 2026-08-11 (C68 §6.3-G1). The coverage ratchet counts bus
+ * VERBS, so a new ATTRIBUTE routed through `element.updateParameters` trips
+ * nothing — C68 §4 case 3, stated there as undetected. This is the strongest
+ * enumeration that is honestly derivable:
+ *
+ *   • the PROPERTY SURFACE is the `SCHEMAS` table in
+ *     `apps/editor/src/ui/property-panel/PropertyDescriptorGenerator.ts` — every
+ *     non-READONLY row, which is exactly the set of fields the panel writes
+ *     through `element.updateParameters` (PropertyPanel.ts line ~953).
+ *   • the CHAT SURFACE is DERIVED BY EXECUTION, not declared: every capability
+ *     probe is run against every kind it declares, and the parameter names in
+ *     the resulting bus payloads are collected. Nothing is transcribed.
+ *
+ * ⚠ WHAT IT CANNOT SEE, stated so nobody reads this as full coverage:
+ *   1. fields rendered by DEDICATED sections rather than the schema table —
+ *      `WindowSection` / `DoorSection` own width/height/sillHeight/type/colour
+ *      and the table says so in its own comments, so window and door look far
+ *      emptier here than they are;
+ *   2. a new field on a `*Data` SCHEMA that no panel row exposes — invisible to
+ *      the panel and therefore to this check;
+ *   3. fields written by a dedicated verb rather than the generic one;
+ *   4. whether a reachable field is LIVE — that is checks 3b/3d's job.
+ * It answers ONE question honestly: which properties can a user edit by hand
+ * but not by sentence. That number may only fall.
+ */
+const MAX_UNREACHABLE_PROPERTIES = Number(process.env.PRYZM_CHAT_MAX_UNREACHABLE_PROPS ?? 42);
+
+const PROPERTY_PANEL_SCHEMA_FILE =
+  'apps/editor/src/ui/property-panel/PropertyDescriptorGenerator.ts';
+const RESOLVER_FILE = 'packages/ai-host/src/intents/ZeroTokenResolver.ts';
+
+/**
+ * Check 7 — CATALOGUE SOURCE RESOLVABILITY (hard, zero tolerance).
+ * C68 §5.h/§6.3-G8: a capability whose parameter draws on a catalogue must name
+ * a catalogue whose RESOLVER really exists. `KNOWN_VALUE_SOURCES` proves the
+ * source is spelled correctly; this proves something answers to it. A dangling
+ * reference is the c1902a5a defect facing the other way — the chat would parse
+ * a type name and have nothing to resolve it against.
+ */
+const CATALOGUE_SOURCES: ReadonlyMap<string, { file: string; exported: string }> = new Map([
+  ['wall-system-types', {
+    file: 'packages/command-registry/src/walls/UpdateWallsSystemTypeBatchCommand.ts',
+    exported: 'resolveWallSystemTypeRef',
+  }],
+  ['window-system-types', {
+    file: 'packages/command-registry/src/windows/UpdateWindowsSystemTypeBatchCommand.ts',
+    exported: 'resolveWindowSystemTypeRef',
+  }],
+  ['door-system-types', {
+    file: 'packages/command-registry/src/doors/UpdateDoorsSystemTypeBatchCommand.ts',
+    exported: 'resolveDoorSystemTypeRef',
+  }],
+  ['slab-system-types', {
+    file: 'packages/command-registry/src/slabs/UpdateSlabsSystemTypeBatchCommand.ts',
+    exported: 'resolveSlabSystemTypeRef',
+  }],
+  ['ceiling-system-types', {
+    file: 'packages/command-registry/src/ceilings/UpdateCeilingsSystemTypeBatchCommand.ts',
+    exported: 'resolveCeilingSystemTypeRef',
+  }],
+  ['color', {
+    file: 'packages/ai-host/src/intents/colorRef.ts',
+    exported: 'resolveColorRef',
+  }],
+  ['finish', {
+    file: 'packages/ai-host/src/intents/finishRef.ts',
+    exported: 'resolveFinishRef',
+  }],
+]);
+
+function proveCatalogueSources(cap: ChatCapability): string[] {
+  const failures: string[] = [];
+  for (const p of cap.parameters) {
+    const src = CATALOGUE_SOURCES.get(p.valueSource);
+    if (src === undefined) continue; // not a catalogue-backed source
+    if (!existsSync(src.file)) {
+      failures.push(
+        `${cap.id}.${p.name}: valueSource "${p.valueSource}" names ${src.file}, which does not exist — ` +
+        `the catalogue reference is DANGLING and nothing could resolve a type name at runtime.`,
+      );
+      continue;
+    }
+    const text = readFileSync(src.file, 'utf8');
+    if (!new RegExp(String.raw`export\s+(?:async\s+)?(?:function|const|class)\s+${src.exported}\b`).test(text)) {
+      failures.push(
+        `${cap.id}.${p.name}: ${src.file} no longer exports "${src.exported}" — ` +
+        `the ONE resolveCatalogueRef ladder entry point for "${p.valueSource}" moved or was renamed.`,
+      );
+    }
+  }
+  return failures;
+}
+
+/**
+ * Check 6 — ONE DISPATCH + HONEST REPORT (hard, zero tolerance).
+ * C68 §6.3-G4/G6. A full "one undo" proof needs a runtime; this is the half
+ * that is statically and executably provable:
+ *
+ *   (a) ONE DISPATCH. A capability whose scope is (or can be) 'all' is a mass
+ *       edit. Run its probe at scope 'all' and require EXACTLY ONE bus command.
+ *       ADR-0314: `runBatch` is undo-NEUTRAL, so N commands are N history
+ *       entries — a fan-out that calls itself one undo is anti-pattern §7.f.
+ *   (b) HONEST REPORT. The command that carries the mass edit must speak the
+ *       partial-outcome vocabulary ("skipped" / "N of M"), so §5.g's
+ *       "Changed N of M — K skipped" is read off a real report payload rather
+ *       than narrated by the chat.
+ *
+ * WHAT IT CANNOT SEE: whether the one command actually pushes ONE history entry
+ * at runtime, and whether the report payload is populated truthfully. Both are
+ * runtime facts; C68 §6.3 keeps saying so.
+ */
+const HONEST_REPORT_NEEDLES = ['skipped', 'skippedCount', ' of '];
+
+function proveOneDispatchAndHonestReport(cap: ChatCapability): string[] {
+  const modes = (cap as unknown as { scopeModes?: readonly string[] }).scopeModes ?? [];
+  const massEdit = cap.scope === 'all' || modes.includes('all');
+  if (!massEdit) return [];
+  const failures: string[] = [];
+
+  let result;
+  try {
+    result = applySemanticIntent(
+      { ...(cap.probe as unknown as Record<string, unknown>), scope: 'all' } as unknown as SemanticIntent,
+      gateCtx(null),
+    );
+  } catch (err) {
+    return [`${cap.id}: probing the 'all' scope threw — ${String(err)}`];
+  }
+  if (result.kind === 'commands' && result.commands.length !== 1) {
+    failures.push(
+      `${cap.id}: a mass edit dispatched ${result.commands.length} bus commands, not one. ` +
+      `ADR-0314 — runBatch is undo-NEUTRAL, so N commands are N undo steps. Name a true batch verb ` +
+      `or stop describing this as a single undo (C68 §7.f).`,
+    );
+  }
+
+  const proofs = commandProofsOf(cap);
+  const files = proofs.length > 0
+    ? proofs.map((p) => p.file)
+    : cap.busCommand !== null && registered.has(cap.busCommand)
+      ? [registered.get(cap.busCommand)!]
+      : [];
+  if (files.length === 0) {
+    failures.push(`${cap.id}: a mass edit with no proof file — the partial-outcome claim is unverifiable.`);
+    return failures;
+  }
+  const speaks = files.some((f) => {
+    if (!existsSync(f)) return false;
+    const text = readFileSync(f, 'utf8');
+    return HONEST_REPORT_NEEDLES.some((n) => text.includes(n));
+  });
+  if (!speaks) {
+    failures.push(
+      `${cap.id}: none of its proof files (${files.join(', ')}) mention a partial outcome ` +
+      `(${HONEST_REPORT_NEEDLES.map((n) => `"${n.trim()}"`).join(' / ')}). C68 §5.g — success is reported as ` +
+      `"Changed N of M — K skipped: <reason>", read off the command's own report, never re-narrated.`,
+    );
+  }
+  return failures;
+}
+
+/**
+ * Check 5c — SCOPE MODES HONOURED (C68 §6.3-G3).
+ * Returns [hard failures, undeclared-but-honoured (kind, mode) pairs].
+ */
+const SPATIAL_PROBE_SCOPES: ReadonlyMap<string, unknown> = new Map([
+  ['level', { kind: 'level', levelQuery: '2' }],
+  ['room', { kind: 'room', roomRef: 'kitchen' }],
+  ['orientation', { kind: 'orientation', orientation: 'S' }],
+]);
+
+function proveScopeModesHonoured(cap: ChatCapability): {
+  failures: string[];
+  undeclaredReach: string[];
+} {
+  const modes = (cap as unknown as { scopeModes?: readonly string[] }).scopeModes ?? [];
+  const failures: string[] = [];
+  const undeclaredReach: string[] = [];
+
+  for (const [mode, scope] of SPATIAL_PROBE_SCOPES) {
+    const si = {
+      ...(cap.probe as unknown as Record<string, unknown>),
+      scope,
+    } as unknown as SemanticIntent;
+
+    let seen: ScopeDescriptor | null = null;
+    let withResolver;
+    try {
+      withResolver = applySemanticIntent(si, gateCtx(null, (d) => {
+        seen = d;
+        return { ids: ['gate-a', 'gate-b'], kindCounts: {}, skipped: [], diagnostics: ['Level 2'] };
+      }));
+    } catch (err) {
+      if (modes.includes(mode)) {
+        failures.push(`${cap.id}: declares scope mode "${mode}" but driving it threw — ${String(err)}`);
+      }
+      continue; // a throw is not "honoured"
+    }
+
+    const honoured = withResolver.kind === 'commands' && seen !== null;
+
+    if (modes.includes(mode)) {
+      if (seen === null) {
+        failures.push(
+          `${cap.id}: DECLARES scope mode "${mode}" but the intent never reached ctx.resolveScope ` +
+          `(got ${withResolver.kind}). A declared spatial mode the resolver never sees is the ` +
+          `ElementCapabilities lie one layer over (C68 §7.d).`,
+        );
+      } else if ((seen as ScopeDescriptor).kind !== mode
+        && !((seen as ScopeDescriptor).kind === 'filter')) {
+        failures.push(
+          `${cap.id}: declares scope mode "${mode}" but the resolver received a ` +
+          `"${(seen as ScopeDescriptor).kind}" descriptor.`,
+        );
+      } else if (withResolver.kind !== 'commands') {
+        failures.push(
+          `${cap.id}: declares scope mode "${mode}" and the descriptor reached the resolver, ` +
+          `but the result was ${withResolver.kind}, not a dispatch.`,
+        );
+      }
+      // The ABSENT-resolver half: honest refusal, NEVER a silent widen to 'all'.
+      let withoutResolver;
+      try {
+        withoutResolver = applySemanticIntent(si, gateCtx(null));
+      } catch (err) {
+        failures.push(`${cap.id}: scope mode "${mode}" threw with no resolver injected — ${String(err)}`);
+        continue;
+      }
+      if (withoutResolver.kind !== 'refusal') {
+        failures.push(
+          `${cap.id}: with NO resolveScope injected, scope mode "${mode}" produced ` +
+          `"${withoutResolver.kind}" instead of an honest refusal. A spatial ask that silently ` +
+          `becomes "all" is the granularity anti-pattern (C68 §7.e).`,
+        );
+      }
+    } else if (honoured) {
+      undeclaredReach.push(`${cap.id} honours "${mode}" without declaring it`);
+    }
+  }
+  return { failures, undeclaredReach };
+}
+
+/**
+ * Check 9 — the PROPERTY SURFACE (C68 §6.3-G1). See MAX_UNREACHABLE_PROPERTIES
+ * for what this enumeration can and cannot see.
+ */
+function panelEditableProperties(): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  if (!existsSync(PROPERTY_PANEL_SCHEMA_FILE)) return out;
+  const src = readFileSync(PROPERTY_PANEL_SCHEMA_FILE, 'utf8');
+  const start = src.indexOf('const SCHEMAS');
+  if (start === -1) return out;
+  const body = src.slice(start, src.indexOf('\n};', start));
+
+  // Each element-kind block opens at four-space indentation: `wall: {`.
+  const kindRe = /\n {4}'?([a-zA-Z][\w-]*)'?:\s*\{/g;
+  const marks: { kind: string; at: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = kindRe.exec(body)) !== null) marks.push({ kind: m[1]!, at: m.index + m[0].length });
+
+  for (let i = 0; i < marks.length; i += 1) {
+    const slice = body.slice(marks[i]!.at, i + 1 < marks.length ? marks[i + 1]!.at : body.length);
+    const kind = normalizeElementKind(marks[i]!.kind);
+    const fields = out.get(kind) ?? new Set<string>();
+    const fieldRe = /\n\s+'?([a-zA-Z][\w.]*)'?:\s*(TEXT|NUMBER|BOOL|ENUM|COLOR|READONLY)\(([^\n]*)/g;
+    let f: RegExpExecArray | null;
+    while ((f = fieldRe.exec(slice)) !== null) {
+      if (f[2] === 'READONLY') continue;
+      // `NUMBER(label, section, category, /* editable */ false, …)`
+      if (/,\s*false\s*[,)]/.test(f[3]!)) continue;
+      fields.add(f[1]!);
+    }
+    out.set(kind, fields);
+  }
+  return out;
+}
+
+/** Payload field names a capability can actually WRITE, derived by executing
+ *  its probe against every kind it declares. Descends one level into the
+ *  generic carriers (`parameters`, `updates`, `properties`). */
+function chatReachableProperties(caps: readonly ChatCapability[]): Set<string> {
+  const IDS_FIELD = /^(elementId|elementType|id|ids|source|mode|side|.*Ids|.*Id)$/;
+  const reachable = new Set<string>();
+  for (const cap of caps) {
+    if (cap.targets === 'global') continue;
+    for (const kind of PROBE_ELEMENT_KINDS) {
+      if (!capabilityAppliesTo(cap, kind)) continue;
+      let r;
+      try {
+        r = applySemanticIntent(cap.probe, ctxSelecting(kind));
+      } catch {
+        continue;
+      }
+      if (r.kind !== 'commands') continue;
+      for (const c of r.commands) {
+        const payload = c.payload as Record<string, unknown>;
+        const carriers = ['parameters', 'updates', 'properties']
+          .map((k) => payload[k])
+          .filter((v): v is Record<string, unknown> => typeof v === 'object' && v !== null);
+        if (carriers.length > 0) {
+          for (const carrier of carriers) {
+            for (const key of Object.keys(carrier)) reachable.add(`${kind}.${key}`);
+          }
+        }
+        for (const key of Object.keys(payload)) {
+          if (IDS_FIELD.test(key)) continue;
+          if (key === 'parameters' || key === 'updates' || key === 'properties') continue;
+          reachable.add(`${kind}.${key}`);
+        }
+      }
+    }
+  }
+  return reachable;
+}
+
 // ── Run ──────────────────────────────────────────────────────────────────────
 
 const caps = allChatCapabilities();
@@ -529,6 +1122,140 @@ if (!existsSync(ACCEPTANCE_SPEC)) {
   }
 }
 
+// 3e. GLOBAL ROUTE LIVENESS (C68 §6.3-G7). Checks 3a/3b/3d return early for
+// `targets: 'global'`, so a global capability's route was never classified by
+// execution authority. Prefer its declared commandProof; fall back to the
+// HANDLER file that registers the verb, which the coverage scan already knows.
+const unclassifiedGlobalRoutes: string[] = [];
+const globalRouteFailures: string[] = [];
+for (const c of caps) {
+  if (c.targets !== 'global') continue;
+  if (c.busCommand === null) continue; // local actions + composites: no route to classify
+  const proofs = commandProofsOf(c);
+  const files = proofs.length > 0
+    ? proofs.map((p) => p.file)
+    : registered.has(c.busCommand) ? [registered.get(c.busCommand)!] : [];
+  if (files.length === 0) {
+    globalRouteFailures.push(
+      `${c.id}: global capability claims "${c.busCommand}" but neither a commandProof nor a ` +
+      `registering handler file can be found — its route cannot be classified at all.`,
+    );
+    continue;
+  }
+  for (const file of files) {
+    if (!existsSync(file)) {
+      globalRouteFailures.push(`${c.id}: route file "${file}" does not exist.`);
+      continue;
+    }
+    const problems = proveRouteLiveness(c, file, readFileSync(file, 'utf8'));
+    for (const p of problems) unclassifiedGlobalRoutes.push(p);
+  }
+}
+
+// 4b/4c. ACCEPTANCE EXECUTION + THE ADVERSARIAL CORPUS (C68 §6.3-G2).
+const missingFamilies: string[] = [];
+const unresolvedExamples: string[] = [];
+let examplesRun = 0;
+for (const c of caps) {
+  const family = FAMILY_BY_ID.get(c.id);
+  if (family === undefined) {
+    missingFamilies.push(
+      `${c.id}: no acceptance FAMILY in ${ACCEPTANCE_SPEC} — the id is not enough; the gate needs the ` +
+      `family's declared context to execute the capability's own examples.`,
+    );
+    continue;
+  }
+  for (const example of c.examples) {
+    examplesRun += 1;
+    let r: ZeroTokenResolution;
+    try {
+      r = resolveFull(example, gateCtx(family.selectionKind));
+    } catch (err) {
+      unresolvedExamples.push(`${c.id}: example "${example}" threw — ${String(err)}`);
+      continue;
+    }
+    const landed = intentOf(r);
+    if (landed !== c.id) {
+      unresolvedExamples.push(
+        `${c.id}: example "${example}" resolved to ${landed ?? r.kind}, not to itself.`,
+      );
+    } else if (r.kind === 'refusal') {
+      unresolvedExamples.push(
+        `${c.id}: example "${example}" is REFUSED in the context its acceptance family declares ` +
+        `(${family.selectionKind === null ? 'no selection' : `selection = ${family.selectionKind}`}) — ` +
+        `"${r.reason.slice(0, 110)}"`,
+      );
+    }
+  }
+}
+
+const adversarialMutations: string[] = [];
+if (CORPUS.adversarial.length === 0) {
+  adversarialMutations.push(
+    `the adversarial corpus in ${ACCEPTANCE_SPEC} could not be read — the gate is checking NOTHING ` +
+    `where it claims to check the paste-back and stopword guards.`,
+  );
+}
+for (const utterance of CORPUS.adversarial) {
+  // Driven with a wall selected, exactly as the suite does: the sentences are
+  // command-SHAPED, so an empty selection would mask a mutation as a refusal.
+  const ctx = gateCtx('wall');
+  const tier01 = resolveUtterance(utterance, ctx);
+  if (mutates(tier01)) {
+    adversarialMutations.push(`tier 0/1 MUTATED on "${utterance}" (intent ${intentOf(tier01)}).`);
+    continue;
+  }
+  const nl = resolveNaturalLanguage(utterance, ctx);
+  if (nl.kind === 'resolved' && mutates(nl.resolution)) {
+    adversarialMutations.push(`the NL layer MUTATED on "${utterance}" (intent ${intentOf(nl.resolution)}).`);
+  }
+}
+
+// Per-capability adversarial PIN coverage — the ratcheted half.
+const adversarialLower = CORPUS.adversarial.map((s) => s.toLowerCase());
+const unpinned: string[] = [];
+for (const c of caps) {
+  const needles = [...c.verbs, ...c.aliases, ...(c.refusalLabel === undefined ? [] : [c.refusalLabel])]
+    .map((s) => s.toLowerCase())
+    .filter((s) => s.length >= 4);
+  const pinned = needles.some((n) => adversarialLower.some((u) => u.includes(n)));
+  if (!pinned) unpinned.push(c.id);
+}
+
+// 5c. SCOPE MODES HONOURED (C68 §6.3-G3).
+const scopeHonourFailures: string[] = [];
+const undeclaredSpatialReach: string[] = [];
+let scopeProbes = 0;
+for (const c of caps) {
+  const modes = (c as unknown as { scopeModes?: readonly string[] }).scopeModes ?? [];
+  scopeProbes += modes.filter((m) => SPATIAL_PROBE_SCOPES.has(m)).length;
+  const { failures, undeclaredReach } = proveScopeModesHonoured(c);
+  scopeHonourFailures.push(...failures);
+  undeclaredSpatialReach.push(...undeclaredReach);
+}
+
+// 6. ONE DISPATCH + HONEST REPORT (C68 §6.3-G4/G6).
+const massEditFailures = caps.flatMap((c) => proveOneDispatchAndHonestReport(c));
+
+// 7. CATALOGUE SOURCE RESOLVABILITY (C68 §6.3-G8).
+const catalogueFailures = caps.flatMap((c) => proveCatalogueSources(c));
+
+// 8. RESOLVER CASE-ARM RATCHET (C68 §6.3-G5).
+const resolverCaseArms = existsSync(RESOLVER_FILE)
+  ? (readFileSync(RESOLVER_FILE, 'utf8').match(/\n {4}case '[a-z0-9-]+':/g) ?? []).length
+  : -1;
+
+// 9. PROPERTY SURFACE RATCHET (C68 §6.3-G1).
+const panelProperties = panelEditableProperties();
+const chatProperties = chatReachableProperties(caps);
+const unreachableProperties: string[] = [];
+for (const [kind, fields] of panelProperties) {
+  for (const field of fields) {
+    if (!chatProperties.has(`${kind}.${field}`)) unreachableProperties.push(`${kind}.${field}`);
+  }
+}
+unreachableProperties.sort();
+
 // ── Report ───────────────────────────────────────────────────────────────────
 
 console.log('[check-chat-capability-coverage] §FIX-CHAT-CAPABILITY-BLIND (ADR-0313)');
@@ -560,6 +1287,15 @@ console.log(
   `M4 scope ${m4} · M5 true-batch ${m5} · M6 plans ${m6} · M7 generative ${m7}`,
 );
 console.log(`[check-chat-capability-coverage] UNDECLARED: ${undeclared.length} (baseline ${MAX_UNDECLARED})`);
+console.log(
+  `[check-chat-capability-coverage] C68 §6.3 ratchets: unresolved examples ` +
+  `${unresolvedExamples.length}/${MAX_UNRESOLVED_EXAMPLES} · unpinned capabilities ` +
+  `${unpinned.length}/${MAX_UNPINNED_CAPABILITIES} · undeclared spatial reach ` +
+  `${undeclaredSpatialReach.length}/${MAX_UNDECLARED_SPATIAL_REACH} · unclassified global routes ` +
+  `${unclassifiedGlobalRoutes.length}/${MAX_UNCLASSIFIED_GLOBAL_ROUTES} · resolver case arms ` +
+  `${resolverCaseArms}/${MAX_RESOLVER_CASE_ARMS} · unreachable properties ` +
+  `${unreachableProperties.length}/${MAX_UNREACHABLE_PROPERTIES}`,
+);
 
 let failed = false;
 
@@ -611,9 +1347,94 @@ if (acceptanceFailures.length > 0) {
   failed = true;
 }
 
+// ── C68 §6.3 closure checks ──────────────────────────────────────────────────
+
+function hard(label: string, problems: readonly string[], banner: string): void {
+  if (problems.length === 0) return;
+  console.error(`\n[check-chat-capability-coverage] FAIL — ${problems.length} ${label}.\n${banner}`);
+  for (const p of problems) console.error(`      ${p}`);
+  failed = true;
+}
+
+function ratchet(label: string, problems: readonly string[], max: number, banner: string): void {
+  if (problems.length <= max) return;
+  console.error(
+    `\n[check-chat-capability-coverage] FAIL — ${problems.length} ${label}, baseline ${max}.\n${banner}`,
+  );
+  for (const p of problems.slice(0, 40)) console.error(`      ${p}`);
+  failed = true;
+}
+
+hard('global capability route(s) that cannot be classified at all', globalRouteFailures,
+  'C68 §5.a — a route with neither a commandProof nor a registering handler is unprovable.');
+
+ratchet('unclassified global route(s)', unclassifiedGlobalRoutes, MAX_UNCLASSIFIED_GLOBAL_ROUTES,
+  'C68 §6.3-G7 — targets:\'global\' no longer skips liveness. Supply a commandProof naming the\n' +
+  'live execution authority, or re-route the verb as L-815 did for wall.updateDimensions.');
+
+hard('capability(ies) with no acceptance FAMILY', missingFamilies,
+  'C68 §5.f — the gate executes each capability\'s own examples in the context its family declares,\n' +
+  'so a family is now required, not merely a mention of the id.');
+
+ratchet('declared example(s) that do not resolve to their own capability', unresolvedExamples,
+  MAX_UNRESOLVED_EXAMPLES,
+  'C68 §6.3-G2 — examples are what the refusal copy OFFERS the user. An example that does not work\n' +
+  'is a lie shipped in the UI. See MAX_UNRESOLVED_EXAMPLES for the known context gaps.');
+
+hard('adversarial corpus utterance(s) that MUTATED', adversarialMutations,
+  '§FIX-CHAT-REPORT-PASTEBACK / §FIX-CHAT-STOPWORD-CORRECTION — the founder pasted the assistant\'s\n' +
+  'own report back into the chat and the ladder CREATED A LEVEL from it, twice. These sentences must\n' +
+  'produce no command and no local action, on every rung of the ladder.');
+
+ratchet('capability(ies) with no adversarial pin', unpinned, MAX_UNPINNED_CAPABILITIES,
+  'C68 §5.f — every capability reachable by "a bare number + a noun" inherits the founder-doctrine\n' +
+  'guards and needs at least one command-SHAPED sentence pinned as a non-mutation.');
+
+hard('scope mode(s) declared but not honoured', scopeHonourFailures,
+  'C68 §7.d — "declaring a spatial mode before the resolver honours it would be the ElementCapabilities\n' +
+  'lie in a new costume". A missing resolver must refuse honestly, never widen silently to \'all\'.');
+
+ratchet('spatial mode(s) the ARM honours without declaring', undeclaredSpatialReach,
+  MAX_UNDECLARED_SPATIAL_REACH,
+  'C68 §6.3-G3, the symmetric half. This is ARM reach, not LANGUAGE reach — see\n' +
+  'MAX_UNDECLARED_SPATIAL_REACH for exactly what the number does and does not mean.');
+
+hard('mass-edit capability(ies) failing the one-dispatch / honest-report bar', massEditFailures,
+  'C68 §7.f — runBatch is undo-NEUTRAL (ADR-0314): N commands are N undo entries. And C68 §5.g —\n' +
+  '"Changed N of M — K skipped: <reason>", read off the command\'s own report, never re-narrated.');
+
+hard('dangling catalogue source(s)', catalogueFailures,
+  'C68 §5.h/§6.3-G8 — a catalogue-backed parameter must name a resolver that exists, or the chat\n' +
+  'parses a type name with nothing to resolve it against.');
+
+if (resolverCaseArms < 0) {
+  console.error(`\n[check-chat-capability-coverage] FAIL — ${RESOLVER_FILE} not found; the case-arm ratchet is blind.`);
+  failed = true;
+} else if (resolverCaseArms > MAX_RESOLVER_CASE_ARMS) {
+  console.error(
+    `\n[check-chat-capability-coverage] FAIL — ${resolverCaseArms} hand-written resolver case arms, ` +
+    `baseline ${MAX_RESOLVER_CASE_ARMS}.\n` +
+    `C68 §5.i — a batch-shaped capability is a CapabilityExecutionSpec ROW and a property is a\n` +
+    `PropertyVocabulary ROW, both served by ONE generic arm. "Target: zero new resolver case code."`,
+  );
+  failed = true;
+}
+
+ratchet('panel-editable propert(ies) the chat cannot reach', unreachableProperties,
+  MAX_UNREACHABLE_PROPERTIES,
+  'C68 §6.3-G1 / §4 case 3 — a new ATTRIBUTE routed through element.updateParameters adds no bus verb,\n' +
+  'so the coverage ratchet never sees it. This one does. See MAX_UNREACHABLE_PROPERTIES for the four\n' +
+  'things this enumeration CANNOT see.');
+
 if (failed) process.exit(1);
 
 console.log(
   `\n[check-chat-capability-coverage] ✓ ${caps.length} capabilities, all targets proven both ways; ` +
   `undeclared ${undeclared.length}/${MAX_UNDECLARED}.`,
+);
+console.log(
+  `[check-chat-capability-coverage] ✓ C68 §6.3 closure: ${examplesRun} example(s) executed ` +
+  `(${unresolvedExamples.length}/${MAX_UNRESOLVED_EXAMPLES} unresolved) · ` +
+  `${CORPUS.adversarial.length} adversarial utterance(s), none mutating · ` +
+  `${scopeProbes} spatial scope probe(s) honoured · ${caps.length - unpinned.length}/${caps.length} pinned.`,
 );
