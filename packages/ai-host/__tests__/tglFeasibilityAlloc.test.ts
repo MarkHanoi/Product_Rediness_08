@@ -10,7 +10,7 @@
 // room that itself opens onto circulation (two-hop), before falling back to the
 // connected-but-warned diagnostic.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
     subdivide, subdivideWithReport, type RoomPlacement,
 } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
@@ -30,6 +30,126 @@ const rm = (id: string, type: RoomType, area: number): ProgramRoom =>
     ({ id, type, name: id, targetAreaM2: area, isPrivate: false, needsWindow: false });
 
 const WEIGHTS: ScoringWeights = { naturalLight: 1, privacy: 1, kitchenWorkflow: 1, corridorEfficiency: 1 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEASIBILITY-LOG-HONESTY — the founder's LIVE production log, verbatim:
+//
+//   [D-TGL subdivide] §FEASIBILITY-ALLOC: rect area 37.38 m² < Σ per-type minimum
+//   areas 14.00 m² for 1 room(s) — genuine over-program. Dropping the LOWEST-
+//   PRIORITY room "r0" (living, drop-rank 100) and re-fitting the rest…
+//
+// 37.38 is NOT less than 14.00. The refusal's own arithmetic disproved its
+// decision: the DECISION was taken on a SHORT-SIDE test while the MESSAGE printed
+// an AREA pair, and the short-side failure was itself unfixable (the rect is
+// shallower than the type floor, so neither reallocation NOR dropping a neighbour
+// could ever widen the cell). Each case below pins one founder line: the rect
+// carries the room's minimum AREA comfortably, so the room must be KEPT.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§FEASIBILITY-LOG-HONESTY — the founder\'s exact production numbers', () => {
+    /** One room alone in a rect of exactly `areaM2` whose short dim is `depthM`. */
+    const soloInStrip = (type: RoomType, areaM2: number, depthM: number) => {
+        const rect: Rect = { x0: 0, z0: 0, x1: areaM2 / depthM, z1: depthM };
+        const room = rm('r0', type, areaM2);
+        const g: BubbleGraph = { rooms: [room], edges: [], corridorId: null, entryId: null };
+        return { rect, room, out: subdivideWithReport([rect], g) };
+    };
+
+    // "rect area 37.38 m² < Σ per-type minimum areas 14.00 m² for 1 room(s)" —
+    // living: minAreaM2 14, minShortSideM 3.2. 37.38 ≥ 14 by 23.38 m².
+    it('37.38 m² rect KEEPS its living room (min area 14.00 m²)', () => {
+        const { room, out } = soloInStrip('living', 37.38, 3.0);   // 12.46 × 3.0, depth < 3.2 floor
+        expect(rectArea({ x0: 0, z0: 0, x1: 37.38 / 3.0, z1: 3.0 })).toBeCloseTo(37.38, 6);
+        expect(37.38).toBeGreaterThan(roomRule('living').minAreaM2);   // the arithmetic the log denied
+        expect(out.droppedRooms).toEqual([]);
+        expect(out.placements.map(p => p.roomId)).toEqual([room.id]);
+        expect(rectArea(out.placements[0]!.rect)).toBeGreaterThanOrEqual(roomRule('living').minAreaM2 - 1e-6);
+    });
+
+    // "23.08 m² < 11.50 m²" and "23.02 m² < 11.50 m²" — bedroom: min area 11.5,
+    // minShortSideM 2.6. Both rects hold TWO bedroom minima over.
+    it.each([23.08, 23.02])('%s m² rect KEEPS its bedroom (min area 11.50 m²)', (area) => {
+        const { out } = soloInStrip('bedroom', area, 2.5);          // depth 2.5 < 2.6 floor
+        expect(area).toBeGreaterThan(roomRule('bedroom').minAreaM2);
+        expect(out.droppedRooms).toEqual([]);
+        expect(out.placements).toHaveLength(1);
+        expect(rectArea(out.placements[0]!.rect)).toBeGreaterThanOrEqual(roomRule('bedroom').minAreaM2 - 1e-6);
+    });
+
+    // "10.26 m² < 5.00 m²" — bathroom: min area 5, minShortSideM 1.8.
+    it('10.26 m² rect KEEPS its bathroom (min area 5.00 m²)', () => {
+        const { out } = soloInStrip('bathroom', 10.26, 1.5);         // 6.84 × 1.5, depth < 1.8 floor
+        expect(10.26).toBeGreaterThan(roomRule('bathroom').minAreaM2);
+        expect(out.droppedRooms).toEqual([]);
+        expect(out.placements).toHaveLength(1);
+        expect(rectArea(out.placements[0]!.rect)).toBeGreaterThanOrEqual(roomRule('bathroom').minAreaM2 - 1e-6);
+    });
+
+    // "35.05 m² < 20.00 m² for 2 rooms" — kitchen was dropped. living (14) +
+    // kitchen (6) = 20.00 Σ minimum areas; 35.05 is 15.05 m² ABOVE that.
+    it('35.05 m² rect KEEPS both living + kitchen (Σ minima 20.00 m²)', () => {
+        const rect: Rect = { x0: 0, z0: 0, x1: 35.05 / 3.0, z1: 3.0 };
+        const rooms: ProgramRoom[] = [rm('lv', 'living', 24), rm('kt', 'kitchen', 11.05)];
+        const sigma = roomRule('living').minAreaM2 + roomRule('kitchen').minAreaM2;
+        expect(sigma).toBeCloseTo(20, 6);
+        expect(rectArea(rect)).toBeGreaterThan(sigma);              // the log's own operands
+        const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: null };
+        const { placements, droppedRooms } = subdivideWithReport([rect], g);
+        expect(droppedRooms).toEqual([]);
+        expect(placements.map(p => p.roomId).sort()).toEqual(['kt', 'lv']);
+        for (const p of placements) {
+            const t = rooms.find(r => r.id === p.roomId)!.type;
+            expect(rectArea(p.rect), `${p.roomId} (${t}) area`)
+                .toBeGreaterThanOrEqual(roomRule(t).minAreaM2 - 1e-6);
+        }
+    });
+
+    // The other half of the contract: a rect that is GENUINELY over-programmed
+    // still drops — and the log line it emits must state operands that PROVE the
+    // decision (rect area really below Σ minima), not the inverted claim.
+    it('a genuine over-program still drops, and the log arithmetic is true', () => {
+        // 3 × 3 = 9 m² asked to hold bathroom(5) + ensuite(3.5) + wc(1.2) +
+        // utility(3.5) → Σ minima 13.2 m² > 9 m². The inequality is REAL.
+        const rect: Rect = { x0: 0, z0: 0, x1: 3, z1: 3 };
+        const rooms: ProgramRoom[] = [
+            rm('ba', 'bathroom', 5), rm('en', 'ensuite', 3.5),
+            rm('wc', 'wc', 1.2), rm('ut', 'utility', 3.5),
+        ];
+        const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: null };
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        let droppedRooms; let warned: string[];
+        try {
+            ({ droppedRooms } = subdivideWithReport([rect], g));
+        } finally {
+            // Read the recorded calls BEFORE restoring — mockRestore() clears them.
+            warned = warn.mock.calls.map(c => String(c[0]));
+            warn.mockRestore();
+        }
+        expect(droppedRooms!.length).toBeGreaterThan(0);
+        expect(droppedRooms!.some(d => d.type === 'bathroom')).toBe(false);
+
+        // §DEDUPE — exactly ONE summary line for the whole subdivide session, not
+        // one line per drop attempt (the founder's console was unusable mid-drag).
+        const lines = warned.filter(s => s.includes('§FEASIBILITY-ALLOC'));
+        expect(lines).toHaveLength(1);
+        const line = lines[0]!;
+        // It tallies rooms × rects rather than repeating a per-attempt sentence.
+        expect(line).toMatch(/\d+ room\(s\) dropped across \d+ rect\(s\)/);
+
+        // HONESTY: every arithmetic claim in the line must actually hold. Parse the
+        // "rect W×D m (A m²) < Σ per-type min areas S m²" clauses and check A < S.
+        const claims = [...line.matchAll(
+            /rect [\d.]+×[\d.]+ m \(([\d.]+) m²\) (<|≥) Σ per-type min areas ([\d.]+) m²/g,
+        )];
+        expect(claims.length).toBeGreaterThan(0);
+        for (const [, a, op, s] of claims) {
+            const area = Number(a), sigma = Number(s);
+            if (op === '<') expect(area, line).toBeLessThan(sigma);
+            else expect(area, line).toBeGreaterThanOrEqual(sigma);
+        }
+        // A "<" claim must be present here — this rect IS a real area over-program.
+        expect(line).toContain('over-program');
+    });
+});
 
 describe('§FEASIBILITY-ALLOC (Fix A) — no silent room drops', () => {
     // (a) §SHAPE-INFEASIBLE-ACCEPT (founder defect, 2026-08-10) — a rect SHALLOWER
@@ -234,6 +354,31 @@ describe('§FEASIBILITY-ALLOC — enumerate surfaces the drop report on the cand
         // Deterministic: same input → identical drop report on the best option.
         const out2 = enumerateLayouts(input);
         expect(out2[0]!.droppedRooms).toEqual(best.droppedRooms);
+    });
+
+    // §FEASIBILITY-LOG-SESSION — the founder's real flood site. One preview runs
+    // subdivide once per rect × per strategy × per candidate; the old per-attempt
+    // warn made the console unusable during a slider drag. AT MOST ONE summary
+    // line may leave a whole `enumerateLayouts` call.
+    it('emits AT MOST ONE §FEASIBILITY-ALLOC line for an entire preview (no flood)', () => {
+        const SHELL: Pt[] = [{ x: 0, z: 0 }, { x: 22, z: 0 }, { x: 22, z: 4.5 }, { x: 0, z: 4.5 }];
+        const program: ApartmentProgram = {
+            bedrooms: 3, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const input: EnumerateInput = {
+            shellPolygon: SHELL, program, levelId: 'L1', seed: 's', weights: WEIGHTS, count: 4,
+        };
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        let warned: string[];
+        try { enumerateLayouts(input); } finally {
+            warned = warn.mock.calls.map(c => String(c[0]));
+            warn.mockRestore();
+        }
+        const lines = warned.filter(s => s.includes('§FEASIBILITY-ALLOC'));
+        expect(lines.length).toBeLessThanOrEqual(1);
+        // …and if one IS emitted it is the tallied SUMMARY, never a single-attempt sentence.
+        for (const l of lines) expect(l).toMatch(/room\(s\) (dropped across|KEPT below)/);
     });
 });
 
