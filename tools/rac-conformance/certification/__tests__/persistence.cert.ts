@@ -22,9 +22,9 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { World } from '../world';
-import { captureState, diffKind, kindReaders, type StateCapture } from '../capture';
+import { captureState, diffKind, type StateCapture, type Divergence } from '../capture';
 import { finishRow, writeResults, type CertRow } from '../report';
-import { deserializeRoom } from '@pryzm/room-topology';
+import { seedWorld } from '../seed';
 
 let world: World;
 let expected: StateCapture;
@@ -32,10 +32,19 @@ let actual: StateCapture;
 let loadResult: { success: boolean; loaded: number; failed: number; errors: string[]; warnings: string[] } | null = null;
 let loadError = '';
 let serializeError = '';
-const seedOutcomes: Record<string, string> = {};   // kind → 'SEEDED' | reason it could not be
-const mutateOutcomes: Record<string, string> = {}; // verb → outcome line
+let seedOutcomes: Record<string, string> = {};   // kind → 'SEEDED' | reason it could not be
+let mutateOutcomes: Record<string, string> = {}; // verb → outcome line
 const rows: CertRow[] = [];
 const ROOM_ID = crypto.randomUUID();
+
+// ── §C10-STRUCTURED — machine-readable measurement, not prose ────────────────
+// The row's `persistence` cell is a HUMAN sentence with the first 12 divergences
+// truncated into it. Wave-3 gates (check-identity-roundtrip,
+// check-derived-regenerable) must not regex a sentence to learn what diverged,
+// so the same comparison is ALSO emitted structurally here. Both come from the
+// one `diffKind` call — there is no second, softer comparison.
+const divergencesByKind: Record<string, Divergence[]> = {};
+const idsByKind: Record<string, { expected: string[]; actual: string[]; reachedExpected: boolean; reachedActual: boolean }> = {};
 
 // ── Documented derived-state tolerances ──────────────────────────────────────
 // RULE: every entry MUST cite the document that declares the field derived.
@@ -47,116 +56,10 @@ const tolerated = (path: string): boolean => DOCUMENTED_TOLERANCES.some((t) => t
 beforeAll(async () => {
   const { buildWorld } = await import('../world');
   world = await buildWorld();
-  const reg = await import('@pryzm/command-registry') as any;
-  const cm = world.cm;
-
-  /** Seed helper — a THROW or a refused result is recorded, never swallowed. */
-  const seed = (kind: string, fn: () => { success?: boolean; info?: string[] } | void): void => {
-    try {
-      const r = fn();
-      if (r && r.success === false) {
-        seedOutcomes[kind] = `REFUSED: ${[...(r.info ?? []), (r as { error?: string }).error ?? ''].filter(Boolean).join('; ') || 'no reason given'}`;
-      } else {
-        seedOutcomes[kind] = seedOutcomes[kind] === undefined || seedOutcomes[kind] === 'SEEDED'
-          ? 'SEEDED' : seedOutcomes[kind];
-      }
-    } catch (e) {
-      seedOutcomes[kind] = `THREW: ${String(e).slice(0, 300)}`;
-    }
-  };
-
-  // 1 ── seed through REAL commands ─────────────────────────────────────────
-  seed('level', () => cm.execute(new reg.AddLevelCommand({ levelId: 'L1', name: 'Level 1', elevation: 3, height: 3 })));
-  seed('grid',  () => cm.execute(new reg.AddGridCommand({ gridId: 'cert-grid-1', orientation: 'X', position: 2 })));
-  seed('wall',  () => cm.execute(new reg.CreateWallCommand('cert-wall-1', {
-    start: { x: 0, z: 0 }, end: { x: 6, z: 0 }, height: 3, thickness: 0.2, levelId: 'L0', materialColor: '#aabbcc',
-  })));
-  seed('wall',  () => cm.execute(new reg.CreateWallCommand('cert-wall-2', {
-    start: { x: 0, z: 4 }, end: { x: 6, z: 4 }, height: 3, thickness: 0.2, levelId: 'L0',
-  })));
-  seed('door',  () => cm.execute(new reg.CreateWallOpeningCommand({
-    wallId: 'cert-wall-1',
-    openingData: { type: 'door', offset: 1.5, width: 0.9, height: 2.1, sillHeight: 0, doorType: 'single' },
-  })));
-  seed('window', () => cm.execute(new reg.CreateWallOpeningCommand({
-    wallId: 'cert-wall-2',
-    openingData: { type: 'window', offset: 2.0, width: 1.2, height: 1.4, sillHeight: 0.9, windowType: 'single' },
-  })));
-  seed('slab', () => cm.execute(new reg.CreateSlabCommand({
-    id: 'cert-slab-1', levelId: 'L0', position: { x: 3, y: 0, z: 2 },
-    polygon: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 4 }, { x: 0, y: 4 }],
-    thickness: 0.25, width: 6, depth: 4,
-  })));
-  seed('roof', () => cm.execute(new reg.CreateRoofCommand('cert-roof-1', {
-    levelId: 'L0',
-    footprint: { polygon: [[-1, -1], [7, -1], [7, 5], [-1, 5]], centroid: [3, 2] },
-    roofType: 'flat', overhang: 0.3, baseOffset: 3, thickness: 0.2,
-  })));
-  seed('column', () => cm.execute(new reg.CreateColumnCommand({
-    position: { x: 3, y: 0, z: 2 }, levelId: 'L0', width: 0.3, depth: 0.3, height: 3,
-    rotation: 0, profile: 'rectangular', baseOffset: 0,
-  })));
-  seed('stair', () => cm.execute(new reg.CreateStairCommand({
-    id: 'cert-st-1', baseLevelId: 'L0', topLevelId: 'L1', shape: 'I',
-    riserHeight: 3 / 18, treadDepth: 0.28, width: 1.0,
-    startPosition: { x: 5, y: 0, z: 3 },
-    flights: [{ direction: { x: 0, y: 0, z: 1 }, riserCount: 18 }],
-  })));
-  seed('beam', () => cm.execute(new reg.CreateBeamCommand({
-    startPoint: { x: 0, y: 3, z: 0 }, endPoint: { x: 6, y: 3, z: 0 }, levelId: 'L0',
-    sectionType: 'rectangular', width: 0.2, depth: 0.4,
-  })));
-  seed('curtainWall', () => cm.execute(new reg.CreateCurtainWallCommand({
-    id: 'cert-cw-1', levelId: 'L0',
-    start: { x: 0, z: 6 }, end: { x: 6, z: 6 }, height: 3,
-    gridXSpacing: 1.5, gridYSpacing: 1.5,
-  })));
-  seed('handrail', () => cm.execute(new reg.CreateHandrailCommand({
-    id: 'cert-hr-1', start: { x: 0, z: 8 }, end: { x: 4, z: 8 }, height: 0.9, thickness: 0.05, levelId: 'L0',
-  })));
-  seed('plumbing', () => cm.execute(new reg.CreatePlumbingFixtureCommand({
-    id: 'cert-pl-1', levelId: 'L0', fixtureType: 'toilet',
-    position: { x: 1, y: 0, z: 1 }, rotation: { x: 0, y: 0, z: 0 }, baseOffset: 0,
-  })));
-  seed('furniture', () => cm.execute(new reg.CreateFurnitureCommand({
-    id: 'cert-fu-1', levelId: 'L0', furnitureType: 'bed', position: { x: 2, y: 0, z: 2 },
-    rotation: { x: 0, y: 0, z: 0 }, baseOffset: 0,
-    width: 1.6, length: 2.0, height: 0.5, material: 'wood',
-  })));
-  seed('ceiling', () => cm.execute(new reg.CreateCeilingCommand({
-    ceilingId: 'cert-ce-1', ifcGuid: 'cert-ce-1-guid', levelId: 'L0',
-    polygon: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 }],
-    height: 2.7,
-  })));
-  seed('floor', () => cm.execute(new reg.CreateFloorCommand({
-    floorId: 'cert-fl-1', ifcGuid: 'cert-fl-1-guid', levelId: 'L0',
-    polygon: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 }],
-  })));
-  seed('room', () => cm.execute(new reg.BatchCreateRoomsCommand([deserializeRoom({
-    id: ROOM_ID, type: 'room', name: 'Cert Room', levelId: 'L0',
-    boundary: { polygon: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 }],
-                height: 3, baseOffset: 0, detectionMethod: 'manual-boundary' },
-  })])));
-  // opening records ride along with door/window seeding (CreateWallOpeningCommand).
-  seedOutcomes['opening'] = seedOutcomes['door'] === 'SEEDED' || seedOutcomes['window'] === 'SEEDED'
-    ? 'SEEDED (via door/window CreateWallOpeningCommand)'
-    : 'NOT SEEDED (door/window seeding failed)';
-
-  // 2 ── mutate through LIVE bus verbs so persisted values are not defaults ──
-  const mutate = async (verb: string, payload: unknown): Promise<void> => {
-    const r = await world.dispatch(verb, payload);
-    mutateOutcomes[verb] = r.ok ? 'DISPATCHED OK' : `THREW: ${r.err}`;
-  };
-  await mutate('roof.update', { id: 'cert-roof-1', updates: { thickness: 0.35 } });
-  await mutate('wall.updateDimensions', { wallId: 'cert-wall-1', height: 4.2 });
-  const doorRec = (await import('@pryzm/geometry-door')).doorStore.getAll()[0];
-  if (doorRec) await mutate('door.setOffset', { doorId: doorRec.id, newOffset: 2.5, prevOffset: doorRec.offset });
-  const winRec = (await import('@pryzm/geometry-window')).windowStore.getAll()[0];
-  if (winRec) await mutate('window.setOffset', { windowId: winRec.id, newOffset: 1.0, prevOffset: winRec.offset });
-  await mutate('element.updateParameters', {
-    elementId: 'cert-wall-2', elementType: 'wall', parameters: { materialColor: '#112233' },
-  });
-  await mutate('room.setMaterial', { roomId: ROOM_ID, materialColor: '#ff8800' });
+  // 1-2 ── seed through REAL commands + mutate through LIVE bus verbs ────────
+  // The model is defined ONCE in ../seed.ts so regenerable.cert.ts measures the
+  // SAME model, not a lookalike (see that file's header).
+  ({ seedOutcomes, mutateOutcomes } = await seedWorld(world, ROOM_ID));
 
   // 3 ── EXPECTED: independent capture, BEFORE the serializer is asked anything
   expected = captureState(world);
@@ -210,6 +113,16 @@ describe('HARNESS 1 — persistence round-trip comparator (§10)', () => {
       const act = actual[kind];
       const expCount = Object.keys(exp?.records ?? {}).length;
 
+      // §C10-STRUCTURED — record the identity sets for EVERY kind, including the
+      // ones whose comparison is skipped below. A kind that was never compared
+      // must be visible to a gate as "not compared", never as "no divergences".
+      idsByKind[kind] = {
+        expected: Object.keys(exp?.records ?? {}),
+        actual: Object.keys(act?.records ?? {}),
+        reachedExpected: exp?.reached === true,
+        reachedActual: act?.reached === true,
+      };
+
       let persistenceVerdict: string;
       let failed = false;
 
@@ -223,6 +136,7 @@ describe('HARNESS 1 — persistence round-trip comparator (§10)', () => {
         persistenceVerdict = `UNPROVEN — seed reported success but the authoritative store holds 0 records (MISCONFIGURED for this kind)`;
       } else {
         const r = diffKind(kind, exp, act, tolerated);
+        divergencesByKind[kind] = r.divergences;
         if (r.status === 'MISCONFIGURED') {
           persistenceVerdict = `UNPROVEN — MISCONFIGURED: ${JSON.stringify(r.divergences[0])}`;
         } else if (r.status === 'CLEAN') {
@@ -307,6 +221,12 @@ afterAll(() => {
       errors: loadResult.errors, warnings: loadResult.warnings,
     },
     registrationFailures: world?.registrationFailures ?? [],
+    // §C10-STRUCTURED — see the declaration block at the top of this file.
+    // `comparedKinds` is the list of kinds whose comparison ACTUALLY RAN; a gate
+    // that grades a kind absent from this list is grading nothing and must say so.
+    comparedKinds: Object.keys(divergencesByKind),
+    divergencesByKind,
+    idsByKind,
     rows,
   });
   console.log('[H1] results written: ' + p);

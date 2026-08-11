@@ -1,0 +1,84 @@
+{
+  "startedAt": "2026-08-11T20:57:10.059Z",
+  "vitestStatus": 1,
+  "failedRows": {
+    "persistence": 5,
+    "undoredo": 0
+  },
+  "gates": {
+    "check-identity-roundtrip": 0,
+    "check-propagation-reaches": 1,
+    "check-derived-regenerable": 0
+  },
+  "exitCode": 1,
+  "finishedAt": "2026-08-11T20:58:33.010Z",
+  "floors": {
+    "persistence": {
+      "floors": [
+        {
+          "what": "persistence.json written by THIS run (freshness)",
+          "measured": 1,
+          "min": 1
+        },
+        {
+          "what": "rows emitted",
+          "measured": 18,
+          "min": 18
+        },
+        {
+          "what": "element records in the EXPECTED capture",
+          "measured": 19,
+          "min": 12
+        },
+        {
+          "what": "kinds whose subject was established (SEEDED)",
+          "measured": 18,
+          "min": 14
+        },
+        {
+          "what": "serializeError is empty (the measured path actually executed)",
+          "measured": 1,
+          "min": 1
+        },
+        {
+          "what": "loadError is empty (the measured path actually executed)",
+          "measured": 1,
+          "min": 1
+        }
+      ],
+      "notes": [],
+      "unmet": 0
+    },
+    "undoredo": {
+      "floors": [
+        {
+          "what": "undoredo.json written by THIS run (freshness)",
+          "measured": 1,
+          "min": 1
+        },
+        {
+          "what": "rows emitted",
+          "measured": 16,
+          "min": 16
+        },
+        {
+          "what": "capabilities that actually dispatched",
+          "measured": 16,
+          "min": 12
+        },
+        {
+          "what": "undo entries armed across the run",
+          "measured": 15,
+          "min": 5
+        },
+        {
+          "what": "seed lines that reported OK",
+          "measured": 9,
+          "min": 6
+        }
+      ],
+      "notes": [],
+      "unmet": 0
+    }
+  }
+}

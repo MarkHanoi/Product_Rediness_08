@@ -1,0 +1,40 @@
+{
+  "//": [
+    "SHRINK-ONLY ratchet over the BIM 2.0 certification suites. Read certify.ts §3 for why",
+    "this is a ratchet and not a hard zero: the FAILED rows are REAL DEFECTS (F-1 identity",
+    "re-minting, F-2 stair/beam id loss, F-3 the 15 mm reload drift) owned by other tracks,",
+    "and a gate that blocked on them would block the commits that fix them.",
+    "",
+    "RULES:",
+    "  * A number may only ever go DOWN, and only in the commit that earned it.",
+    "  * Exceeding it exits 3 and is NEVER absorbable by editing this file upward.",
+    "  * These numbers grade FINDINGS. They do NOT and cannot absorb a MISCONFIGURED run —",
+    "    floors.ts decides that first, and exit 2 outranks everything here.",
+    "",
+    "MEASURED, not estimated, by `npx tsx certify.ts`:",
+    "  persistence  5 FAILED of 18 rows",
+    "  undoredo     0 FAILED of 16 rows  (all 16 now PARTIALLY VERIFIED — the ceiling,",
+    "               since Collaboration is UNPROVEN by construction on every row)",
+    "",
+    "THE NUMBER IN THE PLAN IS OLDER THAN THIS FILE, AND THAT IS NOT A CONTRADICTION.",
+    "BIM20-ACCEPTANCE-10-OF-10 §0 says 24 FAILED; that is the 2026-08-11 16:54 reading, and the",
+    "17:54 report file says 24 too. Measured on the same tree during this session:",
+    "  20:35  persistence  8 · undoredo 12   (24 -> 20)",
+    "  20:50  persistence  8 · undoredo  0",
+    "  21:50  persistence  5 · undoredo  0   <- this file",
+    "Wave 1-2 work was landing throughout. check-identity-roundtrip is CLEAN on the last two",
+    "readings, where F-1/F-2 predicted 18 findings. A plan is a stamp; this file is the ratchet,",
+    "and the ratchet is the one that must be current.",
+    "",
+    "⚠ CAVEAT, STATED RATHER THAN PADDED AWAY. Both numbers were read on a SHARED working tree",
+    "while other agents' Wave 1-2 fixes were still UNCOMMITTED. If those changes do not land,",
+    "these readings regress and this ratchet exits 3. That is the correct behaviour — a ratchet",
+    "exists to notice exactly that — and neither number was inflated to make the failure less",
+    "likely. RE-MEASURE ONCE THE WAVE 1-2 COMMITS LAND, and lower again if it reads lower."
+  ],
+  "measuredAt": "2026-08-11T21:50:00Z",
+  "maxFailedRows": {
+    "persistence": 5,
+    "undoredo": 0
+  }
+}

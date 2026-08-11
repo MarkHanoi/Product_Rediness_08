@@ -1,6 +1,6 @@
 {
   "harness": "H1-persistence",
-  "generatedAt": "2026-08-11T19:28:45.104Z",
+  "generatedAt": "2026-08-11T20:58:18.513Z",
   "seedOutcomes": {
     "level": "SEEDED",
     "grid": "SEEDED",
@@ -41,6 +41,311 @@
     ]
   },
   "registrationFailures": [],
+  "comparedKinds": [
+    "level",
+    "grid",
+    "wall",
+    "door",
+    "window",
+    "slab",
+    "roof",
+    "column",
+    "beam",
+    "stair",
+    "curtainWall",
+    "handrail",
+    "plumbing",
+    "furniture",
+    "ceiling",
+    "floor",
+    "room"
+  ],
+  "divergencesByKind": {
+    "level": [],
+    "grid": [],
+    "wall": [
+      {
+        "path": "wall.cert-wall-1._renderVersion",
+        "expected": 4,
+        "actual": 2
+      },
+      {
+        "path": "wall.cert-wall-1.metadata.createdAt",
+        "expected": 1786481892193,
+        "actual": 1786481898424
+      },
+      {
+        "path": "wall.cert-wall-1.metadata.modifiedAt",
+        "expected": 1786481892281,
+        "actual": 1786481898424
+      },
+      {
+        "path": "wall.cert-wall-1.metadata.version",
+        "expected": 2,
+        "actual": 1
+      },
+      {
+        "path": "wall.cert-wall-2._renderVersion",
+        "expected": 3,
+        "actual": 2
+      },
+      {
+        "path": "wall.cert-wall-2.metadata.createdAt",
+        "expected": 1786481892195,
+        "actual": 1786481898425
+      },
+      {
+        "path": "wall.cert-wall-2.metadata.modifiedAt",
+        "expected": 1786481892298,
+        "actual": 1786481898425
+      },
+      {
+        "path": "wall.cert-wall-2.metadata.version",
+        "expected": 2,
+        "actual": 1
+      }
+    ],
+    "door": [],
+    "window": [],
+    "slab": [],
+    "roof": [
+      {
+        "path": "roof.cert-roof-1.metadata.createdAt",
+        "expected": 1786481892209,
+        "actual": 1786481898443
+      },
+      {
+        "path": "roof.cert-roof-1.metadata.modifiedAt",
+        "expected": 1786481892276,
+        "actual": 1786481898443
+      },
+      {
+        "path": "roof.cert-roof-1.metadata.version",
+        "expected": 2,
+        "actual": 1
+      }
+    ],
+    "column": [],
+    "beam": [],
+    "stair": [],
+    "curtainWall": [],
+    "handrail": [],
+    "plumbing": [],
+    "furniture": [],
+    "ceiling": [
+      {
+        "path": "ceiling.cert-ce-1.metadata.createdAt",
+        "expected": 1786481892237,
+        "actual": 1786481898428
+      },
+      {
+        "path": "ceiling.cert-ce-1.metadata.modifiedAt",
+        "expected": 1786481892244,
+        "actual": 1786481898429
+      }
+    ],
+    "floor": [
+      {
+        "path": "floor.cert-fl-1.metadata.createdAt",
+        "expected": 1786481892245,
+        "actual": 1786481898429
+      },
+      {
+        "path": "floor.cert-fl-1.metadata.modifiedAt",
+        "expected": 1786481892245,
+        "actual": 1786481898429
+      }
+    ],
+    "room": [
+      {
+        "path": "room.0762fb27-24f7-470b-9a73-6395aaa06db0.metadata.modifiedAt",
+        "expected": 1786481892303,
+        "actual": 1786481898447
+      }
+    ]
+  },
+  "idsByKind": {
+    "level": {
+      "expected": [
+        "L0",
+        "L1"
+      ],
+      "actual": [
+        "L0",
+        "L1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "grid": {
+      "expected": [
+        "cert-grid-1"
+      ],
+      "actual": [
+        "cert-grid-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "wall": {
+      "expected": [
+        "cert-wall-1",
+        "cert-wall-2"
+      ],
+      "actual": [
+        "cert-wall-1",
+        "cert-wall-2"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "door": {
+      "expected": [
+        "c11a616e-f6dd-425b-9230-fca225c4b521"
+      ],
+      "actual": [
+        "c11a616e-f6dd-425b-9230-fca225c4b521"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "window": {
+      "expected": [
+        "d673f726-c92d-480d-8bc6-0d13d48b645b"
+      ],
+      "actual": [
+        "d673f726-c92d-480d-8bc6-0d13d48b645b"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "opening": {
+      "expected": [],
+      "actual": [],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "slab": {
+      "expected": [
+        "cert-slab-1"
+      ],
+      "actual": [
+        "cert-slab-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "roof": {
+      "expected": [
+        "cert-roof-1"
+      ],
+      "actual": [
+        "cert-roof-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "column": {
+      "expected": [
+        "column_01KZS9WPVMQZBQH9XHV6QRV7NN"
+      ],
+      "actual": [
+        "column_01KZS9WPVMQZBQH9XHV6QRV7NN"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "beam": {
+      "expected": [
+        "a0dbd93a-bf6b-4cc4-9bc9-c325b2873338"
+      ],
+      "actual": [
+        "a0dbd93a-bf6b-4cc4-9bc9-c325b2873338"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "stair": {
+      "expected": [
+        "cert-st-1"
+      ],
+      "actual": [
+        "cert-st-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "curtainWall": {
+      "expected": [
+        "cert-cw-1"
+      ],
+      "actual": [
+        "cert-cw-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "handrail": {
+      "expected": [
+        "cert-hr-1"
+      ],
+      "actual": [
+        "cert-hr-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "plumbing": {
+      "expected": [
+        "cert-pl-1"
+      ],
+      "actual": [
+        "cert-pl-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "furniture": {
+      "expected": [
+        "cert-fu-1"
+      ],
+      "actual": [
+        "cert-fu-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "ceiling": {
+      "expected": [
+        "cert-ce-1"
+      ],
+      "actual": [
+        "cert-ce-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "floor": {
+      "expected": [
+        "cert-fl-1"
+      ],
+      "actual": [
+        "cert-fl-1"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    },
+    "room": {
+      "expected": [
+        "0762fb27-24f7-470b-9a73-6395aaa06db0"
+      ],
+      "actual": [
+        "0762fb27-24f7-470b-9a73-6395aaa06db0"
+      ],
+      "reachedExpected": true,
+      "reachedActual": true
+    }
+  },
   "rows": [
     {
       "capability": "persist:level",
@@ -84,7 +389,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 2 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 13 divergence(s): wall.cert-wall-1.openings.0.frameThickness: expected undefined got 0.05 | wall.cert-wall-1.openings.0.frameColor: expected undefined got \"#f2f0ed\" | wall.cert-wall-1.openings.0.leafColor: expected undefined got \"#f2f0ed\" | wall.cert-wall-1._renderVersion: expected 4 got 2 | wall.cert-wall-1.metadata.createdAt: expected 1786476521712 got 1786476525072 | wall.cert-wall-1.metadata.modifiedAt: expected 1786476521747 got 1786476525072 | wall.cert-wall-1.metadata.version: expected 2 got 1 | wall.cert-wall-2.openings.0.frameThickness: expected undefined got 0.05 | wall.cert-wall-2.openings.0.frameColor: expected undefined got \"#e8e8e8\" | wall.cert-wall-2._renderVersion: expected 3 got 2 | wall.cert-wall-2.metadata.createdAt: expected 1786476521713 got 1786476525073 | wall.cert-wall-2.metadata.modifiedAt: expected 1786476521751 got 1786476525073 … +1 more",
+      "persistence": "FAIL — 8 divergence(s): wall.cert-wall-1._renderVersion: expected 4 got 2 | wall.cert-wall-1.metadata.createdAt: expected 1786481892193 got 1786481898424 | wall.cert-wall-1.metadata.modifiedAt: expected 1786481892281 got 1786481898424 | wall.cert-wall-1.metadata.version: expected 2 got 1 | wall.cert-wall-2._renderVersion: expected 3 got 2 | wall.cert-wall-2.metadata.createdAt: expected 1786481892195 got 1786481898425 | wall.cert-wall-2.metadata.modifiedAt: expected 1786481892298 got 1786481898425 | wall.cert-wall-2.metadata.version: expected 2 got 1",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -174,7 +479,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 3 divergence(s): roof.cert-roof-1.metadata.createdAt: expected 1786476521719 got 1786476525079 | roof.cert-roof-1.metadata.modifiedAt: expected 1786476521744 got 1786476525079 | roof.cert-roof-1.metadata.version: expected 2 got 1",
+      "persistence": "FAIL — 3 divergence(s): roof.cert-roof-1.metadata.createdAt: expected 1786481892209 got 1786481898443 | roof.cert-roof-1.metadata.modifiedAt: expected 1786481892276 got 1786481898443 | roof.cert-roof-1.metadata.version: expected 2 got 1",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -228,7 +533,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): stair.cert-st-1.metadata.createdAt: expected \"2026-08-11T19:28:41.728Z\" got \"2026-08-11T19:28:45.074Z\" | stair.cert-st-1.metadata.modifiedAt: expected \"2026-08-11T19:28:41.728Z\" got \"2026-08-11T19:28:45.074Z\"",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -238,7 +543,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     },
     {
       "capability": "persist:curtainWall",
@@ -282,7 +587,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): plumbing.cert-pl-1.position.y: expected 0 got 0.015",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -292,7 +597,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     },
     {
       "capability": "persist:furniture",
@@ -300,7 +605,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): furniture.cert-fu-1.position.y: expected 0 got 0.015",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -310,7 +615,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     },
     {
       "capability": "persist:ceiling",
@@ -318,7 +623,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): ceiling.cert-ce-1.metadata.createdAt: expected 1786476521734 got 1786476525074 | ceiling.cert-ce-1.metadata.modifiedAt: expected 1786476521736 got 1786476525074",
+      "persistence": "FAIL — 2 divergence(s): ceiling.cert-ce-1.metadata.createdAt: expected 1786481892237 got 1786481898428 | ceiling.cert-ce-1.metadata.modifiedAt: expected 1786481892244 got 1786481898429",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -336,7 +641,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): floor.cert-fl-1.metadata.createdAt: expected 1786476521737 got 1786476525074 | floor.cert-fl-1.metadata.modifiedAt: expected 1786476521737 got 1786476525074",
+      "persistence": "FAIL — 2 divergence(s): floor.cert-fl-1.metadata.createdAt: expected 1786481892245 got 1786481898429 | floor.cert-fl-1.metadata.modifiedAt: expected 1786481892245 got 1786481898429",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -354,7 +659,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): room.4e06d8c8-7d98-4744-a374-aefbb09bf8ab.metadata.modifiedAt: expected 1786476521753 got 1786476525080",
+      "persistence": "FAIL — 1 divergence(s): room.0762fb27-24f7-470b-9a73-6395aaa06db0.metadata.modifiedAt: expected 1786481892303 got 1786481898447",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",

@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-08-11T16:54:50.958Z",
+  "generatedAt": "2026-08-11T20:58:55.704Z",
   "generator": "tools/rac-conformance/certification/generate-report.ts",
   "harnesses": {
     "H1-persistence": {
-      "generatedAt": "2026-08-11T16:44:17.268Z",
+      "generatedAt": "2026-08-11T20:58:18.513Z",
       "tally": {
-        "FAILED": 12,
-        "PARTIALLY VERIFIED": 6
+        "PARTIALLY VERIFIED": 13,
+        "FAILED": 5
       },
       "meta": {
         "seedOutcomes": {
@@ -51,10 +51,9 @@
       }
     },
     "H2-undoredo": {
-      "generatedAt": "2026-08-11T16:44:13.009Z",
+      "generatedAt": "2026-08-11T20:58:12.441Z",
       "tally": {
-        "FAILED": 12,
-        "PARTIALLY VERIFIED": 4
+        "PARTIALLY VERIFIED": 16
       },
       "meta": {
         "seedLog": [
@@ -78,7 +77,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 2 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): level.L0.childrenIds.16: expected undefined got \"dd43622f-416a-47ec-a33c-157b323a846c\" | level.L0.childrenIds.17: expected undefined got \"586f304b-23a5-4cc1-b4a5-ff4abc1674b3\"",
+      "persistence": "PROVEN — 2 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -88,7 +87,7 @@
         "expectedRecords=2",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H1"
     },
     {
@@ -116,7 +115,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 2 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 15 divergence(s): wall.cert-wall-1.openings.0.frameThickness: expected undefined got 0.05 | wall.cert-wall-1.openings.0.frameColor: expected undefined got \"#f2f0ed\" | wall.cert-wall-1.openings.0.leafColor: expected undefined got \"#f2f0ed\" | wall.cert-wall-1.ifcData.guid: expected \"43293b5b-5b64-4772-948a-14b25c016d81\" got \"6ed1d847-d5d7-4b22-b65a-9e94f3b83dd1\" | wall.cert-wall-1._renderVersion: expected 4 got 2 | wall.cert-wall-1.metadata.createdAt: expected 1786466652828 got 1786466657207 | wall.cert-wall-1.metadata.modifiedAt: expected 1786466652899 got 1786466657207 | wall.cert-wall-1.metadata.version: expected 2 got 1 | wall.cert-wall-2.openings.0.frameThickness: expected undefined got 0.05 | wall.cert-wall-2.openings.0.frameColor: expected undefined got \"#e8e8e8\" | wall.cert-wall-2.ifcData.guid: expected \"0bdd395f-351a-4c93-ac2a-1d4fa9a161ef\" got \"44540d6e-0832-4dcf-963a-dc7c8c9e7fb8\" | wall.cert-wall-2._renderVersion: expected 3 got 2 … +3 more",
+      "persistence": "FAIL — 8 divergence(s): wall.cert-wall-1._renderVersion: expected 4 got 2 | wall.cert-wall-1.metadata.createdAt: expected 1786481892193 got 1786481898424 | wall.cert-wall-1.metadata.modifiedAt: expected 1786481892281 got 1786481898424 | wall.cert-wall-1.metadata.version: expected 2 got 1 | wall.cert-wall-2._renderVersion: expected 3 got 2 | wall.cert-wall-2.metadata.createdAt: expected 1786481892195 got 1786481898425 | wall.cert-wall-2.metadata.modifiedAt: expected 1786481892298 got 1786481898425 | wall.cert-wall-2.metadata.version: expected 2 got 1",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -211,7 +210,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 4 divergence(s): roof.cert-roof-1.metadata.createdAt: expected 1786466652844 got 1786466657218 | roof.cert-roof-1.metadata.modifiedAt: expected 1786466652895 got 1786466657218 | roof.cert-roof-1.metadata.version: expected 2 got 1 | roof.cert-roof-1.ifcData.guid: expected \"13c4c5ce-7aeb-4438-a348-9fa1bb1f7bcf\" got \"ebed0bc9-a591-47b7-9a6e-58961ec27a87\"",
+      "persistence": "FAIL — 3 divergence(s): roof.cert-roof-1.metadata.createdAt: expected 1786481892209 got 1786481898443 | roof.cert-roof-1.metadata.modifiedAt: expected 1786481892276 got 1786481898443 | roof.cert-roof-1.metadata.version: expected 2 got 1",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -230,7 +229,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): column.column_01KZRVBMNF5EDKF1WY3069JYNT.ifcData.guid: expected \"be9ea181-95e8-4094-9e44-a211f53fd475\" got \"0d0a0048-07fe-4faf-97a2-6af9cd9631f7\"",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -240,7 +239,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H1"
     },
     {
@@ -249,7 +248,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): beam.5bd52f12-1b97-49fb-8c8d-9a247ae6f029: expected \"(present)\" got \"(absent — LOST)\" | beam.586f304b-23a5-4cc1-b4a5-ff4abc1674b3: expected \"(absent)\" got \"(present)\"",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -259,7 +258,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H1"
     },
     {
@@ -268,7 +267,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): stair.cert-st-1: expected \"(present)\" got \"(absent — LOST)\" | stair.dd43622f-416a-47ec-a33c-157b323a846c: expected \"(absent)\" got \"(present)\"",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -278,7 +277,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H1"
     },
     {
@@ -306,7 +305,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): handrail.cert-hr-1.ifcData.guid: expected \"10ba9d01-9a68-4006-bfd9-ddabcc957e88\" got \"4b8a4940-9ec4-43e1-b19e-3a1793eddd1a\"",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -316,7 +315,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H1"
     },
     {
@@ -325,7 +324,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): plumbing.cert-pl-1.position.y: expected 0 got 0.015",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -335,7 +334,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H1"
     },
     {
@@ -344,7 +343,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): furniture.cert-fu-1.position.y: expected 0 got 0.015",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -354,7 +353,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H1"
     },
     {
@@ -363,7 +362,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): ceiling.cert-ce-1.metadata.createdAt: expected 1786466652874 got 1786466657210 | ceiling.cert-ce-1.metadata.modifiedAt: expected 1786466652879 got 1786466657210",
+      "persistence": "FAIL — 2 divergence(s): ceiling.cert-ce-1.metadata.createdAt: expected 1786481892237 got 1786481898428 | ceiling.cert-ce-1.metadata.modifiedAt: expected 1786481892244 got 1786481898429",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -382,7 +381,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): floor.cert-fl-1.metadata.createdAt: expected 1786466652880 got 1786466657210 | floor.cert-fl-1.metadata.modifiedAt: expected 1786466652880 got 1786466657210",
+      "persistence": "FAIL — 2 divergence(s): floor.cert-fl-1.metadata.createdAt: expected 1786481892245 got 1786481898429 | floor.cert-fl-1.metadata.modifiedAt: expected 1786481892245 got 1786481898429",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -401,7 +400,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): room.9e002faa-be38-45a9-a32c-f20f3330b6f5.metadata.modifiedAt: expected 1786466652910 got 1786466657221",
+      "persistence": "FAIL — 1 divergence(s): room.0762fb27-24f7-470b-9a73-6395aaa06db0.metadata.modifiedAt: expected 1786481892303 got 1786481898447",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -422,7 +421,7 @@
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: roof.u-roof-1.metadata.modifiedAt: expected 1786466652868 got 1786466652875",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -431,7 +430,7 @@
         "watched=roof.u-roof-1.thickness",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
@@ -442,7 +441,7 @@
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-1.metadata.modifiedAt: expected 1786466652888 got 1786466652892",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -451,7 +450,7 @@
         "watched=wall.u-wall-1.height",
         "A→B divergences=4"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
@@ -462,7 +461,7 @@
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-2.metadata.modifiedAt: expected 1786466652895 got 1786466652898",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -471,7 +470,7 @@
         "watched=wall.u-wall-2.baseLine",
         "A→B divergences=6"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
@@ -481,8 +480,8 @@
       "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.materialColor, wall.u-wall-1.metadata.modifiedAt, wall.u-wall-1.metadata.version",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
-      "undo": "FAIL — after undo, 2 divergence(s) from State A: wall.u-wall-1.metadata.modifiedAt: expected 1786466652892 got 1786466652905 | wall.u-wall-1.metadata.version: expected 2 got 4",
-      "redo": "FAIL — after redo, 2 divergence(s) from State B: wall.u-wall-1.metadata.modifiedAt: expected 1786466652902 got 1786466652906 | wall.u-wall-1.metadata.version: expected 3 got 5",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -491,7 +490,7 @@
         "watched=wall.u-wall-1.materialColor",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
@@ -502,7 +501,7 @@
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-2.metadata.modifiedAt: expected 1786466652910 got 1786466652913",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -511,7 +510,7 @@
         "watched=wall.u-wall-2.materialColor",
         "A→B divergences=5"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
@@ -541,8 +540,8 @@
       "authoritativeState": "PROVEN — authoritative state moved: ceiling.u-ce-1.metadata.modifiedAt, ceiling.u-ce-1.metadata.version, ceiling.u-ce-1.height",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
-      "undo": "FAIL — after undo, 1 divergence(s) from State A: ceiling.u-ce-1.metadata.modifiedAt: expected 1786466652848 got 1786466652928",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: ceiling.u-ce-1.metadata.modifiedAt: expected 1786466652925 got 1786466652929",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -551,18 +550,18 @@
         "watched=ceiling.u-ce-1.height",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
       "capability": "door.setOffset",
       "intent": "move a door along its wall",
       "command": "door.setOffset",
-      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.openings.0.offset, wall.u-wall-1._renderVersion, door.da47e151-772c-4753-8d95-5886731bf569.offset",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.openings.0.offset, wall.u-wall-1._renderVersion, door.8c4970aa-ab52-4421-817c-c4a7137e92d3.offset",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
-      "undo": "FAIL — after undo, 1 divergence(s) from State A: wall.u-wall-1._renderVersion: expected 3 got 5",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-1._renderVersion: expected 4 got 6",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -571,18 +570,18 @@
         "watched=door.<id>.offset",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
       "capability": "window.setOffset",
       "intent": "move a window along its wall",
       "command": "window.setOffset",
-      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-2.openings.0.offset, wall.u-wall-2._renderVersion, window.f33c5162-675a-4593-89d9-957d22ea82a3.offset",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-2.openings.0.offset, wall.u-wall-2._renderVersion, window.1426173e-6929-4304-a49f-21f14703e915.offset",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
-      "undo": "FAIL — after undo, 1 divergence(s) from State A: wall.u-wall-2._renderVersion: expected 4 got 6",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-2._renderVersion: expected 5 got 7",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -591,18 +590,18 @@
         "watched=window.<id>.offset",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
       "capability": "door.setSillHeight",
       "intent": "set door sill height (generic parameter bridge)",
       "command": "door.setSillHeight",
-      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.openings.0.sillHeight, wall.u-wall-1._renderVersion, door.da47e151-772c-4753-8d95-5886731bf569.sillHeight",
+      "authoritativeState": "PROVEN — authoritative state moved: wall.u-wall-1.openings.0.sillHeight, wall.u-wall-1._renderVersion, door.8c4970aa-ab52-4421-817c-c4a7137e92d3.sillHeight",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
-      "undo": "FAIL — after undo, 1 divergence(s) from State A: wall.u-wall-1._renderVersion: expected 6 got 8",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: wall.u-wall-1._renderVersion: expected 7 got 9",
+      "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -611,18 +610,18 @@
         "watched=door.<id>.sillHeight",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
       "capability": "room.setMaterial (colour)",
       "intent": "set room fill colour",
       "command": "room.setMaterial",
-      "authoritativeState": "PROVEN — authoritative state moved: room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt, room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.version, room.b9edeb43-475e-4d99-8580-c18747303a80.colour",
+      "authoritativeState": "PROVEN — authoritative state moved: room.7e42d782-658c-4f8a-af87-07a450c78b7f.metadata.modifiedAt, room.7e42d782-658c-4f8a-af87-07a450c78b7f.metadata.version, room.7e42d782-658c-4f8a-af87-07a450c78b7f.colour",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt: expected 1786466652958 got 1786466652962",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -631,18 +630,18 @@
         "watched=room.<id>.colour",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
       "capability": "room.setName",
       "intent": "rename a room",
       "command": "room.setName",
-      "authoritativeState": "PROVEN — authoritative state moved: room.b9edeb43-475e-4d99-8580-c18747303a80.name, room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt, room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.version",
+      "authoritativeState": "PROVEN — authoritative state moved: room.7e42d782-658c-4f8a-af87-07a450c78b7f.name, room.7e42d782-658c-4f8a-af87-07a450c78b7f.metadata.modifiedAt, room.7e42d782-658c-4f8a-af87-07a450c78b7f.metadata.version",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
-      "redo": "FAIL — after redo, 1 divergence(s) from State B: room.b9edeb43-475e-4d99-8580-c18747303a80.metadata.modifiedAt: expected 1786466652968 got 1786466652970",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 1 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -651,7 +650,7 @@
         "watched=room.<id>.name",
         "A→B divergences=3"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
@@ -662,7 +661,7 @@
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
-      "redo": "FAIL — after redo, 2 divergence(s) from State B: wall.u-wall-1.metadata.modifiedAt: expected 1786466652974 got 1786466652977 | wall.u-wall-2.metadata.modifiedAt: expected 1786466652975 got 1786466652977",
+      "redo": "PROVEN — after redo, authoritative state ≡ State B (deep, whole-store; 2 field(s) excluded — ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt)",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C)",
       "report": "PROVEN — dispatch resolved with a structured outcome (throw ≠ no-change, asserted separately)",
       "evidence": [
@@ -671,14 +670,14 @@
         "watched=wall.*.systemTypeId",
         "A→B divergences=12"
       ],
-      "status": "FAILED",
+      "status": "PARTIALLY VERIFIED",
       "harness": "H2"
     },
     {
       "capability": "door.updateSystemTypeBatch",
       "intent": "change ALL doors to a named type (batch = ONE undo)",
       "command": "door.updateSystemTypeBatch",
-      "authoritativeState": "PROVEN — authoritative state moved: door.da47e151-772c-4753-8d95-5886731bf569.frameThickness, door.da47e151-772c-4753-8d95-5886731bf569.frameColor, door.da47e151-772c-4753-8d95-5886731bf569.leafThickness, door.da47e151-772c-4753-8d95-5886731bf569.leafColor, door.da47e151-772c-4753-8d95-5886731bf569.frameFinish, door.da47e151-772c-4753-8d95-5886731bf569.leafFinish … +2",
+      "authoritativeState": "PROVEN — authoritative state moved: door.8c4970aa-ab52-4421-817c-c4a7137e92d3.frameThickness, door.8c4970aa-ab52-4421-817c-c4a7137e92d3.frameColor, door.8c4970aa-ab52-4421-817c-c4a7137e92d3.leafThickness, door.8c4970aa-ab52-4421-817c-c4a7137e92d3.leafColor, door.8c4970aa-ab52-4421-817c-c4a7137e92d3.frameFinish, door.8c4970aa-ab52-4421-817c-c4a7137e92d3.leafFinish … +2",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",
@@ -698,7 +697,7 @@
       "capability": "window.updateSystemTypeBatch",
       "intent": "change ALL windows to a named type (batch = ONE undo)",
       "command": "window.updateSystemTypeBatch",
-      "authoritativeState": "PROVEN — authoritative state moved: window.f33c5162-675a-4593-89d9-957d22ea82a3.glazingThickness, window.f33c5162-675a-4593-89d9-957d22ea82a3.rebateDepth, window.f33c5162-675a-4593-89d9-957d22ea82a3.frameFinish, window.f33c5162-675a-4593-89d9-957d22ea82a3.sillFinish, window.f33c5162-675a-4593-89d9-957d22ea82a3.finishMaterial, window.f33c5162-675a-4593-89d9-957d22ea82a3.systemTypeId",
+      "authoritativeState": "PROVEN — authoritative state moved: window.1426173e-6929-4304-a49f-21f14703e915.glazingThickness, window.1426173e-6929-4304-a49f-21f14703e915.rebateDepth, window.1426173e-6929-4304-a49f-21f14703e915.frameFinish, window.1426173e-6929-4304-a49f-21f14703e915.sillFinish, window.1426173e-6929-4304-a49f-21f14703e915.finishMaterial, window.1426173e-6929-4304-a49f-21f14703e915.systemTypeId",
       "geometry": "UNPROVEN — no fragment builders headless; meshes never built",
       "persistence": "n/a — measured by Harness 1",
       "undo": "PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, 1 entry)",

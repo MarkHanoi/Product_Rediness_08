@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFloors, type SuiteArtefact } from './floors.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -27,6 +28,33 @@ const readRun = (name: string): RunFile | null => {
 const h1 = readRun('persistence.json');
 const h2 = readRun('undoredo.json');
 if (!h1 && !h2) { console.error('No results in ' + dir + ' — run the cert suites first.'); process.exit(2); }
+
+// ── §C10 FLOORS — a broken run must not be PUBLISHED either ──────────────────
+// The floors also run in certify.ts, before the verdict. They run again here for
+// a reason the duplication does not cover: this generator writes a document into
+// docs/04-reference/ that humans read as the state of the estate. A run whose seed
+// collapsed produces a table of UNPROVEN rows with a headline of "FAILED: 0" —
+// which reads, to anyone who did not run it, as the best result the suite has ever
+// had. Publishing that is worse than failing loudly. Freshness is NOT asserted here
+// (`notBefore` 0), because regenerating the document from artefacts on disk is a
+// legitimate thing to do; emptiness is asserted, because it never is.
+{
+  const problems: string[] = [];
+  for (const [suite, art] of [['persistence', h1], ['undoredo', h2]] as const) {
+    if (!art) continue;
+    const { floors, notes } = readFloors(suite, art as unknown as SuiteArtefact, 0);
+    for (const f of floors) {
+      if (f.measured < f.min) problems.push(`${suite}: ${f.what} = ${f.measured} (floor ${f.min})`);
+    }
+    for (const n of notes) if (n) problems.push(`${suite}: ${n}`);
+  }
+  if (problems.length > 0) {
+    console.error('MISCONFIGURED (2) — refusing to publish a report over a subject this run never established:');
+    for (const p of problems) console.error('  ❌ ' + p);
+    console.error('A "0 FAILED" headline computed over an empty model is the exact lie C10 §0 rule 2 forbids.');
+    process.exit(2);
+  }
+}
 
 const tally = (rows: Row[]): Record<string, number> => {
   const t: Record<string, number> = {};

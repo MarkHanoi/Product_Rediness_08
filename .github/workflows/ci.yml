@@ -40,6 +40,17 @@
 #                     200 ms) and the targets were NOT moved to make it green. FLIP TO
 #                     REQUIRED when both close. Note the Ratchet-R2 step inside it is itself
 #                     hard-fail-by-exit-code; only the job wrapper is advisory.)
+#   - bim20-certification
+#                    (C10, 2026-08-11 — the BIM 2.0 certification harness had NEVER run in
+#                     CI; `grep -rn "certification" .github/workflows/` returned zero matches
+#                     while criterion C10 of BIM20-ACCEPTANCE-10-OF-10 required exactly that.
+#                     Lands ADVISORY on the same L-247 ladder: 5 persistence rows are FAILED
+#                     against real defects owned by other tracks, and blocking on them would
+#                     block the commits that fix them. FLIP TO REQUIRED when the persistence
+#                     ratchet reaches 0 and check-propagation-reaches' ledger empties.
+#                     Note the exit-code contract INSIDE certify.ts is not advisory: exit 2
+#                     MISCONFIGURED and exit 3 RATCHET EXCEEDED are never absorbable; only
+#                     the job wrapper is advisory, and it is the single flip-point.)
 #   - the "Legacy release gate" STEP inside the `ga-gate` job (`pnpm run ga-gate`, a different
 #     and smaller script) — that STEP is `continue-on-error`, the job is not.
 #
@@ -427,6 +438,85 @@ jobs:
         with:
           name: nft-run-output
           path: apps/bench/.run-output/
+          retention-days: 30
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # C10 (2026-08-11) — THE BIM 2.0 CERTIFICATION HAD NEVER RUN IN CI.
+  #
+  # Criterion C10 of docs/03-execution/plans/BIM20-ACCEPTANCE-10-OF-10.md is
+  # "the certification runs in CI AND cannot print a pass on a broken run", and
+  # its "Today" cell reads: "harness exists but is not wired into CI". Measured
+  # 2026-08-11: `grep -rn "certification" .github/workflows/` → ZERO MATCHES.
+  # This job is the first time the cert suites run anywhere but a dev box.
+  #
+  # THE JOB DOES NOT SHELL OUT TO `vitest`, AND THAT IS THE WHOLE POINT.
+  # It runs `certify.ts`, because vitest's exit code cannot answer C10 in EITHER
+  # direction:
+  #   * The suites are RED TODAY BY DESIGN — `expect.soft`, and every red `it` is
+  #     a MEASURED round-trip divergence. A finding, not a crash.
+  #   * A suite that seeds NOTHING is GREEN — every comparator honestly reports
+  #     "nothing to compare", every row reads UNPROVEN, the FAILED tally is 0.
+  #     Maximally broken, maximally green.
+  # `certify.ts` therefore grades the ARTEFACT the suites wrote, against declared
+  # floors (tools/rac-conformance/certification/floors.ts), and exits:
+  #   0 clean · 1 declared-level · 2 MISCONFIGURED · 3 RATCHET EXCEEDED.
+  # 2 and 3 are NEVER absorbable as debt. PROVEN, not asserted: emptying the seed
+  # makes vitest report 1 failed test of 43 and the FAILED-row ratchet report
+  # "0 FAILED — better than declared", while certify.ts exits 2.
+  #
+  # ADVISORY ON LANDING — AND NOT AS A WAY TO GET GREEN.
+  # The suites report 5 FAILED persistence rows against real defects (F-1 audit
+  # re-minting is what is left; F-2 identity, F-3 the 15 mm reload drift and F-4
+  # the openings superset all CLOSED during this session, and the ratchet was
+  # lowered 8 -> 5 rather than left slack) owned by other tracks, and
+  # check-propagation-reaches lands at its declared level of 8
+  # (four cascade events with zero listeners AND no prevState on the emitter —
+  # EV-03 §7). Per this repo's L-247 ladder a suite that has never run cannot
+  # land blocking, or the first thing it blocks is the fix for itself. The
+  # targets were NOT moved: the ratchet in cert-ratchet.json is set to the
+  # MEASURED numbers and is shrink-only.
+  #
+  # ⚠ THE EXIT-CODE CONTRACT INSIDE THE STEP IS NOT ADVISORY. `continue-on-error`
+  # on the JOB is the single flip-point; certify.ts itself hard-fails by exit code
+  # on MISCONFIGURED and on RATCHET EXCEEDED, and neither is absorbable by editing
+  # a baseline upward. FLIP `continue-on-error` OFF when the persistence ratchet
+  # reaches 0 and check-propagation-reaches' ledger empties.
+  #
+  # §L-540-CI-GATE APPLIES: required status checks are not the gate here, because
+  # the founder pushes straight to `main`. The real gate is the `ci-gate` job in
+  # deploy-fly.yml, which refuses to deploy a SHA whose CI run did not succeed —
+  # and a `continue-on-error` job cannot fail that run, by design. So this job
+  # RUNS ALWAYS, PUBLISHES THE ARTEFACT, AND RATCHETS. It does not block a deploy
+  # today, and the header says so rather than implying otherwise.
+  bim20-certification:
+    name: BIM 2.0 certification (floors + Wave-3 gates — ADVISORY on landing, see job header)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Runs the three cert suites, then grades their artefacts against the
+      # floors, the shrink-only ratchet and the three Wave-3 gates. One command,
+      # one exit code — see the job header for why it is not `vitest`.
+      - name: Certify (exit 2 = MISCONFIGURED, exit 3 = ratchet exceeded — neither absorbable)
+        run: pnpm run certify:bim20
+      # The artefact is uploaded on FAILURE TOO. A run that exits 2 is precisely
+      # the one whose evidence someone needs, and `if: always()` is what stops
+      # "the job went red" from being the entire record of what happened.
+      - name: Upload certification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bim20-certification
+          path: tools/rac-conformance/certification/results/
           retention-days: 30
 
   apex-gates:

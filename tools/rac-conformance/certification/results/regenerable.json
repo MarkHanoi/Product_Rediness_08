@@ -1,0 +1,43 @@
+{
+  "harness": "H3-regenerable",
+  "generatedAt": "2026-08-11T20:58:18.551Z",
+  "seedOutcomes": {
+    "level": "SEEDED",
+    "grid": "SEEDED",
+    "wall": "SEEDED",
+    "door": "SEEDED",
+    "window": "SEEDED",
+    "slab": "SEEDED",
+    "roof": "SEEDED",
+    "column": "SEEDED",
+    "stair": "SEEDED",
+    "beam": "SEEDED",
+    "curtainWall": "SEEDED",
+    "handrail": "SEEDED",
+    "plumbing": "SEEDED",
+    "furniture": "SEEDED",
+    "ceiling": "SEEDED",
+    "floor": "SEEDED",
+    "room": "SEEDED",
+    "opening": "SEEDED (via door/window CreateWallOpeningCommand)"
+  },
+  "roundTripErrors": [],
+  "recordsA1": 19,
+  "kindsCaptured": 18,
+  "regenerable": [
+    "roof.<*>.metadata.version",
+    "wall.<*>._renderVersion",
+    "wall.<*>.metadata.version"
+  ],
+  "persistOrLose": [
+    "ceiling.<*>.metadata.createdAt",
+    "ceiling.<*>.metadata.modifiedAt",
+    "floor.<*>.metadata.createdAt",
+    "floor.<*>.metadata.modifiedAt",
+    "roof.<*>.metadata.createdAt",
+    "roof.<*>.metadata.modifiedAt",
+    "room.<*>.metadata.modifiedAt",
+    "wall.<*>.metadata.createdAt",
+    "wall.<*>.metadata.modifiedAt"
+  ]
+}

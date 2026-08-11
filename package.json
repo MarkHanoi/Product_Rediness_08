@@ -52,7 +52,8 @@
     "test:ci": "pnpm -r --workspace-concurrency=1 --if-present run test:ci",
     "test:quarantined": "pnpm -r --workspace-concurrency=1 --if-present run test:quarantined",
     "test:server": "vitest run --config vitest.server.config.ts",
-    "ga-gate:all": "tsx tools/ga-gate/run-all.ts"
+    "ga-gate:all": "tsx tools/ga-gate/run-all.ts",
+    "certify:bim20": "tsx tools/rac-conformance/certification/certify.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
