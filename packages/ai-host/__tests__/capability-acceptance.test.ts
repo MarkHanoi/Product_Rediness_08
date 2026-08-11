@@ -1018,6 +1018,21 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     'how tall is the selected wall?',
     'what is the height of this wall?',
     'is this wall 3m tall?',
+    // §FIX-CHAT-VISIBILITY-MISREAD (RAC U9 P0, found by the U10 drain). The
+    // worst misread measured: a READ-ONLY question silently RESIZED GEOMETRY.
+    // "highlight walls taller than 3m" resolved to set-height and dispatched
+    // wall.updateDimensions on the selected wall — the U8 filter vocabulary
+    // ("taller than 3m") is exactly what the dimension family looks for, and
+    // nothing in the ladder cared that the verb was about VISIBILITY.
+    'highlight walls taller than 3m',
+    'isolate doors higher than 2 meters',
+    'show me walls thicker than 300mm',
+    'hide all doors narrower than 900mm',
+    // The same shape one step further out: a query verb plus a delete noun.
+    // U9.2 shipped scoped deletion, so "find all furniture in the kitchen" is
+    // now one word away from deleting it.
+    'find all furniture in the kitchen',
+    'count the windows on level 2',
     // §FIX-CHAT-REPORT-PASTEBACK (founder P0, 2026-08-10, reproduced twice on
     // the live deploy). The founder pasted the assistant's OWN report back into
     // the chat and the ladder CREATED A LEVEL from it — twice, stacking two

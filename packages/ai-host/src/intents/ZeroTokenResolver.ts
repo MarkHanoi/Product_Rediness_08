@@ -31,7 +31,11 @@ import {
   normalizeElementKind,
   resolveChatCapability,
 } from '../capabilities/ChatCapabilityRegistry.js';
-import { describeCapabilitiesFor, descriptiveReportReason } from '../capabilities/CapabilityRefusal.js';
+import {
+  describeCapabilitiesFor,
+  descriptiveReportReason,
+  visibilityMisreadReason,
+} from '../capabilities/CapabilityRefusal.js';
 // RAC U4 — the spec-driven capability interpreter: batch-shaped capabilities
 // are TABLE ENTRIES in CapabilityExecutionSpec.ts, executed by the ONE generic
 // arm below (the switch's default). applySemanticIntent remains the single
@@ -2708,8 +2712,24 @@ function makeHostedTypeParser(
     const typeRef = (scoped?.[4] ?? singular![1]!).trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
     if (typeRef.length === 0) return null;
     // "make all windows 1m wide" is a DIMENSION ask, not a type ask — never claim it.
-    if (/\b(?:tall|high|wide|taller|wider|height|width|sill|deep|long)\b/.test(typeRef)) return null;
+    // §FIX-CHAT-TYPEREF-SWALLOW (RAC U9, U10 drain): the list was missing the
+    // NOUN forms, so "set all slabs thickness to 0.2m" was claimed with typeRef
+    // "thickness to 0.2m" — and the SUMMARY said 'Change every slab in the
+    // project to "thickness to 0.2m"' before the command refused. A summary
+    // that states a falsehood is worse than a miss, whatever happens next.
+    if (/\b(?:tall|high|wide|taller|wider|height|width|sill|deep|long|thick|thickness|depth|offset|elevation|pitch|angle|angled|raked|tilted)\b/.test(typeRef)) return null;
     if (/^\d/.test(typeRef)) return null;
+    // §FIX-CHAT-TYPEREF-SWALLOW — "make all slabs blue" is a COLOUR ask. The
+    // colour table decides, not a hand-listed set of colour words, and the
+    // CATALOGUE gets the first say: a project whose slab type really is called
+    // "Blue" keeps working, because only a ref the catalogue does NOT know is
+    // handed to the colour test. Nothing is narrowed — an unknown NON-colour
+    // ref still claims, and still earns the honest "there is no <noun> type
+    // called X; the types here are …" refusal that lists the real names.
+    if (resolveColorRef(typeRef) !== null) {
+      const catalogue = ctx === undefined ? undefined : catalogueOf(ctx);
+      if (catalogue === undefined || catalogue(typeRef) === null) return null;
+    }
     if (scoped === null) return { typeRef, scope: withFilters('selection', lifted.filters) };
     const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!);
     const base = wallScopeBase(isAll, undefined, scoped[2]?.trim(), scoped[3]?.trim());
@@ -3276,10 +3296,16 @@ function runGrammar(text: string, ctx: ResolverContext, tier: 0 | 1): ZeroTokenR
 export function resolveUtteranceIntent(utterance: string, ctx: ResolverContext): SemanticIntent | null {
   const text = normalize(utterance);
   if (text.length === 0 || descriptiveReportReason(utterance) !== null) return null;
-  const t0 = runGrammarIntent(text, ctx);
+  // §FIX-CHAT-VISIBILITY-MISREAD — a visibility verb may reach a VIEW intent
+  // and nothing else. "highlight walls taller than 3m" carried a height word
+  // and a measurement, which was all the dimension family ever needed, and it
+  // dispatched wall.updateDimensions on a read-only question.
+  const claimed = (si: SemanticIntent | null): SemanticIntent | null =>
+    si !== null && visibilityMisreadReason(utterance, si.intent) !== null ? null : si;
+  const t0 = claimed(runGrammarIntent(text, ctx));
   if (t0 !== null) return t0;
   const t1 = tier1Normalize(text);
-  return t1 !== text ? runGrammarIntent(t1, ctx) : null;
+  return t1 !== text ? claimed(runGrammarIntent(t1, ctx)) : null;
 }
 
 export function resolveUtterance(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
@@ -3300,6 +3326,12 @@ export function resolveUtterance(utterance: string, ctx: ResolverContext): ZeroT
         if (r === null) {
           const t1 = tier1Normalize(text);
           if (t1 !== text) r = runGrammar(t1, ctx, 1);
+        }
+        // §FIX-CHAT-VISIBILITY-MISREAD — the same gate on the APPLIED path, so
+        // the two entry points cannot disagree about what a visibility verb is
+        // allowed to claim.
+        if (r !== null && r.kind !== 'miss' && visibilityMisreadReason(utterance, r.intent) !== null) {
+          r = null;
         }
         result = r ?? { kind: 'miss' };
       }

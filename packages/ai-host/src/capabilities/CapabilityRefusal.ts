@@ -146,6 +146,58 @@ export function nonImperativeReason(
   return null;
 }
 
+// ─── §FIX-CHAT-VISIBILITY-MISREAD (RAC U9, P0) ───────────────────────────────
+//
+// THE DEFECT, measured by the U10 drain: "highlight walls taller than 3m"
+// resolved to set-height and DISPATCHED wall.updateDimensions. A read-only
+// question about which walls are tall silently RESIZED one. "isolate doors
+// higher than 2 meters" did the same.
+//
+// The mechanism is the U8 filter vocabulary meeting the dimension classifier:
+// "taller than 3m" carries a height word and a measurement, which is all the
+// dimension family ever needed, and nothing in the ladder cared that the verb
+// was a VISIBILITY verb. This is the same family as the report-pasteback bug
+// (§FIX-CHAT-REPORT-PASTEBACK) — an utterance that is command-SHAPED but is
+// not the command it looks like — so the guard lives in the same place, at the
+// LADDER level, where no grammar can bypass it.
+//
+// WHAT IT DOES NOT DO: it does not blanket-refuse visibility verbs. "show
+// level 2" is a real, shipped ask (go-to-level), and "zoom to selection" opens
+// with a view verb too. So the guard is not "a visibility opener claims
+// nothing" — it is "a visibility opener may claim only intents that CHANGE THE
+// VIEW", and every mutation is refused. When the chat grows real hide/isolate
+// capabilities they join the allowlist below, and the day they do, this guard
+// is what stops "isolate the tall doors" resizing one on the way there.
+
+/** Verbs whose subject is what you can SEE, not what the model IS. */
+const VISIBILITY_OPENER =
+  /^\s*(?:please\s+)?(?:highlight|isolate|hide|unhide|reveal|select|filter|find|list|count|show(?:\s+me)?)\b/i;
+
+/**
+ * Intents a visibility/query opener MAY still reach: the ones that change the
+ * view and nothing else. Everything absent from this set is a mutation as far
+ * as this guard is concerned — which is the safe direction to be wrong in.
+ */
+const VISIBILITY_SAFE_INTENTS: ReadonlySet<string> = new Set([
+  'go-to-level', 'zoom-fit', 'zoom-selected', 'undo', 'redo',
+]);
+
+/** Does this utterance open with a verb about VISIBILITY rather than change? */
+export function isVisibilityQueryOpener(raw: string): boolean {
+  return VISIBILITY_OPENER.test(raw.trim());
+}
+
+/**
+ * Must this (utterance, intent) pair be refused because a visibility verb is
+ * reaching for a mutation? Exported so the tier-0/1 resolver, the NL layer and
+ * the plan executor share ONE definition — a guard only half the ladder
+ * honours is not a guard.
+ */
+export function visibilityMisreadReason(raw: string, intent: string): 'visibility' | null {
+  if (!isVisibilityQueryOpener(raw)) return null;
+  return VISIBILITY_SAFE_INTENTS.has(intent) ? null : 'visibility';
+}
+
 // ─── Topics the chat is known NOT to drive ───────────────────────────────────
 //
 // Each entry is a topic a user can reasonably ask for, that a bus command DOES

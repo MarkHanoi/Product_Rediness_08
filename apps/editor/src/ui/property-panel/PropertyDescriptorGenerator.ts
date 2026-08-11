@@ -17,6 +17,8 @@ import { STAIR_CONSTRAINTS, STAIR_MATERIALS, STAIR_NOSING_TYPES, STAIR_STRINGER_
 // §WALL-RAKE — bounds come from the ONE authority (ADR-0310 §2.4). Re-typing 15/165
 // here would be the second copy of a policy, which is how this repo's drift starts.
 import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
+// §PROP-BEAM-PANEL-LIE — the PUBLISHED beam bounds, never re-typed here.
+import { BEAM_CONSTRAINTS } from '@pryzm/core-app-model/stores';
 
 type SchemaEntry = Omit<PropertyDescriptor, 'key'>;
 
@@ -127,16 +129,34 @@ const SCHEMAS: Record<string, ElementSchema> = {
         globalId:        READONLY('Global ID', 'metadata'),
     },
 
+    // §PROP-BEAM-PANEL-LIE (RAC U9, 2026-08-11) — TWO dead controls removed.
+    //
+    // This schema offered an editable `height` row and an editable `baseOffset`
+    // row. `BeamData` (core-app-model/src/stores/BeamTypes.ts) has NEITHER:
+    // it carries `width` and `depth`, and BeamFragmentBuilder builds every
+    // section from `beam.width × beam.depth`. A user dragged either row, the
+    // panel committed it through element.updateParameters, the store accepted
+    // the write, the builder re-ran — and nothing moved. Silent no-op, and the
+    // exact defect U7.1 had already removed one layer over (the chat's
+    // `set-height` claimed `beam` for the same wrong reason: store routing was
+    // mistaken for field existence).
+    //
+    // `height` becomes DEPTH, the property a beam really has, with the
+    // PUBLISHED bounds rather than the invented 0.05–2 (BEAM_CONSTRAINTS is the
+    // single authority — C65 §3.5, one policy one place). `baseOffset` is
+    // deleted outright: a beam is positioned by its start/end points, so there
+    // is no field for the row to become.
     beam: {
         id:              READONLY('Element ID', 'identity'),
         type:            READONLY('Element Type', 'identity'),
         mark:            TEXT('Mark', 'identity', 'global'),
-        width:           NUMBER('Width', 'definition', 'definition', true, { unit: 'm', min: 0.05, max: 2 }),
-        height:          NUMBER('Height', 'definition', 'definition', true, { unit: 'm', min: 0.05, max: 2 }),
+        width:           NUMBER('Width', 'definition', 'definition', true,
+                             { unit: 'm', min: BEAM_CONSTRAINTS.MIN_WIDTH, max: BEAM_CONSTRAINTS.MAX_WIDTH }),
+        depth:           NUMBER('Depth', 'definition', 'definition', true,
+                             { unit: 'm', min: BEAM_CONSTRAINTS.MIN_DEPTH, max: BEAM_CONSTRAINTS.MAX_DEPTH }),
         materialColor:   COLOR('Color Override', 'definition', 'definition'),
         levelId:         READONLY('Level ID', 'spatial'),
         room:            READONLY('Room', 'spatial'),
-        baseOffset:      NUMBER('Base Offset', 'instance', 'instance', true, { unit: 'm' }),
         ifcClass:        READONLY('IFC Class', 'metadata'),
         globalId:        READONLY('Global ID', 'metadata'),
     },

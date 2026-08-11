@@ -33,7 +33,7 @@
 // recorded on a span.
 
 import { trace, type Tracer } from '@opentelemetry/api';
-import { nonImperativeReason } from '../capabilities/CapabilityRefusal.js';
+import { nonImperativeReason, visibilityMisreadReason } from '../capabilities/CapabilityRefusal.js';
 import {
   applySemanticIntent,
   boundedLevenshtein,
@@ -751,7 +751,17 @@ function classify(
   }
 
   // Dimension setting (set-height / set-thickness / set-width / set-sill-height).
-  if (e.dimension !== null && !creationShape && !compound) {
+  //
+  // §FIX-CHAT-DIMENSION-ALL-SCOPE (RAC U9, U10 drain). Every dimension
+  // capability is SELECTION-scoped — there is no batch dimension verb — so a
+  // sentence carrying an explicit all-scope word is asking for something this
+  // branch cannot do. It used to claim anyway and quietly act on the SELECTION:
+  // "set all slabs thickness to 0.2m" resized the one selected wall. Answering
+  // a project-wide ask by mutating one element the user did not name is the
+  // worst available outcome, so the branch declines and the ladder answers
+  // honestly instead.
+  const allScopeWord = tokens.some((t) => t === 'all' || t === 'every' || t === 'each');
+  if (e.dimension !== null && !creationShape && !compound && !allScopeWord) {
     const intent = DIMENSION_INTENT[e.dimension];
     const value = e.measurements[0];
     const ev = [`dimension:${e.dimension}`];
@@ -970,8 +980,54 @@ function classify(
   // "build" is no longer a trigger on its own for the same reason.
   const imperativeVerbAt = (words: readonly string[]): boolean =>
     tokens.some((t, i) => i <= 1 && words.includes(t) && !n.corrected.has(i));
+
+  // §FIX-CHAT-ADDLEVEL-OVERCLAIM (RAC U9, found by the U10 drain). The token
+  // "level"/"levels" ANYWHERE in the sentence was enough, so three ordinary
+  // asks became "Add Level 2 at elevation 6 m":
+  //
+  //   "create floor plan view"        — "floor" is a level SYNONYM
+  //   "create stairs between levels"  — the levels are the CONTEXT, not the object
+  //   "create slabs in all levels"    — same, one noun further out
+  //
+  // In each, the thing being created is named and it is not a level. So the
+  // object noun now has to BE the level: no other element noun may appear, and
+  // the level word may not sit behind a preposition that makes it the setting
+  // ("between levels", "in all levels", "on every floor") rather than the
+  // object.
+  const levelIsTheObject = ((): boolean => {
+    // The object noun must BE the level. "floor" is the level's own synonym, so
+    // it counts; "stairs" and "slabs" do not — those sentences create something
+    // else and merely MENTION levels.
+    const noun = e.elementNoun ?? null;
+    if (noun !== null && noun !== 'level' && noun !== 'floor') return false;
+    // A DOCUMENT noun means the ask is about a drawing, not the model:
+    // "create floor plan view" is a view, and "floor" is doing adjective duty.
+    if (tokens.some((t) => ['view', 'views', 'sheet', 'sheets', 'plan', 'plans',
+      'schedule', 'schedules', 'drawing', 'drawings', 'elevation', 'section'].includes(t))) {
+      return false;
+    }
+    const li = tokens.findIndex((t) => t === 'level' || t === 'levels');
+    if (li <= 0) return li === 0;
+    const before = tokens[li - 1]!;
+    return !['between', 'in', 'on', 'across', 'all', 'every', 'each', 'both'].includes(before);
+  })();
+
+  // §FIX-CHAT-ADDLEVEL-COUNT — "create 10 levels at 3m" created ONE level at
+  // elevation 10: the COUNT was read as the elevation, because the branch
+  // simply took the first measurement it saw. Silently reinterpreting a count
+  // as an elevation is the worst of the three options (the other two being
+  // "make 10 levels" and "say you can't"). Until add-level takes a count, the
+  // plural WITH a count is not claimed — the ask falls through and is answered
+  // honestly instead of answered wrongly.
+  const LEVEL_NOUNS = ['level', 'levels', 'floor', 'floors', 'storey', 'storeys', 'story', 'stories'];
+  const countedPlural = tokens.some(
+    (t, i) => /^\d+$/.test(t) && i + 1 < tokens.length && LEVEL_NOUNS.includes(tokens[i + 1]!),
+  );
+
   if (
     (tokens.includes('level') || tokens.includes('levels')) &&
+    levelIsTheObject &&
+    !countedPlural &&
     (imperativeVerbAt(['add', 'create']) ||
       ((tokens.includes('new') || tokens.includes('another')) &&
         e.hasSetVerb &&
@@ -1303,7 +1359,15 @@ export function resolveNaturalLanguage(
             best.si?.intent === 'delete-selected'
               ? CONFIDENCE_THRESHOLDS.resolveDestructive
               : CONFIDENCE_THRESHOLDS.resolve;
-          if (best.si !== undefined && confidence >= resolveFloor) {
+          // §FIX-CHAT-VISIBILITY-MISREAD — the NL layer is where the founder's
+          // "highlight walls taller than 3m" actually landed, so the ladder
+          // gate has to hold here too, on the RAW utterance.
+          if (
+            best.si !== undefined &&
+            visibilityMisreadReason(utterance, best.si.intent) !== null
+          ) {
+            result = miss(['visibility-query']);
+          } else if (best.si !== undefined && confidence >= resolveFloor) {
             const applied = applySemanticIntent(best.si, ctx);
             const resolution: Exclude<ZeroTokenResolution, { kind: 'miss' }> =
               applied.kind === 'refusal' ? applied : { ...applied, tier: 'nl' as const };
