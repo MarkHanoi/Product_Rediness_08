@@ -1,6 +1,6 @@
 # C03 — Schemas, Commands & State
 
-> **Stamp**: 2026-05-16 · **Status**: CANONICAL  
+> **Stamp**: 2026-05-16 · **Revised**: 2026-08-11 (§2.3.1 authoritative-state pointer; §4.6 **U-2b**; §1.2/§2.1 gate paths corrected) · **Status**: CANONICAL  
 > **Scope**: `packages/schemas/` (L0), `packages/command-bus/` (L1), `packages/stores/` (L3), the CQRS command flow, and the undo/redo stack.  
 > **Key principles**: P5 (schemas pure), P6 (commands are the only mutation path).
 
@@ -20,7 +20,11 @@
 - Zero I/O (`fs`, `fetch`, `pg`, `supabase-js`).
 - Only `zod` and standard ECMAScript library imports.
 
-**CI gate**: `scripts/ci-check-domain-purity.ts` (hard-fail).
+**CI gate**: `tools/ga-gate/check-domain-purity.ts` (hard-fail at the invariant — 0 impurities / 165 files).
+
+> ⚠ **Path corrected 2026-08-11.** This read `scripts/ci-check-domain-purity.ts`, which **does not
+> exist and never did** — the L-812 class. The gate is real; only the citation was wrong. Verified
+> with `ls tools/ga-gate/check-domain-purity.ts`.
 
 ### §1.3 — Schema evolution
 
@@ -45,7 +49,16 @@ UI action
         → subscribers notified
 ```
 
-No UI component MAY call `stores.X = ...` directly. **CI gate**: `scripts/ci-check-no-direct-store-writes.ts` (hard-fail).
+No UI component MAY call `stores.X = ...` directly. **CI gate**: `tools/ga-gate/check-no-direct-store-writes.ts`.
+
+> ⚠ **Corrected 2026-08-11 — twice over.** The cited path `scripts/ci-check-no-direct-store-writes.ts`
+> **does not exist** (L-812), and *"hard-fail"* was **false**: per CLAUDE.md P6 the real gate
+> *"passes at a baseline of 37 tolerated direct writes, not at 0"*. It is a shrink-only ratchet.
+> **Exit condition: the baseline reaches 0, then the gate flips to hard-0.** Read the gate for the
+> current reading; do not trust a number transcribed here.
+>
+> **§2.1 states where a mutation must ENTER (the bus). It says nothing about where the mutation must
+> ARRIVE** — that is C16 §5.1 / §2.3.1 above. Both defects ship as "P6-compliant".
 
 ### §2.2 — Command interface
 
@@ -67,6 +80,15 @@ All fields are immutable after creation. Commands MUST be serialisable (no class
 - A handler MUST NOT dispatch other commands (no cascading dispatch). Side-effects (HTTP calls, sync writes) MUST be scheduled as microtasks on a dedicated effect queue.
 - A handler MUST complete within 16 ms for synchronous mutations (frame budget, NFT 4).
 - Async handlers MAY exceed 16 ms; they MUST update a loading store slot to signal pending state.
+
+> **§2.3.1 — A handler that reports success MUST have changed AUTHORITATIVE state** (added
+> 2026-08-11). This section defines the handler's *shape*; it never said what a successful return
+> means, and for years the answer was assumed. It is now stated and owned by **C16 §5.1
+> (`CA-DOCTRINE-A`, `CA-17`…`CA-21`)**: the write must reach a reader that renders, persists or
+> exports (§4.4's legacy/geometry layer — **not** the L1 store this section's `stores` argument
+> hands you), and a handler that cannot reach one MUST refuse with a named reason rather than return
+> success. §4.9 already states exactly this for the annotation family; C16 §5.1 generalises it.
+> Authoring obligations live in C16 — do not restate them here.
 
 ### §2.4 — Remote commands
 
@@ -238,8 +260,28 @@ shadow-dropped legacy command used to do.
 - **U-2** A command MUST declare in `affectedStores` **every** store it mutates. A patch whose
   `path[0]` is an undeclared store key is dropped from undo routing → an incomplete inverse
   (the §U-B6 guard in `CommandBus.ts:296` surfaces this loudly at dev time).
+- **U-2b (store IDENTITY, not just store NAME — added 2026-08-11).** A declared `affectedStores`
+  key MUST resolve, in `buildUndoStoreMap()`, to **the same store the handler wrote**. U-2 is a
+  *completeness* rule and is **satisfied by the corrupting case**: the plugin `wall.move` /
+  `wall.transform` / `door.move` / `window.move` / `slab.move` handlers declare `['wall']` and do
+  write `ctx.stores.wall`. But the key is **overloaded across time** — at write time `'wall'` is the
+  L1 Immer store (§4.4 row 1); at undo time `buildUndoStoreMap()`
+  (`apps/editor/src/engine/undo/performUndoRedo.ts:271`) resolves `'wall'` to `window.wallStore`,
+  the GEOMETRY store (§4.4 row 2). The entry therefore passes the §4.5 step-2 coverage pre-check,
+  the ring-buffer path runs, and **an inverse patch is applied to a store that never received the
+  forward.** That is not a failed undo; it is a mutation of authoritative state derived from a
+  different store's history.
+  A command whose write target and whose `buildUndoStoreMap` target differ MUST take one of two
+  exits, never a third: **(a)** route the write to the mapped store (C16 **CA-17**), or **(b)**
+  declare `affectedStores: [] as const` so the coverage pre-check declines the entry and undo falls
+  to the legacy stack — the bridge signature C68 §5.a accepts as LIVE. The undo obligation belongs
+  to whichever store actually holds the element; a key is a claim about identity, not a label.
+  *Not gated today* — `performUndoRedo.test.ts`'s coverage test proves a key **resolves**, not that
+  it resolves to the store that was written. Exit condition **G-CA-A3**, C16 §11.1.
 - **U-3** Empty-patch records (`forward.length === 0 && inverse.length === 0`) MUST NOT push to
-  the ring buffer (they would poison the cursor) — `CommandBus.ts:354`.
+  the ring buffer (they would poison the cursor) — `CommandBus.ts:354`. **This refuses to PUSH such
+  a pair; it does not refuse to REPORT it as done.** A handler returning an empty pair as the whole
+  outcome of a mutation the user asked for MUST refuse with a named reason — C16 **CA-18**.
 - **U-4** Undo/redo apply MUST NOT throw (`RingBufferUndoStack` + `applyRingBufferSide` honour
   this) — **and a swallowed failure MUST be reported to the caller, never logged as success**
   (`applyRingBufferSide` returns `ApplyRingBufferOutcome {applied, failed}`; `performUndo` only

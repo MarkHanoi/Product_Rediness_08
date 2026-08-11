@@ -1,6 +1,32 @@
 # C16 — Command Authoring Protocol (Level-Oriented, Semantic-First)
 
-> **Stamp**: 2026-05-25 · **Status**: CANONICAL
+> **Stamp**: 2026-05-25 · **Revised**: 2026-08-11 (rev 2 — §5.1 LIVENESS, `CA-17`…`CA-21`) · **Status**: CANONICAL
+
+> ⚠ **Revision 2026-08-11 — the third doctrine, and why it is an AMENDMENT rather than a new contract.**
+> Across one session the same defect was found in five independent places: 17 verbs that reported
+> SUCCESS while writing a plugin DTO store nothing renders, persists or exports; `roof.update`,
+> whose plugin handler SHADOWS the editor bridge at registration (**L-839**); `wall.move`,
+> `wall.transform`, `door.move`, `window.move`, `slab.move`, the same defect still unfixed for five
+> element kinds; `room.setMaterial`, which accepted a catalogue id and wrote nothing (**L-842**);
+> and five P7 visibility handlers that were `console.debug` and nothing else (ISSUE-LOG §8.4).
+> **None of them violated any written contract.** They passed CI.
+>
+> The rule everybody assumed — *a command that reports success has changed the model* — existed in
+> exactly two places, both narrower than the defect: **C03 §4.9** states it for the **annotation**
+> family alone (*"reading the ledger to render, persist, export … is a defect"*), and **C68 §5.a**
+> states it for verbs that carry a **declared chat capability**, enforced by
+> `tools/ga-gate/check-chat-capability-coverage.ts` checks 3d/3e over each capability's
+> `commandProof`. A verb with no chat capability — which is most of the five above — was inspected
+> by neither. C16 is the contract that binds **every** command author, so §5.1 generalises the rule
+> here rather than minting a rival document. §5's roster grows `CA-1…CA-16` → `CA-1…CA-21`; nothing
+> was relaxed and nothing was deleted. **CA-8 was CORRECTED, not replaced** — as written it blessed
+> `produceCommand()` alone as sufficient store mutation, which is the authority the dead verbs were
+> written under.
+>
+> **Enumeration is NOT this contract's job.** *Which* verbs exist and what each one reaches is the
+> generated API verb register (`tools/ga-gate/check-verb-register.ts` → `docs/04-reference/API-VERB-REGISTER.md`,
+> minted as **C69** by a concurrent stream). C16 states what is REQUIRED; the register measures what
+> IS. Cite the register; never transcribe its rows.
 > **Authority**: this contract governs **how a new command is created** in PRYZM 3 — the anatomy, the pipeline it must obey, and the two doctrines (level-oriented, semantic-first) every command MUST honour. It is the single **front door** for command authoring; it does not restate the depth held by the contracts it cites.
 > **Tier**: contract (C00-INDEX tier 3). Where the Vision (`archive/pryzm3-internal/01-VISION.md`) or Architecture (`02-ARCHITECTURE.md`) disagree, they win — amend this contract.
 
@@ -36,6 +62,8 @@ C16 makes both **binding doctrines** and gives the one authoritative authoring c
 ## §2 — The two governing doctrines
 
 These are command-authoring doctrines at the contract tier. They **refine**, and never contradict, P1–P8. Both are merge-blocking once their CI gates land (§11); until then they are review-blocking.
+
+> **There is now a THIRD doctrine — `CA-DOCTRINE-A` (LIVENESS), and it lives in [§5.1](#51--ca-doctrine-a--liveness-ca-17--ca-21-added-2026-08-11)**, next to the invariants that carry it, added 2026-08-11. §2 keeps its title honestly: L and S are about *what an element must be reachable BY* (level, semantics) and are properties of the element you author. A is about whether your write **arrives at all** — the failure mode is not an element that is hard to find, it is a `success: true` over nothing. It is stated at doctrine tier for the same reason as these two: five independent instances in one session, none of which violated any written rule.
 
 ### §2.1 — `CA-DOCTRINE-L` — Level-Oriented
 
@@ -105,9 +133,9 @@ Both paths MUST satisfy the §5 invariants. The doctrines (§2) are backend-inde
 
 ---
 
-## §5 — Authoring invariants (`CA-1` … `CA-16`) — binding
+## §5 — Authoring invariants (`CA-1` … `CA-21`) — binding
 
-Every create command MUST satisfy CA-1…CA-11 + CA-13 + CA-14 + CA-16; batch adds CA-12; serialisable/syncable adds CA-15.
+Every create command MUST satisfy CA-1…CA-11 + CA-13 + CA-14 + CA-16; batch adds CA-12; serialisable/syncable adds CA-15. **`CA-17`…`CA-21` (§5.1) bind EVERY command of EVERY kind in §3, including update, delete, transform and non-geometry verbs** — the five defects that produced them were all non-create verbs.
 
 - **CA-1 — Type registration.** Add the type to the canonical registry (bus `commands.ts`, or `CommandType` enum for legacy). No magic-string dispatch.
 - **CA-2 — Deterministic, stable IDs.** Pre-generate element ids in the tool/handler entry, not deep inside `execute()`. Ids MUST be **identical across redo** (e.g. `wall-slab-${cmdId}-${i}`), and ifcGuid pre-generated and stable (so IFC export is stable across undo/redo). C11 §11.4/§11.5.
@@ -117,6 +145,12 @@ Every create command MUST satisfy CA-1…CA-11 + CA-13 + CA-14 + CA-16; batch ad
 - **CA-6 — Spatial registration.** `bimManager.registerElement(id, levelId)` (or `registerMany` in batch). The **command** owns this call — `SpatialAuthority` will throw later if it is missing (stores no longer do it implicitly; see `BeamStore`/`HandrailStore` §3.5 notes).
 - **CA-7 — View registration.** For geometry elements with plan/elevation representation: `viewDependencyTracker.registerElement(id, levelId)`, and the element's `elementType` MUST be in `GEOMETRY_ELEMENT_TYPES` (`ViewDependencyTracker.ts`).
 - **CA-8 — Store mutation.** Bus: `produceCommand()` Immer patch pair. Legacy: `store.add()` (prefer `addMany` in batch). The store `add()` MUST emit `storeEventBus` with `{ elementType, operation, elementId }` (C11 §11.2 step 4).
+  > ⚠ **Corrected 2026-08-11.** This bullet, read alone, says a `produceCommand()` patch pair *is*
+  > the mutation. **It is not sufficient, and it was the written authority the dead verbs were
+  > authored under.** `ctx.stores` on the bus path is the **L1 Immer store** (C03 §4.4), which does
+  > not drive the mesh and is not what `ProjectSerializer` reads. A `produceCommand()` with no
+  > committer, bridge or `commandManager` delegation carrying it onward mutates nothing anyone
+  > reads. CA-8 is satisfied only together with **CA-17**.
 - **CA-9 — Geometry is frame-deferred.** MUST NOT build geometry synchronously in the handler/`execute`. Defer via `FrameScheduler` (P3). For walls, the store event → `WallRebuildCoordinator` flush owns the build.
 - **CA-10 — Event emission.** Bus: CEB emits `X.created` with the **full geometry payload** (id, levelId, all coordinates) — never a bare `{id}` unless the builder resolves from the store by id (the authoritative-store convention, e.g. stair). MUST use `runtime.events.emit`, never `window.dispatchEvent` (C11 §5.3).
 - **CA-11 — Undo / redo.** The command MUST be reversible through the **single unified path** `performUndoRedo` (C03 §4.5). Bus: ring-buffer patch pair. Legacy: snapshot `undo()`. If the element family is in the ring-buffer store map, ensure its `storeType` key is present (`buildUndoStoreMap`); redo MUST restore the *captured legacy shape* (REDO-SHAPE-FIX) and use `registerSemanticOrReplace`. Background side-effect commands (e.g. `REDETECT_ROOMS`) MUST set `nonUndoable` and provide a no-op `undo()`.
@@ -125,6 +159,89 @@ Every create command MUST satisfy CA-1…CA-11 + CA-13 + CA-14 + CA-16; batch ad
 - **CA-14 — Observability.** Wrap the handler/execute body in ≥ 1 OpenTelemetry span (`withHandlerSpan`) — **P8 / C10, merge-blocking**. No span = no merge.
 - **CA-15 — Serialisation.** Provide `serialize()` (legacy) or a serialisable payload (bus) — no class instances/functions in payload (C03 §2.2) — so the command round-trips through sync (`source:'remote'`, C03 §2.4) and persistence.
 - **CA-16 — Cross-element effects via events only.** A handler MUST NOT write another family's store (a wall handler MUST NOT touch the room store). Cross-element reactions (room redetect after walls) are **event subscribers**, frame-yielded, never a synchronous imperative loop (C11 §4.2/§6.3).
+
+### §5.1 — `CA-DOCTRINE-A` — LIVENESS (`CA-17` … `CA-21`), added 2026-08-11
+
+> **A command that reports success MUST have changed AUTHORITATIVE state. A command that cannot
+> reach authoritative state MUST REFUSE, naming why. A refusal that names its reason is strictly
+> better than a silent lie, and both are better than a `success: true` over nothing.**
+
+This is the third doctrine, and it is *older in practice than in writing*: CA-DOCTRINE-L says an
+element must be reachable **by level**, CA-DOCTRINE-S says it must be reachable **semantically**,
+and CA-DOCTRINE-A says the write must **arrive** at all. It is stated at the doctrine tier for the
+same reason as the other two — five independent instances in one session, none of which violated
+any written rule.
+
+**Definition — AUTHORITATIVE STATE.** The state that at least one of these three readers consults:
+
+| Reader | Concretely |
+|---|---|
+| **RENDER** | the fragment builders / `InstancedElementRenderer` / the plan projector — i.e. the legacy `window.<x>Store` layer of C03 §4.4, the row whose "Drives the 3D mesh?" cell reads **Yes** |
+| **PERSIST** | `ProjectSerializer` / `ProjectLoader` — what survives save→reload (C05) |
+| **EXPORT** | IFC (C25), DXF (C32), schedules (C28), COBie (C35) |
+
+The **L1 bus store** (`ctx.stores`, `storesProvider`) is **not** in this list. C03 §4.4 already says
+so — it has `applyPatch`, it drives no mesh, and serialization reads the legacy store. C03 §4.9 says
+the same thing for annotations in the strongest available words: the schema-level store is a
+**derived patch ledger**, and reading it to render, persist, export, tag, schedule or select is a
+defect. §5.1 generalises that sentence from one family to every family.
+
+- **CA-17 — AUTHORITATIVE-STATE LIVENESS.** A handler that returns success MUST have written state
+  a RENDER, PERSIST or EXPORT reader above consults — directly, or through a committer, an editor
+  bridge, or `commandManager` delegation that runs **within the same dispatch**. A `produceCommand()`
+  against `ctx.stores` with nothing carrying it onward is a **write-only sink**, and per
+  **C68 §5.a** it is **presumed DEAD until proven otherwise, because that presumption has been right
+  13/13 times** (§FIX-CHAT-DEAD-ROUTES, L-620, L-815). An event emitted to a bridge that mirrors
+  into the legacy store satisfies CA-17 *only if that bridge is registered on the live path* — the
+  `roof.update` defect (L-839) is precisely a bridge that was written and never registered.
+- **CA-18 — REFUSE WITH A NAMED REASON, NEVER SUCCEED SILENTLY.** A verb that cannot reach
+  authoritative state MUST fail `canExecute` with a `reason` naming the mechanism
+  (`"roof.update reaches only the plugin DTO store; no committer carries it — L-839"`), or return an
+  explicit failure. **Three shapes are PROHIBITED as the whole of a handler's effect:** (a) a bare
+  `success: true`; (b) `{ forward: [], inverse: [] }` returned as the outcome of a mutation the user
+  asked for — C03 §4.6 U-3 already refuses to *push* that pair to the ring buffer, and this clause
+  refuses to *report* it as done; (c) silence — a `console.debug` body, an empty `execute`, or a
+  swallowed throw. Precedent, already binding for one family: **ADR-0299 / C03 §4.9**, where
+  `annotation.update` carrying no field to change is REFUSED rather than reported done. The refusal
+  text obeys the C67 §4.6 honesty invariants — real names, real numbers, real units.
+- **CA-19 — `affectedStores` MUST NAME THE STORE ACTUALLY WRITTEN.** C03 §4.6 **U-2** already
+  requires a command to declare every store it mutates, and it is **satisfied by the corrupting
+  case**: the five move/transform handlers declare `['wall']` and do write `ctx.stores.wall`. The
+  hazard is that the key is **overloaded across time** — at write time `'wall'` is the L1 DTO store;
+  at undo time `buildUndoStoreMap()` (`apps/editor/src/engine/undo/performUndoRedo.ts:271`) resolves
+  the same key to `window.wallStore`, the GEOMETRY store. The entry is therefore "covered", the
+  ring-buffer path runs, and **an inverse patch is applied to a store that never received the
+  forward.** A command MUST NOT declare a key whose `buildUndoStoreMap` target is a different store
+  from the one it wrote; if the two differ, either route the write to the mapped store (CA-17) or
+  declare `affectedStores: [] as const` and carry undo on the legacy stack — the bridge signature
+  C68 §5.a accepts as LIVE. See **C03 §4.6 U-2b**.
+- **CA-20 — REGISTRATION ORDER IS PART OF THE CONTRACT.** `CommandBus.register()` throws on a
+  duplicate type (`packages/command-bus/src/CommandBus.ts:95`), so the editor's bridge table guards
+  itself with a skip — `if (runtime.bus.registry?.has?.(spec.type)) continue;`
+  (`apps/editor/src/engine/initBusHandlers.ts:2202`). The bus is therefore
+  **first-registration-wins**, and a plugin handler registered during `composeRuntime` **silently
+  shadows** a bridge registered later by `initBusHandlers` or `engineLauncher`. A verb with **more
+  than one declaring site** MUST have the winner stated — in the generated register's SHADOWED
+  column — and the loser removed or justified in the same commit. **Authoring a bridge is not
+  wiring it**; boot order decides, and boot order is not visible in the file you are editing.
+- **CA-21 — LIVENESS IS PROVEN BY AN EXECUTED READ-BACK, NEVER DECLARED.** The proof is: **dispatch
+  the verb, then read the property back out of the authoritative store.** These do **NOT** satisfy
+  CA-21: `result.success === true`; a call count or a spy assertion; a patch-pair shape; a read-back
+  from the same DTO store the handler wrote; a reviewer's inspection of a mapping (C03 §4.8
+  §ANN-UNDO-ARITY: *"reading a mapping is not exercising a call"*). **A declaration without an
+  executed proof does not satisfy this contract** — the idiom is C68 §6.3's, where check 4b replaced
+  a grep for a capability id with an execution of its example through the real ladder, and every new
+  check was negative-tested by injecting the fault it exists to catch.
+  **A dead verb's tests MUST NOT pin the lie.** A test that asserts the plugin DTO store mutated is
+  measuring the wrong store and is not evidence of anything; a test whose name concedes the verb
+  *"no-ops (does not throw)"* is a passing proof that the verb does nothing. Where the read-back
+  cannot run without a browser, the honest verdict is **UNPROVEN** with the expected live path named
+  — never PASS (ISSUE-LOG §9.6).
+
+**Applicability.** CA-17…CA-21 bind every §3 kind. For a **non-geometry / semantic** verb the
+authoritative reader is its own canonical store plus PERSIST — the ledger/derived-store exclusion of
+C03 §4.9 applies unchanged. For a **`nonUndoable` background side-effect** command CA-19 is
+satisfied by `affectedStores: [] as const`; CA-17 and CA-18 still bind.
 
 ---
 
@@ -275,6 +392,11 @@ COMMAND: <type>   KIND (§3): <single | batch | bus-batch | hosted | update | de
 □ CA-14 ≥1 OTel span (withHandlerSpan) — P8, merge-blocking
 □ CA-15 serialize()/serialisable payload — round-trips sync + persistence
 □ CA-16 no cross-family store writes; cross-element effects via event subscribers (frame-yielded)
+□ CA-17 the write REACHES render / persist / export — name the reader                      [DOCTRINE-A]
+□ CA-18 if it cannot reach it, canExecute REFUSES with a named reason (no bare success, no empty pair, no silence)
+□ CA-19 affectedStores names the store actually written == its buildUndoStoreMap target (C03 §4.6 U-2b)
+□ CA-20 ONE declaring site, or the shadow winner is stated (bus is first-registration-wins)
+□ CA-21 proof = dispatch, then read the property back out of the AUTHORITATIVE store; no DTO-store test
 □ C11 §11.2 followed for a NEW element type (CEB case + initTools bridge + legacy store event + GEOMETRY_ELEMENT_TYPES)
 □ C15 followed if hosted (two-part: host update + opening lifecycle in one undo unit)
 □ Update C11 §11 per-element matrix; verify C11 §8.4 runtime gate (appears in plan ≤ 400 ms in split-view)
@@ -291,6 +413,42 @@ COMMAND: <type>   KIND (§3): <single | batch | bus-batch | hosted | update | de
 **Static (CI, NEW — to land with this contract; soft-fail → hard-fail):**
 - **G-CA-L** — a create command's handler that calls `store.add`/`produceCommand` for a geometry family MUST also reference `registerElement`/`registerMany` (level registration present). Soft-fail counter today.
 - **G-CA-S** — a create command for a geometry family MUST reference `registerSemantic`/`registerSemanticOrReplace`. Soft-fail counter today.
+
+### §11.1 — Where `CA-17`…`CA-21` are enforced TODAY — and where they are **NOT-YET-TRUE**
+
+Every path below was verified to exist on 2026-08-11 (`ls`). **Do not add a row here without doing
+the same** — STR-03 §2 once cited four gate files that do not exist, all marked "hard-fail ✅".
+
+| Invariant | Enforced today by | Reach — stated honestly |
+|---|---|---|
+| **CA-17** liveness | `tools/ga-gate/check-verb-register.ts` — the `liveness` column (`LIVE` / `REFUSES` / `SHADOWED` / `UNKNOWN`) and the `authoritative store` column, with **named** shrink-only baselines (`SHADOWED_BASELINE`, `UNKNOWN_LIVENESS_BASELINE`) diffed against the regenerated `docs/04-reference/API-VERB-REGISTER.md`. Independently, `tools/ga-gate/check-chat-capability-coverage.ts` checks **3d / 3e** prove route liveness for verbs carrying a chat capability. | 🔶 **PARTLY.** The register classifies **statically**: `LIVE` means *declared in an execution-authority root or delegating to `commandManager`*, not *observed to write*. `UNKNOWN` is an honest verdict, not a pass — and it is populated, by name, with the five move/transform verbs this clause was written for. The chat gate reaches only declared capabilities. |
+| **CA-18** refusal | `tools/ga-gate/check-refusal-identity.ts` (refusals carry an identifying code) · the register's `REFUSES` verdict, derived from a `canExecute` ending in an unconditional `{valid:false}` (§FIX-DEAD-VERB-REFUSE) | 🔶 **PARTLY.** Both see a refusal that IS written. **Nothing detects a verb that should refuse and instead returns success** — that is CA-17's `UNKNOWN` class, and closing it is the same work. |
+| **CA-19** `affectedStores` | `apps/editor/__tests__/performUndoRedo.test.ts` — "coverage of every create-handler affectedStores key" (C03 §4.8) | 🔶 **PARTLY.** It proves every declared key **resolves** in `buildUndoStoreMap`. It does **not** prove the resolved store is the one the handler wrote — which is exactly the corrupting case (C03 §4.6 U-2b). |
+| **CA-20** registration order | the register's `SHADOWED` verdict + `SHADOWED_BASELINE`, named and shrink-only in both directions | ✅ for verbs with two **statically discoverable** declaring sites. Blind to runtime-only registration — the gate's own header says so. |
+| **CA-21** executed read-back | ❌ **NOT ENFORCED.** `tools/rac-conformance/` scores **V3 authoritative state** per operation, but its own §9.6 records that *"every V4 (persist), every V5 (undo), and every V3 outside category 8 are UNPROVEN — no browser, no renderer, no save/reload"*. | ❌ **NOT-YET-TRUE.** Static analysis can prove a verb is dead; it cannot prove a live one is alive. |
+
+**Exit conditions — named, so this table can be closed rather than admired:**
+
+- **G-CA-A1 (CA-17/CA-18).** `UNKNOWN_LIVENESS_BASELINE` in `check-verb-register.ts` reaches **zero**
+  — every verb classified `LIVE`, `REFUSES`, or removed. Because the baseline is a **named list**
+  checked in both directions, a verb cannot leave the class without leaving the list in the same
+  commit.
+- **G-CA-A2 (CA-20).** `SHADOWED_BASELINE` reaches **zero** — every shadowed verb either loses its
+  duplicate site or states its winner.
+- **G-CA-A3 (CA-19).** A gate that compares, per handler, each declared `affectedStores` key against
+  the store the handler's `produceCommand` actually writes, and fails when `buildUndoStoreMap`
+  resolves that key to a different store. **Does not exist today.** Until it does, CA-19 is
+  review-enforced and the reviewer's question is fixed: *"which store does this key resolve to at
+  UNDO time, and is it the store this handler wrote?"*
+- **G-CA-A4 (CA-21).** The runtime harness under `tools/rac-conformance/runtime-harness` dispatches
+  a verb and reads the property back out of the authoritative store in a real browser, so V3/V4 can
+  read PASS instead of UNPROVEN. **ISSUE-LOG §9.6 names this as the single largest outstanding piece
+  of work identified by the RAC conformance exercise**, and this contract agrees with that ranking.
+
+Until all four exit conditions are met, **§5.1 is CANONICAL but NOT ACTIVE** in the C00 status
+ladder: it is binding intent with partial machine coverage, and it does **not** certify that shipped
+verbs satisfy it. Nothing in §5.1 may be described as "CI-enforced" flatly — that is the L-812
+defect, and this contract will not repeat it.
 
 **Runtime (browser observation):**
 - C11 §8.3 single create; §8.4 plan-view ≤ 400 ms; §8.2 batch (no LONGTASK).
@@ -313,12 +471,24 @@ COMMAND: <type>   KIND (§3): <single | batch | bus-batch | hosted | update | de
 - **OI-057 — Post-batch wall-join is correct but timing-implicit & untested.** *Diagnosis (2026-05-25):* batch-wall joins **are** resolved post-batch — `CreateWallsOnAllSlabsCommand` wraps in `runBatch`; `_setupBatch` pauses the wall builder; the deferred `resume()` schedules `WallRebuildCoordinator._flush()`, which runs `WallJoinResolver.resolveLevel(store.getAll().filter(levelId))` over the **complete** wall set per level. Single-slab `CreateWallsFromSlabCommand` (no `runBatch`) coalesces to one `_flush` with the same effect. This is why adding a door/window later "fixes" joins — a `wallStore.update` re-triggers the *same* level-wide `resolveLevel` pass. **Two real residual gaps, neither fixed (low-risk-fix or backlog per owner):** (a) the ordering invariant "`resume()→_flush()` runs before `_executeFinalSweep()`'s `discardAndSuppress()` drops events" is **implicit** — guaranteed today only because the build queue cannot drain before `_flush` runs, with **no test** guarding it; (b) the event-sourced **plugin `WallsState`** (from `wall.batch.create`) retains **pre-miter baselines** — the join trim is written only to the legacy `wallStore.baseLine`; a rebuild purely from the plugin store (without a flush) would show untrimmed joins. *Recommended:* add the B-5 invariant test (assert one `resolveLevel` per level post-batch with all walls) before any change to the batch timing; do **not** alter the delicate `runBatch` ordering without it. Tracked here; promote to a SPEC task if the plugin-store baseline divergence surfaces on reload.
 - **Backend duality.** Path A (legacy `Command`) remains for stair, several on-all, annotation/view families (C03 §4.3). New commands SHOULD be Path B; the migration end-state is ADR-0251 (store unification).
 - **G-CA-L / G-CA-S** are counters today; they become hard-fail when the create-command surface is fully bus-native.
+- **CA-DOCTRINE-A debt (added 2026-08-11).** The live instances are **not enumerated here** — C64
+  §2.13 binds `docs/` to citing a generated artefact rather than transcribing a number, and a list
+  in this file would rot the way `CLAUDE.md`'s "C01–C15" did. The inventory is
+  `docs/04-reference/API-VERB-REGISTER.md` and the two named baselines in
+  `tools/ga-gate/check-verb-register.ts`. **Re-run the gate rather than trusting any count in
+  prose.** What is recorded here is the *shape* and its worst instance: `roof.update` is P0 —
+  every roof property change from the panel, the inspector and the 3-D gizmo reaches nothing
+  (L-839, ISSUE-LOG §9.1), and `wall.move` / `wall.transform` / `door.move` / `window.move` /
+  `slab.move` are the same defect across five element kinds, additionally carrying the CA-19
+  undo hazard. **The instances are debt; the doctrine is permanent** — draining the baselines does
+  not discharge §5.1, exactly as C68 §5.j is not discharged by fixing its 29.
 
 ---
 
 ## §13 — Cross-references
 
-- C03 §2 (interface), §4.5 (`performUndoRedo`), §4.6 (binding undo invariants).
+- C03 §2 (interface), §4.4 (the three store layers — the definition CA-17 rests on), §4.5 (`performUndoRedo`), §4.6 (binding undo invariants, incl. **U-2b**), §4.9 (the derived-ledger rule §5.1 generalises).
+- **C67 §4.6/§4.10** (honesty invariants; *"Done" only after a command reports success* — §5.1 is the rule UNDER that one, which makes the command's own success truthful) · **C68 §5.a** (the same liveness obligation, scoped to chat-declared capabilities, with the 13/13 dead-route presumption) · **C69** — the generated API verb register (`tools/ga-gate/check-verb-register.ts`), which enumerates what exists while C16 states what is required. **These are complements, not rivals: never restate the register's rows here.**
 - C11 §2 (pipeline), §5 (handler contract), §10 (two-layer bridge), §11.2 (add element type), §11.5 (wall = reference).
 - C15 (hosted two-part commands). C09 (AI). C10 (NFTs/OTel). C13 (project isolation). §41 (preview).
 - **C17** (Batch Creation Catalogue & Panel Binding) — the registry of batch prompts that each resolve to a §8/CA-12 command and surface in the CREATE panel.
