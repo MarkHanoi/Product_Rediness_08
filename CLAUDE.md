@@ -72,8 +72,8 @@ layer, never a higher one.**
 > violations, but it is not the layer gate.
 
 ```
-L7    apps/* (14)                — per-app surfaces (editor, marketplace, workers, docs-site…)
-L6    plugins/* (46)             — features
+L7    apps/* (13)                — per-app surfaces (editor, marketplace, workers, docs-site…)
+L6    plugins/* (48)             — features
 L5    packages/plugin-sdk/       — curated public SDK facade (re-exports a subset)
 L4    packages/renderer, render-runtime, persistence-client, scene-committer
 L3    packages/runtime-composer, ui-base, stores, view-state, file-format, sync-client
@@ -82,6 +82,12 @@ L1    packages/command-bus, picking, visibility, snapping, renderer-three, spati
       frame-scheduler, …
 L0    packages/schemas/          — pure Zod schemas; no I/O, no THREE, no DOM
 ```
+
+> **Counts measured 2026-08-11** — `ls apps/ | wc -l` → **13**; `ls plugins/ | wc -l` → **48**;
+> `ls packages/*/package.json | wc -l` → **97** real workspaces (`ls packages/ | wc -l` is 99 —
+> two entries under `packages/` carry no manifest, so count manifests, not directories; this
+> matches [STR-03 §1](docs/01-strategy/STR-03-engineering-vision.md)). These rot. Prefer re-running the command over trusting the
+> number: the table's purpose is the *ordering*, not the census.
 
 **Two orderings above were corrected by measured edge direction, not by preference:**
 
@@ -96,11 +102,16 @@ L0    packages/schemas/          — pure Zod schemas; no I/O, no THREE, no DOM
 
 **Stated honestly as NOT-YET-TRUE, so nobody mistakes them for settled invariants:**
 
-- **"plugins may import L6 only" is a GOAL, not an invariant** — measured 630 SDK imports against
-  **171 direct bypasses** (`renderer-three` ×84, `command-registry` ×29, `core-app-model` ×27,
-  `scene-committer` ×19). Tracked on its own shrink-only ratchet rather than folded into the layer
-  count, because `plugin → renderer-three` goes *downward*: it is a facade-encapsulation breach,
-  not a layer violation, and merging the two would make both numbers unreadable.
+- **"plugins may import L6 only" is a GOAL, not an invariant** — ~630 SDK imports against
+  **181 direct bypasses**, alongside **102 layer violations** and **13 unclassified packages**
+  (measured 2026-08-11: `npx tsx tools/ga-gate/check-layer-boundaries.ts` → *"within baselines
+  (violations 102/102, unclassified 13/13, sdk-bypass 181/181)"*). This bullet said **171**, which
+  was the 2026-08-09 freeze; the gate's own header now carries the full history 171 → 172 → 173 →
+  178 → 181 and the per-target tail. **Read the gate, not this line** — it is the artefact that
+  computes these, and all three are shrink-only ratchets that move most weeks.
+  The bypass count is tracked separately from the layer count rather than folded into it, because
+  `plugin → renderer-three` goes *downward*: it is a facade-encapsulation breach, not a layer
+  violation, and merging the two would make both numbers unreadable.
 - **`runtime-composer` is not really L3.** It is the P1 composition root and necessarily imports
   `persistence-client`, `renderer`, four typology packs, five plugins and `apps/editor`. Either it
   belongs at the top or those registration edges must invert. 16 violations are this.
@@ -115,35 +126,90 @@ The main editor application is `apps/editor` (`@pryzm/editor`). Each element typ
 roof, stair, curtain-wall, slab, etc.) is split across a `packages/geometry-*` package (geometry
 math) and a `plugins/*` package (the user-facing tool, commands, UI).
 
-### The 8 principles — these are CI-enforced and merge-blocking
+### The 8 principles — binding commitments; FOUR are enforced at the invariant
+
+> ⚠ **Corrected 2026-08-11.** This heading used to read "these are CI-enforced and merge-blocking",
+> flat, for all eight. **That was false for half of them** and it is the same class of defect as
+> L-809/L-812: a document describing enforcement that either did not exist or did not enforce the
+> stated invariant. The authoritative, per-principle state is
+> [STR-03 §2](docs/01-strategy/STR-03-engineering-vision.md#2--the-8-architectural-principles-p1p8),
+> which carries the gate path and the current reading for each. Do not re-flatten this heading.
 
 1. **P1 — Single composition root.** Production code obtains a runtime only via
    `composeRuntime()` in `packages/runtime-composer`. No parallel runtime wiring.
+   → **hard-fail at the invariant** (`tools/ga-gate/check-single-compose.ts`, 1 definition / 0 rivals).
 2. **P2 — Single THREE owner.** `import * as THREE` is allowed **only** in
    `packages/renderer-three/`. Anywhere else fails CI.
-3. **P3 — Single rAF.** `requestAnimationFrame()` is called only in the frame scheduler inside
-   `runtime-composer`. All animation subscribes to the frame bus.
-4. **P4 — No `(window as any)`.** Forbidden outside the one allowlisted shim file.
+   → **hard-fail at the invariant** (`tools/ga-gate/check-three-imports.ts`, 0 importers outside).
+3. **P3 — Single rAF.** `requestAnimationFrame()` is called only in
+   `packages/frame-scheduler/src/RafAdapter.ts` — the frame scheduler is its OWN L1 package, it is
+   not "inside `runtime-composer`". All animation subscribes to the frame bus.
+   → **hard-fail at the invariant** (`tools/ga-gate/check-raf-count.ts`, exactly 1 owner).
+4. **P4 — No `(window as any)`.** Forbidden outside the one allowlisted shim file — *as a rule*.
+   **NOT-YET-TRUE as enforcement:** `check-cast-count.ts` is a shrink-only ratchet, it is on
+   `tools/ga-gate/gate-debt.json`, and it is **RED today at 217 casts against a baseline of 215**.
+   *Exit condition:* the repo-wide count reaches 0 and the gate leaves `gate-debt.json`.
 5. **P5 — Schemas are pure.** `packages/schemas/` has zero I/O, zero THREE, zero DOM imports.
+   → **hard-fail at the invariant** (`tools/ga-gate/check-domain-purity.ts`, 0 impurities / 165 files).
 6. **P6 — Commands are the only mutation path.** UI must dispatch through `commandBus`; no
-   direct store writes from UI code.
+   direct store writes from UI code. **NOT-YET-TRUE as enforcement:**
+   `check-no-direct-store-writes.ts` passes *at a baseline of 37 tolerated direct writes*, not at 0.
+   *Exit condition:* baseline reaches 0, then flip the gate to hard-0.
 7. **P7 — Visibility intent ≠ UI state.** `packages/visibility/` is a domain concept, not UI.
+   **PARTIALLY ENFORCED:** `check-visibility-intent-not-ui.ts` ARM A is hard-0 inside
+   `packages/visibility/src` and passes; **ARM B is a ratchet and is RED today (45 direct
+   `.visible =` assignments in UI against a baseline of 43)**; the gate's own output says
+   persistence, per-view scoping and the AI intent path are **NOT CHECKED**.
+   *Exit condition:* ARM B reaches 0 and the three unchecked axes get arms of their own.
 8. **P8 — Explicit sync conflicts + spans.** CRDT merges that lose data surface as
    user-resolvable conflicts; **every new exported function must add ≥1 OpenTelemetry span.**
+   **NOT-YET-TRUE as enforcement:** `check-otel-spans.ts` counts *handler files* (255 of 256
+   instrumented) against a `HARD_FLOOR` of **213** — 42 below the current reading, so 42 files
+   could lose their spans without the gate noticing, and the "every exported function" half is not
+   measured at all. The conflict-surfacing half has no gate.
+   *Exit condition:* the floor tracks the measured count, and the gate scopes to exported
+   functions rather than files.
 
-GA-gate checks live in `tools/ga-gate/` (run via `run-all.ts`); CI checks also live in
-`scripts/`. The `.github/workflows/ci.yml` gate is hard-fail — no PR merges without it green.
+GA-gate checks live in `tools/ga-gate/` (run via `run-all.ts`); a handful of older, non-gate
+scripts live in `scripts/` (11 files — none of them are P-gates; the four `scripts/ci-check-*.ts`
+paths cited in older docs never existed, see L-812).
+
+**The `.github/workflows/ci.yml` gate is merge-blocking for the jobs listed as required in that
+file's header — but not uniformly.** Two jobs are deliberately `continue-on-error` (`test-pryzm1`,
+pending L-544; and the legacy release gate inside the `ga-gate` job). More importantly, the
+founder's real workflow is push-straight-to-`main`, so **required status checks are not the gate
+here** — the actual gate is the `ci-gate` job in `deploy-fly.yml`, which refuses to deploy a SHA
+whose CI run did not succeed (§L-540-CI-GATE). Read `ci.yml`'s header before assuming a job blocks.
 
 ## Governance — read the contracts first
 
-`docs/02-decisions/contracts/README.md` (the "C00" contract-suite index) indexes a canonical
-contract suite (**C01–C15**) that governs
-every implementation decision. Before non-trivial work, read the contract for the subsystem you
-are touching — e.g. `C03` (schemas/commands/state), `C04` (rendering/scheduling), `C11`
-(element creation pipeline), `C15` (hosted elements: doors/windows in walls).
+`docs/02-decisions/contracts/README.md` (the "C00" contract-suite index) is **the authoritative
+enumeration of the suite — always defer to it over any range written here.** It indexes
+**C01–C68 + C24.1** (C61 is a RESERVED, unminted slot), which governs every implementation
+decision.
+
+> ⚠ **Corrected 2026-08-11.** This paragraph and the conflict-resolution order below both said
+> **"C01–C15"**. The suite has been **C01–C68** for months. Fifty-three contracts were silently
+> outside the stated ordering — including **C67 (RAC capability control plane)** and **C68 (element
+> & attribute chat onboarding)**, both CANONICAL, both binding on *every* capability PR. An agent
+> reading the old sentence literally would have ranked C68 **below an ADR**. Measured with
+> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **68**.
+
+Before non-trivial work, read the contract for the subsystem you are touching — e.g. `C03`
+(schemas/commands/state), `C04` (rendering/scheduling), `C11` (element creation pipeline), `C15`
+(hosted elements: doors/windows in walls), `C16` (command authoring), `C66` (concurrency &
+scale — **no capacity tier may be described as supported while C66 §1 marks it CLAIMED**), `C67`
++ `C68` (**mandatory** if your PR registers a bus command, adds an element kind, or adds a
+user-visible attribute).
 
 Conflict resolution order (strongest first): `docs/01-strategy/STR-03-engineering-vision.md` →
-`docs/01-strategy/STR-04-architecture.md` → the C01–C15 contracts → ADRs (`docs/02-decisions/adrs/`) →
-SPECs (`reference/specs/`). **When code disagrees with a contract, the code is wrong** — fix
-the code, or raise a superseding ADR; never write a new `*-AUDIT.md` derivative doc. Edit the
-canonical `C0N-*.md` in place. Current migration status: `docs/03-execution/plans/master-execution-tracker.md`.
+`docs/01-strategy/STR-04-architecture.md` → **the C01–C68 contract suite** (as enumerated by
+`docs/02-decisions/contracts/README.md`) → ADRs (`docs/02-decisions/adrs/`, 251 files) →
+SPECs (`docs/03-execution/specs/`, 92 files). **When code disagrees with a contract, the code is
+wrong** — fix the code, or raise a superseding ADR; never write a new `*-AUDIT.md` derivative doc.
+Edit the canonical `C0N-*.md` in place. Current migration status:
+`docs/03-execution/plans/master-execution-tracker.md`.
+
+> Counts measured 2026-08-11 · `ls docs/02-decisions/adrs/ADR-*.md | wc -l` → 251 ·
+> `find docs -name 'SPEC-*.md' | wc -l` → 92. **The SPEC path was also wrong**: this file said
+> `reference/specs/`, which does not exist; specs live at `docs/03-execution/specs/`.

@@ -8,7 +8,23 @@
 
 ## §1 — The 19 Non-Functional Targets (NFTs)
 
-These are **measured contracts**, not aspirational goals. Each runs as a benchmark in `apps/bench/src/benches/*.bench.ts`. The bench suite MUST run in CI on every merge to main. A regression on any NFT is a **merge blocker** on the PR that caused it.
+Each has a benchmark in `apps/bench/src/benches/*.bench.ts` (68 `.bench.ts` files —
+`ls apps/bench/src/benches/*.bench.ts | wc -l`). The bench suite **MUST** run in CI on every merge
+to main, and a regression on any NFT **MUST** be a merge blocker on the PR that caused it.
+
+> ⚠ **NOT-YET-TRUE (recorded 2026-08-11). The two `MUST`s above are the requirement, not the
+> state.** This section used to open *"These are **measured contracts**, not aspirational goals"*
+> — as an unqualified statement of fact. It is currently the reverse: **the bench suite runs in no
+> CI job at all.**
+>
+> - Measured: `grep -rn "bench" .github/workflows/` → **zero matches** across every workflow file.
+>   Nothing in CI invokes `apps/bench`. There is no baseline file, so there is nothing a
+>   "regression from baseline" could be computed against.
+>
+> **Exit condition:** a `bench` job exists in `.github/workflows/ci.yml`, runs
+> `apps/bench` against a committed baseline, and is listed among the required status checks in
+> that file's header. Wave 5 owns this. Until then, every NFT row below is a **TARGET**, and no
+> row may be cited as a measured property of the shipped product.
 
 NFTs 1–17 exist as of Wave 13 (2026-05-01) ✅. NFT 18 added Wave A16 (2026-05-03) ✅. NFT 19 target Wave A18.
 
@@ -36,9 +52,24 @@ NFTs 1–17 exist as of Wave 13 (2026-05-01) ✅. NFT 18 added Wave A16 (2026-05
 
 ### §1.1 — Measurement methodology
 
+**INTENDED methodology** (all four bullets are the target; the ⚠ notes record what is true today):
+
 - Benchmarks run in a headless Chromium instance via `@vitest/browser`.
+  ⚠ **NOT-YET-TRUE.** `apps/bench/vitest.config.ts` sets `environment: 'node'` and no
+  `@vitest/browser` is configured. Every bench therefore runs in **Node**, with no renderer, no
+  GPU and no real layout — so the rendering, frame-budget and cold-boot NFTs cannot be measuring
+  what their names claim. *Exit condition:* the browser provider is configured, or the affected
+  NFT rows are re-scoped to what a Node harness can honestly measure.
 - All p95 targets are measured over ≥ 100 samples.
-- The bench suite runs after `pnpm build` to measure production bundle performance, not dev server performance.
+  ⚠ **NOT-YET-TRUE for most rows.** Measured with
+  `grep -rhoE "SAMPLES *= *[0-9]+" apps/bench/src/benches/*.bench.ts | sort | uniq -c`: of the 25
+  benches that declare a sample count, **only 8 are ≥ 100** (5×200, 3×500). The remaining 17 run
+  at **5, 8, 10, 15, 20, 30 or 50** samples — nine of them at **5**. A p95 over 5 samples is not a
+  p95. *Exit condition:* every bench that states a p95 target declares `SAMPLES >= 100`, enforced
+  by the Wave-5 bench job.
+- The bench suite runs after `pnpm build` to measure production bundle performance, not dev server
+  performance. ⚠ **NOT-YET-TRUE** — see §1's note: the suite runs in no CI job, so it runs after
+  nothing.
 - NFT regressions are tracked in `03-CURRENT-STATE.md §1` alongside the code metrics.
 
 ---
@@ -117,14 +148,14 @@ The `chunkSizeWarningLimit` is set to 1500 KB to suppress false-positive warning
 
 ## §4 — CI Gate Inventory (Performance + Build)
 
-| Gate | Condition | Failure mode |
+| Gate | Condition | Failure mode — measured 2026-08-11 |
 |---|---|---|
-| All 17 NFT benches pass | No regression from baseline | Merge blocker |
-| `pnpm build` succeeds | `npm run build` exits 0 | Merge blocker |
-| Bundle size < 4 MB gzipped | NFT 15 | Merge blocker |
-| TypeScript `--noEmit` 0 errors | `pnpm tsc --noEmit` | Merge blocker |
-| All workspace tests pass | `pnpm test:ci` | Merge blocker |
-| OpenTelemetry span coverage | `scripts/ci-check-spans.ts` | Merge blocker (P8) |
+| All 19 NFT benches pass | No regression from baseline | ⚠ **NOT A GATE — no CI job runs it.** `grep -rn "bench" .github/workflows/` → **0 matches**; no committed baseline exists. Intended: merge blocker. **Exit condition:** Wave-5 bench job wired into `ci.yml` and added to that file's required-checks header. (The row also said "17"; §1 defines **19**.) |
+| `pnpm build` succeeds | `npm run build` exits 0 | Merge blocker — `build` job in `ci.yml` ✅ |
+| Bundle size < 4 MB gzipped | NFT 15 | ⚠ **NOT A GATE.** `bundle-size.bench.ts` exists but, like every other bench, is invoked by no workflow. Same exit condition as the row above. |
+| TypeScript `--noEmit` 0 errors | `pnpm tsc --noEmit` | Merge blocker — inside the `build` job ✅ |
+| All workspace tests pass | `pnpm test:ci` | Merge blocker ✅ — but note `test-pryzm1` is deliberately `continue-on-error` pending L-544 |
+| OpenTelemetry span coverage | ~~`scripts/ci-check-spans.ts`~~ → **`tools/ga-gate/check-otel-spans.ts`** | ⚠ **The cited path never existed** (`ls scripts/ci-check-spans.ts` → No such file) — the same defect class as L-812. The real gate runs inside the `ga-gate` job and is **ENFORCEMENT-BLIND**: 255/256 handler files instrumented against a `HARD_FLOOR` of 213, counting *files* rather than *exported functions*. See [STR-03 §2](../../01-strategy/STR-03-engineering-vision.md) P8 for the exit condition. |
 
 ---
 

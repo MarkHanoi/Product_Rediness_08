@@ -34,21 +34,52 @@ PRYZM is a **browser-native, layered, plugin-extensible BIM/AEC editor + design 
 
 These are the binding architectural commitments. Violations block merge **where a hard gate
 exists** — and the honest statement of which do is the point of the last column, not a footnote
-to it. Six are hard-fail; P1 and P4 are shrink-only counters, and a counter is a *debt with a
-name*, not an enforcement.
+to it.
 
-| # | Principle | What it means | CI gate (current state) |
+> ⚠ **Corrected 2026-08-11 (rev 3 — re-measured, every gate executed).** The table below used to
+> cite **four gate files that do not exist on disk**: `scripts/ci-check-single-compose.ts`,
+> `scripts/ci-check-domain-purity.ts`, `scripts/ci-check-no-direct-store-writes.ts` and
+> `packages/visibility/__tests__/intent-not-ui.test.ts` — three of them marked *"hard-fail ✅"*.
+> **This is L-812 reappearing inside the very document that records L-812's lesson**, which is the
+> strongest possible argument for §2.1's rule below: *before trusting any gate, ask what it
+> matched.* Verified absent with
+> `ls scripts/ci-check-*.ts packages/visibility/__tests__/intent-not-ui.test.ts` → four
+> `No such file or directory`. The real gates all live under `tools/ga-gate/`, and every row below
+> was produced by **running** its gate on 2026-08-11 (`npx tsx tools/ga-gate/<gate>.ts`) and
+> pasting the reading.
+
+**Gate vocabulary used in the last column** — these are not interchangeable:
+
+- **HARD-0** — the gate exists, is not on `tools/ga-gate/gate-debt.json`, and fails on the *first*
+  violation. This is the only state that means "the principle is enforced".
+- **RATCHET** — the gate passes at a non-zero baseline. It prevents *growth*, not violation. A
+  counter is a *debt with a name*, not an enforcement.
+- **ENFORCEMENT-BLIND** — the gate runs and passes, but does not measure the invariant the
+  principle states.
+
+| # | Principle | What it means | CI gate — measured 2026-08-11 |
 |---|---|---|---|
-| **P1** | **Single composition root** | One `composeRuntime()` in `packages/runtime-composer/src/composeRuntime.ts`. Production startup uses it. No parallel composition. | `scripts/ci-check-single-compose.ts` (soft-fail tripwire; ratchets to hard-fail) |
-| **P2** | **Single THREE owner** | `import * as THREE` only allowed in `packages/renderer-three/` (specifically `three-re-export.ts`). Other packages import via `@pryzm/renderer-three/three`. | `tools/ga-gate/check-three-imports.ts` + `eslint-plugin-boundaries` — **hard-fail ✅** |
-| **P3** | **Single rAF** | `requestAnimationFrame()` is called only in `packages/frame-scheduler/src/RafAdapter.ts:41`. All other animation subscribes to the frame bus. | `tools/ga-gate/check-raf-count.ts` — **hard-fail ✅** |
-| **P4** | **No `(window as any)`** | The escape hatch is forbidden outside the allowlisted shim. | `eslint-baseline-window-as-any.json` cast-count tripwire (soft-fail, no-increase) |
-| **P5** | **Schemas are pure** | L0 (`packages/schemas/`) has zero I/O imports, zero THREE, zero DOM. | `scripts/ci-check-domain-purity.ts` — **hard-fail ✅** |
-| **P6** | **Commands are the only mutation path** | UI dispatches commands; commands flow through `commandBus` → handlers → stores. No direct store writes from UI. | `scripts/ci-check-no-direct-store-writes.ts` — **hard-fail ✅** |
-| **P7** | **Visibility intent ≠ UI state** | `packages/visibility/` is a first-class domain concept, not a UI concern. Plugins and AI can express intent without owning UI. Waves 1-5 shipped; waves 6-11 land at S49. | per-package contract test (`packages/visibility/__tests__/intent-not-ui.test.ts`) — **hard-fail ✅** |
-| **P8** | **Sync conflicts explicit + every public function has ≥ 1 OpenTelemetry span** | CRDT merges that lose information surface as user-resolvable conflicts, never silently picked. Yjs CRDT in `packages/sync-client/`. | `tools/ga-gate/check-otel-spans.ts` — **hard-fail ✅** |
+| **P1** | **Single composition root** | One `composeRuntime()` in `packages/runtime-composer/src/composeRuntime.ts`. Production startup uses it. No parallel composition. | `tools/ga-gate/check-single-compose.ts` — **HARD-0 ✅** · reading: *1 definition, 0 rivals, 2/2 production callers*. (Landed for L-812; the `scripts/ci-check-single-compose.ts` this row used to name never existed.) |
+| **P2** | **Single THREE owner** | `import * as THREE` only allowed in `packages/renderer-three/` (specifically `three-re-export.ts`). Other packages import via `@pryzm/renderer-three/three`. | `tools/ga-gate/check-three-imports.ts` — **HARD-0 ✅** · reading: *0 direct `three` importers outside `packages/renderer-three/` across 6,377 files*. ⚠ **`eslint-plugin-boundaries` deserves no credit here and was removed from this cell** — §2.1 below and [STR-04 §1.0](./STR-04-architecture.md) establish that it resolved no `@pryzm/*` specifier and therefore policed almost nothing. This document contradicted itself thirty lines apart. |
+| **P3** | **Single rAF** | `requestAnimationFrame()` is called only in `packages/frame-scheduler/src/RafAdapter.ts`. All other animation subscribes to the frame bus. | `tools/ga-gate/check-raf-count.ts` — **HARD-0 ✅** · reading: *1 owner* (HARD_FAIL threshold 1). Converged 2026-08-10 once comment lines stopped being counted (§RAF-GATE-COMMENT-BLIND). |
+| **P4** | **No `(window as any)`** | The escape hatch is forbidden outside the allowlisted shim. | `tools/ga-gate/check-cast-count.ts` — **RATCHET, and RED today** · reading: *217 casts repo-wide > baseline 215*. On `gate-debt.json`. **Exit condition:** repo-wide count reaches 0 and the gate leaves the debt ledger. |
+| **P5** | **Schemas are pure** | L0 (`packages/schemas/`) has zero I/O imports, zero THREE, zero DOM. | `tools/ga-gate/check-domain-purity.ts` — **HARD-0 ✅** · reading: *0 impurities across 165 files, 7 rules*. (Landed for L-812; `scripts/ci-check-domain-purity.ts` never existed.) |
+| **P6** | **Commands are the only mutation path** | UI dispatches commands; commands flow through `commandBus` → handlers → stores. No direct store writes from UI. | `tools/ga-gate/check-no-direct-store-writes.ts` — **RATCHET · NOT-YET-TRUE** · reading: *within baseline (37/37)*. It passes **at 37 tolerated direct writes, not at 0**, so P6 as stated does not hold. **Exit condition:** baseline reaches 0, then flip to HARD-0. This is the principle that underpins undo, CRDT merge and AI batch-apply — do not read the green tick as compliance. |
+| **P7** | **Visibility intent ≠ UI state** | `packages/visibility/` is a first-class domain concept, not a UI concern. Plugins and AI can express intent without owning UI. | `tools/ga-gate/check-visibility-intent-not-ui.ts` — **PARTIAL · NOT-YET-TRUE** · reading: *ARM A (`packages/visibility/src`, 19 files) hard-0, UI leaks 0 ✅; ARM B ratchet **RED at 45 direct `.visible =` assignments in UI against baseline 43***. The gate prints its own limits: **persistence, per-view scoping and the AI intent path are NOT CHECKED** — "a pass here is NOT *P7 holds*". **Exit condition:** ARM B reaches 0 **and** the three unchecked axes acquire arms. |
+| **P8** | **Sync conflicts explicit + every public function has ≥ 1 OpenTelemetry span** | CRDT merges that lose information surface as user-resolvable conflicts, never silently picked. Yjs CRDT in `packages/sync-client/`. | `tools/ga-gate/check-otel-spans.ts` — **ENFORCEMENT-BLIND** · reading: *255 / 256 handler files instrumented, `HARD_FLOOR` = 213*. Three separate gaps: (a) the floor sits **42 below** the current reading, so 42 files could lose their spans and the gate would still say OK; (b) it counts **handler FILES**, never **exported functions**, which is what the principle actually requires; (c) **the conflict-surfacing half of P8 has no gate at all.** **Exit condition:** floor tracks the measured count, scope moves to exported functions, and a gate exists for explicit-conflict surfacing. |
 
-**Today**: 6 of 8 hard-fail (P2, P3, P5, P6, P7, P8); 2 are soft-fail counters (P1, P4) ratcheting to hard-fail at the relevant phase exits.
+**Today — measured, not asserted**: **4 of 8 are HARD-0** (P1, P2, P3, P5). **P4 and P6 are
+ratchets** (P4 currently RED). **P7 is half a gate** (ARM A green, ARM B RED, three axes
+unmeasured). **P8 is enforcement-blind.**
+
+> The previous revision claimed *"6 of 8 hard-fail (P2, P3, P5, P6, P7, P8)"*. Three of those six
+> — P6, P7, P8 — are not hard-fail at their stated invariant, and P1, which it demoted to a
+> soft-fail counter, actually *is*. The count was wrong in **both** directions, which is the
+> signature of a number nobody re-measured.
+>
+> **⚠ P8's row is under active repair.** `check-otel-spans.ts` is being reworked as of 2026-08-11;
+> re-run `npx tsx tools/ga-gate/check-otel-spans.ts` and restate this row when that lands. Do not
+> upgrade it to HARD-0 without reading what the new gate matches.
 
 ### §2.1 — The ninth commitment, and the lesson it taught (added 2026-08-11)
 
@@ -109,7 +140,7 @@ What makes PRYZM different from Revit / Archicad / Forma / Qonic / Motif / Bonsa
 |---|---|---|---|
 | **D1** | **Open `.pryzm` file format** | Round-trips losslessly with IFC4X3. No vendor lock-in. ZIP container; manifest schema v1 frozen. | [C05](../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md), [C25](../02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md), [C47](../02-decisions/contracts/C47-FILE-FORMAT-VERSIONING.md) |
 | **D2** | **Run-anywhere browser-native** | No installer, no Windows-only, no per-seat license server. Works on iPad, Chromebook, Linux. Codified browser support per Tier 1/2/3. | [C44](../02-decisions/contracts/C44-MOBILE-AND-TABLET.md), [C45](../02-decisions/contracts/C45-BROWSER-AND-DEVICE-MATRIX.md) |
-| **D3** | **Real-time multi-user with explicit conflicts** | CRDT-backed (Yjs in `packages/sync-client/`); conflicts surface to the user, never silently resolved (P8). Socket.io broadcast; project-scoped room. | [C08](../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md) |
+| **D3** | **Real-time multi-user with explicit conflicts** | CRDT-backed (Yjs in `packages/sync-client/`); conflicts surface to the user, never silently resolved (P8). Socket.io broadcast; project-scoped room. ⚠ **Scale is CLAIMED, not HELD.** Per [C66 §1](../02-decisions/contracts/C66-CONCURRENCY-AND-SCALE.md), **all three tiers (50 / 300 / 1,000 concurrent) are CLAIMED and none has been measured**; deployment is single-instance (Redis pub/sub deferred). **C66 §1.1 forbids describing a CLAIMED tier as supported** — this row is a statement about *semantics*, not about *capacity*. **Exit condition:** a k6 run at the tier's VU count passes the C66 §6 thresholds against a production-shaped target and is recorded in `docs/03-execution/analysis/`. See §12.5. | [C08](../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md), [C66](../02-decisions/contracts/C66-CONCURRENCY-AND-SCALE.md) |
 | **D4** | **Plugin SDK with marketplace** | Third-party developers ship paid extensions through `marketplace.pryzm.app`. 70/30 revenue share. iframe sandbox + Ed25519 signing. `packages/plugin-sdk/` v1.0.0 ready for npm publish. | [C07](../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md), [C40](../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md) |
 | **D5** | **AI as a first-class layer** | 7 workflows in `packages/ai-host/src/workflows/`: Generate3Options, PlanCritique, VoiceCommand, apartmentLayout, ceilingLayout, furnishLayout, lightingLayout. Includes deterministic engines (D-TGL, D-FLE, D-LE, D-CE) for offline operation. Routes through Anthropic via direct API or CF Worker. | [C09](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md), [C23](../02-decisions/contracts/C23-PROVENANCE-AND-AI-AUDIT.md) |
 | **D6** | **Sovereignty default** | EU customers default to EU region; customer-managed keys (BYOK) supported. Never crosses sovereignty on failover. | [C49](../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md), [C22](../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) |
@@ -120,7 +151,7 @@ What makes PRYZM different from Revit / Archicad / Forma / Qonic / Motif / Bonsa
 | **D11** | **Architecturally sound Sheet + PDF export** | Publication-grade vector PDF + DWG via `plugins/sheets/` + `packages/drawing-primitives/`. Title blocks per regional drawing standards. Revision tracking + sheet sets. | [C24](../02-decisions/contracts/C24-SHEET-COMPOSITION-ENGINE.md), [C29](../02-decisions/contracts/C29-PDF-VECTOR-EXPORT.md), [C30](../02-decisions/contracts/C30-DRAWING-SET-MANAGEMENT.md), [C34](../02-decisions/contracts/C34-PRINT-AND-DRAWING-STANDARDS.md) |
 | **D12** | **Native Revit round-trip** | Bidirectional `.rvt`/`.rfa` ↔ `.pryzm` via IFC4X3 as canonical bridge + optional Python adapter for Revit-API-specific extensions (phasing / worksets / design options). | [C26](../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md) |
 | **D13** | **BIM 3.0 Inspect + Data Model** | Hierarchical model tree (Site → Building → Level → Apartment → Room → Element) with selection-driven viewport isolation. Live data layer for `check / automate / update / review`. | [C27](../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md), [C28](../02-decisions/contracts/C28-DATA-PANEL-AND-AUTOMATION.md) |
-| **D14** | **The capability control plane** *(added 2026-08-11)* | Language is the primary interface, and every editor ability is a **declared, machine-proven** capability — route liveness, targets proven in both directions, a source-anchored proof, and executed acceptance + adversarial corpora. 41 capabilities; undeclared bus commands 0 of 0 on a shrink-only ratchet. Because a capability is a **table entry**, the marginal cost of the next one is metadata, not engineering. No competitor's AI layer is falsifiable in this way. | [C67](../02-decisions/contracts/C67-RAC-CAPABILITY-CONTROL-PLANE.md), [C68](../02-decisions/contracts/C68-ELEMENT-CHAT-ONBOARDING.md), [ADR-0315](../02-decisions/adrs/ADR-0315-universal-capability-architecture.md) |
+| **D14** | **The capability control plane** *(added 2026-08-11)* | Language is the primary interface, and every editor ability is a **declared, machine-proven** capability — route liveness, targets proven in both directions, a source-anchored proof, and executed acceptance + adversarial corpora. **45** capabilities, 36 of them adversarially pinned; undeclared bus commands 0 of 0 on a shrink-only ratchet (measured 2026-08-11 by `npx tsx tools/ga-gate/check-chat-capability-coverage.ts` — **that gate is the authority for this number, not this sentence**). Because a capability is a **table entry**, the marginal cost of the next one is metadata, not engineering. No competitor's AI layer is falsifiable in this way. **Do not transcribe the capability count into another document** — it moved 41 → 45 in two days; cite the gate. | [C67](../02-decisions/contracts/C67-RAC-CAPABILITY-CONTROL-PLANE.md), [C68](../02-decisions/contracts/C68-ELEMENT-CHAT-ONBOARDING.md), [ADR-0315](../02-decisions/adrs/ADR-0315-universal-capability-architecture.md) |
 | **D15** | **Planning law made computable** *(added 2026-08-11)* | Parcel → zoning instrument → block construction → buildable envelope **carrying the article it was derived from**, or a typed determination naming what is missing and who owns it. The envelope is a *construction*, not a lookup, which is why there is no dataset to buy — and why a competitor cannot buy one either. The scoring denominator is buildable land, and a refusal is a correct answer. | [C58](../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md), [C63](../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md), [C64](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md), ADR-0276/0279/0283 |
 
 **D5 is understated by its June wording.** The AI host is no longer "7 workflows"; the

@@ -1,6 +1,15 @@
 # PRYZM — Risks & Assumptions
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL
+> **Stamp**: 2026-06-01 · **Status**: CANONICAL AS TO INTENT · **UNREVIEWED SINCE 2026-06-01 AS TO FACT** *(noted 2026-08-11)*
+>
+> ⚠ **Qualified 2026-08-11, not rewritten.** What this document *decides* — its principles,
+> positioning, archetypes or named bets — is still CANONICAL and still binds. What this document
+> *asserts as fact* — any count, competitor capability, market figure, price, or statement about
+> what PRYZM ships today — has **not been re-verified in ten weeks** and MUST NOT be quoted as
+> current without re-measuring it at the source. Where a fact here disagrees with the contract
+> suite (`docs/02-decisions/contracts/README.md`, C01–C68), **the contract wins**.
+> **Exit condition:** a dated revision that re-checks this file's factual claims, after which
+> this banner is deleted and the plain CANONICAL status returns.
 > **Authority**: this doc owns **the named bets PRYZM is making and what could falsify them**. Every strategic claim elsewhere in `01-strategy/` rests on assumptions; this doc surfaces them. If an assumption is invalidated, the strategy doc that depends on it must be revised — not silently abandoned.
 > **Foundation above**: every other doc in `01-strategy/`. This doc is the audit trail for the strategy.
 

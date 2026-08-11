@@ -17,9 +17,23 @@
 #   - build
 #   - apex-gates
 #   - docker-image   (Fly parity — build + boot smoke; ~15-20 min)
+#   - ga-gate        (§GA-GATE-RATCHET / L-775 — MERGE-BLOCKING. See the job header at the
+#                     `ga-gate:` key below. It has no `continue-on-error`, so a regression,
+#                     a stale baseline, a missing gate script or a MISCONFIGURED gate fails
+#                     the job and the run.)
+#
+#     ⚠ CORRECTED 2026-08-11 — THIS HEADER CONTRADICTED THE JOB IT DESCRIBES.
+#     This list used to file `ga-gate` under "NOT yet required (advisory by design)" while the
+#     job body 250 lines below states "MERGE-BLOCKING. `continue-on-error: true` is GONE."
+#     Both cannot be true, and the ambiguity is not cosmetic: `tools/ga-gate/gate-debt.json`
+#     rule 1 — "a gate NOT on this list that fails is a REGRESSION and blocks CI" — only means
+#     anything if the job blocks. Resolved in favour of MERGE-BLOCKING, which is what the code
+#     actually does. If anyone ever makes it advisory again, change BOTH places in one commit.
+#
 # NOT yet required (advisory by design, see the job header):
-#   - ga-gate        (§H33/H34/H35 — ratchet broadening)
 #   - test-pryzm1    (§L-540-CI-GATE / L-544 — landed RED per the L-247 ladder)
+#   - the "Legacy release gate" STEP inside the `ga-gate` job (`pnpm run ga-gate`, a different
+#     and smaller script) — that STEP is `continue-on-error`, the job is not.
 #
 # §L-540-CI-GATE (2026-07-21) — REQUIRED STATUS CHECKS ARE NOT THE GATE HERE.
 # The list above assumes PRs. The founder's actual workflow is push-straight-to-
@@ -274,7 +288,11 @@ jobs:
       - run: pnpm run test:pryzm1
 
   ga-gate:
-    name: GA-gate (31 contract gates, shrink-only ratchet)
+    # The gate COUNT is deliberately absent from this name. It said "31" while
+    # `ls tools/ga-gate/check-*.ts | wc -l` said 32, and a 33rd landed the same day this was
+    # corrected (2026-08-11). `run-all.ts` derives what it prints from `GATES.length`, so its
+    # run output is the authority — a number typed here can only ever be wrong later.
+    name: GA-gate (contract gates, shrink-only ratchet)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # §GA-GATE-RATCHET (L-775) — MERGE-BLOCKING. `continue-on-error: true` is GONE.
@@ -313,7 +331,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: 31 contract gates (ratcheted)
+      # 32 gates — `ls tools/ga-gate/check-*.ts | wc -l` = 32, and run-all.ts derives the
+      # number it PRINTS from GATES.length, so its output is authoritative over this label.
+      # (Both strings said 31, measured 2026-08-11. Prefer adding a gate to GATES over
+      # re-typing a count here; this label is the one that will rot next.)
+      - name: Contract gates (ratcheted — count printed by run-all.ts)
         run: pnpm run ga-gate:all
       - name: Legacy release gate (advisory)
         continue-on-error: true

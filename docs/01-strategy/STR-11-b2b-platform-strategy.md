@@ -1,6 +1,7 @@
 # PRYZM — B2B Platform Strategy: Deep Technical & Business Analysis
 
 **Date:** 2026-03-18  
+**Status:** ⚠ **HISTORICAL / NOT CANONICAL** *(status line added 2026-08-11 — this document had **none**, which meant readers could not tell whether it bound them.)* Dated **2026-03-18**, it is the **oldest document in `01-strategy/`** — roughly ten weeks older than the 2026-06-01 STR stamp epoch — and it predates the Plugin SDK / marketplace shape now owned by [STR-10](./STR-10-platform-strategy.md) and [C07](../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md). **Nothing in this file has been re-verified.** Read it as the analysis that motivated the B2B direction, not as a statement of current architecture or a binding decision; where it disagrees with STR-10 or C07, **they win**. **Exit condition for a real status:** a revision that re-checks the ThatOpen-dependency recommendation and the source-exposure model against the shipped SDK, after which this becomes either CANONICAL or explicitly SUPERSEDED.  
 **Type:** Strategic architecture analysis — no code changes  
 **Scope:** How to open PRYZM's technology to third-party companies (furniture makers,  
 interior designers, architects) without exposing source code, while deciding on  

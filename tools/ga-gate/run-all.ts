@@ -13,7 +13,11 @@
  *   4.  check-engine-bootstrap-loc.ts        — EngineBootstrap.ts deleted (P1)
  *   5.  check-l7-boundary.ts                 — no direct @pryzm/* in plugins (L7)
  *   6.  check-motion-gate-coverage.ts        — motion gate coverage (P8)
- *   7.  check-otel-spans.ts                  — 184/184 handler OTel spans (S03/C10)
+ *   7.  check-otel-spans.ts                  — handler OTel spans (S03/C10). Reading 2026-08-11:
+ *                                              255/256 instrumented, HARD_FLOOR 213. This line
+ *                                              said "184/184" — stale on BOTH halves: the count
+ *                                              had moved, and the floor was never 1:1 with it.
+ *                                              Do not restate a number here; run the gate.
  *   8.  check-ctrl-z-wired.ts               — Ctrl-Z ring-buffer wired (C03/Wave36)
  *   9.  check-project-isolation.ts           — C13 project-isolation anchors (Wave35)
  *   9b. check-declared-project-scopes.ts     — ADR-0298 declared isolation-probe set (C13 §3.10)
@@ -39,6 +43,10 @@
  *   29. check-no-direct-store-writes.ts    — P6 commands are the only mutation path (L-812, was MISSING)
  *   30. check-visibility-intent-not-ui.ts  — P7 visibility intent ≠ UI (L-812, was MISSING)
  *   31. check-chat-capability-coverage.ts  — every registered bus command is declared to the chat (ADR-0313)
+ *   32. check-report-payload-discard.ts    — R4: dispatch sites that discard an engine report
+ *                                            payload (C68 §5.g). Target 0, and it IS 0 —
+ *                                            not a ratchet. The engines were honest and the
+ *                                            reporting layer printed "Done" over them.
  *
  * §P1/P5/P6/P7-UNENFORCED (L-812, 2026-08-09). C01 §5 listed gates 27–30 as
  * hard-fail and merge-blocking. **None of the four script files existed.** P6 in
@@ -108,6 +116,7 @@ const GATES: Gate[] = [
   // chat capability metadata. Added 2026-08-10 after `wall.updateSystemTypeBatch`
   // and the chat panel shipped in the SAME release and could not reach each other.
   { name: 'chat-capability-coverage (ADR-0313)',      script: 'check-chat-capability-coverage.ts' },
+  { name: 'report-payload-discard (C68 §5.g, R4)',    script: 'check-report-payload-discard.ts' },
 ];
 
 let anyFailed = false;

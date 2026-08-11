@@ -1,6 +1,30 @@
 # PRYZM — Site & Cognition Strategy
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL
+> **Stamp**: 2026-06-01 · **Status**: CANONICAL AS TO STRATEGY · **STALE AS TO STATE (reviewed 2026-08-11, not refreshed)**
+>
+> ⚠ **Status downgraded 2026-08-11.** The §1 thesis and the two-substrate framing are unchanged and
+> remain CANONICAL. **Everything this document says about what exists in code is up to ten weeks
+> stale and has NOT been re-verified** — treat every "exists today" sentence below as a 2026-06-01
+> observation, not as current state.
+>
+> ⚠ **It named none of its own subject's normative contracts.** This document claims authority over
+> the site / geospatial substrate, yet — measured
+> `grep -c "C57\|C58\|C60\|C62\|C63\|C64" STR-12-site-and-cognition-strategy.md` → **0** — it cited
+> **none** of the six contracts that were minted to govern exactly that substrate. They are its
+> normative spine and they **outrank this document** on anything they cover:
+>
+> | Contract | Owns | Why STR-12 cannot speak over it |
+> |---|---|---|
+> | [C57 — Parcel Data Layer](../02-decisions/contracts/C57-PARCEL-DATA-LAYER.md) | the parcel itself: sourcing, identity, geometry | STR-12 §2.1's "plot boundary from cadastral / GIS data" is C57's subject |
+> | [C58 — Zoning Rules & Buildable Envelope](../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) | resolved rules → envelope | any regulatory-context claim here defers to C58 |
+> | [C60 — Site Entry & Jurisdiction Coverage](../02-decisions/contracts/C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md) | which jurisdictions are actually reachable | STR-12 must not imply coverage C60 does not record |
+> | [C62 — Data Confidence & Provenance](../02-decisions/contracts/C62-DATA-CONFIDENCE-PROVENANCE-MODEL.md) | how certain a datum is, and how that is shown | forbids presenting an estimate as authoritative |
+> | [C63 — City Completion & Dossier](../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md) | per-city completeness scoring + folder standard | the only legitimate source of a completeness statement |
+> | [C64 — Envelope Compiler](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md) | `parcel → resolved rules`; sits **above** C58 | ⚠ **C64 §2.13 binds this file**: no coverage, determination or completion percentage may be transcribed into any doc — cite the artefact that computes it (`tools/city-completion/measurements/*.measurements.json`, the PEC dashboard, the National Capability Register) |
+>
+> **Exit condition for restoring full CANONICAL:** a revision that re-verifies the §2 code-state
+> claims against the tree and threads C57/C58/C60/C62/C63/C64 through the body, not just this
+> banner.
 > **Authority**: this doc owns **the two strategic substrates that distinguish PRYZM from a generic AI-BIM tool**: (1) **the site / geospatial substrate** — every building is anchored to a real place with real climate, real terrain, real regulatory context; and (2) **the cognition substrate** — the platform reasons about a building across seven layers (environmental, spatial, semantic, compositional, perceptual, behavioural, typological), not just geometry. Both substrates exist in code today (the geospatial primitives in `packages/geospatial/`, the apartment-layout cognition stack in `ai-host/workflows/`, the constraint database in `rules/`) but their strategic role has not been codified.
 > **Foundation above**: [STR-01-manifesto.md](./STR-01-manifesto.md) → [STR-07-positioning.md](./STR-07-positioning.md)
 > **Cross-cut**: [STR-10-platform-strategy.md](./STR-10-platform-strategy.md) (the surface third parties extend over these substrates) · [STR-02-product-vision.md](./STR-02-product-vision.md) (the user journey these substrates enable)

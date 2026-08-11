@@ -602,7 +602,13 @@ const MAX_UNRESOLVED_EXAMPLES = Number(process.env.PRYZM_CHAT_MAX_UNRESOLVED_EXA
  * Baseline 9, frozen 2026-08-11. A capability is PINNED when the declared
  * adversarial corpus contains at least one utterance carrying one of its verbs,
  * aliases or refusal label — a command-SHAPED sentence aimed at it that must
- * not mutate. 32 of 41 are pinned today; the nine that are not are
+ * not mutate. **36 of 45 are pinned** (re-measured 2026-08-11 by running this
+ * gate; the comment said "32 of 41" — the denominator moved 41 → 45 in two days,
+ * which is exactly why the gate PRINTS the ratio on every run: read the run
+ * output, not this sentence). The unpinned count is unchanged at 9. The nine
+ * named below were correct at the 41-capability reading and have NOT been
+ * re-verified name-by-name — the gate does not yet emit the names, so treat the
+ * list as indicative and the count as authoritative:
  *
  *   redo · zoom-fit · zoom-selected · set-wall-rake · add-wall-layer ·
  *   duplicate-level · rename-room · finish-apartment-chain · execute-plan

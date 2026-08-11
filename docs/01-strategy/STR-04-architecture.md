@@ -320,7 +320,20 @@ The contract suite [C01–C49](../02-decisions/contracts/) introduces additional
 
 ## §6 — The 68 benchmarks (NFTs)
 
-Located in `apps/bench/src/benches/*.bench.ts`. Run by `npx vitest` (Node) against fixture data. Per-bench JSON output; baseline regression gate. Categories:
+Located in `apps/bench/src/benches/*.bench.ts` — **68 files**, verified
+`ls apps/bench/src/benches/*.bench.ts | wc -l` → 68 (2026-08-11). Run by `npx vitest` (Node)
+against fixture data. Categories:
+
+> ⚠ **NOT-YET-TRUE (2026-08-11): "baseline regression gate" — there is no gate and no baseline.**
+> `grep -rn "bench" .github/workflows/` returns **zero matches**: no CI job invokes `apps/bench`,
+> and no baseline artefact is committed for a regression to be measured against. Two further
+> honesty notes, both verified: `apps/bench/vitest.config.ts` declares `environment: 'node'`, so
+> the "(Node)" above is literal — there is no browser, no GPU, no layout, and the rendering-side
+> NFTs cannot be measuring what their names suggest; and of the 25 benches declaring a sample
+> count, only 8 reach the ≥ 100 samples C10 §1.1 requires for a p95
+> (`grep -rhoE "SAMPLES *= *[0-9]+" apps/bench/src/benches/*.bench.ts | sort | uniq -c`).
+> **Exit condition:** Wave-5 wires a `bench` job into `.github/workflows/ci.yml` against a
+> committed baseline. Until then this section describes a **corpus**, not a gate.
 
 | Category | Count | Examples |
 |---|---:|---|

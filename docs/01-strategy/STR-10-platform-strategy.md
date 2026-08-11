@@ -1,6 +1,13 @@
 # PRYZM — Platform Strategy
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL
+> **Stamp**: 2026-06-01 · **Status**: CANONICAL AS TO STRATEGY · **STALE AS TO STATE (reviewed 2026-08-11)**
+>
+> ⚠ **Reviewed but not refreshed, 2026-08-11.** The platform thesis and the §5 sequencing remain
+> CANONICAL. **Claims about what exists in code, and the marketplace/economic figures, are up to
+> ten weeks stale and were NOT re-verified** — only the `plugins/` census was (47 → **48**,
+> `ls plugins/ | wc -l`). Do not cite a number from this file as current without re-measuring it.
+> **Exit condition:** a revision that re-verifies §4–§5 against the tree and against
+> [C07](../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md) / [C40](../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md).
 > **Authority**: this doc owns the **platform thesis** — how PRYZM evolves from a vertical BIM editor into a multi-sided platform with Plugin SDK, Family Marketplace, AI Marketplace, Pricing Catalogue Marketplace, and per-discipline element vocabulary. The Plugin SDK + Family Platform exists in code today (`packages/family-{instance,loader,runtime}`, `apps/marketplace-web`, `apps/component-editor`, `server.js` family-marketplace routes) — this doc codifies the strategy that work serves.
 > **Foundation above**: [STR-01-manifesto.md](./STR-01-manifesto.md) → [STR-07-positioning.md](./STR-07-positioning.md) → [STR-09-personas.md](./STR-09-personas.md) (esp C5)
 > **Cross-cut**: [STR-08-go-to-market.md](./STR-08-go-to-market.md) (developer relations) · [STR-12-site-and-cognition-strategy.md](./STR-12-site-and-cognition-strategy.md) (the substrate the platform extends over)
@@ -151,7 +158,7 @@ The flywheel's slowest link is "more authors publishing." We invest in the devel
 
 ### §5.1 — Year 1 (2026): Plugin SDK + Family Platform substrate ships; small marketplace
 
-The infrastructure exists (it does). The first 50–100 plugins + families are PRYZM-first-party (the 47 plugins under `plugins/`) + a small number of early-adopter developers (~20). Marketplace economic flywheel begins but doesn't yet drive primary growth.
+The infrastructure exists (it does). The first 50–100 plugins + families are PRYZM-first-party (the **48** plugins under `plugins/` — `ls plugins/ | wc -l` → 48, measured 2026-08-11; this said 47) + a small number of early-adopter developers (~20). Marketplace economic flywheel begins but doesn't yet drive primary growth.
 
 **Success criterion**: marketplace has > 100 published artefacts by end of year 1; > 20 unique developers earning > $500/month each.
 

@@ -223,7 +223,7 @@ LLM model: `claude-haiku-4-5-20251014` via Anthropic API (direct or via Cloudfla
 | Stripe marketplace (30/70 split, refunds, chargebacks) | ✅ `plugin_purchases` table + webhook handlers |
 | Anthropic API proxy (`/api/anthropic/v1/messages`) | ✅ Direct API or Cloudflare Worker relay (CF_WORKER_URL) |
 | Socket.io real-time | ✅ `socket.io` on httpServer; project-scoped rooms |
-| Yjs CRDT sync | ✅ `packages/sync-client/` + `apps/sync-server/` (single-instance v0; Redis pub/sub deferred) |
+| Yjs CRDT sync | ✅ *mechanism* — `packages/sync-client/` + `apps/sync-server/` (single-instance v0; Redis pub/sub deferred). ⚠ **Capacity is NOT-YET-TRUE:** [C66 §1](../02-decisions/contracts/C66-CONCURRENCY-AND-SCALE.md) records all three tiers (50 / 300 / 1,000 concurrent) as **CLAIMED, none HELD**, and §1.1 forbids describing a CLAIMED tier as supported — including in a plan tier or a customer commitment. **Exit condition:** a recorded k6 run at the tier's VU count passing the C66 §6 thresholds against a production-shaped target. |
 | ISO 19650 CDE state machine (WIP → approved → published) | ✅ `project_versions.state` + `version_audit_log` table |
 | OpenTelemetry tracing | ✅ Opt-in via `OTEL_EXPORTER_OTLP_ENDPOINT` env |
 | Security: Helmet + CSP + COEP + COOP + HSTS + rate limiting | ✅ `server/securityHeaders.js` |
@@ -519,7 +519,8 @@ Release process:
 
 - All changes via pull request — no direct commits to main
 - Branches: `feat/...`, `fix/...`, `docs/...`
-- Merges to `main` trigger CI (21 gates + bench baselines)
+- Merges to `main` trigger CI. The GA-gate job runs **32 contract gates** (`ls tools/ga-gate/check-*.ts | wc -l` → 32, of which `run-all.ts` orchestrates 32). ⚠ **"+ bench baselines" was false and is now marked NOT-YET-TRUE**: `grep -rn "bench" .github/workflows/` returns **zero matches** — no workflow runs `apps/bench`, and no baseline file is committed. *Exit condition:* the Wave-5 bench job lands in `ci.yml`. See [C10 §1](../02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md).
+- ⚠ *"All changes via pull request — no direct commits to main"* is **aspirational**: the working practice is push-straight-to-`main`, which is why the real deploy gate is the `ci-gate` job in `deploy-fly.yml` rather than GitHub required status checks (§L-540-CI-GATE).
 - Staging promoted manually after QA sign-off
 - Production releases semantically versioned (`vMAJOR.MINOR.PATCH`)
 - Hotfixes via `hotfix/<description>` branch, merged to main + backported

@@ -1,6 +1,15 @@
 # PRYZM — Go-To-Market Strategy
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL
+> **Stamp**: 2026-06-01 · **Status**: CANONICAL AS TO INTENT · **UNREVIEWED SINCE 2026-06-01 AS TO FACT** *(noted 2026-08-11)*
+>
+> ⚠ **Qualified 2026-08-11, not rewritten.** What this document *decides* — its principles,
+> positioning, archetypes or named bets — is still CANONICAL and still binds. What this document
+> *asserts as fact* — any count, competitor capability, market figure, price, or statement about
+> what PRYZM ships today — has **not been re-verified in ten weeks** and MUST NOT be quoted as
+> current without re-measuring it at the source. Where a fact here disagrees with the contract
+> suite (`docs/02-decisions/contracts/README.md`, C01–C68), **the contract wins**.
+> **Exit condition:** a dated revision that re-checks this file's factual claims, after which
+> this banner is deleted and the plain CANONICAL status returns.
 > **Authority**: this doc owns **how PRYZM reaches and retains customers** — channels, geographies, sales motion, pricing strategy, growth loops, retention model. The contract suite codifies what we ship; this doc codifies how we sell and keep.
 > **Foundation above**: [STR-01-manifesto.md](./STR-01-manifesto.md) → [STR-07-positioning.md](./STR-07-positioning.md) → [STR-09-personas.md](./STR-09-personas.md)
 > **Cross-cut**: [STR-10-platform-strategy.md](./STR-10-platform-strategy.md) (the marketplace side) · [STR-15-risks-and-assumptions.md](./STR-15-risks-and-assumptions.md) (GTM-risk treatment)
