@@ -98,6 +98,15 @@ export type NaturalLanguageResolution =
       readonly intent: string;
       /** The safe application produced by applySemanticIntent (never a miss). */
       readonly resolution: Exclude<ZeroTokenResolution, { kind: 'miss' }>;
+      /**
+       * RAC U6 — the IR this layer understood, before it was applied. The plan
+       * executor needs the MEANING of a clause (to sequence it), not only the
+       * commands one clause produced in isolation; exposing what was already
+       * computed is what lets a plan reuse this ladder instead of growing a
+       * second one. `applySemanticIntent` remains the only authority that turns
+       * it into commands.
+       */
+      readonly semanticIntent: SemanticIntent;
       readonly confidence: number;
       readonly evidence: readonly string[];
       readonly conversation: ConversationContext;
@@ -1300,6 +1309,7 @@ export function resolveNaturalLanguage(
               kind: 'resolved',
               intent: si.intent,
               resolution,
+              semanticIntent: si,
               confidence,
               evidence,
               conversation: nextConversation,

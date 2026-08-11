@@ -26,11 +26,21 @@ export {
 // ADR-0313 — zero-token chat command resolver (tier 0/1).
 export {
   resolveUtterance,
+  resolveUtteranceIntent,
   withChatDispatchSpan,
   applySemanticIntent,
   findLevel,
   lengthToMeters,
 } from './intents/ZeroTokenResolver.js';
+// §PLAN (RAC U6) — compound sentences ("duplicate level 0 to level 1, then
+// furnish it"): a splitter over the SAME single-intent ladder, executed by the
+// SAME applySemanticIntent. No second resolver, no second dispatcher.
+export {
+  parsePlanIntent,
+  resolveCompoundUtterance,
+  splitPlanClauses,
+} from './intents/SemanticPlan.js';
+export type { PlanContext, PlanParse } from './intents/SemanticPlan.js';
 // ADR-0313 §NL — local natural-language layer (semantics only; zero tokens).
 export {
   resolveNaturalLanguage,
@@ -96,6 +106,10 @@ export type {
   SemanticIntent,
   SemanticApplication,
   WallPoint2,
+  // §PLAN (RAC U6) — the plan metadata the bridge's Confirm card and its
+  // step-by-step dispatcher read.
+  PlanReport,
+  PlanStepReport,
 } from './intents/ZeroTokenResolver.js';
 export { AiBus } from './AiBus.js';
 export type { AiBusEvent, AiBusEventKind, AiBusListener, AiBusOptions } from './AiBus.js';

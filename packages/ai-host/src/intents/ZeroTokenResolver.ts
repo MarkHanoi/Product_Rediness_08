@@ -127,6 +127,8 @@ export type ZeroTokenResolution =
       readonly summary: string;
       readonly commands: readonly BusCommandRef[];
       readonly destructive: boolean;
+      /** §PLAN (RAC U6) — set only for a compound plan; see PlanReport. */
+      readonly plan?: PlanReport;
     }
   | {
       readonly kind: 'local';
@@ -686,7 +688,66 @@ export type SemanticIntent =
       readonly scope:
         | 'active-level'
         | { readonly kind: 'level'; readonly levelQuery: string };
+    }
+  /**
+   * §PLAN (RAC U6) — a COMPOUND sentence: "duplicate level 0 to level 1, then
+   * furnish it" / "make all walls white then add ceilings to every room".
+   *
+   * The IR is deliberately the thinnest thing that can be true: an ORDERED list
+   * of ordinary SemanticIntents, each one produced by the SAME single-intent
+   * ladder (tier 0 → tier 1 → NL) from its own clause, plus the user's own
+   * words for that clause so every refusal can quote the sentence he typed. No
+   * capability has a plan-specific grammar; a plan is a sequence of the
+   * capabilities that already exist, and nothing else.
+   *
+   * WHY VALIDATION LIVES IN THE APPLY ARM, NOT THE PARSER. Every clause is
+   * re-applied here, in order, against a context that carries forward what the
+   * earlier steps will create (the ONE projection: a level a step adds). If any
+   * clause refuses, the WHOLE plan refuses naming the step, its words and the
+   * engine's reason — a plan the user never confirmed must never half-run, and
+   * a plan may never reach a capability a single sentence would be refused for.
+   */
+  | {
+      readonly intent: 'execute-plan';
+      /** The steps, in the order the user said them. */
+      readonly steps: readonly SemanticIntent[];
+      /** The user's own clause text, 1:1 with `steps` — quoted verbatim in the
+       *  Confirm card and in every refusal. */
+      readonly clauses: readonly string[];
     };
+
+/** §PLAN (RAC U6) — what ONE step of a confirmed plan is, as the Confirm card
+ *  and the dispatcher need to see it. `commandCount` slices the plan's flat
+ *  `commands` array back into steps so the bridge can dispatch step by step and
+ *  stop where a step fails. */
+export interface PlanStepReport {
+  /** 1-based, as the card and the refusals speak ("step 2"). */
+  readonly index: number;
+  /** The user's own words for this clause. */
+  readonly clause: string;
+  readonly intent: string;
+  /** The step's OWN summary, from its own capability's apply arm. */
+  readonly summary: string;
+  readonly commandCount: number;
+  readonly destructive: boolean;
+  /** Real undo entries this step costs, or null when only the engine knows
+   *  (a chain whose stages each open their own batch). */
+  readonly undoEntries: number | null;
+  /** Why the count is what it is, when it is not simply "one per command". */
+  readonly undoNote?: string;
+}
+
+/** §PLAN (RAC U6) — the plan metadata carried alongside the flat command list. */
+export interface PlanReport {
+  readonly steps: readonly PlanStepReport[];
+  /** The TRUTHFUL undo cost sentence ("3 steps — Ctrl+Z three times").
+   *  ADR-0314: runBatch is undo-NEUTRAL, so N commands are N undo entries and
+   *  a plan may never claim one undo for a multi-command sequence. */
+  readonly undoCost: string;
+  /** Honest caveats the Confirm card must show (e.g. a generation step whose
+   *  shipped auto-chain already runs a later step's engine). */
+  readonly notes: readonly string[];
+}
 
 /** The room-scale engines, in the order the shipped pipeline runs them
  *  (§GEN-ROOMS). Exported so the capability registry, the parsers and the
@@ -714,6 +775,10 @@ export type SemanticApplication =
       readonly summary: string;
       readonly commands: readonly BusCommandRef[];
       readonly destructive: boolean;
+      /** §PLAN (RAC U6) — present ONLY for `execute-plan`: the step boundaries,
+       *  per-step summaries and the truthful undo cost. Its absence is what
+       *  tells the bridge this is an ordinary single-intent dispatch. */
+      readonly plan?: PlanReport;
     }
   | {
       readonly kind: 'local';
@@ -730,9 +795,21 @@ export type SemanticApplication =
       readonly suggestions: readonly string[];
     };
 
-type MatchResult = SemanticApplication;
-
-type Matcher = (text: string, ctx: ResolverContext) => MatchResult | null;
+/**
+ * A tier-0/1 grammar matcher: does this normalized utterance belong to my
+ * capability, and if so what are its entities?
+ *
+ * RAC U6 — matchers return the SemanticIntent, not the application. They used
+ * to end with `applySemanticIntent(si, ctx)` each, which made the grammar
+ * reachable ONLY as "understand and apply in one step" and left the plan
+ * executor with no way to obtain "what does this clause MEAN?" without a second
+ * grammar. `runGrammar` now applies, once, for all of them — the header comment
+ * above ("the matchers … parse its entities into a SemanticIntent;
+ * applySemanticIntent owns the semantics→command mapping") finally describes
+ * the code. `ctx` stays in the signature because a matcher may need project
+ * facts to decide whether it CLAIMS at all (matchGoToLevel checks level names).
+ */
+type Matcher = (text: string, ctx: ResolverContext) => SemanticIntent | null;
 
 const ELEMENT_NOUNS = new Set([
   'wall', 'walls', 'door', 'doors', 'window', 'windows', 'room', 'rooms',
@@ -1888,6 +1965,10 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
+    // §PLAN (RAC U6) — the compound sentence, executed as an ordered plan.
+    case 'execute-plan':
+      return applyPlan(si, ctx);
+
     // ── RAC U4 — the ONE generic arm ─────────────────────────────────────────
     // Every intent NOT hand-written above is a spec-driven batch capability:
     // the switch narrows `si` to SpecDrivenIntent here, and the generic
@@ -1901,69 +1982,280 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
   }
 }
 
+// ─── §PLAN (RAC U6) — the plan executor ──────────────────────────────────────
+//
+// A plan is an ordered list of ORDINARY intents. This arm adds exactly three
+// things a single sentence does not need, and nothing else:
+//
+//   1. ALL-OR-NOTHING VALIDATION. Every step is applied, in order, before a
+//      single command is handed back. One refusing step refuses the whole plan,
+//      quoting the step number, the user's own words and the capability's own
+//      reason. Never half-run a plan the user never confirmed.
+//   2. THE ONE PROJECTION. "Add a level at 9 m, then duplicate level 0 onto it"
+//      validates step 2 against a level that does not exist yet. The projection
+//      is derived from step 1's OWN produced `level.add` payload — never from a
+//      re-derivation of the naming rule — and `add-level` is the ONLY intent
+//      that projects anything. Everything else validates against the project as
+//      it is.
+//   3. TRUTHFUL UNDO COST. ADR-0314: `runBatch` is undo-NEUTRAL, so N commands
+//      are N undo entries. A plan therefore costs the SUM of its steps, and it
+//      says so. Claiming "one undo" for a three-step plan is the exact
+//      dishonesty that ADR-0314 exists to record.
+//
+// The plan has no grammar of its own beyond the sequencing connective, no
+// capability-specific knowledge, and no second dispatcher: every step's meaning
+// is decided by the same `applySemanticIntent` call the same sentence typed
+// alone would make.
+
+/** Plans longer than this are refused rather than half-understood: past a
+ *  handful of clauses the Confirm card stops being readable, and an unreadable
+ *  card is consent nobody really gave. */
+const PLAN_MAX_STEPS = 6;
+
+const NUMBER_WORDS: readonly string[] = [
+  'zero', 'once', 'twice', 'three times', 'four times', 'five times',
+  'six times', 'seven times', 'eight times', 'nine times', 'ten times',
+];
+
+/** "Ctrl+Z twice" reads better than "Ctrl+Z 2 times", and past ten the digits
+ *  are clearer than the words. */
+function undoTimes(n: number): string {
+  return n >= 1 && n < NUMBER_WORDS.length ? NUMBER_WORDS[n]! : `${n} times`;
+}
+
+/**
+ * What ONE step really costs in undo entries.
+ *
+ * The default is the honest ADR-0314 rule: one entry per dispatched command.
+ * The generation verbs are the declared exceptions, each for a reason that is
+ * in the code they call:
+ *  • generation.building / generation.apartment — the executors open the
+ *    `beginBuildingGeneration` lease themselves, so the whole build coalesces
+ *    into ONE entry (generationChatSeam.ts header).
+ *  • generation.rooms — each engine opens its own batch, so k engines are k
+ *    entries; an every-floor run is one per floor and only the run knows how
+ *    many floors qualified (roomFinishChatSeam.ts).
+ *  • generation.finish-chain — the chain's stages each own their entry, and how
+ *    many stages actually ran is the engines' answer, not ours.
+ */
+function planStepUndoCost(
+  commands: readonly BusCommandRef[],
+): { readonly entries: number | null; readonly note?: string } {
+  const only = commands.length === 1 ? commands[0] : undefined;
+  if (only !== undefined) {
+    switch (only.type) {
+      case 'generation.building':
+      case 'generation.apartment':
+        return {
+          entries: 1,
+          note: 'the whole build coalesces into one entry under the generation lease',
+        };
+      case 'generation.rooms': {
+        if (only.payload['allLevels'] === true) {
+          return { entries: null, note: 'one entry per floor — the run reports how many floors it furnished' };
+        }
+        const steps = Array.isArray(only.payload['steps']) ? only.payload['steps'].length : 1;
+        return steps > 1
+          ? { entries: steps, note: 'each engine opens its own batch, so each is its own entry' }
+          : { entries: steps };
+      }
+      case 'generation.finish-chain':
+        return {
+          entries: null,
+          note: 'each stage of the chain is its own undo entry — the report names every stage that ran',
+        };
+      default:
+        break;
+    }
+  }
+  // ADR-0314, stated rather than assumed: N commands are N undo entries.
+  return { entries: commands.length };
+}
+
+/** True for a step that GENERATES rooms, whose shipped auto-chain then finishes
+ *  them by itself (apartment.layout-executed → ceilings + floor finishes →
+ *  furniture → lighting). Used only to WARN — never to silently drop a step the
+ *  user asked for. */
+function generatesRooms(intent: string): boolean {
+  return intent === 'generate-apartment-layout' || intent === 'generate-building';
+}
+
+function applyPlan(
+  si: Extract<SemanticIntent, { intent: 'execute-plan' }>,
+  ctx: ResolverContext,
+): SemanticApplication {
+  const refuse = (reason: string, suggestions: readonly string[] = []): SemanticApplication => ({
+    kind: 'refusal', intent: 'execute-plan', reason, suggestions,
+  });
+  if (si.steps.length === 0) {
+    return refuse('I did not find anything to do in that — say the steps separated by "then".');
+  }
+  if (si.steps.length === 1) {
+    // A one-step "plan" is just a sentence; never wrap it in plan machinery.
+    return applySemanticIntent(si.steps[0]!, ctx);
+  }
+  if (si.steps.length > PLAN_MAX_STEPS) {
+    return refuse(
+      `That is ${si.steps.length} steps in one sentence — I run up to ${PLAN_MAX_STEPS} so the ` +
+      `confirmation stays readable. Nothing was changed; send it as two messages.`,
+    );
+  }
+
+  let levels = ctx.levels;
+  const stepReports: PlanStepReport[] = [];
+  const commands: BusCommandRef[] = [];
+  const notes: string[] = [];
+
+  for (let i = 0; i < si.steps.length; i++) {
+    const sub = si.steps[i]!;
+    const clause = si.clauses[i]?.trim() ?? '';
+    const where = `step ${i + 1}${clause.length > 0 ? ` — "${clause}"` : ''}`;
+    if (sub.intent === 'execute-plan') {
+      return refuse(`${where} is itself a plan — I run one plan at a time. Nothing was changed.`);
+    }
+    const applied = applySemanticIntent(sub, { ...ctx, levels });
+    if (applied.kind === 'refusal') {
+      // The step's OWN reason, verbatim — a plan may never soften or replace a
+      // refusal the same sentence would get on its own.
+      return refuse(
+        `${where} — ${applied.reason} Nothing in the plan was run.`,
+        applied.suggestions,
+      );
+    }
+    if (applied.kind === 'local') {
+      // undo / redo / switch level are view actions on the app, not model
+      // mutations the plan can order and report on. Refusing is honest; faking
+      // them into the command list would be a second dispatch path.
+      return refuse(
+        `${where} — "${applied.intent}" is something I do to the view, not a build step I can ` +
+        `put in the middle of a plan. Nothing was changed; ask for it on its own.`,
+      );
+    }
+    const cost = planStepUndoCost(applied.commands);
+    stepReports.push({
+      index: i + 1,
+      clause,
+      intent: applied.intent,
+      summary: applied.summary,
+      commandCount: applied.commands.length,
+      destructive: applied.destructive,
+      undoEntries: cost.entries,
+      ...(cost.note !== undefined ? { undoNote: cost.note } : {}),
+    });
+    commands.push(...applied.commands);
+
+    // ── The ONE projection ────────────────────────────────────────────────
+    if (sub.intent === 'add-level') {
+      const p = applied.commands.find((c) => c.type === 'level.add')?.payload;
+      const id = p?.['levelId'];
+      const name = p?.['name'];
+      if (typeof id === 'string' && typeof name === 'string') {
+        const elevation = p?.['elevation'];
+        levels = [
+          ...levels,
+          { id, name, ...(typeof elevation === 'number' ? { elevation } : {}) },
+        ];
+      }
+    }
+
+    // Honest caveat, never a silent drop: the generators' shipped auto-chain
+    // already runs the room-scale engines on what they generate, so a later
+    // finishing step runs a second time over the same rooms.
+    if (
+      generatesRooms(applied.intent) &&
+      si.steps.slice(i + 1).some((s) => s.intent === 'generate-room-finishes' || s.intent === 'finish-apartment-chain')
+    ) {
+      notes.push(
+        `Step ${i + 1} generates rooms, and the shipped auto-chain already finishes them ` +
+        `(ceilings → furniture → lighting). The finishing step after it runs a second time over the same rooms.`,
+      );
+    }
+  }
+
+  const totals = stepReports.map((s) => s.undoEntries);
+  const known = totals.every((t): t is number => t !== null);
+  const total = totals.reduce<number>((a, t) => a + (t ?? 0), 0);
+  const undoCost = known
+    ? `${stepReports.length} steps${total === stepReports.length ? '' : `, ${total} undo entries`} — Ctrl+Z ${undoTimes(total)}`
+    : `${stepReports.length} steps, at least ${total} undo entries — Ctrl+Z steps back through them ` +
+      `(${stepReports.filter((s) => s.undoEntries === null).map((s) => s.undoNote ?? 'the engine reports its own entries').join('; ')})`;
+
+  return {
+    kind: 'commands',
+    intent: 'execute-plan',
+    summary:
+      `${stepReports.length} steps — ` +
+      stepReports.map((s) => `${s.index}. ${s.summary}`).join(' · ') +
+      `. ${undoCost}.` +
+      (notes.length > 0 ? ` ${notes.join(' ')}` : ''),
+    commands,
+    // Destructive if ANY step is: the Confirm card is the weakest gate the plan
+    // may have, never the weakest gate of its steps.
+    destructive: stepReports.some((s) => s.destructive),
+    plan: { steps: stepReports, undoCost, notes },
+  };
+}
+
 // ─── Grammar (tier 0) ────────────────────────────────────────────────────────
 //
 // The matchers decide WHETHER a normalized utterance is claim-able and parse
 // its entities into a SemanticIntent; applySemanticIntent (above) owns the
 // semantics→command mapping and every safety guard.
 
-const matchUndoRedo: Matcher = (text, ctx) => {
+const matchUndoRedo: Matcher = (text) => {
   if (/^undo( this| last( \w+)?)?$/.test(text)) {
-    return applySemanticIntent({ intent: 'undo' }, ctx);
+    return { intent: 'undo' };
   }
   if (/^redo( this| last( \w+)?)?$/.test(text)) {
-    return applySemanticIntent({ intent: 'redo' }, ctx);
+    return { intent: 'redo' };
   }
   return null;
 };
 
-const matchZoom: Matcher = (text, ctx) => {
+const matchZoom: Matcher = (text) => {
   if (/^(zoom( to)? ?(fit|all|extents?)|fit (view|all|model|everything)|frame (all|model|everything))$/.test(text)) {
-    return applySemanticIntent({ intent: 'zoom-fit' }, ctx);
+    return { intent: 'zoom-fit' };
   }
   if (/^(zoom( to| on)? (selected|selection|this)|frame (selected|selection|this))$/.test(text)) {
-    return applySemanticIntent({ intent: 'zoom-selected' }, ctx);
+    return { intent: 'zoom-selected' };
   }
   return null;
 };
 
-const matchDeleteSelected: Matcher = (text, ctx) => {
+const matchDeleteSelected: Matcher = (text) => {
   const m = /^delete (?:the )?(?:selected|selection|this)(?: (\w+))?$/.exec(text)
     ?? /^delete (?:the )?selected$/.exec(text);
   if (!m) return null;
   const noun = m[1];
   if (noun !== undefined && !ELEMENT_NOUNS.has(noun)) return null; // "delete this level" etc. — not this intent
-  return applySemanticIntent(
-    { intent: 'delete-selected', ...(noun !== undefined ? { noun } : {}) },
-    ctx,
-  );
+  return { intent: 'delete-selected', ...(noun !== undefined ? { noun } : {}) };
 };
 
 // ADR-0315 P1 — stair riser height / tread depth and room height offset.
 // All three contain "height"/"depth" words, so they run BEFORE matchHeight.
-const matchRiserHeight: Matcher = (text, ctx) => {
+const matchRiserHeight: Matcher = (text) => {
   const m = new RegExp(`^(?:set|change|make)(?: the)?(?: stair)? risers? height(?: to)? ${LEN_SRC}$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-riser-height', value: toMeters(m[1]!, m[2]) }, ctx);
+  return { intent: 'set-riser-height', value: toMeters(m[1]!, m[2]) };
 };
 
-const matchTreadDepth: Matcher = (text, ctx) => {
+const matchTreadDepth: Matcher = (text) => {
   const m = new RegExp(`^(?:set|change|make)(?: the)?(?: stair)? (?:tread depth|going)(?: to)? ${LEN_SRC}$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-tread-depth', value: toMeters(m[1]!, m[2]) }, ctx);
+  return { intent: 'set-tread-depth', value: toMeters(m[1]!, m[2]) };
 };
 
-const matchRoomHeightOffset: Matcher = (text, ctx) => {
+const matchRoomHeightOffset: Matcher = (text) => {
   const m = new RegExp(`^(?:set|change|make)(?: the)?(?: room)? height offset(?: to)? ${LEN_SRC}$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-room-height-offset', value: toMeters(m[1]!, m[2]) }, ctx);
+  return { intent: 'set-room-height-offset', value: toMeters(m[1]!, m[2]) };
 };
 
 // NOTE: sill-height must run BEFORE plain height ("sill height" contains "height").
-const matchSillHeight: Matcher = (text, ctx) => {
+const matchSillHeight: Matcher = (text) => {
   const m = new RegExp(`^(?:set|change|make)(?: the)?(?: window)? sill height(?: to)? ${LEN_SRC}$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-sill-height', value: toMeters(m[1]!, m[2]) }, ctx);
+  return { intent: 'set-sill-height', value: toMeters(m[1]!, m[2]) };
 };
 
 // The optional element noun is deliberately broad ("set the ceiling height…",
@@ -1972,50 +2264,44 @@ const matchSillHeight: Matcher = (text, ctx) => {
 // gets an honest refusal, never a silent narrow miss.
 const DIM_NOUN = String.raw`(?: wall| ceiling| slab| roof| door| window| stair| column| beam| selected)?`;
 
-const matchHeight: Matcher = (text, ctx) => {
+const matchHeight: Matcher = (text) => {
   const m =
     new RegExp(`^(?:set|change)(?: the)?${DIM_NOUN} height(?: of (?:this|the selection))?(?: to)? ${LEN_SRC}$`).exec(text)
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} (?:tall|high)$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-height', value: toMeters(m[1]!, m[2]) }, ctx);
+  return { intent: 'set-height', value: toMeters(m[1]!, m[2]) };
 };
 
-const matchThickness: Matcher = (text, ctx) => {
+const matchThickness: Matcher = (text) => {
   const m =
     new RegExp(`^(?:set|change)(?: the)?${DIM_NOUN} thickness(?: to)? ${LEN_SRC}$`).exec(text)
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} thick$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-thickness', value: toMeters(m[1]!, m[2]) }, ctx);
+  return { intent: 'set-thickness', value: toMeters(m[1]!, m[2]) };
 };
 
-const matchWidth: Matcher = (text, ctx) => {
+const matchWidth: Matcher = (text) => {
   const m =
     new RegExp(`^(?:set|change)(?: the)?${DIM_NOUN} width(?: to)? ${LEN_SRC}$`).exec(text)
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} wide$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent({ intent: 'set-width', value: toMeters(m[1]!, m[2]) }, ctx);
+  return { intent: 'set-width', value: toMeters(m[1]!, m[2]) };
 };
 
 // §FEAT-CHAT-SYMMETRY — roof pitch, spoken in degrees.
 const DEG_SRC = String.raw`(-?\d+(?:[.,]\d+)?)\s*(?:°|deg|degs|degree|degrees)?`;
 
-const matchRoofPitch: Matcher = (text, ctx) => {
+const matchRoofPitch: Matcher = (text) => {
   const m = new RegExp(`^(?:set|change|make)(?: the)?(?: roof)? pitch(?: to)? ${DEG_SRC}$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent(
-    { intent: 'set-roof-pitch', degrees: parseFloat(m[1]!.replace(',', '.')) },
-    ctx,
-  );
+  return { intent: 'set-roof-pitch', degrees: parseFloat(m[1]!.replace(',', '.')) };
 };
 
-const matchRoomNumber: Matcher = (text, ctx) => {
+const matchRoomNumber: Matcher = (text) => {
   const m = /^(?:set|change)(?: the)?(?: room)? number(?: to| as)? (.+)$/.exec(text);
   if (!m) return null;
   const num = m[1]!.trim().replace(/^["']|["']$/g, '');
-  return applySemanticIntent(
-    { intent: 'set-room-number', ...(num.length > 0 ? { number: num } : {}) },
-    ctx,
-  );
+  return { intent: 'set-room-number', ...(num.length > 0 ? { number: num } : {}) };
 };
 
 const matchGoToLevel: Matcher = (text, ctx) => {
@@ -2029,7 +2315,7 @@ const matchGoToLevel: Matcher = (text, ctx) => {
   target = target.replace(/^levels?\s*/, '');
   const byName = ctx.levels.find((l) => l.name.toLowerCase() === target);
   if (byName === undefined && !mentionedLevel && !/^\d+$/.test(target)) return null;
-  return applySemanticIntent({ intent: 'go-to-level', levelQuery: target }, ctx);
+  return { intent: 'go-to-level', levelQuery: target };
 };
 
 // ADR-0315 U5a — "duplicate the ground floor to levels 2, 3 and 4".
@@ -2055,55 +2341,43 @@ export function parseDuplicateLevelIntent(
   return { intent: 'duplicate-level', sourceQuery: source, targetQueries };
 }
 
-const matchDuplicateLevel: Matcher = (text, ctx) => {
-  const si = parseDuplicateLevelIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchDuplicateLevel: Matcher = (text) => parseDuplicateLevelIntent(text);
 
-const matchAddLevel: Matcher = (text, ctx) => {
+const matchAddLevel: Matcher = (text) => {
   const m = new RegExp(`^(?:add|create)(?: a| a new| new)? level(?: (?:at|@) ${LEN_SRC})?$`).exec(text);
   if (!m) return null;
-  return applySemanticIntent(
-    { intent: 'add-level', ...(m[1] !== undefined ? { elevation: toMeters(m[1], m[2]) } : {}) },
-    ctx,
-  );
+  return { intent: 'add-level', ...(m[1] !== undefined ? { elevation: toMeters(m[1], m[2]) } : {}) };
 };
 
 const NUM = String.raw`(-?\d+(?:[.,]\d+)?)`;
 const PT = String.raw`\(?\s*${NUM}\s*,\s*${NUM}\s*\)?`;
 
-const matchCreateWall: Matcher = (text, ctx) => {
+const matchCreateWall: Matcher = (text) => {
   const withCoords = new RegExp(
     `^(?:create|draw|add)(?: a| a new| new)? wall(?: from)? ${PT}\\s*(?:to|-|->)\\s*${PT}` +
     `(?:,? (?:with )?height(?: of)? ${LEN_SRC})?(?:,? (?:with )?thickness(?: of)? ${LEN_SRC})?$`,
   ).exec(text);
   if (withCoords) {
     const num = (s: string): number => parseFloat(s.replace(',', '.'));
-    return applySemanticIntent(
-      {
-        intent: 'create-wall',
-        start: { x: num(withCoords[1]!), z: num(withCoords[2]!) },
-        end: { x: num(withCoords[3]!), z: num(withCoords[4]!) },
-        ...(withCoords[5] !== undefined ? { height: toMeters(withCoords[5], withCoords[6]) } : {}),
-        ...(withCoords[7] !== undefined ? { thickness: toMeters(withCoords[7], withCoords[8]) } : {}),
-      },
-      ctx,
-    );
+    return {
+      intent: 'create-wall',
+      start: { x: num(withCoords[1]!), z: num(withCoords[2]!) },
+      end: { x: num(withCoords[3]!), z: num(withCoords[4]!) },
+      ...(withCoords[5] !== undefined ? { height: toMeters(withCoords[5], withCoords[6]) } : {}),
+      ...(withCoords[7] !== undefined ? { thickness: toMeters(withCoords[7], withCoords[8]) } : {}),
+    };
   }
   if (/^(?:create|draw|add)(?: a| a new| new)? wall(?: here)?$/.test(text)) {
-    return applySemanticIntent({ intent: 'create-wall' }, ctx);
+    return { intent: 'create-wall' };
   }
   return null;
 };
 
-const matchRenameRoom: Matcher = (text, ctx) => {
+const matchRenameRoom: Matcher = (text) => {
   const m = /^(?:rename|call)(?: this| the| the selected)? room(?: to| as)? (?:"([^"]+)"|(.+))$/.exec(text);
   if (!m) return null;
   const rawName = (m[1] ?? m[2] ?? '').trim();
-  return applySemanticIntent(
-    { intent: 'rename-room', ...(rawName.length > 0 ? { name: rawName } : {}) },
-    ctx,
-  );
+  return { intent: 'rename-room', ...(rawName.length > 0 ? { name: rawName } : {}) };
 };
 
 // §FEAT-CHAT-WALL-TYPE — "make all walls interior partition" and its family.
@@ -2145,10 +2419,7 @@ export function parseWallTypeIntent(text: string): Extract<SemanticIntent, { int
   };
 }
 
-const matchWallType: Matcher = (text, ctx) => {
-  const si = parseWallTypeIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchWallType: Matcher = (text) => parseWallTypeIntent(text);
 
 // §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white" and its family.
 //
@@ -2214,10 +2485,7 @@ export function parseWallColorIntent(text: string): Extract<SemanticIntent, { in
   return { intent: 'set-wall-color', colorRef, scope: isAll ? 'all' : 'selection' };
 }
 
-const matchWallColor: Matcher = (text, ctx) => {
-  const si = parseWallColorIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchWallColor: Matcher = (text) => parseWallColorIntent(text);
 
 // §FEAT-WALL-RAKE-BATCH (ADR-0315, founder ask #1) — "make all walls angled by
 // 120 degrees" and its family.
@@ -2278,10 +2546,7 @@ export function parseWallRakeIntent(text: string): Extract<SemanticIntent, { int
   return { intent: 'set-wall-rake', angleDeg, scope: isAll ? 'all' : 'selection' };
 }
 
-const matchWallRake: Matcher = (text, ctx) => {
-  const si = parseWallRakeIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchWallRake: Matcher = (text) => parseWallRakeIntent(text);
 
 // §FEAT-WINDOW-TYPE-BATCH (ADR-0315, founder ask #4) — "change the window type
 // to Steel Crittal Style" / "change all windows to timber casement".
@@ -2342,15 +2607,9 @@ export function parseDoorTypeIntent(text: string): Extract<SemanticIntent, { int
   return { intent: 'set-door-type', ...hit };
 }
 
-const matchWindowType: Matcher = (text, ctx) => {
-  const si = parseWindowTypeIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchWindowType: Matcher = (text) => parseWindowTypeIntent(text);
 
-const matchDoorType: Matcher = (text, ctx) => {
-  const si = parseDoorTypeIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchDoorType: Matcher = (text) => parseDoorTypeIntent(text);
 
 // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm plaster
 // layer to the inner side of the selected wall" and its loose family.
@@ -2401,10 +2660,7 @@ export function parseAddWallLayerIntent(text: string): Extract<SemanticIntent, {
   return { intent: 'add-wall-layer', side, thicknessM, finishRef, scope: isAll ? 'all' : 'selection' };
 }
 
-const matchAddWallLayer: Matcher = (text, ctx) => {
-  const si = parseAddWallLayerIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchAddWallLayer: Matcher = (text) => parseAddWallLayerIntent(text);
 
 // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a window
 // in the middle of every wall segment" / "create 2 windows in all the wall
@@ -2460,10 +2716,7 @@ export function parseWindowsParametricIntent(text: string): Extract<SemanticInte
   return { intent: 'create-windows-parametric', mode, widthM, heightM, scope };
 }
 
-const matchWindowsParametric: Matcher = (text, ctx) => {
-  const si = parseWindowsParametricIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchWindowsParametric: Matcher = (text) => parseWindowsParametricIntent(text);
 
 // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
 // white" / "paint the rhino model white" / "reset the rhino model materials".
@@ -2500,10 +2753,7 @@ export function parseRhinoMaterialIntent(
   return { intent: 'set-rhino-material', colorRef };
 }
 
-const matchRhinoMaterial: Matcher = (text, ctx) => {
-  const si = parseRhinoMaterialIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchRhinoMaterial: Matcher = (text) => parseRhinoMaterialIntent(text);
 
 // §GEN-CHAT (RAC U5b.2) — "generate a 3-storey residential building" /
 // "generate a 2-storey house" / "generate an office building with 5 floors".
@@ -2580,10 +2830,7 @@ export function parseGenerateBuildingIntent(
   };
 }
 
-const matchGenerateBuilding: Matcher = (text, ctx) => {
-  const si = parseGenerateBuildingIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchGenerateBuilding: Matcher = (text) => parseGenerateBuildingIntent(text);
 
 // §GEN-CHAT-APARTMENT (RAC U5b.2, founder P0) — "create a 3 bedroom apartment"
 // (fills the walls already drawn), as distinct from "generate a 3-storey
@@ -2640,10 +2887,7 @@ export function parseApartmentLayoutIntent(
   };
 }
 
-const matchApartmentLayout: Matcher = (text, ctx) => {
-  const si = parseApartmentLayoutIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchApartmentLayout: Matcher = (text) => parseApartmentLayoutIntent(text);
 
 // ─── §GEN-ROOMS / §GEN-CHAIN (RAC U5c) — the room-scale grammar ──────────────
 //
@@ -2739,15 +2983,9 @@ export function parseFinishChainIntent(
   return { intent: 'finish-apartment-chain', withLayout: CHAIN_WITH_LAYOUT_RE.test(text), scope };
 }
 
-const matchFinishChain: Matcher = (text, ctx) => {
-  const si = parseFinishChainIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchFinishChain: Matcher = (text) => parseFinishChainIntent(text);
 
-const matchRoomFinishes: Matcher = (text, ctx) => {
-  const si = parseRoomFinishIntent(text);
-  return si === null ? null : applySemanticIntent(si, ctx);
-};
+const matchRoomFinishes: Matcher = (text) => parseRoomFinishIntent(text);
 
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
@@ -2818,14 +3056,26 @@ const MATCHERS: readonly Matcher[] = [
   matchRenameRoom,
 ];
 
-function runGrammar(text: string, ctx: ResolverContext, tier: 0 | 1): ZeroTokenResolution | null {
+/**
+ * The tier-0/1 grammar in INTENT mode: the first matcher that claims `text`
+ * wins, and its SemanticIntent is returned unapplied. This is what the RAC U6
+ * plan executor resolves each clause of a compound sentence with — the SAME
+ * matcher list, in the SAME order, so a clause inside a plan can never be
+ * understood differently from the same words typed alone.
+ */
+function runGrammarIntent(text: string, ctx: ResolverContext): SemanticIntent | null {
   for (const matcher of MATCHERS) {
-    const r = matcher(text, ctx);
-    if (r !== null) {
-      return r.kind === 'refusal' ? r : { ...r, tier };
-    }
+    const si = matcher(text, ctx);
+    if (si !== null) return si;
   }
   return null;
+}
+
+function runGrammar(text: string, ctx: ResolverContext, tier: 0 | 1): ZeroTokenResolution | null {
+  const si = runGrammarIntent(text, ctx);
+  if (si === null) return null;
+  const r = applySemanticIntent(si, ctx);
+  return r.kind === 'refusal' ? r : { ...r, tier };
 }
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
@@ -2839,6 +3089,27 @@ function runGrammar(text: string, ctx: ResolverContext, tier: 0 | 1): ZeroTokenR
  * Pure: the caller injects selection/levels and executes the result (P6).
  * P8: wrapped in the `pryzm.ai.chat.resolve` span.
  */
+/**
+ * RAC U6 — the tier-0/1 ladder in INTENT mode: normalize, run the grammar, and
+ * on a miss run tier-1 normalization and the grammar again — exactly what
+ * `resolveUtterance` does, stopping one step earlier (before
+ * `applySemanticIntent`). Returns null when no matcher claims the text.
+ *
+ * The paste-back guard is applied HERE too, on the raw text, so a plan clause
+ * cannot reach a grammar that the same words typed alone could not
+ * (§FIX-CHAT-REPORT-PASTEBACK; a plan may never bypass a gate a single sentence
+ * would hit). NOT spanned: it is a helper on the resolve path, and the caller's
+ * `pryzm.ai.chat.resolve` span already covers the utterance.
+ */
+export function resolveUtteranceIntent(utterance: string, ctx: ResolverContext): SemanticIntent | null {
+  const text = normalize(utterance);
+  if (text.length === 0 || descriptiveReportReason(utterance) !== null) return null;
+  const t0 = runGrammarIntent(text, ctx);
+  if (t0 !== null) return t0;
+  const t1 = tier1Normalize(text);
+  return t1 !== text ? runGrammarIntent(t1, ctx) : null;
+}
+
 export function resolveUtterance(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
   return tracer().startActiveSpan('pryzm.ai.chat.resolve', (span) => {
     try {
