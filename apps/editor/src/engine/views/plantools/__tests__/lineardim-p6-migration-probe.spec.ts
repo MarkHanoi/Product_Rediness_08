@@ -110,7 +110,11 @@ describe('§P6-LINEARDIM-PROBE — bus annotation.create as a CreateAnnotationCo
     const el = buildLinearDim();
     annotationStore.remove(el.id);
     const ctx = { stores: { annotation: {} } } as never;
-    const res = createHandler().execute(ctx, el as never) as {
+    // `execute` is declared `HandlerResult | Promise<HandlerResult>`, so a direct
+    // cast to the sync shape is a TS2352 (the union does not sufficiently overlap).
+    // Go through `unknown` — this handler's annotation.create path is synchronous,
+    // which is exactly what the probe is pinning.
+    const res = createHandler().execute(ctx, el as never) as unknown as {
       forward: readonly { op: string; path: string; value?: unknown }[];
     };
 

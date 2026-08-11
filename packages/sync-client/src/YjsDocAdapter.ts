@@ -43,7 +43,6 @@ import { trace } from '@opentelemetry/api';
 import {
   getSyncDisposition,
   extractElementProperties,
-  type ElementPropertyDisposition,
 } from './syncDisposition.js';
 
 const tracer = trace.getTracer('pryzm.sync-client.yjs');
