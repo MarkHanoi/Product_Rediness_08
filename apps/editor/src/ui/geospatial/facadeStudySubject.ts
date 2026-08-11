@@ -39,6 +39,37 @@
 // Running a façade study up a 0.5 m slab, or extruding a stand-in height to study, would
 // re-manufacture the very number L-525a refused to invent. So we refuse and say why.
 
+// §REFUSAL-IDENTITY (C58 §1.13, added 2026-08-11) — R3 SAID "A REFUSAL IS A RESULT".
+// It was half-true. The three refusal branches below are three genuinely different
+// answers — "you have not designed a building", "this site has no resolved envelope",
+// and "§ENVELOPE-NO-FABRICATED-HEIGHT (L-525a) refuses to invent the height a study
+// would need" — and all three left this module as ONE untyped `reason: string`. The
+// last of those names its governing rule IN A COMMENT (line ~38) and never in the
+// badge the user reads (`CesiumViewport.ts`), so the strongest honesty claim this
+// module makes is the one least visible on screen.
+//
+// C58 §1.13.1 requires a CLOSED code set (`EnvelopeRefusalCode` is the reference
+// implementation). Each code below is derived from an EXISTING branch — nothing was
+// minted for a case this module does not already decide:
+//
+//   • `no-designed-building`         — R1's substitution point, the L-272 trap.
+//   • `no-buildable-envelope`        — no committed parcel / no resolved zoning ring.
+//   • `envelope-height-unconstructed`— the ring exists, the HEIGHT does not.
+//                                      §ENVELOPE-NO-FABRICATED-HEIGHT / L-525a.
+//
+// ⚠ Note the third is NOT the second. Collapsing them would tell a user with a
+// perfectly good envelope that they have no envelope — and would hide the fact that
+// the missing input is a HEIGHT SOURCE, which is the only actionable part of the
+// answer ("fix the height source, not the study").
+
+/** The CLOSED refusal-code set. Modelled on `EnvelopeRefusalCode` — never `string`. */
+export const FACADE_STUDY_REFUSAL_CODES = [
+    'no-designed-building',
+    'no-buildable-envelope',
+    'envelope-height-unconstructed',
+] as const;
+export type FacadeStudyRefusalCode = (typeof FACADE_STUDY_REFUSAL_CODES)[number];
+
 /** The two things a façade sun study can be run on. Chosen, never inferred. */
 export type FacadeStudySubject = 'building' | 'envelope';
 
@@ -63,6 +94,11 @@ export type FacadeStudyResolution =
     | {
           readonly status: 'refused';
           readonly subject: FacadeStudySubject;
+          /**
+           * §REFUSAL-IDENTITY (C58 §1.13.1) — WHICH refusal, over a closed set. Render
+           * via `facadeRefusalBadgeText()`; `reason` alone drops the identity.
+           */
+          readonly code: FacadeStudyRefusalCode;
           /** User-facing reason. Names the MISSING INPUT, never suggests a substitute. */
           readonly reason: string;
       };
@@ -97,6 +133,7 @@ export function resolveFacadeStudySubject(args: {
             return {
                 status: 'refused',
                 subject: 'building',
+                code: 'no-designed-building',
                 reason:
                     'No designed building to study yet. Draw or generate a building, or switch the ' +
                     'study to the buildable envelope — that is a different question and is labelled ' +
@@ -116,6 +153,7 @@ export function resolveFacadeStudySubject(args: {
         return {
             status: 'refused',
             subject: 'envelope',
+            code: 'no-buildable-envelope',
             reason:
                 'No buildable envelope on this site. Commit a parcel and resolve its zoning rules ' +
                 'first — the envelope is what the study would run on.',
@@ -126,6 +164,7 @@ export function resolveFacadeStudySubject(args: {
         return {
             status: 'refused',
             subject: 'envelope',
+            code: 'envelope-height-unconstructed',
             reason:
                 'This envelope has no constructed maximum height, so it is drawn as a footprint ' +
                 'slab rather than a volume. A sun study needs faces with a real height — inventing ' +
@@ -140,6 +179,22 @@ export function resolveFacadeStudySubject(args: {
         ring: env.ring,
         heightM: env.maxHeightM,
     };
+}
+
+/**
+ * §REFUSAL-IDENTITY — THE render seam for a refused study.
+ *
+ * The badge is the only surface a refused study has, so the code must appear there or
+ * it appears nowhere. Copies the shipped `siteDispatch.ts` pattern: the reason enum key
+ * in a parenthetical inside the user-visible note. `envelope-height-unconstructed` on
+ * screen is a string a user can quote back and an engineer can grep to L-525a; "Envelope
+ * study unavailable" is not.
+ */
+export function facadeRefusalBadgeText(
+    refusal: Extract<FacadeStudyResolution, { status: 'refused' }>,
+): string {
+    return `${refusal.subject === 'envelope' ? 'Envelope' : 'Façade'} study unavailable ` +
+        `(${refusal.code}) — ${refusal.reason}`;
 }
 
 /**

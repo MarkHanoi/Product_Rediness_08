@@ -269,9 +269,18 @@ function renderRow(row: CapacityRow, measurement: DesignMeasurement | null): str
             + `${pct}% of the permitted ${escHtml(UNIT_WORD[row.unit])} used · ${left}</div>`;
     })();
 
+    // §REFUSAL-IDENTITY (C58 §1.13, 2026-08-11) — `UnmeasuredReason` is a 10-member closed
+    // union, and this line used to render its PROSE only. The user was told the metric could
+    // not be measured but not WHICH of the ten facts stopped it, so "you have not drawn a
+    // slab" and "two plates overlap and PRYZM has no union operation" arrived as
+    // indistinguishable amber text — the §CONTEXT-DATA-HONESTY conflation at the panel layer.
+    // Aggravating: the row element twelve lines below has stamped `data-metric` and
+    // `data-status` since it was written. The file already knew how to carry identity.
+    // Now the reason key rides the DOM exactly as those do.
     const reason = reasonFor(row, measurement);
     const reasonLine = reason !== null
-        ? `<div data-testid="capacity-unmeasured-reason" style="color:#8a5a00;font-size:10px;`
+        ? `<div data-testid="capacity-unmeasured-reason" data-unmeasured-reason="${escHtml(reason)}"`
+          + ` style="color:#8a5a00;font-size:10px;`
           + `margin-top:2px;line-height:1.45;">${escHtml(UNMEASURED_REASON_TEXT[reason])}</div>`
         : '';
 

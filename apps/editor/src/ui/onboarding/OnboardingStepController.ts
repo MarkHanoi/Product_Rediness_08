@@ -2322,9 +2322,25 @@ export class OnboardingStepController {
                         footprint, floors, minM2, maxM2,
                         typologies: { T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4 },
                     });
-                    const why = this._escapeHtml(result.reason || 'this combination does not fit the plot');
+                    // §REFUSAL-IDENTITY (C58 §1.13, 2026-08-11) — the orchestrator's
+                    // `result.status` is a closed discriminant this branch already reads and
+                    // then THREW AWAY, rendering only prose. A user shown "No layout fits"
+                    // could not tell a HARD reject (the plate cannot host a building at all)
+                    // from a soft-fail on this particular size band — two answers with two
+                    // different remedies. The status now rides the DOM the way the capacity
+                    // panel's `data-metric`/`data-status` do, and appears in the sentence in
+                    // the shipped `siteDispatch.ts` parenthetical form.
+                    //
+                    // ⚠ `result.reason ||` is NOT a fabricated fallback here: the fallback
+                    // states that the engine gave no reason, it does not invent one.
+                    const status = this._escapeHtml(String(result.status));
+                    const why = this._escapeHtml(
+                        result.reason
+                        || `the generator returned "${result.status}" without stating a reason`,
+                    );
                     preview.innerHTML =
-                        `<span class="os-resi-preview-hint"><strong>No layout fits.</strong> ${why}`
+                        `<span class="os-resi-preview-hint" data-refusal-status="${status}">`
+                        + `<strong>No layout fits.</strong> ${why} (${status})`
                         + (nearest
                             ? ` <button type="button" class="os-inline-fix" data-testid="onboarding-resi-nearest-fix">`
                               + `Use ${this._escapeHtml(nearest.label)}</button>`

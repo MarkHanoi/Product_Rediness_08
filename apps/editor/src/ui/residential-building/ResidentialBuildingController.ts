@@ -29,7 +29,7 @@ import {
 import { storeRegistry } from '@pryzm/core-app-model';
 import { siteQueryService } from '@pryzm/stores';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
-import { checkMaxHeightGate } from '../generation/maxHeightGate.js';
+import { checkMaxHeightGate, maxHeightRefusalText } from '../generation/maxHeightGate.js';
 import { ResidentialBuildingModal } from './ResidentialBuildingModal.js';
 import { ResidentialBuildingExecutor } from './ResidentialBuildingExecutor.js';
 import { friendlyResidentialError, polygonAreaM2 } from './residentialError.js';
@@ -333,9 +333,12 @@ export class ResidentialBuildingController {
             maxHeightM: siteQueryService.getMaxHeightM(),
         });
         if (!heightGate.ok) {
-            console.warn('[resi-building] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
-            if (!autoBuild) this._showReject(heightGate.reason, areaM2);
-            return { ok: false, reason: heightGate.reason };
+            // §REFUSAL-IDENTITY (C58 §1.13) — the code reaches the error modal (which now
+            // stamps it as `data-refusal-kind`) and the caller's `reason` alike.
+            const refusalText = maxHeightRefusalText(heightGate);
+            console.warn('[resi-building] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.code, refusalText);
+            if (!autoBuild) this._showReject(refusalText, areaM2);
+            return { ok: false, reason: refusalText };
         }
 
         let result: ResidentialBuildingResult;

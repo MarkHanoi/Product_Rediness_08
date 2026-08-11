@@ -24,7 +24,7 @@ import {
 import { storeRegistry } from '@pryzm/core-app-model';
 import { siteQueryService } from '@pryzm/stores';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
-import { checkMaxHeightGate } from '../generation/maxHeightGate.js';
+import { checkMaxHeightGate, maxHeightRefusalText } from '../generation/maxHeightGate.js';
 import { OfficeBuildingModal } from './OfficeBuildingModal.js';
 import { OfficeBuildingExecutor } from './OfficeBuildingExecutor.js';
 
@@ -130,9 +130,11 @@ export class OfficeBuildingController {
             maxHeightM: siteQueryService.getMaxHeightM(),
         });
         if (!heightGate.ok) {
-            console.warn('[office-building] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
-            this.modal.showError(heightGate.reason, () => { console.log('[office-building] height-gate error dismissed'); });
-            return { ok: false, reason: heightGate.reason };
+            // §REFUSAL-IDENTITY (C58 §1.13) — the code travels into the error modal.
+            const refusalText = maxHeightRefusalText(heightGate);
+            console.warn('[office-building] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.code, refusalText);
+            this.modal.showError(refusalText, () => { console.log('[office-building] height-gate error dismissed'); });
+            return { ok: false, reason: refusalText };
         }
 
         const result: OfficeBuildingResult = orchestrateOfficeBuilding({
@@ -202,11 +204,14 @@ export class OfficeBuildingController {
                     maxHeightM: siteQueryService.getMaxHeightM(),
                 });
                 if (!heightGate.ok) {
-                    console.warn('[office-building] buildDirect: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
-                    runtime.events?.emit('pryzm:toast', { message: `Office: ${heightGate.reason}`, severity: 'error' });
+                    // §REFUSAL-IDENTITY (C58 §1.13) — code in the toast AND in the return.
+                    const refusalText = maxHeightRefusalText(heightGate);
+                    console.warn('[office-building] buildDirect: §GEN-MAXHEIGHT-GATE refused —', heightGate.code, refusalText);
+                    runtime.events?.emit('pryzm:toast', { message: `Office: ${refusalText}`, severity: 'error' });
                     span.setAttribute('pryzm.office.buildDirect.ok', false);
+                    span.setAttribute('pryzm.office.buildDirect.refusalCode', heightGate.code);
                     span.end();
-                    return { ok: false, reason: heightGate.reason };
+                    return { ok: false, reason: refusalText };
                 }
                 const result: OfficeBuildingResult = orchestrateOfficeBuilding({
                     radiusM,

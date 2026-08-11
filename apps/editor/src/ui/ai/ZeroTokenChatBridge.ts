@@ -648,18 +648,139 @@ export interface ZeroTokenUiHooks {
 
 // ─── Execution ───────────────────────────────────────────────────────────────
 
-/** What ONE dispatched slice of commands really did — the engines' own words
- *  when they sent a report, and whether it succeeded. Shared by the
- *  single-intent path and the §PLAN step loop so both read the same events and
- *  neither can invent a line the engines did not say. */
-interface DispatchOutcome {
-    readonly ok: boolean;
-    /** The report lines (engine's own), or empty when nothing reported. */
-    readonly lines: readonly string[];
-    /** True when the BUS rejected (the command refused to run at all), as
-     *  opposed to the engine running and reporting that it changed nothing.
-     *  The two read differently in the transcript and must not be merged. */
-    readonly dispatchFailed: boolean;
+/**
+ * What ONE dispatched slice of commands really did — the engines' own words
+ * when they sent a report, and WHICH of the five distinguishable states they
+ * ended in. Shared by the single-intent path and the §PLAN step loop so both
+ * read the same events and neither can invent a line the engines did not say.
+ *
+ * ─── §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — why this became a union ───────────
+ * This used to be `{ ok: boolean; lines: string[]; dispatchFailed: boolean }`,
+ * and it had NO WAY TO SAY "the command promised a report and sent none". That
+ * state was encoded as `{ ok: true, lines: [] }` — i.e. as SUCCESS — so a
+ * command whose bridge could not reach `window.commandManager`, or whose bridge
+ * threw and only `console.error`d, rendered in the transcript as
+ *
+ *     "Run furniture on every qualifying room on Level 0 … Done — undo with
+ *      Ctrl+Z. (resolved without AI tokens)"
+ *
+ * over a model nothing had touched. FAILURE AND EMPTINESS WERE THE SAME VALUE,
+ * and the layer picked the flattering one. `'indeterminate'` is that missing
+ * state; it is a first-class member of the union so no branch can forget it.
+ *
+ * `'partial'` is the second thing the old shape could not hold: `executeSlice`
+ * reported ANY rejected command as a TOTAL failure, and read only
+ * `batchReports[0]`, discarding every later report. A slice where one command
+ * retyped 40 walls and another refused is neither a success nor a failure.
+ *
+ * C68 §5.g governs the copy each arm renders; C03 §4 governs CommandResult as
+ * the payload being carried.
+ */
+export type DispatchOutcome =
+    /** Every command that reported, reported success. */
+    | { readonly kind: 'applied'; readonly lines: readonly string[] }
+    /** Some of the slice landed and some did not — BOTH halves are reported. */
+    | { readonly kind: 'partial'; readonly lines: readonly string[]; readonly failedLines: readonly string[] }
+    /** The engines RAN and reported that they changed nothing, with reasons. */
+    | { readonly kind: 'refused'; readonly lines: readonly string[] }
+    /** The BUS rejected every command — it never reached an engine at all. */
+    | { readonly kind: 'dispatch-failed'; readonly lines: readonly string[] }
+    /** A report was PROMISED and did not arrive (unreachable sink, bridge
+     *  threw, stage timed out). Nothing about the model is confirmed. */
+    | { readonly kind: 'indeterminate'; readonly lines: readonly string[] };
+
+/** One `{success, info}` report as broadcast by a batch bridge or the
+ *  room-finish seam, plus the two fields W2-B added so an engine that knows
+ *  more than a boolean can say so. */
+export interface DispatchReport {
+    readonly success: boolean;
+    readonly info: readonly string[];
+    /** The engine's OWN verdict when it has one. Absent ⇒ derived from
+     *  `success`, which is all the older bridges send. */
+    readonly outcome?: 'applied' | 'partial' | 'refused' | 'indeterminate';
+    /** Lines the engine could NOT confirm — a timed-out chain stage, a sink it
+     *  could not reach. Never folded into `info`: an unconfirmed stage is not a
+     *  reported one. */
+    readonly unconfirmed?: readonly string[];
+}
+
+/** Everything observed about one dispatched slice. Kept as data so the
+ *  classification is a PURE function with its own tests, rather than five
+ *  interleaved early-returns inside an async listener dance. */
+export interface DispatchEvidence {
+    readonly reports: readonly DispatchReport[];
+    /** Bus rejections, one line each, already carrying the command type. */
+    readonly failures: readonly string[];
+    /**
+     * True when at least one dispatched command has a declared report event —
+     * i.e. a report was PROMISED. This is the load-bearing distinction: a
+     * command with no report event (e.g. `wall.updateDimensions`) sending no
+     * report is EXPECTED, while `element.deleteBatch` sending none is a hole.
+     * Without it, "silent by design" and "silently lost" would once again be
+     * the same value.
+     */
+    readonly expectsReport: boolean;
+    readonly commandCount: number;
+}
+
+/**
+ * Map the observed evidence onto exactly one `DispatchOutcome`.
+ *
+ * Exported because it is the whole contract of this task and it is pinned
+ * directly by `__tests__/ReportPayloadHonesty.spec.ts` — the multi-command
+ * states (a partial dispatch, a second report arriving after the first) cannot
+ * be reached through a single chat sentence, and an untestable classifier is
+ * how the old one stayed wrong.
+ */
+export function classifyDispatch(ev: DispatchEvidence): DispatchOutcome {
+    // Nothing reached an engine: the bus rejected the lot.
+    if (ev.failures.length > 0 && ev.failures.length >= ev.commandCount) {
+        return { kind: 'dispatch-failed', lines: [`the model refused: ${ev.failures.join('; ')}`] };
+    }
+
+    const verdictOf = (r: DispatchReport): NonNullable<DispatchReport['outcome']> =>
+        r.outcome ?? (r.success ? 'applied' : 'refused');
+
+    const landed: string[] = [];
+    const notLanded: string[] = [];
+    let appliedCount = 0;
+    let refusedCount = 0;
+    let indeterminateCount = 0;
+    for (const r of ev.reports) {
+        const v = verdictOf(r);
+        if (v === 'applied') { appliedCount++; landed.push(...r.info); }
+        else if (v === 'refused') { refusedCount++; notLanded.push(...r.info); }
+        else if (v === 'indeterminate') { indeterminateCount++; notLanded.push(...r.info); }
+        else { appliedCount++; refusedCount++; landed.push(...r.info); }   // 'partial'
+        notLanded.push(...(r.unconfirmed ?? []));
+    }
+    // A rejected command is something that did NOT land, and it is reported
+    // alongside the reports of the ones that did — never in place of them.
+    notLanded.push(...ev.failures);
+
+    if (ev.reports.length === 0) {
+        if (ev.failures.length > 0) {
+            return { kind: 'partial', lines: [], failedLines: [...ev.failures] };
+        }
+        // The §CONTEXT-DATA-HONESTY split: promised-and-absent ≠ never promised.
+        return ev.expectsReport
+            ? {
+                kind: 'indeterminate',
+                lines: ['the command was dispatched and sent no report back'],
+            }
+            : { kind: 'applied', lines: [] };
+    }
+
+    if (indeterminateCount === ev.reports.length && ev.failures.length === 0) {
+        return { kind: 'indeterminate', lines: notLanded };
+    }
+    if (ev.failures.length === 0 && refusedCount === 0 && indeterminateCount === 0) {
+        return { kind: 'applied', lines: landed };
+    }
+    if (ev.failures.length === 0 && appliedCount === 0) {
+        return { kind: 'refused', lines: notLanded };
+    }
+    return { kind: 'partial', lines: landed, failedLines: notLanded };
 }
 
 async function dispatchCommands(
@@ -687,13 +808,35 @@ async function dispatchCommands(
         }
     }
     const outcome = await executeSlice(r.commands, r.intent, r.tier, ctx, bus);
-    if (outcome.dispatchFailed) {
-        hooks.say(`That did not complete — ${outcome.lines.join('; ')}`);
-        return;
-    }
-    if (!outcome.ok) {
-        hooks.say(`Nothing was changed — ${outcome.lines.join(' · ')}`);
-        return;
+    // §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — five states, five sentences. The
+    // switch is exhaustive over the union on purpose: adding a sixth engine
+    // state must break the build here rather than fall through to "Done".
+    switch (outcome.kind) {
+        case 'dispatch-failed':
+            hooks.say(`That did not complete — ${outcome.lines.join('; ')}`);
+            return;
+        case 'refused':
+            hooks.say(`Nothing was changed — ${outcome.lines.join(' · ')}`);
+            return;
+        case 'partial':
+            hooks.say(
+                `Partly done — ${outcome.lines.join(' · ')}. ` +
+                `What did NOT run: ${outcome.failedLines.join(' · ')}. ` +
+                `What ran is real and undoable with Ctrl+Z; the rest was not attempted again.`,
+            );
+            return;
+        case 'indeterminate':
+            // NEVER "Done". A command that promised a report and sent none has
+            // told us nothing about the model, and saying "Done" here is the
+            // exact lie this task exists to remove.
+            hooks.say(
+                `I can't tell you what happened — ${outcome.lines.join(' · ')}. ` +
+                `No report came back, so nothing here is confirmed: check the model before ` +
+                `assuming it ran, and Ctrl+Z if something did change.`,
+            );
+            return;
+        case 'applied':
+            break;
     }
     if (outcome.lines.length > 0) {
         hooks.say(`${outcome.lines.join(' · ')}. Undo with Ctrl+Z. (resolved without AI tokens)`);
@@ -813,10 +956,25 @@ async function executeSlice(
 ): Promise<DispatchOutcome> {
     // Collected into an ARRAY, not a `let`: the listener assigns from inside a
     // closure, which TypeScript's control-flow analysis cannot see.
-    const batchReports: { success: boolean; info: readonly string[] }[] = [];
+    // W2-B: EVERY report is kept. This list used to be read as `batchReports[0]`,
+    // so in a multi-command slice the second engine's refusal was discarded by
+    // the first engine's success.
+    const batchReports: DispatchReport[] = [];
     const onBatchReport = (e: Event): void => {
-        const detail = (e as CustomEvent).detail as { success?: boolean; info?: string[] } | undefined;
-        if (detail) batchReports.push({ success: detail.success ?? false, info: detail.info ?? [] });
+        const detail = (e as CustomEvent).detail as {
+            success?: boolean;
+            info?: string[];
+            outcome?: DispatchReport['outcome'];
+            unconfirmed?: string[];
+        } | undefined;
+        if (detail) {
+            batchReports.push({
+                success: detail.success ?? false,
+                info: detail.info ?? [],
+                ...(detail.outcome !== undefined ? { outcome: detail.outcome } : {}),
+                ...(detail.unconfirmed !== undefined ? { unconfirmed: detail.unconfirmed } : {}),
+            });
+        }
     };
     const reportEvents = [...new Set(
         commands.map((c) => BATCH_REPORT_EVENTS[c.type]).filter((ev): ev is string => ev !== undefined),
@@ -855,15 +1013,18 @@ async function executeSlice(
 
     for (const ev of reportEvents) window.removeEventListener(ev, onBatchReport);
 
-    if (failures.length > 0) {
-        // Honesty: a failed dispatch must never read like a success.
-        return { ok: false, dispatchFailed: true, lines: [`the model refused: ${failures.join('; ')}`] };
-    }
-    const report = batchReports[0];
-    if (report !== undefined) {
-        return { ok: report.success, dispatchFailed: false, lines: report.info };
-    }
-    return { ok: true, dispatchFailed: false, lines: [] };
+    // W2-B — ALL the evidence, classified in ONE pure place. The three lines
+    // that used to stand here collapsed a partial dispatch into a total failure,
+    // discarded every report after the first, and reported "no report at all"
+    // as `{ ok: true }`.
+    return classifyDispatch({
+        reports: batchReports,
+        failures,
+        // A report is only MISSING if one was promised. `reportEvents` is
+        // derived from BATCH_REPORT_EVENTS, the table of commands that broadcast.
+        expectsReport: reportEvents.length > 0,
+        commandCount: commands.length,
+    });
 }
 
 /**
@@ -916,11 +1077,23 @@ async function dispatchPlan(
         // Awaited IN SEQUENCE on purpose: the plan is an ordered sequence, and
         // step N+1 must see the model step N left behind.
         const outcome = await executeSlice(slice, step.intent, r.tier, ctx, bus);
-        if (!outcome.ok) {
+        // W2-B — a step is only "done" when it APPLIED. An indeterminate step
+        // stops the plan too: step N+1 must see the model step N left behind,
+        // and an unreported step means nobody knows what that is. Sequencing
+        // onto an unknown state is how a plan silently compounds a mistake.
+        if (outcome.kind !== 'applied') {
             const notRun = plan.steps.filter((s) => s.index > step.index);
+            const verdict = outcome.kind === 'indeterminate'
+                ? 'is unaccounted for'
+                : outcome.kind === 'partial' ? 'only partly ran' : 'refused';
+            const why = outcome.kind === 'partial'
+                ? `${outcome.lines.join(' · ')}; but ${outcome.failedLines.join(' · ')}`
+                : outcome.kind === 'indeterminate'
+                    ? `${outcome.lines.join(' · ')} — nothing about it is confirmed`
+                    : outcome.lines.join(' · ');
             hooks.say(
                 `${done.length > 0 ? `${done.join(' ')} ` : ''}` +
-                `Step ${step.index} refused — ${outcome.lines.join(' · ')}; nothing after it ran` +
+                `Step ${step.index} ${verdict} — ${why}; nothing after it ran` +
                 `${notRun.length > 0 ? ` (step${notRun.length > 1 ? 's' : ''} ${notRun.map((s) => s.index).join(', ')} not attempted)` : ''}. ` +
                 `${done.length > 0 ? `What did run is undoable: ${plan.undoCost.replace(/^\d+ steps?[^—]*— /, '')}.` : 'Nothing was changed.'}`,
             );

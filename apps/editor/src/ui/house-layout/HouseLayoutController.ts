@@ -35,7 +35,7 @@ import {
 import { storeRegistry } from '@pryzm/core-app-model';
 import { siteQueryService } from '@pryzm/stores';
 import { facadeOrientationService } from '@pryzm/spatial-index';
-import { checkMaxHeightGate } from '../generation/maxHeightGate.js';
+import { checkMaxHeightGate, maxHeightRefusalText } from '../generation/maxHeightGate.js';
 import { HouseLayoutModal } from './HouseLayoutModal.js';
 import { HouseLayoutExecutor } from './HouseLayoutExecutor.js';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
@@ -222,9 +222,14 @@ export class HouseLayoutController {
                 maxHeightM: siteQueryService.getMaxHeightM(),
             });
             if (!heightGate.ok) {
-                console.warn('[house-layout] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
-                toast(`Can’t build ${storeyCount} storeys here — ${heightGate.reason}`, 'error');
-                return { ok: false, reason: heightGate.reason };
+                // §REFUSAL-IDENTITY (C58 §1.13) — render through `maxHeightRefusalText`, never
+                // `.reason`: the branch that refused travels with the sentence to the toast AND
+                // back up the chat/API return, so no layer downstream can launder it into a
+                // generic "no".
+                const refusalText = maxHeightRefusalText(heightGate);
+                console.warn('[house-layout] controller: §GEN-MAXHEIGHT-GATE refused —', heightGate.code, refusalText);
+                toast(`Can’t build ${storeyCount} storeys here — ${refusalText}`, 'error');
+                return { ok: false, reason: refusalText };
             }
 
             // §MODAL-DYNAMIC: cache the regenerate context (shell + immutable
@@ -349,8 +354,10 @@ export class HouseLayoutController {
                 maxHeightM: siteQueryService.getMaxHeightM(),
             });
             if (!heightGate.ok) {
-                console.warn('[house-layout] buildDirect: §GEN-MAXHEIGHT-GATE refused —', heightGate.reason);
-                return { ok: false, reason: heightGate.reason };
+                // §REFUSAL-IDENTITY (C58 §1.13) — the code rides back into the chat transcript.
+                const refusalText = maxHeightRefusalText(heightGate);
+                console.warn('[house-layout] buildDirect: §GEN-MAXHEIGHT-GATE refused —', heightGate.code, refusalText);
+                return { ok: false, reason: refusalText };
             }
 
             this._regen = {

@@ -467,7 +467,89 @@ export function groupCatalogue(): Map<string, Map<string, BatchCatalogEntry[]>> 
     return out;
 }
 
-export interface BatchDispatchResult { ok: boolean; reason?: string }
+/**
+ * §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the result of a catalogue dispatch,
+ * WITH the engine's own report attached.
+ *
+ * ─── What was wrong ─────────────────────────────────────────────────────────
+ * This used to be `{ ok: boolean; reason?: string }` and the success arm was
+ * literally `if (res?.success) return { ok: true }`. `CommandResult.info` — the
+ * engine's "Created 12 of 25 grid lines — 13 skipped: outside the site
+ * boundary" — was DROPPED ON THE FLOOR, and both renderers (AIPanel.ts:1282,
+ * CreatePanelLayout.ts:411) printed "Done" / "Created: <label>" over it. The
+ * engines were honest; the last layer threw the truth away.
+ *
+ * C68 §5.g: «Success is reported as what happened: "Changed N of M — K skipped:
+ * <reason>", with the reason read off the command's or engine's own report
+ * payload, never re-narrated. "Done" ONLY after a command reports success.»
+ * C68 §6.3 records the truthfulness of a report payload as review-only; the
+ * DISCARD half is now machine-checked, here and by
+ * `tools/ga-gate/check-report-payload-discard.ts` (R4).
+ *
+ * A discriminated union, not a boolean plus optional strings: `reason` exists
+ * ONLY on the refusal arm, so a caller cannot render a refusal without one.
+ */
+export type BatchDispatchResult =
+    | {
+        readonly ok: true;
+        /** `CommandResult.info`, VERBATIM. Empty = the command reported nothing —
+         *  which is a different fact from "it reported that it did nothing". */
+        readonly info: readonly string[];
+    }
+    | {
+        readonly ok: false;
+        /** Always present, always the most specific text available: the
+         *  precondition's reason, or the engine's own `info`, never a generic
+         *  default over the top of either. */
+        readonly reason: string;
+        readonly info: readonly string[];
+        /**
+         * §FIX-REPORT-PAYLOAD-DISCARD case 6 — THE ENGINE CANNOT DETERMINE.
+         *
+         * Set when the command NEVER RAN or never answered: no command sink in
+         * this session, the bridge threw, or `execute()` returned nothing at
+         * all. Those are not refusals — a refusal is an engine that ran and said
+         * no. Nothing about the model is confirmed on this arm, so the sentence
+         * must not claim a cause the way `Couldn't run "…": <reason>` does.
+         *
+         * It rides the `ok: false` arm rather than becoming a third `ok` value
+         * on purpose: both panels branch on `r.ok` (AIPanel refreshes the view,
+         * CreatePanelLayout picks a toast severity), and an indeterminate
+         * dispatch must take the same not-applied path a refusal does. The
+         * DIFFERENCE is in what the user is told, which is what this flag
+         * changes — and only that.
+         */
+        readonly indeterminate?: true;
+    };
+
+/**
+ * The ONE place a `BatchDispatchResult` becomes user-facing text (C17 DI-1,
+ * C68 §5.g). Both panels call this rather than each writing their own sentence —
+ * two renderers meant two chances to say "Done" over a partial, and both took it.
+ *
+ * The engine's lines WIN when it sent any. Only a command that reported nothing
+ * at all falls back to the entry's label, and that fallback never claims a count.
+ */
+export function renderBatchDispatchMessage(
+    entry: BatchCatalogEntry,
+    r: BatchDispatchResult,
+): string {
+    if (!r.ok) {
+        // Case 6 first: "I asked and got no answer" is not "it said no".
+        // `Couldn't run "X": <reason>` reads as a stated cause, and there is
+        // none — so the sentence says the model is unverified instead.
+        if (r.indeterminate === true) {
+            return `I can't tell you whether "${entry.label}" ran — ${r.reason}. ` +
+                `Nothing about the model is confirmed: check it before assuming, ` +
+                `and Ctrl+Z if something did change.`;
+        }
+        return `Couldn't run "${entry.label}": ${r.reason}`;
+    }
+    if (r.info.length > 0) return r.info.join(' · ');
+    // Reported success, said nothing more. Say exactly that much and no more —
+    // inventing "Created N" here would be the same lie one layer down.
+    return `${entry.label} — the command reported success without a detail line.`;
+}
 
 /**
  * Dispatch a catalogue entry through the documented path (C17 DI-1):
@@ -486,21 +568,67 @@ export function dispatchBatchEntry(
     // its phase label (e.g. #34 floors-by-room is Phase 2 but live).
     if (entry.status !== 'live') {
         const p = entry.precondition(deps);
-        return { ok: false, reason: p.reason ?? `Coming in Phase ${entry.phase}` };
+        return { ok: false, reason: p.reason ?? `Coming in Phase ${entry.phase}`, info: [] };
     }
     const pre = entry.precondition(deps);
-    if (!pre.ok) return { ok: false, reason: pre.reason };
-    if (!deps.commandManager) return { ok: false, reason: 'CommandManager not available' };
+    if (!pre.ok) {
+        return { ok: false, reason: pre.reason ?? `"${entry.label}" is not available here`, info: [] };
+    }
+    // Case 6, not a refusal: with no sink the command was never even offered to
+    // an engine, so no engine has declined anything.
+    if (!deps.commandManager) {
+        return {
+            ok: false,
+            reason: 'the command manager is not available in this session, so it was never dispatched',
+            info: [],
+            indeterminate: true,
+        };
+    }
 
     const cmd = entry.build(deps, params);
-    if (!cmd) return { ok: false, reason: pre.reason ?? 'Could not build command' };
+    if (!cmd) return { ok: false, reason: pre.reason ?? 'Could not build command', info: [] };
 
     try {
         const res = deps.commandManager.execute(cmd, { source: 'CREATE_PANEL_BATCH' });
-        if (res?.success) return { ok: true };
-        return { ok: false, reason: res?.info?.join(', ') || 'Batch command failed' };
+        const info: readonly string[] = res?.info ?? [];
+        // §FIX-REPORT-PAYLOAD-DISCARD — `info` rides BOTH arms. The success arm
+        // used to be `return { ok: true }`, which is how a 12-of-25 partial
+        // reached the panels as "Done".
+        if (res?.success) return { ok: true, info };
+        // Case 6 — `CommandManagerLike` DECLARES a `CommandResult` return, and
+        // `CommandManagerImpl` honours it; the `?.` here exists because the
+        // legacy `window.commandManager` shim is not the only thing that has
+        // ever been injected. When nothing comes back there is no verdict to
+        // report — reading that as `success: false` would manufacture a refusal
+        // out of a silence, which is the same substitution one layer up.
+        if (res === undefined || res === null || typeof res.success !== 'boolean') {
+            return {
+                ok: false,
+                reason: `'${entry.catalogId}' returned no result, so it reported neither success nor a reason`,
+                info,
+                indeterminate: true,
+            };
+        }
+        return {
+            ok: false,
+            // The engine's own words when it gave any. The generic string is
+            // reached ONLY when the command refused without saying anything —
+            // it replaces nothing, and says so rather than inventing a cause.
+            reason: info.length > 0
+                ? info.join(' · ')
+                : 'the command reported failure without stating a reason',
+            info,
+        };
     } catch (err) {
         console.error(`[batchCatalogue] dispatch '${entry.catalogId}' threw:`, err);
-        return { ok: false, reason: String(err) };
+        // Case 6 — a throw from inside `execute` says the dispatch broke, NOT
+        // that the engine declined. Whether anything was already mutated before
+        // the throw is exactly what nobody knows, and the sentence says so.
+        return {
+            ok: false,
+            reason: `the dispatch threw: ${String((err as Error)?.message ?? err)}`,
+            info: [],
+            indeterminate: true,
+        };
     }
 }

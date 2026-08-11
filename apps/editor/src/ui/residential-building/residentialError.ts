@@ -185,9 +185,33 @@ export function friendlyResidentialError(
     };
 }
 
-/** Per-`kind` glyph for the modal's notice icon (aria-hidden). */
+// §REFUSAL-IDENTITY (C58 §1.13, 2026-08-11) — WHY `kind` NOW REACHES THE DOM.
+//
+// `kind` is a SEVEN-member closed union that the mapper above works hard to resolve:
+// it parses the engine's measured plate width, distinguishes "the partition placed
+// zero apartments" from "no cell could be laid out", and separates a height-envelope
+// refusal from a geometric one. All seven then arrived at ONE `aria-hidden` glyph
+// that collapsed SIX of them onto `⚠` — and, being `aria-hidden`, carried nothing at
+// all to a screen reader. The panel knew which of seven refusals it was; the user did
+// not. That is C58 §1.13 restated at the modal: a refusal that loses its identity is
+// indistinguishable from a generic "not applicable".
+//
+// The fix is the `data-metric`/`data-status` convention the capacity panel already
+// uses: stamp the discriminant on the element. The glyph is now also per-kind, but the
+// glyph is DECORATION — `data-refusal-kind` is the load-bearing carrier, precisely
+// because a glyph cannot be quoted in a bug report and this one is hidden from AT.
+
+/** Per-`kind` glyph for the modal's notice icon (aria-hidden — DECORATION only). */
 function iconFor(kind: FriendlyResidentialError['kind']): string {
-    return kind === 'too-small' ? '⬚' : '⚠';
+    switch (kind) {
+        case 'too-small':      return '⬚';   // the plate is the wrong SIZE
+        case 'too-narrow':     return '↔';   // the plate is the wrong PROPORTION
+        case 'exceeds-height': return '↥';   // the ENVELOPE refused, not the geometry
+        case 'degenerate':     return '⊘';   // there is no plate to reason about
+        case 'core-too-large': return '⊞';   // the core out-competes the apartments
+        case 'no-apartments':  return '◌';   // cells were placed; none laid out
+        case 'generic':        return '⚠';
+    }
 }
 
 /**
@@ -205,10 +229,12 @@ export function buildResidentialErrorModalHtml(
         ? '<button type="button" class="alm-cancel" data-action="adjust">Adjust inputs</button>'
         : '';
     return `
-      <div class="alm-panel rb-error-panel" role="alertdialog" aria-label="${esc(err.title)}">
+      <div class="alm-panel rb-error-panel" role="alertdialog" aria-label="${esc(err.title)}"
+           data-refusal-kind="${esc(err.kind)}">
         <div class="alm-header">${esc(err.title)}</div>
         <div class="alm-notice-region rb-error-region">
-          <div class="alm-notice alm-notice--rejected rb-error-notice" role="alert">
+          <div class="alm-notice alm-notice--rejected rb-error-notice" role="alert"
+               data-refusal-kind="${esc(err.kind)}">
             <span class="alm-notice-icon" aria-hidden="true">${iconFor(err.kind)}</span>
             <span class="alm-notice-body">
               <span class="alm-notice-text">${esc(err.body)}</span>

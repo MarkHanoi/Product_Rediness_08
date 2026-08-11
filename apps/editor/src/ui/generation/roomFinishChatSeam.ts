@@ -53,17 +53,66 @@ export interface GenerationFinishChainPayload {
 
 const REPORT_EVENT = 'pryzm-generation-report';
 
+/**
+ * §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the seam's own verdict, carried on the
+ * report event so `classifyDispatch` in ZeroTokenChatBridge never has to infer
+ * it from a boolean.
+ *
+ * A TIMEOUT IS NOT A SUCCESS. This seam used to end both entry points with
+ * `emitReport(true, lines)` unconditionally, so a run where every stage timed
+ * out emitted `success: true` carrying three lines that each said "no report
+ * arrived within 14 s" — and the bridge rendered it as a completed run. The
+ * stages that DID report are still reported; what changes is that the ones that
+ * did not are named as unconfirmed instead of being counted as done.
+ */
+type SeamOutcome = 'applied' | 'partial' | 'refused' | 'indeterminate';
+
 /** Per-stage wait budget. Matches the trigger modules' own §CHAIN-TIMEOUT
  *  FALLBACK_MS (12 s) plus a margin, so this seam never times out BEFORE the
  *  fallback it is supposed to report. */
 const STAGE_TIMEOUT_MS = 14_000;
 
-function emitReport(success: boolean, info: readonly string[]): void {
+function emitReport(
+    success: boolean,
+    info: readonly string[],
+    outcome: SeamOutcome = success ? 'applied' : 'refused',
+    unconfirmed: readonly string[] = [],
+): void {
     try {
-        window.dispatchEvent(new CustomEvent(REPORT_EVENT, { detail: { success, info: [...info] } }));
+        window.dispatchEvent(new CustomEvent(REPORT_EVENT, {
+            detail: { success, info: [...info], outcome, unconfirmed: [...unconfirmed] },
+        }));
     } catch (err) {
         console.warn('[room-finish-seam] report emit failed (non-fatal):', err);
     }
+}
+
+/** One finished stage, and whether the engine ACTUALLY told us so. A stage that
+ *  timed out still contributes its sentence — it just never counts as done. */
+interface StageResult {
+    readonly line: string;
+    /** False when the stage's `*.layout-executed` never arrived in budget. */
+    readonly confirmed: boolean;
+}
+
+/**
+ * Split a stage list into the report the bridge should receive. Shared by both
+ * entry points so the timeout accounting cannot diverge between them.
+ */
+function reportStages(stages: readonly StageResult[]): void {
+    const confirmed = stages.filter((s) => s.confirmed).map((s) => s.line);
+    const unconfirmed = stages.filter((s) => !s.confirmed).map((s) => s.line);
+    if (unconfirmed.length === 0) {
+        emitReport(true, confirmed, 'applied');
+        return;
+    }
+    if (confirmed.length === 0) {
+        // EVERY stage timed out. Nothing is known — not that it failed, and
+        // certainly not that it succeeded.
+        emitReport(false, unconfirmed, 'indeterminate');
+        return;
+    }
+    emitReport(true, confirmed, 'partial', unconfirmed);
 }
 
 function resolveRuntime(): PryzmRuntime | undefined {
@@ -188,11 +237,11 @@ export async function runGenerationRooms(cmd: GenerationRoomsPayload): Promise<v
     const restore = currentActiveLevel();
     const moved = typeof cmd.levelId === 'string' && cmd.levelId.length > 0 && cmd.levelId !== restore;
     if (moved) setActiveLevel(cmd.levelId!);
-    const lines: string[] = [];
+    const stages: StageResult[] = [];
     try {
         for (const step of steps) {
             // eslint-disable-next-line no-await-in-loop -- stages are ordered by construction
-            lines.push(await runOneStep(rt, step));
+            stages.push(await runOneStep(rt, step));
         }
     } catch (err) {
         console.error('[room-finish-seam] generation.rooms threw:', err);
@@ -201,23 +250,33 @@ export async function runGenerationRooms(cmd: GenerationRoomsPayload): Promise<v
     } finally {
         if (moved && restore !== undefined) setActiveLevel(restore);
     }
-    if (steps.length > 1) lines.push(`${steps.length} steps — undo each with Ctrl+Z`);
-    emitReport(true, lines);
+    if (steps.length > 1) {
+        stages.push({ line: `${steps.length} steps — undo each with Ctrl+Z`, confirmed: true });
+    }
+    // W2-B — was `emitReport(true, lines)` unconditionally, which reported a
+    // total timeout as a successful run.
+    reportStages(stages);
 }
 
-async function runOneStep(rt: PryzmRuntime, step: RoomFinishStep): Promise<string> {
+async function runOneStep(rt: PryzmRuntime, step: RoomFinishStep): Promise<StageResult> {
     switch (step) {
         case 'ceilings': {
             const done = waitForEvent(rt, 'ceiling.layout-executed', STAGE_TIMEOUT_MS);
             triggerCeilingLayout(rt);
-            return describeCounted('Ceilings', await done);
+            const p = await done;
+            return { line: describeCounted('Ceilings', p), confirmed: p !== null };
         }
         case 'floors': {
             // The floor pass runs the command synchronously through the
             // commandManager (no `*.layout-executed` event exists for it), so
             // there is nothing to await and nothing to invent a count from.
+            // Confirmed BY CONSTRUCTION, not by evidence — see the REMAINING
+            // BLIND SPOT note: this stage cannot report a partial outcome at all.
             triggerFloorLayout(rt);
-            return 'Floor finishes applied per room type (timber in living/bedroom, tile in kitchen/bathroom)';
+            return {
+                line: 'Floor finishes applied per room type (timber in living/bedroom, tile in kitchen/bathroom)',
+                confirmed: true,
+            };
         }
         case 'furnish': {
             const done = waitForEvent(rt, 'furnish.layout-executed', STAGE_TIMEOUT_MS);
@@ -226,12 +285,16 @@ async function runOneStep(rt: PryzmRuntime, step: RoomFinishStep): Promise<strin
             // §FURNISH-ALWAYS-LIGHTS — the shipped cascade lights after every
             // furnish run. Saying so is the difference between a report and a
             // surprise.
-            return `${describeFurnish(p)} (furnishing also auto-lights the rooms)`;
+            return {
+                line: `${describeFurnish(p)} (furnishing also auto-lights the rooms)`,
+                confirmed: p !== null,
+            };
         }
         case 'lighting': {
             const done = waitForEvent(rt, 'lighting.layout-executed', STAGE_TIMEOUT_MS);
             triggerLightingLayout(rt);
-            return describeCounted('Lighting', await done);
+            const p = await done;
+            return { line: describeCounted('Lighting', p), confirmed: p !== null };
         }
     }
 }
@@ -268,7 +331,7 @@ export async function runGenerationFinishChain(cmd: GenerationFinishChainPayload
     const furnishDone = waitForEvent(rt, 'furnish.layout-executed', STAGE_TIMEOUT_MS * 2);
     const lightingDone = waitForEvent(rt, 'lighting.layout-executed', STAGE_TIMEOUT_MS * 3);
 
-    const lines: string[] = [];
+    const stages: StageResult[] = [];
     try {
         if (cmd.withLayout === true) {
             const { generateApartmentLayoutForChat } = await import('../apartment-layout/apartmentLayoutTrigger.js');
@@ -279,17 +342,20 @@ export async function runGenerationFinishChain(cmd: GenerationFinishChainPayload
                 if (moved && restore !== undefined) setActiveLevel(restore);
                 return;
             }
-            lines.push(...res.report);
+            for (const l of res.report) stages.push({ line: l, confirmed: true });
             // The apartment engine's `apartment.layout-executed` already starts
             // ceilings AND floor finishes; do not fire them again.
         } else {
             triggerFloorLayout(rt);
-            lines.push('Floor finishes applied per room type');
+            stages.push({ line: 'Floor finishes applied per room type', confirmed: true });
             triggerCeilingLayout(rt);
         }
-        lines.push(describeCounted('Ceilings', await ceilingDone));
-        lines.push(describeFurnish(await furnishDone));
-        lines.push(describeCounted('Lighting', await lightingDone));
+        const ceilingP = await ceilingDone;
+        stages.push({ line: describeCounted('Ceilings', ceilingP), confirmed: ceilingP !== null });
+        const furnishP = await furnishDone;
+        stages.push({ line: describeFurnish(furnishP), confirmed: furnishP !== null });
+        const lightingP = await lightingDone;
+        stages.push({ line: describeCounted('Lighting', lightingP), confirmed: lightingP !== null });
     } catch (err) {
         console.error('[room-finish-seam] generation.finish-chain threw:', err);
         emitReport(false, [`the finishing chain failed: ${String((err as Error)?.message ?? err)}`]);
@@ -297,6 +363,9 @@ export async function runGenerationFinishChain(cmd: GenerationFinishChainPayload
     } finally {
         if (moved && restore !== undefined) setActiveLevel(restore);
     }
-    lines.push('Each stage is its own undo entry — Ctrl+Z steps back through them');
-    emitReport(true, lines);
+    stages.push({ line: 'Each stage is its own undo entry — Ctrl+Z steps back through them', confirmed: true });
+    // W2-B — was `emitReport(true, lines)`: a chain whose ceiling, furnish AND
+    // lighting stages all timed out emitted success:true with three "no report
+    // arrived within 14 s" lines inside it.
+    reportStages(stages);
 }

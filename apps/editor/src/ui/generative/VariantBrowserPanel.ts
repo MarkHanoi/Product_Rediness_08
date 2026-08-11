@@ -20,6 +20,7 @@ import { layoutGenerator, roomColour } from '@pryzm/ai-host';
 import { generativeAdvisor } from '@pryzm/ai-host';
 import { GenerativeDesignApplyCommand } from '@pryzm/command-registry';
 import type { GenerativeDesignBrief, GeneratedLayout, GeneratedRoom } from '@pryzm/ai-host';
+import { validationFailureText } from '../ai/proposalRefusalText.js';
 
 export class VariantBrowserPanel {
     private _el: HTMLElement;
@@ -281,7 +282,18 @@ export class VariantBrowserPanel {
 
         const canResult = cmd.canExecute(ctx);
         if (!canResult.ok) {
-            alert(`Cannot apply layout: ${canResult.reason}`);
+            // §REFUSAL-IDENTITY (C58 §1.13, 2026-08-11) — two defects in one line.
+            // (1) `canResult.reason` is OPTIONAL, so an unstated reason rendered as the
+            //     literal string "undefined" — a blank dressed as a value, which is the
+            //     §CONTEXT-DATA-HONESTY conflation at its most naked.
+            // (2) the refusal was unattributed: the user saw "Cannot apply layout" with no
+            //     way to know WHICH command refused. `GenerativeDesignApplyCommand` is the
+            //     identity that exists, and it is now named.
+            // The `validationFailureText` renderer is shared with the AI/Validate panels so
+            // the two surfaces cannot drift into different honesty standards.
+            alert(validationFailureText(canResult, 'generative.applyLayout'));
+            console.warn('[VariantBrowserPanel] §REFUSAL-IDENTITY apply refused —',
+                'generative.applyLayout', canResult.reason ?? '(no reason stated)');
             return;
         }
 

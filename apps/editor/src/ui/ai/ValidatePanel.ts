@@ -17,6 +17,7 @@ import { aiService } from '@pryzm/ai-host';
 import { commandProposalStore } from '@pryzm/command-registry';
 import { aiApprovalStore } from '@pryzm/ai-host';
 import { CommandProposal, CommandType } from '@pryzm/command-registry';
+import { validationFailureText, validationSummaryFor } from './proposalRefusalText.js';
 
 export class ValidatePanel {
     /** Phase B (S73-WIRE) — runtime threaded by parent (added by widening — class had no explicit constructor). */
@@ -275,7 +276,15 @@ export class ValidatePanel {
         if (!isValid) {
             const errDiv = document.createElement('div');
             errDiv.className = 'ai-card-error';
-            errDiv.textContent = proposal.validation.reason || 'Validation failed';
+            // §REFUSAL-IDENTITY (C58 §1.13) — never manufacture "Validation failed". The
+            // refusal is attributed to the command that made it, and a MISSING reason is
+            // reported as missing rather than papered over.
+            errDiv.textContent = validationFailureText(proposal.validation, proposal.command.type);
+            errDiv.setAttribute('data-refusal-command', proposal.command.type);
+            errDiv.setAttribute(
+                'data-refusal-reason-stated',
+                proposal.validation.reason ? 'true' : 'false',
+            );
             card.appendChild(errDiv);
         }
 
@@ -346,7 +355,9 @@ export class ValidatePanel {
                     approvedAt: new Date().toISOString(),
                     rationale: proposal.rationale,
                     confidence: proposal.confidence,
-                    validationSummary: proposal.validation.ok ? 'VALID' : (proposal.validation.reason || 'FAILED'),
+                    // §REFUSAL-IDENTITY — 'FAILED' was a manufactured verdict; C23's audit
+                    // trail must keep "refused with reason" and "refused silently" apart.
+                    validationSummary: validationSummaryFor(proposal.validation),
                 });
                 commandProposalStore.remove(proposal.id);
                 window.runtime?.events?.emit('model-updated', {}); // F.events.8

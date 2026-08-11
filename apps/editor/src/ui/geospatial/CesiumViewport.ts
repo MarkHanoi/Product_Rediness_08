@@ -51,6 +51,7 @@ import { buildContextBuildingQuery, type ContextBuildingQueryModel } from "./con
 // refusals that stop it ever silently substituting one subject for the other (the L-272 trap).
 import {
     resolveFacadeStudySubject,
+    facadeRefusalBadgeText,
     includeProposedMassingAsOccluder,
     type FacadeStudySubject,
     type EnvelopeStudyInput,
@@ -10050,8 +10051,13 @@ export class CesiumViewport {
       if (resolution.status === 'refused') {
         // A REFUSAL IS A RESULT. It names the missing input on screen instead of painting the
         // building (the L-272 substitution) or leaving a silent blank (L-467/L-469).
-        console.log(`[CesiumViewport][forma-facade] §FACADE-STUDY-SUBJECT envelope study refused — ${resolution.reason}`);
-        this.setFacadeSubjectBadge(`Envelope study unavailable — ${resolution.reason}`, 'refused');
+        // §REFUSAL-IDENTITY (C58 §1.13) — render through `facadeRefusalBadgeText`, which puts
+        // the closed refusal code IN the badge. Before this, `envelope-height-unconstructed`
+        // (§ENVELOPE-NO-FABRICATED-HEIGHT / L-525a) and "no envelope resolved here" wore the
+        // same "Envelope study unavailable" prefix and differed only in prose the user had to
+        // read and interpret. Two different answers must not render as one value.
+        console.log(`[CesiumViewport][forma-facade] §FACADE-STUDY-SUBJECT envelope study refused — ${resolution.code}: ${resolution.reason}`);
+        this.setFacadeSubjectBadge(facadeRefusalBadgeText(resolution), 'refused');
         return;
       }
       ring = sceneRingToMetric(resolution.ring!);

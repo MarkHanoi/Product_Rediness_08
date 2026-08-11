@@ -17,6 +17,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import {
     groupCatalogue,
     dispatchBatchEntry,
+    renderBatchDispatchMessage,
     type BatchCatalogEntry,
     type BatchDeps,
 } from '../create/batchCatalogue';
@@ -406,10 +407,26 @@ export function mountCreatePanel(
     // C17 DI-1 — dispatch through the documented path; surface success/failure as a
     // toast (CB-5: never a silent no-op).
     const runDispatch = (entry: BatchCatalogEntry, params?: Record<string, number>) => {
+        // §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the toast used to read
+        // `Created: ${entry.label}` on ANY success, which is the same lie the AI
+        // panel told: a "Created 12 of 25 — 13 skipped: outside the site
+        // boundary" arrived as an unqualified green toast. One renderer now
+        // (renderBatchDispatchMessage), and it prints the engine's own line.
         const r = dispatchBatchEntry(entry, batchDeps, params);
         window.runtime?.events?.emit('pryzm:toast', {
-            message: r.ok ? `Created: ${entry.label}` : (r.reason ?? 'Batch command failed'),
-            severity: r.ok ? 'success' : 'error',
+            message: renderBatchDispatchMessage(entry, r),
+            // KNOWN BLIND SPOT (W2-B). The MESSAGE is now honest about a partial;
+            // the SEVERITY still cannot be. `CommandResult` is `{ success, info }`
+            // — it carries no structured `{ attempted, applied, skipped[] }`, so
+            // "Created 12 of 25 — 13 skipped" is distinguishable from "Created 25
+            // of 25" only by reading the English. Colouring a partial amber would
+            // mean re-parsing the engine's prose, which is exactly the re-narration
+            // C68 §5.g forbids. Closing this needs a structured partial-outcome
+            // field on CommandResult (packages/command-registry/src/types.ts).
+            // What the severity CAN say honestly, it now does: an indeterminate
+            // dispatch (case 6 — no sink, no result, or a throw) is not a
+            // failure, and a red toast is a claim that it failed.
+            severity: r.ok ? 'success' : (r.indeterminate === true ? 'warning' : 'error'),
         });
         if (r.ok) {
             window.runtime?.events?.emit('update-view-browser', {}); // F.events.12

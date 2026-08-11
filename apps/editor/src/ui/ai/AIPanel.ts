@@ -34,7 +34,12 @@ import { getPreviewManager } from '@app/engine/preview/PreviewManager';
 import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 // C17 CB-8 — the AI panel surfaces the SAME batch catalogue as the CREATE panel,
 // dispatched through the SAME path (dispatchBatchEntry → Path-A commandManager.execute).
-import { groupCatalogue, dispatchBatchEntry, type BatchDeps } from '../create/batchCatalogue';
+import {
+    groupCatalogue,
+    dispatchBatchEntry,
+    renderBatchDispatchMessage,
+    type BatchDeps,
+} from '../create/batchCatalogue';
 // §FEAT-WALL-TYPE-BATCH (RAC prep) — two THIN pills ("All walls → type…" /
 // "Selected walls → type…") over the `wall.updateSystemTypeBatch` bus command.
 // The COMMAND is the product (UpdateWallsSystemTypeBatchCommand — one undo,
@@ -100,6 +105,7 @@ import { openPdfExportTestModal } from '../dev/pdfExportTestModal';
 // first slice). Opens a modal that browses live ApartmentParameters +
 // RoomParameters from the runtime stores; live editing is D-α-5.
 import { openApartmentDataTestModal } from '../dev/apartmentDataTestModal';
+import { validationFailureText, validationSummaryFor } from './proposalRefusalText.js';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -989,7 +995,14 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         if (!isValid) {
             const errEl = document.createElement('div');
             errEl.className = 'ai-card-error';
-            errEl.textContent = proposal.validation.reason || 'Validation failed — cannot approve';
+            // §REFUSAL-IDENTITY (C58 §1.13) — see proposalRefusalText.ts. No manufactured
+            // generic "no"; the refusing command is named.
+            errEl.textContent = validationFailureText(proposal.validation, proposal.command.type);
+            errEl.setAttribute('data-refusal-command', proposal.command.type);
+            errEl.setAttribute(
+                'data-refusal-reason-stated',
+                proposal.validation.reason ? 'true' : 'false',
+            );
             card.appendChild(errEl);
         }
 
@@ -1093,7 +1106,8 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
                     approvedAt: new Date().toISOString(),
                     rationale: proposal.rationale,
                     confidence: proposal.confidence,
-                    validationSummary: proposal.validation.ok ? 'VALID' : (proposal.validation.reason || 'FAILED'),
+                    // §REFUSAL-IDENTITY — see ValidatePanel.ts.
+                    validationSummary: validationSummaryFor(proposal.validation),
                 });
                 commandProposalStore.remove(proposal.id);
                 addMessage('assistant', `Done! Applied: ${proposal.intentType}`);
@@ -1278,8 +1292,15 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
                             label: e.label,
                             hint: e.prompt,
                             action: () => {
+                                // §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the ONE
+                                // renderer (batchCatalogue.renderBatchDispatchMessage).
+                                // This line used to be `r.ok ? \`Done — ${e.label}.\``,
+                                // which printed "Done" over "Created 12 of 25 —
+                                // 13 skipped: …". C68 §5.g: "Done" only after a
+                                // command reports success, and the report is the
+                                // engine's own payload, never re-narrated.
                                 const r = dispatchBatchEntry(e, batchDeps);
-                                addMessage('assistant', r.ok ? `Done — ${e.label}.` : `Couldn't run "${e.label}": ${r.reason ?? 'failed'}`);
+                                addMessage('assistant', renderBatchDispatchMessage(e, r));
                                 if (r.ok) {
                                     window.runtime?.events?.emit('update-view-browser', {}); // F.events.12
                                     window.runtime?.events?.emit('model-updated', {});       // F.events.8

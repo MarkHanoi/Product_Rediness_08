@@ -49,6 +49,19 @@ export interface WallColorBatchReport {
   /** Human-readable lines: summary first, then grouped skip reasons. */
   readonly info: readonly string[];
   readonly affectedElementIds: readonly string[];
+  /**
+   * §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the bridge's OWN verdict, so the chat
+   * layer never has to infer one from a boolean.
+   *
+   * `'indeterminate'` means THE COMMAND NEVER RAN and nothing about the model is
+   * confirmed: the legacy `window.commandManager` sink was absent, or the bridge
+   * threw. Both of those used to produce NO EVENT AT ALL, and
+   * ZeroTokenChatBridge read "no report" as `{ ok: true }` and printed "Done"
+   * over a model nothing had touched (C68 §5.g: "Done" only after a command
+   * reports success). Absent ⇒ derived from `success`, which is what the
+   * ordinary applied/refused paths still send.
+   */
+  readonly outcome?: 'applied' | 'refused' | 'indeterminate';
 }
 
 export const WALL_COLOR_BATCH_REPORT_EVENT = 'pryzm-wall-color-batch-report';
@@ -103,6 +116,27 @@ export const UpdateWallsColorBatchHandler: CommandHandler<
               ): { success: boolean; affectedElementIds: string[]; info?: string[] };
             }
           | undefined;
+        // §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the two paths on which this
+        // bridge used to emit NOTHING: no command sink, and a throw that only
+        // reached console.error. Silence is indistinguishable from a clean run
+        // at every layer above, so both now broadcast an INDETERMINATE report.
+        // This is not a failure claim — it is a refusal to claim anything.
+        const sayNothingRan = (why: string): void => {
+          const report: WallColorBatchReport = {
+            success: false,
+            info: [
+              `'wall.updateColorBatch' did not run — ${why}. Nothing was changed, and nothing ` +
+              `about the model is confirmed.`,
+            ],
+            affectedElementIds: [],
+            outcome: 'indeterminate',
+          };
+          try {
+            window.dispatchEvent(new CustomEvent(WALL_COLOR_BATCH_REPORT_EVENT, { detail: report }));
+          } catch (emitErr) {
+            console.error('[wall.updateColorBatch.handler] indeterminate report emit failed:', emitErr);
+          }
+        };
         if (cm) {
           try {
             const result = cm.execute(
@@ -124,7 +158,10 @@ export const UpdateWallsColorBatchHandler: CommandHandler<
             );
           } catch (e) {
             console.error('[wall.updateColorBatch.handler] bridge failed:', e);
+            sayNothingRan(`the bridge threw: ${String((e as Error)?.message ?? e)}`);
           }
+        } else {
+          sayNothingRan('the command manager is not available in this session');
         }
         const empty: HandlerResult = { forward: [], inverse: [] };
         return empty;
