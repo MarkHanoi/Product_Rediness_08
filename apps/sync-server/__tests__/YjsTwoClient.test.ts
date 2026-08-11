@@ -32,6 +32,8 @@ import { YjsDocAdapter, ELEMENTS_NAMESPACE, type YjsProvider } from '@pryzm/sync
 import type * as Y from 'yjs';
 import { createSyncServer, type SyncServerInstance } from '../src/index.js';
 import { yjsProjectCache } from '../src/YjsProjectCache.js';
+// L-391 R-B: upgrades are authenticated now — see helpers/testAuth.ts.
+import { TEST_SESSION_SECRET, testToken } from './helpers/testAuth.js';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -59,6 +61,9 @@ function connectPeer(adapter: YjsDocAdapter, port: number, room: string): Peer {
     // sync via BroadcastChannel and the server is never exercised.
     disableBc: true,
     maxBackoffTime: 500,
+    // L-391 R-B — a session token, exactly as `websocketProviderFactory.ts`
+    // sends it in production (`params: { token: authToken }`).
+    params: { token: testToken('u-two-client') },
   });
   adapter.connectWithProvider(provider as unknown as YjsProvider);
   return { adapter, provider };
@@ -81,7 +86,7 @@ describe('L-391 leg C — two real y-websocket clients through the sync-server',
   });
 
   it('B (seeded with stale creation height 3) converges to 5 after A edits through YjsDocAdapter', async () => {
-    server = await createSyncServer({});
+    server = await createSyncServer({ sessionSecret: TEST_SESSION_SECRET });
     const port = await server.listen(0);
     const room = `proj-${ulid()}`;
 
@@ -120,7 +125,7 @@ describe('L-391 leg C — two real y-websocket clients through the sync-server',
   }, 30_000);
 
   it('awareness: A presence reaches B through the server awareness channel', async () => {
-    server = await createSyncServer({});
+    server = await createSyncServer({ sessionSecret: TEST_SESSION_SECRET });
     const port = await server.listen(0);
     const room = `proj-${ulid()}`;
 

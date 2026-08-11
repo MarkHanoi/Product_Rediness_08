@@ -34,6 +34,8 @@ import { Sweeper } from './locks/Sweeper.js';
 import type { SoftLockStore } from './locks/types.js';
 import { createAuthz } from './authz/index.js';
 import type { Authz, AuthzMode } from './authz/index.js';
+import { createWsAuthGate, projectIdFromRoom, refuseUpgrade } from './auth/index.js';
+import type { WsAuthGate, WsAuthMode } from './auth/index.js';
 import { presenceService } from './presence/PresenceService.js';
 import { yjsProjectCache } from './YjsProjectCache.js';
 import { setupYjsConnection, yjsRoomStats } from './yjs/setupYjsConnection.js';
@@ -46,6 +48,10 @@ export interface SyncServerOptions {
   readonly softLocks?: SoftLockStore;
   readonly authz?: Authz;
   readonly startSweeper?: boolean;
+  /** L-391 R-B test seam — overrides `env.SESSION_SECRET` for the WS auth
+   *  gate without mutating `process.env` (which is shared across a vitest
+   *  file and would make suites order-dependent). */
+  readonly sessionSecret?: string;
 }
 
 export interface SyncServerInstance {
@@ -62,6 +68,11 @@ export interface SyncServerInstance {
   readonly softLockSelection: 'memory' | 'pg';
   readonly authz: Authz;
   readonly authzSelection: AuthzMode | 'injected';
+  /** L-391 R-B — the upgrade auth gate and the mode it selected.  Exposed so
+   *  `/health`, the deploy smoke test and the collab gate can all read the
+   *  SAME selection rather than inferring it from behaviour. */
+  readonly wsAuth: WsAuthGate;
+  readonly wsAuthSelection: WsAuthMode;
   listen(port: number): Promise<number>;
   shutdown(reason: string): Promise<void>;
 }
@@ -75,6 +86,11 @@ export async function createSyncServer(
   const bakeFactory = createBakeEnqueuer({ env, enqueuer: opts.bake });
   const bake = bakeFactory.enqueuer;
   const authzFactory = createAuthz({ env, authz: opts.authz });
+  const wsAuthFactory = createWsAuthGate({
+    env,
+    authz: authzFactory.authz,
+    ...(opts.sessionSecret !== undefined ? { secret: opts.sessionSecret } : {}),
+  });
   const sessions = new SessionManager({ log, bake, authz: authzFactory.authz });
   const lockFactory = await createSoftLockStore({ env, store: opts.softLocks });
   const softLocks = lockFactory.store;
@@ -97,6 +113,10 @@ export async function createSyncServer(
         ...yjsRoomStats(),
       },
       aiCache: { ttlCleanup: 'available' },
+      // L-391 R-B — the deploy smoke test reads THIS.  A production instance
+      // reporting `trust-query` or `deny-all` is a misconfiguration that must
+      // be visible without attempting an unauthenticated connection.
+      wsAuth: { mode: wsAuthFactory.mode, reason: wsAuthFactory.reason },
     });
   });
 
@@ -112,39 +132,78 @@ export async function createSyncServer(
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ noServer: true });
 
+  // ── L-391 R-B — EVERY upgrade passes the auth gate. ─────────────────────
+  //
+  // Both paths are gated, not just the new one: `/sync` mutates project state
+  // through the S22 command-event protocol, and before R-B its entire
+  // authentication story was `?userId=` — which `Authz.can()` downstream then
+  // faithfully evaluated for whoever the caller claimed to be.  In
+  // `jwt-hs256` mode the userId now comes from the VERIFIED token subject and
+  // the query parameter is ignored, so `?userId=someone-else` is no longer an
+  // impersonation.
+  //
+  // A refusal is always written to the socket with a named reason
+  // (`refuseUpgrade`).  There is no `socket.destroy()` without a status on
+  // this path — a silent drop and a silent accept are the two failure modes
+  // this gate exists to make impossible.
   httpServer.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    if (url.pathname === '/sync') {
-      // ── Legacy S22 JSON command-event protocol (unchanged) ───────────────
-      wss.handleUpgrade(req, socket, head, (ws) => {
-        const clientId = url.searchParams.get('clientId') ?? ulid();
-        const userId = url.searchParams.get('userId') ?? 'anonymous';
-        const displayNameHint = url.searchParams.get('displayName') ?? '';
-        const authoritativePresence = presenceService.getServerAuthoritativePresence(
-          userId,
-          { userId, displayName: displayNameHint },
-        );
-        presenceService.registerUser(userId, authoritativePresence.displayName);
-        sessions.register(ws, clientId, userId);
-        ws.send(JSON.stringify({ type: 'session.opened', clientId, userId }));
+    const isLegacySync = url.pathname === '/sync';
+
+    // The legacy path chooses its project later, per message, and every
+    // handler on it already calls `authz.can` — so the upgrade authorises
+    // IDENTITY only (projectId `undefined`).  The y-room path names its
+    // project in the URL, so it authorises identity AND membership here.
+    const room = isLegacySync
+      ? ''
+      : decodeURIComponent(url.pathname.replace(/^\/+/, ''));
+    if (!isLegacySync && !room) {
+      refuseUpgrade(socket, 'missing-room');
+      return;
+    }
+
+    void wsAuthFactory.gate
+      .authenticate(
+        { url: req.url, headers: req.headers as Record<string, string | string[] | undefined> },
+        'projectEdit',
+        isLegacySync ? undefined : projectIdFromRoom(room),
+      )
+      .then((verdict) => {
+        if (!verdict.ok) {
+          refuseUpgrade(socket, verdict.reason);
+          return;
+        }
+
+        if (isLegacySync) {
+          // ── Legacy S22 JSON command-event protocol ───────────────────────
+          wss.handleUpgrade(req, socket, head, (ws) => {
+            const clientId = url.searchParams.get('clientId') ?? ulid();
+            // AUTHORITATIVE: the verified principal, never the query string.
+            const userId = verdict.principal.userId;
+            const displayNameHint = url.searchParams.get('displayName') ?? '';
+            const authoritativePresence = presenceService.getServerAuthoritativePresence(
+              userId,
+              { userId, displayName: displayNameHint },
+            );
+            presenceService.registerUser(userId, authoritativePresence.displayName);
+            sessions.register(ws, clientId, userId);
+            ws.send(JSON.stringify({ type: 'session.opened', clientId, userId }));
+          });
+          return;
+        }
+
+        // ── L-391 leg C — y-protocols rooms ──────────────────────────────
+        // A stock y-websocket WebsocketProvider connects to `${url}/${room}`:
+        // every non-`/sync` path IS a room name (ADR-049 §4.4 naming —
+        // "${projectId}" or "${projectId}:${levelId}").
+        wss.handleUpgrade(req, socket, head, (ws) => {
+          setupYjsConnection(ws as WebSocket, room);
+        });
+      })
+      .catch(() => {
+        // An unexpected throw must refuse, never fall through to an accept.
+        refuseUpgrade(socket, 'internal-error');
       });
-      return;
-    }
-    // ── L-391 leg C — y-protocols rooms ────────────────────────────────────
-    // A stock y-websocket WebsocketProvider connects to `${url}/${room}`:
-    // every non-`/sync` path IS a room name (ADR-049 §4.4 naming —
-    // "${projectId}" or "${projectId}:${levelId}").  Auth on this upgrade is
-    // still the v0 trust model; the JWT gate is ratification point R-B
-    // (L-391 §4.2) and MUST land before production exposure.
-    const room = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
-    if (!room) {
-      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      setupYjsConnection(ws as WebSocket, room);
-    });
   });
 
   let listening = false;
@@ -165,6 +224,8 @@ export async function createSyncServer(
     softLockSelection: lockFactory.selection,
     authz: authzFactory.authz,
     authzSelection: authzFactory.selection,
+    wsAuth: wsAuthFactory.gate,
+    wsAuthSelection: wsAuthFactory.mode,
     async listen(port: number): Promise<number> {
       if (listening) {
         const addr = httpServer.address();

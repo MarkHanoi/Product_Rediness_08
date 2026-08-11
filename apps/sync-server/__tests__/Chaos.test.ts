@@ -25,6 +25,8 @@ import { ulid } from 'ulid';
 import WebSocket from 'ws';
 import { performance } from 'node:perf_hooks';
 import { createSyncServer, type SyncServerInstance } from '../src/index.js';
+// L-391 R-B: upgrades are authenticated now — see helpers/testAuth.ts.
+import { TEST_SESSION_SECRET, testToken, tokenParam } from './helpers/testAuth.js';
 
 // ─── Wire types (mirror apps/sync-server/src/protocol/messages.ts) ─────────
 
@@ -58,7 +60,9 @@ const isType = (t: string) => (m: unknown): boolean =>
   typeof m === 'object' && m !== null && (m as { type?: unknown }).type === t;
 
 async function buffered(port: number, clientId: string): Promise<Buffered> {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}/sync?clientId=${clientId}&userId=u-${clientId}`);
+  const ws = new WebSocket(
+    `ws://127.0.0.1:${port}/sync?clientId=${clientId}&${tokenParam(`u-${clientId}`)}`,
+  );
   const queue: unknown[] = [];
   const inbox: LinearisedEvent[] = [];
   const latencies: number[] = [];
@@ -203,7 +207,7 @@ describe('Chaos harness — JSON-protocol convergence (S43 D5; ADR-0033 §2.5)',
   let tabs: Buffered[] = [];
 
   beforeAll(async () => {
-    server = await createSyncServer({});
+    server = await createSyncServer({ sessionSecret: TEST_SESSION_SECRET });
     port = await server.listen(0);
   }, 30_000);
 
@@ -426,9 +430,10 @@ describe('Chaos — Yjs y-protocols: kill server mid-exchange, reconnect, conver
         WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
         disableBc: true,        // server-only route — no in-process shortcut
         maxBackoffTime: 300,    // fast reconnect so the test stays quick
+        params: { token: testToken('u-chaos') }, // L-391 R-B
       });
 
-    let server1: SyncServerInstance | undefined = await createSyncServer({});
+    let server1: SyncServerInstance | undefined = await createSyncServer({ sessionSecret: TEST_SESSION_SECRET });
     const port = await server1.listen(0);
     const provA = connect(adapterA, port);
     const provB = connect(adapterB, port);
@@ -450,7 +455,7 @@ describe('Chaos — Yjs y-protocols: kill server mid-exchange, reconnect, conver
 
       // ── Resurrect the server on the SAME port; providers auto-reconnect,
       //    re-run sync step 1/2, and the offline edit flows A → server → B.
-      server1 = await createSyncServer({});
+      server1 = await createSyncServer({ sessionSecret: TEST_SESSION_SECRET });
       await server1.listen(port);
 
       await until(() => adapterB.readElementProperty('wall-chaos', 'height') === 7, 10_000);

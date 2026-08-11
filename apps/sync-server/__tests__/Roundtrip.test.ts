@@ -9,6 +9,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { ulid } from 'ulid';
 import { createSyncServer, type SyncServerInstance } from '../src/index.js';
+// L-391 R-B: upgrades are authenticated now — this suite connects the way a
+// real client does, with a session token, not via a trust-query bypass.
+import { TEST_SESSION_SECRET, tokenParam } from './helpers/testAuth.js';
 
 interface Buffered {
   readonly ws: WebSocket;
@@ -21,7 +24,9 @@ interface Buffered {
 }
 
 function bufferedClient(port: number, clientId: string): Promise<Buffered> {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}/sync?clientId=${clientId}&userId=u-${clientId}`);
+  const ws = new WebSocket(
+    `ws://127.0.0.1:${port}/sync?clientId=${clientId}&${tokenParam(`u-${clientId}`)}`,
+  );
   const messages: unknown[] = [];
   const watchers: Array<{ pred: (m: unknown) => boolean; resolve: (m: unknown) => void; reject: (e: Error) => void; t: NodeJS.Timeout }> = [];
 
@@ -82,7 +87,7 @@ describe('Two-client WebSocket roundtrip', () => {
   let port: number;
 
   beforeEach(async () => {
-    server = await createSyncServer({});
+    server = await createSyncServer({ sessionSecret: TEST_SESSION_SECRET });
     port = await server.listen(0); // ephemeral
   });
 
