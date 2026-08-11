@@ -34,31 +34,35 @@ The doc is intentionally short. Per-package detail lives in [STR-05-architecture
 
 ## §1 — The layered model
 
-PRYZM organises code into **nine production layers** (L0–L9) plus a transitional legacy zone (L7.5). Each layer has owner packages, a clear responsibility, and an enforced import allowlist.
+PRYZM organises code into **eight production layers** (L0–L7) plus a transitional legacy zone. Each layer has owner packages, a clear responsibility, and an enforced import allowlist.
+
+**This diagram was re-derived on 2026-08-11 from measured edge direction. Two layers moved; see §1.0 for the measurements that moved them.**
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  L7.5  src/  (7 files, 0 subdirs)  — TRANSITIONAL                    │
-│         monotonically shrinking; current state = boot-shell.d.ts,    │
-│         browser-entry.tsx, browser.css, familyCreatorPlaceholder.ts, │
-│         global-window.d.ts, main.ts, three-addons.d.ts               │
+│  L7.5  src/  (8 files, 0 subdirs)  — TRANSITIONAL                    │
+│         monotonically shrinking toward zero                          │
 │                                                                       │
-│  L9    plugins/* (47)            ← may only import L8                │
-│  L8    packages/plugin-sdk/      ← public SDK facade (@pryzm/sdk v1) │
-│  L7    apps/* (13)               ← per-app UI surfaces                │
-│  L6    packages/runtime-composer/, packages/ui-base/                  │
-│  L5    packages/file-format/, packages/view-state/                    │
-│  L4    packages/renderer/, render-runtime/, scene-committer/,         │
-│         persistence-client/, sync-client/                             │
-│  L3    packages/stores/                                               │
-│  L2    packages/geometry-kernel/, packages/ai-host/,                  │
-│         packages/constraint-solver/, packages/types-builtin/          │
-│  L1    packages/command-bus/, frame-scheduler/, picking/,             │
-│         visibility/, snapping/, spatial-index/, ai-cost/,             │
-│         renderer-three/, input-host/, physics-host/,                  │
-│         runtime-undo-stack/, drawing-primitives/, protocol/           │
-│  L0    packages/schemas/         ← Zod schemas; no I/O, no THREE,    │
-│                                    no DOM                             │
+│  L7    apps/* (13)               — per-app surfaces (editor,         │
+│         marketplace, workers, docs-site…). The editor is a           │
+│         COMPOSITION ROOT: it imports plugins in order to register     │
+│         them (142 measured edges down, 0 up)                          │
+│  L6    plugins/* (48)            — features                           │
+│  L5    packages/plugin-sdk/      — curated public SDK facade          │
+│  L4    packages/renderer, render-runtime, persistence-client,         │
+│         scene-committer                                               │
+│  L3    packages/runtime-composer, ui-base, stores, view-state,        │
+│         file-format, sync-client                                      │
+│  L2    packages/geometry-kernel, ai-host, constraint-solver,          │
+│         drawing-primitives, geometry-* (15)                           │
+│  L1    packages/command-bus, picking, visibility, snapping,           │
+│         renderer-three, spatial-index, frame-scheduler, …             │
+│  L0    packages/schemas/         — pure Zod schemas; no I/O,          │
+│                                    no THREE, no DOM                   │
+│                                                                       │
+│  (unlayered) backend packages — api-rbac, rate-limit, webhooks,       │
+│         admin-overrides, ai-spend, api-spec, email-transport,         │
+│         beta-signup — zero client dependencies; see §1.0              │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
