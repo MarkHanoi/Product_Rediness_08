@@ -1049,3 +1049,45 @@ export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks)
             return true;
     }
 }
+
+// ─── §PLANNER (RAC U10.2) — the seam the planner rung runs through ───────────
+//
+// The planner produces the SAME structures this file already executes, so it
+// gets no executor of its own: `LlmPlannerBridge` validates the model's output,
+// applies it through `applySemanticIntent`, and hands the result BACK here. The
+// Confirm card, the per-step plan report, the batch-report honesty and the undo
+// cost are therefore literally the ones a typed sentence gets — not a parallel
+// implementation that could drift from them.
+
+/** The live ResolverContext the whole ladder shares (selection, levels, the
+ *  injected catalogue lookups and scope resolver). Exported so the planner rung
+ *  prompts and validates against the SAME facts the deterministic tiers used. */
+export async function buildZeroTokenContext(): Promise<ResolverContext> {
+    return buildContext();
+}
+
+/** Execute an already-resolved outcome — the identical three-way switch
+ *  `tryHandleZeroToken` ends in. Nothing may reach the bus by another route. */
+export async function runZeroTokenResolution(
+    resolution: ZeroTokenResolution,
+    ctx: ResolverContext,
+    hooks: ZeroTokenUiHooks,
+): Promise<void> {
+    switch (resolution.kind) {
+        case 'miss':
+            return;
+        case 'refusal': {
+            const tail = resolution.suggestions.length > 0
+                ? ` Try: ${resolution.suggestions.map((s) => `"${s}"`).join(' or ')}`
+                : '';
+            hooks.say(`${resolution.reason}${tail}`);
+            return;
+        }
+        case 'local':
+            await runLocal(resolution, hooks);
+            return;
+        case 'commands':
+            await dispatchCommands(resolution, ctx, hooks);
+            return;
+    }
+}

@@ -27,6 +27,9 @@ import { aiApprovalStore } from '@pryzm/ai-host';
 import { AIResponseParser } from '@pryzm/ai-host';
 // §ADR-0313 — zero-token tier 0/1 command resolution in front of the LLM path.
 import { tryHandleZeroToken } from './ZeroTokenChatBridge';
+// §PLANNER (RAC U10.2) — the last rung of the ladder, between the zero-token
+// tiers and the legacy QueryEngine path.
+import { plannerIsConfigured, tryHandleWithPlanner } from './LlmPlannerBridge';
 import { getPreviewManager } from '@app/engine/preview/PreviewManager';
 import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 // C17 CB-8 — the AI panel surfaces the SAME batch catalogue as the CREATE panel,
@@ -1548,6 +1551,34 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
             addMessage('assistant', 'The quick command path hit an error — falling back to the AI.');
         }
 
+        // §PLANNER (RAC U10.2) — the LAST rung before the legacy path. Reached
+        // only when tiers 0/1 and the NL layer all missed, so every sentence
+        // the grammar understands still costs zero tokens. The planner emits
+        // the SAME validated SemanticIntent structures and they run through the
+        // SAME executor: same Confirm cards, same refusals, same undo cost.
+        // It returns false only when no AI upstream is configured (the current
+        // production state) or the relay failed — in which case the legacy
+        // read-only path below still gets its turn.
+        {
+            const plannerTyping = document.createElement('div');
+            plannerTyping.className = 'ai-chat-typing';
+            plannerTyping.textContent = 'Reading that…';
+            transcriptEl.appendChild(plannerTyping);
+            scrollTranscript();
+            let planned = false;
+            try {
+                planned = await tryHandleWithPlanner(query, {
+                    say: (text: string) => addMessage('assistant', text),
+                    confirm: (summary: string) => showZeroTokenConfirm(summary),
+                });
+            } catch (err) {
+                console.error('[AIPanel] planner rung failed:', err);
+            } finally {
+                if (plannerTyping.isConnected) plannerTyping.remove();
+            }
+            if (planned) return;
+        }
+
         const typingEl = document.createElement('div');
         typingEl.className = 'ai-chat-typing';
         typingEl.textContent = 'PRYZM AI is thinking…';
@@ -1575,6 +1606,23 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
                 } catch (pvwErr) {
                     console.warn('[AIPanel] PreviewManager.showProposal failed:', pvwErr);
                 }
+            }
+
+            // §PLANNER (RAC U10.2) — when EVERY rung missed, say which one was
+            // missing rather than leaving the founder with a bare "not sure".
+            // The legacy QueryEngine's own miss string is the signal; a deploy
+            // with no AI upstream (the current production state) is a
+            // configuration fact he can act on, and hiding it makes the whole
+            // chat look broken instead of unconfigured.
+            if (/^I'm not sure how to help with that yet\.?$/i.test(result.answer.trim())
+                && !(await plannerIsConfigured())) {
+                addMessage(
+                    'assistant',
+                    "I'm not sure how to help with that yet. The direct commands I do understand still work "
+                    + '(try "make all walls white" or "add a level"); free-phrasing needs the AI planner, and '
+                    + 'this deploy has no AI upstream configured (no CF_WORKER_URL / ANTHROPIC_API_KEY).',
+                );
+                return;
             }
 
             // Add the assistant message, attaching Phase 3 metadata
