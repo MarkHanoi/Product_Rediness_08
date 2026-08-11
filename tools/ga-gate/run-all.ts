@@ -148,6 +148,18 @@ const GATES: Gate[] = [
   // NOT on gate-debt.json. The engine has always reported partials honestly; this
   // gate exists because the last layer threw that away and rendered "Done".
   { name: 'report-payload-discard (R4/W2-B)',         script: 'check-report-payload-discard.ts' },
+  // R3 (2026-08-11) — independent polygon-offset implementations. The same offset
+  // algorithm existed in THREE places at three levels of correctness, and the
+  // UNTOUCHED copy was the one wired into the roof committer: a 300 mm eave
+  // delivered 212 mm. Pinned at 0 rivals, not the 3 the header claimed — measured
+  // against the gate's own predicate the pre-fix reading was 4, and a shrink-only
+  // ratchet parked at 3 is three free slots.
+  { name: 'offset-implementations (R3/W2-A)',         script: 'check-offset-implementations.ts' },
+  // C69 (2026-08-11) — the API verb register. Generated from handler sources and
+  // diffed against the committed artefact, so a PR that adds a bus command without
+  // a register row FAILS. This is what makes "always add it there" mechanical
+  // rather than a promise; every hand-maintained list in this repo has rotted.
+  { name: 'verb-register (C69)',                      script: 'check-verb-register.ts' },
   // Refusal identity — a refusal that loses its code is indistinguishable from a
   // generic "not applicable". 88 NAMED offenders keyed by file+fragment rather
   // than a count, so a PR that fixes one and breaks another still fails.
