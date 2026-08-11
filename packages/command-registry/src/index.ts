@@ -41,6 +41,8 @@ export * from './ceilings/CreateCeilingsByRoomCommand';
 export * from './ceilings/RemoveCeilingCommand';
 export * from './ceilings/UpdateCeilingCommand';
 export * from './ceilings/UpdateCeilingLayersCommand';
+// §FEAT-CEILING-TYPE-BATCH (RAC U7.2)
+export * from './ceilings/UpdateCeilingsSystemTypeBatchCommand';
 
 // ─── Columns ──────────────────────────────────────────────────────────────
 export * from './columns/CreateColumnCommand';
@@ -229,6 +231,8 @@ export * from './slabs/UpdateOpeningCommand';
 export * from './slabs/UpdateSlabCommand';
 export * from './slabs/UpdateSlabDimensionsCommand';
 export * from './slabs/UpdateSlabLayersCommand';
+// §FEAT-SLAB-TYPE-BATCH (RAC U7.2)
+export * from './slabs/UpdateSlabsSystemTypeBatchCommand';
 export * from './slabs/UpdateSlabLevelCommand';
 export * from './slabs/UpdateSlabPolygonCommand';
 export * from './slabs/UpdateSlabSketchCommand';

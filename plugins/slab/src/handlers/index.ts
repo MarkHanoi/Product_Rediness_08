@@ -15,6 +15,7 @@ import { UpdateSlabPolygonHandler } from './UpdateSlabPolygon.js';
 import { UpdateSlabLayersHandler } from './UpdateSlabLayers.js';
 import { CreateSlabsOnAllFloorsHandler } from './CreateSlabsOnAllFloors.js';
 import { SetSlabMaterialHandler } from './SetSlabMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
+import { UpdateSlabsSystemTypeBatchHandler } from './UpdateSlabsSystemTypeBatch.js';
 
 export const SLAB_HANDLER_TYPES = [
   'slab.create',
@@ -31,6 +32,9 @@ export const SLAB_HANDLER_TYPES = [
   'slab.updateLayers',
   'slab.create-on-all-floors',
   'slab.setMaterial',
+  // §FEAT-SLAB-TYPE-BATCH (RAC U7.2) — batch retype ('all' or explicit ids),
+  // one undo entry, bridged to the live UpdateSlabLayersCommand route.
+  'slab.updateSystemTypeBatch',
 ] as const;
 
 export type SlabHandlerType = (typeof SLAB_HANDLER_TYPES)[number];
@@ -51,6 +55,7 @@ export function buildSlabHandlerSet(): readonly CommandHandler<unknown>[] {
     UpdateSlabLayersHandler as unknown as CommandHandler<unknown>,
     new CreateSlabsOnAllFloorsHandler() as unknown as CommandHandler<unknown>,
     new SetSlabMaterialHandler() as unknown as CommandHandler<unknown>,
+    UpdateSlabsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
   ];
 }
 

@@ -308,6 +308,11 @@ const KNOWN_VALUE_SOURCES = new Set([
   // RAC U4.3 — door system types, resolved by `resolveDoorSystemTypeRef`
   // (command-registry) injected as ctx.resolveDoorSystemType by the bridge.
   'door-system-types',
+  // RAC U7.2 — the two CATALOGUE FAMILIES whose catalogues already ship:
+  // slabSystemTypeStore (4 built-ins) and ceilingSystemTypeStore (10),
+  // resolved editor-side on the same resolveCatalogueRef ladder and injected
+  // through the generic `ctx.catalogues` channel.
+  'slab-system-types', 'ceiling-system-types',
   // ADR-0314 §Value sources — colour name / '#hex', resolved by the ONE table
   // in packages/ai-host/src/intents/colorRef.ts.
   'color',
@@ -354,6 +359,8 @@ function proveParameterSources(cap: ChatCapability): string[] {
       : p.valueSource === 'wall-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'window-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'door-system-types' ? typeof probe['typeRef'] === 'string'
+      : p.valueSource === 'slab-system-types' ? typeof probe['typeRef'] === 'string'
+      : p.valueSource === 'ceiling-system-types' ? typeof probe['typeRef'] === 'string'
       : p.valueSource === 'finish' ? typeof probe['finishRef'] === 'string'
       // ADR-0315 U5a: duplicate-level carries its level refs as sourceQuery /
       // targetQueries — both resolved by the same findLevel authority.

@@ -108,6 +108,12 @@ export type CapabilityValueSource =
   /** The project's door system types (`doorSystemTypeStore`), resolved by
    *  `resolveDoorSystemTypeRef` — the same resolveCatalogueRef ladder (RAC U4.3). */
   | 'door-system-types'
+  /** RAC U7.2 — the project's slab assemblies (`slabSystemTypeStore`, four
+   *  built-ins), resolved by `resolveSlabSystemTypeRef` on the same ladder. */
+  | 'slab-system-types'
+  /** RAC U7.2 — the project's ceiling assemblies (`ceilingSystemTypeStore`,
+   *  ten built-ins), resolved by `resolveCeilingSystemTypeRef`. */
+  | 'ceiling-system-types'
   /** Finish names ("plaster", "limewash"), resolved by the ONE table in
    *  packages/ai-host/src/intents/finishRef.ts (materialLibrary-transcribed). */
   | 'finish'
@@ -1139,6 +1145,87 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'change all doors to white primed softwood',
       'change the door type to glazed timber',
       'convert the selected doors to fire door fd30',
+    ],
+  },
+  {
+    id: 'set-slab-type',
+    // §FEAT-SLAB-TYPE-BATCH (RAC U7.2) — "change all slabs to RC 250". A
+    // CATALOGUE FAMILY table entry (CatalogueFamilies.ts): the spec, the
+    // grammar and the refusal copy are GENERATED, so the resolver cost is the
+    // same zero set-door-type paid. The command is the deliverable —
+    // UpdateSlabsSystemTypeBatchCommand materialises the chosen assembly's
+    // layer stack and derived thickness onto each slab through the live
+    // UpdateSlabLayersCommand (geometry slabStore → fragment rebuild), never
+    // the plugin `slab.setType` DTO store whose own header admits it "simply
+    // records the type id on the DTO" (L-620).
+    description: 'change the slab type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['slab type', 'slab assembly', 'slab buildup'],
+    refusalLabel: 'slab type',
+    targets: ['slab'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the slab type, by catalogue name or id',
+        required: true,
+        valueSource: 'slab-system-types',
+        example: 'RC Slab – Monolithic 200mm',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection'],
+    destructive: false,
+    busCommand: 'slab.updateSystemTypeBatch',
+    // Selection-scope probe — the 'all' scope never reads the selection, so it
+    // could not exercise the target guard (same reasoning as set-door-type).
+    probe: { intent: 'set-slab-type', typeRef: 'RC Slab – Monolithic 200mm', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/slabs/UpdateSlabsSystemTypeBatchCommand.ts',
+      mustMention: ['slabStore', 'UpdateSlabLayersCommand', 'resolveCatalogueRef'],
+      note: "_resolveSlabIds reads ctx.stores.slabStore and nothing else, so the command's reachable set is slabs only; per slab it reuses the proven UpdateSlabLayersCommand (geometry store → fragment rebuild) and resolves the type reference through the ONE resolveCatalogueRef ladder.",
+    },
+    examples: [
+      'change all slabs to rc slab monolithic 200mm',
+      'change the slab type to composite deck',
+      'convert the selected slabs to insulated screed',
+    ],
+  },
+  {
+    id: 'set-ceiling-type',
+    // §FEAT-CEILING-TYPE-BATCH (RAC U7.2) — the slab twin, one family over.
+    // Routes through UpdateCeilingsSystemTypeBatchCommand →
+    // UpdateCeilingLayersCommand against the LEGACY geometry ceilingStore that
+    // the 3D CeilingTool and the project loader write — never the plugin Immer
+    // ceiling store, which is populated only for plan-tool ceilings and whose
+    // failure mode ("ceiling not found: <id>") is recorded in initBusHandlers.
+    description: 'change the ceiling type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['ceiling type', 'ceiling assembly'],
+    refusalLabel: 'ceiling type',
+    targets: ['ceiling'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the ceiling type, by catalogue name or id',
+        required: true,
+        valueSource: 'ceiling-system-types',
+        example: 'Suspended ACT 600×600',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection'],
+    destructive: false,
+    busCommand: 'ceiling.updateSystemTypeBatch',
+    probe: { intent: 'set-ceiling-type', typeRef: 'Plasterboard 12.5mm', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/ceilings/UpdateCeilingsSystemTypeBatchCommand.ts',
+      mustMention: ['ceilingStore', 'UpdateCeilingLayersCommand', 'resolveCatalogueRef'],
+      note: "_resolveCeilingIds reads ctx.stores.ceilingStore and nothing else, so the command's reachable set is ceilings only; per ceiling it reuses the proven UpdateCeilingLayersCommand (geometry store → rebuild) and resolves the reference through the ONE resolveCatalogueRef ladder.",
+    },
+    examples: [
+      'change all ceilings to plasterboard 12.5mm',
+      'change the ceiling type to suspended act 600x600',
+      'convert the selected ceilings to exposed concrete soffit',
     ],
   },
   {

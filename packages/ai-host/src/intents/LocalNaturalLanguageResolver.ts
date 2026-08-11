@@ -1009,12 +1009,12 @@ function classify(
   // the SAME function the tier-0 grammar uses. It outranks the wall-type
   // candidate below (0.95 > 0.92): "make all walls white" matches both parsers'
   // shapes, and the colour reading is the resolvable one.
-  const wallColor = parseWallColorIntent(n.plain);
+  const wallColor = parseWallColorIntent(n.plain, ctx);
   if (wallColor !== null) {
     push({
       intent: 'set-wall-color',
       confidence: 0.95,
-      evidence: ['verb:paint', 'noun:wall', `scope:${wallColor.scope}`],
+      evidence: ['verb:paint', 'noun:wall', `scope:${scopeTag(wallColor.scope)}`],
       si: wallColor,
     });
   }
@@ -1024,34 +1024,34 @@ function classify(
   // degrees" also matches the wall-type shape ("angled by 70 degrees" would be
   // read as a type name and refused with the catalogue), and the rake reading
   // is the resolvable one.
-  const wallRake = parseWallRakeIntent(n.plain);
+  const wallRake = parseWallRakeIntent(n.plain, ctx);
   if (wallRake !== null) {
     push({
       intent: 'set-wall-rake',
       confidence: 0.95,
-      evidence: ['verb:rake', 'noun:wall', `scope:${typeof wallRake.scope === 'string' ? wallRake.scope : wallRake.scope.kind}`],
+      evidence: ['verb:rake', 'noun:wall', `scope:${scopeTag(wallRake.scope)}`],
       si: wallRake,
     });
   }
 
   // set-window-type (§FEAT-WINDOW-TYPE-BATCH) — shared parser, same rank.
-  const windowType = parseWindowTypeIntent(n.plain);
+  const windowType = parseWindowTypeIntent(n.plain, ctx);
   if (windowType !== null) {
     push({
       intent: 'set-window-type',
       confidence: 0.95,
-      evidence: ['verb:change', 'noun:window', `scope:${windowType.scope}`],
+      evidence: ['verb:change', 'noun:window', `scope:${scopeTag(windowType.scope)}`],
       si: windowType,
     });
   }
 
   // set-door-type (§FEAT-DOOR-TYPE-BATCH, RAC U4.3) — shared parser, same rank.
-  const doorType = parseDoorTypeIntent(n.plain);
+  const doorType = parseDoorTypeIntent(n.plain, ctx);
   if (doorType !== null) {
     push({
       intent: 'set-door-type',
       confidence: 0.95,
-      evidence: ['verb:change', 'noun:door', `scope:${doorType.scope}`],
+      evidence: ['verb:change', 'noun:door', `scope:${scopeTag(doorType.scope)}`],
       si: doorType,
     });
   }
@@ -1063,7 +1063,7 @@ function classify(
     push({
       intent: 'add-wall-layer',
       confidence: 0.95,
-      evidence: ['verb:add', 'noun:layer', `scope:${wallLayer.scope}`],
+      evidence: ['verb:add', 'noun:layer', `scope:${scopeTag(wallLayer.scope)}`],
       si: wallLayer,
     });
   }
@@ -1120,7 +1120,7 @@ function classify(
       confidence: 0.95,
       evidence: [
         `steps:${roomFinish.steps.join('+')}`,
-        `scope:${typeof roomFinish.scope === 'string' ? roomFinish.scope : roomFinish.scope.kind}`,
+        `scope:${scopeTag(roomFinish.scope)}`,
       ],
       si: roomFinish,
     });
@@ -1131,7 +1131,7 @@ function classify(
     push({
       intent: 'create-windows-parametric',
       confidence: 0.95,
-      evidence: ['verb:create', 'noun:window', `scope:${typeof winParam.scope === 'string' ? winParam.scope : winParam.scope.kind}`],
+      evidence: ['verb:create', 'noun:window', `scope:${scopeTag(winParam.scope)}`],
       si: winParam,
     });
   }
@@ -1141,12 +1141,12 @@ function classify(
   // function the tier-0 grammar uses, so the two paths cannot read the sentence
   // differently. Confidence is high because the shape is unambiguous: a scope
   // word, "walls", and a catalogue reference.
-  const wallType = parseWallTypeIntent(n.plain);
+  const wallType = parseWallTypeIntent(n.plain, ctx);
   if (wallType !== null && wallColor === null) {
     push({
       intent: 'set-wall-type',
       confidence: 0.92,
-      evidence: ['verb:retype', 'noun:wall', `scope:${wallType.scope}`],
+      evidence: ['verb:retype', 'noun:wall', `scope:${scopeTag(wallType.scope)}`],
       si: wallType,
     });
   }
@@ -1241,6 +1241,18 @@ export function noteResolution(
  * Pure: no DOM, no stores, no network, no timers. Conversation context biases
  * interpretation only — the live editor state always wins for targeting.
  */
+/** RAC U8.1 — ONE evidence tag for every scope form. The union widened from
+ *  two string literals to spatial and FILTER descriptors, and a template
+ *  literal over an object prints "[object Object]" — an evidence line that
+ *  says nothing is worse than no line at all. */
+function scopeTag(scope: unknown): string {
+  if (typeof scope === 'string') return scope;
+  if (typeof scope === 'object' && scope !== null && 'kind' in scope) {
+    return String((scope as { kind: unknown }).kind);
+  }
+  return 'unknown';
+}
+
 export function resolveNaturalLanguage(
   utterance: string,
   ctx: NaturalLanguageContext,
@@ -1299,7 +1311,15 @@ export function resolveNaturalLanguage(
             const nextConversation: ConversationContext = {
               lastIntent: si.intent,
               ...(ctx.selection.length > 0 ? { lastReferencedElements: [...ctx.selection] } : {}),
-              ...(si.intent === 'set-wall-type' ? { lastWallTypeScope: si.scope } : {}),
+              // RAC U8.1 — the scope union widened to IntentScope, but this
+              // memory exists for the bare follow-up ("and the ones on level
+              // 2?" is a NEW scope, not a remembered one). Only the two
+              // scope-WORD forms are carried forward; a spatial or filtered
+              // scope is deliberately not re-applied to the next sentence,
+              // which would silently widen or narrow what the user asked.
+              ...(si.intent === 'set-wall-type' && typeof si.scope === 'string'
+                ? { lastWallTypeScope: si.scope }
+                : {}),
               ...('value' in si ? { lastMeasurement: si.value } : conversation.lastMeasurement !== undefined ? { lastMeasurement: conversation.lastMeasurement } : {}),
               ...(applied.kind === 'local' && applied.action === 'setActiveLevel' && applied.levelId !== undefined
                 ? { lastLevelId: applied.levelId }

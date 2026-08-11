@@ -9,6 +9,7 @@ import { SetCeilingHeightHandler } from './SetCeilingHeight.js';
 import { UpdateCeilingHandler } from './UpdateCeiling.js';
 import { UpdateCeilingLayersHandler } from './UpdateCeilingLayers.js';
 import { SetCeilingMaterialHandler } from './SetCeilingMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
+import { UpdateCeilingsSystemTypeBatchHandler } from './UpdateCeilingsSystemTypeBatch.js';
 
 export const CEILING_HANDLER_TYPES = [
   'ceiling.create',
@@ -19,6 +20,9 @@ export const CEILING_HANDLER_TYPES = [
   'ceiling.update',
   'ceiling.updateLayers',
   'ceiling.setMaterial',
+  // §FEAT-CEILING-TYPE-BATCH (RAC U7.2) — batch retype ('all' or explicit ids),
+  // one undo entry, bridged to the live UpdateCeilingLayersCommand route.
+  'ceiling.updateSystemTypeBatch',
 ] as const;
 
 export type CeilingHandlerType = (typeof CEILING_HANDLER_TYPES)[number];
@@ -33,6 +37,7 @@ export function buildCeilingHandlerSet(): readonly CommandHandler<unknown>[] {
     UpdateCeilingHandler as unknown as CommandHandler<unknown>,
     UpdateCeilingLayersHandler as unknown as CommandHandler<unknown>,
     new SetCeilingMaterialHandler() as unknown as CommandHandler<unknown>,
+    UpdateCeilingsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
   ];
 }
 

@@ -162,6 +162,25 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'make the door 1m wide',
     ],
   },
+  // ── RAC U7.2 — the CATALOGUE FAMILIES (generated from CatalogueFamilies.ts)
+  {
+    id: 'set-slab-type',
+    ctx: sel('slab'),
+    phrasings: [
+      'change all slabs to rc slab monolithic 200mm',
+      'change the slab type to composite deck',
+      'convert the selected slabs to insulated screed',
+    ],
+  },
+  {
+    id: 'set-ceiling-type',
+    ctx: sel('ceiling'),
+    phrasings: [
+      'change all ceilings to plasterboard 12.5mm',
+      'change the ceiling type to suspended act 600x600',
+      'convert the selected ceilings to exposed concrete soffit',
+    ],
+  },
   // ── RAC U7.1 — the PROPERTY VOCABULARY families ─────────────────────────
   // These reach applySemanticIntent through the ONE generic property arm and
   // the ONE table-compiled grammar; nothing about them is hand-written.

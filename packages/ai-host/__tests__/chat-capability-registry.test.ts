@@ -47,6 +47,11 @@ import {
   allPropertyEntries,
   propertyTargets,
 } from '../src/intents/PropertyVocabulary.js';
+// RAC U7.2 — the catalogue-family table (window / door / slab / ceiling).
+import {
+  CATALOGUE_FAMILIES,
+  catalogueFamilyTargets,
+} from '../src/intents/CatalogueFamilies.js';
 
 const ctxSelecting = (kind: string): ResolverContext => ({
   selection: [{ elementId: `probe-${kind}`, elementType: kind }],
@@ -165,6 +170,9 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — "change the door type to …" (the
       // spec-arm extension proof: metadata only, zero new case code).
       'set-door-type': ['door'],
+      // RAC U7.2 — the two catalogue families generated from CatalogueFamilies.ts.
+      'set-slab-type': ['slab'],
+      'set-ceiling-type': ['ceiling'],
       // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315) — "add a 10mm plaster layer …".
       'add-wall-layer': ['wall'],
       // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315) — "a window in every wall segment".
@@ -177,6 +185,41 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       if (cap.targets === 'global') continue;
       expect(expected[cap.id], `capability ${cap.id} missing from the matrix literal`).toBeDefined();
       expect([...cap.targets].sort(), cap.id).toEqual([...expected[cap.id]!].sort());
+    }
+  });
+
+  // ── RAC U7.2 — the catalogue families are the single source of their claims ─
+  it('every catalogue family declares exactly its own element kind, and a live batch verb', () => {
+    for (const family of CATALOGUE_FAMILIES) {
+      const cap = resolveChatCapability(family.intent);
+      expect(cap, `${family.intent} has a family entry but no registry metadata`).not.toBeNull();
+      expect([...(cap!.targets as readonly string[])], family.intent)
+        .toEqual([...catalogueFamilyTargets(family.intent)]);
+      expect(cap!.busCommand, family.intent).toBe(family.busCommand);
+      // L-620: a family may only dispatch a *Batch verb — never a plugin
+      // `*.setType`, which writes a detached DTO store.
+      expect(family.busCommand.endsWith('SystemTypeBatch'), family.intent).toBe(true);
+    }
+  });
+
+  it('an unknown type ref refuses by LISTING the real catalogue names', () => {
+    const ctx: ResolverContext = {
+      ...ctxSelecting('slab'),
+      catalogues: {
+        slab: {
+          resolve: () => null,
+          names: ['RC Slab – Monolithic 200mm', 'Composite Deck – 300mm'],
+        },
+      },
+    };
+    const r = applySemanticIntent(
+      { intent: 'set-slab-type', typeRef: 'unobtainium', scope: 'selection' },
+      ctx,
+    );
+    expect(r.kind).toBe('refusal');
+    if (r.kind === 'refusal') {
+      expect(r.reason).toContain('RC Slab – Monolithic 200mm');
+      expect(r.reason).toContain('Composite Deck – 300mm');
     }
   });
 

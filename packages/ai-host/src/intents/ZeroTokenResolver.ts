@@ -37,6 +37,10 @@ import { describeCapabilitiesFor, descriptiveReportReason } from '../capabilitie
 // arm below (the switch's default). applySemanticIntent remains the single
 // semantic authority; the spec file holds data, not a second dispatcher.
 import { applyExecutionSpec, type SpecDrivenIntent } from './CapabilityExecutionSpec.js';
+// RAC U7.2 — catalogue families (window / door / slab / ceiling) are TABLE
+// ENTRIES: one record generates both the CapabilityExecutionSpec and the
+// grammar below. Adding a family costs zero lines in this file.
+import { CATALOGUE_FAMILIES, type CatalogueLookup } from './CatalogueFamilies.js';
 // RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
 // ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
 // it, the live route per kind, bounds), executed by the ONE generic property arm
@@ -52,7 +56,16 @@ import { exampleColorNames, resolveColorRef } from './colorRef.js';
 // resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
 import { resolveFinishRef } from './finishRef.js';
-import { isScopeError, type Compass4, type ScopeDescriptor, type ScopeResult } from './ScopeDescriptor.js';
+import {
+  isScopeError,
+  type Compass4,
+  type ElementFilter,
+  type IntentScope,
+  type IntentSpatialScope,
+  type ScopeDescriptor,
+  type ScopeResult,
+} from './ScopeDescriptor.js';
+import { parseFilterClauses } from './FilterScope.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +126,16 @@ export interface ResolverContext {
    *  COMMAND resolves and refuses — never a silent mismatch. */
   readonly resolveDoorSystemType?: (ref: string) => ResolverWallSystemType | null;
   readonly doorSystemTypeNames?: readonly string[];
+  /**
+   * RAC U7.2 — the GENERIC catalogue channel, keyed by element kind. The three
+   * named injections above predate it and stay for compatibility; every
+   * catalogue family added from U7.2 on arrives here, so a new family costs
+   * ZERO lines in this interface (the wall/window/door pattern would have cost
+   * two fields each, forever). Same discipline as before: absent ⇒ the raw ref
+   * is forwarded and the COMMAND resolves and refuses — never a silent
+   * mismatch, never a guess.
+   */
+  readonly catalogues?: Readonly<Record<string, CatalogueLookup>>;
   /**
    * ADR-0315 U3.2 — the injected SCOPE RESOLVER (F2). Turns a ScopeDescriptor
    * into authoritative element ids ONCE, editor-side, over indexed paths
@@ -459,7 +482,10 @@ export type SemanticIntent =
       /** Type id OR name, as the user said it — resolved by the injected
        *  `ctx.resolveWallSystemType`, or by the command when absent. */
       readonly typeRef: string;
-      readonly scope: 'all' | 'selection';
+      /** RAC U8.1 widened this to the full `IntentScope`: spatial and FILTER
+       *  scopes ("all walls thicker than 300 mm on level 2") are handled by
+       *  the ONE generic arm, so a capability gains them without a case arm. */
+      readonly scope: IntentScope;
     }
   /**
    * §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white".
@@ -477,14 +503,10 @@ export type SemanticIntent =
       readonly colorRef: string;
       /** ADR-0315 U3 — spatially scoped consumers: "make all walls on level 2
        *  white" / "paint all walls in the kitchen white" / "paint all
-       *  south-facing walls white". Object forms are resolved by the injected
-       *  ctx.resolveScope; absence refuses honestly. */
-      readonly scope:
-        | 'all'
-        | 'selection'
-        | { readonly kind: 'level'; readonly levelQuery: string }
-        | { readonly kind: 'room'; readonly roomRef: string }
-        | { readonly kind: 'orientation'; readonly orientation: Compass4 };
+       *  south-facing walls white". RAC U8.1 adds the FILTER arm: "paint all
+       *  walls thicker than 300 mm on level 2 white". Object forms are
+       *  resolved by the injected ctx.resolveScope; absence refuses honestly. */
+      readonly scope: IntentScope;
     }
   /**
    * §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
@@ -520,12 +542,21 @@ export type SemanticIntent =
       readonly intent: 'set-wall-rake';
       /** Target lean in degrees; 90 = vertical. Range [RAKE_MIN_DEG, RAKE_MAX_DEG]. */
       readonly angleDeg: number;
-      readonly scope:
-        | 'all'
-        | 'selection'
-        | { readonly kind: 'level'; readonly levelQuery: string }
-        | { readonly kind: 'room'; readonly roomRef: string }
-        | { readonly kind: 'orientation'; readonly orientation: Compass4 };
+      /** RAC U8.1 — the full IntentScope (spatial + filter), one generic arm. */
+      readonly scope: IntentScope;
+    }
+  /**
+   * §FEAT-SLAB-TYPE-BATCH / §FEAT-CEILING-TYPE-BATCH (RAC U7.2) — "change all
+   * slabs to RC 250" / "change all ceilings to suspended act 600x600". Both
+   * are CATALOGUE FAMILY table entries (CatalogueFamilies.ts): the spec, the
+   * grammar and the refusal copy are generated, and each dispatches ONE batch
+   * verb whose children are the live layer commands against the geometry
+   * stores the builders read — never a plugin DTO store (L-620).
+   */
+  | {
+      readonly intent: 'set-slab-type' | 'set-ceiling-type';
+      readonly typeRef: string;
+      readonly scope: IntentScope;
     }
   /**
    * §FEAT-WINDOW-TYPE-BATCH (ADR-0315, founder ask #4) — "change the window
@@ -539,7 +570,8 @@ export type SemanticIntent =
       /** Type id OR name, as the user said it — resolved by the injected
        *  `ctx.resolveWindowSystemType`, or by the command when absent. */
       readonly typeRef: string;
-      readonly scope: 'all' | 'selection';
+      /** RAC U8.1 — the full IntentScope (spatial + filter). */
+      readonly scope: IntentScope;
     }
   /**
    * §FEAT-DOOR-TYPE-BATCH (RAC U4.3, the §56 extension proof) — "change the
@@ -555,7 +587,8 @@ export type SemanticIntent =
       /** Type id OR name, as the user said it — resolved by the injected
        *  `ctx.resolveDoorSystemType`, or by the command when absent. */
       readonly typeRef: string;
-      readonly scope: 'all' | 'selection';
+      /** RAC U8.1 — the full IntentScope (spatial + filter). */
+      readonly scope: IntentScope;
     }
   /**
    * §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a
@@ -596,7 +629,8 @@ export type SemanticIntent =
       readonly thicknessM: number | null;
       /** Finish reference ("plaster"), or null when none was recognized. */
       readonly finishRef: string | null;
-      readonly scope: 'all' | 'selection';
+      /** RAC U8.1 — the full IntentScope (spatial + filter). */
+      readonly scope: IntentScope;
     }
   /**
    * §GEN-CHAT (RAC U5b.2, Dimension B) — "generate a 3-storey residential
@@ -2433,6 +2467,20 @@ const WALL_SCOPE_ALL = String.raw`(?:all|every|each)`;
 const WALL_SCOPE_SEL = String.raw`(?:these|those|selected|this)`;
 const WALL_TYPE_VERB = String.raw`(?:make|change|set|switch|convert|turn|retype|update)`;
 
+// ─── RAC U8.1 — the shared FILTER lift ───────────────────────────────────────
+//
+// Every batch grammar below runs against text that has already had its filter
+// clauses LIFTED OUT (see FilterScope.ts for why that is a pre-strip and not
+// six more capture groups per capability). The lift is the FIRST thing each
+// parser does and `withFilters` is the LAST — so a filter composes with every
+// scope form the grammar already understood, in either word order, with no
+// per-capability code.
+function withFilters(base: IntentScope, filters: readonly ElementFilter[]): IntentScope {
+  if (filters.length === 0) return base;
+  // `base` is never itself a filter here — the lift runs exactly once.
+  return { kind: 'filter', base: base as 'all' | 'selection' | IntentSpatialScope, filters };
+}
+
 const WALL_TYPE_RE = new RegExp(
   `^${WALL_TYPE_VERB}(?: over)? (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: of)?(?: the)? walls?` +
   `(?: over)?(?: (?:to|into|as|be))? (?:the )?(?:wall )?(?:system )?(?:type )?(?:a |an |the )?(.+)$`,
@@ -2447,8 +2495,12 @@ const WALL_TYPE_RE = new RegExp(
  * "make walls interior partition" could mean the project or the selection, and
  * on a project-wide retype that is not a coin worth flipping.
  */
-export function parseWallTypeIntent(text: string): Extract<SemanticIntent, { intent: 'set-wall-type' }> | null {
-  const m = WALL_TYPE_RE.exec(text);
+export function parseWallTypeIntent(
+  text: string,
+  ctx?: ResolverContext,
+): Extract<SemanticIntent, { intent: 'set-wall-type' }> | null {
+  const lifted = parseFilterClauses(text, 'wall', ctx?.resolveWallSystemType);
+  const m = WALL_TYPE_RE.exec(lifted.stripped);
   if (!m) return null;
   const scopeWord = m[1]!;
   const typeRef = m[2]!.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
@@ -2459,11 +2511,14 @@ export function parseWallTypeIntent(text: string): Extract<SemanticIntent, { int
   return {
     intent: 'set-wall-type',
     typeRef,
-    scope: new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord) ? 'all' : 'selection',
+    scope: withFilters(
+      new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord) ? 'all' : 'selection',
+      lifted.filters,
+    ),
   };
 }
 
-const matchWallType: Matcher = (text) => parseWallTypeIntent(text);
+const matchWallType: Matcher = (text, ctx) => parseWallTypeIntent(text, ctx);
 
 // §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white" and its family.
 //
@@ -2498,8 +2553,12 @@ const WALL_COLOR_RE = new RegExp(
  * null when the scope word is absent or (for the non-colour-specific verbs)
  * the trailing text is not a known colour.
  */
-export function parseWallColorIntent(text: string): Extract<SemanticIntent, { intent: 'set-wall-color' }> | null {
-  const m = WALL_COLOR_RE.exec(text);
+export function parseWallColorIntent(
+  text: string,
+  ctx?: ResolverContext,
+): Extract<SemanticIntent, { intent: 'set-wall-color' }> | null {
+  const lifted = parseFilterClauses(text, 'wall', ctx?.resolveWallSystemType);
+  const m = WALL_COLOR_RE.exec(lifted.stripped);
   if (!m) return null;
   const verb = m[1]!;
   const scopeWord = m[2]!;
@@ -2514,22 +2573,35 @@ export function parseWallColorIntent(text: string): Extract<SemanticIntent, { in
   // the kitchen" / "all south-facing walls"); combining them with
   // "these/selected" would contradict the live selection and is not claimed.
   const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
-  if (orientationWord !== undefined) {
-    if (!isAll) return null;
-    return { intent: 'set-wall-color', colorRef, scope: { kind: 'orientation', orientation: ORIENTATION_TO_COMPASS[orientationWord]! } };
-  }
-  if (levelQuery !== undefined && levelQuery.length > 0) {
-    if (!isAll) return null;
-    return { intent: 'set-wall-color', colorRef, scope: { kind: 'level', levelQuery } };
-  }
-  if (roomRef !== undefined && roomRef.length > 0) {
-    if (!isAll) return null;
-    return { intent: 'set-wall-color', colorRef, scope: { kind: 'room', roomRef } };
-  }
-  return { intent: 'set-wall-color', colorRef, scope: isAll ? 'all' : 'selection' };
+  const base = wallScopeBase(isAll, orientationWord, levelQuery, roomRef);
+  if (base === null) return null;
+  return { intent: 'set-wall-color', colorRef, scope: withFilters(base, lifted.filters) };
 }
 
-const matchWallColor: Matcher = (text) => parseWallColorIntent(text);
+/** The ONE mapping from the shared spatial captures (orientation / level /
+ *  room, byte-identical across the colour and rake grammars) to the intent
+ *  scope. Spatial phrases compose with the ALL scope only — combining them
+ *  with "these/selected" would contradict the live selection, and that is not
+ *  claimed. Returns null for that non-claim. */
+function wallScopeBase(
+  isAll: boolean,
+  orientationWord: string | undefined,
+  levelQuery: string | undefined,
+  roomRef: string | undefined,
+): 'all' | 'selection' | IntentSpatialScope | null {
+  if (orientationWord !== undefined) {
+    return isAll ? { kind: 'orientation', orientation: ORIENTATION_TO_COMPASS[orientationWord]! } : null;
+  }
+  if (levelQuery !== undefined && levelQuery.length > 0) {
+    return isAll ? { kind: 'level', levelQuery } : null;
+  }
+  if (roomRef !== undefined && roomRef.length > 0) {
+    return isAll ? { kind: 'room', roomRef } : null;
+  }
+  return isAll ? 'all' : 'selection';
+}
+
+const matchWallColor: Matcher = (text, ctx) => parseWallColorIntent(text, ctx);
 
 // §FEAT-WALL-RAKE-BATCH (ADR-0315, founder ask #1) — "make all walls angled by
 // 120 degrees" and its family.
@@ -2560,9 +2632,13 @@ const WALL_RAKE_VERB_RE = new RegExp(
  * when no rake word appears; out-of-range ANGLES still parse (the apply arm
  * owns the range refusal, so "angled by 200" gets a real answer, not a miss).
  */
-export function parseWallRakeIntent(text: string): Extract<SemanticIntent, { intent: 'set-wall-rake' }> | null {
-  const adj = WALL_RAKE_ADJ_RE.exec(text);
-  const verb = adj === null ? WALL_RAKE_VERB_RE.exec(text) : null;
+export function parseWallRakeIntent(
+  text: string,
+  ctx?: ResolverContext,
+): Extract<SemanticIntent, { intent: 'set-wall-rake' }> | null {
+  const lifted = parseFilterClauses(text, 'wall', ctx?.resolveWallSystemType);
+  const adj = WALL_RAKE_ADJ_RE.exec(lifted.stripped);
+  const verb = adj === null ? WALL_RAKE_VERB_RE.exec(lifted.stripped) : null;
   const m = adj ?? verb;
   if (!m) return null;
   const scopeWord = m[1]!;
@@ -2575,22 +2651,12 @@ export function parseWallRakeIntent(text: string): Extract<SemanticIntent, { int
   if (!Number.isFinite(angleDeg)) return null;
   // Spatial phrases compose with the ALL scope only (same ruling as colour).
   const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
-  if (orientationWord !== undefined) {
-    if (!isAll) return null;
-    return { intent: 'set-wall-rake', angleDeg, scope: { kind: 'orientation', orientation: ORIENTATION_TO_COMPASS[orientationWord]! } };
-  }
-  if (levelQuery !== undefined && levelQuery.length > 0) {
-    if (!isAll) return null;
-    return { intent: 'set-wall-rake', angleDeg, scope: { kind: 'level', levelQuery } };
-  }
-  if (roomRef !== undefined && roomRef.length > 0) {
-    if (!isAll) return null;
-    return { intent: 'set-wall-rake', angleDeg, scope: { kind: 'room', roomRef } };
-  }
-  return { intent: 'set-wall-rake', angleDeg, scope: isAll ? 'all' : 'selection' };
+  const base = wallScopeBase(isAll, orientationWord, levelQuery, roomRef);
+  if (base === null) return null;
+  return { intent: 'set-wall-rake', angleDeg, scope: withFilters(base, lifted.filters) };
 }
 
-const matchWallRake: Matcher = (text) => parseWallRakeIntent(text);
+const matchWallRake: Matcher = (text, ctx) => parseWallRakeIntent(text, ctx);
 
 // §FEAT-WINDOW-TYPE-BATCH (ADR-0315, founder ask #4) — "change the window type
 // to Steel Crittal Style" / "change all windows to timber casement".
@@ -2608,35 +2674,66 @@ const matchWallRake: Matcher = (text) => parseWallRakeIntent(text);
 // sentences are the SAME two shapes with a different noun, so ONE parser
 // factory serves both (grammar generalization; the APPLY side of each intent
 // is a CapabilityExecutionSpec table entry riding the generic arm).
-function makeHostedTypeParser(noun: string): (text: string) => { typeRef: string; scope: 'all' | 'selection' } | null {
+function makeHostedTypeParser(
+  noun: string,
+  catalogueOf: (ctx: ResolverContext) => ((ref: string) => { id: string; name: string } | null) | undefined,
+): (text: string, ctx?: ResolverContext) => { typeRef: string; scope: IntentScope } | null {
   const scopedRe = new RegExp(
     `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: selected)? ${noun}s?` +
+    // RAC U8 — the SAME spatial captures the colour/rake grammars use, so
+    // "change all doors on level 2 to fire doors" reaches the one arm that
+    // already knows how to resolve a level.
+    `(?: on (?:the )?(?:levels?|floors?)?\\s*([\\w .-]+?)| in the ([\\w .-]+?))?` +
     `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (.+)$`,
   );
   const singularRe = new RegExp(
     String.raw`^(?:change|set|swap) (?:the )?${noun}(?:'s)? type (?:to|into|as) (.+)$`,
   );
-  return (text) => {
-    const scoped = scopedRe.exec(text);
-    const singular = scoped === null ? singularRe.exec(text) : null;
+  return (text, ctx) => {
+    const lifted = parseFilterClauses(text, noun, ctx === undefined ? undefined : catalogueOf(ctx));
+    const scoped = scopedRe.exec(lifted.stripped);
+    const singular = scoped === null ? singularRe.exec(lifted.stripped) : null;
     if (scoped === null && singular === null) return null;
-    const typeRef = (scoped?.[2] ?? singular![1]!).trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
+    const typeRef = (scoped?.[4] ?? singular![1]!).trim().replace(/^["']|["']$/g, '').replace(/\s+/g, ' ');
     if (typeRef.length === 0) return null;
     // "make all windows 1m wide" is a DIMENSION ask, not a type ask — never claim it.
     if (/\b(?:tall|high|wide|taller|wider|height|width|sill|deep|long)\b/.test(typeRef)) return null;
     if (/^\d/.test(typeRef)) return null;
-    const scope: 'all' | 'selection' = scoped === null
-      ? 'selection'
-      : new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!) ? 'all' : 'selection';
-    return { typeRef, scope };
+    if (scoped === null) return { typeRef, scope: withFilters('selection', lifted.filters) };
+    const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scoped[1]!);
+    const base = wallScopeBase(isAll, undefined, scoped[2]?.trim(), scoped[3]?.trim());
+    if (base === null) return null;
+    return { typeRef, scope: withFilters(base, lifted.filters) };
   };
 }
 
-const parseWindowTypeShape = makeHostedTypeParser('window');
-const parseDoorTypeShape = makeHostedTypeParser('door');
+/**
+ * RAC U7.2 — one parser per CATALOGUE FAMILY, built from the table. The shapes
+ * and the non-claim guards are the shared factory's; what a family contributes
+ * is its noun, its catalogue and (optionally) the refs it must not claim. A new
+ * family therefore arrives with its grammar and costs nothing here.
+ */
+const CATALOGUE_FAMILY_MATCHERS: readonly Matcher[] = CATALOGUE_FAMILIES.map((family) => {
+  const shape = makeHostedTypeParser(family.elementKind, (c) => {
+    const lookup = family.lookup(c);
+    return lookup === null ? undefined : lookup.resolve;
+  });
+  return (text, ctx): SemanticIntent | null => {
+    const hit = shape(text, ctx);
+    if (hit === null) return null;
+    if (family.rejectRef?.(hit.typeRef) === true) return null;
+    return { intent: family.intent, ...hit } as SemanticIntent;
+  };
+});
 
-export function parseWindowTypeIntent(text: string): Extract<SemanticIntent, { intent: 'set-window-type' }> | null {
-  const hit = parseWindowTypeShape(text);
+const parseWindowTypeShape = makeHostedTypeParser('window', (c) => c.resolveWindowSystemType);
+const parseDoorTypeShape = makeHostedTypeParser('door', (c) => c.resolveDoorSystemType);
+
+export function parseWindowTypeIntent(
+  text: string,
+  ctx?: ResolverContext,
+): Extract<SemanticIntent, { intent: 'set-window-type' }> | null {
+  const hit = parseWindowTypeShape(text, ctx);
   return hit === null ? null : { intent: 'set-window-type', ...hit };
 }
 
@@ -2644,16 +2741,17 @@ export function parseWindowTypeIntent(text: string): Extract<SemanticIntent, { i
 // all doors to …". Same shapes and guards via the shared factory; "swing"
 // additionally never claims, so "change all doors to left swing" stays a
 // swing ask (door.setSwing owns that verb).
-export function parseDoorTypeIntent(text: string): Extract<SemanticIntent, { intent: 'set-door-type' }> | null {
-  const hit = parseDoorTypeShape(text);
+export function parseDoorTypeIntent(
+  text: string,
+  ctx?: ResolverContext,
+): Extract<SemanticIntent, { intent: 'set-door-type' }> | null {
+  const hit = parseDoorTypeShape(text, ctx);
   if (hit === null) return null;
   if (/\bswings?\b/.test(hit.typeRef)) return null;
   return { intent: 'set-door-type', ...hit };
 }
 
-const matchWindowType: Matcher = (text) => parseWindowTypeIntent(text);
 
-const matchDoorType: Matcher = (text) => parseDoorTypeIntent(text);
 
 // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm plaster
 // layer to the inner side of the selected wall" and its loose family.
@@ -3051,9 +3149,10 @@ const MATCHERS: readonly Matcher[] = [
   matchWallType,
   // Window types, same guards as wall types ("make all windows 1m wide" never
   // claimed); the word "windows"/"window type" keeps it off the wall grammars.
-  matchWindowType,
-  // RAC U4.3 — the door twin of matchWindowType (shared hosted-type grammar).
-  matchDoorType,
+  // RAC U7.2 — every CATALOGUE FAMILY's type grammar, generated from the table
+  // (window, door, slab, ceiling). They sit exactly where matchWindowType and
+  // matchDoorType sat: after the wall grammars, before the dimension family.
+  ...CATALOGUE_FAMILY_MATCHERS,
   // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
   // it off every other grammar; claims even when underspecified (honest asks).
   matchAddWallLayer,

@@ -48,6 +48,11 @@ export enum CommandType {
     UPDATE_WINDOWS_SYSTEM_TYPE_BATCH = 'UPDATE_WINDOWS_SYSTEM_TYPE_BATCH',
     // §FEAT-DOOR-TYPE-BATCH (RAC U4.3) — the door twin: retype MANY doors (or 'all') in ONE undo step.
     UPDATE_DOORS_SYSTEM_TYPE_BATCH = 'UPDATE_DOORS_SYSTEM_TYPE_BATCH',
+    // §FEAT-SLAB-TYPE-BATCH / §FEAT-CEILING-TYPE-BATCH (RAC U7.2) — the same
+    // shape for the two LAYER-STACK families whose catalogues already ship:
+    // retype MANY slabs / ceilings (or 'all') in ONE undo step.
+    UPDATE_SLABS_SYSTEM_TYPE_BATCH = 'UPDATE_SLABS_SYSTEM_TYPE_BATCH',
+    UPDATE_CEILINGS_SYSTEM_TYPE_BATCH = 'UPDATE_CEILINGS_SYSTEM_TYPE_BATCH',
     // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315) — create windows across a wall set in ONE undo step.
     CREATE_WINDOWS_PARAMETRIC_BATCH = 'CREATE_WINDOWS_PARAMETRIC_BATCH',
     MOVE_DOOR = 'MOVE_DOOR',
