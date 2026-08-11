@@ -53,6 +53,16 @@ and the RAC's answer to most of them is silence.**
 | **V6 SYNC** | 0 PASS · 0 FAIL · **55 UNPROVEN** |
 | **V7 REPORT** | 2 PASS · **21 FAIL** · 32 UNPROVEN |
 
+> **Amended 2026-08-11 (§5A).** The table above is the FIRST-PASS tally. A headless
+> composition root now exists (`tools/rac-conformance/runtime-harness/`), and it moved
+> **V3: 3.1, 3.2, 3.3, 3.5 → FAIL** (dispatch reports success, the authoritative store
+> does not move) and **V4 → PASS / V5 → PASS** for the two door paths that reach the
+> authoritative store at all. Revised: **V3** 1 PASS · 5 FAIL · 49 UNPR · **V4** 1 PASS
+> · 1 FAIL · 53 UNPR · **V5** 1 PASS · 1 FAIL · 53 UNPR. The residual UNPROVEN rows now
+> carry a *specific* reason each (§5A.6), not one blanket one — and the reason is no
+> longer "no headless runtime" but **"the composition root builds no authoritative
+> store for this element kind"**, which is a far more serious finding.
+
 **V3–V6 are UNPROVEN for all but one row, and that is the honest answer, not a
 harness failure.** The audit's gap is not closed by this pass; it is *measured
 and localised*. §6 states exactly what is needed to close it and hands over the
@@ -420,7 +430,161 @@ the `ElementCapabilities` lie (C68 §2.2) in live grammar rather than in a table
 
 ---
 
+## 5A — SUPERSEDED 2026-08-11: the headless composition root EXISTS, and it changes the V3 answer
+
+> **This section supersedes §6.1's "no headless composition root" premise.** §6.1 is
+> retained verbatim below as the record of what was believed; read this section first.
+> Harness: `tools/rac-conformance/runtime-harness/` · re-run command in §9.
+
+### 5A.1 It composes. Zero stubs on the measured path.
+
+`composeRuntime()` — the P1 single composition root — **composes in Node under
+happy-dom with nothing stubbed**, given `canvas: null` and the real
+`bootstrapWithEverything` from `@pryzm/editor`. No parallel runtime was built; no
+`@thatopen/ui` stub was needed. Measured output:
+
+```
+SLOTS: ai,apartmentParameterPropagator,apartmentStore,audit,auth,bcf,buildingStore,
+cameraController,cde,climateStore,debug,entitlements,events,export,familyRegistryStore,
+geospatial,hover,ifc,ifcMetaStore,inputHost,levelStore,pdf,persistence,physics,physicsHost,
+picking,plugins,projectContext,provenanceStore,rhino,roomStore,scene,sceneReady,search,
+selection,shortcuts,siteModelStore,stores,structural,sync,tearDown,toast,toasts,tools,
+typology,undoStack,userPreferences,viewRegistry,visibility,workspace,workspaceMode
+renderer: null
+bus present: true   registry size: 236
+```
+
+(Registry size reads **236–237** across runs. The variance is real and worth a look —
+the gated residential / office typology-pack registrations are the likely source —
+but it is not a harness artefact and is not chased here.)
+
+**`@thatopen/ui` was never the blocker.** The blocker was that
+`ComposeRuntimeOptions.bootstrapFn` is **required** and every prior "headless"
+caller omitted it — see 5A.4.
+
+### 5A.2 THE FINDING: the composition root does not own the authoritative BIM state
+
+The composed runtime exposes **no element stores at all**:
+
+```
+runtime.stores exposes: registerHydrator, hydrate, viewState, project
+```
+
+and a census of the authoritative geometry stores after a successful compose:
+
+```
+wallStore=ABSENT  slabStore=ABSENT  roofStore=ABSENT  stairStore=ABSENT
+columnStore=ABSENT curtainWallStore=ABSENT gridStore=ABSENT beamStore=ABSENT
+handrailStore=ABSENT roomStore=ABSENT ceilingStore=ABSENT floorStore=ABSENT
+furnitureStore=ABSENT plumbingStore=ABSENT
+doorStore=MODULE-SINGLETON  windowStore=MODULE-SINGLETON
+```
+
+**P1's "single composition root" composes only the plugin-DTO half.** The stores the
+serializer, the fragment builders, the 2-D projector and the IFC exporter read are
+constructed by `apps/editor/src/engine/engineLauncher.ts` — the DOM/renderer half —
+and are not referenced by `composeRuntime()` at any point. Doors and windows are the
+sole exceptions, and only because they are *module singletons*, reachable from
+anywhere by accident of module scope rather than by composition.
+
+This is a **structural** answer to "is V3 provable", not a harness limitation:
+for twelve element kinds there is no authoritative store to read *because the
+composition root never builds one*.
+
+### 5A.3 Re-scored rows — measured, not inferred
+
+`door.create` and `window.create` are the headline: **the dispatch reports success
+and the authoritative store does not move.** That is the exact conflation this whole
+exercise exists to break, now proven at runtime rather than by static call graph.
+
+| row | verb | measurement | V3 | V4 | V5 |
+|---|---|---|---|---|---|
+| 3.1 | `door.create` | dispatch=OK · authoritative `doorStore` 0→0 · record ABSENT | **UNPR → FAIL** | UNPR | UNPR |
+| 3.5 | `window.create` | dispatch=OK · authoritative `windowStore` 0→0 · record ABSENT | **UNPR → FAIL** | UNPR | UNPR |
+| 3.2 | `door.move` | refused `canExecute rejected — door not found` against a door that **is** in the authoritative store (the handler reads the DTO store) | **UNPR → FAIL** | UNPR | **UNPR → FAIL** (nothing to undo) |
+| 3.3 | `door.setType` | refused `systemTypeId must be a non-empty string` · authoritative `doorType` unchanged | **UNPR → FAIL** | UNPR | UNPR |
+| — | door record save/load | production `ProjectSerializer` → JSON → real `ProjectLoader` restore sequence · `offset` 3.25 survives | n/a | **UNPR → PASS** | n/a |
+| — | `UpdateDoorSystemTypeCommand` (command-registry, **not** bus-routed) | authoritative `systemTypeId` `undefined → dt-solid-timber → undo → undefined` | **PASS** | n/a | **UNPR → PASS** |
+
+Read the last two rows together and the architecture states itself plainly: **the
+persistence layer and the legacy command-registry both reach the authoritative
+store; the command bus does not.** V4 is not broken for doors — it was never
+reached, because V3 never wrote anything for persistence to save.
+
+### 5A.4 `@pryzm/headless` cannot compose, and its tests cannot notice
+
+`packages/headless/src/headlessRuntime.ts` calls
+`composeRuntime({ audit, canvas: null })` and **omits the required `bootstrapFn`**.
+`packages/headless/__tests__/headless.test.ts` mocks `@pryzm/runtime-composer`
+wholesale, so the package's entire test suite passes without ever calling the
+function it exists to wrap. A published `1.0.0-rc.1` package advertising "run the
+full PryzmRuntime in Node.js" does not compose. This is the same defect class as
+L-809: an artefact asserting a capability it never exercised.
+
+### 5A.5 Falsifiability — every green cell above was watched failing
+
+A probe nobody has watched fail is a probe nobody should trust.
+
+```
+[FALSIFY V3] authoritative offset 1 -> 7.75 | detects-real-change=true | rejects-wrong-expectation=true
+[FALSIFY V4] restored=3.25 vs mutated expectation 9.99 -> probe GOES RED (trustworthy)
+```
+
+The V3 probe is additionally guarded by a self-check that writes and reads the
+authoritative store before any "0 records" reading is trusted, so **a harness that
+cannot reach a store reports MISCONFIGURED, never "0 changes"** — the V4 leg did
+exactly that (`MISCONFIGURED — serializer unreachable: …`) for three iterations
+before the serializer was reached, and never once reported a false zero.
+
+### 5A.6 Still UNPROVEN, and why
+
+| verdict | rows | reason (not "no runtime" any more) |
+|---|---|---|
+| V3 | walls, slabs, roofs, stairs, columns, curtain-walls, grids, beams, handrails, rooms, ceilings, floors | **no authoritative store exists in the composed runtime** (5A.2). Proving these needs either the store construction moved into `composeRuntime`, or a browser/Playwright harness that boots `engineLauncher`. |
+| V4 | every kind except door/window | serializer reads injected store instances that the composition root never builds |
+| V5 | every bus-routed verb | undo has nothing to reverse while V3 writes only the DTO store; `runtime.undoStack.undo()` ran without error and changed nothing |
+| V6 | all 55 | genuinely out of reach headlessly — needs a second client |
+
+**Nothing was promoted to PASS without a store read.** Four rows moved UNPROVEN→FAIL,
+two moved UNPROVEN→PASS, and the rest are stated above with a *specific* reason each,
+replacing the single blanket reason recorded on every row in §2.
+
+### 5A.7 Product-side diffs — handed over, NOT applied
+
+1. **`packages/headless/src/headlessRuntime.ts`** — accept and forward `bootstrapFn`
+   (currently unforwardable, so the package cannot work):
+   ```diff
+   -export interface HeadlessRuntimeOptions { readonly audit: RuntimeAudit; }
+   +export interface HeadlessRuntimeOptions {
+   +  readonly audit: RuntimeAudit;
+   +  /** REQUIRED by composeRuntime. Production: `bootstrapWithEverything`. */
+   +  readonly bootstrapFn: ComposeRuntimeOptions['bootstrapFn'];
+   +}
+    export async function headlessRuntime(options: HeadlessRuntimeOptions) {
+   -  return composeRuntime({ audit: options.audit, canvas: null });
+   +  return composeRuntime({ audit: options.audit, canvas: null,
+   +                          bootstrapFn: options.bootstrapFn });
+    }
+   ```
+2. **`packages/headless/__tests__/headless.test.ts`** — delete the
+   `vi.mock('@pryzm/runtime-composer')` and compose for real. The mock is what let
+   (1) ship.
+3. **`packages/persistence-client/src/index.ts`** — export `ProjectSerializer` /
+   `ProjectLoader`. The harness reaches the production serializer by relative path
+   because neither is exported from any barrel.
+4. **The real fix, larger than a diff:** either `composeRuntime` constructs the
+   authoritative geometry stores, or the plugin handlers stop writing detached DTO
+   stores. Until one of those happens, **V3 is unprovable-by-construction for twelve
+   element kinds** and no harness can change that. This is an ADR, not a patch.
+
+---
+
 ## 6 — What remains UNPROVEN, and how to close it
+
+> ⚠ **§6.1's premise is SUPERSEDED by §5A (2026-08-11).** The headless composition
+> root exists and composes with zero stubs. Retained below as the record of what was
+> believed at first measurement; the store table in §6.1 remains accurate and was
+> the map the harness followed.
 
 **Broken and unproven are different facts.** These are the unproven ones.
 
@@ -641,6 +805,17 @@ npx tsx tools/rac-conformance/dump-capabilities.ts
 
 # The gate this harness complements — READ IT, do not edit it
 npx tsx tools/ga-gate/check-chat-capability-coverage.ts
+
+# §5A — V3 / V4 / V5 against the REAL headless composition root.
+# happy-dom, forks pool, ~3 min cold (transform-bound, not hang-bound).
+cd tools/rac-conformance/runtime-harness
+NODE_OPTIONS=--max-old-space-size=6144 npx vitest run --config ./vitest.config.ts \
+  --disable-console-intercept
+#   compose.probe.ts   — proves composeRuntime() boots headless, zero stubs
+#   discover.probe.ts  — the store census (which authoritative stores exist)
+#   v3v4v5.probe.ts    — the verdicts, each with its falsifiability twin
+# `--disable-console-intercept` is REQUIRED: the verdict lines are console output,
+# and vitest swallows them otherwise — a silent run is not a green run.
 ```
 
 All probes **exit 0 always**. They are measurements, not gates: a harness that

@@ -396,11 +396,42 @@ I can't tell you what happened — the command was dispatched and sent no report
 6. An invalid property produces a **silent miss, not a refusal** (row 23).
 7. A **negative height is dispatched** without a bound check (row 23b).
 
+> ⚠ **AMENDED 2026-08-11 — the runtime harness now exists.**
+> `tools/rac-conformance/runtime-harness/` composes the REAL `composeRuntime()` P1
+> composition root in Node under happy-dom with **zero stubs on the measured path**
+> (51 slots, 236 bus handlers, `renderer: null`). Full evidence, re-scored rows,
+> falsifiability proofs and handover diffs are in
+> **`RAC-CONFORMANCE-SCORECARD-CAT1-5.md` §5A**. The three items below are amended
+> rather than deleted, because *what changed* matters more than the new value.
+>
+> **The reason for UNPROVEN has changed, and hardened.** It is no longer "no headless
+> runtime". It is: **the composition root builds no authoritative store for twelve of
+> the fourteen element kinds.** `runtime.stores` exposes only
+> `registerHydrator, hydrate, viewState, project`; `wallStore`, `slabStore`,
+> `roofStore`, `stairStore`, `columnStore`, `curtainWallStore`, `gridStore`,
+> `beamStore`, `handrailStore`, `roomStore`, `ceilingStore`, `floorStore`,
+> `furnitureStore` and `plumbingStore` are all **ABSENT** after a successful compose —
+> they are built by `engineLauncher.ts`, the DOM/renderer half. Doors and windows are
+> reachable only because they are module singletons.
+>
+> So **item 4 of the BROKEN list above is now runtime-confirmed and generalises**:
+> `room.create` writing a detached DTO store is not a room-specific defect. Every
+> bus-routed create/update verb writes a DTO store the serializer and the builders
+> never read. Measured directly: `door.create` **dispatches OK and leaves the
+> authoritative `doorStore` at 0 records**; `door.move` against a door that *is* in the
+> authoritative store is refused with *"door not found"* because the handler consults
+> the DTO store. V3 for those rows is **FAIL**, not UNPROVEN.
+>
+> Two rows moved to **PASS** with real store reads — a door record surviving
+> production `ProjectSerializer` → JSON → real `ProjectLoader` restore (V4), and
+> `UpdateDoorSystemTypeCommand` reversing the specific `systemTypeId` property (V5) —
+> and both came through the **command-registry / persistence** paths, **not** the bus.
+
 **UNPROVEN (could not be established here; needs a runtime harness):**
 
-1. **Every V3 outside category 8.** No browser, no renderer, no fragment builder in this process.
-2. **Every V4.** No save→reload was performed against Postgres or the snapshot writer.
-3. **Every V5.** Whether one undo restores exactly the prior value — including whether a batch is genuinely one history entry — is a runtime fact the gate itself says it cannot see.
+1. **Every V3 outside category 8.** ~~No browser, no renderer, no fragment builder in this process.~~ **AMENDED:** the runtime composes; the authoritative store does not exist in it. Closing these needs an ADR moving store construction into `composeRuntime`, or a Playwright harness booting `engineLauncher` — not a better Node harness.
+2. **Every V4.** ~~No save→reload was performed.~~ **AMENDED:** save→reload is now proven end-to-end for the door family through the production serializer. It stays UNPROVEN elsewhere for the same reason as (1): nothing writes an authoritative record to save.
+3. **Every V5.** **AMENDED:** `runtime.undoStack.undo()` is reachable and runs without error headlessly — and changes nothing, because V3 wrote only the DTO store. Undo-reverses-the-right-property is **PASS** on the one command-registry path measured. The batch-is-one-history-entry question remains genuinely unmeasured.
 4. **What the LLM planner and `QueryEngine` do with the 35 read-only misses.** This is the largest unmeasured surface in RAC-2's scope and it contains the residual P0 risk.
 5. **Whether commands issued in the first ~1.5–4 s reach the Y.Doc at all** (`requestIdleCallback`, `engineLauncher.ts:971-988`) — a real defect, unquantified.
 

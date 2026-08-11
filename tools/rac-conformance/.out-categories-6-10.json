@@ -261,7 +261,7 @@
       "kind": "refusal",
       "intent": "set-height",
       "commands": [],
-      "detail": "refusal intent=set-height :: ",
+      "detail": "refusal intent=set-height :: Nothing is selected — select an element first, then set its height.",
       "mutated": false
     },
     {
@@ -433,19 +433,19 @@
           "elementType": "room"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "capability-gap:material",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=capability-gap:material :: Floor material isn't connected to chat yet. For a floor I can zoom the view to what you have selected and delete what you have selected.",
       "mutated": false
     },
     {
       "label": "6.4b generate finishes",
       "utterance": "generate room finishes",
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "capability-gap:material",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=capability-gap:material :: Room material isn't connected to chat yet. I can change room height offset, name and number.",
       "mutated": false
     },
     {
@@ -457,10 +457,10 @@
           "elementType": "room"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "capability-gap:material",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=capability-gap:material :: Room material isn't connected to chat yet. I can change room height offset, name and number.",
       "mutated": false
     },
     {
@@ -487,10 +487,10 @@
           "elementType": "room"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "set-height",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=set-height :: Should I set the height, the thickness, or the width to 4 m? Tell me which.",
       "mutated": false
     },
     {
@@ -628,11 +628,11 @@
     {
       "label": "7.5 hide level",
       "utterance": "hide level 2",
-      "kind": "local",
-      "intent": "go-to-level",
+      "kind": "miss",
+      "intent": null,
       "commands": [],
-      "detail": "local intent=go-to-level action=setActiveLevel",
-      "mutated": true
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
     },
     {
       "label": "7.6 show level",
@@ -703,13 +703,11 @@
           "elementType": "wall"
         }
       ],
-      "kind": "commands",
-      "intent": "delete-selected",
-      "commands": [
-        "element.delete"
-      ],
-      "detail": "commands[element.delete] intent=delete-selected",
-      "mutated": true
+      "kind": "refusal",
+      "intent": "capability-gap:material",
+      "commands": [],
+      "detail": "refusal intent=capability-gap:material :: Wall material isn't connected to chat yet. I can change wall height, thickness, base offset, type, colour, wall angle, window creation and finish layer.",
+      "mutated": false
     },
     {
       "label": "8.4 set classification",
@@ -720,10 +718,10 @@
           "elementType": "wall"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "set-height",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=set-height :: Should I set the height, the thickness, or the width to 10 m? Tell me which.",
       "mutated": false
     },
     {
@@ -735,10 +733,10 @@
           "elementType": "wall"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "set-height",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=set-height :: Should I set the height, the thickness, or the width to -12 m? Tell me which.",
       "mutated": false
     },
     {
@@ -761,10 +759,10 @@
           "elementType": "slab"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "capability-gap:material",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=capability-gap:material :: Slab material isn't connected to chat yet. I can change slab height, thickness, base offset and slab type.",
       "mutated": false
     },
     {
@@ -776,10 +774,10 @@
           "elementType": "wall"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "set-height",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=set-height :: Should I set the height, the thickness, or the width to 7 m? Tell me which.",
       "mutated": false
     },
     {
@@ -791,10 +789,10 @@
           "elementType": "wall"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "refusal",
+      "intent": "set-height",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "refusal intent=set-height :: Should I set the height, the thickness, or the width to 0.052 m? Tell me which.",
       "mutated": false
     },
     {
@@ -859,7 +857,7 @@
       "kind": "refusal",
       "intent": "set-height",
       "commands": [],
-      "detail": "refusal intent=set-height :: ",
+      "detail": "refusal intent=set-height :: Nothing is selected — select an element first, then set its height.",
       "mutated": false
     },
     {
