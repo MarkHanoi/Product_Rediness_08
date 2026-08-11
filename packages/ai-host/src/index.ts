@@ -41,6 +41,27 @@ export {
   splitPlanClauses,
 } from './intents/SemanticPlan.js';
 export type { PlanContext, PlanParse } from './intents/SemanticPlan.js';
+// §PLANNER (RAC U10) — the LAST rung. Free-form language in; the SAME validated
+// SemanticIntent / execute-plan structures out, run by the SAME
+// applySemanticIntent. The vocabulary is generated from the capability registry
+// and the model's output is validated against it before anything runs.
+export {
+  buildPlannerPrompt,
+  buildPlannerVocabulary,
+  buildPlannerFacts,
+  capabilityFieldShapes,
+  planUtterance,
+  resetPlannerShapeCache,
+  validatePlannerOutput,
+} from './intents/LlmPlanner.js';
+export type {
+  CapabilityFieldShapes,
+  PlannerDeps,
+  PlannerOutcome,
+  PlannerPrompt,
+  PlannerShape,
+  PlannerValidation,
+} from './intents/LlmPlanner.js';
 // ADR-0313 §NL — local natural-language layer (semantics only; zero tokens).
 export {
   resolveNaturalLanguage,
