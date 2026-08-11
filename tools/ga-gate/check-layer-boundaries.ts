@@ -84,28 +84,38 @@ const ALLOW = allowedDependencies as readonly AllowRule[];
  * That is the lesson worth keeping: the first number a new gate prints is a
  * measurement of the gate, not of the code.
  *
- * ─── VIOLATIONS = 133 ────────────────────────────────────────────────────────
+ * ─── VIOLATIONS = 102 ────────────────────────────────────────────────────────
  * Upward imports between CLASSIFIED packages. Unlike the first freeze, every one
  * of these is a real finding against the declared architecture:
  *
- *      39  L2 → L7    packages reaching into plugins/annotations + plugins/structural
- *      38  L2 → L3    mostly core-app-model / geometry-* / input-host → frame-scheduler
+ *      39  L2 → L6    packages reaching into plugins/annotations + plugins/structural
  *      14  L2 → L4    core-app-model → scene-committer · command-registry → persistence-client
  *      12  L3 → L4    file-format → persistence-client · runtime-composer → renderer
- *      11  L3 → L7    runtime-composer → bcf / ifc-* / rhino-import · file-format → annotations
- *       9  L4 → L7    persistence-client → plugins/annotations
+ *      11  L3 → L6    runtime-composer → bcf / ifc-* / rhino-import · file-format → annotations
+ *       9  L4 → L6    persistence-client → plugins/annotations
  *       9  L1 → L2    spatial-index → core-app-model + room-topology
- *       1  L3 → L5    runtime-composer → apps/editor
+ *       6  L2 → L3    core-app-model / geometry-* residue
+ *       1  L3 → L7    runtime-composer → apps/editor
+ *       1  L6 → L7    a plugin reaching into apps/editor
  *
- * Three root causes, all documented at the table in eslint.config.js:
+ * ⚠ RECONCILED 2026-08-11 (W1-1). This paragraph used to read "VIOLATIONS = 133"
+ * with a breakdown in the PRE-RENUMBER layer names (plugins as L7, apps as L5),
+ * while the constant twelve lines below already read 102. A gate whose own
+ * comments disagree with its own thresholds cannot be trusted by the next reader,
+ * so the prose is now the measured output of THIS file on THIS tree. The 133 → 102
+ * drop is not work anybody did: §FIX-LAYER-TABLE-INVERTED moved `frame-scheduler`
+ * L3 → L1, which legalised ~32 of the old `L2 → L3` edges in one stroke (that pair
+ * fell 38 → 6). Recording the cause, because an unexplained 31-point fall in a
+ * shrink-only ratchet is indistinguishable from someone quietly loosening it.
+ *
+ * Two root causes remain, both documented at the table in eslint.config.js:
  *   • `→ @pryzm/plugin-annotations` (59 across L2/L3/L4) — the
  *     `core-app-model ↔ plugin-annotations` cycle recorded in L-810. This is the
  *     one cluster that was upward under BOTH tables, and the largest single win
- *     available: cutting the cycle removes ~44 % of the count.
- *   • `→ frame-scheduler` (~29) — a zero-dependency primitive that eleven L2
- *     packages depend on is not L3 by any evidence; CLAUDE.md says L3.
+ *     available: cutting the cycle removes ~58 % of the count.
  *   • `runtime-composer` reaching up (16) — it is the composition root (P1) and
  *     therefore sits above everything it composes, not at L3.
+ *   (The third — `→ frame-scheduler`, ~29 — is CLOSED by the L3 → L1 move above.)
  *
  * ─── UNCLASSIFIED = 13 ───────────────────────────────────────────────────────
  * Workspace packages with no layer. Was 94 of 158 (40 % coverage); now 13 of 158
@@ -115,17 +125,24 @@ const ALLOW = allowedDependencies as readonly AllowRule[];
  * false violations forever, which is strictly worse than admitting the gap.
  * Coverage ratchets, or the gate could be made green by classifying less.
  *
- * ─── SDK BYPASS = 171 ────────────────────────────────────────────────────────
+ * ─── SDK BYPASS = 181 (frozen 171 on 2026-08-09; see the dated log below) ─────
  * A SEPARATE invariant, deliberately not folded into VIOLATIONS. CLAUDE.md says a
  * plugin "may import L6 only" — `@pryzm/plugin-sdk` and nothing else. That is
  * NARROWER than the layer rule: a plugin reaching straight into `renderer-three`
  * goes DOWNWARD, so it is legal under the layer rule and illegal under this one.
- * Plugins make 630 imports of the SDK and 171 that go around it — renderer-three
- * ×84, command-registry ×29, core-app-model ×27, scene-committer ×19 and a tail.
- * Folding those into VIOLATIONS would bury 133 layer findings under 171 facade
+ * Plugins make ~630 imports of the SDK and 181 that go around it — renderer-three
+ * ×84, command-registry ×39, core-app-model ×27, scene-committer ×19 and a tail.
+ * Folding those into VIOLATIONS would bury 102 layer findings under 181 facade
  * findings and make both numbers unreadable, so the strict rule is frozen here on
  * its own shrink-only ratchet instead of being dropped. Both are enforced; each
  * says what it means.
+ *
+ * ⚠ RECONCILED 2026-08-11 (W1-1). This heading said 171 while the constant said
+ * 178 and the tree measured 181 — three numbers for one invariant. It now states
+ * the CURRENT figure, and the ten-line dated log immediately above the constant
+ * carries the history (171 → 172 → 173 → 178 → 181). The per-target tail is
+ * restated too: command-registry was ×29 at the 171 freeze and is ×39 today, and
+ * every one of those ten additions is a batch bridge with its own paragraph below.
  */
 const MAX_VIOLATIONS = Number(process.env.PRYZM_LAYER_MAX_VIOLATIONS ?? 102);
 const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
@@ -153,7 +170,72 @@ const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
 // command-registry, so widening the facade would mint a new SDK→legacy coupling;
 // the tracked debt remains the bridge PATTERN. Shrink resumes when the batch
 // verbs migrate to first-class SDK routes (U-phase backlog).
-const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 178);
+//
+// ─── 178 → 181 (2026-08-11, W1-1) ────────────────────────────────────────────
+// Three more bridges of the SAME tracked F-1.3 shape. Each is byte-for-byte the
+// door/window/wall batch bridge: import ONE command class from
+// @pryzm/command-registry, construct it, hand it to `window.commandManager` so a
+// mass mutation costs ONE undo entry (ADR-0314), re-broadcast the command's own
+// partial-failure report (§CONTEXT-DATA-HONESTY), return `{forward:[],inverse:[]}`.
+//
+//   • plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts     (63f22496, U7.2)
+//   • plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts (63f22496, U7.2)
+//   • plugins/view/src/handlers/DeleteElementsBatch.ts            (f5f3a5a1, U9.2)
+//
+// ⚠ THE FIX WAS ATTEMPTED FIRST AND REFUSED ON EVIDENCE. The instruction this
+// gate prints — "WIDEN THE FACADE" — is the right instruction for almost every
+// bypass it catches, and it is the WRONG one for @pryzm/command-registry
+// specifically. Four independent reasons, each checkable in about a minute, so
+// that the next person does not re-litigate this from scratch:
+//
+//   1. IT IS A PACKAGE CYCLE, and this repo has been bitten by exactly this.
+//      plugin-sdk → command-registry → plugin-annotations → plugin-sdk.
+//      Leg 2 and leg 3 are both declared in package.json today
+//      (command-registry deps include @pryzm/plugin-annotations; annotations'
+//      FIRST dep is @pryzm/plugin-sdk). A `export … from '@pryzm/command-registry'`
+//      in the SDK barrel closes that ring AT MODULE LOAD, which is the documented
+//      white-screen failure mode here (circular barrel → binding observed as
+//      `undefined` before it is initialised). Trading three counted bypasses for
+//      an uncounted boot hazard is not a fix.
+//
+//   2. IT WOULD PUT L5 ABOVE L6. command-registry depends on
+//      @pryzm/plugin-annotations, an L6 PLUGIN. Re-exporting through the L5 facade
+//      makes the SDK transitively import a plugin — the layer rule inverted at the
+//      one package whose entire job is to be the boundary. Note honestly: THIS GATE
+//      WOULD NOT CATCH IT (it reads source specifiers, and plugin-sdk → command-registry
+//      reads as a legal downward L5 → L2 edge). The violation would be real and
+//      invisible. That is worse than the bypass it replaces, which is at least counted.
+//
+//   3. THE SDK IS A PUBLISHED, VERSION-LOCKED PUBLIC SURFACE.
+//      plugin-sdk is v1.0.0 with `publishConfig.name = "@pryzm/sdk"`, access public;
+//      ADR-0038 §D locks that surface for v1.x. @pryzm/command-registry is
+//      `"private": true`. C07 §1.1 requires the facade "re-export only … what is
+//      safe to expose externally" and "NOT expose internal implementation details
+//      that are subject to change". Publishing ~40 legacy BIM command classes as
+//      locked v1.x public API fails both clauses.
+//
+//   4. THE TARGET IS SCHEDULED FOR DELETION. `CommandManager`
+//      (packages/command-registry/src/CommandManagerImpl.ts:53) carries `@deprecated
+//      TODO(E-finish.3)` and, in its own header, "Do NOT add new call sites — use
+//      the bus instead." C14 is LEGACY-ELIMINATION. Pinning a delete-scheduled class
+//      into a locked public contract would make it undeletable, converting a debt
+//      with an exit into a permanent one.
+//
+// So the honest count is +3 under the pattern already tracked at 172/173/178, NOT
+// a new kind of breach and NOT a laundered one.
+//
+// ─── THE ACTUAL EXIT, so this is a debt with a name and not a parking space ───
+// The bridge needs exactly two things: the command CONSTRUCTOR and the legacy
+// dispatcher. Widening the facade fails because it drags the constructor DOWNWARD
+// through the SDK. The shape that works is the inversion: command-registry
+// REGISTERS its batch constructors into a name→factory registry owned at L1
+// (@pryzm/command-bus), the SDK re-exports only the accessor, and the handler
+// asks for `'slab.updateSystemTypeBatch'` by name. Two named exports, no cycle,
+// nothing private published, and the registry dies with CommandManager instead of
+// outliving it. That work spans command-bus + command-registry + the composition
+// root, so it is a U-phase item, not a drive-by. Until it lands, every one of
+// these bridges is a +1 here and each needs its own dated paragraph.
+const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 181);
 
 /**
  * §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — banned third-party dependencies.
@@ -371,6 +453,17 @@ if (bypassByTarget.size) {
     console.log('\n  L6 SDK-facade bypasses by target package (a plugin should reach the platform through @pryzm/plugin-sdk):');
     for (const [pkg, n] of [...bypassByTarget.entries()].sort((a, b) => b[1] - a[1])) {
         console.log(`      ${String(n).padStart(4)}  ${pkg}`);
+    }
+    // §FIX-BYPASS-RATCHET-ANONYMOUS (2026-08-11, W1-1) — name the files on failure.
+    // The VIOLATIONS ratchet has printed every offender on a failing run since the
+    // negative test caught that "135, baseline 133" names nothing ("a ratchet that
+    // tells you the count grew but not where is a puzzle, not a gate", see above).
+    // The BYPASS ratchet never got the same treatment: it printed per-package totals
+    // only, so "181, baseline 178" left you diffing 39 command-registry imports by
+    // hand to find the three that moved. Same rule, same remedy.
+    if (sdkBypass.length > MAX_SDK_BYPASS) {
+        console.log('\n  ALL SDK-facade bypasses (baseline exceeded):');
+        for (const b of sdkBypass) console.log(`      ${b.file}  →  ${b.spec}`);
     }
 }
 

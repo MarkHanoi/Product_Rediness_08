@@ -189,6 +189,104 @@ export function scanFiles(opts: ScanOptions): ScanResult {
   return { matches, filesScanned, filesExcluded, filesMatched };
 }
 
+// ── Per-file COVERAGE scanning ────────────────────────────────────────────────
+//
+// §FIX-P8-ENFORCEMENT-BLIND (W3-2, 2026-08-11) — ADDITIVE.
+//
+// `scanFiles()` answers "where does this pattern appear?". A coverage gate asks
+// the opposite question: "which files that MUST contain a pattern do not?".
+// Expressing that with `scanFiles()` means inverting a match list against a
+// separately-computed file list — two walks that can silently disagree, which is
+// precisely how a coverage gate ends up reporting on a set it never enumerated.
+//
+// `scanFileCoverage()` does one walk and returns BOTH sides of the partition, so
+// covered + uncovered is always exactly the population. It inherits the same
+// `minFiles` honesty floor and the same exit-2 semantics: a scan that read fewer
+// files than its floor is MISCONFIGURED, and must never be reported as a pass.
+//
+// Nothing above this line changed. Existing callers of walk()/scanFiles()/
+// tallyBy() are unaffected.
+
+export interface CoverageOptions {
+  /** Repo root; all reported paths are relative to it. */
+  readonly root: string;
+  /** Directories to walk, repo-relative. Missing directories contribute nothing. */
+  readonly dirs: readonly string[];
+  /** A file is COVERED when its source matches this. Applied to the whole file. */
+  readonly require: RegExp;
+  /**
+   * Population filter. Return true for files that are SUBJECT to the rule.
+   * Files returning false are counted as `filesExcluded` — reported, never hidden.
+   */
+  readonly participates?: (rel: string, src: string) => boolean;
+  /**
+   * ⚠ REQUIRED. Minimum files the walk must READ (before `participates`) for the
+   * result to be trustworthy. Below this the scan exits 2, never 0.
+   * This is a MISCONFIGURATION detector, NOT a coverage target — never raise it
+   * to make a gate green.
+   */
+  readonly minFiles: number;
+  /** Extensions, default .ts/.tsx. */
+  readonly exts?: readonly string[];
+  /** Extra directory basenames to skip. */
+  readonly skipDirs?: readonly string[];
+  /** Label used in the misconfiguration message. */
+  readonly label: string;
+}
+
+export interface CoverageResult {
+  /** Repo-relative, forward-slashed. Participating files that matched `require`. */
+  readonly covered: string[];
+  /** Repo-relative, forward-slashed. Participating files that did NOT match. */
+  readonly uncovered: string[];
+  /** Files read from disk, before `participates`. The honesty-floor subject. */
+  readonly filesRead: number;
+  /** Files read but filtered out by `participates`. */
+  readonly filesExcluded: number;
+}
+
+/**
+ * Partition every file under `dirs` into covered / uncovered by `require`.
+ *
+ * Exits the process with code 2 if fewer than `minFiles` files were READ.
+ * Exit 2 is deliberately NOT 1: "this family has no violations" and "this walk
+ * never reached the family" are different facts, and a gate that cannot
+ * establish its own subject is misconfigured, not passing.
+ */
+export function scanFileCoverage(opts: CoverageOptions): CoverageResult {
+  const covered: string[] = [];
+  const uncovered: string[] = [];
+  let filesRead = 0;
+  let filesExcluded = 0;
+
+  for (const dir of opts.dirs) {
+    for (const abs of walk(join(opts.root, dir), { exts: opts.exts, skipDirs: opts.skipDirs })) {
+      const rel = relPath(opts.root, abs);
+      let src: string;
+      try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+      filesRead++;
+      if (opts.participates && !opts.participates(rel, src)) { filesExcluded++; continue; }
+      if (opts.require.test(src)) covered.push(rel);
+      else uncovered.push(rel);
+    }
+  }
+
+  if (filesRead < opts.minFiles) {
+    console.error(
+      `\n[${opts.label}] MISCONFIGURED (exit 2) — the coverage walk READ only ${filesRead} file(s); ` +
+      `floor is ${opts.minFiles}.\n` +
+      `  Root:  ${opts.root}\n` +
+      `  Dirs:  ${opts.dirs.join(', ')}\n` +
+      `  This is NOT a pass. A coverage scan that enumerated nothing has nothing to\n` +
+      `  cover, and reporting that as "100% covered" is the exact failure this floor\n` +
+      `  exists to prevent.`,
+    );
+    process.exit(2);
+  }
+
+  return { covered, uncovered, filesRead, filesExcluded };
+}
+
 /** Count matches grouped by an arbitrary key. Sorted descending. */
 export function tallyBy(matches: readonly Match[], key: (m: Match) => string): Array<[string, number]> {
   const map = new Map<string, number>();
