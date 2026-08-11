@@ -96,18 +96,23 @@ describe('furniture.create / move / delete', () => {
     ).rejects.toThrow();
   });
 
-  it('moves an existing element by delta and inverts', async () => {
+  it('move refuses, names furniture.updateParameters, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('furniture');
     await env.bus.executeCommand('furniture.create', { id, origin: { x: 0, y: 0, z: 0 } });
-    const ev = await env.bus.executeCommand('furniture.move', {
-      furnitureId: id, delta: { x: 5, y: 0, z: 3 },
-    }) as EventRecord<unknown>;
-    const moved = env.furniture.get(id)!;
-    expect(moved.origin.x).toBeCloseTo(5);
-    expect(moved.origin.z).toBeCloseTo(3);
-    undoLast(env.furniture, ev);
-    expect(env.furniture.get(id)!.origin.x).toBeCloseTo(0);
+    const before = snap(env.furniture);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store
+    // mutated, and passed while the user's model never changed: in production the bus
+    // binds the DETACHED plugin store here, no renderer/exporter/persistence path reads
+    // it, and NO surface dispatches `furniture.move`. Moving furniture commits through `furniture.updateParameters`.
+    // What is pinned is now the REFUSAL, its reason, and the ABSENCE of any mutation —
+    // an assertion about the wrong store is worse than none, because it reads as proof.
+    // `execute()` is deliberately left intact for a host that binds the authoritative
+    // store under this key; `canExecute` is the gate the bus honours.
+    await expect(
+      env.bus.executeCommand('furniture.move', { furnitureId: id, delta: { x: 5, y: 0, z: 3 } }),
+    ).rejects.toThrow(/furniture\.updateParameters/);
+    expect(snap(env.furniture)).toEqual(before);
   });
 
   it('deletes and inverts', async () => {
@@ -126,12 +131,24 @@ describe('furniture.rotate / setScale', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('rotate sets absolute Y-rotation', async () => {
+  it('rotate refuses, names furniture.updateParameters, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('furniture');
     await env.bus.executeCommand('furniture.create', { id, rotation: 0 });
-    await env.bus.executeCommand('furniture.rotate', { furnitureId: id, rotation: Math.PI / 2 });
-    expect(env.furniture.get(id)!.rotation).toBeCloseTo(Math.PI / 2);
+    const before = snap(env.furniture);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store
+    // mutated, and passed while the user's model never changed: in production the bus
+    // binds the DETACHED plugin store here, no renderer/exporter/persistence path reads
+    // it, and NO surface dispatches `furniture.rotate`. Rotation commits through the SAME live verb as translation,
+    // `furniture.updateParameters` — what the 3-D gizmo dispatches on a rotate drag.
+    // What is pinned is now the REFUSAL, its reason, and the ABSENCE of any mutation —
+    // an assertion about the wrong store is worse than none, because it reads as proof.
+    // `execute()` is deliberately left intact for a host that binds the authoritative
+    // store under this key; `canExecute` is the gate the bus honours.
+    await expect(
+      env.bus.executeCommand('furniture.rotate', { furnitureId: id, rotation: Math.PI / 2 }),
+    ).rejects.toThrow(/furniture\.updateParameters/);
+    expect(snap(env.furniture)).toEqual(before);
   });
 
   it('rotate rejects non-finite rotation', async () => {

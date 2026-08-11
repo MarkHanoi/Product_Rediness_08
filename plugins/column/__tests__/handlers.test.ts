@@ -72,16 +72,22 @@ describe('column.create / delete / move', () => {
     ).rejects.toThrow();
   });
 
-  it('move translates origin and undoes', async () => {
+  it('refuses a well-formed payload, names column.update, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('column');
     await env.bus.executeCommand('column.create', { id });
     const before = snap(env.column);
-    const ev = await env.bus.executeCommand('column.move', {
-      columnId: id, delta: { x: 1, y: 0, z: 1 },
-    });
-    expect(env.column.get(id)?.origin).toEqual({ x: 1, y: 0, z: 1 });
-    undoLast(env.column, ev);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store
+    // mutated, and passed while the user's model never changed: in production the bus
+    // binds the DETACHED plugin store here, no renderer/exporter/persistence path reads
+    // it, and NO surface dispatches `column.move`. Moving a column commits through `column.update` (id, updates).
+    // What is pinned is now the REFUSAL, its reason, and the ABSENCE of any mutation —
+    // an assertion about the wrong store is worse than none, because it reads as proof.
+    // `execute()` is deliberately left intact for a host that binds the authoritative
+    // store under this key; `canExecute` is the gate the bus honours.
+    await expect(
+      env.bus.executeCommand('column.move', { columnId: id, delta: { x: 1, y: 0, z: 1 } }),
+    ).rejects.toThrow(/column\.update/);
     expect(snap(env.column)).toEqual(before);
   });
 });

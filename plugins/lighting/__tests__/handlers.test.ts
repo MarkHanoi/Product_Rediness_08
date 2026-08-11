@@ -72,12 +72,22 @@ describe('lighting.create / move / delete', () => {
     await expect(env.bus.executeCommand('lighting.create', { intensity: -1 })).rejects.toThrow();
   });
 
-  it('moves and deletes', async () => {
+  it('move refuses with NO live alternative to name; delete still works', async () => {
     env = buildEnv();
     const id = createId('lighting');
     await env.bus.executeCommand('lighting.create', { id, origin: { x: 0, y: 0, z: 0 } });
-    await env.bus.executeCommand('lighting.move', { lightingId: id, delta: { x: 2, y: 1, z: 0 } });
-    expect(env.lighting.get(id)!.origin.x).toBeCloseTo(2);
+    const originBefore = env.lighting.get(id)!.origin.x;
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — `lighting.move` writes the DETACHED plugin
+    // lighting store and, UNLIKE every other family, there is NO live alternative to
+    // name: lighting is absent from MOVE_COMMAND_BY_TYPE and from every dragDispatch
+    // site, and MOVE_UNSUPPORTED_REASON already gates the Move button off for exactly
+    // that reason. The refusal must say THAT rather than imply a wiring gap.
+    await expect(
+      env.bus.executeCommand('lighting.move', { lightingId: id, delta: { x: 2, y: 1, z: 0 } }),
+    ).rejects.toThrow(/no move command on any surface|Gate G7/);
+    expect(env.lighting.get(id)!.origin.x).toBeCloseTo(originBefore);
+    // Unchanged, and now doubling as a POSITIVE control: delete is genuinely live, so a
+    // refuse-everything implementation could not pass this case.
     await env.bus.executeCommand('lighting.delete', { lightingId: id });
     expect(env.lighting.get(id)).toBeUndefined();
   });

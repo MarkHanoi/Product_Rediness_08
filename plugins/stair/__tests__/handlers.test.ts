@@ -174,13 +174,22 @@ describe('stair.setShape / setTreadCount / setRiserHeight / setWidth / rotate', 
     await env.bus.executeCommand('stair.setTreadCount', { stairId: id, numRisers: 18 });
     await env.bus.executeCommand('stair.setRiserHeight', { stairId: id, riserHeight: 0.20 });
     await env.bus.executeCommand('stair.setWidth', { stairId: id, width: 1.3 });
-    await env.bus.executeCommand('stair.rotate', { stairId: id, rotation: Math.PI / 4 });
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — `stair.rotate` writes the DETACHED plugin
+    // stair store and no surface dispatches it. Note the asymmetry, which is the honest
+    // answer rather than a redirect: stair TRANSLATION is live (`stair.move` bridges to
+    // MoveStairCommand and the geometry stairStore) but stair ROTATION has NO live route
+    // on any surface. The other four verbs in this case are UNTOUCHED and are the
+    // POSITIVE control — a refuse-everything implementation would go red on them here.
+    await expect(
+      env.bus.executeCommand('stair.rotate', { stairId: id, rotation: Math.PI / 4 }),
+    ).rejects.toThrow(/NO live route|stair\.move/);
     const dto = env.stair.get(id) as StairData;
     expect(dto.shape).toBe('l-shape');
     expect(dto.numRisers).toBe(18);
     expect(dto.riserHeight).toBeCloseTo(0.20);
     expect(dto.width).toBeCloseTo(1.3);
-    expect(dto.rotation).toBeCloseTo(Math.PI / 4);
+    // The refusal changed nothing: rotation keeps the value stair.create gave it.
+    expect(dto.rotation ?? 0).toBeCloseTo(0);
   });
 
   it('rejects setTreadCount < 2', async () => {

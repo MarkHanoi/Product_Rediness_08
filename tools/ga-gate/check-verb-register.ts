@@ -201,7 +201,12 @@ function handlerish(verb: string, slice: string, rel: string): boolean {
  * a live bridge was written, and boot order guarantees it never registers.
  */
 const SHADOWED_BASELINE: readonly string[] = [
-  'ceiling.update',
+  // §FIX-CEILING-UPDATE-REACH-RECORD — 'ceiling.update' PAID and removed in the same
+  // commit, per the rule three paragraphs up. `plugins/ceiling/src/handlers/UpdateCeiling.ts`
+  // is deleted and the verb left CEILING_HANDLER_TYPES, so the `initBusHandlers` bridge
+  // → `UpdateCeilingCommand` → geometry `ceilingStore` now registers. Read-back proof:
+  // `apps/editor/__tests__/CeilingUpdateReachesGeometryStore.test.ts` (4 cases, watched
+  // failing 3/4 first). 16 → 15 was roof; 15 → 14 is ceiling.
   'door.setHeight',
   'door.setWidth',
   'element.updateMark',
@@ -247,7 +252,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'beam.batch.create',
   'beam.create',
   'beam.delete',
-  'beam.move',
   'beam.setSection',
   'beam.setType',
   'ceiling.batch.create',
@@ -259,7 +263,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'column.batch.create',
   'column.create',
   'column.delete',
-  'column.move',
   'column.setHeight',
   'column.setType',
   'copy-selection',
@@ -286,14 +289,12 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'dimension.create',
   'dimension.createMany',
   'dimension.delete',
-  'dimension.move',
   'dimension.setPrecision',
   'dimension.setText',
   'dimension.setUnit',
   'door.batch.create',
   'door.create',
   'door.delete',
-  'door.move',
   'door.setAccessibility',
   'door.setFireRating',
   'door.setSwing',
@@ -303,8 +304,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'furniture.batch.create',
   'furniture.create',
   'furniture.delete',
-  'furniture.move',
-  'furniture.rotate',
   'furniture.setActiveLod',
   'furniture.setRepresentation',
   'furniture.setScale',
@@ -320,13 +319,11 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'handrail.setShape',
   'lighting.create',
   'lighting.delete',
-  'lighting.move',
   'lighting.setEmergency',
   'lighting.setIntensity',
   'paste-clipboard',
   'plumbing.create',
   'plumbing.delete',
-  'plumbing.move',
   'plumbing.setSystem',
   'pool.create',
   'pool.delete',
@@ -335,7 +332,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'roof.create',
   'roof.delete',
   'roof.joinRoofs',
-  'roof.move',
   'roof.removeSkylight',
   'roof.setOverhang',
   'roof.setPitch',
@@ -352,7 +348,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'schedule.setGroupBy',
   'section.create',
   'section.delete',
-  'section.moveLine',
   'section.setDepth',
   'section.setMark',
   'section.setScale',
@@ -373,7 +368,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'slab.batch.create',
   'slab.create',
   'slab.delete',
-  'slab.move',
   'slab.removeHole',
   'slab.setBaseOffset',
   'slab.setThickness',
@@ -383,7 +377,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'slab.updatePolygon',
   'stair.batch.create',
   'stair.delete',
-  'stair.rotate',
   'stair.setRiserHeight',
   'stair.setShape',
   'stair.setTreadCount',
@@ -391,7 +384,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'stair.setWidth',
   'structural.create',
   'structural.delete',
-  'structural.move',
   'structural.setBraceEndOffset',
   'structural.setDimensions',
   'structural.setKind',
@@ -412,16 +404,22 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'wall.cut',
   'wall.delete',
   'wall.join',
-  'wall.move',
   'wall.opening.create',
   'wall.setSystemType',
-  'wall.transform',
   'wall.updateBaseline',
-  'wall.updateCurtainWall',
+  // §FIX-CW-UPDATE-REACH-RECORD — 'wall.updateCurtainWall' PAID and removed in the same
+  // commit. It was UNKNOWN rather than SHADOWED because it had only ONE declaring site:
+  // TASK-07 Phase A deleted its `initBusHandlers` bridge outright, leaving
+  // `UpdateCurtainWallCommand` — the sole writer of the geometry `curtainWallStore` on an
+  // update — orphaned, and all four dispatchers (3-D gizmo, plan Move tool, property
+  // sheet, Material control) silent no-ops. The bridge is restored and the plugin handler
+  // deleted, so the verb still has exactly one declaring site; it has moved from
+  // plugins/curtain-wall to apps/editor and is now LIVE. Read-back proof:
+  // `apps/editor/__tests__/CurtainWallUpdateReachesGeometryStore.test.ts` (4 cases,
+  // watched failing 3/4 first).
   'window.batch.create',
   'window.create',
   'window.delete',
-  'window.move',
   'window.setFireRating',
   'window.setType',
 ];

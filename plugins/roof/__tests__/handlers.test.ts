@@ -248,18 +248,22 @@ describe('roof.move', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('translates the boundary and round-trips on undo', async () => {
+  it('refuses a well-formed payload, names roof.update, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('roof');
     await env.bus.executeCommand('roof.create', { id, boundary: SQUARE });
     const before = snap(env.roof);
-    const ev = await env.bus.executeCommand('roof.move', {
-      roofId: id, delta: { x: 1, y: 0, z: 2 },
-    });
-    const after = env.roof.get(id)!;
-    expect(after.boundary[0]!.x).toBeCloseTo(1);
-    expect(after.boundary[0]!.z).toBeCloseTo(2);
-    undoLast(env.roof, ev);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store
+    // mutated, and passed while the user's model never changed: in production the bus
+    // binds the DETACHED plugin store here, no renderer/exporter/persistence path reads
+    // it, and NO surface dispatches `roof.move`. Moving a roof commits through `roof.update` (id, updates).
+    // What is pinned is now the REFUSAL, its reason, and the ABSENCE of any mutation —
+    // an assertion about the wrong store is worse than none, because it reads as proof.
+    // `execute()` is deliberately left intact for a host that binds the authoritative
+    // store under this key; `canExecute` is the gate the bus honours.
+    await expect(
+      env.bus.executeCommand('roof.move', { roofId: id, delta: { x: 1, y: 0, z: 2 } }),
+    ).rejects.toThrow(/roof\.update/);
     expect(snap(env.roof)).toEqual(before);
   });
 });

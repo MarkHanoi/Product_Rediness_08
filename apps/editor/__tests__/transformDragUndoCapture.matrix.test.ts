@@ -93,59 +93,109 @@ function expectInvertibleRingEntry(ringBuffer: RingBufferUndoStack, storeKey: st
   for (const op of pair.inverse.ops) expect(String(op.path)).toContain(id);
 }
 
-describe('§FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — every element move/rotate is captured on the ring buffer', () => {
-  it('column.move records an invertible ring entry', async () => {
+/**
+ * §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — WHY EIGHT OF THE NINE CASES BELOW INVERTED.
+ *
+ * L-72's mandate is unchanged and still the point of this file: after a user MOVES or
+ * ROTATES an element in the 3-D view and presses Undo, the change MUST revert, for every
+ * element type, with no silent no-op.
+ *
+ * What changed is the MEASUREMENT. These nine cases asserted that the PLUGIN handler
+ * armed one invertible ring entry keyed on its own store — and eight of them were
+ * measuring a store nothing reads, for a verb no production surface dispatches. Worse,
+ * arming that entry was itself the HAZARD, not the guarantee: `affectedStores: ['slab']`
+ * is pushed onto the ring verbatim, and `buildUndoStoreMap()` maps 'slab' to
+ * `window.slabStore` — the GEOMETRY store. So a ring-first Ctrl+Z handed the geometry
+ * store an INVERSE carrying the detached plugin store's stale prior value, for a forward
+ * write geometry never saw. A green row here was proof of a corruption path.
+ *
+ * The user-facing guarantee is untouched because the DRAG never used these verbs. The
+ * one table that decides what a move dispatches is `MOVE_COMMAND_BY_TYPE`
+ * (apps/editor/src/engine/transforms/elementMove.ts:102-127), and the gizmo's own list is
+ * the 13 `dragDispatch(...)` sites in `registerTransformDragHandler.ts`; neither names
+ * any of the eight. Their live twins — column.update, beam.update, slab.movePolygon,
+ * plumbing.moveFixture, furniture.updateParameters — are covered by the BRIDGE suite
+ * below and by furniture's own updateParameters-undo-capture suite.
+ *
+ * Each converted case therefore pins the CONTRAPOSITIVE, which is the stronger
+ * invariant: the verb REFUSES with a named reason, and NO ring-buffer entry is armed at
+ * all — because `canExecute` refuses before CommandBus touches either undo stack.
+ *
+ * `stair.move` is NOT converted. It is a genuinely LIVE hybrid (the plugin handler
+ * bridges to window.commandManager AND declares affectedStores for ring-buffer undo), so
+ * it keeps the original L-72 assertion verbatim and serves as this file's POSITIVE
+ * CONTROL: a refuse-everything implementation would go red on it.
+ */
+
+/** Assert the bus REFUSED with a reason, and that the ring buffer stayed empty. */
+async function expectRefusedAndNoRingEntry(
+  bus: CommandBus,
+  ringBuffer: RingBufferUndoStack,
+  type: string,
+  payload: Record<string, unknown>,
+  reasonPattern: RegExp,
+): Promise<void> {
+  await expect(bus.executeCommand(type, payload)).rejects.toThrow(reasonPattern);
+  // THE POINT: no geometry-keyed PatchPair was armed, so Ctrl+Z cannot rewrite the
+  // geometry store with an inverse computed against the detached plugin store.
+  expect(ringBuffer.size).toBe(0);
+  expect(ringBuffer.canUndo()).toBe(false);
+}
+
+describe('§FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — the dead move/rotate verbs arm NO ring entry', () => {
+  it('column.move refuses (names column.update) and arms nothing', async () => {
     const { bus, ringBuffer } = buildEnv('column', 'col1', { origin: V() }, new MoveColumnHandler() as never);
-    await bus.executeCommand('column.move', { columnId: 'col1', delta: DELTA });
-    expectInvertibleRingEntry(ringBuffer, 'column', 'col1');
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'column.move', { columnId: 'col1', delta: DELTA }, /column\.update/);
   });
 
-  it('beam.move records an invertible ring entry', async () => {
+  it('beam.move refuses (names beam.update) and arms nothing', async () => {
     const { bus, ringBuffer } = buildEnv('beam', 'bm1', { baseLine: [V(), V()] }, new MoveBeamHandler() as never);
-    await bus.executeCommand('beam.move', { beamId: 'bm1', delta: DELTA });
-    expectInvertibleRingEntry(ringBuffer, 'beam', 'bm1');
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'beam.move', { beamId: 'bm1', delta: DELTA }, /beam\.update/);
   });
 
+  it('stair.rotate refuses (NO live rotate route exists on any surface) and arms nothing', async () => {
+    const { bus, ringBuffer } = buildEnv('stair', 'st2', { origin: V(), rotation: 0 }, new RotateStairHandler() as never);
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'stair.rotate', { stairId: 'st2', rotation: Math.PI / 2 }, /NO live route|stair\.move/);
+  });
+
+  it('slab.move refuses (names slab.movePolygon) and arms nothing', async () => {
+    const { bus, ringBuffer } = buildEnv('slab', 'sl1', { boundary: [V(), V(), V()], holes: [] }, new MoveSlabHandler() as never);
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'slab.move', { slabId: 'sl1', delta: DELTA }, /slab\.movePolygon/);
+  });
+
+  it('plumbing.move refuses (names plumbing.moveFixture — the L-220 original) and arms nothing', async () => {
+    const { bus, ringBuffer } = buildEnv('plumbing', 'pl1', { origin: V() }, new MovePlumbingHandler() as never);
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'plumbing.move', { plumbingId: 'pl1', delta: DELTA }, /plumbing\.moveFixture/);
+  });
+
+  it('structural.move refuses (there is no structural runtime family at all) and arms nothing', async () => {
+    const { bus, ringBuffer } = buildEnv('structural', 'sr1', { origin: V() }, new MoveStructuralHandler() as never);
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'structural.move', { structuralId: 'sr1', delta: DELTA }, /NO STRUCTURAL RUNTIME FAMILY/i);
+  });
+
+  it('furniture.move refuses (names furniture.updateParameters) and arms nothing', async () => {
+    const { bus, ringBuffer } = buildEnv('furniture', 'fn1', { origin: V(), rotation: 0 }, new MoveFurnitureHandler() as never);
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'furniture.move', { furnitureId: 'fn1', delta: DELTA }, /furniture\.updateParameters/);
+  });
+
+  it('furniture.rotate refuses (names furniture.updateParameters) and arms nothing', async () => {
+    const { bus, ringBuffer } = buildEnv('furniture', 'fn2', { origin: V(), rotation: 0 }, new RotateFurnitureHandler() as never);
+    await expectRefusedAndNoRingEntry(bus, ringBuffer, 'furniture.rotate', { furnitureId: 'fn2', rotation: Math.PI }, /furniture\.updateParameters/);
+  });
+});
+
+describe('§FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — the LIVE move verb is still captured on the ring buffer', () => {
+  /**
+   * POSITIVE CONTROL, kept verbatim from the original matrix. `stair.move` is a live
+   * hybrid: MoveStairHandler bridges to window.commandManager (→ the geometry stairStore)
+   * AND declares `affectedStores` so the ring buffer receives a real inverse. It is the
+   * one row in this file where an armed, geometry-keyed entry is CORRECT — which is
+   * exactly what makes it a control for the eight refusals above.
+   */
   it('stair.move records an invertible ring entry', async () => {
     const { bus, ringBuffer } = buildEnv('stair', 'st1', { origin: V(), rotation: 0 }, new MoveStairHandler() as never);
     await bus.executeCommand('stair.move', { stairId: 'st1', delta: DELTA });
     expectInvertibleRingEntry(ringBuffer, 'stair', 'st1');
-  });
-
-  it('stair.rotate records an invertible ring entry', async () => {
-    const { bus, ringBuffer } = buildEnv('stair', 'st2', { origin: V(), rotation: 0 }, new RotateStairHandler() as never);
-    await bus.executeCommand('stair.rotate', { stairId: 'st2', rotation: Math.PI / 2 });
-    expectInvertibleRingEntry(ringBuffer, 'stair', 'st2');
-  });
-
-  it('slab.move records an invertible ring entry', async () => {
-    const { bus, ringBuffer } = buildEnv('slab', 'sl1', { boundary: [V(), V(), V()], holes: [] }, new MoveSlabHandler() as never);
-    await bus.executeCommand('slab.move', { slabId: 'sl1', delta: DELTA });
-    expectInvertibleRingEntry(ringBuffer, 'slab', 'sl1');
-  });
-
-  it('plumbing.move records an invertible ring entry', async () => {
-    const { bus, ringBuffer } = buildEnv('plumbing', 'pl1', { origin: V() }, new MovePlumbingHandler() as never);
-    await bus.executeCommand('plumbing.move', { plumbingId: 'pl1', delta: DELTA });
-    expectInvertibleRingEntry(ringBuffer, 'plumbing', 'pl1');
-  });
-
-  it('structural.move records an invertible ring entry', async () => {
-    const { bus, ringBuffer } = buildEnv('structural', 'sr1', { origin: V() }, new MoveStructuralHandler() as never);
-    await bus.executeCommand('structural.move', { structuralId: 'sr1', delta: DELTA });
-    expectInvertibleRingEntry(ringBuffer, 'structural', 'sr1');
-  });
-
-  it('furniture.move records an invertible ring entry', async () => {
-    const { bus, ringBuffer } = buildEnv('furniture', 'fn1', { origin: V(), rotation: 0 }, new MoveFurnitureHandler() as never);
-    await bus.executeCommand('furniture.move', { furnitureId: 'fn1', delta: DELTA });
-    expectInvertibleRingEntry(ringBuffer, 'furniture', 'fn1');
-  });
-
-  it('furniture.rotate records an invertible ring entry', async () => {
-    const { bus, ringBuffer } = buildEnv('furniture', 'fn2', { origin: V(), rotation: 0 }, new RotateFurnitureHandler() as never);
-    await bus.executeCommand('furniture.rotate', { furnitureId: 'fn2', rotation: Math.PI });
-    expectInvertibleRingEntry(ringBuffer, 'furniture', 'fn2');
   });
 });
 

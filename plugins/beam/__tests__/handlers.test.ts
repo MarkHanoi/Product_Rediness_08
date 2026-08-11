@@ -71,17 +71,22 @@ describe('beam.create / delete / move', () => {
     ).rejects.toThrow();
   });
 
-  it('move translates both endpoints', async () => {
+  it('refuses a well-formed payload, names beam.update, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('beam');
     await env.bus.executeCommand('beam.create', { id, baseLine: [A, B] });
     const before = snap(env.beam);
-    const ev = await env.bus.executeCommand('beam.move', {
-      beamId: id, delta: { x: 1, y: 0, z: 1 },
-    });
-    expect(env.beam.get(id)?.baseLine[0]).toEqual({ x: 1, y: 0, z: 1 });
-    expect(env.beam.get(id)?.baseLine[1]).toEqual({ x: 5, y: 0, z: 1 });
-    undoLast(env.beam, ev);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store
+    // mutated, and passed while the user's model never changed: in production the bus
+    // binds the DETACHED plugin store here, no renderer/exporter/persistence path reads
+    // it, and NO surface dispatches `beam.move`. Moving a beam commits through `beam.update` (beamId, updates).
+    // What is pinned is now the REFUSAL, its reason, and the ABSENCE of any mutation —
+    // an assertion about the wrong store is worse than none, because it reads as proof.
+    // `execute()` is deliberately left intact for a host that binds the authoritative
+    // store under this key; `canExecute` is the gate the bus honours.
+    await expect(
+      env.bus.executeCommand('beam.move', { beamId: id, delta: { x: 1, y: 0, z: 1 } }),
+    ).rejects.toThrow(/beam\.update/);
     expect(snap(env.beam)).toEqual(before);
   });
 });

@@ -153,7 +153,7 @@ describe('door.move + setWidth + setType + setSwing — round-trips', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('door.move updates offset and undoes', async () => {
+  it('door.move refuses, names door.setOffset, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('door');
     await env.bus.executeCommand('door.create', {
@@ -163,9 +163,16 @@ describe('door.move + setWidth + setType + setSwing — round-trips', () => {
       offset: 0.5,
     });
     const before = snap(env.door);
-    const ev = await env.bus.executeCommand('door.move', { doorId: id, offset: 1.5 });
-    expect(env.door.get(id)?.offset).toBe(1.5);
-    undoLast(env.door, ev);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store's
+    // offset changed, and passed while the user's door never moved: in production the
+    // bus binds the DETACHED plugin door store here, no renderer/exporter/persistence
+    // path reads it, and nothing dispatches `door.move` — MOVE_COMMAND_BY_TYPE and the
+    // 3-D gizmo both send `door.setOffset`. What is pinned is now the REFUSAL, its
+    // reason, and the ABSENCE of mutation; an assertion about the wrong store is worse
+    // than none, because it reads as proof.
+    await expect(
+      env.bus.executeCommand('door.move', { doorId: id, offset: 1.5 }),
+    ).rejects.toThrow(/door\.setOffset/);
     expect(snap(env.door)).toEqual(before);
   });
 

@@ -146,18 +146,24 @@ describe('window.move', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('updates offset and round-trips on undo', async () => {
+  it('refuses a well-formed payload, names window.setOffset, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('window');
     await env.bus.executeCommand('window.create', {
       id, wallId: createId('wall'), openingId: 'op_1', offset: 1.0,
     });
     const before = snap(env.window);
-    const ev = await env.bus.executeCommand('window.move', {
-      windowId: id, offset: 2.5,
-    });
-    expect(env.window.get(id)?.offset).toBe(2.5);
-    undoLast(env.window, ev);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store
+    // mutated, and passed while the user's model never changed: in production the bus
+    // binds the DETACHED plugin store here, no renderer/exporter/persistence path reads
+    // it, and NO surface dispatches `window.move`. Moving a window commits through `window.setOffset`.
+    // What is pinned is now the REFUSAL, its reason, and the ABSENCE of any mutation —
+    // an assertion about the wrong store is worse than none, because it reads as proof.
+    // `execute()` is deliberately left intact for a host that binds the authoritative
+    // store under this key; `canExecute` is the gate the bus honours.
+    await expect(
+      env.bus.executeCommand('window.move', { windowId: id, offset: 2.5 }),
+    ).rejects.toThrow(/window\.setOffset/);
     expect(snap(env.window)).toEqual(before);
   });
 

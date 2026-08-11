@@ -139,21 +139,34 @@ describe('wall.move — round-trip', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('replaces baseLine and undo restores the original endpoints', async () => {
+  // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN store's baseLine
+  // moved, and passed for years while the user's wall never moved: in production the bus
+  // binds the DETACHED plugin DTO store here, and no renderer, exporter or persistence
+  // path reads it. Nothing dispatches `wall.move` either — MOVE_COMMAND_BY_TYPE and the
+  // 3-D gizmo both send `wall.updateBaseline`. The verb now refuses naming that route,
+  // so what is pinned is the REFUSAL, its reason, and the ABSENCE of mutation. An
+  // assertion about the wrong store is worse than no assertion: it reads as proof.
+  it('refuses a well-formed payload, names wall.updateBaseline, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('wall');
     await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_test' });
     const before = snapState(env.store);
-    const ev = await env.bus.executeCommand('wall.move', {
-      id,
-      baseLine: [
-        { x: 1, y: 0, z: 1 },
-        { x: 5, y: 0, z: 1 },
-      ],
-    });
-    expect(env.store.get(id)?.baseLine[1].x).toBe(5);
-    undoLast(env.store, ev);
+    const undoBefore = env.undoStack.size;
+    await expect(
+      env.bus.executeCommand('wall.move', {
+        id,
+        baseLine: [
+          { x: 1, y: 0, z: 1 },
+          { x: 5, y: 0, z: 1 },
+        ],
+      }),
+    ).rejects.toThrow(/wall\.updateBaseline/);
+    // A refusal must not mutate anything, on either store.
     expect(snapState(env.store)).toEqual(before);
+    // And the undo stack must be untouched — the refusal lives in canExecute, so the
+    // bus throws BEFORE arming either stack (this is the geometry-keyed corruption
+    // hazard that §FIX-DEAD-VERB-REFUSE closed for the property verbs).
+    expect(env.undoStack.size).toBe(undoBefore);
   });
 
   it('rejects mismatched-y endpoints at canExecute', async () => {

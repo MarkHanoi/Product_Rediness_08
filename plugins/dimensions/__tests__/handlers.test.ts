@@ -118,19 +118,24 @@ describe('dimension.create / move / delete', () => {
     await expect(env.bus.executeCommand('dimension.create', { precision: 99 })).rejects.toThrow();
   });
 
-  it('moves every point by delta', async () => {
+  it('move refuses; nothing dispatches it and annotation.move is the live route', async () => {
     env = buildEnv();
     const id = createId('dimension');
     await env.bus.executeCommand('dimension.create', {
       id,
       points: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }],
     });
-    await env.bus.executeCommand('dimension.move', {
-      dimensionId: id, delta: { x: 1, y: 2, z: 3 },
-    });
-    const d = env.dimension.get(id)!;
-    expect(d.points[0]).toEqual({ x: 1, y: 2, z: 3 });
-    expect(d.points[1]).toEqual({ x: 5, y: 2, z: 3 });
+    const before = env.dimension.get(id)!.points.map((p) => ({ ...p }));
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — `dimension.move` writes the DETACHED plugin
+    // dimension store and NO surface dispatches it: not MOVE_COMMAND_BY_TYPE, not the
+    // 3-D gizmo, not the Align tool, not the property panel. The dimensions a user can
+    // actually see are annotation elements on the canonical annotationStore
+    // (§ANN-ONE-STORE), and `annotation.move` — which IS live, and is deliberately NOT
+    // refused by this wave — is the verb that translates them.
+    await expect(
+      env.bus.executeCommand('dimension.move', { dimensionId: id, delta: { x: 1, y: 2, z: 3 } }),
+    ).rejects.toThrow(/annotation\.move/);
+    expect(env.dimension.get(id)!.points).toEqual(before);
   });
 
   it('rejects move with non-finite delta', async () => {

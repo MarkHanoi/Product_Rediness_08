@@ -33,7 +33,12 @@ const FIXTURE_DIR = resolve(__dirname, '../../../tests/fixtures/pryzm-1/wall');
 const FIXTURES = [
   { name: 'create.json',     type: 'wall.create' },
   { name: 'delete.json',     type: 'wall.delete' },
-  { name: 'move.json',       type: 'wall.move' },
+  // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — same disposition as the two below, one wave
+  // later. `wall.move` writes the DETACHED plugin wall store and nothing dispatches it;
+  // moving a wall commits through `wall.updateBaseline`. The PRYZM 1 parity fixture is
+  // KEPT (its payload shape is still the contract the live verb must honour) and what is
+  // asserted becomes the refusal — which is what stops the dead verb quietly reviving.
+  { name: 'move.json',       type: 'wall.move',          refuses: /wall\.updateBaseline/ },
   // §FIX-DEAD-VERB-REFUSE (W3-3) — `wall.setDimensions` / `wall.setColor` write the
   // DETACHED plugin wall store and now REFUSE with a reason naming the live route
   // (`wall.updateDimensions` / `wall.updateColor`). The PRYZM 1 parity fixtures are kept:

@@ -73,18 +73,22 @@ describe('structural.create / move / delete', () => {
     ).rejects.toThrow();
   });
 
-  it('moves an existing element by delta and inverts', async () => {
+  it('move refuses because there is NO structural runtime family at all', async () => {
     env = buildEnv();
     const id = createId('structural');
     await env.bus.executeCommand('structural.create', { id, kind: 'connection', origin: { x: 0, y: 0, z: 0 } });
-    const ev = await env.bus.executeCommand('structural.move', {
-      structuralId: id, delta: { x: 5, y: 0, z: 3 },
-    }) as EventRecord<unknown>;
-    const moved = env.structural.get(id)!;
-    expect(moved.origin.x).toBeCloseTo(5);
-    expect(moved.origin.z).toBeCloseTo(3);
-    undoLast(env.structural, ev);
-    expect(env.structural.get(id)!.origin.x).toBeCloseTo(0);
+    const before = snap(env.structural);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — `structural.move` is dead for a DEEPER reason
+    // than a detached store, and the refusal says THAT instead of implying a wiring gap:
+    // schemas/elements/Structural.ts defines the element, but no structuralStore, no
+    // fragment builder and no command exist anywhere in the app. It is schema-only — the
+    // same finding that made structural.setMaterial refuse at §FIX-DEAD-VERB-REFUSE.
+    // Nothing can render, export or persist a structural member, so nothing could ever
+    // observe it moving. The real structural element is `column`, which is fully live.
+    await expect(
+      env.bus.executeCommand('structural.move', { structuralId: id, delta: { x: 5, y: 0, z: 3 } }),
+    ).rejects.toThrow(/NO STRUCTURAL RUNTIME FAMILY/i);
+    expect(snap(env.structural)).toEqual(before);
   });
 
   it('deletes and inverts', async () => {

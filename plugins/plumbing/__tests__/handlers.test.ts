@@ -72,16 +72,22 @@ describe('plumbing.create / move / delete', () => {
     await expect(env.bus.executeCommand('plumbing.create', { diameter: 0 })).rejects.toThrow();
   });
 
-  it('moves and deletes', async () => {
+  it('move refuses and names plumbing.moveFixture; delete still works', async () => {
     env = buildEnv();
     const id = createId('plumbing');
     await env.bus.executeCommand('plumbing.create', { id });
-    await env.bus.executeCommand('plumbing.move', {
-      plumbingId: id, delta: { x: 1, y: 0.5, z: -0.2 },
-    });
-    const p = env.plumbing.get(id)!;
-    expect(p.origin.x).toBeCloseTo(1);
-    expect(p.origin.y).toBeCloseTo(0.5);
+    const originBefore = { ...env.plumbing.get(id)!.origin };
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this is the ORIGINAL L-220 defect, now closed
+    // at the gate: this handler SHADOWED the legacy bridge and rejected the 3-D gizmo's
+    // { id, to } payload at canExecute, so the founder's moved toilet never reached the
+    // 2-D plan — and even a corrected payload could not have, because this store is
+    // detached. Moving a fixture commits through `plumbing.moveFixture` (id, to).
+    await expect(
+      env.bus.executeCommand('plumbing.move', { plumbingId: id, delta: { x: 1, y: 0.5, z: -0.2 } }),
+    ).rejects.toThrow(/plumbing\.moveFixture/);
+    expect(env.plumbing.get(id)!.origin.x).toBeCloseTo(originBefore.x);
+    expect(env.plumbing.get(id)!.origin.y).toBeCloseTo(originBefore.y);
+    // Unchanged, and now doubling as a POSITIVE control: delete is genuinely live.
     await env.bus.executeCommand('plumbing.delete', { plumbingId: id });
     expect(env.plumbing.get(id)).toBeUndefined();
   });

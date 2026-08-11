@@ -105,17 +105,24 @@ describe('slab.move + setThickness + setBaseOffset', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('move translates every boundary vertex and undoes', async () => {
+  it('refuses a well-formed payload, names slab.movePolygon, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('slab');
     await env.bus.executeCommand('slab.create', { id, boundary: SQUARE });
     const before = snap(env.slab);
-    const ev = await env.bus.executeCommand('slab.move', {
-      slabId: id,
-      delta: { x: 1, y: 0, z: 2 },
-    });
-    expect(env.slab.get(id)?.boundary[0]).toEqual({ x: 1, y: 0, z: 2 });
-    undoLast(env.slab, ev);
+    // §FIX-DEAD-MOVE-VERB-REFUSE (W3-4) — this used to assert the PLUGIN DTO store
+    // mutated, and passed while the user's model never changed: in production the bus
+    // binds the DETACHED plugin store here, no renderer/exporter/persistence path reads
+    // it, and NO surface dispatches `slab.move`. Moving a slab commits through `slab.movePolygon` — the DISTINCT
+    // verb minted by §FIX-MOVE-SLAB-AND-HANDRAIL (G7) precisely because slab.move and
+    // slab.update were already claimed by this detached store.
+    // What is pinned is now the REFUSAL, its reason, and the ABSENCE of any mutation —
+    // an assertion about the wrong store is worse than none, because it reads as proof.
+    // `execute()` is deliberately left intact for a host that binds the authoritative
+    // store under this key; `canExecute` is the gate the bus honours.
+    await expect(
+      env.bus.executeCommand('slab.move', { slabId: id, delta: { x: 1, y: 0, z: 2 } }),
+    ).rejects.toThrow(/slab\.movePolygon/);
     expect(snap(env.slab)).toEqual(before);
   });
 
