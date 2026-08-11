@@ -3,6 +3,10 @@
 > **Stamp**: 2026-06-01 · **Revised 2026-08-11 (rev 2 — measured)** · **Status**: CANONICAL
 > **Authority**: this doc owns engineering intent and principles. When sprint plans propose work that contradicts this doc, this doc wins. When this doc disagrees with the code, this doc updates (per [operating-principles O5](./STR-06-operating-principles.md)).
 
+> **Foundation above**: [STR-01-manifesto.md](./STR-01-manifesto.md) → [STR-02-product-vision.md](./STR-02-product-vision.md) → [STR-07-positioning.md](./STR-07-positioning.md)
+> **Companion**: [STR-04-architecture.md](./STR-04-architecture.md) (system shape + boundary matrix + composition root)
+> **Per-package detail**: [STR-05-architecture-breakdown.md](./STR-05-architecture-breakdown.md)
+
 > ### What changed in rev 2, and why
 >
 > §2 said *"These are the binding architectural commitments. Each has a CI gate."* Two of the
@@ -15,9 +19,6 @@
 > the defect classes this codebase has actually shipped as the evidence. It exists because the
 > single most valuable engineering property PRYZM has built is not a renderer or a solver — it
 > is a growing collection of machinery that makes the system's own claims falsifiable.
-> **Foundation above**: [STR-01-manifesto.md](./STR-01-manifesto.md) → [STR-02-product-vision.md](./STR-02-product-vision.md) → [STR-07-positioning.md](./STR-07-positioning.md)
-> **Companion**: [STR-04-architecture.md](./STR-04-architecture.md) (system shape + boundary matrix + composition root)
-> **Per-package detail**: [STR-05-architecture-breakdown.md](./STR-05-architecture-breakdown.md)
 
 This document answers one question: **where do we want to be?** Not how we get there (`03-execution/plans/`), not the shape (`STR-04-architecture.md`), not where we are today (`03-execution/status/`). Just the destination + the binding commitments.
 
