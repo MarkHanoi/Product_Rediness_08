@@ -276,15 +276,25 @@ step is WARNED about rather than de-duplicated (the generators' shipped
 auto-chain already finishes what they generate, so the later step runs a second
 time over the same rooms — collapsing it is an engine change, not a chat change).
 
-## Phase U7 — Property vocabulary + catalogue families ⬜
+## Phase U7 — Property vocabulary + catalogue families ✅ 3/4 (2026-08-11)
 
-U7.1 top-20 panel fields (per-kind proven routes, bounds from L2 authorities,
-gate-pinned vs PropertyDescriptorGenerator) · U7.2 `element.changeType` +
-door/window types via `resolveCatalogueRef` · U7.3 enums (swing, accessibility,
-fire ratings) · U7.4 marks, frame colours, room occupancy/fill.
+| Sub | What | Status |
+|---|---|---|
+| U7.1 ✅ | `PropertyVocabulary.ts` — a chat-drivable property becomes a TABLE ENTRY: its noun and synonyms (the grammar), the element kinds it genuinely reaches, the live bus route per kind, and its bounds where a published L2 authority exists to source them from. ONE generic arm executes all of them. The audit that built it found and removed a live lie: `set-height` claimed BEAM while `BeamData` has no height field at all, so "make this beam 500mm tall" wrote a field nothing reads and said "Done" | `63f22496` |
+| U7.2 ✅ | `CatalogueFamilies.ts` — a catalogue family is ONE record (element kind, batch verb, ids field, catalogue source, refusal copy) from which the execution spec AND the tier-0 grammar are GENERATED. Slab + ceiling shipped as rows with zero resolver code | `63f22496` |
+| U7.3 ✅ | **The extension proof, measured.** Four new capabilities — `set-mullion-size`, `set-panel-thickness` (curtain-wall), `set-baluster-spacing`, `set-baluster-width` (handrail) — shipped as table rows + registry metadata and NOTHING else: `git diff --numstat` for `ZeroTokenResolver.ts` and `CapabilityExecutionSpec.ts` in that commit is EMPTY. **0 resolver LOC vs 118 table LOC + 174 metadata LOC.** `gridXSpacing`/`gridYSpacing` were deliberately NOT added and the table says why: the builder reads them only when `cw.gridSystem` is absent, so on any wall whose grid was edited the write lands, the rebuild runs and nothing moves — conditional liveness is not liveness. The gate was STRENGTHENED to accept the change: `packages/geometry-*/` is now a READ-SIDE proof class, and every capability must keep at least one EXECUTION-root proof — closing the beam-height direction of the same lie | `f21fd6c6` |
+| U7.4 | Marks, frame colours, room occupancy/fill | ⬜ |
 
-🧪 *"Set the base offset to 150 mm"* · *"change these doors to fire doors"* ·
-*"make this door accessible"* · *"set the mark to W-101"*.
+🧪 *"Set the base offset to 150 mm"* · *"set the mullion size to 60mm"* ·
+*"change the glazing thickness to 0.024m"* · *"set the baluster spacing to
+100mm"* · *"change all slabs to rc slab monolithic 200mm"*.
+
+> **The property panel was lying too, and that is now fixed.** U7.1 removed
+> `beam` from the chat's `set-height`; the PANEL still offered an editable
+> Height row (and a Base Offset row for a field `BeamData` also lacks). Both
+> wrote, both re-ran the builder, both moved nothing. Height became DEPTH with
+> the published `BEAM_CONSTRAINTS` bounds and Base Offset was deleted
+> (`fd27e513`); the gate's unreachable-property count fell 42 to 40.
 
 ## Phase U8 — Filter scopes + spatial service ✅ 3/4 (2026-08-11)
 
@@ -310,14 +320,72 @@ traversal — those need a spatial-index service, not a predicate over a record.
 > a number about the wrong system ([[probe-can-be-wrong-three-ways]]). The
 > honest home for it is the editor spec suite, against real stores.
 
-## Phase U9 — Batch-creation parametrics + safe E-class ⬜
+## Phase U9 — Batch-creation parametrics + safe E-class ✅ 1/2 (2026-08-11)
 
-U9.1 parametric creation plans (columns every N m, windows on scoped walls)
-with pure preview counts · U9.2 E-class (`create-on-all-*`) behind
-count-preview; single-slab variant first.
+| Sub | What | Status |
+|---|---|---|
+| U9.1 | Parametric creation beyond windows (columns on a grid, beams between columns, doors per room) | ⬜ **deferred, with the reason** — see below |
+| U9.2 ✅ | **Scoped deletion — the first SAFE destructive capability.** `DeleteFamilies.ts` generates four capabilities (furniture, window, door, column) from one table row each: execution spec, grammar, registry metadata and the safety contract. ONE undo entry via `element.deleteBatch` → `DeleteElementsBatchCommand`, which COMPOSES the existing per-element `DeleteElementCommand` rather than re-deriving the cascade semantics that L-82, L-298 and L-308 paid for. **Zero new resolver case arms** (the gate's own ratchet: 27/27) | `f5f3a5a1` |
 
-🧪 *"Create a row of columns every 6 metres along this wall"* ·
-*"add walls on this slab"* → "this will create 14 columns — proceed?".
+🧪 *"delete all furniture in the kitchen"* · *"remove every window on level 2"* ·
+*"clear the furniture on this floor"* · *"delete all windows smaller than 2 m²
+on level 2"* (the U8 filter composes for free) · *"delete all columns"*.
+
+**The Confirm card, verbatim:**
+
+> This deletes all 42 furniture items on Level 1. Nothing else changes.
+
+### Why a destructive capability is allowed to exist now
+
+ADR-0313 deferred bulk destructive verbs because "the inline Confirm/Cancel card
+shows no preview of what will appear". Read carefully, that is an argument about
+GENERATION — you cannot preview a building that does not exist. Deletion is the
+opposite shape: everything it touches ALREADY EXISTS and has already been
+counted. Four properties make the card honest, and all four are ENFORCED:
+
+1. **The count is real.** A new `requireResolvedIds` flag forbids the unbounded
+   `idsField: 'all'` payload on a destructive spec, so the scope is resolved to
+   ids — through the same U3/U8 resolver, filters included — before the card is
+   drawn. An ABSENT resolver refuses (*"I won't run a delete without telling you
+   how many first"*); it never widens. Pinned by a test, because silently
+   widening an unresolvable "all" is how you delete a model.
+2. **An empty scope refuses**, naming the place. Never a cheerful no-op.
+3. **One undo entry.**
+4. **Honest partial outcome** — *"Deleted 40 of 42 furnitures — 2 skipped: …"*,
+   with CASCADED ids (a table's chairs) counted SEPARATELY, because folding them
+   in would overstate what the user agreed to.
+
+### What did NOT graduate out of E, and why
+
+`curtain-wall.create-on-all-slabs`, `slab.create-on-all-floors` and
+`wall.create-on-all-slabs` stay class E. They CREATE: the size, count and
+placement of what appears cannot be seen until it exists, so a card saying "this
+creates 37 curtain walls" is a number without a shape. The missing piece is
+still preview-before-execute — genuinely missing, not merely unbuilt confidence.
+
+`wall` is absent from the delete families for the mirror-image reason: a wall
+delete cascades its hosted openings AND re-solves the level's join topology, so
+a card saying "40 walls" would UNDERSTATE what is being agreed to. `lighting` is
+absent because `DeleteElementCommand` has no lighting branch at all — a batch
+built on it would report "not found" for every fixture.
+
+### U9.1 — deferred, and precisely why
+
+The route it wants is real but not reachable from the bus.
+`CreateDoorsBetweenAdjacentRoomsCommand` and the `create-on-all-slabs` family
+exist and are live, but they are dispatched only from
+`apps/editor/src/ui/create/batchCatalogue.ts` — a UI catalogue, not a registered
+bus verb — so the chat has nothing to dispatch. Wiring them needs a new bus
+handler per family PLUS a creation-shaped execution template: the U4 spec arm is
+a batch-MUTATION shape (resolve scope → resolve value → one command), and
+parametric creation is count/spacing modes, stated-default sizing, occupancy
+gating and overlap maths, which is why `create-windows-parametric` is still a
+hand-written arm. Doing that shape properly is a generator of its own —
+`CreationFamilies.ts`, the third sibling of `CatalogueFamilies` and
+`DeleteFamilies` — and half-wiring it is exactly the L-620 failure this phase
+exists to prevent. **Next step:** lift `create-windows-parametric` into that
+generator FIRST (with no behaviour change, pinned by its existing acceptance
+family), then add columns-on-grid as the second row.
 
 ## Phase U10 — LLM planner + the drain ✅ 3/3 (2026-08-11)
 
