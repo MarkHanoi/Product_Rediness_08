@@ -267,7 +267,14 @@ const RESTRICTED_MODULES: ReadonlyArray<{ readonly mod: string; readonly allowed
 
 // ── Workspace map: package name → directory (exact, from package.json) ───────
 function workspacePackages(): Map<string, string> {
-    const out = execSync('git ls-files -- "packages/*/package.json" "plugins/*/package.json" "apps/*/package.json"', {
+    // §FIX-GATE-BLIND-TO-UNTRACKED (L-837, 2026-08-11) — see check-command-naming.
+    // Acute here: this is how the gate builds its @pryzm/X → directory MAP. A new
+    // workspace whose package.json is not yet staged does not exist to the mapper,
+    // so every import to or from it resolves to nothing and is silently skipped —
+    // not reported as unclassified, just absent. The unclassified ratchet (13/13)
+    // exists precisely so coverage cannot quietly shrink, and a tracked-only
+    // listing is a hole underneath it.
+    const out = execSync('git ls-files --cached --others --exclude-standard -- "packages/*/package.json" "plugins/*/package.json" "apps/*/package.json"', {
         encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
     });
     const map = new Map<string, string>();
@@ -327,12 +334,24 @@ function isAllowed(from: string, to: string): boolean {
 // side-effect import is exactly how a layer violation would sneak in unnoticed,
 // since it has no binding to review. Left as a comment because it is the kind of
 // omission that looks harmless and silently halves a gate's coverage.
-const IMPORT_RE = /(?:^|\n)\s*(?:import|export)[\s\S]{0,400}?from\s*['"]([^'"]+)['"]|(?:^|[^.\w])import\s*\(\s*['"]([^'"]+)['"]\s*\)|(?:^|\n)\s*import\s+['"]([^'"]+)['"]/g;
+/**
+ * §FIX-LSFILES-ENOENT-CRASH (L-837, 2026-08-11) — files named by `git ls-files`
+ * that could not be opened (tracked in the index, deleted or moved in the working
+ * tree). Disclosed on every run. This gate's three ratchets are all COUNTS, and a
+ * count over a silently-reduced file set is the §CONTEXT-DATA-HONESTY defect: the
+ * number would fall, look like progress, and mean "we read less".
+ */
+let UNREADABLE_SOURCES = 0;
+
+const IMPORT_RE =/(?:^|\n)\s*(?:import|export)[\s\S]{0,400}?from\s*['"]([^'"]+)['"]|(?:^|[^.\w])import\s*\(\s*['"]([^'"]+)['"]\s*\)|(?:^|\n)\s*import\s+['"]([^'"]+)['"]/g;
 
 interface Violation { readonly file: string; readonly fromLayer: string; readonly toLayer: string; readonly spec: string }
 
 function scan(pkgs: Map<string, string>) {
-    const files = execSync('git ls-files -- "packages/**/*.ts" "plugins/**/*.ts" "apps/**/*.ts" "packages/**/*.tsx" "apps/**/*.tsx"', {
+    // §FIX-GATE-BLIND-TO-UNTRACKED (L-837) — the source sweep. A new file holding
+    // a fresh upward import was invisible until staged, so the violation count was
+    // "violations among files git already knew about", not "violations".
+    const files = execSync('git ls-files --cached --others --exclude-standard -- "packages/**/*.ts" "plugins/**/*.ts" "apps/**/*.ts" "packages/**/*.tsx" "apps/**/*.tsx"', {
         encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
     }).split('\n').map(s => s.trim()).filter(Boolean)
       .filter(f => !f.includes('__tests__') && !f.endsWith('.d.ts') && !f.includes('/dist/'));
@@ -349,7 +368,14 @@ function scan(pkgs: Map<string, string>) {
     for (const file of files) {
         const fromLayer = layerOf(file);
         if (!fromLayer) continue;                       // unclassified source — coverage, not violation
-        const src = readFileSync(file, 'utf8');
+        // §FIX-LSFILES-ENOENT-CRASH (L-837, 2026-08-11) — a file tracked in the
+        // index but deleted/moved in the working tree threw ENOENT and killed the
+        // gate at exit 1, which this gate's ledger line could absorb. Counted and
+        // disclosed rather than skipped: an absent file and a clean file must not
+        // produce the same reading, and this gate's whole claim is a COUNT.
+        let src: string;
+        try { src = readFileSync(file, 'utf8'); }
+        catch { UNREADABLE_SOURCES++; continue; }
         IMPORT_RE.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = IMPORT_RE.exec(src)) !== null) {
@@ -411,6 +437,16 @@ const stale = COMPILED.filter(c => !existsSync(c.pattern.replace(/\/\*\*$/, ''))
 const { violations, byPair, sdkBypass, bypassByTarget, restricted } = scan(pkgs);
 
 console.log('[check-layer-boundaries] §FIX-LAYER-GATE-BLIND (L-809) · §FIX-LAYER-TABLE-INVERTED');
+// §FIX-LSFILES-ENOENT-CRASH (L-837) — disclosed BEFORE the counts, because it
+// qualifies every one of them. All three ratchets here are counts, and a count
+// over a silently-reduced file set would FALL and look like progress.
+if (UNREADABLE_SOURCES > 0) {
+    console.warn(
+        `[check-layer-boundaries] ⚠ ${UNREADABLE_SOURCES} source file(s) are tracked by git but absent`
+        + ` from the working tree (deleted or moved, not yet staged) and were NOT read.`
+        + ` Every count below is over the remaining files, not over the repository.`,
+    );
+}
 console.log(`[check-layer-boundaries] workspace packages: ${pkgs.size} · classified: ${classified.length} · UNCLASSIFIED: ${unclassified.length}`);
 console.log(`[check-layer-boundaries] upward imports between classified packages: ${violations.length}`);
 console.log(`[check-layer-boundaries] L6 plugin imports bypassing the L5 SDK facade: ${sdkBypass.length}`);

@@ -81,7 +81,21 @@ const SCAN_GLOBS = ['plugins/*/src/**/*.ts', 'packages/command-registry/src/**/*
 function listFiles(): string[] {
     // `git ls-files` rather than a directory walk: respects .gitignore, skips
     // node_modules/dist for free, and cannot wander into a sibling worktree.
-    const out = execSync(`git ls-files -- ${SCAN_GLOBS.map(g => `"${g}"`).join(' ')}`, {
+    // §FIX-GATE-BLIND-TO-UNTRACKED (L-837, 2026-08-11) — `--cached --others
+    // --exclude-standard`, never bare `git ls-files`.
+    //
+    // Bare `ls-files` lists TRACKED files only, so a brand-new file — which is
+    // exactly what a PR adding a command IS, right up until it is staged — was
+    // invisible to this gate. The author sees green, stages, and the violation is
+    // already in. Same class as L-811: a scanner reporting on a subject it never
+    // looked at. Proven before fixing: an untracked handler under plugins/ came
+    // back 0 from the bare form and 1 from this one.
+    //
+    // `--others --exclude-standard` adds untracked files while still honouring
+    // .gitignore, so node_modules and build output stay out (verified: 0 hits).
+    // That was the whole reason ls-files was chosen over a directory walk, and it
+    // is preserved.
+    const out = execSync(`git ls-files --cached --others --exclude-standard -- ${SCAN_GLOBS.map(g => `"${g}"`).join(' ')}`, {
         encoding: 'utf8',
         maxBuffer: 32 * 1024 * 1024,
     });
@@ -96,8 +110,24 @@ function scan(): Found[] {
     // unrelated `type:` field in the codebase and drown the signal.
     const decl = /(?:readonly\s+)?type\s*[:=]\s*'([a-zA-Z][a-zA-Z0-9._-]*\.[a-zA-Z][a-zA-Z0-9._-]*)'/g;
     const found: Found[] = [];
+    // §FIX-LSFILES-ENOENT-CRASH (L-837, 2026-08-11) — `git ls-files` lists the
+    // INDEX, so it names files that are tracked but deleted (or moved) in the
+    // working tree. Reading one threw ENOENT and killed the gate mid-scan with
+    // exit 1 — the same exit code a real naming violation produces, and this gate
+    // is ledger-eligible, so a crash could be absorbed as merit. That is L-811
+    // exactly, arriving through a different door.
+    //
+    // Skipping silently would be the other half of the same mistake: files that
+    // vanished and files that were clean would produce the same reading. So they
+    // are COUNTED and REPORTED, and the scan continues over what it can actually
+    // read. If the whole subject has vanished, the floor below catches it.
+    let unreadable = 0;
     for (const file of listFiles()) {
-        const lines = readFileSync(file, 'utf8').split('\n');
+        let raw: string;
+        try { raw = readFileSync(file, 'utf8'); }
+        catch { unreadable++; continue; }
+        SCANNED_OK++;
+        const lines = raw.split('\n');
         for (let i = 0; i < lines.length; i++) {
             const text = lines[i]!;
             const t0 = text.trimStart();
@@ -109,8 +139,38 @@ function scan(): Found[] {
             }
         }
     }
+    // §FIX-LSFILES-ENOENT-CRASH (L-837) — three distinct facts, three outcomes.
+    // MIN_FILES is the same idiom as check-no-direct-store-writes.ts:136 and
+    // lib/sourceScan.ts: a scanner that found nothing because it looked nowhere
+    // must not be able to report a pass. Exit 2, never 0 and never 1 — this gate
+    // is ledger-eligible, and exit 1 here would be absorbable as declared debt.
+    if (SCANNED_OK < MIN_FILES) {
+        console.error(
+            `\n[check-command-naming] MISCONFIGURED (exit 2) — READ only ${SCANNED_OK} handler file(s)`
+            + ` (${unreadable} listed by git but absent from the working tree); floor is ${MIN_FILES}.`
+            + `\n  This is NOT a pass. Every command type this gate polices lives in a file it`
+            + `\n  could not open, so "no non-canonical prefixes" would mean nothing.`,
+        );
+        process.exit(2);
+    }
+    if (unreadable > 0) {
+        // Reported, never hidden: a vanished file and a clean file must not read
+        // the same. Below the floor this is fatal; above it, it is disclosure.
+        console.warn(
+            `[check-command-naming] ⚠ ${unreadable} file(s) are tracked by git but absent from the`
+            + ` working tree (deleted or moved, not yet staged) and were NOT scanned.`,
+        );
+    }
     return found;
 }
+
+/**
+ * §FIX-LSFILES-ENOENT-CRASH (L-837) — subject floor. 40 is well under the ~250
+ * handler files this repo carries, so it cannot mask ordinary churn; it exists to
+ * catch a collapsed glob or a listing that returned nothing at all.
+ */
+const MIN_FILES = 40;
+let SCANNED_OK = 0;
 
 const all = scan();
 const byPrefix = new Map<string, Found[]>();

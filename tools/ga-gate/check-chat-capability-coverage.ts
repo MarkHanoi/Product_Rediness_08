@@ -221,7 +221,14 @@ const HANDLER_TYPE_RE = new RegExp(
 const ACCEPTANCE_SPEC = 'packages/ai-host/__tests__/capability-acceptance.test.ts';
 
 function registeredCommands(): Map<string, string> {
-  const files = execSync(`git ls-files -- ${HANDLER_GLOBS.map((g) => `"${g}"`).join(' ')}`, {
+  // §FIX-GATE-BLIND-TO-UNTRACKED (L-837, 2026-08-11) — see check-command-naming.
+  // Bare `git ls-files` is TRACKED-ONLY, so a newly written handler was invisible
+  // here until it was staged. For THIS gate that is acute: its headline claim is
+  // "every registered bus command is declared to the chat, UNDECLARED: 0". An
+  // unstaged handler registering a new command could not be counted, so the zero
+  // meant "zero among files git already knew about" — a weaker claim than the one
+  // printed. `--exclude-standard` keeps .gitignore honoured.
+  const files = execSync(`git ls-files --cached --others --exclude-standard -- ${HANDLER_GLOBS.map((g) => `"${g}"`).join(' ')}`, {
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
   })
@@ -231,14 +238,34 @@ function registeredCommands(): Map<string, string> {
     .filter((f) => !f.includes('__tests__'));
 
   const out = new Map<string, string>();
+  // §FIX-LSFILES-ENOENT-CRASH (L-837, 2026-08-11) — `git ls-files` lists the
+  // INDEX, so a file tracked but deleted/moved in the working tree is named and
+  // cannot be opened. Reading one threw ENOENT and killed this gate outright at
+  // exit 1 — indistinguishable from a real coverage failure. Skipping silently
+  // would be the mirror mistake (a vanished handler and a clean one reading the
+  // same), so they are counted and disclosed below.
+  let unreadable = 0;
   for (const file of files) {
-    const src = readFileSync(file, 'utf8');
+    let src: string;
+    try { src = readFileSync(file, 'utf8'); }
+    catch { unreadable++; continue; }
     HANDLER_TYPE_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = HANDLER_TYPE_RE.exec(src)) !== null) {
       const verb = m[1] ?? m[2];
       if (verb !== undefined && !out.has(verb)) out.set(verb, file);
     }
+  }
+  // §FIX-LSFILES-ENOENT-CRASH (L-837) — disclosed, never swallowed. This gate's
+  // headline is "UNDECLARED: 0 of 319 registered bus commands"; a handler file it
+  // could not open is a command it could not count, so the zero would be over a
+  // smaller set than the sentence claims.
+  if (unreadable > 0) {
+    console.warn(
+      `[check-chat-capability-coverage] ⚠ ${unreadable} handler file(s) are tracked by git but`
+      + ` absent from the working tree and were NOT scanned — any command they register is`
+      + ` NOT included in the counts below.`,
+    );
   }
   return out;
 }
