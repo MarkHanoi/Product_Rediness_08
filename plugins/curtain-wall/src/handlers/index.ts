@@ -22,7 +22,8 @@ import { SwapPanelHandler } from './SwapPanel.js';
 import { RotatePanelHandler } from './RotatePanel.js';
 import { CreateCurtainWallBatchHandler } from './CreateCurtainWallBatch.js';
 import { DeleteCurtainWallBatchHandler } from './DeleteCurtainWallBatch.js';
-import { UpdateCurtainWallHandler } from './UpdateCurtainWall.js';
+// §FIX-CW-UPDATE-REACH-RECORD — UpdateCurtainWallHandler import removed with its
+// registration; see the CURTAIN_WALL_HANDLER_TYPES note below.
 import { UpdateCurtainWallBatchHandler } from './UpdateCurtainWallBatch.js';
 import { CreateCurtainWallsOnAllSlabsHandler } from './CreateCurtainWallsOnAllSlabs.js';
 import { AddCurtainGridLineHandler } from './AddCurtainGridLine.js';
@@ -50,8 +51,22 @@ export const CURTAIN_WALL_HANDLER_TYPES = [
   'curtain-wall.batch.create',
   // P2e: batch delete — undo-mirror of batch.create; keeps plugin store in sync with legacy undo()
   'curtain-wall.batch.delete',
-  // F-1.3 bridge
-  'wall.updateCurtainWall',
+  // §FIX-CW-UPDATE-REACH-RECORD — 'wall.updateCurtainWall' LEFT this set.
+  // `UpdateCurtainWallHandler` `produceCommand`ed against the plugin DTO store — a fresh
+  // store built by PluginRegistry that no builder, no 2-D projector, no IFC exporter and
+  // no persistence path reads. Unlike its roof/ceiling siblings there was no shadowed
+  // bridge behind it: TASK-07 Phase A DELETED the bridge outright, so the verb was
+  // UNBRIDGED, and all four of its live dispatchers (3-D gizmo drag-end, plan Move tool,
+  // property sheet, Material control) reported success and changed nothing authoritative.
+  // The verb is now owned by the `initBusHandlers.ts` bridge → `UpdateCurtainWallCommand`
+  // → the geometry `curtainWallStore` (`engineLauncher.ts:305,774,824`), which also
+  // carries a real `undo()` (full snapshot restore, §01 §2.2) and the §DW-03 spatial
+  // re-registration on a levelId change — neither of which the DTO handler did.
+  //
+  // NOT MIGRATED WITH IT, deliberately (do not scope-creep): 'curtain-wall.batch.update',
+  // 'curtain-wall.setGrid', 'setOutline', 'resize', 'setMullionType', 'setTransomType',
+  // 'setPanelType', the per-panel verbs and 'curtain-wall.move' all still write the same
+  // detached DTO store. They are a separate, larger remediation.
   // FT7 (ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18): batch update — one Immer call, one rebuild
   'curtain-wall.batch.update',
   // F-1.3 bridge
@@ -83,7 +98,8 @@ export function buildCurtainWallHandlerSet() {
     // P2e: batch create + batch delete (undo-mirror)
     new CreateCurtainWallBatchHandler() as unknown as CommandHandler<unknown>,
     new DeleteCurtainWallBatchHandler() as unknown as CommandHandler<unknown>,
-    UpdateCurtainWallHandler as unknown as CommandHandler<unknown>,
+    // §FIX-CW-UPDATE-REACH-RECORD — UpdateCurtainWallHandler retired (see the
+    // CURTAIN_WALL_HANDLER_TYPES note); the initBusHandlers bridge owns the verb.
     // FT7 (ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18): batch update — one Immer call, one rebuild
     new UpdateCurtainWallBatchHandler() as unknown as CommandHandler<unknown>,
     // F-1.3 bridge
@@ -142,7 +158,13 @@ export {
   DeleteCurtainWallBatchHandler,
   type DeleteCurtainWallBatchPayload,
 } from './DeleteCurtainWallBatch.js';
-export { UpdateCurtainWallHandler, type UpdateCurtainWallPayload } from './UpdateCurtainWall.js';
+// §FIX-CW-UPDATE-REACH-RECORD — `UpdateCurtainWall.ts` DELETED, not merely unregistered,
+// exactly as `UpdateRoof.ts` was at 2c8b4904. Nothing outside this barrel imported
+// `UpdateCurtainWallHandler`, and `tools/ga-gate/check-verb-register.ts` classifies
+// SHADOWED from DECLARING FILES rather than from registration — so leaving the class in
+// place would keep a second declaring site for a verb that now has exactly one owner, and
+// would leave a test bus able to register it manually and write the detached store again
+// (the residue L-815 logged as NOT COVERED).
 export {
   UpdateCurtainWallBatchHandler,
   type UpdateCurtainWallBatchPayload,

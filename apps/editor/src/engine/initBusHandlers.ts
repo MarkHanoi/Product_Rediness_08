@@ -20,6 +20,11 @@ import {
   // store → "floor not found" for FloorTool-created floors.
   UpdateFloorLayersCommand,
   UpdateCeilingCommand,
+  // §FIX-CW-UPDATE-REACH-RECORD — the ONLY code in the repo that writes the geometry
+  // `curtainWallStore` on an update. Its bridge was deleted by TASK-07 Phase A in favour
+  // of a plugin `produceCommand` against a detached DTO store, which left it orphaned and
+  // every curtain-wall move / property edit / material pick a silent no-op. Re-bridged.
+  UpdateCurtainWallCommand,
   UpdateFurnitureParametersCommand,
   // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — the uniform "change element type"
   // command surface routes per-family to these legacy commands (the only path
@@ -633,6 +638,46 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.ceilingId ? 'ceilingId is required' : null),
             fn: (cmd) => { _cmExec(new UpdateCeilingCommand({ ceilingId: cmd.ceilingId, updates: cmd.updates })); },
+        },
+        {
+            // §FIX-CW-UPDATE-REACH-RECORD — the curtain-wall sibling of
+            // §FIX-ROOF-UPDATE-REACH-RECORD (L-839) and §FIX-CEILING-UPDATE-REACH-RECORD,
+            // and the WORST of the three: roof and ceiling each had this bridge sitting
+            // unregistered behind a plugin handler, but `wall.updateCurtainWall` had NO
+            // bridge at all. TASK-07 Phase A DELETED it ("Replaced F-1.3 commandManager
+            // bridge with authoritative Immer produceCommand"), leaving
+            // `UpdateCurtainWallCommand` — the only writer of the geometry
+            // `curtainWallStore` on an update — reachable from nothing but
+            // `CommandRegistry.ts` deserialization.
+            //
+            // FOUR live dispatchers were therefore silent no-ops: the 3-D gizmo drag-end
+            // (`registerTransformDragHandler.ts:435`), the plan Move tool
+            // (`elementMove.ts:303`), the property sheet
+            // (`PropertyInspectorApply.ts:225,467,575`) and the Material control
+            // (`MaterialDispatch.ts:115`) — the last of which `SetCurtainWallMaterial.ts`
+            // explicitly redirects users to on the claim that it "reaches the geometry
+            // record the builders read".
+            //
+            // ROUTE. Same-verb bridge + retirement of the plugin handler, i.e. route (c),
+            // NOT the L-220 distinct-verb pattern used for `slab.movePolygon` /
+            // `handrail.moveBaseLine`. That pattern exists for verbs a plugin handler
+            // must keep claiming; here the plugin handler writes ONLY the detached store,
+            // so the name is free. A distinct move-only verb would have fixed the two
+            // move surfaces and left the property sheet and the Material control dead —
+            // and would have added a SHADOWED row to the verb register, since the plugin
+            // declaration would have stayed. `wall.updateCurtainWall` keeps exactly one
+            // declaring site; it has simply moved from the plugin to here.
+            //
+            // `stores: []` is deliberate and matches `roof.update` / `ceiling.update`:
+            // undo belongs to the legacy commandManager stack, where
+            // `UpdateCurtainWallCommand.undo()` restores the full pre-mutation snapshot
+            // via `store.set()` (§01 §2.2) and reverses the §DW-03 spatial
+            // re-registration. Declaring a ring-buffer store here would be a C03 §4.6
+            // U-2b violation — the write goes to the geometry store, not to any bus store.
+            type: 'wall.updateCurtainWall',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.id ? 'id is required' : null),
+            fn: (cmd) => { _cmExec(new UpdateCurtainWallCommand({ id: cmd.id, updates: cmd.updates })); },
         },
         {
             // §FEAT-SCHEDULE-VIEW-EDIT (L-80) — Schedule panel EDIT mode. The
