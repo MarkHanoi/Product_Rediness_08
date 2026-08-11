@@ -1668,3 +1668,116 @@ something is worth nothing until you have watched it fail.**
    whose return value is already escaped — so the number means "unguarded" rather than merely
    "interpolated". Until then a green reading means "no NEW interpolations", which is a
    weaker claim than the gate's name implies.
+
+---
+
+# §9 RAC CONFORMANCE — the measured answer to "can PRYZM reliably do these operations?"
+
+Built 2026-08-11. `tools/rac-conformance/` + `docs/04-reference/RAC-CONFORMANCE-SCORECARD-*.md`.
+Every operation scored on **seven independent verdicts** — V1 resolve · V2 dispatch ·
+**V3 authoritative state** · V4 persist · V5 undo · V6 sync · V7 report — each PASS, FAIL or
+**UNPROVEN**, never collapsed. D14 proves declaration ↔ route; this measures **route →
+authoritative state**, the axis that has never existed.
+
+## §9.1 L-839 · The committer channel is closed at the composition root — `roof.update` is a dead verb
+
+**Severity: P0. Queued behind two live streams, not yet fixed.**
+
+`roof.update` writes ONLY the plugin DTO store. Nothing renders, persists or exports it.
+Every dispatcher is affected: `RoofPropertySheet.ts:317`, `PropertyInspectorApply.ts:233`,
+`elementMove.ts:112,412`, `registerTransformDragHandler.ts:135`.
+
+**Proven by static call-graph, three independent ways:**
+1. **Route shadowing.** `UpdateRoofHandler` registers during `composeRuntime` (via
+   `PluginRegistry.ts:263` → `bootstrap.everything.ts:167-180` → `bootstrap.ts:98`), i.e.
+   BEFORE `initBusHandlers`. The bus is first-registration-wins, so the editor bridge at
+   `initBusHandlers.ts:597-602` hits the `continue` at `:2202` and **is never registered**.
+   `UpdateRoofCommand` is unreachable from the bus. `engineLauncher.ts:505`'s
+   `registerRoofHandlers` is likewise a guaranteed no-op (Proxy skip-if-present at `:462`).
+2. **No committer carries the plugin store anywhere.** `RoofCommitter` exists
+   (`plugins/roof/src/committer/roof-committer.ts:65`) and is **never instantiated** — repo-wide
+   `new RoofCommitter` returns ZERO code hits.
+3. **The channel is closed at the root.** `composeRuntime.ts:883` calls
+   `opts.bootstrapFn({ audit })` passing **no committers, no stores, no handlers**;
+   `bootstrap.everything.ts:199` forwards `committers: opts.committers` (undefined);
+   `bootstrap.ts:107-111` iterates `opts.committers ?? []` — an empty loop. The gate's own
+   source already says it: `initBusHandlers.ts:788` — *"composeRuntime registers ZERO
+   committers"*. The only file that ever builds committers,
+   `bootstrap.render.everything.ts:113-149`, builds wall/slab/door/window (not roof) and **has
+   no caller** outside documentation.
+
+**So the plugin roof store is a write-only sink.** This compounds the roof geometry defects:
+fixing `applyOverhang`'s 300 mm → 212 mm is moot while the update never reaches authoritative
+state.
+
+**Cleared by the same analysis — do NOT "fix" these:** `slab.updateDimensions` and
+`element.updateParameters` have NO plugin rival, so the editor bridge legitimately wins;
+`element.delete` has no bridge at all and the plugin handler is sole owner (though it is
+**unavailable between `composeRuntime` resolving and `engineLauncher.ts:565`**, a real if
+narrow window). `view.updateDefinition` is the mirror case — the bridge wins there, and
+`initBusHandlers.ts:1751-1753` documents exactly why, which corroborates the ordering.
+
+**Not yet fixed, deliberately.** The repair spans `composeRuntime` and `plugins/roof`, both
+being edited by other streams at the time of writing. Queued rather than raced.
+
+## §9.2 L-840 · The read-only class is clean at the resolver and unmeasured downstream
+
+**0 mutations across 38 adversarial read-only phrasings**, including all nine
+imperative-plus-measurement forms of the original P0. The `fd27e513` allowlist holds.
+
+**But 35 of 38 ended as an honest `miss`** — and a miss falls through to the LLM planner and
+then to `QueryEngine`, **which is not read-only**: it queues mutating `CommandProposal`s
+rendered as clickable cards. **The P0 risk did not go away; it moved downstream, and downstream
+is unmeasured.** Near-miss pinned: the pasted report line `Wall height: 3.2 m` was claimed by
+`set-height` and stopped only by the empty-selection guard — i.e. by an accident of state, not
+by a rule.
+
+## §9.3 L-841 · Three misreads, two undocumented
+
+1. **`hide level 2` NAVIGATES instead of hiding**, and `show level 2` produces the SAME action —
+   two opposite asks, one outcome. `go-to-level` sits in `VISIBILITY_SAFE_INTENTS` so that
+   `show` works, and the guard cannot tell `show` from `hide`. In neither the MISREAD nor the
+   DRAINED list.
+2. **`remove the material from this wall` → `element.delete`** — a material ask routes to a
+   destructive wall delete, mitigated by the Confirm card rather than by the resolver.
+3. **`Raise all exterior walls to 3.2 m` is not a supported sentence** — `raise` is not a verb,
+   `set-height` is selection-scoped, **there is no wall-height batch command at all**, and
+   `exterior` is an ignored qualifier. The founder's acceptance rule cannot be exercised on that
+   sentence, though it IS met on sentences the grammar accepts.
+
+## §9.4 L-842 · Storage with no write path — the mirror image of a dead verb
+
+- **`room.setFinish` and `room.resize` DO NOT EXIST** repo-wide, while room finishes are fully
+  schema'd and fully persisted (`materialId` / `finishCode` / `nbs` / `csiDivision`). A dead verb
+  is a write with no reader; this is a reader with no write.
+- **`room.create` IS a dead verb** — the only room handler without a `commandManager` bridge,
+  writing a plugin DTO `Room` shape incompatible with the `room-topology` `RoomData` that the
+  renderer and serializer use, **with no translation layer**.
+
+## §9.5 L-843 · Collaboration fails all 8 rows, and the reason is structural
+
+Leg (a) — writes for 25 verbs — landed at `e1f6966d`. **Leg (b) DOES NOT EXIST**: zero `.observe`
+on `ELEMENTS_NAMESPACE`, and the read surface has no caller in `apps/editor`, so a receiving
+client never updates its local stores and **does not re-render**. Leg (c): no CRDT transport is
+deployed (L-391); production is socket.io last-writer-wins full-snapshot.
+
+**Additional defect found:** the adapter is constructed behind `requestIdleCallback`, so
+**commands in the first ~1.5–4 s never reach the Y.Doc at all**, silently.
+
+**Sharpest finding:** every mass edit the chat can actually perform is declared `not-synced`,
+because its `"all"` subject is **late-bound** — the batch verbs take `xIds: string[] | 'all'`,
+and on `'all'` the subject set does not exist in the payload. **The RAC's strongest capabilities
+are its least syncable.**
+
+Per C66 §1, no tier is described as supported. The probe deliberately did NOT stage a
+two-adapter test and call it collaboration.
+
+## §9.6 What the scorecard does NOT establish
+
+**Every V4 (persist), every V5 (undo), and every V3 outside category 8 are UNPROVEN** — no
+browser, no renderer, no save/reload, no two clients. Where source PROVES a write cannot reach
+authoritative state it is marked FAIL; where it merely suggests it does, UNPROVEN with the
+expected live path named.
+
+**A runtime harness is the single largest outstanding piece of work this exercise identifies.**
+Static analysis can prove a verb is dead; it cannot prove a live one is alive.
