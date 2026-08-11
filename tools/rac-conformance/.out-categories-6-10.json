@@ -1,0 +1,968 @@
+{
+  "readOnly": [
+    {
+      "label": "RO-01 the original P0",
+      "utterance": "highlight walls taller than 3m",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-02 same, spelled out",
+      "utterance": "highlight all walls taller than 3 metres",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-03 show-as-filter",
+      "utterance": "show me the walls taller than 3m",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-04 show-as-filter, thickness",
+      "utterance": "show me every wall thicker than 200mm",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-05 which-question",
+      "utterance": "which walls are taller than 3m?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-06 how-many",
+      "utterance": "how many walls are taller than 3.2 m?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-07 find",
+      "utterance": "find all walls over 3m tall",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-08 list",
+      "utterance": "list the doors wider than 900mm",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-09 imperative+measure, windows",
+      "utterance": "highlight the windows with a sill height above 1m",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-10 visibility read",
+      "utterance": "what levels are visible?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-11 visibility read, bare",
+      "utterance": "which levels are visible",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-12 visibility read, negative",
+      "utterance": "is level 2 hidden?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-13 visibility read, list",
+      "utterance": "list the hidden elements",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-14 visibility read, isolation",
+      "utterance": "am I in isolation mode?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-15 visibility read, what is hidden",
+      "utterance": "what is hidden right now?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-16 near-miss of a mutation",
+      "utterance": "tell me which walls are hidden on level 2",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-17 property read",
+      "utterance": "what is the height of this wall?",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-18 property read, thickness",
+      "utterance": "how thick is the selected wall?",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-19 property read, material",
+      "utterance": "what material is this room?",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-20 property read, type",
+      "utterance": "what type is this wall?",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-21 multi-property read",
+      "utterance": "what are the height, thickness and type of this wall?",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-22 room read",
+      "utterance": "what is the area of the kitchen?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-23 count read",
+      "utterance": "how many rooms are on level 2?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-24 paste-back",
+      "utterance": "Changed 7 of 10 walls. 3 skipped: locked / invalid / not eligible.",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-25 paste-back, level",
+      "utterance": "Level 2 — 14 walls, 6 doors, 3 windows",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-26 paste-back, height",
+      "utterance": "Wall height: 3.2 m",
+      "kind": "refusal",
+      "intent": "set-height",
+      "commands": [],
+      "detail": "refusal intent=set-height :: ",
+      "mutated": false
+    },
+    {
+      "label": "RO-27 hypothetical",
+      "utterance": "what would happen if I made all the walls 3.2m?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-28 negation",
+      "utterance": "do not change the wall height",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-29 negation, hide",
+      "utterance": "I do not want to hide level 2",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-30 capability question",
+      "utterance": "can you hide a level?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-31 capability question 2",
+      "utterance": "are you able to change a room material?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-32 audit",
+      "utterance": "check whether every wall on level 2 is 3m tall",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-33 audit 2",
+      "utterance": "verify the exterior walls are all the same height",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-34 compare",
+      "utterance": "compare the wall heights on level 1 and level 2",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-35 explain",
+      "utterance": "why is this wall 3.2m tall?",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-36 summarise",
+      "utterance": "summarise the materials used in this project",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-37 where",
+      "utterance": "where are the load-bearing walls?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "RO-38 schedule read",
+      "utterance": "give me a schedule of all the doors",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    }
+  ],
+  "operational": [
+    {
+      "label": "6.1 create room",
+      "utterance": "create a room",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.1b create room named",
+      "utterance": "create a bedroom here",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.2 detect boundary",
+      "utterance": "detect the room boundaries",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.3 rename room",
+      "utterance": "rename this room to Kitchen",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "commands",
+      "intent": "rename-room",
+      "commands": [
+        "room.rename"
+      ],
+      "detail": "commands[room.rename] intent=rename-room",
+      "mutated": true
+    },
+    {
+      "label": "6.4 change room finish",
+      "utterance": "set the floor finish of this room to oak",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.4b generate finishes",
+      "utterance": "generate room finishes",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.5 change room material (THE named defect)",
+      "utterance": "change the material of this room to concrete",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.5b room colour",
+      "utterance": "make this room white",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.6 resize room",
+      "utterance": "make this room 4m by 5m",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "6.6b room height offset",
+      "utterance": "raise this room height offset to 0.2m",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "commands",
+      "intent": "set-room-height-offset",
+      "commands": [
+        "room.setHeightOffset"
+      ],
+      "detail": "commands[room.setHeightOffset] intent=set-room-height-offset",
+      "mutated": true
+    },
+    {
+      "label": "6.7 delete room",
+      "utterance": "delete this room",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "commands",
+      "intent": "delete-selected",
+      "commands": [
+        "element.delete"
+      ],
+      "detail": "commands[element.delete] intent=delete-selected",
+      "mutated": true
+    },
+    {
+      "label": "6.8 room number",
+      "utterance": "set this room number to 101",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "commands",
+      "intent": "set-room-number",
+      "commands": [
+        "room.setNumber"
+      ],
+      "detail": "commands[room.setNumber] intent=set-room-number",
+      "mutated": true
+    },
+    {
+      "label": "7.1 hide wall",
+      "utterance": "hide this wall",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "7.1b hide walls",
+      "utterance": "hide all the walls",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "7.2 show wall",
+      "utterance": "show this wall",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "7.3 isolate room",
+      "utterance": "isolate the kitchen",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "7.3b isolate selection",
+      "utterance": "isolate the selection",
+      "selection": [
+        {
+          "elementId": "rac-room-0",
+          "elementType": "room"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "7.4 exit isolation",
+      "utterance": "exit isolation",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "7.4b reset visibility",
+      "utterance": "unhide everything",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "7.5 hide level",
+      "utterance": "hide level 2",
+      "kind": "local",
+      "intent": "go-to-level",
+      "commands": [],
+      "detail": "local intent=go-to-level action=setActiveLevel",
+      "mutated": true
+    },
+    {
+      "label": "7.6 show level",
+      "utterance": "show level 2",
+      "kind": "local",
+      "intent": "go-to-level",
+      "commands": [],
+      "detail": "local intent=go-to-level action=setActiveLevel",
+      "mutated": true
+    },
+    {
+      "label": "8.1 assign material",
+      "utterance": "assign concrete to this wall",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "8.2 change material (colour route)",
+      "utterance": "make all walls white",
+      "kind": "commands",
+      "intent": "set-wall-color",
+      "commands": [
+        "wall.updateColorBatch"
+      ],
+      "detail": "commands[wall.updateColorBatch] intent=set-wall-color",
+      "mutated": true
+    },
+    {
+      "label": "8.2b change material, selection",
+      "utterance": "paint the selected walls grey",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        },
+        {
+          "elementId": "rac-wall-1",
+          "elementType": "wall"
+        },
+        {
+          "elementId": "rac-wall-2",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "commands",
+      "intent": "set-wall-color",
+      "commands": [
+        "wall.updateColorBatch"
+      ],
+      "detail": "commands[wall.updateColorBatch] intent=set-wall-color",
+      "mutated": true
+    },
+    {
+      "label": "8.3 remove material",
+      "utterance": "remove the material from this wall",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "commands",
+      "intent": "delete-selected",
+      "commands": [
+        "element.delete"
+      ],
+      "detail": "commands[element.delete] intent=delete-selected",
+      "mutated": true
+    },
+    {
+      "label": "8.4 set classification",
+      "utterance": "set the classification of this wall to Uniclass EF_25_10",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "8.5 change element metadata",
+      "utterance": "set the mark of this wall to W-12",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "8.6 change wall type",
+      "utterance": "make all walls interior partition",
+      "kind": "commands",
+      "intent": "set-wall-type",
+      "commands": [
+        "wall.updateSystemTypeBatch"
+      ],
+      "detail": "commands[wall.updateSystemTypeBatch] intent=set-wall-type",
+      "mutated": true
+    },
+    {
+      "label": "8.7 slab material",
+      "utterance": "set the material of this slab to concrete",
+      "selection": [
+        {
+          "elementId": "rac-slab-0",
+          "elementType": "slab"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "8.8 INVALID property → must REFUSE",
+      "utterance": "set the flurbosity of this wall to 7",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "8.8b invalid property 2",
+      "utterance": "set the acoustic rating of this wall to 52 dB",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "8.8c invalid value",
+      "utterance": "make this wall minus three metres tall",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "commands",
+      "intent": "set-height",
+      "commands": [
+        "wall.updateDimensions"
+      ],
+      "detail": "commands[wall.updateDimensions] intent=set-height",
+      "mutated": true
+    },
+    {
+      "label": "9.0 the founder utterance",
+      "utterance": "Raise all exterior walls to 3.2 m",
+      "scoped": true,
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "9.0b same, unscoped resolver",
+      "utterance": "Raise all exterior walls to 3.2 m",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "9.1 all eligible",
+      "utterance": "make all walls 3.2m tall",
+      "scoped": true,
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "9.2 scoped subset",
+      "utterance": "make all walls on level 2 3.2m tall",
+      "scoped": true,
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "9.3 empty selection → refusal",
+      "utterance": "make the selected walls 3.2m tall",
+      "kind": "refusal",
+      "intent": "set-height",
+      "commands": [],
+      "detail": "refusal intent=set-height :: ",
+      "mutated": false
+    },
+    {
+      "label": "9.4 mixed kinds selected",
+      "utterance": "make these 3.2m tall",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        },
+        {
+          "elementId": "rac-door-0",
+          "elementType": "door"
+        }
+      ],
+      "kind": "commands",
+      "intent": "set-height",
+      "commands": [
+        "wall.updateDimensions",
+        "element.updateParameters"
+      ],
+      "detail": "commands[wall.updateDimensions, element.updateParameters] intent=set-height",
+      "mutated": true
+    },
+    {
+      "label": "9.5 batch delete",
+      "utterance": "delete all furniture in the kitchen",
+      "scoped": true,
+      "kind": "commands",
+      "intent": "delete-furniture-scoped",
+      "commands": [
+        "element.deleteBatch"
+      ],
+      "detail": "commands[element.deleteBatch] intent=delete-furniture-scoped",
+      "mutated": true
+    },
+    {
+      "label": "9.6 batch retype",
+      "utterance": "make all walls on level 2 interior partition",
+      "scoped": true,
+      "kind": "commands",
+      "intent": "set-wall-type",
+      "commands": [
+        "wall.updateSystemTypeBatch"
+      ],
+      "detail": "commands[wall.updateSystemTypeBatch] intent=set-wall-type",
+      "mutated": true
+    },
+    {
+      "label": "9.7 undo the batch",
+      "utterance": "undo that",
+      "kind": "local",
+      "intent": "undo",
+      "commands": [],
+      "detail": "local intent=undo action=undo",
+      "mutated": true
+    },
+    {
+      "label": "10.1 height change (A→B)",
+      "utterance": "set this wall height to 3.5m",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "commands",
+      "intent": "set-height",
+      "commands": [
+        "wall.updateDimensions"
+      ],
+      "detail": "commands[wall.updateDimensions] intent=set-height",
+      "mutated": true
+    },
+    {
+      "label": "10.2 material change (A→B)",
+      "utterance": "make all walls white",
+      "kind": "commands",
+      "intent": "set-wall-color",
+      "commands": [
+        "wall.updateColorBatch"
+      ],
+      "detail": "commands[wall.updateColorBatch] intent=set-wall-color",
+      "mutated": true
+    },
+    {
+      "label": "10.3 collaboration question",
+      "utterance": "who else is editing this project?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    },
+    {
+      "label": "10.4 conflict question",
+      "utterance": "are there any sync conflicts?",
+      "kind": "miss",
+      "intent": null,
+      "commands": [],
+      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "mutated": false
+    }
+  ],
+  "violations": 0
+}
