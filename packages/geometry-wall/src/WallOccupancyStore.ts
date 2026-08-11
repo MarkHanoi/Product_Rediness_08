@@ -90,6 +90,45 @@ export interface ClampToWallResult extends OpeningDims {
     clamped: boolean;
 }
 
+/**
+ * §FIX-WALL-SHRINK-REFIT (W2-1) — one opening that the candidate wall cannot
+ * contain AT ALL, i.e. keeping it would require shrinking the opening's own
+ * authored WIDTH or HEIGHT. Carries BOTH numbers so the refusal names them.
+ */
+export interface OpeningRefusal {
+    openingId:  string;
+    elementId?: string;
+    type:       'window' | 'door';
+    /** Which extent of the host is too small. */
+    axis:       'length' | 'height';
+    /** What the opening needs on that axis (metres). */
+    requiredM:  number;
+    /** What the candidate wall offers on that axis (metres). */
+    availableM: number;
+    /** Human-readable sentence carrying both numbers. */
+    reason:     string;
+}
+
+/**
+ * §FIX-WALL-SHRINK-REFIT (W2-1) — one opening that STILL FITS the candidate wall
+ * but must be moved (offset and/or sillHeight) to stay inside it. Its authored
+ * width/height are preserved by construction.
+ */
+export interface OpeningRelocation {
+    /** The opening AS IT STANDS today (pre-clamp) — the caller's undo record. */
+    opening: Opening;
+    /** The clamped position; `width`/`height` equal `opening`'s by construction. */
+    next:    OpeningDims;
+}
+
+/** §FIX-WALL-SHRINK-REFIT (W2-1) — the verdict for a whole candidate wall. */
+export interface OpeningRefitPlan {
+    /** true ⇔ `refusals` is empty, i.e. every hosted opening survives the edit. */
+    ok:          boolean;
+    refusals:    OpeningRefusal[];
+    relocations: OpeningRelocation[];
+}
+
 // ─── WallOccupancyStore ───────────────────────────────────────────────────────
 
 /**
@@ -184,6 +223,145 @@ export class WallOccupancyStore {
             sillHeight !== dims.sillHeight;
 
         return { offset, width, height, sillHeight, clamped };
+    }
+
+    /**
+     * §FIX-WALL-SHRINK-REFIT (W2-1, EV-03 §2 / R-1 + R-2) — the WALL-SIDE mirror
+     * of `clampToWall`.
+     *
+     * ── The defect this closes ──────────────────────────────────────────────
+     * `clampToWall` had exactly two production callers (`WallStore.updateWindow`
+     * and `UpdateWindowParameterCommand`) and BOTH are on the OPENING side: they
+     * guard "the user resized the opening past its wall". Nothing guarded the
+     * mirror case — "the wall shrank underneath a stationary opening". An
+     * EXECUTED probe (EV-03 §2.1) left a 0.9 m door at offset 2.0 on a wall
+     * shortened to 1.5 m, and a 2.1 m door in a wall lowered to 1.0 m: no clamp,
+     * no refusal, no event. This method is the gate the wall-side commands were
+     * missing; it is the SAME `clampToWall` maths, asked from the other side, so
+     * the two directions cannot drift apart.
+     *
+     * ── The POLICY, and the precedent it follows ────────────────────────────
+     * Three answers were available when an opening no longer fits: clamp it,
+     * refuse the wall edit, or delete the opening. The codebase already answers
+     * this class of question, and the answer is SPLIT BY WHAT WOULD BE LOST:
+     *
+     *   • POSITION can be recovered, so it is CLAMPED. `clampToWall` itself, and
+     *     `WallStore.updateWindow`'s unconditional use of it, establish that
+     *     silently pulling an opening back inside its host is the accepted
+     *     response when the opening's authored SIZE survives. A relocation is
+     *     reversible and loses no authored quantity.
+     *
+     *   • AUTHORED DIMENSIONS cannot be recovered, so the edit is REFUSED. The
+     *     established wall-side precedent is `WallStore._updateImpl`'s
+     *     `BaselineReversalError` (§WALL-DEEP-2026 B2): rather than let a wall
+     *     edit silently corrupt hosted openings, the STORE THROWS, and
+     *     `UpdateWallBaselineCommand` catches it, leaves the wall in its
+     *     pre-drag state, toasts, and returns `success:false`. That is the
+     *     policy for "this wall edit would destroy opening data": refuse the
+     *     WALL edit, do not damage the opening.
+     *
+     *   • DELETE has no precedent on any edit path. Openings are removed only by
+     *     `removeOpening` or the wall-delete cascade, both of which are explicit
+     *     user intent with an undo record. Silently deleting a door because its
+     *     wall got shorter is the one option the codebase never takes, and the
+     *     refusal above makes it unnecessary.
+     *
+     * So: shrinking a 6 m wall to 3 m moves a door that no longer fits at its
+     * offset (clamp); shrinking it to 0.5 m, where a 0.9 m door cannot exist at
+     * any offset, is REFUSED with both numbers — never by narrowing the door to
+     * 0.5 m, which would be silent loss of an authored dimension.
+     *
+     * PURE — reads `candidate` only; writes nothing, emits nothing. The caller
+     * decides what to do with the plan, and owns the undo record for any
+     * relocation it applies (`restoreSnapshot` does NOT carry `openings`).
+     *
+     * @param candidate The wall AS IT WOULD BE after the edit — i.e. the current
+     *                  record with the new `baseLine` and/or `height` already
+     *                  folded in, with its existing `openings` array intact.
+     */
+    planOpeningRefit(candidate: WallData): OpeningRefitPlan {
+        const refusals:    OpeningRefusal[]    = [];
+        const relocations: OpeningRelocation[] = [];
+
+        const openings: Opening[] = candidate.openings ?? [];
+        if (openings.length === 0) {
+            return { ok: true, refusals, relocations };
+        }
+
+        const wallLength = wallCentrelineLength(candidate);
+        const wallHeight = (typeof candidate.height === 'number' && candidate.height > 0)
+            ? candidate.height
+            : Number.POSITIVE_INFINITY;
+
+        // A degenerate host cannot carry ANY opening, and `clampToWall`
+        // deliberately returns the dims untouched in that case (it leaves the
+        // zero-length wall for the caller to surface). Say so explicitly rather
+        // than letting the no-op clamp read as "everything fits".
+        if (!(wallLength > 0)) {
+            for (const o of openings) {
+                refusals.push({
+                    openingId:  o.id,
+                    elementId:  o.elementId,
+                    type:       o.type,
+                    axis:       'length',
+                    requiredM:  o.width,
+                    availableM: 0,
+                    reason:
+                        `${o.type} ${o.elementId ?? o.id} needs ${o.width.toFixed(3)} m of wall ` +
+                        `length; the wall would have zero length`,
+                });
+            }
+            return { ok: false, refusals, relocations };
+        }
+
+        for (const o of openings) {
+            const c = this.clampToWall(candidate, {
+                offset:     o.offset,
+                width:      o.width,
+                height:     o.height,
+                sillHeight: o.sillHeight,
+            });
+
+            // WIDTH changed ⇒ the opening cannot exist on this wall at ANY
+            // offset. Refuse rather than narrow an authored door/window.
+            if (c.width !== o.width) {
+                refusals.push({
+                    openingId:  o.id,
+                    elementId:  o.elementId,
+                    type:       o.type,
+                    axis:       'length',
+                    requiredM:  o.width,
+                    availableM: wallLength,
+                    reason:
+                        `${o.type} ${o.elementId ?? o.id} needs ${o.width.toFixed(3)} m of wall ` +
+                        `length; the wall would be ${wallLength.toFixed(3)} m`,
+                });
+                continue;
+            }
+
+            // HEIGHT changed ⇒ same argument on the vertical axis.
+            if (c.height !== o.height) {
+                refusals.push({
+                    openingId:  o.id,
+                    elementId:  o.elementId,
+                    type:       o.type,
+                    axis:       'height',
+                    requiredM:  o.height,
+                    availableM: Number.isFinite(wallHeight) ? wallHeight : 0,
+                    reason:
+                        `${o.type} ${o.elementId ?? o.id} is ${o.height.toFixed(3)} m tall; the ` +
+                        `wall would be ${Number.isFinite(wallHeight) ? wallHeight.toFixed(3) : '0.000'} m`,
+                });
+                continue;
+            }
+
+            // Only POSITION moved — the opening survives at its authored size.
+            if (c.offset !== o.offset || c.sillHeight !== o.sillHeight) {
+                relocations.push({ opening: { ...o }, next: c });
+            }
+        }
+
+        return { ok: refusals.length === 0, refusals, relocations };
     }
 
     /**

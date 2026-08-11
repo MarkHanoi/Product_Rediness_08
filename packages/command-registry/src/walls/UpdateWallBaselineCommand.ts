@@ -1,6 +1,10 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { Point3D } from '@pryzm/core-app-model';
 import { serializeWallSnapshot } from './wallSnapshotUtils';
+// §FIX-WALL-SHRINK-REFIT (W2-1) — the wall-side use of the ALREADY-EXISTING
+// opening gate. See the policy note on `planOpeningRefit`.
+import { wallOccupancyStore } from '@pryzm/geometry-wall';
+import type { Opening, WallData } from '@pryzm/geometry-wall';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -49,6 +53,20 @@ export class UpdateWallBaselineCommand implements Command {
     // corrupting the audit trail).
     private prevSnapshot: any = null;
 
+    /**
+     * §FIX-WALL-SHRINK-REFIT (W2-1) — the PRE-CLAMP openings this command moved
+     * so they would stay inside the shortened wall.
+     *
+     * This exists because `WallStore.restoreSnapshot()` restores baseLine /
+     * height / thickness / layers / metadata but **NOT `openings`** — openings
+     * have their own mutation API (`_updateImpl` deletes a direct `openings`
+     * write outright). So `prevSnapshot` alone cannot undo a relocation, and
+     * without this record an undo would put the wall back at 6 m while leaving
+     * the door at the offset the 3 m wall forced on it. Silent data loss on the
+     * undo path is the same defect as silent data loss on the edit path.
+     */
+    private relocated: Opening[] = [];
+
     private executed = false;
 
     constructor(input: UpdateWallBaselineInput) {
@@ -82,6 +100,34 @@ export class UpdateWallBaselineCommand implements Command {
         if (len < 0.1) {
             return { ok: false, reason: 'WALL_TOO_SHORT', blockingIssues: ['WALL_TOO_SHORT: minimum 0.1m'] };
         }
+
+        // §FIX-WALL-SHRINK-REFIT (W2-1, EV-03 R-1) — the pre-flight half of the
+        // opening gate. Until now the ONLY validation here was WALL_NOT_FOUND
+        // and len < 0.1, so shortening a 6 m wall to 1.5 m left its 0.9 m door
+        // at offset 2.0 — entirely off the end of its host, with no clamp, no
+        // refusal and no event (EXECUTED probe, EV-03 §2.1).
+        //
+        // Declining HERE rather than only in execute() is the shape
+        // `WallOccupancyStore.canPlace` already established for the raked-host
+        // refusal (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH, L-812): a deliberate POLICY
+        // REFUSAL must reach the user through the channel built for declines,
+        // not as a fatal error out of a command body. execute() re-asks the same
+        // gate as defence in depth for any path that skips canExecute.
+        //
+        // Only the wall's LENGTH matters to the fit, and length is
+        // orientation-independent, so the §FT4 endpoint normalisation that
+        // execute() performs cannot change this verdict.
+        const refit = wallOccupancyStore.planOpeningRefit(
+            { ...wall, baseLine: this.newBaseLine } as WallData,
+        );
+        if (!refit.ok) {
+            return {
+                ok: false,
+                reason: 'OPENING_DOES_NOT_FIT',
+                blockingIssues: refit.refusals.map(r => `OPENING_DOES_NOT_FIT: ${r.reason}`),
+            };
+        }
+
         return { ok: true };
     }
 
@@ -152,6 +198,40 @@ export class UpdateWallBaselineCommand implements Command {
             }
         }
 
+        // §FIX-WALL-SHRINK-REFIT (W2-1, EV-03 R-1) — re-ask the opening gate with
+        // the NORMALISED baseline, as the last line of defence for any caller
+        // that dispatched without canExecute(). Same gate, same sentence.
+        //
+        // The refusal is delivered in the shape this command ALREADY uses for
+        // "the store refused this move because of hosted openings" (the
+        // BaselineReversalError catch immediately below): leave the wall in its
+        // pre-drag state, force a rebuild so the visually-translated wallGroup
+        // snaps back, toast, and return success:false. One policy, one shape —
+        // a wall edit never damages a hosted opening, and never deletes one.
+        const refit = wallOccupancyStore.planOpeningRefit(
+            { ...wall, baseLine: effectiveBaseLine } as WallData,
+        );
+        if (!refit.ok) {
+            const reason = refit.refusals.map(r => r.reason).join('; ');
+            console.warn(
+                `[UpdateWallBaselineCommand] §FIX-WALL-SHRINK-REFIT refusing baseline update for ` +
+                `wall ${this.wallId}: ${reason} — leaving wall in pre-drag state.`,
+            );
+            try {
+                _bus.emit('bim-wall-updated', { id: this.wallId }); // F.events.17
+            } catch { /* DOM event must never throw past this guard */ }
+            try {
+                const toast = window.showAppToast as ((m: string, t?: string) => void) | undefined;
+                toast?.(`Wall is too small for its openings — ${reason}`, 'error');
+            } catch { /* showAppToast is optional */ }
+            return {
+                success: false,
+                affectedElementIds: [this.wallId],
+                info: [`OPENING_DOES_NOT_FIT: ${reason}`],
+                error: `OPENING_DOES_NOT_FIT: ${reason}`,
+            };
+        }
+
         // §WALL-SYSTEM-AUDIT-2026 — RESILIENT BASELINE UPDATE
         // Guard against any throw from wallStore.update() (e.g.
         // BaselineReversalError when a wall hosts openings, schema validation,
@@ -215,6 +295,41 @@ export class UpdateWallBaselineCommand implements Command {
                 error: reason,
             };
         }
+
+        // §FIX-WALL-SHRINK-REFIT (W2-1) — the wall is now shorter; pull any
+        // opening that fell outside it back inside. `refit.relocations` only
+        // ever carries POSITION changes (offset / sillHeight): an opening whose
+        // authored width or height no longer fits was refused above, so nothing
+        // reaching here can be silently narrowed.
+        //
+        // Applied AFTER the store update, and through `updateOpening` — the
+        // sanctioned opening-mutation API — so the store's own `clampToWall`
+        // (WallStore.updateWindow) sees the NEW wall and agrees, `childrenIds`
+        // stays in sync with `openings` (§WALL-AUDIT-2026-M8), and the hosted
+        // door/window record moves with its opening instead of desyncing.
+        this.relocated = [];
+        for (const r of refit.relocations) {
+            const next: Opening = {
+                ...r.opening,
+                offset:     r.next.offset,
+                sillHeight: r.next.sillHeight,
+            };
+            try {
+                ctx.stores.wallStore.updateOpening(this.wallId, next);
+                this.relocated.push(r.opening);   // PRE-clamp record, for undo
+                console.log(
+                    `[UpdateWallBaselineCommand] §FIX-WALL-SHRINK-REFIT re-clamped ${r.opening.type} ` +
+                    `${r.opening.elementId ?? r.opening.id} on wall ${this.wallId}: ` +
+                    `offset ${r.opening.offset.toFixed(3)} → ${r.next.offset.toFixed(3)} m`,
+                );
+            } catch (err) {
+                console.warn(
+                    `[UpdateWallBaselineCommand] §FIX-WALL-SHRINK-REFIT could not re-clamp opening ` +
+                    `${r.opening.id} on wall ${this.wallId}:`, err,
+                );
+            }
+        }
+
         this.executed = true;
         return { success: true, affectedElementIds: [this.wallId] };
     }
@@ -227,6 +342,25 @@ export class UpdateWallBaselineCommand implements Command {
         // (no audit-trail drift). The snapshot's baseLine is a plain {x,y,z} tuple;
         // WallStore.cloneWallData() reconstructs THREE.Vector3 via new THREE.Vector3().copy(v).
         ctx.stores.wallStore.restoreSnapshot(this.prevSnapshot);
+
+        // §FIX-WALL-SHRINK-REFIT (W2-1) — restoreSnapshot does NOT carry
+        // `openings` (see the `relocated` field doc), so any opening this
+        // command moved must be put back explicitly. Ordered AFTER the snapshot
+        // restore so the wall is already back at its original length when the
+        // store re-runs its own clamp — which is then a no-op, because these are
+        // exactly the offsets that fitted before the edit.
+        for (const opening of this.relocated) {
+            try {
+                ctx.stores.wallStore.updateOpening(this.wallId, opening);
+            } catch (err) {
+                console.warn(
+                    `[UpdateWallBaselineCommand] §FIX-WALL-SHRINK-REFIT undo could not restore ` +
+                    `opening ${opening.id} on wall ${this.wallId}:`, err,
+                );
+            }
+        }
+        this.relocated = [];
+
         this.executed = false;
         return { success: true, affectedElementIds: [this.wallId] };
     }

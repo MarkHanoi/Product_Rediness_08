@@ -1,4 +1,8 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, WALL_HEIGHT_CONSTRAINTS, CommandContext } from '../types';
+// §FIX-WALL-SHRINK-REFIT (W2-1) — the wall-side use of the ALREADY-EXISTING
+// opening gate. See the policy note on `planOpeningRefit`.
+import { wallOccupancyStore } from '@pryzm/geometry-wall';
+import type { Opening, WallData } from '@pryzm/geometry-wall';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -21,6 +25,18 @@ export class UpdateWallHeightCommand implements Command {
     // Partial snapshot undo (patching only `height`) violated §2.3 —
     // undo must be a full state replacement, not a partial property revert.
     private prevSnapshots: Map<string, any> = new Map();
+
+    /**
+     * §FIX-WALL-SHRINK-REFIT (W2-1) — per wall, the PRE-CLAMP openings this
+     * command moved so they stayed inside the lowered wall.
+     *
+     * `WallStore.restoreSnapshot()` restores `height` but **NOT `openings`**
+     * (openings have their own mutation API), so `prevSnapshots` alone cannot
+     * revert a relocation. Without this record an undo would raise the wall back
+     * to 3.0 m and leave the window sill where the 1.0 m wall pushed it.
+     */
+    private relocated: Map<string, Opening[]> = new Map();
+
     private executed: boolean = false;
 
     constructor(input: UpdateWallHeightInput) {
@@ -63,6 +79,25 @@ export class UpdateWallHeightCommand implements Command {
                     `HEIGHT_EXCEEDS_MAXIMUM: ${this.newHeight}m > ${WALL_HEIGHT_CONSTRAINTS.MAX_HEIGHT}m (Wall: ${wallId})`
                 );
             }
+
+            // §FIX-WALL-SHRINK-REFIT (W2-1, EV-03 R-2) — until now the ONLY
+            // validation here was the two GLOBAL height constants, and
+            // execute() copied `openings` forward verbatim
+            // (`wall.openings.map(o => ({...o}))`) without ever consulting
+            // them — so lowering a 3.0 m wall to 1.0 m left a 2.1 m door
+            // exceeding its host by 1.1 m (EXECUTED probe, EV-03 §2.1).
+            //
+            // The gate is the same one the length axis uses; the policy is the
+            // same policy: a sill that no longer fits is MOVED, a door that is
+            // taller than the wall at any sill is a REFUSAL naming both numbers.
+            const refit = wallOccupancyStore.planOpeningRefit(
+                { ...wall, height: this.newHeight } as WallData,
+            );
+            if (!refit.ok) {
+                for (const r of refit.refusals) {
+                    blockingIssues.push(`OPENING_DOES_NOT_FIT: ${r.reason} (Wall: ${wallId})`);
+                }
+            }
         }
 
         if (blockingIssues.length > 0) {
@@ -83,11 +118,31 @@ export class UpdateWallHeightCommand implements Command {
         }
 
         const successfulUpdates: string[] = [];
+        const refusedInfo: string[] = [];
         this.prevSnapshots.clear();
+        this.relocated.clear();
 
         for (const wallId of this.wallIds) {
             const wall = ctx.stores.wallStore.getById(wallId);
             if (!wall) continue;
+
+            // §FIX-WALL-SHRINK-REFIT (W2-1) — re-ask the gate per wall as the
+            // last line of defence for any caller that dispatched without
+            // canExecute(). A refused wall is SKIPPED, not damaged: it keeps its
+            // current height and its openings, and the reason is reported in
+            // `info`. This mirrors the existing `if (!wall) continue` shape —
+            // the command reports what it actually did, per §C7.
+            const refit = wallOccupancyStore.planOpeningRefit(
+                { ...wall, height: this.newHeight } as WallData,
+            );
+            if (!refit.ok) {
+                const reason = refit.refusals.map(r => r.reason).join('; ');
+                console.warn(
+                    `[UpdateWallHeightCommand] §FIX-WALL-SHRINK-REFIT skipping wall ${wallId}: ${reason}`,
+                );
+                refusedInfo.push(`OPENING_DOES_NOT_FIT (${wallId}): ${reason}`);
+                continue;
+            }
 
             // §2.2 — Capture FULL semantic snapshot BEFORE mutation.
             // Phase B DTO migration: baseLine is [Point3D, Point3D] — plain spread suffices.
@@ -114,6 +169,39 @@ export class UpdateWallHeightCommand implements Command {
 
             if (updated) {
                 successfulUpdates.push(wallId);
+
+                // §FIX-WALL-SHRINK-REFIT (W2-1) — the wall is now shorter; pull
+                // any opening whose SILL fell outside it back inside. Only
+                // positions are ever in `relocations` — an opening too TALL for
+                // the new wall was refused above, never silently squashed.
+                // Applied through `updateOpening` (the sanctioned API) and AFTER
+                // the height write, so the store's own clampToWall agrees.
+                if (refit.relocations.length > 0) {
+                    const moved: Opening[] = [];
+                    for (const r of refit.relocations) {
+                        try {
+                            ctx.stores.wallStore.updateOpening(wallId, {
+                                ...r.opening,
+                                offset:     r.next.offset,
+                                sillHeight: r.next.sillHeight,
+                            });
+                            moved.push(r.opening);   // PRE-clamp record, for undo
+                            console.log(
+                                `[UpdateWallHeightCommand] §FIX-WALL-SHRINK-REFIT re-clamped ` +
+                                `${r.opening.type} ${r.opening.elementId ?? r.opening.id} on wall ` +
+                                `${wallId}: sill ${r.opening.sillHeight.toFixed(3)} → ` +
+                                `${r.next.sillHeight.toFixed(3)} m`,
+                            );
+                        } catch (err) {
+                            console.warn(
+                                `[UpdateWallHeightCommand] §FIX-WALL-SHRINK-REFIT could not re-clamp ` +
+                                `opening ${r.opening.id} on wall ${wallId}:`, err,
+                            );
+                        }
+                    }
+                    if (moved.length > 0) this.relocated.set(wallId, moved);
+                }
+
                 this.emitWallUpdatedEvent(updated.id, updated.height);
                 // Rebuild triggered automatically via wallStore.updateWall() → emit('update')
                 // → subscriber in main.ts → wallFragmentBuilder.updateWall().
@@ -126,11 +214,19 @@ export class UpdateWallHeightCommand implements Command {
             return {
                 success: true,
                 affectedElementIds: successfulUpdates,
-                info: [`Updated height for ${successfulUpdates.length} walls to ${this.newHeight}m`]
+                info: [
+                    `Updated height for ${successfulUpdates.length} walls to ${this.newHeight}m`,
+                    ...refusedInfo,
+                ]
             };
         }
 
-        return { success: false, affectedElementIds: [], info: ['Failed to update any walls'] };
+        return {
+            success: false,
+            affectedElementIds: [],
+            info: refusedInfo.length > 0 ? refusedInfo : ['Failed to update any walls'],
+            error: refusedInfo[0],
+        };
     }
 
     undo(ctx: CommandContext): CommandResult {
@@ -142,9 +238,26 @@ export class UpdateWallHeightCommand implements Command {
             // metadata.version (no audit-trail drift). cloneWallData() inside the
             // store reconstructs Vector3 from plain {x,y,z} tuples automatically.
             ctx.stores.wallStore.restoreSnapshot(snapshot);
+
+            // §FIX-WALL-SHRINK-REFIT (W2-1) — restoreSnapshot does NOT carry
+            // `openings`, so put back any sill this command moved. Ordered AFTER
+            // the restore: the wall is already back at its original height, so
+            // the store's re-clamp is a no-op on these known-good values.
+            for (const opening of this.relocated.get(wallId) ?? []) {
+                try {
+                    ctx.stores.wallStore.updateOpening(wallId, opening);
+                } catch (err) {
+                    console.warn(
+                        `[UpdateWallHeightCommand] §FIX-WALL-SHRINK-REFIT undo could not restore ` +
+                        `opening ${opening.id} on wall ${wallId}:`, err,
+                    );
+                }
+            }
+
             restoredIds.push(wallId);
             this.emitWallUpdatedEvent(wallId, snapshot.height);
         }
+        this.relocated.clear();
 
         this.triggerAIRefresh(restoredIds);
         this.executed = false;

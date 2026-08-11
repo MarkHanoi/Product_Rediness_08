@@ -1163,7 +1163,22 @@ export class WallStore implements ILevelProvider {
             });
 
             this.walls.set(wallId, frozen);
-            this.emit('update', frozen);
+            // §STEP7 / §FIX-OPENINGS-FAST-PATH-UNREACHABLE (W2-2, EV-03 R-3) —
+            // pass the PRE-mutation wall as prevState.
+            //
+            // ADR-057 P1 shipped a real openings-only rebuild fast path
+            // (WallDeltaClassifier + WallRebuildCoordinator._flushOpeningsOnly)
+            // and it was CORRECT — but unreachable from here, because this emit
+            // took two arguments instead of three. `classifyWallDelta` guard 3
+            // is `if (!prevState) return { kind:'whole-level', reason:'no-prevState' }`,
+            // so every window offset/size edit fell to a whole-level
+            // resolveLevel + refreshV2Cache pass over the entire storey. The
+            // fast path was not missing; it was starved of its input.
+            //
+            // `wall` is the pre-mutation record read at the top of this method
+            // and `frozen` is derived from it, so the pre-state is genuinely
+            // available — no signature change, no new type.
+            this.emit('update', frozen, wall);
         }
     }
 
@@ -1227,7 +1242,22 @@ export class WallStore implements ILevelProvider {
             });
 
             this.walls.set(wallId, frozen);
-            this.emit('update', frozen);
+            // §STEP7 / §FIX-OPENINGS-FAST-PATH-UNREACHABLE (W2-2, EV-03 R-3) —
+            // pass the PRE-mutation wall as prevState. This is the door half of
+            // the same two-argument omission documented in updateWindow above,
+            // and it is the real root cause of the ADR-057 door-drag lag: a
+            // drag-end `door.setOffset` is a single command producing a single
+            // event, so `_scheduleFlush` has no earlier pending entry to inherit
+            // a prevState from, and the batch classified `whole-level`.
+            //
+            // NOT changed here (deliberately): addOpening / updateOpening /
+            // removeOpening still emit two-argument. Those change the opening
+            // SET and MUST stay whole-level — the classifier rejects them at
+            // `openingSetUnchanged`. Handing them a prevState changes no
+            // behaviour; it only makes them report `opening-set-changed`
+            // instead of `no-prevState`, which is a telemetry-honesty fix and
+            // not part of this change.
+            this.emit('update', frozen, wall);
         }
     }
 
