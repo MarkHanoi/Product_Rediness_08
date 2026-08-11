@@ -24,7 +24,7 @@
 // Rewritten on `lib/sourceScan.ts`: Node only, no external binaries.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { scanFiles, tallyBy } from './lib/sourceScan.js';
+import { scanFiles, scanFilesStripped, tallyBy } from './lib/sourceScan.js';
 
 const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const BASELINE_FILE = resolve(REPO_ROOT, '.ga-gate/baselines/cast-count.json');
@@ -46,7 +46,17 @@ const LABEL = 'cast-tripwire';
  */
 function count(): number {
   const dirs = ['src', 'apps/editor/src/engine'].filter((d) => existsSync(resolve(REPO_ROOT, d)));
-  const res = scanFiles({
+  // §FIX-CAST-STRICT-COUNTS-PROSE (L-844, 2026-08-11) — scanFilesStripped, not
+  // scanFiles. The strict arm was counting COMMENTS: of the 20 matches it read
+  // against a baseline of 0, SIXTEEN were prose — and almost every one was a
+  // comment ASSERTING P4 COMPLIANCE, e.g. postFxRouting.ts:37:
+  //     "P4 — no `(window as any)`; all deps arrive as narrow typed interfaces."
+  // A gate that fails on documentation of the rule it enforces teaches people to
+  // delete the documentation — the exact inversion of what a gate is for. Same
+  // precision fix as check-no-commandmanager's codeLines/mentionLines split, and
+  // the same one check-raf-count needed when 4 of its 5 "owners" were comments.
+  // The pattern is unchanged; only prose stops counting.
+  const res = scanFilesStripped({
     root: REPO_ROOT,
     dirs,
     pattern: /\(\s*window\s+as\s+any\s*\)/,
