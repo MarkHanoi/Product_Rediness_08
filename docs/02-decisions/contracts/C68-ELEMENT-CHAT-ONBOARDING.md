@@ -1,6 +1,6 @@
 # C68 — Element & Attribute Chat Onboarding
 
-> **Stamp**: 2026-08-11 · **Status**: CANONICAL (governance authored; **§6 records which items are machine-checked and which are review-only — three checklist items have NO gate today and say so**)
+> **Stamp**: 2026-08-11 (rev 2 — the §6.3 closure pass, same day) · **Status**: CANONICAL (governance authored; **§6.3 records exactly which obligations are machine-checked, which are half-checked, and which are review-only. Of the nine gaps this contract shipped with, FIVE are now machine-enforced, THREE are partly enforced with the unprovable half named, and one — refusal *quality* — remains a review judgement.**)
 > **Authority**: subordinate to `STR-03-engineering-vision.md` / `STR-04-architecture.md`. Sits **under [C67](./C67-RAC-CAPABILITY-CONTROL-PLANE.md)** (which owns *what the chat is*) and **beside [C16](./C16-COMMAND-AUTHORING-PROTOCOL.md)** (which owns *how a command is authored*). Peers with [C11](./C11-ELEMENT-CREATION-PIPELINE.md), [C15](./C15-HOSTED-ELEMENT-CONTRACT.md), [C65](./C65-ELEMENT-TYPE-SYSTEM.md), [C13](./C13-PROJECT-LIFECYCLE-AND-ISOLATION.md).
 > **Scope**: the onboarding obligation attached to **every new element type and every new attribute on an existing element**. It is the procedural expansion of C67 §6 (which states the obligation in five lines and stops).
 > ⚠ **Number note**: C17 is taken ([Batch Creation Catalogue & Panel Binding](./C17-BATCH-CREATION-CATALOGUE-AND-PANEL-BINDING.md)). C61 is a RESERVED slot. C68 is the next free number.
@@ -64,7 +64,7 @@ C68 binds a PR when **any** of the following is true:
 2. it adds a **new element kind** (a new `geometry-*` package + plugin pair per C11 §11);
 3. it adds a **user-visible attribute** to an existing element record — a new field on a `*Data` schema, a new property-panel row, or a new value in an existing type's layer/enum vocabulary.
 
-Case 1 is enforced arithmetically today. **Cases 2 and 3 are NOT independently detected by any gate** — an attribute added to a schema and edited only through an existing generic verb (e.g. `element.updateParameters`) registers no new command and therefore trips no ratchet. See §6.3-G1. For those, C68 binds by **review**, and the reviewer's question is fixed: *"which sentence reaches this new field, and if none, where is it written down that none does?"*
+Case 1 is enforced arithmetically. **Case 3 is detected indirectly since 2026-08-11** — check 9 ratchets the panel-editable property surface against the chat surface, so a new attribute that gets a property-panel row and no sentence raises the count and fails (§6.3-G1 states the four things that measure cannot see). **Case 2 — a whole new element KIND — is still detected only through the commands it registers.** For what the gates cannot see, C68 binds by **review**, and the reviewer's question is fixed: *"which sentence reaches this new field, and if none, where is it written down that none does?"*
 
 ---
 
@@ -120,17 +120,17 @@ Each declared parameter carries a `valueSource` drawn from `KNOWN_VALUE_SOURCES`
 
 A refusal from a value source MUST **list the project's real options**, never guess: *"There is no wall type called "X" in this project. The wall types here are: …"* (§CONTEXT-DATA-HONESTY).
 
-### e. ⚙/👁 `scopeModes` only for scopes the resolver honours
+### e. ⚙ `scopeModes` only for scopes the resolver honours
 
-`scopeModes` is validated against `KNOWN_SCOPE_MODES` (`selection` · `all` · `global` · `level` · `room` · `orientation`) and must include the capability's own default `scope`. Beyond that: **declaring a spatial mode before the U3 `ScopeResolver` honours it would be the ElementCapabilities lie in a new costume** — U2.5 states this in the plan and it is convention, not a check (§6.3-G3). When the resolver is absent the arm refuses honestly (*"spatial scoping isn't wired into this chat context"*) rather than silently widening to `all`.
+`scopeModes` is validated against `KNOWN_SCOPE_MODES` (`selection` · `all` · `global` · `level` · `room` · `orientation`) and must include the capability's own default `scope`. Beyond that: **declaring a spatial mode before the U3 `ScopeResolver` honours it would be the ElementCapabilities lie in a new costume** — and since 2026-08-11 that is a CHECK, not a convention: check 5c drives every declared spatial mode through `applySemanticIntent` with an injected stub resolver and requires the descriptor to arrive with the declared kind (§6.3-G3). When the resolver is absent the arm refuses honestly (*"spatial scoping isn't wired into this chat context"*) rather than silently widening to `all`.
 
 **A filter over the selection never bypasses the selection's own gate** (U8.1/U8.3): an empty or wrong-kind selection refuses with the capability's copy *before* anything is filtered — a filtered sentence may never reach a capability that the plain sentence would be refused for.
 
-### f. ⚙/👁 Acceptance families + adversarial pins
+### f. ⚙ Acceptance families + adversarial pins
 
 - `examples` MUST be non-empty, and the capability id MUST be referenced by `packages/ai-host/__tests__/capability-acceptance.test.ts`. **A capability with no natural-language test is a claim nobody checked.**
 - Examples MUST be **natural phrasings**, plural — the way a user says it, not the way the grammar was written. `set-door-type` carries three: *"change all doors to white primed softwood"*, *"change the door type to glazed timber"*, *"convert the selected doors to fire door fd30"*.
-- **Adversarial pins are mandatory and are review-enforced** (§6.3-G2). Every capability reachable by "a bare number + a noun" inherits the founder-doctrine guards and MUST have them pinned:
+- **Adversarial pins are mandatory and the corpus is EXECUTED by the gate** (check 4c; per-capability pin coverage is ratcheted — §6.3-G2). Every capability reachable by "a bare number + a noun" inherits the founder-doctrine guards and MUST have them pinned:
   - **`descriptiveReportReason`** (`capabilities/CapabilityRefusal.ts`) — report-shaped and past-tense text must **MISS**. §FIX-CHAT-REPORT-PASTEBACK: the founder pasted the assistant's own line back into the chat and the ladder **created a level from it, twice**, stacking two levels at 6.000 m. Mechanism: the typo corrector rewrote *built → build*, the synonym table rewrote *floors → level*, and add-level read the bare 6 as an elevation.
   - **`Normalized.corrected`** (`intents/LocalNaturalLanguageResolver.ts`) — the index set of typo-corrected tokens. **Typo correction may repair a word the user meant; it must never MANUFACTURE the imperative that authorises a mutation.** `add-level` now requires an **uncorrected** creation verb in opener position.
   - **`PROTECTED_FUNCTION_WORDS`** (`intents/ZeroTokenResolver.ts`) — §FIX-CHAT-STOPWORD-CORRECTION: bounded Levenshtein rewrote **with → width**, turning *"Created Aparment with 2 bedrooms"* into *"select an element first, then set its width"*. **A correctly spelled English function word is never a misspelled domain term** — while *aparment → apartment* is exactly what tier 1 exists to do.
@@ -143,7 +143,7 @@ A refusal from a value source MUST **list the project's real options**, never gu
 - Success is reported as what happened: **"Changed N of M — K skipped: `<reason>`"**, with the reason read off the command's or engine's own report payload, never re-narrated. **"Done" only after a command reports success.**
 - Granularity gaps are refused by **naming the gap** (*"every room-scale engine reads 'every qualifying room on ONE level'"*), never silently widened to a larger scope than the user named.
 
-### h. 👁 For catalogued families: if no catalogue exists, AUTHOR one
+### h. ⚙/👁 For catalogued families: if no catalogue exists, AUTHOR one
 
 **Founder ruling, 2026-08-11.** When a family's "type" has no named catalogue, the answer is not to skip the capability — it is to **author the catalogue**, following the `WallSystemTypeStore` shape (`packages/geometry-wall/src/WallSystemTypeStore.ts`):
 
@@ -156,9 +156,9 @@ A refusal from a value source MUST **list the project's real options**, never gu
 
 `CatalogueFamilies.ts` already records the honest per-family reasons for absence — roof/column/beam (the "type" is a closed enum on the record, no catalogue names exist), curtain-wall (type is per-PANEL, command ORPHANED), floor (catalogue *and* live command both exist — **this is the next entry to add**, deferred only because users call `floor` and `slab` by the same word and that disambiguation deserves its own decision), furniture, handrail (`HandrailData` has no `typeId`; a type must be materialised whole into its fields). **A family the chat cannot drive is said out loud, never silently missing.**
 
-### i. ⚙/👁 Batch-shaped capabilities land as U4 SPEC TABLE ENTRIES
+### i. ⚙ Batch-shaped capabilities land as U4 SPEC TABLE ENTRIES
 
-If the shape is *resolve scope → resolve value → dispatch ONE batch verb*, it MUST be added as a `CapabilityExecutionSpec` **table entry** in `intents/CapabilityExecutionSpec.ts` (or, for a catalogue family, a row in `intents/CatalogueFamilies.ts`, from which the spec **and** the grammar are generated) — consumed by the ONE generic arm `applyExecutionSpec`. **Target: zero new resolver case code.** The PR description MUST state the resolver LOC added (review-enforced, §6.3-G5).
+If the shape is *resolve scope → resolve value → dispatch ONE batch verb*, it MUST be added as a `CapabilityExecutionSpec` **table entry** in `intents/CapabilityExecutionSpec.ts` (or, for a catalogue family, a row in `intents/CatalogueFamilies.ts`, from which the spec **and** the grammar are generated) — consumed by the ONE generic arm `applyExecutionSpec`. **Target: zero new resolver case code.** The PR description MUST state the resolver LOC added; the hand-written `case`-arm count is ratcheted at 27 (check 8, §6.3-G5).
 
 The irregular shapes that stay hand-written are listed, with reasons, in the `CapabilityExecutionSpec.ts` header — creation (`create-windows-parametric`), level-query (`duplicate-level` / `go-to-level` / `add-level`), whole-model reference (`set-rhino-material`), coordinate entry (`create-wall`), and the selection-fan-out dimension family. **`wall` is deliberately not a catalogue-family row**: its grammar is entangled with the colour and rake grammars that share the *"make all walls …"* opening and must be tried in a specific order, and its refusal copy is the founding incident's verbatim wording.
 
@@ -182,6 +182,14 @@ The irregular shapes that stay hand-written are listed, with reasons, in the `Ca
 | **f** acceptance | **4. ACCEPTANCE COVERAGE** | `declares no examples — nothing proves the phrasing resolves.` · `not referenced by packages/ai-host/__tests__/capability-acceptance.test.ts.` |
 | **d** value sources | **5. PARAMETER SOURCE RESOLVABILITY** | `unknown valueSource "x" — nothing can resolve it.` · `required parameter (source "measurement") is absent from the probe — the target proof runs with a parameter the capability cannot resolve.` |
 | **e** scopes | **5b. SCOPE MODES** | `unknown scope mode "x" — the resolver has no such scope.` · `scopeModes must include the default scope "all".` |
+| **f** examples EXECUTED | **4b. EXAMPLE EXECUTION** (ratchet) | `no acceptance FAMILY in … — the id is not enough; the gate needs the family's declared context to execute the capability's own examples.` · `example "…" is REFUSED in the context its acceptance family declares` |
+| **f** adversarial pins | **4c. ADVERSARIAL CORPUS** (hard + ratchet) | `tier 0/1 MUTATED on "make all walls white" (intent set-wall-color).` · `N capability(ies) with no adversarial pin, baseline 9.` |
+| **a** global route liveness | **3e. GLOBAL ROUTE LIVENESS** (ratchet) | `create-wall: commandProof file "plugins/wall/src/handlers/CreateWall.ts" is a PLUGIN handler with neither the legacy-bridge signature … nor a PLUGIN_LIVE_ALLOWLIST entry.` |
+| **e** scopes HONOURED | **5c. SCOPE MODES HONOURED** (hard + ratchet) | `DECLARES scope mode "level" but the intent never reached ctx.resolveScope` · `with NO resolveScope injected, scope mode "room" produced "commands" instead of an honest refusal` |
+| **a** one undo · **g** partials | **6. ONE DISPATCH + HONEST REPORT** | `a mass edit dispatched 3 bus commands, not one.` · `none of its proof files (…) mention a partial outcome ("skipped" / "of")` |
+| **d/h** catalogue exists | **7. CATALOGUE SOURCE** | `packages/ai-host/src/intents/colorRef.ts no longer exports "resolveColorRef" — the ONE resolveCatalogueRef ladder entry point for "color" moved or was renamed.` |
+| **i** zero resolver LOC | **8. CASE-ARM RATCHET** | `N hand-written resolver case arms, baseline 27.` |
+| §4 case 3 attributes | **9. PROPERTY SURFACE RATCHET** | `N panel-editable propert(ies) the chat cannot reach, baseline 42.` |
 
 The gate also cross-checks `CapabilityRefusal`'s unconnected-topic table: a topic refused by the language table but **not** listed in `CHAT_UNAVAILABLE` fails, because *"the two halves of the same decision disagree."*
 
@@ -191,19 +199,47 @@ The gate also cross-checks `CapabilityRefusal`'s unconnected-topic table: a topi
 - **SDK-facade bypass baseline (172)** — the reason the chat metadata lives in `ChatCapabilityRegistry.ts` and not on the handler object: a `plugins → ai-host` runtime import would add a bypass, and the L2 resolver must answer before any plugin loads. The coupling is made **static** instead, and CI proves it against the real registration lists. *"The guarantee 'a feature cannot ship without its chat metadata' is delivered by the gate, not by an import."*
 - **The M-maturity line** printed every run — `M2/M3 direct+selection · M4 scope · M5 true-batch · M6 plans · M7 generative` — makes the roadmap a measured dial rather than a claim.
 
-### §6.3 What is NOT enforced today — stated as gaps, not implied as covered
+**Added by the 2026-08-11 closure pass** — six more shrink-only ratchets, each with a dated justification in the gate source naming exactly what it counts and what it cannot see:
 
-Per the suite's NOT-YET-TRUE convention, these are recorded so nobody mistakes §5 for a fully machine-checked list:
+| Ratchet | Baseline (2026-08-11) | What raising it would mean |
+|---|---|---|
+| unresolved declared examples | **5** | all five are selection-form or spatial examples whose acceptance family declares no such context; each refusal is *correct*. Lowering it means widening a family's `ctx`. |
+| capabilities with no adversarial pin | **9** | `redo` · `zoom-fit` · `zoom-selected` · `set-wall-rake` · `add-wall-layer` · `duplicate-level` · `rename-room` · `finish-apartment-chain` · `execute-plan`. The last two matter most — a pasted report line is exactly a level/plan-shaped noun phrase. |
+| spatial modes the ARM honours undeclared | **20** | six spec-driven capabilities × three modes, plus `create-windows-parametric` on room+orientation. ARM reach, not LANGUAGE reach. |
+| unclassified global routes | **1** | `create-wall`. Closes when someone supplies a `commandProof` naming the committer that carries plugin wall patches into the geometry store — or re-routes the verb, as **L-815** did for `wall.updateDimensions`. |
+| hand-written resolver case arms | **27** | a new capability that needs an arm is a capability that is not a table row (§5.i). |
+| panel-editable properties the chat cannot reach | **42** | the honest §4-case-3 measure; see G1 for the four things it cannot see. |
 
-- **G1 — §4 cases 2 and 3 are undetected.** The ratchet counts **registered bus commands**. A new *attribute* edited through an existing generic verb (e.g. `element.updateParameters`) adds no verb, so nothing turns red. C68 binds those by review only. Closing this needs a schema-field-level ratchet that does not exist.
-- **G2 — adversarial pins are not gate-checked.** Check 4 verifies only that `examples` is non-empty and that the capability **id** appears somewhere in the acceptance spec — it does **not** verify each example string is exercised, and it does not require a single adversarial (report-shaped / past-tense / function-word) case. §5.f is therefore review-enforced.
-- **G3 — `scopeModes` truthfulness is unproven.** The gate checks the mode is a *known* name and includes the default. **Nothing executes the resolver to prove the mode is honoured** — the ElementCapabilities failure mode, one layer over.
-- **G4 — no gate proves "one undo".** M5 *counts* verbs matching `/Batch$/` and reports the number; no check fails a capability that fans out N commands while its copy claims a single undo step. §7.f is review-enforced.
-- **G5 — "zero resolver LOC" is a convention.** Nothing measures the resolver diff of a capability PR.
-- **G6 — partial-outcome honesty (§5.g) has no gate.** The copy is pinned byte-for-byte by the acceptance suite where it exists, which catches *regressions* but does not force a *new* capability to report partials at all.
-- **G7 — `targets: 'global'` capabilities skip liveness.** Checks 3a/3b/3d all return early for `'global'`, so a global capability's route is never classified by execution authority.
-- **G8 — §5.h (catalogue authoring) has no gate whatsoever.** It is a founder ruling recorded here for the first time.
-- **G9 — ADR-0315 has no file.** `ADR-0315` is cited by name in the gate source, `CapabilityExecutionSpec.ts`, the RAC plans and the issue log, but **no `docs/02-decisions/adrs/ADR-0315-*.md` exists** (the ADR directory ends at ADR-0314). The U-phase architecture it names is recorded in `docs/03-execution/plans/RAC-UNIVERSAL-CAPABILITY-ARCHITECTURE.md` and sequenced in `RAC-IMPLEMENTATION-PLAN.md`. Either the ADR is written or the citations are corrected; until then, **treat every "ADR-0315" reference as pointing at those plans.**
+⚠ **These baselines are measurements of a moving tree.** They were taken with 41 capabilities registered; a tranche landing new capabilities re-measures them in the same commit, with the same dated-justification bar. A baseline is not permission — it is a debt with a name.
+
+### §6.3 What is enforced, what is partly enforced, and what is not — after the 2026-08-11 closure pass
+
+The nine gaps below were written the day this contract was authored, when six checklist obligations had no gate at all. A hardening pass on **2026-08-11** turned most of them into machine checks. The list is kept **in place, with its original numbering**, so the history is legible: what each gap said, and what is true now.
+
+Every check named here was **negative-tested** — the fault it exists to catch was injected, the failure watched, and the injection removed. A gate nobody has watched fail is a gate nobody should trust.
+
+#### Now MACHINE-ENFORCED (five)
+
+- **G2 — adversarial corpus + example execution. ✅ ENFORCED (checks 4b / 4c).** Check 4 used to verify only that `examples` was non-empty and that the capability **id** appeared *somewhere* in the acceptance file — a grep, not a proof. The gate now **executes** every declared example through the real ladder (compound → tier 0/1 → NL) in the context the acceptance family declares, and requires it to land on its own capability and not be refused; a capability with no acceptance FAMILY (not merely no mention) fails hard. It also **executes the declared adversarial corpus** — the report-shaped paste-backs, the negations, the hypotheticals, the `with → width` repro — and fails, zero tolerance, on any utterance that produces a command or a local action. The corpus is read out of the acceptance suite itself (`tools/ga-gate/lib/acceptanceCorpus.ts`), so there is one source of truth, not two.
+  *Partly:* per-capability adversarial PIN coverage is a **shrink-only ratchet** (9 of 41 capabilities have no pin), because writing a new pin means editing the acceptance suite. The pin heuristic matches a capability's declared verbs/aliases, so it measures *whether anyone aimed a hostile sentence at this capability's vocabulary*, not the strength of the attack.
+- **G3 — `scopeModes` truthfulness. ✅ ENFORCED (check 5c).** Each declared spatial mode is driven through `applySemanticIntent` with an injected stub `resolveScope`, and the gate requires the intent to actually reach the resolver **with a descriptor of that kind** — and requires an ABSENT resolver to produce an honest refusal, never a silent widen to `'all'`. The symmetric direction (honoured-but-undeclared) is a **shrink-only ratchet**, baseline 20, because `applyExecutionSpec` handles the scope superset by design: this is ARM reach, not LANGUAGE reach, and no grammar produces those sentences today.
+- **G7 — `targets: 'global'` liveness. ✅ ENFORCED (check 3e).** Global capabilities no longer skip classification: the gate takes the capability's `commandProof`, or falls back to the handler file that registers its `busCommand`, and runs the same execution-authority rule as 3d. **It immediately found one:** `create-wall` → `wall.create` → `plugins/wall/src/handlers/CreateWall.ts`, a plugin handler with neither the legacy-bridge signature nor a proof — the exact shape §FIX-CHAT-DEAD-ROUTES found dead 13/13 times. It is **not asserted dead** (composeRuntime registers it as authoritative and the P1 wall path is the flagship plugin route); it is recorded as **unclassified**, ratchet baseline 1, with the audit it needs named in the gate source.
+- **G8 — catalogue sources. ✅ ENFORCED (check 7).** A parameter whose `valueSource` is a catalogue kind must name a resolver **module + export that really exists**; a dangling reference fails hard. This proves something answers to the source — `KNOWN_VALUE_SOURCES` only proved it was spelled correctly.
+- **G9 — ADR-0315. ✅ CLOSED.** [`ADR-0315 — The universal capability architecture`](../adrs/ADR-0315-universal-capability-architecture.md) is written: one semantic front door, four execution classes, five context services, the U0→U10 phases as actually built with their commits, the founder doctrine (*open language in, hard stoppers at the execution layer*), and the four lies the architecture found. Every "ADR-0315" citation in the gate, the specs, the plans and the issue log now resolves.
+
+#### Now PARTLY enforced (three)
+
+- **G1 — §4 case 3, new attributes. 🔶 PARTLY (check 9).** The coverage ratchet still counts bus VERBS, so an attribute routed through `element.updateParameters` adds no verb. A second ratchet now counts the **property surface**: panel-editable `(kind, field)` pairs from the `SCHEMAS` table in `PropertyDescriptorGenerator.ts` (the exact set the panel writes through the generic verb) against the chat surface **derived by executing every capability probe** and reading the parameter names out of the resulting payloads. Nothing is transcribed. Baseline 42, shrink-only.
+  **What it cannot see, and the contract says so:** fields owned by dedicated sections (`WindowSection` / `DoorSection` render width/height/sill/type/colour, so window and door look emptier here than they are); a new field on a `*Data` schema that no panel row exposes; fields written by a dedicated verb; and whether a reachable field is LIVE (that is 3b/3d's job). §4 case 2 — a whole new element kind — is still detected only via the commands it registers.
+- **G4 / G6 — "one undo" and partial-outcome honesty. 🔶 PARTLY (check 6).** The provable halves are now proven: a mass-edit capability's probe is executed at scope `'all'` and must emit **exactly ONE bus command** (a fan-out calling itself one undo fails), and the command carrying the edit must speak the **partial-outcome vocabulary** (`skipped` / `N of M`) in its own source, so §5.g's report is read off a real payload rather than narrated. Thirteen capabilities are under this bar today.
+  **Runtime-only, and still review-enforced:** whether that one command pushes exactly one history entry at runtime, and whether the report payload is populated *truthfully*. No static check can see either.
+- **G5 — "zero resolver LOC". 🔶 PARTLY (check 8).** Made measurable as a **shrink-only count of hand-written `case` arms in `applySemanticIntent`** (baseline 27): a new capability that adds an arm fails. A git-diff check ("a new capability id in the same commit as a new `case '<id>':`") was **considered and rejected** — it needs a reliable merge base, is silent on a two-commit PR, and says nothing when run on a clean tree. **It cannot see LOC inside an existing arm**; it measures the number of shapes the resolver hand-writes, which is what §5.i is about.
+
+#### Still NOT enforced
+
+- **§5.g refusal QUALITY.** That a refusal quotes real names, numbers and units — and names the gap rather than widening the scope — is pinned byte-for-byte by the acceptance suite where it exists, which catches regressions but cannot force a *new* capability to write good copy. Review-enforced, and the reviewer's question is §9's.
+- **§5.h catalogue AUTHORING.** Check 7 proves a *declared* catalogue source exists. Whether a family that *should* have a catalogue has one — the founder ruling that the answer to "no catalogue" is *author one* — is a judgement about absence, and `CatalogueFamilies.ts` records the honest per-family reasons rather than a gate.
+- **§4 case 2, a new element KIND**, independent of the commands it registers.
 
 ---
 
@@ -249,7 +285,15 @@ The same row shape then delivered `set-slab-type` and `set-ceiling-type` (U7.2) 
 
 Where C68 and C67 §6 appear to disagree, **C67 §6 is the summary and C68 is the expansion**; a genuine contradiction is a defect in C68 and must be fixed here.
 
-C68 adds **no Tier-1 launch-gate obligation** — it governs correctness of a claim, not data integrity or durability. It is **CANONICAL, not ACTIVE**: it does not certify that every shipped capability satisfies every item, because §6.3 records six checklist obligations with no gate behind them. It becomes ACTIVE when G1–G8 are closed or explicitly retired.
+C68 adds **no Tier-1 launch-gate obligation** — it governs correctness of a claim, not data integrity or durability.
+
+It remains **CANONICAL, not ACTIVE**, and the closure pass did not change that verdict, deliberately. Five of nine gaps are now machine-enforced and three more are half-enforced, which is a large move — but ACTIVE would mean C68 *certifies* that every shipped capability satisfies every item, and three things still stand in the way:
+
+1. **§5.g refusal quality** is a review judgement with no gate, and it is the item most likely to be got wrong by someone in a hurry;
+2. **the runtime halves of §5.a and §5.g** — one history entry, and a truthfully populated report payload — are provable only against a running editor;
+3. **six of the new checks are ratchets, not zero-tolerance bars.** A ratchet at baseline 42 is an honest debt, not a clean sheet.
+
+C68 becomes **ACTIVE** when the six ratchets introduced on 2026-08-11 reach zero (or are retired with a stated reason), and the two runtime obligations acquire a probe — U0.4's dev-mode store-generation assertion is the shape that would do it. Until then, §9's review question is not optional decoration; it is the part of the contract a machine is not doing.
 
 **Review question for every PR in scope, exactly as C67 §6 puts it:**
 
