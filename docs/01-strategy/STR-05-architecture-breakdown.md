@@ -1,8 +1,25 @@
 # PRYZM — Architecture Breakdown
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Rewrite basis**: full code audit, 2026-06-01.
+> **Stamp**: 2026-06-01 · **Revised 2026-08-11 (rev 2 — re-measured)** · **Status**: CANONICAL
 > **Authority**: this doc provides the **per-package + per-plugin + per-app inventory** with verified one-line descriptions. Companion to [STR-04-architecture.md](./STR-04-architecture.md) (the rules + shape + lint gates). When code changes, this doc updates in the same PR (per [operating-principles O4](./STR-06-operating-principles.md)).
 > **Source of truth**: each row is derived from the package's `package.json` description + `src/index.ts`. Cross-check with `ls -d packages/*/` etc.
+
+> ### What changed in rev 2
+>
+> The inventory had drifted by **18 packages and 1 plugin** — and the drift was not random. It
+> clusters into exactly the two pillars STR-02 §2.1 names, which is the interesting fact: the
+> shape of the package tree is now visible evidence of where the product went.
+>
+> - **§6.11 (new)** — the **typology + generation** cluster (four typology packs + the pipeline).
+> - **§6.12 (new)** — the **site / jurisdiction** cluster (parcel data, validators, ordinance
+>   extraction, street analytics, solar, climate, building graph).
+> - The layer *ordering* in the June text is superseded by [STR-04 §1](./STR-04-architecture.md),
+>   which re-derives it from measured edge direction. Where this doc's §6 headings say "L8" or
+>   "L9" they are reading the old numbering; the grouping is still correct, the label is not.
+>
+> Rev 2 also records what §12 always intended: this document is a **flat inventory**, and a flat
+> inventory of 97 packages is close to the limit of its usefulness. The clusters below are the
+> beginning of the answer.
 
 ---
 
@@ -19,8 +36,8 @@ Numbers below are verified from `ls -d` + file counts. If you find drift, fix th
 ```
 /
 ├─ apps/        (13)   L7   — runnable surfaces (editor, workers, marketplace, CLI, bench, docs-site)
-├─ packages/    (79)   L0–L8 — pure / kernel-shaped / runtime / SDK libraries
-├─ plugins/     (47)   L9   — element-family + AI + view + interchange plugins
+├─ packages/    (97)   L0–L5 — pure / kernel-shaped / runtime / SDK libraries
+├─ plugins/     (48)   L6   — element-family + AI + view + interchange plugins
 ├─ tools/       (3)    —    — build-time tooling (ga-gate, pryzm1-sunset, scripts)
 ├─ tests/       (15)   —    — cross-package suites (e2e, parity, integration, ga-gate, …)
 ├─ scripts/     (~50)  —    — Node scripts (CI, isolation guards, codegens)
@@ -32,7 +49,7 @@ Numbers below are verified from `ls -d` + file counts. If you find drift, fix th
 └─ root config files   —    — TS / Vite / pnpm / Tailwind / ESLint / Turborepo + server.js entry
 ```
 
-**Verified counts at 2026-06-01**: 79 packages, 13 apps, 47 plugins, 7 `src/` files (no subdirs), 38 server files, 21 CI gates in `tools/ga-gate/`, 68 bench files in `apps/bench/src/benches/`.
+**Re-measured 2026-08-11**: **97** packages, **13** apps, **48** plugins, **8** `src/` files (no subdirs), **32** CI gates in `tools/ga-gate/`, 68 bench files in `apps/bench/src/benches/`. (June: 79 / 13 / 47 / 7 / 21 / 68.)
 
 ---
 
@@ -180,7 +197,7 @@ This zone has migrated from the pre-2026 30+ files / 7+ subdirs state down to **
 
 ---
 
-## §6 — `packages/` (79 packages)
+## §6 — `packages/` (97 packages)
 
 Grouped by layer. Each row: name + one-line purpose. Layer assignments per [STR-04-architecture.md §1](./STR-04-architecture.md).
 
@@ -230,6 +247,8 @@ Plus **protocol** (DTO re-exports from schemas) as an L1½ consumer.
 | **geometry-lighting** | Lighting geometry; fixture types, room resolver, placement tool. |
 | **geometry-plumbing** | Plumbing geometry; fixture types, geometry builders. |
 | **geometry-furniture** | Furniture geometry; AI element config/validator, kitchen/wardrobe types. |
+| **geometry-lift** | Lift/elevator geometry (added since 2026-06-01). |
+| **geometry-pool** | Pool geometry (added since 2026-06-01). |
 | **geospatial** | Geospatial coordinate transforms; LTP-ENU rebasing, proj4js, IfcProjectedCRS. |
 
 ### §6.4 — L3 — State (1 package)
@@ -315,13 +334,75 @@ Plus **legacy-shim** (fixture-only package for lint integration test; intentiona
 | **wcag-audit** | WCAG 2.2 AA audit runner; pure axe-core wrapper + critical-path declarations. |
 | **webhooks** | Webhooks subscription store + HMAC-SHA256 signing + exponential backoff delivery. |
 
+### §6.11 — Typology + generation cluster (added since 2026-06-01)
+
+The generative fleet stopped being "workflows inside `ai-host`" and became **packs over a
+typology-agnostic spine**. This is the shape the platform commits to: the spine is
+typology-agnostic and *specialisation lives only inside the pack*, so a new building type is a
+pack rather than a fork of the pipeline.
+
+| Package | Purpose |
+|---|---|
+| **typology-pipeline** | The typology-agnostic spine — brief → typed request → pack-selected executor. New typologies mirror the proven executors rather than reinventing them. |
+| **typology-pack-apartment** | Apartment typology pack (single-unit layout over a drawn shell). |
+| **typology-pack-casa-unifamiliar** | Detached-house typology pack — the reference implementation of the generator doctrine (deterministic, principal-axis, one composite undo). |
+| **typology-pack-office-building** | Office-building typology pack. |
+| **typology-pack-residential-building** | Multi-apartment residential-building pack (core + plate partition + per-cell layout). |
+| **building-graph** | The unified building graph — rooms, adjacency, circulation as one addressable structure ([C52](../02-decisions/contracts/C52-EDITABLE-BUILDING-GRAPH.md)). |
+| **room-topology** | Room topology: spatial index + adjacency graph + polygon utilities (the inset/offset authority — see **L-825**). |
+| **auto-dimension** | Automatic dimension generation ([C56](../02-decisions/contracts/C56-AUTODIMENSION.md)). |
+
+All four generation executors are reachable **by sentence** through the capability control plane
+(STR-04 §15) over the *same* controller entry points the onboarding modal calls — a mapper, not
+a second pipeline (ADR-0315 D2, EXEC-4).
+
+### §6.12 — Site / jurisdiction cluster (added since 2026-06-01)
+
+The workstream STR-02 §4.12 calls the moat. In June this was represented in the inventory by
+`geospatial` alone.
+
+| Package | Purpose |
+|---|---|
+| **site-parcel-data** | Cadastral parcel adapters normalising to one canonical WGS84 `ParcelFeature` with mandatory provenance ([C57](../02-decisions/contracts/C57-PARCEL-DATA-LAYER.md)); upstream access via same-origin proxy, keys server-side only. |
+| **site-validators** | Site + envelope soundness validators. The lesson embedded here is **L-586**: a validator must compare against the *right* invariant — comparing an inset to the parcel rather than to the true erosion let a 65 % over-statement pass every green statistic. |
+| **ordinance-extraction** | Extraction of normative values from planning ordinances — the human-gated half of the pipeline, and the dominant cost of onboarding a city (ADR-0279). |
+| **street-analytics** | Street-width construction from cadastral geometry. There is **no national source** for the legal *ample oficial*, so width is constructed and cited as constructed (§BCN-ALCADA). |
+| **solar-analysis** | Real solar heat + sun-hours analysis ([C21](../02-decisions/contracts/C21-CLIMATE-INGESTION.md), ADR-0074) — the substrate for the M8 solar-aware generative objectives that are still deferred. |
+| **climate-host** | Climate substrate ingestion host (EPW priority, NOAA fallback). |
+| **geospatial** | Coordinate transforms: LTP-ENU rebasing, proj4js, `IfcProjectedCRS`. The θ / true-north authority that makes *"south-facing"* a compass direction rather than a screen direction. |
+
+> **NOT-YET-TRUE for this cluster**: [C64](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md)
+> layers 2, 3 and 4 (variable dependency graph, variable resolution, dataset resolver) have **no
+> owning package** — the missing work is contiguous and unbuilt. The merge-blocking
+> fidelity-label gate that [C58](../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md)
+> §6 mandates does not exist in `tools/ga-gate/`.
+
+### §6.13 — Capability control plane (where it physically lives)
+
+The plane described in [STR-04 §15](./STR-04-architecture.md) has no package of its own — and
+that is deliberate. It lives inside `packages/ai-host/` (`src/capabilities/`, `src/intents/`)
+because the resolver **must answer before any plugin loads**, and a `plugins → ai-host` import
+would add an SDK-facade bypass. The coupling to the real command registrations is therefore made
+**static** and proven by CI rather than expressed as an import:
+
+> *"The guarantee 'a feature cannot ship without its chat metadata' is delivered by the gate,
+> not by an import"* (ADR-0315, alternatives rejected).
+
+| Location | Role |
+|---|---|
+| `packages/ai-host/src/capabilities/` | `ChatCapabilityRegistry` (41 capabilities) · `ChatCommandClassification` · `CapabilityRefusal` |
+| `packages/ai-host/src/intents/` | `ZeroTokenResolver` · `CapabilityExecutionSpec` + the ONE generic arm · `CatalogueFamilies` · `PropertyVocabulary` · `ScopeDescriptor` · `FilterScope` · `SemanticPlan` · `colorRef` / `finishRef` |
+| `packages/command-registry/src/catalogue/resolveCatalogueRef.ts` | THE one name→value ladder. A second matcher is a named anti-pattern (C68 §7.c) because two ladders drift and then tell the user two different truths about one project. |
+| `tools/ga-gate/check-chat-capability-coverage.ts` | GA gate 31 — the whole proof surface |
+| `packages/ai-host/__tests__/capability-acceptance.test.ts` | Acceptance families + the adversarial corpus, both **executed** by the gate |
+
 ---
 
-## §7 — `plugins/` (47 plugins)
+## §7 — `plugins/` (48 plugins)
 
 Grouped by category. Each plugin lives in `plugins/<name>/` with `src/descriptor.ts` + `src/index.ts` + (for active plugins) `src/handlers/` + (for element plugins) `src/committer/`.
 
-### §7.1 — Geometry / element plugins (15)
+### §7.1 — Geometry / element plugins (16)
 
 | Plugin | Purpose |
 |---|---|
@@ -340,6 +421,7 @@ Grouped by category. Each plugin lives in `plugins/<name>/` with `src/descriptor
 | **lighting** | Second-tier lighting (S26); 5 handlers + `THREE.PointLight` committer. |
 | **plumbing** | Second-tier plumbing (S26); 4 handlers (Create/Delete/Move/SetSystem). |
 | **structural** | Second-tier structural (S26); 7 handlers + brace/footing/connection producer. |
+| **pool** | Pool element (added since 2026-06-01); pairs with `packages/geometry-pool`. |
 
 Plus **furniture** (S27); 7 handlers + multi-LOD representation + carousel catalogue.
 
@@ -420,7 +502,7 @@ Plus **furniture** (S27); 7 handlers + multi-LOD representation + carousel catal
 
 | Tool | Purpose |
 |---|---|
-| **ga-gate** | 21 CI gate scripts (`check-*.ts`); run by `run-all.ts`. Merge-blocking. |
+| **ga-gate** | **32** CI gate scripts (`check-*.ts`); run by `run-all.ts`. Merge-blocking. Includes `check-layer-boundaries.ts` (the real layer authority — STR-04 §1.0) and `check-chat-capability-coverage.ts` (gate 31, the capability control plane's proof surface). |
 | **pryzm1-sunset** | PRYZM 1 sunset / migration tooling. |
 | **scripts** | Build-time codegen + helper scripts. |
 
@@ -455,8 +537,8 @@ Top-level docs structure (post-2026-06-01 restructure per [docs/README.md](../RE
 ```
 docs/
 ├─ 01-strategy/          this folder — vision, brand, architecture, GTM, principles
-├─ 02-decisions/         contracts (C01-C49) + ADRs (108) + principles
-├─ 03-execution/         specs (56) + plans + status logs
+├─ 02-decisions/         contracts (C01-C68) + ADRs (252) + principles
+├─ 03-execution/         specs (94) + plans + status logs
 ├─ 04-reference/         glossary, API, file formats, architecture-detail
 ├─ 05-guides/            user / developer / enterprise / plugin-author
 ├─ archive/              PRYZM 1 + 2 inheritance · superseded plans
@@ -488,7 +570,7 @@ Verified counts at 2026-06-01 (excludes node_modules + dist):
 | **L9 — Plugins** | 47 plugins | varies | — |
 | **Standalone** | ~27 endpoint/utility packages | varies | — |
 
-Total: **79 packages**, **47 plugins**, **13 apps**.
+Total: **97 packages**, **48 plugins**, **13 apps**. ⚠ The per-tier LOC column above is the June estimate and has NOT been re-measured — do not quote it forward (§12).
 
 ---
 
@@ -518,4 +600,4 @@ Per [operating-principles O5](./STR-06-operating-principles.md), gaps are filled
 
 ---
 
-*End — PRYZM Architecture Breakdown, 2026-06-01 — CANONICAL.*
+*End — PRYZM Architecture Breakdown, revised 2026-08-11 — CANONICAL.*
