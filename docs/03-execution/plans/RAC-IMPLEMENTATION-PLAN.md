@@ -5,6 +5,7 @@
 this doc owns sequencing, granular subphases, and per-phase acceptance sentences).
 Evidence base: the three RAC inventories in `docs/04-reference/`.
 **Update the Status column in the same commit as the work — a stale plan is a lie.**
+**Onboarding a new capability is governed by [C68 — Element & Attribute Chat Onboarding](../../02-decisions/contracts/C68-ELEMENT-CHAT-ONBOARDING.md)** (the nine-item checklist + which GA-gate-31 check catches each omission, and §6.3's honest list of what no gate enforces); C68 expands [C67](../../02-decisions/contracts/C67-RAC-CAPABILITY-CONTROL-PLANE.md) §6.
 
 Legend: ✅ shipped · 🔶 partial · ⬜ not started · 🧪 = "you can type this into AI
 Chat and it must work" (the phase's founder-testable acceptance).
