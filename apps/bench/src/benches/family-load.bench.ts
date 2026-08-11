@@ -1,17 +1,17 @@
-// Bench: `family-load` — NFT-12 verifier.
+// Bench: `family-load` — NFT 12.
 //
-// Spec source: `01-VISION.md §5` row 12 — NFT 12: "Family load (10 types)
-//   | < 300 ms p95 | apps/bench/src/benches/family-load.bench.ts".
+// TARGET SOURCE: `@pryzm/perf-budgets` -> C10 section 1 row 12.  No number is
+// stated in this file.
 //
-// What this file measures (headless Node):
-//   * `packFamily()` → `loadFamilyFromBytes()` round-trip for a single
-//     family with 10 types. This is the full production path for the
-//     "load family from library" flow — pack, transmit, unpack, and
-//     preflight-resolve.
-//   * Both packFamily() and loadFamilyFromBytes() are pure Node functions
-//     (no WASM, no DOM), so this bench IS the production path.
+// -- W5-1 CORRECTION, 2026-08-11 -------------------------------------------
+// The previous revision loaded a family with 2 parameters / 10 types against a
+// < 300 ms budget taken from the deleted `01-VISION.md section 5`.  C10
+// section 1 row 12 says "Family load (medium, 200 params) < 200 ms": the
+// workload was 100x lighter on the dimension the contract actually names
+// (parameter count) and the budget was 1.5x looser.  Both now come from C10.
 //
-// NFT-12 production target: < 300 ms p95 (family load, 10 types).
+// packFamily() and loadFamilyFromBytes() are pure Node (no WASM, no DOM), so
+// this bench IS the production path — NFT 12 is genuinely measurable here.
 
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
@@ -21,10 +21,16 @@ import { fileURLToPath } from 'node:url';
 
 import { packFamily, type FamilyDocument, type FamilyManifest } from '@pryzm/file-format';
 import { loadFamilyFromBytes } from '@pryzm/family-loader';
+import { nft, nftLimit } from '@pryzm/perf-budgets';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
 
+const NFT = nft(12);
+const LIMIT_MS = nftLimit(12); // 200, from C10 section 1.
+
+/** C10 section 1 names 200 parameters for the "medium" family. */
+const PARAM_COUNT = 200;
 const TYPE_COUNT = 10;
 const WARMUP = 3;
 const SAMPLES = 20;
@@ -32,9 +38,14 @@ const SAMPLES = 20;
 const NOW = '2026-05-01T00:00:00.000Z';
 
 // Valid Crockford-base32 ParameterIds — par_ + exactly 26 chars.
-// 01HZ (4) + 18 zeros (18) + HGT1/WDT1 (4) = 26 ✓
-const PAR_HGT = 'par_01HZ000000000000000000HGT1' as const;
-const PAR_WDT = 'par_01HZ000000000000000000WDT1' as const;
+// 01HZ (4) + 18 zeros (18) + P (1) + 3-digit index (3) = 26 ✓  (supports 1000).
+function makeParamId(i: number): string {
+  return `par_01HZ000000000000000000P${String(i).padStart(3, '0')}`;
+}
+
+const PARAM_IDS: readonly string[] = Array.from({ length: PARAM_COUNT }, (_, i) =>
+  makeParamId(i),
+);
 
 // sha256 of the canonical empty string — valid 64-hex literal.
 const ZERO_SHA = 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' as const;
@@ -49,28 +60,18 @@ function makeDocument(): FamilyDocument {
   return {
     formatVersion: '1.0',
     referencePlanes: [],
-    parameters: [
-      {
-        id: PAR_HGT,
-        name: 'Height',
-        kind: 'type',
-        dataType: 'length',
-        defaultValue: 2100,
-        expression: null,
-        ifcMapping: null,
-        exposed: true,
-      },
-      {
-        id: PAR_WDT,
-        name: 'Width',
-        kind: 'type',
-        dataType: 'length',
-        defaultValue: 900,
-        expression: null,
-        ifcMapping: null,
-        exposed: true,
-      },
-    ],
+    // C10 §1 row 12 sizes the "medium" family by PARAMETER count, not type
+    // count. 200 type-kind parameters, each carried on every type.
+    parameters: PARAM_IDS.map((id, i) => ({
+      id,
+      name: `Param ${String(i).padStart(3, '0')}`,
+      kind: 'type' as const,
+      dataType: 'length' as const,
+      defaultValue: 1000 + i,
+      expression: null,
+      ifcMapping: null,
+      exposed: true,
+    })),
     profiles: [],
     solids: [],
     materialSlots: [],
@@ -78,7 +79,7 @@ function makeDocument(): FamilyDocument {
       id: makeTypeId(i),
       name: `Type ${String(i + 1).padStart(2, '0')}`,
       // values keys must be ParameterIds, not display names (FamilyTypeSchema.values).
-      values: { [PAR_HGT]: 2100 + i * 100, [PAR_WDT]: 900 + i * 50 },
+      values: Object.fromEntries(PARAM_IDS.map((id, j) => [id, 1000 + j + i * 10])),
       checksum: ZERO_SHA,
     })),
     defaults: {},
@@ -93,7 +94,7 @@ function makeManifest(): FamilyManifest {
     name: 'BenchDoor',
     semver: '1.0.0',
     author: { id: 'usr_bench_nft12', displayName: 'Bench' },
-    description: 'NFT-12 family-load benchmark — 10 types',
+    description: 'NFT-12 family-load benchmark',
     ifcEntity: 'IfcDoor',
     category: 'Door',
     tags: [],
@@ -106,7 +107,7 @@ function makeManifest(): FamilyManifest {
 }
 
 describe('family-load', () => {
-  it('packFamily → loadFamilyFromBytes for 10 types is the NFT-12 production bench', async () => {
+  it(`packFamily -> loadFamilyFromBytes (${PARAM_COUNT} params, ${TYPE_COUNT} types) meets the C10 section 1 budget (${NFT.c10Target})`, async () => {
     const document = makeDocument();
     const manifest = makeManifest();
 
@@ -151,16 +152,22 @@ describe('family-load', () => {
         p95,
         samples: samples.length,
         typeCount: TYPE_COUNT,
+        paramCount: PARAM_COUNT,
+        nft: 12,
+        c10Target: NFT.c10Target,
+        limitMs: LIMIT_MS,
         unit: 'ms',
-        nftTarget: 300,
-        notes:
-          'NFT-12 production bench per 01-VISION.md §5. Measures ' +
-          'loadFamilyFromBytes() for a family with 10 types — the full ' +
-          'production path (pure Node/zlib, no WASM).',
+        measures:
+          'loadFamilyFromBytes() for a medium family (200 type-parameters, ' +
+          '10 types) — the full production path (pure Node/zlib, no WASM).',
       }, null, 2),
     );
 
     expect(p95).toBeGreaterThan(0);
-    expect(p95).toBeLessThan(300);
+    expect(
+      p95,
+      `NFT 12 MISS — family load p95 = ${p95.toFixed(2)} ms ` +
+        `(C10 section 1 budget: ${LIMIT_MS} ms)`,
+    ).toBeLessThan(LIMIT_MS);
   });
 });

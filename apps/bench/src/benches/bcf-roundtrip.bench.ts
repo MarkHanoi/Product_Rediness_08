@@ -1,16 +1,14 @@
-// Bench: `bcf-roundtrip` — NFT-11 verifier.
+// Bench: `bcf-roundtrip` — NFT 11.
 //
-// Spec source: `01-VISION.md §5` row 11 — NFT 11: "BCF 3.0 export → import
-//   round-trip | < 500 ms for 50 issues | apps/bench/src/benches/bcf-roundtrip.bench.ts".
+// TARGET SOURCE: `@pryzm/perf-budgets` -> C10 section 1 row 11.  No number is
+// stated in this file.
 //
-// What this file measures (headless Node):
-//   * `writeBCF(archive)` → `readBCF(bytes)` full round-trip latency for an
-//     archive with 50 BCF topics (issues). This is the canonical production path
-//     (no headless proxy needed — writeBCF/readBCF are pure Node/fflate functions).
-//   * Validates that the archive reconstructed from readBCF is structurally
-//     identical to the original (topic count, guid, title).
-//
-// NFT-11 production target: < 500 ms p95 for 50 issues (write + read).
+// This bench is GENUINELY HONEST: writeBCF() and readBCF() are pure Node/fflate
+// functions, so the round-trip measured here IS the production path.  Note the
+// bench is far INSIDE the contract (C10 allows 4 s; this asserts 500 ms for 50
+// topics).  W5-1 keeps the tighter local guard as a regression tripwire but
+// makes the CONTRACT budget the failing assertion, so the two can never be
+// confused for one another again.
 
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
@@ -20,9 +18,16 @@ import { fileURLToPath } from 'node:url';
 
 import { writeBCF, readBCF } from '@pryzm/plugin-bcf';
 import type { BCFArchive, BCFTopic } from '@pryzm/plugin-bcf';
+import { nft, nftLimit } from '@pryzm/perf-budgets';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
+
+const NFT = nft(11);
+const C10_LIMIT_MS = nftLimit(11); // 4000, from C10 section 1.
+/** Tripwire: the observed cost is ~8x inside C10. Regressing past this is a
+ *  signal long before the contract itself is breached. */
+const TRIPWIRE_MS = 500;
 
 const TOPIC_COUNT = 50;
 const WARMUP = 3;
@@ -112,6 +117,15 @@ describe('bcf-roundtrip', () => {
     );
 
     expect(p95).toBeGreaterThan(0);
-    expect(p95).toBeLessThan(500);
+    expect(
+      p95,
+      `NFT 11 MISS — BCF round-trip p95 = ${p95.toFixed(2)} ms ` +
+        `(C10 section 1 budget: ${C10_LIMIT_MS} ms)`,
+    ).toBeLessThan(C10_LIMIT_MS);
+    expect(
+      p95,
+      `NFT 11 TRIPWIRE — p95 = ${p95.toFixed(2)} ms crossed the ${TRIPWIRE_MS} ms ` +
+        `early-warning line (C10 itself allows ${C10_LIMIT_MS} ms).`,
+    ).toBeLessThan(TRIPWIRE_MS);
   });
 });

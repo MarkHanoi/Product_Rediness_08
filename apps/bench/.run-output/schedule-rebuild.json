@@ -1,10 +1,12 @@
 {
   "name": "schedule-rebuild",
-  "p50": 0.49876899999981106,
-  "p95": 3.479921000000104,
+  "p50": 16.993200000026263,
+  "p95": 97.81869999994524,
   "samples": 20,
-  "rowCount": 1000,
+  "rowCount": 10000,
   "unit": "ms",
-  "nftTarget": 2000,
-  "notes": "NFT-13 headless proxy per 01-VISION.md §5. Measures full-scan + JSON serialize of 1k WallStore rows (data-layer schedule rebuild). Store pre-populated before measurement (creation ≠ rebuild cost). Formula evaluation and React reconciliation are in apps/editor-bench/ (Wave 13 browser harness)."
+  "nft": 13,
+  "c10Target": "< 500 ms p95",
+  "limitMs": 500,
+  "measures": "full-scan + JSON serialize of 10k WallStore rows — the data-layer schedule rebuild. Store pre-populated before measurement (creation is not rebuild cost)."
 }

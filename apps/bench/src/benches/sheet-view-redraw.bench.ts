@@ -1,21 +1,26 @@
-// Bench: `sheet-view-redraw` — NFT-6 verifier (headless proxy).
+// Bench: `sheet-view-redraw` — NFT 6.
 //
-// Spec source: `01-VISION.md §5` row 6 — NFT 6: "Sheet-view re-render after edit
-//   | < 200 ms p95 | apps/bench/src/benches/sheet-view-redraw.bench.ts".
+// ############################################################################
+// ##  NFT 6 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * Sheet schema parse/validate/serialize round-trip latency — the schema
-//     processing share of the sheet-view redraw budget. In production the
-//     sheet-view DOM diff is driven by React after the schema patch lands;
-//     this bench captures the schema pipeline overhead.
+// C10 §1 row 6 target: < 200 ms p95
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * React reconciliation time for the sheet-view canvas.
-//   * PDF export pipeline triggered by sheet edits.
-//   * DOM resize observer callbacks.
+// WHY IT CANNOT BE MEASURED HERE:
+//   Requires React reconciliation and DOM layout.
 //
-// NFT-6 production target: < 200 ms p95 (sheet edit → sheet-view repaint).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   Sheet Zod schema parse/serialize round-trip.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 6, measurability: 'not-yet-measurable'), and `nftLimit(6)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -49,7 +54,7 @@ const baseSheetInput = {
   ],
 };
 
-describe('sheet-view-redraw', () => {
+describe('[NOT-YET-MEASURABLE NFT 6] sheet-view-redraw', () => {
   it('Sheet schema parse/validate/serialize round-trip is the NFT-6 headless proxy', () => {
     // Warmup
     for (let i = 0; i < WARMUP; i++) {
@@ -84,7 +89,7 @@ describe('sheet-view-redraw', () => {
         unit: 'ms',
         nftTarget: 200,
         notes:
-          'NFT-6 headless proxy per 01-VISION.md §5. Measures Sheet schema ' +
+          'NFT-6 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures Sheet schema ' +
           'parse/serialize round-trip (schema pipeline share of the sheet ' +
           'redraw budget). Full sheet-view DOM diff is in apps/editor-bench/ ' +
           '(Wave 13 browser harness).',

@@ -235,7 +235,39 @@ const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
 // outliving it. That work spans command-bus + command-registry + the composition
 // root, so it is a U-phase item, not a drive-by. Until it lands, every one of
 // these bridges is a +1 here and each needs its own dated paragraph.
-const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 181);
+/**
+ * ─── 181 → 183 (2026-08-11, second raise of the same day) ────────────────────
+ * TWO new bypasses, both the IDENTICAL batch-bridge pattern already justified at
+ * 178 → 181 earlier today, and both from verbs authored to CLOSE dead-verb
+ * defects rather than to add features:
+ *   plugins/rooms/src/handlers/SetRoomFinish.ts       → @pryzm/command-registry
+ *   plugins/wall/src/handlers/UpdateWallsHeightBatch.ts → @pryzm/command-registry
+ *
+ * The preferred fix — widening `@pryzm/plugin-sdk` to re-export what the bridge
+ * needs — was PROVED IMPOSSIBLE earlier today and the proof is unchanged:
+ *   1. It closes a real dependency cycle:
+ *      plugin-sdk → command-registry → plugin-annotations → plugin-sdk.
+ *      `command-registry/src/annotations/*` are pure re-export barrels, so the
+ *      ring closes at BARREL MODULE LOAD — this repo's documented white-screen mode.
+ *   2. Independently fatal: `command-registry` is `"private": true`, while
+ *      `plugin-sdk` publishes publicly as `@pryzm/sdk`. Re-exporting a private
+ *      package's symbols through a published one breaks the publish regardless of
+ *      the cycle.
+ * Both verified against the manifests, not taken on trust.
+ *
+ * Why these two imports exist at all: each handler must reach the LEGACY
+ * AUTHORITATIVE store (`UpdateRoomCommand`, `UpdateWallHeightCommand`) rather than
+ * the detached plugin DTO store. Seventeen verbs shipped writing that DTO store and
+ * reporting success — the defect this session removed. Refusing the import would
+ * have meant authoring two more dead verbs to keep a ratchet flat, which inverts
+ * what the ratchet is for.
+ *
+ * The real exit remains the one recorded at 181: invert the dependency so
+ * `command-registry` REGISTERS batch constructors into a name→factory registry at
+ * L1 `command-bus`, and the SDK re-exports only the accessor — two named exports,
+ * no cycle, and it dies with `CommandManager`. Scoped as a U-phase item.
+ */
+const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 183);
 
 /**
  * §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — banned third-party dependencies.

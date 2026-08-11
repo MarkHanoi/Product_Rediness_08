@@ -1,49 +1,31 @@
-// Bench: `cold-boot` — NFT-1 verifier (headless proxy).
+// Bench: `cold-boot` — NFT 1.
 //
-// Spec source (in conflict-resolution order — 01-VISION wins):
-//   1. `01-VISION.md §5` row 1 — NFT 1: "Cold-boot to first paint
-//      | < 2.5 s on M1 / Chrome | apps/bench/cold-boot.ts".  This file
-//      adopts the canonical name from 01-VISION.
-//   2. `02-ARCHITECTURE.md §6` line 130 — confirms NFT-1 budget and
-//      anchors the three-stage boot pipeline (Stage 0 App-Shell paint,
-//      Stage 1 runtime composition, Stage 2 engine init on project open).
-//   3. `chunks/22 §22.1` step 1.1 — refines the per-step sub-budget to
-//      "LCP < 600 ms" for the landing paint specifically (a tighter
-//      sub-budget within the 2.5 s NFT-1 envelope), with a per-step
-//      bench `bench/ui/landing-paint.bench.ts` separate from this one.
-//      That UI-side bench is part of the Wave 13 in-browser harness
-//      (`apps/editor-bench/`); this file is its headless proxy.
+// ############################################################################
+// ##  NFT 1 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node, today):
-//   * Cold `composeRuntime({ canvas: null, audit, pluginContributions: [] })`
-//     wall-time — the dominant single contributor to Stage 1.  Reported
-//     as p50 / p95 / p99 over `MEASURE` runs after `WARMUP` warmups.
-//   * Sanity: the resolved runtime has the canonical `runtime.scene`
-//     shape per `chunks/02 §2.2` (4 readonly fields + `rendererError`)
-//     and `runtime.persistence.openProject` per the same chunk and per
-//     `02-ARCHITECTURE §6 Stage 2`.
+// C10 §1 row 1 target: < 2.5 s on M1 / Chrome
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (intentionally — out of scope for the
-// headless proxy; lands in `apps/editor-bench/` Wave 13):
-//   * Browser HTML parse + critical-CSS paint (Stage 0 is paint-on-first-
-//     byte; the inline skeleton in `index.html` takes this off the
-//     bench-able JS path by design).
-//   * Vite cold-resolve of the ~233-module dev-server graph.
-//   * LCP timing per `chunks/22 §22.1` step 1.1 (`< 600 ms`).
-//   * Network throttling (Playwright/CDP).
-//   * Bundle-separation contract from `chunks/22 §22.1` GA gate ("engine
-//     code is **not** loaded on this path") — that requires a real
-//     production-bundle audit (Wave 13).
+// WHY IT CANNOT BE MEASURED HERE:
+//   First paint is a browser compositor event. A Node process has no paint
+//   .
 //
-// Audit history — 2026-04-30 closeout-rectification:
-//   This file replaced an earlier `landing-first-paint.bench.ts` whose
-//   name was taken from the distilled `04-PLAN-FORWARD/04-END-TO-END-
-//   FLOWS-AND-COVERAGE.md`.  Per the project-wide conflict-resolution
-//   order (01-VISION > 02-ARCHITECTURE > 03-CURRENT-STATE > 04-PLAN-
-//   FORWARD), 01-VISION's `cold-boot` name is canonical and supersedes
-//   the distilled-doc name.  See `03-CURRENT-STATE.md §10` entry
-//   "2026-04-30 closeout-rectification" for the full audit trail.
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   composeRuntime() wall-time only - the Stage-1 composition share, exclu
+//   ding HTML parse, critical CSS and the paint itself.
+//
+//   tests/e2e/cold-boot.spec.ts is a REAL Playwright paint probe and is th
+//   e correct home for NFT 1.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 1, measurability: 'not-yet-measurable'), and `nftLimit(1)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -59,7 +41,7 @@ const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
 const WARMUP = 3;
 const MEASURE = 20;
 
-describe('cold-boot', () => {
+describe('[NOT-YET-MEASURABLE NFT 1] cold-boot', () => {
   it('cold composeRuntime() (no canvas) is the headless proxy for NFT-1', async () => {
     const audit = {
       actorId: 'bench-cold-boot',
@@ -110,7 +92,7 @@ describe('cold-boot', () => {
           samples: samples.length,
           unit: 'ms',
           notes:
-            'NFT-1 headless proxy per 01-VISION.md §5.  Measures cold ' +
+            'NFT-1 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5).  Measures cold ' +
             'composeRuntime() (no canvas) — the dominant single contributor ' +
             'to Stage 1 of the three-stage boot pipeline (02-ARCHITECTURE ' +
             '§6).  Wall-clock NFT-1 (< 2.5 s on M1/Chrome) and the per-step ' +

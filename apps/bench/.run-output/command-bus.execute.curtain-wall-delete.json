@@ -1,10 +1,10 @@
 {
   "name": "command-bus.execute.curtain-wall-delete",
   "samples": 200,
-  "p50": 3.656,
-  "p95": 12.668,
-  "p99": 17.306,
+  "p50": 1.2,
+  "p95": 11.204,
+  "p99": 104.984,
   "budgetMs": 1,
   "warnMs": 0.5,
-  "recordedAt": "2026-05-09T23:09:22.755Z"
+  "recordedAt": "2026-08-11T10:13:12.354Z"
 }

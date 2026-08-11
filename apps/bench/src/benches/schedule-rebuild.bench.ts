@@ -1,21 +1,19 @@
-// Bench: `schedule-rebuild` — NFT-13 verifier (headless proxy).
+// Bench: `schedule-rebuild` — NFT 13.
 //
-// Spec source: `01-VISION.md §5` row 13 — NFT 13: "Schedule rebuild (1k rows)
-//   | < 2 s p95 | apps/bench/src/benches/schedule-rebuild.bench.ts".
+// TARGET SOURCE: `@pryzm/perf-budgets` -> C10 section 1 row 13.  No number is
+// stated in this file.
 //
-// What this file CAN measure (headless Node):
-//   * Store full-scan + JSON serialization for 1 000 schedule rows — the
-//     data-layer cost of a schedule rebuild. In production the schedule
-//     builder reads all element DTOs from a populated store and serialises
-//     each row to the schedule view model. The store is pre-populated once
-//     (element creation is NOT part of the rebuild cost).
+// -- W5-1 CORRECTION, 2026-08-11 -------------------------------------------
+// The previous revision measured 1,000 rows against a < 2 s budget taken from
+// the deleted `01-VISION.md section 5`.  C10 section 1 says 10,000 rows under
+// < 500 ms p95: a 10x larger workload against a 4x tighter budget, i.e. the
+// bench was 40x weaker than the contract it claimed to verify, and passed.
+// Workload and budget now both come from C10.
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * Formula evaluation over all elements (requires formula-library + store).
-//   * React table reconciliation for the schedule view.
-//   * Virtualized list rendering.
-//
-// NFT-13 production target: < 2 s p95 (schedule rebuild for 1 000 rows).
+// This IS the production path for the data layer: the schedule builder scans
+// every element DTO and serialises a row.  Formula evaluation and React table
+// reconciliation sit above it and are not in scope for NFT 13's data-layer
+// rebuild.
 
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
@@ -25,16 +23,21 @@ import { fileURLToPath } from 'node:url';
 
 import { Wall, createId } from '@pryzm/schemas';
 import { WallStore, type WallData } from '@pryzm/plugin-wall';
+import { nft, nftLimit } from '@pryzm/perf-budgets';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
 
-const ROW_COUNT = 1_000;
+const NFT = nft(13);
+const LIMIT_MS = nftLimit(13); // 500, from C10 section 1.
+
+/** C10 section 1 names 10k rows. */
+const ROW_COUNT = 10_000;
 const WARMUP = 3;
 const SAMPLES = 20;
 
 describe('schedule-rebuild', () => {
-  it('1k-row full store scan + serialize is the NFT-13 headless proxy', () => {
+  it(`${ROW_COUNT}-row store scan + serialize meets the C10 section 1 budget (${NFT.c10Target})`, () => {
     // Pre-populate the store once — this is setup cost, not rebuild cost.
     const store = new WallStore();
     for (let i = 0; i < ROW_COUNT; i++) {
@@ -80,17 +83,25 @@ describe('schedule-rebuild', () => {
         samples: samples.length,
         rowCount: ROW_COUNT,
         unit: 'ms',
-        nftTarget: 2000,
-        notes:
-          'NFT-13 headless proxy per 01-VISION.md §5. Measures full-scan + ' +
-          'JSON serialize of 1k WallStore rows (data-layer schedule rebuild). ' +
-          'Store pre-populated before measurement (creation ≠ rebuild cost). ' +
-          'Formula evaluation and React reconciliation are in apps/editor-bench/ ' +
-          '(Wave 13 browser harness).',
+        nft: 13,
+        c10Target: NFT.c10Target,
+        limitMs: LIMIT_MS,
+        measures:
+          'full-scan + JSON serialize of 10k WallStore rows — the data-layer ' +
+          'schedule rebuild. Store pre-populated before measurement ' +
+          '(creation is not rebuild cost).',
       }, null, 2),
     );
 
     expect(p95).toBeGreaterThan(0);
-    expect(p95).toBeLessThan(2000);
-  });
+    expect(
+      p95,
+      `NFT 13 MISS — ${ROW_COUNT}-row rebuild p95 = ${p95.toFixed(2)} ms ` +
+        `(C10 section 1 budget: ${LIMIT_MS} ms)`,
+    ).toBeLessThan(LIMIT_MS);
+    // Store PRE-POPULATION of 10k walls (Wall.parse x 10k) takes minutes in
+    // this harness and is setup, not rebuild cost. Measured 2026-08-11: it
+    // alone blows the 60 s default. Reported to the orchestrator as a separate
+    // finding (element-creation throughput), not folded into NFT 13.
+  }, 600_000);
 });

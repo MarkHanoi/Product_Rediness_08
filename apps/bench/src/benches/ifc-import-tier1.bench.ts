@@ -1,24 +1,31 @@
-// Bench: `ifc-import-tier1` — NFT-9 verifier (headless proxy).
+// Bench: `ifc-import-tier1` — NFT 9.
 //
-// Spec source: `01-VISION.md §5` row 9 — NFT 9: "IFC import tier-1 (walls/doors/windows)
-//   | < 8 s for 500 elements | apps/bench/src/benches/ifc-import-tier1.bench.ts".
+// ############################################################################
+// ##  NFT 9 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * `extractAllPsets()` throughput for 500 in-memory IFC proxy DTOs —
-//     the Pset extraction share of the tier-1 import pipeline. This is the
-//     CPU-bound processing step that runs after the WASM geometry decode.
-//   * `Wall.parse({ ifcData: {...} })` for 500 elements — the schema
-//     validation share of the tier-1 import pipeline (the element creation
-//     step for each IfcWallStandardCase entity).
+// C10 §1 row 9 target: < 30 s
+// Environment the contract's quantity actually lives in: node
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * web-ifc WASM geometry decode (requires the WASM binary and a real IFC
-//     STEP file; available in the browser CI harness at apps/editor-bench/).
-//   * File I/O and IFC STEP parse time.
-//   * Three.js mesh bake time for geometry import.
+// WHY IT CANNOT BE MEASURED HERE:
+//   No 50 MB IFC fixture is committed, and the web-ifc WASM decode - the d
+//   ominant cost - is never invoked.
 //
-// NFT-9 production target: < 8 s for 500 elements (tier-1: wall/door/window).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   extractAllPsets() + Wall.parse() over 500 synthetic in-memory DTOs, as
+//   serted < 8 s. A different workload against a different budget.
+//
+//   Unblocking needs only a committed 50 MB IFC fixture plus the WASM deco
+//   de call - no browser.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 9, measurability: 'not-yet-measurable'), and `nftLimit(9)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -57,7 +64,7 @@ function makePsetSource(globalIds: string[]): PsetSource {
   };
 }
 
-describe('ifc-import-tier1', () => {
+describe('[NOT-YET-MEASURABLE NFT 9] ifc-import-tier1', () => {
   it('500-element extractAllPsets + Wall.parse (headless proxy) is NFT-9 proxy', () => {
     const globalIds = Array.from({ length: ELEMENT_COUNT }, (_, i) =>
       `2_IfcWall_Bench_${String(i).padStart(4, '0')}`,
@@ -98,7 +105,7 @@ describe('ifc-import-tier1', () => {
         unit: 'ms',
         nftTarget: 8000,
         notes:
-          'NFT-9 headless proxy per 01-VISION.md §5. Measures ' +
+          'NFT-9 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures ' +
           'extractAllPsets() + Wall.parse() for 500 in-memory IFC proxy DTOs. ' +
           'Full tier-1 import including web-ifc WASM decode is in ' +
           'apps/editor-bench/ (Wave 13 browser harness).',

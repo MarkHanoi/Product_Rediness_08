@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-08-11T13:32:27.421Z",
+  "executed": 16,
+  "baseline": 0,
+  "rows": [
+    {
+      "nft": 1,
+      "id": "cold-boot-first-paint",
+      "executed": "not-collected",
+      "passed": null,
+      "measurability": "not-yet-measurable",
+      "note": "failed to collect: window is not defined"
+    },
+    {
+      "nft": 2,
+      "id": "project-load-10k",
+      "executed": "not-collected",
+      "passed": null,
+      "measurability": "not-yet-measurable",
+      "note": "failed to collect: window is not defined"
+    },
+    {
+      "nft": 3,
+      "id": "tool-latency",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 4,
+      "id": "frame-budget",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 5,
+      "id": "plan-view-redraw",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 6,
+      "id": "sheet-view-redraw",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 7,
+      "id": "crdt-merge",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "measured",
+      "note": "ok"
+    },
+    {
+      "nft": 8,
+      "id": "sync-conflict-surface",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 9,
+      "id": "ifc-import-tier1",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 10,
+      "id": "ifc-export-tier1",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 11,
+      "id": "bcf-roundtrip",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "measured",
+      "note": "ok"
+    },
+    {
+      "nft": 12,
+      "id": "family-load",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "measured",
+      "note": "ok"
+    },
+    {
+      "nft": 13,
+      "id": "schedule-rebuild",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "measured",
+      "note": "ok"
+    },
+    {
+      "nft": 14,
+      "id": "ai-critique-latency",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 15,
+      "id": "bundle-size",
+      "executed": "executed",
+      "passed": false,
+      "measurability": "measured",
+      "note": "AssertionError: NFT 15 MISS — dist/ ships 9.85 MB gzipped across 203 JS assets; C10 §1 budget is 4 MB. Largest: Cesium.js 1695KB, main-BeY7Nq3y.js 1470KB, engineLauncher--zq_QMh9.js 954KB, domain-engi"
+    },
+    {
+      "nft": 16,
+      "id": "memory-ceiling",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 17,
+      "id": "plugin-sandbox-overhead",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "not-yet-measurable",
+      "note": "ok"
+    },
+    {
+      "nft": 18,
+      "id": "undo-stack-memory",
+      "executed": "executed",
+      "passed": true,
+      "measurability": "measured",
+      "note": "ok"
+    },
+    {
+      "nft": 19,
+      "id": "e2e-playwright-suite",
+      "executed": "no-file",
+      "passed": null,
+      "measurability": "not-yet-measurable",
+      "note": "The file C10 names — e2e-playwright-suite.spec.ts — DOES NOT EXIST anywhere in the repo. tests/e2e/ holds 14 individual specs that are not aggregated into the named suite, and `npx playwright test` is not wired into CI."
+    }
+  ]
+}

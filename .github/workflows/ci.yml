@@ -32,6 +32,14 @@
 #
 # NOT yet required (advisory by design, see the job header):
 #   - test-pryzm1    (§L-540-CI-GATE / L-544 — landed RED per the L-247 ladder)
+#   - nft-bench      (W5-1, 2026-08-11 — the NFT bench suite had NEVER run in CI; `grep -rn
+#                     "bench" .github/workflows/` returned zero matches while C10 §4 listed
+#                     "All NFT benches pass" as a MERGE BLOCKER. Lands ADVISORY on the same
+#                     L-247 ladder, because two NFTs are RED on first honest measurement
+#                     (NFT 15 bundle-size 9.85 MB vs 4 MB; NFT 12 family-load 391.7 ms vs
+#                     200 ms) and the targets were NOT moved to make it green. FLIP TO
+#                     REQUIRED when both close. Note the Ratchet-R2 step inside it is itself
+#                     hard-fail-by-exit-code; only the job wrapper is advisory.)
 #   - the "Legacy release gate" STEP inside the `ga-gate` job (`pnpm run ga-gate`, a different
 #     and smaller script) — that STEP is `continue-on-error`, the job is not.
 #
@@ -356,6 +364,70 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # W5-1 (2026-08-11) — THE NFT BENCH SUITE HAD NEVER RUN IN CI. NOT ONCE.
+  #
+  # C10 §4 has listed "All NFT benches pass" and "Bundle size < 4 MB gzipped" as
+  # MERGE BLOCKERS since the contract was stamped. Measured on 2026-08-11:
+  #   grep -rn "bench" .github/workflows/   →  ZERO MATCHES
+  # For the entire life of those two clauses the gate asserted a fact that
+  # nothing checked. This job is the first time `apps/bench` runs in CI.
+  #
+  # ADVISORY ON LANDING — AND THIS IS NOT "WEAKENING A GATE TO GET GREEN".
+  # There was no gate here at all. Per this repo's own L-247 ladder (0.5b land
+  # RED + advisory → 0.5c triage PRODUCT-FIRST → 0.5d flip to hard-fail), a
+  # suite that has never run cannot land blocking, or the first thing it blocks
+  # is the fix for itself. Two NFTs are RED against C10 on first honest
+  # measurement, and per standing doctrine the targets were NOT moved:
+  #
+  #   * NFT 15 bundle-size  — dist/ ships 9.85 MB gzipped (203 JS assets)
+  #                           against C10 §1's 4 MB budget. 2.5× over.
+  #   * NFT 12 family-load  — p95 391.7 ms against C10 §1's 200 ms. 2.0× over.
+  #
+  # Those are FINDINGS, not gate-tuning inputs. FLIP `continue-on-error` OFF
+  # once both close. Do not delete this job to make the board look better than
+  # the estate is.
+  #
+  # ⚠ THE RATCHET STEP BELOW IS NOT ADVISORY. `nft-ci.ts` exits non-zero ONLY
+  # when FEWER benches EXECUTE than the R2 baseline — i.e. when a bench silently
+  # stops running. `continue-on-error` on the job means that currently reports
+  # rather than blocks; it is kept as the single flip-point for the whole job.
+  #
+  # WHY `pnpm run build` RUNS FIRST: C10 §1.1 requires the suite to run after
+  # a production build. Without dist/, NFT 15 SKIPS — and a skipped budget must
+  # never read as a met budget. Building here is what makes NFT 15 real.
+  nft-bench:
+    name: NFT benches + Ratchet R2 (ADVISORY on landing — see job header)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # C10 §1.1 — "the bench suite runs after `pnpm build` to measure
+      # production bundle performance". NFT 15 measures dist/, so this is a
+      # prerequisite of the measurement, not a convenience.
+      - name: Production build (prerequisite for NFT 15)
+        run: pnpm run build
+      - name: Cross-check nft-targets.ts against the C10 markdown table
+        run: pnpm --filter @pryzm/perf-budgets test
+      - name: Run NFT benches + enforce Ratchet R2 (executed-in-CI)
+        run: pnpm --filter @pryzm/bench run nft:ci
+      - name: Upload NFT measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nft-run-output
+          path: apps/bench/.run-output/
+          retention-days: 30
 
   apex-gates:
     name: Apex/app contract gates (C51 §7 — apex-output · docs-site · route-surface)

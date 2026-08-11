@@ -2,6 +2,6 @@
 
 | Scenario | cold (ms) | warm-avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) | budget (ms) |
 |---|---|---|---|---|---|---|
-| rectangular-default | 1.36 | 0.12 | 0.03 | 0.09 | 0.59 | 50 |
-| circular-wide | 0.23 | 0.33 | 0.08 | 0.20 | 0.78 | 50 |
-| i-section-tall | 0.14 | 0.12 | 0.05 | 0.09 | 0.80 | 50 |
+| rectangular-default | 1.94 | 0.09 | 0.04 | 0.13 | 0.66 | 50 |
+| circular-wide | 0.61 | 0.35 | 0.10 | 0.46 | 3.00 | 50 |
+| i-section-tall | 0.29 | 0.10 | 0.06 | 0.15 | 0.81 | 50 |

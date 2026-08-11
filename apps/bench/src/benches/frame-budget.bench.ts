@@ -1,22 +1,28 @@
-// Bench: `frame-budget` — NFT-4 verifier (headless proxy).
+// Bench: `frame-budget` — NFT 4.
 //
-// Spec source: `01-VISION.md §5` row 4 — NFT 4: "Frame budget (interactive viewport)
-//   | 16.6 ms p95 (60 FPS) | apps/bench/src/benches/frame-budget.bench.ts".
+// ############################################################################
+// ##  NFT 4 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * FrameScheduler drain time using FakeRafAdapter — the scheduling
-//     overhead cost (priority queue drain, tick listener dispatch) without
-//     actual Three.js rendering or GPU cost.
-//   * This isolates the pure L5 scheduling budget; GPU time is measured
-//     in the browser harness (apps/editor-bench/, Wave 13).
+// C10 §1 row 4 target: 16.6 ms p95 (60 FPS)
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * GPU render pass time (Three.js WebGLRenderer.render()).
-//   * CSS compositing / browser paint time.
-//   * rAF scheduling jitter (FakeRafAdapter is synchronous).
+// WHY IT CANNOT BE MEASURED HERE:
+//   The frame budget is GPU submit plus rAF cadence. This bench drives Fak
+//   eRafAdapter, which is synchronous and has no cadence at all.
 //
-// NFT-4 production target: 16.6 ms p95 (full frame budget for 60 FPS).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   FrameScheduler queue-drain time under a fake rAF. It has never carried
+//    a 16.6 ms threshold - it asserts only '> 0'.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 4, measurability: 'not-yet-measurable'), and `nftLimit(4)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -31,7 +37,7 @@ const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
 const FRAMES = 200;
 const WARMUP = 30;
 
-describe('frame-budget', () => {
+describe('[NOT-YET-MEASURABLE NFT 4] frame-budget', () => {
   it('FrameScheduler drain overhead (headless proxy) is the NFT-4 scheduling budget', () => {
     const raf = new FakeRafAdapter();
     const scheduler = new FrameScheduler();
@@ -77,7 +83,7 @@ describe('frame-budget', () => {
         unit: 'ms',
         nftTarget: 16.6,
         notes:
-          'NFT-4 headless proxy per 01-VISION.md §5. Measures FrameScheduler ' +
+          'NFT-4 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures FrameScheduler ' +
           'drain overhead (FakeRafAdapter, no GPU). Full 60-FPS frame budget ' +
           'including GPU is measured in apps/editor-bench/ (Wave 13).',
       }, null, 2),

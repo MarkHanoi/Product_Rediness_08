@@ -1,10 +1,10 @@
 {
   "name": "schemas.roundtrip.wall",
   "samples": 200,
-  "p50": 0.018,
-  "p95": 0.042,
-  "p99": 0.204,
+  "p50": 0.029,
+  "p95": 0.072,
+  "p99": 0.106,
   "budgetMs": 5,
   "warnMs": 2,
-  "recordedAt": "2026-05-09T23:10:07.569Z"
+  "recordedAt": "2026-08-11T10:14:10.932Z"
 }

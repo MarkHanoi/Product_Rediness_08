@@ -1,10 +1,10 @@
 {
   "name": "ifc-export-tier1",
-  "p50": 0.9980759999998554,
-  "p95": 10.752228000000287,
+  "p50": 2.923900000001595,
+  "p95": 210.26640000000043,
   "samples": 10,
   "elementCount": 500,
   "unit": "ms",
   "nftTarget": 5000,
-  "notes": "NFT-10 headless proxy per 01-VISION.md §5. Measures globalIdFromUuid() + InMemoryIFCMetaStore.get() for 500 elements. Full tier-1 export including web-ifc WASM serialization is in apps/editor-bench/ (Wave 13 browser harness)."
+  "notes": "NFT-10 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures globalIdFromUuid() + InMemoryIFCMetaStore.get() for 500 elements. Full tier-1 export including web-ifc WASM serialization is in apps/editor-bench/ (Wave 13 browser harness)."
 }

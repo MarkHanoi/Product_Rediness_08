@@ -1,11 +1,11 @@
 {
   "name": "memory-ceiling",
   "elementCount": 2000,
-  "rssDeltaBytes": 39759872,
-  "rssDeltaMB": 37.92,
-  "heapDeltaBytes": 23538512,
-  "heapDeltaMB": 22.45,
+  "rssDeltaBytes": 123904000,
+  "rssDeltaMB": 118.16,
+  "heapDeltaBytes": 42898104,
+  "heapDeltaMB": 40.91,
   "dataLayerCeilingMB": 200,
   "nftTargetMB": 500,
-  "notes": "NFT-16 headless proxy per 01-VISION.md §5. Measures WallStore RSS growth for 10k elements (data-layer memory only, no GPU). Full RSS including Three.js and browser overhead is measured in apps/editor-bench/ (Wave 13 browser harness). Data-layer ceiling is set at 50 MB (10% of the 500 MB NFT-16 total budget)."
+  "notes": "NFT-16 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures WallStore RSS growth for 10k elements (data-layer memory only, no GPU). Full RSS including Three.js and browser overhead is measured in apps/editor-bench/ (Wave 13 browser harness). Data-layer ceiling is set at 50 MB (10% of the 500 MB NFT-16 total budget)."
 }

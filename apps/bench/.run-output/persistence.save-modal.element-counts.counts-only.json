@@ -2,9 +2,9 @@
   "name": "persistence.save-modal.element-counts.counts-only",
   "samples": 200,
   "p50": 0.001,
-  "p95": 0.003,
-  "p99": 0.006,
+  "p95": 0.002,
+  "p99": 0.013,
   "budgetMs": 0.5,
   "warnMs": 0.25,
-  "recordedAt": "2026-05-09T23:08:33.403Z"
+  "recordedAt": "2026-08-11T10:14:14.041Z"
 }

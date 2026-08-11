@@ -2,4 +2,4 @@
 
 | scenario | cold ms | warm avg ms | p50 ms | p95 ms | p99 ms | budget ms | within budget |
 |---|---|---|---|---|---|---|---|
-| matchOpeningSymbols | 1.77 | 0.19 | 0.05 | 0.44 | 4.31 | 8 | ✅ |
+| matchOpeningSymbols | 2.47 | 0.10 | 0.07 | 0.17 | 0.86 | 8 | ✅ |

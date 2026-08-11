@@ -1,23 +1,29 @@
-// Bench: `memory-ceiling` — NFT-16 verifier (headless proxy).
+// Bench: `memory-ceiling` — NFT 16.
 //
-// Spec source: `01-VISION.md §5` row 16 — NFT 16: "Memory ceiling (10k elements)
-//   | < 500 MB RSS | apps/bench/src/benches/memory-ceiling.bench.ts".
+// ############################################################################
+// ##  NFT 16 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * RSS memory growth for 10 000 Wall elements in WallStore.
-//     This is the dominant in-process memory consumer for the element store
-//     layer (L1 stores). The Three.js geometry memory (GPU-resident) is
-//     separate and measured in the browser harness.
-//   * The headless proxy isolates the data-layer memory cost from the
-//     renderer / GPU memory, giving a lower bound on total RSS.
+// C10 §1 row 16 target: < 1.5 GB
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * GPU-resident geometry memory (Three.js BufferGeometry objects).
-//   * Browser DOM and React component tree overhead.
-//   * Shared worker / service worker memory.
+// WHY IT CANNOT BE MEASURED HERE:
+//   C10 names total process memory INCLUDING GPU-resident geometry and the
+//    DOM, held over a 1-hour session. Node has neither, and no CI job runs
+//    for an hour.
 //
-// NFT-16 production target: < 500 MB RSS (total, including GPU and renderer).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   2,000 (not 10,000) WallStore DTOs against a 200 MB (not 1.5 GB) data-l
+//   ayer ceiling, over seconds (not an hour).
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 16, measurability: 'not-yet-measurable'), and `nftLimit(16)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -41,7 +47,7 @@ const ELEMENT_COUNT = 2_000;
 // apps/editor-bench/ provides the precise 500 MB NFT-16 gate.
 const DATA_LAYER_CEILING_BYTES = 200 * 1024 * 1024; // 200 MB
 
-describe('memory-ceiling', () => {
+describe('[NOT-YET-MEASURABLE NFT 16] memory-ceiling', () => {
   it('WallStore with 2k elements stays under data-layer memory ceiling (10k proxy)', () => {
     // Force GC if available (Node.js --expose-gc flag; optional in CI).
     if (typeof (globalThis as Record<string, unknown>).gc === 'function') {
@@ -80,7 +86,7 @@ describe('memory-ceiling', () => {
         dataLayerCeilingMB: DATA_LAYER_CEILING_BYTES / 1024 / 1024,
         nftTargetMB: 500,
         notes:
-          'NFT-16 headless proxy per 01-VISION.md §5. Measures WallStore RSS ' +
+          'NFT-16 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures WallStore RSS ' +
           'growth for 10k elements (data-layer memory only, no GPU). Full ' +
           'RSS including Three.js and browser overhead is measured in ' +
           'apps/editor-bench/ (Wave 13 browser harness). Data-layer ceiling ' +

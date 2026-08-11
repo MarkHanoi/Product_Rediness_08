@@ -1,10 +1,10 @@
 {
   "name": "command-bus.execute.wall-setColor",
   "samples": 200,
-  "p50": 2.482,
-  "p95": 5.649,
-  "p99": 9.159,
+  "p50": 0.138,
+  "p95": 0.464,
+  "p99": 4.911,
   "budgetMs": 1,
   "warnMs": 0.5,
-  "recordedAt": "2026-05-09T23:09:34.859Z"
+  "recordedAt": "2026-08-11T10:13:20.340Z"
 }

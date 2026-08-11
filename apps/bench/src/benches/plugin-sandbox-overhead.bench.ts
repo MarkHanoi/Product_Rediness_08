@@ -1,26 +1,30 @@
-// Bench: `plugin-sandbox-overhead` — NFT-17 verifier (headless proxy).
+// Bench: `plugin-sandbox-overhead` — NFT 17.
 //
-// Spec source: `01-VISION.md §5` row 17 — NFT 17: "Plugin sandbox overhead
-//   | < 5 ms per message | apps/bench/src/benches/plugin-sandbox-overhead.bench.ts".
+// ############################################################################
+// ##  NFT 17 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * `buildPluginCSP(manifest)` latency — the CSP policy generation that
-//     runs once per iframe sandbox instantiation. This is the setup cost
-//     for each plugin's sandbox frame.
-//   * `buildIframeHeadHTML(manifest)` latency — the sandbox iframe head
-//     HTML generation (CSP meta tag + nonce injection).
-//   * `PluginManifestSchema.parse(raw)` latency — the manifest validation
-//     cost that runs on every plugin activation.
-//   * The per-message serialization overhead (measured via JSON.stringify
-//     of a canonical SandboxMessage structure matching the bridge protocol).
+// C10 §1 row 17 target: < 5 % CPU vs native call
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * Real iframe postMessage round-trip time (requires browser + DOM).
-//   * iframe navigation and DOM isolation setup time.
-//   * Plugin JS evaluation time inside the sandbox.
+// WHY IT CANNOT BE MEASURED HERE:
+//   The overhead is an iframe postMessage round-trip; Node has no iframe. 
+//   C10 also states the budget as a RATIO (% vs a native call), which requ
+//   ires both legs measured - this bench measures neither.
 //
-// NFT-17 production target: < 5 ms per message (plugin message overhead).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   buildPluginCSP() / manifest parse / JSON.stringify latency asserted < 
+//   5 ms. NOTE THE UNIT DIFFERS from the contract (ms, not % of a native b
+//   aseline).
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 17, measurability: 'not-yet-measurable'), and `nftLimit(17)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -54,7 +58,7 @@ const RAW_MANIFEST = {
   minPRYZMVersion: '2.0.0',
 };
 
-describe('plugin-sandbox-overhead', () => {
+describe('[NOT-YET-MEASURABLE NFT 17] plugin-sandbox-overhead', () => {
   it('buildPluginCSP + buildIframeHeadHTML is the NFT-17 headless proxy', () => {
     const manifest = PluginManifestSchema.parse(RAW_MANIFEST) as PluginManifest;
 
@@ -96,7 +100,7 @@ describe('plugin-sandbox-overhead', () => {
         unit: 'ms',
         nftTarget: 5,
         notes:
-          'NFT-17 headless proxy per 01-VISION.md §5. Measures buildPluginCSP() ' +
+          'NFT-17 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures buildPluginCSP() ' +
           '+ buildIframeHeadHTML() + message JSON serialize overhead. Full ' +
           'iframe postMessage round-trip is measured in apps/editor-bench/ ' +
           '(Wave 13 browser harness).',

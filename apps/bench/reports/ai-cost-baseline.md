@@ -1,11 +1,11 @@
 # Bench — ai-cost (S49 baseline)
 
-_Generated: 2026-05-09T23:09:12.690Z_
+_Generated: 2026-08-11T10:13:46.984Z_
 
 | Scenario | cold (ms) | warm avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) | budget (ms) |
 |---|---:|---:|---:|---:|---:|---:|
-| preCheckBudget | 0.111 | 0.003 | 0.001 | 0.001 | 0.003 | 0.50 |
-| recordCall | 0.320 | 0.012 | 0.002 | 0.005 | 0.027 | 0.50 |
-| preCheck+recordCall | 0.139 | 0.012 | 0.003 | 0.009 | 0.081 | 1.00 |
+| preCheckBudget | 0.155 | 0.003 | 0.001 | 0.002 | 0.010 | 0.50 |
+| recordCall | 1.854 | 0.008 | 0.004 | 0.013 | 0.043 | 0.50 |
+| preCheck+recordCall | 0.283 | 0.006 | 0.004 | 0.010 | 0.046 | 1.00 |
 
 Source: `apps/bench/src/benches/ai-cost.bench.ts` per PHASE-3A §S49 D8.

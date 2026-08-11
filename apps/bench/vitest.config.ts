@@ -10,6 +10,10 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
+    // Repairs the Node environment for browser globals that unrelated
+    // transitive imports (pdfjs via @pryzm/file-format) read at module load.
+    // See vitest.setup.ts — these are NOT measurement substitutes.
+    setupFiles: ['./vitest.setup.ts'],
     include: [
       'src/benches/**/*.bench.ts',
       '__tests__/**/*.test.ts',

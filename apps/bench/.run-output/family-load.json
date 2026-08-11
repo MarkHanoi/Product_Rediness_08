@@ -1,10 +1,13 @@
 {
   "name": "family-load",
-  "p50": 4.865919000000304,
-  "p95": 54.39533600000004,
+  "p50": 15.932700000004843,
+  "p95": 77.43510000000242,
   "samples": 20,
   "typeCount": 10,
+  "paramCount": 200,
+  "nft": 12,
+  "c10Target": "< 200 ms",
+  "limitMs": 200,
   "unit": "ms",
-  "nftTarget": 300,
-  "notes": "NFT-12 production bench per 01-VISION.md §5. Measures loadFamilyFromBytes() for a family with 10 types — the full production path (pure Node/zlib, no WASM)."
+  "measures": "loadFamilyFromBytes() for a medium family (200 type-parameters, 10 types) — the full production path (pure Node/zlib, no WASM)."
 }

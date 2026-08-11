@@ -796,6 +796,9 @@ importers:
       '@pryzm/geometry-kernel':
         specifier: workspace:*
         version: link:../../packages/geometry-kernel
+      '@pryzm/perf-budgets':
+        specifier: workspace:*
+        version: link:../../packages/perf-budgets
       '@pryzm/persistence-client':
         specifier: workspace:*
         version: link:../../packages/persistence-client
@@ -2182,6 +2185,9 @@ importers:
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../frame-scheduler
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/plugin-annotations':
         specifier: workspace:*
         version: link:../../plugins/annotations

@@ -250,7 +250,15 @@ const ZONE_B_BASELINE: readonly string[] = [
   'plugins/structural/src/handlers/index.ts',
   'plugins/toy-cube/src/handlers/index.ts',
   'plugins/view/src/handlers/index.ts',
-  'plugins/visibility-intent/src/handlers/index.ts',
+  // 2026-08-11 — `plugins/visibility-intent/src/handlers/index.ts` REMOVED from this
+  // baseline because the file no longer exists. P7's five handlers were `console.debug`
+  // and nothing else; the real implementation moved to `packages/visibility/src/intents/`
+  // (visibility intent is a DOMAIN concept, not plugin UI — keeping it at L6 forced
+  // `runtime-composer` to import UPWARD). The gate CAUGHT the stale entry itself:
+  // "1 baselined file(s) are now instrumented (or no longer exist) but are still
+  // listed" — a named baseline that ratchets in BOTH directions, which is exactly
+  // why it is a list of names and not a count. A count would have silently absorbed
+  // this and left a free slot behind.
   'plugins/wall/src/handlers/index.ts',
   'plugins/window/src/handlers/index.ts',
 ];

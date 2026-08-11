@@ -1,25 +1,29 @@
-// Bench: `ai-critique` — NFT-14 verifier (headless proxy).
+// Bench: `ai-critique` — NFT 14.
 //
-// Spec source: `01-VISION.md §5` row 14 — NFT 14: "AI critique latency
-//   (response streaming start) | < 3 s p95 | apps/bench/src/benches/ai-critique.bench.ts".
+// ############################################################################
+// ##  NFT 14 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * `computeCostUSD()` throughput for the AI critique surface — the
-//     per-call cost calculation that runs synchronously before and after
-//     each AI request. This is the non-network overhead of the critique
-//     pipeline (cost gate + budget enforcement per SPEC-28 §2).
-//   * The budget check latency for a "critique" surface against a team plan.
-//   * This captures the pure JS overhead in the AI pipeline; the 3 s NFT
-//     target is dominated by the LLM API network latency which is measured
-//     in the full AI-host integration test.
+// C10 §1 row 14 target: < 8 s e2e
+// Environment the contract's quantity actually lives in: network
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * LLM API network latency (requires a real API key and network access).
-//   * Streaming response time-to-first-token.
-//   * Element serialization for the AI context payload.
+// WHY IT CANNOT BE MEASURED HERE:
+//   C10 says 'e2e', which is dominated by LLM API latency. CI has no API k
+//   ey, and a merge gate must not depend on a third-party SLA.
 //
-// NFT-14 production target: < 3 s p95 (AI critique response streaming start).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   computeCostUSD() arithmetic - sub-microsecond pure JS, asserted < 3000
+//    ms. That assertion can never fail and therefore carries zero informat
+//   ion.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 14, measurability: 'not-yet-measurable'), and `nftLimit(14)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -34,7 +38,7 @@ const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
 const WARMUP = 500;
 const SAMPLES = 5_000;
 
-describe('ai-critique', () => {
+describe('[NOT-YET-MEASURABLE NFT 14] ai-critique', () => {
   it('computeCostUSD + CostMeter budget check is the NFT-14 headless proxy', () => {
     const meter = new CostMeter();
 
@@ -80,7 +84,7 @@ describe('ai-critique', () => {
         unit: 'ms',
         nftTarget: 3000,
         notes:
-          'NFT-14 headless proxy per 01-VISION.md §5. Measures computeCostUSD() ' +
+          'NFT-14 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures computeCostUSD() ' +
           '+ CostMeter.checkBudget() latency (pure JS cost gate overhead). ' +
           'LLM API network latency and streaming start are measured in the ' +
           'AI-host integration test and apps/editor-bench/ (Wave 13).',

@@ -1,18 +1,30 @@
-// Bench: `sync-conflict` — NFT-8 verifier (REAL Yjs CONFLICTED-state — Wave A19-T11).
+// Bench: `sync-conflict` — NFT 8.
 //
-// Spec source: `01-VISION.md §5` row 8 — NFT 8: "Sync-conflict resolution
-//   | < 200 ms p95 | apps/bench/src/benches/sync-conflict.bench.ts".
+// ############################################################################
+// ##  NFT 8 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// Wave A19 upgrade: replaced the WallStore LWW proxy with a REAL CONFLICTED-state
-// scenario using Yjs + CRDTConflictResolver:
-//   - Two independent Y.Doc instances represent two concurrent users
-//   - Both users edit the same scalar property (wall height) concurrently
-//   - CRDTConflictResolver attempts auto-merge (3-way rules)
-//   - When auto-merge fails → conflict descriptor produced → CONFLICTED state
-//   - Measures time from concurrent edit → conflict detection → resolution
+// C10 §1 row 8 target: < 1 s from second-user save
+// Environment the contract's quantity actually lives in: e2e
 //
-// NFT-8 production target: < 200 ms p95 (conflict detected → UI resolved).
-
+// WHY IT CANNOT BE MEASURED HERE:
+//   C10 measures from a SAVE (a round-trip through the sync server) to a S
+//   URFACED conflict (a UI event). This bench has neither endpoint.
+//
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   In-process 3-way auto-merge decision time between two local Y.Docs - m
+//   icroseconds of CPU, with no save and no surfacing.
+//
+//   tests/e2e/conflict-resolution.spec.ts is the correct home for NFT 8.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 8, measurability: 'not-yet-measurable'), and `nftLimit(8)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { performance } from 'node:perf_hooks';
@@ -102,7 +114,7 @@ function simulateConflictCycle(
   return { elapsed, status };
 }
 
-describe('sync-conflict', () => {
+describe('[NOT-YET-MEASURABLE NFT 8] sync-conflict', () => {
   it('NFT-8: CONFLICTED-state cycle (Yjs merge + conflict detection) < 200 ms p95', () => {
     const sharedWallId = 'wall-conflict-bench-001';
     const baseHeight = 3000;

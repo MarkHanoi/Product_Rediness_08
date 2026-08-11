@@ -1,8 +1,73 @@
 {
   "name": "bundle-size",
-  "gzipBytes": 318,
-  "gzipKB": 0.31,
-  "exportCount": 41,
-  "nftTargetKB": 250,
-  "notes": "NFT-15 proxy per 01-VISION.md §5. Measures gzip(@pryzm/schemas export manifest) as a conservative app-shell bundle proxy. Actual production bundle size is measured by vite build --analyze and the @pryzm/perf-budgets gate (post-Wave-13). Tree-shaking further reduces the production bundle below this baseline."
+  "nft": 15,
+  "c10Target": "< 4 MB gzipped",
+  "limitMb": 4,
+  "totalGzipBytes": 10328169,
+  "totalGzipMb": 9.85,
+  "assetCount": 203,
+  "unit": "MB",
+  "measures": "gzip of every .js/.mjs emitted into dist/ by the production vite build",
+  "largestChunksKB": [
+    {
+      "file": "Cesium.js",
+      "gzipKB": 1694.6
+    },
+    {
+      "file": "main-BeY7Nq3y.js",
+      "gzipKB": 1469.5
+    },
+    {
+      "file": "engineLauncher--zq_QMh9.js",
+      "gzipKB": 954.3
+    },
+    {
+      "file": "domain-engine-CrNmiqNU.js",
+      "gzipKB": 874.2
+    },
+    {
+      "file": "vendor-thatopen-D-gdQFvh.js",
+      "gzipKB": 641.4
+    },
+    {
+      "file": "vendor-three-8XwGOOa2.js",
+      "gzipKB": 520.5
+    },
+    {
+      "file": "worker-GQlxtHkx.mjs",
+      "gzipKB": 464.4
+    },
+    {
+      "file": "pdf.worker-B1D2UnXD.mjs",
+      "gzipKB": 451.2
+    },
+    {
+      "file": "vendor-web-ifc-zl-EjlDS.js",
+      "gzipKB": 390
+    },
+    {
+      "file": "IFCParseWorker-BE1I6_BD.js",
+      "gzipKB": 379.8
+    },
+    {
+      "file": "SiteBoundaryMap2D-DLjWLTxH.js",
+      "gzipKB": 296.4
+    },
+    {
+      "file": "fragments-worker.mjs",
+      "gzipKB": 259.1
+    },
+    {
+      "file": "index-Db0lkUjG.js",
+      "gzipKB": 178.3
+    },
+    {
+      "file": "vendor-pdfjs-B9xD6m9y.js",
+      "gzipKB": 120.2
+    },
+    {
+      "file": "CesiumViewport-B24N2wpZ.js",
+      "gzipKB": 74.5
+    }
+  ]
 }

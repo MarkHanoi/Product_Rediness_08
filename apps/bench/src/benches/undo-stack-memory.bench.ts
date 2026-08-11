@@ -1,24 +1,41 @@
-// NFT 18 — Undo stack memory ceiling.
+// Bench: `undo-stack-memory` — NFT 18.
 //
-// CONTRACT (C10 §1 NFT 18, Wave A16 A16-T10):
-//   "Undo stack memory (4h session, 1000 commands) < 50 MB rss delta."
+// TARGET SOURCE: `@pryzm/perf-budgets` → C10 §1 row 18.  No number is stated
+// in this file.
 //
-// RingBufferUndoStack enforces a 200-command cap, so 1000 pushes should
-// stabilise at ~200 entries — memory growth is bounded, not linear.
+// ── W5-1 FIX, 2026-08-11 ────────────────────────────────────────────────────
+// This file used `bench()` from vitest.  `bench()` only exists under
+// `vitest bench`; the harness runs `vitest run`.  The suite therefore raised
 //
-// Run: pnpm --filter '@pryzm/bench' run bench -- --reporter=verbose 2>&1 | grep undo
+//     Error: `bench()` is only available in benchmark mode.
+//         at src/benches/undo-stack-memory.bench.ts:18:3
+//
+// at collection time and NOT ONE LINE of NFT 18's body had ever executed since
+// it was added in Wave A16.  Worse, a `bench()` body's throws are recorded as
+// benchmark errors rather than test failures, so even under `vitest bench` the
+// hand-rolled `throw new Error('NFT 18 FAIL: …')` assertions would not have
+// gated a merge.  Converted to `it()` + `expect()`.
 
-import { describe, bench } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { RingBufferUndoStack } from '@pryzm/runtime-undo-stack';
+import { nft, nftLimit } from '@pryzm/perf-budgets';
 
+const NFT = nft(18);
+const MEMORY_LIMIT_MB = nftLimit(18); // 50, from C10 §1.
+
+/** C10 §1 names 1000 commands. */
 const COMMAND_COUNT = 1_000;
-const MEMORY_LIMIT_MB = 50;
+/** The production ring-buffer cap — the mechanism that makes growth bounded. */
+const RING_CAP = 200;
 
-describe('NFT 18 — undo stack memory ceiling (Wave A16 A16-T10)', () => {
-  bench(`${COMMAND_COUNT} pushes: rss delta < ${MEMORY_LIMIT_MB} MB (ring buffer cap = 200)`, () => {
+describe('undo-stack-memory — NFT 18', () => {
+  it(`${COMMAND_COUNT} pushes stay under the C10 §1 budget (${NFT.c10Target})`, () => {
+    // Settle the heap before sampling so unrelated module-init allocations do
+    // not land inside the delta.
+    globalThis.gc?.();
     const baseline = process.memoryUsage().rss;
-    const stack = new RingBufferUndoStack({ maxSize: 200 });
 
+    const stack = new RingBufferUndoStack({ maxSize: RING_CAP });
     for (let i = 0; i < COMMAND_COUNT; i++) {
       stack.push({
         forward: { ops: [{ path: `/walls/${i}/height`, value: i }] },
@@ -28,50 +45,40 @@ describe('NFT 18 — undo stack memory ceiling (Wave A16 A16-T10)', () => {
 
     const deltaMb = (process.memoryUsage().rss - baseline) / 1024 / 1024;
 
-    // The ring buffer caps at 200 entries regardless of how many were pushed.
-    if (stack.size > 200) {
-      throw new Error(`NFT 18 FAIL: ring buffer exceeded cap — size=${stack.size} (max=200)`);
-    }
-
-    if (deltaMb > MEMORY_LIMIT_MB) {
-      throw new Error(
-        `NFT 18 FAIL: undo stack used ${deltaMb.toFixed(1)} MB rss delta (limit: ${MEMORY_LIMIT_MB} MB)`,
-      );
-    }
+    expect(stack.size, 'ring buffer exceeded its cap').toBeLessThanOrEqual(RING_CAP);
+    expect(
+      deltaMb,
+      `NFT 18 MISS — ${COMMAND_COUNT} pushes cost ${deltaMb.toFixed(1)} MB rss delta ` +
+        `(C10 §1 budget: ${MEMORY_LIMIT_MB} MB)`,
+    ).toBeLessThan(MEMORY_LIMIT_MB);
   });
 
-  bench('ring buffer cap invariant: size never exceeds maxSize', () => {
+  it('ring-buffer cap invariant: size never exceeds maxSize', () => {
     const maxSize = 50;
     const stack = new RingBufferUndoStack({ maxSize });
-
     for (let i = 0; i < 500; i++) {
       stack.push({
         forward: { ops: [{ path: `/el/${i}`, value: i }] },
         inverse: { ops: [{ path: `/el/${i}`, value: i - 1 }] },
       });
-
-      if (stack.size > maxSize) {
-        throw new Error(`NFT 18 FAIL: size=${stack.size} exceeded maxSize=${maxSize} at push ${i}`);
-      }
+      expect(stack.size, `overflowed at push ${i}`).toBeLessThanOrEqual(maxSize);
     }
   });
 
-  bench('undo/redo cursor correctness under overflow', () => {
+  it('undo/redo cursor stays correct under overflow', () => {
     const stack = new RingBufferUndoStack({ maxSize: 10 });
-
     for (let i = 0; i < 20; i++) {
       stack.push({
-        forward: { ops: [{ path: `/x`, value: i }] },
-        inverse: { ops: [{ path: `/x`, value: i - 1 }] },
+        forward: { ops: [{ path: '/x', value: i }] },
+        inverse: { ops: [{ path: '/x', value: i - 1 }] },
       });
     }
 
-    // After 20 pushes into a cap-10 buffer: size=10, cursor=9, undoCount=10, redoCount=0
-    if (stack.size !== 10) throw new Error(`size mismatch: ${stack.size}`);
-    if (!stack.canUndo()) throw new Error('should canUndo');
-    if (stack.canRedo())  throw new Error('should not canRedo at top');
+    expect(stack.size).toBe(10);
+    expect(stack.canUndo()).toBe(true);
+    expect(stack.canRedo()).toBe(false);
 
     stack.undo();
-    if (!stack.canRedo()) throw new Error('should canRedo after undo');
+    expect(stack.canRedo()).toBe(true);
   });
 });

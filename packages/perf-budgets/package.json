@@ -1,7 +1,7 @@
 {
   "name": "@pryzm/perf-budgets",
   "version": "0.1.0",
-  "description": "PRYZM 2 — canonical NFT-target list mapping 08-VISION.md §6 contract rows to bench files and baseline keys. Single source of truth for K3-F regression-gate enforcement.",
+  "description": "Machine-readable mirror of C10 §1's NFT table (docs/02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md). Single source of truth for bench thresholds, K3-F regression enforcement and Ratchet R2. Previously cited 08-VISION.md §6, a deleted document.",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",

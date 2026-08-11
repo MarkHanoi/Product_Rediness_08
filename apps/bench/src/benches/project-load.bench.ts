@@ -1,26 +1,28 @@
-// Bench: `project-load` — NFT-2 verifier (headless proxy).
+// Bench: `project-load` — NFT 2.
 //
-// Spec source: `01-VISION.md §5` row 2 — NFT 2: "Project-load (10k elements)
-//   | < 6 s p95 | apps/bench/src/benches/project-load.bench.ts".
+// ############################################################################
+// ##  NFT 2 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * `composeRuntime()` composition time (Stage 1 of the three-stage boot
-//     pipeline per 02-ARCHITECTURE §6). This is the engine-init contribution
-//     to NFT-2 — the dominant runtime-level overhead before any project data
-//     is loaded. Measured over MEASURE independent `composeRuntime()` calls.
-//   * Shape assertions confirming the persistence slot exposes the canonical
-//     `openProject()` surface (the entry point for Stage 2 — element
-//     deserialization from storage) without requiring a live database.
+// C10 §1 row 2 target: < 6 s p95
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * 10k-element deserialization from Supabase/Postgres (requires a real
-//     seeded database; covered by persistence-stress.bench.ts in Wave 14).
-//   * Three.js scene creation and GPU bake time.
-//   * `openProject()` full execution (requires a live project in the DB;
-//     unavailable in the headless bench environment by design).
+// WHY IT CANNOT BE MEASURED HERE:
+//   Needs a seeded 10k-element project and a real renderer to reach a load
+//   ed state. Neither exists in the Node harness.
 //
-// NFT-2 production target: < 6 s p95 (total: engine-init + data load + scene).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   composeRuntime() composition time with ZERO elements loaded, asserted 
+//   against 6000 ms.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 2, measurability: 'not-yet-measurable'), and `nftLimit(2)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -41,7 +43,7 @@ const AUDIT = {
   clientId: 'bench-client-nft2',
 };
 
-describe('project-load', () => {
+describe('[NOT-YET-MEASURABLE NFT 2] project-load', () => {
   it('composeRuntime() Stage-1 time is the NFT-2 engine-init proxy', async () => {
     // Warmup
     for (let i = 0; i < WARMUP; i++) {
@@ -75,7 +77,7 @@ describe('project-load', () => {
         unit: 'ms',
         nftTarget: 6000,
         notes:
-          'NFT-2 headless proxy per 01-VISION.md §5. Measures composeRuntime() ' +
+          'NFT-2 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures composeRuntime() ' +
           'Stage-1 (engine init, no canvas) — the dominant runtime contributor ' +
           'to NFT-2. Full 10k-element load including DB deserialization and ' +
           'scene mount is measured in apps/editor-bench/ (Wave 13 browser harness).',

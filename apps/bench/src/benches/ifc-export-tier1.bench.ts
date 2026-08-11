@@ -1,24 +1,31 @@
-// Bench: `ifc-export-tier1` — NFT-10 verifier (headless proxy).
+// Bench: `ifc-export-tier1` — NFT 10.
 //
-// Spec source: `01-VISION.md §5` row 10 — NFT 10: "IFC export tier-1
-//   | < 5 s for 500 elements | apps/bench/src/benches/ifc-export-tier1.bench.ts".
+// ############################################################################
+// ##  NFT 10 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * `globalIdFromUuid()` throughput for 500 elements — the GlobalId
-//     serialization step of the export pipeline (every exported element
-//     must have its PRYZM UUID mapped to an IFC GUID via this function).
-//   * `InMemoryIFCMetaStore.get()` throughput — the meta-store read step
-//     that happens for each element during export.
-//   * These two steps are pure CPU work within the WASM model creation loop;
-//     this bench captures their isolated cost.
+// C10 §1 row 10 target: < 20 s
+// Environment the contract's quantity actually lives in: node
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * web-ifc WASM geometry serialization (`IfcAPI.WriteLine()`).
-//   * File I/O for writing the resulting .ifc STEP file.
-//   * IFC4 model creation / ownership hierarchy wiring.
+// WHY IT CANNOT BE MEASURED HERE:
+//   The bench never calls the WASM writer and never writes a file. It exer
+//   cises 500 elements, not the 10,000 C10 names.
 //
-// NFT-10 production target: < 5 s for 500 elements (tier-1 export).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   globalIdFromUuid() + meta-store reads for 500 elements, asserted < 5 s
+//   .
+//
+//   Unblocking needs only the real export writer on 10k elements - no brow
+//   ser.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 10, measurability: 'not-yet-measurable'), and `nftLimit(10)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -41,7 +48,7 @@ const SAMPLES = 10;
 const BASE_UUID = '550e8400-e29b-41d4-a716-446655440000';
 const IFC_GLOBAL_ID = globalIdFromUuid(BASE_UUID);
 
-describe('ifc-export-tier1', () => {
+describe('[NOT-YET-MEASURABLE NFT 10] ifc-export-tier1', () => {
   it('500-element globalIdFromUuid + InMemoryIFCMetaStore.get is NFT-10 proxy', () => {
     // Populate meta-store with 500 element entries.
     const metaStore = new InMemoryIFCMetaStore();
@@ -98,7 +105,7 @@ describe('ifc-export-tier1', () => {
         unit: 'ms',
         nftTarget: 5000,
         notes:
-          'NFT-10 headless proxy per 01-VISION.md §5. Measures ' +
+          'NFT-10 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures ' +
           'globalIdFromUuid() + InMemoryIFCMetaStore.get() for 500 elements. ' +
           'Full tier-1 export including web-ifc WASM serialization is in ' +
           'apps/editor-bench/ (Wave 13 browser harness).',

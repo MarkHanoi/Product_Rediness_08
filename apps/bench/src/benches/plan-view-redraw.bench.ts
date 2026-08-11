@@ -1,22 +1,26 @@
-// Bench: `plan-view-redraw` — NFT-5 verifier (headless proxy).
+// Bench: `plan-view-redraw` — NFT 5.
 //
-// Spec source: `01-VISION.md §5` row 5 — NFT 5: "Plan-view re-render after edit
-//   | < 100 ms p95 | apps/bench/src/benches/plan-view-redraw.bench.ts".
+// ############################################################################
+// ##  NFT 5 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * Store mutation → subscribeDirty notification propagation latency.
-//     The plan-view redraws when the element store emits a dirty diff;
-//     this bench measures the applyPatch + subscribeDirty callback chain
-//     from `WallStore.applyPatch()` through to all registered listeners.
-//   * This is the dominant cost for small edits (1–10 elements) where
-//     the store notification is the critical path, not the canvas draw.
+// C10 §1 row 5 target: < 100 ms p95
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * Canvas 2D drawing time (requires DOM / OffscreenCanvas).
-//   * Hidden-line removal computation for large scenes.
+// WHY IT CANNOT BE MEASURED HERE:
+//   The plan view repaints onto a 2D canvas. There is no canvas in Node.
 //
-// NFT-5 production target: < 100 ms p95 (edit → plan-view repaint).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   WallStore.applyPatch -> subscribeDirty notification propagation only.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 5, measurability: 'not-yet-measurable'), and `nftLimit(5)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -32,7 +36,7 @@ const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
 const SAMPLES = 500;
 const WARMUP = 50;
 
-describe('plan-view-redraw', () => {
+describe('[NOT-YET-MEASURABLE NFT 5] plan-view-redraw', () => {
   it('WallStore applyPatch → subscribeDirty notification is the NFT-5 headless proxy', () => {
     const store = new WallStore();
 
@@ -83,7 +87,7 @@ describe('plan-view-redraw', () => {
         unit: 'ms',
         nftTarget: 100,
         notes:
-          'NFT-5 headless proxy per 01-VISION.md §5. Measures WallStore ' +
+          'NFT-5 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures WallStore ' +
           'applyPatch() → subscribeDirty() notification latency (store ' +
           'pipeline only). Full plan-view redraw including canvas 2D ' +
           'drawing is in apps/editor-bench/ (Wave 13 browser harness).',

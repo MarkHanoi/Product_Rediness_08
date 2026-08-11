@@ -1,6 +1,6 @@
 # `produce-wall` bench baseline
 
-_Captured 2026-05-09T23:09:22.488Z_
+_Captured 2026-08-11T10:13:01.214Z_
 
 Per S08 spec (`PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` line 686-687):
 
@@ -11,9 +11,9 @@ Per S08 spec (`PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` line 686-687):
 
 | scenario | cold ms | warm-avg ms | p50 ms | p95 ms | p99 ms | budget ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `simple` | 1.268 | 0.128 | 0.013 | 0.053 | 0.563 | 50 |
-| `layered-3layer` | 0.173 | 0.065 | 0.025 | 0.056 | 1.671 | 80 |
-| `layered-openings` | 1.437 | 0.951 | 0.220 | 0.830 | 2.375 | 80 |
+| `simple` | 3.267 | 0.081 | 0.028 | 0.099 | 0.547 | 50 |
+| `layered-3layer` | 0.415 | 0.411 | 0.049 | 0.143 | 0.594 | 80 |
+| `layered-openings` | 5.740 | 1.689 | 0.503 | 3.229 | 32.523 | 80 |
 
 ## Methodology
 

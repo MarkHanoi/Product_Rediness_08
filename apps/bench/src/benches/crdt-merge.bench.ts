@@ -1,20 +1,17 @@
-// Bench: `crdt-merge` — NFT-7 verifier (REAL Yjs merge — Wave A19-T10 + T15).
+// Bench: `crdt-merge` — NFT 7.
 //
-// Spec source: `01-VISION.md §5` row 7 — NFT 7: "CRDT merge throughput
-//   | ≥ 50 ops/s p50 | apps/bench/src/benches/crdt-merge.bench.ts".
+// TARGET SOURCE: `@pryzm/perf-budgets` -> C10 section 1 row 7.  No number is
+// stated in this file.
 //
-// Wave A19 upgrade: replaced the WallStore LWW proxy with a REAL two-client
-// Yjs Y.Doc merge.  This test now exercises the actual CRDT merge path:
-//   - Two independent Y.Doc instances simulating two concurrent users
-//   - Both users edit the same property concurrently
-//   - Y.encodeStateAsUpdate + Y.applyUpdate merges both sides
-//   - Convergence is verified (both docs agree after merge)
-//
-// NFT-7 production target: real Yjs merge < 80 ms p95 (Wave A19 spec §3 exit gate).
-// The ≥ 50 ops/s p50 target is preserved for backward compatibility.
+// This bench is GENUINELY HONEST: it merges two independent Y.Doc replicas via
+// Y.encodeStateAsUpdate + Y.applyUpdate and verifies convergence.  That IS the
+// production CRDT merge path and it is pure Node — no browser needed.  W5-1
+// changed only the source of the threshold (was a local literal restating a
+// deleted doc; now imported from the C10-anchored table).
 
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
+import { nft, nftLimit } from '@pryzm/perf-budgets';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -25,7 +22,8 @@ const RUN_OUTPUT = join(__dirname, '..', '..', '.run-output');
 
 const MERGE_OPS = 500;
 const WARMUP_OPS = 50;
-const P95_LIMIT_MS = 80;
+const NFT = nft(7);
+const P95_LIMIT_MS = nftLimit(7); // 80, from C10 section 1.
 
 describe('crdt-merge', () => {
   it('NFT-7: real 2-client Yjs merge converges in < 80 ms p95', () => {

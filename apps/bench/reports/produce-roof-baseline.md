@@ -1,6 +1,6 @@
 # `produce-roof` bench baseline
 
-_Captured 2026-05-09T23:09:26.139Z_
+_Captured 2026-08-11T10:13:32.068Z_
 
 Per S10-T7 (`PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` §S10 Track B):
 
@@ -12,9 +12,9 @@ Per S10-T7 (`PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` §S10 Track B):
 
 | scenario | cold ms | warm-avg ms | p50 ms | p95 ms | p99 ms | budget ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `flat` | 1.602 | 0.255 | 0.020 | 0.081 | 1.075 | 50 |
-| `gable` | 0.862 | 0.067 | 0.023 | 0.125 | 2.442 | 80 |
-| `mansard` | 1.188 | 0.120 | 0.034 | 0.090 | 2.196 | 120 |
+| `flat` | 2.484 | 0.112 | 0.031 | 0.103 | 0.424 | 50 |
+| `gable` | 1.283 | 0.068 | 0.039 | 0.133 | 0.717 | 80 |
+| `mansard` | 269.349 | 2.608 | 0.071 | 0.536 | 28.097 | 120 |
 
 ## Methodology
 

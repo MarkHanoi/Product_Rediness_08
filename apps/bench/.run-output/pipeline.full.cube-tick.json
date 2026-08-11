@@ -1,10 +1,10 @@
 {
   "name": "pipeline.full.cube-tick",
   "samples": 500,
-  "p50": 2.192,
-  "p95": 6.091,
-  "p99": 15.658,
+  "p50": 0.177,
+  "p95": 1.411,
+  "p99": 23.02,
   "budgetMs": 5,
   "warnMs": 3,
-  "recordedAt": "2026-05-09T23:09:12.692Z"
+  "recordedAt": "2026-08-11T10:14:30.892Z"
 }

@@ -1,10 +1,10 @@
 {
   "name": "command-bus.execute.wall-create",
   "samples": 200,
-  "p50": 4.23,
-  "p95": 8.215,
-  "p99": 10.754,
+  "p50": 0.592,
+  "p95": 13.682,
+  "p99": 135.269,
   "budgetMs": 1,
   "warnMs": 0.5,
-  "recordedAt": "2026-05-09T23:09:30.429Z"
+  "recordedAt": "2026-08-11T10:13:18.083Z"
 }

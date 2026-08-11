@@ -2,37 +2,37 @@
   {
     "name": "schedule.export.csv.500",
     "samples": 200,
-    "p50": 0.312,
-    "p95": 0.595,
-    "p99": 9.002,
+    "p50": 0.636,
+    "p95": 4.807,
+    "p99": 73.693,
     "budgetMs": 100,
     "warnMs": 50,
-    "recordedAt": "2026-05-09T23:09:03.810Z",
+    "recordedAt": "2026-08-11T10:13:42.324Z",
     "format": "csv",
     "byteLength": 24664
   },
   {
     "name": "schedule.export.xlsx.500",
     "samples": 20,
-    "p50": 43.519,
-    "p95": 59.347,
-    "p99": 59.347,
+    "p50": 158.328,
+    "p95": 477.637,
+    "p99": 477.637,
     "budgetMs": 500,
     "warnMs": 250,
-    "recordedAt": "2026-05-09T23:09:05.048Z",
+    "recordedAt": "2026-08-11T10:13:47.269Z",
     "format": "xlsx",
     "byteLength": 24061
   },
   {
     "name": "schedule.export.pdf.500",
     "samples": 5,
-    "p50": 167.687,
-    "p95": 219.703,
-    "p99": 219.703,
+    "p50": 468.972,
+    "p95": 639.743,
+    "p99": 639.743,
     "budgetMs": 10000,
     "warnMs": 5000,
-    "recordedAt": "2026-05-09T23:09:06.280Z",
+    "recordedAt": "2026-08-11T10:13:51.425Z",
     "format": "pdf",
-    "byteLength": 101595
+    "byteLength": 101594
   }
 ]

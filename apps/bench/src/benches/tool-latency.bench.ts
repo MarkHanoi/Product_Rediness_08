@@ -1,22 +1,28 @@
-// Bench: `tool-latency` — NFT-3 verifier (headless proxy).
+// Bench: `tool-latency` — NFT 3.
 //
-// Spec source: `01-VISION.md §5` row 3 — NFT 3: "Tool latency (click → visible)
-//   | < 50 ms p95 | apps/bench/src/benches/tool-latency.bench.ts".
+// ############################################################################
+// ##  NFT 3 IS **NOT-YET-MEASURABLE**.  THIS FILE DOES NOT VERIFY C10.      
+// ############################################################################
 //
-// What this file CAN measure (headless Node):
-//   * CommandBus wall.create dispatch latency — pure command-pipeline
-//     overhead (L2 handler + store patch) with no renderer or DOM.
-//   * The NFT-3 tool budget of < 50 ms includes the renderer frame;
-//     this headless proxy captures the command-pipeline share which
-//     is the dominant contributor for data-heavy command sequences.
+// C10 §1 row 3 target: < 50 ms p95
+// Environment the contract's quantity actually lives in: browser
 //
-// What this file CANNOT measure (out of scope for headless proxy):
-//   * Frame scheduling and renderer first-frame paint latency.
-//   * Input device sampling jitter.
-//   * CSS layout / React reconciliation time.
+// WHY IT CANNOT BE MEASURED HERE:
+//   '-> visible' is a frame-presented event. Node cannot observe presentat
+//   ion.
 //
-// NFT-3 production target: < 50 ms p95 (click → visible, full pipeline).
-
+// WHAT THIS FILE ACTUALLY MEASURES TODAY:
+//   CommandBus wall.create dispatch latency - a genuine SUB-budget of NFT 
+//   3, but not NFT 3.
+//
+// The assertion below is an internal sub-budget tripwire ONLY. It is NOT the
+// C10 budget and passing it is NOT evidence the contract is met. The
+// authoritative status lives in `@pryzm/perf-budgets` (NFT_TARGETS row
+// 3, measurability: 'not-yet-measurable'), and `nftLimit(3)` THROWS by design
+// so this file cannot borrow C10's number for a quantity C10 does not name.
+//
+// W5-1, 2026-08-11. The previous header cited `C10 §1 (this reference was previously to the deleted 01-VISION.md §5)`, a document
+// deleted from the repo, with numbers that disagreed with the contract.
 import { describe, expect, it } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -39,7 +45,7 @@ const AUDIT = {
   clientId: 'bench-client-nft3',
 };
 
-describe('tool-latency', () => {
+describe('[NOT-YET-MEASURABLE NFT 3] tool-latency', () => {
   it('wall.create CommandBus dispatch is the NFT-3 headless proxy', async () => {
     const store = new WallStore();
     const bus = new CommandBus({
@@ -86,7 +92,7 @@ describe('tool-latency', () => {
         unit: 'ms',
         nftTarget: 50,
         notes:
-          'NFT-3 headless proxy per 01-VISION.md §5. Measures CommandBus ' +
+          'NFT-3 headless proxy per C10 §1 (this reference was previously to the deleted 01-VISION.md §5). Measures CommandBus ' +
           'wall.create dispatch latency (command pipeline only, no renderer). ' +
           'Full tool-latency including renderer first-frame is measured in ' +
           'apps/editor-bench/ (Wave 13 browser harness).',
