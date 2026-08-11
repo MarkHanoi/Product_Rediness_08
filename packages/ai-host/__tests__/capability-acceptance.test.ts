@@ -162,6 +162,37 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'make the door 1m wide',
     ],
   },
+  // ── RAC U7.1 — the PROPERTY VOCABULARY families ─────────────────────────
+  // These reach applySemanticIntent through the ONE generic property arm and
+  // the ONE table-compiled grammar; nothing about them is hand-written.
+  {
+    id: 'set-depth',
+    ctx: sel('beam'),
+    phrasings: [
+      'set the depth to 500mm',
+      'set the beam depth to 500mm',
+      'change the depth to 0.5m',
+      'make this 500mm deep',
+    ],
+  },
+  {
+    id: 'set-length',
+    ctx: sel('furniture'),
+    phrasings: [
+      'set the length to 2m',
+      'change the length to 1.8m',
+      'make this 2m long',
+    ],
+  },
+  {
+    id: 'set-base-offset',
+    ctx: sel('slab'),
+    phrasings: [
+      'set the base offset to 150 mm',
+      'change the base offset to -0.2m',
+      'set the slab base offset to 0.3m',
+    ],
+  },
   {
     id: 'set-roof-pitch',
     ctx: sel('roof'),

@@ -36,7 +36,18 @@ import { describeCapabilitiesFor, descriptiveReportReason } from '../capabilitie
 // are TABLE ENTRIES in CapabilityExecutionSpec.ts, executed by the ONE generic
 // arm below (the switch's default). applySemanticIntent remains the single
 // semantic authority; the spec file holds data, not a second dispatcher.
-import { applyExecutionSpec } from './CapabilityExecutionSpec.js';
+import { applyExecutionSpec, type SpecDrivenIntent } from './CapabilityExecutionSpec.js';
+// RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
+// ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
+// it, the live route per kind, bounds), executed by the ONE generic property arm
+// and matched by the ONE generic property grammar. Adding a property costs zero
+// lines here — these four references are the whole resolver-side wiring.
+import {
+  applyPropertyIntent,
+  asPropertyIntent,
+  matchPropertyUtterance,
+  type PropertyDrivenIntentId,
+} from './PropertyVocabulary.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
 // resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
@@ -365,6 +376,12 @@ export type SemanticIntent =
    *  accident that doors got wired first. */
   | { readonly intent: 'set-width'; readonly value: number }
   | { readonly intent: 'set-sill-height'; readonly value: number }
+  /** RAC U7.1 — every PROPERTY VOCABULARY entry, as one intent shape. Which
+   *  ids exist, which element kinds each reaches, its live route per kind and
+   *  its bounds are all declared in PropertyVocabulary.ts; this union member is
+   *  the only line the IR spends on the whole family, however many properties
+   *  the table grows to. */
+  | { readonly intent: PropertyDrivenIntentId; readonly value: number }
   /** ADR-0315 P1 — stair riser height, on the LIVE stair.updateParameters
    *  carrier (STAIR_CONSTRAINTS-validated by the command). */
   | { readonly intent: 'set-riser-height'; readonly value: number }
@@ -1977,8 +1994,22 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
     // command, honest scope label — byte-identical to the arms it replaced).
     // Adding a capability of this shape is a table entry + registry metadata,
     // never a new case arm (the §56 extension proof).
-    default:
-      return applyExecutionSpec(si, ctx);
+    //
+    // ── RAC U7.1 — the OTHER generic arm ─────────────────────────────────────
+    // A PROPERTY VOCABULARY entry (a panel field on the selection, per-kind
+    // routes) is executed by applyPropertyIntent. Same discipline, different
+    // template: the U4 spec arm emits ONE batch command over a scope, this one
+    // fans a selection out per element on its own kind's route.
+    default: {
+      const prop = asPropertyIntent(si);
+      // The cast is the exhaustiveness the union can no longer express on its
+      // own: two generic families now share the default arm, and only one of
+      // them is spec-driven. `asPropertyIntent` decides which, by table
+      // membership — never by shape-guessing.
+      return prop !== null
+        ? applyPropertyIntent(prop, ctx)
+        : applyExecutionSpec(si as SpecDrivenIntent, ctx);
+    }
   }
 }
 
@@ -2286,6 +2317,19 @@ const matchWidth: Matcher = (text) => {
     ?? new RegExp(`^make (?:this|the selection) ${LEN_SRC} wide$`).exec(text);
   if (!m) return null;
   return { intent: 'set-width', value: toMeters(m[1]!, m[2]) };
+};
+
+/**
+ * RAC U7.1 — the ONE property matcher, compiled from the PROPERTY VOCABULARY.
+ * Every entry's noun, synonyms, adjective forms and legal element nouns come
+ * from the table, so a new property arrives with its phrasings and this
+ * function never changes. The unit rule stays here (`toMeters`, ADR-0313
+ * §Units): the table captures the digits, the resolver owns what they mean.
+ */
+const matchProperty: Matcher = (text) => {
+  const hit = matchPropertyUtterance(text);
+  if (hit === null) return null;
+  return { intent: hit.id, value: toMeters(hit.raw, hit.unit) };
 };
 
 // §FEAT-CHAT-SYMMETRY — roof pitch, spoken in degrees.
@@ -3047,6 +3091,12 @@ const MATCHERS: readonly Matcher[] = [
   matchHeight,
   matchThickness,
   matchWidth,
+  // RAC U7.1 — AFTER the hand-written dimension matchers, deliberately: those
+  // three own their phrasings today, and a generic table must never quietly
+  // re-interpret a sentence that already resolves. Everything the vocabulary
+  // adds ("depth", "base offset", "length", …) is disjoint from them by
+  // construction, and the ordering keeps it provably so.
+  matchProperty,
   matchRoofPitch,
   matchRoomNumber,
   matchGoToLevel,

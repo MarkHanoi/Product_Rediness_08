@@ -40,6 +40,13 @@ import {
   applySemanticIntent,
   type ResolverContext,
 } from '../src/intents/ZeroTokenResolver.js';
+// RAC U7.1 — the property vocabulary. Imported HERE (and never by the registry
+// module itself, which the vocabulary depends on) so the "targets === routes"
+// drift check exists without a module-load cycle.
+import {
+  allPropertyEntries,
+  propertyTargets,
+} from '../src/intents/PropertyVocabulary.js';
 
 const ctxSelecting = (kind: string): ResolverContext => ({
   selection: [{ elementId: `probe-${kind}`, elementType: kind }],
@@ -117,8 +124,13 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
 
   it('set-height claims what UpdateElementParameterCommand can route, plus the proven ceiling route', () => {
     const cap = resolveChatCapability('set-height')!;
+    // §PROP-BEAM-HEIGHT-LIE (RAC U7.1) — beam is EXCLUDED although
+    // resolveStore() routes it: BeamData has no `height` field and
+    // BeamFragmentBuilder builds from width × depth, so the write was a
+    // silent no-op reported as success.
     expect([...(cap.targets as readonly string[])].sort())
-      .toEqual([...GENERIC_PARAMETER_TARGETS, 'ceiling'].sort());
+      .toEqual([...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'), 'ceiling'].sort());
+    expect(capabilityAppliesTo(cap, 'beam')).toBe(false);
     // …and NOT the kinds whose store lookup falls through to `default: null`
     // and which have no dedicated height command wired.
     for (const kind of ['room', 'floor', 'lighting', 'plumbing']) {
@@ -132,9 +144,14 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
     const expected: Record<string, readonly string[]> = {
       'zoom-selected': [...PROBE_ELEMENT_KINDS],
       'delete-selected': [...PROBE_ELEMENT_KINDS],
-      'set-height': [...GENERIC_PARAMETER_TARGETS, 'ceiling'],
+      'set-height': [...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'), 'ceiling'],
       'set-thickness': ['wall', 'slab', 'roof'],
-      'set-width': ['door', 'window', 'stair'],
+      // RAC U7.1 — column / beam / furniture joined as metadata only.
+      'set-width': ['door', 'window', 'stair', 'column', 'beam', 'furniture'],
+      // RAC U7.1 — the PROPERTY VOCABULARY capabilities.
+      'set-depth': ['beam', 'column'],
+      'set-length': ['furniture'],
+      'set-base-offset': ['wall', 'slab', 'column', 'roof', 'curtain-wall', 'furniture', 'handrail'],
       'set-sill-height': ['window'],
       'set-riser-height': ['stair'],
       'set-tread-depth': ['stair'],
@@ -160,6 +177,26 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       if (cap.targets === 'global') continue;
       expect(expected[cap.id], `capability ${cap.id} missing from the matrix literal`).toBeDefined();
       expect([...cap.targets].sort(), cap.id).toEqual([...expected[cap.id]!].sort());
+    }
+  });
+
+  // ── RAC U7.1 — the vocabulary is the single source of the property claims ──
+  it('every property capability declares exactly the kinds its ROUTES serve', () => {
+    for (const entry of allPropertyEntries()) {
+      const cap = resolveChatCapability(entry.id);
+      expect(cap, `${entry.id} has a vocabulary entry but no registry metadata`).not.toBeNull();
+      expect([...(cap!.targets as readonly string[])].sort(), entry.id)
+        .toEqual([...propertyTargets(entry.id)].sort());
+    }
+  });
+
+  it('every property route names a live bus command the capability declares', () => {
+    for (const entry of allPropertyEntries()) {
+      const cap = resolveChatCapability(entry.id)!;
+      const declared = new Set([cap.busCommand, ...(cap.alsoDispatches ?? [])]);
+      for (const route of entry.routes) {
+        expect(declared.has(route.busCommand), `${entry.id} → ${route.busCommand}`).toBe(true);
+      }
     }
   });
 

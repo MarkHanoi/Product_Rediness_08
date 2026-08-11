@@ -358,7 +358,17 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // §FEAT-CHAT-SYMMETRY (2026-08-10): ceiling joined via its OWN command
     // (`ceiling.setHeight`, ceilingId-keyed) — the generic parameter command
     // still cannot route it, so the extra route carries its own proof below.
-    targets: [...GENERIC_PARAMETER_TARGETS, 'ceiling'],
+    // §PROP-BEAM-HEIGHT-LIE (RAC U7.1) — beam LEFT this target set. The
+    // generic command routes a beam to its store, so proof 3b passed and the
+    // claim looked sound; but `BeamData` (core-app-model/src/stores/
+    // BeamTypes.ts) has `width` and `depth` and NO `height`, and
+    // BeamFragmentBuilder builds every section from `beam.width` ×
+    // `beam.depth`. "Make this beam 500mm tall" therefore wrote a field
+    // nothing reads and reported success — the ElementCapabilities lie,
+    // reproduced inside the chat by a proof that pinned STORE ROUTING and not
+    // FIELD EXISTENCE. The honest answer is a refusal that offers the property
+    // a beam really has, which `set-depth` now provides.
+    targets: [...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'), 'ceiling'],
     parameters: [
       {
         name: 'height',
@@ -462,7 +472,14 @@ const CAPABILITIES: readonly ChatCapability[] = [
     verbs: ['set', 'change', 'make'],
     aliases: ['width', 'wide', 'wider'],
     refusalLabel: 'width',
-    targets: ['door', 'window', 'stair'],
+    // RAC U7.1 — column, beam and furniture JOINED, as metadata only: the
+    // resolver's per-kind routing already sends everything that is not a stair
+    // through `element.updateParameters`, and all three carry a `width` field
+    // their builders read (ColumnData.width — the rectangular/circular section
+    // dimension; BeamData.width — the section width; FurnitureData.width).
+    // This is the founder's "set the column width to 400mm", bought with zero
+    // resolver lines.
+    targets: ['door', 'window', 'stair', 'column', 'beam', 'furniture'],
     parameters: [
       {
         name: 'width',
@@ -485,8 +502,13 @@ const CAPABILITIES: readonly ChatCapability[] = [
     commandProof: [
       {
         file: UPDATE_ELEMENT_PARAMETER_FILE,
-        mustMention: ['window', 'door'],
-        note: "resolveStore() routes window and door to the wallStore (openings are hosted); parameters.width is applied before the single host rebuild.",
+        mustMention: ['window', 'door', 'column', 'beam', 'furniture'],
+        note: "resolveStore() routes window and door to the wallStore (openings are hosted, width applied before the single host rebuild), and column / beam / furniture to their own geometry stores; each of those three has a `width` field its builder reads.",
+      },
+      {
+        file: 'apps/editor/src/engine/initBuilders.ts',
+        mustMention: ['beamStore.setBuilder', 'window.columnBuilder', 'bim-furniture-updated'],
+        note: 'The REBUILD half for the three kinds added in RAC U7.1: the beam builder is subscribed to the store event, the column builder is the instance the command calls buildColumn on, and furniture rebuilds off bim-furniture-updated.',
       },
       {
         file: 'packages/command-registry/src/stair/UpdateStairParametersCommand.ts',
@@ -656,6 +678,146 @@ const CAPABILITIES: readonly ChatCapability[] = [
       note: 'The handler is keyed by roomId and BRIDGES to the legacy commandManager (it mutates no plugin store — the header says so), with heightOffset range-guarded to [-10, 10] m at canExecute.',
     },
     examples: ['set the room height offset to 0.5m', 'change the height offset to -0.2m'],
+  },
+  // ── RAC U7.1 — the PROPERTY VOCABULARY capabilities ───────────────────────
+  //
+  // Each of these is a `PropertyVocabulary.ts` table entry plus the metadata
+  // below, and NOTHING else: no case arm in applySemanticIntent, no matcher in
+  // the grammar. `targets` is restated here as a literal rather than imported
+  // from the vocabulary on purpose — this module is the vocabulary's own
+  // dependency (it provides `capabilityAppliesTo`), and importing back would
+  // make CAPABILITIES depend on a table that may not be initialised yet
+  // (§SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD). The drift that shortcut would have
+  // prevented is instead pinned by `chat-capability-registry.test.ts`, which
+  // asserts targets === propertyTargets(id) for every property.
+  {
+    id: 'set-depth',
+    // §PROP-DEPTH — the structural section depth. It exists because the audit
+    // that built the vocabulary found `set-height` claiming BEAM while
+    // BeamData has no height field at all: the chat wrote a field nothing
+    // reads and said "Done". Beam left set-height in the same commit; depth is
+    // the property a beam really has.
+    description: 'change the section depth',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['depth', 'deep', 'section depth'],
+    refusalLabel: 'depth',
+    targets: ['beam', 'column'],
+    parameters: [
+      {
+        name: 'depth',
+        description: 'the new section depth',
+        required: true,
+        valueSource: 'measurement',
+        example: '500mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-depth', value: 0.4 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['beam', 'column'],
+        note: "resolveStore() routes beam to context.stores.beamStore and column to context.stores.columnStore; applyUpdate passes the whole parameter set to store.update, so `depth` reaches the record the builders read.",
+      },
+      {
+        file: 'apps/editor/src/engine/initBuilders.ts',
+        mustMention: ['beamStore.setBuilder', 'window.columnBuilder'],
+        note: 'The REBUILD half of the claim: beamStore.setBuilder(beamBuilder) subscribes the builder to the store event a depth write emits (updateBeam builds from beam.width × beam.depth), and window.columnBuilder is the instance the generic command calls buildColumn on.',
+      },
+    ],
+    examples: [
+      'set the depth to 500mm',
+      'set the beam depth to 500mm',
+      'change the column depth to 400mm',
+      'make this 500mm deep',
+    ],
+  },
+  {
+    id: 'set-length',
+    // §PROP-LENGTH — furniture's long-axis dimension. FurnitureStore.update is
+    // a full REPLACE, which is why the generic command merges onto the
+    // existing record first; without that merge a length edit wiped the
+    // furnitureType and produced an empty mesh (the comment is in the command).
+    description: 'change the length',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['length', 'long'],
+    refusalLabel: 'length',
+    targets: ['furniture'],
+    parameters: [
+      {
+        name: 'length',
+        description: 'the new length',
+        required: true,
+        valueSource: 'measurement',
+        example: '2m',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-length', value: 2 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['furniture', 'bim-furniture-updated'],
+        note: 'resolveStore() routes furniture to the furnitureStore, applyUpdate MERGES the partial parameters onto the existing record (the store is a full-replace store), and the command emits bim-furniture-updated.',
+      },
+      {
+        file: 'apps/editor/src/engine/initBuilders.ts',
+        mustMention: ['bim-furniture-updated'],
+        note: 'The REBUILD half: initBuilders listens for bim-furniture-updated and re-runs the furniture fragment builder for that id.',
+      },
+    ],
+    examples: [
+      'set the length to 2m',
+      'change the length to 1.8m',
+      'make this 2m long',
+    ],
+  },
+  {
+    id: 'set-base-offset',
+    // §PROP-BASE-OFFSET — the RAC plan's own U7 test sentence ("set the base
+    // offset to 150 mm"), and the widest property in the vocabulary. BEAM is
+    // absent because BeamData has no baseOffset field — the beam property
+    // panel offers one anyway, and mirroring that dead control into the chat
+    // is exactly what this registry exists to stop.
+    description: 'change the base offset',
+    verbs: ['set', 'change'],
+    aliases: ['base offset', 'base elevation'],
+    refusalLabel: 'base offset',
+    targets: ['wall', 'slab', 'column', 'roof', 'curtain-wall', 'furniture', 'handrail'],
+    parameters: [
+      {
+        name: 'baseOffset',
+        description: 'the vertical offset from the level datum (may be negative)',
+        required: true,
+        valueSource: 'measurement',
+        example: '150mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-base-offset', value: 0.15 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['wall', 'slab', 'column', 'roof', 'curtain-wall', 'furniture', 'handrail'],
+        note: "resolveStore() names every one of these kinds; each also has a rebuild arm in triggerGeometryRebuild (buildWall / buildSlab / buildColumn / the roof store event / buildCurtainWall / bim-furniture-updated / bim-handrail-updated), which is why BEAM — which has no baseOffset field — is not claimed.",
+      },
+      {
+        file: 'apps/editor/src/ui/property-panel/PropertyDescriptorGenerator.ts',
+        mustMention: ['baseOffset:'],
+        note: 'The panel exposes Base Offset as an EDITABLE number row for exactly these families and commits it through the same element.updateParameters command — the field is a live control, not a chat invention.',
+      },
+    ],
+    examples: [
+      'set the base offset to 150 mm',
+      'change the base offset to -0.2m',
+      'set the base offset to 0.3m',
+    ],
   },
   {
     id: 'set-wall-type',
