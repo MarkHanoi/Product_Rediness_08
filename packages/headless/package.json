@@ -10,6 +10,8 @@
   },
   "scripts": {
     "test": "vitest run --reporter=default",
+    "//test:ci": "ADDED 2026-08-11. This package previously had NO test:ci script, so `pnpm -r run test:ci` skipped it entirely — the third layer of nothing-checking behind the wholesale runtime-composer mock and the tsc noise. The suite is SLOW (~8 min cold: it transforms the real composition root's import graph instead of mocking it away). A slow gate that runs beats a fast one that does not exist.",
+    "test:ci": "vitest run --reporter=default",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

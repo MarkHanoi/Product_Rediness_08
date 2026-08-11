@@ -388,3 +388,79 @@ describe('Chaos harness — JSON-protocol convergence (S43 D5; ADR-0033 §2.5)',
 
   it.todo('Y.Doc convergence (S43 D6 — promotion of this fixture to also assert Yjs CRDT state)');
 });
+
+// ─── L-391 leg C — Yjs y-protocols chaos: server death mid-exchange ────────
+//
+// Two REAL stock y-websocket clients (the production transport) on the real
+// YjsDocAdapter.  The server is KILLED mid-exchange; an edit is authored
+// while it is down; a fresh server instance takes over the SAME port; the
+// providers' built-in reconnect (exponential backoff) re-runs sync step 1/2
+// and convergence RESUMES.  Assertions read the VALUE (toBe), never
+// toBeDefined, and the pre-kill baseline differs from the post-kill edit so
+// staleness cannot pass.
+//
+// Doc continuity across the restart comes from the module-singleton
+// `yjsProjectCache` (same process) — AND, independently, from sync step 1/2:
+// the surviving client's doc re-seeds the server on reconnect.  Cross-process
+// durability is R-E in the L-391 plan (NOT covered here — this suite is
+// in-process by design, like every other test in this file).
+
+describe('Chaos — Yjs y-protocols: kill server mid-exchange, reconnect, convergence resumes (L-391 leg C)', () => {
+  it('B converges to the height A authored while the server was DEAD', async () => {
+    const { WebsocketProvider } = await import('y-websocket');
+    const { YjsDocAdapter } = await import('@pryzm/sync-client');
+
+    const until = async (pred: () => boolean, timeoutMs: number): Promise<void> => {
+      const start = performance.now();
+      while (performance.now() - start < timeoutMs) {
+        if (pred()) return;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+    };
+
+    const room = `chaos-yjs-${ulid()}`;
+    const adapterA = new YjsDocAdapter(room);
+    const adapterB = new YjsDocAdapter(room);
+    const connect = (adapter: InstanceType<typeof YjsDocAdapter>, port: number) =>
+      new WebsocketProvider(`ws://127.0.0.1:${port}`, room, adapter.doc, {
+        WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
+        disableBc: true,        // server-only route — no in-process shortcut
+        maxBackoffTime: 300,    // fast reconnect so the test stays quick
+      });
+
+    let server1: SyncServerInstance | undefined = await createSyncServer({});
+    const port = await server1.listen(0);
+    const provA = connect(adapterA, port);
+    const provB = connect(adapterB, port);
+
+    try {
+      // ── Baseline exchange while the server is alive: create at height 3.
+      adapterA.applyCommand('wall.create', { id: 'wall-chaos', height: 3 });
+      await until(() => adapterB.readElementProperty('wall-chaos', 'height') === 3, 5_000);
+      expect(adapterB.readElementProperty('wall-chaos', 'height')).toBe(3);
+
+      // ── KILL the server mid-exchange.
+      await server1.shutdown('chaos-yjs-kill');
+      server1 = undefined;
+
+      // ── A edits while the transport is DEAD.  B must NOT see it yet.
+      adapterA.applyCommand('wall.updateDimensions', { wallId: 'wall-chaos', height: 7 });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(adapterB.readElementProperty('wall-chaos', 'height')).toBe(3);
+
+      // ── Resurrect the server on the SAME port; providers auto-reconnect,
+      //    re-run sync step 1/2, and the offline edit flows A → server → B.
+      server1 = await createSyncServer({});
+      await server1.listen(port);
+
+      await until(() => adapterB.readElementProperty('wall-chaos', 'height') === 7, 10_000);
+      expect(adapterB.readElementProperty('wall-chaos', 'height')).toBe(7);
+    } finally {
+      provA.destroy();
+      provB.destroy();
+      adapterA.destroy();
+      adapterB.destroy();
+      if (server1) await server1.shutdown('chaos-yjs-cleanup');
+    }
+  }, 30_000);
+});

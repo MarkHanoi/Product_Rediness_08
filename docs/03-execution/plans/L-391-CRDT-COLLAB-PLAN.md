@@ -1,6 +1,7 @@
 # L-391 — Real-time multi-user CRDT collaboration: deployment + hardening plan
 
 **Status:** Phase 0 landed (this branch, behind a default-OFF flag). Phases 1–3 require human/infra ratification.
+**Status 2026-08-11 (leg C, code half):** the §1.4 protocol gap is CLOSED — `apps/sync-server` now speaks y-protocols binary sync + awareness on `/${room}` (`src/yjs/setupYjsConnection.ts`, rooms per ADR-049 §4.4, docs served from `YjsProjectCache` so the cache is no longer dead w.r.t. the transport; legacy S22 JSON on `/sync` untouched). Proven in-process by the repo's first two-real-client convergence test (`__tests__/YjsTwoClient.test.ts`: B seeded stale height 3 → reads 5) and a chaos kill/restart test (`__tests__/Chaos.test.ts`: edit authored while server dead converges after reconnect). This makes leg C **DEPLOYABLE, not DEPLOYED** — R-B (ws auth), R-C (Fly infra) and the staging flag flip remain unratified; production still runs socket.io LWW; C66: 0 tiers HELD.
 **Owner workstream:** #1 launch P0 (September public launch). Collaboration correctness = real users' construction/legal documents — **correctness-first, no shortcuts.**
 **Source audit:** `reports/CATEGORY-READINESS-AUDIT-2026-07-17.md` §2 ("Real-time collaboration correctness — GAP (critical)").
 **Governing contracts:** C08 §3.1–3.3 (Yjs CRDT replaces LWW; silent LWW FORBIDDEN), P1 (composition root), P4 (no `(window as any)`), P8 (explicit conflicts + spans), ADR-0033 (SyncClient/EventBridge), ADR-049 §4.4 (Y.Doc-per-level).

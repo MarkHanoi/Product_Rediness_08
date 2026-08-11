@@ -297,6 +297,27 @@ export class YjsProjectCache {
    */
   levelSize(): number { return this._levelDocs.size; }
 
+  // ── Room-doc access (L-391 leg C — y-protocols transport) ─────────────────
+
+  /**
+   * Get (or lazily create) the live Y.Doc behind a wire room name, so the
+   * y-protocols WebSocket handler (`src/yjs/setupYjsConnection.ts`) syncs
+   * against the SAME doc this cache merges and reports on `/health`.
+   *
+   * Room naming convention (ADR-049 §4.4, header of this file):
+   *   "${projectId}"            → project-wide doc (`_projectDocs`)
+   *   "${projectId}:${levelId}" → level-scoped doc (`_levelDocs`)
+   *
+   * This is what un-deadens the cache w.r.t. the transport (L-391 §1.4): the
+   * connection handler attaches sync step 1/2 and update broadcast directly
+   * to this doc, so every client update Y.applyUpdate()s here.
+   */
+  getOrCreateDocForRoom(room: string): Y.Doc {
+    const sep = room.indexOf(':');
+    if (sep === -1) return this._getOrCreateProject(room);
+    return this._getOrCreateLevel(room.slice(0, sep), room.slice(sep + 1));
+  }
+
   // ── Internals ──────────────────────────────────────────────────────────────
 
   private _getOrCreateProject(projectId: string): Y.Doc {

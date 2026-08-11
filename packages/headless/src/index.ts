@@ -1,16 +1,22 @@
 /**
  * @pryzm/headless — public barrel.
  *
- * Exports `headlessRuntime()` + `HeadlessRuntime` type.
+ * Exports `headlessRuntime()`, the `HeadlessRuntime` type, and
+ * `minimalHeadlessBootstrap()`.
  * Phase F boolean #8 prerequisite (2026-05-02).
  *
- * Phase F §3.2 publish sequence:
- *   pnpm version 1.0.0 --filter '@pryzm/headless'
- *   pnpm --filter '@pryzm/headless' publish --tag next --access public
- *   npm view @pryzm/headless@next version   # → 1.0.0
+ * ⚠ 2026-08-11 — THE PUBLISHED `1.0.0-rc.1` IS NON-FUNCTIONAL.
+ * It omitted the required `bootstrapFn`, so every `headlessRuntime()`
+ * call threw (see headlessRuntime.ts header).  The fix makes
+ * `bootstrapFn` a REQUIRED option, which is a breaking change relative
+ * to the shape on the registry.  The old Phase F §3.2 publish recipe
+ * that used to sit in this header (`pnpm version 1.0.0 …`) has been
+ * removed: do NOT publish 1.0.0 from this state, and do NOT reuse or
+ * "patch" the 1.0.0-rc.1 number.  rc.1 should be deprecated on the
+ * registry with a pointer to its successor.
  */
 
-export { headlessRuntime } from './headlessRuntime.js';
+export { headlessRuntime, HeadlessBootstrapMissingError } from './headlessRuntime.js';
 export type { HeadlessRuntime, HeadlessRuntimeOptions } from './headlessRuntime.js';
 export { minimalHeadlessBootstrap } from './minimalHeadlessBootstrap.js';
 export type { MinimalHeadlessBootstrapOptions } from './minimalHeadlessBootstrap.js';

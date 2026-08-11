@@ -36,6 +36,7 @@ import { createAuthz } from './authz/index.js';
 import type { Authz, AuthzMode } from './authz/index.js';
 import { presenceService } from './presence/PresenceService.js';
 import { yjsProjectCache } from './YjsProjectCache.js';
+import { setupYjsConnection, yjsRoomStats } from './yjs/setupYjsConnection.js';
 
 export interface SyncServerOptions {
   readonly port?: number;
@@ -90,7 +91,11 @@ export async function createSyncServer(
       log: { selection: logFactory.selection, reason: logFactory.reason },
       bake: { selection: bakeFactory.selection, reason: bakeFactory.reason, ...bake.stats() },
       softLocks: { reason: lockFactory.reason, ...softLocks.stats(), sweeper: sweeper.stats() },
-      yjs: { activeDocs: yjsProjectCache.size(), activeLevelDocs: yjsProjectCache.levelSize() },
+      yjs: {
+        activeDocs: yjsProjectCache.size(),
+        activeLevelDocs: yjsProjectCache.levelSize(),
+        ...yjsRoomStats(),
+      },
       aiCache: { ttlCleanup: 'available' },
     });
   });
@@ -109,22 +114,36 @@ export async function createSyncServer(
 
   httpServer.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    if (url.pathname !== '/sync') {
+    if (url.pathname === '/sync') {
+      // ── Legacy S22 JSON command-event protocol (unchanged) ───────────────
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        const clientId = url.searchParams.get('clientId') ?? ulid();
+        const userId = url.searchParams.get('userId') ?? 'anonymous';
+        const displayNameHint = url.searchParams.get('displayName') ?? '';
+        const authoritativePresence = presenceService.getServerAuthoritativePresence(
+          userId,
+          { userId, displayName: displayNameHint },
+        );
+        presenceService.registerUser(userId, authoritativePresence.displayName);
+        sessions.register(ws, clientId, userId);
+        ws.send(JSON.stringify({ type: 'session.opened', clientId, userId }));
+      });
+      return;
+    }
+    // ── L-391 leg C — y-protocols rooms ────────────────────────────────────
+    // A stock y-websocket WebsocketProvider connects to `${url}/${room}`:
+    // every non-`/sync` path IS a room name (ADR-049 §4.4 naming —
+    // "${projectId}" or "${projectId}:${levelId}").  Auth on this upgrade is
+    // still the v0 trust model; the JWT gate is ratification point R-B
+    // (L-391 §4.2) and MUST land before production exposure.
+    const room = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
+    if (!room) {
       socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
       socket.destroy();
       return;
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
-      const clientId = url.searchParams.get('clientId') ?? ulid();
-      const userId = url.searchParams.get('userId') ?? 'anonymous';
-      const displayNameHint = url.searchParams.get('displayName') ?? '';
-      const authoritativePresence = presenceService.getServerAuthoritativePresence(
-        userId,
-        { userId, displayName: displayNameHint },
-      );
-      presenceService.registerUser(userId, authoritativePresence.displayName);
-      sessions.register(ws, clientId, userId);
-      ws.send(JSON.stringify({ type: 'session.opened', clientId, userId }));
+      setupYjsConnection(ws as WebSocket, room);
     });
   });
 
@@ -181,7 +200,12 @@ export async function createSyncServer(
       await log.close();
       await bake.close();
       await softLocks.close();
-      await authzFactory.close();
+      // §L-391-SHUTDOWN-FIX — `createAuthz` returns `{ authz, selection,
+      // reason }` and has NEVER exposed `close()`; the unconditional call
+      // here made EVERY `shutdown()` throw (the pre-existing Chaos suite
+      // failed at teardown on exactly this line).  Optional-call keeps the
+      // seam for a future closable authz without crashing today's.
+      await (authzFactory as { close?: () => Promise<void> }).close?.();
     },
   };
 }
