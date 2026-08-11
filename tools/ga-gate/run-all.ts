@@ -116,6 +116,12 @@ const GATES: Gate[] = [
   // chat capability metadata. Added 2026-08-10 after `wall.updateSystemTypeBatch`
   // and the chat panel shipped in the SAME release and could not reach each other.
   { name: 'chat-capability-coverage (ADR-0313)',      script: 'check-chat-capability-coverage.ts' },
+  // W5-3 (2026-08-11). Born passing, so it is NOT on gate-debt.json. Every
+  // property-mutation command type must declare where its subject id lives and
+  // whether it reaches the CRDT document — or say in writing why it does not.
+  // Registered because an undeclared verb is how the original defect stayed
+  // invisible: a collaborator kept the creation-time value, confidently.
+  { name: 'sync-disposition (C66/P8/W5-3)',           script: 'check-sync-disposition.ts' },
   { name: 'report-payload-discard (C68 §5.g, R4)',    script: 'check-report-payload-discard.ts' },
 ];
 

@@ -40,8 +40,39 @@
 
 import * as Y from 'yjs';
 import { trace } from '@opentelemetry/api';
+import {
+  getSyncDisposition,
+  extractElementProperties,
+  type ElementPropertyDisposition,
+} from './syncDisposition.js';
 
 const tracer = trace.getTracer('pryzm.sync-client.yjs');
+
+/**
+ * W5-3 — the canonical element namespace.
+ *
+ * Before W5-3 every command wrote into a Y.Map named after its own COMMAND
+ * TYPE.  That meant `wall.create` and `wall.updateDimensions` populated two
+ * disjoint maps: even had the update been written (it was not — see
+ * `syncDisposition.ts`), a receiver reading "the wall" would still have seen
+ * the creation-time height, because there was no place where an element's
+ * CURRENT property values lived.
+ *
+ * This map is that place: keyed by element id, holding merged property values.
+ * The per-command-type namespaces are retained unchanged for backward
+ * compatibility with Phase 2D callers and the existing adapter tests.
+ */
+export const ELEMENTS_NAMESPACE = 'pryzm.elements';
+
+/** Coordination-doc key used by the per-doc bookkeeping maps below. */
+const COORD_KEY = '__coord__';
+
+/** Structural equality good enough for CRDT scalar/JSON property values. */
+function _valuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+}
 
 // ─── Module-level helpers ─────────────────────────────────────────────────────
 
@@ -245,6 +276,21 @@ export class YjsDocAdapter {
    */
   private readonly _batchStateVectorSnapshot = new Map<string, Uint8Array>();
 
+  // ── W5-3: sync-disposition bookkeeping ─────────────────────────────────────
+  /** Command types seen with no entry in SYNC_DISPOSITIONS (P8 gap report). */
+  private readonly _undeclaredTypes = new Set<string>();
+  /** Declared types whose payload did not carry the declared subject key. */
+  private readonly _unresolvedSubjectTypes = new Set<string>();
+  /**
+   * Locally-authored property values not yet reconciled against a remote
+   * update, keyed docKey → elementId → property → value.  Consumed (and
+   * cleared) by `_discloseOverwrittenLocalWrites()` on the next merge; this is
+   * what makes "a remote update silently discarded MY edit" detectable rather
+   * than a value that simply changes underneath the user.
+   */
+  private readonly _localPendingWrites =
+    new Map<string, Map<string, Map<string, unknown>>>();
+
   // ── §E.1 — Batch blackout hooks ────────────────────────────────────────────
   // Optional callbacks wired by BatchCoordinator via registerYjsDocAdapter().
   // Declared as public optional fields (not event emitters) to keep the
@@ -349,7 +395,10 @@ export class YjsDocAdapter {
       },
     });
     try {
+      // W5-3 / P8 — same property-level disclosure as the coordination path.
+      const pre = this._snapshotPendingValues(levelId);
       Y.applyUpdate(this.getDocForLevel(levelId), update);
+      this._discloseOverwrittenLocalWrites(levelId, pre);
     } finally {
       span.end();
     }
@@ -564,6 +613,166 @@ export class YjsDocAdapter {
     } finally {
       span.end();
     }
+
+    // W5-3 — the general property path, run alongside (never instead of) the
+    // legacy namespace write above so Phase 2D behaviour is byte-identical.
+    this._applyDeclaredProperties(commandType, payload, levelId);
+  }
+
+  // ── W5-3: the general authoritative-property → CRDT path ───────────────────
+
+  /**
+   * Route a command's declared element properties into the canonical element
+   * map (`ELEMENTS_NAMESPACE`) of the target doc.
+   *
+   * The path is GENERIC: the declaration says where the subject id and the
+   * property bag live, and every remaining key is replicated.  Adding a new
+   * property to an already-declared verb requires no change here.
+   *
+   * P8 — a gap is DETECTABLE, not silent.  Three outcomes are distinguished and
+   * none of them is "return quietly":
+   *   • declared element-property, subject resolved → written;
+   *   • declared not-synced                          → skipped, on purpose;
+   *   • undeclared, or subject unresolved            → RECORDED and reported by
+   *     `getUndeclaredCommandTypes()` / `getUnresolvedSubjectCommandTypes()`,
+   *     and warned once per command type.
+   */
+  private _applyDeclaredProperties(
+    commandType: string,
+    payload: Record<string, unknown>,
+    levelId: string | undefined,
+  ): void {
+    const disposition = getSyncDisposition(commandType);
+    if (disposition === undefined) {
+      if (!this._undeclaredTypes.has(commandType)) {
+        this._undeclaredTypes.add(commandType);
+        console.warn(
+          `[YjsDocAdapter] W5-3: command type '${commandType}' has NO sync disposition. ` +
+          `Its properties are NOT replicated. Declare it in ` +
+          `packages/sync-client/src/syncDisposition.ts — as an element-property ` +
+          `path, or as NOT-SYNCED with a written reason.`,
+        );
+      }
+      return;
+    }
+    if (disposition.kind === 'not-synced') return;
+
+    const extracted = extractElementProperties(disposition, payload);
+    if (extracted === null) {
+      // The declaration named a subject key the payload did not supply as a
+      // non-empty string.  This is a DECLARATION/CALLER mismatch — a refusal,
+      // not an empty property set — so it is reported, never swallowed.
+      if (!this._unresolvedSubjectTypes.has(commandType)) {
+        this._unresolvedSubjectTypes.add(commandType);
+        console.warn(
+          `[YjsDocAdapter] W5-3: '${commandType}' declares subject key ` +
+          `'${disposition.subject}' but the payload carried no non-empty string ` +
+          `there. Nothing was replicated for this dispatch.`,
+        );
+      }
+      return;
+    }
+
+    const { elementId, properties } = extracted;
+    if (Object.keys(properties).length === 0) return;
+
+    const targetDoc = levelId !== undefined ? this.getDocForLevel(levelId) : this.doc;
+    const docKey = levelId ?? COORD_KEY;
+
+    const span = tracer.startSpan('pryzm.sync.applyElementProperties', {
+      attributes: {
+        'pryzm.command.type': commandType,
+        'pryzm.element.id': elementId,
+        'pryzm.property.count': Object.keys(properties).length,
+        'pryzm.conflict.policy': disposition.conflict,
+      },
+    });
+    try {
+      targetDoc.transact(() => {
+        const elements = targetDoc.getMap<Y.Map<unknown>>(ELEMENTS_NAMESPACE);
+        let record = elements.get(elementId);
+        if (!record) {
+          record = new Y.Map<unknown>();
+          elements.set(elementId, record);
+        }
+        for (const [key, value] of Object.entries(properties)) {
+          record.set(key, value);
+        }
+      }, this);
+
+      // P8 disclosure bookkeeping — remember what WE set, so a remote update
+      // that overwrites it with a different value can be surfaced as a
+      // user-resolvable conflict rather than converging silently.
+      if (disposition.conflict === 'disclose') {
+        this._rememberLocalWrite(docKey, elementId, properties);
+      }
+    } finally {
+      span.end();
+    }
+  }
+
+  /** Record a locally-authored property write pending its first exchange. */
+  private _rememberLocalWrite(
+    docKey: string,
+    elementId: string,
+    properties: Readonly<Record<string, unknown>>,
+  ): void {
+    let perDoc = this._localPendingWrites.get(docKey);
+    if (!perDoc) { perDoc = new Map(); this._localPendingWrites.set(docKey, perDoc); }
+    let perElement = perDoc.get(elementId);
+    if (!perElement) { perElement = new Map(); perDoc.set(elementId, perElement); }
+    for (const [k, v] of Object.entries(properties)) perElement.set(k, v);
+  }
+
+  // ── W5-3: reading the canonical element record ─────────────────────────────
+
+  /**
+   * The canonical element map for a doc — `levelId` omitted means the
+   * coordination / global doc.
+   */
+  getElementsNamespace(levelId?: string): Y.Map<Y.Map<unknown>> {
+    const doc = levelId !== undefined ? this.getDocForLevel(levelId) : this.doc;
+    return doc.getMap<Y.Map<unknown>>(ELEMENTS_NAMESPACE);
+  }
+
+  /**
+   * Read one replicated property of one element.
+   *
+   * Returns `undefined` when the element or the property is absent.  Callers
+   * that must distinguish "not replicated" from "replicated as undefined"
+   * should use `readElement()`, which returns `undefined` only for a wholly
+   * absent element.
+   */
+  readElementProperty(elementId: string, property: string, levelId?: string): unknown {
+    const record = this.getElementsNamespace(levelId).get(elementId);
+    return record ? record.get(property) : undefined;
+  }
+
+  /** All replicated properties of one element, or `undefined` if unknown here. */
+  readElement(elementId: string, levelId?: string): Record<string, unknown> | undefined {
+    const record = this.getElementsNamespace(levelId).get(elementId);
+    if (!record) return undefined;
+    const out: Record<string, unknown> = {};
+    record.forEach((v: unknown, k: string) => { out[k] = v; });
+    return out;
+  }
+
+  // ── W5-3: gap reporting (P8 — a gap must be detectable) ────────────────────
+
+  /**
+   * Command types seen by this adapter with NO entry in `SYNC_DISPOSITIONS`.
+   * Their properties did not replicate.  Non-empty is a finding, not noise.
+   */
+  getUndeclaredCommandTypes(): readonly string[] {
+    return Array.from(this._undeclaredTypes);
+  }
+
+  /**
+   * Command types whose declaration named a subject key the payload did not
+   * supply — a declaration/caller mismatch, distinct from "undeclared".
+   */
+  getUnresolvedSubjectCommandTypes(): readonly string[] {
+    return Array.from(this._unresolvedSubjectTypes);
   }
 
   /**
@@ -578,13 +787,81 @@ export class YjsDocAdapter {
       attributes: { 'pryzm.update.byteLength': update.byteLength },
     });
     try {
+      // W5-3 / P8 — capture what WE believed each pending property to be, so an
+      // incoming merge that replaces it with a different value can be disclosed.
+      const pre = this._snapshotPendingValues(COORD_KEY);
       Y.applyUpdate(this.doc, update);
+      this._discloseOverwrittenLocalWrites(COORD_KEY, pre);
       // §E.3 — Post-merge semantic validation: detect CW elements whose stored
       // base-Y no longer matches the level elevation after a remote update.
       this._detectCwLevelYMismatch();
     } finally {
       span.end();
     }
+  }
+
+  // ── W5-3 / P8 — property-level conflict disclosure ─────────────────────────
+
+  /**
+   * Snapshot the doc's CURRENT value for every property this client has written
+   * locally and not yet reconciled.  Taken immediately before a merge.
+   */
+  private _snapshotPendingValues(docKey: string): Map<string, unknown> {
+    const out = new Map<string, unknown>();
+    const perDoc = this._localPendingWrites.get(docKey);
+    if (!perDoc || perDoc.size === 0) return out;
+    const elements = this.getElementsNamespace(docKey === COORD_KEY ? undefined : docKey);
+    for (const [elementId, props] of perDoc) {
+      const record = elements.get(elementId);
+      for (const prop of props.keys()) {
+        out.set(`${elementId} ${prop}`, record ? record.get(prop) : undefined);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * After a merge, emit a `CRDTConflict` for every property where BOTH:
+   *   • this client had authored a value that had not yet been exchanged, and
+   *   • the merged document now holds a DIFFERENT value.
+   *
+   * That pair is exactly the case P8 forbids being silent: the CRDT converged,
+   * and in converging it discarded a local edit the user made and never saw
+   * reverted.  Yjs's own last-writer-wins is left intact — disclosure is
+   * additive, and `CRDTConflictResolver` / `ConflictResolutionDialog` own what
+   * the user does about it.
+   *
+   * Properties declared `last-writer-wins` never enter `_localPendingWrites`,
+   * so they are silently converged BY DECLARATION, with the reason written in
+   * `syncDisposition.ts` — not by omission.
+   */
+  private _discloseOverwrittenLocalWrites(
+    docKey: string,
+    pre: ReadonlyMap<string, unknown>,
+  ): void {
+    const perDoc = this._localPendingWrites.get(docKey);
+    if (!perDoc || perDoc.size === 0) return;
+    const elements = this.getElementsNamespace(docKey === COORD_KEY ? undefined : docKey);
+
+    for (const [elementId, props] of perDoc) {
+      const record = elements.get(elementId);
+      for (const [prop, localValue] of props) {
+        const before = pre.get(`${elementId} ${prop}`);
+        const after = record ? record.get(prop) : undefined;
+        if (_valuesEqual(before, after)) continue;   // merge did not touch it
+        if (_valuesEqual(after, localValue)) continue; // our value survived
+        this.emitConflict({
+          elementId,
+          property: prop,
+          localValue,
+          remoteValue: after,
+          remoteAuthor: 'collaborator',
+          timestamp: Date.now(),
+        });
+      }
+    }
+    // Reconciled: everything pending has now been through a merge.
+    this._localPendingWrites.delete(docKey);
   }
 
   /**
