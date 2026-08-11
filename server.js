@@ -654,8 +654,16 @@ try {
                 })();
             }
 
-            // Broadcast full payload (including serialized command) to room peers
-            socket.to(`project:${data.projectId}`).emit('remote-command', { ...data, userId: socket.data.userId });
+            // Broadcast full payload (including serialized command) to room peers.
+            // §FIX-REPLAY-AT-MOST-ONCE (L-814) — carry the command-log row id so a
+            // receiver can recognise the SAME row if it also turns up in a later
+            // catch-up window and refuse the second delivery (Invariant E-4).
+            // `socket.to(room)` already excludes the sender, so this is never an echo.
+            socket.to(`project:${data.projectId}`).emit('remote-command', {
+                ...data,
+                userId: socket.data.userId,
+                commandLogId: logId,
+            });
         });
 
         socket.on('vi:intent-updated', (data) => {
@@ -4267,6 +4275,35 @@ app.get('/api/projects/:id/commands', authMiddleware, async (req, res) => {
         sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
     }
 
+    // §FIX-REPLAY-AT-MOST-ONCE (L-814) — `excludeSelf=1` omits the OWN command-log
+    // rows of the calling user from the window.
+    //
+    // ROOT CAUSE this closes, server side: catch-up replay is meant to deliver what
+    // a client MISSED. A client never misses its own commands — it applied them
+    // optimistically the moment the user made the edit. Returning them let the
+    // client re-execute its own history over its live model, which is the reported
+    // defect: walls spontaneously go RAKED or change TYPE while nobody is touching
+    // the project. The client also filters (Invariant E-2), but the server is the
+    // cheaper and more reliable place to not send them at all. Opt-in via query
+    // param so any other consumer of this endpoint (audit/history views, which
+    // legitimately want every author) is unaffected.
+    //
+    // NOTE for editors: keep prose in this file free of apostrophes, stray quote
+    // marks and unbalanced brackets. The GA-gate write-route scanner in
+    // tools/ga-gate/lib/writeRouteScan lexes server.js with a naive quote tracker
+    // that already loses its place earlier in this file, so an ODD number of quote
+    // or bracket characters added anywhere downstream flips it into reporting a
+    // bogus unterminated-route error. Tracked separately; do not work around it by
+    // deleting the comment that trips it.
+    const excludeSelf = req.query.excludeSelf === '1' || req.query.excludeSelf === 'true';
+
+    // The baseline the client stores is compared against `created_at`, a SERVER
+    // timestamp, so the client must advance it in SERVER time. Echo our clock back
+    // on every response — a client that stamps the baseline from its OWN clock
+    // drifts, and drift in this field means either permanently re-requesting an
+    // already-applied window or silently skipping the edits of a peer.
+    const serverNow = new Date().toISOString();
+
     // Verify caller has access to the project. Fail-soft: if the access check
     // throws (DB hiccup, transient Supabase error), return an empty command list
     // rather than 500 — the catch-up loop retries on every reconnect, so a 500
@@ -4278,7 +4315,7 @@ app.get('/api/projects/:id/commands', authMiddleware, async (req, res) => {
         }
     } catch (err) {
         console.warn('[commands/catch-up] Access check failed (returning empty list):', err.message);
-        return res.json({ commands: [], requestedSince: sinceDate.toISOString(), count: 0 });
+        return res.json({ commands: [], requestedSince: sinceDate.toISOString(), count: 0, serverNow });
     }
 
     try {
@@ -4286,11 +4323,14 @@ app.get('/api/projects/:id/commands', authMiddleware, async (req, res) => {
         // rationale — direct PG host is unreachable from Replit (IPv6-only).
         const sb = await getSupabaseClient().catch(() => null);
         if (sb) {
-            const { data, error } = await sb
+            let q = sb
                 .from('project_command_log')
                 .select('id, user_id, command_type, payload, created_at')
                 .eq('project_id', projectId)
-                .gt('created_at', sinceDate.toISOString())
+                .gt('created_at', sinceDate.toISOString());
+            // §FIX-REPLAY-AT-MOST-ONCE (L-814)
+            if (excludeSelf) q = q.neq('user_id', userId);
+            const { data, error } = await q
                 .order('created_at', { ascending: true })
                 .limit(500);
             if (!error) {
@@ -4298,6 +4338,7 @@ app.get('/api/projects/:id/commands', authMiddleware, async (req, res) => {
                     commands:      data || [],
                     requestedSince: sinceDate.toISOString(),
                     count:         (data || []).length,
+                    serverNow,
                 });
             }
             // PostgREST: 42P01 maps to code "42P01" or message containing "does not exist"
@@ -4306,22 +4347,26 @@ app.get('/api/projects/:id/commands', authMiddleware, async (req, res) => {
                 /relation/i.test(error.message || '');
             if (isMissingTable) {
                 console.warn('[commands/catch-up] project_command_log table not found — returning empty list.');
-                return res.json({ commands: [], requestedSince: sinceDate.toISOString(), count: 0 });
+                return res.json({ commands: [], requestedSince: sinceDate.toISOString(), count: 0, serverNow });
             }
             console.warn('[commands/catch-up] Supabase REST failed, falling back to pgPool:', error.message);
         }
+        // §FIX-REPLAY-AT-MOST-ONCE (L-814) — `$3 IS NULL OR user_id <> $3` keeps a
+        // single prepared shape for both modes.
         const result = await pgQuery(
             `SELECT id, user_id, command_type, payload, created_at
              FROM project_command_log
              WHERE project_id = $1 AND created_at > $2
+               AND ($3::text IS NULL OR user_id <> $3::text)
              ORDER BY created_at ASC
              LIMIT 500`,
-            [projectId, sinceDate]
+            [projectId, sinceDate, excludeSelf ? String(userId) : null]
         );
         res.json({
             commands:      result.rows,
             requestedSince: sinceDate.toISOString(),
             count:         result.rows.length,
+            serverNow,
         });
     } catch (err) {
         // If the project_command_log table doesn't exist yet (e.g. Supabase schema
@@ -4337,7 +4382,7 @@ app.get('/api/projects/:id/commands', authMiddleware, async (req, res) => {
                 '[commands/catch-up] project_command_log table not found — ' +
                 'returning empty list. Apply server/schema.sql in your Supabase SQL Editor to enable command history.'
             );
-            return res.json({ commands: [], requestedSince: sinceDate.toISOString(), count: 0 });
+            return res.json({ commands: [], requestedSince: sinceDate.toISOString(), count: 0, serverNow });
         }
         console.error('[commands/catch-up] Query failed:', err.message);
         res.status(500).json({ error: 'Failed to fetch command log' });

@@ -42,7 +42,7 @@
 
 import type { CommandManager } from '@pryzm/command-registry';
 import { CommandType, type Command, type SerializedCommand } from '@pryzm/command-registry';
-import { apiFetch, getStoredToken } from '@pryzm/core-app-model';
+import { apiFetch, getStoredToken, getCurrentUserId } from '@pryzm/core-app-model';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import type { VisibilityIntent } from '@pryzm/core-app-model';
@@ -230,6 +230,52 @@ function showJoinStatusToast(message: string, onRetry: (() => void) | null): voi
             setTimeout(() => toast.remove(), 450);
         }, 3500);
     }
+}
+
+// ── Catch-up baseline (§FIX-REPLAY-AT-MOST-ONCE, L-814) ─────────────────────
+
+/** The shape of `GET /api/projects/:id/commands` that the baseline depends on. */
+export interface CatchUpResponse {
+    commands?: Array<{ created_at?: string }> | undefined;
+    /** The server's own clock, echoed on every response. */
+    serverNow?: string | undefined;
+}
+
+/**
+ * §FIX-REPLAY-AT-MOST-ONCE (L-814) — decide the next `lastSync` baseline.
+ *
+ * ROOT CAUSE this closes (BASELINE DRIFT): the baseline is sent to the server as
+ * `?since=` and compared there against `project_command_log.created_at` — a SERVER
+ * timestamp. The old code stamped it from the CLIENT clock
+ * (`sessionStorage.setItem(key, new Date().toISOString())`, in `_triggerCatchUp`'s
+ * `finally` AND on every live `remote-command`). The two clocks are unrelated, and
+ * the error does not self-correct:
+ *
+ *   • client clock BEHIND the server → the baseline never advances past rows the
+ *     client already has, so EVERY reconnect re-requests the same window forever.
+ *     Combined with the missing own-origin filter, that is the founder's model
+ *     mutating itself "after a while without touching the project" — the tab
+ *     sleeps, BFCache kills the socket, it reconnects, and the window replays.
+ *   • client clock AHEAD of the server → a peer's real edits are silently SKIPPED.
+ *
+ * The baseline is therefore advanced ONLY in server time: the newest `created_at`
+ * actually received, else the server's echoed `serverNow`. When neither is
+ * available the PREVIOUS baseline is kept rather than guessed — a stale baseline
+ * costs one redundant (and now idempotent) request; a wrong one loses data.
+ *
+ * Pure and total: never throws, never reads a clock.
+ */
+export function nextCatchUpBaseline(previous: string | null, response: CatchUpResponse): string | null {
+    let newest: string | null = null;
+    for (const c of response.commands ?? []) {
+        const at = c?.created_at;
+        if (typeof at === 'string' && at.length > 0 && (newest === null || at > newest)) {
+            newest = at;
+        }
+    }
+    return newest ?? (typeof response.serverNow === 'string' && response.serverNow.length > 0
+        ? response.serverNow
+        : previous);
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -593,23 +639,40 @@ export function initCollaboration(params: {
         }) => {
             console.log('[initCollaboration] Remote command received:', data.commandType);
 
+            // §FIX-REPLAY-AT-MOST-ONCE (L-814) — the server never echoes to the
+            // sender (`socket.to(room)` excludes it), but belt-and-braces: a
+            // delivery whose origin is us is not ours to re-apply.
+            if (data.userId && data.userId === getCurrentUserId()) return;
+
             // Always show a toast — even if we apply the command, the user
             // benefits from knowing a collaborator is actively working.
             const userId = data.userId as string | undefined;
             const color  = userId ? colorForUser(userId) : CURSOR_COLORS[0] as string;
             showRemoteCommandToast(data.commandType, color);
 
-            // Update the lastSync timestamp for this project so catch-up
-            // on the next reconnect starts from now.
-            if (currentProjectId) {
-                const storageKey = `pryzm:lastSync:${currentProjectId}`;
-                sessionStorage.setItem(storageKey, new Date().toISOString());
-            }
+            // §FIX-REPLAY-AT-MOST-ONCE (L-814) — the lastSync baseline is NO LONGER
+            // stamped from the CLIENT clock here.
+            //
+            // It used to be: every live command wrote `new Date().toISOString()`
+            // into the baseline, which is then compared server-side against
+            // `project_command_log.created_at` — a SERVER clock. The two clocks are
+            // unrelated. A client running behind the server never advances past the
+            // rows it already has, so every reconnect re-requests the same window
+            // forever; a client running ahead silently SKIPS a peer's real edits.
+            // Both are baseline drift, and the first is what makes the replay
+            // recur "after a while without touching the project".
+            //
+            // The baseline is now advanced only by `_triggerCatchUp`, using server
+            // timestamps (`created_at` / `serverNow`) — see below. Re-delivery of a
+            // row already applied live is harmless: the ledger refuses it.
 
             // Attempt to apply the full serialized command locally.
             // Falls back gracefully (toast-only) for unregistered types.
             if (data.payload && typeof data.payload === 'object') {
-                const outcome = dispatcher.dispatch(data.payload as SerializedCommand);
+                const outcome = dispatcher.dispatch(data.payload as SerializedCommand, {
+                    commandLogId: data.commandLogId as string | undefined,
+                    originUserId: data.userId,
+                });
                 if (outcome === 'applied') {
                     console.log('[initCollaboration] Remote command applied to local model:', data.commandType);
                 }
@@ -770,10 +833,20 @@ export function initCollaboration(params: {
         const storageKey = `pryzm:lastSync:${projectId}`;
         const lastSync   = sessionStorage.getItem(storageKey);
 
-        // First visit this session — record timestamp and skip replay
+        // §FIX-REPLAY-AT-MOST-ONCE (L-814) — bind identity + at-most-once ledger for
+        // this project BEFORE any replay can run. Re-binding the same project on a
+        // reconnect keeps the ledger, which is the whole point: a reconnect must
+        // remember what it already applied.
+        const localUserId = getCurrentUserId();
+        dispatcher.bindProject(projectId, localUserId);
+
+        // First visit this session — ask the SERVER for its clock and use that as
+        // the baseline. Stamping the client clock here is the drift that made
+        // reconnects re-request an already-applied window (see remote-command above).
         if (!lastSync) {
-            sessionStorage.setItem(storageKey, new Date().toISOString());
-            console.log('[initCollaboration] Catch-up: first connect — setting baseline timestamp');
+            const now = await _fetchServerNow(projectId);
+            if (now) sessionStorage.setItem(storageKey, now);
+            console.log('[initCollaboration] Catch-up: first connect — baseline set from server clock');
             return;
         }
 
@@ -781,33 +854,71 @@ export function initCollaboration(params: {
 
         try {
             const res = await apiFetch(
-                `/api/projects/${projectId}/commands?since=${encodeURIComponent(lastSync)}`,
+                `/api/projects/${projectId}/commands?since=${encodeURIComponent(lastSync)}&excludeSelf=1`,
             );
             if (!res.ok) {
                 console.warn('[initCollaboration] Catch-up: server responded', res.status);
                 return;
             }
 
-            const body = await res.json() as { commands?: Array<{ user_id: string; command_type: string; payload: SerializedCommand }> };
+            const body = await res.json() as {
+                commands?: Array<{ id?: string; user_id: string; command_type: string; payload: SerializedCommand; created_at?: string }>;
+                serverNow?: string;
+            };
             const cmds = body.commands ?? [];
+
+            // §FIX-REPLAY-AT-MOST-ONCE — advance the baseline in SERVER time only.
+            // See `nextCatchUpBaseline` for why the client clock cannot be used here.
+            const advanceBaseline = (): void => {
+                const next = nextCatchUpBaseline(lastSync, body);
+                if (next && next !== lastSync) sessionStorage.setItem(storageKey, next);
+            };
 
             if (cmds.length === 0) {
                 console.log('[initCollaboration] Catch-up: no missed commands');
+                advanceBaseline();
                 return;
             }
 
             console.log(`[initCollaboration] Catch-up: replaying ${cmds.length} missed command(s)`);
 
-            // Re-attach userId to each SerializedCommand for dispatcher filtering
-            const serializeds = cmds.map(c => ({ ...(c.payload ?? {}), userId: c.user_id } as SerializedCommand & { userId: string }));
+            // Re-attach delivery provenance to each SerializedCommand so the
+            // dispatcher can enforce E-2 (own-origin) and E-4 (at-most-once).
+            const serializeds = cmds.map(c => ({
+                ...(c.payload ?? {}),
+                userId: c.user_id,
+                commandLogId: c.id,
+            } as SerializedCommand & { userId: string; commandLogId?: string }));
 
-            const { applied, skipped } = dispatcher.replayCatchUp(serializeds);
+            // §FIX-REPLAY-AT-MOST-ONCE — Invariant E-2 made explicit at the call site.
+            // Omitting this argument is the defect that let the founder's own edits
+            // replay over his live model; `dispatch` also enforces it independently.
+            const { applied, skipped } = dispatcher.replayCatchUp(
+                serializeds,
+                localUserId ?? undefined,
+            );
             console.log(`[initCollaboration] Catch-up: applied=${applied} skipped=${skipped}`);
+            advanceBaseline();
         } catch (err) {
             console.warn('[initCollaboration] Catch-up: fetch error', err);
-        } finally {
-            // Always advance the baseline so next reconnect starts from now
-            sessionStorage.setItem(storageKey, new Date().toISOString());
+        }
+    }
+
+    /**
+     * §FIX-REPLAY-AT-MOST-ONCE (L-814) — read the server's clock via an empty
+     * catch-up query. The baseline is compared against `project_command_log.created_at`,
+     * a SERVER timestamp, so it must be expressed in SERVER time.
+     */
+    async function _fetchServerNow(projectId: string): Promise<string | null> {
+        try {
+            const res = await apiFetch(
+                `/api/projects/${projectId}/commands?since=${encodeURIComponent(new Date().toISOString())}&excludeSelf=1`,
+            );
+            if (!res.ok) return null;
+            const body = await res.json() as { serverNow?: string };
+            return typeof body.serverNow === 'string' ? body.serverNow : null;
+        } catch {
+            return null;
         }
     }
 

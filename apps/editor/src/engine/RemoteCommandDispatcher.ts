@@ -47,6 +47,97 @@ export interface SuppressBroadcastRef {
 }
 
 /**
+ * §FIX-REPLAY-AT-MOST-ONCE (L-814) — provenance a delivered command carries.
+ *
+ * ROOT CAUSE this closes: `replayCatchUp` documented "Invariant E-2 (local-user
+ * filter)" since Phase E.2 but `initCollaboration._triggerCatchUp` called it with
+ * **no `filterOutUserId`**, and `GET /api/projects/:id/commands` returns every
+ * row in the window including the caller's own. So on any reconnect — and the
+ * BFCache/`transport close` cycle produces one whenever a tab sleeps and wakes —
+ * the client re-requested and RE-EXECUTED its own already-applied edits. Commands
+ * with an accidental duplicate guard (`ADD_OPENING` → WallOccupancyStore,
+ * `CREATE_ANNOTATION` → "already exists") refused loudly; commands with none
+ * (`UPDATE_ELEMENT_PARAMETER` rake, `UPDATE_WALL_SYSTEM_TYPE`,
+ * `UPDATE_DOOR_SYSTEM_TYPE`) silently RE-APPLIED, which is the founder's
+ * "walls spontaneously go raked / change type while I'm not touching it".
+ *
+ * The fix is provenance, not heuristics: every delivered command declares WHO
+ * produced it and WHICH log row it is, and the dispatcher applies it at most once.
+ */
+export interface RemoteCommandMeta {
+    /** `project_command_log.id` — the server-assigned identity of this delivery. */
+    commandLogId?: string | undefined;
+    /** The user whose client produced the command. */
+    originUserId?: string | undefined;
+}
+
+/**
+ * §FIX-REPLAY-AT-MOST-ONCE (L-814) — bounded at-most-once ledger of applied
+ * command-log ids, per project.
+ *
+ * Persisted in `sessionStorage` so it survives a BFCache restore (the tab is
+ * frozen, not torn down — the socket dies, sessionStorage does not), which is
+ * exactly the reconnect that used to replay the window. Bounded to
+ * {@link LEDGER_MAX} ids in insertion order so a long editing session cannot
+ * grow it without limit; eviction is oldest-first, and an evicted id can only
+ * ever be re-requested from a window the server has already retention-purged.
+ */
+const LEDGER_MAX = 2_000;
+
+export class AppliedCommandLedger {
+    private readonly storageKey: string;
+
+    private ids: string[] = [];
+
+    private index = new Set<string>();
+
+    constructor(projectId: string) {
+        this.storageKey = `pryzm:appliedCommands:${projectId}`;
+        try {
+            const raw = globalThis.sessionStorage?.getItem(this.storageKey);
+            if (raw) {
+                const parsed = JSON.parse(raw) as unknown;
+                if (Array.isArray(parsed)) {
+                    this.ids = parsed.filter((v): v is string => typeof v === 'string');
+                    this.index = new Set(this.ids);
+                }
+            }
+        } catch {
+            /* corrupt or unavailable storage — start empty, never throw at construction */
+        }
+    }
+
+    has(commandLogId: string): boolean {
+        return this.index.has(commandLogId);
+    }
+
+    /** @returns true when this id was newly recorded, false when it was already present. */
+    record(commandLogId: string): boolean {
+        if (this.index.has(commandLogId)) return false;
+        this.index.add(commandLogId);
+        this.ids.push(commandLogId);
+        if (this.ids.length > LEDGER_MAX) {
+            const evicted = this.ids.splice(0, this.ids.length - LEDGER_MAX);
+            for (const id of evicted) this.index.delete(id);
+        }
+        this.persist();
+        return true;
+    }
+
+    get size(): number {
+        return this.ids.length;
+    }
+
+    private persist(): void {
+        try {
+            globalThis.sessionStorage?.setItem(this.storageKey, JSON.stringify(this.ids));
+        } catch {
+            /* quota or unavailable storage — the in-memory ledger still guards this session */
+        }
+    }
+}
+
+/**
  * §DUPLICATE-ROOMS-PERSIST (2026-06-26) — true iff `serialized` is a creation
  * command whose targets are ALREADY in the element registry, so re-applying it
  * would double-create.
@@ -136,10 +227,35 @@ function collectBusCreateTargetIds(serialized: SerializedCommand): string[] {
     return [...ids];
 }
 
+export type DispatchOutcome =
+    | 'applied'
+    | 'unknown-type'
+    | 'validation-failed'
+    | 'error'
+    | 'skipped-duplicate'
+    | 'skipped-own-origin'
+    | 'skipped-already-delivered';
+
 export class RemoteCommandDispatcher {
     private readonly suppressRef: SuppressBroadcastRef;
 
     private readonly commandManager: CommandManager;
+
+    /**
+     * §FIX-REPLAY-AT-MOST-ONCE (L-814) — at-most-once ledger. Null when no project
+     * is bound yet; {@link bindProject} installs one per project room.
+     */
+    private ledger: AppliedCommandLedger | null = null;
+
+    /**
+     * §FIX-REPLAY-AT-MOST-ONCE (L-814) — the local user id. A command whose
+     * `originUserId` equals this NEVER executes: it was already applied
+     * optimistically by the client that produced it (Invariant E-2).
+     */
+    private localUserId: string | null = null;
+
+    /** §CONTEXT-DATA-HONESTY — duplicates are counted, not shouted. */
+    private quietSkipCount = 0;
 
     constructor(
         commandManager: CommandManager,
@@ -150,12 +266,56 @@ export class RemoteCommandDispatcher {
     }
 
     /**
+     * §FIX-REPLAY-AT-MOST-ONCE (L-814) — bind the dispatcher to a project room and
+     * the local identity. Called on `pryzm-project-loaded` and on every reconnect;
+     * re-binding the SAME project keeps the existing ledger (a reconnect must not
+     * forget what it has already applied — that forgetting is the bug), while
+     * switching projects installs a fresh one.
+     */
+    bindProject(projectId: string, localUserId: string | null): void {
+        this.localUserId = localUserId;
+        if (!this.ledger || this.ledgerProjectId !== projectId) {
+            this.ledger = new AppliedCommandLedger(projectId);
+            this.ledgerProjectId = projectId;
+        }
+    }
+
+    private ledgerProjectId: string | null = null;
+
+    /** Test/diagnostic accessor — how many deliveries were quietly refused as duplicates. */
+    get quietlySkipped(): number {
+        return this.quietSkipCount;
+    }
+
+    /**
      * Attempt to apply a single remote serialized command locally.
      *
-     * @returns 'applied' | 'unknown-type' | 'validation-failed' | 'error'
+     * §FIX-REPLAY-AT-MOST-ONCE (L-814) — `meta` carries delivery provenance. A
+     * delivery is executed only if it is (a) not ours and (b) not already applied.
      */
-    dispatch(serialized: SerializedCommand): 'applied' | 'unknown-type' | 'validation-failed' | 'error' | 'skipped-duplicate' {
+    dispatch(serialized: SerializedCommand, meta?: RemoteCommandMeta): DispatchOutcome {
         if (!serialized?.type) return 'error';
+
+        // ── §FIX-REPLAY-AT-MOST-ONCE (L-814) — gate 1: own-origin echo ───────────
+        // Invariant E-2 made real. Our own commands were applied optimistically the
+        // moment the user made the edit; re-executing them re-applies the OLD value
+        // over whatever the user changed it to since — the founder's walls "going
+        // raked" are his own earlier rake edits coming back.
+        const originUserId = meta?.originUserId ?? (serialized as { userId?: string }).userId;
+        if (originUserId && this.localUserId && originUserId === this.localUserId) {
+            this.quietSkipCount++;
+            return 'skipped-own-origin';
+        }
+
+        // ── §FIX-REPLAY-AT-MOST-ONCE (L-814) — gate 2: at-most-once per delivery ──
+        // The same log row can arrive twice: once live over the socket and again in
+        // the catch-up window after a reconnect whose baseline predates it. Applying
+        // it twice is a double-apply for every non-idempotent command family.
+        const commandLogId = meta?.commandLogId ?? (serialized as { commandLogId?: string }).commandLogId;
+        if (commandLogId && this.ledger?.has(commandLogId)) {
+            this.quietSkipCount++;
+            return 'skipped-already-delivered';
+        }
 
         // §DUPLICATE-ROOMS-PERSIST — make replay/catch-up idempotent: a CREATE
         // command whose targets are all already registered was already applied
@@ -164,11 +324,11 @@ export class RemoteCommandDispatcher {
         // throwing registerSemantic (stair/lift). Skip it BEFORE reconstructing
         // or executing the command, so neither side effect can happen.
         if (isAlreadyAppliedCreate(serialized)) {
-            console.info(
-                '[RemoteCommandDispatcher] §DUPLICATE-ROOMS-PERSIST — skipping already-applied create:',
-                serialized.type,
-                serialized.targetIds,
-            );
+            // §CONTEXT-DATA-HONESTY — a refused duplicate is an expected, harmless
+            // outcome of at-least-once delivery, not an incident. Record it so the
+            // delivery is never retried, count it, and say nothing scary.
+            if (commandLogId) this.ledger?.record(commandLogId);
+            this.quietSkipCount++;
             return 'skipped-duplicate';
         }
 
@@ -182,6 +342,14 @@ export class RemoteCommandDispatcher {
             );
             return 'unknown-type';
         }
+
+        // §FIX-REPLAY-AT-MOST-ONCE (L-814) — record the delivery BEFORE executing,
+        // not after. AT-MOST-once is the correct guarantee for a mutation: a delivery
+        // whose execution throws must not be retried on the next reconnect (that
+        // retry is precisely how a single bad command became a recurring, unattended
+        // mutation of the founder's model). The authoritative state of record is the
+        // server snapshot, not this replay.
+        if (commandLogId) this.ledger?.record(commandLogId);
 
         // Suppress re-broadcast during this execute() call
         this.suppressRef.value = true;
@@ -253,11 +421,26 @@ export class RemoteCommandDispatcher {
      * to the front rather than breaking the invariant silently.
      *
      * **Invariant E-2 (local-user filter)**:
-     * Commands emitted by the local user are filtered out via `filterOutUserId`
-     * because they were already applied optimistically.  Replaying them would
-     * produce a double-apply.  The Yjs CRDT layer is idempotent for most ops
-     * but PRYZM native commands (WallStore, CurtainWallStore …) are NOT — a
-     * second apply would create a duplicate element.
+     * Commands emitted by the local user are filtered out because they were
+     * already applied optimistically.  Replaying them would produce a
+     * double-apply.  The Yjs CRDT layer is idempotent for most ops but PRYZM
+     * native commands (WallStore, CurtainWallStore …) are NOT — a second apply
+     * would create a duplicate element.
+     *
+     * **§FIX-REPLAY-AT-MOST-ONCE (L-814) — E-2 was documented but NOT ENFORCED.**
+     * `filterOutUserId` was optional and the sole production caller
+     * (`initCollaboration._triggerCatchUp`) omitted it, so every reconnect replayed
+     * the local user's OWN commands back over their live edits. E-2 is now enforced
+     * inside {@link dispatch} against `localUserId` bound by {@link bindProject},
+     * so it holds for BOTH replay and live delivery and cannot be lost again by a
+     * caller forgetting an optional argument. `filterOutUserId` remains as an
+     * explicit override for tests and for callers with a non-default identity.
+     *
+     * **Invariant E-4 (at-most-once delivery)**:
+     * A command-log row is executed at most once per client, tracked by
+     * `commandLogId` in {@link AppliedCommandLedger}.  At-least-once delivery is
+     * inherent to socket + catch-up (a row can arrive live AND in a later window);
+     * the ledger converts it to exactly-once-or-less.
      *
      * **Invariant E-3 (resilient skip)**:
      * Unknown or failing commands are skipped (not thrown) so a single corrupt
@@ -281,13 +464,18 @@ export class RemoteCommandDispatcher {
         );
 
         for (const s of ordered) {
-            // Skip commands from the local user — already applied locally
+            // Skip commands from the local user — already applied locally.
+            // §FIX-REPLAY-AT-MOST-ONCE: this explicit filter is now a redundant
+            // second line of defence; `dispatch` enforces E-2 unconditionally.
             if (filterOutUserId && (s as any).userId === filterOutUserId) {
                 skipped++;
                 continue;
             }
 
-            const outcome = this.dispatch(s);
+            const outcome = this.dispatch(s, {
+                commandLogId: (s as { commandLogId?: string }).commandLogId,
+                originUserId: (s as { userId?: string }).userId,
+            });
             if (outcome === 'applied') {
                 applied++;
             } else {
@@ -295,8 +483,12 @@ export class RemoteCommandDispatcher {
             }
         }
 
+        // §CONTEXT-DATA-HONESTY — one quiet summary line, not one scary line per
+        // refused duplicate. `skipped` here is the NORMAL steady state after a
+        // reconnect: everything in the window was already applied.
         console.log(
-            `[RemoteCommandDispatcher] Catch-up complete: ${applied} applied, ${skipped} skipped`,
+            `[RemoteCommandDispatcher] Catch-up complete: ${applied} applied, ${skipped} skipped ` +
+            `(quiet duplicate/own-origin refusals so far: ${this.quietSkipCount})`,
         );
         return { applied, skipped };
     }
