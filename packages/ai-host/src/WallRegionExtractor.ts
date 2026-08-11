@@ -101,4 +101,110 @@ export class WallRegionExtractor {
 
         return hull;
     }
+
+    /**
+     * §W2A-HULL-IS-NOT-A-PERIMETER (defect 5) — ADR-0299 §RECOVERY-MUST-REFUSE.
+     *
+     * ─────────────────────────────────────────────────────────────────────────
+     * THE DEFECT
+     * ─────────────────────────────────────────────────────────────────────────
+     * This file's own header has said since it was written that "a convex hull
+     * cannot represent L-shaped, U-shaped, or courtyard buildings". It said so,
+     * and then returned the hull anyway — and `AIService.CREATE_ROOF_BY_REGION`
+     * fed it straight into `CreateRoofCommand` as the building perimeter. On any
+     * non-convex building the hull BRIDGES THE NOTCH: the roof is committed over
+     * open air, and it then becomes the input to the eave offset and the
+     * hip/mansard inward offsets (W2-A defects 1 and 2), so a wrong ring is
+     * elaborated into a confidently wrong roof.
+     *
+     * A known-wrong answer that is returned anyway is not a placeholder. It is
+     * the exact failure ADR-0299 forbids.
+     *
+     * ─────────────────────────────────────────────────────────────────────────
+     * THE DISCRIMINATOR — AND WHY IT IS NOT "IS ANY POINT INSIDE THE HULL"
+     * ─────────────────────────────────────────────────────────────────────────
+     * Interior partition walls legitimately sit inside the perimeter, so
+     * "something is inside the hull ⇒ non-convex" would refuse on every real
+     * building. The honest test is the one the geometry actually claims:
+     *
+     *     IF the hull is the building perimeter, every hull EDGE runs along a
+     *     WALL. A hull edge covered by nothing is a bridge across open air.
+     *
+     * So each hull edge is sampled and each sample must lie within `tolM` of
+     * some wall centreline. The diagonal edge across an L's notch is covered by
+     * nothing and is caught; a convex building passes unchanged.
+     *
+     * @returns `{ kind: 'perimeter' }` when the hull is defensible as the
+     *          building perimeter, else `{ kind: 'refused', reason }`. The
+     *          reason names the offending edge so the user can see WHERE.
+     */
+    static extractOutermostRegionResult(
+        walls: AIWall[],
+        tolM = 0.6,
+    ):
+        | { kind: 'perimeter'; polygon: THREE.Vector2[] }
+        | { kind: 'refused'; reason: string } {
+        const hull = this.extractOutermostRegion(walls);
+        if (!hull || hull.length < 3) {
+            return { kind: 'refused', reason: 'the walls do not form a closed region' };
+        }
+
+        const wallStore = window.wallStore; // TODO(TASK-08) — see file header §1
+        const levelWalls = wallStore?.getByLevel(walls[0]!.levelId) ?? [];
+        const segs: Array<[number, number, number, number]> = [];
+        for (const w of levelWalls) {
+            if (w.baseLine && w.baseLine.length >= 2) {
+                segs.push([w.baseLine[0].x, w.baseLine[0].z, w.baseLine[1].x, w.baseLine[1].z]);
+            }
+        }
+        if (segs.length === 0) {
+            return { kind: 'refused', reason: 'no wall centrelines were readable on this level' };
+        }
+
+        const distToSeg = (px: number, pz: number, s: [number, number, number, number]): number => {
+            const [ax, az, bx, bz] = s;
+            const dx = bx - ax, dz = bz - az;
+            const l2 = dx * dx + dz * dz;
+            if (l2 < 1e-12) return Math.hypot(px - ax, pz - az);
+            let t = ((px - ax) * dx + (pz - az) * dz) / l2;
+            t = t < 0 ? 0 : t > 1 ? 1 : t;
+            return Math.hypot(px - (ax + t * dx), pz - (az + t * dz));
+        };
+
+        const SAMPLES = 12;
+        for (let i = 0; i < hull.length; i++) {
+            const a = hull[i]!;
+            const b = hull[(i + 1) % hull.length]!;
+            let uncovered = 0;
+            for (let k = 1; k < SAMPLES; k++) {
+                const t = k / SAMPLES;
+                const px = a.x + (b.x - a.x) * t;
+                const pz = a.y + (b.y - a.y) * t;
+                let best = Infinity;
+                for (const s of segs) {
+                    const d = distToSeg(px, pz, s);
+                    if (d < best) best = d;
+                    if (best <= tolM) break;
+                }
+                if (best > tolM) uncovered++;
+            }
+            // A third of an edge with no wall under it is a bridge, not a rounding
+            // artefact at a corner.
+            if (uncovered > (SAMPLES - 1) / 3) {
+                return {
+                    kind: 'refused',
+                    reason:
+                        `the convex hull bridges open air between (${a.x.toFixed(2)}, ${a.y.toFixed(2)}) and ` +
+                        `(${b.x.toFixed(2)}, ${b.y.toFixed(2)}): ${uncovered} of ${SAMPLES - 1} samples on that ` +
+                        `edge have no wall within ${tolM} m. This building is NOT convex, and a convex hull ` +
+                        `cannot represent an L-shaped, U-shaped or courtyard perimeter — it would put roof over ` +
+                        `the notch. Refusing rather than committing a perimeter that is known to be wrong ` +
+                        `(ADR-0299 §RECOVERY-MUST-REFUSE). A true planar-graph outer-face extraction is the fix ` +
+                        `(Phase E, see this file's header).`,
+                };
+            }
+        }
+
+        return { kind: 'perimeter', polygon: hull };
+    }
 }

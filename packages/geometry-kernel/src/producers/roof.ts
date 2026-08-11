@@ -26,14 +26,21 @@ import type { BufferGeometryDescriptor } from '../types/BufferGeometryDescriptor
 import type { JoinData } from '../types/JoinData.js';
 import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import {
-  applyOverhang,
   bbox,
   centroid,
   ensureCCW,
   inradius,
-  shrinkPolygon,
   type Pt,
 } from './_internal/roof/polygon.js';
+// §W2A-ONE-OFFSET — the ONE offset. `applyOverhang` / `shrinkPolygon` are gone;
+// read the block that replaced them in `_internal/roof/polygon.ts` for the
+// measured reason.
+import { offsetPolygon, offsetPolygonOrSelf, type Pt2 } from '../pure/polygonOffset.js';
+import {
+  describeRoofFormResolution,
+  encodeRoofFormResolution,
+  type RoofFormResolution,
+} from './_internal/roof/roofFormResolution.js';
 import { buildExtruded } from './_internal/roof/buildExtruded.js';
 import { buildVariableHeight } from './_internal/roof/buildVariableHeight.js';
 import { buildMultiLevel } from './_internal/roof/buildMultiLevel.js';
@@ -74,8 +81,32 @@ export const produceRoof: RoofProducer = (roof, _joinData, worldY) => {
   const trimKey = composeRoofMaterialKey({ slot: 'trim', materialId: roof.materialId });
 
   const ccw = ensureCCW(pts);
-  const eavePts = applyOverhang(ccw, roof.overhang);
+
+  // ── EAVE ──────────────────────────────────────────────────────────────────
+  // §W2A-ONE-OFFSET. A true mitred parallel offset: every edge midpoint of the
+  // result sits exactly `overhang` from the footprint boundary. The radial
+  // dilation this replaces delivered 212 mm for a 300 mm request on a square
+  // and 30–299 mm on a 40×4 plan.
+  let eavePts: Pt[] = ccw;
+  let eaveDegradedReason: string | null = null;
+  if (roof.overhang > 0) {
+    const eave = offsetPolygonOrSelf(ccw as Pt2[], roof.overhang);
+    eavePts = eave.polygon as Pt[];
+    if (eave.degenerate) {
+      eaveDegradedReason = eave.reason ?? 'unknown';
+      console.warn(
+        `[geometry-kernel] §DIAG-ROOF §W2A-ONE-OFFSET eave offset degraded ` +
+          `(verts=${ccw.length} overhang=${roof.overhang}): ${eaveDegradedReason}. ` +
+          `The committed eave is NOT a faithful ${roof.overhang} m overhang — do not dimension from it.`,
+      );
+    }
+  }
+
   const slope = Math.tan(roof.pitch); // pitch in radians → rise-per-run
+
+  // §W2A-ROOF-FORM-HONESTY — set by any branch that cannot build the requested
+  // form. It is logged AND folded into the hash; it is never silent.
+  let form: RoofFormResolution = { kind: 'faithful', shape: roof.shape };
 
   let raw: RawGroup[];
   switch (roof.shape) {
@@ -148,14 +179,25 @@ export const produceRoof: RoofProducer = (roof, _joinData, worldY) => {
     case 'hip': {
       const r = inradius(eavePts);
       const ridgeH = r * slope;
-      const ridgePts = shrinkPolygon(eavePts, r);
+      // §W2A-ONE-OFFSET. `shrinkPolygon(eave, r)` returned a COLLAPSED 4-vertex
+      // ring as SUCCESS on a plain 10×10 square, so this apex-pyramid branch was
+      // dead code and the hip was built from four coincident points. The real
+      // offset refuses ('offset collapsed the ring'), so the branch now fires.
+      const ridge = offsetPolygon(eavePts as Pt2[], -r);
       let midPts: Pt[];
-      if (ridgePts.length === 0) {
-        // Degenerate → single apex pyramid.
+      if (ridge.polygon.length < 3 || ridge.degenerate) {
+        // A hip whose ridge ring collapses to a point IS a pyramid — the
+        // limiting case of a hip, not a substituted form. Reported, not hidden.
         const [cx, cz] = centroid(eavePts);
         midPts = [[cx, cz]];
+        form = {
+          kind: 'degraded',
+          requested: 'hip',
+          produced: 'pyramid',
+          reason: `ridge ring at ${r.toFixed(3)}m inward: ${ridge.reason ?? 'collapsed'}`,
+        };
       } else {
-        midPts = ridgePts;
+        midPts = ridge.polygon as Pt[];
       }
       raw = buildMultiLevel({
         eavePts,
@@ -177,17 +219,28 @@ export const produceRoof: RoofProducer = (roof, _joinData, worldY) => {
       const ridgeH = r * slope;
       const skirtInset = r * 0.4;
       const skirtH = ridgeH * 0.75;
-      const skirtPts = shrinkPolygon(eavePts, skirtInset);
-      const topPts = shrinkPolygon(eavePts, r);
-      if (skirtPts.length < 3) {
-        // Fall back to hip — reuse the hip branch.
-        const ridge = shrinkPolygon(eavePts, r);
+      const skirt = offsetPolygon(eavePts as Pt2[], -skirtInset);
+      const top = offsetPolygon(eavePts as Pt2[], -r);
+
+      if (skirt.polygon.length < 3 || skirt.degenerate) {
+        // §W2A-ROOF-FORM-HONESTY. This branch used to build a HIP and return it
+        // as an ordinary geometry — identical BufferGeometry, no log, no hash
+        // difference. The user asked for a mansard and got a hip, dimensioned as
+        // authoritative. It still builds the only form this footprint admits
+        // (there is no third option that is not an invented ring, which ADR-0299
+        // forbids), but it now says so.
+        form = {
+          kind: 'degraded',
+          requested: 'mansard',
+          produced: 'hip',
+          reason: `skirt ring at ${skirtInset.toFixed(3)}m inward: ${skirt.reason ?? 'collapsed'} — a mansard needs a skirt ring and this footprint has none`,
+        };
         let midPts: Pt[];
-        if (ridge.length === 0) {
+        if (top.polygon.length < 3 || top.degenerate) {
           const [cx, cz] = centroid(eavePts);
           midPts = [[cx, cz]];
         } else {
-          midPts = ridge;
+          midPts = top.polygon as Pt[];
         }
         raw = buildMultiLevel({
           eavePts,
@@ -202,12 +255,23 @@ export const produceRoof: RoofProducer = (roof, _joinData, worldY) => {
           trimKey,
         });
       } else {
-        const finalTop = topPts.length >= 3 ? topPts : skirtPts;
+        // The skirt exists. If the TOP ring does not, the old code reused the
+        // skirt ring as the top — a mansard with a zero-depth cap, which is a
+        // hip with an extra crease, not a mansard. Same rule: build it, name it.
+        const topOk = top.polygon.length >= 3 && !top.degenerate;
+        if (!topOk) {
+          form = {
+            kind: 'degraded',
+            requested: 'mansard',
+            produced: 'mansard',
+            reason: `top ring at ${r.toFixed(3)}m inward: ${top.reason ?? 'collapsed'} — the cap reuses the skirt ring, so the upper pitch is degenerate`,
+          };
+        }
         raw = buildMultiLevel({
           eavePts,
-          midPts: skirtPts,
+          midPts: skirt.polygon as Pt[],
           midH: skirtH,
-          topPts: finalTop,
+          topPts: topOk ? (top.polygon as Pt[]) : (skirt.polygon as Pt[]),
           topH: ridgeH,
           thickness: roof.thickness,
           worldY,
@@ -220,7 +284,17 @@ export const produceRoof: RoofProducer = (roof, _joinData, worldY) => {
     }
   }
 
+  const diag = describeRoofFormResolution(form);
+  if (diag) console.warn(diag);
+
   const concat = concatRaw(raw);
-  const hash = composeRoofGeometryHash(roof, worldY);
+  // §W2A-ROOF-FORM-HONESTY — the resolution is folded into the hash. Without
+  // this, `RoofCommitter.onUpdate`'s `desc.hash === entry.descriptorHash` skip
+  // could conceal a roof that silently changed form. `encodeRoofFormResolution`
+  // returns '' for a faithful roof, so faithful hashes are unchanged.
+  const hash =
+    composeRoofGeometryHash(roof, worldY) +
+    encodeRoofFormResolution(form) +
+    (eaveDegradedReason ? '|EAVE-DEGRADED' : '');
   return serializeDescriptor(concat, hash);
 };

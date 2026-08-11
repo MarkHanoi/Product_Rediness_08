@@ -297,10 +297,24 @@ export class AIService implements AIServiceLike {
 
             if (walls.length === 0) throw new Error(`No walls found on highest level: ${highestLevel.name}`);
 
-            const region = WallRegionExtractor.extractOutermostRegion(walls);
-            if (!region) throw new Error("Walls do not form a closed region");
+            // §W2A-HULL-IS-NOT-A-PERIMETER (defect 5) — this used to call
+            // `extractOutermostRegion` and commit whatever came back. The extractor
+            // has ALWAYS known its output is a convex hull, and its own header has
+            // always said a convex hull cannot represent an L-shaped, U-shaped or
+            // courtyard building. Committing it anyway put roof over the notch and
+            // then fed that wrong ring into the eave and hip/mansard offsets, which
+            // elaborated it into a confidently wrong roof.
+            //
+            // The discriminated form REFUSES when the hull bridges open air, and the
+            // reason names the offending edge. `throw` is the correct channel here:
+            // this is the AI intent path, which already surfaces thrown reasons to
+            // the user, and the two lines below it already refused the same way.
+            const region = WallRegionExtractor.extractOutermostRegionResult(walls);
+            if (region.kind === 'refused') {
+                throw new Error(`Cannot create a roof by region: ${region.reason}`);
+            }
 
-            const rawPts: [number, number][] = region.map((p: any) => [p.x, p.y] as [number, number]);
+            const rawPts: [number, number][] = region.polygon.map((p: any) => [p.x, p.y] as [number, number]);
             let cx = 0, cz = 0;
             for (const [x, z] of rawPts) { cx += x; cz += z; }
             cx /= rawPts.length; cz /= rawPts.length;

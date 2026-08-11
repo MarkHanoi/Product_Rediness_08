@@ -3,6 +3,28 @@ import { QueryResult, AIServiceLike } from './AITypes.js';
 import { AIIntentType } from './intents.js';
 import { commandProposalStore, RemoveGridCommand } from '@pryzm/command-registry';
 import { decisionRecordStore } from '@pryzm/core-app-model';
+// §GATE-QUERYENGINE-READ-ONLY — the SAME guards the zero-token ladder uses.
+// Imported rather than re-implemented so the two rungs can never drift about
+// what counts as a question, a negation or a pasted report line.
+import { descriptiveReportReason, nonImperativeReason } from './capabilities/CapabilityRefusal.js';
+
+/**
+ * The refusal text, per reason. Each names BOTH halves: what the sentence was
+ * read as, AND why nothing was queued — then shows the imperative that WOULD
+ * work. C67/C68 doctrine is free-form language with hard stoppers; the stopper
+ * refuses out loud and hands the user the sentence that gets the job done,
+ * rather than narrowing what they are allowed to say.
+ */
+const NON_IMPERATIVE_REFUSAL: Record<string, string> = {
+    interrogative:
+        "That reads as a question about an action rather than an instruction to perform it, so I have not queued anything. If you do want it done, say it as a plain instruction — e.g. \"create 5 levels at 3m\" rather than \"should I create 5 levels at 3m?\".",
+    negated:
+        "You told me NOT to do that, so I have not queued anything. Nothing was changed and no action card was created.",
+    hypothetical:
+        "That reads as thinking-out-loud rather than an instruction, so I have not queued anything. Say it as a plain instruction when you want it done.",
+    descriptive:
+        "That looks like a report of something that already happened, not an instruction, so I have not queued anything. If you meant to ask for it again, say it as a plain instruction.",
+};
 
 /** Wave 5 Day 2 — single-cast typed window accessor (Pattern B/A shim). */
 function ws<T>(k: string): T | null { return ((window as unknown as Record<string, unknown>)[k] as T) ?? null; }
@@ -10,6 +32,19 @@ function ws<T>(k: string): T | null { return ((window as unknown as Record<strin
 type QueryPattern = {
     patterns: RegExp[];
     handler: (match: RegExpMatchArray, readModel: AIReadModel) => Promise<QueryResult>;
+    /**
+     * §GATE-QUERYENGINE-READ-ONLY — THE READ-ONLY CAPABILITY CLASS, declared.
+     *
+     * `true` means this block only READS: it answers from the read model and
+     * touches neither `commandProposalStore` nor the scene. Those blocks may
+     * serve a question, a negation or a pasted report line.
+     *
+     * ABSENT MEANS MUTATING, and that default is the point. A new pattern block
+     * added by someone who never read this header is treated as dangerous until
+     * it says otherwise — the safe direction to be wrong in. Opt-IN to safety,
+     * never opt-out of it.
+     */
+    readOnly?: true;
 };
 
 const COMMAND_FAMILY_HELP: Record<string, string> = {
@@ -60,14 +95,77 @@ export class QueryEngine {
         this._sceneAccessor = fn;
     }
 
+    /**
+     * §GATE-QUERYENGINE-READ-ONLY (RAC-FIX-1, 2026-08-11) — MEASURED, then fixed.
+     *
+     * THE DEFECT. `RAC-CONFORMANCE-SCORECARD-CATEGORIES-6-10.md` §1.1 proved the
+     * zero-token ladder clean on 38 adversarial read-only phrasings, and then
+     * said the honest thing about its own limit: **35 of the 38 ended as a
+     * `miss`**, and a miss does not stop — `AIPanel.ts:1654` forwards it HERE.
+     * This engine is not read-only. Several handlers push mutating
+     * `CommandProposal`s that `AIPanel.ts:1699-1703` renders as clickable cards.
+     * The P0 the ladder closed had moved downstream, and downstream had never
+     * been measured.
+     *
+     * `packages/ai-host/__tests__/queryEngineReadOnlyGate.test.ts` measured it.
+     * Result, executed against `main` before this change:
+     *
+     *   ✓ all 38 scorecard read-only phrasings   queued 0 proposals
+     *   × "what happens if I create 5 levels at 3m?"    queued a proposal
+     *   × "should I create 5 levels at 3m?"             queued a proposal
+     *   × "is it a good idea to make all slabs white?"  queued a proposal
+     *   × 'what does "add 3 levels at 3m" do?'          queued a proposal
+     *   × "do not create 5 levels at 3m"                queued a proposal
+     *   × "don't make all slabs white"                  queued a proposal
+     *   × "I was wondering whether to make all slabs white" queued a proposal
+     *
+     * Read the fifth and sixth rows again: **the literal opposite instruction
+     * queued the mutation.** The 38 were safe only because none of them happened
+     * to contain one of this table's regexes — luck, not a guard.
+     *
+     * THE CAUSE, and it is structural. `query()` was `input.match(re)` over a
+     * table of patterns, **almost none of them anchored**, with no guard of any
+     * kind. The three guards that stop exactly this at the ladder —
+     * `nonImperativeReason`, `descriptiveReportReason` — live in
+     * `CapabilityRefusal.ts`, which this file did not import. The ladder learned
+     * that a question is not an instruction; this rung never did.
+     *
+     * THE FIX. Every pattern block declares whether it is `readOnly`. A
+     * non-imperative utterance may reach ONLY read-only blocks. If it matched
+     * nothing but a mutating block, it gets an EXPLICIT REFUSAL naming BOTH what
+     * was recognised AND why nothing was queued — never a silent drop
+     * (§CONTEXT-DATA-HONESTY: failure and emptiness are never the same value)
+     * and never a narrowed vocabulary (C67/C68: open language, hard stoppers).
+     *
+     * WHY IT SCANS ON RATHER THAN REFUSING AT THE FIRST MUTATING MATCH: a
+     * question can match a mutating pattern early and a read-only pattern later
+     * ("what levels exist in the model" against the unanchored level patterns).
+     * Refusing at the first hit would have broken question answering to fix
+     * question answering.
+     */
     async query(input: string): Promise<QueryResult> {
+        // Non-imperative on the RAW input, before any matching — the same
+        // reading the ladder does, from the same functions, so the two rungs
+        // cannot disagree about what a question is.
+        const nonImperative =
+            descriptiveReportReason(input) !== null ? 'descriptive' : nonImperativeReason(input);
+
+        let blockedBy: RegExp | null = null;
         for (const pattern of this.queryPatterns) {
             for (const re of pattern.patterns) {
                 const match = input.match(re);
-                if (match) {
-                    return await pattern.handler(match, this.readModel);
+                if (!match) continue;
+                if (nonImperative !== null && pattern.readOnly !== true) {
+                    // Remember it and keep looking: a later READ-ONLY block may
+                    // be what the user actually asked for.
+                    blockedBy ??= re;
+                    continue;
                 }
+                return await pattern.handler(match, this.readModel);
             }
+        }
+        if (blockedBy !== null) {
+            return { query: input, answer: NON_IMPERATIVE_REFUSAL[nonImperative!] };
         }
         return { query: input, answer: "I'm not sure how to help with that yet." };
     }
@@ -312,6 +410,7 @@ export class QueryEngine {
     private initializePatterns(): QueryPattern[] {
         return [
             {
+                readOnly: true,
                 patterns: [
                     /^(?:show\s+)?all command families$/i,
                     /^command center$/i,
@@ -324,6 +423,7 @@ export class QueryEngine {
                 })
             },
             {
+                readOnly: true,
                 patterns: [
                     /^command help:\s*(.+)$/i,
                     /^show command family:\s*(.+)$/i,
@@ -342,6 +442,7 @@ export class QueryEngine {
                 }
             },
             {
+                readOnly: true,
                 patterns: [
                     /summari[sz]e (?:the )?(?:building )?model/i,
                     /model summary/i,
@@ -368,6 +469,7 @@ export class QueryEngine {
                 }
             },
             {
+                readOnly: true,
                 patterns: [
                     /what design decisions have been made/i,
                     /(?:show|list) (?:the )?design decisions/i,
@@ -398,6 +500,7 @@ export class QueryEngine {
                 }
             },
             {
+                readOnly: true,
                 patterns: [
                     /how many elements are in (?:the )?model/i,
                     /count elements/i,
@@ -417,6 +520,7 @@ export class QueryEngine {
                 }
             },
             {
+                readOnly: true,
                 patterns: [
                     /what levels exist in (?:the )?model/i,
                     /(?:show|list) levels/i,

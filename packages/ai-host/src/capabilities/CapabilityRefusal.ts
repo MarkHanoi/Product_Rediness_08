@@ -182,20 +182,178 @@ const VISIBILITY_SAFE_INTENTS: ReadonlySet<string> = new Set([
   'go-to-level', 'zoom-fit', 'zoom-selected', 'undo', 'redo',
 ]);
 
-/** Does this utterance open with a verb about VISIBILITY rather than change? */
+// ─── §FIX-CHAT-HIDE-IS-NOT-NAVIGATE (RAC-FIX-1, scorecard §1.2, founder P0) ──
+//
+// THE DEFECT, measured 2026-08-11 by `probe-categories-6-10.ts`:
+//
+//     LOCAL  7.5 hide level  "hide level 2"  → local intent=go-to-level action=setActiveLevel
+//     LOCAL  7.6 show level  "show level 2"  → local intent=go-to-level action=setActiveLevel
+//
+// TWO OPPOSITE ASKS, ONE OUTCOME, AND IT IS NEITHER OF THEM. Asking to hide a
+// level switched the camera to it and hid nothing, with no refusal.
+//
+// The cause is the allowlist directly above. `go-to-level` sits in
+// VISIBILITY_SAFE_INTENTS so that "show level 2" keeps working, and the guard
+// had no way to tell `show` from `hide`: `isVisibilityQueryOpener` answered a
+// single boolean for both. That is defensible for `show` — "show me level 2"
+// really is a navigation ask, and it is the shipped, working sentence. It is
+// NOT defensible for `hide`.
+//
+// THE FIX IS A CLASS, NOT TWO PATCHES. The opener now resolves to one of three
+// classes and the class decides what may be claimed:
+//
+//   'view-navigation'  show / reveal / go to / open / zoom — changing WHERE you
+//                      are looking satisfies the ask. May reach the allowlist.
+//   'visibility-change' hide / unhide / isolate / highlight / turn off — the ask
+//                      is about WHAT IS DRAWN. Changing where the camera points
+//                      can NEVER satisfy it, so this class may claim NOTHING at
+//                      the deterministic ladder. Not the allowlist, not
+//                      go-to-level, not a nearest-live-intent guess.
+//   'read-only-query'  select / filter / find / list / count — informational.
+//                      Unchanged: may reach the allowlist.
+//
+// WHY 'visibility-change' FALLS THROUGH RATHER THAN REFUSING. The obvious
+// alternative was an explicit refusal ("hiding isn't connected to chat yet").
+// It would have been a LIE, and the audit has been wrong three times today by
+// asserting absence without probing for it. `QueryEngine.ts:1339-1360` carries a
+// LIVE handler for exactly this sentence — `/(?:hide|turn off) level[s]? (.+)/i`
+// → `pryzm-visibility-command {action:'hide', target:'level'}` — and it has a
+// real consumer at `apps/editor/src/ui/ViewBrowser/panels/UnifiedBrowserPanel.ts:154`.
+// The ladder was not filling a gap; it was STANDING IN FRONT of the one path
+// that does the right thing. A refusal here would have manufactured the false
+// refusal that `capabilityGapRefusal`'s own header warns against — denying a
+// live ability — and would have removed a working capability to close a bug.
+//
+// So the honest fix is: stop claiming it. `hide level 2` becomes a miss, and a
+// miss reaches the handler that hides. What remains genuinely broken about that
+// path — it is not undoable, not persisted and not synced — is
+// `packages/visibility` work (scorecard §1.3, Agent B3), not resolver work, and
+// it is NOT closed by this change.
+
+/** Openers that are NEVER satisfied by changing what you are LOOKING AT. */
+const VISIBILITY_CHANGE_OPENER =
+  /^\s*(?:please\s+)?(?:hide|unhide|isolate|highlight|turn\s+off)\b/i;
+
+/** Openers whose ask IS a camera/level move.
+ *
+ *  Deliberately only `show` and `reveal` — the two verbs that were ALREADY
+ *  inside `VISIBILITY_OPENER`. `go to` / `open` / `zoom` were never gated by
+ *  this guard, and adding them here would silently extend the guard's reach to
+ *  sentences it has never judged. A fix for `hide` is not a licence to start
+ *  policing `open`. */
+const VIEW_NAVIGATION_OPENER = /^\s*(?:please\s+)?(?:show|reveal)\b/i;
+
+/** Which of the three visibility-adjacent classes this utterance opens in. */
+export type VisibilityAskClass = 'view-navigation' | 'visibility-change' | 'read-only-query';
+
+/**
+ * The read-only / visibility capability class, as a function of the utterance.
+ * `null` means the sentence is not in this family at all.
+ *
+ * Order matters: `visibility-change` is tested FIRST, so a sentence that opens
+ * with both a hide word and a show word ("hide everything and show level 2")
+ * is classified by the ask that cannot be satisfied by navigation.
+ */
+export function visibilityAskClass(raw: string): VisibilityAskClass | null {
+  const text = raw.trim();
+  if (VISIBILITY_CHANGE_OPENER.test(text)) return 'visibility-change';
+  if (VIEW_NAVIGATION_OPENER.test(text)) return 'view-navigation';
+  if (VISIBILITY_OPENER.test(text)) return 'read-only-query';
+  return null;
+}
+
+/** Does this utterance open with a verb about VISIBILITY rather than change?
+ *  Unchanged in reach — `visibilityAskClass` splits what this returns true for,
+ *  it does not widen it. */
 export function isVisibilityQueryOpener(raw: string): boolean {
   return VISIBILITY_OPENER.test(raw.trim());
 }
 
 /**
  * Must this (utterance, intent) pair be refused because a visibility verb is
- * reaching for a mutation? Exported so the tier-0/1 resolver, the NL layer and
- * the plan executor share ONE definition — a guard only half the ladder
- * honours is not a guard.
+ * reaching for something that cannot satisfy it? Exported so the tier-0/1
+ * resolver, the NL layer and the plan executor share ONE definition — a guard
+ * only half the ladder honours is not a guard.
  */
 export function visibilityMisreadReason(raw: string, intent: string): 'visibility' | null {
-  if (!isVisibilityQueryOpener(raw)) return null;
+  const cls = visibilityAskClass(raw);
+  if (cls === null) return null;
+  // §FIX-CHAT-HIDE-IS-NOT-NAVIGATE — the class that the allowlist cannot help.
+  // `hide`/`isolate` claim NOTHING here, including the view-changing intents.
+  if (cls === 'visibility-change') return 'visibility';
   return VISIBILITY_SAFE_INTENTS.has(intent) ? null : 'visibility';
+}
+
+// ─── §FIX-CHAT-PROPERTY-REMOVAL-IS-NOT-DELETE (scorecard §1.4, P0) ──────────
+//
+// THE DEFECT, measured 2026-08-11:
+//
+//     COMMANDS  8.3  "remove the material from this wall"
+//                    → commands[element.delete] intent=delete-selected
+//
+// A question about a wall's MATERIAL routed to a DESTRUCTIVE DELETE OF THE WALL.
+// The only thing between the user and a deleted wall was the destructive Confirm
+// card — a card that correctly says "delete", so a user who reads it is safe and
+// a user who does not loses a wall by asking about its finish. A confirmation
+// dialog is a mitigation, never a resolver guard (C68 §5.j).
+//
+// The mechanism: `LocalNaturalLanguageResolver` normalizes "remove" → "delete",
+// then `hasDeleteVerb && elementNoun('wall') && selectionRef('this')` pushes
+// `delete-selected` at confidence 0.95. Nothing looked at what the OBJECT of the
+// verb was. In "remove the material from this wall", the object is `material`;
+// `this wall` is the PREPOSITIONAL COMPLEMENT — the thing the property is being
+// removed FROM, not the thing being removed.
+//
+// The gate is that grammatical fact, and it lives HERE, at the ladder level,
+// rather than inside the delete matcher — because every intent reachable from
+// "a delete verb plus an element noun" has the identical weakness, and one gate
+// no grammar can bypass is the only honest fix (the same reasoning as
+// §FIX-CHAT-REPORT-PASTEBACK).
+//
+// WHAT HAPPENS INSTEAD. The sentence becomes a miss at the delete branch and
+// reaches `capabilityGapRefusal`, which already knows `material` is an
+// UNCONNECTED_TOPIC and that the kind is `wall` — so the user gets
+// "Wall material isn't connected to chat yet. I can change wall <live props>."
+// An explicit refusal that names the gap AND what IS connected, which is what
+// C68 §5.g asks for and strictly better than a destructive misread.
+//
+// VOCABULARY IS NOT NARROWED. "delete the selected wall", "remove all grids",
+// "delete this room" are untouched — none of them has a PROPERTY word in object
+// position. The guard fires only on `<removal verb> <property> from|of|on <…>`.
+
+/** Property nouns a user can ask to remove FROM an element. Deliberately wider
+ *  than the live capability set: the point is to recognise that the object is a
+ *  PROPERTY, not to decide whether we can change it — `capabilityGapRefusal`
+ *  owns that second question and answers it honestly. */
+const PROPERTY_OBJECT_WORDS = [
+  'colou?rs?', 'paint', 'tint', 'shade',
+  'materials?', 'finish(?:es)?', 'textures?', 'cladding',
+  'opacity', 'transparency',
+  'heights?', 'thicknesss?', 'widths?', 'depths?', 'lengths?', 'sizes?',
+  'types?', 'systems? types?', 'marks?', 'names?', 'numbers?',
+  'classifications?', 'properties', 'property', 'parameters?', 'attributes?',
+  'layers?', 'ratings?', 'offsets?', 'pitch',
+].join('|');
+
+/**
+ * The verbs that mean "take this away". `remove` is the one that caused the
+ * defect, but `delete`/`clear`/`strip`/`take off` reach the same branch and a
+ * guard that only knew about `remove` would be a patch, not a class.
+ */
+const PROPERTY_REMOVAL_SHAPE = new RegExp(
+  String.raw`^\s*(?:please\s+)?(?:remove|delete|clear|strip|take\s+off|get\s+rid\s+of)\s+` +
+  String.raw`(?:the\s+|its\s+|all\s+(?:the\s+)?)?(?:${PROPERTY_OBJECT_WORDS})\b\s*` +
+  String.raw`(?:from|of|on|for)\b`,
+  'i',
+);
+
+/**
+ * Is the OBJECT of this removal a PROPERTY rather than an element? Exported so
+ * the tier-0 grammar and the NL classifier cannot disagree about what the user
+ * asked to remove.
+ */
+export function propertyRemovalReason(raw: string): 'property-not-element' | null {
+  return PROPERTY_REMOVAL_SHAPE.test(raw.trim()) ? 'property-not-element' : null;
 }
 
 // ─── Topics the chat is known NOT to drive ───────────────────────────────────

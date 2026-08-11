@@ -33,12 +33,13 @@
 // recorded on a span.
 
 import { trace, type Tracer } from '@opentelemetry/api';
-import { nonImperativeReason, visibilityMisreadReason } from '../capabilities/CapabilityRefusal.js';
+import { nonImperativeReason } from '../capabilities/CapabilityRefusal.js';
 import {
   applySemanticIntent,
   boundedLevenshtein,
   findLevel,
   isProtectedFunctionWord,
+  ladderGateReason,
   lengthToMeters,
   parseDuplicateLevelIntent,
   parseAddWallLayerIntent,
@@ -1362,11 +1363,14 @@ export function resolveNaturalLanguage(
           // §FIX-CHAT-VISIBILITY-MISREAD — the NL layer is where the founder's
           // "highlight walls taller than 3m" actually landed, so the ladder
           // gate has to hold here too, on the RAW utterance.
-          if (
-            best.si !== undefined &&
-            visibilityMisreadReason(utterance, best.si.intent) !== null
-          ) {
-            result = miss(['visibility-query']);
+          // §FIX-CHAT-HIDE-IS-NOT-NAVIGATE / §FIX-CHAT-PROPERTY-REMOVAL-IS-NOT-
+          // DELETE — the NL layer is where BOTH measured misreads actually
+          // landed ("hide level 2" → go-to-level at 0.8; "remove the material
+          // from this wall" → delete-selected at 0.95), so the shared ladder
+          // gate has to hold here too, on the RAW utterance.
+          const gate = best.si !== undefined ? ladderGateReason(utterance, best.si.intent) : null;
+          if (gate !== null) {
+            result = miss([gate === 'visibility' ? 'visibility-query' : 'property-not-element']);
           } else if (best.si !== undefined && confidence >= resolveFloor) {
             const applied = applySemanticIntent(best.si, ctx);
             const resolution: Exclude<ZeroTokenResolution, { kind: 'miss' }> =

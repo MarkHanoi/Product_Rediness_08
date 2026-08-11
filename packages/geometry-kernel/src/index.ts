@@ -37,6 +37,38 @@ export {
   type WindowWorldPlacement,
 } from './producers/window.js';
 export { produceRoof, type RoofProducer } from './producers/roof.js';
+// §W2A-ONE-OFFSET — THE polygon offset. `geometry-roof` re-exports this module;
+// there is deliberately no second implementation anywhere in the repo (gated by
+// `tools/ga-gate/check-offset-implementations.ts`).
+export {
+  offsetPolygon,
+  offsetPolygonOrSelf,
+  findSelfIntersection,
+  signedArea as polygonSignedArea2D,
+  dedupeRing,
+  FOLD_CHECK_MAX_VERTS,
+  type OffsetResult,
+  type Pt2,
+} from './pure/polygonOffset.js';
+// §W2A-ROOF-FORM-HONESTY — the PRE-FLIGHT, exported so a command handler can
+// refuse IN FRONT OF THE USER before committing, instead of the user discovering
+// afterwards that the mansard they asked for was built as a hip.
+//
+// ⚠ AUTHORED, REACHABLE, AND STILL UNWIRED — stated so it is not mistaken for a
+// closed loop. `canProduceRoofForm` has NO CALLER today. Until a roof command
+// handler calls it, the only honesty in the shipping path is after-the-fact:
+// `produceRoof` logs the substitution and folds it into the geometry hash, so a
+// degraded roof can no longer be hash-identical to a faithful one — but nothing
+// refuses in front of the user, and nothing reads
+// `geo.userData.pryzmRoofDegraded` either. Wiring that refusal is a
+// user-visible behaviour change (C67/C68 territory) and is deliberately NOT
+// done here.
+export {
+  canProduceRoofForm,
+  describeRoofFormResolution,
+  encodeRoofFormResolution,
+  type RoofFormResolution,
+} from './producers/_internal/roof/roofFormResolution.js';
 export { produceSlab, type SlabProducer } from './producers/slab.js';
 export {
   composeSlabGeometryHash,

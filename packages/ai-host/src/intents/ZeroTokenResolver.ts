@@ -34,6 +34,7 @@ import {
 import {
   describeCapabilitiesFor,
   descriptiveReportReason,
+  propertyRemovalReason,
   visibilityMisreadReason,
 } from '../capabilities/CapabilityRefusal.js';
 // RAC U4 — the spec-driven capability interpreter: batch-shaped capabilities
@@ -3293,6 +3294,34 @@ function runGrammar(text: string, ctx: ResolverContext, tier: 0 | 1): ZeroTokenR
  * would hit). NOT spanned: it is a helper on the resolve path, and the caller's
  * `pryzm.ai.chat.resolve` span already covers the utterance.
  */
+/**
+ * THE LADDER GATES, in one place — the (utterance, intent) pairs no grammar on
+ * any rung may claim, whatever its confidence. Exported so the tier-0/1 path,
+ * the NL classifier and the plan executor consult ONE list; a gate that only
+ * half the ladder honours is not a gate.
+ *
+ *  • 'visibility' — §FIX-CHAT-VISIBILITY-MISREAD and
+ *    §FIX-CHAT-HIDE-IS-NOT-NAVIGATE. A visibility verb may claim only intents
+ *    that change the view, and `hide`/`isolate`/`highlight` may claim none.
+ *  • 'property-not-element' — §FIX-CHAT-PROPERTY-REMOVAL-IS-NOT-DELETE.
+ *    "remove the material from this wall" resolved to `element.delete`. Scoped
+ *    to the delete family: the guard exists to stop a PROPERTY ask reaching a
+ *    DESTRUCTIVE intent, not to police every sentence containing "remove".
+ */
+export function ladderGateReason(
+  utterance: string,
+  intent: string,
+): 'visibility' | 'property-not-element' | null {
+  if (visibilityMisreadReason(utterance, intent) !== null) return 'visibility';
+  if (
+    (intent === 'delete-selected' || intent === 'delete-families') &&
+    propertyRemovalReason(utterance) !== null
+  ) {
+    return 'property-not-element';
+  }
+  return null;
+}
+
 export function resolveUtteranceIntent(utterance: string, ctx: ResolverContext): SemanticIntent | null {
   const text = normalize(utterance);
   if (text.length === 0 || descriptiveReportReason(utterance) !== null) return null;
@@ -3301,7 +3330,7 @@ export function resolveUtteranceIntent(utterance: string, ctx: ResolverContext):
   // and a measurement, which was all the dimension family ever needed, and it
   // dispatched wall.updateDimensions on a read-only question.
   const claimed = (si: SemanticIntent | null): SemanticIntent | null =>
-    si !== null && visibilityMisreadReason(utterance, si.intent) !== null ? null : si;
+    si !== null && ladderGateReason(utterance, si.intent) !== null ? null : si;
   const t0 = claimed(runGrammarIntent(text, ctx));
   if (t0 !== null) return t0;
   const t1 = tier1Normalize(text);
@@ -3330,7 +3359,7 @@ export function resolveUtterance(utterance: string, ctx: ResolverContext): ZeroT
         // §FIX-CHAT-VISIBILITY-MISREAD — the same gate on the APPLIED path, so
         // the two entry points cannot disagree about what a visibility verb is
         // allowed to claim.
-        if (r !== null && r.kind !== 'miss' && visibilityMisreadReason(utterance, r.intent) !== null) {
+        if (r !== null && r.kind !== 'miss' && ladderGateReason(utterance, r.intent) !== null) {
           r = null;
         }
         result = r ?? { kind: 'miss' };

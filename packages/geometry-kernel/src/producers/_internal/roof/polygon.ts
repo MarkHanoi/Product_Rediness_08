@@ -117,71 +117,58 @@ export function nearestIdx(pts: readonly Pt[], x: number, z: number): number {
   return best;
 }
 
-/** Expand polygon outward from its centroid by distance d.
- *  Centroid-based — works correctly for convex polygons; for concave
- *  polygons it approximates the offset.  Mirrors PRYZM 1's
- *  `_applyOverhang` (RoofGeometryBuilder.ts:750-759). */
-export function applyOverhang(pts: readonly Pt[], d: number): Pt[] {
-  if (d <= 0) return pts.slice();
-  const [cx, cz] = centroid(pts);
-  return pts.map(([x, z]): Pt => {
-    const dx = x - cx, dz = z - cz;
-    const len = Math.sqrt(dx * dx + dz * dz) || 1;
-    return [x + (dx / len) * d, z + (dz / len) * d];
-  });
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// §W2A-ONE-OFFSET — `applyOverhang` and `shrinkPolygon` USED TO LIVE HERE.
+// They are DELETED, not deprecated. Use `offsetPolygon` /
+// `offsetPolygonOrSelf` from `../../../pure/polygonOffset.js`.
+//
+// WHY, measured against an INDEPENDENT oracle (perpendicular distance at every
+// edge midpoint of the result; a centroid scale pulls back in proportion to
+// distance from the centre, so the min–max SPREAD is the discriminator):
+//
+//   `applyOverhang` was a CENTROID RADIAL DILATION sold as a parallel offset.
+//   For a requested 300 mm eave it delivered
+//       square 10×10     212.13 mm            (spread   0.00 mm)
+//       elongated 40×4    29.85 … 298.51 mm   (spread 268.66 mm)
+//       L-shape          121.77 … 260.96 mm   (spread 139.19 mm)
+//       U-shape          183.24 … 228.13 mm   (spread  44.89 mm)
+//       cadastral arc    204.48 … 297.20 mm   (spread  92.71 mm)
+//   Quality bar (L-825 floor-finish fix): spread ≤ 0.1 mm. It failed every
+//   fixture. THIS was the copy wired into `plugins/roof`'s committer, so this
+//   is the geometry users have been getting.
+//
+//   `shrinkPolygon` looked healthier and was worse in a more dangerous way:
+//     • line 164's `if (|det| < 1e-8) continue` DELETED the vertex at every
+//       near-parallel corner and still returned success. ⚠ AN EARLIER DRAFT OF
+//       THIS BLOCK PUT THAT AT "49% of vertices on real cadastral rings". THAT
+//       NUMBER IS WRONG AND IS RETRACTED. It was borrowed from
+//       `site-parcel-data/src/geometry/insetPolygon.ts:437`, where 49% is the
+//       share of cadastral vertices that turn by less than ONE DEGREE — a
+//       statistic about ring SHAPE, not a deletion rate. `|det| < 1e-8` is a
+//       turn of ~6e-7 degrees, six orders of magnitude tighter. Re-measured
+//       against the HEAD implementation over tessellated-arc fixtures at
+//       24/60/120/360/1000/4000 segments: the loss is 1–3 vertices in ABSOLUTE
+//       terms (10.0% of a 30-vertex ring, 0.1% of a 1006-vertex one) and it
+//       FALLS with density. The defect is real — vertices are silently deleted
+//       and the result is still reported as success — but it is a
+//       collinear-run defect, not a proportional one. Do not restate 49%;
 
-/** Shrink polygon inward by distance d using edge-shifting (straight-
- *  skeleton step).  Inward normal of each CCW polygon edge is shifted
- *  by d, then adjacent shifted lines are intersected to find new
- *  vertex positions.  Mirrors PRYZM 1's `_shrinkPolygon`
- *  (RoofGeometryBuilder.ts:768-812).  Returns `[]` if fully degenerate. */
-export function shrinkPolygon(pts: readonly Pt[], d: number): Pt[] {
-  if (d <= 0) return pts.slice();
-  const ccw = ensureCCW(pts);
-  const n = ccw.length;
-  if (n < 3) return [];
-
-  // Inward-shifted line for each edge: a·x + b·z = c
-  const lines: { a: number; b: number; c: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    const [x1, z1] = ccw[i]!;
-    const [x2, z2] = ccw[(i + 1) % n]!;
-    const dx = x2 - x1, dz = z2 - z1;
-    const len = Math.sqrt(dx * dx + dz * dz);
-    if (len < 1e-10) { lines.push({ a: 0, b: 0, c: 0 }); continue; }
-    // Inward normal for CCW polygon: (-dz, dx) / len
-    const nx = -dz / len, nz = dx / len;
-    lines.push({ a: nx, b: nz, c: nx * x1 + nz * z1 + d });
-  }
-
-  // Intersect adjacent shifted lines to find new vertex positions.
-  const newPts: Pt[] = [];
-  for (let i = 0; i < n; i++) {
-    const l1 = lines[i]!;
-    const l2 = lines[(i + 1) % n]!;
-    const det = l1.a * l2.b - l2.a * l1.b;
-    if (Math.abs(det) < 1e-8) continue; // parallel edges → vertex collapsed
-    const x = (l1.c * l2.b - l2.c * l1.b) / det;
-    const z = (l1.a * l2.c - l2.a * l1.c) / det;
-    newPts.push([x, z]);
-  }
-
-  if (newPts.length < 2) return [];
-
-  // Sanity filter — keep only points reasonably inside the original.
-  const [cx, cz] = centroid(ccw);
-  const maxOrigDistSq = ccw.reduce((m, [x, z]) => {
-    const e = (x - cx) * (x - cx) + (z - cz) * (z - cz);
-    return e > m ? e : m;
-  }, 0);
-  const filtered = newPts.filter(([x, z]) => {
-    const dist2 = (x - cx) * (x - cx) + (z - cz) * (z - cz);
-    return dist2 <= maxOrigDistSq * 1.1; // 10% slack matches PRYZM 1
-  });
-
-  return filtered.length >= 2 ? filtered : [];
-}
+//     • its only gate was `dist² ≤ maxOrigDistSq · 1.1`, a CENTROID-RADIUS
+//       test that is blind to shape, to folds and to winding inversion;
+//     • `filtered.length >= 2` was returned as SUCCESS. A 2-vertex "polygon"
+//       is not a polygon.
+//   Measured at the depth the LIVE hip branch actually calls it
+//   (`shrinkPolygon(eave, inradius)`): on a 10×10 square it returned FOUR
+//   vertices that had all collapsed onto the centre, as success, so the hip
+//   branch never took its `ridgePts.length === 0 → apex pyramid` path; on the
+//   U-shape it returned eight vertices whose perpendicular distance ranged
+//   over 1000 mm for a 3000 mm request, i.e. the arms had inverted. The
+//   replacement REFUSES both ('offset collapsed the ring' / 'offset inverted
+//   the ring winding').
+//
+// DO NOT REINTRODUCE EITHER FUNCTION HERE.
+// Gated by `tools/ga-gate/check-offset-implementations.ts`.
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Deduplicate consecutive coincident vertices (within 1e-6).  Used by
  *  builders that may collapse vertices after a clamp. */

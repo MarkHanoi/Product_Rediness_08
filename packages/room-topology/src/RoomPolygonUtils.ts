@@ -207,6 +207,46 @@ export function pointInPolygon(px: number, pz: number, polygon: RoomVertex[]): b
  *                   the edge starting at `polygon[i]`. Length MUST equal
  *                   `polygon.length`. Missing/NaN entries are treated as 0.
  */
+/**
+ * §W2A-INSET-DISCRIMINATED (defect 6) — the honest return type.
+ *
+ * ⚠ `insetPolygonToInnerFaces` signals its fail-safe by RETURNING THE SAME ARRAY
+ * REFERENCE it was given, and `deriveRoomFinishBoundary` detected that with
+ * `inner !== ring` — ARRAY REFERENCE IDENTITY. That works today and is a
+ * landmine: any refactor that adds a `.map`, a spread, a `structuredClone` or a
+ * memo layer anywhere between the two turns EVERY fallback into a silent
+ * success, and the caller ships an oversized centreline floor believing it is an
+ * inner-face inset. Nothing would fail; the floors would just start overlapping
+ * their walls again (the L-240 defect).
+ *
+ * Callers should prefer `insetPolygonToInnerFacesResult`, which SAYS what
+ * happened instead of encoding it in an object identity.
+ */
+export type InsetOutcome =
+  | { readonly kind: 'inset'; readonly polygon: RoomVertex[] }
+  | { readonly kind: 'fallback'; readonly polygon: RoomVertex[]; readonly reason: string };
+
+/**
+ * The discriminated form of `insetPolygonToInnerFaces`. Same geometry, but the
+ * fail-safe is a TAG rather than a reference. Prefer this in new code.
+ */
+export function insetPolygonToInnerFacesResult(
+  polygon: RoomVertex[],
+  edgeInsets: number[],
+  onDiag?: (line: string) => void,
+): InsetOutcome {
+  const out = insetPolygonToInnerFaces(polygon, edgeInsets, onDiag);
+  if (out !== polygon) return { kind: 'inset', polygon: out };
+  return {
+    kind: 'fallback',
+    polygon: out,
+    reason:
+      polygon.length < 3
+        ? `ring has ${polygon.length} vertices (<3)`
+        : 'every inset attempt was rejected (spike / inversion / bow-tie / collapse) — the centreline ring was returned unchanged',
+  };
+}
+
 export function insetPolygonToInnerFaces(
   polygon: RoomVertex[],
   edgeInsets: number[],
@@ -1201,27 +1241,67 @@ export function deriveRoomFinishBoundary(
     return centreline;
   }
 
-  const inner = insetPolygonToInnerFaces(ring, insets, onDiag);
-  const ok = inner !== ring; // util returns the SAME array ref on fail-safe.
-  // §FLOOR-INSET-VALIDATE — the util can return a DIFFERENT array that is nonetheless
-  // DEGENERATE (near-collapsed ring) on an odd / rotated room polygon; `inner !== ring`
-  // only catches its EXPLICIT same-ref fail-safe. A wall-half-thickness inset (~0.1 m)
-  // trims only a few % of area, so a >50% drop (or sign flip → ~0 area, or <3 verts)
-  // means the inset folded → fall back to the centreline polygon (always a valid simple
-  // ring from room detection / graph).
+  // §W2A-INSET-DISCRIMINATED (defect 6, part 1) — was `inner !== ring`, ARRAY
+  // REFERENCE IDENTITY. See `InsetOutcome` for why that was a landmine: one
+  // `.map`/spread/memo anywhere on this line's data path would have turned every
+  // fallback into a silent success. The outcome is now a TAG.
+  const outcome = insetPolygonToInnerFacesResult(ring, insets, onDiag);
+  const inner = outcome.polygon;
+  const ok = outcome.kind === 'inset';
+
   const innerArea = polygonAreaM2(inner);
   const baseArea = polygonAreaM2(centreline);
-  const insetSane = ok && inner.length >= 3 && baseArea > 0 && innerArea >= 0.5 * baseArea;
   const maxInset = insets.reduce((m, v) => Math.max(m, v), 0);
-  // §FIX-FLOOR-FINISH-CURVED-COVERAGE (founder 2026-08-10) — REPORT THE MEASURED PULLBACK,
-  // not just the area. The area check is blind to SHAPE: the centroid-shrink fall-back this
-  // fix deleted lost 5.9 % of area (exactly what the correct inset loses) while gapping
-  // 540 mm at one end of the room and overshooting 40 mm at the middle — and it was logged
-  // as `inner-face ✓`. A single number that would have caught it is the SPREAD of the
-  // per-edge pullback: a true inset holds it at the wall half-thickness everywhere.
+
+  // §W2A-SPREAD-IS-THE-GATE (defect 6, part 2) — THE LOAD-BEARING CHANGE.
+  //
+  // The gate used to be `innerArea >= 0.5 * baseArea`, and the spread below was
+  // computed on the very next line and only PRINTED. That is the wrong invariant
+  // on the wrong object: an area RATIO is blind to SHAPE. The centroid-shrink
+  // fall-back that §FIX-FLOOR-FINISH-CURVED-COVERAGE deleted lost 5.9% of area —
+  // exactly what the correct inset loses, so it sailed through a 50% area gate —
+  // while gapping 540 mm at one end of the room and overshooting 40 mm at the
+  // middle. It was logged as `inner-face ✓`.
+  //
+  // The right invariant is the one the geometry actually claims: a true inset
+  // holds the perpendicular pullback at the wall half-thickness EVERYWHERE, so
+  // max − min must be ~0. `_measurePullbackSpread` already computed it. Promote
+  // it. (Same discriminator, same reasoning and the same 0.1 mm quality bar as
+  // the W2-A roof-offset oracle: a shape-preserving offset holds its distance;
+  // a scale cannot.)
+  //
+  // TOLERANCE, and why it is not 0.1 mm here: this ring is DELIBERATELY mixed —
+  // door runs sit on the centreline (inset 0) while solid runs pull back by the
+  // wall half-thickness — so the honest spread of a CORRECT boundary is
+  // `maxInset`, not zero. The gate therefore allows the pullback to range over
+  // [0, maxInset] with a tolerance, and catches only excursions BEYOND what any
+  // edge asked for. That is what the 540 mm gap and the 40 mm overshoot were.
+  // MIDPOINTS, not vertices — see `_measurePullbackSpreadAtMidpoints` for why
+  // gating on the vertex measurement rejects a correct L-shaped inset.
+  const spreadAll = _measurePullbackSpreadAtMidpoints(centreline, inner);
+  const SPREAD_TOL = 0.005; // 5 mm — well under the 40 mm smallest observed defect
+  const pullbackSane =
+    ok &&
+    inner.length >= 3 &&
+    spreadAll.max <= maxInset + SPREAD_TOL &&
+    spreadAll.min >= -SPREAD_TOL;
+
+  // The area test is KEPT as a second, independent gate — it catches a total
+  // collapse that happens to hold its distances. Neither subsumes the other.
+  const areaSane = ok && inner.length >= 3 && baseArea > 0 && innerArea >= 0.5 * baseArea;
+  const insetSane = areaSane && pullbackSane;
+
   const spread = _measurePullbackSpread(centreline, insetSane ? inner : centreline);
+  const why = insetSane
+    ? 'inner-face ✓'
+    : !ok
+      ? `centreline ⚠ (inset REFUSED: ${outcome.kind === 'fallback' ? outcome.reason : 'unknown'})`
+      : !areaSane
+        ? `centreline ⚠ (inset DEGENERATE by area: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)`
+        : `centreline ⚠ (inset DEGENERATE by SHAPE: pullback ranged ${(spreadAll.min * 1000).toFixed(0)}..${(spreadAll.max * 1000).toFixed(0)}mm ` +
+          `but no edge asked for more than ${(maxInset * 1000).toFixed(0)}mm — the ring held its AREA while losing its SHAPE)`;
   onDiag?.(
-    `boundary=${insetSane ? 'inner-face ✓' : (ok ? `centreline ⚠ (inset DEGENERATE: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)` : 'centreline ⚠ (inset collapsed)')} ` +
+    `boundary=${why} ` +
     `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps} ` +
     `pullback=${(spread.min * 1000).toFixed(0)}..${(spread.max * 1000).toFixed(0)}mm`,
   );
@@ -1338,6 +1418,38 @@ export function ringsCoincide(
  * SOURCE ring (the ring is a polyline, so this is a true perpendicular distance and works
  * even when the derivation changed the vertex count). Pure, O(n·m); n,m ≤ 256.
  */
+/**
+ * §W2A-SPREAD-IS-THE-GATE — the same measurement taken at EDGE MIDPOINTS of the
+ * derived ring instead of at its VERTICES. This is the one the GATE uses.
+ *
+ * ⚠ THE OBJECT MATTERS AS MUCH AS THE INVARIANT — this function exists because
+ * gating on the vertex-based measurement above was WRONG, and measurably so. At
+ * a corner the distance from ∂source is legitimately greater than the inset: on
+ * a 90° corner inset by 100 mm the corner vertex sits 141 mm from the source
+ * boundary (100·√2), which is exactly right and not a defect. The first cut of
+ * this gate rejected the correct inset of a plain L-shaped room for precisely
+ * that reason and fell the room back to its centreline — i.e. it would have
+ * REINTRODUCED the L-240 overshoot in the name of fixing it.
+ *
+ * Midpoints carry no corner term, so on a true inset they read the inset
+ * distance and nothing else. Same reason the W2-A roof-offset oracle samples
+ * midpoints rather than vertices.
+ */
+function _measurePullbackSpreadAtMidpoints(
+  source: ReadonlyArray<RoomVertex>,
+  derived: ReadonlyArray<RoomVertex>,
+): { min: number; max: number } {
+  if (derived.length < 3) return { min: 0, max: 0 };
+  const mids: RoomVertex[] = [];
+  for (let i = 0; i < derived.length; i++) {
+    const a = derived[i]!, b = derived[(i + 1) % derived.length]!;
+    if (Math.hypot(b.x - a.x, b.z - a.z) < 1e-9) continue;
+    mids.push({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 });
+  }
+  if (mids.length === 0) return { min: 0, max: 0 };
+  return _measurePullbackSpread(source, mids);
+}
+
 function _measurePullbackSpread(
   source: ReadonlyArray<RoomVertex>,
   derived: ReadonlyArray<RoomVertex>,

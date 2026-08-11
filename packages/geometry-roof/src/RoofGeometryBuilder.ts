@@ -2,7 +2,12 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { RoofData, SlopeArrow } from './RoofTypes.js';
 import { gableRidge, isConvexPolygon } from './roofRidgeAxis.js';
 import { decomposeInPrincipalFrame, rotatePolyXZ, rectToPolygon, type Pt2 } from './roofDecompose.js';
-import { offsetPolygonOrSelf, type Pt2 as OffsetPt2 } from './pure/polygonOffset.js';
+// `offsetPolygon` (strict, returns a discriminated OffsetResult) is used by
+// `_shrinkPolygon`, which must be able to REFUSE; `offsetPolygonOrSelf` is the
+// lenient outward variant. Both come from the single canonical implementation in
+// @pryzm/geometry-kernel — see tools/ga-gate/check-offset-implementations.ts (R3),
+// which is pinned at 0 rivals.
+import { offsetPolygon, offsetPolygonOrSelf, type Pt2 as OffsetPt2 } from './pure/polygonOffset.js';
 import { pitchedRingsFromOffsets, type PitchedRingStack } from './pure/pitchedFromOffsets.js';
 
 type Pt = [number, number]; // [x, z] in level-local space
@@ -30,7 +35,77 @@ export class RoofGeometryBuilder {
     // ROUTER (§3.1)
     // ──────────────────────────────────────────────────────────────────────────
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // §W2A-ROOF-FORM-HONESTY — ADR-0299 §RECOVERY-MUST-REFUSE, applied to form.
+    //
+    // Every branch below that CANNOT build the requested roof — a mansard whose
+    // skirt ring collapsed, a pitched roof on a footprint that admits no inward
+    // offset, an eave offset that degenerated to zero overhang — used to return
+    // an ordinary `THREE.BufferGeometry` with nothing but (at best) a console
+    // line. The geometry was then dimensioned, scheduled and taken off as an
+    // authoritative answer to a question it did not answer.
+    //
+    // The console is not a channel: nothing downstream can read it. `userData`
+    // IS one — it survives to the committer, the inspector and any QA probe — so
+    // a degraded roof now CARRIES ITS OWN REFUSAL:
+    //
+    //     geo.userData.pryzmRoofDegraded : true
+    //     geo.userData.pryzmRoofDegradations : string[]   // every reason, in order
+    //
+    // ⚠ Read `pryzmRoofDegraded` before treating a roof as authoritative.
+    //
+    // DETERMINISM (ADR-0061): the accumulator is reset at the OUTERMOST
+    // `generate()` only (`_genDepth`), so the recursive segment/wing builds
+    // contribute their reasons to the same list instead of clearing it. JS is
+    // single-threaded and no `await` occurs inside a build, so this cannot
+    // interleave across two roofs.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private static _degradations: string[] = [];
+    private static _genDepth = 0;
+
+    /** Record a reason the produced roof is NOT the requested roof. */
+    private static _noteDegradation(reason: string): void {
+        this._degradations.push(reason);
+        console.warn(`[geometry-roof] §DIAG-ROOF §W2A-ROOF-FORM-HONESTY ${reason}`);
+    }
+
+    /**
+     * §W2A DEFECT 3 — the ONE place a pitched roof may become a flat one.
+     *
+     * There were SEVEN bare `return this.generateFlat(data)` fallbacks plus the
+     * concave/no-inward-offset branch. A flat plane where a gable was requested
+     * is not a degraded gable, it is a different building — and it was returned
+     * as an ordinary geometry. Routing them through here means a flat roof that
+     * is a SUBSTITUTION can always be told apart from a flat roof that was ASKED
+     * FOR (`roofType === 'flat'` takes the direct path and records nothing).
+     */
+    private static _degradeToFlat(data: Readonly<RoofData>, reason: string): THREE.BufferGeometry {
+        if (data.roofType !== 'flat') {
+            this._noteDegradation(
+                `requestedForm=${data.roofType} producedForm=flat — ${reason}. The committed ` +
+                `roof is a FLAT slab; do not read it as a ${data.roofType}.`,
+            );
+        }
+        return this.generateFlat(data);
+    }
+
     static generate(data: Readonly<RoofData>): THREE.BufferGeometry {
+        if (this._genDepth === 0) this._degradations = [];
+        this._genDepth++;
+        try {
+            const geo = this._generateInner(data);
+            if (this._genDepth === 1 && this._degradations.length > 0) {
+                geo.userData.pryzmRoofDegraded = true;
+                geo.userData.pryzmRoofDegradations = [...this._degradations];
+            }
+            return geo;
+        } finally {
+            this._genDepth--;
+        }
+    }
+
+    private static _generateInner(data: Readonly<RoofData>): THREE.BufferGeometry {
         // P3.4 — Segment composition: if segments defined, merge their geometries
         if (data.segments && data.segments.length > 0) {
             return this._buildSegmentedGeometry(data);
@@ -80,12 +155,11 @@ export class RoofGeometryBuilder {
                 // Only a genuinely degenerate footprint reaches flat now.
                 const general = this._buildGeneralPitched(data, poly);
                 if (general) return general;
-                console.log(
-                    `[geometry-roof] §DIAG-ROOF concave footprint verts=${poly.length} ` +
-                    `requestedKind=${data.roofType} chosenKind=flat ` +
-                    `(§ROOF-ENGINE-STAGE-1: footprint admits no inward offset → flat)`,
+                return this._degradeToFlat(
+                    data,
+                    `concave footprint (verts=${poly.length}) admits no inward offset, so ` +
+                    `§ROOF-CONCAVE-DECOMPOSE and §ROOF-ENGINE-STAGE-1 both refused`,
                 );
-                return this.generateFlat(data);
             }
         }
 
@@ -364,7 +438,7 @@ export class RoofGeometryBuilder {
 
     static generateShed(data: Readonly<RoofData>): THREE.BufferGeometry {
         const pts = this._resolvePolygon(data);
-        if (pts.length < 3) return this.generateFlat(data);
+        if (pts.length < 3) return this._degradeToFlat(data, `footprint has only ${pts.length} resolvable vertices`);
 
         const slope     = data.slope    ?? 0.05;
         const overhang  = data.overhang ?? 0;
@@ -396,7 +470,7 @@ export class RoofGeometryBuilder {
 
     static generateGable(data: Readonly<RoofData>): THREE.BufferGeometry {
         const pts = this._resolvePolygon(data);
-        if (pts.length < 3) return this.generateFlat(data);
+        if (pts.length < 3) return this._degradeToFlat(data, `footprint has only ${pts.length} resolvable vertices`);
 
         const slope     = data.slope    ?? 0.4;
         const overhang  = data.overhang ?? 0;
@@ -439,7 +513,7 @@ export class RoofGeometryBuilder {
 
     static generateHip(data: Readonly<RoofData>): THREE.BufferGeometry {
         const pts = this._resolvePolygon(data);
-        if (pts.length < 3) return this.generateFlat(data);
+        if (pts.length < 3) return this._degradeToFlat(data, `footprint has only ${pts.length} resolvable vertices`);
 
         const globalSlope = data.slope    ?? 0.3;
         const overhang    = data.overhang ?? 0;
@@ -503,7 +577,7 @@ export class RoofGeometryBuilder {
 
     static generateDutchHip(data: Readonly<RoofData>): THREE.BufferGeometry {
         const pts = this._resolvePolygon(data);
-        if (pts.length < 3) return this.generateFlat(data);
+        if (pts.length < 3) return this._degradeToFlat(data, `footprint has only ${pts.length} resolvable vertices`);
 
         const slope     = data.slope    ?? 0.3;
         const overhang  = data.overhang ?? 0;
@@ -543,7 +617,7 @@ export class RoofGeometryBuilder {
 
     static generateGambrel(data: Readonly<RoofData>): THREE.BufferGeometry {
         const pts = this._resolvePolygon(data);
-        if (pts.length < 3) return this.generateFlat(data);
+        if (pts.length < 3) return this._degradeToFlat(data, `footprint has only ${pts.length} resolvable vertices`);
 
         const slope     = data.slope    ?? 0.6;
         const overhang  = data.overhang ?? 0;
@@ -595,7 +669,7 @@ export class RoofGeometryBuilder {
 
     static generateMansard(data: Readonly<RoofData>): THREE.BufferGeometry {
         const pts = this._resolvePolygon(data);
-        if (pts.length < 3) return this.generateFlat(data);
+        if (pts.length < 3) return this._degradeToFlat(data, `footprint has only ${pts.length} resolvable vertices`);
 
         const slope     = data.slope    ?? 0.5;
         const overhang  = data.overhang ?? 0;
@@ -612,8 +686,31 @@ export class RoofGeometryBuilder {
         const skirtPts = this._shrinkPolygon(eavePts, skirtInset);
         const topPts   = this._shrinkPolygon(eavePts, inradius);
 
-        if (skirtPts.length < 3) return this.generateHip(data);
+        if (skirtPts.length < 3) {
+            // §W2A DEFECT 3 — this line used to be a bare `return this.generateHip(data)`:
+            // an identical BufferGeometry, NO log, NO flag. The user asked for a
+            // MANSARD and received a HIP, dimensioned as authoritative. A mansard
+            // needs a skirt ring; this footprint has none, so a mansard is not
+            // buildable here. We still build the only form the footprint admits
+            // (inventing a skirt ring is exactly what ADR-0299 forbids) — but the
+            // substitution is now RECORDED ON THE GEOMETRY.
+            this._noteDegradation(
+                `requestedForm=mansard producedForm=hip — the mansard skirt ring at ` +
+                `${skirtInset.toFixed(3)}m inward is not producible on this footprint. ` +
+                `The committed roof is a HIP; do not read it as a mansard.`,
+            );
+            return this.generateHip(data);
+        }
 
+        if (topPts.length < 3) {
+            // Reusing the skirt ring as the cap gives a mansard with a zero-depth
+            // upper pitch — a hip with an extra crease. Named, not hidden.
+            this._noteDegradation(
+                `requestedForm=mansard producedForm=mansard(degenerate cap) — the top ring at ` +
+                `${inradius.toFixed(3)}m inward is not producible, so the cap reuses the skirt ` +
+                `ring and the upper pitch has zero depth.`,
+            );
+        }
         const finalTop = topPts.length >= 3 ? topPts : skirtPts;
         return this._buildMultiLevel(eavePts, 0, skirtPts, skirtH, finalTop, ridgeH, thickness);
     }
@@ -624,7 +721,7 @@ export class RoofGeometryBuilder {
 
     static generateBarrel(data: Readonly<RoofData>): THREE.BufferGeometry {
         const pts = this._resolvePolygon(data);
-        if (pts.length < 3) return this.generateFlat(data);
+        if (pts.length < 3) return this._degradeToFlat(data, `footprint has only ${pts.length} resolvable vertices`);
 
         const overhang  = data.overhang ?? 0;
         const thickness = data.thickness;
@@ -1071,72 +1168,80 @@ export class RoofGeometryBuilder {
      * building"* on a curved-wall region (2026-08-07).
      *
      * Fail-safe by construction: if the offset degenerates the ORIGINAL polygon
-     * is returned (a roof is always produced) and the degradation is LOGGED —
-     * never silently substituted.
+     * is returned (a roof is always produced) and the degradation is RECORDED ON
+     * THE GEOMETRY — never silently substituted.
+     *
+     * ⚠ §W2A DEFECT 4 — WHAT CHANGED AND WHY IT MATTERED. This method used to
+     * flatten `OffsetResult` to a bare `Pt[]` and `console.warn` the reason. The
+     * kernel KNEW the eave had degenerated to zero overhang; the wrapper threw
+     * that away, so a roof with NO overhang where 300 mm was specified was
+     * committed and dimensioned as authoritative, with the only evidence in a
+     * console nothing downstream reads. The reason now reaches
+     * `geo.userData.pryzmRoofDegradations` via `_noteDegradation`.
+     *
+     * The layer that KNOWS must be the layer that REPORTS.
      */
     private static _applyOverhang(pts: Pt[], d: number): Pt[] {
         if (d <= 0) return pts;
         const r = offsetPolygonOrSelf(pts as OffsetPt2[], d);
         if (r.degenerate) {
-            console.warn(
-                `[geometry-roof] §DIAG-ROOF overhang offset degraded (verts=${pts.length} ` +
-                `d=${d}): ${r.reason ?? 'unknown'} — eave falls back to the footprint.`,
+            this._noteDegradation(
+                `eave overhang of ${d}m was NOT produced faithfully on a ${pts.length}-vertex ` +
+                `footprint: ${r.reason ?? 'unknown'}. The committed eave is not a ${d}m overhang — ` +
+                `do not dimension from it.`,
             );
         }
         return r.polygon as Pt[];
     }
 
     /**
-     * Shrink polygon inward by distance d using edge-shifting (straight skeleton step).
-     * Uses the inward normal of each CCW polygon edge shifted by d, then intersects
-     * adjacent shifted lines to find new vertex positions.
+     * §W2A-ONE-OFFSET — inward offset. THIS IS NOW A THIN CALL, NOT AN ALGORITHM.
      *
-     * Returns the shrunken polygon vertices, or an empty array if fully degenerate.
+     * ⚠ WHAT THIS REPLACES, AND WHY IT WAS NOT A "WORKING" ROUTINE: this method
+     * was a VERBATIM TWIN of `geometry-kernel`'s `shrinkPolygon`, and both were
+     * wrong in the same three ways. Measured against an independent oracle
+     * (perpendicular distance at every edge midpoint of the result):
+     *
+     *   • `if (|det| < 1e-8) continue` DELETED the vertex at every near-parallel
+     *     corner and still reported success. On the arc fixture it silently
+     *     returned 29 vertices for a 30-vertex ring.
+     *     ⚠ RETRACTED: an earlier draft added "— 49% of vertices on real
+     *     cadastral rings —" here. That figure was never measured on this
+     *     routine; it is `insetPolygon.ts:437`'s share of cadastral vertices
+     *     turning by less than 1°, a far looser threshold than `|det| < 1e-8`.
+     *     Re-measured across 24…4000-segment arcs, the loss is 1–3 vertices in
+     *     absolute terms and its SHARE falls with density (10.0% at 30 verts,
+     *     0.1% at 1006). Silent deletion is the defect; 49% overstated it.
+     *   • The only gate was `dist² ≤ maxOrigDistSq · 1.1`: a CENTROID-RADIUS
+     *     test, blind to shape, to folds and to winding inversion. On a 10×10
+     *     square shrunk by its own inradius it returned FOUR fully-collapsed
+     *     vertices as success — so `generateHip`'s `ridgePts.length === 0 → apex`
+     *     branch was unreachable and the hip was built from coincident points.
+     *     On the U-shape it returned eight vertices spanning 1000 mm of
+     *     perpendicular error for a 3000 mm request: the arms had inverted.
+     *   • `filtered.length >= 2` was SUCCESS. A 2-vertex "polygon" is not one.
+     *
+     * The replacement refuses on all three ('offset collapsed the ring',
+     * 'offset inverted the ring winding', 'offset ring self-intersects'), so the
+     * degenerate branches in the callers finally fire.
+     *
+     * Returns `[]` when the inward offset is not producible — callers already
+     * treat `[]` as degenerate, and `[]` here means REFUSED, with the reason
+     * logged rather than swallowed.
      */
     private static _shrinkPolygon(pts: Pt[], d: number): Pt[] {
         if (d <= 0) return [...pts];
-        const n = pts.length;
-        if (n < 3) return [];
-
-        // Compute inward-shifted line for each edge: a·x + b·z = c
-        const lines: { a: number; b: number; c: number }[] = [];
-        for (let i = 0; i < n; i++) {
-            const [x1, z1] = pts[i];
-            const [x2, z2] = pts[(i + 1) % n];
-            const dx = x2 - x1, dz = z2 - z1;
-            const len = Math.sqrt(dx * dx + dz * dz);
-            if (len < 1e-10) { lines.push({ a: 0, b: 0, c: 0 }); continue; }
-            // Inward normal for CCW polygon: (-dz, dx) / len
-            const nx = -dz / len, nz = dx / len;
-            // Shift line inward by d: c += d
-            lines.push({ a: nx, b: nz, c: nx * x1 + nz * z1 + d });
+        if (pts.length < 3) return [];
+        const r = offsetPolygon(pts as OffsetPt2[], -d);
+        if (r.polygon.length < 3 || r.degenerate) {
+            this._noteDegradation(
+                `inward offset of ${d.toFixed(3)}m REFUSED on a ${pts.length}-vertex ring: ` +
+                `${r.reason ?? 'unknown'} — the caller's degenerate branch runs instead of a ` +
+                `plausible wrong ring.`,
+            );
+            return [];
         }
-
-        // Intersect adjacent shifted lines to find new vertex positions
-        const newPts: Pt[] = [];
-        for (let i = 0; i < n; i++) {
-            const l1  = lines[i];
-            const l2  = lines[(i + 1) % n];
-            const det = l1.a * l2.b - l2.a * l1.b;
-            if (Math.abs(det) < 1e-8) continue; // parallel edges — vertex collapsed
-            const x = (l1.c * l2.b - l2.c * l1.b) / det;
-            const z = (l1.a * l2.c - l2.a * l1.c) / det;
-            newPts.push([x, z]);
-        }
-
-        if (newPts.length < 2) return [];
-
-        // Sanity-filter: keep only points inside the original polygon
-        const cx = pts.reduce((s, p) => s + p[0], 0) / n;
-        const cz = pts.reduce((s, p) => s + p[1], 0) / n;
-        const filtered = newPts.filter(([x, z]) => {
-            // Accept if closer to centroid than original vertices
-            const maxOrigDist = Math.max(...pts.map(([px, pz]) => (px - cx) ** 2 + (pz - cz) ** 2));
-            const dist2 = (x - cx) ** 2 + (z - cz) ** 2;
-            return dist2 <= maxOrigDist * 1.1; // allow 10% slack
-        });
-
-        return filtered.length >= 2 ? filtered : [];
+        return r.polygon as Pt[];
     }
 
     /**
