@@ -87,6 +87,45 @@ export {
   type VectorAnalysisInput,
 } from './adapter-floorplan.js';
 
+// §RASTER-CV 2026-08-10 — TIER 2: algorithmic (zero-token) raster fallback for
+// scanned / image plans. Feeds its extracted line primitives into the SAME
+// stage2 wall classifier, so both tiers share one wall model.
+export {
+  DEFAULT_RASTER_CV_OPTIONS,
+  RASTER_CONF_DOOR_WITH_ARC,
+  RASTER_CONF_GAP_ONLY,
+  RASTER_CONF_WINDOW_GLAZED,
+  RASTER_MIN_WALLS,
+  RASTER_OTEL_NAMESPACE,
+  analyseRasterFloorPlan,
+  arcSpanAtRadius,
+  binarize,
+  classifyRunGaps,
+  despeckle,
+  dilate3,
+  downsampleGray,
+  erode3,
+  extractBoundary,
+  gapBandInkFraction,
+  houghSegments,
+  mergeCollinearWallRuns,
+  morphClose3,
+  morphOpen3,
+  otsuThreshold,
+  rasterMmToPx,
+  rgbaToGray,
+  segmentsToVectorElements,
+  type BinaryMask,
+  type GapRejectReason,
+  type GrayImage,
+  type LineSegmentPx,
+  type RasterAnalysisInput,
+  type RasterAnalysisResult,
+  type RasterCvOptions,
+  type RasterDiagnostics,
+  type WallRun,
+} from './raster-cv.js';
+
 // S70 D8 — PDF-to-BIM preview gate per ADR-029 Part E + ADR-0052 §B.5.
 export {
   PDF_TO_BIM_ACCURACY_THRESHOLDS,
