@@ -282,3 +282,147 @@ Analysis →" (→ Step 4 → vector-first/AI → preview → Step 5 → EXECUTE
 elements were created" (§CONTEXT-DATA-HONESTY) — it is a choice, never the silent default.
 The `s <= 3` clamp in `gotoStep` is deleted. Import-Manager ids are reused on re-confirm
 (Back → confirm) so the row list cannot accumulate duplicates.
+
+---
+
+## 7. §PDF-BIM-TIER-LADDER — zero-token PDF-to-BIM (2026-08-11, rev 2)
+
+Founder directive, and a verified infrastructure fact behind it: **PDF-to-BIM must work with
+no Anthropic API key.** `flyctl secrets list -a pryzm` shows neither `CF_WORKER_URL` nor
+`ANTHROPIC_API_KEY`. The AI relay is dead in production. The deterministic tiers are not a
+fallback — **they are the product.**
+
+Before this section, Step 4 answered every upload with:
+
+> AI service unavailable — the floor-plan analysis runs on the server AI relay, which isn't
+> reachable/configured on this deploy. Ask the admin to set CF_WORKER_URL (or ANTHROPIC_API_KEY).
+
+That sentence was **false as well as fatal.** Since §VEC-WIRE (§6) walls, doors, windows and
+the slab had been produced deterministically for vector PDFs. The relay was never needed for
+any of them. The message described an architecture that no longer existed, and it turned an
+upload the product could have served into a support ticket.
+
+### 7.1 The ladder as shipped
+
+| Tier | Engine | Needs AI? | Produces | Accuracy |
+|---|---|---|---|---|
+| **1 — Vector** | `stage1-vectorise` → `stage2-walls` / `stage2-openings` | **No** | walls, doors, windows, slab | Exact — the drawing's own geometry |
+| **2 — Raster** | `raster-cv.ts` (classical CV) | **No** | walls, doors, windows, slab | Approximate; degrades with scan quality, and says so |
+| **3 — AI** | `FloorPlanAIFactory` (Claude vision) | Yes | furniture, plumbing — **or** structure, only if tiers 1+2 both found nothing | Probabilistic |
+
+Rung 3 runs **only when `GET /api/health` reports `features.anthropic`**. It is not merely
+allowed to fail — it is not called. Calling an unconfigured relay surfaces an opaque
+401/"failed to fetch" in place of the true account of a run in which no AI was ever wanted.
+
+**"Analyse Floor Plan" is never disabled and never consults AI availability.** Walls,
+Doors & Windows and Floor Slab are produced with zero tokens. Only **Furniture** and
+**Plumbing** gate on the relay: those two checkboxes disable themselves and state why, in a
+tooltip and in a note under the group. No deterministic tier classifies furniture, and
+pretending otherwise would be the same species of lie as the message this replaces.
+
+### 7.2 Tier 2 — how the raster tier works
+
+Pure TypeScript over an RGBA byte array. No DOM, no canvas, no native code, **no new
+dependencies**, no tokens.
+
+```
+RGBA (the raster the wizard already rendered and already shows the user)
+  └─ grayscale, alpha composited over WHITE
+     └─ Otsu threshold → binary ink mask
+        └─ despeckle (neighbour count) + morphological close
+           └─ boundary extraction — the two FACES of every wall
+              └─ Hough (rho, theta) + NMS + per-peak segment walking
+                 └─ VectorElement[] line primitives          <- THE SEAM
+                    └─ classifyWallsAndColumns()             <- tier 1's classifier, REUSED
+                       └─ collinear wall-run merge  (walls span THROUGH openings, C15)
+                          └─ gap classification:
+                               glazing ink in the band  => window (0.74)
+                               swing arc at a jamb      => door   (0.82)
+                               neither, but door-sized  => door   (0.50), flagged
+                               otherwise                => REJECTED and counted
+                             └─ OpeningCandidate[] — tier 1's type
+                                └─ vectorResultToFloorPlanAnalysis()
+```
+
+The seam is **line primitives, deliberately.** Feeding them into the existing classifier means
+there is **one wall model, not two**: thickness bands, overlap minima and confidence formulas
+keep their single definition in `stage2-walls.ts`, and the output is the same
+`FloorPlanAnalysis` the AI emits. `FloorPlanCommandBatcher`, the executor and all four
+placement fixes of §2 — §PDF-OFFSET-LEFTEDGE, §PDF-SCALE-EFFECTIVE, §PDF-HOST-DIST-GUARD,
+§PDF-OCCUPANCY-PREFLIGHT — apply unchanged.
+
+`mmPerPx` comes from `measureEffectiveMetersPerPixel`, the same effective transform the
+batcher uses. At this rung a wrong scale does not *misplace* elements — it makes the
+classifier **reject every real wall**, because its thresholds are in millimetres. That is why
+the end-of-ladder message names Step-2 calibration first.
+
+### 7.3 Four bugs the synthetic fixtures found
+
+Each produced an empty or wrong plan **rather than an error** — the failure mode that costs
+the most to diagnose in the field.
+
+1. **§RASTER-OTSU-OFFBYONE.** Otsu maximises over splits `[0..t]` vs `[t+1..255]`, so the
+   threshold a `<` test wants is `t+1`. Black-on-white line-work has all its ink at 0, every
+   split scores identically, the strict argmax keeps the first — `t = 0` — and `< 0` classified
+   **nothing** as ink. Every fixture read as blank paper.
+2. **§RASTER-OPEN-EATS-HAIRLINES.** The 3x3 morphological open removed everything thinner than
+   the kernel. Door swing arcs and window glazing are **1 px** at ordinary scan resolution, so
+   the despeckle pass deleted precisely the evidence stage 4 classifies on: every door came
+   back "gap, no symbol". Replaced with a neighbour-count despeckle that a line drawing
+   survives. `morphOpen3` remains exported with the trap documented on it.
+3. **§RASTER-SEG-ORIENT.** The two faces of one wall can land in Hough theta bins on opposite
+   sides of the `[0, pi)` wrap and be walked in opposite directions; `computeCenterline`
+   averages endpoint-wise, turning the wall into an X whose "centreline" is a stub across it.
+   Segments are now emitted along their **dominant** axis — sorting by x alone looks
+   equivalent and reintroduces the collapse for near-vertical faces.
+4. **§RASTER-HINGE-OFFSET.** A door hinge sits on a wall **face**, not the centreline. Probing
+   the annulus only at the centreline mis-centred it by thickness/2, so a perfectly drawn 90°
+   swing measured 7°. Probing both faces as well: 7° → 95°.
+
+### 7.4 Honesty (§CONTEXT-DATA-HONESTY)
+
+- **Every step names the tier.** Step 2 predicts it before the user invests in calibration;
+  Step 4 states it up front with what it will and will not produce; the detection preview
+  labels counts `raw vector` / `raw raster` / `raw AI` and reports furniture as
+  *"not produced — needs the AI stage"* rather than `0`; Steps 5 and 6 carry the tier plus
+  the skip reasons.
+- **Every rejection is counted**, never dropped: `too_narrow`, `too_wide`,
+  `no_symbol_evidence`, plus pairs discarded as thinner than the raster can resolve. So "few
+  elements" is never readable as "simple plan". `maxOpeningGapMm` deliberately sits **above**
+  the window ceiling so an over-wide gap is recorded and rejected rather than never merged and
+  never seen.
+- **Low confidence means fewer elements, and say so.** A door-sized gap with no swing arc is
+  emitted at 0.50 (the `low` band) and named in the status line for review. It is never
+  promoted into a confident door, and geometry is never invented.
+- **AI availability is three-valued.** `unknown` (the probe itself failed) is a different
+  statement from `unavailable` (the server says no upstream is configured) and gets different
+  copy. Collapsing them turns a network blip into a permanent, false "ask your admin for an
+  API key" — the exact failure this section exists to delete.
+
+### 7.5 Tests
+
+`apps/ai-worker/__tests__/pdf-to-bim/raster-cv.test.ts` — 26 tests on **synthetic bitmaps
+built pixel by pixel in the test file**: no image decoding, no canvas, no golden files. Thick-
+stroke rectangle → exactly 4 wall pairs at the drawn thickness; stroke run with a gap + arc →
+1 door with `centre − width/2` on the left jamb; glazing → 1 window; and the honesty cases —
+blank page, sub-resolution pairs, and each rejection reason.
+`adapter-floorplan.test.ts` gains the raster-tier mapping conventions (inverse scale, no
+y-flip, no hinge shift, C15 hosting, confidence bands).
+
+### 7.6 Accuracy limits — honest
+
+Tier 2 is **weaker than tier 1 and does not pretend otherwise.**
+
+- **Scan quality is the ceiling.** Below roughly 4 px of wall thickness the tier discards the
+  pair rather than guess, and reports how many it discarded.
+- **Hatched / poché walls** read as solid; a wall drawn as two thin lines with a *hatched*
+  interior may pair the hatching instead of the faces.
+- **Curved walls** are out of scope (Hough finds straight primitives only) — as in tier 1.
+- **Door hand and swing side are not detected**, only the opening. Unchanged from tier 1.
+- **Text and dimension lines** can pair into phantom thin "walls"; the resolution floor removes
+  most, not all.
+- **A door with no drawn arc is a guess** — emitted at `low` confidence, flagged for review.
+- **No furniture, no plumbing, no room labels.** Those need tier 3.
+- **Not yet exercised against a corpus of real scanned plans.** The preview gate
+  (`preview-gate.ts`) remains the acceptance bar, and the synthetic fixtures prove mechanism,
+  not field accuracy.
