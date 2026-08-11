@@ -30,6 +30,7 @@
     "./rendering": "./src/rendering/index.ts",
     "./lighting": "./src/lighting/index.ts",
     "./tool-types": "./src/tool-types.ts",
+    "./store-registry": "./src/StoreRegistry.ts",
     "./curved-wall-tessellation": "./src/geometry/curvedWallTessellation.ts",
     "./ring-simplicity": "./src/geometry/ringSimplicity.ts"
   },

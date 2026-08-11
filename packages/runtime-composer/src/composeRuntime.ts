@@ -141,6 +141,8 @@ import {
   type PhysicsDevMetrics,
   type StructuralSlot,
   type SearchSlot,
+  type ElementStoresSlot,
+  type ElementStoreHandle,
 } from './types.js';
 import { buildViewRegistrySlot } from './buildViewRegistrySlot.js';
 import { buildCameraControllerSlot } from './buildCameraControllerSlot.js';
@@ -1494,8 +1496,56 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // once by `initPersistence.ts` after the engine boots; `hydrate()` is
     // the named project-snapshot fan-out leg.  Per-store typed accessors land
     // in Phase E once the element families migrate.
+    // ── 6-pre. ADR-0318 (`§ADR-0318-ELEMENTS-SLOT`) — authoritative element
+    //    stores, adopted, never constructed ─────────────────────────────────
+    //
+    // The composed runtime adopts the module-singleton `storeRegistry` from
+    // `@pryzm/core-app-model` as its authoritative element-store slot. That
+    // registry is the one `engineLauncher`'s `registerAllStores()` populates
+    // with the EXACT instances `initPersistence`/`ProjectSerializer` read
+    // (engineLauncher.ts:767–781 vs :817–832 — same expressions, same
+    // instances). Identity, not construction: constructing rival stores here
+    // would fork state against everything the engine wires — the exact
+    // plugin-DTO defect (dead verbs, shadowed routes) this slot exists to end.
+    //
+    // Deep-path import (`/store-registry`) on purpose: `StoreRegistry.ts`
+    // imports nothing, so the compose path stays free of the core-app-model
+    // barrel's THREE/@thatopen module graph. Barrel and deep path resolve to
+    // the same module file → the same singleton (asserted by
+    // `adr0318.stores.probe.ts`, not assumed).
+    //
+    // Door/window are the two kinds whose authoritative stores are true
+    // module singletons (`DoorStore.ts:224` / `WindowStore.ts`) — the ones
+    // ProjectSerializer imports directly. Registering them here makes them
+    // reachable headlessly BY DESIGN rather than by module-scope accident.
+    // In the browser, engineLauncher later re-registers the SAME instances
+    // (it imports the same singletons), which the registry treats as an
+    // idempotent no-op. Dynamic imports keep chunk layering unchanged —
+    // these modules are already on the editor's boot path.
+    //
+    // tearDown deliberately does NOT clear()/unregister(): registry entries
+    // are module-lifetime singletons (doorStore's existing lifetime), and a
+    // hot-reload teardown of the OLD runtime can run after the NEW compose —
+    // clearing here would wipe the successor's registrations (ADR-0318 §4).
+    const { storeRegistry } = await import('@pryzm/core-app-model/store-registry');
+    {
+      const { doorStore } = await import('@pryzm/geometry-door');
+      const { windowStore } = await import('@pryzm/geometry-window');
+      storeRegistry.register('door', doorStore);
+      storeRegistry.register('window', windowStore);
+    }
+    const elements: ElementStoresSlot = {
+      get: (kind) => storeRegistry.getStoreForType(kind),
+      has: (kind) => storeRegistry.isRegistered(kind),
+      kinds: () => storeRegistry.getRegisteredTypes(),
+      forElement: (id) => storeRegistry.getStoreForElement(id),
+      register: (kind, store: ElementStoreHandle) => storeRegistry.register(kind, store),
+    };
+
     let _hydratorFn: ((snapshot: unknown) => void | Promise<void>) | null = null;
     const stores: StoresSlot = {
+      // ADR-0318 — authoritative element stores (live view over storeRegistry).
+      elements,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },

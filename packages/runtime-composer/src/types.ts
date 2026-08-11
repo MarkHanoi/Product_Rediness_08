@@ -2371,6 +2371,49 @@ export interface PersistenceTierSlot {
   streamLoad(projectId: string): Promise<PryzmProjectBundle | null>;
 }
 
+/** Minimal structural handle on an authoritative element store —
+ *  the duck type every PRYZM ElementStore already satisfies (mirrors
+ *  `BimStore` in `@pryzm/core-app-model/store-registry`; kept structural
+ *  here so `runtime-composer/types` stays import-free for UI consumers).
+ *  Read-shaped by design: writes go through commands (P6), never through
+ *  this handle. */
+export interface ElementStoreHandle {
+  getAll(): unknown[];
+  has?: (id: string) => boolean;
+  get?: (id: string) => unknown;
+  getById?: (id: string) => unknown;
+}
+
+/** ADR-0318 (`§ADR-0318-ELEMENTS-SLOT`) — the authoritative element-store
+ *  slot. A LIVE, typed view over the module-singleton `storeRegistry`
+ *  from `@pryzm/core-app-model` — the registry `engineLauncher`'s
+ *  `registerAllStores()` populates with the exact instances
+ *  `ProjectSerializer` reads. Identity, not construction: `get('wall')`
+ *  after engine boot IS the serializer's wall store, never a copy
+ *  (invariant I-1). A kind that has not been registered reads
+ *  `undefined` — honest absence, no scaffold (invariant I-3).
+ *
+ *  Headless: `composeRuntime` itself registers the door/window module
+ *  singletons, so those two kinds are present by design without a DOM
+ *  boot; the remaining kinds join per ADR-0318's per-kind migration. */
+export interface ElementStoresSlot {
+  /** O(1) live lookup by canonical element-type key ('wall', 'door', …
+   *  — the §3.2 keys `initStores.ts` registers). */
+  get(kind: string): ElementStoreHandle | undefined;
+  /** True when an authoritative store is registered for the kind. */
+  has(kind: string): boolean;
+  /** The canonical type keys registered at call time (live, not a snapshot
+   *  guarantee — re-call after engine boot for the full set). */
+  kinds(): readonly string[];
+  /** O(n) ownership scan: the store that claims the element id, if any. */
+  forElement(id: string): ElementStoreHandle | undefined;
+  /** Register an authoritative store under its canonical kind. Idempotent
+   *  for the same instance; replacing with a DIFFERENT instance warns
+   *  (registry contract) and is a P1/ADR-0318 I-2 violation outside a
+   *  per-kind migration. */
+  register(kind: string, store: ElementStoreHandle): void;
+}
+
 /** Stores slot — typed umbrella for all registered element stores.
  *
  *  Wave 7: adds `hydrate(snapshot)` so the project-open chain has a
@@ -2383,6 +2426,11 @@ export interface PersistenceTierSlot {
  *   - `registerHydrator()` is deleted once every store implements its own
  *     `hydrate()` and the umbrella fan-out is driven by discovery. */
 export interface StoresSlot {
+  /** ADR-0318 — the authoritative element stores, reachable from the
+   *  composed runtime instead of module-scope accident. See
+   *  `ElementStoresSlot`. */
+  readonly elements: ElementStoresSlot;
+
   /** Fan out a full project snapshot to all registered stores via the
    *  engine's `loadDelegate.load()`.  Throws `RuntimeNotWiredError` if
    *  called before `initPersistence` registers the hydrator. */
