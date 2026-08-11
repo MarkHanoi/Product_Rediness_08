@@ -85,7 +85,8 @@ import { initViewSetup }              from './initViewSetup';
 import { createAddFurniture }         from './initFurnitureInteraction';
 import { initWallLevelSubscribers }   from './initWallLevelSubscribers';
 import { ProjectLifecycleController } from '@pryzm/runtime-composer';
-import { YjsDocAdapter, CRDTConflictResolver, connectCrdtProvider } from '@pryzm/sync-client';
+import { YjsDocAdapter, CRDTConflictResolver, connectCrdtProvider, DeferredCrdtApplier } from '@pryzm/sync-client';
+import { initRemoteElementSync, shouldReplicate } from './initRemoteElementSync';
 import type { CollabProviderConfig } from '@pryzm/sync-client';
 // L-391 Phase 0 — the real transport lives behind a subpath so the base barrel
 // stays free of the y-websocket dependency (opt-in import).
@@ -132,6 +133,43 @@ export async function bootstrap(
     // initXxx() calls so that flushRuntimeEventListeners() finds a live bus.
     // See REGRESSION-DIAGNOSIS.md §2 for the full root-cause analysis.
     if (runtime) window.runtime = runtime as typeof window.runtime;
+
+    // ── W5-4 — close the pre-adapter CRDT drop window (do this FIRST) ─────────
+    // The O.8 deferral below constructs the YjsDocAdapter behind
+    // `requestIdleCallback(..., { timeout: 4000 })` and only THEN calls
+    // `setCrdtApplier`. Until that slot fires `CommandBus._crdtApplier` is null,
+    // so step 7 of `executeCommand` is skipped and EVERY command in the first
+    // ~1.5–4 s — project open, hydration, an immediately-started generate —
+    // never reaches the Y.Doc. No log, no counter, no refusal: the command
+    // returns its record and the caller is told the mutation succeeded. That is
+    // the same defect class as the `if (!elementId) return` drop W5-3 removed,
+    // one layer up.
+    //
+    // The deferral is KEPT (constructing a Y.Doc on the first-paint path is real
+    // main-thread cost, and this repo has a documented white-screen history
+    // around boot-ordering changes — see §SCC-no-barrel-access-at-module-load).
+    // It is made NON-LOSSY instead: install a queueing applier synchronously
+    // here — a bare function-pointer assignment, no Y.Doc, no new module load,
+    // no ordering change — and hand the queue to the real adapter on attach.
+    //
+    // Installed at the TOP of bootstrap, not next to the deferral block ~600
+    // lines below, so the window it closes is the whole of boot rather than
+    // whatever remains after the rest of bootstrap has already run.
+    const _deferredCrdtApplier = new DeferredCrdtApplier();
+    if (runtime && typeof runtime.bus.setCrdtApplier === 'function') {
+        runtime.bus.setCrdtApplier((type, payload) => {
+            // Echo break — a dispatch produced BY the remote read-back path must
+            // not be written back into the document, or two peers ping-pong the
+            // same value forever. See initRemoteElementSync.ts.
+            if (!shouldReplicate(payload)) return;
+            _deferredCrdtApplier.apply(type, payload);
+        });
+    } else {
+        console.warn(
+            '[EngineBootstrap] W5-4: runtime.bus.setCrdtApplier unavailable — commands ' +
+            'issued during boot will NOT reach the CRDT document. Stated, not silent.',
+        );
+    }
 
     // ── O.8 (PERF 2026-06-04): defer non-essential collaboration/CRDT init ─────
     // The CRDT replication adapter (YjsDocAdapter) + conflict-disclosure UI are
@@ -834,14 +872,57 @@ export async function bootstrap(
         // replication (C08 §3.1 / G3-T2) was silently off for multi-user edits.
         // Solo editing was unaffected then and remains unaffected now (the
         // applier is null-safe; this only ADDS the remote-replication leg).
-        if (runtime && typeof runtime.bus.setCrdtApplier === 'function') {
-            runtime.bus.setCrdtApplier(
-                (type: string, payload: Record<string, unknown>) =>
-                    _yjsDocAdapter.applyCommand(type, payload),
+        //
+        // W5-4 — the applier itself was already installed synchronously at the top
+        // of bootstrap as a QUEUEING applier, so nothing dispatched during boot was
+        // lost. Here we simply hand it the real adapter; `attach()` replays the
+        // queue in dispatch order (a create before the update that edits it) and
+        // then passes everything straight through.
+        _deferredCrdtApplier.attach(
+            (type: string, payload: Record<string, unknown>) =>
+                _yjsDocAdapter.applyCommand(type, payload),
+        );
+        {
+            const s = _deferredCrdtApplier.stats;
+            console.log(
+                `[EngineBootstrap] G3-T2/W5-4: CRDT applier attached → YjsDocAdapter ` +
+                `(replayed ${s.replayed} boot-window command(s), dropped ${s.dropped})`,
             );
-            console.log('[EngineBootstrap] G3-T2: CRDT applier wired → YjsDocAdapter');
-        } else {
-            console.warn('[EngineBootstrap] G3-T2: runtime.bus.setCrdtApplier not accessible — CRDT applier not wired');
+            if (_deferredCrdtApplier.hasLostCommands) {
+                // A loss must never be reportable-only-before-attach.
+                console.warn(
+                    `[EngineBootstrap] W5-4: ${s.dropped} boot-window command(s) exceeded the ` +
+                    `CRDT pre-adapter queue and did NOT reach the document. This is a real ` +
+                    `replication gap for those commands, not a throttle.`,
+                );
+            }
+        }
+
+        // ── W5-4 "LEG B" — the READ-BACK path ────────────────────────────────
+        // Until now this adapter was WRITE-ONLY: 25 verbs reached the Y.Doc and
+        // nothing ever read the canonical element map back, so a receiving client
+        // kept every property's creation-time value — confidently, not emptily.
+        // `initRemoteElementSync` observes ELEMENTS_NAMESPACE and re-dispatches
+        // remote property changes through the bus (P6), which is what actually
+        // updates the store and repaints. See that file for the two echo breaks
+        // and for what it does NOT apply (remote creates).
+        //
+        // C66 §1 — this does NOT make collaboration work. Leg (c) is still
+        // absent: no CRDT transport is deployed (L-391, the provider block below
+        // defaults OFF), so nothing carries a peer's update into this document.
+        try {
+            const _remoteElementSync = initRemoteElementSync(
+                _yjsDocAdapter,
+                () => window.runtime?.bus as { executeCommand?: (t: string, p: unknown) => Promise<unknown> } | undefined,
+            );
+            (window as unknown as { __pryzmRemoteElementSync?: unknown })
+                .__pryzmRemoteElementSync = _remoteElementSync;
+            console.log(
+                '[EngineBootstrap] W5-4 LEG B: CRDT element read-back observing ' +
+                'ELEMENTS_NAMESPACE — remote property changes now re-dispatch through the bus.',
+            );
+        } catch (err) {
+            console.error('[EngineBootstrap] W5-4 LEG B: read-back wiring failed (non-fatal):', err);
         }
 
         // ── L-391 Phase 0 — real-time CRDT websocket provider (GATED, default OFF) ──

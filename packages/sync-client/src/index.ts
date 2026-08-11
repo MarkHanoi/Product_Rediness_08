@@ -83,6 +83,26 @@ export type {
   BatchWindowOpenInfo,
   BatchWindowCloseInfo,
 } from './YjsDocAdapter.js';
+// W5-4 "LEG B" — the READ-BACK path.  W5-3 made property mutations reach the
+// collaborator's Y.Doc; this makes them reach the collaborator's authoritative
+// state, which is what makes the renderer redraw.  See the file header for what
+// it does NOT claim (there is still no deployed transport — L-391).
+export { ElementSyncReader } from './elementSyncReader.js';
+export type {
+  RemoteElementUpdate,
+  RemoteElementSink,
+  ElementSyncReaderStats,
+  ElementSyncReaderOptions,
+} from './elementSyncReader.js';
+
+// W5-4 — the non-lossy replacement for "the CRDT applier is null until idle".
+export { DeferredCrdtApplier } from './deferredCrdtApplier.js';
+export type {
+  CrdtApplyFn,
+  DeferredCrdtApplierStats,
+  DeferredCrdtApplierOptions,
+} from './deferredCrdtApplier.js';
+
 export { CRDTConflictResolver } from './CRDTConflictResolver.js';
 export type { MergeResult } from './CRDTConflictResolver.js';
 
