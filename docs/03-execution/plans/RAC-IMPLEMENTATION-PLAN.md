@@ -192,17 +192,88 @@ Two live repros, both fixed with hard stoppers rather than narrower language.
   *aparment → apartment* is exactly what tier 1 exists to do. The sentence he
   MEANT now works end to end, bathrooms included.
 
-## Phase U6 — Plan executor (compound sentences) ⬜
+## Phase U6 — Plan executor (compound sentences) ✅ SHIPPED 2026-08-11
 
-| Sub | What |
-|---|---|
-| U6.1 | Parameterise `beginGenerationBatch` label; plan = ordered steps over legacy/bridge commands |
-| U6.2 | `PlanValidator` dry-run + impact preview card (counts per step) + confirm |
-| U6.3 | Truthful report: planned/executed/skipped/failed + real undo semantics per domain |
+| Sub | What | Status |
+|---|---|---|
+| U6.1 | `execute-plan` IR + the clause splitter (`intents/SemanticPlan.ts`) — every clause resolved by the EXISTING single-intent ladder | ✅ `1d9eb83e` |
+| U6.2 | ONE Confirm card for the whole plan + one ordered dispatch pass, stop-on-failure with an honest partial report | ✅ `cba04ca7` |
+| U6.3 | Truthful undo cost — the SUM of the steps, stated on the card before consent | ✅ `cba04ca7` |
+| U6.4 | Capability registration (the first COMPOSITE), gate + acceptance + adversarial families | ✅ `b6863d70` |
 
-🧪 After U6: *"Make all exterior walls 3 m, change them to Interior Partition,
-and make them white"* → ONE preview card → confirm → one coherent history entry
-(legacy domain) → honest per-step report.
+**The IR is the thinnest thing that can be true.** `execute-plan` carries an
+ordered list of ORDINARY `SemanticIntent`s plus the user's own clause text.
+There is no plan grammar per capability, no second resolver and no second
+dispatcher: each clause goes through tier 0 → tier 1 → NL exactly as it would
+typed alone, and `applySemanticIntent` executes the plan as one more arm.
+
+**What made it possible.** The tier-0 matchers each ended with
+`applySemanticIntent(si, ctx)`, so the grammar was reachable only as "understand
+and apply in one step". Matchers now return the intent and `runGrammar` applies,
+once, for all of them — which is what the file's own header always claimed they
+did. 307 existing tests passed unchanged, so the refactor is behaviour-neutral
+by measurement.
+
+**Three things a plan adds, and nothing else.**
+1. **All-or-nothing validation.** Every step is applied before one command is
+   handed back; one refusing step refuses the whole plan with the step number,
+   the user's words and the capability's OWN reason.
+2. **The ONE projection.** "Add a level at 9 m, then duplicate level 0 onto it"
+   validates step 2 against the level step 1 will create — read off step 1's own
+   produced `level.add` payload, never re-derived. `add-level` is the only
+   intent that projects anything.
+3. **Truthful undo cost (ADR-0314).** `runBatch` is undo-NEUTRAL, so N commands
+   are N entries: a plan costs the SUM of its steps and says so on the card,
+   *before* consent. The generation verbs are the declared exceptions, each with
+   the reason in the code they call (a build lease coalesces to one; a chain's
+   stages are the engines' own count, reported as "at least N").
+
+**Guards apply PER CLAUSE** — a plan may never reach a grammar the same words
+typed alone could not. `descriptiveReportReason` and `nonImperativeReason` run
+on every clause, so the founder's paste-back defect wearing a compound sentence
+("make all walls white, then Built 6 floors — 18 apartments…") refuses WHOLE,
+even though the report opener is not in opener position of the utterance.
+
+**"and" is NOT a splitter.** It is a noun conjunction here ("furnish the kitchen
+and the living room"), so only explicitly temporal connectives split. And there
+is deliberately NO "whole sentence wins" short-circuit: several capability
+parsers are token-based and ignore trailing text, so "generate a 2-storey house
+and then furnish all rooms" is claimed WHOLE by two different grammars, each of
+which silently drops half of the ask. The whole-sentence reading is used only as
+the tie-break when a clause does not resolve at all.
+
+**No second waiting mechanism.** The `generation.*` handlers already await their
+seam, which awaits the engines' own `*.layout-executed` events under the shipped
+§CHAIN-TIMEOUT budgets and emits the report BEFORE resolving — so awaiting
+`executeCommand` per step is already awaiting the run.
+
+🧪 Testable today (real card copy, verbatim):
+
+```
+add a level at 9 m, then duplicate level 0 onto it, then furnish and light this floor
+→ 3 steps, in this order:
+  1. Add "Level 2" at elevation 9 m
+  2. Duplicate Level 0's floor plan onto Level 2 (walls with their doors/windows,
+     slabs, columns and furniture — rooms, ceilings, roofs, stairs, curtain walls
+     and lighting are NOT copied; re-detect rooms afterwards)
+  3. Run furniture and lighting on every qualifying room on Level 0
+  Undo cost: 3 steps, 4 undo entries — Ctrl+Z four times.
+  At least one step creates or replaces real geometry. Run the whole plan?
+```
+
+…plus `duplicate level 0 to level 1, then furnish it` ("it" = the level step 1
+duplicates onto) · `generate a 2-storey house and then furnish all rooms` ·
+`make all walls white then add ceilings to every room` · `create a 3 bedroom
+apartment, then light all rooms`. Gate after U6: **32 capabilities, undeclared
+0/0, M6 plans 1**.
+
+**Deferred, deliberately:** a plan step may not be a LOCAL action (undo / redo /
+switch level) — those act on the view, not the model, so they are refused inside
+a plan rather than faked into the command list; plans are capped at 6 steps so
+the Confirm card stays readable; and a generation step followed by a finishing
+step is WARNED about rather than de-duplicated (the generators' shipped
+auto-chain already finishes what they generate, so the later step runs a second
+time over the same rooms — collapsing it is an engine change, not a chat change).
 
 ## Phase U7 — Property vocabulary + catalogue families ⬜
 
@@ -256,6 +327,6 @@ phrasing · *"orient the living spaces for the best south exposure"* (M8).
 
 Level/room/orientation/filter scopes (U3/U8) · any "create a building/house/
 office" sentence (U5b — SHIPPED) · furnish/ceiling by sentence (U5c — SHIPPED) · compound plans
-(U6) · property-panel breadth (U7) · parametric creation (U9) · free-phrasing
+(U6 — SHIPPED) · property-panel breadth (U7) · parametric creation (U9) · free-phrasing
 LLM planning and solar objectives (U10). Tread COUNT has no live carrier at
 all (editor gap). `wall.updateDimensions` liveness is PENDING the auditor (U1).

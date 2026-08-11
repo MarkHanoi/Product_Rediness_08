@@ -2116,11 +2116,11 @@ function applyPlan(
     const applied = applySemanticIntent(sub, { ...ctx, levels });
     if (applied.kind === 'refusal') {
       // The step's OWN reason, verbatim — a plan may never soften or replace a
-      // refusal the same sentence would get on its own.
-      return refuse(
-        `${where} — ${applied.reason} Nothing in the plan was run.`,
-        applied.suggestions,
-      );
+      // refusal the same sentence would get on its own. Only its "nothing was
+      // changed" tail is dropped, because the plan says something stronger:
+      // nothing ANYWHERE in the plan ran, including the steps before this one.
+      const reason = applied.reason.replace(/\s*nothing was (?:changed|deleted|added|created)\.?\s*$/i, '');
+      return refuse(`${where} — ${reason} Nothing in the plan was run.`, applied.suggestions);
     }
     if (applied.kind === 'local') {
       // undo / redo / switch level are view actions on the app, not model
