@@ -80,6 +80,11 @@ and failure-honesty are (the same three gaps everywhere).
 
 ## 3. Topology audit — explicit vs reconstructed
 
+> ⚠ **Amended 2026-08-11, same day — see §17.7.** The topology deep-dive arrived after writing:
+> (§17.6) junction discard is CONFIRMED at line level; the eight-question grading below is
+> corrected (2 of 8 true lookups, not 4); WallOccupancyStore is a pure query, not a store; and
+> room polygons are re-detected on EVERY project load — the polygon is a cache of the wall graph.
+
 | Topological entity | Explicit / Reconstructed / Absent | Where | Evidence |
 |---|---|---|---|
 | Vertices/edges (wall baselines, polygons) | **Explicit** | element schemas (baseline endpoints, polygon rings) | BY-READ |
@@ -168,6 +173,13 @@ as ordinary commands over existing stores, and split-wall's geometric analysis h
 exists in `WallIntersectionResolver`.
 
 ## 6. Constraints — classification and the six examples
+
+> ⚠ **CORRECTED 2026-08-11, same day — see §17 addendum before trusting this section.** The
+> late-arriving constraint deep-dive DOWNGRADES the solver story: planegcs is NOT in the tree —
+> `PlanegcsAdapter` delegates 100% to `MockSolver` (its own header: scaffold, WASM binding lands
+> S52 D2), the 31/33 EXECUTED tests test the mock, and the sketch path below always runs the
+> mock even in component-editor. The wiring facts (which file imports what) stand; the
+> conclusions drawn from them are re-graded in §17.
 
 Ladder: none → validation-only → stored → solver-driven → dependency-driven.
 
@@ -265,6 +277,10 @@ nothing downstream consumes it yet, and unconsumed schema is how second schemas 
 
 ## 8. Geometric intelligence — algorithm inventory
 
+> ⚠ **Superseded in detail by §17.6** — the predicate-family sweep reported after writing:
+> 42 point-in-polygon implementations, 5 triangulations (one asserts simplicity), ≥5 half-plane
+> clippers and NO general 2D boolean, NO clash engine (UI stub only), no epsilon policy.
+
 Partial: the commissioned predicate-family sweep did not report. What this audit itself
 established (EXECUTED greps + cited artefacts):
 
@@ -321,8 +337,9 @@ the structural read-only capability class is still OPEN — that is the one AI-b
 - `DependencyResolver` — the cascade layer, already event-wired.
 - `WallOccupancyStore` — a real 1-D constraint store with a commit-time gate; the template for
   every future occupancy constraint.
-- planegcs solver — a real FreeCAD-grade GCS in-tree with passing tests; parametric editing is a
-  wiring project, not a research project.
+- ~~planegcs solver — a real FreeCAD-grade GCS in-tree with passing tests; parametric editing is
+  a wiring project, not a research project.~~ **STRUCK — §17: the solver is a MOCK behind a
+  scaffold adapter; the gold here is only the interface shape and test harness, not a solver.**
 - `violates` edge + constraintAdapter — rules-live-in-the-graph, pre-built.
 - Junction pipeline (ADR-0055) — computes the wall connectivity graph on every rebuild; one
   lifetime extension turns it into a topology index.
@@ -349,7 +366,7 @@ the structural read-only capability class is still OPEN — that is the one AI-b
 | 3 | Explicit typed relationship records, persisted | passed (SemanticGraph v3) — with per-kind write coverage UNPROVEN |
 | 4 | Derived topology auto-maintained (detection, invalidation, cascade) | **passed in-session** (EXECUTED at unit level; the excavation's spine) |
 | 5 | Unified queryable graph as a runtime service, certified, failure-honest | **NOT passed** — UBG is a dev-hook; queries conflate failure/empty; zero graph verbs |
-| 6 | Constraint- and dependency-driven modelling (stored constraints, solver maintenance, reverse-dependency queries) | not passed — solver confined to component-editor sketches; no model-space constraint store |
+| 6 | Constraint- and dependency-driven modelling (stored constraints, solver maintenance, reverse-dependency queries) | not passed — and FURTHER than first graded: no real solver exists anywhere (§17); no model-space constraint store; one persisted family only (annotationConstraints, checked never solved) |
 | 7 | Collaborative, versioned graph (merge semantics, provenance, per-element history) | not passed — leg C absent, C66 0 tiers HELD |
 | 8 | Full BIM 3.0: explanation-capable, provenance-complete, interchange-round-tripping | not passed |
 
@@ -453,6 +470,12 @@ founder-owned infra rather than absorbed dishonestly.
 
 ## 16. Final verdict — in plain language
 
+> ⚠ **This verdict was written before the §17 corrections and is retained for the record; the
+> corrected verdict is §17.7.** Two phrases below are now known wrong: "a real constraint
+> solver" (it is a mock behind a scaffold adapter) and the implication that change propagation
+> runs through a generic dependency layer (the generic cascade is measured dead; propagation is
+> bespoke per-pair wiring that works).
+
 PRYZM does not need to become a graph-based BIM system. It already is one — three times over —
 and it computes, every session, almost everything BIM 3.0 promises: rooms from walls, the
 building as a navigable graph, change propagation with before-states, a real constraint solver,
@@ -470,9 +493,243 @@ evidence one layer deeper: **activate, retain, and certify — do not rebuild.**
 
 ---
 
-*Not verified in this audit (named, per doctrine): the four commissioned deep-dives (topology
-field-level detail, constraint runtime execution, per-schema provenance line proof, change-impact
-end-to-end traces) had not reported — every row they would have upgraded is marked BY-READ or
-UNPROVEN above; no probe was executed by this agent (greps only); the junction record's exact
-field shape, epsilon policy existence, occupancy-store persistence, and triangulation/clash
-implementation counts remain UNPROVEN.*
+## 17. Dated addendum — 2026-08-11, same day: three deep-dives arrived late and two of them DOWNGRADE this report
+
+The commissioned deep-dives (constraint wiring; provenance/authoritative-vs-derived;
+change-impact tracing) reported after §§1–16 were written. Per doctrine the original sections
+are corrected in place only with pointer banners; the substance lands here, dated. **Two of the
+arrivals are downgrades and must be read as such.** The fourth (topology/geometry) arrived last
+and lands at §17.6 — it confirms the junction thesis and corrects the eight-question grading.
+
+### 17.1 DOWNGRADE — the constraint solver is a MOCK (corrects §6, §10, §11, §13, §16)
+
+1. **planegcs is not a dependency.** `PlanegcsAdapter` delegates 100% to `MockSolver`; its own
+   header says so ("S52 D1 SCAFFOLD… actual WASM binding lands at S52 D2"). The worker entry
+   module was never written — `createWorkerHandler` has zero production references. **The
+   EXECUTED 31/33 tests test the mock.** "FreeCAD GCS exists in the tree" — repeated from the
+   excavation into §6/§10 here — is an *interface shape*, not code. (EXECUTED-CITED, deep-dive.)
+2. **`@pryzm/constraint-solver` is two unrelated things sharing a name**: (a) the geometric
+   solver — unreachable from any production user action; its only consumer surface is
+   `apps/component-editor`, which is NOT in the production build inputs, and even there it
+   always runs `MockSolver`; (b) the `./compliance` rule registry — genuinely WIRED in
+   production as an 800 ms-debounced advisory off store events, non-blocking. §6's import-sweep
+   facts stand; the sentence "the solver is production-reachable in component-editor sketches"
+   is corrected to: **the solver is reachable nowhere; the mock is reachable in a non-production
+   app.**
+3. **The tested copy is not the shipped copy**: the constraint-solver copies of
+   `StairValidationAuthority`/`LevelTraversalPolicy` have ZERO production importers — production
+   imports the `geometry-stair` copies. §6's "solver-adjacent validation inside the stair
+   dispatch path" survives, but it runs on the *untested twin* — a new REMOVE-DUPLICATION entry.
+4. **The UBG constraint layer is dev-only even when built**: `constraintAdapter` reads an
+   AIService validation report via `provideLiveGraphSources`, whose ONLY caller is a dev-tools
+   file. §2's `violates` G2 grade drops to **G2-dev-only**; CONNECT-2 gains a prerequisite
+   (a production caller for `provideLiveGraphSources`).
+5. **The six example constraints re-grade** (replacing §6's list): parallel-walls = **NEW
+   MECHANISM** (no wall-level store, no persistence, no baseLine mapping; the mock projector
+   would fight itself on coupled walls) · sill-lock = **NEW** (no locked-parameter concept
+   exists) · hosted-door = **EXISTS**, dependency-driven via `WallRebuildCoordinator` +
+   `DoorDependencyTracker` — NOT via the cascade (`pryzm-hosted-reval` has no listener anywhere)
+   · ridge-centred = EXTENSION (correct-by-construction; needs only invalidation wiring) ·
+   room-closure = EXTENSION (re-derivation exists; blocking invariant does not) ·
+   opening-inside-host = **EXISTS** (`clampToWall` + `canPlace`) with one concrete residual bug:
+   **shortening a wall does not re-clamp its openings.**
+6. **Exactly one constraint family is persisted anywhere**: `annotationConstraints` (locked
+   dimensions) — checked-and-reported, never solved. §6's table row "stored" for schema
+   invariants stands (type-level), but *runtime-stored* constraints exist only here.
+
+**Consequence**: §11's Level 6 is further away than graded — "one constraint store away" was
+wrong; it is one constraint store **plus a real solver** away. Building the WASM binding fills
+an existing scaffold (no architecture change), but it is construction, not wiring.
+
+### 17.2 DOWNGRADE — the generic dependency cascade is DEAD; propagation is bespoke and works (corrects §2, §5, §10)
+
+From the change-impact deep-dive (MEASURED by exhaustive grep + end-to-end reads):
+
+1. **`DependencyResolver` propagates nothing.** It subscribes to all store events and maintains
+   `elementSpatialIndex` (live, useful) — but its cascade half is a dead-end:
+   `defaultRebuildDispatcher` emits four event names (`pryzm-dep-cascade`, `pryzm-room-reval`,
+   `pryzm-hosted-reval`, `pryzm-structural-cascade`) that have **zero listeners in the entire
+   repo**; `setRebuildDispatcher` is **never called**; and `operation === 'delete'` returns `[]`
+   — deletes produce zero cascade by design (`DependencyResolver.ts:273-277, :102-143, :207`).
+   The excavation's "cascade layer already exists and runs in production" — carried into §2
+   (dependency family G4) and §10 — is **half-true**: the *events with prevState* exist and are
+   consumed; the *graph-driven cascade* consuming them is authored-but-unwired, this repo's
+   signature hazard, at the exact centre of the BIM 3.0 story.
+2. **What actually propagates is bespoke per-pair wiring, and it genuinely works**:
+   `DoorDependencyTracker`/`WindowDependencyTracker` (openings re-anchor on wall
+   move/height/thickness — regression-pinned by `wallMoveHostedOpeningCascadeFreeze.test.ts`,
+   MEASURED) · `WallRebuildCoordinator` (2038 lines — the real adjacent-wall rebuild) ·
+   `RoomTopologyObserver` (seven suppression guards; wall HEIGHT absent from its no-progress
+   signature, so height-only edits can be masked) · `spatial-authority-reconcile` for level
+   elevation (rebuilds **walls and slabs only** — columns, beams, stairs, roofs, furniture
+   stranded) · cascade-delete inside `DeleteElementCommand.ts:169-207` (doors/windows removed
+   with their wall; orphan-repair branch exists).
+3. **§5 matrix corrections, sharpened by the traces**: move-wall row is MEASURED-GOOD except
+   schedules (`SchedulePanel` has no geometry subscription — open panels show stale areas;
+   BY-READ) and a wall move with openings can be **refused outright** rather than adjusted ·
+   height row confirmed: **no opening clamp on lowering** (verified absence) · split row worse
+   than "no verb": the nearest verb, `CutWallCommand`, **discards the far half including its
+   openings** with no opening check · door-move row confirmed incl. no swing-clearance check ·
+   room-boundary row: furniture `contains` edges route to the dead cascade — furniture never
+   re-evaluated; room identity not preserved across redetect; graph-authoritative levels
+   suppress redetect entirely, so their `boundingWallIds` go stale after manual wall moves ·
+   level-move row: **a verb DOES exist** (`UpdateLevelCommand` → `BimKernel.updateLevel` →
+   `spatial-authority-reconcile`) — §5's "MEASURED-ABSENT" for the verb was wrong, my grep
+   pattern missed it; what is absent is coverage beyond walls+slabs · roof row confirmed
+   MEASURED-ABSENT (roof→walls direction does not exist).
+4. **New CONNECT-0, ahead of the original three**: the dispatcher seam is literally one uncalled
+   setter. Wiring `setRebuildDispatcher` to real listeners (or routing `_computeAffected` output
+   into the existing bespoke coordinators) converts the dead cascade into the generic
+   propagation layer BIM 3.0 needs — with the priority table, the SemanticGraph edge source, and
+   the prevState diffing already written. Plus one rule: deletes must stop returning `[]`.
+
+### 17.3 CONFIRMATION + sharpening — provenance and regenerability (upgrades §4, §7 from BY-READ to line-proven)
+
+The provenance deep-dive confirms §7's direction and makes it precise (all BY-READ at line
+level, EXECUTED as greps):
+
+- **Two element models exist** (L0 Zod schemas vs legacy runtime types), disjoint at runtime;
+  provenance lives only on the legacy Room/Floor/Ceiling family. `detectionMethod` is **three
+  non-unified enums** (union: `auto-topology, manual-boundary, point-pick, manual-polygon,
+  from-room, from-slab, ai-generated, ifc-import`). **`confidence` has zero hits repo-wide.**
+  No lifecycle field outside a loose `properties` bag (`CoreElement.ts:60`, `[key:string]: any`).
+- **Provenance is invented on load**: `roomSnapshotUtils.ts:156` defaults a missing
+  `detectionMethod` to `'auto-topology'` — un-provenanced rooms silently deserialise as
+  machine-detected. The exact anti-pattern the `LandBasis` idiom exists to forbid.
+- **§4's "regenerable with two exceptions" was too generous — the named non-regenerable list is
+  six**: SemanticGraph edges (the loader's fallback `_rebuildSemanticGraph` regenerates only
+  **4 of 26 relationship types**, and only when the graph is completely empty) · temporalGraph ·
+  decisionRecords · repaired/invented room polygons (P1-5) · persisted `Room.area/volume/
+  perimeter` caches with no staleness marker · **`ProvenanceStore` (C23 AI lineage) is not
+  persisted at all** — destroyed on every reload.
+- Additional authority defects for §4's table: **openings have two authoritative copies**
+  (`OpeningStore` + `WallData.openings[]`, nothing pins them) · **three rival level records**
+  (WallStore levels — the persisted one — vs `packages/stores` LevelStore vs hierarchy) ·
+  composed `BuildingStore` is **not serialized** · wall `baseLine[*].y` stores absolute world Y,
+  so the persisted DTO goes stale after a level-elevation change even though geometry re-projects.
+- §7's five-field proposal is upgraded by the deep-dive's six-field version (one optional block
+  on `BaseNodeShape`, `'unknown'` first-class and never defaulted, confidence ceiling-only,
+  `derivationStatus: authored|derived|repaired|refused`, `phase` promoted out of the loose bag,
+  separate `rev` because `Metadata.version` is a geometry-rebuild counter and overloading it
+  would break `WallFragmentBuilder.ts:674`). One dependency stands: **provenance fields are
+  worthless while a verb can stamp them on a detached DTO store** — sequenced after per-kind
+  ADR-0318 adoption.
+- Deterministic-vs-AI (§9) is **confirmed and strengthened**: room detection, wall joins, D-TGL,
+  D-FLE, D-CE, solar, IFC export, schedules/QTO all grep-clean of AI; chat is a three-tier
+  ladder whose deterministic tiers are zero-token by test; production deploys carry no AI key at
+  all; only furniture/plumbing classification in PDF→BIM and free-form NL hard-require the
+  worker.
+
+### 17.4 Does the maturity level move? — NO, with the mechanism relabeled
+
+**Level 4 HOLDS.** Level 4 was "derived topology auto-maintained" — and the systems that earn
+it (RoomTopologyObserver, the dependency trackers, WallRebuildCoordinator, cascade delete,
+spatial-authority-reconcile) are exactly the ones the change-impact traces MEASURED as live.
+What changes is attribution: Level 4 is earned by **bespoke per-pair wiring**, not by the
+generic dependency layer, which is dead. Level 5 remains one composition change away
+(unaffected). Level 6 moves further out (§17.1): one constraint store **plus a real solver**.
+
+### 17.5 Does the percentage bracket move? — the bracket HOLDS at 50–75, but falls to its floor
+
+The §12 justification leaned on four legs: graphs (confirmed), regenerable derived state
+(confirmed, exceptions grew 2→6, all persist-or-lose caches rather than architecture), a
+"uniform propagation spine" (**downgraded** — the spine is bespoke and partial; the uniform
+layer is authored-but-dead), and "six of six constraints are extensions" (**downgraded** — two
+are NEW MECHANISM and the solver behind "solver-driven" does not exist). The deterministic core
+— the bulk of BIM 3.0 value — is *more* confirmed than before (§17.3). Net: **50–75 stands, at
+the bottom edge, and the case for approaching 75 is gone.** Stated plainly: if the founder
+counts "write the planegcs WASM binding" as new construction rather than strengthening, the
+constraint-driven *slice* of BIM 3.0 alone grades 25–50; the overall verdict stays 50–75 only
+because the graph, topology-derivation, and deterministic-generation slices carry more of the
+total and survived the corrections intact.
+
+### 17.6 The topology/geometry deep-dive (arrived last) — junction thesis CONFIRMED; the geometry substrate is more duplicated and less guarded than §8 could see
+
+All BY-READ at line level, EXECUTED as the deep-dive's greps. Corrections and upgrades:
+
+**Topology (corrects §3):**
+
+- **Junction discard CONFIRMED with the structures named.** Two parallel resolvers live
+  side-by-side: legacy `WallJoinResolver.ts` (3,093 lines; `CornerJoin`/`TJoin` records consumed
+  inside the detect loop at `:279-282` and dropped) and ADR-0055 `JunctionResolverV2.ts`
+  (1,343 lines; `JunctionDraft {point, realEndpoints, passthroughWalls}` local to
+  `resolveJunctions`, consumed by `applyRingSweep` at `:1333`, then garbage). What survives is
+  per-wall miter data with **no junction id, no L/T/Y/X type, no participant set, no shared
+  node** — a junction exists only as a transient tuple inside one function call.
+- **The retained-index payoff is bigger than §3 claimed**: room detection *re-detects the same
+  junctions the wall resolver just computed, with a different epsilon* (NODE_GRID_MM grid vs the
+  resolver's 0.20 m band) — and that mismatched double-detection is the **documented root cause
+  of §DIAG-ROOM-LOOP failures** (`RoomTopologyObserver.ts:52-58`). A junction index doesn't just
+  speed Q4; it removes a known defect class and unblocks `IfcRelConnectsPathElements` export and
+  junction-type queries, which are impossible today without re-running and re-classifying.
+- **Eight-question score corrected: 2 of 8 are genuine indexed lookups (openings-in-wall,
+  element-level), 1 hybrid (dependents — SemanticGraph indexed but not guaranteed complete),
+  2 are O(n) scans over re-detected caches (walls-bounding-room, rooms-sharing-wall — the latter
+  iterates ALL rooms, no reverse index), 3 require geometric recompute (wall-connectivity,
+  point-in-room, room-adjacency — the last an O(rooms²) shared-wall scan on invalidation).**
+  §3's table overgraded Q1/Q2/Q8.
+- **Room polygons are re-detected on EVERY project load** (`ProjectLoader.ts:1362-1375` fires
+  `ReDetectRoomsCommand` per level) — the polygon is a cache of the wall graph, not
+  authoritative; `mergeWithExisting` preserves only semantic fields by centroid matching. §4's
+  Room row understated this: authority order is wall geometry → face trace → polygon →
+  `boundingWallIds` (the schema itself calls the id list a producer cache, `Room.ts:71-75`).
+- **`WallOccupancyStore` stores nothing** — its own header: a PURE-QUERY side system reading
+  `wall.openings[]` from the frozen record at query time; transparent to undo and load. §3/§4's
+  "occupancy intervals" and the persistence question dissolve: `wall.openings[]` is the one
+  authority, invariant-checked (`Wall.ts:100-107`). The G4 grade for hosting stands on it.
+- Also: the UBG's own header claims its snapshot "persists in the .pryzm snapshot" — **it does
+  not** (no `ubg` key in `ProjectSerializer.ts`); one more doc-vs-code drift to fix during
+  activation. Two parallel level identities exist (`BimKernel.Level.id` vs hierarchy
+  `LevelData.id`+`bimLevelId`) — corroborating §17.3's three-rival-level-records finding.
+- B-rep/half-edge: confirmed ABSENT as a persistent structure; half-edge maps exist only as
+  function-local scratch inside face tracing. Geometry leaves the kernel as triangle soup; the
+  one real solid engine is manifold-3d CSG (`KernelCSG.ts`), canonical and well-guarded.
+
+**Geometry inventory (supersedes §8's table in detail):**
+
+| Family | Count | State |
+|---|---|---|
+| Polygon offset | 1 canonical (R3 gate VERIFIED at source: the roof copy is a re-export with a do-not-reintroduce header; the old clone is deleted) | the ONE family with a stated epsilon/failure policy |
+| Point-in-polygon | **42 independent implementations**, no canonical, no epsilon policy, boundary semantics mis-documented in the shared validator and corrected only in a local comment (`insetPolygon.ts:628-641`) | worst family in the repo |
+| 3D boolean (CSG) | 1 canonical (manifold-3d) | good |
+| 2D boolean/clipping | ≥5 independent Sutherland–Hodgman half-plane clippers; **NO general clipper, NO union primitive** — three files independently defer "a future general clipper" | "merge two footprints" is not expressible |
+| Triangulation | 5 independent (earcut port with holes; two naive O(n²) ear-clips; THREE.ShapeUtils ×8 sites; a centroid-fan that is silently wrong on concave rooms — its "lands at S30" note never landed) | simplicity asserted at exactly ONE call path (`SlabFragmentBuilder.ts:1031`, ADR-0299) |
+| Segment intersection | 7+ independent, each with its own epsilon and collinearity convention | no shared robust predicate |
+| Signed area / winding | ~30 `signedArea` + 7 `ensureCCW` copies; no cross-subsystem winding contract | |
+| Planar face tracing | 5 near-duplicates — incl. `PlanarTopologyEngine` ×3 (two byte-identical 477-line clones beside the 220-line shipped one) and `WallIntersectionResolver` ×3 (as §8 found) | the shipped variant is the SMALLER one |
+| Spatial index | 4+ independent grids/BVH with divergent cell policies; the room index is fed **two incompatible AABB definitions** (true bbox vs circle approximation) — a concave room can be missed | a live correctness bug, not just duplication |
+| **Clash detection** | **ABSENT as an engine.** UI panel + toolbar + 12 registered command ids exist with **no handler and no detector** — a stub wearing a capability's clothes | new §13 ADD entry; also an EXISTS≠WIRED exhibit for the register |
+
+Epsilon values found for "the same thing": 1e-9, 1e-8, 1e-6, 1e-4, 0.001 m, 0.01 m, 0.05 m,
+0.12 m, 0.15 m, 0.20 m, 0.5 m, plus a camera-zoom-derived runtime tolerance — two files
+hand-copy their constant with a comment saying it "matches the other clippers".
+
+**Consequences for the plan**: REMOVE-DUPLICATION (§13) grows from two entries to a programme —
+point-in-polygon first (42 copies, one mis-documented boundary convention), then face-tracing
+(×3 clones), triangulation (pin the simplicity-asserting path as canonical), segment
+intersection; each via the R3 recipe. ADD gains: a general 2D boolean (three files already ask
+for it), a real clash engine behind the existing 12 command ids, and a stated epsilon policy.
+None of this moves the maturity level or the bracket: it is duplication and absence *inside*
+the frozen architecture, and the strengthening path (canonical file + counting gate) is already
+proven by R3. It does, however, harden the §17.5 judgement that 75% is out of reach without
+real construction work.
+
+### 17.7 Corrected final verdict — in plain language
+
+PRYZM is still a graph-based BIM system in embryo, and the deterministic core is even stronger
+than first graded — but two of its advertised organs are hollow: the constraint solver is a
+mock wearing a real interface, and the generic dependency cascade emits events nobody hears.
+What actually keeps the model consistent today is honest, hand-wired, pair-by-pair plumbing —
+which works, is regression-pinned, and is exactly what a generic layer should be grown out of,
+one uncalled setter away. The instruction stands, re-scoped: **activate, retain, and certify
+what is real; wire the one dead dispatcher; and stop calling the mock a solver until S52 D2
+lands.** Level 4 of 8. 50–75%, at the floor.
+
+---
+
+*Not verified in this audit (named, per doctrine): all four deep-dives eventually reported and
+are folded into §17 — their findings are cited (EXECUTED as their greps/reads, BY-READ as
+semantics), not re-executed here; no runtime probe was executed by this agent (greps only);
+still UNPROVEN anywhere: runtime execution of the compliance advisory path, per-kind
+SemanticGraph write coverage, `annotationConstraints` end-to-end behaviour, and every cell §5
+marks UNKNOWN.*
