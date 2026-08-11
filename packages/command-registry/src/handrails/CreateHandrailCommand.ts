@@ -9,6 +9,8 @@ export class CreateHandrailCommand implements Command {
     timestamp = Date.now();
     targetIds: string[] = [];
     private createdId?: string;
+    /** §PERSIST-L1 (W1-2) — stable IFC GUID; see `data.ifcGuid`. */
+    private readonly _ifcGuid: string;
 
     constructor(
         private data: {
@@ -24,8 +26,27 @@ export class CreateHandrailCommand implements Command {
             railDiameter?: number,
             postSpacing?: number,
             materialColor?: string,
+            /**
+             * §PERSIST-L1 (W1-2) — the handrail's ORIGINAL IFC GUID. `ifcData.guid`
+             * is the IFC round-trip join key: it is what an exported IFC file, a
+             * BCF issue or a Revit round-trip uses to find this railing again. It
+             * is AUTHORED — `createIfcMetadata()` mints it as a
+             * `crypto.randomUUID()`, not recomputable from `id` — so a restore
+             * that does not carry it forward silently breaks that correspondence.
+             *
+             * Absent (a genuinely new handrail), the command mints one at
+             * construction. That also fixes undo+redo: the guid used to be minted
+             * inside `execute()`, so every redo produced a different one.
+             */
+            ifcGuid?: string,
         }
-    ) {}
+    ) {
+        // §PERSIST-L1 (W1-2) — adopt the supplied GUID, mint only in its absence,
+        // and echo it back onto `data` so `serialize()` (which forwards `data`
+        // verbatim) carries the SAME guid to every collaboration peer.
+        this._ifcGuid = data.ifcGuid ?? crypto.randomUUID();
+        this.data = { ...data, ifcGuid: this._ifcGuid };
+    }
 
     canExecute(ctx: CommandContext): CommandValidationResult {
         const levelId = this.data.levelId || ctx.projectContext.activeLevelId;
@@ -73,7 +94,11 @@ export class CreateHandrailCommand implements Command {
             postSpacing:   this.data.postSpacing,
             materialColor: this.data.materialColor,
             properties: {},
-            ifcData: createIfcMetadata('handrail', ifcPredefined)
+            // §PERSIST-L1 (W1-2) — the ifcClass/predefinedType still come from the
+            // canonical mapper; only the guid is overridden with the one resolved at
+            // construction time, so a restored handrail keeps the guid it was saved
+            // with and redo re-stamps the same one.
+            ifcData: { ...createIfcMetadata('handrail', ifcPredefined), guid: this._ifcGuid }
         };
 
         ctx.stores.handrailStore.add(handrail);

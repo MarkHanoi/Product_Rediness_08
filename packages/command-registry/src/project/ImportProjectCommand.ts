@@ -424,6 +424,10 @@ export class ImportProjectCommand implements Command {
             for (const col of snapshot.columns) {
                 const cmd = new CreateColumnCommand({
                     id:         col.id,
+                    // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID. The command
+                    // has accepted `ifcGuid` since §M3; this caller never passed it,
+                    // so every reload re-minted the column's IFC round-trip join key.
+                    ifcGuid:    (col as { ifcData?: { guid?: string } }).ifcData?.guid,
                     position:   col.position,
                     height:     col.height,
                     rotation:   col.rotation ?? 0,
@@ -485,6 +489,10 @@ export class ImportProjectCommand implements Command {
                     materialColor: wall.materialColor,
                     curve:         wall.curve,
                     systemTypeId:  wall.systemTypeId,
+                    // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID so the wall's
+                    // IFC round-trip join key survives reload. Absent (legacy snapshot
+                    // written before ifcData was serialised) the command mints one.
+                    ifcGuid:       (wall as { ifcData?: { guid?: string } }).ifcData?.guid,
                 });
                 const r = runSub(cmd);
                 if (r.success) {
@@ -688,6 +696,10 @@ export class ImportProjectCommand implements Command {
                         // so `carveStairOpening`'s idempotency guard stops re-carving a
                         // fresh duplicate void on every load.
                         id:                stair.id,
+                        // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID. W1-1 made
+                        // the stair id survive; the join key an IFC export writes is
+                        // `ifcData.guid`, which was still re-minted on every reload.
+                        ifcGuid:           (stair as { ifcData?: { guid?: string } }).ifcData?.guid,
                         baseLevelId:       stair.baseLevelId,
                         topLevelId:        stair.topLevelId,
                         shape:             stair.shape,
@@ -774,6 +786,9 @@ export class ImportProjectCommand implements Command {
                     thickness:  hr.thickness,
                     levelId:    hr.levelId,
                     baseOffset: hr.baseOffset,
+                    // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID so the railing's
+                    // IFC round-trip join key survives reload.
+                    ifcGuid:    (hr as { ifcData?: { guid?: string } }).ifcData?.guid,
                 });
                 const r = runSub(cmd);
                 r.success ? stats.loaded++ : recordFail(`Handrail ${hr.id}`, r);
@@ -890,6 +905,10 @@ export class ImportProjectCommand implements Command {
                         // (§BEAM-AUDIT-2026-C5), so omitting it re-identified every beam
                         // on every load and left an orphan in `level.childrenIds`.
                         beamId:      b.id,
+                        // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID. W1-1 made
+                        // the beam id survive; `ifcData.guid` — the key an IFC export
+                        // writes — was still re-minted by `BeamStore.add()` on reload.
+                        ifcGuid:     (b as { ifcData?: { guid?: string } }).ifcData?.guid,
                         startPoint:  b.startPoint,
                         endPoint:    b.endPoint,
                         width:       b.width,

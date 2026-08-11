@@ -195,6 +195,9 @@ export function migrateRoofSnapshotToCommand(roof: any): import('@pryzm/command-
             fascia:        roof.fascia,
             materialColor: roof.materialColor,
             materialId:    roof.materialId,
+            // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID so the roof's IFC
+            // round-trip join key survives reload.
+            ifcGuid:       roof.ifcData?.guid,
         });
     } catch (e) {
         console.error('[ProjectLoader] migrateRoofSnapshotToCommand failed:', e);
@@ -428,7 +431,10 @@ export class ProjectLoader {
                     depth: col.depth,
                     baseOffset: col.baseOffset ?? 0,
                     levelId: col.levelId,
-                    materialId: col.materialId
+                    materialId: col.materialId,
+                    // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC
+                    // round-trip join key and was re-minted on every reload.
+                    ifcGuid: col.ifcData?.guid
                 });
                 const r = exec(cmd);
                 r.success ? result.loaded++ : this.recordFail(result, `Column ${col.id}`, r);
@@ -475,6 +481,9 @@ export class ProjectLoader {
                     materialId: wall.materialId,
                     materialColor: wall.materialColor,
                     curve: wall.curve,
+                    // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC
+                    // round-trip join key and was re-minted on every reload.
+                    ifcGuid: wall.ifcData?.guid,
                     // §WALL-RAKE — mirrors apps/editor ProjectLoader.
                     rakeAngleDeg: wall.rakeAngleDeg,
                     systemTypeId: wall.systemTypeId
@@ -609,7 +618,10 @@ export class ProjectLoader {
                         flights: stair.flights ?? [],
                         landings: stair.landings,
                         fireRating: stair.fireRating,
-                        accessibilityType: stair.accessibilityType
+                        accessibilityType: stair.accessibilityType,
+                        // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC
+                        // round-trip join key and was re-minted on every reload.
+                        ifcGuid: stair.ifcData?.guid
                     });
                     const r = exec(cmd);
                     r.success ? result.loaded++ : this.recordFail(result, `Stair ${stair.id}`, r);
@@ -706,7 +718,10 @@ export class ProjectLoader {
                     height: hr.height,
                     thickness: hr.thickness,
                     levelId: hr.levelId,
-                    baseOffset: hr.baseOffset
+                    baseOffset: hr.baseOffset,
+                    // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC
+                    // round-trip join key and was re-minted on every reload.
+                    ifcGuid: hr.ifcData?.guid
                 });
                 const r = exec(cmd);
                 r.success ? result.loaded++ : this.recordFail(result, `Handrail ${hr.id}`, r);
@@ -790,7 +805,10 @@ export class ProjectLoader {
                         levelId: b.levelId,
                         material: b.material,
                         loadBearing: b.loadBearing,
-                        fireRating: b.fireRating
+                        fireRating: b.fireRating,
+                        // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC
+                        // round-trip join key and was re-minted on every reload.
+                        ifcGuid: b.ifcData?.guid
                     });
                     const r = exec(cmd);
                     r.success ? result.loaded++ : this.recordFail(result, `Beam ${b.id}`, r);

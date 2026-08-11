@@ -40,6 +40,19 @@ export interface CreateRoofPayload {
      * every existing caller (loader, IFC import, AI, replay) keeps its behaviour.
      */
     levelPolicy?: RoofLevelPolicy;
+    /**
+     * §PERSIST-L1 (W1-2) — the roof's ORIGINAL IFC GUID. `ifcData.guid` is the
+     * IFC round-trip join key: it is what an exported IFC file, a BCF issue or a
+     * Revit round-trip uses to find this roof again. It is AUTHORED — minted
+     * once as a `crypto.randomUUID()` and not recomputable from `roofId` — so a
+     * restore that does not carry it forward silently breaks that
+     * correspondence.
+     *
+     * Absent (a genuinely new roof), the command mints one at construction, so
+     * the value is also stable across undo+redo. Previously the guid was minted
+     * inside `RoofStore.add()`, i.e. after undo had discarded the record.
+     */
+    ifcGuid?: string;
 }
 
 export class CreateRoofCommand implements Command {
@@ -60,11 +73,19 @@ export class CreateRoofCommand implements Command {
     private resolvedLevelId?: string;
     private resolvedBaseOffset?: number;
 
+    /** §PERSIST-L1 (W1-2) — stable IFC GUID; see `CreateRoofPayload.ifcGuid`. */
+    private readonly _ifcGuid: string;
+
     constructor(roofId: string, private payload: CreateRoofPayload) {
         this.id = `cmd-roof-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         this.timestamp = Date.now();
         this.roofId = roofId;
         this.targetIds = [roofId];
+        // §PERSIST-L1 (W1-2) — adopt the supplied GUID, mint only in its absence,
+        // and echo it back onto `payload` so `serialize()` (which spreads it)
+        // forwards the SAME guid to every collaboration peer and to replay.
+        this._ifcGuid = payload.ifcGuid ?? crypto.randomUUID();
+        this.payload = { ...payload, ifcGuid: this._ifcGuid };
     }
 
     canExecute(context: CommandContext): CommandValidationResult {
@@ -178,6 +199,14 @@ export class CreateRoofCommand implements Command {
                 modifiedAt: now,
                 createdBy:  'system',
                 version:    1,
+            },
+            // §PERSIST-L1 (W1-2) — stamp the GUID resolved at construction time so a
+            // restored roof keeps the guid it was saved with, and redo re-stamps the
+            // same one. The `RoofStore.add()` fallback now only fires for legacy /
+            // AI-bypass roofs that arrive without an ifcData block.
+            ifcData: {
+                guid:     this._ifcGuid,
+                ifcClass: 'IfcRoof',
             },
         };
 

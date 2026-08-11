@@ -386,6 +386,10 @@ export function migrateRoofSnapshotToCommand(roof: any): CreateRoofCommand | nul
             fascia: roof.fascia,
             materialColor: roof.materialColor,
             materialId: roof.materialId,
+            // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID so the roof's IFC
+            // round-trip join key survives reload. Absent (legacy snapshot) the
+            // command mints one, which is the pre-existing behaviour.
+            ifcGuid: roof.ifcData?.guid,
         });
     } catch (e) {
         console.error('[projectLoaderUtils] migrateRoofSnapshotToCommand failed:', e);

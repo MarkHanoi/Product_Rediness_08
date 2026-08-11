@@ -44,6 +44,20 @@ export interface CreateBeamInput {
     steelProfileName?: string;
     /** Section geometry type: 'rectangular' = concrete/generic, 'UB'/'UC' = steel I-section. */
     sectionType?: 'rectangular' | 'UB' | 'UC';
+    /**
+     * §PERSIST-L1 (W1-2) — the beam's ORIGINAL IFC GUID. `ifcData.guid` is the
+     * IFC round-trip join key (what an exported IFC file, a BCF issue or a Revit
+     * round-trip uses to find this beam again). It is AUTHORED — minted once as
+     * a `crypto.randomUUID()`, not recomputable from the beam id — so a restore
+     * that does not carry it forward silently breaks that correspondence.
+     *
+     * Absent (a genuinely new beam), the constructor mints one, and the value is
+     * then stable across redo and wire replay for the same reason `beamId` is
+     * (§BEAM-AUDIT-2026-C5). Previously the guid was minted inside
+     * `BeamStore.add()`, i.e. AFTER undo had thrown the record away — so redo
+     * re-identified the beam too.
+     */
+    ifcGuid?: string;
 }
 
 export class CreateBeamCommand implements Command {
@@ -63,17 +77,20 @@ export class CreateBeamCommand implements Command {
      * caused undo/redo + collab divergence (audit Critical-5).
      */
     public readonly beamId: string;
+    /** §PERSIST-L1 (W1-2) — stable IFC GUID; see `CreateBeamInput.ifcGuid`. */
+    public readonly ifcGuid: string;
     private createdBeamId?: string;
 
     constructor(input: CreateBeamInput) {
         this.id = crypto.randomUUID();
         this.timestamp = Date.now();
         this.beamId = input.beamId ?? crypto.randomUUID();
+        this.ifcGuid = input.ifcGuid ?? crypto.randomUUID();
         // Echo the resolved id back into `input` so `serialize()` always
         // forwards it on the wire — collaboration peers reconstruct with
         // the same id and dependent commands (AssignBeamSupports, Update,
         // Delete) target a beam every peer agrees on.
-        this.input = { ...input, beamId: this.beamId };
+        this.input = { ...input, beamId: this.beamId, ifcGuid: this.ifcGuid };
     }
 
     canExecute(context: CommandContext): CommandValidationResult {
@@ -176,7 +193,15 @@ export class CreateBeamCommand implements Command {
             sectionType: this.input.sectionType ?? 'rectangular',
             properties: {
                 mark: `BE${(context.stores.beamStore.getAll().length + 1).toString().padStart(3, '0')}`
-            }
+            },
+            // §PERSIST-L1 (W1-2) — stamp the GUID resolved at construction time so a
+            // restored beam keeps the guid it was saved with, and redo re-stamps the
+            // same one. The `BeamStore.add()` fallback now only fires for legacy /
+            // AI-bypass beams that arrive without an ifcData block.
+            ifcData: {
+                guid: this.ifcGuid,
+                ifcClass: 'IfcBeam',
+            },
         };
 
         beamStore.add(beam);

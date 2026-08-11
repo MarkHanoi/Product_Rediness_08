@@ -120,10 +120,27 @@ export class CreateWallCommand implements Command {
              * idempotent: re-running the load produces byte-identical layers.
              */
             layers?: WallLayer[],
+            /**
+             * §PERSIST-L1 (W1-2) — the wall's ORIGINAL IFC GUID, supplied by the
+             * project loader when re-hydrating a persisted wall. `ifcData.guid` is
+             * the IFC round-trip join key: it is what an exported IFC file and any
+             * external system (BCF issue, COBie sheet, Revit round-trip) uses to
+             * find this wall again. It is AUTHORED, not derived — minted once as a
+             * `crypto.randomUUID()` and never recomputable — so a restore that does
+             * not carry it forward silently breaks that correspondence.
+             *
+             * Absent (a genuinely new wall), the constructor mints one, exactly as
+             * before — see §WALL-AUDIT-2026-M9 above.
+             */
+            ifcGuid?: string,
         }
     ) {
         this.targetIds = [wallId];
-        this._ifcGuid = crypto.randomUUID();
+        // §WALL-AUDIT-2026-M9 + §PERSIST-L1 — adopt the supplied GUID, mint only in
+        // its absence. Echoed back onto `wallData` so `serialize()` (which spreads
+        // it) forwards the SAME guid to every collaboration peer.
+        this._ifcGuid = wallData.ifcGuid ?? crypto.randomUUID();
+        this.wallData = { ...wallData, ifcGuid: this._ifcGuid };
     }
 
     canExecute(ctx: CommandContext): CommandValidationResult {

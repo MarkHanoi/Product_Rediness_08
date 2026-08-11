@@ -75,6 +75,19 @@ export interface CreateStairInput {
      */
     id?: string;
     /**
+     * §PERSIST-L1 (W1-2) — the stair's ORIGINAL IFC GUID. `ifcData.guid` is the
+     * IFC round-trip join key: it is what an exported IFC file, a BCF issue or a
+     * Revit round-trip uses to find this stair again. It is AUTHORED — minted
+     * once as a `crypto.randomUUID()` and not recomputable from `id` — so a
+     * restore that does not carry it forward silently breaks that
+     * correspondence, even though the stair id itself now round-trips (W1-1).
+     *
+     * Absent (a genuinely new stair), the command mints one at construction, so
+     * the value is also stable across undo+redo. Previously the guid was minted
+     * inside `StairStore.add()`, i.e. after undo had discarded the record.
+     */
+    ifcGuid?: string;
+    /**
      * §PERSIST-L1 — Restore-time metadata override. ProjectLoader sets
      * `source: 'import'` so the audit trail distinguishes a snapshot reload
      * from a fresh creation. Defaults to `source: 'user'` for new stairs.
@@ -130,10 +143,17 @@ export class CreateStairCommand implements Command {
     private createdOpeningId?: string;
     private createdOpeningHostSlabId?: string;
 
+    /** §PERSIST-L1 (W1-2) — stable IFC GUID; see `CreateStairInput.ifcGuid`. */
+    private readonly _ifcGuid: string;
+
     constructor(input: CreateStairInput) {
         this.id = crypto.randomUUID();
         this.timestamp = Date.now();
-        this.input = input;
+        // §PERSIST-L1 (W1-2) — adopt the supplied GUID, mint only in its absence,
+        // and echo it back onto `input` so `serialize()` (which spreads `input`)
+        // forwards the SAME guid to every collaboration peer and to replay.
+        this._ifcGuid = input.ifcGuid ?? crypto.randomUUID();
+        this.input = { ...input, ifcGuid: this._ifcGuid };
         this.targetIds = [];
     }
 
@@ -353,7 +373,15 @@ export class CreateStairCommand implements Command {
                 version: 0,
                 source: 'user' as const,
                 ...(this.input.metadata ?? {}),
-            }
+            },
+            // §PERSIST-L1 (W1-2) — stamp the GUID resolved at construction time so a
+            // restored stair keeps the guid it was saved with, and redo re-stamps the
+            // same one. The `StairStore.add()` fallback now only fires for legacy /
+            // AI-bypass stairs that arrive without an ifcData block.
+            ifcData: {
+                guid: this._ifcGuid,
+                ifcClass: 'IfcStair',
+            },
         };
 
         stairStore.add(stair);
