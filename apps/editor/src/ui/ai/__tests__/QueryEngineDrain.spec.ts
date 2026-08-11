@@ -70,48 +70,74 @@ const treeQueries = [...new Set(collectQueries(COMMAND_TREE))].sort();
 
 /**
  * MISREAD — the ladder claims these and produces the WRONG thing. Verified by
- * reading the resolution, not by suspicion:
+ * reading the resolution, not by suspicion. What is LEFT after the U9 fix pass:
  *
- *  • "highlight walls taller than 3m" / "isolate doors higher than 2 meters"
- *    → `set-height`, dispatching `wall.updateDimensions` on the SELECTED wall.
- *    A read-only VISIBILITY question silently RESIZES a wall. This is the worst
- *    one, and it is a resolver defect, not a drain item.
- *  • "create N levels at Xm" → `add-level`, which adds ONE level and reads the
- *    COUNT as an elevation ("create 10 levels at 3m" ⇒ one level at 10 m).
- *  • "create floor plan view" / "create stairs between levels" /
- *    "create slabs in all levels" / "create (curtain) walls by ground floor
- *    slab" → `add-level`. A view/stair/slab request creates a LEVEL.
- *  • "make all slabs white|gray|blue" / "set all slabs thickness to Xm" →
- *    `set-slab-type` with a typeRef of "blue" or "thickness to 0.2m". The
- *    summary states a falsehood before the command refuses the nonsense type.
- *  • "create (curtain) walls on all slabs" / "on the perimeter of slab" →
- *    `create-wall`, which refuses for want of coordinates.
- *  • "isolate level 2" → `go-to-level`. Isolating is not navigating.
- *  • "delete all grids" → a `clarify` question about the selection.
+ *  • "create (curtain) walls on all slabs" / "by ground floor slab" / "on the
+ *    perimeter of slab" → `create-wall`, which then refuses for want of
+ *    coordinates. The verb+noun are right and only the PLACEMENT is missing, so
+ *    the honest fix is the slab-derived creation route (E-class today:
+ *    wall.create-on-all-slabs and curtain-wall.create-on-all-slabs are both
+ *    classified E in ChatCommandClassification, blocked on preview-before-
+ *    execute), not a narrower grammar.
+ *  • "isolate level 2" → `go-to-level`. Isolating is not navigating. This one
+ *    SURVIVES the §FIX-CHAT-VISIBILITY-MISREAD guard on purpose: that guard
+ *    lets a visibility verb reach view-changing intents so "show level 2" keeps
+ *    working, and go-to-level is the closest live thing to what was asked. It
+ *    closes when the chat gains a real isolate capability.
+ *  • "delete all grids" → a `clarify` question about the selection. Grid is not
+ *    a DeleteElementCommand branch, so U9.2 did not claim it (see the
+ *    DeleteFamilies header for the bar a kind has to clear).
  *
  * Fixing any of these must fail this test — that is the whole point of naming
  * them one by one instead of counting them.
  */
 const MISREAD: readonly string[] = [
+    'create curtain walls by ground floor slab',
+    'create curtain walls on all slabs',
+    'create curtain walls on slab',
+    'create walls by ground floor slab',
+    'create walls on all slabs',
+    'create walls on the perimeter of slab',
+    'delete all grids',
+    'isolate level 2',
+];
+
+/**
+ * DRAINED — these WERE misreads and are now honest misses. Each is pinned here
+ * rather than deleted, because "the ladder no longer claims it" is a property
+ * that can regress silently; a resolver change that re-claims one fails this
+ * spec instead of quietly resurrecting the defect.
+ *
+ * Closed by fd27e513 (§FIX-CHAT-VISIBILITY-MISREAD / §FIX-CHAT-TYPEREF-SWALLOW
+ * and the add-level over-claim pass), 2026-08-11:
+ *
+ *  • "highlight walls taller than 3m" / "isolate doors higher than 2 meters"
+ *    were the worst of the whole inventory — `set-height` DISPATCHING
+ *    wall.updateDimensions, so a read-only visibility question resized a wall.
+ *  • "create N levels at Xm" read the COUNT as an elevation (one level at 10 m).
+ *  • "create floor plan view" / "create stairs between levels" / "create slabs
+ *    in all levels" all became `add-level`, because the token "level" anywhere
+ *    in the sentence was enough.
+ *  • "make all slabs <colour>" and "set all slabs thickness to Xm" became
+ *    `set-slab-type` with a typeRef of "blue" or "thickness to 0.2m", stating a
+ *    falsehood in the summary before the command refused it.
+ *  • the three "set all curtain wall …" phrasings were the same all-scope
+ *    dimension misread; U7.3 gave the chat REAL curtain-wall mullion/panel
+ *    properties, but they are selection-scoped, so the all-scope form is now an
+ *    honest miss rather than an edit of whatever happened to be selected.
+ */
+const DRAINED: readonly string[] = [
     'create 10 levels at 3.5m',
     'create 10 levels at 3m',
     'create 15 levels at 4m',
     'create 20 levels at 3m',
     'create 5 levels at 3m',
     'create 8 levels at 3m',
-    'create curtain walls by ground floor slab',
-    'create curtain walls on all slabs',
-    'create curtain walls on slab',
     'create floor plan view',
     'create slabs in all levels',
     'create stairs between levels',
-    'create walls by ground floor slab',
-    'create walls on all slabs',
-    'create walls on the perimeter of slab',
-    'delete all grids',
     'highlight walls taller than 3m',
     'isolate doors higher than 2 meters',
-    'isolate level 2',
     'make all slabs blue',
     'make all slabs gray',
     'make all slabs white',
@@ -139,6 +165,15 @@ describe('§DRAIN — the legacy QueryEngine inventory, pinned', () => {
     it('the MISREAD list is exactly the live defect set — fixing one fails here', () => {
         for (const q of MISREAD) {
             expect(claimedBy(q), `"${q}" is no longer misread — move it out of MISREAD`).not.toBeNull();
+        }
+    });
+
+    it('every DRAINED phrasing stays an honest miss — re-claiming one fails here', () => {
+        for (const q of DRAINED) {
+            expect(
+                claimedBy(q),
+                `"${q}" is claimed again — it was a fixed misread, and this is the regression`,
+            ).toBeNull();
         }
     });
 
