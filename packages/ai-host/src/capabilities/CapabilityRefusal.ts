@@ -182,6 +182,23 @@ const VISIBILITY_SAFE_INTENTS: ReadonlySet<string> = new Set([
   'go-to-level', 'zoom-fit', 'zoom-selected', 'undo', 'redo',
 ]);
 
+/**
+ * §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — the REAL visibility capabilities,
+ * registered against the composeRuntime §4d-bis intent path. This is the
+ * "when the chat grows real hide/isolate capabilities they join the allowlist"
+ * day the paragraph above promised: a `visibility-change` opener may now reach
+ * EXACTLY these four intents and nothing else — so "isolate the tall doors"
+ * still cannot resize one on the way there, which is what this guard is for.
+ *
+ * Everything these four do not claim (level hides, category hides, height
+ * filters) still falls through as a MISS to the legacy QueryEngine handlers —
+ * the fall-through remains the honest behaviour for the asks that only the
+ * legacy path can serve.
+ */
+const VISIBILITY_CAPABILITY_INTENTS: ReadonlySet<string> = new Set([
+  'hide-selection', 'isolate-selection', 'reveal-all', 'visibility-query',
+]);
+
 // ─── §FIX-CHAT-HIDE-IS-NOT-NAVIGATE (RAC-FIX-1, scorecard §1.2, founder P0) ──
 //
 // THE DEFECT, measured 2026-08-11 by `probe-categories-6-10.ts`:
@@ -206,9 +223,12 @@ const VISIBILITY_SAFE_INTENTS: ReadonlySet<string> = new Set([
 //                      are looking satisfies the ask. May reach the allowlist.
 //   'visibility-change' hide / unhide / isolate / highlight / turn off — the ask
 //                      is about WHAT IS DRAWN. Changing where the camera points
-//                      can NEVER satisfy it, so this class may claim NOTHING at
-//                      the deterministic ladder. Not the allowlist, not
-//                      go-to-level, not a nearest-live-intent guess.
+//                      can NEVER satisfy it, so this class may claim NOTHING
+//                      from the view-navigation allowlist. Not go-to-level,
+//                      not a nearest-live-intent guess. (§GATE-VIS-INTENT,
+//                      2026-08-11: it may now reach the REAL visibility
+//                      capabilities — VISIBILITY_CAPABILITY_INTENTS below —
+//                      and still nothing else.)
 //   'read-only-query'  select / filter / find / list / count — informational.
 //                      Unchanged: may reach the allowlist.
 //
@@ -275,13 +295,34 @@ export function isVisibilityQueryOpener(raw: string): boolean {
  * resolver, the NL layer and the plan executor share ONE definition — a guard
  * only half the ladder honours is not a guard.
  */
+/**
+ * §GATE-VIS-INTENT — a bare-PLURAL "hide walls" / "isolate doors" is the
+ * CATEGORY ask, owned by the legacy QueryEngine handlers
+ * (`pryzm-visibility-command`). The grammars never claim it, but tier-1's
+ * plural→singular typo repair rewrites "hide walls" → "hide wall", which the
+ * bare-singular selection grammar WOULD claim — so the gate checks the RAW
+ * utterance, where the plural is still visible. Explicit noun list, never a
+ * generic `\w+s` (that would swallow "hide this").
+ */
+const VIS_BARE_PLURAL_CATEGORY =
+  /^\s*(?:please\s+)?(?:hide|isolate)\s+(?:all\s+)?(?:the\s+)?(?:walls|doors|windows|rooms|slabs|roofs|stairs|columns|beams|ceilings|floors|elements|items|objects)\s*$/i;
+
 export function visibilityMisreadReason(raw: string, intent: string): 'visibility' | null {
   const cls = visibilityAskClass(raw);
   if (cls === null) return null;
-  // §FIX-CHAT-HIDE-IS-NOT-NAVIGATE — the class that the allowlist cannot help.
-  // `hide`/`isolate` claim NOTHING here, including the view-changing intents.
-  if (cls === 'visibility-change') return 'visibility';
-  return VISIBILITY_SAFE_INTENTS.has(intent) ? null : 'visibility';
+  if (VIS_BARE_PLURAL_CATEGORY.test(raw)) return 'visibility';
+  // §FIX-CHAT-HIDE-IS-NOT-NAVIGATE + §GATE-VIS-INTENT — a `hide`/`isolate`
+  // opener may reach ONLY the real visibility capabilities, never the
+  // view-navigation allowlist ("hide level 2" must still not navigate).
+  if (cls === 'visibility-change') {
+    return VISIBILITY_CAPABILITY_INTENTS.has(intent) ? null : 'visibility';
+  }
+  // view-navigation and read-only-query openers keep their allowlist AND may
+  // reach the visibility capabilities ("show everything" → reveal-all;
+  // "list the hidden elements" → the read-only visibility-query).
+  return VISIBILITY_SAFE_INTENTS.has(intent) || VISIBILITY_CAPABILITY_INTENTS.has(intent)
+    ? null
+    : 'visibility';
 }
 
 // ─── §FIX-CHAT-PROPERTY-REMOVAL-IS-NOT-DELETE (scorecard §1.4, P0) ──────────

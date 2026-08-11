@@ -177,6 +177,15 @@ const DRAINED: readonly string[] = [
  *  legacy pattern behind it is genuinely dead from chat. */
 const SHADOWED_CORRECT: readonly string[] = [
     'add ceilings to all rooms',
+    // §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — the selection-isolate pill.
+    // The ladder now resolves it to the `isolate-selection` capability
+    // (visibility.isolate.selection → ViewVisibilityIntentStore, projected via
+    // runtime.visibility.applyToScene), which is the intent path P7 asked for.
+    // The legacy QueryEngine selection-isolate pattern behind it is dead FROM
+    // CHAT; the level/category isolate patterns are untouched and still
+    // served ("isolate level 2" and "isolate all doors" stay misses — pinned
+    // in DRAINED and in the served-families test below).
+    'isolate selected elements',
 ];
 
 describe('§DRAIN — the legacy QueryEngine inventory, pinned', () => {

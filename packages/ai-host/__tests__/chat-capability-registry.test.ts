@@ -149,6 +149,11 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
     const expected: Record<string, readonly string[]> = {
       'zoom-selected': [...PROBE_ELEMENT_KINDS],
       'delete-selected': [...PROBE_ELEMENT_KINDS],
+      // §GATE-VIS-INTENT (VIS-CLASS) — visibility is id-keyed and kind-agnostic
+      // by construction (the intent store never consults a per-kind store), so
+      // every kind is a legitimate target — the zoom-selected argument.
+      'hide-selection': [...PROBE_ELEMENT_KINDS],
+      'isolate-selection': [...PROBE_ELEMENT_KINDS],
       'set-height': [...GENERIC_PARAMETER_TARGETS.filter((k) => k !== 'beam'), 'ceiling'],
       'set-thickness': ['wall', 'slab', 'roof'],
       // RAC U7.1 — column / beam / furniture joined as metadata only.

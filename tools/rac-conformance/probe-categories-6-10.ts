@@ -131,6 +131,14 @@ const OPERATIONAL: Probe[] = [
   { label: '7.4b reset visibility', utterance: 'unhide everything' },
   { label: '7.5 hide level', utterance: 'hide level 2' },
   { label: '7.6 show level', utterance: 'show level 2' },
+  // §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — the capability class landed:
+  // selection hide/isolate + reveal-all now resolve onto the composeRuntime
+  // §4d-bis intent path; the read-only question is answered by the first
+  // readOnly capability. Rows added so the conformance corpus exercises them.
+  { label: '7.7 reveal all (VIS-CLASS)', utterance: 'reveal all' },
+  { label: '7.7b exit isolation phrasing (VIS-CLASS)', utterance: 'exit isolation' },
+  { label: '7.8 read-only visibility question (VIS-CLASS)', utterance: 'what is hidden' },
+  { label: '7.9 per-element unhide — no carrier, honest refusal (VIS-CLASS)', utterance: 'unhide this wall', selection: sel('wall') },
 
   // 8 — MATERIALS / METADATA / PROPERTIES
   { label: '8.1 assign material', utterance: 'assign concrete to this wall', selection: sel('wall') },
@@ -271,7 +279,12 @@ function main(): void {
   console.log('Rule: a question must NEVER produce commands or a local action.');
   console.log('═══════════════════════════════════════════════════════════════\n');
   for (const r of roResults) {
-    const flag = r.mutated ? '❌ MUTATED' : r.kind === 'refusal' ? '✅ refused ' : '✅ miss    ';
+    // §GATE-QUERYENGINE-READ-ONLY — a non-mutating 'local' is the read-only
+    // ANSWER class (action 'answer'): the question was answered, not missed.
+    const flag = r.mutated ? '❌ MUTATED'
+      : r.kind === 'refusal' ? '✅ refused '
+      : r.kind === 'local' ? '✅ answered'
+      : '✅ miss    ';
     console.log(`${flag} ${r.label.padEnd(34)} "${r.utterance}"`);
     console.log(`             → ${r.detail}`);
   }

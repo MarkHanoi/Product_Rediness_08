@@ -149,9 +149,21 @@ export function intentOf(r: ZeroTokenResolution): string | null {
  * a LOCAL action that changes the document/view. Both are things that happen to
  * the model without another confirmation step. A `refusal` and a `miss` are not
  * mutations.
+ *
+ * §GATE-QUERYENGINE-READ-ONLY (VIS-CLASS, 2026-08-11): the 'answer' local
+ * action is EXEMPT — it is the read-only capability class ("what is hidden"),
+ * whose summary IS the answer and which dispatches nothing and changes neither
+ * document nor view state. This follows the definition above, not weakens it:
+ * an answer is not "a LOCAL action that changes the document/view".
+ * `visibility-capability.test.ts` pins that an 'answer' resolution carries no
+ * commands and no dispatch payload, so this exemption is checkable, not taken
+ * on trust.
  */
 export function mutates(r: ZeroTokenResolution): boolean {
-  return r.kind === 'commands' || r.kind === 'local';
+  if (r.kind === 'local') {
+    return (r as { action?: unknown }).action !== 'answer';
+  }
+  return r.kind === 'commands';
 }
 
 export function commandTypesOf(r: ZeroTokenResolution): string[] {

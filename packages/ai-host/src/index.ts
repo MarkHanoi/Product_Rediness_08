@@ -152,6 +152,12 @@ export type {
   SemanticIntent,
   SemanticApplication,
   WallPoint2,
+  // §GATE-VIS-INTENT (VIS-CLASS) — the visibility chat route: the snapshot the
+  // bridge injects for the read-only question, and the dispatch payload the
+  // 'applyVisibilityIntent' local action carries.
+  VisibilityIntentSnapshot,
+  VisibilityLocalDispatch,
+  VisibilityIntentBusCommand,
   // §PLAN (RAC U6) — the plan metadata the bridge's Confirm card and its
   // step-by-step dispatcher read.
   PlanReport,

@@ -207,6 +207,54 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
     ctx: sel('wall'),
     phrasings: ['zoom to selection', 'frame selection', 'zoom to selected'],
   },
+  // ── §GATE-VIS-INTENT (VIS-CLASS) — the visibility family ──────────────────
+  {
+    id: 'hide-selection',
+    ctx: sel('wall'),
+    phrasings: [
+      'hide this wall',
+      'hide the selection',
+      'hide the selected walls',
+      'hide it',
+      'hide the wall',
+    ],
+  },
+  {
+    id: 'isolate-selection',
+    ctx: sel('room'),
+    phrasings: [
+      'isolate this room',
+      'isolate the selection',
+      'isolate selected elements',
+      'isolate the room',
+    ],
+  },
+  {
+    id: 'reveal-all',
+    ctx: {},
+    phrasings: [
+      'reveal all',
+      'show everything',
+      'unhide everything',
+      'exit isolation',
+      'reveal all hidden elements',
+    ],
+  },
+  {
+    id: 'visibility-query',
+    // A READABLE snapshot, so the phrasings get a real answer rather than the
+    // honest "can't read" fallback (both are non-refusals; this exercises the
+    // counting arm too).
+    ctx: { visibility: { hiddenCount: 2, isolationActive: false, isolationCount: 0 } },
+    phrasings: [
+      'what is hidden',
+      "what's hidden in this view?",
+      'which elements are hidden in this view',
+      'list the hidden elements',
+      'am I in isolation mode?',
+      'what levels are visible',
+    ],
+  },
   {
     id: 'delete-selected',
     ctx: sel('door'),
@@ -1041,6 +1089,14 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     'isolate doors higher than 2 meters',
     'show me walls thicker than 300mm',
     'hide all doors narrower than 900mm',
+    // §GATE-VIS-INTENT (VIS-CLASS) — the visibility capabilities' own pins:
+    // command-shaped sentences aimed at hide / isolate / reveal-all /
+    // visibility-query vocabulary that must never mutate (negations and
+    // hypotheticals around the exact verbs the new grammars claim).
+    "don't hide this wall",
+    'never isolate the selection',
+    'what would happen if I hide all the walls?',
+    "don't reveal the hidden walls",
     // The same shape one step further out: a query verb plus a delete noun.
     // U9.2 shipped scoped deletion, so "find all furniture in the kitchen" is
     // now one word away from deleting it.

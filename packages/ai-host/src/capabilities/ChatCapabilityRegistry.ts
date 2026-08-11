@@ -208,6 +208,10 @@ export interface ChatCapability {
    *  `'global'` means it is not element-scoped at all. */
   readonly targets: readonly string[] | 'global';
   readonly parameters: readonly ChatCapabilityParameter[];
+  /** §GATE-QUERYENGINE-READ-ONLY — the capability ANSWERS rather than mutates:
+   *  busCommand is null AND no local action changes document or view state.
+   *  Absent means mutating. */
+  readonly readOnly?: true;
   readonly scope: CapabilityScope;
   /** ADR-0315 U2.5 — additional scope modes the capability supports (must
    *  include `scope`). Absent = the default scope only. Spatial modes may only
@@ -224,7 +228,14 @@ export interface ChatCapability {
    *  (set-height uses `wall.updateDimensions` for walls and the generic
    *  parameter command for everything else). Counted by the coverage gate too. */
   readonly alsoDispatches?: readonly string[];
-  readonly localAction?: 'undo' | 'redo' | 'setActiveLevel';
+  /** §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — two members joined:
+   *  'applyVisibilityIntent' (the bridge dispatches the resolution's declared
+   *  `visibility.*` bus command — registered by the COMPOSITION ROOT,
+   *  composeRuntime §4d-bis, which the coverage gate's handler-file scan
+   *  cannot see, so declaring it as `busCommand` would read as a phantom —
+   *  then projects the intent onto the scene) and 'answer' (the READ-ONLY
+   *  class: the summary IS the answer, nothing is dispatched). */
+  readonly localAction?: 'undo' | 'redo' | 'setActiveLevel' | 'applyVisibilityIntent' | 'answer';
   /**
    * §PLAN (RAC U6) — a COMPOSITE capability dispatches no command of its own:
    * it composes other declared capabilities and dispatches THEIR commands. The
@@ -398,6 +409,93 @@ const CAPABILITIES: readonly ChatCapability[] = [
       note: 'The zoom-selected handler frames the selection bounds; it reads no per-kind store, so it is kind-agnostic by construction.',
     },
     examples: ['zoom to selection', 'frame this', 'zoom in on the selected wall'],
+  },
+  // ── §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — the visibility family ──────
+  //
+  // The structural half left open at 6b538355. All four ride the intent path
+  // wired in composeRuntime §4d-bis (`ViewVisibilityIntentStore`), reached as
+  // LOCAL actions — see the `localAction` doc above for why the compose-root
+  // bus verbs (`visibility.hide.selection` / `.isolate.selection` /
+  // `.reveal.all`) are not declared as `busCommand` here.
+  //
+  // HONESTY, stated in every description and summary: visibility intents are
+  // VIEW-ONLY — the handlers declare `affectedStores: []` (no undo entry),
+  // `serialize()` has no production caller (no persistence), and there is no
+  // CRDT binding (no sync). Nothing here implies durability that does not
+  // exist.
+  {
+    id: 'hide-selection',
+    description: 'hide the selected elements in this view (view-only — not undoable, not saved, not shared)',
+    verbs: ['hide', 'conceal'],
+    aliases: ['hide', 'invisible'],
+    // Visibility is kind-agnostic: the intent store records element IDS and
+    // never consults a per-kind store, so every kind is a legitimate target
+    // (the same construction argument as zoom-selected).
+    targets: PROBE_ELEMENT_KINDS,
+    parameters: [],
+    scope: 'selection',
+    destructive: false,
+    busCommand: null,
+    localAction: 'applyVisibilityIntent',
+    probe: { intent: 'hide-selection' },
+    commandProof: {
+      file: 'apps/editor/src/ui/ai/ZeroTokenChatBridge.ts',
+      mustMention: ['visibility.hide.selection', 'applyToScene'],
+      note: 'The bridge dispatches visibility.hide.selection (registered by composeRuntime §4d-bis against ViewVisibilityIntentStore) and then projects the intent onto the scene via runtime.visibility.applyToScene — the SpatialTree write-then-project gesture. Id-keyed and kind-agnostic by construction.',
+    },
+    examples: ['hide this wall', 'hide the selection', 'hide the selected walls'],
+  },
+  {
+    id: 'isolate-selection',
+    description: 'isolate the selected elements — everything else in this view hides (view-only — not undoable, not saved, not shared)',
+    verbs: ['isolate'],
+    aliases: ['isolate', 'isolation'],
+    targets: PROBE_ELEMENT_KINDS,
+    parameters: [],
+    scope: 'selection',
+    destructive: false,
+    busCommand: null,
+    localAction: 'applyVisibilityIntent',
+    probe: { intent: 'isolate-selection' },
+    commandProof: {
+      file: 'apps/editor/src/ui/ai/ZeroTokenChatBridge.ts',
+      mustMention: ['visibility.isolate.selection', 'applyToScene'],
+      note: 'Same route as hide-selection: visibility.isolate.selection writes the wave-8 temporaryIsolation for the active view, then the bridge projects every scene element so non-isolated elements hide. Id-keyed and kind-agnostic.',
+    },
+    examples: ['isolate this room', 'isolate the selection', 'isolate selected elements'],
+  },
+  {
+    id: 'reveal-all',
+    description: 'reveal everything hidden in this view and exit isolation (view-only state)',
+    verbs: ['reveal', 'unhide', 'show', 'exit'],
+    aliases: ['reveal all', 'exit isolation', 'show everything'],
+    targets: 'global',
+    parameters: [],
+    scope: 'global',
+    destructive: false,
+    busCommand: null,
+    localAction: 'applyVisibilityIntent',
+    probe: { intent: 'reveal-all' },
+    examples: ['reveal all', 'show everything', 'unhide everything', 'exit isolation'],
+  },
+  {
+    id: 'visibility-query',
+    // §GATE-QUERYENGINE-READ-ONLY — the FIRST read-only capability: it ANSWERS
+    // from the injected ViewVisibilityIntentStore snapshot and mutates NOTHING
+    // (localAction 'answer' dispatches no command; an unreadable snapshot is
+    // answered as unreadable, never as "nothing is hidden").
+    description: 'answer what is hidden or isolated in this view, and which levels exist',
+    verbs: ['what', 'which', 'list'],
+    aliases: ['hidden', 'visible', 'visibility', 'isolation mode'],
+    targets: 'global',
+    parameters: [],
+    readOnly: true,
+    scope: 'global',
+    destructive: false,
+    busCommand: null,
+    localAction: 'answer',
+    probe: { intent: 'visibility-query', topic: 'hidden' },
+    examples: ['what is hidden', 'which elements are hidden in this view', 'what levels are visible'],
   },
   {
     id: 'delete-selected',

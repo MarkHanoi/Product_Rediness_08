@@ -42,6 +42,10 @@ import {
 // arm below (the switch's default). applySemanticIntent remains the single
 // semantic authority; the spec file holds data, not a second dispatcher.
 import { applyExecutionSpec, type SpecDrivenIntent } from './CapabilityExecutionSpec.js';
+// §GATE-VIS-INTENT (VIS-CLASS) — the visibility family module. Value
+// dependency runs ONE way (this file → VisibilityIntents); that module
+// imports only TYPES back, so there is no load-order cycle.
+import { applyVisibilityIntent, asVisibilityIntent } from './VisibilityIntents.js';
 // RAC U7.2 — catalogue families (window / door / slab / ceiling) are TABLE
 // ENTRIES: one record generates both the CapabilityExecutionSpec and the
 // grammar below. Adding a family costs zero lines in this file.
@@ -154,6 +158,29 @@ export interface ResolverContext {
    * resolution isn't available here"), never guess.
    */
   readonly resolveScope?: (scope: ScopeDescriptor) => ScopeResult;
+  /**
+   * §GATE-VIS-READONLY (VIS-CLASS, 2026-08-11) — the read-only visibility
+   * question's DATA, injected as a snapshot by the bridge from
+   * `runtime.visibility.intent` (the per-view `ViewVisibilityIntentStore`
+   * composed in `composeRuntime` §4d-bis).
+   *
+   * ABSENT means UNREADABLE, and the answer says so — it is never conflated
+   * with "nothing is hidden" (§CONTEXT-DATA-HONESTY: failure and empty are
+   * different values). The resolver READS this and never writes anything.
+   */
+  readonly visibility?: VisibilityIntentSnapshot;
+}
+
+/** What the read-only visibility capability may truthfully report about the
+ *  ACTIVE view. Counts, not ids: the snapshot answers "is anything hidden and
+ *  how much", and says out loud what it cannot name. */
+export interface VisibilityIntentSnapshot {
+  /** Elements in the active view's wave-9 explicit hide set. */
+  readonly hiddenCount: number;
+  /** Wave-8 ad-hoc isolation — active even over an empty set (bug #8901). */
+  readonly isolationActive: boolean;
+  /** Elements inside the active isolation (0 when inactive OR empty-set). */
+  readonly isolationCount: number;
 }
 
 export interface BusCommandRef {
@@ -161,7 +188,41 @@ export interface BusCommandRef {
   readonly payload: Record<string, unknown>;
 }
 
-export type ZeroTokenLocalAction = 'undo' | 'redo' | 'setActiveLevel';
+/**
+ * §GATE-VIS-INTENT (VIS-CLASS) — 'applyVisibilityIntent' and 'answer' joined
+ * 2026-08-11:
+ *
+ *  • 'applyVisibilityIntent' — the bridge dispatches the resolution's
+ *    `visibility.busCommand` through `runtime.bus` (the handlers are registered
+ *    by the COMPOSITION ROOT, composeRuntime §4d-bis, not by any handler file)
+ *    and then projects the intent onto the scene, mirroring SpatialTree's
+ *    write-then-project gesture. It is carried as a local action, not as
+ *    `kind: 'commands'`, for two stated reasons: (1) the generic dispatch path
+ *    appends "undo with Ctrl+Z", which is a LIE for visibility intents
+ *    (`affectedStores: []` — no patches, no undo entry); (2) the coverage
+ *    gate's registration scan reads handler FILES and cannot see compose-root
+ *    registrations, so a truthful `busCommand` declaration would be reported
+ *    as a phantom.
+ *  • 'answer' — the READ-ONLY class (§GATE-QUERYENGINE-READ-ONLY): the summary
+ *    IS the answer; the bridge dispatches NOTHING and mutates NOTHING.
+ */
+export type ZeroTokenLocalAction =
+  | 'undo' | 'redo' | 'setActiveLevel' | 'applyVisibilityIntent' | 'answer';
+
+/** The three compose-root-registered visibility intent commands the chat can
+ *  reach today. `visibility.set.transparency` and `visibility.edge.toggle`
+ *  exist too and are deliberately NOT claimed (no grammar, no capability). */
+export type VisibilityIntentBusCommand =
+  | 'visibility.hide.selection'
+  | 'visibility.isolate.selection'
+  | 'visibility.reveal.all';
+
+/** The payload a 'applyVisibilityIntent' local action asks the bridge to
+ *  dispatch. One command, ids explicit, so the bridge invents nothing. */
+export interface VisibilityLocalDispatch {
+  readonly busCommand: VisibilityIntentBusCommand;
+  readonly elementIds: readonly string[];
+}
 
 export type ZeroTokenResolution =
   | {
@@ -183,6 +244,8 @@ export type ZeroTokenResolution =
       /** For setActiveLevel. */
       readonly levelId?: string;
       readonly levelName?: string;
+      /** For applyVisibilityIntent — the ONE bus command the bridge dispatches. */
+      readonly visibility?: VisibilityLocalDispatch;
     }
   | {
       readonly kind: 'refusal';
@@ -287,6 +350,13 @@ const VOCAB: readonly string[] = [
   'offset', 'create', 'draw', 'add',
   'make', 'set', 'change', 'rename', 'go',
   'to', 'from', 'tall', 'thick', 'wide', 'undo', 'redo', 'zoom', 'fit', 'frame',
+  // §GATE-VIS-INTENT — the visibility vocabulary. Without these, the typo
+  // corrector REWROTE the verbs ("hide it" → "wide this" at distance 1) and
+  // the tier-1 forms could never reach the visibility grammars. Listed AFTER
+  // 'wide' deliberately: ties (e.g. 'side', distance 1 to both 'wide' and
+  // 'hide') keep resolving to the earlier entry, so no existing correction
+  // changes.
+  'hide', 'unhide', 'isolate', 'reveal', 'hidden', 'visible', 'isolation',
 ];
 
 /**
@@ -401,6 +471,23 @@ export type SemanticIntent =
   | { readonly intent: 'zoom-fit' }
   | { readonly intent: 'zoom-selected' }
   | { readonly intent: 'delete-selected'; readonly noun?: string }
+  /**
+   * §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — the visibility-intent family.
+   * SELECTION-scoped by grammar, deliberately: "hide all walls", "hide level
+   * 2" and "isolate level 2" stay honest MISSES so they reach the LIVE legacy
+   * QueryEngine visibility handlers (`pryzm-visibility-command` →
+   * UnifiedBrowserPanel) — see applyVisibilityIntent's header for the routing
+   * evidence. `noun` is the element noun the user said, guarded against the
+   * selection exactly like delete-selected.
+   */
+  | { readonly intent: 'hide-selection'; readonly noun?: string }
+  | { readonly intent: 'isolate-selection'; readonly noun?: string }
+  /** `onlySelection` marks a PER-ELEMENT unhide ask ("unhide this wall"),
+   *  which has NO bus carrier (`visibility.unhide.selection` is not a
+   *  registered command) and is refused honestly, offering "reveal all". */
+  | { readonly intent: 'reveal-all'; readonly onlySelection?: true }
+  /** §GATE-QUERYENGINE-READ-ONLY — the read-only visibility question. */
+  | { readonly intent: 'visibility-query'; readonly topic: 'hidden' | 'levels' }
   | { readonly intent: 'set-height'; readonly value: number }
   | { readonly intent: 'set-thickness'; readonly value: number }
   /** §FEAT-CHAT-SYMMETRY (2026-08-10) — ONE width intent for every element kind
@@ -854,6 +941,7 @@ export type SemanticApplication =
       readonly action: ZeroTokenLocalAction;
       readonly levelId?: string;
       readonly levelName?: string;
+      readonly visibility?: VisibilityLocalDispatch;
     }
   | {
       readonly kind: 'refusal';
@@ -966,6 +1054,14 @@ function needSelection(intent: string, ctx: ResolverContext, verbHint: string):
   return { sel };
 }
 
+// ─── §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — the visibility-intent family ──
+//
+// Its own module (`VisibilityIntents.ts`), like CapabilityExecutionSpec and
+// PropertyVocabulary: the family's semantics, its honesty tail and the
+// "hide level 2 stays legacy" routing decision (with evidence) live there.
+// `applySemanticIntent` routes to it by table membership below — no new
+// hand-written case arms (coverage-gate check 8).
+
 /**
  * Turn a SemanticIntent into a safe application: bus commands, a local
  * action, or an honest refusal. This is the SINGLE authority on the
@@ -975,6 +1071,10 @@ function needSelection(intent: string, ctx: ResolverContext, verbHint: string):
  * rigid and natural paths. Pure; never dispatches (P6 is the caller's job).
  */
 export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): SemanticApplication {
+  // §GATE-VIS-INTENT — table-membership routing, before the switch (like the
+  // property vocabulary: a family, not four new hand-written case arms).
+  const vis = asVisibilityIntent(si);
+  if (vis !== null) return applyVisibilityIntent(vis, ctx);
   switch (si.intent) {
     case 'undo':
       return { kind: 'local', intent: 'undo', summary: 'Undid the last action', action: 'undo' };
@@ -2312,6 +2412,80 @@ const matchDeleteSelected: Matcher = (text) => {
   return { intent: 'delete-selected', ...(noun !== undefined ? { noun } : {}) };
 };
 
+// ─── §GATE-VIS-INTENT — the visibility grammars ──────────────────────────────
+//
+// SELECTION forms only, deliberately (see applyVisibilityIntent's header):
+// "hide level 2", "hide all walls", "isolate level 2", "isolate doors higher
+// than 2 meters" must all stay MISSES — the legacy QueryEngine visibility
+// handlers serve them, and the 6b538355 regression set pins that. A bare
+// SINGULAR noun ("hide the wall") is claimed and guarded against the
+// selection; a bare PLURAL ("hide walls") is not, because it means the
+// category, which is the legacy path's ask.
+
+const VIS_SEL_REF = String.raw`(?:the )?(?:selected|selection|this|these|those)`;
+const VIS_BARE_SINGULAR = String.raw`(?:the )?(wall|door|window|room|slab|roof|stair|column|beam|element|item|object)`;
+
+const matchHideSelection: Matcher = (text) => {
+  const m = new RegExp(String.raw`^hide ${VIS_SEL_REF}(?: (\w+))?$`).exec(text)
+    ?? new RegExp(String.raw`^hide ${VIS_BARE_SINGULAR}$`).exec(text);
+  if (!m) return null;
+  const noun = m[1];
+  if (noun !== undefined && !ELEMENT_NOUNS.has(noun)) return null; // "hide this level" — legacy path
+  return { intent: 'hide-selection', ...(noun !== undefined ? { noun } : {}) };
+};
+
+const matchIsolateSelection: Matcher = (text) => {
+  const m = new RegExp(String.raw`^isolate ${VIS_SEL_REF}(?: (\w+))?$`).exec(text)
+    ?? new RegExp(String.raw`^isolate ${VIS_BARE_SINGULAR}$`).exec(text);
+  if (!m) return null;
+  const noun = m[1];
+  if (noun !== undefined && !ELEMENT_NOUNS.has(noun)) return null; // "isolate this level" — legacy path
+  return { intent: 'isolate-selection', ...(noun !== undefined ? { noun } : {}) };
+};
+
+const matchRevealAll: Matcher = (text) => {
+  // "restore all" / "reset visibility" are deliberately NOT claimed — they are
+  // the legacy QueryEngine restore vocabulary (and a live AIPanel pill).
+  if (
+    /^(?:reveal|unhide|show) (?:all|everything)(?: (?:hidden|again))?(?: ?(?:hidden )?elements)?$/.test(text)
+    || /^reveal all hidden(?: elements)?$/.test(text)
+    || /^(?:exit|end|clear|stop|cancel|leave) (?:the )?isolation(?: mode)?$/.test(text)
+    || /^unisolate$/.test(text)
+  ) {
+    return { intent: 'reveal-all' };
+  }
+  // Per-element unhide has no bus carrier — claimed so it can be refused
+  // HONESTLY (offering "reveal all") instead of falling to the LLM.
+  const m = new RegExp(String.raw`^(?:unhide|reveal) ${VIS_SEL_REF}(?: (\w+))?$`).exec(text)
+    ?? new RegExp(String.raw`^unhide ${VIS_BARE_SINGULAR}$`).exec(text);
+  if (m) {
+    const noun = m[1];
+    if (noun !== undefined && !ELEMENT_NOUNS.has(noun)) return null;
+    return { intent: 'reveal-all', onlySelection: true };
+  }
+  return null;
+};
+
+const matchVisibilityQuery: Matcher = (text) => {
+  const TAIL = String.raw`(?: right now| here| in (?:this|the) view| currently)?`;
+  if (
+    new RegExp(String.raw`^what(?:'s| is) hidden${TAIL}$`).test(text)
+    || new RegExp(String.raw`^(?:what|which) elements are hidden${TAIL}$`).test(text)
+    || new RegExp(String.raw`^list (?:the )?hidden elements$`).test(text)
+    || new RegExp(String.raw`^is anything hidden${TAIL}$`).test(text)
+    || /^am i in isolation(?: mode)?$/.test(text)
+  ) {
+    return { intent: 'visibility-query', topic: 'hidden' };
+  }
+  // Specific-target questions ("is level 2 hidden?", "which walls are hidden
+  // on level 2") are NOT claimed — the snapshot cannot answer them and a
+  // count would not be the answer to the question asked.
+  if (/^(?:what|which) levels are visible$/.test(text)) {
+    return { intent: 'visibility-query', topic: 'levels' };
+  }
+  return null;
+};
+
 // ADR-0315 P1 — stair riser height / tread depth and room height offset.
 // All three contain "height"/"depth" words, so they run BEFORE matchHeight.
 const matchRiserHeight: Matcher = (text) => {
@@ -3170,6 +3344,15 @@ const matchRoomFinishes: Matcher = (text) => parseRoomFinishIntent(text);
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
+  // §GATE-VIS-INTENT — the visibility family. BEFORE matchGoToLevel would be
+  // enough ("show everything" vs "show level 2" are disjoint anyway); placed
+  // here so a visibility verb is decided before any noun grammar can nibble.
+  // The read-only query runs FIRST of the four: it claims only interrogative
+  // shapes no imperative matcher wants.
+  matchVisibilityQuery,
+  matchHideSelection,
+  matchIsolateSelection,
+  matchRevealAll,
   matchDeleteSelected,
   // RAC U9.2 — AFTER matchDeleteSelected, deliberately: "delete the selected
   // window" already resolves and a generic table must never quietly

@@ -49,6 +49,7 @@ import {
     type ResolverContext,
     type ResolverSelection,
     type ResolverWallSystemType,
+    type VisibilityIntentSnapshot,
     isScopeError,
     FILTER_PROPERTY_NOUN,
     type BaseScopeDescriptor,
@@ -77,13 +78,35 @@ interface ObjectLike {
     userData?: { id?: unknown; elementType?: unknown };
     parent?: ObjectLike | null;
 }
+/** The scene shape the visibility projection traverses — same access path as
+ *  SpatialTree (`window.selectionManager.world.scene.three`). */
+interface SceneNodeLike {
+    userData?: { id?: unknown; role?: unknown };
+    visible?: boolean;
+    traverse?: (fn: (node: SceneNodeLike) => void) => void;
+}
+
 interface WindowLike {
-    selectionManager?: { selectedObject?: ObjectLike | null };
+    selectionManager?: {
+        selectedObject?: ObjectLike | null;
+        world?: { scene?: { three?: SceneNodeLike | null } };
+    };
     bimManager?: { getLevels?: () => ReadonlyArray<{ id: string; name?: string; elevation?: number }> };
     projectContext?: { activeLevelId?: string | null };
     runtime?: {
         bus?: { executeCommand(type: string, payload: unknown): Promise<unknown> };
         events?: { emit(name: string, payload: unknown): void };
+        // §GATE-VIS-INTENT — the visibility slot composeRuntime §4d-bis builds.
+        visibility?: {
+            intent?: {
+                get(viewId: string): {
+                    hiddenElementIds: ReadonlySet<string>;
+                    temporaryIsolation: { active: boolean; elementIds: ReadonlySet<string> } | null;
+                };
+            };
+            applyToScene?: (root: unknown, elementIds: readonly string[]) => { matched: number; hidden: number };
+        };
+        viewRegistry?: { activeViewId: string | null };
     };
 }
 const win = (): WindowLike => window as unknown as WindowLike;
@@ -547,6 +570,116 @@ function applyFilters(
     };
 }
 
+// ─── §GATE-VIS-INTENT (VIS-CLASS, 2026-08-11) — the visibility chat route ────
+//
+// The compose-root registers `visibility.hide.selection` / `.isolate.selection`
+// / `.reveal.all` against the per-view `ViewVisibilityIntentStore`
+// (composeRuntime §4d-bis). The handlers only WRITE the store — nothing
+// subscribes and re-projects — so this route mirrors SpatialTree's
+// write-then-project gesture: dispatch the command (P6), then ask
+// `runtime.visibility.applyToScene` to project the recorded intent onto the
+// scene. Without the projection the pixels would not change and the reply
+// would be a lie.
+
+/** Mirrors `IMPLICIT_MODEL_VIEW_ID` in
+ *  `packages/runtime-composer/src/visibilitySceneApplier.ts`. `src/ui` may
+ *  import only `@pryzm/runtime-composer/types` (Phase-H lint rule), so the
+ *  VALUE cannot be imported here; VisibilityChatRoute.spec pins the literal
+ *  against drift. */
+const IMPLICIT_MODEL_VIEW_ID = 'view:model';
+
+/** The view id visibility intent is recorded against — the registry's active
+ *  view, else the implicit model view (nobody has activated a view yet). */
+function activeVisibilityViewId(): string {
+    return win().runtime?.viewRegistry?.activeViewId ?? IMPLICIT_MODEL_VIEW_ID;
+}
+
+/** §GATE-VIS-READONLY — the read-only question's data, snapshotted for the
+ *  resolver. `undefined` = UNREADABLE, which the resolver answers as
+ *  unreadable — never as "nothing is hidden" (§CONTEXT-DATA-HONESTY). */
+function visibilityIntentSnapshot(): VisibilityIntentSnapshot | undefined {
+    const intentStore = win().runtime?.visibility?.intent;
+    if (!intentStore || typeof intentStore.get !== 'function') return undefined;
+    try {
+        const intent = intentStore.get(activeVisibilityViewId());
+        const iso = intent.temporaryIsolation;
+        const isolationActive = iso !== null && iso.active;
+        return {
+            hiddenCount: intent.hiddenElementIds.size,
+            isolationActive,
+            isolationCount: isolationActive ? iso.elementIds.size : 0,
+        };
+    } catch (err) {
+        console.warn('[ZeroTokenChatBridge] visibility intent unreadable:', err);
+        return undefined;
+    }
+}
+
+function collectSceneElementIds(scene: SceneNodeLike, excludeEdges: boolean): string[] {
+    const out = new Set<string>();
+    scene.traverse?.((node) => {
+        const id = node.userData?.id;
+        if (id === undefined || id === null) return;
+        // The legacy restore handler leaves `role: 'edges'` nodes alone (edge
+        // display is its own toggle); reveal-all mirrors that.
+        if (excludeEdges && node.userData?.role === 'edges') return;
+        out.add(String(id));
+    });
+    return [...out];
+}
+
+/**
+ * Dispatch ONE compose-root-registered visibility command, then project the
+ * intent onto the scene. Returns a failure sentence, or null on success.
+ * Never claims undo: these handlers declare `affectedStores: []` — no patches,
+ * no undo entry — and the summaries say so.
+ */
+async function runVisibilityIntent(
+    r: Extract<ZeroTokenResolution, { kind: 'local' }>,
+): Promise<string | null> {
+    const vis = r.visibility;
+    const rt = win().runtime;
+    const bus = rt?.bus;
+    const applyToScene = rt?.visibility?.applyToScene;
+    if (vis === undefined || !bus || typeof applyToScene !== 'function') {
+        return 'The visibility system is not ready yet — nothing was changed. Try again in a moment.';
+    }
+    // Payload per verb, spelled out so the route is readable (and provable —
+    // the registry's commandProof reads these literals):
+    //   'visibility.hide.selection'    → { elementIds }
+    //   'visibility.isolate.selection' → { elementIds } (empty = hide everything, bug #8901)
+    //   'visibility.reveal.all'        → {}
+    try {
+        await bus.executeCommand(
+            vis.busCommand,
+            vis.busCommand === 'visibility.reveal.all' ? {} : { elementIds: [...vis.elementIds] },
+        );
+    } catch (err) {
+        return `That did not complete — ${vis.busCommand}: ${String((err as Error)?.message ?? err)}. Nothing was changed.`;
+    }
+    const scene = win().selectionManager?.world?.scene?.three ?? null;
+    if (!scene || typeof scene.traverse !== 'function') {
+        return 'The visibility intent was recorded, but no scene is open to apply it to — nothing looks different yet.';
+    }
+    // hide: project exactly the ids just hidden. isolate / reveal-all: project
+    // EVERY id-carrying node, because both change the visibility of elements
+    // the user did not name ("everything else").
+    const ids = vis.busCommand === 'visibility.hide.selection'
+        ? [...vis.elementIds]
+        : collectSceneElementIds(scene, vis.busCommand === 'visibility.reveal.all');
+    applyToScene(scene, ids);
+    if (vis.busCommand === 'visibility.reveal.all') {
+        // The legacy QueryEngine restore path resets the ViewBrowser's
+        // category/level checkboxes through this event; reveal-all restores the
+        // same pixels (every projected node reads visible from an emptied
+        // intent), so the panel state resets the same way.
+        window.dispatchEvent(new CustomEvent('pryzm-visibility-command', {
+            detail: { action: 'restore', target: 'all', value: '' },
+        }));
+    }
+    return null;
+}
+
 /** Monotonic suffix for minted level ids — see `mintId` below. */
 let mintSeq = 0;
 
@@ -604,10 +737,14 @@ async function buildContext(): Promise<ResolverContext> {
     } catch (err) {
         console.warn('[ZeroTokenChatBridge] door type catalogue unavailable:', err);
     }
+    // §GATE-VIS-READONLY — the read-only visibility question's data. Absence
+    // means UNREADABLE and the answer says so.
+    const visibility = visibilityIntentSnapshot();
     return {
         selection: currentSelection(),
         levels,
         ...(activeLevelId !== undefined ? { activeLevelId } : {}),
+        ...(visibility !== undefined ? { visibility } : {}),
         ...(catalogue !== null
             ? { resolveWallSystemType: catalogue.resolve, wallSystemTypeNames: catalogue.names }
             : {}),
@@ -1110,6 +1247,7 @@ async function runLocal(
     r: Extract<ZeroTokenResolution, { kind: 'local' }>,
     hooks: ZeroTokenUiHooks,
 ): Promise<void> {
+    let failText: string | null = null;
     await withChatDispatchSpan(async () => {
         switch (r.action) {
             case 'undo': {
@@ -1130,9 +1268,18 @@ async function runLocal(
                 }
                 break;
             }
+            // §GATE-VIS-INTENT — dispatch + project (see runVisibilityIntent).
+            case 'applyVisibilityIntent': {
+                failText = await runVisibilityIntent(r);
+                break;
+            }
+            // §GATE-QUERYENGINE-READ-ONLY — the summary IS the answer; nothing
+            // is dispatched and nothing changes. Deliberately empty.
+            case 'answer':
+                break;
         }
     }, { 'pryzm.ai.chat.intent': r.intent, 'pryzm.ai.chat.tier': r.tier });
-    hooks.say(`${r.summary}. (resolved without AI tokens)`);
+    hooks.say(failText ?? `${r.summary}. (resolved without AI tokens)`);
 }
 
 // ─── Conversation context (ADR-0313 §NL) ─────────────────────────────────────
