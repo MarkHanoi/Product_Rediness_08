@@ -124,14 +124,24 @@ describe('structural.setKind / setDimensions / setMaterial / setBraceEndOffset',
     expect(s.thickness).toBeCloseTo(0.5);
   });
 
-  it('setMaterial assigns and clears materialId', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — this used to assert the PLUGIN DTO store mutated. There
+  // is no structural runtime family at all: schemas/elements/Structural.ts defines the
+  // element, but no structuralStore, no builder and no legacy command exists anywhere, so
+  // NOTHING could ever observe this write. The verb now refuses and names the real
+  // structural element (`column`, which has a live material path). Pinned: the refusal,
+  // its reason, and no mutation.
+  it('refuses setMaterial and says there is no structural runtime family', async () => {
     env = buildEnv();
     const id = createId('structural');
     await env.bus.executeCommand('structural.create', { id, kind: 'footing' });
-    await env.bus.executeCommand('structural.setMaterial', { structuralId: id, materialId: 'concrete-A' });
-    expect(env.structural.get(id)!.materialId).toBe('concrete-A');
-    await env.bus.executeCommand('structural.setMaterial', { structuralId: id });
-    expect(env.structural.get(id)!.materialId).toBeUndefined();
+    const before = env.structural.get(id)!.materialId;
+    await expect(
+      env.bus.executeCommand('structural.setMaterial', { structuralId: id, materialId: 'concrete-A' }),
+    ).rejects.toThrow(/no structural runtime family/);
+    await expect(
+      env.bus.executeCommand('structural.setMaterial', { structuralId: id, materialId: 'concrete-A' }),
+    ).rejects.toThrow(/column/);
+    expect(env.structural.get(id)!.materialId).toBe(before);
   });
 
   it('setBraceEndOffset only valid for kind=brace', async () => {

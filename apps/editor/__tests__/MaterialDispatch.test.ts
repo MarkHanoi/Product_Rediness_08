@@ -159,13 +159,27 @@ describe('MaterialDispatch — every route must reach the geometry record (G7)',
         expect(calls[0]!.payload).toEqual({ id: 'f1', color: '#0a0b0c' });
     });
 
-    it('room: keeps its dedicated, commandManager-bridging setMaterial handler', () => {
+    it('room: keeps its commandManager-bridging handler, but NOT the catalogue materialId', () => {
+        // §FIX-DEAD-VERB-ROOM-MATERIAL-ID (W3-3). The colour half is live: it bridges to
+        // `UpdateRoomCommand(roomId, { colour })` → the legacy roomStore → plan fill +
+        // persistence. The materialId half never was: a room has NO top-level catalogue
+        // field, so `SetRoomMaterialHandler` returned `{forward: [], inverse: []}` and
+        // reported SUCCESS while the inspector had already repainted the fill — the user
+        // saw the material apply, saved, reloaded, and it was gone.
+        //
+        // This route now declares `supportsMaterialId: false`, exactly as `handrail` does
+        // above, so the id is never dispatched and the caller surfaces the reason instead.
+        // The bug this catches scores ZERO, not 1.000: drop `supportsMaterialId: false`
+        // and `materialId` reappears in the payload and this goes RED.
         const { runtime, calls } = makeRuntime();
         dispatchSetMaterial(runtime, 'room', 'rm1', { materialId: 'oak', materialColor: '#123456' });
         expect(calls[0]).toEqual({
             type: 'room.setMaterial',
-            payload: { roomId: 'rm1', materialId: 'oak', materialColor: '#123456' },
+            payload: { roomId: 'rm1', materialColor: '#123456' },
         });
+        expect(calls[0]!.payload).not.toHaveProperty('materialId');
+        // …and the gap is EXPLAINED, not silent (failure ≠ emptiness).
+        expect(materialIdUnsupportedReason('room')).toBeTruthy();
     });
 
     // ── §FIX-MATERIAL-REACHES-RECORD (G7) — the families that now REACH the record ───
@@ -243,7 +257,23 @@ describe('MaterialDispatch — every route must reach the geometry record (G7)',
         // both would be contradictory advice.
         expect(materialIdUnsupportedReason('beam')).toBeUndefined();
         expect(materialIdUnsupportedReason('column')).toBeUndefined(); // full support
-        expect(Object.keys(MATERIAL_ID_UNSUPPORTED_REASON).sort()).toEqual(['handrail']);
+        // §FIX-DEAD-VERB-ROOM-MATERIAL-ID (W3-3) — `room` joins `handrail` as the second
+        // colour-reaches / id-does-not family. Both have a LIVE colour route and no
+        // catalogue field behind it, which is exactly what this table is for. Kept as an
+        // exhaustive list on purpose: a family may only be added here together with the
+        // `supportsMaterialId: false` that stops the id being dispatched.
+        expect(Object.keys(MATERIAL_ID_UNSUPPORTED_REASON).sort()).toEqual(['handrail', 'room']);
+    });
+
+    it('room refuses a materialId-ONLY change rather than pretending (W3-3)', () => {
+        // The colour half is live, so an id-ONLY payload has nothing renderable to write:
+        // no dispatch at all, and the caller surfaces `materialIdUnsupportedReason('room')`.
+        // Before W3-3 this dispatched `room.setMaterial`, which returned an empty patch pair
+        // and reported SUCCESS.
+        const { runtime, calls } = makeRuntime();
+        expect(dispatchSetMaterial(runtime, 'room', 'rm1', { materialId: 'oak' })).toBe(false);
+        expect(calls).toHaveLength(0);
+        expect(materialIdUnsupportedReason('room')).toBeTruthy();
     });
 
     // ── The families that CANNOT commit a material — declared, not dispatched ─────

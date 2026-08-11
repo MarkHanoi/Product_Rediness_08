@@ -207,32 +207,35 @@ describe('slab.setMaterial', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('sets materialId + materialColor and undo reverts', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — this used to assert the PLUGIN DTO store mutated, and
+  // passed for years while the user's model never changed: in production the bus binds the
+  // DETACHED plugin SlabStore here, which no renderer, exporter or persistence path reads.
+  // The verb now refuses, naming the live route (`slab.updateDimensions` — UpdateSlabCommand
+  // deliberately THROWS on material fields). Pinned: the refusal, its reason, no mutation.
+  it('refuses a well-formed material payload and names slab.updateDimensions', async () => {
     env = buildEnv();
     const id = createId('slab');
     await env.bus.executeCommand('slab.create', { id, boundary: SQUARE, thickness: 0.2 });
     const before = snap(env.slab);
-    const ev = await env.bus.executeCommand('slab.setMaterial', {
-      slabId: id,
-      materialId: 'concrete-fair-face',
-      materialColor: '#a0a0a0',
-    });
-    const s = env.slab.get(id)!;
-    expect(s.materialId).toBe('concrete-fair-face');
-    expect(s.materialColor).toBe('#a0a0a0');
-    expect(s.thickness).toBe(0.2);
-    undoLast(env.slab, ev);
+    await expect(
+      env.bus.executeCommand('slab.setMaterial', {
+        slabId: id,
+        materialId: 'concrete-fair-face',
+        materialColor: '#a0a0a0',
+      }),
+    ).rejects.toThrow(/slab\.updateDimensions/);
     expect(snap(env.slab)).toEqual(before);
   });
 
-  it('materialId: null clears the catalogue binding', async () => {
+  it('refuses a materialId clear too — the refusal is not payload-shaped', async () => {
     env = buildEnv();
     const id = createId('slab');
     await env.bus.executeCommand('slab.create', { id, boundary: SQUARE });
-    await env.bus.executeCommand('slab.setMaterial', { slabId: id, materialId: 'stone-01' });
-    expect(env.slab.get(id)!.materialId).toBe('stone-01');
-    await env.bus.executeCommand('slab.setMaterial', { slabId: id, materialId: null });
-    expect(env.slab.get(id)!.materialId).toBeUndefined();
+    const before = snap(env.slab);
+    await expect(
+      env.bus.executeCommand('slab.setMaterial', { slabId: id, materialId: null }),
+    ).rejects.toThrow(/plugin DTO store/);
+    expect(snap(env.slab)).toEqual(before);
   });
 
   it('rejects when neither materialId nor materialColor provided', async () => {

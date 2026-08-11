@@ -34,8 +34,13 @@ const FIXTURES = [
   { name: 'create.json',     type: 'wall.create' },
   { name: 'delete.json',     type: 'wall.delete' },
   { name: 'move.json',       type: 'wall.move' },
-  { name: 'dimensions.json', type: 'wall.setDimensions' },
-  { name: 'color.json',      type: 'wall.setColor' },
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — `wall.setDimensions` / `wall.setColor` write the
+  // DETACHED plugin wall store and now REFUSE with a reason naming the live route
+  // (`wall.updateDimensions` / `wall.updateColor`). The PRYZM 1 parity fixtures are kept:
+  // the payload shape they captured is still the contract the live verbs must honour, and
+  // asserting the refusal here is what stops the dead verb quietly coming back to life.
+  { name: 'dimensions.json', type: 'wall.setDimensions', refuses: /wall\.updateDimensions/ },
+  { name: 'color.json',      type: 'wall.setColor',      refuses: /wall\.updateColor/ },
 ] as const;
 
 interface InputFixture {
@@ -97,6 +102,14 @@ describe('PRYZM 1 → 2 wall baseline parity input fixtures', () => {
         }),
       });
       for (const h of buildWallHandlerSet()) bus.register(h);
+      const refuses = (fixture as { refuses?: RegExp }).refuses;
+      if (refuses !== undefined) {
+        // A dead verb must REFUSE, out loud — never resolve while nothing changed.
+        await expect(
+          bus.executeCommand(parsed.command.type, parsed.command.payload),
+        ).rejects.toThrow(refuses);
+        return;
+      }
       // Should resolve without throwing.
       await expect(
         bus.executeCommand(parsed.command.type, parsed.command.payload),

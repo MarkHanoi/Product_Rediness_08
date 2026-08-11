@@ -69,8 +69,15 @@ export class SetRoomHeightOffsetHandler
   ): HandlerResult {
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
       if (!(window as unknown as { __pryzmInitComplete?: boolean }).__pryzmInitComplete) {
-        console.error('[room.setHeightOffset.handler] Engine not yet initialised — command ignored');
-        return { forward: [], inverse: [] };
+        // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — an empty patch pair is
+        // INDISTINGUISHABLE from "applied, nothing to change". Reporting success
+        // for a command that was "ignored" is the Class-A dead verb, one layer
+        // over: the user is told the model changed and it did not. Throw so the bus
+        // rejects with a reason (C03 §4.6 U-4).
+        throw new Error(
+          'room.setHeightOffset: the engine is not initialised yet, so nothing was changed. '
+          + 'Wait for the project to finish loading and try again.',
+        );
       }
       const w = window as unknown as {
         commandManager?: { execute(cmd: unknown, options?: unknown): void };
@@ -80,16 +87,30 @@ export class SetRoomHeightOffsetHandler
       // The full boundary is required by the legacy update-gate schema; without
       // the current record we cannot build a valid patch (no plugin store here).
       if (!room?.boundary) {
-        console.error('[room.setHeightOffset.handler] room / boundary not found — command ignored');
-        return { forward: [], inverse: [] };
+        // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — a missing room is a FAILURE, not an
+        // empty change. Reported, never swallowed.
+        throw new Error(
+          `room.setHeightOffset: room ${cmd.roomId} has no boundary in the room store, so it could not be updated.`,
+        );
       }
       const cm = w.commandManager;
+      // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — no commandManager means the ONLY path to
+      // authoritative state is absent. That is a failure, not a no-op.
+      if (!cm) {
+        throw new Error(
+          'room.setHeightOffset: the legacy command manager is not available, so the change could not be applied.',
+        );
+      }
       if (cm) {
         try {
           const boundary = { ...room.boundary, baseOffset: cmd.heightOffset };
           cm.execute(new UpdateRoomCommand(cmd.roomId, { boundary } as never));
         } catch (e) {
+          // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — this used to log and return an empty
+          // patch pair, i.e. report SUCCESS for a bridge that threw. Re-thrown so the
+          // caller learns the room.setHeightOffset did not happen.
           console.error('[room.setHeightOffset.handler] bridge failed:', e);
+          throw e instanceof Error ? e : new Error(String(e));
         }
       }
       return { forward: [], inverse: [] };

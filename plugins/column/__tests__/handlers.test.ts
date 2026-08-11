@@ -128,27 +128,34 @@ describe('column.setMaterial', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('sets materialId and undo reverts', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — these two used to assert the PLUGIN DTO store mutated,
+  // and passed for years while the user's model never changed: in production the bus binds
+  // the DETACHED plugin ColumnStore here, and no renderer, 2-D projector, IFC exporter or
+  // persistence path reads it. The verb now refuses with a reason naming the live route
+  // (`column.update`), so what is pinned is the REFUSAL, its reason, and the absence of any
+  // mutation. An assertion about the wrong store is worse than no assertion, because it
+  // reads as proof. C03 §4.6 U-4.
+  it('refuses a well-formed materialId payload and names column.update', async () => {
     env = buildEnv();
     const id = createId('column');
     await env.bus.executeCommand('column.create', { id });
     const before = snap(env.column);
-    const ev = await env.bus.executeCommand('column.setMaterial', {
-      columnId: id, materialId: 'steel-s355',
-    });
-    expect(env.column.get(id)!.materialId).toBe('steel-s355');
-    undoLast(env.column, ev);
+    await expect(
+      env.bus.executeCommand('column.setMaterial', { columnId: id, materialId: 'steel-s355' }),
+    ).rejects.toThrow(/column\.update/);
+    // A refusal must not mutate anything.
     expect(snap(env.column)).toEqual(before);
   });
 
-  it('materialId: null clears the catalogue binding', async () => {
+  it('refuses a materialId clear too — the refusal is not payload-shaped', async () => {
     env = buildEnv();
     const id = createId('column');
     await env.bus.executeCommand('column.create', { id });
-    await env.bus.executeCommand('column.setMaterial', { columnId: id, materialId: 'concrete-c40' });
-    expect(env.column.get(id)!.materialId).toBe('concrete-c40');
-    await env.bus.executeCommand('column.setMaterial', { columnId: id, materialId: null });
-    expect(env.column.get(id)!.materialId).toBeUndefined();
+    const before = snap(env.column);
+    await expect(
+      env.bus.executeCommand('column.setMaterial', { columnId: id, materialId: null }),
+    ).rejects.toThrow(/plugin DTO store/);
+    expect(snap(env.column)).toEqual(before);
   });
 
   it('rejects when neither materialId nor materialColor provided', async () => {

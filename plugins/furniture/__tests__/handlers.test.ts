@@ -271,27 +271,31 @@ describe('furniture.setMaterial', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('sets materialId and undo reverts', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — these two used to assert the PLUGIN DTO store mutated,
+  // and passed for years while the user's model never changed: in production the bus binds
+  // the DETACHED plugin FurnitureStore here, which no renderer, exporter or persistence
+  // path reads. The verb now refuses, naming the live route (`furniture.updateParameters`,
+  // whose colour field is `color`). Pinned: the refusal, its reason, and no mutation.
+  it('refuses a well-formed materialId payload and names furniture.updateParameters', async () => {
     env = buildEnv();
     const id = createId('furniture');
     await env.bus.executeCommand('furniture.create', { id });
     const before = snap(env.furniture);
-    const ev = await env.bus.executeCommand('furniture.setMaterial', {
-      furnitureId: id, materialId: 'fabric-linen-grey',
-    }) as EventRecord<unknown>;
-    expect(env.furniture.get(id)!.materialId).toBe('fabric-linen-grey');
-    undoLast(env.furniture, ev);
+    await expect(
+      env.bus.executeCommand('furniture.setMaterial', { furnitureId: id, materialId: 'fabric-linen-grey' }),
+    ).rejects.toThrow(/furniture\.updateParameters/);
     expect(snap(env.furniture)).toEqual(before);
   });
 
-  it('materialId: null clears the catalogue binding', async () => {
+  it('refuses a materialId clear too — the refusal is not payload-shaped', async () => {
     env = buildEnv();
     const id = createId('furniture');
     await env.bus.executeCommand('furniture.create', { id });
-    await env.bus.executeCommand('furniture.setMaterial', { furnitureId: id, materialId: 'oak' });
-    expect(env.furniture.get(id)!.materialId).toBe('oak');
-    await env.bus.executeCommand('furniture.setMaterial', { furnitureId: id, materialId: null });
-    expect(env.furniture.get(id)!.materialId).toBeUndefined();
+    const before = snap(env.furniture);
+    await expect(
+      env.bus.executeCommand('furniture.setMaterial', { furnitureId: id, materialId: null }),
+    ).rejects.toThrow(/plugin DTO store/);
+    expect(snap(env.furniture)).toEqual(before);
   });
 
   it('rejects when neither materialId nor materialColor provided', async () => {

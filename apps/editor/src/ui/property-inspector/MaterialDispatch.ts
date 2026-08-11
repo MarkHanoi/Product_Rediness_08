@@ -117,7 +117,16 @@ const MATERIAL_ROUTES: Readonly<Record<string, FamilyMaterialRoute>> = {
   // ── Live: dedicated handlers that already bridge to commandManager ─────────────
   // `room.setMaterial` is the ONE setMaterial handler that writes the geometry store
   // (SetRoomMaterialHandler → commandManager → roomStore) — keep it.
-  room:        { command: 'room.setMaterial',            idField: 'roomId', shape: 'flat', supportsColor: true },
+  // §FIX-DEAD-VERB-ROOM-MATERIAL-ID (W3-3) — `supportsMaterialId: false` was MISSING here,
+  // and that omission was the whole defect: this route happily sent a catalogue
+  // `materialId`, `SetRoomMaterialHandler` had no legacy field to write it to, returned
+  // `{forward: [], inverse: []}` and reported SUCCESS. Meanwhile the inspector had already
+  // repainted the fill, so the user saw the material apply, saved, reloaded — and it was
+  // gone. A room's fill is the top-level `colour` field; there is no room analog for a
+  // library material id, so the id is now declared unsupported and SURFACED (see
+  // MATERIAL_ID_UNSUPPORTED_REASON below) rather than dispatched into the void. The colour
+  // path is untouched and still reaches roomStore via UpdateRoomCommand.
+  room:        { command: 'room.setMaterial',            idField: 'roomId', shape: 'flat', supportsColor: true, supportsMaterialId: false },
   // Furniture: `furniture.updateParameters` bridges to UpdateFurnitureParametersCommand
   // (geometry furnitureStore → bim-furniture-updated). Its colour field is `color`.
   furniture:   { command: 'furniture.updateParameters',  idField: 'id',     shape: 'flat', supportsColor: true, colorField: 'color' },
@@ -190,6 +199,13 @@ export const MATERIAL_UNSUPPORTED_REASON: Readonly<Record<string, string>> = {
  */
 export const MATERIAL_ID_UNSUPPORTED_REASON: Readonly<Record<string, string>> = {
   handrail: 'Handrail colour is applied, but HandrailFragmentBuilder has no material-library lookup — it reads only `materialColor`. Pick a colour override instead of a catalogue material.',
+  // §FIX-DEAD-VERB-ROOM-MATERIAL-ID (W3-3) — a room's visible plan / 3-D fill is the
+  // top-level `colour` field (the RoomColourSystem override), which is what the renderer
+  // and persistence read. There is no legacy room field for a catalogue material id, so
+  // `room.setMaterial` had nothing to write one to — and used to say it had. It now
+  // refuses with this same reason (plugins/rooms/src/handlers/SetRoomMaterial.ts), and
+  // this route no longer sends the id at all.
+  room: 'Room colour is applied, but a room has no catalogue-material field — its plan and 3-D fill come from the room `colour` override. Pick a colour instead of a library material.',
 };
 
 /** Type aliases → canonical family key. */

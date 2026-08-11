@@ -138,13 +138,20 @@ describe('room.delete — legacy bridge', () => {
     expect(executed[0]?.targetIds).toContain('room_abc');
   });
 
-  it('no-ops (does not throw) before the engine is initialised', async () => {
+  // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — this used to assert the handler "no-ops (does
+  // not throw)" pre-init, i.e. it PINNED the silent lie: the bus resolved successfully
+  // while the room was never deleted, and the caller could not tell that apart from a
+  // real delete. C03 §4.6 U-4 — failure and emptiness are never the same value. What is
+  // pinned now is the REFUSAL and its reason; the pre-init guarantee that the legacy
+  // commandManager is never invoked is retained by the throwing stub below.
+  it('refuses, with a reason, before the engine is initialised', async () => {
     env = buildEnv();
     g.window = {
       __pryzmInitComplete: false,
       commandManager: { execute: () => { throw new Error('must not run pre-init'); } },
     };
-    await expect(env.bus.executeCommand('room.delete', { roomId: 'room_x' })).resolves.toBeDefined();
+    await expect(env.bus.executeCommand('room.delete', { roomId: 'room_x' }))
+      .rejects.toThrow(/room\.delete: the engine is not initialised/);
   });
 
   it('rejects an empty roomId payload', async () => {
@@ -213,7 +220,9 @@ describe('room.move — legacy bridge (§FIX-ROOM-SIBLING-HANDLERS-STORE, L-79)'
     expect(env.room.size()).toBe(0);
   });
 
-  it('no-ops (does not throw) before the engine is initialised', async () => {
+  // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — see room.delete above: a pre-init "no-op that
+  // resolves" is indistinguishable from a move that happened. Pin the refusal instead.
+  it('refuses, with a reason, before the engine is initialised', async () => {
     env = buildEnv();
     const bus = busWithoutRoomStore();
     g.window = {
@@ -222,7 +231,7 @@ describe('room.move — legacy bridge (§FIX-ROOM-SIBLING-HANDLERS-STORE, L-79)'
     };
     await expect(
       bus.executeCommand('room.move', { roomId: 'room_x', delta: { x: 1, y: 0, z: 0 } }),
-    ).resolves.toBeDefined();
+    ).rejects.toThrow(/room\.move: the engine is not initialised/);
   });
 });
 
@@ -278,7 +287,9 @@ describe('room.setName — legacy bridge (§FIX-ROOM-SETNAME-STORE, L-75)', () =
     expect(env.room.size()).toBe(0);
   });
 
-  it('no-ops (does not throw) before the engine is initialised', async () => {
+  // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — see room.delete above. A rename the user watched
+  // "succeed" and then lost on reload is the exact Class-A dead verb; pin the refusal.
+  it('refuses, with a reason, before the engine is initialised', async () => {
     env = buildEnv();
     const bus = busWithoutRoomStore();
     g.window = {
@@ -287,7 +298,7 @@ describe('room.setName — legacy bridge (§FIX-ROOM-SETNAME-STORE, L-75)', () =
     };
     await expect(
       bus.executeCommand('room.setName', { roomId: 'room_x', name: 'Late' }),
-    ).resolves.toBeDefined();
+    ).rejects.toThrow(/room\.setName: the engine is not initialised/);
   });
 
   it('rejects an empty name payload', async () => {
@@ -429,7 +440,10 @@ describe('room.setNumber / setOccupancy / setMaterial / setHeightOffset — lega
     ).rejects.toThrow();
   });
 
-  it('no-ops (does not throw) before the engine is initialised', async () => {
+  // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — see room.delete above. Pin the refusal, and
+  // assert it for the WHOLE sibling family so one handler cannot silently regress to a
+  // no-op while its three siblings refuse.
+  it('refuses, with a reason, before the engine is initialised — all four siblings', async () => {
     env = buildEnv();
     const bus = busWithoutRoomStore();
     g.window = {
@@ -438,7 +452,18 @@ describe('room.setNumber / setOccupancy / setMaterial / setHeightOffset — lega
     };
     await expect(
       bus.executeCommand('room.setNumber', { roomId: 'room_x', number: '9' }),
-    ).resolves.toBeDefined();
+    ).rejects.toThrow(/room\.setNumber: the engine is not initialised/);
+    await expect(
+      bus.executeCommand('room.setOccupancy', { roomId: 'room_x', occupancy: 'Office' }),
+    ).rejects.toThrow(/room\.setOccupancy: the engine is not initialised/);
+    await expect(
+      bus.executeCommand('room.setHeightOffset', { roomId: 'room_x', heightOffset: 0.25 }),
+    ).rejects.toThrow(/room\.setHeightOffset: the engine is not initialised/);
+    // room.setMaterial's colour path is the one live bridge in this family — pre-init it
+    // must refuse for the same reason rather than reporting an applied fill.
+    await expect(
+      bus.executeCommand('room.setMaterial', { roomId: 'room_x', materialColor: '#ff0000' }),
+    ).rejects.toThrow(/room\.setMaterial: the engine is not initialised/);
   });
 });
 

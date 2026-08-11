@@ -176,22 +176,21 @@ describe('wall.setDimensions — round-trip', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('atomically sets height + thickness in one inverse patch group', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — this used to assert the PLUGIN store mutated, and
+  // passed for years while the user's model never changed: in production the bus binds
+  // the DETACHED plugin DTO store here, and no renderer, exporter or persistence path
+  // reads it. The verb now refuses with a reason naming the live route, so what is
+  // pinned is the REFUSAL and its reason — an assertion about the wrong store is worse
+  // than no assertion, because it reads as proof.
+  it('refuses a well-formed payload and names wall.updateDimensions', async () => {
     env = buildEnv();
     const id = createId('wall');
     await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_test' });
     const before = snapState(env.store);
-    const ev = await env.bus.executeCommand('wall.setDimensions', {
-      id,
-      height: 3.2,
-      thickness: 0.2,
-      baseOffset: 0.05,
-    });
-    const w = env.store.get(id);
-    expect(w?.height).toBe(3.2);
-    expect(w?.thickness).toBe(0.2);
-    expect(w?.baseOffset).toBe(0.05);
-    undoLast(env.store, ev);
+    await expect(
+      env.bus.executeCommand('wall.setDimensions', { id, height: 3.2, thickness: 0.2, baseOffset: 0.05 }),
+    ).rejects.toThrow(/wall\.updateDimensions/);
+    // A refusal must not mutate anything, on either store.
     expect(snapState(env.store)).toEqual(before);
   });
 
@@ -207,36 +206,31 @@ describe('wall.setColor — round-trip', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('sets materialColor and undo restores prior value', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — this used to assert the PLUGIN store mutated, and
+  // passed for years while the user's model never changed: in production the bus binds
+  // the DETACHED plugin DTO store here, and no renderer, exporter or persistence path
+  // reads it. The verb now refuses with a reason naming the live route, so what is
+  // pinned is the REFUSAL and its reason — an assertion about the wrong store is worse
+  // than no assertion, because it reads as proof.
+  it('refuses a well-formed colour payload and names wall.updateColor', async () => {
     env = buildEnv();
     const id = createId('wall');
-    await env.bus.executeCommand('wall.create', {
-      id,
-      levelId: 'lvl_test',
-      materialColor: '#aabbcc',
-    });
+    await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_test', materialColor: '#aabbcc' });
     const before = snapState(env.store);
-    const ev = await env.bus.executeCommand('wall.setColor', {
-      id,
-      materialColor: '#112233',
-    });
-    expect(env.store.get(id)?.materialColor).toBe('#112233');
-    undoLast(env.store, ev);
+    await expect(
+      env.bus.executeCommand('wall.setColor', { id, materialColor: '#112233' }),
+    ).rejects.toThrow(/wall\.updateColor/);
     expect(snapState(env.store)).toEqual(before);
   });
 
-  it('clears materialId when set to null and undo restores it', async () => {
+  it('refuses a materialId clear too — the refusal is not payload-shaped', async () => {
     env = buildEnv();
     const id = createId('wall');
-    await env.bus.executeCommand('wall.create', {
-      id,
-      levelId: 'lvl_test',
-      materialId: 'mat-1',
-    });
+    await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_test', materialId: 'mat-1' });
     const before = snapState(env.store);
-    const ev = await env.bus.executeCommand('wall.setColor', { id, materialId: null });
-    expect(env.store.get(id)?.materialId).toBeUndefined();
-    undoLast(env.store, ev);
+    await expect(
+      env.bus.executeCommand('wall.setColor', { id, materialId: null }),
+    ).rejects.toThrow(/detached plugin wall store/);
     expect(snapState(env.store)).toEqual(before);
   });
 

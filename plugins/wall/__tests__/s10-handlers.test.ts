@@ -147,22 +147,23 @@ describe('wall.setLayers', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('overwrites layers and recomputes thickness (rounded to 6dp)', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — this used to assert the PLUGIN store mutated, and
+  // passed while the user's model never changed: in production the bus binds the
+  // DETACHED plugin DTO store here, which no renderer, exporter or persistence path
+  // reads. What is pinned now is the REFUSAL and the live route it names.
+  it('refuses a well-formed layer set and names element.changeType', async () => {
     env = buildEnv();
     const id = createId('wall');
     await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_a' });
-    const ev = await env.bus.executeCommand('wall.setLayers', {
-      id,
-      layers: [
-        { name: 'a', function: 'structure', thickness: 0.100 },
-        { name: 'b', function: 'finish-interior', thickness: 0.010 },
-      ],
-    });
-    const w = env.store.get(id)!;
-    expect(w.layers).toHaveLength(2);
-    expect(w.thickness).toBeCloseTo(0.11, 6);
-
-    undoLast(env.store, ev);
+    await expect(
+      env.bus.executeCommand('wall.setLayers', {
+        id,
+        layers: [
+          { name: 'a', function: 'structure', thickness: 0.100 },
+          { name: 'b', function: 'finish-interior', thickness: 0.010 },
+        ],
+      }),
+    ).rejects.toThrow(/element\.changeType/);
     expect(env.store.get(id)!.layers).toBeUndefined();
   });
 
@@ -194,26 +195,25 @@ describe('wall.bulkSetVisuals', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('applies colour + thickness to all ids in one atomic patch', async () => {
+  // §FIX-DEAD-VERB-REFUSE (W3-3) — this used to assert the PLUGIN store mutated, and
+  // passed while the user's model never changed: in production the bus binds the
+  // DETACHED plugin DTO store here, which no renderer, exporter or persistence path
+  // reads. What is pinned now is the REFUSAL and the live route it names.
+  it('refuses a well-formed bulk payload and names wall.updateColorBatch', async () => {
     env = buildEnv();
     const a = createId('wall');
     const b = createId('wall');
     await env.bus.executeCommand('wall.create', { id: a, levelId: 'lvl_a' });
     await env.bus.executeCommand('wall.create', { id: b, levelId: 'lvl_a' });
-
-    const ev = await env.bus.executeCommand('wall.bulkSetVisuals', {
-      ids: [a, b],
-      materialColor: '#cc0033',
-      thickness: 0.18,
-    });
-    expect(env.store.get(a)!.materialColor).toBe('#cc0033');
-    expect(env.store.get(b)!.materialColor).toBe('#cc0033');
-    expect(env.store.get(a)!.thickness).toBe(0.18);
-    expect(env.store.get(b)!.thickness).toBe(0.18);
-
-    undoLast(env.store, ev);
-    // Both walls revert in a single inverse pass.
+    await expect(
+      env.bus.executeCommand('wall.bulkSetVisuals', {
+        ids: [a, b],
+        materialColor: '#cc0033',
+        thickness: 0.18,
+      }),
+    ).rejects.toThrow(/wall\.updateColorBatch/);
     expect(env.store.get(a)!.materialColor).not.toBe('#cc0033');
+    expect(env.store.get(b)!.thickness).not.toBe(0.18);
   });
 
   it('rejects empty ids array', async () => {
@@ -253,7 +253,7 @@ describe('wall.bulkSetVisuals', () => {
     ).rejects.toThrow(/wall not found/);
   });
 
-  it('clears materialId when null is supplied', async () => {
+  it('refuses a materialId clear too — the refusal is not payload-shaped', async () => {
     env = buildEnv();
     const id = createId('wall');
     await env.bus.executeCommand('wall.create', {
@@ -262,8 +262,10 @@ describe('wall.bulkSetVisuals', () => {
       materialId: 'mat_x',
     });
     expect(env.store.get(id)!.materialId).toBe('mat_x');
-    await env.bus.executeCommand('wall.bulkSetVisuals', { ids: [id], materialId: null });
-    expect(env.store.get(id)!.materialId).toBeUndefined();
+    await expect(
+      env.bus.executeCommand('wall.bulkSetVisuals', { ids: [id], materialId: null }),
+    ).rejects.toThrow(/detached plugin wall store/);
+    expect(env.store.get(id)!.materialId).toBe('mat_x');
   });
 });
 
