@@ -133,7 +133,15 @@ const LABEL = 'gate-subject-floors';
  * Lowering a shrink-only ceiling to its measured value is always safe and is
  * never the thing the doctrine forbids. The forbidden move is RAISING one.
  */
-const MAX_UNFLOORED = Number(process.env.PRYZM_R5_MAX_UNFLOORED ?? 10);
+/**
+ * 10 → 9 (2026-08-11, later the same day). The R4 report-payload-discard gate and
+ * the refusal-identity gate both landed WITH subject floors, so the measurement
+ * moved and the ceiling follows it down. Leaving 10 would have banked a gate of
+ * slack — and slack is what let check-otel-spans sit 42 files above its floor.
+ * Lowering a shrink-only ceiling to its measured value is always safe; the
+ * forbidden move is raising one.
+ */
+const MAX_UNFLOORED = Number(process.env.PRYZM_R5_MAX_UNFLOORED ?? 9);
 
 /**
  * ⚠ THIS GATE'S OWN SUBJECT FLOOR. It would be an exquisite irony to ship a

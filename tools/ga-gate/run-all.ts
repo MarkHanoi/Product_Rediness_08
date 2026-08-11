@@ -143,6 +143,15 @@ const GATES: Gate[] = [
   // it at all is the point — it shipped unwired, which is the same authored-but-
   // unreachable failure it exists to detect. A meta-gate nobody runs is exactly
   // the thing it is meant to catch.
+  // R4 (2026-08-11) — dispatch sites that DISCARD an engine report payload. Born
+  // at ZERO, negative-tested at 12 against a materialised pre-fix tree, so it is
+  // NOT on gate-debt.json. The engine has always reported partials honestly; this
+  // gate exists because the last layer threw that away and rendered "Done".
+  { name: 'report-payload-discard (R4/W2-B)',         script: 'check-report-payload-discard.ts' },
+  // Refusal identity — a refusal that loses its code is indistinguishable from a
+  // generic "not applicable". 88 NAMED offenders keyed by file+fragment rather
+  // than a count, so a PR that fixes one and breaks another still fails.
+  { name: 'refusal-identity (C58 §1.13/§6)',          script: 'check-refusal-identity.ts' },
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
   { name: 'report-payload-discard (C68 §5.g, R4)',    script: 'check-report-payload-discard.ts' },
 ];
