@@ -44,10 +44,18 @@ export class SetWindowOffsetCommand implements Command {
         return { ok: true };
     }
 
+    /**
+     * §ADR-0319-CLASS-2 — the host wall's `_renderVersion` before `execute()`.
+     * Mirror of `SetDoorOffsetCommand.prevWallRenderVersion`; the certification
+     * measured `wall._renderVersion expected 4 got 6` on this verb.
+     */
+    private prevWallRenderVersion: number | undefined = undefined;
+
     execute(ctx: CommandContext): CommandResult {
         const { wallStore } = ctx.stores;
         const win = wallStore.getWindow(this.windowId);
         if (!win) return { success: false, affectedElementIds: [] };
+        this.prevWallRenderVersion = wallStore.getById(win.wallId)?._renderVersion;
         wallStore.updateWindow(this.windowId, { offset: this.newOffset });
         // §C15 DUAL-STORE RULE: keep standalone windowStore in sync so that
         // WindowBuilder.rebuildForWall() reads the new offset when it calls
@@ -62,7 +70,8 @@ export class SetWindowOffsetCommand implements Command {
         const { wallStore } = ctx.stores;
         const win = wallStore.getWindow(this.windowId);
         if (!win) return { success: false, affectedElementIds: [] };
-        wallStore.updateWindow(this.windowId, { offset: this.prevOffset });
+        wallStore.updateWindow(this.windowId, { offset: this.prevOffset },
+            { restoreRenderVersion: this.prevWallRenderVersion });
         // §C15 DUAL-STORE RULE: revert standalone windowStore on undo.
         if (windowStore.has(this.windowId)) {
             windowStore.update(this.windowId, { offset: this.prevOffset });

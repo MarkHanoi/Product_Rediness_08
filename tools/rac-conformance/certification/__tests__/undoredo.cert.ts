@@ -17,10 +17,22 @@
 // `performUndo()` returns void (C03 §4.6 U-4, pinned elsewhere) — nothing in
 // this file reads an undo return value as evidence; state is re-captured after
 // every step.
+//
+// TOLERANCE LEDGER (declared, not buried): the undo-vs-A and redo-vs-B
+// comparators exclude exactly TWO fields, `metadata.createdAt` and
+// `metadata.modifiedAt`, enumerated by name in `capture.ts` and ratified by
+// ADR-0319 §3 (DERIVED-INCIDENTAL). Every verdict cell that excluded anything
+// prints the count and the citation. `metadata.version` and `_renderVersion`
+// are ADR-0319 class 2 and are NOT excluded — a counter that ratchets through an
+// undo cycle stays a measured FAILURE, and the FALSIFIABILITY test below proves
+// the predicate still catches both.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { World } from '../world';
-import { captureState, diffState, type StateCapture } from '../capture';
+import {
+  captureState, diffState, isAdr0319Class3, ADR0319_CLASS3_CITATION,
+  type StateCapture,
+} from '../capture';
 import { finishRow, writeResults, type CertRow } from '../report';
 import { deserializeRoom } from '@pryzm/room-topology';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
@@ -43,6 +55,19 @@ const BATCH_REPORT_EVENTS = [
   'pryzm-ceiling-type-batch-report',
 ];
 let lastBatchReport: { event: string; detail: unknown } | null = null;
+
+/**
+ * Render the ADR-0319 class-3 exclusion COUNT into the verdict string.
+ *
+ * §0 rule 3 of the acceptance plan: no criterion may be scored by a tolerance
+ * list written to make it pass. The list here is ratified by ADR-0319 §3 and
+ * holds two named fields — and every cell it touches SAYS SO, with the count and
+ * the citation, so a green row can never hide how many divergences were dropped
+ * to make it green. A row that excluded nothing says nothing extra.
+ */
+function excl(n: number): string {
+  return n === 0 ? '' : `; ${n} field(s) excluded — ${ADR0319_CLASS3_CITATION}`;
+}
 
 interface CaseSpec {
   capability: string;
@@ -315,10 +340,10 @@ describe('HARNESS 2 — undo/redo round-trip vs authoritative state (§11)', () 
           // Undo exactly the entries this dispatch armed — one at a time, in order.
           for (let i = 0; i < entriesAdded; i++) cm.undo();
           const afterUndo = captureState(world);
-          const undoDiff = diffState(A, afterUndo);
+          const undoDiff = diffState(A, afterUndo, isAdr0319Class3);
           const undoClean = undoDiff.divergences.length === 0 && undoDiff.misconfigured.length === 0;
           const baseUndoVerdict = undoClean
-            ? `PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, ${entriesAdded} entr${entriesAdded === 1 ? 'y' : 'ies'})`
+            ? `PROVEN — after undo, authoritative state ≡ State A (deep, whole-store, ${entriesAdded} entr${entriesAdded === 1 ? 'y' : 'ies'}${excl(undoDiff.toleratedCount)})`
             : `FAIL — after undo, ${undoDiff.divergences.length} divergence(s) from State A: ` +
               undoDiff.divergences.slice(0, 6).map((x) => `${x.path}: expected ${JSON.stringify(x.expected)} got ${JSON.stringify(x.actual)}`).join(' | ');
           undoVerdict = spec.expectSingleEntry && entriesAdded !== 1
@@ -327,9 +352,9 @@ describe('HARNESS 2 — undo/redo round-trip vs authoritative state (§11)', () 
 
           for (let i = 0; i < entriesAdded; i++) cm.redo();
           const afterRedo = captureState(world);
-          const redoDiff = diffState(B, afterRedo);
+          const redoDiff = diffState(B, afterRedo, isAdr0319Class3);
           redoVerdict = redoDiff.divergences.length === 0 && redoDiff.misconfigured.length === 0
-            ? 'PROVEN — after redo, authoritative state ≡ State B (deep, whole-store)'
+            ? `PROVEN — after redo, authoritative state ≡ State B (deep, whole-store${excl(redoDiff.toleratedCount)})`
             : `FAIL — after redo, ${redoDiff.divergences.length} divergence(s) from State B: ` +
               redoDiff.divergences.slice(0, 6).map((x) => `${x.path}: expected ${JSON.stringify(x.expected)} got ${JSON.stringify(x.actual)}`).join(' | ');
         }
@@ -361,6 +386,41 @@ describe('HARNESS 2 — undo/redo round-trip vs authoritative state (§11)', () 
       expect.soft(redoVerdict, spec.capability + ' redo').not.toMatch(/^FAIL/);
     });
   }
+
+  it('FALSIFIABILITY — the ADR-0319 exclusion is NARROW: class-2 counters still go RED', () => {
+    // The class-3 list is the only thing this harness normalises away, and the
+    // risk it carries is over-reach: an exclusion broad enough to swallow
+    // `metadata.version` or `_renderVersion` would silently turn the class-2
+    // defect this criterion exists to catch into a green cell. So the predicate
+    // is asserted against a tampered capture on BOTH sides — the two enumerated
+    // class-3 fields must be dropped, and every class-2 counter must survive.
+    const A = captureState(world);
+    const tampered: StateCapture = JSON.parse(JSON.stringify(A));
+    const w = tampered['wall'].records['u-wall-1'] as {
+      _renderVersion?: number;
+      metadata?: { version?: number; modifiedAt?: number; createdAt?: number };
+    };
+    w._renderVersion = (w._renderVersion ?? 0) + 99;
+    if (w.metadata) {
+      w.metadata.version = (w.metadata.version ?? 0) + 99;
+      w.metadata.modifiedAt = (w.metadata.modifiedAt ?? 0) + 99;
+      w.metadata.createdAt = (w.metadata.createdAt ?? 0) + 99;
+    }
+    const d = diffState(A, tampered, isAdr0319Class3);
+    const paths = d.divergences.map((x) => x.path);
+    console.log('[FALSIFY H2 class-3] kept=' + JSON.stringify(paths) +
+      ' excluded=' + d.toleratedCount + ' (' + ADR0319_CLASS3_CITATION + ')');
+
+    // class 2 — MUST still be reported.
+    expect(paths, 'wall._renderVersion is ADR-0319 class 2 and must never be excluded')
+      .toContain('wall.u-wall-1._renderVersion');
+    expect(paths, 'metadata.version is ADR-0319 class 2 and must never be excluded')
+      .toContain('wall.u-wall-1.metadata.version');
+    // class 3 — MUST be excluded, by name, and counted.
+    expect(paths).not.toContain('wall.u-wall-1.metadata.modifiedAt');
+    expect(paths).not.toContain('wall.u-wall-1.metadata.createdAt');
+    expect(d.toleratedCount, 'the excluded count must be reported, never silent').toBe(2);
+  });
 
   it('FALSIFIABILITY — the round-trip comparator goes RED when the expected state is wrong', async () => {
     // Real change, real undo, then a MUTATED expectation must be rejected.

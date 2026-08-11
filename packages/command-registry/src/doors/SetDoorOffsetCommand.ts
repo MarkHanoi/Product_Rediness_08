@@ -45,10 +45,22 @@ export class SetDoorOffsetCommand implements Command {
         return { ok: true };
     }
 
+    /**
+     * §ADR-0319-CLASS-2 — the host wall's `_renderVersion` as it stood BEFORE
+     * `execute()` ran. `undo()` writes it back verbatim so the counter returns to
+     * State A instead of ratcheting +2 per undo/redo cycle (the defect the BIM
+     * 2.0 certification measured on this exact verb: `expected 3 got 5`).
+     * `undefined` until the command has executed, and `undefined` for legacy
+     * walls that carry no version stamp — in both cases the mutator keeps its
+     * default bump, which is the pre-existing behaviour.
+     */
+    private prevWallRenderVersion: number | undefined = undefined;
+
     execute(ctx: CommandContext): CommandResult {
         const { wallStore } = ctx.stores;
         const door = wallStore.getDoor(this.doorId);
         if (!door) return { success: false, affectedElementIds: [] };
+        this.prevWallRenderVersion = wallStore.getById(door.wallId)?._renderVersion;
         wallStore.updateDoor(this.doorId, { offset: this.newOffset });
         if (doorStore.has(this.doorId)) doorStore.update(this.doorId, { offset: this.newOffset });
         return { success: true, affectedElementIds: [this.doorId] };
@@ -58,7 +70,8 @@ export class SetDoorOffsetCommand implements Command {
         const { wallStore } = ctx.stores;
         const door = wallStore.getDoor(this.doorId);
         if (!door) return { success: false, affectedElementIds: [] };
-        wallStore.updateDoor(this.doorId, { offset: this.prevOffset });
+        wallStore.updateDoor(this.doorId, { offset: this.prevOffset },
+            { restoreRenderVersion: this.prevWallRenderVersion });
         if (doorStore.has(this.doorId)) doorStore.update(this.doorId, { offset: this.prevOffset });
         return { success: true, affectedElementIds: [this.doorId] };
     }

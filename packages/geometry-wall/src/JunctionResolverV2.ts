@@ -117,6 +117,55 @@ export interface WallMiter {
     readonly invalid?: boolean;
 }
 
+// ─── §CONNECT-3 — the RETAINED junction record (BIM30 deliverable §D-7 / §G Tier 2) ──
+//
+// The resolver has ALWAYS computed this. `JunctionDraft {point, realEndpoints,
+// passthroughWalls}` is built by `detectJunctions`, consumed by `applyRingSweep`,
+// and then went out of scope at the end of `resolveJunctions` — so "which walls
+// connect to wall Y" was a RE-DETECTION (re-run the resolver) rather than a LOOKUP.
+// (BIM30-EVOLUTION-AUDIT §3 Q4, §17.6.)
+//
+// These three types are the SAME NUMBERS the sweep already used, given a name and a
+// lifetime. Nothing new is computed: `applyRingSweep` now RETURNS the record it built
+// from its own `entries` + `pivot` instead of dropping them. That is deliberate — a
+// record recomputed by a second pass could drift from the sweep that actually produced
+// the geometry; a record returned BY the sweep cannot.
+//
+// HONESTY NOTE on identity: `id` is deterministic for a fixed input (detection order
+// is input order), but it is NOT a persistent identity across edits — moving one wall
+// can renumber the rest. Treat it as a within-solve handle, never as a stored key.
+
+/** Ring-degree classification, using this module's own vocabulary (see the file header:
+ *  "L (2-wall), T (3-wall with one passthrough), Y (3-wall radial), X (4-wall)").
+ *  The degree counted is the number of SWEEP ENTRIES — i.e. wall DIRECTIONS meeting at
+ *  the node — which is exactly what the sweep sees: a passthrough wall contributes two. */
+export type WallJunctionType = 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
+
+export interface WallJunctionParticipant {
+    readonly wallId: string;
+    /** `endpoint` — the wall's start or end terminates AT this junction.
+     *  `passthrough` — the wall's BODY crosses it (a T host). */
+    readonly role: 'endpoint' | 'passthrough';
+    /** For `endpoint` only: which end of the wall is at this junction. */
+    readonly isStart?: boolean;
+}
+
+export interface WallJunctionRecord {
+    /** Within-solve handle, `J<n>` in detection order. NOT a persistent identity. */
+    readonly id: string;
+    /** The point the ring sweep actually mitred around (post-§RESI-PERIM-CORNER-PIVOT
+     *  refinement) — not the raw cluster centroid, so this is the geometry that was
+     *  BUILT, not an approximation of it. */
+    readonly point: Pt2;
+    readonly type: WallJunctionType;
+    /** Ring degree = number of sweep entries (passthrough counts twice). */
+    readonly degree: number;
+    /** Every participating wall-end / body, in sweep (CCW) order. */
+    readonly participants: readonly WallJunctionParticipant[];
+    /** Distinct participating wall ids, first-appearance order. The Q4 answer. */
+    readonly wallIds: readonly string[];
+}
+
 export interface ResolveOptions {
     /** Endpoint snap radius (m). Default = the §RESI-L0-CORNER-CLOSE near-junction
      *  band (0.20 m); pass an explicit value to override (e.g. 0.001 for exact input). */
@@ -1195,10 +1244,20 @@ function refineLJunctionPivot(j: JunctionDraft, walls: readonly WallInput[]): Pt
  * in the `WallMiter[]` accumulator. Passthrough walls are NOT modified (they pass
  * the junction straight); the corner becomes part of the abutting wall only.
  */
-function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: WallMiter[]): void {
+function applyRingSweep(
+    j: JunctionDraft,
+    walls: readonly WallInput[],
+    miters: WallMiter[],
+    // §CONNECT-3 — the retained record's within-solve handle. Passing it in (rather than
+    // letting the caller stamp it afterwards) keeps id assignment in one place.
+    recordId: string,
+): WallJunctionRecord | null {
     const entries = buildSweepEntries(j, walls);
     const n = entries.length;
-    if (n < 2) return;
+    // n < 2 is a free wall end, not a junction: the sweep does nothing and no record exists.
+    // Returning null here (rather than an empty record) is what keeps "no junction" and
+    // "junction with no participants" from collapsing into the same value downstream.
+    if (n < 2) return null;
 
     // §RESI-PERIM-CORNER-PIVOT — the point the ring sweep mitres around. For a pure L
     // junction this is refined from the cluster centroid to the centreline crossing (the
@@ -1279,6 +1338,43 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         if (!curr.isPassthrough && !suppressInnerFacePivot()) setPivot(curr.wallIdx, curr.isStart, pivot);
         if (!next.isPassthrough && !suppressInnerFacePivot()) setPivot(next.wallIdx, next.isStart, pivot);
     }
+
+    // ── §CONNECT-3 — RETAIN the record instead of dropping it ────────────────────
+    // Everything below reads `entries` and `pivot`, both already computed above for the
+    // mitre. No geometry is recomputed and no wall is touched; this is purely the
+    // lifetime extension the audit asked for (§3 "extension of an existing computation's
+    // lifetime, not new architecture").
+    //
+    // A passthrough wall appears TWICE in `entries` (one entry per body direction) — that
+    // duplication is what makes the ring sweep uniform across L/T/Y/X. It is CORRECT for
+    // `degree` (two directions really do meet here) and WRONG for `wallIds` (one wall),
+    // so the two are derived differently on purpose.
+    const participants: WallJunctionParticipant[] = [];
+    const wallIds: string[] = [];
+    const seenWall = new Set<string>();
+    const seenPassthrough = new Set<number>();
+    for (const e of entries) {
+        const wid = walls[e.wallIdx]!.id;
+        if (e.isPassthrough) {
+            // Collapse the twin direction-entries into ONE participant.
+            if (!seenPassthrough.has(e.wallIdx)) {
+                seenPassthrough.add(e.wallIdx);
+                participants.push({ wallId: wid, role: 'passthrough' });
+            }
+        } else {
+            participants.push({ wallId: wid, role: 'endpoint', isStart: e.isStart });
+        }
+        if (!seenWall.has(wid)) { seenWall.add(wid); wallIds.push(wid); }
+    }
+
+    const passthroughCount = seenPassthrough.size;
+    const type: WallJunctionType =
+        n === 2 ? 'L'
+      : n === 3 ? (passthroughCount > 0 ? 'T' : 'Y')
+      : n === 4 ? 'X'
+      : 'N-WAY';
+
+    return { id: recordId, point: pivot, type, degree: n, participants, wallIds };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -1295,6 +1391,26 @@ export function resolveJunctions(
     walls: readonly WallInput[],
     opts: ResolveOptions = {},
 ): WallMiter[] {
+    return resolveJunctionsWithRecords(walls, opts).miters;
+}
+
+/**
+ * §CONNECT-3 — the SAME solve as {@link resolveJunctions}, additionally returning the
+ * L/T/Y/X junction records the ring sweep built on its way to the miters.
+ *
+ * `resolveJunctions` is now a one-line projection of this function, so the two can never
+ * disagree and every existing caller (≈130 sites, all of the wall test suite, and
+ * `WallPipelineV2Cache.refresh`) keeps a byte-identical result and an unchanged signature.
+ *
+ * `junctions` contains one entry per node where ≥2 wall-directions meet, in detection
+ * order. A wall with no junction simply never appears in any record — see
+ * `WallPipelineV2Cache.junctionsFor` for the lookup that distinguishes that from an
+ * unknown wall id.
+ */
+export function resolveJunctionsWithRecords(
+    walls: readonly WallInput[],
+    opts: ResolveOptions = {},
+): { miters: WallMiter[]; junctions: WallJunctionRecord[] } {
     // §RESI-L0-CORNER-CLOSE — a caller-supplied epsilon ALWAYS wins (exact-input
     // callers / the detect unit test still pin 1 mm). Absent → the near-junction band
     // (`defaultJunctionBandM`, default 0.20 m; restore the legacy 1 mm with the escape
@@ -1328,12 +1444,18 @@ export function resolveJunctions(
         }
     }
 
-    for (const j of junctions) applyRingSweep(j, walls, miters);
+    // §CONNECT-3 — collect the records the sweep returns. The sweep is unchanged in what
+    // it WRITES; it merely also hands back what it already knew.
+    const records: WallJunctionRecord[] = [];
+    for (const j of junctions) {
+        const rec = applyRingSweep(j, walls, miters, `J${records.length}`);
+        if (rec) records.push(rec);
+    }
 
     if (degenerate.size > 0) {
         for (const wi of degenerate) miters[wi] = { id: walls[wi]!.id, invalid: true };
     }
-    return miters;
+    return { miters, junctions: records };
 }
 
 // ─── Internal exports for testing ─────────────────────────────────────────────

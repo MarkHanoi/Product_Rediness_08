@@ -21,7 +21,10 @@
 // emits an event — that's the caller's job.
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { resolveJunctions, type Pt2, type WallInput, type WallMiter } from './JunctionResolverV2';
+import {
+    resolveJunctions, resolveJunctionsWithRecords,
+    type Pt2, type WallInput, type WallJunctionRecord, type WallMiter,
+} from './JunctionResolverV2';
 import { buildWallFootprint, type WallFootprint } from './WallFootprint2D';
 import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
 import { isVerticalRake, RAKE_MIN_DEG, rakeTopOffset, resolveRakeDeg } from './WallRake';
@@ -127,8 +130,48 @@ function curveTangents(w: LevelWallSpec): { startDir?: Pt2; endDir?: Pt2 } {
     };
 }
 
+// ─── §CONNECT-3 — the junction lookup result (BIM30 deliverable §D-7 / §G Tier 2) ──
+//
+// FAILURE ≠ EMPTINESS. `[]` for "this wall has no junctions" and `[]` for "I have never
+// heard of this wall" is the exact conversion the doctrine forbids (context-data-honesty:
+// failure and empty are the SAME VALUE). So the lookup returns a discriminated union with
+// a named reason, following the refusal idiom already established in this package by
+// `WallOccupancyStore.planOpeningRefit` / `CanPlaceResult` — a plain data result carrying
+// a human-readable sentence that names the specifics, not a thrown error.
+
+export type WallJunctionRefusalReason =
+    /** `refresh()` has never run on this cache — it holds no level, so it cannot answer. */
+    | 'cache-not-refreshed'
+    /** The cache was refreshed, but this wall id was not in the level slice it was given. */
+    | 'wall-not-on-level';
+
+export type WallJunctionQuery =
+    | {
+        readonly ok: true;
+        readonly wallId: string;
+        /** Empty is a real, positive answer here: this wall is on the level and joins nothing. */
+        readonly junctions: readonly WallJunctionRecord[];
+    }
+    | {
+        readonly ok: false;
+        readonly wallId: string;
+        readonly reason: WallJunctionRefusalReason;
+        /** Human-readable sentence naming what was asked and what the cache holds. */
+        readonly detail: string;
+    };
+
+export type WallConnectivityQuery =
+    | { readonly ok: true; readonly wallId: string; readonly connectedWallIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly wallId: string;
+        readonly reason: WallJunctionRefusalReason;
+        readonly detail: string;
+    };
+
 /**
- * Lazily-recomputed cache of `WallMiter` for every wall on one level.
+ * Lazily-recomputed cache of `WallMiter` for every wall on one level, plus (§CONNECT-3)
+ * the L/T/Y/X junction records that same solve produced.
  *
  * Caller pattern in the builder:
  *
@@ -146,6 +189,21 @@ function curveTangents(w: LevelWallSpec): { startDir?: Pt2; endDir?: Pt2 } {
 export class WallPipelineV2Cache {
     private _byId = new Map<string, WallMiter>();
     private _walls = new Map<string, WallInput>();
+
+    // ── §CONNECT-3 — the retained junction index ──────────────────────────────
+    // Lives BESIDE the miter map, populated by the same `resolveJunctionsWithRecords`
+    // call inside `refresh()`, and cleared by the same `refresh()` that clears the
+    // miters — see the two §CONNECT-3 markers in that method. That is
+    // the whole design: the index cannot outlive the solve that produced it, because
+    // it is invalidated by the SAME statement. There is no second invalidation path
+    // to keep in sync, no subscription, and no new store.
+    /** Every junction on the refreshed level, detection order. */
+    private _junctions: WallJunctionRecord[] = [];
+    /** wallId → the junctions that wall participates in (detection order). */
+    private _junctionsByWall = new Map<string, WallJunctionRecord[]>();
+    /** FALSE until the first `refresh()`. Distinguishes "no level loaded" (a refusal)
+     *  from "level loaded, this wall joins nothing" (a legitimate empty answer). */
+    private _refreshed = false;
 
     // ── §WALL-RAKE-JOINT (ADR-0312) — the probe (twin) solve ──────────────────
     /** Probe-solve miters (base solve re-run at elevation RAKE_JOINT_PROBE_H). */
@@ -171,6 +229,10 @@ export class WallPipelineV2Cache {
         this._hasRake = false;
         this._rakeJointSig = '';
         this._rakeUsed.clear();
+        // §CONNECT-3 — same clear, same statement block, same lifetime as the miters.
+        this._junctions = [];
+        this._junctionsByWall.clear();
+        this._refreshed = true;
         for (const w of walls) this._rakeUsed.set(w.id, resolveRakeDeg(w.rakeAngleDeg));
         if (walls.length === 0) return;
         const inputs: WallInput[] = walls.map(w => ({
@@ -183,7 +245,18 @@ export class WallPipelineV2Cache {
             ...curveTangents(w),
         }));
         for (const w of inputs) this._walls.set(w.id, w);
-        for (const m of resolveJunctions(inputs)) this._byId.set(m.id, m);
+        // §CONNECT-3 — ONE solve, both products. The junction records are what
+        // `resolveJunctions` used to discard on the way out of this exact call.
+        const solved = resolveJunctionsWithRecords(inputs);
+        for (const m of solved.miters) this._byId.set(m.id, m);
+        this._junctions = solved.junctions;
+        for (const rec of solved.junctions) {
+            for (const wid of rec.wallIds) {
+                const list = this._junctionsByWall.get(wid);
+                if (list) list.push(rec);
+                else this._junctionsByWall.set(wid, [rec]);
+            }
+        }
 
         // §WALL-RAKE-JOINT — the PROBE solve, run only when a rake exists on the
         // level (a vertical-only level pays nothing and stays byte-identical).
@@ -364,6 +437,79 @@ export class WallPipelineV2Cache {
             endLeft:    offs[iEL]!,
             startLeft:  offs[iSL]!,
         };
+    }
+
+    // ─── §CONNECT-3 — the retained-junction lookups ──────────────────────────
+    //
+    // These are the audit's Q4 ("which walls connect to wall Y") converted from
+    // RE-DETECTION to LOOKUP. They read the index populated by `refresh()`; they
+    // never re-run the resolver, and they never fall back to one — a lookup that
+    // silently re-solves would hide exactly the staleness this design must not have.
+
+    /** Every junction on the refreshed level, detection order. Empty before the first
+     *  `refresh()` — use {@link junctionsFor} when you need the refusal instead. */
+    get junctions(): readonly WallJunctionRecord[] {
+        return this._junctions;
+    }
+
+    /** Shared pre-flight for both lookups: null when the cache CAN answer for `wallId`. */
+    private _refuse(wallId: string): { reason: WallJunctionRefusalReason; detail: string } | null {
+        if (!this._refreshed) {
+            return {
+                reason: 'cache-not-refreshed',
+                detail:
+                    `junction lookup for wall ${wallId}: this WallPipelineV2Cache has never been ` +
+                    `refreshed, so it holds no level and cannot say whether that wall has junctions`,
+            };
+        }
+        if (!this._walls.has(wallId)) {
+            return {
+                reason: 'wall-not-on-level',
+                detail:
+                    `junction lookup for wall ${wallId}: not among the ${this._walls.size} wall(s) ` +
+                    `this cache was refreshed with — no answer, not an empty answer`,
+            };
+        }
+        return null;
+    }
+
+    /**
+     * The junctions wall `wallId` participates in.
+     *
+     * FAILURE ≠ EMPTINESS, deliberately: `{ok:true, junctions:[]}` means "this wall is on
+     * the level and joins nothing" — a positive, trustworthy answer. `{ok:false, …}` means
+     * the cache cannot answer, and names why. A caller that treats the two alike (e.g. an
+     * IFC exporter emitting zero `IfcRelConnectsPathElements` for a wall the cache never
+     * saw) would be converting absent evidence into a PASS.
+     */
+    junctionsFor(wallId: string): WallJunctionQuery {
+        const refusal = this._refuse(wallId);
+        if (refusal) return { ok: false, wallId, ...refusal };
+        return { ok: true, wallId, junctions: this._junctionsByWall.get(wallId) ?? [] };
+    }
+
+    /**
+     * §CONNECT-3 / audit §3 Q4 — the distinct ids of every wall sharing a junction with
+     * `wallId`, excluding `wallId` itself. Deterministic order (junction detection order,
+     * then sweep order within a junction).
+     *
+     * This is the payload `SemanticGraph.connectedTo` needs; see the handoff note in the
+     * BIM30 deliverable. This class deliberately does NOT write that edge — it is a pure
+     * geometry-side cache and owns no graph.
+     */
+    connectedWallIds(wallId: string): WallConnectivityQuery {
+        const refusal = this._refuse(wallId);
+        if (refusal) return { ok: false, wallId, ...refusal };
+        const out: string[] = [];
+        const seen = new Set<string>([wallId]);
+        for (const rec of this._junctionsByWall.get(wallId) ?? []) {
+            for (const other of rec.wallIds) {
+                if (seen.has(other)) continue;
+                seen.add(other);
+                out.push(other);
+            }
+        }
+        return { ok: true, wallId, connectedWallIds: out };
     }
 
     getMiter(wallId: string): WallMiter | null {

@@ -34,7 +34,17 @@ import {
     buildWallV2Geometry,
     isWallPipelineV2Enabled,
     type LevelWallSpec,
+    // §CONNECT-3 — the two QUERY result types are genuinely owned by the cache module
+    // (they describe what the cache can and cannot answer), so they come from here.
+    type WallConnectivityQuery,
+    type WallJunctionQuery,
 } from './WallPipelineV2';
+// §CONNECT-3 — `WallJunctionRecord` is declared by the RESOLVER, which is what
+// produces it; it is imported from its home rather than re-exported through
+// `WallPipelineV2` (which merely stores it). Laundering the type through the cache
+// module would have silenced the root-tsc error while making the resolver's own
+// output look like the cache's invention.
+import type { WallJunctionRecord } from './JunctionResolverV2';
 // §FIX-LAYERED-WALL-V2-PARITY (ADR-0298) — a LAYERED wall takes the same V2 footprint the
 // plain path takes, sliced into per-layer bands, instead of re-deriving its corners with the
 // legacy per-layer miter projection. See the block comment in the layered branch.
@@ -3654,6 +3664,54 @@ export class WallFragmentBuilder {
      */
     public get rakeJointSignature(): string {
         return this.getEffectiveV2Cache()?.rakeJointSignature ?? '';
+    }
+
+    // ─── §CONNECT-3 — the retained junction index, read-only ─────────────────
+    //
+    // The orchestrator (`WallRebuildCoordinator._flush`) already calls
+    // `refreshV2Cache` once per level rebuild; these three accessors let it read
+    // what that refresh retained, WITHOUT reaching into the cache object or
+    // re-running the resolver. They exist so the SemanticGraph writer can be landed
+    // at the flush site (its own territory) without adding anything to this package.
+    //
+    // Every one of them is a pure read. The builder still owns geometry only.
+
+    /** Every junction on the level this builder was last refreshed with, detection
+     *  order. Empty ALSO when no cache exists — use {@link junctionsForWall} when the
+     *  difference between "no junctions" and "no level" matters, which it usually does. */
+    public get levelJunctions(): readonly WallJunctionRecord[] {
+        return this.getEffectiveV2Cache()?.junctions ?? [];
+    }
+
+    /** The junctions one wall participates in — or a typed refusal naming why not.
+     *  FAILURE ≠ EMPTINESS: see `WallPipelineV2Cache.junctionsFor`. */
+    public junctionsForWall(wallId: string): WallJunctionQuery {
+        const cache = this.getEffectiveV2Cache();
+        if (!cache) {
+            return {
+                ok: false, wallId, reason: 'cache-not-refreshed',
+                detail:
+                    `junction lookup for wall ${wallId}: this WallFragmentBuilder holds no V2 ` +
+                    `cache (refreshV2Cache has never run), so it cannot say whether that wall ` +
+                    `has junctions`,
+            };
+        }
+        return cache.junctionsFor(wallId);
+    }
+
+    /** §CONNECT-3 / audit §3 Q4 — the walls sharing a junction with `wallId`, as a
+     *  LOOKUP rather than a resolver re-run. Refuses on the same two conditions. */
+    public connectedWallIds(wallId: string): WallConnectivityQuery {
+        const cache = this.getEffectiveV2Cache();
+        if (!cache) {
+            return {
+                ok: false, wallId, reason: 'cache-not-refreshed',
+                detail:
+                    `connectivity lookup for wall ${wallId}: this WallFragmentBuilder holds no V2 ` +
+                    `cache (refreshV2Cache has never run) — no answer, not an empty answer`,
+            };
+        }
+        return cache.connectedWallIds(wallId);
     }
 
     private getEffectiveV2Cache(): WallPipelineV2Cache | null {

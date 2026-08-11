@@ -46,6 +46,34 @@ export class UpdateElementParameterCommand implements Command {
 
     private previousValues: Record<string, any> = {};
 
+    /**
+     * §ADR-0319-CLASS-2 — the host wall's AUDIT ENVELOPE as it stood before
+     * `execute()` ran: `{ metadata, _renderVersion }`.
+     *
+     * `undo()` reverts by REPLAYING a forward parameter write (see below), and a
+     * forward write is exactly what stamps a fresh `metadata.modifiedAt` and a
+     * `metadata.version + 1`. So the counter walked AWAY from State A on undo
+     * rather than back to it — the BIM 2.0 certification measured
+     * `wall.u-wall-1.metadata.version: expected 2 got 4` on `element.updateParameters`.
+     * ADR-0319 puts `metadata.version` in class 2 (DERIVED-BUT-CAUSAL): it may be
+     * recomputed across a restore, but it may NEVER differ across an undo.
+     *
+     * The replay is kept (it is the only thing that knows how to route a
+     * parameter to the right store, clamp openings, and trigger the rebuild) and
+     * the envelope is written back afterwards through
+     * `WallStore.update(id, updates, preserveMetadata = true)` — the SAME
+     * audit-neutral restore contract `WallStore.restoreSnapshot` has used on the
+     * wall-level undo path since §03-1.1.
+     *
+     * Scope, stated rather than implied: only `WallStore` carries the
+     * `preserveMetadata` contract today, so only the wall/door/window branches of
+     * this command have an audit-neutral restore. Element types whose stores stamp
+     * their own audit fields (slab, stair, roof, furniture, …) are NOT covered
+     * here and are not claimed to be; giving them the same treatment means giving
+     * their stores the same contract first.
+     */
+    private prevWallAudit: { wallId: string; metadata: unknown; renderVersion: number | undefined } | null = null;
+
     constructor(private input: UpdateElementParameterInput) {
         this.targetIds = [input.elementId];
     }
@@ -142,6 +170,9 @@ export class UpdateElementParameterCommand implements Command {
         }
 
         this.previousValues = this.captureCurrentValues(element, parameters);
+        // §ADR-0319-CLASS-2 — snapshot the host wall's audit envelope BEFORE the
+        // write, so undo can put the counters back rather than advance them.
+        this.prevWallAudit = this.captureWallAudit(store, elementType, element);
 
         const validated = this.validateParameters(parameters, elementType);
         if (!validated.ok) {
@@ -170,7 +201,67 @@ export class UpdateElementParameterCommand implements Command {
             parameters: this.previousValues,
         });
 
-        return undoCmd.execute(context);
+        const result = undoCmd.execute(context);
+
+        // §ADR-0319-CLASS-2 — the replay above restored the VALUES but, being a
+        // forward write, also advanced the audit counters. Put them back.
+        this.restoreWallAudit(context);
+
+        return result;
+    }
+
+    /**
+     * §ADR-0319-CLASS-2 — read the host wall's audit envelope.
+     *
+     * For `wall` the element IS the wall. For a hosted `door` / `window` the
+     * envelope that moves is the HOST WALL's (`updateDoor`/`updateWindow` bump
+     * `wall._renderVersion` so the void is re-cut) — the opening record itself
+     * carries no audit counter. Returns `null` for every other element type,
+     * which is the honest answer: their stores do not implement the
+     * `preserveMetadata` restore contract, so there is nothing this command can
+     * put back without inventing it.
+     */
+    private captureWallAudit(
+        store: any,
+        elementType: string,
+        element: any,
+    ): { wallId: string; metadata: unknown; renderVersion: number | undefined } | null {
+        const t = elementType.toLowerCase().trim();
+        let wallId: string | undefined;
+        if (t === 'wall') wallId = element?.id;
+        else if (t === 'door' || t === 'window') wallId = element?.wallId;
+        if (!wallId) return null;
+
+        const wall = store?.getById?.(wallId);
+        if (!wall) return null;
+        return {
+            wallId,
+            // Deep-copied: the store hands out frozen clones today, but undo must
+            // not depend on that staying true.
+            metadata: wall.metadata ? JSON.parse(JSON.stringify(wall.metadata)) : undefined,
+            renderVersion: wall._renderVersion,
+        };
+    }
+
+    /** §ADR-0319-CLASS-2 — write the captured envelope back, audit-neutrally. */
+    private restoreWallAudit(context: CommandContext): void {
+        const snap = this.prevWallAudit;
+        if (!snap || snap.metadata === undefined) return;
+
+        const wallStore = (context.stores as {
+            wallStore?: { update?(id: string, updates: unknown, preserveMetadata?: boolean): unknown };
+        }).wallStore;
+        if (!wallStore?.update) return;
+
+        // `preserveMetadata = true` makes WallStore.update honour the supplied
+        // metadata verbatim instead of stamping `modifiedAt = now` and
+        // `version + 1`. `_renderVersion` is never auto-bumped inside update(),
+        // so passing it writes exactly the captured value.
+        wallStore.update(
+            snap.wallId,
+            { metadata: snap.metadata, _renderVersion: snap.renderVersion },
+            true,
+        );
     }
 
     serialize(): SerializedCommand {

@@ -20,6 +20,37 @@ type WallEventType = 'add' | 'update' | 'remove';
 // to find which adjacent walls need rebuilding after an undo without a full level re-scan.
 type WallEventListener = (event: WallEventType, wall: WallData, prevState?: WallData) => void;
 
+/**
+ * §ADR-0319-CLASS-2 — options for the hosted-opening mutators
+ * (`updateDoor` / `updateWindow`).
+ *
+ * Both mutators bump the HOST WALL's `_renderVersion` so `WallFragmentBuilder`
+ * re-cuts the void at the opening's new position (§VIEW-DIRTY-CHECK §2.2). That
+ * is correct for a forward edit and WRONG for an undo: ADR-0319 classifies
+ * `_renderVersion` as **class 2, DERIVED-BUT-CAUSAL** — it may be recomputed
+ * across a restore, but it may NEVER differ across an undo, because "undo is a
+ * claim about returning to a prior state, and a counter that ratchets through an
+ * undo/redo cycle means the model is not the same model." The BIM 2.0
+ * certification measured exactly that: `wall._renderVersion` **+2 per undo
+ * cycle** on `door.setOffset` / `window.setOffset` / `door.setSillHeight`.
+ *
+ * `restoreRenderVersion` lets an undo path hand back the version the wall held
+ * BEFORE the matching execute. This is safe for the render dirty-check because
+ * every invalidation key in `WallFragmentBuilder` (`_lastBuiltVersion`,
+ * `_geomVersionKey`) is compared by **string equality, never by ordering** — a
+ * version that goes 4 → 3 differs from the last built key just as surely as
+ * 4 → 5 does, so the rebuild still fires. Monotonicity was never the contract;
+ * *difference* was. `WallStore.restoreSnapshot` has restored a snapshot's
+ * `_renderVersion` on the wall-level undo path since §VIEW-DIRTY-CHECK for the
+ * same reason — this brings the opening-level paths into line with it.
+ *
+ * Omit the option for every forward mutation; the bump remains the default.
+ */
+export interface OpeningUpdateOptions {
+    /** Exact `_renderVersion` to write on the host wall instead of `prev + 1`. */
+    restoreRenderVersion?: number;
+}
+
 function cloneOpening(o: Opening): Opening {
     // Opening has no nested objects in current contract
     return { ...o };
@@ -80,10 +111,46 @@ function cloneDoorData(d: DoorData): DoorData {
     return Object.freeze(cloned) as DoorData;
 }
 
+/**
+ * §ADR-0318-ELEMENTS-SLOT / §STORE-IDENTITY-NOT-CONSTRUCTION — thrown when a
+ * method that genuinely needs the engine half (levels, the active-level cursor)
+ * is called on a store whose engine deps were never attached.
+ *
+ * This is I-3 (honest absence) at the method level: headlessly the store holds
+ * real records and answers real reads, but it will NEVER invent a level. A
+ * fabricated `activeLevelId` would be exactly the "failure and emptiness are the
+ * same value" defect the ADR was minted to end.
+ */
+export class WallStoreEngineNotAttachedError extends Error {
+    constructor(member: string) {
+        super(
+            `[WallStore] ${member} needs the engine half, which is not attached in this process. ` +
+            `Call wallStore.attachEngine(projectContext, bimKernel) (initBuilders.ts does this at engine boot). ` +
+            `§ADR-0318-ELEMENTS-SLOT — the store refuses to invent a level rather than answer with a fiction.`,
+        );
+        this.name = 'WallStoreEngineNotAttachedError';
+    }
+}
+
 export class WallStore implements ILevelProvider {
     private walls: Map<string, WallData> = new Map();
-    private projectContext: ProjectContext;
-    private bimKernel: BimManager;
+    /**
+     * ADR-0318 §3 (per-kind adoption). The two engine deps are LATE-BOUND rather
+     * than constructor-required, so `wallStore` below can be a module singleton
+     * — the same shape `doorStore`/`windowStore` already have — and therefore the
+     * SAME instance in `composeRuntime`'s `stores.elements` slot, in
+     * `registerAllStores()`, and in `ProjectSerializer`. Identity, not
+     * construction: there is exactly one production construction site (this
+     * file), so a registry/serializer divergence is unrepresentable.
+     *
+     * Reads (`getById`/`getAll`/`getByLevel`) take neither dep. `add()` DOES —
+     * its level-existence guard calls `getLevelById`, which needs the level
+     * authority. Unattached, that guard cannot be evaluated, so `add()` REFUSES
+     * (typed, below) rather than admitting a wall onto a level it could not
+     * check. Skipping the guard would be the "emptiness reads as fine" defect.
+     */
+    private projectContext: ProjectContext | null;
+    private bimKernel: BimManager | null;
     private listeners: WallEventListener[] = [];
 
     private windows: Map<string, WindowData> = new Map();
@@ -112,17 +179,56 @@ export class WallStore implements ILevelProvider {
     private _mutationDepth = 0;
     public getMutationDepth(): number { return this._mutationDepth; }
 
-    constructor(projectContext: ProjectContext, bimKernel: BimManager) {
+    constructor(projectContext?: ProjectContext | null, bimKernel?: BimManager | null) {
+        this.projectContext = projectContext ?? null;
+        this.bimKernel = bimKernel ?? null;
+    }
+
+    /**
+     * ADR-0318 §3 — late-bind the engine half onto the module singleton.
+     *
+     * `initBuilders.ts` calls this instead of `new WallStore(...)`, which is what
+     * makes registry identity ≡ serializer identity **by construction** rather
+     * than by two call sites happening to pass the same expression.
+     *
+     * Re-attaching the SAME deps is an idempotent no-op (mirrors the registry's
+     * own `register()` contract). Re-attaching DIFFERENT deps is a project
+     * switch — allowed, and logged, because a silent swap of the level authority
+     * is precisely the class of change that must never be invisible.
+     */
+    attachEngine(projectContext: ProjectContext, bimKernel: BimManager): this {
+        if (
+            (this.projectContext !== null && this.projectContext !== projectContext) ||
+            (this.bimKernel !== null && this.bimKernel !== bimKernel)
+        ) {
+            console.warn('[WallStore] attachEngine: replacing previously attached engine deps (project switch / hot reload).');
+        }
         this.projectContext = projectContext;
         this.bimKernel = bimKernel;
+        return this;
+    }
+
+    /** ADR-0318 I-3 — is the engine half attached? Never inferred from a value. */
+    isEngineAttached(): boolean {
+        return this.projectContext !== null && this.bimKernel !== null;
+    }
+
+    private get _pc(): ProjectContext {
+        if (this.projectContext === null) throw new WallStoreEngineNotAttachedError('activeLevelId');
+        return this.projectContext;
+    }
+
+    private get _bim(): BimManager {
+        if (this.bimKernel === null) throw new WallStoreEngineNotAttachedError('level lookup');
+        return this.bimKernel;
     }
 
     get activeLevelId(): string {
-        return this.projectContext.activeLevelId;
+        return this._pc.activeLevelId;
     }
 
     set activeLevelId(id: string) {
-        this.projectContext.activeLevelId = id;
+        this._pc.activeLevelId = id;
     }
 
     getActiveLevel(): Level {
@@ -137,13 +243,13 @@ export class WallStore implements ILevelProvider {
     }
 
     getLevelById(id: string): Level | undefined {
-        const level = this.bimKernel.getLevelById(id);
+        const level = this._bim.getLevelById(id);
         if (!level) return undefined;
 
         // ✅ FIX: Compute real inter-level height instead of hardcoding 3.0.
         // Find the next level above by elevation and use the difference.
         // Falls back to 3.0 only when this is the topmost level with no successor.
-        const allLevels = this.bimKernel.getLevels();
+        const allLevels = this._bim.getLevels();
         const sorted = [...allLevels].sort((a, b) => a.elevation - b.elevation);
         const idx = sorted.findIndex(l => l.id === id);
         const nextLevel = idx >= 0 && idx + 1 < sorted.length ? sorted[idx + 1] : null;
@@ -164,7 +270,7 @@ export class WallStore implements ILevelProvider {
     // BimKernel; UI / AI flows must mutate level state through BimKernel commands.
 
     getLevels(): Level[] {
-        const raw = this.bimKernel.getLevels();
+        const raw = this._bim.getLevels();
         const sorted = [...raw].sort((a, b) => a.elevation - b.elevation);
         return sorted.map((l, idx) => {
             const next = idx + 1 < sorted.length ? sorted[idx + 1] : null;
@@ -1080,7 +1186,7 @@ export class WallStore implements ILevelProvider {
         return Array.from(this.windows.values()).map(cloneWindowData);
     }
 
-    updateWindow(windowId: string, updates: Partial<WindowData>): void {
+    updateWindow(windowId: string, updates: Partial<WindowData>, opts?: OpeningUpdateOptions): void {
         const existingWin = this.windows.get(windowId);
         if (!existingWin) return;
 
@@ -1159,7 +1265,13 @@ export class WallStore implements ILevelProvider {
                 // ORIGINAL opening hole persists at the old location on a move/resize.
                 // NOTE: this does NOT enable the CSG single-volume upgrade — that path
                 // self-fails (wasm) and keeps the freshly-rebuilt segments.
-                _renderVersion: (wall._renderVersion ?? 0) + 1,
+                //
+                // §ADR-0319-CLASS-2: an UNDO is a restore, not a forward edit, so
+                // it hands back the version this wall held BEFORE the edit rather
+                // than bumping past it. See `OpeningUpdateOptions`.
+                _renderVersion: opts?.restoreRenderVersion !== undefined
+                    ? opts.restoreRenderVersion
+                    : (wall._renderVersion ?? 0) + 1,
             });
 
             this.walls.set(wallId, frozen);
@@ -1204,7 +1316,7 @@ export class WallStore implements ILevelProvider {
         return Array.from(this.doors.values()).map(cloneDoorData);
     }
 
-    updateDoor(doorId: string, updates: Partial<DoorData>): void {
+    updateDoor(doorId: string, updates: Partial<DoorData>, opts?: OpeningUpdateOptions): void {
         const door = this.doors.get(doorId);
         if (!door) return;
 
@@ -1238,7 +1350,12 @@ export class WallStore implements ILevelProvider {
                 // ORIGINAL opening hole persists at the old location on a move/resize.
                 // NOTE: this does NOT enable the CSG single-volume upgrade — that path
                 // self-fails (wasm) and keeps the freshly-rebuilt segments.
-                _renderVersion: (wall._renderVersion ?? 0) + 1,
+                //
+                // §ADR-0319-CLASS-2: see `OpeningUpdateOptions` — undo restores
+                // the pre-edit version instead of ratcheting past it.
+                _renderVersion: opts?.restoreRenderVersion !== undefined
+                    ? opts.restoreRenderVersion
+                    : (wall._renderVersion ?? 0) + 1,
             });
 
             this.walls.set(wallId, frozen);
@@ -1389,3 +1506,19 @@ export class WallStore implements ILevelProvider {
         }
     }
 }
+/**
+ * §ADR-0318-ELEMENTS-SLOT — THE authoritative wall store.
+ *
+ * The single production instance, in the same module-singleton shape
+ * `doorStore` / `windowStore` already have. `initBuilders.ts` no longer calls
+ * `new WallStore(...)`; it calls `wallStore.attachEngine(projectContext,
+ * bimManager)` and hands THIS object to `registerAllStores()` and to
+ * `initPersistence()` — so registry identity ≡ serializer identity by
+ * construction, and `composeRuntime` can register the same object headlessly
+ * without forking state (ADR-0318 I-1 / I-2).
+ *
+ * The class stays exported and constructible: unit tests legitimately build
+ * isolated instances, and ADR-0318's falsifiability arm (ID-4) needs a rival to
+ * REJECT. What must not exist is a second *production* construction site.
+ */
+export const wallStore = new WallStore();

@@ -76,6 +76,55 @@ export interface Divergence {
   actual: unknown;
 }
 
+// ─── ADR-0319 class 3 — DERIVED-INCIDENTAL, enumerated BY NAME ───────────────
+//
+// ADR-0319 splits element fields into three classes and applies the round-trip
+// contract differently to each:
+//
+//   class 1 AUTHORITATIVE        — byte-for-byte, no tolerance ever
+//                                  (`id`, `ifcData.guid`, authored geometry …)
+//   class 2 DERIVED-BUT-CAUSAL   — may differ across a RESTORE; may NEVER
+//                                  differ across an UNDO (`metadata.version`,
+//                                  `wall._renderVersion`, any monotonic counter)
+//   class 3 DERIVED-INCIDENTAL   — may differ across a restore AND an undo;
+//                                  excluded from the comparator by THIS list.
+//
+// The ADR is explicit about the SHAPE of this rule: "an enumerated exclusion
+// list — never a pattern, never a prefix-match, never 'ignore fields ending in
+// At' — so adding a field to it is a visible diff in review." Accordingly this
+// is a list of exact, fully-qualified field paths, matched by whole-segment
+// equality against the tail of a divergence path. `metadata.modifiedAtBy`,
+// `createdAtSource`, or any other similarly-spelled field does NOT match; only
+// these two names do, and adding a third means editing this array.
+//
+// NOTHING ELSE IS EXCLUDED. `metadata.version` and `_renderVersion` are class 2
+// and are deliberately ABSENT — a counter that ratchets through an undo/redo
+// cycle is a REAL DEFECT (ADR-0319 §2) and stays red until the code is fixed.
+export const ADR0319_CLASS3_FIELDS: readonly string[] = [
+  'metadata.createdAt',
+  'metadata.modifiedAt',
+];
+
+/**
+ * True when `path` names an ADR-0319 class-3 field on some record.
+ *
+ * Divergence paths are `<kind>.<id>.<field…>`; the match is against the trailing
+ * whole segments of the path, so `wall.u-wall-1.metadata.modifiedAt` matches
+ * `metadata.modifiedAt` while `wall.u-wall-1.metadata.modifiedAtBy` does not.
+ */
+export function isAdr0319Class3(path: string): boolean {
+  const segs = path.split('.');
+  return ADR0319_CLASS3_FIELDS.some((field) => {
+    const f = field.split('.');
+    if (segs.length <= f.length) return false; // must sit ON a record, not BE one
+    return f.every((s, i) => segs[segs.length - f.length + i] === s);
+  });
+}
+
+/** Human-readable provenance for a report cell, so an exclusion is never silent. */
+export const ADR0319_CLASS3_CITATION =
+  `ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: ${ADR0319_CLASS3_FIELDS.join(', ')}`;
+
 function deepDiff(path: string, a: unknown, b: unknown, out: Divergence[]): void {
   if (a === b) return;
   if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') {
