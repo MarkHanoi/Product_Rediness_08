@@ -4,7 +4,8 @@
 // and JoinRoofs now that the Roof schema carries the corresponding fields.
 
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
-import { UpdateRoofHandler } from './UpdateRoof.js';
+// §FIX-ROOF-UPDATE-REACH-RECORD — UpdateRoofHandler import removed with its
+// registration; the class is still re-exported below for barrel compatibility.
 import { CreateRoofHandler } from './CreateRoof.js';
 import { DeleteRoofHandler } from './DeleteRoof.js';
 import { SetRoofShapeHandler } from './SetRoofShape.js';
@@ -30,7 +31,17 @@ export const ROOF_HANDLER_TYPES = [
   'roof.addSkylight',
   'roof.removeSkylight',
   'roof.joinRoofs',
-  'roof.update',
+  // §FIX-ROOF-UPDATE-REACH-RECORD (L-839, the roof twin of §FIX-DIMS-REACH-RECORD /
+  // ADR-0315 U1, L-815): 'roof.update' LEFT this set. `UpdateRoofHandler`
+  // `produceCommand`s against the plugin DTO store — a fresh `new RoofStore()` built
+  // by PluginRegistry that no renderer, no plan projector, no IFC exporter and no
+  // persistence path reads. Because plugin handlers register inside `composeRuntime`
+  // (BEFORE `initBusHandlers`) and the bus is first-registration-wins, it SHADOWED the
+  // same-verb legacy bridge at `initBusHandlers.ts:597-602` — which runs
+  // `UpdateRoofCommand` against the geometry `roofStore`. Every roof property change
+  // (property sheet, inspector, 3-D move gizmo) reported success and reached nothing.
+  // The verb is now owned by that bridge. It also validates: `thickness <= 0` /
+  // `slope <= 0` / immutable `levelId` now REFUSE instead of succeeding into the void.
   'roof.setMaterial',
 ] as const;
 
@@ -52,7 +63,8 @@ export function buildRoofHandlerSet(): readonly CommandHandler<unknown>[] {
     new AddSkylightHandler() as unknown as CommandHandler<unknown>,
     new RemoveSkylightHandler() as unknown as CommandHandler<unknown>,
     new JoinRoofsHandler() as unknown as CommandHandler<unknown>,
-    UpdateRoofHandler as unknown as CommandHandler<unknown>,
+    // §FIX-ROOF-UPDATE-REACH-RECORD — UpdateRoofHandler retired (see the
+    // ROOF_HANDLER_TYPES note); the initBusHandlers bridge owns the verb.
     new SetRoofMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
@@ -74,5 +86,12 @@ export { ChangeRoofLevelHandler, type ChangeRoofLevelPayload } from './ChangeRoo
 export { AddSkylightHandler, type AddSkylightPayload } from './AddSkylight.js';
 export { RemoveSkylightHandler, type RemoveSkylightPayload } from './RemoveSkylight.js';
 export { JoinRoofsHandler, type JoinRoofsPayload } from './JoinRoofs.js';
-export { UpdateRoofHandler, type UpdateRoofPayload } from './UpdateRoof.js';
+// §FIX-ROOF-UPDATE-REACH-RECORD (L-839) — `UpdateRoof.ts` DELETED, not merely
+// unregistered. L-815 retired six sibling verbs but kept their classes exported for
+// barrel compatibility, and logged the residue as "NOT covered: a test bus that
+// registers them manually would still write the detached store". `roof.update` had a
+// second reason to go all the way: `tools/ga-gate/check-verb-register.ts` classifies
+// SHADOWED from DECLARING FILES, not from registration, so its own baseline note says
+// "a verb leaves this list only by deleting one of its two declarations". Nothing
+// outside this barrel imported `UpdateRoofHandler`.
 export { SetRoofMaterialHandler, type SetRoofMaterialPayload } from './SetRoofMaterial.js';
