@@ -13,4 +13,9 @@ export type {
     SpeculativeActionType,
     ConsequencePreview,
     SemanticRelationshipSnapshot,
+    // §FIX-SPEC-SEMANTIC-DEAD-GUARD (W2-3) — the typed refusal that replaced the
+    // `[]` a missing method used to return. Exported because every consumer that
+    // renders `severedRelationships` must branch on it.
+    SemanticReadRefusal,
+    SemanticReadRefusalReason,
 } from './SpeculativeEngine';

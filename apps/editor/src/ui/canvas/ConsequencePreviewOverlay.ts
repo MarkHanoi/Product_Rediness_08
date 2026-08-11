@@ -70,6 +70,20 @@ function renderPreview(panel: HTMLElement, preview: ConsequencePreview): void {
         }
     }
 
+    // §FIX-SPEC-SEMANTIC-DEAD-GUARD (W2-3) — a semantic read that did not run must
+    // NOT be presented as "nothing severed". The engine now returns a typed refusal
+    // naming the reason; surface it, or the panel goes on telling the user the
+    // deletion is consequence-free when the truth is that it was never checked.
+    if (preview.semanticReadRefusals.length > 0) {
+        if (lines.length > 0) lines.push('<div style="height:8px;"></div>');
+        lines.push('<div style="font-weight:700;color:#fbbf24;margin-bottom:6px;">? Semantic links NOT CHECKED</div>');
+        for (const r of preview.semanticReadRefusals) {
+            // `reason` is a closed union and `requiredMethod` a compile-time literal —
+            // neither is user-authored, so no new untrusted value reaches this sink.
+            lines.push(`<div style="color:#fde68a;font-size:11px;margin-bottom:2px;">↳ ${r.reason} — ${r.requiredMethod}() unavailable</div>`);
+        }
+    }
+
     if (lines.length === 0) {
         lines.push('<div style="color:#34d399;">✓ No new violations</div>');
     }

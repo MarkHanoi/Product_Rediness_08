@@ -527,12 +527,22 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         const furnitureStore = window.furnitureStore; // TODO(E.furniture.S): legacy furnitureStore — replace with runtime.stores.furniture
         if (!sg || !furnitureStore) return;
 
-        const edges: any[] = sg.getEdgesFromNode?.(room.id) ?? [];
-        const furnitureEdges = edges.filter((e: any) => e.type === 'contains');
-        if (furnitureEdges.length === 0) return;
+        // §FIX-SGM-GLOBAL-TYPE (W2-4) — this line read `sg.getEdgesFromNode?.(room.id) ?? []`.
+        // `SemanticGraphManager` has never had a `getEdgesFromNode`; the optional call
+        // therefore evaluated to `undefined` on every invocation and the furniture group
+        // NEVER rendered — a second instance of the `SpeculativeEngine.getEdges` defect,
+        // found by typing `window.semanticGraphManager`. `getTargets(room.id, 'contains')`
+        // is the real API for "what does this room contain".
+        //
+        // Honest caveat: `contains` currently has NO first-party writer (EV-04 §1) — only
+        // the IFC importer emits it. So on a natively-authored project this group stays
+        // empty for want of DATA, which is a different and now-visible problem from
+        // calling a method that does not exist.
+        const containedIds: string[] = sg.getTargets(room.id, 'contains');
+        if (containedIds.length === 0) return;
 
-        const furnitureElements: RoomElement[] = furnitureEdges
-            .map((e: any) => furnitureStore.get?.(e.targetId) ?? furnitureStore.getById?.(e.targetId))
+        const furnitureElements: RoomElement[] = containedIds
+            .map((targetId: string) => furnitureStore.get?.(targetId) ?? furnitureStore.getById?.(targetId))
             .filter(Boolean)
             .map((f: any) => ({
                 id: f.id,

@@ -79,6 +79,13 @@ export default defineConfig({
       // Pure string classifiers, no network — pinned because a screen that quietly stopped failing
       // OPEN would shrink the reading list and read as progress.
       'tools/rpuc-supersession/__tests__/**/*.spec.ts',
+      // §FIX-SPEC-SEMANTIC-DEAD-GUARD (W2-3): the SpeculativeEngine semantic-read
+      // REFUSAL specs. Hosted here rather than in a package-local vitest run because
+      // @pryzm/speculative-engine declares no test tooling of its own, and adding a
+      // devDependency to it would desync pnpm-lock.yaml for every other agent sharing
+      // this tree. The specs need a DOM `window` — which this config already provides
+      // via happy-dom — because the engine reads `window.semanticGraphManager`.
+      'packages/speculative-engine/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).

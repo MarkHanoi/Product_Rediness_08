@@ -372,16 +372,63 @@ export class PhysicsEngine {
 
     // ── SemanticGraph edge ────────────────────────────────────────────────────
 
+    /**
+     * §FIX-MEASUREDAT-POSITIONAL (W2-4) — write the room → physics-result
+     * `measuredAt` edge.
+     *
+     * Until 2026-08-11 this called
+     * `addRelationship(roomId, nodeId, 'measuredAt', {...})` — four POSITIONAL
+     * arguments against a signature that takes ONE object
+     * (`SemanticGraph.ts:129`). It compiled only because
+     * `window.semanticGraphManager` was typed `any`
+     * (`src/global-window.d.ts:193`); W2-4 typed it, which turned this line into
+     * the compile error it should always have been.
+     *
+     * What the old call actually did: `rel` bound to the `roomId` STRING, so
+     * `rel.type` / `rel.sourceId` / `rel.targetId` were all `undefined` and
+     * `{...rel}` spread the string's characters into numeric index keys. The
+     * inserted edge was junk, and `measuredAt` — the ONLY writer of that
+     * relationship type in the repo — has therefore never been written correctly.
+     *
+     * Blast radius, stated accurately (EV-04 §5 corrected an overstatement here):
+     * `_findExact(undefined, undefined, undefined)` matched the first junk edge,
+     * so the idempotency guard returned early on every later call. **One** junk
+     * edge accumulated per session, not one per physics run. `deserialize`
+     * (§4) then discarded it on the next load for want of a `type`, which is why
+     * a five-month-dead relationship type never produced a bug report.
+     */
     private _writeSemanticEdge(roomId: string, result: RoomPhysicsResult): void {
         try {
             const sgm = window.semanticGraphManager;
-            if (!sgm?.addRelationship) return;
+            if (typeof sgm?.addRelationship !== 'function') return;
             const nodeId = `physics-result-${roomId}`;
-            sgm.addRelationship(roomId, nodeId, 'measuredAt', {
-                computedAt:    result.computedAt,
-                thermalLoad:   result.thermal?.thermalLoad_Wm2,
-                rt60:          result.acoustic?.rt60_s,
-                daylightFactor: result.daylight?.daylightFactor_percent,
+
+            // `metadata` is Record<string, string | number | boolean> — a physics
+            // sub-result that did not run is `null`, and an ABSENT key is the honest
+            // encoding of "not measured". Writing `undefined` under the key would
+            // claim a measurement was taken and lost.
+            const metadata: Record<string, string | number | boolean> = {
+                computedAt: result.computedAt,
+            };
+            if (result.thermal)  metadata.thermalLoad    = result.thermal.thermalLoad_Wm2;
+            if (result.acoustic) metadata.rt60           = result.acoustic.rt60_s;
+            if (result.daylight) metadata.daylightFactor = result.daylight.daylightFactor_percent;
+
+            // `addRelationship` is idempotent on (sourceId, targetId, type) and
+            // returns the EXISTING edge unchanged — so a plain add would freeze the
+            // metadata at the first computation while the room is re-solved on every
+            // geometry edit. The result node id is stable per room, so the previous
+            // measurement is superseded, not accumulated: drop it, then write.
+            for (const prior of sgm.getRelationships(nodeId, 'measuredAt')) {
+                sgm.removeRelationship(prior.id);
+            }
+
+            sgm.addRelationship({
+                type:      'measuredAt',
+                sourceId:  roomId,
+                targetId:  nodeId,
+                metadata,
+                createdBy: 'system',
             });
         } catch { /* non-critical */ }
     }

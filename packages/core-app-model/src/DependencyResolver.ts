@@ -271,8 +271,37 @@ export class DependencyResolver {
 
     private _computeAffected(event: StoreChangeEvent): RebuildTask[] {
         if (event.operation === 'delete') {
-            // On delete, SemanticGraph relationships for this element are removed by the Command.
-            // No cascade computation needed — the primary DOM chain handles cleanup.
+            // §FIX-DELETE-GRAPH-COMMENT (W2-5, BIM20-ACCEPTANCE-10-OF-10) —
+            // this comment used to read "On delete, SemanticGraph relationships for this
+            // element are removed by the Command." **That is not true for the whole
+            // wall family**, and stating it as an invariant is what let the gap survive.
+            //
+            // MEASURED at HEAD, 2026-08-11 (grep `removeAllRelationshipsForElement`):
+            // 14 delete branches in `command-registry/src/walls/DeleteElementCommand.ts`
+            // plus the dedicated Delete*Commands. Slab, column, curtain-wall, furniture
+            // (and its cascaded children), handrail, roof, floor, ceiling, beam, plumbing,
+            // lighting, stair and room ALL call it. The wall family — branch 1 (wall,
+            // and the window/door CHILDREN it cascades), branch 2 (window), branch 3
+            // (door), and branches 3b (window-orphan / door-orphan) — calls
+            // `elementRegistry.unregister` and `bimManager.unregisterElement` but NEVER
+            // `semanticGraphManager.removeAllRelationshipsForElement`. So a deleted wall
+            // leaves its `hosts` / `boundedBy` / `sitsOn` edges, and a deleted door or
+            // window leaves its `hostedBy` edge, pointing at an id that no store resolves.
+            // Evidence: `docs/04-reference/bim30-evidence/EV-04-semanticgraph-write-coverage.md`.
+            //
+            // The TRUE reason this branch returns `[]` is narrower and does not depend on
+            // the cleanup happening at all: a rebuild task names an element to RE-BUILD,
+            // and every relationship of a deleted element is either dangling (the far end
+            // has nothing left to rebuild against) or already handled by the delete
+            // command's own cascade. Scheduling a rebuild here would either no-op or
+            // resurrect geometry for an element that is gone.
+            //
+            // NOT FIXED HERE, and deliberately: the wiring belongs in
+            // `DeleteElementCommand`, which is outside this file's ownership. Tracked as
+            // W2-5 of `docs/03-execution/plans/BIM20-ACCEPTANCE-10-OF-10.md`. The
+            // orphaned edges are invisible in-session (nothing queries a dead id) and
+            // self-erase on the next load only if they are malformed — a well-formed edge
+            // to a deleted id SURVIVES `deserialize` and persists forever.
             return [];
         }
 

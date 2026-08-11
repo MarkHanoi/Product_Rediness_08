@@ -12,6 +12,37 @@
 > named, not filled.
 >
 > No cell is inferred. Where a column was not measured it says UNPROVEN.
+>
+> ---
+>
+> ### ⚠ CORRECTION — 2026-08-11, same day: two reader cells were measured against a DIRTY TREE
+>
+> **The reader column was greped over the working tree, not over HEAD.** Two of its citations were
+> therefore another agent's uncommitted edits, mistaken for pre-existing production readers. Both
+> are corrected in the table below, and the correction is recorded here rather than silently
+> patched — a ledger that quietly changes its own numbers is worth less than one that shows where
+> it was wrong.
+>
+> 1. **`measuredAt` — the cited reader at `PhysicsEngine.ts:422` did not exist.** Verified:
+>    `git show HEAD:packages/physics-host/src/PhysicsEngine.ts` is **396 lines long — there is no
+>    line 422**, and `measuredAt` appears exactly twice at HEAD: a header comment (`:44`) and the
+>    broken writer (`:380`). The cited line was the *writer-side supersession query* an agent added
+>    an hour before this ledger was written. The real readers are
+>    `RelationshipExplorerPanel.ts` (label/icon/priority entries at `:55`, `:84`, `:114`, rendering
+>    whatever `getRelationships` returns) and `DependencyResolver.ts:87`
+>    (`RELATIONSHIP_PRIORITY.measuredAt = 5`, so the edge participates in cascade scheduling).
+>
+> 2. **`contains` — the cited reader at `HierarchyTreePanel.ts:541` did not exist either, and the
+>    truth is worse.** At HEAD the panel calls `sg.getEdgesFromNode?.(room.id) ?? []` (`:530`) —
+>    **`getEdgesFromNode` is a method that has never existed on `SemanticGraphManager`**, so the
+>    optional call evaluated to `undefined` and the filter on `:531` ran over `[]` every time.
+>    **The hierarchy tree's Furniture group has never rendered.** So `contains` had exactly ONE
+>    working reader at HEAD (`WorldModelAdapter.ts:152`), not two — and this is a *second* dead-method
+>    call site of the same shape as `SpeculativeEngine`'s `getEdges`, which the writer census never
+>    saw because a census of writers cannot find a broken reader.
+>
+> **The lesson is the ledger's own**: a measurement is only as good as the tree it was taken over,
+> and eight agents were editing this one. Grep HEAD, or state that you did not.
 
 ---
 

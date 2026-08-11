@@ -32,6 +32,11 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// §FIX-SGM-GLOBAL-TYPE (W2-4) — the FIRST property in this file to carry its real
+// class type rather than `any`. Type-only: erased at emit, so it adds no runtime
+// import and cannot participate in the barrel-at-module-load cycle class.
+import type { SemanticGraphManager } from '@pryzm/core-app-model';
+
 declare global {
   /** Minimal common interface for all element-family stores bridged via window globals.
    *  Mirror of the same interface in packages/core-app-model/src/global.d.ts.
@@ -190,7 +195,28 @@ declare global {
     visibilityIntentStore?: any;
     viewIntentInstanceStore?: any;
     elementCodeStore?: any;
-    semanticGraphManager?: any;
+    /**
+     * §FIX-SGM-GLOBAL-TYPE (W2-4, BIM20-ACCEPTANCE-10-OF-10) — the real class, not `any`.
+     *
+     * This property was `any` from the Wave-5 sweep until 2026-08-11, and that `any`
+     * was load-bearing in the bad sense: it is the reason
+     * `PhysicsEngine._writeSemanticEdge` could call
+     * `addRelationship(roomId, nodeId, 'measuredAt', {...})` POSITIONALLY and compile,
+     * when the real signature (`SemanticGraph.ts:129`) takes ONE object. See
+     * `docs/04-reference/bim30-evidence/EV-04-semanticgraph-write-coverage.md` §5(a).
+     *
+     * Bound to the CLASS rather than a hand-mirrored structural interface on purpose:
+     * a mirror is a second source of truth that drifts, and drift is exactly how the
+     * bug above survived. Adding a method to `SemanticGraphManager` must not require
+     * editing this file.
+     *
+     * Still optional — the global is installed by the legacy bootstrap and is absent
+     * before it runs, so every reader must branch on `undefined`. Readers that ALSO
+     * need to survive a partially-installed object should test the specific method
+     * with `typeof x.m === 'function'` and REFUSE with a named reason (see
+     * `SpeculativeEngine`'s `SemanticReadRefusal`) — never return `[]`.
+     */
+    semanticGraphManager?: SemanticGraphManager;
     temporalGraphManager?: any;
     roomGraphService?: any;
     roomQueryService?: any;
