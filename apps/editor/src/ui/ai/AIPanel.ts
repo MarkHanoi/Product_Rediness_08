@@ -20,7 +20,7 @@
  */
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
-import { aiService } from '@pryzm/ai-host';
+import { aiService, allChatCapabilities } from '@pryzm/ai-host';
 import { commandProposalStore } from '@pryzm/command-registry';
 import { CommandProposal, CommandType } from '@pryzm/command-registry';
 import { aiApprovalStore } from '@pryzm/ai-host';
@@ -106,7 +106,7 @@ import { openApartmentDataTestModal } from '../dev/apartmentDataTestModal';
 // Each node maps to a real QueryEngine natural language pattern.
 // Leaf nodes either auto-send a query or pre-fill the input.
 
-interface SuggestionNode {
+export interface SuggestionNode {
     label: string;                  // Text shown on the pill
     hint?: string;                  // Small secondary text
     query?: string;                 // Complete query to send (autoSend=true sends it immediately)
@@ -120,8 +120,18 @@ interface SuggestionNode {
     action?: () => void;            // C17 CB-8 — direct catalogue dispatch (no NL query)
 }
 
-// Full command tree — sourced from actual QueryEngine patterns
-const COMMAND_TREE: SuggestionNode[] = [
+// Full command tree — sourced from actual QueryEngine patterns.
+//
+// ⚠ §DRAIN (RAC U10.3) — THIS TREE IS A SECOND SOURCE OF TRUTH, and it is the
+// older one. Every node below was hand-transcribed from a `QueryEngine` regex.
+// The chat's abilities now live in `ChatCapabilityRegistry`, and the resolution
+// ladder answers BEFORE `aiService.query()` ever runs — so a pill whose query
+// the ladder claims no longer reaches the pattern it was written for.
+// `QueryEngineDrain.spec.ts` classifies every one of these queries and pins the
+// result, including the phrasings the ladder currently MISREADS. Nothing here
+// is deleted on suspicion: a pattern is only removed once the inventory proves
+// it unreachable AND its replacement handles the sentence correctly.
+export const COMMAND_TREE: SuggestionNode[] = [
     {
         label: 'Create',
         hint: 'levels, grids, slabs, walls, wardrobes…',
@@ -738,6 +748,38 @@ const COMMAND_TREE: SuggestionNode[] = [
     },
 ];
 
+// ─── §DRAIN (RAC U10.3) — the chat's own abilities, GENERATED ────────────────
+//
+// The hand-written tree above advertises what the QueryEngine could do in 2026.
+// This node advertises what the CHAT can do, and it is generated from
+// `allChatCapabilities()` — the same registry the resolver, the refusals, the
+// coverage gate and the LLM planner's vocabulary are all built from. Adding a
+// capability makes it discoverable here on the same commit, which is precisely
+// the guarantee the hand-written tree cannot give (c1902a5a: the command
+// shipped, the chat's list did not learn about it, and the founder's sentence
+// reached nothing).
+//
+// Each leaf sends the capability's OWN first declared example, so the pill and
+// the acceptance suite exercise the identical sentence — a pill that stops
+// working is a test that stops passing.
+export function chatCapabilityNode(): SuggestionNode {
+    const leaves: SuggestionNode[] = allChatCapabilities()
+        .filter((cap) => cap.examples.length > 0)
+        .map((cap) => ({
+            label: cap.description.charAt(0).toUpperCase() + cap.description.slice(1),
+            hint: `"${cap.examples[0]}"${cap.destructive ? ' — asks first' : ''}`,
+            query: cap.examples[0],
+            autoSend: true,
+        }));
+    return {
+        label: 'Chat can…',
+        hint: `${leaves.length} abilities, generated from the capability registry`,
+        category: 'chat',
+        isHubList: true,
+        children: leaves,
+    };
+}
+
 // Stack-based navigation state (each entry = current node's children)
 interface SuggestionState {
     stack: Array<{ label: string; nodes: SuggestionNode[]; isHubList?: boolean; prompt?: string }>;
@@ -1353,7 +1395,9 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     }
 
     const currentNodes = (): SuggestionNode[] => {
-        if (suggestionState.stack.length === 0) return [...COMMAND_TREE, batchCatalogueNode];
+        // §DRAIN (RAC U10.3) — the registry-generated hub sits alongside the
+        // hand-written QueryEngine tree, first, because it is the current truth.
+        if (suggestionState.stack.length === 0) return [chatCapabilityNode(), ...COMMAND_TREE, batchCatalogueNode];
         return suggestionState.stack[suggestionState.stack.length - 1].nodes;
     };
 
