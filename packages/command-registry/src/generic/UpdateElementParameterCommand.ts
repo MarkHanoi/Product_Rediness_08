@@ -23,6 +23,9 @@ import { Command, CommandResult, CommandValidationResult, CommandContext, Serial
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 import { resolveElementRebuildDescriptor, isGeometryAffectingChange } from './ElementRebuildRegistry';
+// §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812/L-814) — the SINGLE rake gate, shared with
+// WallDataSchema / WallStore.update / WallStore.addOpening / UpdateWallSystemTypeCommand.
+import { rakeAuthorability } from '@pryzm/geometry-wall';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -57,7 +60,64 @@ export class UpdateElementParameterCommand implements Command {
         if (!this.input.parameters || Object.keys(this.input.parameters).length === 0) {
             return { ok: false, reason: '[UpdateElementParameterCommand] parameters must not be empty' };
         }
+
+        // ── §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812 precedent, extended by L-814) ──
+        //
+        // `WallStore.update` REFUSES an unauthorable rake by THROWING a
+        // WallSchemaError. L-812 gave `UpdateWallSystemTypeCommand` a `canExecute`
+        // pre-flight so the wall-TYPE path refuses instead of crashing, but the
+        // GENERIC parameter path — which is how `rakeAngleDeg` is actually written
+        // from the property panel and from collaboration replay — still had none.
+        //
+        // Reported from production 2026-08-10: a replayed `UPDATE_ELEMENT_PARAMETER`
+        // carrying `rakeAngleDeg` for a wall that has SINCE been switched to a
+        // LAYERED type produced
+        //   `FATAL ERROR DURING EXECUTION WallSchemaError: [WallStore.update]
+        //    §WALL-RAKE rejected … not supported on a LAYERED wall`
+        // thrown from INSIDE command execution, with no user action at all.
+        //
+        // A stale write that the invariant forbids is an ordinary refusal, not a
+        // crash. Asked against the MERGED next state (the rake arrives in the patch
+        // while `layers` / `curve` / `openings` live on the existing record), which
+        // is the same reasoning WallStore.update documents for checking `nextState`.
+        // The store's throw stays as defence in depth for any path skipping validation.
+        const rakeCheck = this.checkRakeAuthorability(_context);
+        if (rakeCheck) return rakeCheck;
+
         return { ok: true };
+    }
+
+    /**
+     * §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH — returns a refusal when the merged wall
+     * would hold an unauthorable rake, or `null` when there is nothing to refuse
+     * (not a wall, no rake in the patch, wall not found, or the rake is authorable).
+     */
+    private checkRakeAuthorability(context: CommandContext): CommandValidationResult | null {
+        if (this.input.elementType?.toLowerCase().trim() !== 'wall') return null;
+        if (!('rakeAngleDeg' in (this.input.parameters ?? {}))) return null;
+
+        const wallStore = (context?.stores as { wallStore?: { getById?(id: string): unknown } } | undefined)?.wallStore;
+        const wall = wallStore?.getById?.(this.input.elementId) as
+            | { curve?: unknown; layers?: unknown[]; openings?: unknown[] }
+            | undefined
+            | null;
+        // Element-not-found is `execute`'s existing refusal path — don't duplicate it here.
+        if (!wall) return null;
+
+        const auth = rakeAuthorability({
+            rakeAngleDeg: this.input.parameters['rakeAngleDeg'],
+            curve:        wall.curve,
+            layers:       wall.layers,
+            openings:     wall.openings,
+        } as Parameters<typeof rakeAuthorability>[0]);
+        if (auth.ok) return null;
+
+        return {
+            ok: false,
+            reason:
+                `This wall can't be angled (raked) as it is now — ` +
+                `${auth.reason ?? 'the rake is not authorable on this wall.'}`,
+        };
     }
 
     execute(context: CommandContext): CommandResult {
