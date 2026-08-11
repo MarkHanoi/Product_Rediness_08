@@ -28,6 +28,7 @@ import type {
   FloorPlanAnalysis,
 } from '@pryzm/ai-host';
 import type { OpeningCandidate, WallCandidate } from './types.js';
+import { emptyAdapterTally, type AdapterRejectionTally } from './rejections.js';
 
 /** Minimum wall-pair count for the vector path to be trusted end-to-end;
  *  below this the caller should fall back to AI recognition. */
@@ -84,8 +85,25 @@ export interface VectorAnalysisInput {
 export function vectorResultToFloorPlanAnalysis(
   input: VectorAnalysisInput,
 ): FloorPlanAnalysis {
+  return vectorResultToFloorPlanAnalysisWithDiagnostics(input).analysis;
+}
+
+/**
+ * §VEC-REJECT-TALLY — the same adaptation, plus an account of what it dropped.
+ *
+ * The adapter is the LAST place a detected opening can silently vanish: a
+ * matched door whose host wall was filtered out (and for which no fallback wall
+ * exists) is discarded with no trace. `vectorResultToFloorPlanAnalysis` now
+ * delegates here so the two can never diverge.
+ */
+export function vectorResultToFloorPlanAnalysisWithDiagnostics(
+  input: VectorAnalysisInput,
+): { readonly analysis: FloorPlanAnalysis; readonly rejections: AdapterRejectionTally } {
   const { walls, openings, mmToPx } = input;
   const pxPerMm = scaleOf(mmToPx);
+  const tally = emptyAdapterTally();
+  tally.wallsIn = walls.length;
+  tally.openingsIn = openings.length;
 
   const detectedWalls: DetectedWall[] = [];
   /** Reference identity of `WallCandidate.centerLine` → assigned wall id.
@@ -95,7 +113,10 @@ export function vectorResultToFloorPlanAnalysis(
 
   for (let i = 0; i < walls.length; i++) {
     const w = walls[i]!;
-    if (w.centerLine.length < 2) continue;
+    if (w.centerLine.length < 2) {
+      tally.wallsRejectedDegenerateCentreLine++;
+      continue;
+    }
     const id = `vw${i + 1}`;
     const startPx = applyAffine(mmToPx, w.centerLine[0]!);
     const endPx = applyAffine(mmToPx, w.centerLine[w.centerLine.length - 1]!);
@@ -117,7 +138,13 @@ export function vectorResultToFloorPlanAnalysis(
   for (let i = 0; i < openings.length; i++) {
     const o = openings[i]!;
     const hostId = resolveHostWallId(o, walls, wallIdByCenterLine);
-    if (!hostId) continue; // no wall to host on — the batcher would drop it anyway
+    if (!hostId) {
+      // No wall to host on — the batcher would drop it anyway. COUNTED, not
+      // silent: a plan whose doors all vanish here looks identical to a plan
+      // with no doors unless this number is reported.
+      tally.openingsRejectedNoHostWall++;
+      continue;
+    }
     const centreMm = openingCentreMm(o);
     detectedOpenings.push({
       id: `vo${i + 1}`,
@@ -129,12 +156,18 @@ export function vectorResultToFloorPlanAnalysis(
     });
   }
 
+  tally.wallsOut = detectedWalls.length;
+  tally.openingsOut = detectedOpenings.length;
+
   return {
-    walls: detectedWalls,
-    openings: detectedOpenings,
-    slab: null,
-    furniture: [],
-    imageDimensions: { widthPx: input.imageWidthPx, heightPx: input.imageHeightPx },
+    analysis: {
+      walls: detectedWalls,
+      openings: detectedOpenings,
+      slab: null,
+      furniture: [],
+      imageDimensions: { widthPx: input.imageWidthPx, heightPx: input.imageHeightPx },
+    },
+    rejections: tally,
   };
 }
 

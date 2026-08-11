@@ -30,10 +30,44 @@ interface TestWindowFacets {
 }
 const testWindow = (): TestWindowFacets => window as unknown as TestWindowFacets;
 
+/**
+ * §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the report event each batch bridge
+ * ALWAYS broadcasts. The plugin handlers emit on the success path, on the
+ * refusal path, when `window.commandManager` is missing and when the bridge
+ * throws — there is no path on which one of these commands runs and stays
+ * silent. The stub bus must therefore emit too: a command that declares a
+ * report event and sends none is now classified INDETERMINATE (it used to be
+ * read as `{ ok: true }` and rendered "Done"), so a silent stub would be
+ * testing a state the product cannot produce.
+ */
+const STUB_REPORT_EVENTS: Readonly<Record<string, string>> = {
+    'wall.updateColorBatch': 'pryzm-wall-color-batch-report',
+    'wall.updateSystemTypeBatch': 'pryzm-wall-type-batch-report',
+    'wall.updateRakeBatch': 'pryzm-wall-rake-batch-report',
+    'wall.addLayerBatch': 'pryzm-wall-layer-batch-report',
+    'window.updateSystemTypeBatch': 'pryzm-window-type-batch-report',
+    'window.parametricCreate': 'pryzm-window-parametric-report',
+    'door.updateSystemTypeBatch': 'pryzm-door-type-batch-report',
+    'element.deleteBatch': 'pryzm-delete-batch-report',
+    'generation.rooms': 'pryzm-generation-report',
+    'generation.finish-chain': 'pryzm-generation-report',
+    'generation.building': 'pryzm-generation-report',
+    'generation.apartment': 'pryzm-generation-report',
+};
+
+/** Broadcast the report the real bridge would, for a command that has one. */
+function emitStubReport(type: string, detail: { success: boolean; info: string[] }): void {
+    const ev = STUB_REPORT_EVENTS[type];
+    if (ev !== undefined) window.dispatchEvent(new CustomEvent(ev, { detail }));
+}
+
 function installFacets(selection?: { id: string; type: string }): {
     executeCommand: ReturnType<typeof vi.fn>;
 } {
-    const executeCommand = vi.fn().mockResolvedValue(undefined);
+    const executeCommand = vi.fn().mockImplementation((type: string) => {
+        emitStubReport(type, { success: true, info: [] });
+        return Promise.resolve(undefined);
+    });
     const w = testWindow();
     w.selectionManager = {
         selectedObject: selection !== undefined
@@ -300,10 +334,13 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
 
     it('§PLAN: a step that fails at EXECUTION stops the plan and reports how far it got', async () => {
         const { executeCommand } = installFacets();
-        executeCommand.mockImplementation((type: string) =>
-            type === 'generation.rooms'
-                ? Promise.reject(new Error('no rooms on this level — detect rooms first'))
-                : Promise.resolve(undefined));
+        executeCommand.mockImplementation((type: string) => {
+            if (type === 'generation.rooms') {
+                return Promise.reject(new Error('no rooms on this level — detect rooms first'));
+            }
+            emitStubReport(type, { success: true, info: [] });
+            return Promise.resolve(undefined);
+        });
         const { hooks, said } = makeHooks(true);
 
         const handled = await tryHandleZeroToken(
@@ -322,12 +359,10 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
     it('§PLAN: an engine that reports success:false stops the plan too', async () => {
         const { executeCommand } = installFacets();
         executeCommand.mockImplementation((type: string) => {
-            if (type === 'generation.rooms') {
-                // The seam's own honesty channel: it ran, and it changed nothing.
-                window.dispatchEvent(new CustomEvent('pryzm-generation-report', {
-                    detail: { success: false, info: ['there is no closed shell on this level'] },
-                }));
-            }
+            // The seam's own honesty channel: it ran, and it changed nothing.
+            emitStubReport(type, type === 'generation.rooms'
+                ? { success: false, info: ['there is no closed shell on this level'] }
+                : { success: true, info: [] });
             return Promise.resolve(undefined);
         });
         const { hooks, said } = makeHooks(true);

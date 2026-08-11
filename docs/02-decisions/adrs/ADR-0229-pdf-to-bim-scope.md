@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Accepted** — 2026-04-27 |
+| Status | **Superseded** — 2026-08-11 by [`ADR-0317-pdf-to-bim-deterministic-first-ladder.md`](ADR-0317-pdf-to-bim-deterministic-first-ladder.md). Accepted 2026-04-27. The text below is retained verbatim as the record of what was decided; it describes a **wholly AI-dependent** pipeline, whereas the shipped product is deterministic-first and makes **zero model calls** on its primary path. Part C's $10 per-extraction cap and Part E's "preview" label are **not implemented on the live path** — see ADR-0317 Parts C and D. Part G's rejection of rule-based vector extraction is **reversed** by ADR-0317 Part A. |
 | Closes | `GAP-REVIEW-2026-04-27.md §21.5 (PDF-to-BIM listed as the moat but no SPEC), §29 #25` |
 | Required by | Sprint S52 (Phase 3A — full L7.5 promotion) — pre-emptive scope ratification |
 | Owner | Architecture lead + Product + AI lead |

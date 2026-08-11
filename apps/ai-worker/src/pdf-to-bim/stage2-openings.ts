@@ -33,6 +33,11 @@ import type {
   VectorElement,
   WallCandidate,
 } from './types.js';
+import {
+  emptyOpeningTally,
+  type MutableOpeningTally,
+  type OpeningRejectionTally,
+} from './rejections.js';
 
 // ─── Tunable constants per spec ────────────────────────────────────────────
 
@@ -138,15 +143,41 @@ export function matchOpeningSymbols(
   scaleFactor: number,
   symbolLibrary: readonly SymbolTemplate[] = DEFAULT_SYMBOL_LIBRARY,
 ): OpeningCandidate[] {
+  return matchOpeningSymbolsWithDiagnostics(page, walls, scaleFactor, symbolLibrary).openings;
+}
+
+/**
+ * §VEC-REJECT-TALLY — the same matching, plus an account of every arc and
+ * glazing pair that was seen and discarded.
+ *
+ * `matchOpeningSymbols` is the historical, list-only entrypoint and now
+ * delegates here, so there is exactly one matcher implementation.
+ *
+ * Any caller that reports to a human must use THIS one. "0 doors found" and
+ * "12 door arcs rejected because the scale makes every one of them 90 mm wide"
+ * are different facts that demand opposite user actions, and the bare list
+ * cannot tell them apart.
+ */
+export function matchOpeningSymbolsWithDiagnostics(
+  page: PageDecomposition,
+  walls: readonly WallCandidate[],
+  scaleFactor: number,
+  symbolLibrary: readonly SymbolTemplate[] = DEFAULT_SYMBOL_LIBRARY,
+): { readonly openings: OpeningCandidate[]; readonly rejections: OpeningRejectionTally } {
   const openings: OpeningCandidate[] = [];
+  const tally = emptyOpeningTally();
 
   // Doors: arc + adjacent panel line.
   const arcs = findArcs(page.vectors);
+  tally.arcsFound = arcs.length;
   const doorTemplates = symbolLibrary.filter((t) => t.kind === 'door');
 
   for (const arc of arcs) {
     const adjacentLines = findAdjacentLines(page.vectors, arc, 5 * scaleFactor);
-    if (adjacentLines.length === 0) continue;
+    if (adjacentLines.length === 0) {
+      tally.arcsRejectedNoPanelLine++;
+      continue;
+    }
 
     let best: { template: SymbolTemplate; score: number } | null = null;
     for (const tpl of doorTemplates) {
@@ -156,9 +187,13 @@ export function matchOpeningSymbols(
       }
     }
 
-    if (best) {
+    if (!best) {
+      tally.arcsRejectedBelowMatchThreshold++;
+    } else {
       const nearestWall = snapToNearestWall(arc, walls, scaleFactor);
-      if (nearestWall) {
+      if (!nearestWall) {
+        tally.arcsRejectedNoHostWall++;
+      } else {
         const candidate: OpeningCandidate = {
           kind: 'door',
           subtype: best.template.subtype,
@@ -178,15 +213,17 @@ export function matchOpeningSymbols(
           ],
         };
         openings.push(candidate);
+        tally.doorsAccepted++;
       }
     }
   }
 
   // Windows: parallel-line glazing within a wall pair.
-  const windowOpenings = detectWindowBreaks(page.vectors, walls, scaleFactor);
+  const windowOpenings = detectWindowBreaks(page.vectors, walls, scaleFactor, tally);
   openings.push(...windowOpenings);
+  tally.windowsAccepted = windowOpenings.length;
 
-  return openings;
+  return { openings, rejections: tally };
 }
 
 // ─── Door detection ────────────────────────────────────────────────────────
@@ -341,6 +378,10 @@ export function detectWindowBreaks(
   vectors: readonly VectorElement[],
   walls: readonly WallCandidate[],
   scaleFactor: number,
+  /** §VEC-REJECT-TALLY — optional accounting sink. Glazing pairs are counted
+   *  per (host wall × pair) evaluation, which is the population the reject
+   *  counts are drawn from, so the arithmetic always closes. */
+  tally?: MutableOpeningTally,
 ): OpeningCandidate[] {
   const out: OpeningCandidate[] = [];
   if (walls.length === 0) return out;
@@ -371,11 +412,21 @@ export function detectWindowBreaks(
       for (let j = i + 1; j < candidates.length; j++) {
         const g1 = candidates[i]!;
         const g2 = candidates[j]!;
+        if (tally) tally.glazingPairsConsidered++;
         const separationMm = perpendicularSeparationMm(g1, g2, scaleFactor);
-        if (separationMm < WINDOW_GLAZING_MIN_SEPARATION_MM) continue;
-        if (separationMm > wallThickMm + 50) continue;
+        if (separationMm < WINDOW_GLAZING_MIN_SEPARATION_MM) {
+          if (tally) tally.glazingRejectedTooClose++;
+          continue;
+        }
+        if (separationMm > wallThickMm + 50) {
+          if (tally) tally.glazingRejectedWiderThanWall++;
+          continue;
+        }
         const overlapMm = lineOverlapMm(g1, g2, scaleFactor);
-        if (overlapMm < WINDOW_GLAZING_MIN_OVERLAP_MM) continue;
+        if (overlapMm < WINDOW_GLAZING_MIN_OVERLAP_MM) {
+          if (tally) tally.glazingRejectedShortOverlap++;
+          continue;
+        }
 
         // Confidence — base 0.65 + small boost for a wider opening.
         let confidence = 0.65;

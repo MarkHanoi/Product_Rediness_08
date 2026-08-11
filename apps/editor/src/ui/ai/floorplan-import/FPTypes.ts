@@ -8,6 +8,7 @@
  */
 
 import type { PDFConversionResult } from '@pryzm/file-format';
+import type { DetectedLineSegment } from '@pryzm/ai-host';
 import type { FloorPlanUnderlayTool } from '@pryzm/input-host';
 import type { CommandProposal } from '@pryzm/command-registry';
 import type { PipelineDiagnosticReport } from '@pryzm/ai-host';
@@ -79,6 +80,46 @@ export interface FPState {
      */
     tierNote: string;
     /**
+     * §PDF-BIM-HONEST-TIER (2026-08-11) — the tier PLAN computed on entering
+     * Step 4: what the chosen deterministic tier CAN and CANNOT produce.
+     *
+     * This is a CAPABILITY DESCRIPTION and must never be reported as a failure
+     * reason. It used to share `tierNote` with the "what actually ran" trail,
+     * so a run that fell through for an unrelated reason showed the user
+     * "…does not produce furniture or plumbing" as though that were WHY the
+     * import failed. Two different facts, one field — split here permanently.
+     */
+    tierPlanNote: string;
+    /**
+     * §PDF-BIM-HONEST-TIER — did the AI enrichment stage (furniture/plumbing)
+     * RUN on this analysis, and with what outcome?
+     *
+     *   'not-requested' — the boxes were unticked (by the user, or by the
+     *                     §PDF-BIM-TIER-LADDER guard when no relay exists).
+     *   'ran'           — the relay was called and returned. It may have
+     *                     returned NOTHING; that is a finding, not a failure.
+     *   'failed'        — the relay call threw. No enrichment was produced and
+     *                     we do not know what it would have found.
+     *
+     * "It ran and found nothing" and "it never ran" are different facts. Before
+     * this field the debug table reported both as "needs the AI stage".
+     */
+    aiEnrichmentOutcome: 'not-requested' | 'ran' | 'failed';
+    /**
+     * §PDF-BIM-HONEST-TIER — the REAL Phase-F1 pre-processing measurements,
+     * or null when F1 did not run (both deterministic tiers skip it).
+     *
+     * The downloadable diagnostic used to hard-code `segmentsDetected: 0,
+     * guidedModeActivated: false` on EVERY run, including AI runs that had
+     * genuinely measured hundreds of segments in guided mode. A diagnostic that
+     * reports zeros it did not measure is worse than no diagnostic.
+     */
+    preprocessing: {
+        segmentsDetected: number;
+        guidedModeActivated: boolean;
+        segments: DetectedLineSegment[];
+    } | null;
+    /**
      * Whether the server reports a configured AI upstream. Probed once per
      * session on entering Step 4. 'unknown' means the probe itself failed —
      * NOT the same statement as 'unavailable'.
@@ -112,6 +153,9 @@ export function makeFPState(): FPState {
         recognitionPath: null,
         vectorStats: null,
         tierNote: '',
+        tierPlanNote: '',
+        aiEnrichmentOutcome: 'not-requested',
+        preprocessing: null,
         aiAvailability: null,
     };
 }

@@ -205,6 +205,12 @@ export function resetState(state: FPState): void {
     // SERVER fact, not a file fact, but re-probing on Start Over is cheap and
     // picks up a relay an admin configured mid-session.
     state.tierNote = '';
+    // §PDF-BIM-HONEST-TIER — the plan note, the enrichment outcome and the F1
+    // measurements are all facts about the PREVIOUS file. Carrying any of them
+    // forward is exactly how a capability description became a failure reason.
+    state.tierPlanNote = '';
+    state.aiEnrichmentOutcome = 'not-requested';
+    state.preprocessing = null;
     state.aiAvailability = null;
     resetAiAvailabilityCache();
     const tierInfoEl = document.getElementById('fp-tier-info');

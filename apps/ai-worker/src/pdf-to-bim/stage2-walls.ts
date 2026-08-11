@@ -22,6 +22,14 @@ import type {
   VectorElement,
   WallCandidate,
 } from './types.js';
+import {
+  emptyColumnTally,
+  emptyWallTally,
+  type ColumnRejectionTally,
+  type MutableColumnTally,
+  type MutableWallTally,
+  type WallRejectionTally,
+} from './rejections.js';
 
 /** Below this confidence, Stage 2 marks the candidate for AI
  *  fallback re-evaluation at S52. Pure heuristic results above this
@@ -68,10 +76,36 @@ export function classifyWallsAndColumns(
   page: PageDecomposition,
   scaleFactor: number,
 ): Pick<ClassifiedLayer, 'walls' | 'columns'> {
-  const lines = extractLines(page.vectors, scaleFactor);
-  const walls = detectWallPairs(lines);
-  const columns = detectColumns(page.vectors, scaleFactor);
+  const { walls, columns } = classifyWallsAndColumnsWithDiagnostics(page, scaleFactor);
   return { walls, columns };
+}
+
+/**
+ * §VEC-REJECT-TALLY — the same classification, plus an account of everything
+ * it threw away.
+ *
+ * `classifyWallsAndColumns` is the historical, count-only entrypoint and is now
+ * a thin delegate to this one, so there is exactly ONE classification
+ * implementation and the tally can never drift from the result it describes.
+ *
+ * Callers that report to a human must use THIS function: without the tally,
+ * "0 walls" cannot be distinguished from "37 line pairs rejected as too thin",
+ * and those two facts demand opposite user actions (give up on this drawing vs
+ * fix the Step-2 scale calibration).
+ */
+export function classifyWallsAndColumnsWithDiagnostics(
+  page: PageDecomposition,
+  scaleFactor: number,
+): Pick<ClassifiedLayer, 'walls' | 'columns'> & {
+  readonly wallRejections: WallRejectionTally;
+  readonly columnRejections: ColumnRejectionTally;
+} {
+  const wallTally = emptyWallTally();
+  const columnTally = emptyColumnTally();
+  const lines = extractLines(page.vectors, scaleFactor, wallTally);
+  const walls = detectWallPairs(lines, wallTally);
+  const columns = detectColumns(page.vectors, scaleFactor, columnTally);
+  return { walls, columns, wallRejections: wallTally, columnRejections: columnTally };
 }
 
 /** Convenience — runs the classifier and packages the result with
@@ -99,27 +133,46 @@ export function classifyPage(
 export function extractLines(
   vectors: readonly VectorElement[],
   scale: number,
+  /** §VEC-REJECT-TALLY — optional accounting sink. Omit for the historical
+   *  count-only behaviour; pass one to learn WHY the line count is what it is. */
+  tally?: MutableWallTally,
 ): ClassifiedLine[] {
   const lines: ClassifiedLine[] = [];
   for (const v of vectors) {
-    if (v.kind !== 'line' || v.points.length !== 2) continue;
-    const [a, b] = v.points;
-    const p1: readonly [number, number] = [a[0] * scale, a[1] * scale];
-    const p2: readonly [number, number] = [b[0] * scale, b[1] * scale];
+    if (tally) tally.vectorsSeen++;
+    if (v.kind !== 'line' || v.points.length !== 2) {
+      if (tally) tally.rejectedNotASegment++;
+      continue;
+    }
+    // The `.length !== 2` guard above already proves both are present; the
+    // assertions are for `noUncheckedIndexedAccess`, which does not narrow
+    // array length. Same construct as the pre-tally code, made explicit.
+    const a = v.points[0]!;
+    const b = v.points[1]!;
+    const p1: readonly [number, number] = [a[0]! * scale, a[1]! * scale];
+    const p2: readonly [number, number] = [b[0]! * scale, b[1]! * scale];
     const dx = p2[0] - p1[0];
     const dy = p2[1] - p1[1];
     const length = Math.hypot(dx, dy);
-    if (length < MIN_LINE_LENGTH_MM) continue;
+    if (length < MIN_LINE_LENGTH_MM) {
+      if (tally) tally.rejectedTooShort++;
+      continue;
+    }
     // Normalise angle to 0–π (collapses ±π flip per spec line 891).
     const angle = (((Math.atan2(dy, dx) % Math.PI) + Math.PI) % Math.PI);
     lines.push({ p1, p2, angle, length });
   }
+  if (tally) tally.linesEligible = lines.length;
   return lines;
 }
 
 /** Detect wall-pair candidates by parallel-line matching. Per spec
  *  lines 899-940. */
-export function detectWallPairs(lines: readonly ClassifiedLine[]): WallCandidate[] {
+export function detectWallPairs(
+  lines: readonly ClassifiedLine[],
+  /** §VEC-REJECT-TALLY — optional accounting sink; see `extractLines`. */
+  tally?: MutableWallTally,
+): WallCandidate[] {
   const walls: WallCandidate[] = [];
   const groups = groupByAngle(lines, ANGLE_TOLERANCE_RAD);
 
@@ -131,10 +184,21 @@ export function detectWallPairs(lines: readonly ClassifiedLine[]): WallCandidate
         if (used.has(j)) continue;
         const li = group[i]!;
         const lj = group[j]!;
+        if (tally) tally.pairsConsidered++;
         const spacing = perpendicularDistance(li, lj);
-        if (spacing < WALL_THICKNESS_MIN_MM || spacing > WALL_THICKNESS_MAX_MM) continue;
+        if (spacing < WALL_THICKNESS_MIN_MM) {
+          if (tally) tally.pairsRejectedTooThin++;
+          continue;
+        }
+        if (spacing > WALL_THICKNESS_MAX_MM) {
+          if (tally) tally.pairsRejectedTooThick++;
+          continue;
+        }
         const overlap = computeOverlap(li, lj);
-        if (overlap < WALL_MIN_OVERLAP_MM) continue;
+        if (overlap < WALL_MIN_OVERLAP_MM) {
+          if (tally) tally.pairsRejectedShortOverlap++;
+          continue;
+        }
         const centerLine = computeCenterline(li, lj);
         walls.push({
           centerLine,
@@ -149,6 +213,7 @@ export function detectWallPairs(lines: readonly ClassifiedLine[]): WallCandidate
       }
     }
   }
+  if (tally) tally.wallsAccepted = walls.length;
   return walls;
 }
 
@@ -157,23 +222,42 @@ export function detectWallPairs(lines: readonly ClassifiedLine[]): WallCandidate
 export function detectColumns(
   vectors: readonly VectorElement[],
   scale: number,
+  /** §VEC-REJECT-TALLY — optional accounting sink; see `extractLines`. */
+  tally?: MutableColumnTally,
 ): ColumnCandidate[] {
   const columns: ColumnCandidate[] = [];
   for (const v of vectors) {
+    if (tally) tally.candidatesSeen++;
     // Spec line 958: closed polygons with 4-8 vertices.
-    if (!v.closed) continue;
-    if (v.points.length < 4 || v.points.length > 8) continue;
+    if (!v.closed) {
+      if (tally) tally.rejectedNotClosed++;
+      continue;
+    }
+    if (v.points.length < 4 || v.points.length > 8) {
+      if (tally) tally.rejectedVertexCount++;
+      continue;
+    }
     const pts = v.points.map(
       (p) => [p[0] * scale, p[1] * scale] as readonly [number, number],
     );
-    if (!isApproximateRectangle(pts)) continue;
+    if (!isApproximateRectangle(pts)) {
+      if (tally) tally.rejectedNotRectangular++;
+      continue;
+    }
     const bounds = getBounds(pts);
     const w = bounds.maxX - bounds.minX;
     const h = bounds.maxY - bounds.minY;
-    if (w < COLUMN_SIZE_MIN_MM || w > COLUMN_SIZE_MAX_MM) continue;
-    if (h < COLUMN_SIZE_MIN_MM || h > COLUMN_SIZE_MAX_MM) continue;
+    if (w < COLUMN_SIZE_MIN_MM || w > COLUMN_SIZE_MAX_MM
+      || h < COLUMN_SIZE_MIN_MM || h > COLUMN_SIZE_MAX_MM) {
+      if (tally) tally.rejectedSizeOutOfRange++;
+      continue;
+    }
     const aspect = Math.max(w, h) / Math.min(w, h);
-    if (aspect > COLUMN_MAX_ASPECT_RATIO) continue;
+    if (aspect > COLUMN_MAX_ASPECT_RATIO) {
+      if (tally) tally.rejectedAspectRatio++;
+      continue;
+    }
+    if (tally) tally.accepted++;
     columns.push({
       position: [(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2],
       width: w,

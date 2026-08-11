@@ -26,6 +26,7 @@ export {
   WALL_THICKNESS_MIN_MM,
   classifyPage as classifyPageStage2,
   classifyWallsAndColumns,
+  classifyWallsAndColumnsWithDiagnostics,
   computeCenterline,
   computeColumnConfidence,
   computeOverlap,
@@ -62,6 +63,7 @@ export {
   lineOverlapMm,
   matchDoorTemplate,
   matchOpeningSymbols,
+  matchOpeningSymbolsWithDiagnostics,
   midpointBetweenLinesMm,
   perpendicularSeparationMm,
   pointToSegmentDistance,
@@ -83,9 +85,33 @@ export {
   composeMmToPx,
   openingCentreMm,
   vectorResultToFloorPlanAnalysis,
+  vectorResultToFloorPlanAnalysisWithDiagnostics,
   type Affine2D,
   type VectorAnalysisInput,
 } from './adapter-floorplan.js';
+
+// §VEC-REJECT-TALLY 2026-08-11 — TIER 1 rejection accounting. "0 doors found"
+// and "12 door arcs rejected" used to be the SAME VALUE; these tallies and
+// their describe* formatters are what make them different.
+export {
+  describeDoorOutcome,
+  describeVectorRejections,
+  describeWallOutcome,
+  describeWindowOutcome,
+  emptyAdapterTally,
+  emptyColumnTally,
+  emptyOpeningTally,
+  emptyWallTally,
+  hasAnyRejection,
+  totalDoorArcsRejected,
+  totalGlazingPairsRejected,
+  totalWallPairsRejected,
+  type AdapterRejectionTally,
+  type ColumnRejectionTally,
+  type OpeningRejectionTally,
+  type VectorRejectionReport,
+  type WallRejectionTally,
+} from './rejections.js';
 
 // §RASTER-CV 2026-08-10 — TIER 2: algorithmic (zero-token) raster fallback for
 // scanned / image plans. Feeds its extracted line primitives into the SAME
