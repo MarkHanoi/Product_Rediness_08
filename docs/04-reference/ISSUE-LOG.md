@@ -1650,3 +1650,21 @@ something is worth nothing until you have watched it fail.**
    refusal unattributable *by construction*, rendered at 5 call sites.
 5. **8 batch verbs cannot declare a sync subject** — on `xIds: 'all'` the subject set does not
    exist in the payload; it is resolved inside the command and surfaces only on a CustomEvent.
+
+6. **L-835 · `check-xss-guards` measures a proxy, and the proxy is degrading.** The last
+   unexamined ledger item. It counts *interpolations into an `innerHTML` sink* as a stand-in
+   for XSS risk, and it grew in two files this session
+   (`ImportManagerPanel.ts` 7→11, `GISAreaLayout.ts` 16→20). **Each new interpolation was
+   checked by hand and NONE is attacker-controlled**: they are `svgIcon(TYPE_ICONS[…])` and
+   friends — module-level `Record<ImportType, string>` constants — plus `${entry.type}` (a
+   member of a closed union), and `${heightTxt}` / `${visibleCount}` / `${layer.objectCount}`,
+   which are `.toFixed()`-formatted numbers and integers. **There is no live vulnerability
+   here.** The defect is that *the gate cannot tell the difference*: it will grow every time
+   somebody adds an icon, and its signal will degrade until nobody reads it — at which point a
+   genuine sink slips through inside the noise. That is precisely how `check-cast-count`
+   (217/215, still climbing) and the old `check-otel-spans` floor became unreadable. **The
+   baseline was deliberately NOT raised.** The sound fix is to teach the gate to recognise
+   provably-safe expressions — module-scope constants, `.toFixed()` results, and functions
+   whose return value is already escaped — so the number means "unguarded" rather than merely
+   "interpolated". Until then a green reading means "no NEW interpolations", which is a
+   weaker claim than the gate's name implies.
