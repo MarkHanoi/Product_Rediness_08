@@ -164,6 +164,11 @@ const GATES: Gate[] = [
   // generic "not applicable". 88 NAMED offenders keyed by file+fragment rather
   // than a count, so a PR that fixes one and breaks another still fails.
   { name: 'refusal-identity (C58 §1.13/§6)',          script: 'check-refusal-identity.ts' },
+  // L-845 (2026-08-11) — the P4 blind spot: `window as unknown as X` defeats the
+  // type system as completely as `as any` in two hops, and the `as any` ratchet
+  // funnels new casts INTO this spelling unless it is also fenced. Born passing
+  // at its measured baseline (212), so NOT on gate-debt.json. Exits 3 on breach.
+  { name: 'cast-unknown (P4/L-845)',                  script: 'check-cast-unknown.ts' },
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
   { name: 'report-payload-discard (C68 §5.g, R4)',    script: 'check-report-payload-discard.ts' },
 ];

@@ -51,3 +51,4 @@ MasterMiawW/
 # .NET build output (revit-addin)
 revit-addin/**/obj/
 revit-addin/**/bin/
+tools/rac-conformance/runtime-harness/.liveness-output/
