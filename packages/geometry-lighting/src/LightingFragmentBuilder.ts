@@ -1379,4 +1379,18 @@ export class LightingFragmentBuilder {
         _lensMatCache.forEach(m => m.dispose());
         _lensMatCache.clear();
     }
+
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY fixture root from the scene, without
+     * tearing the builder down.
+     *
+     * `dispose()` above is TERMINAL: it drops the day/night subscription and frees the
+     * shared material pools. Calling it at a project switch would leave the incoming
+     * project's fixtures unlit and unsubscribed (the L-224 dead-listener class of bug),
+     * which is why the C13 sweep must call this instead (C13 §3.8/§3.10).
+     * Invoked by the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        for (const id of [...this._roots.keys()]) this.remove(id);
+    }
 }

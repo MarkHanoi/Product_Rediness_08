@@ -282,4 +282,14 @@ export class RoofFragmentBuilder {
             elementRegistry.unregisterRoot(id);
         }
     }
+
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY roof root from the scene without tearing
+     * the builder down. See `BeamFragmentBuilder.clearProjectGeometry` for the rationale
+     * (C13 §3.8/§3.10). Invoked by the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        this._pendingBuilds.clear();
+        for (const id of [...this.roofRoots.keys()]) this.removeRoof(id);
+    }
 }

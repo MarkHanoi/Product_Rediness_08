@@ -600,6 +600,23 @@ export class SlabFragmentBuilder {
         this._unsubscribeViews = null;
     }
 
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY slab root from the scene, without
+     * tearing the builder down.
+     *
+     * Note what `dispose()` above does NOT do: it releases the view subscription and
+     * leaves every slab root parented to the scene. So `dispose()` was never a C13
+     * teardown for this builder — calling it at a project switch removed no geometry
+     * AND killed the LOD listener the next project needs. This method is the correct
+     * project-switch verb (C13 §3.8/§3.10): geometry only, idempotent, re-buildable.
+     * Invoked by the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        this._pendingBuilds = [];
+        this._pausedBuilds = [];
+        for (const id of [...this.slabRoots.keys()]) this.removeSlab(id);
+    }
+
     removeSlab(id: string): void {
         // M6 §SLAB-SYSTEM-AUDIT-2026: Evict any pending build for this slab so the
         // rAF drain does not try to rebuild a slab that has already been removed.

@@ -372,6 +372,20 @@ export class StairMeshBuilder {
         this.clearPreview();
     }
 
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY stair root (and the preview) from the
+     * scene, without tearing the builder down.
+     *
+     * `dispose()` above is TERMINAL by design — it detaches the window listeners this
+     * builder needs in order to render the NEXT project. So it is the right verb for a
+     * world teardown and the wrong one for a project switch; the C13 sweep calls this.
+     * (C13 §3.8/§3.10.) Invoked from the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        for (const id of Array.from(this.stairRoots.keys())) this.removeStair(id, true);
+        this.clearPreview();
+    }
+
     // ── Geometry construction ─────────────────────────────────────────────────
 
     buildStairGeometry(stair: StairData, isPreview: boolean = false): StairMeshData {

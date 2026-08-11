@@ -1055,6 +1055,17 @@ export class WindowBuilder {
         return mats;
     }
 
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY window group from the scene, without
+     * tearing the builder down (its `windowStore` subscription and the SHARED
+     * frame/glass material caches must survive to serve the incoming project).
+     * C13 §3.8/§3.10. Invoked by the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        this._pendingBuilds.clear();
+        for (const id of Array.from(this.windowGroups.keys())) this.dispose(id);
+    }
+
     private dispose(id: string): void {
         // §INSTANCE-WINDOWS — release any GPU instance slots this window owns
         // BEFORE tearing down its group. No-op when the window was on the

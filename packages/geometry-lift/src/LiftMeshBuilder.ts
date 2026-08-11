@@ -200,4 +200,14 @@ export class LiftMeshBuilder {
         this._disposers.forEach((d) => d());
         this._disposers = [];
     }
+
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY lift root from the scene, without tearing
+     * the builder down. `dispose()` above is TERMINAL (it drops the store disposers the
+     * incoming project needs), so the C13 project-switch sweep calls this instead
+     * (C13 §3.8/§3.10). Invoked by the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        for (const id of Array.from(this.liftRoots.keys())) this.removeLift(id);
+    }
 }

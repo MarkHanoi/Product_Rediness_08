@@ -102,6 +102,14 @@ let _dispose: (() => void) | null = null;
 export interface SceneObjectLike {
     name?: string;
     userData?: Record<string, unknown>;
+    /**
+     * §C13-SCENE-ROOT-COVERAGE — THREE's `Object3D.type` discriminator ('Mesh',
+     * 'Group', 'LineSegments', 'DirectionalLight', …). Read structurally; no THREE
+     * import (P5). Optional so existing call sites and unit tests keep compiling.
+     */
+    type?: string;
+    /** True when this object is a DIRECT child of the scene (a scene ROOT). */
+    isRoot?: boolean;
 }
 
 /** One element store's live ids, tagged with the store name for reporting. */
@@ -264,6 +272,78 @@ function isExemptSceneSingleton(ud: Record<string, unknown>): boolean {
     return ud.isProjectOrigin === true
         || ud.isPreview === true
         || ud.role === 'hit-proxy';
+}
+
+// ── §C13-SCENE-ROOT-COVERAGE — what the scene tripwire STILL cannot see ──────
+//
+// Everything above this line inspects objects that carry `userData.id`/`elementId`
+// AND a type. That is the BIM half of the scene, and it is a minority of it. The
+// founder's 2026-08-10 report is the proof: the console said
+// `[C13 VIOLATION] … 1 finding(s): [scene.foreignElement×1]` while the viewport
+// showed a whole black plan-linework drawing and several floating grey boxes. The
+// audit was not wrong about the one element it named — it simply never looked at
+// anything else, and a count of 1 over a scene full of foreign geometry reads as
+// "almost clean". That is the §CONTEXT-DATA-HONESTY defect in its purest form: an
+// under-counting audit is more dangerous than no audit, because the number looks
+// like a measurement.
+//
+// The honest repair is NOT to invent a violation for every unrecognised object —
+// scene roots legitimately include lights, cameras, helpers, the grid and the sky,
+// and an audit that cries wolf on a clean switch gets muted, which costs the same
+// as under-counting. It is to SAY, on every run, how many scene roots the audit
+// could not attribute to a project, and name them. That number is a fact about the
+// audit's own coverage, printed next to its verdict, so "clean" can never again be
+// read as "everything was checked".
+//
+// Once a root's owner is known it should either publish its ids into the loader
+// expectation (like `snapshot.lighting` in §L-711) or register a
+// {@link ProjectScopeProbe}; either way it stops being unattributed and the number
+// falls. The number IS the remaining C13 debt, measured rather than estimated.
+
+/** THREE object types that can carry visible geometry (and so can leak visibly). */
+const GEOMETRY_BEARING_TYPES: ReadonlySet<string> = new Set([
+    'Mesh', 'InstancedMesh', 'BatchedMesh', 'SkinnedMesh',
+    'Line', 'LineSegments', 'LineLoop', 'Points', 'Sprite',
+    'Group', 'Object3D',
+]);
+
+export interface SceneCoverage {
+    /** Direct children of the scene that were inspected. */
+    readonly rootCount: number;
+    /** Geometry-bearing roots the audit could not attribute to any project. */
+    readonly unattributed: readonly string[];
+}
+
+/**
+ * Summarise how much of the scene the id-based checks could actually attribute.
+ * PURE — no window, no THREE. A root is "attributed" when it carries an element id,
+ * or is one of the declared exempt singletons; anything else is geometry the audit
+ * is blind to, and is named here rather than silently counted as clean.
+ */
+export function summariseSceneCoverage(sceneObjects: Iterable<SceneObjectLike>): SceneCoverage {
+    let rootCount = 0;
+    const unattributed: string[] = [];
+    for (const obj of sceneObjects) {
+        if (obj.isRoot !== true) continue;
+        rootCount += 1;
+        const ud = (obj.userData ?? {}) as Record<string, unknown>;
+        if (isExemptSceneSingleton(ud)) continue;
+        if (sceneElementId(ud) !== null) continue;             // attributed by id
+        if (!GEOMETRY_BEARING_TYPES.has(obj.type ?? '')) continue; // lights/cameras/helpers
+        unattributed.push(`${obj.type ?? 'Object3D'}${obj.name ? ` "${obj.name}"` : ' (unnamed)'}`);
+    }
+    return { rootCount, unattributed };
+}
+
+/** Render {@link SceneCoverage} as the honesty clause appended to every verdict. */
+export function formatSceneCoverage(c: SceneCoverage): string {
+    if (c.rootCount === 0) return ' — scene had NO roots to inspect';
+    if (c.unattributed.length === 0) return ` — all ${c.rootCount} scene root(s) attributable`;
+    return (
+        ` — ⚠ ${c.unattributed.length}/${c.rootCount} scene root(s) UNATTRIBUTED, i.e. outside this ` +
+        `audit's reach, neither proven clean nor proven leaked: [${c.unattributed.slice(0, 8).join(', ')}` +
+        `${c.unattributed.length > 8 ? `, +${c.unattributed.length - 8} more` : ''}]`
+    );
 }
 
 /**
@@ -475,14 +555,29 @@ function w<T = unknown>(name: string): T | undefined {
  * scene, so the caller can tell "the scene is empty" from "there was no scene".
  */
 function gatherSceneObjects(): SceneObjectLike[] | null {
-    const scene = w<{ traverse?: (cb: (o: SceneObjectLike) => void) => void }>('scene');
+    type Node = {
+        name?: string;
+        type?: string;
+        parent?: unknown;
+        userData?: Record<string, unknown>;
+        traverse?: (cb: (o: Node) => void) => void;
+    };
+    const scene = w<Node>('scene');
     if (!scene || typeof scene.traverse !== 'function') return null;
     const out: SceneObjectLike[] = [];
     try {
-        scene.traverse((o) => out.push({
-            name: (o as { name?: string }).name,
-            userData: (o as { userData?: Record<string, unknown> }).userData,
-        }));
+        scene.traverse((o) => {
+            // `traverse` visits the scene itself first; it is not a root OF the scene.
+            if (o === scene) return;
+            out.push({
+                name: o.name,
+                userData: o.userData,
+                // §C13-SCENE-ROOT-COVERAGE — carried so the audit can report the
+                // scene it CANNOT attribute, not only the elements it recognises.
+                type: o.type,
+                isRoot: o.parent === scene,
+            });
+        });
     } catch { return null; }
     return out;
 }
@@ -538,10 +633,14 @@ function resolveExpectedIds(projectId: string, emptyHint: boolean): ReadonlySet<
     return null;
 }
 
-function runAudit(projectId: string, emptyHint: boolean): IsolationLeakReport | null {
+function runAudit(
+    projectId: string,
+    emptyHint: boolean,
+): { report: IsolationLeakReport | null; coverage: SceneCoverage } {
     const scene = gatherSceneObjects();
     const { readable, unreadable } = gatherStoreElements();
-    return detectLeaks({
+    const coverage = summariseSceneCoverage(scene ?? []);
+    const report = detectLeaks({
         projectId,
         expectedIds: resolveExpectedIds(projectId, emptyHint),
         sceneObjects: scene ?? [],
@@ -554,6 +653,7 @@ function runAudit(projectId: string, emptyHint: boolean): IsolationLeakReport | 
         // whatever registered.
         declaredScopes: DECLARED_SCOPES_REQUIRING_PRESENCE,
     });
+    return { report, coverage };
 }
 
 /**
@@ -587,7 +687,7 @@ export function installProjectIsolationAudit(): void {
         // Defer one frame so listeners that mount geometry on `pryzm-project-loaded`
         // have completed (legitimate setup vs. leak).
         getFrameScheduler().scheduleOnce('project-isolation-audit', () => {
-            const report = runAudit(projectId, emptyHint);
+            const { report, coverage } = runAudit(projectId, emptyHint);
             if (!report) {
                 // §L-676 — SAY WHAT WAS INSPECTED. The previous "✓ loaded clean" line
                 // was indistinguishable between "everything was checked and is clean"
@@ -611,7 +711,11 @@ export function installProjectIsolationAudit(): void {
                     `answered (declaration v${DECLARED_PROJECT_SCOPE_SET_VERSION}) [${answered.join(', ') || 'none'}]` +
                     (notLoaded.length > 0
                         ? ` — ${notLoaded.length} module(s) not loaded, provably empty: [${notLoaded.join(', ')}]`
-                        : ''),
+                        : '') +
+                    // §C13-SCENE-ROOT-COVERAGE — "clean" is only a verdict about what
+                    // was inspected. State the scene the audit could not attribute in
+                    // the SAME breath, so the word never over-claims again.
+                    formatSceneCoverage(coverage),
                 );
                 return;
             }
@@ -632,13 +736,17 @@ export function installProjectIsolationAudit(): void {
                 .map((f) => {
                     const who = Array.isArray(f.identities) && f.identities.length > 0
                         ? ` (${f.identities.slice(0, 3).join('; ')}${f.count > 3 ? '; …' : ''})`
-                        : '';
+                        : describeFindingDetails(f);
                     return `${f.surface}×${f.count}${who}`;
                 })
                 .join(', ');
             console.error(
                 `[C13 VIOLATION] Project-isolation leak detected on load of ${projectId} — ` +
-                `${report.findings.length} finding(s): [${surfaceSummary}]\n`,
+                `${report.findings.length} finding(s): [${surfaceSummary}]` +
+                // §C13-SCENE-ROOT-COVERAGE — a violation count is a FLOOR, not a total.
+                // The same clause that qualifies "clean" must qualify the number, or the
+                // founder reads `×1` over a scene full of foreign geometry as "almost fine".
+                `${formatSceneCoverage(coverage)}\n`,
                 report.findings,
             );
             window.dispatchEvent(new CustomEvent('pryzm-project-isolation-leak', { detail: report }));
@@ -646,6 +754,40 @@ export function installProjectIsolationAudit(): void {
     });
 
     console.log('[ProjectIsolationAudit] Installed — will audit every project load (typed runtime.events)');
+}
+
+/**
+ * §STARTUP-C13-IDENTITY — name the culprit of a finding that carries no `identities`.
+ *
+ * `scene.foreignElement` names its elements; every other surface used to collapse to
+ * `surface×N` in the console, so `store.foreignElement×74` did not say WHICH store and
+ * `scope.foreignProject×1` did not say which project it still belonged to — the one
+ * fact that identifies the outgoing project. Report-only; ADR-0298's no-auto-repair
+ * rule is untouched.
+ */
+function describeFindingDetails(f: IsolationLeakReport['findings'][number]): string {
+    const d = f.details;
+    if (d == null) return '';
+    // store.foreignElement — [{ store, ids }]
+    if (Array.isArray(d) && d.length > 0 && typeof d[0] === 'object' && d[0] !== null && 'store' in (d[0] as object)) {
+        const rows = d as Array<{ store: string; ids: string[] }>;
+        return ` (${rows.slice(0, 3).map(r => `${r.store}: ${r.ids.slice(0, 2).join(', ')}${r.ids.length > 2 ? ', …' : ''}`).join('; ')})`;
+    }
+    // scope.foreignProject — [{ scope, owningProjectId }]
+    if (Array.isArray(d) && d.length > 0 && typeof d[0] === 'object' && d[0] !== null && 'owningProjectId' in (d[0] as object)) {
+        const rows = d as Array<{ scope: string; owningProjectId: string }>;
+        return ` (${rows.slice(0, 3).map(r => `${r.scope} still owned by ${r.owningProjectId}`).join('; ')})`;
+    }
+    // scope.probeFailed — [{ scope, error }]
+    if (Array.isArray(d) && d.length > 0 && typeof d[0] === 'object' && d[0] !== null && 'error' in (d[0] as object)) {
+        const rows = d as Array<{ scope: string; error: string }>;
+        return ` (${rows.slice(0, 3).map(r => `${r.scope}: ${r.error}`).join('; ')})`;
+    }
+    // window.globals — string[]
+    if (Array.isArray(d) && d.every(x => typeof x === 'string')) {
+        return ` (${(d as string[]).slice(0, 3).join('; ')})`;
+    }
+    return '';
 }
 
 /** Test hook — read the in-memory leak history. */

@@ -156,6 +156,17 @@ export class ColumnFragmentBuilder {
     }
 
     /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY root this builder owns from the scene,
+     * without tearing the builder down. See `BeamFragmentBuilder.clearProjectGeometry`
+     * for the full rationale (C13 §3.8/§3.10; non-terminal, so the same instance keeps
+     * serving the incoming project). Invoked by the `bim-project-cleared` sweep.
+     */
+    clearProjectGeometry(): void {
+        this._pendingBuilds.clear();
+        for (const id of [...this.meshes.keys()]) this.remove(id);
+    }
+
+    /**
      * C11 §2 step 3 — adaptive drain: processes up to `_buildsPerFrame`
      * columns per pre-render tick. Budget auto-adjusts ±1 based on
      * observed frame cost (target: 8–20 ms per drain pass).

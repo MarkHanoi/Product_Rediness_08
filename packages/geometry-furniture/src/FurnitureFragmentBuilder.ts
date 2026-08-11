@@ -395,4 +395,20 @@ export class FurnitureFragmentBuilder {
     dispose(): void {
         this.materialService.dispose();
     }
+
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY furniture root from the scene, without
+     * tearing the builder down.
+     *
+     * This builder had NO project-switch teardown at all: `dispose()` frees the shared
+     * material cache and removes exactly zero roots, and nothing called it on a switch
+     * anyway. Every placed item — including the grey fallback box a 404'd GLB leaves
+     * behind — therefore survived into the next project (C13 §3.8/§3.10). This is the
+     * non-terminal project-switch verb; the material cache and the instance bridge are
+     * deliberately left alive because the same instance serves the incoming project.
+     * Invoked by the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        for (const id of [...this.furnitureRoots.keys()]) this.removeFurniture(id);
+    }
 }

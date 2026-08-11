@@ -381,7 +381,10 @@ describe('§L-676-B — a throwing teardown step cannot abort the rest, and cann
         const report = runSiteProjectTeardown('project-switch', null);
 
         expect(report.failures).toHaveLength(0);
-        expect(report.missing).toEqual(['gis.cesiumViewport']);   // still REPORTED …
+        // §C13-MOUNTED-DRAWING-OWNER later joined GIS_SWITCH_SCOPES, and it is
+        // module-scope too, so it is absent-and-provably-empty here for the same
+        // reason the viewport is. Both are REPORTED …
+        expect(report.missing).toEqual(['gis.cesiumViewport', 'views.mountedDrawing']);
         expect(report.unprovenMissing).toEqual([]);               // … but not a failure.
         const said = logSpy.mock.calls.map(c => String(c[0])).join('\n');
         expect(said).toContain('teardown complete');
@@ -429,8 +432,13 @@ describe('§L-676-B — the switch teardown reaches the GIS owners registered el
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
-    it('names gis.cesiumViewport and gis.areaLayout as switch-time scopes', () => {
-        expect([...GIS_SWITCH_SCOPES]).toEqual(['gis.cesiumViewport', 'gis.areaLayout']);
+    it('names gis.cesiumViewport, gis.areaLayout and views.mountedDrawing as switch-time scopes', () => {
+        // §C13-MOUNTED-DRAWING-OWNER added the third: the ONE THREE group the
+        // documentation pipeline parents into the shared 3D scene is cleared at the
+        // switch, alongside the GIS owners, not merely at view activation.
+        expect([...GIS_SWITCH_SCOPES]).toEqual([
+            'gis.cesiumViewport', 'gis.areaLayout', 'views.mountedDrawing',
+        ]);
     });
 
     it('L-713 — a probe-only declared scope (ownsTeardown:false) is NOT reached here', () => {

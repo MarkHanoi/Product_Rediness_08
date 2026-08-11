@@ -165,6 +165,19 @@ export class RoomBoundingLineBuilder {
     return Array.from(this._roots.keys());
   }
 
+  /**
+   * §C13-BUILDER-SCENE-CLEAR — detach EVERY room-bounding-line root from the scene,
+   * without tearing the builder down.
+   *
+   * This builder holds the black plan LINEWORK in the 3D scene and had no teardown of
+   * any kind: no `dispose()`, no project-lifecycle subscription. Its roots survived
+   * every project switch (C13 §3.8/§3.10). Invoked by the `bim-project-cleared` sweep
+   * in `initBuilders.ts`.
+   */
+  clearProjectGeometry(): void {
+    for (const id of Array.from(this._roots.keys())) this._dispose(id);
+  }
+
   // ── Private helpers ───────────────────────────────────────────────────────
 
   private _dispose(id: string): void {

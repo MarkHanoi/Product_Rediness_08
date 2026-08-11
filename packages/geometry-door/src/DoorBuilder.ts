@@ -895,6 +895,17 @@ export class DoorBuilder {
         return mats;
     }
 
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY door group from the scene, without
+     * tearing the builder down (its `doorStore` subscription and shared material
+     * caches must survive to serve the incoming project). C13 §3.8/§3.10.
+     * Invoked by the `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        this._pendingBuilds.clear();
+        for (const id of Array.from(this.doorGroups.keys())) this.dispose(id);
+    }
+
     private dispose(id: string): void {
         const group = this.doorGroups.get(id);
         if (group) {

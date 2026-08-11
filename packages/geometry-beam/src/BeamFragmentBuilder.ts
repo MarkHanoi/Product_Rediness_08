@@ -159,6 +159,22 @@ export class BeamFragmentBuilder {
     }
 
     /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY root this builder owns from the scene,
+     * without tearing the builder down.
+     *
+     * C13 §3.8/§3.10: the scene graph is project-scoped state and needs a named owner.
+     * `dispose()` is the wrong verb at a project switch — the SAME builder instance
+     * serves the next project, so a teardown that also drops subscriptions/disposers
+     * leaves the INCOMING project unrendered (the L-224 dead-listener class of bug).
+     * This is the non-terminal sibling: geometry only, idempotent, re-buildable.
+     * Invoked by the C13 `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        this._pendingBuilds.clear();
+        for (const id of [...this.meshes.keys()]) this.remove(id);
+    }
+
+    /**
      * C11 §2 step 3 — adaptive drain: processes up to `_buildsPerFrame`
      * beams per pre-render tick. Budget auto-adjusts ±1 based on
      * observed frame cost (target: 8–20 ms per drain pass).

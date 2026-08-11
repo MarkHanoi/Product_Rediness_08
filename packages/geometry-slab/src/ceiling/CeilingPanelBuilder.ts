@@ -137,6 +137,17 @@ export class CeilingPanelBuilder {
     }
   }
 
+  /**
+   * §C13-BUILDER-SCENE-CLEAR — the uniform project-switch verb every builder in the
+   * `bim-project-cleared` sweep (`initBuilders.ts`) is called through. This builder's
+   * `dispose()` is already geometry-only and re-armable (the drain handle re-schedules
+   * on the next build), so it IS the correct non-terminal clear; the alias exists so
+   * the sweep never has to know which builders happen to have a safe `dispose()`.
+   */
+  clearProjectGeometry(): void {
+    this.dispose();
+  }
+
   // ── C11 §2 step 3 — drain ──────────────────────────────────────────────────
 
   /**

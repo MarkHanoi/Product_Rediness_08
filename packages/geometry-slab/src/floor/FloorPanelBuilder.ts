@@ -185,6 +185,15 @@ export class FloorPanelBuilder {
     }
   }
 
+  /**
+   * §C13-BUILDER-SCENE-CLEAR — the uniform project-switch verb (see
+   * `CeilingPanelBuilder.clearProjectGeometry`). This builder's `dispose()` is already
+   * geometry-only and non-terminal, so the alias simply forwards.
+   */
+  clearProjectGeometry(): void {
+    this.dispose();
+  }
+
   // ── Private builders ───────────────────────────────────────────────────────
 
   /**

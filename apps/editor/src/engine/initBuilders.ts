@@ -32,6 +32,11 @@ import type { CommandManager } from '@pryzm/command-registry';
 import type { BimManager } from '@pryzm/core-app-model';
 import type { ProjectContext } from '@pryzm/core-app-model';
 import { storeEventBus } from '@pryzm/core-app-model';
+// §C13-BUILDER-SCENE-CLEAR — the one owner of the project-switch scene sweep.
+import {
+    clearProjectScopedBuilderGeometry,
+    formatBuilderTeardownReport,
+} from './projectScopedBuilderTeardown';
 
 // ── Slab subsystem ─────────────────────────────────────────────────────────
 import { SlabStore, SlabFragmentBuilder, SlabLevelCleanupHandler } from '@pryzm/geometry-slab';
@@ -1015,6 +1020,48 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     });
     roomFinishSyncService.start();
     console.log('[initBuilders] RoomFinishSyncService started');
+
+    // ── §C13-BUILDER-SCENE-CLEAR — the project-switch scene sweep ─────────────
+    //
+    // C13 §3.8/§3.10: the scene graph is project-scoped state and needs ONE named
+    // owner. This is it, and it lives HERE because this is the only scope in which
+    // every builder instance is simultaneously in hand — the previous sweep
+    // (`initTools.ts`, §FIX-BUILDER-ISOLATION-LEAK / L-320) could only reach the four
+    // builders that happened to be threaded through `ToolsParams`, which is why the
+    // other fifteen leaked their roots into the next project.
+    //
+    // `bim-project-cleared` is emitted by `ClearProjectCommand` (the data-side C13
+    // teardown) on EVERY project-entry path, after the stores are emptied and before
+    // the incoming snapshot is created — so a clear here can never race the new
+    // project's own geometry.
+    //
+    // The verb is `clearProjectGeometry()`, NOT `dispose()`. See the header of
+    // `projectScopedBuilderTeardown.ts`: several of these builders' `dispose()` is
+    // terminal (it drops the very subscriptions the incoming project needs) and one
+    // of them removes no roots at all.
+    window.addEventListener('bim-project-cleared', () => {
+        const report = clearProjectScopedBuilderGeometry([
+            { name: 'slabBuilder',             builder: slabBuilder },
+            { name: 'ceilingBuilder',          builder: ceilingBuilder },
+            { name: 'floorBuilder',            builder: floorBuilder },
+            { name: 'columnBuilder',           builder: columnBuilder },
+            { name: 'beamBuilder',             builder: beamBuilder },
+            { name: 'roofBuilder',             builder: roofBuilder },
+            { name: 'plumbingBuilder',         builder: plumbingBuilder },
+            { name: 'furnitureBuilder',        builder: furnitureBuilder },
+            { name: 'lightingBuilder',         builder: lightingBuilder },
+            { name: 'doorBuilder',             builder: doorBuilder },
+            { name: 'windowBuilder',           builder: windowBuilder },
+            { name: 'stairMeshBuilder',        builder: stairMeshBuilder },
+            { name: 'stairLandingBuilder',     builder: stairLandingBuilder },
+            { name: 'liftMeshBuilder',         builder: liftMeshBuilder },
+            { name: 'roomBoundingLineBuilder', builder: roomBoundingLineBuilder },
+            // Already had a geometry-only bulk clear before this sweep existed.
+            { name: 'roomBoundaryBuilder',     builder: roomBoundaryBuilder, via: 'removeAll' },
+            { name: 'roomLabelRenderer',       builder: roomLabelRenderer,   via: 'removeAll' },
+        ]);
+        console.log(formatBuilderTeardownReport(report));
+    });
 
     // ─────────────────────────────────────────────────────────────────────────
     console.log('[initBuilders] All builder subsystems fully initialised.');

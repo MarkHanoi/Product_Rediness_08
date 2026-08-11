@@ -82,6 +82,16 @@ export class StairLandingBuilder {
         }
     }
 
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY landing mesh from the scene, without
+     * tearing the builder down. This builder had no teardown of any kind, so its
+     * landings survived every project switch (C13 §3.8/§3.10). Invoked by the
+     * `bim-project-cleared` sweep in `initBuilders.ts`.
+     */
+    clearProjectGeometry(): void {
+        for (const id of Array.from(this.meshCache.keys())) this.removeLanding(id);
+    }
+
     setScene(scene: THREE.Scene): void {
         this.scene = scene;
         this.landingStore.getAll().forEach(l => this.buildLanding(l));

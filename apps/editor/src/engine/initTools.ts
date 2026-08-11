@@ -2346,6 +2346,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     initGhostOverlayRenderer(world.scene.three as THREE.Scene);
 
     // ── Project isolation sweep on bim-project-cleared ────────────────────────
+    //
+    // §C13-BUILDER-SCENE-CLEAR — THIS IS NO LONGER THE WHOLE BUILDER SWEEP. It can only
+    // reach the builders threaded through `ToolsParams` (four of the nineteen), which is
+    // exactly why the other fifteen leaked their roots into the next project. The
+    // complete sweep now lives in `initBuilders.ts` — the only scope holding every
+    // builder instance — and calls the non-terminal `clearProjectGeometry()` verb.
+    // What stays here is the wall fragment builder, which is created by WallTool and is
+    // NOT one of initBuilders' returns; the three below are covered in both places and
+    // are idempotent, kept as the L-320 defence-in-depth.
     window.addEventListener('bim-project-cleared', () => {
         // §C13-G4/G5: Dispose ALL WallFragmentBuilder scene objects (committed walls
         // included). WallFragmentBuilder does NOT subscribe to WallStore remove events,

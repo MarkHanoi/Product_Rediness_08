@@ -324,4 +324,13 @@ export class PlumbingFragmentBuilder {
             elementRegistry.unregisterRoot(id);
         }
     }
+
+    /**
+     * §C13-BUILDER-SCENE-CLEAR — detach EVERY fixture root from the scene without
+     * tearing the builder down. See `BeamFragmentBuilder.clearProjectGeometry`
+     * (C13 §3.8/§3.10). Invoked by the `bim-project-cleared` sweep.
+     */
+    clearProjectGeometry(): void {
+        for (const id of [...this.fixtureRoots.keys()]) this.removeFixture(id);
+    }
 }
