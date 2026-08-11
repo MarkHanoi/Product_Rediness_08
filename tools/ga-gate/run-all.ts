@@ -61,9 +61,20 @@
  * All four ratchets start at their 2026-05-16 baselines and decrease per Phase E/F sprint.
  * Gate 21 (F.events.2) extends the CustomEvent ratchet to the apps-tier (297 sites baseline).
  *
- * Exit codes:
- *   0 — all gates passed
- *   1 — one or more gates failed (gate name + exit code logged)
+ * Exit codes THIS RUNNER returns:
+ *   0 — all gates passed, or every failure is declared debt at its declared level
+ *   1 — a gate regressed, was misconfigured, or exceeded a shrink-only ratchet
+ *
+ * Exit codes THIS RUNNER READS FROM A GATE — three distinct facts, three codes.
+ * Aliasing any of them onto 1 is how a gate's silence gets mistaken for consent:
+ *   0 — clean
+ *   1 — failed. Absorbable IF the gate is on gate-debt.json.
+ *   2 — MISCONFIGURED; the gate could not evaluate its subject (§MISCONFIG-IS-
+ *       NEVER-DEBT, L-811). NEVER absorbable — "I looked nowhere" and "I looked
+ *       and it was clean" must never print the same.
+ *   3 — a SHRINK-ONLY RATCHET WAS EXCEEDED (§RATCHET-EXCEEDED-IS-NEVER-DEBT, R7 /
+ *       L-836). NEVER absorbable — the ledger declares that a gate FAILS, not that
+ *       it may get WORSE.
  */
 
 import { spawnSync } from 'child_process';
@@ -230,6 +241,33 @@ for (const gate of GATES) {
   if (code === 2) {
     nowFailing.push(gate.script);
     console.error(`\n[ga-gate/run-all] ❌ MISCONFIGURED (exit 2, never excusable as debt): ${gate.name}`);
+    anyFailed = true;
+    continue;
+  }
+
+  // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836 · 2026-08-11) — exit 3 means a
+  // SHRINK-ONLY RATCHET WAS EXCEEDED. Like exit 2, it is never absorbed by the
+  // ledger.
+  //
+  // Being on gate-debt.json declares that a gate FAILS. It does NOT declare that
+  // the gate may get WORSE. Until this clause existed the two printed
+  // identically, so a ledgered gate silently licensed its own growth: the
+  // repo-wide `(window as any)` count went 215 → 217 while sitting on the ledger
+  // and no run ever said so. A shrink-only ratchet that can be exceeded without a
+  // signal is not a ratchet — it is a number in a file.
+  //
+  // Only the gate knows its own baseline, and the ledger is keyed on gate NAME,
+  // so this runner cannot tell "failing at its declared level" from "failing
+  // worse" by itself. The gate has to say which, and the exit code is the only
+  // channel this runner reads. Same reasoning as exit 2, one step further in.
+  if (code === 3) {
+    nowFailing.push(gate.script);
+    console.error(
+      `\n[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): ${gate.name}`
+      + `\n  This gate is allowed to FAIL at its declared level. It is not allowed to get WORSE.`
+      + `\n  Fix the new violations. Do NOT raise the threshold — that turns a measurement`
+      + `\n  into a permission, which is the failure the ratchet exists to prevent.`,
+    );
     anyFailed = true;
     continue;
   }

@@ -144,6 +144,45 @@ function countRepoWide(): number {
   return res.matches.length;
 }
 
+/**
+ * §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836, 2026-08-11)
+ *
+ * ─── The hole this closes ────────────────────────────────────────────────────
+ * This gate is on `gate-debt.json`. `run-all.ts` treats ANY non-zero exit from a
+ * ledgered gate as 🟡 KNOWN-DEBT and keeps going. So once a gate is ledgered, it
+ * is licensed not merely to FAIL but to GET WORSE — and nobody sees it, because
+ * "declared debt" and "declared debt, now worse" print identically.
+ *
+ * That is exactly what happened: the repo-wide `(window as any)` count went
+ * 215 → 217 while sitting on this ledger, and no run ever said so. A shrink-only
+ * ratchet that can be exceeded without a signal is not a ratchet.
+ *
+ * ─── Why a distinct exit code, and not just louder text ─────────────────────
+ * The ledger is keyed on the gate NAME, so run-all cannot distinguish "failing at
+ * its declared level" from "failing worse" by name alone — only the gate knows
+ * its own baseline. So the gate must SAY which of the two it is, and the only
+ * channel run-all reads is the exit code.
+ *
+ * This mirrors §MISCONFIG-IS-NEVER-DEBT exactly: exit 2 already means "could not
+ * evaluate", is already never absorbable, and exists for the same reason — a
+ * distinct FACT deserves a distinct code rather than being aliased onto 1.
+ *
+ *   exit 0 — clean, or at/below baseline
+ *   exit 1 — failed at its DECLARED level (absorbable as ledgered debt)
+ *   exit 2 — MISCONFIGURED, could not evaluate (never absorbable)
+ *   exit 3 — a SHRINK-ONLY RATCHET WAS EXCEEDED (never absorbable)  ← new
+ *
+ * The correct response to a 3 is to remove the new casts. It is NOT to raise the
+ * threshold: doing so converts a measurement into a permission, which is the
+ * failure this whole file exists to prevent.
+ */
+export const EXIT_RATCHET_EXCEEDED = 3;
+
+const RATCHET_EXCEEDED_NOTE =
+  '§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7): exiting 3, not 1 — being on gate-debt.json '
+  + 'declares that this gate FAILS, never that it may get WORSE. Fix the new casts; '
+  + 'do NOT raise the threshold.';
+
 function main(): number {
   const current = count();
   const baseline = loadBaseline();
@@ -153,7 +192,8 @@ function main(): number {
     console.error(`\n[${LABEL}] FAIL (repo-wide): ${repoWide} (window as any) cast(s) > baseline ${MAX_REPO_WIDE}.`);
     console.error(`  P4 forbids the cast everywhere but the allowlisted shim. Use runtime.<service>,`);
     console.error(`  or a typed global declaration. Do NOT raise this threshold — it is shrink-only.`);
-    return 1;
+    console.error(`  ${RATCHET_EXCEEDED_NOTE}`);
+    return EXIT_RATCHET_EXCEEDED;
   }
 
   if (current > baseline) {
@@ -162,7 +202,8 @@ function main(): number {
     console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/09-WAVE-5-CAST-DELETION.md §3`);
     console.error(`  To fix: replace (window as any).<service> with runtime.<service>;`);
     console.error(`          if genuinely a browser global, allowlist in src/engine/subsystems/legacy/window-shim.ts.`);
-    return 1;
+    console.error(`  ${RATCHET_EXCEEDED_NOTE}`);
+    return EXIT_RATCHET_EXCEEDED;
   }
 
   if (current < baseline) {
