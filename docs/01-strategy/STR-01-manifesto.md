@@ -1,7 +1,19 @@
 # PRYZM — Manifesto
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL
+> **Stamp**: 2026-06-01 · **Revised 2026-08-11 (rev 2 — light)** · **Status**: CANONICAL
 > **Authority**: this doc owns the **founding intent**, the **brand voice**, and the **why-now**. It sits beside [STR-02-product-vision.md](./STR-02-product-vision.md) (the what and how) and above the contract suite. Use this when writing customer-facing copy, sales decks, recruiting collateral, or onboarding docs — every word PRYZM says traces back here.
+
+> ### What changed in rev 2, and why
+>
+> Almost nothing, deliberately. The manifesto's job is intent and voice, and both held up better
+> than any other document in this folder — which is the correct outcome for a manifesto and a
+> reassuring one for the bet.
+>
+> Three surgical changes: **§5.2 gains a rule** (the honesty doctrine, which turned out to be the
+> single most consequential thing this company decided and was nowhere in the voice section);
+> **§6 gains a fifth refusal**; and the contract count in §7.2 is corrected. The specifics used as
+> examples throughout §5 are left as illustrations of the *form* of a claim — but see the new note
+> at §5.2, because two of them are now measurably wrong and that matters more here than anywhere.
 
 ---
 
@@ -90,6 +102,38 @@ We do not promise magic. We do not claim our AI "understands buildings" — we c
 
 The platform is full of complicated work. We name it. We do not hide it.
 
+#### §5.2.1 — And when the work did not happen, we say that too *(added 2026-08-11)*
+
+Plain-spoken about the work has a second half that the June text did not state, and it has since
+become the most consequential decision this company has made — not a value, a *doctrine*, with
+CI gates behind it:
+
+> **A system that reports what it did not do is worth more than one that quietly does less.**
+
+This is a voice rule as much as an engineering one, because it governs what the product says to
+the user's face, every day:
+
+| Don't say | Say |
+|---|---|
+| "Done." | "Changed 22 of 24 — 2 rooms skipped: the packer could not fit a cell at that depth." |
+| "Applied to all walls." | "No wall is thicker than 300 mm — the thickest is 250 mm (Interior – Partition). Nothing was changed." |
+| *(silently pick one)* | "Two wall types match 'timber'. Did you mean Exterior – Timber Frame, or Interior – Timber Stud?" |
+| *(extrude to the cap anyway)* | "The ordinance does not determine a height for this parcel. Article 8.1.15.1 leaves it to the planning commission." |
+
+A refusal that names what *is* possible is a good answer. A confident "Done" over a change that
+did not happen is the worst thing this product can do, and it is the thing we have caught
+ourselves doing most often — thirteen dead write-paths in two sessions, a capability table
+advertising abilities whose commands refuse, a report that read as a build. Every one of those is
+now a CI gate. See [STR-03 §12](./STR-03-engineering-vision.md).
+
+> ⚠ **A note on the examples in §5.2 above, and it is the point rather than a footnote.** Two of
+> those four "say" columns are illustrations of the *form* of a credible claim, not claims we
+> currently hold: **"we measure it in CI every commit"** was true of the benchmark suite and
+> *false* of the layer-boundary rule for months (the gate could not see the imports it existed to
+> police), and **"we test it nightly against 10 reference projects"** is a target. Copy that
+> quotes a number we do not measure is exactly the failure mode §5.2.1 exists to prevent — and a
+> manifesto is not exempt from its own rule.
+
 ### §5.3 — Curated about what we ship
 
 The villa rental does not list every property in Portugal. It lists **handpicked** ones. We ship features the same way.
@@ -109,6 +153,7 @@ Equally important to keep the brand and product honest. We will not:
 - **Sell shovel-ware to the construction industry.** PRYZM is for the *design* phase, where decisions are made. Construction-administration, facilities-management, asset-tracking — important markets, but adjacencies, not the core.
 - **Compromise the file format.** `.pryzm` is open. IFC round-trip is real. No lock-in. Customers can leave with their data, and that fact alone constrains what we can do with the format forever.
 - **Add features that don't pass the one-conversation test (§2).** Every backlog item is reviewed against the promise. Features that don't move the needle don't ship — they go to the marketplace as plugins where their authors can monetise them and we don't take responsibility.
+- **Guess where the law is silent.** *(added 2026-08-11)* Where a planning instrument does not determine the answer, PRYZM says which article is silent and stops. We will not infer an entitlement from partial publication, we will not present an estimate as authoritative, and we will not draw an unknown constraint as an unbounded one. This costs us coverage — a fifth of Barcelona's private buildable land resolves to a *correct refusal* rather than an envelope — and we take that trade every time. An architect who is told "we don't know, and here is exactly why" can do their job. An architect handed a confident wrong number cannot, and may not find out until it is expensive.
 
 ---
 
@@ -124,7 +169,7 @@ We do not have a "product team" that gathers requirements from a "design team" t
 
 ### §7.2 — Open by default, paid by tier
 
-Every customer-facing capability is documented publicly. The file format is open. The plugin SDK is open. The contracts (the suite C00–C49) are open. We trade the moat of secrecy for the moat of momentum.
+Every customer-facing capability is documented publicly. The file format is open. The plugin SDK is open. The contracts (the suite C01–C68) are open. We trade the moat of secrecy for the moat of momentum.
 
 We pay for the work via plan tiers ([C39](../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md)) and the marketplace revenue share ([C40](../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md)). The first one is free for evaluation; the last one is "call us" because Enterprise needs are bespoke.
 
@@ -164,9 +209,9 @@ If a customer-facing surface says something that disagrees with this doc — the
 | [STR-09-personas.md](./STR-09-personas.md) | The customer archetypes (C1–C5) with day-in-the-life detail |
 | [STR-06-operating-principles.md](./STR-06-operating-principles.md) | How the team works (culture + decision-making) |
 | [STR-15-risks-and-assumptions.md](./STR-15-risks-and-assumptions.md) | The bets we're making + what could falsify them |
-| [../02-decisions/contracts/README.md](../02-decisions/contracts/README.md) | The 49 binding contracts that codify the platform's behaviour |
+| [../02-decisions/contracts/README.md](../02-decisions/contracts/README.md) | The 68 binding contracts that codify the platform's behaviour |
 | [../NAMING-CONVENTIONS.md](../NAMING-CONVENTIONS.md) | Brand naming + identifier rules ("PRYZM", not "PRYZM 3") |
 
 ---
 
-*End — PRYZM Manifesto, 2026-06-01 — CANONICAL.*
+*End — PRYZM Manifesto, revised 2026-08-11 — CANONICAL.*
