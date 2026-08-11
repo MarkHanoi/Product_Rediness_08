@@ -287,8 +287,13 @@ function liftTypeFilter(
   resolveType: ((ref: string) => { id: string; name: string } | null) | undefined,
 ): { stripped: string; filter: TypeFilterLike | null } {
   if (resolveType === undefined) return { stripped: text, filter: null };
+  // The candidate is whatever sits between the scope word and the noun. It is
+  // deliberately permissive about CHARACTERS (catalogue names carry en-dashes,
+  // slashes, digits: "Interior – Partition", "RC 250") and strict about
+  // LENGTH — a type name is a few words, and an unbounded run would start
+  // swallowing clauses. What it may NOT do is decide: the catalogue does that.
   const re = new RegExp(
-    String.raw`\b(all|every|each|the|these|those|selected)\s+([a-z][\w' -]*?)\s+(${kindNoun}s?)\b`,
+    String.raw`\b(all|every|each|the|these|those|selected)\s+([a-z][^,;]{0,48}?)\s+(${kindNoun}s?)\b`,
   );
   const m = re.exec(text);
   if (!m) return { stripped: text, filter: null };

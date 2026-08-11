@@ -780,6 +780,29 @@ export class WallStore implements ILevelProvider {
     }
 
     /**
+     * RAC U8.2 / ADR-0315 U3.4 — the IDS-ONLY twin of `getAll`.
+     *
+     * A scope resolution ("all walls", "the walls on Level 2") needs IDENTITY,
+     * not state: it maps every record to `.id` and throws the rest away. Doing
+     * that through `getAll()` deep-clones the entire project's wall data first
+     * (cloneWallData per wall — baseLine, openings, layers, metadata) to read
+     * one string off each clone. These two accessors read the Map keys and the
+     * level index directly, so a scope pass allocates ids and nothing else.
+     */
+    getAllIds(): readonly string[] {
+        return Array.from(this.walls.keys());
+    }
+
+    /** Ids-only `getByLevel` — straight off the secondary index, no clones. */
+    getIdsByLevel(levelId: string): readonly string[] {
+        const ids = this._levelIndex.get(levelId);
+        if (!ids || ids.size === 0) return [];
+        // The index can outlive a removal in theory; filter to live records so
+        // a scope never hands a command an id the store no longer has.
+        return Array.from(ids).filter((id) => this.walls.has(id));
+    }
+
+    /**
      * Gap 9 — O(1) level lookup via secondary index.
      * Previously O(n) linear scan; now O(k) where k = walls on that level.
      */

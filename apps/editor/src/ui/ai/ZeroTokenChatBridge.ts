@@ -49,8 +49,18 @@ import {
     type ResolverContext,
     type ResolverSelection,
     type ResolverWallSystemType,
+    isScopeError,
+    FILTER_PROPERTY_NOUN,
+    type BaseScopeDescriptor,
+    type FilterProperty,
+    type FilterScopeDescriptor,
+    type FilterStat,
+    type PropertyFilter,
     type ScopeDescriptor,
+    type ScopeResolution,
     type ScopeResult,
+    type ScopeSkip,
+    type TypeFilter,
     type ZeroTokenResolution,
 } from '@pryzm/ai-host';
 import { batchCoordinator, selectionBus, storeRegistry } from '@pryzm/core-app-model';
@@ -166,8 +176,9 @@ async function wallTypeCatalogue(): Promise<{
  */
 function makeScopeResolver(
     levels: readonly { id: string; name: string; elevation?: number }[],
+    typeName: (kind: string, ref: string) => string | null,
 ): (scope: ScopeDescriptor) => ScopeResult {
-    return (scope) => {
+    const resolveBase = (scope: BaseScopeDescriptor): ScopeResult => {
         const count = (ids: readonly string[], kind: string): Record<string, number> =>
             ids.length > 0 ? { [kind]: ids.length } : {};
         if (scope.kind === 'ids') {
@@ -176,6 +187,14 @@ function makeScopeResolver(
         if (scope.kind === 'level' || scope.kind === 'all') {
             const kind = scope.elementKind ?? 'wall';
             const store = storeRegistry.getStoreForType(kind) as unknown as {
+                // RAC U8.2 / U3.4 — the IDS-ONLY accessors. A scope needs
+                // identity, not state: `getAll()` clones every record in the
+                // project (WallStore.getAll → cloneWallData per wall) purely
+                // to read `.id` off each one. Where the store exposes the
+                // ids-only twin we take it; the clone walk survives only as
+                // the fallback for stores that have not grown one yet.
+                getAllIds?: () => readonly string[];
+                getIdsByLevel?: (levelId: string) => readonly string[];
                 getByLevel?: (levelId: string) => Array<{ id: string }>;
                 getAll?: () => Array<{ id: string; levelId?: string }>;
             } | undefined;
@@ -183,7 +202,9 @@ function makeScopeResolver(
                 return { error: `I can't enumerate ${kind}s here — the ${kind} store isn't available.` };
             }
             if (scope.kind === 'all') {
-                const ids = (store.getAll?.() ?? []).map((e) => e.id);
+                const ids = typeof store.getAllIds === 'function'
+                    ? [...store.getAllIds()]
+                    : (store.getAll?.() ?? []).map((e) => e.id);
                 return { ids, kindCounts: count(ids, kind), skipped: [], diagnostics: [] };
             }
             const level = findLevel(scope.levelQuery, levels);
@@ -195,9 +216,11 @@ function makeScopeResolver(
                         : `No level called "${scope.levelQuery}" — the levels here are: ${names}.`,
                 };
             }
-            const ids = typeof store.getByLevel === 'function'
-                ? store.getByLevel(level.id).map((e) => e.id)
-                : (store.getAll?.() ?? []).filter((e) => e.levelId === level.id).map((e) => e.id);
+            const ids = typeof store.getIdsByLevel === 'function'
+                ? [...store.getIdsByLevel(level.id)]
+                : typeof store.getByLevel === 'function'
+                    ? store.getByLevel(level.id).map((e) => e.id)
+                    : (store.getAll?.() ?? []).filter((e) => e.levelId === level.id).map((e) => e.id);
             return {
                 ids,
                 kindCounts: count(ids, kind),
@@ -300,6 +323,228 @@ function makeScopeResolver(
         // The selection scope arrives with its U3 consumer.
         return { error: `That scope isn't wired into chat yet.` };
     };
+
+    // ── RAC U8.2 — the FILTER arm ────────────────────────────────────────────
+    return (scope) => {
+        if (scope.kind !== 'filter') return resolveBase(scope);
+        const base = resolveBase(scope.base);
+        if (isScopeError(base)) return base;
+        return applyFilters(base, scope, typeName);
+    };
+}
+
+// ─── RAC U8.2 — the filter/spatial resolution service ────────────────────────
+
+/** A stored record, seen as the loose bag the accessors probe. */
+type RecordLike = Record<string, unknown> & { id?: unknown };
+
+function num(v: unknown): number | null {
+    return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * Property → the ONE honest way to read it off a stored record, per kind.
+ *
+ * Every entry is either a field that genuinely exists on the record (see
+ * WallData / WindowData / DoorData in geometry-wall, RoomData in
+ * room-topology) or a DERIVED value with a stated formula. A kind/property
+ * pair that has no honest reading returns null, and the caller reports it as
+ * a SKIP with a reason — never as 0, because "no recorded area" and "an area
+ * of zero" are not the same fact (§CONTEXT-DATA-HONESTY).
+ */
+const PROPERTY_ACCESSORS: Readonly<
+    Record<FilterProperty, (rec: RecordLike, kind: string) => number | null>
+> = {
+    // Openings have no stored area — width × height is the opening's clear
+    // area, which is what "a window larger than 2 m²" means to an architect.
+    // Rooms carry a computed net floor area (shoelace on the boundary).
+    area: (rec, kind) => {
+        if (kind === 'room') {
+            const computed = rec['computed'] as { area?: unknown } | undefined;
+            return num(computed?.area) ?? num(rec['area']);
+        }
+        const w = num(rec['width']);
+        const h = num(rec['height']);
+        return w !== null && h !== null ? w * h : num(rec['area']);
+    },
+    width: (rec) => num(rec['width']),
+    height: (rec, kind) => {
+        if (kind === 'room') {
+            const boundary = rec['boundary'] as { height?: unknown } | undefined;
+            return num(boundary?.height) ?? num(rec['height']);
+        }
+        return num(rec['height']);
+    },
+    thickness: (rec) => num(rec['thickness']),
+    // Walls store endpoints, not a length — the distance IS the length.
+    length: (rec) => {
+        const line = rec['baseLine'];
+        if (!Array.isArray(line) || line.length < 2) return null;
+        const a = line[0] as { x?: unknown; z?: unknown };
+        const b = line[1] as { x?: unknown; z?: unknown };
+        const ax = num(a?.x); const az = num(a?.z);
+        const bx = num(b?.x); const bz = num(b?.z);
+        if (ax === null || az === null || bx === null || bz === null) return null;
+        return Math.hypot(bx - ax, bz - az);
+    },
+    sillHeight: (rec) => num(rec['sillHeight']),
+};
+
+/** The name a refusal quotes for the extremum holder — the record's own name,
+ *  or its system type's catalogue name. Null when the record offers neither;
+ *  a label is never invented. */
+function recordLabel(
+    rec: RecordLike,
+    kind: string,
+    typeName: (kind: string, ref: string) => string | null,
+): string | null {
+    const systemTypeId = rec['systemTypeId'];
+    if (typeof systemTypeId === 'string' && systemTypeId.length > 0) {
+        const named = typeName(kind, systemTypeId);
+        if (named !== null) return named;
+    }
+    const name = rec['name'];
+    return typeof name === 'string' && name.length > 0 ? name : null;
+}
+
+/** One record read by id — the ids-only path's counterpart. `getById` on the
+ *  geometry stores clones ONE record, which is the smallest read that can
+ *  answer "how thick is it?"; a `getAll()` walk would clone the project. */
+function readRecord(store: unknown, id: string): RecordLike | null {
+    const s = store as {
+        getById?: (id: string) => unknown;
+        get?: (id: string) => unknown;
+    } | undefined;
+    try {
+        const rec = s?.getById?.(id) ?? s?.get?.(id);
+        return rec !== undefined && rec !== null ? (rec as RecordLike) : null;
+    } catch {
+        return null;
+    }
+}
+
+function passes(value: number, f: PropertyFilter): boolean {
+    switch (f.op) {
+        case 'gt': return value > f.value;
+        case 'lt': return value < f.value;
+        case 'gte': return value >= f.value;
+        case 'lte': return value <= f.value;
+        // A stored double never equals a typed decimal exactly; the tolerance
+        // is half a millimetre, the same EPS the level-clash check uses.
+        case 'eq': return Math.abs(value - f.value) < 0.0005;
+        case 'between': return value >= f.value && value <= (f.upper ?? f.value);
+    }
+}
+
+/**
+ * Evaluate the predicates over a resolved base scope.
+ *
+ * HONESTY, three ways:
+ *  • a record the store cannot produce is SKIPPED ("2 walls could not be read");
+ *  • a record missing the property is SKIPPED with the property named ("3
+ *    windows have no recorded area") — never counted as 0;
+ *  • the extrema over the records that DID carry the property are returned in
+ *    `filterStats`, so a zero-match refusal quotes the real model instead of
+ *    only saying "no" (U8.3).
+ */
+function applyFilters(
+    base: ScopeResolution,
+    scope: FilterScopeDescriptor,
+    typeName: (kind: string, ref: string) => string | null,
+): ScopeResult {
+    const kind = scope.elementKind;
+    const store = storeRegistry.getStoreForType(kind);
+    if (store === undefined) {
+        return { error: `I can't inspect ${kind}s here — the ${kind} store isn't available.` };
+    }
+    const propertyFilters = scope.filters.filter(
+        (f): f is PropertyFilter => f.kind === 'property',
+    );
+    const typeFilters = scope.filters.filter(
+        (f): f is TypeFilter => f.kind === 'type',
+    );
+    const stats = new Map<FilterProperty, {
+        considered: number; missing: number;
+        max: number | null; min: number | null;
+        maxLabel: string | null; minLabel: string | null;
+    }>();
+    for (const f of propertyFilters) {
+        if (!stats.has(f.property)) {
+            stats.set(f.property, {
+                considered: 0, missing: 0, max: null, min: null, maxLabel: null, minLabel: null,
+            });
+        }
+    }
+    const missingProperty = new Map<FilterProperty, number>();
+    let unreadable = 0;
+    let typeMismatch = 0;
+    const ids: string[] = [];
+
+    for (const id of base.ids) {
+        const rec = readRecord(store, id);
+        if (rec === null) { unreadable += 1; continue; }
+        // Type predicate first — it is exact, and a type mismatch is not a
+        // measurement, so it must not pollute the property extrema.
+        if (typeFilters.length > 0) {
+            const st = rec['systemTypeId'];
+            const hit = typeFilters.every((f) => st === f.typeId);
+            if (!hit) { typeMismatch += 1; continue; }
+        }
+        let ok = true;
+        for (const f of propertyFilters) {
+            const value = PROPERTY_ACCESSORS[f.property](rec, kind);
+            if (value === null) {
+                missingProperty.set(f.property, (missingProperty.get(f.property) ?? 0) + 1);
+                ok = false;
+                continue;
+            }
+            const stat = stats.get(f.property)!;
+            stat.considered += 1;
+            const label = recordLabel(rec, kind, typeName);
+            if (stat.max === null || value > stat.max) { stat.max = value; stat.maxLabel = label; }
+            if (stat.min === null || value < stat.min) { stat.min = value; stat.minLabel = label; }
+            if (!passes(value, f)) ok = false;
+        }
+        if (ok) ids.push(id);
+    }
+
+    const skipped: ScopeSkip[] = [...base.skipped];
+    if (unreadable > 0) {
+        skipped.push({
+            kind, count: unreadable,
+            reason: `could not be read from the ${kind} store`,
+        });
+    }
+    if (typeMismatch > 0) {
+        skipped.push({
+            kind, count: typeMismatch,
+            reason: `are not "${typeFilters.map((f) => f.label).join('" / "')}"`,
+        });
+    }
+    for (const [property, count] of missingProperty) {
+        const stat = stats.get(property)!;
+        stat.missing = count;
+        skipped.push({
+            kind, count,
+            reason: `no recorded ${FILTER_PROPERTY_NOUN[property]}`,
+        });
+    }
+    const filterStats: FilterStat[] = [...stats.entries()].map(([property, s]) => ({
+        property,
+        considered: s.considered,
+        missing: s.missing,
+        max: s.max,
+        min: s.min,
+        maxLabel: s.maxLabel,
+        minLabel: s.minLabel,
+    }));
+    return {
+        ids,
+        kindCounts: ids.length > 0 ? { [kind]: ids.length } : {},
+        skipped,
+        diagnostics: base.diagnostics,
+        filterStats,
+    };
 }
 
 /** Monotonic suffix for minted level ids — see `mintId` below. */
@@ -377,8 +622,18 @@ async function buildContext(): Promise<ResolverContext> {
         // levels inside the same millisecond ("add a level at 9 m, then add one
         // at 12 m") and `Date.now()` alone would hand both the SAME id.
         mintId: () => `L${Date.now()}-${++mintSeq}`,
-        // ADR-0315 U3.2 — the injected scope resolver (level/all/ids today).
-        resolveScope: makeScopeResolver(levels),
+        // ADR-0315 U3.2 — the injected scope resolver (all five base arms plus
+        // the RAC U8 filter arm). The type NAMER it takes is the SAME
+        // catalogue lookup the value stage uses (`resolveWallSystemTypeRef` &
+        // co, id-first), so the name a refusal quotes for the extremum holder
+        // is the name the project actually stores — never a second table.
+        resolveScope: makeScopeResolver(levels, (kind, ref) => {
+            const cat = kind === 'window' ? windowCatalogue
+                : kind === 'door' ? doorCatalogue
+                    : kind === 'wall' ? catalogue
+                        : null;
+            return cat?.resolve(ref)?.name ?? null;
+        }),
     };
 }
 
