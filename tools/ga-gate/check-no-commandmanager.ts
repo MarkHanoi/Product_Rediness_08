@@ -93,6 +93,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve }                        from 'node:path';
 import { scanFiles, scanFilesStripped, distinctLines, type Match } from './lib/sourceScan.js';
+import { blankStringLiterals }                     from './lib/writeRouteScan.js';
 
 const REPO_ROOT      = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const BASELINE_FILE  = resolve(REPO_ROOT, '.ga-gate/baselines/no-commandmanager.json');
@@ -146,7 +147,15 @@ function codeLines(pattern: RegExp, label: string, exclude?: (r: string) => bool
         exclude, exts: EXTS, label: `no-commandmanager/${label}`,
     });
     SCANNED = res.filesScanned;
-    return distinctLines(res.matches);
+    // §FIX-GATE-COUNTS-STRINGS (L-835) — scanFilesStripped removes COMMENTS but
+    // deliberately preserves string bodies. Drop any match that survives only
+    // inside a string literal: a console.error REPORTING that the legacy path
+    // failed is not a USE of the legacy path. Re-tested per line, so a match is
+    // kept only if it still matches once string bodies are blanked.
+    const inCodeOnly = distinctLines(res.matches).filter(
+        m => new RegExp(pattern.source, pattern.flags.replace('g', '')).test(blankStringLiterals(m.text)),
+    );
+    return inCodeOnly;
 }
 
 /** Every matching line, comments INCLUDED. Reported for context, never enforced. */
@@ -158,7 +167,32 @@ function mentionLines(pattern: RegExp, label: string, exclude?: (r: string) => b
     return distinctLines(res.matches).length;
 }
 
-const LITERAL_PATTERN = /commandManager\.execute/;
+/**
+ * §FIX-P6-GATE-PRECISION (L-835, 2026-08-11) — two over-matches, both corrected.
+ * Neither is a relaxation: the ceiling stays 0 and the gate still FAILS. They
+ * make the number MEAN what the gate says it means.
+ *
+ *  1. The trailing `\b` excludes `commandManager.executeChunked(...)`.
+ *     `executeChunked` is a DIFFERENT method — declared only on
+ *     CommandManagerImpl (packages/command-registry/src/CommandManagerImpl.ts
+ *     :316), it awaits the command's own chunked implementation and yields a
+ *     frame between batches so a 1,300-element project open does not block the
+ *     main thread. THE BUS HAS NO CHUNKED-DISPATCH API, so this site is not
+ *     migratable in principle, and counting it against a P6 ceiling asserted a
+ *     violation that has no available fix. Without the `\b`, a regex written for
+ *     `execute` claimed a method whose name merely starts the same way.
+ *
+ *  2. Counting is now done over stripCommentsAndStrings, so the gate no longer
+ *     counts its own subject appearing inside a DIAGNOSTIC ABOUT it:
+ *         console.error('…: commandManager.execute failed:', err)
+ *         console.warn('… commandManager.execute not available — skipping …')
+ *     Both are the codebase REPORTING that the legacy path failed. Counting the
+ *     report as a use is the same defect as counting a comment.
+ *
+ * Honest reading: 14 -> 11. The remaining 11 were each verified by hand and are
+ * documented in ISSUE-LOG §8; every one of them regresses if migrated today.
+ */
+const LITERAL_PATTERN = /commandManager\.execute\b/;
 const WINDOW_PATTERN  = /cmdMgr\.execute\b|window\.commandManager\b/;
 const CM_EXEC_PATTERN = /\bcm\.execute\b/;
 

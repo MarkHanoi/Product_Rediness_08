@@ -219,6 +219,55 @@ export function stripComments(source: string): string {
   return out;
 }
 
+/**
+ * §FIX-GATE-COUNTS-STRINGS (L-835, 2026-08-11) — blank the BODY of every string
+ * literal, keeping the quotes and the line/column geometry intact.
+ *
+ * ─── Why this exists, and why it is NOT a weakening ──────────────────────────
+ * `stripComments` above deliberately PRESERVES string contents — correct for a
+ * security gate, where a route path lives inside a string. But a gate asserting
+ * "this CALL does not happen" must not count the call's own name appearing in a
+ * diagnostic ABOUT it. `check-no-commandmanager` counted two sites that are
+ * literally error messages:
+ *
+ *     console.error('[EngineBootstrap] …: commandManager.execute failed:', err);
+ *     console.warn('[floor-layout] commandManager.execute not available — …');
+ *
+ * Both are the codebase REPORTING that the legacy path failed. Counting them as
+ * uses of the legacy path is the same defect as counting a comment: the gate
+ * measured prose, not behaviour. This is the string-literal twin of the
+ * comment-stripping fix, and it is a PRECISION correction — the ceiling stays at
+ * 0 and the gate still FAILS, at the honest number.
+ *
+ * ─── Limitation, stated rather than discovered later ─────────────────────────
+ * Applied per line, a multi-line template literal is only blanked on the lines
+ * this sees. Every current caller matches single-line call expressions. A gate
+ * needing multi-line fidelity must blank the whole source before splitting.
+ */
+export function blankStringLiterals(source: string): string {
+  let out = '';
+  let quote: string | null = null;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i]!;
+    const prev = source[i - 1];
+    if (quote) {
+      // Keep the closing quote; replace every other character with a space so
+      // that column offsets — and therefore reported line geometry — survive.
+      if (ch === quote && prev !== '\\') { out += ch; quote = null; }
+      else out += ch === '\n' ? '\n' : ' ';
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; out += ch; continue; }
+    out += ch;
+  }
+  return out;
+}
+
+/** Comments removed AND string bodies blanked — "code, excluding all prose". */
+export function stripCommentsAndStrings(source: string): string {
+  return blankStringLiterals(stripComments(source));
+}
+
 // ── The scan ─────────────────────────────────────────────────────────────────
 
 const REGISTRATION_RE = /\bapp\.(post|put|patch|delete)\s*\(/g;
