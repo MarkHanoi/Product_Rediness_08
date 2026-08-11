@@ -49,9 +49,50 @@
  *   E.5.8 (final cleanup)         :  CM_EXEC = 0
  *   WINDOW target                 :  0  (2 context-read-only refs — migrate when stores typed)
  */
-import { execSync }                                from 'node:child_process';
+/**
+ * ─── §FIX-GATE-NEEDS-RIPGREP (L-811), 2026-08-11 ────────────────────────
+ * All three counters used to shell out to `rg ... | grep -v "//" | wc -l` under
+ * `shell: '/bin/bash'` — four binaries absent from a stock Windows box. Measured
+ * BEFORE this port:
+ *
+ *     Error: spawnSync /bin/bash ENOENT   → exit 1
+ *
+ * Rewritten on `lib/sourceScan.ts` (Node only, zero external binaries).
+ *
+ * ─── The `grep -v` step was never a comment filter ──────────────────────
+ * The rg pipeline dropped every line CONTAINING a double slash anywhere. That is
+ * wrong in both directions at once:
+ *
+ *   • it DROPPED real calls carrying a trailing comment or a URL
+ *     (`cm.execute(cmd);  // TODO migrate` — a genuine call site, uncounted)
+ *   • it KEPT JSDoc body lines, which start with a star and contain no double
+ *     slash at all (` * Fix: replace commandManager.execute() with ...` — prose,
+ *     counted as a call)
+ *
+ * The port uses the repo's real comment lexer via `scanFilesStripped`, which is the
+ * faithful implementation of what the `grep -v` step was REACHING for. Both numbers
+ * are printed on every run so the difference is never invisible again. Measured
+ * 2026-08-11 — literal 47 raw / 14 in code; window 96 / 62; cm.execute 67 / 62.
+ *
+ * ─── Counting unit ─────────────────────────────────────────────
+ * The `wc -l` step counted matching LINES. `distinctLines()` reproduces that unit.
+ *
+ * ─── Scope: RESTATED, NOT NARROWED ──────────────────────────────
+ * All three counters scanned `apps/editor/src` with `--type ts`; the port walks that
+ * same single directory with the same four extensions. Counters B and C excluded
+ * initBusHandlers.ts (the authorised legacy bridge) and globals.d.ts (a declaration
+ * file); both exclusions are reproduced exactly in `bridgeExcluded()` below.
+ *
+ * NOTE — a DIFFERENT gate, `scripts/check/ci-check-no-commandmanager.mjs`
+ * (`npm run check:commandmanager`), scans `packages/` and `plugins/`. It is not a
+ * duplicate and does not cover this gate's subject: apps/editor/src is scanned by
+ * THIS gate alone.
+ *
+ * Exit: 0 = all three at/under ceiling and baseline · 1 = any over · 2 = misconfigured
+ */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve }                        from 'node:path';
+import { scanFiles, scanFilesStripped, distinctLines, type Match } from './lib/sourceScan.js';
 
 const REPO_ROOT      = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const BASELINE_FILE  = resolve(REPO_ROOT, '.ga-gate/baselines/no-commandmanager.json');
@@ -77,45 +118,56 @@ const WINDOW_CEILING = parseInt(process.env.CMDMGR_WINDOW_CEILING ?? '2', 10);
  */
 const CM_EXEC_CEILING = parseInt(process.env.CMDMGR_CM_EXEC_CEILING ?? '49', 10);
 
-function execCount(cmd: string): number {
-    let out: string;
-    try {
-        out = execSync(cmd, { encoding: 'utf8', cwd: REPO_ROOT, shell: '/bin/bash' });
-    } catch (err: unknown) {
-        const e = err as { status?: number };
-        if (e.status === 1) return 0;
-        throw err;
+/** The extensions rg's `--type ts` covered. Never narrower than the rg version. */
+const EXTS = ['.ts', '.tsx', '.mts', '.cts'] as const;
+
+const DIRS = ['apps/editor/src'];
+
+/**
+ * ⚠ THE HONESTY FLOOR. `apps/editor/src` holds 1,043 TS files today. 700 catches a
+ * bad cwd or a vanished subject tree without tripping on ordinary churn. Below it
+ * the scan exits 2 — NOT 0 and NOT 1. Load-bearing here: counter A's passing value
+ * is 0, so "walked nothing" and "fully migrated" are otherwise identical readings.
+ */
+const MIN_FILES = 700;
+
+/** Reproduces both negated globs counters B and C passed to rg. */
+function bridgeExcluded(rel: string): boolean {
+    return rel.endsWith('/initBusHandlers.ts') || rel === 'initBusHandlers.ts'
+        || rel.endsWith('/globals.d.ts')       || rel === 'globals.d.ts';
+}
+
+let SCANNED = 0;
+
+/** Code-only matching lines — the number every ceiling is evaluated against. */
+function codeLines(pattern: RegExp, label: string, exclude?: (r: string) => boolean): Match[] {
+    const res = scanFilesStripped({
+        root: REPO_ROOT, dirs: DIRS, pattern, minFiles: MIN_FILES,
+        exclude, exts: EXTS, label: `no-commandmanager/${label}`,
+    });
+    SCANNED = res.filesScanned;
+    return distinctLines(res.matches);
+}
+
+/** Every matching line, comments INCLUDED. Reported for context, never enforced. */
+function mentionLines(pattern: RegExp, label: string, exclude?: (r: string) => boolean): number {
+    const res = scanFiles({
+        root: REPO_ROOT, dirs: DIRS, pattern, minFiles: MIN_FILES,
+        exclude, exts: EXTS, label: `no-commandmanager/${label}-mentions`,
+    });
+    return distinctLines(res.matches).length;
+}
+
+const LITERAL_PATTERN = /commandManager\.execute/;
+const WINDOW_PATTERN  = /cmdMgr\.execute\b|window\.commandManager\b/;
+const CM_EXEC_PATTERN = /\bcm\.execute\b/;
+
+/** Print every offending site — the rg version printed only a bare count. */
+function listSites(matches: readonly Match[], limit = 40): void {
+    for (const m of matches.slice(0, limit)) {
+        console.error(`      ${m.file}:${m.line}  ${m.text.slice(0, 120)}`);
     }
-    return parseInt(out.trim() || '0', 10);
-}
-
-/** A) commandManager.execute() literal — hard-fail ceiling 0. */
-function countLiteral(): number {
-    return execCount(
-        `rg "commandManager\\.execute" apps/editor/src --type ts | grep -v "//" | wc -l`,
-    );
-}
-
-/**
- * B) cmdMgr.execute + window.commandManager — the original alias patterns.
- * Excludes initBusHandlers.ts (authorised bridge) and the globals.d.ts declaration.
- */
-function countWindow(): number {
-    return execCount(
-        `rg "cmdMgr\\.execute\\b|window\\.commandManager\\b" apps/editor/src --type ts` +
-        ` --glob '!**/initBusHandlers.ts' --glob '!**/globals.d.ts' | grep -v "//" | wc -l`,
-    );
-}
-
-/**
- * C) cm.execute() — the most common alias pattern that previously escaped detection.
- * Excludes initBusHandlers.ts (authorised legacy bridge) and globals.d.ts.
- */
-function countCmExecute(): number {
-    return execCount(
-        `rg "\\bcm\\.execute\\b" apps/editor/src --type ts` +
-        ` --glob '!**/initBusHandlers.ts' --glob '!**/globals.d.ts' | grep -v "//" | wc -l`,
-    );
+    if (matches.length > limit) console.error(`      … and ${matches.length - limit} more.`);
 }
 
 interface Baseline {
@@ -185,11 +237,27 @@ function checkCounter(
 }
 
 function main(): number {
-    const literal   = countLiteral();
-    const window_   = countWindow();
-    const cmExecute = countCmExecute();
-    const baseline  = loadBaseline();
+    const literalM   = codeLines(LITERAL_PATTERN, 'literal');
+    const windowM    = codeLines(WINDOW_PATTERN,  'window',     bridgeExcluded);
+    const cmExecuteM = codeLines(CM_EXEC_PATTERN, 'cm.execute', bridgeExcluded);
+    const literal    = literalM.length;
+    const window_    = windowM.length;
+    const cmExecute  = cmExecuteM.length;
+    const baseline   = loadBaseline();
     let failed = false;
+
+    // State the subject size and BOTH units. A gate that reports only its verdict
+    // cannot be distinguished from a gate that walked nothing.
+    console.log(
+        `[no-commandmanager] files scanned: ${SCANNED} (floor ${MIN_FILES}) · ` +
+        `dir: apps/editor/src · unit: matching lines`,
+    );
+    console.log(
+        `[no-commandmanager] code-only (ENFORCED) literal=${literal} window=${window_} cm.execute=${cmExecute}` +
+        `  ·  incl. comments literal=${mentionLines(LITERAL_PATTERN, 'literal')}` +
+        ` window=${mentionLines(WINDOW_PATTERN, 'window', bridgeExcluded)}` +
+        ` cm.execute=${mentionLines(CM_EXEC_PATTERN, 'cm.execute', bridgeExcluded)}`,
+    );
 
     // A) Literal — hard-fail
     if (literal > LITERAL_CEILING) {
@@ -201,6 +269,7 @@ function main(): number {
             '  Fix: migrate to runtime.bus.executeCommand() per' +
             ' docs/03_PRYZM3/04-PLAN-FORWARD/54-COMPLETE-LEGACY-ELIMINATION-PLAN.md §5',
         );
+        listSites(literalM);
         failed = true;
     } else {
         console.log(`[no-commandmanager] OK (literal): ${literal} / ${LITERAL_CEILING}`);
@@ -208,6 +277,7 @@ function main(): number {
 
     // B) Window alias ratchet
     const windowFailed = checkCounter('window', window_, WINDOW_CEILING, baseline.windowCount, failed);
+    if (windowFailed) listSites(windowM);
     if (!windowFailed) {
         if (window_ < baseline.windowCount) {
             if (NO_RATCHET) {
@@ -229,6 +299,7 @@ function main(): number {
 
     // C) cm.execute ratchet
     const cmFailed = checkCounter('cm.execute', cmExecute, CM_EXEC_CEILING, baseline.cmExecuteCount, failed);
+    if (cmFailed) listSites(cmExecuteM);
     if (!cmFailed) {
         if (cmExecute < baseline.cmExecuteCount) {
             if (NO_RATCHET) {

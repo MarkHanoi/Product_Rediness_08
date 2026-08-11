@@ -17,29 +17,84 @@
  *
  * NOTE: Apps-tier scan (apps/editor/src/) is separate — handled by a higher-level check.
  * This gate covers packages/ only (the tier most vulnerable to regressions).
+ *
+ * ─── §FIX-GATE-NEEDS-RIPGREP (L-811), 2026-08-11 ─────────────────────────────
+ * This gate used to shell out to:
+ *
+ *     rg -c "…" packages --type ts | awk -F: '{s+=$2} END {print s+0}'
+ *     execSync(…, { shell: '/bin/bash' })
+ *
+ * THREE separate binaries that a stock Windows box does not have: `rg`, `awk`,
+ * and `/bin/bash`. Measured BEFORE this port on the founder's Windows 11 machine:
+ *
+ *     Error: spawnSync /bin/bash ENOENT   → exit 1
+ *
+ * `count()` caught only `status === 1` (rg's "no matches") and rethrew otherwise —
+ * but note how close this came to the WORSE failure: had the spawn produced status
+ * 1 instead of a null status, this gate would have returned **0** and reported
+ * "OK: 0 / 340", a perfect green from a scan that read nothing. That is exactly
+ * what happened to check-motion-gate-coverage in this same wave.
+ *
+ * Rewritten on `lib/sourceScan.ts` (Node only, zero external binaries).
+ *
+ * ─── Comment stripping: REQUIRED here ────────────────────────────────────────
+ * `new CustomEvent` is a name this repo's migration JSDoc repeats constantly —
+ * including in this very file's header. The rg version counted those mentions as
+ * dispatch sites. The assertion is about DISPATCHES, i.e. code, so comments are
+ * stripped via `scanFilesStripped`. Measured delta on the first real run:
+ * 143 matching lines raw → **128** with comments removed. The 15-line difference
+ * was pure documentation.
+ *
+ * ─── Counting unit ───────────────────────────────────────────────────────────
+ * `rg -c` counts matching LINES, not occurrences, and awk summed those per-file
+ * line counts. `distinctLines()` reproduces that unit exactly, so the number
+ * remains comparable to the recorded baseline rather than silently switching to
+ * an occurrence count (which would read 251, not 128, and trip the ratchet).
+ *
+ * ─── Scope: RESTATED, NOT NARROWED ───────────────────────────────────────────
+ * rg scanned `packages` with `--type ts`. The port walks the same single `packages`
+ * directory with the same four extensions rg's `ts` type covers
+ * (.ts/.tsx/.mts/.cts). rg additionally honoured .gitignore, skipping node_modules
+ * and dist; `DEFAULT_SKIP_DIRS` skips the same. No tree that rg read is unread here.
+ *
+ * Exit: 0 = at/under ceiling and baseline · 1 = over either · 2 = scan misconfigured
  */
-import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { scanFilesStripped, distinctLines, type Match } from './lib/sourceScan.js';
 
 const REPO_ROOT     = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const BASELINE_FILE = resolve(REPO_ROOT, '.ga-gate/baselines/custom-event-packages.json');
 const NO_RATCHET    = process.argv.includes('--no-ratchet');
 const CEILING       = parseInt(process.env.CUSTOMEVENT_CEILING ?? '340', 10);
 
-function count(): number {
-    let out: string;
-    try {
-        out = execSync(
-            `rg -c "window\\.dispatchEvent|new CustomEvent" packages --type ts | awk -F: '{s+=$2} END {print s+0}'`,
-            { encoding: 'utf8', cwd: REPO_ROOT, shell: '/bin/bash' },
-        );
-    } catch (err: unknown) {
-        const e = err as { status?: number };
-        if (e.status === 1) return 0;
-        throw err;
-    }
-    return parseInt(out.trim() || '0', 10);
+/** The extensions rg's `--type ts` covered. Never narrower than the rg version. */
+const EXTS = ['.ts', '.tsx', '.mts', '.cts'] as const;
+
+/**
+ * ⚠ THE HONESTY FLOOR. `packages/` holds 3,711 TS files today. 2,500 catches a bad
+ * cwd, a broken GA_GATE_REPO_ROOT or a vanished subject tree without being tripped
+ * by ordinary churn. Below it `scanFilesStripped` exits 2 — NOT 0 and NOT 1. This
+ * is a MISCONFIGURATION detector, never a coverage target: do not raise it to make
+ * the gate green.
+ */
+const MIN_FILES = 2500;
+
+const PATTERN = /window\.dispatchEvent|new CustomEvent/;
+
+let SCANNED = 0;
+
+function findMatches(): Match[] {
+    const res = scanFilesStripped({
+        root: REPO_ROOT,
+        dirs: ['packages'],
+        pattern: PATTERN,
+        minFiles: MIN_FILES,
+        exts: EXTS,
+        label: 'custom-event-packages',
+    });
+    SCANNED = res.filesScanned;
+    return distinctLines(res.matches);
 }
 
 function loadBaseline(): number {
@@ -66,9 +121,31 @@ function writeBaseline(n: number): void {
     );
 }
 
+/**
+ * Print every offending site. The rg version printed a bare count and told the
+ * reader to "run this rg yourself" — useless advice on a machine without rg, which
+ * is every machine this gate actually failed on.
+ */
+function listSites(matches: readonly Match[], limit = 40): void {
+    for (const m of matches.slice(0, limit)) {
+        console.error(`      ${m.file}:${m.line}  ${m.text.slice(0, 120)}`);
+    }
+    if (matches.length > limit) {
+        console.error(`      … and ${matches.length - limit} more.`);
+    }
+}
+
 function main(): number {
-    const current  = count();
+    const matches  = findMatches();
+    const current  = matches.length;
     const baseline = loadBaseline();
+
+    // State the subject size, not just the verdict — a gate that reports only its
+    // verdict cannot be distinguished from a gate that walked nothing.
+    console.log(
+        `[custom-event-packages] files scanned: ${SCANNED} (floor ${MIN_FILES}) · dir: packages · ` +
+        `comments stripped · unit: matching lines`,
+    );
 
     if (current > CEILING) {
         console.error(
@@ -80,6 +157,7 @@ function main(): number {
             'runtime.events.emit() (Phase F.events). ' +
             'See docs/03_PRYZM3/04-PLAN-FORWARD/54-COMPLETE-LEGACY-ELIMINATION-PLAN.md §5',
         );
+        listSites(matches);
         return 1;
     }
 
@@ -88,6 +166,7 @@ function main(): number {
             `[custom-event-packages] FAIL (ratchet): ${current} > baseline ${baseline}.`,
         );
         console.error(`  ${current - baseline} new CustomEvent dispatch(es) introduced in packages/.`);
+        listSites(matches);
         return 1;
     }
 

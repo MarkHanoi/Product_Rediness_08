@@ -28,11 +28,75 @@
  *   pnpm ga-gate --check motion-gate-coverage
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { execSync } from 'node:child_process';
+/**
+ * ─── §FIX-GATE-NEEDS-RIPGREP (L-811), 2026-08-11 ─────────────────────────────
+ * ⚠ THIS GATE WAS GREEN AND BLIND. It is the worst case in the L-811 family, and
+ * unlike its siblings it did not crash — it CONFIDENTLY ASSERTED A FALSE
+ * ARCHITECTURAL CONCLUSION and exited 0.
+ *
+ * `listViewFiles()` shelled out to `rg -l "" <candidate> --type ts` and read the
+ * exit code as its only signal:
+ *
+ *     status 1 → "empty dir"            → return []
+ *     status 2 → "path does not exist"  → try the next candidate
+ *
+ * Ripgrep is not a declared dependency and is absent from a stock Windows box. On
+ * such a machine cmd.exe answers:
+ *
+ *     'rg' is not recognized as an internal or external command   → status 1
+ *
+ * — which the gate read as "the directory is empty". All four candidates fell
+ * through, `files.length === 0`, and the gate printed:
+ *
+ *     [motion-gate-coverage] OK: R11 structurally retired — no Canvas2D view manager
+ *     files found at any candidate path. Gate passes.                      exit 0
+ *
+ * Measured on the founder's machine the same day: `apps/editor/src/engine/views`
+ * EXISTS and holds **83 TypeScript files**. The gate was not vacuously true; it was
+ * false. "MISSING BINARY" and "R11 STRUCTURALLY RETIRED" had become the same
+ * observable value — §CONTEXT-DATA-HONESTY applied to CI itself, and this gate then
+ * went further and published a structural claim off the back of it.
+ *
+ * ─── The fix: ask the filesystem, and put a floor under the answer ───────────
+ * Candidate existence is now decided by `existsSync`, which cannot be confused by a
+ * subprocess exit code, and the chosen directory must yield at least MIN_VIEW_FILES
+ * files or the gate exits 2 (MISCONFIGURED). "R11 is retired" remains a legitimate
+ * exit-0 outcome, but it must now be a VERIFIED filesystem fact — no candidate path
+ * exists at all — rather than an inference from a failed command.
+ *
+ * ─── Scope: RESTATED, NOT NARROWED — and an unscanned sibling ────────────────
+ * The rg version took the FIRST candidate that existed and ignored the rest; that
+ * is preserved exactly. Note the consequence, which is pre-existing and NOT changed
+ * here: `apps/editor/src/ui/views` also exists (4 files) and is never scanned,
+ * because `apps/editor/src/engine/views` wins first. Widening to both would change
+ * what this gate measures, which is a founder decision rather than a silent edit
+ * inside a port. The skipped sibling is reported on every run instead.
+ *
+ * Exit: 0 = every camera view has the motion gate (or no candidate path exists at
+ *       all) · 1 = a camera view is missing beginMotion/endMotion · 2 = the chosen
+ *       subject directory is implausibly small, i.e. the scan is misconfigured
+ */
+
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { walk, relPath, stripCommentsToLines } from './lib/sourceScan.js';
 
 const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
+
+/** The extensions rg's `--type ts` covered. Never narrower than the rg version. */
+const EXTS = ['.ts', '.tsx', '.mts', '.cts'] as const;
+
+/**
+ * ⚠ THE HONESTY FLOOR, applied to the CHOSEN candidate directory.
+ * `apps/editor/src/engine/views` holds 83 files today. 10 is low enough to survive
+ * a genuine shrink of this subsystem, high enough to catch a half-moved directory
+ * or a bad cwd. Below it the gate exits 2 — MISCONFIGURED, which is a different
+ * fact from both "no violations" (0) and "violations found" (1).
+ *
+ * This floor deliberately does NOT apply when no candidate exists at all: that case
+ * is R11's real, verified retirement, and is handled separately.
+ */
+const MIN_VIEW_FILES = 10;
 
 const GESTURE_PATTERN =
   /addEventListener\s*\(\s*['"](?:wheel|mousedown|mouseup|mousemove|touchstart|touchmove|touchend)['"]/;
@@ -68,26 +132,37 @@ const VIEW_GLOB_CANDIDATES = [
   'src/core/views',
 ];
 
+/** The candidate that was chosen, and the ones skipped after it. For reporting. */
+let CHOSEN: string | null = null;
+const SKIPPED_SIBLINGS: string[] = [];
+
+/**
+ * Ask the FILESYSTEM which candidate path exists — never a subprocess exit code.
+ * Returns repo-relative, forward-slashed paths, or [] when no candidate exists.
+ */
 function listViewFiles(): string[] {
-  for (const candidate of VIEW_GLOB_CANDIDATES) {
-    let out: string;
-    try {
-      out = execSync(
-        `rg -l "" ${candidate} --type ts`,
-        { encoding: 'utf8', cwd: REPO_ROOT },
-      );
-      return out.trim().split('\n').filter(Boolean);
-    } catch (err: unknown) {
-      const e = err as { status?: number; stderr?: string };
-      // rg exit 1 → no matches in existing dir (empty dir)
-      if (e.status === 1) return [];
-      // rg exit 2 → path does not exist; try next candidate
-      if (e.status === 2) continue;
-      throw err;
-    }
+  const existing = VIEW_GLOB_CANDIDATES.filter((c) => existsSync(join(REPO_ROOT, c)));
+  if (existing.length === 0) return [];
+
+  CHOSEN = existing[0]!;
+  SKIPPED_SIBLINGS.push(...existing.slice(1));
+
+  const files = walk(join(REPO_ROOT, CHOSEN), { exts: EXTS })
+    .map((abs) => relPath(REPO_ROOT, abs));
+
+  if (files.length < MIN_VIEW_FILES) {
+    console.error(
+      `\n[motion-gate-coverage] MISCONFIGURED (exit 2) — candidate '${CHOSEN}' exists but the ` +
+      `walk found only ${files.length} file(s); floor is ${MIN_VIEW_FILES}.\n` +
+      `  Root: ${REPO_ROOT}\n` +
+      `  This is NOT a pass, and it is NOT "R11 retired". A directory that exists but\n` +
+      `  is nearly empty means the subject moved or the root is wrong — exactly the\n` +
+      `  confusion that let this gate report "R11 structurally retired" for months\n` +
+      `  while 83 view files sat unread. Fix the path, do not lower this floor.`,
+    );
+    process.exit(2);
   }
-  // All candidates missing → gate passes (R11 structurally retired or files moved).
-  return [];
+  return files;
 }
 
 interface FileResult {
@@ -97,9 +172,31 @@ interface FileResult {
   motion: boolean;
 }
 
+/**
+ * ⚠ COMMENTS ARE STRIPPED BEFORE ANY OF THE THREE TESTS — and the `motion` test is
+ * why this is not optional.
+ *
+ * `motion` is a COVERAGE test: matching `beginMotion(` marks a file COMPLIANT. Every
+ * other pattern in this wave marks a file GUILTY, where a prose false-positive only
+ * over-reports. Here a prose match EXONERATES. Caught by this gate's own negative
+ * test on 2026-08-11: a synthetic view manager with a wheel handler, `_camTarget`
+ * mutation and NO motion gate was reported as
+ *
+ *     ✓ …/probe.ts   — all have beginMotion() + endMotion() coverage
+ *
+ * purely because its header comment read "this file should call beginMotion() and
+ * endMotion()". A `// TODO: add beginMotion()` in real source would have granted the
+ * same false all-clear. Any file documenting the fix it has not applied yet was
+ * counted as having applied it.
+ *
+ * `stripCommentsToLines` is the repo's single comment lexer (see lib/sourceScan.ts);
+ * the lines are rejoined because these three patterns are whole-file existence
+ * tests, not per-line matches.
+ */
 function analyse(files: string[]): FileResult[] {
   return files.map((f) => {
-    const src = readFileSync(resolve(REPO_ROOT, f), 'utf8');
+    const raw = readFileSync(resolve(REPO_ROOT, f), 'utf8');
+    const src = stripCommentsToLines(raw).join('\n');
     return {
       file: f,
       gesture: GESTURE_PATTERN.test(src),
@@ -112,11 +209,26 @@ function analyse(files: string[]): FileResult[] {
 function main(): number {
   const files = listViewFiles();
   if (files.length === 0) {
-    // R11 is structurally retired: Canvas2D view managers no longer exist at any
-    // candidate path.  packages/input-host/ owns gesture handling (Wave 8+).
-    // Gate passes vacuously — no violations possible when no files exist.
-    console.log('[motion-gate-coverage] OK: R11 structurally retired — no Canvas2D view manager files found at any candidate path. Gate passes.');
+    // R11 structurally retired — and this is now a VERIFIED filesystem fact
+    // (existsSync over every candidate), not an inference from a failed subprocess.
+    console.log(
+      '[motion-gate-coverage] OK: R11 structurally retired — verified via existsSync that ' +
+      `none of the ${VIEW_GLOB_CANDIDATES.length} candidate paths exist:\n  ` +
+      VIEW_GLOB_CANDIDATES.join('\n  '),
+    );
     return 0;
+  }
+
+  // State the subject size, not just the verdict — a gate that reports only its
+  // verdict cannot be distinguished from a gate that walked nothing.
+  console.log(
+    `[motion-gate-coverage] subject: ${CHOSEN} · ${files.length} file(s) (floor ${MIN_VIEW_FILES})`,
+  );
+  if (SKIPPED_SIBLINGS.length > 0) {
+    console.log(
+      `[motion-gate-coverage] NOT scanned (first-candidate-wins, pre-existing): ` +
+      SKIPPED_SIBLINGS.join(', '),
+    );
   }
 
   const results = analyse(files);
@@ -143,7 +255,7 @@ function main(): number {
   }
 
   if (cameraViews.length === 0) {
-    console.log('[motion-gate-coverage] OK: no camera navigation views found in src/core/views/.');
+    console.log(`[motion-gate-coverage] OK: ${files.length} file(s) in ${CHOSEN} scanned; none is a camera navigation view (gesture + camera-state mutation).`);
   } else {
     console.log(
       `[motion-gate-coverage] OK: ${cameraViews.length} camera navigation view(s) — ` +
