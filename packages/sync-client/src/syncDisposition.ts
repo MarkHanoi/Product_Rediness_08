@@ -205,6 +205,19 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',
   },
+  // §W5-3-SEAM (2026-08-11) — authored in the same session that built this table,
+  // and declared not-synced for the SAME structural reason as its four siblings,
+  // not as a convenience. `wall.updateHeightBatch` takes `wallIds: string[] | 'all'`.
+  //
+  // This is the sharpest instance of the seam: the RAC's strongest capabilities are
+  // its LEAST syncable, because every mass edit the chat can actually perform is
+  // late-bound. Declaring it synced would be worse than declaring it not-synced —
+  // the adapter would replicate the literal string "all", which means a different
+  // set of walls on the receiving document.
+  'wall.updateHeightBatch': {
+    kind: 'not-synced',
+    reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',
+  },
   'wall.addLayerBatch': {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',

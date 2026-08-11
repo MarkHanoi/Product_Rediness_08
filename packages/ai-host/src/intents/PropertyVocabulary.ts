@@ -72,7 +72,11 @@ export type PropertyDrivenIntentId =
   | 'set-mullion-size'
   | 'set-panel-thickness'
   | 'set-baluster-spacing'
-  | 'set-baluster-width';
+  | 'set-baluster-width'
+  // §PROP-OVERHANG (RAC VERBS-CAP) — the roof eave. See the entry for why this
+  // is the ONE roof dimension the geometry proves, and why `ridgeOffset` and
+  // `fascia` are deliberately absent.
+  | 'set-overhang';
 
 /** Every property intent carries exactly one measured value, in metres. */
 export interface PropertyIntent {
@@ -117,6 +121,16 @@ export interface PropertyEntry {
   readonly label: string;
   /** May the value be negative? A base offset may; a depth may not. */
   readonly signed: boolean;
+  /**
+   * May the value be exactly ZERO? Distinct from `signed`, because the two
+   * questions are genuinely different and conflating them mints a FALSE
+   * REFUSAL. A roof overhang is `nonnegative()` in RoofDataSchema — 0 is a
+   * flush eave, an ordinary thing to ask for ("set the overhang to 0") — while
+   * a negative overhang is not a shape the eave offset can build. Every
+   * pre-existing entry omits this and keeps the old `value <= 0` rule, so no
+   * existing property's bound moves.
+   */
+  readonly zeroValid?: boolean;
   /** The routes, in order; the first route claiming a kind serves it. */
   readonly routes: readonly PropertyRoute[];
 }
@@ -321,6 +335,81 @@ export const PROPERTY_VOCABULARY: Readonly<Record<PropertyDrivenIntentId, Proper
     ],
   },
 
+  /**
+   * §PROP-OVERHANG (RAC VERBS-CAP) — "set the roof overhang to 300mm".
+   *
+   * THE MEASURED GAP THIS CLOSES. The RAC conformance exercise reached exactly
+   * ONE of the roof verbs from language (`set-roof-pitch`), while the roof
+   * geometry itself had just been proven correct to 0.000 mm — a 300 mm eave
+   * delivers 300.00 mm on square, elongated, L and U plans. The geometry was
+   * right and no sentence could reach it. This row is the sentence.
+   *
+   * THE CARRIER, and why it is NOT `roof.setOverhang`. `roof.setOverhang` is
+   * classified D-DEAD in ChatCommandClassification (plugin DTO store nothing
+   * renders), and its note said roof overhang "has no proven live carrier yet".
+   * It has one, and it is the carrier `set-roof-pitch` already ships on:
+   * `roof.update` → the initBusHandlers legacy bridge → `UpdateRoofCommand`,
+   * which applies an arbitrary `Partial<RoofData>` to `context.stores.roofStore`
+   * — the GEOMETRY roof store the builder reads. Pitch proved that route live in
+   * production; overhang rides the identical command, store and rebuild, so the
+   * liveness claim is not a new one.
+   *
+   * BOTH HALVES OF THE HONESTY BAR:
+   *   1. FIELD EXISTS + WRITE LANDS — `RoofData.overhang` is required (not
+   *      optional) in RoofDataSchema, and UpdateRoofCommand's `store.update`
+   *      merges it onto the record.
+   *   2. THE GEOMETRY READS IT — `RoofGeometryBuilder` consumes `data.overhang`
+   *      in EVERY roof-type arm: `_applyOverhang(poly, data.overhang ?? 0)` for
+   *      gable/hip/shed, the per-edge eave expansion for the rectangular
+   *      decomposition, and `seg.overhang ?? data.overhang` for compound
+   *      segments. It is not a field nothing reads.
+   *
+   * ZERO IS VALID — see `zeroValid`. A flush eave is an ordinary ask and the
+   * schema says `nonnegative()`, so the blanket `value <= 0` rule every other
+   * dimension uses would refuse a legal request.
+   *
+   * NO MAX. `RoofDataSchema` publishes only `nonnegative()`. There is no
+   * ROOF_CONSTRAINTS to source an upper bound from, and transcribing a
+   * plausible one here would mint a second source of truth for a rule this
+   * layer does not own (C65 §3.5). The command's own validation is the gate.
+   *
+   * ── TWO ROOF DIMENSIONS DELIBERATELY NOT ADDED ────────────────────────────
+   *
+   * `ridgeOffset` and `fascia` are both on `RoofData`, both would have made
+   * "set the ridge height to 2 m" and "set the fascia to 200mm" resolve, and
+   * BOTH FAIL the honesty bar in the same way the beam-height lie did:
+   * `RoofGeometryBuilder` never reads either one. Repo-wide, `ridgeOffset`
+   * appears only in RoofTypes.ts and roofSnapshotUtils.ts (serialisation), and
+   * `fascia` likewise — the only "fascia" hits in the builder are comments
+   * naming a MATERIAL SLOT, not the number. Declaring them would write a field
+   * nothing reads and report "Done" over a no-op, on precisely the two
+   * properties a user tuning a roof reaches for next. They need a command that
+   * actually drives the ridge line, which is VERBS-CMD work.
+   */
+  'set-overhang': {
+    id: 'set-overhang',
+    property: 'overhang',
+    synonyms: ['eaves overhang', 'eave overhang', 'roof overhang', 'eaves'],
+    adjectives: [],
+    label: 'overhang',
+    signed: false,
+    zeroValid: true,
+    routes: [
+      {
+        kinds: ['roof'],
+        // NOT element.updateParameters: the generic command's roof arm writes
+        // `(context.stores as any).roofStore`, and the §FIX-CHAT-DEAD-ROUTES
+        // audit put the roof's proven live route on roof.update. Same command
+        // as set-roof-pitch, deliberately — one live roof carrier, not two.
+        busCommand: 'roof.update',
+        payload: (elementId, _elementType, value) => ({
+          id: elementId,
+          updates: { overhang: value },
+        }),
+      },
+    ],
+  },
+
   // ── NOT ADDED, and the reason is the point of this table ──────────────────
   //
   // `gridXSpacing` / `gridYSpacing` were the obvious fifth and sixth entries —
@@ -481,8 +570,12 @@ export function applyPropertyIntent(
   if (!Number.isFinite(value)) {
     return refuse(`"${si.value}" is not a ${entry.label} I can read.`);
   }
-  if (!entry.signed && value <= 0) {
-    return refuse(`A ${entry.label} of ${fmt(value)} is not valid — it must be positive.`);
+  if (!entry.signed && (entry.zeroValid === true ? value < 0 : value <= 0)) {
+    return refuse(
+      entry.zeroValid === true
+        ? `A ${entry.label} of ${fmt(value)} is not valid — it cannot be negative.`
+        : `A ${entry.label} of ${fmt(value)} is not valid — it must be positive.`,
+    );
   }
   for (const s of ctx.selection) {
     const route = routeFor(entry, s.elementType);

@@ -189,6 +189,9 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315) — "a window in every wall segment".
       'create-windows-parametric': ['wall'],
       'set-roof-pitch': ['roof'],
+      // §PROP-OVERHANG (VERBS-CAP) — the eave. Roof-only: `overhang` is a
+      // RoofData field and no other kind carries it.
+      'set-overhang': ['roof'],
       'rename-room': ['room'],
       'set-room-number': ['room'],
     };

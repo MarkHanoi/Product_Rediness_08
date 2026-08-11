@@ -417,9 +417,27 @@ const OPS: OperationRow[] = [
     id: '5.6', category: 5, name: 'set overhang',
     utterances: ['set the roof overhang to 300mm', 'give the roof a 300mm overhang', 'change the overhang to 0.3m'],
     selection: ['roof'],
-    expectCapability: null, expectBusCommand: null,
+    expectCapability: 'set-overhang', expectBusCommand: 'roof.update',
     authoritative: 'EDGE-MIDPOINT ORACLE: every edge midpoint of the overhung ring sits 300 mm ± 1 mm from the source boundary, and the min–max SPREAD of those distances is ≈ 0. A centroid scale gives spread ∝ distance-from-centre — the spread IS the discriminator.',
-    note: 'No chat capability, AND the primitive is a known live defect (`applyOverhang` is a centroid radial dilation sold as a parallel offset). Measured in millimetres by the geometry probe.',
+    // UPDATED 2026-08-11 (VERBS-CAP). BOTH halves of the old note are now stale,
+    // and the second one is the interesting correction:
+    //
+    //  · "No chat capability" — there is one. `set-overhang` is a
+    //    PropertyVocabulary row routed to `roof.update`, the same live carrier
+    //    `set-roof-pitch` ships on (NOT the D-dead `roof.setOverhang`, which
+    //    writes the detached plugin DTO store).
+    //  · "the primitive is a known live defect (a centroid radial dilation sold
+    //    as a parallel offset)" — RE-MEASURED by `probe-geometry.ts` on this
+    //    tree: 300 mm requested delivers mean 300.00 mm with SPREAD 0.000 mm on
+    //    square, elongated 40×4, L-plan and U-plan/courtyard footprints, vertex
+    //    count preserved on all four, and −200 mm insets likewise. A centroid
+    //    dilation cannot produce zero spread on a 40×4 rectangle. The offset is
+    //    a true parallel offset now, and impossible insets REFUSE ("inward
+    //    offset consumed the ring") rather than substituting.
+    //
+    // So the geometry was already right and the SENTENCE was the whole gap —
+    // which is exactly what this row now scores.
+    note: 'Chat capability `set-overhang` (PropertyVocabulary row + registry metadata, zero resolver lines) on the live `roof.update` carrier. The eave primitive re-measures as a true parallel offset: 0.000 mm spread on square / elongated / L / U plans (probe-geometry.ts).',
   },
   {
     id: '5.7', category: 5, name: 'modify roof footprint',

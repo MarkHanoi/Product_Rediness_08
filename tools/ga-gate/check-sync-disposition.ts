@@ -253,9 +253,20 @@ console.log(bar);
 console.log(
   'NOTE (C66 §1.1): "declared with a CRDT path" means the payload reaches the CRDT\n' +
   'document and a receiving document can read the property back. It does NOT mean a\n' +
-  'receiving CLIENT re-renders — nothing reads the canonical element map back into\n' +
-  'local stores yet — and it does NOT mean production replicates: no CRDT transport\n' +
-  'is deployed (L-391). This gate measures the document path only.',
+  'receiving CLIENT re-renders. A read-back path now EXISTS (ElementSyncReader,\n' +
+  '2026-08-11) but is UNPROVEN LIVE — proven in node against a store stand-in, never\n' +
+  'in a browser. And it does NOT mean production replicates: no CRDT transport is\n' +
+  'deployed (L-391), so two real users still do not see each other\'s edits. This\n' +
+  'gate measures the document path only.\n' +
+  '⚠ THIS GATE IS ITSELF UNDER-SCOPED (found 2026-08-11 by check-verb-register):\n' +
+  'discovery matches the OBJECT-LITERAL handler form, but most handlers here are\n' +
+  'CLASSES (`readonly type = \'...\'`), so it sees ~60 handler types where the chat\n' +
+  'gate sees 321 — about 19% of the real set. Its own property-verb regex over the\n' +
+  'full registered set finds 181 property verbs, 137 undeclared. The MIN floor of 20\n' +
+  'cannot catch this, because 60 clears 20. Until discovery is widened, a PASS here\n' +
+  'means "every property verb THIS GATE CAN SEE is declared" — a weaker claim than\n' +
+  'the headline. Same defect check-chat-capability-coverage records in its own first\n' +
+  'draft: "saw 102 of the ~300, confidently wrong."',
 );
 for (const n of notes) console.log(`\n   ℹ ${n}`);
 

@@ -8,6 +8,7 @@ import { SetRoomNameHandler } from './SetRoomName.js';
 import { SetRoomNumberHandler } from './SetRoomNumber.js';
 import { SetRoomOccupancyHandler } from './SetRoomOccupancy.js';
 import { SetRoomMaterialHandler } from './SetRoomMaterial.js';
+import { SetRoomFinishHandler } from './SetRoomFinish.js';
 import { SetRoomHeightOffsetHandler } from './SetRoomHeightOffset.js';
 import { RecomputeRoomBoundaryHandler } from './RecomputeRoomBoundary.js';
 import { RedetectRoomsHandler } from './RedetectRooms.js';
@@ -23,6 +24,7 @@ export const ROOM_HANDLER_TYPES = [
   'room.setNumber',
   'room.setOccupancy',
   'room.setMaterial',
+  'room.setFinish',
   'room.setHeightOffset',
   'room.recomputeBoundary',
   'room.redetect',
@@ -42,6 +44,7 @@ export function buildRoomHandlerSet(): readonly CommandHandler<unknown>[] {
     new SetRoomNumberHandler() as unknown as CommandHandler<unknown>,
     new SetRoomOccupancyHandler() as unknown as CommandHandler<unknown>,
     new SetRoomMaterialHandler() as unknown as CommandHandler<unknown>,
+    new SetRoomFinishHandler() as unknown as CommandHandler<unknown>,
     new SetRoomHeightOffsetHandler() as unknown as CommandHandler<unknown>,
     new RecomputeRoomBoundaryHandler() as unknown as CommandHandler<unknown>,
     new RedetectRoomsHandler() as unknown as CommandHandler<unknown>,
@@ -63,6 +66,13 @@ export { SetRoomNameHandler, type SetRoomNamePayload } from './SetRoomName.js';
 export { SetRoomNumberHandler, type SetRoomNumberPayload } from './SetRoomNumber.js';
 export { SetRoomOccupancyHandler, type SetRoomOccupancyPayload } from './SetRoomOccupancy.js';
 export { SetRoomMaterialHandler, type SetRoomMaterialPayload } from './SetRoomMaterial.js';
+export {
+  SetRoomFinishHandler,
+  ROOM_FINISH_SURFACES,
+  type SetRoomFinishPayload,
+  type RoomFinishSurface,
+  type RoomFinishSpecInput,
+} from './SetRoomFinish.js';
 export {
   SetRoomHeightOffsetHandler,
   type SetRoomHeightOffsetPayload,

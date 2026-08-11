@@ -22,7 +22,7 @@ change, not a rename — see C69 §2.
 | SHADOWED (dead route) | 15 |
 | UNKNOWN | 189 |
 | authoritative store NONE or UNKNOWN | 221 |
-| sync UNDECLARED (property verbs) | 140 |
+| sync UNDECLARED (property verbs) | 139 |
 | chat UNDECLARED | 1 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
@@ -346,7 +346,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.updateColorBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-color |
 | `wall.updateCurtainWall` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'id' (disclose) | classified C |
 | `wall.updateDimensions` | plugins/wall | SHADOWED | UNKNOWN | patch-pair → wall | synced via 'wallId' (disclose) | capability: set-height |
-| `wall.updateHeightBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | UNDECLARED | classified B |
+| `wall.updateHeightBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `wall.updateRakeBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-rake |
 | `wall.updateSystemType` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | classified D |
 | `wall.updateSystemTypeBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-type |

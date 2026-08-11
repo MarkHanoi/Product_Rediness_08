@@ -155,6 +155,84 @@ const B_MISC = [
   ...family('B', 'Boolean/enum toggles that are chat-shaped but whose vocabulary (swing side, accessibility standard, emergency circuit) needs a value design before phrases can map deterministically.', ['door.setSwing', 'door.setAccessibility', 'lighting.setEmergency'], { blockedBy: 'value vocabulary design' }),
   ...family('B', 'Scaling furniture needs an anchor and axis policy a bare factor does not carry.', ['furniture.setScale'], { blockedBy: 'scale anchor/axis policy' }),
   ...family('B', 'Brace end offsets are a structural detailing edit driven from the member\'s local frame — panel work.', ['structural.setBraceEndOffset']),
+  // §PROP-OVERHANG tranche (VERBS-CAP, 2026-08-11). `room.setFinish` landed
+  // LIVE this session (VERBS-CMD) on the legacy commandManager bridge, closing
+  // the scorecard's "reader with no write". It is NOT yet a capability, and the
+  // reason is specific rather than "not done yet":
+  //
+  //  · THE VALUE. `RoomFinishSpecInput` REQUIRES `materialName` AND
+  //    `materialColor`. `finishRef.ts` resolves a spoken finish word, and
+  //    `colorRef.ts` resolves a colour word, but no value source yields the
+  //    PAIR from one noun ("oak"), so a capability would have to invent a
+  //    colour for a named material — a second source of truth for the material
+  //    library, and exactly the ElementCapabilities lie in value form.
+  //  · THE GRAMMAR. The ask is "set the FLOOR finish of this room to oak" — a
+  //    SURFACE-qualified catalogue ask. The property vocabulary carries only
+  //    measurements, and the catalogue-family factory carries only "change the
+  //    <kind> type to X"; neither shape has a surface slot, so this needs a new
+  //    matcher in ZeroTokenResolver.ts.
+  //
+  // Deliberately NOT routed through the measurement seam either: `finishes
+  // .skirtingHeight` / `.coveHeight` ARE plain measurements and would have been
+  // two free PropertyVocabulary rows, but repo-wide they are read by NOTHING
+  // except the Zod schema, the store clone and the snapshot serializer — no
+  // builder, no projector, no exporter. Claiming them would be the beam-height
+  // lie again (a write nothing reads, reported as "Done"). Same reason
+  // `roof.ridgeOffset` and `roof.fascia` are absent from the property table.
+  ...family(
+    'B',
+    'Room finishes are LIVE and persisted (the verb bridges to UpdateRoomCommand → the authoritative RoomStore), but the chat cannot yet SAY one: the payload requires a materialName + materialColor PAIR that no single value source yields from one spoken noun, and the "set the <surface> finish of this room to <material>" shape has no matcher — it fits neither the measurement vocabulary nor the catalogue-family factory.',
+    ['room.setFinish'],
+    {
+      potentialCapability: 'set-room-finish',
+      blockedBy: 'a finish value source yielding materialName+materialColor together, plus a surface-qualified catalogue grammar in ZeroTokenResolver',
+    },
+  ),
+  // §FOUNDER-9.0 (VERBS-CAP, 2026-08-11). `wall.updateHeightBatch` landed LIVE
+  // this session (VERBS-CMD) specifically to give the founder's own worked
+  // example — "Raise all exterior walls to 3.2 m" — a command to dispatch.
+  // It is NOT yet a capability, and the two missing pieces are both REAL:
+  //
+  //  1. THE GRAMMAR. `set-height` is selection-scoped and its matcher is
+  //     hand-written in ZeroTokenResolver.ts. A project-scoped height ask
+  //     ("make all walls 3.2m tall") has no shape in the measurement vocabulary
+  //     — that table is per-SELECTION by construction — and no spec-driven
+  //     batch family generates a measurement grammar the way CATALOGUE_FAMILIES
+  //     generates a type grammar. This is one new matcher, in a file this agent
+  //     does not own.
+  //
+  //  2. THE `exterior` QUALIFIER — and this is the part that must NOT be
+  //     hand-waved. MEASURED 2026-08-11: the model DOES carry the distinction —
+  //     `WallSystemType.function` (geometry-wall/src/WallFunction.ts), the
+  //     ISO 13567 / IfcWallTypeEnum / Revit "Function" axis, declared ON THE
+  //     TYPE. But `resolveWallFunction` returns **null for every type that
+  //     declares none, INCLUDING `wt-monolithic`, the default a user draws
+  //     with** — and that module's own doctrine is that null means UNKNOWN, not
+  //     "interior". So on a typical model "all exterior walls" resolves to an
+  //     EMPTY set, not a wrong one.
+  //
+  //     That makes silently dropping the adjective the worst available
+  //     outcome: the user believes the operation was scoped, and every wall in
+  //     the building was raised. Per the FilterScope U8.3 rule already written
+  //     into this codebase — "a filter that matches nothing becomes a refusal
+  //     QUOTING the real extremum, never an empty success" — the qualifier must
+  //     resolve through a wall-FUNCTION ElementFilter and REFUSE when the set
+  //     is empty, naming how many walls carry an UNDECLARED function. Declaring
+  //     the capability before that resolver exists would advertise a scope
+  //     nothing honours: the ElementCapabilities lie, in scope form.
+  //
+  // Until both land, the honest state is a NAMED blocker, not a capability and
+  // not silence. The command itself is sound: it refuses out loud with BOTH
+  // numbers on a height bound, and reports 'indeterminate' when it never ran.
+  ...family(
+    'B',
+    'The batch height verb behind the founder\'s "Raise all exterior walls to 3.2 m". Two pieces are genuinely missing, not merely undone: a PROJECT-scoped measurement grammar (the property vocabulary is per-selection by construction), and a resolver for the `exterior` qualifier. On the qualifier the model is the constraint, not the chat: WallSystemType.function carries interior/exterior, but resolveWallFunction returns null for every undeclared type INCLUDING the default wt-monolithic, so "all exterior walls" is usually an EMPTY set. It must therefore REFUSE naming the undeclared-function count — never be silently dropped, which would raise every wall in the building while the user believed the ask was scoped.',
+    ['wall.updateHeightBatch'],
+    {
+      potentialCapability: 'set-wall-height-batch',
+      blockedBy: 'a project-scoped measurement grammar, plus a wall-FUNCTION ElementFilter that refuses an empty "exterior" set instead of dropping the qualifier',
+    },
+  ),
 ];
 
 // ─── C — internal machinery ──────────────────────────────────────────────────

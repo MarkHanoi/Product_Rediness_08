@@ -27,6 +27,7 @@ import { UpdateWallSystemTypeHandler } from './UpdateWallSystemType.js';
 import { UpdateWallsSystemTypeBatchHandler } from './UpdateWallsSystemTypeBatch.js';
 import { UpdateWallsColorBatchHandler } from './UpdateWallsColorBatch.js';
 import { UpdateWallsRakeBatchHandler } from './UpdateWallsRakeBatch.js';
+import { UpdateWallsHeightBatchHandler } from './UpdateWallsHeightBatch.js';
 import { AddWallLayerBatchHandler } from './AddWallLayerBatch.js';
 // §FIX-DIMS-REACH-RECORD — UpdateWallDimensionsHandler import removed with its registration.
 import { UpdateWallBaselineHandler } from './UpdateWallBaseline.js';
@@ -83,6 +84,10 @@ export const WALL_HANDLER_TYPES = [
   // §FEAT-WALL-RAKE-BATCH (ADR-0315) — batch rake ('all' or explicit ids), one undo
   // entry, per-wall rakeAuthorability refusals reported honestly.
   'wall.updateRakeBatch',
+  // §FEAT-WALL-HEIGHT-BATCH (VERBS-CMD) — batch height ('all' or explicit ids),
+  // ONE undo entry. Closes the founder's "Raise all exterior walls to 3.2 m",
+  // which had no route because every height verb was selection-scoped.
+  'wall.updateHeightBatch',
   // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315) — batch add-finish-layer, one undo entry.
   'wall.addLayerBatch',
   // §FIX-DIMS-REACH-RECORD (ADR-0315 U1, L-815): 'wall.updateDimensions' LEFT
@@ -141,6 +146,7 @@ export function buildWallHandlerSet(
     UpdateWallsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallsColorBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallsRakeBatchHandler as unknown as CommandHandler<unknown>,
+    UpdateWallsHeightBatchHandler as unknown as CommandHandler<unknown>,
     AddWallLayerBatchHandler as unknown as CommandHandler<unknown>,
     // §FIX-DIMS-REACH-RECORD — UpdateWallDimensionsHandler retired (see
     // WALL_HANDLER_TYPES note); the initBusHandlers bridge owns the verb.

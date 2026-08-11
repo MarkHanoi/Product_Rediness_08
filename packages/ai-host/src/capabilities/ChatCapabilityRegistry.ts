@@ -1063,6 +1063,62 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'set-overhang',
+    // §PROP-OVERHANG (RAC VERBS-CAP) — the RAC conformance exercise reached
+    // exactly ONE of the roof verbs from language while the roof geometry had
+    // just been proven correct to 0.000 mm (a 300 mm eave delivers 300.00 mm on
+    // square, elongated, L and U plans). The geometry was right and no sentence
+    // could reach it; this declaration plus one PropertyVocabulary row is the
+    // whole of the fix — zero lines in ZeroTokenResolver, zero in
+    // CapabilityExecutionSpec.
+    //
+    // THE CARRIER IS `roof.update`, NOT `roof.setOverhang`. The latter is
+    // classified D-DEAD (plugin DTO store nothing renders) and its note said
+    // roof overhang had "no proven live carrier yet". It has one: the carrier
+    // `set-roof-pitch` already ships on. Same command, same geometry roof
+    // store, same rebuild — the liveness claim below is not a new one.
+    description: 'change the roof overhang',
+    verbs: ['set', 'change', 'make'],
+    aliases: ['overhang', 'eaves', 'eaves overhang', 'eave overhang', 'roof overhang'],
+    refusalLabel: 'overhang',
+    targets: ['roof'],
+    parameters: [
+      {
+        name: 'overhang',
+        description: 'the new eave overhang beyond the footprint (0 = a flush eave)',
+        required: true,
+        valueSource: 'measurement',
+        example: '300mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'roof.update',
+    probe: { intent: 'set-overhang', value: 0.3 },
+    commandProof: [
+      {
+        // WRITE half — an execution-authority root (packages/command-registry).
+        file: 'packages/command-registry/src/roofs/UpdateRoofCommand.ts',
+        mustMention: ['Partial<Omit<RoofData', 'store.update(this.roofId, this.updates)'],
+        note: 'The LIVE roof route set-roof-pitch already rides: initBusHandlers bridges roof.update to UpdateRoofCommand, which applies an arbitrary Partial<RoofData> to context.stores.roofStore — the GEOMETRY roof store, not the detached plugin DTO store — and snapshots the previous record for undo.',
+      },
+      {
+        // READ half — proves `overhang` is a field the geometry consumes, the
+        // check the beam-height lie failed. NOT accepted as the only proof
+        // (proveCommandTargets requires an execution-authority root too).
+        file: 'packages/geometry-roof/src/RoofGeometryBuilder.ts',
+        mustMention: ['_applyOverhang', 'data.overhang'],
+        note: 'The READ half: every roof-type arm consumes data.overhang — _applyOverhang(poly, data.overhang ?? 0) for gable/hip/shed, per-edge eave expansion in the rectangular decomposition, and seg.overhang ?? data.overhang for compound segments. This is the field the 0.000 mm eave proof measured.',
+      },
+    ],
+    examples: [
+      'set the roof overhang to 300mm',
+      'change the overhang to 0.5m',
+      'set the eaves overhang to 450mm',
+      'make the overhang 300mm',
+    ],
+  },
+  {
     id: 'set-wall-type',
     // §FEAT-CHAT-WALL-TYPE (2026-08-10) — the capability whose ABSENCE is the
     // reason this registry exists. `wall.updateSystemTypeBatch` shipped in
