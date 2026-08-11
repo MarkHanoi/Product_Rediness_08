@@ -108,8 +108,32 @@ const GATE_DIR = join(REPO_ROOT, 'tools', 'ga-gate');
 const LIB_DIR = join(GATE_DIR, 'lib');
 const LABEL = 'gate-subject-floors';
 
-/** §R5-BASELINE — see the dated paragraph above. Shrink-only. */
-const MAX_UNFLOORED = Number(process.env.PRYZM_R5_MAX_UNFLOORED ?? 19);
+/**
+ * §R5-BASELINE — see the dated paragraph above. Shrink-only.
+ *
+ * ─── 19 → 10 (2026-08-11, same session that set 19) ──────────────────────────
+ * Lowered to the measured value, NOT because anything got harder, but because
+ * leaving it at 19 was nine gates of slack — and slack in a shrink-only ratchet
+ * is the exact defect this suite spent the day removing.
+ *
+ * 19 was measured before the L-811 port landed. That port gave subject floors to
+ * nine gates in one stroke (custom-event-packages/-apps, commandmanager-any,
+ * structuredclone-new-commands, window-store-in-packages, no-workspacemountbridge,
+ * no-commandmanager, l7-boundary, motion-gate-coverage), so the reading is now
+ * 10 unfloored of 36 inspected — and R5 and the ripgrep port shrink together, as
+ * the gate's own header says, because a gate that never reads a file has nothing
+ * to floor.
+ *
+ * Had 19 been left in place, nine gates could have LOST their floors again with
+ * the gate still printing green. That is precisely `check-otel-spans`' old
+ * HARD_FLOOR of 213 against a measured 255: 42 files of headroom in which a
+ * regression was invisible. A ceiling above the measurement is not a safety
+ * margin — it is a blind spot with a number on it.
+ *
+ * Lowering a shrink-only ceiling to its measured value is always safe and is
+ * never the thing the doctrine forbids. The forbidden move is RAISING one.
+ */
+const MAX_UNFLOORED = Number(process.env.PRYZM_R5_MAX_UNFLOORED ?? 10);
 
 /**
  * ⚠ THIS GATE'S OWN SUBJECT FLOOR. It would be an exquisite irony to ship a

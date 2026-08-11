@@ -133,6 +133,17 @@ const GATES: Gate[] = [
   // Registered because an undeclared verb is how the original defect stayed
   // invisible: a collaborator kept the creation-time value, confidently.
   { name: 'sync-disposition (C66/P8/W5-3)',           script: 'check-sync-disposition.ts' },
+  // §RATCHET-R5 (2026-08-11) — the META-GATE. Ratchets DOWNWARD the number of
+  // gates that lack a subject floor, i.e. that cannot tell "I looked and found
+  // nothing" from "I looked nowhere". Born passing at 19 of 32 unfloored, so it
+  // is NOT on gate-debt.json.
+  //
+  // Registered LAST deliberately: it is the only gate whose subject is the other
+  // gates, so it should report after they have all had their say. And registering
+  // it at all is the point — it shipped unwired, which is the same authored-but-
+  // unreachable failure it exists to detect. A meta-gate nobody runs is exactly
+  // the thing it is meant to catch.
+  { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
   { name: 'report-payload-discard (C68 §5.g, R4)',    script: 'check-report-payload-discard.ts' },
 ];
 
