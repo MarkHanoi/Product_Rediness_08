@@ -709,8 +709,91 @@ export class ImportProjectCommand implements Command {
                         startPosition:     stair.startPosition ?? { x: 0, y: 0, z: 0 },
                         flights:           stair.flights ?? [],
                         landings:          stair.landings,
-                        fireRating:        stair.fireRating,
-                        accessibilityType: stair.accessibilityType,
+                        // ── §PERSIST-L1 (the REST of the payload, 2026-08-11) ────────
+                        //
+                        // W1-1 fixed the id and W1-2 the GUID, but this loop still threaded
+                        // only 13 of the fields the serializer writes. §PERSIST-L1 was
+                        // written in May 2026 to kill ONE architect-reported symptom —
+                        // "the stair type goes back to default after reload" — and it fixed
+                        // it in `apps/editor/.../ProjectLoader.ts` only. That path is the
+                        // LEGACY one: `ProjectLoader` dispatches this command by default
+                        // (`PRYZM_USE_IMPORT_COMMAND` defaults to true), so the reported
+                        // defect was STILL LIVE on the path every user actually runs.
+                        //
+                        // Threading the same fields the reference implementation threads:
+                        //
+                        // Code-compliance + shape-control. `turnDirection` / `secondRunSide`
+                        // / `stepsBeforeLanding` are GEOMETRY inputs — dropping them makes a
+                        // right-turning half-landing stair come back left-turning, i.e. the
+                        // restore silently rebuilds a different stair.
+                        fireRating:          stair.fireRating,
+                        accessibilityType:   stair.accessibilityType,
+                        buildingCodeVariant: stair.buildingCodeVariant,
+                        turnDirection:       stair.turnDirection,
+                        secondRunSide:       stair.secondRunSide,
+                        stepsBeforeLanding:  stair.stepsBeforeLanding,
+                        // The architect's system-type choice — THE field behind the reported
+                        // symptom. `typeSnapshot` rides with it so a stair whose type has
+                        // since been edited (or which came from another project) restores
+                        // against the type it was AUTHORED with rather than re-resolving
+                        // today's `stairTypeStore` entry.
+                        typeId:              stair.typeId,
+                        typeSnapshot:        stair.typeSnapshot,
+                        // Full properties bag: mark + material + treadMaterial +
+                        // riserMaterial + nosingType + stringerType + handrail flags +
+                        // railingType + tags + description. CreateStairCommand merges these
+                        // ON TOP of DEFAULT_STAIR_PROPERTIES and the type defaults, so an
+                        // omitted bag does not "keep the defaults" — it OVERWRITES the
+                        // architect's values with them.
+                        properties:          stair.properties,
+                        // Carry the persisted audit block VERBATIM. This stops
+                        // `metadata.createdAt` / `modifiedAt` being re-minted on reload
+                        // (ADR-0319 class 3 — preserving a REAL timestamp is correct;
+                        // manufacturing one is the failure that ADR names by name).
+                        //
+                        // §PERSIST-L1's `source: 'import'` stamp is DELIBERATELY NOT applied,
+                        // and this is a correction to the reference implementation rather than
+                        // a shortcut. MEASURED: threading it produced a NEW divergence —
+                        // `stair.cert-st-1.metadata.source: expected "user" got "import"`.
+                        // ADR-0319 §1 puts authored provenance in class 1, AUTHORITATIVE, and
+                        // its "Alternatives considered" names provenance INVENTED ON LOAD as
+                        // the repo's recurring bug (`roomSnapshotUtils.ts:156`). Re-opening
+                        // your own saved project is not an import; stamping it as one
+                        // destroys the element's true authored provenance on the FIRST
+                        // open-save cycle, irreversibly, in exchange for an audit
+                        // distinction that nothing in the repo reads (`metadata.source` on a
+                        // StairData has zero consumers — the `metadata.source` in
+                        // `CommandManagerImpl` is unrelated command-dispatch metadata).
+                        //
+                        // A legacy snapshot with no `metadata` at all still gets
+                        // CreateStairCommand's `source: 'user'` default, which is the right
+                        // answer for a record that never recorded one.
+                        metadata:            stair.metadata,
+                        //
+                        // ── `autoCreateOpening` is DELIBERATELY NOT SET here ────────────
+                        //
+                        // The reference implementation passes `autoCreateOpening: false`,
+                        // reasoning that the stairwell void was punched at author time and is
+                        // restored separately at Step 5d (standalone openings) just above.
+                        // That is NOT copied, on purpose, and the difference is deliberate
+                        // rather than an omission:
+                        //
+                        //   • The carve is IDEMPOTENT BY ID. `carveStairOpening` keys on
+                        //     `opening-stair-<stairId>` and returns null ('already-present')
+                        //     when that opening exists. W1-1 made the stair id stable on this
+                        //     path, which is exactly the precondition that guard needs — so
+                        //     the default can no longer double-carve. (Before W1-1 it could,
+                        //     because every reload minted a fresh stair id.)
+                        //   • `false` is the strictly WEAKER option. It turns any failure to
+                        //     restore the void into PERMANENT loss of the void, with no
+                        //     self-heal on the next open — and the certification already
+                        //     measures `openingStore` reaching 0 records in one configuration
+                        //     (F-5). Leaving the default lets the invariant owner re-punch a
+                        //     missing void and no-op an existing one.
+                        //
+                        // Net effect on restored geometry: identical when Step 5d succeeded
+                        // (guard short-circuits), and correct instead of void-less when it
+                        // did not.
                     });
                     const r = runSub(cmd);
                     r.success ? stats.loaded++ : recordFail(`Stair ${stair.id}`, r);

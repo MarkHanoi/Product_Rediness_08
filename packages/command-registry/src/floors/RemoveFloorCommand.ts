@@ -19,6 +19,10 @@ import {
 } from '../types';
 import { FloorData } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — deleting a finish LOWERS the FFL. The re-seat is
+// the exact mirror of the create arm; leaving it off would strand every item on that floor
+// hovering 15 mm in the air, which is the same defect with the sign flipped.
+import { ReseatLevelElementsCommand } from '../seating/ReseatLevelElementsCommand';
 
 export interface RemoveFloorPayload {
   floorId: string;
@@ -33,6 +37,9 @@ export class RemoveFloorCommand implements Command {
 
   /** Full floor snapshot captured in execute() for undo restoration. */
   private _removedSnapshot: FloorData | null = null;
+
+  /** §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — retained so `undo()` restores the exact prior Y. */
+  private _reseat: ReseatLevelElementsCommand | null = null;
 
   constructor(private readonly _payload: RemoveFloorPayload) {
     this.id = `cmd-floor-rm-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -69,7 +76,23 @@ export class RemoveFloorCommand implements Command {
     try { context.bimManager.unregisterElement(floorId); } catch { /* not registered */ }
     floorStore.remove(floorId);
 
-    return { success: true, affectedElementIds: [floorId] };
+    // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — the finish is gone, so the FFL over its
+    // footprint drops back to the slab top (or to the next-highest remaining finish, which
+    // `resolveFflOffsetAt`'s highest-wins tie-break resolves). Re-seat AFTER the store
+    // removal so the resolver reads the post-delete world. Idempotent and absolute: items
+    // that did not move are skipped and never enter the undo record.
+    const affected = [floorId];
+    const levelId = this._removedSnapshot.levelId;
+    if (levelId) {
+      const reseat = new ReseatLevelElementsCommand(levelId);
+      const r = reseat.execute(context);
+      if (r.success && r.affectedElementIds.length > 0) {
+        this._reseat = reseat;
+        affected.push(...r.affectedElementIds);
+      }
+    }
+
+    return { success: true, affectedElementIds: affected };
   }
 
   undo(context: CommandContext): CommandResult {
@@ -87,6 +110,13 @@ export class RemoveFloorCommand implements Command {
     floorStore.restoreSnapshot(snap);
     try { context.bimManager.registerElement(snap.id, snap.levelId); } catch { /* already registered */ }
     try { elementRegistry.registerSemantic(snap.id, 'floor'); } catch { /* already registered */ }
+
+    // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — lift the dependents back with the finish. The
+    // stored records carry absolute before/after Y, so this restores exactly, never a delta.
+    if (this._reseat) {
+      this._reseat.undo(context);
+      this._reseat = null;
+    }
 
     return { success: true, affectedElementIds: [snap.id] };
   }

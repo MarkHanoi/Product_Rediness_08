@@ -18,31 +18,65 @@ import type { CreateAIElementPayload } from '../furniture/CreateAIElementCommand
 import type { CreateLightingPayload } from '../lighting/CreateLightingCommand';
 
 /**
- * Build a CreateWallOpeningCommand opening payload by merging the wall-opening
- * descriptor with the rich window/door record (if present in the snapshot).
+ * §PERSIST-OPENING-NO-SUPERSET (W1-5, 2026-08-11) — back-fill the wall-opening
+ * descriptor's OWN missing fields from the hosted door/window record. Nothing more.
+ *
+ * ## What this used to do, and why it was wrong
+ *
+ * It returned the door/window's `frameThickness`, `frameWidth`, `frameColor`,
+ * `leafColor`, `fireRating` and `accessibilityType`, and `ImportProjectCommand` spread
+ * them onto the opening (`{ ...opening, ...elementData }`). Those keys then landed
+ * verbatim in `wall.openings[i]` via `wallStore.addOpening`, so **the wall after reload
+ * was a strict SUPERSET of the wall before it** — measured by the BIM 2.0 certification
+ * (F-4): `wall.cert-wall-1.openings.0.frameThickness: expected undefined got 0.05`,
+ * plus `frameColor` and `leafColor`.
+ *
+ * ## The classification decision (ADR-0319), and why it points at the MERGE
+ *
+ * The question the ADR forces is *whose* field this is. `Opening` — the canonical
+ * wall-opening descriptor in `packages/geometry-wall/src/WallTypes.ts` — declares
+ * exactly: `id · type · doorType · windowType · offset · width · height · sillHeight ·
+ * elementId`. `frameThickness` / `frameWidth` / `frameColor` / `leafColor` /
+ * `fireRating` / `accessibilityType` are declared on **`DoorData` / `WindowData`**, the
+ * hosted element records, which are their AUTHORITATIVE owners (ADR-0319 class 1 —
+ * authored materials and parametric fields).
+ *
+ * On the WALL they are therefore not class 1, 2 or 3 at all: they are a **duplicated,
+ * non-authoritative COPY of another element's authoritative state** — a cache with no
+ * invalidation, which goes stale the instant `door.updateSystemTypeBatch` changes the
+ * door's `frameColor` and never touches the wall. ADR-0319's rule is that an
+ * unclassifiable field is a FAIL, not a default; the honest resolution is that the field
+ * does not belong on this record, so **the merge is wrong** and creation must NOT start
+ * stamping them (which would only make the duplicate authoritative-looking).
+ *
+ * ## Verified NOT load-bearing before removal
+ *
+ * `CreateWallOpeningCommand` reads none of the removed keys off `openingData`. It
+ * consumes `id · elementId · type · offset · width · height · sillHeight · doorType ·
+ * windowType · systemTypeId · mark · hingesSide · swingDirection`, and derives the
+ * door/window finish (`frameFinish`/`leafFinish`/`frameColor`/`leafColor`) from
+ * `systemTypeId` via `doorSystemTypeStore` / `windowSystemTypeStore` — the single
+ * authority. The removed keys were pure dead weight on every path.
+ *
+ * ## What is kept, and why
+ *
+ * `doorType` / `windowType` ARE `Opening` fields and ARE consumed by
+ * `CreateWallOpeningCommand`. `ProjectSerializer` writes `wall.openings` verbatim
+ * (`openings.map(o => ({ ...o }))`), so a modern snapshot already carries them and the
+ * back-fill is a no-op. It is retained, and now applied ONLY when the persisted opening
+ * actually lacks the field, for LEGACY snapshots written before the descriptor carried
+ * it — healing a gap without ever overwriting authored state or widening the record.
  */
 export function findOpeningElementData(snapshot: ProjectSnapshot, opening: any): any {
     if (opening.type === 'window') {
+        if (opening.windowType !== undefined) return {};
         const win = snapshot.windows.find((w: any) => w.openingId === opening.id || w.id === opening.elementId);
-        return win ? {
-            frameThickness: win.frameThickness,
-            frameWidth: win.frameWidth,
-            frameColor: win.frameColor,
-            windowType: win.windowType,
-            fireRating: win.fireRating
-        } : {};
+        return win?.windowType !== undefined ? { windowType: win.windowType } : {};
     }
     if (opening.type === 'door') {
+        if (opening.doorType !== undefined) return {};
         const door = snapshot.doors.find((d: any) => d.openingId === opening.id || d.id === opening.elementId);
-        return door ? {
-            frameThickness: door.frameThickness,
-            frameWidth: door.frameWidth,
-            frameColor: door.frameColor,
-            leafColor: door.leafColor,
-            doorType: door.doorType,
-            fireRating: door.fireRating,
-            accessibilityType: door.accessibilityType
-        } : {};
+        return door?.doorType !== undefined ? { doorType: door.doorType } : {};
     }
     return {};
 }

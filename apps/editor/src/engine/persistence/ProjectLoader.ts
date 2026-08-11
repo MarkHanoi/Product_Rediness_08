@@ -141,34 +141,33 @@ import { decisionRecordStore } from '@pryzm/core-app-model';
 // re-introduce a deserialiser at that surface).
 
 /**
- * Build a CreateWallOpeningCommand opening payload by merging the wall-opening
- * descriptor with the rich window/door record (if present in the snapshot).
+ * §PERSIST-OPENING-NO-SUPERSET (W1-5, 2026-08-11) — back-fill the wall-opening
+ * descriptor's OWN missing fields from the hosted door/window record. Nothing more.
  *
- * Exported so ImportProjectCommand (PROJECT-LOAD-PERFORMANCE-13 §2 — Phase 1)
- * can reuse the exact same per-opening payload shape that ProjectLoader builds.
+ * This is the LEGACY loader's copy of the rule (there are three: here,
+ * `packages/persistence-client/src/loader/ProjectLoader.ts` and — the one the default-on
+ * path actually runs — `packages/command-registry/src/project/projectLoaderUtils.ts`).
+ * **The canonical explanation, including the ADR-0319 classification argument and the
+ * proof that the removed keys are not load-bearing, lives on the `projectLoaderUtils.ts`
+ * copy.** In short: `frameThickness` / `frameWidth` / `frameColor` / `leafColor` /
+ * `fireRating` / `accessibilityType` are `DoorData`/`WindowData` fields, not `Opening`
+ * fields, so merging them made the reloaded wall a strict SUPERSET of the live one
+ * (certification F-4). `CreateWallOpeningCommand` reads none of them.
+ *
+ * Three copies of one rule is itself the C11 §5.4 defect; they are kept in lock-step
+ * here rather than de-duplicated because collapsing them crosses a package boundary that
+ * this change is not scoped to. If you edit one, edit all three.
  */
 export function findOpeningElementData(snapshot: ProjectSnapshot, opening: any): any {
     if (opening.type === 'window') {
+        if (opening.windowType !== undefined) return {};
         const win = snapshot.windows.find(w => w.openingId === opening.id || w.id === opening.elementId);
-        return win ? {
-            frameThickness: win.frameThickness,
-            frameWidth: win.frameWidth,
-            frameColor: win.frameColor,
-            windowType: win.windowType,
-            fireRating: win.fireRating
-        } : {};
+        return win?.windowType !== undefined ? { windowType: win.windowType } : {};
     }
     if (opening.type === 'door') {
+        if (opening.doorType !== undefined) return {};
         const door = snapshot.doors.find(d => d.openingId === opening.id || d.id === opening.elementId);
-        return door ? {
-            frameThickness: door.frameThickness,
-            frameWidth: door.frameWidth,
-            frameColor: door.frameColor,
-            leafColor: door.leafColor,
-            doorType: door.doorType,
-            fireRating: door.fireRating,
-            accessibilityType: door.accessibilityType
-        } : {};
+        return door?.doorType !== undefined ? { doorType: door.doorType } : {};
     }
     return {};
 }
@@ -1051,9 +1050,21 @@ export class ProjectLoader {
                         // description. CreateStairCommand merges these on top
                         // of DEFAULT_STAIR_PROPERTIES and the type defaults.
                         properties: stair.properties,
-                        // §PERSIST-L1 — Tag the audit trail so an import
-                        // is visibly distinct from a fresh user creation.
-                        metadata: { ...(stair.metadata ?? {}), source: 'import' },
+                        // §PERSIST-L1 — carry the persisted audit block VERBATIM.
+                        //
+                        // Corrected 2026-08-11 (W1-3/W1-5 sweep): this used to spread
+                        // `source: 'import'` over it. MEASURED on the default-on path,
+                        // that produced `stair.<id>.metadata.source: expected "user"
+                        // got "import"` — a divergence the loader itself created.
+                        // ADR-0319 §1 classes authored provenance AUTHORITATIVE, and
+                        // its "Alternatives considered" names provenance INVENTED ON
+                        // LOAD as the repo's recurring defect. Re-opening your own
+                        // saved project is not an import, and the stamp destroys the
+                        // stair's real provenance on the first open-save cycle in
+                        // exchange for an audit distinction nothing reads. Kept in
+                        // lock-step with `ImportProjectCommand`, which carries the
+                        // full reasoning.
+                        metadata: stair.metadata,
                         // §PERSIST-L1 — Skip the auto-opening punch on restore
                         // (the opening was already created at original-author
                         // time and serialised separately in slab.holes /

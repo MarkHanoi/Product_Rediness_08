@@ -102,34 +102,32 @@ const _bus = new DOMEventBus();
 // re-introduce a deserialiser at that surface).
 
 /**
- * Build a CreateWallOpeningCommand opening payload by merging the wall-opening
- * descriptor with the rich window/door record (if present in the snapshot).
+ * §PERSIST-OPENING-NO-SUPERSET (W1-5, 2026-08-11) — back-fill the wall-opening
+ * descriptor's OWN missing fields from the hosted door/window record. Nothing more.
  *
- * Exported so ImportProjectCommand (PROJECT-LOAD-PERFORMANCE-13 §2 — Phase 1)
- * can reuse the exact same per-opening payload shape that ProjectLoader builds.
+ * The persistence-client copy of the rule. **The canonical explanation, including the
+ * ADR-0319 classification argument and the proof that the removed keys are not
+ * load-bearing, lives on the `packages/command-registry/src/project/projectLoaderUtils.ts`
+ * copy** — the one the default-on `ImportProjectCommand` path runs. In short:
+ * `frameThickness` / `frameWidth` / `frameColor` / `leafColor` / `fireRating` /
+ * `accessibilityType` are `DoorData`/`WindowData` fields, not `Opening` fields, so
+ * merging them made the reloaded wall a strict SUPERSET of the live one (certification
+ * F-4). `CreateWallOpeningCommand` reads none of them.
+ *
+ * Three copies of one rule is itself the C11 §5.4 defect; they are kept in lock-step
+ * rather than de-duplicated because collapsing them crosses a package boundary that this
+ * change is not scoped to. If you edit one, edit all three.
  */
 export function findOpeningElementData(snapshot: ProjectSnapshot, opening: any): any {
     if (opening.type === 'window') {
+        if (opening.windowType !== undefined) return {};
         const win = snapshot.windows.find(w => w.openingId === opening.id || w.id === opening.elementId);
-        return win ? {
-            frameThickness: win.frameThickness,
-            frameWidth: win.frameWidth,
-            frameColor: win.frameColor,
-            windowType: win.windowType,
-            fireRating: win.fireRating
-        } : {};
+        return win?.windowType !== undefined ? { windowType: win.windowType } : {};
     }
     if (opening.type === 'door') {
+        if (opening.doorType !== undefined) return {};
         const door = snapshot.doors.find(d => d.openingId === opening.id || d.id === opening.elementId);
-        return door ? {
-            frameThickness: door.frameThickness,
-            frameWidth: door.frameWidth,
-            frameColor: door.frameColor,
-            leafColor: door.leafColor,
-            doorType: door.doorType,
-            fireRating: door.fireRating,
-            accessibilityType: door.accessibilityType
-        } : {};
+        return door?.doorType !== undefined ? { doorType: door.doorType } : {};
     }
     return {};
 }

@@ -41,6 +41,9 @@ import { resolveFinishSeating, DEFAULT_FINISH_THICKNESS_M } from '@pryzm/core-ap
 // time only, never at module evaluation, so the command-registry ↔ room-topology cycle is
 // not exercised at load (see MEMORY §SCC: no barrel access at module load).
 import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@pryzm/room-topology';
+// §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — see the block in execute() for WHY the CREATE
+// arm needs this and not just the UPDATE arm.
+import { ReseatLevelElementsCommand } from '../seating/ReseatLevelElementsCommand';
 
 export interface CreateFloorPayload {
   /** Pre-generated UUID — MUST come from the calling tool. Never generate here. */
@@ -101,6 +104,13 @@ export class CreateFloorCommand implements Command {
   readonly type = CommandType.CREATE_FLOOR;
   readonly timestamp: number;
   readonly targetIds: string[];
+
+  /**
+   * §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — the re-seat this creation caused, retained so
+   * `undo()` puts every moved element back on the exact Y it held before. `null` when the
+   * new finish moved nothing (the common case: no furniture over it yet).
+   */
+  private _reseat: ReseatLevelElementsCommand | null = null;
 
   constructor(private readonly _payload: CreateFloorPayload) {
     this.id = `cmd-floor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -243,7 +253,49 @@ export class CreateFloorCommand implements Command {
       // Already registered on redo — safe to ignore.
     }
 
-    return { success: true, affectedElementIds: [floorId] };
+    // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — THE CREATE ARM WAS MISSING.
+    //
+    // `ReseatLevelElementsCommand` was written for exactly this defect and wired into
+    // `UpdateFloorCommand`, `UpdateFloorLayersCommand` and `UpdateCeilingCommand` — but
+    // NOT here. So the single most common authoring order in the product was still broken:
+    //
+    //   1. Furnish a room  → furniture/plumbing/lighting seat on the BARE SLAB
+    //                        (`resolveFflOffsetAt` → null → 'slab-top'), y = level.elevation.
+    //   2. Apply the floor finish → FFL rises by `boundary.baseOffset` (15 mm by default,
+    //                        §A.21.D48 `DEFAULT_FINISH_THICKNESS_M`).
+    //   3. Nothing re-seats. Every item is now buried 15 mm in the finish.
+    //
+    // That is the SAME founder-reported symptom §FIX-INTERIOR-FFL-SEATING closed for the
+    // creation order "floor first"; only the trigger differs, and covering only the UPDATE
+    // arm is C11 §5.4's "convergence by coincidence" one rung up.
+    //
+    // MEASURED (BIM 2.0 certification F-3): the round-trip comparator read
+    // `plumbing.cert-pl-1.position.y: expected 0 got 0.015` and the same for furniture. The
+    // loader was NOT applying a phantom offset — `CreatePlumbingFixtureCommand` and
+    // `CreateFurnitureCommand` never read `payload.position.y` at all, they DERIVE it from
+    // the seating datum (C11 §5.4). `ImportProjectCommand` restores floor finishes at
+    // Step 5c, BEFORE furniture (Step 7) and plumbing (Step 10), so on reload the fixture
+    // was seated correctly at 0.015 while the LIVE model still held the stale 0. The restore
+    // was right and the live model was wrong. Fixing it here — not by carrying the authored
+    // y through the loader — is what makes the two agree, and carrying it would have
+    // re-broken §FIX-INTERIOR-FFL-SEATING by freezing a stale datum forever.
+    //
+    // Unconditional, unlike the UPDATE arm's `_datumRelevant` gate: a NEW visible finish
+    // always changes the FFL over the area it covers (there is no "colour-only" create).
+    // The re-seat is idempotent and computes an absolute target, so items already at the
+    // right height are skipped and never enter the undo record. During project load this
+    // is a scan of two empty stores.
+    const affected = [floorId];
+    const reseat = new ReseatLevelElementsCommand(levelId);
+    const r = reseat.execute(context);
+    if (r.success && r.affectedElementIds.length > 0) {
+      // Retain ONLY when it moved something — an empty run has nothing to undo and would
+      // leave a misleading no-op in the undo record (mirrors UpdateFloorCommand).
+      this._reseat = reseat;
+      affected.push(...r.affectedElementIds);
+    }
+
+    return { success: true, affectedElementIds: affected };
   }
 
   /**
@@ -310,6 +362,15 @@ export class CreateFloorCommand implements Command {
     if (!existing) {
       console.warn(`[CreateFloorCommand.undo] Floor "${floorId}" not found — already removed?`);
       return { success: true, affectedElementIds: [] };
+    }
+
+    // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — put the dependents back BEFORE removing the
+    // host, while they still hold the Y this command gave them. The re-seat records
+    // absolute before/after values so order is not strictly load-bearing, but it mirrors
+    // how execute() built the pair (and how UpdateFloorCommand.undo is written).
+    if (this._reseat) {
+      this._reseat.undo(context);
+      this._reseat = null;
     }
 
     // Undo reversal order ①②③
