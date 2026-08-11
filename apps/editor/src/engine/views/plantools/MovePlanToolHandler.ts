@@ -318,7 +318,7 @@ export class MovePlanToolHandler implements PlanToolHandler {
     // ── Wall ─────────────────────────────────────────────────────────────────
 
     private async _moveWall(id: string, dx: number, dz: number): Promise<void> {
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.warn('[MoveTool] Engine not yet initialised — wall move ignored (TASK-10 Tier-2 guard)');
             return;
         }

@@ -48,11 +48,39 @@
  *       site in source is reported (as a NOTE — creation verbs and future types
  *       legitimately predate their handlers).
  *
+ *   S6  CROSS-GATE AGREEMENT. The discovered handler set is compared against the
+ *       GENERATED artefact of `check-verb-register.ts`
+ *       (`docs/04-reference/API-VERB-REGISTER.md`). A verb the register lists and
+ *       THIS gate cannot see is a HARD FAILURE — that is precisely the defect
+ *       below, recurring. The reverse (this gate sees a verb the register lacks)
+ *       is a NOTE, because a stale register is `check-verb-register`'s own hard
+ *       failure and double-reporting it would teach people to ignore one of them.
+ *
+ * ─── §FIX-SYNC-GATE-UNDERSCOPED (2026-08-11) — this gate's OWN first draft ───
+ *
+ * Discovery originally matched the OBJECT-LITERAL handler form only
+ * (`type: '…'` within N chars of `affectedStores`). Most handlers in this repo
+ * are CLASSES — `readonly type = 'wall.create';` — so the gate saw **60** of the
+ * **320** registered handler types (19%) and printed "✓ Every property-mutation
+ * command type declares its sync disposition" over 39 property verbs when there
+ * are 184. Its `propertyVerbs.length < 20` floor could not catch it: 60 clears 20.
+ *
+ * That is verbatim the defect `check-chat-capability-coverage.ts` records having
+ * had in ITS first draft ("saw 102 of the ~300 … confidently wrong"), and it was
+ * found here the same way — by a THIRD gate (`check-verb-register.ts`) measuring
+ * the same subject and disagreeing. The fix is the same route those two took:
+ * one shared declaration regex that matches BOTH forms, the same `handlerish`
+ * evidence rule, a floor set against the real subject, and S6 above so that a
+ * future narrowing is caught by measurement rather than by a reader noticing.
+ *
+ * Every number in this header is a FREEZE, not a live reading. The gate prints
+ * its own measurements on every run — read those (C64 §2.13 / C69 §0.1).
+ *
  * Exit 0 → green. Exit 1 → HARD FAIL, merge blocked. Exit 2 → MISCONFIGURED
- * (the scan could not establish its own subject; see the minFiles floor).
+ * (the scan could not establish its own subject; see the floors below).
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -65,15 +93,33 @@ import {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-/** Directories that register CommandBus handlers. */
+/**
+ * Directories that register CommandBus handlers. IDENTICAL to
+ * `check-verb-register.ts`'s `HANDLER_ROOTS` — the two gates measure the same
+ * subject, so a difference in roots would be a difference in answers that nobody
+ * could attribute. S6 checks the resulting sets actually agree.
+ */
 const HANDLER_DIRS = ['plugins', 'apps/editor/src/engine', 'packages/command-registry/src'];
 
+/** The artefact `check-verb-register.ts` generates. S6's independent source. */
+const REGISTER_PATH = 'docs/04-reference/API-VERB-REGISTER.md';
+
 /**
- * ⚠ HONESTY FLOOR (lib/sourceScan.ts). A walk that reaches fewer files than this
- * has not established its subject and MUST NOT report a pass. It is a
- * misconfiguration detector — NEVER raise it to make the gate green.
+ * ⚠ HONESTY FLOORS (lib/sourceScan.ts idiom). Below any of these the walk has not
+ * established its subject and MUST NOT report a pass — exit 2 (MISCONFIGURED),
+ * never 0 and never 1. These are misconfiguration detectors, NOT targets: never
+ * raise one to make the gate green, and never lower one either — a floor beneath
+ * the real subject detects nothing, which is exactly how the old
+ * `propertyVerbs < 20` floor sat under a real set of 184 and saw 39.
+ *
+ * Frozen 2026-08-11 well below the reading of the day (1229 files / 320 handler
+ * types / 184 property verbs), because the reading moves — five agents were
+ * authoring verbs in this tree while this was written. The gate PRINTS all three
+ * on every run; read the run output, never these constants.
  */
-const MIN_FILES = 400;
+const MIN_FILES = 900;
+const MIN_HANDLER_TYPES = 250;
+const MIN_PROPERTY_VERBS = 150;
 
 /**
  * Which command types are PROPERTY MUTATIONS.
@@ -100,10 +146,50 @@ const notes: string[] = [];
 
 // ── Subject discovery: registered CommandBus handler types ──────────────────
 //
-// A handler is an object literal carrying BOTH `type:` and `affectedStores` —
-// `CommandBus.register()` throws without the latter, so it is a reliable marker
-// and cannot be satisfied by a passing mention of a command name in a comment.
+// ⚠ BOTH HANDLER FORMS. The regex and the `handlerish()` evidence rule below are
+// the SAME ones `check-verb-register.ts` uses, deliberately, because these two
+// gates and `check-chat-capability-coverage.ts` measure ONE subject and a third
+// private idea of "what a handler is" is how this family produces confidently-
+// wrong gates. Cited rather than invented; S6 proves the answers still agree.
+//
+//    object literal / BridgeSpec →  `type: 'roof.update',`
+//    class handler              →  `readonly type = 'wall.create';`
+//                                  `readonly type: CommandType = 'wall.create';`
+//
 // Tests are excluded: they fabricate handler types on purpose.
+const TYPE_DECL_RE = new RegExp(
+  String.raw`(?:^|\n)\s*(?:public\s+|readonly\s+|static\s+)*type\s*` +
+  String.raw`(?::\s*'([a-z][\w-]*(?:\.[\w-]+)*)'|(?::\s*[^=\n;]+)?=\s*'([a-z][\w-]*(?:\.[\w-]+)*)')`,
+  'g',
+);
+
+/**
+ * Is this `type` declaration a bus-command registration?
+ *
+ * STRICT evidence is a declared store list — `affectedStores` for a bus handler,
+ * `stores` for an `initBusHandlers` BridgeSpec — or, in the editor engine only,
+ * the `validate` + `run`/`fn` spec shape used by `_generationCmds` /
+ * `_projectOriginCmds`, which register through the bus without naming a store.
+ *
+ * WEAK evidence is the file's location: a plugin's `src/handlers/` directory.
+ * A DOTLESS verb requires STRICT evidence, because weak evidence alone admits
+ * ordinary discriminated-union tags (`type: 'floor'` inside an element literal)
+ * — which is exactly the noise that put 'door', 'rectangular' and 'sitsOn' into
+ * the OLD handler table here.
+ */
+const STRICT_RE = /\b(affectedStores|stores)\s*[:=]/;
+const SPEC_RE = /\bvalidate\s*:/;
+const SPEC_BODY_RE = /\b(run|fn)\s*:/;
+
+function handlerish(verb: string, slice: string, rel: string): boolean {
+  const head = slice.slice(0, 900);
+  const strict = STRICT_RE.test(head)
+    || (rel.startsWith('apps/editor/src/engine/') && SPEC_RE.test(head) && SPEC_BODY_RE.test(head));
+  if (strict) return true;
+  if (!verb.includes('.')) return false;
+  return /\/src\/handlers\//.test(rel);
+}
+
 const handlerTypes = new Map<string, string>();   // type → first declaring file
 let filesRead = 0;
 
@@ -115,44 +201,58 @@ for (const dir of HANDLER_DIRS) {
     let src: string;
     try { src = readFileSync(abs, 'utf8'); } catch { continue; }
     filesRead++;
-    // `type` before `affectedStores`, and the reverse ordering, both occur.
-    for (const re of [
-      /type:\s*'([A-Za-z0-9_.-]+)'[\s\S]{0,900}?affectedStores/g,
-      /affectedStores[\s\S]{0,400}?type:\s*'([A-Za-z0-9_.-]+)'/g,
-    ]) {
-      for (const m of src.matchAll(re)) {
-        if (!handlerTypes.has(m[1]!)) handlerTypes.set(m[1]!, rel);
-      }
+    TYPE_DECL_RE.lastIndex = 0;
+    const hits: { verb: string; at: number }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = TYPE_DECL_RE.exec(src)) !== null) hits.push({ verb: (m[1] ?? m[2])!, at: m.index });
+    for (let i = 0; i < hits.length; i += 1) {
+      // The slice runs to the NEXT declaration, so evidence cannot leak in from
+      // an unrelated handler further down the same file.
+      const slice = src.slice(hits[i]!.at, hits[i + 1]?.at ?? src.length);
+      if (!handlerish(hits[i]!.verb, slice, rel)) continue;
+      if (!handlerTypes.has(hits[i]!.verb)) handlerTypes.set(hits[i]!.verb, rel);
     }
   }
 }
 
-if (filesRead < MIN_FILES) {
+function misconfigured(msg: string): never {
   console.error(
-    `\n[check-sync-disposition] MISCONFIGURED (exit 2) — the handler walk READ only ` +
-    `${filesRead} file(s); floor is ${MIN_FILES}.\n` +
+    `\n[check-sync-disposition] MISCONFIGURED (exit 2) — ${msg}\n` +
     `  Root: ${ROOT}\n  Dirs: ${HANDLER_DIRS.join(', ')}\n` +
-    `  This is NOT a pass. A gate that enumerated no handlers has no property verbs\n` +
-    `  to hold to a declaration, and reporting that as "all declared" is exactly the\n` +
-    `  invisible-gap failure this gate exists to prevent.`,
+    `  This is NOT a pass, and it is NOT a failure either. A gate that could not\n` +
+    `  establish its own subject has no property verbs to hold to a declaration, and\n` +
+    `  reporting that as "all declared" is exactly the invisible-gap failure this gate\n` +
+    `  exists to prevent. Exit 2 and exit 1 are different facts and MUST NOT alias.`,
   );
   process.exit(2);
+}
+
+if (filesRead < MIN_FILES) {
+  misconfigured(`the handler walk READ only ${filesRead} file(s); floor is ${MIN_FILES}.`);
+}
+if (handlerTypes.size < MIN_HANDLER_TYPES) {
+  misconfigured(
+    `the walk read ${filesRead} files but discovered only ${handlerTypes.size} handler ` +
+    `type(s); floor is ${MIN_HANDLER_TYPES}. The declaration regex or handlerish() ` +
+    `evidence rule stopped matching — this is the §FIX-SYNC-GATE-UNDERSCOPED defect ` +
+    `recurring, and it is the reason this floor is set against the REAL subject.`,
+  );
 }
 
 const propertyVerbs = [...handlerTypes.keys()].filter(isPropertyVerb).sort();
-if (propertyVerbs.length < 20) {
-  console.error(
-    `\n[check-sync-disposition] MISCONFIGURED (exit 2) — the walk read ${filesRead} files ` +
-    `but classified only ${propertyVerbs.length} property verbs (expected ≥ 20).\n` +
-    `  Either the handler-discovery regex or PROPERTY_VERB_RE stopped matching. A gate\n` +
-    `  whose subject collapsed silently would report "all declared" over an empty set.`,
+if (propertyVerbs.length < MIN_PROPERTY_VERBS) {
+  misconfigured(
+    `the walk read ${filesRead} files and ${handlerTypes.size} handler types but classified ` +
+    `only ${propertyVerbs.length} property verb(s); floor is ${MIN_PROPERTY_VERBS}. ` +
+    `PROPERTY_VERB_RE stopped matching.`,
   );
-  process.exit(2);
 }
 
 // ── S1 — declared or failing ────────────────────────────────────────────────
+let undeclaredCount = 0;
 for (const type of propertyVerbs) {
   if (Object.prototype.hasOwnProperty.call(SYNC_DISPOSITIONS, type)) continue;
+  undeclaredCount += 1;
   failures.push(
     `S1 ${type} (${handlerTypes.get(type)}): a property-mutation command with NO sync ` +
     `disposition. Its payload does not reach the CRDT document, and nothing anywhere ` +
@@ -233,6 +333,57 @@ if (orphaned.length > 0) {
   );
 }
 
+// ── S6 — cross-gate agreement on the handler set ────────────────────────────
+//
+// The subject of this gate is also the subject of `check-verb-register.ts`, and
+// the whole §FIX-SYNC-GATE-UNDERSCOPED defect was ONE gate quietly holding a
+// smaller idea of it than its siblings. So the sets are compared against that
+// gate's GENERATED artefact — an independent source, not a transcribed number.
+//
+//   • register lists a verb this gate cannot see  → HARD FAILURE. Discovery has
+//     narrowed again; that is the defect, and it must be loud.
+//   • this gate sees a verb the register lacks    → NOTE. That means the
+//     register is STALE, which `check-verb-register.ts` already hard-fails;
+//     failing here too would just teach people to ignore one of the two.
+//   • the artefact is absent                      → NOTE, same reason.
+let registerVerbs: Set<string> | null = null;
+const registerAbs = path.join(ROOT, REGISTER_PATH);
+if (existsSync(registerAbs)) {
+  const md = readFileSync(registerAbs, 'utf8');
+  registerVerbs = new Set([...md.matchAll(/^\| `([a-z][\w.-]+)` \|/gm)].map(m => m[1]!));
+}
+if (registerVerbs === null || registerVerbs.size === 0) {
+  notes.push(
+    `S6 ${REGISTER_PATH} is absent or has no rows — the cross-gate agreement check ` +
+    `did NOT run. This gate's handler set is therefore unverified against its sibling. ` +
+    `Regenerate: npx tsx tools/ga-gate/check-verb-register.ts --write`,
+  );
+} else {
+  const invisible = [...registerVerbs].filter(v => !handlerTypes.has(v)).sort();
+  const unlisted = [...handlerTypes.keys()].filter(v => !registerVerbs!.has(v)).sort();
+  if (invisible.length > 0) {
+    failures.push(
+      `S6 ${invisible.length} verb(s) are in ${REGISTER_PATH} but INVISIBLE to this gate's ` +
+      `discovery: ${invisible.join(', ')}. A verb this gate cannot see is a verb it cannot ` +
+      `hold to a sync declaration, so a PASS would cover a smaller set than the headline ` +
+      `claims — §FIX-SYNC-GATE-UNDERSCOPED, recurring. Widen discovery; do NOT narrow the ` +
+      `register.`,
+    );
+  }
+  if (unlisted.length > 0) {
+    notes.push(
+      `S6 ${unlisted.length} verb(s) are visible here but absent from ${REGISTER_PATH}: ` +
+      `${unlisted.join(', ')}. That is a STALE register — check-verb-register.ts hard-fails ` +
+      `on it; regenerate with --write.`,
+    );
+  }
+  if (invisible.length === 0 && unlisted.length === 0) {
+    notes.push(
+      `S6 handler sets AGREE with ${REGISTER_PATH}: ${handlerTypes.size} verb(s), both directions.`,
+    );
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 const declared = Object.values(SYNC_DISPOSITIONS);
 const wired = declared.filter(d => d.kind === 'element-property').length;
@@ -244,8 +395,9 @@ console.log(bar);
 console.log('W5-3 §SYNC-DISPOSITION-DECLARED — every property verb declares its sync fate');
 console.log(bar);
 console.log(`Handler files read                   : ${filesRead}  (floor ${MIN_FILES})`);
-console.log(`Registered handler types found       : ${handlerTypes.size}`);
-console.log(`  …classified as property mutations  : ${propertyVerbs.length}`);
+console.log(`Registered handler types found       : ${handlerTypes.size}  (floor ${MIN_HANDLER_TYPES})`);
+console.log(`  …classified as property mutations  : ${propertyVerbs.length}  (floor ${MIN_PROPERTY_VERBS})`);
+console.log(`  …of those, UNDECLARED              : ${undeclaredCount}`);
 console.log(`Declarations                         : ${declared.length}`);
 console.log(`  …with a CRDT path (element-property): ${wired}  (${lww} declared last-writer-wins)`);
 console.log(`  …declared NOT-SYNCED with a reason : ${notSynced}`);
@@ -258,15 +410,17 @@ console.log(
   'in a browser. And it does NOT mean production replicates: no CRDT transport is\n' +
   'deployed (L-391), so two real users still do not see each other\'s edits. This\n' +
   'gate measures the document path only.\n' +
-  '⚠ THIS GATE IS ITSELF UNDER-SCOPED (found 2026-08-11 by check-verb-register):\n' +
-  'discovery matches the OBJECT-LITERAL handler form, but most handlers here are\n' +
-  'CLASSES (`readonly type = \'...\'`), so it sees ~60 handler types where the chat\n' +
-  'gate sees 321 — about 19% of the real set. Its own property-verb regex over the\n' +
-  'full registered set finds 181 property verbs, 137 undeclared. The MIN floor of 20\n' +
-  'cannot catch this, because 60 clears 20. Until discovery is widened, a PASS here\n' +
-  'means "every property verb THIS GATE CAN SEE is declared" — a weaker claim than\n' +
-  'the headline. Same defect check-chat-capability-coverage records in its own first\n' +
-  'draft: "saw 102 of the ~300, confidently wrong."',
+  '\n' +
+  'SCOPE (§FIX-SYNC-GATE-UNDERSCOPED, closed 2026-08-11): discovery matches BOTH the\n' +
+  'object-literal AND the class handler form, using check-verb-register.ts\'s regex\n' +
+  'and evidence rule verbatim, and S6 above proves the two gates agree on the verb\n' +
+  'set each run. The earlier draft matched object literals only and saw 19% of the\n' +
+  'subject while printing this same ✓ line; that is why the floors are now set\n' +
+  'against the real subject and why S6 exists. What is STILL not measured: a verb\n' +
+  'whose `type` is assembled at runtime from a template literal (none known, none\n' +
+  'findable by a source scan), and whether a declared element-property path is the\n' +
+  'RIGHT mapping — S4 proves the subject key exists in the handler, not that the\n' +
+  'remaining payload keys are genuinely properties of that element.',
 );
 for (const n of notes) console.log(`\n   ℹ ${n}`);
 

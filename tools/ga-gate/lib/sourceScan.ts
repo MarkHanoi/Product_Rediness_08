@@ -44,6 +44,9 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, extname, sep, relative } from 'node:path';
+// The repo's single comment lexer. See "Line-preserving comment stripping" below
+// for why it is wrapped rather than forked.
+import { stripComments } from './writeRouteScan.js';
 
 /** Directories never worth walking. Build output, VCS metadata, dependencies. */
 export const DEFAULT_SKIP_DIRS: ReadonlySet<string> = new Set([
@@ -285,6 +288,135 @@ export function scanFileCoverage(opts: CoverageOptions): CoverageResult {
   }
 
   return { covered, uncovered, filesRead, filesExcluded };
+}
+
+// ── Line-preserving comment stripping ─────────────────────────────────────────
+//
+// §FIX-GATE-NEEDS-RIPGREP (L-811, wave P, 2026-08-11) — ADDITIVE.
+//
+// A gate whose pattern can appear in prose measures DOCUMENTATION unless comments
+// are removed first. This is not theoretical: `BatchCoordinator.ts` mentions
+// `forceReset` 33 times and calls it twice. Every ratchet in this family
+// (`new CustomEvent`, `structuredClone`, `WorkspaceMountBridge`, `cm.execute`)
+// is exactly that shape — a name that a migration plan's JSDoc repeats far more
+// often than the code uses it.
+//
+// The single comment lexer in this repo is `stripComments()` in
+// `lib/writeRouteScan.ts`. It is whole-source and collapses a block comment to a
+// single space, which DESTROYS line numbering — fine for its own caller (which
+// matches, and never reports a line) but unusable for a gate that must report
+// `file:line`. Rather than fork a fourth copy of the lexer, this wrapper drives
+// the SAME lexer one line at a time and carries only the block-comment open/close
+// state across lines, by re-opening the block (`/*` prefix) on continuation lines.
+//
+// Detection of "this line left a block comment open" reuses the lexer too: append
+// a sentinel; if the lexer swallowed it, the block is still open.
+//
+// Known, documented limitation: a template literal spanning multiple lines is not
+// tracked across lines, so `//` inside a multi-line template on a continuation
+// line is treated as a comment. That can only ever REMOVE a candidate line, i.e.
+// it can under-count a pattern hiding inside a multi-line template literal — a
+// shape none of these gates' patterns legitimately take.
+
+/** Cannot occur in TypeScript source; used only as a lexer probe. */
+const EOL_SENTINEL = ' GA_GATE_EOL ';
+
+/**
+ * Strip `//` and block comments while preserving the line count, so a match's
+ * index is still its real 1-based line number in the file on disk.
+ *
+ * Returns an array of cleaned lines, same length as `src.split('\n')`.
+ */
+export function stripCommentsToLines(src: string): string[] {
+  const raw = src.split('\n');
+  const out: string[] = [];
+  let inBlock = false;
+
+  for (const line of raw) {
+    const text = inBlock ? `/*${line}` : line;
+    // The sentinel goes on the NEXT line: a trailing `//` comment consumes to the
+    // first newline, so a same-line sentinel would be eaten by an ordinary line
+    // comment and misread as "block still open".
+    const probed = stripComments(`${text}\n${EOL_SENTINEL}`);
+    const at = probed.indexOf(EOL_SENTINEL);
+    if (at !== -1) {
+      inBlock = false;
+      out.push(probed.slice(0, at).replace(/\n+$/, ''));
+    } else {
+      // The lexer swallowed the sentinel ⇒ an unterminated block comment (or,
+      // rarely, an unterminated string) runs past end-of-line.
+      inBlock = true;
+      out.push(stripComments(text));
+    }
+  }
+  return out;
+}
+
+/**
+ * `scanFiles()`, but each file's comments are removed first (line numbers kept).
+ *
+ * Identical contract to `scanFiles` — including the REQUIRED `minFiles` honesty
+ * floor and the exit-2 semantics — except that `Match.text` is the CLEANED line,
+ * so the reader can see exactly what the gate matched rather than a line whose
+ * meaning depends on a comment the gate discarded.
+ */
+export function scanFilesStripped(opts: ScanOptions): ScanResult {
+  const flags = opts.pattern.flags.includes('g') ? opts.pattern.flags : opts.pattern.flags + 'g';
+  const re = new RegExp(opts.pattern.source, flags);
+
+  const matches: Match[] = [];
+  let filesScanned = 0;
+  let filesExcluded = 0;
+  let filesMatched = 0;
+
+  for (const dir of opts.dirs) {
+    for (const abs of walk(join(opts.root, dir), { exts: opts.exts, skipDirs: opts.skipDirs })) {
+      const rel = relPath(opts.root, abs);
+      if (opts.exclude?.(rel)) { filesExcluded++; continue; }
+      let src: string;
+      try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+      filesScanned++;
+      let hit = false;
+      const lines = stripCommentsToLines(src);
+      for (let i = 0; i < lines.length; i++) {
+        re.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(lines[i]!)) !== null) {
+          matches.push({ file: rel, line: i + 1, text: lines[i]!.trim(), groups: m.slice(1) });
+          hit = true;
+          if (m[0] === '') re.lastIndex++;   // guard a zero-width pattern
+        }
+      }
+      if (hit) filesMatched++;
+    }
+  }
+
+  if (filesScanned < opts.minFiles) {
+    console.error(
+      `\n[${opts.label}] MISCONFIGURED (exit 2) — the scan READ only ${filesScanned} file(s) ` +
+      `(${filesExcluded} more were walked but excluded by filter); floor is ${opts.minFiles}.\n` +
+      `  Root:  ${opts.root}\n` +
+      `  Dirs:  ${opts.dirs.join(', ')}\n` +
+      `  This is NOT a pass. A scan that looked nowhere finds nothing, and reporting\n` +
+      `  that as "0 violations" is the exact failure this floor exists to prevent.`,
+    );
+    process.exit(2);
+  }
+
+  return { matches, filesScanned, filesExcluded, filesMatched };
+}
+
+/** Distinct `file:line` pairs — rg's `-c` counted LINES, not occurrences. */
+export function distinctLines(matches: readonly Match[]): Match[] {
+  const seen = new Set<string>();
+  const out: Match[] = [];
+  for (const m of matches) {
+    const key = `${m.file}:${m.line}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(m);
+  }
+  return out;
 }
 
 /** Count matches grouped by an arbitrary key. Sorted descending. */

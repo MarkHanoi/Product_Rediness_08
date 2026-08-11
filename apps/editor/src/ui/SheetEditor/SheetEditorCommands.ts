@@ -30,7 +30,7 @@ import type { DataPanel } from '@pryzm/core-app-model';
 // ── Core mutation dispatchers ──────────────────────────────────────────────
 
 export function dispatchAddViewport(sheet: SheetDefinition, view: ViewDefinition): void {
-    if (!(window as any).__pryzmInitComplete) {
+    if (!window.__pryzmInitComplete) {
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchAddViewport');
         return;
     }
@@ -53,7 +53,7 @@ export function dispatchAddViewport(sheet: SheetDefinition, view: ViewDefinition
 }
 
 export function dispatchRemoveViewport(sheetId: string, vpId: string): void {
-    if (!(window as any).__pryzmInitComplete) {
+    if (!window.__pryzmInitComplete) {
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchRemoveViewport');
         return;
     }
@@ -65,7 +65,7 @@ export function dispatchRemoveViewport(sheetId: string, vpId: string): void {
 }
 
 export function dispatchUpdateSheetField(sheetId: string, key: string, value: string): void {
-    if (!(window as any).__pryzmInitComplete) {
+    if (!window.__pryzmInitComplete) {
         console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: dispatchUpdateSheetField');
         return;
     }
@@ -158,7 +158,7 @@ export function showExportDialog(sheet: SheetDefinition): void {
     confirmBtn.type        = 'button';
     confirmBtn.textContent = 'Export';
     confirmBtn.addEventListener('click', () => {
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: showExportDialog/confirmBtn');
             return;
         }
@@ -207,7 +207,7 @@ export function buildLayoutSection(
         btn.textContent = preset.name;
         btn.title       = preset.description;
         btn.addEventListener('click', () => {
-            if (!(window as any).__pryzmInitComplete) {
+            if (!window.__pryzmInitComplete) {
                 console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildLayoutSection/presetBtn');
                 return;
             }
@@ -275,7 +275,7 @@ export function buildDataPanelSection(sheet: SheetDefinition): HTMLElement {
         btn.type        = 'button';
         btn.textContent = t.label;
         btn.addEventListener('click', () => {
-            if (!(window as any).__pryzmInitComplete) {
+            if (!window.__pryzmInitComplete) {
                 console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildDataPanelSection/addBtn');
                 return;
             }
@@ -308,7 +308,7 @@ export function buildDataPanelSection(sheet: SheetDefinition): HTMLElement {
             removeBtn.textContent = '×';
             removeBtn.title       = 'Remove panel';
             removeBtn.addEventListener('click', () => {
-                if (!(window as any).__pryzmInitComplete) {
+                if (!window.__pryzmInitComplete) {
                     console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildDataPanelSection/removeBtn');
                     return;
                 }
@@ -355,7 +355,7 @@ export function buildIntentSection(sheet: SheetDefinition): HTMLElement {
     }
 
     textarea.addEventListener('change', () => {
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildIntentSection/textarea.change');
             return;
         }
@@ -376,7 +376,7 @@ export function buildIntentSection(sheet: SheetDefinition): HTMLElement {
     audienceLabel.className   = 'sh-audience-label';
     audienceLabel.textContent = 'Audience:';
     audienceSelect.addEventListener('change', () => {
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildIntentSection/audienceSelect.change');
             return;
         }
@@ -451,7 +451,7 @@ export function buildRevisionFormEl(
     cancelBtn.textContent = 'Cancel';
 
     const doSave = () => {
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildRevisionFormEl/doSave');
             return;
         }
@@ -524,7 +524,7 @@ export function buildInlineScaleOverlay(
 
     const apply = (n: number) => {
         if (n === currentScale) return;
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.error('[SheetEditorCommands] Engine not yet initialised — command ignored: buildInlineScaleOverlay/apply');
             return;
         }
