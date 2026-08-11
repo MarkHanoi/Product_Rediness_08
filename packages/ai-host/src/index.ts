@@ -94,7 +94,32 @@ export type {
   ScopeError,
   ScopeResult,
   ScopeSkip,
+  // RAC U8.1 — FILTER scopes (predicate scopes) + the honesty payload the
+  // editor-side resolver fills in so refusals can quote the real extremum.
+  BaseScopeDescriptor,
+  FilterScopeDescriptor,
+  ElementFilter,
+  PropertyFilter,
+  TypeFilter,
+  FilterProperty,
+  FilterOp,
+  FilterUnit,
+  FilterStat,
+  IntentScope,
+  IntentSpatialScope,
+  IntentFilterScope,
 } from './intents/ScopeDescriptor.js';
+// RAC U8 — the filter grammar's COPY, so the editor-side resolver speaks the
+// same words the pure layer does (one vocabulary, never two).
+export {
+  describeFilter,
+  describeFilters,
+  filterRefusalCopy,
+  formatFilterValue,
+  parseFilterClauses,
+  FILTER_PROPERTY_NOUN,
+  FILTER_SUPERLATIVE,
+} from './intents/FilterScope.js';
 export type {
   ResolverContext,
   ResolverSelection,
