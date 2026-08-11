@@ -23,9 +23,27 @@
 // importers get a stable PLUGIN_ID + PLUGIN_NAME pair so descriptor
 // registration code can compile.
 
+// ─── §P7-INTENT-IS-DOMAIN (2026-08-11) — where the handlers went ─────────────
+// `buildVisibilityIntentHandlerSet` and its four types are NO LONGER exported
+// here. They moved to `packages/visibility/src/intents/`, and the re-export that
+// used to sit below was deleted with them.
+//
+// This is P7 applied to its own plugin. Visibility intent is a DOMAIN concept,
+// not UI: a function turning "hide these ids in this view" into a store write is
+// domain logic. Keeping it in an L6 plugin meant `runtime-composer` had to import
+// UPWARD to reach it, which the layer gate correctly counted as a violation
+// (102 → 103). The fix was not to widen the gate but to move the code.
+//
+// Re-exporting the new home through this file would undo that: it would put an L6
+// facade back in front of domain logic and invite exactly the upward import again
+// — and it would need `@pryzm/visibility` as a dependency of a plugin that
+// deliberately has none. Consumers import from `@pryzm/visibility` directly;
+// `composeRuntime.ts:165-170` already does.
+//
+// The plugin keeps what a plugin should own: the descriptor, the keybindings and
+// the rail contribution — the surface a user actually touches.
+
 export const PLUGIN_ID = 'visibility-intent' as const;
 export const PLUGIN_NAME = '@pryzm/plugin-visibility-intent' as const;
 
 export { visibilityIntentDescriptor, PLUGIN_VERSION } from './descriptor.js';
-export { buildVisibilityIntentHandlerSet } from './handlers/index.js';
-export type { VisibilityIntentHandler, VisibilityIntentCommand } from './handlers/index.js';

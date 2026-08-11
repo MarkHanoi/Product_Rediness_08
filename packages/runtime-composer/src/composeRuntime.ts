@@ -151,7 +151,27 @@ import {
   type WorkspaceSurface,
 } from '@pryzm/renderer-three';
 import { installGlobalHandlers, initTracing } from '@pryzm/crash-reporter';
-import { evaluateVisibilityForManifest } from '@pryzm/visibility';
+// W3-2 — visibility intent: the evaluator (read), the store (write), and the
+// handler set that joins a user gesture to the store.
+//
+// All three come from L1 `@pryzm/visibility`, which this package already depends
+// on. `buildVisibilityIntentHandlerSet` used to live in `plugins/visibility-intent`
+// (L6); importing it from here would have been an L3 → L6 UPWARD import and the
+// layer gate counted it as exactly that (102 → 103). The fix was not to widen the
+// gate but to put the code where it belongs: P7 says visibility intent is a DOMAIN
+// concept, and a function that turns "hide these ids in this view" into a store
+// write is domain logic, not plugin UI. The plugin keeps the descriptor, the
+// keybindings and the rail contribution — the surface a user touches.
+import {
+  evaluateVisibilityForManifest,
+  createViewVisibilityIntentStore,
+  buildVisibilityIntentHandlerSet,
+  type ViewVisibilityIntentStore,
+} from '@pryzm/visibility';
+// The `.visible` write itself lives HERE, not in `@pryzm/visibility`: ARM A of
+// `check-visibility-intent-not-ui` holds the domain package to zero rendering
+// concerns, and assigning a scene node's visibility is a rendering concern.
+import { applyVisibilityIntentToScene, IMPLICIT_MODEL_VIEW_ID } from './visibilitySceneApplier.js';
 
 const COMPOSE_TRACER_NAME = 'pryzm.runtime-composer';
 
@@ -535,8 +555,76 @@ function buildSyncSlot(client: SyncClient | null): SyncSlot {
 // Wraps `evaluateVisibilityForManifest` from `@pryzm/visibility` so UI panels
 // consume it via `runtime.visibility.evaluate(...)` rather than importing the
 // package directly (L5 → L7.5 layer boundary per ADR-0031).
-function buildVisibilitySlot(): VisibilitySlot {
-  return { evaluate: evaluateVisibilityForManifest };
+//
+// W3-2 (P1 + P7 / C01 §1): the slot now also carries the WRITE side. `store` is
+// created ONCE per `composeRuntime()` call by the caller below and threaded in
+// here — the builder does not create it, so there is no way to end up with a
+// second instance by calling this function twice.
+//
+// `evaluate` is passed through byte-for-byte. `resolve` is the new intent-aware
+// sibling; keeping them separate is deliberate (see the VisibilitySlot doc).
+//
+// `activeViewId` is a THUNK for the same reason the handler set takes one: the
+// slot is built once at boot, the active view changes all session.
+function buildVisibilitySlot(
+  store: ViewVisibilityIntentStore,
+  activeViewId: () => string | null,
+): VisibilitySlot {
+  return {
+    evaluate: evaluateVisibilityForManifest,
+    resolve: (elements, view, flags) =>
+      evaluateVisibilityForManifest(elements, store.applyToView(view), flags),
+    intent: store,
+    subscribe: (listener) => store.subscribe((viewId) => listener(viewId)),
+    applyToScene: (root, elementIds) =>
+      applyVisibilityIntentToScene(store, root, activeViewId(), elementIds),
+    // `hide`/`unhide` exist so a panel never has to know a view id. Handing view
+    // ids to UI code is how per-view state becomes per-panel state.
+    hide(elementIds) {
+      const viewId = activeViewId();
+      if (viewId === null || elementIds.length === 0) return false;
+      store.hide(viewId, elementIds);
+      return true;
+    },
+    unhide(elementIds) {
+      const viewId = activeViewId();
+      if (viewId === null || elementIds.length === 0) return false;
+      store.unhide(viewId, elementIds);
+      return true;
+    },
+  };
+}
+
+/**
+ * W3-2 — adapt the visibility-intent plugin's handler set onto the CommandBus.
+ *
+ * The plugin returns `{ commandType, handle(payload) }` records; the bus wants
+ * `CommandHandler` (`type` / `affectedStores` / `canExecute` / `execute`). This
+ * is the only place the two shapes meet.
+ *
+ * `affectedStores` is EMPTY, and that is a real statement, not an omission:
+ * `ViewVisibilityIntentStore` is not an Immer-backed command-bus store, so these
+ * handlers produce no patches. The consequences are stated rather than hidden —
+ * a visibility gesture is therefore NOT undoable via Ctrl+Z, NOT replicated over
+ * CRDT, and NOT written into the event log today. Declaring a store we do not
+ * patch would be worse: the §U-B6 undo-routing guard would have to police a
+ * store that never emits, and the empty-patch push would eat a ring-buffer
+ * cursor slot and mis-align subsequent undos (see `CommandBus.executeCommand`).
+ * Undo/replication for visibility intent is a separate, deliberate piece of work.
+ */
+function adaptVisibilityIntentHandlers(
+  store: ViewVisibilityIntentStore,
+  activeViewId: () => string | null,
+): readonly CommandHandler<unknown>[] {
+  return buildVisibilityIntentHandlerSet({ store, activeViewId }).map((h) => ({
+    type: h.commandType,
+    affectedStores: [] as const,
+    canExecute: () => ({ valid: true as const }),
+    execute: (_ctx: unknown, payload: unknown) => {
+      h.handle(payload);
+      return { forward: [], inverse: [] };
+    },
+  })) as unknown as readonly CommandHandler<unknown>[];
 }
 
 // ── Phase F first cut — AI slot promotion (S81-WIRE F.7.x) ─────────────────
@@ -1091,6 +1179,80 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // See `./buildViewRegistrySlot.ts` + `__tests__/viewRegistry.slot.test.ts`.
     const viewRegistry = buildViewRegistrySlot(inner.viewRegistry, events);
 
+    // ── 4d-bis. W3-2 — visibility INTENT store + handler registration ──────
+    //
+    // P1 (single composition root): exactly one `ViewVisibilityIntentStore` per
+    // runtime, created here and reachable only via `runtime.visibility.intent`.
+    // Nothing else in the codebase may `new` one — that is the failure mode
+    // `IsolationStateStore` already demonstrates, where three call sites each
+    // construct a private instance and then disagree about what is isolated.
+    //
+    // P7 (visibility intent is domain, not UI): the store lives in L1
+    // `@pryzm/visibility`. The UI reaches it through this slot; it does not own it.
+    //
+    // Registration MUST happen here rather than in `bootstrapFn`: the store is
+    // runtime-scoped state the composer owns, and `bootstrapFn` is supplied by
+    // the caller (`@pryzm/editor` in production, a stub in headless/bench). Wiring
+    // it there would mean headless runtimes silently have no visibility write path
+    // — the exact "works in one boot path, dead in another" defect this closes.
+    const visibilityIntentStore = createViewVisibilityIntentStore();
+
+    // ── §P7-IMPLICIT-MODEL-VIEW (2026-08-11) — why this is not just
+    //    `() => viewRegistry.activeViewId` ─────────────────────────────────────
+    //
+    // MEASURED: `viewRegistry.activate()` has ZERO production callers. Grep the
+    // repo — every hit is a test or this package. `buildViewRegistrySlot` says so
+    // itself: *"D.11-prep stub: activate() called before D.11 wires the real
+    // view.switch pipeline"*. So `activeViewId` is `null` for the entire life of
+    // a shipping session.
+    //
+    // Wired naively, that makes this whole subsystem inert in production a SECOND
+    // time, for a new reason: every one of the five handlers would take the
+    // `no active view — intent discarded` branch, 100% of the time, forever. It
+    // would pass every test (the tests activate a view) and do nothing for a user.
+    // That is the exact defect class this work exists to end, so it is named and
+    // closed here rather than shipped again.
+    //
+    // The distinction the fix rests on is NEVER-SET vs SET-TO-NONE — two states
+    // that are not the same value:
+    //   • never activated → there is one implicit view (the model). Intent is
+    //     recorded against `IMPLICIT_MODEL_VIEW_ID`, a stable, named key, so it is
+    //     still per-view state and D.11 can migrate it rather than discover an
+    //     undifferentiated blob.
+    //   • explicitly deactivated (`activate(null)` after an activate) → there
+    //     genuinely is no view, and the handler still discards loudly. That
+    //     safety property is unchanged and still tested.
+    //
+    // `viewRegistry.subscribe` fires only from `activate()`, which is precisely
+    // "someone has taken control of view activation", so it is the right signal.
+    let viewActivationTaken = false;
+    const viewActivationProbe = viewRegistry.subscribe(() => { viewActivationTaken = true; });
+    const effectiveViewId = (): string | null => {
+      const id = viewRegistry.activeViewId;
+      if (id !== null) return id;
+      return viewActivationTaken ? null : IMPLICIT_MODEL_VIEW_ID;
+    };
+
+    // `effectiveViewId` is a THUNK, not a value: the handler set is registered
+    // once at boot but the active view changes all session. Capturing a value
+    // here would pin every later hide onto whatever view was open at boot.
+    for (const handler of adaptVisibilityIntentHandlers(
+      visibilityIntentStore,
+      effectiveViewId,
+    )) {
+      // A duplicate registration throws in CommandBus. Tolerate it rather than
+      // taking boot down: a host that already registered these (a future
+      // `bootstrapFn` that adopts them) is a migration state, not a corruption.
+      try { inner.bus.register(handler); }
+      catch (err) {
+        console.warn(
+          `[runtime-composer] visibility-intent handler '${handler.type}' not registered:`,
+          err,
+        );
+      }
+    }
+    const visibility = buildVisibilitySlot(visibilityIntentStore, effectiveViewId);
+
     // ── 4b. Phase F first cut (S81 F.12) — IFC/Rhino/BCF/PDF facades ──────
     // All four slots are constructed synchronously; the underlying
     // plugin packages are lazy-loaded on first call so the IFC schemas
@@ -1485,6 +1647,15 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // C13 project-switch path uses `.reset()`).
       try { provenanceStore.dispose(); }
       catch (err) { console.error('[runtime-composer] provenanceStore.dispose threw:', err); }
+      // W3-2 — dispose the visibility-intent store. Drops listeners AND state.
+      // Isolation in particular is per-session by contract (w08): leaving it
+      // alive across a runtime tear-down is how a stuck isolation survives a
+      // project switch and looks like "my model disappeared".
+      try { visibilityIntentStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] visibilityIntentStore dispose threw:', err); }
+      // §P7-IMPLICIT-MODEL-VIEW — drop the activation probe with the runtime.
+      try { viewActivationProbe.dispose(); }
+      catch (err) { console.error('[runtime-composer] viewActivationProbe dispose threw:', err); }
       // A.R.3 — dispose IfcMetaStore (process shutdown; C13 project-switch uses `.reset()`).
       try { ifcMetaStore.dispose(); }
       catch (err) { console.error('[runtime-composer] ifcMetaStore.dispose threw:', err); }
@@ -1508,7 +1679,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       viewRegistry,
       persistence,
       sync,
-      visibility: buildVisibilitySlot(),
+      visibility,
       ai,
       plugins,
       events,

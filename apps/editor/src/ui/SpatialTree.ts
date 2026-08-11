@@ -5,7 +5,73 @@ const EYE_ON  = iconFromName('material-symbols:visibility',     16);
 const EYE_OFF = iconFromName('material-symbols:visibility-off', 16);
 
 export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null /* B-runtime createSpatialTree */) {
-    void runtime; /* B-runtime-void createSpatialTree — TODO(C.3.x): consume once runtime.persistence is wired — Phase C.3.x */
+    // ── §P7-INTENT-IS-DOMAIN (2026-08-11) ────────────────────────────────────
+    // `runtime` used to be `void`-ed on the next line. It is now CONSUMED: every
+    // eye-toggle below states a visibility INTENT on `runtime.visibility.intent`
+    // and then asks `runtime.visibility.applyToScene(...)` to project it onto the
+    // scene. The panel no longer assigns `obj.visible` itself.
+    //
+    // What that fixes, beyond the gate:
+    //   • The old toggles kept "is this hidden?" in a `let visible = true` inside
+    //     a DOM click handler. `refreshTreeNow()` rebuilds every button (fired by
+    //     `model-updated`, `bim-level-added/removed`, IFC import), so the button
+    //     reset to EYE_ON while the scene node stayed hidden — icon and model
+    //     silently disagreed. Intent survives the rebuild; the closure did not.
+    //   • Hiding is now per-view. It was previously global to the session.
+    //
+    // ⚠ HONEST LIMITS — do not read more into this than it says:
+    //   • Nothing persists this store to disk yet (`serialize()` has no caller),
+    //     so a hide still does NOT survive save/load. The mechanism is now in
+    //     place; the document-format wiring is separate, reviewed work.
+    //   • These gestures go through the store directly rather than the command
+    //     bus, so they are not undoable — identical to the previous behaviour,
+    //     which was not undoable either. Nothing regressed; nothing was gained.
+    //   • With no runtime (or no active view) the toggles fall back to the direct
+    //     scene write, so the panel keeps working in the legacy boot path instead
+    //     of silently doing nothing. A dead toggle would be a worse defect than
+    //     an unrecorded one.
+    const getScene = () => window.selectionManager?.world?.scene?.three ?? null; // TODO(D.13): replace with runtime.picking.select — Phase D.13
+
+    /** Collect the element ids under `root` matching `pred`. READ-ONLY: this
+     *  traverses to LEARN which elements a group gesture refers to, and writes
+     *  nothing. Group toggles (a level, an IFC model) are expressed as the set of
+     *  elements they contain, because element ids are the vocabulary the intent
+     *  store speaks. */
+    const idsMatching = (pred: (userData: any) => boolean): string[] => {
+        const scene = getScene();
+        if (!scene) return [];
+        const out = new Set<string>();
+        scene.traverse((obj: any) => {
+            const id = obj.userData?.id;
+            if (id === undefined || id === null) return;
+            if (pred(obj.userData)) out.add(String(id));
+        });
+        return [...out];
+    };
+
+    /** Express "hide/show these element ids" as INTENT, then ask the runtime to
+     *  project that intent onto the scene. The `.visible` write happens inside
+     *  `runtime.visibility.applyToScene` — never here.
+     *
+     *  Returns the number of scene nodes actually re-projected, so a caller can
+     *  distinguish "nothing was hidden" from "those ids matched nothing". */
+    const setVisibilityByIds = (ids: readonly string[], visible: boolean): number => {
+        const vis = runtime?.visibility;
+        if (!vis || typeof vis.applyToScene !== 'function' || ids.length === 0) {
+            // No runtime → the panel is running outside a composed runtime (legacy
+            // boot / storybook). Say so once rather than pretending the click worked.
+            if (ids.length) console.warn('[SpatialTree] no runtime.visibility slot — visibility gesture not applied');
+            return 0;
+        }
+        const recorded = visible ? vis.unhide(ids) : vis.hide(ids);
+        if (!recorded) {
+            // `hide`/`unhide` return false only when there is no view to write to.
+            console.warn('[SpatialTree] no active view — visibility gesture discarded');
+            return 0;
+        }
+        return vis.applyToScene(getScene(), ids).matched;
+    };
+
     const container = document.createElement('div');
     container.id = 'spatial-tree-container';
     container.style.cssText = `
@@ -30,26 +96,24 @@ export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types
     const treeContent = document.createElement('div');
     container.appendChild(treeContent);
 
-    // ✅ CORRECTED: Uses your system's actual key (obj.userData.id)
-    function setElementVisibility(id: string, visible: boolean) {
-        const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13): replace with runtime.picking.select — Phase D.13
-        if (!scene) return;
+    // ── §P7-INTENT-IS-DOMAIN — the five toggles below ─────────────────────────
+    // Each used to end in `obj.visible = visible` after a scene sweep. They now
+    // state intent and let the runtime project it. The MATCHING logic (which
+    // objects does "this storey" mean?) stays here — that is scene-shape
+    // knowledge and belongs to the panel. Only the visibility DECISION moved.
 
-        scene.traverse((obj: any) => {
-            if (obj.userData?.id === id) {
-                obj.visible = visible;
-            }
-        });
+    function setElementVisibility(id: string, visible: boolean) {
+        setVisibilityByIds([id], visible);
     }
 
     function setGroupVisibilityByModel(modelId: string, visible: boolean) {
-        const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13): replace with runtime.picking.select — Phase D.13
-        if (!scene) return;
-        scene.traverse((obj: any) => {
-            if (obj.userData?.modelId === modelId && obj.userData?.source === 'ifc-import') {
-                obj.visible = visible;
-            }
-        });
+        // The old sweep matched the model's container group too (it carries
+        // `modelId` but no `id`). Hiding each contained element by id reaches the
+        // same pixels — a group is invisible when everything in it is.
+        setVisibilityByIds(
+            idsMatching((ud) => ud?.modelId === modelId && ud?.source === 'ifc-import'),
+            visible,
+        );
     }
 
     function setGroupVisibilityByStorey(modelId: string, storeyName: string, visible: boolean) {
@@ -57,16 +121,12 @@ export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types
         if (!store) return;
         const model: IfcModelData | undefined = store.getModel(modelId);
         if (!model) return;
-        const ids = new Set(
+        setVisibilityByIds(
             model.elements
                 .filter((e: IfcElementRecord) => e.storeyName === storeyName)
-                .map((e: IfcElementRecord) => e.id)
+                .map((e: IfcElementRecord) => String(e.id)),
+            visible,
         );
-        const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13): replace with runtime.picking.select — Phase D.13
-        if (!scene) return;
-        scene.traverse((obj: any) => {
-            if (ids.has(obj.userData?.id)) obj.visible = visible;
-        });
     }
 
     function setGroupVisibilityByType(modelId: string, storeyName: string, typeName: string, visible: boolean) {
@@ -74,16 +134,12 @@ export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types
         if (!store) return;
         const model: IfcModelData | undefined = store.getModel(modelId);
         if (!model) return;
-        const ids = new Set(
+        setVisibilityByIds(
             model.elements
                 .filter((e: IfcElementRecord) => e.storeyName === storeyName && e.ifcTypeName === typeName)
-                .map((e: IfcElementRecord) => e.id)
+                .map((e: IfcElementRecord) => String(e.id)),
+            visible,
         );
-        const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13): replace with runtime.picking.select — Phase D.13
-        if (!scene) return;
-        scene.traverse((obj: any) => {
-            if (ids.has(obj.userData?.id)) obj.visible = visible;
-        });
     }
 
     const refreshTreeNow = () => {
@@ -131,15 +187,20 @@ export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types
                 levelVisible = !levelVisible;
                 toggle.innerHTML = levelVisible ? EYE_ON : EYE_OFF;
 
-                const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13): replace with runtime.picking.select — Phase D.13
-                if (!scene) return;
-
-                // ✅ REVERTED: Uses your working level matching
-                scene.traverse((obj: any) => {
-                    if (obj.userData?.levelId === level.id) {
-                        obj.visible = levelVisible;
-                    }
-                });
+                // Level matching is UNCHANGED — still `userData.levelId === level.id`.
+                // What changed is that the match now produces an id LIST which is
+                // recorded as intent, instead of an in-place `.visible` write.
+                //
+                // ⚠ One real narrowing, stated rather than hidden: objects that carry
+                // `levelId` but NO `userData.id` (instanced aggregate groups) were
+                // swept by the old code and are not addressable as element intent.
+                // They are handled by ProjectVisibilitySection's §INSTANCED-ISOLATE-FIX
+                // path, which still owns aggregates; this panel never had a coherent
+                // story for them (it also reset them on every tree refresh).
+                setVisibilityByIds(
+                    idsMatching((ud) => ud?.levelId === level.id),
+                    levelVisible,
+                );
             };
 
             levelNode.header.appendChild(toggle);

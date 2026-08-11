@@ -35,7 +35,17 @@ import type {
 } from '@pryzm/typology-pipeline';
 import type { Renderer, MaterialPool, FrameScheduler, CommitterHost, CameraController, PlainPose } from '@pryzm/renderer';
 import type { WorkspaceSurface } from '@pryzm/renderer-three';
-import type { VisibilityElement, VisibilityView, VisibilityFeatureFlags, WaveVisibilityResult } from '@pryzm/visibility';
+import type {
+  VisibilityElement,
+  VisibilityView,
+  VisibilityFeatureFlags,
+  WaveVisibilityResult,
+  ViewVisibilityIntentStore,
+} from '@pryzm/visibility';
+// W3-2 — the scene-projection half of visibility intent. Local to this package
+// (it writes `node.visible`, which is a rendering act and therefore may not live
+// in the L1 domain package — ARM A of check-visibility-intent-not-ui).
+import type { VisibilitySceneNode, VisibilityProjectionResult } from './visibilitySceneApplier.js';
 
 // ---------------------------------------------------------------------------
 //                       Cross-cutting helper types
@@ -2485,20 +2495,92 @@ export interface SyncSlot {
   readonly status: SyncStatus;
 }
 
-/** Visibility wave-chain evaluator slot — Phase 3A (Wave 19, S114-WIRE).
+/** Visibility wave-chain evaluator slot — Phase 3A (Wave 19, S114-WIRE),
+ *  completed at W3-2.
+ *
  *  Exposes `packages/visibility`'s manifest-honoured evaluation surface via
  *  `PryzmRuntime` so UI panels don't import `@pryzm/visibility` directly
  *  (enforces the L5 → L7.5 layer boundary).
  *
- *  `evaluate` is a pure function — no side effects, no I/O, no DOM.
- *  Phase 3A completion (post-Wave-20) will add a stateful `subscribe` surface
- *  once the per-view visibility intent store lands. */
+ *  ── W3-2: the write side landed (P1 + P7 / C01 §1) ────────────────────────
+ *  This slot used to be `{ evaluate }` and nothing else, and its own doc-comment
+ *  conceded the gap: *"Phase 3A completion (post-Wave-20) will add a stateful
+ *  `subscribe` surface once the per-view visibility intent store lands."* The
+ *  store had never landed, so waves 8 and 9 read `activeView.temporaryIsolation`
+ *  / `activeView.hiddenElementIds` — two fields NOTHING in production ever wrote.
+ *  A fully-tested 11-wave evaluator with no writer resolves every element
+ *  visible, forever, no matter what the user asks for.
+ *
+ *  `intent` is that writer, and it is deliberately reached through the slot
+ *  rather than constructed by callers: P1 means one runtime, therefore ONE
+ *  authoritative intent store. Three existing `IsolationStateStore` consumers
+ *  each `new` their own private instance, which is how "shared visibility state"
+ *  became three disagreeing copies; this slot exists so that cannot recur.
+ *
+ *  ⚠ `evaluate` is UNCHANGED — same signature, same pure semantics, and it still
+ *  ignores `intent` entirely. Every existing caller passes a view it built
+ *  itself, and silently folding intent into `evaluate` would change the result
+ *  of calls that were written to be intent-free. Use `resolve` when you want the
+ *  user's intent applied; use `evaluate` when you want the pure chain over a
+ *  view you fully control. The two are separate on purpose. */
 export interface VisibilitySlot {
+  /** Pure 11-wave evaluation of `view` exactly as given. No side effects, no
+   *  I/O, no DOM, and NO intent — see the ⚠ note above. */
   readonly evaluate: (
     elements: readonly VisibilityElement[],
     view: VisibilityView,
     flags?: VisibilityFeatureFlags | null,
   ) => ReadonlyMap<string, WaveVisibilityResult>;
+
+  /** `evaluate` with the recorded user intent for `view.id` merged in first —
+   *  i.e. `evaluate(elements, intent.applyToView(view), flags)`.
+   *
+   *  THIS is the function whose output answers "is the user seeing this
+   *  element?". Renderers and panels want this one. */
+  readonly resolve: (
+    elements: readonly VisibilityElement[],
+    view: VisibilityView,
+    flags?: VisibilityFeatureFlags | null,
+  ) => ReadonlyMap<string, WaveVisibilityResult>;
+
+  /** The single per-runtime visibility-intent store (the write surface).
+   *  Constructed by `composeRuntime`; disposed by `tearDown`. */
+  readonly intent: ViewVisibilityIntentStore;
+
+  /** The `subscribe` surface the original comment promised. Fires with the
+   *  view id whose intent changed. Returns an idempotent unsubscribe. */
+  readonly subscribe: (listener: (viewId: string) => void) => () => void;
+
+  /** W3-2 — project the ACTIVE view's intent onto the named elements of a scene
+   *  graph, writing `node.visible`.
+   *
+   *  This is the sanctioned replacement for a UI panel walking the scene and
+   *  assigning `.visible` itself (P7: the UI states intent, the composition layer
+   *  performs it). It touches ONLY nodes whose `userData.id` appears in
+   *  `elementIds`, so it cannot clobber a visibility decision some other system
+   *  made about a node it was not asked about.
+   *
+   *  It projects INTENT only — waves 8/9 — not the full 11-wave chain; use
+   *  `resolve` when you want the authoritative answer for a known element set.
+   *  Returns `{ matched, hidden }` so a caller can tell "hid nothing" from
+   *  "matched nothing", which are different failures.
+   *
+   *  @param root Any object exposing `traverse(cb)`; a `THREE.Object3D` qualifies. */
+  readonly applyToScene: (
+    root: VisibilitySceneNode | null | undefined,
+    elementIds: readonly string[],
+  ) => VisibilityProjectionResult;
+
+  /** Record "hide these elements" against the ACTIVE view. Returns `false` when
+   *  there is no view to write to (or nothing was named) — so a caller can tell
+   *  "recorded" from "discarded" instead of assuming success.
+   *
+   *  These exist so a panel never handles a view id. Handing view ids to UI code
+   *  is how per-view state quietly becomes per-panel state. */
+  readonly hide: (elementIds: readonly string[]) => boolean;
+
+  /** Inverse of `hide` — set difference, idempotent. Same return contract. */
+  readonly unhide: (elementIds: readonly string[]) => boolean;
 }
 
 /** Snapshot of cumulative AI relay spend for the current session.
