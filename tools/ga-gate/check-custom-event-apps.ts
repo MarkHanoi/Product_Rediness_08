@@ -71,7 +71,41 @@ const MIN_FILES = 700;
 
 const PATTERN = /window\.dispatchEvent|new CustomEvent/;
 
+/**
+ * §FIX-CUSTOM-EVENT-GATE-PRECISION (L-838, 2026-08-11) — the count was 26; the
+ * number of things this gate is about is 13. Neither correction touches the
+ * ceiling and the gate still FAILS (13 > 4). Both are precision, not relief.
+ *
+ * The rule being enforced is: app-internal messaging goes through
+ * `runtime.events.emit()`, not through the DOM. The gate's own remedy line says
+ * exactly that. Two whole classes of match cannot obey it:
+ *
+ *  1. DOM INPUT SIMULATION. `PATTERN` is an OR, so `window.dispatchEvent` matches
+ *     regardless of what is constructed — and it was counting
+ *     `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' }))`. That is
+ *     a test pressing a key. It is not app-internal messaging, there is no
+ *     runtime event that replaces it, and "migrating" it would mean deleting the
+ *     only way to test keyboard handling. A gate named custom-event, whose
+ *     message says "CustomEvent dispatch(es)", was counting MouseEvents and
+ *     KeyboardEvents.
+ *
+ *  2. TEST FILES. A spec dispatching the event its subject listens for is DRIVING
+ *     the code under test — that is how you test an event seam, not a violation
+ *     of one. Counting them also made the number move whenever somebody added a
+ *     test, so the ratchet punished test coverage.
+ *
+ * Both are still COUNTED and PRINTED, never silently dropped — the §CONTEXT-DATA
+ * -HONESTY rule that a filtered-out thing and an absent thing must not read the
+ * same. Only the ENFORCED number changes.
+ */
+const DOM_INPUT_EVENT = /new (?:Keyboard|Mouse|Pointer|Touch|Wheel|Focus|Drag|Input|Clipboard)Event\b/;
+const IS_TEST_FILE = (rel: string): boolean =>
+    rel.includes('__tests__') || /\.(spec|test)\.[cm]?tsx?$/.test(rel);
+
 let SCANNED = 0;
+/** Reported every run, so the exclusions are visible rather than assumed. */
+let EXCLUDED_TESTS = 0;
+let EXCLUDED_DOM_INPUT = 0;
 
 function findMatches(): Match[] {
     const res = scanFilesStripped({
@@ -83,7 +117,15 @@ function findMatches(): Match[] {
         label: 'custom-event-apps',
     });
     SCANNED = res.filesScanned;
-    return distinctLines(res.matches);
+
+    const all = distinctLines(res.matches);
+    const enforced: Match[] = [];
+    for (const m of all) {
+        if (IS_TEST_FILE(m.file))        { EXCLUDED_TESTS++;     continue; }
+        if (DOM_INPUT_EVENT.test(m.text)) { EXCLUDED_DOM_INPUT++; continue; }
+        enforced.push(m);
+    }
+    return enforced;
 }
 
 /**
@@ -136,6 +178,16 @@ function main(): number {
     console.log(
         `[custom-event-apps] files scanned: ${SCANNED} (floor ${MIN_FILES}) · dir: apps/editor/src · ` +
         `comments stripped · unit: matching lines`,
+    );
+    // §FIX-CUSTOM-EVENT-GATE-PRECISION (L-838) — say what was set aside and why.
+    // A filtered-out match and an absent match must never read the same, so the
+    // exclusions are printed on EVERY run, including green ones. Without this the
+    // enforced number silently becomes a different measurement from its label.
+    console.log(
+        `[custom-event-apps] excluded from enforcement: ${EXCLUDED_TESTS} in test files` +
+        ` (a spec dispatching the event its subject listens for is DRIVING the code under test)` +
+        ` · ${EXCLUDED_DOM_INPUT} DOM input event(s) (Keyboard/Mouse/Pointer/… — real user input` +
+        ` simulation; runtime.events.emit() cannot replace it).`,
     );
 
     if (current > CEILING) {
