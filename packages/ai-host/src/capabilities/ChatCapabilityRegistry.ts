@@ -215,6 +215,18 @@ export interface ChatCapability {
    *  parameter command for everything else). Counted by the coverage gate too. */
   readonly alsoDispatches?: readonly string[];
   readonly localAction?: 'undo' | 'redo' | 'setActiveLevel';
+  /**
+   * §PLAN (RAC U6) — a COMPOSITE capability dispatches no command of its own:
+   * it composes other declared capabilities and dispatches THEIR commands. The
+   * only member today is `execute-plan` (compound sentences).
+   *
+   * It is declared explicitly rather than inferred, because "busCommand null
+   * and no localAction" otherwise means the c1902a5a defect ("this capability
+   * does nothing") and the gate must keep failing that. A composite adds no
+   * coverage of its own — every command it can reach is already covered by the
+   * capability that owns it — so the ratchet is unaffected by construction.
+   */
+  readonly composite?: boolean;
   /** Minimal well-formed intent the gate/specs feed to `applySemanticIntent`
    *  to VERIFY `targets` against the live guard (proof 1). */
   readonly probe: SemanticIntent;
@@ -1409,6 +1421,50 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'finish this apartment',
       'finish this floor',
       'generate and finish an apartment',
+    ],
+  },
+  {
+    id: 'execute-plan',
+    // §PLAN (RAC U6) — the COMPOSITE capability: it implements no command of
+    // its own. A compound sentence is a sequence of the capabilities already
+    // declared above, resolved clause by clause through the same ladder and
+    // executed step by step by the same dispatcher. Its `busCommand` is null
+    // and `composite` is true for exactly that reason — the gate treats the
+    // pair as a declared shape rather than as the "does nothing" defect.
+    description: 'run several asks in the order you said them ("…, then …")',
+    verbs: ['then', 'and then', 'after that', 'first'],
+    aliases: ['then', 'after that', 'next'],
+    targets: 'global',
+    parameters: [
+      {
+        name: 'steps',
+        description:
+          'the clauses, in order — each one an ordinary ask this chat already understands; a clause it would refuse alone refuses the whole plan',
+        required: false,
+        valueSource: 'user-text',
+        example: 'duplicate level 0 to level 1, then furnish it',
+      },
+    ],
+    scope: 'global',
+    // Destructive if ANY step is — the plan's Confirm card is never a weaker
+    // gate than the gates of its own steps.
+    destructive: true,
+    busCommand: null,
+    composite: true,
+    probe: {
+      intent: 'execute-plan',
+      steps: [
+        { intent: 'set-wall-color', colorRef: 'white', scope: 'all' },
+        { intent: 'generate-room-finishes', steps: ['ceilings'], scope: 'active-level' },
+      ],
+      clauses: ['make all walls white', 'add ceilings to every room'],
+    },
+    examples: [
+      'duplicate level 0 to level 1, then furnish it',
+      'generate a 2-storey house and then furnish all rooms',
+      'add a level at 9 m, then duplicate level 0 onto it',
+      'make all walls white then add ceilings to every room',
+      'create a 3 bedroom apartment, then light all rooms',
     ],
   },
 ];

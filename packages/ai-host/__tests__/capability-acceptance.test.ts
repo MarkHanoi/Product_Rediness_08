@@ -20,6 +20,7 @@ import {
   type ZeroTokenResolution,
 } from '../src/intents/ZeroTokenResolver.js';
 import { resolveNaturalLanguage } from '../src/intents/LocalNaturalLanguageResolver.js';
+import { resolveCompoundUtterance } from '../src/intents/SemanticPlan.js';
 import {
   allChatCapabilities,
   resolveChatCapability,
@@ -80,8 +81,11 @@ const sel = (elementType: string, elementId = `${elementType}-1`) => ({
   selection: [{ elementId, elementType }],
 });
 
-/** Resolve through the FULL ladder the bridge uses: tier 0/1, then NL. */
+/** Resolve through the FULL ladder the bridge uses: the §PLAN compound stage
+ *  (which stands aside for every ordinary sentence), then tier 0/1, then NL. */
 function resolveFull(utterance: string, ctx: ResolverContext): ZeroTokenResolution {
+  const plan = resolveCompoundUtterance(utterance, ctx);
+  if (plan !== null) return plan;
   const tier01 = resolveUtterance(utterance, ctx);
   if (tier01.kind !== 'miss') return tier01;
   const nl = resolveNaturalLanguage(utterance, ctx);
@@ -398,7 +402,25 @@ const U5C_ACCEPTANCE: readonly AcceptanceCase[] = [
   },
 ];
 
-const ACCEPTANCE: readonly AcceptanceCase[] = [...BASE_ACCEPTANCE, ...U5C_ACCEPTANCE];
+// §PLAN (RAC U6) — compound sentences. The founder's five, verbatim.
+const U6_ACCEPTANCE: readonly AcceptanceCase[] = [
+  {
+    id: 'execute-plan',
+    ctx: {},
+    phrasings: [
+      'duplicate level 0 to level 1, then furnish it',
+      'generate a 2-storey house and then furnish all rooms',
+      'add a level at 9 m, then duplicate level 0 onto it',
+      'make all walls white then add ceilings to every room',
+      'create a 3 bedroom apartment, then light all rooms',
+      // The same sentences in the shapes he actually types them.
+      'first duplicate level 0 to level 1, then furnish it',
+      'make all walls white. after that, add ceilings to every room',
+    ],
+  },
+];
+
+const ACCEPTANCE: readonly AcceptanceCase[] = [...BASE_ACCEPTANCE, ...U5C_ACCEPTANCE, ...U6_ACCEPTANCE];
 
 describe('capability acceptance — a family of phrasings per capability', () => {
   for (const c of ACCEPTANCE) {
@@ -1762,5 +1784,93 @@ describe('§GEN-CHAT-APARTMENT — "create a 3 bedroom apartment" (the founder P
     // A colour ask that happens to name the apartment.
     expect(intentOf(resolveFull('make the apartment walls white', ctxOf())))
       .not.toBe('generate-apartment-layout');
+  });
+});
+
+// ─── §PLAN (RAC U6) — compound sentences, and what a plan may NOT do ─────────
+
+describe('§PLAN — compound sentences run as one confirmed, ordered plan', () => {
+  it("the founder's five sentences each produce the right steps, in order", () => {
+    const cases: readonly (readonly [string, readonly string[]])[] = [
+      ['duplicate level 0 to level 1, then furnish it',
+        ['level.duplicate-floor-plan', 'generation.rooms']],
+      ['generate a 2-storey house and then furnish all rooms',
+        ['generation.building', 'generation.rooms']],
+      ['add a level at 9 m, then duplicate level 0 onto it',
+        ['level.add', 'level.duplicate-floor-plan']],
+      ['make all walls white then add ceilings to every room',
+        ['wall.updateColorBatch', 'generation.rooms']],
+      ['create a 3 bedroom apartment, then light all rooms',
+        ['generation.apartment', 'generation.rooms']],
+    ];
+    for (const [utterance, expected] of cases) {
+      const r = resolveFull(utterance, ctxOf());
+      expect(intentOf(r), utterance).toBe('execute-plan');
+      if (r.kind !== 'commands') continue;
+      expect(r.commands.map((c) => c.type), utterance).toEqual(expected);
+      // Every plan carries its step boundaries and its REAL undo cost.
+      expect(r.plan!.steps.map((s) => s.index)).toEqual([1, 2]);
+      expect(r.plan!.undoCost, utterance).toMatch(/steps/);
+    }
+  });
+
+  it('ADVERSARIAL: "and" as a NOUN conjunction is never split into steps', () => {
+    // "furnish the kitchen and the living room" is ONE ask about two rooms.
+    // Splitting it would manufacture a second step out of a noun phrase — and
+    // the single-intent ladder already has the right answer (the engine runs a
+    // whole level at a time), which a plan must not take away from it.
+    const r = resolveFull('furnish the kitchen and the living room', ctxOf());
+    expect(intentOf(r)).toBe('generate-room-finishes');
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('whole level at a time');
+    // …and the two-engine form stays one step too.
+    expect(intentOf(resolveFull('furnish and light this floor', ctxOf())))
+      .toBe('generate-room-finishes');
+  });
+
+  it('ADVERSARIAL: a REPORT-shaped clause refuses the WHOLE plan', () => {
+    // The founder's paste-back defect wearing a compound sentence: the report
+    // opener is not in opener position of the UTTERANCE, so the whole-text
+    // guard cannot see it. The per-clause guard can, and the plan dies whole.
+    const r = resolveFull(
+      'make all walls white, then Built 6 floors — 18 apartments, 3 per apartment floor on average',
+      ctxOf(),
+    );
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('execute-plan');
+    expect(r.reason).toContain('reads like a report');
+  });
+
+  it('a plan may never reach a gate a single sentence would hit', () => {
+    // Each of these clauses is refused ALONE; inside a plan it refuses the
+    // whole plan, with the capability's own words, and nothing runs.
+    const cases: readonly (readonly [string, string])[] = [
+      ['make all walls white, then furnish the kitchen', 'whole level at a time'],
+      ['make all walls white, then duplicate level 0 to level 9', 'No level called "9"'],
+      ['make all walls white, then make all walls double glazed titanium', 'no wall type called'],
+      ['make all walls white, then add a level at 3m', 'already at 3 m'],
+    ];
+    for (const [utterance, needle] of cases) {
+      const r = resolveFull(utterance, ctxOf());
+      expect(r.kind, utterance).toBe('refusal');
+      if (r.kind !== 'refusal') continue;
+      expect(r.reason, utterance).toContain(needle);
+      expect(r.reason, utterance).toContain('Nothing in the plan was run');
+    }
+  });
+
+  it('U6.3 — the undo cost is the sum of the steps, never "one undo"', () => {
+    const two = resolveFull('make all walls white then add ceilings to every room', ctxOf());
+    expect(two.kind === 'commands' && two.plan!.undoCost).toBe('2 steps — Ctrl+Z twice');
+    // Three steps, one of which runs two engines → four real undo entries.
+    const three = resolveFull(
+      'make all walls white, then add ceilings to every room, then furnish and light this floor',
+      ctxOf(),
+    );
+    expect(three.kind === 'commands' && three.plan!.steps.length).toBe(3);
+    expect(three.kind === 'commands' && three.plan!.undoCost)
+      .toBe('3 steps, 4 undo entries — Ctrl+Z four times');
   });
 });

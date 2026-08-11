@@ -423,8 +423,19 @@ for (const c of caps) {
       phantoms.push(`${c.id} → "${claim}" is not a registered bus command.`);
     }
   }
-  if (c.busCommand === null && c.localAction === undefined) {
+  // §PLAN (RAC U6) — a COMPOSITE capability legitimately dispatches no command
+  // of its own: it composes other declared capabilities and dispatches THEIR
+  // commands (`execute-plan`, compound sentences). Everything else with a null
+  // busCommand and no localAction is the c1902a5a defect and still fails.
+  if (c.busCommand === null && c.localAction === undefined && c.composite !== true) {
     phantoms.push(`${c.id}: busCommand is null but no localAction is declared — it does nothing.`);
+  }
+  // A composite must not ALSO claim commands — its coverage is its steps'.
+  if (c.composite === true && (c.busCommand !== null || (c.alsoDispatches ?? []).length > 0)) {
+    phantoms.push(
+      `${c.id}: declares composite:true but also claims bus commands — a composite's coverage ` +
+      `belongs to the capabilities it composes, or it is not a composite.`,
+    );
   }
 }
 // The unconnected-topic table must point at real, explicitly-deferred commands
@@ -498,9 +509,14 @@ const m4 = caps.filter((c) => c.scope === 'all').length;
 const m5 = caps.filter((c) =>
   [c.busCommand, ...(c.alsoDispatches ?? [])].some((v) => v !== null && /Batch$/.test(v ?? '')),
 ).length;
+// §PLAN (RAC U6) — M6 counts COMPOSITE capabilities: ones that execute an
+// ordered sequence of other capabilities from one sentence.
+const m6 = caps.filter((c) => c.composite === true).length;
+// M7 counts capabilities that drive a GENERATIVE engine (RAC U5b/U5c).
+const m7 = caps.filter((c) => (c.busCommand ?? '').startsWith('generation.')).length;
 console.log(
   `[check-chat-capability-coverage] maturity: M2/M3 direct+selection ${caps.length} · ` +
-  `M4 scope ${m4} · M5 true-batch ${m5} · M6 plans 0 · M7 generative 0`,
+  `M4 scope ${m4} · M5 true-batch ${m5} · M6 plans ${m6} · M7 generative ${m7}`,
 );
 console.log(`[check-chat-capability-coverage] UNDECLARED: ${undeclared.length} (baseline ${MAX_UNDECLARED})`);
 

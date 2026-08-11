@@ -74,10 +74,17 @@ describe('registry shape', () => {
     }
   });
 
-  it('a capability either dispatches a bus command or declares a local action — never neither', () => {
+  it('a capability dispatches a bus command, declares a local action, or composes others — never nothing', () => {
     for (const cap of allChatCapabilities()) {
-      const wired = cap.busCommand !== null || cap.localAction !== undefined;
+      // §PLAN (RAC U6) — a COMPOSITE capability (`execute-plan`) dispatches the
+      // commands of the capabilities it sequences, so it declares none of its
+      // own. Every other null-busCommand capability is the "does nothing"
+      // defect and still fails here and in the gate.
+      const wired = cap.busCommand !== null || cap.localAction !== undefined || cap.composite === true;
       expect(wired, `${cap.id} does nothing`).toBe(true);
+      if (cap.composite === true) {
+        expect(cap.busCommand, `${cap.id} is composite and must claim no command of its own`).toBeNull();
+      }
     }
   });
 
