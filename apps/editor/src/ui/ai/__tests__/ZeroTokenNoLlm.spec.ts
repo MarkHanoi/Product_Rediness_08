@@ -248,6 +248,111 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         expect(querySpy).not.toHaveBeenCalled();
     });
 
+    // ── §PLAN (RAC U6) — compound sentences ─────────────────────────────────
+    //
+    // ONE Confirm card for the whole plan, ONE ordered dispatch pass, and an
+    // undo cost that is the real one. The bridge proof that matters is the
+    // ORDER and the STOPPING: a step that fails must take the rest of the plan
+    // down with it and say how far it got.
+
+    it('§PLAN: a two-step sentence shows ONE card listing both steps, then dispatches in order', async () => {
+        const { executeCommand } = installFacets();
+        const { hooks, said, confirm } = makeHooks(true);
+        confirm.mockImplementation((summary: string) => {
+            // Nothing may have run at the moment the card is shown.
+            expect(executeCommand).not.toHaveBeenCalled();
+            expect(summary).toContain('2 steps, in this order:');
+            expect(summary).toContain('1. Paint every wall in the project white');
+            expect(summary).toContain('2. Run ceilings on every qualifying room');
+            // U6.3 — the REAL undo cost, on the card, before consent.
+            expect(summary).toContain('Undo cost: 2 steps — Ctrl+Z twice.');
+            return Promise.resolve(true);
+        });
+
+        const handled = await tryHandleZeroToken(
+            'make all walls white then add ceilings to every room', hooks);
+
+        expect(handled).toBe(true);
+        expect(confirm).toHaveBeenCalledTimes(1); // ONE card for the whole plan
+        expect(executeCommand).toHaveBeenNthCalledWith(1, 'wall.updateColorBatch', {
+            wallIds: 'all', materialColor: '#ffffff',
+        });
+        expect(executeCommand).toHaveBeenNthCalledWith(2, 'generation.rooms', {
+            steps: ['ceilings'], levelId: 'L0',
+        });
+        expect(said.join(' ')).toContain('Step 1 done');
+        expect(said.join(' ')).toContain('Step 2 done');
+        expect(said.join(' ')).toContain('Ctrl+Z twice');
+        expect(querySpy).not.toHaveBeenCalled();
+    });
+
+    it('§PLAN: Cancel runs NOTHING — not even the first step', async () => {
+        const { executeCommand } = installFacets();
+        const { hooks, said } = makeHooks(false);
+
+        const handled = await tryHandleZeroToken(
+            'make all walls white then add ceilings to every room', hooks);
+
+        expect(handled).toBe(true);
+        expect(executeCommand).not.toHaveBeenCalled();
+        expect(said.some((s) => s.includes('Cancelled'))).toBe(true);
+    });
+
+    it('§PLAN: a step that fails at EXECUTION stops the plan and reports how far it got', async () => {
+        const { executeCommand } = installFacets();
+        executeCommand.mockImplementation((type: string) =>
+            type === 'generation.rooms'
+                ? Promise.reject(new Error('no rooms on this level — detect rooms first'))
+                : Promise.resolve(undefined));
+        const { hooks, said } = makeHooks(true);
+
+        const handled = await tryHandleZeroToken(
+            'make all walls white then add ceilings to every room', hooks);
+
+        expect(handled).toBe(true);
+        const reply = said.join(' ');
+        expect(reply).toContain('Step 1 done');
+        expect(reply).toContain('Step 2 refused');
+        expect(reply).toContain('no rooms on this level — detect rooms first');
+        expect(reply).toContain('nothing after it ran');
+        // …and it never reads like the whole plan succeeded.
+        expect(reply).not.toContain('Step 2 done');
+    });
+
+    it('§PLAN: an engine that reports success:false stops the plan too', async () => {
+        const { executeCommand } = installFacets();
+        executeCommand.mockImplementation((type: string) => {
+            if (type === 'generation.rooms') {
+                // The seam's own honesty channel: it ran, and it changed nothing.
+                window.dispatchEvent(new CustomEvent('pryzm-generation-report', {
+                    detail: { success: false, info: ['there is no closed shell on this level'] },
+                }));
+            }
+            return Promise.resolve(undefined);
+        });
+        const { hooks, said } = makeHooks(true);
+
+        await tryHandleZeroToken('make all walls white then add ceilings to every room', hooks);
+
+        const reply = said.join(' ');
+        expect(reply).toContain('Step 2 refused');
+        expect(reply).toContain('there is no closed shell on this level');
+    });
+
+    it('§PLAN: a clause that would be refused alone refuses the WHOLE plan — nothing dispatches', async () => {
+        const { executeCommand } = installFacets();
+        const { hooks, said, confirm } = makeHooks(true);
+
+        const handled = await tryHandleZeroToken(
+            'make all walls white, then duplicate level 0 to level 9', hooks);
+
+        expect(handled).toBe(true);
+        expect(confirm).not.toHaveBeenCalled(); // no card for a plan that cannot run
+        expect(executeCommand).not.toHaveBeenCalled();
+        expect(said.join(' ')).toContain('No level called "9"');
+        expect(said.join(' ')).toContain('Nothing in the plan was run');
+    });
+
     it('a failed dispatch is reported as a failure, never dressed as success', async () => {
         const { executeCommand } = installFacets({ id: 'wall-1', type: 'wall' });
         executeCommand.mockRejectedValue(new Error('wall is locked'));

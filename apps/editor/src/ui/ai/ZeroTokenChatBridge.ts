@@ -8,6 +8,15 @@
 // (§CONTEXT-DATA-HONESTY) and does NOT fall through — no guessing at
 // recognized-but-underspecified intents.
 //
+// §PLAN (RAC U6): a COMPOUND sentence ("duplicate level 0 to level 1, then
+//     furnish it") resolves through `resolveCompoundUtterance` — the same
+//     ladder, per clause — and dispatches as ONE Confirm card enumerating the
+//     steps, then one ordered pass through the SAME executor a single sentence
+//     uses. A step that fails stops the plan and the reply says how far it got.
+//     Sequencing across async engines needs no new waiting mechanism: the
+//     `generation.*` handlers already await their seam, which awaits the
+//     engines' own `*.layout-executed` events under the shipped §CHAIN-TIMEOUT
+//     budgets before resolving.
 // P6: every mutation goes through `runtime.bus.executeCommand` — the same
 //     verbs/payloads the property panel and keyboard shortcuts dispatch.
 // Batching (ADR-0314, corrected): `batchCoordinator.runBatch` is the EVENT/
@@ -29,12 +38,14 @@
 
 import {
     resolveUtterance,
+    resolveCompoundUtterance,
     resolveNaturalLanguage,
     noteResolution,
     withChatDispatchSpan,
     capabilityGapRefusal,
     findLevel,
     type ConversationContext,
+    type PlanReport,
     type ResolverContext,
     type ResolverSelection,
     type ResolverWallSystemType,
@@ -291,6 +302,9 @@ function makeScopeResolver(
     };
 }
 
+/** Monotonic suffix for minted level ids — see `mintId` below. */
+let mintSeq = 0;
+
 async function buildContext(): Promise<ResolverContext> {
     const levels = (win().bimManager?.getLevels?.() ?? []).map((l, i) => ({
         id: l.id,
@@ -359,7 +373,10 @@ async function buildContext(): Promise<ResolverContext> {
             ? { resolveDoorSystemType: doorCatalogue.resolve, doorSystemTypeNames: doorCatalogue.names }
             : {}),
         // level.add call-site convention (ProjectTreeSection): `L${Date.now()}`.
-        mintId: () => `L${Date.now()}`,
+        // §PLAN (RAC U6) — plus a per-call counter, because a plan can mint two
+        // levels inside the same millisecond ("add a level at 9 m, then add one
+        // at 12 m") and `Date.now()` alone would hand both the SAME id.
+        mintId: () => `L${Date.now()}-${++mintSeq}`,
         // ADR-0315 U3.2 — the injected scope resolver (level/all/ids today).
         resolveScope: makeScopeResolver(levels),
     };
@@ -376,6 +393,20 @@ export interface ZeroTokenUiHooks {
 
 // ─── Execution ───────────────────────────────────────────────────────────────
 
+/** What ONE dispatched slice of commands really did — the engines' own words
+ *  when they sent a report, and whether it succeeded. Shared by the
+ *  single-intent path and the §PLAN step loop so both read the same events and
+ *  neither can invent a line the engines did not say. */
+interface DispatchOutcome {
+    readonly ok: boolean;
+    /** The report lines (engine's own), or empty when nothing reported. */
+    readonly lines: readonly string[];
+    /** True when the BUS rejected (the command refused to run at all), as
+     *  opposed to the engine running and reporting that it changed nothing.
+     *  The two read differently in the transcript and must not be merged. */
+    readonly dispatchFailed: boolean;
+}
+
 async function dispatchCommands(
     r: Extract<ZeroTokenResolution, { kind: 'commands' }>,
     ctx: ResolverContext,
@@ -386,6 +417,13 @@ async function dispatchCommands(
         hooks.say('The command system is not ready yet — nothing was changed. Try again in a moment.');
         return;
     }
+    // §PLAN (RAC U6) — a compound sentence: ONE Confirm card for the whole
+    // plan, then one ordered dispatch pass. Its own function, because the step
+    // boundaries and the stop-on-failure reporting are the whole point.
+    if (r.plan !== undefined) {
+        await dispatchPlan(r, r.plan, ctx, hooks);
+        return;
+    }
     if (r.destructive) {
         const ok = await hooks.confirm(r.summary);
         if (!ok) {
@@ -393,16 +431,59 @@ async function dispatchCommands(
             return;
         }
     }
-    // §CONTEXT-DATA-HONESTY — the batch commands report partial failure
-    // ("Changed 12 of 40 walls — 28 skipped: 28× a raked wall cannot take a
-    // layered type") on a CustomEvent rather than in the bus result. The
-    // generic "Done" line below would hide exactly the information the founder
-    // needs, so when the report arrives it REPLACES that line.
-    // ADR-0314 — one command→event table instead of a per-command listener.
-    // Collected into an ARRAY, not a `let`: the listener assigns from inside a
-    // closure, which TypeScript's control-flow analysis cannot see, so a `let`
-    // is narrowed to `null` at every later read.
-    const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
+    const outcome = await executeSlice(r.commands, r.intent, r.tier, ctx, bus);
+    if (outcome.dispatchFailed) {
+        hooks.say(`That did not complete — ${outcome.lines.join('; ')}`);
+        return;
+    }
+    if (!outcome.ok) {
+        hooks.say(`Nothing was changed — ${outcome.lines.join(' · ')}`);
+        return;
+    }
+    if (outcome.lines.length > 0) {
+        hooks.say(`${outcome.lines.join(' · ')}. Undo with Ctrl+Z. (resolved without AI tokens)`);
+        return;
+    }
+    // §GEN-OFFER (RAC U5c.3) — the duplicate-level follow-up. DuplicateFloorPlan
+    // deliberately clones walls/openings/slabs/columns/furniture and NOT rooms,
+    // ceilings or lighting, so the new floor arrives unfinished by design. The
+    // useful next step is obvious, and offering it in one line is worth far more
+    // than making the user re-derive it — but it stays an OFFER. Finishing the
+    // level automatically would be a mutation nobody asked for, on the one
+    // command whose contract is "duplicate, and nothing else".
+    if (r.intent === 'duplicate-level') {
+        const ids = r.commands[0]?.payload['targetLevelIds'];
+        const names = Array.isArray(ids)
+            ? ids.map((id) => ctx.levels.find((l) => l.id === id)?.name ?? String(id))
+            : [];
+        const subject = names.length === 0
+            ? 'The duplicated level'
+            : names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]!}`;
+        offerFinishChain();
+        hooks.say(
+            `${r.summary}. Done — undo with Ctrl+Z. (resolved without AI tokens) ` +
+            `${subject} ${names.length > 1 ? 'have' : 'has'} walls, doors, windows, slabs, columns and furniture, ` +
+            `but no rooms, ceilings or lighting — that is what duplication copies. ` +
+            `Re-detect rooms and finish ${names.length > 1 ? 'them' : 'it'}? Say "yes" and I'll run ceilings, ` +
+            `floor finishes, furniture and lighting on the active level.`,
+        );
+        return;
+    }
+    // ADR-0314 honesty: runBatch is undo-NEUTRAL, so N commands are N undo
+    // steps — say so instead of implying one.
+    const undoHint = r.commands.length > 1
+        ? `undo with Ctrl+Z (${r.commands.length} steps)`
+        : 'undo with Ctrl+Z';
+    hooks.say(`${r.summary}. Done — ${undoHint}. (resolved without AI tokens)`);
+}
+
+// §CONTEXT-DATA-HONESTY — the batch commands report partial failure
+// ("Changed 12 of 40 walls — 28 skipped: 28× a raked wall cannot take a
+// layered type") on a CustomEvent rather than in the bus result. The generic
+// "Done" line would hide exactly the information the founder needs, so when a
+// report arrives it REPLACES that line.
+// ADR-0314 — one command→event table instead of a per-command listener.
+const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         'wall.updateSystemTypeBatch': 'pryzm-wall-type-batch-report',
         'wall.updateColorBatch': 'pryzm-wall-color-batch-report',
         // §FEAT-WALL-RAKE-BATCH — "Raked N of M — K skipped: <reason>" from the
@@ -438,96 +519,158 @@ async function dispatchCommands(
         // event: "Ceilings 24/24 · Furniture 22/24 — 2 rooms skipped: <the
         // engine's reason> · Lighting 24/24". A stage that never reported
         // within its budget says so rather than being quietly dropped.
-        'generation.rooms': 'pryzm-generation-report',
-        'generation.finish-chain': 'pryzm-generation-report',
-    };
+    'generation.rooms': 'pryzm-generation-report',
+    'generation.finish-chain': 'pryzm-generation-report',
+};
+
+/** The bus surface this module dispatches through (P6). */
+type ChatBus = { executeCommand(type: string, payload: unknown): Promise<unknown> };
+
+/**
+ * Dispatch ONE slice of commands and read back what the engines said.
+ *
+ * Extracted for §PLAN (RAC U6): a plan is dispatched step by step, and each
+ * step must be judged on its OWN outcome so the plan can stop where it fails
+ * and say how far it got. The single-intent path and the plan loop therefore
+ * share one executor — a second dispatch path would be exactly the duplication
+ * the whole phase exists to avoid.
+ *
+ * A slice FAILS when the bus rejects OR when the engine's own report says
+ * `success:false` — an engine refusal ("no closed shell on this level") must
+ * never read like a success, and inside a plan it must stop the sequence.
+ *
+ * Sequencing across async engines needs no new machinery: the `generation.*`
+ * handlers await their seam, which awaits the engines' own `*.layout-executed`
+ * events under the shipped §CHAIN-TIMEOUT budgets and emits the report BEFORE
+ * resolving. Awaiting `executeCommand` is therefore already awaiting the run.
+ */
+async function executeSlice(
+    commands: readonly { type: string; payload: Record<string, unknown> }[],
+    intent: string,
+    tier: 0 | 1 | 'nl',
+    ctx: ResolverContext,
+    bus: ChatBus,
+): Promise<DispatchOutcome> {
+    // Collected into an ARRAY, not a `let`: the listener assigns from inside a
+    // closure, which TypeScript's control-flow analysis cannot see.
     const batchReports: { success: boolean; info: readonly string[] }[] = [];
     const onBatchReport = (e: Event): void => {
         const detail = (e as CustomEvent).detail as { success?: boolean; info?: string[] } | undefined;
         if (detail) batchReports.push({ success: detail.success ?? false, info: detail.info ?? [] });
     };
     const reportEvents = [...new Set(
-        r.commands.map((c) => BATCH_REPORT_EVENTS[c.type]).filter((ev): ev is string => ev !== undefined),
+        commands.map((c) => BATCH_REPORT_EVENTS[c.type]).filter((ev): ev is string => ev !== undefined),
     )];
     for (const ev of reportEvents) window.addEventListener(ev, onBatchReport);
 
     const failures: string[] = [];
     await withChatDispatchSpan(async () => {
-        if (r.commands.length > 1) {
-            // ONE undoable unit — the established AI-batch pattern.
+        if (commands.length > 1) {
+            // The EVENT/geometry-storm gate — NOT an undo coalescer
+            // (ADR-0314: runBatch is undo-neutral, and every summary says so).
             const results: Promise<unknown>[] = [];
             batchCoordinator.runBatch(() => {
-                for (const c of r.commands) {
+                for (const c of commands) {
                     results.push(bus.executeCommand(c.type, c.payload));
                 }
             }, {
                 levelIds: ctx.activeLevelId !== undefined ? [ctx.activeLevelId] : [],
-                totalElementCount: r.commands.length,
+                totalElementCount: commands.length,
             });
             const settled = await Promise.allSettled(results);
             settled.forEach((s, i) => {
                 if (s.status === 'rejected') {
-                    failures.push(`${r.commands[i]!.type}: ${String((s.reason as Error)?.message ?? s.reason)}`);
+                    failures.push(`${commands[i]!.type}: ${String((s.reason as Error)?.message ?? s.reason)}`);
                 }
             });
         } else {
-            const c = r.commands[0]!;
+            const c = commands[0]!;
             try {
                 await bus.executeCommand(c.type, c.payload);
             } catch (err) {
                 failures.push(`${c.type}: ${String((err as Error)?.message ?? err)}`);
             }
         }
-    }, { 'pryzm.ai.chat.intent': r.intent, 'pryzm.ai.chat.tier': r.tier });
+    }, { 'pryzm.ai.chat.intent': intent, 'pryzm.ai.chat.tier': tier });
 
     for (const ev of reportEvents) window.removeEventListener(ev, onBatchReport);
 
     if (failures.length > 0) {
         // Honesty: a failed dispatch must never read like a success.
-        hooks.say(`That did not complete — the model refused: ${failures.join('; ')}`);
-        return;
+        return { ok: false, dispatchFailed: true, lines: [`the model refused: ${failures.join('; ')}`] };
     }
     const report = batchReports[0];
     if (report !== undefined) {
-        const lines = report.info.length > 0 ? report.info.join(' · ') : r.summary;
-        hooks.say(
-            report.success
-                ? `${lines}. Undo with Ctrl+Z. (resolved without AI tokens)`
-                : `Nothing was changed — ${lines}`,
-        );
+        return { ok: report.success, dispatchFailed: false, lines: report.info };
+    }
+    return { ok: true, dispatchFailed: false, lines: [] };
+}
+
+/**
+ * §PLAN (RAC U6.2/U6.3) — one Confirm card for the whole plan, then one
+ * ordered dispatch pass.
+ *
+ * The card enumerates the steps IN ORDER with each step's own summary, states
+ * the real undo cost (U6.3 — never "one undo" for a multi-command plan), and
+ * carries any honest caveat the resolver attached. It is shown for EVERY plan,
+ * destructive or not: a sentence that sequences several mutations is a bigger
+ * commitment than any of its parts, and reading the steps back is the only way
+ * the user can tell the plan matched what he meant.
+ *
+ * On confirm the steps run in order through the SAME dispatch path a single
+ * sentence uses. A step that fails at EXECUTION stops the plan and the reply
+ * says how far it got and what refused — nothing after a failure is attempted,
+ * and nothing before it is silently rolled back (it happened; the undo cost
+ * line says how to reverse it).
+ */
+async function dispatchPlan(
+    r: Extract<ZeroTokenResolution, { kind: 'commands' }>,
+    plan: PlanReport,
+    ctx: ResolverContext,
+    hooks: ZeroTokenUiHooks,
+): Promise<void> {
+    const bus = win().runtime?.bus;
+    if (!bus) {
+        hooks.say('The command system is not ready yet — nothing was changed. Try again in a moment.');
         return;
     }
-    // §GEN-OFFER (RAC U5c.3) — the duplicate-level follow-up. DuplicateFloorPlan
-    // deliberately clones walls/openings/slabs/columns/furniture and NOT rooms,
-    // ceilings or lighting, so the new floor arrives unfinished by design. The
-    // useful next step is obvious, and offering it in one line is worth far more
-    // than making the user re-derive it — but it stays an OFFER. Finishing the
-    // level automatically would be a mutation nobody asked for, on the one
-    // command whose contract is "duplicate, and nothing else".
-    if (r.intent === 'duplicate-level') {
-        const ids = r.commands[0]?.payload['targetLevelIds'];
-        const names = Array.isArray(ids)
-            ? ids.map((id) => ctx.levels.find((l) => l.id === id)?.name ?? String(id))
-            : [];
-        const subject = names.length === 0
-            ? 'The duplicated level'
-            : names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]!}`;
-        offerFinishChain();
-        hooks.say(
-            `${r.summary}. Done — undo with Ctrl+Z. (resolved without AI tokens) ` +
-            `${subject} ${names.length > 1 ? 'have' : 'has'} walls, doors, windows, slabs, columns and furniture, ` +
-            `but no rooms, ceilings or lighting — that is what duplication copies. ` +
-            `Re-detect rooms and finish ${names.length > 1 ? 'them' : 'it'}? Say "yes" and I'll run ceilings, ` +
-            `floor finishes, furniture and lighting on the active level.`,
-        );
+    const card = [
+        `${plan.steps.length} steps, in this order:`,
+        ...plan.steps.map((s) => `${s.index}. ${s.summary}`),
+        ...plan.notes,
+        `Undo cost: ${plan.undoCost}.`,
+        r.destructive
+            ? 'At least one step creates or replaces real geometry. Run the whole plan?'
+            : 'Run the whole plan?',
+    ].join('\n');
+    if (!await hooks.confirm(card)) {
+        hooks.say('Cancelled — nothing was changed.');
         return;
     }
-    // ADR-0314 honesty: runBatch is undo-NEUTRAL, so N commands are N undo
-    // steps — say so instead of implying one.
-    const undoHint = r.commands.length > 1
-        ? `undo with Ctrl+Z (${r.commands.length} steps)`
-        : 'undo with Ctrl+Z';
-    hooks.say(`${r.summary}. Done — ${undoHint}. (resolved without AI tokens)`);
+
+    const done: string[] = [];
+    let offset = 0;
+    for (const step of plan.steps) {
+        const slice = r.commands.slice(offset, offset + step.commandCount);
+        offset += step.commandCount;
+        // Awaited IN SEQUENCE on purpose: the plan is an ordered sequence, and
+        // step N+1 must see the model step N left behind.
+        const outcome = await executeSlice(slice, step.intent, r.tier, ctx, bus);
+        if (!outcome.ok) {
+            const notRun = plan.steps.filter((s) => s.index > step.index);
+            hooks.say(
+                `${done.length > 0 ? `${done.join(' ')} ` : ''}` +
+                `Step ${step.index} refused — ${outcome.lines.join(' · ')}; nothing after it ran` +
+                `${notRun.length > 0 ? ` (step${notRun.length > 1 ? 's' : ''} ${notRun.map((s) => s.index).join(', ')} not attempted)` : ''}. ` +
+                `${done.length > 0 ? `What did run is undoable: ${plan.undoCost.replace(/^\d+ steps?[^—]*— /, '')}.` : 'Nothing was changed.'}`,
+            );
+            return;
+        }
+        done.push(
+            `Step ${step.index} done — ${outcome.lines.length > 0 ? outcome.lines.join(' · ') : step.summary}.`,
+        );
+    }
+    hooks.say(`${done.join(' ')} ${plan.undoCost}. (resolved without AI tokens)`);
 }
 
 async function runLocal(
@@ -589,7 +732,12 @@ export async function tryHandleZeroToken(query: string, hooks: ZeroTokenUiHooks)
     let ctx: ResolverContext;
     try {
         ctx = await buildContext();
-        resolution = resolveUtterance(query, ctx);
+        // §PLAN (RAC U6) — the compound stage runs FIRST, and answers only when
+        // the user explicitly sequenced clauses ("…, then …"). It resolves each
+        // clause through this same ladder and stands aside (null) for every
+        // ordinary sentence, so nothing below changes for a single ask.
+        resolution = resolveCompoundUtterance(query, { ...ctx, conversation })
+            ?? resolveUtterance(query, ctx);
     } catch (err) {
         // A resolver crash must not take the chat down — fall through to the LLM.
         console.error('[ZeroTokenChatBridge] resolver failed, falling through:', err);

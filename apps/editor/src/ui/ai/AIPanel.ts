@@ -1126,7 +1126,15 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
             const bubble = document.createElement('div');
             bubble.className = 'ai-chat-bubble';
             const label = document.createElement('div');
-            label.textContent = `${summary}? This can be undone with Ctrl+Z.`;
+            // §PLAN (RAC U6) — a plan's card states its OWN, real undo cost
+            // ("3 steps — Ctrl+Z three times"), so the generic single-undo tail
+            // would contradict it. Suppressed exactly when the summary already
+            // says what undoing costs; every other card is unchanged. The card
+            // also renders the plan's per-step lines, hence pre-line.
+            label.style.whiteSpace = 'pre-line';
+            label.textContent = /ctrl\s*\+\s*z/i.test(summary)
+                ? summary
+                : `${summary}? This can be undone with Ctrl+Z.`;
             bubble.appendChild(label);
             const row = document.createElement('div');
             row.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
