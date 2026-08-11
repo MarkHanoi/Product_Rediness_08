@@ -157,6 +157,12 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-depth': ['beam', 'column'],
       'set-length': ['furniture'],
       'set-base-offset': ['wall', 'slab', 'column', 'roof', 'curtain-wall', 'furniture', 'handrail'],
+      // RAC U7.3 — the extension proof: four properties added as table rows +
+      // registry metadata, zero resolver lines.
+      'set-mullion-size': ['curtain-wall'],
+      'set-panel-thickness': ['curtain-wall'],
+      'set-baluster-spacing': ['handrail'],
+      'set-baluster-width': ['handrail'],
       'set-sill-height': ['window'],
       'set-riser-height': ['stair'],
       'set-tread-depth': ['stair'],

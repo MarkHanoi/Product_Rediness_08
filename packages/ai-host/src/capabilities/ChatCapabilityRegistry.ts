@@ -825,6 +825,180 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'set the base offset to 0.3m',
     ],
   },
+  // ── RAC U7.3 — THE EXTENSION PROOF ────────────────────────────────────────
+  //
+  // The four capabilities below are the U7 claim tested rather than asserted:
+  // each is a PropertyVocabulary row plus the metadata here, and NOTHING else.
+  // The commit that added them changes ZERO lines of ZeroTokenResolver.ts and
+  // ZERO lines of CapabilityExecutionSpec.ts — no case arm, no matcher, no
+  // grammar. Grammar, refusals, bounds, summaries and the compound-sentence
+  // plan executor all pick them up from the table.
+  {
+    id: 'set-mullion-size',
+    // §PROP-MULLION-SIZE — the mullion section extruded along every curtain
+    // grid line. Bounds are deliberately absent: the only numbers that exist
+    // (0.01–0.5 m) live in the property panel's descriptor, which is a UI
+    // control, not a published policy authority. Re-typing them here would
+    // mint a second source of truth for a rule this layer does not own; the
+    // command's own validateParameters is the gate (C65 §3.5).
+    description: 'change the curtain-wall mullion size',
+    verbs: ['set', 'change'],
+    aliases: ['mullion size', 'mullion width'],
+    refusalLabel: 'mullion size',
+    targets: ['curtain-wall'],
+    parameters: [
+      {
+        name: 'mullionSize',
+        description: 'the new mullion section size',
+        required: true,
+        valueSource: 'measurement',
+        example: '60mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-mullion-size', value: 0.06 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['curtain-wall', 'buildCurtainWall'],
+        note: 'resolveStore() routes curtain-wall to the curtainWallStore, and triggerGeometryRebuild calls window.curtainWallBuilder.buildCurtainWall on the updated record — both halves of the honesty bar in one file.',
+      },
+      {
+        file: 'packages/geometry-curtain-wall/src/CurtainPanelFactory.ts',
+        mustMention: ['mullionSize'],
+        note: 'The READ half: the panel factory sizes every cell as (cell.width − mullionSize) × (cell.height − mullionSize) and derives the frame thickness from it, so the written field really changes geometry.',
+      },
+    ],
+    examples: [
+      'set the mullion size to 60mm',
+      'change the mullion width to 0.08m',
+      'set the curtain wall mullion size to 50mm',
+    ],
+  },
+  {
+    id: 'set-panel-thickness',
+    // §PROP-PANEL-THICKNESS — the glazing/panel build thickness. NOT folded
+    // into `set-thickness`: that capability's routing is hand-written and
+    // sends anything that is not a slab or a roof to wall.updateDimensions,
+    // so a curtain wall would have been addressed as a wall.
+    description: 'change the curtain-wall panel thickness',
+    verbs: ['set', 'change'],
+    aliases: ['panel thickness', 'glazing thickness'],
+    refusalLabel: 'panel thickness',
+    targets: ['curtain-wall'],
+    parameters: [
+      {
+        name: 'panelThickness',
+        description: 'the new panel / glazing thickness',
+        required: true,
+        valueSource: 'measurement',
+        example: '12mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-panel-thickness', value: 0.012 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['curtain-wall', 'buildCurtainWall'],
+        note: 'Same store and same rebuild call as the mullion size — one command, one dispatch, one rebuild.',
+      },
+      {
+        file: 'packages/geometry-curtain-wall/src/CurtainPanelFactory.ts',
+        mustMention: ['panelThickness'],
+        note: 'The READ half: panelThickness is the BoxGeometry depth of every glazed panel and the frame depth of every framed panel.',
+      },
+    ],
+    examples: [
+      'set the panel thickness to 12mm',
+      'change the glazing thickness to 0.024m',
+      'set the curtain wall panel thickness to 20mm',
+    ],
+  },
+  {
+    id: 'set-baluster-spacing',
+    // §PROP-BALUSTER-SPACING — the railing infill pitch. The builder derives
+    // the baluster COUNT from it, so this is the one railing number a user
+    // actually reaches for, and the chat could not say it.
+    description: 'change the handrail baluster spacing',
+    verbs: ['set', 'change'],
+    aliases: ['baluster spacing'],
+    refusalLabel: 'baluster spacing',
+    targets: ['handrail'],
+    parameters: [
+      {
+        name: 'balusterSpacing',
+        description: 'the centre-to-centre spacing of the balusters',
+        required: true,
+        valueSource: 'measurement',
+        example: '100mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-baluster-spacing', value: 0.1 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['handrail', 'bim-handrail-updated'],
+        note: 'resolveStore() routes handrail to the handrailStore (a partial-merge update), and the command emits bim-handrail-updated for the rebuild.',
+      },
+      {
+        file: 'packages/geometry-stair/src/HandrailFragmentBuilder.ts',
+        mustMention: ['balusterSpacing'],
+        note: 'The READ half: the builder takes handrail.balusterSpacing (falling back to postSpacing, then 0.11) and computes the baluster count as floor(length / balusterSpacing) − 1.',
+      },
+    ],
+    examples: [
+      'set the baluster spacing to 100mm',
+      'change the baluster spacing to 0.12m',
+    ],
+  },
+  {
+    id: 'set-baluster-width',
+    // §PROP-BALUSTER-WIDTH — the baluster section. Not `set-width`: that
+    // capability's kind list is hand-written and has no handrail on it, so
+    // this ask was refused rather than served before U7.3.
+    description: 'change the handrail baluster width',
+    verbs: ['set', 'change'],
+    aliases: ['baluster width', 'baluster thickness'],
+    refusalLabel: 'baluster width',
+    targets: ['handrail'],
+    parameters: [
+      {
+        name: 'balusterWidth',
+        description: 'the section width of each baluster',
+        required: true,
+        valueSource: 'measurement',
+        example: '40mm',
+      },
+    ],
+    scope: 'selection',
+    destructive: false,
+    busCommand: 'element.updateParameters',
+    probe: { intent: 'set-baluster-width', value: 0.04 },
+    commandProof: [
+      {
+        file: UPDATE_ELEMENT_PARAMETER_FILE,
+        mustMention: ['handrail', 'bim-handrail-updated'],
+        note: 'Same store and same rebuild event as the baluster spacing.',
+      },
+      {
+        file: 'packages/geometry-stair/src/HandrailFragmentBuilder.ts',
+        mustMention: ['balusterWidth'],
+        note: 'The READ half: the builder sizes each baluster from handrail.balusterWidth (default 0.02).',
+      },
+    ],
+    examples: [
+      'set the baluster width to 40mm',
+      'change the baluster thickness to 0.03m',
+    ],
+  },
   {
     id: 'set-wall-type',
     // §FEAT-CHAT-WALL-TYPE (2026-08-10) — the capability whose ABSENCE is the

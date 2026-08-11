@@ -212,6 +212,43 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'set the slab base offset to 0.3m',
     ],
   },
+  // ── RAC U7.3 — the extension proof, exercised end to end ────────────────
+  // Four properties whose ENTIRE implementation is a table row + registry
+  // metadata. If the U7 claim were false, these phrasings would not resolve.
+  {
+    id: 'set-mullion-size',
+    ctx: sel('curtain-wall'),
+    phrasings: [
+      'set the mullion size to 60mm',
+      'change the mullion width to 0.08m',
+      'set the curtain wall mullion size to 50mm',
+    ],
+  },
+  {
+    id: 'set-panel-thickness',
+    ctx: sel('curtain-wall'),
+    phrasings: [
+      'set the panel thickness to 12mm',
+      'change the glazing thickness to 0.024m',
+      'set the curtain wall panel thickness to 20mm',
+    ],
+  },
+  {
+    id: 'set-baluster-spacing',
+    ctx: sel('handrail'),
+    phrasings: [
+      'set the baluster spacing to 100mm',
+      'change the baluster spacing to 0.12m',
+    ],
+  },
+  {
+    id: 'set-baluster-width',
+    ctx: sel('handrail'),
+    phrasings: [
+      'set the baluster width to 40mm',
+      'change the baluster thickness to 0.03m',
+    ],
+  },
   {
     id: 'set-roof-pitch',
     ctx: sel('roof'),

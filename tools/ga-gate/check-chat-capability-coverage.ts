@@ -216,6 +216,17 @@ function proveCommandTargets(cap: ChatCapability): string[] {
     return [`${cap.id}: declares element targets but no commandProof — the claim is unverifiable.`];
   }
   const failures: string[] = [];
+  // RAC U7.3 — a capability may cite READ-SIDE proofs (the geometry builder
+  // that consumes the written field), but it may never consist ONLY of them:
+  // "the builder reads this field" proves nothing if no live command ever
+  // writes it. At least one proof must sit in an EXECUTION-authority root.
+  if (!proofs.some((p) => isExecutionAuthorityRoot(p.file))) {
+    failures.push(
+      `${cap.id}: every commandProof is READ-SIDE (a geometry builder). At least one proof must ` +
+      `name the live command that WRITES the field — a read proof alone cannot show the chat ` +
+      `changes anything.`,
+    );
+  }
   for (const proof of proofs) {
     if (!existsSync(proof.file)) {
       failures.push(`${cap.id}: commandProof.file "${proof.file}" does not exist.`);
@@ -273,10 +284,33 @@ function proveCommandTargets(cap: ChatCapability): string[] {
 // dated-evidence bar this one failed.
 const PLUGIN_LIVE_ALLOWLIST: ReadonlyMap<string, string> = new Map([]);
 
+/**
+ * The roots where a command can actually MUTATE production state. Read-side
+ * proofs (geometry builders) are deliberately NOT here — see the U7.3 note in
+ * `proveCommandTargets`, which requires every capability to have at least one
+ * proof that passes this predicate.
+ */
+function isExecutionAuthorityRoot(file: string): boolean {
+  const norm = file.replace(/\\/g, '/');
+  return norm.startsWith('packages/command-registry/')
+    || norm.startsWith('apps/editor/')
+    || norm.startsWith('plugins/');
+}
+
 function proveRouteLiveness(cap: ChatCapability, file: string, src: string): string[] {
   const norm = file.replace(/\\/g, '/');
   if (norm.startsWith('packages/command-registry/')) return [];
   if (norm.startsWith('apps/editor/')) return [];
+  // (v) RAC U7.3 — packages/geometry-*/ → READ-SIDE proof. These packages are
+  // pure builders: they contain no dispatch, no store writes and no command,
+  // so they can never be an execution authority and are never accepted as the
+  // only proof (proveCommandTargets enforces that). What they DO prove is the
+  // half the §FIX-CHAT-DEAD-ROUTES model never covered: that the field being
+  // written is actually READ by the geometry. A live command writing a field
+  // nothing reads is the beam-height lie (`set-height` claimed beam while
+  // BeamData has no height) — dead in the other direction, and equally
+  // "Done"-over-nothing from the user's chair.
+  if (/^packages\/geometry-[^/]+\//.test(norm)) return [];
   if (norm.startsWith('plugins/')) {
     const isBridge =
       src.includes('commandManager') &&

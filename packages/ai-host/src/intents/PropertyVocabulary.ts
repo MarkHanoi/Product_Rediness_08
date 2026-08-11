@@ -65,7 +65,14 @@ import type {
 export type PropertyDrivenIntentId =
   | 'set-depth'
   | 'set-length'
-  | 'set-base-offset';
+  | 'set-base-offset'
+  // RAC U7.3 — THE EXTENSION PROOF. These four were added as table entries and
+  // registry metadata ONLY: `git show` for that commit contains zero changed
+  // lines in ZeroTokenResolver.ts and zero in CapabilityExecutionSpec.ts.
+  | 'set-mullion-size'
+  | 'set-panel-thickness'
+  | 'set-baluster-spacing'
+  | 'set-baluster-width';
 
 /** Every property intent carries exactly one measured value, in metres. */
 export interface PropertyIntent {
@@ -217,6 +224,116 @@ export const PROPERTY_VOCABULARY: Readonly<Record<PropertyDrivenIntentId, Proper
     ],
   },
 
+
+  /**
+   * §PROP-MULLION-SIZE (RAC U7.3) — "set the mullion size to 60mm".
+   * `CurtainWallData.mullionSize` is the mullion section the CurtainWallBuilder
+   * extrudes along every grid line; the generic command's curtain-wall arm
+   * calls `curtainWallBuilder.buildCurtainWall` after the write, and the
+   * property panel exposes the same field as an editable row.
+   */
+  'set-mullion-size': {
+    id: 'set-mullion-size',
+    property: 'mullion size',
+    synonyms: ['mullion width'],
+    adjectives: [],
+    label: 'mullion size',
+    signed: false,
+    routes: [
+      {
+        kinds: ['curtain-wall'],
+        busCommand: 'element.updateParameters',
+        payload: generic('mullionSize'),
+      },
+    ],
+  },
+
+  /**
+   * §PROP-PANEL-THICKNESS (RAC U7.3) — "set the panel thickness to 12mm".
+   * `CurtainWallData.panelThickness` is the glazing/panel build thickness;
+   * same store, same rebuild. Deliberately NOT folded into `set-thickness`:
+   * that capability's routing is hand-written per kind and sends anything that
+   * is not a slab or a roof to `wall.updateDimensions`, so a curtain wall
+   * would have been addressed as a wall.
+   */
+  'set-panel-thickness': {
+    id: 'set-panel-thickness',
+    property: 'panel thickness',
+    synonyms: ['glazing thickness'],
+    adjectives: [],
+    label: 'panel thickness',
+    signed: false,
+    routes: [
+      {
+        kinds: ['curtain-wall'],
+        busCommand: 'element.updateParameters',
+        payload: generic('panelThickness'),
+      },
+    ],
+  },
+
+  /**
+   * §PROP-BALUSTER-SPACING (RAC U7.3) — "set the baluster spacing to 100mm".
+   * `HandrailFragmentBuilder` reads `handrail.balusterSpacing` directly (line
+   * ~250: `handrail.balusterSpacing ?? handrail.postSpacing ?? 0.11`) and
+   * derives the baluster COUNT from it, so a write genuinely re-populates the
+   * railing. The generic command routes `handrail` to the handrailStore (a
+   * partial-merge `update`) and emits `bim-handrail-updated`, which the
+   * handrail builder subscribes to — both halves of the honesty bar.
+   */
+  'set-baluster-spacing': {
+    id: 'set-baluster-spacing',
+    property: 'baluster spacing',
+    synonyms: ['spacing between balusters'],
+    adjectives: [],
+    label: 'baluster spacing',
+    signed: false,
+    routes: [
+      {
+        kinds: ['handrail'],
+        busCommand: 'element.updateParameters',
+        payload: generic('balusterSpacing'),
+      },
+    ],
+  },
+
+  /**
+   * §PROP-BALUSTER-WIDTH (RAC U7.3) — "set the baluster width to 40mm". Same
+   * record, same rebuild; `HandrailFragmentBuilder` sizes each baluster from
+   * `handrail.balusterWidth ?? 0.02`. Deliberately NOT folded into `set-width`
+   * for the same reason `set-panel-thickness` is not `set-thickness`: that
+   * capability's kind list is hand-written and handrail is not on it, so the
+   * ask would have been refused rather than served.
+   */
+  'set-baluster-width': {
+    id: 'set-baluster-width',
+    property: 'baluster width',
+    synonyms: ['baluster thickness'],
+    adjectives: [],
+    label: 'baluster width',
+    signed: false,
+    routes: [
+      {
+        kinds: ['handrail'],
+        busCommand: 'element.updateParameters',
+        payload: generic('balusterWidth'),
+      },
+    ],
+  },
+
+  // ── NOT ADDED, and the reason is the point of this table ──────────────────
+  //
+  // `gridXSpacing` / `gridYSpacing` were the obvious fifth and sixth entries —
+  // both are editable NUMBER rows on the curtain-wall property panel, both are
+  // on `CurtainWallData`, and `resolveStore()` routes curtain-wall. They fail
+  // the honesty bar anyway: `CurtainWallBuilder` reads them ONLY when
+  // `cw.gridSystem` is absent (`const grid = cw.gridSystem ?? migrateToGrid…`).
+  // Any curtain wall whose grid has been edited by Add/RemoveCurtainGridLine
+  // carries a `gridSystem`, and on those the write lands in the record, the
+  // rebuild runs, and NOTHING moves — "Done" over a no-op, on exactly the walls
+  // a user is most likely to be tuning. A property whose liveness is
+  // conditional on other state is not a property this table may claim; it needs
+  // a command that edits the grid system, which is U9+ work.
 };
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────
