@@ -204,4 +204,95 @@ describe('§GATE-QUERYENGINE-READ-ONLY — an informational utterance queues not
       expect(added, `"${utterance}" queued a mutating proposal`).toEqual([]);
     },
   );
+
+  it('a refused non-imperative SAYS SO — it is never a silent drop', () => {
+    // §CONTEXT-DATA-HONESTY. "queued nothing" and "did not understand" are
+    // different facts and must not share a sentence. The refusal names what the
+    // utterance was read as AND shows the imperative that would work.
+    return (async () => {
+      const { engine, added } = makeEngine();
+      const r = await engine.query('should I create 5 levels at 3m?');
+      expect(added).toEqual([]);
+      expect(r.answer).not.toBe("I'm not sure how to help with that yet.");
+      expect(r.answer).toContain('not queued');
+      const neg = await engine.query('do not create 5 levels at 3m');
+      expect(neg.answer).toContain('NOT');
+    })();
+  });
+
+  it('the read-only class still ANSWERS questions — the gate did not mute them', async () => {
+    // The failure mode of a gate like this is over-reach: refusing the very
+    // read-only questions the legacy path uniquely serves (QueryEngineDrain's
+    // ~71 SERVED phrasings). These are interrogative AND read-only, and must
+    // still reach their handler.
+    const { engine } = makeEngine();
+    for (const q of [
+      'How many elements are in the model?',
+      'what levels exist in the model',
+      'what design decisions have been made',
+      'what commands are available',
+    ]) {
+      const r = await engine.query(q);
+      expect(r.answer, `"${q}" was muted by the read-only gate`).not.toContain('not queued');
+      expect(r.answer, `"${q}" stopped being served`).not.toBe(
+        "I'm not sure how to help with that yet.",
+      );
+    }
+  });
+});
+
+// ─── §FIX-CHAT-HIDE-IS-NOT-NAVIGATE, the downstream half ────────────────────
+
+describe('§FIX-CHAT-HIDE-IS-NOT-NAVIGATE — the miss lands on a HIDE, not a navigation', () => {
+  it('"hide level 2" reaches the visibility handler and asks to HIDE', async () => {
+    // THE INVARIANT, on the right object. The scorecard's §1.2 complaint was
+    // never "the resolver returns the wrong kind" — it was that the USER'S
+    // LEVEL WAS NOT HIDDEN and the camera moved instead. The resolver fix makes
+    // the sentence a miss; this asserts the miss lands somewhere that hides.
+    //
+    // What is observable in this process is the event the handler emits —
+    // `pryzm-visibility-command {action:'hide', target:'level'}`, consumed by
+    // `apps/editor/src/ui/ViewBrowser/panels/UnifiedBrowserPanel.ts:154`.
+    // Asserting on `answer` would prove only that we wrote a nice sentence.
+    const events: { action?: string; target?: string }[] = [];
+    (globalThis as Record<string, unknown>)['window'] = {
+      dispatchEvent: (e: { detail?: { action?: string; target?: string } }) => {
+        if (e.detail !== undefined) events.push(e.detail);
+        return true;
+      },
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      bimManager: { getLevels: () => [{ id: 'L2', name: 'Level 2' }] },
+    };
+
+    const engine = new QueryEngine(new AIReadModel());
+    await engine.query('hide level 2');
+
+    expect(events, '"hide level 2" emitted no visibility command').toContainEqual(
+      expect.objectContaining({ action: 'hide', target: 'level' }),
+    );
+  });
+
+  it('and it does NOT switch the active level', async () => {
+    // The other half of the founder's complaint, stated as its own assertion:
+    // a hide must not navigate. No `setActiveLevel`, no level-change event.
+    const events: { action?: string }[] = [];
+    (globalThis as Record<string, unknown>)['window'] = {
+      dispatchEvent: (e: { detail?: { action?: string } }) => {
+        if (e.detail !== undefined) events.push(e.detail);
+        return true;
+      },
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      bimManager: { getLevels: () => [{ id: 'L2', name: 'Level 2' }] },
+    };
+
+    const engine = new QueryEngine(new AIReadModel());
+    await engine.query('hide level 2');
+
+    for (const e of events) {
+      expect(e.action, 'a hide ask produced a navigation').not.toBe('setActiveLevel');
+      expect(e.action, 'a hide ask produced a navigation').not.toBe('goToLevel');
+    }
+  });
 });

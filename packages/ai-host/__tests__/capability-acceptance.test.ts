@@ -334,6 +334,19 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'change the baluster thickness to 0.03m',
     ],
   },
+  // §PROP-OVERHANG (RAC VERBS-CAP) — the second roof verb reachable from
+  // language. Before this row the chat reached exactly one of thirteen roof
+  // verbs while the eave geometry was proven to 0.000 mm.
+  {
+    id: 'set-overhang',
+    ctx: sel('roof'),
+    phrasings: [
+      'set the roof overhang to 300mm',
+      'change the overhang to 0.5m',
+      'set the eaves overhang to 450mm',
+      'make the overhang 300mm',
+    ],
+  },
   {
     id: 'set-roof-pitch',
     ctx: sel('roof'),
@@ -1047,6 +1060,29 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     // answered with "Nothing is selected — select an element first, then set
     // its width": tier-1 rewrote the function word "with" into "width".
     'Created Aparment with 2 bedrooms and 1 bathroom',
+    // §FIX-CHAT-PROPERTY-REMOVAL-IS-NOT-DELETE (RAC-FIX-1, scorecard §1.4).
+    // MEASURED on main 2026-08-11:
+    //   "remove the material from this wall"
+    //     → commands[element.delete] intent=delete-selected
+    // A question about a wall's MATERIAL routed to a DESTRUCTIVE DELETE of the
+    // wall. The only thing in the way was the destructive Confirm card, which
+    // is a mitigation, not a resolver guard. The object of "remove" is the
+    // PROPERTY; "this wall" is what it is being removed FROM.
+    'remove the material from this wall',
+    'remove the colour from this wall',
+    'clear the finish from this wall',
+    'strip the texture from this wall',
+    'get rid of the classification on this wall',
+    // §PROP-OVERHANG (RAC VERBS-CAP) — the adversarial PIN for the new roof
+    // capability. `set-overhang` is a measurement-carrying property, which is
+    // the exact shape that misread "highlight walls taller than 3m" into a
+    // resize: a READ verb plus a number. These three carry the capability's own
+    // noun and must stay non-mutating.
+    'what is the roof overhang?',
+    'how big is the eaves overhang?',
+    "don't change the roof overhang to 300mm",
+    // The founder's own class: a REPORT paste-back quoting the number back.
+    'Roof overhang: 300 mm',
   ])('"%s" produces no command and no local action', (utterance) => {
     const ctx = ctxOf(sel('wall'));
     expect(mutating(resolveUtterance(utterance, ctx)), 'tier 0/1 mutated').toBe(false);
@@ -1096,6 +1132,51 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
       ['generate a 3-storey residential building', 'generate-building'],
     ] as const) {
       expect(intentOf(resolveFull(u, ctxOf())), `"${u}" stopped resolving`).toBe(id);
+    }
+  });
+
+  // ─── §FIX-CHAT-HIDE-IS-NOT-NAVIGATE (RAC-FIX-1, scorecard §1.2) ───────────
+  //
+  // The founder's own MUTATE example. MEASURED on main 2026-08-11 by
+  // `tools/rac-conformance/probe-categories-6-10.ts`:
+  //
+  //   LOCAL  7.5 hide level  "hide level 2"  → local intent=go-to-level action=setActiveLevel
+  //   LOCAL  7.6 show level  "show level 2"  → local intent=go-to-level action=setActiveLevel
+  //
+  // Two OPPOSITE asks, one outcome, and it was neither of them: asking to hide
+  // a level switched the camera to it and hid nothing, with no refusal.
+  //
+  // Both halves are pinned, and the SECOND half is why this is a describe block
+  // rather than three more rows in the list above. A guard that made BOTH
+  // sentences a miss would have "passed" the no-mutation test while destroying
+  // `show level 2`, which is a real shipped capability. The control is the test.
+
+  it('a HIDE ask never becomes a level switch', () => {
+    for (const u of [
+      'hide level 2',
+      'hide all elements on level 2',
+      'isolate level 2',
+      'turn off level 2',
+      'highlight level 2',
+    ]) {
+      const r = resolveFull(u, ctxOf());
+      expect(intentOf(r), `"${u}" still resolves to a navigation`).not.toBe('go-to-level');
+      expect(mutating(r), `"${u}" produced an action the user did not ask for`).toBe(false);
+    }
+  });
+
+  it('CONTROL — "show level 2" still navigates, and the fix did not narrow it', () => {
+    // The vocabulary must not shrink to make the test above pass (C67/C68:
+    // open language, safety from rule gates — never from a smaller dictionary).
+    for (const u of ['show level 2', 'go to level 2', 'open level 2', 'show me level 1']) {
+      expect(intentOf(resolveFull(u, ctxOf())), `"${u}" stopped resolving`).toBe('go-to-level');
+    }
+  });
+
+  it('CONTROL — real deletions still resolve after the property-removal guard', () => {
+    for (const u of ['delete the selected wall', 'delete this wall', 'remove this wall']) {
+      expect(intentOf(resolveFull(u, ctxOf(sel('wall')))), `"${u}" stopped resolving`)
+        .toBe('delete-selected');
     }
   });
 

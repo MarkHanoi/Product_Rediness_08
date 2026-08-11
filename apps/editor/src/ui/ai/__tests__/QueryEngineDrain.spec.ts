@@ -79,11 +79,6 @@ const treeQueries = [...new Set(collectQueries(COMMAND_TREE))].sort();
  *    wall.create-on-all-slabs and curtain-wall.create-on-all-slabs are both
  *    classified E in ChatCommandClassification, blocked on preview-before-
  *    execute), not a narrower grammar.
- *  • "isolate level 2" → `go-to-level`. Isolating is not navigating. This one
- *    SURVIVES the §FIX-CHAT-VISIBILITY-MISREAD guard on purpose: that guard
- *    lets a visibility verb reach view-changing intents so "show level 2" keeps
- *    working, and go-to-level is the closest live thing to what was asked. It
- *    closes when the chat gains a real isolate capability.
  *  • "delete all grids" → a `clarify` question about the selection. Grid is not
  *    a DeleteElementCommand branch, so U9.2 did not claim it (see the
  *    DeleteFamilies header for the bar a kind has to clear).
@@ -99,7 +94,6 @@ const MISREAD: readonly string[] = [
     'create walls on all slabs',
     'create walls on the perimeter of slab',
     'delete all grids',
-    'isolate level 2',
 ];
 
 /**
@@ -125,6 +119,27 @@ const MISREAD: readonly string[] = [
  *    dimension misread; U7.3 gave the chat REAL curtain-wall mullion/panel
  *    properties, but they are selection-scoped, so the all-scope form is now an
  *    honest miss rather than an edit of whatever happened to be selected.
+ *
+ * Closed by §FIX-CHAT-HIDE-IS-NOT-NAVIGATE (RAC-FIX-1), 2026-08-11:
+ *
+ *  • "isolate level 2" → `go-to-level`. It moved out of MISREAD, where it had
+ *    been parked with the note "it closes when the chat gains a real isolate
+ *    capability". That note was WRONG about where the capability lives, and the
+ *    RAC-2 conformance probe is what proved it: `QueryEngine.ts:1363-1386`
+ *    carries a LIVE isolate-level handler, and `:1339-1360` a live hide-level
+ *    one, both emitting `pryzm-visibility-command` to a real consumer at
+ *    `UnifiedBrowserPanel.ts:154`. The ladder was not covering a gap — it was
+ *    STANDING IN FRONT of the path that does the right thing.
+ *  • "hide level 2" / "hide all walls" / "turn off level 2" were the same
+ *    defect, and were in NEITHER list: the RAC-2 scorecard (§1.2) found them
+ *    undocumented. `hide level 2` and `show level 2` — two opposite asks —
+ *    produced the identical `setActiveLevel`.
+ *
+ * Note what did NOT change: "show level 2" still resolves to `go-to-level`,
+ * because for `show` that is the right answer. The fix split the opener class
+ * (`visibilityAskClass` in `CapabilityRefusal.ts`) instead of blanket-refusing
+ * every visibility verb — a blanket refusal would have "fixed" `hide` by
+ * breaking `show`.
  */
 const DRAINED: readonly string[] = [
     'create 10 levels at 3.5m',
@@ -148,6 +163,14 @@ const DRAINED: readonly string[] = [
     'set all slabs thickness to 0.25m',
     'set all slabs thickness to 0.2m',
     'set all slabs thickness to 0.3m',
+    // §FIX-CHAT-HIDE-IS-NOT-NAVIGATE — the visibility family, drained to the
+    // legacy handlers that actually hide.
+    'isolate level 2',
+    'hide level 2',
+    'hide all walls',
+    // §FIX-CHAT-PROPERTY-REMOVAL-IS-NOT-DELETE — a property ask must never
+    // reach a destructive element delete.
+    'remove the material from this wall',
 ];
 
 /** SHADOWED and CORRECT — the ladder claims it and does the right thing, so the

@@ -52,6 +52,7 @@ import {
 } from '../../packages/ai-host/src/intents/ZeroTokenResolver.js';
 import { resolveNaturalLanguage } from '../../packages/ai-host/src/intents/LocalNaturalLanguageResolver.js';
 import { resolveCompoundUtterance } from '../../packages/ai-host/src/intents/SemanticPlan.js';
+import { capabilityGapRefusal } from '../../packages/ai-host/src/capabilities/CapabilityRefusal.js';
 import type { ScopeDescriptor, ScopeResult } from '../../packages/ai-host/src/intents/ScopeDescriptor.js';
 
 export type Verdict = 'PASS' | 'FAIL' | 'UNPROVEN';
@@ -109,8 +110,20 @@ export const STUB_SCOPE = (): ScopeResult => ({
 
 /**
  * THE FULL LADDER, in the chat bridge's order: compound plan → tier 0/1 →
- * local natural language. A miss here is what the bridge forwards to the
- * legacy QueryEngine / the model.
+ * local natural language → the capability-gap refusal. A miss here is what the
+ * bridge forwards to the legacy QueryEngine / the model.
+ *
+ * ─── THE CAPABILITY-GAP RUNG (added RAC-FIX-1, 2026-08-11) ──────────────────
+ * The harness used to stop at the NL layer and report `miss`. That UNDERSTATED
+ * the product: `ZeroTokenChatBridge.ts:1192` runs ONE more deterministic step on
+ * an NL miss — `capabilityGapRefusal`, which turns "remove the material from
+ * this wall" into a named refusal instead of an LLM hand-off. Omitting it made a
+ * REFUSAL and a MISS look like the same value in the probe output, which is the
+ * exact conflation this harness exists to prevent (§CONTEXT-DATA-HONESTY).
+ *
+ * It is added as a RUNG, not folded into the resolvers: the bridge's own order
+ * is what production runs, and a probe that reorders the ladder is measuring a
+ * system that does not exist.
  */
 export function ladder(utterance: string, c: ResolverContext): ZeroTokenResolution {
   const plan = resolveCompoundUtterance(utterance, c);
@@ -119,6 +132,11 @@ export function ladder(utterance: string, c: ResolverContext): ZeroTokenResoluti
   if (tier01.kind !== 'miss') return tier01;
   const nl = resolveNaturalLanguage(utterance, c);
   if (nl.kind === 'resolved') return nl.resolution;
+  if (nl.kind === 'clarification') {
+    return { kind: 'refusal', intent: nl.intent, reason: nl.question } as ZeroTokenResolution;
+  }
+  const gap = capabilityGapRefusal(utterance, c.selection.map((s) => s.elementType));
+  if (gap !== null) return gap as ZeroTokenResolution;
   return { kind: 'miss' };
 }
 
@@ -148,8 +166,13 @@ export function describe(r: ZeroTokenResolution): string {
       return `commands[${commandTypesOf(r).join(', ')}] intent=${r.intent}`;
     case 'local':
       return `local intent=${r.intent} action=${String((r as { action?: unknown }).action ?? '?')}`;
-    case 'refusal':
-      return `refusal intent=${r.intent} :: ${String((r as { message?: string }).message ?? '')}`;
+    case 'refusal': {
+      // Refusals carry their text as `reason` in some arms and `message` in
+      // others. Printing only one made half the refusals look empty, which is
+      // the same failure-vs-emptiness conflation the harness exists to expose.
+      const rr = r as { reason?: string; message?: string };
+      return `refusal intent=${r.intent} :: ${rr.reason ?? rr.message ?? '(no text)'}`;
+    }
     default:
       return 'miss (falls through to the legacy QueryEngine / model)';
   }

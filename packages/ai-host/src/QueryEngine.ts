@@ -165,7 +165,10 @@ export class QueryEngine {
             }
         }
         if (blockedBy !== null) {
-            return { query: input, answer: NON_IMPERATIVE_REFUSAL[nonImperative!] };
+            // A reason we have no text for must still REFUSE, never fall through
+            // to the mutating handler — an unknown reason is not a safe reason.
+            const text = NON_IMPERATIVE_REFUSAL[nonImperative ?? ''];
+            return { query: input, answer: text ?? NON_IMPERATIVE_REFUSAL['interrogative']! };
         }
         return { query: input, answer: "I'm not sure how to help with that yet." };
     }

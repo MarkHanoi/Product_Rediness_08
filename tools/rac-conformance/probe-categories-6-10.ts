@@ -163,6 +163,105 @@ const OPERATIONAL: Probe[] = [
   { label: '10.4 conflict question', utterance: 'are there any sync conflicts?' },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION D — THE MISREAD REGRESSION SET (added RAC-FIX-1, 2026-08-11).
+//
+// Section A asks "did a QUESTION mutate?". This section asks the other half,
+// and it is the half that carried both P0s: **did an INSTRUCTION resolve to the
+// WRONG ACTION?** A misroute is not caught by A, because the utterances here
+// are genuine imperatives — they SHOULD do something. They just did something
+// else, and something the user did not ask for.
+//
+// Each row carries the resolution measured on `main` BEFORE the fix, verbatim,
+// so this file is falsifiable rather than aspirational: if a row's `mustNotBe`
+// comes back, the probe says so in the row's own words.
+//
+//   §1.2  "hide level 2"  → local intent=go-to-level action=setActiveLevel
+//   §1.2  "show level 2"  → local intent=go-to-level action=setActiveLevel
+//   §1.4  "remove the material from this wall"
+//                         → commands[element.delete] intent=delete-selected
+//
+// `show level 2` is listed with `mustNotBe: null` DELIBERATELY. It is the
+// control: `go-to-level` is the RIGHT answer for `show`, and the fix must split
+// `hide` from `show` rather than blanket-refusing both. A fix that turned this
+// row into a miss would have destroyed a working capability to close a bug, and
+// this row is what makes that visible.
+// ─────────────────────────────────────────────────────────────────────────────
+interface MisreadCase extends Probe {
+  /** The intent measured BEFORE the fix, which must never come back. `null`
+   *  means "this row is a control — its current resolution is CORRECT". */
+  readonly mustNotBe: string | null;
+  readonly why: string;
+}
+
+const MISREAD_REGRESSION: MisreadCase[] = [
+  {
+    label: 'D-1 hide level (§1.2 founder MUTATE case)',
+    utterance: 'hide level 2',
+    mustNotBe: 'go-to-level',
+    why: 'hiding is not navigating — it switched the active level and hid nothing',
+  },
+  {
+    label: 'D-2 hide level, spelled',
+    utterance: 'hide all elements on level 2',
+    mustNotBe: 'go-to-level',
+    why: 'same ask, longer phrasing — a fix that only closes the short form is a patch',
+  },
+  {
+    label: 'D-3 isolate level (pinned MISREAD)',
+    utterance: 'isolate level 2',
+    mustNotBe: 'go-to-level',
+    why: 'isolating is not navigating; pinned in QueryEngineDrain MISREAD since U9',
+  },
+  {
+    label: 'D-4 turn off level',
+    utterance: 'turn off level 2',
+    mustNotBe: 'go-to-level',
+    why: 'the hide family reached through a synonym the guard did not know',
+  },
+  {
+    label: 'D-5 show level — THE CONTROL, must stay go-to-level',
+    utterance: 'show level 2',
+    mustNotBe: null,
+    why: 'navigation IS what "show level 2" asks for; this must not become a miss',
+  },
+  {
+    label: 'D-6 remove material (§1.4 destructive)',
+    utterance: 'remove the material from this wall',
+    mustNotBe: 'delete-selected',
+    why: 'a material ask routed to a DESTRUCTIVE wall delete',
+    selection: sel('wall'),
+  },
+  {
+    label: 'D-7 remove colour',
+    utterance: 'remove the colour from this wall',
+    mustNotBe: 'delete-selected',
+    why: 'same shape, different property — the guard must be about the SHAPE',
+    selection: sel('wall'),
+  },
+  {
+    label: 'D-8 clear the finish',
+    utterance: 'clear the finish from this wall',
+    mustNotBe: 'delete-selected',
+    why: 'a removal synonym reaching the same destructive intent',
+    selection: sel('wall'),
+  },
+  {
+    label: 'D-9 delete selected wall — THE CONTROL, must stay delete-selected',
+    utterance: 'delete the selected wall',
+    mustNotBe: null,
+    why: 'a real deletion ask; the property guard must not narrow the delete vocabulary',
+    selection: sel('wall'),
+  },
+  {
+    label: 'D-10 delete this room — THE CONTROL',
+    utterance: 'delete this room',
+    mustNotBe: null,
+    why: 'a real deletion ask on another kind',
+    selection: sel('room'),
+  },
+];
+
 function main(): void {
   const roResults = READ_ONLY.map(run);
   const opResults = OPERATIONAL.map(run);
@@ -187,6 +286,22 @@ function main(): void {
     console.log(`${r.kind.toUpperCase().padEnd(9)} ${r.label.padEnd(40)} "${r.utterance}"`);
     console.log(`          → ${r.detail}`);
   }
+
+  console.log('\n═══════════════════════════════════════════════════════════════');
+  console.log('RAC-FIX-1 · SECTION D — MISREAD REGRESSION SET');
+  console.log('Rule: an INSTRUCTION must not resolve to a DIFFERENT action.');
+  console.log('═══════════════════════════════════════════════════════════════\n');
+  let misreads = 0;
+  for (const c of MISREAD_REGRESSION) {
+    const r = run(c);
+    const bad = c.mustNotBe !== null && r.intent === c.mustNotBe;
+    if (bad) misreads++;
+    const flag = bad ? '❌ MISREAD' : c.mustNotBe === null ? '✅ control' : '✅ fixed  ';
+    console.log(`${flag} ${c.label.padEnd(46)} "${c.utterance}"`);
+    console.log(`             → ${r.detail}`);
+    if (bad) console.log(`             !! still ${c.mustNotBe}: ${c.why}`);
+  }
+  console.log(`\n>>> LIVE MISREADS: ${misreads} of ${MISREAD_REGRESSION.filter((c) => c.mustNotBe !== null).length}`);
 
   console.log('\n═══════════════════════════════════════════════════════════════');
   console.log('RAC-2 · SECTION C — DECLARATION SURFACE (static)');
