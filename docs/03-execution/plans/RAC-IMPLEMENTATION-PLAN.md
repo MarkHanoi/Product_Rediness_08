@@ -319,15 +319,71 @@ count-preview; single-slab variant first.
 🧪 *"Create a row of columns every 6 metres along this wall"* ·
 *"add walls on this slab"* → "this will create 14 columns — proceed?".
 
-## Phase U10 — Drain + LLM planner ⬜ (last, deliberately)
+## Phase U10 — LLM planner + the drain ✅ 3/3 (2026-08-11)
 
-U10.1 QueryEngine drain + duplicate maps collapse · U10.2 LLM planner emitting
-`SemanticIntent | ScopeDescriptor | ValueRefs | GenerationRequest` through the
-SAME validation/refusal path · U10.3 M8 seed: solar-aware objectives
-(sun-samples + θ + `accumulateRoomHeatGain` wiring).
+**The rule the phase exists to enforce.** The LLM may only ever produce the SAME
+validated structures the deterministic layers produce — a `SemanticIntent`, or
+the U6 `execute-plan` IR — handed to the EXISTING `applySemanticIntent`. It may
+never dispatch a bus command, invent a verb, invent a parameter, bypass a
+refusal or clear a Confirm flag. Founder doctrine, written down: open language
+is the goal, and safety comes from the rule gates at the EXECUTION layer, never
+from narrowing what the user may say.
 
-🧪 *"Put larger windows on the south-facing bedrooms"* end-to-end from free
-phrasing · *"orient the living spaces for the best south exposure"* (M8).
+| Sub | What | Status |
+|---|---|---|
+| U10.1 ✅ | `packages/ai-host/src/intents/LlmPlanner.ts` — the planner contract. (a) The prompt's tool surface is GENERATED from `allChatCapabilities()`; a hand-maintained prompt list is the c1902a5a defect wearing a different hat. (b) The FIELD SHAPES are generated from something stronger than a hand-written schema: each capability's registry `probe` UNION the intents the deterministic ladder itself produces for that capability's declared `examples`, widened by its DECLARED `scopeModes`. The planner's legal output space is by construction the shape space the grammar already produces. (c) Validation REJECTS — never coerces — an unknown intent id, a bus verb used as an id, an unknown parameter, a wrong value type, an undeclared scope and the composite plan id; value LEGALITY stays `applySemanticIntent`'s job. (d) Transport-agnostic: `complete()` + `isConfigured()` injected, so ai-host stays pure. 23 tests | `e1fea0a3` |
+| U10.2 ✅ | The ladder: tier 0 → tier 1 → NL → **planner** → legacy. `apps/editor/src/ui/ai/LlmPlannerBridge.ts` validates, applies, and hands the result back to `ZeroTokenChatBridge`'s own executor (two new exported seams; no grammar, dispatch or refusal copy duplicated) — so a planned intent gets literally the Confirm card, refusals and undo cost a typed sentence gets. TOKEN COST is pinned: a grammar-claimed sentence never calls the relay and still replies *"resolved without AI tokens"*; a planned reply says the opposite in words. NO-RELAY is the production truth — the deploy carries neither `CF_WORKER_URL` nor `ANTHROPIC_API_KEY`, so the rung reuses the shipped `/api/health` `features.anthropic` probe, skips cleanly, makes no request, and the panel then names the missing piece instead of a bare *"I'm not sure"*. 10 specs | `9ded0d9a` |
+| U10.3 ✅ | The drain, MEASURED before anything is deleted. `QueryEngineDrain.spec.ts` classifies all ~100 hand-written `COMMAND_TREE` phrasings through the live ladder and pins the result. Plus the half that could move today: the panel's new "Chat can…" hub is GENERATED from `allChatCapabilities()`, so a capability is discoverable on the commit that declares it | `e08530b8` |
+
+**What the legacy `QueryEngine` / `aiService` path still uniquely serves (71
+phrasings), and why each family has not moved:**
+
+1. **Read-only questions** — *"how many elements are in the model"*, *"what
+   levels exist"*, *"summarise the building model"*, *"list all rooms"*. No
+   capability answers a QUESTION: the whole registry is built around commands
+   that mutate and refuse honestly. Migrating these needs a read-only capability
+   class (a query verb with no bus command, no Confirm, no undo cost), which is
+   a design step, not a transcription.
+2. **Visibility / selection** — hide / isolate / highlight / select by level,
+   category, type and height. **P7** says visibility INTENT is a domain concept
+   in `packages/visibility`, not UI state, so these belong to a visibility
+   capability family that does not exist yet.
+3. **Document surfaces** — views, sheets, schedules, IFC import/export,
+   compliance audits, parameter CSV. These drive stores the chat registry does
+   not cover at all (`CHAT_UNAVAILABLE`'s B/C classes).
+4. **The wardrobe configurator** — the one genuinely bespoke flow, with its own
+   multi-clause parser inside `QueryEngine`.
+
+**Nothing was deleted on suspicion**, and only ONE pill (*"add ceilings to all
+rooms"*) is provably shadowed-and-correct. That is the honest number.
+
+> ⚠ **29 pills are MISREAD, and that is a defect list, not drain progress.**
+> The ladder claims them and produces the wrong thing. Named individually in the
+> spec so that fixing any one FAILS the test and forces the inventory to move.
+> The worst: **_"highlight walls taller than 3m"_ and _"isolate doors higher
+> than 2 meters"_ resolve to `set-height` and dispatch `wall.updateDimensions`
+> on the SELECTED wall** — a read-only visibility question silently RESIZES
+> geometry. Also *"create 10 levels at 3m"* → ONE level with the count read as
+> an elevation; *"create floor plan view"* → `add-level`; *"make all slabs
+> blue"* → `set-slab-type` with `typeRef: "blue"`. All live in
+> `LocalNaturalLanguageResolver.ts` / the catalogue-family grammar, and are
+> logged for the owning phase rather than patched from U10.
+
+**Deferred, deliberately:** M8 solar-aware objectives (*"orient the living
+spaces for the best south exposure"*) — the sun-sample / θ /
+`accumulateRoomHeatGain` wiring is an ENGINE capability, and giving the planner
+a vocabulary entry for it before the engine can be driven by one would be the
+`ElementCapabilities` lie in a new place. The planner needs no change to gain
+it: declare the capability and it appears in the generated prompt.
+
+🧪 A free-form sentence the grammar cannot parse: *"give the whole place a fresh
+coat of white"* → validated `set-wall-color {scope: all}` → the same
+`wall.updateColorBatch`, one undo entry · *"somewhere for a family of four to
+live, over two floors"* → `generate-building` → the same Confirm card · and the
+adversarial half: a planner output naming `demolish-building` or the raw bus
+verb `wall.updateColorBatch` is refused out loud — *"I understood it as …, but
+that isn't something I can do — … Nothing was changed."* **Requires an AI
+upstream; with none configured the rung is skipped and the panel says so.**
 
 ---
 
@@ -343,6 +399,8 @@ phrasing · *"orient the living spaces for the best south exposure"* (M8).
 
 Level/room/orientation/filter scopes (U3/U8) · any "create a building/house/
 office" sentence (U5b — SHIPPED) · furnish/ceiling by sentence (U5c — SHIPPED) · compound plans
-(U6 — SHIPPED) · property-panel breadth (U7) · parametric creation (U9) · free-phrasing
-LLM planning and solar objectives (U10). Tread COUNT has no live carrier at
-all (editor gap). `wall.updateDimensions` liveness is PENDING the auditor (U1).
+(U6 — SHIPPED) · property-panel breadth (U7) · parametric creation (U9) ·
+free-phrasing LLM planning (U10 — SHIPPED, but INERT on this deploy: it needs
+`CF_WORKER_URL` or `ANTHROPIC_API_KEY`, and with neither the rung is skipped and
+the panel says so) · solar objectives (M8, deferred). Tread COUNT has no live
+carrier at all (editor gap). `wall.updateDimensions` liveness is PENDING the auditor (U1).
