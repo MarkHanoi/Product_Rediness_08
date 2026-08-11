@@ -13,5 +13,9 @@ export * from './EnvelopeNumbers.js';
 export * from './ZoningRecord.js';
 export * from './JurisdictionZoningContract.js';
 export * from './BuildableEnvelope.js';
+// W5-2 / C63 §3.2 (L-656) — WHICH LAND a planning ratio is measured over. A branded, invariant
+// `RatioOverLand<B>` + the closed denominator-refusal union, so "FAR over gross land" and
+// "coverage over the parcel" can never be related by arithmetic that compiles.
+export * from './LandBasis.js';
 // STRUCTURAL-SEAM-4 — the shared fetch-outcome union (transient ≠ absent), C57 §1.5 / C58 §1.13.8.
 export * from './FetchOutcome.js';

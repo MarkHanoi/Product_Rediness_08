@@ -26,6 +26,8 @@ import {
     type DomainConfidence,
     type EnvelopeConfidence,
     type FieldProvenance,
+    type LandBasis,
+    type LandBasisRefusal,
 } from '@pryzm/schemas';
 import {
     type ExtractableField,
@@ -33,7 +35,6 @@ import {
     type NonNumericRule,
 } from '../types.js';
 import {
-    type DensityScope,
     type FieldUnknownReason,
     type HeightMeasurement,
     type RejectedMatch,
@@ -60,6 +61,25 @@ export function parameterKey(
     return field === 'maxHeight_m' ? `${field}@${measurement ?? 'unknown'}` : field;
 }
 
+/**
+ * A `GateResult` from a whole-envelope coherence check, which may additionally have REFUSED
+ * on the DENOMINATOR (W5-2).
+ *
+ * ⚠ WHY THE REFUSAL IS A SEPARATE FIELD AND NOT A FOURTH `GateVerdict`. `verdict` is read by
+ * every gate consumer (`flags = gates.filter(g => g.verdict === 'flag')`); adding a member
+ * would make each of those silently ignore the new state — the widening-a-union-breaks-the-
+ * exhaustive-readers trap. Instead the verdict stays honest in the existing vocabulary
+ * (`flag` when the bases genuinely disagree — a positive finding routed to a human;
+ * `not-applicable` when a denominator is unknown or undeclared, so the check could not run)
+ * and `denominator` carries the CODE and the REASON alongside it. A refusal reduced to a bare
+ * `not-applicable` would be indistinguishable from "a parameter did not resolve", which is the
+ * §CONTEXT-DATA-HONESTY collapse this whole module exists to prevent.
+ */
+export interface CoherenceGateResult extends GateResult {
+    /** Present IFF the check refused on the denominator. Absent on a real pass/flag. */
+    readonly denominator?: LandBasisRefusal;
+}
+
 /** ONE candidate value for a parameter, with the citation that produced it. */
 export interface ParameterCandidate {
     readonly value: number;
@@ -84,8 +104,13 @@ export interface ResolvedParameter {
     readonly field: ExtractableField;
     readonly value: number;
     readonly unit: RuleUnit;
-    /** For a ratio field: the denominator the ratio is measured against. */
-    readonly densityScope?: DensityScope;
+    /**
+     * For a RATIO field: WHICH LAND the denominator is (L0 {@link LandBasis}). Carried through
+     * from the extracted rule so the whole-envelope coherence gate can REFUSE to relate two
+     * ratios over different land instead of silently asserting an identity over an unmodelled
+     * denominator (W5-2; C63 §3.2 / L-656; the L-616 over-statement class).
+     */
+    readonly landBasis?: LandBasis;
     /** For a height field: the datum the metres measure to. */
     readonly measurement?: HeightMeasurement;
     /** The citation of the FIRST sentence stating this value (the review locator). */
@@ -171,7 +196,7 @@ export interface EnvelopeExtraction {
      * is not the same as "all checks passed" — each check reports its own
      * `not-applicable` verdict rather than being omitted.
      */
-    readonly coherence: readonly GateResult[];
+    readonly coherence: readonly CoherenceGateResult[];
     /** Matches dropped by a reject pattern (audit trail, carried through). */
     readonly rejected: readonly RejectedMatch[];
     readonly summary: EnvelopeSummary;

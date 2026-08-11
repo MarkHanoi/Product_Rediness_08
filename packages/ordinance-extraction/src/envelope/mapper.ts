@@ -152,7 +152,7 @@ function resolveOne(
         field: first.field,
         value: candidate.value,
         unit: first.unit,
-        ...(first.densityScope !== undefined ? { densityScope: first.densityScope } : {}),
+        ...(first.landBasis !== undefined ? { landBasis: first.landBasis } : {}),
         ...(first.measurement !== undefined ? { measurement: first.measurement } : {}),
         citation: candidate.citation,
         rawText: candidate.rawText,

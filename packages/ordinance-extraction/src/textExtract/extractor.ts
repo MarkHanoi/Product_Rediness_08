@@ -88,7 +88,7 @@ function toRule(
         field: matcher.field,
         value: payload.value,
         unit: matcher.unit,
-        ...(payload.densityScope !== undefined ? { densityScope: payload.densityScope } : {}),
+        ...(payload.landBasis !== undefined ? { landBasis: payload.landBasis } : {}),
         ...(payload.measurement !== undefined ? { measurement: payload.measurement } : {}),
         citation,
         confidence: PIPELINE_TIER, // LOCK 1 — never higher (L-449 / ADR-0269).

@@ -52,10 +52,13 @@ describe('Berlin 8-30 — the VERBATIM probe fragment (a READING, not the plan�
         expect(resolved(env, 'maxFAR').value).toBeCloseTo(0.9, 10);
     });
 
-    it('stamps the GFZ as a per-plot ratio (Geschossfläche ÷ Grundstücksfläche)', () => {
+    it('stamps BOTH ratios over the Grundstücksfläche (§19(1) / §20(2) BauNVO)', () => {
         const env = envelopeOf(BERLIN_8_30_VERBATIM);
-        // Which denominator a FAR is measured against is the L-616 error class.
-        expect(resolved(env, 'maxFAR').densityScope).toBe('per-plot-area');
+        // Which denominator a ratio is measured against is the L-616 error class, and W5-2
+        // made it a type: the density identity is not asserted at all until both ratios are
+        // established over ONE land.
+        expect(resolved(env, 'maxFAR').landBasis).toBe('parcel');
+        expect(resolved(env, 'maxCoverage').landBasis).toBe('parcel');
         expect(resolved(env, 'maxFAR').unit).toBe('ratio');
     });
 

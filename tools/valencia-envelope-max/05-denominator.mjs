@@ -17,6 +17,26 @@
 // precisely the mechanism that SUPPRESSES geometry and made a prior run report 0 km² for every
 // code — a zero manufactured by the query, not a fact about the data.
 //
+// ⭐ W5-2 — WHICH `LandBasis` DOES THIS SCRIPT PRODUCE? Say it, because until now nothing did.
+// The denominator vocabulary is now an L0 type: `LandBasis` in
+// `packages/schemas/src/site/zoning/LandBasis.ts` (`gross | net-of-cesion | parcel | buildable |
+// unknown`). Mapping this script's three totals onto it, exactly:
+//   • `totals.regionKm2`           → the whole region. NOT a `LandBasis` member — it is not a
+//                                    denominator any ordinance ratio is measured against.
+//   • `totals.buildableKm2`        → `'gross'`. SU + SUZ land BEFORE the public/systems share is
+//                                    removed. Reporting an envelope share against THIS is the
+//                                    20-point Balears over-statement named above.
+//   • `totals.buildablePrivateKm2` → `'buildable'` — C63 §3.2's RATIFIED denominator: land that
+//                                    is privately buildable, net of the ground the plan dedicates
+//                                    to viario / zonas verdes / equipamiento (the cesión family,
+//                                    identified here through `dotacion`/`dot_descri`).
+// ⚠ THIS SCRIPT IS CURRENTLY THE ONLY PLACE IN THE REPO THAT MEASURES `'buildable'` LAND, and it
+// does so REGIONALLY, offline, in a one-off .mjs outside the type system. No typed producer emits
+// a ratio stamped `'buildable'` — which is why `LandBasis` names the member anyway and
+// `unreachableLandBasisRefusal()` exists to refuse by name rather than substitute a parcel-land
+// figure for a buildable-land question. Wiring this measurement into a typed producer is the open
+// work; do not close the gap by renaming a different basis.
+//
 // CONTROL: the region-wide total must reproduce the prior probe's independent area census
 // (23,275 km² over the same 542 municipalities). That is an EXTERNAL check on this pull — not
 // a `Clasificacion`-vs-`Zonificacion` self-comparison, which is two views of one table and
@@ -98,6 +118,13 @@ function fam(codes) {
 
 const out = {
     control,
+    // W5-2 — the saved artefact states WHICH `LandBasis` each total is, so a downstream reader
+    // never has to infer a denominator from a field name (see the header note).
+    landBasis: {
+        buildableKm2: 'gross',
+        buildablePrivateKm2: 'buildable',
+        regionKm2: null, // not a ratio denominator at all
+    },
     totals: {
         regionKm2: km2(total),
         buildableKm2: km2(buildable),

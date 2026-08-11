@@ -26,6 +26,7 @@ import {
     type EnvelopeConfidence,
     type FieldProvenance,
     type DomainConfidence,
+    type LandBasis,
 } from '@pryzm/schemas';
 import { type ExtractableField, type NonNumericRule } from '../types.js';
 import { type NumberLocale } from '../gates/localeGate.js';
@@ -41,17 +42,20 @@ import { type NumberLocale } from '../gates/localeGate.js';
 export type RuleUnit = 'ratio' | 'storeys' | 'm' | 'm2';
 
 /**
- * For a floor-area RATIO, the denominator the ratio is measured against — the
- * German GFZ (Geschossflächenzahl) relates gross floor area to the PLOT area
- * (Grundstücksfläche), so it is a per-plot ratio, NOT a net/gross-lot FAR. Stamped
- * so a downstream envelope solver never silently treats a per-plot GFZ as a
- * per-net-lot FAR (the L-616 "which denominator" class of error):
- *   - `per-plot-area` — ratio ÷ Grundstücksfläche (German GFZ; Spanish edificabilitat neta on the parcel).
- *   - `per-net-area`  — ratio ÷ net developable area.
- *   - `per-gross-area`— ratio ÷ gross block/sector area (edificabilitat bruta).
- *   - `unknown`       — the text stated the ratio but not its basis (honest, never assumed).
+ * ⚠ W5-2 — THIS USED TO BE ITS OWN STRING UNION AND THAT WAS THE DEFECT.
+ *
+ * The denominator vocabulary is now the L0 {@link LandBasis} (`@pryzm/schemas` →
+ * `site/zoning/LandBasis.ts`): `gross | net-of-cesion | parcel | buildable | unknown`. This
+ * module re-exports the NAME so existing prose still reads, but there is exactly ONE ontology
+ * — the L-664 discipline (`ENVELOPE_CONFIDENCE_ORDER` moved to L0 so contract, schema, packs,
+ * scorecard and UI could not drift into rival vocabularies) applied to the denominator.
+ *
+ * The old members mapped as: `per-plot-area` → `parcel`, `per-net-area` → `net-of-cesion`,
+ * `per-gross-area` → `gross`. The migration ADDED `buildable` — C63 §3.2's ratified denominator
+ * — which no extraction path can currently produce, and that gap is now legible in the type
+ * rather than invisible.
  */
-export type DensityScope = 'per-plot-area' | 'per-net-area' | 'per-gross-area' | 'unknown';
+export type DensityScope = LandBasis;
 
 /**
  * For a HEIGHT, WHICH datum the metre value measures to — a Traufhöhe (eaves) and
@@ -98,8 +102,15 @@ export interface ExtractedRule {
     readonly value: number;
     /** The unit of `value`. */
     readonly unit: RuleUnit;
-    /** For a FAR/ratio field: the denominator the ratio is measured against. */
-    readonly densityScope?: DensityScope;
+    /**
+     * For a RATIO field: WHICH LAND the denominator is (L0 {@link LandBasis}).
+     *
+     * ⚠ `undefined` and `'unknown'` are NOT the same and must not be folded: `undefined` means
+     * the GRAMMAR never stated a basis (a gap PRYZM can close by authoring), `'unknown'` means
+     * the ORDINANCE stated the ratio without its denominator (a property of the source). Both
+     * refuse downstream, with different codes — see `LandBasisRefusalCode`.
+     */
+    readonly landBasis?: LandBasis;
     /** For a height field: which datum the metres measure to. */
     readonly measurement?: HeightMeasurement;
     /** The resolved citation (document + sentence always; § + page when known). */
@@ -222,8 +233,8 @@ export interface MatchPayload {
     readonly value: number;
     /** The exact substring the value came from (for the locale gate + review). */
     readonly rawText: string;
-    /** For a FAR/ratio field: the ratio's denominator basis. */
-    readonly densityScope?: DensityScope;
+    /** For a RATIO field: WHICH LAND the denominator is (see {@link ExtractedRule.landBasis}). */
+    readonly landBasis?: LandBasis;
     /** For a height field: the datum the metres measure to. */
     readonly measurement?: HeightMeasurement;
 }

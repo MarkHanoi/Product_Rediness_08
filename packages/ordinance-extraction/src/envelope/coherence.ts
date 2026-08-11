@@ -14,8 +14,15 @@
 //
 // Pure: parameters in, verdicts out. Never throws, never mutates.
 
+import {
+    type KnownLandBasis,
+    type LandBasisRefusal,
+    type RatioOverLand,
+    pairOverSameLand,
+    sharedLandBasis,
+} from '@pryzm/schemas';
 import { type GateResult } from '../types.js';
-import { type ResolvedParameter } from './types.js';
+import { type CoherenceGateResult, type ResolvedParameter } from './types.js';
 
 /** Look up a resolved parameter by field (heights excluded — they are datum-keyed). */
 function byField(
@@ -48,8 +55,25 @@ function byField(
  * `not-applicable` when fewer than all three parameters resolved — reported
  * explicitly, because "the check could not run" and "the check passed" are not the
  * same value.
+ *
+ * ⭐ W5-2 — THE IDENTITY IS ONLY VALID OVER **ONE DENOMINATOR**, AND THAT IS NOW A TYPE.
+ *
+ * Read the derivation above again: "floorArea ≤ floors × coverage × plot". The word `plot`
+ * appears on BOTH sides and cancels. It only cancels if it is the SAME land. Given a FAR over
+ * gross sector area and a coverage over the parcel, the cancellation is invalid — but the
+ * arithmetic is not, so the gate returned `pass` and three mutually consistent numbers were all
+ * wrong at once. C63 §3.2 (L-656) ratifies that the denominator is buildable land, yet nothing
+ * in the source named a land denominator at all: `densityScope` was a metadata string this
+ * function never read.
+ *
+ * So the denominator is resolved FIRST, through the L0 `LandBasis` type, and the identity is
+ * only ever asserted by {@link densityIdentityOverOneLand} — whose signature takes both ratios
+ * over a single `B`. Mixing bases there is a `tsc` error, not a verdict. When the runtime data
+ * cannot produce one land, this returns a CODED refusal (`basis-mismatch` / `basis-unknown` /
+ * `basis-not-declared`) rather than a number, per §CONTEXT-DATA-HONESTY and L-616: an unknown
+ * denominator read as a known one always over-states on real land.
  */
-export function densityCoherence(params: readonly ResolvedParameter[]): GateResult {
+export function densityCoherence(params: readonly ResolvedParameter[]): CoherenceGateResult {
     const far = byField(params, 'maxFAR');
     const coverage = byField(params, 'maxCoverage');
     const floors = byField(params, 'maxFloors');
@@ -68,18 +92,75 @@ export function densityCoherence(params: readonly ResolvedParameter[]): GateResu
         };
     }
 
-    const ceiling = coverage.value * floors.value;
+    // ── STAGE 1 — WHICH LAND? Before any arithmetic. `maxFloors` is a COUNT, not a ratio, so
+    // it carries no basis and needs none: it multiplies whatever denominator the two ratios
+    // share. Only the two ratios must agree.
+    const denominator = pairOverSameLand(
+        { value: far.value, basis: far.landBasis, label: 'maxFAR' },
+        { value: coverage.value, basis: coverage.landBasis, label: 'maxCoverage' },
+    );
+    if (!denominator.ok) return refuseOnDenominator(denominator.refusal);
+
+    // ── STAGE 2 — the identity, over ONE land, enforced by the signature below.
+    return densityIdentityOverOneLand(denominator.a, denominator.b, floors.value);
+}
+
+/**
+ * Render a denominator refusal as a coherence gate result, KEEPING its code and its reason.
+ *
+ * The verdict is chosen to say the true thing in the existing three-word vocabulary:
+ *   - `basis-mismatch` ⇒ **`flag`**. Two ratios over different land is a POSITIVE finding — the
+ *     values may each be correct and the relation is still unassertable. It routes to a human
+ *     exactly as a breached identity does, and it must never read as "not checked".
+ *   - everything else ⇒ **`not-applicable`**. The denominator is unknown or undeclared, so the
+ *     check genuinely could not run. It is emphatically NOT a `pass`.
+ * In both cases `denominator` carries the code, so a consumer can tell these apart from the
+ * plain "a parameter did not resolve" case (see `CoherenceGateResult`).
+ */
+function refuseOnDenominator(refusal: LandBasisRefusal): CoherenceGateResult {
+    return {
+        gate: 'coherence',
+        verdict: refusal.code === 'basis-mismatch' ? 'flag' : 'not-applicable',
+        detail:
+            `FAR ≤ coverage × floors NOT ASSERTED — ${refusal.headline} ${refusal.detail}`,
+        token: `coherence:denominator-refused:${refusal.code}`,
+        denominator: refusal,
+    };
+}
+
+/**
+ * The density identity, asserted over ONE land.
+ *
+ * ⭐ THIS SIGNATURE IS THE FIX. Both ratios are `RatioOverLand<B>` for a single `B`, and the
+ * second is wrapped in `NoInfer` so `B` is pinned by the first argument rather than widened to
+ * a union. `RatioOverLand` is invariant in `B` (see its phantom in `LandBasis.ts`), so passing
+ * a `RatioOverLand<'gross'>` alongside a `RatioOverLand<'parcel'>` does not return a bad
+ * verdict — **it does not compile.** The error is unrepresentable rather than detected, which
+ * is the difference between an invariant and a check somebody has to remember to run.
+ *
+ * Exported so a future consumer (a pack, a scorecard slice) can assert the same identity
+ * without re-deriving the guard, and so the guarantee is testable directly.
+ */
+export function densityIdentityOverOneLand<B extends KnownLandBasis>(
+    far: RatioOverLand<B>,
+    coverage: RatioOverLand<NoInfer<B>>,
+    floors: number,
+): CoherenceGateResult {
+    const basis = sharedLandBasis(far, coverage);
+    const ceiling = coverage.value * floors;
     // Tolerance absorbs the published rounding of the operands (GRZ/GFZ are stated
     // to 1–2 dp), so a value at the identity's exact boundary never false-flags.
     const tolerance = Math.max(0.01, 0.01 * ceiling);
     const within = far.value <= ceiling + tolerance;
 
+    // The land is named in BOTH messages. A density verdict with no stated denominator is the
+    // very thing this change exists to abolish — including when it passes.
     return {
         gate: 'coherence',
         verdict: within ? 'pass' : 'flag',
         detail: within
-            ? `FAR ${far.value} ≤ coverage ${coverage.value} × floors ${floors.value} = ${ceiling.toPrecision(3)}.`
-            : `FAR ${far.value} EXCEEDS coverage ${coverage.value} × floors ${floors.value} = ${ceiling.toPrecision(3)} — impossible for one Baugebiet. Either a value is misread or the three were read from different zones/an Ausnahme applies; route to human.`,
+            ? `FAR ${far.value} ≤ coverage ${coverage.value} × floors ${floors} = ${ceiling.toPrecision(3)}, both over ${basis} land.`
+            : `FAR ${far.value} EXCEEDS coverage ${coverage.value} × floors ${floors} = ${ceiling.toPrecision(3)} (both over ${basis} land) — impossible for one Baugebiet. Either a value is misread or the three were read from different zones/an Ausnahme applies; route to human.`,
         token: within ? 'coherence:pass-density' : 'coherence:flag-density',
     };
 }
@@ -116,6 +197,6 @@ export function heightDatumCoherence(params: readonly ResolvedParameter[]): Gate
 }
 
 /** Run every whole-envelope coherence check, in order. */
-export function envelopeCoherence(params: readonly ResolvedParameter[]): GateResult[] {
+export function envelopeCoherence(params: readonly ResolvedParameter[]): CoherenceGateResult[] {
     return [densityCoherence(params), heightDatumCoherence(params)];
 }

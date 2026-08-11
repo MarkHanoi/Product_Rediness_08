@@ -144,7 +144,7 @@ function ratioMatcher(
     id: string,
     field: FieldMatcher['field'],
     keyword: string,
-    densityScope: MatchPayload['densityScope'],
+    landBasis: MatchPayload['landBasis'],
 ): FieldMatcher {
     return {
         id,
@@ -158,8 +158,8 @@ function ratioMatcher(
         interpret: (m, ctx) => {
             const value = ctx.parseNumber(m[1]!);
             if (value === null) return null;
-            return densityScope !== undefined
-                ? { value, rawText: m[1]!, densityScope }
+            return landBasis !== undefined
+                ? { value, rawText: m[1]!, landBasis }
                 : { value, rawText: m[1]! };
         },
     };
@@ -190,16 +190,30 @@ function heightMatcher(
     };
 }
 
+// ⚠ W5-2 — BOTH GERMAN RATIOS NOW DECLARE THEIR DENOMINATOR, AND IT IS THE SAME ONE.
+//
+// GRZ used to be built with `undefined`: the grammar had no statement of what its denominator
+// was, so `densityCoherence()` related a per-plot GFZ to a basis-less GRZ and called the pair
+// coherent. That silence was not a property of German law — §19(1) BauNVO defines the
+// Grundflächenzahl as Grundfläche ÷ **Grundstücksfläche**, and §20(2) defines the
+// Geschossflächenzahl as Geschossfläche ÷ the SAME Grundstücksfläche. The two ratios share a
+// denominator by statute, which is precisely why GFZ ≤ GRZ × Z is a valid identity in Germany.
+//
+// So the honest fix is to SAY SO, citing the statute, rather than to let the identity rest on
+// an undeclared assumption. `'parcel'` is the L0 `LandBasis` member for Grundstücksfläche.
+//
+// ⚠ It is NOT `'buildable'`. A Grundstück may contain ground that may not be built on; C63
+// §3.2's buildable-land denominator is a different, smaller area and nothing here measures it.
 /** The German field matchers, in priority order. */
 const MATCHERS: readonly FieldMatcher[] = [
-    // Grundflächenzahl (GRZ) → ground coverage, a fraction.
-    ratioMatcher('de-grz', 'maxCoverage', 'Grundflächenzahl\\s*(?:\\(GRZ\\))?|GRZ', undefined),
-    // Geschossflächenzahl (GFZ) → FAR, measured on the plot (Grundstücksfläche).
+    // Grundflächenzahl (GRZ) → ground coverage, a fraction of the Grundstücksfläche (§19(1) BauNVO).
+    ratioMatcher('de-grz', 'maxCoverage', 'Grundflächenzahl\\s*(?:\\(GRZ\\))?|GRZ', 'parcel'),
+    // Geschossflächenzahl (GFZ) → FAR, over the same Grundstücksfläche (§20(2) BauNVO).
     ratioMatcher(
         'de-gfz',
         'maxFAR',
         'Geschossflächenzahl\\s*(?:\\(GFZ\\))?|GFZ',
-        'per-plot-area',
+        'parcel',
     ),
     // Zahl der Vollgeschosse (keyword first): "…Vollgeschosse von 3" / "…: III".
     {

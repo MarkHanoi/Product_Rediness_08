@@ -25,10 +25,12 @@ describe('GERMAN_GRAMMAR — the Berlin 8-30 evidence sentence (PROBE-VERDICT §
         expect(grz?.unit).toBe('ratio');
         expect(gfz?.value).toBeCloseTo(0.9, 10);
         expect(gfz?.unit).toBe('ratio');
-        // GFZ is a per-plot ratio (Geschossfläche ÷ Grundstücksfläche).
-        expect(gfz?.densityScope).toBe('per-plot-area');
-        // GRZ (coverage) carries no densityScope.
-        expect(grz?.densityScope).toBeUndefined();
+        // W5-2 — BOTH ratios now declare their denominator, and by statute it is the SAME one:
+        // §20(2) BauNVO puts GFZ over the Grundstücksfläche and §19(1) puts GRZ over it too.
+        // GRZ previously carried NO basis at all, which is what let `densityCoherence()` relate
+        // the two without ever establishing they were ratios of the same land.
+        expect(gfz?.landBasis).toBe('parcel');
+        expect(grz?.landBasis).toBe('parcel');
     });
 
     it('cites every value to the exact sentence + document (L-449 locator)', () => {
