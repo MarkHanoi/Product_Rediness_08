@@ -1,10 +1,36 @@
 # PRYZM — Product Vision
 
-> **Stamp**: 2026-06-01 · **Amended 2026-06-02** (domain canonical changed per [ADR-0255](../02-decisions/adrs/ADR-0255-one-pryzm-cloudflare-supabase.md))
+> **Stamp**: 2026-06-01 · **Amended 2026-06-02** (domain canonical per [ADR-0255](../02-decisions/adrs/ADR-0255-one-pryzm-cloudflare-supabase.md)) · **Revised 2026-08-11 (rev 3 — measured)**
 > **Status**: CANONICAL
 > **Authority**: this doc owns **the product north star + the user journey + the phased roadmap**. Sits above [STR-03-engineering-vision.md](./STR-03-engineering-vision.md) and below only [STR-01-manifesto.md](./STR-01-manifesto.md). When this doc disagrees with code, this doc updates.
 > **Foundation above**: [STR-01-manifesto.md](./STR-01-manifesto.md) (founding intent + brand voice)
-> **Domain**: **`pryzm.so`** (canonical, owned today) · marketing apex at `pryzm.so` · editor at `app.pryzm.so` · developer docs at `docs.pryzm.so` · marketplace at `marketplace.pryzm.so` (Phase B+). The earlier `pryzm.so` aspiration is retired (user is keeping `pryzm.so` per 2026-06-02 decision).
+> **Domain**: **`pryzm.so`** (canonical, owned today) · marketing apex at `pryzm.so` · editor at `app.pryzm.so` · developer docs at `docs.pryzm.so` · marketplace at `marketplace.pryzm.so` (Phase B+).
+
+> ### What changed in rev 3, and why
+>
+> The June text described a product whose intelligence was *seven AI workflows plus a
+> constraint database*, and whose geography was *a Cesium bridge*. Both descriptions have
+> been overtaken by shipped architecture, and leaving them in place would have made the
+> strategy docs the least accurate documents in the repository.
+>
+> Two pillars are named here for the first time because they now exist as measured
+> machinery, not intent:
+>
+> 1. **The capability control plane** (§4.11) — the chat is no longer a feature bolted to the
+>    editor; it is a *declared, machine-proven contract surface* over everything the editor can
+>    do ([C67](../02-decisions/contracts/C67-RAC-CAPABILITY-CONTROL-PLANE.md),
+>    [C68](../02-decisions/contracts/C68-ELEMENT-CHAT-ONBOARDING.md),
+>    [ADR-0315](../02-decisions/adrs/ADR-0315-universal-capability-architecture.md)).
+> 2. **Planning law made computable** (§4.12) — the deepest moat, and previously represented
+>    in this document by one row saying "Cesium viewer integration ✅"
+>    ([C58](../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md),
+>    [C63](../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md),
+>    [C64](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md), ADR-0279, ADR-0283, ADR-0293).
+>
+> Everything asserted below is traceable to a contract, ADR or issue-log row by id. Where a
+> claim is *intent* rather than *fact* it is marked **NOT-YET-TRUE** with the reason. The
+> repository counts in §4.10 were re-measured on 2026-08-11 and had drifted materially from
+> the June figures.
 
 ---
 
@@ -12,7 +38,17 @@
 
 > **One conversation, from raw site to coordinated building.**
 
-That is the only promise. Everything else — the renderer, the file format, the 49 contracts, the marketplace, the sovereignty model — is in service of that single line.
+That is the only promise. Everything else — the renderer, the file format, the 68 contracts, the marketplace, the sovereignty model — is in service of that single line.
+
+And one line qualifies it, because the promise is worthless if the conversation lies:
+
+> **Open language in, hard stoppers at the execution layer.**
+
+The user may phrase a request any way they like. Bounds, liveness, legal limits and
+granularity are enforced *where the mutation happens* — never by narrowing what the user is
+allowed to type, and never by a confident "Done" over a change that did not occur
+([ADR-0315](../02-decisions/adrs/ADR-0315-universal-capability-architecture.md), the founder
+doctrine for the whole programme).
 
 ---
 
@@ -23,9 +59,30 @@ PRYZM is an **AI-native design intelligence platform for the built environment**
 Every word matters:
 
 - **Design** — the act of deciding what a building should be (not analysing, not documenting, not visualising)
-- **Intelligence** — the platform carries 248+ architectural rules, 14 room-type programs, climate substrates, and a 7-workflow AI host — actively reasoning, not passively storing
+- **Intelligence** — the platform carries 248+ architectural rules, 14 room-type programs, climate substrates, deterministic generative engines, **and the planning law of the jurisdictions it has been packed for** — actively reasoning, not passively storing
 - **Platform** — plugins, families, pricing catalogues, AI workflows, and locale packs are first-class artefacts third parties extend over the substrate
-- **Built environment** — buildings, but also sites, rooms, neighbourhoods, climates
+- **Built environment** — buildings, but also sites, rooms, neighbourhoods, climates, **and the legal envelope the parcel is entitled to**
+
+### §2.1 — The two spines
+
+Under the single promise there are two load-bearing structures. Everything else in this
+document is detail hanging off one of them.
+
+| Spine | One sentence | Where it is binding |
+|---|---|---|
+| **The capability control plane (RAC)** | Language is the primary interface, and *every* thing the editor can do is a declared, machine-proven capability — so the assistant can never claim an ability the editor does not have, and can never ship an ability it cannot say out loud. | [C67](../02-decisions/contracts/C67-RAC-CAPABILITY-CONTROL-PLANE.md) · [C68](../02-decisions/contracts/C68-ELEMENT-CHAT-ONBOARDING.md) · [ADR-0315](../02-decisions/adrs/ADR-0315-universal-capability-architecture.md) |
+| **Planning law made computable** | A parcel resolves to a zoning instrument, the instrument constructs a block, the block constructs a buildable envelope, and the envelope carries the **article it was derived from** — or PRYZM refuses and names what is missing. | [C58](../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) · [C63](../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md) · [C64](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md) |
+
+They meet at one point, and that intersection is the product thesis:
+
+> **A legal constraint, expressed in ordinary language, gates a generative design.**
+
+The buildable envelope's `maxHeightM` is not advisory decoration on a site view — it is the
+hard stopper that refuses an over-height generation *quoting both numbers* (§GEN-MAXHEIGHT-GATE,
+RAC U5b.3). Site context — true north (θ), the parcel ring, setbacks, neighbour heights — is
+what makes *"all south-facing exterior walls"* mean a real compass direction rather than a
+screen direction (RAC U2.1/U3.2). Neither spine is worth much alone. Together they are the
+category.
 
 ---
 
@@ -184,15 +241,186 @@ LLM model: `claude-haiku-4-5-20251014` via Anthropic API (direct or via Cloudfla
 | Cost (5D) | Codified DRAFT [C38](../02-decisions/contracts/C38-COST-5D.md); implementation pending |
 | Schedule (4D) | Codified DRAFT [C37](../02-decisions/contracts/C37-SCHEDULE-4D.md); implementation pending |
 
-### §4.10 — Measurement + governance
+### §4.10 — Measurement + governance (re-measured 2026-08-11)
 
 | Capability | State |
 |---|---|
 | 68 benchmarks measured every PR | ✅ `apps/bench/src/benches/*.bench.ts` |
-| 21 CI gates | ✅ `tools/ga-gate/check-*.ts` (run by `run-all.ts`) |
-| 49 binding contracts | ✅ `docs/02-decisions/contracts/C01–C49` |
-| 108 ADRs | ✅ `docs/02-decisions/adrs/` |
-| 56 specs | ✅ `docs/03-execution/specs/` |
+| **32** CI gates | ✅ `tools/ga-gate/check-*.ts` (run by `run-all.ts`) — was 21 in June |
+| **68** binding contracts | ✅ `docs/02-decisions/contracts/C01–C68` — was 49 |
+| **252** ADRs | ✅ `docs/02-decisions/adrs/` — was 108 |
+| **94** specs | ✅ `docs/03-execution/specs/` — was 56 |
+| **97** packages · **13** apps · **48** plugins | ✅ was 79 / 13 / 47 |
+
+---
+
+### §4.11 — The capability control plane (the RAC spine)
+
+> Governing contracts: **[C67](../02-decisions/contracts/C67-RAC-CAPABILITY-CONTROL-PLANE.md)**
+> (what the chat *is*) · **[C68](../02-decisions/contracts/C68-ELEMENT-CHAT-ONBOARDING.md)**
+> (what a new element or attribute *owes* the chat) · **[ADR-0315](../02-decisions/adrs/ADR-0315-universal-capability-architecture.md)**
+> (the architecture as built) · ADR-0313 (the resolver ladder) · ADR-0314 (undo-neutral batch).
+
+The founding principle is one sentence, and it inverts how every other AI-in-CAD product is
+built (C67 §0):
+
+> **The AI layer is never the source of truth for what the editor can do. The editor
+> registers capabilities; language resolves against them; the LLM is an escalation
+> mechanism, not the command router.**
+
+**Why this had to become architecture.** The founder typed *"make all walls interior
+partition"* into a release that had shipped `wall.updateSystemTypeBatch` in the same
+deployment, and was told *"I'm not sure how to help with that yet."* Nothing was broken; the
+chat's idea of the editor's abilities lived in a hand-maintained list of thirteen intents and
+nothing compared that list to the command bus (C68 §2.1). The same failure recurred months
+later against the apartment-layout engine. A product whose interface is conversation cannot
+have a hand-maintained idea of itself.
+
+**What a capability now is.** Not a prompt, not an intent string — a declared contract with
+four independent proof obligations, each enforced by a CI gate (C68 §5, §6.1):
+
+| Obligation | What it proves |
+|---|---|
+| **Route liveness** | The verb reaches the geometry store that rendering, export and persistence actually read. *A plugin DTO store is presumed DEAD until proven otherwise, because that presumption has been right 13/13 times* (C68 §5.a). |
+| **Targets proven both ways** | The gate *executes* the capability's probe against all 16 element kinds and requires declared set == accepted set **exactly, in both directions** — a declared target the guard refuses fails, and an undeclared kind the guard accepts fails too, because silent over-reach is the same lie facing the other way (C68 §5.c). |
+| **Source-anchored proof** | A `commandProof` names the file that *decides* which kinds the command can reach, and the literals that must appear in it. An unprovable claim fails. |
+| **Acceptance + adversarial families** | Natural phrasings — the way a user says it, not the way the grammar was written — are executed by the gate; so is a hostile corpus of paste-backs, negations and hypotheticals, at zero tolerance (C68 §5.f). |
+
+**The measured state, 2026-08-11**: **41 capabilities registered; undeclared bus commands
+0 of 0**, on a shrink-only ratchet that has been at zero since 2026-08-10 (C68 §6.2). Every
+one of the ~300 registered bus commands is either a capability, a *truthful* `CHAT_UNAVAILABLE`
+refusal a user could read, or a classified deferral with an engineering reason a reviewer can
+falsify. **A new command with no chat metadata turns CI red.** The maturity ladder is printed
+by the gate on every run rather than asserted in a document (ADR-0315 D6).
+
+**The economics changed, and that is the strategic point.** Before the spec interpreter
+(RAC U4) and the property/catalogue vocabularies (U7), each new capability cost a
+hand-written resolver arm — roughly sixty lines of scope/value/dispatch template plus a
+matcher. Today a batch-shaped capability is a **table row**; a catalogue family is a table row
+from which the execution spec *and* the grammar are generated; a property is a table row.
+`set-door-type` shipped as **~94 lines of metadata with zero new resolver code** (C68 §8), and
+the same row shape then delivered slab and ceiling types for the same price. **The marginal
+cost of the next capability is metadata, not engineering** — which is what makes "everything
+the editor can do is speakable" a plan rather than a wish.
+
+**Honesty is the feature, not the caveat.** These behaviours are specified, tested and
+merge-blocking (C67 §4.5, C68 §5.g):
+
+- A refusal names **real** names, numbers and units — the project's actual type names, the
+  geometry package's imported bounds, the real extremum when a filter matched nothing
+  (*"No wall is thicker than 300 mm — the thickest is 250 mm (Interior – Partition). Nothing
+  was changed."*).
+- Ambiguity **refuses naming both candidates** rather than retyping a building on a coin flip.
+- Partial outcomes are reported as partial — *"Changed N of M — K skipped: `<reason>`"* — with
+  the reason read off the command's own payload, never re-narrated.
+- A named scope is never silently widened to a larger one the engine happens to support.
+- **"Done" only after a command reports success.**
+
+**What is NOT-YET-TRUE**, stated plainly so this section cannot be mistaken for a finished
+system: C68 is **CANONICAL, not ACTIVE** (C68 §9). Refusal *quality* has no gate and is a
+review judgement; the runtime halves of "one undo entry" and "a truthfully populated report
+payload" are provable only against a running editor; and six of the new checks are shrink-only
+ratchets rather than zero-tolerance bars — **a baseline is a debt with a name, not a clean
+sheet** (C68 §6.2). The LLM tier consuming the registry as its tool list is in flight (U10.1
+landed; U10.2/U10.3 have not).
+
+---
+
+### §4.12 — Planning law made computable (the jurisdiction moat)
+
+> Governing contracts: **[C57](../02-decisions/contracts/C57-PARCEL-DATA-LAYER.md)** (parcel) ·
+> **[C58](../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md)** (envelope) ·
+> **[C60](../02-decisions/contracts/C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md)** (coverage) ·
+> **[C62](../02-decisions/contracts/C62-DATA-CONFIDENCE-PROVENANCE-MODEL.md)** (confidence) ·
+> **[C63](../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md)** (scorecard) ·
+> **[C64](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md)** (compiler) · ADR-0276, ADR-0279,
+> ADR-0283, ADR-0291, ADR-0293.
+
+**The one idea.** The buildable envelope is a **construction, not a lookup**. Barcelona's PGM
+Art. 242.2 does not state a buildable depth; it states a *derivation* — a figure similar to the
+block, equidistant from the street frontages, leaving at least 30 % of the block area as
+interior free space, capped at 30 m and floored at 11 m. There is therefore no dataset to buy.
+**The derivation trace is the product; the number alone is not.**
+
+The pipeline is fixed and generic (ADR-0279, stages P0–P11):
+
+```
+parcel (cadastre, normalised at the adapter edge — C57)
+  → zoning instrument + zone identity (the clau / norma zonal / bestemmingsplan)
+  → block construction (parcel dissolve → ring → frontage classification against the road graph)
+  → buildable envelope, carrying the ARTICLE it was derived from
+  → or a TYPED DETERMINATION naming exactly what is missing and who owns it (C64)
+```
+
+**Refusal is a product feature, and it is the hardest one to build.** C63 §3.1 ratifies the
+ruling that the scoring denominator is **buildable land**, and that *a refusal is 100 %
+honest at 0 % complete* — launch-blocking is `honestyOk`, never a completion threshold. Three
+worked examples of a refusal being the correct answer:
+
+- **Barcelona clau 18** is 22.5 % of private buildable land and resolves to a **correct
+  refusal**, not a coverage gap.
+- **Barcelona clau 22a** (17.5 % of private buildable land) is governed by PGM Art. 350
+  *twice*, and neither the cadastre nor the planning registry records which regime applies —
+  the field does not exist in either source. PRYZM mints `regime-undetermined` rather than
+  picking (**ADR-0276**).
+- **Madrid NZ-1** is verified for the footprint **ring only**; height is blocked at
+  Art. 8.1.15.1, which is discretionary. *"Partial publication does not authorize inference
+  beyond its demonstrated spatial extent"* (**ADR-0283**). NZ-3 is resolved **by law**: no
+  municipal zone envelope is computable under the current ordinance — a determination, not a
+  gap.
+
+**Honest coverage, stated as coverage.** PRYZM does not serve the world. **One city is live in
+production (Barcelona).** Spain has five cities with a router branch at differing gates
+(Barcelona shipped · Murcia published on an `estimated-ruleset` · Madrid ring-only · Córdoba
+refusal-only · València refusing with the engineering complete). Beyond Spain, Denmark is
+keyed and credential-gated, Switzerland is partially rated, Saudi Arabia is a demo market.
+Every envelope carries one of six confidence labels, and an `estimated-ruleset` envelope is
+**never** presented as authoritative (C58 §1.2/§1.4). C63 scores each city on **seven weighted
+axes — legislation 25 · envelope 20 · parcel 15 · data-sources 15 · heights 10 · terrain 10 ·
+context 5** — so "how complete is this city?" has an answer that is a total function of state
+rather than a number someone typed.
+
+**Why this is a moat rather than a feature.** The dominant cost is not engineering, and this is
+the single most important fact for planning the rollout: **the cost is SOURCING, and sourcing
+is human-gated.** Metropolitan authorities serve per-municipality consolidated ordinances that
+*state different numbers for the same article*, so "encode the law once, get the region free"
+is measurably false. Authoritative viewers are interactive; several publishers 403 or
+robots-disallow scripted access. Two capable research agents hit that wall twice each in one
+day. This line item cannot be accelerated by hiring engineers — **and a competitor cannot buy
+these packs either.** What *can* be accelerated is replication: onboarding a city is a data
+addition at exactly five slots plus one dispatcher branch, and two cold-start probes onboarded
+a new municipality in ~25 minutes with **0 % municipality-specific code** (ADR-0279).
+
+**What is NOT-YET-TRUE in this workstream** — stated because an over-claimed envelope is the
+one failure mode this pipeline exists to prevent:
+
+- **The CI fidelity-label gate does not exist.** ADR-0279 §6 records it as the highest blocker:
+  today the *"never render an estimate as authoritative"* guarantee rides on convention, not CI.
+- **C64 layers 2, 3 and 4 are unbuilt** (variable dependency graph, variable resolution, dataset
+  resolver) — the missing work is contiguous.
+- **`authoritative` is unreachable by construction** (C63 §3.3): a constructed determination
+  caps at 0.70, so no city's envelope axis can score 100 %.
+- **Refusal correctness has never been measured.** It is asserted. The audit is commissioned.
+- **Street width has no national source** and must be constructed from the cadastre; whether a
+  measured width equals the legal *ample oficial* is still open (L-528).
+- **Downward constraints — airport, flood, infrastructure — are unmodelled across every city**,
+  so every envelope PRYZM publishes today is an upper bound with a missing ceiling.
+- Several cadastres are access-gated (Denmark credential-gated; Saudi WAF-blocked outside the
+  country; Germany outside NRW per-Land licensed) and fall back to OSM footprints.
+
+**Three lessons this workstream taught the whole platform**, because they generalise far beyond
+geodata:
+
+1. **A failure and an emptiness must never share a value** (§CONTEXT-DATA-HONESTY, **L-581**):
+  an inset that collapsed returned `0`, the solver read `0` as a legal constraint, and the
+  refusal cited the wrong rule.
+2. **An UNKNOWN constraint must never be drawn as an unbounded one** (**L-616**): a card whose
+  text honestly said *"not derived"* sat above geometry that extruded the full parcel to the
+  cap — unknown rendered as maximally permissive.
+3. **Never accept an aggregate as proof of a geometry change** (**L-586**): a miter offset
+  over-stated buildable area on 31 of 65 real blocks, worst case by 65 %, while every soundness
+  gate passed — because the gates compared the inset to the parcel rather than to the true
+  erosion.
 
 ---
 
@@ -318,9 +546,17 @@ Competitive positioning detailed in [STR-07-positioning.md §2](./STR-07-positio
 
 The deltas between code reality (§4) and the user journey (§5):
 
+> **Revised 2026-08-11.** Several June gaps closed; the ones that did not are restated with
+> the reason, and new ones are added. The rule is unchanged: a gap named here is a gap a
+> reader can verify.
+
 | Gap | Status | Resolution |
 |---|---|---|
-| **RAC end-to-end wiring** | Partial | Chatbot exists; integration with `apartmentLayout` workflow shipped per #51 (apartment-layout live). End-to-end RAC → site → generate flow needs onboarding polish. |
+| **RAC end-to-end wiring** | ✅ Largely closed | The chat is now the capability control plane (§4.11): 41 capabilities, undeclared 0/0, generation reachable by sentence over the four proven executors, compound plans with one Confirm card and a truthful undo cost. Remaining: the LLM tier consuming the registry as its tool list (U10.2/U10.3). |
+| **Refusal quality has no gate** | Open, by admission | C68 §6.3 — the item most likely to be got wrong in a hurry, and the reason C68 is CANONICAL rather than ACTIVE. |
+| **Envelope fidelity-label CI gate** | Open — highest blocker | ADR-0279 §6 / C58 §6. Until it lands, "never render an estimate as authoritative" is convention, not enforcement. |
+| **Jurisdiction breadth** | Honest, narrow | One city live in production; five Spanish cities at differing gates. The constraint is human-gated legal sourcing, not engineering (§4.12). |
+| **Downward site constraints (airport / flood / infrastructure)** | Unmodelled | Every published envelope is an upper bound with a missing ceiling. |
 | **Site UI aesthetic (cream/light, not dark globe)** | Pending | Cesium bridge shipped; light-theme tile styling pending. |
 | **Multi-apartment validation** | Partial | Single-apartment layout shipped; multi-apartment floor-plate generator + validation per [C20 §1.2 caveat](../02-decisions/contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md). |
 | **Site as first-class element ([C19](../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md))** | DRAFT contract; impl in flight | PG0 work track per [site-and-cognition-strategy §2.4](./STR-12-site-and-cognition-strategy.md). |
@@ -354,7 +590,11 @@ The master implementation plan ([../03-execution/plans/master-implementation-pla
 Every decision about what to build next is tested against these:
 
 - **The constraint database is law.** No generated output bypasses it. Adding a new typology means adding its rules first.
-- **Conversation before UI.** Every new capability should be accessible via natural language before a graphical control is built.
+- **Conversation before UI.** Every new capability should be accessible via natural language before a graphical control is built. Since C68 this is no longer an aspiration but an **onboarding obligation with a CI gate behind it**: a new element type or attribute is not done until the chat can either reach it or refuse it out loud with a stated reason, and which of the two is true is decided by a gate, never by memory.
+- **Open language in, hard stoppers at the execution layer.** Never narrow what the user may type in order to make the system safe; enforce at the point of mutation instead (ADR-0315).
+- **Deterministic tiers first, the model last.** Every ladder in the product runs cheap-and-certain before expensive-and-probabilistic, and the last rung emits the *same validated structures* the earlier rungs emit — it never gains a private path to the data. This is true of the chat (tier 0 grammar → typo-tolerant tier 1 → local semantic parse → LLM) and of PDF→BIM (vector extraction → algorithmic raster CV → AI), which is why PDF import now works with **no API key at all**.
+- **A refusal is a correct answer.** Where an instrument is silent, a source is absent, or an engine has no entry point at that granularity, PRYZM says so and names the gap. Refusing is not a failure state to be minimised; over-claiming is (C63 §3.1, C58 §1.13).
+- **Failure and emptiness are never the same value.** A probe that could not run must not return the value a probe that ran and found nothing would return (§CONTEXT-DATA-HONESTY, L-581, L-616).
 - **Site first.** Any feature ignoring real-world geography is a temporary measure. All design should eventually be site-grounded.
 - **BIM output is non-negotiable.** PRYZM produces real interoperable geometry. Image generation is never a substitute.
 - **Fail loudly on constraints.** When a layout violates a rule, the system tells the user which rule, why, and what to do.
@@ -389,11 +629,11 @@ Every decision about what to build next is tested against these:
 
 | | |
 |---|---|
-| **Version** | 2.0 (code-grounded rewrite) |
-| **Status** | CANONICAL — full code audit basis |
+| **Version** | 3.0 (measured revision — the two spines named) |
+| **Status** | CANONICAL — contract- and issue-log-grounded |
 | **Domain** | `pryzm.so` (product) · `marketplace.pryzm.so` (pending) |
-| **Next review** | 2026-09-01 (quarterly cadence) OR on substantive code shift |
+| **Next review** | On substantive code shift; the §4 tables are re-measured, never transcribed forward |
 
 ---
 
-*End — PRYZM Product Vision, 2026-06-01 — CANONICAL.*
+*End — PRYZM Product Vision, revised 2026-08-11 — CANONICAL.*
