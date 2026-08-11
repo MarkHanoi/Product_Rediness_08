@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   composeMmToPx,
   openingCentreMm,
+  rasterMmToPx,
   vectorResultToFloorPlanAnalysis,
   type Affine2D,
   type OpeningCandidate,
@@ -158,6 +159,106 @@ describe('vectorResultToFloorPlanAnalysis — windows + host resolution', () => 
       imageHeightPx: 300,
     });
     expect(out.openings[0]!.hostWallId).toBe(out.walls[1]!.id);
+  });
+});
+
+// ─── §RASTER-CV — the raster tier reuses this adapter unchanged ───────────
+//
+// Tier 2 exists precisely so there is ONE materialization path. These tests
+// pin the two conventions where the tiers could silently disagree and displace
+// every opening by half its width:
+//   • SCALE   — the raster tier's mm space is derived from the source pixel
+//               grid, so mm→px is the plain inverse scale: no viewport
+//               transform, no y-flip. (The vector tier's affine carries
+//               pdf.js's flip; using the wrong one mirrors the plan.)
+//   • CENTRE  — the raster tier MEASURES the gap, so `position` is already the
+//               true centre and `arcEndpointsMm` is deliberately absent. The
+//               hinge-shift branch must NOT fire.
+
+describe('raster tier → adapter (scale + §PDF-OFFSET-LEFTEDGE conventions)', () => {
+  const MM_PER_PX = 25;              // a 400 px page at 25 mm/px = 10 m wide
+  const RASTER_MM_TO_PX = rasterMmToPx(MM_PER_PX);
+
+  it('rasterMmToPx is the plain inverse scale — no translation, no y flip', () => {
+    expect(RASTER_MM_TO_PX).toEqual([1 / 25, 0, 0, 1 / 25, 0, 0]);
+    // y must map with the SAME sign as x: raster mm space is already y-down.
+    const wall = makeWall([[0, 0], [5000, 2500]], 200, 0.9);
+    const out = vectorResultToFloorPlanAnalysis({
+      walls: [wall],
+      openings: [],
+      mmToPx: RASTER_MM_TO_PX,
+      imageWidthPx: 400,
+      imageHeightPx: 300,
+    });
+    expect(out.walls[0]!.startPx).toEqual({ x: 0, y: 0 });
+    expect(out.walls[0]!.endPx).toEqual({ x: 200, y: 100 });
+    expect(out.walls[0]!.thicknessPx).toBeCloseTo(8, 6);
+  });
+
+  it('a raster door keeps its measured centre — the hinge shift must NOT apply', () => {
+    const wall = makeWall([[0, 1000], [10000, 1000]], 200, 0.9);
+    // What classifyRunGaps emits: gap 2500…3400 mm, centre 2950, no arc ends.
+    const door: OpeningCandidate = {
+      kind: 'door',
+      subtype: 'raster-swing-arc',
+      position: [2950, 1000],
+      openingWidthMm: 900,
+      hostWallCenterLine: wall.centerLine,
+      confidence: 0.82,
+    };
+    expect(openingCentreMm(door)).toEqual([2950, 1000]);
+
+    const out = vectorResultToFloorPlanAnalysis({
+      walls: [wall],
+      openings: [door],
+      mmToPx: RASTER_MM_TO_PX,
+      imageWidthPx: 400,
+      imageHeightPx: 300,
+    });
+    const o = out.openings[0]!;
+    expect(o.centrePx.x).toBeCloseTo(2950 / 25, 6);
+    expect(o.widthPx).toBeCloseTo(36, 6);
+    // §PDF-OFFSET-LEFTEDGE — the batcher takes offset = centre − width/2, which
+    // must land on the gap's LEFT JAMB at 2500 mm (= 100 px), not on 2050 mm.
+    expect(o.centrePx.x - o.widthPx / 2).toBeCloseTo(100, 6);
+    expect(o.confidence).toBe('high');
+  });
+
+  it('a gap-only door lands in the LOW confidence band so review can see it', () => {
+    const wall = makeWall([[0, 1000], [10000, 1000]], 200, 0.9);
+    const out = vectorResultToFloorPlanAnalysis({
+      walls: [wall],
+      openings: [{
+        kind: 'door',
+        subtype: 'raster-gap-only',
+        position: [2950, 1000],
+        openingWidthMm: 900,
+        hostWallCenterLine: wall.centerLine,
+        confidence: 0.5, // RASTER_CONF_GAP_ONLY
+      }],
+      mmToPx: RASTER_MM_TO_PX,
+      imageWidthPx: 400,
+      imageHeightPx: 300,
+    });
+    expect(out.openings[0]!.confidence).toBe('low');
+  });
+
+  it('hosts every opening on the merged run that spans THROUGH it (C15)', () => {
+    // The whole reason mergeCollinearWallRuns exists: two abutting walls with
+    // the hole BETWEEN them can host nothing.
+    const run = makeWall([[0, 1000], [10000, 1000]], 200, 0.9);
+    const out = vectorResultToFloorPlanAnalysis({
+      walls: [run],
+      openings: [
+        { kind: 'door', subtype: 'raster-swing-arc', position: [2950, 1000], openingWidthMm: 900, hostWallCenterLine: run.centerLine, confidence: 0.82 },
+        { kind: 'window', subtype: 'raster-glazed', position: [7000, 1000], openingWidthMm: 1800, hostWallCenterLine: run.centerLine, confidence: 0.74 },
+      ],
+      mmToPx: RASTER_MM_TO_PX,
+      imageWidthPx: 400,
+      imageHeightPx: 300,
+    });
+    expect(out.walls).toHaveLength(1);
+    expect(out.openings.map(o => o.hostWallId)).toEqual([out.walls[0]!.id, out.walls[0]!.id]);
   });
 });
 
