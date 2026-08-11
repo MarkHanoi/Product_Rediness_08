@@ -7,6 +7,7 @@
 import type { FPState } from './FPTypes';
 import type { PDFConversionResult } from '@pryzm/file-format';
 import { setStatus } from './FPHelpers';
+import { planTier } from './FPTiers';
 
 // ── Scale detection from PDF text ──────────────────────────────────────────────
 
@@ -210,25 +211,19 @@ export function initStep2Ruler(state: FPState): void {
     const calEl = document.getElementById('fp-cal-confirm');
     if (calEl) (calEl as HTMLElement).style.display = 'none';
 
-    // §VEC-WIRE / §CONTEXT-DATA-HONESTY — tell the user WHICH recognition
-    // path this file will get in Step 4, before they invest in calibration.
+    // §VEC-WIRE / §PDF-BIM-TIER-LADDER / §CONTEXT-DATA-HONESTY — tell the user
+    // WHICH engine this file will get in Step 4, before they invest in
+    // calibration. This used to promise "AI recognition will be used" for every
+    // non-vector file; on a deploy with no API key that promise was empty. Both
+    // rungs named here are deterministic and need no AI.
+    //
     // `vector === null` on a PDF means the operator list was UNREADABLE (not
-    // "no vectors") — reported as such rather than folded into "raster".
+    // "no vectors") — reported as such rather than folded into "raster";
+    // `planTier` owns that distinction for both this step and Step 4.
     const vecInfoEl = document.getElementById('fp-vector-info');
     if (vecInfoEl) {
-        const vec = state.pdfConversion.vector;
-        let msg: string;
-        if (vec) {
-            const pathCount = vec.fnArray.filter(fn => fn === vec.ops['constructPath']).length;
-            msg = pathCount >= 8
-                ? `📐 Vector line-work present (${pathCount} drawn paths) — deterministic vector extraction will run first; AI recognition is the fallback.`
-                : `🖼 Only ${pathCount} drawn vector path${pathCount === 1 ? '' : 's'} on this page (likely a scanned/embedded image) — AI recognition will be used.`;
-        } else if (state.pdfConversion.sourceKind === 'pdf') {
-            msg = '⚠ PDF vector content could not be read — AI recognition will be used.';
-        } else {
-            msg = '🖼 Raster image — AI recognition will be used (no vector data exists in JPG/PNG).';
-        }
-        vecInfoEl.textContent = msg;
+        const plan = planTier(state);
+        vecInfoEl.textContent = `${plan.planned === 'vector' ? '📐' : '🖼'} ${plan.note}`;
         (vecInfoEl as HTMLElement).style.display = 'block';
     }
 

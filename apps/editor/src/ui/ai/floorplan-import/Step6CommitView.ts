@@ -11,6 +11,7 @@ import { FloorPlanUnderlayTool } from '@pryzm/input-host';
 import { FloorPlanBatchExecutor } from '@pryzm/ai-host';
 import { commandProposalStore } from '@pryzm/command-registry';
 import { setStatus, gotoStep } from './FPHelpers';
+import { resetAiAvailabilityCache } from './FPTiers';
 
 // ── Approve high-confidence proposals ─────────────────────────────────────────
 
@@ -65,13 +66,20 @@ export async function handleExecuteInSequence(state: FPState): Promise<void> {
     if (summaryEl) {
         const { walls, slab, doors, windows, other } = result.summary;
         const lines: string[] = [];
-        // §VEC-WIRE / §CONTEXT-DATA-HONESTY — name WHICH recognition path
-        // produced what was just built.
+        // §VEC-WIRE / §PDF-BIM-TIER-LADDER / §CONTEXT-DATA-HONESTY — name WHICH
+        // rung of the ladder produced what was just built, and keep naming the
+        // skips and their reasons.
+        const vs = state.vectorStats;
+        const raw = vs ? ` (${vs.walls} walls, ${vs.doors} doors, ${vs.windows} windows detected)` : '';
         if (state.recognitionPath === 'vector') {
-            const vs = state.vectorStats;
-            lines.push(`Recognition path: vector extraction${vs ? ` (${vs.walls} walls, ${vs.doors} doors, ${vs.windows} windows detected)` : ''}`);
+            lines.push(`Recognition path: tier 1 — vector extraction, deterministic, no AI used${raw}`);
+        } else if (state.recognitionPath === 'raster') {
+            lines.push(`Recognition path: tier 2 — raster analysis, deterministic CV, no AI used${raw}`);
         } else if (state.recognitionPath === 'ai') {
-            lines.push('Recognition path: AI recognition (Claude vision)');
+            lines.push('Recognition path: tier 3 — AI recognition (Claude vision)');
+        }
+        if (state.recognitionPath !== 'ai' && state.recognitionPath !== null) {
+            lines.push('Furniture &amp; plumbing were NOT produced — no deterministic tier classifies them.');
         }
         if (walls   > 0) lines.push(`✓ ${walls} wall${walls !== 1 ? 's' : ''}`);
         if (slab    > 0) lines.push(`✓ ${slab} floor slab`);
@@ -192,6 +200,17 @@ export function resetState(state: FPState): void {
     state.rawAnalysis = null;
     state.recognitionPath = null;
     state.vectorStats = null;
+    // §PDF-BIM-TIER-LADDER — the tier trail belongs to the previous file; a
+    // stale one would describe the wrong drawing. `aiAvailability` is a
+    // SERVER fact, not a file fact, but re-probing on Start Over is cheap and
+    // picks up a relay an admin configured mid-session.
+    state.tierNote = '';
+    state.aiAvailability = null;
+    resetAiAvailabilityCache();
+    const tierInfoEl = document.getElementById('fp-tier-info');
+    if (tierInfoEl) (tierInfoEl as HTMLElement).style.display = 'none';
+    const tierTrailEl = document.getElementById('fp-tier-trail');
+    if (tierTrailEl) (tierTrailEl as HTMLElement).style.display = 'none';
 
     // Reset Step-1 UI so the same file can be re-selected
     const fileInput = document.getElementById('fp-file-input') as HTMLInputElement | null;

@@ -53,20 +53,37 @@ export interface FPState {
      */
     rawAnalysis: FloorPlanAnalysis | null;
     /**
-     * §VEC-WIRE / §CONTEXT-DATA-HONESTY — WHICH recognition path produced
-     * `rawAnalysis`. 'vector' = deterministic vector extraction
-     * (@pryzm/ai-worker/pdf-to-bim); 'ai' = Claude vision stages A/B1/B2.
-     * null until an analysis has run. Surfaced in Step 2, the detection
-     * preview stats, and the Step 5/6 summaries.
+     * §VEC-WIRE / §PDF-BIM-TIER-LADDER / §CONTEXT-DATA-HONESTY — WHICH rung of
+     * the recognition ladder produced `rawAnalysis`:
+     *   'vector' — deterministic vector extraction (@pryzm/ai-worker
+     *              pdf-to-bim stage1/stage2). Exact; no AI, no tokens.
+     *   'raster' — deterministic classical CV over the rendered page
+     *              (@pryzm/ai-worker raster-cv). Approximate; no AI, no tokens.
+     *   'ai'     — Claude vision stages A/B1/B2. Requires a configured relay.
+     * null until an analysis has run. Surfaced in Step 4, the detection preview
+     * stats, and the Step 5/6 summaries — every step NAMES the tier that ran.
      */
-    recognitionPath: 'vector' | 'ai' | null;
+    recognitionPath: 'vector' | 'raster' | 'ai' | null;
     /**
-     * Vector-path result counts for honest reporting ("vector extraction:
-     * 34 walls, 8 doors"), null when the vector path did not run or was
-     * rejected (counts of the REJECTED attempt are folded into the status
-     * line instead).
+     * Deterministic-tier result counts for honest reporting ("raster analysis:
+     * 28 walls, 6 doors"), null when neither deterministic tier produced a
+     * result (counts of the REJECTED attempts are folded into the status line
+     * and `tierNote` instead).
      */
     vectorStats: { walls: number; doors: number; windows: number } | null;
+    /**
+     * The human-readable trail of what each rung of the ladder did on this
+     * run — including the rungs that were tried and REJECTED, and why. Shown
+     * in the detection preview and carried into Step 5/6 so "few elements" is
+     * never mistaken for "simple plan".
+     */
+    tierNote: string;
+    /**
+     * Whether the server reports a configured AI upstream. Probed once per
+     * session on entering Step 4. 'unknown' means the probe itself failed —
+     * NOT the same statement as 'unavailable'.
+     */
+    aiAvailability: 'available' | 'unavailable' | 'unknown' | null;
 }
 
 /** Create a fresh FPState — the singleton lives inside createFloorPlanImportPanel(). */
@@ -94,5 +111,7 @@ export function makeFPState(): FPState {
         rawAnalysis: null,
         recognitionPath: null,
         vectorStats: null,
+        tierNote: '',
+        aiAvailability: null,
     };
 }

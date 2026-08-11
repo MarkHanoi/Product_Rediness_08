@@ -23,7 +23,7 @@ import {
     handleApplyManualScale,
 } from './Step2CalibrationView';
 import { handlePlaceUnderlay, handleConfirmPosition } from './Step3UnderlayView';
-import { handleAnalyse, handleContinueFromDebug } from './Step4AnalysisView';
+import { handleAnalyse, handleContinueFromDebug, prepareAnalysisStep } from './Step4AnalysisView';
 import {
     handleApproveAll,
     handlePushAll,
@@ -212,16 +212,28 @@ export function buildFloorPlanDOM(
         </div>
 
         <!-- Step 4: Analysis Options (§FIX-PDF-BIM-WIZARD — reachable again;
-             vector extraction runs first for vector PDFs, AI vision otherwise) -->
+             §PDF-BIM-TIER-LADDER — vector → raster CV → AI. The first two rungs
+             are deterministic and need no API key, so "Analyse" is NEVER gated
+             on AI availability. Only furniture/plumbing are. -->
         <div id="fp-step-4" class="fp-step" style="display:none;flex-direction:column;">
             <div class="fp-step-title">4 — Analysis Options</div>
+
+            <!-- §PDF-BIM-TIER-LADDER / §CONTEXT-DATA-HONESTY — which engine will
+                 run on THIS file, and exactly what it will and will not produce. -->
+            <div id="fp-tier-info" class="fp-hint" style="display:none;font-size:11px;line-height:1.5;
+                 background:#f3f0ff;border-left:3px solid #6600FF;padding:6px 8px;"></div>
+
             <div class="fp-check-group">
                 <label class="fp-check-label"><input type="checkbox" id="fp-opt-walls" checked> Walls</label>
                 <label class="fp-check-label"><input type="checkbox" id="fp-opt-openings" checked> Doors &amp; Windows</label>
                 <label class="fp-check-label"><input type="checkbox" id="fp-opt-slab" checked> Floor Slab</label>
-                <label class="fp-check-label"><input type="checkbox" id="fp-opt-furniture"> Furniture</label>
-                <label class="fp-check-label"><input type="checkbox" id="fp-opt-plumbing"> Plumbing Fixtures</label>
+                <label class="fp-check-label" id="fp-opt-furniture-label"><input type="checkbox" id="fp-opt-furniture"> Furniture</label>
+                <label class="fp-check-label" id="fp-opt-plumbing-label"><input type="checkbox" id="fp-opt-plumbing"> Plumbing Fixtures</label>
             </div>
+
+            <!-- Optional AI enrichment only — never a blocker for the BIM elements. -->
+            <div id="fp-ai-enrich-note" class="fp-hint" style="display:none;font-size:10px;
+                 line-height:1.5;color:#666;"></div>
             <div class="fp-field">
                 <label class="fp-label" for="fp-wall-height">Wall height (m)</label>
                 <input type="number" id="fp-wall-height" class="fp-input" value="3.0" step="0.1" min="0.5" max="20">
@@ -234,13 +246,16 @@ export function buildFloorPlanDOM(
 
         <!-- Detection Preview (intermediate — not part of numbered step indicators) -->
         <div id="fp-step-debug" class="fp-step" style="display:none;flex-direction:column;gap:8px;">
-            <div class="fp-step-title" style="color:#7c3aed;">🔍 Detection Preview — Raw AI Output</div>
+            <div class="fp-step-title" style="color:#7c3aed;">🔍 Detection Preview — Raw Detector Output</div>
+            <!-- §PDF-BIM-TIER-LADDER — the tier that actually ran is named in the
+                 stats table below and in #fp-tier-trail, not assumed to be AI. -->
             <div class="fp-hint" style="font-size:11px;line-height:1.5;background:#f3f0ff;border-left:3px solid #7c3aed;padding:6px 8px;">
-                This preview shows what the AI detected <strong>before</strong> any post-processing.
+                This preview shows what the detector found <strong>before</strong> any post-processing.
                 Check if doors and windows are correctly identified here — if they are missing or wrong at this stage,
-                the issue is in the AI detection (prompt / image quality). If they appear here but not in the 3D model,
-                the issue is in the post-processing or wall-hosting logic.
+                the issue is in detection (drawing quality, or scan resolution on the raster tier). If they appear
+                here but not in the 3D model, the issue is in the post-processing or wall-hosting logic.
             </div>
+            <div id="fp-tier-trail" class="fp-hint" style="display:none;font-size:10px;line-height:1.5;color:#555;"></div>
 
             <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;">
                 <span style="color:#22c55e;font-weight:700;">■ Exterior walls</span>
@@ -396,6 +411,7 @@ export function buildFloorPlanDOM(
         container.querySelector('#fp-debug-back-btn')?.addEventListener('click', () => {
             state.rawAnalysis = null;
             gotoStep(state, 4);
+            void prepareAnalysisStep(state); // §PDF-BIM-TIER-LADDER — re-state the tier
         });
         container.querySelector('#fp-view-full-plan-btn')?.addEventListener('click', onViewFullPlan);
 
@@ -406,9 +422,10 @@ export function buildFloorPlanDOM(
         container.querySelector('#fp-push-all-btn')?.addEventListener('click', () =>
             handlePushAll(state)
         );
-        container.querySelector('#fp-back-4-btn')?.addEventListener('click', () =>
-            gotoStep(state, 4)
-        );
+        container.querySelector('#fp-back-4-btn')?.addEventListener('click', () => {
+            gotoStep(state, 4);
+            void prepareAnalysisStep(state); // §PDF-BIM-TIER-LADDER
+        });
         container.querySelector('#fp-wall-json-btn')?.addEventListener('click', () => {
             if (!state.diagnosticReport) return;
             const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);

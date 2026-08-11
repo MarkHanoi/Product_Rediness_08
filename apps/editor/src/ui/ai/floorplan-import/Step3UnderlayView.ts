@@ -6,6 +6,7 @@
 
 import type { FPState } from './FPTypes';
 import { gotoStep, setStatus } from './FPHelpers';
+import { prepareAnalysisStep } from './Step4AnalysisView';
 import { FloorPlanUnderlayTool } from '@pryzm/input-host';
 import {
     CreateUnderlayCommand,
@@ -120,4 +121,8 @@ export function handleConfirmPosition(state: FPState, opts?: { finish?: boolean 
     // Full PDF-to-BIM path: continue to the analysis options.
     gotoStep(state, 4);
     setStatus('Position confirmed — choose what to detect, then Analyse.');
+    // §PDF-BIM-TIER-LADDER — name the engine that will run and disable ONLY the
+    // AI-dependent enrichment options. Fire-and-forget: it only writes copy and
+    // checkbox state, and Analyse is never gated on it.
+    void prepareAnalysisStep(state);
 }
