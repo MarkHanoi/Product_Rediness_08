@@ -319,8 +319,91 @@ try {
   baseline = new Set<string>();
 }
 
+// §NEWLY-MEASURED (2026-08-12) — THE THIRD STATE, AND WHY THIS RUNNER NEEDED ONE.
+//
+// Until today this runner could print exactly two verdicts for a failing gate:
+// 🟡 KNOWN-DEBT (it is on gate-debt.json) or ❌ REGRESSION (it is not). BIM 3.0
+// Phase 1 produces a gate that is NEITHER: newly BUILT, landing RED on defects
+// that PREDATE it. Nothing got worse — the instrument arrived — and nobody chose
+// to ship the defect, because nobody had ever measured it.
+//
+// Both existing labels lie about it, in opposite directions:
+//   ❌ REGRESSION says the tree got worse the day someone wrote a scanner. That
+//      trains readers to treat red as noise, which is how this whole suite ended
+//      up unwired (L-774).
+//   🟡 KNOWN-DEBT backdates a decision nobody made, converting "we have never
+//      looked at this" into "we accepted this" — two different facts printing the
+//      same value, the §CONTEXT-DATA-HONESTY failure this repo keeps paying for.
+//
+// So it gets its own file (tools/ga-gate/gate-newly-measured.json — the argument
+// for a sibling rather than a section is in that file's $comment) and its own
+// label, 🔵 NEWLY-MEASURED. The rule that matters: THIS FILE ABSORBS EXIT 1 ONLY.
+// A pinned reading exceeded exits 3 from the gate itself and is caught by
+// §RATCHET-EXCEEDED-IS-NEVER-DEBT above, before this map is ever consulted.
+interface NewlyMeasuredEntry {
+  gate: string;
+  runner?: 'ga-gate' | 'certify';
+  reviewBy?: string;
+  firstReading?: string;
+  exitCondition?: string;
+}
+const newlyPath = join(__dir, 'gate-newly-measured.json');
+const newlyMeasured = new Map<string, NewlyMeasuredEntry>();
+try {
+  const raw = JSON.parse(readFileSync(newlyPath, 'utf8')) as { entries?: NewlyMeasuredEntry[] };
+  for (const e of raw.entries ?? []) newlyMeasured.set(e.gate, e);
+} catch {
+  // Absent file ⇒ no newly-measured gates ⇒ every failure is debt or regression.
+  // Same default as the debt ledger: absence must never mean "tolerate anything".
+}
+
+// A gate may not be in BOTH ledgers. They assert incompatible things — "somebody
+// chose to ship this" and "nobody had ever measured this" — and a gate carrying
+// both would be absorbed by whichever branch this runner happened to check first,
+// which is a coin toss dressed as a policy.
+const inBoth = [...newlyMeasured.keys()].filter((s) => baseline.has(s));
+if (inBoth.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ❌ ${inBoth.length} gate(s) are on BOTH gate-debt.json and gate-newly-measured.json:\n`
+    + inBoth.map((s) => `    - ${s}`).join('\n')
+    + '\n  DECLARED DEBT and NEWLY MEASURED are mutually exclusive claims. Pick one.',
+  );
+  process.exit(1);
+}
+
+// Every entry MUST carry an exit condition and a review date. This is not a schema
+// nicety: the exit condition is the only thing separating this category from an
+// amnesty, and BIM30-READINESS-GATES §2.3 / C70 §5.4 both turn on debt having a
+// declared way out. An entry without one is rejected at load rather than tolerated
+// at read time, so the file cannot acquire open-ended members by accident.
+const incomplete = [...newlyMeasured.values()].filter((e) => !e.exitCondition || !e.reviewBy);
+if (incomplete.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ❌ ${incomplete.length} gate-newly-measured.json entr(ies) lack an exitCondition or a reviewBy:\n`
+    + incomplete.map((e) => `    - ${e.gate}`).join('\n')
+    + '\n  A category with no exit is how "temporary" becomes permanent. Name what makes'
+    + '\n  the entry leave, and the date by which that must be re-argued.',
+  );
+  process.exit(1);
+}
+
+// §NEWLY-MEASURED-EXPIRES — the bound is enforced, or it is a comment.
+// `reviewBy` is NOT a fix deadline. It is the date by which the entry must be
+// RE-ARGUED: fixed and struck, or moved to gate-debt.json as an explicit founder
+// decision to live with it. A category with no exit is how "temporary" becomes
+// permanent, and this repo has enough evidence that an unenforced date is not a
+// bound. Checked for EVERY entry including the ones this runner does not execute:
+// a date is runner-agnostic even when a reading is not.
+const today = new Date().toISOString().slice(0, 10);
+const expired = [...newlyMeasured.values()].filter((e) => typeof e.reviewBy === 'string' && e.reviewBy < today);
+
 const nowFailing: string[] = [];
 const nowPassing: string[] = [];
+const failedDebt: string[] = [];
+const failedNewly: string[] = [];
+const failedRatchet: string[] = [];
+const failedMisconfigured: string[] = [];
+const failedRegression: string[] = [];
 
 // §MISSING-GATE-IS-NOT-DEBT (L-812) — a gate whose FILE does not exist is not a
 // failing gate; it is a lie in the inventory. C01 §5 named five hard-fail gates
@@ -375,6 +458,73 @@ if (onDisk.length > 0) {
   }
 }
 
+// §GATE-UNWIRED-ACROSS-TWO-HOMES (2026-08-12) — the check above has a blind spot,
+// and it is exactly the size of the other gate home.
+//
+// `readdirSync(__dir)` reads `tools/ga-gate/` and NOTHING ELSE, so a gate file
+// dropped into `tools/rac-conformance/certification/gates/` and registered in
+// neither runner is invisible to every check in this repository. That is the
+// §AUTHORED-BUT-UNWIRED hazard with the one instrument that detects it pointed at
+// half the estate — and two homes means two registration points, so the hazard is
+// strictly larger than it was when there was one.
+//
+// BIM30-READINESS-GATES §2.1 (as amended 2026-08-12) sets the residency rule; this
+// is its enforcement. A file in either home must be registered in ONE of the two
+// runners: this file's GATES array, or certify.ts's `gates` list. Registered in
+// neither is a finding. Registered in BOTH is disclosed, not failed — it is
+// wasteful rather than dishonest, and `check-propagation-reaches` is deliberately
+// in both today (its file co-locates with the ledger it reads).
+//
+// The certify list is PARSED FROM SOURCE rather than duplicated here, because a
+// hand-copied list is a list that rots — and a parse that finds nothing must be
+// reported, never treated as "no gates registered there", which would fabricate
+// findings the same way the compile gate fabricated passes.
+const CERT_GATES_DIR = join(__dir, '../rac-conformance/certification/gates');
+if (existsSync(CERT_GATES_DIR)) {
+  const certFiles = readdirSync(CERT_GATES_DIR).filter((f) => /^check-.*\.ts$/.test(f));
+  const certifyPath = join(__dir, '../rac-conformance/certification/certify.ts');
+  let certRegistered: string[] = [];
+  let parsedOk = false;
+  if (existsSync(certifyPath)) {
+    const src = readFileSync(certifyPath, 'utf8');
+    const m = /const\s+gates\s*=\s*\[([\s\S]*?)\]/.exec(src);
+    if (m) {
+      certRegistered = [...m[1]!.matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]!);
+      parsedOk = certRegistered.length > 0;
+    }
+  }
+  if (!parsedOk) {
+    console.error(
+      '\n[ga-gate/run-all] ❌ Could not read certify.ts\'s gate registration list.'
+      + '\n  This check cannot tell an unregistered certification gate from a parse failure,'
+      + '\n  and reporting the second as the first would fabricate findings. Fix the parse'
+      + '\n  (or the file) rather than letting this pass silently.',
+    );
+    inventoryFailed = true;
+  } else {
+    const runAllBasenames = new Set(GATES.map((g) => g.script.split('/').pop()!));
+    const certBasenames = new Set(certRegistered.map((g) => (g.endsWith('.ts') ? g : g + '.ts')));
+    const orphans = certFiles.filter((f) => !runAllBasenames.has(f) && !certBasenames.has(f));
+    const both = certFiles.filter((f) => runAllBasenames.has(f) && certBasenames.has(f));
+    if (both.length > 0) {
+      console.log(
+        `[ga-gate/run-all] ℹ ${both.length} certification gate(s) are registered in BOTH runners `
+        + `(disclosed, not failed): ${both.join(', ')}`,
+      );
+    }
+    if (orphans.length > 0) {
+      console.error(
+        `\n[ga-gate/run-all] ❌ ${orphans.length} gate file(s) under certification/gates/ are registered in NEITHER runner:\n`
+        + orphans.map((f) => `    - ${f}`).join('\n')
+        + '\n  Two gate homes means two registration points, and a gate in neither reads as'
+        + '\n  coverage while running nowhere. Register it in certify.ts (executed gates) or in'
+        + '\n  GATES above (static gates) — BIM30-READINESS-GATES §2.1 decides which.',
+      );
+      inventoryFailed = true;
+    }
+  }
+}
+
 const missing = GATES.filter((g) => !existsSync(join(__dir, g.script)));
 if (missing.length > 0) {
   console.error(
@@ -400,6 +550,7 @@ for (const gate of GATES) {
   // baselined for.
   if (code === 2) {
     nowFailing.push(gate.script);
+    failedMisconfigured.push(gate.script);
     console.error(`\n[ga-gate/run-all] ❌ MISCONFIGURED (exit 2, never excusable as debt): ${gate.name}`);
     anyFailed = true;
     continue;
@@ -422,6 +573,7 @@ for (const gate of GATES) {
   // channel this runner reads. Same reasoning as exit 2, one step further in.
   if (code === 3) {
     nowFailing.push(gate.script);
+    failedRatchet.push(gate.script);
     console.error(
       `\n[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): ${gate.name}`
       + `\n  This gate is allowed to FAIL at its declared level. It is not allowed to get WORSE.`
@@ -434,11 +586,28 @@ for (const gate of GATES) {
 
   if (code !== 0) {
     nowFailing.push(gate.script);
-    const known = baseline.has(gate.script);
-    console.error(
-      `\n[ga-gate/run-all] ${known ? '🟡 KNOWN-DEBT' : '❌ REGRESSION'}: ${gate.name} (exit ${code})`,
-    );
-    if (!known) anyFailed = true;
+    // THREE STATES, THREE LABELS, and the whole point is that a reader can tell
+    // "something broke" from "we started measuring something that was already
+    // broken" without opening a file. If those two print the same, the category
+    // has bought nothing.
+    const newly = newlyMeasured.get(gate.script);
+    if (baseline.has(gate.script)) {
+      failedDebt.push(gate.script);
+      console.error(`\n[ga-gate/run-all] 🟡 KNOWN-DEBT: ${gate.name} (exit ${code}) — somebody CHOSE to ship this (gate-debt.json).`);
+    } else if (newly) {
+      failedNewly.push(gate.script);
+      console.error(
+        `\n[ga-gate/run-all] 🔵 NEWLY-MEASURED: ${gate.name} (exit ${code}) — the instrument arrived; the defects predate it.`
+        + `\n    first reading : ${newly.firstReading ?? '(not recorded — gate-newly-measured.json entry is incomplete)'}`
+        + `\n    leaves when   : ${newly.exitCondition ?? '(NO EXIT CONDITION RECORDED)'}`
+        + `\n    review by     : ${newly.reviewBy ?? '(NONE — an entry with no bound is how temporary becomes permanent)'}`
+        + `\n    NOT a regression: nothing got worse. NOT declared debt: nobody chose this, it was never measured.`,
+      );
+    } else {
+      failedRegression.push(gate.script);
+      console.error(`\n[ga-gate/run-all] ❌ REGRESSION: ${gate.name} (exit ${code}) — not on any ledger. Something got WORSE.`);
+      anyFailed = true;
+    }
   } else {
     nowPassing.push(gate.script);
     console.log(`[ga-gate/run-all] ✅ PASSED: ${gate.name}`);
@@ -461,11 +630,64 @@ if (fixedButStillDeclared.length > 0) {
   anyFailed = true;
 }
 
+// The rule-2 discipline, applied to the second ledger. An instrument whose subject
+// has been fixed must LEAVE this file, for exactly the reason gate-debt.json gives:
+// otherwise it rots into a list of things that are secretly fine, and the next real
+// finding hides inside it. Only entries this runner actually EXECUTED are graded —
+// `runner: 'certify'` entries are not in GATES, so their absence from `nowPassing`
+// says nothing about them.
+const newlyFixed = [...newlyMeasured.values()]
+  .filter((e) => (e.runner ?? 'ga-gate') === 'ga-gate' && nowPassing.includes(e.gate));
+if (newlyFixed.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ❌ ${newlyFixed.length} NEWLY-MEASURED entr(ies) now PASS but are still listed.`
+    + ' Strike them from tools/ga-gate/gate-newly-measured.json:\n'
+    + newlyFixed.map((e) => `    - ${e.gate}`).join('\n')
+    + '\n  (Paid instrument debt leaves its ledger in the commit that pays it.)',
+  );
+  anyFailed = true;
+}
+
+if (expired.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ❌ ${expired.length} NEWLY-MEASURED entr(ies) are PAST their reviewBy date (today ${today}):\n`
+    + expired.map((e) => `    - ${e.gate}  (reviewBy ${e.reviewBy})`).join('\n')
+    + '\n  This is the category expiring on purpose. Three legal outcomes, no fourth:'
+    + '\n    1. fix the finding and strike the entry;'
+    + '\n    2. move it to gate-debt.json — an explicit founder decision to live with it;'
+    + '\n    3. the founder extends reviewBy, in writing, with the reason.'
+    + '\n  Extending the date silently is how "we have not looked yet" becomes permanent.',
+  );
+  anyFailed = true;
+}
+
+// The summary is where the three states have to be legible at a glance, so it
+// enumerates FIVE outcomes rather than the two it used to. The old line was also
+// WRONG in a way worth recording: it computed "declared debt" as
+// `nowFailing.filter(baseline.has)`, which counted a LEDGERED gate that exited 3
+// as declared debt — the exact absorption §RATCHET-EXCEEDED-IS-NEVER-DEBT exists
+// to refuse. The run printed "❌ RATCHET EXCEEDED: xss-sink-scan" and then tallied
+// it under "declared debt" four lines later. Exit-3 and exit-2 now get their own
+// columns and are never folded into either ledger's count.
 console.log(
-  `\n[ga-gate/run-all] ── ${nowPassing.length} passing · ${nowFailing.length} failing `
-  + `(${nowFailing.filter((s) => baseline.has(s)).length} declared debt, `
-  + `${nowFailing.filter((s) => !baseline.has(s)).length} regression) ──`,
+  `\n[ga-gate/run-all] ── ${nowPassing.length} passing · ${nowFailing.length} failing ──`
+  + `\n[ga-gate/run-all]    🟡 ${failedDebt.length} declared debt      (gate-debt.json — somebody chose to ship it)`
+  + `\n[ga-gate/run-all]    🔵 ${failedNewly.length} newly measured     (gate-newly-measured.json — the instrument arrived; nothing got worse)`
+  + `\n[ga-gate/run-all]    ❌ ${failedRatchet.length} ratchet exceeded   (exit 3 — never absorbable by either ledger)`
+  + `\n[ga-gate/run-all]    ❌ ${failedMisconfigured.length} misconfigured      (exit 2 — never absorbable by either ledger)`
+  + `\n[ga-gate/run-all]    ❌ ${failedRegression.length} regression         (on no ledger — something BROKE)`,
 );
+
+// Entries this runner does not execute are disclosed, never counted. Claiming a
+// verdict on a gate you did not run is the fabricating-compile-gate shape.
+const elsewhere = [...newlyMeasured.values()].filter((e) => e.runner === 'certify');
+if (elsewhere.length > 0) {
+  console.log(
+    `[ga-gate/run-all]    ℹ ${elsewhere.length} further newly-measured gate(s) are graded by certify.ts, NOT by this runner:\n`
+    + elsewhere.map((e) => `[ga-gate/run-all]        - ${e.gate}  (reviewBy ${e.reviewBy})`).join('\n')
+    + `\n[ga-gate/run-all]      Their reviewBy dates are enforced above; their readings are not this runner's to report.`,
+  );
+}
 
 // ── INFORMATIONAL SECTION — convergence booleans (R4) ────────────────────────
 // Not a PR gate. Booleans #7–#9 require external infrastructure (npm publish,
@@ -483,7 +705,8 @@ if ((convResult.status ?? 1) !== 0) {
 console.log('[ga-gate/run-all] ────────────────────────────────────────────────\n');
 
 const GATE_COUNT = GATES.length;
-const declaredDebt = nowFailing.filter((s) => baseline.has(s)).length;
+const declaredDebt = failedDebt.length;
+const newlyMeasuredCount = failedNewly.length;
 
 if (anyFailed) {
   console.error(`\n[ga-gate/run-all] BLOCKED — a gate regressed, or the debt baseline is stale. Fix the above before merging.`);
@@ -496,10 +719,17 @@ if (anyFailed) {
 // TOLERATED. Reporting tolerated debt as success is the §CONTEXT-DATA-HONESTY
 // failure this repo keeps paying for — it is how the 16 became invisible in the
 // first place. Exit 0 here means "no REGRESSION", never "no problems".
-if (declaredDebt > 0) {
+if (declaredDebt > 0 || newlyMeasuredCount > 0) {
   console.log(
     `\n[ga-gate/run-all] ✅ NO REGRESSION — ${nowPassing.length}/${GATE_COUNT} gates pass.`
-    + `\n[ga-gate/run-all] ⚠ ${declaredDebt} gate(s) still FAIL as declared debt (tools/ga-gate/gate-debt.json).`
+    + (declaredDebt > 0
+      ? `\n[ga-gate/run-all] ⚠ ${declaredDebt} gate(s) FAIL as DECLARED DEBT (tools/ga-gate/gate-debt.json) — chosen, and tolerated.`
+      : '')
+    + (newlyMeasuredCount > 0
+      ? `\n[ga-gate/run-all] ⚠ ${newlyMeasuredCount} gate(s) FAIL as NEWLY MEASURED (tools/ga-gate/gate-newly-measured.json) —`
+        + `\n[ga-gate/run-all]   pre-existing defects that nothing was measuring until the gate landed. Pinned, shrink-only,`
+        + `\n[ga-gate/run-all]   and each one names what makes it leave the category.`
+      : '')
     + `\n[ga-gate/run-all]   C01 §5 requires ALL gates to pass. That is not yet true — this run did not verify it.`,
   );
 } else {

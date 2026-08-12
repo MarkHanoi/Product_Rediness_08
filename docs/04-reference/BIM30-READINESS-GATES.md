@@ -22,12 +22,24 @@
 
 ## §0 — Coverage, stated before anything else so nobody infers it
 
-**23 gates are specified in this document. 4 exist at HEAD. 19 do not.**
+**23 gates are specified in this document. 7 exist at HEAD. 16 do not.**
+
+*(**Amended 2026-08-12** — this read "4 exist / 19 do not" until BIM 3.0 Phase 1 Tier 1 landed
+`check-solver-is-real`, `check-provenance-not-invented` and `check-epsilon-policy`. Corrected in
+place in the same change that set the residency rule, because a coverage table that under-counts
+built gates rots exactly as fast as one that over-counts them.)*
 
 | | Count | Gates |
 |---|---|---|
-| **BUILT** | **4** | `check-identity-roundtrip` · `check-derived-regenerable` · `check-propagation-reaches` (all three under `tools/rac-conformance/certification/gates/`) · `check-collab-graph-integrity` (under `tools/ga-gate/` — a **split that C70 §7.2 records as a finding**, not as a blessing) |
-| **SPECIFIED-NOT-BUILT** | **19** | `check-authoritative-state` · `check-topology-persistence` · `check-topology-invalidation` · `check-graph-write-coverage` · `check-graph-delete-integrity` · `check-graph-persistence` · `check-prevstate-contract` · `check-suppression-is-reversible` · `check-constraint-honesty` · `check-solver-is-real` · `check-no-hidden-mock` · `check-epsilon-policy` · `check-predicate-canonical` · `check-deterministic-regeneration` · `check-provenance-not-invented` · `check-provenance-coverage` · `check-derived-classification` · `check-algorithmic-core` · `check-collab-model-integrity` |
+| **BUILT** | **7** | `check-identity-roundtrip` · `check-derived-regenerable` · `check-propagation-reaches` (under `tools/rac-conformance/certification/gates/`) · `check-collab-graph-integrity` (under `tools/ga-gate/` — **misplaced under §2.1a and a standing finding**, C70 §7.2) · `check-solver-is-real` · `check-provenance-not-invented` · `check-epsilon-policy` (all three under `tools/ga-gate/` — **correctly placed**: static single-pass scans, §2.1a) |
+| **SPECIFIED-NOT-BUILT** | **16** | `check-authoritative-state` · `check-topology-persistence` · `check-topology-invalidation` · `check-graph-write-coverage` · `check-graph-delete-integrity` · `check-graph-persistence` · `check-prevstate-contract` · `check-suppression-is-reversible` · `check-constraint-honesty` · `check-no-hidden-mock` · `check-predicate-canonical` · `check-deterministic-regeneration` · `check-provenance-coverage` · `check-derived-classification` · `check-algorithmic-core` · `check-collab-model-integrity` |
+
+> **Not one of the 23, and built anyway:** `check-propagation-trackers-reach`
+> (`certification/gates/`) closes C72 §6.1.2(d) — the four **bespoke** propagation pairs, which are
+> the propagation that actually works in this product and which §3.9 explicitly **cannot see**. It
+> is an **executed** gate and is correctly placed under §2.1a. Counting it here would inflate the
+> 23; omitting it entirely would repeat the omission it exists to close, so it is stated and not
+> counted.
 
 > **§0.1 — a gate's existence is not its greenness.** Whether the four BUILT gates are green
 > **today** is deliberately not recorded here (C70 §0.2: counts rot in documents and do not rot in
@@ -130,11 +142,136 @@ Consequences that are already implemented in `contract.ts` and must not be re-li
 - **A gate whose script file is missing is MISCONFIGURED**, never excusable as debt — `certify.ts`
   already does this, and `spawnSync`'s `r.status ?? 2` files an unspawnable gate the same way.
 
-> **§2.1 — where a gate lives.** Every gate in this document belongs under
+> **§2.1 — where a gate lives.** ~~Every gate in this document belongs under
 > `tools/rac-conformance/certification/gates/` and is driven by `certify.ts`. The one exception at
 > HEAD, `check-collab-graph-integrity` under `tools/ga-gate/`, is a **recorded finding** (C70
 > §7.2): two suites with two exit-code implementations is how a four-exit-code contract quietly
-> becomes two contracts. New gates do not join the exception.
+> becomes two contracts. New gates do not join the exception.~~
+>
+> **AMENDED 2026-08-12 · §2.1-RESIDENCY. Reason:** the paragraph above was written when the split
+> was one file wide and could honestly be called an exception. It is not one file wide any more —
+> BIM 3.0 Phase 1 Tier 1 landed `check-solver-is-real`, `check-provenance-not-invented` and
+> `check-epsilon-policy` in `tools/ga-gate/`, and `check-propagation-reaches`'s file already sat in
+> the certification tree while being registered in `run-all.ts`. **Two runners exist, both are
+> real, and the split was undocumented as a rule** — so every new gate was an unguided decision
+> resolved by whoever wrote it. Amended in place rather than rewritten, per this document's own
+> correction discipline; the struck text is the state it replaced. The amendment is below.
+
+**§2.1a — the rule. Residency follows what a gate must REACH to establish its subject, not what it
+asserts.**
+
+| | **`tools/ga-gate/`**, run by `run-all.ts` | **`tools/rac-conformance/certification/gates/`**, run by `certify.ts` |
+|---|---|---|
+| **Admits** | gates that establish their subject by **reading the tree at HEAD** — a single-pass scan of sources, `package.json` manifests, committed artefacts, ledger JSON | gates that establish their subject **from a run** — compose a runtime, seed a world, dispatch verbs, open a transport, or grade an artefact a suite wrote in the same invocation |
+| **Cost** | seconds to a minute each; ~40 of them run in one sweep | minutes to tens of minutes each |
+| **Known tension** | `check-per-package-compile` sits here and takes ~25 min on its own — it spawns `tsc` per package, so by the boundary test below it is arguably executed. It is **named rather than hidden**: it predates this rule, it dominates every `run-all` wall-clock, and it is the standing argument for splitting `run-all` into fast/slow passes. It is **not** precedent for putting new executed gates here. | `check-collab-graph-integrity` is the mirror image and is misplaced the other way — see §2.1c |
+| **Depends on** | `node:fs`, `lib/sourceScan.ts` | `world.ts`, `capture.ts`, `floors.ts`, the pre-run freshness stamp, and whatever transport or DOM shim the pair under test needs |
+
+**The boundary test is one question: *does this gate need something that does not exist until
+something runs?*** Yes → certification. No → ga-gate.
+
+Two things follow, and both are the reason the rule is shaped by cost rather than by tidiness:
+
+- **"All gates live in one folder" is the wrong rule in both directions.** Folding the executed
+  gates into `run-all.ts` makes a sweep that people run casually into one they run never — and a
+  verification tool that is too slow to run teaches nothing and gets switched off, which is
+  precisely how this suite spent its life unwired (L-774). Folding the ~40 static gates into
+  `certify.ts` turns the certification harness into a static scanner and buries four executed
+  gates inside forty scans.
+- **Residency is about the RUNNER; the directory should follow but is not the rule.**
+  `check-propagation-reaches` is the standing case: it is **static** and is therefore registered in
+  `run-all.ts`, while its **file** stays beside `cascade-events.json`, the ledger it reads. That is
+  legal — what is registered is the path, not a copy — and the co-location is worth more than the
+  tidiness. It is also registered in `certify.ts`, so it runs in both suites; that is disclosed by
+  the runner, not failed, because running twice is wasteful rather than dishonest.
+
+**§2.1b — exactly ONE exit-code implementation, imported by both homes, never copied.**
+`tools/rac-conformance/certification/contract.ts` (`reportGate`, `verdictOf`, `Floor`,
+`GateResult`) is the only implementation of the four codes, and the residency rule does **not**
+weaken that — it is what makes the split safe. Verified at HEAD: all three Tier-1 ga-gate gates
+open with `import { reportGate, … } from '../rac-conformance/certification/contract.js'`. C70
+§7.2's real objection was never "two folders"; it was **"two exit-code implementations"**, which is
+how a four-exit-code contract quietly becomes two contracts. A gate in `tools/ga-gate/` that
+hand-rolls `process.exit(1)` for a ratchet breach is the violation — *not* its address. Two homes
+sharing one contract is a split; two contracts is a fork.
+
+**§2.1c — `check-collab-graph-integrity` is reclassified, not excused.** Under §2.1a it is an
+**executed** gate (two real `y-websocket` clients against a live server) and therefore belongs in
+the certification tree. It sits in `tools/ga-gate/` today. It remains a **recorded finding** (C70
+§7.2), now with a named exit condition rather than an open-ended exception: **it moves to
+`certification/gates/` in the same change that resolves its transport question**, which is a
+founder decision (§5.1). Until then it is a *misplaced gate with a reason*, which is a materially
+different thing from an unexplained one, and the residency rule is what makes it visible as such.
+
+**§2.1d — DISCOVERY: two runners means two registration points, and until 2026-08-12 nothing could
+see both.** A gate registered in neither runner is the §AUTHORED-BUT-UNWIRED failure this repo
+keeps paying for — `check-verb-liveness.ts` was committed enforcing C16 §5.1 CA-21 and registered
+nowhere for a day, and `run-all.ts` grew its unregistered-gate check because of it.
+
+**Finding, stated because it was not anticipated by this document or by C70:** `run-all.ts`'s
+unregistered-gate check reads **`readdirSync(__dir)` — `tools/ga-gate/` and nothing else** — so it
+was structurally incapable of seeing the certification tree; and `certify.ts` has **no such check
+at all**, only a hard-coded `gates` array. Between them they covered one of the two homes. A file
+dropped into `certification/gates/` and registered in neither runner would have been invisible to
+every instrument in the repository, *including the two that exist to detect exactly that*. Nothing
+is unregistered today (all four files in `certification/gates/` are in `certify.ts`'s list) — the
+hole was in the detector, not in the tree, which is the L-827 shape: the state nobody investigates
+is the one they already expect.
+
+**Closed the same day** by extending `run-all.ts` to read `certification/gates/` and require every
+`check-*.ts` there to be registered in **one** of the two runners, parsing `certify.ts`'s list from
+source rather than duplicating it (a hand-copied list rots) and **failing the parse loudly** rather
+than letting an unparsed list read as "nothing registered there".
+
+**§2.1e — where a NEW gate goes, in one line each.** Static scan → `tools/ga-gate/`, registered in
+`run-all.ts`'s `GATES`. Executed against the world → `certification/gates/`, registered in
+`certify.ts`'s `gates`. Either way: import `contract.ts`, declare floors, record the negative
+control in the header (§2.2), and if it lands red on pre-existing defects, pin it in
+`tools/ga-gate/gate-newly-measured.json` (§2.4) — **not** in `gate-debt.json`.
+
+> **§2.4 — a gate that lands red on defects that PREDATE it is NEITHER a regression NOR declared
+> debt** *(added 2026-08-12)*. §2.3 requires such gates to be built anyway; this says where the red
+> is recorded. `tools/ga-gate/gate-debt.json` declares two states — *fails and is not listed* =
+> **REGRESSION**, *is listed* = **DECLARED DEBT**, the latter gated by its rule 3 on an explicit
+> founder decision. A newly-built gate is neither: nothing got worse (the instrument arrived), and
+> nobody chose to ship the defect (it was never measured). Filing it as a regression trains readers
+> to treat red as noise; filing it as debt backdates a decision nobody made.
+>
+> The third category is **`tools/ga-gate/gate-newly-measured.json`** — a **sibling file**, not a
+> section of `gate-debt.json`, because the two carry different consent rules (rule 3 must stay
+> attached to *choosing to ship a violation*, and must not leak onto *choosing to start
+> measuring*), different shapes (a bare `string[]` versus per-entry pinned reading, exit condition
+> and review date), and different meanings when they grow. Its semantics:
+>
+> - the reading is **pinned at the gate's first honest measurement**, in the gate's own named
+>   ledger; the JSON entry points at that ledger and carries a human-readable copy. **If the two
+>   disagree, the gate is right.**
+> - it is a **ratchet**: exceeding the pin exits **3** from `contract.ts` and is caught by
+>   `run-all.ts`'s §RATCHET-EXCEEDED-IS-NEVER-DEBT branch *before* this file is consulted. **This
+>   file absorbs exit 1 only.** It does not re-implement the ratchet — a second comparator over the
+>   same number is a second thing that can disagree.
+> - every entry names an **exit condition** and a **`reviewBy` date**, both required at load or the
+>   runner refuses the file. `run-all.ts` **fails when today > `reviewBy`**: an unenforced date is a
+>   comment, and a category with no exit is how "temporary" becomes permanent.
+> - an entry whose gate starts **passing** must leave the file, same discipline as `gate-debt.json`
+>   rule 2.
+>
+> **Does adding here need a founder decision, as rule 3 requires for declared debt? No — with three
+> hard edges,** and the answer is stated rather than left to inference. Requiring sign-off to turn
+> an *instrument* on puts a human approval step in front of knowing something, and the predictable
+> response is to not land the gate — which is what §2.3 forbids. The founder's authority is over
+> what we **ship**, not over what we are allowed to **know**; an entry here asserts no tolerance,
+> only that a number is written down and may now only fall. The edges: **(a)** an entry may only be
+> added **in the commit that introduces its gate** — a later addition is not a first reading and
+> goes through rule 3; **(b)** raising a pinned reading is forbidden outright, founder or not (R7:
+> a measurement raised becomes a permission); **(c)** extending a `reviewBy`, or moving an entry
+> into `gate-debt.json`, **requires the founder** — that is the moment "not fixed yet" becomes
+> "chosen to live with", which is exactly what rule 3 exists to gate. (c) is the only join between
+> the two files, deliberately.
+>
+> `run-all.ts` prints the states distinguishably — 🟡 KNOWN-DEBT · 🔵 NEWLY-MEASURED · ❌
+> REGRESSION per gate, with exit 2 and exit 3 in their own summary columns — so "something broke"
+> and "we started measuring something that was already broken" can never read the same.
 
 > **§2.2 — the negative control is part of the gate, not part of the review.** Every arm is
 > **watched failing against a deliberately planted violation before it is trusted**, and the
@@ -392,7 +529,7 @@ Two definitions used throughout:
 
 ### 3.13 · `check-solver-is-real` — the cheapest check in the suite
 
-**Status: SPECIFIED-NOT-BUILT** · **specified by C74 §6**
+**Status: BUILT** *(2026-08-12)* — `tools/ga-gate/check-solver-is-real.ts` · static manifest+source scan, so `tools/ga-gate/` is its correct home under §2.1a · imports the one `contract.ts` · lands **exit 1** against a 4-entry named `LEDGER`, pinned in `gate-newly-measured.json` (§2.4)
 **Owning invariants:** C70 **G-INV-1**, **L-INV-1**; C74 §3.3, §3.7.
 
 | | |
@@ -428,7 +565,7 @@ Two definitions used throughout:
 
 ### 3.15 · `check-epsilon-policy` — one declared tolerance module, unit-qualified
 
-**Status: SPECIFIED-NOT-BUILT** · **specified by C73 §5.1**
+**Status: BUILT** *(2026-08-12)* — `tools/ga-gate/check-epsilon-policy.ts` · static scan, correct home under §2.1a · imports the one `contract.ts` · lands **exit 1** (E1 red, E2 271, E5 113) against `epsilon-policy-baseline.json`, pinned in `gate-newly-measured.json` (§2.4)
 **Owning invariants:** C70 **E-INV-2**; C73 §2.1–§2.5.
 
 | | |
@@ -488,7 +625,7 @@ Two definitions used throughout:
 
 ### 3.18 · `check-provenance-not-invented` — no path stamps an origin it did not observe
 
-**Status: SPECIFIED-NOT-BUILT** · **specified by C75 §6**
+**Status: BUILT** *(2026-08-12)* — `tools/ga-gate/check-provenance-not-invented.ts` · static scan, correct home under §2.1a · imports the one `contract.ts` · lands **exit 1** against a 7-entry named `LEDGER`, pinned in `gate-newly-measured.json` (§2.4). **V2 and V4 are NOT IMPLEMENTED and remain UNPROVEN** — the gate says so on every run
 **Owning invariants:** C70 **H-INV-1**, **H-INV-2**; C75 §2.1, §2.2, §2.3, §2.5, §1.4.
 
 | | |
@@ -630,7 +767,12 @@ Ordered by **cost ÷ leverage**, cheapest and highest-leverage first. Cost is me
 gate must reach: a `package.json` scan is cheaper than a source scan, which is cheaper than an
 executed harness, which is cheaper than an executed harness that needs a subsystem built first.
 
-### Tier 1 — manifest and single-file scans (hours each; land them this week)
+### Tier 1 — manifest and single-file scans (hours each; land them this week) — ✅ **ALL THREE LANDED 2026-08-12**
+
+*(All three are in `tools/ga-gate/`, which §2.1a confirms is their correct home: each is a
+single-pass scan over the tree at HEAD. All three land **red**, as §2.3 requires, and are pinned in
+`tools/ga-gate/gate-newly-measured.json` under §2.4 — **not** on `gate-debt.json`, because nobody
+chose to ship these defects; nothing was measuring them.)*
 
 | # | Gate | Why first |
 |---|---|---|
