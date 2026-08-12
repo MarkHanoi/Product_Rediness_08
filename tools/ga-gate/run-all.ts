@@ -235,6 +235,19 @@ const GATES: Gate[] = [
   { name: 'prevstate-contract (C72 §3, §6.2)',        script: 'check-prevstate-contract.ts' },
   { name: 'suppression-is-reversible (C72 §4, §6.3)', script: 'check-suppression-is-reversible.ts' },
   { name: 'no-hidden-mock (C74 §3.2/§3.4/§3.5)',      script: 'check-no-hidden-mock.ts' },
+  // BIM30-READINESS-GATES §3.12 · C70 G-INV-1 + G-INV-2. STATIC by §2.1a: both
+  // arms read the tree at HEAD (adapter delegation vs declared `kind`; rule
+  // families parsed from ConstraintEngine.ts source, cross-referenced against
+  // every executable-evidence file). Importing the engine to drive it would be
+  // EXECUTED — it touches `window` at module scope — and would answer the wrong
+  // question: G-INV-2 asks whether evidence EXISTS in the repo, not what one run
+  // computes. Sibling to check-solver-is-real and disjoint from it: that gate
+  // asks the EXTERNAL questions (is the named engine a declared dependency; does
+  // a selector conflate not-configured with configured-but-failed), this one asks
+  // the INTERNAL ones (does delegation match declared identity; does every rule
+  // family have executable evidence at its declared strength). No shared arm key,
+  // no shared ledger entry.
+  { name: 'constraint-honesty (C70 G-INV-1/2, C74 §3.1/§3.2/§3.5)', script: 'check-constraint-honesty.ts' },
   // C77 (2026-08-12) — the secrets & configuration register. The C69 pattern on
   // the config surface: generated from the read-sites, diffed against the
   // committed artefact both directions, PRESENCE-NEVER-VALUE in every arm (the
@@ -243,6 +256,24 @@ const GATES: Gate[] = [
   // first honest reading — gate-newly-measured.json, same change, per the
   // Tier 1/Tier 2 discipline.
   { name: 'secrets-register (C77 §6)',                script: 'check-secrets-register.ts' },
+  // C71 §6 · C70 §7 row C-INV-1/C-INV-4 (2026-08-12) — the relationship
+  // vocabulary is SCOPED and SHRINKING. Named by C70 §7 as required with NO FILE
+  // AT HEAD, which §7.1 makes a named gap whose only honest status is UNPROVEN.
+  //
+  // ⚠ RESIDENCY DEVIATION, stated not hidden: C71 §6's preamble puts all three
+  // graph gates in the certification tree. This one is STATIC by the
+  // BIM30-READINESS-GATES §2.1a boundary test — it needs nothing that does not
+  // exist until something runs — so it lives and runs here beside the other
+  // static single-pass scans, and imports the ONE exit-code contract (§2.1b),
+  // which is what C70 §7.2 actually objected to. Full argument in its header.
+  //
+  // Lands RED at exit 1 against a NAMED, shrink-only ledger in its own header
+  // (5 entries, both directions), with SIX planted-violation controls executed
+  // INSIDE every run — including a positive control, so it can never be merely
+  // stuck red — and exit 2 as a blind comparator if any control stays silent.
+  // Carries a gate-newly-measured.json entry, NOT gate-debt.json: its findings
+  // predate it and nobody chose to ship them.
+  { name: 'graph-write-coverage (C71 §6 · C-INV-1/4)', script: 'check-graph-write-coverage.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];
