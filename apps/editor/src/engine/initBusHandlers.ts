@@ -392,6 +392,71 @@ export function initBusHandlers(
         );
     }
 
+    // ── §FIX-S4-VOICE-ABSENT-TARGET (C16 §5.1 CA-18) — `_cmExec` that does not
+    //    DISCARD the legacy verdict ─────────────────────────────────────────────
+    //
+    // `CommandManagerImpl.execute()` DOES refuse an absent target correctly: it runs
+    // `command.canExecute(ctx)`, `console.warn`s `REFUSED <type>: …`, and RETURNS
+    // `{ success: false, affectedElementIds: [], info: [reason] }`
+    // (CommandManagerImpl.ts:172-185). It does NOT throw. `_cmExec` above declares
+    // `: void` and drops that object on the floor — so a bridge calling it reports
+    // success for a command the legacy layer just refused BY NAME. The refusal
+    // EXISTED and named its rule; it never reached the dispatch site.
+    //
+    // This is a SEPARATE helper rather than a change to `_cmExec` on purpose:
+    // `_cmExec` has 90 call sites in this file, and making all 90 throw on a legacy
+    // failure is a behaviour change across ~40 verbs that no measurement in this
+    // change covers. C16 CA-18 is satisfied per-verb; widening it is its own lane
+    // with its own proof obligation. Only the verb under measurement adopts this.
+    //
+    // Throwing (rather than a `canExecute` `{valid:false}`) is the shape the repo
+    // ALREADY pins: `apps/editor/__tests__/RoofUpdateReachesGeometryStore.test.ts`
+    // :160 asserts `rejects.toThrow()` for a refused `roof.update`, the rooms
+    // plugin's `room.create` bridge reads `{success:false}` and throws
+    // (plugins/rooms/src/handlers/CreateRoom.ts:196), and every live call site ends
+    // in `.catch(...)` — RoofPropertySheet.ts:318, PropertyInspectorApply.ts:234,
+    // MaterialDispatch's roof route. And it CANNOT live in `canExecute`: existence
+    // is a GEOMETRY-STORE fact reachable only through `window.commandManager`'s
+    // context, which the bridge's store-free `validate(cmd)` payload check does not
+    // hold.
+    function _cmExecOrRefuse(verb: string, cmd: unknown, meta?: unknown): void {
+        const cm = window.commandManager as
+            { execute(cmd: unknown, options?: unknown): { success?: boolean; info?: string[]; error?: string } | void }
+            | undefined;
+        if (!cm) {
+            // Symmetric with SetRoomName's §FIX-DEAD-VERB-ROOM-BRIDGE branch: no
+            // commandManager means the ONLY path to authoritative state is absent.
+            // That is a failure, not a no-op. The console.error is KEPT.
+            console.error(
+                `[initBusHandlers] §P1.4: commandManager not ready — ${verb} dropped:`,
+                (cmd as any)?.constructor?.name ?? 'unknown',
+            );
+            throw new Error(
+                `${verb}: the command manager is not available, so nothing was changed.`,
+            );
+        }
+        const gestureId = currentGestureId();
+        const base = (meta ?? { source: 'HUMAN_DIRECT' }) as Record<string, unknown>;
+        const options = gestureId !== null && base.gestureId === undefined
+            ? { ...base, gestureId }
+            : base;
+        const result = cm.execute(cmd, options);
+        // `success === false` is the ONLY refusal signal read here. `undefined` is
+        // NOT treated as failure: several test doubles and the historical
+        // `execute(): void` shape return nothing on a successful run, and reading
+        // absence as refusal would invent a failure where none was reported — the
+        // mirror image of the defect this fixes.
+        if (result && result.success === false) {
+            // `info[0]` first: CommandManagerImpl fills it with the HUMAN sentence
+            // (`blockingIssues[0] || reason`, CommandManagerImpl.ts:182) and leaves
+            // `error` unset on the canExecute-refusal path; `error` covers the
+            // execution-threw path. Same order as plugins/rooms CreateRoom.ts.
+            const reason = result.info?.[0] ?? result.error ?? 'no reason given';
+            console.warn(`[initBusHandlers] ${verb} refused by the command manager: ${reason}`);
+            throw new Error(`${verb}: the command manager refused — ${reason}`);
+        }
+    }
+
     // ── §FEAT-RHINO-CHAT-MATERIAL — Rhino reference-model recolour bridge ──────
     //
     // A legacy-shaped command (canExecute/execute/undo + affectedStores:[]) so
@@ -617,10 +682,19 @@ export function initBusHandlers(
     const __bridges: BridgeSpec[] = [
         // ── existing element update bridges (E.5.1–E.5.3) ──────────────────
         {
+            // §FIX-S4-VOICE-ABSENT-TARGET (C16 §5.1 CA-18) — `_cmExecOrRefuse`, not
+            // `_cmExec`. `UpdateRoofCommand.canExecute` already refuses an absent
+            // roof by name ("Roof not found", UpdateRoofCommand.ts:27) and
+            // CommandManagerImpl returns that as `{success:false, info:[…]}` without
+            // throwing; the bare `_cmExec` DISCARDED it, so `roof.update` aimed at a
+            // roof that does not exist resolved ok=true and the caller could not tell
+            // it from a real update. The success path is untouched: a roof that
+            // EXISTS takes the identical route and the helper reads a result that is
+            // not `success === false`.
             type: 'roof.update',
             stores: [] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : null),
-            fn: (cmd) => { _cmExec(new UpdateRoofCommand(cmd.id, cmd.updates)); },
+            fn: (cmd) => { _cmExecOrRefuse('roof.update', new UpdateRoofCommand(cmd.id, cmd.updates)); },
         },
         {
             // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — 3D-gizmo column move/rotate is now
@@ -977,8 +1051,31 @@ export function initBusHandlers(
                 }).wallStore;
                 const current = wstore?.getById?.(cmd.wallId);
                 if (!current) {
+                    // §FIX-S4-VOICE-ABSENT-TARGET (C16 §5.1 CA-18) — the console.warn
+                    // STAYS (it is the developer diagnostic and was never the defect);
+                    // what was missing is that the CALLER could not tell this apart
+                    // from success. The bare `return` produced `{forward:[],inverse:[]}`
+                    // — prohibited shape (b) under CA-18 — the bus resolved ok=true,
+                    // and "I set the height" and "there is no such wall" printed the
+                    // same value at the dispatch site. That is the
+                    // §CONTEXT-DATA-HONESTY failure, one layer above the store.
+                    //
+                    // THROW, not `{valid:false}` from canExecute: `validate()` here is
+                    // a PAYLOAD check that also runs on the bus's own canExecute path,
+                    // and it is deliberately store-free — the geometry wallStore is a
+                    // `window` global whose readiness is a runtime fact, not a payload
+                    // fact. Every live call site already terminates in `.catch(...)`
+                    // (PropertyInspectorApply.ts:210, and :552 via
+                    // surfaceCommandFailure), and the bridge wrapper below re-throws
+                    // to the bus AND raises a `pryzm:toast` — the
+                    // §FIX-COMMAND-REJECTION-SURFACED path. Nothing here converts a
+                    // no-op into an unhandled crash; it converts a silent no-op into a
+                    // named refusal.
                     console.warn(`[wall.updateDimensions] wall not found in geometry store: ${cmd.wallId}`);
-                    return;
+                    throw new Error(
+                        `wall.updateDimensions: no wall '${cmd.wallId}' exists in the geometry store, `
+                        + `so nothing was changed.`,
+                    );
                 }
                 const before = structuredClone(current);
                 _cmExec(new UpdateWallDimensionsCommand({

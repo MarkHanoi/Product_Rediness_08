@@ -364,6 +364,98 @@ describe('room.setName — legacy bridge (§FIX-ROOM-SETNAME-STORE, L-75)', () =
       bus.executeCommand('room.setName', { roomId: '', name: 'X' }),
     ).rejects.toThrow();
   });
+
+  // ── §FIX-S4-VOICE-ABSENT-TARGET (C16 CA-18) ────────────────────────────────
+  //
+  // check-authoritative-state arm S4-VOICE, ledger entry
+  // "S4-VOICE REFUSAL room.setName(absent room)": dispatching at a roomId that
+  // does not exist resolved ok=true, moved zero authoritative paths, and put no
+  // refusal in front of the caller. S4-STATE passed the whole time — nothing was
+  // mutated — so the defect was never state, it was that SUCCESS AND REFUSAL WERE
+  // THE SAME OBSERVABLE at the dispatch site.
+  //
+  // The refusal existed: RenameRoomCommand.canExecute returns
+  // `{ok:false, reason:"Room '<id>' not found"}` and CommandManagerImpl surfaces it
+  // as `{success:false, info:[reason]}` WITHOUT throwing. The handler discarded
+  // that object. These two tests pin the distinguishability, not the absence of a
+  // crash — the assertion is on the DISCRIMINANT (rejected vs resolved) and on the
+  // reason text naming the missing room.
+  it('SURFACES a RenameRoomCommand refusal for an absent room instead of reporting success', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    // Exactly what the REAL CommandManagerImpl returns on a canExecute refusal
+    // (CommandManagerImpl.ts:172-185): a resolved object, never a throw.
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: {
+        execute: () => ({
+          success: false,
+          affectedElementIds: [],
+          info: ["Room 'no-such-room-at-all' not found"],
+        }),
+      },
+    };
+    await expect(
+      bus.executeCommand('room.setName', { roomId: 'no-such-room-at-all', name: 'X' }),
+    ).rejects.toThrow(/room\.setName: RenameRoomCommand refused — Room 'no-such-room-at-all' not found/);
+  });
+
+  it('a caller can DISTINGUISH the absent-room refusal from a real rename', async () => {
+    // The whole point of the arm, asserted as one comparison rather than two
+    // isolated cases: same verb, same shape of payload, two outcomes that a
+    // script / the AI / a retry loop can tell apart WITHOUT reading the console.
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+
+    const seen: string[] = [];
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: {
+        execute: (c: unknown) => {
+          const id = (c as { targetIds?: readonly string[] }).targetIds?.[0] ?? '';
+          seen.push(id);
+          return id === 'room_present'
+            ? { success: true, affectedElementIds: [id] }
+            : { success: false, affectedElementIds: [], info: [`Room '${id}' not found`] };
+        },
+      },
+    };
+
+    const present = await bus
+      .executeCommand('room.setName', { roomId: 'room_present', name: 'Atrium' })
+      .then(() => 'resolved' as const, () => 'rejected' as const);
+    const absent = await bus
+      .executeCommand('room.setName', { roomId: 'room_absent', name: 'Atrium' })
+      .then(() => 'resolved' as const, () => 'rejected' as const);
+
+    expect(present).toBe('resolved');
+    expect(absent).toBe('rejected');
+    expect(present).not.toBe(absent);
+    // Both reached the legacy command — the refusal is the LEGACY layer's verdict
+    // being surfaced, not a new pre-check that short-circuits the bridge.
+    expect(seen).toEqual(['room_present', 'room_absent']);
+  });
+
+  // ZERO BEHAVIOUR CHANGE WHEN THE ROOM EXISTS. The success path must be
+  // byte-identical to today, including for the historical `execute(): void` shape
+  // and for doubles that return a non-object (the suite above uses
+  // `executed.push(...)`, which returns a NUMBER). Only an explicit
+  // `success === false` refuses; `undefined` and `3` must both still resolve.
+  it('leaves the success path untouched for void / non-object / success:true managers', async () => {
+    env = buildEnv();
+    for (const execute of [
+      () => { /* historical `execute(): void` */ },
+      () => 3 as unknown as void,                       // `arr.push()` shape
+      () => ({ success: true, affectedElementIds: ['room_abc'] }),
+      () => ({ affectedElementIds: ['room_abc'] }),      // no `success` field at all
+    ]) {
+      const bus = busWithoutRoomStore();
+      g.window = { __pryzmInitComplete: true, commandManager: { execute } };
+      await expect(
+        bus.executeCommand('room.setName', { roomId: 'room_abc', name: 'Atrium' }),
+      ).resolves.toBeDefined();
+    }
+  });
 });
 
 // §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — setNumber / setOccupancy / setMaterial

@@ -81,8 +81,15 @@ export class SetRoomNameHandler
           + 'Wait for the project to finish loading and try again.',
         );
       }
-      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): void } })
-        .commandManager;
+      // §FIX-S4-VOICE-ABSENT-TARGET — the return type is widened from `void` to the
+      // legacy `CommandResult` shape so the refusal below is READABLE. It was the
+      // `: void` annotation that made discarding the verdict look correct.
+      const cm = (window as unknown as {
+        commandManager?: {
+          execute(cmd: unknown, options?: unknown):
+            { success?: boolean; info?: string[]; error?: string } | void;
+        };
+      }).commandManager;
       // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — no commandManager means the ONLY path to
       // authoritative state is absent. That is a failure, not a no-op.
       if (!cm) {
@@ -91,14 +98,52 @@ export class SetRoomNameHandler
         );
       }
       if (cm) {
+        let result: { success?: boolean; info?: string[]; error?: string } | void;
         try {
-          cm.execute(new RenameRoomCommand(cmd.roomId, { name: cmd.name }));
+          result = cm.execute(new RenameRoomCommand(cmd.roomId, { name: cmd.name }));
         } catch (e) {
           // §FIX-DEAD-VERB-ROOM-BRIDGE (W3-3) — this used to log and return an empty
           // patch pair, i.e. report SUCCESS for a bridge that threw. Re-thrown so the
           // caller learns the room.setName did not happen.
           console.error('[room.setName.handler] bridge failed:', e);
           throw e instanceof Error ? e : new Error(String(e));
+        }
+        // §FIX-S4-VOICE-ABSENT-TARGET (C16 §5.1 CA-18) — W3-3 above closed the THROW
+        // channel; it left the REFUSAL channel open. `CommandManagerImpl.execute`
+        // does not throw when a command refuses: it runs `canExecute`, and
+        // `RenameRoomCommand.canExecute` returns `{ok:false, reason:"Room '<id>'
+        // not found"}` for an absent room (RenameRoomCommand.ts:39), which the
+        // manager returns as `{success:false, info:[reason]}` rather than raising
+        // (CommandManagerImpl.ts:172-185). That object was DISCARDED here, so
+        // renaming a room that does not exist resolved ok=true and the caller —
+        // a script, the AI, a batch, a retry loop — could not tell it apart from a
+        // rename that happened. Same failure-as-emptiness family as the throw case,
+        // one channel over.
+        //
+        // Throwing is the mechanism this handler ALREADY uses for its other two
+        // refusals (engine-not-initialised, no commandManager), the mechanism its
+        // own sibling bridge `room.create` uses for this EXACT case
+        // (CreateRoom.ts:196 reads `{success:false}` and throws), and the one both
+        // live call sites terminate in — RoomPropertySection.ts:66 and :973 both
+        // end `.catch(console.error)`. `canExecute` is deliberately NOT the home:
+        // its own comment states existence is validated against the real RoomStore,
+        // which this handler cannot reach (the plugin store does not hold detected
+        // rooms), so only payload shape is checkable there.
+        //
+        // `undefined` is NOT read as failure — only an explicit `success === false`.
+        // Test doubles and the historical `execute(): void` shape return nothing on
+        // a successful run; treating absence as refusal would invent a failure where
+        // none was reported, which is the mirror image of the defect being fixed.
+        if (result && result.success === false) {
+          // `info[0]` first: CommandManagerImpl populates it with the HUMAN sentence
+          // (`blockingIssues[0] || reason`, CommandManagerImpl.ts:182) and leaves
+          // `error` unset on the canExecute-refusal path. `error` is the fallback for
+          // the execution-threw path, which fills `error` and a generic `info`.
+          const reason = result.info?.[0]
+            ?? result.error
+            ?? 'no reason given';
+          console.warn(`[room.setName.handler] RenameRoomCommand refused: ${reason}`);
+          throw new Error(`room.setName: RenameRoomCommand refused — ${reason}`);
         }
       }
       return { forward: [], inverse: [] };
