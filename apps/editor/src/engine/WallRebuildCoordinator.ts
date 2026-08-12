@@ -6,7 +6,11 @@ import {
     getWorldToleranceForActiveCamera,
     perfTraceOn,
     perfLog,
+    semanticGraphManager,
+    type SemanticGraphManager,
+    type JoinedToJunctionType,
 } from '@pryzm/core-app-model';
+import type { WallJunctionQuery, WallJunctionRecord } from '@pryzm/geometry-wall';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 
@@ -108,6 +112,77 @@ function _wallDiagOn(): boolean {
 }
 
 type _WallDirtyEntry = { event: 'add' | 'update' | 'remove'; wall: WallData; prevState?: WallData };
+
+// ── ADR-0321 / C71 §3 — the joinedTo junction→graph writer ───────────────────
+//
+// Runs inside `_flush`, once per affected level, immediately AFTER the ADR-0055
+// V2 cache refresh (the §CONNECT-3 handoff site): the builder's retained
+// junction index has just been repopulated for exactly this level, so reading
+// it here is a LOOKUP against the same solve the meshes were built from.
+//
+// Extracted as a standalone function so the refusal gating is testable without
+// standing up the whole coordinator (the flush calls it with the live builder
+// and the singleton graph; tests call it with doubles).
+
+/** The slice of `WallFragmentBuilder` this writer reads. Both members are probed
+ *  defensively — an older runtime without the §CONNECT-3 accessors must mean
+ *  "no evidence, write nothing", never a throw. */
+export interface JoinedToJunctionIndexReader {
+    junctionsForWall?: (wallId: string) => WallJunctionQuery;
+    readonly levelJunctions?: readonly WallJunctionRecord[];
+}
+
+export type JoinedToWriteOutcome =
+    | { readonly wrote: true; readonly junctionCount: number; readonly wallsCovered: number }
+    | {
+        readonly wrote: false;
+        readonly reason: 'no-walls-on-level' | 'builder-lacks-junction-index' | 'index-refused';
+        readonly detail?: string;
+    };
+
+/**
+ * Write this level's `joinedTo` edges from the retained junction index —
+ * remove-and-re-emit, both directions, `metadata: {junctionType, junctionDegree}`,
+ * `createdBy: 'system'` (all inside `replaceJoinedToForLevelWalls`).
+ *
+ * THE REFUSAL RULE (C71 §4.4): `builder.levelJunctions` is a blunt accessor —
+ * it is `[]` BOTH when the level genuinely has no junctions AND when the cache
+ * was never refreshed. So the writer first probes `junctionsForWall` for one
+ * level wall; a typed refusal (`ok:false`) means the index cannot answer for
+ * this level, and NOTHING is written — a refusal is NOT zero junctions, and
+ * writing "no joins" on one would convert absent evidence into stale-free-
+ * looking graph state.
+ *
+ * `levelWallIds` must be the same id set the cache was refreshed with (the
+ * spec-eligible walls of the level), so the probe wall is one the cache saw.
+ */
+export function writeJoinedToEdgesForLevel(
+    builder: JoinedToJunctionIndexReader,
+    levelWallIds: readonly string[],
+    graph: Pick<SemanticGraphManager, 'replaceJoinedToForLevelWalls'> = semanticGraphManager,
+): JoinedToWriteOutcome {
+    if (levelWallIds.length === 0) {
+        // Nothing to cover: a wall deleted off the level has its edges purged
+        // by the delete cascade (3ee632f6), not by this writer.
+        return { wrote: false, reason: 'no-walls-on-level' };
+    }
+    if (typeof builder.junctionsForWall !== 'function' || !Array.isArray(builder.levelJunctions)) {
+        return { wrote: false, reason: 'builder-lacks-junction-index' };
+    }
+    const probe = builder.junctionsForWall(levelWallIds[0]!);
+    if (!probe.ok) {
+        // Typed refusal — the index holds no answer for this level. Do not write.
+        return { wrote: false, reason: 'index-refused', detail: probe.detail };
+    }
+    const junctions = builder.levelJunctions.map(rec => ({
+        // NEVER rec.id — a within-solve handle that renumbers per solve (C71 §3.5).
+        junctionType: rec.type as JoinedToJunctionType,
+        junctionDegree: rec.degree,
+        wallIds: rec.wallIds,
+    }));
+    graph.replaceJoinedToForLevelWalls(levelWallIds, junctions);
+    return { wrote: true, junctionCount: junctions.length, wallsCovered: levelWallIds.length };
+}
 
 interface WallRebuildDeps {
     wallTool: { getWallStore(): WallStore; getFragmentBuilder(): any };
@@ -1492,6 +1567,30 @@ export class WallRebuildCoordinator {
                     }
                 } catch (err) {
                     console.warn('[WallRebuildCoordinator] V2 cache refresh failed (non-fatal):', err);
+                }
+                // ────────────────────────────────────────────────────────────────
+
+                // ── ADR-0321 / C71 §3 — joinedTo writer (the CONNECT-3 handoff) ─
+                // The refresh above just repopulated the retained junction index
+                // for exactly this level; write the level's wall↔wall `joinedTo`
+                // edges from it now (remove-and-re-emit — see
+                // `writeJoinedToEdgesForLevel` for the refusal rule). Same id
+                // filter as the refresh specs, so the probe wall is one the
+                // cache saw. Non-fatal like the refresh itself: graph writing
+                // must never break geometry rebuilding.
+                try {
+                    const _jtWallIds = levelWalls
+                        .filter(w => w.baseLine?.length >= 2 && typeof w.thickness === 'number')
+                        .map(w => w.id);
+                    const _jt = writeJoinedToEdgesForLevel(
+                        builder as unknown as JoinedToJunctionIndexReader,
+                        _jtWallIds,
+                    );
+                    if (!_jt.wrote && _jt.reason === 'index-refused' && perfTraceOn()) {
+                        perfLog('§CONNECT-3', `_flush joinedTo writer refused for level=${levelId}: ${_jt.detail ?? _jt.reason}`);
+                    }
+                } catch (err) {
+                    console.warn('[WallRebuildCoordinator] joinedTo graph write failed (non-fatal):', err);
                 }
                 // ────────────────────────────────────────────────────────────────
 

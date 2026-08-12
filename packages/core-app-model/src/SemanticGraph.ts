@@ -57,6 +57,37 @@ export type RelationshipType =
     | 'servesZone'        // HVAC zone → room (future)
     | 'connectedByStair'  // floor → floor via stair
     | 'connectedByLift'   // floor → floor via lift (residential-building §4, additive peer of connectedByStair)
+    // ── Wall connectivity (ADR-0321, C71 §3) ──────────────────────────────
+    /**
+     * `joinedTo` — wall ↔ wall via a RETAINED junction (both directions stored).
+     *
+     * NOT `connectedTo`: that type is room ↔ room via door and both of its
+     * production readers (SemanticQueryEngine "rooms without a door",
+     * WorldModelAdapter.connectedRoomIds) consume it as ROOM ids — the near-miss
+     * ADR-0321 exists to prevent. Wall connectivity is a different relationship,
+     * matching IFC's own split (IfcRelConnectsPathElements ≠ space connectivity).
+     *
+     * Writer: `WallRebuildCoordinator._flush` (via `replaceJoinedToForLevelWalls`
+     * below), reading `WallFragmentBuilder.levelJunctions` — the ADR-0055 /
+     * §CONNECT-3 retained junction index. Per C71 §3.4 the writer REMOVES the
+     * level's existing `joinedTo` edges and re-emits at every flush: idempotency
+     * alone would let a wall that STOPS joining keep a stale edge forever.
+     * Metadata: `{ junctionType: 'L'|'T'|'Y'|'X'|'N-WAY', junctionDegree }`.
+     * `WallJunctionRecord.id` is NEVER stored — it is a within-solve handle and
+     * renumbers when walls move (C71 §3.5).
+     *
+     * Reader: `getJoinedWalls()` below — typed, refusal-bearing (C71 §4.4).
+     *
+     * Rebuild disposition (C71 §1.2 semantic 4, §3.6): REGENERATED. Deliberately
+     * NOT rebuilt from the snapshot by `_rebuildSemanticGraph` — the source of
+     * truth is the retained junction index, and the wall flush regenerates the
+     * edges from it. `joinedTo` is therefore not persist-or-lose.
+     *
+     * Delete: the wall-family cascade (commit `3ee632f6`) purges every edge for
+     * a deleted wall via `removeAllRelationshipsForElement` — `joinedTo`
+     * included — and undo restores the purged edges verbatim.
+     */
+    | 'joinedTo'          // wall ↔ wall via a retained junction (both directions stored)
     // ── Temporal (Phase G) ─────────────────────────────────────────────────
     | 'precededBy'        // new element ← old element it replaced
     | 'supersedes'        // new element → old element (inverse of precededBy)
@@ -91,6 +122,46 @@ export interface Relationship {
     createdBy: string;
 }
 
+// ── joinedTo (ADR-0321 / C71 §3) — writer input + reader result types ─────────
+
+/**
+ * Junction classification vocabulary, mirrored from
+ * `packages/geometry-wall/src/JunctionResolverV2.ts` (`WallJunctionType`).
+ * Declared locally because core-app-model sits BELOW geometry-wall in the layer
+ * order and must not import upward; the ADR-0321 metadata contract pins the
+ * same five literals.
+ */
+export type JoinedToJunctionType = 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
+
+/**
+ * One retained junction, as the `joinedTo` writer hands it over. Deliberately
+ * carries NO junction id — `WallJunctionRecord.id` is a within-solve handle
+ * that renumbers when walls move and MUST NOT be stored (C71 §3.5). The stored
+ * identity of an edge is the participant wall id pair plus the junction type.
+ */
+export interface JoinedToJunctionInput {
+    readonly junctionType: JoinedToJunctionType;
+    readonly junctionDegree: number;
+    /** Distinct participating wall ids (≥2). */
+    readonly wallIds: readonly string[];
+}
+
+/**
+ * Typed result of {@link SemanticGraphManager.getJoinedWalls}. FAILURE ≠
+ * EMPTINESS (C71 §4.4): `{ok:true, joinedWallIds:[]}` means "the joinedTo
+ * writer has covered this wall and it joins nothing" — a positive answer.
+ * `{ok:false}` means the graph cannot answer for this wall id, and names why.
+ * A caller that conflates the two converts absent evidence into a PASS.
+ */
+export type JoinedWallsQuery =
+    | { readonly ok: true; readonly wallId: string; readonly joinedWallIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly wallId: string;
+        readonly reason: 'wall-unknown-to-joinedTo-writer';
+        readonly detail: string;
+    };
+
 /**
  * Plain-JSON serialisation of the SemanticGraph.
  * Stored in ProjectSnapshot.semanticGraph.
@@ -116,6 +187,17 @@ export class SemanticGraphManager {
     private readonly _rels      = new Map<string, Relationship>();
     private readonly _bySource  = new Map<string, Set<string>>();
     private readonly _byTarget  = new Map<string, Set<string>>();
+
+    /**
+     * ADR-0321 — wall ids the `joinedTo` writer has made a DEFINITIVE statement
+     * about (they were on a level whose flush ran against a refreshed junction
+     * index). This is what lets {@link getJoinedWalls} distinguish "covered,
+     * joins nothing" (a positive empty answer) from "the writer has never seen
+     * this id" (a refusal). Derived state, never serialized: on load it is
+     * empty until the first wall flush regenerates it — matching the type's
+     * REGENERATED rebuild disposition (C71 §3.6).
+     */
+    private readonly _joinedToCovered = new Set<string>();
 
     // ── Mutation ──────────────────────────────────────────────────────────────
 
@@ -170,6 +252,95 @@ export class SemanticGraphManager {
         if (targetSet) for (const id of targetSet) toRemove.add(id);
 
         for (const id of toRemove) this.removeRelationship(id);
+
+        // ADR-0321 — a deleted element is UNKNOWN to the joinedTo writer again,
+        // not "covered, joins nothing". If the delete is undone, the cascade
+        // (3ee632f6) restores the purged edges verbatim, so getJoinedWalls
+        // answers through the edge branch; a joinless wall stays a refusal
+        // until the next flush covers it — honest, per C71 §4.4.
+        this._joinedToCovered.delete(elementId);
+    }
+
+    /**
+     * ADR-0321 / C71 §3.4 — the `joinedTo` write, as ONE operation:
+     * remove every existing `joinedTo` edge touching a wall on this level,
+     * then re-emit from the retained junction index. Called by the level
+     * flush (`WallRebuildCoordinator._flush`) AFTER the ADR-0055 V2 cache
+     * refresh, and ONLY when the junction index answered without a refusal —
+     * a refusal is NOT zero junctions, and the caller must not invoke this
+     * on one.
+     *
+     * Remove-and-re-emit is deliberate: `addRelationship` idempotency alone
+     * lets a wall that STOPS joining keep its stale edge forever (C71 §7.e).
+     * Removal keys off level membership (source OR target in `levelWallIds`),
+     * so an edge whose partner was deleted this cycle is still swept via its
+     * surviving endpoint.
+     *
+     * Emits BOTH directions per participant pair, with
+     * `metadata: { junctionType, junctionDegree }`, `createdBy: 'system'`.
+     * No junction record id is ever stored (C71 §3.5).
+     */
+    replaceJoinedToForLevelWalls(
+        levelWallIds: readonly string[],
+        junctions: readonly JoinedToJunctionInput[],
+    ): void {
+        const onLevel = new Set(levelWallIds);
+
+        // 1) Remove this level's existing joinedTo edges (both directions —
+        //    sweep source and target indices so a stale edge whose OTHER
+        //    endpoint left the level is still caught).
+        const toRemove = new Set<string>();
+        for (const wallId of onLevel) {
+            for (const index of [this._bySource, this._byTarget]) {
+                const set = index.get(wallId);
+                if (!set) continue;
+                for (const relId of set) {
+                    const rel = this._rels.get(relId);
+                    if (rel && rel.type === 'joinedTo') toRemove.add(relId);
+                }
+            }
+        }
+        for (const relId of toRemove) this.removeRelationship(relId);
+
+        // 2) Re-emit from the retained index: every distinct participant pair
+        //    of every junction, both directions.
+        for (const j of junctions) {
+            const metadata = { junctionType: j.junctionType, junctionDegree: j.junctionDegree };
+            for (let a = 0; a < j.wallIds.length; a++) {
+                for (let b = a + 1; b < j.wallIds.length; b++) {
+                    const idA = j.wallIds[a]!;
+                    const idB = j.wallIds[b]!;
+                    if (idA === idB) continue;
+                    this.addRelationship({ type: 'joinedTo', sourceId: idA, targetId: idB, metadata, createdBy: 'system' });
+                    this.addRelationship({ type: 'joinedTo', sourceId: idB, targetId: idA, metadata, createdBy: 'system' });
+                }
+            }
+        }
+
+        // 3) Coverage — every wall in this flush now has a definitive answer,
+        //    including the ones that join nothing.
+        for (const wallId of onLevel) this._joinedToCovered.add(wallId);
+    }
+
+    /**
+     * ADR-0321 — the typed `joinedTo` reader (the Q4 lookup: "which walls
+     * connect to wall Y", as a graph LOOKUP, never a resolver re-run).
+     * Same read idiom as `getTargets(id, 'adjacentTo')` consumers, but
+     * refusal-bearing: an unknown wall id is NOT an empty result (C71 §4.4).
+     */
+    getJoinedWalls(wallId: string): JoinedWallsQuery {
+        const joinedWallIds = this.getTargets(wallId, 'joinedTo');
+        if (joinedWallIds.length > 0) return { ok: true, wallId, joinedWallIds };
+        if (this._joinedToCovered.has(wallId)) return { ok: true, wallId, joinedWallIds: [] };
+        return {
+            ok: false,
+            wallId,
+            reason: 'wall-unknown-to-joinedTo-writer',
+            detail:
+                `joinedTo lookup for wall ${wallId}: the junction→graph writer has never ` +
+                `covered this id (no flush has run over its level since load, or the id is ` +
+                `not a wall). This is NO ANSWER, not "joins nothing".`,
+        };
     }
 
     /**
@@ -180,6 +351,7 @@ export class SemanticGraphManager {
         this._rels.clear();
         this._bySource.clear();
         this._byTarget.clear();
+        this._joinedToCovered.clear();
     }
 
     // ── Queries ───────────────────────────────────────────────────────────────

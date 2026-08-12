@@ -76,6 +76,13 @@ const RELATIONSHIP_PRIORITY: Record<RelationshipType, number> = {
     connectedByStair: 4,  // stair changed → connected floors may need refresh
     connectedByLift:  4,  // lift changed → connected floors may need refresh (residential-building §4)
 
+    // ADR-0321 — joinedTo (wall ↔ wall via retained junction) must NOT drive a
+    // rebuild cascade: the edge is DERIVED from the wall flush itself
+    // (WallRebuildCoordinator._flush resolves the whole level and re-emits the
+    // level's joinedTo edges every rebuild). Scheduling a wall rebuild from the
+    // edge the rebuild just wrote would be circular. Record only.
+    joinedTo:         5,
+
     // ── G-1 temporal / causal / performance / lifecycle / intent ──────────────
     // These relationship families do not drive geometric/spatial cascade rebuilds.
     // Priority 5 = record only; no rebuild task is enqueued.

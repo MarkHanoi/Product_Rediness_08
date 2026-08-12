@@ -46,6 +46,7 @@ const REL_TYPE_LABEL: Record<RelationshipType, string> = {
     servesZone:       'Serves zone',
     connectedByStair: 'Connected by stair',
     connectedByLift:  'Connected by lift',
+    joinedTo:         'Joined to (wall junction)',   // ADR-0321 — wall ↔ wall via retained junction
     // ── G-1 temporal / causal / performance / lifecycle / intent ─────────────
     precededBy:          'Preceded by (version)',
     supersedes:          'Supersedes (version)',
@@ -75,6 +76,7 @@ const REL_ICON: Record<RelationshipType, string> = {
     servesZone:       '🌡',
     connectedByStair: '🪜',
     connectedByLift:  '🛗',
+    joinedTo:         '⛓',   // ADR-0321 — wall ↔ wall via retained junction
     // ── G-1 temporal / causal / performance / lifecycle / intent ─────────────
     precededBy:          '⏮',
     supersedes:          '⏭',
@@ -102,6 +104,7 @@ const REL_ORDER: Record<RelationshipType, number> = {
     levelOf:          9,
     sitsOn:           10,
     supports:         11,
+    joinedTo:         11,  // ADR-0321 — wall topology, shown with the structural group (dup values are precedent: stair/lift share 13)
     servesZone:       12,
     connectedByStair: 13,
     connectedByLift:  13,

@@ -605,6 +605,8 @@ export {
 // ── Sprint H P9 (2026-05-10) — SemanticGraph + SpatialIndex + templates + catalog/stores extensions ──
 
 export type { RelationshipType, Relationship, SemanticGraph } from './SemanticGraph.js';
+// ADR-0321 — joinedTo writer-input + typed-reader result shapes
+export type { JoinedToJunctionType, JoinedToJunctionInput, JoinedWallsQuery } from './SemanticGraph.js';
 export { SemanticGraphManager, semanticGraphManager } from './SemanticGraph.js';
 
 export type { AABB } from './SpatialIndex.js';

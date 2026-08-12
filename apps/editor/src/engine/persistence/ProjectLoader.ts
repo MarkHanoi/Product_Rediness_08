@@ -2396,6 +2396,12 @@ export class ProjectLoader {
      *   3. Room → Unit         (partOf)             — derived from room.unitId
      *   4. Room adjacency      (adjacentTo)         — two rooms that share a bounding wall
      *
+     * `joinedTo` (wall ↔ wall, ADR-0321) is DELIBERATELY not rebuilt here: its
+     * rebuild disposition is REGENERATED from the retained junction index — the
+     * wall flush (`WallRebuildCoordinator._flush`) removes-and-re-emits the
+     * level's edges on every rebuild, so a snapshot-side reconstruction would
+     * only be overwritten (C71 §3.6).
+     *
      * Uses the raw snapshot arrays (no store reads) so it is safe to call before
      * any StoreEventBus events fire on this load cycle.
      *
