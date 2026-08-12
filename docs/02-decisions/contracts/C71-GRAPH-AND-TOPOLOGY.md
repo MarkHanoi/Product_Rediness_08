@@ -229,6 +229,14 @@ members. **12 have zero writers and zero readers** anywhere in production; **`co
 first-party writer at all** — it is reachable only through the IFC import type union. So 13 of 25
 carry no first-party write path (EV-04 §1). ➜ `check-graph-write-coverage`.
 
+> ⚠ **SHARPENED 2026-08-12 by `check-graph-write-coverage` (first reading: exit 1, 5 findings at a
+> named ledger of 5).** The IFC escape hatch above is illusory: `IfcImporter.ts:491` sits under the
+> `adjacentTo|boundedBy` ternary at `:490`, so the `contains` arm is unreachable. **`contains` has
+> no writer on ANY path, native or imported.** The same reading finds `partOf` with no writer, and
+> `hostedBy` and `sitsOn` with writers but **no typed reader** — `sitsOn` at 18 writers / 0 readers,
+> the widest write-only family in the estate. A write-only family is a §1.3 declaration, not a
+> capability, and C71 §4.3 forbids inferring coverage from the writer alone.
+
 **§5.2 — `contains` is read-only, and the read is worse than it looks.** Two production surfaces
 read it — the AI world model, and the hierarchy tree. On any project not imported from IFC both
 ask a question always answered "nothing", and **cannot distinguish that from "this room contains
@@ -236,17 +244,36 @@ nothing"**. The hierarchy tree's read is additionally broken through a method th
 existed, so its Furniture group has never rendered (EV-05 §1 + correction). A first-party
 `contains` writer is a **named Tier-2 gap**, not a background nicety.
 
-**§5.3 — `_rebuildSemanticGraph` exists in TWO byte-identical copies and regenerates 5 of 25
-types.** The copies are at `packages/persistence-client/src/loader/ProjectLoader.ts` and
-`apps/editor/src/engine/persistence/ProjectLoader.ts` (both confirmed present at HEAD,
-2026-08-12); the regenerated set is `hosts`, `hostedBy`, `boundedBy`, `adjacentTo`, `partOf`, and
-the rebuild fires only when the graph is empty (EV-04 §3).
+**§5.3 — `_rebuildSemanticGraph` exists in ONE place.**
 
-**§5.4 — therefore `sitsOn`, `supports`, `connectedTo`, `connectedByStair` and `connectedByLift`
-are PERSIST-OR-LOSE.** A project loaded from a pre-graph snapshot **permanently loses** them until
-the elements are re-created. **That list is currently prose in EV-05 §3 with NO gate** — which is
-exactly the state C70 **I-INV-2** forbids: the persist-or-lose ledger must be named, mechanical and
-shrink-only. ➜ `check-graph-persistence`.
+> ⚠ **CORRECTED 2026-08-12 by `check-graph-persistence` ARM D.** This section previously read
+> "exists in TWO byte-identical copies", naming `packages/persistence-client/src/loader/ProjectLoader.ts`
+> and `apps/editor/src/engine/persistence/ProjectLoader.ts`. **That is no longer true.** Both loaders
+> now import a single extracted `packages/persistence-client/src/loader/rebuildSemanticGraph.ts`;
+> the literal identifier survives only in a `SemanticGraph.ts:82` docblock. Per §0.1 the gate's
+> executed reading supersedes dated prose, and the gate prints this supersession on every run.
+> The §6 arm (d) — *exactly one* rebuild — therefore **passes today**, and its job is now to keep
+> it that way rather than to report a known duplication.
+
+The regenerated set is `hosts`, `hostedBy`, `boundedBy`, `adjacentTo`, `partOf`, and the rebuild
+fires only when the graph is empty (EV-04 §3). ➜ `check-graph-persistence` ARM D.
+
+**§5.4 — the persist-or-lose set is `connectedByLift`, `measuredAt`, `decidedBy`.**
+
+> ⚠ **CORRECTED 2026-08-12 by `check-graph-persistence` (first reading: exit 1, 3 findings at a
+> named ledger of 3).** This section previously named five families — `sitsOn`, `supports`,
+> `connectedTo`, `connectedByStair`, `connectedByLift`. The measured classification is
+> **9 regenerated-loader · 1 regenerated-flush · 16 persist-only**, and it corrects the prose in
+> **both directions**: four of the five named families (`sitsOn`, `supports`, `connectedTo`,
+> `connectedByStair`) are loader-regenerated and were never persist-or-lose; while **two families
+> the list never named — `measuredAt` and `decidedBy` — are persist-or-lose WITH live writers**,
+> and lose silently on a pre-graph snapshot. The old list was simultaneously too long and
+> incomplete, which is precisely why §7.k forbids leaving a ledger as prose.
+
+A project loaded from a pre-graph snapshot **permanently loses** a persist-or-lose family until the
+elements are re-created. The ledger is now mechanical, named and shrink-only at
+`tools/rac-conformance/certification/gates/graph-persistence-debt.json`, satisfying C70 **I-INV-2**.
+➜ `check-graph-persistence`.
 
 **§5.5 — `CreateWallCommand` writes no edges at all.** Zero graph calls (EV-04 §2, EXECUTED). The
 loader rebuild is currently the *only* source of a wall's graph presence — and per §5.3 that
