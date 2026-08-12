@@ -57,7 +57,13 @@ export type {
 
 // Wave A19 — Phase 2D CRDT exports (YjsDocAdapter + CRDTConflictResolver)
 // ADR-049 §4.4 — adds YjsDocAdapterOptions and per-level type extensions.
-export { YjsDocAdapter, ELEMENTS_NAMESPACE } from './YjsDocAdapter.js';
+export {
+  YjsDocAdapter,
+  ELEMENTS_NAMESPACE,
+  // §RIVAL-MINT — the authoritative flat property map and its key codec.
+  ELEMENT_PROPS_NAMESPACE,
+  splitElementKey,
+} from './YjsDocAdapter.js';
 // W5-3 — the sync-disposition declaration table.  Every authoritative
 // property-mutation command type declares either a path into the CRDT document
 // or an explicit NOT-SYNCED reason; `tools/ga-gate/check-sync-disposition.ts`

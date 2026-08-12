@@ -63,6 +63,79 @@ const tracer = trace.getTracer('pryzm.sync-client.yjs');
  */
 export const ELEMENTS_NAMESPACE = 'pryzm.elements';
 
+/**
+ * §RIVAL-MINT — the AUTHORITATIVE element-property store.
+ *
+ * ─── THE DEFECT THIS EXISTS TO REMOVE ──────────────────────────────────────
+ *
+ * `ELEMENTS_NAMESPACE` holds one nested `Y.Map` PER ELEMENT, reached by
+ * get-or-create:
+ *
+ *     let record = elements.get(elementId);
+ *     if (!record) { record = new Y.Map(); elements.set(elementId, record); }
+ *
+ * That is a `set` of a CONTAINER VALUE under a key, and `Y.Map` is
+ * last-writer-wins PER KEY. Two partitioned clients that each FIRST-TOUCH the
+ * same element both take the `!record` branch and each `set`s its own rival
+ * `Y.Map` under the same key. On merge Yjs keeps exactly ONE container and
+ * DISCARDS THE OTHER WITH EVERY PROPERTY INSIDE IT — the silent loss of
+ * properties nobody concurrently edited.
+ *
+ * MEASURED in pure Yjs, with no PRYZM code in the loop:
+ *     A touches {height:5}, B touches {materialColor:'#c0ffee'}, then sync
+ *     → both docs read {materialColor:'#c0ffee'}.  `height` is GONE.
+ * And the loser is not merely out-voted, it is unrecoverable: after the merge
+ * the losing container's `_item.deleted === true` and iterating it yields `{}`.
+ * There is therefore NO post-merge "copy the loser's properties across" repair
+ * — by the time any handler could look, the data no longer exists.
+ *
+ * ─── THE FIX: DETERMINISTIC CONTAINER IDENTITY ─────────────────────────────
+ *
+ * A rival container can only exist if a container is ever `set` as a value. So
+ * this map never holds one. Every property is its OWN KEY in ONE shared
+ * `Y.Map`, under the composite key `${elementId}<NUL>${property}`.
+ *
+ * Both clients derive the same key for the same (element, property) without
+ * coordinating, so a first-touch is an ordinary per-key write, not a container
+ * race. Disjoint properties MERGE — neither is discarded. The same property
+ * written concurrently still converges by Yjs's own per-key LWW, which is
+ * deterministic and identical on every replica, and which the existing P8
+ * disclosure path already surfaces.
+ *
+ * NUL is the separator because it cannot occur in an element id or a property
+ * name (both are JS identifiers / ULIDs / UUIDs here), so the split is
+ * unambiguous; `splitElementKey` refuses rather than guesses on a malformed
+ * key.
+ *
+ * The nested `ELEMENTS_NAMESPACE` map is RETAINED as a read-only compatibility
+ * MIRROR — `apps/sync-server`'s tests and `collabGraphIntegrity` read that
+ * shape, and `.size` there is the element count. It is written locally after
+ * every merge from the authoritative flat map, so a mirror container losing a
+ * race can no longer lose data: the flat map is what `readElement` answers
+ * from, and the mirror is rebuilt from it.
+ */
+export const ELEMENT_PROPS_NAMESPACE = 'pryzm.elements.props';
+
+/** Composite-key separator: a NUL, impossible in an element id or property name. */
+const KEY_SEP = '\u0000';
+
+/** Build the flat composite key for one (element, property) pair. */
+function _elementKey(elementId: string, property: string): string {
+  return `${elementId}${KEY_SEP}${property}`;
+}
+
+/**
+ * Split a flat composite key back into `[elementId, property]`.
+ * Returns `null` for a key that does not carry exactly one separator — a
+ * malformed key is REFUSED, never silently attributed to some element.
+ */
+export function splitElementKey(key: string): readonly [string, string] | null {
+  const i = key.indexOf(KEY_SEP);
+  if (i <= 0 || i === key.length - 1) return null;
+  if (key.indexOf(KEY_SEP, i + 1) !== -1) return null;
+  return [key.slice(0, i), key.slice(i + 1)] as const;
+}
+
 /** Coordination-doc key used by the per-doc bookkeeping maps below. */
 const COORD_KEY = '__coord__';
 
@@ -395,8 +468,13 @@ export class YjsDocAdapter {
     });
     try {
       // W5-3 / P8 — same property-level disclosure as the coordination path.
+      const levelDoc = this.getDocForLevel(levelId);
       const pre = this._snapshotPendingValues(levelId);
-      Y.applyUpdate(this.getDocForLevel(levelId), update);
+      Y.applyUpdate(levelDoc, update);
+      // §RIVAL-MINT — reconcile the nested compatibility mirror from the
+      // authoritative flat map. A mirror container discarded by this merge is
+      // rebuilt here; the flat map never lost the properties.
+      this._mirrorAll(levelDoc);
       this._discloseOverwrittenLocalWrites(levelId, pre);
     } finally {
       span.end();
@@ -688,15 +766,20 @@ export class YjsDocAdapter {
     });
     try {
       targetDoc.transact(() => {
-        const elements = targetDoc.getMap<Y.Map<unknown>>(ELEMENTS_NAMESPACE);
-        let record = elements.get(elementId);
-        if (!record) {
-          record = new Y.Map<unknown>();
-          elements.set(elementId, record);
-        }
+        // §RIVAL-MINT — AUTHORITATIVE write: one key per property in ONE shared
+        // map. No container is ever `set` as a value, so two partitioned
+        // first-touches cannot mint rival containers and cannot discard one
+        // another's properties. See ELEMENT_PROPS_NAMESPACE.
+        const props = targetDoc.getMap<unknown>(ELEMENT_PROPS_NAMESPACE);
         for (const [key, value] of Object.entries(properties)) {
-          record.set(key, value);
+          props.set(_elementKey(elementId, key), value);
         }
+        // COMPATIBILITY MIRROR — kept for external readers of the nested shape
+        // (apps/sync-server tests, collabGraphIntegrity's element count). It is
+        // NOT the source of truth: `readElement` answers from the flat map, and
+        // `_mirrorElement` rebuilds this from it after every merge, so a mirror
+        // container that loses a merge race can no longer lose data.
+        this._mirrorElement(targetDoc, elementId);
       }, this);
 
       // P8 disclosure bookkeeping — remember what WE set, so a remote update
@@ -735,6 +818,76 @@ export class YjsDocAdapter {
   }
 
   /**
+   * §RIVAL-MINT — the AUTHORITATIVE flat property map for a doc.
+   * `levelId` omitted means the coordination / global doc.
+   */
+  getElementPropsNamespace(levelId?: string): Y.Map<unknown> {
+    const doc = levelId !== undefined ? this.getDocForLevel(levelId) : this.doc;
+    return doc.getMap<unknown>(ELEMENT_PROPS_NAMESPACE);
+  }
+
+  /**
+   * Every element id the authoritative flat map carries properties for.
+   * This — not the mirror's key set — is the truth about which elements exist
+   * in this document.
+   */
+  elementIds(levelId?: string): string[] {
+    const seen = new Set<string>();
+    this.getElementPropsNamespace(levelId).forEach((_v: unknown, key: string) => {
+      const split = splitElementKey(key);
+      if (split) seen.add(split[0]);
+    });
+    return Array.from(seen);
+  }
+
+  /**
+   * Rebuild the nested compatibility mirror for ONE element from the
+   * authoritative flat map.
+   *
+   * Called inside a transaction. The mirror container is created only if
+   * absent, and is then reconciled key-by-key — so even when a merge discards a
+   * rival mirror container, the very next mirror pass restores every property
+   * from the flat map, which never lost them. The mirror is therefore
+   * eventually correct on every replica without being load-bearing.
+   */
+  private _mirrorElement(doc: Y.Doc, elementId: string): void {
+    const flat = doc.getMap<unknown>(ELEMENT_PROPS_NAMESPACE);
+    const merged = new Map<string, unknown>();
+    flat.forEach((value: unknown, key: string) => {
+      const split = splitElementKey(key);
+      if (split && split[0] === elementId) merged.set(split[1], value);
+    });
+
+    const elements = doc.getMap<Y.Map<unknown>>(ELEMENTS_NAMESPACE);
+    if (merged.size === 0) return;
+    let record = elements.get(elementId);
+    if (!(record instanceof Y.Map)) {
+      record = new Y.Map<unknown>();
+      elements.set(elementId, record);
+    }
+    for (const [k, v] of merged) {
+      if (!_valuesEqual(record.get(k), v)) record.set(k, v);
+    }
+  }
+
+  /**
+   * Rebuild the mirror for every element the flat map knows about.
+   * Run after each merge so external readers of the nested shape converge too.
+   */
+  private _mirrorAll(doc: Y.Doc): void {
+    const flat = doc.getMap<unknown>(ELEMENT_PROPS_NAMESPACE);
+    if (flat.size === 0) return;
+    const ids = new Set<string>();
+    flat.forEach((_v: unknown, key: string) => {
+      const split = splitElementKey(key);
+      if (split) ids.add(split[0]);
+    });
+    doc.transact(() => {
+      for (const id of ids) this._mirrorElement(doc, id);
+    }, this);
+  }
+
+  /**
    * Read one replicated property of one element.
    *
    * Returns `undefined` when the element or the property is absent.  Callers
@@ -743,17 +896,31 @@ export class YjsDocAdapter {
    * absent element.
    */
   readElementProperty(elementId: string, property: string, levelId?: string): unknown {
+    // §RIVAL-MINT — answer from the AUTHORITATIVE flat map. The nested mirror is
+    // consulted only as a fallback, for documents written before this change.
+    const flat = this.getElementPropsNamespace(levelId);
+    const key = _elementKey(elementId, property);
+    if (flat.has(key)) return flat.get(key);
     const record = this.getElementsNamespace(levelId).get(elementId);
-    return record ? record.get(property) : undefined;
+    return record instanceof Y.Map ? record.get(property) : undefined;
   }
 
   /** All replicated properties of one element, or `undefined` if unknown here. */
   readElement(elementId: string, levelId?: string): Record<string, unknown> | undefined {
-    const record = this.getElementsNamespace(levelId).get(elementId);
-    if (!record) return undefined;
     const out: Record<string, unknown> = {};
-    record.forEach((v: unknown, k: string) => { out[k] = v; });
-    return out;
+    let found = false;
+
+    // Legacy/mirror first, so the authoritative flat values overwrite it below.
+    const record = this.getElementsNamespace(levelId).get(elementId);
+    if (record instanceof Y.Map) {
+      record.forEach((v: unknown, k: string) => { out[k] = v; found = true; });
+    }
+    this.getElementPropsNamespace(levelId).forEach((v: unknown, key: string) => {
+      const split = splitElementKey(key);
+      if (split && split[0] === elementId) { out[split[1]] = v; found = true; }
+    });
+
+    return found ? out : undefined;
   }
 
   // ── W5-3: gap reporting (P8 — a gap must be detectable) ────────────────────
@@ -790,6 +957,9 @@ export class YjsDocAdapter {
       // incoming merge that replaces it with a different value can be disclosed.
       const pre = this._snapshotPendingValues(COORD_KEY);
       Y.applyUpdate(this.doc, update);
+      // §RIVAL-MINT — see applyUpdateForLevel. The mirror is reconciled from the
+      // authoritative flat map after every merge.
+      this._mirrorAll(this.doc);
       this._discloseOverwrittenLocalWrites(COORD_KEY, pre);
       // §E.3 — Post-merge semantic validation: detect CW elements whose stored
       // base-Y no longer matches the level elevation after a remote update.
@@ -809,11 +979,13 @@ export class YjsDocAdapter {
     const out = new Map<string, unknown>();
     const perDoc = this._localPendingWrites.get(docKey);
     if (!perDoc || perDoc.size === 0) return out;
-    const elements = this.getElementsNamespace(docKey === COORD_KEY ? undefined : docKey);
+    // §RIVAL-MINT — read through the authoritative accessor (flat map first,
+    // nested mirror as legacy fallback) so disclosure compares the values the
+    // document actually answers with, not the mirror's possibly-stale copy.
+    const levelId = docKey === COORD_KEY ? undefined : docKey;
     for (const [elementId, props] of perDoc) {
-      const record = elements.get(elementId);
       for (const prop of props.keys()) {
-        out.set(`${elementId} ${prop}`, record ? record.get(prop) : undefined);
+        out.set(`${elementId} ${prop}`, this.readElementProperty(elementId, prop, levelId));
       }
     }
     return out;
@@ -840,13 +1012,13 @@ export class YjsDocAdapter {
   ): void {
     const perDoc = this._localPendingWrites.get(docKey);
     if (!perDoc || perDoc.size === 0) return;
-    const elements = this.getElementsNamespace(docKey === COORD_KEY ? undefined : docKey);
+    // §RIVAL-MINT — same authoritative accessor as the pre-merge snapshot.
+    const levelId = docKey === COORD_KEY ? undefined : docKey;
 
     for (const [elementId, props] of perDoc) {
-      const record = elements.get(elementId);
       for (const [prop, localValue] of props) {
-        const before = pre.get(`${elementId} ${prop}`);
-        const after = record ? record.get(prop) : undefined;
+        const before = pre.get(`${elementId} ${prop}`);
+        const after = this.readElementProperty(elementId, prop, levelId);
         if (_valuesEqual(before, after)) continue;   // merge did not touch it
         if (_valuesEqual(after, localValue)) continue; // our value survived
         this.emitConflict({

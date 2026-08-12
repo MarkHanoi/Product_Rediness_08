@@ -42,7 +42,7 @@ import * as Y from 'yjs';
 import { trace } from '@opentelemetry/api';
 // The element map itself is reached through `adapter.getElementsNamespace()`,
 // which owns the ELEMENTS_NAMESPACE key and the coordination/per-level choice.
-import { type YjsDocAdapter } from './YjsDocAdapter.js';
+import { type YjsDocAdapter, splitElementKey } from './YjsDocAdapter.js';
 
 const tracer = trace.getTracer('pryzm.sync-client.readback');
 
@@ -175,6 +175,61 @@ export class ElementSyncReader {
     };
     elements.observeDeep(handler);
     this._disposers.push(() => { try { elements.unobserveDeep(handler); } catch { /* doc destroyed */ } });
+
+    // §RIVAL-MINT — the AUTHORITATIVE map is now the FLAT composite-key map
+    // (`ELEMENT_PROPS_NAMESPACE`); the nested map above is a compatibility
+    // mirror. Observing only the mirror would make this reader miss any change
+    // that the mirror pass has not yet reflected — and, worse, would inherit
+    // the mirror's own merge losses. So the flat map is observed too, and its
+    // events are the ones that carry the merged truth.
+    const flat = this._adapter.getElementPropsNamespace(levelId);
+    const flatHandler = (event: Y.YMapEvent<unknown>, txn: Y.Transaction): void => {
+      this._onFlatChange(flat, levelId, event, txn);
+    };
+    flat.observe(flatHandler);
+    this._disposers.push(() => { try { flat.unobserve(flatHandler); } catch { /* doc destroyed */ } });
+  }
+
+  /**
+   * §RIVAL-MINT — deliver changes observed on the authoritative flat map.
+   *
+   * Each changed key is `${elementId}<NUL>${property}`, so one transaction that
+   * touched several properties of one element is coalesced into ONE update, in
+   * the same shape the nested path emits.
+   */
+  private _onFlatChange(
+    flat: Y.Map<unknown>,
+    levelId: string | undefined,
+    event: Y.YMapEvent<unknown>,
+    txn: Y.Transaction,
+  ): void {
+    if (this._disposed) return;
+    // ECHO BREAK — identical rule to the nested path: anything this adapter
+    // authored is suppressed and counted, never delivered back at its author.
+    if (txn.origin === this._adapter) {
+      this._stats.suppressedLocalOrigin++;
+      return;
+    }
+
+    const perElement = new Map<string, { props: Record<string, unknown>; kind: 'create' | 'update' }>();
+    for (const [key, change] of event.changes.keys) {
+      const split = splitElementKey(key);
+      if (split === null) {
+        // A key that does not split is unattributable to an element. Counted,
+        // never guessed at — the same refusal the nested path makes.
+        this._stats.unresolvedPath++;
+        continue;
+      }
+      const [elementId, property] = split;
+      const entry = perElement.get(elementId) ?? { props: {}, kind: 'update' as const };
+      entry.props[property] = change.action === 'delete' ? undefined : flat.get(key);
+      perElement.set(elementId, entry);
+    }
+
+    for (const [elementId, { props, kind }] of perElement) {
+      if (Object.keys(props).length === 0) continue;
+      this._deliver({ elementId, levelId, properties: props, kind });
+    }
   }
 
   private _onDeepChange(
