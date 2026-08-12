@@ -31,6 +31,8 @@ import type {
   PatchSnapshotEntry,
   StoreId,
 } from './types.js';
+// ADR-0324 §1–2 (R1) — optional invocation envelope (actor/origin/approval).
+import type { CommandExecutionContext } from './consequence.js';
 import { PatchEmitter } from './PatchEmitter.js';
 import { UndoStack } from './UndoStack.js';
 // §UNDO-GESTURE-ID (C03 §4.6 U-10) — one dispatch = one gesture unless a caller
@@ -314,7 +316,19 @@ export class CommandBus {
   async executeCommand<T>(
     type: string,
     payload: T,
-    opts?: { readonly suppressUndo?: boolean; readonly gestureId?: string },
+    opts?: {
+      readonly suppressUndo?: boolean;
+      readonly gestureId?: string;
+      /**
+       * ADR-0324 §1–2 (R1) — the optional invocation envelope
+       * (actor / origin / approval), riding beside `gestureId` exactly as
+       * §UNDO-GESTURE-ID threaded that field: caller-supplied, resolved
+       * before any await, carried onto the EventRecord, read by NOTHING in
+       * the bus. Zero behaviour change when absent — the record simply
+       * omits the property.
+       */
+      readonly context?: CommandExecutionContext;
+    },
   ): Promise<EventRecord<T>> {
     const handler = this.handlers.get(type) as CommandHandler<T, AnyStores> | undefined;
     if (!handler) {
@@ -352,6 +366,10 @@ export class CommandBus {
 
     const ctx = this.buildContext<AnyStores>(handler as CommandHandler<unknown, AnyStores>);
     const suppressUndo = opts?.suppressUndo === true;
+    // ADR-0324 §1–2 (R1) — capture the invocation envelope SYNCHRONOUSLY,
+    // mirroring the gestureId capture above. Metadata only: nothing below
+    // branches on it.
+    const executionContext = opts?.context;
 
     return withSpan(
       'pryzm.command.execute',
@@ -462,6 +480,11 @@ export class CommandBus {
           forward: result.forward,
           inverse: result.inverse,
           audit: ctx.audit,
+          // ADR-0324 §1–2 (R1) — the envelope rides the record verbatim.
+          // Conditionally spread so a legacy call yields a record WITHOUT the
+          // property (not `context: undefined`) — wire encodings (msgpack) and
+          // deep-equality of legacy records stay byte-identical.
+          ...(executionContext !== undefined ? { context: executionContext } : {}),
         };
 
         // 4. Emit to PatchEmitter subscribers (EventLogPersistor, etc.).

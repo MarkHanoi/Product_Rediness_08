@@ -36,6 +36,44 @@ export type {
   Patch,
 } from './types.js';
 
+// BIM30 R1 (ADR-0322 §1/§5/§6/§9 + ADR-0324 §1–2) — the consequence contract
+// (first draft; expect field-shape revision after wall.move closes) and the
+// optional invocation envelope. Types only in R1: no engine, no consumer.
+export type {
+  ElementId,
+  ElementSet,
+  UndeterminedReason,
+  UndeterminedImpact,
+  ImpactDetermination,
+  ConsequenceRefusal,
+  RefusalSet,
+  ConsequenceCommandRef,
+  TopologyDelta,
+  ViolationRef,
+  ValidationDelta,
+  RegenerationPlan,
+  ConsequencePlan,
+  PredictedVsActual,
+  ConsequenceReport,
+  ReadonlyStoreView,
+  PlanningContext,
+  ConsequencePlanner,
+  ConfirmationRequirement,
+  ConfirmationReason,
+  ConfirmationPolicy,
+  CommandActor,
+  CommandOrigin,
+  CommandApproval,
+  CommandExecutionContext,
+} from './consequence.js';
+// G-REASON-04's normalize rule (ADR-0324 §3) — authored in R1, gated in R7.
+export { normalizeForParity } from './parity.js';
+export type {
+  NormalizedEventRecord,
+  NormalizedPatchEntry,
+  NormalizedConsequence,
+} from './parity.js';
+
 export { CommandBus, CommandBusError } from './CommandBus.js';
 // §UNDO-GESTURE-ID (C03 §4.6 U-10) — the identity `performUndo` groups on, so a
 // dual-dispatch twin is recognised by WHAT PRODUCED IT rather than by how many

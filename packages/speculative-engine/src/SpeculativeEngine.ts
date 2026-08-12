@@ -1,4 +1,48 @@
 /**
+ * ⛔ DISPOSITION: MINE-FOR-PARTS — recorded 2026-08-12 (BIM30 R1, ADR-0322 §8 /
+ * ADR-0323 disposition ladder; STR-06 §5–6 "converge, not accrete").
+ *
+ * This engine is DEPRECATED IN PLACE. Do not add features, do not add
+ * consumers, do not delete it yet. The consequence contract it predates is
+ * `packages/command-bus/src/consequence.ts` (ConsequencePlan /
+ * ConsequenceReport / ConsequencePlanner) — new consequence work goes THERE.
+ *
+ * WHY MINE rather than FINISH (make it the substrate):
+ *   1. It speaks its own 4-verb `SpeculativeAction` vocabulary instead of
+ *      commands — a planner must answer for `executeCommand(type, payload)`
+ *      as dispatched, not for a parallel action taxonomy (ADR-0324 §1: one
+ *      funnel, never forked).
+ *   2. It couples to `window.*` globals (`window.roomStore` /
+ *      `wallStore` / `doorStore` / `semanticGraphManager`, the TODO(TASK-08)
+ *      tags below) — the contract's `PlanningContext` is caller-supplied
+ *      read-only store views, by design.
+ *   3. Its only production consumer is `ConsequencePreviewOverlay`
+ *      (apps/editor), which is instantiated but whose trigger surface
+ *      (`triggerConsequencePreview` / `wireToolForConsequencePreview`) has
+ *      ZERO call sites — verified by grep 2026-08-12, matching ADR-0322's
+ *      evidence line ("authored-but-unwired end to end").
+ *   4. Its shallow-clone "apply" rules (delete/resize on rooms/walls/doors)
+ *      re-implement a fraction of handler semantics and would drift from the
+ *      real handlers — the executor-consumes-the-plan rule (ADR-0322 §2)
+ *      exists precisely so consequences are not recomputed under different
+ *      rules.
+ *
+ * WHY MINE rather than RETIRE (delete now):
+ *   The clone-and-validate core (`preview` steps 1–6: snapshot stores → apply
+ *   action to clones → `constraintEngine.validateAll` before/after → diff by
+ *   `ruleId:elementId`) is the leading candidate for the VIOLATIONS branch of
+ *   the R2 `wall.move` aggregate planner — it maps 1:1 onto
+ *   `ValidationDelta.violationsCreated/violationsResolved`. The
+ *   `SemanticReadRefusal` idiom here (W2-3) is likewise the direct ancestor
+ *   of the contract's `ImpactDetermination`/`UndeterminedImpact` — reason
+ *   `ENGINE_NOT_AVAILABLE`/`STALE_DERIVED_STATE` generalise `graph-absent`/
+ *   `method-absent`/`query-threw`. When R2 lifts the diff algorithm into a
+ *   planner branch (fed by `PlanningContext`, not `window.*`), this file and
+ *   the overlay's speculative path can be retired; the 6 tests in
+ *   `__tests__/semanticReadRefusal.spec.ts` pin the refusal semantics until
+ *   then and should migrate with the algorithm.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
  * SpeculativeEngine — Phase K-2
  *
  * Phase:   K-2 (World Model Plan V3 — Consequence Preview System)

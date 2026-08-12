@@ -14,6 +14,7 @@
 // present in `ctx.stores` (R1A-16 mitigation, spec line 718).
 
 import type { Patch as ImmerPatch } from 'immer';
+import type { CommandExecutionContext, ConsequenceReport } from './consequence.js';
 
 /** Identifier of a logical store (`'wall'`, `'slab'`, …). */
 export type StoreId = string;
@@ -88,6 +89,14 @@ export interface HandlerResult {
   readonly inverse: readonly Patch[];
   /** Optional next-state snapshots, keyed by store id. */
   readonly nextStates?: Readonly<Record<StoreId, unknown>>;
+  /**
+   * ADR-0322 §9 (R1) — RESERVED, NEVER POPULATED YET. Once a handler's
+   * operation has a `ConsequencePlanner` (R2+) and execution consumes the
+   * plan (R4), the post-mutation report rides here. Optional by contract —
+   * ~300 handlers are migrated incrementally, never broken simultaneously.
+   * No bus code reads this field in R1.
+   */
+  readonly consequence?: ConsequenceReport;
 }
 
 /**
@@ -166,6 +175,14 @@ export interface EventRecord<TPayload = unknown> {
   readonly id: string;
   readonly type: string;
   readonly payload: TPayload;
+  /**
+   * ADR-0322 §9 — the LEGACY MINIMUM-DIRECT consequence surface: store KEYS
+   * the handler declared it touches, not element ids, not indirect impact,
+   * not topology/validation/regeneration consequences. Kept for undo routing
+   * and sync fan-out; as the consequence contract lands per-operation
+   * (R2–R5), `consequence` below becomes the authoritative answer to "what
+   * did this command change?" and this field is only the routing minimum.
+   */
   readonly affectedStores: readonly StoreId[];
   /** Per-store patch envelopes, ordered by `affectedStores`. */
   readonly patches: readonly PatchSnapshotEntry[];
@@ -178,4 +195,20 @@ export interface EventRecord<TPayload = unknown> {
    */
   readonly forward: readonly Patch[];
   readonly inverse: readonly Patch[];
+  /**
+   * ADR-0324 §1–2 (R1) — the OPTIONAL invocation envelope: WHO invoked
+   * (`actor`), from WHERE (`origin`), under WHAT approval (`approval`).
+   * Carried verbatim from `executeCommand(type, payload, { context })`;
+   * ABSENT when the caller supplied none (the property is omitted, not set
+   * to `undefined`, so wire encodings are byte-identical for legacy calls).
+   * R1 STATUS: metadata only — nothing branches on it. G-REASON-04 parity
+   * (`normalizeForParity`, ./parity.ts) strips it by construction.
+   */
+  readonly context?: CommandExecutionContext;
+  /**
+   * ADR-0322 §9 (R1) — RESERVED, NEVER POPULATED YET. The post-mutation
+   * consequence report (plan + actual + predicted-vs-actual) arrives here
+   * when R4/R5 land for an operation. Optional forever during migration.
+   */
+  readonly consequence?: ConsequenceReport;
 }
