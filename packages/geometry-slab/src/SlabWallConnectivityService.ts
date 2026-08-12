@@ -6,8 +6,6 @@ import { WallFaceResolver } from './WallFaceResolver';
 import { SketchLoopIntersector } from './SketchLoopIntersector';
 import { WallData } from '@pryzm/geometry-wall';
 import { Point3D } from '@pryzm/core-app-model';
-import { DOMEventBus } from '@pryzm/event-bus';
-const _bus = new DOMEventBus();
 import {
     CascadeWallBaselineCommand,
     CascadeWallBaselineEntry,
@@ -323,9 +321,10 @@ export class SlabWallConnectivityService {
                 `cascade entry/entries. THIS BYPASSES UNDO. Wire setCommandManager() ` +
                 `during bootstrap to fix. (Logged once per process.)`
             );
-            try {
-                _bus.emit('bim-wall-system-error', { source: 'SlabWallConnectivityService', code: 'cascade-no-command-manager', batchSize: batch.length }); // F.events.18
-            } catch { /* DOM dispatch must never throw */ }
+            // (A `bim-wall-system-error` CustomEvent used to be emitted here for a
+            // never-built error-reporter UI — removed 2026-08-12 with its catalog
+            // entry per ADR-0323 rule 2 (BIM30 R0 docket); the console.error above
+            // is the surviving, actually-consumed surface for this warning.)
             SlabWallConnectivityService._warnedNoCommandManager = true;
         }
         // Legacy path — preserved verbatim from pre-W1 behaviour.

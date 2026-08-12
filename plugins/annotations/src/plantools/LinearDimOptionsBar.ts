@@ -4,6 +4,12 @@
  * Moved from src/engine/subsystems/core/views/plantools/LinearDimOptionsBar.ts
  * during Sprint C (S5.1-P2 2026-05-10). Original path is now a re-export shim.
  * injectAppTheme() replaced with plugin-local injectAnnotationStyles().
+ *
+ * Consumers read this bar's state via its getters (preferredFaceType, unit,
+ * isLocked, …) — see LinearDimensionAnnotationTool / LinearDimPlanToolHandler,
+ * which hold a direct reference. Five `dim-opt-*` window CustomEvents used to
+ * be broadcast in parallel; no listener ever existed, so they were removed
+ * 2026-08-12 per ADR-0323 rule 2 (BIM30 R0 disposition docket).
  */
 
 import { injectAnnotationStyles } from '../annotation-styles';
@@ -155,14 +161,12 @@ export class LinearDimOptionsBar {
     private _setFaceType(value: WallFaceType, group: HTMLElement, activeIdx: number): void {
         this._faceType = value;
         this._refreshGroup(group, activeIdx);
-        window.dispatchEvent(new CustomEvent('dim-opt-face-type', { detail: { faceType: value } })); // TODO(TASK-15)
         console.log('[LinearDimOptionsBar] preferredFaceType →', value);
     }
 
     private _setUnit(value: DimensionUnit, group: HTMLElement, activeIdx: number): void {
         this._unit = value;
         this._refreshGroup(group, activeIdx);
-        window.dispatchEvent(new CustomEvent('dim-opt-unit', { detail: { unit: value } })); // TODO(TASK-15)
         console.log('[LinearDimOptionsBar] unit →', value);
     }
 
@@ -175,7 +179,6 @@ export class LinearDimOptionsBar {
     private _toggleLock(btn: HTMLButtonElement): void {
         this._isLocked = !this._isLocked;
         this._updateLockBtn(btn);
-        window.dispatchEvent(new CustomEvent('dim-opt-lock', { detail: { isLocked: this._isLocked, constraintType: this._constraintType } })); // TODO(TASK-15)
         console.log('[LinearDimOptionsBar] isLocked →', this._isLocked);
     }
 
@@ -193,7 +196,6 @@ export class LinearDimOptionsBar {
     private _toggleString(strBtn: HTMLButtonElement, eqBtn: HTMLButtonElement): void {
         this._isString = !this._isString;
         this._updateStrBtn(strBtn); this._updateEqBtn(eqBtn);
-        window.dispatchEvent(new CustomEvent('dim-opt-string', { detail: { isString: this._isString } })); // TODO(TASK-15)
         console.log('[LinearDimOptionsBar] isString →', this._isString);
     }
 
@@ -207,7 +209,6 @@ export class LinearDimOptionsBar {
     private _toggleEQ(btn: HTMLButtonElement): void {
         this._showEQ = !this._showEQ;
         this._updateEqBtn(btn);
-        window.dispatchEvent(new CustomEvent('dim-opt-eq', { detail: { showEQ: this._showEQ } })); // TODO(TASK-15)
         console.log('[LinearDimOptionsBar] showEQ →', this._showEQ);
     }
 

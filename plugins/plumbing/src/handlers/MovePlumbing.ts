@@ -36,6 +36,14 @@ type Stores = Readonly<{ plumbing: PlumbingsState } & Record<string, unknown>>;
  * Neither names `plumbing.move`. The `plugins/cross` cascade rules that synthesise it are
  * inert: `CascadeRunner` is registered nowhere in production (only in
  * packages/command-bus/__tests__/cascade.test.ts and commented-out examples).
+ * DISPOSITION (recorded 2026-08-12, ADR-0323 / BIM30 R0 — see
+ * docs/04-reference/BIM30-DISPOSITION-DOCKET.md): CascadeRunner passed its
+ * promotion test (packages/command-bus/__tests__/cascade-promotion.test.ts:
+ * deterministic / non-mutating / set-stable under iteration-order shuffle)
+ * and is PROMOTED as the cascade branch of the future ConsequencePlanner
+ * (BIM30-REASONING-LOOP-PLAN R2). It stays unregistered until R2 wires it,
+ * so these cascade rules remain unreachable TODAY by recorded decision,
+ * not neglect.
  * So refusing costs a user nothing, and leaving it silent keeps a SECOND, lying
  * mutation path alive against P6.
  *

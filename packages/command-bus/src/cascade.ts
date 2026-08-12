@@ -189,7 +189,21 @@ export class CascadeRunner {
    *  commands that should be executed (root first, then synthesised
    *  follow-ons in BFS order).  The runner does NOT execute anything —
    *  callers feed the returned list to the bus' `executeCommand` in
-   *  order.  See `apps/editor/src/bootstrap.ts` for wiring. */
+   *  order.
+   *
+   *  WIRING STATUS (disposition recorded 2026-08-12, ADR-0323 / BIM30 R0 —
+   *  see docs/04-reference/BIM30-DISPOSITION-DOCKET.md): NOT registered in
+   *  production anywhere today.  The promotion test
+   *  (`__tests__/cascade-promotion.test.ts`) passed all three clauses
+   *  (determinism / no mutation / set-stability under iteration-order
+   *  shuffle), and the runner is PROMOTED as the cascade branch of the
+   *  future ConsequencePlanner (BIM30-REASONING-LOOP-PLAN R2).  It stays
+   *  unregistered until R2 wires it through the planner — per STR-06 §18,
+   *  global registration before that is explicitly out of scope.  Two
+   *  caveats the R2 integration must own: visited-set keys are raw entity
+   *  ids (no family namespace), and emission SEQUENCE follows
+   *  rule-registration order (the SET is stable; ordering canonicalisation
+   *  is the planner's job). */
   dispatch(
     rootCmd: CascadeCommand,
     ctx: CascadeContext,

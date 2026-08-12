@@ -582,7 +582,9 @@ export class BimManager {
         });
 
         console.log(`[BimManager] Reconciliation complete. Processed: ${processed}, Orphans: ${orphans}`);
-        window.dispatchEvent(new CustomEvent('bim-model-healed')); // TODO(TASK-10)
+        // A `bim-model-healed` CustomEvent used to be dispatched here; it never had
+        // a listener and no invariant consumes it — removed 2026-08-12 with its
+        // catalog entry per ADR-0323 rule 2 (BIM30 R0 disposition docket).
     }
 
     /** Full GPU + subscription cleanup. */

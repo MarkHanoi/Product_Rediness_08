@@ -1,19 +1,23 @@
-import { DOMEventBus } from '@pryzm/event-bus';
-const _bus = new DOMEventBus();
-
 /**
  * §WALL-DEEP-2026 E2 (RESOLVED 2026-04-24) — Wall-system typed error hierarchy.
  *
  * One base class so callers / global handlers / future toast layer can
  * `instanceof WallSystemError` test the entire family. Each subclass owns
- * a stable `name` for log filtering and dispatches a DOM CustomEvent
- * `bim-wall-system-error` so a future error-reporter UI can subscribe
- * without coupling to any internal module.
+ * a stable `name` for log filtering.
+ *
+ * REMOVED 2026-08-12 (ADR-0323 rule 2, BIM30 R0 — see
+ * docs/04-reference/BIM30-DISPOSITION-DOCKET.md): the constructors used to
+ * dispatch a `bim-wall-system-error` CustomEvent "so a future error-reporter
+ * UI can subscribe". No listener ever existed anywhere in the repo and no
+ * invariant requires the event — the typed throw is the contract carrier.
+ * The dispatch and its event-bus catalog entry were deleted together. If an
+ * error-reporter UI ever lands, it subscribes to a NEW, consumed event —
+ * per rule 2, an event with no consumer is dead architecture, not wiring.
  *
  * SpatialAuthorityError and SnapBoundsError already exist in their original
  * homes (src/core/SpatialAuthority.ts and src/snapping/SpatialGrid.ts).
  * They are re-exported here so the entire family is reachable from one
- * import path:
+ * import path (usage below):
  *
  *     import {
  *         WallSystemError,
@@ -21,14 +25,6 @@ const _bus = new DOMEventBus();
  *         LevelResolveError, OpeningInvariantError,
  *         WallSchemaError, BaselineReversalError,
  *     } from './errors';
- *
- * Calling `WallSystemError.dispatch(err)` (called automatically by the
- * subclass constructors below) emits:
- *
- *     new CustomEvent('bim-wall-system-error', { // TODO(TASK-10)
- *         bubbles: true,
- *         detail: { name, message, error }
- *     })
  *
  * Existing throw sites that already use `SpatialAuthorityError` /
  * `SnapBoundsError` continue to function unchanged — those classes were
@@ -42,17 +38,6 @@ export class WallSystemError extends Error {
     constructor(message: string, name: string = 'WallSystemError') {
         super(message);
         this.name = name;
-        WallSystemError._safeDispatch(this);
-    }
-
-    /** Dispatch the DOM event without ever throwing from inside an error ctor. */
-    private static _safeDispatch(err: Error): void {
-        try {
-            if (typeof document === 'undefined' || typeof CustomEvent !== 'function') return;
-            _bus.emit('bim-wall-system-error', { name: err.name, message: err.message, error: err }); // F.events.18
-        } catch {
-            // Never throw from inside an error constructor.
-        }
     }
 }
 

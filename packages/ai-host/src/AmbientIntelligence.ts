@@ -323,10 +323,11 @@ class AmbientIntelligenceImpl {
     }
 
     private _emit(obs: AmbientObservation): void {
+        // The registered-listener API below is the ONLY delivery channel. A
+        // parallel `pryzm-ambient-observation` window CustomEvent used to be
+        // dispatched here too; it never had a listener — removed 2026-08-12
+        // with its catalog entry per ADR-0323 rule 2 (BIM30 R0 docket).
         this._listeners.forEach(fn => fn(obs));
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('pryzm-ambient-observation', { detail: obs })); // TODO(TASK-15)
-        }
     }
 }
 

@@ -1,8 +1,7 @@
 {
   "name": "@pryzm/legacy-shim",
   "version": "0.0.0",
-  "description": "PRYZM 2 \u2014 fixture-only package used by `pryzm/no-raf` lint integration test.  Contains intentionally bad code that the rule must reject; nothing in here ships.",
+  "description": "PRYZM 2 \u2014 fixture-only package used by `pryzm/no-raf` lint integration test.  Contains intentionally bad code that the rule must reject; nothing in here ships. RECLASSIFIED 2026-08-12 (ADR-0323, BIM30 R0 docket): process-only lint-fixture surface, deliberately zero-importer \u2014 load-bearing for tools/scripts/check-lint-fixtures.mjs and eslint-plugin-pryzm integration tests; see README.md. The stale Wave-12 'deprecated: DROP' verdict was removed \u2014 it was never executed and contradicted the package's recorded purpose.",
   "private": true,
-  "type": "module",
-  "deprecated": "Wave-12 DROP: @pryzm/legacy-shim had 0 importers at Wave 8 close. Verdict: DROP per docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md \u00a75"
+  "type": "module"
 }

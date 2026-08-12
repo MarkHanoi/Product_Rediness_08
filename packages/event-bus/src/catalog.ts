@@ -68,7 +68,8 @@ export interface EventCatalog {
   'bim-lift-type-added':      { id: string };
   'bim-lift-type-removed':    { id: string };
   'bim-model-changed':        Record<string, never>;
-  'bim-model-healed':         Record<string, never>;
+  // 'bim-model-healed' deleted 2026-08-12 with its only dispatch (BimKernel
+  // reconciliation) — zero listeners ever existed. ADR-0323 rule 2, BIM30 R0.
   'bim-opening-added':        { id: string };
   'bim-opening-removed':      { id: string };
   'bim-opening-updated':      { id: string };
@@ -119,7 +120,9 @@ export interface EventCatalog {
   'bim-wall-cut-requested':   { wallId: string };
   'bim-wall-join-requested':  { wallId: string };
   'bim-wall-mutation-committed': Record<string, never>;
-  'bim-wall-system-error':    { message?: string; name?: string; error?: unknown; source?: string; code?: string; batchSize?: number };
+  // 'bim-wall-system-error' deleted 2026-08-12 with its two dispatches
+  // (geometry-wall/errors.ts, SlabWallConnectivityService) — it fed a
+  // never-built error-reporter UI; zero listeners. ADR-0323 rule 2, BIM30 R0.
   'bim-wall-removed':         { id: string };
   'bim-wall-updated':         { id: string };
   'wall-updated':             { id: string };
@@ -208,7 +211,9 @@ export interface EventCatalog {
   'fw-mode-changed':                       { active: boolean };
   'model-updated':                         Record<string, never>;
   'presentation-mode-changed':             { mode: string };
-  'pryzm-ambient-observation':             Record<string, unknown>;
+  // 'pryzm-ambient-observation' deleted 2026-08-12 with its only dispatch —
+  // AmbientIntelligence delivers via its registered-listener API; the window
+  // event had zero listeners. ADR-0323 rule 2, BIM30 R0.
   'pryzm-dep-cascade':                     { tasks?: unknown; triggerElementId?: string; operation?: string };
   'pryzm-dxf-restore-overlays':            { layers?: string[]; overlays?: unknown };
   'pryzm-element-selected':                { id: string | null };
@@ -295,7 +300,9 @@ export interface EventCatalog {
   'semantic:tags-changed': { tags?: string[]; elementId?: string };
   'spatial-authority-reconcile': { levelId?: string; delta?: number };
   'stacked':           Record<string, never>;
-  'switch-tab':        { tab: string };
+  // 'switch-tab' deleted 2026-08-12 with its only dispatch (QueryEngine →
+  // ribbon-component) — zero listeners; the LIVE sibling is 'ai-switch-tab'
+  // (AICreatePanel → AIAreaLayout). ADR-0323 rule 2, BIM30 R0.
   'tpr-rail-toggled':  { enabled: boolean };
   've-recording-complete': Record<string, never>;
   've-recording-started':  Record<string, never>;

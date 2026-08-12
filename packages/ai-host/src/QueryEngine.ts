@@ -1671,13 +1671,11 @@ export class QueryEngine {
             }
         }
 
-        // 2. Switch to the actions tab inside the panel
-        const ribbon = document.querySelector('ribbon-component');
-        if (ribbon) {
-            ribbon.dispatchEvent(new CustomEvent('switch-tab', { detail: { tab: 'actions' } })); // TODO(TASK-11)
-        }
-        
-        // Fallback: Click the tab button directly if ribbon event doesn't work
+        // 2. Switch to the actions tab inside the panel.
+        // (A `switch-tab` CustomEvent used to be dispatched on `ribbon-component`
+        // here; no listener ever existed — the LIVE tab-switch channel is the
+        // `ai-switch-tab` runtime event (AICreatePanel → AIAreaLayout). Removed
+        // 2026-08-12 with its catalog entry per ADR-0323 rule 2, BIM30 R0 docket.)
         const aiActionsBtn = document.querySelector('.ai-tab-btn:nth-child(4)') as HTMLElement;
         if (aiActionsBtn) {
             aiActionsBtn.click();

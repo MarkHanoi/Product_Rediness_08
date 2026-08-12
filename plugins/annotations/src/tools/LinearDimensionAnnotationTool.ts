@@ -11,7 +11,8 @@
  *   III-3  Live preview: Three.js dim assembly (dim line + two witness lines), updated in-place
  *   III-4  DEFINE_OFFSET state: locked dim line, drag offset, commit on click
  *   III-5  Non-wall fallback: makeRef / makePointRef (preserved from Phase II)
- *   III-6  Status bar: contextual 'dim-tool-status' DOM CustomEvent per state transition
+ *   III-6  Status messages per state transition (console; the 'dim-tool-status'
+ *          CustomEvent was removed 2026-08-12 — no listener ever existed, ADR-0323 rule 2)
  *
  * Phase IV additions:
  *   IV-1   Face-type options bar (Exterior | Interior | Centerline) — §DIM-IV-1
@@ -1401,17 +1402,18 @@ export class LinearDimensionAnnotationTool {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // §III-6 — Status bar integration
+    // §III-6 — Status messages (console only)
     //
-    // Dispatches a 'dim-tool-status' CustomEvent on window so any status bar
-    // component can listen without coupling.  Emission is deduplicated to avoid
-    // excessive DOM events on every mousemove frame.
+    // A 'dim-tool-status' window CustomEvent used to be dispatched here for a
+    // status-bar component that was never built; no listener ever existed.
+    // Removed 2026-08-12 per ADR-0323 rule 2 (BIM30 R0 disposition docket).
+    // If a status bar lands, it should subscribe to a NEW, consumed channel.
+    // Deduplication retained so the console isn't flooded per mousemove frame.
     // ─────────────────────────────────────────────────────────────────────────
 
     private _emitStatus(message: string): void {
         if (message === this._lastStatus) return;
         this._lastStatus = message;
-        window.dispatchEvent(new CustomEvent('dim-tool-status', { detail: { message } })); // TODO(TASK-15)
         if (message) console.log(`[LinearDimAnnotationTool] Status: ${message}`);
     }
 
