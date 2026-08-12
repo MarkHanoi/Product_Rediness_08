@@ -117,8 +117,32 @@ import { UiPreferences } from '@pryzm/core-app-model';
 type IColumnStore = { getAll(): Array<{ id: string; levelId: string; position: { x: number; z: number }; width: number; depth: number; profile: string }> };
 type IRoomBoundingLineStore = { getByLevel(levelId: string): Array<{ id: string; placement: { start: { x: number; z: number }; end: { x: number; z: number } }; properties: { isActive: boolean } }> };
 
-/** Radius (m) within which an existing room centroid is considered a match for semantic preservation. */
+/**
+ * Radius (m) within which an existing room centroid is considered a match for semantic
+ * preservation. §ROOM-IDENTITY-BY-STRUCTURE: this is now the FALLBACK only — see
+ * `mergeWithExisting`. It is deliberately NOT widened; widening moves the cliff
+ * instead of removing it, and makes false matches more likely.
+ */
 const CENTROID_MATCH_RADIUS = 2.0;
+
+/**
+ * §ROOM-IDENTITY-BY-STRUCTURE — minimum symmetric (Jaccard) overlap of `boundingWallIds`
+ * for a detected polygon to claim an existing room's identity STRUCTURALLY.
+ *
+ * Calibrated against the two cases that must land on opposite sides of it:
+ *   • RESHAPE — a bounding wall is moved. The wall SET is unchanged, so overlap = 1.0.
+ *     A reshape that also replaces one wall of four still scores 4/6 ≈ 0.67.
+ *   • SPLIT — a partition divides a room. Each half keeps its own subset of the parent's
+ *     walls plus the new partition; for a 4-wall room split in two that is 3/6 = 0.5 for
+ *     each half. Both halves clear the threshold, and the `used` set then awards the
+ *     parent id to the STRONGER claim only — which is exactly the PARTITION-FIX
+ *     behaviour, now decided by structure rather than by centroid luck.
+ *
+ * 0.34 sits below the split case with headroom and above the "borrowed one shared wall"
+ * case (a neighbour room sharing 1 of 4+4 walls scores 1/7 ≈ 0.14), so an unrelated
+ * neighbour cannot claim a room on the strength of a party wall.
+ */
+const STRUCTURAL_MATCH_MIN_OVERLAP = 0.34;
 
 /**
  * Cycling colour palette for newly-detected rooms.
@@ -814,10 +838,62 @@ export class RoomDetectionEngine {
 
   /**
    * Merges detected rooms with existing rooms to preserve semantic data.
-   * For each detected room, finds the existing room whose centroid is within
-   * CENTROID_MATCH_RADIUS. If matched, copies semantic fields from existing room.
-   * If no match, keeps the detected room with empty semantics.
    * (Semantic Preservation Rule — §R-9)
+   *
+   * ## §ROOM-IDENTITY-BY-STRUCTURE (2026-08-12) — identity is WHICH WALLS BOUND IT
+   *
+   * THE DEFECT this closes, MEASURED before it was fixed
+   * (`src/__tests__/roomIdentityByStructure.test.ts` PART 1, executed):
+   *
+   *   This method used to re-attach semantics by CENTROID PROXIMITY ALONE — the
+   *   existing room whose centroid lay within `CENTROID_MATCH_RADIUS` (2.0 m).
+   *   On an 8.0 × 6.0 m room whose east wall is dragged outward, the centroid moves
+   *   by exactly half the wall displacement, so:
+   *
+   *     wall move 3.75 m → centroid shift 1.875 m → id PRESERVED
+   *     wall move 4.00 m → centroid shift 2.000 m → id RE-MINTED   ← the cliff
+   *
+   *   Past that cliff the room was not RESHAPED, it was DESTROYED and replaced by a
+   *   fresh uuid. Measured losses at a 6.0 m move, asserted field by field: `id`
+   *   re-minted · `name` "Master Bedroom" → "" · `roomNumber` "101" → "" ·
+   *   `occupancyType` residential → unclassified · `finishes` {floor,wall,ceiling}
+   *   → {} · `ifcData` (the IFC/Revit round-trip JOIN KEY) → undefined ·
+   *   `revitId` → undefined · `properties` → {}.
+   *
+   *   The same cliff hit a plain SPLIT: partitioning a 10 × 6 m room put both halves
+   *   2.5 m from the parent centroid, so NEITHER half inherited the parent's identity
+   *   — the named room simply vanished and two anonymous rooms appeared.
+   *
+   *   The comment on the id line read `// preserve ID so undo works`. Undo
+   *   correctness for rooms therefore rested on a distance heuristic, and
+   *   ADR-0319 classes `id` and `ifcData.guid` as AUTHORITATIVE with NO TOLERANCE
+   *   EVER — a re-minted GUID breaks correspondence with every previously exported
+   *   IFC file INVISIBLY, because both files still open.
+   *
+   * THE FIX — match on `boundingWallIds` OVERLAP FIRST, centroid only as tiebreak
+   * and fallback. A room's identity is WHICH WALLS BOUND IT. That is structural: it
+   * survives ARBITRARY displacement, where a centroid survives only 2 m. The record
+   * already carries `boundingWallIds` (RoomDataSchema:166, REQUIRED) and this engine
+   * already populates it with ORIGINAL WallStore ids (sub-segment suffixes stripped),
+   * so the evidence was present and unused — PART 1's third case asserts exactly
+   * that: across the 6 m move the two wall SETS ARE IDENTICAL.
+   *
+   * WHY NOT SIMPLY WIDEN THE RADIUS: it only moves the cliff. Any finite radius has
+   * a displacement past which identity dies, and a wider one makes FALSE matches
+   * (two unrelated rooms claiming each other) more likely, not less. Structure has
+   * no cliff.
+   *
+   * WHAT IS PRESERVED UNCHANGED:
+   *   • the `used`-set PARTITION-FIX — one existing room may be claimed ONCE, so a
+   *     split still yields TWO rooms (PART 3, executed);
+   *   • the centroid path, in full, as the FALLBACK when no structural evidence
+   *     exists (first detection, or a room whose bounding set changed completely) —
+   *     PART 2's third case pins it;
+   *   • every currently-passing case: the whole room-topology suite is green.
+   *
+   * DETERMINISM: candidates are ranked by (overlap fraction desc, centroid distance
+   * asc, id asc). The id tiebreak means the result does not depend on the order
+   * `existing` happens to arrive in.
    */
   mergeWithExisting(detected: RoomData[], existing: RoomData[]): RoomData[] {
     const now = Date.now();
@@ -830,8 +906,54 @@ export class RoomDetectionEngine {
     // roomStore.update() overwrote the first → net 1 room instead of 2.
     const used = new Set<string>();
 
-    return detected.map(d => {
-      const match = this._findBestCentroidMatch(d, existing, used);
+    // §ROOM-IDENTITY-BY-STRUCTURE — two passes, because `used` makes the merge
+    // ORDER-SENSITIVE and a weak structural claim must never take an id that a
+    // stronger structural claim wanted. Pass 1 assigns every STRUCTURAL match,
+    // strongest first, globally. Pass 2 falls back to centroid for whatever is
+    // still unmatched, over what is left unclaimed.
+    const assigned = new Map<number, RoomData>();   // detected index → existing room
+
+    interface Claim { di: number; room: RoomData; overlap: number; dist: number }
+    const claims: Claim[] = [];
+    for (let di = 0; di < detected.length; di++) {
+      const d = detected[di]!;
+      const dSet = new Set(d.boundingWallIds ?? []);
+      if (dSet.size === 0) continue;               // no structural evidence to offer
+      for (const room of existing) {
+        const eIds = room.boundingWallIds ?? [];
+        if (eIds.length === 0) continue;           // legacy record with no evidence
+        let shared = 0;
+        for (const id of new Set(eIds)) if (dSet.has(id)) shared++;
+        if (shared === 0) continue;
+        // Jaccard-style symmetric fraction: reshaping a room keeps nearly all of its
+        // walls (→ ~1.0), while a split half keeps only its own subset (→ ~0.5), and
+        // an unrelated room that merely borrows one shared wall scores low. Using the
+        // SYMMETRIC measure (not shared/detected) is what stops a small detected room
+        // from claiming a large existing one on the strength of full containment.
+        const union = new Set([...dSet, ...eIds]).size;
+        const overlap = shared / union;
+        if (overlap < STRUCTURAL_MATCH_MIN_OVERLAP) continue;
+        const dx = room.computed.centroid.x - d.computed.centroid.x;
+        const dz = room.computed.centroid.z - d.computed.centroid.z;
+        claims.push({ di, room, overlap, dist: Math.sqrt(dx * dx + dz * dz) });
+      }
+    }
+    // Strongest structural claim wins globally; ties broken by proximity, then by id
+    // so the outcome never depends on input ordering.
+    claims.sort((a, b) =>
+      (b.overlap - a.overlap) ||
+      (a.dist - b.dist) ||
+      (a.room.id < b.room.id ? -1 : a.room.id > b.room.id ? 1 : 0));
+    for (const c of claims) {
+      if (assigned.has(c.di)) continue;            // this detected room already has one
+      if (used.has(c.room.id)) continue;           // PARTITION-FIX: one claim per room
+      assigned.set(c.di, c.room);
+      used.add(c.room.id);
+    }
+
+    return detected.map((d, di) => {
+      // Structural match first; centroid only for what structure could not place.
+      const match = assigned.get(di) ?? this._findBestCentroidMatch(d, existing, used);
       if (!match) return d;
 
       used.add(match.id);

@@ -181,7 +181,32 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // between plan and execute MUST be reported as plan-fidelity-divergence, not absorbed), a
 // negative control (a planner-visible mutation MUST refuse binding as typed PLAN_STALE while
 // the command still executes plan-less), and the typed-absence clause for plan-less dispatch.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement'];
+// §ROOM-IDENTITY-BY-STRUCTURE — check-room-identity-survives-wall-move added 2026-08-12.
+// The first gate over ROOM identity under EDITING (check-identity-roundtrip covers identity
+// under SAVE/RELOAD; nothing covered identity under a wall move). It drives the REAL
+// RoomDetectionEngine through detect → stamp semantics → move a bounding wall → re-detect →
+// merge, and asserts id/name/roomNumber/occupancyType/finishes/ifcData.guid/revitId survive.
+// It pins closed a MEASURED cliff: semantics were re-attached by centroid proximity alone
+// within CENTROID_MATCH_RADIUS = 2.0 m, so a 4.0 m wall move (2.0 m centroid shift) RE-MINTED
+// the room's uuid and dropped every semantic field — including ifcData.guid, which ADR-0319
+// grants NO TOLERANCE EVER. Carries a POSITIVE CONTROL every run (the pre-fix centroid-only
+// matcher fed to the same checker, which must report 7 lost fields or the gate exits 2) and
+// two anti-over-matching controls (a genuine SPLIT must still yield two rooms; a disjoint
+// room 100 m away must not be claimed). Lands GREEN today, so it carries no ratchet entry.
+// §BIM30-R5 — check-consequence-report-completeness (G-REASON-06) added 2026-08-12. The plan
+// doc's R5 exit condition verbatim: "G-REASON-06 completeness per declared contract, for
+// `wall.move`." It measures BOTH surfaces R5 requires, because a complete report nobody can
+// see does not satisfy R5: the REPORT (does the object the R4 executor produces carry every
+// section R5 names — changed/excluded/undetermined/regenerated/refused/validation/provenance/
+// predicted-vs-actual, with the plan carried whole rather than re-inferred) and the RENDERER
+// (does the production ConsequenceReportView actually SHOW them — STR-06 §2 makes a divergence
+// nobody can see a defect, not a nuance). It drives the real loop preview → plan → execute →
+// SINK → the PRODUCTION view, and reads the DOM that view drew. Three controls run on EVERY
+// invocation: a divergence must render visibly with its ids (positive); plan-time UNDETERMINED
+// must render AS undetermined with reality beside it, and an unmeasured channel must NOT print
+// a zero (positive); a renderer handed a stale or plan-less execution must SAY it has no report
+// rather than draw a confident blank (negative). Lands GREEN today — hard-0, no ledger entry.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-consequence-report-completeness'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
