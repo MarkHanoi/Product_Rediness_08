@@ -1,0 +1,111 @@
+{
+  "harness": "twoclient.cert.ts",
+  "generatedAt": "2026-08-12T21:04:35.001Z",
+  "provenance": {
+    "composed": [
+      "two independent buildWorld() topologies — separate geometry stores, CommandBus, CommandManager undo history",
+      "two REAL YjsDocAdapter instances (production class), one Y.Doc each",
+      "the REAL write leg: CommandBus.setCrdtApplier → shouldReplicate echo-break → adapter.applyCommand (engineLauncher.ts:160-168)",
+      "the REAL read leg: ElementSyncReader over ELEMENTS_NAMESPACE → sink → peer bus.executeCommand(element.updateParameters)",
+      "the production SYNC_DISPOSITIONS table — no harness-local disposition list"
+    ],
+    "simulated": [
+      "THE WIRE — updates cross by Y.applyUpdate(encodeStateAsUpdate), not a WebSocket. Real sockets are covered by tools/ga-gate/check-collab-graph-integrity.ts, which owns the transport question.",
+      "the read-leg SINK routes id→type from a PER-CLIENT map, because the real sink consults the elementRegistry MODULE SINGLETON that both clients share in one realm. The dispatch shape is byte-identical to initRemoteElementSync.ts:132-160."
+    ],
+    "notMeasured": [
+      "THE SHARED-ID CEILING (measured, not predicted). `elementRegistry` is a MODULE SINGLETON (ElementRegistry.getInstance(), packages/core-app-model/src/ElementRegistry.ts:307) and CreateWallCommand refuses `ID \"x\" already exists in ElementRegistry`. So two clients in ONE Node realm CANNOT both hold the same element id — which is the definition of two peers editing the same wall. This harness therefore seeds client B by REPLICATING A's creation through the CRDT (the real late-joiner path) instead of re-authoring it, and the id-collision arm is NOT MEASURABLE in-process at all. It needs two processes.",
+      "network latency, reordering, duplication and packet loss — the exchange here is synchronous and lossless",
+      "server-side linearisation / the sync-server protocol (apps/sync-server is not deployed; ADR-0019 orders at the log layer, and no log layer runs here)",
+      "multi-PROCESS isolation — one Node realm, one `window`, one `elementRegistry` module singleton shared by both clients",
+      "real concurrent wall-clock timing — the partition here is explicit and deterministic, not a race",
+      "awareness/presence, soft locks (S45) and the conflict-resolution DIALOG (only the emitConflict signal is reachable)",
+      "remote CREATES — the sink applies property updates only and counts unappliedRemoteCreates; a peer never mints an element it has not seen"
+    ]
+  },
+  "misconfigured": "",
+  "floors": [
+    {
+      "what": "client worlds composed",
+      "measured": 2,
+      "min": 2
+    },
+    {
+      "what": "client A mutations replicated from its OWN bus",
+      "measured": 1,
+      "min": 1
+    },
+    {
+      "what": "client B mutations replicated from its OWN bus",
+      "measured": 1,
+      "min": 1
+    },
+    {
+      "what": "update crossings actually transported",
+      "measured": 8,
+      "min": 2
+    },
+    {
+      "what": "properties the comparator actually compared",
+      "measured": 3,
+      "min": 3
+    },
+    {
+      "what": "negative control detected a forced divergence",
+      "measured": 1,
+      "min": 1
+    }
+  ],
+  "findings": [],
+  "crossings": 8,
+  "comparedCount": 3,
+  "negativeControl": {
+    "ran": true,
+    "detected": true
+  },
+  "lines": [
+    "CONTROL · store isolation (positive — proves this is really two clients)",
+    "   WallStore instances distinct      ✓",
+    "   CommandManager instances distinct ✓",
+    "   CommandBus instances distinct     ✓",
+    "   Y.Doc instances distinct          ✓",
+    "seed  both clients hold tc-wall-1 · height A=3 B=3",
+    "",
+    "ARM 1 · CONVERGENCE — both clients edit, then sync; compared property by property",
+    "   A wall.updateDimensions height=5   ok=true",
+    "   B wall.updateColor #c0ffee         ok=true",
+    "   pre-sync  A.height=5  B.materialColor=\"#c0ffee\"",
+    "   sync      8 update crossing(s) transported (state-vector deltas; 0 = nothing moved)",
+    "   doc[A]   height=5 materialColor=\"#c0ffee\" thickness=undefined",
+    "   doc[B]   height=5 materialColor=\"#c0ffee\" thickness=undefined",
+    "   read-leg  A.applied=2 B.applied=1 (remote updates each client's reader delivered INTO its own store)",
+    "   write-leg A replicated [wall.updateDimensions]",
+    "             A wall.updateDimensions payload keys [wallId, height] = {\"wallId\":\"tc-wall-1\",\"height\":5}",
+    "   write-leg B replicated [wall.updateColor]",
+    "             B wall.updateColor payload keys [wallId, materialColor] = {\"wallId\":\"tc-wall-1\",\"materialColor\":\"#c0ffee\"}",
+    "   compare   tc-wall-1.height  A=5  B=5  → agree",
+    "   compare   tc-wall-1.materialColor  A=\"#c0ffee\"  B=\"#c0ffee\"  → agree",
+    "   compare   tc-wall-1.thickness  A=0.2  B=0.2  → agree",
+    "",
+    "ARM 2 · IDENTITY — after concurrent edits to the SAME wall: re-minted, duplicated or lost?",
+    "   wall ids on A  [tc-wall-1]",
+    "   wall ids on B  [tc-wall-1]",
+    "",
+    "ARM 3 · UNDO under concurrency — A undoes its own gesture; B's edit must survive",
+    "   before undo on A  height=5  materialColor=\"#c0ffee\"",
+    "   undo ran=true historyEntries=1",
+    "   after  undo on A  height=3  materialColor=\"#c0ffee\"",
+    "   after resync      B.materialColor=\"#c0ffee\"",
+    "",
+    "ARM 1b · RIVAL RECORD MINT — two peers first-touch the same element while partitioned",
+    "   rival mint    doc1={\"materialColor\":\"#c0ffee\",\"height\":5}  doc2={\"materialColor\":\"#c0ffee\",\"height\":5}",
+    "   control       pre-replicated record → doc1={\"height\":5,\"thickness\":0.2,\"materialColor\":\"#c0ffee\"}",
+    "   rival lost [nothing] · control held both edits=true",
+    "",
+    "CONTROL · negative — a deliberately diverged pair fed to the SAME comparator",
+    "   fed the comparator 0.2 vs 'DELIBERATELY-DIVERGED' → reports DIVERGED ✓ (it can fail)",
+    "   fed the comparator two IDENTICAL values → reports agree ✓ (it is not always-red)",
+    "",
+    "read-leg counters  A.applied=2 B.applied=1 · unappliedRemoteCreates A=0 B=0 · sinkErrors A=0 B=0"
+  ]
+}

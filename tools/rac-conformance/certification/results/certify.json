@@ -1,14 +1,100 @@
 {
-  "startedAt": "2026-08-12T12:49:50.157Z",
-  "vitestStatus": null,
+  "startedAt": "2026-08-12T21:01:23.036Z",
+  "vitestStatus": 1,
+  "failedRows": {
+    "persistence": 0,
+    "undoredo": 1
+  },
   "gates": {
     "check-identity-roundtrip": 0,
-    "check-propagation-reaches": 1,
+    "check-propagation-reaches": 0,
     "check-derived-regenerable": 0,
     "check-propagation-trackers-reach": 1,
-    "check-preview-purity": 0
+    "check-preview-purity": 0,
+    "check-plan-determinism": 0,
+    "check-execution-plan-agreement": 0,
+    "check-room-identity-survives-wall-move": 0,
+    "check-room-reshape-fidelity": 0,
+    "check-room-reshape-undo": 0,
+    "check-undo-resume-flushes-topology": 0,
+    "check-consequence-report-completeness": 0,
+    "check-approval-binding": 0,
+    "check-ai-human-parity": 1,
+    "check-authored-state-protection": 1,
+    "check-authoritative-state": 1,
+    "check-two-client-convergence": 0,
+    "check-topology-survives": 0,
+    "check-derived-classification": 1
   },
-  "exitCode": 1,
-  "finishedAt": "2026-08-12T12:50:31.865Z",
-  "floors": {}
+  "exitCode": 3,
+  "finishedAt": "2026-08-12T21:04:54.799Z",
+  "floors": {
+    "persistence": {
+      "floors": [
+        {
+          "what": "persistence.json written by THIS run (freshness)",
+          "measured": 1,
+          "min": 1
+        },
+        {
+          "what": "rows emitted",
+          "measured": 18,
+          "min": 18
+        },
+        {
+          "what": "element records in the EXPECTED capture",
+          "measured": 19,
+          "min": 12
+        },
+        {
+          "what": "kinds whose subject was established (SEEDED)",
+          "measured": 18,
+          "min": 14
+        },
+        {
+          "what": "serializeError is empty (the measured path actually executed)",
+          "measured": 1,
+          "min": 1
+        },
+        {
+          "what": "loadError is empty (the measured path actually executed)",
+          "measured": 1,
+          "min": 1
+        }
+      ],
+      "notes": [],
+      "unmet": 0
+    },
+    "undoredo": {
+      "floors": [
+        {
+          "what": "undoredo.json written by THIS run (freshness)",
+          "measured": 1,
+          "min": 1
+        },
+        {
+          "what": "rows emitted",
+          "measured": 16,
+          "min": 16
+        },
+        {
+          "what": "capabilities that actually dispatched",
+          "measured": 15,
+          "min": 12
+        },
+        {
+          "what": "undo entries armed across the run",
+          "measured": 15,
+          "min": 5
+        },
+        {
+          "what": "seed lines that reported OK",
+          "measured": 9,
+          "min": 6
+        }
+      ],
+      "notes": [],
+      "unmet": 0
+    }
+  }
 }

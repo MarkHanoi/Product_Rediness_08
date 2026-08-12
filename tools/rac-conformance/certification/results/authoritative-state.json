@@ -1,0 +1,929 @@
+{
+ "measuredAt": "2026-08-12T21:04:08.217Z",
+ "seedOutcomes": {
+  "level": "SEEDED",
+  "grid": "SEEDED",
+  "wall": "SEEDED",
+  "door": "SEEDED",
+  "window": "SEEDED",
+  "slab": "SEEDED",
+  "roof": "SEEDED",
+  "column": "SEEDED",
+  "stair": "SEEDED",
+  "beam": "SEEDED",
+  "curtainWall": "SEEDED",
+  "handrail": "SEEDED",
+  "plumbing": "SEEDED",
+  "furniture": "SEEDED",
+  "ceiling": "SEEDED",
+  "floor": "SEEDED",
+  "room": "SEEDED",
+  "opening": "SEEDED (via door/window CreateWallOpeningCommand)"
+ },
+ "registrationFailures": [],
+ "dtoReached": true,
+ "dtoHow": "bus.storesProvider()",
+ "kindsReached": 18,
+ "baselineRecords": 19,
+ "baselineByKind": {
+  "level": {
+   "reached": true,
+   "n": 2
+  },
+  "grid": {
+   "reached": true,
+   "n": 1
+  },
+  "wall": {
+   "reached": true,
+   "n": 2
+  },
+  "door": {
+   "reached": true,
+   "n": 1
+  },
+  "window": {
+   "reached": true,
+   "n": 1
+  },
+  "opening": {
+   "reached": true,
+   "n": 0
+  },
+  "slab": {
+   "reached": true,
+   "n": 1
+  },
+  "roof": {
+   "reached": true,
+   "n": 1
+  },
+  "column": {
+   "reached": true,
+   "n": 1
+  },
+  "beam": {
+   "reached": true,
+   "n": 1
+  },
+  "stair": {
+   "reached": true,
+   "n": 1
+  },
+  "curtainWall": {
+   "reached": true,
+   "n": 1
+  },
+  "handrail": {
+   "reached": true,
+   "n": 1
+  },
+  "plumbing": {
+   "reached": true,
+   "n": 1
+  },
+  "furniture": {
+   "reached": true,
+   "n": 1
+  },
+  "ceiling": {
+   "reached": true,
+   "n": 1
+  },
+  "floor": {
+   "reached": true,
+   "n": 1
+  },
+  "room": {
+   "reached": true,
+   "n": 1
+  }
+ },
+ "rivalOwners": [
+  {
+   "kind": "door",
+   "authoritative": "@pryzm/geometry-door.doorStore",
+   "rival": "@pryzm/core-app-model.doorStore — DELETED 2026-08-12 (stale fork; see packages/core-app-model/src/stores/index.ts §TOMBSTONE-HOSTED-STORE-FORK)",
+   "sameInstance": true,
+   "authoritativeCount": 1,
+   "rivalCount": 1,
+   "ids": {
+    "authoritative": [
+     "11f5b073-8c53-40dc-a989-d2df313a922b"
+    ],
+    "rival": [
+     "11f5b073-8c53-40dc-a989-d2df313a922b"
+    ]
+   }
+  },
+  {
+   "kind": "window",
+   "authoritative": "@pryzm/geometry-window.windowStore",
+   "rival": "@pryzm/core-app-model.windowStore — DELETED 2026-08-12 (stale fork; see packages/core-app-model/src/stores/index.ts §TOMBSTONE-HOSTED-STORE-FORK)",
+   "sameInstance": true,
+   "authoritativeCount": 1,
+   "rivalCount": 1,
+   "ids": {
+    "authoritative": [
+     "f4364fb5-973f-4326-84ae-a9256257b3d0"
+    ],
+    "rival": [
+     "f4364fb5-973f-4326-84ae-a9256257b3d0"
+    ]
+   }
+  }
+ ],
+ "cases": [
+  {
+   "label": "wall.updateDimensions",
+   "verb": "wall.updateDimensions",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.height"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-1.height",
+     "generalised": "wall.*.height",
+     "expected": 4.2,
+     "actual": 5.5,
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion",
+    "wall.*.metadata.modifiedAt",
+    "wall.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 1,
+   "reportEvents": []
+  },
+  {
+   "label": "wall.updateColor",
+   "verb": "wall.updateColor",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.materialColor"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-1.materialColor",
+     "generalised": "wall.*.materialColor",
+     "expected": "#aabbcc",
+     "actual": "#123456",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion",
+    "wall.*.metadata.modifiedAt",
+    "wall.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "roof.update",
+   "verb": "roof.update",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "roof.*.thickness"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "roof.cert-roof-1.thickness",
+     "generalised": "roof.*.thickness",
+     "expected": 0.35,
+     "actual": 0.5,
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "roof.*.metadata.modifiedAt",
+    "roof.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "slab.updateDimensions",
+   "verb": "slab.updateDimensions",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "slab.*.thickness"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "slab.cert-slab-1.thickness",
+     "generalised": "slab.*.thickness",
+     "expected": 0.25,
+     "actual": 0.4,
+     "derived": false
+    }
+   ],
+   "derivedPaths": [],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "element.updateParameters(wall.materialColor)",
+   "verb": "element.updateParameters",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.materialColor"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-2.materialColor",
+     "generalised": "wall.*.materialColor",
+     "expected": "#112233",
+     "actual": "#998877",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*.metadata.modifiedAt",
+    "wall.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "door.setOffset",
+   "verb": "door.setOffset",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.openings.0.offset",
+    "door.*.offset"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-1.openings.0.offset",
+     "generalised": "wall.*.openings.0.offset",
+     "expected": 2.5,
+     "actual": 3,
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.offset",
+     "generalised": "door.*.offset",
+     "expected": 2.5,
+     "actual": 3,
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "door.setWidth",
+   "verb": "door.setWidth",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.openings.0.width",
+    "door.*.width"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-1.openings.0.width",
+     "generalised": "wall.*.openings.0.width",
+     "expected": 0.9,
+     "actual": 1.1,
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.width",
+     "generalised": "door.*.width",
+     "expected": 0.9,
+     "actual": 1.1,
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "window.setOffset",
+   "verb": "window.setOffset",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.openings.0.offset",
+    "window.*.offset"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-2.openings.0.offset",
+     "generalised": "wall.*.openings.0.offset",
+     "expected": 1,
+     "actual": 1.5,
+     "derived": false
+    },
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.offset",
+     "generalised": "window.*.offset",
+     "expected": 1,
+     "actual": 1.5,
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "window.setSillHeight",
+   "verb": "window.setSillHeight",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.openings.0.sillHeight",
+    "window.*.sillHeight"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-2.openings.0.sillHeight",
+     "generalised": "wall.*.openings.0.sillHeight",
+     "expected": 0.9,
+     "actual": 1.1,
+     "derived": false
+    },
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.sillHeight",
+     "generalised": "window.*.sillHeight",
+     "expected": 0.9,
+     "actual": 1.1,
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "room.setName",
+   "verb": "room.setName",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "room.*.name"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "room.81272a91-71ff-4a4f-b415-94a2b0f6c8ac.name",
+     "generalised": "room.*.name",
+     "expected": "Cert Room",
+     "actual": "Gate Probe Room",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "room.*.metadata.modifiedAt",
+    "room.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "room.setNumber",
+   "verb": "room.setNumber",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "room.*.roomNumber"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "room.81272a91-71ff-4a4f-b415-94a2b0f6c8ac.roomNumber",
+     "generalised": "room.*.roomNumber",
+     "expected": "00-001",
+     "actual": "9",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "room.*.metadata.modifiedAt",
+    "room.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "room.setMaterial",
+   "verb": "room.setMaterial",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "room.*.colour"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "room.81272a91-71ff-4a4f-b415-94a2b0f6c8ac.colour",
+     "generalised": "room.*.colour",
+     "expected": "#ff8800",
+     "actual": "#00ff00",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "room.*.metadata.modifiedAt",
+    "room.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "wall.updateBaseline",
+   "verb": "wall.updateBaseline",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.baseLine.1.x",
+    "wall.*._sourceBaseLine"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-1.baseLine.1.x",
+     "generalised": "wall.*.baseLine.1.x",
+     "expected": 6,
+     "actual": 7,
+     "derived": false
+    },
+    {
+     "path": "wall.cert-wall-1._sourceBaseLine",
+     "generalised": "wall.*._sourceBaseLine",
+     "actual": [
+      {
+       "x": 0,
+       "y": 0,
+       "z": 0
+      },
+      {
+       "x": 7,
+       "y": 0,
+       "z": 0
+      }
+     ],
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion",
+    "wall.*.metadata.modifiedAt",
+    "wall.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "wall.updateColorBatch",
+   "verb": "wall.updateColorBatch",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.materialColor"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-2.materialColor",
+     "generalised": "wall.*.materialColor",
+     "expected": "#998877",
+     "actual": "#abcdef",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion",
+    "wall.*.metadata.modifiedAt",
+    "wall.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": [
+    {
+     "type": "pryzm-wall-color-batch-report",
+     "success": true,
+     "info": [
+      "Recoloured 1 of 1 wall to #abcdef"
+     ]
+    }
+   ]
+  },
+  {
+   "label": "wall.updateSystemTypeBatch",
+   "verb": "wall.updateSystemTypeBatch",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "wall.*.systemTypeId",
+    "wall.*.thickness",
+    "wall.*.layers",
+    "wall.*._sourceBaseLine"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "wall.cert-wall-1.thickness",
+     "generalised": "wall.*.thickness",
+     "expected": 0.2,
+     "actual": 1,
+     "derived": false
+    },
+    {
+     "path": "wall.cert-wall-1._sourceBaseLine",
+     "generalised": "wall.*._sourceBaseLine",
+     "expected": [
+      {
+       "x": 0,
+       "y": 0,
+       "z": 0
+      },
+      {
+       "x": 7,
+       "y": 0,
+       "z": 0
+      }
+     ],
+     "derived": false
+    },
+    {
+     "path": "wall.cert-wall-1.systemTypeId",
+     "generalised": "wall.*.systemTypeId",
+     "actual": "wt-monolithic",
+     "derived": false
+    },
+    {
+     "path": "wall.cert-wall-1.layers",
+     "generalised": "wall.*.layers",
+     "actual": [
+      {
+       "name": "Wall Body",
+       "thickness": 1,
+       "function": "structure",
+       "materialColor": "#d4c5b0"
+      }
+     ],
+     "derived": false
+    }
+   ],
+   "derivedPaths": [
+    "wall.*._renderVersion",
+    "wall.*.metadata.modifiedAt",
+    "wall.*.metadata.version"
+   ],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": [
+    {
+     "type": "pryzm-wall-type-batch-report",
+     "success": true,
+     "info": [
+      "Changed 1 of 1 wall to \"Monolithic (Default)\""
+     ]
+    }
+   ]
+  },
+  {
+   "label": "door.updateSystemTypeBatch",
+   "verb": "door.updateSystemTypeBatch",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "door.*.systemTypeId",
+    "door.*.frameThickness",
+    "door.*.frameColor",
+    "door.*.leafThickness",
+    "door.*.leafColor",
+    "door.*.frameFinish",
+    "door.*.leafFinish",
+    "door.*.finishMaterial"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.frameThickness",
+     "generalised": "door.*.frameThickness",
+     "expected": 0.05,
+     "actual": 0.058,
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.frameColor",
+     "generalised": "door.*.frameColor",
+     "expected": "#f2f0ed",
+     "actual": "#c8a55a",
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.leafThickness",
+     "generalised": "door.*.leafThickness",
+     "expected": 0.04,
+     "actual": 0.044,
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.leafColor",
+     "generalised": "door.*.leafColor",
+     "expected": "#f2f0ed",
+     "actual": "#c8a55a",
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.frameFinish",
+     "generalised": "door.*.frameFinish",
+     "actual": {
+      "name": "Timber Frame",
+      "materialColor": "#c8a55a",
+      "description": "Stained hardwood frame"
+     },
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.leafFinish",
+     "generalised": "door.*.leafFinish",
+     "actual": {
+      "name": "Timber Leaf",
+      "materialColor": "#c8a55a",
+      "description": "Stained hardwood panel"
+     },
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.finishMaterial",
+     "generalised": "door.*.finishMaterial",
+     "actual": "Timber Leaf",
+     "derived": false
+    },
+    {
+     "path": "door.11f5b073-8c53-40dc-a989-d2df313a922b.systemTypeId",
+     "generalised": "door.*.systemTypeId",
+     "actual": "dt-solid-timber",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": [
+    {
+     "type": "pryzm-door-type-batch-report",
+     "success": true,
+     "info": [
+      "Retyped 1 of 1 door to \"Solid Timber (Default)\""
+     ]
+    }
+   ]
+  },
+  {
+   "label": "window.updateSystemTypeBatch",
+   "verb": "window.updateSystemTypeBatch",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "window.*.systemTypeId",
+    "window.*.glazingThickness",
+    "window.*.rebateDepth",
+    "window.*.frameFinish",
+    "window.*.sillFinish",
+    "window.*.finishMaterial"
+   ],
+   "dispatchOk": true,
+   "dispatchError": "",
+   "authoritativePaths": [
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.glazingThickness",
+     "generalised": "window.*.glazingThickness",
+     "actual": 0.024,
+     "derived": false
+    },
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.rebateDepth",
+     "generalised": "window.*.rebateDepth",
+     "actual": 0.015,
+     "derived": false
+    },
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.frameFinish",
+     "generalised": "window.*.frameFinish",
+     "actual": {
+      "name": "Aluminium Frame",
+      "materialColor": "#e8e8e8",
+      "description": "Mill-finish aluminium"
+     },
+     "derived": false
+    },
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.sillFinish",
+     "generalised": "window.*.sillFinish",
+     "actual": {
+      "name": "Aluminium Sill",
+      "materialColor": "#e0e0e0",
+      "description": "Mill-finish aluminium sill"
+     },
+     "derived": false
+    },
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.finishMaterial",
+     "generalised": "window.*.finishMaterial",
+     "actual": "Aluminium Frame",
+     "derived": false
+    },
+    {
+     "path": "window.f4364fb5-973f-4326-84ae-a9256257b3d0.systemTypeId",
+     "generalised": "window.*.systemTypeId",
+     "actual": "wt-single-pane",
+     "derived": false
+    }
+   ],
+   "derivedPaths": [],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": [
+    {
+     "type": "pryzm-window-type-batch-report",
+     "success": true,
+     "info": [
+      "Retyped 1 of 1 window to \"Single Pane (Default)\""
+     ]
+    }
+   ]
+  },
+  {
+   "label": "slab.updateSystemTypeBatch",
+   "verb": "slab.updateSystemTypeBatch",
+   "refusal": false,
+   "registered": true,
+   "declaredPaths": [
+    "slab.*.systemTypeId"
+   ],
+   "dispatchOk": false,
+   "dispatchError": "Error: slab.updateSystemTypeBatch: The slab type catalogue is not available here.",
+   "authoritativePaths": [],
+   "derivedPaths": [],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": [
+    {
+     "type": "pryzm-slab-type-batch-report",
+     "success": false,
+     "info": [
+      "The slab type catalogue is not available here."
+     ]
+    }
+   ]
+  },
+  {
+   "label": "REFUSAL wall.updateDimensions(absent wall)",
+   "verb": "wall.updateDimensions",
+   "refusal": true,
+   "registered": true,
+   "declaredPaths": [],
+   "dispatchOk": false,
+   "dispatchError": "Error: wall.updateDimensions: no wall 'no-such-wall-at-all' exists in the geometry store, so nothing was changed.",
+   "authoritativePaths": [],
+   "derivedPaths": [],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "REFUSAL room.setName(absent room)",
+   "verb": "room.setName",
+   "refusal": true,
+   "registered": true,
+   "declaredPaths": [],
+   "dispatchOk": false,
+   "dispatchError": "Error: room.setName: RenameRoomCommand refused — Room 'no-such-room-at-all' not found",
+   "authoritativePaths": [],
+   "derivedPaths": [],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  },
+  {
+   "label": "REFUSAL roof.update(absent roof)",
+   "verb": "roof.update",
+   "refusal": true,
+   "registered": true,
+   "declaredPaths": [],
+   "dispatchOk": false,
+   "dispatchError": "Error: roof.update: the command manager refused — Roof not found",
+   "authoritativePaths": [],
+   "derivedPaths": [],
+   "misconfiguredKinds": [],
+   "dtoChanged": false,
+   "ringDelta": 0,
+   "reportEvents": []
+  }
+ ],
+ "positiveControl": {
+  "ran": true,
+  "dispatchOk": true,
+  "paths": [
+   "wall.*.height 3→4.2"
+  ],
+  "pathCount": 1
+ },
+ "negativeControl": {
+  "ran": true,
+  "dispatchOk": true,
+  "dispatchError": "",
+  "authoritativePathCount": 0,
+  "authoritativePaths": [],
+  "dtoChanged": true
+ },
+ "wideningControl": {
+  "ran": true,
+  "dispatchOk": true,
+  "declaredPaths": [
+   "wall.*.height"
+  ],
+  "observedPaths": [
+   "wall.*.height",
+   "wall.*.thickness"
+  ],
+  "undeclared": [
+   "wall.*.thickness"
+  ]
+ }
+}

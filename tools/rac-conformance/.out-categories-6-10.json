@@ -84,19 +84,19 @@
     {
       "label": "RO-10 visibility read",
       "utterance": "what levels are visible?",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "visibility-query",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "local intent=visibility-query action=answer",
       "mutated": false
     },
     {
       "label": "RO-11 visibility read, bare",
       "utterance": "which levels are visible",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "visibility-query",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "local intent=visibility-query action=answer",
       "mutated": false
     },
     {
@@ -111,28 +111,28 @@
     {
       "label": "RO-13 visibility read, list",
       "utterance": "list the hidden elements",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "visibility-query",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "local intent=visibility-query action=answer",
       "mutated": false
     },
     {
       "label": "RO-14 visibility read, isolation",
       "utterance": "am I in isolation mode?",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "visibility-query",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "local intent=visibility-query action=answer",
       "mutated": false
     },
     {
       "label": "RO-15 visibility read, what is hidden",
       "utterance": "what is hidden right now?",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "visibility-query",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
+      "detail": "local intent=visibility-query action=answer",
       "mutated": false
     },
     {
@@ -436,7 +436,7 @@
       "kind": "refusal",
       "intent": "capability-gap:material",
       "commands": [],
-      "detail": "refusal intent=capability-gap:material :: Floor material isn't connected to chat yet. For a floor I can zoom the view to what you have selected and delete what you have selected.",
+      "detail": "refusal intent=capability-gap:material :: Floor material isn't connected to chat yet. For a floor I can zoom the view to what you have selected, hide the selected elements in this view (view-only — not undoable, not saved, not shared), isolate the selected elements — everything else in this view hides (view-only — not undoable, not saved, not shared) and delete what you have selected.",
       "mutated": false
     },
     {
@@ -553,11 +553,11 @@
           "elementType": "wall"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "hide-selection",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
-      "mutated": false
+      "detail": "local intent=hide-selection action=applyVisibilityIntent",
+      "mutated": true
     },
     {
       "label": "7.1b hide walls",
@@ -601,29 +601,29 @@
           "elementType": "room"
         }
       ],
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "isolate-selection",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
-      "mutated": false
+      "detail": "local intent=isolate-selection action=applyVisibilityIntent",
+      "mutated": true
     },
     {
       "label": "7.4 exit isolation",
       "utterance": "exit isolation",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "reveal-all",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
-      "mutated": false
+      "detail": "local intent=reveal-all action=applyVisibilityIntent",
+      "mutated": true
     },
     {
       "label": "7.4b reset visibility",
       "utterance": "unhide everything",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "reveal-all",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
-      "mutated": false
+      "detail": "local intent=reveal-all action=applyVisibilityIntent",
+      "mutated": true
     },
     {
       "label": "7.5 hide level",
@@ -642,6 +642,48 @@
       "commands": [],
       "detail": "local intent=go-to-level action=setActiveLevel",
       "mutated": true
+    },
+    {
+      "label": "7.7 reveal all (VIS-CLASS)",
+      "utterance": "reveal all",
+      "kind": "local",
+      "intent": "reveal-all",
+      "commands": [],
+      "detail": "local intent=reveal-all action=applyVisibilityIntent",
+      "mutated": true
+    },
+    {
+      "label": "7.7b exit isolation phrasing (VIS-CLASS)",
+      "utterance": "exit isolation",
+      "kind": "local",
+      "intent": "reveal-all",
+      "commands": [],
+      "detail": "local intent=reveal-all action=applyVisibilityIntent",
+      "mutated": true
+    },
+    {
+      "label": "7.8 read-only visibility question (VIS-CLASS)",
+      "utterance": "what is hidden",
+      "kind": "local",
+      "intent": "visibility-query",
+      "commands": [],
+      "detail": "local intent=visibility-query action=answer",
+      "mutated": false
+    },
+    {
+      "label": "7.9 per-element unhide — no carrier, honest refusal (VIS-CLASS)",
+      "utterance": "unhide this wall",
+      "selection": [
+        {
+          "elementId": "rac-wall-0",
+          "elementType": "wall"
+        }
+      ],
+      "kind": "refusal",
+      "intent": "reveal-all",
+      "commands": [],
+      "detail": "refusal intent=reveal-all :: I can only reveal everything hidden in this view — per-element unhide is not connected to chat yet. Nothing was changed.",
+      "mutated": false
     },
     {
       "label": "8.1 assign material",

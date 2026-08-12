@@ -161,6 +161,10 @@ import {
   // legacy view command so the edit lands in the seeded `scheduleStore` and is
   // undoable on the commandManager stack (P6). Mirrors the AI dispatch site.
   UpdateScheduleCommand,
+  // §BRIDGE-EXPORTS (2026-08-12) — consumed by the two exported bridge adapters
+  // below (createPredictedRoomGeometryApplier / attachSlabSketchViaLegacyBridge).
+  ApplyPredictedRoomGeometryCommand,
+  UpdateSlabSketchCommand,
 } from '@pryzm/command-registry';
 import { withHandlerSpan, type Patch } from '@pryzm/plugin-sdk';
 // §FEAT-PROJECT-ORIGIN (L-109) — the singleton shared-coordinate datum store.
@@ -168,11 +172,13 @@ import { projectOriginStore } from '@pryzm/stores';
 // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — build the ring-buffer PatchPair path
 // for the furniture type-swap so the unified ring-first undo (performUndoRedo)
 // reverses the SWAP rather than popping the element's earlier CREATE. C03 §4.5–4.8.
-import { toJsonPointer, currentGestureId } from '@pryzm/command-bus';
+import { toJsonPointer, currentGestureId, type ElementId } from '@pryzm/command-bus';
+// §BRIDGE-EXPORTS (2026-08-12) — type-only: the R4 executor's applier contract.
+import type { PredictedRoomGeometryApplier } from './consequence/ConsequenceExecutionService';
 // §FIX-STAIR-RAILING-TYPE-PICKER — the ONE named railing catalogue (five built-ins),
 // and the ONE projection from a catalogue definition onto a stair railing's
 // construction fields. Both families now read the same catalogue.
-import { handrailTypeStore } from '@pryzm/core-app-model';
+import { handrailTypeStore, storeRegistry } from '@pryzm/core-app-model';
 import { resolveStairRailingTypeFields } from '@pryzm/geometry-stair';
 // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the lighting fixture catalogue. Identity only;
 // what a fixture EMITS stays in LIGHTING_FIXTURE_PHOTOMETRY.
@@ -184,6 +190,123 @@ import {
     performElementTypeAuthoring,
     validateElementTypeCommand,
 } from './elementTypeAuthoringAdapters';
+
+// ─── §BRIDGE-EXPORTS (2026-08-12) — typed-world → legacy-manager adapters ─────
+//
+// WHY THESE LIVE HERE AND NOT AT THEIR CALL SITES. This file is the ONE authorised
+// bridge between the typed bus world and the legacy commandManager
+// (check-no-commandmanager.ts counters B and C exclude it BY DESIGN — see that
+// gate's header). A legacy dispatch authored anywhere else in apps/editor/src is a
+// NEW scattered coupling site the P6 migration must later find and unpick; a legacy
+// dispatch authored here is on the one seam the migration already owns — the same
+// argument the rooms plugin makes for its `legacyCommands.ts` ("one file, one
+// checklist; the last line to go deletes the seam"). These are NARROW, single-purpose
+// adapters, each carrying the reason it cannot ride the bus natively today. Do NOT
+// add a generic `executeLegacyCommand(anything)` here — an open escape hatch would
+// make the gate's counters meaningless.
+
+/**
+ * SAFE MODE ROOM RESHAPE (R4/R6, C03 §4.6 U-10) — dispatch
+ * `ApplyPredictedRoomGeometryCommand` through the LEGACY commandManager, carrying
+ * the gesture id so this room mutation and the wall mutation that preceded it are
+ * ONE undo unit.
+ *
+ * WHY THE LEGACY MANAGER AND NOT THE BUS. Every other room command in this repo —
+ * `DetectAllRoomsCommand`, `ReDetectRoomsCommand`, `UpdateRoomBoundaryCommand` —
+ * is a `Command` class executed by `CommandManagerImpl`, which is what owns their
+ * undo entries. Dispatching this one through the bus instead would put its undo
+ * entry on the OTHER stack from the sibling it must be reverted alongside, and
+ * `performUndoRedo` would then have to reconcile a pair that spans both stacks
+ * for no benefit. Same stack, same gesture id, one Ctrl+Z. A bus BRIDGE verb would
+ * preserve the stack but cannot return `{ applied, levelIds }` to the caller —
+ * `CommandBus.executeCommand` answers with an EventRecord, not the handler's value
+ * (the same constraint that forced graphQueryBusHandlers' request-id handoff).
+ *
+ * The `gestureId` is passed EXPLICITLY in the metadata rather than relying on
+ * `currentGestureId()`: the executor calls this after an `await`, and the ambient
+ * gesture scope is synchronous by contract (gestureScope.ts).
+ *
+ * Consumed by `consequenceExecutionServiceComposition.ts` (which re-exports it);
+ * moved here 2026-08-12 so the legacy dispatch lives on the authorised seam.
+ */
+export function createPredictedRoomGeometryApplier(): PredictedRoomGeometryApplier {
+  return (predicted, undetermined, gestureId) => {
+    const cm = (window as unknown as {
+      commandManager?: { execute(cmd: unknown, options?: unknown): void };
+    }).commandManager;
+    if (!cm) {
+      // Throwing is correct here: the service turns a throw into a TYPED
+      // `ENGINE_NOT_AVAILABLE` on the report. Returning an empty applied-set would
+      // instead read as "there was nothing to reshape", which is the exact
+      // known-vs-unknown collapse this phase forbids.
+      throw new Error(
+        'commandManager is not ready; the predicted room geometry was NOT applied ' +
+        '(this is an unapplied reshape, not an empty one)',
+      );
+    }
+
+    const cmd = new ApplyPredictedRoomGeometryCommand(
+      predicted.map((p) => ({
+        elementId: p.elementId,
+        polygon: p.polygon.map((v) => ({ x: v.x, z: v.z })),
+        area: p.area,
+        perimeter: p.perimeter,
+        centroid: { x: p.centroid.x, z: p.centroid.z },
+        boundingBox: p.boundingBox,
+      })),
+      // The plan's UNDETERMINED items are handed over so the command can REPORT
+      // them. They are scopes, not element ids, so they are carried as-is.
+      undetermined.map((u) => ({ elementId: u.scope, reason: u.reason, detail: u.detail ?? '' })),
+    );
+
+    cm.execute(cmd, { source: 'HUMAN_DIRECT', gestureId });
+
+    // Levels are read from the rooms we ACTUALLY wrote — never from the ones we
+    // merely intended to write. Suppressing the observer for a level whose rooms
+    // were not reshaped would suppress a redetect that is genuinely needed.
+    const roomStore = storeRegistry.getStoreForType('room');
+    const levelIds = new Set<string>();
+    for (const id of cmd.targetIds) {
+      const room = roomStore?.getById?.(id) as { levelId?: string } | null | undefined;
+      if (room?.levelId) levelIds.add(room.levelId);
+    }
+    return { applied: cmd.targetIds as readonly ElementId[], levelIds: [...levelIds] };
+  };
+}
+
+/**
+ * §REGION-HOST-ATTRIBUTION — attach a parametric sketch to a region-drawn slab so
+ * it FOLLOWS the walls that bound it. `UpdateSlabSketchCommand` is the ONE command
+ * documented to mutate `SlabData.sketch` (geometry-slab §01 §2.2), it is undoable
+ * (§01 §2.3), and `SlabDependencyTracker` re-registers the wall→slab dependencies
+ * from the `bim-slab-updated` event it causes (§03 §3.2).
+ *
+ * WHY NOT THE BUS: the bus `CreateSlabPayload` has no sketch field, and the bus
+ * `slab.create` handler is deliberately NOT the authoritative writer (the §FT1
+ * `slab.created` bridge in `initTools.ts` performs the real `slabStore.add`), so
+ * a sketch field there would be written by the wrong owner. Widening the payload
+ * is tracked in `SlabPlanToolHandler.ts` as a separate, larger change.
+ *
+ * Returns the legacy verdict so the CALLER decides how loudly to fail — the
+ * plan tool warns that the slab will not follow its walls, which is its call to
+ * make, not this seam's.
+ */
+export function attachSlabSketchViaLegacyBridge(
+  payload: ConstructorParameters<typeof UpdateSlabSketchCommand>[0],
+): { success: boolean; error?: string } {
+  const cm = window.commandManager as
+    | { execute(cmd: unknown, options?: unknown): { success?: boolean; error?: string; info?: string[] } | void }
+    | undefined;
+  if (!cm || typeof cm.execute !== 'function') {
+    return { success: false, error: 'commandManager unavailable' };
+  }
+  const res = cm.execute(new UpdateSlabSketchCommand(payload));
+  if (res && res.success === true) return { success: true };
+  return {
+    success: false,
+    error: (res && (res.error ?? res.info?.join('; '))) ?? 'unknown',
+  };
+}
 
 /**
  * Registers structural command-bus stubs (§A40-W04 — column/beam/door/window/ceiling/stair).
