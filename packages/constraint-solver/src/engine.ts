@@ -8,17 +8,18 @@
 //   • `SolverPorter`        — porter contract (`solve` + `diagnose`).
 //   • `MockSolver`          — deterministic projection-based solver
 //                             that handles the five first constraint
-//                             kinds for unit tests + the local-dev
-//                             path until the real planegcs WASM
-//                             binding ships at S53 D1.
-//   • `loadSolver({env})`   — selector mirroring `loadRelay` /
-//                             `loadTranscriber` from ai-host. Returns
-//                             the mock unless `PLANEGCS_WASM_URL` is
-//                             set (in which case the real adapter
-//                             would be loaded via dynamic import —
-//                             that adapter ships at S53 D1, until
-//                             then the selector still falls through
-//                             to the mock).
+//                             kinds. It is the DEFAULT and, today, the
+//                             ONLY solver: no planegcs binding exists
+//                             in this repo, and none is authorised
+//                             until C74 §4.2(c) is answered for a
+//                             named constraint family (C74 §4.5).
+//   • `loadSolver({env})`   — selector. NOT CONFIGURED (no
+//                             `PLANEGCS_WASM_URL`) returns the mock —
+//                             a stated default, labelled by its own
+//                             `kind = 'mock'`. CONFIGURED-BUT-FAILED
+//                             THROWS: failure and emptiness are never
+//                             the same value (C74 §3.3). It no longer
+//                             falls through to the mock silently.
 
 import type {
   ConstraintSet,
@@ -32,10 +33,18 @@ import type {
   VariableId,
 } from './types.js';
 
-/** Porter contract. The sketcher / Web Worker / bench all talk to
- *  this interface; the production planegcs adapter is a separate
- *  module loaded only when the WASM URL is present. */
+/** Porter contract. The sketcher / bench all talk to this interface;
+ *  a real engine adapter would be a separate module loaded only when
+ *  its URL is present (none is authorised today — C74 §4.5). */
 export interface SolverPorter {
+  /**
+   * Declared identity of what ACTUALLY executes (C74 §3.1/§3.2) —
+   * e.g. `'mock'`. Optional so plain test stubs still satisfy the
+   * shape, but every shipped implementation declares it, and a
+   * consumer can detect a stand-in from outside without reading its
+   * source.
+   */
+  readonly kind?: string;
   solve(set: ConstraintSet, hints?: SolveHints): Promise<SolveResult>;
   diagnose(set: ConstraintSet): Promise<DiagnoseResult>;
 }
@@ -73,8 +82,8 @@ export function resolveExpr(
  *  For the snapshot test cases (single-constraint sketches with
  *  isolated entities) this converges to within `DEFAULT_TOLERANCE_MM`
  *  in 1-3 iterations. For cyclic systems (multiple coupled
- *  constraints) it tracks slower than the real planegcs but the
- *  S53-pinned canonical 20-snapshot suite uses planegcs proper.
+ *  constraints) it tracks slower than a real Jacobian-based solver
+ *  would. No such solver ships in this repo (C74 §4.5).
  *
  *  DOF calculation: |variables| − |constraints touching variables|.
  *  This is the simplest possible DOF counter — the real planegcs
@@ -455,30 +464,50 @@ function constraintSignature(c: SketchConstraint, set: ConstraintSet): string {
   }
 }
 
-/** Selector mirroring `loadRelay` from `@pryzm/ai-host`. Returns
- *  the mock unless `PLANEGCS_WASM_URL` is set (in which case the
- *  real planegcs adapter would be loaded via dynamic import — that
- *  adapter ships at S53 D1 alongside the sketcher canvas, until
- *  then the selector still falls through to the mock). */
+/** Selector. Its two miss modes are DIFFERENT observable outcomes
+ *  (C74 §3.3, §CONTEXT-DATA-HONESTY — failure and emptiness are never
+ *  the same value):
+ *
+ *    • NOT CONFIGURED (`PLANEGCS_WASM_URL` unset) → `MockSolver`, the
+ *      legitimate stated default, labelled as such at its own boundary
+ *      (`kind = 'mock'`).
+ *    • CONFIGURED BUT FAILED (URL set, adapter unloadable) → THROWS a
+ *      typed error naming the URL and the cause. The one action a
+ *      caller can take to ask for a real engine no longer silently
+ *      hands back the mock.
+ *
+ *  (`loadRelay` in `@pryzm/ai-host` still has the old conflated shape —
+ *  noted on the check-solver-is-real ledger; it is that package's fix,
+ *  not this one's.) */
 export async function loadSolver(
   opts: { env?: Record<string, string | undefined> } = {},
 ): Promise<SolverPorter> {
   const env = opts.env ?? (typeof process !== 'undefined' ? process.env : {});
   const url = env.PLANEGCS_WASM_URL;
-  if (!url) return new MockSolver();
-  // Real adapter lands at S53 D1; for now fall through.
+  if (!url) {
+    // Not configured — the mock is the stated default, and it announces
+    // itself through `kind = 'mock'`.
+    return new MockSolver();
+  }
+  // Configured — from here on every miss is a FAILURE, never a default.
   // Indirect-eval `Function('s', 'return import(s)')` + non-literal
-  // specifier so Vite/Rollup cannot statically resolve the missing
-  // module at bundle time (which would break `vite build`).
+  // specifier so Vite/Rollup cannot statically resolve the module at
+  // bundle time (which would break `vite build`).
   try {
     const dynImport = (new Function('s', 'return import(s)') as (s: string) => Promise<unknown>);
     const specifier = './' + 'PlanegcsAdapter.js';
     const mod = await dynImport(specifier);
-    if (mod && typeof (mod as { createPlanegcsAdapter?: unknown }).createPlanegcsAdapter === 'function') {
-      return (mod as { createPlanegcsAdapter: (u: string) => SolverPorter }).createPlanegcsAdapter(url);
+    const factory = (mod as { createPlanegcsAdapter?: unknown } | null)?.createPlanegcsAdapter;
+    if (typeof factory !== 'function') {
+      throw new Error('adapter module loaded but exports no createPlanegcsAdapter() function');
     }
-  } catch {
-    // Adapter not yet shipped — fall through to mock.
+    return (factory as (u: string) => SolverPorter)(url);
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `loadSolver: PLANEGCS_WASM_URL is set ('${url}') but the solver adapter could not be loaded: ${cause}. ` +
+        'CONFIGURED-BUT-FAILED is a failure, not a default (C74 §3.3) — this selector no longer returns the ' +
+        'mock on this branch. Unset PLANEGCS_WASM_URL to use the stated MockSolver default.',
+    );
   }
-  return new MockSolver();
 }

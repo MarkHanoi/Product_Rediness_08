@@ -1,27 +1,33 @@
-// PlanegcsAdapter — porter for the real planegcs WASM solver (S52 D1).
+// PlanegcsAdapter — SCAFFOLD for a future planegcs WASM binding (C74 §3.4 header).
 //
-// Spec source:
-//   • `phases/PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN.md` §6.1, §6.2
-//     (line 363 — `PlanegcsSolverPorter` ships at S52 D1 in the
-//     browser, `PlanegcsNodePorter` at S52 D2 in Node).
+// owner: @pryzm/constraint-solver (Phase 7 adapter-truthfulness pass)
+// date: 2026-08-12
+// retiring assertion: `__tests__/PlanegcsAdapter.test.ts` — the test named
+//   "scaffold retirement guard" asserts `new PlanegcsAdapter(...).kind === 'mock'`.
+//   It FAILS the moment a real engine executes behind this adapter, which forces
+//   this header (and the scaffold posture) to be retired in the same change.
+// milestone: this header used to say the binding "lands at S52 D2" while
+//   engine.ts said S53 D1 in four places — two milestones, both of which passed
+//   without the binding. That disagreement is resolved here to ONE stated
+//   milestone: **C74 §4.2(c) authorisation** — the binding may be built only
+//   when some constraint family is shown, in writing, to need SOLVING (a
+//   simultaneous system with no closed form). Until that record exists, the
+//   binding is UNAUTHORISED (C74 §4.5) and this adapter remains an honest,
+//   mock-delegating scaffold.
 //
-// STATUS — S52 D1 SCAFFOLD.
-//   The adapter SHAPE is shipped now so `loadSolver({env:{PLANEGCS_WASM_URL:'…'}})`
-//   end-to-end resolves to a real `SolverPorter` object instead of
-//   silently falling through to `MockSolver`.  The actual planegcs
-//   WASM binding lands at S52 D2 with the npm `planegcs` package
-//   install + WASM URL plumbing through Vite's `?url` asset import.
-//   Until D2, every `solve()` and `diagnose()` call delegates to the
-//   shipped `MockSolver` — the OTel span shape, return shape, and
-//   error semantics are already final, so D2's WASM swap is a pure
-//   internal-implementation change with zero ripples.
+// TRUTHFULNESS (C74 §3.1/§3.2, 2026-08-12) — this class previously declared
+//   `readonly kind = 'planegcs'` while delegating 100% of its work to
+//   `MockSolver`. That was the defect C74 was written for. Now:
+//   • `kind` reports what ACTUALLY executes — `'mock'` for every production
+//     construction, or the injected underlying's own declared kind;
+//   • `intendedEngine = 'planegcs'` is a SEPARATE field carrying what the
+//     scaffold is FOR, so intent can never be read as capability;
+//   • the first call on a mock-backed instance emits a one-time console
+//     warning — the §3.2 non-suppressible boundary signal.
 //
 // LAYERING — L4-equivalent (constraint solver lives outside the
 //   layered stack but obeys the L4-pure rule: no THREE, no DOM, no
-//   imports above L1).  The browser variant uses `fetch` for the
-//   WASM module; the Node variant uses `fs.readFileSync`.  Both are
-//   the same SolverPorter shape so the sketcher doesn't care which
-//   it has.
+//   imports above L1).
 
 import { MockSolver, type SolverPorter } from './engine.js';
 import type {
@@ -36,7 +42,8 @@ export interface PlanegcsAdapterOptions {
    * Source URL for the planegcs WASM module.  Required.  In the
    * browser this is typically `import.meta.url`-relative
    * (`new URL('planegcs.wasm', import.meta.url)`); in Node it's a
-   * `file://` URL produced by `pathToFileURL()`.
+   * `file://` URL produced by `pathToFileURL()`.  Held for the
+   * unauthorised future binding; NOTHING is fetched from it today.
    */
   readonly wasmUrl: string;
 
@@ -45,7 +52,7 @@ export interface PlanegcsAdapterOptions {
    * exclusively by tests so they can verify delegation without
    * loading a real WASM module.  Production callers MUST NOT pass
    * this.  When omitted (or undefined) the adapter falls back to
-   * `MockSolver` until S52 D2 swaps in the real planegcs binding.
+   * `MockSolver` — and reports `kind = 'mock'` accordingly.
    */
   readonly underlying?: SolverPorter;
 }
@@ -76,30 +83,68 @@ export function createPlanegcsAdapter(
 }
 
 /**
- * Real-WASM SolverPorter — S52 D1 scaffold; every call delegates to
- * `MockSolver` (or the test-injected underlying) until S52 D2 wires
- * the planegcs WASM module.  The shape, error semantics, and return
- * types are FROZEN here so the swap is internal-only.
+ * Scaffold SolverPorter for the (unauthorised, see header) planegcs
+ * binding.  Every call delegates to `MockSolver` (or the test-injected
+ * underlying), and — unlike the pre-2026-08-12 version — its externally
+ * visible identity SAYS SO: `kind` is the underlying's actual identity
+ * ('mock' in every production construction), and the engine this
+ * scaffold is FOR lives in the separate `intendedEngine` field.  No
+ * consumer branching on `kind` can read mock output as planegcs output.
  */
 export class PlanegcsAdapter implements SolverPorter {
-  readonly kind = 'planegcs' as const;
+  /**
+   * The identity of what ACTUALLY executes (C74 §3.1).  `'mock'` for
+   * every production construction; a test-injected underlying's own
+   * declared kind when it has one.  Never `'planegcs'` until a real
+   * planegcs engine performs the work.
+   */
+  readonly kind: string;
+
+  /**
+   * What this scaffold is FOR — a statement of intent, deliberately
+   * separated from `kind` so intent can never be mistaken for
+   * capability (C74 §3.2).
+   */
+  readonly intendedEngine = 'planegcs' as const;
 
   /** Frozen at construction so callers can debug-inspect it. */
   readonly wasmUrl: string;
 
-  /** Internal solver — mock today, real planegcs at S52 D2. */
+  /** Internal solver — a mock stand-in until a binding is authorised. */
   private readonly underlying: SolverPorter;
+
+  /** One-time §3.2 boundary signal — first call on a mock-backed instance. */
+  private warnedStandIn = false;
 
   constructor(opts: PlanegcsAdapterOptions) {
     this.wasmUrl = opts.wasmUrl;
     this.underlying = opts.underlying ?? new MockSolver();
+    this.kind = this.underlying.kind ?? 'mock';
+  }
+
+  /**
+   * C74 §3.2 — a stand-in announces itself at its own boundary with a
+   * non-suppressible signal on the first call.  A file-header comment
+   * was accurate and ignored for months; this is not that.
+   */
+  private announceStandIn(): void {
+    if (this.warnedStandIn || this.kind !== 'mock') return;
+    this.warnedStandIn = true;
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[constraint-solver] PlanegcsAdapter is a SCAFFOLD: kind='mock' — every call ` +
+        `is served by MockSolver, not by '${this.intendedEngine}'. The WASM binding is ` +
+        `unauthorised until C74 §4.2(c) is answered for a named constraint family.`,
+    );
   }
 
   async solve(set: ConstraintSet, hints?: SolveHints): Promise<SolveResult> {
+    this.announceStandIn();
     return this.underlying.solve(set, hints);
   }
 
   async diagnose(set: ConstraintSet): Promise<DiagnoseResult> {
+    this.announceStandIn();
     return this.underlying.diagnose(set);
   }
 }

@@ -129,16 +129,25 @@ const NEUTRAL_KINDS = new Set([
  * commit. Do NOT add a line to make the gate quiet: a new finding is exit 3.
  */
 const LEDGER: readonly string[] = [
-  "R1::packages/constraint-solver/src/PlanegcsAdapter.ts:PlanegcsAdapter declares kind='planegcs'",
-  'R2::packages/constraint-solver/src/engine.ts:loadSolver',
-  // Measured, NOT specified: C74 §3.3 and the gates doc §3.13 name `loadSolver`
+  // STRUCK 2026-08-12 (Phase 7 adapter-truthfulness pass, C74 §4.3 — the
+  // truthfulness commit, no binding work):
+  //   R1 PlanegcsAdapter — `kind` now reports the ACTUAL underlying ('mock' in
+  //      every production construction) with intent carried in a separate
+  //      `intendedEngine` field; the adapter stopped naming an engine it does
+  //      not run — the gate's own accepted exit.
+  //   R2 loadSolver — not-configured returns the labelled mock default;
+  //      configured-but-failed THROWS a typed error naming the URL.
+  //   R3 createWorkerHandler — DELETED with its tests (zero production
+  //      callers; the binding it scaffolded is unauthorised, C74 §4.5).
+  //
+  // Measured, NOT specified: C74 §3.3 and the gates doc §3.13 named `loadSolver`
   // alone. `loadRelay` is the identical defect one package over — the ai-host
   // relay selector returns `new MockAnthropicRelay()` when ANTHROPIC_RELAY_URL is
   // absent AND after the dynamic import throws. Recorded here rather than
   // excluded, because a gate that only ever finds the sites its spec listed is a
-  // spec transcription, not a measurement.
+  // spec transcription, not a measurement. It is ai-host territory, not the
+  // constraint-solver pass's.
   'R2::packages/ai-host/src/AnthropicRelay.ts:loadRelay',
-  'R3::packages/constraint-solver/src/worker.ts:createWorkerHandler',
 ];
 
 // ─── Subject discovery ───────────────────────────────────────────────────────

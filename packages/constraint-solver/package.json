@@ -1,7 +1,7 @@
 {
   "name": "@pryzm/constraint-solver",
   "version": "0.1.0",
-  "description": "PRYZM 2 \u2014 2D geometric constraint solver (S52). Wraps the planegcs WASM behind a `SolverPorter` contract so the Element Creator's sketcher can solve up to 50-constraint systems in < 16 ms (per phase doc \u00a74.1 exit criterion). Real planegcs WASM binding lands at S53 alongside the 2D sketcher canvas in `apps/component-editor`; the package ships today with a `MockSolver` that handles the five first constraint kinds (distance-pp, parallel, perpendicular, coincident-pp, fixed) used by snapshot tests + the porter contract validation.",
+  "description": "PRYZM 2 \u2014 2D sketch constraint engine behind a `SolverPorter` contract. Ships a deterministic `MockSolver` (five first constraint kinds: distance-pp, parallel, perpendicular, coincident-pp, fixed) and an HONESTLY-LABELLED planegcs scaffold (`PlanegcsAdapter`, kind='mock', intendedEngine='planegcs'). No real planegcs binding exists in this repo, and none is authorised until C74 \u00a74.2(c) is answered for a named constraint family (C74 \u00a74.5). Also hosts the REAL `./compliance` advisory rule registry.",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -10,7 +10,6 @@
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
     "./engine": "./src/engine.ts",
-    "./worker": "./src/worker.ts",
     "./compliance": "./src/ConstraintEngine.ts"
   },
   "files": [

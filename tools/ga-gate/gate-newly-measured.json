@@ -109,7 +109,7 @@
       "addedAt": "2026-08-12",
       "builtBy": "BIM 3.0 Phase 1 Tier 1 · BIM30-READINESS-GATES §3.13 · C74 §3.3/§3.7",
       "firstReading": "exit 1 DECLARED-LEVEL — 4 findings against a declared level of 4. Floors met: 170 manifests (min 100), 4483 source files (min 500), 3 adapter classes declaring a kind (min 1), 1/1 executed control proven.",
-      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-solver-is-real.ts — 4 NAMED entries, checked in both directions (an unledgered finding exits 3; a ledgered finding no longer measured exits 3).",
+      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-solver-is-real.ts — 1 NAMED entry remaining (R2 loadRelay, ai-host), checked in both directions (an unledgered finding exits 3; a ledgered finding no longer measured exits 3). 2026-08-12 adapter-truthfulness pass (C74 §4.3, truthfulness-only, no binding work) paid 3 of the original 4: R1 (PlanegcsAdapter kind now reports the actual underlying 'mock', intent moved to a separate intendedEngine field), R2-solver (loadSolver throws on configured-but-failed; not-configured returns the labelled mock default), R3 (createWorkerHandler DELETED with its tests). Reading after: exit 1 DECLARED-LEVEL, 1 finding / 1 declared.",
       "predatesTheGate": [
         "R1 · PlanegcsAdapter.ts:85 declares kind='planegcs'; `planegcs` appears in ZERO package.json in the repo. Recorded in C70 §0 and C74 §0 before this gate existed.",
         "R2 · engine.ts:463 loadSolver() returns MockSolver on BOTH the not-configured branch and the configured-but-threw branch; AnthropicRelay.ts:187 loadRelay() has the identical shape.",
@@ -189,7 +189,7 @@
       "addedAt": "2026-08-12",
       "builtBy": "BIM 3.0 Phase 1 Tier 2 · BIM30-READINESS-GATES §3.14 · C74 §3.2/§3.4/§3.5/§6",
       "firstReading": "exit 1 DECLARED-LEVEL — 63 findings against a declared level of 63: M-A ×1 (PlanegcsAdapter declares kind='planegcs' while constructing MockSolver — the positive control, red until CO-01 resolves) + M-B ×60 (scaffold headers with no owner+date+retiring-assertion, of 62 headers found) + M-C ×2 (PlanegcsAdapter.test.ts:67/:94 inject `underlying:`, the field its own docstring forbids production to pass). Honest stand-ins (MockSolver, MockAnthropicRelay, MockVoiceTranscriber — kind='mock') reported present-and-declared, not counted. Floors met: 4518 files (min 500), 62 scaffold headers (min 1), controls 1/1.",
-      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-no-hidden-mock.ts — 63 NAMED entries, checked in both directions.",
+      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-no-hidden-mock.ts — 61 NAMED entries, checked in both directions. 2026-08-12 adapter-truthfulness pass struck M-A (PlanegcsAdapter now declares its actual identity, kind='mock', with a one-time first-call boundary warning) and the M-B PlanegcsAdapter.ts entry (header gained owner+date+retiring assertion, S52-D2/S53-D1 resolved to one milestone: C74 §4.2(c) authorisation); the 2 M-C entries were re-pinned to the seam tests' new line numbers (:121/:150) — the test file now ALSO covers the production (un-injected) construction, per §3.5. Reading after: exit 1 DECLARED-LEVEL, 61 findings / 61 declared.",
       "predatesTheGate": [
         "M-A · PlanegcsAdapter.ts — the mock behind a real name, recorded in C74 §0 before the gate was written.",
         "M-B · 60 scaffold headers, including the S52-vs-S53 disagreement C74 §3.4 names, and the src/ + apps/editor twin copies of familyCreatorPlaceholder.ts (the two-copies anti-pattern wearing a scaffold header).",
@@ -199,6 +199,22 @@
       "territory": "packages/constraint-solver/ plus the 60 M-B files across packages/, apps/, src/ — NOT tools/.",
       "reviewBy": "2027-02-12",
       "reviewByNote": "Aligned with epsilon-policy's date rather than the two siblings', for the same argued reason: M-B is 60 files whose fix is a per-file authorship judgement (owner, date, retiring assertion), not a mechanical strike-list. A three-month bound on 60 files teaches date-extension, not compliance. M-A and M-C are 3 entries in one package and should be gone long before the date."
+    },
+    {
+      "gate": "check-secrets-register.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-12",
+      "builtBy": "C77 §6 (minted 2026-08-12, gate UNBUILT at stamp — this commit un-marks it) · BIM30-SECRETS-MAPPING-AUDIT.md §5",
+      "firstReading": "exit 1 DECLARED-LEVEL — 12 findings against a declared level of 12, all arm a (env names READ in production sources with no declaration row in tools/ga-gate/secrets-declarations.json). Arm b (build-time-inlined SECRET) reads 0; arm c (sharedWith carried in deploy guidance) reads 0 — SESSION_SECRET and DATABASE_URL both carried. Floors met: 3688 files scanned (min 400), 190 env-read sites (min 40), 86 distinct names (min 25), in-run planted controls 1/1 (arms a/b/c each watched firing on FAKE names; clean fixture 0), value-leak self-check 0 value-shaped strings.",
+      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-secrets-register.ts — 12 NAMED `A::NAME` entries, checked in both directions (an unledgered finding exits 3; a ledgered finding no longer measured exits 3). Declarations were seeded from the audit's EXECUTED inventory only — declaring everything the scan finds would make arm a a tautology, so what the audit never established lands here instead.",
+      "predatesTheGate": [
+        "All 12 names were read in production sources before C77 existed; none had any owner, classification, requiredness or failure mode anywhere (the audit's §3 ownership matrix reads NO OWNER on every row).",
+        "A::PRYZM_PUBLISHER_TOKEN (packages/plugin-sdk/src/dev/publish-command.ts:56) reads like a credential and is the highest-value strike: an undeclared probable-SECRET is the exact class the register exists to catch.",
+        "The rest are service ports, bake/CI knobs and deploy env (API_GATEWAY_PORT, BAKE_PORT, MARKETPLACE_PORT, NSHARDS, SHARD, WORKER_CONCURRENCY, OTEL_RESOURCE_ATTRIBUTES, PNPM_HOME, PRYZM_DEV_PRINT_SRCDOC, PRYZM_MARKETPLACE_URL, PRYZM_PUBLISHER_KEY_PATH) — almost certainly CONFIG, but 'almost certainly' is a judgement nobody has recorded, and recording it is the fix."
+      ],
+      "exitCondition": "each of the 12 names gains an argued declaration row (classification · required · sharedWith · failureMode) in secrets-declarations.json, or its read-site is deleted — struck from the LEDGER in the same commit. PRYZM_PUBLISHER_TOKEN's classification decision comes first. LEDGER reaches 0 and the gate flips hard-0 on arm a. NOTE: §6 arm d (deploy-time presence probe + sharedWith digest comparison) is OPTIONAL, NOT RUN, and stated so on every run — a green reading here asserts declaration and static registration, never prod presence (C77 §0.2).",
+      "territory": "tools/ga-gate/secrets-declarations.json (the declarations are judgements — most rows need only a classification argued), plus packages/plugin-sdk/ and apps/api-gateway|bake-worker|marketplace-api/ if any read is to be deleted instead.",
+      "reviewBy": "2026-11-12"
     },
     {
       "gate": "../rac-conformance/certification/gates/check-propagation-trackers-reach.ts",

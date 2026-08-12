@@ -33,12 +33,11 @@ export {
   type SolverPorter,
 } from './engine.js';
 
-export {
-  createWorkerHandler,
-  type WorkerHandlerFn,
-  type WorkerInMessage,
-  type WorkerOutMessage,
-} from './worker.js';
+// `./worker.js` (`createWorkerHandler` + its message types) was DELETED
+// 2026-08-12 (C74 §3.8, ADR-0323 wire-or-delete): it had ZERO production
+// callers, and the WASM binding whose off-thread path it scaffolded is
+// unauthorised until C74 §4.2(c) is answered. Restore from git history if a
+// binding is ever authorised AND a worker path is proven necessary.
 
 // ── Sprint H P9.2 (2026-05-10) — Stair policy + validation ──────────────────
 export type {

@@ -125,9 +125,16 @@ const FORBIDDEN_DOC = /production(?:\s+\w+){0,3}\s+MUST\s+NOT(?:\s+\w+)?\s+(pass
  *      field whose docstring says "Production callers MUST NOT pass this".
  */
 const LEDGER: readonly string[] = [
-  "M-A::packages/constraint-solver/src/PlanegcsAdapter.ts:PlanegcsAdapter kind='planegcs' delegates to MockSolver",
-  'M-C::packages/constraint-solver/__tests__/PlanegcsAdapter.test.ts:67:underlying',
-  'M-C::packages/constraint-solver/__tests__/PlanegcsAdapter.test.ts:94:underlying',
+  // M-A::PlanegcsAdapter STRUCK 2026-08-12 — the adapter's `kind` now reports
+  // the actual underlying ('mock'), intent moved to a separate `intendedEngine`
+  // field, and a one-time first-call warning is the §3.2 boundary signal
+  // (CO-01, the C74 §4.3 truthfulness commit).
+  // M-C line numbers re-pinned 2026-08-12: the test file gained PRODUCTION-path
+  // coverage (the un-injected `?? new MockSolver()` construction, C74 §3.5's
+  // demand) and a §3.5 coverage statement in its header; the two remaining
+  // seam-test injection sites moved accordingly. Same two sites, new lines.
+  'M-C::packages/constraint-solver/__tests__/PlanegcsAdapter.test.ts:121:underlying',
+  'M-C::packages/constraint-solver/__tests__/PlanegcsAdapter.test.ts:150:underlying',
   // M-B — 60 scaffold headers (of 62 found) carrying no owner+date+retiring-
   // assertion. Note the PAIR src/familyCreatorPlaceholder.ts and
   // apps/editor/src/familyCreatorPlaceholder.ts — the same scaffold twice, in
@@ -160,7 +167,10 @@ const LEDGER: readonly string[] = [
   'M-B::packages/command-registry/src/grids/UpdateGridCommand.ts',
   'M-B::packages/command-registry/src/requirements/SetRoomRequirementCommand.ts',
   'M-B::packages/command-registry/src/views/SetViewDesignOptionCommand.ts',
-  'M-B::packages/constraint-solver/src/PlanegcsAdapter.ts',
+  // M-B::packages/constraint-solver/src/PlanegcsAdapter.ts STRUCK 2026-08-12 —
+  // header now carries owner, date, a retiring assertion (the "scaffold
+  // retirement guard" test), and the S52-D2/S53-D1 disagreement resolved to
+  // ONE milestone: C74 §4.2(c) authorisation.
   'M-B::packages/core-app-model/src/ElementCodeStore.ts',
   'M-B::packages/core-app-model/src/IFCPsetAdapter.ts',
   'M-B::packages/core-app-model/src/SemanticIndex.ts',

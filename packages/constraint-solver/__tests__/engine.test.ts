@@ -10,26 +10,26 @@
 //     perpendicular, coincident-pp, fixed) solve to expected values.
 //   • MockSolver.solve well/under/over-constrained DOF reporting.
 //   • diagnose() reports redundant + freeDOF + unconstrained.
-//   • loadSolver({env}) falls through to MockSolver without WASM.
-//   • createWorkerHandler echoes solve/diagnose with id matching.
+//   • loadSolver({env}) — not-configured returns the labelled mock
+//     default; configured-but-failed is a VISIBLE failure (C74 §3.3).
+//
+// (createWorkerHandler and its worker tests were DELETED 2026-08-12 —
+// zero production callers, binding unauthorised; see src/index.ts.)
 //
 // The mock solver hits 0.001 mm tolerance for the canonical isolated
-// cases used here. The 20-canonical-sketch suite (per spec line 1487)
-// pins to the real planegcs adapter and ships at S53 D1.
+// cases used here. No real planegcs adapter exists in this repo, and
+// none is authorised until C74 §4.2(c) is answered (C74 §4.5).
 
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_TOLERANCE_MM,
   MockSolver,
   SOLVER_OTEL_NAMESPACE,
-  createWorkerHandler,
   loadSolver,
   resolveExpr,
   type ConstraintKind,
   type ConstraintSet,
   type SketchConstraint,
-  type WorkerInMessage,
-  type WorkerOutMessage,
 } from '../src/index.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────
@@ -249,57 +249,31 @@ describe('@pryzm/constraint-solver — diagnose', () => {
   });
 });
 
-describe('@pryzm/constraint-solver — loadSolver selector', () => {
-  it('falls through to MockSolver without PLANEGCS_WASM_URL', async () => {
+describe('@pryzm/constraint-solver — loadSolver selector (C74 §3.3: two miss modes, two outcomes)', () => {
+  it('NOT CONFIGURED: returns the mock, labelled as such (a stated default)', async () => {
     const s = await loadSolver({ env: {} });
     expect(s).toBeInstanceOf(MockSolver);
+    expect(s.kind).toBe('mock');
   });
-  it.skip('returns the PlanegcsAdapter when PLANEGCS_WASM_URL is set (post-S52 D1)', async () => {
-    // Skipped: loadSolver uses new Function() dynamic import which vitest cannot
-    // intercept in the test environment — PlanegcsAdapter.js is a production
-    // deploy artefact not present during unit test runs.  Real coverage is gated
-    // on S52 D2 (WASM binding + integration harness).
-    const s = await loadSolver({ env: { PLANEGCS_WASM_URL: 'https://example.test/planegcs.wasm' } });
-    expect(s).not.toBeInstanceOf(MockSolver);
-    expect((s as { kind?: string }).kind).toBe('planegcs');
-  });
-});
-
-describe('@pryzm/constraint-solver — Web Worker handler', () => {
-  it('echoes a solve message with id matching the request', async () => {
-    const handler = createWorkerHandler({ solver: new MockSolver() });
-    const msg: WorkerInMessage = {
-      id: 'req-7',
-      kind: 'solve',
-      payload: { set: makeDistanceFixture() },
-    };
-    const replies: WorkerOutMessage[] = [];
-    await handler(msg, (m) => replies.push(m));
-    expect(replies).toHaveLength(1);
-    expect(replies[0]!.id).toBe('req-7');
-    expect('result' in replies[0]!).toBe(true);
-  });
-  it('echoes a diagnose message with id matching the request', async () => {
-    const handler = createWorkerHandler({ solver: new MockSolver() });
-    const msg: WorkerInMessage = {
-      id: 'req-8',
-      kind: 'diagnose',
-      payload: { set: makeDistanceFixture() },
-    };
-    const replies: WorkerOutMessage[] = [];
-    await handler(msg, (m) => replies.push(m));
-    expect(replies[0]!.id).toBe('req-8');
-    if ('result' in replies[0]!) {
-      expect(replies[0]!.result).toHaveProperty('freeDOF');
+  it('CONFIGURED is never a silent bare mock: honest adapter, or a VISIBLE failure', async () => {
+    // The pre-2026-08-12 selector returned `new MockSolver()` on BOTH the
+    // absent-URL branch and past the catch — indistinguishable to the caller.
+    // Now, with the URL set, the only legal outcomes are (a) the adapter
+    // module binds and reports its stand-in truthfully, or (b) a typed
+    // failure naming the URL. Both are asserted; a bare MockSolver fails.
+    let porter: Awaited<ReturnType<typeof loadSolver>> | undefined;
+    let err: unknown;
+    try {
+      porter = await loadSolver({ env: { PLANEGCS_WASM_URL: 'https://example.test/planegcs.wasm' } });
+    } catch (e) {
+      err = e;
     }
-  });
-  it('replies with an error envelope for malformed message envelopes', async () => {
-    const handler = createWorkerHandler({ solver: new MockSolver() });
-    const replies: WorkerOutMessage[] = [];
-    await handler({} as WorkerInMessage, (m) => replies.push(m));
-    expect(replies).toHaveLength(1);
-    if ('error' in replies[0]!) {
-      expect(replies[0]!.error).toMatch(/Invalid|Unknown/);
+    if (err !== undefined) {
+      expect(String(err)).toMatch(/PLANEGCS_WASM_URL/);
+      expect(String(err)).toMatch(/could not be loaded/);
+    } else {
+      expect(porter).not.toBeInstanceOf(MockSolver);
+      expect(porter!.kind).toBe('mock'); // the adapter tells the truth about what executes
     }
   });
 });
