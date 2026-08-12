@@ -1,21 +1,17 @@
 /**
- * @pryzm/speculative-engine — public API barrel
+ * @pryzm/speculative-engine — RETIRED (BIM30 R3, 2026-08-12).
  *
- * Sprint S (2026-05-11): extracted from src/engine/subsystems/core/SpeculativeEngine.ts (Great Purge)
+ * This package's preview path (`speculativeEngine.preview` + the `SpeculativeAction`
+ * vocabulary + `ConsequencePreview` / `SemanticReadRefusal` types) has been retired per
+ * ADR-0322 §8 / ADR-0323. See `./SpeculativeEngine.ts` for the dated removal header and the
+ * new homes of what it became:
  *
- * Read-only speculative state engine — previews consequences of destructive
- * actions without modifying any live store or SemanticGraph.
+ *   contract → @pryzm/command-bus (packages/command-bus/src/consequence.ts)
+ *   planner  → apps/editor/src/engine/consequence/WallMoveConsequencePlanner.ts
+ *   preview  → apps/editor/src/engine/consequence/ConsequencePreviewService.ts
+ *
+ * The barrel exports nothing — every former consumer has migrated. The package directory is
+ * kept only until its scheduled deletion (2026-11-12) to avoid a pnpm-lock desync.
  */
 
-export { speculativeEngine } from './SpeculativeEngine';
-export type {
-    SpeculativeAction,
-    SpeculativeActionType,
-    ConsequencePreview,
-    SemanticRelationshipSnapshot,
-    // §FIX-SPEC-SEMANTIC-DEAD-GUARD (W2-3) — the typed refusal that replaced the
-    // `[]` a missing method used to return. Exported because every consumer that
-    // renders `severedRelationships` must branch on it.
-    SemanticReadRefusal,
-    SemanticReadRefusalReason,
-} from './SpeculativeEngine';
+export {};

@@ -35,6 +35,10 @@ import {
     buildMoveCommand,
     MOVE_UNSUPPORTED_REASON,
 } from '@app/engine/transforms/elementMove';
+// BIM30 R3 — the consequence-preview overlay's first LIVE caller. As the user drags a
+// wall's destination, emit a PreviewCommand for the candidate baseline so the overlay
+// renders the READ-ONLY ConsequencePlan (ADR-0322 §3) before the move is committed.
+import { triggerConsequencePreview, hideConsequencePreview } from '@app/ui/canvas/ConsequencePreviewOverlay';
 // [F-1.2] R2/R3 dual-write — commandManager is authoritative for WallRebuildCoordinator.
 
 const GRID_SNAP_M = 0.05; // 50 mm grid snap
@@ -75,6 +79,7 @@ export class MovePlanToolHandler implements PlanToolHandler {
     }
 
     deactivate(): void {
+        hideConsequencePreview(); // BIM30 R3 — dismiss any live consequence preview.
         this._clearOverlay();
         this._ctx        = null;
         this._phase      = 'awaiting-first';
@@ -85,6 +90,7 @@ export class MovePlanToolHandler implements PlanToolHandler {
     }
 
     cancel(): void {
+        hideConsequencePreview(); // BIM30 R3 — no candidate destination while awaiting-first.
         this._phase    = 'awaiting-first';
         this._firstPt  = null;
         this.redraw();
@@ -210,7 +216,37 @@ export class MovePlanToolHandler implements PlanToolHandler {
 
             // Ghost element preview at destination
             this._drawGhostAt(ctx, planCanvas, cursor, dx, dz);
+
+            // BIM30 R3 — the consequence-preview overlay's first live caller. For a wall
+            // being dragged to a new destination, emit the candidate `wall.updateBaseline`
+            // so the overlay computes and renders its READ-ONLY ConsequencePlan (opening
+            // refit, junctions, violations, undetermined branches) BEFORE the commit. The
+            // overlay debounces (300 ms) and positions from its own tracked cursor.
+            this._emitWallConsequencePreview(dx, dz);
         }
+    }
+
+    /**
+     * Emit a PreviewCommand for the candidate wall baseline (prev + Δ). Guarded to wall
+     * targets and to a meaningful delta; a no-op otherwise. Read-only — this only asks the
+     * overlay "what WOULD this move do?"; nothing is dispatched or mutated here.
+     */
+    private _emitWallConsequencePreview(dx: number, dz: number): void {
+        if (this._targetType !== 'wall' || !this._targetId) return;
+        if (Math.hypot(dx, dz) < 0.005) return;
+        const ws = window.wallStore; // TODO(TASK-08)
+        const wall = ws?.getById?.(this._targetId);
+        if (!wall?.baseLine) return;
+        type Pt = { x: number; y: number; z: number };
+        const prev = wall.baseLine as [Pt, Pt];
+        const newBaseLine: [Pt, Pt] = [
+            { x: prev[0].x + dx, y: prev[0].y, z: prev[0].z + dz },
+            { x: prev[1].x + dx, y: prev[1].y, z: prev[1].z + dz },
+        ];
+        triggerConsequencePreview({
+            type: 'wall.updateBaseline',
+            payload: { wallId: this._targetId, newBaseLine, prevBaseLine: prev },
+        });
     }
 
     // ──────────────────────────────────────────────────────────────────────────

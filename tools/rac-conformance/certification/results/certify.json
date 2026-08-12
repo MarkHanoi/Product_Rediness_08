@@ -1,84 +1,14 @@
 {
-  "startedAt": "2026-08-12T06:21:00.687Z",
-  "vitestStatus": 0,
-  "failedRows": {
-    "persistence": 0,
-    "undoredo": 0
-  },
+  "startedAt": "2026-08-12T12:49:50.157Z",
+  "vitestStatus": null,
   "gates": {
     "check-identity-roundtrip": 0,
     "check-propagation-reaches": 1,
-    "check-derived-regenerable": 0
+    "check-derived-regenerable": 0,
+    "check-propagation-trackers-reach": 1,
+    "check-preview-purity": 0
   },
   "exitCode": 1,
-  "finishedAt": "2026-08-12T06:21:33.657Z",
-  "floors": {
-    "persistence": {
-      "floors": [
-        {
-          "what": "persistence.json written by THIS run (freshness)",
-          "measured": 1,
-          "min": 1
-        },
-        {
-          "what": "rows emitted",
-          "measured": 18,
-          "min": 18
-        },
-        {
-          "what": "element records in the EXPECTED capture",
-          "measured": 19,
-          "min": 12
-        },
-        {
-          "what": "kinds whose subject was established (SEEDED)",
-          "measured": 18,
-          "min": 14
-        },
-        {
-          "what": "serializeError is empty (the measured path actually executed)",
-          "measured": 1,
-          "min": 1
-        },
-        {
-          "what": "loadError is empty (the measured path actually executed)",
-          "measured": 1,
-          "min": 1
-        }
-      ],
-      "notes": [],
-      "unmet": 0
-    },
-    "undoredo": {
-      "floors": [
-        {
-          "what": "undoredo.json written by THIS run (freshness)",
-          "measured": 1,
-          "min": 1
-        },
-        {
-          "what": "rows emitted",
-          "measured": 16,
-          "min": 16
-        },
-        {
-          "what": "capabilities that actually dispatched",
-          "measured": 16,
-          "min": 12
-        },
-        {
-          "what": "undo entries armed across the run",
-          "measured": 15,
-          "min": 5
-        },
-        {
-          "what": "seed lines that reported OK",
-          "measured": 9,
-          "min": 6
-        }
-      ],
-      "notes": [],
-      "unmet": 0
-    }
-  }
+  "finishedAt": "2026-08-12T12:50:31.865Z",
+  "floors": {}
 }

@@ -56,6 +56,7 @@ import type { PhysicsOverlayMode }    from '@pryzm/physics-host';
 import { selectionBus }               from '@pryzm/core-app-model';
 import { VoiceCommandIndicator }       from '@app/ui/canvas/VoiceCommandIndicator';
 import { ConsequencePreviewOverlay }   from '@app/ui/canvas/ConsequencePreviewOverlay';
+import { createConsequencePreviewService } from '@app/engine/consequence/consequencePreviewServiceComposition';
 import { AmbientIndicator }            from '@app/ui/canvas/AmbientIndicator';
 import { ambientIntelligence }         from '@pryzm/ai-host';
 // S70 D8 — lifecycleStateManager + maintenanceRecordStore imports deleted with
@@ -426,9 +427,12 @@ function runDeferredDataPlatform(
     new VoiceCommandIndicator();
     console.log('[initDataPlatform/deferred] K-1: VoiceCommandIndicator mounted');
 
-    // ── K-2: ConsequencePreviewOverlay — pre-action consequence warnings ───────
-    new ConsequencePreviewOverlay();
-    console.log('[initDataPlatform/deferred] K-2: ConsequencePreviewOverlay initialised');
+    // ── K-2 / BIM30 R3: ConsequencePreviewOverlay — pre-action consequence plan ──
+    // Wired to the composed preview service (ADR-0322 §3): a wall-move hover emits
+    // `pryzm-consequence-preview` with a PreviewCommand, the overlay computes the
+    // ConsequencePlan READ-ONLY (no dispatch, no mutation) and renders it.
+    new ConsequencePreviewOverlay(window.runtime ?? null, createConsequencePreviewService());
+    console.log('[initDataPlatform/deferred] K-2: ConsequencePreviewOverlay initialised (BIM30 R3 preview service wired)');
 
     // ── K-3: AmbientIndicator + AmbientIntelligence ───────────────────────────
     new AmbientIndicator();

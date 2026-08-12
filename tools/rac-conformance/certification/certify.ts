@@ -168,7 +168,12 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // propagation that actually works in this product, and which the BIM 3.0 gap
 // register's coverage matrix found to be completely ungated. Level 4 of the
 // maturity ladder rests on it; until now nothing would have told us if it broke.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach'];
+// §BIM30-R3 — check-preview-purity (G-REASON-01) added 2026-08-12. The first gate over the
+// consequence-preview surface: it drives a REAL wall.move preview and asserts stores/events/
+// undo/dirty are all unchanged, each with a positive control proving the check can observe a
+// violation and a negative control (an impure preview) proving the checker flags one. Lands
+// GREEN today — preview is pure — so it carries no ratchet/newly-measured entry.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
