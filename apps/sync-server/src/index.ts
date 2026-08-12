@@ -117,6 +117,27 @@ export async function createSyncServer(
       // reporting `trust-query` or `deny-all` is a misconfiguration that must
       // be visible without attempting an unauthenticated connection.
       wsAuth: { mode: wsAuthFactory.mode, reason: wsAuthFactory.reason },
+      // L-391 §4.1 — AUTHORISATION, reported next to authentication because the
+      // two were conflated in the deploy discussion. `wsAuth.mode` says whether
+      // identity is verified; THIS says whether membership is. A production
+      // instance reporting `memory-allow-by-default` is admitting that any
+      // signed-in user may join any room, and that must be visible on /health
+      // rather than discoverable by connecting as a stranger.
+      //
+      // `probe` answers a question the selection alone cannot: `pg` was
+      // SELECTED, but is `project_members` actually READABLE from this
+      // container? It is the smoke test for the production flip.
+      authz: {
+        selection: authzFactory.selection,
+        reason: authzFactory.reason,
+        ...(typeof (authzFactory.authz as unknown as { probe?: unknown }).probe === 'function'
+          ? {
+              probe: await (
+                authzFactory.authz as unknown as { probe: () => Promise<{ ok: boolean; reason: string }> }
+              ).probe(),
+            }
+          : {}),
+      },
     });
   });
 
@@ -266,7 +287,14 @@ export async function createSyncServer(
       // here made EVERY `shutdown()` throw (the pre-existing Chaos suite
       // failed at teardown on exactly this line).  Optional-call keeps the
       // seam for a future closable authz without crashing today's.
+      //
+      // §PGAUTHZ-CLOSE — the closable thing is the IMPLEMENTATION, not the
+      // factory result: `PgAuthz` owns a `pg.Pool`. The factory line is kept
+      // because the seam it describes is still valid; the second line is the
+      // one that now actually releases a connection. `MemoryAuthz` has no
+      // `close()`, so it stays a no-op there.
       await (authzFactory as { close?: () => Promise<void> }).close?.();
+      await (authzFactory.authz as { close?: () => Promise<void> }).close?.();
     },
   };
 }

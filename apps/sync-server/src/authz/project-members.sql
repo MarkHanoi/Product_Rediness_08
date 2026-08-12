@@ -1,25 +1,67 @@
 -- apps/sync-server/authz/project-members.sql — W-03 / ADR-0040.
 --
--- Membership table backing `PgAuthz` (Phase 3C).  v0 in-memory authz reads
--- a Map; this schema lands now so the cutover (W-06) creates the table at
--- the same time as the event_log and soft_locks tables.
+-- ⚠⚠ THIS FILE IS NOT THE SCHEMA. IT IS NOT APPLIED BY ANYTHING. DO NOT RUN IT.
 --
--- Roles are textual to keep the table forward-compatible with future
--- additions (`viewer`, `commenter`, …).  Phase 3C JWT will map `roles`
--- claim → row insert / update.
-
-CREATE TABLE IF NOT EXISTS project_members (
-  project_id  TEXT NOT NULL,
-  user_id     TEXT NOT NULL,
-  role        TEXT NOT NULL DEFAULT 'editor',
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (project_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS project_members_user_idx
-  ON project_members (user_id);
-
-COMMENT ON TABLE project_members IS
-  'PRYZM 2 W-03 / ADR-0040 — per-project membership for authz.can.';
-COMMENT ON COLUMN project_members.role IS
-  'Role string; v0: editor; Phase 3C: editor|viewer|commenter|owner.';
+-- ─── §PGAUTHZ-SOURCE-OF-TRUTH — corrected 2026-08-12, L-391 §4.1 ────────────
+--
+-- What this file used to be: a Phase-2 sketch of a membership table, written on
+-- the assumption that the sync-server cutover would create it. Nothing ever
+-- executed it — grep found ZERO readers in apps/, tools/, scripts/ or server/.
+--
+-- What is actually true: `project_members` ALREADY EXISTS and is ALREADY LIVE.
+-- It is created by the BFF at `server/dbMigrate.js:120` against the very same
+-- `DATABASE_URL` the sync server is configured with, it is populated through
+-- `server/projectMembers.js`, and it is read on every socket join by
+-- `server/projectAccess.js`. `PgAuthz` queries THAT table.
+--
+-- ─── WHY THE SKETCH BELOW IS A TRAP, NOT MERELY REDUNDANT ───────────────────
+--
+-- Both DDLs are `CREATE TABLE IF NOT EXISTS`, and the BFF migrates first, so the
+-- sketch is a silent no-op on any real deployment — it cannot correct the live
+-- shape, only disagree with it. Three of its choices are actively wrong:
+--
+--   • `role TEXT NOT NULL DEFAULT 'editor'` — `editor` is NOT one of the five
+--     ISO 19650 roles in `server/permissions.js`. A row created with this
+--     default is refused by `PgAuthz` as `unknown-role`. The live table has no
+--     default: role is always written explicitly.
+--   • `PRIMARY KEY (project_id, user_id)` — the live table has a surrogate `id`
+--     PK and expresses that pair as `UNIQUE (project_id, user_id)`.
+--   • no FKs — the live table cascades from `projects` and `pryzm_users`, which
+--     is what stops membership rows outliving the project they grant access to.
+--
+-- It also omits `invited_by` / `invited_at` / `accepted_at`. The last of those
+-- is dead schema in the BFF too (L-806) and is discussed in
+-- §PGAUTHZ-ACTION-GRANULARITY in PgAuthz.ts.
+--
+-- The sketch is RETAINED, commented out, purely so this correction has something
+-- to point at. If you want the schema, read `server/dbMigrate.js:120` — and if
+-- you are about to add a column for the sync server's benefit, add it THERE, in
+-- the one migration path this product has, not here.
+--
+-- The live shape, reproduced for reading only:
+--
+--   CREATE TABLE IF NOT EXISTS project_members (
+--       id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+--       project_id  TEXT NOT NULL REFERENCES projects(id)     ON DELETE CASCADE,
+--       user_id     TEXT NOT NULL REFERENCES pryzm_users(id)  ON DELETE CASCADE,
+--       role        TEXT NOT NULL,
+--       invited_by  TEXT,
+--       invited_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--       accepted_at TIMESTAMPTZ,
+--       UNIQUE (project_id, user_id)
+--   );
+--   CREATE INDEX IF NOT EXISTS idx_project_members_project_id
+--       ON project_members(project_id);
+--   CREATE INDEX IF NOT EXISTS idx_project_members_user_project
+--       ON project_members(user_id, project_id);   -- L-788; serves PgAuthz
+--
+-- ─── THE SUPERSEDED SKETCH (inert; do not uncomment) ────────────────────────
+--
+-- CREATE TABLE IF NOT EXISTS project_members (
+--   project_id  TEXT NOT NULL,
+--   user_id     TEXT NOT NULL,
+--   role        TEXT NOT NULL DEFAULT 'editor',
+--   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   PRIMARY KEY (project_id, user_id)
+-- );
+-- CREATE INDEX IF NOT EXISTS project_members_user_idx ON project_members (user_id);
