@@ -43,15 +43,26 @@
  *
  * ─── The measured constraint that shapes everything below ───────────────────
  *
- * `composeRuntime` composes only the plugin-DTO half. `wallStore`, `slabStore`,
- * `roofStore`, `roomStore`, `ceilingStore`, `floorStore`, `furnitureStore`,
- * `plumbingStore`, `stairStore`, `columnStore`, `curtainWallStore`, `gridStore`,
- * `beamStore` and `handrailStore` are NOT in the composed runtime — the
- * serializer takes those store CLASSES and is handed instances by the caller,
- * so there is no module singleton to read. For those fourteen kinds CA-21 is
- * unprovable BY CONSTRUCTION, in this process, today. That is reported, never
- * papered over. The census below re-measures it on every run rather than
- * trusting this paragraph.
+ * ⚠ REVISED 2026-08-11 by ADR-0318 §3 wave 1 — this paragraph used to say the
+ * composed runtime holds only the plugin-DTO half, and named FOURTEEN kinds as
+ * unreachable. Eleven remain: `roofStore`, `ceilingStore`, `floorStore`,
+ * `furnitureStore`, `plumbingStore`, `stairStore`, `columnStore`,
+ * `curtainWallStore`, `gridStore`, `beamStore`, `handrailStore` (plus
+ * `openingStore`). For those, the serializer takes store CLASSES and is handed
+ * instances by the caller, so there is no module singleton to read and CA-21 is
+ * unprovable BY CONSTRUCTION in this process.
+ *
+ * `wallStore`, `slabStore` and `roomStore` LEFT that list: each is now a module
+ * singleton adopted by `composeRuntime` into `runtime.stores.elements` and
+ * adopted — not re-constructed — by `initBuilders.ts`, so registry identity ≡
+ * serializer identity by construction (ADR-0318 I-1, proved same-instance and
+ * executed in `adr0318.stores.probe.ts` ID-6/ID-9). Their verbs therefore stop
+ * scoring UNPROVABLE-NO-STORE and start being JUDGED. Several of those judgements
+ * are unflattering, which is the point: a verdict about the verb beats a verdict
+ * about the composition root.
+ *
+ * The census below re-measures all of this on every run rather than trusting
+ * this paragraph.
  *
  * ─── STUB LEDGER (declared loudly, per doctrine) ────────────────────────────
  *
@@ -103,12 +114,28 @@ interface StoreSpec {
   readonly slot?: string;               // runtime/global slot name
   readonly module?: string;             // module singleton source
   readonly exportName?: string;         // module singleton export
+  /**
+   * ADR-0318 canonical element-kind key for `runtime.stores.elements.get(kind)`.
+   *
+   * This is the FIRST rung of the ladder and the strongest one, because it is
+   * the composition root's own authoritative surface. A kind reachable this way
+   * is authoritative by ADR-0318 **I-1**, which is proved by an EXECUTED
+   * same-instance probe (`adr0318.stores.probe.ts`, ID-1/ID-6/ID-9) — identity
+   * against the module singleton AND zero rival construction in the engine half
+   * that feeds ProjectSerializer. That is a stronger warrant than the
+   * `AUTHORITATIVE_SINGLETONS` name-check in `check-verb-liveness.ts` V1, which
+   * greps the serializer's import list; it is not a weaker substitute for it.
+   *
+   * Note the key is the REGISTRY key, which is not always the verb family:
+   * `curtain-wall.*` verbs live under the registry kind `curtainwall`.
+   */
+  readonly elementKind?: string;
 }
 
 const STORES: readonly StoreSpec[] = [
   // ─ reachable by module singleton (the serializer imports each of these) ─
-  { family: 'door',      slot: 'doorStore',      module: '@pryzm/geometry-door',   exportName: 'doorStore' },
-  { family: 'window',    slot: 'windowStore',    module: '@pryzm/geometry-window', exportName: 'windowStore' },
+  { family: 'door',      slot: 'doorStore',      module: '@pryzm/geometry-door',   exportName: 'doorStore', elementKind: 'door' },
+  { family: 'window',    slot: 'windowStore',    module: '@pryzm/geometry-window', exportName: 'windowStore', elementKind: 'window' },
   { family: 'annotation',slot: 'annotationStore',module: '@pryzm/plugin-annotations', exportName: 'annotationStore' },
   { family: 'sheet',     slot: 'sheetStore',     module: '@pryzm/core-app-model',  exportName: 'sheetStore' },
   { family: 'schedule',  slot: 'scheduleStore',  module: '@pryzm/core-app-model',  exportName: 'scheduleStore' },
@@ -116,12 +143,19 @@ const STORES: readonly StoreSpec[] = [
   { family: 'hierarchy', slot: 'hierarchyStore', module: '@pryzm/core-app-model',  exportName: 'hierarchyStore' },
   { family: 'template',  slot: 'templateStore',  module: '@pryzm/core-app-model',  exportName: 'templateStore' },
 
+  // ─ ADR-0318 §3 per-kind adoption, WAVE 1 (wall / slab / room). These three
+  //   are now module singletons adopted by `composeRuntime` under the element
+  //   slot, and adopted (not re-constructed) by `initBuilders.ts`, so they are
+  //   authoritative here by identity. Before this wave they were UNREACHABLE and
+  //   every verb in these three families scored UNPROVABLE-NO-STORE — a fact
+  //   about the composition root, never about the verb. ─
+  { family: 'wall',         slot: 'wallStore', elementKind: 'wall' },
+  { family: 'slab',         slot: 'slabStore', elementKind: 'slab' },
+  { family: 'room',         slot: 'roomStore', elementKind: 'room' },
+
   // ─ the kinds the composition root does NOT compose. Listed so the census
   //   MEASURES their absence every run instead of this file asserting it. ─
-  { family: 'wall',         slot: 'wallStore' },
-  { family: 'slab',         slot: 'slabStore' },
   { family: 'roof',         slot: 'roofStore' },
-  { family: 'room',         slot: 'roomStore' },
   { family: 'ceiling',      slot: 'ceilingStore' },
   { family: 'floor',        slot: 'floorStore' },
   { family: 'furniture',    slot: 'furnitureStore' },
@@ -141,6 +175,16 @@ let rt: any;
 const census = new Map<string, Reached | null>();
 
 async function reach(spec: StoreSpec): Promise<Reached | null> {
+  // Rung 0 — ADR-0318's own surface. Tried FIRST because it is the composition
+  // root's authoritative element-store slot, and because a kind found here has
+  // an executed same-instance warrant behind it (see StoreSpec.elementKind).
+  if (spec.elementKind) {
+    let viaElements: unknown = null;
+    try { viaElements = rt?.stores?.elements?.get?.(spec.elementKind) ?? null; } catch { viaElements = null; }
+    if (viaElements) {
+      return { store: viaElements, via: 'runtime.stores.elements.get(' + JSON.stringify(spec.elementKind) + ')' };
+    }
+  }
   const slot = spec.slot;
   if (slot) {
     const fromStores = rt?.stores?.[slot];
@@ -300,6 +344,47 @@ const SPECS: readonly ProbeSpec[] = [
     read: (s, i) => (s.has(i.id) ? 'PRESENT' : 'ABSENT'), expected: 'ABSENT',
   },
 
+  // ── ADR-0318 wave-1 kinds: wall / slab / room ────────────────────────────
+  //
+  // These three specs exist BECAUSE the stores became reachable. Their whole
+  // point is that the answer is now a fact about the VERB rather than about the
+  // composition root — whatever that answer turns out to be. A `readback-negative`
+  // here is a newly *visible* liveness lie, not a regression, and it must be
+  // reported as such rather than left as the more comfortable
+  // UNPROVABLE-NO-STORE it used to score.
+  {
+    verb: 'wall.create', family: 'wall', ids: ['id'],
+    payload: (i) => ({
+      id: i.id, levelId: 'level_CA21', type: 'wall',
+      baseLine: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }],
+      height: 2.7, thickness: 0.2, openings: [], childrenIds: [],
+    }),
+    read: (s, i) => (s.getById?.(i.id) ? 'PRESENT' : 'ABSENT'), expected: 'PRESENT',
+  },
+  {
+    verb: 'slab.create', family: 'slab', ids: ['id'],
+    payload: (i) => ({
+      id: i.id, levelId: 'level_CA21', type: 'slab',
+      polygon: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }, { x: 4, y: 0, z: 4 }, { x: 0, y: 0, z: 4 }],
+      holes: [], thickness: 0.25, position: { x: 0, y: 0, z: 0 },
+    }),
+    read: (s, i) => (s.getById?.(i.id) ? 'PRESENT' : 'ABSENT'), expected: 'PRESENT',
+  },
+  {
+    verb: 'room.create', family: 'room', ids: ['id'],
+    payload: (i) => ({
+      id: i.id, levelId: 'level_CA21', type: 'room', name: 'CA21 Room', roomNumber: 'R-921',
+      occupancyType: 'unclassified',
+      boundary: {
+        polygon: [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 }],
+        height: 2.7, baseOffset: 0, detectionMethod: 'manual-boundary',
+      },
+      boundingWallIds: [], boundingSlabIds: [], boundingColumnIds: [],
+      finishes: {}, properties: {},
+    }),
+    read: (s, i) => (s.getById?.(i.id) ? 'PRESENT' : 'ABSENT'), expected: 'PRESENT',
+  },
+
   // ── sheet / schedule / view / hierarchy / template ───────────────────────
   {
     verb: 'sheet.create', family: 'sheet', ids: ['id'],
@@ -325,7 +410,10 @@ const SPECS: readonly ProbeSpec[] = [
   },
   {
     verb: 'template.create', family: 'template', ids: ['id'],
-    payload: (i) => ({ id: i.id, name: 'CA21 Template', category: 'room' }),
+    // `code` is supplied because the AUTHORITATIVE CreateTemplateCommand rejects
+    // an empty one. Omitting it would make this row a test of the payload rather
+    // than of the write path.
+    payload: (i) => ({ id: i.id, name: 'CA21 Template', code: 'CA21', scope: 'project', category: 'room' }),
     read: (s, i) => (s.getById?.(i.id) ? 'PRESENT' : 'ABSENT'), expected: 'PRESENT',
   },
 ];

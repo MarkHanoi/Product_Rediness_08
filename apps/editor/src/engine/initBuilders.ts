@@ -40,6 +40,9 @@ import {
 
 // ── Slab subsystem ─────────────────────────────────────────────────────────
 import { SlabStore, SlabFragmentBuilder, SlabLevelCleanupHandler } from '@pryzm/geometry-slab';
+// §ADR-0318-ELEMENTS-SLOT — the ONE authoritative slab store (deep path: the
+// singleton module, not the geometry barrel, so the identity is unambiguous).
+import { slabStore as slabStoreSingleton } from '@pryzm/geometry-slab/store';
 import { ColumnFragmentBuilder, installColumnPlanSymbolBuilder } from '@pryzm/geometry-column';
 // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT) — element-agnostic GPU-instancing bridge.
 import { ElementInstanceBridge, instancedElementRenderer } from '@pryzm/core-app-model/rendering';
@@ -60,6 +63,8 @@ import { floorSystemTypeStore }     from '@pryzm/core-app-model/stores';
 
 // ── Room subsystem ─────────────────────────────────────────────────────────
 import { RoomStore }                from '@pryzm/room-topology';
+// §ADR-0318-ELEMENTS-SLOT — the ONE authoritative room store.
+import { roomStore as roomStoreSingleton } from '@pryzm/room-topology/store';
 import { RoomBoundaryBuilder }      from '@pryzm/room-topology';
 import { RoomLabelRenderer }        from '@pryzm/room-topology';
 import { RoomLevelCleanupHandler }  from '@pryzm/room-topology';
@@ -68,6 +73,8 @@ import { RoomContentsService }      from '@pryzm/room-topology';
 
 // ── Wall subsystem ─────────────────────────────────────────────────────────
 import { WallStore }                from '@pryzm/geometry-wall';
+// §ADR-0318-ELEMENTS-SLOT — the ONE authoritative wall store.
+import { wallStore as wallStoreSingleton } from '@pryzm/geometry-wall/store';
 import { installWallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
 
 // ── Roof subsystem ─────────────────────────────────────────────────────────
@@ -329,7 +336,10 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     console.log('[initBuilders] CurtainWall subsystem stores initialised');
 
     // ── Slab subsystem ────────────────────────────────────────────────────────
-    const slabStore = new SlabStore(projectContext);
+    // §ADR-0318-ELEMENTS-SLOT (per-kind adoption, slab) — adopt the module
+    // singleton and attach the engine half. See the wall note below for why a
+    // `new SlabStore(...)` here would break I-1.
+    const slabStore = slabStoreSingleton.attachEngine(projectContext);
     window.slabStore = slabStore; // TODO(TASK-08)
 
     // SlabLevelCleanupHandler needs commandManagerRef (resolved after commandManager is live).
@@ -438,7 +448,10 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     console.log('[initBuilders] Floor finish subsystem initialised');
 
     // ── Room subsystem ────────────────────────────────────────────────────────
-    const roomStore = new RoomStore(projectContext, bimManager);
+    // §ADR-0318-ELEMENTS-SLOT (per-kind adoption, room) — adopt the module
+    // singleton and attach the engine half. See the wall note below for why a
+    // `new RoomStore(...)` here would break I-1.
+    const roomStore = roomStoreSingleton.attachEngine(projectContext, bimManager);
     window.roomStore = roomStore; // TODO(TASK-08)
 
     const roomBoundaryBuilder = new RoomBoundaryBuilder(scene, bimManager);
@@ -528,7 +541,14 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // ── Wall Store ────────────────────────────────────────────────────────────
     // WallTool wraps this store; wallTool.getWallStore() returns this instance.
     // DoorBuilder and WindowBuilder take it by reference (read-only, §03 compliant).
-    const wallStore = new WallStore(projectContext, bimManager);
+    // §ADR-0318-ELEMENTS-SLOT (per-kind adoption, wall) — ADOPT the module
+    // singleton and attach the engine half, instead of constructing a rival.
+    // This is what makes ADR-0318 I-1 true BY CONSTRUCTION for walls: the object
+    // handed below to `registerAllStores()` and to `initPersistence()` (hence to
+    // ProjectSerializer) is the SAME object `composeRuntime` registers under
+    // `stores.elements.get('wall')`. A `new WallStore(...)` here would fork them
+    // and reproduce the plugin-DTO defect at the engine boundary.
+    const wallStore = wallStoreSingleton.attachEngine(projectContext, bimManager);
     window.wallStore = wallStore; // TODO(TASK-08)
     console.log('[WallStore] attached to window', window.wallStore); // TODO(TASK-08)
     // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — install the plan layer-line symbol builder now

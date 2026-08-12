@@ -66,8 +66,14 @@ export { DeleteDoorHandler, type DeleteDoorPayload } from './DeleteDoor.js';
 export { MoveDoorHandler, type MoveDoorPayload } from './MoveDoor.js';
 export { SetDoorTypeHandler, type SetDoorTypePayload } from './SetDoorType.js';
 export { SetDoorSwingHandler, type SetDoorSwingPayload } from './SetDoorSwing.js';
-export { SetDoorWidthHandler, type SetDoorWidthPayload } from './SetDoorWidth.js';
-export { SetDoorHeightHandler, type SetDoorHeightPayload } from './SetDoorHeight.js';
+// §FIX-SHADOWED-DEAD-FILES (BIM20 C5 Wave 4) — SetDoorWidth.ts / SetDoorHeight.ts
+// are DELETED, not just unregistered. §FIX-DIMS-REACH-RECORD removed them from the
+// handler set, so at runtime the initBusHandlers bridges already owned the verbs —
+// but the orphaned files still carried `type = 'door.setWidth'/'door.setHeight'`
+// declarations, and the C69 register's static discovery (correctly) kept scoring
+// both verbs SHADOWED. A dead file that keeps a verb on the dead-route list is
+// itself the debt. Deleting the declaration is the only way a verb leaves the
+// SHADOWED baseline (check-verb-register.ts V4).
 export { SetDoorFireRatingHandler, type SetDoorFireRatingPayload } from './SetDoorFireRating.js';
 export { SetDoorAccessibilityHandler, type SetDoorAccessibilityPayload } from './SetDoorAccessibility.js';
 export {

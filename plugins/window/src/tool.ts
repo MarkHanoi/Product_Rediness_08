@@ -73,17 +73,13 @@ export class WindowPlacementTool {
         elementId: windowId,
       },
     });
-    await this.bus.executeCommand('window.create', {
-      id: windowId,
-      wallId: placement.wallId,
-      openingId,
-      offset: placement.offset - this.defaultType.width / 2,
-      width: this.defaultType.width,
-      height: this.defaultType.height,
-      sillHeight: placement.sillHeight,
-      systemTypeId: this.defaultType.id,
-    });
-
+    // §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6, Wave 4) — the `window.create` dispatch
+    // that used to follow is gone. That verb now REFUSES (see
+    // `handlers/CreateWindow.ts`): the CA-21 executed read-back caught it reporting
+    // success while the authoritative `windowStore` did not move. The
+    // `wall.createOpening` above was already the whole creation —
+    // `CreateWallOpeningCommand` mints the wall-side opening AND the authoritative
+    // windowStore record atomically, and `elementId` carries `windowId` into it.
     return { windowId, wallId: placement.wallId, offset: placement.offset };
   }
 }

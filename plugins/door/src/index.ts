@@ -22,7 +22,6 @@ export { DeleteDoorHandler, type DeleteDoorPayload } from './handlers/DeleteDoor
 export { MoveDoorHandler, type MoveDoorPayload } from './handlers/MoveDoor.js';
 export { SetDoorTypeHandler, type SetDoorTypePayload } from './handlers/SetDoorType.js';
 export { SetDoorSwingHandler, type SetDoorSwingPayload } from './handlers/SetDoorSwing.js';
-export { SetDoorWidthHandler, type SetDoorWidthPayload } from './handlers/SetDoorWidth.js';
 export {
   DOOR_HANDLER_TYPES,
   buildDoorHandlerSet,

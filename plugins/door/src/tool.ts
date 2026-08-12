@@ -93,18 +93,20 @@ export class DoorPlacementTool {
         elementId: doorId,
       },
     });
-    // 2) Mint the door element.
-    await this.bus.executeCommand('door.create', {
-      id: doorId,
-      wallId: placement.wallId,
-      openingId,
-      offset: placement.offset - this.defaultType.width / 2,
-      width: this.defaultType.width,
-      height: this.defaultType.height,
-      sillHeight: placement.sillHeight,
-      systemTypeId: this.defaultType.id,
-    });
-
+    // §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6, Wave 4) — there is no step 2 any more.
+    //
+    // This used to follow with `bus.executeCommand('door.create', …)`. That verb now
+    // REFUSES (see `handlers/CreateDoor.ts`): it wrote only the detached plugin DTO
+    // store, and the CA-21 executed read-back caught it reporting success while the
+    // authoritative `doorStore` did not move.
+    //
+    // Nothing is lost, because step 1 above was ALREADY the whole creation.
+    // `wall.createOpening` → `CreateWallOpeningCommand` reserves the wall-side opening
+    // AND writes the authoritative `doorStore` record (`CreateWallOpeningCommand.ts:151`)
+    // with its resolved system type, finishes and canonical mark — one command, one
+    // undo entry, both halves of a hosted element minted atomically. The second
+    // dispatch was the redundant half all along; `elementId` on the opening is what
+    // carries `doorId` into the model.
     return { doorId, wallId: placement.wallId, offset: placement.offset };
   }
 }

@@ -50,7 +50,7 @@ describe('WindowPlacementTool', () => {
     ).toThrow();
   });
 
-  it('places a window on the nearest wall (dispatches wall.createOpening + window.create)', async () => {
+  it('places a window on the nearest wall (dispatches wall.createOpening ONLY)', async () => {
     env = buildEnv();
     const wallId = createId('wall');
     const wall = Wall.parse({
@@ -81,7 +81,16 @@ describe('WindowPlacementTool', () => {
     const result = await tool.onPointerDown({ clientX: 0, clientY: 0, pointerId: 1 });
     expect(result).toBeDefined();
     expect(result!.wallId).toBe(wallId);
-    expect(env.window.size()).toBe(1);
+    // §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6, Wave 4) — this used to expect the PLUGIN
+    // DTO window store to hold one record, because the tool dispatched `window.create` as a
+    // second step. That verb now REFUSES (the CA-21 read-back caught it reporting
+    // success while the authoritative store did not move) and the tool no longer
+    // dispatches it. `wall.createOpening` is the whole creation: in production it
+    // routes to CreateWallOpeningCommand, which mints the wall-side opening AND the
+    // authoritative windowStore record atomically. In this plugin-only fixture there is
+    // no such bridge, so the honest expectation is ZERO plugin-store records — and
+    // the real evidence is the wall opening carrying the element id, asserted below.
+    expect(env.window.size()).toBe(0);
     const wallAfter = env.wall.get(wallId)!;
     expect(wallAfter.openings).toHaveLength(1);
     expect(wallAfter.openings[0]!.elementId).toBe(result!.windowId);

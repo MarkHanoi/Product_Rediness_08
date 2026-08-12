@@ -61,6 +61,9 @@ export { CreateWindowBatchHandler, type CreateWindowBatchPayload } from './Creat
 export { DeleteWindowHandler, type DeleteWindowPayload } from './DeleteWindow.js';
 export { MoveWindowHandler, type MoveWindowPayload } from './MoveWindow.js';
 export { SetWindowTypeHandler, type SetWindowTypePayload } from './SetWindowType.js';
-export { SetWindowSizeHandler, type SetWindowSizePayload } from './SetWindowSize.js';
-export { SetWindowSillHeightHandler, type SetWindowSillHeightPayload } from './SetWindowSillHeight.js';
+// §FIX-SHADOWED-DEAD-FILES (BIM20 C5 Wave 4) — SetWindowSize.ts /
+// SetWindowSillHeight.ts are DELETED, not just unregistered: the orphaned files
+// kept 'window.setSize'/'window.setSillHeight' on the C69 SHADOWED list after
+// §FIX-DIMS-REACH-RECORD had already handed the verbs to the initBusHandlers
+// bridges at runtime. See plugins/door/src/handlers/index.ts for the full note.
 export { SetWindowFireRatingHandler, type SetWindowFireRatingPayload } from './SetWindowFireRating.js';

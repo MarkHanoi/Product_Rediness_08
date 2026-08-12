@@ -207,8 +207,20 @@ const SHADOWED_BASELINE: readonly string[] = [
   // → `UpdateCeilingCommand` → geometry `ceilingStore` now registers. Read-back proof:
   // `apps/editor/__tests__/CeilingUpdateReachesGeometryStore.test.ts` (4 cases, watched
   // failing 3/4 first). 16 → 15 was roof; 15 → 14 is ceiling.
-  'door.setHeight',
-  'door.setWidth',
+  // §FIX-SHADOWED-DEAD-FILES (BIM20 C5 Wave 4) — 'door.setHeight', 'door.setWidth',
+  // 'window.setSize', 'window.setSillHeight' and 'wall.updateDimensions' PAID and
+  // removed in the same change, per the rule three paragraphs up. These five were the
+  // half of the list ALREADY resolved at runtime: §FIX-DIMS-REACH-RECORD (ADR-0315 U1,
+  // L-815) took their plugin handlers out of the registered handler sets, so the
+  // initBusHandlers bridges — the arms that reach the geometry stores through
+  // UpdateElementParameterCommand / UpdateWallDimensionsCommand — have owned the verbs
+  // on every real bus since then. What kept them SHADOWED was the ORPHANED handler
+  // files still carrying the `type` declarations this gate's static discovery
+  // (correctly) counts. Those five files are now deleted, with their barrel exports;
+  // each verb has exactly ONE declaring site again. 14 → 9. The remaining nine are
+  // genuinely dual-registered (plugin handler in a live handler set, registering
+  // before the bridge) and each needs the ceiling-precedent treatment: delete the
+  // plugin declaration, prove the bridge write with a read-back test.
   'element.updateMark',
   'furniture.updateParameters',
   'level.add',
@@ -218,9 +230,6 @@ const SHADOWED_BASELINE: readonly string[] = [
   'template.assignToNode',
   'view.setCrop',
   'view.updateDefinition',
-  'wall.updateDimensions',
-  'window.setSillHeight',
-  'window.setSize',
 ];
 
 /**
@@ -293,7 +302,16 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'dimension.setText',
   'dimension.setUnit',
   'door.batch.create',
-  'door.create',
+  // §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6 Wave 4) — 'door.create' PAID and removed in
+  // the same change, per the rule at the head of this list. It was one of the three
+  // OBSERVED LIVENESS LIES: the CA-21 executed read-back saw it report success while
+  // the authoritative doorStore (the store ProjectSerializer imports) did not change,
+  // and it left door.delete `seed-did-not-land`. It now REFUSES with a typed reason
+  // naming the real creation path — wall.createOpening → CreateWallOpeningCommand,
+  // the one atomic command that mints BOTH the wall opening and the doorStore record.
+  // It therefore leaves UNKNOWN for REFUSES. Evidence: the liveness ledger row is
+  // `dispatch-threw: canExecute rejected`, and zero readback-negative rows remain for
+  // the door family.
   'door.delete',
   'door.setAccessibility',
   'door.setFireRating',
@@ -418,7 +436,10 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   // `apps/editor/__tests__/CurtainWallUpdateReachesGeometryStore.test.ts` (4 cases,
   // watched failing 3/4 first).
   'window.batch.create',
-  'window.create',
+  // §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6 Wave 4) — 'window.create' PAID and removed
+  // in the same change, for the identical measured reason as 'door.create' above:
+  // readback-negative against the authoritative windowStore. It now REFUSES and names
+  // wall.createOpening → CreateWallOpeningCommand as the atomic creation path.
   'window.delete',
   'window.setFireRating',
   'window.setType',

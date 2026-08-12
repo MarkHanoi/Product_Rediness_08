@@ -60,13 +60,60 @@ export interface CreateDoorPayload {
 
 type DoorHandlerStores = Readonly<{ door: DoorsState } & Record<string, unknown>>;
 
+/**
+ * §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6, Wave 4) — why `door.create` now REFUSES.
+ *
+ * MEASURED, not suspected. The CA-21 executed read-back
+ * (`tools/rac-conformance/runtime-harness/__tests__/liveness.probe.ts`) dispatched
+ * `door.create` against the real composed runtime and then read the AUTHORITATIVE
+ * `doorStore` module singleton — the one `ProjectSerializer` imports. Verdict:
+ * `readback-negative` — *"dispatch reported success; the AUTHORITATIVE store did not
+ * change"*. It also poisoned `door.delete`, which came back `seed-did-not-land`:
+ * the seed said it worked, so the delete could not be judged at all.
+ *
+ * That is the worst defect class in this repository — a verb that reports success
+ * while the model did not move. `door.move` was already converted to an honest
+ * refusal for the identical reason (§FIX-DEAD-MOVE-VERB-REFUSE); this is the
+ * creation half of the same fact.
+ *
+ * WHY REFUSE RATHER THAN "FIX THE WRITE". A door is not a free-standing element:
+ * it is a hosted opening. The authoritative creation path is ONE command that mints
+ * BOTH halves atomically — `wall.createOpening` → `CreateWallOpeningCommand`, which
+ * reserves the wall-side opening (occupancy + `childrenIds` + the render void) AND
+ * calls `doorStore.add(...)` (`CreateWallOpeningCommand.ts:151`) with the resolved
+ * system type, finishes and canonical mark. Making `door.create` write `doorStore`
+ * on its own would mint a door record with NO host opening: nothing to cut the wall,
+ * nothing for the plan projector to draw, nothing for the IFC exporter to relate. It
+ * would trade a lie about *whether* the model moved for a lie about *what* the model
+ * now is — strictly worse, because the second kind persists.
+ *
+ * NO PRODUCTION SURFACE LOSES ANYTHING. The only dispatcher of `door.create` in the
+ * repo is `plugins/door/src/tool.ts:97`, and that tool is not registered anywhere in
+ * `apps/editor` (`PluginRegistry.ts` imports `DoorStore` + `buildDoorHandlerSet` from
+ * `@pryzm/plugin-door`, never the tool). Its own step 1 already dispatches
+ * `wall.createOpening`, which is the call that creates the real door — so even that
+ * caller's step 2 was the redundant half.
+ *
+ * REFUSE, NOT RETIRE — for the reason §FIX-DEAD-MOVE-VERB-REFUSE gives: the chat
+ * capability tables name these verbs, and `check-chat-capability-coverage.ts` requires
+ * every named verb to be a REGISTERED bus command. Retiring would make chat's own
+ * refusal cite a verb that does not exist.
+ *
+ * ORDER IS LOAD-BEARING — `canExecute` must be the LAST method before `execute`, and
+ * the accepting result must not appear between them, or `check-verb-register.ts`
+ * mis-classifies the refusal as UNKNOWN. See MoveDoor.ts for the full note.
+ */
+const DOOR_CREATE_UNREACHABLE =
+  "door.create writes the detached plugin door store: the CA-21 executed read-back saw the dispatch report success while the authoritative doorStore (the one ProjectSerializer reads) did not change, and it left door.delete unjudgeable. A door is a hosted opening, so it is created by ONE atomic command — wall.createOpening (payload: { wallId, opening: { id, type: 'door', offset, width, height, sillHeight, elementId } }) → CreateWallOpeningCommand, which reserves the wall-side opening AND writes the authoritative doorStore record with its system type, finishes and mark.";
+
 export class CreateDoorHandler
   implements CommandHandler<CreateDoorPayload, DoorHandlerStores>
 {
   readonly type = 'door.create';
   readonly affectedStores = ['door'] as const;
 
-  canExecute(_ctx: HandlerContext<DoorHandlerStores>, cmd: CreateDoorPayload): ValidationResult {
+  /** Payload validation ONLY — kept public so a delegating facade can reuse it. */
+  validatePayload(_ctx: HandlerContext<DoorHandlerStores>, cmd: CreateDoorPayload): ValidationResult {
     if (typeof cmd.wallId !== 'string' || cmd.wallId.length === 0) {
       return { valid: false, reason: 'wallId must be a non-empty string' };
     }
@@ -99,6 +146,13 @@ export class CreateDoorHandler
     return { valid: true };
   }
 
+  canExecute(ctx: HandlerContext<DoorHandlerStores>, cmd: CreateDoorPayload): ValidationResult {
+    const v = this.validatePayload(ctx, cmd);
+    if (!v.valid) return v;
+    // §FIX-CREATE-LIVENESS-LIE — the payload is well-formed, and it STILL cannot
+    // reach authoritative state. Say so; never report success.
+    return { valid: false, reason: DOOR_CREATE_UNREACHABLE };
+  }
   execute(ctx: HandlerContext<DoorHandlerStores>, cmd: CreateDoorPayload): HandlerResult {
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
     // Resolve type defaults if a known systemTypeId was supplied.

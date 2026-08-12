@@ -67,12 +67,17 @@ describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
         elementId: doorId,
       },
     });
-    await rt.bus.executeCommand('door.create', {
-      id: doorId,
-      wallId,
-      openingId: openingIdDoor,
-    });
-    expect((rt.stores.door as unknown as DoorStore).get(doorId)).toBeDefined();
+    // §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6, Wave 4) — `door.create` now REFUSES.
+    // The CA-21 executed read-back caught it reporting success while the
+    // AUTHORITATIVE doorStore (the one ProjectSerializer reads) never changed; the
+    // green assertion this block used to carry was against the detached plugin DTO
+    // store — the lie, pinned. The creation is the `wall.createOpening` above
+    // (→ CreateWallOpeningCommand mints opening + doorStore record atomically in
+    // production); here the refusal and the reserved opening are what is true.
+    await expect(
+      rt.bus.executeCommand('door.create', { id: doorId, wallId, openingId: openingIdDoor }),
+    ).rejects.toThrow(/wall\.createOpening/);
+    expect((rt.stores.door as unknown as DoorStore).get(doorId)).toBeUndefined();
 
     // ---- 4. window (host opening on the same wall) ----
     const windowId = createId('window');
@@ -89,12 +94,11 @@ describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
         elementId: windowId,
       },
     });
-    await rt.bus.executeCommand('window.create', {
-      id: windowId,
-      wallId,
-      openingId: openingIdWin,
-    });
-    expect((rt.stores.window as unknown as WindowStore).get(windowId)).toBeDefined();
+    // §FIX-CREATE-LIVENESS-LIE — window twin of the door block above.
+    await expect(
+      rt.bus.executeCommand('window.create', { id: windowId, wallId, openingId: openingIdWin }),
+    ).rejects.toThrow(/wall\.createOpening/);
+    expect((rt.stores.window as unknown as WindowStore).get(windowId)).toBeUndefined();
 
     // ---- 5. roof ----
     const roofId = createId('roof');

@@ -15,13 +15,13 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1227 (floor 900) |
+| Handler files read | 1222 (floor 900) |
 | **Verbs** | **320** (floor 250) |
-| LIVE | 101 |
-| REFUSES | 33 |
-| SHADOWED (dead route) | 14 |
-| UNKNOWN | 172 |
-| authoritative store NONE or UNKNOWN | 219 |
+| LIVE | 106 |
+| REFUSES | 35 |
+| SHADOWED (dead route) | 9 |
+| UNKNOWN | 170 |
+| authoritative store NONE or UNKNOWN | 214 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 1 |
 
@@ -112,18 +112,18 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `dimension.setText` | plugins/dimensions | UNKNOWN | UNKNOWN | patch-pair → dimension | synced via 'dimensionId' (disclose) | classified B |
 | `dimension.setUnit` | plugins/dimensions | UNKNOWN | UNKNOWN | patch-pair → dimension | synced via 'dimensionId' (disclose) | classified B |
 | `door.batch.create` | plugins/door | UNKNOWN | UNKNOWN | patch-pair → door | n/a (not a property verb) | classified C |
-| `door.create` | plugins/door | UNKNOWN | UNKNOWN | patch-pair → door | synced via 'id' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `door.create` | plugins/door | REFUSES | NONE | patch-pair → door | synced via 'id' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `door.delete` | plugins/door | UNKNOWN | UNKNOWN | patch-pair → door | n/a (not a property verb) | classified D |
 | `door.move` | plugins/door | REFUSES | NONE | patch-pair → door | synced via 'doorId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `door.setAccessibility` | plugins/door | UNKNOWN | UNKNOWN | patch-pair → door | synced via 'doorId' (disclose) | classified B |
 | `door.setFireRating` | plugins/door | UNKNOWN | UNKNOWN | patch-pair → door | synced via 'doorId' (disclose) | classified B |
 | `door.setFrameColor` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'doorId' (disclose) | deferred (CHAT_UNAVAILABLE) |
-| `door.setHeight` | plugins/door | SHADOWED | UNKNOWN | patch-pair → door | synced via 'doorId' (disclose) | classified D |
+| `door.setHeight` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'doorId' (disclose) | classified D |
 | `door.setOffset` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'doorId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `door.setSillHeight` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'doorId' (disclose) | classified D |
 | `door.setSwing` | plugins/door | UNKNOWN | UNKNOWN | patch-pair → door | synced via 'doorId' (disclose) | classified B |
 | `door.setType` | plugins/door | UNKNOWN | UNKNOWN | patch-pair → door | synced via 'doorId' (disclose) | classified B |
-| `door.setWidth` | plugins/door | SHADOWED | UNKNOWN | patch-pair → door | synced via 'doorId' (disclose) | classified D |
+| `door.setWidth` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'doorId' (disclose) | classified D |
 | `door.updateSystemTypeBatch` | plugins/door | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-door-type |
 | `element.changeType` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified B |
 | `element.delete` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | capability: delete-selected |
@@ -345,21 +345,21 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.updateColor` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `wall.updateColorBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-color |
 | `wall.updateCurtainWall` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified C |
-| `wall.updateDimensions` | plugins/wall | SHADOWED | UNKNOWN | patch-pair → wall | synced via 'wallId' (disclose) | capability: set-height |
+| `wall.updateDimensions` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | capability: set-height |
 | `wall.updateHeightBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `wall.updateRakeBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-rake |
 | `wall.updateSystemType` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | classified D |
 | `wall.updateSystemTypeBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-type |
 | `window.batch.create` | plugins/window | UNKNOWN | UNKNOWN | patch-pair → window | n/a (not a property verb) | classified C |
-| `window.create` | plugins/window | UNKNOWN | UNKNOWN | patch-pair → window | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+| `window.create` | plugins/window | REFUSES | NONE | patch-pair → window | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `window.delete` | plugins/window | UNKNOWN | UNKNOWN | patch-pair → window | n/a (not a property verb) | classified D |
 | `window.move` | plugins/window | REFUSES | NONE | patch-pair → window | synced via 'windowId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `window.parametricCreate` | plugins/window | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | capability: create-windows-parametric |
 | `window.setFireRating` | plugins/window | UNKNOWN | UNKNOWN | patch-pair → window | synced via 'windowId' (disclose) | classified B |
 | `window.setFrameColor` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'windowId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `window.setOffset` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'windowId' (disclose) | deferred (CHAT_UNAVAILABLE) |
-| `window.setSillHeight` | plugins/window | SHADOWED | UNKNOWN | patch-pair → window | synced via 'windowId' (disclose) | classified D |
-| `window.setSize` | plugins/window | SHADOWED | UNKNOWN | patch-pair → window | synced via 'windowId' (disclose) | classified D |
+| `window.setSillHeight` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'windowId' (disclose) | classified D |
+| `window.setSize` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'windowId' (disclose) | classified D |
 | `window.setType` | plugins/window | UNKNOWN | UNKNOWN | patch-pair → window | synced via 'windowId' (disclose) | classified B |
 | `window.updateSystemTypeBatch` | plugins/window | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-window-type |
 | `zoom-fit` | apps/editor | LIVE | legacy geometry store (via commandManager) | NONE (empty patch pair) | n/a (not a property verb) | capability: zoom-fit |
@@ -372,8 +372,6 @@ the second site is the one nobody knew was dead.
 
 | verb | sites |
 |---|---|
-| `door.setHeight` | `plugins/door/src/handlers/SetDoorHeight.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `door.setWidth` | `plugins/door/src/handlers/SetDoorWidth.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `element.updateMark` | `plugins/selection/src/handlers/UpdateElementMark.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `furniture.updateParameters` | `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `level.add` | `plugins/stair/src/handlers/AddLevel.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
@@ -383,6 +381,3 @@ the second site is the one nobody knew was dead.
 | `template.assignToNode` | `plugins/rooms/src/handlers/AssignTemplateToNode.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `view.setCrop` | `plugins/view/src/handlers/SetViewCrop.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `view.updateDefinition` | `plugins/view/src/handlers/UpdateViewDefinition.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `wall.updateDimensions` | `plugins/wall/src/handlers/UpdateWallDimensions.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `window.setSillHeight` | `plugins/window/src/handlers/SetWindowSillHeight.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `window.setSize` | `plugins/window/src/handlers/SetWindowSize.ts` · `apps/editor/src/engine/initBusHandlers.ts` |

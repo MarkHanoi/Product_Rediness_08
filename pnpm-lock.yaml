@@ -2834,6 +2834,12 @@ importers:
       '@pryzm/geometry-door':
         specifier: workspace:*
         version: link:../geometry-door
+      '@pryzm/geometry-slab':
+        specifier: workspace:*
+        version: link:../geometry-slab
+      '@pryzm/geometry-wall':
+        specifier: workspace:*
+        version: link:../geometry-wall
       '@pryzm/geometry-window':
         specifier: workspace:*
         version: link:../geometry-window
@@ -2870,6 +2876,9 @@ importers:
       '@pryzm/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
+      '@pryzm/room-topology':
+        specifier: workspace:*
+        version: link:../room-topology
       '@pryzm/runtime-undo-stack':
         specifier: workspace:*
         version: link:../runtime-undo-stack

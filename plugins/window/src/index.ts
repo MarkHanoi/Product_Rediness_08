@@ -14,7 +14,6 @@ export { CreateWindowHandler, type CreateWindowPayload } from './handlers/Create
 export { DeleteWindowHandler, type DeleteWindowPayload } from './handlers/DeleteWindow.js';
 export { MoveWindowHandler, type MoveWindowPayload } from './handlers/MoveWindow.js';
 export { SetWindowTypeHandler, type SetWindowTypePayload } from './handlers/SetWindowType.js';
-export { SetWindowSizeHandler, type SetWindowSizePayload } from './handlers/SetWindowSize.js';
 export {
   WINDOW_HANDLER_TYPES,
   buildWindowHandlerSet,

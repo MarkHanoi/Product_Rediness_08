@@ -107,14 +107,67 @@ function deepFreeze(room: RoomData): RoomData {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
+/**
+ * §ADR-0318-ELEMENTS-SLOT — thrown when a method that genuinely needs the level
+ * authority is called on a store whose engine half was never attached.
+ *
+ * ADR-0318 I-3 (honest absence). NOTE the direction this refusal takes: the
+ * level-existence guard in `add()` is a REAL constraint, so an unattached store
+ * refuses the write outright. It never *skips* the guard — a store that admitted
+ * rooms on levels it could not check would be the "emptiness reads as fine"
+ * defect wearing a store's clothes.
+ */
+export class RoomStoreEngineNotAttachedError extends Error {
+  constructor(member: string) {
+    super(
+      `[RoomStore] ${member} needs the level authority (BimManager), which is not attached in this process. ` +
+      `Call roomStore.attachEngine(projectContext, bimKernel) (initBuilders.ts does this at engine boot). ` +
+      `§ADR-0318-ELEMENTS-SLOT — the store refuses the write rather than skipping the level-existence guard.`,
+    );
+    this.name = 'RoomStoreEngineNotAttachedError';
+  }
+}
+
 export class RoomStore {
   private rooms: Map<string, RoomData> = new Map();
   private listeners: RoomEventListener[] = [];
 
+  /**
+   * ADR-0318 §3 (per-kind adoption) — LATE-BOUND, so `roomStore` at the foot of
+   * this file can be the single production instance shared by `composeRuntime`'s
+   * `stores.elements` slot, `registerAllStores()` and `ProjectSerializer`.
+   * Identity, not construction (I-1/I-2).
+   */
+  private bimKernel: BimManager | null;
+
   constructor(
-    _projectContext: ProjectContext,
-    private readonly bimKernel: BimManager,
-  ) {}
+    _projectContext?: ProjectContext | null,
+    bimKernel?: BimManager | null,
+  ) {
+    this.bimKernel = bimKernel ?? null;
+  }
+
+  /**
+   * ADR-0318 §3 — late-bind the engine half onto the module singleton.
+   * `initBuilders.ts` calls this instead of `new RoomStore(...)`.
+   */
+  attachEngine(_projectContext: ProjectContext, bimKernel: BimManager): this {
+    if (this.bimKernel !== null && this.bimKernel !== bimKernel) {
+      console.warn('[RoomStore] attachEngine: replacing previously attached level authority (project switch / hot reload).');
+    }
+    this.bimKernel = bimKernel;
+    return this;
+  }
+
+  /** ADR-0318 I-3 — is the engine half attached? Never inferred from a value. */
+  isEngineAttached(): boolean {
+    return this.bimKernel !== null;
+  }
+
+  private get _bim(): BimManager {
+    if (this.bimKernel === null) throw new RoomStoreEngineNotAttachedError('the level-existence guard');
+    return this.bimKernel;
+  }
 
   // ── Write API (Commands only — never call directly from UI) ────────────────
 
@@ -139,7 +192,7 @@ export class RoomStore {
     }
 
     // Level existence guard
-    if (!this.bimKernel.getLevelById(room.levelId)) {
+    if (!this._bim.getLevelById(room.levelId)) {
       throw new Error(`[RoomStore.add] SpatialAuthorityError: Level '${room.levelId}' not found`);
     }
 
@@ -529,3 +582,13 @@ export class RoomStore {
     }
   }
 }
+
+/**
+ * §ADR-0318-ELEMENTS-SLOT — THE authoritative room store.
+ *
+ * Single production instance; `initBuilders.ts` attaches the engine half rather
+ * than constructing a rival. The class stays exported and constructible so unit
+ * tests can build isolated instances and so the ADR's falsifiability arm has a
+ * rival to REJECT.
+ */
+export const roomStore = new RoomStore();

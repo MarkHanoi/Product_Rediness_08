@@ -18,6 +18,8 @@ import {
   buildWindowHandlerSet,
   registerWindowHandlers,
   WINDOW_HANDLER_TYPES,
+  CreateWindowHandler,
+  type CreateWindowPayload,
 } from '../src/handlers/index.js';
 import { BUILTIN_WINDOW_TYPES } from '@pryzm/plugin-sdk';
 
@@ -47,6 +49,30 @@ function undoLast(store: WindowStore, ev: EventRecord<unknown>): void {
   store.applyPatch([...ev.inverse].reverse());
 }
 
+/**
+ * §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6, Wave 4) — seed a window WITHOUT dispatching
+ * `window.create`.
+ *
+ * That verb now REFUSES: the CA-21 executed read-back caught it reporting success
+ * while the authoritative `windowStore` (the store `ProjectSerializer` reads) did not
+ * change. Tests that used it merely as a SEED would otherwise be testing the refusal
+ * instead of the verb under test, and a seed failure must never be reported as a
+ * verdict about a different verb.
+ *
+ * `CreateWindowHandler.execute` is still a correct plugin-store mutation for a host
+ * that binds the authoritative store under this key. Seeding through it deliberately
+ * does NOT go through the bus — the bus is where the refusal lives. Bypassing a
+ * refusal in production code would be the defect; bypassing it to build a fixture is
+ * the reason `execute()` was kept intact.
+ */
+function seedWindow(env: ReturnType<typeof buildEnv>, payload: CreateWindowPayload): void {
+  const ctx = {
+    stores: { window: Object.fromEntries(env.window.getState()) as WindowsState },
+  } as unknown as Parameters<CreateWindowHandler['execute']>[0];
+  const res = new CreateWindowHandler().execute(ctx, payload);
+  env.window.applyPatch([...res.forward]);
+}
+
 describe('window handler registration', () => {
   it('registerWindowHandlers wires all 5 command types', () => {
     const env = buildEnv();
@@ -65,24 +91,32 @@ describe('window.create', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('creates a window with caller-provided id and round-trips on undo', async () => {
+  it('window.create REFUSES, names wall.createOpening, and mutates nothing', async () => {
+    // §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6, Wave 4) — this used to assert the PLUGIN
+    // DTO store gained a window, and passed while the user's model gained nothing:
+    // the CA-21 executed read-back dispatched this verb against the real composed
+    // runtime and found the AUTHORITATIVE windowStore unchanged. What is pinned now
+    // is the REFUSAL, that it names the real creation path, and the ABSENCE of any
+    // mutation. An assertion about the wrong store reads as proof and is worse than
+    // no assertion at all.
     env = buildEnv();
-    const id = createId('window');
-    const wallId = createId('wall');
     const before = snap(env.window);
-    const ev = await env.bus.executeCommand('window.create', {
-      id, wallId, openingId: 'op_1', offset: 1.0,
-    });
-    expect(env.window.size()).toBe(1);
-    expect(env.window.get(id)?.wallId).toBe(wallId);
-    undoLast(env.window, ev);
+    await expect(
+      env.bus.executeCommand('window.create', {
+        id: createId('window'), wallId: createId('wall'), openingId: 'op_1', offset: 1.0,
+      }),
+    ).rejects.toThrow(/wall\.createOpening/);
+    expect(env.window.size()).toBe(0);
     expect(snap(env.window)).toEqual(before);
   });
 
-  it('applies type defaults from systemTypeId', async () => {
+  it('the retained execute() still applies type defaults from systemTypeId', () => {
+    // The refusal lives in canExecute; execute() is kept intact for a host that binds
+    // the authoritative store under this key. This pins that retained logic, and says
+    // plainly that it is NOT a claim about the bus verb.
     env = buildEnv();
     const id = createId('window');
-    await env.bus.executeCommand('window.create', {
+    seedWindow(env, {
       id,
       wallId: createId('wall'),
       openingId: 'op_x',
@@ -124,7 +158,7 @@ describe('window.delete', () => {
   it('removes a window and round-trips on undo', async () => {
     env = buildEnv();
     const id = createId('window');
-    await env.bus.executeCommand('window.create', {
+    seedWindow(env, {
       id, wallId: createId('wall'), openingId: 'op_1',
     });
     const before = snap(env.window);
@@ -149,7 +183,7 @@ describe('window.move', () => {
   it('refuses a well-formed payload, names window.setOffset, and mutates nothing', async () => {
     env = buildEnv();
     const id = createId('window');
-    await env.bus.executeCommand('window.create', {
+    seedWindow(env, {
       id, wallId: createId('wall'), openingId: 'op_1', offset: 1.0,
     });
     const before = snap(env.window);
@@ -170,7 +204,7 @@ describe('window.move', () => {
   it('rejects negative offset', async () => {
     env = buildEnv();
     const id = createId('window');
-    await env.bus.executeCommand('window.create', {
+    seedWindow(env, {
       id, wallId: createId('wall'), openingId: 'op_1',
     });
     await expect(
@@ -186,7 +220,7 @@ describe('window.setType', () => {
   it('reapplies catalogue defaults and round-trips on undo', async () => {
     env = buildEnv();
     const id = createId('window');
-    await env.bus.executeCommand('window.create', {
+    seedWindow(env, {
       id, wallId: createId('wall'), openingId: 'op_1',
       systemTypeId: BUILTIN_WINDOW_TYPES[0]!.id,
     });
@@ -203,7 +237,7 @@ describe('window.setType', () => {
   it('rejects unknown type', async () => {
     env = buildEnv();
     const id = createId('window');
-    await env.bus.executeCommand('window.create', {
+    seedWindow(env, {
       id, wallId: createId('wall'), openingId: 'op_1',
     });
     await expect(
@@ -229,7 +263,7 @@ describe('window.setSize / window.setSillHeight — RETIRED from this plugin (§
   it('the plugin handler set no longer registers the dimension verbs', async () => {
     env = buildEnv();
     const id = createId('window');
-    await env.bus.executeCommand('window.create', {
+    seedWindow(env, {
       id, wallId: createId('wall'), openingId: 'op_1',
     });
     await expect(

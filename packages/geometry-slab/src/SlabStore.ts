@@ -92,16 +92,55 @@ function freezeSlabData(slab: SlabData): SlabData {
     return Object.freeze(slab) as SlabData;
 }
 
+/**
+ * §ADR-0318-ELEMENTS-SLOT — thrown when the active-level cursor is read on a
+ * store whose engine half was never attached. ADR-0318 I-3 (honest absence):
+ * the store refuses rather than inventing a level id.
+ */
+export class SlabStoreEngineNotAttachedError extends Error {
+    constructor(member: string) {
+        super(
+            `[SlabStore] ${member} needs the engine half, which is not attached in this process. ` +
+            `Call slabStore.attachEngine(projectContext) (initBuilders.ts does this at engine boot). ` +
+            `§ADR-0318-ELEMENTS-SLOT — the store refuses to invent a level rather than answer with a fiction.`,
+        );
+        this.name = 'SlabStoreEngineNotAttachedError';
+    }
+}
+
 export class SlabStore {
     private _slabs = new Map<string, SlabData>();
-    private projectContext: ProjectContext;
+    /**
+     * ADR-0318 §3 (per-kind adoption) — LATE-BOUND, so `slabStore` at the foot of
+     * this file can be the single production instance shared by
+     * `composeRuntime`'s `stores.elements` slot, `registerAllStores()` and
+     * `ProjectSerializer`. Identity, not construction (I-1/I-2).
+     */
+    private projectContext: ProjectContext | null;
     private listeners: SlabEventListener[] = [];
 
-    constructor(projectContext: ProjectContext) {
-        this.projectContext = projectContext;
+    constructor(projectContext?: ProjectContext | null) {
+        this.projectContext = projectContext ?? null;
         // §01 §2.1 / §3.5: Removed 'bim-level-removed' auto-mutation listener from store.
         // Store must be data-only. Level-driven cleanup is handled by
         // SlabLevelCleanupHandler, which is wired externally in main.ts.
+    }
+
+    /**
+     * ADR-0318 §3 — late-bind the engine half onto the module singleton.
+     * `initBuilders.ts` calls this instead of `new SlabStore(...)`.
+     */
+    attachEngine(projectContext: ProjectContext): this {
+        if (this.projectContext !== null && this.projectContext !== projectContext) {
+            console.warn('[SlabStore] attachEngine: replacing previously attached project context (project switch / hot reload).');
+        }
+        this.projectContext = projectContext;
+        return this;
+    }
+
+    /** ADR-0318 I-3 — is the engine half attached? Never inferred from a value. */
+    isEngineAttached(): boolean {
+        return this.projectContext !== null;
     }
 
     /**
@@ -151,6 +190,7 @@ export class SlabStore {
     }
 
     get activeLevelId(): string {
+        if (this.projectContext === null) throw new SlabStoreEngineNotAttachedError('activeLevelId');
         return this.projectContext.activeLevelId;
     }
 
@@ -266,3 +306,13 @@ export class SlabStore {
         }
     }
 }
+
+/**
+ * §ADR-0318-ELEMENTS-SLOT — THE authoritative slab store.
+ *
+ * Single production instance; `initBuilders.ts` attaches the engine half to it
+ * rather than constructing a rival. The class stays exported and constructible
+ * so unit tests can build isolated instances and so the ADR's falsifiability arm
+ * has a rival to REJECT.
+ */
+export const slabStore = new SlabStore();

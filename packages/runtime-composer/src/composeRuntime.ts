@@ -1528,11 +1528,30 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // hot-reload teardown of the OLD runtime can run after the NEW compose —
     // clearing here would wipe the successor's registrations (ADR-0318 §4).
     const { storeRegistry } = await import('@pryzm/core-app-model/store-registry');
+    //
+    // ── ADR-0318 §3 PER-KIND ADOPTION, wave 1: wall / slab / room ────────────
+    // These three gate everything graph-shaped (hosting, bounding, topology), so
+    // they migrate first. Each is now a module singleton in its geometry package
+    // with its ENGINE half late-bound (`attachEngine`), and `initBuilders.ts`
+    // adopts that singleton instead of `new`-ing a rival — so the instance
+    // registered here IS the instance `registerAllStores()` registers and
+    // `initPersistence`/`ProjectSerializer` reads. I-1 holds by construction,
+    // not by two call sites passing the same expression.
+    //
+    // Deep `/store` subpaths on purpose: they reach the singleton module without
+    // pulling the geometry barrels (fragment builders → renderer-three) onto the
+    // compose path. Same reason `/store-registry` is used above.
     {
       const { doorStore } = await import('@pryzm/geometry-door');
       const { windowStore } = await import('@pryzm/geometry-window');
+      const { wallStore } = await import('@pryzm/geometry-wall/store');
+      const { slabStore } = await import('@pryzm/geometry-slab/store');
+      const { roomStore } = await import('@pryzm/room-topology/store');
       storeRegistry.register('door', doorStore);
       storeRegistry.register('window', windowStore);
+      storeRegistry.register('wall', wallStore);
+      storeRegistry.register('slab', slabStore);
+      storeRegistry.register('room', roomStore);
     }
     const elements: ElementStoresSlot = {
       get: (kind) => storeRegistry.getStoreForType(kind),

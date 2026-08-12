@@ -42,6 +42,8 @@ import { inspectModeCoordinator }  from './inspect/InspectModeCoordinator';
 import { comparisonEngine }        from '@pryzm/core-app-model';
 import { batchCoordinator, selectionBus } from '@pryzm/core-app-model';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model';
+// §L-391-R-B — the session JWT the sync server verifies on the WS upgrade.
+import { getStoredToken } from '@pryzm/core-app-model';
 import '../ui/inspect/AuditStack';
 import '../ui/data/DataCommandCenter';
 import { registerWallPerfBench } from './WallPerfBench';
@@ -952,15 +954,35 @@ export async function bootstrap(
             const _syncUrl = _win.__pryzmSyncUrl ?? _env['VITE_SYNC_URL'];
             const _flagOn =
                 _win.__pryzmCollabCrdt === true || _env['VITE_COLLAB_CRDT'] === 'true';
+            // §L-391-R-B — the sync server AUTHENTICATES the WebSocket upgrade
+            // (apps/sync-server/src/auth/WsAuthGate.ts): no token ⇒ HTTP 401
+            // with `X-Pryzm-Sync-Refusal: missing-token`.
+            //
+            // `window.__pryzmAuthToken` is an override hook that NOTHING in this
+            // repository ever assigns — it was read here and set nowhere, so
+            // before this line the config resolved to `authToken: undefined` for
+            // every real browser and the deployed server would have refused every
+            // client. `getStoredToken()` is the canonical reader for the session
+            // JWT the auth modal writes to localStorage, and it is the SAME token
+            // `server/authStore.js` signs with `SESSION_SECRET` — which is exactly
+            // what the sync server verifies. The override still wins when present.
+            const _authToken = _win.__pryzmAuthToken ?? getStoredToken() ?? undefined;
             const _collabConfig: CollabProviderConfig = {
                 // Master gate: OFF unless BOTH the flag is set and a URL exists.
                 enabled: _flagOn && Boolean(_syncUrl),
                 ...(_syncUrl !== undefined ? { url: _syncUrl } : {}),
                 room: _win.currentProjectId ?? 'pryzm-project',
-                ...(_win.__pryzmAuthToken !== undefined
-                    ? { authToken: _win.__pryzmAuthToken }
-                    : {}),
+                ...(_authToken !== undefined ? { authToken: _authToken } : {}),
             };
+            if (_collabConfig.enabled && _authToken === undefined) {
+                // Fail LOUDLY rather than opening a socket that will be refused
+                // and reconnect-looped forever with no explanation.
+                console.warn(
+                    '[EngineBootstrap] L-391: CRDT collaboration is enabled but no session ' +
+                    'token is available — the sync server will refuse the upgrade with ' +
+                    '`missing-token`. Sign in before enabling collaboration.',
+                );
+            }
             const _provider = connectCrdtProvider(
                 _yjsDocAdapter,
                 _collabConfig,
