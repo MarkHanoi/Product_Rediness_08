@@ -153,6 +153,54 @@
       "reviewByNote": "Longer than its two Tier-1 siblings on purpose, and the difference is argued rather than assumed: they are 4 and 7 NAMED sites, fixable in a sitting. This is 271 declarations across 164 files whose first step is building a module that does not exist. A three-month date on this entry would expire before anyone could honestly act on it, and an expiry nobody can meet teaches people to extend dates rather than to meet them."
     },
     {
+      "gate": "check-prevstate-contract.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-12",
+      "builtBy": "BIM 3.0 Phase 1 Tier 2 · BIM30-READINESS-GATES §3.10 · C72 §3.1–§3.5/§6.2",
+      "firstReading": "exit 1 DECLARED-LEVEL — 21 findings against a declared level of 21, all P1 (update-emit sites carrying no prevState). P2 reads 0: the one discovered classifier pair (WallDeltaClassifier ← WallStore) has a 3-arg feed. P3 reads 0: a seam test constructing the real WallStore exists. Floors met: 120 *Store.ts files (min 100), 39 update emit sites (min 10), 1 diff consumer (min 1), controls 1/1.",
+      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-prevstate-contract.ts — 21 NAMED file:line emit sites, checked in both directions (an unledgered finding exits 3; a ledgered finding no longer measured exits 3).",
+      "predatesTheGate": [
+        "P1 · 18 two-argument 'update' emit sites across 10 stores (Ceiling, Floor, FloorSystemType, Handrail, Roof ×2 copies, Stair ×2 copies, Lift) — the §STEP7 convention C72 §3.1 names is carried by only 10 of 19 update-emitting stores.",
+        "P1 · WallStore.ts:1021/:1065/:1102/:1134 — FOUR update paths in the ONE store whose classifier consumes prevState still emit two arguments, i.e. edits through them classify whole-level/no-prevState today. The same famine shape ADR-057 paid for, in the same file that was fixed."
+      ],
+      "exitCondition": "each named site either passes the pre-mutation snapshot as the third argument (the WallStore.ts:1279/:1363 shape) or its store is shown to have no diff consumer and the site is struck with that argument recorded. C72 §6.2's own exit additionally requires StoreChangeEvent (or its successor) to carry a pre-mutation field — that closes §3.2's standing finding and is OUTSIDE this gate's arms (stated in the gate header). LEDGER reaches 0 and the gate flips hard-0.",
+      "territory": "packages/core-app-model/, packages/geometry-wall/, packages/geometry-roof/, packages/geometry-stair/, packages/geometry-lift/ — NOT tools/.",
+      "reviewBy": "2026-11-12"
+    },
+    {
+      "gate": "check-suppression-is-reversible.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-12",
+      "builtBy": "BIM 3.0 Phase 1 Tier 2 · BIM30-READINESS-GATES §3.11 · C72 §4.1–§4.4/§6.3",
+      "firstReading": "exit 1 DECLARED-LEVEL — 45 findings against a declared level of 45: S1 ×1 (clearGraphAuthoritative: 1 definition, 0 production callers, 1 test caller — the spec's positive-control defect, red the day the gate landed as §3.11 requires) + S2 ×3 (initPersistence.ts:362 and :366 pause across ProjectLoader.load with no finally — the spec's named red — plus PlanViewToolOverlay.ts:368, measured not specified) + S3 ×41 (not one suppression flag in the estate declares a scope). Floors met: 4444 files (min 500), 18 production pause() sites across 8 files (PART-A floor ≥15/≥6 — a walk finding ~2 exits 2 as broken, not green), 41+ markers (min 1), controls 1/1.",
+      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-suppression-is-reversible.ts — 45 NAMED entries (S1 by release method, S2 by pause site file:line, S3 by file:field), checked in both directions.",
+      "predatesTheGate": [
+        "S1 · RoomTopologyObserver._graphAuthoritativeLevels marked from four+ production sites; public release clearGraphAuthoritative has 0 production callers — every generated level keeps its rooms suppressed for the session. Named in C72 §4.1 before this gate existed.",
+        "S2 · initPersistence.ts:362/:366 — pause with no finally around a fallible load. Named in C72 §4.2.",
+        "S3 · 41 suppression flags, zero scope declarations — C72 §4.4 had no enforcement of any kind until this run."
+      ],
+      "exitCondition": "S1 and S2 reach hard-0 with no exemptions: clearGraphAuthoritative gains a production caller (or the suppression design is replaced per C72 §4.1), and every pause spanning a fallible call is wrapped try/finally (the gate's own clean-tree control proves the wrapped form reads green). S3's unscoped list reaches empty: each flag gains a @suppression-scope annotation the code honours, or is struck with a recorded argument that it is not propagation suppression. Then the entry is struck and the gate flips hard-0.",
+      "territory": "packages/room-topology/, apps/editor/src/engine/, plus the 20+ files named in the S3 ledger — NOT tools/.",
+      "reviewBy": "2026-11-12"
+    },
+    {
+      "gate": "check-no-hidden-mock.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-12",
+      "builtBy": "BIM 3.0 Phase 1 Tier 2 · BIM30-READINESS-GATES §3.14 · C74 §3.2/§3.4/§3.5/§6",
+      "firstReading": "exit 1 DECLARED-LEVEL — 63 findings against a declared level of 63: M-A ×1 (PlanegcsAdapter declares kind='planegcs' while constructing MockSolver — the positive control, red until CO-01 resolves) + M-B ×60 (scaffold headers with no owner+date+retiring-assertion, of 62 headers found) + M-C ×2 (PlanegcsAdapter.test.ts:67/:94 inject `underlying:`, the field its own docstring forbids production to pass). Honest stand-ins (MockSolver, MockAnthropicRelay, MockVoiceTranscriber — kind='mock') reported present-and-declared, not counted. Floors met: 4518 files (min 500), 62 scaffold headers (min 1), controls 1/1.",
+      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-no-hidden-mock.ts — 63 NAMED entries, checked in both directions.",
+      "predatesTheGate": [
+        "M-A · PlanegcsAdapter.ts — the mock behind a real name, recorded in C74 §0 before the gate was written.",
+        "M-B · 60 scaffold headers, including the S52-vs-S53 disagreement C74 §3.4 names, and the src/ + apps/editor twin copies of familyCreatorPlaceholder.ts (the two-copies anti-pattern wearing a scaffold header).",
+        "M-C · PlanegcsAdapter.test.ts binds to the injected double; the `??` fallback every production construction takes is the untested path (C74 §3.5, C74 §0's '31 of 33 passing tests test the mock')."
+      ],
+      "exitCondition": "M-A green when PlanegcsAdapter's identity matches its work (truthfulness FIRST, in its own commit — C74 §4.3; this gate prefers neither exit). M-B entries leave as each header gains owner+date+retiring-assertion, or the scaffold is retired, or the marker is shown not to be a scaffold (struck with the argument). M-C leaves when the test names what the injection does NOT cover or the production construction is tested. LEDGER reaches 0 → per C74 §6 exit condition 4 the gate flips hard-0.",
+      "territory": "packages/constraint-solver/ plus the 60 M-B files across packages/, apps/, src/ — NOT tools/.",
+      "reviewBy": "2027-02-12",
+      "reviewByNote": "Aligned with epsilon-policy's date rather than the two siblings', for the same argued reason: M-B is 60 files whose fix is a per-file authorship judgement (owner, date, retiring assertion), not a mechanical strike-list. A three-month bound on 60 files teaches date-extension, not compliance. M-A and M-C are 3 entries in one package and should be gone long before the date."
+    },
+    {
       "gate": "../rac-conformance/certification/gates/check-propagation-trackers-reach.ts",
       "runner": "certify",
       "addedAt": "2026-08-12",

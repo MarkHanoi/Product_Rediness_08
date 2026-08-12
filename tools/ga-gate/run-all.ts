@@ -226,6 +226,15 @@ const GATES: Gate[] = [
   { name: 'solver-is-real (C74 §3.3/§3.7)',           script: 'check-solver-is-real.ts' },
   { name: 'provenance-not-invented (C75 §2.1)',       script: 'check-provenance-not-invented.ts' },
   { name: 'epsilon-policy (C73 §5.1)',                script: 'check-epsilon-policy.ts' },
+  // BIM 3.0 Phase 1 Tier 2 (2026-08-12) — the three static gates of
+  // BIM30-READINESS-GATES §3.10 / §3.11 / §3.14. Same discipline as Tier 1: each
+  // lands RED at a NAMED, shrink-only ledger pinned at its measured first reading,
+  // runs planted-violation controls INSIDE every run (exit 2 as a blind comparator
+  // if an arm stays silent), and carries a gate-newly-measured.json entry added in
+  // the same change — NOT gate-debt.json, for the same reason as Tier 1.
+  { name: 'prevstate-contract (C72 §3, §6.2)',        script: 'check-prevstate-contract.ts' },
+  { name: 'suppression-is-reversible (C72 §4, §6.3)', script: 'check-suppression-is-reversible.ts' },
+  { name: 'no-hidden-mock (C74 §3.2/§3.4/§3.5)',      script: 'check-no-hidden-mock.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];
