@@ -168,11 +168,18 @@ This section is the normative form of [ADR-0321](../adrs/ADR-0321-wall-connectiv
 > the retained index, so `joinedTo` is **not** persist-or-lose. Delete behaviour is inherited from
 > the wall-family cascade purge (§5.6).
 
-> **§3.7 — status, stated honestly.** ADR-0321 is ACCEPTED; **measured 2026-08-12, `joinedTo` is
-> not yet a member of `RelationshipType` and no writer exists.** It is a *decided, unlanded*
-> family. Until it lands with all four elements of §2.6, C70's **C-INV-2** (wall connectivity is a
-> lookup, never a per-query re-run of the resolver) is **UNPROVEN**, and no document may record it
-> otherwise.
+> **§3.7 — status, stated honestly.** ADR-0321 is ACCEPTED.
+> > ✅ **LANDED 2026-08-12 (`56ee3337`).** The prior text read *"`joinedTo` is not yet a member of
+> > `RelationshipType` and no writer exists … C-INV-2 is UNPROVEN."* That is now false, in the good
+> > direction. `joinedTo` is a `RelationshipType` member with all four §2.6 elements: a writer
+> > (`WallRebuildCoordinator.writeJoinedToEdgesForLevel`, remove-and-re-emit at flush so a wall that
+> > *stops* joining drops its edge), a typed reader (`getJoinedWalls` — an unknown wall refuses with
+> > a named reason, never `[]`), its rebuild disposition (REGENERATED — not snapshot-rebuilt, the
+> > flush regenerates it), and its delete behaviour (the wall-family cascade purges it, undo restores
+> > it verbatim). Proven by executed tests including the staleness-removal case against the real
+> > retained junction index. **C-INV-2 moves UNPROVEN → proven-at-the-mechanism-level**; the one
+> > residual is live-session reachability of the flush call site (unit-proven, wiring compiles, no
+> > running-editor probe yet) — that residual, not the mechanism, is what remains UNPROVEN.
 
 ---
 

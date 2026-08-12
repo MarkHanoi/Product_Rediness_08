@@ -126,7 +126,15 @@ propagation in the product.
 > property change?", "which neighbours moved?", "is this a whole-level rebuild or a local
 > one?" — emits the pre-mutation snapshot as the third callback argument on `update`
 > (absent on `add`; there is no prior state). This is the `§STEP7` convention already
-> carried by the five stores in §0.2 and it is the one to copy.
+> carried by the stores in §0.2 and it is the one to copy.
+> > ⚠ **CENSUS CORRECTED 2026-08-12.** §0.2 said *"exactly 5 stores emit prevState."*
+> > `check-prevstate-contract` (built this day) measured **10 of 19 update-emitting stores** carry
+> > it on ≥1 site (Door and Window in both duplicate copies, RoomStore and RoomBoundingLineStore
+> > included). The gate is the authority on the count (C69 §0.1 — cite the gate, never a prose
+> > number); this line no longer states one. The gate's shrink-only ledger names **21 2-arg emit
+> > sites** — the work is not "5 stores lack it" but "these 21 sites do", and
+> > `WallStore.ts:1021/1065/1102/1134` are the highest-value strikes: WallStore is the store whose
+> > classifier actually consumes the third argument.
 
 > **§3.2 — MUST.** A change-notification **type** that a diff consumer subscribes to
 > declares a pre-mutation field. `StoreChangeEvent` does not, and that is the standing
