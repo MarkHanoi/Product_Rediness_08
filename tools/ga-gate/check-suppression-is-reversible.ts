@@ -112,6 +112,7 @@ const MEDIA_RECEIVER = /video|audio|media|player|^v$|^vid(eo)?El/i;
 /**
  * Measured 2026-08-12 at HEAD (56a838bc). S1 ×1 · S2 ×3 · S3 ×41 = 45 named.
  * SHRUNK 2026-08-12 (§FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED) to S1 ×1 · S2 ×3 · S3 ×39 = 43.
+ * SHRUNK 2026-08-12 (commit 4dbed18f, initPersistence try/finally) to S1 ×1 · S2 ×1 · S3 ×39 = 41.
  * Two S3 entries struck WITH the argument, never silently:
  *   • `RoomTopologyObserver.ts:paused` — was the S3 finding AND the substantive C72 §4
  *     defect. `resume()` was a bare flag write and `_onWallMutationCommitted` DROPPED
@@ -133,12 +134,13 @@ const MEDIA_RECEIVER = /video|audio|media|player|^v$|^vid(eo)?El/i;
  *     day this gate landed, exactly as §3.11 requires. 1 definition, 0
  *     production callers, 1 test caller — every generated level keeps its
  *     rooms suppressed for the session.
- * S2: the two initPersistence pauses (topology :362, syncStateEngine :366) —
- *     both resume past `ProjectLoader.load` with no `finally` — plus
- *     PlanViewToolOverlay.ts:368, MEASURED NOT SPECIFIED: the spec names the
+ * S2: PlanViewToolOverlay.ts:368, MEASURED NOT SPECIFIED: the spec named the
  *     initPersistence pair alone; this is the identical shape one directory
  *     over, recorded rather than excluded, because a gate that only ever finds
  *     the sites its spec listed is a spec transcription, not a measurement.
+ *     (The initPersistence pair — topology :362, syncStateEngine :366 — was
+ *     PAID by the try/finally fix in commit 4dbed18f and struck here in the
+ *     adjacent commit, per the fix-strikes-its-line rule above.)
  * S3: the estate's suppression flags — not one declares a scope. An entry
  *     leaves when the flag gains a `@suppression-scope` annotation whose scope
  *     the code honours, or when it is shown NOT to be propagation suppression
@@ -147,8 +149,6 @@ const MEDIA_RECEIVER = /video|audio|media|player|^v$|^vid(eo)?El/i;
  */
 const LEDGER: readonly string[] = [
   'S1::packages/room-topology/src/RoomTopologyObserver.ts:clearGraphAuthoritative',
-  'S2::apps/editor/src/engine/initPersistence.ts:362',
-  'S2::apps/editor/src/engine/initPersistence.ts:366',
   'S2::apps/editor/src/engine/views/PlanViewToolOverlay.ts:368',
   'S3::apps/editor/src/engine/WallRebuildCoordinator.ts:_wallRebuildPaused',
   'S3::apps/editor/src/engine/initCollaboration.ts:suppressOutboundVisibilityIntentEvents',
