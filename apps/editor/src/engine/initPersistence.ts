@@ -365,17 +365,20 @@ export function initPersistence(params: {
             // Prevents incomplete-state recomputes while stores are being hydrated.
             syncStateEngine.pause();
 
-            const loader = new ProjectLoader(toolManager.commandManager);
-            const result = loader.load(snapshot as any, () => cancelled);
+            // C72 §4.2 — resume in a `finally`: a throw inside ProjectLoader.load
+            // must not leave topology observation and sync-state recompute off for
+            // the rest of the session, silently, with the project looking fine.
+            try {
+                const loader = new ProjectLoader(toolManager.commandManager);
+                return loader.load(snapshot as any, () => cancelled);
+            } finally {
+                // Resume after load (synchronous — ProjectLoader.load is sync)
+                window.roomTopologyObserver?.resume();
 
-            // Resume after load (synchronous — ProjectLoader.load is sync)
-            window.roomTopologyObserver?.resume();
-
-            // ── Data Platform Phase 6 §6.5: Resume SyncStateEngine after load ──
-            // Flushes any pending recomputes accumulated during load hydration.
-            syncStateEngine.resume();
-
-            return result;
+                // ── Data Platform Phase 6 §6.5: Resume SyncStateEngine after load ──
+                // Flushes any pending recomputes accumulated during load hydration.
+                syncStateEngine.resume();
+            }
         },
     };
 
