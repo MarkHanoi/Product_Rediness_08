@@ -469,6 +469,40 @@ Rule for the next agent: "Pushing image done" in the log ⇒ the failure is
 DELIVERY, not build. Reference-deploy the pushed tag; never re-run the full
 script (it re-uploads ~130 MB and re-builds for nothing).
 
+## 6.6 THIRD EXECUTION — v-next, 2026-08-12 (`52bfb2ba`), bundle proof 6/6
+
+Two findings; the first supersedes part of §6.5.2.
+
+### 6.6.1 ⚠ §6.5.2's global-export advice is STALE — the script now defends itself, and the export BREAKS it
+
+§6.5.2 says to `export MSYS_NO_PATHCONV=1` + `MSYS2_ARG_CONV_EXCL='*'`. **Do not.** The script
+has since evolved its own defence (the URL args are passed *slash-less* and re-assembled, see
+the §MSYS-PATHCONV block in the script itself around L90–L120), and its header explicitly warns
+that the global export is WORSE: it disables conversion for **every** command, including the
+script's own `curl -o /tmp/...`, which then fails with exit 23 (`client returned ERROR on
+write`) because curl is a native Windows binary that cannot write to an unconverted `/tmp`
+path. That exact failure happened on this execution's first attempt.
+
+**Rule: the script is the authority on its own MSYS defence. Run it with only the
+`DOCKER_CONFIG` guard (§6.5.6); add no MSYS exports.** This is the founder's 2026-08-07 ruling
+("read the file, don't deploy from memory") biting in a new way: the *contract* was the stale
+memory this time. When §6.5.2 and the script's header disagree, the script wins — same
+precedence rule as §3.3's "the Dockerfile wins".
+
+### 6.6.2 The legacy builder app gets REAPED — expect to resize a NEW builder
+
+`fly-builder-autumn-headland-88` (§2.1) no longer existed; a new app
+(`fly-builder-twilight-songbird-4866`) had been minted at **8192MB** and needed the §2.1 resize
+to 16384 before the build. The §6.5.4 note "the resize persisted — verify, don't re-apply"
+is therefore conditional on the builder app itself surviving. **Always `flyctl apps list |
+grep builder` first; never assume the §2.1 app name.** With the resize done, the build
+completed clean (4,542-module class, no OOM), and blue-green rolled out first try.
+
+Timings: recovery+upload+build+push ≈ 35 min wall-clock on this uplink (slower than §6.5.4's
+~13 min — uplink variance dominates, as predicted there). Gate cover run for this SHA: root
+`tsc` exit 0 · `check:isolation` clean · `test:server` 613/613. Not run: root vitest,
+test:pryzm1, Playwright (same declared gap as §6).
+
 ## 7. OPEN ITEMS
 
 1. **Decouple build from deploy** — the real fix. Build on a datacenter box,
