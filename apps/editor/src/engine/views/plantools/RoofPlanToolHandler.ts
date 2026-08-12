@@ -1,5 +1,9 @@
 import { createId } from '@pryzm/schemas';
-import { WallRegionDetector } from '@pryzm/geometry-roof';
+import {
+    traceRoofRegionAtPoint,
+    formatRoofRegionAttributionReport,
+    type RegionWallLike,
+} from '@pryzm/geometry-roof';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { resolveActiveRoofDrawMode, roofTypeForMode, type RoofDrawMode } from './activeRoofDrawMode';
 
@@ -41,7 +45,6 @@ export class RoofPlanToolHandler implements PlanToolHandler {
      * were unreachable in plan view.
      */
     private _mode: RoofDrawMode = '2point';
-    private readonly _regionDetector = new WallRegionDetector();
 
     activate(ctx: PlanToolDrawContext): void {
         this._ctx    = ctx;
@@ -177,11 +180,15 @@ export class RoofPlanToolHandler implements PlanToolHandler {
      * BY REGION on the plan surface — previously impossible, because the mode
      * could not reach this handler at all.
      *
-     * Uses the SAME `WallRegionDetector` the 3D `RoofTool` uses, so a region roof
-     * drawn in plan and one drawn in 3D are built on the same boundary (C11 §3 —
-     * parity by construction, the defect class of L-213 / L-239 / L-240 / L-243 /
-     * L-255 / L-260). The detector now follows a curved wall's arc rather than its
-     * chord — see `WallRegionDetector._extractSegments`.
+     * §ROOF-REGION-SHARED-TRACER (C79 §6.5) — uses the SAME shared tracer route
+     * the 3D `RoofTool` uses (`traceRoofRegionAtPoint` → geometry-slab's
+     * `traceRegionSketchAtPoint`), so a region roof drawn in plan and one drawn
+     * in 3D are built on the same boundary (C11 §3 — parity by construction, the
+     * defect class of L-213 / L-239 / L-240 / L-243 / L-255 / L-260). The retired
+     * `WallRegionDetector` discarded wall identity before returning; the shared
+     * tracer attributes every edge to the wall that produced it, and the counts
+     * are reported below (C79 §2.6) even though roof cannot yet STORE them — the
+     * named C79 §6.3 storage gap.
      */
     private _commitRegion(pt: WorldPoint): void {
         const c = this._ctx;
@@ -194,19 +201,17 @@ export class RoofPlanToolHandler implements PlanToolHandler {
             );
             return;
         }
-        // The detector's only use of the hit point is its .x / .z, so a plain
-        // object satisfies it without importing THREE into apps/editor (P2).
-        const hit = { x: pt.worldX, y: 0, z: pt.worldZ } as unknown as Parameters<WallRegionDetector['detect']>[0];
-        const region = this._regionDetector.detect(hit, wallStore as unknown as { getAll(): unknown[] });
-        if (!region || region.length < 3) {
+        const walls = (wallStore as unknown as { getAll(): RegionWallLike[] }).getAll();
+        const traced = traceRoofRegionAtPoint(walls, pt.worldX, pt.worldZ);
+        if (!traced || traced.polygon.length < 3) {
             console.warn('[RoofPlanToolHandler] region mode: no closed wall region at', pt.worldX, pt.worldZ);
             return;
         }
         console.log(
-            `[RoofPlanToolHandler] region mode: ${region.length}-vertex boundary detected ` +
-            `(mode=${this._mode})`,
+            `[RoofPlanToolHandler] region mode: ${traced.polygon.length}-vertex boundary detected ` +
+            `(mode=${this._mode}). ${formatRoofRegionAttributionReport(traced.attribution)}`,
         );
-        this._commit(c, region as [number, number][]);
+        this._commit(c, traced.polygon);
     }
 
     // ── Shared commit logic ───────────────────────────────────────────────────

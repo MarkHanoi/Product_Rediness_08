@@ -11,7 +11,33 @@ export * from './RoofTypes';
 export * from './roofSnapshotUtils';
 export { RoofStore } from './RoofStore';
 export { RoofLevelCleanupHandler } from './RoofLevelCleanupHandler';
-export { WallRegionDetector } from './WallRegionDetector';
+// ── §TOMBSTONE-ROOF-REGION-DETECTOR (2026-08-12, C79 §6.5) ───────────────────
+//
+// DELETED HERE: `WallRegionDetector` (was `./WallRegionDetector.ts`).
+//
+// It was the SECOND, INDEPENDENT region tracer — a duplicate of geometry-slab's
+// `SlabRegionTracer` whose `detect(hitPoint, wallStore): Pt[] | null` projected
+// the traced loop to bare coordinates and DISCARDED WALL IDENTITY before
+// returning (there was no field to fill in). Two tracers is how one fix reaches
+// one family: `e6c8cb58` closed the attribution defect in the slab tracer and
+// roof did not move at all (C79 §0.1(1), §6.4). C79 §6.5 directs the duplicate
+// be RETIRED onto the shared tracer, not extended in parallel.
+//
+// THE LIVE OWNER — import from this, and only this:
+//   `traceRoofRegionAtPoint` (below) → `@pryzm/geometry-slab/region-tracer`'s
+//   `traceRegionSketchAtPoint`, which also carries the curved-wall fixes the
+//   detector lacked (§FIX-REGION-RING-PRETRIM-FRAME, §ARC-DENSITY) and the
+//   attribution machinery it structurally could not (§REGION-HOST-ATTRIBUTION).
+export {
+    traceRoofRegionAtPoint,
+    formatRoofRegionAttributionReport,
+} from './RoofRegionTrace';
+export type {
+    RoofRegionTraceResult,
+    RegionSketchAttribution,
+    RegionWallLike,
+} from './RoofRegionTrace';
+
 export { RoofSnapEngine } from './RoofSnapEngine';
 export type { SnapType, SnapResult } from './RoofSnapEngine';
 

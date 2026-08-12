@@ -14,7 +14,10 @@ import { traceRegionSketchAtPoint, type SlabSketch } from '@pryzm/geometry-slab'
 // The sketch is attached through the COMMAND LAYER (C03/P6 — commands are the only
 // mutation path), so it is undoable and SlabDependencyTracker re-registers the
 // wall→slab dependencies from its own 'bim-slab-updated' listener.
-import { UpdateSlabSketchCommand } from '@pryzm/command-registry';
+// §BRIDGE-EXPORTS (2026-08-12) — the UpdateSlabSketchCommand dispatch is a
+// typed-world → legacy-commandManager bridge, so it lives in the ONE authorised
+// bridge file (initBusHandlers.ts) rather than as a scattered legacy call site here.
+import { attachSlabSketchViaLegacyBridge } from '../../initBusHandlers';
 // §FEAT-SLAB-DRAW-MODES (founder 2026-08-06) — "During SLAB creation … I want the
 // SAME OPTIONS as during WALL creation — ORTHO, LINEAR, CURVE". The polyline slab
 // now authors its boundary through the ONE shared path model that the floor-finish
@@ -308,10 +311,13 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             // Widening the bus payload instead would mean writing the sketch in
             // `plugins/slab`, which is a separate, larger change.
             if (regionSketch && regionSketch.outerLoop.edges.length >= 3) {
-                const cm = window.commandManager as unknown as {
-                    execute?: (cmd: unknown) => { success: boolean; error?: string };
-                } | undefined; // TODO(TASK-08)
-                if (!cm?.execute) {
+                const res = attachSlabSketchViaLegacyBridge({ slabId, sketch: regionSketch });
+                if (res.success) {
+                    console.log(
+                        `[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION sketch attached to ${slabId} — `
+                        + `slab now follows its host walls.`,
+                    );
+                } else if (res.error === 'commandManager unavailable') {
                     // Loud, not silent: without this the slab is a coincidental
                     // quadrilateral again, which is exactly the defect being closed.
                     console.warn(
@@ -320,18 +326,10 @@ export class SlabPlanToolHandler implements PlanToolHandler {
                         + 'will NOT follow its walls.',
                     );
                 } else {
-                    const res = cm.execute(new UpdateSlabSketchCommand({ slabId, sketch: regionSketch }));
-                    if (res?.success) {
-                        console.log(
-                            `[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION sketch attached to ${slabId} — `
-                            + `slab now follows its host walls.`,
-                        );
-                    } else {
-                        console.warn(
-                            '[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION UpdateSlabSketchCommand '
-                            + `failed for ${slabId}: ${res?.error ?? 'unknown'} — slab will NOT follow its walls.`,
-                        );
-                    }
+                    console.warn(
+                        '[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION UpdateSlabSketchCommand '
+                        + `failed for ${slabId}: ${res.error ?? 'unknown'} — slab will NOT follow its walls.`,
+                    );
                 }
             }
 

@@ -22,6 +22,7 @@
   "dependencies": {
     "@pryzm/core-app-model": "workspace:*",
     "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/geometry-slab": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "@pryzm/command-registry": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",

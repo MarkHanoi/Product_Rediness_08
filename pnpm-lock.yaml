@@ -2203,6 +2203,9 @@ importers:
       '@pryzm/geometry-kernel':
         specifier: workspace:*
         version: link:../geometry-kernel
+      '@pryzm/geometry-slab':
+        specifier: workspace:*
+        version: link:../geometry-slab
       '@pryzm/plugin-annotations':
         specifier: workspace:*
         version: link:../../plugins/annotations

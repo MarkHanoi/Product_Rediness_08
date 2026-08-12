@@ -4,7 +4,7 @@ import { CreateRoofCommand } from '@pryzm/command-registry';
 import { RoofFootprint, RoofType } from './RoofTypes.js';
 import { CommandManager } from '@pryzm/command-registry';
 import { ProjectContext } from '@pryzm/core-app-model';
-import { WallRegionDetector } from './WallRegionDetector.js';
+import { traceRoofRegionAtPoint, formatRoofRegionAttributionReport } from './RoofRegionTrace.js';
 import { RoofSnapEngine } from './RoofSnapEngine.js';
 import { PREVIEW_COLOR, tagPreview, disposePreviewObject } from '@pryzm/core-app-model';
 
@@ -56,7 +56,6 @@ export class RoofTool {
     private readonly _projectContext:   ProjectContext;
     private readonly _selectionManager?: { setEnabled(on: boolean): void };
     private readonly _bimManager?: { getLevelById(id: string): { elevation: number } | undefined };
-    private readonly _regionDetector: WallRegionDetector;
     private readonly _snapEngine:     RoofSnapEngine;
 
     constructor(
@@ -70,7 +69,6 @@ export class RoofTool {
         this._selectionManager = deps.selectionManager;
         this._bimManager       = deps.bimManager;
         if (deps.wallStore) this.wallStore = deps.wallStore;
-        this._regionDetector = new WallRegionDetector();
         this._snapEngine     = new RoofSnapEngine(0.25, 0.3);
     }
 
@@ -272,13 +270,19 @@ export class RoofTool {
             return;
         }
 
-        // P3.1 — delegate to injectable WallRegionDetector
-        const region = this._regionDetector.detect(point, this.wallStore);
-        if (region && region.length >= 3) {
+        // §ROOF-REGION-SHARED-TRACER (C79 §6.5) — the ONE shared region tracer,
+        // replacing the retired WallRegionDetector (which discarded wall identity
+        // before returning; see RoofRegionTrace.ts). Same answer shape: null =
+        // no closed region encloses the click.
+        const traced = traceRoofRegionAtPoint(this.wallStore.getAll(), point.x, point.z);
+        if (traced && traced.polygon.length >= 3) {
+            // C79 §2.6 — the attribution counts are REPORTED at creation, and the
+            // storage gap is stated where it applies, never silently absorbed.
+            console.log(`[RoofTool] ${formatRoofRegionAttributionReport(traced.attribution)}`);
             // Show the confirming panel (type/slope/overhang/thickness) so the
             // user can review parameters before committing — same UX as 2-point
             // and polyline modes.  (ROOF-SYSTEM-AUDIT-2026 Bug 3 fix)
-            this._pendingPolygon = region;
+            this._pendingPolygon = traced.polygon;
             this._state = RoofToolState.CONFIRMING;
             this._showConfirmingPanel();
         } else {

@@ -16,11 +16,18 @@
  *      rectilinearity and a tessellated arc is rectilinear in no frame.
  *   C. The overhang was a radial push from the centroid, not a parallel offset,
  *      so the eave left the building.
+ *
+ * §ROOF-REGION-SHARED-TRACER (C79 §6.5, 2026-08-12): `WallRegionDetector` is
+ * RETIRED (see the tombstone in `src/index.ts`); roof-by-region now runs on the
+ * shared `SlabRegionTracer` via `traceRoofRegionAtPoint`. The assertions below
+ * were re-derived for the shared tracer's §ARC-DENSITY behaviour: the wall's
+ * `curve.segments` is honoured as a FLOOR and density may be RAISED from the
+ * arc's curvature, so exact chord counts are no longer contract — following the
+ * arc (not its chord) is.
  */
 
 import { describe, it, expect } from 'vitest';
-import * as THREE from '@pryzm/renderer-three/three';
-import { WallRegionDetector } from '../src/WallRegionDetector';
+import { traceRoofRegionAtPoint } from '../src/RoofRegionTrace';
 import { RoofGeometryBuilder } from '../src/RoofGeometryBuilder';
 import type { RoofData } from '../src/RoofTypes';
 
@@ -30,17 +37,18 @@ import type { RoofData } from '../src/RoofTypes';
  * arc endpoints, `curve.control` = the quadratic-Bézier control point.
  */
 const ROOM_WALLS = [
-    { id: 'w-s', baseLine: [{ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }] },
-    { id: 'w-e', baseLine: [{ x: 10, y: 0, z: 0 }, { x: 10, y: 0, z: 8 }] },
+    { id: 'w-s', baseLine: [{ x: 0, z: 0 }, { x: 10, z: 0 }] },
+    { id: 'w-e', baseLine: [{ x: 10, z: 0 }, { x: 10, z: 8 }] },
     {
         id: 'w-n-curved',
-        baseLine: [{ x: 10, y: 0, z: 8 }, { x: 0, y: 0, z: 8 }],
-        curve: { control: { x: 5, y: 0, z: 16 }, segments: 16 },
+        baseLine: [{ x: 10, z: 8 }, { x: 0, z: 8 }],
+        curve: { control: { x: 5, z: 16 }, segments: 16 },
     },
-    { id: 'w-w', baseLine: [{ x: 0, y: 0, z: 8 }, { x: 0, y: 0, z: 0 }] },
+    { id: 'w-w', baseLine: [{ x: 0, z: 8 }, { x: 0, z: 0 }] },
 ];
 
-const wallStore = { getAll: () => ROOM_WALLS };
+const region = (): [number, number][] =>
+    traceRoofRegionAtPoint(ROOM_WALLS, 5, 4)!.polygon;
 
 function makeRoof(poly: [number, number][], roofType: RoofData['roofType']): RoofData {
     return {
@@ -64,42 +72,54 @@ function yRange(geo: { getAttribute(n: string): { array: ArrayLike<number> } | u
 
 describe('A — the region boundary must FOLLOW the arc, not cut across it', () => {
     it('detects the region and returns the tessellated arc, not a 4-vertex box', () => {
-        const region = new WallRegionDetector().detect(new THREE.Vector3(5, 0, 4), wallStore);
-        expect(region).not.toBeNull();
-        // 3 straight walls + 16 arc chords = 19 boundary vertices. Before the fix
-        // this was 4 — the arc collapsed to its chord.
-        expect(region!.length).toBe(19);
+        const traced = traceRoofRegionAtPoint(ROOM_WALLS, 5, 4);
+        expect(traced).not.toBeNull();
+        // 3 straight walls + ≥16 arc chords (curve.segments=16 is a FLOOR under
+        // §ARC-DENSITY). Before the L-699 fix this was 4 — the arc collapsed to
+        // its chord.
+        expect(traced!.polygon.length).toBeGreaterThanOrEqual(19);
     });
 
-    it('the boundary reaches the arc APEX at z ≈ 12 (the chord stops at z = 8)', () => {
-        const region = new WallRegionDetector().detect(new THREE.Vector3(5, 0, 4), wallStore)!;
-        const maxZ = Math.max(...region.map((p) => p[1]));
-        expect(maxZ).toBeCloseTo(12, 6);
+    it('the boundary reaches near the arc APEX at z = 12 (the chord stops at z = 8)', () => {
+        const poly = region();
+        const maxZ = Math.max(...poly.map((p) => p[1]));
+        // z(t) = 8 + 16·t(1−t) peaks at 12; with n ≥ 16 chords the nearest sample
+        // to t = 0.5 is within 1/(2n) ≤ 1/32, so maxZ ≥ 12 − 16/(32²) ≈ 11.984.
+        expect(maxZ).toBeGreaterThan(11.9);
+        expect(maxZ).toBeLessThanOrEqual(12 + 1e-9);
         // The whole defect in one number: the chord-only boundary topped out at 8,
-        // discarding 4 m of room the user had drawn.
+        // discarding ~4 m of room the user had drawn.
         expect(maxZ - 8).toBeGreaterThan(3.9);
     });
 
     it('a room of only STRAIGHT walls is unchanged (no regression)', () => {
-        const straightRoom = {
-            getAll: () => [
-                { id: 'a', baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
-                { id: 'b', baseLine: [{ x: 6, z: 0 }, { x: 6, z: 6 }] },
-                { id: 'c', baseLine: [{ x: 6, z: 6 }, { x: 0, z: 6 }] },
-                { id: 'd', baseLine: [{ x: 0, z: 6 }, { x: 0, z: 0 }] },
-            ],
-        };
-        const region = new WallRegionDetector().detect(new THREE.Vector3(3, 0, 3), straightRoom);
-        expect(region).not.toBeNull();
-        expect(region!.length).toBe(4);
+        const straightRoom = [
+            { id: 'a', baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
+            { id: 'b', baseLine: [{ x: 6, z: 0 }, { x: 6, z: 6 }] },
+            { id: 'c', baseLine: [{ x: 6, z: 6 }, { x: 0, z: 6 }] },
+            { id: 'd', baseLine: [{ x: 0, z: 6 }, { x: 0, z: 0 }] },
+        ];
+        const traced = traceRoofRegionAtPoint(straightRoom, 3, 3);
+        expect(traced).not.toBeNull();
+        expect(traced!.polygon.length).toBe(4);
+    });
+
+    it('the returned polygon is wound CCW (positive area) — the retired detector\'s contract', () => {
+        const poly = region();
+        let area = 0;
+        for (let i = 0; i < poly.length; i++) {
+            const j = (i + 1) % poly.length;
+            area += poly[i]![0] * poly[j]![1] - poly[j]![0] * poly[i]![1];
+        }
+        expect(area / 2).toBeGreaterThan(0);
     });
 });
 
 describe('B — a curved region must produce a REAL SLOPING roof, never a flat plane', () => {
-    const region = new WallRegionDetector().detect(new THREE.Vector3(5, 0, 4), wallStore)!;
+    const poly = region();
 
     it('gable over the traced curved region rises above the eave', () => {
-        const geo = RoofGeometryBuilder.generate(makeRoof(region as [number, number][], 'gable'));
+        const geo = RoofGeometryBuilder.generate(makeRoof(poly, 'gable'));
         const { lo, hi } = yRange(geo);
         // lo is the soffit at -thickness; hi is the ridge/apex. A flat roof would
         // give hi === 0 — which is precisely what the founder saw.
@@ -108,12 +128,12 @@ describe('B — a curved region must produce a REAL SLOPING roof, never a flat p
     });
 
     it('hip over the traced curved region rises above the eave', () => {
-        const geo = RoofGeometryBuilder.generate(makeRoof(region as [number, number][], 'hip'));
+        const geo = RoofGeometryBuilder.generate(makeRoof(poly, 'hip'));
         expect(yRange(geo).hi).toBeGreaterThan(0.5);
     });
 
     it('the surface is GRADED, not two planes: many distinct heights', () => {
-        const geo = RoofGeometryBuilder.generate(makeRoof(region as [number, number][], 'hip'));
+        const geo = RoofGeometryBuilder.generate(makeRoof(poly, 'hip'));
         const pos = geo.getAttribute('position')!;
         const heights = new Set<number>();
         for (let i = 1; i < pos.array.length; i += 3) heights.add(Math.round(pos.array[i]! * 1000));
@@ -134,16 +154,21 @@ describe('B — a curved region must produce a REAL SLOPING roof, never a flat p
 });
 
 describe('C — the eave must stay parallel to the building', () => {
-    const region = new WallRegionDetector().detect(new THREE.Vector3(5, 0, 4), wallStore)! as [number, number][];
+    const poly = region();
 
     it('a 0.3 m overhang extends the footprint by 0.3 m, not by a shape-dependent amount', () => {
-        const geo = RoofGeometryBuilder.generate(makeRoof(region, 'hip'));
+        // The footprint apex is wherever the tessellation sampled nearest t = 0.5,
+        // so measure the eave RELATIVE to it — the invariant is "parallel offset
+        // of 0.3 m", not an absolute coordinate.
+        const apexZ = Math.max(...poly.map((p) => p[1]));
+        const geo = RoofGeometryBuilder.generate(makeRoof(poly, 'hip'));
         const pos = geo.getAttribute('position')!;
         let maxZ = -Infinity;
         for (let i = 0; i < pos.array.length; i += 3) maxZ = Math.max(maxZ, pos.array[i + 2]!);
-        // Footprint apex is z = 12; a true 0.3 m parallel offset puts the eave at
-        // 12.3 (plus the sub-millimetre mitre overshoot of a 16-chord arc).
-        expect(maxZ).toBeGreaterThan(12.29);
-        expect(maxZ).toBeLessThan(12.35);
+        // A true 0.3 m parallel offset puts the eave 0.3 m past the apex (plus the
+        // sub-centimetre mitre overshoot of a tessellated arc). A radial push from
+        // the centroid — the old defect — overshoots by a shape-dependent amount.
+        expect(maxZ - apexZ).toBeGreaterThan(0.29);
+        expect(maxZ - apexZ).toBeLessThan(0.36);
     });
 });

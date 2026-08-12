@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./geom-utils": "./src/SlabGeomUtils.ts",
-    "./store": "./src/SlabStore.ts"
+    "./store": "./src/SlabStore.ts",
+    "./region-tracer": "./src/SlabRegionTracer.ts"
   },
   "files": [
     "src"
