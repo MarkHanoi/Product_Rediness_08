@@ -5,11 +5,16 @@
 # deploy from repo root with:  flyctl deploy -c apps/sync-server/fly.toml
 #
 # ⚠ THE LOAD-BEARING PRECONDITION (§4): SESSION_SECRET here MUST be byte-identical
-# to the BFF (`pryzm`). As of 2026-08-12 the BFF has NO stable SESSION_SECRET —
-# `flyctl secrets list -a pryzm` shows none, so authStore.js falls back to an
-# ephemeral per-process secret. A stable secret must be set on BOTH apps first,
-# or every browser token is refused `bad-signature`. Secrets go through
-# `flyctl secrets set`, never this file.
+# to the BFF (`pryzm`).
+#   CORRECTED 2026-08-12: an earlier version of this comment claimed the BFF had
+#   NO stable SESSION_SECRET. That was WRONG — a transient `flyctl secrets list`
+#   failure returned empty and was trusted over the tool. Re-confirmed:
+#   `flyctl secrets list -a pryzm` DOES list SESSION_SECRET (Deployed), and
+#   server.js hard-exits in prod without it, so a running site proves it is set.
+#   There is therefore NO missing-secret blocker. To deploy this server, read the
+#   BFF's existing value and set the SAME one here (`flyctl secrets set` on
+#   pryzm-sync); do not mint a new one, or every browser token is refused
+#   `bad-signature`. Secrets go through `flyctl secrets set`, never this file.
 
 app = "pryzm-sync"
 primary_region = "fra"   # co-located with `pryzm` (fra) — every keystroke crosses this link
