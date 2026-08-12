@@ -88,7 +88,8 @@ const SITS_ON_KINDS = [
  *
  * Reconstructs:
  *   1. `hosts` / `hostedBy`   — wall ↔ hosted door/window (wall.openings[])
- *   2. `boundedBy`            — room → bounding wall (room.boundary.boundingWallIds)
+ *   2. `boundedBy`            — room → bounding wall (room.boundingWallIds — TOP-LEVEL,
+ *                               a SIBLING of `boundary`, per RoomDataAddSchema; see G-1 note below)
  *   3. `adjacentTo`           — two rooms sharing a bounding wall
  *   4. `connectedTo`          — two rooms sharing a bounding wall that carries a door
  *   5. `partOf`               — room → unit (room.unitId)
@@ -125,10 +126,20 @@ export function rebuildSemanticGraphFromSnapshot(
     }
 
     // 2. Room → Wall (boundedBy) + index of which rooms share each wall.
+    //
+    // G-1 (BIM30 Phase 0D): `boundingWallIds` is a TOP-LEVEL field on the room
+    // record — a SIBLING of `boundary`, not nested inside it (RoomDataAddSchema /
+    // RoomTypes.RoomData, both since the initial commit). This used to read
+    // `room.boundary?.boundingWallIds`, which matched NO persisted snapshot ever
+    // written (both ProjectSerializers persist `roomStore.getAll()` verbatim via
+    // deepStrip), so `boundedBy` / `adjacentTo` / `connectedTo` silently yielded
+    // zero edges on every load. No fallback read of the nested shape is kept:
+    // git history proves no serializer ever wrote it there, and a fallback for a
+    // shape that never existed would be dead code wearing a safety costume.
     const wallToRooms = new Map<string, string[]>();
     for (const room of (snapshot.rooms ?? [])) {
         if (!room?.id) continue;
-        const wallIds: string[] = room.boundary?.boundingWallIds ?? [];
+        const wallIds: string[] = Array.isArray(room.boundingWallIds) ? room.boundingWallIds : [];
         for (const wallId of wallIds) {
             if (!wallId) continue;
             addRel(room.id, wallId, 'boundedBy');
