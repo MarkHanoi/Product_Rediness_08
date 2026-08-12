@@ -1,10 +1,55 @@
 # BIM 2.0 — the 10/10 acceptance plan
 
-> **Stamp**: 2026-08-11 · **Branch**: `main` · **Status**: PLAN, opened today ·
+> **Stamp**: 2026-08-11 · **Branch**: `main` · **Status**: **CLOSED-OUT 2026-08-12 at 9/10** —
+> see the §0.1 closing entry. The original plan text below is preserved unedited beneath it,
+> per the rule that a plan that rewrites its own predictions cannot be audited.
+>
 > **Founder directive**: *"before we need to have BIM 2.0 10/10 accepted. plan, document and
 > implement"* — then the same for BIM 3.0.
->
-> **Measured baseline**, not estimated: [`BIM20-CERTIFICATION-RESULTS.md`](../../04-reference/BIM20-CERTIFICATION-RESULTS.md)
+
+## 0.1 CLOSING ENTRY — 2026-08-12
+
+**Final score: 9/10, deployed to production and bundle-proven (SHA `52bfb2ba`, proof 6/6).**
+The measured trajectory, every point an executed run: persistence **24 FAILED → 11 → 8 → 5 → 0**
+· undo/redo **12 FAILED → 0** · `certify.ts` grades **DECLARED-LEVEL** · cert-ratchet pinned at
+`{persistence: 0, undoredo: 0}`, shrink-only.
+
+| # | Criterion | Closed by | Evidence |
+|---|---|---|---|
+| C1 | Identity round-trip | `50725deb` + `f941b39a` | `check-identity-roundtrip` **0 CLEAN**, 17/17 kinds keep id **and** GUID |
+| C2 | State round-trip | `3c9b75b5` + `88717441` | persistence **0 FAILED**, zero undocumented divergences; exclusions enumerated per ADR-0319, printed per row |
+| C3 | Undo → State A | `8552de14` | 15/15 PROVEN, four rows with **zero** exclusions |
+| C4 | Redo → State B | `8552de14` | 15/15 — **without** the patch layer ADR-0319 predicted (overturned by measurement, recorded in the ADR) |
+| C5 | No dead/shadowed/lying verbs | `80845b3e` | lies 3→0 (all three now refuse) · SHADOWED 14→9 · LIVE 101→106 |
+| C6 | Authoritative state provable | `be425841` + `80845b3e` | wall/slab/room registry-adopted with same-instance (`toBe`) proofs; UNPROVABLE-NO-STORE 168→109 |
+| C7 | Honest reports | `dcf646a0` + `60c6acf9` + `3ee632f6` | refit-or-refuse naming both numbers · typed graph refusals · wall-delete edge purge with verbatim-restore undo |
+| **C8** | **Collaboration** | **OPEN — founder decision** | code side PROVEN (hosting edge survives concurrent editing locally; WS auth fail-closed, mutation-proved 15/20); [decision packet](L-391-COLLAB-DEPLOY-DECISION.md) |
+| C9 | Gate honesty | `2b1e7e99` | 0 blind, 0 MISCONFIGURED; the green-and-blind compile gate (~90 fabricated PASS lines/run for its life) un-blinded; every ratchet exits 3 on growth |
+| C10 | Certification in CI | `e5addac8` | the empty-seed proof: a maximally broken run **looked better than any real one** and now exits 2 MISCONFIGURED; stale-artefact and publication guards included |
+
+**9/10 was the declared arithmetic maximum without the sync server, and the plan said so on day
+one so the number could not be quietly redefined.** C8's residue is exactly one founder decision.
+
+**Follow-ups that survive the close-out — none of them silently absorbed:**
+1. **`wall.create` / `slab.create` are readback-negative and `room.create` dispatch-throws** on
+   the composed bus (plugin handlers write DTO stores). *Newly measurable* because C6 made the
+   stores reachable — recorded here because the measurement itself lives in a gitignored ledger
+   (`runtime-harness/.liveness-output/`) and the generated verb register still grades all three
+   UNKNOWN. Also newly visible: `view.create` (TypeError), `sheet.create` / `schedule.create` /
+   `hierarchy.createSite` (no handler answers a registered verb).
+2. The **9 remaining SHADOWED** verbs (bridge designated winner in every case, per-verb read-back
+   tests required) and the **11 unadopted store kinds**.
+3. The undo **gesture race**, pinned RED-BY-DESIGN by 3 `it.fails` at the 250 ms window —
+   awaiting the founder's §UNDO-GESTURE-ID decision.
+4. The **27 packages failing isolated compilation** (masked by root `skipLibCheck`) and the
+   **8 post-freeze XSS sites** — surfaced by C9, owned by their territories, exit-3-fenced.
+5. `persist:opening` MISCONFIGURED for its kind (store holds 0 records after seed) — honest, open.
+
+Everything below this line is the plan as written on 2026-08-11.
+
+---
+
+> **Measured baseline at opening**, not estimated: [`BIM20-CERTIFICATION-RESULTS.md`](../../04-reference/BIM20-CERTIFICATION-RESULTS.md)
 > — 34 operations · **0 VERIFIED · 10 PARTIAL · 24 FAILED**.
 > Evidence sources: [continuity deliverable](../../04-reference/BIM30-CONTINUITY-DELIVERABLE.md) ·
 > [EV-03](../../04-reference/bim30-evidence/EV-03-change-impact.md) ·

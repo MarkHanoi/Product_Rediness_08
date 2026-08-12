@@ -68,7 +68,12 @@ export const CreateTemplateHandler: CommandHandler<CreateTemplatePayload, Record
     if (typeof cmd.code !== 'string' || cmd.code.trim().length === 0) {
       return { valid: false, reason: 'code is required (CreateTemplateCommand rejects an empty template code)' };
     }
-    if (!(window.commandManager as unknown)) {
+    // §FIX-BARE-WINDOW-REFERENCEERROR (Phase 0 re-baseline finding): in a Node
+    // process `window` is not merely falsy, it is UNDECLARED — a bare read is a
+    // ReferenceError thrown out of canExecute, which the bus reports as a crash
+    // rather than the typed refusal this handler exists to give. The refusal
+    // must not depend on the environment being browser-shaped to be delivered.
+    if (typeof window === 'undefined' || !(window.commandManager as unknown)) {
       return { valid: false, reason: TEMPLATE_CREATE_NO_BRIDGE };
     }
     return { valid: true };

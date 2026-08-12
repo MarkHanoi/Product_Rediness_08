@@ -17,8 +17,10 @@
 //   ID-4  FALSIFIABILITY — a fresh `new DoorStore()` (the plugin-DTO rival
 //         shape) is REJECTED by the identity check; the probe cannot be
 //         satisfied by a copy.
-//   ID-5  honest absence — the 12 not-yet-migrated kinds read `undefined`
-//         headlessly (ADR-0318 I-3), enumerated loudly.
+//   ID-5  honest absence — the 11 not-yet-migrated kinds read `undefined`
+//         headlessly (ADR-0318 I-3), enumerated loudly. (Was "12" before the
+//         wall/slab/room wave; the census's "12 unreachable" counts `opening`,
+//         which is not an element-kind store — different denominator.)
 //
 // STUB LEDGER: nothing on the measured path is stubbed. Real composeRuntime,
 // real bootstrapWithEverything, real module singletons. The ID-3 sentinel store
