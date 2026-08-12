@@ -66,6 +66,8 @@
  * @file packages/geometry-kernel/src/pure/polygonOffset.ts
  */
 
+import { EPSILON_ZERO } from '../tolerance.js';
+
 export type Pt2 = [number, number]; // [x, z]
 
 export interface OffsetResult {
@@ -80,8 +82,6 @@ export interface OffsetResult {
     /** Human-readable reason when `degenerate` — for §DIAG logging. */
     readonly reason?: string;
 }
-
-const EPS = 1e-9;
 
 /**
  * Above this vertex count the exact O(n²) fold test is skipped. It is reported
@@ -199,7 +199,10 @@ export function offsetPolygon(
         const dx = x2 - x1;
         const dz = z2 - z1;
         const len = Math.hypot(dx, dz);
-        if (len < EPS) { lines.push(null); continue; }
+        // §C73-EPSILON-POLICY — the degenerate-length guard consumes the declared
+        // numeric-zero epsilon (same value this file declared locally before the
+        // policy module existed: 1e-9), per C73 §2.2/§2.4.
+        if (len < EPSILON_ZERO) { lines.push(null); continue; }
         const nx = (dz / len) * sign;
         const nz = (-dx / len) * sign;
         lines.push({ nx, nz, c: nx * x1 + nz * z1 + distance });
@@ -216,6 +219,13 @@ export function offsetPolygon(
         const det = prev.nx * curr.nz - curr.nx * prev.nz;
         const [vx, vz] = ring[i]!;
 
+        // §C73-EPSILON-POLICY NOTE — this guard is deliberately NOT migrated to
+        // `PARALLEL_RAD` (1e-9) in the policy-introduction PR: 1e-12 → 1e-9 would
+        // WIDEN the collinear branch (vertices with sin θ in (1e-12, 1e-9] switch
+        // from miter/bevel to exact translation), changing output geometry and
+        // hashes. Aligning it is a recorded migration hazard for a follow-up that
+        // carries its own fixtures; a silent pick here would be a behaviour change
+        // shipped as a refactor (C73 §3.7).
         if (Math.abs(det) < 1e-12) {
             // Collinear (or antiparallel) edges — no unique miter. For collinear
             // edges the shifted lines coincide, so the vertex simply translates
