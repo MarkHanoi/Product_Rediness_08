@@ -89,8 +89,37 @@ function fmtM(v: number): string {
 
 /** The height row — the one this whole module exists for. Never states a guess as a number. */
 export function buildHeightRow(input: ContextBuildingQueryInput): ContextBuildingQueryRow {
-    // Absent provenance ⇒ `assumed`. The pessimistic reading (L-459's own rule).
-    const prov: ContextHeightProvenance = input.heightProvenance ?? 'assumed';
+    // C75 §2.1 — this read `input.heightProvenance ?? 'assumed'` and is on C75's
+    // ledger. It is kept, and the reasoning is worth stating because it is the
+    // one entry on that ledger where the `??` was NOT hiding a false claim.
+    //
+    // `'assumed'` is not an origin this function asserts about the building; it
+    // is the FALL-THROUGH branch, and that branch (below) renders
+    // `value: 'Unknown'`, `isUnknown: true`, and a caveat saying in words that the
+    // 9 m shape is a placeholder which "must not be read as" a measurement. So an
+    // absent provenance already produces the C75 §1.4 answer — an explicit
+    // unknown with its reason — rather than a fabricated one. The three branches
+    // that DO make a positive claim (`measured-lidar`, `tagged`,
+    // `derived-levels`) are reachable only when the caller actually stated one.
+    //
+    // What was genuinely wrong is that this was true only BY COINCIDENCE of
+    // `'assumed'` sorting last. Nothing stopped a later edit from giving
+    // `'assumed'` a confident caveat, or from adding a member that fell through
+    // to it. The absent case is now its own branch, named, ahead of the union
+    // dispatch — so the honesty is structural instead of positional, and the
+    // `??` that the gate flags is gone rather than justified.
+    if (input.heightProvenance === undefined) {
+        return {
+            label: 'Height',
+            value: 'Unknown',
+            isUnknown: true,
+            caveat:
+                'No height provenance was recorded for this building, so we cannot say whether its ' +
+                `height was measured, tagged, or derived. It is drawn at a ${PLACEHOLDER_HEIGHT_M} m ` +
+                'PLACEHOLDER — that shape is not a measurement and must not be read as one.',
+        };
+    }
+    const prov: ContextHeightProvenance = input.heightProvenance;
     if (prov === 'measured-lidar') {
         // §CTX-HEIGHT-MEASURED-MARKER (H2, standard §1 rung 1) — a REAL measured per-building height
         // from a regional/national authority (LiDAR nDSM / 3DBAG / BD TOPO / DK DHM / CH swisstopo).
