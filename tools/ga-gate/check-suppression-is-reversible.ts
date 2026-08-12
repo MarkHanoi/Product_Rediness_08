@@ -111,6 +111,22 @@ const MEDIA_RECEIVER = /video|audio|media|player|^v$|^vid(eo)?El/i;
 // ─── The named ledger. SHRINK-ONLY, checked in BOTH directions. ──────────────
 /**
  * Measured 2026-08-12 at HEAD (56a838bc). S1 ×1 · S2 ×3 · S3 ×41 = 45 named.
+ * SHRUNK 2026-08-12 (§FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED) to S1 ×1 · S2 ×3 · S3 ×39 = 43.
+ * Two S3 entries struck WITH the argument, never silently:
+ *   • `RoomTopologyObserver.ts:paused` — was the S3 finding AND the substantive C72 §4
+ *     defect. `resume()` was a bare flag write and `_onWallMutationCommitted` DROPPED
+ *     commits while paused: measured 0 redetects after resume for an event delivered
+ *     during the paused window, against 1 for the identical event unpaused. It now
+ *     queues to `_suppressedCommitLevels` and `resume()` discharges them synchronously,
+ *     so the flag's lifetime is genuinely the gesture it annotates (@suppression-scope
+ *     batch). Pinned by `check-undo-resume-flushes-topology`, which carries the pre-fix
+ *     observer as an executed positive control.
+ *   • `RoomTopologyObserver.ts:_graphAuthoritativeLevels` — scope annotated `level`, and
+ *     the code honours it: every read, mark and clear is keyed by levelId, so suppressing
+ *     one level cannot suppress another. This discharges S3 (scope declared) ONLY. Its
+ *     RELEASE-reach defect is untouched and remains the S1 entry below — annotating a
+ *     scope is not fixing a release nothing calls, and these must not be conflated.
+ * `_suppressedCommitLevels` is NEW and lands SCOPED, so it adds no entry.
  * Fix a finding → strike its line in the SAME commit. A new finding is exit 3.
  *
  * S1: `clearGraphAuthoritative` — the spec's positive-control defect, red the
@@ -172,8 +188,6 @@ const LEDGER: readonly string[] = [
   'S3::packages/renderer-three/src/pipeline/RenderPipelineManager.ts:_shadowReallocFreezeDepth',
   'S3::packages/renderer-three/src/pipeline/RenderPipelineManager.ts:_shadowRebuildPaused',
   'S3::packages/renderer-three/src/pipeline/RenderPipelineManager.ts:_shadowSuppressions',
-  'S3::packages/room-topology/src/RoomTopologyObserver.ts:_graphAuthoritativeLevels',
-  'S3::packages/room-topology/src/RoomTopologyObserver.ts:paused',
   'S3::packages/runtime-composer/src/PluginHost.ts:frozen',
 ];
 

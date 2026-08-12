@@ -77,7 +77,33 @@ export class RoomTopologyObserver {
    *  `bim-wall-mutation-committed` stream. Reset on every commit; fires
    *  `_executeRedetect` when SOFT_COALESCE_MS passes without a new commit. */
   private _commitCoalesceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /**
+   * §FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED (C72 §4, 2026-08-12) — suppression here
+   * is bounded by ONE gesture: the caller's pause()…resume() window (an undo/redo
+   * apply in `performUndoRedo._withPausedObservers`, or a project load in
+   * `ProjectLoader`). It is NOT session-lifetime, and `resume()` now discharges
+   * what it suppressed rather than destroying it.
+   * @suppression-scope batch
+   */
   private paused = false;
+  /**
+   * §FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED (C72 §4) — levels whose
+   * `bim-wall-mutation-committed` arrived while paused. MEASURED, not assumed:
+   * with the old bare `resume() { this.paused = false; }`, an event delivered
+   * during the paused window produced **0 redetects** even after 5 s of timers,
+   * while the identical event delivered unpaused produced **1** — so the paused
+   * branch was destroying the notification, not deferring it. That is precisely
+   * the irreversible suppression C72 §4 forbids: the reason for suppressing
+   * (don't redetect mid-apply) expires at resume, but the consequence outlived it.
+   *
+   * The undo path is where this bites hardest. `performUndoRedo` wraps every
+   * Ctrl+Z in `_withPausedObservers`, so the wall-baseline inverse patch lands,
+   * fires its commit event INTO the paused window, and the rooms bounding that
+   * wall were then refreshed only if some LATER unrelated edit happened to fire a
+   * redetect. Rooms silently disagreed with the walls until then.
+   * @suppression-scope batch
+   */
+  private _suppressedCommitLevels = new Set<string>();
   private _disposed = false;
   private _pendingPlacementLevels = new Set<string>();
   private _firstScheduleAt = new Map<string, number>();
@@ -98,6 +124,14 @@ export class RoomTopologyObserver {
   // The graph is the source of room identity. GR2: a genuine MANUAL structural
   // wall edit (`add`/`remove`, NOT a batched generation mutation, NOT a rebuild
   // `update`) on the level CLEARS the flag → detection re-asserts from then on.
+  //
+  // Scope is PER LEVEL and the code honours it: every read is keyed by levelId
+  // (`_scheduleRedetect` / `_executeRedetect`), marking and clearing are both
+  // per-level, so suppressing one level never suppresses another. Its RELEASE
+  // reach is a separate, still-open defect tracked as the S1 entry in
+  // `tools/ga-gate/check-suppression-is-reversible.ts` — annotating the scope
+  // does not discharge that, and this comment must not be read as doing so.
+  // @suppression-scope level
   private _graphAuthoritativeLevels = new Set<string>();
 
   /** ADR-0069 — mark a level graph-authoritative: its rooms come from the engine
@@ -225,7 +259,18 @@ export class RoomTopologyObserver {
    *  (cleanup loop, forced-fire branch) so post-load redetects are still
    *  synchronous. */
   private _onWallMutationCommitted = (payload: { levelIds?: readonly string[]; levelId?: string }): void => {
-    if (this.paused || this._disposed) return;
+    if (this._disposed) return;
+    // §FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED (C72 §4) — QUEUE, do not drop. The old
+    // code returned here and the commit was gone forever (proven: 0 redetects after
+    // resume vs 1 unpaused, same event). Record the levels so `resume()` can
+    // discharge them; the redetect itself still does NOT run while paused, so the
+    // reason for pausing (no redetect mid-apply / mid-load) is fully honoured.
+    if (this.paused) {
+      for (const lvl of payload?.levelIds ?? (payload?.levelId ? [payload.levelId] : [])) {
+        if (lvl) this._suppressedCommitLevels.add(lvl);
+      }
+      return;
+    }
     // §FIX-WALLMOVE-REDETECT-DEFER (ADR-0098 F3 / queue Q6, 2026-07-02) —
     // INVARIANT: a wall MOVE must NOT run room re-detection on every intermediate
     // baseline update. A live drag (3D gizmo OR plan-view PlanElementDragController)
@@ -286,7 +331,53 @@ export class RoomTopologyObserver {
   };
 
   pause(): void  { this.paused = true; }
-  resume(): void { this.paused = false; }
+
+  /**
+   * §FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED (C72 §4) — releasing the suppression
+   * DISCHARGES what it suppressed. A `resume()` that silently drops the commits
+   * it swallowed is irreversible suppression: the channel is nominally back on,
+   * but the notifications that arrived while it was off are gone, so the rooms
+   * stay stale until an unrelated later edit happens to fire a redetect.
+   *
+   * SYNCHRONOUS on purpose. `performUndoRedo._withPausedObservers` resumes in a
+   * `finally`, and a deferred flush would be one more thing that can be lost;
+   * `_executeRedetect` is also the path that records `_lastRedetectWallSig`, so
+   * running it inline keeps the no-progress guard's bookkeeping truthful.
+   *
+   * IDEMPOTENT + SELF-GATING. `_executeRedetect` re-checks `paused`, `_disposed`,
+   * graph-authority, building-generation, wall-drag and the no-progress
+   * circuit-breaker. So a flush for a level whose geometry did not actually change
+   * (the common ProjectLoader case, which runs its OWN explicit post-load
+   * redetect) costs one signature comparison and fires nothing — this cannot
+   * double-redetect a load.
+   */
+  resume(): void {
+    this.paused = false;
+    if (this._disposed) { this._suppressedCommitLevels.clear(); return; }
+    const levels = [...this._suppressedCommitLevels];
+    this._suppressedCommitLevels.clear();
+    if (levels.length === 0) return;
+    console.debug(
+      `[RoomTopologyObserver] resume flushing ${levels.length} suppressed commit level(s): ` +
+      `[${levels.join(', ')}] — §FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED (C72 §4)`,
+    );
+    for (const levelId of levels) {
+      // Supersede any stale pending timers for the level, exactly as the
+      // committed-event path does, then redetect once.
+      const existing = this.debounceTimers.get(levelId);
+      if (existing) clearTimeout(existing);
+      this.debounceTimers.delete(levelId);
+      this._firstScheduleAt.delete(levelId);
+      this._resetCount.delete(levelId);
+      const coalesce = this._commitCoalesceTimers.get(levelId);
+      if (coalesce) clearTimeout(coalesce);
+      this._commitCoalesceTimers.delete(levelId);
+      this._executeRedetect(levelId);
+    }
+  }
+
+  /** Levels whose commits are currently held by `pause()`. Test/diagnostic read. */
+  get suppressedCommitLevelCount(): number { return this._suppressedCommitLevels.size; }
 
   flushPlacementLevels(): void {
     const levels = [...this._pendingPlacementLevels];
