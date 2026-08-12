@@ -1,8 +1,8 @@
 {
-  "startedAt": "2026-08-11T20:57:10.059Z",
-  "vitestStatus": 1,
+  "startedAt": "2026-08-12T06:21:00.687Z",
+  "vitestStatus": 0,
   "failedRows": {
-    "persistence": 5,
+    "persistence": 0,
     "undoredo": 0
   },
   "gates": {
@@ -11,7 +11,7 @@
     "check-derived-regenerable": 0
   },
   "exitCode": 1,
-  "finishedAt": "2026-08-11T20:58:33.010Z",
+  "finishedAt": "2026-08-12T06:21:33.657Z",
   "floors": {
     "persistence": {
       "floors": [
