@@ -214,11 +214,18 @@ export interface EventCatalog {
   // 'pryzm-ambient-observation' deleted 2026-08-12 with its only dispatch —
   // AmbientIntelligence delivers via its registered-listener API; the window
   // event had zero listeners. ADR-0323 rule 2, BIM30 R0.
-  'pryzm-dep-cascade':                     { tasks?: unknown; triggerElementId?: string; operation?: string };
+  // 'pryzm-dep-cascade' WIRED 2026-08-12 (C72 §2.1): listener =
+  // apps/editor/src/engine/initDependencyCascade.ts; prevState = the trigger
+  // event's pre-mutation snapshot (StoreChangeEvent.prevState), forwarded by
+  // DependencyResolver's default dispatcher so a cascade consumer can diff.
+  'pryzm-dep-cascade':                     { tasks?: unknown; triggerElementId?: string; operation?: string; prevState?: unknown };
   'pryzm-dxf-restore-overlays':            { layers?: string[]; overlays?: unknown };
   'pryzm-element-selected':                { id: string | null };
   'pryzm-floor-plan-underlay-placed':      { id: string };
-  'pryzm-hosted-reval':                    { elementId?: string; triggerElementId?: string; operation?: string };
+  // 'pryzm-hosted-reval' deleted 2026-08-12 with its dispatch (C72 §2.1
+  // wire-or-delete, CONNECT-0): zero listeners since authoring; the hosted
+  // wall→opening pair is served by Door/WindowDependencyTracker (bespoke,
+  // EXECUTED-PROVEN, protected by C72 §2.4). A typed entry is not wiring.
   'pryzm-ifc-imported':                    { result: unknown };
   'pryzm-ifc-native-conversion-complete':  { report: unknown };
   'pryzm-ifc-ready':                       { treeData: unknown };
@@ -232,9 +239,14 @@ export interface EventCatalog {
   'pryzm-remote-command':                  { data: unknown };
   'pryzm-rendering-state-changed':         { hdriPresetId?: string; enhancementLevel?: string; realSunEnabled?: boolean; realSunHour?: number };
   'pryzm-rhino-imported':                  { result: unknown };
-  'pryzm-room-reval':                      { roomId?: string; triggerElementId?: string; operation?: string };
+  // 'pryzm-room-reval' deleted 2026-08-12 with its dispatch (C72 §2.1,
+  // CONNECT-0): zero listeners since authoring; wall→room re-detection is
+  // served by RoomTopologyObserver (bespoke, protected by C72 §2.4).
   'pryzm-room-sync-state-changed':         { nodeId?: string; state?: string };
-  'pryzm-structural-cascade':              { elementId?: string; triggerElementId?: string; operation?: string };
+  // 'pryzm-structural-cascade' deleted 2026-08-12 with its dispatch (C72
+  // §2.1, CONNECT-0): zero listeners since authoring; sitsOn/supports tasks
+  // now travel inside 'pryzm-dep-cascade' and are routed by
+  // initDependencyCascade.ts into the existing rebuild entry points.
   'pryzm-sync-state-changed':              { source?: string };
   'pryzm-toggle-workbench':               Record<string, never>;
   'pryzm-ui-pref-changed':                 { key: string; value: unknown };

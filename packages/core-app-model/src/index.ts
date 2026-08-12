@@ -709,7 +709,7 @@ export { InfiniteGrid3D } from './InfiniteGrid3D.js';
 
 export { ArchitectureFragments } from './ArchitectureFragments.js';
 
-export type { RebuildTask, RebuildDispatcher } from './DependencyResolver.js';
+export type { RebuildTask, RebuildDispatcher, AffectedSet } from './DependencyResolver.js';
 export { DependencyResolver, dependencyResolver } from './DependencyResolver.js';
 
 export { decisionRecordStore } from './DecisionRecordStore.js';

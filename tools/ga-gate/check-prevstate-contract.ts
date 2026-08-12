@@ -123,11 +123,12 @@ const MIN_EMIT_SITES = 10;
  * Fix a site → strike its line in the SAME commit. Do NOT add lines: a new
  * 2-arg emit site is exit 3.
  *
- * The four WallStore sites deserve a sentence: WallStore ALREADY forwards
- * prevState on three sites (:680, :1293, :1377) and its classifier consumes it
- * — these four are update paths (updateWall colour/dimension spellings) that
- * still emit two arguments, i.e. edits through them classify `whole-level /
- * no-prevState` today. They are the highest-value strikes on this list.
+ * STRUCK 2026-08-12 (CONNECT-0, Phase 5): the four WallStore sites
+ * (:1021/:1065/:1102/:1134 — addOpening / updateOpening non-hosted /
+ * removeOpening / restoreOpening) now pass the frozen pre-mutation wall as the
+ * third argument, same commit as this strike. They were the highest-value
+ * entries here: WallStore is the one store whose classifier consumes the
+ * argument. 21 → 17.
  */
 const LEDGER: readonly string[] = [
   'P1::packages/core-app-model/src/stores/CeilingStore.ts:221',
@@ -147,10 +148,6 @@ const LEDGER: readonly string[] = [
   'P1::packages/geometry-roof/src/RoofStore.ts:137',
   'P1::packages/geometry-stair/src/StairStore.ts:90',
   'P1::packages/geometry-stair/src/StairStore.ts:105',
-  'P1::packages/geometry-wall/src/WallStore.ts:1021',
-  'P1::packages/geometry-wall/src/WallStore.ts:1065',
-  'P1::packages/geometry-wall/src/WallStore.ts:1102',
-  'P1::packages/geometry-wall/src/WallStore.ts:1134',
 ];
 
 // ─── Subject discovery ───────────────────────────────────────────────────────

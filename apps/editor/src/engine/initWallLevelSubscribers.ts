@@ -1,11 +1,14 @@
 import { resolveOpeningRenderMap } from './WallRebuildCoordinator';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
+import { initDependencyCascade } from './initDependencyCascade';
 
 /**
  * Registers:
  *   1. Level-drift guard (§DOOR-AUDIT-2026 P2 #9 / §WIN-AUDIT-2026 P2 #12)
  *   2. SpatialAuthority level-rebuild callback (FIX §2.1 §4)
+ *   3. The generic dependency-cascade consumer (CONNECT-0, C72 §2.1 —
+ *      see initDependencyCascade.ts for what is routed and what is not)
  * Extracted from engineLauncher.ts Task 5.2.
  */
 export function initWallLevelSubscribers(params: {
@@ -52,4 +55,7 @@ export function initWallLevelSubscribers(params: {
             console.log(`[initWallLevelSubscribers] FIX-9: Re-projected ${slabsOnLevel.length} slab(s) after level "${_levelId}" elevation change.`);
         }
     });
+
+    // ── CONNECT-0 (C72 §2.1): the pryzm-dep-cascade consumer ─────────────────
+    initDependencyCascade({ wallTool, slabStore });
 }

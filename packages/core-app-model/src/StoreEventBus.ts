@@ -66,6 +66,23 @@ export interface StoreChangeEvent {
     operation: 'create' | 'update' | 'delete';
     timestamp: number;
     /**
+     * C72 §3.2 (CONNECT-0, 2026-08-12) — the pre-mutation snapshot, OPTIONAL.
+     *
+     * Until this field existed, a diff consumer subscribed to this bus was
+     * subscribed to a type that STRUCTURALLY could not carry what it needs —
+     * the §STEP7 third argument that ten stores emit on their own channels
+     * died at this seam, and every bus-side classifier could only invalidate
+     * wholesale (the ADR-057 defect). Optional by design: `add` has no prior
+     * state, most emitters do not forward one yet, and the 23 existing
+     * subscribers that never read it see no behaviour change. Emitters that
+     * hold the pre-mutation record (WallStore.emit's bus bridge is the first)
+     * forward it here so a bus subscriber CAN make a diff-based decision.
+     *
+     * C72 §3.5 still applies: a consumer may NEVER reconstruct this by
+     * re-reading the store — that diffs the new value against itself.
+     */
+    prevState?: unknown;
+    /**
      * Reserved for future use — kept for type compatibility.
      * In P1.1 the bus no longer coalesces, so this is never set to true.
      * @deprecated Will be removed in P1.2 cleanup.

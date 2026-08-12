@@ -240,22 +240,19 @@
   "failing": [
     "check-no-commandmanager.ts",
     "check-xss-guards.ts",
-    "check-custom-event-apps.ts",
-    "../rac-conformance/certification/gates/check-propagation-reaches.ts"
+    "check-custom-event-apps.ts"
   ],
   "$propagation-reaches": [
-    "2026-08-11 · ADDED with its gate, not after it. check-propagation-reaches was authored",
-    "in the C10 stream under BIM20-ACCEPTANCE-10-OF-10 Wave 3 and registered into run-all",
-    "the same day (C9). It arrives FAILING AT A DECLARED LEVEL: 8 findings — all four",
-    "declared cascade events (pryzm-dep-cascade, -room-reval, -hosted-reval,",
-    "-structural-cascade) have ZERO listeners in 4,556 scanned files AND derive from",
-    "StoreChangeEvent, which carries no pre-mutation state (EV-03 §7.2). The findings are",
-    "NAMED in its own shrink-only ledger (certification/gates/cascade-events.json",
-    "declaredFindings), so this line does not restate a count that can drift; it exists",
-    "because the runner's mechanics require exit-1 gates to be enumerated here. This is",
-    "not a NEW tolerated violation: the defect was declared in the founder-tracked BIM20",
-    "plan before the gate existed — the alternative was leaving the gate authored-but-",
-    "unwired, the exact failure the plan names. The fix is PRODUCTION work in",
-    "packages/core-app-model/src/DependencyResolver.ts (another stream's territory)."
+    "2026-08-11 · ADDED with its gate (C10 stream, BIM20-ACCEPTANCE-10-OF-10 Wave 3):",
+    "8 findings — four declared cascade events with zero listeners AND no prevState",
+    "on the trigger type (EV-03 §7.2).",
+    "2026-08-12 · PAID and STRUCK from `failing` in the commit that paid it (CONNECT-0,",
+    "roadmap Phase 5, C72 §2.1 wire-or-delete executed): pryzm-dep-cascade WIRED both",
+    "arms (listener = apps/editor/src/engine/initDependencyCascade.ts; StoreChangeEvent",
+    "+ catalog payload now declare prevState and WallStore's bus bridge forwards it);",
+    "pryzm-room-reval / pryzm-hosted-reval / pryzm-structural-cascade DELETED with",
+    "dispatch sites, catalog entries and ledger rows in the same commit (their pairs",
+    "are served by the protected bespoke trackers, C72 §2.4). The gate now reads",
+    "0 findings / 0 declared. This note stays as history per the ledger idiom."
   ]
 }

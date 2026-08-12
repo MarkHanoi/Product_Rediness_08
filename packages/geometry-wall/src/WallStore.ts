@@ -1018,7 +1018,7 @@ export class WallStore implements ILevelProvider {
         });
 
         this.walls.set(wallId, updatedWall);
-        this.emit('update', updatedWall);
+        this.emit('update', updatedWall, wall); // §STEP7 (C72 §3.1): `wall` is the frozen pre-mutation record
 
         return updatedWall;
     }
@@ -1062,7 +1062,7 @@ export class WallStore implements ILevelProvider {
             }
         } else {
             // No hosted element — emit once directly.
-            this.emit('update', updatedWall);
+            this.emit('update', updatedWall, wall); // §STEP7 (C72 §3.1): pre-mutation wall
         }
 
         return updatedWall;
@@ -1099,7 +1099,7 @@ export class WallStore implements ILevelProvider {
         });
 
         this.walls.set(wallId, updatedWall);
-        this.emit('update', updatedWall);
+        this.emit('update', updatedWall, wall); // §STEP7 (C72 §3.1): pre-mutation wall
 
         return updatedWall;
     }
@@ -1131,7 +1131,7 @@ export class WallStore implements ILevelProvider {
         });
 
         this.walls.set(wallId, updatedWall);
-        this.emit('update', updatedWall);
+        this.emit('update', updatedWall, wall); // §STEP7 (C72 §3.1): pre-mutation wall
 
         if (opening.elementId) {
             const commonData = {
@@ -1456,11 +1456,16 @@ export class WallStore implements ILevelProvider {
         }
 
         // §3.8: Also publish to centralized StoreEventBus (DependencyResolver, Topology, World Model).
+        // C72 §3.2 (CONNECT-0, 2026-08-12): forward the §STEP7 pre-mutation snapshot across
+        // the bus bridge. Before this line, prevState reached channel (1)'s subscribers and
+        // DIED here — the DependencyResolver was subscribed to a type that structurally could
+        // not carry it (the "two-argument famine" seam, one bridge further downstream).
         storeEventBus.emit({
             elementId: wall.id,
             elementType: 'wall',
             operation: event === 'add' ? 'create' : event === 'remove' ? 'delete' : 'update',
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            ...(prevState !== undefined ? { prevState } : {})
         });
 
         // §3.9 DOM Bridge: dispatch DOM events so SelectionManager._selectableCache is

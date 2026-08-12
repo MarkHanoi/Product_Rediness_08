@@ -1,5 +1,5 @@
 {
-  "count": 128,
-  "ratchedAt": "2026-08-11T12:02:14.286Z",
+  "count": 122,
+  "ratchedAt": "2026-08-12T13:26:27.329Z",
   "comment": "G-NEW-03: CustomEvent dispatches in packages/. Target: 0 (Phase F.events.3). Use CUSTOMEVENT_CEILING env var to step ceiling down per sprint."
 }

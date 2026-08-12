@@ -31,15 +31,35 @@
  *   3 = spatial (rooms bounded by walls)
  *   4 = derived (analytics, compliance)
  *
- * Cascade rebuild event protocol:
- *   For each affected relationship type, DependencyResolver dispatches a specific
- *   CustomEvent on window. initBuilders.ts listeners for these events handle the
- *   actual builder calls. This keeps the build logic co-located in initBuilders.
+ * Cascade rebuild event protocol (REVISED 2026-08-12, CONNECT-0 / C72 §2):
+ *   The default dispatcher announces the computed cascade on exactly ONE window
+ *   event, `pryzm-dep-cascade`, carrying { tasks, triggerElementId, operation,
+ *   prevState? }. Its production consumer is
+ *   `apps/editor/src/engine/initDependencyCascade.ts`, which routes the tasks
+ *   into the EXISTING rebuild entry points (never a parallel rebuild path).
  *
- *   Events dispatched by DependencyResolver (cascade-only):
- *   - `pryzm-dep-cascade` — general-purpose, carries { elementId, relationshipType, priority }
- *   - `pryzm-room-reval`  — when a room's bounding wall changes (boundedBy/adjacentTo)
- *   - `pryzm-hosted-reval` — when a wall hosting an opening changes (hosts)
+ *   ⚰ TOMBSTONE 2026-08-12 (C72 §2.1 wire-or-delete; BIM30 R0 idiom) — three
+ *   specialised events DELETED with their catalog entries in the same commit:
+ *   - `pryzm-room-reval`        — duplicated RoomTopologyObserver (the bespoke,
+ *                                 working room re-detect path; C72 §0.3/§2.4).
+ *   - `pryzm-hosted-reval`      — duplicated Door/WindowDependencyTracker (the
+ *                                 EXECUTED-PROVEN hosted re-anchor path).
+ *   - `pryzm-structural-cascade`— zero listeners since authoring; its sitsOn /
+ *                                 supports coverage now travels inside the
+ *                                 general `pryzm-dep-cascade` tasks and is the
+ *                                 one pair the wired consumer actually routes.
+ *   All three were emitted into a void for their entire lifetime (measured
+ *   2026-08-12: 0 listeners in 4,562 production files). A typed catalog entry
+ *   is not wiring (C72 §0.1) — do not re-add one without a consumer.
+ *
+ * Affected-set query (CONNECT-0 / gap PR-01):
+ *   `getAffected(elementId, operation)` exposes the same computation as a
+ *   QUERYABLE service — the reverse-dependency answer EV-05 R2's regeneration
+ *   branch marked UNDETERMINED{NO_DEPENDENCY_INDEX}. Delete is answerable
+ *   because the resolver captures each element's last determined affected set
+ *   BEFORE the delete command purges its graph edges (C72 §2.3, F-INV-2), and
+ *   a genuinely-unknown element refuses with `cannot-determine` rather than
+ *   returning an empty set (ADR-0322 discipline: determined-empty ≠ unknown).
  */
 
 import { storeEventBus, StoreChangeEvent } from './StoreEventBus'; // TODO(TASK-08)
@@ -56,7 +76,21 @@ export interface RebuildTask {
 }
 
 /** Injected by EngineBootstrap after stores are ready. */
-export type RebuildDispatcher = (tasks: RebuildTask[], triggerElementId: string, operation: string) => void;
+export type RebuildDispatcher = (tasks: RebuildTask[], triggerElementId: string, operation: string, prevState?: unknown) => void;
+
+/**
+ * CONNECT-0 / C72 §2.3 + ADR-0322 — the answer shape of `getAffected()`.
+ *
+ * `determined` with an empty `tasks` array is a REAL answer ("nothing depends
+ * on this element"). `cannot-determine` is a REFUSAL ("the graph has been
+ * purged and this element was never observed — I cannot distinguish empty
+ * from lost"). Collapsing the two is the failure-as-emptiness defect
+ * (§CONTEXT-DATA-HONESTY) and the reason `delete → []` survived as long as
+ * it did.
+ */
+export type AffectedSet =
+    | { readonly status: 'determined'; readonly tasks: readonly RebuildTask[] }
+    | { readonly status: 'cannot-determine'; readonly reason: string };
 
 // ── Priority map ──────────────────────────────────────────────────────────────
 
@@ -106,7 +140,7 @@ const RELATIONSHIP_PRIORITY: Record<RelationshipType, number> = {
  * Dispatches CustomEvents on window for each cascade task so that existing
  * initBuilders.ts listeners can pick them up without introducing circular deps.
  */
-function defaultRebuildDispatcher(tasks: RebuildTask[], triggerElementId: string, operation: string): void {
+function defaultRebuildDispatcher(tasks: RebuildTask[], triggerElementId: string, operation: string, prevState?: unknown): void {
     if (tasks.length === 0) return;
 
     // §FIX-SLAB-PARAM-WIPE (defence-in-depth) — `.substring` on an undefined id threw
@@ -123,30 +157,30 @@ function defaultRebuildDispatcher(tasks: RebuildTask[], triggerElementId: string
         `${tasks.length} affected element(s): ${taskSummary}`
     );
 
-    // Dispatch a general cascade event that initBuilders / AI services can handle
-    window.dispatchEvent(new CustomEvent('pryzm-dep-cascade', { // TODO(TASK-15)
-        detail: { tasks, triggerElementId, operation }
+    // The ONE cascade announcement. WIRED 2026-08-12 (CONNECT-0, C72 §1.1):
+    // its production listener is apps/editor/src/engine/initDependencyCascade.ts,
+    // and `prevState` (the trigger's pre-mutation snapshot, when the emitting
+    // store forwarded one over StoreChangeEvent.prevState) rides in the detail
+    // so the consumer can make diff-based decisions rather than invalidate
+    // wholesale.
+    //
+    // Coalescing caveat, stated: one flush can carry tasks from SEVERAL trigger
+    // events; `triggerElementId` / `operation` / `prevState` belong to the LAST
+    // of them. Per-event diff classification stays on the per-store subscriber
+    // channel (WallStore.subscribe → WallDeltaClassifier); this field exists so
+    // a cascade consumer is not structurally starved of it (C72 §0.2).
+    window.dispatchEvent(new CustomEvent('pryzm-dep-cascade', {
+        detail: { tasks, triggerElementId, operation, prevState }
     }));
 
-    // Specialised events for high-priority cascade types
-    for (const task of tasks) {
-        if (task.relationshipType === 'boundedBy' || task.relationshipType === 'adjacentTo') {
-            // A bounding wall changed — the room may need re-validation / re-detection
-            window.dispatchEvent(new CustomEvent('pryzm-room-reval', { // TODO(TASK-15)
-                detail: { roomId: task.elementId, triggerElementId, operation }
-            }));
-        } else if (task.relationshipType === 'hosts' || task.relationshipType === 'hostedBy') {
-            // A wall hosting an opening changed — the opening may need re-placement
-            window.dispatchEvent(new CustomEvent('pryzm-hosted-reval', { // TODO(TASK-15)
-                detail: { elementId: task.elementId, triggerElementId, operation }
-            }));
-        } else if (task.relationshipType === 'sitsOn' || task.relationshipType === 'supports') {
-            // A structural element changed — elements sitting on it may need update
-            window.dispatchEvent(new CustomEvent('pryzm-structural-cascade', { // TODO(TASK-15)
-                detail: { elementId: task.elementId, triggerElementId, operation }
-            }));
-        }
-    }
+    // ⚰ TOMBSTONE 2026-08-12 — `pryzm-room-reval`, `pryzm-hosted-reval` and
+    // `pryzm-structural-cascade` were dispatched here per-task and were DELETED
+    // under C72 §2.1 (wire-or-delete) with their typed catalog entries, in the
+    // same commit. Zero listeners ever existed for any of the three; the pairs
+    // they named are served by the bespoke trackers (room-reval →
+    // RoomTopologyObserver; hosted-reval → Door/WindowDependencyTracker — both
+    // protected by C72 §2.4) or by the general event above (structural-cascade
+    // → the sitsOn/supports tasks initDependencyCascade routes).
 }
 
 // ── DependencyResolver ────────────────────────────────────────────────────────
@@ -188,7 +222,30 @@ export class DependencyResolver {
     private _flushDispose: TickListenerDisposer | null = null;
     private _enabled = false;
     private _dispatcher: RebuildDispatcher = defaultRebuildDispatcher;
-    private _lastTrigger: { elementId: string; operation: string } = { elementId: '', operation: '' };
+    private _lastTrigger: { elementId: string; operation: string; prevState?: unknown } = { elementId: '', operation: '' };
+
+    /**
+     * CONNECT-0 / gap PR-04 (F-INV-2) — per-element capture of the last
+     * DETERMINED affected set, refreshed on every observed create/update and
+     * on every determined query. This is what makes `delete` answerable: by
+     * the time the store's delete event reaches this subscriber, the delete
+     * command has already purged the element's graph edges, so a live-graph
+     * read yields `[]` — indistinguishable from "affects nothing". The capture
+     * is the pre-purge answer.
+     *
+     * Lifecycle: entry removed when the element's delete event is processed;
+     * whole map cleared in destroy(). Entries for a previous project can
+     * linger across a project switch (clear events are suppressed under
+     * §C13-CLEAR-EVENTS-DO-NOT-CROSS), which is benign: element ids are UUIDs
+     * and never collide across projects, so a stale entry can never answer
+     * for a different element.
+     *
+     * Staleness caveat, stated: the capture is as fresh as the last event or
+     * query touching the element. Edges written between then and the delete
+     * (e.g. flush-time joinedTo re-emission) are not in it. It is a best-known
+     * answer, and it is DETERMINED at that freshness — never a guess.
+     */
+    private _captured = new Map<string, RebuildTask[]>();
 
     constructor() {
         // Deferred — call init() from EngineBootstrap after all stores are ready.
@@ -229,7 +286,55 @@ export class DependencyResolver {
             this._flushDispose = null;
         }
         this._pendingTasks = [];
+        this._captured.clear();
         this._enabled = false;
+    }
+
+    // ── Affected-set query (CONNECT-0 / PR-01) ────────────────────────────────
+
+    /**
+     * The reverse-dependency answer as a queryable service: which elements does
+     * a change to `elementId` transitively affect, by relationship type and
+     * rebuild priority? Same computation the cascade dispatch uses, exposed so
+     * impact consumers (change-impact preview, regeneration planning) stop
+     * reading UNDETERMINED{NO_DEPENDENCY_INDEX}.
+     *
+     * `delete` semantics (C72 §2.3): call this BEFORE the delete purges the
+     * graph and the answer comes from the live graph; call it after (as the
+     * store-event path necessarily does) and it comes from the pre-purge
+     * capture. Only an element with no edges NOW and no capture EVER refuses —
+     * and it refuses loudly instead of returning `[]` (ADR-0322).
+     *
+     * Read-only: never consumes the capture (idempotent for external callers).
+     * The store-event path retires a deleted element's capture itself.
+     */
+    getAffected(elementId: string, operation: 'create' | 'update' | 'delete'): AffectedSet {
+        if (operation !== 'delete') {
+            const tasks = this._tasksFromLiveGraph(elementId);
+            this._captured.set(elementId, tasks);
+            return { status: 'determined', tasks };
+        }
+
+        // delete — prefer the live graph (pre-purge callers, and the wall-family
+        // paths whose edges outlive the command), else the capture.
+        const live = semanticGraphManager.getRelationships(elementId);
+        if (live.length > 0) {
+            const tasks = this._tasksFromRelationships(elementId, live);
+            this._captured.set(elementId, tasks);
+            return { status: 'determined', tasks };
+        }
+        const captured = this._captured.get(elementId);
+        if (captured !== undefined) {
+            return { status: 'determined', tasks: captured };
+        }
+        return {
+            status: 'cannot-determine',
+            reason:
+                `NO_DEPENDENCY_INDEX: element ${elementId} holds no graph edges now and was never ` +
+                'observed by this resolver before the delete — an empty answer here could equally ' +
+                'mean "affects nothing" or "the edges were purged before I looked", and the two ' +
+                'must not print the same value (C72 §2.3, ADR-0322).',
+        };
     }
 
     // ── Private ───────────────────────────────────────────────────────────────
@@ -259,7 +364,7 @@ export class DependencyResolver {
         const tasks = this._computeAffected(event);
         if (tasks.length === 0) return;
 
-        this._lastTrigger = { elementId: event.elementId, operation: event.operation };
+        this._lastTrigger = { elementId: event.elementId, operation: event.operation, prevState: event.prevState };
 
         for (const task of tasks) {
             this._pendingTasks.push(task);
@@ -277,49 +382,53 @@ export class DependencyResolver {
     }
 
     private _computeAffected(event: StoreChangeEvent): RebuildTask[] {
+        // CONNECT-0 / PR-04 (F-INV-2, C72 §2.3) — `delete` no longer returns `[]`
+        // by design. History, kept because it explains the capture:
+        //
+        // This branch used to return `[]` unconditionally, on the argument that a
+        // deleted element's relationships are either dangling or already handled
+        // by the delete command's own cascade. That argument conflated two facts:
+        // the deleted ELEMENT needs no rebuild, but the elements at the FAR END of
+        // its edges do (a slab whose supporting wall vanished, a wall whose slab
+        // is gone) — deletion has the largest dependent fan-out of any operation,
+        // and computing nothing for it was a silent default, not a conservative
+        // one (C72 §2.3). §FIX-DELETE-GRAPH-COMMENT's measurement (2026-08-11,
+        // EV-04) also stands: the wall family's delete branches never called
+        // `semanticGraphManager.removeAllRelationshipsForElement`, so whether the
+        // graph still holds a deleted element's edges at this point DEPENDS ON THE
+        // KIND. `getAffected` therefore answers from the live graph when the edges
+        // survive, and from the pre-purge capture when they do not; only an
+        // element it has never seen refuses (`cannot-determine`), and a refusal
+        // schedules nothing — distinguishable from determined-empty via the query
+        // API rather than silently identical to it.
+        const result = this.getAffected(event.elementId, event.operation);
+
         if (event.operation === 'delete') {
-            // §FIX-DELETE-GRAPH-COMMENT (W2-5, BIM20-ACCEPTANCE-10-OF-10) —
-            // this comment used to read "On delete, SemanticGraph relationships for this
-            // element are removed by the Command." **That is not true for the whole
-            // wall family**, and stating it as an invariant is what let the gap survive.
-            //
-            // MEASURED at HEAD, 2026-08-11 (grep `removeAllRelationshipsForElement`):
-            // 14 delete branches in `command-registry/src/walls/DeleteElementCommand.ts`
-            // plus the dedicated Delete*Commands. Slab, column, curtain-wall, furniture
-            // (and its cascaded children), handrail, roof, floor, ceiling, beam, plumbing,
-            // lighting, stair and room ALL call it. The wall family — branch 1 (wall,
-            // and the window/door CHILDREN it cascades), branch 2 (window), branch 3
-            // (door), and branches 3b (window-orphan / door-orphan) — calls
-            // `elementRegistry.unregister` and `bimManager.unregisterElement` but NEVER
-            // `semanticGraphManager.removeAllRelationshipsForElement`. So a deleted wall
-            // leaves its `hosts` / `boundedBy` / `sitsOn` edges, and a deleted door or
-            // window leaves its `hostedBy` edge, pointing at an id that no store resolves.
-            // Evidence: `docs/04-reference/bim30-evidence/EV-04-semanticgraph-write-coverage.md`.
-            //
-            // The TRUE reason this branch returns `[]` is narrower and does not depend on
-            // the cleanup happening at all: a rebuild task names an element to RE-BUILD,
-            // and every relationship of a deleted element is either dangling (the far end
-            // has nothing left to rebuild against) or already handled by the delete
-            // command's own cascade. Scheduling a rebuild here would either no-op or
-            // resurrect geometry for an element that is gone.
-            //
-            // NOT FIXED HERE, and deliberately: the wiring belongs in
-            // `DeleteElementCommand`, which is outside this file's ownership. Tracked as
-            // W2-5 of `docs/03-execution/plans/BIM20-ACCEPTANCE-10-OF-10.md`. The
-            // orphaned edges are invisible in-session (nothing queries a dead id) and
-            // self-erase on the next load only if they are malformed — a well-formed edge
-            // to a deleted id SURVIVES `deserialize` and persists forever.
-            return [];
+            // The element is gone: retire its capture (this event is its last).
+            this._captured.delete(event.elementId);
         }
 
-        const relationships = semanticGraphManager.getRelationships(event.elementId);
-        if (relationships.length === 0) return [];
+        if (result.status === 'cannot-determine') {
+            console.debug(`[DependencyResolver] ${result.reason}`);
+            return [];
+        }
+        return [...result.tasks];
+    }
 
+    /** Tasks from the graph as it stands NOW (create/update, or pre-purge delete). */
+    private _tasksFromLiveGraph(elementId: string): RebuildTask[] {
+        return this._tasksFromRelationships(elementId, semanticGraphManager.getRelationships(elementId));
+    }
+
+    private _tasksFromRelationships(
+        elementId: string,
+        relationships: ReadonlyArray<{ sourceId: string; targetId: string; type: RelationshipType }>,
+    ): RebuildTask[] {
         const tasks: RebuildTask[] = [];
         const seen = new Set<string>();
 
         for (const rel of relationships) {
-            const affectedId = rel.sourceId === event.elementId ? rel.targetId : rel.sourceId;
+            const affectedId = rel.sourceId === elementId ? rel.targetId : rel.sourceId;
             const key = `${affectedId}|${rel.type}`;
             if (seen.has(key)) continue;
             seen.add(key);
@@ -350,7 +459,7 @@ export class DependencyResolver {
         }
 
         // Dispatch via Phase F dispatcher (default: CustomEvent on window)
-        this._dispatcher(deduped, this._lastTrigger.elementId, this._lastTrigger.operation);
+        this._dispatcher(deduped, this._lastTrigger.elementId, this._lastTrigger.operation, this._lastTrigger.prevState);
 
         this._pendingTasks = [];
     }

@@ -2,28 +2,30 @@
   "//": [
     "The DECLARED cascade-event ledger read by check-propagation-reaches.",
     "",
-    "These four are not 'some events'. They are the entire generic change-propagation",
-    "protocol of the estate: DependencyResolver computes which elements a change",
-    "transitively affects (via SemanticGraph) and announces the result on exactly these",
-    "four names. Everything else that propagates in PRYZM is bespoke, per-pair wiring",
-    "(DoorDependencyTracker, WallRebuildCoordinator, RoomTopologyObserver...).",
+    "PHASE 5 (CONNECT-0) RESOLUTION, 2026-08-12 — C72 §2.1 wire-or-delete executed.",
+    "The generic protocol declared FOUR events; each has reached a terminal state:",
     "",
-    "EV-03 §0.7 and BIM30-EVOLUTION-AUDIT §550 measured both halves independently and",
-    "found BOTH missing, which is why this gate asserts both:",
-    "  * zero listeners anywhere in the estate, and",
-    "  * no prevState on the emitter, because DependencyResolver subscribes to",
-    "    storeEventBus (StoreChangeEvent = {elementId, elementType, operation, timestamp})",
-    "    rather than to the stores, and the §STEP7 third argument never reaches it.",
-    "",
-    "Either half alone is INSUFFICIENT and asserting only one would be theatre:",
-    "  - listeners without prevState  -> subscribers can only invalidate wholesale;",
-    "    the diff-based work (adjacent-wall discovery, _isPropertyOnlyChange fast paths)",
-    "    they exist to do is unreachable. That is precisely the ADR-057 defect (W2-2).",
-    "  - prevState without listeners  -> a perfectly-shaped event nobody receives.",
+    "  * pryzm-dep-cascade        WIRED. ARM A: apps/editor/src/engine/",
+    "    initDependencyCascade.ts registers the production listener (routes the",
+    "    sitsOn/supports structural tasks — the one pair no bespoke tracker serves —",
+    "    into the EXISTING rebuild entry points; skips hosts/hostedBy and",
+    "    boundedBy/adjacentTo, which Door/WindowDependencyTracker and",
+    "    RoomTopologyObserver own, per C72 §2.4). ARM B: StoreChangeEvent now",
+    "    declares `prevState?` (B1), WallStore's bus bridge forwards the §STEP7",
+    "    snapshot into it, and the event's catalog payload declares `prevState?`",
+    "    which the default dispatcher populates (B2).",
+    "  * pryzm-room-reval         DELETED (dispatch + catalog entry + this ledger's",
+    "    row, one commit). Duplicated RoomTopologyObserver; zero listeners ever.",
+    "  * pryzm-hosted-reval       DELETED (same commit). Duplicated Door/Window-",
+    "    DependencyTracker; zero listeners ever.",
+    "  * pryzm-structural-cascade DELETED (same commit). Its sitsOn/supports",
+    "    coverage travels inside pryzm-dep-cascade's tasks and is what the wired",
+    "    listener routes.",
     "",
     "declaredFindings is a NAMED, SHRINK-ONLY ledger. Each entry is '<event>:<arm>'.",
-    "A name that stops appearing must LEAVE this list in the same commit that fixes it,",
-    "or the gate exits 3 STALE LEDGER — debt that has been paid must not stay on the books."
+    "It is EMPTY as of the Phase 5 commit: the eight findings (four ARM-A, four",
+    "ARM-B) left the books in the commit that paid them, per this gate's own rule.",
+    "A name that reappears is a regression, not debt."
   ],
   "events": [
     {
@@ -31,39 +33,9 @@
       "emitterFile": "packages/core-app-model/src/DependencyResolver.ts",
       "triggerTypeFile": "packages/core-app-model/src/StoreEventBus.ts",
       "triggerType": "StoreChangeEvent",
-      "why": "general-purpose cascade fan-out; carries { tasks, triggerElementId, operation }"
-    },
-    {
-      "name": "pryzm-room-reval",
-      "emitterFile": "packages/core-app-model/src/DependencyResolver.ts",
-      "triggerTypeFile": "packages/core-app-model/src/StoreEventBus.ts",
-      "triggerType": "StoreChangeEvent",
-      "why": "a room's bounding wall changed (boundedBy / adjacentTo)"
-    },
-    {
-      "name": "pryzm-hosted-reval",
-      "emitterFile": "packages/core-app-model/src/DependencyResolver.ts",
-      "triggerTypeFile": "packages/core-app-model/src/StoreEventBus.ts",
-      "triggerType": "StoreChangeEvent",
-      "why": "a wall hosting an opening changed (hosts / hostedBy)"
-    },
-    {
-      "name": "pryzm-structural-cascade",
-      "emitterFile": "packages/core-app-model/src/DependencyResolver.ts",
-      "triggerTypeFile": "packages/core-app-model/src/StoreEventBus.ts",
-      "triggerType": "StoreChangeEvent",
-      "why": "a structural element changed (sitsOn / supports)"
+      "why": "general-purpose cascade fan-out; carries { tasks, triggerElementId, operation, prevState? }"
     }
   ],
   "catalogFile": "packages/event-bus/src/catalog.ts",
-  "declaredFindings": [
-    "pryzm-dep-cascade:ARM-A no listener",
-    "pryzm-dep-cascade:ARM-B emitter carries no prevState",
-    "pryzm-room-reval:ARM-A no listener",
-    "pryzm-room-reval:ARM-B emitter carries no prevState",
-    "pryzm-hosted-reval:ARM-A no listener",
-    "pryzm-hosted-reval:ARM-B emitter carries no prevState",
-    "pryzm-structural-cascade:ARM-A no listener",
-    "pryzm-structural-cascade:ARM-B emitter carries no prevState"
-  ]
+  "declaredFindings": []
 }
