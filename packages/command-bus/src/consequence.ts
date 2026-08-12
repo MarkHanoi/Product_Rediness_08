@@ -241,6 +241,55 @@ export interface PredictedVsActual {
 }
 
 /**
+ * What ACTUALLY happened, in the plan's vocabulary — measured by INDEPENDENT
+ * read-back over the authoritative stores (the CA-21 discipline, BIM30 plan
+ * R4), never inferred from the plan or from the handler's own claims.
+ */
+export interface ActualConsequences {
+  readonly changed: ElementSet;
+  readonly topology: TopologyDelta;
+  readonly regenerated: ElementSet;
+}
+
+/**
+ * R4 (BIM30 plan R4; ADR-0322 §2/§5) — the reconciliation of ONE plan item
+ * that was UNDETERMINED at plan time. Such an item cannot be scored
+ * right/wrong at execute — the plan was honest about not knowing — so the
+ * report carries it AS undetermined-at-plan-time with what actually happened
+ * beside it. This is the data that later tightens the planners; collapsing it
+ * into right/wrong (or dropping it) would waste R2's honesty.
+ */
+export interface UndeterminedOutcome {
+  /** The plan's own undetermined item, carried verbatim. */
+  readonly item: UndeterminedImpact;
+  /** The fixed verdict: this item is not scoreable, by construction. */
+  readonly outcome: 'undetermined-at-plan-time';
+  /**
+   * Actual changes the plan did NOT predict — the candidates this blind spot
+   * may explain. SHARED across items rather than attributed per-item: the
+   * plan's undetermined items carry scopes, not element sets, so a per-item
+   * attribution would itself be an invention (check-provenance-not-invented's
+   * subject matter). When the substrate lands (roadmap Phase 5), items gain
+   * element-grain scopes and this narrows.
+   */
+  readonly actualChangedOutsidePrediction: ElementSet;
+}
+
+/**
+ * R4 — divergence as a FIRST-CLASS, NAMED result (STR-06 §2: plan-fidelity
+ * divergence is a certification failure class BY NAME, never a log line).
+ * A consumer branches on `kind`; it never re-derives the verdict from set
+ * arithmetic over {@link PredictedVsActual}.
+ */
+export type PlanDivergenceVerdict =
+  | { readonly kind: 'plan-agreed' }
+  | {
+      readonly kind: 'plan-fidelity-divergence';
+      readonly unexpected: ElementSet;
+      readonly missing: ElementSet;
+    };
+
+/**
  * The post-mutation consequence answer — produced from the ACTUAL execution
  * record plus the original plan, NEVER from a second inference pass
  * (ADR-0322 §2; BIM30 plan R5). Same vocabulary as the plan so the two are
@@ -253,15 +302,30 @@ export interface ConsequenceReport {
   readonly plan: ConsequencePlan;
 
   /** What ACTUALLY happened, in the plan's vocabulary (independent read-back). */
-  readonly actual: {
-    readonly changed: ElementSet;
-    readonly topology: TopologyDelta;
-    readonly regenerated: ElementSet;
-  };
+  readonly actual: ActualConsequences;
 
   readonly predictedVsActual: PredictedVsActual;
   /** Post-mutation validation state, as a delta against pre-mutation. */
   readonly validation: ValidationDelta;
+  /**
+   * R4 (additive) — set when the ACTUAL validation delta could not be
+   * measured (no validator reachable at execute time). Present ⇒ `validation`
+   * above is the typed-empty placeholder, NOT a determined "no delta" — the
+   * §5 known-vs-unknown rule applied to the report's own read-back.
+   */
+  readonly validationUndetermined?: UndeterminedImpact;
+
+  /**
+   * R4 (additive) — the named divergence verdict over `predictedVsActual`.
+   * Optional during migration (R1-era reports never carried it); every report
+   * the R4 executor produces sets it.
+   */
+  readonly divergence?: PlanDivergenceVerdict;
+  /**
+   * R4 (additive) — one entry per `plan.undetermined` item, in plan order
+   * (the reconciliation MUST cover every plan item — G-REASON-03's clause a).
+   */
+  readonly undeterminedOutcomes?: readonly UndeterminedOutcome[];
 
   /**
    * WHO/HOW, copied from the invocation envelope (ADR-0324 §1–2). Origin and
@@ -273,6 +337,70 @@ export interface ConsequenceReport {
     readonly approval?: CommandApproval;
   };
 }
+
+// ─── R4 — execution consumes the plan (BIM30 plan R4; ADR-0322 §2/§10) ───────
+
+/**
+ * The typed refusal to BIND a stale plan (BIM30 plan R6 names the approval
+ * half; R4 lands the binding check itself). A plan is consumable ONLY if its
+ * `planHash` matches a re-computation by the SAME planner over the LIVE
+ * pre-state at execute time. Staleness is failure of the BINDING, not of the
+ * command: the command may still execute plan-less (today's behaviour,
+ * preserved), but it MUST NOT claim the stale plan as its prediction — that
+ * would be a fabricated prediction, the exact defect the UNDETERMINED
+ * discipline exists to forbid.
+ */
+export interface PlanStaleRefusal {
+  readonly kind: 'PLAN_STALE';
+  /** The plan that failed to bind — carried as EVIDENCE, never as prediction. */
+  readonly stalePlan: ConsequencePlan;
+  /** The hashes the plan was minted with. */
+  readonly plannedPlanHash: string;
+  readonly plannedStateHash: string;
+  /** The hashes re-computed over the live pre-state at execute time. */
+  readonly livePlanHash: string;
+  readonly liveStateHash: string;
+}
+
+/**
+ * The typed ABSENCE of a prediction (BIM30 plan R4; the §5 discipline applied
+ * to reporting): executing without a plan yields a result whose prediction
+ * side says so — never an after-the-fact "prediction" reverse-engineered from
+ * what happened.
+ */
+export interface PredictionAbsence {
+  readonly kind: 'absent';
+  readonly reason: 'NO_PLAN_SUPPLIED';
+}
+
+/**
+ * The one execution-side consequence answer the R4 executor returns — three
+ * arms, one per binding outcome. The `reconciled` arm carries the ONE
+ * authoritative {@link ConsequenceReport} (ADR-0322 §1); the other two arms
+ * exist precisely so that neither staleness nor plan-less dispatch is ever
+ * dressed up as a reconciled prediction.
+ */
+export type ExecutionConsequence =
+  | {
+      /** The plan bound (planHash re-verified) and was reconciled against reality. */
+      readonly kind: 'reconciled';
+      readonly report: ConsequenceReport;
+    }
+  | {
+      /** A plan was supplied but refused binding — executed plan-less. */
+      readonly kind: 'plan-stale';
+      readonly commandId: string;
+      readonly refusal: PlanStaleRefusal;
+      /** Independent read-back still runs — reality is reported either way. */
+      readonly actual: ActualConsequences;
+    }
+  | {
+      /** No plan was supplied — the prediction side is the typed absence. */
+      readonly kind: 'unplanned';
+      readonly commandId: string;
+      readonly prediction: PredictionAbsence;
+      readonly actual: ActualConsequences;
+    };
 
 // ─── ConsequencePlanner (ADR-0322 §7; STR-06 §3) ─────────────────────────────
 

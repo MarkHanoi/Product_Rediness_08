@@ -32,7 +32,8 @@ import type {
   StoreId,
 } from './types.js';
 // ADR-0324 §1–2 (R1) — optional invocation envelope (actor/origin/approval).
-import type { CommandExecutionContext } from './consequence.js';
+// ADR-0322 §2 (R4) — optional consumed plan, threaded the same way.
+import type { CommandExecutionContext, ConsequencePlan } from './consequence.js';
 import { PatchEmitter } from './PatchEmitter.js';
 import { UndoStack } from './UndoStack.js';
 // §UNDO-GESTURE-ID (C03 §4.6 U-10) — one dispatch = one gesture unless a caller
@@ -328,6 +329,18 @@ export class CommandBus {
        * omits the property.
        */
       readonly context?: CommandExecutionContext;
+      /**
+       * ADR-0322 §2 (R4) — the ConsequencePlan this execution CONSUMES,
+       * riding beside `context` in the exact R1 idiom: caller-supplied,
+       * resolved before any await, carried onto the EventRecord, read by
+       * NOTHING in the bus. The caller (the L7 executor service) has already
+       * verified the planHash binding against the live pre-state — a stale
+       * plan is refused THERE (`PlanStaleRefusal`) and never passed here.
+       * Zero behaviour change when absent — the record simply omits the
+       * property, so plan-less dispatch of every verb is byte-identical to
+       * pre-R4 behaviour.
+       */
+      readonly plan?: ConsequencePlan;
     },
   ): Promise<EventRecord<T>> {
     const handler = this.handlers.get(type) as CommandHandler<T, AnyStores> | undefined;
@@ -370,6 +383,10 @@ export class CommandBus {
     // mirroring the gestureId capture above. Metadata only: nothing below
     // branches on it.
     const executionContext = opts?.context;
+    // ADR-0322 §2 (R4) — capture the consumed plan the same way. Metadata
+    // only at the bus layer: nothing below branches on it; reconciliation
+    // against reality happens in the caller AFTER this dispatch returns.
+    const consumedPlan = opts?.plan;
 
     return withSpan(
       'pryzm.command.execute',
@@ -485,6 +502,9 @@ export class CommandBus {
           // property (not `context: undefined`) — wire encodings (msgpack) and
           // deep-equality of legacy records stay byte-identical.
           ...(executionContext !== undefined ? { context: executionContext } : {}),
+          // ADR-0322 §2 (R4) — the consumed plan rides the record verbatim,
+          // conditionally spread for the same byte-identity reason as above.
+          ...(consumedPlan !== undefined ? { plan: consumedPlan } : {}),
         };
 
         // 4. Emit to PatchEmitter subscribers (EventLogPersistor, etc.).

@@ -173,7 +173,15 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // undo/dirty are all unchanged, each with a positive control proving the check can observe a
 // violation and a negative control (an impure preview) proving the checker flags one. Lands
 // GREEN today — preview is pure — so it carries no ratchet/newly-measured entry.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity'];
+// §BIM30-R4 — check-execution-plan-agreement (G-REASON-03) added 2026-08-12. The plan doc's
+// R4 exit condition verbatim: "G-REASON-03 lands (red or green — honest either way) with its
+// ledger." It drives preview→plan→execute→report on the REAL wall move (bus →
+// plugins/wall wall.updateBaseline → commandManager bridge → geometry WallStore) through the
+// production ConsequenceExecutionService, with a positive control (a planner-blind mutation
+// between plan and execute MUST be reported as plan-fidelity-divergence, not absorbed), a
+// negative control (a planner-visible mutation MUST refuse binding as typed PLAN_STALE while
+// the command still executes plan-less), and the typed-absence clause for plan-less dispatch.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {

@@ -68,6 +68,30 @@ interface UpdateBaselinePayload {
   readonly prevBaseLine?: WallMovePayload['baseLine'];
 }
 
+/**
+ * Map a dispatched `(type, payload)` onto the semantic `WallMoveCommand` the planner
+ * answers for. `wall.updateBaseline` (the live verb) and `wall.move` (the refused-but-
+ * semantic verb, L-49) both resolve to the `'wall.move'` planner key.
+ *
+ * Exported (R4) so the EXECUTION service normalises with the SAME rule the preview
+ * used — two normalisers would let preview and execute plan different semantic
+ * commands for one dispatch, which is a plan-fidelity divergence minted at the front
+ * door (the G-REASON-03 failure class, manufactured rather than measured).
+ */
+export function normalizeToWallMove(command: PreviewCommand): WallMoveCommand | null {
+  if (command.type === 'wall.move') {
+    const p = command.payload as Partial<WallMovePayload> | undefined;
+    if (!p || typeof p.id !== 'string' || !p.baseLine) return null;
+    return { type: 'wall.move', payload: { id: p.id, baseLine: p.baseLine } };
+  }
+  if (command.type === 'wall.updateBaseline') {
+    const p = command.payload as Partial<UpdateBaselinePayload> | undefined;
+    if (!p || typeof p.wallId !== 'string' || !p.newBaseLine) return null;
+    return { type: 'wall.move', payload: { id: p.wallId, baseLine: p.newBaseLine } };
+  }
+  return null;
+}
+
 export class ConsequencePreviewService implements ConsequencePreviewProvider {
   /**
    * @param planners      keyed by the CANONICAL (semantic) command type, e.g. `'wall.move'`.
@@ -91,22 +115,8 @@ export class ConsequencePreviewService implements ConsequencePreviewProvider {
     return planner.plan(normalized, this.context());
   }
 
-  /**
-   * Map a dispatched `(type, payload)` onto the semantic `WallMoveCommand` the planner
-   * answers for. `wall.updateBaseline` (the live verb) and `wall.move` (the refused-but-
-   * semantic verb, L-49) both resolve to the `'wall.move'` planner key.
-   */
+  /** Delegates to the module-level {@link normalizeToWallMove} — ONE rule, two consumers. */
   private normalize(command: PreviewCommand): WallMoveCommand | null {
-    if (command.type === 'wall.move') {
-      const p = command.payload as Partial<WallMovePayload> | undefined;
-      if (!p || typeof p.id !== 'string' || !p.baseLine) return null;
-      return { type: 'wall.move', payload: { id: p.id, baseLine: p.baseLine } };
-    }
-    if (command.type === 'wall.updateBaseline') {
-      const p = command.payload as Partial<UpdateBaselinePayload> | undefined;
-      if (!p || typeof p.wallId !== 'string' || !p.newBaseLine) return null;
-      return { type: 'wall.move', payload: { id: p.wallId, baseLine: p.newBaseLine } };
-    }
-    return null;
+    return normalizeToWallMove(command);
   }
 }

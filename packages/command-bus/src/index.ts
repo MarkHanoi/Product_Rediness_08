@@ -55,6 +55,13 @@ export type {
   ConsequencePlan,
   PredictedVsActual,
   ConsequenceReport,
+  // R4 (BIM30 plan R4; ADR-0322 §2/§10) — execution consumes the plan.
+  ActualConsequences,
+  UndeterminedOutcome,
+  PlanDivergenceVerdict,
+  PlanStaleRefusal,
+  PredictionAbsence,
+  ExecutionConsequence,
   ReadonlyStoreView,
   PlanningContext,
   ConsequencePlanner,

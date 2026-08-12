@@ -14,7 +14,7 @@
 // present in `ctx.stores` (R1A-16 mitigation, spec line 718).
 
 import type { Patch as ImmerPatch } from 'immer';
-import type { CommandExecutionContext, ConsequenceReport } from './consequence.js';
+import type { CommandExecutionContext, ConsequencePlan, ConsequenceReport } from './consequence.js';
 
 /** Identifier of a logical store (`'wall'`, `'slab'`, …). */
 export type StoreId = string;
@@ -205,6 +205,19 @@ export interface EventRecord<TPayload = unknown> {
    * (`normalizeForParity`, ./parity.ts) strips it by construction.
    */
   readonly context?: CommandExecutionContext;
+  /**
+   * ADR-0322 §2 (R4) — the BOUND plan this execution consumed, carried
+   * verbatim from `executeCommand(type, payload, { plan })` exactly as
+   * `context` above is (conditional spread; ABSENT for every caller that
+   * supplies none, so legacy records stay byte-identical). The bus itself
+   * reads NOTHING from it — binding verification (planHash re-computation)
+   * happens in the L7 executor BEFORE dispatch, so a plan that reaches this
+   * field has already been verified against the live pre-state; a stale plan
+   * is refused upstream (`PlanStaleRefusal`) and never rides here.
+   * `normalizeForParity` strips it by construction (explicit projection) —
+   * whether the plan should be KEPT for the parity comparison is R7's call.
+   */
+  readonly plan?: ConsequencePlan;
   /**
    * ADR-0322 §9 (R1) — RESERVED, NEVER POPULATED YET. The post-mutation
    * consequence report (plan + actual + predicted-vs-actual) arrives here
