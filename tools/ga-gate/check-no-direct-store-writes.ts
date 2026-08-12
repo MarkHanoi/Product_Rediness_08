@@ -252,7 +252,11 @@ if (writes.length > MAX_VIOLATIONS) {
     `collaborators, and never reaches the event log.\n` +
     `Replace the call with commandBus.dispatch(...). Do NOT raise this threshold.`,
   );
-  process.exit(1);
+  // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — MAX_VIOLATIONS is a shrink-only
+  // baseline of TOLERATED P6 breaches, so exceeding it is exit 3, not 1. Exit 1 is
+  // the code gate-debt.json may absorb, and this gate must never be able to say
+  // "P6 is bypassed in more places than yesterday" inside a yellow KNOWN-DEBT line.
+  process.exit(3);
 }
 
 console.log(`\n[${LABEL}] ✓ within baseline (${writes.length}/${MAX_VIOLATIONS}).`);

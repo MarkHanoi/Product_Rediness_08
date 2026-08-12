@@ -351,7 +351,11 @@ function main(): void {
     }
     console.error('\n   A verb losing its proof means a write that used to reach the authoritative store no longer does.');
     console.error('   Fix the write, or — if the verb was deliberately removed — remove it from PROVEN_BASELINE in the SAME commit.');
-    process.exit(1);
+    // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — this ratchet runs UPWARD, so
+    // LOSING a proof is the ratchet being exceeded: the measurement went the wrong
+    // way. gate-debt.json may declare that this gate FAILS; it may never license
+    // CA-21 coverage SHRINKING. Exit 3, never absorbable.
+    process.exit(3);
   }
 
   if (gained.length > 0) {
@@ -359,6 +363,8 @@ function main(): void {
     for (const v of gained) console.error(`     ${v}`);
     console.error('\n   Good news, and still a failure: the list is checked in BOTH directions so it cannot rot into');
     console.error('   a set of things that are secretly fine. Add them to PROVEN_BASELINE in the same commit.');
+    // A GAIN that is not recorded is a stale ratchet, not a regression: exit 1.
+    // Exit 3 is reserved for the count moving the wrong way (see the LOST branch).
     process.exit(1);
   }
 

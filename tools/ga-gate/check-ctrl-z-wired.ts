@@ -50,14 +50,39 @@ let exitCode = 0;
 const fail = (msg: string): void => { console.error(`[FAIL] check-ctrl-z-wired: ${msg}`); exitCode = 1; };
 const pass = (msg: string): void => { console.log(`[PASS] check-ctrl-z-wired: ${msg}`); };
 
-// A missing target is a hard failure, never a silent pass — the whole point of
-// the rewrite is that "cannot read" must not look like "nothing to report".
+/**
+ * §R5-FLOOR (2026-08-11) — the subject floor.
+ *
+ * "Cannot read" already did not look like "nothing to report" — but it exited 1,
+ * the SAME code a real U-5 breach produces, and exit 1 is absorbable by
+ * gate-debt.json. A ledgered gate that cannot find its subject then reads as
+ * "known undo debt" forever (§FIX-ISOLATION-GATE-BLIND, L-827). Misconfiguration
+ * is exit 2 and never absorbable.
+ *
+ * The floor is TWO-SIDED: the file must exist AND be substantial. A truncated or
+ * placeholder initUI.ts would satisfy every negative check trivially — check 2
+ * is an ABSENCE assertion, and absence over an empty file is not evidence.
+ */
+const MIN_SUBJECT_FILE_LINES = 200;
+
 if (!existsSync(abs)) {
-  fail(`target not found: ${TARGET}. If the file moved, update this gate — do NOT delete it.`);
-  process.exit(1);
+  console.error(
+    `[MISCONFIGURED] check-ctrl-z-wired (exit 2): target not found: ${TARGET}.`
+    + `\n  cwd: ${process.cwd()}`
+    + `\n  If the file moved, update this gate — do NOT delete it. This is NOT a pass and NOT declarable debt.`,
+  );
+  process.exit(2);
 }
 
 const raw = readFileSync(abs, 'utf8');
+
+if (raw.split(/\r?\n/).length < MIN_SUBJECT_FILE_LINES) {
+  console.error(
+    `[MISCONFIGURED] check-ctrl-z-wired (exit 2): ${TARGET} is ${raw.split(/\r?\n/).length} lines; floor is ${MIN_SUBJECT_FILE_LINES}.`
+    + `\n  Half this gate asserts that forbidden calls are ABSENT. Absence inside a stub file is not a measurement.`,
+  );
+  process.exit(2);
+}
 
 /** Strip block and line comments so documentation can never satisfy — or trip —
  *  a check. This is exactly what let the previous gate pass on two comment lines. */

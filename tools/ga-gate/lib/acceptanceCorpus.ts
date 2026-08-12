@@ -137,7 +137,25 @@ function parseWallTypes(src: string): { id: string; name: string }[] {
 }
 
 export function readAcceptanceCorpus(specPath: string): AcceptanceCorpus {
-  const src = decomment(readFileSync(specPath, 'utf8'));
+  // §GATE-CRASH-IS-MISCONFIG (2026-08-11, C9). An unreadable corpus threw a raw
+  // ENOENT, which node reports as EXIT 1 — the same code a real coverage failure
+  // produces, and the one gate-debt.json is allowed to absorb. "I could not open
+  // the acceptance corpus" and "the chat capabilities are undeclared" are different
+  // facts (L-811 / L-827): the first is exit 2 and is never absorbable.
+  let raw: string;
+  try {
+    raw = readFileSync(specPath, 'utf8');
+  } catch (err) {
+    console.error(
+      `\n[acceptance-corpus] MISCONFIGURED (exit 2) — cannot read the acceptance corpus: ${specPath}`
+      + `\n  cwd: ${process.cwd()}`
+      + `\n  ${(err as Error).message.split('\n')[0]}`
+      + `\n  Every example, adversarial utterance and wall-type pin is read from this file. Without it`
+      + `\n  the caller's proofs pass vacuously. This is NOT a pass.`,
+    );
+    process.exit(2);
+  }
+  const src = decomment(raw);
   return {
     families: parseFamilies(src),
     adversarial: parseAdversarial(src),

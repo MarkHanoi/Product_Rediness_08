@@ -260,6 +260,23 @@ for (const scope of Object.keys(debt.instanceScopePresence)) {
 // ── D2 — every probe registration in production source must be declared ─────
 const SCAN_ROOTS = ['apps', 'packages', 'plugins', 'src'];
 const probeSites: string[] = [];
+
+/**
+ * §R5-FLOOR (2026-08-11) — D2, D7 and the candidate sweep are all ABSENCE claims
+ * ("no undeclared probe", "no new duplicate scopeName", "no new unowned state"),
+ * and every one of them is computed from `walk()`, whose readdir failure is
+ * swallowed by design (`catch { return; }`). A wrong ROOT therefore visits zero
+ * files and produces zero findings — a green run over an unread tree, which is
+ * the L-811/L-827 shape this suite has now paid for four times.
+ *
+ * Measured 2026-08-11: 4,559 files under the scan roots, 880 under the candidate
+ * roots. The floors sit far enough below to tolerate real churn and far enough
+ * above zero that a broken walk can never read as a clean one.
+ */
+const MIN_SCANNED_FILES = 2000;
+const MIN_CANDIDATE_SCANNED_FILES = 300;
+let walkedFiles = 0;
+
 function walk(dir: string, visit: (abs: string) => void): void {
     let entries: string[];
     try { entries = readdirSync(dir); } catch { return; }
@@ -272,6 +289,7 @@ function walk(dir: string, visit: (abs: string) => void): void {
         if (!/\.tsx?$/.test(name)) continue;
         if (/\.(test|spec)\.tsx?$/.test(name)) continue;   // tests fabricate probes on purpose
         if (abs.includes(`${path.sep}__tests__${path.sep}`)) continue;
+        walkedFiles++;
         visit(abs);
     }
 }
@@ -284,6 +302,17 @@ for (const r of SCAN_ROOTS) {
         if (body.includes('registerProjectScopeProbe(')) probeSites.push(rel);
     });
 }
+// §R5-FLOOR — the D2 sweep must have READ something before its emptiness counts.
+if (walkedFiles < MIN_SCANNED_FILES) {
+    console.error(
+        `\n[declared-project-scopes] MISCONFIGURED (exit 2) — the source sweep visited ${walkedFiles} file(s); floor is ${MIN_SCANNED_FILES}.`
+        + `\n  Root: ${ROOT}`
+        + `\n  walk() swallows readdir errors, so a wrong root yields zero files, zero probe sites and`
+        + `\n  zero findings — indistinguishable from a clean repository. This is NOT a pass.`,
+    );
+    process.exit(2);
+}
+
 for (const site of probeSites) {
     if (!declaredModules.has(site)) {
         failures.push(
@@ -334,6 +363,7 @@ for (const r of SCAN_ROOTS) {
         }
     });
 }
+let ratchetExceeded = false;
 const duplicateNames: Record<string, string[]> = {};
 for (const [name, files] of scopeNameSites) {
     if (files.size > 1) duplicateNames[name] = [...files].sort();
@@ -341,6 +371,7 @@ for (const [name, files] of scopeNameSites) {
 const baselinedDupes = new Set(Object.keys(debt.duplicateScopeNames ?? {}));
 for (const [name, files] of Object.entries(duplicateNames)) {
     if (baselinedDupes.has(name)) continue;
+    ratchetExceeded = true;
     failures.push(
         `D7 duplicate scopeName "${name}" registered from ${files.length} modules:\n` +
         files.map(f => `      • ${f}`).join('\n') +
@@ -376,6 +407,7 @@ const PROJECT_WORDS =
     /(site|geocode|parcel|envelope|terrain|context|massing|viewport|camera|project|brief|furnish|overlay|climate|level|selection|layout|origin|placed|frame|active|last|current|pending|cache)/i;
 const CANDIDATE_ROOTS = ['apps/editor/src/ui', 'apps/editor/src/engine'];
 const candidates: string[] = [];
+const walkedBeforeCandidates = walkedFiles;
 for (const r of CANDIDATE_ROOTS) {
     walk(path.join(ROOT, r), (abs) => {
         const rel = path.relative(ROOT, abs).split(path.sep).join('/');
@@ -391,10 +423,22 @@ for (const r of CANDIDATE_ROOTS) {
         if (hits > 0) candidates.push(rel);
     });
 }
+// §R5-FLOOR — the candidate sweep has its own, narrower subject.
+const candidateFilesWalked = walkedFiles - walkedBeforeCandidates;
+if (candidateFilesWalked < MIN_CANDIDATE_SCANNED_FILES) {
+    console.error(
+        `\n[declared-project-scopes] MISCONFIGURED (exit 2) — the candidate sweep visited ${candidateFilesWalked} file(s) under`
+        + ` ${CANDIDATE_ROOTS.join(', ')}; floor is ${MIN_CANDIDATE_SCANNED_FILES}.`
+        + `\n  "No NEW unowned project state" over an unwalked tree is not a finding. This is NOT a pass.`,
+    );
+    process.exit(2);
+}
+
 const baselineSet = new Set(Object.keys(debt.undeclaredStateCandidates));
 const newCandidates = candidates.filter(c => !baselineSet.has(c)).sort();
 const fixedCandidates = [...baselineSet].filter(c => !candidates.includes(c)).sort();
 if (newCandidates.length > 0) {
+    ratchetExceeded = true;
     failures.push(
         `CANDIDATE SWEEP: ${newCandidates.length} NEW file(s) hold module-level ` +
         `project-scoped state with no declared owner:\n` +
@@ -434,7 +478,11 @@ if (failures.length > 0) {
         'happened to register. Fix the code or edit the declaration deliberately — do not\n' +
         'narrow the check until it passes.\n',
     );
-    process.exit(1);
+    // §EXIT-CODE-CONTRACT (2026-08-11, C9). The candidate sweep and the D7 duplicate
+    // set are both shrink-only NAMED baselines, so a NEW entry in either is debt
+    // GROWTH and exits 3 — never absorbable by gate-debt.json. D1/D2 declaration
+    // failures are invariant breaches and stay exit 1.
+    process.exit(ratchetExceeded ? 3 : 1);
 }
 console.log('\n✓ Declaration and code agree.\n');
 process.exit(0);

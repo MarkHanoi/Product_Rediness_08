@@ -19,6 +19,15 @@
  * Exit codes:
  *   0 — all checked packages compiled cleanly
  *   1 — one or more packages had TypeScript errors
+ *   2 — MISCONFIGURED: tsc did not actually run (see §PER-PACKAGE-COMPILE-WAS-
+ *       GREEN-AND-BLIND below), or too few packages were compiled to believe the
+ *       result. NEVER absorbable as declared debt.
+ *
+ * ⚠ RUNTIME (2026-08-11). This gate now spawns ~90 real `tsc --noEmit` runs and
+ * takes TENS OF MINUTES on a cold cache. It used to finish in seconds — because it
+ * was running nothing at all. The cost is the price of the assertion being true;
+ * if that is unaffordable in a pre-merge job, the answer is to shard or cache it,
+ * NOT to let a failed spawn read as a pass.
  *
  * ── KNOWN ISSUES (deferred to future tasks) ─────────────────────────────────
  *
@@ -92,6 +101,32 @@ const SKIP_PACKAGES = new Map<string, string>([
 
 const pkgNames = readdirSync(packagesDir).sort();
 
+/**
+ * ─── §PER-PACKAGE-COMPILE-WAS-GREEN-AND-BLIND (2026-08-11, R5/C9) ────────────
+ * THIS GATE HAD NEVER COMPILED A SINGLE PACKAGE ON WINDOWS, and said PASS ~90
+ * times per run while doing it. It is L-774 verbatim, surviving inside a gate:
+ *
+ *   spawnSync('npx', ['tsc', …])            // no shell: true
+ *     → win32 cannot exec `npx.cmd` through CreateProcess
+ *     → { error: ENOENT, status: null, stdout: null, stderr: null }
+ *     → output === ''  ⇒  hasErrors === false  ⇒  "  PASS  packages/x"
+ *
+ * "tsc found no errors" and "tsc never ran" produced the identical line. That is
+ * the §CONTEXT-DATA-HONESTY law broken in the worst place it can break: a gate
+ * that was never on gate-debt.json, because it was never red.
+ *
+ * Three fixes, none of which relax what is asserted:
+ *   1. shell: true on win32 — the same portable fix run-all.ts already carries.
+ *   2. A SPAWN THAT DID NOT RUN IS EXIT 2, never a PASS and never an ordinary
+ *      failure. `result.error` or a null status means no compiler ran.
+ *   3. MIN_COMPILED_SUBJECTS — a declared floor on how many packages were
+ *      actually compiled. Zero compiles must never print "✅ All checked
+ *      packages compiled cleanly".
+ */
+const NEEDS_SHELL = process.platform === 'win32';
+const MIN_COMPILED_SUBJECTS = 40;
+let compiled = 0;
+
 let anyFailed = false;
 const failures: string[] = [];
 const skipped: string[] = [];
@@ -121,8 +156,22 @@ for (const pkgName of pkgNames) {
       cwd: pkgDir,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: NEEDS_SHELL,
     },
   );
+
+  // §PER-PACKAGE-COMPILE-WAS-GREEN-AND-BLIND — the compiler must have RUN.
+  if (result.error !== undefined || result.status === null) {
+    console.error(
+      `\n[per-package-compile] MISCONFIGURED (exit 2) — tsc did not run for packages/${pkgName}.`
+      + `\n  error: ${result.error ? `${(result.error as NodeJS.ErrnoException).code ?? ''} ${result.error.message}` : 'none'} · status: ${String(result.status)}`
+      + `\n  A compiler that never started produces empty output, and empty output used to read as`
+      + `\n  "no errors" — this gate printed PASS for every package on win32 for its entire life.`
+      + `\n  This is NOT a pass and NOT declarable debt.`,
+    );
+    process.exit(2);
+  }
+  compiled++;
 
   const output = (result.stdout ?? '') + (result.stderr ?? '');
   const hasErrors =
@@ -188,6 +237,15 @@ for (const pkgName of pkgNames) {
 }
 
 console.log('');
+// §R5-FLOOR — how many packages did a compiler actually look at?
+if (compiled < MIN_COMPILED_SUBJECTS) {
+  console.error(
+    `[per-package-compile] MISCONFIGURED (exit 2) — only ${compiled} package(s) were actually compiled; floor is ${MIN_COMPILED_SUBJECTS}.`
+    + `\n  ${pkgNames.length} package directories exist. A run that compiles nothing must never print "all clean".`,
+  );
+  process.exit(2);
+}
+console.log(`[per-package-compile] packages compiled: ${compiled} · floor ${MIN_COMPILED_SUBJECTS} · skipped ${skipped.length}`);
 if (skipped.length > 0) {
   console.log(`[per-package-compile] ⚠️  ${skipped.length} package(s) skipped (known issues): ${skipped.join(', ')}`);
 }

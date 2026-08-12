@@ -220,6 +220,47 @@ const HANDLER_TYPE_RE = new RegExp(
 /** The acceptance suite whose phrasings the gate cross-checks (check 4). */
 const ACCEPTANCE_SPEC = 'packages/ai-host/__tests__/capability-acceptance.test.ts';
 
+/**
+ * §R5-FLOOR (2026-08-11). This gate's headline is an ABSENCE — "UNDECLARED: 0".
+ * That zero is computed as (registered bus commands) MINUS (declared ones), so an
+ * empty left-hand side produces a perfect score: `git ls-files` returning nothing,
+ * a HANDLER_GLOBS typo, or a cwd outside the checkout would each print
+ * "UNDECLARED: 0 · ✓ all targets proven" over a repository it never read.
+ *
+ * MEASURED 2026-08-11 by this gate on this tree: 293 handler files matching
+ * HANDLER_GLOBS, 321 registered bus commands, 50 chat capabilities. (The floor was
+ * first written at 400 from the verb-register gate's 1,227 — a DIFFERENT sweep over
+ * a wider glob — and tripped immediately. Recorded because it is the rule this file
+ * keeps restating: the first number a floor prints is a measurement of the floor,
+ * not of the code. The value below is this gate's own reading, halved.)
+ */
+const MIN_HANDLER_FILES = 150;
+const MIN_REGISTERED_SUBJECTS = 150;
+const MIN_CAPABILITY_SUBJECTS = 20;
+
+
+/**
+ * §GIT-CRASH-IS-MISCONFIG (2026-08-11, C9). `git ls-files` throwing — not a repo,
+ * a broken index, git absent from PATH — propagated as an unhandled exception,
+ * which node reports as EXIT 1: the same code a real violation produces, and
+ * therefore absorbable by gate-debt.json. L-811 exactly. A gate that could not
+ * list its subject has measured nothing, so this is exit 2, never 1.
+ */
+function gitLsFiles(cmd: string, maxBuffer: number, label: string): string {
+  try {
+    return execSync(cmd, { encoding: 'utf8', maxBuffer });
+  } catch (err) {
+    const first = (err as Error).message.split('\n')[0];
+    console.error(
+      `\n[${label}] MISCONFIGURED (exit 2) — git ls-files failed, so the subject could not be listed.`
+      + `\n  cwd: ${process.cwd()}`
+      + `\n  ${first}`
+      + `\n  A gate that cannot enumerate its files has not judged them. This is NOT a pass.`,
+    );
+    process.exit(2);
+  }
+}
+
 function registeredCommands(): Map<string, string> {
   // §FIX-GATE-BLIND-TO-UNTRACKED (L-837, 2026-08-11) — see check-command-naming.
   // Bare `git ls-files` is TRACKED-ONLY, so a newly written handler was invisible
@@ -228,14 +269,26 @@ function registeredCommands(): Map<string, string> {
   // unstaged handler registering a new command could not be counted, so the zero
   // meant "zero among files git already knew about" — a weaker claim than the one
   // printed. `--exclude-standard` keeps .gitignore honoured.
-  const files = execSync(`git ls-files --cached --others --exclude-standard -- ${HANDLER_GLOBS.map((g) => `"${g}"`).join(' ')}`, {
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-  })
+  const files = gitLsFiles(
+    `git ls-files --cached --others --exclude-standard -- ${HANDLER_GLOBS.map((g) => `"${g}"`).join(' ')}`,
+    32 * 1024 * 1024,
+    'check-chat-capability-coverage',
+  )
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean)
     .filter((f) => !f.includes('__tests__'));
+
+  // §R5-FLOOR — the handler sweep must have reached its subject.
+  if (files.length < MIN_HANDLER_FILES) {
+    console.error(
+      `\n[check-chat-capability-coverage] MISCONFIGURED (exit 2) — the handler sweep listed ${files.length} file(s); floor is ${MIN_HANDLER_FILES}.`
+      + `\n  cwd: ${process.cwd()}`
+      + `\n  "UNDECLARED: 0" is (registered − declared). With no handler files there is nothing to be`
+      + `\n  undeclared, and this gate prints a perfect score over an unread tree. This is NOT a pass.`,
+    );
+    process.exit(2);
+  }
 
   const out = new Map<string, string>();
   // §FIX-LSFILES-ENOENT-CRASH (L-837, 2026-08-11) — `git ls-files` lists the
@@ -266,6 +319,18 @@ function registeredCommands(): Map<string, string> {
       + ` absent from the working tree and were NOT scanned — any command they register is`
       + ` NOT included in the counts below.`,
     );
+  }
+  // §R5-FLOOR — files can be listed and still yield no subjects if HANDLER_TYPE_RE
+  // stops matching the codebase's handler shape. That silently empties the
+  // denominator of every ratio this gate prints.
+  if (out.size < MIN_REGISTERED_SUBJECTS) {
+    console.error(
+      `\n[check-chat-capability-coverage] MISCONFIGURED (exit 2) — ${out.size} registered bus command(s) discovered across`
+      + ` ${files.length} handler file(s); floor is ${MIN_REGISTERED_SUBJECTS}.`
+      + `\n  The handler-shape regex no longer matches this codebase, so the coverage denominator is empty.`
+      + `\n  This is NOT a pass.`,
+    );
+    process.exit(2);
   }
   return out;
 }
@@ -1302,6 +1367,17 @@ unreachableProperties.sort();
 // ── Report ───────────────────────────────────────────────────────────────────
 
 console.log('[check-chat-capability-coverage] §FIX-CHAT-CAPABILITY-BLIND (ADR-0313)');
+// §R5-FLOOR — the OTHER subject. Every per-capability proof (targets, liveness,
+// scope modes, examples, adversarial utterances) iterates `caps`. An empty
+// registry proves all of them vacuously and prints "✓ all targets proven".
+if (caps.length < MIN_CAPABILITY_SUBJECTS) {
+  console.error(
+    `\n[check-chat-capability-coverage] MISCONFIGURED (exit 2) — ${caps.length} chat capability(ies) loaded; floor is ${MIN_CAPABILITY_SUBJECTS}.`
+    + `\n  Every proof in this gate is a loop over that list; empty means every claim passes vacuously.`
+    + `\n  This is NOT a pass.`,
+  );
+  process.exit(2);
+}
 console.log(`[check-chat-capability-coverage] registered bus commands: ${registered.size}`);
 console.log(`[check-chat-capability-coverage] chat capabilities: ${caps.length} · covering ${covered.size} command(s)`);
 console.log(`[check-chat-capability-coverage] explicitly deferred (CHAT_UNAVAILABLE): ${CHAT_UNAVAILABLE.size}`);
@@ -1341,6 +1417,7 @@ console.log(
 );
 
 let failed = false;
+let ratchetExceeded = false;
 
 if (undeclared.length > MAX_UNDECLARED) {
   const added = undeclared.slice(0, 40);
@@ -1405,7 +1482,12 @@ function ratchet(label: string, problems: readonly string[], max: number, banner
     `\n[check-chat-capability-coverage] FAIL — ${problems.length} ${label}, baseline ${max}.\n${banner}`,
   );
   for (const p of problems.slice(0, 40)) console.error(`      ${p}`);
-  failed = true;
+  // §EXIT-CODE-CONTRACT (2026-08-11, C9) — every threshold routed through here is
+  // SHRINK-ONLY, so exceeding one means the debt GREW. gate-debt.json must never
+  // absorb that (§RATCHET-EXCEEDED-IS-NEVER-DEBT, R7): exit 3, not 1. `hard()`
+  // failures stay exit 1 — those are invariant breaches a ledger entry could
+  // legitimately declare.
+  ratchetExceeded = true;
 }
 
 hard('global capability route(s) that cannot be classified at all', globalRouteFailures,
@@ -1469,6 +1551,7 @@ ratchet('panel-editable propert(ies) the chat cannot reach', unreachableProperti
   'so the coverage ratchet never sees it. This one does. See MAX_UNREACHABLE_PROPERTIES for the four\n' +
   'things this enumeration CANNOT see.');
 
+if (ratchetExceeded) process.exit(3);
 if (failed) process.exit(1);
 
 console.log(

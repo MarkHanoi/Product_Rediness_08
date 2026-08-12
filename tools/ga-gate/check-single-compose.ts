@@ -195,16 +195,22 @@ if (rivals.matches.length > MAX_RIVALS) {
   failed = true;
 }
 
+// §EXIT-CODE-CONTRACT (2026-08-11, C9). MAX_PROD_CALLERS is a shrink-only ratchet
+// — a NEW composition entry point is debt GROWTH, which no ledger absorbs (exit 3,
+// §RATCHET-EXCEEDED-IS-NEVER-DEBT R7). A rival runtime factory outside
+// FACTORY_ALLOWLIST is a P1 invariant breach (exit 1). Two facts, two codes.
+let ratchetExceeded = false;
 if (callFiles.size > MAX_PROD_CALLERS) {
   console.error(`\n[${LABEL}] FAIL — ${callFiles.size} production file(s) call composeRuntime(), baseline ${MAX_PROD_CALLERS}:`);
   for (const f of [...callFiles].sort()) console.error(`      ${f}`);
   console.error(`  Each new caller is a new entry point into composition. Justify it or route\n` +
                 `  through the existing one. Do NOT raise this threshold to go green.`);
-  failed = true;
+  ratchetExceeded = true;
 } else if (callFiles.size) {
   console.log('\n  Production composeRuntime() callers:');
   for (const f of [...callFiles].sort()) console.log(`      ${f}`);
 }
 
+if (ratchetExceeded) process.exit(3);
 if (failed) process.exit(1);
 console.log(`\n[${LABEL}] ✓ one composition root (${CANONICAL}), 0 rivals, ${callFiles.size}/${MAX_PROD_CALLERS} production caller(s).`);

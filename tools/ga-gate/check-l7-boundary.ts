@@ -243,7 +243,10 @@ function main(): number {
         console.error(`      ${m.file}:${m.line}  ${m.text.slice(0, 120)}`);
       }
     }
-    return 1;
+    // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — a shrink-only ceiling/baseline
+    // was exceeded, so this is exit 3, not 1. Exit 1 is the code gate-debt.json may
+    // absorb; a ledger entry declares that a gate FAILS, never that its count may GROW.
+    return 3;
   }
 
   if (improvements.length > 0) {

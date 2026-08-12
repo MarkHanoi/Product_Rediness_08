@@ -362,7 +362,48 @@ function main(): number {
         }
     }
 
-    return failed ? 1 : 0;
+    if (!failed) return 0;
+
+    /**
+     * §LEDGERED-LEVEL (2026-08-11, C9). This gate is on `gate-debt.json`, and that
+     * entry says exactly one thing: THIS GATE FAILS. It has never been able to say
+     * how badly, because every reading above every threshold exited 1 and the
+     * runner absorbed all of them identically. A ledgered gate could therefore go
+     * 11 → 40 literal `commandManager.execute` call sites — the P6 breach itself,
+     * growing — and no run would have said a word. That is the R7 defect
+     * (§RATCHET-EXCEEDED-IS-NEVER-DEBT) one level in: the ledger declares a
+     * FAILURE, never a licence to worsen.
+     *
+     * MEASURED 2026-08-11 on this tree, comments stripped:
+     *     literal = 11 · window = 62 · cm.execute = 62
+     * The ledger's own note recorded literal = 14 when the entry was written, so
+     * the declared level FALLS to 11 in the same breath it starts being enforced.
+     * These are a RECORD OF TODAY'S DEBT, not three more ceilings to spend: above
+     * any of them the exit is 3, which no ledger absorbs.
+     */
+    const LEDGERED_LITERAL = 11;
+    const LEDGERED_WINDOW = 62;
+    const LEDGERED_CM_EXEC = 62;
+    const worse: string[] = [];
+    if (literal > LEDGERED_LITERAL) worse.push(`literal ${literal} > ${LEDGERED_LITERAL}`);
+    if (window_ > LEDGERED_WINDOW) worse.push(`window ${window_} > ${LEDGERED_WINDOW}`);
+    if (cmExecute > LEDGERED_CM_EXEC) worse.push(`cm.execute ${cmExecute} > ${LEDGERED_CM_EXEC}`);
+
+    if (worse.length > 0) {
+        console.error(
+            `\n[no-commandmanager] ❌ WORSE THAN DECLARED (exit 3): ${worse.join(' · ')}.`
+            + `\n  gate-debt.json declares that this gate FAILS. It does not declare that P6 may be`
+            + `\n  bypassed in more places than yesterday. Exit 3 is never absorbed by the ledger.`
+            + `\n  Remove the new call site(s) — do NOT raise a LEDGERED_ constant.`,
+        );
+        return 3;
+    }
+    console.error(
+        `\n[no-commandmanager] failing at its DECLARED level`
+        + ` (literal ${literal}/${LEDGERED_LITERAL} · window ${window_}/${LEDGERED_WINDOW}`
+        + ` · cm.execute ${cmExecute}/${LEDGERED_CM_EXEC}); absorbable via gate-debt.json.`,
+    );
+    return 1;
 }
 
 process.exit(main());

@@ -35,10 +35,25 @@
  *
  * Hard-fail = 0.  Any match is an immediate CI blocker.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
+
+/**
+ * ─── §R5-FLOOR (2026-08-11) ──────────────────────────────────────────────────
+ * This gate's verdict is entirely an ABSENCE: it passes when three directories
+ * are not there. Pointed at the wrong root, all three are "not there" and it
+ * printed OK over a tree it had never seen — failure and emptiness as the same
+ * value, the defect R5 exists to remove.
+ *
+ * The floor is the CONTAINER of the claim: `apps/editor/src` must exist and hold
+ * at least MIN_SUBJECT_DIRS entries. If it does not, we are not looking at this
+ * repository and the absence proves nothing ⇒ exit 2 (MISCONFIGURED, never
+ * absorbable as declared debt).
+ */
+const SUBJECT_ROOT = 'apps/editor/src';
+const MIN_SUBJECT_DIRS = 5;
 
 /**
  * Directories that must NOT exist.  Each was confirmed to be outside the
@@ -51,6 +66,19 @@ const GHOST_DIRS: readonly string[] = [
 ];
 
 function main(): number {
+    const subjectAbs = resolve(REPO_ROOT, SUBJECT_ROOT);
+    let entries: string[] = [];
+    try { entries = readdirSync(subjectAbs); } catch { /* handled below */ }
+    if (entries.length < MIN_SUBJECT_DIRS) {
+        console.error(
+            `[ghost-dirs] MISCONFIGURED (exit 2) — ${SUBJECT_ROOT} holds ${entries.length} entr(ies); floor is ${MIN_SUBJECT_DIRS}.`
+            + `\n  Root: ${REPO_ROOT}`
+            + `\n  Every verdict this gate makes is "directory X is absent". If the CONTAINER is`
+            + `\n  absent, absence is not evidence. This is NOT a pass.`,
+        );
+        process.exit(2);
+    }
+
     let violations = 0;
 
     for (const rel of GHOST_DIRS) {

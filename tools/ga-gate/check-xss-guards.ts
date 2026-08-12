@@ -33,7 +33,8 @@
  *
  * Exit codes:
  *   0 — clean (or within baseline)
- *   1 — new or grown unguarded sinks
+ *   1 — (reserved: a failure at the declared, ledgered level)
+ *   3 — new or GROWN unguarded sinks — a per-file ratchet breach, never absorbable
  *   2 — gate misconfigured (scanned too few files / baseline unreadable)
  */
 
@@ -97,7 +98,7 @@ const zeroTol = findings.filter((f) => ZERO_TOLERANCE_SINKS.has(f.kind));
 if (zeroTol.length > 0) {
   console.error(`[xss-guards] ❌ ${zeroTol.length} zero-tolerance sink(s) — these are never permitted:\n`);
   for (const f of zeroTol) console.error(`  ${f.file}:${f.line}  ${f.kind}\n    ${f.text}`);
-  process.exit(1);
+  process.exit(3);
 }
 
 // ── Per-file ratchet ─────────────────────────────────────────────────────────
@@ -123,7 +124,25 @@ if (newFiles.length > 0 || grown.length > 0) {
     'the value with element.textContent instead of innerHTML.\n' +
     'The baseline may only be lowered, never raised — do not run --update to silence this.',
   );
-  process.exit(1);
+  /**
+   * §LEDGERED-LEVEL / §RATCHET-EXCEEDED-IS-NEVER-DEBT (2026-08-11, C9) — exit 3.
+   *
+   * This gate is on `gate-debt.json`, and this branch is REACHED ONLY WHEN THE
+   * PER-FILE RATCHET IS EXCEEDED: a file with no baseline entry acquired an
+   * unguarded sink, or a baselined file GREW. There is no third reading here — a
+   * gate sitting at its declared level takes one of the exits below, not this one.
+   *
+   * So exiting 1 here was precisely the state the ledger must never absorb: the
+   * entry declares "known XSS debt exists", and the runner then swallowed BRAND-NEW
+   * unguarded sinks under the same yellow KNOWN-DEBT line. Measured on this tree:
+   * ImportManagerPanel.ts 7 → 11 and GISAreaLayout.ts 16 → 20 — eight interpolations
+   * that entered after the freeze and were reported as "known debt, tolerated".
+   *
+   * Exit 3 is never absorbable, so growth now blocks while the ledgered baseline
+   * itself stays tolerated. Nothing here was relaxed: the same findings, a truthful
+   * exit code.
+   */
+  process.exit(3);
 }
 
 const total = findings.length;

@@ -141,7 +141,31 @@ const LABEL = 'gate-subject-floors';
  * Lowering a shrink-only ceiling to its measured value is always safe; the
  * forbidden move is raising one.
  */
-const MAX_UNFLOORED = Number(process.env.PRYZM_R5_MAX_UNFLOORED ?? 9);
+/**
+ * ─── 9 → 0 (2026-08-11, C9 "the gate suite is honest") ───────────────────────
+ * THE RATCHET IS AT ZERO. All 40 gates declare a subject floor and can reach
+ * exit 2. The reading arrived there three ways, and the split matters because
+ * two of them were defects in THIS gate rather than in the gates it accused:
+ *
+ *   • EIGHT gates were genuinely unfloored and were floored in this pass —
+ *     apps-editor-ghost-dirs, ctrl-z-wired, declared-project-scopes,
+ *     engine-bootstrap-loc, height-fidelity, layer-boundaries,
+ *     per-package-compile, project-isolation, chat-capability-coverage.
+ *   • TWO were FALSE ACCUSATIONS by this meta-gate: check-verb-liveness
+ *     (MIN_VERBS/MIN_LEDGER_ROWS/MIN_CENSUS, all compared, exit 2 via a
+ *     `die(2, …)` helper) and check-collab-graph-integrity (floors imported from
+ *     its harness outside tools/ga-gate). Both were floored the whole time. See
+ *     FLOOR_DECL_RE / EXIT2_RE / EXT_IMPORT_RE for the widenings — a meta-gate
+ *     that judges where a floor is SPELLED measures spelling, and a gate that
+ *     accuses an innocent is the same defect as one that misses a guilty party
+ *     (§FIX-ZONING-GATE-MISSLICE).
+ *
+ * The constant stays at 0 rather than being deleted, so a NEW gate that arrives
+ * unfloored exits 3 (RATCHET EXCEEDED) with the offender named, instead of this
+ * file needing to be re-derived from scratch. Zero is now an invariant, not a
+ * ceiling: it can never be raised.
+ */
+const MAX_UNFLOORED = Number(process.env.PRYZM_R5_MAX_UNFLOORED ?? 0);
 
 /**
  * ⚠ THIS GATE'S OWN SUBJECT FLOOR. It would be an exquisite irony to ship a
@@ -162,11 +186,33 @@ function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
-/** A floor DECLARED: a call-site argument, or a named MIN_… constant. */
-const FLOOR_DECL_RE = /\bminFiles\s*:|\bMIN_[A-Z0-9_]*(?:FILES|ROUTES|SUBJECTS?|SCANNED|OWNERS)[A-Z0-9_]*\b/;
+/**
+ * A floor DECLARED. Three accepted forms:
+ *   • `minFiles:` at a scan call-site (the sourceScan idiom),
+ *   • a MIN_… constant whose NAME names a subject (FILES/ROUTES/SUBJECTS/…),
+ *   • ANY `MIN_…` constant that is actually COMPARED against a measurement
+ *     (`x.length < MIN_VERBS`, `if (rows.length < MIN_LEDGER_ROWS)`).
+ *
+ * ⚠ THE THIRD FORM WAS ADDED 2026-08-11 BECAUSE THIS GATE WAS ACCUSING AN
+ * INNOCENT (§FIX-ZONING-GATE-MISSLICE, the same class). `check-verb-liveness.ts`
+ * declares MIN_VERBS / MIN_LEDGER_ROWS / MIN_CENSUS, compares all three, and exits
+ * 2 below any of them — a textbook subject floor — and this meta-gate reported it
+ * as "no floor constant AND no exit-2 path", because the names did not end in one
+ * of five approved nouns and the exit went through a `die(2, …)` helper.
+ *
+ * A meta-gate that judges FLOOR NAMING rather than FLOOR BEHAVIOUR measures
+ * spelling. Keyed on the comparison and on any exit-2 path, it measures the thing
+ * it claims to. Note the third form still requires a comparison — declaring an
+ * unused MIN_ constant does not buy a pass.
+ */
+const FLOOR_DECL_RE = /\bminFiles\s*:|\bMIN_[A-Z0-9_]*(?:FILES|ROUTES|SUBJECTS?|SCANNED|OWNERS)[A-Z0-9_]*\b|[<>]=?\s*MIN_[A-Z0-9_]+\b|\bMIN_[A-Z0-9_]+\s*[<>]/;
 
-/** The misconfiguration exit. Without it a floor is a wish, not a gate. */
-const EXIT2_RE = /process\.exit\(2\)/;
+/**
+ * The misconfiguration exit. Without it a floor is a wish, not a gate.
+ * `die(2, …)` / `exit(2)` helpers count: what matters is that exit code 2 — the
+ * never-absorbable one — is reachable, not that the call is spelled inline.
+ */
+const EXIT2_RE = /process\.exit\(2\)|\bdie\(\s*2\b|\bexit\(\s*2\b/;
 
 /**
  * Local lib imports, resolved back to `lib/<name>.ts`. Two shapes, because a
@@ -176,6 +222,22 @@ const EXIT2_RE = /process\.exit\(2\)/;
  * exit-2 is one hop further, in lib/sourceScan.ts) as unfloored.
  */
 const LIB_IMPORT_RE = /from\s+['"]\.(?:\/lib)?\/([A-Za-z0-9_-]+)\.js['"]/g;
+
+/**
+ * Relative imports that leave `tools/ga-gate/` entirely — e.g.
+ * `../../apps/sync-server/src/collab-gate/collabGraphIntegrity.js`.
+ *
+ * ⚠ ADDED 2026-08-11, second false accusation of the day. A gate may legitimately
+ * keep its harness — and therefore its floor constants — in the workspace whose
+ * dependencies it needs; `check-collab-graph-integrity.ts` imports
+ * MIN_COMPARED_ELEMENTS / MIN_COMPARED_RELATIONSHIPS from exactly such a module.
+ * With the closure truncated at `./lib/*`, this meta-gate reported it as
+ * unfloored. Same defect as the `die(2, …)` miss below: judging where a floor is
+ * WRITTEN rather than whether one is ENFORCED. One hop, resolved on disk, and only
+ * files that exist are read — an unresolvable specifier contributes nothing rather
+ * than being assumed benign.
+ */
+const EXT_IMPORT_RE = /from\s+['"](\.\.[^'"]*)\.js['"]/g;
 
 interface Closure {
   /** Text that may DECLARE a floor: gate + gate-specific libs, no engines. */
@@ -197,6 +259,16 @@ function buildClosure(gateFile: string): Closure {
 
   const queue: string[] = [];
   for (const m of root.matchAll(LIB_IMPORT_RE)) queue.push(`${m[1]}.ts`);
+
+  // One hop OUTSIDE tools/ga-gate — a harness module may hold the floor.
+  for (const m of root.matchAll(EXT_IMPORT_RE)) {
+    const p = join(GATE_DIR, `${m[1]}.ts`);
+    if (!existsSync(p)) continue;
+    const text = stripComments(readFileSync(p, 'utf8'));
+    declText += '\n' + text;
+    allText += '\n' + text;
+    libs.push(m[1]!);
+  }
 
   while (queue.length > 0) {
     const name = queue.shift()!;
@@ -270,7 +342,12 @@ if (unfloored.length > MAX_UNFLOORED) {
     `  (scanFiles' minFiles) or check-no-direct-store-writes.ts:137 for the idiom.\n` +
     `  The ceiling is SHRINK-ONLY: it never rises. A new gate arrives floored.`,
   );
-  process.exit(1);
+  // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — exit 3, not 1. MAX_UNFLOORED is
+  // a shrink-only ratchet; exit 1 is the code gate-debt.json is allowed to absorb.
+  // Being ledgered would declare "this gate fails", never "more blind gates are
+  // acceptable than yesterday". This gate in particular must not be absorbable:
+  // it is the one that detects the blindness the ledger has twice hidden.
+  process.exit(3);
 }
 
 if (unfloored.length > 0) {

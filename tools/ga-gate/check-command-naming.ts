@@ -36,7 +36,7 @@
  * and fails only on GROWTH, the same shape as `ci-check-no-commandmanager.mjs`.
  *
  * Usage:  tsx tools/ga-gate/check-command-naming.ts
- * Exit:   0 = at or below baseline · 1 = a NEW prefix spelling appeared
+ * Exit:   0 = at or below baseline · 3 = a NEW prefix spelling appeared (ratchet exceeded)
  */
 
 import { readFileSync } from 'node:fs';
@@ -95,10 +95,26 @@ function listFiles(): string[] {
     // .gitignore, so node_modules and build output stay out (verified: 0 hits).
     // That was the whole reason ls-files was chosen over a directory walk, and it
     // is preserved.
-    const out = execSync(`git ls-files --cached --others --exclude-standard -- ${SCAN_GLOBS.map(g => `"${g}"`).join(' ')}`, {
-        encoding: 'utf8',
-        maxBuffer: 32 * 1024 * 1024,
-    });
+    // §GIT-CRASH-IS-MISCONFIG (2026-08-11, C9) — `git ls-files` throwing (not a
+    // repo, broken index, git absent from PATH) propagated as an unhandled
+    // exception, which node reports as EXIT 1: the same code a real violation
+    // produces, and therefore absorbable by gate-debt.json. L-811 exactly. A gate
+    // that could not list its subject has measured nothing ⇒ exit 2, never 1.
+    let out: string;
+    try {
+        out = execSync(`git ls-files --cached --others --exclude-standard -- ${SCAN_GLOBS.map(g => `"${g}"`).join(' ')}`, {
+            encoding: 'utf8',
+            maxBuffer: 32 * 1024 * 1024,
+        });
+    } catch (err) {
+        console.error(
+            `\n[check-command-naming] MISCONFIGURED (exit 2) — git ls-files failed, so the subject could not be listed.`
+            + `\n  cwd: ${process.cwd()}`
+            + `\n  ${(err as Error).message.split('\n')[0]}`
+            + `\n  A gate that cannot enumerate its files has not judged them. This is NOT a pass.`,
+        );
+        process.exit(2);
+    }
     return out.split('\n').map(s => s.trim()).filter(Boolean).filter(f => !f.includes('__tests__'));
 }
 
@@ -204,7 +220,11 @@ if (unexpected.length > 0) {
         `in \`aliases\` (CommandHandler.aliases). Dispatch, has() and registry.has() guards all\n` +
         `keep working through the alias while call sites migrate.`,
     );
-    process.exit(1);
+    // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — BASELINE_SPLITS is a shrink-only
+    // NAMED baseline of tolerated second spellings. A NEW one is debt GROWTH, and a
+    // wire identifier that reaches project_command_log is permanent once shipped, so
+    // this must never be absorbable as "known naming debt". Exit 3, not 1.
+    process.exit(3);
 }
 
 if (offending.length < BASELINE_SPLITS.size) {

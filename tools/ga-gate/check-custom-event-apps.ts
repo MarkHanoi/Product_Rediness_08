@@ -48,7 +48,22 @@
  * directory with the same four extensions (.ts/.tsx/.mts/.cts), skipping the same
  * node_modules/dist trees rg skipped via .gitignore.
  *
- * Exit: 0 = at/under ceiling and baseline · 1 = over either · 2 = scan misconfigured
+ * Exit: 0 = at/under ceiling and baseline
+ *       1 = FAILING AT ITS DECLARED LEVEL (this gate is on gate-debt.json)
+ *       2 = scan misconfigured
+ *       3 = failing WORSE than its declared level — never absorbable
+ *
+ * ─── §LEDGERED-LEVEL (2026-08-11, C9) ────────────────────────────────────────
+ * This gate is on `gate-debt.json`. That ledger entry declares ONE fact — "this
+ * gate FAILS today" — and it was, until now, unable to say anything about HOW
+ * badly. Every reading above the ratchet baseline exited 1, so 20 dispatches and
+ * 200 printed the identical, absorbed result: the ledger silently licensed its own
+ * growth. That is the R7 defect (`(window as any)` went 215 → 217 on the ledger
+ * with no run ever saying so), one level in.
+ *
+ * LEDGERED_LEVEL records the MEASURED reading at the moment the entry was audited.
+ * At or under it, the gate is failing as declared (exit 1, absorbable). Above it,
+ * the debt GREW and the exit is 3, which no ledger absorbs.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -68,6 +83,18 @@ const EXTS = ['.ts', '.tsx', '.mts', '.cts'] as const;
  * the scan exits 2 — NOT 0 and NOT 1. A MISCONFIGURATION detector, never a target.
  */
 const MIN_FILES = 700;
+
+/**
+ * §LEDGERED-LEVEL — see the header. MEASURED 2026-08-11 by this gate on this tree:
+ * **20** CustomEvent dispatch lines in apps/editor/src (code only, comments
+ * stripped), against a ratchet baseline of 4.
+ *
+ * The ledger's own note recorded 26 when the entry was written; the honest reading
+ * today is 20, so the declared level FALLS to 20 in the same breath that it starts
+ * being enforced. It may only ever fall further — this is not a second ceiling to
+ * spend, it is a record of how bad the debt was when someone last looked.
+ */
+const LEDGERED_LEVEL = 20;
 
 const PATTERN = /window\.dispatchEvent|new CustomEvent/;
 
@@ -211,6 +238,19 @@ function main(): number {
         console.error(`  ${current - baseline} new CustomEvent dispatch(es) introduced in apps/editor/src/.`);
         console.error('  Replace with runtime.events.emit() — see PryzmRuntimeEvents type map.');
         listSites(matches);
+        // §LEDGERED-LEVEL — two different facts, two different exit codes.
+        if (current > LEDGERED_LEVEL) {
+            console.error(
+                `\n[custom-event-apps] ❌ WORSE THAN DECLARED (exit 3): ${current} > ledgered level ${LEDGERED_LEVEL}.`
+                + `\n  gate-debt.json declares that this gate FAILS. It does not declare that the debt may GROW.`
+                + `\n  Exit 3 is never absorbed by the ledger. Remove the new dispatch(es) — do not raise`
+                + `\n  LEDGERED_LEVEL, which would convert a measurement into a permission.`,
+            );
+            return 3;
+        }
+        console.error(
+            `\n[custom-event-apps] failing at its DECLARED level (${current} ≤ ${LEDGERED_LEVEL}); absorbable via gate-debt.json.`,
+        );
         return 1;
     }
 

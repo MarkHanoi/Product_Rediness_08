@@ -166,7 +166,15 @@ console.log(`[${LABEL}] ARM A (decidable, hard 0): ${DOMAIN_DIR} · ${domainScan
 console.log(`[${LABEL}] ARM B (proxy, ratcheted):  UI files ${armB.filesScanned} · direct \`.visible =\` assignments: ${directVisible.length}/${MAX_DIRECT_VISIBLE}`);
 console.log(`[${LABEL}] NOT CHECKED: persistence, per-view scoping, AI intent path — see header. A pass here is NOT "P7 holds".`);
 
-let failed = false;
+// §EXIT-CODE-CONTRACT (2026-08-11, C9) — the two ARMS are two different facts and
+// must not share one exit code. ARM A is a HARD ZERO invariant: a violation is a
+// plain failure (exit 1), which a deliberate ledger entry could legitimately
+// absorb. ARM B is a SHRINK-ONLY RATCHET over tolerated debt: exceeding it means
+// the debt GREW, which no ledger absorbs (exit 3, §RATCHET-EXCEEDED-IS-NEVER-DEBT,
+// R7). Collapsing them onto 1 — as this gate did — would let a ledger entry
+// written for ARM A silently license unbounded ARM B growth.
+let failedHard = false;
+let ratchetExceeded = false;
 
 if (armA.length) {
   console.error(`\n  ARM A violations — the visibility DOMAIN package contains UI:`);
@@ -176,7 +184,7 @@ if (armA.length) {
     `violation is new. packages/visibility describes WHAT should be visible; the renderer\n` +
     `and committers decide HOW. Move the presentation code out of the domain package.`,
   );
-  failed = true;
+  failedHard = true;
 }
 
 if (directVisible.length > MAX_DIRECT_VISIBLE) {
@@ -189,7 +197,7 @@ if (directVisible.length > MAX_DIRECT_VISIBLE) {
     `If it is genuinely a transient gizmo, it still counts against the baseline — reduce\n` +
     `elsewhere or move the toggle behind the overlay layer. Do NOT raise this threshold.`,
   );
-  failed = true;
+  ratchetExceeded = true;
 } else if (directVisible.length) {
   console.log('\n  ARM B by file (declared debt, top 15):');
   for (const [k, n] of tallyBy(directVisible, (m) => m.file).slice(0, 15)) {
@@ -197,5 +205,6 @@ if (directVisible.length > MAX_DIRECT_VISIBLE) {
   }
 }
 
-if (failed) process.exit(1);
+if (ratchetExceeded) process.exit(3);
+if (failedHard) process.exit(1);
 console.log(`\n[${LABEL}] ✓ arm A clean (0), arm B within baseline (${directVisible.length}/${MAX_DIRECT_VISIBLE}).`);

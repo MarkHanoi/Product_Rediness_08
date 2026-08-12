@@ -402,6 +402,19 @@ if (zoneBFixedButListed.length > 0) {
   for (const f of zoneBFixedButListed) console.error(`  · ${f}`);
 }
 
+/**
+ * §EXIT-CODE-CONTRACT (2026-08-11, C9) — three facts, three codes.
+ *   • Zone A FLOOR breach means instrumentation VANISHED or the discovery glob
+ *     collapsed: the gate can no longer trust its own denominator ⇒ exit 2
+ *     (MISCONFIGURED), which no ledger absorbs. That branch is the one that
+ *     detects a blind scan, so it must never be absorbable as "known P8 debt".
+ *   • Zone B is a shrink-only NAMED baseline. A new uninstrumented file, or a
+ *     dead entry that keeps a slot warm for one, means the debt GREW ⇒ exit 3
+ *     (§RATCHET-EXCEEDED-IS-NEVER-DEBT, R7).
+ *   • Zone A uncovered handlers are a plain zero-tolerance failure ⇒ exit 1.
+ */
+if (zoneA.covered.length < HARD_FLOOR) process.exit(2);
+if (zoneBNew.length > 0 || zoneBFixedButListed.length > 0) process.exit(3);
 if (failed) process.exit(1);
 
 console.log(

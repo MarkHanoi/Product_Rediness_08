@@ -424,7 +424,11 @@ function main(): void {
         );
     }
 
-    if (novel.length > 0 || stale.length > 0) process.exit(1);
+    // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — BASELINE here is a shrink-only
+    // NAMED list, so both failure modes mean the debt grew or its slots went stale
+    // (a dead entry can absorb a new violation at the same file silently). Neither
+    // is absorbable by gate-debt.json: exit 3, not 1.
+    if (novel.length > 0 || stale.length > 0) process.exit(3);
     console.log('✅ every rendered refusal carries its identity (or is a named, unchanged baseline entry).\n');
 }
 

@@ -43,9 +43,59 @@ interface Failure { check: string; detail: string; loc?: string; }
 const failures: Failure[] = [];
 function fail(check: string, detail: string, loc?: string) { failures.push({ check, detail, loc }); }
 
+/**
+ * §R5-FLOOR + §COMMENT-BLIND (2026-08-11). Two honesty defects, both of the shapes
+ * this suite has now been bitten by repeatedly:
+ *
+ * 1. SETUP FAILURE EXITED 1. An unreadable subject was pushed onto `failures` and
+ *    reported as a height-fidelity VIOLATION — the same exit code, and therefore
+ *    the same absorbable state, as a genuinely dishonest render. "I could not read
+ *    the file" and "the render is wrong" are different facts (L-827). Now exit 2.
+ * 2. EVERY CHECK IS A COVERAGE TEST ON RAW SOURCE. Checks B/C/D/E PASS when a
+ *    pattern is PRESENT, and they ran over un-stripped text — so a comment reading
+ *    `// material: heightAccurate ? …` satisfied check C without a line of code
+ *    behind it. That is verbatim the §RAF-GATE-COMMENT-BLIND defect (4 of 5 "rAF
+ *    owners" were comments) and the motion-gate one (a `// TODO: add beginMotion()`
+ *    counted as coverage).
+ *
+ * Comments are BLANKED rather than deleted — replaced space-for-space — because
+ * the region markers this gate slices on (`§CTX-HEIGHT-FIDELITY-RENDER`) live
+ * inside comments by design. Blanking preserves every byte offset, so the region
+ * is located in the RAW text and every assertion is made against CODE at exactly
+ * the same indices.
+ */
+const MIN_SUBJECT_FILES = 2;
+const MIN_SUBJECT_LINES = 100;
+
+function blankComments(src: string): string {
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    const two = src.slice(i, i + 2);
+    if (two === '//') {
+      while (i < src.length && src[i] !== '\n') { out += ' '; i++; }
+    } else if (two === '/*') {
+      while (i < src.length && src.slice(i, i + 2) !== '*/') { out += src[i] === '\n' ? '\n' : ' '; i++; }
+      if (i < src.length) { out += '  '; i += 2; }
+    } else {
+      out += src[i];
+      i++;
+    }
+  }
+  return out;
+}
+
 function read(path: string): string {
   try { return readFileSync(path, 'utf8'); }
-  catch { fail('setup', `Cannot read required file: ${path.replace(ROOT, '')}`); return ''; }
+  catch {
+    console.error(
+      `\n[height-fidelity] MISCONFIGURED (exit 2) — cannot read required subject: ${path}`
+      + `\n  Root: ${ROOT}`
+      + `\n  A subject this gate cannot open has not been judged. Reporting that as a fidelity`
+      + `\n  violation (exit 1) would let the debt ledger absorb a blind gate. This is NOT a pass.`,
+    );
+    process.exit(2);
+  }
 }
 function lineOf(src: string, index: number): number {
   return index < 0 ? 0 : src.slice(0, index).split('\n').length;
@@ -59,15 +109,41 @@ function region(src: string, start: string, end: string): { text: string; at: nu
   return { text: src.slice(a, b), at: a };
 }
 
-const src = read(RENDER_FILE);
-const heightSrc = read(HEIGHT_FILE);
+const rawSrc = read(RENDER_FILE);
+const rawHeightSrc = read(HEIGHT_FILE);
 const REL = RENDER_FILE.split(/[\\/]/).join('/').replace(ROOT.split(/[\\/]/).join('/') + '/', '');
 
-if (src && heightSrc) {
+// §R5-FLOOR — the subject must be substantial. A truncated or placeholder render
+// file would make every positive check fail for the wrong reason, and an empty one
+// would make CHECK E vacuously true (`DEFAULT_BUILDING_HEIGHT_M` simply absent).
+const subjects: Array<{ path: string; text: string }> = [
+  { path: RENDER_FILE, text: rawSrc },
+  { path: HEIGHT_FILE, text: rawHeightSrc },
+];
+const substantial = subjects.filter((s) => s.text.split('\n').length >= MIN_SUBJECT_LINES);
+if (substantial.length < MIN_SUBJECT_FILES) {
+  console.error(
+    `\n[height-fidelity] MISCONFIGURED (exit 2) — only ${substantial.length}/${MIN_SUBJECT_FILES} subject file(s) reach ${MIN_SUBJECT_LINES} lines.`
+    + subjects.map((s) => `\n      ${s.text.split('\n').length} lines · ${s.path}`).join('')
+    + `\n  Every check here is a pattern-presence test. Over a stub file they are vacuous. This is NOT a pass.`,
+  );
+  process.exit(2);
+}
+
+// Assertions run against CODE; region markers are located in the RAW text. Offsets
+// are identical because comments are blanked space-for-space, never removed.
+const src = blankComments(rawSrc);
+const heightSrc = blankComments(rawHeightSrc);
+
+{
   // Locate the L-647 near-tier fidelity render. The §-tag marks the start; the
   // entity `add({` … `})` that follows is the block we assert on. End marker is the
   // push into contextBuildingEntities that immediately follows the add.
-  const block = region(src, '§CTX-HEIGHT-FIDELITY-RENDER', 'contextBuildingEntities.push');
+  // Located in RAW (the §-tag is a comment marker), read as CODE (offsets align).
+  const rawBlock = region(rawSrc, '§CTX-HEIGHT-FIDELITY-RENDER', 'contextBuildingEntities.push');
+  const block = rawBlock
+    ? { at: rawBlock.at, text: src.slice(rawBlock.at, rawBlock.at + rawBlock.text.length) }
+    : null;
 
   // ── CHECK A — the provenance-driven render block exists ─────────────────────
   if (!block) {

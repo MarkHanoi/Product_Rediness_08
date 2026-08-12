@@ -174,7 +174,10 @@ function main(): number {
             '  See docs/03_PRYZM3/04-PLAN-FORWARD/54-COMPLETE-LEGACY-ELIMINATION-PLAN.md §5',
         );
         listSites(matches);
-        return 1;
+        // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — a shrink-only ceiling/baseline
+        // was exceeded, so this is exit 3, not 1. Exit 1 is the code gate-debt.json may
+        // absorb; a ledger entry declares that a gate FAILS, never that its count may GROW.
+        return 3;
     }
 
     if (current > baseline) {
@@ -183,7 +186,10 @@ function main(): number {
         );
         console.error(`  ${current - baseline} new window.xStore read(s) introduced in packages/.`);
         listSites(matches);
-        return 1;
+        // §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — a shrink-only ceiling/baseline
+        // was exceeded, so this is exit 3, not 1. Exit 1 is the code gate-debt.json may
+        // absorb; a ledger entry declares that a gate FAILS, never that its count may GROW.
+        return 3;
     }
 
     if (current < baseline) {

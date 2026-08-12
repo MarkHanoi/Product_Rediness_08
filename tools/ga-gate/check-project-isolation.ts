@@ -135,6 +135,28 @@ function countInCode(source: string, pattern: RegExp): number {
     return n;
 }
 
+/**
+ * §R5-FLOOR (2026-08-11) — the DECLARED size of the subject.
+ *
+ * The existence check below is the strong half of the floor idiom and was already
+ * here; the missing half was a declared count. Nothing stopped this gate from
+ * shrinking to one anchor — or to none — and still printing "All anchors present
+ * ✅" and exiting 0. A gate whose subject list can be emptied is a gate that can
+ * be satisfied by deletion, which is how C13 coverage would silently evaporate.
+ *
+ * C13 §4 names FOUR anchors. Below four, this gate has stopped being the C13 gate
+ * and exits 2 (MISCONFIGURED) rather than reporting a pass over a shrunken claim.
+ */
+const MIN_SUBJECT_ANCHORS = 4;
+if (GATES.length < MIN_SUBJECT_ANCHORS) {
+    console.error(
+        `\n[project-isolation] MISCONFIGURED (exit 2) — ${GATES.length} anchor(s) declared; C13 §4 requires ${MIN_SUBJECT_ANCHORS}.`
+        + `\n  Anchors were removed from this gate rather than satisfied in the code. A gate that can be`
+        + `\n  made green by deleting its own subject measures nothing. This is NOT a pass.`,
+    );
+    process.exit(2);
+}
+
 // ── Subject establishment — BEFORE any judging ───────────────────────────────
 // Every anchor file must exist. A gate that cannot read its subject must not be
 // able to report either a pass OR an ordinary failure.

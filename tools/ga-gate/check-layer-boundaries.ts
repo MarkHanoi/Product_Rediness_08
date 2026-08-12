@@ -48,12 +48,30 @@
  *   • MAX_UNCLASSIFIED — workspace packages with no layer. May only fall.
  *
  * Usage:  tsx tools/ga-gate/check-layer-boundaries.ts
- * Exit:   0 = at or below both baselines · 1 = either grew
+ * Exit:   0 = at or below every baseline
+ *         2 = MISCONFIGURED — the walk did not reach its subject (§R5-FLOOR)
+ *         3 = a SHRINK-ONLY RATCHET WAS EXCEEDED (§RATCHET-EXCEEDED-IS-NEVER-DEBT)
+ *
+ * ─── §R5-FLOOR + §EXIT-CODE-CONTRACT (2026-08-11) ────────────────────────────
+ * Two honesty defects fixed together, neither of which loosened a threshold.
+ *
+ * 1. NO SUBJECT FLOOR. Every number here is a COUNT over files named by
+ *    `git ls-files`. Run this gate where git returns nothing — outside a
+ *    checkout, on a broken index, with a pathspec that matches no file — and it
+ *    printed "0 violations, 0 bypasses, within baselines ✓" and exited 0. Green,
+ *    over a tree it never read. That is the exact shape of L-811/L-827, and the
+ *    one state nobody investigates. MIN_SCANNED_FILES and MIN_WORKSPACE_SUBJECTS
+ *    now exit 2 below the floor.
+ * 2. RATCHET BREACH EXITED 1. Exit 1 is absorbable by gate-debt.json; a ledger
+ *    entry declares that a gate FAILS, never that it may get WORSE. All four
+ *    ratchets here now exit 3, which the runner refuses to absorb.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
+
+import { stripComments } from './lib/writeRouteScan.js';
 
 // ── The layer table. Imported, NOT copied ────────────────────────────────────
 // Two copies of a layer table drift, and a drifted layer table is worse than no
@@ -267,7 +285,24 @@ const MAX_UNCLASSIFIED = Number(process.env.PRYZM_LAYER_MAX_UNCLASSIFIED ?? 13);
  * L1 `command-bus`, and the SDK re-exports only the accessor — two named exports,
  * no cycle, and it dies with `CommandManager`. Scoped as a U-phase item.
  */
-const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 183);
+/**
+ * ─── 183 → 182 (2026-08-11, C9) — a MEASUREMENT correction, not a fix ────────
+ * Comments are now stripped before the import scan (see §COMMENT-BLIND in scan()),
+ * and the honest reading of this tree is 182. Lowering a shrink-only ceiling to its
+ * measured value is always safe and is never the move the doctrine forbids; leaving
+ * it at 183 would bank one free bypass slot, and banked slack is exactly what let
+ * check-otel-spans sit 42 files above its floor.
+ *
+ * The same correction moved VIOLATIONS 103 → 102, and that one is worth stating
+ * plainly because it looks like a fix and is not: `packages/runtime-composer/src/
+ * buildPersistence.ts` carries a COMMENTED-OUT `from '@pryzm/persistence-client'`
+ * line, and this gate was counting it as an L3 → L4 edge. The 103rd violation was
+ * half phantom. The real new edge in the same window is
+ * `packages/headless/src/minimalHeadlessBootstrap.ts:40` →`@pryzm/scene-committer`
+ * (472ece67), which is genuine, remains counted, and now sits INSIDE a baseline
+ * with ZERO headroom: the next real upward import fails this gate.
+ */
+const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 182);
 
 /**
  * §FIX-RESTRICTED-IMPORT-RATCHET (2026-08-09) — banned third-party dependencies.
@@ -285,6 +320,14 @@ const MAX_SDK_BYPASS = Number(process.env.PRYZM_LAYER_MAX_SDK_BYPASS ?? 183);
  * ⚠ SHRINK-ONLY. This is not permission to add more.
  */
 const MAX_RESTRICTED_IMPORTS = Number(process.env.PRYZM_LAYER_MAX_RESTRICTED ?? 113);
+/**
+ * §R5 SUBJECT FLOORS (2026-08-11). Measured on this tree: 5,000+ source files
+ * across 158 workspace manifests. The floors are set well below the measurement
+ * so ordinary movement never trips them, and well above zero so a broken walk
+ * can never masquerade as a clean tree.
+ */
+const MIN_SCANNED_FILES = 2000;
+const MIN_WORKSPACE_SUBJECTS = 100;
 // NOTE the denominator: eslint reports 122, this gate 113. Not a discrepancy to
 // reconcile — eslint counts per LINE across every file including tests and .d.ts,
 // this gate counts resolved specifiers in non-test source. Frozen at THIS gate's
@@ -297,6 +340,29 @@ const RESTRICTED_MODULES: ReadonlyArray<{ readonly mod: string; readonly allowed
     { mod: 'express',                    allowed: ['apps/sync-server/', 'apps/bake-worker/', 'apps/api-gateway/', 'apps/marketplace-api/'] },
 ];
 
+/**
+ * §GIT-CRASH-IS-MISCONFIG (2026-08-11, C9). `git ls-files` throwing — not a git
+ * repository, a broken index, git absent from PATH — used to propagate as an
+ * unhandled exception, which node reports as EXIT 1: the SAME code a real
+ * violation produces, and therefore absorbable by gate-debt.json. That is L-811
+ * exactly ("spawnSync rg ENOENT" recorded as merit). A gate that could not list
+ * its subject has measured nothing: exit 2, never 1.
+ */
+function gitLsFiles(cmd: string, maxBuffer: number, label: string): string {
+  try {
+    return execSync(cmd, { encoding: 'utf8', maxBuffer });
+  } catch (err) {
+    const first = (err as Error).message.split('\n')[0];
+    console.error(
+      `\n[${label}] MISCONFIGURED (exit 2) — git ls-files failed, so the subject could not be listed.`
+      + `\n  cwd: ${process.cwd()}`
+      + `\n  ${first}`
+      + `\n  A gate that cannot enumerate its files has not judged them. This is NOT a pass.`,
+    );
+    process.exit(2);
+  }
+}
+
 // ── Workspace map: package name → directory (exact, from package.json) ───────
 function workspacePackages(): Map<string, string> {
     // §FIX-GATE-BLIND-TO-UNTRACKED (L-837, 2026-08-11) — see check-command-naming.
@@ -306,9 +372,7 @@ function workspacePackages(): Map<string, string> {
     // not reported as unclassified, just absent. The unclassified ratchet (13/13)
     // exists precisely so coverage cannot quietly shrink, and a tracked-only
     // listing is a hole underneath it.
-    const out = execSync('git ls-files --cached --others --exclude-standard -- "packages/*/package.json" "plugins/*/package.json" "apps/*/package.json"', {
-        encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-    });
+    const out = gitLsFiles('git ls-files --cached --others --exclude-standard -- "packages/*/package.json" "plugins/*/package.json" "apps/*/package.json"', 32 * 1024 * 1024, 'check-layer-boundaries');
     const map = new Map<string, string>();
     for (const file of out.split('\n').map(s => s.trim()).filter(Boolean)) {
         try {
@@ -383,10 +447,26 @@ function scan(pkgs: Map<string, string>) {
     // §FIX-GATE-BLIND-TO-UNTRACKED (L-837) — the source sweep. A new file holding
     // a fresh upward import was invisible until staged, so the violation count was
     // "violations among files git already knew about", not "violations".
-    const files = execSync('git ls-files --cached --others --exclude-standard -- "packages/**/*.ts" "plugins/**/*.ts" "apps/**/*.ts" "packages/**/*.tsx" "apps/**/*.tsx"', {
-        encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-    }).split('\n').map(s => s.trim()).filter(Boolean)
+    const files = gitLsFiles(
+        'git ls-files --cached --others --exclude-standard -- "packages/**/*.ts" "plugins/**/*.ts" "apps/**/*.ts" "packages/**/*.tsx" "apps/**/*.tsx"',
+        64 * 1024 * 1024,
+        'check-layer-boundaries',
+    ).split('\n').map(s => s.trim()).filter(Boolean)
       .filter(f => !f.includes('__tests__') && !f.endsWith('.d.ts') && !f.includes('/dist/'));
+
+    // §R5-FLOOR — the walk must have reached its subject before any count it
+    // produces means anything. A pathspec that matches nothing, a corrupt index or
+    // a cwd outside the checkout all yield an empty list, and every ratchet below
+    // would then read 0 and PASS.
+    if (files.length < MIN_SCANNED_FILES) {
+        console.error(
+            `\n[check-layer-boundaries] MISCONFIGURED (exit 2) — git ls-files returned ${files.length} source file(s); floor is ${MIN_SCANNED_FILES}.`
+            + `\n  cwd: ${process.cwd()}`
+            + `\n  Every number this gate prints is a count over that list. Zero files means zero violations,`
+            + `\n  zero bypasses and zero restricted imports — a green run over an unread tree. This is NOT a pass.`,
+        );
+        process.exit(2);
+    }
 
     const violations: Violation[] = [];
     const byPair = new Map<string, number>();
@@ -406,7 +486,16 @@ function scan(pkgs: Map<string, string>) {
         // disclosed rather than skipped: an absent file and a clean file must not
         // produce the same reading, and this gate's whole claim is a COUNT.
         let src: string;
-        try { src = readFileSync(file, 'utf8'); }
+        // §COMMENT-BLIND (2026-08-11, C9) — comments are stripped BEFORE the import
+        // scan. Every number this gate prints is a count of EDGES in the dependency
+        // graph, and a specifier inside a comment is not an edge: it is prose about
+        // one. Measured on this tree, 40 `@pryzm/*` specifiers repo-wide live in
+        // comments — including the migration notes this very gate's failures ask
+        // people to write. Counting them made the ratchets punish documentation and
+        // let a real import hide inside an inflated total, the same defect as
+        // §RAF-GATE-COMMENT-BLIND (4 of 5 "rAF owners" were comments) and the P4
+        // strict arm (16 of 20 "casts" were comments asserting compliance).
+        try { src = stripComments(readFileSync(file, 'utf8')); }
         catch { UNREADABLE_SOURCES++; continue; }
         IMPORT_RE.lastIndex = 0;
         let m: RegExpExecArray | null;
@@ -462,6 +551,17 @@ function scan(pkgs: Map<string, string>) {
 
 // ── Report ───────────────────────────────────────────────────────────────────
 const pkgs = workspacePackages();
+// §R5-FLOOR — the workspace MAP is the other half of the subject. With an empty
+// map every `@pryzm/*` specifier resolves to nothing and is skipped, so the
+// violation and bypass counts fall to 0 while the file walk looks healthy.
+if (pkgs.size < MIN_WORKSPACE_SUBJECTS) {
+    console.error(
+        `\n[check-layer-boundaries] MISCONFIGURED (exit 2) — resolved ${pkgs.size} workspace package(s); floor is ${MIN_WORKSPACE_SUBJECTS}.`
+        + `\n  Without the name→directory map, every @pryzm/* import is unresolvable and silently skipped.`
+        + `\n  The counts would fall to zero and the gate would print ✓. This is NOT a pass.`,
+    );
+    process.exit(2);
+}
 const classified = [...pkgs.entries()].filter(([, dir]) => layerOf(`${dir}/src/index.ts`) !== null);
 const unclassified = [...pkgs.entries()].filter(([, dir]) => layerOf(`${dir}/src/index.ts`) === null);
 const stale = COMPILED.filter(c => !existsSync(c.pattern.replace(/\/\*\*$/, '')));
@@ -584,6 +684,10 @@ if (sdkBypass.length > MAX_SDK_BYPASS) {
         `you need, WIDEN THE FACADE — do not import the package directly and do not raise this threshold.`);
     failed = true;
 }
-if (failed) process.exit(1);
+// §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836) — exit 3, not 1. All four
+// thresholds above are SHRINK-ONLY ratchets, and exit 1 is the code the runner is
+// allowed to absorb via gate-debt.json. Being ledgered declares that a gate FAILS;
+// it never declares that a count may GROW. Exit 3 is refused unconditionally.
+if (failed) process.exit(3);
 
 console.log(`\n[check-layer-boundaries] ✓ within baselines (violations ${violations.length}/${MAX_VIOLATIONS}, unclassified ${unclassified.length}/${MAX_UNCLASSIFIED}, sdk-bypass ${sdkBypass.length}/${MAX_SDK_BYPASS}).`);

@@ -61,6 +61,20 @@
  * All four ratchets start at their 2026-05-16 baselines and decrease per Phase E/F sprint.
  * Gate 21 (F.events.2) extends the CustomEvent ratchet to the apps-tier (297 sites baseline).
  *
+ * ─── §C9-GATE-SUITE-IS-HONEST (2026-08-11) ───────────────────────────────────
+ * The numbered inventory above is a HISTORY, not a census — GATES below is the
+ * authority, and a mismatch between the two is now impossible to hide: a file with
+ * no row and a row with no file both fail this runner (see the two pre-flights).
+ * Three defects were closed in the runner itself during that pass:
+ *
+ *   1. `check-report-payload-discard.ts` was registered TWICE, so every tally this
+ *      runner printed counted one gate twice. Duplicate rows now fail loudly.
+ *   2. `check-verb-liveness.ts` was COMMITTED and registered nowhere — authored,
+ *      enforcing C16 §5.1 CA-21, and never once run. Committed-but-unregistered
+ *      gates now fail; untracked ones are disclosed.
+ *   3. `check-per-package-compile.ts` had never compiled a package on Windows and
+ *      printed ~90 fabricated PASS lines per run (L-774 living inside a gate).
+ *
  * Exit codes THIS RUNNER returns:
  *   0 — all gates passed, or every failure is declared debt at its declared level
  *   1 — a gate regressed, was misconfigured, or exceeded a shrink-only ratchet
@@ -78,7 +92,7 @@
  */
 
 import { spawnSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -169,9 +183,59 @@ const GATES: Gate[] = [
   // funnels new casts INTO this spelling unless it is also fenced. Born passing
   // at its measured baseline (212), so NOT on gate-debt.json. Exits 3 on breach.
   { name: 'cast-unknown (P4/L-845)',                  script: 'check-cast-unknown.ts' },
+  // C8 (2026-08-11, d2730a0c) — collaboration preserves relationships. Authored in
+  // the sync stream and deliberately left unregistered as a handoff, because this
+  // runner is C9 territory; registered here the same day, so it never lived in the
+  // authored-but-unwired state the check below exists to catch. Its harness lives
+  // in apps/sync-server (needs ws/y-websocket); floors are imported from there and
+  // exit 2 on an unestablished subject; its RATCHET=0 breach reports at the
+  // declared level. Exit-3 semantics are honoured by this runner's existing branch.
+  { name: 'collab-graph-integrity (C8/L-391)',        script: 'check-collab-graph-integrity.ts' },
+  // BIM20 Wave 3 (2026-08-11, handoff from the C10 stream) — every declared
+  // cascade event must have a listener AND a prevState-carrying emitter; EV-03
+  // proved either alone is insufficient. Pure static analysis, so it lives with
+  // the other static gates and runs here; the file stays in
+  // tools/rac-conformance/certification/gates/ beside the cascade-events.json
+  // ledger it reads — the PATH is what is registered, not a copy. It self-ledgers
+  // 8 findings (all four events: no listener, no prev-state) and exits 1 at that
+  // declared level, so it carries a gate-debt.json line; below its floors it
+  // exits 2. NOTE: it sits outside GATE_DIR, so the R5 meta-gate does not inspect
+  // it — its floors are enforced by its own contract.ts, which prints them.
+  { name: 'propagation-reaches (BIM20-W3/EV-03)',     script: '../rac-conformance/certification/gates/check-propagation-reaches.ts' },
+  // §GATE-AUTHORED-BUT-UNWIRED (2026-08-11, C9) — CA-21 (C16 §5.1) enforcement.
+  // Committed 2026-08-11 in 1eba6011 and registered in NOTHING until now: not this
+  // runner, not ci.yml, not package.json. It is the complement of verb-register —
+  // the register says what EXISTS, this says what has been WATCHED TO WRITE, by
+  // executing a dispatch and reading the authoritative store back.
+  //
+  // ⚠ It EXECUTES a harness against the real composition root and takes minutes.
+  // If it exits 2 here, that is the gate being honest: CA-21 admits no substitute
+  // for an executed read-back, so a harness that cannot run has established no
+  // subject and must not report a pass.
+  { name: 'verb-liveness (C16 §5.1 CA-21)',           script: 'check-verb-liveness.ts' },
+  // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
-  { name: 'report-payload-discard (C68 §5.g, R4)',    script: 'check-report-payload-discard.ts' },
 ];
+
+// §FIX-GATE-REGISTERED-TWICE (2026-08-11, C9). `check-report-payload-discard.ts`
+// was registered TWICE — once as "report-payload-discard (R4/W2-B)" and again as
+// "report-payload-discard (C68 §5.g, R4)". Two rows, one file, so the suite ran it
+// twice, and every tally it printed ("35 passing", "40 gates") counted one gate
+// twice while implying 40 distinct subjects. The duplicate is removed rather than
+// renamed, and the invariant is enforced below so the next copy-paste fails loudly
+// instead of inflating coverage: a suite that miscounts ITSELF cannot be the
+// authority on whether anything else is honest.
+const dupes = [...new Map<string, number>(
+  GATES.map((g) => [g.script, GATES.filter((x) => x.script === g.script).length]),
+).entries()].filter(([, n]) => n > 1);
+if (dupes.length > 0) {
+  console.error(
+    `\n[ga-gate/run-all] ❌ ${dupes.length} gate script(s) registered more than once:\n`
+    + dupes.map(([s, n]) => `    - ${s}  ×${n}`).join('\n')
+    + '\n  A duplicate row inflates every count this runner prints. Remove it.',
+  );
+  process.exit(1);
+}
 
 let anyFailed = false;
 
@@ -252,6 +316,52 @@ const nowPassing: string[] = [];
 // noticed for fifteen months because nothing tried to run them. This loop is
 // checked BEFORE any gate runs and is NOT eligible for the debt baseline —
 // declaring debt against a file that does not exist is meaningless.
+// §GATE-AUTHORED-BUT-UNWIRED (2026-08-11, C9) — the mirror of the check below.
+// `missing` catches an INVENTORY ROW WITH NO FILE. This catches a FILE WITH NO
+// INVENTORY ROW, which is the failure this repo keeps paying for: work that
+// exists, is committed, and runs nowhere. `check-verb-liveness.ts` was committed
+// on 2026-08-11 enforcing C16 §5.1 CA-21 and was registered in NOTHING — not this
+// runner, not ci.yml, not package.json. A gate nobody runs is indistinguishable
+// from a gate nobody wrote, except that it reads as coverage.
+//
+// TRACKED files fail; UNTRACKED ones are disclosed only, because an in-flight gate
+// another agent has not finished is not yet a claim of coverage.
+let inventoryFailed = false;
+const registered = new Set(GATES.map((g) => g.script));
+const onDisk = readdirSync(__dir).filter((f) => /^check-.*\.ts$/.test(f) && !registered.has(f));
+if (onDisk.length > 0) {
+  let tracked: string[] = [];
+  try {
+    tracked = spawnSync('git', ['ls-files', '--', 'tools/ga-gate'], { encoding: 'utf8' })
+      .stdout.split('\n').map((s) => s.trim().split('/').pop() ?? '').filter(Boolean);
+  } catch { /* no git ⇒ treat everything as untracked and merely disclose */ }
+  const committed = onDisk.filter((f) => tracked.includes(f));
+  const inFlight = onDisk.filter((f) => !tracked.includes(f));
+  if (inFlight.length > 0) {
+    console.warn(
+      `\n[ga-gate/run-all] ⚠ ${inFlight.length} gate file(s) exist but are NOT registered (untracked / in flight):\n`
+      + inFlight.map((f) => `    - ${f}`).join('\n')
+      + '\n  They are NOT part of this run and prove nothing about this tree.',
+    );
+  }
+  if (committed.length > 0) {
+    console.error(
+      `\n[ga-gate/run-all] ❌ ${committed.length} COMMITTED gate(s) are registered nowhere and therefore never run:\n`
+      + committed.map((f) => `    - ${f}`).join('\n')
+      + '\n  A gate that runs nowhere is not enforcement, it is a file. Register it in GATES'
+      + '\n  above (with a debt line if it fails today) or delete it.',
+    );
+    // ⚠ RECORDED, NOT FATAL-HERE (2026-08-11, C9). The first draft called
+    // process.exit(1) on the spot, and the very first run after another stream
+    // committed a new gate aborted the ENTIRE suite before a single check ran —
+    // forty gates' worth of signal destroyed by an inventory complaint. A gate
+    // runner that stops reporting the moment it finds one problem teaches people
+    // to stop running it, which is how this suite ended up unwired in the first
+    // place (L-774). The failure is real and still blocks at the END.
+    inventoryFailed = true;
+  }
+}
+
 const missing = GATES.filter((g) => !existsSync(join(__dir, g.script)));
 if (missing.length > 0) {
   console.error(
@@ -323,6 +433,10 @@ for (const gate of GATES) {
 }
 
 // Shrink-only enforcement: a gate on the baseline that now passes MUST be removed.
+// §GATE-AUTHORED-BUT-UNWIRED — recorded above, enforced here, so one inventory
+// complaint can never suppress forty gates' worth of signal.
+if (inventoryFailed) anyFailed = true;
+
 const fixedButStillDeclared = [...baseline].filter((s) => nowPassing.includes(s));
 if (fixedButStillDeclared.length > 0) {
   console.error(
