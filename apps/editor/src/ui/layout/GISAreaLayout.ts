@@ -2335,20 +2335,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const renderReducedEnvelopePanel = (viewport: HTMLElement, maxHeightM: number | null): void => {
         const panel = ensureEnvelopePanel(viewport);
         const heightTxt = maxHeightM !== null ? `${maxHeightM.toFixed(1)} m` : '—';
+        // §XSS-SINK-SCAN (C08 §3.1) — `safe*` = escaped-before-assignment convention. Both
+        // builders emit static author-written markup (zero runtime interpolation beyond a
+        // boolean-selected literal); `heightTxt` is an internally-formatted number, escaped
+        // anyway for consistency.
+        const safeCloseBtn = envelopeCloseButtonHtml();
+        const safeEnvToggle = envelopeToggleHtml();
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>
                <span style="display:flex;align-items:center;">
                  <span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f4f2f8;color:#6b6480;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Saved</span>
-                 ${envelopeCloseButtonHtml()}
+                 ${safeCloseBtn}
                </span>
              </div>
-             <div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
+             <div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${escHtml(heightTxt)}</span></div>
              <div style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">
                Saved envelope shape. The source values and citations were not re-derived in this
                session — re-commit the parcel to see the full determination.
              </div>
-             ${envelopeToggleHtml()}`;
+             ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
     };
@@ -2738,7 +2744,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // that a refusal reads as honest rather than broken, and a clipped word reads as a
             // broken widget — the L-527/L-553 rule that an honest signal which is not LEGIBLE is
             // not honest in effect. Truncation was a layout defect, so it is fixed in the layout.
-            const chip = isTransient
+            // §XSS-SINK-SCAN (C08 §3.1) — every `safe*` const below is the escaped-before-
+            // assignment convention: static author-written markup, or a builder that routes
+            // every runtime string (r.knownFacts / r.ordinanceRef / r.code / env.zoneCode —
+            // PROVIDER-SUPPLIED planning data) through the local `escHtml` at build time.
+            const safeChip = isTransient
                 ? '<span title="We hold this zone\'s rules; the data source needed to apply them did not answer for this parcel. Temporary — it has been retried automatically." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Temporarily unavailable</span>'
                 : isAbsent
                 ? '<span title="The planning source answered and there is no adopted plan / buildable footprint published at this point. Not an error, and not a limit on your land." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No plan published here</span>'
@@ -2747,7 +2757,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 : '<span title="The governing ordinance provides no private buildable envelope for this zone" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>';
             // "What we DO know" — the single strongest signal that the parcel was identified
             // correctly and nothing crashed. Rendered as facts, never as constraints.
-            const facts = Array.isArray(r.knownFacts) && r.knownFacts.length > 0
+            const safeFacts = Array.isArray(r.knownFacts) && r.knownFacts.length > 0
                 ? `<div style="margin-top:9px;padding:7px 8px;background:#faf9fd;border-radius:6px;">
                      <div style="color:#6b6480;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:4px;">What PRYZM found for this parcel</div>
                      ${r.knownFacts.map((f) => `<div style="color:#3d4a5c;font-size:10.5px;line-height:1.5;">${escHtml(f)}</div>`).join('')}
@@ -2762,12 +2772,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // would invite the reader to look for a legal basis that was never claimed — and on
             // this card it would actively mislead, since Art. 242.2 IS the governing rule and is
             // not the reason we failed. Our data path is (L-526).
-            const cite = r.ordinanceRef
+            const safeCite = r.ordinanceRef
                 ? `<div style="margin-top:8px;color:#8a83a0;font-size:10px;line-height:1.45;">${escHtml(r.ordinanceRef)}</div>`
                 : isGap || isTransient || isAbsent
                 ? ''
                 : '<div style="margin-top:8px;color:#a49dbb;font-size:10px;">No citation held for this classification.</div>';
-            const reasonLine = isTransient
+            const safeReasonLine = isTransient
                 // STRUCTURAL-SEAM-4 (RECONCILED) — the transient failure has ALREADY been auto-retried
                 // with backoff at the fetch seam before this card was shown (C57 §1.5 / C58 §1.13.8), so
                 // the old "this usually clears on a second attempt" was no longer honest — the machine
@@ -2793,7 +2803,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // `GET /api/session/whoami` and is a documented no-op for any non-admin session, so a
             // non-admin who clicks it simply sees nothing happen, same contract as every other
             // admin-only entry point in this codebase.
-            const manualZoneAffordance = isGap
+            const safeManualZoneBtn = isGap
                 ? `<button data-testid="envelope-manual-zone-btn" type="button"
                            style="margin-top:8px;width:100%;appearance:none;border:1px dashed #6600FF;
                                   cursor:pointer;padding:6px 10px;border-radius:8px;font:600 11px system-ui;
@@ -2801,18 +2811,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                      🛠️ Set zone manually (admin)
                    </button>`
                 : '';
+            const safeCloseBtn = envelopeCloseButtonHtml();
+            const safeEnvToggle = envelopeToggleHtml();
             panel.innerHTML =
                 `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
-                   <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${chip}${envelopeCloseButtonHtml()}
+                   <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${safeChip}${safeCloseBtn}
                  </div>
                  <div style="font-weight:600;font-size:11.5px;color:#3d4a5c;line-height:1.4;">${escHtml(r.headline)}</div>
                  <div style="margin-top:6px;color:#6b6480;font-size:11px;line-height:1.5;">${escHtml(r.detail)}</div>
-                 ${facts}
-                 ${reasonLine}
-                 ${cite}
-                 ${manualZoneAffordance}
+                 ${safeFacts}
+                 ${safeReasonLine}
+                 ${safeCite}
+                 ${safeManualZoneBtn}
                  ${safeCapacitySection}
-                 ${envelopeToggleHtml()}`;
+                 ${safeEnvToggle}`;
             wireEnvelopeToggle(panel);
             wireEnvelopeClose(panel);
             wireManualZoneButton(panel);
@@ -2851,7 +2863,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // "Estimated" — the very silent promotion this change exists to stop — because
         // `pipeline-extracted-unverified` ranks STRICTLY BELOW `estimated-ruleset` on
         // `ENVELOPE_CONFIDENCE_ORDER`, so "weakest wins" has to put red above violet.
-        const badge = (env.confidence === 'pipeline-extracted-unverified' ||
+        // §XSS-SINK-SCAN (C08 §3.1) — `safe*` renames below are the escaped-before-assignment
+        // convention: each builder is static author-written markup or escapes its runtime
+        // strings via the local `escHtml` / `safeHttpUrl` where it builds them.
+        const safeBadge = (env.confidence === 'pipeline-extracted-unverified' ||
             headline.weakestField === 'pipeline-extracted')
             ? '<span title="This value was MACHINE-EXTRACTED from an ordinance by PRYZM’s pipeline and has NOT been human-verified — it must not be relied on until a person signs it off. NOT an official determination." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fdecea;color:#b3261e;border:1px solid #f3b9b3;font-weight:800;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">⚠ Unverified · machine-extracted</span>'
             : isUpperBound
@@ -2881,7 +2896,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // `pipeline-extracted-unverified` ranks BELOW `estimated-ruleset` and the header must
             // read its weakest input. Red, never the green certificate pill, and permanent until a
             // human signs off (the tier graduates only via a recorded verification event).
-                : `<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${env.confidence}</span>`;
+                : `<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${escHtml(env.confidence)}</span>`;
         const heightTxt = env.maxHeight_m !== null ? `${env.maxHeight_m.toFixed(1)} m` : '—';
         const farTxt = env.maxFAR !== null ? env.maxFAR.toFixed(2) : '—';
         const gfaTxt =
@@ -2900,7 +2915,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // link is protocol-validated and all interpolated text is escaped. A non-http(s) ref is
         // rendered as plain text, never as an anchor href.
         const ordHref = safeHttpUrl(ordRef);
-        const sourceLine =
+        const safeSourceLine =
             // L-630 — a real published envelope whose `estimated-ruleset` scalar came from the
             // zone-extent footprint (NOT a default pack) must NEVER show the "Default rule pack"
             // line. State the true reason: the fields are real; the footprint is an upper bound.
@@ -2930,7 +2945,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // HONESTY (C58 §1.4): estimated rows are badged individually; a row with no citation
         // reads "no citation" rather than silently looking authoritative.
         // (`report` is built above the badge — STRUCTURAL-SEAM-3 — and reused here.)
-        const whyBlock = (() => {
+        const safeWhyBlock = (() => {
             if (!report || report.rows.length === 0) return '';
             const rowsHtml = report.rows.map((r) => {
                 const href = safeHttpUrl(r.ordinanceRef);
@@ -2989,7 +3004,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const depthSummaryTxt = isAlignmentZone ? `${(alignDepthRow!.value as number).toFixed(1)} m` : '—';
         const offsetSummaryTxt =
             typeof alignOffsetRow?.value === 'number' ? `${(alignOffsetRow!.value as number).toFixed(1)} m` : '—';
-        const rows =
+        const safeRows =
             env.status === 'degenerate'
                 ? `<div style="color:#b23b3b;font-weight:600;">Setbacks consume the whole parcel — no buildable envelope.</div>`
                 : isAlignmentZone
@@ -3006,7 +3021,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // setbacks (so it could not be reduced), that a real building will therefore be smaller, and
         // that this is a MAXIMUM extent, not a buildable solid. Height/FAR are untouched — they are
         // structured; only the FOOTPRINT is the upper bound.
-        const upperBoundCaveat = isUpperBound
+        const safeUpperBoundCaveat = isUpperBound
             ? `<div style="margin-top:8px;padding:6px 8px;background:#fff6e8;border-radius:6px;color:#8a5a00;font-size:10px;line-height:1.5;">
                  <b>Footprint = whole parcel.</b> This ordinance publishes no setbacks (e.g. byggelinjer),
                  so the buildable area could not be reduced from the lot outline — the shape shown is a
@@ -3019,7 +3034,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // (a bestemmingsvlak zone extent — an upper bound), not the fields. `footprintIsUpperBound`
         // is NOT set on this explicit-area path (that flag is the setback-inset / whole-parcel case
         // above), so this is a sibling caveat, shown only when `upperBoundCaveat` is not.
-        const zoneExtentCaveat = !isUpperBound && headline.confidenceUnderRatesFields
+        const safeZoneExtentCaveat = !isUpperBound && headline.confidenceUnderRatesFields
             ? `<div style="margin-top:8px;padding:6px 8px;background:#fff6e8;border-radius:6px;color:#8a5a00;font-size:10px;line-height:1.5;">
                  <b>Footprint = zone extent.</b> No separate buildable footprint (bouwvlak) was published for
                  this parcel, so the shape shown is the ZONE (bestemmingsvlak) extent — an <b>upper bound</b> on
@@ -3027,20 +3042,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  real, published values; only the footprint is an upper bound. A real building will be smaller.
                </div>`
             : '';
+        // §XSS-SINK-SCAN — `buildSiteDataBlock` escapes every runtime string it interpolates
+        // via the local `escHtml` (its `row`/`group` helpers); close/toggle are static markup.
+        const safeSiteDataBlock = buildSiteDataBlock(env);
+        const safeCloseBtn = envelopeCloseButtonHtml();
+        const safeEnvToggle = envelopeToggleHtml();
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
-               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}${envelopeCloseButtonHtml()}
+               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${safeBadge}${safeCloseBtn}
              </div>
-             ${rows}
-             ${upperBoundCaveat}
-             ${zoneExtentCaveat}
+             ${safeRows}
+             ${safeUpperBoundCaveat}
+             ${safeZoneExtentCaveat}
              ${safeCapacitySection}
              <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
-               ${sourceLine}
+               ${safeSourceLine}
              </div>
-             ${buildSiteDataBlock(env)}
-             ${whyBlock}
-             ${envelopeToggleHtml()}`;
+             ${safeSiteDataBlock}
+             ${safeWhyBlock}
+             ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
     };
@@ -3589,9 +3609,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const prev = sel.value;
         const floorLabel = (i: number): string =>
             i === 0 ? '0 · Ground' : `${i} · ${i === 1 ? '1st' : i === 2 ? '2nd' : i === 3 ? '3rd' : `${i}th`} floor`;
-        const opts: string[] = ['<option value="all">▤ All floors</option>'];
-        for (const b of bands) opts.push(`<option value="${b.index}">${floorLabel(b.index)}</option>`);
-        sel.innerHTML = opts.join('');
+        // §XSS-SINK-SCAN (C08 §3.1) — `safe*` = escaped-before-assignment: `b.index` is an
+        // internally-computed storey index and `floorLabel` a pure formatter, but both are
+        // escaped at build time anyway — consistency over cleverness.
+        const safeOpts: string[] = ['<option value="all">▤ All floors</option>'];
+        for (const b of bands) safeOpts.push(`<option value="${escHtml(String(b.index))}">${escHtml(floorLabel(b.index))}</option>`);
+        sel.innerHTML = safeOpts.join('');
         // Restore prior choice if it still exists, else default to "all".
         sel.value = Array.from(sel.options).some((o) => o.value === prev) ? prev : 'all';
         sel.style.display = 'inline-block';

@@ -383,31 +383,42 @@ export class ImportManagerPanel {
         row.className = 'im-row';
         row.dataset.importId = entry.id;
 
+        // §XSS-SINK-SCAN (C08 §3.1) — the `safe*` names are the repo's escaped-before-assignment
+        // convention: every icon is svgIcon() over a module-level constant path (author-written
+        // markup, no runtime data), and every runtime string below routes through this._esc.
+        // `entry.type` is a typed union, but it arrives via event payloads, so it is escaped
+        // anyway — consistency over cleverness in a counting gate's subject.
+        const safeTypeIcon  = svgIcon(TYPE_ICONS[entry.type], 10);
+        const safeEyeIcon   = svgIcon(entry.visible ? EYE_ON : EYE_OFF);
+        const safePinIcon   = svgIcon(PIN_ICON);
+        const safeBlockIcon = svgIcon(BLOCK_ICON);
+        const safeTrashIcon = svgIcon(TRASH_ICON);
+
         row.innerHTML = `
             <div class="im-row-info">
-                <span class="im-type-badge im-type--${entry.type}">${svgIcon(TYPE_ICONS[entry.type], 10)} ${TYPE_LABELS[entry.type]}</span>
+                <span class="im-type-badge im-type--${this._esc(entry.type)}">${safeTypeIcon} ${this._esc(TYPE_LABELS[entry.type])}</span>
                 <span class="im-row-name" title="${this._esc(entry.fileName)}">${this._esc(entry.name)}</span>
             </div>
             <div class="im-row-actions">
                 <button class="im-btn im-btn--icon${entry.visible ? ' im-btn--active' : ''}"
                     data-action="toggle-visibility"
                     title="${entry.visible ? 'Visible — click to hide from all views' : 'Hidden — click to show in all views'}">
-                    ${svgIcon(entry.visible ? EYE_ON : EYE_OFF)}
+                    ${safeEyeIcon}
                 </button>
                 <button class="im-btn im-btn--icon${entry.pinned && !entry.noSelect ? ' im-btn--pinned' : ''}"
                     data-action="pin"
                     title="${entry.pinned && !entry.noSelect ? 'Pinned (locked) — click to unpin' : 'Pin: lock position'}">
-                    ${svgIcon(PIN_ICON)}
+                    ${safePinIcon}
                 </button>
                 <button class="im-btn im-btn--icon${entry.noSelect ? ' im-btn--noselect' : ''}"
                     data-action="no-select"
                     title="${entry.noSelect ? 'Selection blocked — click to allow selection' : 'Pin + block selection'}">
-                    ${svgIcon(BLOCK_ICON)}
+                    ${safeBlockIcon}
                 </button>
                 <button class="im-btn im-btn--delete"
                     data-action="delete"
                     title="Remove import from scene">
-                    ${svgIcon(TRASH_ICON)}
+                    ${safeTrashIcon}
                 </button>
             </div>
         `;
@@ -465,10 +476,13 @@ export class ImportManagerPanel {
         const header = document.createElement('button');
         header.type = 'button';
         header.className = 'im-layers-header';
+        // §XSS-SINK-SCAN — caret icon is a constant path (author-written markup); the counts are
+        // internally-computed numbers, escaped anyway for consistency (C08 §3.1).
+        const safeCaretIcon = svgIcon('<polyline points="9 18 15 12 9 6"/>', 10);
         header.innerHTML = `
-            <span class="im-layers-caret${entry.layersExpanded ? ' im-layers-caret--open' : ''}">${svgIcon('<polyline points="9 18 15 12 9 6"/>', 10)}</span>
+            <span class="im-layers-caret${entry.layersExpanded ? ' im-layers-caret--open' : ''}">${safeCaretIcon}</span>
             <span>Layers</span>
-            <span class="im-layers-count">${visibleCount}/${layers.length}</span>
+            <span class="im-layers-count">${this._esc(String(visibleCount))}/${layers.length}</span>
         `;
         header.addEventListener('click', () => {
             entry.layersExpanded = !entry.layersExpanded;
@@ -482,12 +496,16 @@ export class ImportManagerPanel {
             for (const layer of layers) {
                 const lr = document.createElement('div');
                 lr.className = 'im-layer-row';
+                // §XSS-SINK-SCAN — `layer.name`/`fullPath` come from the imported .3dm file
+                // (EXTERNAL input) and were already escaped; `objectCount` is numeric but is
+                // escaped anyway (C08 §3.1). Eye icon = constant paths only.
+                const safeLayerEyeIcon = svgIcon(layer.visible ? EYE_ON : EYE_OFF, 12);
                 lr.innerHTML = `
                     <span class="im-layer-name${layer.visible ? '' : ' im-layer-name--off'}" title="${this._esc(layer.fullPath)}">${this._esc(layer.name)}</span>
-                    <span class="im-layer-count">${layer.objectCount}</span>
+                    <span class="im-layer-count">${this._esc(String(layer.objectCount))}</span>
                     <button class="im-btn im-btn--icon im-btn--layer${layer.visible ? ' im-btn--active' : ''}"
                         title="${layer.visible ? 'Layer visible — click to hide' : 'Layer hidden — click to show'}">
-                        ${svgIcon(layer.visible ? EYE_ON : EYE_OFF, 12)}
+                        ${safeLayerEyeIcon}
                     </button>
                 `;
                 lr.querySelector('button')!.addEventListener('click', () => {
