@@ -198,6 +198,9 @@ export * from './roomBoundingLines/DeleteRoomBoundingLineCommand';
 export * from './roomBoundingLines/UpdateRoomBoundingLineCommand';
 
 // ─── Rooms ────────────────────────────────────────────────────────────────
+// SAFE MODE ROOM RESHAPE — commits the PREDICTED room geometry verbatim, so preview
+// and execution stop using two different algorithms.
+export * from './rooms/ApplyPredictedRoomGeometryCommand';
 export * from './rooms/BatchCreateRoomsCommand';
 export * from './rooms/CreateRoomCommand';
 export * from './rooms/DeleteRoomCommand';

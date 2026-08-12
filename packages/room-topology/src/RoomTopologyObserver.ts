@@ -134,12 +134,99 @@ export class RoomTopologyObserver {
   // @suppression-scope level
   private _graphAuthoritativeLevels = new Set<string>();
 
+  // ── SAFE MODE ROOM RESHAPE — the plan-covered redetect suppression ──────────
+  //
+  // WHY IT EXISTS. When `ConsequenceExecutionService` executes a wall move whose
+  // plan carried PREDICTED room geometry, `ApplyPredictedRoomGeometryCommand` has
+  // ALREADY written the exact rings the human approved. The observer's own
+  // `ReDetectRoomsCommand` would then run `RoomDetectionEngine` over the same
+  // level and OVERWRITE those rings with a second algorithm's answer — a
+  // level-wide re-partition that welds at 0.05 m against the predictor's 1 mm.
+  // That is precisely "a second room-detection algorithm silently replaced the
+  // prediction", and it would defeat the whole phase. So the redetect is
+  // suppressed for the levels the plan covered — and ONLY those.
+  //
+  // WHY IT IS SAFE (what makes this different from the ADR-0069 suppression).
+  // The redetect is not being SKIPPED, it is being SUPERSEDED: the level's rooms
+  // were just written from a prediction that the plan hash bound and the report's
+  // read-back verifies. Suppressing a pass whose work has already been done by a
+  // better-evidenced path is not information loss.
+  //
+  // REVERSIBILITY (C72 §4 — the binding constraint on this design). The
+  // suppression is:
+  //   • SCOPED TO ONE EXECUTION, not to a session — the caller opens it
+  //     immediately before dispatch and closes it in a `finally`;
+  //   • SCOPED PER LEVEL — only levels the plan actually covered;
+  //   • DISCHARGING ON RELEASE — `releasePlanCoveredLevels()` flushes any commit
+  //     that arrived while it was held, exactly as `resume()` does for `pause()`.
+  //     A release that dropped them would be the §FIX-TOPOLOGY-RESUME-LOSES-
+  //     SUPPRESSED defect re-introduced under a new name.
+  //   • REFCOUNTED — nested/concurrent executions over the same level each hold a
+  //     count, so an inner release cannot unsuppress an outer one still running.
+  //
+  // NOT USED FOR UNDETERMINED ROOMS. A level whose rooms came back UNDETERMINED is
+  // never passed here: nothing wrote their geometry, so the observer's fallback
+  // redetect is exactly what should run. That is the mechanism by which
+  // "UNDETERMINED never becomes 'nothing changed'" holds at the observer layer.
+  //
+  // @suppression-scope batch
+  private _planCoveredLevels = new Map<string, number>();
+  /** Commits that arrived for a plan-covered level while it was suppressed. */
+  private _planCoveredDeferred = new Set<string>();
+
   /** ADR-0069 — mark a level graph-authoritative: its rooms come from the engine
    *  graph, so the observer suppresses AUTO-redetect there (no fragmentation /
    *  double rooms). Cleared by a manual structural wall edit (GR2) or reset. */
   markGraphAuthoritative(levelId: string): void {
     this._graphAuthoritativeLevels.add(levelId);
   }
+  /**
+   * SAFE MODE ROOM RESHAPE — hold the AUTO-redetect for `levelIds` because a
+   * consequence plan has just written their room geometry from the PREDICTED
+   * values. Refcounted per level; MUST be paired with
+   * {@link releasePlanCoveredLevels} in a `finally`.
+   *
+   * Pass ONLY levels whose rooms were actually written. A level with UNDETERMINED
+   * rooms must NOT be passed — its fallback redetect is the correct behaviour.
+   */
+  markPlanCoveredLevels(levelIds: readonly string[]): void {
+    for (const levelId of levelIds) {
+      if (!levelId) continue;
+      this._planCoveredLevels.set(levelId, (this._planCoveredLevels.get(levelId) ?? 0) + 1);
+    }
+  }
+
+  /**
+   * SAFE MODE ROOM RESHAPE — release the hold and DISCHARGE what it suppressed
+   * (C72 §4.3: a release that drops the notifications it swallowed is irreversible
+   * suppression wearing a release's name).
+   *
+   * A level whose refcount reaches zero AND which saw a commit while held gets one
+   * redetect now. `_executeRedetect` is self-gating (paused / disposed / graph
+   * authority / drag / no-progress circuit breaker), so a discharge for a level
+   * whose geometry did not actually move costs one signature comparison and fires
+   * nothing — it cannot double-redetect.
+   */
+  releasePlanCoveredLevels(levelIds: readonly string[]): void {
+    const toDischarge: string[] = [];
+    for (const levelId of levelIds) {
+      if (!levelId) continue;
+      const n = (this._planCoveredLevels.get(levelId) ?? 0) - 1;
+      if (n > 0) { this._planCoveredLevels.set(levelId, n); continue; }
+      this._planCoveredLevels.delete(levelId);
+      if (this._planCoveredDeferred.delete(levelId)) toDischarge.push(levelId);
+    }
+    if (toDischarge.length === 0 || this._disposed) return;
+    console.debug(
+      `[RoomTopologyObserver] plan-covered release discharging ${toDischarge.length} deferred ` +
+      `commit level(s): [${toDischarge.join(', ')}] — SAFE MODE ROOM RESHAPE / C72 §4`,
+    );
+    for (const levelId of toDischarge) this._executeRedetect(levelId);
+  }
+
+  /** Levels currently held by a consequence plan. Test/diagnostic read. */
+  get planCoveredLevelCount(): number { return this._planCoveredLevels.size; }
+
   /** Surrender graph authority for a level (manual edit / explicit re-detect). */
   clearGraphAuthoritative(levelId: string): void {
     this._graphAuthoritativeLevels.delete(levelId);
@@ -431,6 +518,11 @@ export class RoomTopologyObserver {
     // fire stray redetects after teardown.
     for (const [, t] of this._commitCoalesceTimers) clearTimeout(t);
     this._commitCoalesceTimers.clear();
+    // SAFE MODE ROOM RESHAPE — a disposed observer holds nothing. Deferred commits
+    // are dropped here (not discharged) because there is no observer left to
+    // redetect INTO; `releasePlanCoveredLevels` already no-ops when disposed.
+    this._planCoveredLevels.clear();
+    this._planCoveredDeferred.clear();
     window.removeEventListener('bim-wall-mutation-committed', this._onWallMutationCommittedLegacy as EventListener);
     window.removeEventListener('pryzm-room-bounding-pref-changed', this._onBoundingPrefChanged);
   }
@@ -566,6 +658,18 @@ export class RoomTopologyObserver {
     // at this method's entry guarantees every redetect path honours it.
     if (this.paused) {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (paused, level=${levelId})`);
+      return;
+    }
+    // SAFE MODE ROOM RESHAPE — execution-chokepoint guard. This level's rooms were
+    // JUST written from the PREDICTED geometry the human approved; running
+    // RoomDetectionEngine now would overwrite those rings with a SECOND algorithm's
+    // answer. QUEUE, do not drop: the commit is recorded so the release discharges
+    // it (C72 §4), which is why this is a `_planCoveredDeferred.add` and not a bare
+    // `return` — a bare return here would re-create the exact defect
+    // §FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED was landed to fix.
+    if (this._planCoveredLevels.has(levelId)) {
+      this._planCoveredDeferred.add(levelId);
+      console.debug(`[RoomTopologyObserver] _executeRedetect deferred (level=${levelId}, reason=plan-covered-room-geometry) — SAFE MODE ROOM RESHAPE`);
       return;
     }
     // §GEN-SINGLE-REDETECT (L-369) — execution-chokepoint mirror of the scheduler guard. FOUR

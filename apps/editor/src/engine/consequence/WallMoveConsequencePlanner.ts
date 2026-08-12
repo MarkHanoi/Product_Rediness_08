@@ -57,6 +57,7 @@ import type {
   ViolationRef,
   ElementId,
   MetricTransition,
+  PredictedGeometry,
 } from '@pryzm/command-bus';
 
 // Type-only — erased at runtime, so importing them couples nothing and touches no window.
@@ -323,6 +324,32 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
     // Deterministic order — the plan hash covers this array (G-REASON-02).
     metrics.sort((a, b) => a.elementId.localeCompare(b.elementId) || a.metric.localeCompare(b.metric));
 
+    // ── SAFE MODE ROOM RESHAPE — the PREDICTED GEOMETRY, hashed (the STEP-0 fix) ────
+    // The polygon was computed above and, until this landed, was DROPPED before the
+    // plan hash: two plans differing only by an equal-area shear of the predicted ring
+    // hashed identically (proven, `step0PlanHashPolygonCoverage.test.ts` — both
+    // `0c7f0283`). Since execution now COMMITS this ring verbatim, the ring is part of
+    // what the plan promises and must bind the approval. Carried in the typed
+    // `predictedGeometry` field (consequence.ts) rather than folded into `metrics`,
+    // because a polygon is not a scalar transition.
+    //
+    // ONLY determined predictions appear. A room the predictor refused is ABSENT here
+    // and PRESENT in `undetermined` above — the executor therefore cannot mistake an
+    // unpredicted room for one whose geometry is "unchanged".
+    const predictedGeometry: PredictedGeometry[] = [];
+    for (const p of room.predictions) {
+      if (p.kind !== 'determined') continue;
+      predictedGeometry.push({
+        elementId: p.roomId,
+        polygon: p.polygon.map((v) => ({ x: v.x, z: v.z })),
+        area: p.area,
+        perimeter: p.perimeter,
+        centroid: { x: p.centroid.x, z: p.centroid.z },
+        boundingBox: p.boundingBox,
+      });
+    }
+    predictedGeometry.sort((a, b) => a.elementId.localeCompare(b.elementId));
+
     // ── Branch 4: regeneration (declared blind spot until Phase 5) ───────────────────
     // The dependency substrate that would answer "what regenerates" is NOT wired
     // (roadmap Phase 5). Declared UNDETERMINED — NOT faked. A planner that pretended
@@ -352,6 +379,7 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       undetermined,
       validation: violation.validation,
       metrics,
+      predictedGeometry,
     });
   }
 
@@ -632,6 +660,8 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
     validation: { violationsCreated: ViolationRef[]; violationsResolved: ViolationRef[] };
     /** R5 — per-element PREDICTED metric transitions, already sorted by the caller. */
     metrics?: MetricTransition[];
+    /** SAFE MODE ROOM RESHAPE — predicted geometry committed verbatim; already sorted. */
+    predictedGeometry?: PredictedGeometry[];
   }): ConsequencePlan {
     const changed = sortedUnique(input.changed);
     // An element that RELOCATES/CHANGES is never also "considered unchanged".
@@ -654,6 +684,14 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       // command yields the same predicted areas (G-REASON-02) and a changed prediction
       // invalidates a stale approval (R6) exactly as a changed element set does.
       ...(input.metrics !== undefined ? { metrics: input.metrics } : {}),
+      // SAFE MODE ROOM RESHAPE — in the HASHED body, deliberately and load-bearingly.
+      // This is the STEP-0 fix: execution commits these rings verbatim, so a change to
+      // any predicted ring must invalidate an approval exactly as a changed element set
+      // does. Omitted (not empty) when the planner predicted nothing, so R1-era and
+      // predictor-less plans keep their existing hashes.
+      ...(input.predictedGeometry !== undefined && input.predictedGeometry.length > 0
+        ? { predictedGeometry: input.predictedGeometry }
+        : {}),
       refused: input.refused,
       undetermined: input.undetermined,
     };

@@ -1,6 +1,12 @@
 /**
  * §ROOM-ONE-LEGACY-SEAM — the rooms plugin's single seam to the legacy command layer.
  *
+ * @command-gate: not-a-command-bus-handler
+ * This file is a PURE RE-EXPORT (see the closing paragraph below: "No behaviour lives
+ * here on purpose"). There is no executable path to instrument, so a span here would
+ * be a fake — instrumentation theatre over a seam. The marker is PRINTED by
+ * check-otel-spans on every run, so this exemption is visible, never silent.
+ *
  * WHY THIS FILE EXISTS
  * ────────────────────
  * Every `room.*` bus verb in this directory is a BRIDGE. The detected, rendered and

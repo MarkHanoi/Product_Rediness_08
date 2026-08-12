@@ -56,6 +56,10 @@ export type {
   MetricName,
   MetricUnit,
   MetricTransition,
+  // SAFE MODE ROOM RESHAPE — the predicted geometry the executor commits verbatim
+  // (and the plan-hash coverage that makes an approval bind to it).
+  PredictedVertex,
+  PredictedGeometry,
   ConsequencePlan,
   PredictedVsActual,
   ConsequenceReport,

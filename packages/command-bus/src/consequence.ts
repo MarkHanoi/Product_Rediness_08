@@ -204,6 +204,69 @@ export type MetricName =
  */
 export type MetricUnit = 'm' | 'm2' | 'm3' | 'count';
 
+// ─── Predicted geometry (SAFE MODE ROOM RESHAPE; the STEP-0 contract fix) ────
+//
+// ⚠ WHY THIS FIELD EXISTS — the measured defect it closes.
+//
+// Until this field landed, the ONLY room quantity that entered the hashed plan
+// body was `metrics[].after` — a SCALAR area. The predicted POLYGON was computed
+// by the planner (`predictRoomGeometry`), rendered in the preview, folded into the
+// violations after-clone … and then DROPPED before hashing. The experiment in
+// `apps/editor/__tests__/step0PlanHashPolygonCoverage.test.ts` proves the
+// consequence: two plans whose predicted room rings differ by an equal-area shear
+// hashed IDENTICALLY (`0c7f0283` both sides).
+//
+// That made the R6 approval binding hollow for exactly the thing SAFE MODE ROOM
+// RESHAPE is about to COMMIT. A user could approve `Kitchen: 16 m² → 12 m²` seeing
+// one shape, the world could shift so the prediction became a different 12 m² shape,
+// `planHash` would still match, `ConsequenceExecutionService` would BIND the stale
+// plan, and the command would write a polygon the human never saw. `APPROVAL_STALE`
+// could not fire because nothing it hashes had moved.
+//
+// The rule this restores (ADR-0322 §10): the hash covers EVERYTHING THE PLAN
+// PROMISES. A predicted value that execution will commit is a promise. It is
+// carried here rather than smuggled into `metrics` because a polygon is not a
+// scalar transition — the R5 header's own lesson about `regeneration.skipped`
+// carrying areas is that a value riding in a field that means something else is
+// the defect, not the fix.
+
+/** One vertex of a predicted ring, world XZ metres (the room-topology `RoomVertex` shape). */
+export interface PredictedVertex {
+  readonly x: number;
+  readonly z: number;
+}
+
+/**
+ * The PREDICTED geometry of ONE element, as the planner computed it and as the
+ * executor is expected to COMMIT it verbatim.
+ *
+ * THE CONTRACT ON THIS OBJECT: an executor consuming it WRITES WHAT IT WAS GIVEN
+ * and never recomputes. That is what makes preview and execution the same
+ * algorithm — the singular defect SAFE MODE ROOM RESHAPE closes. A second
+ * detection pass silently replacing these numbers at execute time is a
+ * plan-fidelity divergence by construction, and `check-room-reshape-fidelity`
+ * is the gate that proves it did not happen.
+ *
+ * Only elements with a DETERMINED prediction appear. An element the planner could
+ * not predict is absent HERE and present in {@link ConsequencePlan.undetermined} —
+ * the §5 rule applied to geometry: "could not predict" must never render as an
+ * empty polygon, and must never be converted into "nothing changed".
+ */
+export interface PredictedGeometry {
+  readonly elementId: ElementId;
+  /** The predicted ring, in the planner's traced order. Committed VERBATIM. */
+  readonly polygon: readonly PredictedVertex[];
+  readonly area: number;
+  readonly perimeter: number;
+  readonly centroid: PredictedVertex;
+  readonly boundingBox: {
+    readonly minX: number;
+    readonly minZ: number;
+    readonly maxX: number;
+    readonly maxZ: number;
+  };
+}
+
 /**
  * ONE quantity on ONE element, BEFORE → AFTER — the founder's
  * `Kitchen area: 12.4 m² → 10.8 m²` line, as a typed value rather than a
@@ -291,6 +354,22 @@ export interface ConsequencePlan {
    * Ordered deterministically by the planner (G-REASON-02 hashes it).
    */
   readonly metrics?: readonly MetricTransition[];
+
+  /**
+   * SAFE MODE ROOM RESHAPE (additive) — the PREDICTED geometry the executor will
+   * commit VERBATIM. See {@link PredictedGeometry} for why this is a field of its
+   * own and not a `metrics` entry, and for the hash-coverage defect it closes.
+   *
+   * MUST be included in the plan-hash body by every planner that emits it —
+   * otherwise an approval survives a change to the very geometry it approved
+   * (STEP-0 experiment, `step0PlanHashPolygonCoverage.test.ts`).
+   *
+   * ABSENT and EMPTY mean the same thing here (as with `metrics`) and neither is a
+   * claim about undetermined branches: a room whose geometry could not be predicted
+   * is declared in {@link undetermined}, never represented as a missing entry
+   * meaning "unchanged". Ordered deterministically by the planner.
+   */
+  readonly predictedGeometry?: readonly PredictedGeometry[];
 
   /** What the planner determined must be refused, with the numbers. */
   readonly refused: RefusalSet;
@@ -417,6 +496,36 @@ export interface ConsequenceReport {
    * moved". A renderer surfaces this instead of a zero.
    */
   readonly metricsUndetermined?: UndeterminedImpact;
+
+  /**
+   * SAFE MODE ROOM RESHAPE (additive) — the ACTUAL committed geometry, measured by
+   * the SAME independent read-back that produced {@link actual}, NEVER copied from
+   * the plan. Compare element-by-element against `plan.predictedGeometry`: a
+   * committed polygon that differs from the predicted one is the geometry arm of
+   * `plan-fidelity-divergence`, and is exactly the "a second detection algorithm
+   * silently replaced the prediction" failure this phase exists to make impossible.
+   *
+   * PRESENT-BUT-EMPTY vs ABSENT differ, as on {@link metrics}: `[]` is a determined
+   * "the read-back looked and found no geometry-bearing element"; ABSENT means this
+   * runtime has no geometry read-back channel, which
+   * {@link geometryUndetermined} names.
+   */
+  readonly geometry?: readonly PredictedGeometry[];
+  /**
+   * SAFE MODE ROOM RESHAPE (additive) — set when the ACTUAL geometry could NOT be
+   * read back. Present ⇒ {@link geometry} must not be read as "the polygons match".
+   * A fidelity gate seeing this reports UNPROVEN, never PASS.
+   */
+  readonly geometryUndetermined?: UndeterminedImpact;
+  /**
+   * SAFE MODE ROOM RESHAPE (additive) — elements whose COMMITTED polygon differs
+   * from the plan's predicted polygon. Non-empty ⇒ {@link divergence} is
+   * `plan-fidelity-divergence`. A separate list from `predictedVsActual.unexpected`
+   * because these elements DID change as predicted at set grain and diverged at
+   * VALUE grain — set arithmetic cannot see that, which is how a rival algorithm
+   * would have slipped through.
+   */
+  readonly geometryDiverged?: ElementSet;
 
   /**
    * R4 (additive) — the named divergence verdict over `predictedVsActual`.

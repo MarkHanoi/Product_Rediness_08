@@ -108,7 +108,108 @@ export function withGestureId<T>(gestureId: string, body: () => T): T {
   }
 }
 
+// ─── §UNDO-REMOTE-ORIGIN (C03 §4.6 U-1) — the REMOTE half of the same idea ───
+//
+// THE DEFECT THIS CLOSES (measured 2026-08-12 by
+// tools/rac-conformance/certification, finding `undo/undo-did-not-revert-own`).
+//
+// C03 §4.6 **U-1** is unambiguous: *`source: 'remote' | 'ai'` (i.e.
+// `suppressUndo`) MUST NOT push*, and `CommandManagerImpl.execute` implements
+// exactly that — `metadata.source !== 'REMOTE'` gates the `history.push`
+// (§30-REAL-TIME-COLLABORATION §3.5: "each user's undo history reflects only
+// their own local intent"). The rule was RIGHT and it was simply never REACHED
+// on the CRDT read leg.
+//
+// The socket.io path stamps it (`RemoteCommandDispatcher.ts:378` passes
+// `{ source: 'REMOTE' }`). The CRDT path does not. `initRemoteElementSync`'s
+// sink dispatches `element.updateParameters` on the bus with `_remoteSync: true`
+// — which is honoured by the CRDT applier's echo-break and by NOTHING ELSE. The
+// bus's `element.updateParameters` bridge then calls `_cmExec(cmd)` with no
+// metadata, so `CommandMetadata` defaults to `{ source: 'HUMAN_DIRECT' }` and a
+// PEER's edit is pushed onto THIS user's undo history as if this user authored
+// it.
+//
+// MEASURED CONSEQUENCE, on the two-client harness. Client A makes ONE edit
+// (`wall.updateDimensions height=5`), syncs with client B, and A's history holds
+// THREE entries, all `HUMAN_DIRECT`:
+//     [0] UpdateWallDimensionsCommand    ← A's own gesture (correct)
+//     [1] UpdateElementParameterCommand  ← REMOTE, must not be here
+//     [2] UpdateElementParameterCommand  ← REMOTE, must not be here
+// So A's Ctrl+Z pops [2] (a no-op), a second pops [1] — which REVERTS B's colour
+// #c0ffee → #aabbcc on A — and only the THIRD reverts A's own height 5 → 3. Both
+// halves of the harness's undo arm are this ONE bug: `undo-did-not-revert-own`
+// (A's Ctrl+Z did not revert A's own gesture) and `undo-reverted-peer-work` (it
+// reverted B's instead). A single-client control undoes correctly on the FIRST
+// press, which is what localises the defect to the concurrent path.
+//
+// WHY AN AMBIENT SCOPE, AND WHY IT IS THE SMALLEST SOUND CHANGE.
+// The fact "this dispatch originated remotely" is known at ONE place (the sink,
+// via `suppressUndo` / the `_remoteSync` payload marker) and is needed at
+// ANOTHER (`CommandManagerImpl.execute`, several frames down, inside a legacy
+// bridge that takes no such parameter). That is precisely the problem
+// `currentGestureId()` above already solves for gesture identity, by the same
+// mechanism and with the same synchronous-call-stack contract — so this is the
+// established idiom here, not a new one. The alternative — threading a
+// `source` argument through all 90 `_cmExec` call sites in `initBusHandlers.ts`
+// — changes 40-odd verbs to fix one fact that none of them author.
+//
+// WHAT THIS DELIBERATELY DOES NOT DO. It does NOT weaken the REMOTE exclusion.
+// The exclusion exists because "undoing a remote collaborator's command is not
+// supported; doing so silently would cause the two clients to diverge", and that
+// stays exactly as it was. The bug was never that A's own edit was excluded —
+// the probe proves A's own entry was present and correct at index [0] all along.
+// The bug is that B's edits were INCLUDED, burying A's under two phantom
+// entries. This change distinguishes "A's own edit, which happened to travel
+// through the CRDT" from "B's edit, which arrived remotely" — the two facts the
+// code conflated — and it does so at the only point that can tell them apart:
+// whether this dispatch came from the read-back sink.
+//
+// THE GLOBAL SLOT, and why it is not a new pattern either.
+// `CommandManagerImpl` is `@pryzm/command-registry` (L2) and this module is
+// `@pryzm/command-bus` (L1); L2 does not depend on L1 and MUST NOT start to for
+// one boolean. `CommandManagerImpl.execute` already reads exactly one ambient
+// global for exactly this kind of cross-package undo gating —
+// `__pryzmBuildingGenActive` (CommandManagerImpl.ts:157, §GEN-LOG-GATING) — so
+// the slot below mirrors that precedent verbatim rather than inventing a
+// channel. SYNCHRONOUS BY CONTRACT, identically to the gesture scope: set,
+// body, restore in `finally`. It never spans an `await`.
+
+/** Ambient global slot — read by `@pryzm/command-registry` without an L2→L1 edge. */
+const REMOTE_ORIGIN_SLOT = '__pryzmRemoteOriginDispatch';
+
+type RemoteOriginHost = { [REMOTE_ORIGIN_SLOT]?: boolean };
+
+/**
+ * True while a REMOTE-originated dispatch is on the current synchronous call
+ * stack. Read by `CommandManagerImpl.execute` to stamp `source: 'REMOTE'` on a
+ * legacy command a bridge creates inside such a dispatch, so C03 §4.6 U-1's
+ * "MUST NOT push" is honoured on the CRDT read leg as it already is on the
+ * socket.io one.
+ */
+export function isRemoteOriginDispatch(): boolean {
+  return (globalThis as unknown as RemoteOriginHost)[REMOTE_ORIGIN_SLOT] === true;
+}
+
+/**
+ * Run `body` marked as a REMOTE-originated dispatch.
+ *
+ * Restores the previous value in `finally`, so a throw cannot leave the flag
+ * stuck ON — which would silently make every subsequent local edit un-undoable,
+ * a defect strictly worse than the one being fixed.
+ */
+export function withRemoteOrigin<T>(body: () => T): T {
+  const host = globalThis as unknown as RemoteOriginHost;
+  const previous = host[REMOTE_ORIGIN_SLOT];
+  host[REMOTE_ORIGIN_SLOT] = true;
+  try {
+    return body();
+  } finally {
+    host[REMOTE_ORIGIN_SLOT] = previous;
+  }
+}
+
 /** Test-only: assert no scope leaked out of a previous case. */
 export function __resetGestureScopeForTests(): void {
   _current = null;
+  delete (globalThis as unknown as RemoteOriginHost)[REMOTE_ORIGIN_SLOT];
 }

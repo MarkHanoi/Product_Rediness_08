@@ -54,7 +54,10 @@ import type {
   CommandExecutionContext,
   EventRecord,
   ElementId,
+  PredictedGeometry,
+  UndeterminedImpact,
 } from '@pryzm/command-bus';
+import { newGestureId, withGestureId } from '@pryzm/command-bus';
 import type { WallMoveCommand } from './WallMoveConsequencePlanner.js';
 import { stableStringify } from './WallMoveConsequencePlanner.js';
 import { normalizeToWallMove, type PreviewCommand } from './ConsequencePreviewService.js';
@@ -111,7 +114,57 @@ export interface ConsequenceExecutionDeps {
    * all, which reads identically to "nothing changed".
    */
   readonly sink?: ConsequenceSink;
+
+  // ── SAFE MODE ROOM RESHAPE ───────────────────────────────────────────────────
+  /**
+   * Commits the plan's PREDICTED room geometry, VERBATIM, as part of the bound
+   * wall-move execution.
+   *
+   * WHY THIS IS INJECTED AND NOT CALLED DIRECTLY. This service must stay
+   * constructible without it — and an ABSENT reshaper is the honest
+   * `ENGINE_NOT_AVAILABLE` case (the report says the geometry was not applied),
+   * NOT a silent fall-through to the observer's redetect. That distinction is the
+   * whole §5 discipline applied to the reshape itself: "no reshaper composed" and
+   * "nothing to reshape" must never be the same value.
+   *
+   * The implementation dispatches `ApplyPredictedRoomGeometryCommand`. It receives
+   * the gesture id so the wall mutation and the room mutation are ONE undo unit.
+   */
+  readonly applyPredictedRoomGeometry?: PredictedRoomGeometryApplier;
+  /**
+   * Holds/releases the topology observer's AUTO-redetect for the levels the plan
+   * covered, so a second detection algorithm cannot overwrite the geometry that
+   * was just committed from the prediction. SCOPED to this execution and released
+   * in a `finally` (C72 §4). Absent ⇒ no suppression is taken, which is safe but
+   * means the observer may re-detect over the committed rings — the fidelity gate
+   * would then see the divergence rather than the system hiding it.
+   */
+  readonly redetectSuppressor?: RedetectSuppressor;
+  /**
+   * Reads the CURRENT committed geometry of the named rooms, for the report's
+   * INDEPENDENT read-back. Must read the authoritative store, NEVER the plan.
+   * Absent ⇒ `report.geometryUndetermined`, never a silent "the polygons match".
+   */
+  readonly readRoomGeometry?: RoomGeometryReader;
 }
+
+/** Applies the plan's predicted room geometry. Returns what it actually wrote. */
+export type PredictedRoomGeometryApplier = (
+  predicted: readonly PredictedGeometry[],
+  undetermined: readonly UndeterminedImpact[],
+  gestureId: string,
+) => { readonly applied: readonly ElementId[]; readonly levelIds: readonly string[] };
+
+/** Scoped, reversible hold on the observer's AUTO-redetect (C72 §4). */
+export interface RedetectSuppressor {
+  markPlanCoveredLevels(levelIds: readonly string[]): void;
+  releasePlanCoveredLevels(levelIds: readonly string[]): void;
+}
+
+/** Independent read-back of committed room geometry (never the plan's copy). */
+export type RoomGeometryReader = (
+  elementIds: readonly ElementId[],
+) => readonly PredictedGeometry[];
 
 /** Where a finished {@link ExecutionConsequence} is delivered for display (R5). */
 export type ConsequenceSink = (consequence: ExecutionConsequence) => void;
@@ -130,6 +183,21 @@ export interface ConsequenceExecutionResult<T = unknown> {
 }
 
 const DEFAULT_READBACK_STORES = ['wall', 'room', 'door', 'window', 'stair'] as const;
+
+/**
+ * SAFE MODE ROOM RESHAPE — what the reshape step actually did. THREE arms, one per
+ * outcome, so the report never has to infer from an empty list which one happened:
+ * "nothing to apply" and "nothing composed to apply it" produce the same empty
+ * `applied` array and mean completely different things (the §5 discipline).
+ */
+type ReshapeOutcome =
+  | { readonly kind: 'applied'; readonly applied: readonly ElementId[] }
+  | { readonly kind: 'nothing-to-apply'; readonly applied: readonly ElementId[] }
+  | {
+      readonly kind: 'no-applier';
+      readonly applied: readonly ElementId[];
+      readonly undetermined: UndeterminedImpact;
+    };
 
 /** Per-store fingerprint map: elementId → stable serialisation of the element. */
 type Fingerprints = Map<string, Map<string, string>>;
@@ -176,13 +244,29 @@ export class ConsequenceExecutionService {
     const pre = this.fingerprint();
     const violationsBefore = this.deps.violations?.();
 
+    // ── 2b. ONE GESTURE for the wall mutation AND its room consequences ───────────
+    // SAFE MODE ROOM RESHAPE / C03 §4.6 U-10. The wall move and the room reshape are
+    // ONE user action ("I dragged this wall"), so they must be ONE undo unit — a
+    // Ctrl+Z that reverted the wall and left the rooms reshaped would leave the model
+    // internally inconsistent, which is strictly worse than either state alone.
+    //
+    // The id is passed EXPLICITLY to both dispatches rather than relying on the
+    // ambient scope, because `executeCommand` is awaited between them: the ambient
+    // gesture scope is SYNCHRONOUS BY CONTRACT (gestureScope.ts) and does not survive
+    // an `await`. Honouring the caller's id when one was supplied means a tool that
+    // already opened a gesture (a drag) keeps ONE id across the whole drag.
+    const gestureId = opts?.gestureId ?? newGestureId('wall-move-consequence');
+
     // ── 3. THE dispatch — one funnel, the plan riding only when it bound ──────────
     const record = await this.deps.bus.executeCommand<T>(command.type, command.payload, {
       ...(opts?.suppressUndo !== undefined ? { suppressUndo: opts.suppressUndo } : {}),
-      ...(opts?.gestureId !== undefined ? { gestureId: opts.gestureId } : {}),
+      gestureId,
       ...(opts?.context !== undefined ? { context: opts.context } : {}),
       ...(bound !== undefined ? { plan: bound } : {}),
     });
+
+    // ── 3b. Commit the PREDICTED room geometry, verbatim ──────────────────────────
+    const reshape = this.applyReshape(bound, gestureId);
 
     // ── 4. Independent read-back (CA-21 discipline) ───────────────────────────────
     const actual = this.readback(pre);
@@ -190,7 +274,7 @@ export class ConsequenceExecutionService {
 
     // ── 5. The typed consequence answer ───────────────────────────────────────────
     const consequence: ExecutionConsequence = bound
-      ? { kind: 'reconciled', report: this.reconcile(record, bound, actual, validation.delta, validation.undetermined, opts?.context) }
+      ? { kind: 'reconciled', report: this.reconcile(record, bound, actual, validation.delta, validation.undetermined, opts?.context, reshape) }
       : supplied && stale
         ? {
             kind: 'plan-stale',
@@ -224,6 +308,154 @@ export class ConsequenceExecutionService {
     }
 
     return { record, consequence };
+  }
+
+  // ── SAFE MODE ROOM RESHAPE ───────────────────────────────────────────────────
+
+  /**
+   * Commit the plan's PREDICTED room geometry, verbatim, inside the wall move's
+   * gesture — with the observer's AUTO-redetect held for the covered levels only,
+   * and released in a `finally`.
+   *
+   * ORDER MATTERS AND IS NOT ARBITRARY. The suppression is taken BEFORE the apply
+   * and released AFTER it, because the observer's redetect is driven by the WALL
+   * commit that already happened in step 3 — it is armed on a debounce and would
+   * otherwise fire between the wall write and the room write, re-detecting rooms
+   * from the moved wall with a rival algorithm and then having its answer
+   * overwritten (or worse, overwriting ours).
+   *
+   * Returns the typed outcome so the report can say which of three things
+   * happened, never conflating them:
+   *   • `applied`         — the geometry was written; `elements` names it.
+   *   • `nothing-to-apply`— the plan carried no determined geometry (every affected
+   *                         room was UNDETERMINED, or the planner emitted none).
+   *   • `no-applier`      — nothing is composed to apply it. An ENGINE_NOT_AVAILABLE
+   *                         case, which the report surfaces rather than hiding.
+   */
+  private applyReshape(
+    bound: ConsequencePlan | undefined,
+    gestureId: string,
+  ): ReshapeOutcome {
+    if (!bound) return { kind: 'nothing-to-apply', applied: [] };
+
+    const predicted = bound.predictedGeometry ?? [];
+    if (predicted.length === 0) {
+      // Not a failure — and NOT a claim that no room changed. The plan's own
+      // `undetermined` items (carried onto every report as `undeterminedOutcomes`)
+      // are what say why, and the observer's fallback redetect is deliberately NOT
+      // suppressed here, so unpredicted rooms still get refreshed by the old path.
+      return { kind: 'nothing-to-apply', applied: [] };
+    }
+
+    if (!this.deps.applyPredictedRoomGeometry) {
+      return {
+        kind: 'no-applier',
+        applied: [],
+        undetermined: {
+          scope: `application of predicted room geometry for ${predicted.length} room(s)`,
+          reason: 'ENGINE_NOT_AVAILABLE',
+          detail:
+            'no predicted-room-geometry applier is composed in this runtime; the plan PREDICTED these rooms ' +
+            'would be reshaped and that reshape was NOT performed here. Any room geometry that changed came ' +
+            'from the topology observer\'s own re-detection, which is a DIFFERENT algorithm from the preview.',
+        },
+      };
+    }
+
+    // Levels are held only for rooms we are ACTUALLY writing. A level whose rooms
+    // all came back UNDETERMINED is never held — its fallback redetect must run.
+    let levelIds: readonly string[] = [];
+    let applied: readonly ElementId[] = [];
+    try {
+      // The apply runs INSIDE the gesture scope as well as receiving the id, so a
+      // legacy `commandManager.execute` reached from the applier inherits it too
+      // (gestureScope.ts case A — "executed inside this dispatch" is a fact about
+      // the call stack). Synchronous by contract: no `await` inside.
+      const result = withGestureId(gestureId, () =>
+        this.deps.applyPredictedRoomGeometry!(predicted, bound.undetermined, gestureId));
+      applied = result.applied;
+      levelIds = result.levelIds;
+      if (levelIds.length > 0) this.deps.redetectSuppressor?.markPlanCoveredLevels(levelIds);
+    } catch (e) {
+      // A reshape that threw is NOT "no rooms changed" — it is a read/write that did
+      // not complete, and the report must say so.
+      return {
+        kind: 'no-applier',
+        applied: [],
+        undetermined: {
+          scope: `application of predicted room geometry for ${predicted.length} room(s)`,
+          reason: 'ENGINE_NOT_AVAILABLE',
+          detail: `the predicted-room-geometry applier threw: ${e instanceof Error ? e.message : String(e)}`,
+        },
+      };
+    } finally {
+      // C72 §4 — the hold is bounded by THIS execution. Released even on a throw;
+      // the release discharges any commit the hold swallowed.
+      if (levelIds.length > 0) this.deps.redetectSuppressor?.releasePlanCoveredLevels(levelIds);
+    }
+
+    return { kind: 'applied', applied };
+  }
+
+  /**
+   * Compare the plan's PREDICTED geometry against what is ACTUALLY in the store —
+   * the geometry arm of the plan-fidelity check (G-REASON-03).
+   *
+   * This is the check that makes "no second algorithm silently replaced the
+   * prediction" a MEASURED property rather than a claim about the code. Set-grain
+   * comparison cannot see it: if the observer re-detected a room, that room is in
+   * `plan.changed` AND in `actual.changed`, so `unexpected` and `missing` are both
+   * empty and the plan reads as AGREED while carrying a polygon nobody approved.
+   * Only a VALUE comparison catches it.
+   */
+  private geometryReadback(plan: ConsequencePlan): {
+    geometry?: readonly PredictedGeometry[];
+    geometryUndetermined?: UndeterminedImpact;
+    diverged: ElementId[];
+  } {
+    const predicted = plan.predictedGeometry ?? [];
+    if (predicted.length === 0) return { diverged: [] };
+
+    if (!this.deps.readRoomGeometry) {
+      return {
+        diverged: [],
+        geometryUndetermined: {
+          scope: `committed geometry of ${predicted.length} predicted room(s)`,
+          reason: 'ENGINE_NOT_AVAILABLE',
+          detail:
+            'no room-geometry reader is composed in this runtime; the committed polygons were NOT compared ' +
+            'against the predicted ones. Absence of a reported divergence here is NOT evidence of fidelity.',
+        },
+      };
+    }
+
+    let actualGeometry: readonly PredictedGeometry[];
+    try {
+      actualGeometry = this.deps.readRoomGeometry(predicted.map((p) => p.elementId));
+    } catch (e) {
+      return {
+        diverged: [],
+        geometryUndetermined: {
+          scope: `committed geometry of ${predicted.length} predicted room(s)`,
+          reason: 'ENGINE_NOT_AVAILABLE',
+          detail: `the room-geometry reader threw: ${e instanceof Error ? e.message : String(e)}`,
+        },
+      };
+    }
+
+    const byId = new Map(actualGeometry.map((g) => [g.elementId, g]));
+    const diverged: ElementId[] = [];
+    for (const p of predicted) {
+      const a = byId.get(p.elementId);
+      // A room the reader could not return is a DIVERGENCE candidate we cannot
+      // score, not a pass. It is named as diverged so it can never read as fidelity.
+      if (!a) { diverged.push(p.elementId); continue; }
+      // BYTE-IDENTICAL on the ring, via the same serialisation the fingerprints use,
+      // so "identical" means the same thing everywhere in this file.
+      if (stableStringify(p.polygon) !== stableStringify(a.polygon)) diverged.push(p.elementId);
+    }
+    diverged.sort();
+    return { geometry: actualGeometry, diverged };
   }
 
   // ── Read-back ──────────────────────────────────────────────────────────────────
@@ -321,6 +553,7 @@ export class ConsequenceExecutionService {
     validation: ValidationDelta,
     validationUndetermined: { scope: string; reason: 'ENGINE_NOT_AVAILABLE'; detail: string } | undefined,
     context: CommandExecutionContext | undefined,
+    reshape: ReshapeOutcome,
   ): ConsequenceReport {
     const predictedSet = new Set(plan.changed);
     const actualSet = new Set(actual.changed);
@@ -341,19 +574,44 @@ export class ConsequenceExecutionService {
       undeterminedResolved: [],
     };
 
+    // SAFE MODE ROOM RESHAPE — the VALUE-grain fidelity check. Runs before the
+    // divergence verdict because a diverged polygon MUST make the verdict diverge:
+    // a rival algorithm's polygon on an element that was correctly predicted to
+    // change is invisible to the set arithmetic above.
+    const geo = this.geometryReadback(plan);
+
     // Divergence is a FIRST-CLASS, NAMED verdict (STR-06 §2), never a log line.
     const divergence: PlanDivergenceVerdict =
-      unexpected.length > 0 || missing.length > 0
-        ? { kind: 'plan-fidelity-divergence', unexpected, missing }
+      unexpected.length > 0 || missing.length > 0 || geo.diverged.length > 0
+        ? {
+            kind: 'plan-fidelity-divergence',
+            // A geometry divergence is reported on the element it happened to.
+            // Unioned into `unexpected` (rather than given a private verdict arm)
+            // so every EXISTING consumer of the verdict — the report view, the
+            // certification gates, the AI host — sees it without being taught a
+            // new shape. `geometryDiverged` below carries the precise attribution.
+            unexpected: Array.from(new Set([...unexpected, ...geo.diverged])).sort(),
+            missing,
+          }
         : { kind: 'plan-agreed' };
 
     // One outcome PER plan.undetermined item, in plan order — the reconciliation
     // covers every plan item; an UNDETERMINED item is carried, never scored.
+    // The reshape's own UNDETERMINED (no applier composed / the applier threw) is
+    // APPENDED rather than dropped: an execution that did not apply the geometry it
+    // planned to apply must not read as one that applied it successfully.
     const undeterminedOutcomes: UndeterminedOutcome[] = plan.undetermined.map((item) => ({
       item,
       outcome: 'undetermined-at-plan-time',
       actualChangedOutsidePrediction: unexpected,
     }));
+    if (reshape.kind === 'no-applier') {
+      undeterminedOutcomes.push({
+        item: reshape.undetermined,
+        outcome: 'undetermined-at-plan-time',
+        actualChangedOutsidePrediction: unexpected,
+      });
+    }
 
     return {
       commandId: record.id,
@@ -362,6 +620,13 @@ export class ConsequenceExecutionService {
       predictedVsActual,
       validation,
       ...(validationUndetermined !== undefined ? { validationUndetermined } : {}),
+      // SAFE MODE ROOM RESHAPE — the committed geometry, measured independently, and
+      // the elements whose committed ring differs from the predicted one. ABSENT vs
+      // PRESENT-BUT-EMPTY differ here (consequence.ts): absent means no read-back
+      // channel, which `geometryUndetermined` names.
+      ...(geo.geometry !== undefined ? { geometry: geo.geometry } : {}),
+      ...(geo.geometryUndetermined !== undefined ? { geometryUndetermined: geo.geometryUndetermined } : {}),
+      ...(geo.diverged.length > 0 ? { geometryDiverged: geo.diverged } : {}),
       divergence,
       undeterminedOutcomes,
       provenance: {

@@ -38,7 +38,7 @@ import { PatchEmitter } from './PatchEmitter.js';
 import { UndoStack } from './UndoStack.js';
 // §UNDO-GESTURE-ID (C03 §4.6 U-10) — one dispatch = one gesture unless a caller
 // declares a wider one. See gestureScope.ts for the full rationale.
-import { currentGestureId, newGestureId, withGestureId } from './gestureScope.js';
+import { currentGestureId, newGestureId, withGestureId, withRemoteOrigin } from './gestureScope.js';
 
 export class CommandBusError extends Error {
   constructor(message: string) {
@@ -378,7 +378,35 @@ export class CommandBus {
     }
 
     const ctx = this.buildContext<AnyStores>(handler as CommandHandler<unknown, AnyStores>);
-    const suppressUndo = opts?.suppressUndo === true;
+
+    // §UNDO-REMOTE-ORIGIN (C03 §4.6 U-1) — is this dispatch REMOTE-originated?
+    //
+    // TWO signals, because two production paths mark remoteness differently and
+    // reading only one leaves the other broken:
+    //   • `opts.suppressUndo` — the bus's own declared remote signal, documented
+    //     on `executeCommand` above ("Remote/collaboration commands … must not
+    //     push onto the LOCAL user's undo stack — §30-COLLAB §3.5") and equated
+    //     with `source: 'remote'` by C03 §4.6 U-1 verbatim.
+    //   • `payload._remoteSync === true` — the marker the CRDT read-back sink
+    //     ACTUALLY sets today (`initRemoteElementSync.ts:159`, exported there as
+    //     `REMOTE_SYNC_FLAG`). That sink does NOT pass `suppressUndo`, which is
+    //     exactly why the CRDT leg escaped the U-1 rule while the socket.io leg
+    //     (`RemoteCommandDispatcher.ts:378`, which stamps `{source:'REMOTE'}`)
+    //     obeyed it. The flag is not re-declared as a constant here on purpose:
+    //     `initRemoteElementSync` is L7 and this is L1, so L1 may not import it;
+    //     the string is the wire contract between them and is named in both
+    //     files' comments so neither can be changed alone.
+    // The marker is read defensively — a non-object payload is not remote.
+    const _p = payload as unknown as Record<string, unknown> | null | undefined;
+    const remoteOrigin =
+      opts?.suppressUndo === true ||
+      (typeof _p === 'object' && _p !== null && _p['_remoteSync'] === true);
+
+    // A remote-originated dispatch must not push to EITHER stack (U-1). The ring
+    // buffer was already covered by `suppressUndo`; the `_remoteSync` half is new
+    // and closes the same hole on the same rule, so the two stacks cannot
+    // disagree about whether a peer's edit is undoable locally.
+    const suppressUndo = remoteOrigin;
     // ADR-0324 §1–2 (R1) — capture the invocation envelope SYNCHRONOUSLY,
     // mirroring the gestureId capture above. Metadata only: nothing below
     // branches on it.
@@ -413,8 +441,20 @@ export class CommandBus {
         // recognises the pair as ONE gesture without consulting a clock. The scope
         // is restored the moment the call returns (it does not span the await) —
         // see the SYNCHRONOUS BY CONTRACT note in gestureScope.ts.
+        // §UNDO-REMOTE-ORIGIN (C03 §4.6 U-1) — the LEGACY half of the same rule.
+        // The bridges called below run `commandManager.execute(new XCommand(...))`
+        // on this synchronous stack, and `CommandMetadata` defaults to
+        // `{ source: 'HUMAN_DIRECT' }`. Marking the stack lets
+        // `CommandManagerImpl.execute` stamp REMOTE instead, so the legacy history
+        // honours U-1 exactly as the ring buffer does via `suppressUndo`. Without
+        // this, `suppressUndo` protects only the stack the bridges do NOT use, and
+        // a peer's edit still lands on the local user's Ctrl+Z.
+        const _runHandler = (): unknown =>
+          handler.execute(ctx as HandlerContext<AnyStores>, payload);
         const result = await withGestureId(gestureId, () =>
-          handler.execute(ctx as HandlerContext<AnyStores>, payload));
+          (remoteOrigin ? withRemoteOrigin(_runHandler) : _runHandler()) as ReturnType<
+            typeof handler.execute
+          >);
 
         // 3. Build the per-store patch envelopes (spec §1.2 PatchSnapshotEntry).
         const capturedAt = ctx.audit.timestamp;

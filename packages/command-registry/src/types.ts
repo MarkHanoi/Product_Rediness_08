@@ -278,6 +278,10 @@ export enum CommandType {
     DETECT_ALL_ROOMS                  = 'DETECT_ALL_ROOMS',
     BATCH_CREATE_ROOMS                = 'BATCH_CREATE_ROOMS',
     REDETECT_ROOMS                    = 'REDETECT_ROOMS',
+    // SAFE MODE ROOM RESHAPE — write the PREDICTED room geometry the preview showed,
+    // verbatim. UNDOABLE (unlike REDETECT_ROOMS), so a wall drag and its room
+    // consequences share ONE gesture and one Ctrl+Z reverts both.
+    APPLY_PREDICTED_ROOM_GEOMETRY     = 'APPLY_PREDICTED_ROOM_GEOMETRY',
     // ── Room Bounding Line commands (§ROOM-BOUNDING) ──────────────────────────
     CREATE_ROOM_BOUNDING_LINE         = 'CREATE_ROOM_BOUNDING_LINE',
     UPDATE_ROOM_BOUNDING_LINE         = 'UPDATE_ROOM_BOUNDING_LINE',

@@ -20,10 +20,9 @@ polygon the user traced — `apps/editor/src/engine/views/plantools/RoomPlanTool
 dispatching `room.create` with the user's own vertices), one flood-filled by topology — and then runs the **§GRAPH-CLEAR-FIRST loop transcribed
 from `apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts:1757-1766`** against them, through
 the **real `RoomStore`** (`packages/room-topology`), the **real `CommandBus`**
-(`packages/command-bus`) and the **real `plugins/rooms` `room.delete` handler**. Its clause (b)
-prints:
+(`packages/command-bus`) and the **real `plugins/rooms` `room.delete` handler**.
 
-Run for this contract, `2026-08-12`, HEAD `e6c8cb58`, verbatim:
+Run for this contract, `2026-08-12`, HEAD `e6c8cb58` — clause (b), verbatim:
 
 ```
 $ cd tools/rac-conformance/certification
@@ -134,7 +133,7 @@ gap is that the live generator path does not ask.**
 > ⚠ **Measured reason this is not true today, stated as a MUST NOT be read as a description**:
 > per §0.1(1), **every generator is a UI controller and no `*.regenerate` verb exists**, so there
 > is no object to plan, no plan to preview, and nothing to approve. This clause is **NOT-YET-TRUE**
-> and its named gap is §6's **GEN-GAP-1**.
+> and its named gap is §8's **GEN-GAP-1**.
 
 > **§1.2 — DEFERRED to C78 §9/§10.** *Execute must consume the plan it previewed* — a pass that
 > previews one thing and then recomputes at execution time has previewed nothing, and the user
@@ -308,7 +307,7 @@ C75 §3's coverage ratchet), the generators write it, and a round-trip test read
 
 > **§5.5 — OPEN, and the largest open question in this contract.** *How should a generator
 > DISCOVER prior-run output given no index exists today?* Four candidate substrates are visible
-> and **none is chosen here** (§8 records why choosing would be premature). Deciding this is
+> and **none is chosen here** (§9 records why choosing would be premature). Deciding this is
 > GEN-GAP-3's first task, not C80's.
 
 **Exit condition for §5**: a generator re-run in a **fresh session** returns `determined`, and the
@@ -400,7 +399,7 @@ status is **UNPROVEN** — never a blank row, never an inherited green.
 
 ---
 
-## §7.5 — The named gaps, with owners and roadmap placement
+## §8 — The named gaps, with owners and roadmap placement
 
 C80 states an END STATE. It does **not** demand a rewrite (§6.4). The distance between the two is
 these four gaps, named so they can be owned rather than rediscovered.
@@ -409,16 +408,16 @@ these four gaps, named so they can be owned rather than rediscovered.
 |---|---|---|---|---|
 | **GEN-GAP-1** — generation-as-verb | No `*.regenerate` verb; every generator is a UI controller (§0.1(1)). Until this exists there is **no central place** to enforce anything in §1–§3 | the BIM 3.0 reasoning-loop lane (R8 → R9) | `BIM30-REASONING-LOOP-PLAN.md`'s golden-operation matrix, **`room.regenerate` row** — currently empty across all six columns | nothing. **This is the unblocked one**, and per §0.1(4) the first task is *wiring the existing refusal, not designing one* |
 | **GEN-GAP-2** — element provenance fields | No element carries provenance (§0.1(2)), so §2's authority question answers `unknown-authority` for everything except rooms | C75 §3's per-kind coverage ratchet | roadmap **Phase 8**; R8 declares itself blocked on it | C75's `check-provenance-coverage`, itself UNBUILT |
-| **GEN-GAP-3** — prior-run discovery | §5.5 / §8: no persisted generation marker, and the substrate is **enumerated, not chosen** | undecided — **this is the open question §8 flags** | after GEN-GAP-2 lands the field, so a chosen substrate does not become a rival index | GEN-GAP-2 |
+| **GEN-GAP-3** — prior-run discovery | §5.5 / §9: no persisted generation marker, and the substrate is **enumerated, not chosen** | undecided — **this is the open question §8 flags** | after GEN-GAP-2 lands the field, so a chosen substrate does not become a rival index | GEN-GAP-2 |
 | **GEN-GAP-4** — the four NOT-EVALUATED verifications | Authored wall byte-intact · authored/generated opening · generated wall UPDATED · AI element still INFERRED (§7.3(b)) | the gate's own enumeration floor | closes incrementally as GEN-GAP-1 and -2 land | both |
 
-> **§7.5.1 — MUST.** A gap closing is a **deliberate floor change in the commit that adds the real
+> **§8.1 — MUST.** A gap closing is a **deliberate floor change in the commit that adds the real
 > arm** (`check-authored-state-protection`'s enumeration floor is asserted as a COUNT precisely so
 > the list cannot quietly shrink to flatter the gate). A gap MUST NOT close by reclassification.
 
 ---
 
-## §8 — What this contract does not decide
+## §9 — What this contract does not decide
 
 Stated so the boundaries are not inferred from silence.
 
@@ -454,25 +453,25 @@ Stated so the boundaries are not inferred from silence.
 
 ---
 
-## §9 — Anti-patterns
+## §10 — Anti-patterns
 
-- **§9.a — The unfiltered clear.** `getByLevel()` → delete every id. §0, §2.1.
-- **§9.b — Treating `unknown-authority` as permission.** §2.3. The defect, in one line.
-- **§9.c — A comment asserting provenance the code cannot know.** §2.5.
-- **§9.d — Defaulting provenance to `generated` "so regeneration works".** §4.2. It converts a
+- **§10.a — The unfiltered clear.** `getByLevel()` → delete every id. §0, §2.1.
+- **§10.b — Treating `unknown-authority` as permission.** §2.3. The defect, in one line.
+- **§10.c — A comment asserting provenance the code cannot know.** §2.5.
+- **§10.d — Defaulting provenance to `generated` "so regeneration works".** §4.2. It converts a
   missing field into permanent data loss on run two.
-- **§9.e — Returning `[]` for "we have no index".** §5.2.
-- **§9.f — Fire-and-forget destruction.** `void bus.executeCommand(...)` + `catch {}`. §1.5.
-- **§9.g — Clearing in one undo unit and rebuilding in another.** §6.3.
-- **§9.h — Refusing everything and calling it safety.** §3.4.
-- **§9.i — Rewriting a working engine to satisfy this contract.** §6.4.
-- **§9.j — Reading `metadata.createdBy` as authorship.** §2.4.
-- **§9.k — Citing `planRegenerationClear`'s existence as evidence the defect is fixed.** §0.1(4):
+- **§10.e — Returning `[]` for "we have no index".** §5.2.
+- **§10.f — Fire-and-forget destruction.** `void bus.executeCommand(...)` + `catch {}`. §1.5.
+- **§10.g — Clearing in one undo unit and rebuilding in another.** §6.3.
+- **§10.h — Refusing everything and calling it safety.** §3.4.
+- **§10.i — Rewriting a working engine to satisfy this contract.** §6.4.
+- **§10.j — Reading `metadata.createdBy` as authorship.** §2.4.
+- **§10.k — Citing `planRegenerationClear`'s existence as evidence the defect is fixed.** §0.1(4):
   the module ships as *the answer the executor should be asking*. The gate says so on every run.
 
 ---
 
-## §10 — Exit conditions, consolidated
+## §11 — Exit conditions, consolidated
 
 1. **§1** — one generation runs as a bus verb over a plan object that preview and execute share.
 2. **§2** — the live generator paths call the authority question; arms (b) and (c) agree.
@@ -483,4 +482,4 @@ Stated so the boundaries are not inferred from silence.
 7. **§7** — the four unbuilt gates exist and are negative-tested; the four NOT-EVALUATED
    verifications gain subjects and the gate's enumeration floor is lowered **deliberately, in the
    commit that adds the real arm**.
-8. **§5.5 / §8** — the prior-run discovery substrate is chosen, in writing, with its reason.
+8. **§5.5 / §9** — the prior-run discovery substrate is chosen, in writing, with its reason.

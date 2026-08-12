@@ -16,3 +16,10 @@ export { DetectRoomFromWallsCommand } from './DetectRoomFromWallsCommand';
 export { DetectAllRoomsCommand }  from './DetectAllRoomsCommand';
 export { BatchCreateRoomsCommand } from './BatchCreateRoomsCommand';
 export { ReDetectRoomsCommand }   from './ReDetectRoomsCommand';
+// SAFE MODE ROOM RESHAPE — commits the PREDICTED geometry verbatim (no second algorithm).
+export { ApplyPredictedRoomGeometryCommand } from './ApplyPredictedRoomGeometryCommand';
+export type {
+  PredictedRoomGeometry,
+  UndeterminedRoomGeometry,
+  AppliedRoomOutcome,
+} from './ApplyPredictedRoomGeometryCommand';
