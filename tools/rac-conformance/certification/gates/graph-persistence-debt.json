@@ -1,0 +1,32 @@
+{
+  "//": [
+    "NAMED, SHRINK-ONLY ledger for check-graph-persistence (C71 §6, C70 §5.4/§5.5).",
+    "",
+    "persistOnly: the persist-or-lose ledger C70 I-INV-2 demands — C71 §5.4 kept",
+    "this list as PROSE in EV-05 §3 with no gate; these rows make it mechanical.",
+    "A family measured persist-only-with-writer that is NOT here is an unledgered",
+    "finding (exit 3); a row here that is NO LONGER measured persist-only is STALE",
+    "and exits 3. C71 §5.4 named five families (sitsOn, supports, connectedTo,",
+    "connectedByStair, connectedByLift); the measured set at first run is SMALLER,",
+    "because the rebuild was widened on 2026-08-12 (rebuildSemanticGraph.ts now",
+    "reconstructs sitsOn/supports/connectedTo/connectedByStair from authoritative",
+    "element state) — the gate's reading supersedes the contract's dated prose",
+    "per C71 §0.1.",
+    "",
+    "declaredFindings: pinned at the FIRST HONEST READING, 2026-08-12. Named",
+    "entries only, never a bare count.",
+    "",
+    "EXIT CONDITION (C71 §6): persistOnly is empty, or every remaining row is a",
+    "founder-signed exception with a named reason (C70 §6.6)."
+  ],
+  "persistOnly": [
+    { "family": "connectedByLift", "why": "3 live writers (CreateVerticalCirculationCommand + residential generators); lifts are NOT serialized into the snapshot at all, so the rebuild cannot reconstruct base/top level refs — named by the rebuild's unreconstructable set. The last survivor of C71 §5.4's five prose families." },
+    { "family": "measuredAt", "why": "Written by PhysicsEngine (element → performance record). Performance record nodes are not authoritative element state the rebuild can read, so a pre-graph snapshot loses the link — and the rebuild does not yet NAME the loss (see measuredAt/loss-not-named-at-load)." },
+    { "family": "decidedBy", "why": "Written by IntentPrompt (element → DecisionRecord, architect rationale). DecisionRecords are not reconstructable from element state; the rebuild does not yet NAME the loss (see decidedBy/loss-not-named-at-load)." }
+  ],
+  "declaredFindings": [
+    { "key": "measuredAt/loss-not-named-at-load", "why": "The rebuild's unreconstructable set names connectedByLift and contains only; a pre-graph snapshot silently loses measuredAt edges (C70 I-INV-3). Fix: unreconstructable.push('measuredAt') with its reason, in rebuildSemanticGraph.ts." },
+    { "key": "decidedBy/loss-not-named-at-load", "why": "Same shape as measuredAt: the loss exists and is not named at load. Fix: unreconstructable.push('decidedBy') with its reason." },
+    { "key": "deserialize/silent-malformed-drop", "why": "C71 §5.7 measured this at HEAD: deserialize silently discards edges missing id/type/sourceId/targetId. Fix: count the drops and report them on the load result instead of falling through." }
+  ]
+}
