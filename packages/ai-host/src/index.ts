@@ -791,3 +791,20 @@ export {
 export type {
     FormatOptions,
 } from './workflows/apartmentLayout/reporting/report-formatter.js';
+
+// ── BIM 3.0 Phase 4 — Graph exposure (the Level 5 unlock) ────────────────────
+// The read-only, refusal-honest query surface behind the `graph.query` /
+// `graph.neighbors` / `graph.path` bus verbs. See GraphQueryService.ts.
+export {
+    GraphQueryService,
+    GRAPH_QUERY_SUPPORTED_RELATIONSHIPS,
+} from './graph/GraphQueryService.js';
+export type {
+    GraphQueryResult,
+    GraphNeighborsResult,
+    GraphPathResult,
+    GraphNeighbor,
+    GraphRefusalReason,
+    GraphQueryServiceDeps,
+    RoomGraphLike,
+} from './graph/GraphQueryService.js';

@@ -1,4 +1,6 @@
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+// BIM 3.0 Phase 4 — read-only graph query verbs (graph.query/neighbors/path).
+import { registerGraphQueryHandlers } from './graphQueryBusHandlers.js';
 // §FEAT-RHINO-CHAT-MATERIAL — the THREE-touching material primitives live with
 // the Rhino importer (the one legitimate owner of the imported scene graph);
 // this file only orchestrates them behind the 'rhino.setMaterial' /
@@ -2430,4 +2432,11 @@ export function initBusHandlers(
             console.error(`[initBusHandlers] §GEN-CHAT-SEAM: ${spec.type} failed (non-fatal):`, _ge?.message ?? _ge);
         }
     }
+
+    // ── BIM 3.0 Phase 4 (Level 5) — read-only graph query verbs ──────────────
+    // graph.query / graph.neighbors / graph.path exposed over the composed bus,
+    // refusal-honest (D-INV-1/2/3). Verb declarations live in
+    // `graphQueryBusHandlers.ts` (a verb-register-scanned root); registration is
+    // wired here onto the same composed bus every other verb uses.
+    registerGraphQueryHandlers(runtime);
 }

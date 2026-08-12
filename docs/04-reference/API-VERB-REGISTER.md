@@ -15,15 +15,15 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1223 (floor 900) |
-| **Verbs** | **320** (floor 250) |
-| LIVE | 107 |
+| Handler files read | 1228 (floor 900) |
+| **Verbs** | **323** (floor 250) |
+| LIVE | 110 |
 | REFUSES | 35 |
 | SHADOWED (dead route) | 9 |
 | UNKNOWN | 169 |
 | authoritative store NONE or UNKNOWN | 213 |
 | sync UNDECLARED (property verbs) | 0 |
-| chat UNDECLARED | 1 |
+| chat UNDECLARED | 4 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -157,6 +157,9 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `generation.finish-chain` | apps/editor | LIVE | legacy geometry store (via commandManager) | NONE (empty patch pair) | n/a (not a property verb) | capability: finish-apartment-chain |
 | `generation.rooms` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | capability: generate-room-finishes |
 | `generative.applyLayout` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
+| `graph.neighbors` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | UNDECLARED |
+| `graph.path` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | UNDECLARED |
+| `graph.query` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | UNDECLARED |
 | `grid.add` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified D |
 | `grid.create` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | n/a (not a property verb) | classified B |
 | `grid.delete` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | n/a (not a property verb) | classified B |
