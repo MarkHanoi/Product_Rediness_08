@@ -226,7 +226,42 @@ export class CommandManager {
             // Contract 20 GAP-3 — PROJECT_LOAD commands are also excluded; opening
             // a project is a rehydration, not a user action, so the undo stack must
             // be empty after the load completes.
-            if (!command.nonUndoable && metadata.source !== 'REMOTE' && !isLoad) {
+            // §UNDO-REMOTE-ORIGIN (C03 §4.6 U-1) — a command a BRIDGE created
+            // inside a REMOTE-originated bus dispatch is REMOTE, whatever the
+            // bridge's default metadata says.
+            //
+            // The rule directly above was correct and simply unreachable on the
+            // CRDT read leg. `apps/editor/src/engine/initRemoteElementSync.ts`
+            // dispatches `element.updateParameters` for a PEER's change; the
+            // `initBusHandlers` bridge for that verb calls `_cmExec(cmd)` with no
+            // metadata, so `metadata.source` defaulted to `'HUMAN_DIRECT'` and a
+            // collaborator's edit was pushed onto THIS user's undo history as if
+            // this user had authored it. The socket.io path never had the bug
+            // because `RemoteCommandDispatcher.ts:378` passes `{source:'REMOTE'}`
+            // explicitly.
+            //
+            // MEASURED (tools/rac-conformance/certification, two-client harness):
+            // client A made ONE edit and its history held THREE entries after
+            // sync, all `HUMAN_DIRECT` — so A's first Ctrl+Z was a no-op, its
+            // SECOND reverted client B's colour, and only the THIRD reverted A's
+            // own gesture. Findings `undo/undo-did-not-revert-own` and
+            // `undo/undo-reverted-peer-work` are both this one defect.
+            //
+            // THE EXCLUSION IS NOT WEAKENED — it is EXTENDED to the path that was
+            // escaping it. A's own edits are unaffected: they do not run inside a
+            // remote dispatch, so this reads `false` for them. The flag is an
+            // ambient global rather than an import because this package (L2) does
+            // not depend on `@pryzm/command-bus` (L1) and must not start to for
+            // one boolean — the same reason, and the same mechanism, as
+            // `__pryzmBuildingGenActive` above. `withRemoteOrigin` restores the
+            // previous value in a `finally`, so the flag cannot stick ON and make
+            // subsequent LOCAL edits silently un-undoable.
+            const isRemoteOrigin =
+                metadata.source === 'REMOTE' ||
+                (globalThis as unknown as { __pryzmRemoteOriginDispatch?: boolean })
+                    .__pryzmRemoteOriginDispatch === true;
+
+            if (!command.nonUndoable && !isRemoteOrigin && !isLoad) {
                 if (inGenBatch) {
                     // §GEN-UNDO-COALESCE — accumulate for one composite entry at
                     // endGenerationBatch() instead of pushing per command.
