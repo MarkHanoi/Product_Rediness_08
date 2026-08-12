@@ -56,8 +56,10 @@ diff packages/constraint-solver/src/StairValidationAuthority.ts \
   the earlier reading of 20 findings / 3 evidenced is **STALE** and is not used anywhere below.)
 - `check-provenance-not-invented` → exit 1, DECLARED-LEVEL (5 findings, declared 5). 22
   vocabularies, 13 provenance-typed fields. All five V-arms proven to fire.
-- `check-two-client-convergence` → exit 0, DECLARED-LEVEL (1 finding, declared 1). All floors met,
-  both controls fired.
+- `check-two-client-convergence` → run twice. At `2b636854`: exit 0, DECLARED-LEVEL (1 finding,
+  declared 1). Re-run at `d0a8674e` **against the working tree** (another agent's ledger edits
+  uncommitted): **0 findings, ledger declared=0**, all floors met, both controls fired
+  (`generatedAt=2026-08-12T18:38:57.795Z`). See the §4.3 note on SHA attachment.
 
 ---
 
@@ -763,13 +765,23 @@ after §RIVAL-MINT it is **1**:
 - **CLOSED 2 & 3** — but see the retraction below.
 - **THEN CLOSED 4 → the ledger reads `maxFindings: 0`.**
 
-**⚠ MEASUREMENT NOTE — this axis moved WHILE THIS DOCUMENT WAS BEING WRITTEN, and I did not obtain
-a clean re-run.** My own execution of `check-two-client-convergence.ts` at HEAD `d0a8674e` produced
-a **0-byte output file**, and `git status` shows `two-client-ledger.json` and four
-`certification/results/*.json` files **modified in the working tree by another agent**, with two new
-uncommitted gate files (`check-room-reshape-fidelity.ts`, `check-room-reshape-undo.ts`). **I
-therefore report the ledger's own text rather than a reading I did not obtain** — an in-flight tree
-is exactly the condition under which a half-reading becomes a wrong baseline.
+**MEASUREMENT NOTE — this axis moved WHILE THIS DOCUMENT WAS BEING WRITTEN, and I re-ran the gate
+myself to completion.** My own execution of `check-two-client-convergence.ts` at HEAD `d0a8674e`
+(slow run; artefact `generatedAt=2026-08-12T18:38:57.795Z`) confirms the working-tree state:
+
+```
+no findings across arms 1-3
+ledger  declared=0  (declared in two-client-ledger.json)
+✓ arms 1-3 clean: 3 properties compared across 2 independently
+  composed clients, 8 crossings transported, both controls fired.
+```
+
+Exit 0, all floors met, negative control fired. ⚠ Note this reading is **against the WORKING TREE**,
+which carries another agent's uncommitted edits to `two-client-ledger.json` and four
+`certification/results/*.json` files (plus two new uncommitted gate files,
+`check-room-reshape-fidelity.ts` / `check-room-reshape-undo.ts`). The 0-finding verdict is measured;
+its attachment to a *committed* SHA is not yet — it becomes citable-against-a-commit only when that
+agent's work lands.
 
 **What the working-tree ledger now records** (`measuredAt: 2026-08-12T17:30:00Z`,
 `maxFindings: 0` — *"THE LEDGER IS NOW EMPTY AND LEAVES THE TREE ON THE NEXT SHRINK"*):
@@ -835,7 +847,7 @@ Stated as a permission ledger:
 | "A hosting edge survives a real-socket concurrent merge, resolving on both documents" | ✅ **YES** — real `y-websocket`, zero tolerance, gate exit 0 | `check-collab-graph-integrity.ts` |
 | "A peer's property edit reaches this client's authoritative store" | ✅ **YES, in-process only** | two-client gate, floors met |
 | "Disjoint concurrent property edits merge without loss" | ✅ **YES, in-process only** | `fb7cd4a0` + `rival-record-mint.test.ts` (carries a POSITIVE CONTROL reproducing the pre-fix behaviour and asserting it STILL loses the property) |
-| "Undo is per-gesture under concurrency, **on the LEGACY stack, in-process**" | ⚠ **the working-tree ledger says YES (`maxFindings: 0`)** — but I did not obtain a clean re-run (0-byte output, tree in flight). **Treat as UNVERIFIED-BY-ME**, not as green. | working-tree `two-client-ledger.json` |
+| "Undo is per-gesture under concurrency, **on the LEGACY stack, in-process**" | ✅ **YES — measured by my own run**: 0 findings across arms 1-3, both controls fired (against the working tree; the ledger's uncommitted edits are not yet on a SHA) | §4.3 re-run, `generatedAt=2026-08-12T18:38:57.795Z` |
 | "Undo is per-gesture on the RING BUFFER path" | ❌ **NOT MEASURED** — the harness's ring buffer is *"a recording stand-in"*; the whole-record `PatchPair` clobber is untouched | ledger, NOT PROVEN §1 |
 | "Other `restoreSnapshot` commands don't clobber unauthored fields" | ❌ **NOT MEASURED** — only `UpdateWallDimensionsCommand` was fixed | ledger, NOT PROVEN §2 |
 | "Two peers may edit the same element id concurrently" | ❌ **NOT MEASURABLE in-process** — needs two processes | `twoClientWorld.ts:80-87` |
@@ -1295,7 +1307,7 @@ Collected so no reader has to infer confidence from prose. Nothing below is roun
 
 | # | Item | Why uncertain |
 |---|---|---|
-| U-1 | **The two-client gate's current reading** | My run at `d0a8674e` produced a **0-byte output file**. `two-client-ledger.json` + four `certification/results/*.json` are modified in the working tree by another agent, with two uncommitted new gate files. §4.3 reports the **ledger's text**, explicitly not a reading I obtained. |
+| U-1 | **The two-client gate reading's attachment to a COMMIT** | ~~The reading itself~~ **RESOLVED while writing**: my slow re-run completed clean — exit 0, 0 findings, both controls fired (`generatedAt=2026-08-12T18:38:57.795Z`). What remains uncertain is only its attachment to a committed SHA: the run measured the **working tree**, which carries another agent's uncommitted `two-client-ledger.json` / results edits. Citable-against-a-commit once that lands. |
 | U-2 | **`initBusHandlers` bridge-handler count** | Three unreconciled figures: `gestureScope.ts:31` says **81**, `initBusHandlers.ts:407` says **90**, `grep -c "_cmExec"` returns **~100** (inflated by comments and by `_cmExecOrRefuse`). Not resolved. |
 | U-3 | **`affectedStores` coverage — 266 of 269** | Two different denominators (files containing the string vs files named `*Command.ts`); a file may hold >1 command class. Read as "essentially universal with a small remainder", **±3**. |
 | U-4 | **Which readers consult the CRDT compatibility mirror** | Not traced. Material for C78 (§4.3, G-13b). |
