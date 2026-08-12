@@ -59,6 +59,17 @@
 // single-stack end state remains ADR-0251 (one store, derived geometry, one
 // timeline).
 //
+// SAME-GESTURE IDENTITY (§UNDO-GESTURE-ID — C03 §4.6 U-10). Chronological
+// ordering must NOT re-route a DUAL-DISPATCH TWIN: one gesture recorded on both
+// stacks, which U-8 undoes once via the ring buffer + shadow-drop. Telling a twin
+// from two separate actions used to be a wall-clock guess (`|Δtimestamp| ≤
+// 250 ms`), i.e. a property of the machine rather than of the user's intent — see
+// `_isSameGestureTwin` for the two failures that pinned. Both stacks now carry the
+// id of the interaction that produced them (`PatchPair.gestureId`, stamped by
+// `CommandBus.executeCommand`; `CommandMetadata.gestureId`, stamped by
+// `initBusHandlers._cmExec` from that dispatch's ambient scope), and the predicate
+// is an equality with no time fallback. An entry carrying no id is never a twin.
+//
 // CONTRACT: C03 §4 (undo architecture), C10 §2 / P8 (OTel span per exported fn).
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
@@ -88,7 +99,39 @@ interface CommandManagerLike {
   peekUndoTimestamp?(): number | null;
   peekRedoTimestamp?(): number | null;
   peekUndoTargetIds?(): readonly string[];
+  /** §UNDO-GESTURE-ID — the gesture that produced the top undo entry, or null. */
+  peekUndoGestureId?(): string | null;
 }
+
+/**
+ * §UNDO-RESULT (C03 §4.6 U-4) — what one `performUndo()` / `performRedo()` did.
+ *
+ * THE DEFECT THIS CLOSES. Both functions returned `void`, so "the stacks are
+ * empty", "I reverted a wall" and "an entry is pending but I could not apply it"
+ * were THE SAME VALUE to every caller — the HUD button, the initUI keydown
+ * handler, `BimService`. That is the failure≠emptiness rule this repo has closed
+ * a dozen times elsewhere (see the memory note "Context-data honesty family"),
+ * sitting in the undo path: a Ctrl+Z that silently achieves nothing is
+ * indistinguishable from a Ctrl+Z that had nothing to do, and neither can be
+ * surfaced to the user or asserted by a test.
+ *
+ * `stranded` is the one that matters most: the ring buffer HAS a pending entry
+ * whose stores have no adapter (a `door`/`window`/`level`/`dimension` key — C03
+ * §4.8), the legacy stack has nothing to fall back to, and the keypress does
+ * nothing. That state is currently unobservable; naming it makes it reportable.
+ */
+export type UndoOutcome =
+  | { readonly status: 'undone'; readonly path: 'ring-buffer' | 'commandManager'; readonly stores: readonly string[]; readonly ids: readonly string[] }
+  | { readonly status: 'nothing-to-undo' }
+  | { readonly status: 'stranded'; readonly reason: string; readonly stores: readonly string[] }
+  | { readonly status: 'error'; readonly reason: string };
+
+/** Mirror of {@link UndoOutcome} for the redo direction. */
+export type RedoOutcome =
+  | { readonly status: 'redone'; readonly path: 'ring-buffer' | 'commandManager'; readonly stores: readonly string[] }
+  | { readonly status: 'nothing-to-redo' }
+  | { readonly status: 'stranded'; readonly reason: string; readonly stores: readonly string[] }
+  | { readonly status: 'error'; readonly reason: string };
 
 function _rb(): RingBufferLike | undefined {
   return window.runtime?.bus?.ringBuffer as unknown as RingBufferLike | undefined;
@@ -136,34 +179,9 @@ function _cmEntryIsNewer(
   if (!cm?.canUndo?.()) return false;
   const cmTime = cm.peekUndoTimestamp?.();
   if (typeof cmTime !== 'number' || cmTime <= pairTime) return false;
-  if (_isSameGestureTwin(pair, cm.peekUndoTargetIds?.() ?? [], pairTime, cmTime)) return false;
+  if (_isSameGestureTwin(pair, cm.peekUndoTargetIds?.() ?? [], cm.peekUndoGestureId?.() ?? null)) return false;
   return true;
 }
-
-/**
- * §UNDO-SAME-GESTURE (L-690) — the widest same-gesture window a DUAL-DISPATCH
- * pair can straddle, in ms.
- *
- * A twin's two halves are produced inside ONE synchronous dispatch (WallTool
- * pushes `wall.create` to the bus and then constructs `CreateWallCommand` ten
- * lines later; the `initBusHandlers` gizmo bridges compute their `undoPatch` and
- * run `_cmExec` in the same handler call). Both stamps come from the same
- * `Date.now()` clock, so their delta is bounded by the gesture's own synchronous
- * duration — single-digit ms in practice. Two DELIBERATE user actions are
- * separated by at least a selection plus a click or keystroke.
- *
- * 250 ms sits an order of magnitude above the first and well below the second.
- * The failure modes are deliberately asymmetric: too small only ever costs a
- * phantom no-op keypress (annoying, recoverable), while too large restores the
- * silent element-destruction this constant exists to prevent.
- *
- * This is the one heuristic left in the routing, and it exists only because the
- * two stacks carry no shared GESTURE identity. The principled replacement is a
- * gesture/commit id stamped on both `PatchPair` and `Command` — see the C03
- * §4.6 U-10 amendment proposed with this change, and ADR-0251, which removes the
- * question entirely by collapsing to one stack.
- */
-const _SAME_GESTURE_WINDOW_MS = 250;
 
 /**
  * §UNDO-SAME-GESTURE (L-690) — is the legacy stack's top entry the SAME GESTURE
@@ -202,15 +220,35 @@ const _SAME_GESTURE_WINDOW_MS = 250;
  *       through). An entry naming an element the ring patch never touched cannot
  *       be that patch's twin. Closes shape 2.
  *
- *   (b) SAME GESTURE IN TIME — the two commits are within
- *       {@link _SAME_GESTURE_WINDOW_MS}. A twin is produced inside one
- *       synchronous dispatch; a later edit is a separate user action. Closes
- *       shape 1, which (a) alone cannot: a whole-element create and a later
- *       single-element edit have identical id sets.
+ *   (b) SAME GESTURE — the two entries carry the SAME `gestureId`
+ *       (§UNDO-GESTURE-ID, C03 §4.6 U-10). Closes shape 1, which (a) alone
+ *       cannot: a whole-element create and a later single-element edit of that
+ *       element have identical id sets.
+ *
+ * §UNDO-GESTURE-ID — WHAT CONDITION (b) USED TO BE, AND WHY IT CHANGED.
+ * It used to read `|cmTime − pairTime| ≤ 250 ms`: the two stacks carried no
+ * shared identity, so "same gesture" was inferred from wall-clock proximity.
+ * That is a measurement of the MACHINE, not of the user's intent, and
+ * `apps/editor/__tests__/undoGestureOrdering.test.ts` pinned what it cost — the
+ * same three-verb sequence replayed 80 ms apart undid the WRONG mutation first,
+ * and a 2 ms change in the inter-gesture gap flipped the outcome. No threshold is
+ * correct for both a fast double-click and a slow drag, so the constant was not
+ * mis-tuned; it was answering a question a clock cannot answer.
+ *
+ * Now both stacks carry the id of the interaction that produced them:
+ * `PatchPair.gestureId` (stamped by `CommandBus.executeCommand`) and
+ * `CommandMetadata.gestureId` (stamped by `initBusHandlers._cmExec` from the
+ * dispatch's ambient scope, or declared by a tool that dual-dispatches). The
+ * predicate is now an equality, and there is NO time fallback: an entry with no
+ * id, or with a different id, is NOT a twin. Absence must never mean membership —
+ * "no id ⇒ join the previous gesture" is the original bug wearing a new name, and
+ * it is the direction that silently DESTROYS an element (shape 1 above). The
+ * conservative direction costs at most one phantom no-op keypress, which is the
+ * asymmetry the old constant's own doc-comment argued for.
  *
  * Both conditions only ever NARROW the twin class, i.e. hand more cases to the
  * chronological rule U-10 already mandates. Neither can newly classify an
- * unrelated pair AS a twin, so no case that routed correctly before can regress.
+ * unrelated pair AS a twin.
  *
  * An entry with no declared `targetIds` is not treated as a twin — matching
  * `dropEntriesForTargets`, which never drops such an entry either.
@@ -218,11 +256,14 @@ const _SAME_GESTURE_WINDOW_MS = 250;
 function _isSameGestureTwin(
   pair: PatchPair | null,
   cmTargets: readonly string[],
-  pairTime: number,
-  cmTime: number,
+  cmGestureId: string | null,
 ): boolean {
   if (cmTargets.length === 0) return false;
-  if (Math.abs(cmTime - pairTime) > _SAME_GESTURE_WINDOW_MS) return false;
+  const pairGestureId = pair?.gestureId ?? null;
+  // Absence is not membership (see above): an unstamped entry on either stack is
+  // never another entry's twin.
+  if (pairGestureId === null || cmGestureId === null) return false;
+  if (pairGestureId !== cmGestureId) return false;
   const rbIds = new Set(_idsOf(pair));
   return cmTargets.every(id => rbIds.has(id));
 }
@@ -369,12 +410,22 @@ function _withPausedObservers(label: 'UNDO' | 'REDO', body: () => void): void {
  * both plan and 3D), shadow-dropping the matching commandManager entries to
  * prevent phantom double-undo, then commandManager fallback for legacy-only ops.
  * See module header for the full rationale (C03 §4.6 U-5).
+ *
+ * Returns an {@link UndoOutcome} — C03 §4.6 U-4. Callers that ignore it behave
+ * exactly as before (this used to return `void`), but "nothing to undo", "I
+ * reverted something" and "an entry is pending and I could NOT revert it" are no
+ * longer the same value.
  */
-export function performUndo(): void {
-  _tracer.startActiveSpan('pryzm.undo', (span) => {
+export function performUndo(): UndoOutcome {
+  return _tracer.startActiveSpan('pryzm.undo', (span): UndoOutcome => {
     try {
       const rb = _rb();
       const cm = _cm();
+      // Set when the ring buffer holds a pending entry this call could not
+      // consume (uncovered stores, empty patch, or a failed apply). If the legacy
+      // fallback then also finds nothing, the keypress achieved NOTHING while work
+      // was still pending — which is `stranded`, not `nothing-to-undo`.
+      let stranded: { reason: string; stores: readonly string[] } | null = null;
 
       if (rb?.canUndo?.()) {
         const pair = rb.current?.() ?? null;
@@ -386,6 +437,9 @@ export function performUndo(): void {
         // door/window (ADD_OPENING) to its own undo instead of being jumped over
         // by the older ring-buffer entry beneath it. Cursor untouched — safe.
         if (_cmEntryIsNewer(pair, cm)) {
+          // Captured BEFORE undo() pops the entry — afterwards this peek names the
+          // NEXT entry, not the one that was reverted.
+          const cmIds = cm?.peekUndoTargetIds?.() ?? [];
           // §UNDO-NO-PHANTOM (L-691) — only consume the keypress if the legacy
           // undo actually reverted something; a refusal must fall through to the
           // ring-buffer entry underneath rather than no-op the user's Ctrl+Z.
@@ -394,7 +448,7 @@ export function performUndo(): void {
             span.setAttribute('pryzm.undo.path', 'commandManager-newer');
             console.log('[Undo] commandManager undo (newer than ring-buffer top — cross-stack order)');
             span.end();
-            return;
+            return { status: 'undone', path: 'commandManager', stores: [], ids: cmIds };
           }
           console.warn('[Undo] commandManager undo reported no work — falling through to the ring buffer');
         }
@@ -416,15 +470,25 @@ export function performUndo(): void {
               console.log('[Undo] ring-buffer applied — stores:', stores.join(','),
                 'ids:', ids.join(','), 'shadow-dropped cm entries:', dropped);
               span.end();
-              return;
+              return { status: 'undone', path: 'ring-buffer', stores, ids };
             }
             // Total failure (no store applied) — safe to fall through: a failed
             // applyRingBufferSide mutated nothing, so commandManager won't double-undo.
             console.warn('[Undo] ring-buffer apply failed (stores:', outcome.failed.join(','),
               ') — falling back to commandManager');
+            stranded = { reason: 'ring-buffer apply failed for every affected store', stores };
+          } else {
+            stranded = { reason: 'ring-buffer entry yielded no inverse patch', stores };
           }
+        } else {
+          // Uncovered / empty-patch entry: do NOT consume the cursor — fall through.
+          stranded = {
+            reason: stores.length === 0
+              ? 'ring-buffer entry declares no affectedStores (C03 §4.6 U-2)'
+              : `no applyPatch adapter for store(s) [${stores.join(',')}] (C03 §4.8)`,
+            stores,
+          };
         }
-        // Uncovered / empty-patch entry: do NOT consume the cursor — fall through.
       }
 
       if (cm?.canUndo?.()) {
@@ -432,15 +496,33 @@ export function performUndo(): void {
         _lastSource = 'commandManager';
         span.setAttribute('pryzm.undo.path', 'commandManager');
         console.log('[Undo] commandManager undo');
-      } else {
-        span.setAttribute('pryzm.undo.path', 'none');
-        console.log('[Undo] nothing to undo (ring buffer + commandManager empty)');
+        span.end();
+        return { status: 'undone', path: 'commandManager', stores: [], ids: [] };
       }
+
+      // §UNDO-RESULT (C03 §4.6 U-4) — the two shapes of "the keypress did nothing"
+      // are NOT the same value. `stranded` means work was pending and could not be
+      // applied (the user pressed Ctrl+Z, an entry sat there, nothing happened);
+      // `nothing-to-undo` means there was nothing to do in the first place.
+      if (stranded) {
+        span.setAttribute('pryzm.undo.path', 'stranded');
+        span.setAttribute('pryzm.undo.stranded_reason', stranded.reason);
+        console.warn('[Undo] STRANDED — a ring-buffer entry is pending but could not be reverted:',
+          stranded.reason);
+        span.end();
+        return { status: 'stranded', reason: stranded.reason, stores: stranded.stores };
+      }
+      span.setAttribute('pryzm.undo.path', 'none');
+      console.log('[Undo] nothing to undo (ring buffer + commandManager empty)');
       span.end();
+      return { status: 'nothing-to-undo' };
     } catch (err) {
       span.recordException(err as Error);
       span.setStatus({ code: SpanStatusCode.ERROR });
       span.end();
+      // U-4: a swallowed failure MUST be reported to the caller, never logged as
+      // success. It used to be swallowed into `void`.
+      return { status: 'error', reason: err instanceof Error ? err.message : String(err) };
     }
   });
 }
@@ -449,21 +531,38 @@ export function performUndo(): void {
  * THE redo entry point — mirror of {@link performUndo}. Prefers the stack the
  * last undo came from (`_lastSource`) so "undo N then redo N" round-trips on the
  * same stack; otherwise ring-buffer-first then commandManager.
+ *
+ * Returns a {@link RedoOutcome} — the mirror of {@link performUndo}'s U-4 result.
  */
-export function performRedo(): void {
-  _tracer.startActiveSpan('pryzm.redo', (span) => {
+export function performRedo(): RedoOutcome {
+  return _tracer.startActiveSpan('pryzm.redo', (span): RedoOutcome => {
     try {
       const rb = _rb();
       const cm = _cm();
+      let done: RedoOutcome | null = null;
+      // Same distinction as performUndo: a pending redo entry that could not be
+      // applied is `stranded`, not `nothing-to-redo`.
+      let stranded: { reason: string; stores: readonly string[] } | null = null;
 
       const tryRingBuffer = (): boolean => {
         if (!rb?.canRedo?.()) return false;
         const pair = rb.peek?.() ?? null;
         const stores = pair?.affectedStores ?? [];
         const map = buildUndoStoreMap();
-        if (!_covered(stores, map)) return false;
+        if (!_covered(stores, map)) {
+          stranded = {
+            reason: stores.length === 0
+              ? 'ring-buffer entry declares no affectedStores (C03 §4.6 U-2)'
+              : `no applyPatch adapter for store(s) [${stores.join(',')}] (C03 §4.8)`,
+            stores,
+          };
+          return false;
+        }
         const forwardSide = rb.redoPatch?.();   // step cursor forward + return forward
-        if (!forwardSide) return false;
+        if (!forwardSide) {
+          stranded = { reason: 'ring-buffer entry yielded no forward patch', stores };
+          return false;
+        }
         let outcome: ApplyRingBufferOutcome = { applied: [], failed: [] };
         _withPausedObservers('REDO', () => {
           outcome = applyRingBufferSide(forwardSide, stores, map);
@@ -473,9 +572,11 @@ export function performRedo(): void {
         if (outcome.applied.length > 0) {
           _lastSource = 'ring-buffer';
           console.log('[Redo] ring-buffer applied — stores:', stores.join(','));
+          done = { status: 'redone', path: 'ring-buffer', stores };
           return true;
         }
         console.warn('[Redo] ring-buffer apply failed (stores:', outcome.failed.join(','), ') — applied nothing');
+        stranded = { reason: 'ring-buffer apply failed for every affected store', stores };
         return false;
       };
 
@@ -492,6 +593,7 @@ export function performRedo(): void {
         _lastSource = 'commandManager';
         span.setAttribute('pryzm.redo.path', 'commandManager');
         console.log('[Redo] commandManager redo');
+        done = { status: 'redone', path: 'commandManager', stores: [] };
         return true;
       };
 
@@ -508,15 +610,31 @@ export function performRedo(): void {
       const order = cmFirst
         ? [tryCommandManager, tryRingBuffer]
         : [tryRingBuffer, tryCommandManager];
-      if (!order[0]!() && !order[1]!()) {
-        span.setAttribute('pryzm.redo.path', 'none');
-        console.log('[Redo] nothing to redo (ring buffer + commandManager empty)');
+      if (order[0]!() || order[1]!()) {
+        span.end();
+        return done ?? { status: 'redone', path: 'ring-buffer', stores: [] };
       }
+      if (stranded) {
+        span.setAttribute('pryzm.redo.path', 'stranded');
+        span.setAttribute('pryzm.redo.stranded_reason', (stranded as { reason: string }).reason);
+        console.warn('[Redo] STRANDED — a ring-buffer entry is pending but could not be re-applied:',
+          (stranded as { reason: string }).reason);
+        span.end();
+        return {
+          status: 'stranded',
+          reason: (stranded as { reason: string }).reason,
+          stores: (stranded as { stores: readonly string[] }).stores,
+        };
+      }
+      span.setAttribute('pryzm.redo.path', 'none');
+      console.log('[Redo] nothing to redo (ring buffer + commandManager empty)');
       span.end();
+      return { status: 'nothing-to-redo' };
     } catch (err) {
       span.recordException(err as Error);
       span.setStatus({ code: SpanStatusCode.ERROR });
       span.end();
+      return { status: 'error', reason: err instanceof Error ? err.message : String(err) };
     }
   });
 }

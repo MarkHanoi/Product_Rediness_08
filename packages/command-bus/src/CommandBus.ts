@@ -33,6 +33,9 @@ import type {
 } from './types.js';
 import { PatchEmitter } from './PatchEmitter.js';
 import { UndoStack } from './UndoStack.js';
+// §UNDO-GESTURE-ID (C03 §4.6 U-10) — one dispatch = one gesture unless a caller
+// declares a wider one. See gestureScope.ts for the full rationale.
+import { currentGestureId, newGestureId, withGestureId } from './gestureScope.js';
 
 export class CommandBusError extends Error {
   constructor(message: string) {
@@ -308,11 +311,29 @@ export class CommandBus {
    *      the cursor, and causes cascading mis-pops on subsequent Ctrl+Z. The
    *      empty-patch case is auto-detected and skipped regardless of `opts`.
    */
-  async executeCommand<T>(type: string, payload: T, opts?: { readonly suppressUndo?: boolean }): Promise<EventRecord<T>> {
+  async executeCommand<T>(
+    type: string,
+    payload: T,
+    opts?: { readonly suppressUndo?: boolean; readonly gestureId?: string },
+  ): Promise<EventRecord<T>> {
     const handler = this.handlers.get(type) as CommandHandler<T, AnyStores> | undefined;
     if (!handler) {
       throw new CommandBusError(`no handler registered for: ${type}`);
     }
+
+    // §UNDO-GESTURE-ID (C03 §4.6 U-10) — resolve the gesture this dispatch belongs
+    // to, SYNCHRONOUSLY, before anything can await. Three cases, in order:
+    //   1. `opts.gestureId` — a caller that owns a multi-call interaction (a tool
+    //      that dual-dispatches, a drag) declares the id explicitly;
+    //   2. an open ambient scope (`withGesture`) — the dispatch is nested inside a
+    //      declared interaction;
+    //   3. otherwise this dispatch IS the interaction, so mint one.
+    // Captured into a local because the ring-buffer push below happens after
+    // `await handler.execute(...)`, in a later microtask where the ambient slot may
+    // legitimately belong to a different dispatch. The ambient is re-established
+    // around the handler call only (see `withGestureId` there), which is where the
+    // 81 `initBusHandlers` bridges synchronously run `commandManager.execute`.
+    const gestureId = opts?.gestureId ?? currentGestureId() ?? newGestureId(type);
 
     // §FIX-COMMAND-NAMESPACE (L-796) — name and shame a deprecated alias ONCE
     // per process. The point of a deprecation is that somebody removes it, and
@@ -348,7 +369,17 @@ export class CommandBus {
         }
 
         // 2. Apply.
-        const result = await handler.execute(ctx as HandlerContext<AnyStores>, payload);
+        //
+        // §UNDO-GESTURE-ID — the handler runs INSIDE this dispatch's gesture scope.
+        // `withGestureId` sets the ambient id for the synchronous entry of
+        // `handler.execute`, which is exactly where the `initBusHandlers` bridges
+        // call `_cmExec(new XCommand(...))`; the legacy entry they create then
+        // carries the same id as the PatchPair pushed below, so `performUndo`
+        // recognises the pair as ONE gesture without consulting a clock. The scope
+        // is restored the moment the call returns (it does not span the await) —
+        // see the SYNCHRONOUS BY CONTRACT note in gestureScope.ts.
+        const result = await withGestureId(gestureId, () =>
+          handler.execute(ctx as HandlerContext<AnyStores>, payload));
 
         // 3. Build the per-store patch envelopes (spec §1.2 PatchSnapshotEntry).
         const capturedAt = ctx.audit.timestamp;
@@ -472,6 +503,11 @@ export class CommandBus {
               // can order this entry against the legacy CommandManager's stack
               // (both are Date.now()-based) and undo in reverse chronological order.
               timestamp: Date.now(),
+              // §UNDO-GESTURE-ID (C03 §4.6 U-10) — WHICH user interaction produced
+              // this entry. `performUndo` compares it against the legacy stack's
+              // top entry (`CommandMetadata.gestureId`) to recognise a
+              // dual-dispatch twin by identity instead of by clock proximity.
+              gestureId,
             });
           } catch (err) {
             console.error('[CommandBus] RingBufferUndoStack push failed for type=' + record.type + ':', err);

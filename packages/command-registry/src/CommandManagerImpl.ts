@@ -16,6 +16,27 @@ export interface CommandMetadata {
     source: CommandSource;
     userId?: string;
     proposalId?: string;
+    /**
+     * §UNDO-GESTURE-ID (C03 §4.6 U-10) — the id of the USER INTERACTION that
+     * produced this command, when the caller knows it.
+     *
+     * PRYZM has two undo stacks and one action can land in both (dual dispatch).
+     * `performUndo` must tell that TWIN — undo it once, via the ring buffer + the
+     * U-8 shadow-drop — from two separate actions, which undo newest-first. It
+     * used to infer that from `|Δtimestamp| ≤ 250 ms`, i.e. from how fast the user
+     * clicked. This carries the answer instead of guessing it.
+     *
+     * Minted by `@pryzm/command-bus`'s gesture scope. Two suppliers today:
+     *   • `initBusHandlers._cmExec` stamps `currentGestureId()` — the id of the bus
+     *     dispatch on whose stack the bridge is running (81 bridge handlers);
+     *   • a tool that dual-dispatches wraps both calls in `withGesture` and passes
+     *     the id here (`WallTool.createWall`).
+     *
+     * ABSENT means "unknown", never "same as the previous one": an entry with no
+     * id is never classified as a twin, so it falls to chronological ordering.
+     * Read back with {@link CommandManager.peekUndoGestureId}.
+     */
+    gestureId?: string;
 }
 
 // ------------------------------------------------------------------
@@ -623,6 +644,22 @@ export class CommandManager {
         const top = this.history[this.history.length - 1];
         const t = top?.command?.targetIds;
         return Array.isArray(t) ? t : [];
+    }
+
+    /**
+     * §UNDO-GESTURE-ID (C03 §4.6 U-10) — the gesture id of the entry the next
+     * `undo()` would revert, or `null` when the history is empty OR the entry was
+     * executed without a declared gesture.
+     *
+     * The two nulls are deliberately the same answer HERE because they mean the
+     * same thing to the only caller: `performUndo` cannot prove this entry is the
+     * ring buffer's twin, so it must not treat it as one. What it must never do is
+     * treat "unknown" as "yes" — which is exactly what the 250 ms window did.
+     */
+    peekUndoGestureId(): string | null {
+        const top = this.history[this.history.length - 1];
+        const g = top?.metadata?.gestureId;
+        return typeof g === 'string' && g.length > 0 ? g : null;
     }
 
     /** Epoch-ms of the entry the next `redo()` would re-apply, or null when empty. */

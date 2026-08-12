@@ -63,6 +63,25 @@ export interface PatchPair {
    * behaviour is preserved).
    */
   readonly timestamp?: number;
+  /**
+   * §UNDO-GESTURE-ID (C03 §4.6 U-10) — the id of the USER INTERACTION that
+   * produced this entry, stamped by `CommandBus.executeCommand` at push time
+   * (`@pryzm/command-bus` → `gestureScope.ts`).
+   *
+   * `timestamp` answers "when"; this answers "which action". `performUndo` needs
+   * the second question to tell a DUAL-DISPATCH TWIN (one gesture recorded on
+   * both this stack and the legacy CommandManager history — undo it once, via
+   * U-8) from two separate user actions (undo the newest first, U-10). It used to
+   * infer that from `|Δtimestamp| ≤ 250 ms`, which made the answer depend on how
+   * fast the user clicked.
+   *
+   * Optional, and ABSENCE IS NOT MEMBERSHIP: an entry with no `gestureId` is
+   * never classified as another entry's twin — it falls to the chronological
+   * rule. Pre-existing fixtures and any dispatch made outside a gesture scope
+   * therefore behave conservatively rather than silently joining the previous
+   * gesture.
+   */
+  readonly gestureId?: string;
 }
 
 export interface RingBufferUndoStackOptions {

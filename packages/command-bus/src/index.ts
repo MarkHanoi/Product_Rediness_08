@@ -37,6 +37,16 @@ export type {
 } from './types.js';
 
 export { CommandBus, CommandBusError } from './CommandBus.js';
+// §UNDO-GESTURE-ID (C03 §4.6 U-10) — the identity `performUndo` groups on, so a
+// dual-dispatch twin is recognised by WHAT PRODUCED IT rather than by how many
+// milliseconds apart the two stacks were stamped. See ./gestureScope.ts.
+export {
+  newGestureId,
+  currentGestureId,
+  withGesture,
+  withGestureId,
+  __resetGestureScopeForTests,
+} from './gestureScope.js';
 export { produceCommand, produceWithPatchesPerStore, produceMultiStoreCommand } from './produceCommand.js';
 export { PatchEmitter } from './PatchEmitter.js';
 export type { EmitterListener } from './PatchEmitter.js';

@@ -19,20 +19,22 @@
 //                  affectedStores: [], calls `window.commandManager.execute(...)`.
 //                                                   → commandManager ONLY.
 //
-// `performUndo` reconciles the two stacks with `_SAME_GESTURE_WINDOW_MS = 250`
-// (performUndoRedo.ts:166): when the legacy stack's top entry is NEWER than the
-// ring buffer's top entry, it is undone first — UNLESS its `targetIds` are a
-// subset of the ring entry's ids AND the two commit stamps are within 250 ms, in
-// which case it is classified as a dual-dispatch TWIN and ring-buffer-first runs.
+// `performUndo` USED TO reconcile the two stacks with `_SAME_GESTURE_WINDOW_MS =
+// 250`: when the legacy stack's top entry was NEWER than the ring buffer's top
+// entry it was undone first — UNLESS its `targetIds` were a subset of the ring
+// entry's ids AND the two commit stamps were within 250 ms, in which case it was
+// classified as a dual-dispatch TWIN and ring-buffer-first ran.
 //
-// That predicate has no notion of CAUSALITY. It reads a wall clock. So two
+// That predicate had no notion of CAUSALITY. It read a wall clock. So two
 // sequences with IDENTICAL causal structure — same wall, same three verbs, same
-// order — undo in DIFFERENT orders depending only on how fast the user (or the
+// order — undid in DIFFERENT orders depending only on how fast the user (or the
 // chat batch, or the machine between GC pauses) was.
 //
-// `TIMING-DEPENDENCE` below is the artefact: same story, gaps 400 ms vs 80 ms,
-// opposite outcome, and the fast one silently reverts the WRONG mutation and
-// discards two later writes.
+// The constant is DELETED (2026-08-12, §UNDO-GESTURE-ID). The twin predicate now
+// compares a `gestureId` carried by both stacks, and there is no time fallback.
+// The cases below are kept exactly as written, as the regressions that would
+// catch anyone putting a clock back into that decision: same story, gaps 400 ms
+// vs 80 ms vs 124/126 ms, and now the SAME outcome every time.
 //
 // The ring buffer is the REAL `RingBufferUndoStack` (@pryzm/runtime-undo-stack).
 // The commandManager is a stub that mirrors `CommandManagerImpl` exactly where it
@@ -45,23 +47,28 @@
 // store (C03 §4.4 "Legacy store" row) — never `success === true`, never a stack
 // depth.
 //
-// STATUS — THIS FILE IS RED ON PURPOSE (3 of 5). Do NOT weaken an assertion to
-// green it; each one names a defect that is still live on `main`:
-//   × TIMING-DEPENDENCE — `_isSameGestureTwin` misroutes a causally-distinct
-//     later edit as a dual-dispatch twin.
-//   × BOUNDARY         — the same, shown as a 2 ms wall-clock cliff.
-//   × U-4 / doctrine-3 — `performUndo()` returns `void`, so "nothing to undo",
-//     "I reverted something" and "a pending entry was stranded" are the SAME
-//     value to every caller (the HUD, initUI, BimService).
-// Because it is red, this file must NOT be added to a CI-gated suite until the
-// fix lands. It is a probe, delivered uncommitted, per W5-4 step 1.
+// STATUS — WAS RED ON PURPOSE (3 of 5); CLOSED 2026-08-12 by §UNDO-GESTURE-ID.
+// All three `it.fails` markers are GONE and the assertions they carried are now
+// plain, permanently-green regressions:
+//   ✓ TIMING-(IN)DEPENDENCE — `_isSameGestureTwin` no longer classifies by clock,
+//     so a causally-distinct later edit is never read as a dual-dispatch twin.
+//   ✓ BOUNDARY             — the 250 ms constant is deleted; there is no cliff to
+//     sit either side of. The test stays as the guard against reintroducing one.
+//   ✓ U-4 / doctrine-3     — `performUndo()` returns a discriminated `UndoOutcome`,
+//     so "nothing to undo" and "an entry was stranded" are different values to
+//     every caller (the HUD, initUI, BimService).
 //
-// NOTE ON THE PROPOSED FIX. A monotonic SEQUENCE NUMBER replacing `timestamp`
-// would NOT green these tests. The chronological comparison here is already
-// correct — the rake IS the newest entry and `_cmEntryIsNewer` sees that. The
-// misroute happens entirely inside the TWIN predicate, and "these two entries
-// came from ONE dispatch" is a relation a strictly-increasing counter cannot
-// express. Only a GESTURE ID shared by both halves of a dual dispatch can.
+// THE FIX, AND WHY IT HAD TO BE AN IDENTITY. A monotonic SEQUENCE NUMBER
+// replacing `timestamp` would NOT have greened these tests: the chronological
+// comparison was already correct — the rake IS the newest entry and
+// `_cmEntryIsNewer` saw that. The misroute lived entirely inside the TWIN
+// predicate, and "these two entries came from ONE user interaction" is a relation
+// no strictly-increasing counter can express. Only a GESTURE ID shared by both
+// halves of a dual dispatch can, so that is what both stacks now carry
+// (`PatchPair.gestureId` / `CommandMetadata.gestureId`, minted by
+// `@pryzm/command-bus`'s gesture scope). The fixtures below stamp NO gesture id,
+// which is the point: an unlabelled entry must never be adopted into the previous
+// gesture — see the TWIN-POSITIVE case at the bottom for the other direction.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RingBufferUndoStack } from '@pryzm/runtime-undo-stack';
@@ -108,6 +115,10 @@ interface CmEntry {
   label: string;
   timestamp: number;
   targetIds: string[];
+  /** §UNDO-GESTURE-ID — `CommandMetadata.gestureId`, absent unless the caller
+   *  declared the interaction (the three-verb replay below deliberately does not:
+   *  those are three separate user actions). */
+  gestureId?: string;
   undo(): void;
 }
 
@@ -119,12 +130,12 @@ function makeCommandManager(store: WallStore) {
     undone,
     /** Mirrors `commandManager.execute(new UpdateXCommand(...))`: apply now,
      *  push a snapshot-inverse entry stamped at construction time. */
-    exec(label: string, timestamp: number, targetIds: string[], patch: Partial<WallRecord>): void {
+    exec(label: string, timestamp: number, targetIds: string[], patch: Partial<WallRecord>, gestureId?: string): void {
       const before = { ...store.getById(targetIds[0]!)! };
       store.update(targetIds[0]!, patch);
       const keys = Object.keys(patch) as (keyof WallRecord)[];
       history.push({
-        label, timestamp, targetIds,
+        label, timestamp, targetIds, gestureId,
         undo(): void {
           const revert: Partial<WallRecord> = {};
           for (const k of keys) (revert as Record<string, unknown>)[k as string] = before[k];
@@ -144,6 +155,9 @@ function makeCommandManager(store: WallStore) {
     redo: vi.fn(() => null),
     peekUndoTimestamp: () => history[history.length - 1]?.timestamp ?? null,
     peekUndoTargetIds: () => history[history.length - 1]?.targetIds ?? [],
+    /** §UNDO-GESTURE-ID — mirrors `CommandManagerImpl.peekUndoGestureId()`:
+     *  the top entry's `metadata.gestureId`, or null when it has none. */
+    peekUndoGestureId: () => history[history.length - 1]?.gestureId ?? null,
     peekRedoTimestamp: () => null,
     /** §UNDO-SHADOW-DROP-SCOPE — subset match AND every target orphaned. */
     dropEntriesForTargets: vi.fn((ids: readonly string[]) => {
@@ -254,14 +268,12 @@ describe('W5-4 — three stacks for one wall: ordering is decided by a stopwatch
   // a second mutation clobbered, and the user's colour entry still sitting in
   // `history` claiming to be pending.
   // ───────────────────────────────────────────────────────────────────────────
-  // ⚠ `it.fails` — DELIBERATE. This asserts the CORRECT behaviour and records that
-  // PRYZM does not have it yet. Vitest inverts the verdict: green while the defect
-  // is present, RED THE DAY SOMEBODY FIXES IT. Same idiom as QueryEngineDrain.spec
-  // — a falsifiable inventory that fails when you fix something, so the entry
-  // cannot be silently outlived. Do NOT "repair" it by relaxing the assertion; the
-  // fix is §UNDO-GESTURE-ID (stamp a gesture id at dispatch, S2–S3 in W5-4). When
-  // that lands, DELETE the `.fails` — do not delete the test.
-  it.fails('TIMING-DEPENDENCE — the SAME sequence 80 ms apart undoes the WRONG mutation first', () => {
+  // ✅ `it.fails` REMOVED 2026-08-12 — §UNDO-GESTURE-ID landed. The twin predicate
+  // no longer reads a clock: `_isSameGestureTwin` requires the two entries to carry
+  // the SAME `gestureId`, and the fixtures below stamp none, so the rake is what it
+  // causally is — a separate later action — and chronological ordering undoes it
+  // first, at ANY gap. This is now a plain assertion of the correct behaviour.
+  it('TIMING-INDEPENDENCE — the SAME sequence 80 ms apart undoes the NEWEST mutation, like the 400 ms one', () => {
     const { store } = playThreeMutations(80);
     expect(wall(store)).toMatchObject({ height: 4.2, materialColor: '#6600ff', rakeAngleDeg: 62 });
 
@@ -281,8 +293,12 @@ describe('W5-4 — three stacks for one wall: ordering is decided by a stopwatch
   // The separator the guard actually measures is |t_rake − t_height| = 2 × gap, so
   // the flip sits at gap = 125 ms. Two runs whose inter-gesture gap differs by
   // 2 ms — nothing else — leave the model in different states.
-  // ⚠ `it.fails` — see the note above. Drop `.fails` when §UNDO-GESTURE-ID lands.
-  it.fails('BOUNDARY — a 2 ms difference in inter-gesture gap flips which mutation is reversed', () => {
+  // ✅ `it.fails` REMOVED 2026-08-12 — §UNDO-GESTURE-ID landed. There is no longer a
+  // boundary to sit either side of: the constant is deleted, so 124 ms and 126 ms
+  // are the same case. The test is kept (not deleted) as the regression that would
+  // catch anyone reintroducing a clock into the twin predicate — it compares two
+  // runs whose ONLY difference is the gap and requires identical outcomes.
+  it('BOUNDARY — a 2 ms difference in inter-gesture gap changes nothing', () => {
     const slow = playThreeMutations(126);            // 2 × 126 = 252 ms > 250 → not a twin
     performUndo();
     const slowState = { ...wall(slow.store) };
@@ -302,6 +318,47 @@ describe('W5-4 — three stacks for one wall: ordering is decided by a stopwatch
     expect(slowState.height, 'PROBE GUARD — the 252 ms run must leave the height alone').toBe(4.2);
 
     expect(fastState, 'undo order must not depend on how fast the user clicked').toEqual(slowState);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // TWIN-POSITIVE — the other direction, which the deleted 250 ms window used to
+  // carry and which an identity must therefore carry too. ONE dual dispatch (a 3D
+  // tool: `bus.executeCommand('wall.create')` + `commandManager.execute(
+  // CreateWallCommand)`) lands in BOTH stacks. It must be undone ONCE, via the
+  // ring buffer + the U-8 shadow-drop — never re-routed to the legacy half first,
+  // which would leave the ring entry behind as a phantom keypress.
+  //
+  // Here the legacy entry is stamped NEWER than the ring entry (the interleaving
+  // that actually consults the twin predicate), so only the shared `gestureId`
+  // keeps it on the ring-buffer path. Same fixture without the id ⇒ not a twin.
+  // ───────────────────────────────────────────────────────────────────────────
+  it('TWIN-POSITIVE — a shared gestureId keeps a genuine dual dispatch on the ring-buffer + shadow-drop path', () => {
+    const store = makeWallStore();
+    store.add({
+      id: WALL_ID, type: 'wall', levelId: 'L0',
+      height: 3, thickness: 0.2, materialColor: '#ffffff',
+    });
+    const cm = makeCommandManager(store);
+    const rb = new RingBufferUndoStack();
+    const GESTURE = 'g_wall.create_7_ab12cd';
+
+    // The bus half: a whole-record create pair, stamped with the gesture id.
+    rb.push({
+      forward: { ops: [{ op: 'replace', path: `/${WALL_ID}`, value: structuredClone(store.getById(WALL_ID)!) }] },
+      inverse: { ops: [{ op: 'remove', path: `/${WALL_ID}` }] },
+      affectedStores: ['wall'],
+      timestamp: 1_000_000,
+      gestureId: GESTURE,
+    } as any);
+    // The legacy half of the SAME gesture, stamped 3 ms later (NEWER).
+    cm.exec('create-twin', 1_000_003, [WALL_ID], { height: 3 }, GESTURE);
+
+    install(rb, cm, store);
+    performUndo();
+
+    expect(store.getById(WALL_ID), 'the ring-buffer inverse removed the wall').toBeUndefined();
+    expect(cm.undone, 'the legacy twin must NOT be undone separately').toEqual([]);
+    expect(cm.history.length, 'the twin is shadow-dropped — one gesture, one Ctrl+Z').toBe(0);
   });
 });
 
@@ -341,11 +398,11 @@ describe('W5-4 — door/window omission: what it actually costs', () => {
     expect(cm.undo).not.toHaveBeenCalled();
   });
 
-  // ⚠ `it.fails` — see the note above. `performUndo()` returns void, so "nothing to
-  // undo", "I reverted something" and "a pending entry was stranded" are the SAME
-  // VALUE to every caller (HUD, initUI, BimService). Drop `.fails` when performUndo
-  // returns a discriminated result per C03 §4.6 U-4.
-  it.fails('U-4 / doctrine-3 — performUndo cannot tell its caller "nothing to undo" from "I undid something"', () => {
+  // ✅ `it.fails` REMOVED 2026-08-12 — `performUndo()` now returns a discriminated
+  // `UndoOutcome` (C03 §4.6 U-4): `{status:'nothing-to-undo'}` vs
+  // `{status:'stranded', reason, stores}`. Emptiness and refusal are different
+  // values again, and the reason names WHICH store had no adapter.
+  it('U-4 / doctrine-3 — performUndo tells its caller "nothing to undo" from "an entry was stranded"', () => {
     const store = makeWallStore();
     const cm = makeCommandManager(store);
     const rb = new RingBufferUndoStack();

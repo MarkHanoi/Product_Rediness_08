@@ -166,7 +166,7 @@ import { projectOriginStore } from '@pryzm/stores';
 // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — build the ring-buffer PatchPair path
 // for the furniture type-swap so the unified ring-first undo (performUndoRedo)
 // reverses the SWAP rather than popping the element's earlier CREATE. C03 §4.5–4.8.
-import { toJsonPointer } from '@pryzm/command-bus';
+import { toJsonPointer, currentGestureId } from '@pryzm/command-bus';
 // §FIX-STAIR-RAILING-TYPE-PICKER — the ONE named railing catalogue (five built-ins),
 // and the ONE projection from a catalogue definition onto a stair railing's
 // construction fields. Both families now read the same catalogue.
@@ -363,10 +363,25 @@ export function initBusHandlers(
     // and sheet.moveViewport) MUST pass `{ source: 'HUMAN_DIRECT' }` (or a
     // cmd-derived source) explicitly as the second arg.  Do not mix the two
     // forms arbitrarily — if you are uncertain, omit the second arg.
+    //
+    // §UNDO-GESTURE-ID (C03 §4.6 U-10) — THE stamping point for shape A.
+    // A bridge `fn` runs on the synchronous stack of `CommandBus.executeCommand`
+    // (the registration wrapper at the bottom of this file is a NON-async function
+    // and nothing awaits before `spec.fn(cmd)`), so `currentGestureId()` here IS
+    // the id of the dispatch that will push the matching PatchPair. Stamping it on
+    // the legacy metadata gives `performUndo` a shared identity for the two halves
+    // of one dual dispatch, replacing the 250 ms wall-clock guess it used to make.
+    // The caller's own `meta` still wins for every field it sets — only `gestureId`
+    // is filled in, and only when it is not already present.
     function _cmExec(cmd: unknown, meta?: unknown): void {
         const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
         if (cm) {
-            cm.execute(cmd, meta);
+            const gestureId = currentGestureId();
+            const base = (meta ?? { source: 'HUMAN_DIRECT' }) as Record<string, unknown>;
+            const options = gestureId !== null && base.gestureId === undefined
+                ? { ...base, gestureId }
+                : base;
+            cm.execute(cmd, options);
             return;
         }
         console.error(

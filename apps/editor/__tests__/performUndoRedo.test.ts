@@ -14,7 +14,11 @@ import { performUndo, performRedo, buildUndoStoreMap } from '../src/engine/undo/
 import { __resetUndoRestoreSnapshots } from '../src/engine/undo/elementUndoStoreAdapter.js';
 
 interface Op { op: 'add' | 'remove' | 'replace'; path: string; value?: unknown }
-interface Pair { forward: { ops: Op[] }; inverse: { ops: Op[] }; affectedStores: string[]; timestamp?: number }
+interface Pair {
+  forward: { ops: Op[] }; inverse: { ops: Op[] }; affectedStores: string[]; timestamp?: number;
+  /** §UNDO-GESTURE-ID (C03 §4.6 U-10) — the interaction that produced the entry. */
+  gestureId?: string;
+}
 
 /** Minimal live legacy store (Map-based, mesh-driving in prod). */
 function makeStore() {
@@ -41,8 +45,10 @@ function makeRingBuffer(pair: Pair | null) {
   };
 }
 
-function makeCommandManager(targetIds: string[][], timestamps?: number[]) {
-  const entries = targetIds.map((ids, i) => ({ targetIds: ids, timestamp: timestamps?.[i] }));
+function makeCommandManager(targetIds: string[][], timestamps?: number[], gestureIds?: (string | undefined)[]) {
+  const entries = targetIds.map((ids, i) => ({
+    targetIds: ids, timestamp: timestamps?.[i], gestureId: gestureIds?.[i],
+  }));
   return {
     entries,
     undo: vi.fn(),
@@ -58,6 +64,10 @@ function makeCommandManager(targetIds: string[][], timestamps?: number[]) {
     // and the guard was never exercised (it is the guard, not the ordering, that
     // carried the L-69x defects).
     peekUndoTargetIds: () => entries[entries.length - 1]?.targetIds ?? [],
+    // §UNDO-GESTURE-ID (C03 §4.6 U-10) — mirrors
+    // `CommandManagerImpl.peekUndoGestureId()`. This is now THE twin predicate's
+    // second condition; the 250 ms wall-clock window it replaced is deleted.
+    peekUndoGestureId: () => entries[entries.length - 1]?.gestureId ?? null,
     peekRedoTimestamp: () => null,
     dropEntriesForTargets: vi.fn((ids: readonly string[]) => {
       const wanted = new Set(ids);
@@ -72,12 +82,13 @@ function makeCommandManager(targetIds: string[][], timestamps?: number[]) {
 }
 
 const WALL_ID = 'wall_01KSDNXWM0510W2JHHHNYESK10';
-function wallPair(timestamp?: number): Pair {
+function wallPair(timestamp?: number, gestureId?: string): Pair {
   return {
     forward: { ops: [{ op: 'add', path: '/' + WALL_ID, value: { id: WALL_ID, type: 'wall', levelId: 'L0' } }] },
     inverse: { ops: [{ op: 'remove', path: '/' + WALL_ID }] },
     affectedStores: ['wall'],
     ...(timestamp === undefined ? {} : { timestamp }),
+    ...(gestureId === undefined ? {} : { gestureId }),
   };
 }
 
@@ -280,13 +291,22 @@ describe('performUndoRedo — unified undo routing (OI-054)', () => {
     expect(rb.canUndo()).toBe(true);
   });
 
-  it('a genuine dual-dispatch twin (same gesture, same tick) still takes the ring-buffer + shadow-drop path', () => {
+  // ── §UNDO-GESTURE-ID (C03 §4.6 U-10) — the twin predicate is an IDENTITY ─────
+  //
+  // The two tests below are the same fixture with ONE difference: whether both
+  // stacks carry the same `gestureId`. That is now the whole twin question. The
+  // 250 ms wall-clock window that used to answer it is deleted — it measured the
+  // machine, not the user (see undoGestureOrdering.test.ts for what it cost).
+
+  it('a genuine dual-dispatch twin (SAME gestureId) still takes the ring-buffer + shadow-drop path', () => {
     const store = makeStore();
     store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
-    // 3D WallTool: bus push then `new CreateWallCommand(...)` a few ms later in
-    // the SAME synchronous gesture — targetIds are covered by the patch's ids.
-    const cm = makeCommandManager([[WALL_ID]], [1_003]);
-    const rb = makeRingBuffer(wallPair(1_000));
+    // 3D tool: bus dispatch + `new CreateWallCommand(...)` in ONE interaction, so
+    // both entries carry that interaction's id. The legacy half is stamped NEWER,
+    // which is the interleaving that actually consults the predicate.
+    const G = 'g_wall.create_4_9fz1qk';
+    const cm = makeCommandManager([[WALL_ID]], [1_003], [G]);
+    const rb = makeRingBuffer(wallPair(1_000, G));
     install(rb, cm, store);
 
     performUndo();
@@ -295,6 +315,39 @@ describe('performUndoRedo — unified undo routing (OI-054)', () => {
     expect(cm.undo).not.toHaveBeenCalled();              // no phantom legacy undo
     expect(cm.dropEntriesForTargets).toHaveBeenCalledWith([WALL_ID]);
     expect(cm.entries.length).toBe(0);
+  });
+
+  it('ABSENCE IS NOT MEMBERSHIP: same ids, same tick, NO gestureId ⇒ not a twin (chronological order wins)', () => {
+    const store = makeStore();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
+    // Identical timing to the case above — 3 ms apart, ids a subset. Under the old
+    // 250 ms window this was silently adopted as a twin, which is exactly how a
+    // later property edit got the wall DELETED (L-690 shape 1). With no declared
+    // gesture on either side the relation is UNKNOWN, and unknown must not mean
+    // yes: the newest entry is undone, and the wall survives.
+    const cm = makeCommandManager([[WALL_ID]], [1_003]);
+    const rb = makeRingBuffer(wallPair(1_000));
+    install(rb, cm, store);
+
+    performUndo();
+
+    expect(cm.undo).toHaveBeenCalledTimes(1);
+    expect(store.map.has(WALL_ID)).toBe(true);
+    expect(rb.canUndo()).toBe(true);
+    expect(cm.dropEntriesForTargets).not.toHaveBeenCalled();
+  });
+
+  it('DIFFERENT gestureIds ⇒ not a twin, even with identical ids and stamps', () => {
+    const store = makeStore();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
+    const cm = makeCommandManager([[WALL_ID]], [1_003], ['g_second_5_aa11bb']);
+    const rb = makeRingBuffer(wallPair(1_000, 'g_first_4_9fz1qk'));
+    install(rb, cm, store);
+
+    performUndo();
+
+    expect(cm.undo).toHaveBeenCalledTimes(1);            // the later gesture is reversed
+    expect(store.map.has(WALL_ID)).toBe(true);
   });
 
   it('REGRESSION (L-690): a TYPE-SWAP on a ring-buffer-created element reverses the swap, not the create', () => {

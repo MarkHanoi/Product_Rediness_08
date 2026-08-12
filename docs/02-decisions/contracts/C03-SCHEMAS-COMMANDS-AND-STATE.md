@@ -323,9 +323,18 @@ shadow-dropped legacy command used to do.
   `performUndo`/`performRedo` MUST order across them chronologically — undo reverts the NEWEST
   pending entry, redo replays the OLDEST. A commandManager-ONLY tool path (3D door, window,
   lighting, column, floor, ceiling, curtain-wall, lift, slab-opening, level) otherwise gets jumped
-  over by an older ring-buffer entry beneath it. The rule applies ONLY when the two top entries
-  concern DIFFERENT elements: an id overlap means a dual-dispatch twin — the same gesture in both
-  stacks — which MUST stay on the ring-buffer-first + U-8 path or it becomes a phantom keypress.
+  over by an older ring-buffer entry beneath it.
+  > ⚠ **AMENDED 2026-08-12 (§UNDO-GESTURE-ID landed).** This rule's last sentence used to infer a
+  > dual-dispatch twin from an **id overlap** between the two top entries — wall-clock-adjacent
+  > membership wearing an id costume, and the mechanism behind the 250 ms gesture race (three
+  > `it.fails` pins, now all green). The binding rule is now: **a dual-dispatch twin is identified
+  > by a shared `gestureId`** (minted synchronously by `CommandBus.executeCommand`, carried on
+  > `PatchPair.gestureId` and `CommandMetadata.gestureId`) **together with a
+  > `targetIds ⊆ ringIds` subset match. An entry carrying no gesture id is NEVER a twin** —
+  > absence-as-membership is the original bug renamed, and it is the direction that silently
+  > deletes elements. **Wall-clock proximity MUST NOT be used to infer gesture membership.**
+  > `_SAME_GESTURE_WINDOW_MS` is deleted; a reintroduced clock is a regression against the
+  > BOUNDARY pin in `undoGestureOrdering.test.ts`.
 
 ### §4.7 — Status (OI-054) — RESOLVED, with scoped follow-ups
 
