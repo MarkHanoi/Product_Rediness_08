@@ -1,6 +1,8 @@
 # ADR-0321 — Wall↔wall connectivity is `joinedTo`, a new type; `connectedTo` stays room↔room
 
-- **Status**: PROPOSED — awaiting founder ratification (it changes the persisted vocabulary)
+- **Status**: ACCEPTED — ratified by the founder 2026-08-12 ("agree", in answer to the three
+  standing decisions of which this was one). The other two — the sync-server deploy and
+  §UNDO-GESTURE-ID — were **not** taken as decided by that word and remain open.
 - **Date**: 2026-08-12
 - **Evidence**: the CONNECT-3 handoff (commit `8552de14`) · `SemanticGraph.ts:48` ·
   [EV-05](../../04-reference/bim30-evidence/EV-05-relationship-coverage-ledger.md)
