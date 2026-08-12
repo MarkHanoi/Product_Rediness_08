@@ -64,10 +64,21 @@
  *      **RED TODAY — there is no such module.**
  *  E2 *(ratchet, named)* declarations outside the module, pinned at the measured
  *      reading, shrink-only, listed by file.
- *  E3 *(hard)*  a new or modified geometric predicate imports the declared
- *      tolerance. **NOT EVALUATED while E1 is red** — there is nothing to
- *      import, and an arm that passes because its subject does not exist is the
- *      exact failure RULE 1 forbids. Printed as NOT EVALUATED every run.
+ *  E3 *(consumption, floor ≥ 1)*  predicates CONSUME the declared tolerance
+ *      (C73 §2.2). Measured as production import sites of the three canonical
+ *      role names (`EPSILON_ZERO`/`COINCIDENT_M`/`PARALLEL_RAD`) from the
+ *      tolerance module — via `@pryzm/geometry-kernel` or a relative
+ *      `tolerance.js` specifier — comment-stripped, tests excluded, re-exports
+ *      (`export … from`) not counted. The reading is printed PER ROLE so a role
+ *      nobody consumes is VISIBLE (stated, not failed — at wiring time exactly
+ *      one family consumed `EPSILON_ZERO` and the other two roles read 0,
+ *      which is honest). The count can only be expected to GROW; the arm's one
+ *      finding is TOTAL CONSUMPTION = 0, because one family consumed the
+ *      module at landing and regression to zero means the policy was
+ *      un-adopted while E1 still reads green. E3 does NOT re-check that the
+ *      module exports the roles — that is E1's job, not duplicated here.
+ *      **Was NOT EVALUATED while E1 was red** — an arm that passes because its
+ *      subject does not exist is the exact failure RULE 1 forbids.
  *  E4 *(hard)*  a declared tolerance's value may only SHRINK or stay. Evaluated
  *      TODAY against the per-declaration values in the baseline — this is the
  *      arm that matters, because widening a tolerance changes what "the same
@@ -94,6 +105,12 @@
  *     `const COINCIDENT_M = 0.001` must appear in E2 and NOT in E5.
  *   • E1: a synthetic geometry-kernel exporting all three roles must read GREEN,
  *     which is the only available proof that E1 is not simply stuck red.
+ *   • E3: a planted `import { EPSILON_ZERO } from '../tolerance.js'` and a
+ *     planted `import { COINCIDENT_M } from '@pryzm/geometry-kernel'` must BOTH
+ *     be counted, each under its own role; a role-name mention in a comment, a
+ *     non-role import from the kernel, and a re-export line must NOT count; and
+ *     a tree with no consumer at all must read TOTAL = 0 — the zero reading
+ *     must be reachable, or the floor is decoration.
  * If any control fails to fire the gate exits 2 as a BLIND COMPARATOR.
  *
  * ─── Honesty floors (exit 2, NEVER absorbable) ───────────────────────────────
@@ -246,6 +263,77 @@ function checkE1(root: string, kernelDir: string): E1Result {
   return { ok: missing.length === 0, missing, found };
 }
 
+// ─── E3 — consumption of the declared module (C73 §2.2) ──────────────────────
+
+/**
+ * The three canonical exports of `packages/geometry-kernel/src/tolerance.ts`.
+ * E3 tracks the ACTUAL names, not E1's role-pattern alternates: consumption of
+ * a policy means importing what the policy exports, verbatim.
+ */
+const CONSUMED_ROLES: ReadonlyArray<readonly [string, string]> = [
+  ['numeric-zero (dimensionless)', 'EPSILON_ZERO'],
+  ['model-space coincidence (metres)', 'COINCIDENT_M'],
+  ['parallelism / collinearity (rad)', 'PARALLEL_RAD'],
+];
+
+/**
+ * A specifier that resolves to the tolerance module: the kernel package root
+ * (which re-exports all three roles) or a relative `…/tolerance(.js|.ts)` path
+ * (how the kernel's own predicates consume it — `pure/polygonOffset.ts` is the
+ * first consumer).
+ */
+const TOLERANCE_SPECIFIER = /(?:^|\/)tolerance(?:\.(?:js|ts))?$|^@pryzm\/geometry-kernel(?:\/(?:src\/)?(?:index|tolerance)(?:\.(?:js|ts))?)?$/;
+
+/**
+ * An import statement with a named-import clause. Applied to the file's
+ * comment-stripped lines JOINED back together, so a clause spanning lines is
+ * still seen ("[^}]*" crosses newlines). `export … from` re-exports do NOT
+ * match — republishing a name is not consuming it.
+ */
+const IMPORT_CLAUSE = /(^|\n)[ \t]*import\s+(?:type\s+)?(?:[\w$]+\s*,\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+
+interface ConsumptionSite {
+  readonly file: string;
+  readonly line: number;
+  /** Which of the three role names this import clause names. Non-empty. */
+  readonly roles: string[];
+  readonly isTest: boolean;
+}
+
+function measureConsumption(root: string, dirs: readonly string[]): ConsumptionSite[] {
+  const sites: ConsumptionSite[] = [];
+  for (const dir of dirs) {
+    for (const abs of walk(join(root, dir))) {
+      const rel = relPath(root, abs);
+      let src: string; try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+      const stripped = stripCommentsToLines(src).join('\n');
+      IMPORT_CLAUSE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = IMPORT_CLAUSE.exec(stripped)) !== null) {
+        if (!TOLERANCE_SPECIFIER.test(m[3]!)) continue;
+        const clause = m[2]!;
+        const roles = CONSUMED_ROLES
+          .map(([, name]) => name)
+          .filter((name) => new RegExp(`\\b${name}\\b`).test(clause));
+        if (roles.length === 0) continue;
+        const line = stripped.slice(0, m.index + m[1]!.length).split('\n').length;
+        sites.push({ file: rel, line, roles, isTest: isTestPath(rel) });
+      }
+    }
+  }
+  return sites.sort((x, y) => x.file.localeCompare(y.file) || x.line - y.line);
+}
+
+/** Per-role production site lists, from a consumption reading. */
+function perRole(sites: readonly ConsumptionSite[]): Map<string, ConsumptionSite[]> {
+  const out = new Map<string, ConsumptionSite[]>(CONSUMED_ROLES.map(([, n]) => [n, []]));
+  for (const s of sites) {
+    if (s.isTest) continue;
+    for (const r of s.roles) out.get(r)!.push(s);
+  }
+  return out;
+}
+
 // ─── Analysis ────────────────────────────────────────────────────────────────
 
 interface Analysis {
@@ -329,6 +417,11 @@ function selfTest(): { ok: boolean; lines: string[] } {
     if (unq.includes('COINCIDENT_TOL_M')) fail('E5 flagged `COINCIDENT_TOL_M`, whose name states its unit.');
     lines.push(`    E1 on a kernel with no policy: ${planted.e1.ok ? 'GREEN' : 'RED'} — missing ${planted.e1.missing.length} role(s)`);
     if (planted.e1.ok) fail('E1 passed against a geometry-kernel that declares no tolerance policy.');
+    // E3 zero direction: a tree with NO consumer must read TOTAL = 0 — the zero
+    // reading must be reachable, or the floor below it is decoration.
+    const plantedCons = measureConsumption(join(base, 'planted'), ['packages']);
+    lines.push(`    E3 on a tree with no consumer: ${plantedCons.length} site(s)`);
+    if (plantedCons.length !== 0) fail('E3 counted consumption in a tree that imports the tolerance module nowhere.');
 
     // ── E4: the same declaration, widened by three orders of magnitude ──────
     writeTree(join(base, 'widened'), {
@@ -352,11 +445,32 @@ function selfTest(): { ok: boolean; lines: string[] } {
         'export const PARALLEL_RAD = 1e-4;',
       ].join('\n'),
       'packages/geometry-kernel/src/index.ts': "export * from './tolerance.js';\n",
+      // E3 fixtures — one consumer per import shape, and two look-alikes that
+      // must NOT count:
+      'packages/geometry-kernel/src/pure/predicate.ts':
+        "import { EPSILON_ZERO } from '../tolerance.js';\nexport const isDegenerate = (x: number): boolean => Math.abs(x) < EPSILON_ZERO;\n",
+      'packages/consumer/src/weld.ts':
+        "import { COINCIDENT_M } from '@pryzm/geometry-kernel';\nexport const samePoint = (d: number): boolean => d < COINCIDENT_M;\n",
+      'packages/consumer/src/lookalike.ts': [
+        '// EPSILON_ZERO named in a comment must not count',
+        "import { something } from '@pryzm/geometry-kernel';",   // kernel import, no role
+        "export { PARALLEL_RAD } from '@pryzm/geometry-kernel';", // re-export ≠ consumption
+        'export const s = something;',
+      ].join('\n'),
     });
     const policy = analyse(join(base, 'policy'), ['packages'], 'packages/geometry-kernel');
     lines.push(`positive control (kernel declaring all three roles): E1 ${policy.e1.ok ? 'GREEN ✓' : 'RED ✗'}`);
     if (!policy.e1.ok) fail(`E1 is STUCK RED — it failed a kernel that declares all three roles (missing: ${policy.e1.missing.join('; ')}).`);
     if (policy.production.length !== 0) fail('declarations inside the declared module were counted against E2.');
+    // E3 detect direction: both planted consumers counted, each under its own
+    // role; the comment mention, the non-role kernel import and the re-export
+    // all invisible.
+    const cons = perRole(measureConsumption(join(base, 'policy'), ['packages']));
+    const reading = CONSUMED_ROLES.map(([, n]) => `${n}=${cons.get(n)!.length}`).join(' ');
+    lines.push(`    E3 on two planted consumers (relative + package specifier): ${reading}`);
+    if (cons.get('EPSILON_ZERO')!.length !== 1) fail("E3 did not count `import { EPSILON_ZERO } from '../tolerance.js'` exactly once.");
+    if (cons.get('COINCIDENT_M')!.length !== 1) fail("E3 did not count `import { COINCIDENT_M } from '@pryzm/geometry-kernel'` exactly once.");
+    if (cons.get('PARALLEL_RAD')!.length !== 0) fail('E3 counted a comment mention or a re-export of PARALLEL_RAD as consumption.');
   } catch (e) {
     ok = false; lines.push(`    ✗ self-test threw: ${(e as Error).message}`);
   } finally {
@@ -372,6 +486,10 @@ console.log(`\n[${GATE}] executed controls (gates doc §2.2 — an arm never wat
 for (const l of control.lines) console.log('   ' + l);
 
 const a = analyse(ROOT, DIRS, KERNEL);
+const consumptionSites = measureConsumption(ROOT, DIRS);
+const consumptionByRole = perRole(consumptionSites);
+const consumptionTotal = [...consumptionByRole.values()].reduce((n, s) => n + s.length, 0);
+const consumptionInTests = consumptionSites.filter((s) => s.isTest).length;
 
 const RECIPE =
   'const|let|readonly|static <NAME> = <value>, NAME carrying EPS|EPSILON|TOL|TOLERANCE as a name ' +
@@ -429,13 +547,28 @@ for (const f of a.e1.found) lines.push(`      present role — ${f}`);
 lines.push(`E2  ${measuredDecl.size} declaration(s) outside the module, counted as (file × NAME), from ${a.production.length} site(s) (baseline ${priorDecl.size}) · new since baseline: ${newDecl.length} · struck: ${staleDecl.length}`);
 for (const k of newDecl.slice(0, 40)) lines.push(`      + ${k} = ${a.production.find((d) => keyOf(d) === k)?.value}`);
 if (newDecl.length > 40) lines.push(`      … and ${newDecl.length - 40} more`);
-lines.push(`E3  NOT EVALUATED — E1 is ${a.e1.ok ? 'green, wire E3' : 'RED: there is no declared tolerance to import'}. An arm that passes because its subject does not exist is not coverage.`);
+if (a.e1.ok) {
+  lines.push(`E3  CONSUMPTION of the declared module (C73 §2.2) — ${consumptionTotal} production import site(s) of the three roles (+ ${consumptionInTests} in tests, not counted). Floor ≥ 1: this count only GROWS as families migrate (§3.5, one family per PR); 0 would mean the policy was un-adopted while E1 still reads green, and IS a finding.`);
+  for (const [role, name] of CONSUMED_ROLES) {
+    const sites = consumptionByRole.get(name)!;
+    if (sites.length === 0) {
+      lines.push(`      ${name} (${role}) — 0 consumer(s) yet. Stated, not failed: no family has migrated onto this role.`);
+    } else {
+      lines.push(`      ${name} (${role}) — ${sites.length} consumer(s):`);
+      for (const s of sites.slice(0, 20)) lines.push(`        · ${s.file}:${s.line}`);
+      if (sites.length > 20) lines.push(`        … and ${sites.length - 20} more`);
+    }
+  }
+  if (consumptionTotal === 0) lines.push('      ✗ TOTAL CONSUMPTION = 0 — the module exports the policy and NOBODY imports it. Regression from the ≥1 reading at wiring time.');
+} else {
+  lines.push('E3  NOT EVALUATED — E1 is RED: there is no declared tolerance to import. An arm that passes because its subject does not exist is not coverage.');
+}
 lines.push(`E4  ${widened.length} widening(s) against the baseline's per-declaration values.`);
 for (const w of widened) lines.push(`      ✗ ${w}`);
 lines.push(`E5  ${measuredUnq.size} unit-unqualified name(s), counted as (file × NAME), from ${a.unqualified.length} site(s) (baseline ${priorUnq.size}) · new: ${newUnq.length} · struck: ${staleUnq.length}`);
 for (const k of newUnq.slice(0, 40)) lines.push(`      + ${k}`);
 lines.push('');
-lines.push(`EXIT CONDITION — E1 goes green when ${KERNEL} exports the three named roles; the gate goes green when E2 and E5 reach 0 and the module is the only place a tolerance is declared.`);
+lines.push(`EXIT CONDITION — E1 goes green when ${KERNEL} exports the three named roles; the gate goes green when E2 and E5 reach 0, the module is the only place a tolerance is declared, and E3 shows every predicate family consuming it.`);
 
 const floors: Floor[] = [
   { what: 'source files scanned', measured: a.filesScanned, min: 500 },
@@ -452,7 +585,12 @@ const floors: Floor[] = [
 // counting sites while ledgering keys makes findings and declared disagree by a
 // constant — a gate permanently at exit 3 for arithmetic reasons, which teaches
 // people to ignore it. The measured gap at baseline was 279 sites / 271 keys.
-const findings = (a.e1.ok ? 0 : 1) + measuredDecl.size + measuredUnq.size + widened.length;
+// E3 contributes exactly one possible finding: consumption regressed to zero
+// while E1 is green. It is a floor, not a ratchet — the count grows, and a
+// per-site ledger of ADOPTION would invert the gate's meaning (punishing the
+// removal of a consumer alongside the removal of a violation).
+const e3Regressed = a.e1.ok && consumptionTotal === 0;
+const findings = (a.e1.ok ? 0 : 1) + (e3Regressed ? 1 : 0) + measuredDecl.size + measuredUnq.size + widened.length;
 const declared = prior.e1 + priorDecl.size + priorUnq.size;
 
 const result: GateResult = {
@@ -463,6 +601,7 @@ const result: GateResult = {
   declared,
   findingNames: [
     ...(a.e1.ok ? [] : ['E1::geometry-kernel declares no tolerance policy']),
+    ...(e3Regressed ? ['E3::tolerance-policy consumption regressed to zero while E1 is green'] : []),
     ...[...measuredDecl].map((k) => `E2::${k}`),
     ...[...measuredUnq].map((k) => `E5::${k}`),
     ...widened.map((w) => `E4::${w.split(' — ')[0]}`),
