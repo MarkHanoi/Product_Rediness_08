@@ -332,7 +332,64 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // reachability of the _flush call site (WallRebuildCoordinator.ts:1585 — the exact residual C71
 // §3.7 names), multi-level/multi-client, and non-wall topology (hosts/boundedBy/adjacentTo, which
 // belong to check-graph-write-coverage). Lands GREEN — hard-0, no ratchet/newly-measured entry.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives'];
+// §BIM30-R8 — check-authored-state-protection added 2026-08-12. The plan doc's R8 exit
+// condition is one sentence — "the authored-state-protection scenario (review §6) passes as an
+// executed test" — and that scenario is BIM30-CONTRACT-REVIEW-PART-E §6's finding E-13, which
+// exists precisely because NO artefact in the corpus runs it. R8's own line in the plan doc says
+// it "blocks on roadmap Phase 8 (provenance fields)", and Phase 8 is HALF landed: the five-value
+// L0 vocabulary EXISTS (@pryzm/schemas/provenance, commit 57f2b539) and the gate imports it
+// rather than restating it, but NO ELEMENT CARRIES PROVENANCE — every `origin:` in
+// packages/schemas/src/elements/* is a geometric Vec3, generationId/generatedBy/isGenerated
+// return ZERO first-party hits, and no *.regenerate verb exists anywhere. So four of the
+// scenario's seven verifications have no subject, and the gate PRINTS EACH AS NOT EVALUATED with
+// its reason and the substrate that would close it (the E3 lesson) rather than scoring them or
+// dropping them. What IS executable is rooms: RoomBoundary.detectionMethod (RoomTypes.ts:100) is
+// the only element-grain provenance signal in the repository, and `manual-boundary`/`point-pick`
+// are genuine evidence of human authorship because RoomTool stamps them when a user draws. Five
+// clauses: (a) the authority question answered THREE ways at element grain — authored refused,
+// system-produced allowed, provenance-less `unknown-authority` and NOT silently collapsed into
+// either, with a control proving the function returns three DISTINCT kinds; (b) THE LOAD-BEARING
+// ARM — the live §GRAPH-CLEAR-FIRST pattern executed against a REAL RoomStore through the REAL
+// bus and the REAL plugins/rooms room.delete handler, over a level holding one AUTHORED and one
+// flood-filled room; (c) planRegenerationClear over the SAME set must refuse, NAME the authored
+// element and carry BOTH counts, with a negative control proving it does not refuse an
+// all-system-produced set; (d) already-generated awareness where UNDETERMINED is returned rather
+// than an empty determined set, with a control proving undetermined is a reading and not a stub;
+// (e) the four unreachable verifications enumerated as a floor so the list cannot quietly shrink.
+// IT LANDS RED — exit 1 against a 7-entry ledger, pinned NEWLY MEASURED in
+// tools/ga-gate/gate-newly-measured.json, and E-13 asked for exactly that: "It should be named
+// now, RED, per the roadmap's own §0.1 rule (a gate lands before its implementation, and lands
+// RED)." The load-bearing finding is not a description but a MEASUREMENT: seeded=2, remaining=0,
+// the authored room survived=FALSE. HouseLayoutExecutor.ts:1757-1766 reads getByLevel unfiltered
+// and deletes every room on the level, fire-and-forget, errors swallowed, user never told — R8's
+// named defect, reproduced. Fixing it is a change inside that executor (another agent's live
+// territory when this landed), so the gate MEASURES it and the ledger carries its exit condition.
+// ⛔ Its exit code is NOT scenario coverage: 3 of 7 verifications execute, 4 do not, and the run
+// says so on every invocation.
+// §SAFE-MODE-ROOM-RESHAPE — check-room-reshape-fidelity + check-room-reshape-undo added
+// 2026-08-12. They close the gap that PREVIEW and EXECUTION used DIFFERENT ALGORITHMS for
+// room geometry: preview ran the pure `predictRoomGeometry` (per-room, 1 mm weld, typed
+// refusals) while execution ran nothing of the kind — the wall committed and the observer's
+// NON-UNDOABLE `ReDetectRoomsCommand` had `RoomDetectionEngine` re-partition the whole level
+// at a 0.05 m weld. The number the human approved was not the number that got written, and
+// nothing could tell.
+//   • check-room-reshape-fidelity drives the REAL predictor and the REAL
+//     `ApplyPredictedRoomGeometryCommand` and asserts the committed polygon is BYTE-IDENTICAL
+//     to the predicted one; that semantics + AUTHORED `detectionMethod` survive; that an
+//     UNDETERMINED room is reported and NOT touched (never converted to "nothing changed");
+//     and — the arm that catches a second algorithm sneaking back — that the command writes
+//     supplied metrics VERBATIM rather than deriving them. POSITIVE CONTROL every run: a
+//     rival polygon written over the commit MUST be detected or the gate exits 2.
+//   • check-room-reshape-undo asserts ONE wall drag + its room consequences = ONE undo unit:
+//     the reshape reverts exactly, the wall dispatch and the room reshape carry the SAME
+//     gesture id (measured through the REAL ConsequenceExecutionService, not asserted in a
+//     comment), the reshape command is UNDOABLE while ReDetectRoomsCommand remains
+//     non-undoable, and the undo snapshot is a real DEEP copy. POSITIVE CONTROL every run: a
+//     room left in its reshaped state MUST be reported as un-reverted.
+// Both land GREEN, so neither carries a ratchet entry. Both are HARD-0 and always will be:
+// "the user got a shape they did not approve" and "Ctrl+Z undid half a gesture" have no
+// acceptable non-zero level.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
