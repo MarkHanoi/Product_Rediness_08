@@ -101,6 +101,19 @@ interface Resolved<T> {
     readonly value: T | null;
     readonly provenance: FieldProvenance;
     readonly from: 'structured' | 'pack' | 'none';
+    /**
+     * C75 §2.1 — did the PACK actually state this field's provenance, or did we
+     * supply one because `DerivationEntry.fieldProvenance` is a required enum
+     * with no "not stated" member?
+     *
+     * `false` means the emitted `provenance` is OURS, not the pack's. Two live
+     * packs ship `fieldProvenance: {}` (`nlBestemmingsplan.ts:105`,
+     * `esMalaga.ts:825`), so this branch is reached in production, and before
+     * this flag their silence was indistinguishable from a deliberate
+     * `'estimated'` — the same collapse of *absent* into *stated* that C75 §0
+     * Finding 1 is about, one union along.
+     */
+    readonly provenanceStatedByPack: boolean;
 }
 
 function findZone(
@@ -123,12 +136,40 @@ function resolveNumber(
     packProvenance: FieldProvenance | undefined,
 ): Resolved<number> {
     if (structured !== null && structured !== undefined) {
-        return { value: structured, provenance: 'published-structured', from: 'structured' };
+        // The provider published the number AS DATA; the provenance is entailed
+        // by which branch we took, not supplied. Genuinely stated.
+        return {
+            value: structured, provenance: 'published-structured', from: 'structured',
+            provenanceStatedByPack: true,
+        };
     }
     if (packValue !== null && packValue !== undefined) {
-        return { value: packValue, provenance: packProvenance ?? 'estimated', from: 'pack' };
+        // C75 §2.1 — the `?? 'estimated'` here is on C75's ledger, and it stays,
+        // because `DerivationEntry.fieldProvenance` (C58, `BuildableEnvelope.ts:118`)
+        // is a REQUIRED enum with no "not stated" member and C58 owns that schema
+        // — widening another contract's union is not this change's to make.
+        //
+        // What changes is that the supplied value is no longer INDISTINGUISHABLE
+        // from a stated one. `'estimated'` is the correct value to supply: it is
+        // the weakest member ("never authoritative", `ProvenanceFlags.ts:32`) and
+        // `complianceReport.ts:208` already surfaces it to the user as
+        // `isEstimate`, so the emitted number under-claims rather than over-claims
+        // — the safe direction. But under-claiming is not the same as honest, and
+        // `provenanceStatedByPack: false` is now the field that says which one
+        // happened. Reached in production: `nlBestemmingsplan.ts:105` and
+        // `esMalaga.ts:825` both ship `fieldProvenance: {}`.
+        return {
+            value: packValue,
+            provenance: packProvenance ?? 'estimated',
+            from: 'pack',
+            provenanceStatedByPack: packProvenance !== undefined,
+        };
     }
-    return { value: null, provenance: 'estimated', from: 'none' };
+    // No value at all. `addEntry` returns early on `value === null`, so this
+    // provenance NEVER reaches the model — it exists only to satisfy the
+    // non-optional field on `Resolved`. Flagged `false` so that if a future
+    // consumer ever does read it, it reads as unstated rather than as a verdict.
+    return { value: null, provenance: 'estimated', from: 'none', provenanceStatedByPack: false };
 }
 
 /**

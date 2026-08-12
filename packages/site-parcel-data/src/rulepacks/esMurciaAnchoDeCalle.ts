@@ -304,7 +304,8 @@ function bandEdges(bands: ReadonlyArray<MurciaAnchoBand>): number[] {
  *
  * @param zone     the calificación whose table governs.
  * @param width_m  the street section in metres.
- * @param opts.widthProvenance  where `width_m` came from. `measured-geometry` (the default) engages
+ * @param opts.widthProvenance  where `width_m` came from. **REQUIRED — there is no default**
+ *   (C75 §2.1; it used to default to `measured-geometry`). `measured-geometry` engages
  *   the band-edge guard; `declared-official` skips it, because an official width is exact by
  *   definition and may legitimately sit ON an edge. **Murcia publishes no official width today**
  *   (`corpus/RETRIEVAL-LOG.md` §3), so passing `declared-official` currently asserts a source that
@@ -318,16 +319,34 @@ export function resolveMurciaAnchoDeCalle(
     zone: MurciaAnchoZone,
     width_m: number,
     opts: {
-        widthProvenance?: MurciaWidthProvenance;
+        /**
+         * ⛔ REQUIRED — C75 §2.1/§2.8. This was `widthProvenance?:` defaulting to
+         * `?? 'measured-geometry'`, and it is on C75's ledger.
+         *
+         * The default was not inert: `measured-geometry` ENGAGES the band-edge
+         * guard below (:370) and `declared-official` skips it, so the fallback
+         * silently asserted *we measured this street* about a width whose origin
+         * the caller never stated. Under this ordinance that claim decides a
+         * whole storey at an 8 m RC frontage.
+         *
+         * The fix is the TOP of C75 §2.8's preference order — unrepresentable,
+         * not checked: with no `?`, a caller that has not established where the
+         * width came from cannot call this function at all. Verified
+         * zero-behaviour-change: every call site in the repo (the one production
+         * caller at `siteDispatch.ts:6644`, and all 40 test calls) already passed
+         * it explicitly, so the fallback was reachable only by a future caller —
+         * which is precisely the one it would have misled.
+         */
+        widthProvenance: MurciaWidthProvenance;
         measurementSpread_m?: number | null;
         ejeComercial?: boolean | null;
-    } = {},
+    },
 ): MurciaAnchoResolution {
     const span = tracer.startSpan('pryzm.zoning.resolveMurciaAnchoDeCalle');
     try {
         const entry = MURCIA_ANCHO_TABLES.get(zone)!;
         const article = entry.article;
-        const widthProvenance: MurciaWidthProvenance = opts.widthProvenance ?? 'measured-geometry';
+        const widthProvenance: MurciaWidthProvenance = opts.widthProvenance;
         span.setAttribute('zone', zone);
         span.setAttribute('widthProvenance', widthProvenance);
 

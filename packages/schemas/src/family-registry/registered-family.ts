@@ -17,6 +17,12 @@
 
 import { z } from 'zod';
 import { FamilyIdentitySchema } from './identity.js';
+// C75 §2.4 — provenance lives in L0, beside the value it describes.
+import {
+    ValueProvenanceSchema,
+    unknownProvenance,
+    type ValueProvenance,
+} from '../provenance/ValueOrigin.js';
 
 /**
  * Where a registered family came from.  Drives permission tier (a `user`
@@ -108,9 +114,72 @@ export const RegisteredFamilySchema = z.object({
     category:       FamilyCategorySchema,
     mountClass:     FamilyMountClassSchema,
     origin:         FamilyOriginSchema,
+    /**
+     * C75 §2.1/§2.5 — WHERE `origin` came from, which `origin` itself cannot say.
+     *
+     * `FamilyOriginSchema` has four members and none of them means "nobody told
+     * us". Before this field, `assembleRegisteredFamily` closed that gap with
+     * `opts.origin ?? 'user'` (C75's ledger, `from-pipeline.ts:225`): a family
+     * assembled by the pipeline with no stated origin was recorded as one a
+     * PERSON uploaded, and `origin` drives a permission tier — so an invented
+     * `'user'` is not cosmetic.
+     *
+     * Widening `FamilyOrigin` with an `unknown` member was the other option and
+     * was rejected: C75 §1.4 is explicit that unknown is a value with a REASON,
+     * not a sixth member of an origin vocabulary — a sixth member becomes the
+     * thing the next `??` defaults to, which is the same defect relabelled.
+     *
+     * ⭐ **`.optional()`, NOT `.default()`, and the difference is the whole
+     * point — C75 §1.4.** A `.default()` would have been the tidier-looking
+     * choice and it is the wrong one here, because `z.infer` widens a defaulted
+     * field to REQUIRED on the OUTPUT type. `RegisteredFamily` is a hand-authored
+     * TypeScript literal at 59 core-seed sites (`stores/src/seedCoreFamilies.ts`)
+     * that are registered directly and never `.parse()`d, so the default would
+     * never have executed there: it would only have forced 59 authors to type a
+     * provenance value to satisfy the compiler. **That is a bulk default wearing
+     * a schema's clothes** — precisely the failure C75 §0 exists to prevent, and
+     * the invented `'auto-topology'` is what it looks like once it is in a file.
+     *
+     * With `.optional()`, an absent field means exactly what C75 §1.4 says an
+     * absent field means: **the origin is not known**. Read it through
+     * {@link familyOriginProvenance}, which turns that silence into an explicit
+     * UNKNOWN-with-reason rather than letting a consumer read `undefined` as
+     * anything. Existing persisted families parse unchanged (§2.5) and answer
+     * "not known" instead of making a claim about who made them.
+     */
+    originProvenance: ValueProvenanceSchema.optional(),
     archetypeHints: z.array(ArchetypeHintSchema),
     ifcMapping:     IfcMappingSchema,
     schemaHash:     z.string().min(1),
     tags:           z.array(z.string().min(1)).default([]),
 });
 export type RegisteredFamily = z.infer<typeof RegisteredFamilySchema>;
+
+/**
+ * Where this family's `origin` came from — **never `undefined`** (C75 §1.4).
+ *
+ * The single reader for {@link RegisteredFamilySchema}'s optional
+ * `originProvenance`. A family that carries no provenance is not a family whose
+ * provenance is blank: it is one whose origin we do not know, and this returns
+ * that as a value with a reason, so no consumer has to decide what a missing
+ * field means. Every place that would otherwise write
+ * `f.originProvenance ?? something` calls this instead — which is the point,
+ * because that `??` is how C75's whole ledger got written.
+ *
+ * The reason is `producer-not-instrumented` rather than `not-recorded`: the
+ * families that lack the field are the 59 hand-authored core seeds
+ * (`@pryzm/stores` `seedCoreFamilies.ts`), and their silence is OURS — the seed
+ * table has no column for provenance — not a producer that had one and skipped
+ * it. `LandBasis.ts` draws the same distinction between `basis-not-declared`
+ * and `basis-unknown`, and for the same reason: the two close differently. This
+ * one closes by authoring the field on the seeds, deliberately, one at a time.
+ *
+ * ⚠ Note what this does NOT assert. It does not claim the core seeds are
+ * un-authored — they are hand-written literals in this repo and `origin: 'core'`
+ * is a defensible description of them. It asserts only that **nothing in the
+ * record says so**, which is a different and weaker claim, and the only one the
+ * data supports today.
+ */
+export function familyOriginProvenance(family: RegisteredFamily): ValueProvenance {
+    return family.originProvenance ?? unknownProvenance('producer-not-instrumented');
+}

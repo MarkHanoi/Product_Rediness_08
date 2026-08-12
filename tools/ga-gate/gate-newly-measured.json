@@ -98,10 +98,8 @@
     "into a list of things that are secretly fine, which is the one failure mode both",
     "ledgers share."
   ],
-
   "createdAt": "2026-08-12",
   "createdBecause": "BIM 3.0 Phase 1 Tier 1 landed three gates RED on pre-existing production defects (BIM30-READINESS-GATES §2.3), and gate-debt.json had no category that described them without lying.",
-
   "entries": [
     {
       "gate": "check-solver-is-real.ts",
@@ -124,7 +122,7 @@
       "runner": "ga-gate",
       "addedAt": "2026-08-12",
       "builtBy": "BIM 3.0 Phase 1 Tier 1 · BIM30-READINESS-GATES §3.18 · C75 §2.1/§2.2/§2.3/§2.5",
-      "firstReading": "exit 1 DECLARED-LEVEL — 7 findings against a declared level of 7 (V1 ×5, V3 ×1, V5 ×1). Real-tree positive control SlabFragmentBuilder.ts reads clean (it refuses rather than substitutes).",
+      "firstReading": "exit 1 DECLARED-LEVEL — 7 findings against a declared level of 7 (V1 ×5, V3 ×1, V5 ×1), 2026-08-12. Real-tree positive control SlabFragmentBuilder.ts reads clean (it refuses rather than substitutes).",
       "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-provenance-not-invented.ts — 7 NAMED file:line entries, checked in both directions.",
       "predatesTheGate": [
         "V1 · roomSnapshotUtils.ts:156 — `|| 'auto-topology'` for an absent detectionMethod. This is C75's own canonical violation, named in the contract before the gate was written.",
@@ -132,9 +130,11 @@
         "V5 · roomSnapshotUtils.ts:156 — an `as any` at the provenance boundary.",
         "V1 · from-pipeline.ts:225, esMurciaAnchoDeCalle.ts:330, ZoningRulesEngine.ts:129, contextBuildingQuery.ts:93 — four further `??` origin fallbacks, none of which any document had enumerated before this run."
       ],
-      "exitCondition": "each of the 7 named sites records UNKNOWN-with-reason, or refuses, or is proven not to be a provenance assignment. LEDGER reaches 0 and the gate flips hard-0. NOTE: V2 and V4 are NOT IMPLEMENTED and are UNPROVEN — they need the five-value union to exist in packages/schemas first, so a green reading here is narrower than C75 §2 and the gate says so on every run.",
-      "territory": "packages/room-topology/, packages/schemas/, packages/site-parcel-data/, apps/editor/",
-      "reviewBy": "2026-11-12"
+      "exitCondition": "each of the 5 remaining named sites records UNKNOWN-with-reason, or refuses, or is proven not to be a provenance assignment. LEDGER reaches 0 and the gate flips hard-0. V2/V4 are NO LONGER unproven — they are EVALUATED and negative-tested (C75 §6.2) — but they are scoped to the CANONICAL five-value union alone, because §2.2/§2.5 name members (authored/inferred) and an UNKNOWN-with-reason record that the 22 legacy vocabularies do not have. ⚠ ADOPTION OF THAT UNION IS NEAR ZERO, so a clean V2/V4 reading proves only that the new union is not misused — it is NOT evidence that defaults are honest repo-wide. The gate prints this caveat on every run. Of the 5 remaining: 3 (roomSnapshotUtils ×2, RoomDetectionEngine ×1) are C75 §7.1/§7.2 canonical violations left untouched because packages/room-topology was outside this change territory and under concurrent edit; from-pipeline.ts keeps the ?? SHAPE but the HARM is closed (RegisteredFamily now carries optional originProvenance, read via familyOriginProvenance(), which turns absence into UNKNOWN-with-reason) — fully closing it needs FamilyOrigin itself to become nullable, a persisted-enum migration under C05/C47; ZoningRulesEngine keeps its ?? deliberately because DerivationEntry.fieldProvenance is a required C58-owned enum with no not-stated member, and Resolved.provenanceStatedByPack now records whether the pack actually stated it.",
+      "territory": "packages/schemas/ (the union + family-registry), packages/site-parcel-data/, apps/editor/src/ui/geospatial/, tools/ga-gate/. packages/room-topology/ was EXCLUDED — concurrent agent.",
+      "reviewBy": "2026-11-12",
+      "currentReading": "exit 1 DECLARED-LEVEL — 5 findings against a declared level of 5 (V1 ×3, V3 ×1, V5 ×1), 2026-08-12 after C75 Task 1-3. ALL FIVE ARMS NOW EVALUATED: V2 and V4 were implemented once the five-value union landed at packages/schemas/src/provenance/ValueOrigin.ts, and both fire against planted violations in the executed control (5 distinct arms, now a floor). Two ledger entries left because the defect is GONE: esMurciaAnchoDeCalle.ts widthProvenance is now a REQUIRED parameter (C75 §2.8 unrepresentable, zero behaviour change — all 41 call sites already passed it), and contextBuildingQuery.ts now branches on the absent case ahead of the union dispatch. Three line numbers were re-measured in the same change.",
+      "stillUnproven": "C75 §6.3 is UNCHANGED by this work and the gate reprints it every run: (a) semantic truth — a path writing OBSERVED while actually computing passes every arm; (b) runtime provenance decided by a branch; (c) the EXPORT boundary (§5) — no IFC/DXF mapping exists, the largest open risk; (d) CROSS-SESSION REGENERATION — §2.7 prior-value chains are not statically verifiable. The union can now EXPRESS a survived regeneration (regeneratedProvenance carries the prior origin, and the schema refuses regenerated without replaced), but NOTHING is wired to write it on a real regeneration pass, so the founder-facing claim re-run the generator and my hand edits survive remains UNPROVEN end-to-end."
     },
     {
       "gate": "check-epsilon-policy.ts",
@@ -229,6 +229,23 @@
       "exitCondition": "the height/y question is DECIDED (room detection is a 2D-footprint function, so height arguably does not affect the polygon — but baseline y moves the wall vertically and room volume and finish surfaces do follow wall height) and _computeWallSig either includes the fields or documents why it must not. The decision belongs with the C71 topology gates. declaredFindings reaches 0 and the entry is struck.",
       "territory": "packages/room-topology/src/RoomTopologyObserver.ts:566-584 — another agent's territory. Handoff is recorded in tracker-pairs.json declaredFindingNotes.",
       "runnerNote": "GRADED BY certify.ts, NOT BY run-all. run-all does not execute this gate — it composes real stores and drives real commands, which is why it lives in the certification tree (BIM30-READINESS-GATES §2.1 as amended 2026-08-12). run-all therefore reports this entry as INFORMATIONAL and enforces only its `reviewBy`, because a date is runner-agnostic and a reading is not. run-all must never claim a verdict on a gate it did not run.",
+      "reviewBy": "2026-11-12"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-ai-human-parity.ts",
+      "runner": "certify",
+      "addedAt": "2026-08-12",
+      "builtBy": "BIM 3.0 R7 of BIM30-REASONING-LOOP-PLAN.md - G-REASON-04 - ADR-0324 §3 - C75-PROVENANCE",
+      "firstReading": "exit 1 DECLARED-LEVEL - 1 finding against a declared level of 1. All 8 floors met: reachability sources 4/4, normalizeForParity imported from production 1/1, REAL wall.updateBaseline handler registered 1/1, human dispatch mutated the store 1/1, AI dispatch mutated the store 1/1, both records carried patches 1/1, positive control (i) behavioural-difference-fails-parity 1/1 (all three arms: metrics, affected set, patch body), positive control (ii) provenance-only-difference-passes-parity 1/1. Clause (A): the two normalized residues are IDENTICAL - the bus is actor-blind for wall.updateBaseline.",
+      "pinnedTo": "the `declared: 1` level inside tools/rac-conformance/certification/gates/check-ai-human-parity.ts, whose sole permitted finding is AI-PATH-NOT-INDEPENDENTLY-DISPATCHABLE. Every other clause is hard-0: a parity violation, a misclassified normalizer field, or a dead control is red and stays red. The finding is RE-MEASURED FROM SOURCE on every run (clause iii) rather than trusted from the ledger, so the day the gap closes the gate says so itself.",
+      "predatesTheGate": [
+        "R7's golden operation has NO AI-side dispatcher. `wall.updateBaseline` is family-blocked from chat at packages/ai-host/src/capabilities/ChatCommandClassification.ts:98 (blockedBy: 'sub-entity reference resolution'), and `wall.move` is refused at packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts:2130 ('Moving a wall from chat needs a target position I cannot infer'). There is therefore no AI caller to compare a human caller against for the verb R7 was scoped to.",
+        "NO production call site - human or AI - populates `CommandExecutionContext`. `executeCommand` accepts `opts.context` (CommandBus.ts:331) and carries it onto the EventRecord, but the only constructors of one in the tree are the defensive default at apps/editor/src/engine/consequence/ConsequenceExecutionService.ts:370-374 (`actor: context?.actor ?? { kind: 'system' }`) and two unit tests. Both actors are anonymous at the funnel, so an AI-originated mutation currently lands in the event log indistinguishable from a human one. ADR-0324's audit/authorization story is TYPED but not WIRED.",
+        "Consequence for what this gate can claim: the AI CALLER in clause (A) is SIMULATED - the gate supplies the two invocation envelopes the production callers do not. The gate prints this every run rather than passing off two human dispatches as a parity proof."
+      ],
+      "exitCondition": "the AI path reaches the same executor for the golden operation with a populated invocation envelope - i.e. (1) a chat-safe wall-move verb leaves the ChatCommandClassification block list, AND (2) the chat bridge (apps/editor/src/ui/ai/ZeroTokenChatBridge.ts, whose ChatBus type at :1067 currently has no third argument) threads `{ context: { actor: {kind:'ai'}, origin: 'ai-proposal', approval } }` into executeCommand, with the human tools threading their own. On that day clause (A) is rewritten to drive the REAL AI caller instead of a simulated envelope, `declared` drops to 0, and this entry is struck. Clause (iii) re-measures both halves from source every run and will report when either lands.",
+      "territory": "packages/ai-host/src/capabilities/ (chat classification) and apps/editor/src/ui/ai/ZeroTokenChatBridge.ts - NOT R7's territory. R7 reports the request rather than making the change: unblocking a verb from chat is a capability-surface decision (C68), and wiring the envelope at call sites touches the R6 agent's live UI territory.",
+      "runnerNote": "GRADED BY certify.ts, NOT BY run-all - it composes real stores and drives real commands through the real bus, which is why it lives in the certification tree (BIM30-READINESS-GATES §2.1 as amended 2026-08-12). run-all reports this entry as INFORMATIONAL and enforces only its `reviewBy`, because a date is runner-agnostic and a reading is not.",
       "reviewBy": "2026-11-12"
     }
   ]

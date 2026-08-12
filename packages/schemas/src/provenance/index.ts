@@ -18,6 +18,15 @@
 //
 // Strategic context: docs/02-decisions/contracts/C23-PROVENANCE-AND-AI-AUDIT.md.
 
+// C75 §1/§2 (added 2026-08-12) — the five-value AUTHORED/OBSERVED/COMPUTED/
+// INFERRED/REGENERATED vocabulary and its UNKNOWN-with-reason record. Filed
+// under this subpath because it is provenance, but note the SCOPE difference:
+// C23 (the four schemas below) is the AI-audit lineage DAG — who called what and
+// what it produced. C75's `ValueOrigin` is a per-VALUE origin label on ordinary
+// model data, most of which no AI ever touched. They compose (a `regenerated`
+// value's chain is a `ProvenanceEdge`) and neither restates the other.
+export * from './ValueOrigin.js';
+
 export * from './AIArtefact.js';
 export * from './ProvenanceEdge.js';
 export * from './ContextSnapshot.js';

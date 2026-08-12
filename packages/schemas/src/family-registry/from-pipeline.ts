@@ -40,16 +40,29 @@ import type {
     FamilyOrigin,
     ArchetypeHint,
 } from './index.js';
+// C75 §2.1 — the assembler records where `origin` came from instead of inventing it.
+import {
+    unknownProvenance,
+    systemProvenance,
+    type ValueProvenance,
+} from '../provenance/ValueOrigin.js';
 
 /**
  * Options for {@link assembleRegisteredFamily}.
  */
 export interface AssembleRegisteredFamilyOptions {
     /**
-     * Origin tag.  Defaults to `'user'` — the typical origin for an
-     * AI-ingested or user-uploaded family.  `'core'` is reserved for
-     * hardcoded developer-shipped families; `'plugin'` for marketplace
-     * plugins; `'ai-generated'` for fully-AI-synthesised families.
+     * Origin tag.  `'core'` is reserved for hardcoded developer-shipped
+     * families; `'plugin'` for marketplace plugins; `'ai-generated'` for
+     * fully-AI-synthesised families; `'user'` for a user-uploaded one.
+     *
+     * ⚠ **Omitting this is not the same as passing `'user'`, and C75 §2.1 is
+     * why.** Omitting it yields the least-privileged member `'user'` for the
+     * required `origin` field, *plus* an `originProvenance` recording that
+     * nobody stated an origin. Passing `'user'` explicitly records an
+     * `observed` origin — a caller's actual statement. A consumer that must
+     * distinguish "a person uploaded this" from "we did not know" reads
+     * `originProvenance`, never `origin` alone.
      */
     readonly origin?: FamilyOrigin;
     /**
@@ -168,7 +181,10 @@ function deriveTags(
  *      classification is a future slice.
  *   3. DERIVE `mountClass` from `definition.behaviour.mountClass`
  *      (passes through directly).
- *   4. DERIVE `origin` from `opts.origin ?? 'user'`.
+ *   4. DERIVE `origin` from `opts.origin`, AND record `originProvenance`
+ *      (C75 §2.1). A caller that stated an origin is recorded as having stated
+ *      it; a caller that stated nothing yields the least-privileged member
+ *      `'user'` marked UNKNOWN-with-reason, never presented as a decision.
  *   5. DERIVE `archetypeHints` — v1 emits exactly ONE hint constructed
  *      from `definition.placement.defaultAnchor` + a derived occupancy
  *      (first semantic-name match in `KNOWN_OCCUPANCIES`, else `'general'`).
@@ -221,8 +237,38 @@ export function assembleRegisteredFamily(
     // 3. MountClass passes through.
     const mountClass = definition.behaviour.mountClass;
 
-    // 4. Origin — opts override, else 'user'.
+    // 4. Origin — and its PROVENANCE, which is the part that used to be invented.
+    //
+    // C75 §2.1 (the ledger's `from-pipeline.ts:225`). This line read
+    // `opts.origin ?? 'user'`: a family assembled with no stated origin was
+    // recorded as one a PERSON uploaded. `origin` drives a permission tier
+    // (`registered-family.ts:22`), so the invented value was not cosmetic — it
+    // granted a trust level nobody conferred.
+    //
+    // `FamilyOrigin` has no member meaning "not known", so the honest record
+    // needs two fields, not a fifth member (C75 §1.4 — unknown is a value with a
+    // REASON, and a fifth member would just become the next `??` target):
+    //
+    //   • a caller that STATED an origin is recorded as stated, `observed`;
+    //   • a caller that stated NOTHING keeps a usable `origin` — the schema
+    //     requires one and every consumer indexes on it — but that value is
+    //     marked for exactly what it is: not known, `producer-not-instrumented`,
+    //     because the family PIPELINE has no place to carry an origin through
+    //     from its source and that silence is ours, not the caller's.
+    //
+    // ⚠ The supplied value is still `'user'`, and the reason is deliberate: it
+    // is the LEAST-privileged member of the union (`registered-family.ts:22` —
+    // "a `user` family cannot author across plugin boundaries"), so a consumer
+    // that ignores the provenance field errs toward refusing, never toward
+    // granting. Under-claiming is the safe direction; `'core'` or `'plugin'`
+    // here would have been an escalation. What C75 forbids is presenting that
+    // supplied value AS a decision, and `originProvenance` is now the field
+    // that stops it: any consumer can tell the two apart, which before it could
+    // not.
     const origin: FamilyOrigin = opts.origin ?? 'user';
+    const originProvenance: ValueProvenance = opts.origin === undefined
+        ? unknownProvenance('producer-not-instrumented')
+        : systemProvenance('observed', 'stated by the caller via AssembleRegisteredFamilyOptions.origin');
 
     // 5. Archetype hints — v1 emits ONE.
     const occupancy = deriveOccupancy(definition);
@@ -260,6 +306,7 @@ export function assembleRegisteredFamily(
         category,
         mountClass,
         origin,
+        originProvenance,
         archetypeHints,
         ifcMapping,
         schemaHash,
