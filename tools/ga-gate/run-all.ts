@@ -213,6 +213,19 @@ const GATES: Gate[] = [
   // for an executed read-back, so a harness that cannot run has established no
   // subject and must not report a pass.
   { name: 'verb-liveness (C16 §5.1 CA-21)',           script: 'check-verb-liveness.ts' },
+  // BIM 3.0 Phase 1 Tier 1 (2026-08-12) — the three manifest/single-file gates of
+  // BIM30-READINESS-GATES §5. All three LAND RED, which is the point (§2.3): a gate
+  // deferred until its subject is fixed is how a subject stays unfixed. Each runs a
+  // planted-violation control INSIDE the run and exits 2 as a blind comparator if a
+  // control fails to fire, so their silence can never be mistaken for coverage.
+  //
+  // ⚠ Each lands at exit 1 against a NAMED ledger in its own header (or, for
+  // epsilon-policy, `epsilon-policy-baseline.json`). They are deliberately NOT on
+  // gate-debt.json — whether the suite should absorb them is a decision for whoever
+  // owns that file, not something a new gate should quietly grant itself.
+  { name: 'solver-is-real (C74 §3.3/§3.7)',           script: 'check-solver-is-real.ts' },
+  { name: 'provenance-not-invented (C75 §2.1)',       script: 'check-provenance-not-invented.ts' },
+  { name: 'epsilon-policy (C73 §5.1)',                script: 'check-epsilon-policy.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];

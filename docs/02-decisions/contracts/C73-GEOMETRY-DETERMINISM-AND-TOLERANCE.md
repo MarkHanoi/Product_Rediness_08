@@ -18,6 +18,22 @@ of the form `const|readonly|static <…EPS|EPSILON|TOL|TOLERANCE…> =`:
 
 **267 declarations.** Of the numeric-literal ones, the histogram of *values*:
 
+> ⚠ **AMENDED 2026-08-12, same day — this number is NOT re-derivable from the recipe above,
+> and the gate that implements this section says so.** The prose omits two decisions that move
+> the count: whether comments are stripped, and whether tests are included. `check-epsilon-policy`
+> re-measured with an anchored recipe and read **279 sites / 271 production (file×NAME), 339
+> including tests** — and it records that a naive substring match on `EPS`/`TOL` also drags in
+> `MAX_STEPS`, `ARC_STEPS`, `deps`, `reps` and `ontology`.
+>
+> **The gate is now the authority for the number; this section is the authority for the
+> ordering.** Run `npx tsx tools/ga-gate/check-epsilon-policy.ts` — it prints its own recipe and
+> histogram every run, per C69 §0.1 (cite the generated artefact, never transcribe it).
+>
+> Nothing in §0.1's *argument* changes: hundreds of rival declarations, values spanning three
+> orders of magnitude, and `geometry-kernel` exporting no policy at all. A count that cannot be
+> reproduced is a count nobody should trust — including this one, which is why it now names the
+> command that replaces it.
+
 | value | count | | value | count |
 |---|---|---|---|---|
 | `1e-6` | 49 | | `1e-3` | 9 |
