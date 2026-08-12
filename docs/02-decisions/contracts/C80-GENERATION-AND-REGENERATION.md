@@ -15,9 +15,10 @@ Not an argument. A run.
 
 `tools/rac-conformance/certification/gates/check-authored-state-protection.ts` (landed
 `b0ca0c27`) seeds a level with **two rooms of different provenance** — one whose boundary a human
-drew (`detectionMethod: 'manual-boundary'`, which is what the room draw tool stamps on the
-polygon the user traced — `apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts:125`,
-dispatching `room.create` with the user's own vertices), one flood-filled by topology — and then runs the **§GRAPH-CLEAR-FIRST loop transcribed
+drew (`detectionMethod: 'manual-boundary'`, which is what the room draw tools stamp on the
+polygon the user traced — `packages/room-topology/src/RoomTool.ts:199` and, independently,
+`apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts:125`; see §7.4), one
+flood-filled by topology — and then runs the **§GRAPH-CLEAR-FIRST loop transcribed
 from `apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts:1757-1766`** against them, through
 the **real `RoomStore`** (`packages/room-topology`), the **real `CommandBus`**
 (`packages/command-bus`) and the **real `plugins/rooms` `room.delete` handler**.
@@ -384,18 +385,18 @@ status is **UNPROVEN** — never a blank row, never an inherited green.
 > is genuinely ambiguous between *flood-filled* and *origin-not-recorded* — the gate reports this
 > as a named finding rather than letting the translation launder a default into a determination.
 
-> **§7.4 — a citation defect found while authoring this contract, recorded rather than quietly
-> fixed.** `ElementProvenanceIndex.ts:115` and the gate's own header both attribute the
-> `manual-boundary` stamp to **`RoomTool.ts:199`**. **There is no `RoomTool.ts` in this
-> repository**, and no production site outside `apps/editor/src/engine/views/plantools/` stamps
-> that value; the real producer is
-> `apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts:125`. The mapping is *correct* —
-> that path does dispatch `room.create` with the polygon the user traced — but the evidence
-> pointer is dead, which is the C69 §0.1 defect (a transcribed reference that rots) landing inside
-> the very module that exists to stop provenance being asserted without a source. **Fixing the two
-> comments is a code change and therefore out of C80's scope**; it is recorded here so the next
-> reader is not sent to a file that does not exist, and it is a one-line task for whoever owns
-> GEN-GAP-1.
+> **§7.4 — the `manual-boundary` stamp has TWO independent production producers, and an authoring
+> near-miss is recorded rather than erased.** The gate cites
+> `packages/room-topology/src/RoomTool.ts:199`; a second, independent producer is
+> `apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts:125` (the plan-tool draw path,
+> dispatching `room.create` with the polygon the user traced). Both are genuine human-draw paths,
+> so the `manual-boundary → authored` mapping rests on two real sites, not one. ⚠ An early draft
+> of this section declared `RoomTool.ts` nonexistent and its citation dead — **that finding was
+> itself wrong**: it came from a repo search that timed out plus two scoped greps that never
+> covered `packages/room-topology`, and a full sweep overturned it
+> (§PROBE-CAN-BE-WRONG-THREE-WAYS — the probe was wrong about its own coverage). It is recorded
+> here because a contract that quietly deleted its own overturned finding would be exercising the
+> exact laundering §7.3(d) forbids in the gate.
 
 ---
 
