@@ -4,6 +4,10 @@ import * as BUI from '@thatopen/ui';
 import { CreateSlabCommand } from '@pryzm/command-registry';
 import { HostReferenceEdge } from './SketchTypes.js';
 import { WallFaceResolver } from './WallFaceResolver.js';
+// §PICK-WALLS-FALLBACK-AT-AUTHORING (C79 §4.3) — pure helper that emits the
+// canonical edge shape PLUS the authoring-time fallback. Extracted so the edge
+// construction is testable without THREE/OBC/BUI.
+import { buildPickedWallEdges } from './pickWallsSketch.js';
 import { projectContext, PREVIEW_COLOR } from '@pryzm/core-app-model';
 
 const HUD_ID = 'pick-walls-hud';
@@ -215,13 +219,25 @@ export class SlabPickWallsController {
         const slabId  = crypto.randomUUID();
         const ifcGuid = crypto.randomUUID();
 
-        const edges: HostReferenceEdge[] = this.pickedWallIds.map(wallId => ({
-            type: 'hostReference' as const,
-            hostId: wallId,
-            hostType: 'wall' as const,
-            reference: 'centerLine' as const,
-            offset: 0
-        }));
+        // §PICK-WALLS-FALLBACK-AT-AUTHORING (C79 §4.3) — same canonical edge shape
+        // as always, now WITH `fallback` captured from the live wall centreline at
+        // authoring time. Previously these edges shipped with NO fallback, so a wall
+        // deleted before any rebuild had cached one degraded to NOTHING
+        // (WallFaceResolver.resolveOrFallback → null). The geometry is in the store
+        // right now; ship it with the edge instead of hoping a rebuild runs first.
+        const { edges, fallbacksUnavailable } = buildPickedWallEdges(
+            this.pickedWallIds,
+            (id) => this.wallStore?.getById?.(id),
+        );
+        if (fallbacksUnavailable > 0) {
+            // C79 §2.6 — a fallback gap is REPORTED, never silently absorbed.
+            console.warn(
+                `[SlabPickWalls] §PICK-WALLS-FALLBACK-AT-AUTHORING ${fallbacksUnavailable} of `
+                + `${edges.length} picked wall(s) had no readable baseLine — those edges ship `
+                + `WITHOUT a fallback and will degrade to nothing if their wall is deleted `
+                + `before a rebuild caches one (C79 §4.3).`,
+            );
+        }
 
         const sketch = { outerLoop: { edges } };
 

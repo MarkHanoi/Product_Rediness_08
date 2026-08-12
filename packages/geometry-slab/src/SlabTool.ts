@@ -31,7 +31,20 @@ import { arcSegmentThroughMidpoint } from './boundaryArc.js';
 // §SLAB-REGION-CURVED — single shared, curve-aware region tracer (pure, THREE-free).
 // Both this 3D tool and the plan-view overlay (SlabPlanToolHandler) consume it so
 // curved/filleted-wall regions trace identically in both views.
-import { findRegionAtPoint as traceRegionAtPoint } from './SlabRegionTracer.js';
+// §REGION-HOST-ATTRIBUTION-3D (C79 §6.3 row 3, 2026-08-12) — this tool used to call
+// the bare-ring twin `findRegionAtPoint`, which walks the SAME loop but throws the
+// wall ids away, so a region slab made in 3D silently never followed its walls while
+// the identical click in plan view did (C79 §0's two-buttons defect, moved not
+// vanished). It now calls the ATTRIBUTING entry point `traceRegionSketchAtPoint` —
+// one trace produces BOTH the ring (preview/commit polygon, unchanged geometry) and
+// the parametric `SlabSketch` whose `HostReferenceEdge`s carry hostId + centerLine
+// @ offset 0 + authoring-time fallback (C79 §2.1, §3.1, §4.3), with the three
+// refusal reasons (curved | noWallId | ambiguous) COUNTED, never absorbed (§2.4–2.6).
+import {
+    traceRegionSketchAtPoint,
+    type RegionSketchAttribution,
+} from './SlabRegionTracer.js';
+import type { SlabSketch } from './SketchTypes.js';
 // DOC-5.3 — Direct 2D element creation in plan view (unified coordinate resolver)
 import { planView2DCreationMode } from '@pryzm/core-app-model';
 
@@ -147,6 +160,11 @@ export class SlabTool {
 
     private regionDetection = {
         candidatePolygon: null as THREE.Vector2[] | null,
+        // §REGION-HOST-ATTRIBUTION-3D (C79 §6.3 row 3) — the parametric sketch and
+        // its attribution counts, produced by the SAME trace as candidatePolygon so
+        // the polygon committed and the references attached are provably one region.
+        candidateSketch: null as SlabSketch | null,
+        candidateAttribution: null as RegionSketchAttribution | null,
         active: false
     };
 
@@ -345,7 +363,18 @@ export class SlabTool {
         this.floorSketch.awaitingConfirmation = false;
     }
 
-    private async createSlabFromPolygon(polygon: THREE.Vector2[], dimensions?: { width: number, depth: number }, holes?: THREE.Vector2[][]): Promise<void> {
+    private async createSlabFromPolygon(
+        polygon: THREE.Vector2[],
+        dimensions?: { width: number, depth: number },
+        holes?: THREE.Vector2[][],
+        // §REGION-HOST-ATTRIBUTION-3D (C79 §6.3 row 3) — the parametric sketch from
+        // the SAME trace that produced `polygon`. Passed straight into
+        // CreateSlabCommand (the command already supports `sketch`; pick-walls has
+        // always used it), so SlabDependencyTracker registers the wall→slab
+        // dependencies on the store's 'bim-slab-added' event and the 3D region slab
+        // follows its walls — exactly like plan-view region and pick-walls.
+        sketch?: SlabSketch,
+    ): Promise<void> {
         // FIX-6: commandManager resolved from injected deps, not from window.commandManager.
         const commandManager = this._deps.getCommandManager?.();
         if (!commandManager) return;
@@ -371,7 +400,10 @@ export class SlabTool {
             position: { x: 0, y: 0, z: 0 },
             levelId: levelId,
             polygon: polygon.map(p => ({ x: p.x, y: p.y })),
-            holes: holes ? holes.map(h => h.map(p => ({ x: p.x, y: p.y }))) : undefined
+            holes: holes ? holes.map(h => h.map(p => ({ x: p.x, y: p.y }))) : undefined,
+            // §REGION-HOST-ATTRIBUTION-3D — a degenerate (<3-edge) sketch is refused,
+            // never attached: a 2-edge loop cannot bound anything.
+            sketch: sketch && sketch.outerLoop.edges.length >= 3 ? sketch : undefined,
         };
 
         const command = new CreateSlabCommand(payload);
@@ -537,7 +569,13 @@ export class SlabTool {
             await this.createSlabFromPolygon(poly2D);
         } else if (this.activeTool === 'REGION_SLAB') {
             if (!this.regionDetection.candidatePolygon) return;
-            await this.createSlabFromPolygon(this.regionDetection.candidatePolygon);
+            this._reportRegionAttribution();
+            await this.createSlabFromPolygon(
+                this.regionDetection.candidatePolygon,
+                undefined,
+                undefined,
+                this.regionDetection.candidateSketch ?? undefined,
+            );
         }
 
         const root = this.currentSlab;
@@ -728,12 +766,20 @@ export class SlabTool {
             this.updateRegionDetection(point);
 
             if (this.regionDetection.candidatePolygon) {
-                await this.createSlabFromPolygon(this.regionDetection.candidatePolygon);
+                this._reportRegionAttribution();
+                await this.createSlabFromPolygon(
+                    this.regionDetection.candidatePolygon,
+                    undefined,
+                    undefined,
+                    this.regionDetection.candidateSketch ?? undefined,
+                );
                 // FIX-CONTINUOUS: Stay in region mode for the next click instead
                 // of exiting — clear only the candidate so the next hover/click
                 // can detect a fresh region.
                 this.clearRegionPreview();
                 this.regionDetection.candidatePolygon = null;
+                this.regionDetection.candidateSketch = null;
+                this.regionDetection.candidateAttribution = null;
                 if (this.currentSlab) {
                     this.callbacks.applyHighlight(this.currentSlab);
                     this.callbacks.updateInspector(this.currentSlab);
@@ -1415,15 +1461,50 @@ export class SlabTool {
      */
     private findRegionAtPoint(pt: THREE.Vector3): THREE.Vector2[] | null {
         const walls = this.wallStore.getAll() as ReadonlyArray<{
+            // §REGION-HOST-ATTRIBUTION-3D — the wall id was ALWAYS on these records;
+            // only this local type omitted it, so the tracer could not carry it to
+            // the sketch and the 3D region slab silently failed to follow its walls.
+            id?: string;
             baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
             // §FIX-REGION-RING-PRETRIM-FRAME — the wall records ALWAYS carried this;
             // only the types omitted it, which is why the tracer traced the wrong arc.
             _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> | null;
             curve?: { control?: { x: number; z: number } | null; segments?: number } | null;
         }>;
-        const ring = traceRegionAtPoint(walls, pt.x, pt.z);
-        if (!ring || ring.length < 3) return null;
-        return ring.map((p) => new THREE.Vector2(p.x, p.y));
+        // §REGION-HOST-ATTRIBUTION-3D — ONE trace produces BOTH the ring and the
+        // sketch (identical walk, identical ring geometry as the retired bare-ring
+        // call), mirroring SlabPlanToolHandler._findRegionAtPoint so the two
+        // surfaces cannot disagree (C79 §7.4).
+        const traced = traceRegionSketchAtPoint(walls, pt.x, pt.z);
+        if (!traced || traced.ring.length < 3) {
+            this.regionDetection.candidateSketch = null;
+            this.regionDetection.candidateAttribution = null;
+            return null;
+        }
+        this.regionDetection.candidateSketch = traced.sketch;
+        this.regionDetection.candidateAttribution = traced.attribution;
+        return traced.ring.map((p) => new THREE.Vector2(p.x, p.y));
+    }
+
+    /**
+     * §REGION-HOST-ATTRIBUTION-3D / C79 §2.5–§2.6 — the attribution counts are part
+     * of the CREATION result: report all five at commit time (not per hover-trace,
+     * which would fire on every pointermove), stating plainly which edges will NOT
+     * follow a wall. Zero-host and all-host must not read as the same value.
+     * Mirrors SlabPlanToolHandler's reference log line (C79 §2.6).
+     */
+    private _reportRegionAttribution(): void {
+        const a = this.regionDetection.candidateAttribution;
+        if (!a) return;
+        if (a.freeEdges > 0 || a.hostEdges === 0) {
+            console.log(
+                `[SlabTool] §REGION-HOST-ATTRIBUTION-3D region committed: `
+                + `${a.hostEdges} host-referenced edge(s) across ${a.hostWallIds.length} wall(s), `
+                + `${a.freeEdges} free edge(s) `
+                + `(curved=${a.curvedFallbacks}, no-wall-id=${a.missingIdFallbacks}, `
+                + `ambiguous=${a.ambiguousFallbacks}). Free edges do NOT follow a wall.`,
+            );
+        }
     }
 
     private showRegionPreview(polygon: THREE.Vector2[]): void {
