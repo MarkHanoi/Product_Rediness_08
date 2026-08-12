@@ -1,0 +1,50 @@
+# fly.toml — pryzm-sync (L-391 leg C, the CRDT collaboration transport)
+#
+# ⚠ Provisioned per docs/03-execution/plans/L-391-COLLAB-DEPLOY-DECISION.md §3.
+# Build context is the REPOSITORY ROOT (this app is a pnpm workspace member);
+# deploy from repo root with:  flyctl deploy -c apps/sync-server/fly.toml
+#
+# ⚠ THE LOAD-BEARING PRECONDITION (§4): SESSION_SECRET here MUST be byte-identical
+# to the BFF (`pryzm`). As of 2026-08-12 the BFF has NO stable SESSION_SECRET —
+# `flyctl secrets list -a pryzm` shows none, so authStore.js falls back to an
+# ephemeral per-process secret. A stable secret must be set on BOTH apps first,
+# or every browser token is refused `bad-signature`. Secrets go through
+# `flyctl secrets set`, never this file.
+
+app = "pryzm-sync"
+primary_region = "fra"   # co-located with `pryzm` (fra) — every keystroke crosses this link
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  SYNC_PORT = "4000"
+  # PRYZM_AUTHZ_MODE: staging cohort is all-or-nothing by design (§4.1). NOT `pg`
+  # here — that is the separate production flip, and it needs DATABASE_URL. Set
+  # explicitly rather than inherited so the choice is visible in `flyctl config show`.
+  PRYZM_AUTHZ_MODE = "memory-allow-by-default"
+  SYNC_EVENT_LOG = "memory"
+  # PRYZM_SYNC_WS_AUTH deliberately UNSET — setting it to trust-query disables
+  # upgrade auth. It is never a default and warns on every startup.
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  # ⚠ A CRDT room server CANNOT scale to zero — sleeping drops every socket — and
+  # a SECOND instance would serve a different in-process merge cache for the same
+  # room, silently diverging the two halves of a project (§3 step 4). One machine,
+  # always on. Multi-instance is R-E / Redis-pub-sub territory, out of scope here.
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"   # §3: 256–512 MB; 512 for headroom on the merge cache
