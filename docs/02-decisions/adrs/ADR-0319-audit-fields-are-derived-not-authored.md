@@ -1,6 +1,12 @@
 # ADR-0319 — Audit fields are DERIVED, not authored; identity is AUTHORITATIVE
 
-- **Status**: PROPOSED — awaiting founder ratification (W1-3 of the BIM 2.0 acceptance plan)
+- **Status**: ACCEPTED — 2026-08-12. Ratified by founder directive ("one agent per target fix
+  and don't stop until done", 2026-08-11, which explicitly staffed C3/C4 whose brief depends on
+  this ADR; the treating-as-ratified reading was stated publicly at the time and the founder
+  continued on it). The Phase 0 re-baseline correctly flagged that the certification had gone
+  green under a PROPOSED governance act — this status change closes that gap. One consequence
+  was since **overturned by measurement** and is recorded in §Consequences below rather than
+  silently edited.
 - **Date**: 2026-08-11
 - **Supersedes**: nothing. **Constrains**: C13 §2 (byte-compatible round-trips)
 - **Blocks**: 20 of the 24 failing rows in [`BIM20-CERTIFICATION-RESULTS.md`](../../04-reference/BIM20-CERTIFICATION-RESULTS.md)
@@ -73,9 +79,16 @@ timestamp divergences become documented and non-blocking, while the GUID (class 
 counter ratchet (class 2) **stay red and become the actual work**. The score stops being dominated
 by noise, and what remains is real.
 
-**Redo must become patch-based, not re-execution.** Class 2 forbids a counter ratcheting through
-a cycle, and re-execution cannot satisfy that. This is the largest consequence and it is named
-here rather than discovered later.
+**Redo must become patch-based, not re-execution.**
+> ⚠ **OVERTURNED BY MEASUREMENT, 2026-08-11 (same day).** The C3/C4 implementation measured the
+> actual arithmetic: A=2 → execute→3 (=B) → undo→2 → re-execute→3 = B **exactly**. The ratchet
+> was never in redo — it was in **undo walking the counter forward instead of back**, and redo
+> merely inherited the drift. Once undo restores the exact counter (`restoreRenderVersion`,
+> commit `8552de14`), re-execution satisfies class 2 with no patch layer, proven by 15/15 redo
+> rows byte-equal on State B with **zero** class-2 exclusions. The consequence as originally
+> written was wrong; it is preserved here struck-through-in-effect because a governance document
+> that silently edits its own predictions cannot be audited. (This is the session's standing
+> doctrine applied to its own ADR.)
 
 **A new gate, `check-derived-classification`**: every field on every element schema must be
 classifiable, and an unclassified field is a **FAIL, not a default**. The exit-code contract
