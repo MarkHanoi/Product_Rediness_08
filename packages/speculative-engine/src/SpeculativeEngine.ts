@@ -2,6 +2,21 @@
  * ⛔ DISPOSITION: MINE-FOR-PARTS — recorded 2026-08-12 (BIM30 R1, ADR-0322 §8 /
  * ADR-0323 disposition ladder; STR-06 §5–6 "converge, not accrete").
  *
+ * ── R2 UPDATE (2026-08-12): the violation core HAS NOW BEEN MINED ────────────
+ * The clone → apply-to-clone → `validateAll` before/after → diff-by-`ruleId:elementId`
+ * algorithm (preview steps 1,3–6 below) has been lifted into the `wall.move`
+ * aggregate planner's VIOLATIONS branch —
+ * `apps/editor/src/engine/consequence/WallMoveConsequencePlanner.ts`
+ * (`violationsBranch`) — fed by the contract's caller-supplied `PlanningContext`
+ * store views, NOT `window.*`, and emitting `ValidationDelta.violationsCreated/
+ * violationsResolved`. The `SemanticReadRefusal` idiom (W2-3) generalised to the
+ * contract's `ImpactDetermination`/`UndeterminedImpact` (reason
+ * `ENGINE_NOT_AVAILABLE` for an absent/throwing validator). This file stays
+ * DEPRECATED-IN-PLACE — its only consumer (`ConsequencePreviewOverlay`, whose
+ * trigger surface has zero call sites) is retired together with this file once
+ * R3 wires the preview overlay to the planner; the semanticReadRefusal tests
+ * migrate with the algorithm at that point.
+ *
  * This engine is DEPRECATED IN PLACE. Do not add features, do not add
  * consumers, do not delete it yet. The consequence contract it predates is
  * `packages/command-bus/src/consequence.ts` (ConsequencePlan /
