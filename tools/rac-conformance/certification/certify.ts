@@ -389,7 +389,39 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // Both land GREEN, so neither carries a ratchet entry. Both are HARD-0 and always will be:
 // "the user got a shape they did not approve" and "Ctrl+Z undid half a gesture" have no
 // acceptable non-zero level.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification'];
+// §BIM30-R2 — check-plan-determinism (G-REASON-02) added 2026-08-12. Named since R2, cited by
+// six source files as the reason for stableStringify / sorted element sets / a deterministic
+// planId, and it had NO GATE FILE (C78 §7.6's measured gap, 0C OPEN QUESTION 6) — the invariant
+// a second planner is most likely to break silently, closed BEFORE the registry widens. Five
+// arms, all through the REAL ConsequencePreviewService → WallMoveConsequencePlanner (real
+// predictRoomGeometry on the repeat arm, so predictedGeometry + metrics + violationsCreated are
+// IN the hashed body — floors, so a vacuous body exits 2): (1) REPEAT — same command + same
+// state planned twice is BYTE-IDENTICAL full JSON, with a comparator that CLASSIFIES rather
+// than booleans: bodies-differ-hashes-differ is honest divergence, bodies-differ-hash-EQUAL is
+// a HASH BUG (the measured d63e7954 class, where the predicted ring was dropped from the hashed
+// body and two different plans both read 0c7f0283); (2) SENSITIVITY — three pairs each
+// differing in exactly ONE consequential fact (polygon-only via a collinear vertex with every
+// scalar identical; metric-only via MetricTransition.before; changed-set-only via one junction
+// member) must move the planHash, and each pair carries a FLOOR that stateHash stayed EQUAL, so
+// the difference is proven to ride in the BODY — a difference smuggled in via stateHash would
+// prove nothing about body coverage; (3) INSENSITIVITY — payload key-order permutation and a
+// differing CommandExecutionContext-shaped envelope (actor/origin/timestamp/approval/gestureId,
+// each side under its own spoofed clock) must NOT move the hash (C78 §9: policy and provenance
+// stay off the plan); (4) REGISTRY-GENERALITY — the planner keys are parsed from the THREE
+// composition sources' `planners.set(...)` calls (those files touch window.* at module scope,
+// so the registry is read from source, not imported); every registered key must have a harness
+// in the gate or it is a FINDING, so a newly registered planner turns the gate red instead of
+// silently escaping G-REASON-02, and the planners-tested count prints so 1 reads as 1, not as
+// "all"; (5) NONDETERMINISM SOURCES — the repeat arm re-run 30 ms later with Date.now AND
+// Math.random spoofed to different values on each side, still byte-identical. Controls are
+// FLOORS: POSITIVE — a deliberately nondeterministic planner (the real one wrapped to append a
+// clock+RNG residue without recomputing the hash) must be FLAGGED by the same checker AND
+// classified as the hash-bug shape; NEGATIVE — two genuinely different states must hash apart,
+// proving the sensitivity arms can see at all. The gate's own output is deterministic (two runs
+// byte-identical — verified, no timestamp or random ever prints). Lands GREEN — hard-0, no
+// ledger entry: a plan that is not a pure function of (command, state) cannot bind an approval
+// (R6) or be compared against an actual (G-REASON-03).
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-plan-determinism', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
