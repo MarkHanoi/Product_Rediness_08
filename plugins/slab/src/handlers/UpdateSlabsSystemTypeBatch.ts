@@ -23,6 +23,51 @@
 // Partial-failure policy (§CONTEXT-DATA-HONESTY) lives in the COMMAND:
 // "Retyped N of M — K skipped". The bridge re-broadcasts it as
 // `pryzm-slab-type-batch-report`.
+//
+// ─── §FIX-SLAB-BATCH-REFUSAL-DISCARDED (C16 §5.1 CA-18) ──────────────────────
+// THE DEFECT THIS FIXES, measured by check-authoritative-state arm S1:
+// `slab.updateSystemTypeBatch` resolved the bus dispatch as ok=true while moving
+// ZERO authoritative paths. The COMMAND was never the problem — it refuses
+// correctly and NAMES its rule ("The slab type catalogue is not available here.",
+// UpdateSlabsSystemTypeBatchCommand.ts:210; the unknown-type and empty-scope
+// refusals sit beside it at :218 and in canExecute :171-178). This bridge
+// COMPUTED that refusal, broadcast it on a CustomEvent, and then returned
+// `{ forward: [], inverse: [] }` — which the bus reads as a clean success. The
+// truth existed and was destroyed in transit.
+//
+// C16 §5.1 CA-18 names this exact shape as PROHIBITED: "(b) `{forward:[],
+// inverse:[]}` returned as the outcome of a mutation the user asked for".
+//
+// WHY EXECUTE-TIME AND NOT `canExecute` (the C16 decision, stated):
+// CA-18's preferred home is `canExecute`, but it cannot be the home HERE. The
+// catalogue is a LEGACY-CONTEXT fact: it lives on `CommandManager`'s
+// `CommandContext.stores.slabSystemTypeStore` (initTools.ts:590/:895 thread it),
+// which this handler's bus `HandlerContext<Record<string, unknown>>` does not
+// carry — the bus ctx and the legacy ctx are different objects with different
+// store maps. Reaching it from `canExecute` would mean either importing the
+// `@pryzm/geometry-slab` barrel (§SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD, and the
+// command's own header at :44 explains why that drags SlabTool + the DOM into
+// every consumer) or reaching through `window.commandManager.getContext()` from
+// a method the bus contract calls PURE. So `canExecute` stays payload-shape-only
+// and store-free, and the refusal is raised at execute time — the identical
+// reasoning the three S4-VOICE siblings recorded in this gate's ledger on the
+// same day ("existence is a GEOMETRY-STORE fact reachable only at execute time").
+//
+// WHY THROW: the bus has no other channel. `HandlerResult` (packages/command-bus/
+// src/types.ts:85-100) is `{forward, inverse, nextStates?, consequence?}` — there
+// is NO success/reason field a handler may populate, so a refusal discovered
+// during `execute` can only reach the caller as a rejected promise. Every live
+// dispatch site already terminates in a catch: ZeroTokenChatBridge's
+// `executeSlice` wraps the single-command path in try/catch (:1141-1145) and the
+// multi-command path in `Promise.allSettled` (:1136), turning a rejection into a
+// named `dispatch-failed` line; AIPanel.ts:1366 attaches `.catch`.
+//
+// THE CUSTOMEVENT IS KEPT, UNCHANGED, ON EVERY PATH. It was never the defect —
+// the discarded return value was. (Measured: it has no PRODUCTION listener today,
+// because `BATCH_REPORT_EVENTS` in apps/editor/src/ui/ai/ZeroTokenChatBridge.ts
+// :1021-1064 maps wall/door/window but NOT slab. That omission is a separate
+// finding in another lane's territory; removing the emit here would foreclose
+// the fix and break the two certification harnesses that DO listen.)
 
 import {
   withHandlerSpan,
@@ -119,6 +164,11 @@ export const UpdateSlabsSystemTypeBatchHandler: CommandHandler<
             console.error('[slab.updateSystemTypeBatch.handler] indeterminate report emit failed:', emitErr);
           }
         };
+        // §FIX-SLAB-BATCH-REFUSAL-DISCARDED — the refusal the bridge must not
+        // swallow. Collected here and thrown AFTER the CustomEvent has gone out,
+        // so the event-driven listeners keep receiving exactly what they got
+        // before and the bus caller additionally learns the truth.
+        let refusal: string | null = null;
         if (cm) {
           try {
             const batch = new UpdateSlabsSystemTypeBatchCommand({
@@ -134,12 +184,28 @@ export const UpdateSlabsSystemTypeBatchHandler: CommandHandler<
             window.dispatchEvent(
               new CustomEvent(SLAB_TYPE_BATCH_REPORT_EVENT, { detail: report }),
             );
+            // CA-18. `CommandManagerImpl.execute` returns a legacy refusal as
+            // `{success:false, info:[reason]}` WITHOUT throwing (:172-185), so a
+            // bridge that ignores the return value cannot tell a retype from a
+            // no-op. Quote the command's OWN sentence — this bridge never
+            // invents refusal copy, and never guesses one when `info` is empty.
+            if (!report.success) {
+              refusal = report.info[0] ?? 'the slab type change was refused, and no reason was given';
+            }
           } catch (e) {
             console.error('[slab.updateSystemTypeBatch.handler] bridge failed:', e);
             sayNothingRan(`the bridge threw: ${String((e as Error)?.message ?? e)}`);
+            refusal = `the bridge threw: ${String((e as Error)?.message ?? e)}`;
           }
         } else {
           sayNothingRan('the command manager is not available in this session');
+          refusal = 'the command manager is not available in this session';
+        }
+        if (refusal !== null) {
+          // Nothing was mutated on any of these paths (S4-STATE was never at
+          // risk), so throwing loses no work — it only stops success and refusal
+          // being the same observable at the dispatch site.
+          throw new Error(`slab.updateSystemTypeBatch: ${refusal}`);
         }
         const empty: HandlerResult = { forward: [], inverse: [] };
         return empty;
