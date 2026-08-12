@@ -261,7 +261,21 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // dispatches as a parity proof. Pinned in gate-newly-measured.json as NEWLY MEASURED (the
 // instrument arrived; nobody chose to ship this). What IS proven: the bus is actor-blind, and
 // the normalizer has teeth.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity'];
+// §BIM30-T3 — check-authoritative-state (BIM30-READINESS-GATES §3.2) added 2026-08-12. The
+// Tier 3 gate over A-INV-1/2/3 and L-INV-4: for any piece of state, exactly ONE store owns it,
+// and a verb that reports success moved THAT store. It is EXECUTED (§2.1a) — it spawns
+// __tests__/authoritative-state.cert.ts inside its own invocation, brackets every dispatch with
+// an INDEPENDENT read-back through capture.ts's kindReaders, and refuses any artefact not
+// written by the run it just started. Four arms: S1 the diff matches the declared path set
+// (empty diff = finding, undeclared path = finding), S2 no DTO-only writes, S3 one kind = one
+// live store, S4 a refusal mutates nothing AND reaches the caller. THREE controls run every
+// invocation and are FLOORS, so a blinded comparator exits 2 rather than reporting a clean
+// estate: POSITIVE (height:4.2 must diff exactly one path), NEGATIVE (a planted DTO-only write
+// must be FLAGGED), WIDENING (an undeclared path must surface, never be absorbed). Lands exit 1
+// against a 6-entry NAMED ledger (gates/authoritative-state-ledger.json), pinned in
+// gate-newly-measured.json (§2.4) — 2 duplicate-store hazards (door/window singletons that
+// disagree) and 4 bridges that swallow their command's refusal and resolve as success.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authoritative-state'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {

@@ -1,0 +1,86 @@
+{
+  "//": [
+    "§AUTHORITATIVE-STATE-LEDGER — the NAMED, SHRINK-ONLY declared level for",
+    "gates/check-authoritative-state.ts (BIM30-READINESS-GATES §3.2).",
+    "",
+    "NAMED, NEVER A BARE COUNT (C70 §5.5). A count lets a PR fix one finding, break",
+    "another, and stay level. Every entry below is the finding's stable key — the arm",
+    "plus the case label — and the gate matches on that key, never on the full",
+    "sentence, because the sentence carries record counts and store names that",
+    "legitimately move between runs while the DEFECT does not.",
+    "",
+    "CHECKED IN BOTH DIRECTIONS. An unledgered finding exits 3 (RATCHET EXCEEDED). A",
+    "ledgered entry that is NO LONGER MEASURED also exits 3, via contract.ts's `stale`",
+    "channel — debt that has been paid must LEAVE this file in the commit that pays",
+    "it, or the next regression hides inside it.",
+    "",
+    "THIS FILE IS SHRINK-ONLY. Adding an entry is not a way to make the gate green;",
+    "it is a way to record that a defect was measured before the instrument existed",
+    "(BIM30-READINESS-GATES §2.4). Raising the level is forbidden outright (R7: a",
+    "measurement raised becomes a permission).",
+    "",
+    "─── THE 6 ENTRIES BELOW ARE THE FIRST HONEST READING, 2026-08-12 ───────────",
+    "All six PREDATE this gate. Nothing got worse on the day it landed — the",
+    "instrument arrived. Every one lives in code owned by another lane, and this",
+    "gate's territory is tools/ only: a gate MEASURES, and when it finds defects it",
+    "REPORTS them. See `territory` on each entry for the routing.",
+    "",
+    "S3 (2 entries) is the duplicate-store hazard BIM30-READINESS-GATES §3.2 names as",
+    "this gate's core subject, caught in its exact predicted shape: two live",
+    "singletons answering for one kind, DISAGREEING after real command seeding.",
+    "",
+    "S1 + S4-VOICE (4 entries) are one mechanism seen from two ends: a bridge that",
+    "swallows its command's refusal and resolves the bus promise as success. The",
+    "refusal EXISTS and NAMES ITS RULE — it is emitted on a CustomEvent — it simply",
+    "never reaches the dispatch site. Success and refusal are the same observable to",
+    "the caller, which is the §CONTEXT-DATA-HONESTY failure this repo keeps paying",
+    "for: two very different facts printing the same value."
+  ],
+  "measuredAt": "2026-08-12",
+  "declared": [
+    "S3 door",
+    "S3 window",
+    "S1 slab.updateSystemTypeBatch",
+    "S4-VOICE REFUSAL wall.updateDimensions(absent wall)",
+    "S4-VOICE REFUSAL room.setName(absent room)",
+    "S4-VOICE REFUSAL roof.update(absent roof)"
+  ],
+  "entryNotes": {
+    "S3 door": {
+      "measured": "@pryzm/geometry-door.doorStore (1 record after seeding) and @pryzm/core-app-model.doorStore are DISTINCT INSTANCES holding 1 and 0 records respectively.",
+      "why": "Two live stores answer for the `door` kind. ProjectSerializer and CommandManager import the geometry-door singleton; anything reaching for the core-app-model one sees an empty model and cannot tell that from 'this project has no doors'.",
+      "territory": "packages/core-app-model/, packages/geometry-door/ — NOT tools/.",
+      "exitCondition": "one of the two is deleted or re-exported as the other, so `===` holds and the kind names ONE owner."
+    },
+    "S3 window": {
+      "measured": "@pryzm/geometry-window.windowStore (1 record) and @pryzm/core-app-model.windowStore (0 records) are DISTINCT INSTANCES.",
+      "why": "Identical shape to S3 door.",
+      "territory": "packages/core-app-model/, packages/geometry-window/ — NOT tools/.",
+      "exitCondition": "as S3 door."
+    },
+    "S1 slab.updateSystemTypeBatch": {
+      "measured": "Dispatch resolves ok=true and moves ZERO authoritative paths. The handler emits pryzm-slab-type-batch-report with success=false and the reason 'The slab type catalogue is not available here.'",
+      "why": "The command refuses correctly and names its rule; the plugin bridge discards that result and returns an empty HandlerResult, so the bus reports success. The verb is a no-op that claims to have worked.",
+      "territory": "plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts, and whatever owns slab/floor system-type catalogue availability — NOT tools/.",
+      "exitCondition": "either the catalogue is reachable in a composed runtime (the verb then mutates and this entry is struck), or the bridge propagates the refusal so the dispatch does not resolve as success."
+    },
+    "S4-VOICE REFUSAL wall.updateDimensions(absent wall)": {
+      "measured": "wallId='no-such-wall-at-all' → dispatch resolves ok=true, 0 authoritative paths, no refusal reaches the caller.",
+      "why": "apps/editor/src/engine/initBusHandlers.ts ~:978-982 — the bridge console.warn()s 'wall not found in geometry store' and returns. The console is not the model and it is not the caller. S4-STATE passes (nothing was mutated); S4-VOICE fails.",
+      "territory": "apps/editor/src/engine/initBusHandlers.ts — NOT tools/.",
+      "exitCondition": "the bridge refuses with a named rule that reaches the dispatch site, so success and refusal stop being the same observable."
+    },
+    "S4-VOICE REFUSAL room.setName(absent room)": {
+      "measured": "roomId='no-such-room-at-all' → ok=true, 0 authoritative paths, no refusal reaches the caller.",
+      "why": "Same mechanism as the wall entry, in the rooms plugin bridge.",
+      "territory": "plugins/rooms/src/handlers/ — NOT tools/.",
+      "exitCondition": "as above."
+    },
+    "S4-VOICE REFUSAL roof.update(absent roof)": {
+      "measured": "id='no-such-roof-at-all' → ok=true, 0 authoritative paths, no refusal reaches the caller.",
+      "why": "Same mechanism, in the apps/editor roof bridge.",
+      "territory": "apps/editor/src/engine/initBusHandlers.ts — NOT tools/.",
+      "exitCondition": "as above."
+    }
+  }
+}

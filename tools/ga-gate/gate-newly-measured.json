@@ -247,6 +247,23 @@
       "territory": "packages/ai-host/src/capabilities/ (chat classification) and apps/editor/src/ui/ai/ZeroTokenChatBridge.ts - NOT R7's territory. R7 reports the request rather than making the change: unblocking a verb from chat is a capability-surface decision (C68), and wiring the envelope at call sites touches the R6 agent's live UI territory.",
       "runnerNote": "GRADED BY certify.ts, NOT BY run-all - it composes real stores and drives real commands through the real bus, which is why it lives in the certification tree (BIM30-READINESS-GATES §2.1 as amended 2026-08-12). run-all reports this entry as INFORMATIONAL and enforces only its `reviewBy`, because a date is runner-agnostic and a reading is not.",
       "reviewBy": "2026-11-12"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-authoritative-state.ts",
+      "runner": "certify",
+      "addedAt": "2026-08-12",
+      "builtBy": "BIM 3.0 Phase 1 Tier 3 · BIM30-READINESS-GATES §3.2 · C70 A-INV-1/A-INV-2/A-INV-3/L-INV-4",
+      "firstReading": "exit 1 DECLARED-LEVEL — 6 findings against a declared level of 6 (S3 ×2 duplicate live stores, S1 ×1 no-op-reporting-success, S4-VOICE ×3 swallowed refusals). Floors met: 18 mutating verbs dispatched (min 15), 3 refusal cases (min 3), 18 kinds reached (min 10), 19 pre-mutation records (min 12), 21/21 dispatch outcomes recorded, DTO view reached, 0 registration failures, 2 kind-ownership pairs probed (min 2), and all THREE controls proven in-run (positive 1/1, negative 1/1, widening 1/1). S2 reads 0 DTO-only writes among the 18 measured verbs.",
+      "pinnedTo": "tools/rac-conformance/certification/gates/authoritative-state-ledger.json — 6 NAMED entries keyed by arm+case label, each with measured/why/territory/exitCondition, checked in BOTH directions (an unledgered finding exits 3; a ledgered entry no longer measured exits 3 via contract.ts's `stale` channel). Both directions were WATCHED FIRING before the gate was trusted: removing one entry produced exit 3 RATCHET EXCEEDED, adding a bogus entry produced exit 3 STALE LEDGER.",
+      "predatesTheGate": [
+        "S3 · @pryzm/geometry-door.doorStore and @pryzm/core-app-model.doorStore are DISTINCT LIVE INSTANCES answering for the same `door` kind, holding 1 and 0 records respectively after real command seeding. Identical shape for window. This is the duplicate-store hazard §3.2 names as the gate's core subject, and nothing measured it until this run.",
+        "S1 · plugins/slab UpdateSlabsSystemTypeBatch — the command refuses correctly and NAMES its rule ('The slab type catalogue is not available here.') on a CustomEvent; the bridge discards that result and returns an empty HandlerResult, so the bus resolves the dispatch as SUCCESS over a verb that moved nothing.",
+        "S4-VOICE · apps/editor/src/engine/initBusHandlers.ts ~:978-982 — wall.updateDimensions aimed at an absent wall console.warn()s and returns; the bus reports success. The console is not the model and it is not the caller. Same mechanism for roof.update and for plugins/rooms room.setName. S4-STATE passes on all three (nothing was mutated) — the defect is exclusively that success and refusal are the same observable at the dispatch site."
+      ],
+      "exitCondition": "S3 entries are struck when each kind names ONE owner (one singleton deleted or re-exported as the other, so `===` holds). S1 slab is struck when either the catalogue is reachable in a composed runtime or the bridge stops resolving a refused batch as success. The three S4-VOICE entries are struck when their bridges propagate a named refusal to the dispatch site. When `declared` reaches 0 the gate is hard-0 and this entry is struck. NOTE: this gate measures the 18 mutating verbs the harness composes, NOT the register's 110 LIVE rows — it prints that caveat every run, and a clean reading is never repo-wide coverage.",
+      "territory": "packages/core-app-model/, packages/geometry-door/, packages/geometry-window/, plugins/slab/, plugins/rooms/, apps/editor/src/engine/initBusHandlers.ts — NOT tools/. Every finding is routed to another lane; the gate lane measures and reports.",
+      "runnerNote": "GRADED BY certify.ts, NOT BY run-all. run-all does not execute this gate — it composes real stores, spawns vitest and drives real commands, which is why it lives in the certification tree (BIM30-READINESS-GATES §2.1a: it needs something that does not exist until something runs). run-all therefore reports this entry as INFORMATIONAL and enforces only its `reviewBy`, because a date is runner-agnostic and a reading is not. run-all must never claim a verdict on a gate it did not run.",
+      "reviewBy": "2026-11-12"
     }
   ]
 }
