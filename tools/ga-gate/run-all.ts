@@ -235,6 +235,14 @@ const GATES: Gate[] = [
   { name: 'prevstate-contract (C72 §3, §6.2)',        script: 'check-prevstate-contract.ts' },
   { name: 'suppression-is-reversible (C72 §4, §6.3)', script: 'check-suppression-is-reversible.ts' },
   { name: 'no-hidden-mock (C74 §3.2/§3.4/§3.5)',      script: 'check-no-hidden-mock.ts' },
+  // C77 (2026-08-12) — the secrets & configuration register. The C69 pattern on
+  // the config surface: generated from the read-sites, diffed against the
+  // committed artefact both directions, PRESENCE-NEVER-VALUE in every arm (the
+  // gate value-leak-checks its own outputs and fails closed at exit 2). Lands
+  // RED at a NAMED shrink-only ledger of undeclared env names pinned at the
+  // first honest reading — gate-newly-measured.json, same change, per the
+  // Tier 1/Tier 2 discipline.
+  { name: 'secrets-register (C77 §6)',                script: 'check-secrets-register.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];
