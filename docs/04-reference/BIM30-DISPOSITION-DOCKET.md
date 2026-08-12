@@ -69,7 +69,8 @@ Zero listeners were found for every event below (grep for `addEventListener('<na
 | `bim-model-healed` | `packages/core-app-model/src/BimKernel.ts` (post-reconciliation) | None — pure notification, zero listeners since authoring; the reconciliation console summary remains | AUTHORED ✓ · REACHABLE ✗ | **REMOVE** | — (closed) | — | **EXECUTED** — dispatch + catalog entry deleted |
 | `pryzm-ambient-observation` | `packages/ai-host/src/AmbientIntelligence.ts` (`_emit`) | None as a window event — `AmbientIntelligence` already delivers through its registered-listener API, which is the consumed channel; the window dispatch was a parallel orphan | AUTHORED ✓ · REACHABLE ✗ (window channel) | **REMOVE** (window channel only; listener API untouched) | — (closed) | — | **EXECUTED** — dispatch + catalog entry deleted |
 | `pryzm-render-registry-isolation-leak` | `apps/editor/src/engine/initScene.ts:1492` | **YES — this is the C13 isolation-violation alarm.** The invariant (project isolation, C13) requires the *detection to be heard*; today the alarm fires into silence alongside its `[C13 VIOLATION]` console.error. Deleting an alarm is a policy statement needing founder sign-off (ADR-0323 rule 5) | AUTHORED ✓ · REACHABLE ✗ (dispatched, unheard) | **WIRE-PENDING** — recommendation: a listener registered at editor bootstrap that (1) increments an OTel counter / telemetry event so leaks are visible in production, and (2) surfaces a dev-mode toast. Alternative (removal) requires explicit founder sign-off | Editor bootstrap owner; escalation: founder | 2026-09-12 | **RECORDED-ONLY** — code untouched by instruction |
-| `pryzm-dep-cascade` · `pryzm-hosted-reval` · `pryzm-room-reval` · `pryzm-structural-cascade` | catalog-typed, dead dispatch surface | Owned by roadmap **Phase 5 wire-or-delete** (dependency wiring) | AUTHORED ✓ · REACHABLE ✗ | **HELD-FOR-PHASE-5** — not touched here; Phase 5 decides wire-or-delete | Roadmap Phase 5 owner | Phase 5 exit | **RECORDED-ONLY** — untouched by instruction |
+| `pryzm-dep-cascade` | catalog-typed, dead dispatch surface | Owned by roadmap **Phase 5 wire-or-delete** (dependency wiring) | AUTHORED ✓ · **REACHABLE ✓** | **WIRED** — real listener `apps/editor/src/engine/initDependencyCascade.ts`, routing only `sitsOn`/`supports` (the one pair EV-03 measured no bespoke tracker serving) into *existing* rebuild entry points; priorities 2/3 explicitly skipped citing the trackers that own them | Phase 5 | **CLOSED 2026-08-12** | **EXECUTED** — `1341b3bc`; `check-propagation-reaches` 8 → **0 hard-0**. Browser-level routing remains source-proven, not executed-proven (C72 §6.1.1) |
+| `pryzm-room-reval` · `pryzm-hosted-reval` · `pryzm-structural-cascade` | catalog-typed, dead dispatch surface | Same | AUTHORED ✓ · REACHABLE ✗ | **DELETED** — each duplicated propagation that already works (`RoomTopologyObserver`; the EXECUTED-PROVEN Door/Window trackers; `sitsOn`/`supports` now travelling inside `pryzm-dep-cascade`). Wiring them would have double-rebuilt | Phase 5 | **CLOSED 2026-08-12** | **EXECUTED** — `1341b3bc`; dispatch + catalog entry + ledger row removed together, dated tombstones at all three sites so `grep` cannot read a dead event as wiring |
 
 ## 3 · Orphaned packages (wire-or-remove, per rule 1)
 
@@ -110,6 +111,11 @@ apps/packages/plugins/tools/server/src/tests (excluding the package itself and n
 - `plugins/ai-generative/src/descriptor.ts` — dated scaffold header.
 
 **RECORDED-ONLY** (no code change): `pryzm-render-registry-isolation-leak` (WIRE-PENDING,
-founder-gated removal) · 4 cascade events (HELD-FOR-PHASE-5) · `expr-eval` REMOVE (lockfile
-commit) · `wcag-audit` WIRE-or-REMOVE · `bench-visual-diff` RECLASSIFY (measured reachable) ·
-`pdf-to-bim` founder decision · §4 cross-references.
+founder-gated removal) · `expr-eval` REMOVE (lockfile commit) · `wcag-audit` WIRE-or-REMOVE ·
+`bench-visual-diff` RECLASSIFY (measured reachable) · `pdf-to-bim` founder decision ·
+§4 cross-references.
+
+> **The 4 cascade events left RECORDED-ONLY on 2026-08-12** (`1341b3bc`, Phase 5): one
+> WIRED, three DELETED — see the rows above. They are the docket's first entries to leave
+> **RECORDED-ONLY for EXECUTED**, and they exited by the §2.1 rule the docket exists to
+> enforce: *decided per item from evidence, never wired in bulk to make a count go green.*

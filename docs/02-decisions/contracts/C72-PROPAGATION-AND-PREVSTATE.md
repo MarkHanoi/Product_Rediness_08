@@ -43,12 +43,19 @@ stop reading it as such** — it is the same shape as the authored-but-unwired h
 
 ### §0.2 — Why one arm is not enough
 
-`StoreChangeEvent` (`packages/core-app-model/src/StoreEventBus.ts:63–80`) is
-`{ elementId, elementType, operation, timestamp }` plus two `@deprecated` reserved flags.
-**It carries no pre-mutation state.** `DependencyResolver` subscribes to the *bus*, not to
-the stores — so even if listeners appeared tomorrow, the diff-based work those listeners
-exist to do (adjacent-wall discovery, property-only fast paths) would still be
-unreachable. Meanwhile `prevState` **is** emitted, as an optional third callback argument,
+`StoreChangeEvent` (`packages/core-app-model/src/StoreEventBus.ts:63–80`) **was**
+`{ elementId, elementType, operation, timestamp }` plus two `@deprecated` reserved flags,
+carrying **no pre-mutation state**. `DependencyResolver` subscribes to the *bus*, not to
+the stores — so even if listeners appeared, the diff-based work those listeners exist to
+do (adjacent-wall discovery, property-only fast paths) was structurally unreachable.
+
+> ✅ **CLOSED 2026-08-12 (`1341b3bc`).** `StoreChangeEvent` now declares an **optional**
+> `prevState` (ARM B1), the `pryzm-dep-cascade` catalog payload declares it (ARM B2), and
+> the default dispatcher populates it from the trigger event. Optional, so none of the 23
+> existing subscribers change behaviour. **Scope, stated rather than overclaimed:** the
+> field flows from **WallStore's** bridge only — the store whose classifier actually
+> consumes the third argument — per §3.1, which scopes the MUST to stores with a live diff
+> consumer. The other §STEP7 store bridges still emit four fields. Meanwhile `prevState` **is** emitted, as an optional third callback argument,
 by exactly **5** stores — `packages/geometry-wall/src/WallStore.ts`,
 `packages/geometry-slab/src/SlabStore.ts`,
 `packages/core-app-model/src/stores/ColumnStore.ts`,
@@ -137,9 +144,15 @@ propagation in the product.
 > > classifier actually consumes the third argument.
 
 > **§3.2 — MUST.** A change-notification **type** that a diff consumer subscribes to
-> declares a pre-mutation field. `StoreChangeEvent` does not, and that is the standing
+> declares a pre-mutation field. `StoreChangeEvent` did not, and that was the standing
 > finding: a consumer subscribed to a type that structurally cannot carry what it needs
 > is unfixable at the consumer.
+>
+> > ✅ **SATISFIED 2026-08-12 (`1341b3bc`)** — the type declares it, the catalog payload
+> > declares it, the dispatcher populates it. The MUST now reads forward, not backward: a
+> > *new* diff consumer may not be introduced against a type that cannot carry its input.
+> > The `check-prevstate-contract` ledger (21 → **17** sites, the four WallStore strikes
+> > paid) is the authority on how much of the emit surface still starves.
 
 > **§3.3 — MUST NOT.** A propagation path may not be introduced whose classifier's only
 > `no-prevState` branch is its *shipping* branch. The openings fast path was unreachable
@@ -229,10 +242,34 @@ ledger `./cascade-events.json`.
 | **ARM B2** | finding | the event's typed catalog entry declares one |
 | **ledger** | exit **3** | `declaredFindings` is **named and shrink-only**; a finding that stops appearing must leave the ledger in the same commit — *"debt that has been paid must not stay on the books."* |
 
-**Current reading: 8 findings, all 8 declared** — four `ARM-A no listener`, four
-`ARM-B emitter carries no prevState`, one pair per event. The gate is GREEN *at its
-declared level*, which per C66 §1.1 means "the known defect has not grown", **not**
-"propagation works".
+**Reading at mint time (2026-08-11): 8 findings, all 8 declared** — four
+`ARM-A no listener`, four `ARM-B emitter carries no prevState`, one pair per event.
+The gate was GREEN *at its declared level*, which per C66 §1.1 means "the known defect
+has not grown", **not** "propagation works".
+
+> ✅ **CURRENT READING (2026-08-12, commit `1341b3bc`): 0 findings, hard-0, no baseline.**
+> The four events were resolved by the §2.1 wire-or-delete decision, **per event from
+> evidence, not by wiring all four**:
+> - `pryzm-room-reval` **DELETED** — duplicated the protected `RoomTopologyObserver`.
+> - `pryzm-hosted-reval` **DELETED** — duplicated the EXECUTED-PROVEN Door/Window trackers.
+> - `pryzm-structural-cascade` **DELETED** — its `sitsOn`/`supports` coverage travels
+>   inside `pryzm-dep-cascade`'s tasks.
+> - `pryzm-dep-cascade` **WIRED, both arms** — a real listener
+>   (`apps/editor/src/engine/initDependencyCascade.ts`) routing **only** `sitsOn`/
+>   `supports`, the one pair EV-03 measured no bespoke tracker serving, into the
+>   *existing* rebuild entry points. Priorities 2/3 are explicitly skipped, citing the
+>   trackers that own them — a second cascade over the same pairs would double-rebuild.
+>
+> Dispatch, catalog entry and ledger row were removed together for each deletion, with
+> dated tombstones at all three sites, so `grep` can no longer read a dead event as
+> wiring. `declaredFindings` is now `[]` and the entry was struck from `gate-debt.json`
+> in the same commit — **debt that has been paid does not stay on the books.**
+>
+> **What this does NOT claim.** §6.1.1 still binds: the gate is static, so
+> "the listener is registered" is source-proven, and the browser-level routing of
+> `pryzm-dep-cascade → initDependencyCascade` is **NOT** executed-proven. The routed
+> pair also stays *idle* until `sitsOn` edges exist in the graph — which the Phase-3
+> rebuild widening (`df8f67a2`) began emitting at load time on the same day.
 
 > **§6.1.1 — why this gate is static, not runtime.** "A listener exists" is a claim about
 > the whole estate, and no headless world composes the whole estate — the certification
