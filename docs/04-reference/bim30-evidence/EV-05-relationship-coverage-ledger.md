@@ -73,8 +73,8 @@ Legend — **W**riter · **R**eader · **P**ersisted (serialized verbatim by `se
 
 | # | Relationship | Writer | Reader | P | RB | MU (delete) | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | `hosts` | ✅ CreateWallOpeningCommand:232 | ✅ SemanticQueryEngine:142, :368 | ✅ | ✅ | ✅ all kinds **except wall** | **HEALTHY** — the reference shape |
-| 2 | `hostedBy` | ✅ :238 | ⚠ via `getRelationships` only | ✅ | ✅ | ✅ except wall | HEALTHY |
+| 1 | `hosts` | ✅ CreateWallOpeningCommand:232 | ✅ SemanticQueryEngine:142, :368 | ✅ | ✅ | ✅ all kinds — the wall exception was CLOSED same-day (§FIX-WALL-DELETE-LEAVES-GRAPH-EDGES) | **HEALTHY** — the reference shape |
+| 2 | `hostedBy` | ✅ :238 | ⚠ via `getRelationships` only | ✅ | ✅ | ✅ all kinds (wall exception closed same-day) | HEALTHY |
 | 3 | `boundedBy` | ✅ DetectAllRooms:151, ReDetectRooms:153 | ✅ SemanticQueryEngine:141 | ✅ | ✅ | ✅ | **HEALTHY** |
 | 4 | `adjacentTo` | ✅ DetectAllRooms:208/211 + GenerativeDesignApply:215 | ✅ SemanticQueryEngine:213, WorldModelAdapter:150 | ✅ | ✅ | ✅ | **HEALTHY** |
 | 5 | `connectedTo` | ✅ DetectAllRooms:216/219 | ✅ SemanticQueryEngine:140, WorldModelAdapter:151 | ✅ | ❌ **not rebuilt** | ✅ | **AT RISK** — lost on pre-graph snapshots. CONNECT-3 gives it a *second, deterministic* writer from retained junctions |

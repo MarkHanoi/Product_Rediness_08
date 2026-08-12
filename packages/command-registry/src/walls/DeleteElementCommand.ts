@@ -23,6 +23,7 @@ import { windowStore } from '@pryzm/geometry-window';
 import type { FurnitureData } from '@pryzm/geometry-furniture';
 import type { WallBaseline } from '@pryzm/geometry-wall';
 import { semanticGraphManager } from '@pryzm/core-app-model';
+import type { Relationship } from '@pryzm/core-app-model';
 // C2 §SLAB-SYSTEM-AUDIT-2026: Slab branch is now delegated to the dedicated command.
 import { DeleteSlabCommand } from '../slabs/DeleteSlabCommand';
 import { DeleteColumnCommand } from '../columns/DeleteColumnCommand';
@@ -92,9 +93,66 @@ export class DeleteElementCommand implements Command {
      * this inline stair branch left the stair's opening in the floor forever.
      */
     private _stairDelegate: DeleteStairCommand | null = null;
+    /**
+     * §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES (BIM 3.0 C7) — wall-family branches only
+     * (wall + cascaded children, window, door, window-orphan, door-orphan).
+     *
+     * THE BUG: thirteen element kinds in this file purge the SemanticGraph on
+     * delete (semanticGraphManager.removeAllRelationshipsForElement) — the wall
+     * family never did. A well-formed edge pointing at a deleted id is NOT
+     * self-erasing: it survives serialize()/deserialize() and persists forever,
+     * so `hosts`/`hostedBy`/`boundedBy`/`supports` edges referencing deleted
+     * walls accumulated in every saved project.
+     *
+     * THE UNDO SIDE: the other kinds RE-CREATE their edges on undo by
+     * reconstructing them from their own snapshot (beam re-adds sitsOn/supports,
+     * furniture/slab/column re-add sitsOn). A wall cannot reconstruct its edges
+     * that way — `boundedBy` (room→wall) and `supports` (wall→beam) are authored
+     * by OTHER elements' commands and are invisible in the wall snapshot. So the
+     * wall family captures getRelationships() verbatim BEFORE removal (the
+     * standard prevState pattern) and re-adds them on undo. addRelationship() is
+     * idempotent, so redo/undo cycles cannot duplicate edges.
+     */
+    private _removedRelationships: Relationship[] | null = null;
 
     constructor(private elementId: string) {
         this.targetIds = [elementId];
+    }
+
+    /**
+     * §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — capture every graph edge touching any
+     * of `ids` (source OR target), deduped by relationship id (an edge like
+     * wall—hosts→window touches two of the ids and must be captured once).
+     * MUST run before any removeAllRelationshipsForElement call in the branch.
+     */
+    private _captureRelationships(ids: string[]): void {
+        const byRelId = new Map<string, Relationship>();
+        for (const eid of ids) {
+            for (const rel of semanticGraphManager.getRelationships(eid)) {
+                byRelId.set(rel.id, { ...rel });
+            }
+        }
+        this._removedRelationships = [...byRelId.values()];
+    }
+
+    /**
+     * §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — undo side: re-add the captured edges.
+     * addRelationship() regenerates ids but is idempotent on
+     * (source, target, type), so a second undo after redo cannot duplicate.
+     */
+    private _restoreRelationships(): void {
+        if (!this._removedRelationships) return;
+        for (const rel of this._removedRelationships) {
+            try {
+                semanticGraphManager.addRelationship({
+                    type: rel.type,
+                    sourceId: rel.sourceId,
+                    targetId: rel.targetId,
+                    createdBy: rel.createdBy,
+                    ...(rel.metadata ? { metadata: rel.metadata } : {}),
+                });
+            } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+        }
     }
 
     canExecute(ctx: CommandContext): CommandValidationResult {
@@ -176,11 +234,21 @@ export class DeleteElementCommand implements Command {
             // window.bimManager fallback removed.
             const bimMgr = ctx.bimManager;
             const childrenIds: string[] = wall.childrenIds ?? [];
+
+            // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — capture BEFORE any removal:
+            // the wall's edges (hosts, boundedBy, supports, …) AND every cascaded
+            // child's edges (hostedBy) in one deduped snapshot for undo.
+            this._captureRelationships([id, ...childrenIds]);
+
             childrenIds.forEach(childId => {
                 elementRegistry.unregister(childId);
                 if (bimMgr?.unregisterElement) {
                     try { bimMgr.unregisterElement(childId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
+                // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — the cascaded child's
+                // hostedBy edge (and the wall's hosts edge to it) must not
+                // survive the delete. Mirrors the thirteen other kinds.
+                try { semanticGraphManager.removeAllRelationshipsForElement(childId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 // §CASCADE-DELETE: Mirror CreateWallOpeningCommand's dual-store write.
                 // WallStore.remove() only cleans the internal maps (wallStore.doors /
                 // wallStore.windows). The external DoorStore / WindowStore singletons
@@ -198,6 +266,10 @@ export class DeleteElementCommand implements Command {
 
             // §3.5 FIX: Unregister wall from elementRegistry (moved from WallStore.remove()).
             elementRegistry.unregister(id);
+
+            // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — purge the wall's own edges
+            // (boundedBy from rooms, supports to beams, any remaining hosts).
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
 
             // §2.7 FIX: Removed direct builder.removeWall(id) call.
             // wallStore.remove() emits 'remove' → subscriber in main.ts calls
@@ -229,9 +301,14 @@ export class DeleteElementCommand implements Command {
                 }
             }
 
+            // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — capture (for undo) then purge
+            // the window's hostedBy edge + the host wall's hosts edge to it.
+            this._captureRelationships([id]);
+
             wallStore.removeWindow(id);
             // §3.5 FIX: Unregister from elementRegistry (moved from WallStore.removeOpening()).
             elementRegistry.unregister(id);
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308): free the EXTERNAL windowStore
             // singleton too. wallStore.removeWindow() only cleans the wall's internal
             // window map + re-cuts the void; it never reaches windowStore, so
@@ -266,9 +343,14 @@ export class DeleteElementCommand implements Command {
                 }
             }
 
+            // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — capture (for undo) then purge
+            // the door's hostedBy edge + the host wall's hosts edge to it.
+            this._captureRelationships([id]);
+
             wallStore.removeDoor(id);
             // §3.5 FIX: Unregister from elementRegistry (moved from WallStore.removeOpening()).
             elementRegistry.unregister(id);
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308) — door counterpart of the window
             // fix above: free the external doorStore singleton so DoorBuilder (a pure
             // doorStore subscriber) receives a 'remove' event and disposes the leaf +
@@ -299,8 +381,13 @@ export class DeleteElementCommand implements Command {
                 this.deletedData.openingDescriptor = { ...opening };
                 wallStore.removeOpening(orphan.wallId, opening.id);
             }
+            // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — an orphan can still carry
+            // graph edges (its hostedBy edge is exactly what makes the stale-edge
+            // defect visible); capture for undo, then purge.
+            this._captureRelationships([id]);
             windowStore.remove(id);
             elementRegistry.unregister(id);
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             return { success: true, affectedElementIds: [id] };
         }
         if (doorStore.has(id)) {
@@ -315,8 +402,12 @@ export class DeleteElementCommand implements Command {
                 this.deletedData.openingDescriptor = { ...opening };
                 wallStore.removeOpening(orphan.wallId, opening.id);
             }
+            // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — door-orphan counterpart of the
+            // window-orphan branch above: capture for undo, then purge.
+            this._captureRelationships([id]);
             doorStore.remove(id);
             elementRegistry.unregister(id);
+            try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             return { success: true, affectedElementIds: [id] };
         }
 
@@ -644,6 +735,13 @@ export class DeleteElementCommand implements Command {
                         } as any);
                     }
                 }
+                // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — re-add the exact edges
+                // execute() captured and purged (wall's hosts/boundedBy/supports
+                // + every cascaded child's hostedBy). Mirrors the beam branch's
+                // edge re-authoring below, but verbatim from the pre-delete
+                // capture because a wall cannot reconstruct edges other
+                // elements' commands authored.
+                this._restoreRelationships();
                 break;
             case 'window':
                 stores.wallStore.addWindow(this.deletedData);
@@ -666,6 +764,8 @@ export class DeleteElementCommand implements Command {
                 if (this.deletedData.windowStoreRecord && !windowStore.has(this.deletedData.id)) {
                     try { windowStore.add(this.deletedData.windowStoreRecord); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
+                // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — restore hostedBy/hosts.
+                this._restoreRelationships();
                 break;
             case 'door':
                 stores.wallStore.addDoor(this.deletedData);
@@ -684,6 +784,8 @@ export class DeleteElementCommand implements Command {
                 if (this.deletedData.doorStoreRecord && !doorStore.has(this.deletedData.id)) {
                     try { doorStore.add(this.deletedData.doorStoreRecord); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
+                // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — restore hostedBy/hosts.
+                this._restoreRelationships();
                 break;
             case 'window-orphan': {
                 // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): restore an orphaned window
@@ -698,6 +800,8 @@ export class DeleteElementCommand implements Command {
                 if (snap.openingDescriptor && snap.wallId) {
                     try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
+                // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — restore captured edges.
+                this._restoreRelationships();
                 break;
             }
             case 'door-orphan': {
@@ -710,6 +814,8 @@ export class DeleteElementCommand implements Command {
                 if (snap.openingDescriptor && snap.wallId) {
                     try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 }
+                // §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — restore captured edges.
+                this._restoreRelationships();
                 break;
             }
             case 'slab':
