@@ -5,6 +5,16 @@ import { createId } from '@pryzm/schemas';
 // `curve` descriptor, so a region bounded by a curved/filleted wall never closed.
 // Delegating to the same tracer the 3D tool uses fixes curved-wall regions here too.
 import { findRegionAtPoint as traceRegionAtPoint } from '@pryzm/geometry-slab';
+// §REGION-HOST-ATTRIBUTION (founder, 2026-08-12) — a region-created slab must HOLD
+// HOST REFERENCES to the walls that bound it, exactly as a pick-walls slab does.
+// Clicking inside four walls EXPRESSES A RELATIONSHIP ("the floor of this room"), not
+// a coincidental quadrilateral; before this the ring's wall ids were discarded in
+// transit and the slab silently failed to follow its walls. See SlabRegionTracer.
+import { traceRegionSketchAtPoint, type SlabSketch } from '@pryzm/geometry-slab';
+// The sketch is attached through the COMMAND LAYER (C03/P6 — commands are the only
+// mutation path), so it is undoable and SlabDependencyTracker re-registers the
+// wall→slab dependencies from its own 'bim-slab-updated' listener.
+import { UpdateSlabSketchCommand } from '@pryzm/command-registry';
 // §FEAT-SLAB-DRAW-MODES (founder 2026-08-06) — "During SLAB creation … I want the
 // SAME OPTIONS as during WALL creation — ORTHO, LINEAR, CURVE". The polyline slab
 // now authors its boundary through the ONE shared path model that the floor-finish
@@ -40,6 +50,15 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     private _candidateRegion: V2[] | null = null;
 
     /**
+     * §REGION-HOST-ATTRIBUTION — the parametric sketch for {@link _candidateRegion},
+     * whose edges reference the walls the ring was traced along. Held alongside the
+     * ring (rather than re-derived at commit) so the sketch and the polygon are
+     * provably the SAME trace — re-tracing at commit could pick a different region if
+     * the cursor moved between hover and click.
+     */
+    private _candidateSketch: SlabSketch | null = null;
+
+    /**
      * §FEAT-SLAB-DRAW-MODES — the shared linear/ortho/curved path state machine.
      * Owns the boundary ONLY while the polyline family is active; the 2-point,
      * region, hollow and pick-walls modes keep their own (unchanged) gestures.
@@ -51,6 +70,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
+        this._candidateSketch = null;
         this._author.reset();
         console.log(
             '[SlabPlanToolHandler] activated — overlay ready, waiting for first click',
@@ -63,6 +83,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
+        this._candidateSketch = null;
         this._author.reset();
         this._ctx        = null;
         console.log('[SlabPlanToolHandler] deactivated');
@@ -212,6 +233,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
+        this._candidateSketch = null;
         this._author.reset();
         this._clearOverlay();
     }
@@ -245,6 +267,10 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         const thickness = slabType?.totalThickness ?? 0.25;
         const slabId    = createId('slab');
 
+        // §REGION-HOST-ATTRIBUTION — captured BEFORE the async create resolves, because
+        // the reset at the foot of this method clears `_candidateSketch` synchronously.
+        const regionSketch = this._getMode() === 'region' ? this._candidateSketch : null;
+
         window.runtime?.bus?.executeCommand('slab.create', {
             id:       slabId,
             ifcGuid:  crypto.randomUUID(),
@@ -267,6 +293,48 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             polygon:  poly.map(p => ({ x: p.worldX, y: p.worldZ, z: p.worldZ })),
         })?.then(() => {
             console.log('[SlabPlanToolHandler] slab created', slabId);
+
+            // §REGION-HOST-ATTRIBUTION — attach the parametric sketch so the slab
+            // FOLLOWS the walls that bound it, closing the gap with pick-walls.
+            //
+            // WHY A SECOND COMMAND rather than a `sketch` field on `slab.create`: the
+            // bus `CreateSlabPayload` (`plugins/slab/src/handlers/CreateSlab.ts`) has no
+            // sketch field, and that handler is deliberately NOT the authoritative
+            // writer here — the §FT1 `slab.created` bridge in `initTools.ts` performs
+            // the real `slabStore.add`. `UpdateSlabSketchCommand` is the ONE command
+            // documented to mutate `SlabData.sketch` (§01 §2.2), it is undoable
+            // (§01 §2.3), and `SlabDependencyTracker` re-registers the wall→slab
+            // dependencies from the `bim-slab-updated` event it causes (§03 §3.2).
+            // Widening the bus payload instead would mean writing the sketch in
+            // `plugins/slab`, which is a separate, larger change.
+            if (regionSketch && regionSketch.outerLoop.edges.length >= 3) {
+                const cm = window.commandManager as unknown as {
+                    execute?: (cmd: unknown) => { success: boolean; error?: string };
+                } | undefined; // TODO(TASK-08)
+                if (!cm?.execute) {
+                    // Loud, not silent: without this the slab is a coincidental
+                    // quadrilateral again, which is exactly the defect being closed.
+                    console.warn(
+                        '[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION commandManager '
+                        + 'unavailable — region slab created WITHOUT host references. It '
+                        + 'will NOT follow its walls.',
+                    );
+                } else {
+                    const res = cm.execute(new UpdateSlabSketchCommand({ slabId, sketch: regionSketch }));
+                    if (res?.success) {
+                        console.log(
+                            `[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION sketch attached to ${slabId} — `
+                            + `slab now follows its host walls.`,
+                        );
+                    } else {
+                        console.warn(
+                            '[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION UpdateSlabSketchCommand '
+                            + `failed for ${slabId}: ${res?.error ?? 'unknown'} — slab will NOT follow its walls.`,
+                        );
+                    }
+                }
+            }
+
             if (systemTypeId && slabType && Array.isArray(slabType.layers) && slabType.layers.length > 0) {
                 // §FIX-SLAB-UPDATE-ID (C11 §7.0): UpdateSlabHandler.canExecute
                 // checks `cmd.id` (`plugins/slab/src/handlers/UpdateSlab.ts:37`).
@@ -284,6 +352,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
+        this._candidateSketch = null;
         this._author.reset();
         this._clearOverlay();
     }
@@ -302,12 +371,42 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      */
     private _findRegionAtPoint(wx: number, wz: number): V2[] | null {
         const walls = (window.wallStore?.getAll?.() ?? []) as ReadonlyArray<{
+            // §REGION-HOST-ATTRIBUTION — the wall id was ALWAYS on these records; only
+            // this local type omitted it, so the tracer could not carry it to the
+            // sketch and the region slab silently failed to follow its walls.
+            id?: string;
             baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
             // §FIX-REGION-RING-PRETRIM-FRAME — the wall records ALWAYS carried this;
             // only the types omitted it, which is why the tracer traced the wrong arc.
             _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> | null;
             curve?: { control?: { x: number; z: number } | null; segments?: number } | null;
         }>; // TODO(TASK-08)
+
+        // §REGION-HOST-ATTRIBUTION — ONE trace produces BOTH the ring and the sketch,
+        // so the polygon committed and the host references attached are provably the
+        // same region. `traceRegionSketchAtPoint` performs the identical walk as
+        // `traceRegionAtPoint`; the ring geometry is unchanged.
+        const traced = traceRegionSketchAtPoint(walls, wx, wz);
+        if (traced) {
+            this._candidateSketch = traced.sketch;
+            const a = traced.attribution;
+            if (a.freeEdges > 0) {
+                // A fallback is a MEASUREMENT, not a gap (§CONTEXT-DATA-HONESTY):
+                // say how many edges will NOT follow their wall, and why.
+                console.log(
+                    `[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION region traced: `
+                    + `${a.hostEdges} host-referenced edge(s) across ${a.hostWallIds.length} wall(s), `
+                    + `${a.freeEdges} free edge(s) `
+                    + `(curved=${a.curvedFallbacks}, no-wall-id=${a.missingIdFallbacks}, `
+                    + `ambiguous=${a.ambiguousFallbacks}). Free edges do NOT follow a wall.`,
+                );
+            }
+            return traced.ring.length >= 3 ? traced.ring : null;
+        }
+        this._candidateSketch = null;
+
+        // Region genuinely absent — keep the original call as the single answer path
+        // so "no region" stays exactly the answer it always was.
         const ring = traceRegionAtPoint(walls, wx, wz);
         return ring && ring.length >= 3 ? ring : null;
     }
