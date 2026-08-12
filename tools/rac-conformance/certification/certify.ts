@@ -162,7 +162,13 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 }
 
 // ── 4. The Wave-3 gates ──────────────────────────────────────────────────────
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable'];
+// §BIM30-PHASE-0R — check-propagation-trackers-reach added 2026-08-12. It is the
+// first gate over the BESPOKE per-pair wiring (DoorDependencyTracker,
+// WindowDependencyTracker, cascade-delete, RoomTopologyObserver) — the
+// propagation that actually works in this product, and which the BIM 3.0 gap
+// register's coverage matrix found to be completely ungated. Level 4 of the
+// maturity ladder rests on it; until now nothing would have told us if it broke.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
