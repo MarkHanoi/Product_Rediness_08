@@ -32,8 +32,6 @@ import {
   storeRegistry,
   viewDefinitionStore,
   elementCodeStore,
-  doorSystemTypeStore,
-  windowSystemTypeStore,
   reconcileTagSet,
   resolveAutoTagIntent,
   resolveTagMarks,
@@ -50,6 +48,16 @@ import {
   type SystemTypeLookup,
 } from '@pryzm/core-app-model';
 import { wallSystemTypeStore } from '@pryzm/geometry-wall';
+// §TOMBSTONE-HOSTED-STORE-FORK (2026-08-12) — these two were imported from
+// `@pryzm/core-app-model` until the stale hosted-store forks there were deleted.
+// This file was the ONLY reader of that fork, and it was reading the WRONG
+// instance: the core copy seeded factory presets at construction, so it answered
+// with plausible-looking type names while every command, builder and serializer
+// wrote the geometry singleton. A tag naming a door type therefore resolved
+// against a catalogue no door was ever a member of. Now sourced from the sole
+// owners, matching how `wallSystemTypeStore` directly above has always resolved.
+import { doorSystemTypeStore } from '@pryzm/geometry-door';
+import { windowSystemTypeStore } from '@pryzm/geometry-window';
 import { makeAnnotationElement, makePointRef, type AnnotationElement } from '@pryzm/plugin-annotations';
 import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 import * as THREE from '@pryzm/renderer-three/three';

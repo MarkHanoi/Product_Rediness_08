@@ -281,8 +281,14 @@ describe('authoritative-state measurement', () => {
     const ids: SeededIds = {
       roomId, doorId, windowId,
       wallType: firstTypeName((await import('@pryzm/geometry-wall') as unknown as Record<string, unknown>).wallSystemTypeStore),
-      doorType: firstTypeName(camTypes.doorSystemTypeStore),
-      windowType: firstTypeName(camTypes.windowSystemTypeStore),
+      // §TOMBSTONE-HOSTED-STORE-FORK (2026-08-12) — these two were read off
+      // `@pryzm/core-app-model` until the stale hosted-store forks were deleted
+      // there. The geometry packages are now the ONLY owners, which is the point
+      // of the deletion; reading the fixture from them is not a workaround but
+      // the corrected source. `floorSystemTypeStore` below genuinely lives in
+      // core-app-model and is deliberately left alone.
+      doorType: firstTypeName((await import('@pryzm/geometry-door') as unknown as Record<string, unknown>).doorSystemTypeStore),
+      windowType: firstTypeName((await import('@pryzm/geometry-window') as unknown as Record<string, unknown>).windowSystemTypeStore),
       // The slab batch command reads a FLOOR system-type catalogue; the harness
       // reports what it actually found rather than assuming the two are the same.
       slabType: firstTypeName(camTypes.floorSystemTypeStore),
@@ -317,7 +323,32 @@ describe('authoritative-state measurement', () => {
         (await import('@pryzm/geometry-window')).windowStore, cam.windowStore],
     ];
     for (const [kind, rivalName, authoritativeStore, rivalStore] of singletonRivals) {
-      if (!rivalStore) continue;
+      // §TOMBSTONE-HOSTED-STORE-FORK (2026-08-12) — a rival that is GONE is the
+      // strongest possible pass, and it must still be REPORTED as a probed pair.
+      // The previous `if (!rivalStore) continue` skipped silently, which would
+      // have taken `rivalOwners` to 0 and tripped the gate's "candidate pairs
+      // actually probed >= 2" floor into MISCONFIGURED — the correct behaviour
+      // for a probe that measured nothing, but the wrong reading for a defect
+      // that was PAID. So the pair is recorded with `sameInstance: true`: the
+      // single surviving instance is trivially identical to itself, the kind
+      // names ONE owner, and the gate's S3 arm prints the ✓ branch. If the fork
+      // is ever reintroduced, `rivalStore` becomes defined again and the
+      // identity + record-count comparison below resumes unchanged.
+      if (!rivalStore) {
+        const aIdsOnly = authoritativeByKind.has(kind)
+          ? authoritativeByKind.get(kind)!().map((r) => r.id)
+          : [];
+        rivalOwners.push({
+          kind,
+          authoritative: kind === 'door' ? '@pryzm/geometry-door.doorStore' : '@pryzm/geometry-window.windowStore',
+          rival: `${rivalName} — DELETED 2026-08-12 (stale fork; see packages/core-app-model/src/stores/index.ts §TOMBSTONE-HOSTED-STORE-FORK)`,
+          sameInstance: true,
+          authoritativeCount: aIdsOnly.length,
+          rivalCount: aIdsOnly.length,
+          ids: { authoritative: aIdsOnly.slice(0, 8), rival: aIdsOnly.slice(0, 8) },
+        });
+        continue;
+      }
       const readIds = (s: unknown): string[] => {
         try {
           const all = (s as { getAll?: () => Array<{ id: string }> }).getAll?.() ?? [];

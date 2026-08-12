@@ -38,49 +38,17 @@
   ],
   "measuredAt": "2026-08-12",
   "declared": [
-    "S3 door",
-    "S3 window",
-    "S1 slab.updateSystemTypeBatch",
-    "S4-VOICE REFUSAL wall.updateDimensions(absent wall)",
-    "S4-VOICE REFUSAL room.setName(absent room)",
-    "S4-VOICE REFUSAL roof.update(absent roof)"
+    "S1 slab.updateSystemTypeBatch"
   ],
+  "note2026-08-12-S4-VOICE-PAID": "The THREE `S4-VOICE REFUSAL …(absent …)` entries are STRUCK — paid in this commit under §FIX-S4-VOICE-ABSENT-TARGET, per the both-directions rule in the header (debt that has been paid must LEAVE this file in the commit that pays it). Contract: C16 §5.1 CA-18 — 'REFUSE WITH A NAMED REASON, NEVER SUCCEED SILENTLY', whose prohibited shape (b) is exactly what these three did: `{forward:[],inverse:[]}` returned as the outcome of a mutation the user asked for. THE MECHANISM WAS NOT ONE BUG BUT TWO. (1) `wall.updateDimensions` (apps/editor/src/engine/initBusHandlers.ts) did its OWN existence check against the geometry `window.wallStore`, console.warn'd, and bare-`return`ed — the empty patch pair the bus read as success. It now THROWS a named refusal; the console.warn is KEPT, because the warn was never the defect, the return value was. (2) `roof.update` (same file) and `room.setName` (plugins/rooms/src/handlers/SetRoomName.ts) checked NOTHING and did not need to: `UpdateRoofCommand.canExecute` already refuses 'Roof not found' (UpdateRoofCommand.ts:27) and `RenameRoomCommand.canExecute` already refuses \"Room '<id>' not found\" (RenameRoomCommand.ts:39), and `CommandManagerImpl.execute` returns those verdicts as `{success:false, info:[reason]}` WITHOUT throwing (CommandManagerImpl.ts:172-185). Both call sites DISCARDED that object — `_cmExec` is even declared `: void`. They now read it and throw. WHY THROW AND NOT `canExecute {valid:false}`: existence is a GEOMETRY-STORE fact reachable only at execute time (the bridge's `validate(cmd)` is deliberately payload-shape-only and store-free; the plugin store does not hold detected rooms, as SetRoomName's own canExecute comment states), so canExecute could not have been the home. Throwing is also the shape the repo ALREADY pins — apps/editor/__tests__/RoofUpdateReachesGeometryStore.test.ts:160 asserts `rejects.toThrow()` for a refused roof.update, plugins/rooms CreateRoom.ts:196 reads `{success:false}` and throws, and every live call site already terminates in `.catch(...)` (RoofPropertySheet.ts:318, PropertyInspectorApply.ts:210/:234/:552, RoomPropertySection.ts:66/:973). BLAST RADIUS HELD DELIBERATELY NARROW: `_cmExec` has 90 call sites in initBusHandlers.ts; rather than make all 90 throw on a legacy failure — a behaviour change across ~40 verbs that no measurement here covers — a narrow sibling `_cmExecOrRefuse` was added and only `roof.update` adopts it. Widening that is its own lane with its own proof. S4-STATE passed on all three throughout: nothing was ever mutated, so the model was never at risk; the defect was purely that success and refusal were the same observable at the dispatch site. PROOF, EXECUTED: apps/editor/__tests__/bridgeRefusalReachesTheCaller.test.ts (10 cases, driving the REAL exported `initBusHandlers` exactly as certification/world.ts:203-204 does, not a hand-modelled bridge) plus 3 new room.setName cases in plugins/rooms/__tests__/handlers.test.ts. Each assertion is on the DISCRIMINANT (rejected vs resolved) and on the reason text naming the missing element — never on 'it did not throw'. Every suite was NEGATIVE-TESTED by reverting the fix: 5 of 10 editor cases and 2 of 3 rooms cases FAIL without it, and the cases that still pass are exactly the success-path ones — which is the evidence that zero behaviour changed when the element EXISTS.",
+  "note2026-08-12-S3-PAID": "`S3 door` and `S3 window` are STRUCK — the exit condition ('one of the two is deleted or re-exported as the other') was met by DELETION on 2026-08-12. packages/core-app-model/src/stores/{Door,Window}{Store,Types,SystemTypeStore}.ts were stale forks of the live @pryzm/geometry-door / -window stores: byte-for-byte copies that then stopped tracking their originals (the door fork lacked replace(), getIdsByWallId() and the §FIX-HOSTWALL-DOOR-INDEX reverse index; the window schema fork lacked glazingThickness/rebateDepth per L-254). They had ZERO importers repo-wide — every real reader and writer, including this package's own ScheduleExtractor, already imported the geometry singleton — so the 0-record store had no silent readers and the disagreement was latent rather than actively corrupting. Re-pointing was REJECTED: @pryzm/geometry-door depends on @pryzm/core-app-model, so a re-export would close a package cycle. The tombstone carrying the full reasoning is in packages/core-app-model/src/stores/index.ts (§TOMBSTONE-HOSTED-STORE-FORK). The same deletion empties the four-entry `duplicateScopeNames` baseline in tools/ga-gate/declared-project-scope-debt.json, whose D7 arm had diagnosed this defect independently. With one instance per kind, S3's `sameInstance` probe now has nothing to compare and A-INV-1 holds by construction rather than by module-evaluation luck.",
   "entryNotes": {
-    "S3 door": {
-      "measured": "@pryzm/geometry-door.doorStore (1 record after seeding) and @pryzm/core-app-model.doorStore are DISTINCT INSTANCES holding 1 and 0 records respectively.",
-      "why": "Two live stores answer for the `door` kind. ProjectSerializer and CommandManager import the geometry-door singleton; anything reaching for the core-app-model one sees an empty model and cannot tell that from 'this project has no doors'.",
-      "territory": "packages/core-app-model/, packages/geometry-door/ — NOT tools/.",
-      "exitCondition": "one of the two is deleted or re-exported as the other, so `===` holds and the kind names ONE owner."
-    },
-    "S3 window": {
-      "measured": "@pryzm/geometry-window.windowStore (1 record) and @pryzm/core-app-model.windowStore (0 records) are DISTINCT INSTANCES.",
-      "why": "Identical shape to S3 door.",
-      "territory": "packages/core-app-model/, packages/geometry-window/ — NOT tools/.",
-      "exitCondition": "as S3 door."
-    },
     "S1 slab.updateSystemTypeBatch": {
-      "measured": "Dispatch resolves ok=true and moves ZERO authoritative paths. The handler emits pryzm-slab-type-batch-report with success=false and the reason 'The slab type catalogue is not available here.'",
-      "why": "The command refuses correctly and names its rule; the plugin bridge discards that result and returns an empty HandlerResult, so the bus reports success. The verb is a no-op that claims to have worked.",
-      "territory": "plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts, and whatever owns slab/floor system-type catalogue availability — NOT tools/.",
-      "exitCondition": "either the catalogue is reachable in a composed runtime (the verb then mutates and this entry is struck), or the bridge propagates the refusal so the dispatch does not resolve as success."
-    },
-    "S4-VOICE REFUSAL wall.updateDimensions(absent wall)": {
-      "measured": "wallId='no-such-wall-at-all' → dispatch resolves ok=true, 0 authoritative paths, no refusal reaches the caller.",
-      "why": "apps/editor/src/engine/initBusHandlers.ts ~:978-982 — the bridge console.warn()s 'wall not found in geometry store' and returns. The console is not the model and it is not the caller. S4-STATE passes (nothing was mutated); S4-VOICE fails.",
-      "territory": "apps/editor/src/engine/initBusHandlers.ts — NOT tools/.",
-      "exitCondition": "the bridge refuses with a named rule that reaches the dispatch site, so success and refusal stop being the same observable."
-    },
-    "S4-VOICE REFUSAL room.setName(absent room)": {
-      "measured": "roomId='no-such-room-at-all' → ok=true, 0 authoritative paths, no refusal reaches the caller.",
-      "why": "Same mechanism as the wall entry, in the rooms plugin bridge.",
-      "territory": "plugins/rooms/src/handlers/ — NOT tools/.",
-      "exitCondition": "as above."
-    },
-    "S4-VOICE REFUSAL roof.update(absent roof)": {
-      "measured": "id='no-such-roof-at-all' → ok=true, 0 authoritative paths, no refusal reaches the caller.",
-      "why": "Same mechanism, in the apps/editor roof bridge.",
-      "territory": "apps/editor/src/engine/initBusHandlers.ts — NOT tools/.",
-      "exitCondition": "as above."
+      "measured": "Dispatch resolves ok=FALSE (was ok=true before 2026-08-12) and moves ZERO authoritative paths. The handler still emits pryzm-slab-type-batch-report with success=false and the reason 'The slab type catalogue is not available here.'",
+      "why": "TWO INDEPENDENT HALVES WERE FOLDED INTO THIS ONE ENTRY, and only one of them was ever in this entry's stated territory. HALF A — THE BRIDGE (PAID 2026-08-12, §FIX-SLAB-BATCH-REFUSAL-DISCARDED): the command refused correctly and NAMED its rule, and plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:128-136 read that verdict, broadcast it on a CustomEvent, and then returned `{forward:[],inverse:[]}` — C16 §5.1 CA-18's prohibited shape (b) — so the bus resolved the dispatch as SUCCESS over a verb that moved nothing. It now reads `result.success` and THROWS the command's own sentence; `ok=true → ok=false` in this gate's own output is the measurement of that fix. HALF B — THE CATALOGUE (OPEN, NOT this entry's territory): the refusal fires at all only because certification/world.ts:166-170 composes no `slabSystemTypeStore` in the legacy CommandContext. In PRODUCTION it IS threaded (apps/editor/src/engine/initTools.ts:590 and :895), so this half is a HARNESS gap, not a product defect — but until it closes, S1 keeps filing a finding, because check-authoritative-state.ts:262 flags any mutating verb with zero authoritative paths UNCONDITIONALLY, regardless of dispatchOk. That is correct behaviour for S1: 'the verb refused honestly' is still not 'the verb moved the store'. THE ENTRY THEREFORE STAYS, describing only Half B.",
+      "territory": "HALF A: plugins/slab/src/handlers/ — CLOSED. HALF B: tools/rac-conformance/certification/world.ts (compose slabSystemTypeStore into the legacy CommandContext stores map, as initTools does) — the certification lane's own territory, NOT plugins/.",
+      "exitCondition": "world.ts composes a slab system-type catalogue, the verb then actually moves slab.*.systemTypeId, and this entry is struck. NOTE: 'the bridge propagates the refusal so the dispatch does not resolve as success' — the second arm of the ORIGINAL exit condition — was satisfied on 2026-08-12 and is no longer available as an exit, because S1 does not read dispatchOk. Only the catalogue arm can strike this entry.",
+      "proofOfHalfA": "plugins/slab/__tests__/batchRefusalReachesTheCaller.test.ts — 13 cases driving the REAL exported handlers through a REAL CommandBus, asserting the DISCRIMINANT (rejected vs resolved) and the rule sentence, never 'it did not throw'. NEGATIVE-TESTED by reverting the fix: 7 of 13 FAIL without it, and the 6 that still pass are exactly the success-path and CustomEvent-preservation cases — the evidence that zero behaviour changed when the catalogue IS present. The CustomEvent is KEPT on every path (it was never the defect); it has no production listener today because BATCH_REPORT_EVENTS in apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:1021-1064 maps wall/door/window but omits slab and ceiling — a SEPARATE routed finding in the editor lane's territory."
     }
   }
 }

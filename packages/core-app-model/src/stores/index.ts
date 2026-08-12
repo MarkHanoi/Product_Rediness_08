@@ -109,15 +109,48 @@ export { serializeHandrailSnapshot, deserializeHandrailSnapshot } from './Handra
 
 // ── Sprint H P9.2 (2026-05-10) — Domain element stores/types ────────────────
 
-// Doors
-export * from './DoorTypes.js';
-export { DoorStore, doorStore } from './DoorStore.js';
-export { DoorSystemTypeStore, doorSystemTypeStore } from './DoorSystemTypeStore.js';
-
-// Windows
-export * from './WindowTypes.js';
-export { WindowStore, windowStore } from './WindowStore.js';
-export { WindowSystemTypeStore, windowSystemTypeStore } from './WindowSystemTypeStore.js';
+// ── §TOMBSTONE-HOSTED-STORE-FORK (2026-08-12) ───────────────────────────────
+//
+// DELETED HERE: `DoorTypes` · `DoorStore`/`doorStore` · `DoorSystemTypeStore`/
+// `doorSystemTypeStore`, and the four mirror-image window entries.
+//
+// They were STALE FORKS of the live geometry-package stores, not a second layer
+// of the model. Each was a byte-for-byte-then-diverged copy that stopped tracking
+// its original: the door fork lacked `replace()`, `getIdsByWallId()` and the
+// §FIX-HOSTWALL-DOOR-INDEX reverse index; the window schema fork lacked
+// `glazingThickness` / `rebateDepth` (§FEAT-WINDOW-PLAN-SYMBOL-SOUND, L-254); the
+// system-type forks lacked the `dimensions` block.
+//
+// THE LIVE OWNERS — import from these, and only these:
+//   `@pryzm/geometry-door`   → DoorStore · doorStore · DoorSystemTypeStore ·
+//                              doorSystemTypeStore · DoorOpening(Schema) · …
+//   `@pryzm/geometry-window` → the mirror set.
+// Every real consumer already did: commands (`@pryzm/command-registry`), builders,
+// BOTH ProjectSerializer/ProjectLoader pairs, `ScheduleExtractor` (in THIS package,
+// at schedules/ScheduleExtractor.ts:19-20), the property panel and the AI host.
+// These eight exports had ZERO importers anywhere in the repo — the fork was
+// reachable only through this barrel, and nothing reached. Proven by deletion:
+// `tsc -p packages/core-app-model` reports the same 447 pre-existing errors before
+// and after, and not one of them names a deleted symbol.
+//
+// WHY THEY COULD NOT STAY. Two live singletons answered for one kind, so C70
+// A-INV-1 ("one kind, one store") was structurally false: after real command
+// seeding the geometry stores held the doors and windows while these held nothing,
+// and any reader that picked this handle saw an empty model and could not tell that
+// from "this project has no doors" (§CONTEXT-DATA-HONESTY — failure and empty are
+// the same value). Worse, `ProjectScopeRegistry` is keyed by `scopeName` and
+// `register()` REPLACES silently: both copies registered `'doorStore'`, so which one
+// `ClearProjectCommand.clearAll()` actually cleared was decided by module-evaluation
+// order. Geometry happened to evaluate last. A reordered barrel or a bundler
+// decision flips that, and then a project switch clears the empty fork while the
+// real doors survive into the next project — the cross-project leak the registry
+// exists to prevent. Measured by gates/check-authoritative-state.ts arm S3 and,
+// independently, by ga-gate/check-declared-project-scopes.ts arm D7.
+//
+// NOT re-pointed to the geometry singletons (the other candidate fix): this package
+// is a DEPENDENCY of `@pryzm/geometry-door`/`-window`, so a re-export here would
+// close a package cycle. The dependency runs core-app-model → geometry, never back.
+// ────────────────────────────────────────────────────────────────────────────
 
 // Columns
 export * from './ColumnTypes.js';
