@@ -80,6 +80,32 @@ export type {
   CommandOrigin,
   CommandApproval,
   CommandExecutionContext,
+  // C78 §8 (Phase 3, L1 cornerstone) — the consolidated refusal vocabulary:
+  // typed sub-reasons beside the eleven-member `UndeterminedReason`, the
+  // room-prediction bridge input, and the classification pair.
+  RoomPredictionSubReason,
+  PreviewEntrySubReason,
+  RelationshipSubReason,
+  UndeterminedSubReason,
+  RoomPredictionRefusalLiteral,
+  UndeterminedClassification,
+  // C78 §8.8 — the typed preview outcome that retires `preview()`'s 4-cause null.
+  PreviewOutcome,
+  // C78 §9.3 — the typed home the two hash sentinels move into.
+  PlanBindingVerification,
+} from './consequence.js';
+// C78 §8 — value exports: the sub-reason→parent ownership map, the typed
+// room-prediction bridge (§8.5 — explicit map, never re-labelling), and the
+// PreviewOutcome constructors (one per retired null cause, §8.8).
+export {
+  UNDETERMINED_SUB_REASON_PARENT,
+  classifyRoomPredictionRefusal,
+  plannedOutcome,
+  undeterminedOutcome,
+  previewUnrecognisedVerb,
+  previewInvalidRequest,
+  previewPlannerNotComposed,
+  previewPlannerThrew,
 } from './consequence.js';
 // G-REASON-04's normalize rule (ADR-0324 §3) — authored in R1, gated in R7.
 export { normalizeForParity } from './parity.js';

@@ -46,9 +46,14 @@ export type ElementSet = readonly ElementId[];
 // ─── UNDETERMINED — the load-bearing member (ADR-0322 §5) ────────────────────
 
 /**
- * WHY an impact cell could not be computed. The four reasons are fixed by
- * ADR-0322 §5 — a planner that cannot compute a branch names which of these
- * holds; it never returns `[]` for a question it did not answer.
+ * WHY an impact cell could not be computed — **the C78 §8.1 consolidated
+ * union, CLOSED at eleven members.** Adding a member is a contract edit
+ * (C78 §8.1); per-family specificity that does not fit here travels in the
+ * typed {@link UndeterminedSubReason} beside it (C78 §8.3), NEVER in prose
+ * `detail` and NEVER as a new flat member.
+ *
+ * The original four (ADR-0322 §5) keep their exact spellings — every
+ * existing producer keeps compiling and keeps meaning what it meant:
  *
  * `NO_DEPENDENCY_INDEX`     — the substrate that would answer this question
  *                             (dependency wiring, `joinedTo`, …) has not
@@ -56,16 +61,218 @@ export type ElementSet = readonly ElementId[];
  * `ENGINE_NOT_AVAILABLE`    — the engine that computes this branch exists but
  *                             is not reachable in this runtime (not composed,
  *                             not installed, boot order).
- * `UNSUPPORTED_ELEMENT_TYPE`— the planner has no rule for this element kind.
+ * `UNSUPPORTED_ELEMENT_TYPE`— no planner family has a rule for this element
+ *                             kind / verb (C78 §8.2: this member must acquire
+ *                             producers — it had zero at Phase 0).
  * `STALE_DERIVED_STATE`     — the derived state this branch reads is known to
  *                             be out of date with authoritative state, so an
- *                             answer would be a guess.
+ *                             answer would be a guess. **Narrowed by C78 §8.2:
+ *                             it stops being the default sink** — the seven
+ *                             room-prediction refusals that used to collapse
+ *                             into it now classify under
+ *                             `GEOMETRY_UNPREDICTABLE` / `RELATIONSHIP_NOT_RECORDED`
+ *                             with a typed sub-reason.
+ *
+ * The seven added by C78 §8.1 (one promoted, six minted):
+ *
+ * `INVALID_REQUEST`         — the CALLER's payload is malformed or fails its
+ *                             schema. The first member that describes the
+ *                             request rather than the system's capability
+ *                             (closes 0C OPEN QUESTION 1; preview causes
+ *                             N2/N3).
+ * `GEOMETRY_UNPREDICTABLE`  — the prediction is geometrically impossible or
+ *                             out of scope for the predictor (curved wall,
+ *                             open loop, self-intersection, collapse,
+ *                             degenerate boundary — the sub-reason says
+ *                             which).
+ * `TOPOLOGY_CHANGE_POSSIBLE`— the operation may SPLIT or MERGE the dependent;
+ *                             only re-detection — itself a mutation — could
+ *                             resolve it. Promoted verbatim from
+ *                             room-topology's `RoomPredictionRefusal`: it is a
+ *                             determinate statement about topology, not an
+ *                             index gap (C78 §8.2).
+ * `RELATIONSHIP_NOT_RECORDED` — the relationship is known to exist as a
+ *                             concept but no producer writes it, so nothing
+ *                             can be traversed (`contains`, `partOf`,
+ *                             `boundingWallIds: []`).
+ * `RELATIONSHIP_NOT_READABLE` — the edge is written but has no typed reader /
+ *                             no reverse index in the direction the query
+ *                             needs (C78 §4.2–§4.3; `hostedBy`, `sitsOn`).
+ * `AGGREGATE_SCOPE_UNSUPPORTED` — the dependency is level-global or
+ *                             aggregate; no per-element edge can express it
+ *                             (C78 §5.5, the five level-global constraint
+ *                             families).
+ * `PLANNER_THREW`           — the planner raised; the failure is caught and
+ *                             REPORTED rather than swallowed (preview cause
+ *                             N5 — the overlay's silent catch, C78 §0.e).
  */
 export type UndeterminedReason =
   | 'NO_DEPENDENCY_INDEX'
   | 'ENGINE_NOT_AVAILABLE'
   | 'UNSUPPORTED_ELEMENT_TYPE'
-  | 'STALE_DERIVED_STATE';
+  | 'STALE_DERIVED_STATE'
+  | 'INVALID_REQUEST'
+  | 'GEOMETRY_UNPREDICTABLE'
+  | 'TOPOLOGY_CHANGE_POSSIBLE'
+  | 'RELATIONSHIP_NOT_RECORDED'
+  | 'RELATIONSHIP_NOT_READABLE'
+  | 'AGGREGATE_SCOPE_UNSUPPORTED'
+  | 'PLANNER_THREW';
+
+// ─── Sub-reasons — per-family specificity, TYPED (C78 §8.3) ──────────────────
+//
+// The rule these types implement: the flat union above does NOT grow to hold
+// per-family precision, and `detail` does not carry it as parseable prose
+// (`WallMoveConsequencePlanner.ts:293`'s `${p.reason}: ${p.detail}` is the
+// named defect — C78 §22.f). A family's own closed refusal union survives as
+// a SUB-REASON beside the C78 member, so `COLLAPSED` and "a cache is stale"
+// can never print the same value again.
+//
+// Each sub-reason belongs to EXACTLY ONE parent member —
+// {@link UNDETERMINED_SUB_REASON_PARENT} is the single, exhaustive, reviewable
+// statement of that ownership (a `Record` over the closed union: a sub-reason
+// missing a parent, or spelled twice, is a compile error).
+//
+// SPELLING NOTE (decided here, flagged for the contract owner): sub-reasons
+// promoted from an existing per-family union keep that union's exact
+// spelling (SCREAMING_SNAKE for room-topology's `RoomPredictionRefusal`), so
+// the L2→L1 bridge is identity and grep finds one name across both layers.
+// Sub-reasons MINTED here for the preview entry point use the kebab spellings
+// C78's Phase 3 brief assigned them (`no-normalizer-for-verb`,
+// `no-planner-registered`). The mixed convention is deliberate: renaming the
+// promoted members would break the one property that makes the bridge
+// trivially auditable.
+
+/**
+ * Room-prediction sub-reasons — the seven `RoomPredictionRefusal` members
+ * that used to collapse into `STALE_DERIVED_STATE` through one ternary
+ * (C78 §8.2's seven ⚠ room-topology rows). Spelled EXACTLY as
+ * `packages/room-topology/src/predictRoomGeometry.ts:110–128` spells them
+ * (identity bridge; command-bus at L1 may not import room-topology at L2,
+ * so the literals are restated here and pinned by test).
+ *
+ * The eighth member, `TOPOLOGY_CHANGE_POSSIBLE`, is NOT here — it is
+ * promoted to a full {@link UndeterminedReason} member (C78 §8.1 #7).
+ */
+export type RoomPredictionSubReason =
+  /** → `RELATIONSHIP_NOT_RECORDED` — the room declares no wall linkage at all. */
+  | 'NO_WALL_LINKAGE'
+  /** → `RELATIONSHIP_NOT_RECORDED` — a declared bounding wall is absent from the wall set. */
+  | 'MISSING_BOUNDING_WALL'
+  /** → `GEOMETRY_UNPREDICTABLE` — a bounding wall is curved; arc prediction out of scope. */
+  | 'CURVED_WALL_UNSUPPORTED'
+  /** → `GEOMETRY_UNPREDICTABLE` — fewer than 3 usable segments; nothing that could be a ring. */
+  | 'DEGENERATE_BOUNDARY'
+  /** → `GEOMETRY_UNPREDICTABLE` — the traced chain does not close. */
+  | 'OPEN_LOOP'
+  /** → `GEOMETRY_UNPREDICTABLE` — the predicted ring self-intersects. */
+  | 'SELF_INTERSECTING'
+  /** → `GEOMETRY_UNPREDICTABLE` — the predicted ring has (near-)zero area. */
+  | 'COLLAPSED';
+
+/**
+ * Preview-entry sub-reasons — the typed identity of the `null` causes the
+ * preview entry point used to collapse (C78 §0.e / 0C §6; the four-cause
+ * `null` this vocabulary retires via {@link PreviewOutcome}).
+ */
+export type PreviewEntrySubReason =
+  /** → `UNSUPPORTED_ELEMENT_TYPE` — N1: no verb normalizer recognises this command type. */
+  | 'no-normalizer-for-verb'
+  /** → `ENGINE_NOT_AVAILABLE` — N4: the planner exists but is not composed in this runtime. */
+  | 'no-planner-registered';
+
+/**
+ * Relationship-recording sub-reasons. `element-unknown-to-joinedTo-writer`
+ * is core-app-model's `'wall-unknown-to-joinedTo-writer'` with the family
+ * name removed, per C78 §8.2's explicit instruction ("must lose the family
+ * name" — it was the only reason value in the estate naming a wall in its
+ * identifier).
+ */
+export type RelationshipSubReason = 'element-unknown-to-joinedTo-writer';
+
+/**
+ * Every typed sub-reason a producer may attach beside an
+ * {@link UndeterminedReason}. Closed, like the parent union — a new
+ * per-family refusal union joining the consequence path adds its members
+ * here AND to {@link UNDETERMINED_SUB_REASON_PARENT} in the same commit
+ * (the `Record` makes forgetting the second half a compile error).
+ */
+export type UndeterminedSubReason =
+  | RoomPredictionSubReason
+  | PreviewEntrySubReason
+  | RelationshipSubReason;
+
+/**
+ * The single, exhaustive statement of which parent member each sub-reason
+ * belongs to — C78 §8.3's "every sub-reason maps to exactly one parent",
+ * enforced by construction: `Record` over the closed key union means a
+ * missing or duplicate key cannot compile, and the value type confines
+ * parents to the closed §8.1 union.
+ */
+export const UNDETERMINED_SUB_REASON_PARENT: Readonly<
+  Record<UndeterminedSubReason, UndeterminedReason>
+> = {
+  // Room prediction (C78 §8.2, the seven ⚠ rows)
+  NO_WALL_LINKAGE: 'RELATIONSHIP_NOT_RECORDED',
+  MISSING_BOUNDING_WALL: 'RELATIONSHIP_NOT_RECORDED',
+  CURVED_WALL_UNSUPPORTED: 'GEOMETRY_UNPREDICTABLE',
+  DEGENERATE_BOUNDARY: 'GEOMETRY_UNPREDICTABLE',
+  OPEN_LOOP: 'GEOMETRY_UNPREDICTABLE',
+  SELF_INTERSECTING: 'GEOMETRY_UNPREDICTABLE',
+  COLLAPSED: 'GEOMETRY_UNPREDICTABLE',
+  // Preview entry point (the retired null's four causes — §0.e)
+  'no-normalizer-for-verb': 'UNSUPPORTED_ELEMENT_TYPE',
+  'no-planner-registered': 'ENGINE_NOT_AVAILABLE',
+  // joinedTo writer (C78 §8.2 — family name removed)
+  'element-unknown-to-joinedTo-writer': 'RELATIONSHIP_NOT_RECORDED',
+} as const;
+
+/**
+ * Room-topology's `RoomPredictionRefusal`, restated as literals at L1 (the
+ * layer rule forbids the import; the spelling identity is pinned by test).
+ * Input type of {@link classifyRoomPredictionRefusal}.
+ */
+export type RoomPredictionRefusalLiteral =
+  | RoomPredictionSubReason
+  | 'TOPOLOGY_CHANGE_POSSIBLE';
+
+/** A C78 §8 classification: the union member plus its optional typed sub-reason. */
+export interface UndeterminedClassification {
+  readonly reason: UndeterminedReason;
+  readonly subReason?: UndeterminedSubReason;
+}
+
+/**
+ * The typed cross-channel bridge (C78 §8.5) for room-topology's
+ * `RoomPredictionRefusal` — the explicit, exhaustive, reviewable function
+ * that replaces the lossy ternary at `WallMoveConsequencePlanner.ts:292`.
+ * Deliberately DEFAULT-FREE: an unknown value cannot funnel into a sink
+ * member (`default:` funnelling is the §8.2 ternary defect rebuilt), and a
+ * ninth `RoomPredictionRefusal` member fails compilation here until it is
+ * classified.
+ */
+export function classifyRoomPredictionRefusal(
+  refusal: RoomPredictionRefusalLiteral,
+): UndeterminedClassification {
+  switch (refusal) {
+    case 'TOPOLOGY_CHANGE_POSSIBLE':
+      // Promoted to a full member — a determinate statement about topology,
+      // not an index gap (C78 §8.2). No sub-reason: the member IS the fact.
+      return { reason: 'TOPOLOGY_CHANGE_POSSIBLE' };
+    case 'NO_WALL_LINKAGE':
+    case 'MISSING_BOUNDING_WALL':
+    case 'CURVED_WALL_UNSUPPORTED':
+    case 'DEGENERATE_BOUNDARY':
+    case 'OPEN_LOOP':
+    case 'SELF_INTERSECTING':
+    case 'COLLAPSED':
+      return { reason: UNDETERMINED_SUB_REASON_PARENT[refusal], subReason: refusal };
+    default: {
+      const exhausted: never = refusal;
+      return exhausted;
+    }
+  }
+}
 
 /**
  * One impact question the planner could NOT answer — first-class, never
@@ -81,7 +288,22 @@ export interface UndeterminedImpact {
    */
   readonly scope: string;
   readonly reason: UndeterminedReason;
-  /** Optional elaboration — the missing substrate, the throwing engine, …. */
+  /**
+   * C78 §8.3 — the TYPED per-family specificity beside the union member.
+   * When a per-family refusal union produced this item (room prediction,
+   * the preview entry point, the joinedTo writer), its precise member rides
+   * here, typed — never as parseable prose inside {@link detail}. Absent
+   * when the parent member is the whole story. Where present it MUST be one
+   * of the parent's own sub-reasons per
+   * {@link UNDETERMINED_SUB_REASON_PARENT}.
+   */
+  readonly subReason?: UndeterminedSubReason;
+  /**
+   * Optional elaboration — the missing substrate, the throwing engine, ….
+   * FREE TEXT FOR HUMANS ONLY (C78 §8.3): no consumer may branch on it, and
+   * no producer may encode a reason or sub-reason in it that has a typed
+   * home above.
+   */
   readonly detail?: string;
 }
 
@@ -381,6 +603,116 @@ export interface ConsequencePlan {
   readonly undetermined: readonly UndeterminedImpact[];
 }
 
+// ─── PreviewOutcome — the typed determination that retires preview's `null` ──
+//
+// C78 §8.8 / U-INV-2: no consequence path returns `null` to mean "I could not
+// determine". `ConsequencePreviewService.preview()` today returns a bare
+// `null` for FOUR structurally different causes, two of them semantic
+// opposites (0C §6.1, N1–N4), and its declared contract describes only one of
+// them. This union is the L1 shape the preview entry point (and `planNow`,
+// which re-implements the same collapse) will return instead — the follow-up
+// lane rewires the services; L1 provides what they consume.
+//
+// The four `null` causes, each with its C78 §8.2 classification and a named
+// constructor below:
+//   N1  unrecognised verb      → UNSUPPORTED_ELEMENT_TYPE + 'no-normalizer-for-verb'
+//                                ({@link previewUnrecognisedVerb})
+//   N2/N3 malformed payload    → INVALID_REQUEST ({@link previewInvalidRequest})
+//   N4  planner not composed   → ENGINE_NOT_AVAILABLE + 'no-planner-registered'
+//                                ({@link previewPlannerNotComposed})
+//   N5  planner threw          → PLANNER_THREW ({@link previewPlannerThrew});
+//                                today swallowed by the overlay's catch and
+//                                indistinguishable from all four others.
+//
+// N1 and N4 are OPPOSITES — "no such family" vs "the family exists, unwired"
+// — and they were the same value. Here they are distinct by construction.
+
+/**
+ * The outcome of asking for a consequence preview: either a plan, or a typed
+ * statement of WHY no plan could be produced. There is no third arm and no
+ * `null` (C78 §1.1's two legal outcomes, applied to the entry point).
+ */
+export type PreviewOutcome<TPlan extends ConsequencePlan = ConsequencePlan> =
+  | {
+      readonly kind: 'planned';
+      readonly plan: TPlan;
+    }
+  | {
+      readonly kind: 'undetermined';
+      readonly reason: UndeterminedReason;
+      /** Typed per-family specificity (C78 §8.3) — see {@link UndeterminedImpact.subReason}. */
+      readonly subReason?: UndeterminedSubReason;
+      /** Human-readable elaboration. Never branched on; never carries a typed fact. */
+      readonly detail: string;
+    };
+
+/** The `planned` arm, from a computed plan. */
+export function plannedOutcome<TPlan extends ConsequencePlan>(
+  plan: TPlan,
+): PreviewOutcome<TPlan> {
+  return { kind: 'planned', plan };
+}
+
+/**
+ * The general `undetermined` arm. Prefer the four NAMED constructors below
+ * for the retired `null` causes — they pin the C78 §8.2 classification so a
+ * call site cannot re-collapse the causes.
+ */
+export function undeterminedOutcome(
+  reason: UndeterminedReason,
+  detail: string,
+  subReason?: UndeterminedSubReason,
+): PreviewOutcome<never> {
+  return subReason !== undefined
+    ? { kind: 'undetermined', reason, subReason, detail }
+    : { kind: 'undetermined', reason, detail };
+}
+
+/** N1 — no verb normalizer recognises this command type: no planner FAMILY exists for it. */
+export function previewUnrecognisedVerb(commandType: string): PreviewOutcome<never> {
+  return {
+    kind: 'undetermined',
+    reason: 'UNSUPPORTED_ELEMENT_TYPE',
+    subReason: 'no-normalizer-for-verb',
+    detail: `no verb normalizer recognises '${commandType}'; no planner family answers for it`,
+  };
+}
+
+/** N2/N3 — the CALLER's payload is malformed; `detail` names what failed, verbatim. */
+export function previewInvalidRequest(
+  commandType: string,
+  problem: string,
+): PreviewOutcome<never> {
+  return {
+    kind: 'undetermined',
+    reason: 'INVALID_REQUEST',
+    detail: `payload for '${commandType}' is malformed: ${problem}`,
+  };
+}
+
+/** N4 — the planner family exists but is not composed in this runtime. */
+export function previewPlannerNotComposed(commandType: string): PreviewOutcome<never> {
+  return {
+    kind: 'undetermined',
+    reason: 'ENGINE_NOT_AVAILABLE',
+    subReason: 'no-planner-registered',
+    detail: `a planner family recognises '${commandType}' but none is registered in this runtime`,
+  };
+}
+
+/** N5 — the planner raised; the failure is REPORTED, never swallowed into silence. */
+export function previewPlannerThrew(
+  commandType: string,
+  error: unknown,
+): PreviewOutcome<never> {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    kind: 'undetermined',
+    reason: 'PLANNER_THREW',
+    detail: `planner for '${commandType}' threw: ${message}`,
+  };
+}
+
 // ─── ConsequenceReport (ADR-0322 §2; R5) ─────────────────────────────────────
 
 /**
@@ -569,10 +901,65 @@ export interface PlanStaleRefusal {
   /** The hashes the plan was minted with. */
   readonly plannedPlanHash: string;
   readonly plannedStateHash: string;
-  /** The hashes re-computed over the live pre-state at execute time. */
+  /**
+   * The hashes re-computed over the live pre-state at execute time.
+   *
+   * ⚠ C78 §9.3 — **a hash field may never carry a reason.** These two fields
+   * hold FNV-1a hashes and NOTHING ELSE. The two measured sentinel abuses —
+   * `'UNVERIFIABLE:no-planner-for-type'` (`ConsequenceExecutionService.ts:239`)
+   * and `'UNPLANNABLE'` (`ConfirmationFlow.ts:269–271`) — are reasons wearing
+   * a hash's clothes: a consumer comparing hashes reports `PLAN_STALE` for a
+   * fact that is not staleness.
+   *
+   * @deprecated AS A REASON CARRIER ONLY (the fields themselves remain the
+   * hash home). Their typed successor is {@link liveVerification}: when the
+   * live hashes could not be computed at all, producers set
+   * `liveVerification: { kind: 'unverifiable', … }` with the C78 §8.1 member
+   * that names WHY (`UNSUPPORTED_ELEMENT_TYPE` / `ENGINE_NOT_AVAILABLE` per
+   * §8.2's mapping for the two sentinels) and MUST NOT mint sentinel strings
+   * here. The consumer files that emit the sentinels are rewired by the
+   * follow-up lane; this is the field they move into.
+   */
   readonly livePlanHash: string;
   readonly liveStateHash: string;
+  /**
+   * C78 §9.3 (additive) — the typed statement of whether the live hashes in
+   * this refusal are REAL re-computations or could not be produced. Absent on
+   * legacy producers (which is exactly the pre-C78 behaviour: hashes are
+   * assumed real). See {@link PlanBindingVerification}.
+   */
+  readonly liveVerification?: PlanBindingVerification;
 }
+
+/**
+ * Whether the live plan/state hashes on a {@link PlanStaleRefusal} were
+ * actually re-computed — the typed home the two hash sentinels move into
+ * (C78 §9.3; §0.f).
+ *
+ * `verified`     — the hashes are genuine FNV-1a re-computations over the live
+ *                  pre-state; a mismatch really is staleness.
+ * `unverifiable` — no live re-computation was POSSIBLE, and the §8.1 member
+ *                  says why: `UNSUPPORTED_ELEMENT_TYPE` (no planner family for
+ *                  this type — the `'UNVERIFIABLE:no-planner-for-type'` case),
+ *                  `ENGINE_NOT_AVAILABLE` (family exists, not composed here —
+ *                  the `'UNPLANNABLE'` case resolves to whichever of these the
+ *                  live re-plan actually produced), or `PLANNER_THREW`. A
+ *                  consumer seeing this arm reports the reason, NEVER
+ *                  `PLAN_STALE`-by-hash-mismatch: the fact is a capability
+ *                  gap, not staleness.
+ */
+export type PlanBindingVerification =
+  | {
+      readonly kind: 'verified';
+    }
+  | {
+      readonly kind: 'unverifiable';
+      readonly reason: UndeterminedReason;
+      /** Typed per-family specificity (C78 §8.3), e.g. `'no-planner-registered'`. */
+      readonly subReason?: UndeterminedSubReason;
+      /** Human-readable elaboration. Never branched on. */
+      readonly detail?: string;
+    };
 
 /**
  * The typed ABSENCE of a prediction (BIM30 plan R4; the §5 discipline applied

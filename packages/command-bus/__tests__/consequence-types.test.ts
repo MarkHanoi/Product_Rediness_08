@@ -58,7 +58,11 @@ function describeDetermination(d: ImpactDetermination): string {
   }
 }
 
-/** Same construction over the four fixed UNDETERMINED reasons. */
+/**
+ * Same construction over the UNDETERMINED reasons — the C78 §8.1 consolidated
+ * union, CLOSED at ELEVEN members (the ADR-0322 §5 four, spelled exactly as
+ * before, plus the seven C78 §8.1 added: one promoted, six minted).
+ */
 function describeReason(r: UndeterminedReason): string {
   switch (r) {
     case 'NO_DEPENDENCY_INDEX':
@@ -69,6 +73,20 @@ function describeReason(r: UndeterminedReason): string {
       return 'no rule for this kind';
     case 'STALE_DERIVED_STATE':
       return 'derived state stale';
+    case 'INVALID_REQUEST':
+      return 'caller payload malformed';
+    case 'GEOMETRY_UNPREDICTABLE':
+      return 'prediction geometrically impossible';
+    case 'TOPOLOGY_CHANGE_POSSIBLE':
+      return 'may split or merge the dependent';
+    case 'RELATIONSHIP_NOT_RECORDED':
+      return 'no producer writes this relationship';
+    case 'RELATIONSHIP_NOT_READABLE':
+      return 'edge written but unreadable in the needed direction';
+    case 'AGGREGATE_SCOPE_UNSUPPORTED':
+      return 'level-global dependency; per-element edge cannot express it';
+    case 'PLANNER_THREW':
+      return 'planner raised; caught and reported';
     default: {
       const exhausted: never = r;
       return exhausted;
@@ -102,7 +120,7 @@ const _bareArrayForbidden: ImpactDetermination = [];
 // @ts-expect-error — an undetermined cell MUST carry scope and reason
 const _reasonlessForbidden: ImpactDetermination = { kind: 'undetermined' };
 
-// @ts-expect-error — the reason vocabulary is closed (ADR-0322 §5 names four)
+// @ts-expect-error — the reason vocabulary is closed (C78 §8.1 names eleven)
 const _madeUpReason: UndeterminedReason = 'DONT_FEEL_LIKE_IT';
 
 void _bareArrayForbidden;
@@ -199,14 +217,21 @@ describe('consequence contract — union arms and constructibility (R1)', () => 
     );
   });
 
-  it('all four UNDETERMINED reasons are distinct, handled arms', () => {
+  it('all eleven UNDETERMINED reasons are distinct, handled arms (C78 §8.1)', () => {
     const reasons: readonly UndeterminedReason[] = [
       'NO_DEPENDENCY_INDEX',
       'ENGINE_NOT_AVAILABLE',
       'UNSUPPORTED_ELEMENT_TYPE',
       'STALE_DERIVED_STATE',
+      'INVALID_REQUEST',
+      'GEOMETRY_UNPREDICTABLE',
+      'TOPOLOGY_CHANGE_POSSIBLE',
+      'RELATIONSHIP_NOT_RECORDED',
+      'RELATIONSHIP_NOT_READABLE',
+      'AGGREGATE_SCOPE_UNSUPPORTED',
+      'PLANNER_THREW',
     ];
-    expect(new Set(reasons.map(describeReason)).size).toBe(4);
+    expect(new Set(reasons.map(describeReason)).size).toBe(11);
   });
 
   it('all three confirmation requirements are handled arms', () => {

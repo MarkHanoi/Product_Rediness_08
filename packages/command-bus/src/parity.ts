@@ -47,6 +47,29 @@
 // comment pins the DECISION so a future "normalize away the display fields"
 // edit has to argue with it rather than silently drop them.
 //
+// ── C78 §8 · UNDETERMINED REASONS AND SUB-REASONS ARE KEPT (decided 2026-08-12) ──
+// The consolidated refusal vocabulary — `UndeterminedImpact.reason` (the
+// eleven-member C78 §8.1 union), the typed `subReason` beside it (§8.3), and
+// `PlanStaleRefusal.liveVerification` (§9.3's sentinel successor) — falls
+// under the KEEP rule, and this is stated explicitly because refusals are the
+// newest fields and the easiest to mis-file as "diagnostic metadata".
+//
+// They are BEHAVIOURAL by the ADR-0324 §3 test: the same command + payload
+// over the same state MUST refuse for the same reason, because a refusal is a
+// pure function of the state the planner read and the rule it applied. If the
+// same wall.move yields `GEOMETRY_UNPREDICTABLE/COLLAPSED` for a human and
+// `STALE_DERIVED_STATE` for the AI, the two actors got different PLANNERS —
+// which is exactly the parity violation G-REASON-04 exists to catch, and one
+// the element sets alone would not reveal (both plans would carry one
+// undetermined item; only the reason would differ).
+//
+// No code change was needed to KEEP them: the projection below strips
+// `provenance` and `commandId` by name and passes everything else through, so
+// `plan.undetermined[].reason` / `.subReason` and every `*Undetermined` field
+// were retained the moment they landed on the types. The pin-test lives in
+// `__tests__/refusal-vocabulary.test.ts` (parity arm). This comment pins the
+// DECISION so a future "normalize away the noise" edit has to argue with it.
+//
 // KEPT deliberately: `audit.projectId` (which document was edited is
 // behavioural — cross-project "parity" would be meaningless), `type`,
 // `payload`, `affectedStores`, all patch content, and per-store grouping.
