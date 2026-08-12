@@ -107,8 +107,21 @@ export class UpdateWallDimensionsCommand implements Command {
         // pre-execute value still differs from `_lastBuiltVersion` and the
         // rebuild fires. Omitting it here would leave the ratcheted version in
         // place — the exact +N-per-undo-cycle drift the certification flagged.
+        //
+        // `metadata` MUST travel with the update: WallStore._updateImpl's
+        // preserve branch is gated on `preserveMetadata && safeUpdates.metadata`
+        // (WallStore.ts:616) — the flag alone does NOT mean "leave metadata
+        // as-is". An update carrying no `metadata` key falls into the else
+        // branch, which stamps `modifiedAt: now` and bumps `version` +1 — so
+        // undo INCREMENTED the audit counter it existed to rewind
+        // (certification H2: undo `expected 1 got 3`, redo `expected 2 got 4`;
+        // ADR-0319 class 2, never excludable). Handing back the snapshot's
+        // metadata is what `restoreSnapshot` always did for this field and is
+        // the certified round-trip behaviour; the per-gesture scoping above is
+        // about AUTHORED fields, not the audit stamp.
         const prev = this.prevSnapshot as {
             height?: number; thickness?: number; _renderVersion?: number;
+            metadata?: unknown;
         };
         ctx.stores.wallStore.update(
             this.input.wallId,
@@ -116,6 +129,7 @@ export class UpdateWallDimensionsCommand implements Command {
                 height:    prev.height,
                 thickness: prev.thickness,
                 _renderVersion: prev._renderVersion,
+                metadata:  prev.metadata,
             } as any,
             true,
         );
