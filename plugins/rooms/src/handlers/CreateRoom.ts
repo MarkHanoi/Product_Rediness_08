@@ -160,12 +160,14 @@ export class CreateRoomHandler implements CommandHandler<CreateRoomPayload, Reco
     cmd: CreateRoomPayload,
   ): HandlerResult {
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
+      // L-845: read the typed global directly (same pattern as the sibling
+      // bridges, e.g. AssignTemplateToNode) — no double-cast through unknown.
       const cm =
         typeof window === 'undefined'
           ? undefined
-          : (window as unknown as {
-              commandManager?: { execute(c: unknown, o?: unknown): { success?: boolean; error?: string } | void };
-            }).commandManager;
+          : (window.commandManager as
+              | { execute(c: unknown, o?: unknown): { success?: boolean; error?: string } | void }
+              | undefined);
 
       // §FIX-ROOM-CREATE-STORE-KEY — no commandManager means the ONLY path to
       // authoritative room state is absent in this process. That is a failure, not

@@ -236,6 +236,190 @@ export function reconcileStairOpeningsForSlab(
 }
 
 /**
+ * The before/after record of ONE stair's opening reconcile, sufficient to make the
+ * void change part of the SAME undo unit as the stair mutation that caused it
+ * (`undoStairOpeningReconcile`). `before === null` means the reconcile CARVED a new
+ * opening; `after === null` never happens today (a reconcile never deletes — see the
+ * L-581 lesson: deleting a void on a failed measure is catastrophic) but is kept in
+ * the shape so a future legitimate remove path can reuse the same undo helper.
+ */
+export interface StairOpeningReconcile {
+    readonly openingId: string;
+    /** Deep-cloned opening state BEFORE the reconcile; null = did not exist. */
+    readonly before: Record<string, any> | null;
+    /** Deep-cloned opening state AFTER the reconcile; null = does not exist. */
+    readonly after: Record<string, any> | null;
+}
+
+function profilesEqual(a: unknown, b: unknown): boolean {
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function readOpening(openingStore: any, id: string): any {
+    return openingStore.get?.(id) ?? openingStore.getById?.(id) ?? null;
+}
+
+/**
+ * §FIX-STAIR-MOVE-STRANDS-VOID (review C-02) — a stair MOVED or PARAMETRICALLY
+ * changed after creation. `carveStairOpening` is idempotent by `opening-stair-<id>`,
+ * so on its own it leaves the auto-carved void at the OLD footprint forever. This
+ * function updates-or-recarves the opening KEYED BY THE SAME ID:
+ *
+ *   • no opening yet          → delegate to `carveStairOpening` (a move can bring a
+ *                               stair under a slab it never had a void in).
+ *   • opening exists, footprint
+ *     unchanged               → strict no-op (returns null; the void is untouched —
+ *                               a rename/fire-rating edit must never rebuild a slab).
+ *   • opening exists, footprint
+ *     changed                 → update the SAME opening in place (never mint a second
+ *                               void — that is the pre-W1-1 double-carve bug) and
+ *                               rebuild old + new host slabs.
+ *
+ * Returns the before/after record the calling command must keep for its undo(), or
+ * null when nothing changed.
+ */
+export function reconcileStairOpening(
+    ctx: CommandContext,
+    stair: StairFootprintSource,
+    opts: { triggerRebuild?: boolean } = {},
+): StairOpeningReconcile | null {
+    const span = _tracer().startSpan('pryzm.stair.reconcile-opening', {
+        attributes: { 'pryzm.stair.id': stair.id, 'pryzm.level.id': stair.topLevelId },
+    });
+    try {
+        const stores = ctx.stores as any;
+        const slabStore = stores.slabStore;
+        const openingStore = stores.openingStore;
+        if (!slabStore || !openingStore) {
+            span.setAttribute('pryzm.reconcile.skipped', 'no-stores');
+            return null;
+        }
+
+        const openingId = stairAutoOpeningId(stair.id);
+        const existing = readOpening(openingStore, openingId);
+
+        if (!existing) {
+            // Same as the create direction: carve if (and only if) a slab is above.
+            const carve = carveStairOpening(ctx, stair, opts);
+            if (!carve) return null;
+            const after = readOpening(openingStore, openingId);
+            span.setAttribute('pryzm.reconcile.outcome', 'carved');
+            return { openingId, before: null, after: structuredClone(after) };
+        }
+
+        const candidates = slabStore.getAll().filter((s: any) => s.levelId === stair.topLevelId);
+        if (candidates.length === 0) {
+            // The host slab is gone (cannot result from a stair move) — leave the
+            // existing void alone rather than guess.
+            span.setAttribute('pryzm.reconcile.skipped', 'no-slab-on-top-level');
+            return null;
+        }
+
+        const rect = computeStairFootprintRect({
+            shape: stair.shape as any,
+            width: stair.width,
+            treadDepth: stair.treadDepth,
+            startPosition: stair.startPosition,
+            flights: stair.flights as any,
+            landings: stair.landings as any,
+        });
+        if (!rect) {
+            // Never delete a void on a failed measure (L-581): warn and leave it.
+            console.warn(`[StairSlabOpeningReconciler] degenerate footprint for stair ${stair.id} — existing opening left untouched`);
+            span.setAttribute('pryzm.reconcile.skipped', 'degenerate-footprint');
+            return null;
+        }
+
+        const cx = (rect[0].x + rect[1].x + rect[2].x + rect[3].x) / 4;
+        const cz = (rect[0].z + rect[1].z + rect[2].z + rect[3].z) / 4;
+        const host = resolveHostSlab(candidates, cx, cz);
+        const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
+
+        const unchanged =
+            host.id === existing.hostId &&
+            existing.levelId === stair.topLevelId &&
+            profilesEqual(profile, existing.profile);
+        if (unchanged) {
+            // Footprint-unchanged edit (name, fire rating, …): the void is NOT touched.
+            span.setAttribute('pryzm.reconcile.outcome', 'unchanged');
+            return null;
+        }
+
+        const before = structuredClone(existing);
+        const updates = { hostId: host.id, parentId: host.id, levelId: stair.topLevelId, profile };
+        if (typeof openingStore.update === 'function') {
+            openingStore.update(openingId, updates);
+        } else {
+            // Test doubles / minimal stores: replace under the SAME id.
+            openingStore.remove?.(openingId);
+            openingStore.add({ ...existing, ...updates });
+        }
+        const after = structuredClone(readOpening(openingStore, openingId) ?? { ...existing, ...updates });
+
+        if (opts.triggerRebuild !== false) {
+            for (const hostId of new Set([before.hostId, host.id])) {
+                if (slabStore.getById?.(hostId)) slabStore.triggerRebuild(hostId);
+            }
+        }
+
+        span.setAttribute('pryzm.reconcile.outcome', 'updated');
+        span.setAttribute('pryzm.opening.id', openingId);
+        span.setAttribute('pryzm.slab.id', host.id);
+        return { openingId, before, after };
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * Revert ONE `reconcileStairOpening` result — called from the OWNING command's
+ * undo() so the void change reverts inside the SAME undo unit as the stair
+ * mutation. No-ops on null (the reconcile changed nothing).
+ */
+export function undoStairOpeningReconcile(
+    ctx: CommandContext,
+    rec: StairOpeningReconcile | null,
+): void {
+    if (!rec) return;
+    const stores = ctx.stores as any;
+    const openingStore = stores.openingStore;
+    const slabStore = stores.slabStore;
+    if (!openingStore) return;
+
+    const current = readOpening(openingStore, rec.openingId);
+    try {
+        if (rec.before === null) {
+            // The reconcile carved a fresh opening — undo removes it (mirrors
+            // removeStairOpenings, including the side indexes).
+            if (current) {
+                openingStore.remove?.(rec.openingId);
+                try { ctx.bimManager.unregisterElement?.(rec.openingId); } catch { /* side-index only */ }
+                try { elementRegistry.unregister(rec.openingId); } catch { /* side-index only */ }
+            }
+        } else if (typeof openingStore.update === 'function' && current) {
+            openingStore.update(rec.openingId, {
+                hostId: rec.before.hostId,
+                parentId: rec.before.parentId,
+                levelId: rec.before.levelId,
+                profile: rec.before.profile,
+            });
+        } else {
+            if (current) openingStore.remove?.(rec.openingId);
+            openingStore.add(structuredClone(rec.before));
+        }
+    } catch (err) {
+        console.warn('[StairSlabOpeningReconciler] reconcile undo failed (non-fatal):', err);
+    }
+
+    const hosts = new Set<string>();
+    if (rec.before?.hostId) hosts.add(rec.before.hostId);
+    if (rec.after?.hostId) hosts.add(rec.after.hostId);
+    for (const hostId of hosts) {
+        if (slabStore?.getById?.(hostId)) slabStore.triggerRebuild(hostId);
+    }
+}
+
+/**
  * Undo the carves a command performed, restoring the pre-command state.
  * Mirrors `DeleteStairCommand`'s heal path so a slab undo never leaves an orphan
  * opening whose host slab is gone.

@@ -8,6 +8,12 @@ import {
 } from '../types';
 import { StairData, StairProperties, STAIR_CONSTRAINTS } from '@pryzm/geometry-stair';
 import { GenerateStairGeometryCommand } from './GenerateStairGeometryCommand';
+import {
+    reconcileStairOpening,
+    undoStairOpeningReconcile,
+    type StairFootprintSource,
+    type StairOpeningReconcile,
+} from './StairSlabOpeningReconciler';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -26,7 +32,10 @@ export interface UpdateStairParametersInput {
 }
 
 export class UpdateStairParametersCommand implements Command {
-    readonly affectedStores = ["stair"] as const;
+    // §FIX-STAIR-MOVE-STRANDS-VOID (review C-02) — a geometry-affecting parameter
+    // edit re-reconciles the auto-carved slab void, so this command touches the
+    // opening + slab stores exactly like DeleteStairCommand does.
+    readonly affectedStores = ["stair", "opening", "slab"] as const;
     readonly id: string;
     readonly type = CommandType.UPDATE_STAIR_PARAMETERS;
     readonly timestamp: number;
@@ -36,6 +45,9 @@ export class UpdateStairParametersCommand implements Command {
     private updates: UpdateStairParametersInput['updates'];
     // Phase 1: snapshot stores full StairData for proper undo via restoreSnapshot
     private _snapshot: StairData | null = null;
+    // §FIX-STAIR-MOVE-STRANDS-VOID — before/after of the slab-void reconcile,
+    // reverted inside THIS command's undo() (one undo unit for edit + void).
+    private _openingReconcile: StairOpeningReconcile | null = null;
     private executed: boolean = false;
 
     constructor(input: UpdateStairParametersInput) {
@@ -156,6 +168,22 @@ export class UpdateStairParametersCommand implements Command {
             } catch (e) {
                 console.warn('[UpdateStairParametersCommand] geometry rebuild error:', e);
             }
+
+            // §FIX-STAIR-MOVE-STRANDS-VOID (review C-02) — after the geometry
+            // settles (the rebuild may re-derive flights/landings), re-reconcile the
+            // auto-carved slab void against the NEW footprint. The reconciler is a
+            // strict no-op when the footprint is unchanged (e.g. riserHeight-only
+            // edits), so a non-footprint edit never touches the void or rebuilds a
+            // slab. Non-geometric edits (fireRating, …) never even reach this block.
+            try {
+                const updated = ctx.stores.stairStore.get(this.stairId);
+                this._openingReconcile = updated
+                    ? reconcileStairOpening(ctx, updated as unknown as StairFootprintSource)
+                    : null;
+            } catch (e) {
+                console.warn('[UpdateStairParametersCommand] slab-void reconcile failed (non-fatal):', e);
+                this._openingReconcile = null;
+            }
         }
 
         _bus.emit('ai-model-update', {}); // F.events.17
@@ -184,6 +212,10 @@ export class UpdateStairParametersCommand implements Command {
 
         // Phase 1: Use restoreSnapshot for correct undo — no version increment, no modifiedAt change
         stairStore.restoreSnapshot(this._snapshot);
+
+        // Revert the slab-void reconcile in the SAME undo unit as the edit.
+        undoStairOpeningReconcile(ctx, this._openingReconcile);
+        this._openingReconcile = null;
 
         _bus.emit('ai-model-update', {}); // F.events.17
 

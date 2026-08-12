@@ -41,6 +41,11 @@ declare global {
         // `runtime` is already declared as `any` elsewhere — don't re-declare it.
         pryzmFurnishAllRooms?: () => void;
         pryzmShowFurnishWarnings?: () => void;
+        /** A.21.D28 #7 — console parity for the AI-panel "all floors" scope. */
+        pryzmFurnishAllFloors?: () => void;
+        /** §FULL-PIPELINE — furnish + auto-chained lighting in one call
+         *  (manual-walls case; lighting fires off `furnish.layout-executed`). */
+        pryzmFurnishAndLightAllRooms?: () => void;
     }
 }
 
@@ -69,15 +74,13 @@ interface LevelLike { id?: string; elevation?: number }
 /** Enumerate every level id, ground-first, from whichever store is available
  *  (same sources the BottomActionMenu uses). */
 function getAllLevelIds(): string[] {
-    const w = window as unknown as {
-        bimManager?: { getLevels?: () => LevelLike[] };
-        wallStore?: { getLevels?: () => LevelLike[] };
-        projectContext?: { levels?: LevelLike[] };
-    };
+    // Typed-global reads (L-845): `bimManager` / `wallStore` are declared
+    // `unknown` on the Window augmentation (apps/editor/src/types/globals.d.ts),
+    // `projectContext` on src/global-window.d.ts — narrow each read locally.
     const levels =
-        w.bimManager?.getLevels?.() ??
-        w.wallStore?.getLevels?.() ??
-        w.projectContext?.levels ??
+        (window.bimManager as { getLevels?: () => LevelLike[] } | undefined)?.getLevels?.() ??
+        (window.wallStore as { getLevels?: () => LevelLike[] } | undefined)?.getLevels?.() ??
+        (window.projectContext as { levels?: LevelLike[] } | undefined)?.levels ??
         [];
     return levels
         .slice()
@@ -139,7 +142,7 @@ export async function triggerFurnishAllFloors(runtimeArg?: PryzmRuntime | null):
     if (levelIds.length === 1) { triggerFurnishLayout(rt); return; }
 
     _executor.attach(rt);
-    const pc = (window as unknown as { projectContext?: ProjectContextLike }).projectContext;
+    const pc = window.projectContext as ProjectContextLike | undefined;
     const originalActive = pc?.activeLevelId ?? undefined;
     const setActive = (id: string): void => {
         try { if (pc) pc.activeLevelId = id; } catch (e) { console.warn('[furnish-layout] could not set active level', id, e); }
@@ -230,8 +233,7 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         window.pryzmFurnishAllRooms = () => triggerFurnishLayout(runtime);
         // A.21.D28 #7 — console parity for the "all floors" path the AI-panel
         // scope modal offers.
-        (window as unknown as { pryzmFurnishAllFloors?: () => void }).pryzmFurnishAllFloors =
-            () => { void triggerFurnishAllFloors(runtime); };
+        window.pryzmFurnishAllFloors = () => { void triggerFurnishAllFloors(runtime); };
         window.pryzmShowFurnishWarnings = showFurnishWarnings;
         console.log('[furnish-layout] console command ready — run pryzmFurnishAllRooms() to furnish all rooms.');
         console.log('[furnish-layout] console command ready — run pryzmFurnishAllFloors() to furnish every floor.');
@@ -239,11 +241,7 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         // §FULL-PIPELINE shortcut: chain furniture + lighting on demand for the
         // manual-walls test case (architect drew walls themselves; the
         // apartment generator never fired, so the auto-chain didn't start).
-        const w = window as unknown as {
-            pryzmLightAllRooms?: () => void;
-            pryzmFurnishAndLightAllRooms?: () => void;
-        };
-        w.pryzmFurnishAndLightAllRooms = (): void => {
+        window.pryzmFurnishAndLightAllRooms = (): void => {
             triggerFurnishLayout(runtime);
             // The furnish run emits 'furnish.layout-executed' which auto-fires
             // the lighting trigger — no explicit lighting call needed.

@@ -25,6 +25,12 @@ import {
     CommandContext
 } from '../types';
 import { StairData, Vec3 } from '@pryzm/geometry-stair';
+import {
+    reconcileStairOpening,
+    undoStairOpeningReconcile,
+    type StairFootprintSource,
+    type StairOpeningReconcile,
+} from './StairSlabOpeningReconciler';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -39,7 +45,10 @@ function isFiniteNum(n: unknown): n is number {
 }
 
 export class MoveStairCommand implements Command {
-    readonly affectedStores = ["stair"] as const;
+    // §FIX-STAIR-MOVE-STRANDS-VOID (review C-02) — a move re-reconciles the
+    // auto-carved slab void, so this command touches the opening + slab stores
+    // exactly like DeleteStairCommand does.
+    readonly affectedStores = ["stair", "opening", "slab"] as const;
     readonly id: string;
     readonly type = CommandType.MOVE_STAIR;
     readonly timestamp: number;
@@ -51,6 +60,9 @@ export class MoveStairCommand implements Command {
     // UpdateStairParametersCommand / DeleteStairCommand — restoreSnapshot does
     // not bump version or modifiedAt).
     private _snapshot: StairData | null = null;
+    // §FIX-STAIR-MOVE-STRANDS-VOID — before/after of the slab-void reconcile,
+    // reverted inside THIS command's undo() (one undo unit for move + void).
+    private _openingReconcile: StairOpeningReconcile | null = null;
     private executed = false;
 
     constructor(input: MoveStairInput) {
@@ -99,6 +111,20 @@ export class MoveStairCommand implements Command {
         stairStore.update(this.stairId, updates);
         this.executed = true;
 
+        // §FIX-STAIR-MOVE-STRANDS-VOID (review C-02) — the auto-carved slab void
+        // was keyed idempotently (`opening-stair-<id>`), so without this the void
+        // stayed at the OLD footprint after a move. Re-reconcile against the moved
+        // stair: the SAME opening id is updated in place (never a second void).
+        try {
+            const moved = stairStore.get(this.stairId);
+            this._openingReconcile = moved
+                ? reconcileStairOpening(ctx, moved as unknown as StairFootprintSource)
+                : null;
+        } catch (err) {
+            console.warn('[MoveStairCommand] slab-void reconcile failed (non-fatal):', err);
+            this._openingReconcile = null;
+        }
+
         _bus.emit('ai-model-update', {}); // F.events.17
 
         console.log(`[MoveStairCommand] Moved stair ${this.stairId} by`, this.delta);
@@ -111,6 +137,9 @@ export class MoveStairCommand implements Command {
             return { success: false, affectedElementIds: [], info: ['Cannot undo: command was never executed'] };
         }
         ctx.stores.stairStore.restoreSnapshot(this._snapshot);
+        // Revert the slab-void reconcile in the SAME undo unit as the move.
+        undoStairOpeningReconcile(ctx, this._openingReconcile);
+        this._openingReconcile = null;
         _bus.emit('ai-model-update', {}); // F.events.17
         console.log(`[MoveStairCommand] Undone move for stair ${this.stairId}`);
         return { success: true, affectedElementIds: [this.stairId], info: ['Stair move undone'] };
