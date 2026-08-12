@@ -2643,6 +2643,9 @@ importers:
       '@pryzm/command-bus':
         specifier: workspace:*
         version: link:../command-bus
+      '@pryzm/core-app-model':
+        specifier: workspace:*
+        version: link:../core-app-model
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../frame-scheduler

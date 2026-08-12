@@ -98,6 +98,27 @@ function bid(prefix: string): string {
   return prefix + '_' + s;
 }
 
+/**
+ * §CA-21-READBACK — families whose AUTHORITATIVE schema brands ids as a UUID
+ * rather than `<prefix>_<ULID>`. `RoomDataAddSchema` (room-topology) is the one
+ * today: `id: z.string().uuid()`. Minting a `room_<ULID>` here would make the
+ * row a test of the HARNESS'S id format rather than of the write path — the same
+ * mistake the `template.create` row already avoids by supplying `code`.
+ */
+const UUID_ID_FAMILIES: ReadonlySet<string> = new Set(['room']);
+
+/** A deterministic, schema-valid v4-shaped UUID. Deterministic so a failing run
+ *  is reproducible; shaped so the authoritative Zod gate accepts it. */
+function uuid(): string {
+  n += 1;
+  const hex = '0123456789abcdef';
+  let s = '';
+  for (let i = 0; i < 32; i++) s += hex[(i * 5 + n * 11 + 3) % 16];
+  return (
+    s.slice(0, 8) + '-' + s.slice(8, 12) + '-4' + s.slice(13, 16) + '-a' + s.slice(17, 20) + '-' + s.slice(20, 32)
+  );
+}
+
 // ───────────────────────── the store census ─────────────────────────────────
 
 /**
@@ -371,6 +392,13 @@ const SPECS: readonly ProbeSpec[] = [
     read: (s, i) => (s.getById?.(i.id) ? 'PRESENT' : 'ABSENT'), expected: 'PRESENT',
   },
   {
+    // `computed` + `metadata` are supplied because `RoomDataAddSchema` REQUIRES
+    // both, and `CreateRoomCommand` — the authoritative path `room.create` bridges
+    // to — hands the record straight to `RoomStore.add()`. Omitting them would make
+    // this row a test of the PAYLOAD rather than of the write path, exactly as the
+    // `template.create` row notes below. The id is a UUID for the same reason
+    // (see UUID_ID_FAMILIES). The values are the ones `RoomPlanToolHandler.ts:114`
+    // sends for a 4 × 3 m rectangle — a real caller's shape, not an invented one.
     verb: 'room.create', family: 'room', ids: ['id'],
     payload: (i) => ({
       id: i.id, levelId: 'level_CA21', type: 'room', name: 'CA21 Room', roomNumber: 'R-921',
@@ -381,6 +409,12 @@ const SPECS: readonly ProbeSpec[] = [
       },
       boundingWallIds: [], boundingSlabIds: [], boundingColumnIds: [],
       finishes: {}, properties: {},
+      computed: {
+        area: 12, grossArea: 12, perimeter: 14, volume: 32.4,
+        centroid: { x: 2, z: 1.5 },
+        boundingBox: { minX: 0, minZ: 0, maxX: 4, maxZ: 3 },
+      },
+      metadata: { createdAt: 0, modifiedAt: 0, createdBy: 'rac-harness', version: 1 },
     }),
     read: (s, i) => (s.getById?.(i.id) ? 'PRESENT' : 'ABSENT'), expected: 'PRESENT',
   },
@@ -488,7 +522,9 @@ describe('CA-21 — EXECUTED read-back per verb (G-CA-A4)', () => {
       const store = reached.store;
       const ids: Record<string, string> = {};
       for (const k of spec.ids ?? []) {
-        ids[k] = bid(ID_PREFIX[k] ?? spec.family.replace('-', ''));
+        ids[k] = UUID_ID_FAMILIES.has(spec.family)
+          ? uuid()
+          : bid(ID_PREFIX[k] ?? spec.family.replace('-', ''));
       }
 
       // Seed THROUGH the real bus, never by poking a store.

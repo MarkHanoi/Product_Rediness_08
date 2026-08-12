@@ -21,7 +21,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { DeleteRoomCommand } from '@pryzm/command-registry';
+import { DeleteRoomCommand } from './legacyCommands.js';
 
 export interface DeleteRoomPayload {
   readonly roomId: string;

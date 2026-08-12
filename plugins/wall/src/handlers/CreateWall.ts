@@ -37,6 +37,94 @@ import {
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
 import { resolveWallSystemType } from '../resolveWallSystemType.js';
+// §FIX-CREATE-DTO-ONLY-SUCCESS — the AUTHORITATIVE-store census, nothing else.
+// Reached through the SDK FACADE, not around it: `@pryzm/plugin-sdk` re-exports
+// `storeRegistry` for exactly this question (see the widening note at the foot of
+// `packages/plugin-sdk/src/index.ts`). This module is READ here and never written —
+// ADR-0318 I-2 makes population the composition root's job, never a plugin's.
+import { storeRegistry } from '@pryzm/plugin-sdk';
+
+/**
+ * §FIX-CREATE-DTO-ONLY-SUCCESS (BIM30 Phase 2) — why `wall.create` now refuses in
+ * SOME processes and not others, and why that is a fact rather than a hedge.
+ *
+ * MEASURED. The CA-21 executed read-back
+ * (`tools/rac-conformance/runtime-harness/__tests__/liveness.probe.ts`) dispatched
+ * `wall.create` on the composed bus and read `runtime.stores.elements.get('wall')`
+ * — the authoritative `wallStore` singleton `ProjectSerializer` reads, made
+ * reachable by ADR-0318 wave 1. Verdict: **`readback-negative` — dispatch reported
+ * success; the AUTHORITATIVE store did not change.**
+ *
+ * ─── WHY NOT "REFUSE", the door.create answer ──────────────────────────────
+ * `door.create` was converted to an unconditional refusal because it was dead
+ * everywhere and a door is a hosted opening. `wall.create` is the OPPOSITE case:
+ * it is the live production creation path for `WallTool`, `WallPlanToolHandler`,
+ * `PreviewManager`, `CopyPlanToolHandler` and every `wall.batch.create` the
+ * apartment/house generators drive. An unconditional refusal would delete wall
+ * creation from the product.
+ *
+ * ─── WHY NOT "WRITE THE AUTHORITATIVE STORE" EITHER ────────────────────────
+ * Two independent reasons, both from source:
+ *
+ *  1. **In the browser it would be a SECOND write site.** The authoritative write
+ *     already happens — `apps/editor/src/engine/initTools.ts` subscribes to
+ *     `runtime.events.on('wall.created')` (the event `CommandEventBridge` emits
+ *     from THIS command's patch pair) and performs `wallStore.add(...)` on the
+ *     adopted singleton, plus the `viewDependencyTracker` + `bimManager` level
+ *     registration. That bridge deliberately registers BEFORE it adds
+ *     (§G3-STALE-FIX): `WallStore.add()` synchronously fires StoreEventBus, and an
+ *     unregistered wall sends every plan view down the §G3-STALE-EVENT
+ *     mark-all-views-dirty fallback. A write from inside this handler would land
+ *     ahead of that registration and reintroduce the defect on every wall create.
+ *
+ *  2. **Headlessly it is impossible BY DESIGN.** `WallStore.add()` needs the level
+ *     authority to run its level-existence guard, and ADR-0318 I-3 makes it REFUSE
+ *     (`WallStoreEngineNotAttachedError`) rather than invent a level when the
+ *     engine half is not attached. A composed runtime with no engine half cannot
+ *     create a wall, and the store says so itself.
+ *
+ * ─── SO THE DEFECT THAT IS ACTUALLY AVAILABLE TO FIX IS THE FALSE SUCCESS ──
+ * The verb is conditionally live, and until now it reported success identically in
+ * both conditions. It no longer does. The predicate is the process's OWN
+ * declaration of what is authoritative here, and it is three-valued — matching
+ * CA-21's own three verdicts rather than collapsing them to two:
+ *
+ *   • **No authoritative wall store registered** (a plugin unit test, the
+ *     `apps/bake-worker` closed DTO loop): this handler's patch pair IS the whole
+ *     contract in that process. Proceed. Nothing is being lied about.
+ *   • **Registered AND engine-attached** (the browser, after
+ *     `initBuilders.ts` calls `wallStore.attachEngine`): the bridge above completes
+ *     the write. Proceed — production is byte-for-byte unchanged.
+ *   • **Registered AND NOT attached** (the composed headless runtime — the exact
+ *     case the probe measured): the authoritative store exists in this process and
+ *     provably cannot receive this create. REFUSE, and name why.
+ */
+const WALL_CREATE_UNREACHABLE =
+  'wall.create: this process registers an authoritative WallStore (ADR-0318 §ADR-0318-ELEMENTS-SLOT, ' +
+  'the instance ProjectSerializer reads) but its engine half is NOT attached, so the create cannot land: ' +
+  'WallStore.add() refuses rather than admit a wall onto a level it cannot check (ADR-0318 I-3, ' +
+  'WallStoreEngineNotAttachedError). This handler will not report success for a write that reaches only the ' +
+  'detached plugin DTO store. wall.create completes in a runtime that ALSO composes the engine half: ' +
+  'apps/editor/src/engine/initBuilders.ts calls wallStore.attachEngine(projectContext, bimManager), and ' +
+  "initTools.ts's runtime.events.on('wall.created') bridge performs the authoritative wallStore.add plus the " +
+  'viewDependencyTracker/bimManager level registration.';
+
+/**
+ * §FIX-CREATE-DTO-ONLY-SUCCESS — the three-valued census above, in code.
+ * Returns the refusal reason, or `null` when this handler's write is honest here.
+ */
+function authoritativeWallStoreRefusal(): string | null {
+  const s = storeRegistry.getStoreForType('wall') as
+    | { isEngineAttached?: () => boolean }
+    | undefined;
+  // No authoritative store in this process — the DTO patch pair is the contract.
+  if (!s) return null;
+  // Registered, but not the ADR-0318 singleton shape: unjudgeable, and an
+  // unjudgeable case must not be scored as a failure (§CONTEXT-DATA-HONESTY).
+  if (typeof s.isEngineAttached !== 'function') return null;
+  if (s.isEngineAttached()) return null;
+  return WALL_CREATE_UNREACHABLE;
+}
 
 /** Optional shape for the create-wall input.  Every field falls back
  *  to the schema defaults — `Wall.parse({})` is a valid wall. */
@@ -122,6 +210,11 @@ export class CreateWallHandler
         reason: `unknown systemTypeId: ${cmd.systemTypeId}`,
       };
     }
+    // §FIX-CREATE-DTO-ONLY-SUCCESS — LAST, and only after the payload is known to
+    // be well-formed: the point of the message is "this payload is fine and it
+    // STILL cannot reach authoritative state", which a payload error would muddle.
+    const unreachable = authoritativeWallStoreRefusal();
+    if (unreachable !== null) return { valid: false, reason: unreachable };
     return { valid: true };
   }
 

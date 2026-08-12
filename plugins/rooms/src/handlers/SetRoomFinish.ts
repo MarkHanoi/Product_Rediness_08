@@ -70,7 +70,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { UpdateRoomCommand } from '@pryzm/command-registry';
+import { UpdateRoomCommand } from './legacyCommands.js';
 
 /**
  * The three finishable surfaces of a room, mirroring `RoomFinishes`

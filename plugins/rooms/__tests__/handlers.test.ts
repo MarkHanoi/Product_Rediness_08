@@ -61,52 +61,98 @@ describe('room handler registration', () => {
   });
 });
 
-describe('room.create — round-trip', () => {
+// §FIX-ROOM-CREATE-STORE-KEY — `room.create` is a LEGACY BRIDGE, like its eleven
+// siblings. It was the LAST handler in this directory still declaring
+// `affectedStores: ['room']` against the bus storeKey `'rooms'`, so
+// `CommandBus.buildContext()` threw "required store 'room' is missing from
+// HandlerContext.stores" before `execute()` ever ran — in the browser as well as
+// headlessly. That made `RoomPlanToolHandler`'s sole creation path a no-op behind
+// a swallowed `.catch()`.
+//
+// These tests deliberately do NOT assert on the plugin `RoomsState`. The previous
+// versions did, and in doing so they pinned the lie (C16 §5.1 CA-21): they passed
+// against a store that neither the renderer, nor persistence, nor the area
+// schedules read — for a verb the bus could not even dispatch. What is pinned now
+// is the forwarded `CreateRoomCommand` and the refusals.
+const COMPLETE_ROOM = (id: string) => ({
+  id,
+  type: 'room' as const,
+  levelId: 'L1',
+  name: 'Office 101',
+  roomNumber: '101',
+  occupancyType: 'unclassified',
+  boundary: {
+    polygon: [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 }],
+    height: 3, baseOffset: 0, detectionMethod: 'manual-boundary',
+  },
+  boundingWallIds: [], boundingSlabIds: [], boundingColumnIds: [],
+  finishes: {}, properties: {},
+  computed: {
+    area: 12, grossArea: 12, perimeter: 14, volume: 36,
+    centroid: { x: 2, z: 1.5 },
+    boundingBox: { minX: 0, minZ: 0, maxX: 4, maxZ: 3 },
+  },
+  metadata: { createdAt: 0, modifiedAt: 0, createdBy: 'test', version: 1 },
+});
+
+describe('room.create — legacy bridge (§FIX-ROOM-CREATE-STORE-KEY)', () => {
   let env: ReturnType<typeof buildEnv>;
-  afterEach(() => env?.detach());
+  const g = globalThis as unknown as { window?: unknown };
+  const savedWindow = g.window;
+  afterEach(() => {
+    env?.detach();
+    if (savedWindow === undefined) delete g.window;
+    else g.window = savedWindow;
+  });
 
-  it('creates a sketched-mode room with caller-provided id and inverts cleanly', async () => {
+  it('forwards a complete RoomData to the legacy CreateRoomCommand and writes no plugin store', async () => {
     env = buildEnv();
-    const id = createId('room');
+    const id = '11111111-1111-4111-a111-111111111111';
     const before = snap(env.room);
-    const ev = await env.bus.executeCommand('room.create', {
-      id,
-      levelId: 'L1',
-      name: 'Office 101',
-      number: '101',
-    });
-    expect(env.room.size()).toBe(1);
-    expect(env.room.get(id)?.name).toBe('Office 101');
-    expect(env.room.get(id)?.boundaryMode).toBe('sketched');
-
-    undoLast(env.room, ev);
+    const executed: Array<{ targetIds?: readonly string[] }> = [];
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: { execute: (c: unknown) => { executed.push(c as { targetIds?: readonly string[] }); } },
+    };
+    await env.bus.executeCommand('room.create', COMPLETE_ROOM(id));
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.targetIds).toContain(id);
+    // The bridge owns no plugin store — the authoritative write is the command's.
     expect(snap(env.room)).toEqual(before);
   });
 
-  it('creates a wallBound room with a seed point', async () => {
+  it('refuses an incomplete payload and NAMES the derived fields it will not invent', async () => {
     env = buildEnv();
-    const id = createId('room');
-    await env.bus.executeCommand('room.create', {
-      id,
-      boundaryMode: 'wallBound',
-      seedPoint: { x: 1, y: 0, z: 1 },
-    });
-    expect(env.room.get(id)?.boundaryMode).toBe('wallBound');
-    expect(env.room.get(id)?.seedPoint).toEqual({ x: 1, y: 0, z: 1 });
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: { execute: () => { throw new Error('must not run for an incomplete payload'); } },
+    };
+    // The old plugin-shaped payload: no boundary.polygon, no computed, no metadata.
+    await expect(
+      env.bus.executeCommand('room.create', { id: createId('room'), levelId: 'L1', name: 'Office 101' }),
+    ).rejects.toThrow(/computed/);
+    await expect(
+      env.bus.executeCommand('room.create', { id: createId('room'), levelId: 'L1', name: 'Office 101' }),
+    ).rejects.toThrow(/room\.redetect/);
   });
 
-  it('rejects wallBound mode without a seed', async () => {
+  it('refuses, with a reason, when no legacy command manager is present', async () => {
     env = buildEnv();
+    delete g.window;
     await expect(
-      env.bus.executeCommand('room.create', { boundaryMode: 'wallBound' }),
-    ).rejects.toThrow();
+      env.bus.executeCommand('room.create', COMPLETE_ROOM('22222222-2222-4222-a222-222222222222')),
+    ).rejects.toThrow(/legacy command manager is not available/);
   });
 
-  it('rejects out-of-range heightOffset', async () => {
+  it('surfaces a CreateRoomCommand refusal instead of reporting success', async () => {
     env = buildEnv();
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: { execute: () => ({ success: false, error: "Level 'L1' not found" }) },
+    };
     await expect(
-      env.bus.executeCommand('room.create', { heightOffset: 100 }),
-    ).rejects.toThrow();
+      env.bus.executeCommand('room.create', COMPLETE_ROOM('33333333-3333-4333-a333-333333333333')),
+    ).rejects.toThrow(/CreateRoomCommand refused — Level 'L1' not found/);
   });
 });
 

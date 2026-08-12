@@ -25,7 +25,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { UpdateRoomCommand } from '@pryzm/command-registry';
+import { UpdateRoomCommand } from './legacyCommands.js';
 
 export interface SetRoomHeightOffsetPayload {
   readonly roomId: string;

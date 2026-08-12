@@ -277,3 +277,77 @@ describe('slab.delete', () => {
     expect(snap(env.slab)).toEqual(before);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-CREATE-DTO-ONLY-SUCCESS — the authoritative-store census, watched in all
+// THREE of its states.
+//
+// The CA-21 executed read-back measured `slab.create` reporting success on the
+// composed bus while the authoritative `slabStore` (the instance ProjectSerializer
+// reads, made reachable by ADR-0318 wave 1) did not change. `CreateSlabHandler`
+// now refuses in exactly one condition — an authoritative store is registered in
+// this process AND it cannot receive the write. A guard nobody has watched fail is
+// a guard nobody should trust, so all three arms are pinned, not just the refusal.
+//
+// Note the FIRST arm is what keeps every test above green: a plugin unit process
+// registers no authoritative slab store, so the DTO patch pair is the whole
+// contract there and the handler proceeds. That is a property of the design, and
+// it is asserted here rather than left as an accident of test ordering.
+// ─────────────────────────────────────────────────────────────────────────────
+import { storeRegistry } from '@pryzm/plugin-sdk';
+
+describe('slab.create — §FIX-CREATE-DTO-ONLY-SUCCESS authoritative-store census', () => {
+  let env: ReturnType<typeof buildEnv>;
+  afterEach(() => {
+    env?.detach();
+    storeRegistry.unregister('slab');
+  });
+
+  it('ARM 1 — no authoritative slab store registered: proceeds (the DTO pair is the contract)', async () => {
+    env = buildEnv();
+    expect(storeRegistry.isRegistered('slab')).toBe(false);
+    const id = createId('slab');
+    await env.bus.executeCommand('slab.create', { id, boundary: SQUARE });
+    expect(env.slab.size()).toBe(1);
+  });
+
+  it('ARM 2 — authoritative store registered AND engine-attached: proceeds (the browser)', async () => {
+    env = buildEnv();
+    storeRegistry.register('slab', { getAll: () => [], isEngineAttached: () => true } as never);
+    const id = createId('slab');
+    await env.bus.executeCommand('slab.create', { id, boundary: SQUARE });
+    expect(env.slab.size()).toBe(1);
+  });
+
+  it('ARM 3 — registered AND NOT attached: refuses, and names why it cannot land', async () => {
+    env = buildEnv();
+    storeRegistry.register('slab', { getAll: () => [], isEngineAttached: () => false } as never);
+    await expect(
+      env.bus.executeCommand('slab.create', { id: createId('slab'), boundary: SQUARE }),
+    ).rejects.toThrow(/engine half is NOT attached/);
+    // The refusal must name the path that DOES work, not merely decline.
+    await expect(
+      env.bus.executeCommand('slab.create', { id: createId('slab'), boundary: SQUARE }),
+    ).rejects.toThrow(/attachEngine/);
+    // …and nothing was written anywhere.
+    expect(env.slab.size()).toBe(0);
+  });
+
+  it('ARM 3b — a payload error still wins over the census, so the message stays legible', async () => {
+    env = buildEnv();
+    storeRegistry.register('slab', { getAll: () => [], isEngineAttached: () => false } as never);
+    await expect(
+      env.bus.executeCommand('slab.create', { id: createId('slab'), boundary: SQUARE, thickness: -1 }),
+    ).rejects.toThrow(/thickness must be > 0/);
+  });
+
+  it('a registered store of an UNJUDGEABLE shape is not scored as a failure', async () => {
+    env = buildEnv();
+    // No `isEngineAttached` — this is not the ADR-0318 singleton, so the census
+    // cannot judge it. Unjudgeable ≠ failure (§CONTEXT-DATA-HONESTY).
+    storeRegistry.register('slab', { getAll: () => [] } as never);
+    const id = createId('slab');
+    await env.bus.executeCommand('slab.create', { id, boundary: SQUARE });
+    expect(env.slab.size()).toBe(1);
+  });
+});

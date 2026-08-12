@@ -9,7 +9,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { RenameRoomCommand, SetRoomOccupancyCommand } from '@pryzm/command-registry';
+import { RenameRoomCommand, SetRoomOccupancyCommand } from './legacyCommands.js';
 
 export interface RenameRoomPayload {
   readonly roomId: string;

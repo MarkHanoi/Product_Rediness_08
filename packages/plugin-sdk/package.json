@@ -50,7 +50,8 @@
     "@pryzm/sync-client": "workspace:*",
     "@pryzm/renderer": "workspace:*",
     "@pryzm/types-builtin": "workspace:*",
-    "@pryzm/ui": "workspace:*"
+    "@pryzm/ui": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.3",

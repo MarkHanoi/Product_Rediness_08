@@ -9,7 +9,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { CreateTemplateCommand  } from '@pryzm/command-registry';
+import { CreateTemplateCommand  } from './legacyCommands.js';
 
 export interface CreateTemplatePayload {
   readonly id: string;

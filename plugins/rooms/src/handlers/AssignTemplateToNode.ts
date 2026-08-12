@@ -9,7 +9,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { AssignTemplateToNodeCommand  } from '@pryzm/command-registry';
+import { AssignTemplateToNodeCommand  } from './legacyCommands.js';
 
 export interface AssignTemplateToNodePayload {
   readonly nodeId: string;

@@ -355,7 +355,6 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'roof.setPitch',
   'roof.setShape',
   'roof.setThickness',
-  'room.create',
   'room.recomputeBoundary',
   'room.redetect',
   'schedule.column.add',

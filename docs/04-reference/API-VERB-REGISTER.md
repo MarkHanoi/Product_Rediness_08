@@ -15,13 +15,13 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1222 (floor 900) |
+| Handler files read | 1223 (floor 900) |
 | **Verbs** | **320** (floor 250) |
-| LIVE | 106 |
+| LIVE | 107 |
 | REFUSES | 35 |
 | SHADOWED (dead route) | 9 |
-| UNKNOWN | 170 |
-| authoritative store NONE or UNKNOWN | 214 |
+| UNKNOWN | 169 |
+| authoritative store NONE or UNKNOWN | 213 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 1 |
 
@@ -214,7 +214,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `roof.setShape` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified B |
 | `roof.setThickness` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified D |
 | `roof.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | capability: set-thickness |
-| `room.create` | plugins/rooms | UNKNOWN | UNKNOWN | patch-pair → room | n/a (not a property verb) | classified B |
+| `room.create` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified B |
 | `room.delete` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified D |
 | `room.move` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `room.recomputeBoundary` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | classified C |

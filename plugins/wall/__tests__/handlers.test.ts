@@ -344,3 +344,77 @@ describe('EventRecord shape', () => {
     env.detach();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-CREATE-DTO-ONLY-SUCCESS — the authoritative-store census, watched in all
+// THREE of its states.
+//
+// The CA-21 executed read-back measured `wall.create` reporting success on the
+// composed bus while the authoritative `wallStore` (the instance ProjectSerializer
+// reads, made reachable by ADR-0318 wave 1) did not change. `CreateWallHandler`
+// now refuses in exactly one condition — an authoritative store is registered in
+// this process AND it cannot receive the write, because `WallStore.add()` refuses
+// to admit a wall onto a level it cannot check (ADR-0318 I-3). A guard nobody has
+// watched fail is a guard nobody should trust, so all three arms are pinned.
+//
+// The FIRST arm is what keeps every test above green: a plugin unit process
+// registers no authoritative wall store, so the DTO patch pair is the whole
+// contract there. That is a property of the design, asserted here rather than
+// left as an accident of test ordering.
+// ─────────────────────────────────────────────────────────────────────────────
+import { storeRegistry } from '@pryzm/plugin-sdk';
+
+describe('wall.create — §FIX-CREATE-DTO-ONLY-SUCCESS authoritative-store census', () => {
+  let env: ReturnType<typeof buildEnv>;
+  afterEach(() => {
+    env?.detach();
+    storeRegistry.unregister('wall');
+  });
+
+  it('ARM 1 — no authoritative wall store registered: proceeds (the DTO pair is the contract)', async () => {
+    env = buildEnv();
+    expect(storeRegistry.isRegistered('wall')).toBe(false);
+    const id = createId('wall');
+    await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_test' });
+    expect(env.store.getState().size).toBe(1);
+  });
+
+  it('ARM 2 — authoritative store registered AND engine-attached: proceeds (the browser)', async () => {
+    env = buildEnv();
+    storeRegistry.register('wall', { getAll: () => [], isEngineAttached: () => true } as never);
+    const id = createId('wall');
+    await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_test' });
+    expect(env.store.getState().size).toBe(1);
+  });
+
+  it('ARM 3 — registered AND NOT attached: refuses, and names why it cannot land', async () => {
+    env = buildEnv();
+    storeRegistry.register('wall', { getAll: () => [], isEngineAttached: () => false } as never);
+    await expect(
+      env.bus.executeCommand('wall.create', { id: createId('wall'), levelId: 'lvl_test' }),
+    ).rejects.toThrow(/engine half is NOT attached/);
+    // The refusal must name the path that DOES work, not merely decline.
+    await expect(
+      env.bus.executeCommand('wall.create', { id: createId('wall'), levelId: 'lvl_test' }),
+    ).rejects.toThrow(/attachEngine/);
+    expect(env.store.getState().size).toBe(0);
+  });
+
+  it('ARM 3b — a payload error still wins over the census, so the message stays legible', async () => {
+    env = buildEnv();
+    storeRegistry.register('wall', { getAll: () => [], isEngineAttached: () => false } as never);
+    await expect(
+      env.bus.executeCommand('wall.create', { id: 'not-branded', levelId: 'lvl_test' }),
+    ).rejects.toThrow(/branded wall_/);
+  });
+
+  it('a registered store of an UNJUDGEABLE shape is not scored as a failure', async () => {
+    env = buildEnv();
+    // No `isEngineAttached` — not the ADR-0318 singleton, so the census cannot
+    // judge it. Unjudgeable ≠ failure (§CONTEXT-DATA-HONESTY).
+    storeRegistry.register('wall', { getAll: () => [] } as never);
+    const id = createId('wall');
+    await env.bus.executeCommand('wall.create', { id, levelId: 'lvl_test' });
+    expect(env.store.getState().size).toBe(1);
+  });
+});

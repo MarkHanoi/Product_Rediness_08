@@ -25,7 +25,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { SetRoomOccupancyCommand } from '@pryzm/command-registry';
+import { SetRoomOccupancyCommand } from './legacyCommands.js';
 
 export interface SetRoomOccupancyPayload {
   readonly roomId: string;

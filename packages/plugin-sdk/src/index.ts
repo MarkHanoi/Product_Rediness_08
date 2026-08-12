@@ -646,3 +646,32 @@ export {
   type Tracer,
   type Span,
 } from './tracing.js';
+
+// ── §FIX-CREATE-DTO-ONLY-SUCCESS (BIM30 Phase 2) — the authoritative element-store
+//    registry, widened INTO the facade rather than bypassed around it ───────────
+//
+// ADR-0318 (`§ADR-0318-ELEMENTS-SLOT`) made the authoritative element stores — the
+// instances `ProjectSerializer` reads — reachable from the composition root via a
+// module-singleton `storeRegistry`. Two plugin handlers (`wall.create`,
+// `slab.create`) need to READ that registry in order to answer a question they
+// previously answered by assumption: "does this process have an authoritative store
+// for my kind, and can it receive a write?" Without it they reported success while
+// the authoritative store did not change (measured — see the CA-21 read-back note in
+// `plugins/wall/src/handlers/CreateWall.ts`).
+//
+// `check-layer-boundaries.ts` says exactly what to do when a plugin needs a platform
+// primitive the facade does not carry: **"WIDEN THE FACADE — do not import the
+// package directly and do not raise this threshold."** This is that widening. It is
+// the right call on the merits too: a per-kind authoritative-store census is a
+// platform primitive, not a wall detail, and every future element plugin asking the
+// same question should get the same answer from the same place.
+//
+// READ-ONLY BY INTENT. `register()` is deliberately NOT re-exported: ADR-0318 I-2
+// makes the registry's population the composition root's job (`composeRuntime` +
+// `engineLauncher`'s `registerAllStores`), and a plugin registering a store is the
+// rival-instance defect that ADR exists to prevent. Plugins ask; they do not fill.
+//
+// Deep path on purpose: `StoreRegistry.ts` imports nothing, so this adds no
+// module-graph weight (no THREE/@thatopen barrel) to anything importing the SDK —
+// the same reasoning ADR-0318 §5 gives for `composeRuntime`'s use of it.
+export { storeRegistry, type BimStore } from '@pryzm/core-app-model/store-registry';

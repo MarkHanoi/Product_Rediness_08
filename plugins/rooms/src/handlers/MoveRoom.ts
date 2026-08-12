@@ -26,7 +26,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { UpdateRoomBoundaryCommand } from '@pryzm/command-registry';
+import { UpdateRoomBoundaryCommand } from './legacyCommands.js';
 
 export interface MoveRoomPayload {
   readonly roomId: string;
