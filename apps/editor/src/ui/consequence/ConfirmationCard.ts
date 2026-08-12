@@ -1,0 +1,279 @@
+/**
+ * ConfirmationCard — R6 of docs/03-execution/plans/BIM30-REASONING-LOOP-PLAN.md.
+ * The plan doc's R6 exit condition is two clauses and this file is the second one:
+ * "G-REASON-05 green; **the card renders the plan**."
+ *
+ * R6 also says what the card BECOMES: *"The AI confirmation card upgrades from
+ * proposal-text to consequence-set (including untouched count and undetermined items)."*
+ * So this card never asks "Move this wall?" — it states WHAT WOULD HAPPEN, from the plan,
+ * and asks about that.
+ *
+ * ── THE FOUR RULES THAT DECIDE WHAT APPEARS ───────────────────────────────────────────
+ *
+ * 1. THE CARD IS DOWNSTREAM OF THE PLAN. `show()` takes a `ConsequencePlan`; there is no
+ *    entry point that raises a prompt without one. A confirmation UI that can appear before
+ *    the consequences are known is the defect R6 point 1 names, and it is unreachable here
+ *    by construction, not by discipline.
+ *
+ * 2. THE CARD RENDERS THE VERDICT; IT NEVER REACHES ONE. The `ConfirmationPolicy` arrives as
+ *    a parameter, computed by `confirmationPolicy.ts` from the plan. This file contains no
+ *    `if (plan.refused.length)` deciding whether to appear — that decision is data, made
+ *    once, readable by AI and batch surfaces too (STR-06 §11's "one safety substrate").
+ *
+ * 3. REFUSALS CARRY BOTH NUMBERS, AND THE NUMBERS ARE THE PRODUCER'S. `blockingItems()`
+ *    hands over the rule's own sentence — `"Kitchen — area 6.4m² is below minimum 7m²"` —
+ *    and this file prints it verbatim, escaped. It never re-formats a quantity: a second
+ *    formatter over a number the user acts on is a second source of truth that can round or
+ *    unit differently from the rule that produced it.
+ *
+ * 4. UNDETERMINED IS SHOWN AS UNDETERMINED, AND `untouched` IS DERIVED. Same discipline as
+ *    the R3 overlay and R5 report view: an honest blind spot is surfaced, and the
+ *    "nothing else expected to change: N untouched" line STR-06 §10 asks for is computed
+ *    here as `scope − changed − excluded` (ADR-0322 §6 requires it derived, never persisted).
+ *
+ * ── THE HASH IS ON THE BUTTON, NOT IN A CLOSURE OVER "CURRENT" STATE ──────────────────
+ * The confirm button carries the `planHash` it was rendered with, and hands it to the
+ * `onConfirm` callback. That is what makes the approval bind to the artefact the human read:
+ * if a later plan replaces this card, a click on a stale button still reports the OLD hash,
+ * and `ConfirmationFlow.confirm()` refuses it as `APPROVAL_UNKNOWN_PLAN`. A button that
+ * resolved "the current plan" at click time would silently approve a substitution — the exact
+ * failure this phase exists to make impossible.
+ */
+
+import type { ConfirmationPolicy, ConsequencePlan, UndeterminedImpact } from '@pryzm/command-bus';
+import { blockingItems } from './confirmationPolicy.js';
+
+const PANEL_ID = 'consequence-confirmation-card';
+
+/** Called with the hash the card was RENDERED with — never with "whatever is current". */
+export type ConfirmHandler = (approvedPlanHash: string) => void;
+export type CancelHandler = () => void;
+
+function esc(s: string): string {
+    return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+}
+
+function buildPanel(): HTMLElement {
+    const el = document.createElement('div');
+    el.id = PANEL_ID;
+    el.style.cssText = [
+        'position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:9500;',
+        'max-width:460px;max-height:74vh;overflow-y:auto;',
+        'background:#1a2035;color:#e5e7eb;',
+        'border-radius:12px;padding:16px 18px;font-size:12px;',
+        'box-shadow:0 12px 40px rgba(0,0,0,0.5);',
+        'border:1.5px solid rgba(102,0,255,0.55);',
+        'font-family:var(--app-font,-apple-system,sans-serif);',
+        'line-height:1.55;display:none;',
+    ].join('');
+    document.body.appendChild(el);
+    return el;
+}
+
+const head = (text: string, color: string): string =>
+    `<div style="font-weight:700;color:${color};margin:8px 0 4px;">${text}</div>`;
+
+const item = (text: string, color: string): string =>
+    `<div style="color:${color};font-size:11px;margin-bottom:2px;">↳ ${text}</div>`;
+
+function renderUndetermined(u: UndeterminedImpact): string {
+    const detail = u.detail ? ` <span style="color:#a89a6a;">(${esc(u.detail)})</span>` : '';
+    return item(`${esc(u.scope)} — <b>${esc(u.reason)}</b>${detail}`, '#fde68a');
+}
+
+/** Human wording for the requirement ladder. `none` never reaches the card. */
+function requirementBanner(policy: ConfirmationPolicy): string {
+    if (policy.requirement === 'required') {
+        return `<div style="background:#3a1f24;border-left:3px solid #f87171;padding:7px 9px;border-radius:4px;margin-bottom:8px;">` +
+            `<div style="font-weight:700;color:#fca5a5;">CONFIRMATION REQUIRED</div>` +
+            `<div style="color:#fca5a5;font-size:11px;">${esc(policy.reasons.join(' · '))}</div></div>`;
+    }
+    return `<div style="background:#2a2438;border-left:3px solid #fbbf24;padding:7px 9px;border-radius:4px;margin-bottom:8px;">` +
+        `<div style="font-weight:700;color:#fde68a;">PLEASE REVIEW</div>` +
+        `<div style="color:#fde68a;font-size:11px;">${esc(policy.reasons.join(' · '))}</div></div>`;
+}
+
+/**
+ * Render the plan + policy into `panel`. Exported so the certification gate and the unit
+ * suite drive THE renderer rather than a copy — a gate that re-implements the thing it
+ * certifies proves nothing about the thing that ships.
+ */
+export function renderConfirmationCard(
+    panel: HTMLElement,
+    plan: ConsequencePlan,
+    policy: ConfirmationPolicy,
+): void {
+    const L: string[] = [];
+
+    L.push(`<div style="font-weight:700;color:#c4b5fd;margin-bottom:2px;">${esc(plan.command.type)} — confirm</div>`);
+    L.push(`<div style="color:#7a8aaa;font-size:10px;margin-bottom:8px;">plan ${esc(plan.planHash)} · state ${esc(plan.stateHash)}</div>`);
+
+    L.push(requirementBanner(policy));
+
+    // ── BLOCKING ITEMS — refusals + created violations, WITH THEIR NUMBERS ─────
+    // Printed FIRST and verbatim. These are the sentences the user must act on, and the
+    // producing rule already put the measured and the required quantity in them.
+    const blocking = blockingItems(plan);
+    if (blocking.length > 0) {
+        L.push(head(`✕ ${blocking.length} blocking item(s)`, '#f87171'));
+        for (const b of blocking) {
+            const who = b.elementId ? `${esc(b.elementId)}: ` : '';
+            const rule = b.ruleId ? `<span style="color:#a89a6a;">[${esc(b.ruleId)}]</span> ` : '';
+            L.push(item(`${rule}${who}${esc(b.sentence)}`, '#fca5a5'));
+        }
+    }
+
+    // ── THE CONSEQUENCE SET — what R6 upgrades the card TO ─────────────────────
+    L.push(head(`● ${plan.changed.length} element(s) would change`, '#a78bfa'));
+    for (const id of plan.changed.slice(0, 6)) L.push(item(esc(id), '#ddd6fe'));
+    if (plan.changed.length > 6) {
+        L.push(`<div style="color:#7a8aaa;font-size:11px;">+ ${plan.changed.length - 6} more…</div>`);
+    }
+
+    if (plan.metrics && plan.metrics.length > 0) {
+        L.push(head('◆ predicted metrics', '#a78bfa'));
+        for (const m of plan.metrics.slice(0, 6)) {
+            const u = m.unit === 'm2' ? ' m²' : m.unit === 'm3' ? ' m³' : m.unit === 'm' ? ' m' : '';
+            const before = m.before === undefined ? 'not recorded' : `${m.before.toFixed(1)}${u}`;
+            L.push(item(`${esc(m.elementId)} ${esc(m.metric)}: <b>${before} → ${m.after.toFixed(1)}${u}</b>`, '#ddd6fe'));
+        }
+    }
+
+    if (plan.topology.removed.length > 0) {
+        L.push(head(`⚠ ${plan.topology.removed.length} element(s) would be REMOVED`, '#f87171'));
+        for (const id of plan.topology.removed.slice(0, 4)) L.push(item(esc(id), '#fca5a5'));
+    }
+
+    // ── UNDETERMINED — never rendered as "nothing else changes" ────────────────
+    if (plan.undetermined.length > 0) {
+        L.push(head(`? ${plan.undetermined.length} impact(s) CANNOT BE DETERMINED`, '#fbbf24'));
+        L.push(item('these are blind spots, not assurances — the system does not know what happens here.', '#a89a6a'));
+        for (const u of plan.undetermined.slice(0, 4)) L.push(renderUndetermined(u));
+        if (plan.undetermined.length > 4) {
+            L.push(`<div style="color:#7a8aaa;font-size:11px;">+ ${plan.undetermined.length - 4} more…</div>`);
+        }
+    }
+
+    // ── "nothing else expected to change: N untouched" (STR-06 §10) ────────────
+    // DERIVED here: scope − changed − excluded (ADR-0322 §6 — never persisted).
+    const scope = new Set<string>([
+        ...plan.changed, ...plan.excluded,
+        ...(plan.direct.kind === 'determined' ? plan.direct.elements : []),
+        ...(plan.indirect.kind === 'determined' ? plan.indirect.elements : []),
+    ]);
+    for (const id of plan.changed) scope.delete(id);
+    for (const id of plan.excluded) scope.delete(id);
+    L.push(
+        `<div style="color:#8b93a8;font-size:10px;margin-top:8px;">` +
+        `nothing else expected to change: ${plan.excluded.length} considered unchanged · ` +
+        `${scope.size} untouched (derived, never stored)</div>`,
+    );
+
+    // ── The buttons. The hash rides ON the confirm button. ─────────────────────
+    L.push(
+        `<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">` +
+        `<button type="button" data-role="cancel" style="padding:6px 14px;border-radius:6px;border:1px solid #40465c;background:transparent;color:#c9cede;font-size:12px;cursor:pointer;">Cancel</button>` +
+        `<button type="button" data-role="confirm" data-plan-hash="${esc(plan.planHash)}" style="padding:6px 14px;border-radius:6px;border:none;background:#6600FF;color:#fff;font-weight:600;font-size:12px;cursor:pointer;">Confirm</button>` +
+        `</div>`,
+    );
+
+    panel.innerHTML = L.join('');
+}
+
+/**
+ * Render a typed REFUSAL of an approval — the stale-approval path (R6 point 3). The user is
+ * TOLD why, and, when a fresh plan exists, is offered it immediately: a refusal that leaves
+ * nothing to approve is a dead end, and dead ends teach people to click through warnings.
+ */
+export function renderConfirmationRefusal(
+    panel: HTMLElement,
+    message: string,
+    replan: ConsequencePlan | null,
+): void {
+    const L: string[] = [
+        `<div style="background:#3a1f24;border-left:3px solid #f87171;padding:8px 10px;border-radius:4px;margin-bottom:8px;">`,
+        `<div style="font-weight:700;color:#fca5a5;">APPROVAL REFUSED — THE PLAN IS STALE</div>`,
+        `<div style="color:#fca5a5;font-size:11px;margin-top:3px;">${esc(message)}</div>`,
+        `<div style="color:#a89a6a;font-size:10px;margin-top:5px;">Nothing was executed. The system will not run a plan you did not see, and will not run the plan you saw over a model that has since changed.</div>`,
+        `</div>`,
+    ];
+    if (replan) {
+        L.push(head('◆ the NEW plan, over the model as it is now', '#a78bfa'));
+        L.push(item(`plan ${esc(replan.planHash)} · ${replan.changed.length} element(s) would change`, '#ddd6fe'));
+        L.push(
+            `<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">` +
+            `<button type="button" data-role="cancel" style="padding:6px 14px;border-radius:6px;border:1px solid #40465c;background:transparent;color:#c9cede;font-size:12px;cursor:pointer;">Cancel</button>` +
+            `<button type="button" data-role="confirm" data-plan-hash="${esc(replan.planHash)}" style="padding:6px 14px;border-radius:6px;border:none;background:#6600FF;color:#fff;font-weight:600;font-size:12px;cursor:pointer;">Review &amp; confirm the new plan</button>` +
+            `</div>`,
+        );
+    } else {
+        L.push(
+            `<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">` +
+            `<button type="button" data-role="cancel" style="padding:6px 14px;border-radius:6px;border:1px solid #40465c;background:transparent;color:#c9cede;font-size:12px;cursor:pointer;">Dismiss</button>` +
+            `</div>`,
+        );
+    }
+    panel.innerHTML = L.join('');
+}
+
+// ─── The card ──────────────────────────────────────────────────────────────────────────
+
+export class ConfirmationCard {
+    private readonly _panel: HTMLElement;
+    private _visible = false;
+    private _onConfirm: ConfirmHandler | null = null;
+    private _onCancel: CancelHandler | null = null;
+
+    constructor() {
+        this._panel = buildPanel();
+        // ONE delegated listener, installed once. It reads the hash from the BUTTON, so a
+        // click always reports the plan that button was rendered with.
+        this._panel.addEventListener('click', (ev: Event) => {
+            const target = ev.target as HTMLElement | null;
+            const role = target?.getAttribute?.('data-role');
+            if (role === 'confirm') {
+                const hash = target?.getAttribute('data-plan-hash') ?? '';
+                this._onConfirm?.(hash);
+            } else if (role === 'cancel') {
+                this._onCancel?.();
+            }
+        });
+    }
+
+    /** The live panel element — exposed so tests and the gate read what SHIPPED. */
+    get element(): HTMLElement {
+        return this._panel;
+    }
+
+    get visible(): boolean {
+        return this._visible;
+    }
+
+    /** Wire the decision handlers. `onConfirm` receives the hash the card was rendered with. */
+    setHandlers(onConfirm: ConfirmHandler, onCancel: CancelHandler): void {
+        this._onConfirm = onConfirm;
+        this._onCancel = onCancel;
+    }
+
+    /** {@link ConfirmationPrompt.show} — render the plan and its policy verdict. */
+    show(plan: ConsequencePlan, policy: ConfirmationPolicy): void {
+        renderConfirmationCard(this._panel, plan, policy);
+        this._reveal();
+    }
+
+    /** {@link ConfirmationPrompt.showRefusal} — the stale-approval path. */
+    showRefusal(message: string, replan: ConsequencePlan | null): void {
+        renderConfirmationRefusal(this._panel, message, replan);
+        this._reveal();
+    }
+
+    hide(): void {
+        this._panel.style.display = 'none';
+        this._visible = false;
+    }
+
+    private _reveal(): void {
+        this._panel.style.display = 'block';
+        this._visible = true;
+    }
+}

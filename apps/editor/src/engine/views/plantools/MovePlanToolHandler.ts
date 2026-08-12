@@ -39,6 +39,14 @@ import {
 // wall's destination, emit a PreviewCommand for the candidate baseline so the overlay
 // renders the READ-ONLY ConsequencePlan (ADR-0322 §3) before the move is committed.
 import { triggerConsequencePreview, hideConsequencePreview } from '@app/ui/canvas/ConsequencePreviewOverlay';
+// BIM30 R6 — confirmation at CONFIRM time, not at hover time. The R3 preview above is minted
+// while the cursor moves and can never be bound (the payload changes on the next frame); this
+// import is the OTHER moment — the gesture is finished, the payload is FINAL, and a fresh plan
+// over CURRENT state is minted, shown, and bound to by its planHash (ADR-0322 §10).
+import {
+    requestWallMoveConfirmation,
+    proceedWithoutConfirmation,
+} from '@app/ui/consequence/confirmationFlowComposition';
 // [F-1.2] R2/R3 dual-write — commandManager is authoritative for WallRebuildCoordinator.
 
 const GRID_SNAP_M = 0.05; // 50 mm grid snap
@@ -457,11 +465,19 @@ export class MovePlanToolHandler implements PlanToolHandler {
             // [F-1.2 R2/R3 §E.5.x] BUS-PRIMARY — bus handler bridges to commandManager.
             // Direct window.commandManager call removed; bus fires UpdateWallBaselineHandler
             // which calls initBusHandlers bridge → commandManager.execute() (undo-stack entry).
-            window.runtime?.bus?.executeCommand('wall.updateBaseline', {
+            //
+            // BIM30 R6 — THE CONFIRM-TIME SEAM. The gesture is finished and this payload is
+            // FINAL, so a plan minted now describes exactly what would happen. It is shown,
+            // the user's approval binds its planHash, and the executor re-verifies that hash
+            // at dispatch (ADR-0322 §10). Below the confirmation threshold the flow answers
+            // `autoProceed` and the move runs with NO card — R6 point 5: a plan with no
+            // refusals, no new violations and no removals must not nag.
+            hideConsequencePreview();
+            void this._commitWallMoveThroughConfirmation(id, {
                 wallId:       id,
                 newBaseLine:  next,
                 prevBaseLine: prev,
-            })?.catch((e: unknown) => console.error('[MoveTool] wall.updateBaseline failed:', e));
+            });
             console.log('[MoveTool] Wall moved:', id, `Δ(${dx.toFixed(3)}, ${dz.toFixed(3)})`);
         } else {
             // [F-1.2 R2/R3 §E.5.x] BUS-PRIMARY — bus handler bridges to commandManager.
@@ -475,6 +491,63 @@ export class MovePlanToolHandler implements PlanToolHandler {
                 id,
                 `Δ(${dx.toFixed(3)}, ${dz.toFixed(3)}) — ${entries.length - 1} neighbour endpoint(s) carried`,
             );
+        }
+    }
+
+    /**
+     * BIM30 R6 — commit a finished single-wall move THROUGH the confirmation flow.
+     *
+     * The sequence, and why each step is where it is:
+     *   1. mint a FRESH plan over CURRENT state for the FINAL payload (`request`). Not the
+     *      hover plan — that one is stale by construction the moment the cursor moves again,
+     *      which is exactly why R4 shipped its binding wired to nothing.
+     *   2. the flow classifies the plan (confirmationPolicy.ts) and, when the requirement is
+     *      not `none`, shows the card. The card's Confirm button carries THAT planHash, and
+     *      the flow's own handler (composed in confirmationFlowComposition) executes on click.
+     *   3. when the requirement IS `none`, nothing is shown and the move proceeds immediately
+     *      — still BOUND to the plan, so the report still reconciles predicted-vs-actual.
+     *
+     * FALLBACK, deliberately loud rather than silent: if no plan can be produced (no planner
+     * composed, a payload the normaliser rejects, a bus that is not there), the move still
+     * dispatches the way it always did. A confirmation layer that could SWALLOW a user's edit
+     * because its planner was missing would be a regression dressed as a safety feature — the
+     * plan-less dispatch is R4's `unplanned` arm and it reports the typed absence of a
+     * prediction rather than inventing one.
+     */
+    private async _commitWallMoveThroughConfirmation(
+        id: string,
+        payload: { wallId: string; newBaseLine: unknown; prevBaseLine: unknown },
+    ): Promise<void> {
+        const bus = this._ctx?.runtime?.bus ?? window.runtime?.bus;
+        const dispatchDirect = (why: string): void => {
+            console.warn(`[MoveTool] R6 confirmation unavailable (${why}) — dispatching plan-less.`);
+            bus?.executeCommand('wall.updateBaseline', payload)
+                ?.catch((e: unknown) => console.error('[MoveTool] wall.updateBaseline failed:', e));
+        };
+        if (!bus) { console.warn('[MoveTool] No command bus — move dropped'); return; }
+
+        const command = { type: 'wall.updateBaseline', payload };
+        try {
+            const request = await requestWallMoveConfirmation(bus as never, command);
+            if (request.kind === 'refused') { dispatchDirect(request.refusal.kind); return; }
+
+            if (request.autoProceed) {
+                // Below the threshold: execute the plan the flow is holding, bound to its hash.
+                const outcome = await proceedWithoutConfirmation(bus as never, request.plan.planHash);
+                if (outcome.kind !== 'executed') {
+                    // The model moved between minting and this call (a collaborator, a sync
+                    // merge). Even with no card on screen the binding still refuses — it is not
+                    // the CARD that makes the approval safe, it is the hash.
+                    console.warn(`[MoveTool] R6 auto-proceed refused as ${outcome.kind} — nothing executed; the model changed under the plan.`);
+                }
+                return;
+            }
+            // Above the threshold: the card is up and owns the decision. Nothing dispatches
+            // here — that is the whole point of "the user never confirms before seeing the plan".
+            console.log('[MoveTool] R6 — confirmation', request.policy.requirement, 'for wall', id,
+                '· reasons:', request.policy.reasons.join(', '), '· plan', request.plan.planHash);
+        } catch (e) {
+            dispatchDirect('confirmation flow threw: ' + String(e));
         }
     }
 

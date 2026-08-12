@@ -193,6 +193,21 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // matcher fed to the same checker, which must report 7 lost fields or the gate exits 2) and
 // two anti-over-matching controls (a genuine SPLIT must still yield two rooms; a disjoint
 // room 100 m away must not be claimed). Lands GREEN today, so it carries no ratchet entry.
+// §FIX-TOPOLOGY-RESUME-LOSES-SUPPRESSED — check-undo-resume-flushes-topology added 2026-08-12.
+// The COMPANION to the gate above, on the axis it cannot see. That gate asks "when a redetect
+// runs, does the room keep its identity?"; this one asks the PRIOR question — does the redetect
+// run at all after an undo? An identity check that never runs is vacuously green, which is
+// exactly the state this repo was in. It pins closed a MEASURED defect: `RoomTopologyObserver`
+// dropped `bim-wall-mutation-committed` while paused and `resume()` was a bare flag write, so an
+// event delivered during the paused window produced 0 redetects even after 5 s of timers while
+// the identical event unpaused produced 1. `performUndoRedo._withPausedObservers` wraps EVERY
+// Ctrl+Z in that pause, so the rooms bounding an undone wall move stayed stale until some
+// unrelated later edit happened to fire a redetect (C72 §4 — releasing a suppression must
+// DISCHARGE what it suppressed). Carries a POSITIVE CONTROL every run (the pre-fix
+// drop-on-pause observer fed to the SAME checker, which must report the loss or the gate exits
+// 2) plus an unpaused-baseline floor, and asserts ONE gesture → exactly ONE redetect and that a
+// resume with nothing suppressed fires NOTHING (ProjectLoader runs its own post-load redetect).
+// Lands GREEN, so it carries no ratchet entry.
 // §BIM30-R5 — check-consequence-report-completeness (G-REASON-06) added 2026-08-12. The plan
 // doc's R5 exit condition verbatim: "G-REASON-06 completeness per declared contract, for
 // `wall.move`." It measures BOTH surfaces R5 requires, because a complete report nobody can
@@ -206,7 +221,47 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // must render AS undetermined with reality beside it, and an unmeasured channel must NOT print
 // a zero (positive); a renderer handed a stale or plan-less execution must SAY it has no report
 // rather than draw a confident blank (negative). Lands GREEN today — hard-0, no ledger entry.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-consequence-report-completeness'];
+// §BIM30-R6 — check-approval-binding (G-REASON-05) added 2026-08-12. The plan doc's R6 exit
+// condition, both clauses: "G-REASON-05 green; the card renders the plan." It closes the hole
+// R4 left OPEN ON PURPOSE — R4 proved plan-binding and wired it to no production surface,
+// because the R3 preview plan is minted at HOVER time and would therefore ALWAYS read
+// PLAN_STALE at drag-end. R6's flow plans at CONFIRM time instead: the gesture finishes, a
+// FRESH plan is minted over CURRENT state, it is SHOWN, and the approval binds THAT planHash.
+// Four clauses, each with an executed control: (a) confirming a fresh plan EXECUTES the real
+// command and the report reads plan-agreed; (b) THE LOAD-BEARING ARM — the model is mutated
+// between show and confirm, the approval MUST be refused as typed APPROVAL_STALE with the
+// command NOT executed and a new plan offered, and the gate runs a hash-only confirm beside it
+// to prove the checker can SEE a stale approval slip through; (c) a violation-blocked plan's
+// refusal carries BOTH numbers (the assertion is on the DIGITS 6.4 and 7 in the DOM the
+// PRODUCTION card drew — the ROOM_MIN_AREA sentence is SURFACED, never re-derived); (d) a
+// below-threshold operation demands NO confirmation, with the same policy saying `required`
+// for a refusing plan so `none` is proven to be a decision rather than a default. The
+// confirmation requirement is DATA (confirmationPolicy.ts, a pure function of the plan), not a
+// UI condition — so AI, batch and chat read the same verdict. Lands GREEN today — hard-0.
+// §BIM30-R7 — check-ai-human-parity (G-REASON-04) added 2026-08-12. The plan doc's R7 exit
+// condition verbatim: "normalize(human) === normalize(ai) for `wall.move`, excluding exactly
+// actor/origin/timestamp/proposal." It drives the SAME wall.updateBaseline twice through the
+// REAL bus → the REAL plugins/wall handler → the REAL commandManager bridge → the REAL
+// geometry WallStore, once under {actor: human, origin: direct-manipulation} and once under
+// {actor: ai, origin: ai-proposal, approval}, and asserts the two records' normalizeForParity
+// residues deep-equal. `normalizeForParity` is IMPORTED from @pryzm/command-bus, never
+// re-derived — a gate that reimplements the rule certifies its own copy. Both dispatches must
+// have MUTATED the store and carried patches (floors): a parity gate over two no-ops passes
+// vacuously, which is exit 2, not 0. Two controls run EVERY invocation and print: (i) a
+// BEHAVIOURAL difference must FAIL parity, in three arms — differing consequence METRICS with
+// IDENTICAL element sets (R5's KEEP decision verified EMPIRICALLY, not by reading the comment
+// that states it; this is the divergence no other field reveals), a differing affected set, and
+// a differing patch body; (ii) a PROVENANCE-ONLY difference must PASS parity, with all ten
+// excluded fields made to differ at once. Together they prove the normalizer is comparing
+// neither everything nor nothing. IT CARRIES ONE DECLARED FINDING, and it is an honest one:
+// R7's golden operation has NO AI-side dispatcher (wall.updateBaseline is family-blocked from
+// chat at ChatCommandClassification.ts:98; wall.move is refused at ChatCapabilityRegistry.ts:
+// 2130) and NO production call site — human or AI — populates CommandExecutionContext, so the
+// AI CALLER is SIMULATED and the gate says so on every run rather than passing off two human
+// dispatches as a parity proof. Pinned in gate-newly-measured.json as NEWLY MEASURED (the
+// instrument arrived; nobody chose to ship this). What IS proven: the bus is actor-blind, and
+// the normalizer has teeth.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
