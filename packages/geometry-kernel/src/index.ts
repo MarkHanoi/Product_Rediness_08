@@ -22,7 +22,15 @@ export {
 // §C73-EPSILON-POLICY — THE declared tolerance policy (C73 §2.1). New or
 // modified geometric predicates consume these; they do not invent a literal
 // at the call site (gated by `tools/ga-gate/check-epsilon-policy.ts`).
-export { EPSILON_ZERO, COINCIDENT_M, PARALLEL_RAD } from './tolerance.js';
+export {
+  EPSILON_ZERO,
+  COINCIDENT_M,
+  PARALLEL_RAD,
+  isNumericallyZero,
+  isCoincidentDistanceM,
+  arePointsCoincident2D,
+  isParallel,
+} from './tolerance.js';
 
 export { produceWall, type WallProducer } from './producers/wall.js';
 export { composeWallGeometryHash, WALL_HASH_SCHEMA_VERSION } from './producers/_internal/composeWallGeometryHash.js';

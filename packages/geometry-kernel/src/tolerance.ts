@@ -11,9 +11,12 @@
  * do not invent a literal at the call site.
  *
  * ── How the values were chosen — canonicalised, not invented ────────────────
- * Grounded in the measured value histogram printed by
+ * Grounded in the measured value histogram of C73 §0.1 (first, hand-recorded
+ * cut: `1e-6×49, 0.05×24, 0.001×21, 1e-9×18, …`), as re-derived by
  * `npx tsx tools/ga-gate/check-epsilon-policy.ts` (2026-08-12 reading:
- * `1e-6×45, 0.05×20, 0.001×18, 1e-9×15, …`). Where two live conventions
+ * `1e-6×45, 0.05×20, 0.001×18, 1e-9×15, …` — per §0.1's amendment the gate is
+ * the authority for the NUMBER, §0.1 for the ORDERING, and both agree on both
+ * orderings used here). Where two live conventions
  * genuinely conflict for the same role, the TIGHTER one is canon — C73 §2.5 /
  * gate arm E4 permit a declared tolerance to SHRINK but never widen, so
  * starting tight is the only choice that does not fight the ratchet later.
@@ -106,3 +109,58 @@ export const COINCIDENT_M = 0.001;
  * `projectCapVertex.ts`); this canonises it.
  */
 export const PARALLEL_RAD = 1e-9;
+
+// ─── Comparison helpers — the three roles, applied ───────────────────────────
+//
+// Plain functions, no classes (C79 consumes this module as "plain constants +
+// small comparison helpers"). Each helper is the ONE way to ask its question so
+// that the comparison DIRECTION is fixed here, once: all three use strict `<`,
+// matching the first live consumer (`pure/polygonOffset.ts`'s
+// `Math.abs(x) < EPSILON_ZERO` zero-length-edge rejection). A magnitude exactly
+// AT the tolerance is NOT "the same" — the tolerance is the first
+// distinguishable difference, not the last indistinguishable one. Sites that
+// need `<=` are asking a different (domain-band) question and should not be on
+// these helpers.
+
+/**
+ * Is `x` numerically zero — i.e. unsafe as a divisor / degenerate as a length?
+ * Dimensionless (`EPSILON_ZERO`). Per C73 §2.4, THIS is where a
+ * degenerate-divide guard comes from; `|| 1e-12`-style per-site guards are the
+ * defect it replaces.
+ */
+export function isNumericallyZero(x: number): boolean {
+  return Math.abs(x) < EPSILON_ZERO;
+}
+
+/**
+ * Is a model-space separation of `distanceM` metres "the same point"
+ * (`COINCIDENT_M`)? `distanceM` may be signed; the magnitude is compared.
+ */
+export function isCoincidentDistanceM(distanceM: number): boolean {
+  return Math.abs(distanceM) < COINCIDENT_M;
+}
+
+/**
+ * Are two model-space 2D points the same point (`COINCIDENT_M`, metres)?
+ * Compared on squared distance — no sqrt, no intermediate rounding.
+ * Axis names are deliberately neutral (`a`/`b` in plan coordinates); callers
+ * in x/z plan space pass (x, z).
+ */
+export function arePointsCoincident2D(
+  ax: number, ay: number, bx: number, by: number,
+): boolean {
+  const dx = bx - ax;
+  const dy = by - ay;
+  return dx * dx + dy * dy < COINCIDENT_M * COINCIDENT_M;
+}
+
+/**
+ * Are two directions the same direction (`PARALLEL_RAD`)? Accepts the small
+ * quantity interchangeably as an angle in radians, the magnitude of a 2D cross
+ * product of UNIT vectors, or a unit-vector dot-with-perpendicular — at this
+ * scale (sin θ ≈ θ) all three read the same number. Callers passing a cross
+ * product of NON-unit vectors must normalise first; this helper cannot tell.
+ */
+export function isParallel(angleOrUnitCrossMag: number): boolean {
+  return Math.abs(angleOrUnitCrossMag) < PARALLEL_RAD;
+}
