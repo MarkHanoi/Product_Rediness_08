@@ -275,7 +275,64 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // against a 6-entry NAMED ledger (gates/authoritative-state-ledger.json), pinned in
 // gate-newly-measured.json (§2.4) — 2 duplicate-store hazards (door/window singletons that
 // disagree) and 4 bridges that swallow their command's refusal and resolve as success.
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authoritative-state'];
+// §TWO-CLIENT — check-two-client-convergence added 2026-08-12. The FIRST gate in this suite
+// that composes TWO clients. Every row of persistence.cert.ts and undoredo.cert.ts reads
+// `Collaboration UNPROVEN by construction`, and that is literal: both call buildWorld() ONCE,
+// so nothing they report can say anything about two clients editing at once. This gate composes
+// two full worlds — separate geometry stores, separate CommandBus, separate CommandManager undo
+// history, separate Y.Doc — joined by the PRODUCTION replication wiring (CommandBus step-7 CRDT
+// applier → YjsDocAdapter → update exchange → ElementSyncReader → the initRemoteElementSync sink
+// → the peer's own bus). It measures four arms: convergence (property by property, both values
+// printed — never a hash), identity under concurrency, undo under concurrency (C03 §4.5-4.8: A's
+// Ctrl+Z must not revert B's work), and a NOT-MEASURED arm printed in full on every run.
+// It does NOT duplicate tools/ga-gate/check-collab-graph-integrity.ts, which owns the TRANSPORT
+// and the DOCUMENT with real y-websocket sockets and is GREEN; this one owns the leg that gate
+// cannot see — CRDT document → AUTHORITATIVE STORE, and the undo stacks. Its own wire is
+// SIMULATED and it says so every run.
+// FIRST READING IS RED and deliberately left red: exit 3, 4 findings, all floors met, both
+// controls firing, pinned in ../../ga-gate/gate-newly-measured.json with exit conditions and
+// declared at 4 in ./two-client-ledger.json (shrink-only). The headline defect is a SILENT one:
+// two partitioned clients that each first-touch the same element mint rival Y.Map records, and
+// the merge discards one container with every property inside it — with no CRDTConflict raised.
+// §BIM30-C-INV-2/3 — check-topology-survives added 2026-08-12. C70 §7 NAMED this gate as required
+// and it had NO FILE AT HEAD; per §7.1 a named gate that does not exist is a named gap whose only
+// honest status is UNPROVEN. It decides C-INV-2 (junction records retained with identity;
+// connectivity is a LOOKUP, never a per-query resolver re-run) and C-INV-3 (move/resize/
+// regenerate/save-load/undo never mint a new semantic identity for a SURVIVING topological
+// entity). The identity it tracks is the C71 §3.5 identity — {sorted participant wall-id set} +
+// junctionType — and explicitly NOT `WallJunctionRecord.id`, the within-solve handle `J<n>`
+// assigned in detection order (JunctionResolverV2.ts:1455) that C71 §3.5 FORBIDS storing because
+// it renumbers when walls move. A gate asserting `rec.id` stability would fail on CORRECT code.
+// It drives the real ADR-0055 ring sweep, the real retained index (WallPipelineV2Cache), the real
+// production writer (writeJoinedToEdgesForLevel, refusal gating included), the real typed reader
+// (getJoinedWalls) and the real serialize/deserialize pair ProjectSerializer.ts:782 /
+// ProjectLoader.ts:1154 use — so save-load is the PRODUCTION round trip, not a re-creation of one.
+// ALL FIVE transitions C70 §7 names are MEASURED, none deferred: T1 rigid 10 m translation, T2
+// wall extended 6→9 m, T3 re-solve in identical AND REVERSED array order (the permutation is
+// load-bearing — it proves identity does not inherit the sweep's order dependence, and a
+// precondition floor asserts the handle really did renumber so the arm cannot be a no-op), T4
+// serialize→deserialize with junctionType metadata checked as the second half of the identity,
+// T5 move→undo restoring pre-move identities AND byte-identical connectivity. The C-INV-2 lookup
+// half is proven observably by TWO independent readings: the store is read with every piece of
+// geometry dropped (JSON round trip — nothing left to solve from), and the resolver is run over a
+// POISON scene yielding 0 junctions immediately before the read; the answer survives both. A call
+// counter was considered and REJECTED as a probe that could not fail. FOUR floors are controls, so
+// a blinded checker exits 2 rather than printing green: CONTROL A POSITIVE (the comparator fed the
+// C71 §3.5-forbidden `rec.id` key over an array permutation must report the surviving corners as
+// re-identified — reads 3 of 4), CONTROL B POSITIVE (an unwritten store must REFUSE all 5 lookups
+// with a named reason, never `[]` — else an unwired graph would score as perfect connectivity),
+// CONTROL C NEGATIVE (a wall moved 40 m genuinely kills 2 junctions and the comparator must flag 0
+// survivors — C-INV-3 grades survivors, not deaths; without this arm the comparator would be
+// unfalsifiable). C70's own floor — junction records read > 0 — is carried as a hard floor of 4.
+// EVERY arm was watched RED under tampering before the green was accepted: re-keying the identity
+// function to `rec.id` trips CONTROL C → exit 2; renaming a wall mid-move, dropping junctionType on
+// the wire, restoring the wrong scene after undo, and reading from an unwritten store each produce
+// exit 3. FOUR NOT-MEASURED arms print on EVERY run rather than being silently omitted (the E3
+// lesson): the undo STACK itself (check-undo-resume-flushes-topology owns it), live-session
+// reachability of the _flush call site (WallRebuildCoordinator.ts:1585 — the exact residual C71
+// §3.7 names), multi-level/multi-client, and non-wall topology (hosts/boundedBy/adjacentTo, which
+// belong to check-graph-write-coverage). Lands GREEN — hard-0, no ratchet/newly-measured entry.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
