@@ -213,6 +213,10 @@ export {
   type HistoryFetcher,
   type HistorySegment,
   type LinearisedHistoryEvent,
+  // GR-06 / GR-08 — single-owner SemanticGraph pre-graph rebuild.
+  rebuildSemanticGraphFromSnapshot,
+  type RebuildableSnapshot,
+  type RebuildSemanticGraphResult,
 } from './loader/index.js';
 
 // A17-T8 — IndexedDBStore: offline project-snapshot cache (C05 §1.2 tier 2.5).

@@ -52,6 +52,14 @@ export {
   type LinearisedHistoryEvent,
 } from './HistoryStreamer.js';
 
+// GR-06 / GR-08 — SINGLE owner of the SemanticGraph pre-graph rebuild. Both
+// ProjectLoaders call this; there is no second copy (C71 §5.3 / §7.j).
+export {
+  rebuildSemanticGraphFromSnapshot,
+  type RebuildableSnapshot,
+  type RebuildSemanticGraphResult,
+} from './rebuildSemanticGraph.js';
+
 // L-334 / L-360 — save-reload content-integrity checksum (stamp at SAVE,
 // verify at LOAD → non-blocking warning, never brick). See SnapshotIntegrity.ts.
 export {

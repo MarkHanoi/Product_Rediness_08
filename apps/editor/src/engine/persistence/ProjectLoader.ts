@@ -58,6 +58,9 @@ import { ProjectSnapshot } from './ProjectSerializer';
 // NON-BLOCKING warning (load best-effort); an absent checksum (legacy snapshot)
 // verifies clean. NEVER a hard refuse on the checksum alone.
 import { verifySnapshotChecksum } from '@pryzm/persistence-client';
+// GR-06 / GR-08 — SINGLE-owner SemanticGraph pre-graph rebuild (was a byte-
+// identical private copy in this file AND persistence-client; C71 §5.3 / §7.j).
+import { rebuildSemanticGraphFromSnapshot } from '@pryzm/persistence-client';
 import { BatchCreateRoomsCommand } from '@pryzm/command-registry';
 import { deserializeRoom } from '@pryzm/room-topology';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
@@ -1874,9 +1877,14 @@ export class ProjectLoader {
             // Gap 2 (Phase 3.2): If the graph is empty after deserialize, rebuild it
             // from the snapshot data so pre-graph projects get a populated graph.
             if (semanticGraphManager.size === 0) {
-                const rebuilt = this._rebuildSemanticGraph(snapshot);
-                if (rebuilt > 0) {
-                    console.log(`[ProjectLoader] SemanticGraph rebuilt from snapshot (${rebuilt} relationships)`);
+                const { added, unreconstructable } = rebuildSemanticGraphFromSnapshot(snapshot);
+                if (added > 0) {
+                    console.log(`[ProjectLoader] SemanticGraph rebuilt from snapshot (${added} relationships)`);
+                }
+                if (unreconstructable.length > 0) {
+                    // C70 I-INV-3 — a pre-graph snapshot loses nothing SILENTLY: name
+                    // the families the rebuild cannot reconstruct from authoritative state.
+                    console.warn(`[ProjectLoader] SemanticGraph rebuild: ${unreconstructable.length} family/families not reconstructable from this snapshot (persist-or-lose, named per C70 I-INV-3): ${unreconstructable.join(', ')}`);
                 }
             }
 
@@ -2385,83 +2393,11 @@ export class ProjectLoader {
         return result;
     }
 
-    /**
-     * Phase 3.2 — Auto-populate SemanticGraph from snapshot data.
-     *
-     * Called when the graph is empty after deserialization (pre-graph projects or
-     * snapshots saved before Phase D was wired). Rebuilds four classes of edges:
-     *
-     *   1. Wall → Door/Window  (hosts / hostedBy) — derived from wall.openings[]
-     *   2. Room → Wall         (boundedBy)         — derived from room.boundary.boundingWallIds
-     *   3. Room → Unit         (partOf)             — derived from room.unitId
-     *   4. Room adjacency      (adjacentTo)         — two rooms that share a bounding wall
-     *
-     * `joinedTo` (wall ↔ wall, ADR-0321) is DELIBERATELY not rebuilt here: its
-     * rebuild disposition is REGENERATED from the retained junction index — the
-     * wall flush (`WallRebuildCoordinator._flush`) removes-and-re-emits the
-     * level's edges on every rebuild, so a snapshot-side reconstruction would
-     * only be overwritten (C71 §3.6).
-     *
-     * Uses the raw snapshot arrays (no store reads) so it is safe to call before
-     * any StoreEventBus events fire on this load cycle.
-     *
-     * @returns Number of relationships added.
-     */
-    private _rebuildSemanticGraph(snapshot: ProjectSnapshot): number {
-        let count = 0;
-
-        const addRel = (sourceId: string, targetId: string, type: import('@pryzm/core-app-model').RelationshipType) => {
-            try {
-                semanticGraphManager.addRelationship({ type, sourceId, targetId, createdBy: 'system' });
-                count++;
-            } catch {
-                // Skip invalid pairs silently — stores may not yet be populated
-            }
-        };
-
-        // 1. Wall → hosted Door/Window (hosts + hostedBy inverse)
-        for (const wall of (snapshot.walls ?? [])) {
-            if (!wall?.id || !Array.isArray(wall.openings)) continue;
-            for (const opening of wall.openings) {
-                const elementId: string | undefined = opening.elementId ?? opening.id;
-                if (!elementId) continue;
-                addRel(wall.id, elementId, 'hosts');
-                addRel(elementId, wall.id, 'hostedBy');
-            }
-        }
-
-        // 2. Room → Wall (boundedBy) + adjacency between rooms sharing a wall
-        const wallToRooms = new Map<string, string[]>();
-        for (const room of (snapshot.rooms ?? [])) {
-            if (!room?.id) continue;
-            const wallIds: string[] = room.boundary?.boundingWallIds ?? [];
-            for (const wallId of wallIds) {
-                if (!wallId) continue;
-                addRel(room.id, wallId, 'boundedBy');
-                if (!wallToRooms.has(wallId)) wallToRooms.set(wallId, []);
-                wallToRooms.get(wallId)!.push(room.id);
-            }
-        }
-
-        // Derive adjacency: two rooms that share a bounding wall are adjacentTo each other
-        for (const [, roomIds] of wallToRooms) {
-            if (roomIds.length < 2) continue;
-            for (let i = 0; i < roomIds.length; i++) {
-                for (let j = i + 1; j < roomIds.length; j++) {
-                    addRel(roomIds[i], roomIds[j], 'adjacentTo');
-                    addRel(roomIds[j], roomIds[i], 'adjacentTo');
-                }
-            }
-        }
-
-        // 3. Room → Unit (partOf)
-        for (const room of (snapshot.rooms ?? [])) {
-            if (!room?.id || !room.unitId) continue;
-            addRel(room.id, room.unitId, 'partOf');
-        }
-
-        return count;
-    }
+    // GR-06 / GR-08 — the SemanticGraph pre-graph rebuild used to live here as a
+    // private method AND as a byte-identical copy in persistence-client's
+    // ProjectLoader. It is now the single-owner `rebuildSemanticGraphFromSnapshot`
+    // (imported from @pryzm/persistence-client above); both loaders call it.
+    // See packages/persistence-client/src/loader/rebuildSemanticGraph.ts (C71 §5.3/§7.j).
 
     private recordFail(result: LoadResult, label: string, r: any): void {
         result.failed++;
