@@ -1,0 +1,77 @@
+{
+  "//": [
+    "NAMED, SHRINK-ONLY ledger for check-graph-delete-integrity (C71 §6, C70 §5.4/§5.5).",
+    "",
+    "kinds: the kind → delete-path mapping. The KIND LIST is parsed from the",
+    "ElementType union in registryFile — never from this file; this file only maps",
+    "each kind to the file (and, inside the shared DeleteElementCommand, the branch",
+    "marker) that owns its delete. A kind may map to SEVERAL paths: each path is",
+    "assessed separately, because two producers where one purges and one does not",
+    "is exactly the divergence the gate exists to catch.",
+    "",
+    "declaredFindings: pinned at the FIRST HONEST READING, 2026-08-12. Every entry",
+    "is named (kind/arm:path), never a bare count. An unledgered finding exits 3;",
+    "an entry no longer measured is STALE and exits 3 — debt that has been paid",
+    "leaves this file in the commit that pays it.",
+    "",
+    "EXIT CONDITION (C71 §6): hard-0 across every kind, with the undo half proven",
+    "by executed read-back rather than by the presence of a restore call. When",
+    "declaredFindings reaches [], the gate is hard-0."
+  ],
+  "registryFile": "packages/core-app-model/src/CoreElement.ts",
+  "kinds": [
+    { "kind": "wall", "paths": [{ "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "wall" }] },
+    { "kind": "window", "paths": [{ "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "window" }] },
+    { "kind": "door", "paths": [{ "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "door" }] },
+    { "kind": "slab", "paths": [{ "file": "packages/command-registry/src/slabs/DeleteSlabCommand.ts" }], "note": "DeleteElementCommand's slab branch delegates to this command (C2 §SLAB-SYSTEM-AUDIT-2026)." },
+    { "kind": "ceiling", "paths": [
+      { "file": "packages/command-registry/src/ceilings/RemoveCeilingCommand.ts" },
+      { "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "ceiling" }
+    ] },
+    { "kind": "floor", "paths": [
+      { "file": "packages/command-registry/src/floors/RemoveFloorCommand.ts" },
+      { "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "floor" }
+    ] },
+    { "kind": "column", "paths": [{ "file": "packages/command-registry/src/columns/DeleteColumnCommand.ts" }], "note": "DeleteElementCommand's column branch delegates here (§COLUMN-AUDIT-2026 §C2)." },
+    { "kind": "beam", "paths": [{ "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "beam" }] },
+    { "kind": "curtain-wall", "paths": [{ "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "curtainwall" }] },
+    { "kind": "curtain-panel", "paths": [], "note": "No delete command exists: panels are REPLACED (ReplacePanelTypeCommand / ReplacePanelWithDoorCommand), never deleted. The mapping declares the absence rather than skipping the kind." },
+    { "kind": "furniture", "paths": [{ "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "furniture" }] },
+    { "kind": "roof", "paths": [
+      { "file": "packages/command-registry/src/roofs/DeleteRoofCommand.ts" },
+      { "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "roof" }
+    ] },
+    { "kind": "stair", "paths": [{ "file": "packages/command-registry/src/stair/DeleteStairCommand.ts" }], "note": "DeleteElementCommand's stair branch delegates here (§FIX-STAIR-DELETE-LEAVES-HOLE)." },
+    { "kind": "plumbing", "paths": [{ "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "plumbing" }] },
+    { "kind": "opening", "paths": [{ "file": "packages/command-registry/src/slabs/DeleteOpeningCommand.ts" }], "note": "Slab openings. Wall openings are deleted as window/door and are covered by those rows." },
+    { "kind": "handrail", "paths": [
+      { "file": "packages/command-registry/src/handrails/DeleteHandrailCommand.ts" },
+      { "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "handrail" }
+    ] },
+    { "kind": "grid", "paths": [{ "file": "packages/command-registry/src/grids/RemoveGridCommand.ts" }] },
+    { "kind": "level", "paths": [{ "file": "packages/command-registry/src/levels/DeleteLevelCommand.ts" }], "note": "Levels are the TARGET of every sitsOn edge; a purge-less level delete strands one edge per element on the level." },
+    { "kind": "room", "paths": [{ "file": "packages/command-registry/src/rooms/DeleteRoomCommand.ts" }] }
+  ],
+  "declaredFindings": [
+    { "key": "slab/undo-reconstructs-not-verbatim:DeleteSlabCommand.ts", "why": "Undo re-authors sitsOn from the slab snapshot; edges authored by other commands (supports slab→wall, boundedBy) are not captured and are dropped by delete+undo." },
+    { "key": "ceiling/purge-missing:RemoveCeilingCommand.ts", "why": "One of two ceiling delete producers never purges — diverges from DeleteElementCommand's ceiling branch, which does. Two producers, two behaviours." },
+    { "key": "ceiling/undo-restores-nothing:DeleteElementCommand.ts#ceiling", "why": "Branch purges all edges, undo re-registers the ceiling but restores no edges." },
+    { "key": "floor/purge-missing:RemoveFloorCommand.ts", "why": "Same divergence as ceiling: the Remove* producer never purges while the DeleteElementCommand branch does." },
+    { "key": "floor/undo-restores-nothing:DeleteElementCommand.ts#floor", "why": "Branch purges all edges, undo restores none." },
+    { "key": "column/undo-reconstructs-not-verbatim:DeleteColumnCommand.ts", "why": "Undo re-authors sitsOn only (§COLUMN-AUDIT-2026 §C2); supports edges to beams written by AssignBeamSupportsCommand are dropped by delete+undo." },
+    { "key": "beam/undo-reconstructs-not-verbatim:DeleteElementCommand.ts#beam", "why": "§BEAM-AUDIT-2026-W7b re-authors sitsOn/supports from the beam's own snapshot — reconstruction, not the verbatim capture 3ee632f6 established for walls." },
+    { "key": "curtain-wall/undo-restores-nothing:DeleteElementCommand.ts#curtainwall", "why": "OI-036 added the purge; undo (OI-037) re-registers the element but restores no edges." },
+    { "key": "curtain-panel/no-delete-path", "why": "Registry kind with no delete command at all: panels are replaced (ReplacePanel*Command), never deleted. Declared absence, not an oversight — but the registry kind remains delete-uncovered." },
+    { "key": "furniture/undo-reconstructs-not-verbatim:DeleteElementCommand.ts#furniture", "why": "Undo re-authors sitsOn for parent+children from the snapshot; contains edges (room→furniture, IFC-imported) would be dropped." },
+    { "key": "roof/purge-missing:DeleteRoofCommand.ts", "why": "One of two roof delete producers never purges — diverges from DeleteElementCommand's roof branch, which does." },
+    { "key": "roof/undo-restores-nothing:DeleteElementCommand.ts#roof", "why": "Branch purges all edges (incl. topologyGraph.removeNode), undo restores none." },
+    { "key": "stair/purge-missing:DeleteStairCommand.ts", "why": "The dedicated stair delete (which BOTH delete paths delegate to since L-298) never purges: a deleted stair strands its sitsOn and its levels' connectedByStair edges." },
+    { "key": "plumbing/undo-restores-nothing:DeleteElementCommand.ts#plumbing", "why": "Branch purges all edges, undo restores none." },
+    { "key": "opening/purge-missing:DeleteOpeningCommand.ts", "why": "Slab-opening delete never purges. Today no writer emits edges for slab openings, so the strand set is empty in practice — but that is coincidence, not integrity, and F-INV-2 forbids counting it as such." },
+    { "key": "handrail/purge-missing:DeleteHandrailCommand.ts", "why": "One of two handrail delete producers never purges — diverges from DeleteElementCommand's handrail branch. CreateHandrailCommand writes sitsOn, so this path strands a real edge." },
+    { "key": "handrail/undo-restores-nothing:DeleteElementCommand.ts#handrail", "why": "Branch purges all edges, undo restores none." },
+    { "key": "grid/purge-missing:RemoveGridCommand.ts", "why": "Grid delete never purges. No writer emits grid edges today; same coincidence-not-integrity reading as opening." },
+    { "key": "level/purge-missing:DeleteLevelCommand.ts", "why": "Levels are the TARGET of every sitsOn edge and both connectedByStair/connectedByLift endpoints. A purge-less level delete strands one edge per element that sat on the level — the largest strand-set in the estate." },
+    { "key": "room/undo-restores-nothing:DeleteRoomCommand.ts", "why": "Room delete purges boundedBy/adjacentTo/connectedTo/partOf and undo restores none of them — precisely the wall-shaped case where reconstruction is impossible (room edges are authored by detection commands)." }
+  ]
+}
