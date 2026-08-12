@@ -63,6 +63,7 @@
     "@pryzm/plugin-window": "workspace:*",
     "@pryzm/protocol": "workspace:*",
     "@pryzm/renderer": "workspace:*",
+    "@pryzm/room-topology": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "@pryzm/scene-committer": "workspace:*",
     "@pryzm/schemas": "workspace:*",

@@ -25,6 +25,24 @@
 // caller-supplied read-only `PlanningContext` views or over CLONES; the move is applied to
 // a clone for validation, never to the live record. G-REASON-01 (purity) and G-REASON-02
 // (determinism) are the gates; see __tests__/WallMoveConsequencePlanner.spec.ts.
+//
+// ── PHASE 6b (2026-08-12): the room-boundary branch can now PREDICT AREAS ────────────
+// Two changes, both in the room-boundary branch:
+//   1. The membership scan read `boundaryWallIds | wallIds | sourceWallIds`. The CANONICAL
+//      persisted field is `boundingWallIds` (RoomDataSchema, required). None of the three
+//      it scanned is on the stored record, so the branch declared STALE_DERIVED_STATE for
+//      a linkage that was in fact present on every real project. Fixed; the old spellings
+//      are retained as tolerated aliases (import DTOs use `boundaryWallIds`).
+//   2. The branch now consumes an INJECTED pure predictor (`predictRoomGeometry`,
+//      @pryzm/room-topology) and feeds the predicted `computed.area` into the AFTER clone
+//      of the violations branch — which previously cloned PRE-MOVE rooms on both sides, so
+//      `ROOM_MIN_AREA` could never fire on a wall move.
+//
+// ⚠ TODO (needs R4 / command-bus): `ConsequencePlan` has no typed field for a per-element
+// METRIC TRANSITION (`{ elementId, metric, before, after }`). The founder's
+// `Kitchen area: 12.4 m² → 10.8 m²` line therefore rides in `regeneration.skipped[].reason`
+// — the only `{ id, reason }`-shaped plan field, and empty for this planner. Replace it the
+// moment command-bus grows the typed field; this file did NOT add it (R4 owns that package).
 
 import type {
   ConsequencePlan,
@@ -41,6 +59,15 @@ import type {
 import type { WallData, WallBaseline, OpeningRefitPlan } from '@pryzm/geometry-wall';
 import type { JoinedWallsQuery } from '@pryzm/core-app-model';
 import type { ValidationResult, ConstraintContext } from '@pryzm/constraint-solver/compliance';
+// Phase 6b — the PURE room-geometry recompute. Type-only here; the FUNCTION arrives by
+// injection (see `RoomGeometryPredictor`), so the planner stays constructible without it.
+import type {
+  PredictWall,
+  PredictRoom,
+  ProposedWallMove,
+  PredictRoomGeometryResult,
+  RoomGeometryPrediction,
+} from '@pryzm/room-topology';
 
 // ─── The command this planner answers for ────────────────────────────────────────────
 
@@ -80,17 +107,40 @@ export interface ViolationValidator {
  * Everything the planner needs beyond the read-only `PlanningContext`. All optional:
  * an ABSENT collaborator is the honest `ENGINE_NOT_AVAILABLE` case, declared as
  * `undetermined`, NOT silently skipped.
+ *
+ * The pure room-geometry recompute — `predictRoomGeometry` from `@pryzm/room-topology`
+ * (Phase 6b). INJECTED, not imported as a value: the planner must stay constructible
+ * without it, and an ABSENT predictor is `undetermined{ENGINE_NOT_AVAILABLE}` on the
+ * room-boundary branch, never an empty room set.
+ */
+export type RoomGeometryPredictor = (
+  walls: readonly PredictWall[],
+  move: ProposedWallMove,
+  rooms: readonly PredictRoom[],
+) => PredictRoomGeometryResult;
+
+/**
+ * Everything the planner needs beyond the read-only `PlanningContext`. All optional:
+ * an ABSENT collaborator is the honest `ENGINE_NOT_AVAILABLE` case, declared as
+ * `undetermined`, NOT silently skipped.
  */
 export interface WallMovePlannerDeps {
   readonly occupancy: OpeningRefitReader;
   readonly joinedWalls?: JoinedWallsReader;
   readonly validator?: ViolationValidator;
+  readonly predictRoomGeometry?: RoomGeometryPredictor;
 }
 
 // ─── Deterministic hashing (G-REASON-02) ──────────────────────────────────────────────
 
-/** Stable stringify — object keys sorted recursively so equal content hashes equal. */
-function stableStringify(value: unknown): string {
+/**
+ * Stable stringify — object keys sorted recursively so equal content hashes equal.
+ * Exported (R4): the execution service fingerprints its independent read-back with
+ * the SAME serialisation the plan hashed with, so "changed" means the same thing on
+ * both sides of the predicted-vs-actual comparison (one algorithm, two consumers —
+ * ADR-0322 §6's rule applied to hashing).
+ */
+export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   const obj = value as Record<string, unknown>;
@@ -212,27 +262,69 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       undetermined.push(junctionResult);
     }
 
+    // ── Branch 5 (runs BEFORE 3 on purpose): room-boundary + geometry prediction ─────
+    // Phase 6b. The predicted room areas are an INPUT to the violation diff below —
+    // ROOM_MIN_AREA reads `room.computed.area`, so a violations branch that clones
+    // PRE-MOVE room records can never see a wall move change a room's area. Ordering
+    // this branch first is what closes that.
+    const room = this.roomBoundaryBranch(context, id, currentWall.levelId, baseLine);
+    const roomResult = room.membership;
+    if (roomResult.kind === 'determined') {
+      for (const rid of roomResult.elements) changed.push(rid);
+    } else {
+      undetermined.push(roomResult);
+    }
+    if (room.geometryUndetermined) undetermined.push(room.geometryUndetermined);
+
+    // Per-room refusals from the predictor are declared INDIVIDUALLY — a room whose
+    // geometry could not be predicted must not read as "no violation" (see below).
+    const unpredicted: string[] = [];
+    for (const p of room.predictions) {
+      if (p.kind === 'undetermined') {
+        unpredicted.push(p.roomId);
+        undetermined.push({
+          scope: `predicted polygon + area of room ${p.roomId} under the move of wall ${id}`,
+          reason: p.reason === 'TOPOLOGY_CHANGE_POSSIBLE' ? 'NO_DEPENDENCY_INDEX' : 'STALE_DERIVED_STATE',
+          detail: `${p.reason}: ${p.detail}. Its area-based rules (e.g. ROOM_MIN_AREA) were NOT re-evaluated for this move.`,
+        });
+      }
+    }
+
     // ── Branch 3: violations (the mined SpeculativeEngine core) ──────────────────────
     // clone stores → apply the move to the clone → validateAll before/after → diff.
     // This is where the MINE disposition executes (SpeculativeEngine is deprecated-in-
     // place; its clone-and-validate algorithm is lifted here, fed by PlanningContext,
-    // not window.*).
-    const violation = this.violationsBranch(context, id, baseLine);
+    // not window.*). The predicted room areas are folded into the AFTER clone only.
+    const violation = this.violationsBranch(context, id, baseLine, room.predictions);
     if (violation.kind === 'undetermined') undetermined.push(violation.undetermined);
+
+    // ── The founder's BEFORE→AFTER line ──────────────────────────────────────────────
+    // `ConsequencePlan` has NO typed field for a per-element metric transition (it carries
+    // element SETS, a violation delta and refusals — nothing shaped like
+    // `{ elementId, metric, before, after }`). `packages/command-bus` is owned by R4 and is
+    // being edited right now, so the field is NOT added here. Until it exists, the numbers
+    // ride in `regeneration.skipped[].reason` — the one plan field that is an
+    // `{ id, reason: string }` pair keyed by element and is otherwise EMPTY for this
+    // planner (regeneration is a declared blind spot, so nothing is displaced). This is a
+    // stopgap and is reported as such: see the module header's TODO.
+    const areaNotes: { id: ElementId; reason: string }[] = [];
+    for (const p of room.predictions) {
+      if (p.kind !== 'determined') continue;
+      const before = p.areaBefore;
+      areaNotes.push({
+        id: p.roomId,
+        reason: before === undefined
+          ? `area (predicted): ${p.area.toFixed(1)} m² — prior area not recorded on the room`
+          : `area: ${before.toFixed(1)} m² → ${p.area.toFixed(1)} m² (${p.area - before >= 0 ? '+' : ''}${(p.area - before).toFixed(1)} m²)`,
+      });
+    }
+    areaNotes.sort((a, b) => a.id.localeCompare(b.id));
 
     // ── Branch 4: regeneration (declared blind spot until Phase 5) ───────────────────
     // The dependency substrate that would answer "what regenerates" is NOT wired
     // (roadmap Phase 5). Declared UNDETERMINED — NOT faked. A planner that pretended
     // completeness here is the defect ADR-0322 exists to prevent.
     undetermined.push(this.regenerationUndetermined(id));
-
-    // ── Branch 5: room-boundary (RoomTopologyObserver knowledge, READ-ONLY) ──────────
-    const roomResult = this.roomBoundaryBranch(context, id, currentWall.levelId);
-    if (roomResult.kind === 'determined') {
-      for (const rid of roomResult.elements) changed.push(rid);
-    } else {
-      undetermined.push(roomResult);
-    }
 
     // ── indirect impact ──────────────────────────────────────────────────────────────
     // The union of everything reached NOT via the payload's own subject. If any indirect
@@ -256,6 +348,7 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       refused,
       undetermined,
       validation: violation.validation,
+      areaNotes,
     });
   }
 
@@ -289,6 +382,15 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
     context: PlanningContext,
     id: string,
     baseLine: WallBaseline,
+    /**
+     * Phase 6b — predicted room geometry, applied to the AFTER clone ONLY.
+     * `beforeCtx` stays exactly as it was, so the diff is a true before→after.
+     * A room with an UNDETERMINED prediction is deliberately left UNCHANGED in the
+     * after-clone: we must not invent an area for it. The planner declares that its
+     * area rules were not re-evaluated (see the per-room UNDETERMINED entries in
+     * `plan()`), so an unpredicted room never silently reads as "no violation".
+     */
+    predictions: readonly RoomGeometryPrediction[] = [],
   ): { kind: 'determined'; validation: { violationsCreated: ViolationRef[]; violationsResolved: ViolationRef[] } }
     | { kind: 'undetermined'; undetermined: UndeterminedImpact; validation: { violationsCreated: ViolationRef[]; violationsResolved: ViolationRef[] } } {
     const empty = { violationsCreated: [] as ViolationRef[], violationsResolved: [] as ViolationRef[] };
@@ -323,15 +425,41 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       filter: (fn: (x: unknown) => boolean) => items.filter(fn),
     });
 
+    // Phase 6b — the AFTER room clone carries the PREDICTED `computed` metrics + boundary.
+    // Without this, `ROOM_MIN_AREA` (which reads `room.computed.area`) evaluated the SAME
+    // pre-move areas on both sides of the diff and could never fire on a wall move.
+    // Rooms with no determined prediction are copied through UNCHANGED — never invented.
+    const predictedById = new Map<string, RoomGeometryPrediction>();
+    for (const p of predictions) predictedById.set(p.roomId, p);
+    const afterRooms = beforeRooms.map((r) => {
+      const p = predictedById.get(String(r.id));
+      if (!p || p.kind !== 'determined') return r;
+      const boundary = (r.boundary ?? {}) as Record<string, unknown>;
+      const computed = (r.computed ?? {}) as Record<string, unknown>;
+      const height = typeof boundary.height === 'number' ? boundary.height : 0;
+      return {
+        ...r,
+        boundary: { ...boundary, polygon: p.polygon },
+        computed: {
+          ...computed,
+          area: p.area,
+          grossArea: p.area,
+          perimeter: p.perimeter,
+          volume: p.area * height,
+          centroid: p.centroid,
+          boundingBox: p.boundingBox,
+        },
+      };
+    });
+
     const baseCtx = {
-      roomStore: makeStore(beforeRooms),
       doorStore: makeStore(beforeDoors),
       windowStore: makeStore(beforeWindows),
       stairStore: makeStore(beforeStairs),
       bimManager: undefined,
     };
-    const beforeCtx = { ...baseCtx, wallStore: makeStore(beforeWalls) } as unknown as ConstraintContext;
-    const afterCtx = { ...baseCtx, wallStore: makeStore(afterWalls) } as unknown as ConstraintContext;
+    const beforeCtx = { ...baseCtx, roomStore: makeStore(beforeRooms), wallStore: makeStore(beforeWalls) } as unknown as ConstraintContext;
+    const afterCtx = { ...baseCtx, roomStore: makeStore(afterRooms), wallStore: makeStore(afterWalls) } as unknown as ConstraintContext;
 
     let beforeResults: ValidationResult[] = [];
     let afterResults: ValidationResult[] = [];
@@ -372,29 +500,63 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
   }
 
   /**
-   * Rooms whose boundary this move changes. DETERMINED only when a room record
-   * structurally links to the wall (a `boundaryWallIds`/`wallIds`/`sourceWallIds`
-   * array containing the id) — otherwise UNDETERMINED, because the wall→room membership
-   * is the RoomTopologyObserver's derived state, which a move invalidates and which the
-   * observer SUPPRESSES refreshing on graph-authoritative levels (ADR-0069) and cannot
-   * read a height blind spot for. Reading it as "no rooms change" would be the
-   * overstatement-on-partial-data defect; we declare the blind spot instead.
+   * Rooms whose boundary this move changes, AND — when the pure predictor is composed —
+   * their predicted polygon + area (Phase 6b).
+   *
+   * MEMBERSHIP. DETERMINED only when a room record structurally links to the wall. The
+   * CANONICAL persisted field is **`boundingWallIds`** (`RoomDataSchema`, required on
+   * every stored room, read throughout `RoomContentsService`). This branch previously
+   * scanned only `boundaryWallIds | wallIds | sourceWallIds` — none of which is on the
+   * stored record; `boundaryWallIds` exists only on the DETECTION-ENGINE's internal DTO
+   * and on floorplan-import DTOs. So the branch declared STALE_DERIVED_STATE for a
+   * linkage that was in fact present, on every real project. The alias spellings are
+   * RETAINED as tolerated inputs (harmless, and the import DTOs do use them).
+   *
+   * When NO room carries any of those arrays, the answer stays UNDETERMINED: membership
+   * would only be knowable by re-running detection (a mutation the planner must not
+   * perform), and the observer SUPPRESSES refreshing derived membership on
+   * graph-authoritative levels (ADR-0069). Reading that as "no rooms change" is the
+   * overstatement-on-partial-data defect. That refusal must survive this fix.
+   *
+   * GEOMETRY. With `deps.predictRoomGeometry` composed, each linked room additionally
+   * gets a predicted ring/area — or a per-room typed refusal. The predictor is PURE and
+   * does NOT re-run detection; a move that would split/merge rooms comes back
+   * `TOPOLOGY_CHANGE_POSSIBLE`. Without the predictor, membership is still determined but
+   * geometry is `ENGINE_NOT_AVAILABLE` — never a silently empty prediction set.
    */
-  private roomBoundaryBranch(context: PlanningContext, wallId: string, levelId: string): ImpactDetermination {
+  private roomBoundaryBranch(
+    context: PlanningContext,
+    wallId: string,
+    levelId: string,
+    baseLine: WallBaseline,
+  ): {
+    membership: ImpactDetermination;
+    predictions: readonly RoomGeometryPrediction[];
+    /** An UNDETERMINED to append when geometry could not be predicted at all. */
+    geometryUndetermined?: UndeterminedImpact;
+  } {
     const roomView = context.getStore('room');
     if (!roomView) {
       return {
-        kind: 'undetermined',
-        scope: `room-boundary impact of wall ${wallId} on level ${levelId}`,
-        reason: 'STALE_DERIVED_STATE',
-        detail: 'no room store view is available; wall→room boundary membership is the observer\'s derived state and cannot be read here',
+        membership: {
+          kind: 'undetermined',
+          scope: `room-boundary impact of wall ${wallId} on level ${levelId}`,
+          reason: 'STALE_DERIVED_STATE',
+          detail: 'no room store view is available; wall→room boundary membership is the observer\'s derived state and cannot be read here',
+        },
+        predictions: [],
       };
     }
+
+    const rooms = [...roomView.getAll()] as PredictRoom[];
     const linked: string[] = [];
     let anyStructuralLink = false;
-    for (const item of roomView.getAll()) {
-      const room = item as { id?: string; boundaryWallIds?: unknown; wallIds?: unknown; sourceWallIds?: unknown };
-      const lists = [room.boundaryWallIds, room.wallIds, room.sourceWallIds];
+    for (const item of rooms) {
+      const room = item as unknown as {
+        id?: string; boundingWallIds?: unknown; boundaryWallIds?: unknown; wallIds?: unknown; sourceWallIds?: unknown;
+      };
+      // `boundingWallIds` FIRST — it is the canonical persisted field.
+      const lists = [room.boundingWallIds, room.boundaryWallIds, room.wallIds, room.sourceWallIds];
       for (const list of lists) {
         if (Array.isArray(list)) {
           anyStructuralLink = true;
@@ -403,16 +565,53 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       }
     }
     if (!anyStructuralLink) {
-      // No room carries an explicit wall linkage — membership is only knowable by
-      // re-running detection (a mutation). Honest blind spot.
+      // The honest blind spot — preserved verbatim. A real refusal must not become a
+      // false empty just because the field-name defect above was fixed.
       return {
-        kind: 'undetermined',
-        scope: `room-boundary impact of wall ${wallId} on level ${levelId}`,
-        reason: 'STALE_DERIVED_STATE',
-        detail: 'rooms carry no explicit wall linkage; boundary membership is derived by RoomTopologyObserver detection, which a move invalidates and which is suppressed on graph-authoritative levels (ADR-0069)',
+        membership: {
+          kind: 'undetermined',
+          scope: `room-boundary impact of wall ${wallId} on level ${levelId}`,
+          reason: 'STALE_DERIVED_STATE',
+          detail: 'rooms carry no explicit wall linkage; boundary membership is derived by RoomTopologyObserver detection, which a move invalidates and which is suppressed on graph-authoritative levels (ADR-0069)',
+        },
+        predictions: [],
       };
     }
-    return determined(linked);
+
+    const membership = determined(linked);
+
+    if (!this.deps.predictRoomGeometry) {
+      return {
+        membership,
+        predictions: [],
+        geometryUndetermined: {
+          scope: `room polygon + area under the move of wall ${wallId} on level ${levelId}`,
+          reason: 'ENGINE_NOT_AVAILABLE',
+          detail: 'no room-geometry predictor is composed in this runtime; rooms are known to be affected but their predicted areas cannot be computed',
+        },
+      };
+    }
+
+    const wallView = context.getStore('wall');
+    if (!wallView) {
+      return {
+        membership,
+        predictions: [],
+        geometryUndetermined: {
+          scope: `room polygon + area under the move of wall ${wallId} on level ${levelId}`,
+          reason: 'STALE_DERIVED_STATE',
+          detail: 'no wall store view is available; the room boundaries cannot be re-derived',
+        },
+      };
+    }
+
+    const walls = [...wallView.getAll()] as unknown as PredictWall[];
+    const result = this.deps.predictRoomGeometry(
+      walls,
+      { wallId, baseLine: baseLine as unknown as ProposedWallMove['baseLine'] },
+      rooms,
+    );
+    return { membership, predictions: result.rooms };
   }
 
   // ── Assembly + hashing ───────────────────────────────────────────────────────────────
@@ -428,6 +627,8 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
     refused: ConsequenceRefusal[];
     undetermined: UndeterminedImpact[];
     validation: { violationsCreated: ViolationRef[]; violationsResolved: ViolationRef[] };
+    /** Per-room BEFORE→AFTER area lines — see the note at the call site. */
+    areaNotes?: { id: ElementId; reason: string }[];
   }): ConsequencePlan {
     const changed = sortedUnique(input.changed);
     // An element that RELOCATES/CHANGES is never also "considered unchanged".
@@ -443,7 +644,7 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       excluded,
       topology: { added: [] as ElementId[], removed: [] as ElementId[], modified: topologyModified },
       validation: input.validation,
-      regeneration: { required: [] as ElementId[], skipped: [] as { id: ElementId; reason: string }[] },
+      regeneration: { required: [] as ElementId[], skipped: (input.areaNotes ?? []) as { id: ElementId; reason: string }[] },
       refused: input.refused,
       undetermined: input.undetermined,
     };

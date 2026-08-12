@@ -1061,6 +1061,9 @@ importers:
       '@pryzm/renderer-three':
         specifier: workspace:*
         version: link:../../packages/renderer-three
+      '@pryzm/room-topology':
+        specifier: workspace:*
+        version: link:../../packages/room-topology
       '@pryzm/scene-committer':
         specifier: workspace:*
         version: link:../../packages/scene-committer
@@ -2803,6 +2806,9 @@ importers:
       '@pryzm/geometry-curtain-wall':
         specifier: workspace:*
         version: link:../geometry-curtain-wall
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/geometry-wall':
         specifier: workspace:*
         version: link:../geometry-wall

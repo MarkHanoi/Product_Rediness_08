@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "@pryzm/geometry-wall": "workspace:*",
     "@pryzm/geometry-curtain-wall": "workspace:*",

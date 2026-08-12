@@ -14,6 +14,10 @@
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { constraintEngine } from '@pryzm/constraint-solver/compliance';
+// Phase 6b — a PURE function (no stores, no window, no clock). Safe to import as a value
+// here AND it would be safe in the planner; it is injected only so the planner keeps its
+// "absent collaborator ⇒ typed UNDETERMINED" property uniform across all four deps.
+import { predictRoomGeometry } from '@pryzm/room-topology';
 import { WallMoveConsequencePlanner } from './WallMoveConsequencePlanner.js';
 
 /**
@@ -26,5 +30,6 @@ export function createWallMoveConsequencePlanner(): WallMoveConsequencePlanner {
     occupancy: wallOccupancyStore,
     joinedWalls: semanticGraphManager,
     validator: constraintEngine,
+    predictRoomGeometry,
   });
 }

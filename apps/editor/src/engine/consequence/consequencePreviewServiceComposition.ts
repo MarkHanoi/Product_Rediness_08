@@ -23,7 +23,7 @@ import { ConsequencePreviewService } from './ConsequencePreviewService.js';
  * write surface exposed — so the planner physically cannot mutate through it (purity is
  * structural, not a promise).
  */
-function buildPlanningContext(): PlanningContext {
+export function buildPlanningContext(): PlanningContext {
   return {
     getStore(storeId: string): ReadonlyStoreView | undefined {
       const store = storeRegistry.getStoreForType(storeId);

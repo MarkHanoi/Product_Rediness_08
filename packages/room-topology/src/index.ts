@@ -23,6 +23,15 @@ export * from './RoomPolygonUtils';
 // same-parent reach guard. Pure maths, THREE-free.
 export * from './curvedWallTessellation';
 export * from './roomSnapshotUtils';
+// Phase 6b (2026-08-12) — the PURE (walls, proposedMove, rooms) → predicted polygon+area
+// recompute consumed by the wall.move consequence planner. NOT detection; see the module
+// header for what it refuses and why.
+export { predictRoomGeometry } from './predictRoomGeometry';
+export type {
+    PredictPoint, PredictWall, PredictRoom, ProposedWallMove,
+    RoomPredictionRefusal, RoomGeometryDetermined, RoomGeometryUndetermined,
+    RoomGeometryPrediction, PredictRoomGeometryResult,
+} from './predictRoomGeometry';
 // ADR-0069 (GR4) — graph-authoritative RoomData factory (engine spec → RoomData).
 export { roomDataFromGraphSpec } from './roomFromGraphSpec';
 export type { GraphRoomSpec, RoomFromSpecOpts } from './roomFromGraphSpec';
