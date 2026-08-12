@@ -233,25 +233,41 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
  * (BIM30-READINESS-GATES §2.4).
  */
 const LEDGER: readonly string[] = [
-  // ── H3 · G-INV-2 — 17 registered rule families, ZERO with executable evidence
-  // binding the real rule, plus 2 of the 3 C74 §2 named families.
+  // ── H3 · G-INV-2 — 13 of the 17 registered rule families still have no
+  // executable evidence binding the real rule, plus 2 of the 3 C74 §2 named
+  // families.
   //
-  // `packages/constraint-solver/` contains exactly two test files —
-  // `engine.test.ts` and `PlanegcsAdapter.test.ts` — and BOTH bind the
-  // MockSolver/adapter layer. NEITHER opens `ConstraintEngine.ts`. The component
-  // performing the repo's only real ADVISORY constraint work, 17 families deep
-  // and wired to a live event bus at `apps/editor/src/engine/initDataPlatform.ts:298`,
-  // has no suite at all.
+  // AT THE FIRST HONEST READING (2026-08-12) THIS WAS ALL 17. At that point
+  // `packages/constraint-solver/` contained exactly two test files —
+  // `engine.test.ts` and `PlanegcsAdapter.test.ts` — and BOTH bound the
+  // MockSolver/adapter layer; NEITHER opened `ConstraintEngine.ts`. The
+  // component performing the repo's only real ADVISORY constraint work, 17
+  // families deep and wired to a live event bus at
+  // `apps/editor/src/engine/initDataPlatform.ts:298`, had no suite at all.
   //
-  // ROOM_MIN_AREA is the interesting row and is listed like the rest, not
-  // promoted: it is the only family any executable file names, and all THREE
-  // files that name it synthesise the violation rather than calling the engine
-  // (see `findEvidence`'s header). "The rule with evidence" and "the rule with a
-  // string that matches its name" are different facts, and this is the second.
-  'H3::ROOM_MIN_AREA (error)',
-  'H3::ROOM_NEEDS_DOOR (error)',
-  'H3::HABITABLE_NEEDS_WINDOW (error)',
-  'H3::STAIR_HEADROOM (error)',
+  // FOUR ARE NOW STRUCK — ROOM_MIN_AREA, ROOM_NEEDS_DOOR,
+  // HABITABLE_NEEDS_WINDOW and STAIR_HEADROOM — witnessed by
+  // `packages/constraint-solver/__tests__/ConstraintEngine.rules.test.ts`, which
+  // calls the REAL `constraintEngine.validateAll(ctx)` and asserts, per family:
+  // that it fires at its DECLARED severity with the engine's own message and
+  // numbers; that it goes SILENT on satisfied input; and that it turns over at
+  // its threshold. Both substitutions that suite makes (the store handles, and
+  // a build-cost alias for `@pryzm/core-app-model`) are disclosed in its header
+  // per C74 §3.5, and neither sits on any rule's evaluation path.
+  //
+  // ROOM_MIN_AREA was the row that mattered most. Before that suite it was the
+  // only family any executable file named, and all THREE files that named it
+  // built the violation by hand rather than calling the engine (see
+  // `findEvidence`'s header) — so every `below minimum` figure quoted from it in
+  // review was produced by something other than this engine. "The rule with
+  // evidence" and "the rule with a string that matches its name" are different
+  // facts, and until now this was the second.
+  //
+  // That suite also PINNED two defects it deliberately did not fix, so they are
+  // findings on the record rather than silent repairs: the room-area message
+  // contradicts itself at the boundary (`.toFixed(1)` rounds the shown area up
+  // to equal the minimum it is being reported as below), and STAIR_HEADROOM's
+  // own defaults fire `error` on a standard 3.0 m residential storey.
   'H3::DOOR_WIDTH_vs_CIRCULATION (warning)',
   'H3::ACCESSIBLE_ROUTE (warning)',
   'H3::ROOM_MAX_TRAVEL_DISTANCE (warning)',
