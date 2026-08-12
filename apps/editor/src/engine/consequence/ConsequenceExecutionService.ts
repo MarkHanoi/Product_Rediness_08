@@ -97,7 +97,24 @@ export interface ConsequenceExecutionDeps {
   readonly readbackStores?: readonly string[];
   /** Optional violation snapshotter for the ACTUAL validation delta. */
   readonly violations?: ViolationSnapshotter;
+  /**
+   * R5 — where the finished consequence answer is DELIVERED (the report surface).
+   * A plain callback, so this service stays DOM-free and untestable-by-accident:
+   * production passes `ConsequenceReportView.showConsequence`, the certification gate
+   * and the unit suite pass a collector. Absent ⇒ the answer is still RETURNED (every
+   * caller gets it) but nothing is displayed — which is the honest state before a view
+   * is composed, not a silent drop.
+   *
+   * It receives the whole {@link ExecutionConsequence}, not just the report, because the
+   * OTHER two arms are the ones that must never render as a confident blank: a sink given
+   * only `reconciled` reports would leave stale/plan-less executions showing nothing at
+   * all, which reads identically to "nothing changed".
+   */
+  readonly sink?: ConsequenceSink;
 }
+
+/** Where a finished {@link ExecutionConsequence} is delivered for display (R5). */
+export type ConsequenceSink = (consequence: ExecutionConsequence) => void;
 
 /** Dispatch options accepted by {@link ConsequenceExecutionService.execute}. */
 export interface ConsequenceExecuteOptions {
@@ -172,36 +189,41 @@ export class ConsequenceExecutionService {
     const validation = this.validationDelta(violationsBefore);
 
     // ── 5. The typed consequence answer ───────────────────────────────────────────
-    if (bound) {
-      return { record, consequence: { kind: 'reconciled', report: this.reconcile(record, bound, actual, validation.delta, validation.undetermined, opts?.context) } };
+    const consequence: ExecutionConsequence = bound
+      ? { kind: 'reconciled', report: this.reconcile(record, bound, actual, validation.delta, validation.undetermined, opts?.context) }
+      : supplied && stale
+        ? {
+            kind: 'plan-stale',
+            commandId: record.id,
+            refusal: {
+              kind: 'PLAN_STALE',
+              stalePlan: supplied,
+              plannedPlanHash: supplied.planHash,
+              plannedStateHash: supplied.stateHash,
+              livePlanHash: stale.livePlanHash,
+              liveStateHash: stale.liveStateHash,
+            },
+            actual,
+          }
+        : {
+            kind: 'unplanned',
+            commandId: record.id,
+            prediction: { kind: 'absent', reason: 'NO_PLAN_SUPPLIED' },
+            actual,
+          };
+
+    // ── 6. Deliver it to the report surface (R5) ──────────────────────────────────
+    // ALL THREE ARMS go to the sink, including the two that carry no report: a display
+    // that only ever hears about reconciled executions renders nothing for a stale or
+    // plan-less one, and "nothing" is indistinguishable from "nothing changed". A sink
+    // that throws must not corrupt the execution answer — the command already ran, and a
+    // rendering failure is not a mutation failure.
+    if (this.deps.sink) {
+      try { this.deps.sink(consequence); }
+      catch (e) { console.warn('[ConsequenceExecutionService] consequence sink threw (render failure, not a mutation failure):', e); }
     }
-    if (supplied && stale) {
-      return {
-        record,
-        consequence: {
-          kind: 'plan-stale',
-          commandId: record.id,
-          refusal: {
-            kind: 'PLAN_STALE',
-            stalePlan: supplied,
-            plannedPlanHash: supplied.planHash,
-            plannedStateHash: supplied.stateHash,
-            livePlanHash: stale.livePlanHash,
-            liveStateHash: stale.liveStateHash,
-          },
-          actual,
-        },
-      };
-    }
-    return {
-      record,
-      consequence: {
-        kind: 'unplanned',
-        commandId: record.id,
-        prediction: { kind: 'absent', reason: 'NO_PLAN_SUPPLIED' },
-        actual,
-      },
-    };
+
+    return { record, consequence };
   }
 
   // ── Read-back ──────────────────────────────────────────────────────────────────

@@ -38,11 +38,14 @@
 //      of the violations branch — which previously cloned PRE-MOVE rooms on both sides, so
 //      `ROOM_MIN_AREA` could never fire on a wall move.
 //
-// ⚠ TODO (needs R4 / command-bus): `ConsequencePlan` has no typed field for a per-element
-// METRIC TRANSITION (`{ elementId, metric, before, after }`). The founder's
-// `Kitchen area: 12.4 m² → 10.8 m²` line therefore rides in `regeneration.skipped[].reason`
-// — the only `{ id, reason }`-shaped plan field, and empty for this planner. Replace it the
-// moment command-bus grows the typed field; this file did NOT add it (R4 owns that package).
+// ── R5 (2026-08-12): the metric stopgap is RETIRED ───────────────────────────────────
+// Phase 6b's predicted area transition had no typed home, so it rode in
+// `regeneration.skipped[].reason` — a field whose NAME means "regeneration we deliberately
+// did not perform". `ConsequencePlan` now carries `metrics?: readonly MetricTransition[]`
+// (R5, command-bus/src/consequence.ts) and the transitions live THERE, typed
+// (`{ elementId, metric, before, after, unit }`), never as a formatted sentence.
+// `regeneration.skipped` is back to meaning only what its name says, and is EMPTY for this
+// planner — regeneration is a declared blind spot (see `regenerationUndetermined`).
 
 import type {
   ConsequencePlan,
@@ -53,6 +56,7 @@ import type {
   ConsequenceRefusal,
   ViolationRef,
   ElementId,
+  MetricTransition,
 } from '@pryzm/command-bus';
 
 // Type-only — erased at runtime, so importing them couples nothing and touches no window.
@@ -298,27 +302,26 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
     const violation = this.violationsBranch(context, id, baseLine, room.predictions);
     if (violation.kind === 'undetermined') undetermined.push(violation.undetermined);
 
-    // ── The founder's BEFORE→AFTER line ──────────────────────────────────────────────
-    // `ConsequencePlan` has NO typed field for a per-element metric transition (it carries
-    // element SETS, a violation delta and refusals — nothing shaped like
-    // `{ elementId, metric, before, after }`). `packages/command-bus` is owned by R4 and is
-    // being edited right now, so the field is NOT added here. Until it exists, the numbers
-    // ride in `regeneration.skipped[].reason` — the one plan field that is an
-    // `{ id, reason: string }` pair keyed by element and is otherwise EMPTY for this
-    // planner (regeneration is a declared blind spot, so nothing is displaced). This is a
-    // stopgap and is reported as such: see the module header's TODO.
-    const areaNotes: { id: ElementId; reason: string }[] = [];
+    // ── The founder's BEFORE→AFTER line, in the TYPED field (R5) ─────────────────────
+    // `ConsequencePlan.metrics` is the home for a per-element metric transition. A room
+    // with a DETERMINED prediction contributes its AREA; `before` is `undefined` when the
+    // room record carries no prior value — a determined absence, distinct from the per-room
+    // UNDETERMINED already declared above for rooms that could not be predicted at all.
+    // Nothing is formatted here: rendering is the report surface's job, and a number
+    // stringified into the plan could not be compared against the actual.
+    //
+    // ONLY area, deliberately. The predictor also returns a perimeter, but the room record
+    // exposes no `perimeterBefore` to this planner, so every such entry would carry
+    // `before: undefined` — a column of blanks that adds bytes to the plan hash and tells a
+    // reader nothing. A metric is emitted when the transition is the point, not because the
+    // number happens to be to hand.
+    const metrics: MetricTransition[] = [];
     for (const p of room.predictions) {
       if (p.kind !== 'determined') continue;
-      const before = p.areaBefore;
-      areaNotes.push({
-        id: p.roomId,
-        reason: before === undefined
-          ? `area (predicted): ${p.area.toFixed(1)} m² — prior area not recorded on the room`
-          : `area: ${before.toFixed(1)} m² → ${p.area.toFixed(1)} m² (${p.area - before >= 0 ? '+' : ''}${(p.area - before).toFixed(1)} m²)`,
-      });
+      metrics.push({ elementId: p.roomId, metric: 'area', before: p.areaBefore, after: p.area, unit: 'm2' });
     }
-    areaNotes.sort((a, b) => a.id.localeCompare(b.id));
+    // Deterministic order — the plan hash covers this array (G-REASON-02).
+    metrics.sort((a, b) => a.elementId.localeCompare(b.elementId) || a.metric.localeCompare(b.metric));
 
     // ── Branch 4: regeneration (declared blind spot until Phase 5) ───────────────────
     // The dependency substrate that would answer "what regenerates" is NOT wired
@@ -348,7 +351,7 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       refused,
       undetermined,
       validation: violation.validation,
-      areaNotes,
+      metrics,
     });
   }
 
@@ -627,8 +630,8 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
     refused: ConsequenceRefusal[];
     undetermined: UndeterminedImpact[];
     validation: { violationsCreated: ViolationRef[]; violationsResolved: ViolationRef[] };
-    /** Per-room BEFORE→AFTER area lines — see the note at the call site. */
-    areaNotes?: { id: ElementId; reason: string }[];
+    /** R5 — per-element PREDICTED metric transitions, already sorted by the caller. */
+    metrics?: MetricTransition[];
   }): ConsequencePlan {
     const changed = sortedUnique(input.changed);
     // An element that RELOCATES/CHANGES is never also "considered unchanged".
@@ -644,7 +647,13 @@ export class WallMoveConsequencePlanner implements ConsequencePlanner<WallMoveCo
       excluded,
       topology: { added: [] as ElementId[], removed: [] as ElementId[], modified: topologyModified },
       validation: input.validation,
-      regeneration: { required: [] as ElementId[], skipped: (input.areaNotes ?? []) as { id: ElementId; reason: string }[] },
+      // Regeneration means REGENERATION again (R5): this planner performs none and skips
+      // none — the whole branch is a declared UNDETERMINED (`regenerationUndetermined`).
+      regeneration: { required: [] as ElementId[], skipped: [] as { id: ElementId; reason: string }[] },
+      // R5 — the typed metric transitions. Included in the hashed body, so the same state +
+      // command yields the same predicted areas (G-REASON-02) and a changed prediction
+      // invalidates a stale approval (R6) exactly as a changed element set does.
+      ...(input.metrics !== undefined ? { metrics: input.metrics } : {}),
       refused: input.refused,
       undetermined: input.undetermined,
     };

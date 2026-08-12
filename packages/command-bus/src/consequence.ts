@@ -168,6 +168,77 @@ export interface RegenerationPlan {
   readonly skipped: readonly { readonly id: ElementId; readonly reason: string }[];
 }
 
+// ─── Metric transitions (R5; the typed home Phase 6b was blocked on) ─────────
+
+/**
+ * WHICH quantity a {@link MetricTransition} is about. A CLOSED union rather than
+ * a free string: every member below is one a planner in this repo can actually
+ * compute today (`predictRoomGeometry` produces area/perimeter/volume and the
+ * ring's AABB; opening refit produces offsets/widths). Enumerating honestly is
+ * the point — a metric nobody can compute has no business being nameable, and
+ * an open `string` would let two planners spell the same quantity two ways and
+ * make the report's before→after lines un-comparable across surfaces.
+ *
+ * ADDING ONE IS A CONTRACT EDIT, deliberately: the moment a planner computes a
+ * new quantity, this union grows in the same commit, and every renderer keeps
+ * its exhaustive switch. That is cheaper than the alternative failure — a
+ * report that says `"height"` in one place and `"wallHeight"` in another.
+ */
+export type MetricName =
+  | 'area'
+  | 'perimeter'
+  | 'volume'
+  | 'height'
+  | 'width'
+  | 'length'
+  | 'thickness'
+  | 'offset'
+  | 'count';
+
+/**
+ * The UNIT `before`/`after` are expressed in. Closed for the same reason as
+ * {@link MetricName}, and SI-only: the repository's authoritative geometry is
+ * metres throughout (C73 tolerance policy), so a plan that carried feet would
+ * be a conversion bug waiting to be rendered. `'count'` is the dimensionless
+ * unit for cardinalities (e.g. openings on a wall).
+ */
+export type MetricUnit = 'm' | 'm2' | 'm3' | 'count';
+
+/**
+ * ONE quantity on ONE element, BEFORE → AFTER — the founder's
+ * `Kitchen area: 12.4 m² → 10.8 m²` line, as a typed value rather than a
+ * sentence.
+ *
+ * WHY THIS EXISTS AS A FIELD AND NOT A FORMATTED STRING (the defect it
+ * retires): Phase 6b computed a real predicted area transition and had no typed
+ * home for it, so it rode in `regeneration.skipped[].reason` — a field whose
+ * NAME says "regeneration we deliberately did not perform". A consumer counting
+ * skipped regenerations would have counted room areas; a consumer reading a
+ * metric would have had to parse a sentence. Both are the same class of defect:
+ * a value carried in a field that means something else.
+ *
+ * ON THE PLAN these are PREDICTED values (`after` is what the planner computes
+ * the move WOULD produce). ON THE REPORT they are ACTUAL values, measured by
+ * the same independent read-back that produces `actual` — see
+ * {@link ConsequenceReport.metrics}. Same shape, two readings, never mixed:
+ * the report carries the plan whole, so predicted-vs-actual on a metric is
+ * `report.plan.metrics` against `report.metrics`.
+ *
+ * `before` may be `undefined` — and that is a DETERMINED absence with a precise
+ * meaning: the prior value is not recorded on the element (a room whose
+ * `computed.area` was never stamped). It is NOT "we could not look"; a planner
+ * that could not compute the transition at all omits the entry and declares an
+ * {@link UndeterminedImpact} instead (§5).
+ */
+export interface MetricTransition {
+  readonly elementId: ElementId;
+  readonly metric: MetricName;
+  /** The value BEFORE, or `undefined` when no prior value is recorded. */
+  readonly before: number | undefined;
+  readonly after: number;
+  readonly unit: MetricUnit;
+}
+
 // ─── ConsequencePlan (ADR-0322 §1) ───────────────────────────────────────────
 
 /**
@@ -209,6 +280,17 @@ export interface ConsequencePlan {
   readonly topology: TopologyDelta;
   readonly validation: ValidationDelta;
   readonly regeneration: RegenerationPlan;
+
+  /**
+   * R5 (additive) — per-element PREDICTED metric transitions, the typed home for
+   * `Kitchen area: 12.4 m² → 10.8 m²`. Optional so R1-era plans and planners
+   * that compute no metric stay valid; ABSENT and EMPTY mean the same thing here
+   * on purpose, and neither is a claim about undetermined branches — a planner
+   * that could not compute a transition declares it in {@link undetermined}, so
+   * this array is never load-bearing for the known-vs-unknown distinction.
+   * Ordered deterministically by the planner (G-REASON-02 hashes it).
+   */
+  readonly metrics?: readonly MetricTransition[];
 
   /** What the planner determined must be refused, with the numbers. */
   readonly refused: RefusalSet;
@@ -314,6 +396,27 @@ export interface ConsequenceReport {
    * §5 known-vs-unknown rule applied to the report's own read-back.
    */
   readonly validationUndetermined?: UndeterminedImpact;
+
+  /**
+   * R5 (additive) — the ACTUAL per-element metric transitions, measured by the
+   * SAME independent read-back that produced {@link actual}. Compare against
+   * `plan.metrics` (carried whole on `plan`) for predicted-vs-actual on a
+   * quantity.
+   *
+   * PRESENT-BUT-EMPTY vs ABSENT are DIFFERENT here, unlike on the plan, and the
+   * difference is the §5 rule applied to metrics: `[]` is a determined "the
+   * read-back looked and no metric moved"; ABSENT is "this runtime has no metric
+   * read-back channel", which {@link metricsUndetermined} names. A report that
+   * printed an absent channel as an empty list would be the known+unknown=[]
+   * defect wearing a number.
+   */
+  readonly metrics?: readonly MetricTransition[];
+  /**
+   * R5 (additive) — set when the ACTUAL metrics could not be measured. Present ⇒
+   * {@link metrics} is absent or a placeholder and MUST NOT be read as "nothing
+   * moved". A renderer surfaces this instead of a zero.
+   */
+  readonly metricsUndetermined?: UndeterminedImpact;
 
   /**
    * R4 (additive) — the named divergence verdict over `predictedVsActual`.

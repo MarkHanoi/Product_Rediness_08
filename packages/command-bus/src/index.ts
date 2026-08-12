@@ -52,6 +52,10 @@ export type {
   ViolationRef,
   ValidationDelta,
   RegenerationPlan,
+  // R5 — the typed per-element metric transition (`area: 12.4 m² → 10.8 m²`).
+  MetricName,
+  MetricUnit,
+  MetricTransition,
   ConsequencePlan,
   PredictedVsActual,
   ConsequenceReport,

@@ -133,6 +133,48 @@ describe('normalizeForParity (ADR-0324 §3 — authored in R1, gated in R7)', ()
     expect(normalizeForParity(record).projectId).toBe('proj-1');
   });
 
+  // ── R5: METRICS ARE BEHAVIOURAL, so normalization must KEEP them ───────────
+  // The parity decision, pinned as a test rather than only as a comment: two
+  // executions whose reports differ ONLY in a metric's `after` value must NOT
+  // normalize equal. If they did, G-REASON-04 would pass while the human and the
+  // AI computed different GEOMETRY for the same command — the element sets would
+  // be identical and only the numbers would differ, so metrics are the only field
+  // that could reveal it.
+  it('KEEPS report metrics — a differing predicted area breaks parity', async () => {
+    const bus = makeBus('user-7', 'tab-a');
+    const record = await bus.executeCommand('test.move', { id: 'w1', dx: 0.3 });
+
+    const withMetric = (after: number) => ({
+      ...record,
+      consequence: {
+        commandId: record.id,
+        plan: {
+          planId: 'p', planHash: 'h', stateHash: 's',
+          command: { type: 'test.move', payload: { id: 'w1', dx: 0.3 } },
+          direct: { kind: 'determined', elements: ['w1'] },
+          indirect: { kind: 'determined', elements: [] },
+          changed: ['w1'], excluded: [],
+          topology: { added: [], removed: [], modified: [] },
+          validation: { violationsCreated: [], violationsResolved: [] },
+          regeneration: { required: [], skipped: [] },
+          metrics: [{ elementId: 'room-k', metric: 'area', before: 12.4, after, unit: 'm2' }],
+          refused: [], undetermined: [],
+        },
+        actual: { changed: ['w1'], topology: { added: [], removed: [], modified: [] }, regenerated: [] },
+        predictedVsActual: { unexpected: [], missing: [], undeterminedResolved: [] },
+        validation: { violationsCreated: [], violationsResolved: [] },
+        provenance: { actor: { kind: 'human' as const } },
+      },
+    }) as unknown as typeof record;
+
+    // Same metric ⇒ equal. Different metric ⇒ NOT equal (never stripped).
+    expect(normalizeForParity(withMetric(10.8))).toEqual(normalizeForParity(withMetric(10.8)));
+    expect(normalizeForParity(withMetric(10.8))).not.toEqual(normalizeForParity(withMetric(9.6)));
+    // And the metrics genuinely survive the projection, not merely differ by luck.
+    const kept = normalizeForParity(withMetric(10.8)).consequence as { plan: { metrics?: unknown[] } } | undefined;
+    expect(kept?.plan.metrics).toHaveLength(1);
+  });
+
   it('is pure — the input record is not mutated', async () => {
     const bus = makeBus('user-7', 'tab-a');
     const record = await bus.executeCommand(

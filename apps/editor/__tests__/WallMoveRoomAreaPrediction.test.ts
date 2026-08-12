@@ -131,16 +131,28 @@ describe('roomBoundaryBranch — canonical boundingWallIds', () => {
 
 // ── PART 2/3: predicted areas + ROOM_MIN_AREA on a wall move ──────────────────────────
 
+/** The one place this suite reads a metric — R5's typed field, never a formatted sentence. */
+const areaMetric = (plan: { metrics?: readonly { elementId: string; metric: string; before: number | undefined; after: number; unit: string }[] }, roomId: string) =>
+  plan.metrics?.find((m) => m.elementId === roomId && m.metric === 'area');
+
 describe('wall.move → predicted room area', () => {
-  it('carries the BEFORE→AFTER area line (12.4 m² → 10.8 m²)', async () => {
+  it('carries the BEFORE→AFTER area TRANSITION in the typed `metrics` field (12.4 → 10.8 m²)', async () => {
     const plan = await planner().plan(
       moveSouthTo(2.7),
       makeContext({ wall: wallsAt(2.7), room: [kitchenRoom()] }),
     );
-    const note = plan.regeneration.skipped.find((s) => s.id === 'room-kitchen');
-    expect(note).toBeDefined();
-    // 4.0 m × 2.7 m = 10.8 m², computed by hand; delta −1.6 m² from the stored 12.4.
-    expect(note?.reason).toBe('area: 12.4 m² → 10.8 m² (-1.6 m²)');
+    // R5: the transition is a TYPED value on `plan.metrics`. It used to ride in
+    // `regeneration.skipped[].reason` as a formatted string — a field whose name means
+    // "regeneration deliberately not performed". That stopgap is retired, and this suite
+    // pins both halves: the typed field carries it, and `skipped` no longer does.
+    const m = areaMetric(plan, 'room-kitchen');
+    expect(m).toBeDefined();
+    expect(m?.unit).toBe('m2');
+    expect(m?.before).toBeCloseTo(12.4, 6);
+    // 4.0 m × 2.7 m = 10.8 m², computed by hand.
+    expect(m?.after).toBeCloseTo(10.8, 6);
+    // The stopgap is GONE — `regeneration.skipped` means only what its name says.
+    expect(plan.regeneration.skipped).toHaveLength(0);
     // Still legal — the minimum is 10 m².
     expect(plan.validation.violationsCreated.map((v) => v.ruleId)).not.toContain('ROOM_MIN_AREA');
   });
@@ -151,8 +163,8 @@ describe('wall.move → predicted room area', () => {
       makeContext({ wall: wallsAt(2.4), room: [kitchenRoom()] }),
     );
     // 4.0 m × 2.4 m = 9.6 m², below the 10 m² minimum.
-    expect(plan.regeneration.skipped.find((s) => s.id === 'room-kitchen')?.reason)
-      .toBe('area: 12.4 m² → 9.6 m² (-2.8 m²)');
+    expect(areaMetric(plan, 'room-kitchen')?.after).toBeCloseTo(9.6, 6);
+    expect(areaMetric(plan, 'room-kitchen')?.before).toBeCloseTo(12.4, 6);
     const fired = plan.validation.violationsCreated.find((v) => v.ruleId === 'ROOM_MIN_AREA');
     expect(fired).toBeDefined();
     expect(fired?.elementId).toBe('room-kitchen');
@@ -167,8 +179,9 @@ describe('wall.move → predicted room area', () => {
     );
     expect(plan.validation.violationsCreated).toHaveLength(0);
     // 12.4 stored vs 12.4 predicted — the recompute agrees with the record.
-    expect(plan.regeneration.skipped.find((s) => s.id === 'room-kitchen')?.reason)
-      .toBe('area: 12.4 m² → 12.4 m² (+0.0 m²)');
+    const m = areaMetric(plan, 'room-kitchen');
+    expect(m?.before).toBeCloseTo(12.4, 6);
+    expect(m?.after).toBeCloseTo(12.4, 6);
   });
 
   it('is deterministic — the same inputs produce the same planHash twice', async () => {
@@ -194,8 +207,8 @@ describe('unpredicted rooms', () => {
     expect(u).toBeDefined();
     expect(u?.detail).toContain('TOPOLOGY_CHANGE_POSSIBLE');
     expect(u?.detail).toContain('were NOT re-evaluated');
-    // No fabricated area line, and no violation invented for a room we could not predict.
-    expect(plan.regeneration.skipped.find((s) => s.id === 'room-kitchen')).toBeUndefined();
+    // No fabricated metric, and no violation invented for a room we could not predict.
+    expect(areaMetric(plan, 'room-kitchen')).toBeUndefined();
     expect(plan.validation.violationsCreated).toHaveLength(0);
     // Membership is still DETERMINED — we know the room is affected, we just cannot say how.
     expect(plan.changed).toContain('room-kitchen');
@@ -207,6 +220,8 @@ describe('unpredicted rooms', () => {
     expect(plan.changed).toContain('room-kitchen');
     const u = plan.undetermined.find((x) => x.scope.includes('room polygon + area under the move'));
     expect(u?.reason).toBe('ENGINE_NOT_AVAILABLE');
+    // No predictor ⇒ no metric transitions are claimed (and `skipped` stays what its name says).
+    expect(plan.metrics ?? []).toHaveLength(0);
     expect(plan.regeneration.skipped).toHaveLength(0);
     // Absent predictor ⇒ the after-clone rooms are untouched ⇒ no room-area violation delta.
     expect(plan.validation.violationsCreated).toHaveLength(0);

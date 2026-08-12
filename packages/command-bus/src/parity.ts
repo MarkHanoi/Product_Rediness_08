@@ -26,6 +26,27 @@
 //   KEPT — a plan that differs between human and AI is precisely the parity
 //   violation the gate exists to catch.
 //
+// ── R5 · METRICS ARE KEPT, NOT STRIPPED (decided 2026-08-12) ────────────────
+// `ConsequencePlan.metrics` and `ConsequenceReport.metrics` (the typed
+// `{ elementId, metric, before, after, unit }` transitions) fall under the KEEP
+// rule, and this is stated explicitly because they are the newest fields and
+// the easiest to mis-file as "display metadata".
+//
+// They are BEHAVIOURAL by the ADR-0324 §3 test: the same command + payload over
+// the same state MUST produce the same metrics, because a metric is a pure
+// function of the geometry the planner computed. If `wall.move 300 mm` predicts
+// `room-kitchen area 12.4 → 10.8 m²` for a human and anything else for the AI,
+// the two actors got different GEOMETRY — the most serious parity violation
+// there is, and one no other field would reveal (the element SETS would be
+// identical in that scenario; only the numbers would differ). Stripping them
+// would blind G-REASON-04 to exactly the divergence it most needs to see.
+//
+// No code change was needed to KEEP them: the projection below strips
+// `provenance` and `commandId` by name and passes everything else through, so
+// metrics were already retained the moment they landed on the types. This
+// comment pins the DECISION so a future "normalize away the display fields"
+// edit has to argue with it rather than silently drop them.
+//
 // KEPT deliberately: `audit.projectId` (which document was edited is
 // behavioural — cross-project "parity" would be meaningless), `type`,
 // `payload`, `affectedStores`, all patch content, and per-store grouping.
