@@ -17,12 +17,34 @@
 //   8. per kind: diff. Any divergence not on the DOCUMENTED-TOLERANCES list is
 //      reported by path. A kind whose capture reached no store = MISCONFIGURED.
 //
-// DOCUMENTED TOLERANCES: starts EMPTY. Divergences found on the first run are
-// FINDINGS, reported below — they are NOT normalised away (STOP rule).
+// DOCUMENTED TOLERANCES: started EMPTY (the STOP rule); the first run's
+// divergences were reported as FINDINGS and then GOVERNED, not normalised —
+// ADR-0319 is the governance act. The comparator now excludes exactly the
+// fields that ADR enumerates BY NAME, in two separately-named, single-sourced
+// lists from ../capture.ts (the same module the undo comparator reads — there
+// is no second list):
+//
+//   class 3 (`metadata.createdAt`, `metadata.modifiedAt`) — DERIVED-INCIDENTAL,
+//     excludable across a restore AND an undo (ADR-0319 §3);
+//   class 2 (`metadata.version`, `_renderVersion`) — DERIVED-BUT-CAUSAL,
+//     excludable across a RESTORE ONLY (ADR-0319 §2: "may differ across a
+//     restore; may NOT differ across an undo"). THIS comparator measures a
+//     restore, so it may consume the class-2 list; the UNDO comparator
+//     (undoredo.cert.ts) must NEVER consume it, and the TWO-LIST SEPARATION
+//     test below asserts exactly that split.
+//
+// Every row that excluded anything prints the count, the field names, and the
+// ADR-0319 § citation — a green row never hides what was dropped.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { World } from '../world';
-import { captureState, diffKind, type StateCapture, type Divergence } from '../capture';
+import {
+  captureState, diffKind,
+  isAdr0319Class3, isAdr0319Class2RestoreOnly,
+  ADR0319_CLASS3_FIELDS, ADR0319_CLASS2_RESTORE_ONLY,
+  ADR0319_CLASS3_CITATION, ADR0319_CLASS2_RESTORE_CITATION,
+  type StateCapture, type Divergence,
+} from '../capture';
 import { finishRow, writeResults, type CertRow } from '../report';
 import { seedWorld } from '../seed';
 
@@ -44,14 +66,37 @@ const ROOM_ID = crypto.randomUUID();
 // so the same comparison is ALSO emitted structurally here. Both come from the
 // one `diffKind` call — there is no second, softer comparison.
 const divergencesByKind: Record<string, Divergence[]> = {};
+// §C10-STRUCTURED, same rule for the EXCLUDED side: what the comparator dropped
+// under ADR-0319 is emitted structurally too, per kind, full paths — a gate must
+// be able to see what was tolerated without parsing a sentence.
+const excludedByKind: Record<string, Divergence[]> = {};
 const idsByKind: Record<string, { expected: string[]; actual: string[]; reachedExpected: boolean; reachedActual: boolean }> = {};
 
 // ── Documented derived-state tolerances ──────────────────────────────────────
 // RULE: every entry MUST cite the document that declares the field derived.
-// This list is EMPTY on purpose: no divergence found by this harness has yet
-// been traced to a documented derived-state contract. Findings stay findings.
-const DOCUMENTED_TOLERANCES: Array<{ pattern: RegExp; citation: string }> = [];
-const tolerated = (path: string): boolean => DOCUMENTED_TOLERANCES.some((t) => t.pattern.test(path));
+// The ONLY tolerances are the two ADR-0319 lists, imported from ../capture.ts —
+// single-sourced with the undo comparator, never duplicated here (a second copy
+// is how a tolerance list starts growing to fit whatever is failing, which the
+// acceptance plan's §0 rule 3 forbids). This is a RESTORE comparator, so BOTH
+// classes apply (ADR-0319 §2 + §3); the undo comparator applies §3 alone.
+const tolerated = (path: string): boolean => isAdr0319Class3(path) || isAdr0319Class2RestoreOnly(path);
+
+/** Render what a row excluded — count + FIELD NAMES + the ADR-0319 § citation,
+ *  per class. Empty string when nothing was excluded. Never a bare count. */
+function exclNote(toleratedDivergences: Divergence[]): string {
+  if (toleratedDivergences.length === 0) return '';
+  const parts: string[] = [];
+  for (const [cls, predicate, citation] of [
+    ['§3', isAdr0319Class3, ADR0319_CLASS3_CITATION],
+    ['§2', isAdr0319Class2RestoreOnly, ADR0319_CLASS2_RESTORE_CITATION],
+  ] as const) {
+    const hit = toleratedDivergences.filter((d) => predicate(d.path));
+    if (hit.length === 0) continue;
+    const names = [...new Set(hit.map((d) => d.path.split('.').slice(2).join('.')))];
+    parts.push(`${hit.length} excluded [${names.join(', ')}] per ADR-0319 ${cls} — ${citation}`);
+  }
+  return `; ${parts.join('; ')}`;
+}
 
 beforeAll(async () => {
   const { buildWorld } = await import('../world');
@@ -137,16 +182,19 @@ describe('HARNESS 1 — persistence round-trip comparator (§10)', () => {
       } else {
         const r = diffKind(kind, exp, act, tolerated);
         divergencesByKind[kind] = r.divergences;
+        excludedByKind[kind] = r.toleratedDivergences;
         if (r.status === 'MISCONFIGURED') {
           persistenceVerdict = `UNPROVEN — MISCONFIGURED: ${JSON.stringify(r.divergences[0])}`;
         } else if (r.status === 'CLEAN') {
-          persistenceVerdict = `PROVEN — ${expCount} record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)`;
+          persistenceVerdict = `PROVEN — ${expCount} record(s) round-tripped with 0 undocumented divergences ` +
+            `(executed: serialize → JSON → ProjectLoader → re-read)${exclNote(r.toleratedDivergences)}`;
         } else {
           failed = true;
           const named = r.divergences.slice(0, 12)
             .map((d) => `${d.path}: expected ${JSON.stringify(d.expected)} got ${JSON.stringify(d.actual)}`);
           persistenceVerdict = `FAIL — ${r.divergences.length} divergence(s): ${named.join(' | ')}` +
-            (r.divergences.length > 12 ? ` … +${r.divergences.length - 12} more` : '');
+            (r.divergences.length > 12 ? ` … +${r.divergences.length - 12} more` : '') +
+            exclNote(r.toleratedDivergences);
         }
       }
 
@@ -187,21 +235,75 @@ describe('HARNESS 1 — persistence round-trip comparator (§10)', () => {
   it('FALSIFIABILITY — the comparator goes RED on a mutated expectation and GREEN on truth', () => {
     // (a) truth vs truth over the ACTUAL capture: must be CLEAN.
     const self = diffKind('wall', actual['wall'], actual['wall']);
-    // (b) a deliberately WRONG expectation must be reported, naming the path.
+    // (b) a deliberately WRONG class-1 expectation must be reported, naming the
+    //     path — and it must STILL be reported WITH the ADR-0319 exclusions
+    //     active. `height` is AUTHORITATIVE (ADR-0319 §1: no tolerance, ever);
+    //     if adopting the §2/§3 exclusion lists had widened the comparator
+    //     enough to swallow it, this test is the tripwire.
     const tampered = JSON.parse(JSON.stringify(actual['wall']));
     const firstId = Object.keys(tampered.records)[0];
     let red = { status: 'MISCONFIGURED', divergences: [] as unknown[] };
+    let redWithExclusions = { status: 'MISCONFIGURED', divergences: [] as unknown[], toleratedCount: 0 };
     if (firstId) {
       (tampered.records[firstId] as { height?: unknown }).height = 99.75; // never written by anything
       red = diffKind('wall', tampered, actual['wall']) as never;
+      redWithExclusions = diffKind('wall', tampered, actual['wall'], tolerated) as never;
     }
     console.log('[FALSIFY H1] self-diff=' + self.status +
-      ' | tampered-diff=' + red.status + ' divergences=' + JSON.stringify(red.divergences.slice(0, 2)));
+      ' | tampered-diff=' + red.status + ' divergences=' + JSON.stringify(red.divergences.slice(0, 2)) +
+      ' | tampered-diff WITH ADR-0319 exclusions=' + redWithExclusions.status +
+      ' (tolerated=' + redWithExclusions.toleratedCount + ')');
     expect(self.status).toBe(Object.keys(actual['wall']?.records ?? {}).length >= 0 && actual['wall']?.reached ? 'CLEAN' : 'MISCONFIGURED');
     if (firstId) {
       expect(red.status).toBe('DIVERGED');
       expect(JSON.stringify(red.divergences)).toContain('height');
+      // The exclusion must not have widened: a class-1 tamper stays RED under
+      // the exact predicate the round-trip rows above were graded with.
+      expect(redWithExclusions.status, 'ADR-0319 exclusions swallowed a CLASS-1 field — the exclusion has WIDENED').toBe('DIVERGED');
+      expect(JSON.stringify(redWithExclusions.divergences)).toContain('height');
     }
+  });
+
+  it('TWO-LIST SEPARATION — class 2 is excluded by the RESTORE predicate only; the UNDO predicate still fails on it', () => {
+    // ADR-0319 §2: counters MAY differ across a restore, may NEVER differ across
+    // an undo. So the two comparators consume DIFFERENT predicates over two
+    // separately-named lists, and this test pins the split from both sides:
+    // a tampered class-2 counter is excluded HERE (with a printed citation) and
+    // is a reported divergence under the undo comparator's predicate
+    // (isAdr0319Class3 — the exact argument undoredo.cert.ts passes).
+    const base = actual['wall'];
+    const wallId = Object.keys(base?.records ?? {})[0];
+    expect(wallId, 'no wall record to tamper — separation test MISCONFIGURED').toBeTruthy();
+    const tampered = JSON.parse(JSON.stringify(base));
+    const w = tampered.records[wallId] as {
+      _renderVersion?: number;
+      metadata?: { version?: number; modifiedAt?: number };
+    };
+    w._renderVersion = (w._renderVersion ?? 0) + 7;
+    if (w.metadata) w.metadata.version = (w.metadata.version ?? 0) + 7;
+
+    // The lists themselves must stay disjoint — a field on both would let one
+    // comparator's ruling silently rewrite the other's.
+    for (const f of ADR0319_CLASS2_RESTORE_ONLY) {
+      expect(ADR0319_CLASS3_FIELDS, `'${f}' appears on BOTH ADR-0319 lists`).not.toContain(f);
+    }
+
+    // PERSISTENCE predicate (this suite's `tolerated`): excluded, cited, counted.
+    const restore = diffKind('wall', base, tampered, tolerated);
+    console.log('[SEPARATION H1] restore comparator: status=' + restore.status +
+      ' excluded=' + restore.toleratedCount +
+      ' [' + restore.toleratedDivergences.map((d) => d.path).join(', ') + ']' +
+      ' — ' + ADR0319_CLASS2_RESTORE_CITATION);
+    expect(restore.status).toBe('CLEAN');
+    expect(restore.toleratedDivergences.map((d) => d.path)).toContain(`wall.${wallId}._renderVersion`);
+
+    // UNDO predicate (class 3 alone): the same counters are REPORTED divergences.
+    const undo = diffKind('wall', base, tampered, isAdr0319Class3);
+    const undoPaths = undo.divergences.map((d) => d.path);
+    console.log('[SEPARATION H1] undo comparator: status=' + undo.status + ' kept=' + JSON.stringify(undoPaths));
+    expect(undo.status, '_renderVersion must stay a FAILURE across an undo (ADR-0319 §2)').toBe('DIVERGED');
+    expect(undoPaths).toContain(`wall.${wallId}._renderVersion`);
+    if (w.metadata) expect(undoPaths).toContain(`wall.${wallId}.metadata.version`);
   });
 
   it('MISCONFIGURED guard is itself falsifiable — a capture that reached no store never reports CLEAN', () => {
@@ -226,6 +328,14 @@ afterAll(() => {
     // that grades a kind absent from this list is grading nothing and must say so.
     comparedKinds: Object.keys(divergencesByKind),
     divergencesByKind,
+    // What ADR-0319 allowed this comparator to drop, per kind, FULL paths +
+    // values — the machine-readable twin of the per-row exclusion note. An
+    // empty object here plus green rows means nothing was excluded at all.
+    excludedByKind,
+    exclusionRule: {
+      class3: { fields: ADR0319_CLASS3_FIELDS, citation: ADR0319_CLASS3_CITATION },
+      class2RestoreOnly: { fields: ADR0319_CLASS2_RESTORE_ONLY, citation: ADR0319_CLASS2_RESTORE_CITATION },
+    },
     idsByKind,
     rows,
   });

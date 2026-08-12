@@ -1,6 +1,6 @@
 {
   "harness": "H1-persistence",
-  "generatedAt": "2026-08-11T20:58:18.513Z",
+  "generatedAt": "2026-08-12T06:11:43.229Z",
   "seedOutcomes": {
     "level": "SEEDED",
     "grid": "SEEDED",
@@ -63,6 +63,25 @@
   "divergencesByKind": {
     "level": [],
     "grid": [],
+    "wall": [],
+    "door": [],
+    "window": [],
+    "slab": [],
+    "roof": [],
+    "column": [],
+    "beam": [],
+    "stair": [],
+    "curtainWall": [],
+    "handrail": [],
+    "plumbing": [],
+    "furniture": [],
+    "ceiling": [],
+    "floor": [],
+    "room": []
+  },
+  "excludedByKind": {
+    "level": [],
+    "grid": [],
     "wall": [
       {
         "path": "wall.cert-wall-1._renderVersion",
@@ -71,13 +90,13 @@
       },
       {
         "path": "wall.cert-wall-1.metadata.createdAt",
-        "expected": 1786481892193,
-        "actual": 1786481898424
+        "expected": 1786515097659,
+        "actual": 1786515103192
       },
       {
         "path": "wall.cert-wall-1.metadata.modifiedAt",
-        "expected": 1786481892281,
-        "actual": 1786481898424
+        "expected": 1786515097748,
+        "actual": 1786515103192
       },
       {
         "path": "wall.cert-wall-1.metadata.version",
@@ -91,13 +110,13 @@
       },
       {
         "path": "wall.cert-wall-2.metadata.createdAt",
-        "expected": 1786481892195,
-        "actual": 1786481898425
+        "expected": 1786515097662,
+        "actual": 1786515103193
       },
       {
         "path": "wall.cert-wall-2.metadata.modifiedAt",
-        "expected": 1786481892298,
-        "actual": 1786481898425
+        "expected": 1786515097758,
+        "actual": 1786515103193
       },
       {
         "path": "wall.cert-wall-2.metadata.version",
@@ -111,13 +130,13 @@
     "roof": [
       {
         "path": "roof.cert-roof-1.metadata.createdAt",
-        "expected": 1786481892209,
-        "actual": 1786481898443
+        "expected": 1786515097681,
+        "actual": 1786515103200
       },
       {
         "path": "roof.cert-roof-1.metadata.modifiedAt",
-        "expected": 1786481892276,
-        "actual": 1786481898443
+        "expected": 1786515097742,
+        "actual": 1786515103200
       },
       {
         "path": "roof.cert-roof-1.metadata.version",
@@ -135,34 +154,50 @@
     "ceiling": [
       {
         "path": "ceiling.cert-ce-1.metadata.createdAt",
-        "expected": 1786481892237,
-        "actual": 1786481898428
+        "expected": 1786515097712,
+        "actual": 1786515103194
       },
       {
         "path": "ceiling.cert-ce-1.metadata.modifiedAt",
-        "expected": 1786481892244,
-        "actual": 1786481898429
+        "expected": 1786515097717,
+        "actual": 1786515103195
       }
     ],
     "floor": [
       {
         "path": "floor.cert-fl-1.metadata.createdAt",
-        "expected": 1786481892245,
-        "actual": 1786481898429
+        "expected": 1786515097718,
+        "actual": 1786515103195
       },
       {
         "path": "floor.cert-fl-1.metadata.modifiedAt",
-        "expected": 1786481892245,
-        "actual": 1786481898429
+        "expected": 1786515097718,
+        "actual": 1786515103195
       }
     ],
     "room": [
       {
-        "path": "room.0762fb27-24f7-470b-9a73-6395aaa06db0.metadata.modifiedAt",
-        "expected": 1786481892303,
-        "actual": 1786481898447
+        "path": "room.2053bd26-bd24-4f33-884a-cca778f82771.metadata.modifiedAt",
+        "expected": 1786515097763,
+        "actual": 1786515103202
       }
     ]
+  },
+  "exclusionRule": {
+    "class3": {
+      "fields": [
+        "metadata.createdAt",
+        "metadata.modifiedAt"
+      ],
+      "citation": "ADR-0319 §3 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt"
+    },
+    "class2RestoreOnly": {
+      "fields": [
+        "metadata.version",
+        "_renderVersion"
+      ],
+      "citation": "ADR-0319 §2 class-2 (DERIVED-BUT-CAUSAL, excludable across a RESTORE only — never an undo), enumerated by name: metadata.version, _renderVersion"
+    }
   },
   "idsByKind": {
     "level": {
@@ -201,20 +236,20 @@
     },
     "door": {
       "expected": [
-        "c11a616e-f6dd-425b-9230-fca225c4b521"
+        "2e08ca6d-a0ef-4ef2-a24e-0fa35dcc3e76"
       ],
       "actual": [
-        "c11a616e-f6dd-425b-9230-fca225c4b521"
+        "2e08ca6d-a0ef-4ef2-a24e-0fa35dcc3e76"
       ],
       "reachedExpected": true,
       "reachedActual": true
     },
     "window": {
       "expected": [
-        "d673f726-c92d-480d-8bc6-0d13d48b645b"
+        "c4df959f-98ed-4465-a5ef-a9b8771822d3"
       ],
       "actual": [
-        "d673f726-c92d-480d-8bc6-0d13d48b645b"
+        "c4df959f-98ed-4465-a5ef-a9b8771822d3"
       ],
       "reachedExpected": true,
       "reachedActual": true
@@ -247,20 +282,20 @@
     },
     "column": {
       "expected": [
-        "column_01KZS9WPVMQZBQH9XHV6QRV7NN"
+        "column_01KZT9J22P9WN96M2EMJHJDQDE"
       ],
       "actual": [
-        "column_01KZS9WPVMQZBQH9XHV6QRV7NN"
+        "column_01KZT9J22P9WN96M2EMJHJDQDE"
       ],
       "reachedExpected": true,
       "reachedActual": true
     },
     "beam": {
       "expected": [
-        "a0dbd93a-bf6b-4cc4-9bc9-c325b2873338"
+        "6f32f3a2-9c79-47f8-8a10-1c96d862ff0b"
       ],
       "actual": [
-        "a0dbd93a-bf6b-4cc4-9bc9-c325b2873338"
+        "6f32f3a2-9c79-47f8-8a10-1c96d862ff0b"
       ],
       "reachedExpected": true,
       "reachedActual": true
@@ -337,10 +372,10 @@
     },
     "room": {
       "expected": [
-        "0762fb27-24f7-470b-9a73-6395aaa06db0"
+        "2053bd26-bd24-4f33-884a-cca778f82771"
       ],
       "actual": [
-        "0762fb27-24f7-470b-9a73-6395aaa06db0"
+        "2053bd26-bd24-4f33-884a-cca778f82771"
       ],
       "reachedExpected": true,
       "reachedActual": true
@@ -389,7 +424,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 2 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 8 divergence(s): wall.cert-wall-1._renderVersion: expected 4 got 2 | wall.cert-wall-1.metadata.createdAt: expected 1786481892193 got 1786481898424 | wall.cert-wall-1.metadata.modifiedAt: expected 1786481892281 got 1786481898424 | wall.cert-wall-1.metadata.version: expected 2 got 1 | wall.cert-wall-2._renderVersion: expected 3 got 2 | wall.cert-wall-2.metadata.createdAt: expected 1786481892195 got 1786481898425 | wall.cert-wall-2.metadata.modifiedAt: expected 1786481892298 got 1786481898425 | wall.cert-wall-2.metadata.version: expected 2 got 1",
+      "persistence": "PROVEN — 2 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read); 4 excluded [metadata.createdAt, metadata.modifiedAt] per ADR-0319 §3 — ADR-0319 §3 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt; 4 excluded [_renderVersion, metadata.version] per ADR-0319 §2 — ADR-0319 §2 class-2 (DERIVED-BUT-CAUSAL, excludable across a RESTORE only — never an undo), enumerated by name: metadata.version, _renderVersion",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -399,7 +434,7 @@
         "expectedRecords=2",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     },
     {
       "capability": "persist:door",
@@ -479,7 +514,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 3 divergence(s): roof.cert-roof-1.metadata.createdAt: expected 1786481892209 got 1786481898443 | roof.cert-roof-1.metadata.modifiedAt: expected 1786481892276 got 1786481898443 | roof.cert-roof-1.metadata.version: expected 2 got 1",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read); 2 excluded [metadata.createdAt, metadata.modifiedAt] per ADR-0319 §3 — ADR-0319 §3 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt; 1 excluded [metadata.version] per ADR-0319 §2 — ADR-0319 §2 class-2 (DERIVED-BUT-CAUSAL, excludable across a RESTORE only — never an undo), enumerated by name: metadata.version, _renderVersion",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -489,7 +524,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     },
     {
       "capability": "persist:column",
@@ -623,7 +658,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): ceiling.cert-ce-1.metadata.createdAt: expected 1786481892237 got 1786481898428 | ceiling.cert-ce-1.metadata.modifiedAt: expected 1786481892244 got 1786481898429",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read); 2 excluded [metadata.createdAt, metadata.modifiedAt] per ADR-0319 §3 — ADR-0319 §3 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -633,7 +668,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     },
     {
       "capability": "persist:floor",
@@ -641,7 +676,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 2 divergence(s): floor.cert-fl-1.metadata.createdAt: expected 1786481892245 got 1786481898429 | floor.cert-fl-1.metadata.modifiedAt: expected 1786481892245 got 1786481898429",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read); 2 excluded [metadata.createdAt, metadata.modifiedAt] per ADR-0319 §3 — ADR-0319 §3 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -651,7 +686,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     },
     {
       "capability": "persist:room",
@@ -659,7 +694,7 @@
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
       "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "FAIL — 1 divergence(s): room.0762fb27-24f7-470b-9a73-6395aaa06db0.metadata.modifiedAt: expected 1786481892303 got 1786481898447",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read); 1 excluded [metadata.modifiedAt] per ADR-0319 §3 — ADR-0319 §3 class-3 (DERIVED-INCIDENTAL), enumerated by name: metadata.createdAt, metadata.modifiedAt",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
@@ -669,7 +704,7 @@
         "expectedRecords=1",
         "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
       ],
-      "status": "FAILED"
+      "status": "PARTIALLY VERIFIED"
     }
   ]
 }

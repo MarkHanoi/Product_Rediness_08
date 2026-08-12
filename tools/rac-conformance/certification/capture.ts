@@ -105,25 +105,68 @@ export const ADR0319_CLASS3_FIELDS: readonly string[] = [
   'metadata.modifiedAt',
 ];
 
+// ─── ADR-0319 class 2 — DERIVED-BUT-CAUSAL, excludable across a RESTORE ONLY ─
+//
+// ADR-0319 §2: "may differ across a restore; may NOT differ across an undo."
+// A reload legitimately re-executes commands and walks monotonic counters
+// forward; an undo that leaves a counter moved means the model is NOT the same
+// model, which is a REAL DEFECT.
+//
+// Accordingly this list exists as a SEPARATE, SEPARATELY-NAMED artefact:
+//
+//   * the PERSISTENCE comparator (persistence.cert.ts) MAY consume it, with a
+//     printed citation on every row it touches;
+//   * the UNDO comparator (undoredo.cert.ts) MUST NOT consume it, ever — its
+//     predicate is `isAdr0319Class3` alone, and the TWO-LIST SEPARATION test in
+//     persistence.cert.ts plus the FALSIFIABILITY test in undoredo.cert.ts both
+//     go red if a class-2 counter stops being reported across an undo.
+//
+// Do NOT merge these two lists. The single combined list is exactly the shape
+// of tolerance creep the acceptance plan's §0 rule 3 forbids: one list that
+// grows to fit whatever is failing, consumed everywhere, cited nowhere.
+// Same enumeration discipline as class 3: exact field paths, whole-segment
+// tail match, never a pattern. Both names below are named IN the ADR.
+export const ADR0319_CLASS2_RESTORE_ONLY: readonly string[] = [
+  'metadata.version',
+  '_renderVersion',
+];
+
 /**
- * True when `path` names an ADR-0319 class-3 field on some record.
+ * Whole-segment tail match of `path` against one enumerated field list.
  *
  * Divergence paths are `<kind>.<id>.<field…>`; the match is against the trailing
  * whole segments of the path, so `wall.u-wall-1.metadata.modifiedAt` matches
  * `metadata.modifiedAt` while `wall.u-wall-1.metadata.modifiedAtBy` does not.
+ * ONE matcher for both classes — the lists differ, the discipline does not.
  */
-export function isAdr0319Class3(path: string): boolean {
+function matchesEnumeratedTail(path: string, fields: readonly string[]): boolean {
   const segs = path.split('.');
-  return ADR0319_CLASS3_FIELDS.some((field) => {
+  return fields.some((field) => {
     const f = field.split('.');
     if (segs.length <= f.length) return false; // must sit ON a record, not BE one
     return f.every((s, i) => segs[segs.length - f.length + i] === s);
   });
 }
 
+/** True when `path` names an ADR-0319 class-3 (DERIVED-INCIDENTAL) field. */
+export function isAdr0319Class3(path: string): boolean {
+  return matchesEnumeratedTail(path, ADR0319_CLASS3_FIELDS);
+}
+
+/** True when `path` names an ADR-0319 class-2 (DERIVED-BUT-CAUSAL) counter.
+ *  RESTORE-ONLY: consuming this across an undo is forbidden — see the list's
+ *  declaration comment above. */
+export function isAdr0319Class2RestoreOnly(path: string): boolean {
+  return matchesEnumeratedTail(path, ADR0319_CLASS2_RESTORE_ONLY);
+}
+
 /** Human-readable provenance for a report cell, so an exclusion is never silent. */
 export const ADR0319_CLASS3_CITATION =
-  `ADR-0319 class-3 (DERIVED-INCIDENTAL), enumerated by name: ${ADR0319_CLASS3_FIELDS.join(', ')}`;
+  `ADR-0319 §3 class-3 (DERIVED-INCIDENTAL), enumerated by name: ${ADR0319_CLASS3_FIELDS.join(', ')}`;
+
+export const ADR0319_CLASS2_RESTORE_CITATION =
+  `ADR-0319 §2 class-2 (DERIVED-BUT-CAUSAL, excludable across a RESTORE only — never an undo), ` +
+  `enumerated by name: ${ADR0319_CLASS2_RESTORE_ONLY.join(', ')}`;
 
 function deepDiff(path: string, a: unknown, b: unknown, out: Divergence[]): void {
   if (a === b) return;
@@ -149,7 +192,7 @@ export function diffKind(
   expected: KindCapture,
   actual: KindCapture,
   tolerated: (path: string) => boolean = () => false,
-): { status: 'MISCONFIGURED' | 'CLEAN' | 'DIVERGED'; divergences: Divergence[]; toleratedCount: number } {
+): { status: 'MISCONFIGURED' | 'CLEAN' | 'DIVERGED'; divergences: Divergence[]; toleratedCount: number; toleratedDivergences: Divergence[] } {
   if (!expected.reached || !actual.reached) {
     return {
       status: 'MISCONFIGURED',
@@ -159,6 +202,7 @@ export function diffKind(
         actual: actual.reached ? '(reached)' : `capture failed: ${actual.reachError}`,
       }],
       toleratedCount: 0,
+      toleratedDivergences: [],
     };
   }
   const raw: Divergence[] = [];
@@ -170,11 +214,18 @@ export function diffKind(
     if (a === undefined) { raw.push({ path: `${kind}.${id}`, expected: '(present)', actual: '(absent — LOST)' }); continue; }
     deepDiff(`${kind}.${id}`, e, a, raw);
   }
-  const kept = raw.filter((d) => !tolerated(d.path));
+  // ONE comparison, split two ways. `toleratedDivergences` is returned in full —
+  // never just a count — so every caller CAN (and the cert suites DO) print the
+  // names of what was dropped. A green row that hides what it excluded is the
+  // defect the whole certification plan exists to prevent.
+  const kept: Divergence[] = [];
+  const toleratedDivergences: Divergence[] = [];
+  for (const d of raw) (tolerated(d.path) ? toleratedDivergences : kept).push(d);
   return {
     status: kept.length === 0 ? 'CLEAN' : 'DIVERGED',
     divergences: kept,
-    toleratedCount: raw.length - kept.length,
+    toleratedCount: toleratedDivergences.length,
+    toleratedDivergences,
   };
 }
 
@@ -183,16 +234,21 @@ export function diffState(
   expected: StateCapture,
   actual: StateCapture,
   tolerated: (path: string) => boolean = () => false,
-): { clean: boolean; misconfigured: string[]; divergences: Divergence[]; toleratedCount: number } {
+): { clean: boolean; misconfigured: string[]; divergences: Divergence[]; toleratedCount: number; toleratedDivergences: Divergence[] } {
   const misconfigured: string[] = [];
   const divergences: Divergence[] = [];
-  let toleratedCount = 0;
+  const toleratedDivergences: Divergence[] = [];
   for (const kind of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
     const r = diffKind(kind, expected[kind] ?? { reached: false, reachError: 'kind absent from expected capture', records: {} },
       actual[kind] ?? { reached: false, reachError: 'kind absent from actual capture', records: {} }, tolerated);
     if (r.status === 'MISCONFIGURED') misconfigured.push(kind);
     divergences.push(...r.divergences);
-    toleratedCount += r.toleratedCount;
+    toleratedDivergences.push(...r.toleratedDivergences);
   }
-  return { clean: misconfigured.length === 0 && divergences.length === 0, misconfigured, divergences, toleratedCount };
+  return {
+    clean: misconfigured.length === 0 && divergences.length === 0,
+    misconfigured, divergences,
+    toleratedCount: toleratedDivergences.length,
+    toleratedDivergences,
+  };
 }

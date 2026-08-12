@@ -12,7 +12,13 @@
     "    floors.ts decides that first, and exit 2 outranks everything here.",
     "",
     "MEASURED, not estimated, by `npx tsx certify.ts`:",
-    "  persistence  5 FAILED of 18 rows",
+    "  persistence  0 FAILED of 18 rows  (all 18 now PARTIALLY VERIFIED — the ceiling,",
+    "               since Collaboration is UNPROVEN by construction on every row.",
+    "               5 -> 0 on 2026-08-12: the persistence comparator adopted the ADR-0319",
+    "               exclusions — §3 createdAt/modifiedAt, and §2 version/_renderVersion as",
+    "               RESTORE-ONLY. Nothing else was widened: every excluded field is printed",
+    "               per row with its citation, the class-1 falsifiability tamper still goes",
+    "               red, and the undo comparator still fails on any class-2 counter.)",
     "  undoredo     0 FAILED of 16 rows  (all 16 now PARTIALLY VERIFIED — the ceiling,",
     "               since Collaboration is UNPROVEN by construction on every row)",
     "",
@@ -21,7 +27,8 @@
     "17:54 report file says 24 too. Measured on the same tree during this session:",
     "  20:35  persistence  8 · undoredo 12   (24 -> 20)",
     "  20:50  persistence  8 · undoredo  0",
-    "  21:50  persistence  5 · undoredo  0   <- this file",
+    "  21:50  persistence  5 · undoredo  0",
+    "  08-12 07:10  persistence  0 · undoredo  0   <- this file",
     "Wave 1-2 work was landing throughout. check-identity-roundtrip is CLEAN on the last two",
     "readings, where F-1/F-2 predicted 18 findings. A plan is a stamp; this file is the ratchet,",
     "and the ratchet is the one that must be current.",
@@ -32,9 +39,9 @@
     "exists to notice exactly that — and neither number was inflated to make the failure less",
     "likely. RE-MEASURE ONCE THE WAVE 1-2 COMMITS LAND, and lower again if it reads lower."
   ],
-  "measuredAt": "2026-08-11T21:50:00Z",
+  "measuredAt": "2026-08-12T07:10:00Z",
   "maxFailedRows": {
-    "persistence": 5,
+    "persistence": 0,
     "undoredo": 0
   }
 }
