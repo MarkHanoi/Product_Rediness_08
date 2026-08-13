@@ -108,13 +108,34 @@ matrix opens its second row.
 
 ## The golden-operation matrix (the backlog — horizontal expansion AFTER the loop closes)
 
+> **Re-measured 2026-08-13.** The table below was all-dashes for four of five rows at stamp time.
+> Rows 2 and 3 have since opened. **16 of 30 cells** filled.
+
 | Operation | Planner | Preview | Confirm | Execute | Report | AI parity |
 |---|---|---|---|---|---|---|
 | **wall.move** | R2 | R3 | R6 | R4 | R5 | R7 |
-| wall.create | — | — | — | — | — | — |
-| opening.move | — | — | — | — | — | — |
+| **wall.create** | ✅ `46d06234` | ✅ | ✅ | ✅ | ✅ | — |
+| **opening.move** | ✅ `cb3d59c6` | ✅ | ✅ | ✅ | ✅ | — |
 | room.regenerate | — | — | — | — | — | — |
 | furniture.generate | — | — | — | — | — | — |
+
+> **§M.1 — what the two new rows do NOT claim.** Only `check-plan-determinism` actually drives
+> `opening.move`; `check-preview-purity`, `check-execution-plan-agreement` and
+> `check-consequence-report-completeness` exit 0 over **wall-family subjects**. Four green gates is
+> **not** four gates covering the third row (C70 §3.3 — a link may not be scored by a neighbour).
+> The AI-parity column stays `—` for both rows for a structural reason, not an oversight: the
+> parity gate's AI half is not independently dispatchable at all (`wall.updateBaseline` is
+> family-blocked from chat, `applySemanticIntent` is pure and never dispatches, and **no production
+> call site builds a `CommandExecutionContext`**, so both actors are anonymous at the funnel).
+>
+> **§M.2 — the genericity held, with one honest qualification.** Opening row 3 required **no service
+> class edit** — `ConsequenceExecutionService`, `ConfirmationFlow` and the `ConsequencePreviewService`
+> class body carry zero verb literals in executable positions, pinned by a comment-stripping test so
+> documentation may still cite `wall.move` as a worked example. But `ConsequencePreviewService.ts`
+> *the file* does change, because the shared `CONSEQUENCE_NORMALIZERS` registry physically lives in
+> it. True of the service, false of the file. **Hoisting the registry into its own
+> `consequenceNormalizers.ts` would make C78 U-INV-5's claim checkable by diff** rather than by a
+> test that has to adjudicate intent.
 
 ## Explicitly NOT in this plan *(STR-06 §18 — visible gaps, wrong route)*
 
