@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@pryzm/geometry-kernel": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "@pryzm/schemas": "workspace:*",
     "@pryzm/site-validators": "workspace:*"
