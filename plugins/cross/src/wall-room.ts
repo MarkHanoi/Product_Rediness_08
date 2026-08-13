@@ -119,9 +119,19 @@ export function buildWallRoomCascadeRule(deps: WallRoomCascadeDeps): CascadeRule
       // RecomputeRoomBoundaryHandler in plugins/rooms reads the live
       // wall snapshot itself via `ctx.stores.wall`, so we don't need
       // to thread any wall geometry through the payload.
+      //
+      // ⚠ `id` (PR-11 seam finding, 2026-08-13): the CascadeRunner's
+      // default entity-id extractor reads `payload.id ?? payload.wallId ??
+      // payload.entityId`. Without an explicit `id`, every synthesised
+      // follow-on resolved to the ROOT WALL's id via the attribution
+      // `wallId` field, deduped against the visited set, and was silently
+      // dropped as a false cycle — 100% of this rule's output discarded at
+      // dispatch. `id` carries the room's identity so the walker visits
+      // each room exactly once; `roomId` remains the handler contract.
       return {
         type: 'room.recomputeBoundary',
         payload: {
+          id: affectedRoomId,
           roomId: affectedRoomId,
           cascadedFrom: rootCmd.type,
           wallId: extractWallId(rootCmd),
