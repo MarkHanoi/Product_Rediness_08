@@ -6,6 +6,11 @@
 // PAYLOAD in LightingPlanToolHandler). Pure + deterministic.
 
 import type { LightKind, PlacedLight } from './types.js';
+import {
+    resolveLightingBasis,
+    type FurnishStageOutcome,
+    type LightingBasis,
+} from './lightingBasis.js';
 
 export type LightIdMinter = (prefix: 'lighting') => string;
 
@@ -62,6 +67,16 @@ export interface LightingCommandSet {
     readonly ids: readonly string[];
     readonly totalElementCount: number;
     readonly warnings: readonly string[];
+    /** §FURNISH-DROP-SURFACING — the floor-state lighting was computed against.
+     *  'unfurnished' means the furnish stage was dropped or never reported;
+     *  it is NOT the same as "furnished with zero items" (C75 §1.2). Callers
+     *  that know nothing about furnish get 'unfurnished' — UNPROVEN is not a
+     *  pass (C70 §2.2). */
+    readonly basis: LightingBasis;
+    /** Reason accompanying every non-clean basis (C75 §1.4 — UNKNOWN is a
+     *  value WITH A REASON). `null` only when furnish genuinely completed
+     *  with items placed. */
+    readonly basisDisclosure: string | null;
 }
 
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
@@ -70,6 +85,11 @@ export function buildLightingCommands(
     placed: readonly PlacedLight[],
     levelId: string,
     mintId: LightIdMinter,
+    /** §FURNISH-DROP-SURFACING — what is known about the preceding furnish
+     *  stage. Omitting it does NOT default to furnished: the set is stamped
+     *  unfurnished-with-reason so a caller that lost track of furnish can
+     *  never mint a clean-looking result (C70 §2.2). */
+    furnishOutcome?: FurnishStageOutcome,
 ): LightingCommandSet {
     const commands: LightingCommand[] = [];
     const ids: string[] = [];
@@ -96,5 +116,9 @@ export function buildLightingCommands(
         });
     }
 
-    return { levelId, commands, ids, totalElementCount: commands.length, warnings };
+    const { basis, disclosure } = resolveLightingBasis(furnishOutcome);
+    return {
+        levelId, commands, ids, totalElementCount: commands.length, warnings,
+        basis, basisDisclosure: disclosure,
+    };
 }

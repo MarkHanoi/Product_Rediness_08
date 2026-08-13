@@ -509,6 +509,12 @@ export {
   deriveCoreSizing,
   // §RESI-OPENING-IN-WALL — emit-stage clamp keeping an opening within its STORED (mitred) wall.
   clampOpeningToWall,
+  // L-864 §RESI-UNIT-CONTAINMENT — one hierarchy UNIT per PLACED apartment. The partitioner
+  // knows which rooms form an apartment; this carries that grouping to the executor so the
+  // shipped model knows it too (C81 §8 — a hard precondition of the edit layer).
+  planBuildingUnits,
+  unitLetter,
+  unitTypeForBedrooms,
 } from './workflows/residentialBuilding/index.js';
 export type {
   CoreSizing,
@@ -532,6 +538,8 @@ export type {
   ApartmentCellLayoutInput,
   ApartmentCellLayoutResult,
   ClampedOpening,
+  // L-864 §RESI-UNIT-CONTAINMENT
+  PlannedUnit,
 } from './workflows/residentialBuilding/index.js';
 
 // ── Office building (4th typology) — circular floor-plate + tower orchestrator ──
@@ -639,6 +647,16 @@ export type {
 // same pattern as furniture (D-FLE). Auto-fires AFTER furnish completes so
 // every room ends up lit when the apartment generator finishes.
 export { lightRoom } from './workflows/lightingLayout/lightRoom.js';
+// §FURNISH-DROP-SURFACING — typed furnish-stage provenance for lighting. The
+// editor's chain wiring passes what it knows about furnish (completed /
+// dropped-with-reason) and the resulting LightingCommandSet carries a
+// basis stamp the UI must surface (C75 §1.2 / §1.4).
+export { resolveLightingBasis } from './workflows/lightingLayout/lightingBasis.js';
+export type {
+  FurnishStageOutcome,
+  LightingBasis,
+  LightingBasisResolution,
+} from './workflows/lightingLayout/lightingBasis.js';
 export { archetypeForLighting, LIGHTING_ARCHETYPES } from './workflows/lightingLayout/archetypes.js';
 export { buildLightingCommands } from './workflows/lightingLayout/buildLightingCommands.js';
 export type {
