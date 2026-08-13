@@ -62,6 +62,7 @@ import { createId } from '@pryzm/schemas';
 import { normalizeDetailLevel, DEFAULT_DETAIL_LEVEL, type DetailLevel } from '@pryzm/schemas/view/detail-level';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { commitAnnotationSet } from './commitAnnotationSet.js';
+import { relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the identity a live reconcile refreshes in place.
 import { AUTO_KEY_PARAM } from './dimensionIdentity.js';
 
@@ -125,7 +126,16 @@ export function buildElevationSnapshot(
   walls: readonly WallRecord[],
   levels: readonly LevelRecord[],
   frame: { hWorldAxis: 'x' | 'z'; hSign: 1 | -1; right: { x: number; z: number }; normal: { x: number; z: number } },
-): { snapshot: ElevAutoDimSnapshot; facadeDepth: number; facadeWallIds: readonly string[] } | null {
+): {
+  snapshot: ElevAutoDimSnapshot;
+  facadeDepth: number;
+  facadeWallIds: readonly string[];
+  /** GR-10 / C75 §1.4 — façade walls whose opening sets were NEVER RECORDED.
+   *  Their run/extent dims are real; their opening dims are UNKNOWN, not
+   *  absent, and the executor says so instead of printing a drawing that
+   *  silently claims "no openings here". */
+  openingsUnrecordedWallIds: readonly string[];
+} | null {
   const levelElev = new Map<string, number>();
   const engineLevels: ElevAutoDimLevel[] = [];
   for (const l of levels) {
@@ -158,6 +168,7 @@ export function buildElevationSnapshot(
   let hMax = -Infinity;
   let topElevation = -Infinity;
   const openings: ElevAutoDimOpening[] = [];
+  const openingsUnrecordedWallIds: string[] = [];
 
   for (const w of facade) {
     const bl = w.baseLine!;
@@ -178,7 +189,15 @@ export function buildElevationSnapshot(
     if (len < 1e-6) continue;
     const ux = dx / len;
     const uz = dz / len;
-    for (const o of w.openings ?? []) {
+    // GR-10 — the honest openings read: absent ⇒ this wall's opening set was
+    // never recorded ⇒ named in the result, its opening dims stay UNKNOWN;
+    // a PRESENT empty array is a real "no openings" (C71 §4.4).
+    const knownOpenings = relationshipArrayOrUnknown<OpeningRecord>(w.openings);
+    if (knownOpenings === null) {
+      openingsUnrecordedWallIds.push(w.id);
+      continue;
+    }
+    for (const o of knownOpenings) {
       const id = (o.elementId ?? o.id ?? '') as string;
       if (!id || typeof o.offset !== 'number' || typeof o.width !== 'number' || o.width <= 0) continue;
       if (typeof o.height !== 'number' || !Number.isFinite(o.height) || o.height <= 0) continue;
@@ -225,6 +244,7 @@ export function buildElevationSnapshot(
     },
     facadeDepth: nearest,
     facadeWallIds: facade.map((w) => w.id),
+    openingsUnrecordedWallIds,
   };
 }
 
@@ -396,6 +416,22 @@ export function applyElevationAutoDimensions(runtime: PryzmRuntime): number {
         return 0;
       }
       span.setAttribute('pryzm.autodim.wall_count', built.facadeWallIds.length);
+      // GR-10 / C78 §5 — say WHICH façade walls have unknown (not absent)
+      // opening dims, on the span, the console and the user's screen.
+      span.setAttribute('pryzm.autodim.openings_unrecorded_wall_count', built.openingsUnrecordedWallIds.length);
+      if (built.openingsUnrecordedWallIds.length > 0) {
+        console.warn(
+          `[auto-dimension] §GR-10 elevation opening dimensions NOT determined for ` +
+          `${built.openingsUnrecordedWallIds.length} façade wall(s) ` +
+          `[${built.openingsUnrecordedWallIds.join(', ')}] — their opening sets were never recorded ` +
+          `(RELATIONSHIP_NOT_RECORDED). Extent/level dims are real; those opening dims are UNKNOWN, not absent.`,
+        );
+        toast(
+          `Auto-Dimension: opening dimensions for ${built.openingsUnrecordedWallIds.length} façade ` +
+          `wall(s) could not be determined — their opening sets were never recorded.`,
+          'warn',
+        );
+      }
 
       // §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the tier gap for the horizontal stack is
       // the VIEW's, not the engine's: a PAPER constant through the drawing scale (C24),

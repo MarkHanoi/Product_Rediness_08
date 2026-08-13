@@ -61,6 +61,7 @@ import type { DimensionString } from '@pryzm/schemas/annotation/dimension';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 // §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — the SHARED commit + ONE-undo path.
 import { commitAnnotationSet } from './commitAnnotationSet.js';
 // §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — the engine's {elementId, anchor} → a LIVE
@@ -153,11 +154,23 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
       if (onLevel.length === 0) { toast('Auto-Dimension: no walls on this level.', 'warn'); return 0; }
 
       // ── Build the PURE engine snapshot from the live walls + embedded openings.
+      // GR-10 / C75 §1.4 — `(w.openings ?? [])` told the dimension engine "this
+      // wall has no openings" about walls whose opening set was NEVER RECORDED,
+      // and the printed drawing then carried no opening dimensions with nothing
+      // to say why. The wall's GEOMETRY is still real (its run dims stay true),
+      // so it stays in the snapshot with zero openings — but that is now a
+      // DECLARED HALF-FIX, not a silent forge: the engine's input type
+      // (`AutoDimWall`, packages/auto-dimension — out of this lane) cannot carry
+      // "unknown", so the unknown is carried BESIDE it — span attribute,
+      // console.warn and a user-visible toast naming the walls.
+      const openingsUnrecorded = new Set<string>();
       const engineWalls: AutoDimWall[] = [];
       for (const w of onLevel) {
         const bl = w.baseLine;
         if (!bl || bl.length < 2) continue;
-        const openings = (w.openings ?? [])
+        const known = relationshipArrayOrUnknown<OpeningRecord>(w.openings);
+        if (known === null) openingsUnrecorded.add(w.id);
+        const openings = (known === null ? ([] as readonly OpeningRecord[]) : known)
           .filter((o) => typeof o.offset === 'number' && typeof o.width === 'number' && (o.width ?? 0) > 0)
           .map((o) => ({
             id: (o.elementId ?? o.id ?? '') as string,
@@ -176,6 +189,19 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
         });
       }
       span.setAttribute('pryzm.autodim.wall_count', engineWalls.length);
+      span.setAttribute('pryzm.autodim.openings_unrecorded_wall_count', openingsUnrecorded.size);
+      if (openingsUnrecorded.size > 0) {
+        console.warn(
+          `[auto-dimension] §GR-10 opening dimensions NOT determined for ${openingsUnrecorded.size} ` +
+          `wall(s) [${[...openingsUnrecorded].join(', ')}] — their opening sets were never recorded ` +
+          `(RELATIONSHIP_NOT_RECORDED). Run dims for those walls are real; their opening dims are UNKNOWN, not absent.`,
+        );
+        toast(
+          `Auto-Dimension: opening dimensions for ${openingsUnrecorded.size} wall(s) could not be ` +
+          `determined — their opening sets were never recorded.`,
+          'warn',
+        );
+      }
       if (engineWalls.length === 0) { toast('Auto-Dimension: walls have no usable geometry.', 'warn'); return 0; }
 
       const snapshot: AutoDimSnapshot = { walls: engineWalls };
@@ -204,7 +230,7 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
       // ── §FIX-AUTODIM-RENDER-SINK: adapt the abstract engine DimensionString[] to
       //    the RENDERED representation the plan reads — `'linear-dim'` annotations
       //    owned by the active plan view (see file header + the pure helper below).
-      const evalSnapshot = buildEvalSnapshot(onLevel, level.id);
+      const evalSnapshot = buildEvalSnapshot(onLevel, level.id, (id) => openingsUnrecorded.add(id));
       const annotations = dimensionStringsToLinearDimAnnotations(strings, evalSnapshot, activeViewId);
       span.setAttribute('pryzm.autodim.annotation_count', annotations.length);
       if (annotations.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
@@ -442,7 +468,14 @@ export { buildAnnotationRingUndoPair } from './commitAnnotationSet.js';
  * Exported so the store-offset → evaluator-centre conversion is unit-testable
  * against a known (offset, width) opening without a live runtime.
  */
-export function buildEvalSnapshot(walls: readonly WallRecord[], levelId: string): ElementSnapshotForDim {
+export function buildEvalSnapshot(
+  walls: readonly WallRecord[],
+  levelId: string,
+  /** GR-10 / C75 §1.4 — called per wall whose opening set was NEVER RECORDED:
+   *  that wall contributes NO door/window evaluator entries because they are
+   *  UNKNOWN, not because it has none. The caller decides how to surface it. */
+  onOpeningsUnrecorded?: (wallId: string) => void,
+): ElementSnapshotForDim {
   const wallMap = new Map<string, WallLikeEvaluator>();
   const doorMap = new Map<string, DoorLikeEvaluator>();
   const windowMap = new Map<string, WindowLikeEvaluator>();
@@ -460,7 +493,14 @@ export function buildEvalSnapshot(walls: readonly WallRecord[], levelId: string)
       height: typeof w.height === 'number' ? w.height : 2.5,
       baseOffset: 0,
     });
-    for (const o of w.openings ?? []) {
+    // GR-10 — the honest openings read: absent ⇒ unrecorded ⇒ report + skip;
+    // a PRESENT empty array is a real "no openings" (C71 §4.4).
+    const knownOpenings = relationshipArrayOrUnknown<OpeningRecord>(w.openings);
+    if (knownOpenings === null) {
+      onOpeningsUnrecorded?.(w.id);
+      continue;
+    }
+    for (const o of knownOpenings) {
       const id = (o.elementId ?? o.id ?? '') as string;
       if (!id || typeof o.offset !== 'number' || typeof o.width !== 'number') continue;
       const entry = {

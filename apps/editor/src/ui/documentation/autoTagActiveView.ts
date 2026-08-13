@@ -65,6 +65,7 @@ import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { commitAnnotationSet } from './commitAnnotationSet.js';
 import { resolveViewFacadeFrame, selectFacadeWalls, type ViewFacadeFrame } from './facadeSelection.js';
+import { relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 
 const PLAN_VIEW_TYPES: ReadonlySet<string> = new Set(['plan', 'ceiling-plan', 'structural-plan']);
 const ELEVATION_VIEW_TYPES: ReadonlySet<string> = new Set(['elevation', 'building-elevation']);
@@ -160,15 +161,26 @@ function openingElement(w: WindowWithStores, o: OpeningRecord, id: string): Open
  * the anchor rule — which is exactly the claim L-265 §3 makes, and exactly why the
  * two projections share this function instead of forking it.
  */
-function openingTargets(
+export function openingTargets(
   w: WindowWithStores,
   wall: WallRecord,
   categories: ReadonlySet<TagCategory>,
   markSource: 'type' | 'instance',
   anchorOf: (wall: WallRecord, o: OpeningRecord, index: number) => TagAnchor | null,
+  /** GR-10 / C75 §1.4 — called when this wall's opening set was NEVER
+   *  RECORDED. The wall then yields NO opening targets, but the caller is
+   *  TOLD, so the drawing's missing door/window tags surface as a warning
+   *  instead of silently reading as "nothing to tag". */
+  onOpeningsUnrecorded?: (wallId: string) => void,
 ): TagTarget[] {
   const out: TagTarget[] = [];
-  const openings = wall.openings ?? [];
+  // The honest read: absent ⇒ unrecorded ⇒ report and refuse this wall's
+  // opening tags; a PRESENT empty array is a real "no openings" (C71 §4.4).
+  const openings = relationshipArrayOrUnknown<OpeningRecord>(wall.openings);
+  if (openings === null) {
+    onOpeningsUnrecorded?.(wall.id);
+    return out;
+  }
   for (let i = 0; i < openings.length; i++) {
     const o = openings[i]!;
     const category: TagCategory = o.type === 'door' ? 'door' : 'window';
@@ -364,6 +376,10 @@ export function autoTagView(
       if (allWalls.length === 0) { toast('Auto-Tag: no walls in the model.', 'warn'); return 0; }
 
       const targets: TagTarget[] = [];
+      // GR-10 — walls whose opening sets were never recorded: their door/window
+      // tags are UNKNOWN, not absent, and the user is told below.
+      const openingsUnrecorded = new Set<string>();
+      const collectUnrecorded = (wallId: string): void => { openingsUnrecorded.add(wallId); };
       let facadeFrame: ViewFacadeFrame | null = null;
 
       if (projection === 'plan') {
@@ -373,7 +389,7 @@ export function autoTagView(
         if (walls.length === 0) { toast('Auto-Tag: no walls on this level.', 'warn'); return 0; }
         walls.forEach((wall, i) => {
           targets.push(...openingTargets(w, wall, categories, intent.markSource,
-            (hostWall, o, idx) => planOpeningTagAnchor(hostWall, o, idx)));
+            (hostWall, o, idx) => planOpeningTagAnchor(hostWall, o, idx), collectUnrecorded));
           if (categories.has('wall')) {
             const t = wallTarget(wall, intent.markSource, planWallTagAnchor(wall, i));
             if (t) targets.push(t);
@@ -403,7 +419,8 @@ export function autoTagView(
         selection.walls.forEach((wall, i) => {
           const base = levelElev.get(wall.levelId ?? '')!;
           targets.push(...openingTargets(w, wall, categories, intent.markSource,
-            (hostWall, o, idx) => elevationOpeningTagAnchor(hostWall, o, base, frame, depth, idx)));
+            (hostWall, o, idx) => elevationOpeningTagAnchor(hostWall, o, base, frame, depth, idx),
+            collectUnrecorded));
           if (categories.has('wall')) {
             const t = wallTarget(wall, intent.markSource, elevationWallTagAnchor(wall, base, frame, depth, i));
             if (t) targets.push(t);
@@ -488,6 +505,21 @@ export function autoTagView(
       span.setAttribute('pryzm.autotag.refreshed', toRefresh.length);
       span.setAttribute('pryzm.autotag.removed', removed.length);
       span.setAttribute('pryzm.autotag.unchanged', unchanged);
+      // GR-10 / C78 §5 — the refusal is VISIBLE: missing tags on these walls
+      // mean "opening set never recorded", not "nothing to tag".
+      span.setAttribute('pryzm.autotag.openings_unrecorded_walls', openingsUnrecorded.size);
+      if (openingsUnrecorded.size > 0) {
+        console.warn(
+          `[auto-tag] §GR-10 opening tags NOT determined for ${openingsUnrecorded.size} wall(s) ` +
+          `[${[...openingsUnrecorded].join(', ')}] — their opening sets were never recorded ` +
+          `(RELATIONSHIP_NOT_RECORDED). Their doors/windows are untagged because they are UNKNOWN, not absent.`,
+        );
+        toast(
+          `Auto-Tag: opening tags for ${openingsUnrecorded.size} wall(s) could not be determined — ` +
+          `their opening sets were never recorded.`,
+          'warn',
+        );
+      }
 
       if (created.length === 0 && toRefresh.length === 0 && removed.length === 0) {
         toast(
