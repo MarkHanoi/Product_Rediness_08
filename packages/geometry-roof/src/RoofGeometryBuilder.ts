@@ -1,5 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { RoofData, SlopeArrow } from './RoofTypes.js';
+import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 import { gableRidge, isConvexPolygon } from './roofRidgeAxis.js';
 import { decomposeInPrincipalFrame, rotatePolyXZ, rectToPolygon, type Pt2 } from './roofDecompose.js';
 // `offsetPolygon` (strict, returns a discriminated OffsetResult) is used by
@@ -405,19 +406,11 @@ export class RoofGeometryBuilder {
         return true; // nowhere inside just past it ⇒ outer edge
     }
 
-    /** Even-odd point-in-polygon (XZ). */
+    /** Even-odd point-in-polygon (XZ) — §C73-PIP-CANONICAL: delegates to THE
+     *  kernel ray cast over the tuple ring (the `|| 1e-9` guard was dead code:
+     *  the straddle test makes the divisor structurally nonzero). */
     private static _pointInPoly(poly: Pt[], px: number, pz: number): boolean {
-        let inside = false;
-        const n = poly.length;
-        for (let i = 0, j = n - 1; i < n; j = i++) {
-            const [xi, zi] = poly[i]!;
-            const [xj, zj] = poly[j]!;
-            const intersect =
-                (zi > pz) !== (zj > pz) &&
-                px < ((xj - xi) * (pz - zi)) / ((zj - zi) || 1e-9) + xi;
-            if (intersect) inside = !inside;
-        }
-        return inside;
+        return pointInRingEvenOdd(px, pz, poly.length, (i) => poly[i]![0], (i) => poly[i]![1]);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

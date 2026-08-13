@@ -21,6 +21,7 @@
 
 import { ColumnData } from './ColumnTypes';
 import type { SlabStore } from '@pryzm/geometry-slab';
+import { pointInPolygonXY } from '@pryzm/geometry-kernel';
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
 
@@ -38,17 +39,10 @@ function _pointInPolygon(
     pz:   number,
     poly: { x: number; y: number }[],
 ): boolean {
-    let inside = false;
-    const n = poly.length;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = poly[i].x, yi = poly[i].y;
-        const xj = poly[j].x, yj = poly[j].y;
-        if (((yi > pz) !== (yj > pz)) &&
-            (px < (xj - xi) * (pz - yi) / (yj - yi) + xi)) {
-            inside = !inside;
-        }
-    }
-    return inside;
+    // §C73-PIP-CANONICAL — delegates to THE kernel ray cast (the `y` field of
+    // SlabData.polygon carries the Z ordinate; the XY wrapper reads it as the
+    // second planar axis, which is exactly this site's convention).
+    return pointInPolygonXY(px, pz, poly);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
