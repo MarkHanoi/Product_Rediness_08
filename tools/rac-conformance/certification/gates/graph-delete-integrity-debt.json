@@ -54,8 +54,6 @@
   ],
   "declaredFindings": [
     { "key": "slab/undo-reconstructs-not-verbatim:DeleteSlabCommand.ts", "why": "Undo re-authors sitsOn from the slab snapshot; edges authored by other commands (supports slab→wall, boundedBy) are not captured and are dropped by delete+undo." },
-    { "key": "ceiling/purge-missing:RemoveCeilingCommand.ts", "why": "One of two ceiling delete producers never purges — diverges from DeleteElementCommand's ceiling branch, which does. Two producers, two behaviours." },
-    { "key": "ceiling/undo-restores-nothing:DeleteElementCommand.ts#ceiling", "why": "Branch purges all edges, undo re-registers the ceiling but restores no edges." },
     { "key": "floor/purge-missing:RemoveFloorCommand.ts", "why": "Same divergence as ceiling: the Remove* producer never purges while the DeleteElementCommand branch does." },
     { "key": "floor/undo-restores-nothing:DeleteElementCommand.ts#floor", "why": "Branch purges all edges, undo restores none." },
     { "key": "column/undo-reconstructs-not-verbatim:DeleteColumnCommand.ts", "why": "Undo re-authors sitsOn only (§COLUMN-AUDIT-2026 §C2); supports edges to beams written by AssignBeamSupportsCommand are dropped by delete+undo." },

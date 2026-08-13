@@ -138,7 +138,8 @@ export class DeleteElementCommand implements Command {
     /**
      * §FIX-WALL-DELETE-LEAVES-GRAPH-EDGES — undo side: re-add the captured edges.
      * addRelationship() regenerates ids but is idempotent on
-     * (source, target, type), so a second undo after redo cannot duplicate.
+     * (source, target, type, authoredBy), so a second undo after redo cannot
+     * duplicate.
      */
     private _restoreRelationships(): void {
         if (!this._removedRelationships) return;
@@ -149,6 +150,12 @@ export class DeleteElementCommand implements Command {
                     sourceId: rel.sourceId,
                     targetId: rel.targetId,
                     createdBy: rel.createdBy,
+                    // §FIX-CONNECTEDBY-EDGE-KEYING — carry the identity field
+                    // through verbatim. This is the GENERIC delete that L-298
+                    // routes stairs through, so a dropped `authoredBy` here would
+                    // restore a circulation edge unkeyed and let it collide with a
+                    // rival stair's/lift's edge on the same level pair.
+                    ...(rel.authoredBy !== undefined ? { authoredBy: rel.authoredBy } : {}),
                     ...(rel.metadata ? { metadata: rel.metadata } : {}),
                 });
             } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
@@ -578,6 +585,11 @@ export class DeleteElementCommand implements Command {
                 try { bimMgr?.unregisterElement?.(h.elementId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             });
             try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            // §FIX-CEILING-DELETE-LEAVES-GRAPH-EDGES — this branch already purged,
+            // but undo restored NOTHING, which C71 §5.6 rates worse than no purge
+            // because it looks correct: delete+undo silently erased the ceiling's
+            // graph presence for good. Capture verbatim first.
+            this._captureRelationships([id]);
             try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             // Non-null assertion: `ceiling` exists ⇒ ceilingStore exists.
@@ -944,6 +956,8 @@ export class DeleteElementCommand implements Command {
                 else store?.add?.(snap);
                 try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 try { elementRegistry.registerSemantic(snap.id, 'ceiling' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                // §FIX-CEILING-DELETE-LEAVES-GRAPH-EDGES — restore verbatim.
+                this._restoreRelationships();
                 break;
             }
             case 'beam': {
