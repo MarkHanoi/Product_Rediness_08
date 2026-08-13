@@ -49,13 +49,18 @@
 //    makes stamping `authored` a COMPILE ERROR, so this is enforced, not promised.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
-// UNDO (C03 §4.5–4.8) — the model is DetectAllRoomsCommand, copied deliberately
+// UNDO (C03 §4.5–4.8) — produceWithPatches (Immer), the G-NEW-05 mandated idiom
 // ═══════════════════════════════════════════════════════════════════════════════
-// `DetectAllRoomsCommand` is the repo's proven room-undo shape: capture a
-// PRE-EXECUTE SNAPSHOT of every room it will rewrite, diff, mutate only what
-// changed, and on undo restore the snapshots verbatim. This command uses the same
-// discipline with a strictly narrower blast radius (it only ever UPDATES; it never
-// adds or removes), so its undo is exactly "put the captured records back".
+// The discipline is DetectAllRoomsCommand's — capture the pre-state of every room
+// this command rewrites, mutate only what changed, and on undo restore the
+// pre-state verbatim — but the CAPTURE is Immer `produceWithPatches` (via the
+// package's `PatchSnapshot` landing zone), NOT a structuredClone snapshot, which
+// `check-structuredclone-new-commands` prohibits for new commands. Each written
+// room keeps its `inversePatches`; undo applies them to the room's CURRENT record,
+// which reconstructs the pre-execute record BYTE-EQUAL — pinned by
+// `__tests__/applyPredictedRoomGeometryUndoRoundtrip.test.ts`, which was watched
+// green against the snapshot-clone implementation before this migration. The
+// blast radius is unchanged (it only ever UPDATES; it never adds or removes).
 //
 // ⚠ `DetectAllRoomsCommand` IS NOT MODIFIED BY THIS PHASE and must not be.
 // ⚠ `ReDetectRoomsCommand` is `nonUndoable` ("automatic background operation").
@@ -65,10 +70,12 @@
 //   this room mutation are the SAME gesture and one Ctrl+Z reverts both
 //   (`check-room-reshape-undo`).
 
+import type { Patch } from 'immer';
 import {
   Command, CommandType, CommandValidationResult, CommandResult,
   SerializedCommand, CommandContext,
 } from '../types';
+import { producePatchedSlice, applyPatchesToSlice } from '../PatchSnapshot';
 import type { RoomData, RoomVertex } from '@pryzm/room-topology';
 // NOTE: `semanticGraphManager` is deliberately NOT imported. This command cannot
 // change `boundingWallIds`, so the `boundedBy` edges it would rebuild are still
@@ -154,12 +161,14 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
   static readonly GEOMETRY_FIELDS = GEOMETRY_FIELDS;
 
   /**
-   * PRE-EXECUTE snapshots of every room this command rewrote, in write order.
-   * Undo restores these verbatim (the `DetectAllRoomsCommand.undoSteps.preserved`
-   * discipline). Deep-copied at capture: a shallow reference would alias the very
-   * record we are about to mutate and undo would restore the NEW value.
+   * Immer inverse patches for every room this command rewrote, in write order
+   * (G-NEW-05). Undo applies each room's `inversePatches` to its CURRENT record,
+   * reconstructing the pre-execute record byte-equal — the patch-based form of
+   * the `DetectAllRoomsCommand.undoSteps.preserved` discipline. Patches cannot
+   * alias the record about to be mutated: their values are captured from the
+   * untouched base by `produceWithPatches`.
    */
-  private _snapshots: RoomData[] = [];
+  private _undoEntries: Array<{ id: string; inversePatches: readonly Patch[] }> = [];
 
   /** Per-room outcomes of the last execute — the caller's honest report. */
   private _outcomes: AppliedRoomOutcome[] = [];
@@ -221,7 +230,7 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
     const roomStore = ctx.stores.roomStore;
     if (!roomStore) return { success: false, affectedElementIds: [], error: 'RoomStore not available' };
 
-    this._snapshots = [];
+    this._undoEntries = [];
     this._outcomes = [];
     const written: string[] = [];
 
@@ -237,7 +246,12 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
         continue;
       }
 
-      const next = this._applyGeometry(existing, p);
+      // G-NEW-05: one produceWithPatches pass yields BOTH the post-state record
+      // and the inverse patches that are this room's undo capture.
+      const { result: next, inversePatches } = producePatchedSlice<RoomData>(
+        existing,
+        (draft) => this._applyGeometryToDraft(draft, p),
+      );
 
       // Byte-identical ⇒ nothing to write. Skipping the store write here is not a
       // silent skip: the outcome says `already-identical`, which is a POSITIVE
@@ -248,15 +262,15 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
         continue;
       }
 
-      // Snapshot BEFORE the write (deep, so undo cannot restore the mutated value).
-      this._snapshots.push(this._deepClone(existing));
+      // Capture BEFORE the write, exactly like the snapshot discipline it replaces.
+      this._undoEntries.push({ id: p.elementId, inversePatches });
 
       try {
         roomStore.update(p.elementId, next);
       } catch (err) {
-        // The snapshot we just pushed describes a write that did not happen. Drop it,
+        // The entry we just pushed describes a write that did not happen. Drop it,
         // or undo would "restore" a room that was never changed.
-        this._snapshots.pop();
+        this._undoEntries.pop();
         const reason = err instanceof Error ? err.message : String(err);
         this._outcomes.push({ roomId: p.elementId, outcome: 'store-rejected', detail: reason });
         continue;
@@ -297,7 +311,10 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
   }
 
   /**
-   * Restore the captured pre-execute records verbatim (C03 §4.5–4.8).
+   * Restore the pre-execute records verbatim (C03 §4.5–4.8) by applying each
+   * room's Immer inverse patches to its CURRENT record (G-NEW-05). The result is
+   * byte-equal to the record `execute` read — the round-trip test pins this
+   * against the snapshot-clone idiom it replaced.
    *
    * Because execute only ever UPDATES existing rooms, undo never has to add or
    * remove one — the room set is invariant across this command, which is why room
@@ -310,22 +327,32 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
     const restored: string[] = [];
     // Reverse order — mirrors the write order, and keeps the semantics identical
     // even if a future store makes updates order-sensitive.
-    for (const snap of [...this._snapshots].reverse()) {
+    for (const entry of [...this._undoEntries].reverse()) {
+      const current = roomStore.getById?.(entry.id) as RoomData | null | undefined;
+      if (!current) {
+        // The room vanished outside this undo unit — there is no post-state to
+        // invert from. Say so rather than invent a record (this command never
+        // creates rooms, in undo any more than in execute).
+        console.warn(`[ApplyPredictedRoomGeometryCommand] undo: room ${entry.id} no longer exists — nothing restored`);
+        continue;
+      }
+      let prev: RoomData;
       try {
-        roomStore.update(snap.id, snap);
-        restored.push(snap.id);
+        prev = applyPatchesToSlice<RoomData>(current, entry.inversePatches);
+        roomStore.update(entry.id, prev);
+        restored.push(entry.id);
       } catch (err) {
-        console.warn(`[ApplyPredictedRoomGeometryCommand] undo failed to restore room ${snap.id}:`, err);
+        console.warn(`[ApplyPredictedRoomGeometryCommand] undo failed to restore room ${entry.id}:`, err);
         continue;
       }
       try {
-        const bb = snap.computed?.boundingBox;
-        roomSpatialIndex.remove(snap.id);
-        if (bb) roomSpatialIndex.insert(snap.id, bb);
+        const bb = prev.computed?.boundingBox;
+        roomSpatialIndex.remove(entry.id);
+        if (bb) roomSpatialIndex.insert(entry.id, bb);
       } catch { /* §SWALLOW-SIDE-INDEX — see header */ }
     }
 
-    this._snapshots = [];
+    this._undoEntries = [];
     this._outcomes = [];
     return { success: true, affectedElementIds: restored };
   }
@@ -343,15 +370,18 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
   // ── Internals ───────────────────────────────────────────────────────────────
 
   /**
-   * Build the post-state record: the existing room with ONLY the geometry fields
-   * replaced by the PREDICTED values.
+   * Mutate an Immer DRAFT of the existing room so that ONLY the geometry fields
+   * carry the PREDICTED values (G-NEW-05: the recipe `produceWithPatches` runs to
+   * yield both the post-state and the undo's inverse patches).
    *
-   * Written as an EXPLICIT reconstruction, field by field, rather than a spread of
-   * the prediction over the record. A spread would silently write any field the
-   * prediction happened to carry; this cannot, and reading it tells you exactly
-   * what is and is not touched. Every semantic field (`name`, `roomNumber`,
+   * Written as EXPLICIT per-field assignments, never a spread of the prediction
+   * over the record. A spread would silently write any field the prediction
+   * happened to carry; this cannot, and reading it tells you exactly what is and
+   * is not touched — the assignments below are precisely `GEOMETRY_FIELDS` plus
+   * `metadata.modifiedAt`. Every semantic field (`name`, `roomNumber`,
    * `occupancyType`, `finishes`, `ifcData`, `revitId`, `properties`,
-   * `boundingWallIds`) flows through untouched via the leading spread.
+   * `boundingWallIds`) is simply never touched by the recipe, so Immer carries it
+   * through structurally unchanged.
    *
    * PROVENANCE (C75 §1.1): `boundary.detectionMethod` is left EXACTLY as it was.
    * A reshape does not change HOW the room was originally established — a room the
@@ -363,53 +393,33 @@ export class ApplyPredictedRoomGeometryCommand implements Command {
    * rule over inputs the system holds) — or `regenerated` where it overwrites an
    * earlier derived value — and never `authored`.
    */
-  private _applyGeometry(existing: RoomData, p: PredictedRoomGeometry): RoomData {
-    const height = existing.boundary?.height ?? 0;
-    return {
-      ...existing,
-      boundary: {
-        ...existing.boundary,
-        // VERBATIM. Cloned so the stored record cannot alias the plan object.
-        polygon: p.polygon.map((v) => ({ x: v.x, z: v.z })),
-      },
-      computed: {
-        ...existing.computed,
-        area: p.area,
-        grossArea: p.area,
-        perimeter: p.perimeter,
-        volume: p.area * height,
-        centroid: { x: p.centroid.x, z: p.centroid.z },
-        boundingBox: {
-          minX: p.boundingBox.minX, minZ: p.boundingBox.minZ,
-          maxX: p.boundingBox.maxX, maxZ: p.boundingBox.maxZ,
-        },
-      },
-      metadata: {
-        ...existing.metadata,
-        modifiedAt: this.timestamp,
-        // `createdAt` / `createdBy` / `version` flow through the spread untouched —
-        // a reshape is a modification of an existing room, not a new authorship.
-      },
+  private _applyGeometryToDraft(draft: RoomData, p: PredictedRoomGeometry): void {
+    const height = draft.boundary?.height ?? 0;
+    // `boundary`/`computed`/`metadata` are required by RoomData, but the spread
+    // this recipe replaced tolerated malformed records missing them; keep that.
+    if (!draft.boundary) draft.boundary = {} as RoomData['boundary'];
+    if (!draft.computed) draft.computed = {} as RoomData['computed'];
+    if (!draft.metadata) draft.metadata = {} as RoomData['metadata'];
+    // VERBATIM. Rebuilt vertex-by-vertex so the stored record cannot alias the
+    // plan object.
+    draft.boundary.polygon = p.polygon.map((v) => ({ x: v.x, z: v.z }));
+    draft.computed.area = p.area;
+    draft.computed.grossArea = p.area;
+    draft.computed.perimeter = p.perimeter;
+    draft.computed.volume = p.area * height;
+    draft.computed.centroid = { x: p.centroid.x, z: p.centroid.z };
+    draft.computed.boundingBox = {
+      minX: p.boundingBox.minX, minZ: p.boundingBox.minZ,
+      maxX: p.boundingBox.maxX, maxZ: p.boundingBox.maxZ,
     };
+    // `createdAt` / `createdBy` / `version` are untouched — a reshape is a
+    // modification of an existing room, not a new authorship.
+    draft.metadata.modifiedAt = this.timestamp;
   }
 
   /** Are the geometry fields already byte-equal? Compared on VALUES, not references. */
   private _geometryEqual(a: RoomData, b: RoomData): boolean {
     return JSON.stringify({ p: a.boundary?.polygon, c: a.computed })
       === JSON.stringify({ p: b.boundary?.polygon, c: b.computed });
-  }
-
-  /**
-   * Deep copy for the undo snapshot. `structuredClone` where available (it handles
-   * the nested polygon/centroid/boundingBox correctly); the JSON round-trip is the
-   * fallback for environments without it. A SHALLOW copy would be a live bug: the
-   * nested `boundary` and `computed` objects would still be shared with the record
-   * about to be replaced.
-   */
-  private _deepClone(room: RoomData): RoomData {
-    if (typeof structuredClone === 'function') {
-      try { return structuredClone(room); } catch { /* fall through to JSON */ }
-    }
-    return JSON.parse(JSON.stringify(room)) as RoomData;
   }
 }
