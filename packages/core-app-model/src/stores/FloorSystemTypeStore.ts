@@ -359,9 +359,13 @@ const BUILT_IN_TYPES: Omit<FloorSystemType, 'isBuiltIn'>[] = [
 
 // ── Store implementation ──────────────────────────────────────────────────
 
+// §STEP7 (C72 §3.1, gap PR-03): 'update' emissions carry the frozen
+// PRE-MUTATION type record as an optional third argument, captured before the
+// merge — never re-read after the write (C72 §3.5). Absent on 'add'/'remove'.
 type FloorSystemTypeListener = (
   event: 'add' | 'update' | 'remove',
-  type: FloorSystemType
+  type: FloorSystemType,
+  prevState?: FloorSystemType
 ) => void;
 
 export class FloorSystemTypeStore {
@@ -440,7 +444,8 @@ export class FloorSystemTypeStore {
 
     this._types.set(id, Object.freeze(updated) as FloorSystemType);
     storeEventBus.emit({ elementId: id, elementType: 'floorSystemType', operation: 'update', timestamp: Date.now() });
-    this._emit('update', updated);
+    // §STEP7: `existing` is the frozen pre-mutation record, captured before the merge.
+    this._emit('update', updated, existing);
     return updated;
   }
 
@@ -503,9 +508,9 @@ export class FloorSystemTypeStore {
     return () => { this._listeners = this._listeners.filter(l => l !== listener); };
   }
 
-  private _emit(event: 'add' | 'update' | 'remove', type: FloorSystemType): void {
+  private _emit(event: 'add' | 'update' | 'remove', type: FloorSystemType, prevState?: FloorSystemType): void {
     for (const l of this._listeners) {
-      try { l(event, type); } catch (e) { console.error('[FloorSystemTypeStore] Listener error:', e); }
+      try { l(event, type, prevState); } catch (e) { console.error('[FloorSystemTypeStore] Listener error:', e); }
     }
   }
 }

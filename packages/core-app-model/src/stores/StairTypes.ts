@@ -232,4 +232,8 @@ export interface StairValidationWarning {
 // ─── Events ────────────────────────────────────────────────────────────────
 
 export type StairEventType = 'add' | 'update' | 'remove';
-export type StairEventListener = (event: StairEventType, stair: StairData) => void;
+// §STEP7 (C72 §3.1, gap PR-03): 'update' emissions carry the PRE-MUTATION
+// stair as an optional third argument, captured before the clone/merge —
+// never re-read after the write (C72 §3.5). Absent on 'add'/'remove', and
+// absent on a restoreSnapshot for an id with no stored prior.
+export type StairEventListener = (event: StairEventType, stair: StairData, prevState?: StairData) => void;

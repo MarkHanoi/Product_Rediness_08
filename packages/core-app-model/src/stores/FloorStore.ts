@@ -45,7 +45,10 @@ function freezeFloorData(floor: FloorData): FloorData {
   return Object.freeze(floor) as FloorData;
 }
 
-type FloorStoreListener = (event: 'add' | 'update' | 'remove', floor: FloorData) => void;
+// §STEP7 (C72 §3.1, gap PR-03): 'update' emissions carry the frozen
+// PRE-MUTATION floor as an optional third argument, captured before the merge —
+// never re-read after the write (C72 §3.5). Absent on 'add'/'remove'.
+type FloorStoreListener = (event: 'add' | 'update' | 'remove', floor: FloorData, prevState?: FloorData) => void;
 
 export class FloorStore {
   private _floors = new Map<string, FloorData>();
@@ -181,7 +184,8 @@ export class FloorStore {
 
     _bus.emit('bim-floor-updated', { id: merged.id }); // F.events.17
     storeEventBus.emit({ elementId: merged.id, elementType: 'floor', operation: 'update', timestamp: Date.now() });
-    this._emit('update', merged);
+    // §STEP7: `existing` is the frozen pre-mutation record, captured before the merge.
+    this._emit('update', merged, existing);
 
     return structuredClone(merged) as FloorData;
   }
@@ -295,9 +299,9 @@ export class FloorStore {
     };
   }
 
-  private _emit(event: 'add' | 'update' | 'remove', floor: FloorData): void {
+  private _emit(event: 'add' | 'update' | 'remove', floor: FloorData, prevState?: FloorData): void {
     for (const listener of this._listeners) {
-      try { listener(event, floor); } catch (e) {
+      try { listener(event, floor, prevState); } catch (e) {
         console.error('[FloorStore] Listener error:', e);
       }
     }

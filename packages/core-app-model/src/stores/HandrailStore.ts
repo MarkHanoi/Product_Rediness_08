@@ -16,7 +16,11 @@ const _bus = new DOMEventBus();
  */
 
 type HandrailEventType = 'add' | 'update' | 'remove';
-type HandrailEventListener = (event: HandrailEventType, handrail: HandrailData) => void;
+// §STEP7 (C72 §3.1, gap PR-03): 'update' emissions carry the PRE-MUTATION
+// handrail as an optional third argument, captured before the clone/merge —
+// never re-read after the write (C72 §3.5). Absent on 'add'/'remove', and
+// absent on a restoreSnapshot for an id with no stored prior.
+type HandrailEventListener = (event: HandrailEventType, handrail: HandrailData, prevState?: HandrailData) => void;
 
 export class HandrailStore {
     private handrails: Map<string, HandrailData> = new Map();
@@ -56,14 +60,19 @@ export class HandrailStore {
         const updated: HandrailData = structuredClone(handrail);
         Object.assign(updated, updates);
         this.handrails.set(id, updated);
-        this.emit('update', updated);
+        // §STEP7: `handrail` is the pre-mutation record, captured before the clone/merge.
+        this.emit('update', updated, handrail);
         return updated;
     }
 
     restoreSnapshot(id: string, snapshot: HandrailData): void {
+        // §STEP7: capture the stored prior BEFORE the write — a post-write read
+        // would diff the snapshot against itself (C72 §3.5). Undefined when no
+        // prior exists (restore into an empty slot behaves like an add).
+        const prev = this.handrails.get(id);
         // §3.4: Clone snapshot to prevent external mutation of stored state.
         this.handrails.set(id, structuredClone(snapshot));
-        this.emit('update', snapshot);
+        this.emit('update', snapshot, prev);
     }
 
     remove(id: string): HandrailData | undefined {
@@ -96,7 +105,7 @@ export class HandrailStore {
         };
     }
 
-    private emit(event: HandrailEventType, handrail: HandrailData): void {
+    private emit(event: HandrailEventType, handrail: HandrailData, prevState?: HandrailData): void {
         const operation = event === 'add' ? 'create' : event === 'update' ? 'update' : 'delete';
         storeEventBus.emit({
             elementId: handrail.id,
@@ -105,7 +114,7 @@ export class HandrailStore {
             timestamp: Date.now()
         });
 
-        this.listeners.forEach(l => l(event, handrail));
+        this.listeners.forEach(l => l(event, handrail, prevState));
 
         if (event === 'add') _bus.emit('bim-handrail-added', { id: handrail.id }); // F.events.17
         else if (event === 'update') _bus.emit('bim-handrail-updated', { id: handrail.id });

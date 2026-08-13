@@ -129,19 +129,16 @@ const MIN_EMIT_SITES = 10;
  * third argument, same commit as this strike. They were the highest-value
  * entries here: WallStore is the one store whose classifier consumes the
  * argument. 21 → 17.
+ *
+ * STRUCK 2026-08-13 (PR-03, C72 §3.1 §STEP7): the eleven core-app-model sites
+ * (CeilingStore :221/:282/:300 · FloorStore :184 · FloorSystemTypeStore :443 ·
+ * HandrailStore :59/:66 · RoofStore :121/:138 · StairStore :91/:106) now pass
+ * the pre-mutation record as the third argument, captured BEFORE the write
+ * (never a §3.5 re-read), same commit as this strike. Seam tests per store in
+ * packages/core-app-model/src/stores/StorePrevStateSeam.test.ts drive the real
+ * mutation entry points (C72 §3.4). 17 → 6.
  */
 const LEDGER: readonly string[] = [
-  'P1::packages/core-app-model/src/stores/CeilingStore.ts:221',
-  'P1::packages/core-app-model/src/stores/CeilingStore.ts:282',
-  'P1::packages/core-app-model/src/stores/CeilingStore.ts:300',
-  'P1::packages/core-app-model/src/stores/FloorStore.ts:184',
-  'P1::packages/core-app-model/src/stores/FloorSystemTypeStore.ts:443',
-  'P1::packages/core-app-model/src/stores/HandrailStore.ts:59',
-  'P1::packages/core-app-model/src/stores/HandrailStore.ts:66',
-  'P1::packages/core-app-model/src/stores/RoofStore.ts:121',
-  'P1::packages/core-app-model/src/stores/RoofStore.ts:138',
-  'P1::packages/core-app-model/src/stores/StairStore.ts:91',
-  'P1::packages/core-app-model/src/stores/StairStore.ts:106',
   'P1::packages/geometry-lift/src/LiftStore.ts:88',
   'P1::packages/geometry-lift/src/LiftStore.ts:99',
   'P1::packages/geometry-roof/src/RoofStore.ts:120',

@@ -59,16 +59,20 @@ export class CeilingStore {
   private _holeIndex = new Map<string, string>();
 
   // ── Internal event listeners (for Store-level observers) ─────────────────
-  private _listeners = new Set<(event: string, ceiling: CeilingData | { id: string }) => void>();
+  // §STEP7 (C72 §3.1, gap PR-03): 'update' emissions carry the frozen
+  // PRE-MUTATION ceiling as an optional third argument, captured before the
+  // clone/merge — never re-read after the write (C72 §3.5). Absent on 'add'
+  // (no prior state exists) and on 'remove'.
+  private _listeners = new Set<(event: string, ceiling: CeilingData | { id: string }, prevState?: CeilingData) => void>();
 
-  subscribe(listener: (event: string, ceiling: CeilingData | { id: string }) => void): () => void {
+  subscribe(listener: (event: string, ceiling: CeilingData | { id: string }, prevState?: CeilingData) => void): () => void {
     this._listeners.add(listener);
     return () => this._listeners.delete(listener);
   }
 
-  private _emit(event: string, payload: CeilingData | { id: string }): void {
+  private _emit(event: string, payload: CeilingData | { id: string }, prevState?: CeilingData): void {
     this._listeners.forEach(l => {
-      try { l(event, payload); } catch (e) { console.error('[CeilingStore] Listener error:', e); }
+      try { l(event, payload, prevState); } catch (e) { console.error('[CeilingStore] Listener error:', e); }
     });
   }
 
@@ -218,7 +222,8 @@ export class CeilingStore {
       operation: 'update',
       timestamp: Date.now(),
     });
-    this._emit('update', clone);
+    // §STEP7: `existing` is the frozen pre-mutation record, captured before the merge.
+    this._emit('update', clone, existing);
 
     return clone;
   }
@@ -279,7 +284,7 @@ export class CeilingStore {
     this._ceilings.set(ceilingId, clone);
     _bus.emit('bim-ceiling-updated', { id: ceilingId });
     storeEventBus.emit({ elementId: ceilingId, elementType: 'ceiling', operation: 'update', timestamp: Date.now() });
-    this._emit('update', clone);
+    this._emit('update', clone, existing); // §STEP7: pre-mutation record
     return true;
   }
 
@@ -297,7 +302,7 @@ export class CeilingStore {
     this._ceilings.set(ceilingId, clone);
     _bus.emit('bim-ceiling-updated', { id: ceilingId });
     storeEventBus.emit({ elementId: ceilingId, elementType: 'ceiling', operation: 'update', timestamp: Date.now() });
-    this._emit('update', clone);
+    this._emit('update', clone, existing); // §STEP7: pre-mutation record
     return true;
   }
 
