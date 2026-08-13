@@ -109,7 +109,12 @@ import type {
 } from '@pryzm/command-bus';
 
 // Type-only — erased at runtime, so importing them couples nothing and touches no window.
-import type { WallData, ClampToWallResult, OpeningDims } from '@pryzm/geometry-wall';
+import type {
+  WallData,
+  ClampToWallResult,
+  OpeningDims,
+  CanPlaceRefusalCode,
+} from '@pryzm/geometry-wall';
 import type { ValidationResult, ConstraintContext } from '@pryzm/constraint-solver/compliance';
 
 // The ONE stable serialisation, shared with the two wall planners so all three hash with the
@@ -185,7 +190,7 @@ export interface OpeningCollisionReader {
     offsetM: number,
     widthM: number,
     excludeId?: string,
-  ): { valid: boolean; conflictIds: string[]; reason?: string };
+  ): { valid: boolean; conflictIds: string[]; code?: CanPlaceRefusalCode; reason?: string };
 }
 
 /** The mined violation core — `constraintEngine.validateAll` (clone → apply → diff). */
@@ -858,7 +863,12 @@ export class OpeningMoveConsequencePlanner implements ConsequencePlanner<Opening
       };
     }
 
-    let result: { valid: boolean; conflictIds: string[]; reason?: string };
+    let result: {
+      valid: boolean;
+      conflictIds: string[];
+      code?: CanPlaceRefusalCode;
+      reason?: string;
+    };
     try {
       result = this.deps.collision.canPlace(wall, effectiveOffset, width, elementId);
     } catch {
@@ -898,12 +908,21 @@ export class OpeningMoveConsequencePlanner implements ConsequencePlanner<Opening
         // the refusal is carried VERBATIM from the store rather than reworded, so the sentence
         // the user reads is the sentence the rule authored (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH's
         // lesson) and the disagreement is visible rather than smoothed over.
+        //
+        // §REFUSAL-IDENTITY (C58 §1.13) — the refusal carries `result.code`, the CLOSED
+        // `CanPlaceRefusalCode` union member the store resolved, so the sentence is
+        // attributable to its rule. `canPlace` sets `code` on every invalid arm by
+        // construction; a double that omits it is named as exactly that — an absence,
+        // never a manufactured verdict sentence (the old `?? 'refused without a stated
+        // reason'` fallback was indistinguishable from a real reason, which is the
+        // check-refusal-identity arm-A defect).
         refusals.push({
           elementId,
           reason:
-            `C15 §5 occupancy (C70 F-INV-3): ${opening.type ?? 'opening'} ${elementId} cannot ` +
+            `C15 §5 occupancy (C70 F-INV-3, code ${result.code ?? '(none stated by the occupancy reader)'}): ` +
+            `${opening.type ?? 'opening'} ${elementId} cannot ` +
             `occupy [${effectiveOffset.toFixed(3)} m, ${proposedEnd.toFixed(3)} m] on wall ` +
-            `${wallId}. ${result.reason ?? 'the occupancy check refused without a stated reason'}`,
+            `${wallId}.${result.reason ? ` ${result.reason}` : ''}`,
         });
       } else {
         // One refusal PER colliding sibling, each naming both spans. A single merged sentence

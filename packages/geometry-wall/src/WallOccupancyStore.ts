@@ -68,9 +68,26 @@ function __pryzmLoadActive(): boolean {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
+/**
+ * §REFUSAL-IDENTITY (C58 §1.13) — the CLOSED set of reasons `canPlace` can refuse.
+ * One member per refusal arm in `canPlace`, in source order. A renderer that carries
+ * this code makes the refusal attributable to its rule; a renderer that drops it
+ * collapses six distinct verdicts onto one sentence, which is the exact defect
+ * `tools/ga-gate/check-refusal-identity.ts` exists to stop. Do NOT widen to `string`.
+ */
+export type CanPlaceRefusalCode =
+    | 'OCC_HOST_ZERO_LENGTH'        // degenerate host — no span exists to occupy
+    | 'OCC_HOST_RAKED'              // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH — raked host cannot carry an opening
+    | 'OCC_WIDTH_NOT_POSITIVE'      // requested width ≤ 0
+    | 'OCC_OFFSET_BEFORE_WALL_START'// requested span starts before the wall
+    | 'OCC_SPAN_BEYOND_WALL_END'    // requested span runs past the wall end
+    | 'OCC_OVERLAPS_SIBLING';       // 1-D overlap with an existing opening (conflictIds names them)
+
 export interface CanPlaceResult {
     valid:       boolean;
     conflictIds: string[];   // Opening.id values of conflicting entries
+    /** Present exactly when `valid` is false — the refusal's identity (closed union). */
+    code?:       CanPlaceRefusalCode;
     reason?:     string;     // Human-readable failure message (absent when valid)
 }
 
@@ -411,6 +428,7 @@ export class WallOccupancyStore {
             return {
                 valid:       false,
                 conflictIds: [],
+                code:        'OCC_HOST_ZERO_LENGTH',
                 reason:      'Wall has zero length — cannot place openings',
             };
         }
@@ -462,6 +480,7 @@ export class WallOccupancyStore {
             return {
                 valid:       false,
                 conflictIds: [],
+                code:        'OCC_HOST_RAKED',
                 reason:
                     'This wall is angled (raked), so it cannot host a door or window yet — ' +
                     "set the wall's Vertical Angle back to 90° first. " + (rake.reason ?? ''),
@@ -473,6 +492,7 @@ export class WallOccupancyStore {
             return {
                 valid:       false,
                 conflictIds: [],
+                code:        'OCC_WIDTH_NOT_POSITIVE',
                 reason:      `Opening width must be > 0 (got ${widthM.toFixed(3)} m)`,
             };
         }
@@ -483,6 +503,7 @@ export class WallOccupancyStore {
             return {
                 valid:       false,
                 conflictIds: [],
+                code:        'OCC_OFFSET_BEFORE_WALL_START',
                 reason:      `Offset ${offsetM.toFixed(3)} m is before wall start`,
             };
         }
@@ -492,6 +513,7 @@ export class WallOccupancyStore {
             return {
                 valid:       false,
                 conflictIds: [],
+                code:        'OCC_SPAN_BEYOND_WALL_END',
                 reason: (
                     `Opening [${offsetM.toFixed(3)} m, ${newEnd.toFixed(3)} m] ` +
                     `extends beyond wall length ${wallLengthM.toFixed(3)} m`
@@ -543,6 +565,7 @@ export class WallOccupancyStore {
             return {
                 valid:       false,
                 conflictIds: conflicts,
+                code:        'OCC_OVERLAPS_SIBLING',
                 reason:      `Opening overlaps existing opening(s): ${conflicts.join(', ')}`,
             };
         }
