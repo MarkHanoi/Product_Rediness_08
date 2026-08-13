@@ -129,7 +129,6 @@ export const layerElements = [
   { type: 'L1', pattern: 'packages/crash-reporter/**' },   // [floor]  leaf
   { type: 'L1', pattern: 'packages/keyboard-registry/**' },// [floor]  leaf
   { type: 'L1', pattern: 'packages/geospatial/**' },       // [floor]  leaf, pure coordinate transforms (C12)
-  { type: 'L1', pattern: 'packages/street-analytics/**' }, // [floor]  leaf
   { type: 'L1', pattern: 'packages/storage-driver/**' },   // [floor]  leaf
   { type: 'L1', pattern: 'packages/oauth2-pkce/**' },      // [floor]  leaf, pure PKCE/RFC-7636 utils
 
@@ -172,6 +171,7 @@ export const layerElements = [
   { type: 'L2', pattern: 'packages/views/**' },              // [floor] imports core-app-model (L2); type-only view contracts
   { type: 'L2', pattern: 'packages/speculative-engine/**' }, // [floor] imports constraint-solver (L2)
   { type: 'L2', pattern: 'packages/site-parcel-data/**' },   // [floor] imports site-validators (L2)
+  { type: 'L2', pattern: 'packages/street-analytics/**' },   // [floor] imports geometry-kernel (L2) since the C73 PIP collapse; consumed only by apps/editor (L7)
   { type: 'L2', pattern: 'packages/site-validators/**' },    // [role]  bound L1..L3 (used by stores)
   { type: 'L2', pattern: 'packages/family-runtime/**' },     // [role]  bound L0..L3; leaf
   { type: 'L2', pattern: 'packages/auto-dimension/**' },     // [role]  bound L1..L4
