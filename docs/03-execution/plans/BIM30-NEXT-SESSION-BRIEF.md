@@ -452,3 +452,56 @@ existing design. For that they open the model and edit by hand — with the diff
 > **The one-line answer to the founder's question:** at 100 % PRYZM becomes a **trustworthy
 > generator** — it designs well and never lies about what it did. It becomes a **design partner you
 > can argue with** only when bar 3 is green.
+
+### §9.6 — THE STRATEGIC READ: WHAT THE 32 PROMPTS ACTUALLY REVEALED
+
+> **Founder question:** *"Should new capabilities go into the implementation plan, or was this
+> wrong expectations / wrong wording / wrong scope?"* Assessed honestly, the answer is **mostly the
+> first** — and it exposes a hole that §9.1 above understates. Recorded here so the correction is
+> not lost.
+
+#### §9.6.1 ⚠ THE CORRECTION TO §9.1 — BAR 3 IS NECESSARY BUT NOT SUFFICIENT
+
+§9.1 says the 16 modification prompts are "blocked on bar 3". **That is true and incomplete, and
+the difference is a whole missing workstream.**
+
+| | What it does | What it does NOT do |
+|---|---|---|
+| **Bar 3 (C78 consequence)** | Makes a modification **SAFE** — every affected element is determined, or refused with a typed reason. Nothing goes silently stale. | Decide **WHAT to change.** |
+| **A modification/edit engine** *(does not exist, is not in the plan)* | Decides that "2-bed → 3-bed" means split the larger bedroom, relocate one door, re-route the corridor, preserve the wet stack. | — |
+
+**PRYZM's plan has generation engines** (D-TGL apartments, D-FLE furniture, D-CE ceilings, house,
+residential-building, office) **and a trust layer** (BIM 3.0, the 82 rows, the three bars).
+**It has no EDIT layer.** There is no workstream anywhere in the roadmap whose subject is
+*transforming an existing design while preserving intent*.
+
+That is the real finding. Bar 3 green + no edit engine = a tool that will faithfully tell you it
+does not know how to convert your apartment.
+
+#### §9.6.2 — THE FOUR THINGS THAT SHOULD ENTER THE PLAN
+
+| # | New workstream | Why it is real, not a wording problem |
+|---|---|---|
+| **1** | **The EDIT ENGINE (D-EDIT)** — transform-with-intent: split/merge rooms, re-partition a plate, absorb adjacent area, extend an envelope, re-mix a unit schedule. Built ON bar 3, not instead of it. | **An architect's working week is mostly modification, not generation.** You do not design a building once; you iterate it fifty times. Every one of the 16 failing prompts is an ordinary Tuesday. This is the single largest gap between what PRYZM does and what the job is. |
+| **2** | **PROGRAMME-RULE AUTHORING** — café, event space, amenity, quiet room, collaboration zone; the occupancy→desks→area→support-ratio chain. | **Cheapest item on this page and it is pure data.** Failing prompt 27 for want of a room-size table is not an engineering limit, it is an unfilled spreadsheet. Should be pulled forward ahead of engine work. |
+| **3** | **RING / COURTYARD PLATES** — the partitioner assumes a solid floorplate. | Courtyard blocks are a **dominant European residential typology**. Not exotic; missing. Blocks prompts 18 and 28. |
+| **4** | **AN EXPLICIT DECISION on cross-ventilation / airflow** (prompt 4) | Daylight is computed; airflow is not. This is a real new capability (CFD-lite) with real cost. **Decide it yes or no in the open** — an unstated "no" reads as a defect every time someone asks. |
+
+#### §9.6.3 — WHAT WAS GENUINELY WRONG EXPECTATION OR SCOPE (be honest about these too)
+
+| Prompt | Verdict on the ask itself |
+|---|---|
+| **11, 15, 16** — housing schemes, site optimisation, scheme re-mix | **WRONG SCOPE, not a gap.** This is masterplanning / urban design — a different product from a BIM editor. It may well be a future PRYZM product; it should be an explicit *product* decision, not an item quietly failing on a BIM roadmap. |
+| **2, 12** — *"consistent architectural language"* | **WRONG WORDING.** Nobody has operationalised aesthetic consistency, and a tool claiming to would be lying. **Reframe the ask** as "shared parameter set + repeated unit types + a common façade rule" — that IS buildable and is most of what the founder actually means. |
+| **31** — movable partitions | **TRIVIAL BY COMPARISON** — an element-library/system-type gap, not design reasoning. Cheap, and it makes prompt 31 flip on its own. |
+
+#### §9.6.4 — THE ONE-PARAGRAPH STRATEGIC FINDING
+
+**PRYZM has been built generation-first; the market asks modification-first.** The 32 prompts are
+not a wishlist — they are a fair description of an architect's week, and they split 50/50 between
+the two. We are strong on the half that wins demos and absent on the half that wins renewals. The
+correct response is **not** more typologies (a townhouse generator wins nothing). It is:
+**(a)** finish bar 3 so modification can be *safe*, **(b)** open a D-EDIT workstream so it can be
+*intelligent*, **(c)** spend a cheap week on programme rules to stop losing prompts to missing
+tables, and **(d)** decide masterplanning and airflow in the open, as product scope, rather than
+letting them read as defects.
