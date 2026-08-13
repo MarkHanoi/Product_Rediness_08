@@ -2491,10 +2491,15 @@ is outside propagation by construction. That is the design gap, not a bug in the
 **A room that loses its enclosure is no longer a room**: it has no boundary to host a door, its area
 and its adjacency both become undefined, and any accessibility or egress judgement over it is
 computed on a shape the user did not author. The circulation work being specced in this session's
-audit lane — `docs/03-execution/specs/SPEC-XX-circulation-integrity.md` (**path as intended by that
-lane; the `XX` is theirs to assign, and this cross-reference should be re-pointed when it lands**) —
-depends on room enclosure as a precondition. A partition that fails to follow silently invalidates
-its inputs.
+audit lane — **`docs/03-execution/specs/SPEC-49-CIRCULATION-INTEGRITY.md`** (re-pointed from the
+placeholder `SPEC-XX-…` once that lane landed the file; verified present at HEAD) — depends on room
+enclosure as a precondition. A partition that fails to follow silently invalidates its inputs.
+
+Note the convergence, arrived at independently: that lane's **L-857** records that *"the reachability
+invariant lives in the UI, so it can never be a gate"*, and its **L-856** records
+`doorSwingKeepout.ts` as dead code whose `Door.swing` never reaches the furnisher. Both are the same
+authored-but-unreachable class this entry's siblings (L-860, L-864) document from the browser side.
+Two lanes measuring different subsystems on the same afternoon produced the same finding.
 
 Recommended sequencing, offered rather than asserted: **room-boundary preservation is upstream of
 circulation integrity.** Circulation gates that run over unpreserved boundaries report on geometry
