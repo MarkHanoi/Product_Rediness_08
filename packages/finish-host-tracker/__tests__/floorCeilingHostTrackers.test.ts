@@ -38,8 +38,8 @@ import type {
     FinishBoundaryWritePayload,
     FinishCommandManagerRef,
 } from '../src/FinishHostDependencyTracker';
-import { signedAreaXZ } from '../src/reprojectFinishBoundary';
-import type { XZ } from '../src/FinishSegmentAdapter';
+import { signedAreaXZ, reprojectFinishBoundary } from '../src/reprojectFinishBoundary';
+import { resolveFinishHostEdgeXZ, type XZ } from '../src/FinishSegmentAdapter';
 
 // ── probe wall store ─────────────────────────────────────────────────────────
 
@@ -546,5 +546,104 @@ describe('§4 CEILING — the ceiling family follows and degrades identically (C
             expect((detail as Record<string, unknown>).ceiling).toBeUndefined();
             expect((detail as Record<string, unknown>).ceilingId).toBeUndefined();
         }
+    });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// §5 — the §STEP7 prevState SEAM (C72 §3.1 / §3.5)
+//
+// check-prevstate-contract names reprojectFinishBoundary.ts as a diff consumer
+// and reads it "NO STORE RESOLVED · 3-arg feed: NO · seam test: NONE". That row
+// does not FIRE — the gate's P2/P3 arms are guarded on a store resolving inside
+// the classifier's own package, and this package deliberately owns no store —
+// but the gate is hard-0 with an EMPTY ledger, so there is no slack to absorb a
+// finding if that ever changes. These tests close the substance rather than the
+// display: they prove the third argument arrives, is genuinely pre-mutation,
+// and is LOAD-BEARING.
+//
+// Shape copied from bd9d375a / 649a79ed: real store, real subscriber, real
+// mutation entry point (walls.move — never a hand-built fixture supplying the
+// very value under test, which C72 §3.4 says proves nothing).
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('§5 §STEP7 prevState seam — the third argument is real, pre-mutation, and load-bearing', () => {
+    it('DIRECTION 1 — prevState reaches the subscriber, is PRE-mutation, differs from the post-mutation payload, and the finish follows', () => {
+        const floorStore = new FloorStore();
+        const tracker = new FloorHostDependencyTracker(floorStore, walls, geometry, noCm);
+        floorStore.add(finishFloor('fl-seam'));
+
+        // A second, independent subscriber on the SAME real emission the tracker
+        // consumes — so what is asserted is the emission itself, not a re-read.
+        const seen: Array<{ prevZ: number | undefined; postZ: number }> = [];
+        walls.subscribe((ev, w, prev) => {
+            if (ev === 'update') seen.push({ prevZ: prev?.baseLine[0]?.z, postZ: w.baseLine[0]!.z });
+        });
+
+        walls.move('w-north', 0, 2);
+
+        expect(seen).toHaveLength(1);
+        // present…
+        expect(seen[0]!.prevZ).toBeDefined();
+        // …PRE-mutation (w-north sat at z = 4 before the +2 move)…
+        expect(seen[0]!.prevZ).toBeCloseTo(4, 6);
+        // …and genuinely a different value from the post-mutation payload. A
+        // post-mutation re-read would make these two equal, which is the whole
+        // defect C72 §3.5 forbids.
+        expect(seen[0]!.postZ).toBeCloseTo(6, 6);
+        expect(seen[0]!.prevZ).not.toBeCloseTo(seen[0]!.postZ, 6);
+
+        // …and it is load-bearing: the finish actually followed.
+        expect(areaOf(floorStore.getById('fl-seam')!.boundary.polygon)).toBeCloseTo(33.64, 6);
+    });
+
+    it('DIRECTION 2 — a POST-mutation re-read passed as prevState does NOT follow, and fails SILENTLY (this is why §3.5 forbids reconstructing it)', () => {
+        // The gate's whole point: prevState must be read BEFORE the write. Feed
+        // the ALREADY-MOVED wall as `prevWall` — the exact value a lazy
+        // implementation would obtain by re-reading the store after the mutation
+        // — and the authored inset gets measured against the NEW frame and
+        // re-applied to the NEW frame. The edge lands back where it started.
+        const floorStore = new FloorStore();
+        floorStore.add(finishFloor('fl-reread'));
+        const rec = floorStore.getById('fl-reread')!;
+
+        walls.move('w-north', 0, 2);
+        const postMutationWall = walls.getById('w-north')!;
+
+        const wrong = reprojectFinishBoundary({
+            edges: rec.sketch!.outerLoop.edges,
+            movedWallId: 'w-north',
+            prevWall: postMutationWall,
+            resolveHostSegmentXZ: (edge) => resolveFinishHostEdgeXZ(geometry.resolver, edge),
+            intersector: geometry.intersector,
+        });
+
+        const right = reprojectFinishBoundary({
+            edges: rec.sketch!.outerLoop.edges,
+            movedWallId: 'w-north',
+            prevWall: { id: 'w-north', baseLine: [{ x: 6, z: 4 }, { x: 0, z: 4 }], thickness: 0.2 },
+            resolveHostSegmentXZ: (edge) => resolveFinishHostEdgeXZ(geometry.resolver, edge),
+            intersector: geometry.intersector,
+        });
+
+        // The correct pre-mutation snapshot follows the wall…
+        expect(right.state).toBe('resized');
+        expect(areaOf(right.polygon!)).toBeCloseTo(33.64, 6);
+
+        // …and the post-mutation re-read reports `preserved` — measured, and
+        // worse than a wrong number. Measuring the authored inset against the
+        // NEW frame and re-applying it to that SAME frame is an identity: the
+        // edge lands back at z = 3.9, the ring never moves, and the re-projection
+        // concludes "nothing happened, and we checked" (C79 §5.2's own gloss on
+        // `preserved`) about a wall that moved 2 m.
+        //
+        // This is the §5.2.1 collapse arriving through the §3.5 door: a finish
+        // that FAILED to follow becomes indistinguishable — same state, same
+        // ring, no reason attached — from a finish that had nothing to follow.
+        // No error, no warning, no `undetermined`. Pinned exactly rather than as
+        // `not.toBeCloseTo(33.64)`, which passed for the WRONG reason: `polygon`
+        // is undefined on `preserved`, so the loose form was asserting nothing.
+        expect(wrong.state).toBe('preserved');
+        expect(wrong.polygon).toBeUndefined();
+        expect(right.state).not.toBe(wrong.state);
     });
 });
