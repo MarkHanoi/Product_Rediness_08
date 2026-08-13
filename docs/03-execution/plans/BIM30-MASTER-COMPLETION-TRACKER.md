@@ -65,11 +65,60 @@ blended percentage hides exactly that distinction, which is why §1 carries two 
 | Geometry axis has an executed subject | **YES** — 64 meshes / 912 tris (`221fdef7`) |
 | Certification suite exit | **was 3, now 0 on the undoredo row** (`fbed1a7d`) |
 
-### The honest headline
+### The honest headline — MEASURED 2026-08-13, replacing an earlier estimate
 
-> **Instrumentation ≈ 65 %. Capability ≈ 35 %.** The remaining capability rows are the *harder*
-> ones — they were invisible until the instruments existed. **Levels 7–8 are FOUNDER-BLOCKED** and
-> cannot be scheduled by any amount of engineering (C70 §2.2, roadmap Phase F).
+An executed measurement pass (34 gates run, register + roadmap + C70 §4/§6 + C78/C79/C80 read
+row-by-row) replaced the estimate that used to sit here. **The estimate was wrong and is recorded
+as wrong**, per §7.a.
+
+| Denominator | Closed | Fraction |
+|---|---|---|
+| **Register gaps (the headline)** | **33 / 82** | **40 %** |
+| Roadmap phases fully MET | 0 / 11 | 0 % |
+| C70 Definition-of-Done conditions MET | 1 / 8 | 13 % |
+| Ladder levels awarded above L4 | 0 / 4 | 0 % |
+| Golden-operation matrix cells | 6 / 30 | 20 % |
+| C78 U-INVs satisfied | 2 / 14 | 14 % |
+| C79 conformance rows | 8 / 11 | 73 % |
+| C80 gates built | 2 / 5 | 40 % |
+| **Gates at exit 0 or 1** | **32 / 41** | **78 %** ← *the instrument, not the building* |
+
+> **40 %, not 70 %.** The "70 % feeling" comes from the last row: the gate suite is ~78 % green.
+> That measures **the thermometer, not the fever.**
+
+**Four things a single percentage would hide** — each measured, not asserted:
+
+1. **The closed rows are disproportionately instrumentation; the open rows are disproportionately
+   capability.** Nine of the 33 closures are "the gate was unbuilt, now it exists". The 47 open
+   rows contain *every* missing algorithm (2-D boolean, clash engine), *every* provenance field,
+   and *all four* collaboration rows. **The remaining work is structurally harder, not merely
+   more.**
+2. **Nine gates sit at exit 3**, which C70 §5.1 makes *never* absorbable — so any percentage today
+   is computed over a suite whose own aggregate verdict is RATCHET EXCEEDED. Five are stale
+   ledgers (~1 h). Three are real breaches, worst `check-deterministic-regeneration` at **134
+   against a declared 0**.
+3. **Almost everything proven is proven for `wall.move` and nothing else.** Five gates read exit 0
+   — all wall-scoped. Read as *"the loop works"*, true. Read as *"the product reasons about
+   change"*, **20 % true**.
+4. **Two gates are green in a way not to be trusted, and are counted as UNPROVEN here:**
+   `check-collab-graph-integrity` returned 0 while its own spec says that is structurally
+   impossible without a deployed transport; `check-ai-human-parity` says in its own output which
+   half it had to **simulate**. UNPROVEN wearing a pass's clothes is the precise failure C70 §0
+   was written about.
+
+**What is genuinely strong, stated so this is not one-sided:** **zero exit-2 MISCONFIGURED across
+34 executed gates.** Every gate established its subject. Given this repo's founding trauma — ~15
+gates green and blind at once, an empty seed outscoring every real run — that is the hardest-won
+result in the program, and it is why DoD condition 8 (falsifiability) is the one condition MET.
+
+> ⚠ **The gap register itself is ~199 commits stale** (header `a8f15234`, HEAD is far past it) and
+> carries no status column. Every closure above had to be reconstructed from commit subjects and
+> executed gate runs. **Reconstruction from commit subjects is BY-READ**, and this repository has a
+> documented history of BY-READ reading better than executed. Re-stamping the register is itself a
+> named task (see Phase A.11).
+
+> **Levels 7–8 remain FOUNDER-BLOCKED** and cannot be scheduled by any amount of engineering
+> (C70 §2.2, roadmap Phase F).
 
 ---
 
@@ -96,6 +145,9 @@ Each phase states: **exit condition** (precise, falsifiable), **register rows**,
 | A.8 | C80 generation gate | — | 🔄 **IN FLIGHT** | — |
 | A.9 | CE-02 geometry axis subject | CE-02 | ✅ **DONE** | `221fdef7` |
 | A.10 | **Integration commit** — register all in one suite | CB-03 | ⬜ **NEXT** | — |
+| A.11 | ⚠ **Re-stamp the gap register** — ~199 commits stale, no status column, so nobody can answer "how far are we" from the document whose job that is | — | ⬜ **TODO — high leverage** | — |
+| A.12 | ⚠ **Clear the 9 exit-3 gates** — 5 stale ledgers (~1 h) + 3 real breaches (`check-deterministic-regeneration` 134 vs 0, `check-provenance-not-invented` 6 vs 2, `check-no-empty-means-unknown` 99 vs 98). Exit 3 is NEVER absorbable (C70 §5.1) and the suite's aggregate verdict is RATCHET EXCEEDED until they clear | — | 🔄 **IN FLIGHT** | — |
+| A.13 | ⚠ **Audit the two untrustworthy greens** — `check-collab-graph-integrity` exit 0 while its spec says that is impossible without a transport; `check-ai-human-parity` admits which half it simulates. Both must read UNPROVEN or prove their subject | — | ⬜ TODO | — |
 
 **Exit**: every C70 §7 gate exists at HEAD, in one suite, under one `contract.ts`; zero exit-2s;
 every exit-1 against a **named** ledger; every arm watched go red.
@@ -185,7 +237,7 @@ through the same verbs.*
 |---|---|---|---|
 | D.1 | C79 rows 6–8: floor/ceiling by region carry references | — | ✅ **DONE** (`9fd9c5b6`) — §10.3 decided: DERIVE FROM THE ROOM |
 | D.2 | C79 rows 9–10: ceiling/floor plan tools gain region capability | — | ⬜ TODO |
-| D.3 | `wall.create` planner (956 LOC authored, unreachable) | — | ⬜ TODO |
+| D.3 | ⚠ `wall.create` planner — **AUTHORED AND UNWIRED.** `WallCreateConsequencePlanner.ts` exists and `createWallCreateConsequencePlanner()` has **zero callers**; all three registries (execution `:69`, preview `:50`, confirmation `:62`) register `wall.move` only. The repo's signature authored-but-unwired hazard, reproduced inside the flagship program — machinery present, capability unreachable (C70 §4.2) | — | 🔄 **IN FLIGHT** |
 | D.4 | `opening.move` planner | — | ⬜ TODO |
 | D.5 | `furniture.generate` planner | — | ⬜ TODO |
 | D.6 | The remaining ~10 families dispatching with no preview | PR-01…07 | ⬜ TODO |
