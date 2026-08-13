@@ -45,6 +45,52 @@
 
 ---
 
+## ✅ §-3 — HOW WE WILL KNOW IT WORKS FOR **ALL** ELEMENTS, NOT JUST WALLS
+
+> **The founder's question: "before BIM 3.0 is closed, how do I know this works 100 %, for every
+> element — not only walls?"**
+>
+> **The answer is one gate, and it does not exist yet.**
+
+Every audit so far has measured **one row at a time** and then asked a human to generalise. That is
+the whole problem: `wall.move` is proven, and the proof does not transfer. C78 §20 already names
+the instrument that would settle it — **`check-relationship-determination` (U-INV-1)** — and
+**measured 2026-08-13: the file does not exist.**
+
+### What that gate must do (and why nothing else answers the question)
+
+1. **Enumerate the denominator, and exit 2 if it cannot.** The full
+   `(element kind × relationship × operation)` product, derived from the registries — *not* a
+   hand-written list, which would silently shrink to whatever we already pass. C70 §5.2: a verdict
+   over an unestablished subject is not a verdict. **A count of passing cells without a count of
+   cells is the empty-seed lie.**
+2. **Require every cell to be one of three things** (C78 §1.1) — DETERMINED-affected ·
+   DETERMINED-unaffected · **UNDETERMINED with a typed reason from the 11-member union.**
+   A cell that is silent is a failure; a cell that honestly refuses is a **pass**.
+3. **Never infer "unaffected" from absence** (C78 §1.4). `0 dependents` and `I could not determine
+   dependents` must be distinguishable at the caller — the defect that made a room tell the AI the
+   building has no walls.
+4. **Named, shrink-only ledger.** Every unwired cell listed by name so the count cannot drift.
+5. **Land RED**, at the honest first reading. Today that would be most of the grid below.
+
+**When that ledger reaches empty — or every remaining entry is a founder-signed exception — BIM 3.0
+is closed for all elements. Not before, and no amount of per-family green substitutes for it.**
+
+### Why this is now buildable, and was not last week
+
+The audit's blocker C.1 — *"`ConsequencePlanner<WallMoveCommand>` is hard-bound; everything else
+waits behind this"* — **is dead** (see §-2). With the registry generic and three families
+registered, a universal gate has something real to iterate over. Before that, it could only have
+measured one family and a wall of N/A.
+
+### The three that still have no owner
+
+From the audit's §F, updated: **floor-finish dependency** (references now written, **0 consumers**),
+**slab/finish as predicted consequences**, and **constraint evidence for 16 of 17 families**.
+Real transport stays founder-blocked. Those four are what the gate will keep red until they land.
+
+---
+
 ## 🎯 §-2 — WHAT "DONE" ACTUALLY MEANS (read before §-1, or §-1 will mislead you)
 
 > **§-1 below is ONE EXAMPLE. It is not the goal.** The goal is that **every element is fully
