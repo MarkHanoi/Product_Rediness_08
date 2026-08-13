@@ -377,16 +377,41 @@ const LEDGER: readonly LedgerEntry[] = [
       'the graph. This is the row ADR-0320 was written about; it stays ledgered by name ' +
       'until dependency scheduling reads the edge it is handed.',
   },
-  {
-    key: 'contains/writer',
-    why: 'C71 §2.1 #7 names this exactly: "needs its first-party writer, a named gap". ' +
-      'Two production readers (HierarchyTreePanel.ts:541, WorldModelAdapter.ts:152) ask; ' +
-      'no first-party writer answers. Worse than the contract records: IfcImporter.ts:100 ' +
-      'declares `contains` in ImportedRelationship but the only push (IfcImporter.ts:491) ' +
-      'takes the `adjacentTo|boundedBy` ternary at :490, so the IFC arm is DEAD too — on ' +
-      'ANY project, native or imported, "this room contains nothing" and "nobody ever ' +
-      'wrote this edge" are the same value.',
-  },
+  // ── PAID 2026-08-13 · `contains/writer` ───────────────────────────────────
+  // C71 §2.1 #7 named this exactly: "needs its first-party writer, a named gap".
+  // Two production readers (HierarchyTreePanel, WorldModelAdapter) asked and no
+  // first-party writer answered; worse than the contract recorded, the IFC arm
+  // was dead too (IfcImporter's `contains` push sits under an
+  // `adjacentTo|boundedBy` ternary), so on ANY project — native or imported —
+  // "this room contains nothing" and "nobody ever wrote this edge" were the
+  // same value.
+  //
+  // CLOSED BY A WRITER WITH TWO NAMED, ALREADY-LIVE CONSUMERS (C71 §2.5 — the
+  // consumers were waiting on DATA, not on wiring):
+  // `CreateFurnitureCommand` now emits room → furniture from `hostedSpaceId`,
+  // the room id the D-FLE furnish engine stamps on every placed item
+  // (`buildFurnishCommands`) and BOTH ProjectSerializers persist. The edge
+  // MIRRORS that authoritative field: an item with no `hostedSpaceId` writes no
+  // edge, because inventing a containment the model does not assert is the
+  // provenance-invented defect one layer over. The write is non-fatal — unlike
+  // `sitsOn`, a missing containment edge degrades a tree group and an AI
+  // summary rather than a delete guard.
+  //
+  // REBUILD DISPOSITION CHANGED WITH IT (C71 §1.2 semantic 4):
+  // `rebuildSemanticGraphFromSnapshot` reconstructs `contains` from the
+  // persisted `hostedSpaceId`, so the family LEAVES the `unreconstructable` loss
+  // list in the same commit — a name left there once it is reconstructable is
+  // the stale claim C70 I-INV-3 forbids in the other direction.
+  // Proven by executed tests: the writer and its non-invention case
+  // (`packages/command-registry/__tests__/containsFirstPartyWriter.test.ts`) and
+  // the rebuild (`packages/persistence-client/__tests__/rebuildSemanticGraph.test.ts`).
+  //
+  // ⚠ NOT closed by this row, and deliberately not laundered by it: the
+  // furniture branch of `DeleteElementCommand` purges edges WITHOUT capturing
+  // them first, so undo of a furniture delete does not restore this edge (or
+  // its `sitsOn` sibling) verbatim. That is a `check-graph-delete-integrity`
+  // finding on the delete path, not a write-coverage one, and it is left to
+  // that gate's ledger rather than silently absorbed here.
   {
     key: 'partOf/reader',
     why: 'Room→unit containment. Written ONLY by the rebuild (rebuildSemanticGraph.ts:165) ' +

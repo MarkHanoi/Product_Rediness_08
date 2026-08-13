@@ -206,6 +206,58 @@ export class CreateFurnitureCommand implements Command {
                 metadata: { addedBy: 'CreateFurnitureCommand', furnitureType: this.payload.furnitureType }
             });
 
+            // §CONTAINS-FIRST-PARTY-WRITER (C71 §2.1 #7, §5.2 — the named Tier-2
+            // gap) — SemanticGraph: the room CONTAINS this furniture.
+            //
+            // `contains` had NO first-party writer on any path. C71 §5.2 records
+            // the consequence exactly: on a natively-authored project "this room
+            // contains nothing" and "nobody ever wrote this edge" were the SAME
+            // VALUE — this repository's signature defect, appearing in the graph.
+            // The IFC escape hatch was illusory too: IfcImporter's `contains` arm
+            // sits under an `adjacentTo|boundedBy` ternary and is unreachable.
+            //
+            // THE CONSUMERS ARE ALREADY LIVE AND TYPED, and were waiting on data,
+            // not on wiring (C71 §2.5 — a writer needs a named first consumer):
+            //   · `HierarchyTreePanel._appendFurnitureGroup` —
+            //     `sg.getTargets(room.id, 'contains')`. Its Furniture group has
+            //     NEVER rendered: first because it called `getEdgesFromNode`, a
+            //     method that has never existed (C71 §0), and then — once that was
+            //     fixed — for want of the edge this write finally produces.
+            //   · `WorldModelAdapter` — `getTargets(room.id, 'contains')` feeds
+            //     `containedIds` into the AI world model's per-room summary.
+            //
+            // SOURCE OF TRUTH: `hostedSpaceId`, the room id the D-FLE furnish
+            // engine stamps on every placed item (`buildFurnishCommands`:
+            // `metadata.hostedSpaceId = p.hostedSpaceId`) and both ProjectSerializers
+            // persist. The edge MIRRORS that authoritative field and never guesses
+            // one: an item with no `hostedSpaceId` (hand-placed, not yet resolved to
+            // a room) writes NO edge, because inventing a containment the model does
+            // not assert is the provenance-invented defect one layer over.
+            //
+            // Direction is room → element, per the union's own declaration
+            // (`'contains' // room → furniture/equipment`) and both readers, which
+            // ask `getTargets(room.id, …)`.
+            //
+            // NON-FATAL, deliberately, and this differs from the `sitsOn` write
+            // above: `sitsOn` is load-bearing for the level-delete guard, whereas a
+            // missing `contains` edge degrades a tree group and an AI summary. A
+            // furniture create must not fail because a room-containment edge could
+            // not be recorded.
+            const hostedSpaceId = data.hostedSpaceId;
+            if (hostedSpaceId) {
+                try {
+                    semanticGraphManager.addRelationship({
+                        type: 'contains',
+                        sourceId: hostedSpaceId,
+                        targetId: id,
+                        createdBy: 'CreateFurnitureCommand',
+                        metadata: { addedBy: 'CreateFurnitureCommand', furnitureType: this.payload.furnitureType },
+                    });
+                } catch (err) {
+                    console.warn('[CreateFurnitureCommand] `contains` edge write failed (non-fatal):', err instanceof Error ? err.message : String(err));
+                }
+            }
+
             // §01 §2.7 — Builders are wired to the bim-furniture-added event that
             // FurnitureStore.add() already dispatches. No direct builder call here.
 
