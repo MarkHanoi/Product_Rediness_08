@@ -215,6 +215,42 @@ const FLOOR_DECL_RE = /\bminFiles\s*:|\bMIN_[A-Z0-9_]*(?:FILES|ROUTES|SUBJECTS?|
 const EXIT2_RE = /process\.exit\(2\)|\bdie\(\s*2\b|\bexit\(\s*2\b/;
 
 /**
+ * ⚠ THE SHARED REPORT CONTRACT — added 2026-08-13, the THIRD false accusation
+ * from hunting a LITERAL `2` (after check-verb-liveness' `die(2, …)` helper and
+ * check-collab-graph-integrity's imported floors, both documented above).
+ *
+ * `check-no-dark-test-files.ts` declares MIN_TEST_FILES / MIN_RUNNERS, compares
+ * both in its `floors:` array, and exits via `process.exit(reportGate(result))`
+ * — where `reportGate` (tools/rac-conformance/certification/contract.ts,
+ * `verdictOf`) RETURNS 2 whenever any floor is unmet, a path the contract's own
+ * doc calls "never absorbable as debt". The floor is declared AND exit 2 is
+ * reachable — but no literal `2` appears anywhere near the exit, so EXIT2_RE
+ * reported "declares a floor but has no reachable process.exit(2)".
+ *
+ * The shared contract is now the HOUSE IDIOM (check-secrets-register and every
+ * new C77-era gate exit through it), so every future gate would have tripped
+ * this same accusation. A gate exits 2 through the contract when BOTH hold:
+ *   • it calls `process.exit(reportGate(…))` — or imports `reportGate` from the
+ *     certification contract module and calls it; and
+ *   • it builds a `floors:` array for that result (comments are stripped before
+ *     matching, so a header mention cannot fake it).
+ * Same principle as the two prior widenings: judge whether a floor is ENFORCED,
+ * never how it is SPELLED. Pinned by __tests__/gateSubjectFloors.spec.ts.
+ */
+const CONTRACT_EXIT_RE = /process\.exit\(\s*reportGate\s*\(/;
+const CONTRACT_IMPORT_RE = /from\s+['"][^'"]*rac-conformance\/certification\/contract(?:\.js)?['"]/;
+const REPORT_GATE_CALL_RE = /\breportGate\s*\(/;
+const FLOORS_ARRAY_RE = /\bfloors\s*:/;
+
+/** Exit-2-capable via the shared certification contract (see above). */
+function exitsViaSharedContract(allText: string): boolean {
+  const callsReportGate =
+    CONTRACT_EXIT_RE.test(allText) ||
+    (CONTRACT_IMPORT_RE.test(allText) && REPORT_GATE_CALL_RE.test(allText));
+  return callsReportGate && FLOORS_ARRAY_RE.test(allText);
+}
+
+/**
  * Local lib imports, resolved back to `lib/<name>.ts`. Two shapes, because a
  * gate reaches its libs as `./lib/x.js` while a lib reaches its siblings as
  * `./x.js` — missing the second form silently truncated the closure at depth 1
@@ -316,7 +352,7 @@ const floored: string[] = [];
 for (const f of gateFiles) {
   const { declText, allText } = buildClosure(join(GATE_DIR, f));
   const hasDecl = FLOOR_DECL_RE.test(declText);
-  const hasExit2 = EXIT2_RE.test(allText);
+  const hasExit2 = EXIT2_RE.test(allText) || exitsViaSharedContract(allText);
   if (hasDecl && hasExit2) { floored.push(f); continue; }
   unfloored.push({
     file: f,
