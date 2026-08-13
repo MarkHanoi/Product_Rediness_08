@@ -3,16 +3,5 @@
   "note": "SHRINK-ONLY (C70 §5.3). Pinned at this gate's FIRST HONEST READING, 2026-08-13, HEAD ea571619 — the run that converted BIM30-GAP-REGISTER row GE-11 from UNPROVEN to a MEASURED defect. Every entry is a `roomSpatialIndex.insert(` call site feeding an AABB that is NOT the room's own extent. A site converted to the canonical TRUE-BBOX convention must LEAVE this file in the SAME commit that converts it, or the gate exits 3 STALE (C70 §5.4). This list may only get shorter. Keys are `<relPath>#<ordinal-of-insert-within-file>`, never line numbers, so an unrelated edit above a call site does not re-key its debt.",
   "measuredAt": "2026-08-13",
   "measuredAtHead": "ea571619",
-  "nonCanonicalSites": [
-    {
-      "key": "packages/command-registry/src/rooms/DeleteRoomCommand.ts#1",
-      "convention": "CIRCLE-APPROX",
-      "why": "undo() re-inserts the deleted room. FALLBACK arm — reached only when `this.snapshot.computed.boundingBox` is absent; the arm above it (#0) is canonical. So undo can restore a room to the index under a DIFFERENT convention than the one it was removed with."
-    },
-    {
-      "key": "packages/command-registry/src/rooms/DetectAllRoomsCommand.ts#1",
-      "convention": "CIRCLE-APPROX",
-      "why": "FALLBACK arm — reached only when `room.computed.boundingBox` is absent; the arm above it (#0) is canonical. Two conventions inside ONE command, chosen by data availability, which is the shape C73 §3 exists to forbid."
-    }
-  ]
+  "nonCanonicalSites": []
 }

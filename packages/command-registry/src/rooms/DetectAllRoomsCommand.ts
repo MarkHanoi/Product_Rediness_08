@@ -51,7 +51,7 @@ import { RoomData } from '@pryzm/room-topology';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { roomSpatialIndex } from '@pryzm/core-app-model';
-import { RoomDetectionEngine } from '@pryzm/room-topology';
+import { RoomDetectionEngine, polygonAABB } from '@pryzm/room-topology';
 import { assignUniqueRoomNumbers, resolveRoomLevelPrefix } from './RoomNumbering';
 
 interface UndoStep {
@@ -156,17 +156,18 @@ export class DetectAllRoomsCommand implements Command {
             console.warn('[DetectAllRoomsCommand] SemanticGraph boundedBy write failed:', err);
           }
 
-          // Spatial index — refresh the AABB
+          // Spatial index — refresh the AABB under the ONE canonical convention
+          // (GE-11, C73 §1/§3): the room's TRUE bounding box. When
+          // `computed.boundingBox` is absent, the box is derived from the SAME
+          // definition — the polygon's own extent via polygonAABB — never from the
+          // old centroid ± sqrt(area/PI) circle, which preserved AREA but
+          // understated the EXTENT of every non-square footprint and made
+          // getRoomsContainingPoint silently miss interior points of concave rooms.
           try {
-            const { centroid, area, boundingBox } = room.computed ?? {};
+            const boundingBox = room.computed?.boundingBox
+              ?? (room.boundary?.polygon?.length ? polygonAABB(room.boundary.polygon) : undefined);
             if (boundingBox) {
               roomSpatialIndex.insert(room.id, boundingBox);
-            } else if (centroid) {
-              const r2 = Math.sqrt((area ?? 10) / Math.PI);
-              roomSpatialIndex.insert(room.id, {
-                minX: centroid.x - r2, minZ: centroid.z - r2,
-                maxX: centroid.x + r2, maxZ: centroid.z + r2,
-              });
             }
           } catch (err) {
             console.warn('[DetectAllRoomsCommand] SpatialIndex insert failed:', err);

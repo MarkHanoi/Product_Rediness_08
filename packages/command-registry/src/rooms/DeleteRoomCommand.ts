@@ -18,7 +18,7 @@ import {
   Command, CommandType, CommandValidationResult, CommandResult,
   SerializedCommand, CommandContext,
 } from '../types';
-import { RoomData } from '@pryzm/room-topology';
+import { RoomData, polygonAABB } from '@pryzm/room-topology';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { roomSpatialIndex } from '@pryzm/core-app-model';
@@ -82,16 +82,18 @@ export class DeleteRoomCommand implements Command {
 
       // Restore spatial index entry — semantic graph edges are derived state and
       // will be rebuilt by the next ReDetectRoomsCommand run.
+      //
+      // GE-11, C73 §1/§3: ONE canonical AABB convention — the room's TRUE bounding
+      // box. The old fallback re-inserted the room as a centroid ± sqrt(area/PI)
+      // circle box, i.e. under a DIFFERENT convention than the one it was removed
+      // with, understating the extent of every non-square footprint. When
+      // `computed.boundingBox` is absent the box is derived from the SAME
+      // definition — the polygon's own extent via polygonAABB.
       try {
-        const { centroid, area, boundingBox } = this.snapshot.computed;
+        const boundingBox = this.snapshot.computed?.boundingBox
+          ?? (this.snapshot.boundary?.polygon?.length ? polygonAABB(this.snapshot.boundary.polygon) : undefined);
         if (boundingBox) {
           roomSpatialIndex.insert(this.snapshot.id, boundingBox);
-        } else if (centroid) {
-          const r2 = Math.sqrt((area ?? 10) / Math.PI);
-          roomSpatialIndex.insert(this.snapshot.id, {
-            minX: centroid.x - r2, minZ: centroid.z - r2,
-            maxX: centroid.x + r2, maxZ: centroid.z + r2,
-          });
         }
       } catch { /* best-effort */ }
 
