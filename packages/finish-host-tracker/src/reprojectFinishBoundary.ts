@@ -48,6 +48,7 @@
  * the production caller can hand it the adapter + the one real resolver.
  */
 
+import { RECOMPUTE_IDENTITY_M } from '@pryzm/geometry-kernel';
 import {
     xzPointToResolverPoint,
     resolverPointToXzPoint,
@@ -119,7 +120,11 @@ export interface ReprojectFinishBoundaryInput {
 
 // ── Small pure geometry (XZ frame) ───────────────────────────────────────────
 
-const PRESERVED_TOL_M = 1e-9;
+// §C73-EPSILON-POLICY — the preserved-vs-changed verdict consumes the kernel's
+// RECOMPUTE_IDENTITY_M role directly (metres): "did re-deriving the ring
+// change it AT ALL?", NOT COINCIDENT_M's "are these the same model point?".
+// A real sub-millimetre resize must never read `preserved` (C79 §5 —
+// `preserved` is a positive verdict, not a loose comparison).
 const DEGENERATE_LEN_M = 1e-9;
 const MIN_AREA_M2 = 1e-6;
 
@@ -303,7 +308,7 @@ export function reprojectFinishBoundary(input: ReprojectFinishBoundaryInput): Re
     const numbers = { oldAreaM2: Math.abs(oldArea), newAreaM2: Math.abs(newArea) };
 
     const unchanged = newRing.every((p, i) =>
-        Math.abs(p.x - currentRing[i]!.x) < PRESERVED_TOL_M && Math.abs(p.z - currentRing[i]!.z) < PRESERVED_TOL_M);
+        Math.abs(p.x - currentRing[i]!.x) < RECOMPUTE_IDENTITY_M && Math.abs(p.z - currentRing[i]!.z) < RECOMPUTE_IDENTITY_M);
     if (unchanged) {
         return { state: 'preserved', edgeOutcomes: edgeOutcomes.map((o) => ({ ...o, state: 'preserved' as const })), numbers };
     }

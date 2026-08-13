@@ -18,6 +18,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/core-app-model": "workspace:*"
   },
   "devDependencies": {

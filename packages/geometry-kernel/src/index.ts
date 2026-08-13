@@ -26,6 +26,7 @@ export {
   EPSILON_ZERO,
   COINCIDENT_M,
   PARALLEL_RAD,
+  RECOMPUTE_IDENTITY_M,
   isNumericallyZero,
   isCoincidentDistanceM,
   arePointsCoincident2D,

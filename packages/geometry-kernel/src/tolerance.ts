@@ -92,6 +92,34 @@ export const EPSILON_ZERO = 1e-9;
 export const COINCIDENT_M = 0.001;
 
 /**
+ * RECOMPUTE-IDENTITY tolerance — **metres**.
+ *
+ * "Equal" at this tolerance means: an INDEPENDENT RECOMPUTATION reproduced a
+ * stored value EXACTLY, up to floating-point path noise — nothing about the
+ * inputs changed. This is a different QUESTION from `COINCIDENT_M`, not a
+ * different answer to the same one: `COINCIDENT_M` asks "are these two model
+ * points the same place?" (1 mm — far below anything constructible), while
+ * this role asks "did re-deriving this value change it AT ALL?". A quantity
+ * re-derived from untouched inputs through a deterministic pipeline comes
+ * back bit-identical or within the last ulps of unit-conversion round-trips;
+ * a quantity whose inputs genuinely moved differs by a physical amount. The
+ * six-orders gap between 1e-9 m and `COINCIDENT_M` is the point: a REAL
+ * sub-millimetre change must NOT read as "unchanged" — collapsing the two
+ * roles would silently discard genuine (if small) edits as no-ops.
+ *
+ * Consumed by: preserved-vs-changed verdicts that compare a re-derived
+ * geometry against its stored form — first consumer is finish-host-tracker's
+ * `reprojectFinishBoundary` (§STEP7 `preserved` state, C79 §5: `preserved`
+ * is a positive verdict that must never be minted by a loose comparison).
+ *
+ * Numerically equal to `EPSILON_ZERO`, deliberately NOT aliased to it:
+ * `EPSILON_ZERO` is the dimensionless zero-of-arithmetic guard, this is a
+ * metre-valued identity band. Equal today, free to diverge; a site consuming
+ * the wrong ROLE is the defect the named constants exist to prevent.
+ */
+export const RECOMPUTE_IDENTITY_M = 1e-9;
+
+/**
  * PARALLELISM / COLLINEARITY tolerance — **radians** (for the small angles
  * this guards, sin θ ≈ θ, so it is applied interchangeably to an angle, to
  * the magnitude of a 2D cross product of unit vectors, or to a unit-vector
