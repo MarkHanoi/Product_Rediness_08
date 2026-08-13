@@ -275,7 +275,20 @@
     "\"N rooms · links unknown ⚠\" with the reason in its title + console.warn.",
     "A readable zero-edge graph stays a plain determined empty. Differentiating",
     "spec: apps/editor/src/ui/__tests__/livingGraphDataHonesty.spec.ts (4 cases,",
-    "2 negative controls) — the unreadable cases FAIL against the ?? [] shape."
+    "2 negative controls) — the unreadable cases FAIL against the ?? [] shape.",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 82 -> 81) — RelationshipViewer.ts, ARM C x3,",
+    "and the sharpest UI instance: the RELATIONSHIP PANEL itself printed \"No",
+    "relationships found\" about elements whose childrenIds/hostedElements,",
+    "openings and connectedTo/adjacentIds fields were NEVER RECORDED — the exact",
+    "C78 §1.4 forgery, on the surface whose only job is relationships.",
+    "extractRelationships now returns { groups, undetermined } (first present",
+    "array among aliases wins; all-absent → RELATIONSHIP_NOT_RECORDED via the",
+    "shared seam), and renderRelationshipSection renders a \"Not determined\"",
+    "block + a different empty-state sentence, so unknown and empty are",
+    "different pixels. Differentiating spec:",
+    "apps/editor/src/ui/__tests__/relationshipViewerHonesty.spec.ts (6 cases,",
+    "2 negative controls) — the all-absent cases FAIL against the ?? [] shape."
   ],
   "swallowed": [
     {
@@ -392,11 +405,6 @@
       "site": "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
       "arm": "C (3 site(s))",
       "why": "C@619 `const adj: any[] = qs.getAdjacentRooms(room.id) ?? [];` · C@641 `const conn: any[] = qs.getConnectedRooms(room.id) ?? [];` · C@734 `const boundingSet    = new Set<string>(room.boundingWallIds ?? []);`"
-    },
-    {
-      "site": "apps/editor/src/ui/property-panel/RelationshipViewer.ts",
-      "arm": "C (3 site(s))",
-      "why": "C@39 `const children = elementData.childrenIds ?? elementData.hostedElements ?? [];` · C@46 `const openings = elementData.openings ?? [];` · C@63 `const connectedTo = elementData.connectedTo ?? elementData.adjacentIds ?? [];`"
     },
     {
       "site": "apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts",

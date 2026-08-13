@@ -16,13 +16,57 @@
  */
 
 import { RelationshipEntry } from './types';
+// §GR-10 — the shared honesty seam (C78 §8.1 vocabulary, imported not restated).
+import {
+    relationshipUndetermined,
+    type RelationshipDetermination,
+} from '../relationshipDetermination.js';
+
+/** The undetermined arm of the shared seam, as this panel's row type. */
+export type UndeterminedRelationship = Extract<
+    RelationshipDetermination<never>,
+    { kind: 'undetermined' }
+>;
+
+/** Extraction result: the determined groups PLUS the questions nobody answered. */
+export interface ExtractedRelationships {
+    groups: Map<string, RelationshipEntry[]>;
+    /**
+     * §GR-10 (C75 §1.4 · C78 §1.4/§8.1 · C71 §4.4) — relationship families whose
+     * FIELD IS ABSENT from elementData. The old `?? []` shape collapsed these
+     * into the determined-empty groups, so the panel printed "No relationships
+     * found" about elements whose relationships were never recorded — an
+     * assertion nobody had measured.
+     */
+    undetermined: UndeterminedRelationship[];
+}
 
 /**
  * Extracts relationship entries from element data.
  * Queries stores for labels where possible.
+ *
+ * A relationship family with a PRESENT array (even empty) is determined; a
+ * family whose every source field is ABSENT is reported in `undetermined`
+ * (RELATIONSHIP_NOT_RECORDED) rather than silently treated as empty.
  */
-export function extractRelationships(elementData: Record<string, any>): Map<string, RelationshipEntry[]> {
+export function extractRelationships(elementData: Record<string, any>): ExtractedRelationships {
     const groups = new Map<string, RelationshipEntry[]>();
+    const undetermined: UndeterminedRelationship[] = [];
+
+    /** First PRESENT array among the aliases wins; all-absent → undetermined. */
+    const readFamily = (scope: string, ...fields: string[]): any[] | null => {
+        for (const f of fields) {
+            const v = elementData[f];
+            if (Array.isArray(v)) return v;
+        }
+        undetermined.push(relationshipUndetermined(
+            scope,
+            'RELATIONSHIP_NOT_RECORDED',
+            `none of [${fields.join(', ')}] is present on this element — ` +
+                'zero members was NOT determined (C75 §1.4 / C78 §1.4).',
+        ));
+        return null;
+    };
 
     const add = (groupName: string, entry: RelationshipEntry) => {
         if (!groups.has(groupName)) groups.set(groupName, []);
@@ -36,15 +80,15 @@ export function extractRelationships(elementData: Record<string, any>): Map<stri
         add('Hosted By', { relationshipType: 'hosted_by', targetId: hostId, targetLabel: resolve(hostId) });
     }
 
-    const children = elementData.childrenIds ?? elementData.hostedElements ?? [];
-    if (Array.isArray(children) && children.length > 0) {
+    const children = readFamily('Hosts', 'childrenIds', 'hostedElements');
+    if (children && children.length > 0) {
         children.forEach((childId: string) => {
             add('Hosts', { relationshipType: 'hosts', targetId: childId, targetLabel: resolve(childId) });
         });
     }
 
-    const openings = elementData.openings ?? [];
-    if (Array.isArray(openings) && openings.length > 0) {
+    const openings = readFamily('Hosted Openings', 'openings');
+    if (openings && openings.length > 0) {
         openings.forEach((o: any) => {
             const id = o.elementId ?? o.id;
             if (!id) return;
@@ -60,8 +104,8 @@ export function extractRelationships(elementData: Record<string, any>): Map<stri
         });
     }
 
-    const connectedTo = elementData.connectedTo ?? elementData.adjacentIds ?? [];
-    if (Array.isArray(connectedTo) && connectedTo.length > 0) {
+    const connectedTo = readFamily('Connected To', 'connectedTo', 'adjacentIds');
+    if (connectedTo && connectedTo.length > 0) {
         connectedTo.forEach((cid: string) => {
             add('Connected To', { relationshipType: 'connected_to', targetId: cid, targetLabel: resolve(cid) });
         });
@@ -75,7 +119,7 @@ export function extractRelationships(elementData: Record<string, any>): Map<stri
         add('Handrail For', { relationshipType: 'handrail_for', targetId: elementData.stairId, targetLabel: resolve(elementData.stairId) });
     }
 
-    return groups;
+    return { groups, undetermined };
 }
 
 /**
@@ -106,16 +150,42 @@ function resolveLabel(id: string): string {
  * Clicking a relationship fires a 'bim-select-element' custom event.
  */
 export function renderRelationshipSection(
-    groups: Map<string, RelationshipEntry[]>
+    extracted: ExtractedRelationships
 ): HTMLElement {
+    const { groups, undetermined } = extracted;
     const container = document.createElement('div');
     container.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
 
     if (groups.size === 0) {
         const empty = document.createElement('div');
         empty.style.cssText = 'font-size:11px;color:#bbb;font-style:italic;';
-        empty.textContent = 'No relationships found';
+        // §GR-10 (C75 §1.4) — "No relationships found" may only be printed when
+        // every relationship family was DETERMINED empty. When any family was
+        // never recorded, the honest sentence is different — and the two used
+        // to be the same pixels.
+        empty.textContent = undetermined.length === 0
+            ? 'No relationships found'
+            : 'No recorded relationships — some could not be determined (see below)';
         container.appendChild(empty);
+    }
+
+    if (undetermined.length > 0) {
+        const und = document.createElement('div');
+        const title = document.createElement('div');
+        title.style.cssText = 'font-size:10px;font-weight:700;color:#9b6a1a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;';
+        title.textContent = 'Not determined';
+        und.appendChild(title);
+        undetermined.forEach((u) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'font-size:11px;color:#9b6a1a;';
+            row.textContent = `⚠ ${u.scope} — never recorded (unknown, not "none")`;
+            row.title = u.detail ?? '';
+            und.appendChild(row);
+        });
+        container.appendChild(und);
+    }
+
+    if (groups.size === 0) {
         return container;
     }
 
