@@ -51,6 +51,8 @@ PRYZM uses a **5-horizon planning system** (H1 5-year vision → H5 sprint). All
 
 | Plan | Purpose |
 |---|---|
+| [GENERATIVE-QUALITY-MASTER-TRACKER.md](./GENERATIVE-QUALITY-MASTER-TRACKER.md) | **STATUS-BEARING programme tracker** — *is the generated design correct?* Own denominator (**28** = 4 typology packs × 7 readiness gates), never folded into BIM 3.0's 82. Phases: fix the generators → school/museum/hospital → the edit layer |
+| [BIM30-MASTER-COMPLETION-TRACKER.md](./BIM30-MASTER-COMPLETION-TRACKER.md) | **STATUS-BEARING programme tracker** — *when the model changes, does PRYZM stay truthful?* Denominator = the 82 gap-register rows |
 | [apartment/](./apartment/) | Apartment generation deep-detail (furniture · cognition stack · family platform · dimensional constraints · driving principles · BIM 2/3 data mgmt) — feeds typology-expansion-roadmap.md |
 | [pryzm-1-sunset.md](./pryzm-1-sunset.md) | PRYZM 1 retirement plan (ongoing) |
 | [launch/](./launch/) | Go-to-market draft material (GA blog post · beta announcement · demo script) |

@@ -10,6 +10,26 @@
 > capability**, which the roadmap deliberately refuses to carry.
 > **Row ids** are the 84 rows of [BIM30-GAP-REGISTER.md](../../04-reference/BIM30-GAP-REGISTER.md).
 > This file **cites** them; it never restates their content (C70 §0.2).
+>
+> ### ⚠ THIS IS ONE OF THREE PROGRAMMES, NOT THE ONLY ONE — and they must never be merged
+>
+> | Programme | The question it answers | Its denominator | Its tracker |
+> |---|---|---|---|
+> | **BIM 3.0 — TRUST** | *when the model changes, does PRYZM stay truthful?* | **82 register rows** | **THIS FILE** |
+> | **GENERATIVE QUALITY** | *when PRYZM generates a design, is the design correct?* | **28** = 4 typology packs × 7 readiness gates | [GENERATIVE-QUALITY-MASTER-TRACKER.md](GENERATIVE-QUALITY-MASTER-TRACKER.md) |
+> | **THE EDIT LAYER** | *can PRYZM change a design and keep its intent?* | **not yet enumerable** — see below | *ibid.*, §2.3 (its Phase 3) |
+>
+> **Do NOT fold generator-quality or edit-layer work into the 82.** That denominator measures model
+> trust under change; a generator can produce a sealed bedroom in a model whose relationship graph
+> is flawless, and a model can lose a moved wall in a plan whose circulation is perfect. The failure
+> modes are independent, so the counts must be. Merging them would destroy the meaning of `X/82`
+> and no arithmetic would recover the split afterwards. **Cross-reference freely; never merge.**
+>
+> **The edit layer is hard-preconditioned on bar 3 of this programme** ([roadmap §3.1](BIM30-IMPLEMENTATION-ROADMAP.md#31--️-three-different-bars-and-this-roadmap-only-sequences-the-first)):
+> `check-relationship-determination` does not exist, and 4,018 of 4,100 cells are SILENT. An edit
+> engine over a 98 %-silent relationship product would not preserve intent — it would destroy it
+> silently. **Bar 3 is therefore not only this programme's open question; it is the gate another
+> programme is waiting behind.**
 
 ---
 
