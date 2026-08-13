@@ -70,6 +70,38 @@ beforeAll(() => {
     if (!g.ImageData) g.ImageData = class { };
 });
 
+/**
+ * ── WHY THE IMPORT IS HOISTED INTO ITS OWN `beforeAll` (2026-08-13) ──────────────
+ *
+ * `ProjectSerializer` sits on a very large import graph — ~30 `@pryzm/core-app-model`
+ * specifiers alone, plus twelve `geometry-*` stores and `@pryzm/file-format`. Vitest
+ * must transform that whole graph on first import, which measures ~30 s cold on this
+ * tree (`transform 22.8 s` of a 30.2 s run).
+ *
+ * When the `await import(...)` lived inside `serializeThroughProduction`, that cost was
+ * charged to whichever test called it FIRST. Vitest's default `testTimeout` is 5000 ms,
+ * so those tests were killed mid-import; the teardown then surfaced as the *misleading*
+ * `TypeError: Cannot read properties of undefined (reading 'serialize')` — which reads
+ * like a broken/circular barrel export but is not one. Measured directly:
+ * `KEYS SNAPSHOT_SCHEMA_VERSION,ProjectSerializer` / `PS_TYPE function` — the export is
+ * intact and the module graph is acyclic. Tests running LATER, on the now-warm module
+ * cache, passed — which is exactly the 10-failed/6-passed split that was observed.
+ *
+ * Paying the cost ONCE here, with an explicit timeout, makes the transform budget
+ * visible instead of silently billing it to an unrelated assertion. This does NOT
+ * weaken the probe: it is the same real `ProjectSerializer`, reached by the same
+ * specifier, and `serializeThroughProduction` still drives the real `serialize()`.
+ * If the module ever genuinely fails to load, `expect(...).toBeDefined()` below fails
+ * LOUDLY and every round-trip test still goes red.
+ */
+let ProjectSerializer: typeof import('../src/loader/ProjectSerializer')['ProjectSerializer'];
+
+beforeAll(async () => {
+    ({ ProjectSerializer } = await import('../src/loader/ProjectSerializer'));
+    expect(ProjectSerializer, 'ProjectSerializer failed to load').toBeDefined();
+    expect(typeof ProjectSerializer.serialize).toBe('function');
+}, 120_000);
+
 // ── The reference fixture C79 §2.5 names: 3 straight walls + 1 arc ──────────────
 // "The measured reference reading on the 3-straight + 1-arc fixture: 3 host edges,
 //  16 curved fallbacks — a measurement, not a silent gap."
@@ -153,7 +185,6 @@ function slabDataFromRegion(id: string, traced: RegionSketchResult) {
  * serialise-stage step under test.
  */
 async function serializeThroughProduction(slabs: unknown[]): Promise<Record<string, unknown>> {
-    const { ProjectSerializer } = await import('../src/loader/ProjectSerializer');
     const empty = { getAll: () => [] as unknown[] };
     const stores = {
         wallStore: { getAll: () => [], getLevels: () => [{ id: 'L1', name: 'Level 1', elevation: 0 }] },
@@ -318,24 +349,28 @@ describe('C79 §10.1 — region relationship under a persistence round trip', ()
          * `SlabRegionTracer.buildRegionSketch`'s own docstring (:655-661) states it
          * populates `fallback` on EVERY `HostReferenceEdge`.
          *
-         * IT DOES NOT, at the tree state this probe was executed against — the two
-         * lines that wrote it were removed from `buildRegionSketch` (the field is
-         * absent from the emitted edge; only the docstring still claims it).
+         * IT DID NOT, when this probe was first executed at `458c013a` — the two lines
+         * that wrote it had been removed from `buildRegionSketch`, so the field was
+         * absent from the emitted edge and only the docstring still claimed it. This
+         * test was therefore pinned as `it.fails`, with the standing instruction:
+         * *"When the `fallback` write is restored, this test goes GREEN-as-failure and
+         * must be converted to a plain `it`."*
          *
-         * The loss is therefore NOT a persistence loss. Round-tripping preserves the
-         * edge byte-for-byte (§2 proves that); the value was never authored, so there
-         * is nothing for persistence to drop. Per C79 §4.3 the consequence is real:
-         * `WallFaceResolver.degrade` → `resolveOrFallback` returns `null` when the
-         * host is gone and no fallback was stored — a wall deleted before any rebuild
-         * leaves an edge that resolves to NOTHING.
+         * ── THAT HAPPENED (2026-08-13) ──────────────────────────────────────────────
+         * `SlabRegionTracer.ts:693` now writes `fallback: { start, end }` on every
+         * emitted host reference. The `it.fails` consequently began reporting
+         * *"Expect test to fail"* — the pin firing correctly to announce that the defect
+         * it guarded is closed. Converted to a plain `it` per that instruction, so the
+         * restored write is now POSITIVELY ENFORCED: if the two lines are removed again,
+         * this test goes red instead of quietly reverting to "expected".
          *
-         * Pinned as an expected failure (the `WallJoinResolver.sameTypeCornerImmutable`
-         * `it.fails` convention) so the defect is DOCUMENTED AND EXECUTED rather than
-         * silent. Fixing it is a separate lane: this file measures, it does not repair.
-         * When the `fallback` write is restored, this test goes GREEN-as-failure and
-         * must be converted to a plain `it`.
+         * The C79 §4.3 stake this guards, unchanged: `WallFaceResolver.degrade` →
+         * `resolveOrFallback` returns `null` when the host is gone and no fallback was
+         * stored — a wall deleted before any rebuild would leave an edge resolving to
+         * NOTHING. Note this was never a PERSISTENCE loss: round-tripping preserved the
+         * edge byte-for-byte (§2 proves that); the value simply was never authored.
          */
-        it.fails('C79 §4.3 — every emitted host reference carries a `fallback`', () => {
+        it('C79 §4.3 — every emitted host reference carries a `fallback`', () => {
             const traced = traceRegionSketchAtPoint(fourWallRoom(), 3, 2)!;
             for (const e of hostEdgesOf(traced.sketch)) {
                 expect(e.fallback, `host edge for ${e.hostId} has no fallback`).toBeDefined();
