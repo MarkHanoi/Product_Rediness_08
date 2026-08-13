@@ -54,6 +54,11 @@ export * from './WallHoleBodyBuilder';
 // DEFAULT ON since 2026-05-27. Emergency opt-out:
 //   window.__pryzmWallPipelineV2 = false
 export * from './JunctionResolverV2';
+// §MOVE-REWELD (Phase C item 3) — pure engine: re-weld joinedTo partners after a
+// wall move, outside slab loops. Output is CascadeWallBaselineEntry-shaped; the
+// dispatch site (WallRebuildCoordinator / move commit path) is NOT yet wired —
+// see __tests__/WallMoveJunctionReweld.measure.test.ts for the pinned defect.
+export * from './WallMoveReweld';
 export * from './WallFootprint2D';
 export * from './WallPolygonExtruder';
 export * from './WallPipelineV2';
