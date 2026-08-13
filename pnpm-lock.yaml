@@ -1963,9 +1963,6 @@ importers:
       '@pryzm/core-app-model':
         specifier: workspace:*
         version: link:../core-app-model
-      '@pryzm/geometry-slab':
-        specifier: workspace:*
-        version: link:../geometry-slab
     devDependencies:
       typescript:
         specifier: ^5.9.3
