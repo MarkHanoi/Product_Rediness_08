@@ -178,8 +178,8 @@ export type PluginDeps = Readonly<Record<string, unknown>>;
  * catalogues (a fresh plugin-side store vs the picker's geometry-wall singleton)
  * into one.
  *
- * The singleton is read LAZILY at call time via the typed `window` global
- * (declared in global-window.d.ts — NOT `(window as any)`, so P4-compliant),
+ * The singleton is read LAZILY at call time via a narrow structural `window`
+ * cast (NOT `(window as any)`, so P4-compliant),
  * never captured at build time. This keeps the composition root free of an eager
  * geometry-wall/core-app-model module load (which touches the DOM), and `get()`
  * runs at command-execute time — by which point `initBuilders` has assigned
@@ -200,8 +200,13 @@ interface SharedWallTypeSingleton {
   add?(t: unknown): unknown;
 }
 function sharedWallTypeSingleton(): SharedWallTypeSingleton | undefined {
+  // Narrow STRUCTURAL window cast (the PropertyPanelPreDraw.ts pattern) rather
+  // than the ambient global-window.d.ts declaration: the ambient file is not in
+  // scope when OTHER packages compile this file in per-package isolation
+  // (check-per-package-compile), and `window.wallSystemTypeStore` was failing
+  // TS2339 in 23 of their compiles. Still NOT `(window as any)` — P4-compliant.
   return typeof window !== 'undefined'
-    ? (window.wallSystemTypeStore as SharedWallTypeSingleton | undefined)
+    ? (window as { wallSystemTypeStore?: SharedWallTypeSingleton }).wallSystemTypeStore
     : undefined;
 }
 export function buildSharedWallCatalogue(): WallSystemTypeStore {
