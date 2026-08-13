@@ -286,6 +286,27 @@ const GATES: Gate[] = [
   // (L-716). Scope printed in its own output: GLOB REACHABILITY, not CI
   // invocation — scripts/check/check-test-ci-coverage.mjs owns that axis.
   { name: 'no-dark-test-files (C70 §4.2 · L-849/L-851)', script: 'check-no-dark-test-files.ts' },
+  // SPEC-49 CI-2 (2026-08-13) — GENERATOR OUTPUT QUALITY, WHICH WAS ENTIRELY
+  // UNGATED. Verified by enumeration in SPEC-49 §3 item 6: not one of the 56 gates
+  // above read `doorAdjacentTo`, read `unreachableHabitableRoomIds`, or DROVE any
+  // generator. The two that mention `apartmentLayout` are about refusal MESSAGING.
+  // So the founder's production report — "rooms without doors · the corridor doesn't
+  // reach the relevant bedrooms" — could not have been caught by anything here.
+  //
+  // ⚠ It EXECUTES the three real production entries (generateDeterministicLayouts,
+  // generateHouseLayout, orchestrateResidentialBuilding) over the committed sweeps
+  // and reads `LayoutOption.circulation`, the verdict CI-0 (1559275e) stopped
+  // throwing away at the emit boundary. ~9s for 166 generator runs. It deliberately
+  // does NOT count files or field declarations: a gate that counts ARTEFACTS can be
+  // satisfied by producing artefacts, which is how check-move-propagation went green
+  // over a consumer file wired into nothing.
+  //
+  // Lands RED at exit 1 against a NAMED shrink-only 18-row ledger
+  // (generator-circulation-ledger.json), checked in both directions, with 7
+  // planted/clean controls executed INSIDE every run — exit 2 as a blind comparator
+  // if any arm stays silent. Carries a gate-newly-measured.json entry, NOT
+  // gate-debt.json: the defects predate the instrument and nobody chose to ship them.
+  { name: 'generator-circulation (SPEC-49 CI-2)',      script: 'check-generator-circulation.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];
