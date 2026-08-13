@@ -512,6 +512,11 @@ export class DeleteElementCommand implements Command {
             // window.bimManager fallback removed.
             const bimMgr = ctx.bimManager;
             try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+            // §FIX-HANDRAIL-DELETE-LEAVES-GRAPH-EDGES — this branch already
+            // purged, but undo restored NOTHING, which C71 §5.6 rates worse than
+            // no purge because it looks correct: delete+undo silently erased the
+            // handrail's graph presence for good. Capture verbatim first.
+            this._captureRelationships([id]);
             try { semanticGraphManager.removeAllRelationshipsForElement(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
             handrailStore.remove(id);
@@ -896,6 +901,8 @@ export class DeleteElementCommand implements Command {
                 store?.add?.(snap);
                 try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                 try { elementRegistry.registerSemantic(snap.id, 'handrail' as any); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                // §FIX-HANDRAIL-DELETE-LEAVES-GRAPH-EDGES — restore verbatim.
+                this._restoreRelationships();
                 break;
             }
             case 'roof': {

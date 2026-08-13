@@ -67,8 +67,6 @@
     { "key": "roof/undo-restores-nothing:DeleteElementCommand.ts#roof", "why": "Branch purges all edges (incl. topologyGraph.removeNode), undo restores none." },
     { "key": "plumbing/undo-restores-nothing:DeleteElementCommand.ts#plumbing", "why": "Branch purges all edges, undo restores none." },
     { "key": "opening/purge-missing:DeleteOpeningCommand.ts", "why": "Slab-opening delete never purges. Today no writer emits edges for slab openings, so the strand set is empty in practice — but that is coincidence, not integrity, and F-INV-2 forbids counting it as such." },
-    { "key": "handrail/purge-missing:DeleteHandrailCommand.ts", "why": "One of two handrail delete producers never purges — diverges from DeleteElementCommand's handrail branch. CreateHandrailCommand writes sitsOn, so this path strands a real edge." },
-    { "key": "handrail/undo-restores-nothing:DeleteElementCommand.ts#handrail", "why": "Branch purges all edges, undo restores none." },
     { "key": "grid/purge-missing:RemoveGridCommand.ts", "why": "Grid delete never purges. No writer emits grid edges today; same coincidence-not-integrity reading as opening." },
     { "key": "level/purge-missing:DeleteLevelCommand.ts", "why": "Levels are the TARGET of every sitsOn edge and both connectedByStair/connectedByLift endpoints. A purge-less level delete strands one edge per element that sat on the level — the largest strand-set in the estate." },
     { "key": "room/undo-restores-nothing:DeleteRoomCommand.ts", "why": "Room delete purges boundedBy/adjacentTo/connectedTo/partOf and undo restores none of them — precisely the wall-shaped case where reconstruction is impossible (room edges are authored by detection commands)." }
