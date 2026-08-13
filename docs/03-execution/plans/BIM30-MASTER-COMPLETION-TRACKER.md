@@ -13,6 +13,24 @@
 
 ---
 
+## ⏱ THE NUMBER — read this line and stop
+
+> ### **40 % COMPLETE · 60 % REMAINING**
+> **33 of 82 classified gap-register rows closed** · measured 2026-08-13 at HEAD `ca0a7ce3` by an
+> executed pass (34 gates run). A **delta recount is in progress** for the ~15 commits since.
+>
+> | | |
+> |---|---|
+> | **Complete** | **40 %** — 33 rows, executed evidence |
+> | **Remaining** | **60 %** — 47 rows open, 2 unknown |
+> | Instrumentation axis | ~78 % (32 of 41 gates at exit 0/1) — **the thermometer, not the fever** |
+> | Blocked by founder decision | Ladder L7 + L8, all 4 collaboration rows |
+>
+> **Do not quote the 78 %.** It measures whether we can *see* defects, not whether they are fixed.
+> The single honest headline is **40 %**, and §1 explains what that number hides.
+
+---
+
 ## §0 — How to read this file
 
 **Three states, never collapsed** (C70 §2.2): **PASS** = executed evidence it works ·
@@ -34,6 +52,14 @@ blended percentage hides exactly that distinction, which is why §1 carries two 
 > marked closed with no commit sha is not closed. This mirrors C70 §5.4: debt leaves the ledger in
 > the commit that pays it.
 
+> **§0.3 — MUST. The headline number is COUNTED, never carried forward.** The ⏱ block above is
+> re-derived by an executed measurement pass — running the gates and counting register rows — not
+> by incrementing the previous figure as lanes report. Lane reports are evidence *for* a recount,
+> never a substitute: an orchestrator adding up self-reported wins is precisely the BY-READ mode
+> C70 §0.1 forbids, and it is how a number drifts optimistic one honest step at a time. Each
+> headline carries the HEAD sha it was measured at; if that sha is behind, the number is stale and
+> must say so rather than be adjusted by hand.
+
 > **§0.2 — MUST NOT.** No percentage in this file may be computed across both axes, and none may
 > be quoted without its numerator and denominator. C70 §3.2 forbids "90 %" as a capability claim;
 > the fractions here are **coordination aids**, not capability claims.
@@ -50,7 +76,8 @@ blended percentage hides exactly that distinction, which is why §1 carries two 
 |---|---|---|
 | Golden operations holding the full 11-link chain | **1 of 5** | `wall.move` (`867e128c`) |
 | Region paths conforming (C79 §6.3) | **8 of 10 rows** | `625a9926`, `86030325`, `9fd9c5b6` — only rows 9–10 (capability-absent) remain |
-| Element kinds purging relationships on delete | **6 of 19** | `check-graph-delete-integrity`: 20 → **15** findings (`ca0a7ce3`, `86776ddf`, `7546ce0f`) |
+| Element kinds purging relationships on delete | **9 of 19** | `check-graph-delete-integrity`: 20 → **10** findings (`ca0a7ce3`, `86776ddf`, `7546ce0f`, `19825e25`, `76d42dd9`, `03e93609`) |
+| Gates at exit 3 (never absorbable, C70 §5.1) | **9 → 0** | `96939dd4`, `719452a7`, `a0fedd87`, `e45752e4`, `89623324` + plant-debris removal |
 | Dependency indexes that can genuinely refuse | **1 of 10** | `check-index-can-refuse` (`6d87f324`), 9 findings |
 | Relationship families with writer **and** typed reader | **9 of 25** | `check-graph-write-coverage`, 5 findings |
 | Files returning `[]` to mean "could not determine" | **105 files** | `check-no-empty-means-unknown` (`3fd164a1`) |
@@ -200,8 +227,8 @@ verbatim undo. This is where "3 of 19 kinds" becomes 19 of 19.*
 | # | Sub-phase | Rows | Status |
 |---|---|---|---|
 | C.1 | Delete-purge + verbatim undo: **stair, handrail, roof** | GR-05 | ✅ **DONE** (`ca0a7ce3`, `86776ddf`, `7546ce0f`) — 5 ledger rows struck |
-| C.2 | Delete-purge + verbatim undo: ceiling, floor | GR-05 | 🔄 **IN FLIGHT** — same two-producer shape |
-| C.3 | Delete-purge + verbatim undo: level (largest strand-set: one edge per element on the level) | GR-05 | ⬜ TODO |
+| C.2 | Delete-purge + verbatim undo: **ceiling, floor** | GR-05 | ✅ **DONE** (`19825e25`, `76d42dd9`) — ceiling purge is one axis wider: execute() already unregistered fixtures/diffusers/skylights, stranding their edges too |
+| C.3 | Delete-purge + verbatim undo: **level** | GR-05 | ✅ **DONE** (`03e93609`) — ⚠ **the ledger named the WRONG strand set.** "One edge per element on the level" is mostly unreachable (`canExecute` refuses with children). The reachable set is smaller and invisible to that guard: stair/lift register on the **base** level only, so **every top level carries two edges with empty `childrenIds`**, passes the guard, and leaves the resolver believing a dead level is still reachable by stair |
 | C.3b | `opening`, `grid` — **no edge writers today**; rows are declared-coincidence, not live strands | GR-05 | ⬜ TODO (declare or write the writer) |
 | C.3c | `addRelationship` idempotency ignored metadata — two stairs on one level pair shared ONE `connectedByStair` edge | GR-04 | ✅ **DONE** — optional `Relationship.authoredBy` discriminator. Chose author-keying over metadata-aware dedup because `joinedTo` re-emits every junction each flush with **changing** metadata, so metadata-aware idempotency would make the hottest write path duplicate-*creating*. **`connectedByLift` had it too** (two lifts per core is the common case). Identity threaded through **4 verbatim-restore paths** that dropped it — undo would have eaten the survivor — and through the graph rebuild, which re-collapsed the pair **on every project load** |
 | C.3d | ⚠ **C79 §10.1 probe went RED** — `regionSketchPersistenceRoundTrip.test.ts` 10 failed / 6 passed; `ProjectSerializer` resolves `undefined` at dynamic import (barrel/circular-load hazard). **A contract claim resting on a red probe is the BY-READ failure C70 §0.1 forbids** | — | 🔄 **IN FLIGHT — high priority** |
