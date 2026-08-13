@@ -191,18 +191,142 @@ export class SpatialAuthority {
             const affectedIds = Array.from(level.childrenIds as string[]);
             if (affectedIds.length === 0) return;
 
-            if (this._levelRebuildCallback) {
-                // ✅ §2.1 §4 COMPLIANT: delegate to the owner layer for rebuilds.
-                this._levelRebuildCallback(levelId, affectedIds);
-            } else {
+            if (!this._levelRebuildCallback) {
                 // No callback registered — warn and exit without touching the scene.
                 console.warn(
                     `[SpatialAuthority] §2.1 §4: No level rebuild callback registered. ` +
                     `Skipping reconciliation for level "${levelId}". ` +
                     `Call spatialAuthority.registerLevelRebuildCallback() during engine bootstrap.`
                 );
+                return;
             }
+
+            // ── C72 §5.1: classify every affected element against RECONCILABLE_TYPES ──
+            // Delivered: DETERMINED-RECONCILED (the reconcile handles the kind) and
+            // UNDETERMINED (fail-open — C78 §1.4 forbids inferring "unaffected" from
+            // missing data; this also preserves the pre-narrowing behaviour for ids no
+            // store answers for). Excluded: DETERMINED-HOSTED (re-rendered by the host
+            // wall's own rebuild) and DETERMINED-STRANDED (determined kind with NO
+            // reconcile consumer — announced below by name, never dropped silently).
+            const delivered: string[] = [];
+            const strandedByKind = new Map<string, string[]>();
+            let hostedCount = 0;
+            let undeterminedCount = 0;
+            for (const id of affectedIds) {
+                const c = this.classifyForReconcile(id);
+                switch (c.outcome) {
+                    case 'DETERMINED-RECONCILED':
+                        delivered.push(id);
+                        break;
+                    case 'UNDETERMINED':
+                        delivered.push(id);
+                        undeterminedCount++;
+                        break;
+                    case 'DETERMINED-HOSTED':
+                        hostedCount++;
+                        break;
+                    case 'DETERMINED-STRANDED': {
+                        const ids = strandedByKind.get(c.kind) ?? [];
+                        ids.push(id);
+                        strandedByKind.set(c.kind, ids);
+                        break;
+                    }
+                }
+            }
+
+            if (strandedByKind.size > 0) {
+                // C72 §5.1 — the shortfall, recorded BY NAME at the moment it bites:
+                // these elements stay at the old elevation until a per-kind rebuild
+                // entry point exists (gap register PR-07; 'Roof' also PR-10).
+                const detail = [...strandedByKind.entries()]
+                    .map(([kind, ids]) => `${kind}×${ids.length} [${ids.join(', ')}]`)
+                    .join('; ');
+                console.warn(
+                    `[SpatialAuthority] C72 §5.1 SHORTFALL — level "${levelId}" reconcile: ` +
+                    `${detail} have a DETERMINED type with no reconcile consumer and remain ` +
+                    `at the old elevation (gap register PR-07${strandedByKind.has('Roof') ? '/PR-10' : ''}).`
+                );
+            }
+
+            console.debug(
+                `[SpatialAuthority] reconcile level "${levelId}": delivered ${delivered.length}/${affectedIds.length} ` +
+                `(undetermined fail-open: ${undeterminedCount}, hosted-follow-wall: ${hostedCount}, ` +
+                `stranded: ${[...strandedByKind.values()].reduce((n, ids) => n + ids.length, 0)}).`
+            );
+
+            // ✅ §2.1 §4 COMPLIANT: delegate to the owner layer for rebuilds.
+            // Invoked whenever the level has children — the slab half of the
+            // callback queries by levelId, independent of the delivered ids.
+            this._levelRebuildCallback(levelId, delivered);
         });
+    }
+
+    /**
+     * C72 §5.1 / C78 §1.1 — the ONE production consumer of RECONCILABLE_TYPES.
+     *
+     * Determines, per element, what the level-elevation reconcile can honestly
+     * claim about it. Kind determination is by STORE OF RECORD (the store the id
+     * resolves in), mirroring getSemanticData()'s probe order — never by a
+     * free-text `type` field, which this file has no authority over.
+     *
+     * The four outcomes are documented on ReconcileClassification. The
+     * fail-open rule (C78 §1.4): an id no reachable store answers for is
+     * UNDETERMINED and is DELIVERED to the rebuild callback — never silently
+     * treated as unaffected.
+     */
+    classifyForReconcile(elementId: string): ReconcileClassification {
+        const w = window as any;
+        const kindStores: Array<[ReconcilableType | StrandedKind, any]> = [
+            ['Wall', w.wallStore],
+            ['Slab', w.slabStore],
+            ['Column', w.columnStore],
+            ['Beam', w.beamStore],
+            ['Stair', w.stairStore],
+            ['CurtainWall', w.curtainWallStore],
+            ['Roof', this._roofStore],
+            ['Furniture', w.furnitureStore],
+        ];
+
+        for (const [kind, store] of kindStores) {
+            if (!store) continue;
+            const el = store.get ? store.get(elementId) : store.getById ? store.getById(elementId) : null;
+            if (el) {
+                if (isReconcilable(kind)) {
+                    return { outcome: 'DETERMINED-RECONCILED', kind };
+                }
+                return {
+                    outcome: 'DETERMINED-STRANDED',
+                    kind: kind as StrandedKind,
+                    reason:
+                        `"${kind}" has no reconcile consumer — the level-rebuild callback rebuilds ` +
+                        `Wall (per delivered id) and Slab (per level query) only. A "${kind}" on a ` +
+                        `re-elevated level keeps its old elevation until a per-kind rebuild entry ` +
+                        `point exists (C72 §5.1, gap register PR-07).`,
+                };
+            }
+            // Legacy embedded openings live INSIDE their host wall's store record.
+            if (store.getWindow && store.getWindow(elementId)) {
+                return {
+                    outcome: 'DETERMINED-HOSTED',
+                    kind: 'Window',
+                    reason: 'hosted opening (C15): re-rendered by the host wall\'s rebuild via its opening render map; no independent reconcile consumer.',
+                };
+            }
+            if (store.getDoor && store.getDoor(elementId)) {
+                return {
+                    outcome: 'DETERMINED-HOSTED',
+                    kind: 'Door',
+                    reason: 'hosted opening (C15): re-rendered by the host wall\'s rebuild via its opening render map; no independent reconcile consumer.',
+                };
+            }
+        }
+
+        return {
+            outcome: 'UNDETERMINED',
+            reason:
+                'no reachable semantic store answers for this id — C78 §1.4: "unaffected" is never ' +
+                'inferred from missing data, so the id is DELIVERED to the rebuild callback (fail-open).',
+        };
     }
 
     private getSemanticData(elementId: string): any {
@@ -238,13 +362,79 @@ export class SpatialAuthority {
     }
 }
 
-// FIX 2: Whitelist of element types eligible for spatial reconciliation,
-// defined outside the listener so it's not recreated on every event.
-const RECONCILABLE_TYPES = new Set([
-    'Wall', 'window', 'door', 'Window', 'Door',
-    'Slab', 'Column', 'Beam', 'Roof', 'Furniture',
-    'CurtainWall', 'Stair', 'Handrail'
-]);
+// ─── RECONCILABLE_TYPES — narrowed to the truth and WIRED (C72 §5.1/§5.2/§7) ──
+//
+// HISTORY (gap register PR-07). This set used to name THIRTEEN entries —
+//   'Wall', 'window', 'door', 'Window', 'Door', 'Slab', 'Column', 'Beam',
+//   'Roof', 'Furniture', 'CurtainWall', 'Stair', 'Handrail'
+// — was exported, and had ZERO consumers anywhere in the repository. It was the
+// C72 §5.2 hazard in its purest form: a whitelist that reads as coverage and is
+// an opinion. Two proofs it was never consulted: it carried BOTH casings of
+// window/door ('window' + 'Window'), which no consumer could have tolerated,
+// and it named 'Handrail' although getSemanticData() has never searched any
+// handrail store — the entry could not match an element even in principle.
+//
+// THE TRUTH (measured 2026-08-13, re-verifying the C72 §5.1 measurement): the
+// only production reconcile consumer is the level-rebuild callback registered
+// by `apps/editor/src/engine/initWallLevelSubscribers.ts` — it rebuilds
+//   · Wall  — per delivered element id, via `builder.updateWall(...)`;
+//   · Slab  — per level, via `slabStore.triggerRebuild(...)` on a
+//             `levelId` query (independent of the delivered ids).
+// Nothing else. Per C72 §7, NARROWING A CLAIM TO THE TRUTH IS A FIX, so the
+// set now names exactly those two types, and it is CONSUMED: the
+// reconciliation listener classifies every affected element against it
+// (see classifyForReconcile) before delivery. Dropping a type from this set
+// observably stops that type being delivered for rebuild — the set is no
+// longer decorative.
+//
+// THE ELEVEN NARROWED ENTRIES, BY NAME (C72 §5.1 — the shortfall recorded):
+//   · 'window'/'door'/'Window'/'Door' — hosted openings (C15). Legacy embedded
+//     openings are re-rendered by the HOST WALL's rebuild (`updateWall` walks
+//     `wall.openings` via `resolveOpeningRenderMap`), and their world transform
+//     derives from the wall (see the hosted branch of resolveWorldTransform).
+//     The reconcile has no direct per-opening consumer, so naming them here
+//     claimed coverage the reconcile itself does not provide. Standalone-store
+//     openings classify UNDETERMINED and are delivered fail-open (C78 §1.4).
+//   · 'Column', 'Beam', 'Stair', 'CurtainWall', 'Roof', 'Furniture' — STRANDED:
+//     no rebuild entry point is reachable from this package's reconcile path.
+//     An element of these kinds on a re-elevated level KEEPS ITS OLD ELEVATION
+//     (gap register PR-07; for 'Roof' also PR-10 — roof propagation is
+//     MEASURED-ABSENT in both directions). Wiring them requires per-kind
+//     rebuild entry points registered by the composition layer (the
+//     initWallLevelSubscribers shape) — a follow-up outside core-app-model.
+//     Until then the classification names them DETERMINED-STRANDED at runtime,
+//     so the shortfall is announced, never silent.
+//   · 'Handrail' — additionally unclassifiable: no handrail store has ever been
+//     reachable from getSemanticData(). A handrail id classifies UNDETERMINED
+//     and is delivered fail-open (C78 §1.4 — "unaffected" is never inferred
+//     from missing data).
+//
+// Re-widening this set requires a consumer that HANDLES the added type
+// (C72 §5.1) — never a name alone.
+export type ReconcilableType = 'Wall' | 'Slab';
+
+/** Determined kinds the reconcile does NOT cover — the named C72 §5.1 shortfall. */
+export type StrandedKind = 'Column' | 'Beam' | 'Stair' | 'CurtainWall' | 'Roof' | 'Furniture';
+
+/**
+ * C78 §1.1/§1.4-typed determination for one element on a reconciling level.
+ * Never a boolean: "not reconciled" splits into three different facts —
+ * hosted (follows its host wall's rebuild), stranded (determined type with no
+ * reconcile consumer — announced, kept at old elevation), and undetermined
+ * (no store answers for the id — DELIVERED fail-open, because inferring
+ * "unaffected" from missing data is forbidden).
+ */
+export type ReconcileClassification =
+    | { outcome: 'DETERMINED-RECONCILED'; kind: ReconcilableType }
+    | { outcome: 'DETERMINED-HOSTED'; kind: 'Window' | 'Door'; reason: string }
+    | { outcome: 'DETERMINED-STRANDED'; kind: StrandedKind; reason: string }
+    | { outcome: 'UNDETERMINED'; reason: string };
+
+const RECONCILABLE_TYPES: ReadonlySet<ReconcilableType> = new Set<ReconcilableType>(['Wall', 'Slab']);
+
+function isReconcilable(kind: ReconcilableType | StrandedKind): kind is ReconcilableType {
+    return (RECONCILABLE_TYPES as ReadonlySet<string>).has(kind);
+}
 
 export { RECONCILABLE_TYPES };
 
