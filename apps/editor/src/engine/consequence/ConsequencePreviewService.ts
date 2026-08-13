@@ -145,6 +145,109 @@ export function normalizeToWallCreate(command: PreviewCommand): SemanticCommand 
   return { type: 'wall.create', payload: p };
 }
 
+// ─── opening.move — the THIRD matrix row's normalisation (2026-08-13) ─────────────────
+//
+// THE GENERICITY TEST, and its result. The §PLANNER-REGISTRY-GENERIC note above predicted
+// that "adding the third row of the golden-operation matrix (`opening.move`) is then a map
+// entry plus a planner, with NO edit to any service". That held: what follows is a rule
+// function and two map entries. `ConsequencePreviewService`, `ConsequenceExecutionService`
+// and `ConfirmationFlow` are UNTOUCHED by this row — none of them names a verb, none of them
+// branches on a family, and all three inherit `opening.move` by consuming the shared registry
+// and the shared factory. The centralisation of commit 46d06234 was load-bearing.
+//
+// TWO live verbs map onto ONE semantic operation, which is the same shape as `wall.move`
+// (`wall.updateBaseline` → `wall.move`) and for a stronger reason. `door.setOffset` and
+// `window.setOffset` (initBusHandlers.ts, bridging `SetDoorOffsetCommand` /
+// `SetWindowOffsetCommand`) are the same operation on the same host↔hosted relationship,
+// differing only in which standalone store C15 §8.1's dual-write also touches. Planning them
+// as two families would mean two planners that must be kept identical by hand — and the
+// moment they drifted, a door and a window on the same wall would get different answers to
+// "does this collide?". One semantic verb, two rules.
+
+/** The `door.setOffset` payload keys (initBusHandlers E.5 bridge → SetDoorOffsetCommand). */
+interface DoorSetOffsetPayload {
+  readonly doorId: string;
+  readonly newOffset: number;
+  readonly prevOffset?: number;
+  /** Some call sites carry the host; most do not. Forwarded when present (see below). */
+  readonly wallId?: string;
+}
+
+/** The `window.setOffset` payload keys (→ SetWindowOffsetCommand). Same shape, different key. */
+interface WindowSetOffsetPayload {
+  readonly windowId: string;
+  readonly newOffset: number;
+  readonly prevOffset?: number;
+  readonly wallId?: string;
+}
+
+/**
+ * Build the semantic `opening.move` command from a hosted-element offset dispatch.
+ *
+ * `wallId` is forwarded ONLY when the payload actually carries it. Neither live verb requires
+ * it — `SetDoorOffsetCommand(doorId, newOffset, prevOffset)` names the element alone — and the
+ * planner's host-resolution branch is written for exactly that: absent, it performs the
+ * reverse scan and declares `RELATIONSHIP_NOT_READABLE` when the scan cannot answer. Inventing
+ * a host here would move a real refusal path out of reach and replace it with a guess.
+ *
+ * The offset is REQUIRED and must be a number. A dispatch with no offset is not an
+ * `opening.move` this planner can answer for at all — unlike `wall.create`'s permissive
+ * missing-baseLine case, where the planner has a typed UNDETERMINED for it, here the payload
+ * simply is not the command. `null` is the honest answer, and the executor's typed
+ * `no-normalizer-for-verb` path renders it as a capability gap rather than staleness.
+ */
+function openingMoveFrom(
+  elementId: unknown,
+  offset: unknown,
+  prevOffset: unknown,
+  wallId: unknown,
+): SemanticCommand | null {
+  if (typeof elementId !== 'string' || elementId.length === 0) return null;
+  if (typeof offset !== 'number' || !Number.isFinite(offset)) return null;
+  return {
+    type: 'opening.move',
+    payload: {
+      id: elementId,
+      offset,
+      ...(typeof wallId === 'string' && wallId.length > 0 ? { wallId } : {}),
+      ...(typeof prevOffset === 'number' && Number.isFinite(prevOffset) ? { prevOffset } : {}),
+    },
+  };
+}
+
+/** `door.setOffset` → the semantic `opening.move`. */
+export function normalizeToOpeningMoveFromDoor(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'door.setOffset') return null;
+  const p = command.payload as Partial<DoorSetOffsetPayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  return openingMoveFrom(p.doorId, p.newOffset, p.prevOffset, p.wallId);
+}
+
+/** `window.setOffset` → the semantic `opening.move`. */
+export function normalizeToOpeningMoveFromWindow(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'window.setOffset') return null;
+  const p = command.payload as Partial<WindowSetOffsetPayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  return openingMoveFrom(p.windowId, p.newOffset, p.prevOffset, p.wallId);
+}
+
+/**
+ * `opening.move` dispatched under its own SEMANTIC name — a validating pass-through, the same
+ * shape as `normalizeToWallCreate`. Present for the same reason `wall.move` is a normaliser
+ * key despite being a refused bus verb: the AI/parity surfaces and the certification harnesses
+ * dispatch the semantic verb directly, and a family reachable only through its two legacy bus
+ * spellings would be a family the reasoning surfaces cannot address.
+ */
+export function normalizeToOpeningMove(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'opening.move') return null;
+  const p = command.payload as
+    | Partial<{ id: string; offset: number; wallId: string; prevOffset: number }>
+    | undefined
+    | null;
+  if (!p || typeof p !== 'object') return null;
+  return openingMoveFrom(p.id, p.offset, p.prevOffset, p.wallId);
+}
+
 /**
  * THE canonical normaliser registry — bus verb → rule. The three composition roots share
  * this ONE map, for the same reason preview and execute shared ONE normaliser function
@@ -158,6 +261,10 @@ export const CONSEQUENCE_NORMALIZERS: ReadonlyMap<string, NormalizerRule> = new 
   ['wall.move', normalizeToWallMove],
   ['wall.updateBaseline', normalizeToWallMove],
   ['wall.create', normalizeToWallCreate],
+  // The third matrix row — one semantic planner key, three dispatch spellings.
+  ['opening.move', normalizeToOpeningMove],
+  ['door.setOffset', normalizeToOpeningMoveFromDoor],
+  ['window.setOffset', normalizeToOpeningMoveFromWindow],
 ]);
 
 /**

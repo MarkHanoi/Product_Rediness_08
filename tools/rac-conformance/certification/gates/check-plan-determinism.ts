@@ -90,9 +90,15 @@ import { fileURLToPath } from 'node:url';
 import { reportGate, type GateResult, type Floor } from '../contract.js';
 import { WallMoveConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallMoveConsequencePlanner.js';
 import { WallCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallCreateConsequencePlanner.js';
+import { OpeningMoveConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/OpeningMoveConsequencePlanner.js';
 import { ConsequencePreviewService } from '../../../../apps/editor/src/engine/consequence/ConsequencePreviewService.js';
 import { predictRoomGeometry } from '../../../../packages/room-topology/src/predictRoomGeometry.js';
 import { resolveJunctionsWithRecords } from '../../../../packages/geometry-wall/src/JunctionResolverV2.js';
+// The REAL occupancy store — the host-fit clamp and the sibling-collision reader the
+// opening.move harness drives. Imported from its module rather than the package barrel: the
+// barrel pulls WallStore and the render-side builders, several of which touch `window.*` at
+// module scope and would throw at collection in this node-env gate.
+import { wallOccupancyStore } from '../../../../packages/geometry-wall/src/WallOccupancyStore.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '../../../..');
@@ -727,9 +733,445 @@ async function wallCreateHarness(): Promise<{ floors: Floor[]; lines: string[]; 
   return { floors, lines, findings };
 }
 
+// ─── opening.move · the THIRD family ──────────────────────────────────────────
+//
+// Neither wall harness is transcribable here, and for a sharper reason than the one
+// separating move from create. Both wall rows reason about a HOST. This row reasons about a
+// HOSTED element, which C15 §2 gives NO independent world coordinate at all: its position is
+// a scalar `offset` measured along its host's baseline. So the seams invert completely —
+// there is no junction resolver to diff, no room predictor to script, and no baseline in the
+// payload. What there IS instead:
+//
+//   clamp      WallOccupancyStore.clampToWall — the REAL one, not a script. It is the host-fit
+//              rule (C15 §5) and the refit/refuse decision of C70 F-INV-3 rides on it.
+//   collision  WallOccupancyStore.canPlace — sibling occupancy, 1-D span overlap with the
+//              element's own slot excluded (§MOVE-EXCLUDE-SELF).
+//   validator  the violation core, diffed before/after the offset write.
+//
+// ── THE stateHash CONSTRAINT, AND WHAT IT FORCED (the create harness's lesson, re-derived) ─
+// This planner's stateHash is `fnv1a({openingMove: payload, walls: allWalls})`. So for ARM 2 —
+// where the difference MUST ride in the BODY with stateHash held EQUAL — neither the payload
+// nor the wall store may move. That rules out every obvious pair: a different requested
+// offset moves the payload; a sibling at a different position moves the wall store; a
+// shorter host moves the wall store. All three would prove nothing about body coverage.
+//
+// ⚠ AND IT RULES OUT MORE HERE THAN IT DID FOR CREATE. The create planner had three
+// INJECTED seams whose outputs are not derived from the hashed state, so three body sections
+// could be moved independently. This planner's clamp and collision seams are PURE FUNCTIONS
+// OF THE HASHED STATE: given the same wall and the same payload, the real store returns the
+// same verdict every time. A pair that varies them must therefore vary them THROUGH THE SEAM
+// ITSELF — by injecting a differently-behaving reader over byte-identical state. That is
+// exactly what the pairs below do, and it is why each one asserts stateHash equality as a
+// FLOOR rather than assuming it: a pair that accidentally moved the state would silently
+// stop testing the body, which is the inert-arm failure this gate's own header warns about.
+//
+//   2a fit-verdict-only    (the clamp lands the element at a different offset → `metrics`,
+//                           `changed`, and the refit declaration)
+//   2b refusal-only        (the collision reader refuses vs clears → `refused` + `excluded`)
+//   2c validation-only     (the validator finds a violation vs nothing → `violationsCreated`)
+//
+// ── ARM 2's INERT-ARM CHECK, RUN AND REPORTED ────────────────────────────────
+// The wall.create lane found one of its own arms testing nothing because a branch reported
+// regardless of the seam. So each pair below additionally asserts, as a FLOOR, that the BODY
+// SECTION it claims to move is actually POPULATED on at least one side. A pair whose section
+// is empty on both sides would still pass a naive "hashes differ" check — the hashes would
+// differ for some OTHER reason — and would be an arm testing nothing. Those floors are what
+// make the arm load-bearing rather than merely green.
+
+interface OpeningWorld {
+  walls: any[];
+}
+
+/** A 6 m wall hosting a 0.9 m door at 0.5 and a 1.2 m window at 3.0. The 1.6 m gap between
+ *  them is what lets ONE fixture express a clean move, a colliding move and a clamped move. */
+const freshOpeningWorld = (): OpeningWorld => ({
+  walls: [
+    {
+      id: 'wall-1', type: 'wall', levelId: 'L1', height: 2.7, thickness: 0.2,
+      baseLine: [{ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }],
+      openings: [
+        { id: 'op-d1', elementId: 'door-1', type: 'door', offset: 0.5, width: 0.9, height: 2.1, sillHeight: 0 },
+        { id: 'op-w1', elementId: 'win-1', type: 'window', offset: 3.0, width: 1.2, height: 1.2, sillHeight: 0.9 },
+      ],
+    },
+  ],
+});
+
+/** Read-only PlanningContext double. Duplicated rather than shared for the same reason the
+ *  create harness duplicates its own: this planner reads five stores, and a shared superset
+ *  factory hands every future family stores its planner never asked for. */
+const openingContextFor = (world: OpeningWorld) => () => ({
+  getStore(storeId: string) {
+    const items: any[] | undefined =
+      storeId === 'wall' ? world.walls
+        : storeId === 'room' || storeId === 'door' || storeId === 'window' || storeId === 'stair' ? []
+          : undefined;
+    if (!items) return undefined;
+    return {
+      getAll: () => items as readonly unknown[],
+      getById: (id: string) => items.find((i) => i.id === id) ?? null,
+    };
+  },
+}) as any;
+
+// The command as the LIVE bus verb carries it — `door.setOffset`, no wallId, so the harness
+// drives the planner's REVERSE-SCAN host resolution, which is the production path. Sliding
+// door-1 from 0.5 to 1.8 lands it at [1.800, 2.700]: clear of win-1 at [3.000, 4.200].
+const OPENING_COMMAND = {
+  type: 'door.setOffset' as const,
+  payload: { doorId: 'door-1', newOffset: 1.8, prevOffset: 0.5 },
+};
+
+/** Fires on any wall whose opening count exceeds 1 — so the fixture's two-opening host trips
+ *  it on BOTH sides of the diff, keeping `violationsCreated` empty by default. 2c swaps in a
+ *  validator that fires only AFTER, so that section carries bytes on exactly one side. */
+const quietValidator = { validateAll: () => [] as any[] };
+
+/** Fires when a door sits past the 1.5 m mark — silent before (0.5), firing after (1.8), so
+ *  `validation.violationsCreated` is POPULATED and the hash arms cover that section too. */
+const offsetValidator = {
+  validateAll: (ctx: any) =>
+    (ctx.wallStore.getAll() as any[]).flatMap((w) =>
+      (w.openings ?? [])
+        .filter((o: any) => o.type === 'door' && typeof o.offset === 'number' && o.offset > 1.5)
+        .map((o: any) => ({ ruleId: 'DOOR_MAX_OFFSET', elementId: o.elementId, message: `door offset ${o.offset} m exceeds the 1.5 m maximum` })),
+    ),
+};
+
+/** Build the REAL service over the REAL opening planner. Defaults are the REAL occupancy
+ *  store on both seams — so the fit and collision verdicts under test are the PRODUCTION
+ *  rules — plus the offset validator, giving a default plan that carries `metrics`,
+ *  `changed`, `excluded` and `violationsCreated` all at once. */
+function buildOpeningService(world: OpeningWorld, opts?: {
+  clamp?: any;
+  collision?: any;
+  validator?: { validateAll: (c: any) => any[] };
+  plannerWrap?: (p: OpeningMoveConsequencePlanner) => { plan: (c: any, ctx: any) => Promise<any> };
+}): ConsequencePreviewService {
+  const planner = new OpeningMoveConsequencePlanner({
+    clamp: (opts?.clamp ?? wallOccupancyStore) as any,
+    collision: (opts?.collision ?? wallOccupancyStore) as any,
+    validator: (opts?.validator ?? offsetValidator) as any,
+  });
+  const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
+  const planners = new Map<string, any>();
+  planners.set('opening.move', subject);
+  return new ConsequencePreviewService(planners as any, openingContextFor(world));
+}
+
+async function openingMoveHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
+  const floors: Floor[] = [];
+  const lines: string[] = [];
+  const findings: string[] = [];
+
+  // ── ARM 1 · REPEAT — the REAL occupancy store, the REAL planner, the REAL service ──
+  const world = freshOpeningWorld();
+  const service = buildOpeningService(world);
+  const runA = await service.preview(OPENING_COMMAND);
+  const runB = await service.preview(OPENING_COMMAND);
+  floors.push({ what: 'opening.move: real preview produced a plan (run A)', measured: runA ? 1 : 0, min: 1 });
+  floors.push({ what: 'opening.move: real preview produced a plan (run B)', measured: runB ? 1 : 0, min: 1 });
+  if (runA && runB) {
+    // The body must actually CARRY the sections the arms claim to cover, or the byte
+    // comparison is over an empty plan and proves nothing. This is the create harness's
+    // discipline, applied to the sections an opening plan actually has.
+    floors.push({ what: 'opening.move: plan carries changed entries (the opening AND its host)', measured: runA.changed.length, min: 2 });
+    floors.push({ what: 'opening.move: plan carries topology.modified (the host whose openings array moves)', measured: (runA as any).topology?.modified?.length ?? 0, min: 1 });
+    floors.push({ what: 'opening.move: plan carries excluded entries (siblings CHECKED and found clear — the positive verdict)', measured: (runA as any).excluded?.length ?? 0, min: 1 });
+    floors.push({ what: 'opening.move: plan carries a metric transition (offset before→after)', measured: (runA as any).metrics?.length ?? 0, min: 1 });
+    floors.push({ what: 'opening.move: plan carries violationsCreated (validation section populated by the offset write)', measured: runA.validation.violationsCreated.length, min: 1 });
+    floors.push({ what: 'opening.move: plan carries undetermined entries (declared blind spots, not silent emptiness)', measured: (runA as any).undetermined?.length ?? 0, min: 1 });
+    // F-INV-3 clause 3, asserted in the GATE and not only in the unit suite: no plan this
+    // family produces may ever remove a hosted element.
+    floors.push({ what: 'opening.move: C70 F-INV-3 — topology.removed is EMPTY (a hosted element is never deleted to make room)', measured: ((runA as any).topology?.removed?.length ?? 0) === 0 ? 1 : 0, min: 1 });
+    const c = compareRuns(runA, runB);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [opening.move][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · opening.move REPEAT: ${c.detail}`);
+  }
+
+  // ── ARM 5 · NONDETERMINISM SOURCES — 30 ms apart, clock AND RNG spoofed ─────
+  const realNow = Date.now;
+  const realRandom = Math.random;
+  let clockReads = 0;
+  let rngReads = 0;
+  const planUnder = async (now: number, rand: number, cmd: any = OPENING_COMMAND): Promise<Plan | null> => {
+    Date.now = () => { clockReads++; return now; };
+    Math.random = () => { rngReads++; return rand; };
+    try { return await buildOpeningService(freshOpeningWorld()).preview(cmd); }
+    finally { Date.now = realNow; Math.random = realRandom; }
+  };
+  const t1 = await planUnder(1_000_000_000, 0.1111);
+  await sleep(30);
+  const t2 = await planUnder(9_999_999_999, 0.9999);
+  floors.push({ what: 'opening.move: time-arm produced both plans', measured: t1 && t2 ? 1 : 0, min: 1 });
+  if (t1 && t2) {
+    const c = compareRuns(t1, t2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · TIME/RNG [opening.move][${c.verdict}]: plans planned 30 ms apart under DIFFERENT spoofed Date.now/Math.random diverged — a clock or RNG read reaches the plan. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · opening.move TIME/RNG: 30 ms apart, Date.now spoofed 1000000000 vs 9999999999, Math.random 0.1111 vs 0.9999 → ${c.verdict} (planner path observed ${clockReads} Date.now / ${rngReads} Math.random reads)`);
+  }
+
+  // The REVERSE-SCAN arm — opening.move-specific, and the analogue of the create harness's
+  // id-absent case. With no `wallId` in the payload (which is what the live verbs carry), the
+  // planner resolves the host by scanning the wall store. A scan whose ORDER depended on the
+  // store's iteration order would be a nondeterminism source no clock spoof could catch, so
+  // the scan sorts by id first. Here the SAME world is presented with its wall list in two
+  // different orders: the plans must still be byte-identical.
+  const twoHosts = (order: 'ab' | 'ba'): OpeningWorld => {
+    const a = freshOpeningWorld().walls[0];
+    const b = { ...freshOpeningWorld().walls[0], id: 'wall-2', openings: [] as any[] };
+    return { walls: order === 'ab' ? [a, b] : [b, a] };
+  };
+  const s1 = await buildOpeningService(twoHosts('ab')).preview(OPENING_COMMAND);
+  const s2 = await buildOpeningService(twoHosts('ba')).preview(OPENING_COMMAND);
+  floors.push({ what: 'opening.move: reverse-scan arm produced both plans', measured: s1 && s2 ? 1 : 0, min: 1 });
+  if (s1 && s2) {
+    // stateHash DOES move here (the wall array order is part of the hashed state), so this is
+    // a plan-BODY claim, not a byte-identity claim: the resolved host, the changed set and the
+    // metric must be the same regardless of store order.
+    const same =
+      JSON.stringify({ c: s1.changed, m: (s1 as any).metrics, e: s1.excluded }) ===
+      JSON.stringify({ c: s2.changed, m: (s2 as any).metrics, e: s2.excluded });
+    floors.push({ what: 'opening.move: the host resolved by REVERSE SCAN is independent of wall-store iteration order', measured: same ? 1 : 0, min: 1 });
+    lines.push(`${same ? '✓ ' : '❌'} ARM 5 · opening.move reverse-scan: wall list [wall-1,wall-2] vs [wall-2,wall-1] → same resolved host and same changed/metrics/excluded`);
+    if (!same) findings.push('ARM 5 · TIME/RNG [opening.move · reverse-scan]: the host resolved by the no-index reverse scan depends on wall-store iteration order — the plan is not a pure function of state.');
+  }
+
+  // ── ARM 2 · SENSITIVITY — one consequential fact each, stateHash held EQUAL ──
+  //
+  // `section` is the INERT-ARM CHECK: the name of the body section this pair claims to move,
+  // plus a reader for it. The pair asserts (a) both plans exist, (b) stateHash is EQUAL,
+  // (c) the section is POPULATED on at least one side, (d) the ELEMENT SETS are IDENTICAL on
+  // both sides unless the pair declares otherwise, and only then (e) the planHash moved.
+  //
+  // (c) alone is NOT sufficient, and this gate learned that the hard way on the `refusal-only`
+  // pair below: a populated section proves the arm has bytes to SEE, not that the bytes it
+  // sees are the ones it NAMES. (d) is the clause that closes it — `changed`, `excluded` and
+  // `topology.modified` are hashed independently of every named section, so a pair whose two
+  // sides differ in those sets can pass on the SET difference while the section it advertises
+  // is entirely absent from the hash. A pair that legitimately moves the sets (there is one:
+  // `fit-verdict-only` does not, but a future row may) opts out via `setsMayDiffer`, and must
+  // then say WHY in its `fact` string.
+  const pairHash = async (
+    label: string,
+    a: ConsequencePreviewService,
+    b: ConsequencePreviewService,
+    fact: string,
+    section: { name: string; read: (p: Plan) => number; setsMayDiffer?: boolean },
+  ): Promise<void> => {
+    const setsOf = (p: Plan): string =>
+      JSON.stringify({ c: p.changed, e: p.excluded, t: p.topology.modified });
+    const pa = await a.preview(OPENING_COMMAND);
+    const pb = await b.preview(OPENING_COMMAND);
+    floors.push({ what: `opening.move: sensitivity pair "${label}" produced both plans`, measured: pa && pb ? 1 : 0, min: 1 });
+    if (!pa || !pb) return;
+    floors.push({ what: `opening.move: sensitivity pair "${label}" holds stateHash EQUAL (the difference rides in the BODY)`, measured: pa.stateHash === pb.stateHash ? 1 : 0, min: 1 });
+    // THE INERT-ARM FLOORS — both halves.
+    const populated = Math.max(section.read(pa), section.read(pb));
+    floors.push({ what: `opening.move: sensitivity pair "${label}" is NOT INERT — the body section it names (${section.name}) is populated on at least one side`, measured: populated, min: 1 });
+    if (section.setsMayDiffer !== true) {
+      floors.push({
+        what: `opening.move: sensitivity pair "${label}" holds the ELEMENT SETS identical (changed/excluded/topology.modified) — so the planHash can only move via ${section.name}, not via a co-varying set`,
+        measured: setsOf(pa) === setsOf(pb) ? 1 : 0,
+        min: 1,
+      });
+    }
+    if (pa.planHash === pb.planHash) {
+      findings.push(`ARM 2 · SENSITIVITY [opening.move · ${label}]: two plans differing in ${fact} share planHash ${pa.planHash} — the d63e7954 collision class is OPEN on the opening row.`);
+      lines.push(`❌ ARM 2 · opening.move ${label}: planHash DID NOT MOVE (${pa.planHash}) for a difference in ${fact}`);
+    } else {
+      lines.push(`✓  ARM 2 · opening.move ${label}: planHash moved (${pa.planHash} → ${pb.planHash}) on ${fact}, stateHash equal (${pa.stateHash}), section ${section.name} populated (${populated})`);
+    }
+  };
+
+  // 2a · metric-value-only. BOTH sides use a clamp that shifts the landing offset, by amounts
+  // that differ by 0.4 µm: +0.2500000 m vs +0.2500004 m.
+  //
+  // ⚠ TWO inert-arm cases were caught building this one, and the sub-micron shift is what
+  // finally isolated the section. Recorded in full, because each is a way a future row could
+  // build an arm that reports green while testing nothing:
+  //
+  //   ATTEMPT 1 — the REAL clamp (which does not move the offset) against a shifting one.
+  //   Measured, that pair differed in TWO sections: `metrics[].after` AND `undetermined`,
+  //   because a clamp that moves the offset makes the planner emit its GEOMETRY_UNPREDICTABLE
+  //   refit declaration which the unshifted side does not have. Under the mutation that
+  //   deletes `metrics` from the hashed body, the pair STILL passed — on the `undetermined`
+  //   difference alone. It NAMED `metrics` and TESTED `undetermined`.
+  //
+  //   ATTEMPT 2 — shifting on both sides by 0.25 m vs 0.50 m. Better: the refit declaration is
+  //   now present on both. But the declaration QUOTES the landing offset (`… REFIT … to
+  //   2.050 m`), so the two sides still differed inside `undetermined` as well, and the pair
+  //   still passed under the same mutation.
+  //
+  //   THIS VERSION — the two shifts round to the SAME three-decimal text, so the refit
+  //   declaration is byte-identical on both sides, while `metrics[].after` (an unrounded
+  //   number) differs. Measured directly: changed, excluded, undetermined, validation and
+  //   topology are all IDENTICAL, and `metrics` is the sole differing section. Re-verified by
+  //   mutation: with `metrics` stripped from the hashed body this pair goes RED.
+  //
+  // It also tests something worth testing on its own terms — that the plan hash has SUB-
+  // MILLIMETRE resolution on a committed quantity. C73's tolerance policy is millimetre-grade,
+  // so a hash that quantised to the displayed 3 dp would let an approval bind a plan whose
+  // committed offset differs from the approved one below the printing threshold.
+  const shiftedClamp = (by: number) => ({
+    clampToWall: (wall: any, dims: any) => {
+      const r = wallOccupancyStore.clampToWall(wall, dims);
+      return { ...r, offset: r.offset + by };
+    },
+  });
+  await pairHash('metric-value-only',
+    buildOpeningService(freshOpeningWorld(), { clamp: shiftedClamp(0.25), validator: quietValidator }),
+    buildOpeningService(freshOpeningWorld(), { clamp: shiftedClamp(0.2500004), validator: quietValidator }),
+    'ONLY metrics[].after — the landing offset differs by 0.4 µm, which rounds to the SAME 3-dp text, so every other section (changed, excluded, undetermined, validation, topology) is byte-identical and the hash can move through metrics alone',
+    { name: 'metrics', read: (p) => (p as any).metrics?.length ?? 0 });
+
+  // 2b · refusal-TEXT-only.
+  //
+  // ⚠ THE INERT ARM THIS REPLACES, AND HOW IT WAS CAUGHT. The first draft of this pair put a
+  // CLEARING reader on one side and a REFUSING one on the other, and it printed green. It was
+  // INERT with respect to the section it named. Measured (probe, both planners run directly):
+  //
+  //     clear   → changed ["door-1","wall-1"] · excluded ["win-1"] · topology.modified ["wall-1"]
+  //     refuse  → changed []                  · excluded []        · topology.modified []
+  //
+  // A refusal COLLAPSES all three element sets, because a refused move changes nothing. Those
+  // sets are hashed independently of `refused`, so the planHash moved for a reason that had
+  // nothing to do with whether `refused` is covered at all. The mutation proof made it
+  // explicit: with `refused` DELETED from the hashed body, the old pair still passed.
+  //
+  // The fix is to hold the SETS EQUAL and vary only the refusal CONTENT — two readers that
+  // both refuse, naming different conflicting siblings. Both sides then produce
+  // `changed: []`, `excluded: []`, `topology.modified: []`, and the ONLY differing bytes are
+  // inside `refused[].reason`. Now the arm can only pass if `refused` is genuinely hashed —
+  // re-verified by the same mutation, under which this pair goes RED.
+  //
+  // This is the general lesson for a future row, and it is why the `section` floor alone is
+  // not sufficient: a populated section proves the arm has BYTES to see, not that the bytes
+  // it sees are the ones it names. A pair must also hold every CO-VARYING section fixed.
+  // Both clamps REFUSE on width — so the move does not proceed on either side and `changed`,
+  // `excluded` and `topology.modified` are byte-identically EMPTY — and they differ ONLY in
+  // the AVAILABLE number the refusal names (0.400 m vs 0.500 m of host length). The refusal
+  // sentence is the only differing byte in either plan.
+  //
+  // This also makes the arm test the thing C70 F-INV-3 and G-INV-4 actually care about: a
+  // refusal names BOTH NUMBERS, so the NUMBERS must be part of what the approval binds. Two
+  // refusals that differ only in how much wall is available are two materially different
+  // answers to the user, and a hash that could not tell them apart would let an approval of
+  // "0.500 m available" bind a plan that says 0.400 m.
+  //
+  // (A first attempt varied the sibling-collision reader instead, naming a DIFFERENT sibling
+  // on each side. The set-equality floor caught it on its first outing: an unmappable conflict
+  // id leaves `win-1` in `excluded` on one side and not the other, so that pair would have
+  // passed on the SET difference. A second attempt kept one sibling and varied only the
+  // reader's `reason` string — also wrong, because for a MAPPED conflict the planner authors
+  // its own sentence and the reader's text never reaches the plan. Both are recorded because
+  // each is a way a future row could build an arm that reports green while testing nothing.)
+  const refusingClamp = (availableM: number) => ({
+    clampToWall: (_w: any, d: any) => ({
+      offset: 0, width: availableM, height: d.height, sillHeight: d.sillHeight, clamped: true,
+    }),
+  });
+  const clearCollision = { canPlace: () => ({ valid: true, conflictIds: [] as string[] }) };
+  await pairHash('refusal-numbers-only',
+    buildOpeningService(freshOpeningWorld(), { clamp: refusingClamp(0.4), collision: clearCollision, validator: quietValidator }),
+    buildOpeningService(freshOpeningWorld(), { clamp: refusingClamp(0.5), collision: clearCollision, validator: quietValidator }),
+    'ONLY the numbers inside the refused section (0.400 m vs 0.500 m of available host length), with changed/excluded/topology BYTE-IDENTICALLY EMPTY on both sides — so the hash cannot move via a co-varying element set',
+    { name: 'refused', read: (p) => (p as any).refused?.length ?? 0 });
+
+  // 2c · validation-only. The validator finds the post-move offset violation on one side and
+  // nothing on the other: `validation.violationsCreated` alone.
+  await pairHash('validation-only',
+    buildOpeningService(freshOpeningWorld(), { validator: quietValidator }),
+    buildOpeningService(freshOpeningWorld()),
+    'ONLY validation.violationsCreated (the move trips DOOR_MAX_OFFSET vs a validator that finds nothing)',
+    { name: 'validation.violationsCreated', read: (p) => p.validation.violationsCreated.length });
+
+  // ── ARM 3 · INSENSITIVITY ────────────────────────────────────────────────────
+  const svcKeys = buildOpeningService(freshOpeningWorld());
+  const orderedA = await svcKeys.preview(OPENING_COMMAND);
+  const orderedB = await svcKeys.preview({
+    type: 'door.setOffset',
+    payload: { prevOffset: 0.5, newOffset: 1.8, doorId: 'door-1' },
+  } as any);
+  floors.push({ what: 'opening.move: key-order pair produced both plans', measured: orderedA && orderedB ? 1 : 0, min: 1 });
+  if (orderedA && orderedB) {
+    if (orderedA.planHash !== orderedB.planHash) {
+      findings.push(`ARM 3 · INSENSITIVITY [opening.move · key-order]: permuting payload key insertion order moved the planHash (${orderedA.planHash} → ${orderedB.planHash}) — stableStringify is not doing its one job on the opening row.`);
+      lines.push('❌ ARM 3 · opening.move key-order: payload key permutation MOVED the planHash');
+    } else {
+      lines.push(`✓  ARM 3 · opening.move key-order: payload {doorId,newOffset,prevOffset} vs {prevOffset,newOffset,doorId} → same planHash (${orderedA.planHash})`);
+    }
+  }
+
+  // VERB-SPELLING insensitivity — opening.move-specific, and a real risk on this row rather
+  // than a ceremonial one. THREE dispatch spellings normalise onto ONE semantic command
+  // (`door.setOffset`, `window.setOffset`, `opening.move`). If the normaliser let the bus
+  // verb leak into the semantic payload, the same operation would hash two ways depending on
+  // which surface dispatched it, and an approval minted by the tool could not bind a plan
+  // re-minted by the AI path. The semantic dispatch and the door dispatch must agree.
+  const semanticCmd = { type: 'opening.move' as const, payload: { id: 'door-1', offset: 1.8, prevOffset: 0.5 } };
+  const viaDoor = await buildOpeningService(freshOpeningWorld()).preview(OPENING_COMMAND);
+  const viaSemantic = await buildOpeningService(freshOpeningWorld()).preview(semanticCmd);
+  floors.push({ what: 'opening.move: verb-spelling pair produced both plans', measured: viaDoor && viaSemantic ? 1 : 0, min: 1 });
+  if (viaDoor && viaSemantic) {
+    const c = compareRuns(viaDoor, viaSemantic);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [opening.move · verb-spelling]: the SAME operation dispatched as 'door.setOffset' and as 'opening.move' produced different plans — the bus verb is leaking into the semantic command, so one operation hashes two ways. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · opening.move verb-spelling: 'door.setOffset' vs 'opening.move' for one operation → ${c.verdict}`);
+  }
+
+  // Envelope provenance — same shape of proof as both wall harnesses.
+  const envelopes = [
+    { actor: 'human', origin: 'direct-manipulation', timestamp: 1_111_111, gestureId: 'g-human-1' },
+    { actor: 'ai', origin: 'ai-proposal', timestamp: 9_999_999, gestureId: 'g-ai-2', approval: { approvedBy: 'user-7', planHash: 'stale-cafe' } },
+  ] as const;
+  const envPlans: (Plan | null)[] = [];
+  for (const env of envelopes) {
+    Date.now = () => env.timestamp;
+    try { envPlans.push(await buildOpeningService(freshOpeningWorld()).preview(OPENING_COMMAND)); }
+    finally { Date.now = realNow; }
+  }
+  floors.push({ what: 'opening.move: envelope pair produced both plans', measured: envPlans[0] && envPlans[1] ? 1 : 0, min: 1 });
+  if (envPlans[0] && envPlans[1]) {
+    const c = compareRuns(envPlans[0], envPlans[1]);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [opening.move · envelope]: actor/origin/timestamp/approval differences leaked into the plan — provenance must stay OFF the plan (C78 §9). ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · opening.move envelope: human/direct vs ai/proposal+approval, clocks 1111111 vs 9999999 → ${c.verdict}`);
+  }
+
+  // ── POSITIVE CONTROL (floor) — a nondeterministic opening planner MUST be flagged
+  const noisy = buildOpeningService(freshOpeningWorld(), {
+    plannerWrap: (real) => ({
+      plan: async (c: any, ctx: any) => {
+        const p = await real.plan(c, ctx);
+        return { ...p, undetermined: [...p.undetermined, { scope: 'noise', reason: 'ENGINE_NOT_AVAILABLE', detail: `t=${realNow()}·r=${realRandom()}` }] };
+      },
+    }),
+  });
+  const n1 = await noisy.preview(OPENING_COMMAND);
+  const n2 = await noisy.preview(OPENING_COMMAND);
+  const noisyVerdict = n1 && n2 ? compareRuns(n1, n2) : null;
+  floors.push({ what: 'POSITIVE control (opening.move): a deliberately NONDETERMINISTIC planner is FLAGGED by the repeat checker', measured: noisyVerdict && noisyVerdict.verdict !== 'identical' ? 1 : 0, min: 1 });
+  floors.push({ what: 'POSITIVE control (opening.move): the checker CLASSIFIES it as the hash-bug shape (bodies differ, hash equal)', measured: noisyVerdict?.verdict === 'hash-bug' ? 1 : 0, min: 1 });
+  lines.push(`${noisyVerdict && noisyVerdict.verdict !== 'identical' ? '✓ ' : '❌'} POSITIVE control (opening.move): nondeterministic planner → ${noisyVerdict?.verdict ?? 'NO PLANS'}`);
+
+  // ── NEGATIVE CONTROL (floor) — genuinely different states must hash apart ────
+  // The sibling window sits at 3.0 on one side and 2.0 on the other, which genuinely changes
+  // the occupancy answer for the proposed span. This is where different STATE belongs: it
+  // moves the stateHash, which is exactly why it cannot serve as an ARM 2 pair.
+  const moved = freshOpeningWorld();
+  moved.walls[0].openings[1].offset = 2.0;
+  const g1 = await buildOpeningService(freshOpeningWorld()).preview(OPENING_COMMAND);
+  const g2 = await buildOpeningService(moved).preview(OPENING_COMMAND);
+  const negSeen = g1 && g2 && g1.planHash !== g2.planHash ? 1 : 0;
+  floors.push({ what: 'NEGATIVE control (opening.move): two GENUINELY different states produce different planHashes (the sensitivity arms can see)', measured: negSeen, min: 1 });
+  floors.push({ what: 'NEGATIVE control (opening.move): and their stateHashes differ too, confirming the difference is in the AUTHORITATIVE state, not only the body', measured: g1 && g2 && g1.stateHash !== g2.stateHash ? 1 : 0, min: 1 });
+  lines.push(`${negSeen ? '✓ ' : '❌'} NEGATIVE control (opening.move): sibling window at 3.0 vs 2.0 → planHash ${g1?.planHash} vs ${g2?.planHash}`);
+
+  return { floors, lines, findings };
+}
+
 const HARNESSES: Record<string, Harness> = {
   'wall.move': wallMoveHarness,
   'wall.create': wallCreateHarness,
+  'opening.move': openingMoveHarness,
 };
 
 // ─── Run ──────────────────────────────────────────────────────────────────────

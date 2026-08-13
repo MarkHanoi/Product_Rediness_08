@@ -15,6 +15,7 @@ import type { PlanningContext, ReadonlyStoreView, ElementId } from '@pryzm/comma
 import type { ConsequencePlanner } from '@pryzm/command-bus';
 import { createWallMoveConsequencePlanner } from './wallMovePlannerComposition.js';
 import { createWallCreateConsequencePlanner } from './wallCreatePlannerComposition.js';
+import { createOpeningMoveConsequencePlanner } from './openingMovePlannerComposition.js';
 import { ConsequencePreviewService } from './ConsequencePreviewService.js';
 
 /**
@@ -70,6 +71,17 @@ export function createConsequencePlanners(): ReadonlyMap<string, ConsequencePlan
   planners.set(
     'wall.create',
     createWallCreateConsequencePlanner() as unknown as ConsequencePlanner<never>,
+  );
+  // THE THIRD MATRIX ROW, 2026-08-13 — and the GENERICITY TEST the §PLANNER-REGISTRY-GENERIC
+  // note above predicted. Opening `opening.move` required exactly what that note said it
+  // should: this ONE entry, plus normaliser rules for the two live bus verbs
+  // (`door.setOffset` / `window.setOffset`, ConsequencePreviewService.ts). NO edit to
+  // ConsequencePreviewService, ConsequenceExecutionService or ConfirmationFlow — the three
+  // services still hard-code no verb name, and all three surfaces inherit this family by
+  // consuming this factory. The centralisation is load-bearing, not nominal.
+  planners.set(
+    'opening.move',
+    createOpeningMoveConsequencePlanner() as unknown as ConsequencePlanner<never>,
   );
   return planners;
 }
