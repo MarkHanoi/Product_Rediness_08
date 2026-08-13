@@ -501,6 +501,29 @@ a solve it did not perform.*
 4. **Then RECOUNT the register** (`docs/04-reference/BIM30-GAP-REGISTER.md`) — it is status-bearing
    as of `c0a1785c` but predates ~40 commits. **Do not increment the headline by hand** (§0.3).
 
+### Resolved at the very end of the session
+
+- **MT-09 — MEASURED, no longer UNPROVEN.** `check-per-package-compile` completed on a long
+  budget: **26 packages fail isolated compilation · 84 compiled · 9 skipped as known issues.**
+  The register cited **27** from a commit subject nobody had verified; the real figure is 26, so
+  roadmap Phase 9's `< 27` condition is met — **barely, and by measurement rather than by
+  quotation.** The 26 are named in the gate's output.
+- **GR-12's probe is committed** (`a1c052a9`, 16/16) — see §-1.
+
+### ⚠ 18 GIT WORKTREES ARE LEFT BEHIND, 14 HOLDING 25 UNMERGED COMMITS
+
+Not created by this session — they predate it. **Nothing was deleted, because a worktree holding
+unmerged commits is somebody's unshipped work and removing it is destructive.** Decide per branch:
+
+`agent/b2-perf` (7) · `agent/b1-snaplevel` (2) · `agent/b3-curvedhost` (2) · `agent/c1-isolation` (2) ·
+`agent/c2-apex-nav` (2) · `agent/c7-confirm-panel-ux` (2) · `agent/c11-stray-logo` (1) ·
+`agent/c12-element-types` (1) · `agent/c3-thumbnails` (1) · `agent/c4-typology-choice` (1) ·
+`agent/c5-launch-readiness` (1) · `agent/c6-visibility-intent` (1) · `agent/c9-viewport-white` (1) ·
+`envelope-badalona-08015` (1)
+
+Also present with no unmerged work: `agent/c17-rake-ui`, `fix-hostwall-freeze`, `C:/pzd`,
+`pryzm-baseline-wt`. Those are safe to prune with `git worktree remove` once confirmed.
+
 ### Known-good state at handoff
 
 - **Root tsc: 0 errors.** ⚠ It **needs `NODE_OPTIONS=--max-old-space-size=6144`** — without it the
