@@ -2204,3 +2204,633 @@ and the swing arm could never fire. **Vitest does not typecheck test files**, so
 the pipeline would have caught it. Watching the check go red is the only reason L-856 has a real
 number instead of a zero. Recorded as method: on this exact question, a false all-clear is what
 production is reported to have already delivered once.
+
+## L-859 — OBSERVED IN THE BROWSER on `517f7a70`: the slab cascade is CONFIRMED LIVE, the model tree is CONFIRMED REACHABLE, and "walls do not re-mitre" is CORRECTED
+
+**2026-08-13. Evidence class: OBSERVED (C75) — first-party founder browser session against the
+live deploy `517f7a70`.** This is the axis L-852 and L-853 both declared still owed. It is
+*stronger* than any gate reading for the viewport axis and *silent* about everything the founder
+did not look at.
+
+### What was exercised
+Create perimeter walls → create a slab within them → move one wall. Then: open the Data workbench.
+
+### WORKS, confirmed live
+1. **Perimeter walls create; slab creates within them.**
+2. **Move a wall → the slab adapts.** ✅
+3. **The walls extend.** ✅
+4. **The L-847 model tree is REACHABLE.** ✅ Console: `[DataWorkbench] Mode → full` ·
+   `[DataCommandCenter] Hidden` · `[WorkspaceController] Mode → data` ·
+   `[DataWorkbench] Bucket → audit / Tab → hierarchy` · `Bucket → validate / Tab → compliance`.
+   The workbench swap took, the sub-tab bar exists, and the founder navigated to Hierarchy. The tree
+   then **rendered real data**: `Ground (0)`, `Level 01 (5)`, rooms with measured areas (Corridor
+   11.9 m², Kitchen 13.6, Living Room 25.0, Bathroom 7.6, Bedroom 1/2 12.6 …), building inspector
+   `LEVEL COUNT 7` / `VERSION v1`. **L-847's RESOLVED block moves from "pending deploy" to
+   browser-CONFIRMED end-to-end on `517f7a70`** — reachable *and* populated.
+   (What the tree *omits* — unit containment — is a separate and open defect, **L-864**. Do not fold
+   them: conflating "reachable" with "correct" would repeat the error this log keeps recording.)
+5. **The envelope / compliance-refusal path is honest in production.** `§ENVELOPE-RESOLVE-DIAG —
+   SOLVED envelope → 1 solid(s) (source=solved, confidence=block-constructed, maxHeight=22.4 m)`;
+   `§SITE-FRAME-PROBE … FRAME VERDICT: CONSISTENT`; and the compliance panel renders *"Within the
+   limits that could be checked · Basis: block-constructed — indicative only, not a compliance
+   determination"* and *"NO LIMIT SET"* where no limit exists. **That is C63/C75 honesty working in
+   production, in the founder's own screenshot** — recorded as a positive because it is the standard
+   the room-compliance path (L-862) is measured against and fails.
+
+### (2) CLOSES the browser-verification debt on the slab move-propagation fix
+Commits `798f2cfd` ("the wire was cut in two places") + `6fee2575` were, until this observation,
+proven only in a unit harness. The repo lesson [[probe-can-be-wrong-three-ways]] is explicit that a
+harness can be right about the WIRE and wrong about the RUNTIME, the PROPERTY or the SYSTEM — **a
+green harness proves the wire, not the viewport.** This observation supplies the independent source
+that rule demands. `check-move-propagation`'s ledger says the mechanism was never in doubt (control
+PC1 re-derived 24.000 → 36.000 m² through the production path); what was in doubt was whether the
+product ever REACHED it. **It does. The slab arm is now OBSERVED-GREEN, not merely gate-green.**
+
+Verified in source at HEAD, consistent with the observation: `SlabWallConnectivityService.ts:124-129`
+and `SlabDependencyTracker.ts` now resolve `detail?.id ?? detail?.slabId` and look the record up
+(`§FIX-SLAB-TRACKER-EVENT-SHAPE`, GR-12). Before that fix only `bootstrap()` — run ONCE at wiring —
+ever populated the graph, so any slab created after boot was invisible. Both listeners are live at
+HEAD; that is *why* the founder saw it work, rather than a slab that happened to predate boot.
+
+### (3) PARTIALLY CONTRADICTS a standing claim — BOTH READINGS RECORDED, the old one NOT deleted
+
+**The standing claim**, in `BIM30-NEXT-SESSION-BRIEF.md` §2.5 item 3: *"Walls still do not extend to
+re-mitre a corner when a neighbour moves. **Untouched all session.**"* — depended on by §9.2
+scenario 8 and scenario 14 ("junction re-weld, untouched").
+
+**The observation**: the walls extend. Console: `EXECUTE: UPDATE_WALL_BASELINE scope=[wall]` then
+`EXECUTE: CASCADE_WALL_BASELINE scope=[wall]`.
+
+**The reconciliation — and it is NOT that the old claim was simply wrong.** Two different subsystems
+produce visually similar outcomes, and the brief named only one:
+
+- **What the founder saw is a SLAB-DRIVEN CORNER WELD, not a mitre pass.**
+  `SlabWallConnectivityService` ("By Pick Walls" slabs) takes the moved wall at index *i* of the
+  slab's ordered edge list, intersects its line with its `prev` and `next` neighbours, and snaps
+  those neighbours' nearest endpoints to the new corners — *"keeping wall endpoints welded at
+  corners so the room remains topologically closed"* (its own header). It dispatches
+  `CascadeWallBaselineCommand`, which is exactly the `CASCADE_WALL_BASELINE` in the console.
+  **The cascade is real, shipped, and undoable** (full `WallData` snapshots, `restoreSnapshot` on
+  undo, so `metadata.version` does not drift).
+- **The mitre subsystem genuinely IS untouched.** `WallJoinResolver` is a *separate* mechanism, and
+  the connectivity service **explicitly suppresses itself while it runs** (`isJoinResolving()` —
+  *"miter adjustments are small endpoint corrections, not user-driven moves"*). Nothing this session
+  changed the join/mitre pass.
+
+**On `scope=[wall]`:** `CascadeWallBaselineCommand.affectedStores = ['wall'] as const`
+(`packages/command-registry/src/walls/CascadeWallBaselineCommand.ts:70`) — verified. But the scope
+is a *consequence*, not the cause of the finish defects: this command exists to move **walls**, and
+widening its `affectedStores` would not make a finish follow. **The finishes are a separate
+mechanism that is unwired (L-860), and the partitions are a third that does not exist (L-861).**
+Two rival mechanisms genuinely do both exist for the finish case — the unwired
+`finish-host-tracker` trackers, and this wall-only cascade — and **naming that is itself the
+finding**: the intended path is the trackers; widening the cascade would be the wrong fix.
+
+**NOW KNOWN TRUE:** walls that are `HostReferenceEdge` members of the **outer loop of a pick-walls
+slab sketch** extend/weld when a neighbour in that loop moves. The founder's perimeter is exactly
+that case.
+
+**STILL UNMEASURED — this entry does NOT close §2.5 item 3:**
+- Walls with **no slab relationship at all** — nothing registers them; no observation either way.
+- `FreeLineEdge` neighbours — **explicitly skipped** ("free lines have no wall endpoint to snap"),
+  so a hand-drawn boundary segment in the loop is a known non-follower.
+- **Inner loops** (openings) — only the outer loop is processed, by design.
+- True **corner re-mitre geometry**, as opposed to endpoint welding. The founder observed
+  extension; nobody has measured the mitre.
+
+**What would settle it:** the same browser gesture on (a) two walls meeting at a corner with **no
+slab**, and (b) a slab loop containing one `FreeLineEdge`. Until then §2.5 item 3 must be
+**narrowed, not struck**.
+
+### Contracts
+C72 (propagation) · C79 §5 (host references) · C75 (evidence vocabulary — OBSERVED).
+
+### What would prove the corrected claim regressed
+A browser gesture on the perimeter+slab fixture where the slab or the neighbouring walls stay put.
+`check-move-propagation` cannot see this: its slab arms are green and were green while the product
+did nothing — which is the whole reason this entry exists.
+
+---
+
+## L-860 — FLOOR FINISH AND CEILING DO NOT FOLLOW A MOVED WALL — and the gate arm that should have caught it was SATISFIED BY THE UNREACHABLE FIX
+
+**2026-08-13. Evidence class: OBSERVED (browser, `517f7a70`) + EXECUTED (gate re-run at HEAD).**
+
+### Observed
+In the same session as L-859: move a bounding wall → **the floor finish and the ceiling do not
+adapt.** The slab does; the finishes do not.
+
+### The diagnosis is already known — this is not a mystery, it is an unwired package
+
+`packages/finish-host-tracker` landed today across a killed lane and its successor (`99c82e5f`,
+`09027962`, `f5f312de`, plus orchestrator rescue `40492ed2`). Its own hand-back states the trackers
+are **NOT wired into any init path.** Verified at HEAD, and reported whichever way it went:
+
+```
+grep -rn "finish-host-tracker|FinishHostDependencyTracker" apps/editor/src/engine/ packages/runtime-composer/
+  → ZERO matches.
+```
+
+Widened repo-wide (`*.ts`, `*.tsx`, `*.json`, excluding the package's own directory and
+`node_modules`): **no consumer anywhere.** No `package.json` in `apps/` or `packages/` even declares
+a dependency on `@pryzm/finish-host-tracker`. The machinery exists, is tested, and is **unreachable
+at runtime.**
+
+### ⚠ THE SHARPEST PART — the gate arm went green BECAUSE of the unreachable code
+
+`tools/rac-conformance/certification/gates/check-move-propagation.ts` arms **A5 (floor-finish)** and
+**A6 (ceiling)** ask one structural question: *is the host reference symbol READ by something?* They
+count consumer files. Re-run at HEAD this session — exit `[1] DECLARED-LEVEL, 3 findings`:
+
+```
+✓  floor-finish · the host reference written at creation is READ by something:
+   FloorHostReferenceEdge has 1 consumer file(s) … —
+   packages/finish-host-tracker/src/FloorHostDependencyTracker.ts
+   … Nothing consumes them: there is no floor-finish dependency tracker anywhere …
+   C70 §4.2: machinery present, capability unreachable.
+✓  ceiling · … CeilingHostReferenceEdge has 1 consumer file(s) … (identical)
+```
+
+**Read that arm again. It prints ✓ and, in the same sentence, prints "machinery present, capability
+unreachable."** The count moved 0 → 1; the arm's threshold was "≥ 1 consumer"; the one consumer is a
+package wired into nothing. Both rows were struck from `declaredFindings` in `move-propagation.json`
+(7 notes remain, 3 declared), so the ledger now records floor and ceiling as **paid debt** — and per
+that file's own rule, *"debt that has been paid leaves the ledger in the commit that pays it."*
+**It was not paid. It was re-authored one layer further from the user.**
+
+A gate built to detect authored-but-unreachable code was **satisfied by authoring more unreachable
+code.** The floor/ceiling rows of that ledger are a FALSE GREEN and must be re-opened.
+
+### THIS IS THE AUTHORED-BUT-UNREACHABLE CLASS (C70 §4.2) FOR THE FOURTH TIME TODAY
+
+**The pattern is the finding, not the instance.** In one session:
+
+| # | Entry | What was authored | Why it did nothing |
+|---|-------|-------------------|--------------------|
+| 1 | **L-847** | A whole Data workbench, model tree included | Two rival workbenches; the one with the tree was unreachable |
+| 2 | **L-849** | A whole `geometry-lift` test suite | Belonged to no runner — had never run, once |
+| 3 | *(ledger rows)* | `FloorHostReferenceEdge` / `CeilingHostReferenceEdge` | Written correctly at creation, **zero consumers** |
+| 4 | **L-860 (this)** | `packages/finish-host-tracker` — the fix for #3 | **Zero wiring sites** — and it turned #3's gate arm green |
+
+Add **L-851** (root vitest patterns pointing at a directory that does not exist) and **L-864** (the
+hierarchy panel reachable but unpopulated) and the shape is not coincidence — it is the
+repository's dominant defect class. The standing lesson is
+[[authored-but-unwired-is-the-bottleneck]]: **audit REACHABILITY, not existence.** Register row
+**CE-05** — *"Static discovery counts authored-but-unreached code as present. No gate in the suite
+answers the reachability question, which is the one this repository keeps failing"* — is exactly
+this gap and remains **UNPROVEN**. `BIM30-GAP-REGISTER.md` §11 item 3 says it plainly: *"No runtime
+probe was executed against a live graph, a live cascade, or a composed browser session."* L-859/L-860
+are the first time that probe ran, and **it was a human running it.**
+
+> **One honest qualification to CE-05's "no gate" wording, found while verifying this.** A gate of
+> exactly the missing class now EXISTS: `check-propagation-trackers-reach` (commit `bbff7030`)
+> drives REAL mutations through REAL stores and reads the downstream effect back, precisely because
+> *"a tracker whose `subscribe()` call is intact … and whose `touch()` line has been commented out
+> passes every grep ever written."* Its subject is the **four bespoke pairs** (door, window,
+> §CASCADE-DELETE, `RoomTopologyObserver`) — **not the finish families**. So the instrument class is
+> proven buildable and is no longer hypothetical; CE-05's gap is now **narrower and better-defined**
+> than "no gate exists", and the fix for A5/A6 is to extend that gate's pattern rather than invent
+> one. Recorded because overstating CE-05 would be the same error in the other direction.
+
+### An UPSTREAM cause the wiring fix alone will not close: **the floor is created UNHOSTED, and does not refuse**
+
+From the console: `[FloorTool] Floor created: … with 10 vertices.` A ten-vertex ring is a hand-drawn
+polyline — the **DRAW** path, not `AUTO_FROM_ROOM`. Verified in source:
+
+- `packages/geometry-slab/src/floor/FloorTool.ts:690` — in DRAW mode the host is *guessed*:
+  `this._pendingHostRoomId = this._detectRoomAtCentroid(polygon, levelId)`. That helper returns
+  `undefined` on any miss (no room store, no containing room) — **silently**.
+- `:721` passes `hostRoomId: this._pendingHostRoomId` — possibly `undefined` — to `CreateFloorCommand`.
+- `packages/command-registry/src/floors/CreateFloorCommand.ts:86` types it `hostRoomId?: string`, and
+  **`canExecute` never checks it** (`:129-148` validate store, level, polygon and thickness only).
+  `:249` records `coveredRoomIds: hostRoomId ? [hostRoomId] : []` and `:344` skips the inner-face
+  inset entirely (`if (!hostRoomId …) return src`).
+
+**An unhosted floor is created, with an empty `coveredRoomIds`, and nothing refuses.** A floor with
+no host reference **cannot follow a wall by construction** — wiring the tracker would not save it,
+because there is nothing for the tracker to resolve.
+
+Worse, this is a **creation-parity divergence**: the *plan-view* path already does the honest thing.
+`apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts:306-308` returns when no room is
+found, and `:331` refuses outright when attribution fails, commented *"Refusing is not a degraded
+create — NOTHING is created, because a floor invented over an undetermined room is exactly the
+wrong-host state §2.3 forbids."* The 3D `FloorTool` DRAW path has **no equivalent**. The repo already
+carries `§FIX-FLOOR-FINISH-CREATION-PARITY` (L-255) asserting these two paths must match; on host
+attribution they do not.
+
+> **Correction to the lead that opened this investigation.** It was suggested that the
+> `[FloorTool] AUTO_FROM_ROOM: no room found at clicked point` line was itself the unhosted create.
+> **It is not** — `FloorTool.ts:1069-1072` logs that warning and **returns**; that branch creates
+> nothing. Recorded rather than quietly corrected, because the *real* path (DRAW + silent centroid
+> miss) needs a different fix from the one the misreading would have prompted.
+
+### Contracts offended
+- **C79 §2.3** — attribution by construction, never by proximity. `_detectRoomAtCentroid` is
+  proximity (point-in-polygon on one derived centroid); on a miss there is no attribution at all.
+- **C78 §1.1** — it should have REFUSED or recorded UNDETERMINED. It did neither.
+- **C79 §5** — host references exist and are correct at creation but are not read on a move.
+- **C70 §4.2** — machinery present, capability unreachable (fourth time today).
+- **C72** — propagation does not reach the finish families.
+
+### What would prove it fixed
+1. **Reachability**: a composed-runtime probe (not a unit harness) showing a
+   `FinishHostDependencyTracker` subscribed to `wallStore` in the product's init path, plus ≥1
+   non-test wiring site the grep above can find. Extend `check-propagation-trackers-reach`.
+2. **Attribution**: `FloorTool`'s DRAW path either attributes by construction or **refuses**,
+   matching `FloorPlanToolHandler`; `CreateFloorCommand.canExecute` rejects an unhosted create or
+   records an explicit `undetermined`.
+3. **The browser gesture**: perimeter walls + floor finish + ceiling → move a wall → **both adapt**,
+   OBSERVED, on a deployed SHA. Per L-859, nothing less settles the viewport axis.
+
+Arms A5/A6 must be **re-opened and re-armed** to ask a reachability question rather than a
+consumer-count question — otherwise the next unwired package turns them green again.
+
+---
+
+## L-861 — NEW DEFECT CLASS: **ROOM-BOUNDARY PRESERVATION** — interior partitions do not follow a moved bounding wall
+
+**2026-08-13. Evidence class: OBSERVED (browser, `517f7a70`).**
+
+### Observed
+Interior partitions drawn by polyline **do not extend** when a bounding wall moves. The founder,
+verbatim in substance: *"the other doesn't extend, which it should, to keep the room and adapt to
+the new boundary."*
+
+### This is NOT the slab cascade and NOT the finish cascade — it is a third thing, and it needs a name
+
+- The **slab cascade** (L-859) re-projects a *region* from its bounding walls. Works.
+- The **finish cascade** (L-860) re-projects *hosted finishes* from their host room. Unreachable.
+- **This** is about the walls that *define* rooms. When a boundary moves, the partitions meeting it
+  must extend or trim so that **rooms stay CLOSED and correctly shaped.**
+
+Proposed name: **room-boundary preservation**. The invariant is topological, not geometric: *a room
+that was enclosed before an edit is enclosed after it, or the edit refuses.*
+
+### Mechanism — it shares a root with the WORKING case, which is what makes it tractable
+
+The cascade that makes the perimeter walls extend (L-859) is keyed on **membership of a pick-walls
+slab sketch's outer loop**, nothing else. From `SlabWallConnectivityService`'s own SCOPE block:
+*"Only `HostReferenceEdge` neighbours are considered… Only the outer loop of each slab sketch is
+processed."* The graph it maintains is `wallId → Set<slabId>`.
+
+**An interior partition drawn by polyline is in no slab sketch outer loop.** It is therefore in no
+entry of that graph, so no `CASCADE_WALL_BASELINE` is ever emitted for it. Note carefully: the
+console's `scope=[wall]` is **not** the barrier here — the partition *is* a wall. **Membership is
+the barrier.** The partition is not a participant at all.
+
+That also resolves why the two observations are not in tension: the *same* mechanism produces "the
+perimeter walls extend" (loop members) and "the interior partitions do not" (not members). **One
+cause, two symptoms, opposite signs.**
+
+**Corollary worth stating**: the propagation graph is derived from **slab authoring**, not from
+**room topology**. Any element whose relationship to a room was never expressed as a slab sketch edge
+is outside propagation by construction. That is the design gap, not a bug in the service.
+
+### DIRECT LINK TO THE CIRCULATION PROGRAMME — an open room boundary is a circulation failure
+
+**A room that loses its enclosure is no longer a room**: it has no boundary to host a door, its area
+and its adjacency both become undefined, and any accessibility or egress judgement over it is
+computed on a shape the user did not author. The circulation work being specced in this session's
+audit lane — `docs/03-execution/specs/SPEC-XX-circulation-integrity.md` (**path as intended by that
+lane; the `XX` is theirs to assign, and this cross-reference should be re-pointed when it lands**) —
+depends on room enclosure as a precondition. A partition that fails to follow silently invalidates
+its inputs.
+
+Recommended sequencing, offered rather than asserted: **room-boundary preservation is upstream of
+circulation integrity.** Circulation gates that run over unpreserved boundaries report on geometry
+the last wall move already invalidated. This is very likely also a contributor to L-862's 121
+compliance errors and to the founder's "rooms without doors / circulation not good".
+
+### Contracts offended
+- **C72** — propagation does not reach room-defining partitions.
+- **C79 §5** — no host reference relates a partition to the boundary it helps enclose; there is
+  nothing to re-derive from.
+- **C79 §2.3** — such a relationship must be attributed by construction, not by proximity to the
+  moved wall (proximity is what would be reached for first, and it is what the contract forbids).
+- **C70 §4.2** — applies only if a mechanism is later authored and left unwired; **not yet the case
+  here**, since no mechanism exists at all. Stated so this row is not mis-filed with L-860.
+
+### What would prove it fixed
+1. A partition meeting a moved bounding wall **extends or trims** so the room stays closed —
+   OBSERVED in the browser, on a deployed SHA, on the founder's own fixture.
+2. Where the correct result is genuinely ambiguous (an acute-angle meeting; an extension that would
+   cross another partition), the operation **reports one of C79 §5's five states** rather than
+   silently producing a plausible shape — the same defect `check-move-propagation` already records
+   as open for the slab family (§5.2, two findings still declared RED at HEAD).
+3. A gate asserting the **topological** invariant — rooms closed before an edit are closed after it
+   — rather than a per-element geometric one. It must be **reachability-aware** per CE-05 and L-860,
+   or it will pass on an unwired implementation exactly as A5/A6 did.
+
+### Not measured
+Whether partitions follow in any *other* creation path (AI-generated apartment/house layouts, where
+partitions may carry richer relationships than a hand-drawn polyline). The observation covers the
+hand-drawn polyline case only. The circulation audit lane's per-typology arms may settle this.
+
+---
+
+## L-862 — 121 ROOM-COMPLIANCE ERRORS, DETECTED AND NEVER ANNOUNCED: the generator's output is known-bad by the system itself
+
+**2026-08-13. Evidence class: OBSERVED (browser, `517f7a70`, residential-building generation) +
+source-verified at HEAD.**
+
+### Observed — and note the progression
+- 10-wall manual test: `[RoomBoundaryBuilder] Compliance overlay: **2 error**, 0 warning room(s)
+  tracked (overlay OFF — enable Room Compliance Messages to tint)`
+- Residential-building generation, twice in the same log: `Compliance overlay: **121 error**, 0
+  warning room(s) tracked (overlay OFF …)`
+
+Founder's independent verdict on the same output: *"residential building creation has many issues:
+wall extrusions going wild, rooms without doors, circulation not good."*
+
+**Two error-rooms in a hand-drawn box; 121 in a generated building.** The system measured its own
+generator's output as bad, at ERROR severity, 121 times — and the generation completed with no
+indication that anything was wrong.
+
+### What is and is NOT true here — the claim has to be stated precisely
+
+Verified at `packages/room-topology/src/RoomBoundaryBuilder.ts:418-423` (the log line),
+`:344-346` and `apps/editor/src/ui/UiPreferences.ts:49`:
+
+- **The 3D room TINT is opt-in and default OFF.** `showRoomComplianceMessages: false`. The in-source
+  rationale is explicit and is an *aesthetic* one: *"so generated plans render with clean neutral
+  room fills instead of red/orange/yellow compliance shades. The validation pass still runs and the
+  status is still tracked … we just don't paint it unless asked."* (A.21.D33(c))
+- **The IntentPrompt toast is gated on the SAME default-false preference** —
+  `apps/editor/src/ui/canvas/IntentPrompt.ts:235`: `if (!UiPreferences.get('showRoomComplianceMessages')) return;`
+  — and it is the component that would name the *rules* (`ROOM_MIN_AREA`, `HABITABLE_NEEDS_WINDOW`,
+  **`ROOM_NEEDS_DOOR`**, `STAIR_HEADROOM`, `DOOR_WIDTH_vs_CIRCULATION`, `ACCESSIBLE_ROUTE`,
+  `FIRE_COMPARTMENT_AREA`, …). **Those rule names are the founder's complaints, in the system's own
+  taxonomy.**
+- **`CompliancePanel` is NOT gated** (`apps/editor/src/ui/dataworkbench/CompliancePanel.ts` — zero
+  references to the preference). It listens to `pryzm-constraints-updated` directly.
+
+**So the accurate finding is NOT "shown to nobody".** The founder himself confirms the other half:
+*"in Data tab → Hierarchy I still don't see relevant data; however in Validate I DO see."* The 121
+errors **are** reachable, in Data → Validate → Compliance.
+
+**The defect is that nothing ever tells the user to go and look.** Both *proactive* channels — the
+viewport tint and the toast — are off by a preference that defaults false, and
+`UiPreferences.ts:19` states the reason as a blanket convention: *"Boolean keys default to false."*
+An **ERROR-severity** signal about 121 rooms is suppressed by a default written for hints and
+toasts. A user who does not already suspect a problem, and does not know the Data workbench has a
+Validate bucket, ships a building with 121 known errors and is never told.
+
+### Why this is the cheapest high-value fix on the board
+
+**PRYZM does not need a new detector. It has one, it ran, and it was right.** The rule taxonomy above
+already covers "rooms without doors" (`ROOM_NEEDS_DOOR`) and "circulation not good"
+(`DOOR_WIDTH_vs_CIRCULATION`, `ACCESSIBLE_ROUTE`). The work is to **surface a signal that already
+exists**, not to build detection. Concretely, and offered as options rather than a decision:
+a non-blocking post-generation summary ("this building has 121 room-compliance errors — review in
+Validate"), or severity-split defaults (errors announce; warnings stay opt-in), or auto-enabling the
+tint when a generation completes with errors.
+
+**Do not read this as licence to flip the tint default.** The aesthetic rationale for the tint is
+real and was a considered decision. The finding is about **announcement**, which is a different
+channel from **tinting** — conflating them would trade one honesty defect for a usability
+regression.
+
+### The contrast that makes this indefensible
+In the *same session* the envelope path renders *"indicative only, not a compliance determination"*
+and *"NO LIMIT SET"* — C63/C75 honesty, correct, in production (L-859 item 5). The same product,
+one panel away, holds 121 error-severity findings and says nothing. **The standard exists in this
+codebase; the room-compliance path simply does not meet it.**
+
+### Contracts offended
+**C78 §1.1** (a system that knows must say so) · **C75** (evidence must be surfaced in the vocabulary
+that matches its strength — an ERROR is not a hint) · **C70 §4.2** in its *presentation* form:
+detection present, disclosure unreachable-by-default.
+
+### What would prove it fixed
+1. Generating a building whose rooms carry compliance errors produces a **proactive, unmissable**
+   report of the count and the top rule categories, with no preference change required — OBSERVED.
+2. The 121 are **triaged**: how many are `ROOM_NEEDS_DOOR` vs `ROOM_MIN_AREA` vs circulation rules.
+   **Not measured here** — the log reports only the count and severity. This triage is the single
+   most valuable next measurement in the whole session, because it likely converts the founder's
+   three subjective complaints into three counted, named rule failures.
+3. The 2-error manual case is explained too: a 10-wall hand-drawn box producing 2 error-rooms
+   suggests the floor is not zero even for trivial input.
+
+### Explicitly not measured
+Whether the 121 errors are *correct*. A detector reporting 121 errors on a building might be right,
+or might be mis-firing at scale. Nobody has checked, and **"the detector is right" is assumed
+nowhere in this entry** — only that the product measured them and did not announce them.
+
+---
+
+## L-863 — ZERO FURNITURE IN A 753-ELEMENT BUILDING: the furnish stage TIMED OUT and the chain advanced without it
+
+**2026-08-13. Evidence class: OBSERVED (browser, `517f7a70`) + source-verified.**
+
+### Observed
+`Snapshot created: 753 elements, 7 levels, 375 walls, 16 slabs, **0 furniture**`, while the ceiling
+pass succeeded on every level (`§CEILING-SUMMARY rooms_total=22 rooms_ceiled=22 ceilings_placed=22`
+×5 levels). The cause is in the log, and it supersedes the initial guess that `furnishLayout` was
+simply never invoked:
+
+```
+[lighting-layout] §CHAIN-TIMEOUT — no furnish.layout-executed within 12000 ms — firing lighting anyway
+```
+
+Lighting then ran fine: `§LIGHT-SUMMARY rooms_total=24 rooms_lit=24 fixtures_placed=51`.
+
+**Furniture is not "never invoked". It is invoked, exceeds a 12-second budget on a 24-room level,
+and is silently dropped while the chain advances.**
+
+Source-verified: `apps/editor/src/ui/lighting-layout/lightingLayoutTrigger.ts:89` —
+`const FALLBACK_MS = 12_000;`. The §CHAIN-TIMEOUT pattern (2026-05-29, "auto-fire-chain
+reliability") is used symmetrically by `furnishLayoutTrigger.ts:284-299` waiting on
+`ceiling.layout-executed`. `roomFinishChatSeam.ts:174` shows the design *did* anticipate the
+reporting problem — *"Furniture — no report arrived within 14 s (the §CHAIN-TIMEOUT fallback may
+still be running)"* — so a user-facing wording exists for this state on the **chat** seam. It did
+not reach the generation path the founder used.
+
+### TWO defects in one line — they need separate fixes and should not be merged
+**(a) The furnish engine is too slow for a real building.** A 12 s budget was sized for an apartment;
+the founder generated 7 levels at ~22-24 rooms each. Whether the engine is super-linear in room
+count is **not measured** — the log shows one timeout, not a curve. That measurement is the
+prerequisite for choosing between "optimise the engine" and "raise/remove the budget", and choosing
+without it would be guessing.
+
+**(b) A timeout that drops a whole pipeline stage reports nothing to the user.** This is the *same
+honesty class as L-862*: the system knew furniture had not run — that is precisely what the timeout
+detected — and produced a building with `0 furniture` while reporting success. A fallback that
+proceeds is defensible; a fallback that proceeds **silently** is not. Note the design tension
+honestly: §CHAIN-TIMEOUT exists *for reliability*, so that one stuck stage cannot hang the chain.
+That is a good decision. The defect is the missing disclosure, not the fallback.
+
+### Reconciling the founder's other furniture complaint
+The founder has separately reported *"furniture in front of a door"*. That cannot have come from
+this run — **this run produced no furniture at all.** It must originate from a different typology
+(apartment or house, where D-FLE furnishing does complete). Recorded so the two are not merged into
+one bug: **"furniture places badly" and "furniture does not place" are different defects in
+different typologies**, and a fix for either leaves the other untouched.
+
+### Contracts offended
+**C78 §1.1** (silent incompleteness) · **C75** (a completed generation reported without its known
+gap) · **C66** (a capacity budget sized for one tier applied to another — *no capacity tier may be
+described as supported while C66 §1 marks it CLAIMED*; a 7-level building is not demonstrated here).
+
+### What would prove it fixed
+1. A 7-level, ~24-room-per-level generation completes **with furniture**, OBSERVED — or completes
+   without it and **says so, unmissably**, naming which levels were skipped and why.
+2. A measured furnish-time curve against room count, so the budget is set from data rather than
+   inherited from the apartment case.
+3. A gate asserting that a chain stage which times out is **reported**, not merely logged.
+
+---
+
+## L-864 — GENERATED BUILDINGS HAVE NO UNIT CONTAINMENT: rooms sit flat under the level, and no apartment exists in the model
+
+**2026-08-13. Evidence class: OBSERVED (browser, `517f7a70`), across two founder passes — the second
+of which narrowed the defect and cleared half of the first reading.**
+
+### First pass — and what it turned out NOT to be
+The founder initially reported: *"in Data tab → Hierarchy I still don't see relevant data; however in
+Validate I DO see."* The panel offered *"Auto-setup hierarchy — Your project has 7 floor levels and
+123 rooms. Create a default site and building structure automatically? [Generate hierarchy]"* over
+*"No hierarchy yet."*
+
+**He then clicked it, and it worked.** The tree populated with real data: `Ground (0)`, `Level 01
+(5)`, rooms carrying measured areas (Corridor 11.9 m², Kitchen 13.6, Living Room 25.0, Bathroom 7.6,
+Bedroom 1 / Bedroom 2 12.6, Living Room 27.1, Kitchen 14.7, Bedroom 13.7 …), and a building inspector
+reading `LEVEL COUNT 7`, `VERSION v1`, with a modified timestamp.
+
+**So "the hierarchy is broken" is FALSE and is recorded here as withdrawn.** The auto-setup works.
+This also **completes the L-847 verification end to end**: the model tree is not merely reachable
+(L-859 item 4) but **renders real, correct, measured data in the browser**. L-847 is fully closed.
+
+### What remains — two residuals, and the second is the serious one
+
+**(a) The generator never triggers the auto-setup.** A generated building leaves the spatial
+structure empty until the user clicks a button in a panel most users will never open. The generator
+knows it created 7 levels and 123 rooms — the panel's own offer proves the counts are derivable — and
+it does not act on them. A user who never opens Data → Audit → Hierarchy has a building with no
+spatial structure and is never told.
+
+**(b) ⚠ ROOMS ARE UNASSIGNED TO UNITS — and this is a semantic loss, not a display issue.**
+The tree header reads **"Unassigned rooms on Level 01"** and every room sits flat under the level:
+Corridor, Kitchen, Living Room, Bathroom, Bedroom 1, Bedroom 2, then *another* Living Room, Kitchen,
+Bedroom… **The apartment grouping is not represented at all.**
+
+A residential building generated as **5 apartments per floor** produces rooms with **no unit
+containment**, so nothing in the model knows which rooms form an apartment. The `(5)` beside
+`Level 01` shows the level knows it has five of *something*; the rooms beneath it do not know which
+one they belong to. `+ Unit` exists in the UI as a **manual** affordance; the generator does not use
+it.
+
+What is lost, concretely: **unit-level area take-off, unit-mix schedules, per-apartment compliance,
+and every "combine two apartments" / "convert a 2-bed to a 3-bed" class of edit.** All of them
+require a unit to exist as a model object. None of them can be implemented over a flat room list, at
+any level of effort, because the information was never recorded.
+
+**Prerequisite flag for the C81 edit-layer contract** (being written this session by another lane):
+**an edit engine cannot "combine two apartments" or "convert a 2-bed to 3-bed" if the model has no
+concept of which rooms constitute an apartment.** Unit containment is upstream of the entire
+design-edit surface, and C81 should name it as a precondition rather than assume it. This is the same
+shape as L-861's relationship to the circulation programme: a missing model relationship silently
+invalidating a downstream capability's inputs.
+
+**(c) Minor, same family:** the building object is created with empty semantic fields —
+`BUILDING USE —`, `STOREYS —`, `No template assigned` — **even though the generator knows all three.**
+Information the generator held at creation time was not written to the record it created.
+
+### The asymmetry the founder spotted, which still stands
+*Same model, two panels.* Validate/compliance has data (121 findings, L-862); the hierarchy had none
+until manually generated, and still has no units. Whatever the generator emits is legible to the
+constraint engine and illegible to the spatial-structure model.
+
+### The open question, stated as open
+Whether the generator should emit IFC-style spatial containment (`IfcSite` / `IfcBuilding` /
+`IfcBuildingStorey` / unit) directly, **or** trigger the existing auto-setup and then assign units, is
+**NOT ESTABLISHED HERE** — it is a contract question (C68 element & attribute onboarding, plus the
+IFC interop path), not something a browser observation settles. What the observation *does* settle is
+that the current outcome is wrong under either reading.
+
+### Contracts offended
+**C68** (element & attribute onboarding — a generated room that joins no unit, and a building created
+with empty use/storeys, are incompletely onboarded) · **C78 §1.1** (the generator holds the unit
+grouping and the building semantics at creation time and writes neither, silently) · **C70 §4.2** in
+its data form: the auto-setup capability is present and reachable, and nothing invokes it · **C81**
+(prerequisite, per above).
+
+### What would prove it fixed
+1. Generating a residential building yields a populated Site → Building → Level → **Unit** hierarchy,
+   with **every room assigned to a unit**, OBSERVED in Data → Audit → Hierarchy, with no manual step
+   and no "Unassigned rooms" header.
+2. `BUILDING USE` and `STOREYS` are populated from what the generator already knows.
+3. An **IFC export** of the generated building carries correct spatial containment including units —
+   the independent check that the structure is real rather than a UI-only tree.
+4. A unit-mix schedule can be produced from the model without any manual assignment step. That is the
+   functional test; the tree rendering is only the visible proxy for it.
+
+---
+
+## L-865 — THREE GENERATION-PATH OBSERVATIONS THAT ARE NOT YET DEFECTS: room-redetect suppression, CRDT blackout, and one lead that CHECKED OUT CLEAN
+
+**2026-08-13. Evidence class: OBSERVED (browser, `517f7a70`) — recorded at the strength measured,
+which for two of these is "worth measuring", not "broken".**
+
+### 1. Room re-detection is repeatedly cancelled and suppressed — STALENESS UNMEASURED
+From the log: `[RoomTopologyObserver] §G2 cancelled 0 pending redetect timer(s) … post-batch cooldown
+armed` · `§G2-CANCELLED 1 pending redetect timer(s) for 1 level(s); 1s cooldown armed —
+REDETECT_ROOMS suppressed until T=…` · `Final sweep: SKIPPING REDETECT_ROOMS for 1 level(s)
+(§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries)`. Separately, on the manual
+test, `REDETECT_ROOMS` runs after **every** wall create (often twice), with `detectedRooms=1` only
+appearing once the loop closes at the 10th wall.
+
+These are **deliberate performance guards**, and the last one is explicitly correct (an element type
+that cannot define a room boundary should not trigger re-detection). The question worth answering is
+narrower and is **NOT ANSWERED HERE**: *does room topology end up stale after generation, because the
+final authoritative redetect never runs?* If rooms are computed mid-generation, while only some walls
+exist, and never recomputed once all walls exist, that alone could explain both L-862's 121 errors
+and the founder's circulation complaints — a room detected against a half-built floor plate is
+malformed by construction, and every downstream rule then judges the malformation.
+
+**This is a hypothesis with a clear test, not a finding.** It is flagged because it is *cheap to
+measure and potentially explains two other entries*: compare `roomStore` contents immediately after
+generation against a forced full re-detection on the same model. If they differ, L-862's error count
+is at least partly an artefact of stale topology and the fix is upstream of the compliance path.
+**Do not cite this as a cause of L-862 until that comparison is run.**
+
+Related, filed as efficiency-not-defect: `REDETECT_ROOMS` firing after every single wall create is
+O(walls) re-detections during authoring. Whether the *total* is O(n²) is **not measured**; the
+observation is a per-create fire, not a complexity proof.
+
+### 2. CRDT blackout per batch — note only
+`[Collaboration] §E1-CRDT-BLACKOUT batchId=… duration=2818ms elements=21 status=disconnected`,
+repeated per level. This is expected behaviour during batches. Recorded because the aggregate is not
+obvious from any single line: **generating a 7-level building means multiple seconds of
+collaboration blackout, repeated per level**. Relevant to the 1,000-user readiness question
+([[thousand-user-readiness-verdict]]) and to C66, not to this session's defect list.
+
+### 3. ⚠ A LEAD THAT CHECKED OUT CLEAN — CRDT conflict surfacing IS wired
+It was suggested that `[YjsDocAdapter] §G3-T3 1 semantic conflict(s) detected after batch … —
+ConflictResolutionDialog should surface these.` was a **third** instance of detected-but-not-surfaced
+(alongside L-862 and L-863), on the grounds that *"should surface"* asserts an intention rather than
+an observation.
+
+**Verified in source, and it is not a defect.** The path is wired at HEAD:
+`apps/editor/src/engine/engineLauncher.ts:1022-1035` constructs `ConflictDisclosureBanner`,
+`ConflictResolutionDialog` and `CRDTConflictResolver`, registers `_yjsDocAdapter.onConflict(…)`, and
+on a conflict **shows the banner**; clicking it opens the dialog (Keep mine / Keep theirs / Merge),
+whose result is routed back through `element.updateParameters` on the command bus. The commentary
+there is explicit that this was the *missing L7 wiring step* and that it was done (§S-B1). The
+`emitConflict(…)` call that feeds it fires immediately above the `§G3-T3` log line in
+`YjsDocAdapter.ts:1175-1190` — i.e. **the log line and the banner are driven by the same event**, and
+the "should surface these" wording is stale narration, not evidence of a gap.
+
+**What remains UNPROVEN is narrow and should not be inflated**: nobody has recorded *seeing* the
+banner in the browser. The mechanism is verified present and reachable by source reading; the
+viewport axis is unobserved. Per [[probe-can-be-wrong-three-ways]] that is a weaker claim than L-859's
+— and the honest label is **UNPROVEN**, not "broken".
+
+**Recorded as its own numbered item rather than dropped**, because "we checked and it was fine" is
+evidence too, and because filing a third detected-but-not-surfaced defect on the strength of a
+comment's wording would have been exactly the kind of claim this log exists to prevent. Two instances
+of that class this session (L-862, L-863) is the accurate count. Not three.
+
+### 4. Context layers 404 in production — honest refusal working
+`§CTX-PMTILES-READER rail/trees: tiles configured but unreadable (404 known missing this session) —
+rendering NO rail/trees`. The refusal is correct and explicit (it renders nothing rather than
+inventing). Recorded so the two missing layers are tracked as a **data/asset** gap, not a code one.

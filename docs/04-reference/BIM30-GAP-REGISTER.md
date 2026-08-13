@@ -403,3 +403,94 @@ Stated so the boundaries are not inferred from silence.
 5. **The counts in §9 are a count of *this document's rows*, not of the repository.** They describe
    how the known defects distribute across implementation types. A defect nobody has found yet is
    in none of them.
+
+---
+
+## §12 — BROWSER-OBSERVED DEFECTS AWAITING ROW ASSIGNMENT (2026-08-13, deploy `517f7a70`)
+
+> ⚠ **THESE ARE NOT COUNTED ROWS.** Nothing in this section is part of the 82 rows above, and
+> **none of it changes any count in §9.0.** The denominator is owned by the recount lane and must
+> not move on the strength of an appendix. These entries are recorded here **only** so that the
+> next recount has them in one place with their evidence already attached; a recount assigns row
+> IDs, not this section. Until then, cite the ISSUE-LOG numbers, never a row number.
+
+**Why this section exists at all.** §11 item 3 of this register declares, as a limit on everything
+above it: *"No runtime probe was executed against a live graph, a live cascade, or a composed
+browser session — every gate run here is static or headless."* On 2026-08-13 that probe finally ran.
+**It was a human running it**, against the live `517f7a70` deploy, and it produced first-party
+OBSERVED evidence (C75) on the one axis this register has never been able to reach. That evidence
+belongs adjacent to the register even though it cannot yet be scored by it.
+
+**The evidence is asymmetric, and the asymmetry matters.** For the viewport axis a founder
+observation is *stronger* than any gate reading in this document — it is the only instrument that
+sees what the product actually does. For everything the founder did not look at, it is *silent*, and
+silence is not a pass.
+
+### The observations
+
+| ISSUE-LOG | What was OBSERVED | Diagnosis (verified at HEAD) | Contract |
+|---|---|---|---|
+| **L-859** | ✅ Move a wall → **the slab adapts**. ✅ **The walls extend**. ✅ The L-847 model tree renders real data. ✅ Envelope panel refuses honestly in production. | The `§FIX-SLAB-TRACKER-EVENT-SHAPE` wire fix is live and REACHED. Walls extend via `SlabWallConnectivityService`'s slab-loop corner weld (`CASCADE_WALL_BASELINE`), **not** via the mitre pass, which remains untouched. | C72 · C79 §5 · C75 |
+| **L-860** | 🔴 Floor finish and ceiling **do not adapt** when the wall moves. | `packages/finish-host-tracker` has **zero wiring sites** (grep at HEAD, repo-wide). Upstream, `FloorTool`'s DRAW path creates **unhosted** floors without refusing. | C79 §2.3 · C78 §1.1 · C70 §4.2 |
+| **L-861** | 🔴 Interior partitions drawn by polyline **do not extend** when a bounding wall moves. | **NEW CLASS — room-boundary preservation.** The propagation graph is keyed on pick-walls slab-loop membership; a partition is in no loop, so no cascade is ever emitted for it. | C72 · C79 §5 · C79 §2.3 |
+| **L-862** | 🔴 **121 room-compliance ERRORS** tracked after a residential generation (2 on a 10-wall manual test) with no proactive signal. | Detection works. The viewport tint and the IntentPrompt toast are both gated on `showRoomComplianceMessages`, default `false`. `CompliancePanel` *is* ungated — so the errors are reachable, but **nothing tells the user to look**. | C78 §1.1 · C75 |
+| **L-863** | 🔴 **0 furniture** in a 753-element, 7-level building. | `§CHAIN-TIMEOUT` at `FALLBACK_MS = 12_000` — the furnish stage exceeded its budget and the chain advanced **silently**. Two defects: engine too slow at building scale, and a dropped stage that reports nothing. | C78 §1.1 · C75 · C66 |
+| **L-864** | 🔴 Generated buildings have **no unit containment** — *"Unassigned rooms on Level 01"*, every room flat under the level. Building created with empty `BUILDING USE` / `STOREYS`. | The generator never triggers the spatial-structure auto-setup, and never groups rooms into units. Semantic loss, not display. | C68 · C78 §1.1 · C70 §4.2 |
+| **L-865** | Room-redetect suppression (staleness **unmeasured**); per-batch CRDT blackout (note only); CRDT conflict surfacing **verified wired** — a lead that checked out clean. | Recorded at measured strength. Two of the three are hypotheses or notes, **not defects**. | — |
+
+### The finding that outranks the individual rows: **CE-05 is now evidenced four times in one day**
+
+Row **CE-05** above states the gap as *"Static discovery counts authored-but-unreached code as
+present. No gate in the suite answers the reachability question, which is the one this repository
+keeps failing"*, status **UNPROVEN**. On 2026-08-13 that class produced, in a single session:
+
+1. **L-847** — a whole Data workbench, model tree included, unreachable.
+2. **L-849** — a whole `geometry-lift` test suite that belonged to no runner and had never run.
+3. *(ledger rows)* — `FloorHostReferenceEdge` / `CeilingHostReferenceEdge`, correct at creation, **zero consumers**.
+4. **L-860** — `packages/finish-host-tracker`, authored *as the fix for #3*, with **zero wiring sites**.
+
+With **L-851** (root vitest patterns aimed at a non-existent directory) and **L-864** (a reachable
+panel with unpopulated data) the shape is not coincidence. **CE-05 is not a philosophical row; it is
+the register's highest-leverage one**, and the standing repo lesson it encodes —
+*audit REACHABILITY, not existence* — was violated four times by the same day's work.
+
+### ⚠ The sharpest instance: a gate arm turned GREEN by the unreachable fix
+
+`check-move-propagation` arms **A5 (floor-finish)** and **A6 (ceiling)** ask *"is the host reference
+symbol READ by something?"* and count consumer files. Re-executed at HEAD for this appendix
+(exit `[1] DECLARED-LEVEL`, 3 findings), both print **✓** — because the count moved 0 → 1 and the one
+consumer is `packages/finish-host-tracker`, **which is wired into nothing**. Both rows were struck
+from `declaredFindings` in `move-propagation.json`, recording the debt as paid.
+
+**It was not paid. It was re-authored one layer further from the user.** A gate built to detect
+authored-but-unreachable code was satisfied by authoring more unreachable code — while the founder,
+in the browser, watched the finishes fail to move. **Those two ledger rows are a FALSE GREEN and
+must be re-opened by whichever lane owns that ledger.** This is also the cleanest available proof of
+C70 §0.2 (*read the gate, not this line*) cutting in the unexpected direction: here the gate itself
+was the thing that needed reading past.
+
+### One honest narrowing of CE-05's wording
+
+A gate of exactly the missing class now **exists**: `check-propagation-trackers-reach` (commit
+`bbff7030`) drives real mutations through real stores and reads the downstream effect back,
+precisely because *"a tracker whose `subscribe()` call is intact … and whose `touch()` line has been
+commented out passes every grep ever written."* Its subject is the **four bespoke pairs** —
+`DoorDependencyTracker`, `WindowDependencyTracker`, `DeleteElementCommand` §CASCADE-DELETE, and
+`RoomTopologyObserver` — **not** the finish families.
+
+So CE-05's gap is now **narrower and better-defined** than "no gate exists": the instrument class is
+proven buildable and shipped once, and the fix for arms A5/A6 is to **extend that gate's executed
+pattern** rather than invent an instrument. Recorded because leaving CE-05's wording unqualified
+would overstate the gap in the opposite direction — the same failure mode, mirrored.
+
+### What this section does NOT establish
+
+1. **No row IDs, no scores, no count changes.** See the banner at the top of this section.
+2. **Nothing about what the founder did not exercise.** The session covered wall/slab/finish moves
+   and one residential generation. Doors, windows, roofs, stairs and curtain walls were not
+   exercised; `doorsRegistered=0 windowsRegistered=0` in every `[PickDiag]` line of the manual test
+   is consistent with a walls-only fixture and is **not** evidence about doors.
+3. **Nothing about whether the 121 compliance errors are correct.** The product measured them; nobody
+   has checked whether the detector is right at that scale.
+4. **No causal link between L-865's redetect suppression and L-862's error count.** That is a stated
+   hypothesis with a named test, and it must not be cited as a cause until the test is run.
