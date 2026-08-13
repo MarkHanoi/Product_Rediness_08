@@ -457,8 +457,10 @@ export class CommandManager {
             ['floor',       'floorStore',       (ctx.stores as any).floorStore],
             ['door',        'doorStore',        doorStore],
             ['window',      'windowStore',      windowStore],
-            ['visibility-intent', 'visibilityIntentStore', (ctx.stores as any).visibilityIntentStore ?? window.visibilityIntentStore], // TODO(TASK-08)
-            ['view-intent-instance', 'viewIntentInstanceStore', (ctx.stores as any).viewIntentInstanceStore ?? window.viewIntentInstanceStore], // TODO(TASK-08)
+            // Narrow structural window casts (not the ambient global-window.d.ts slot,
+            // which is out of scope in per-package isolated compiles — TS2339 there).
+            ['visibility-intent', 'visibilityIntentStore', (ctx.stores as any).visibilityIntentStore ?? (window as { visibilityIntentStore?: unknown }).visibilityIntentStore], // TODO(TASK-08)
+            ['view-intent-instance', 'viewIntentInstanceStore', (ctx.stores as any).viewIntentInstanceStore ?? (window as { viewIntentInstanceStore?: unknown }).viewIntentInstanceStore], // TODO(TASK-08)
         ];
 
         for (const [storeKey, snapKey, store] of optionalStores) {
@@ -527,8 +529,8 @@ export class CommandManager {
             ['floorStore',       (ctx.stores as any).floorStore],
             ['doorStore',        doorStore],
             ['windowStore',      windowStore],
-            ['visibilityIntentStore', (ctx.stores as any).visibilityIntentStore ?? window.visibilityIntentStore], // TODO(TASK-08)
-            ['viewIntentInstanceStore', (ctx.stores as any).viewIntentInstanceStore ?? window.viewIntentInstanceStore], // TODO(TASK-08)
+            ['visibilityIntentStore', (ctx.stores as any).visibilityIntentStore ?? (window as { visibilityIntentStore?: unknown }).visibilityIntentStore], // TODO(TASK-08)
+            ['viewIntentInstanceStore', (ctx.stores as any).viewIntentInstanceStore ?? (window as { viewIntentInstanceStore?: unknown }).viewIntentInstanceStore], // TODO(TASK-08)
         ];
 
         for (const [key, store] of optionalStoreKeys) {
