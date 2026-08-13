@@ -315,7 +315,9 @@ export async function fetchLiveNormals(
         const url = buildOpenMeteoUrl(
             lat, lon, opts.startDate, opts.endDate,
         );
-        const res = await fetchImpl(url, { signal });
+        // Conditional spread so the literal satisfies `exactOptionalPropertyTypes`
+        // consumers (ui-base's isolated compile): key ABSENT, never `undefined`.
+        const res = await fetchImpl(url, { ...(signal ? { signal } : {}) });
         if (!res || !res.ok) return null;
         const json = await res.json();
         let normals = mapOpenMeteoToNormals(json);
@@ -324,7 +326,7 @@ export async function fetchLiveNormals(
         // ── PVGIS refinement (optional, best-effort) ────────────────────
         if (!opts.skipPvgis) {
             try {
-                const pres = await fetchImpl(buildPvgisUrl(lat, lon), { signal });
+                const pres = await fetchImpl(buildPvgisUrl(lat, lon), { ...(signal ? { signal } : {}) });
                 if (pres && pres.ok) {
                     const ghi = mapPvgisMonthlyGhi(await pres.json());
                     if (ghi) {
