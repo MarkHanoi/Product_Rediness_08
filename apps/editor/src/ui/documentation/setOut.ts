@@ -45,6 +45,8 @@ import { autoTagView, resolveAutoTagProjection } from './autoTagActiveView.js';
 import { resolveViewFacadeFrame, selectFacadeWalls } from './facadeSelection.js';
 // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the dimension half of the same reconcile.
 import { reconcileDimensionSet } from './reconcileDimensions.js';
+// §GR-10 — the honest openings read (unknown ≠ empty; shared seam).
+import { relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 
 interface Vec3Like { x: number; y: number; z: number }
 interface OpeningRecord { id?: string; elementId?: string }
@@ -84,7 +86,15 @@ export function setOutIntentOf(viewId: string): SetOutIntent | undefined {
  * Exported + pure over its inputs so "what the view shows" is testable without a runtime —
  * this is the function every orphan-on-crop-change bug would come from.
  */
-export function visibleElementIds(viewId: string): ReadonlySet<string> | undefined {
+export function visibleElementIds(
+  viewId: string,
+  /** §GR-10 (C75 §1.4) — called per wall whose OPENING SET was never recorded:
+   *  its hosted-opening ids cannot be enumerated into the visible set, and the
+   *  caller must treat those openings' annotations as UNKNOWN-visibility, not
+   *  invisible. The old `?? []` silently classed them invisible, which is what
+   *  let the reconcile ORPHAN-DELETE real annotations. */
+  onOpeningsUnrecorded?: (wallId: string) => void,
+): ReadonlySet<string> | undefined {
   const def = viewDefinitionStore.get(viewId);
   if (!def) return undefined;
   const w = window as unknown as WindowWithStores;
@@ -94,7 +104,14 @@ export function visibleElementIds(viewId: string): ReadonlySet<string> | undefin
 
   const addWall = (wall: WallRecord): void => {
     ids.add(wall.id);
-    for (const o of wall.openings ?? []) {
+    // §GR-10 — absent ⇒ unrecorded ⇒ report + skip; a PRESENT empty array is a
+    // real "no openings" (C71 §4.4).
+    const known = relationshipArrayOrUnknown<OpeningRecord>(wall.openings);
+    if (known === null) {
+      onOpeningsUnrecorded?.(wall.id);
+      return;
+    }
+    for (const o of known) {
       const id = (o.elementId ?? o.id ?? '') as string;
       if (id) ids.add(id);
     }
@@ -160,14 +177,18 @@ export function reconcileSetOutView(runtime: PryzmRuntime, viewId: string): numb
   if (!def) return 0;
   if (resolveAutoTagProjection(def.viewType) === 'unsupported') return 0;
 
-  const visible = visibleElementIds(viewId);
+  // §GR-10 — walls whose opening sets were never recorded: their openings'
+  // visibility is UNKNOWN, and the dimension reconcile must not treat their
+  // annotations as orphans of a determined-invisible element.
+  const openingsUnrecorded = new Set<string>();
+  const visible = visibleElementIds(viewId, (id) => openingsUnrecorded.add(id));
   const tags = autoTagView(runtime, def, { visibleIds: visible, quiet: true });
   // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the SECOND half. The founder's flow is "place a
   // door → it is TAGGED and DIMENSIONED"; tags alone were half a feature. Same trigger, same
   // VISIBLE set (so a crop change re-derives both), same four decisions, same one-undo commit.
   // Dimensions are REFRESHED IN PLACE, never destroyed and reborn, so the user's dragged
   // offsets survive a model edit (dimensionIdentity.ts).
-  const dims = reconcileDimensionSet(runtime, def, visible);
+  const dims = reconcileDimensionSet(runtime, def, visible, openingsUnrecorded);
   return tags + dims;
 }
 

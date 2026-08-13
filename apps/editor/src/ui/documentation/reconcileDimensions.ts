@@ -29,6 +29,8 @@
 // this ticket and fail that one — which is exactly why that one is the guard.)
 
 import { storeRegistry, reconcileAnnotationSet } from '@pryzm/core-app-model';
+// §GR-10 — the honest openings read (unknown ≠ empty; shared seam).
+import { relationshipArrayOrUnknown } from '../relationshipDetermination.js';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 import type { AnnotationElement } from '@pryzm/plugin-annotations';
@@ -102,6 +104,11 @@ export function buildDimensionCandidates(
   viewDef: ViewDefinition,
   walls: readonly WallRecord[],
   levels: readonly LevelRecord[],
+  /** §GR-10 (C75 §1.4) — called per wall whose OPENING SET was never recorded:
+   *  that wall contributes NO opening dims because they are UNKNOWN, not
+   *  because it has none. Its run dims stay real (declared half-fix, same as
+   *  applyAutoDimensions — AutoDimWall cannot carry "unknown"). */
+  onOpeningsUnrecorded?: (wallId: string) => void,
 ): AnnotationElement[] {
   const viewId = viewDef.id;
   const gapM = viewScaleGap(viewDef);
@@ -113,13 +120,17 @@ export function buildDimensionCandidates(
     for (const w of walls) {
       const bl = w.baseLine;
       if (!bl || bl.length < 2) continue;
+      // §GR-10 — the honest openings read: absent ⇒ unrecorded ⇒ report; a
+      // PRESENT empty array is a real "no openings" (C71 §4.4).
+      const known = relationshipArrayOrUnknown<NonNullable<WallRecord['openings']>[number]>(w.openings);
+      if (known === null) onOpeningsUnrecorded?.(w.id);
       engineWalls.push({
         id: w.id,
         a: { x: bl[0].x, z: bl[0].z },
         b: { x: bl[1].x, z: bl[1].z },
         thickness: typeof w.thickness === 'number' ? w.thickness : 0.1,
         levelId,
-        openings: (w.openings ?? [])
+        openings: (known ?? [])
           .filter((o) => typeof o.offset === 'number' && typeof o.width === 'number' && (o.width ?? 0) > 0)
           .map((o) => ({
             id: (o.elementId ?? o.id ?? '') as string,
@@ -132,7 +143,7 @@ export function buildDimensionCandidates(
     }
     if (engineWalls.length === 0) return [];
     const { strings } = planAutoDimensions({ walls: engineWalls }, { viewId, levelId, tierGapM: gapM });
-    const evalSnapshot = buildEvalSnapshot(walls as never, levelId);
+    const evalSnapshot = buildEvalSnapshot(walls as never, levelId, onOpeningsUnrecorded);
     return dimensionStringsToLinearDimAnnotations(strings, evalSnapshot, viewId);
   }
 
@@ -141,6 +152,9 @@ export function buildDimensionCandidates(
     if (!frame) return [];
     const built = buildElevationSnapshot(walls as never, levels as never, frame);
     if (!built) return [];
+    // §GR-10 — the elevation snapshot already NAMES its unrecorded walls
+    // (f1595c29); forward them instead of dropping them on the floor.
+    for (const id of built.openingsUnrecordedWallIds) onOpeningsUnrecorded?.(id);
     const { segments, hSegments } = planElevationAutoDimensions(built.snapshot, {
       viewId,
       detailLevel: 'fine',
@@ -187,6 +201,9 @@ export function reconcileDimensionSet(
   runtime: PryzmRuntime,
   viewDef: ViewDefinition,
   visibleIds: ReadonlySet<string> | undefined,
+  /** §GR-10 — wall ids whose OPENING SETS were never recorded, as named by
+   *  `visibleElementIds`. Merged with this pass's own discoveries. */
+  openingsUnrecordedUpstream?: ReadonlySet<string>,
 ): number {
   void runtime;
   const w = window as unknown as WindowWithStores;
@@ -203,19 +220,28 @@ export function reconcileDimensionSet(
   // element's dimension — because it simply is not in the live set. One rule, two causes.
   const isPlan = PLAN_VIEW_TYPES.has(viewDef.viewType);
   const levelId = viewDef.spatial.levelId;
+  // §GR-10 (C75 §1.4 · C78 §1.4) — walls whose opening sets were never
+  // recorded. Upstream (visibleElementIds) names some; this pass's own reads
+  // name the rest. The old `(wall.openings ?? []).filter(...)` FORGED
+  // `openings: []` — a determined-empty record — onto an unrecorded wall.
+  const openingsUnrecorded = new Set<string>(openingsUnrecordedUpstream ?? []);
   const walls = allWalls.filter((wall) => {
     if (visibleIds && !visibleIds.has(wall.id)) return false;
     if (isPlan && levelId && wall.levelId !== levelId) return false;
     return true;
-  }).map((wall) => (
+  }).map((wall) => {
     // An opening the view does not show must not be dimensioned either — the crop cuts the
     // openings with the wall, not just the wall.
-    visibleIds
-      ? { ...wall, openings: (wall.openings ?? []).filter((o) => visibleIds.has((o.elementId ?? o.id ?? '') as string)) }
-      : wall
-  ));
+    if (!visibleIds) return wall;
+    const known = relationshipArrayOrUnknown<NonNullable<WallRecord['openings']>[number]>(wall.openings);
+    if (known === null) {
+      openingsUnrecorded.add(wall.id);
+      return wall; // keep the field ABSENT — unknown stays unknown.
+    }
+    return { ...wall, openings: known.filter((o) => visibleIds.has((o.elementId ?? o.id ?? '') as string)) };
+  });
 
-  const candidates = buildDimensionCandidates(viewDef, walls, levels);
+  const candidates = buildDimensionCandidates(viewDef, walls, levels, (id) => openingsUnrecorded.add(id));
 
   const existing = annotationStore.getByView(viewDef.id).filter(isAutoDimension);
   const plan = reconcileAnnotationSet<AnnotationElement>({
@@ -247,7 +273,22 @@ export function reconcileDimensionSet(
     }
   }
 
-  const removedIds = [...plan.duplicateTagIds, ...plan.orphanTagIds];
+  // §GR-10 (C78 §1.4) — ORPHAN deletion is an inference from absence: "no
+  // candidate measures this any more, so nothing does". With any wall's opening
+  // set UNRECORDED the candidate set is under-determined, and deleting its
+  // "orphans" would erase real dimensions of openings nobody could enumerate.
+  // Duplicates stay deletable (their evidence is presence, not absence).
+  let orphanIds = plan.orphanTagIds;
+  if (openingsUnrecorded.size > 0 && orphanIds.length > 0) {
+    console.warn(
+      `[set-out/dims] §GR-10 orphan removal SUPPRESSED for view ${viewDef.id}: the opening ` +
+      `sets of ${openingsUnrecorded.size} wall(s) [${[...openingsUnrecorded].join(', ')}] were ` +
+      `never recorded (RELATIONSHIP_NOT_RECORDED), so ${orphanIds.length} candidate orphan(s) ` +
+      `cannot be told apart from dimensions of unenumerable openings. Unknown is not "gone".`,
+    );
+    orphanIds = [];
+  }
+  const removedIds = [...plan.duplicateTagIds, ...orphanIds];
   const removed = removedIds
     .map((id) => annotationStore.getById(id))
     .filter((a): a is AnnotationElement => !!a);

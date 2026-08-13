@@ -316,7 +316,24 @@
     "apps/editor/src/ui/__tests__/houseModalCirculationHonesty.spec.ts (3 cases)",
     "asserts an UNRECORDED door graph never produces \"isolated from the",
     "entrance\" while a DETERMINED zero-door room still does — the assertion fails",
-    "against any shape that defaults an absent door list to []."
+    "against any shape that defaults an absent door list to [].",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 79 -> 77) — the LIVE-documentation pair,",
+    "setOut.ts + reconcileDimensions.ts (ARM C x1 + x2), completing the family",
+    "f1595c29 opened on the button path. Three connected forgeries:",
+    "(1) visibleElementIds classed an unrecorded wall opening set as INVISIBLE",
+    "openings — which is what let the reconcile orphan-delete real annotations;",
+    "it now takes an onOpeningsUnrecorded callback. (2) reconcileDimensionSet",
+    "FORGED openings:[] onto unrecorded walls in its crop map — unknown now stays",
+    "absent. (3) Its orphan deletion is an inference from ABSENCE, so with any",
+    "wall unrecorded the pass now SUPPRESSES orphan removal (duplicates still",
+    "delete — their evidence is presence) and console.warns naming the walls.",
+    "buildDimensionCandidates reports per-wall (plan) and forwards the elevation",
+    "snapshot names. Differentiating spec:",
+    "apps/editor/src/ui/documentation/__tests__/openingsUnrecordedReconcile.spec.ts",
+    "(4 cases, 2 negative controls) — the unrecorded cases FAIL against ?? [].",
+    "Documentation dir re-run: 108 passed, 2 failed — the SAME autoTagActiveView",
+    "typeMark pair f1595c29 verified pre-existing."
   ],
   "swallowed": [
     {
@@ -368,16 +385,6 @@
       "site": "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
       "arm": "C (8 site(s))",
       "why": "C@383 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@384 `const slabIds: string[] = room.boundingSlabIds ?? [];` · C@385 `const colIds: string[]  = room.boundingColumnIds ?? [];` · C@424 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@446 `.flatMap((wid: string) => doorStore.getByWallId(wid) ?? [])` · C@462 `.flatMap((wid: string) => windowStore.getByWallId(wid) ?? [])` · "
-    },
-    {
-      "site": "apps/editor/src/ui/documentation/reconcileDimensions.ts",
-      "arm": "C (2 site(s))",
-      "why": "C@122 `openings: (w.openings ?? [])` · C@214 `? { ...wall, openings: (wall.openings ?? []).filter((o) => visibleIds.has((o.elementId ?? `"
-    },
-    {
-      "site": "apps/editor/src/ui/documentation/setOut.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@97 `for (const o of wall.openings ?? []) {`"
     },
     {
       "site": "apps/editor/src/ui/furnish-layout/FurnishLayoutExecutor.ts",
