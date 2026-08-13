@@ -372,7 +372,7 @@ export class ConsequenceReportView {
             return;
         }
         this.showAbsence(
-            `Executed with no plan (${consequence.prediction.reason}). ` +
+            `Executed with no plan — prediction ${consequence.prediction.kind} (${consequence.prediction.reason}). ` +
             `${consequence.actual.changed.length} element(s) changed by independent read-back. ` +
             `No prediction was made, so none is invented after the fact.`,
         );
