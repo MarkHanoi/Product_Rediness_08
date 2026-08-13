@@ -400,10 +400,19 @@ export class CreateStairCommand implements Command {
                 createdBy: 'CreateStairCommand',
                 metadata: { addedBy: 'CreateStairCommand' }
             });
+            // §FIX-CONNECTEDBY-EDGE-KEYING — `authoredBy: stairId` puts this stair
+            // into the EDGE'S IDENTITY. Without it, `addRelationship` keys on
+            // (baseLevel, topLevel, 'connectedByStair') alone and a SECOND stair
+            // between the same two levels is a silent no-op that returns the first
+            // stair's edge id — after which deleting either stair removes the only
+            // edge present and strands the survivor. Two stairs are two facts.
+            // `stairId` stays in metadata too: it is what DeleteStairCommand's
+            // edge-wise purge matches on, and dropping it would break that purge.
             semanticGraphManager.addRelationship({
                 type: 'connectedByStair',
                 sourceId: baseLevelId,
                 targetId: this.input.topLevelId,
+                authoredBy: stairId,
                 createdBy: 'CreateStairCommand',
                 metadata: { stairId, shape: this.input.shape }
             });
@@ -412,6 +421,7 @@ export class CreateStairCommand implements Command {
                 type: 'connectedByStair',
                 sourceId: this.input.topLevelId,
                 targetId: baseLevelId,
+                authoredBy: stairId,
                 createdBy: 'CreateStairCommand',
                 metadata: { stairId, shape: this.input.shape, inverse: true }
             });

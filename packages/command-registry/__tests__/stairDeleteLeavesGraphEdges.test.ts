@@ -180,43 +180,46 @@ describe('§FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — delete purges, undo restores
         expect(edgesTouching(BASE_LEVEL).some(r => r.type === 'connectedByLift')).toBe(true);
     });
 
-    // §UPSTREAM-LIMITATION — NOT fixed by this commit, asserted so it cannot
-    // regress silently and so the next reader is not misled.
+    // §UPSTREAM-LIMITATION — **CLOSED** by §FIX-CONNECTEDBY-EDGE-KEYING.
     //
-    // addRelationship() is idempotent on (sourceId, targetId, type) and IGNORES
-    // metadata (SemanticGraph.ts:213 `_findExact`). Two stairs connecting the
-    // SAME level pair therefore share ONE connectedByStair edge — the second
-    // CreateStairCommand's write is a silent no-op that returns the FIRST
-    // stair's edge id. Consequence: deleting either stair correctly removes the
-    // one edge that exists, and the surviving stair is left with no
-    // connectedByStair edge at all.
+    // This test used to PIN THE DEFECT: it asserted that two stairs on one level
+    // pair collapse to a single edge, because `addRelationship` keyed only on
+    // (sourceId, targetId, type) and ignored metadata, so the second stair's
+    // write was a silent no-op returning the FIRST stair's edge id. Deleting
+    // either stair then removed the only edge present and stranded the survivor.
+    // ca0a7ce3 could not paper over it — with one edge present there was nothing
+    // for the delete to preserve — so it recorded the defect here instead.
     //
-    // This is an upstream KEYING defect in the edge model, not a delete defect,
-    // and fixing it means keying connectedByStair on the stair (or making
-    // idempotency metadata-aware) — a change to CreateStairCommand and the graph
-    // that belongs in its own lane. This delete cannot paper over it: with only
-    // one edge present there is nothing for the delete to preserve. Recorded
-    // here rather than left as a passing illusion.
-    it('KNOWN UPSTREAM GAP: two stairs on one level pair collapse to a single edge (metadata-blind idempotency)', () => {
+    // The fix keys the edge on its AUTHOR: `Relationship.authoredBy` widens edge
+    // identity to (sourceId, targetId, type, authoredBy) for the level↔level
+    // circulation families, and CreateStairCommand passes `authoredBy: stairId`.
+    // Idempotency is UNCHANGED for every family that omits the field.
+    //
+    // The assertions below are inverted accordingly: 4 edges, not 2, and each
+    // stair keeps its own metadata.
+    it('two stairs on one level pair now produce TWO DISTINCT edge pairs — the collapse is closed', () => {
         seedProductionEdges();
         const linksBefore = edgesTouching(BASE_LEVEL).filter(r => r.type === 'connectedByStair');
         expect(linksBefore).toHaveLength(2); // one per direction, for stair-1
 
-        // A rival stair between the SAME pair — both directions.
+        // A rival stair between the SAME pair — both directions, keyed on ITSELF.
         semanticGraphManager.addRelationship({
             type: 'connectedByStair', sourceId: BASE_LEVEL, targetId: TOP_LEVEL,
+            authoredBy: OTHER_STAIR_ID,
             createdBy: 'CreateStairCommand', metadata: { stairId: OTHER_STAIR_ID, shape: 'l-shaped' },
         });
         semanticGraphManager.addRelationship({
             type: 'connectedByStair', sourceId: TOP_LEVEL, targetId: BASE_LEVEL,
+            authoredBy: OTHER_STAIR_ID,
             createdBy: 'CreateStairCommand', metadata: { stairId: OTHER_STAIR_ID, inverse: true },
         });
 
-        // THE GAP: still 2, not 4 — the rival's writes were swallowed whole, and
-        // the surviving edges still carry stair-1's metadata.
+        // WAS 2 (the rival's writes swallowed whole). NOW 4 — both stairs are
+        // represented, each carrying its OWN metadata.
         const linksAfter = edgesTouching(BASE_LEVEL).filter(r => r.type === 'connectedByStair');
-        expect(linksAfter).toHaveLength(2);
-        expect(linksAfter.every(r => r.metadata?.stairId === STAIR_ID)).toBe(true);
+        expect(linksAfter).toHaveLength(4);
+        expect(linksAfter.filter(r => r.metadata?.stairId === STAIR_ID)).toHaveLength(2);
+        expect(linksAfter.filter(r => r.metadata?.stairId === OTHER_STAIR_ID)).toHaveLength(2);
     });
 
     it('THE VERBATIM TOOTH: undo restores all three edges BYTE-IDENTICAL — a reconstruction would not', () => {

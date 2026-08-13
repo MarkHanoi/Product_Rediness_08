@@ -116,11 +116,59 @@ export interface Relationship {
     targetId: string;
     /** Optional typed metadata (e.g. sharedWallId, doorId). */
     metadata?: Record<string, string | number | boolean>;
+    /**
+     * §FIX-CONNECTEDBY-EDGE-KEYING (ADR-0322) — OPTIONAL discriminator that
+     * widens this edge's IDENTITY beyond `(sourceId, targetId, type)`.
+     *
+     * The default identity is metadata-BLIND, and that is correct for almost
+     * every family: `DetectAllRoomsCommand` emits `adjacentTo` once per SHARED
+     * WALL, so two rooms sharing three walls call `addRelationship` three times
+     * with identical arguments and rely on the collapse; `boundedBy` is re-emitted
+     * every detection cycle; `replaceJoinedToForLevelWalls` re-emits both
+     * directions of every junction pair each flush. For all of those, "same two
+     * endpoints, same type" IS the whole identity, and duplicate suppression is
+     * the feature.
+     *
+     * It is WRONG for exactly one shape: an edge whose ENDPOINTS are not the
+     * thing the edge is about. `connectedByStair` / `connectedByLift` join two
+     * LEVELS and name the authoring stair/lift only in metadata. Two stairs
+     * between the same level pair are two genuinely distinct facts, but they
+     * collapse onto one edge — and then deleting either strands the survivor
+     * (the defect ca0a7ce3 refused to paper over).
+     *
+     * Such a family passes `authoredBy: <stairId>` to say "the authoring element
+     * is part of who I am". Edges that omit it keep byte-identical behaviour —
+     * this is opt-in, never a global change to idempotency semantics.
+     *
+     * Persisted: it is part of edge identity, so it must survive
+     * serialize()/deserialize() or two edges would re-collapse on reload.
+     */
+    authoredBy?: string;
     /** Unix timestamp (ms) when created. */
     createdAt: number;
     /** Creator identifier — 'system' for auto-detected, user ID otherwise. */
     createdBy: string;
 }
+
+/**
+ * §FIX-CONNECTEDBY-EDGE-KEYING — the families whose edge identity INCLUDES the
+ * authoring element. Declared here, next to the type union, so the decision is
+ * visible at the point a new family is minted rather than buried in a command.
+ *
+ * Membership test: does the edge's (sourceId, targetId) pair identify the edge's
+ * SUBJECT? For `hosts` (wall → door) it does — the door IS an endpoint. For
+ * `connectedByStair` (level → level) it does not; the stair is the subject and
+ * appears nowhere in the endpoints. Only the second shape belongs here.
+ *
+ * NOTE this list is advisory documentation, not an enforcement point:
+ * `addRelationship` keys on the PRESENCE of `authoredBy`, not on membership
+ * here, so a caller cannot get a silently-wrong answer by forgetting to
+ * register. The list exists so the next reader can audit the shape.
+ */
+export const AUTHOR_KEYED_RELATIONSHIP_TYPES: readonly RelationshipType[] = [
+    'connectedByStair',
+    'connectedByLift',
+];
 
 // ── joinedTo (ADR-0321 / C71 §3) — writer input + reader result types ─────────
 
@@ -203,14 +251,24 @@ export class SemanticGraphManager {
 
     /**
      * Add a relationship to the graph.
-     * If an identical relationship (same source, target, type) already exists,
-     * it is returned unchanged (idempotent insert).
+     * If an identical relationship already exists it is returned unchanged
+     * (idempotent insert).
+     *
+     * IDENTITY is `(sourceId, targetId, type)` — metadata-blind — UNLESS the
+     * caller supplies {@link Relationship.authoredBy}, in which case identity is
+     * `(sourceId, targetId, type, authoredBy)`. See the `authoredBy` doc comment
+     * for why the default is right for nearly every family and wrong for the
+     * level↔level circulation edges (§FIX-CONNECTEDBY-EDGE-KEYING).
+     *
+     * The two keyings do not interfere. An `authoredBy` insert never matches an
+     * unkeyed edge and an unkeyed insert never matches a keyed one, so a caller
+     * that does not pass the field gets byte-identical behaviour to before.
      *
      * @returns The ID of the relationship (existing or newly created).
      */
     addRelationship(rel: Omit<Relationship, 'id' | 'createdAt'>): string {
         // Idempotency guard — don't duplicate the same logical relationship
-        const existing = this._findExact(rel.sourceId, rel.targetId, rel.type);
+        const existing = this._findExact(rel.sourceId, rel.targetId, rel.type, rel.authoredBy);
         if (existing) return existing.id;
 
         const id = crypto.randomUUID();
@@ -412,9 +470,30 @@ export class SemanticGraphManager {
     /**
      * Whether a specific directional relationship exists.
      * Complexity: O(k) where k = source relationships.
+     *
+     * §FIX-CONNECTEDBY-EDGE-KEYING — this is an EXISTENCE question and stays
+     * author-BLIND on purpose. Readers ask "are these two levels connected by a
+     * stair?", not "…by stair-7". Delegating to the author-strict `_findExact`
+     * arm would have made this return `false` for every author-keyed edge —
+     * silently breaking egress routing the moment the keying shipped. Pass an
+     * `authoredBy` to ask the narrower question.
      */
-    hasRelationship(sourceId: string, targetId: string, type: RelationshipType): boolean {
-        return this._findExact(sourceId, targetId, type) !== undefined;
+    hasRelationship(
+        sourceId: string,
+        targetId: string,
+        type: RelationshipType,
+        authoredBy?: string,
+    ): boolean {
+        if (authoredBy !== undefined) {
+            return this._findExact(sourceId, targetId, type, authoredBy) !== undefined;
+        }
+        const sourceSet = this._bySource.get(sourceId);
+        if (!sourceSet) return false;
+        for (const id of sourceSet) {
+            const rel = this._rels.get(id);
+            if (rel && rel.targetId === targetId && rel.type === type) return true;
+        }
+        return false;
     }
 
     /**
@@ -520,12 +599,31 @@ export class SemanticGraphManager {
         if (set.size === 0) index.delete(key);
     }
 
-    private _findExact(sourceId: string, targetId: string, type: RelationshipType): Relationship | undefined {
+    /**
+     * §FIX-CONNECTEDBY-EDGE-KEYING — exact-identity lookup.
+     *
+     * `authoredBy` is compared STRICTLY, including its absence: `undefined`
+     * matches only edges that carry no author. That symmetry is what keeps the
+     * change non-breaking — an unkeyed caller (every family but the two
+     * circulation ones) compares `undefined === undefined` on every existing
+     * edge and reproduces the old metadata-blind behaviour exactly.
+     *
+     * Deliberately NOT a deep metadata compare. Keying on metadata equality
+     * would have made `adjacentTo`, `boundedBy` and `joinedTo` duplicate-creating
+     * the moment any metadata field differed between two logically-identical
+     * writes, and would put a deep compare on a hot path.
+     */
+    private _findExact(
+        sourceId: string,
+        targetId: string,
+        type: RelationshipType,
+        authoredBy?: string,
+    ): Relationship | undefined {
         const sourceSet = this._bySource.get(sourceId);
         if (!sourceSet) return undefined;
         for (const id of sourceSet) {
             const rel = this._rels.get(id);
-            if (rel && rel.targetId === targetId && rel.type === type) return rel;
+            if (rel && rel.targetId === targetId && rel.type === type && rel.authoredBy === authoredBy) return rel;
         }
         return undefined;
     }

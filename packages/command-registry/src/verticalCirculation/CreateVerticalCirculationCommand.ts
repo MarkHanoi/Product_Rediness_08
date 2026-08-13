@@ -255,10 +255,17 @@ export class CreateVerticalCirculationCommand implements Command {
                 createdBy: 'CreateVerticalCirculationCommand',
                 metadata: { addedBy: 'CreateVerticalCirculationCommand' },
             });
+            // §FIX-CONNECTEDBY-EDGE-KEYING — identical keying defect to the stair's,
+            // and if anything more load-bearing: a residential core routinely holds
+            // TWO OR MORE lifts serving the SAME level pair, so the collapse is the
+            // common case here, not the corner one. `authoredBy: liftId` makes each
+            // lift's edge distinct; without it the second lift's write was a silent
+            // no-op and deleting either would strand the survivor.
             semanticGraphManager.addRelationship({
                 type: 'connectedByLift',
                 sourceId: baseLevelId,
                 targetId: this.input.topLevelId,
+                authoredBy: liftId,
                 createdBy: 'CreateVerticalCirculationCommand',
                 metadata: { liftId, kind: lift.kind },
             });
@@ -266,6 +273,7 @@ export class CreateVerticalCirculationCommand implements Command {
                 type: 'connectedByLift',
                 sourceId: this.input.topLevelId,
                 targetId: baseLevelId,
+                authoredBy: liftId,
                 createdBy: 'CreateVerticalCirculationCommand',
                 metadata: { liftId, kind: lift.kind, inverse: true },
             });

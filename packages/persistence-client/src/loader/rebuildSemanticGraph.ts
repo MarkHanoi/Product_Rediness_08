@@ -102,9 +102,25 @@ export function rebuildSemanticGraphFromSnapshot(
 ): RebuildSemanticGraphResult {
     let count = 0;
 
-    const addRel = (sourceId: string, targetId: string, type: RelationshipType) => {
+    /**
+     * §FIX-CONNECTEDBY-EDGE-KEYING — `authoredBy` widens the edge's identity for
+     * the level↔level circulation families. It MUST be threaded through the
+     * rebuild as well as the live writers: this path runs when a snapshot
+     * predates the graph (or its graph is empty), and without the key two stairs
+     * between the same level pair would rebuild as ONE edge on every load —
+     * re-introducing the exact collapse in-session creation now avoids.
+     */
+    const addRel = (
+        sourceId: string,
+        targetId: string,
+        type: RelationshipType,
+        authoredBy?: string,
+    ) => {
         try {
-            semanticGraphManager.addRelationship({ type, sourceId, targetId, createdBy: 'system' });
+            semanticGraphManager.addRelationship({
+                type, sourceId, targetId, createdBy: 'system',
+                ...(authoredBy !== undefined ? { authoredBy } : {}),
+            });
             count++;
         } catch {
             // Skip invalid pairs silently — stores may not yet be populated
@@ -205,8 +221,12 @@ export function rebuildSemanticGraphFromSnapshot(
         const topLevelId: string | undefined = stair.topLevelId;
         if (baseLevelId) addRel(stair.id, baseLevelId, 'sitsOn');
         if (baseLevelId && topLevelId && baseLevelId !== topLevelId) {
-            addRel(baseLevelId, topLevelId, 'connectedByStair');
-            addRel(topLevelId, baseLevelId, 'connectedByStair');
+            // §FIX-CONNECTEDBY-EDGE-KEYING — keyed on the stair, exactly as
+            // CreateStairCommand now writes it. Two stairs joining the same pair
+            // rebuild as TWO edges; previously they collapsed into one on load
+            // regardless of how many stairs the snapshot held.
+            addRel(baseLevelId, topLevelId, 'connectedByStair', stair.id);
+            addRel(topLevelId, baseLevelId, 'connectedByStair', stair.id);
         }
     }
 

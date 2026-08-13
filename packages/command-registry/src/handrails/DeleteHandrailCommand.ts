@@ -64,6 +64,12 @@ export class DeleteHandrailCommand implements Command {
                     sourceId: rel.sourceId,
                     targetId: rel.targetId,
                     createdBy: rel.createdBy,
+                    // §FIX-CONNECTEDBY-EDGE-KEYING — `authoredBy` is part of edge
+                    // identity; a verbatim restore must carry it through. Handrails
+                    // attach to stairs, so this endpoint-wide capture CAN sweep up a
+                    // circulation edge, and dropping the field would restore it
+                    // unkeyed.
+                    ...(rel.authoredBy !== undefined ? { authoredBy: rel.authoredBy } : {}),
                     ...(rel.metadata ? { metadata: rel.metadata } : {}),
                 });
             } catch { /* noop — graph write is non-fatal, as in CreateHandrailCommand */ }

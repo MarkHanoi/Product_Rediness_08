@@ -110,6 +110,13 @@ export class DeleteStairCommand implements Command {
                     sourceId: rel.sourceId,
                     targetId: rel.targetId,
                     createdBy: rel.createdBy,
+                    // §FIX-CONNECTEDBY-EDGE-KEYING — `authoredBy` is part of the
+                    // edge's IDENTITY, so it must be carried through verbatim.
+                    // Dropping it here would restore the stair's connectedByStair
+                    // pair UNKEYED, which then collides with a rival stair's edge
+                    // on the same level pair and re-creates the very collapse this
+                    // fix closes — undo would silently eat the survivor's edge.
+                    ...(rel.authoredBy !== undefined ? { authoredBy: rel.authoredBy } : {}),
                     ...(rel.metadata ? { metadata: rel.metadata } : {}),
                 });
             } catch { /* noop — graph write is non-fatal, as in CreateStairCommand */ }
