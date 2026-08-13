@@ -1,5 +1,5 @@
 {
-  "count": 212,
-  "ratchedAt": "2026-08-11T15:59:45.293Z",
+  "count": 210,
+  "ratchedAt": "2026-08-13T08:16:47.818Z",
   "comment": "Auto-ratcheted by tools/ga-gate/check-cast-unknown.ts (L-845). Shrink-only; the P4 blind-spot spelling. Target: 0 via typed globals."
 }

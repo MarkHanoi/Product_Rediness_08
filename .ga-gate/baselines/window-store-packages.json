@@ -1,5 +1,5 @@
 {
-  "count": 221,
-  "ratchedAt": "2026-08-11T12:02:49.621Z",
+  "count": 219,
+  "ratchedAt": "2026-08-13T09:10:55.979Z",
   "comment": "G-NEW-02: window.xStore reads in packages/. Target: 0 (Phase E.stores.5). Use WSTORE_PKG_CEILING env var to step ceiling down per sprint."
 }
