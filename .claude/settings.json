@@ -27,7 +27,10 @@
       "Read(//c/Users/LENOVO/OneDrive/Desktop/**)",
       "Bash(grep -n \"needs:\\\\|^  [a-z-]*:$\" .github/workflows/ci.yml)",
       "Bash(python3 -)",
-      "Bash(bash -n tools/deploy/fly-manual-deploy.sh)"
+      "Bash(bash -n tools/deploy/fly-manual-deploy.sh)",
+      "Bash(cd \"C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/three/src/renderers/common/nodes\" && grep -n \"dispose\\(\\)\" -A 20 NodeManager.js | head -30 && grep -n \"_nodes =\\\\|this._nodes\" ../Renderer.js | head -5)",
+      "Read(//c/Users/LENOVO/OneDrive/Desktop/PRYZM/**)",
+      "Bash(pnpm --filter @pryzm/command-registry exec vitest run __tests__/addWallLayerBatch.test.ts)"
     ]
   }
 }

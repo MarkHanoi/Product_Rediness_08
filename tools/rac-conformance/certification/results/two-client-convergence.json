@@ -1,6 +1,6 @@
 {
   "harness": "twoclient.cert.ts",
-  "generatedAt": "2026-08-12T21:04:35.001Z",
+  "generatedAt": "2026-08-13T09:46:00.696Z",
   "provenance": {
     "composed": [
       "two independent buildWorld() topologies — separate geometry stores, CommandBus, CommandManager undo history",
@@ -78,7 +78,7 @@
     "   sync      8 update crossing(s) transported (state-vector deltas; 0 = nothing moved)",
     "   doc[A]   height=5 materialColor=\"#c0ffee\" thickness=undefined",
     "   doc[B]   height=5 materialColor=\"#c0ffee\" thickness=undefined",
-    "   read-leg  A.applied=2 B.applied=1 (remote updates each client's reader delivered INTO its own store)",
+    "   read-leg  A.applied=2 B.applied=2 (remote updates each client's reader delivered INTO its own store)",
     "   write-leg A replicated [wall.updateDimensions]",
     "             A wall.updateDimensions payload keys [wallId, height] = {\"wallId\":\"tc-wall-1\",\"height\":5}",
     "   write-leg B replicated [wall.updateColor]",
@@ -106,6 +106,6 @@
     "   fed the comparator 0.2 vs 'DELIBERATELY-DIVERGED' → reports DIVERGED ✓ (it can fail)",
     "   fed the comparator two IDENTICAL values → reports agree ✓ (it is not always-red)",
     "",
-    "read-leg counters  A.applied=2 B.applied=1 · unappliedRemoteCreates A=0 B=0 · sinkErrors A=0 B=0"
+    "read-leg counters  A.applied=2 B.applied=2 · unappliedRemoteCreates A=0 B=0 · sinkErrors A=0 B=0"
   ]
 }

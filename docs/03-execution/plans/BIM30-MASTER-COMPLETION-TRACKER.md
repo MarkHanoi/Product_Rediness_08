@@ -15,9 +15,23 @@
 
 ## ⏱ THE NUMBER — read this line and stop
 
-> ### **40 % COMPLETE · 60 % REMAINING**
-> **33 of 82 classified gap-register rows closed** · measured 2026-08-13 at HEAD `ca0a7ce3` by an
-> executed pass (34 gates run). A **delta recount is in progress** for the ~15 commits since.
+> ### **30 % COMPLETE · 70 % REMAINING** — and the number is STALE by ~40 commits
+> **25 of 82 classified gap-register rows CLOSED** · 39 OPEN · **18 UNPROVEN**
+> (C70 §2.2: UNPROVEN is *neither* a pass nor a fail — it is "nobody looked").
+> Source: `docs/04-reference/BIM30-GAP-REGISTER.md` at `c0a1785c`, re-stamped by an executed pass
+> over **26 gates**. That register is the authority; this line only quotes it.
+>
+> ⚠ **A previous version of this line read "33 of 82 · 40 %". That was wrong** and is recorded as
+> wrong rather than quietly swapped. Two measurements disagreed — an earlier looser pass said 33,
+> the register's stricter pass said 25 — and the looser one was left at the top. **The register
+> wins**: it splits UNPROVEN out as its own state instead of folding it into "closed", and it
+> grades its own evidence (21 of the 25 closures rest on an executed gate; **4 rest only on source
+> re-verification** and are flagged in-row as the weaker quarter).
+>
+> ⚠ **STALE**: ~40 commits have landed since `c0a1785c`, including provenance (ledger 28 → 1),
+> C71 (8 of the REQUIRED 9 families), GEN-GAP-1, and MT-09 measured at 26. **The true figure is
+> higher than 25 — but it will not be written here until a recount produces it** (§0.3: counted,
+> never incremented). Expect low-to-mid 30s.
 >
 > | | |
 > |---|---|
@@ -53,9 +67,28 @@ references at creation** — and *almost nothing consumes them at move time*. Th
 real, the maths is right, and the wire between them is cut. This is C70 §4.2's *machinery present ≠
 capability reachable*, at the centre of the product's core promise.
 
-**Why this is good news:** the cause is small, named, and pinned by a test. It is a listener
-payload-shape fix, not a redesign. **This is the highest-value single fix available in the
-program** and should be the first work of the next session.
+**Why this is good news:** the cause is small, named, and pinned to the line — **and it has a
+worked precedent in this repo.**
+
+> **THE FIX, located.** `SlabStore.emit` fires `bim-slab-{added,updated,removed}` with the
+> F.events.18 payload **`{ id }`** (`packages/event-bus/src/catalog.ts:95-97`), while
+> `SlabDependencyTracker.ts:57-67` guards on **`e.detail.slab` / `e.detail.slabId`**. So
+> `registerSlab()` is **unreachable from the event path** and the dependency graph stays empty.
+> Only `bootstrap()` (`initTools.ts:828`, run **once** at wiring) ever fills it — and the gate's
+> positive control proves *that* path works, so the machinery is sound and only the wire is cut.
+>
+> **`initBuilders.ts:367-383` was fixed for this EXACT shape mismatch in May**
+> (§DOM-EVENT-LISTENER-AUDIT-2026-05-18). The two trackers were not.
+> **`SlabWallConnectivityService.ts:115-122` carries the identical defect.** A known bug class,
+> fixed in one place and left in three.
+
+**Gate: `check-move-propagation` — [1] DECLARED-LEVEL at 7/7**, 4 families, 7 arms, 4/4 controls.
+⚠ Its first pin of **3** was WRONG and the gate caught it: that run had a failing positive control,
+so four arms never reached a verdict and their findings were invisible. Pinning 3 would have
+declared a level *below* the truth. It exited **2 MISCONFIGURED** instead of scoring over an
+unproven subject — a live demonstration of why "0 findings" without "N examined" is the empty-seed
+lie. **This is the highest-value single fix available in the program** and should be the first work
+of the next session.
 
 ---
 
@@ -129,7 +162,7 @@ as wrong**, per §7.a.
 
 | Denominator | Closed | Fraction |
 |---|---|---|
-| **Register gaps (the headline)** | **33 / 82** | **40 %** |
+| **Register gaps (the headline)** | ~~33 / 82~~ → **25 / 82** | **30 %** ← superseded by the register's stricter pass; see ⏱ above |
 | Roadmap phases fully MET | 0 / 11 | 0 % |
 | C70 Definition-of-Done conditions MET | 1 / 8 | 13 % |
 | Ladder levels awarded above L4 | 0 / 4 | 0 % |

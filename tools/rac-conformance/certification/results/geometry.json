@@ -1,0 +1,334 @@
+{
+  "harness": "CE-02 geometry (executed headless fragment build)",
+  "generatedAt": "2026-08-13T06:46:30.868Z",
+  "emptyWorldRun": false,
+  "ceiling": "PARTIALLY VERIFIED — collaboration is UNPROVEN by construction (§3.3); VERIFIED is arithmetically unreachable for every row in this harness, declared on day one so it cannot be quietly redefined later.",
+  "seedOutcomes": {
+    "level": "SEEDED",
+    "grid": "SEEDED",
+    "wall": "SEEDED",
+    "curtainWall": "SEEDED",
+    "door": "SEEDED",
+    "window": "SEEDED",
+    "openingOnCurtainWall": "REFUSED: Wall not found",
+    "slab": "SEEDED",
+    "roof": "SEEDED",
+    "column": "SEEDED",
+    "beam": "SEEDED",
+    "stair": "SEEDED",
+    "handrail": "SEEDED",
+    "plumbing": "SEEDED",
+    "furniture": "SEEDED",
+    "room": "SEEDED",
+    "opening": "SEEDED (via door/window CreateWallOpeningCommand)"
+  },
+  "targetReadings": [
+    {
+      "family": "levels",
+      "target": 3,
+      "measured": 3
+    },
+    {
+      "family": "walls",
+      "target": 14,
+      "measured": 15
+    },
+    {
+      "family": "openings",
+      "target": 8,
+      "measured": 8
+    },
+    {
+      "family": "rooms",
+      "target": 10,
+      "measured": 10
+    },
+    {
+      "family": "slabs",
+      "target": 3,
+      "measured": 3
+    },
+    {
+      "family": "columns",
+      "target": 6,
+      "measured": 6
+    },
+    {
+      "family": "beams",
+      "target": 4,
+      "measured": 4
+    },
+    {
+      "family": "stairs",
+      "target": 1,
+      "measured": 1
+    },
+    {
+      "family": "roofs",
+      "target": 1,
+      "measured": 1
+    }
+  ],
+  "counts": {
+    "levels": 3,
+    "walls": 14,
+    "curtainWalls": 1,
+    "doors": 4,
+    "windows": 4,
+    "rooms": 10,
+    "slabs": 3,
+    "columns": 6,
+    "beams": 4,
+    "stairs": 1,
+    "roofs": 1,
+    "openings": 8
+  },
+  "seedError": "",
+  "seededElements": 28,
+  "builtFamilies": 5,
+  "totals": {
+    "meshes": 64,
+    "vertices": 2120,
+    "triangles": 912
+  },
+  "framesPumped": 6,
+  "families": [
+    {
+      "family": "wall",
+      "attempted": 14,
+      "built": 14,
+      "meshes": 50,
+      "vertices": 1800,
+      "triangles": 744,
+      "error": "",
+      "path": "sync"
+    },
+    {
+      "family": "slab",
+      "attempted": 3,
+      "built": 3,
+      "meshes": 3,
+      "vertices": 72,
+      "triangles": 36,
+      "error": "",
+      "path": "sync"
+    },
+    {
+      "family": "column",
+      "attempted": 6,
+      "built": 6,
+      "meshes": 6,
+      "vertices": 144,
+      "triangles": 72,
+      "error": "",
+      "path": "sync"
+    },
+    {
+      "family": "beam",
+      "attempted": 4,
+      "built": 4,
+      "meshes": 4,
+      "vertices": 96,
+      "triangles": 48,
+      "error": "",
+      "path": "sync"
+    },
+    {
+      "family": "roof",
+      "attempted": 1,
+      "built": 1,
+      "meshes": 1,
+      "vertices": 8,
+      "triangles": 12,
+      "error": "",
+      "path": "frame-bus"
+    }
+  ],
+  "oracle": {
+    "ran": true,
+    "passed": true,
+    "expected": {
+      "width": 12.6,
+      "depth": 8.6
+    },
+    "actual": {
+      "width": 12.600000000000001,
+      "depth": 8.600000000000001
+    },
+    "spread": 1.7763568394002505e-15,
+    "detail": "offset 0.3 m over the 12x8 shell gave 12.600 x 8.600, expected 12.600 x 8.600, spread 1.78e-15 — a KNOWN answer matched, not a self-consistency check."
+  },
+  "negativeControl": [
+    {
+      "arm": "empty-scene",
+      "expectation": "an empty scene must report 0 meshes / 0 triangles",
+      "sighted": true,
+      "observed": "meshes=0 triangles=0"
+    },
+    {
+      "arm": "hollow-mesh",
+      "expectation": "a mesh whose geometry carries NO position attribute must report 0 vertices",
+      "sighted": true,
+      "observed": "meshes=1 vertices=0 triangles=0"
+    },
+    {
+      "arm": "real-box-must-be-seen",
+      "expectation": "a real BoxGeometry mesh must report > 0 vertices and > 0 triangles",
+      "sighted": true,
+      "observed": "meshes=1 vertices=24 triangles=12"
+    }
+  ],
+  "negativeControlBlind": false,
+  "unproven": [
+    {
+      "what": "GPU and shader geometry",
+      "reason": "Anything computed in a shader is outside every gate and every harness here (§5.2). This build never constructs a WebGLRenderer and never calls render(); it measures the CPU half — triangulation, extrusion, transforms — and the GPU half stays outside even now that the CPU half has a subject."
+    },
+    {
+      "what": "Visual correctness of the produced meshes",
+      "reason": "Triangle counts are a STABILITY oracle, not a CORRECTNESS one (§5.5). A builder emitting a well-formed wrong shape passes every count arm. Only polygon offset carries a hand-checked answer, and it is run here for exactly that reason."
+    },
+    {
+      "what": "Cross-architecture float determinism",
+      "reason": "This build runs in ONE process on ONE architecture (§5.3). Platform-dependent floating-point differences — a Windows founder vs a Linux CI runner — are not measured by anything in this repository."
+    },
+    {
+      "what": "Materials, textures and instanced rendering paths",
+      "reason": "Instanced builders key off live renderer state that no headless scene establishes; the builders take their non-instanced branch here. The instanced path is therefore UNBUILT, not proven, and must not be inferred from the non-instanced counts."
+    },
+    {
+      "what": "The frame-scheduled build under REAL frame pressure",
+      "reason": "pumpFrames() drives tick() directly. That is the real production drain path, but it runs without budget contention, so adaptive per-frame budgeting and the LONGTASK collapse behaviour are exercised by nothing here."
+    }
+  ],
+  "rows": [
+    {
+      "capability": "geometry:wall",
+      "intent": "build wall geometry headlessly from authoritative store records",
+      "command": "wall FragmentBuilder over @pryzm/renderer-three/three (the sanctioned P2 facade)",
+      "authoritativeState": "PROVEN — 14 record(s) read from the authoritative store, never the plugin-DTO sink",
+      "geometry": "PROVEN — executed headless fragment build: 14/14 elements built, 50 meshes / 744 triangles read back from the scene graph",
+      "persistence": "n/a — this suite scores the Geometry link; persistence is certified by persistence.cert.ts",
+      "undo": "n/a — geometry is derived from authoritative state; undo is certified by undoredo.cert.ts",
+      "redo": "n/a — as undo",
+      "collaboration": "UNPROVEN — no transport deployed; collaboration is UNPROVEN BY CONSTRUCTION (§5.1), which caps every row in this harness at PARTIALLY VERIFIED. A founder decision, not engineering work.",
+      "report": "PROVEN — compared counts printed per family (§4.2): meshes=50 triangles=744",
+      "evidence": [
+        "attempted=14",
+        "built=14",
+        "meshes=50",
+        "vertices=1800",
+        "triangles=744",
+        "path=sync",
+        "error=none"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "geometry:slab",
+      "intent": "build slab geometry headlessly from authoritative store records",
+      "command": "slab FragmentBuilder over @pryzm/renderer-three/three (the sanctioned P2 facade)",
+      "authoritativeState": "PROVEN — 3 record(s) read from the authoritative store, never the plugin-DTO sink",
+      "geometry": "PROVEN — executed headless fragment build: 3/3 elements built, 3 meshes / 36 triangles read back from the scene graph",
+      "persistence": "n/a — this suite scores the Geometry link; persistence is certified by persistence.cert.ts",
+      "undo": "n/a — geometry is derived from authoritative state; undo is certified by undoredo.cert.ts",
+      "redo": "n/a — as undo",
+      "collaboration": "UNPROVEN — no transport deployed; collaboration is UNPROVEN BY CONSTRUCTION (§5.1), which caps every row in this harness at PARTIALLY VERIFIED. A founder decision, not engineering work.",
+      "report": "PROVEN — compared counts printed per family (§4.2): meshes=3 triangles=36",
+      "evidence": [
+        "attempted=3",
+        "built=3",
+        "meshes=3",
+        "vertices=72",
+        "triangles=36",
+        "path=sync",
+        "error=none"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "geometry:column",
+      "intent": "build column geometry headlessly from authoritative store records",
+      "command": "column FragmentBuilder over @pryzm/renderer-three/three (the sanctioned P2 facade)",
+      "authoritativeState": "PROVEN — 6 record(s) read from the authoritative store, never the plugin-DTO sink",
+      "geometry": "PROVEN — executed headless fragment build: 6/6 elements built, 6 meshes / 72 triangles read back from the scene graph",
+      "persistence": "n/a — this suite scores the Geometry link; persistence is certified by persistence.cert.ts",
+      "undo": "n/a — geometry is derived from authoritative state; undo is certified by undoredo.cert.ts",
+      "redo": "n/a — as undo",
+      "collaboration": "UNPROVEN — no transport deployed; collaboration is UNPROVEN BY CONSTRUCTION (§5.1), which caps every row in this harness at PARTIALLY VERIFIED. A founder decision, not engineering work.",
+      "report": "PROVEN — compared counts printed per family (§4.2): meshes=6 triangles=72",
+      "evidence": [
+        "attempted=6",
+        "built=6",
+        "meshes=6",
+        "vertices=144",
+        "triangles=72",
+        "path=sync",
+        "error=none"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "geometry:beam",
+      "intent": "build beam geometry headlessly from authoritative store records",
+      "command": "beam FragmentBuilder over @pryzm/renderer-three/three (the sanctioned P2 facade)",
+      "authoritativeState": "PROVEN — 4 record(s) read from the authoritative store, never the plugin-DTO sink",
+      "geometry": "PROVEN — executed headless fragment build: 4/4 elements built, 4 meshes / 48 triangles read back from the scene graph",
+      "persistence": "n/a — this suite scores the Geometry link; persistence is certified by persistence.cert.ts",
+      "undo": "n/a — geometry is derived from authoritative state; undo is certified by undoredo.cert.ts",
+      "redo": "n/a — as undo",
+      "collaboration": "UNPROVEN — no transport deployed; collaboration is UNPROVEN BY CONSTRUCTION (§5.1), which caps every row in this harness at PARTIALLY VERIFIED. A founder decision, not engineering work.",
+      "report": "PROVEN — compared counts printed per family (§4.2): meshes=4 triangles=48",
+      "evidence": [
+        "attempted=4",
+        "built=4",
+        "meshes=4",
+        "vertices=96",
+        "triangles=48",
+        "path=sync",
+        "error=none"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "geometry:roof",
+      "intent": "build roof geometry headlessly from authoritative store records",
+      "command": "roof FragmentBuilder over @pryzm/renderer-three/three (the sanctioned P2 facade)",
+      "authoritativeState": "PROVEN — 1 record(s) read from the authoritative store, never the plugin-DTO sink",
+      "geometry": "PROVEN — executed headless fragment build: 1/1 elements built, 1 meshes / 12 triangles read back from the scene graph",
+      "persistence": "n/a — this suite scores the Geometry link; persistence is certified by persistence.cert.ts",
+      "undo": "n/a — geometry is derived from authoritative state; undo is certified by undoredo.cert.ts",
+      "redo": "n/a — as undo",
+      "collaboration": "UNPROVEN — no transport deployed; collaboration is UNPROVEN BY CONSTRUCTION (§5.1), which caps every row in this harness at PARTIALLY VERIFIED. A founder decision, not engineering work.",
+      "report": "PROVEN — compared counts printed per family (§4.2): meshes=1 triangles=12",
+      "evidence": [
+        "attempted=1",
+        "built=1",
+        "meshes=1",
+        "vertices=8",
+        "triangles=12",
+        "path=frame-bus",
+        "error=none"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    },
+    {
+      "capability": "geometry:offset-oracle",
+      "intent": "offset the 12x8 shell by the roof's declared 300 mm overhang",
+      "command": "offsetPolygon (@pryzm/geometry-kernel/pure/polygonOffset)",
+      "authoritativeState": "n/a — a pure function over a declared fixture ring, no store involved",
+      "geometry": "PROVEN — offset 0.3 m over the 12x8 shell gave 12.600 x 8.600, expected 12.600 x 8.600, spread 1.78e-15 — a KNOWN answer matched, not a self-consistency check.",
+      "persistence": "n/a",
+      "undo": "n/a",
+      "redo": "n/a",
+      "collaboration": "UNPROVEN — no transport deployed; collaboration is UNPROVEN BY CONSTRUCTION (§5.1), which caps every row in this harness at PARTIALLY VERIFIED. A founder decision, not engineering work.",
+      "report": "PROVEN — expected 12.6x8.6, spread printed",
+      "evidence": [
+        "oracleRan=1",
+        "oraclePassed=1",
+        "spread=1.7763568394002505e-15"
+      ],
+      "status": "PARTIALLY VERIFIED"
+    }
+  ]
+}

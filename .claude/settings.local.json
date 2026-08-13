@@ -235,7 +235,19 @@
       "Bash(cd /c/ClaudeWorktrees/Product_Rediness_08/b1-snaplevel/packages/snapping/src/providers && sed -n '32,45p' WallJoinSnapProvider.ts)",
       "Read(//c/ClaudeWorktrees/Product_Rediness_08/b1-snaplevel/packages/snapping/src/providers/**)",
       "Bash(sed -i \"s|from 'pmtiles'|from '../node_modules/.pnpm/pmtiles@4.4.1/node_modules/pmtiles/dist/esm/index.js'|\" scratchpad/probe-ctx-volume.mjs)",
-      "Bash(node scratchpad/probe-ctx-volume.mjs)"
+      "Bash(node scratchpad/probe-ctx-volume.mjs)",
+      "Bash(node -e \"const p=require\\('./packages/renderer-three/package.json'\\); console.log\\(JSON.stringify\\(p.exports,null,1\\)\\)\")",
+      "Bash(cd \"C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08\" && echo \"=== referencePlaneStore API ===\"; grep -n \"export interface ReferencePlaneStore\" -A 30 apps/component-editor/src/stores/referencePlaneStore.ts; echo \"=== AddReferencePlaneArgs ===\"; sed -n '/export interface AddReferencePlaneArgs/,/^}/p' apps/component-editor/src/commands/referencePlane/index.ts)",
+      "Bash(NODE_OPTIONS=--max-old-space-size=6144 npx tsx tools/ga-gate/check-chat-capability-coverage.ts)",
+      "Bash(NODE_OPTIONS=--max-old-space-size=6144 pnpm --filter @pryzm/editor typecheck)",
+      "Bash(node -e \"const j=require\\('./tools/rac-conformance/runtime-harness/.liveness-output/liveness.json'\\); console.log\\(JSON.stringify\\(j.counts\\)\\); for\\(const r of j.rows\\) console.log\\(r.verdict.padEnd\\(20\\), r.verb.padEnd\\(26\\), r.reason.slice\\(0,110\\)\\);\")",
+      "Bash(cd \"c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/tools/rac-conformance/certification\" *)",
+      "Read(//c/Users/LENOVO/OneDrive/docs/04-reference/**)",
+      "Bash(cp src/WallStore.ts /tmp/WallStore.keep.ts)",
+      "Bash(perl -0pi -e \"s/this\\\\.emit\\\\\\('update', frozen, wall\\\\\\);/this.emit\\('update', frozen\\);/g\" src/WallStore.ts)",
+      "Bash(cp /tmp/WallStore.keep.ts src/WallStore.ts)",
+      "Bash(rm /tmp/WallStore.keep.ts)",
+      "Bash(node -e \"const j=require\\('./tools/rac-conformance/certification/results/persistence.json'\\); for\\(const r of j.rows\\){console.log\\(r.capability+' :: '+r.persistence.slice\\(0,600\\)+'\\\\n'\\)}\")"
     ],
     "deny": [
       "Bash(rm -rf *)",
