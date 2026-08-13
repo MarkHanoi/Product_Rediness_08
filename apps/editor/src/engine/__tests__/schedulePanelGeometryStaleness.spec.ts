@@ -136,7 +136,7 @@ describe('PR-12 — SchedulePanel geometry subscription (measured, not read)', (
             .toEqual(['24.00']);
     });
 
-    it('MEASURED: after a real geometry change + the real production event, the OPEN panel is STALE', () => {
+    it('BEHAVIOURAL: after a real geometry change + the real production event, the OPEN panel REFRESHES', () => {
         panel.show(SCHEDULE_ID);
         const before = areaCellsInDom();
 
@@ -151,40 +151,55 @@ describe('PR-12 — SchedulePanel geometry subscription (measured, not read)', (
             ' | after geometry change + bim-slab-updated = ' + JSON.stringify(after) +
             ' | true area now = 40.00');
 
-        // D — the verdict. This is the row's claim, now EXECUTED.
-        expect(after, 'PR-12 measured: the open panel still shows the pre-change area')
-            .toEqual(before);
-        expect(after).toEqual(['24.00']);
+        // D — the verdict. RE-STATED at the fix (PR-12): this assertion used to read
+        // `toEqual(before)` / `['24.00']`, which PINNED THE DEFECT rather than the
+        // behaviour — it was green precisely because the panel was wrong. It is now
+        // stated as the behaviour an architect is owed: the open panel shows the
+        // area the model actually has.
+        expect(before, 'the pre-change reading the refresh has to move off').toEqual(['24.00']);
+        expect(after, 'PR-12: the open panel must not keep painting the pre-change area')
+            .not.toEqual(before);
+        expect(after).toEqual(['40.00']);
     });
 
-    it('CONTROL — the data IS fresh; only the re-render is missing (so "stale" names a subscription, not a read)', () => {
+    it('CONTROL — the subscription is what moved the cell, and an explicit render agrees with it', () => {
         panel.show(SCHEDULE_ID);
         expect(areaCellsInDom()).toEqual(['24.00']);
 
         slabs[0].polygon = rect(10, 4);
         announceGeometryChange('pr12-slab-1');
-        expect(areaCellsInDom(), 'stale, as measured above').toEqual(['24.00']);
+        // RE-STATED at the fix: this used to assert `['24.00']` — "stale, as measured
+        // above". The control still does its original job, which was to separate
+        // "the extractor cannot see the new geometry" from "the panel is never told
+        // to re-render": the subscription now reaches render(), and the explicit
+        // show() below reads the SAME value, so the two paths agree.
+        const afterSubscription = areaCellsInDom();
+        expect(afterSubscription, 'the subscription reached render()').toEqual(['40.00']);
 
-        // Same store, same extractor, same instant; the only difference is that
-        // something finally called render().
+        // Same store, same extractor, same instant; the only difference is which
+        // caller invoked render().
         panel.show(SCHEDULE_ID);
         const afterExplicitRender = areaCellsInDom();
         console.log('[PR-12 CONTROL] area cells after an explicit show() = ' +
             JSON.stringify(afterExplicitRender));
         expect(afterExplicitRender,
-            'if this were also 24.00 the defect would be in the extractor, not the subscription')
-            .toEqual(['40.00']);
+            'if the two paths disagreed, the subscription would be painting something the extractor does not hold')
+            .toEqual(afterSubscription);
+        expect(afterExplicitRender).toEqual(['40.00']);
     });
 
-    it('SIDE-FINDING — an unrelated DEFINITION event incidentally refreshes the geometry numbers', () => {
-        // Not a mitigation. `render()` re-pulls everything, so a schedule-definition
-        // edit silently repairs the stale geometry cell. The panel is therefore
-        // sometimes right and sometimes wrong for reasons invisible to the user —
-        // recorded so a future fix does not mistake this for an existing subscription.
+    it('HISTORICAL SIDE-FINDING — a DEFINITION event still refreshes, and no longer has to', () => {
+        // Recorded from the pre-fix measurement: `render()` re-pulls everything, so a
+        // schedule-definition edit silently repaired the stale geometry cell — which
+        // meant the panel was sometimes right and sometimes wrong for reasons the
+        // user could not see. RE-STATED at the fix: the geometry announce alone now
+        // does the work, and the definition event is merely idempotent on top of it.
+        // Kept so a future change cannot quietly reintroduce the "only a definition
+        // edit repairs it" behaviour without turning this case red.
         panel.show(SCHEDULE_ID);
         slabs[0].polygon = rect(10, 4);
         announceGeometryChange('pr12-slab-1');
-        expect(areaCellsInDom()).toEqual(['24.00']);
+        expect(areaCellsInDom(), 'the geometry event alone is now sufficient').toEqual(['40.00']);
 
         window.dispatchEvent(new CustomEvent('sched:schedule-updated', { detail: {} }));
         const afterDefinitionEvent = areaCellsInDom();
@@ -210,21 +225,66 @@ describe('PR-12 — SchedulePanel geometry subscription (measured, not read)', (
         expect(seen2).not.toEqual(seen1);
     });
 
-    it('STRUCTURAL — the panel subscribes to DEFINITION events only; no geometry signal is listened for', async () => {
-        // The behavioural verdict above is confirmed at the source: the class
-        // registers exactly two window listeners, both `sched:` definition events.
-        // If a geometry subscription is ever added, this assertion goes RED and
-        // must be re-stated — which is the point.
-        const fs = await import('node:fs');
-        const path = await import('node:path');
-        const src = fs.readFileSync(
-            path.resolve(__dirname, '../../ui/SchedulePanel/SchedulePanel.ts'), 'utf8');
-        const listeners = [...src.matchAll(/window\.addEventListener\(\s*'([^']+)'/g)]
-            .map((m) => m[1]).sort();
-        console.log('[PR-12 STRUCTURAL] window listeners in SchedulePanel = ' +
-            JSON.stringify(listeners));
-        expect(listeners).toEqual(['sched:schedule-updated', 'sched:store-loaded']);
-        expect(listeners.some((l) => /bim-|geometry|element-updated/.test(l)),
-            'a geometry subscription would appear here').toBe(false);
+    it('STRUCTURAL — the panel registers a GEOMETRY subscription alongside the two DEFINITION events', () => {
+        // RE-STATED AT THE FIX (PR-12), AND THE MECHANISM CHANGED, NOT ONLY THE LIST.
+        //
+        // This case used to read the SOURCE with a regex for
+        // `window.addEventListener('<literal>'` and assert the result was exactly
+        // ['sched:schedule-updated','sched:store-loaded']. Simply updating that
+        // literal list would have been WORSE THAN USELESS: the fix registers the
+        // geometry family through a `for (const evt of …) addEventListener(evt, …)`
+        // loop, so the argument is a VARIABLE and the old regex cannot see a single
+        // one of them. The case would have stayed GREEN on the old two-item list
+        // while 30 new subscriptions went unmeasured — a pin that no longer pins.
+        //
+        // That is precisely the failure this programme found elsewhere the same week:
+        // a gate that counts ARTEFACTS can be satisfied by producing artefacts, and
+        // only a check that observes REACHED BEHAVIOUR cannot be gamed — including
+        // accidentally, by an honest change (§10.2b, C70 §4.2).
+        //
+        // So the check now OBSERVES THE REAL REGISTRATION: it spies on
+        // window.addEventListener across a genuine construction and asserts what the
+        // panel actually subscribed to. It is strictly stronger than the regex it
+        // replaces — it sees literal and computed registrations alike.
+        const seen: string[] = [];
+        const real = window.addEventListener.bind(window);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).addEventListener = (type: string, ...rest: any[]) => {
+            seen.push(type);
+            return (real as any)(type, ...rest);
+        };
+        try {
+            new SchedulePanel(null);
+        } finally {
+            // Restore in a finally so a construction throw cannot leave the global
+            // patched for every later case in the file.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).addEventListener = real;
+        }
+
+        const definition = seen.filter((t) => t.startsWith('sched:')).sort();
+        const geometry = seen.filter((t) => /^bim-/.test(t)).sort();
+        console.log('[PR-12 STRUCTURAL] definition listeners = ' + JSON.stringify(definition));
+        console.log('[PR-12 STRUCTURAL] geometry listeners  = ' + geometry.length + ' events');
+
+        // The two definition subscriptions are UNCHANGED — the fix adds, it does not
+        // replace. If a future change drops one of these, this goes red.
+        expect(definition).toEqual(['sched:schedule-updated', 'sched:store-loaded']);
+
+        // The claim the row is actually about, inverted from the defect it pinned:
+        // an open schedule IS told when the model changes.
+        expect(geometry.length, 'PR-12: the panel must subscribe to model-change events')
+            .toBeGreaterThan(0);
+
+        // ⚠ NOT slab-only. The measured bug used a slab, but a schedule tabulates
+        // walls, doors, windows, roofs, stairs, columns, beams, furniture and curtain
+        // walls too. Pinning the whole family stops a future "fix" from narrowing
+        // this back to whatever element the test fixture happened to use (C74 §3.4).
+        for (const kind of ['wall', 'slab', 'door', 'window', 'roof', 'stair', 'column', 'beam', 'furniture', 'curtainwall']) {
+            expect(geometry, `a ${kind} schedule must refresh too`).toContain(`bim-${kind}-updated`);
+        }
+        // Row COUNT changes on add/remove, not only quantities on update.
+        expect(geometry).toContain('bim-wall-added');
+        expect(geometry).toContain('bim-wall-removed');
     });
 });

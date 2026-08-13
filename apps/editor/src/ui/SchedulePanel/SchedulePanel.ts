@@ -25,6 +25,25 @@
 import { ScheduleRegistry, scheduleStore } from '@pryzm/core-app-model';
 import { ScheduleExtractor } from '@pryzm/core-app-model';
 import { panelManager } from '../PanelManager';
+
+/** PR-12 (C72 §1.1) — the geometry events an OPEN schedule must re-render on.
+ *  Copied from the canonical families in `engine/initScene.ts` (`_vptEditEvents`,
+ *  `_rpcGeomEvents`) rather than invented, so the schedule follows the same signal
+ *  the rest of the application already treats as "the model changed". `added` and
+ *  `removed` are here alongside `updated` because a schedule's ROW COUNT moves on
+ *  those, not only its quantities. */
+const SCHEDULE_GEOMETRY_EVENTS = [
+  'bim-wall-added',        'bim-wall-updated',        'bim-wall-removed',
+  'bim-slab-added',        'bim-slab-updated',        'bim-slab-removed',
+  'bim-door-added',        'bim-door-updated',        'bim-door-removed',
+  'bim-window-added',      'bim-window-updated',      'bim-window-removed',
+  'bim-roof-added',        'bim-roof-updated',        'bim-roof-removed',
+  'bim-stair-added',       'bim-stair-updated',       'bim-stair-removed',
+  'bim-column-added',      'bim-column-updated',      'bim-column-removed',
+  'bim-beam-added',        'bim-beam-updated',        'bim-beam-removed',
+  'bim-furniture-added',   'bim-furniture-updated',   'bim-furniture-removed',
+  'bim-curtainwall-added', 'bim-curtainwall-updated', 'bim-curtainwall-removed',
+] as const;
 import {
   resolveVisibleColumns,
   allColumns,
@@ -74,6 +93,38 @@ export class SchedulePanel {
     };
     window.addEventListener('sched:schedule-updated', onStoreChange);
     window.addEventListener('sched:store-loaded', onStoreChange);
+
+    // PR-12 (C72 §1.1) — RE-RENDER ON A GEOMETRY CHANGE, NOT ONLY ON A DEFINITION EDIT.
+    //
+    // The two subscriptions above are DEFINITION events: they fire when the schedule
+    // itself is edited or loaded. Nothing above fires when the MODEL changes, so an
+    // OPEN schedule kept painting pre-change quantities indefinitely. Measured, not
+    // read (commit `b10828ff`): an open panel showed 24.00 m² while the slab was
+    // 40.00 m². A schedule whose numbers disagree with the geometry is the exact
+    // failure the BIM 3.0 programme exists to close — the model was right and the
+    // surface that an architect actually reads was wrong.
+    //
+    // ⚠ WHY THIS IS A FAMILY AND NOT THE ONE EVENT THE TEST HAPPENED TO DISPATCH.
+    // The PR-12 spec announces `bim-slab-updated`, `bim-element-updated` and
+    // `pryzm-geometry-changed`. Measured at HEAD: only `bim-slab-updated` is a real
+    // production event with real listeners; `pryzm-geometry-changed` is dispatched
+    // NOWHERE in the tree and `bim-element-updated` only appears in one renderer's
+    // list. Subscribing to just the slab event would have turned the test green while
+    // leaving every wall, door, roof, stair and column schedule exactly as stale —
+    // a fix shaped to the fixture rather than to the defect (C74 §3.4).
+    //
+    // The set below is the geometry-event family this application already treats as
+    // canonical (`initScene.ts` `_vptEditEvents` / `_rpcGeomEvents`); it is copied
+    // from there rather than invented, and `added`/`removed` are included alongside
+    // `updated` because a schedule's ROW COUNT changes on those, not just its numbers.
+    const onGeometryChange = (): void => {
+      // Same guard as the definition path: a hidden panel re-renders when it is next
+      // shown, so re-rendering here would be work nobody can see.
+      if (this._currentScheduleId && this._element.style.display !== 'none') this.render();
+    };
+    for (const evt of SCHEDULE_GEOMETRY_EVENTS) {
+      window.addEventListener(evt, onGeometryChange);
+    }
   }
 
   show(scheduleId: string) {
