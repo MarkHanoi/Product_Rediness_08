@@ -291,7 +291,15 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         interface ChainState { fired: boolean; timer: ReturnType<typeof setTimeout> | null }
         const state: ChainState = { fired: false, timer: null };
         const FALLBACK_MS = 12_000;
-        const fireFurnish = (source: 'ceiling-event' | 'fallback-timeout'): void => {
+        /** §FURNISH-DROP-SURFACING (2026-08-13) — what the cascade knows about
+         *  the ceiling stage that preceded furnish; same shape as the furnish
+         *  outcome the lighting cascade carries (lightingLayoutTrigger), one
+         *  stage upstream. A dropped stage travels WITH its reason (C75 §1.4)
+         *  instead of dying in a console.warn. */
+        type CeilingOutcome =
+            | { state: 'completed'; placedCount: number; roomCount?: number }
+            | { state: 'dropped'; reason: string };
+        const fireFurnish = (source: 'ceiling-event' | 'fallback-timeout', ceilingOutcome?: CeilingOutcome): void => {
             if (state.fired) return;
             state.fired = true;
             if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
@@ -300,7 +308,28 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             } else {
                 console.log('[furnish-layout] ceiling.layout-executed → auto-furnishing.');
             }
-            setTimeout(() => runtime.events.emit('furnish.layout-execute', {}), 0);
+            setTimeout(() => runtime.events.emit('furnish.layout-execute', { ceilingOutcome }), 0);
+        };
+        /** Read the ceiling outcome off a `ceiling.layout-executed` payload:
+         *  prefer an explicit `outcome` stamp, fall back to legacy counts, and
+         *  return undefined for a payload that says nothing — never fabricate
+         *  a completed outcome from silence (C70 §2.2). */
+        const outcomeFromCeilingPayload = (payload: unknown): CeilingOutcome | undefined => {
+            const p = payload as {
+                outcome?: { state?: string; placedCount?: number; roomCount?: number; reason?: string };
+                placedCount?: number; roomCount?: number;
+            } | undefined;
+            const o = p?.outcome;
+            if (o?.state === 'dropped' && typeof o.reason === 'string') {
+                return { state: 'dropped', reason: o.reason };
+            }
+            if (o?.state === 'completed' && typeof o.placedCount === 'number') {
+                return { state: 'completed', placedCount: o.placedCount, roomCount: o.roomCount };
+            }
+            if (typeof p?.placedCount === 'number') {
+                return { state: 'completed', placedCount: p.placedCount, roomCount: p.roomCount };
+            }
+            return undefined;
         };
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
@@ -309,14 +338,25 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             // New chain — clear any leftover state from a previous run.
             if (state.timer !== null) clearTimeout(state.timer);
             state.fired = false;
-            state.timer = setTimeout(() => { state.timer = null; fireFurnish('fallback-timeout'); }, FALLBACK_MS);
+            state.timer = setTimeout(() => {
+                state.timer = null;
+                fireFurnish('fallback-timeout', {
+                    state: 'dropped',
+                    reason: `no ceiling.layout-executed within ${FALLBACK_MS} ms (§CHAIN-TIMEOUT fallback fired)`,
+                });
+            }, FALLBACK_MS);
         });
-        events.on?.('ceiling.layout-executed', () => {
+        events.on?.('ceiling.layout-executed', (payload) => {
             // §A.21.i — during a HOUSE post-gen fan-out, runHousePostGenChain
             // drives furnish itself per storey; skip the cascade so furniture
             // isn't placed twice. Apartment runs leave the guard false → unchanged.
             if (isHouseFanoutActive()) return;
-            fireFurnish('ceiling-event');
+            // §CHAIN-NO-DOUBLE-FIRE — unlike the lighting cascade's furnish
+            // handler, this handler deliberately does NOT reset `state.fired`:
+            // a LATE ceiling event after the fallback already fired furnish for
+            // this run is dedup'd by `fired` and must stay that way (locked by
+            // furnishCascadeOutcome.test.ts).
+            fireFurnish('ceiling-event', outcomeFromCeilingPayload(payload));
         });
         console.log('[furnish-layout] auto-fire on ceiling.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }
