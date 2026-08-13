@@ -334,7 +334,8 @@ function pointInPolygon(px: number, pz: number, poly: readonly Pt[]): boolean {
 function polygonArea(poly: readonly Pt[]): number {
     let a = 0;
     for (let i = 0, n = poly.length; i < n; i++) {
-        const p = poly[i], q = poly[(i + 1) % n];
+        // i < n and (i+1)%n < n — in-bounds by construction (sibling `!` style).
+        const p = poly[i]!, q = poly[(i + 1) % n]!;
         a += p.x * q.z - q.x * p.z;
     }
     return Math.abs(a) / 2;
@@ -474,7 +475,7 @@ function absorbResidual(
     const comp: number[][] = Array.from({ length: nx }, () => new Array<number>(nz).fill(-1));
     let nc = 0;
     for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
-        if (!residual[i]![j] || comp[i]![j] >= 0) continue;
+        if (!residual[i]![j] || comp[i]![j]! >= 0) continue;
         const stack: Array<[number, number]> = [[i, j]];
         comp[i]![j] = nc;
         while (stack.length) {
@@ -482,7 +483,7 @@ function absorbResidual(
             for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
                 const ni = ci + di, nj = cj + dj;
                 if (ni < 0 || ni >= nx || nj < 0 || nj >= nz) continue;
-                if (residual[ni]![nj] && comp[ni]![nj] < 0) { comp[ni]![nj] = nc; stack.push([ni, nj]); }
+                if (residual[ni]![nj] && comp[ni]![nj]! < 0) { comp[ni]![nj] = nc; stack.push([ni, nj]); }
             }
         }
         nc++;
