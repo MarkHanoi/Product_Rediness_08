@@ -29,8 +29,22 @@ export default defineConfig({
     globals: false,
     environment: 'happy-dom',
     include: [
-      'src/ui/__tests__/**/*.spec.ts',
-      'src/ui/toolbar/__tests__/**/*.spec.ts',
+      // §L-851 — THE TWO FOUNDING PATTERNS, REPOINTED. They read
+      // `src/ui/__tests__/**/*.spec.ts` + `src/ui/toolbar/__tests__/**/*.spec.ts`,
+      // which are REPO-ROOT-relative — and repo-root `src/ui/` DOES NOT EXIST; the
+      // tree moved to `apps/editor/` and these were never followed. So the two
+      // patterns this config was WRITTEN AROUND selected nothing, and 72 spec files
+      // / 1,433 test cases had never executed in CI. That is the L-849 shape at the
+      // largest scale in this repo: NEVER RAN and PASSED printed the same value.
+      //
+      // MEASURED IN ISOLATION BEFORE ENABLING (the L-849 protocol, non-negotiable):
+      // all 72 files run under a throwaway config that mirrored this one exactly
+      // (happy-dom, globals:false, the same three @app/* aliases) — 72/72 GREEN,
+      // 1,433 passed / 0 failed / 0 skipped. Nothing was quarantined because
+      // nothing measured red. Widening these two patterns therefore asserts 1,433
+      // previously-unasserted cases and breaks nothing.
+      'apps/editor/src/ui/__tests__/**/*.spec.ts',
+      'apps/editor/src/ui/toolbar/__tests__/**/*.spec.ts',
       // §FIX-DOOR-SLAB-HOST (L-56): plan-tool host-resolution behavioural specs.
       'apps/editor/src/engine/views/plantools/__tests__/**/*.spec.ts',
       // §FEAT-PLAN-VIEW-GIS (L-104): pure GIS tile-geometry specs.
@@ -107,6 +121,15 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: './coverage',
       include: [
+        // §L-851 — DEAD, and deliberately left dead rather than silently repointed.
+        // This is the SAME stale `src/ui/` root as the two include patterns above:
+        // repo-root `src/ui/` does not exist, so this line contributes no files and
+        // the thresholds below are measured over `packages/*/src/**` alone.
+        // Repointing it at `apps/editor/src/ui/**` would move the coverage
+        // DENOMINATOR under a 60% threshold gate — a different change, with a
+        // different blast radius, that this lane did not measure. Flagged, not
+        // guessed at. (Coverage is opt-in via `--coverage`; CI's `test:root` is
+        // plain `vitest run`, so no CI job reads this today.)
         'src/ui/**/*.ts',
         'packages/*/src/**/*.ts',
       ],
