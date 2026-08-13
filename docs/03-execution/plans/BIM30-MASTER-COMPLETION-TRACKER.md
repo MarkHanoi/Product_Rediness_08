@@ -75,7 +75,7 @@ blended percentage hides exactly that distinction, which is why §1 carries two 
 | Measure | Reading | Source |
 |---|---|---|
 | Golden operations holding the full 11-link chain | **1 of 5** | `wall.move` (`867e128c`) |
-| Region paths conforming (C79 §6.3) | **8 of 10 rows** | `625a9926`, `86030325`, `9fd9c5b6` — only rows 9–10 (capability-absent) remain |
+| Region paths conforming (C79 §6.3) | ✅ **11 of 11 — gate exit 0 CLEAN** | `625a9926`, `86030325`, `9fd9c5b6`, `f1825a2b`. Was **1 of 6** this morning. ⚠ A green §6.3 is **attribution-at-creation only** — §5.2's five recomputation states stay UNPROVEN, so *"the finish follows when its wall moves"* is **NOT** claimed |
 | Element kinds purging relationships on delete | **9 of 19** | `check-graph-delete-integrity`: 20 → **10** findings (`ca0a7ce3`, `86776ddf`, `7546ce0f`, `19825e25`, `76d42dd9`, `03e93609`) |
 | Gates at exit 3 (never absorbable, C70 §5.1) | **9 → 0** | `96939dd4`, `719452a7`, `a0fedd87`, `e45752e4`, `89623324` + plant-debris removal |
 | Dependency indexes that can genuinely refuse | **1 of 10** | `check-index-can-refuse` (`6d87f324`), 9 findings |
@@ -234,7 +234,7 @@ verbatim undo. This is where "3 of 19 kinds" becomes 19 of 19.*
 | C.3d | ⚠ **C79 §10.1 probe went RED** — `regionSketchPersistenceRoundTrip.test.ts` 10 failed / 6 passed; `ProjectSerializer` resolves `undefined` at dynamic import (barrel/circular-load hazard). **A contract claim resting on a red probe is the BY-READ failure C70 §0.1 forbids** | — | 🔄 **IN FLIGHT — high priority** |
 | C.4 | 8 kinds that purge but restore nothing on undo | GR-06 | ⬜ TODO |
 | C.5 | 5 kinds that reconstruct instead of restoring verbatim | GR-06 | ⬜ TODO |
-| C.6 | `contains` — no writer on ANY path (IFC arm unreachable) | GR-04 | ⬜ TODO |
+| C.6 | `contains` — no writer on ANY path (IFC arm unreachable) | GR-04 | 🟡 **HALF DONE** — the **rebuild** half landed (`76a212aa`): reconstructed from `furniture.hostedSpaceId`, so it is REGENERATED like its seven neighbours, never guessed. An item with no `hostedSpaceId` writes no edge, because minting containment on load is the provenance-invented-on-load defect. The **live first-party writer** half is in flight |
 | C.7 | `partOf` writer | GR-04 | ⬜ TODO |
 | C.8 | `hostedBy`, `sitsOn` typed readers (`sitsOn` = 18 writers / 0 readers) | GR-07 | ⬜ TODO |
 | C.9 | `measuredAt`, `decidedBy` persist-or-lose — silently lost today | GR-13 | ⬜ TODO |
@@ -264,7 +264,8 @@ through the same verbs.*
 | # | Sub-phase | Rows | Status |
 |---|---|---|---|
 | D.1 | C79 rows 6–8: floor/ceiling by region carry references | — | ✅ **DONE** (`9fd9c5b6`) — §10.3 decided: DERIVE FROM THE ROOM |
-| D.2 | C79 rows 9–10: ceiling/floor plan tools gain region capability | — | ⬜ TODO |
+| D.2 | C79 rows 9–10: ceiling/floor plan tools gain region capability | — | ✅ **DONE** (`f1825a2b`) — new build, not repair (both had **zero** occurrences of `region`). Obeys §10.3: **no new tracer** — a thin adapter over the same `buildRoomFinishBoundarySketch` the row-6/7 commands call, so the repo's wall-tracer count is unchanged. Refusal path proven: an undetermined room boundary **refuses and creates nothing**, and consults the wall lookup **zero** times |
+| D.2b | ⚠ **FINDING** — the plan tools' `floor.create`/`ceiling.create` bus dispatches route to the **plugin** handlers, not the fixed row-6/7 commands, and `plugins/floor/src/handlers/CreateFloor.ts:137` still writes `boundingWallIds: []`. Two rival creation paths for one element | — | ⬜ **TODO — own lane** |
 | D.3 | `wall.create` planner — was **AUTHORED AND UNWIRED** (zero callers; the repo's signature hazard reproduced inside the flagship program) | — | ✅ **DONE** (`46d06234`, `4f9e8082`, `e878bdad`). The chokepoint was **not** the map: all three surfaces funnelled through `normalizeToWallMove`, which returns `null` for any other verb — a planner in the map would still have been dead. That is U-INV-5's *nominal genericity* exactly. Now one shared factory + a verb→rule map, so a third row needs no service edit. Determinism harness proven by mutation: injecting a clock/RNG residue turns **4 arms red**. `check-plan-determinism` **exit 0, 2 of 2 planners** |
 | D.4 | `opening.move` planner | — | ⬜ TODO |
 | D.5 | `furniture.generate` planner | — | ⬜ TODO |
