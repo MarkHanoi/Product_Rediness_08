@@ -13,6 +13,7 @@ import { resolveNightBackground } from '../../engine/inspect/NightModeBackground
 // §FIX-LIGHT-NIGHT-CONTRIBUTION — the role stamped on artificial fixture lights,
 // which the environment dimmer below must skip.
 import { FIXTURE_LIGHT_ROLE } from '@pryzm/core-app-model';
+import { relationshipArrayOrUnknown } from '../relationshipDetermination';
 
 export type BAMLevelMode = 'stacked' | 'exploded' | 'solo';
 export type BAMWallCutMode = 'cutaway' | 'up' | 'down';
@@ -1269,7 +1270,16 @@ export class BottomActionMenu {
         });
     }
 
-    private _buildLevelRootMap(): Array<{ level: LevelInfo; index: number; roots: THREE.Object3D[] }> {
+    private _buildLevelRootMap(): Array<{
+        level: LevelInfo;
+        index: number;
+        roots: THREE.Object3D[];
+        /** GR-10 / C75 §1.4 — false when `level.childrenIds` was never recorded:
+         *  the roots below came ONLY from scene tags, so an under-count is
+         *  possible and the §LEVEL-STACK diag says so instead of silently
+         *  treating the level as childless. */
+        childrenRecorded: boolean;
+    }> {
         const scene = this._getScene();
         if (!scene) return [];
         // §LEVEL-STACK — tag level-less annotations (room labels especially) BEFORE
@@ -1307,16 +1317,31 @@ export class BottomActionMenu {
             .sort((a, b) => Number(a.elevation ?? 0) - Number(b.elevation ?? 0))
             .map((level, index) => {
                 const roots = new Set<THREE.Object3D>();
-                for (const id of level.childrenIds ?? []) {
-                    const obj = objectById.get(String(id));
-                    if (obj) roots.add(obj);
+                // GR-10 / C75 §1.4 — `level.childrenIds ?? []` read "this level's
+                // children were never recorded" as "this level has no children".
+                // The two facts diverge observably here: with an UNRECORDED list
+                // the roots come solely from scene tags (an under-count is
+                // possible — exactly the "left behind at ground level" class this
+                // method's own comments document), so the entry says so and the
+                // §LEVEL-STACK diag prints it.
+                const childIds = relationshipArrayOrUnknown<unknown>(level.childrenIds);
+                if (childIds !== null) {
+                    for (const id of childIds) {
+                        const obj = objectById.get(String(id));
+                        if (obj) roots.add(obj);
+                    }
                 }
                 // Always merge in level-tagged objects (id-less instanced groups etc.),
                 // not only as a zero-roots fallback.
                 if (level.id) {
                     for (const obj of byLevel.get(String(level.id)) ?? []) roots.add(obj);
                 }
-                return { level, index, roots: dropDescendants(Array.from(roots)) };
+                return {
+                    level,
+                    index,
+                    roots: dropDescendants(Array.from(roots)),
+                    childrenRecorded: childIds !== null,
+                };
             });
     }
 
@@ -1340,7 +1365,13 @@ export class BottomActionMenu {
                 else if (ud.isRoomOverlay || ud.isRoomVolume || ud.elementType === 'room') rooms++;
             }
             totalRooms += rooms; totalLabels += labels; totalFurniture += furniture;
-            diag.push(`${group.level.name ?? group.level.id ?? `#${group.index}`}=${group.roots.length}(rm${rooms}+lbl${labels}+fur${furniture})`);
+            // GR-10 — an unrecorded child list is SAID, not silently absorbed:
+            // the roots for such a level are scene-tag-only and may under-count.
+            diag.push(
+                `${group.level.name ?? group.level.id ?? `#${group.index}`}=${group.roots.length}` +
+                `(rm${rooms}+lbl${labels}+fur${furniture})` +
+                (group.childrenRecorded ? '' : ' [childrenIds UNRECORDED — scene-tag roots only]'),
+            );
         }
         console.log(`[§LEVEL-STACK] ${this._levelMode}: offset roots per level — ${diag.join(', ')} (total ${this._levelOriginalY.size}; rooms ${totalRooms}, labels ${totalLabels}, furniture ${totalFurniture})`);
         this._startLevelAnimation();

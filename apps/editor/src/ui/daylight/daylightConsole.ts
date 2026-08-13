@@ -20,92 +20,36 @@ import {
 import type {
     BuildingDaylightResult,
     RoomDaylightInput,
-    WindowAperture,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
+import {
+    assembleRoomDaylightInput,
+    type RoomDaylightAssembly,
+    type RoomLike,
+    type WallLike,
+} from './roomDaylightAssembly.js';
 
-interface Pt { x: number; z: number }
-
-interface RoomLike {
-    id: string;
-    levelId: string;
-    name?: string;
-    occupancyType?: string;
-    boundary?: { polygon?: ReadonlyArray<{ x: number; z: number }> };
-    computed?: { centroid?: { x: number; z: number } };
-}
-interface OpeningLike {
-    type: 'door' | 'window';
-    offset?: number;     // m along baseLine[0] → baseLine[1]
-    width?: number;      // m
-    height?: number;     // m
-    sillHeight?: number; // m
-}
-interface WallLike {
-    id: string;
-    levelId: string;
-    baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
-    openings?: ReadonlyArray<OpeningLike>;
-}
 interface FacadeLike {
     getFacades?: (levelId: string) => Map<string, { isExterior?: boolean }> | undefined;
 }
 
-const EPS = 1e-6;
-
-function dist(a: Pt, b: Pt): number { return Math.hypot(a.x - b.x, a.z - b.z); }
-function sub(a: Pt, b: Pt): Pt { return { x: a.x - b.x, z: a.z - b.z }; }
-function dot(a: Pt, b: Pt): number { return a.x * b.x + a.z * b.z; }
-function unit(a: Pt): Pt { const L = Math.hypot(a.x, a.z) || 1; return { x: a.x / L, z: a.z / L }; }
-function leftPerp(a: Pt): Pt { return { x: -a.z, z: a.x }; }
-function add(a: Pt, b: Pt): Pt { return { x: a.x + b.x, z: a.z + b.z }; }
-function mul(a: Pt, k: number): Pt { return { x: a.x * k, z: a.z * k }; }
-
-/** Centroid of a polygon (shoelace; falls back to vertex mean). */
-function centroidOf(poly: readonly Pt[]): Pt {
-    let cx = 0, cz = 0, A = 0;
-    for (let i = 0; i < poly.length; i++) {
-        const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
-        const cr = p.x * q.z - q.x * p.z;
-        A += cr; cx += (p.x + q.x) * cr; cz += (p.z + q.z) * cr;
-    }
-    A *= 0.5;
-    if (Math.abs(A) < EPS) {
-        let sx = 0, sz = 0;
-        for (const p of poly) { sx += p.x; sz += p.z; }
-        return { x: sx / poly.length, z: sz / poly.length };
-    }
-    return { x: cx / (6 * A), z: cz / (6 * A) };
-}
-
-/** Find the wall whose centreline lies along the polygon edge a→b (mirrors
- *  FurnishLayoutExecutor.matchWallToEdge). */
-function matchWallToEdge(a: Pt, b: Pt, walls: readonly WallLike[], tol: number): WallLike | undefined {
-    for (const w of walls) {
-        const bl = w.baseLine;
-        if (!bl || bl.length < 2) continue;
-        const wa: Pt = { x: bl[0]!.x, z: bl[0]!.z };
-        const wb: Pt = { x: bl[1]!.x, z: bl[1]!.z };
-        if ((dist(a, wa) < tol && dist(b, wb) < tol) ||
-            (dist(a, wb) < tol && dist(b, wa) < tol)) return w;
-        const wd = sub(wb, wa);
-        const wlen = Math.hypot(wd.x, wd.z) || 1;
-        const u: Pt = { x: wd.x / wlen, z: wd.z / wlen };
-        const projA = dot(sub(a, wa), u), projB = dot(sub(b, wa), u);
-        const perpA = Math.abs(dot(sub(a, wa), leftPerp(u)));
-        const perpB = Math.abs(dot(sub(b, wa), leftPerp(u)));
-        if (perpA < tol && perpB < tol &&
-            projA > -tol && projA < wlen + tol &&
-            projB > -tol && projB < wlen + tol) return w;
-    }
-    return undefined;
-}
+/** A room the daylight pass REFUSED to score (GR-10 / C75 §1.4). */
+export type UndeterminedRoomDaylight = Extract<RoomDaylightAssembly, { kind: 'undetermined' }>;
 
 /** Assemble RoomDaylightInput[] from the live room + wall stores for `levelId`.
  *  External-wall WINDOW openings become WindowAperture rects; non-window or
- *  interior-wall openings are ignored (no sky behind them). */
-export function buildRoomDaylightInputs(levelId: string): RoomDaylightInput[] {
+ *  interior-wall openings are ignored (no sky behind them).
+ *
+ *  GR-10 — the per-room assembly is the PURE `assembleRoomDaylightInput`
+ *  (roomDaylightAssembly.ts, node-tested). Rooms touching a wall whose opening
+ *  set was never recorded come back in `undetermined`, NOT in `inputs`: scoring
+ *  them would treat unknown windows as none and report the room darker than
+ *  anyone measured. The caller excludes them and says so. */
+export function buildRoomDaylightInputs(levelId: string): {
+    inputs: RoomDaylightInput[];
+    undetermined: UndeterminedRoomDaylight[];
+} {
     const roomStore = storeRegistry.getStoreForType('room') as unknown as { getAll?(): RoomLike[] } | undefined;
     const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getAll?(): WallLike[] } | undefined;
     const allRooms = (roomStore?.getAll?.() ?? []).filter(r => r.levelId === levelId);
@@ -122,55 +66,14 @@ export function buildRoomDaylightInputs(levelId: string): RoomDaylightInput[] {
     } catch { facades = undefined; }
 
     const inputs: RoomDaylightInput[] = [];
+    const undetermined: UndeterminedRoomDaylight[] = [];
     for (const r of allRooms) {
-        const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
-        if (poly.length < 3) continue;
-        const centroid = r.computed?.centroid ?? centroidOf(poly);
-        const windows: WindowAperture[] = [];
-
-        for (let i = 0; i < poly.length; i++) {
-            const a = poly[i]!;
-            const b = poly[(i + 1) % poly.length]!;
-            if (dist(a, b) < EPS) continue;
-            const wall = matchWallToEdge(a, b, allWalls, 0.2);
-            if (!wall || !wall.baseLine || wall.baseLine.length < 2) continue;
-
-            // Host gate: prefer the façade service; fall back to "has a window".
-            const isExterior = facades?.get(wall.id)?.isExterior;
-            if (isExterior === false) continue; // known interior wall — skip
-
-            const ws: Pt = { x: wall.baseLine[0]!.x, z: wall.baseLine[0]!.z };
-            const we: Pt = { x: wall.baseLine[1]!.x, z: wall.baseLine[1]!.z };
-            const wdir = unit(sub(we, ws));
-            // Outward normal = the edge perpendicular pointing AWAY from the room
-            // centroid (away from the interior).
-            const perp = leftPerp(wdir);
-            const mid = mul(add(a, b), 0.5);
-            const toCent = sub(centroid, mid);
-            const outward = dot(perp, toCent) > 0 ? mul(perp, -1) : perp;
-
-            for (const op of wall.openings ?? []) {
-                if (op.type !== 'window') continue;
-                if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
-                const sill = typeof op.sillHeight === 'number' ? op.sillHeight : 0.9;
-                const head = sill + (typeof op.height === 'number' ? op.height : 1.2);
-                const startPt = add(ws, mul(wdir, op.offset));
-                const endPt = add(ws, mul(wdir, op.offset + op.width));
-                windows.push({
-                    a: startPt, b: endPt, sillM: sill, headM: head, outwardNormal: outward,
-                    label: `${r.name ?? r.id}#${windows.length}`,
-                });
-            }
-        }
-
-        inputs.push({
-            roomId: r.id,
-            name: r.name ?? r.id,
-            polygon: poly,
-            windows,
-        });
+        const assembled = assembleRoomDaylightInput(r, allWalls, facades);
+        if (assembled.kind === 'input') inputs.push(assembled.input);
+        else if (assembled.kind === 'undetermined') undetermined.push(assembled);
+        // 'skipped-degenerate' — nothing to score (legacy skip, a real non-room)
     }
-    return inputs;
+    return { inputs, undetermined };
 }
 
 /** Resolve the site latitude (decimal degrees) for the default sun set, or a
@@ -194,9 +97,24 @@ export function computeDaylightForActiveLevel(): BuildingDaylightResult | null {
         console.warn('[daylight] §DIAG-DAYLIGHT no active level — open a project first.');
         return null;
     }
-    const inputs = buildRoomDaylightInputs(level.id);
+    const { inputs, undetermined } = buildRoomDaylightInputs(level.id);
+    // GR-10 / C78 §5 — the refusals are VISIBLE and named, never silently
+    // folded into the scored set (or worse, scored as windowless).
+    for (const u of undetermined) {
+        console.warn(
+            `[daylight] §DIAG-DAYLIGHT REFUSED room=${u.name}: ${u.reason} — ${u.detail} ` +
+            `(excluded from the table; its daylight is UNKNOWN, not 0)`,
+        );
+    }
     if (inputs.length === 0) {
-        console.warn('[daylight] §DIAG-DAYLIGHT no rooms detected on the active level — generate or draw walls first.');
+        if (undetermined.length > 0) {
+            console.warn(
+                `[daylight] §DIAG-DAYLIGHT no scorable rooms — all ${undetermined.length} room(s) on the ` +
+                `active level were refused (unrecorded opening sets). This is NOT "no rooms".`,
+            );
+        } else {
+            console.warn('[daylight] §DIAG-DAYLIGHT no rooms detected on the active level — generate or draw walls first.');
+        }
         return null;
     }
     const { lat, source } = resolveSiteLatitude();
