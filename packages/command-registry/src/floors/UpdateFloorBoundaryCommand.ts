@@ -104,11 +104,26 @@ export class UpdateFloorBoundaryCommand implements Command {
             };
         }
 
+        // §NO-EMPTY-MEANS-UNKNOWN (C78 §1.4 / C75): an absent edge payload is NOT
+        // an empty loop. Writing `[]` here would erase the recorded relationship
+        // and read as "this floor has no boundary edges" to every consumer.
+        // Refuse with the reason instead — canExecute already refuses this; the
+        // guard is repeated here so execute-without-canExecute cannot default.
+        const outerLoopEdges = this.payload.outerLoopEdges;
+        if (!outerLoopEdges || outerLoopEdges.length < 3) {
+            return {
+                success: false,
+                affectedElementIds: [],
+                error: `Boundary ${this.payload.mode} for floor "${this.payload.floorId}" carries ` +
+                    `${outerLoopEdges?.length ?? 'no'} outer-loop edge(s) — refusing rather than writing an empty loop.`,
+            };
+        }
+
         this.prevSnapshot = structuredClone(current) as FloorData;
 
         const nextSketch: FloorSketch = {
             ...(current.sketch ?? {}),
-            outerLoop: { edges: structuredClone(this.payload.outerLoopEdges ?? []) as FloorSketchEdge[] },
+            outerLoop: { edges: structuredClone(outerLoopEdges) as FloorSketchEdge[] },
         };
 
         const updates: Partial<FloorData> = { sketch: nextSketch };

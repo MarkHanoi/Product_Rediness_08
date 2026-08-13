@@ -83,11 +83,24 @@ export class UpdateCeilingBoundaryCommand implements Command {
             };
         }
 
+        // §NO-EMPTY-MEANS-UNKNOWN (C78 §1.4 / C75): an absent edge payload is NOT
+        // an empty loop — refuse with the reason rather than writing `[]` over a
+        // recorded relationship. Mirrors UpdateFloorBoundaryCommand exactly.
+        const outerLoopEdges = this.payload.outerLoopEdges;
+        if (!outerLoopEdges || outerLoopEdges.length < 3) {
+            return {
+                success: false,
+                affectedElementIds: [],
+                error: `Boundary ${this.payload.mode} for ceiling "${this.payload.ceilingId}" carries ` +
+                    `${outerLoopEdges?.length ?? 'no'} outer-loop edge(s) — refusing rather than writing an empty loop.`,
+            };
+        }
+
         this.prevSnapshot = structuredClone(current) as CeilingData;
 
         const nextSketch: CeilingSketch = {
             ...(current.sketch ?? {}),
-            outerLoop: { edges: structuredClone(this.payload.outerLoopEdges ?? []) as CeilingSketchEdge[] },
+            outerLoop: { edges: structuredClone(outerLoopEdges) as CeilingSketchEdge[] },
         };
 
         const updates: Partial<CeilingData> = { sketch: nextSketch };
