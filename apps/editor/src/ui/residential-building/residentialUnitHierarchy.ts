@@ -80,7 +80,7 @@ export type HierarchyVerb =
 
 export interface HierarchyOp {
     readonly verb: HierarchyVerb;
-    readonly payload: Record<string, any>;
+    readonly payload: Record<string, unknown>;
 }
 
 export interface UnitHierarchyPlan {
