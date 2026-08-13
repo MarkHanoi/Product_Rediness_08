@@ -68,7 +68,10 @@ Measured at HEAD, all cited in
 4. **Floor finishes have no region mode at all.**
    `apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts` — **0 occurrences of
    `region`**. Neither (3) nor (4) can *inherit* a fix: the capability does not exist.
-5. **`boundingWallIds: []` — a field that NAMES the dependency, written empty.**
+5. ~~**`boundingWallIds: []` — a field that NAMES the dependency, written empty.**~~
+   **CLOSED 2026-08-13 via §7.2(a) POPULATE** — both commands now write the walls that produced
+   an edge of the boundary, and both write a reference-carrying `sketch`; see §6.3 rows 6–8 and
+   the §10.3 decision. The original finding, retained: it was hardcoded at
    `packages/command-registry/src/floors/CreateFloorCommand.ts:231` and
    `packages/command-registry/src/ceilings/CreateCeilingCommand.ts:191`. Alongside it,
    `hostRoomId` (`:233` / `:192`) is read by `RoomFinishResolver` **for finish colour only —
@@ -342,14 +345,22 @@ choice so a future implementer cannot silently pick a face.**
 | `SlabTool.findRegionAtPoint` → `createSlabFromPolygon` (`packages/geometry-slab/src/SlabTool.ts:34,1399,1416-1428,348`) | slab (3D) | `SlabRegionTracer`, **bare-ring twin** | **NO** — coordinates only | **NON-CONFORMING.** The attributing entry point exists in the same module; this call site does not use it. **Owner: `@pryzm/geometry-slab`.** Smallest gap in the table |
 | `RoofTool` (`packages/geometry-roof/src/RoofTool.ts:7,73,276`) | roof (3D) | **`WallRegionDetector`** | **NO** — coordinates only | **NON-CONFORMING, structurally.** See §6.4. **Owner: `@pryzm/geometry-roof`** |
 | `RoofPlanToolHandler._commitRegion` (`apps/editor/src/engine/views/plantools/RoofPlanToolHandler.ts:2,44,200,209`) | roof (plan) | **`WallRegionDetector`** | **NO** — passes a bare `[number, number][]` to `_commit` | **NON-CONFORMING, structurally.** Same owner |
-| `CreateFloorCommand` (`packages/command-registry/src/floors/CreateFloorCommand.ts:230-233`) | floor finish | copies a room boundary | **NO** — `boundingWallIds: []` hardcoded | **NON-CONFORMING — §7 anti-pattern.** **Owner: `@pryzm/command-registry`** |
-| `CreateCeilingCommand` (`packages/command-registry/src/ceilings/CreateCeilingCommand.ts:190-192`) | ceiling | copies a room boundary | **NO** — `boundingWallIds: []` hardcoded | **NON-CONFORMING — §7 anti-pattern.** Same owner |
-| `CreateFloorsByRoomTypeCommand` (`:188`) / `CreateCeilingsByRoomCommand` (`:84`) | batch finish | room boundary via the above | **NO** | **NON-CONFORMING**, inherits its parent's defect |
+| `CreateFloorCommand` (`packages/command-registry/src/floors/CreateFloorCommand.ts`) | floor finish | room boundary, attributed via `rooms/roomBoundarySketch.ts` | **YES** — `FloorData.sketch` `HostReferenceEdge`s (`centerLine`@0, `fallback` at authoring time) **+** `boundingWallIds` POPULATED (§7.2(a)); all counts reported | **CONFORMING** (2026-08-13) — §10.3 resolved **DERIVE FROM THE ROOM**; one named gap remains, below |
+| `CreateCeilingCommand` (`packages/command-registry/src/ceilings/CreateCeilingCommand.ts`) | ceiling | same shared builder | **YES** — byte-identical edge shape to the floor (§3.4) | **CONFORMING** (2026-08-13). Same owner |
+| `CreateFloorsByRoomTypeCommand` / `CreateCeilingsByRoomCommand` | batch finish | room boundary via the above | **YES** — by COMPOSITION | **CONFORMING** (2026-08-13) — they construct the parent commands and hold no record-construction site of their own, so they inherit the fix by the same mechanism that propagated the defect |
 | `CeilingPlanToolHandler` (`apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts`) | ceiling | — | **N/A** — **0 occurrences of `region`** | **CAPABILITY ABSENT.** Cannot inherit a fix. **Owner: `apps/editor`** |
 | `FloorPlanToolHandler` (`apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts`) | floor finish | — | **N/A** — **0 occurrences of `region`** | **CAPABILITY ABSENT.** Same owner |
 
-**Reading: one conforming region path of six; one conforming non-region path with a fallback
-defect; two families with no region capability at all.**
+**Reading (updated 2026-08-13): rows 1–8 CONFORM. The two remaining non-conformances are rows
+9–10 — `CeilingPlanToolHandler` and `FloorPlanToolHandler`, which are CAPABILITY-ABSENT (0
+occurrences of `region`) and therefore cannot inherit a fix.** Note that rows 6–8 are conforming
+by the §10.3 *derive-from-the-room* design rather than by having grown a region mode; when rows
+9–10 are closed, §6.6 binds — a region mode that emits coordinates would create the §0 defect new
+in a family that has never had it, and per §10.3 the correct closure is to route those handlers
+through the room-derived path rather than to mint a tracer for them.
+
+*Original reading, retained so the movement is legible: "one conforming region path of six; one
+conforming non-region path with a fallback defect; two families with no region capability at all."*
 
 ### §6.4 — Roof is NOT a one-line omission (recorded so the estimate is not re-lowered)
 
@@ -465,8 +476,13 @@ command that measured it:
    founder-signed with a dated reason.
 2. **The second tracer is retired** (§6.5): `WallRegionDetector` has zero callers, or a dated
    ADR records why two tracers is the settled answer.
-3. **`boundingWallIds` is populated, removed, or declared** on floors and ceilings (§7.2) — and
-   the Phase 0 census of *12 unhonoured dependency-naming fields* reaches **0**.
+3. ~~**`boundingWallIds` is populated, removed, or declared** on floors and ceilings (§7.2)~~ —
+   **DONE 2026-08-13 via (a) POPULATE** on both families and both their batch siblings (§6.3 rows
+   6–8), so the Phase 0 census moves **12 → 10** unhonoured dependency-naming fields. The exit
+   condition remains open until that count reaches **0**. Still unhonoured on these same two
+   records and NOT addressed here: `coveredRoomIds` (no reactor on room change) and `hostRoomId`
+   (read for finish colour only — §7.3 requires that partial honouring be declared at the field's
+   declaration site, which has not been done).
 4. **The five recomputation states are distinguishable** at every re-derivation site (§5.2), and
    `undetermined` is representable and never rewritten (§5.2.1).
 5. **Every emitted host reference carries a `fallback` at authoring time** (§4.3), including
@@ -516,10 +532,50 @@ question as an answer.
    axis and remains unmeasured.
 2. **What is the correct reference frame for a non-wall bounding element?** §3.5. Every path at
    HEAD bounds against walls only.
-3. **Should ceilings and floor finishes get a region mode at all, or should they derive from the
-   ROOM** (which already carries a populated `boundingWallIds`) and inherit the relationship
-   transitively? The two designs are not equivalent under §5: a transitive derivation is
-   `undetermined` whenever the room's own detection is.
+3. ~~**Should ceilings and floor finishes get a region mode at all, or should they derive from the
+   ROOM?**~~ **ANSWERED 2026-08-13 — DERIVE FROM THE ROOM.** Decided while closing §6.3 rows 6–8;
+   retained rather than deleted because §10 records how a question was settled, not only that it was.
+
+   **The decision, and the three reasons in order of weight** (full argument at the head of
+   `packages/command-registry/src/rooms/roomBoundarySketch.ts`):
+
+   1. **A second tracer is the disease §6.5 exists to forbid.** Roof had its own
+      `WallRegionDetector`, and that is exactly why `e6c8cb58`'s slab fix never reached it. Minting
+      a third tracer for finishes would repeat that knowingly — §6.6's "creating the §0 defect NEW
+      in a family that never had it".
+   2. **A finish is not independently bounded — it IS the room's surface.** These commands never
+      traced anything: they copy `room.boundary.polygon` and inset it to the bounding walls' inner
+      faces. The relationship the user expressed is *"the floor OF THIS ROOM"* (`hostRoomId`), and
+      the room already carries a by-construction `boundingWallIds` from the planar face walk
+      (`PlanarTopologyEngine:152,174`). An independent trace would re-derive, by a rival mechanism,
+      a fact the model already holds — and the two could then DISAGREE, which is §7.4's per-path
+      divergence, worse than uniform absence.
+   3. **The transitive `undetermined` is the honest answer, not a cost.** This question noted the
+      transitive design is `undetermined` whenever the room's detection is. That is correct and
+      desirable: a finish whose room could not be detected genuinely has no known boundary
+      relationship, and §2.3 is explicit that no host beats a wrong host. An independent tracer
+      would manufacture an answer in precisely the case the room could not.
+
+   **THE PRICE, STATED (a new NAMED GAP, owner `@pryzm/room-topology`).** The derivation is only as
+   trustworthy as `room.boundingWallIds`. That array IS populated by construction — but as a **`Set`**:
+   `PlanarTopologyEngine:174` does `[...new Set(face.wallIds.filter(Boolean))]`, collapsing the
+   ordered, index-aligned per-half-edge record (`face.wallIds[i]` ↔ `face.nodeIds[i]`) that the walk
+   HAD into unordered membership. **This is §0's mechanism — "the information was never missing; it
+   was discarded on the way out" — occurring one layer upstream.** So the room knows WHICH walls
+   bound it but no longer WHICH EDGE came from WHICH WALL, and the finish commands' per-edge step is
+   therefore a **CONSTRAINED match** (candidate set closed by construction to the room's own walls,
+   refusing on ambiguity) rather than §2.1-exact attribution. It will report `ambiguous` on collinear
+   welded partitions where the face walk itself knew the answer.
+   *Closing condition:* `DetectedRoom` grows an ordered per-edge wall channel (e.g.
+   `boundaryWallIdByEdge: (string | null)[]`, index-aligned with `polygonVertices`), `RoomData`
+   persists it, and `roomBoundarySketch.ts` consumes it directly — at which point its `_attributeEdge`
+   deletes and attribution becomes §2.1-exact for every edge the walk attributed.
+
+   **Measured counts on the reference fixture** (6 m × 4 m room, four 200 mm walls): 4 straight →
+   **4 host edges / 0 free**; 3 straight + 1 arc → **3 host edges / 1 curved fallback** (the §2.5
+   shape); one welded straight twin → **3 host / 1 ambiguous**, and *neither* rival kept (§2.3);
+   room with no declared walls → **0 host / 4 `roomUndetected`**, distinguishable from all of the
+   above (§2.6).
 4. **Is `ambiguous` the right answer for two welded walls, or should the edge be split?** The
    implemented choice (`SlabRegionTracer.ts:388-399`) drops to `null` rather than first-writer,
    which is correct under §2.3 — but a split edge with two references would retain *both*

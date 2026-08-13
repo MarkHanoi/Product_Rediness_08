@@ -31,6 +31,15 @@ import { ensureCeilingCCW as ensureCCW, validateCeilingPolygon as validatePolygo
 // are called at execute() time only, never at module evaluation, so the command-registry ↔
 // room-topology cycle is not exercised at load (MEMORY §SCC: no barrel access at module load).
 import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@pryzm/room-topology';
+// §REGION-HOST-ATTRIBUTION (C79 §6.3 row 7) — the SAME shared builder the floor uses.
+// Not a copy: C79 §3.4 requires one edge shape per relationship, and §7.4 forbids a
+// field being populated correctly on one path and not another. See the §10.3 design
+// decision (DERIVE FROM THE ROOM) recorded in `roomBoundarySketch.ts`.
+import {
+  buildRoomFinishBoundarySketch,
+  formatFinishBoundaryAttributionReport,
+  type IdentifiedFinishWall,
+} from '../rooms/roomBoundarySketch';
 
 export interface CreateCeilingPayload {
   /** Pre-generated UUID — MUST come from the calling tool. Never generate here. */
@@ -175,6 +184,12 @@ export class CreateCeilingCommand implements Command {
       detectionMethod: 'manual-polygon',
     };
 
+    // §REGION-HOST-ATTRIBUTION (C79 §1.1, §2, §3, §4.3) — same chokepoint, same
+    // shared builder as the floor. `boundingWallIds` was `[]` UNCONDITIONALLY here
+    // (C79 §7.1's named anti-pattern) and `CeilingData.sketch` — reference-capable,
+    // carrying all five §1.1 facts — was never written by any path.
+    const sketch = this._buildBoundarySketch(context, polygon);
+
     const newCeiling: CeilingData = {
       id: ceilingId,
       type: 'ceiling',
@@ -187,8 +202,11 @@ export class CreateCeilingCommand implements Command {
       layers,
       finishSpec,
       holeElements: this._payload.holeElements ? structuredClone(this._payload.holeElements) : [],
+      sketch: sketch.outerLoop.edges.length > 0 ? { outerLoop: sketch.outerLoop } : undefined,
       coveredRoomIds: this._payload.hostRoomId ? [this._payload.hostRoomId] : [],
-      boundingWallIds: [],
+      // §7.2(a) POPULATE — exactly the walls that produced an edge of THIS ceiling's
+      // boundary. A measured zero with a named reason, not an unconditional literal.
+      boundingWallIds: sketch.boundingWallIds,
       hostRoomId: this._payload.hostRoomId,
       visible: true,
       properties: {},
@@ -267,6 +285,40 @@ export class CreateCeilingCommand implements Command {
       },
     );
     return derived.length >= 3 ? (derived as CeilingVertex[]) : src;
+  }
+
+  /**
+   * §REGION-HOST-ATTRIBUTION (C79 §6.3 row 7) — VERBATIM mirror of
+   * `CreateFloorCommand._buildBoundarySketch`, routing through the SAME shared
+   * builder, so a room's floor and ceiling carry byte-identical references for the
+   * same walls (§3.4) and neither path can drift from the other (§7.4).
+   */
+  private _buildBoundarySketch(context: CommandContext, polygon: CeilingVertex[]) {
+    const roomStore = (context.stores as any).roomStore as
+      | { getById?: (id: string) => { boundingWallIds?: string[] } | undefined }
+      | undefined;
+    const wallStore = (context.stores as any).wallStore as
+      | { getById?: (id: string) => IdentifiedFinishWall | undefined }
+      | undefined;
+
+    const sketch = buildRoomFinishBoundarySketch(
+      polygon.map(v => ({ x: v.x, z: v.z })),
+      this._payload.hostRoomId,
+      {
+        getRoomById: (id) => roomStore?.getById?.(id),
+        getWallById: (id) => {
+          const w = wallStore?.getById?.(id);
+          return w ? ({ ...w, id: w.id ?? id } as IdentifiedFinishWall) : undefined;
+        },
+      },
+    );
+
+    // §2.6 — counts REPORTED, never absorbed (diag-gated like the floor path).
+    const g = globalThis as unknown as { __pryzmLayoutDiag?: boolean; __pryzmCeilingDiag?: boolean };
+    if ((g.__pryzmLayoutDiag === true || g.__pryzmCeilingDiag === true) && typeof console !== 'undefined') {
+      console.log(formatFinishBoundaryAttributionReport('ceiling', sketch.attribution));
+    }
+    return sketch;
   }
 
   undo(context: CommandContext): CommandResult {

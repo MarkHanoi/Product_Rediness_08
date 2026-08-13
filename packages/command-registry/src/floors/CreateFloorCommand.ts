@@ -44,6 +44,14 @@ import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@
 // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — see the block in execute() for WHY the CREATE
 // arm needs this and not just the UPDATE arm.
 import { ReseatLevelElementsCommand } from '../seating/ReseatLevelElementsCommand';
+// §REGION-HOST-ATTRIBUTION (C79 §6.3 row 6) — the ONE shared builder both finish
+// families route through. See `roomBoundarySketch.ts` for the §10.3 design decision
+// (DERIVE FROM THE ROOM) and the named gap it leaves open.
+import {
+  buildRoomFinishBoundarySketch,
+  formatFinishBoundaryAttributionReport,
+  type IdentifiedFinishWall,
+} from '../rooms/roomBoundarySketch';
 
 export interface CreateFloorPayload {
   /** Pre-generated UUID — MUST come from the calling tool. Never generate here. */
@@ -214,6 +222,16 @@ export class CreateFloorCommand implements Command {
       detectionMethod: 'manual-polygon',
     };
 
+    // §REGION-HOST-ATTRIBUTION (C79 §1.1, §2, §3, §4.3) — THE chokepoint, and the
+    // same one the inner-face inset already runs through, so every creation path
+    // (3D tool, plan tool, batch, AI, import, paste) gets references or a named
+    // reason. Built from the FINAL stored ring so the edges are index-aligned with
+    // `boundary.polygon`. `boundingWallIds` was `[]` UNCONDITIONALLY here — C79
+    // §7.1's named anti-pattern, none of the three legal branches — and
+    // `FloorData.sketch` (reference-capable, all five §1.1 facts) was never written
+    // by any path. Both are now populated by construction.
+    const sketch = this._buildBoundarySketch(context, polygon);
+
     const newFloor: FloorData = {
       id: floorId,
       type: 'floor',
@@ -227,8 +245,14 @@ export class CreateFloorCommand implements Command {
       finishSpec,
       slope: undefined,
       serviceHoles: this._payload.serviceHoles ? structuredClone(this._payload.serviceHoles) : [],
+      sketch: sketch.outerLoop.edges.length > 0 ? { outerLoop: sketch.outerLoop } : undefined,
       coveredRoomIds: this._payload.hostRoomId ? [this._payload.hostRoomId] : [],
-      boundingWallIds: [],
+      // §7.2(a) POPULATE — exactly the walls that PRODUCED an edge of this floor's
+      // boundary, never the room's whole declared set (a wall that produced no edge
+      // is not a wall this floor is bounded by; writing it would be a §2.3 wrong
+      // host dressed as thoroughness). Empty here is now a MEASURED zero with a
+      // named reason in the report below, not an unconditional literal.
+      boundingWallIds: sketch.boundingWallIds,
       hostSlabId: this._payload.hostSlabId,
       hostRoomId: this._payload.hostRoomId,
       colour: undefined,
@@ -351,6 +375,48 @@ export class CreateFloorCommand implements Command {
       },
     );
     return derived.length >= 3 ? (derived as FloorVertex[]) : src;
+  }
+
+  /**
+   * §REGION-HOST-ATTRIBUTION (C79 §6.3 row 6) — attribute the FINAL stored boundary
+   * to the walls that produced it, via the ONE shared builder `CreateCeilingCommand`
+   * also uses (§3.4: one relationship, one edge shape; §7.4: no per-path divergence).
+   *
+   * Fail-safe on every branch, exactly like `_resolveBoundary`: an unavailable store
+   * yields an all-free sketch with the counts saying so — never a thrown creation and
+   * never a silently-empty `boundingWallIds` that looks like "no walls" (§2.6).
+   */
+  private _buildBoundarySketch(context: CommandContext, polygon: FloorVertex[]) {
+    const roomStore = (context.stores as any).roomStore as
+      | { getById?: (id: string) => { boundingWallIds?: string[] } | undefined }
+      | undefined;
+    const wallStore = (context.stores as any).wallStore as
+      | { getById?: (id: string) => IdentifiedFinishWall | undefined }
+      | undefined;
+
+    const sketch = buildRoomFinishBoundarySketch(
+      polygon.map(v => ({ x: v.x, z: v.z })),
+      this._payload.hostRoomId,
+      {
+        getRoomById: (id) => roomStore?.getById?.(id),
+        getWallById: (id) => {
+          const w = wallStore?.getById?.(id);
+          // The wall store keys by id, so a record fetched by `id` IS that wall —
+          // carry the id through even when the record does not repeat it. This is
+          // by construction, not a lookup (§2.1).
+          return w ? ({ ...w, id: w.id ?? id } as IdentifiedFinishWall) : undefined;
+        },
+      },
+    );
+
+    // §2.6 — the counts are REPORTED, never absorbed. Zero-host and all-host are
+    // different readings at the caller. Gated like the batch §DIAG lines so the
+    // string is not built on the hot creation path unless diagnostics are on.
+    const g = globalThis as unknown as { __pryzmLayoutDiag?: boolean; __pryzmFloorDiag?: boolean };
+    if ((g.__pryzmLayoutDiag === true || g.__pryzmFloorDiag === true) && typeof console !== 'undefined') {
+      console.log(formatFinishBoundaryAttributionReport('floor', sketch.attribution));
+    }
+    return sketch;
   }
 
   undo(context: CommandContext): CommandResult {
