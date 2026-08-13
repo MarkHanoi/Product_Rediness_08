@@ -25,6 +25,13 @@
 
 import { storeRegistry } from '@pryzm/core-app-model';
 import { semanticGraphManager } from '@pryzm/core-app-model';
+// §C78-U-INV-4 — store reads that can REFUSE. See storeReadDetermination.ts.
+import {
+    determineStoreRead,
+    countOrUnknown,
+    sumOrUnknown,
+    type StoreReadDetermination,
+} from './storeReadDetermination.js';
 
 export interface NLQueryResult {
     query: string;
@@ -408,17 +415,46 @@ export class SemanticQueryEngine {
                         ['beam', 'Beams'], ['column', 'Columns'], ['door', 'Doors'],
                         ['window', 'Windows'], ['stair', 'Stairs'], ['furniture', 'Furniture'],
                     ];
-                    const rows: NLQueryRow[] = types
-                        .map(([type, label]) => {
-                            const count = this._getAll(type as any).length;
-                            return { id: type, label: `${label}: ${count}`, type: 'stat', meta: `${count} element(s)` };
-                        })
-                        .filter(r => {
-                            const count = parseInt(r.meta ?? '0');
-                            return count > 0;
-                        });
-                    const total = rows.reduce((acc, r) => acc + parseInt(r.meta ?? '0'), 0);
-                    return { query: input, summary: `Model contains ${total} elements across ${rows.length} type(s)`, rows, durationMs: 0 };
+                    // §C78-U-INV-4 — a type whose store could not be read is
+                    // REPORTED as unreadable, not dropped. Previously it fell
+                    // through the `count > 0` filter and vanished, and the
+                    // total understated the model while reading as definite.
+                    const counted = types.map(([type, label]) => {
+                        const d = this._determineAll(type);
+                        return { type, label, count: countOrUnknown(d) };
+                    });
+
+                    const rows: NLQueryRow[] = [
+                        ...counted
+                            .filter(c => c.count !== null && c.count > 0)
+                            .map(c => ({
+                                id: c.type,
+                                label: `${c.label}: ${c.count}`,
+                                type: 'stat',
+                                meta: `${c.count} element(s)`,
+                            })),
+                        // VISIBLE refusal rows (C78 §5) — never a silent omission.
+                        ...counted
+                            .filter(c => c.count === null)
+                            .map(c => ({
+                                id: c.type,
+                                label: `${c.label}: cannot determine`,
+                                type: 'undetermined',
+                                meta: 'RELATIONSHIP_NOT_READABLE — this store could not be read',
+                            })),
+                    ];
+
+                    const unreadable = counted.filter(c => c.count === null).length;
+                    const total = sumOrUnknown(counted.map(c => c.count));
+                    // A total assembled over an unread store is not a total, and
+                    // must not be printed as one.
+                    const summary = total === null
+                        ? `Model contains AT LEAST ${counted.reduce((a, c) => a + (c.count ?? 0), 0)} elements — ` +
+                          `${unreadable} element type(s) could not be read, so the true total is unknown`
+                        : `Model contains ${total} elements across ` +
+                          `${rows.length} type(s)`;
+
+                    return { query: input, summary, rows, durationMs: 0 };
                 },
             },
 
@@ -454,13 +490,37 @@ export class SemanticQueryEngine {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private _getAll(type: string): any[] {
+    /**
+     * §C78-U-INV-4 — the store read, as a DETERMINATION.
+     *
+     * This used to be `try { … } catch { return []; }` over an optional-called
+     * registry lookup: ARM A and ARM B stacked. A type whose store is not
+     * registered, and a type with genuinely zero elements, produced the same
+     * `[]` — and the model-summary handler then dropped every zero row, so an
+     * UNREADABLE type did not appear as "unknown", it VANISHED from the summary
+     * while the total silently understated the model. The user was handed a
+     * definite number that was wrong.
+     */
+    private _determineAll(type: string): StoreReadDetermination<any> {
+        let store: unknown;
         try {
-            const store = storeRegistry.getStoreForType?.(type as any);
-            return store ? (store.getAll() as any[]) : [];
-        } catch {
-            return [];
+            store = storeRegistry.getStoreForType?.(type as any);
+        } catch (e) {
+            return {
+                kind: 'undetermined',
+                scope: `all ${type} elements`,
+                reason: 'RELATIONSHIP_NOT_READABLE',
+                detail: `the store registry threw for '${type}': ${String((e as Error)?.message ?? e)}`,
+            };
         }
+        return determineStoreRead<any>(store, `${type} store`);
+    }
+
+    /** The elements, or `[]` — for callers that have ALREADY reported the
+     *  determination, never to manufacture a count. */
+    private _getAll(type: string): any[] {
+        const d = this._determineAll(type);
+        return d.kind === 'determined' ? (d.elements as any[]) : [];
     }
 
     private _makeResult(

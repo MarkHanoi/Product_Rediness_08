@@ -98,6 +98,31 @@
     "\"unknown\" so no model can reason from a fabricated zero.",
     "  · packages/ai-host/src/WorldModelAdapter.ts",
     "",
+    "STRUCK 2026-08-13 (second lane) — the two remaining ARM A COUNT-DISPLAY rows.",
+    "Both turned an unreadable store into a definite number a human reads:",
+    "  · SemanticQueryEngine.ts — `_getAll` was catch-to-empty over an",
+    "    optional-called registry lookup. The model-summary handler then filtered",
+    "    rows to `count > 0`, so an UNREGISTERED type did not surface as unknown —",
+    "    it VANISHED from the summary, while the total was computed over the",
+    "    survivors and printed as definite. Asking \"what's in the model?\" returned",
+    "    a confident count that silently omitted every type the engine could not",
+    "    read. Unreadable types now get a VISIBLE refusal row and the summary says",
+    "    \"AT LEAST n … the true total is unknown\".",
+    "  · BrowserDataHelpers.ts — `getCategoryElements` returned [] for \"no walls\",",
+    "    \"wallStore is not on window yet\" (the case its OWN console.warn describes)",
+    "    and \"the read threw\" alike. ElementsSummarySection rendered that [] as the",
+    "    ELEMENTS-card count, so an uninitialised store asserted \"0 walls in this",
+    "    project\" to an architect checking their model. determineCategoryElements",
+    "    now discriminates; the card shows \"—\" with the reason in its title, and an",
+    "    unreadable category contributes nothing to the total. getCategoryElements",
+    "    SURVIVES for the visibility-toggle callers, where [] means \"nothing to",
+    "    toggle\" and is genuinely benign — the honest split, not a blanket refusal.",
+    "Both use C78 §8.1 RELATIONSHIP_NOT_READABLE — the member for an absent or",
+    "throwing SUBSTRATE, as distinct from RELATIONSHIP_NOT_RECORDED for an unwritten",
+    "FIELD. No vocabulary minted.",
+    "  · packages/ai-host/src/SemanticQueryEngine.ts",
+    "  · apps/editor/src/ui/ViewBrowser/panels/unified-browser/BrowserDataHelpers.ts",
+    "",
     "THE TWO PLAN-TOOL ROWS ARE A HALF-FIX, DECLARED. FloorPlanToolHandler and",
     "CeilingPlanToolHandler stop FORGING a determined empty set at the call site, so",
     "they leave this gate. But their callee, resolveRoomFinishBoundary",
@@ -310,11 +335,6 @@
       "why": "C@1611 `edgeClassifications: boundary.edgeClassifications ?? [],` · C@8030 `const placeholderFront = (boundary.edgeClassifications ?? [])` · C@8106 `const neighbourRingsXZ = (block.neighbours ?? []).map((n) =>`"
     },
     {
-      "site": "apps/editor/src/ui/ViewBrowser/panels/unified-browser/BrowserDataHelpers.ts",
-      "arm": "A (1 site(s))",
-      "why": "A@308 `} catch { return []; }`"
-    },
-    {
       "site": "packages/ai-host/src/AIReadModel.ts",
       "arm": "C (1 site(s))",
       "why": "C@50 `childrenIds: l.childrenIds || []`"
@@ -323,11 +343,6 @@
       "site": "packages/ai-host/src/FloorPlanCommandBatcher.ts",
       "arm": "C (1 site(s))",
       "why": "C@344 `const spans = proposedSpansByWall.get(wallUUID) ?? [];`"
-    },
-    {
-      "site": "packages/ai-host/src/SemanticQueryEngine.ts",
-      "arm": "A (1 site(s))",
-      "why": "A@462 `return [];`"
     },
     {
       "site": "packages/ai-host/src/workflows/apartmentLayout/tgl/emitGeometry.ts",

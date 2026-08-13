@@ -7,7 +7,10 @@
  */
 
 import type { UBPBag }                  from './BrowserDataHelpers';
-import { getCategoryElements, getSubType, getLevels, getTypeIcon } from './BrowserDataHelpers';
+// §C78-U-INV-4 — the count shown beside a category is a CLAIM about the model.
+// `determineCategoryElements` is what makes "this project has no walls" and
+// "the wall store is not ready" different values; see BrowserDataHelpers.ts.
+import { determineCategoryElements, getSubType, getLevels, getTypeIcon } from './BrowserDataHelpers';
 import {
     applyElementVisibility,
     applyCategoryVisibility,
@@ -46,9 +49,13 @@ export function buildElementsCard(bag: UBPBag): HTMLElement {
     let totalCount = 0;
 
     for (const cat of categories) {
-        const elements = getCategoryElements(bag, cat.label);
-        totalCount += elements.length;
-        cardBody.appendChild(buildElementCategoryRow(bag, cat.label, cat.icon, elements));
+        const d = determineCategoryElements(bag, cat.label);
+        // A category that could not be read contributes NOTHING to the total,
+        // and its row says so rather than showing a fabricated 0.
+        if (d.kind === 'determined') totalCount += d.elements.length;
+        cardBody.appendChild(
+            buildElementCategoryRow(bag, cat.label, cat.icon, d.kind === 'determined' ? d.elements : [], d.kind === 'undetermined'),
+        );
     }
 
     const addRow = document.createElement('div');
@@ -70,6 +77,10 @@ export function buildElementCategoryRow(
     catLabel: string,
     iconHtml: string,
     elements: any[],
+    /** §C78-U-INV-4 — TRUE when this category's store could not be read. The
+     *  row then shows a VISIBLE "cannot determine" marker (C78 §5) instead of
+     *  a count, because `0` would be a positive claim about the model. */
+    undetermined = false,
 ): HTMLElement {
     const isExpanded = bag.catExpanded.has(catLabel);
     const catVis     = bag.catVisible.get(catLabel) ?? true;
@@ -90,7 +101,13 @@ export function buildElementCategoryRow(
 
     const countEl = document.createElement('span');
     countEl.className   = 'pb-ubp-ec-count';
-    countEl.textContent = String(elements.length);
+    // "—" is not a number, and cannot be mistaken for one. The title carries
+    // the reason so the refusal is inspectable, not merely visible.
+    countEl.textContent = undetermined ? '—' : String(elements.length);
+    if (undetermined) {
+        countEl.title = `${catLabel}: cannot determine — this store could not be read `
+                      + '(RELATIONSHIP_NOT_READABLE)';
+    }
 
     const visBtn = bag.makeVisBtn(catVis, (visible) => {
         applyCategoryVisibility(bag, catLabel, visible);

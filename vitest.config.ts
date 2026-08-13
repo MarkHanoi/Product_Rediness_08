@@ -52,6 +52,12 @@ export default defineConfig({
       // for the buildable-envelope flat render (confident violet vs provisional grey vs upper-bound
       // maximum-extent) — a thin adapter over the shared L2 completeness classifier.
       'apps/editor/src/ui/site/__tests__/**/*.spec.ts',
+      // §C78-U-INV-4: the ELEMENTS card's category counts. `getCategoryElements`
+      // returned [] for "no walls", "the wall store is not on window yet" and
+      // "the read threw" alike, and the card rendered that as the count — so an
+      // uninitialised store asserted "0 walls in this project" to an architect
+      // checking their model. These pin that the three cases are now distinct.
+      'apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/**/*.spec.ts',
       // §UI-DENSITY-SCALE: the chrome density transform. Pure string→string, but it
       // rewrites every length in the ONE stylesheet the editor renders from, so its
       // failure modes are repo-wide and silent — moved breakpoints, desynced canvas

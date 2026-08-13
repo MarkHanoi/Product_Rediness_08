@@ -276,36 +276,126 @@ function _categoryStoreKey(catLabel: string): string | null {
     }
 }
 
-export function getCategoryElements(bag: UBPBag, catLabel: string): any[] {
+/**
+ * §C78-U-INV-4 — "which elements are in this category?", with its determination
+ * status carried in the TYPE.
+ *
+ * THE DEFECT. `getCategoryElements` below answers `[]` for three different
+ * facts: the project genuinely holds no walls; the backing store is not yet on
+ * `window` (premature access before engine init — the case its own `console.warn`
+ * documents); and the read THREW. `ElementsSummarySection` renders that `[]` as
+ * a COUNT, so an unavailable store became the user-visible assertion **"0 walls
+ * in this project"** — a positive claim about the model manufactured from
+ * absence. The `console.warn` never reaches the UI and does not fire on the
+ * `catch` path at all.
+ *
+ * `null` — never `[]` — is the unknown value here, so a caller cannot take
+ * `.length` of it by accident.
+ *
+ * NO RIVAL VOCABULARY: the reason is C78 §8.1's `RELATIONSHIP_NOT_READABLE`,
+ * the member for an absent or throwing substrate.
+ */
+export type CategoryElementsDetermination =
+    | { readonly kind: 'determined'; readonly elements: any[] }
+    | {
+        readonly kind: 'undetermined';
+        readonly scope: string;
+        readonly reason: 'RELATIONSHIP_NOT_READABLE';
+        readonly detail?: string;
+    };
+
+export function determineCategoryElements(
+    bag: UBPBag,
+    catLabel: string,
+): CategoryElementsDetermination {
+    const scope = `elements in category "${catLabel}"`;
+
+    // An UNKNOWN category is not an empty one — the old `default: return []`
+    // conflated "this label names no store" with "this store is empty".
+    const storeKey = _categoryStoreKey(catLabel);
+    if (!storeKey && catLabel !== 'Roofs') {
+        return {
+            kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
+            detail: `"${catLabel}" does not name a known store, so its contents were never read`,
+        };
+    }
+
+    // The store is not on `window` yet — premature access before engine init.
+    // This is the case the existing console.warn describes, now RETURNED
+    // instead of only logged.
+    if (storeKey && !(window as any)[storeKey]) {
+        return {
+            kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
+            detail: `${storeKey} is not available yet — the store was never read, ` +
+                    'so an empty category was NOT determined',
+        };
+    }
+
+    let raw: unknown;
     try {
-        // TASK-10 T3: warn once per category when the backing store is not yet available so
-        // developers can observe premature access before engine init completes.
-        const storeKey = _categoryStoreKey(catLabel);
-        if (storeKey && !(window as any)[storeKey]) {
-            console.warn(`[BrowserDataHelpers] getCategoryElements: ${storeKey} not yet available for category "${catLabel}" — returning []`);
-        }
-        switch (catLabel) {
-            case 'Walls':             return window.wallStore?.getAll?.()         ?? []; // TODO(TASK-08)
-            case 'Curtain Walls':     return window.curtainWallStore?.getAll?.()  ?? []; // TODO(TASK-08)
-            case 'Slabs':             return window.slabStore?.getAll?.()         ?? []; // TODO(TASK-08)
-            case 'Floors':            return window.floorStore?.getAll?.()        ?? []; // TODO(TASK-08)
-            case 'Ceilings':          return window.ceilingStore?.getAll?.()      ?? []; // TODO(TASK-08)
-            case 'Roofs':             return bag.roofStore?.getAll?.()            ?? [];
-            case 'Doors':             return window.doorStore?.getAll?.()         ?? window.wallStore?.getAllDoors?.()    ?? []; // TODO(TASK-08)
-            case 'Windows':           return window.windowStore?.getAll?.()       ?? window.wallStore?.getAllWindows?.()  ?? []; // TODO(TASK-08)
-            case 'Openings':          return window.openingStore?.getAll?.()      ?? []; // TODO(TASK-08)
-            case 'Furniture':         return window.furnitureStore?.getAll?.()    ?? []; // TODO(TASK-08)
-            case 'Lighting Fixtures': return window.lightingStore?.getAll?.()     ?? []; // TODO(TASK-08)
-            case 'Stairs':            return window.stairStore?.getAll?.()        ?? []; // TODO(TASK-08)
-            case 'Handrails':         return window.handrailStore?.getAll?.()     ?? []; // TODO(TASK-08)
-            case 'Columns':           return window.columnStore?.getAll?.()       ?? []; // TODO(TASK-08)
-            case 'Beams':             return window.beamStore?.getAll?.()         ?? []; // TODO(TASK-08)
-            case 'Plumbing':          return window.plumbingStore?.getAll?.()     ?? []; // TODO(TASK-08)
-            case 'Rooms':             return window.roomStore?.getAll?.()         ?? []; // TODO(TASK-08)
-            case 'Project Origin':    return window.projectOriginStore?.getAll?.() ?? []; // §FEAT-PROJECT-ORIGIN (L-109)
-            default: return [];
-        }
-    } catch { return []; }
+        raw = _rawCategoryElements(bag, catLabel);
+    } catch (e) {
+        return {
+            kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
+            detail: `reading ${catLabel} threw: ${String((e as Error)?.message ?? e)}`,
+        };
+    }
+
+    if (!Array.isArray(raw)) {
+        return {
+            kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
+            detail: `the ${catLabel} store did not return a list`,
+        };
+    }
+    return { kind: 'determined', elements: raw };
+}
+
+/** The count, or `null` when the category could not be read — never `0`. */
+export function categoryCountOrUnknown(bag: UBPBag, catLabel: string): number | null {
+    const d = determineCategoryElements(bag, catLabel);
+    return d.kind === 'determined' ? d.elements.length : null;
+}
+
+/**
+ * The raw switch. Kept private and UNGUARDED: `determineCategoryElements` owns
+ * the try/catch, so the discrimination happens in exactly one place.
+ */
+function _rawCategoryElements(bag: UBPBag, catLabel: string): any[] {
+    switch (catLabel) {
+        case 'Walls':             return window.wallStore?.getAll?.()         ?? [];
+        case 'Curtain Walls':     return window.curtainWallStore?.getAll?.()  ?? [];
+        case 'Slabs':             return window.slabStore?.getAll?.()         ?? [];
+        case 'Floors':            return window.floorStore?.getAll?.()        ?? [];
+        case 'Ceilings':          return window.ceilingStore?.getAll?.()      ?? [];
+        case 'Roofs':             return bag.roofStore?.getAll?.()            ?? [];
+        case 'Doors':             return window.doorStore?.getAll?.()         ?? window.wallStore?.getAllDoors?.()    ?? [];
+        case 'Windows':           return window.windowStore?.getAll?.()       ?? window.wallStore?.getAllWindows?.()  ?? [];
+        case 'Openings':          return window.openingStore?.getAll?.()      ?? [];
+        case 'Furniture':         return window.furnitureStore?.getAll?.()    ?? [];
+        case 'Lighting Fixtures': return window.lightingStore?.getAll?.()     ?? [];
+        case 'Stairs':            return window.stairStore?.getAll?.()        ?? [];
+        case 'Handrails':         return window.handrailStore?.getAll?.()     ?? [];
+        case 'Columns':           return window.columnStore?.getAll?.()       ?? [];
+        case 'Beams':             return window.beamStore?.getAll?.()         ?? [];
+        case 'Plumbing':          return window.plumbingStore?.getAll?.()     ?? [];
+        case 'Rooms':             return window.roomStore?.getAll?.()         ?? [];
+        case 'Project Origin':    return window.projectOriginStore?.getAll?.() ?? [];
+        default: return [];
+    }
+}
+
+/**
+ * The elements, or `[]` when unreadable.
+ *
+ * RETAINED for the visibility-toggle callers (`ProjectVisibilitySection`),
+ * where an empty list means "select/hide nothing" and is genuinely benign.
+ * Any caller that COUNTS must use `determineCategoryElements` /
+ * `categoryCountOrUnknown` instead — counting this `[]` is how "the store is
+ * not ready" became "0 walls in this project".
+ */
+export function getCategoryElements(bag: UBPBag, catLabel: string): any[] {
+    const d = determineCategoryElements(bag, catLabel);
+    return d.kind === 'determined' ? d.elements : [];
 }
 
 export function getSubType(catLabel: string, el: any): string {
