@@ -165,11 +165,11 @@ import {
   // below (createPredictedRoomGeometryApplier / attachSlabSketchViaLegacyBridge).
   ApplyPredictedRoomGeometryCommand,
   UpdateSlabSketchCommand,
-  // §REGION-HOST-ATTRIBUTION (C79 §6.3 rows 9–10) — consumed by the two finish
-  // sketch bridges below. `Partial<FloorData>` / `Partial<CeilingData>` already
-  // admit `sketch` and `boundingWallIds`, so no new command is minted.
-  UpdateFloorCommand,
-  UpdateCeilingCommand,
+  // §REGION-HOST-ATTRIBUTION (C79 §6.3 rows 9–10) — the two finish sketch bridges
+  // below consume `UpdateFloorCommand` / `UpdateCeilingCommand`, already imported
+  // above at the §FIX-FLOOR-TYPE-SWAP and §FIX-CW-UPDATE-REACH-RECORD entries.
+  // `Partial<FloorData>` / `Partial<CeilingData>` already admit `sketch` and
+  // `boundingWallIds`, so no new command is minted and no second import is needed.
 } from '@pryzm/command-registry';
 import { withHandlerSpan, type Patch } from '@pryzm/plugin-sdk';
 // §FEAT-PROJECT-ORIGIN (L-109) — the singleton shared-coordinate datum store.

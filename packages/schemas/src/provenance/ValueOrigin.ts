@@ -343,6 +343,27 @@ export function provenancePredatingTheField(): ValueProvenance {
  * Use this rather than `ValueProvenanceSchema.optional()` at retrofit sites — it
  * is the difference between a snapshot that reads "origin not known, because it
  * predates the field" and one that reads nothing at all.
+ *
+ * ─── HOW TO ADOPT IT: SPELL IT OUT, DO NOT ABSTRACT IT ───────────────────────
+ * ⚠ Write `provenance: RetrofittedProvenanceSchema` **literally** in each
+ * element's `defineElement` extension. Do **not** fold it into `BaseNodeShape`
+ * and do **not** spread it from a shared `elementProvenanceField` constant. Both
+ * shortcuts look like DRY and both are the C75 §4.d defect in a new place:
+ *
+ *  - `check-provenance-coverage` (C75 §3) measures the file that declares
+ *    `defineElement('<kind>')`, by design — §2.4's point is that a consumer
+ *    reading one kind's schema can SEE its provenance without chasing a base
+ *    type. A base-shape edit would give all 27 kinds the field while leaving
+ *    every element schema looking exactly as bare as before.
+ *  - A shared-constant spread is worse than it looks: it is invisible to the
+ *    gate's coverage evidence **and** to its C3 retrofit-safety arm, so 27 kinds
+ *    would carry the field while the ledger still read 27 uncovered and the arm
+ *    that exists to catch a bare/required field never armed at all. Measured
+ *    2026-08-13: the spread form read **zero covered kinds**.
+ *
+ * The duplication this costs is one identical line per kind, and C3 is precisely
+ * the check that keeps those 27 lines honest — a kind that degrades to
+ * `.optional()` or a bare required field is a FINDING, not coverage.
  */
 export const RetrofittedProvenanceSchema = ValueProvenanceSchema.default(
     provenancePredatingTheField,

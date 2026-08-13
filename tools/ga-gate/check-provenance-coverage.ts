@@ -5,15 +5,21 @@
  * C75 §3 · the per-element-kind provenance coverage RATCHET.
  *
  * ─── Why this gate exists ────────────────────────────────────────────────────
- * C75 §0 Finding 2, measured 2026-08-12 and re-measured on every run of this
- * gate: **no element kind in `packages/schemas` carries any provenance field at
- * all.** The only element-level provenance in the system (`RoomDetectionMethod`)
- * lives in `packages/room-topology` — outside L0, invisible to the exporters,
- * the renderer and the AI host (C75 §4.d) — and its sibling vocabularies for
- * floors and ceilings live in `packages/core-app-model/src/stores`. Meanwhile
- * the site / context / climate / zoning / AI-artefact domains are rich and
- * disciplined (C75 §0 Finding 3). The discipline stops exactly where the user's
- * own authored model begins.
+ * C75 §0 Finding 2, measured 2026-08-12: **no element kind in `packages/schemas`
+ * carried any provenance field at all.** The only element-level provenance in the
+ * system (`RoomDetectionMethod`) lived in `packages/room-topology` — outside L0,
+ * invisible to the exporters, the renderer and the AI host (C75 §4.d) — and its
+ * sibling vocabularies for floors and ceilings in
+ * `packages/core-app-model/src/stores`. Meanwhile the site / context / climate /
+ * zoning / AI-artefact domains were rich and disciplined (C75 §0 Finding 3). The
+ * discipline stopped exactly where the user's own authored model began.
+ *
+ * ⭐ **Re-measured 2026-08-13 (PV-04): all 27 kinds now carry the field at L0.**
+ * The sentence above is written in the past tense on purpose — it is the defect
+ * this gate was built to measure, not a live reading. The live reading is the
+ * gate's own output on every run, and the ledger below carries the history.
+ * ⚠ Coverage here means the field EXISTS and defaults honestly; it does NOT mean
+ * a producer writes a real origin (C75 §6.3.b — a RECORDED BLIND SPOT).
  *
  * ─── The three rules this gate encodes, by section ───────────────────────────
  *  §3.1  Coverage is measured PER ELEMENT KIND, never as a repo-wide
@@ -37,11 +43,15 @@
  *                            `packages/schemas/src/provenance/ValueOrigin.ts`,
  *                            which this gate USES and never restates) or
  *                            declares a provenance-named field. Leaves the
- *                            ledger. **Zero kinds today.**
+ *                            ledger. **All 27 kinds, since PV-04 (2026-08-13).**
  *  outside-schemas-only    — a `<Kind>DetectionMethod` vocabulary exists for
  *                            the kind, but OUTSIDE `packages/schemas` (§4.d).
- *                            Room and ceiling today.
- *  no-provenance-in-schema — nothing anywhere. Every other kind today.
+ *                            Was room and ceiling; both now covered at L0. ⚠ The
+ *                            outside vocabularies still EXIST (they are printed
+ *                            in the run header regardless) — a kind covered at L0
+ *                            simply stops being a C1 finding; retiring the
+ *                            out-of-layer copy is C75 §7.1's separate subject.
+ *  no-provenance-in-schema — nothing anywhere. **None today.**
  *  no-schema-for-provenance-bearing-kind
  *                          — the INVERSE hole: a `<Kind>DetectionMethod`
  *                            vocabulary exists but there is NO
@@ -65,10 +75,18 @@
  *      field must be `RetrofittedProvenanceSchema` (or `.default(` a C75
  *      unknown constructor), so pre-provenance snapshots parse unchanged. A
  *      covered kind whose field is bare/required breaks every existing snapshot
- *      (C75 §4.e) and is a FINDING, not coverage. Fires in the planted control;
- *      NOT EVALUATED over the live tree while zero kinds are covered — printed
- *      as such, never silent (an arm that passes because its subject does not
+ *      (C75 §4.e) and is a FINDING, not coverage. Fires in the planted control,
+ *      and since PV-04 (2026-08-13) it is EVALUATED over the live tree too — 27
+ *      covered kinds, all retrofit-safe. Before that it was printed as NOT
+ *      EVALUATED, never silent (an arm that passes because its subject does not
  *      exist is not coverage).
+ *
+ *      ⚠ C3 is why the 27 adoption sites spell `provenance:
+ *      RetrofittedProvenanceSchema` out at each kind instead of spreading a
+ *      shared constant. Measured 2026-08-13: a `...elementProvenanceField` spread
+ *      is invisible to BOTH the coverage evidence and this arm — all 27 kinds
+ *      carried the field while the gate still read 27 uncovered and C3 never
+ *      armed. An abstraction the gate cannot see is C75 §4.d in a new place.
  *
  * ─── "Populated on every construction path" (C75 §6 table) ───────────────────
  * C3 is the STATIC half of that sentence: `RetrofittedProvenanceSchema` makes
@@ -367,51 +385,49 @@ function canonicalUnionPresent(root: string): boolean {
 // ─── The named ledger (§3.2 — shrink-only, checked in BOTH directions) ───────
 /**
  * FIRST READING, 2026-08-12 — 28 entries: 27 discovered element kinds, ZERO of
- * them covered, plus the floor family which has provenance but no schema. This
- * ledger landing this large and this red IS the deliverable: it is C75 §3.3's
+ * them covered, plus the floor family which has provenance but no schema. That
+ * ledger landing that large and that red WAS the deliverable: C75 §3.3's
  * measured starting point as gate output rather than contract prose.
+ *
+ * ⭐ SECOND READING, 2026-08-13 — **28 → 1**. PV-04 retrofitted all 27 element
+ * kinds with `provenance: RetrofittedProvenanceSchema` in their own L0 schema
+ * (C75 §2.4 / §2.5), so all 27 left the measured set and their rows are struck
+ * here in the same commit — the §3.2 both-directions mechanic doing exactly what
+ * it exists to do (it forced exit 3 STALE until they were). C3 is EVALUATED over
+ * the live tree for the first time and reads clean: every one of the 27 is
+ * retrofit-safe, so no existing snapshot breaks (C75 §4.e).
+ *
+ * ⚠ **What the 27 does and does not mean.** It means the field EXISTS and
+ * defaults honestly to `predates-provenance` on every schema construction path.
+ * It does NOT mean any producer writes a real origin yet — every kind reads
+ * UNKNOWN today, which is honest and empty. Instrumenting the producers is C75
+ * §6.3.b's RECORDED BLIND SPOT and no arm here can see it; a green C1 must never
+ * be read as "provenance is populated".
  *
  * The site / context / climate / zoning / AI-artefact domains are NOT listed —
  * they are rich (C75 §0 Finding 3) and they are not element kinds; this ledger
  * enumerates only what `defineElement` declares plus the C2 orphans, so it can
  * never be diluted by the domains that were already disciplined.
  *
- * ⚠ room and ceiling are `outside-schemas-only` (their vocabulary exists, in
- * the wrong layer); floor is the C2 orphan (vocabulary exists, NO schema kind);
- * the remaining 25 have nothing at all. A kind that gains a provenance field in
- * its L0 schema stops being measured here and its entry MUST be struck in the
- * same commit, or contract.ts forces exit 3 (STALE). A kind that loses one goes
- * red as RATCHET EXCEEDED. Both directions, mechanically.
+ * ─── THE ONE REMAINING ENTRY, AND WHY IT IS NOT ARGUED OUT OF SCOPE ──────────
+ * `floor` is the C2 orphan: `FloorDetectionMethod` (`manual-polygon` | `from-room`
+ * | `from-slab` | `ai-generated` | `ifc-import`) lives in
+ * `core-app-model/src/stores/FloorTypes.ts` and the schema package has never
+ * heard of floors, so there is no `defineElement('floor')` to retrofit. C75 §5
+ * permits arguing a kind out of scope IN WRITING here — and this one is NOT
+ * being argued out. It is a genuine hole and the vocabulary's own members prove
+ * it: `ai-generated` and `ifc-import` are precisely the INFERRED and OBSERVED
+ * cases C75 §0.1 says a user must be able to tell from their own work. It closes
+ * only by floor gaining an L0 schema, which is a C65/C03 element-type decision,
+ * not a provenance one.
+ *
+ * A kind that gains a provenance field in its L0 schema stops being measured
+ * here and its entry MUST be struck in the same commit, or contract.ts forces
+ * exit 3 (STALE). A kind that loses one goes red as RATCHET EXCEEDED. Both
+ * directions, mechanically.
  */
 const LEDGER: readonly string[] = [
-  'outside-schemas-only::room',
-  'outside-schemas-only::ceiling',
   'no-schema-for-provenance-bearing-kind::floor',
-  'no-provenance-in-schema::annotation',
-  'no-provenance-in-schema::beam',
-  'no-provenance-in-schema::column',
-  'no-provenance-in-schema::curtainwall',
-  'no-provenance-in-schema::dimension',
-  'no-provenance-in-schema::door',
-  'no-provenance-in-schema::furniture',
-  'no-provenance-in-schema::grid',
-  'no-provenance-in-schema::handrail',
-  'no-provenance-in-schema::lighting',
-  'no-provenance-in-schema::plumbing',
-  'no-provenance-in-schema::pool',
-  'no-provenance-in-schema::project',
-  'no-provenance-in-schema::projectOrigin',
-  'no-provenance-in-schema::roof',
-  'no-provenance-in-schema::schedule',
-  'no-provenance-in-schema::sheet',
-  'no-provenance-in-schema::slab',
-  'no-provenance-in-schema::stair',
-  'no-provenance-in-schema::structural',
-  'no-provenance-in-schema::verticalCirculation',
-  'no-provenance-in-schema::view',
-  'no-provenance-in-schema::wall',
-  'no-provenance-in-schema::water',
-  'no-provenance-in-schema::window',
 ];
 
 // ─── Executed controls (C75 §6.2) ────────────────────────────────────────────

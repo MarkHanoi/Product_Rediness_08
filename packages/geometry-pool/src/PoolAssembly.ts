@@ -25,7 +25,31 @@
 
 import { trace } from '@opentelemetry/api';
 import type { Pool, Slab, Wall, Water } from '@pryzm/schemas';
+import { systemProvenance, type ValueProvenance } from '@pryzm/schemas/provenance';
 import { resolvePoolDimensions, type PoolSystemType, type ResolvedPoolDimensions } from './PoolDimensions.js';
+
+/**
+ * C75 §1.1 — every part of a pool assembly is **COMPUTED**, and this is one of
+ * the few producers where that is not a judgement call: the header above states
+ * the property this label records — the module is a PURE function of the pool
+ * record, "arithmetic and record literals", every dimension arriving from
+ * `resolvePoolDimensions()`. Re-run it on the same pool and it emits the same
+ * four parts. That is C75 §1.1's `computed` verbatim: *derived deterministically
+ * from inputs the system holds, by a rule that would produce the same output
+ * again.*
+ *
+ * ⚠ **Not `inferred`** (nothing here is plausible-but-not-entailed; §1.2 forbids
+ * merging the two, and §4.f is exactly that merge), **not `authored`** — the
+ * user drew the pool OUTLINE, not these walls, and `systemProvenance` makes that
+ * mistake unrepresentable by refusing `authored` at the type level (§2.2/§2.8).
+ * The pool's own `provenance` is a separate record and is not touched here.
+ *
+ * These literals bypass `Wall.parse()` / `Slab.parse()` / `Water.parse()`, so the
+ * schema default never runs on this path — the C75 §6.3.b blind spot the
+ * coverage gate cannot see, closed here by hand for this one producer.
+ */
+const partProvenance = (part: string): ValueProvenance =>
+  systemProvenance('computed', `@pryzm/geometry-pool buildPoolAssembly — pool ${part}`);
 
 const _tracer = trace.getTracer('pryzm-geometry-pool');
 
@@ -126,6 +150,7 @@ export function buildPoolAssembly(
           parentId: pool.id,          // ← the assembly link (ADR-0124 §3)
           childrenIds: [],
           metadata: pool.metadata,
+          provenance: partProvenance('wall'),
           levelId: pool.levelId,
           // Wall baselines are horizontal by contract (the schema refines it), and
           // both endpoints carry the level elevation in `y`.
@@ -153,6 +178,7 @@ export function buildPoolAssembly(
         parentId: pool.id,            // ← the assembly link
         childrenIds: [],
         metadata: pool.metadata,
+        provenance: partProvenance('floor slab'),
         levelId: pool.levelId,
         boundary: boundary.map((p) => ({ x: p.x, y: datumY, z: p.z })),
         holes: [],
@@ -175,6 +201,7 @@ export function buildPoolAssembly(
         parentId: pool.id,            // ← the assembly link
         childrenIds: [],
         metadata: pool.metadata,
+        provenance: partProvenance('water'),
         levelId: pool.levelId,
         poolId: pool.id,
         boundary: boundary.map((p) => ({ x: p.x, y: datumY, z: p.z })),

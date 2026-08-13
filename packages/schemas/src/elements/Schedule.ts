@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineElement } from '../base/BaseNode.js';
+import { RetrofittedProvenanceSchema } from '../provenance/ValueOrigin.js';
 
 const ScheduleKind = z.enum([
   'door-schedule',
@@ -31,6 +32,22 @@ const ScheduleSort = z.object({
  * Schedule — tabular report of one element family, used on sheets.
  */
 export const Schedule = defineElement('schedule', {
+  /**
+   * PV-04 / C75 §2.4 — where this element's values came from: one of the five
+   * (`ValueOrigin.ts`, which owns the vocabulary and is never restated here),
+   * or an explicit unknown carrying its reason.
+   *
+   * ⚠ `RetrofittedProvenanceSchema`, spelled out at every kind rather than
+   * spread from a shared constant or folded into `BaseNodeShape`, and that is
+   * deliberate twice over. C75 §2.5 requires optional-with-an-UNKNOWN-default so
+   * a snapshot written before this field existed parses unchanged and lands on
+   * `predates-provenance` — never on a member of the five (§2.1 and §2.5 are the
+   * same rule). And `check-provenance-coverage` measures the file that declares
+   * `defineElement('<kind>')`: an indirection hides the field from the C3
+   * retrofit-safety arm, so coverage you cannot see at the point of use is the
+   * §4.d defect in a new place.
+   */
+  provenance: RetrofittedProvenanceSchema,
   kind: ScheduleKind.default('door-schedule'),
   title: z.string().default('Schedule'),
   /** Element family this schedule iterates (e.g. 'door'). */
