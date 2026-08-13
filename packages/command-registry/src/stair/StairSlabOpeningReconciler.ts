@@ -40,8 +40,10 @@
 // still costs a SINGLE SlabFragmentBuilder pass inside the existing batch.
 
 import { trace, type Tracer } from '@opentelemetry/api';
+import type { Patch } from 'immer';
 import { computeStairFootprintRect, worldXZToSlabLocal } from '@pryzm/geometry-stair';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+import { producePatchedSlice, applyPatchesToSlice } from '../PatchSnapshot';
 import { stairAutoOpeningId } from './stairOpeningId';
 import type { CommandContext } from '../types';
 
@@ -236,19 +238,30 @@ export function reconcileStairOpeningsForSlab(
 }
 
 /**
- * The before/after record of ONE stair's opening reconcile, sufficient to make the
- * void change part of the SAME undo unit as the stair mutation that caused it
- * (`undoStairOpeningReconcile`). `before === null` means the reconcile CARVED a new
- * opening; `after === null` never happens today (a reconcile never deletes — see the
- * L-581 lesson: deleting a void on a failed measure is catastrophic) but is kept in
- * the shape so a future legitimate remove path can reuse the same undo helper.
+ * The undo record of ONE stair's opening reconcile, sufficient to make the void
+ * change part of the SAME undo unit as the stair mutation that caused it
+ * (`undoStairOpeningReconcile`).
+ *
+ * G-NEW-05: the undo capture is Immer `produceWithPatches` (via the package's
+ * `PatchSnapshot` landing zone), NOT a structuredClone before/after snapshot —
+ * `inversePatches` applied to the post-reconcile record restore the
+ * pre-reconcile record byte-equal (pinned by
+ * `__tests__/stairOpeningReconcileUndoRoundtrip.test.ts`).
+ *
+ * `kind === 'carved'` means the reconcile CREATED the opening (undo removes it;
+ * `inversePatches` is empty). A reconcile never DELETES an opening — see the
+ * L-581 lesson: deleting a void on a failed measure is catastrophic — so there
+ * is deliberately no 'removed' kind; a future legitimate remove path must add
+ * one explicitly rather than inherit it silently.
  */
 export interface StairOpeningReconcile {
     readonly openingId: string;
-    /** Deep-cloned opening state BEFORE the reconcile; null = did not exist. */
-    readonly before: Record<string, any> | null;
-    /** Deep-cloned opening state AFTER the reconcile; null = does not exist. */
-    readonly after: Record<string, any> | null;
+    /** 'carved' = the opening did not exist before; 'updated' = fields changed in place. */
+    readonly kind: 'carved' | 'updated';
+    /** Immer inverse patches restoring the pre-reconcile opening record ('updated' only). */
+    readonly inversePatches: readonly Patch[];
+    /** Host slabs (old + new, deduped) to rebuild on undo so the renderer sees the healed void. */
+    readonly rebuildHostIds: readonly string[];
 }
 
 function profilesEqual(a: unknown, b: unknown): boolean {
@@ -302,9 +315,9 @@ export function reconcileStairOpening(
             // Same as the create direction: carve if (and only if) a slab is above.
             const carve = carveStairOpening(ctx, stair, opts);
             if (!carve) return null;
-            const after = readOpening(openingStore, openingId);
             span.setAttribute('pryzm.reconcile.outcome', 'carved');
-            return { openingId, before: null, after: structuredClone(after) };
+            // A carve needs no patches: undo is "remove the opening we minted".
+            return { openingId, kind: 'carved', inversePatches: [], rebuildHostIds: [carve.hostSlabId] };
         }
 
         const candidates = slabStore.getAll().filter((s: any) => s.levelId === stair.topLevelId);
@@ -345,8 +358,22 @@ export function reconcileStairOpening(
             return null;
         }
 
-        const before = structuredClone(existing);
+        // G-NEW-05 undo capture: produceWithPatches over the existing record.
+        // `inversePatches` applied to the post-state restore exactly the four
+        // fields this reconcile may touch — the mandated replacement for the
+        // prohibited structuredClone before/after snapshot.
         const updates = { hostId: host.id, parentId: host.id, levelId: stair.topLevelId, profile };
+        const { inversePatches } = producePatchedSlice(
+            existing as Record<string, any>,
+            (draft) => {
+                draft.hostId = updates.hostId;
+                draft.parentId = updates.parentId;
+                draft.levelId = updates.levelId;
+                draft.profile = updates.profile;
+            },
+        );
+        const rebuildHostIds = [...new Set([existing.hostId as string, host.id as string])];
+
         if (typeof openingStore.update === 'function') {
             openingStore.update(openingId, updates);
         } else {
@@ -354,10 +381,9 @@ export function reconcileStairOpening(
             openingStore.remove?.(openingId);
             openingStore.add({ ...existing, ...updates });
         }
-        const after = structuredClone(readOpening(openingStore, openingId) ?? { ...existing, ...updates });
 
         if (opts.triggerRebuild !== false) {
-            for (const hostId of new Set([before.hostId, host.id])) {
+            for (const hostId of rebuildHostIds) {
                 if (slabStore.getById?.(hostId)) slabStore.triggerRebuild(hostId);
             }
         }
@@ -365,7 +391,7 @@ export function reconcileStairOpening(
         span.setAttribute('pryzm.reconcile.outcome', 'updated');
         span.setAttribute('pryzm.opening.id', openingId);
         span.setAttribute('pryzm.slab.id', host.id);
-        return { openingId, before, after };
+        return { openingId, kind: 'updated', inversePatches, rebuildHostIds };
     } finally {
         span.end();
     }
@@ -388,7 +414,7 @@ export function undoStairOpeningReconcile(
 
     const current = readOpening(openingStore, rec.openingId);
     try {
-        if (rec.before === null) {
+        if (rec.kind === 'carved') {
             // The reconcile carved a fresh opening — undo removes it (mirrors
             // removeStairOpenings, including the side indexes).
             if (current) {
@@ -396,25 +422,34 @@ export function undoStairOpeningReconcile(
                 try { ctx.bimManager.unregisterElement?.(rec.openingId); } catch { /* side-index only */ }
                 try { elementRegistry.unregister(rec.openingId); } catch { /* side-index only */ }
             }
-        } else if (typeof openingStore.update === 'function' && current) {
-            openingStore.update(rec.openingId, {
-                hostId: rec.before.hostId,
-                parentId: rec.before.parentId,
-                levelId: rec.before.levelId,
-                profile: rec.before.profile,
-            });
+        } else if (current) {
+            // G-NEW-05: apply the Immer inverse patches to the CURRENT record —
+            // this reconstructs the pre-reconcile record byte-equal (the round-trip
+            // pin), replacing the prohibited structuredClone(before) restore.
+            const prev = applyPatchesToSlice(current as Record<string, any>, rec.inversePatches);
+            if (typeof openingStore.update === 'function') {
+                openingStore.update(rec.openingId, {
+                    hostId: prev.hostId,
+                    parentId: prev.parentId,
+                    levelId: prev.levelId,
+                    profile: prev.profile,
+                });
+            } else {
+                openingStore.remove?.(rec.openingId);
+                openingStore.add(prev);
+            }
         } else {
-            if (current) openingStore.remove?.(rec.openingId);
-            openingStore.add(structuredClone(rec.before));
+            // The opening vanished outside this undo unit — there is no post-state
+            // to invert from. Say so rather than invent a record.
+            console.warn(
+                `[StairSlabOpeningReconciler] undo: opening ${rec.openingId} no longer exists — nothing restored`,
+            );
         }
     } catch (err) {
         console.warn('[StairSlabOpeningReconciler] reconcile undo failed (non-fatal):', err);
     }
 
-    const hosts = new Set<string>();
-    if (rec.before?.hostId) hosts.add(rec.before.hostId);
-    if (rec.after?.hostId) hosts.add(rec.after.hostId);
-    for (const hostId of hosts) {
+    for (const hostId of rec.rebuildHostIds) {
         if (slabStore?.getById?.(hostId)) slabStore.triggerRebuild(hostId);
     }
 }
