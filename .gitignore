@@ -52,3 +52,11 @@ MasterMiawW/
 revit-addin/**/obj/
 revit-addin/**/bin/
 tools/rac-conformance/runtime-harness/.liveness-output/
+
+# §CLEAN-SOURCE-CONTROL (2026-08-13) — scratch probe dirs from measurement
+# sessions, and bench run outputs that regenerate on every run. Committing
+# either makes every unrelated diff noisy and hides real changes.
+.probe-tmp/
+.tmp-verbs-cap/
+.w2a-tmp/
+apps/bench/.run-output/
