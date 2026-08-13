@@ -15,6 +15,8 @@ import { StairLandingEntity } from '@pryzm/geometry-stair';
 
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import type { OpeningData } from '@pryzm/core-app-model';
+import { semanticGraphManager } from '@pryzm/core-app-model';
+import type { Relationship } from '@pryzm/core-app-model';
 import { stairAutoOpeningId } from './stairOpeningId';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
@@ -44,12 +46,105 @@ export class DeleteStairCommand implements Command {
     // coord space) and Ctrl-Z returns the pre-delete state byte-for-byte.
     private _openingSnapshot?: OpeningData;
     private _openingHostSlabId?: string;
+    /**
+     * §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES (BIM 3.0 C71 §5.6) — the stair delete
+     * never purged the SemanticGraph, and BOTH delete paths delegate here since
+     * L-298, so a deleted stair stranded EVERY edge it owned.
+     *
+     * THE STRAND SET is real and three edges wide: CreateStairCommand writes
+     * `sitsOn` (stair → baseLevel) plus BOTH directions of `connectedByStair`
+     * (baseLevel ↔ topLevel, the level graph being bidirectional for egress
+     * routing). A well-formed edge pointing at a deleted id is NOT self-erasing:
+     * it survives serialize()/deserialize() and persists forever, so every
+     * deleted stair left DependencyResolver believing two levels were still
+     * connected by a stair that no longer exists — an egress-routing lie.
+     *
+     * THE UNDO SIDE follows 3ee632f6 (the wall family) rather than the
+     * reconstruct-from-snapshot pattern, and C71 §5.6 requires it: the
+     * `connectedByStair` edges are keyed on the LEVEL pair, not the stair, so an
+     * undo that re-authored them from the stair snapshot would rebuild only what
+     * this stair knows about and silently drop any edge another command authored
+     * against the same stair (e.g. a `sitsOn` re-pointed by a level move). So the
+     * pre-delete edge set is captured VERBATIM and re-added on undo.
+     */
+    private _removedRelationships: Relationship[] | null = null;
 
     constructor(input: DeleteStairInput) {
         this.id = crypto.randomUUID();
         this.timestamp = Date.now();
         this.stairId = input.stairId;
         this.targetIds = [input.stairId];
+    }
+
+    /**
+     * §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — capture every graph edge touching
+     * any of `ids` (source OR target), deduped by relationship id. Mirrors
+     * 3ee632f6's `_captureRelationships`. MUST run before any removal.
+     *
+     * The id set is deliberately WIDER than the stair: `connectedByStair` is a
+     * level→level edge that names the stair only in metadata, so a capture
+     * scoped to the stair id alone would miss both directions of it.
+     */
+    private _captureRelationships(ids: string[]): void {
+        const byRelId = new Map<string, Relationship>();
+        for (const eid of ids) {
+            if (!eid) continue;
+            for (const rel of semanticGraphManager.getRelationships(eid)) {
+                byRelId.set(rel.id, { ...rel });
+            }
+        }
+        this._removedRelationships = [...byRelId.values()];
+    }
+
+    /**
+     * §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — undo side: re-add the captured
+     * edges verbatim. addRelationship() regenerates ids but is idempotent on
+     * (source, target, type), so redo→undo cycles cannot duplicate.
+     */
+    private _restoreRelationships(): void {
+        if (!this._removedRelationships) return;
+        for (const rel of this._removedRelationships) {
+            try {
+                semanticGraphManager.addRelationship({
+                    type: rel.type,
+                    sourceId: rel.sourceId,
+                    targetId: rel.targetId,
+                    createdBy: rel.createdBy,
+                    ...(rel.metadata ? { metadata: rel.metadata } : {}),
+                });
+            } catch { /* noop — graph write is non-fatal, as in CreateStairCommand */ }
+        }
+    }
+
+    /**
+     * §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — the level→level `connectedByStair`
+     * edges this stair authored. They are found by METADATA (stairId), because
+     * the edge's endpoints are the two levels, not the stair: purging by
+     * endpoint id would tear down every OTHER stair's connection between the
+     * same two levels, which is exactly the over-purge C71 §5.6 warns against.
+     *
+     * §UPSTREAM-LIMITATION (NOT fixed here, asserted in
+     * stairDeleteLeavesGraphEdges.test.ts): addRelationship() is idempotent on
+     * (sourceId, targetId, type) and IGNORES metadata (SemanticGraph.ts
+     * `_findExact`), so two stairs joining the SAME level pair collapse onto ONE
+     * connectedByStair edge — the second create is a silent no-op. Deleting
+     * either stair therefore removes the only edge that exists, leaving the
+     * survivor unlinked. That is a keying defect in the edge model, not in this
+     * delete: with one edge present there is nothing here to preserve. Fixing it
+     * means keying the edge on the stair (or making idempotency metadata-aware)
+     * in CreateStairCommand + SemanticGraph, and belongs in its own lane.
+     */
+    private _stairAuthoredLevelEdges(levelIds: string[]): Relationship[] {
+        const out = new Map<string, Relationship>();
+        for (const lid of levelIds) {
+            if (!lid) continue;
+            for (const rel of semanticGraphManager.getRelationships(lid)) {
+                if (rel.type === 'connectedByStair' && rel.metadata?.stairId === this.stairId) {
+                    out.set(rel.id, rel);
+                }
+            }
+        }
+        return [...out.values()];
     }
 
     canExecute(ctx: CommandContext): CommandValidationResult {
@@ -83,6 +178,29 @@ export class DeleteStairCommand implements Command {
                 .map(l => structuredClone(l));
         }
 
+        // §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — capture BEFORE any removal.
+        // The id set spans the stair, its railings/landings (any of which may
+        // carry edges of their own) and BOTH levels, because the two
+        // `connectedByStair` edges are stored on the level pair.
+        const baseLevelId = (stair as StairData).baseLevelId;
+        const topLevelId = (stair as StairData).topLevelId;
+        const levelEdges = this._stairAuthoredLevelEdges([baseLevelId, topLevelId]);
+        this._captureRelationships([
+            this.stairId,
+            ...this._railingSnapshots.map(r => r.id),
+            ...this._landingSnapshots.map(l => l.id),
+        ]);
+        // Merge in the level→level edges this stair authored: they touch neither
+        // the stair nor its children by ENDPOINT, only by metadata, so the
+        // id-scoped capture above cannot see them.
+        {
+            const merged = new Map<string, Relationship>(
+                (this._removedRelationships ?? []).map(r => [r.id, r]),
+            );
+            for (const rel of levelEdges) merged.set(rel.id, { ...rel });
+            this._removedRelationships = [...merged.values()];
+        }
+
         // Remove sub-elements first (eventBus triggers builder cleanup)
         ctx.stores.stairRailingStore?.removeByStairId(this.stairId);
         ctx.stores.stairLandingStore?.removeByStairId(this.stairId);
@@ -97,6 +215,23 @@ export class DeleteStairCommand implements Command {
         // Unregister from BIM manager and elementRegistry
         try { ctx.bimManager.unregisterElement(this.stairId); } catch (_) { /* noop */ }
         try { elementRegistry.unregister(this.stairId); } catch (_) { /* noop */ }
+
+        // §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — PURGE. Mirrors 3ee632f6.
+        // ① Every edge whose endpoint is the stair or one of its sub-elements
+        //    (`sitsOn` stair→baseLevel, plus anything authored against them).
+        try { semanticGraphManager.removeAllRelationshipsForElement(this.stairId); } catch (_) { /* noop */ }
+        this._railingSnapshots.forEach(r => {
+            try { semanticGraphManager.removeAllRelationshipsForElement(r.id); } catch (_) { /* noop */ }
+        });
+        this._landingSnapshots.forEach(l => {
+            try { semanticGraphManager.removeAllRelationshipsForElement(l.id); } catch (_) { /* noop */ }
+        });
+        // ② The level→level `connectedByStair` pair, removed EDGE-WISE rather
+        //    than by endpoint: removeAllRelationshipsForElement(levelId) would
+        //    also destroy every other element's sitsOn edge to that level.
+        for (const rel of levelEdges) {
+            try { semanticGraphManager.removeRelationship(rel.id); } catch (_) { /* noop */ }
+        }
 
         // §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — HEAL THE SLAB.
         // CreateStairCommand punched an opening on the slab above (createAutoOpening)
@@ -188,6 +323,14 @@ export class DeleteStairCommand implements Command {
             this._openingSnapshot = undefined;
             this._openingHostSlabId = undefined;
         }
+
+        // §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — restore the exact edges execute()
+        // captured and purged: the stair's `sitsOn` AND both directions of the
+        // level→level `connectedByStair`. VERBATIM from the pre-delete capture,
+        // not re-authored from the stair snapshot — C71 §5.6 is explicit that a
+        // reconstruction can differ from what was there, and here it would: the
+        // level-pair edges are not derivable from the stair's own fields alone.
+        this._restoreRelationships();
 
         _bus.emit('ai-model-update', {}); // F.events.17
 

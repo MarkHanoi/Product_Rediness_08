@@ -65,7 +65,6 @@
     { "key": "furniture/undo-reconstructs-not-verbatim:DeleteElementCommand.ts#furniture", "why": "Undo re-authors sitsOn for parent+children from the snapshot; contains edges (room→furniture, IFC-imported) would be dropped." },
     { "key": "roof/purge-missing:DeleteRoofCommand.ts", "why": "One of two roof delete producers never purges — diverges from DeleteElementCommand's roof branch, which does." },
     { "key": "roof/undo-restores-nothing:DeleteElementCommand.ts#roof", "why": "Branch purges all edges (incl. topologyGraph.removeNode), undo restores none." },
-    { "key": "stair/purge-missing:DeleteStairCommand.ts", "why": "The dedicated stair delete (which BOTH delete paths delegate to since L-298) never purges: a deleted stair strands its sitsOn and its levels' connectedByStair edges." },
     { "key": "plumbing/undo-restores-nothing:DeleteElementCommand.ts#plumbing", "why": "Branch purges all edges, undo restores none." },
     { "key": "opening/purge-missing:DeleteOpeningCommand.ts", "why": "Slab-opening delete never purges. Today no writer emits edges for slab openings, so the strand set is empty in practice — but that is coincidence, not integrity, and F-INV-2 forbids counting it as such." },
     { "key": "handrail/purge-missing:DeleteHandrailCommand.ts", "why": "One of two handrail delete producers never purges — diverges from DeleteElementCommand's handrail branch. CreateHandrailCommand writes sitsOn, so this path strands a real edge." },
