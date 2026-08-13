@@ -346,7 +346,18 @@
     "poses; a present empty array is a real no-openings and stays silent.",
     "Differentiating spec:",
     "apps/editor/src/ui/__tests__/furnishOpeningsHonesty.spec.ts (3 cases,",
-    "negative control incl.) — the unrecorded case FAILS against ?? []."
+    "negative control incl.) — the unrecorded case FAILS against ?? [].",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 76 -> 75) — ElementTypeSelectorZone.ts, ARM",
+    "C x2: (el.boundingWallIds ?? []).length / (el.boundingColumnIds ?? []).length",
+    "printed EXACT ZEROS in the Inspect AUDIT columns about rooms whose bounding",
+    "sets were never recorded (the C78 §0.g standing example, at an audit surface",
+    "whose whole purpose is measurement). The column already had an unknown glyph",
+    "(null renders as em-dash); _lenOrUnknown (exported, shared seam) now routes an",
+    "ABSENT field to null while a PRESENT empty array still counts 0.",
+    "Differentiating spec: apps/editor/src/ui/__tests__/auditCountHonesty.spec.ts",
+    "(5 cases at both the helper and the descriptor grain) — the absent-field",
+    "cases FAIL against the ?? [] shape."
   ],
   "swallowed": [
     {
@@ -423,11 +434,6 @@
       "site": "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
       "arm": "C (2 site(s))",
       "why": "C@271 `windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;` · C@273 `if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w`"
-    },
-    {
-      "site": "apps/editor/src/ui/inspect/audit/ElementTypeSelectorZone.ts",
-      "arm": "C (2 site(s))",
-      "why": "C@144 `extract: el => _contents(el.id)?.bounding.walls.length ?? (el.boundingWallIds ?? []).lengt` · C@154 `extract: el => _contents(el.id)?.bounding.columns.length ?? (el.boundingColumnIds ?? []).l`"
     },
     {
       "site": "apps/editor/src/ui/layout/GISAreaLayout.ts",

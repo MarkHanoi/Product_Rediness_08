@@ -15,6 +15,9 @@
  *   attributeHeatColor, getActiveAttrOption, storeKeyForType
  */
 
+// §GR-10 — the shared honesty seam (C78 §8.1 family; unknown ≠ empty).
+import { relationshipArrayOrUnknown } from '../../relationshipDetermination.js';
+
 // ── Element type definitions ──────────────────────────────────────────────────
 
 export type InspectElementType = 'rooms' | 'walls' | 'doors' | 'windows' | 'slabs' | 'columns';
@@ -56,6 +59,15 @@ const _fmtM2  = (v: number | string | null) => v == null ? '—' : `${(v as numb
 const _fmtM3  = (v: number | string | null) => v == null ? '—' : `${(v as number).toFixed(2)} m³`;
 const _fmtMm  = (v: number | string | null) => v == null ? '—' : `${(v as number).toFixed(0)} mm`;
 const _fmtCnt = (v: number | string | null) => v == null ? '—' : String(v);
+
+// §GR-10 — the honest count of a relationship id-list: a PRESENT array counts
+// (even 0 — a real answer); an ABSENT field is UNKNOWN and returns null so the
+// column renders '—' rather than forging a zero (C75 §1.4 · C71 §4.4). Uses
+// the shared apps/editor seam; exported for the differentiating spec.
+export const _lenOrUnknown = (raw: unknown): number | null => {
+  const arr = relationshipArrayOrUnknown<unknown>(raw);
+  return arr === null ? null : arr.length;
+};
 const _fmtStr = (v: number | string | null) => (v == null || v === '') ? '—' : String(v);
 
 // ─── §6.4 Room Containment Query Contract ──────────────────────────────────
@@ -141,7 +153,14 @@ export const ELEMENT_ATTRIBUTES: Record<InspectElementType, AttributeDescriptor[
     // ── Containment counts (§6.4 Room Containment Query Contract) ─────────
     {
       key: 'wallCount', label: 'Wall Count', unit: '', numeric: true,
-      extract: el => _contents(el.id)?.bounding.walls.length ?? (el.boundingWallIds ?? []).length,
+      // §GR-10 (C75 §1.4 · C78 §1.4) — when the contents service cannot answer
+      // AND boundingWallIds was never recorded, the count is UNKNOWN (null →
+      // '—', this column's existing unknown glyph), never a hard 0. The old
+      // `(el.boundingWallIds ?? []).length` printed 0 about rooms nobody
+      // measured — the standing C78 §0.g example. A PRESENT empty array still
+      // counts 0 (a real answer).
+      extract: el => _contents(el.id)?.bounding.walls.length
+        ?? _lenOrUnknown(el.boundingWallIds),
       format:  _fmtCnt,
     },
     {
@@ -151,7 +170,9 @@ export const ELEMENT_ATTRIBUTES: Record<InspectElementType, AttributeDescriptor[
     },
     {
       key: 'columnCount', label: 'Columns (bounding)', unit: '', numeric: true,
-      extract: el => _contents(el.id)?.bounding.columns.length ?? (el.boundingColumnIds ?? []).length,
+      // §GR-10 — same rule as wallCount: unrecorded ⇒ unknown ('—'), never 0.
+      extract: el => _contents(el.id)?.bounding.columns.length
+        ?? _lenOrUnknown(el.boundingColumnIds),
       format:  _fmtCnt,
     },
     {
