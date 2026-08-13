@@ -34,6 +34,7 @@
     "@pryzm/climate-host": "workspace:*",
     "@pryzm/command-bus": "workspace:*",
     "@pryzm/entitlements": "workspace:*",
+    "@pryzm/finish-host-tracker": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",
     "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/geometry-lift": "workspace:*",
