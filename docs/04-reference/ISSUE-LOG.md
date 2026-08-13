@@ -2044,3 +2044,38 @@ action of the next session: §7 steps 2-5 (builder VM check → script with only
 DOCKER_CONFIG=/tmp/empty-docker-config → fly-bundle-proof reading VALUES → reference-deploy on
 delivery failure). The deployed build (`aa219a31`) predates EVERY fix in this session — browser
 verification of the slab-follows-wall fix and the L-847 model tree stays UNPROVEN until then.
+
+## L-853 - MANUAL FLY DEPLOY 517f7a70, bundle proof 6/6 - and the TWO causes that failed the first two attempts
+
+**2026-08-13.** Live at https://pryzm.fly.dev, `GIT_SHA` verified `517f7a7080e5992086d03bc678afe688fc521766`,
+chunk `assets/main-D-foh5xa.js`, `/api/health/live` ok. Cover per DEPLOY-CONTRACT-MANUAL-FLY 6:
+recorded as L-852 (root tsc exit 0, check:isolation exit 0, test:server 613/613).
+Builder `fly-builder-twilight-songbird-4866` machine `48e3e2df5972e8` already at
+`shared-cpu-8x:16384MB` - 2.1 precondition held, no resize needed.
+
+### Two attempts failed first. BOTH causes are recorded because both will recur.
+
+**Cause 1 - STALE LOCKFILE (would have failed EVERY attempt).** The Docker build died at
+`ERR_PNPM_OUTDATED_LOCKFILE`: `pnpm-lock.yaml` still declared `@pryzm/geometry-slab@workspace:*`
+for `packages/finish-host-tracker`, which its `package.json` no longer listed. That package landed
+across a killed lane and its successor, and the manifest moved AFTER the lockfile was committed.
+The Docker build runs `pnpm install --frozen-lockfile` and fails closed. Fixed in `517f7a70`.
+**RULE: any lane that edits a package.json must re-sync pnpm-lock in the SAME commit.**
+
+**Cause 2 - 6.5.6 HALF-APPLIED (operator error, mine).** The npipe fix is TWO commands:
+create the empty Docker config directory AND write `{}` into `config.json`. Only the first was
+run, so flyctl still resolved the Windows named pipe from the Docker context file and died on
+`failed to parse daemon host "npipe:////./pipe/docker_engine"`. 6.5.6 already warns that env-var
+unsetting does nothing because the pipe comes from the CONTEXT FILE - half-applying the fix
+reproduces the exact failure it documents.
+**RULE: `mkdir -p /tmp/empty-docker-config && echo '{}' > /tmp/empty-docker-config/config.json` - both halves, every time.**
+
+**Also observed:** an earlier attempt left a flyctl process alive ~45 min with no release (past
+even 6.6.2 slow-uplink benchmark of ~35 min). It was hung on cause 1, not slow. Killing a
+hung flyctl before restarting is correct; two concurrent builds against one app is how a
+half-delivered release happens.
+
+**What this SHA carries:** the whole 2026-08-13 session - slab stored-polygon follows a moved wall
+(mesh AND record), the L-847 model tree reachable via Data F3 - AUDIT - Hierarchy, floor/ceiling
+finish trackers (incl. the REENTRANT-SET fix `f5f312de`), and every gate landed this session.
+**Browser verification by the founder is still owed and is the only UNPROVEN axis.**
