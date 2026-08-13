@@ -1845,3 +1845,46 @@ so the Furniture group can finally render. Instruments: ~12 new gates, each nega
 **Not fixed, and shipped knowingly:** a moved wall's slab does not follow (root cause pinned —
 event payload `{ id }` vs listeners reading `{ slab }`). Pre-existing, not a regression; see
 `BIM30-MASTER-COMPLETION-TRACKER.md` §-1.
+
+---
+
+## L-847 — THE MODEL TREE IS UNREACHABLE: two rival Data workbenches, only one has it
+
+**2026-08-13, founder-reported, live on `aa219a31`.** *"nothing shows on the model tree — data tab."*
+
+**Measured**: there are **two** Data-workbench implementations, and the one that ships has no
+hierarchy view.
+
+| | Has Hierarchy? | Evidence |
+|---|---|---|
+| `apps/editor/src/ui/dataworkbench/DataWorkbench.ts` | **YES** — `subTabs` includes `{ id: 'hierarchy', label: 'Hierarchy', icon: '⬡' }` (`:128`), constructs `HierarchyTreePanel` at `:400`, and `_rebuildSubTabBar()` (`:549`) renders a button per sub-tab | source |
+| `apps/editor/src/ui/data/buckets/AuditBucket.ts` | **NO** | **this is what renders**: the founder's header reads `AUDIT — Global Delta Grid` (`:93`) and the button `🛠️ Sync Model to Brief` (`:141`) |
+
+The founder clicked **Data → AUDIT** and got `AuditBucket`'s delta grid with **no sub-tab bar at
+all** — so there is no path to the hierarchy from the shipped UI. `DataWorkbench.ts`'s sub-tab bar
+CSS is healthy (`display:flex`, `dataWorkbench.ts:872`); it simply is not the component on screen.
+
+`HierarchyTreePanel` has a second mount at `LeftNavRail.ts:540`, which may or may not be reachable
+— **not verified**.
+
+### Why this matters beyond one panel
+
+This is the **authored-but-unreachable** class (C70 §4.2 — *machinery present, capability
+unreachable*) applied to a whole surface, and it is the fourth instance found on 2026-08-13 alone:
+the `wall.create` planner registered nowhere, `FloorHostReferenceEdge`/`CeilingHostReferenceEdge`
+with zero consumers, `SlabDependencyTracker` unreachable from the event path, and now an entire
+Data workbench.
+
+It also **conceals a fix that landed today**: `contains` gained its first-party writer
+(`e1e375d0` + rebuild `76a212aa`), so the Furniture group could finally render — and C71 §5.2
+records that it *"has never rendered"*. **It still cannot**, because the panel that would show it
+is not on screen.
+
+### Not yet established
+
+Which implementation is intended to ship, whether `AuditBucket` supersedes `DataWorkbench` or
+predates it, and whether the left-nav mount is reachable. **Do not delete either until that is
+decided** — one of them is somebody's intended surface.
+
+**Owner**: `apps/editor/src/ui/data` vs `apps/editor/src/ui/dataworkbench`. Needs a decision, not
+a patch.
