@@ -760,9 +760,16 @@ const result: GateResult = {
   gate: GATE,
   floors,
   lines,
-  // Comparison is by NAME in both directions, never by count: an unledgered
-  // finding must raise the code even when totals coincide.
-  findings: findings.length + (unexpected.length > 0 ? LEDGER.length + 1 : 0),
+  // Comparison is by NAME in both directions, never by count — and the REPORTED
+  // number is the real finding count, nothing else. The exit code follows from
+  // the name comparison above: an unledgered key means `measured ⊋ LEDGER` when
+  // nothing is stale, so findings.length > declared → exit 3 through the shared
+  // comparator; and a stale ledger row forces exit 3 via `stale` even when the
+  // totals coincide. (This line used to add `LEDGER.length + 1` as a shove to
+  // force exit 3 — right intent, but it made the headline read "26 findings"
+  // against a body of 13, and a gate whose headline disagrees with its own body
+  // trains people to distrust the body. See TRIAGE-REPORT 2026-08-13 §5.)
+  findings: findings.length,
   declared: LEDGER.length,
   findingNames: [...measured],
   stale: staleLedger,
