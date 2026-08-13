@@ -102,8 +102,15 @@ const alignmentCoreShape = {
  * — i.e. build to the boundary — which is the opposite of what the pack author wrote. Fail the
  * pack loudly instead. Applied to every alignment-governed variant.
  */
-const requireSideWhenSetback = <T extends { sideTreatment: string; side_m?: number }>(r: T) =>
-    r.sideTreatment !== 'setback' || typeof r.side_m === 'number';
+const requireSideWhenSetback = <
+    // `| undefined` is REQUIRED under `exactOptionalPropertyTypes` (several downstream
+    // tsconfigs enable it even though this package's own does not): the inferred Zod object
+    // types carry `side_m?: number | undefined`, which is NOT assignable to a bare
+    // `side_m?: number` constraint in that mode. Type-level only — no runtime, no shape change.
+    T extends { sideTreatment: string; side_m?: number | undefined },
+>(
+    r: T,
+) => r.sideTreatment !== 'setback' || typeof r.side_m === 'number';
 
 const SIDE_REQUIRED_MSG = {
     message:
