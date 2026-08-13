@@ -18,12 +18,11 @@
 // hard-valid: `§TOPO-HARD-REJECT-ALL` deliberately ships the LEAST-BAD invalid candidate
 // ("never an empty result"). This probe measures the shipped artefact unconditionally.
 //
-// The reachability predicate below is a FAITHFUL REPLICA of the production one,
-// `computeCirculationReachability` in `apps/editor/src/ui/apartment-layout/layoutBubbleGraph.ts`
-// (§9.2 of SPEC-CIRCULATION-GRAPH), including §DUP-NAME-SAFE index keying and the
-// §ROOT-CORRIDOR-BEFORE-STAIR root order. It is REPLICATED rather than imported because the
-// predicate lives at L7 (apps/editor) and this engine is L2 — which is itself a finding: the
-// generator that SHIPS the layout cannot call the invariant that JUDGES it.
+// The two predicates live in `./helpers/circulationPredicates.ts` (shared with the house +
+// residential arms). `reachability` is a FAITHFUL REPLICA of the production
+// `computeCirculationReachability` — REPLICATED rather than imported because the predicate
+// lives at L7 (apps/editor) and this engine is L2, which is itself a finding: the generator
+// that SHIPS the layout cannot call the invariant that JUDGES it.
 //
 // Reporting only: the assertions pin the harness's COVERAGE and the measured baselines, so a
 // regression is visible. They do not hard-gate the (non-zero) defect rate — that gate is the
@@ -35,96 +34,14 @@ import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalys
 import type {
     ApartmentConstraints, ApartmentProgram, LayoutOption, LayoutRoom, ScoringWeights,
 } from '../src/workflows/apartmentLayout/types.js';
+import {
+    reachability, doorlessRoomNames, type ReachVerdict,
+} from './helpers/circulationPredicates.js';
 
 const CONSTRAINTS: ApartmentConstraints =
     { minCorridorWidth: 900, wallThickness: 100, floorToCeiling: 2700, wallTypeId: '' };
 const WEIGHTS: ScoringWeights =
     { naturalLight: 1, privacy: 1, kitchenWorkflow: 1, corridorEfficiency: 1 };
-
-/** Mirrors REACH_CIRCULATION_TYPES / REACH_SERVED_WITHIN in layoutBubbleGraph.ts. */
-const CIRCULATION_TYPES = new Set(['corridor', 'hall', 'stair', 'landing', 'lobby']);
-const SERVED_WITHIN = new Set(['ensuite', 'enSuite', 'closet', 'wardrobe', 'walkin']);
-
-export interface ReachVerdict {
-    readonly reached: number;
-    readonly total: number;
-    readonly fraction: number;
-    readonly unreachedRoomNames: readonly string[];
-    readonly hasDoorGraph: boolean;
-}
-
-/** FAITHFUL REPLICA of `computeCirculationReachability` (layoutBubbleGraph.ts:736). */
-export function reachability(option: LayoutOption): ReachVerdict {
-    const rooms = (option.rooms ?? []).filter(
-        (r): r is LayoutRoom => !!r && typeof r.name === 'string' && r.name.length > 0,
-    );
-    const hasDoorGraph = rooms.length > 0 && rooms.every(r => Array.isArray(r.doorAdjacentTo));
-    const typeOf = (r: LayoutRoom): string => String(r.type ?? '').toLowerCase();
-    const isCirc = (t: string): boolean => CIRCULATION_TYPES.has(t);
-    const isHabitable = (r: LayoutRoom): boolean =>
-        !isCirc(typeOf(r)) && !SERVED_WITHIN.has(typeOf(r));
-    const habitable = rooms.filter(isHabitable);
-    if (habitable.length === 0) {
-        return { reached: 0, total: 0, fraction: 1, unreachedRoomNames: [], hasDoorGraph };
-    }
-    // §DUP-NAME-SAFE — key by ARRAY INDEX, resolve a referenced name to ALL rooms bearing it.
-    const idxByName = new Map<string, number[]>();
-    rooms.forEach((r, i) => {
-        const a = idxByName.get(r.name); if (a) a.push(i); else idxByName.set(r.name, [i]);
-    });
-    const adj: number[][] = rooms.map(() => []);
-    rooms.forEach((r, i) => {
-        for (const n of ((hasDoorGraph ? r.doorAdjacentTo : r.adjacentTo) ?? [])) {
-            if (typeof n !== 'string') continue;
-            for (const j of (idxByName.get(n) ?? [])) {
-                if (j === i) continue;
-                adj[i]!.push(j); adj[j]!.push(i);
-            }
-        }
-    });
-    // §ROOT-CORRIDOR-BEFORE-STAIR — hall → corridor → stair → any circulation → first room.
-    const sorted = rooms.map((r, i) => ({ r, i }))
-        .sort((a, b) => (a.r.name < b.r.name ? -1 : a.r.name > b.r.name ? 1 : a.i - b.i));
-    const root = sorted.find(x => typeOf(x.r) === 'hall')
-        ?? sorted.find(x => typeOf(x.r) === 'corridor')
-        ?? sorted.find(x => typeOf(x.r) === 'stair')
-        ?? sorted.find(x => isCirc(typeOf(x.r)))
-        ?? sorted[0]!;
-    const seen = new Set<number>([root.i]); const q = [root.i];
-    while (q.length) {
-        const cur = q.shift()!;
-        for (const nb of (adj[cur] ?? []).slice().sort((x, y) => x - y)) {
-            if (!seen.has(nb)) { seen.add(nb); q.push(nb); }
-        }
-    }
-    const unreached: string[] = []; let reached = 0;
-    rooms.forEach((r, i) => {
-        if (!isHabitable(r)) return;
-        if (seen.has(i)) reached += 1; else unreached.push(r.name);
-    });
-    unreached.sort();
-    return {
-        reached, total: habitable.length,
-        fraction: habitable.length === 0 ? 1 : reached / habitable.length,
-        unreachedRoomNames: unreached, hasDoorGraph,
-    };
-}
-
-/**
- * ARM 2 — DOORLESS ROOMS. A strict subset of unreachability that fails DIFFERENTLY and so
- * deserves its own arm: the room has NO realised opening at all (`doorAdjacentTo` empty),
- * i.e. it is a sealed box, not merely badly served. Circulation rooms are included — a
- * corridor with no doors is the founder's "the corridor doesn't reach the bedrooms" in its
- * most literal form. A single-room option is excluded (nothing to connect to).
- */
-export function doorlessRoomNames(option: LayoutOption): readonly string[] {
-    const rooms = option.rooms ?? [];
-    if (rooms.length <= 1) return [];
-    return rooms
-        .filter(r => !Array.isArray(r.doorAdjacentTo) || r.doorAdjacentTo.length === 0)
-        .map(r => r.name)
-        .sort();
-}
 
 /** Deterministic convex-quad plate width×depth with an optional shear (m). No Math.random. */
 function plate(width: number, depth: number, skew: number): Array<{ x: number; z: number }> {
