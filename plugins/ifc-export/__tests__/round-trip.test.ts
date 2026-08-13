@@ -116,7 +116,8 @@ describe('IFC Tier 1 export — round trip', () => {
     expect(counts.windows).toBe(1);
     expect(counts.columns).toBe(1);
     expect(counts.beams).toBe(1);
-    expect(counts.psets).toBe(6);
+    // 6 IFCMetaStore psets + 6 PV-04 PRYZM_ValueProvenance psets (one per element).
+    expect(counts.psets).toBe(12);
     expect(counts.properties).toBeGreaterThanOrEqual(11);
   });
 
@@ -209,7 +210,9 @@ describe('IFC Tier 1 export — round trip', () => {
     const { bytes, counts } = await exportProjectToIFC(snapshot, emptyStore, {
       name: 'fresh-ids',
     });
-    expect(counts.psets).toBe(0);
+    // Even with an empty meta store, every element carries its PV-04
+    // PRYZM_ValueProvenance pset — provenance does not depend on the side-car.
+    expect(counts.psets).toBe(6);
     const parsed = await parseIFC(bytes);
     for (const elements of parsed.byType.values()) {
       for (const e of elements) {

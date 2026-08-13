@@ -31,7 +31,8 @@ import { buildHierarchy } from './hierarchy.js';
 import { mintGlobalId, type GuidProvider } from './guid-provider.js';
 import { buildOwnerHistory } from './owner-history.js';
 import { withSpan } from './otel.js';
-import { writeAllPsets } from './psets.js';
+import { buildProvenancePset, PROVENANCE_PSET_NAME } from './provenance.js';
+import { writeAllPsets, writePset } from './psets.js';
 import type {
   ExportOptions,
   IFCMetaStoreLike,
@@ -98,35 +99,60 @@ export async function exportProjectToIFC(
         propertyCount += r.propertyCount;
       };
 
+      // PV-04 / C75 §5 — every exported element carries its provenance record
+      // across the boundary as a `PRYZM_ValueProvenance` pset. An element with
+      // no record exports UNKNOWN-with-reason, never an invented origin
+      // (§2.1); see `provenance.ts` for the mapping.
+      const stampProvenance = (
+        el: ExportedElement,
+        provenance: Parameters<typeof buildProvenancePset>[0],
+      ) => {
+        const written = writePset(
+          { api, modelId, ownerRefs, element: el.entity, guid, pryzmElementId: el.pryzmId },
+          PROVENANCE_PSET_NAME,
+          buildProvenancePset(provenance),
+        );
+        if (written > 0) {
+          psetCount += 1;
+          propertyCount += written;
+        }
+      };
+
       for (const wall of snapshot.walls ?? []) {
         const el = exportWall({ api, modelId, hierarchy, ownerRefs, metaStore, wall, guid });
         exported.push(el);
         runPsets(el);
+        stampProvenance(el, wall.provenance);
       }
       for (const slab of snapshot.slabs ?? []) {
         const el = exportSlab({ api, modelId, hierarchy, ownerRefs, metaStore, slab, guid });
         exported.push(el);
         runPsets(el);
+        stampProvenance(el, slab.provenance);
       }
       for (const door of snapshot.doors ?? []) {
         const el = exportDoor({ api, modelId, hierarchy, ownerRefs, metaStore, door, guid });
         exported.push(el);
         runPsets(el);
+        stampProvenance(el, door.provenance);
       }
       for (const window of snapshot.windows ?? []) {
         const el = exportWindow({ api, modelId, hierarchy, ownerRefs, metaStore, window, guid });
         exported.push(el);
         runPsets(el);
+        stampProvenance(el, window.provenance);
       }
       for (const column of snapshot.columns ?? []) {
         const el = exportColumn({ api, modelId, hierarchy, ownerRefs, metaStore, column, guid });
         exported.push(el);
         runPsets(el);
+        stampProvenance(el, column.provenance);
       }
       for (const beam of snapshot.beams ?? []) {
         const el = exportBeam({ api, modelId, hierarchy, ownerRefs, metaStore, beam, guid });
         exported.push(el);
         runPsets(el);
+        stampProvenance(el, beam.provenance);
       }
 
       // Group by storey and emit one IfcRelContainedInSpatialStructure per

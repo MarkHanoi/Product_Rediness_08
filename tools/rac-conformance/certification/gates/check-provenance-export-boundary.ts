@@ -326,7 +326,13 @@ const result: GateResult = {
     // that gains the mapping must leave this number in the same commit, or the
     // gate exits 3 STALE (C70 §5.4). It may never be raised to absorb a
     // regression (§5.3).
-    declared: 5,
+    // 5 → 3, 2026-08-13 (PV-04): ifc-export gained the mapping — every exported
+    // element carries a PRYZM_ValueProvenance pset transcribing the L0 record,
+    // an absent record exports as UNKNOWN-with-reason, never one of the five
+    // (plugins/ifc-export/src/provenance.ts). E1/ifc-export cleared; E3
+    // satisfied in the "mapping" branch. Remaining: dxf, export-pdf,
+    // file-format/export.
+    declared: 3,
     findingNames,
 };
 process.exit(reportGate(result));

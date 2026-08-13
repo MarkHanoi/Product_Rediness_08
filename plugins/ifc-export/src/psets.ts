@@ -35,11 +35,11 @@ export interface PsetExportArgs {
 }
 
 export function writeAllPsets(args: PsetExportArgs): { psetCount: number; propertyCount: number } {
-  const { meta } = args;
+  const { meta, ...rest } = args;
   let psetCount = 0;
   let propertyCount = 0;
   for (const [psetName, pset] of Object.entries(meta.psets)) {
-    const written = writeSinglePset(args, psetName, pset);
+    const written = writePset({ ...rest, pryzmElementId: meta.pryzmElementId }, psetName, pset);
     if (written > 0) {
       psetCount += 1;
       propertyCount += written;
@@ -48,8 +48,24 @@ export function writeAllPsets(args: PsetExportArgs): { psetCount: number; proper
   return { psetCount, propertyCount };
 }
 
-function writeSinglePset(args: PsetExportArgs, psetName: string, pset: Pset): number {
-  const { api, modelId, ownerRefs, element, guid, meta } = args;
+export interface SinglePsetExportArgs {
+  api: IfcAPI;
+  modelId: number;
+  ownerRefs: OwnerHistoryRefs;
+  element: EntityRef;
+  pryzmElementId: string;
+  guid: GuidProvider;
+}
+
+/**
+ * Write ONE property set against an element. Exported (rather than kept as the
+ * private body of `writeAllPsets`) so callers with a pset that does not live in
+ * the IFCMetaStore — the PV-04 `PRYZM_ValueProvenance` pset, built from the
+ * element's own L0 `provenance` field — use the identical write path as
+ * round-tripped psets instead of a parallel one.
+ */
+export function writePset(args: SinglePsetExportArgs, psetName: string, pset: Pset): number {
+  const { api, modelId, ownerRefs, element, guid, pryzmElementId } = args;
   return withSpan(
     'pryzm.ifc.export-pset',
     () => {
@@ -95,7 +111,7 @@ function writeSinglePset(args: PsetExportArgs, psetName: string, pset: Pset): nu
       return properties.length;
     },
     {
-      'pryzm.ifc.element_id': meta.pryzmElementId,
+      'pryzm.ifc.element_id': pryzmElementId,
       'pryzm.ifc.pset_name': psetName,
       'pryzm.ifc.property_count': Object.keys(pset).length,
     },

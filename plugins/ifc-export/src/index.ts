@@ -28,6 +28,7 @@ export type {
   PsetValue,
   Qset,
 } from './types.js';
+export { buildProvenancePset, PROVENANCE_PSET_NAME } from './provenance.js';
 export { globalIdFromUuid, deterministicUuid } from './guid.js';
 export { PRYZM_IFC_TRACER } from './otel.js';
 

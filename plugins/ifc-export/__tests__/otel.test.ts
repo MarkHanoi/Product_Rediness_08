@@ -94,9 +94,10 @@ describe('IFC Tier 1 export — OpenTelemetry spans', () => {
       expect(names, `missing span for ${family}`).toContain(`pryzm.ifc.export-${family}`);
     }
 
-    // One Pset span per element (six elements, one Pset each).
+    // Two Pset spans per element: one IFCMetaStore Pset + one PV-04
+    // PRYZM_ValueProvenance pset (six elements each).
     const psetSpans = recorded.filter((s) => s.name === 'pryzm.ifc.export-pset');
-    expect(psetSpans.length).toBe(6);
+    expect(psetSpans.length).toBe(12);
     for (const span of psetSpans) {
       expect(span.attributes['pryzm.ifc.element_id']).toBeTruthy();
       expect(span.attributes['pryzm.ifc.pset_name']).toBeTruthy();
