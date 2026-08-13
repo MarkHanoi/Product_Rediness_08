@@ -308,7 +308,13 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             } else {
                 console.log('[furnish-layout] ceiling.layout-executed → auto-furnishing.');
             }
-            setTimeout(() => runtime.events.emit('furnish.layout-execute', { ceilingOutcome }), 0);
+            // Emit through the untyped narrowing (same as `.on` below): the
+            // `ceilingOutcome` field is ahead of the PryzmEventMap typing in
+            // packages/runtime-composer/src/types.ts (out of L-CHAIN territory).
+            setTimeout(() => {
+                (runtime.events as unknown as { emit?: (k: string, p: unknown) => void } | undefined)
+                    ?.emit?.('furnish.layout-execute', { ceilingOutcome });
+            }, 0);
         };
         /** Read the ceiling outcome off a `ceiling.layout-executed` payload:
          *  prefer an explicit `outcome` stamp, fall back to legacy counts, and

@@ -117,7 +117,13 @@ function wireLightingCascade(runtime: PryzmRuntime): void {
             // the executor can stamp basis/basisDisclosure on its result. `{}`
             // told downstream nothing; a dropped stage must travel WITH its
             // reason (C75 §1.4).
-            setTimeout(() => runtime.events.emit('lighting.layout-execute', { furnishOutcome }), 0);
+            // Emit through the untyped narrowing (same as `.on` below): the
+            // `furnishOutcome` field is ahead of the PryzmEventMap typing in
+            // packages/runtime-composer/src/types.ts (out of L-CHAIN territory).
+            setTimeout(() => {
+                (runtime.events as unknown as { emit?: (k: string, p: unknown) => void } | undefined)
+                    ?.emit?.('lighting.layout-execute', { furnishOutcome });
+            }, 0);
         };
         /** Read the furnish outcome off a `furnish.layout-executed` payload:
          *  prefer the explicit `outcome` stamp (FurnishLayoutExecutor,

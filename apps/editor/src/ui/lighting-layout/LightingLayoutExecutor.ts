@@ -83,6 +83,15 @@ export class LightingLayoutExecutor {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };
+        // §FURNISH-DROP-SURFACING — the emitted payload carries basis/
+        // basisDisclosure, AHEAD of the `PryzmEventMap['lighting.layout-executed']`
+        // typing in packages/runtime-composer/src/types.ts. Extending that map is
+        // outside this lane's territory (L-CHAIN); until it lands, emit through
+        // the same untyped narrowing this file already uses for `.on`.
+        const emitExecuted = (payload: unknown): void => {
+            (runtime.events as unknown as { emit?: (k: string, p: unknown) => void } | undefined)
+                ?.emit?.('lighting.layout-executed', payload);
+        };
         try {
             const level = resolveActiveLevel();
             if (!level?.id) { toast('No active level — open a project first.', 'error'); return; }
@@ -143,7 +152,7 @@ export class LightingLayoutExecutor {
                 // buildLightingCommands over an empty placement is pure and only
                 // computes the stamp (zero commands).
                 const emptySet = buildLightingCommands([], level.id, () => createId('lighting'), furnishOutcome);
-                runtime.events.emit('lighting.layout-executed', {
+                emitExecuted({
                     placedCount: 0, roomCount: allRooms.length, levelId: level.id,
                     basis: emptySet.basis, basisDisclosure: emptySet.basisDisclosure,
                 });
@@ -199,7 +208,7 @@ export class LightingLayoutExecutor {
                     return;
                 }
 
-                runtime.events.emit('lighting.layout-executed', {
+                emitExecuted({
                     placedCount: set.commands.length,
                     roomCount: allRooms.length,
                     levelId: level.id,

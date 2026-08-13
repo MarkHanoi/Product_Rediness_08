@@ -53,15 +53,15 @@ function makeRuntime() {
     };
     const runtime = { events, bus: { executeCommand: () => undefined } } as unknown as
         import('@pryzm/runtime-composer').PryzmRuntime;
-    return { runtime, fired };
+    return { runtime, events, fired };
 }
 
 async function freshInstall() {
     vi.resetModules();
     const mod = await import('./lightingLayoutTrigger.js');
-    const { runtime, fired } = makeRuntime();
+    const { runtime, events, fired } = makeRuntime();
     mod.installLightingLayoutTrigger(runtime);
-    return { runtime, fired };
+    return { runtime, events, fired };
 }
 
 const FALLBACK_MS = 12_000;
@@ -75,9 +75,9 @@ describe('lightingLayoutTrigger — outcome carrying + §CHAIN-TIMEOUT double-fi
     afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
     it('furnish-event path: the fired payload carries the completed outcome from the furnish payload', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('ceiling.layout-executed', {});
-        runtime.events.emit('furnish.layout-executed', {
+        const { events, fired } = await freshInstall();
+        events.emit('ceiling.layout-executed', {});
+        events.emit('furnish.layout-executed', {
             placedCount: 24, roomCount: 6, levelId: 'L1',
             outcome: { state: 'completed', placedCount: 24, roomCount: 6 },
         });
@@ -88,8 +88,8 @@ describe('lightingLayoutTrigger — outcome carrying + §CHAIN-TIMEOUT double-fi
     });
 
     it('legacy furnish payload (counts, no outcome field) still yields a completed outcome', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('furnish.layout-executed', { placedCount: 7, roomCount: 3, levelId: 'L1' });
+        const { events, fired } = await freshInstall();
+        events.emit('furnish.layout-executed', { placedCount: 7, roomCount: 3, levelId: 'L1' });
         vi.advanceTimersByTime(1);
 
         expect(fired.length).toBe(1);
@@ -99,8 +99,8 @@ describe('lightingLayoutTrigger — outcome carrying + §CHAIN-TIMEOUT double-fi
     });
 
     it('a DROPPED furnish outcome (executor failure path) is forwarded verbatim', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('furnish.layout-executed', {
+        const { events, fired } = await freshInstall();
+        events.emit('furnish.layout-executed', {
             placedCount: 0, roomCount: 4, levelId: 'L1',
             outcome: { state: 'dropped', reason: 'furniture.batch.create runBatch threw: batch exploded' },
         });
@@ -113,8 +113,8 @@ describe('lightingLayoutTrigger — outcome carrying + §CHAIN-TIMEOUT double-fi
     });
 
     it('fallback-timeout path: the fired payload carries dropped + the §CHAIN-TIMEOUT reason', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('ceiling.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('ceiling.layout-executed', {});
         vi.advanceTimersByTime(FALLBACK_MS); // fallback fires
         vi.advanceTimersByTime(1);           // emit macrotask
 
@@ -126,14 +126,14 @@ describe('lightingLayoutTrigger — outcome carrying + §CHAIN-TIMEOUT double-fi
     });
 
     it('DOUBLE-FIRE guard: slow furnish (late event AFTER the fallback fired) lights EXACTLY once', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('ceiling.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('ceiling.layout-executed', {});
         vi.advanceTimersByTime(FALLBACK_MS);
         vi.advanceTimersByTime(1);
         expect(fired.length).toBe(1); // the fallback firing
 
         // Furnish finally completes at ~20 s — must NOT re-fire lighting.
-        runtime.events.emit('furnish.layout-executed', {
+        events.emit('furnish.layout-executed', {
             placedCount: 24, roomCount: 6, levelId: 'L1',
             outcome: { state: 'completed', placedCount: 24, roomCount: 6 },
         });
@@ -143,34 +143,34 @@ describe('lightingLayoutTrigger — outcome carrying + §CHAIN-TIMEOUT double-fi
     });
 
     it('§FURNISH-ALWAYS-LIGHTS preserved: a genuinely NEW furnish run after the swallowed late event still lights', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('ceiling.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('ceiling.layout-executed', {});
         vi.advanceTimersByTime(FALLBACK_MS);
         vi.advanceTimersByTime(1);
-        runtime.events.emit('furnish.layout-executed', { placedCount: 24, roomCount: 6 }); // late — swallowed
+        events.emit('furnish.layout-executed', { placedCount: 24, roomCount: 6 }); // late — swallowed
         vi.advanceTimersByTime(1);
         expect(fired.length).toBe(1);
 
         // User clicks "Furnish all rooms (AI)" again — a NEW run: must light.
-        runtime.events.emit('furnish.layout-executed', { placedCount: 24, roomCount: 6 });
+        events.emit('furnish.layout-executed', { placedCount: 24, roomCount: 6 });
         vi.advanceTimersByTime(1);
         expect(fired.length).toBe(2);
     });
 
     it('§FURNISH-ALWAYS-LIGHTS preserved: two direct furnish runs (no ceiling, no timeout) light twice', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('furnish.layout-executed', { placedCount: 5, roomCount: 2 });
+        const { events, fired } = await freshInstall();
+        events.emit('furnish.layout-executed', { placedCount: 5, roomCount: 2 });
         vi.advanceTimersByTime(1);
-        runtime.events.emit('furnish.layout-executed', { placedCount: 5, roomCount: 2 });
+        events.emit('furnish.layout-executed', { placedCount: 5, roomCount: 2 });
         vi.advanceTimersByTime(1);
         expect(fired.length).toBe(2);
     });
 
     it('fast furnish before the fallback: exactly one firing, completed outcome, timer cancelled', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('ceiling.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('ceiling.layout-executed', {});
         vi.advanceTimersByTime(3000);
-        runtime.events.emit('furnish.layout-executed', {
+        events.emit('furnish.layout-executed', {
             placedCount: 10, roomCount: 4,
             outcome: { state: 'completed', placedCount: 10, roomCount: 4 },
         });

@@ -109,7 +109,7 @@ function makeRuntime() {
     };
     const bus = { executeCommand: (_c: string, _p: unknown): unknown => undefined };
     const runtime = { events, bus } as unknown as Parameters<LightingLayoutExecutor['attach']>[0];
-    return { runtime, executed, toasts };
+    return { runtime, events, executed, toasts };
 }
 
 const ROOMS = [
@@ -126,10 +126,10 @@ describe('LightingLayoutExecutor — basis surfacing (§FURNISH-DROP-SURFACING e
     });
 
     it('completed furnish → basis "furnished", null disclosure, SUCCESS toast (unchanged happy path)', () => {
-        const { runtime, executed, toasts } = makeRuntime();
+        const { runtime, events, executed, toasts } = makeRuntime();
         const exec = new LightingLayoutExecutor();
         exec.attach(runtime);
-        runtime.events.emit('lighting.layout-execute', {
+        events.emit('lighting.layout-execute', {
             furnishOutcome: { state: 'completed', placedCount: 24, roomCount: 6 },
         });
 
@@ -144,10 +144,10 @@ describe('LightingLayoutExecutor — basis surfacing (§FURNISH-DROP-SURFACING e
     });
 
     it('DROPPED furnish → basis "unfurnished" on the payload AND the toast is a WARN carrying the disclosure', () => {
-        const { runtime, executed, toasts } = makeRuntime();
+        const { runtime, events, executed, toasts } = makeRuntime();
         const exec = new LightingLayoutExecutor();
         exec.attach(runtime);
-        runtime.events.emit('lighting.layout-execute', {
+        events.emit('lighting.layout-execute', {
             furnishOutcome: {
                 state: 'dropped',
                 reason: 'no furnish.layout-executed within 12000 ms (§CHAIN-TIMEOUT fallback fired)',
@@ -169,10 +169,10 @@ describe('LightingLayoutExecutor — basis surfacing (§FURNISH-DROP-SURFACING e
     });
 
     it('NO outcome on the payload (manual pryzmLightAllRooms) → unfurnished-with-reason, never a silent pass (C70 §2.2)', () => {
-        const { runtime, executed, toasts } = makeRuntime();
+        const { runtime, events, executed, toasts } = makeRuntime();
         const exec = new LightingLayoutExecutor();
         exec.attach(runtime);
-        runtime.events.emit('lighting.layout-execute', {});
+        events.emit('lighting.layout-execute', {});
 
         expect(executed.length).toBe(1);
         expect(executed[0]!.basis).toBe('unfurnished');
@@ -182,10 +182,10 @@ describe('LightingLayoutExecutor — basis surfacing (§FURNISH-DROP-SURFACING e
     });
 
     it('furnished-but-ZERO-items → basis "furnished" with the zero disclosed on payload and toast (C75 §1.2)', () => {
-        const { runtime, executed, toasts } = makeRuntime();
+        const { runtime, events, executed, toasts } = makeRuntime();
         const exec = new LightingLayoutExecutor();
         exec.attach(runtime);
-        runtime.events.emit('lighting.layout-execute', {
+        events.emit('lighting.layout-execute', {
             furnishOutcome: { state: 'completed', placedCount: 0, roomCount: 3 },
         });
 
@@ -200,11 +200,11 @@ describe('LightingLayoutExecutor — basis surfacing (§FURNISH-DROP-SURFACING e
     });
 
     it('zero-fixtures early path ALSO carries the basis stamp (no path renders unstamped)', () => {
-        const { runtime, executed } = makeRuntime();
+        const { runtime, events, executed } = makeRuntime();
         h.state.lightsPerRoom = 0; // no room matches an archetype
         const exec = new LightingLayoutExecutor();
         exec.attach(runtime);
-        runtime.events.emit('lighting.layout-execute', {
+        events.emit('lighting.layout-execute', {
             furnishOutcome: { state: 'dropped', reason: 'furnish execute failed: boom' },
         });
 

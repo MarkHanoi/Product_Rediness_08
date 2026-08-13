@@ -67,15 +67,15 @@ function makeRuntime() {
     };
     const runtime = { events, bus: { executeCommand: () => undefined } } as unknown as
         import('@pryzm/runtime-composer').PryzmRuntime;
-    return { runtime, fired };
+    return { runtime, events, fired };
 }
 
 async function freshInstall() {
     vi.resetModules();
     const mod = await import('./furnishLayoutTrigger.js');
-    const { runtime, fired } = makeRuntime();
+    const { runtime, events, fired } = makeRuntime();
     mod.installFurnishLayoutTrigger(runtime);
-    return { runtime, fired };
+    return { runtime, events, fired };
 }
 
 const FALLBACK_MS = 12_000;
@@ -89,9 +89,9 @@ describe('furnishLayoutTrigger — ceiling outcome carrying + §CHAIN-TIMEOUT do
     afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
     it('ceiling-event path: the fired payload carries the completed ceiling outcome', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('apartment.layout-executed', {});
-        runtime.events.emit('ceiling.layout-executed', {
+        const { events, fired } = await freshInstall();
+        events.emit('apartment.layout-executed', {});
+        events.emit('ceiling.layout-executed', {
             placedCount: 12, roomCount: 6, levelId: 'L1',
             outcome: { state: 'completed', placedCount: 12, roomCount: 6 },
         });
@@ -102,9 +102,9 @@ describe('furnishLayoutTrigger — ceiling outcome carrying + §CHAIN-TIMEOUT do
     });
 
     it('legacy ceiling payload (counts, no outcome field) still yields a completed outcome', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('apartment.layout-executed', {});
-        runtime.events.emit('ceiling.layout-executed', { placedCount: 8, roomCount: 4 });
+        const { events, fired } = await freshInstall();
+        events.emit('apartment.layout-executed', {});
+        events.emit('ceiling.layout-executed', { placedCount: 8, roomCount: 4 });
         vi.advanceTimersByTime(1);
 
         expect(fired.length).toBe(1);
@@ -114,9 +114,9 @@ describe('furnishLayoutTrigger — ceiling outcome carrying + §CHAIN-TIMEOUT do
     });
 
     it('a ceiling payload that says nothing yields NO fabricated outcome (undefined, not a fake completed)', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('apartment.layout-executed', {});
-        runtime.events.emit('ceiling.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('apartment.layout-executed', {});
+        events.emit('ceiling.layout-executed', {});
         vi.advanceTimersByTime(1);
 
         expect(fired.length).toBe(1);
@@ -124,8 +124,8 @@ describe('furnishLayoutTrigger — ceiling outcome carrying + §CHAIN-TIMEOUT do
     });
 
     it('fallback-timeout path: the fired payload carries dropped + the §CHAIN-TIMEOUT reason', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('apartment.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('apartment.layout-executed', {});
         vi.advanceTimersByTime(FALLBACK_MS);
         vi.advanceTimersByTime(1);
 
@@ -137,14 +137,14 @@ describe('furnishLayoutTrigger — ceiling outcome carrying + §CHAIN-TIMEOUT do
     });
 
     it('DOUBLE-FIRE lock: a slow ceiling (late event AFTER the fallback fired) furnishes EXACTLY once', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('apartment.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('apartment.layout-executed', {});
         vi.advanceTimersByTime(FALLBACK_MS);
         vi.advanceTimersByTime(1);
         expect(fired.length).toBe(1); // the fallback firing
 
         // Ceiling finally completes at ~20 s — must NOT re-fire furnish.
-        runtime.events.emit('ceiling.layout-executed', {
+        events.emit('ceiling.layout-executed', {
             placedCount: 12, roomCount: 6,
             outcome: { state: 'completed', placedCount: 12, roomCount: 6 },
         });
@@ -154,15 +154,15 @@ describe('furnishLayoutTrigger — ceiling outcome carrying + §CHAIN-TIMEOUT do
     });
 
     it('a NEW apartment run after a timed-out one re-arms and furnishes again (reset not broken by the lock)', async () => {
-        const { runtime, fired } = await freshInstall();
-        runtime.events.emit('apartment.layout-executed', {});
+        const { events, fired } = await freshInstall();
+        events.emit('apartment.layout-executed', {});
         vi.advanceTimersByTime(FALLBACK_MS);
         vi.advanceTimersByTime(1);
         expect(fired.length).toBe(1);
 
         // Fresh apartment build → fresh chain: ceiling completes normally.
-        runtime.events.emit('apartment.layout-executed', {});
-        runtime.events.emit('ceiling.layout-executed', {
+        events.emit('apartment.layout-executed', {});
+        events.emit('ceiling.layout-executed', {
             outcome: { state: 'completed', placedCount: 9, roomCount: 5 },
         });
         vi.advanceTimersByTime(1);
