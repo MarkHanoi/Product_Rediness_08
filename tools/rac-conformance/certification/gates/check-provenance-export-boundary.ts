@@ -332,7 +332,12 @@ const result: GateResult = {
     // (plugins/ifc-export/src/provenance.ts). E1/ifc-export cleared; E3
     // satisfied in the "mapping" branch. Remaining: dxf, export-pdf,
     // file-format/export.
-    declared: 3,
+    // 3 → 2, 2026-08-13 (PV-04): file-format/export gained the §7.7 form —
+    // provenanceAbsence.ts records the ValueProvenance mapping ABSENT by name
+    // per format (dxf/pdf/glb/ifc-legacy) and injects the statement into the
+    // artefacts themselves (DXF 999 comments, PDF metadata). Nothing there
+    // mints an origin. Remaining: the dxf and export-pdf plugin shells.
+    declared: 2,
     findingNames,
 };
 process.exit(reportGate(result));

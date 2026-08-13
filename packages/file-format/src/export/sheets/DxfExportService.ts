@@ -59,6 +59,7 @@ import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { annotationDxfBridge, AnnotationDxfBridgeOptions } from './AnnotationDxfBridge';
 import { PocheFillBuilder } from '@pryzm/core-app-model/views';
 import { HatchPatternLibrary }       from './HatchPatternLibrary';
+import { withDxfProvenanceAbsence }  from '../provenanceAbsence';
 import type { VGCategoryStyle }      from '@pryzm/core-app-model';
 import { TechnicalDrawingBounds } from '@pryzm/core-app-model/views';
 
@@ -277,6 +278,11 @@ class DxfExportServiceImpl {
         if (this._hatchStyleProvider) {
             dxfString = this._injectHatchEntities(dxfString, resolvedViewports);
         }
+
+        // PV-04 / C75 §7.7 — DXF carries no ValueProvenance mapping; the
+        // absence is recorded BY NAME inside the artefact (999 comments)
+        // rather than silently stripped. See export/provenanceAbsence.ts.
+        dxfString = withDxfProvenanceAbsence(dxfString);
 
         const filename = `${sheet.sheetNumber}-${sheet.name.replace(/\s+/g, '_')}.dxf`;
         this._triggerDownload(dxfString, filename, 'application/dxf');

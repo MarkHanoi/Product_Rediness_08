@@ -41,6 +41,7 @@ import { titleBlockStore } from '@pryzm/core-app-model/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { annotationStore }           from '@pryzm/plugin-annotations';
 import { SVGCompositeRenderer }      from './SVGCompositeRenderer';
+import { applyPdfProvenanceAbsence } from '../provenanceAbsence';
 import { TechnicalDrawingBounds } from '@pryzm/core-app-model/views';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -228,6 +229,11 @@ class PdfExportServiceImpl {
 
         // ── Title block fields ─────────────────────────────────────────────────
         this._drawTitleBlock(pdf, sheet, template, pW, pH);
+
+        // PV-04 / C75 §7.7 — a flattened sheet PDF carries no ValueProvenance
+        // mapping; the absence is recorded BY NAME in the document metadata
+        // rather than silently stripped. See export/provenanceAbsence.ts.
+        applyPdfProvenanceAbsence(pdf);
 
         // ── Save / Download ────────────────────────────────────────────────────
         const filename = `${sheet.sheetNumber}-${sheet.name.replace(/\s+/g, '_')}.pdf`;
