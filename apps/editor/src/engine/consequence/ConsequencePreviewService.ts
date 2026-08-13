@@ -92,6 +92,90 @@ export function normalizeToWallMove(command: PreviewCommand): WallMoveCommand | 
   return null;
 }
 
+// ─── The GENERIC normaliser registry (C78 §5 · U-INV-5) ───────────────────────────────
+//
+// §PLANNER-REGISTRY-GENERIC (2026-08-13). `normalizeToWallMove` above is a PER-VERB
+// function, and until now it was the only normaliser the three composition roots had.
+// That made the whole consequence surface structurally single-family: a second planner
+// could be put in the `planners` map and would STILL be unreachable, because every entry
+// point funnelled through a function that returns `null` for any verb that is not
+// `wall.move` / `wall.updateBaseline`. That is exactly U-INV-5's defect — a registry
+// whose genericity is nominal because the lookup ahead of it is hard-coded — and it is
+// why the Phase 6c `wall.create` planner sat authored-but-unreachable (C70 §4.2).
+//
+// The fix is a MAP from bus verb → semantic command, not a second `if`. Adding the third
+// row of the golden-operation matrix (`opening.move`) is then a map entry plus a planner,
+// with NO edit to any service: the services below take the map and know no verb names.
+//
+// Each rule returns `null` on a payload it cannot form a semantic command from. `null`
+// remains a first-class answer meaning "this verb is not one I normalise", and the
+// executor already distinguishes it from "no planner registered" via the typed
+// `no-normalizer-for-verb` / `no-planner-registered` sub-reasons — that distinction is
+// preserved unchanged and is what keeps a capability gap from printing as staleness.
+
+/** A semantic command as the registry produces it: a canonical planner key + payload. */
+export interface SemanticCommand {
+  readonly type: string;
+  readonly payload: unknown;
+}
+
+/** One normalisation rule: a dispatched command → a semantic command, or `null`. */
+export type NormalizerRule = (command: PreviewCommand) => SemanticCommand | null;
+
+/**
+ * Map a dispatched `wall.create` onto the semantic `wall.create` command the Phase 6c
+ * planner answers for (`WallCreateConsequencePlanner.WallCreateCommand`).
+ *
+ * The bus verb and the semantic verb are the SAME here — unlike wall.move, whose live
+ * verb is `wall.updateBaseline` — so this rule is a VALIDATING pass-through rather than
+ * a rename. It is still a rule and not a special case in the service, because the
+ * validation is real: the planner's contract distinguishes "no baseLine supplied"
+ * (a typed UNDETERMINED it handles internally) from "not a create payload at all".
+ *
+ * Deliberately PERMISSIVE about missing fields: `CreateWallPayload` makes every field
+ * optional (`Wall.parse({})` is a valid wall), and the planner already answers the
+ * no-baseLine case with a typed UNDETERMINED rather than a crash. Rejecting here would
+ * turn a question the planner CAN answer into a silent `null` — the failure-as-emptiness
+ * defect, moved one layer upstream. Only a structurally absent payload is refused.
+ */
+export function normalizeToWallCreate(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'wall.create') return null;
+  const p = command.payload;
+  if (p === null || p === undefined || typeof p !== 'object') return null;
+  return { type: 'wall.create', payload: p };
+}
+
+/**
+ * THE canonical normaliser registry — bus verb → rule. The three composition roots share
+ * this ONE map, for the same reason preview and execute shared ONE normaliser function
+ * before it: two registries would let preview and execute form different semantic
+ * commands for one dispatch (the G-REASON-03 divergence class).
+ */
+export const CONSEQUENCE_NORMALIZERS: ReadonlyMap<string, NormalizerRule> = new Map<
+  string,
+  NormalizerRule
+>([
+  ['wall.move', normalizeToWallMove],
+  ['wall.updateBaseline', normalizeToWallMove],
+  ['wall.create', normalizeToWallCreate],
+]);
+
+/**
+ * The GENERIC normalise entry point. Looks the verb up in `registry` and applies its
+ * rule; unknown verbs answer `null` exactly as the per-verb function did, so the typed
+ * `no-normalizer-for-verb` path downstream is unchanged.
+ *
+ * The registry is a PARAMETER with a default so tests can drive a narrower or wider set
+ * without mutating module state — the same injection discipline every other collaborator
+ * in this subsystem follows.
+ */
+export function normalizeConsequenceCommand(
+  command: PreviewCommand,
+  registry: ReadonlyMap<string, NormalizerRule> = CONSEQUENCE_NORMALIZERS,
+): SemanticCommand | null {
+  return registry.get(command.type)?.(command) ?? null;
+}
+
 export class ConsequencePreviewService implements ConsequencePreviewProvider {
   /**
    * @param planners      keyed by the CANONICAL (semantic) command type, e.g. `'wall.move'`.
@@ -99,9 +183,28 @@ export class ConsequencePreviewService implements ConsequencePreviewProvider {
    *                      the live stores at the moment of preview — the planner never
    *                      reaches for globals; the caller supplies the views (consequence.ts).
    */
+  /**
+   * @param planners   keyed by the CANONICAL (semantic) command type, e.g. `'wall.move'`,
+   *                   `'wall.create'`. The value type is `ConsequencePlanner<never>` —
+   *                   the FAMILY-AGNOSTIC form. It used to be
+   *                   `ConsequencePlanner<WallMoveCommand>`, which made the map's key
+   *                   generic but its VALUE single-family: a `wall.create` planner could
+   *                   not be put in it without a cast, and the commit that authored one
+   *                   declared exactly this as its blocker. `never` is the correct
+   *                   variance here — a planner accepting `never` accepts whatever its
+   *                   own normaliser rule produced, and the pairing of rule↔planner (not
+   *                   the map's type) is what keeps them in step.
+   * @param context    a factory that materialises the read-only `PlanningContext` from
+   *                   the live stores at the moment of preview — the planner never
+   *                   reaches for globals; the caller supplies the views (consequence.ts).
+   * @param normalizers the bus-verb → semantic-command registry. Injected (default:
+   *                   {@link CONSEQUENCE_NORMALIZERS}) so this service hard-codes NO verb
+   *                   name at all — C78 §5 / U-INV-5.
+   */
   constructor(
-    private readonly planners: ReadonlyMap<string, ConsequencePlanner<WallMoveCommand>>,
+    private readonly planners: ReadonlyMap<string, ConsequencePlanner<never>>,
     private readonly context: () => PlanningContext,
+    private readonly normalizers: ReadonlyMap<string, NormalizerRule> = CONSEQUENCE_NORMALIZERS,
   ) {}
 
   async preview(command: PreviewCommand): Promise<ConsequencePlan | null> {
@@ -112,11 +215,11 @@ export class ConsequencePreviewService implements ConsequencePreviewProvider {
     // The ONE call. `plan()` is contractually pure (G-REASON-01): no dispatch, no bus, no
     // store write, no event, no undo push. This service adds nothing on top — it routes
     // and returns. That is the whole reason preview is not an `executeCommand` mode.
-    return planner.plan(normalized, this.context());
+    return planner.plan(normalized as never, this.context());
   }
 
-  /** Delegates to the module-level {@link normalizeToWallMove} — ONE rule, two consumers. */
-  private normalize(command: PreviewCommand): WallMoveCommand | null {
-    return normalizeToWallMove(command);
+  /** Delegates to the module-level GENERIC normaliser — ONE rule set, three consumers. */
+  private normalize(command: PreviewCommand): SemanticCommand | null {
+    return normalizeConsequenceCommand(command, this.normalizers);
   }
 }

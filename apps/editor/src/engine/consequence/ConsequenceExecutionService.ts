@@ -64,9 +64,13 @@ import type {
 // this import is not erased. It is the one place the parent of a sub-reason may be
 // decided: hand-writing the parent here would let the two drift silently.
 import { newGestureId, withGestureId, UNDETERMINED_SUB_REASON_PARENT } from '@pryzm/command-bus';
-import type { WallMoveCommand } from './WallMoveConsequencePlanner.js';
 import { stableStringify } from './WallMoveConsequencePlanner.js';
-import { normalizeToWallMove, type PreviewCommand } from './ConsequencePreviewService.js';
+import {
+  normalizeConsequenceCommand,
+  CONSEQUENCE_NORMALIZERS,
+  type NormalizerRule,
+  type PreviewCommand,
+} from './ConsequencePreviewService.js';
 
 // ─── Injected collaborators ──────────────────────────────────────────────────────────
 
@@ -94,10 +98,22 @@ export type ViolationSnapshotter = () => readonly ViolationRef[];
 
 export interface ConsequenceExecutionDeps {
   readonly bus: ConsequenceDispatcher;
-  /** Keyed by the CANONICAL semantic type (`'wall.move'`), same map shape as preview. */
-  readonly planners: ReadonlyMap<string, ConsequencePlanner<WallMoveCommand>>;
+  /**
+   * Keyed by the CANONICAL semantic type (`'wall.move'`, `'wall.create'`), same map shape
+   * AND same family-agnostic value type as preview. `never` rather than `WallMoveCommand`
+   * — see the ConsequencePreviewService constructor doc for why that widening was the
+   * blocker that kept the Phase 6c create planner unreachable.
+   */
+  readonly planners: ReadonlyMap<string, ConsequencePlanner<never>>;
   /** Materialises the read-only views over the LIVE stores at call time. */
   readonly context: () => PlanningContext;
+  /**
+   * §PLANNER-REGISTRY-GENERIC — the bus-verb → semantic-command registry, injected so
+   * this service names NO verb. Defaults to the shared `CONSEQUENCE_NORMALIZERS`, which
+   * is the SAME map preview and the confirmation flow use: one rule set, three consumers,
+   * so a dispatch cannot normalise differently depending on which surface saw it.
+   */
+  readonly normalizers?: ReadonlyMap<string, NormalizerRule>;
   /**
    * Store families the independent read-back fingerprints. Defaults to the five the
    * wall.move planner reasons over — read-back must cover at least the plan's own
@@ -262,12 +278,15 @@ export class ConsequenceExecutionService {
       | undefined;
 
     if (supplied) {
-      const semantic = normalizeToWallMove(command);
+      const semantic = normalizeConsequenceCommand(
+        command,
+        this.deps.normalizers ?? CONSEQUENCE_NORMALIZERS,
+      );
       const planner = semantic ? this.deps.planners.get(semantic.type) : undefined;
       if (semantic && planner) {
         // Re-compute over the LIVE pre-state with the SAME planner (pure, so this
         // is a read). Hash equality ⇒ nothing the planner can see has moved.
-        const livePlan = await planner.plan(semantic, this.deps.context());
+        const livePlan = await planner.plan(semantic as never, this.deps.context());
         if (livePlan.planHash === supplied.planHash) {
           bound = supplied;
         } else {

@@ -30,10 +30,11 @@
 // (check-consequence-report-completeness) drives the real view; it does not claim a
 // production trigger it does not have.
 
-import type { ConsequencePlanner, PredictedGeometry, MetricTransition } from '@pryzm/command-bus';
-import type { WallMoveCommand } from './WallMoveConsequencePlanner.js';
-import { createWallMoveConsequencePlanner } from './wallMovePlannerComposition.js';
-import { buildPlanningContext } from './consequencePreviewServiceComposition.js';
+import type { PredictedGeometry, MetricTransition } from '@pryzm/command-bus';
+import {
+  buildPlanningContext,
+  createConsequencePlanners,
+} from './consequencePreviewServiceComposition.js';
 import {
   ConsequenceExecutionService,
   type ConsequenceDispatcher,
@@ -65,11 +66,12 @@ export function createConsequenceExecutionService(
   bus: ConsequenceDispatcher,
   sink?: ConsequenceSink,
 ): ConsequenceExecutionService {
-  const planners = new Map<string, ConsequencePlanner<WallMoveCommand>>();
-  planners.set('wall.move', createWallMoveConsequencePlanner());
   return new ConsequenceExecutionService({
     bus,
-    planners,
+    // The SHARED registry (preview + execute + confirm register identically — one factory,
+    // so a family cannot be reachable on one surface and missing on another). Carries
+    // `wall.move` AND, since 2026-08-13, the Phase 6c `wall.create` planner.
+    planners: createConsequencePlanners(),
     context: buildPlanningContext,
     // SAFE MODE ROOM RESHAPE — preview and execution now share ONE algorithm.
     applyPredictedRoomGeometry: createPredictedRoomGeometryApplier(),

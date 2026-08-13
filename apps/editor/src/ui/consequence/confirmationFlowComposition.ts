@@ -27,10 +27,11 @@
 
 import type { ConsequencePlanner, PlanningContext } from '@pryzm/command-bus';
 import type { PreviewCommand } from '@app/engine/consequence/ConsequencePreviewService';
-import { normalizeToWallMove } from '@app/engine/consequence/ConsequencePreviewService';
-import type { WallMoveCommand } from '@app/engine/consequence/WallMoveConsequencePlanner';
-import { createWallMoveConsequencePlanner } from '@app/engine/consequence/wallMovePlannerComposition';
-import { buildPlanningContext } from '@app/engine/consequence/consequencePreviewServiceComposition';
+import { normalizeConsequenceCommand } from '@app/engine/consequence/ConsequencePreviewService';
+import {
+    buildPlanningContext,
+    createConsequencePlanners,
+} from '@app/engine/consequence/consequencePreviewServiceComposition';
 import { createConsequenceExecutionServiceWithReportView } from '@app/engine/consequence/consequenceExecutionServiceComposition';
 import type {
     ConsequenceDispatcher,
@@ -58,8 +59,9 @@ let _executor: ConsequenceExecutionService | null = null;
 export function getConfirmationFlow(bus: ConsequenceDispatcher): ConfirmationFlow {
     if (_flow) return _flow;
 
-    const planners = new Map<string, ConsequencePlanner<WallMoveCommand>>();
-    planners.set('wall.move', createWallMoveConsequencePlanner());
+    // The SHARED registry — the same factory preview and execution use, so all three
+    // surfaces reason about the same families. Carries `wall.move` and `wall.create`.
+    const planners = createConsequencePlanners();
 
     // The R4 executor with the R5 report view as its sink: confirming a plan therefore ends
     // in a rendered predicted-vs-actual report. Confirm and report are the same loop.
@@ -72,8 +74,12 @@ export function getConfirmationFlow(bus: ConsequenceDispatcher): ConfirmationFlo
     _card = card;
 
     const flow = new ConfirmationFlow({
-        planners: planners as unknown as ReadonlyMap<string, ConsequencePlanner<never>>,
-        normalize: (c: PreviewCommand) => normalizeToWallMove(c),
+        planners: planners as ReadonlyMap<string, ConsequencePlanner<never>>,
+        // The GENERIC normaliser (§PLANNER-REGISTRY-GENERIC): a map lookup over the ONE
+        // shared rule set, not a hard-coded wall.move call. This was the chokepoint that
+        // made the registry's genericity nominal — a `wall.create` planner in the map was
+        // still unreachable while every surface funnelled through a move-only function.
+        normalize: (c: PreviewCommand) => normalizeConsequenceCommand(c),
         context: (): PlanningContext => buildPlanningContext(),
         executor: service,
         prompt: card,
