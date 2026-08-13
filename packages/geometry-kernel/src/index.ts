@@ -63,6 +63,17 @@ export {
   type OffsetResult,
   type Pt2,
 } from './pure/polygonOffset.js';
+// §C73-PIP-CANONICAL — THE point-in-polygon. One even-odd ray-cast body for the
+// whole repo; every consumer delegates here instead of minting a private copy
+// (gated by `tools/ga-gate/check-predicate-canonical.ts`; semantics — half-open
+// boundary, no divide guard, <3 vertices reads false — decided on the record in
+// the module header per C73 §3.7).
+export {
+  pointInRingEvenOdd,
+  pointInPolygonXZ,
+  pointInPolygonXY,
+  type RingOrdinateAt,
+} from './pure/pointInPolygon.js';
 // §W2A-ROOF-FORM-HONESTY — the PRE-FLIGHT, exported so a command handler can
 // refuse IN FRONT OF THE USER before committing, instead of the user discovering
 // afterwards that the mansard they asked for was built as a hip.

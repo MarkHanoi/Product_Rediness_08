@@ -91,10 +91,12 @@
  *  C1 *(ratchet, named, per family)*  non-canonical body count, pinned at the
  *      measured reading, shrink-only, listed by file:line.
  *  C2 *(hard)*  each family names its canonical file and its exclusions
- *      individually with reasons (C73 §3.3). RED for point-in-polygon today:
- *      THERE IS NO CANONICAL FILE — see CANONICAL below. The gate lands anyway
- *      (gates doc §2.3): deferring a gate until its subject is fixed is how a
- *      subject stays unfixed.
+ *      individually with reasons (C73 §3.3). Point-in-polygon's canonical file
+ *      was named by the collapse PR (see the FAMILIES entry):
+ *      `packages/geometry-kernel/src/pure/pointInPolygon.ts`. C2 now also
+ *      asserts the canonical file's INTEGRITY — it must hold EXACTLY ONE
+ *      production body: 0 means the collapse is fiction, ≥2 means a rival was
+ *      minted inside the one file no outside ratchet watches.
  *  C3 *(hard)*  within ONE file, no family may appear twice with DIFFERING
  *      degenerate-divide guards (C73 §2.4) — the CesiumViewport finding,
  *      generalised. This is the arm that measures ACTIVE DISAGREEMENT rather
@@ -235,16 +237,31 @@ const FAMILIES: readonly Family[] = [
   {
     id: 'point-in-polygon',
     what: 'even-odd ray cast (vertical straddle + edge x-interpolation)',
-    // ⚠ RED. C73 §3.1 names point-in-polygon as the family with the most
-    // duplication (61 bodies) and §0.2 records that TWO rival "shared"
-    // implementations already exist with three consumers between them — both
-    // written to end the duplication, neither of which did. Naming one of them
-    // canonical HERE, in a gate, without first identifying the shipping
-    // consumer (§3.6) would be exactly §7.h: fixing the copy the shipping path
-    // cannot reach, and reading as done. The canonical file is minted by the
-    // COLLAPSE PR, not by this counting PR.
-    canonical: null,
+    // NAMED BY THE COLLAPSE PR (C73 §3.6/§3.7), as this comment previously
+    // required. The shipping consumers were identified BY NAME and migrated in
+    // the same commit series that minted this file: the room-detection path
+    // (`room-topology/RoomPolygonUtils.pointInPolygon` → RoomContentsService /
+    // RoomRelationshipService / RoomTool / LightingRoomResolver), the slab/roof
+    // coupling resolvers (`geometry-column`/`geometry-wall`), the roof builder,
+    // the ai-host layout workflows (tgl / house / residential / furnish /
+    // lighting / daylight), the site query service, the plan-view floor/ceiling
+    // tools, the solar worker codec and the annotations plugin (via the SDK
+    // facade). The guard decision (§3.7) is on the record in the canonical
+    // file's header: NO degenerate-divide guard — the straddle test makes the
+    // divisor structurally nonzero, so every rival `|| eps` guard was dead code
+    // and every `+ eps` guard was an answer perturbation; boundary semantics
+    // are HALF-OPEN with boundary-inclusive/-exclusive compositions staying at
+    // the call sites that own them.
+    canonical: 'packages/geometry-kernel/src/pure/pointInPolygon.ts',
     exclusions: [
+      [
+        'packages/geometry-kernel/src/producers/_internal/earcut.ts',
+        'middleInside — a genuine even-odd ray cast, but inside the VENDORED mapbox/earcut port, walking the ' +
+        'triangulator’s internal circular linked list mid-hole-elimination. Routing it through the kernel ' +
+        'predicate would fork the vendored algorithm (and add a per-call ring materialisation in the ' +
+        'triangulation hot path); its correctness is anchored to upstream earcut’s behaviour, not to kernel ' +
+        'semantics. On the record here per C73 §3.3 — an excluded body, not a migrated one.',
+      ],
       [
         'packages/geometry-kernel/src/pure/polygonOffset.ts',
         'findSelfIntersection — a SEGMENT/SEGMENT crossing test (four cross products, two straddles AND-ed), ' +
@@ -580,7 +597,19 @@ const excluded = new Set(pip.exclusions.map(([f]) => f));
 const detected = detectPointInPolygon(ROOT, DIRS);
 const bodies = detected.bodies.filter((b) => !excluded.has(b.file));
 const production = bodies.filter((b) => !b.isTest);
+// C3 runs over ALL production bodies INCLUDING the canonical file, so a rival
+// minted inside the canonical file with a different guard still fires it.
 const disagreements = guardDisagreements(production);
+// C1 counts RIVALS — bodies outside the named canonical file. The canonical
+// file's own body count is a separate HARD integrity arm (see c2Integrity):
+// exactly 1 when a canonical is named. 0 means the canonical implementation
+// vanished (or the detector stopped seeing it — either way the collapse is
+// fiction); ≥2 means a second rival was minted INSIDE the canonical file,
+// which no ratchet outside it would ever catch.
+const canonicalBodies = production.filter((b) => b.file === pip.canonical);
+const rivalProduction = pip.canonical === null
+  ? production
+  : production.filter((b) => b.file !== pip.canonical);
 
 const RECIPE =
   'a POINT-IN-POLYGON body = the even-odd VERTICAL STRADDLE test `(yi > y) !== (yj > y)` in any operand ' +
@@ -593,7 +622,7 @@ if (WRITE) {
   const next: Baseline = {
     recipe: RECIPE,
     measuredAt: new Date().toISOString().slice(0, 10),
-    bodies: Object.fromEntries(production.map((b) => [keyOf(b), b.guard])),
+    bodies: Object.fromEntries(rivalProduction.map((b) => [keyOf(b), b.guard])),
     c2: FAMILIES.filter((f) => f.counted && f.canonical === null).length,
     c3: disagreements.map((d) => d.split(' — ')[0]!),
   };
@@ -605,19 +634,31 @@ const prior: Baseline = existsSync(BASELINE)
   ? (JSON.parse(readFileSync(BASELINE, 'utf8')) as Baseline)
   : { recipe: RECIPE, measuredAt: 'never', bodies: {}, c2: 0, c3: [] };
 
-const measured = new Set(production.map(keyOf));
+const measured = new Set(rivalProduction.map(keyOf));
 const priorKeys = new Set(Object.keys(prior.bodies));
 const stale = [...priorKeys].filter((k) => !measured.has(k));
 const added = [...measured].filter((k) => !priorKeys.has(k));
 
 const byFile = new Map<string, Body[]>();
-for (const b of production) {
+for (const b of rivalProduction) {
   const l = byFile.get(b.file) ?? [];
   l.push(b);
   byFile.set(b.file, l);
 }
 
 const c2Missing = FAMILIES.filter((f) => f.counted && f.canonical === null);
+// C2's second arm — canonical-file INTEGRITY, hard, never baselined: a named
+// canonical file must hold EXACTLY ONE production body of its family.
+const c2Integrity: string[] = [];
+if (pip.canonical !== null && canonicalBodies.length !== 1) {
+  c2Integrity.push(
+    `point-in-polygon — canonical file ${pip.canonical} holds ${canonicalBodies.length} ` +
+    `production bod(ies); it must hold EXACTLY 1. ` +
+    (canonicalBodies.length === 0
+      ? 'Zero means the canonical implementation vanished or the detector stopped seeing it — either way the collapse is fiction, not progress.'
+      : `More than one means a second rival was minted INSIDE the canonical file (${canonicalBodies.map((b) => `:${b.line}`).join(' · ')}) — the one place no ratchet outside it would ever catch.`),
+  );
+}
 
 const lines: string[] = [];
 lines.push(`RECIPE: ${RECIPE}`);
@@ -640,6 +681,9 @@ for (const f of FAMILIES) {
 }
 lines.push('');
 lines.push(`C1  ${measured.size} non-canonical point-in-polygon bod(ies) in PRODUCTION across ${byFile.size} file(s) (baseline ${priorKeys.size}) · new: ${added.length} · struck: ${stale.length}`);
+if (pip.canonical !== null) {
+  lines.push(`      (canonical file ${pip.canonical} holds ${canonicalBodies.length} body — asserted EXACTLY 1 by C2's integrity arm, and never counted as a rival.)`);
+}
 lines.push(`      (+ ${bodies.length - production.length} in tests — measured and printed, deliberately NOT ratcheted: a test asserting containment with its own local ray cast is a fixture, not a rival definition shipped to a user. They are listed at the end so the split is auditable.)`);
 for (const [file, list] of [...byFile.entries()].sort()) {
   lines.push(`      ${file}  (${list.length} bod${list.length === 1 ? 'y' : 'ies'})`);
@@ -647,7 +691,7 @@ for (const [file, list] of [...byFile.entries()].sort()) {
 }
 for (const k of added) lines.push(`      + NEW SINCE BASELINE: ${k}`);
 lines.push('');
-lines.push(`C2  ${c2Missing.length} counted famil(ies) with NO named canonical file.`);
+lines.push(`C2  ${c2Missing.length} counted famil(ies) with NO named canonical file · ${c2Integrity.length} canonical-file integrity violation(s).`);
 for (const f of c2Missing) {
   lines.push(
     `      ✗ ${f.id} — there is no canonical implementation to collapse onto. C73 §0.2 records TWO rival ` +
@@ -657,6 +701,7 @@ for (const f of c2Missing) {
     'consumer by name (§3.6) and state which guard behaviour is canonical and why (§3.7).',
   );
 }
+for (const v of c2Integrity) lines.push(`      ✗ ${v}`);
 lines.push('');
 lines.push(`C3  ${disagreements.length} file(s) holding the SAME family twice with DIFFERENT degenerate-divide guards (C73 §2.4).`);
 for (const d of disagreements) lines.push(`      ✗ ${d}`);
@@ -683,7 +728,9 @@ const floors: Floor[] = [
   { what: 'executed controls passed (0 = blind comparator)', measured: control.ok ? 1 : 0, min: 1 },
 ];
 
-const findings = measured.size + c2Missing.length + disagreements.length;
+// c2Integrity is HARD — it is never part of `declared`, so any integrity
+// violation pushes findings above the declared ledger and the gate exits red.
+const findings = measured.size + c2Missing.length + c2Integrity.length + disagreements.length;
 const declared = priorKeys.size + prior.c2 + prior.c3.length;
 
 const result: GateResult = {
@@ -695,6 +742,7 @@ const result: GateResult = {
   findingNames: [
     ...[...measured].map((k) => `C1::${k}`),
     ...c2Missing.map((f) => `C2::${f.id} has no canonical file`),
+    ...c2Integrity.map((v) => `C2::${v.split(' — ')[0]} canonical-file integrity`),
     ...disagreements.map((d) => `C3::${d.split(' — ')[0]}`),
   ],
   stale: stale.map((k) => `C1::${k}`),

@@ -22,29 +22,21 @@ import type {
   ProjectedEdge,
 } from './types.js';
 import type { Vec2 } from '@pryzm/drawing-primitives';
+// §C73-PIP-CANONICAL — delegates to THE point-in-polygon body. The private copy
+// that lived here carried a `+ 1e-12` divisor perturbation, which shifted every
+// crossing abscissa by a private epsilon; the canonical body computes the exact
+// interpolation (the straddle test makes the divisor structurally nonzero).
+import { pointInPolygonXY } from '../pure/pointInPolygon.js';
 
 function midpoint(e: ProjectedEdge): Vec2 {
   return { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 };
 }
 
-/** Standard ray-cast point-in-polygon (works for non-self-intersecting). */
-function pointInPolygon(p: Vec2, poly: readonly Vec2[]): boolean {
-  let inside = false;
-  const n = poly.length;
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const xi = poly[i]!.x, yi = poly[i]!.y;
-    const xj = poly[j]!.x, yj = poly[j]!.y;
-    const intersect = ((yi > p.y) !== (yj > p.y))
-      && (p.x < ((xj - xi) * (p.y - yi)) / (yj - yi + 1e-12) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
 function isOccludedBy(edge: ProjectedEdge, occluder: OccluderPolygon): boolean {
   // Occluder must be in front of the edge to occlude it.
   if (occluder.worldZ <= edge.worldZFront) return false;
-  return pointInPolygon(midpoint(edge), occluder.outer);
+  const m = midpoint(edge);
+  return pointInPolygonXY(m.x, m.y, occluder.outer);
 }
 
 export function classifyHiddenLines(
