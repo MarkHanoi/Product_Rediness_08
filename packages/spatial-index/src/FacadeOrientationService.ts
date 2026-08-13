@@ -33,6 +33,30 @@ export class FacadeOrientationService {
      */
     private _trueNorthProvider: () => number = () => 0;
 
+    /**
+     * §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4/§5 · C71 §4.4 · C79 §5.2.0) —
+     * the rooms EXCLUDED from the most recent classification because their
+     * `boundingWallIds` could not be read. See `_rooms()` for why they are
+     * excluded rather than counted as bounding nothing.
+     *
+     * This is the gate's "discovery must be able to refuse" requirement made
+     * observable at a service that otherwise returns only a `Map<string,
+     * FacadeInfo>` with no room in it to say so. Empty means every room was
+     * determined — NOT that the question was skipped: `undeterminedRoomIds()`
+     * is only meaningful after a `getFacades*` call, which is stated here
+     * rather than left for a caller to guess.
+     */
+    private _lastUndeterminedRoomIds: readonly string[] = [];
+
+    /**
+     * The rooms the last classification could not read. A caller that must not
+     * present interior/exterior as settled reads this and refuses; per C78 §1.4
+     * a non-empty result means the façade verdicts are PARTIAL, not clean.
+     */
+    undeterminedRoomIds(): readonly string[] {
+        return this._lastUndeterminedRoomIds;
+    }
+
     setTrueNorthProvider(provider: () => number): void {
         this._trueNorthProvider = provider;
     }
@@ -112,11 +136,36 @@ export class FacadeOrientationService {
             : typeof roomStore.getByLevel === 'function'
                 ? roomStore.getByLevel(levelId)
                 : (roomStore.getAll?.() ?? []).filter(r => r.levelId === levelId);
-        return rooms.map(r => ({
-            id: r.id,
-            boundingWallIds: r.boundingWallIds ?? [],
-            centroid: r.computed?.centroid ?? polygonCentroid(r.boundary?.polygon ?? []),
-        }));
+        // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0).
+        //
+        // This was `boundingWallIds: r.boundingWallIds ?? []`, and it is the
+        // most consequential instance of the family found in this pass, because
+        // the OUTPUT of the classifier is a safety-adjacent fact: a wall's
+        // `boundingRoomCount` is what makes it INTERIOR or EXTERIOR. A room
+        // whose bounding walls were never recorded contributed 0 to every
+        // wall's count, so a wall that genuinely bounds that room was
+        // classified **exterior** — a positive, wrong determination, made from
+        // absence. That is C78 §1.4 exactly, and it then feeds façade
+        // orientation, daylight and solar downstream.
+        //
+        // An undetermined room is now EXCLUDED from the classification rather
+        // than counted as contributing nothing, and the exclusion is reported
+        // through `lastUndeterminedRoomIds` so a caller can tell "no room
+        // bounds this wall" from "some rooms could not be read". Dropping the
+        // room does not make the classifier right — it makes it stop asserting
+        // — and the residual is now nameable instead of invisible.
+        const kept: FacadeRoom[] = [];
+        const undetermined: string[] = [];
+        for (const r of rooms) {
+            if (!Array.isArray(r.boundingWallIds)) { undetermined.push(r.id); continue; }
+            kept.push({
+                id: r.id,
+                boundingWallIds: r.boundingWallIds,
+                centroid: r.computed?.centroid ?? polygonCentroid(r.boundary?.polygon ?? []),
+            });
+        }
+        this._lastUndeterminedRoomIds = undetermined;
+        return kept;
     }
 }
 

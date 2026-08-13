@@ -32,7 +32,39 @@
     "no longer measured is STALE and exits 3. The list may never grow.",
     "",
     "DO NOT narrow RELATIONSHIP_RE, widen WHOLE_STORE_RE, or raise a floor to make",
-    "this number smaller (roadmap §0.1). Red at a named ledger IS the deliverable."
+    "this number smaller (roadmap §0.1). Red at a named ledger IS the deliverable.",
+    "",
+    "STRUCK 2026-08-13 — the READER layer of the boundingWallIds family (layer (c)).",
+    "Seven rows left this ledger in one commit because their files now DISTINGUISH",
+    "\"this room bounds zero walls\" from \"this room's bounding walls could not be",
+    "read\", via determineBoundingWalls / boundingWallIdsOrUnknown in",
+    "packages/core-app-model/src/boundingWallDetermination.ts. The reason is C78",
+    "§8.1 RELATIONSHIP_NOT_RECORDED, which C79 §5.2.0 maps to this exact defect —",
+    "no rival vocabulary was minted, and boundingWallDetermination.test.ts pins the",
+    "union against command-bus's source so a fork fails a test.",
+    "  · packages/core-app-model/src/RoomFinishResolver.ts",
+    "  · packages/core-app-model/src/schedules/ScheduleExtractor.ts",
+    "  · packages/spatial-index/src/FacadeOrientationService.ts",
+    "  · packages/spatial-index/src/FacadeOrientationMath.ts",
+    "  · apps/editor/src/ui/inspect/audit/DiscoveryModeZone.ts",
+    "  · apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts",
+    "  · apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts",
+    "",
+    "NOT STRUCK, and why. HierarchyTreePanel.ts SHRANK 8 sites → 6 (both",
+    "boundingWallIds reads are gone; it now renders a visible refusal row) but its",
+    "row SURVIVES: boundingSlabIds, boundingColumnIds and getByWallId are the same",
+    "family at the same file and are NOT yet fixed. The per-file site count in arm",
+    "is what records the shrink, exactly as the GRAIN note above intends.",
+    "",
+    "THE TWO PLAN-TOOL ROWS ARE A HALF-FIX, DECLARED. FloorPlanToolHandler and",
+    "CeilingPlanToolHandler stop FORGING a determined empty set at the call site, so",
+    "they leave this gate. But their callee, resolveRoomFinishBoundary",
+    "(packages/room-topology/src/RoomPolygonUtils.ts:1373), still does ?? [] and",
+    "falls back to every wall on the level in BOTH cases — so determined-empty and",
+    "undetermined still take the same branch DOWNSTREAM. That is a room-topology",
+    "change, out of the fixing commit's lane. The gate is file-scoped and cannot see",
+    "it; this note is the only place it is written down. Do not read those two",
+    "strikes as \"the plan-tool path now distinguishes the two cases end-to-end\"."
   ],
   "swallowed": [
     {
@@ -79,16 +111,6 @@
       "site": "apps/editor/src/engine/undo/performUndoRedo.ts",
       "arm": "C (2 site(s))",
       "why": "C@432 `const stores = pair?.affectedStores ?? [];` · C@550 `const stores = pair?.affectedStores ?? [];`"
-    },
-    {
-      "site": "apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@282 `getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),`"
-    },
-    {
-      "site": "apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@479 `getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),`"
     },
     {
       "site": "apps/editor/src/ui/OverridePanel.ts",
@@ -199,11 +221,6 @@
       "site": "apps/editor/src/ui/house-layout/houseModalHtml.ts",
       "arm": "C (1 site(s))",
       "why": "C@688 `for (const n of (r.doorAdjacentTo ?? [])) {`"
-    },
-    {
-      "site": "apps/editor/src/ui/inspect/audit/DiscoveryModeZone.ts",
-      "arm": "C (3 site(s))",
-      "why": "C@74 `case 'wallCount':      return (r.boundingWallIds ?? []).length;` · C@78 `const bset = new Set<string>(r.boundingWallIds ?? []);` · C@84 `const bset = new Set<string>(r.boundingWallIds ?? []);`"
     },
     {
       "site": "apps/editor/src/ui/inspect/audit/ElementTypeSelectorZone.ts",
@@ -371,11 +388,6 @@
       "why": "C@353 `childrenIds: level.childrenIds || []`"
     },
     {
-      "site": "packages/core-app-model/src/RoomFinishResolver.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@77 `const boundingWallIds: string[] = room.boundingWallIds ?? [];`"
-    },
-    {
       "site": "packages/core-app-model/src/drawing/DetailLevelResolver.ts",
       "arm": "C (1 site(s))",
       "why": "C@139 `const overrides = instance?.localOverrides?.graphicOverrides ?? [];`"
@@ -384,11 +396,6 @@
       "site": "packages/core-app-model/src/geometry/hostedDragParam.ts",
       "arm": "C (1 site(s))",
       "why": "C@226 `const occupied = (host.openings ?? [])`"
-    },
-    {
-      "site": "packages/core-app-model/src/schedules/ScheduleExtractor.ts",
-      "arm": "C (2 site(s))",
-      "why": "C@193 `const wallCount = (r.boundingWallIds ?? []).length;` · C@194 `const boundingSet = new Set<string>(r.boundingWallIds ?? []);`"
     },
     {
       "site": "packages/family-runtime/src/resolution/resolveParameter.ts",
@@ -469,16 +476,6 @@
       "site": "packages/room-topology/src/RoomPolygonUtils.ts",
       "arm": "C (1 site(s))",
       "why": "C@1549 `const openings = wall.openings ?? [];`"
-    },
-    {
-      "site": "packages/spatial-index/src/FacadeOrientationMath.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@108 `for (const wid of room.boundingWallIds ?? []) {`"
-    },
-    {
-      "site": "packages/spatial-index/src/FacadeOrientationService.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@117 `boundingWallIds: r.boundingWallIds ?? [],`"
     },
     {
       "site": "packages/spatial-index/src/RoomQueryService.ts",

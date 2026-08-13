@@ -24,6 +24,8 @@ import { createId } from '@pryzm/schemas';
 // bus handler, which has no host-room concept, so the derivation happens here — exactly
 // as `FloorPlanToolHandler._innerFacePolygon` does for `floor.create`.
 import { resolveRoomFinishBoundary, type RoomFinishWall } from '@pryzm/room-topology';
+// §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0).
+import { boundingWallIdsOrUnknown } from '@pryzm/core-app-model';
 // §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06) — the ONE arc model for curved boundary
 // segments (wall-tool midpoint-Bézier semantics), shared with the 3D tools.
 // §FEAT-SLAB-DRAW-MODES (2026-08-06) — `orthoConstrain` is the WALL tool's
@@ -279,7 +281,12 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
             levelId,
             lookup: {
                 // The plan tool already holds the full room record from the pick.
-                getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),
+                // §FIX-BOUNDING-WALLS-UNDETERMINED — see the identical site and
+                // the HONESTY NOTE in FloorPlanToolHandler._innerFacePolygon.
+                // The caller stops forging a determined empty set; the callee's
+                // own `?? []` fallback is a room-topology change out of lane, so
+                // this ledger row is NOT struck.
+                getRoomById:     () => ({ boundingWallIds: boundingWallIdsOrUnknown(room) as string[] | undefined }),
                 getWallById:     (id) => wallStore.getById?.(id),
                 getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
             },

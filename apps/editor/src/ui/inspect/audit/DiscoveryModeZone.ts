@@ -19,7 +19,7 @@
  *   extractRoomAttrString        — string attribute extractor (room object, key)
  */
 
-import { selectionBus } from '@pryzm/core-app-model';
+import { selectionBus, boundingWallIdsOrUnknown } from '@pryzm/core-app-model';
 import { escHtml } from '@pryzm/ui-base';
 import {
   type AttrOption,
@@ -71,17 +71,29 @@ export function extractRoomAttrValue(r: any, key: string): number | null {
     case 'perimeter':      return typeof r.computed?.perimeter === 'number'  ? r.computed.perimeter  : null;
     case 'volume':         return typeof r.computed?.volume === 'number'     ? r.computed.volume     : null;
     case 'height':         return typeof r.boundary?.height === 'number'     ? r.boundary.height     : null;
-    case 'wallCount':      return (r.boundingWallIds ?? []).length;
+    // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0) —
+    // these three read `(r.boundingWallIds ?? []).length`, so a room whose
+    // bounding walls were never recorded scored a hard **0** in a discovery
+    // histogram. This function ALREADY has a "cannot answer" value — `null`,
+    // returned by every other branch that cannot compute — so the fix is to
+    // use the vocabulary the file already speaks rather than mint another.
+    // 0 and null are rendered differently by the histogram, which is the
+    // observable difference C78 §1.4 demands.
+    case 'wallCount':      return boundingWallIdsOrUnknown(r)?.length ?? null;
     case 'doorCount': {
       const ws = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
       if (!ws?.getAllDoors) return null;
-      const bset = new Set<string>(r.boundingWallIds ?? []);
+      const ids = boundingWallIdsOrUnknown(r);
+      if (ids === null) return null;
+      const bset = new Set<string>(ids);
       return (ws.getAllDoors() as any[]).filter((d: any) => d.wallId && bset.has(d.wallId)).length;
     }
     case 'windowCount': {
       const ws = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
       if (!ws?.getAllWindows) return null;
-      const bset = new Set<string>(r.boundingWallIds ?? []);
+      const ids = boundingWallIdsOrUnknown(r);
+      if (ids === null) return null;
+      const bset = new Set<string>(ids);
       return (ws.getAllWindows() as any[]).filter((w: any) => w.wallId && bset.has(w.wallId)).length;
     }
     case 'furnitureCount': {

@@ -105,7 +105,17 @@ export function classifyFacades(
     const countByWall = new Map<string, number>();
     const roomByWall = new Map<string, FacadeRoom>();
     for (const room of rooms) {
-        for (const wid of room.boundingWallIds ?? []) {
+        // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4) — this read
+        // `room.boundingWallIds ?? []`. `FacadeRoom.boundingWallIds` is a
+        // REQUIRED field, so the `?? []` could only ever fire on a caller that
+        // had already lost the distinction upstream — and it silently absorbed
+        // that loss, letting an unread room contribute 0 to every wall's
+        // `boundingRoomCount` and so mark walls it bounds as EXTERIOR.
+        // The default is removed: this pure core now trusts its own type, and
+        // the discrimination is made ONCE, at the store boundary, in
+        // `FacadeOrientationService._rooms()` (which excludes undetermined
+        // rooms and reports them via `undeterminedRoomIds()`).
+        for (const wid of room.boundingWallIds) {
             countByWall.set(wid, (countByWall.get(wid) ?? 0) + 1);
             if (!roomByWall.has(wid)) roomByWall.set(wid, room);
         }

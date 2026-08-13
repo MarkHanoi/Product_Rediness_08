@@ -32,12 +32,37 @@
  *   - ScheduleExtractor.ts    (room schedule rows)
  */
 
+import {
+  determineBoundingWalls,
+  type BoundingWallUndeterminedReason,
+} from './boundingWallDetermination.js';
+
+/**
+ * §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0) — the
+ * sentinel the three bounding-wall-derived surfaces show when the bounding-wall
+ * relationship could NOT BE READ, as distinct from `'—'`, which means it WAS
+ * read and no finish was found.
+ *
+ * Before this, `room.boundingWallIds ?? []` made those two facts the same
+ * value: a room examined and found to bound zero finished walls, and a room
+ * whose bounding walls nobody ever recorded, both printed `'—'`. C71 §4.4:
+ * `[]` may only ever mean *zero results*.
+ */
+export const FINISH_UNDETERMINED = '⚠ cannot determine';
+
 export interface ResolvedRoomFinishes {
   floor:   string;
   walls:   string;
   ceiling: string;
   doors:   string;
   windows: string;
+  /**
+   * The typed reason the wall / door / window surfaces are
+   * {@link FINISH_UNDETERMINED}, or `null` when the bounding-wall relationship
+   * WAS determined (including determined-as-empty). A C78 §8.1 member — this
+   * resolver mints no vocabulary of its own.
+   */
+  boundingWallsUndeterminedReason: BoundingWallUndeterminedReason | null;
 }
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -74,7 +99,18 @@ export function resolveRoomFinishes(room: any): ResolvedRoomFinishes {
   const doorStore    = window.doorStore; // TODO(TASK-08)
   const windowStore  = window.windowStore; // TODO(TASK-08)
 
-  const boundingWallIds: string[] = room.boundingWallIds ?? [];
+  // §FIX-BOUNDING-WALLS-UNDETERMINED — layer (c) of the three-layer defect.
+  // This line was `room.boundingWallIds ?? []`, which made "this room bounds
+  // zero walls" and "nobody recorded this room's bounding walls" the SAME
+  // value — C78 §1.4's most-violated clause, and C71 §4.4's `[]`-means-zero
+  // rule. The determination is now typed, and the three surfaces DERIVED from
+  // bounding walls (walls / doors / windows) report FINISH_UNDETERMINED rather
+  // than the `'—'` that means "read, and nothing found".
+  const boundingWalls = determineBoundingWalls(room, `wall/door/window finishes of room ${room?.id ?? '?'}`);
+  const boundingWallIds: readonly string[] =
+    boundingWalls.kind === 'determined' ? boundingWalls.elements : [];
+  const boundingWallsUndeterminedReason: BoundingWallUndeterminedReason | null =
+    boundingWalls.kind === 'undetermined' ? boundingWalls.reason : null;
   const roomId:   string  = room.id;
   const levelId:  string  = room.levelId;
   // centroid lives inside room.computed, not directly on room
@@ -199,11 +235,29 @@ export function resolveRoomFinishes(room: any): ResolvedRoomFinishes {
   }
   const windowFinish = windowFinishNames.size > 0 ? [...windowFinishNames].join(', ') : '—';
 
+  // §FIX-BOUNDING-WALLS-UNDETERMINED — the OBSERVABLE difference.
+  //
+  // `walls`, `doors` and `windows` are each derived SOLELY through
+  // `boundingWallIds`. When that relationship is undetermined, every one of the
+  // three loops above iterated an empty array and produced `'—'` — a positive
+  // statement ("read, nothing found") the resolver was not entitled to make.
+  // They now say so instead. `floor` and `ceiling` are NOT overridden: they are
+  // resolved from the floor / ceiling / slab stores and from `room.finishes`,
+  // paths that never touch `boundingWallIds`, so they remain determined.
+  //
+  // The ROOM-AUTHORED wall fallback (`room.finishes.walls.materialName`) is the
+  // one exception and it is deliberate: it is a direct read of the room record,
+  // not a traversal of the missing relationship, so a room that authored its own
+  // wall finish still reports it honestly even when the relationship is unknown.
+  const undetermined = boundingWallsUndeterminedReason !== null;
+  const authoredWallFinish = room?.finishes?.walls?.materialName;
+
   return {
     floor:   floorFinish,
-    walls:   wallFinish,
+    walls:   undetermined ? (authoredWallFinish ?? FINISH_UNDETERMINED) : wallFinish,
     ceiling: ceilingFinish,
-    doors:   doorFinish,
-    windows: windowFinish,
+    doors:   undetermined ? FINISH_UNDETERMINED : doorFinish,
+    windows: undetermined ? FINISH_UNDETERMINED : windowFinish,
+    boundingWallsUndeterminedReason,
   };
 }

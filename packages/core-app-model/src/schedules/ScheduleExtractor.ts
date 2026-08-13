@@ -16,6 +16,11 @@
 import { WallData, WindowData, DoorData } from '@pryzm/geometry-wall';
 import { RoomRelationshipService } from '@pryzm/room-topology';
 import { resolveRoomFinishes } from '@pryzm/core-app-model';
+// §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0) — relative
+// import (not the package barrel) so this module does not re-enter its own
+// package's index at load; see MEMORY §SCC: no barrel access at module load.
+import { determineBoundingWalls } from '../boundingWallDetermination.js';
+import { FINISH_UNDETERMINED } from '../RoomFinishResolver.js';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
@@ -190,8 +195,19 @@ export class ScheduleExtractor {
       return roomStore.getAll().map((r: any) => {
         const level     = bimManager?.getLevelById?.(r.levelId);
         const levelName = level?.name ?? r.levelId?.substring(0, 8) ?? '—';
-        const wallCount = (r.boundingWallIds ?? []).length;
-        const boundingSet = new Set<string>(r.boundingWallIds ?? []);
+        // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0) —
+        // these two lines were `(r.boundingWallIds ?? []).length` and
+        // `new Set(r.boundingWallIds ?? [])`, which printed a schedule reading
+        // `walls 0 · doors 0 · windows 0` for a room whose bounding walls
+        // NOBODY EVER RECORDED. A schedule is a document an architect signs;
+        // a zero it did not measure is the worst possible cell to print.
+        // Undetermined now prints the refusal sentinel instead of a number.
+        const boundingWalls = determineBoundingWalls(r, `room schedule row for ${r.id}`);
+        const boundingIds: readonly string[] =
+          boundingWalls.kind === 'determined' ? boundingWalls.elements : [];
+        const wallsUndetermined = boundingWalls.kind === 'undetermined';
+        const wallCount = boundingIds.length;
+        const boundingSet = new Set<string>(boundingIds);
         const containedDoors   = allDoors.filter((d: DoorData) => d.wallId && boundingSet.has(d.wallId));
         const containedWindows = allWindows.filter((w: WindowData) => w.wallId && boundingSet.has(w.wallId));
         const doorCount   = containedDoors.length;
@@ -228,11 +244,13 @@ export class ScheduleExtractor {
           ceiling:       finishes.ceiling,
           doorFinish:    finishes.doors,
           windowFinish:  finishes.windows,
-          doorCount,
-          windowCount,
-          doors:         doorMarks,
-          windows:       windowMarks,
-          walls:         wallCount,
+          // §FIX-BOUNDING-WALLS-UNDETERMINED — a count derived through an
+          // UNREAD relationship is not zero, it is unknown (C71 §4.4).
+          doorCount:     wallsUndetermined ? FINISH_UNDETERMINED : doorCount,
+          windowCount:   wallsUndetermined ? FINISH_UNDETERMINED : windowCount,
+          doors:         wallsUndetermined ? FINISH_UNDETERMINED : doorMarks,
+          windows:       wallsUndetermined ? FINISH_UNDETERMINED : windowMarks,
+          walls:         wallsUndetermined ? FINISH_UNDETERMINED : wallCount,
           furniture:     furnitureCount,
         };
       });

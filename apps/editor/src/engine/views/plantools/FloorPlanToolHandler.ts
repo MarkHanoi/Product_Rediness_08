@@ -48,6 +48,8 @@ import { createId } from '@pryzm/schemas';
 // derivation the batch generators use, so an AUTO-from-room finish sits inside the
 // walls (not on their centreline) regardless of entry point (C11: one pipeline).
 import { resolveRoomFinishBoundary, type RoomFinishWall } from '@pryzm/room-topology';
+// §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0).
+import { boundingWallIdsOrUnknown } from '@pryzm/core-app-model';
 // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the ONE floor-finish chokepoint (store +
 // resolver), and the ONE catalogue the modal's finish dropdown is built from. Pure imports:
 // no THREE, no DOM — the resolver is the same one `FloorTool` (3D) calls.
@@ -476,7 +478,24 @@ export class FloorPlanToolHandler implements PlanToolHandler {
             levelId,
             lookup: {
                 // The plan tool already holds the full room record from the pick.
-                getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),
+                // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4) — this
+                // read `room.boundingWallIds ?? []`, which forged a DETERMINED
+                // "this room bounds zero walls" out of a field that was simply
+                // absent. `RoomFinishStoreLookup.getRoomById` types
+                // `boundingWallIds` as OPTIONAL precisely so a caller CAN say
+                // "I do not know", so the honest value is passed through
+                // instead of being flattened here.
+                //
+                // ⚠ HONESTY NOTE — this changes what the CALLER says, not yet
+                // what the CALLEE does. `resolveRoomFinishBoundary`
+                // (`packages/room-topology/src/RoomPolygonUtils.ts:1373`) does
+                // `…?.boundingWallIds ?? []` and then falls back to every wall
+                // on the level in BOTH cases, so determined-empty and
+                // undetermined still take the same branch downstream. Fixing
+                // that is a room-topology change, out of this commit's lane and
+                // recorded here as the remaining half of this site rather than
+                // claimed as done. The ledger row is therefore NOT struck.
+                getRoomById:     () => ({ boundingWallIds: boundingWallIdsOrUnknown(room) as string[] | undefined }),
                 getWallById:     (id) => wallStore.getById?.(id),
                 getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
             },

@@ -817,8 +817,21 @@ export { ToolState } from './tool-types.js';
 export { getStoredToken, getCurrentUserId, apiFetch } from './apiFetch.js';
 export { getCesium } from './cesiumLoader.js';
 export { debug } from './debugOverlay.js';
-export { resolveRoomFinishes } from './RoomFinishResolver.js';
+export { resolveRoomFinishes, FINISH_UNDETERMINED } from './RoomFinishResolver.js';
 export type { ResolvedRoomFinishes } from './RoomFinishResolver.js';
+// §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0) — THE
+// discriminator every reader of `boundingWallIds` uses in place of `?? []`.
+export {
+  determineBoundingWalls,
+  boundingWallIdsOrUnknown,
+  isBoundingWallsUndetermined,
+  boundingWallsUndeterminedLabel,
+} from './boundingWallDetermination.js';
+export type {
+  BoundingWallDetermination,
+  BoundingWallUndeterminedReason,
+  BoundingWallCarrier,
+} from './boundingWallDetermination.js';
 export { RoomFinishSyncService } from './RoomFinishSyncService.js';
 export type { RoomFinishSyncDeps } from './RoomFinishSyncService.js';
 export { sheetIndexService } from './SheetIndexService.js';

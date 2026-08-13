@@ -27,6 +27,19 @@
  */
 
 import type { SiteData, BuildingData, LevelData, UnitData } from '@pryzm/core-app-model';
+// §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4/§5 · C71 §4.4 · C79 §5.2.0) — this
+// panel is the file whose header already documents ONE instance of this family
+// (`getEdgesFromNode?.(room.id) ?? []`, the furniture group that never rendered).
+// The bounding-wall reads at `_countRoomElements` and `_getElementGroups` were
+// the SAME defect, still live. They now go through the typed discriminator, and
+// an undetermined relationship gets a VISIBLE refusal row instead of an empty
+// tree — C78 §5, discovery must be able to refuse.
+import {
+    determineBoundingWalls,
+    boundingWallIdsOrUnknown,
+    boundingWallsUndeterminedLabel,
+    isBoundingWallsUndetermined,
+} from '@pryzm/core-app-model';
 import { syncStateDetailDrawer } from './SyncStateDetailDrawer';
 import {
     addSite, addBuilding, addLevel, addUnit,
@@ -341,13 +354,28 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         const area = room.computed?.area != null ? `${room.computed.area.toFixed(1)}m²` : '';
         const wrapper = document.createElement('div');
 
+        // §FIX-BOUNDING-WALLS-UNDETERMINED — decide FIRST whether this room's
+        // bounding-wall relationship is even readable. Everything below (the
+        // count badge, the expander, the element groups) is derived through it,
+        // so a room whose relationship was never recorded must not present as
+        // a room with nothing in it (C78 §1.4).
+        const boundingWalls = determineBoundingWalls(room, `hierarchy tree contents of room ${room.id}`);
+        const wallsUndetermined = isBoundingWallsUndetermined(boundingWalls);
+
         // PERFORMANCE GUARD: only count elements (reads array .length only, no store fetch)
-        const elementCount = this._countRoomElements(room);
-        const hasElements = elementCount > 0;
+        const elementCount = wallsUndetermined ? -1 : this._countRoomElements(room);
+        // An undetermined room is EXPANDABLE — its child is the refusal row.
+        // Making it a leaf would hide the refusal behind a disclosure the user
+        // has no reason to try.
+        const hasElements = wallsUndetermined || elementCount > 0;
         const expanded = this._roomExpanded.has(room.id);
 
-        // Step 9: element count badge on collapsed room row
-        const elBadge = hasElements && !expanded ? ` · ${elementCount} el` : '';
+        // Step 9: element count badge on collapsed room row.
+        // §FIX-BOUNDING-WALLS-UNDETERMINED — `· 0 el` on a room nobody measured
+        // is a claim the panel is not entitled to make. It says so instead.
+        const elBadge = wallsUndetermined
+            ? ' · ⚠ contents undetermined'
+            : (hasElements && !expanded ? ` · ${elementCount} el` : '');
 
         const row = this._buildRow({
             id: room.id,
@@ -365,7 +393,11 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         wrapper.appendChild(row);
 
         // LAZY LOAD: only render child elements when this room is expanded
-        if (expanded && hasElements) {
+        if (expanded && wallsUndetermined && isBoundingWallsUndetermined(boundingWalls)) {
+            // §FIX-BOUNDING-WALLS-UNDETERMINED — the VISIBLE refusal. Not an
+            // empty group list: a row that names the C78 §8.1 reason.
+            wrapper.appendChild(this._renderUndeterminedBoundingWalls(boundingWalls, depth + 1));
+        } else if (expanded && hasElements) {
             const groups = this._getElementGroups(room);
             for (const group of groups) {
                 wrapper.appendChild(this._renderElementGroup(group, depth + 1));
@@ -377,10 +409,53 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         return wrapper;
     }
 
+    /**
+     * §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §5 — discovery must be able to
+     * refuse) — the row a room shows when its bounding-wall relationship could
+     * not be read. It names the typed reason so the user is told WHICH unknown
+     * this is, and a screenshot of the panel is enough to diagnose it.
+     */
+    private _renderUndeterminedBoundingWalls(
+        d: Extract<ReturnType<typeof determineBoundingWalls>, { kind: 'undetermined' }>,
+        depth: number,
+    ): HTMLElement {
+        const row = document.createElement('div');
+        row.className = 'pryzm-tree-row pryzm-tree-undetermined';
+        row.dataset.undeterminedReason = d.reason;
+        row.style.cssText =
+            `display:flex;align-items:center;gap:6px;padding:4px 8px 4px ${8 + depth * 14}px;` +
+            `font-size:11px;color:#b45309;background:rgba(245,158,11,0.08);` +
+            `border-left:2px solid #f59e0b;cursor:default;`;
+        row.title =
+            `${d.scope}\n\nreason: ${d.reason}` + (d.detail ? `\n${d.detail}` : '') +
+            `\n\nThis is NOT "the room is empty" — the relationship was never recorded.`;
+        row.textContent = `⚠ ${boundingWallsUndeterminedLabel(d)}`;
+        return row;
+    }
+
     // ── Step 2: Element count — cheap path (no store object fetch) ──────────
 
+    /** @returns the element count, or **-1** when the bounding-wall
+     *  relationship could not be read (C78 §1.4 — never `0`, which is a real
+     *  count this method has no right to assert). */
     private _countRoomElements(room: any): number {
-        const wallIds: string[] = room.boundingWallIds ?? [];
+        // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4/§5 · C71 §4.4 · C79 §5.2.0).
+        // `room.boundingWallIds ?? []` made "this room contains nothing" and
+        // "nobody ever recorded what bounds this room" the same value — the
+        // EXACT shape of the defect this panel's own changelog documents at
+        // `_appendFurnitureGroup`. The caller now branches on the determination
+        // (`_boundingWallsUndetermined`) and renders a REFUSAL row rather than
+        // a silently empty tree. This counter keeps returning a number because
+        // a badge needs one; it is only ever consulted when the relationship
+        // WAS determined.
+        // `?? []` is deliberately NOT written here — that would re-collapse the
+        // two cases one line after distinguishing them (the regression the
+        // `boundingWallIdsOrUnknown` test pins explicitly). `-1` is impossible
+        // for a real count, so an undetermined room can never be mistaken for
+        // an empty one by a caller that forgets to check.
+        const determined = boundingWallIdsOrUnknown(room);
+        if (determined === null) return -1;
+        const wallIds: readonly string[] = determined;
         const slabIds: string[] = room.boundingSlabIds ?? [];
         const colIds: string[]  = room.boundingColumnIds ?? [];
 
@@ -421,7 +496,17 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         const groups: RoomElementGroup[] = [];
 
         // ── Walls ────────────────────────────────────────────────────────
-        const wallIds: string[] = room.boundingWallIds ?? [];
+        // §FIX-BOUNDING-WALLS-UNDETERMINED — see `_countRoomElements`. When the
+        // relationship is UNDETERMINED this method is not reached: `_renderRoom`
+        // renders `_renderUndeterminedBoundingWalls()` instead, so an unknown
+        // never masquerades as an empty group list.
+        // No `?? []` — see `_countRoomElements`. An undetermined room must not
+        // reach here at all: `_renderRoom` renders the refusal row instead. If
+        // one somehow does, this REFUSES (returns no groups) rather than
+        // presenting an empty tree as a finding (C78 §1.4).
+        const determinedWallIds = boundingWallIdsOrUnknown(room);
+        if (determinedWallIds === null) return [];
+        const wallIds: readonly string[] = determinedWallIds;
         if (wallStore && wallIds.length > 0) {
             const walls: RoomElement[] = wallIds
                 .map((id: string) => wallStore.getById(id))
