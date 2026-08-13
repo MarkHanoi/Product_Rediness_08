@@ -1974,3 +1974,26 @@ silently discarding assertions that already held.
 unlikely to be the only one. **A repo-wide sweep — "every test file matched by at least one
 runner's include" — is the real fix and does not exist.** Candidate gate:
 `check-no-dark-test-files.ts`.
+
+## L-850 — CONSTRAINT-RULE DEFECTS PINNED BY THE L4 EVIDENCE PASS (three, none yet fixed)
+
+**2026-08-13, found by the constraint-evidence lane while proving 17 rule families REAL
+(`4103a99f`, `095cfa10`) — deliberately PINNED by test, not fixed, because fixing them was outside
+that lane's brief.** Logged so the pins cannot be mistaken for endorsements.
+
+1. **All three acoustic RT60 rules are self-refuting at the limit.** `ACOUSTIC_RT60_HOSPITAL` (0.5 s),
+   `ACOUSTIC_RT60_SCHOOL` (0.8 s) and `ACOUSTIC_RT60_COURT` (1.2 s) compare **`>=`** while their
+   violation message says **"exceeds"** — a room measuring exactly the permitted value is reported
+   as exceeding it. Either the comparator becomes `>` or the message becomes "meets or exceeds";
+   the sentence and the operator must agree (same shape as the D1 defect family).
+2. **`ACOUSTIC_RT60_COURT`'s ≥ 500 m³ clause is dead code.** The volume branch can never fire under
+   the rule's own evaluation order. Dead legal-threshold code is a latent wrong-answer waiting for
+   a refactor to accidentally enliven it — remove it or make it reachable, with a test either way.
+3. **`PLUMBING_ZONE` has a floating-point exact-tolerance gap.** At exactly the 0.3 m tolerance,
+   FP equality can give the two rooms of one shared-stack pair **different verdicts**. Needs the
+   declared-epsilon treatment (`EPSILON_ZERO`, geometry-kernel) — GE-01 territory; never a
+   per-call-site epsilon (C73 §2.5).
+
+**Where the pins live**: `packages/constraint-solver/__tests__/ConstraintEngine.physics.test.ts` +
+`ConstraintEngine.spatial.test.ts` — the fixtures document current behaviour; changing the rules
+will rightly fail them, which is the pin doing its job. **Fix and re-pin in the same commit.**
