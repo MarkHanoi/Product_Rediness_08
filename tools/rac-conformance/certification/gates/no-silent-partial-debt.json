@@ -1,0 +1,68 @@
+{
+  "//": [
+    "NAMED, SHRINK-ONLY ledger for check-no-silent-partial (G-REASON-07 ·",
+    "C67 §4 rule 6 · C78 §1.2b/§1.3 · C70 §5.4/§5.5). Pinned at the FIRST",
+    "HONEST READING, 2026-08-13.",
+    "",
+    "FIRST READING: 36 candidate batch files established from source (23 bus",
+    "handlers under plugins/*/src/handlers, 13 *Batch*.ts under",
+    "packages/command-registry/src, unioned). 25 CLASSIFIED as multi-element",
+    "operations that loop per item. Of those:",
+    "  12 ATOMIC          — every per-item problem throws outward, so the batch",
+    "                       is all-or-nothing. This is a LEGAL answer under",
+    "                       C78 §1.3 (a truthful total refusal) and the gate",
+    "                       must never punish it.",
+    "  10 HONEST-PARTIAL  — items are dropped AND the drop is reported through a",
+    "                       channel the caller can read (info[] + skip counter +",
+    "                       'N of M' + span attribute + a measured success",
+    "                       verdict). UpdateWallsColorBatchCommand is the",
+    "                       exemplar the other nine follow.",
+    "   3 SILENT-PARTIAL  — the rows below.",
+    "",
+    "The 10-to-3 split is the most consequential fact in this ledger: the",
+    "honest shape is ALREADY the majority and is already implemented in this",
+    "repo. These three are not an unsolved design problem — they are three",
+    "files that did not adopt a pattern their neighbours use, and each names",
+    "the exemplar it should follow.",
+    "",
+    "WHAT THIS GATE DOES NOT PROVE, stated so no row is over-read: it reads",
+    "SOURCE SHAPE, not a running batch. It establishes that a command which",
+    "drops items carries (or does not carry) a per-item outcome channel. It",
+    "does NOT prove the channel is populated correctly at runtime, nor that",
+    "the surface above renders it — the chat half of that already has its own",
+    "proof in ga-gate 31 check 6, which this gate deliberately does not",
+    "restate.",
+    "",
+    "EXIT CONDITION: silentPartial reaches EMPTY — every batch command that",
+    "can drop an item reports the drop through a channel its caller can read.",
+    "A row leaves this list in the SAME commit that gives that command an",
+    "outcome channel; a row that is no longer measured but still listed is",
+    "STALE and exits 3 (C70 §5.4). The list may NEVER grow: a file measured",
+    "silent-partial and not listed here is an unledgered finding and also",
+    "exits 3.",
+    "",
+    "NEGATIVE-TESTED (C74 §6.2), all three arms, plants reverted to a zero",
+    "diff. The arm (a) plant found TWO REAL DETECTOR GAPS before it caught",
+    "anything — a braced `if (…) { continue; }` was invisible to the",
+    "line-anchored skip rule, and CRLF line endings broke every `$` anchor in",
+    "the file on a Windows checkout. Both are fixed. A gate nobody has watched",
+    "fail is a gate nobody should trust, and this one failed first."
+  ],
+  "silentPartial": [
+    {
+      "file": "packages/command-registry/src/roomBoundingLines/CreateRoomBoundingLinesBatchCommand.ts",
+      "arm": "(a) success-despite-refusal",
+      "why": "execute() at :41-56 — a child whose canExecute() refuses is console.warn'd and `continue`d, a child that throws is console.warn'd and swallowed, and the method closes with an UNCONDITIONAL `return { success: true, affectedElementIds: affected }`. `affected` shrinks silently: a caller comparing it against the requested line count is the ONLY way to learn anything was dropped, and nothing does. undo() has the identical shape at :59-72. FIX: follow UpdateWallsColorBatchCommand — track a `_skipped` array with per-item reasons, group identical reasons, return `success: changed > 0` and an `info: ['Created N of M — K skipped', ...reasons]`."
+    },
+    {
+      "file": "packages/command-registry/src/walls/CreateWallOpeningsBatchCommand.ts",
+      "arm": "(a) success-despite-refusal",
+      "why": "execute() at :77-104 — three drop paths (canExecute refusal, `r.success === false`, and a thrown child) each console.warn and continue, then `return { success: true, affectedElementIds: affected }`. The in-file comment states the intent honestly — 'Success even if some openings were skipped … loud-fail-soft' — but LOUD means to the console, not to the caller: an apartment build that silently loses a door reports the same value as one that placed every opening. This is the §interior-wall-on-opening-conflict defect's reporting half. FIX: the UpdateWallsColorBatchCommand shape, with the skipped reason carried from each child's own refusal."
+    },
+    {
+      "file": "plugins/curtain-wall/src/handlers/UpdateCurtainWallBatch.ts",
+      "arm": "(b) swallowed per-item failure",
+      "why": "execute() at :92-116 — the handler DOES count its drops (`let skipped = 0`, incremented at :104) and DOES print `${applied} applied, ${skipped} skipped` to the console at :114, then returns `{ forward, inverse, nextStates }` carrying NEITHER number. The count exists and dies inside the function: the bus, the report and the chat reply all receive a handler result indistinguishable from one where every entry applied. This is the narrowest of the three — the measurement is already taken, only the channel is missing. FIX: add `info: ['Updated N of M — K skipped: id not found in plugin store']` to the returned HandlerResult, which is the shape plugins/wall/src/handlers/UpdateWallsColorBatch.ts already uses."
+    }
+  ]
+}
