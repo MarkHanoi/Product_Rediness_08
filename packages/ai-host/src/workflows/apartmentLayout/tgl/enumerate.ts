@@ -308,6 +308,40 @@ export interface TglCandidate {
     /** Virtual room-bounding lines at open-plan thresholds (no wall, no door)
      *  in METRES; the LayoutOption converts to mm at emit time. */
     readonly boundaries: readonly BoundarySeg[];
+    /**
+     * §CI-0 (SPEC-49 §4, 2026-08-13) — THE VERDICT'S SUPPORTING SETS, carried rather
+     * than logged. `hardValid` / `hardFailedRules` above say WHETHER the candidate
+     * failed and WHICH RULE; these four say WHICH ROOMS, so a caller can name them.
+     *
+     * They were already computed on every candidate and consumed only by
+     * `evaluateHardTopology` and a `console.warn` — SPEC-49 §3 item 4 recorded that
+     * dropping them at the emit boundary is "the single most consequential structural
+     * fact in this audit", because it is why §TOPO-HARD-REJECT-ALL can ship a plan the
+     * engine KNOWS is broken and nothing downstream can refuse or even report it.
+     *
+     * ⚠ THE TWO SEALED-ROOM SETS ARE DIFFERENT QUESTIONS AND ARE NEVER MERGED
+     * (C75 §1.2 — two facts must not print the same value):
+     *   • `unreachableHabitableRoomIds` — the BFS answer: habitable rooms the access
+     *     graph cannot reach FROM THE ENTRANCE. A room can hold a door and still be
+     *     here, if every path to it is itself sealed.
+     *   • `unroutedToCirculationRoomIds` — the router's answer: rooms with no door
+     *     onto CIRCULATION. A room can be reachable (through another room) and still
+     *     be here.
+     * Neither is "a room with no door at all" — that third set is derived at emit
+     * time from the realised door graph, see `LayoutOption.circulation.doorlessRoomIds`.
+     *
+     * Purely additive. Nothing reads these at the point they were introduced, so
+     * generation output is byte-identical (ADR-0061 invariant I2).
+     */
+    readonly unreachableHabitableRoomIds: readonly string[];
+    readonly unroutedToCirculationRoomIds: readonly string[];
+    /** §CI-4 (SPEC-49) — the two storey-scale corridor-contiguity gaps, per candidate.
+     *  Both are house-path-only by construction and are ALWAYS false on the apartment
+     *  path (see `evaluateHardTopology`'s field docs), so carrying them changes no
+     *  apartment reading. They were dropped at emit, which is why SPEC-49 §5 records
+     *  the storey-scale contiguity rate as UNPROVEN as a shipped-artefact rate. */
+    readonly corridorStairGap: boolean;
+    readonly corridorHallGap: boolean;
 }
 
 const EPS = 1e-9;
@@ -2545,6 +2579,13 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
         circulationRouted, hardValid, hardFailedRules, droppedRooms, roomOverlaps, boundaries,
         underMinAreaRooms, missingMandatoryTypes,
+        // §CI-0 / §CI-4 (SPEC-49) — carry the supporting sets instead of dropping them.
+        // Every one of these was already computed above and passed to evaluateHardTopology;
+        // this is retention, not computation, so it adds no work and changes no geometry.
+        unreachableHabitableRoomIds: unreachableHabitable,
+        unroutedToCirculationRoomIds,
+        corridorStairGap,
+        corridorHallGap,
     };
 }
 

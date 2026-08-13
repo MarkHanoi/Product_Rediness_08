@@ -27,6 +27,24 @@ export interface EmittedLayout {
     readonly doorGuids: readonly string[];
     /** Space GUID per option.rooms index. */
     readonly spaceGuids: readonly string[];
+    /**
+     * §CI-0 (SPEC-49 §4) — the ORIGINATING ROOM ID per `option.rooms` index
+     * (`GraphNode.sourceId`, which for a Space node is the bubble-graph `roomId`).
+     *
+     * Why this exists and why it is NOT the same as `spaceGuids`: every circulation
+     * diagnostic the engine computes — `unreachableHabitableRoomIds`,
+     * `unroutedToCirculationRoomIds` — is keyed by ROOM ID, while `LayoutRoom` carries
+     * only a display NAME. Without this index the caller can carry the verdict but not
+     * say which room it is about, which is most of the value.
+     *
+     * ⚠ ID, NOT NAME, IS THE KEY. §DUP-NAME-UNIQUE (above) exists precisely because the
+     * residual fill mints several rooms with the IDENTICAL display name, and a
+     * name-keyed lookup then collapses distinct rooms — the exact mechanism by which a
+     * sealed room inherits a same-named sibling's connectivity and reads as reachable
+     * (founder: "Circulation 100% while rooms sealed"). Resolve id → name through this
+     * array; never key a verdict on the name.
+     */
+    readonly spaceSourceIds: readonly string[];
 }
 
 
@@ -126,8 +144,12 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
     // ── Rooms ────────────────────────────────────────────────────────────────────
     const rooms: LayoutRoom[] = [];
     const spaceGuids: string[] = [];
+    // §CI-0 — index-aligned with `rooms` and `spaceGuids`; pushed in the same loop
+    // iteration so the three arrays cannot drift apart.
+    const spaceSourceIds: string[] = [];
     for (const n of spaceNodes) {
         spaceGuids.push(n.guid);
+        spaceSourceIds.push(n.sourceId);
         const { cx, cz } = polyCentroid(n);
         const spaceType = str(n.attrs.spaceType, 'utility');
         // A.21.D55 — the modal `windowCount` flag tracks whether a room WILL receive a
@@ -375,7 +397,7 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         ...(windows.length > 0 ? { windows } : {}),
         ...(perimeterWindowRooms.length > 0 ? { perimeterWindowRooms } : {}),
     };
-    return { option, wallGuids, doorGuids, spaceGuids };
+    return { option, wallGuids, doorGuids, spaceGuids, spaceSourceIds };
 }
 
 function wallToLayout(n: GraphNode): LayoutOption['walls'][number] {

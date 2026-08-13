@@ -123,6 +123,72 @@ export interface LayoutOption {
      *  the room emitted ZERO surviving window candidates. Optional + ADDITIVE: omitted
      *  ⇒ the diagnostic falls back to the emitted-window set (byte-identical output). */
     perimeterWindowRooms?: ReadonlyArray<readonly [string, string]>;
+    /** §CI-0 (SPEC-49 §4, 2026-08-13) — the engine's own circulation verdict about
+     *  THIS option. See {@link LayoutCirculationVerdict}. Optional and ADDITIVE: an
+     *  AI-produced or hand-built option that never went through `enumerate.ts` has no
+     *  verdict, and `undefined` here means **NOT MEASURED**, never "sound". */
+    circulation?: LayoutCirculationVerdict;
+}
+
+/**
+ * §CI-0 (SPEC-49 §4) — THE VERDICT THE ENGINE ALREADY COMPUTES, CARRIED ACROSS THE
+ * EMIT BOUNDARY INSTEAD OF DROPPED.
+ *
+ * Before this block existed, `enumerate.ts` evaluated every hard architectural rule
+ * (reach · circulation · served-through · corridor-stair · corridor-hall), decided
+ * `hardValid`, warned §TOPO-HARD-REJECT-ALL to the console — and then `emitGeometry`
+ * projected to a `LayoutOption` with nowhere to put any of it. A caller that WANTED to
+ * refuse a broken plan could not see that it was broken. SPEC-49 §3 item 4 calls that
+ * "the single most consequential structural fact in this audit".
+ *
+ * ⚠ THIS TYPE CARRIES A VERDICT, NOT A DECISION. Nothing in the engine refuses on it.
+ * The house path in particular ships the least-bad HARD-INVALID candidate by design
+ * (`isHousePath` disables the structured rejection outright), which is why SPEC-49
+ * measured 12 of 24 house storeys with an unreachable room. The founder's decision
+ * (2026-08-13) is **ship the least-bad storey PLUS a blocking banner naming the sealed
+ * rooms** — the banner is a separate consumer of this block (CI-1), and silently
+ * shipping is the one option that was ruled out.
+ *
+ * ⚠ THE THREE ROOM SETS ARE THREE DIFFERENT QUESTIONS AND ARE NEVER MERGED (C75 §1.2 —
+ * two distinct facts must never print the same value). A room can appear in one, two or
+ * all three, and each has a different remedy.
+ */
+export interface LayoutCirculationVerdict {
+    /** True ⇒ this option violated NO hard architectural rule. False ⇒ it is a
+     *  §TOPO-HARD-REJECT-ALL least-bad survivor: the engine shipped it knowing it fails. */
+    readonly hardValid: boolean;
+    /** WHICH rules failed — subset of {'window','circulation','privacy','overlap',
+     *  'minarea','mandatory','reach','served-through','corridor-stair','corridor-hall',
+     *  'room-out-of-bounds',…}. Empty iff `hardValid`. */
+    readonly hardFailedRules: readonly string[];
+    /** SEALED, by BFS from the entrance: habitable rooms the access graph cannot reach.
+     *  A room here may still HAVE a door — if every route to it is itself sealed. */
+    readonly unreachableRoomIds: readonly string[];
+    /** Display names for {@link unreachableRoomIds}, resolved through the emit-time
+     *  id→name index. An id with no emitted room resolves to the id itself rather than
+     *  being dropped — a name we cannot resolve is still a room that is sealed. */
+    readonly unreachableRoomNames: readonly string[];
+    /** NO DOOR ONTO CIRCULATION, by the door router: rooms reachable only THROUGH
+     *  another room. Distinct from `unreachableRoomIds` — a served-through bedroom is
+     *  here and not there; a room behind a sealed corridor is there and not here. */
+    readonly unroutedToCirculationRoomIds: readonly string[];
+    /** Display names for {@link unroutedToCirculationRoomIds}. */
+    readonly unroutedToCirculationRoomNames: readonly string[];
+    /** NO DOOR AT ALL — derived at emit time from the realised door graph
+     *  (`LayoutRoom.doorAdjacentTo` empty). This is the set the founder saw and SPEC-49
+     *  §10.3 measured at 11/24 house storeys, one of them a doorless `Stair`. It is
+     *  NEITHER of the two sets above: those are computed on the bubble graph before
+     *  emission, this one on the doors that actually shipped. */
+    readonly doorlessRoomIds: readonly string[];
+    /** Display names for {@link doorlessRoomIds}. */
+    readonly doorlessRoomNames: readonly string[];
+    /** §CI-4 — house-path storey-scale contiguity: the corridor shares no door-width
+     *  wall with the stair keep-out. ALWAYS false on the apartment path and on plates
+     *  with no corridor, so it never fires where it cannot apply. */
+    readonly corridorStairGap: boolean;
+    /** §CI-4 — the ground-floor twin: the corridor shares no door-width wall with the
+     *  entrance hall. Mutually exclusive with {@link corridorStairGap} per storey. */
+    readonly corridorHallGap: boolean;
 }
 
 export interface ApartmentConstraints {

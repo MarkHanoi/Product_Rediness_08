@@ -383,11 +383,51 @@ export function generateDeterministicLayouts(
         // executor can size generated partitions to match the shell without
         // reaching into the wall store. Skipped when 0 / unset → executor
         // falls back to level.height.
+        // §CI-0 (SPEC-49 §4) — CARRY THE VERDICT ACROSS THE EMIT BOUNDARY.
+        //
+        // `c` holds the hard-topology verdict the engine computed for this candidate and,
+        // since §CI-0, the room-id sets that support it. `emitted.spaceSourceIds` is
+        // index-aligned with `emitted.option.rooms`, so ids resolve to the display names a
+        // banner can actually show. Rotation does not touch names or ids, so resolving
+        // against `emitted.option.rooms` (pre-rotation) is equivalent to resolving against
+        // `option.rooms` and avoids depending on rotateOptionBack preserving room order.
+        //
+        // ⚠ An id that resolves to NO emitted room keeps the ID as its display string
+        // rather than being dropped. A room we cannot name is still a room that is sealed,
+        // and silently shortening the list would understate the defect — the §CONTEXT-DATA-
+        // HONESTY failure this whole SPEC exists to close.
+        const nameBySourceId = new Map<string, string>();
+        emitted.spaceSourceIds.forEach((sid, i) => {
+            const r = emitted.option.rooms[i];
+            if (r) nameBySourceId.set(sid, r.name);
+        });
+        const namesFor = (ids: readonly string[]): readonly string[] =>
+            ids.map(id => nameBySourceId.get(id) ?? id);
+        // NO DOOR AT ALL — derived from the REALISED door graph, not from the bubble-graph
+        // router. `doorAdjacentTo` is emitGeometry's permeable-neighbour set; empty means
+        // no door and no open threshold reaches this room. This is the set the founder saw.
+        const doorlessIdx: number[] = [];
+        emitted.option.rooms.forEach((r, i) => {
+            if ((r.doorAdjacentTo?.length ?? 0) === 0) doorlessIdx.push(i);
+        });
+        const circulation = {
+            hardValid: c.hardValid,
+            hardFailedRules: c.hardFailedRules as readonly string[],
+            unreachableRoomIds: c.unreachableHabitableRoomIds,
+            unreachableRoomNames: namesFor(c.unreachableHabitableRoomIds),
+            unroutedToCirculationRoomIds: c.unroutedToCirculationRoomIds,
+            unroutedToCirculationRoomNames: namesFor(c.unroutedToCirculationRoomIds),
+            doorlessRoomIds: doorlessIdx.map(i => emitted.spaceSourceIds[i] ?? ''),
+            doorlessRoomNames: doorlessIdx.map(i => emitted.option.rooms[i]!.name),
+            corridorStairGap: c.corridorStairGap,
+            corridorHallGap: c.corridorHallGap,
+        };
         const labelled = {
             ...option,
             boundaries,
             summary: `${option.summary} (offline · D-TGL)`,
             ...(constraints.floorToCeiling > 0 ? { floorToCeilingMm: constraints.floorToCeiling } : {}),
+            circulation,
         };
         // §L1-α-4 PREP — pin the cognition-stack / validator axes onto the
         // breakdown so the modal renderer (follow-on commit) can surface
