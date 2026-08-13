@@ -341,7 +341,15 @@ const result: GateResult = {
     // yet) gained its §7.7 named-absence declaration (DXF_PROVENANCE_MAPPING,
     // exported from the plugin surface), binding on the F.x wiring that lands
     // there. Remaining: the export-pdf plugin shell.
-    declared: 1,
+    // 1 → 0, 2026-08-13 (PV-04 CLOSED at this gate's resolution): the
+    // export-pdf shell gained its §7.7 declaration (PDF_PROVENANCE_MAPPING).
+    // All four surfaces now either MAP the vocabulary (ifc-export:
+    // PRYZM_ValueProvenance pset) or record its absence BY NAME in the surface
+    // AND in the artefact (DXF 999 comments / PDF metadata). What stays open
+    // is what this gate's own NOT-MEASURED block says: mapping CORRECTNESS,
+    // runtime reachability (CE-05), and the file-format legacy-IFC/GLB writers
+    // which are recorded ABSENT (provenanceAbsence.ts), not mapped.
+    declared: 0,
     findingNames,
 };
 process.exit(reportGate(result));

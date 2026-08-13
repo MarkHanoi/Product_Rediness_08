@@ -9,3 +9,7 @@
 
 export const PLUGIN_ID = 'export-pdf' as const;
 export const PLUGIN_NAME = '@pryzm/plugin-export-pdf' as const;
+
+// PV-04 / C75 §7.7 — the ValueProvenance mapping for PDF is absent and the
+// absence is recorded by name, binding on the F.x wiring that lands here.
+export { PDF_PROVENANCE_MAPPING } from './provenance-absence.js';
