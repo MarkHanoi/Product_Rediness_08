@@ -127,13 +127,16 @@ import {
  *    be written without saying what produced it — the type enforces the honesty.
  *  - `ifc-import`      → **observed**. Received from an external source of record, unmodified.
  *
- * ⚠ `auto-topology` is ALSO what `roomSnapshotUtils.ts:156` writes as a `||` DEFAULT for any
- * snapshot that lacks the field — C75's PV-01, live at HEAD. So a room reading
- * `auto-topology` is genuinely ambiguous between "flood-filled" and "we had no idea and
- * defaulted". {@link classifyRoomBoundary} CANNOT distinguish them from the value alone and
- * does not pretend to: the mapping is stated here, the ambiguity is stated here, and
- * `check-authored-state-protection` reports it as a named finding rather than letting the
- * translation launder a default into a determination.
+ * ⚠ **PV-01 — FIXED 2026-08-12, and the residue is permanent.** `roomSnapshotUtils.ts:156`
+ * used to write `auto-topology` as a `||` DEFAULT for any snapshot lacking the field. It now
+ * records `origin-unknown` with a reason (C75 §7 exit condition 1), so every room loaded from
+ * this day forward is honest. **But rooms already on disk are not**: a stored `auto-topology`
+ * written before the fix remains genuinely ambiguous between "flood-filled from the wall
+ * graph" and "we had no idea and defaulted", and NOTHING can now distinguish them — the
+ * information was never recorded. {@link classifyRoomBoundary} does not pretend otherwise;
+ * the `detail` on the `auto-topology` row carries the caveat, and it must NOT be removed on
+ * the grounds that the defect is fixed. Fixing a fabrication stops new ones; it does not
+ * un-fabricate the old.
  */
 const DETECTION_METHOD_TO_ORIGIN: Readonly<Record<string, ValueProvenance>> = Object.freeze({
     'manual-boundary': authoredProvenance('user drew the room boundary (RoomTool)'),
@@ -144,7 +147,35 @@ const DETECTION_METHOD_TO_ORIGIN: Readonly<Record<string, ValueProvenance>> = Ob
     ),
     'ai-generated': systemProvenance('inferred', 'placed by an AI pass from a programme description'),
     'ifc-import': systemProvenance('observed', 'imported from IFC IfcSpace geometry'),
+    // ─── The two members added 2026-08-12 with the C75 §7 fixes ──────────────
+    // `repaired-ring` → **inferred**, and this row is the whole reason the member
+    // exists. `repairToSimplePolygon()` substitutes the largest simple sub-ring
+    // for a self-intersecting traced one: PLAUSIBLE, not entailed by the wall
+    // graph. Mapping it to `computed` alongside `auto-topology` would be exactly
+    // the COMPUTED/INFERRED merge C75 §1.2 forbids and C75 §0 Finding 4 found.
+    // ⚠ The room's true extent may be LARGER than what is stored — discarded
+    // vertices are discarded area — so `detail` says so rather than implying the
+    // repair was lossless.
+    'repaired-ring': systemProvenance(
+        'inferred',
+        'boundary SUBSTITUTED by §A.21.D58 repair — the traced ring self-intersected and its largest ' +
+        'simple sub-ring was used instead; vertices were discarded, so the stored extent may understate ' +
+        'the room (see RoomBoundary.detectionDetail for the counts)',
+    ),
 });
+
+/**
+ * `origin-unknown` is deliberately **NOT** in the table above, and its absence is
+ * the design rather than an omission.
+ *
+ * It is not a determination to be translated — it is C75 §1.4's unknown-with-
+ * reason, already in the honest form, so it must resolve to an UNKNOWN
+ * `ValueProvenance` and not to any of the five. Putting it in a
+ * `Record<string, ValueProvenance>` of determinations would have required
+ * inventing an origin for it, which is the defect this whole file exists to
+ * refuse. {@link classifyRoomBoundary} routes it explicitly instead.
+ */
+const ORIGIN_UNKNOWN_METHOD = 'origin-unknown';
 
 /**
  * Translate a room's `detectionMethod` into the L0 vocabulary, or UNKNOWN with a reason
@@ -156,6 +187,17 @@ const DETECTION_METHOD_TO_ORIGIN: Readonly<Record<string, ValueProvenance>> = Ob
  */
 export function classifyRoomBoundary(detectionMethod: unknown): ValueProvenance {
     if (typeof detectionMethod !== 'string' || detectionMethod.length === 0) {
+        return unknownProvenance('not-recorded');
+    }
+    // C75 §1.4 — the room STATES that its origin is not known. Carry that
+    // through as an UNKNOWN; never translate it into one of the five. Reported
+    // as `not-recorded` because that is what the member means at element grain:
+    // the producer had a place to state an origin and there is none. (The finer
+    // reason — `predates-provenance` vs `conflicting-records` — lives in the
+    // room's own `detectionDetail`; this index reads `detectionMethod` alone and
+    // does not reach for it, so it reports the coarser truth rather than
+    // guessing the finer one.)
+    if (detectionMethod === ORIGIN_UNKNOWN_METHOD) {
         return unknownProvenance('not-recorded');
     }
     const mapped = DETECTION_METHOD_TO_ORIGIN[detectionMethod];
