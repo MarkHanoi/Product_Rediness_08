@@ -271,7 +271,6 @@ const LEDGER: readonly string[] = [
   'H3::DOOR_WIDTH_vs_CIRCULATION (warning)',
   'H3::ACCESSIBLE_ROUTE (warning)',
   'H3::ROOM_MAX_TRAVEL_DISTANCE (warning)',
-  'H3::FIRE_COMPARTMENT_AREA (error)',
   'H3::MEANS_OF_ESCAPE_COUNT (error)',
   'H3::CORRIDOR_WIDTH (warning)',
   'H3::LIFT_ADJACENT_LOBBY (info)',
