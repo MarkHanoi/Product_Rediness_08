@@ -1888,3 +1888,30 @@ decided** — one of them is somebody's intended surface.
 
 **Owner**: `apps/editor/src/ui/data` vs `apps/editor/src/ui/dataworkbench`. Needs a decision, not
 a patch.
+
+### RESOLVED 2026-08-13 — founder decision: **DataWorkbench.ts ships**
+
+The founder decided the same day: `DataWorkbench.ts` is the shipped F3 Data surface. Neither
+implementation was deleted. Landed as `5465ed1c` (the swap) + `b8bdf7cd` (differentiating specs),
+verified by execution (4/4 specs; reverting the mount to `'hidden'` fails spec 1 on exactly
+`setMode(['full'])`).
+
+- **The mount site was `WorkspaceController.ts:149`** — `_applyLayout()`'s `case 'data'` drove
+  `dw.setMode('hidden')` while `DataCommandCenter` (a fixed inset-0 overlay) showed itself on the
+  `pryzm-workspace-mode` event. The case now drives `setMode('full')`; DataCommandCenter's handler
+  only hides. **DataCommandCenter is parked, not deleted**: class, all four buckets
+  (`AuditBucket.ts` untouched) and the module singleton stay constructed and importable, with a
+  new public `show()` for a future host.
+- **History verdict — deliberate supersession, not a crash bench**: `DataCommandCenter.ts:9`
+  declares itself "the F3 surface that REPLACES DataWorkbench" (Phase 2.1, pre-squash), and
+  9e2cd9e9 repaired its show path. No evidence DataWorkbench was benched for a defect — it kept
+  receiving investment while unreachable (e25c3d73 Sun Hours, 56ee3337 joinedTo), and
+  WorkspaceController's own header always documented "data (F3) — DataWorkbench full width".
+- **The concealed fix is now visible**: `HierarchyTreePanel.ts:626` reads
+  `sg.getTargets(room.id,'contains')` and `SemanticGraph.ts:598` returns `string[]` — shapes
+  match; the Furniture group's path to first render is open via **AUDIT → Hierarchy**.
+- **Bonus latent bug fixed in passing**: `_applyMode` never cleared the inline 420 px `'panel'`
+  width pins, so panel→full rendered "full" as a 420 px strip — now cleared, spec-pinned.
+- **Still open from the original entry**: the `LeftNavRail.ts:540` second `HierarchyTreePanel`
+  mount remains reachability-unverified; F3's default bucket remains STRATEGIZE (the tree is at
+  AUDIT → Hierarchy) — flagged for the founder, not changed.
