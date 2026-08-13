@@ -47,6 +47,17 @@
 
 ## ✅ §-3 — HOW WE WILL KNOW IT WORKS FOR **ALL** ELEMENTS, NOT JUST WALLS
 
+> ### ✅ UPDATE 2026-08-13, end of session — §-1's defect is HALF FIXED (`798f2cfd`)
+> **The slab now follows a moved wall: 0 rebuilds → 1.** Both `SlabDependencyTracker` and
+> `SlabWallConnectivityService` guarded on `e.detail.slab`, a field the store has never sent
+> (it sends `{ id }`), so `registerSlab()` was unreachable and the dependency graph stayed empty.
+> `check-move-propagation` **7/7 → 6/6**.
+>
+> **Still broken, and NOT to be assumed fixed:** the **stored polygon** does not follow — 36.000 m²
+> drawn vs **24.000 m² recorded** — so schedules, take-off and export read the pre-move shape.
+> **Browser behaviour is UNPROVEN** (unit harness only). **Walls still do not extend to join.**
+> See the brief's §2.0.
+
 > **The founder's question: "before BIM 3.0 is closed, how do I know this works 100 %, for every
 > element — not only walls?"**
 >

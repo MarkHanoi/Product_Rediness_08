@@ -13,9 +13,17 @@
 ## §0 — PASTE THIS AS THE OPENING PROMPT
 
 ```
-Read docs/03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md in full. Then read
-BIM30-MASTER-COMPLETION-TRACKER.md §-3, §-2 and §-1 (in that order) — they are
-short and they define the goal, the matrix, and the first fix.
+Read docs/03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md in full — §2.0 FIRST,
+it records what landed in the last ten minutes of the previous session and what
+is still broken. Then BIM30-MASTER-COMPLETION-TRACKER.md §-3, §-2 and §-1.
+
+BEFORE ANY CODE: ask me two things.
+  1. What did you SEE when you moved a wall on the deployed build? The slab fix
+     is proven in a unit harness, NOT in a browser. Do not claim it works.
+  2. L-847 — which Data workbench ships, dataworkbench/DataWorkbench.ts or
+     data/buckets/AuditBucket.ts? The model tree is unreachable until that is
+     decided, and it is a decision, not a patch. Do not guess; do not delete
+     either one.
 
 Do NOT re-read contracts C67-C80 end to end. §1 here carries the digest. Open a
 contract only when you are about to change what it governs, and only that §.
@@ -102,7 +110,50 @@ the commit message, **the gate wins** — that is how MT-10 was correctly re-ope
 
 ---
 
-## §2.1 🔴 THE MOVE-PROPAGATION WIRE — first code change of the session
+## §2.0 ✅ WHAT CHANGED AT THE VERY END OF THE LAST SESSION — read before §2.1
+
+**§2.1's first half is DONE** (`798f2cfd`). Do not re-do it. What follows is what is left.
+
+### The slab now follows a moved wall — measured 0 rebuilds → 1
+
+Both `SlabDependencyTracker:57-67` and `SlabWallConnectivityService:115-122` guarded on
+`e.detail.slab` / `e.detail.slabId` — fields `SlabStore.emit` **has never sent** (it sends `{ id }`).
+`registerSlab()` was unreachable from the event path; only `bootstrap()` ever filled the graph, so
+every slab created **or loaded** after boot was invisible. Both now resolve the record via
+`slabStore.getById`, accepting either payload shape. `check-move-propagation` **7/7 → 6/6**, ledger
+row struck in the same commit, geometry-slab **134/134**.
+
+Two pinned tests were **INVERTED, not deleted** — they asserted `rebuilds` stayed empty in order to
+*prove* the defect, so left alone they would have forbidden the fix.
+
+### ⚠ THREE THINGS THAT ARE **NOT** FIXED — do not assume otherwise
+
+1. **The stored polygon still does not follow.** Only the drawn mesh does: 36.000 m² drawn vs
+   **24.000 m² recorded** in `SlabData.polygon`. So schedules, area take-off, export and any
+   downstream region detection still read the **pre-move** shape. This is the remaining slab row in
+   `move-propagation.json` and it is the **next fix**.
+2. **Browser behaviour is UNPROVEN.** The evidence is a unit harness — it proves the wire carries
+   the signal, **not** that the viewport redraws. Per [[probe-can-be-wrong-three-ways]] confirm in
+   the browser before claiming it works. *Ask the founder what he actually saw.*
+3. **Walls still do not extend to join a moved wall.** Untouched — a different subsystem
+   (junction re-weld). If a **small** move fails to re-mitre a corner, that is a **new** defect and
+   the path is supposed to be gate-proven; investigate rather than assume it is the same bug.
+
+### ⚠ L-847 — THE MODEL TREE IS UNREACHABLE (founder-reported, needs a DECISION not a patch)
+
+There are **two rival Data workbench implementations**. `dataworkbench/DataWorkbench.ts` declares a
+`hierarchy` sub-tab and constructs `HierarchyTreePanel`; **the one that actually ships is
+`data/buckets/AuditBucket.ts`, which has no sub-tab bar at all** — so there is no path to the model
+tree from the shipped UI.
+
+This also **conceals a fix that landed**: `contains` gained its first-party writer, so the Furniture
+group could finally render (C71 §5.2 records it *"has never rendered"*) — and it still cannot,
+because the panel is not on screen. **Neither implementation was deleted**; one is somebody's
+intended surface. **Ask the founder which ships before touching either.**
+
+---
+
+## §2.1 🔴 THE MOVE-PROPAGATION WIRE — SECOND HALF (the first half is done, see §2.0)
 
 **Defect**: a slab created after boot **never re-projects when its wall moves**. 0 rebuilds.
 The reference is perfect; the maths is perfect; **the wire is cut**.
