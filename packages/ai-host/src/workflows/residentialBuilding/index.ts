@@ -17,3 +17,6 @@ export * from './apartmentEntryDoorOffset.js';
 // §RESI-OPENING-IN-WALL — the emit-stage clamp that keeps a window/door opening within its STORED
 // host-wall length (mitred walls are shorter than generation-time), used by the editor executor.
 export * from './clampOpeningToWall.js';
+// L-864 §RESI-UNIT-CONTAINMENT — the pure per-apartment UNIT plan (one hierarchy Unit per
+// placed cell) the executor uses to mint units + stamp the authoritative `room.unitId`.
+export * from './unitPlan.js';
