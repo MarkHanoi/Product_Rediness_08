@@ -240,6 +240,33 @@ export type SittingOnQuery =
     };
 
 /**
+ * §HOSTEDBY-REVERSE-READER (C71 §2.1 #1, ADR-0320) — the typed result of
+ * {@link SemanticGraphManager.getHostWall}, the REVERSE `hosts`/`hostedBy`
+ * traversal (`opening → the wall that hosts it`).
+ *
+ * `hosts` has had typed readers since Phase D; `hostedBy` — its inverse, the
+ * half written on every opening creation and rebuilt on every load — had none.
+ * The reference-shape PAIR (C71 §2.1 row 1) was half-read, and every consumer
+ * needing the reverse direction did a linear scan of the wall store instead.
+ *
+ * FAILURE ≠ EMPTINESS (C71 §4.4), and here the distinction is sharper than for
+ * `sitsOn`: a hosted element has EXACTLY ONE host by contract (C15 §1), so
+ * there is no legitimate empty success. `{ok:false}` names WHICH of the two
+ * failures occurred — `opening-unknown-to-hostedBy-writer` (no edge; the id is
+ * not an opening, or the edge was never written) versus `multiple-hosts`
+ * (a corrupt edge set — the graph holds two hosts for one opening, and picking
+ * one would be a coin flip dressed as a determination).
+ */
+export type HostWallQuery =
+    | { readonly ok: true; readonly openingId: string; readonly wallId: string }
+    | {
+        readonly ok: false;
+        readonly openingId: string;
+        readonly reason: 'opening-unknown-to-hostedBy-writer' | 'multiple-hosts';
+        readonly detail: string;
+    };
+
+/**
  * Plain-JSON serialisation of the SemanticGraph.
  * Stored in ProjectSnapshot.semanticGraph.
  */
@@ -474,6 +501,58 @@ export class SemanticGraphManager {
                 `never covered it" are the same value here (the id may not be a level, or the ` +
                 `project may predate the graph and not yet have been rebuilt). This is NO ` +
                 `ANSWER, not "the level is empty" — C71 §4.4.`,
+        };
+    }
+
+    /**
+     * §HOSTEDBY-REVERSE-READER — the typed `hostedBy` reader (C71 §2.1 #1):
+     * "which wall hosts this door/window?", as an O(k) graph LOOKUP rather than
+     * a linear scan of the wall store's `openings[]` arrays.
+     *
+     * CONSUMER: `SyncStateEngine._findHostWall`, on the door/window branch of
+     * the affected-node computation that drives every sync-state recompute. It
+     * reads the denormalized `door.wallId` / `window.wallId` field first and,
+     * when that is absent, falls back to iterating EVERY wall in the store and
+     * scanning each one's `openings[]`. The `hostedBy` edge is written on every
+     * opening creation (`CreateWallOpeningCommand`) and reconstructed on load
+     * from `wall.openings[]` (`rebuildSemanticGraphFromSnapshot`), so it answers
+     * the same question in one indexed hop — and, unlike the scan, can say that
+     * it does NOT know rather than returning `null` for both "no host" and
+     * "host not found".
+     *
+     * Refusal-bearing per C71 §4.4: see {@link HostWallQuery}. There is no
+     * legitimate empty success — C15 §1 gives a hosted element exactly one host
+     * — so zero edges and two edges are BOTH refusals, and they are named
+     * separately because they call for different repairs.
+     */
+    getHostWall(openingId: string): HostWallQuery {
+        const wallIds = [...new Set(this.getTargets(openingId, 'hostedBy'))];
+        if (wallIds.length === 1) return { ok: true, openingId, wallId: wallIds[0]! };
+
+        if (wallIds.length === 0) {
+            return {
+                ok: false,
+                openingId,
+                reason: 'opening-unknown-to-hostedBy-writer',
+                detail:
+                    `hostedBy lookup for opening ${openingId}: the graph holds no hostedBy edge ` +
+                    `from this id. The id may not be an opening, the opening may have been ` +
+                    `created before the graph existed, or the host edge was never written. ` +
+                    `This is NO ANSWER, not "it has no host" — a hosted element has exactly ` +
+                    `one host by contract (C15 §1), so "no host" is never a valid state.`,
+            };
+        }
+
+        return {
+            ok: false,
+            openingId,
+            reason: 'multiple-hosts',
+            detail:
+                `hostedBy lookup for opening ${openingId}: the graph holds ${wallIds.length} ` +
+                `host walls (${wallIds.join(', ')}). C15 §1 gives a hosted element exactly ONE ` +
+                `host, so this edge set is corrupt. This reader does NOT pick one: an opening's ` +
+                `offset is measured along a specific host's baseLine, so choosing arbitrarily ` +
+                `would return a confident answer for a coin flip.`,
         };
     }
 

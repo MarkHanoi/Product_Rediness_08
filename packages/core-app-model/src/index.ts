@@ -607,9 +607,9 @@ export {
 export type { RelationshipType, Relationship, SemanticGraph } from './SemanticGraph.js';
 // ADR-0321 — joinedTo writer-input + typed-reader result shapes
 export type { JoinedToJunctionType, JoinedToJunctionInput, JoinedWallsQuery } from './SemanticGraph.js';
-// §SITSON-REVERSE-READER (C71 §2.1 #5) — the refusal-bearing result type of the
-// typed `sitsOn` reverse reader.
-export type { SittingOnQuery } from './SemanticGraph.js';
+// §SITSON-REVERSE-READER / §HOSTEDBY-REVERSE-READER (C71 §2.1 #5 / #1) — the
+// refusal-bearing result types of the two typed reverse readers.
+export type { SittingOnQuery, HostWallQuery } from './SemanticGraph.js';
 export { SemanticGraphManager, semanticGraphManager } from './SemanticGraph.js';
 
 export type { AABB } from './SpatialIndex.js';

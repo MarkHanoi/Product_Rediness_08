@@ -25,6 +25,11 @@ import { storeEventBus, StoreChangeEvent } from '../StoreEventBus'; // TODO(TASK
 import { hierarchyStore } from '../hierarchy/HierarchyStore';
 import { templateStore } from '../templates/TemplateStore';
 import { templateAssignmentStore } from '../templates/TemplateAssignmentStore';
+// §HOSTEDBY-REVERSE-READER (C71 §2.1 #1) — a direct import, not a window global:
+// SemanticGraph.ts imports only ProjectScopeRegistry, so there is no cycle to
+// avoid here (the window-global helpers below exist for the element stores,
+// which do import back into this layer).
+import { semanticGraphManager } from '../SemanticGraph';
 import type { SyncState, AnyHierarchyEntity } from '../hierarchy/HierarchyTypes';
 import type {
     TemplateDefinition,
@@ -887,9 +892,47 @@ class SyncStateEngine {
 
     /**
      * Locate the wall that hosts a given door or window element.
-     * Searches doorStore/windowStore for the wallId field (added in Phase 5 PRE-STEP).
+     *
+     * §HOSTEDBY-REVERSE-READER (C71 §2.1 #1, ADR-0320) — THE CONSUMER of the
+     * typed `hostedBy` reader. This method is the reverse-hosting question the
+     * whole affected-node computation turns on for the door/window branch, and
+     * before the reader existed it had two answers and both were worse:
+     *
+     *   1. the denormalized `door.wallId` / `window.wallId` field — correct when
+     *      present, but a per-store field with no invariant tying it to the
+     *      wall's own `openings[]`; and
+     *   2. failing that, a LINEAR SCAN of every wall in the store, scanning each
+     *      one's `openings[]`.
+     *
+     * The graph answers the same question in one indexed hop from the edge
+     * `CreateWallOpeningCommand` writes on every opening creation and
+     * `rebuildSemanticGraphFromSnapshot` reconstructs on every load — and,
+     * unlike either fallback, it can REFUSE (C71 §4.4) instead of returning
+     * `null` for both "no host" and "I could not find one".
+     *
+     * ORDER — the graph is asked FIRST, deliberately. It is the only one of the
+     * three that is authoritative in both directions: the denormalized field can
+     * disagree with the host wall's `openings[]` with nothing to detect it,
+     * whereas the edge is written by the same command that mutates `openings[]`
+     * and rebuilt FROM `openings[]`. The two older paths are retained BELOW as
+     * fallbacks, not deleted: a refusal is not a licence to answer `null`, and a
+     * project whose graph predates the edge still deserves the scan.
+     *
+     * The `multiple-hosts` refusal is NOT fallen through on. Two host edges for
+     * one opening is a corrupt edge set (C15 §1 gives exactly one host), and the
+     * scan would answer it by picking whichever wall it reached first — turning
+     * a detectable corruption into a silent arbitrary choice.
      */
     private _findHostWall(elementId: string, type: 'door' | 'window'): string | null {
+        const hosted = semanticGraphManager.getHostWall(elementId);
+        if (hosted.ok) return hosted.wallId;
+        if (hosted.reason === 'multiple-hosts') {
+            console.warn(`[SyncStateEngine] ${hosted.detail}`);
+            return null;
+        }
+
+        // The graph has no hostedBy edge for this id (pre-graph project, or an
+        // opening created before the edge existed). Fall back to the older paths.
         if (type === 'door') {
             const store = getDoorStore() as any;
             const door = store?.getById?.(elementId);

@@ -345,6 +345,9 @@ const DEDICATED_READERS: Readonly<Record<string, string>> = {
   // §SITSON-REVERSE-READER (C71 §2.1 #5) — wraps `getSources(levelId,'sitsOn')`.
   // Consumer: DeleteLevelCommand.canExecute.
   getElementsSittingOn: 'sitsOn',
+  // §HOSTEDBY-REVERSE-READER (C71 §2.1 #1) — wraps `getTargets(id,'hostedBy')`.
+  // Consumer: SyncStateEngine._findHostWall.
+  getHostWall: 'hostedBy',
 };
 /** The type-agnostic cascade purge (d2). */
 const CASCADE_PURGE = 'removeAllRelationshipsForElement';
@@ -380,14 +383,50 @@ const FLOOR_MIN_REBUILD_FILES = 1;
 // ─────────────────────────────────────────────────────────────────────────────
 interface LedgerEntry { readonly key: string; readonly why: string }
 const LEDGER: readonly LedgerEntry[] = [
-  {
-    key: 'hostedBy/reader',
-    why: 'The inverse half of the reference-shape pair. `hosts` has two typed readers ' +
-      '(SemanticQueryEngine.ts:142,368); `hostedBy` has NONE — every consumer walks ' +
-      'wall→opening and nothing walks opening→wall typed. Written on every opening ' +
-      'creation (CreateWallOpeningCommand.ts:239) and rebuilt (rebuildSemanticGraph.ts:122), ' +
-      'so it is write-only state. C71 §2.1 requires the PAIR.',
-  },
+  // ── PAID 2026-08-13 · `hostedBy/reader` ───────────────────────────────────
+  // The inverse half of C71 §2.1's REFERENCE-SHAPE PAIR, and the half nobody
+  // read. `hosts` has two typed readers (SemanticQueryEngine); `hostedBy` had
+  // NONE — every consumer walked wall→opening and nothing walked opening→wall
+  // typed — while it was written on every opening creation
+  // (`CreateWallOpeningCommand`) and rebuilt on every load
+  // (`rebuildSemanticGraph`). Write-only state, in the pair C71 holds up as the
+  // reference shape.
+  //
+  // CLOSED BY A TYPED READER WHOSE CONSUMER WAS ALREADY DOING THE WORK BY HAND
+  // (C71 §2.5): `SemanticGraphManager.getHostWall(openingId)` wraps
+  // `getTargets(openingId,'hostedBy')`, and its consumer is
+  // `SyncStateEngine._findHostWall` — the door/window branch of the
+  // affected-node computation that drives every sync-state recompute.
+  //
+  // WHY THAT CONSUMER IS GENUINE: it asked this exact question and had two
+  // answers, both worse. (1) the denormalized `door.wallId` / `window.wallId`
+  // field, which has no invariant tying it to the host wall's own `openings[]`,
+  // so the two can disagree with nothing to detect it; and failing that (2) a
+  // LINEAR SCAN of every wall in the store, scanning each one's `openings[]`.
+  // The graph answers in one indexed hop from the edge the opening-creation
+  // command writes and the loader rebuilds. The graph is asked FIRST because it
+  // is the only one of the three authoritative in both directions; the two older
+  // paths are RETAINED as fallbacks, because a refusal is not a licence to
+  // answer `null` and a project whose graph predates the edge still deserves the
+  // scan.
+  //
+  // C71 §4.4 IS SHARPER HERE THAN FOR `sitsOn`: C15 §1 gives a hosted element
+  // EXACTLY ONE host, so there is no legitimate empty success. Zero edges and
+  // two edges are BOTH refusals and are named separately —
+  // `opening-unknown-to-hostedBy-writer` falls through to the legacy paths,
+  // while `multiple-hosts` does NOT: a corrupt edge set answered by "whichever
+  // wall the scan reached first" would turn a detectable corruption into a
+  // silent arbitrary choice, and an opening's offset is measured along a
+  // specific host's baseLine.
+  //
+  // REACHABILITY PROVEN BY EXECUTED TEST THROUGH THE PUBLIC PATH, not by
+  // calling the private method and not by registration
+  // (`packages/core-app-model/src/sync/hostedByReverseReader.test.ts`): case (c)
+  // starts the real engine, emits a real door event on the real StoreEventBus,
+  // and installs NEITHER a door store NOR a wall store — so the room fan-out it
+  // observes could only have come from the graph. Case (c2) then purges the edge
+  // and watches the SAME event resolve nothing.
+  //
   // ── PAID 2026-08-13 · `sitsOn/reader` ─────────────────────────────────────
   // THE `sitsOn` DEFECT ITSELF (C71 §0, EV-05 §1): EIGHTEEN writers across every
   // element kind at the last reading, ZERO typed readers — the widest write-only
