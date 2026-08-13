@@ -1379,7 +1379,18 @@ export class LivingGraphOverlay {
   // ── Chrome updates ─────────────────────────────────────────────────────────
 
   private updateBadges(): void {
-    if (this.roomsBadge) this.roomsBadge.textContent = `${this.graph.nodes.length} rooms`;
+    // §GR-10 — when the UBG edge set could not be READ, the header chip says
+    // so: a field of rooms with no lines must never silently imply "no
+    // relationships" (C75 §1.4). The determined-empty graph keeps the plain
+    // count, exactly as before.
+    if (this.roomsBadge) {
+      const und = this.graph.edgesUndetermined;
+      this.roomsBadge.textContent = und
+        ? `${this.graph.nodes.length} rooms · links unknown ⚠`
+        : `${this.graph.nodes.length} rooms`;
+      this.roomsBadge.title = und ? relationshipUndeterminedLabel(und) : '';
+      if (und) console.warn(`[living-graph] §GR-10 ${relationshipUndeterminedLabel(und)}`);
+    }
     if (this.settledBadge) {
       const settled = isSettled(this.sim) || this.frozen;
       this.settledBadge.textContent = settled ? '✓ settled' : 'settling…';

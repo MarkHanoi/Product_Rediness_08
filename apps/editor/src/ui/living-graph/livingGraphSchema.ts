@@ -195,6 +195,18 @@ export type LayerState = Record<EdgeLayer, boolean>;
 export interface LiveGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /**
+   * §GR-10 (C75 §1.4 · C78 §8.1 · C71 §4.4) — set when the RELATIONSHIP layer
+   * (the UBG edge set, or the whole cached graph) could NOT be read, as opposed
+   * to being genuinely empty. `edges: []` alone may only ever mean "zero
+   * relationships were determined"; when this field is present the overlay must
+   * SAY the links are unknown rather than render a room field with no lines.
+   * Carried in the closed C78 §8.1 vocabulary via the shared apps/editor seam.
+   */
+  edgesUndetermined?: Extract<
+    import('../relationshipDetermination.js').RelationshipDetermination<never>,
+    { kind: 'undetermined' }
+  >;
 }
 
 /** All layers on by default (the prototype's initial state). §49: the dropdown

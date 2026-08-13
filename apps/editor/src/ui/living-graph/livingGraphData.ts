@@ -23,6 +23,11 @@ import {
   type LiveGraph,
   type RoomKind,
 } from './livingGraphSchema';
+// §GR-10 — the shared honesty seam (C78 §8.1 vocabulary, imported not restated).
+import {
+  relationshipArrayOrUnknown,
+  relationshipUndetermined,
+} from '../relationshipDetermination.js';
 
 // ── Minimal structural views of the UBG (no heavy import beyond the type) ──────
 
@@ -283,13 +288,37 @@ export function buildLiveGraph(): LiveGraph {
   const ubg = readCachedBuildingGraph();
   if (!ubg) return { nodes: [], edges: [] };
 
+  // §GR-10 (C75 §1.4 · C78 §8.1) — this block used to be `?? []` + a catch
+  // returning a bare empty graph, so "the cached graph has no rooms/edges"
+  // and "the cached graph could not be read" produced identical output. A
+  // failed read now travels as `edgesUndetermined` (the closed C78 §8.1
+  // vocabulary via the shared seam) so the overlay can SAY links are unknown.
   let rawNodes: UbgNodeLike[] = [];
-  let rawEdges: UbgEdgeLike[] = [];
+  let rawEdgesOrNull: readonly UbgEdgeLike[] | null = null;
+  let edgesUndetermined: LiveGraph['edgesUndetermined'];
   try {
     rawNodes = ubg.allNodes() ?? [];
-    rawEdges = ubg.allEdges() ?? [];
-  } catch {
-    return { nodes: [], edges: [] };
+    rawEdgesOrNull = relationshipArrayOrUnknown<UbgEdgeLike>(ubg.allEdges());
+  } catch (err) {
+    return {
+      nodes: [],
+      edges: [],
+      edgesUndetermined: relationshipUndetermined(
+        'the cached building graph',
+        'RELATIONSHIP_NOT_READABLE',
+        `reading the cached UBG threw (${String((err as Error)?.message ?? err)}) — ` +
+          'rooms and their relationships are UNKNOWN, not absent.',
+      ),
+    };
+  }
+  const rawEdges: readonly UbgEdgeLike[] = rawEdgesOrNull ?? [];
+  if (rawEdgesOrNull === null) {
+    edgesUndetermined = relationshipUndetermined(
+      'edges of the cached building graph',
+      'RELATIONSHIP_NOT_READABLE',
+      'allEdges() answered with no array — the relationship layer is UNKNOWN, ' +
+        'not empty; rooms still render, links do not (C71 §4.4).',
+    );
   }
 
   // 1) Rooms only — exclude furniture + non-room kinds; skip boundary-less /
@@ -304,7 +333,9 @@ export function buildLiveGraph(): LiveGraph {
     nodes.push(makeNode(n));
     roomIds.add(n.id);
   }
-  if (nodes.length === 0) return { nodes: [], edges: [] };
+  if (nodes.length === 0) {
+    return { nodes: [], edges: [], ...(edgesUndetermined ? { edgesUndetermined } : {}) };
+  }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
@@ -371,7 +402,11 @@ export function buildLiveGraph(): LiveGraph {
   //    room metrics + topology (the prototype's `augmentEdges`).
   augmentEdges(nodes, byId, edgeMap, addLayer);
 
-  const graph: LiveGraph = { nodes, edges: [...edgeMap.values()] };
+  const graph: LiveGraph = {
+    nodes,
+    edges: [...edgeMap.values()],
+    ...(edgesUndetermined ? { edgesUndetermined } : {}),
+  };
 
   // §DIAG-GRAPH — an always-on, per-view edge/node census so the founder can see
   // EXACTLY which graph carries which relations + whether a realised door is

@@ -263,7 +263,19 @@
     "+ console.warn (RELATIONSHIP_NOT_READABLE with the error named), and only a",
     "determined empty omits the section. Differentiating spec:",
     "apps/editor/src/ui/__tests__/livingGraphSentencesHonesty.spec.ts (3 cases,",
-    "incl. negative control) — the unreadable case FAILS against catch-to-[]."
+    "incl. negative control) — the unreadable case FAILS against catch-to-[].",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 83 -> 82) — livingGraphData.ts, ARM C:",
+    "rawEdges = ubg.allEdges() ?? [] (plus a catch returning a bare empty graph)",
+    "meant an UNREADABLE cached building graph and a model with genuinely zero",
+    "relationships rendered identically — a field of rooms with no lines.",
+    "buildLiveGraph now carries LiveGraph.edgesUndetermined (C78 §8.1",
+    "RELATIONSHIP_NOT_READABLE via the shared seam) whenever the edge set or the",
+    "whole graph could not be read; the overlay header chip reads",
+    "\"N rooms · links unknown ⚠\" with the reason in its title + console.warn.",
+    "A readable zero-edge graph stays a plain determined empty. Differentiating",
+    "spec: apps/editor/src/ui/__tests__/livingGraphDataHonesty.spec.ts (4 cases,",
+    "2 negative controls) — the unreadable cases FAIL against the ?? [] shape."
   ],
   "swallowed": [
     {
@@ -370,11 +382,6 @@
       "site": "apps/editor/src/ui/layout/GISAreaLayout.ts",
       "arm": "C (2 site(s))",
       "why": "C@1518 `return { polygon: poly, edgeClassifications: b?.edgeClassifications ?? [] };` · C@2437 `const edgeCls = committed?.edgeClassifications ?? [];`"
-    },
-    {
-      "site": "apps/editor/src/ui/living-graph/livingGraphData.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@290 `rawEdges = ubg.allEdges() ?? [];`"
     },
     {
       "site": "apps/editor/src/ui/OverridePanel.ts",
