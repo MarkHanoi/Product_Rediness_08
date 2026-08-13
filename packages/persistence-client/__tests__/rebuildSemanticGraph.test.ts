@@ -203,8 +203,33 @@ describe('rebuildSemanticGraphFromSnapshot (GR-06 / GR-08)', () => {
         const { unreconstructable } = rebuildSemanticGraphFromSnapshot(makePreGraphSnapshot());
         // lifts are not serialized at all → connectedByLift cannot be rebuilt.
         expect(unreconstructable).toContain('connectedByLift');
-        // contains has no first-party writer (IFC-only; a separate named gap).
-        expect(unreconstructable).toContain('contains');
+        // §CONTAINS-FIRST-PARTY-WRITER — `contains` USED to be named here, on the
+        // accurate-at-the-time grounds that it had no first-party writer
+        // (IFC-only, and even that arm was dead), so a pre-graph snapshot held
+        // nothing to rebuild FROM. It now rebuilds from the persisted
+        // `furniture.hostedSpaceId`, so keeping it on the loss list would be a
+        // stale claim — the very thing C70 I-INV-3 exists to prevent in the
+        // other direction. This assertion is the guard against it coming back.
+        expect(unreconstructable).not.toContain('contains');
+    });
+
+    it('§CONTAINS-FIRST-PARTY-WRITER — rebuilds `contains` from the persisted hostedSpaceId, and writes NO edge for an item that has none', () => {
+        const snap = makePreGraphSnapshot();
+        // One item bound to a room (the D-FLE furnish engine stamps this), one
+        // hand-placed item with no room resolved.
+        (snap as any).furniture = [
+            { id: 'F1', levelId: 'L1', hostedSpaceId: R1 },
+            { id: 'F2', levelId: 'L1' },
+        ];
+        rebuildSemanticGraphFromSnapshot(snap);
+
+        // Exactly the query HierarchyTreePanel and WorldModelAdapter run.
+        expect(semanticGraphManager.getTargets(R1, 'contains')).toEqual(['F1']);
+        // An item with no hostedSpaceId gets no invented containment.
+        expect(semanticGraphManager.getRelationships('F2', 'contains')).toEqual([]);
+        // Both still sit on their level — the two families are independent.
+        expect(semanticGraphManager.getTargets('F1', 'sitsOn')).toContain('L1');
+        expect(semanticGraphManager.getTargets('F2', 'sitsOn')).toContain('L1');
     });
 
     it('is deterministic: two runs over the same snapshot yield the same edge count', () => {

@@ -96,6 +96,7 @@ const SITS_ON_KINDS = [
  *   6. `sitsOn`               — element → level (element.levelId), for SITS_ON_KINDS + stairs
  *   7. `supports`             — support element → beam (beam.startSupportId / endSupportId)
  *   8. `connectedByStair`     — base level ↔ top level (stair.baseLevelId / topLevelId)
+ *   9. `contains`             — room → furniture (furniture.hostedSpaceId)
  */
 export function rebuildSemanticGraphFromSnapshot(
     snapshot: RebuildableSnapshot,
@@ -230,6 +231,31 @@ export function rebuildSemanticGraphFromSnapshot(
         }
     }
 
+    // 8. Room → contained element (contains) — §CONTAINS-FIRST-PARTY-WRITER,
+    //    C71 §2.1 #7 / §5.2.
+    //
+    // Reconstructed from `furniture.hostedSpaceId`, the room id the D-FLE furnish
+    // engine stamps on every placed item and BOTH ProjectSerializers persist
+    // verbatim. That makes this edge REGENERATED like its neighbours above, not
+    // persist-or-lose — the same rule every other edge here follows: computed
+    // from a field the element authoritatively carries, never guessed.
+    //
+    // It was on the `unreconstructable` list below until the first-party writer
+    // existed, and the reason given there was accurate at the time — `contains`
+    // was IFC-import-only (and even that arm was dead), so a pre-graph snapshot
+    // held nothing to rebuild FROM. It now holds `hostedSpaceId`, so the honest
+    // answer changed with the data, and the name leaves the loss list in the
+    // same commit that makes it reconstructable.
+    //
+    // An item with NO `hostedSpaceId` writes no edge — identical to the live
+    // writer. A hand-placed item not yet resolved to a room genuinely has no
+    // containment to restore, and inventing one on load is the
+    // provenance-invented-on-load defect this file's header forbids.
+    for (const item of (snapshot.furniture ?? [])) {
+        if (!item?.id || !item.hostedSpaceId) continue;
+        addRel(item.hostedSpaceId, item.id, 'contains');
+    }
+
     // ── Named, non-silent losses (C70 I-INV-3) ───────────────────────────────
     const unreconstructable: string[] = [];
 
@@ -239,11 +265,14 @@ export function rebuildSemanticGraphFromSnapshot(
     // Reconstruction is impossible from this snapshot — named, not dropped.
     unreconstructable.push('connectedByLift');
 
-    // `contains` (room → contained element): REQUIRED (C71 §2.1) but has NO
-    // first-party writer — it is IFC-import-only, and wiring a native writer is
-    // a separate named Tier-2 gap (ADR-0320). A pre-graph snapshot carries no
-    // `contains` edge to begin with; the rebuild does not fabricate one.
-    unreconstructable.push('contains');
+    // `contains` was named here and is NO LONGER a loss — see step 8 above. The
+    // entry read: "REQUIRED (C71 §2.1) but has NO first-party writer — it is
+    // IFC-import-only, and wiring a native writer is a separate named Tier-2
+    // gap. A pre-graph snapshot carries no `contains` edge to begin with." That
+    // was true until the writer landed. `furniture.hostedSpaceId` is persisted
+    // by both serializers, so the edge is now reconstructed from authoritative
+    // state like every other family here, and leaving it declared as a loss
+    // would be a stale claim of the kind C71 §0.1 exists to prevent.
 
     return { added: count, unreconstructable };
 }
