@@ -74,6 +74,22 @@ import { arcSegmentThroughMidpoint, orthoConstrain } from '@pryzm/geometry-slab'
 // AnnotationPlanToolHandlers → `pryzmAnnotationInput`. (Contract 21 §2 forbids a handler
 // attaching DOM listeners to the CANVAS; it does not forbid using a UI service.)
 import { getFloorFinishCreationModal } from '@app/ui/ElementCreationModal';
+// §REGION-HOST-ATTRIBUTION (C79 §6.3 ROW 10) — this handler was CAPABILITY ABSENT: zero
+// occurrences of `region`, so per C79 §0.1(4) it could not INHERIT the fix `9fd9c5b6`
+// applied to `CreateFloorCommand`. The AUTO-from-room gesture below is now that region
+// mode, and per the §10.3 decision it DERIVES FROM THE ROOM through the ONE shared
+// attributor rather than growing a tracer of its own (§6.5). §6.6 forbids the cheap
+// version — a region path that emits coordinates would create the §0 defect NEW.
+import {
+    attributeFinishRegion,
+    formatFinishRegionReport,
+    formatFinishRegionRefusal,
+    type FinishRegionAttribution,
+} from './finishRegionAttribution';
+// The sketch is attached through the COMMAND LAYER (C03/P6 — commands are the only
+// mutation path) via the ONE authorised typed→legacy bridge file, exactly as the
+// slab plan tool does. See that function's header for why a second command.
+import { attachFloorSketchViaLegacyBridge } from '../../initBusHandlers';
 
 const STROKE = '#10b981';
 const FILL_A = 'rgba(16,185,129,0.10)';
@@ -299,12 +315,39 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         const centreline = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
         const polygon = this._innerFacePolygon(room, levelId, centreline);
 
+        // §REGION-HOST-ATTRIBUTION (C79 §6.3 row 10) — attribute the FINAL STORED ring to
+        // the walls of the clicked room, or REFUSE. Computed here, on the stored ring, so
+        // the emitted edges are index-aligned with the polygon that is actually committed.
+        const attribution = attributeFinishRegion(polygon, room, this._wallLookup());
+
+        // §2.3 / §5.2.0 — THE HONEST REFUSAL. The room's OWN boundary relationship is
+        // undetermined (`boundingWallIds` absent — a field naming a dependency that no
+        // producer wrote), so there is nothing to bound this finish BY. C79 §9.7 warns the
+        // transitive design is `undetermined` whenever the room's detection is; §10.3
+        // reason 3 answers that this is the honest answer, not a cost to engineer around.
+        // Refusing is not a degraded create — NOTHING is created, because a floor invented
+        // over an undetermined room is exactly the wrong-host state §2.3 forbids.
+        if (attribution.kind === 'refused') {
+            console.warn(formatFinishRegionRefusal('FloorPlanToolHandler', 'floor', attribution.determination));
+            this._resetForNext();
+            return;
+        }
+
         // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — AUTO used to commit RIGHT HERE, with no
         // modal and no finish parameters at all. It now goes through the SAME
         // resolve-then-commit chokepoint as every other mode, so the founder's "auto" click
         // asks for the elevation exactly as the 3D tool does — and, more importantly, commits
         // the same RECORD whether he answers the dialogue or accepts its defaults.
-        this._resolveThenCommit(polygon, levelId, room.id);
+        this._resolveThenCommit(polygon, levelId, room.id, attribution);
+    }
+
+    /**
+     * §REGION-HOST-ATTRIBUTION — the wall lookup the shared attributor needs. Kept as a
+     * one-line adapter (rather than reaching into `window` inside the pure module) so the
+     * attributor stays store-free and unit-testable.
+     */
+    private _wallLookup(): { getById?: (id: string) => any } | undefined {
+        return window.wallStore as { getById?: (id: string) => any } | undefined; // TODO(TASK-08)
     }
 
     /**
@@ -324,6 +367,15 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         polygon: Array<{ x: number; z: number }>,
         levelId: string,
         hostRoomId?: string,
+        /**
+         * §REGION-HOST-ATTRIBUTION — present ONLY for the region (AUTO-from-room) gesture.
+         * Absent for the hand-drawn modes, and that absence is meaningful: a polygon the
+         * user drew freehand expresses "this quadrilateral", not "the floor of this room"
+         * (C79 §0), so it correctly carries no host references. §1.5 requires the two to
+         * remain distinguishable in the record, and they are — one has a sketch, one does
+         * not. This is NOT a silently-dropped relationship; there was never one to keep.
+         */
+        attribution?: Extract<FinishRegionAttribution, { kind: 'attributed' }>,
     ): void {
         const seeded = resolveFloorFinish(this._floorConfig(), floorSystemTypeStore);
 
@@ -344,7 +396,7 @@ export class FloorPlanToolHandler implements PlanToolHandler {
                     baseOffsetM:  params.baseOffset,
                     systemTypeId: params.systemTypeId ?? '',
                 });
-                this._dispatchCreate(polygon, levelId, hostRoomId);
+                this._dispatchCreate(polygon, levelId, hostRoomId, attribution);
                 this._resetForNext();
             },
             onCancel: () => {
@@ -375,6 +427,7 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         polygon: Array<{ x: number; z: number }>,
         levelId: string,
         hostRoomId?: string,
+        attribution?: Extract<FinishRegionAttribution, { kind: 'attributed' }>,
     ): void {
         const finish: ResolvedFloorFinish = resolveFloorFinish(
             this._floorConfig(),
@@ -414,11 +467,54 @@ export class FloorPlanToolHandler implements PlanToolHandler {
             systemTypeId: finish.systemTypeId,
             layers:       finish.layers,
             createdBy:    'user',
+        })?.then(() => {
+            // §REGION-HOST-ATTRIBUTION (C79 §6.3 row 10) — attach the reference-carrying
+            // sketch so the finish FOLLOWS the walls that bound its room, closing the last
+            // CAPABILITY-ABSENT row. Attached AFTER the create resolves because the record
+            // must exist before it can be updated; the bus `floor.create` payload has no
+            // sketch field and its plugin handler is not the authoritative writer (see the
+            // bridge's own header).
+            if (!attribution) return;
+            this._attachRegionSketch(floorId, attribution);
         })?.catch((e: Error) => console.error('[FloorPlanToolHandler] floor.create failed:', e));
 
         console.log('[FloorPlanToolHandler] Floor created', {
             floorId, hostRoomId, ...finish, layers: finish.layers?.length ?? 0,
         });
+    }
+
+    /**
+     * §REGION-HOST-ATTRIBUTION — surface the §2.5 counts and attach the sketch.
+     *
+     * §2.6 — the counts are REPORTED, never absorbed: a region floor with zero host
+     * references and one with all four MUST NOT be the same value at the caller, and here
+     * they are not — the report names the split and every fallback's reason.
+     */
+    private _attachRegionSketch(
+        floorId: string,
+        attribution: Extract<FinishRegionAttribution, { kind: 'attributed' }>,
+    ): void {
+        const { sketch } = attribution;
+        console.log(formatFinishRegionReport('FloorPlanToolHandler', 'floor', sketch));
+
+        const res = attachFloorSketchViaLegacyBridge({
+            floorId,
+            sketch: { outerLoop: sketch.outerLoop },
+            boundingWallIds: sketch.boundingWallIds,
+        });
+        if (res.success) {
+            console.log(
+                `[FloorPlanToolHandler] §REGION-HOST-ATTRIBUTION sketch attached to ${floorId} — `
+                + `${sketch.attribution.hostEdges} edge(s) now follow their host wall.`,
+            );
+            return;
+        }
+        // Loud, not silent: without this the finish is a coincidental polygon again,
+        // which is exactly the §0 defect this row exists to close.
+        console.warn(
+            `[FloorPlanToolHandler] §REGION-HOST-ATTRIBUTION could not attach the sketch to `
+            + `${floorId}: ${res.error ?? 'unknown'} — this floor will NOT follow its walls.`,
+        );
     }
 
     /**

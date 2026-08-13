@@ -34,6 +34,20 @@ import { boundingWallIdsOrUnknown } from '@pryzm/core-app-model';
 import { arcSegmentThroughMidpoint, orthoConstrain } from '@pryzm/geometry-slab';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { CeilingPickerMode } from '@app/ui/CeilingModePicker';
+// §REGION-HOST-ATTRIBUTION (C79 §6.3 ROW 9) — this handler was CAPABILITY ABSENT: zero
+// occurrences of `region`, so per C79 §0.1(3) it could not INHERIT the fix `9fd9c5b6`
+// applied to `CreateCeilingCommand`. The AUTO-from-room gesture below is now that region
+// mode, and per the §10.3 decision it DERIVES FROM THE ROOM through the ONE shared
+// attributor — byte-identical to the floor's, which is §3.4's rule (one relationship, ONE
+// edge shape) and §7.4's (no per-path divergence) applied to the two finish surfaces.
+import {
+    attributeFinishRegion,
+    formatFinishRegionReport,
+    formatFinishRegionRefusal,
+    type FinishRegionAttribution,
+} from './finishRegionAttribution';
+// C03/P6 — commands are the only mutation path; the ONE authorised typed→legacy seam.
+import { attachCeilingSketchViaLegacyBridge } from '../../initBusHandlers';
 
 const STROKE = '#6600ff';
 const FILL_A = 'rgba(102,0,255,0.10)';
@@ -244,6 +258,25 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         // room's ceiling and floor boundaries are identical (fail-safe → centreline).
         const centreline = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
         const polygon = this._innerFacePolygon(room, levelId, centreline);
+
+        // §REGION-HOST-ATTRIBUTION (C79 §6.3 row 9) — attribute the FINAL STORED ring to the
+        // walls of the clicked room, or REFUSE. On the stored ring, so the emitted edges are
+        // index-aligned with the boundary that is actually committed.
+        const attribution = attributeFinishRegion(polygon, room, this._wallLookup());
+
+        // §2.3 / §5.2.0 — THE HONEST REFUSAL. Identical in shape and in reasoning to the
+        // floor's (§7.4: one field, one behaviour, on every path). NOTHING is created: a
+        // ceiling invented over a room whose own wall relationship is undetermined is the
+        // wrong-host state §2.3 names as strictly worse than no host.
+        if (attribution.kind === 'refused') {
+            console.warn(formatFinishRegionRefusal('CeilingPlanToolHandler', 'ceiling', attribution.determination));
+            this._points      = [];
+            this._cursorPoint = null;
+            this._rectAnchor  = null;
+            this._clearOverlay();
+            return;
+        }
+
         const ceilingId = createId('ceiling');
         // §P3.2-CL (IMPL-PLAN-2026-05-17): dispatch payload matches CreateCeilingPayload
         // (new schema: id, boundary as Vec3[], ceilingHeight). Legacy ifcGuid/polygon removed.
@@ -252,12 +285,54 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
             levelId,
             boundary:     polygon.map((p: { x: number; z: number }) => ({ x: p.x, y: 0, z: p.z })),
             ceilingHeight: 2.7,
+        })?.then(() => {
+            // §REGION-HOST-ATTRIBUTION — attach the reference-carrying sketch AFTER the
+            // record exists. See the bridge's header for why the bus create verb cannot
+            // carry it today.
+            this._attachRegionSketch(ceilingId, attribution);
         })?.catch((e: unknown) => console.error('[CeilingPlanToolHandler] ceiling.create (auto) failed:', e));
         console.log('[CeilingPlanToolHandler] Ceiling created from room', { ceilingId, roomId: room.id });
         this._points      = [];
         this._cursorPoint = null;
         this._rectAnchor  = null;
         this._clearOverlay();
+    }
+
+    /**
+     * §REGION-HOST-ATTRIBUTION — the wall lookup the shared attributor needs. A one-line
+     * adapter so the attributor itself stays store-free and unit-testable.
+     */
+    private _wallLookup(): { getById?: (id: string) => any } | undefined {
+        return window.wallStore as { getById?: (id: string) => any } | undefined; // TODO(TASK-08)
+    }
+
+    /**
+     * §REGION-HOST-ATTRIBUTION — surface the §2.5 counts and attach the sketch.
+     * §2.6 — zero-host and all-host are NOT the same value at the caller.
+     */
+    private _attachRegionSketch(
+        ceilingId: string,
+        attribution: Extract<FinishRegionAttribution, { kind: 'attributed' }>,
+    ): void {
+        const { sketch } = attribution;
+        console.log(formatFinishRegionReport('CeilingPlanToolHandler', 'ceiling', sketch));
+
+        const res = attachCeilingSketchViaLegacyBridge({
+            ceilingId,
+            sketch: { outerLoop: sketch.outerLoop },
+            boundingWallIds: sketch.boundingWallIds,
+        });
+        if (res.success) {
+            console.log(
+                `[CeilingPlanToolHandler] §REGION-HOST-ATTRIBUTION sketch attached to ${ceilingId} — `
+                + `${sketch.attribution.hostEdges} edge(s) now follow their host wall.`,
+            );
+            return;
+        }
+        console.warn(
+            `[CeilingPlanToolHandler] §REGION-HOST-ATTRIBUTION could not attach the sketch to `
+            + `${ceilingId}: ${res.error ?? 'unknown'} — this ceiling will NOT follow its walls.`,
+        );
     }
 
     /**

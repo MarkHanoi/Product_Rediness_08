@@ -215,6 +215,12 @@ export * from './rooms/UpdateRoomBoundaryCommand';
 export * from './rooms/UpdateRoomCommand';
 export * from './rooms/UpdateRoomFinishesCommand';
 export * from './rooms/UpdateRoomFinishesBulkCommand';
+// §REGION-HOST-ATTRIBUTION (C79 §6.3 rows 9–10) — the ONE shared room-finish boundary
+// attributor. Exported so the PLAN TOOL HANDLERS (`apps/editor`) can build the SAME
+// sketch the create-commands build, rather than minting a rival tracer for finishes —
+// which is the disease C79 §6.5 forbids and §10.3 decided against by name. It is a pure
+// function (no store access, no I/O); every consumer injects its own lookup.
+export * from './rooms/roomBoundarySketch';
 
 // ─── Roofs ────────────────────────────────────────────────────────────────
 export * from './roofs/CreateRoofCommand';

@@ -102,12 +102,13 @@ import {
 } from './RoomTypes';
 import {
   computeRoomMetrics,
-  ensureCCW,
   sanitisePolygon,
-  isSimple,
-  repairToSimplePolygon,
   MIN_ROOM_AREA_M2,
 } from './RoomPolygonUtils';
+// §PV-02-REPAIR-IS-INFERRED (C75 §2.3) — the traced-vs-substituted provenance
+// decision, extracted so it is executable without a WallStore. See that module's
+// header for why the extraction was the fix rather than a tidy-up.
+import { buildDetectedRoomBoundary, isRoomBoundaryRefusal } from './detectedRoomBoundary';
 import { UiPreferences } from '@pryzm/core-app-model';
 
 // ── Lazy imports (avoid circular deps at module-load time) ────────────────────
@@ -473,67 +474,26 @@ export class RoomDetectionEngine {
       // Zod gate and the room is silently dropped (missing floor/furniture).
       // Detect-and-repair into the largest simple ring so the room registers.
       // Ground-floor rooms (already simple) pass through untouched.
-      let finalPolygon = sanitised;
-      /**
-       * §PV-02-REPAIR-IS-INFERRED — C75 §2.3 / §7 exit condition 2.
-       *
-       * Set ONLY when `repairToSimplePolygon` actually substituted a ring. It is
-       * the difference between a boundary the topology traced and one we chose
-       * for it, and until 2026-08-12 the model could not tell them apart: both
-       * were written `detectionMethod: 'auto-topology'` and the substitution was
-       * logged to the console. **The console is not the model** (C75 §4.c) — a
-       * `console.debug` survives no reload, reaches no exporter, and answers no
-       * question the user or a regeneration pass will later ask.
-       *
-       * `repaired-ring` maps to **inferred**, never `auto-topology`/computed:
-       * the largest simple sub-ring is *plausible*, not *entailed by the wall
-       * graph*, and C75 §1.2 forbids merging the two — C75 §0 Finding 4 is
-       * literally this merge happening at this line.
-       */
-      let repairDetail: string | undefined;
-      if (!isSimple(sanitised)) {
-        const repaired = repairToSimplePolygon(sanitised);
-        if (!repaired) {
-          console.warn(
-            `[RoomDetectionEngine] Self-intersecting room boundary could not be ` +
-            `repaired to a simple polygon (${sanitised.length} verts) — skipping`,
-          );
-          continue;
-        }
-        console.debug(
-          `[RoomDetectionEngine] §A.21.D58 repaired self-intersecting boundary: ` +
-          `${sanitised.length} → ${repaired.length} verts (largest simple ring)`,
-        );
-        repairDetail =
-          `§A.21.D58 repair — the face tracer emitted a SELF-INTERSECTING ring (${sanitised.length} ` +
-          `verts) and repairToSimplePolygon() substituted its largest simple sub-ring ` +
-          `(${repaired.length} verts). This polygon was NOT traced by the topology: ` +
-          `${sanitised.length - repaired.length} vertex/vertices were discarded, so the room's true ` +
-          'extent may be larger than what is stored. Plausible, not entailed (C75 §1.1 `inferred`).';
-        finalPolygon = repaired;
+      // §PV-02-REPAIR-IS-INFERRED — C75 §2.3 / §7 exit condition 2.
+      //
+      // The whole decision — is this ring TRACED or SUBSTITUTED, and is it
+      // emittable at all — lives in `buildDetectedRoomBoundary`, pure and
+      // directly testable. It used to be inlined here, which meant the one line
+      // that matters was reachable only by reproducing an upper-storey §A.21.D58
+      // pinch out of wall coordinates; a rule that cannot be tested is a
+      // convention, and C75 §2.8 ranks a convention last.
+      const boundaryResult = buildDetectedRoomBoundary(sanitised, levelHeight);
+      if (isRoomBoundaryRefusal(boundaryResult)) {
+        // ADR-0299 §RECOVERY-MUST-REFUSE — the refusal is the outcome, not an
+        // error to swallow. Logged here for the operator; the MODEL simply does
+        // not gain a room whose origin we could not state.
+        console.warn(`[RoomDetectionEngine] ${boundaryResult.detail}`);
+        continue;
       }
-
-      ensureCCW(finalPolygon);
-
-      // §PV-02-REPAIR-IS-INFERRED — C75 §2.3. A genuinely flood-filled ring is
-      // `auto-topology` (→ COMPUTED: deterministic, the same wall graph
-      // reproduces it). A ring we SUBSTITUTED is `repaired-ring` (→ INFERRED),
-      // carrying what the repair did. Two different claims, two different
-      // members — never the same stamp, which is what C75 §0 Finding 4 found.
-      const boundary: RoomBoundary = repairDetail === undefined
-        ? {
-            polygon: finalPolygon,
-            height: levelHeight,
-            baseOffset: 0,
-            detectionMethod: 'auto-topology',
-          }
-        : {
-            polygon: finalPolygon,
-            height: levelHeight,
-            baseOffset: 0,
-            detectionMethod: 'repaired-ring',
-            detectionDetail: repairDetail,
-          };
+      const boundary: RoomBoundary = boundaryResult.boundary;
+      if (boundary.detectionMethod === 'repaired-ring') {
+        console.debug(`[RoomDetectionEngine] ${boundary.detectionDetail ?? ''}`);
+      }
 
       const computed = computeRoomMetrics(boundary);
 

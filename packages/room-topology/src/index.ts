@@ -54,6 +54,10 @@ export { computeTopology, assignOpeningsToWalls } from './PlanarTopologyEngine';
 // ── Room detection engine ────────────────────────────────────────────────────
 // Sprint H P9 (2026-05-10): extracted from src/engine/subsystems/rooms/
 export { RoomDetectionEngine } from './RoomDetectionEngine';
+// §PV-02-REPAIR-IS-INFERRED (C75 §2.3 / §7.2) — the pure traced-vs-substituted
+// boundary-provenance decision the engine delegates to.
+export { buildDetectedRoomBoundary, isRoomBoundaryRefusal } from './detectedRoomBoundary';
+export type { RoomBoundaryResult, RoomBoundaryRefusal } from './detectedRoomBoundary';
 export { RoomStore } from './RoomStore';
 
 // ── Sprint H P9.2 (2026-05-10) — RoomDataSchema + LightingRoomResolver ───────

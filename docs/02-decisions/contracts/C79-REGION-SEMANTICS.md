@@ -62,12 +62,14 @@ Measured at HEAD, all cited in
    wall identity before returning. There is no field to fill in.** The roof gap is therefore
    NOT a missing call to an existing function.
 2. **`SlabTool.ts` (3D) is unfixed** — `:1424`, above.
-3. **Ceilings have no region mode at all.**
-   `apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts` — **0 occurrences of
-   `region`** (measured 2026-08-12).
-4. **Floor finishes have no region mode at all.**
-   `apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts` — **0 occurrences of
-   `region`**. Neither (3) nor (4) can *inherit* a fix: the capability does not exist.
+3. ~~**Ceilings have no region mode at all.**~~ **CLOSED 2026-08-13 — CAPABILITY BUILT.**
+   `apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts` had **0 occurrences of
+   `region`** (measured 2026-08-12); its AUTO-from-room gesture is now a region mode that derives
+   from the room per §10.3.
+4. ~~**Floor finishes have no region mode at all.**~~ **CLOSED 2026-08-13**, same commit, same
+   shared attributor. The original finding, retained: neither (3) nor (4) could *inherit* a fix,
+   because the capability did not exist — so this was new build, and §6.6 governed it. See §6.3
+   rows 9–10.
 5. ~~**`boundingWallIds: []` — a field that NAMES the dependency, written empty.**~~
    **CLOSED 2026-08-13 via §7.2(a) POPULATE** — both commands now write the walls that produced
    an edge of the boundary, and both write a reference-carrying `sketch`; see §6.3 rows 6–8 and
@@ -348,16 +350,25 @@ choice so a future implementer cannot silently pick a face.**
 | `CreateFloorCommand` (`packages/command-registry/src/floors/CreateFloorCommand.ts`) | floor finish | room boundary, attributed via `rooms/roomBoundarySketch.ts` | **YES** — `FloorData.sketch` `HostReferenceEdge`s (`centerLine`@0, `fallback` at authoring time) **+** `boundingWallIds` POPULATED (§7.2(a)); all counts reported | **CONFORMING** (2026-08-13) — §10.3 resolved **DERIVE FROM THE ROOM**; one named gap remains, below |
 | `CreateCeilingCommand` (`packages/command-registry/src/ceilings/CreateCeilingCommand.ts`) | ceiling | same shared builder | **YES** — byte-identical edge shape to the floor (§3.4) | **CONFORMING** (2026-08-13). Same owner |
 | `CreateFloorsByRoomTypeCommand` / `CreateCeilingsByRoomCommand` | batch finish | room boundary via the above | **YES** — by COMPOSITION | **CONFORMING** (2026-08-13) — they construct the parent commands and hold no record-construction site of their own, so they inherit the fix by the same mechanism that propagated the defect |
-| `CeilingPlanToolHandler` (`apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts`) | ceiling | — | **N/A** — **0 occurrences of `region`** | **CAPABILITY ABSENT.** Cannot inherit a fix. **Owner: `apps/editor`** |
-| `FloorPlanToolHandler` (`apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts`) | floor finish | — | **N/A** — **0 occurrences of `region`** | **CAPABILITY ABSENT.** Same owner |
+| `CeilingPlanToolHandler` (`apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts`) | ceiling | room boundary, attributed via the shared `attributeFinishRegion` → `rooms/roomBoundarySketch.ts` | **YES** — `CeilingData.sketch` `HostReferenceEdge`s (`centerLine`@0, `fallback` at authoring time) **+** `boundingWallIds` POPULATED; counts reported at commit; **REFUSES** with `RELATIONSHIP_NOT_RECORDED` when the room's own boundary is undetermined | **CONFORMING** (2026-08-13) — capability BUILT on the §10.3 decision, not inherited |
+| `FloorPlanToolHandler` (`apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts`) | floor finish | same shared attributor | **YES** — byte-identical edge shape to the ceiling's (§3.4/§7.4) | **CONFORMING** (2026-08-13). Same owner |
 
-**Reading (updated 2026-08-13): rows 1–8 CONFORM. The two remaining non-conformances are rows
-9–10 — `CeilingPlanToolHandler` and `FloorPlanToolHandler`, which are CAPABILITY-ABSENT (0
-occurrences of `region`) and therefore cannot inherit a fix.** Note that rows 6–8 are conforming
-by the §10.3 *derive-from-the-room* design rather than by having grown a region mode; when rows
-9–10 are closed, §6.6 binds — a region mode that emits coordinates would create the §0 defect new
-in a family that has never had it, and per §10.3 the correct closure is to route those handlers
-through the room-derived path rather than to mint a tracer for them.
+**Reading (updated 2026-08-13): ALL TEN ROWS CONFORM — `check-region-host-attribution` re-measures
+11 declared paths as 11 CONFORMING · 0 NON-CONFORMING · 0 CAPABILITY-ABSENT, exit 0.** Rows 9–10
+were the last two, and they were **CAPABILITY ABSENT**: §0.1(3)(4) recorded that neither could
+*inherit* a fix because the capability did not exist. It was therefore **new build**, and §6.6 bound
+it — a region mode emitting coordinates would have created the §0 defect new, in 2026, in a family
+that never had it. Per §10.3 the closure routes both handlers through the **room-derived** path
+(`buildRoomFinishBoundarySketch`, the same function rows 6–7 call) rather than minting a third
+tracer. **No new tracer was created; the count of wall-region tracers in this repository is
+unchanged.**
+
+> ⚠ **What a green §6.3 does and does not mean.** It means *attribution at creation*: every region
+> path emits host references or names why it cannot. It says **nothing** about §9's other six exit
+> conditions, all of which remain open — in particular §5.2's five recomputation states are still
+> **UNPROVEN** (§5.5), so "the finish follows when its wall moves" is not claimed by this table.
+> The finish families' per-edge attribution also remains **CONSTRAINED rather than §2.1-exact**,
+> per the named gap at the foot of `roomBoundarySketch.ts` (owner `@pryzm/room-topology`).
 
 *Original reading, retained so the movement is legible: "one conforming region path of six; one
 conforming non-region path with a fallback defect; two families with no region capability at all."*
@@ -472,8 +483,14 @@ not have — or (b) threading an id channel through `WallRegionDetector`'s walk 
 C79's clauses are satisfied when **all** of the following are measured true, each with the
 command that measured it:
 
-1. **§6.3 has no NON-CONFORMING or CAPABILITY-ABSENT row**, or every remaining row is
-   founder-signed with a dated reason.
+1. ~~**§6.3 has no NON-CONFORMING or CAPABILITY-ABSENT row**, or every remaining row is
+   founder-signed with a dated reason.~~ **MET 2026-08-13.** Measured by
+   `npx tsx tools/rac-conformance/certification/gates/check-region-host-attribution.ts` →
+   *"§6.3 conformance re-measured: 11 CONFORMING · 0 NON-CONFORMING · 0 CAPABILITY-ABSENT of 11
+   declared region paths"*, **exit 0**, `declaredFindings` empty. **This is the FIRST of seven
+   exit conditions and it does not carry the others** — §9.2 and §9.4–§9.7 remain open, and §9.3
+   is partially closed (12 → 10 unhonoured fields, target 0). A reader who takes a green §6.3 for
+   a green C79 has made exactly the inherited-green mistake §8.1 forbids.
 2. **The second tracer is retired** (§6.5): `WallRegionDetector` has zero callers, or a dated
    ADR records why two tracers is the settled answer.
 3. ~~**`boundingWallIds` is populated, removed, or declared** on floors and ceilings (§7.2)~~ —

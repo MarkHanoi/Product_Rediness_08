@@ -165,6 +165,11 @@ import {
   // below (createPredictedRoomGeometryApplier / attachSlabSketchViaLegacyBridge).
   ApplyPredictedRoomGeometryCommand,
   UpdateSlabSketchCommand,
+  // §REGION-HOST-ATTRIBUTION (C79 §6.3 rows 9–10) — consumed by the two finish
+  // sketch bridges below. `Partial<FloorData>` / `Partial<CeilingData>` already
+  // admit `sketch` and `boundingWallIds`, so no new command is minted.
+  UpdateFloorCommand,
+  UpdateCeilingCommand,
 } from '@pryzm/command-registry';
 import { withHandlerSpan, type Patch } from '@pryzm/plugin-sdk';
 // §FEAT-PROJECT-ORIGIN (L-109) — the singleton shared-coordinate datum store.
@@ -306,6 +311,92 @@ export function attachSlabSketchViaLegacyBridge(
     success: false,
     error: (res && (res.error ?? res.info?.join('; '))) ?? 'unknown',
   };
+}
+
+/**
+ * §REGION-HOST-ATTRIBUTION (C79 §6.3 rows 9–10) — attach a room-derived, reference-
+ * carrying sketch to a plan-created FLOOR FINISH or CEILING, so the finish FOLLOWS
+ * the walls that bound its room instead of being a coincidental polygon.
+ *
+ * WHY A SECOND COMMAND RATHER THAN THE CREATE PAYLOAD — the same reason, and the
+ * same shape, as `attachSlabSketchViaLegacyBridge` directly above (C79 §3.4: copy
+ * the working shape, do not invent a second one).
+ *
+ * The plan handlers dispatch `floor.create` / `ceiling.create` on the BUS, and those
+ * verbs are served by the PLUGIN handlers (`plugins/floor/src/handlers/CreateFloor.ts`,
+ * `plugins/ceiling/.../CreateCeiling.ts`) — **not** by `CreateFloorCommand` /
+ * `CreateCeilingCommand`, which is where `9fd9c5b6` put the shared attributor. The
+ * plugin payloads carry no `sketch` field, and the plugin handler is deliberately not
+ * the authoritative writer anyway: the §P3.2-FL / §P3.2-CL `*.created` bridges in
+ * `initTools.ts` perform the real legacy-store `add()` that the mesh builder reads.
+ * So a sketch written into the bus payload today would be written by the wrong owner
+ * into the wrong store.
+ *
+ * `UpdateFloorCommand` / `UpdateCeilingCommand` take `Partial<FloorData>` /
+ * `Partial<CeilingData>`, both of which already declare `sketch` and
+ * `boundingWallIds` (`FloorTypes.ts:287,298`, `CeilingTypes.ts:186,196`). They are
+ * undoable, they snapshot for undo, and they write the SAME legacy store the create
+ * bridge wrote — so this is the existing documented mutation path for these fields,
+ * not a new one.
+ *
+ * ⚠ WHAT THIS IS NOT: it is not a rival creation path (the deliverable's rule 2).
+ * The element is created by exactly one command; this attaches the relationship the
+ * create verb cannot yet carry. Widening the bus payloads so the create verb carries
+ * the sketch natively is the same larger change already tracked for slabs, and it
+ * would delete both of these bridges at once.
+ *
+ * Returns the legacy verdict so the CALLER decides how loudly to fail — the plan
+ * tools warn that the finish will not follow its walls, which is their call to make.
+ */
+function _attachFinishSketchViaLegacyBridge(cmd: unknown): { success: boolean; error?: string } {
+  const cm = window.commandManager as
+    | { execute(cmd: unknown, options?: unknown): { success?: boolean; error?: string; info?: string[] } | void }
+    | undefined;
+  if (!cm || typeof cm.execute !== 'function') {
+    return { success: false, error: 'commandManager unavailable' };
+  }
+  const res = cm.execute(cmd);
+  // `UpdateFloorCommand` / `UpdateCeilingCommand` return `{ success, ... }`; a
+  // manager that returns nothing at all has not told us it failed, and treating
+  // silence as failure would make the tool warn on a working path.
+  if (!res || res.success !== false) return { success: true };
+  return { success: false, error: res.error ?? res.info?.join('; ') ?? 'unknown' };
+}
+
+export function attachFloorSketchViaLegacyBridge(payload: {
+  floorId: string;
+  sketch: unknown;
+  boundingWallIds: string[];
+}): { success: boolean; error?: string } {
+  return _attachFinishSketchViaLegacyBridge(
+    new UpdateFloorCommand({
+      floorId: payload.floorId,
+      updates: {
+        sketch: payload.sketch,
+        // §7.2(a) POPULATE — exactly the walls that PRODUCED an edge of this
+        // finish's boundary, never the room's whole declared set (a wall that
+        // produced no edge is not a wall this finish is bounded by; writing it
+        // would be a §2.3 wrong host dressed as thoroughness).
+        boundingWallIds: payload.boundingWallIds,
+      } as never,
+    }),
+  );
+}
+
+export function attachCeilingSketchViaLegacyBridge(payload: {
+  ceilingId: string;
+  sketch: unknown;
+  boundingWallIds: string[];
+}): { success: boolean; error?: string } {
+  return _attachFinishSketchViaLegacyBridge(
+    new UpdateCeilingCommand({
+      ceilingId: payload.ceilingId,
+      updates: {
+        sketch: payload.sketch,
+        boundingWallIds: payload.boundingWallIds,
+      } as never,
+    }),
+  );
 }
 
 /**

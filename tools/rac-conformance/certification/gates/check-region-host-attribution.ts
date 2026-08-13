@@ -205,12 +205,18 @@ if (ledger && tracerText) {
 
     const callsAttributing = ledger.attributingTracers.some((t) => new RegExp(`\\b${t}\\s*\\(`).test(code));
     const emitsHostEdges = /type:\s*['"`]hostReference['"`]/.test(code) || /buildPickedWallEdges\s*\(/.test(code);
-    // The counts reaching a caller — either the five names directly, or the ONE
-    // shared report helper the roof family routes both its surfaces through
-    // (§7.4: one form for both buttons, so they cannot drift apart).
+    // The counts reaching a caller — either the five names directly, or ONE of the
+    // shared report helpers a family routes ALL its surfaces through (§7.4: one form
+    // for every button, so they cannot drift apart). Recognising the helper is not a
+    // loophole: the helper's own body is what prints the five counts, and it is
+    // itself covered by ARM 3 through the family that defines it. Demanding each
+    // call site restate the five names instead would be asking for the second copy
+    // §6.5 forbids.
     const reportsCounts =
       ledger.attributionCountFields.some((c) => new RegExp(`\\b${c}\\b`).test(code)) ||
-      /formatRoofRegionAttributionReport\s*\(/.test(code);
+      /formatRoofRegionAttributionReport\s*\(/.test(code) ||
+      // The finish families' shared formatter (floor + ceiling, commands + plan tools).
+      /format(FinishBoundaryAttribution|FinishRegion)Report\s*\(/.test(code);
     const usesBareRingOnly =
       !callsAttributing && ledger.bareRingTracers.some((t) => new RegExp(`\\b${t}\\s*\\(`).test(code));
     const hasEmptyDepField =

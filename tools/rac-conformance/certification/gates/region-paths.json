@@ -81,50 +81,71 @@
       "id": "floor-create",
       "family": "floor finish",
       "file": "packages/command-registry/src/floors/CreateFloorCommand.ts",
-      "status": "NON_CONFORMING",
-      "emptyDependencyField": "boundingWallIds",
-      "why": "C79 §6.3 row 6 / §7.1 anti-pattern — copies a room boundary as coordinates and hardcodes boundingWallIds: []. Owner: @pryzm/command-registry."
+      "status": "CONFORMING",
+      "expectAttributingTracer": true,
+      "expectCountsReported": true,
+      "why": "C79 §6.3 row 6 — WAS NON_CONFORMING (§7.1 anti-pattern: copied a room boundary as coordinates and hardcoded boundingWallIds: []). Closed by 9fd9c5b6 via §7.2(a) POPULATE: calls buildRoomFinishBoundarySketch, writes FloorData.sketch with centerLine@0 HostReferenceEdges carrying a fallback at authoring time, and populates boundingWallIds with exactly the walls that produced an edge. Re-measured CONFORMING 2026-08-13 once the ledger learned to recognise the finish attributor."
     },
     {
       "id": "ceiling-create",
       "family": "ceiling",
       "file": "packages/command-registry/src/ceilings/CreateCeilingCommand.ts",
-      "status": "NON_CONFORMING",
-      "emptyDependencyField": "boundingWallIds",
-      "why": "C79 §6.3 row 7 / §7.1 anti-pattern — same shape. Same owner."
+      "status": "CONFORMING",
+      "expectAttributingTracer": true,
+      "expectCountsReported": true,
+      "why": "C79 §6.3 row 7 — same shape, same fix, byte-identical edge shape to the floor's (§3.4). Closed by 9fd9c5b6."
     },
     {
       "id": "floors-by-room-type",
       "family": "batch finish",
       "file": "packages/command-registry/src/floors/CreateFloorsByRoomTypeCommand.ts",
-      "status": "NON_CONFORMING",
-      "why": "C79 §6.3 row 8a — inherits CreateFloorCommand's defect. Same owner."
+      "status": "CONFORMING",
+      "why": "C79 §6.3 row 8a — CONFORMING BY COMPOSITION. This file holds NO record-construction site of its own: it constructs CreateFloorCommand and lets that chokepoint build the record, so it inherits the fix by the very mechanism that propagated the defect. Deliberately declares neither expectAttributingTracer nor expectCountsReported — asserting either would demand this file re-implement, inside itself, the attribution its whole design delegates, which is the second-copy disease §6.5 forbids. What holds it honest is row 6: if the parent regresses, the parent's row goes red."
     },
     {
       "id": "ceilings-by-room",
       "family": "batch finish",
       "file": "packages/command-registry/src/ceilings/CreateCeilingsByRoomCommand.ts",
-      "status": "NON_CONFORMING",
-      "why": "C79 §6.3 row 8b — inherits CreateCeilingCommand's defect. Same owner."
+      "status": "CONFORMING",
+      "why": "C79 §6.3 row 8b — CONFORMING BY COMPOSITION, same argument, parent row 7."
     },
     {
       "id": "ceiling-plan",
       "family": "ceiling",
       "file": "apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts",
-      "status": "CAPABILITY_ABSENT",
-      "why": "C79 §6.3 row 9 — 0 occurrences of `region`. Cannot inherit a fix; §6.6 forbids adding one that emits coordinates. Owner: apps/editor."
+      "status": "CONFORMING",
+      "expectAttributingTracer": true,
+      "expectCountsReported": true,
+      "why": "C79 §6.3 row 9 — WAS CAPABILITY_ABSENT (0 occurrences of `region`). The AUTO-from-room gesture is now a region mode that DERIVES FROM THE ROOM per the §10.3 decision: it calls the shared `attributeFinishRegion` → `buildRoomFinishBoundarySketch`, the SAME attributor CreateCeilingCommand uses, and mints no tracer of its own (§6.5). Emits centerLine@0 HostReferenceEdges with fallback at authoring time (§4.3), reports the counts (§2.6), and REFUSES with RELATIONSHIP_NOT_RECORDED when the room's own boundary is undetermined (§2.3/§5.2.0)."
     },
     {
       "id": "floor-plan",
       "family": "floor finish",
       "file": "apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts",
-      "status": "CAPABILITY_ABSENT",
-      "why": "C79 §6.3 row 10 — 0 occurrences of `region`. Same owner."
+      "status": "CONFORMING",
+      "expectAttributingTracer": true,
+      "expectCountsReported": true,
+      "why": "C79 §6.3 row 10 — WAS CAPABILITY_ABSENT. Same port, same shared attributor, byte-identical edge shape to the ceiling's (§3.4/§7.4). Same owner."
     }
+  ],
+  "//attributingTracers": [
+    "An 'attributing tracer' is any entry point that returns boundary edges CARRYING",
+    "the id of the element that produced them. The name is historical — the slab and",
+    "roof families reach it by TRACING a ring; the finish families reach it by DERIVING",
+    "from a room the topology engine already traced (C79 §10.3, decided in 9fd9c5b6).",
+    "Both satisfy §6.1 identically, because §6.1 constrains the OUTPUT — 'MUST produce",
+    "host references, or state why it cannot' — not the mechanism that produced it.",
+    "Listing the finish attributor here is therefore not a widening of the gate: it is",
+    "the gate recognising the second legal shape of the same output. §6.5 is not",
+    "weakened either — that clause forbids a DUPLICATE tracer per family, and the whole",
+    "point of the finish entries is that all four of them (2 commands + 2 plan tools)",
+    "route through ONE function."
   ],
   "attributingTracers": [
     "traceRegionSketchAtPoint",
-    "traceRoofRegionAtPoint"
+    "traceRoofRegionAtPoint",
+    "buildRoomFinishBoundarySketch",
+    "attributeFinishRegion"
   ],
   "bareRingTracers": [
     "findRegionAtPoint",
@@ -143,12 +164,20 @@
     "ambiguous"
   ],
   "tracerSource": "packages/geometry-slab/src/SlabRegionTracer.ts",
-  "declaredFindings": [
-    "floor-create:NON_CONFORMING coordinates-only, boundingWallIds hardcoded empty",
-    "ceiling-create:NON_CONFORMING coordinates-only, boundingWallIds hardcoded empty",
-    "floors-by-room-type:NON_CONFORMING inherits parent defect",
-    "ceilings-by-room:NON_CONFORMING inherits parent defect",
-    "ceiling-plan:CAPABILITY_ABSENT no region mode",
-    "floor-plan:CAPABILITY_ABSENT no region mode"
-  ]
+  "//declaredFindings": [
+    "EMPTY as of 2026-08-13 — and an EMPTY list is the shrink-only ratchet's terminal",
+    "state, not a missing one. All ten C79 §6.3 rows are re-measured CONFORMING:",
+    "rows 1-5 by the shared tracers (625a9926 roof, 86030325 slab 3D+pick),",
+    "rows 6-8 by 9fd9c5b6's DERIVE-FROM-THE-ROOM decision (§10.3),",
+    "rows 9-10 by this commit, which BUILT the absent capability on that same decision.",
+    "",
+    "C79 §9.1's exit condition — '§6.3 has no NON-CONFORMING or CAPABILITY-ABSENT row'",
+    "— is therefore met. The OTHER six exit conditions in §9 are NOT, and this file",
+    "makes no claim about them: §9.2 (WallRegionDetector retired), §9.3 (the remaining",
+    "10 unhonoured dependency-naming fields), §9.4 (five recomputation states),",
+    "§9.5 (SlabPickWallsController's missing fallback), §9.6 (all five §8 gates),",
+    "§9.7 (the C78 cross-read) all remain open. A green row here is a statement about",
+    "ATTRIBUTION AT CREATION, and nothing else."
+  ],
+  "declaredFindings": []
 }
