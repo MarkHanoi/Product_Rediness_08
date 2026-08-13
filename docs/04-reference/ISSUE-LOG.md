@@ -1915,3 +1915,28 @@ verified by execution (4/4 specs; reverting the mount to `'hidden'` fails spec 1
 - **Still open from the original entry**: the `LeftNavRail.ts:540` second `HierarchyTreePanel`
   mount remains reachability-unverified; F3's default bucket remains STRATEGIZE (the tree is at
   AUDIT → Hierarchy) — flagged for the founder, not changed.
+
+## L-848 — `HostReferenceEdge.fallback` IS NEVER REFRESHED AFTER AUTHORING
+
+**2026-08-13, lane-L2-reported during §FIX-SLAB-POLYGON-WRITEBACK — observed, deliberately NOT
+fixed in that lane.** A named adjacent gap, logged so it cannot silently vanish.
+
+**Measured**: `SketchTypes`' documentation claims the tracker refreshes `HostReferenceEdge.fallback`
+on resolve — **nothing does**. `fallback` is written once at authoring time (C79 §4.3) and never
+again.
+
+**The failure path is DELETE, not move.** After `6fee2575`, a wall move keeps record ≡ mesh: the
+stored polygon re-projects with the drawn mesh. But move-then-**delete** degrades the edge to its
+**authoring-time** fallback line while the polygon holds the **post-move** ring — record/mesh
+divergence reappears on exactly the path C79 §4 designed `fallback` for. The divergence class the
+write-back fix killed on the move path survives on the degradation path.
+
+**Contract**: C79 §4.3 mandates fallback capture at authoring time; the doc-vs-code drift (a
+tracker documented as refreshing it, with no refresh site) is the same defect class as GR-17.
+Candidate fix shape: refresh `fallback` inside `SlabDependencyTracker.reprojectStoredPolygon()` —
+the one site that already knows the post-move ring — or correct the `SketchTypes` doc to state the
+degradation is authoring-time-frozen. **Refreshing is strictly better**: a stale fallback is a
+wrong answer delivered confidently on delete.
+
+**Owner**: `packages/geometry-slab` (tracker) + `SketchTypes` doc. Un-gated; candidate arm for
+`check-move-propagation` (a delete-path arm beside the move-path arms).
