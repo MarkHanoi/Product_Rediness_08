@@ -26,6 +26,8 @@ import { solveStairContainmentWorld, allCornersInside } from './stairContainment
 import { allocateProgramToStoreys } from './storeyAllocation.js';
 import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 import { roofBaseElevationM, roofBaseOffsetM } from './houseVertical.js';
+// §CI-1-BANNER (SPEC-49 §4 CI-1) — the per-storey circulation verdict + blocking banner.
+import { buildHouseCirculationReport, type StoreyCirculationInput } from './circulationBanner.js';
 import type {
     HouseLayoutResult, PerStoreyProgramOverride, Pt, RoofDescriptor, RoofKind, ScoredHouseLayoutOption, SlabVoid, StairCore, StairFlightPlan, StoreyPlate,
 } from './types.js';
@@ -931,6 +933,14 @@ function assembleHouse(
 
     const storeys: StoreyPlate[] = [];
     const perStoreyLayout: (ScoredLayoutOption | null)[] = [];
+    // §CI-1-BANNER (SPEC-49 §4 CI-1; founder 2026-08-13) — accumulate the circulation
+    // verdict for the option this assembler ACTUALLY SELECTS, per storey. Before this,
+    // `assembleHouse` pushed the argmax-score option with no soundness check whatsoever
+    // (SPEC-49 §3 item 3) and the engine's own §TOPO-HARD-REJECT-ALL verdict — which
+    // says in as many words "Surface the failing rule(s) to the user" — died in a
+    // console.warn. We surface it. We do NOT act on it: the selection below is
+    // untouched, so the geometry this function returns is identical to before.
+    const circulationInputs: StoreyCirculationInput[] = [];
 
     for (const sp of h.perStorey) {
         const i = sp.storeyIndex;
@@ -946,6 +956,17 @@ function assembleHouse(
         // aggregate-score mean filters the nulls.
         const chosen = select(i, sp.options);
         perStoreyLayout.push(chosen);
+        // §CI-1-BANNER — judge the SELECTED option, not the best available one. A house
+        // that shipped a sealed storey is not excused by a sound candidate it did not
+        // pick. `chosen === null` and `chosen.circulation === undefined` are two
+        // DIFFERENT unmeasured states and `judgeStoreyCirculation` reports them apart
+        // (C75 §1.2); neither is ever a pass (C70 §2.2).
+        circulationInputs.push({
+            storeyIndex: i,
+            levelId,
+            option: chosen,
+            optionCount: sp.options.length,
+        });
 
         storeys.push({
             levelId,
@@ -1018,7 +1039,25 @@ function assembleHouse(
         baseOffsetM: roofBaseOffsetM(floorToFloorM, floorToFloorM),
     };
 
-    return { storeys, perStoreyLayout, stairs, voids, roof };
+    // §CI-1-BANNER — the accumulated verdict. Computed from the SELECTED options only,
+    // and attached unconditionally: a house result with no verdict block must not be
+    // representable, because a missing block reads as "fine" and it never is.
+    const circulation = buildHouseCirculationReport(circulationInputs);
+
+    // §DIAG-CI-1-BANNER — the founder-visible line. `enumerate.ts:2945` already warns
+    // §TOPO-HARD-REJECT-ALL per candidate set; this is the ASSEMBLED answer, about the
+    // storeys that actually shipped. Logging only — the banner payload on the result is
+    // the authority, this just makes a prod paste self-evident.
+    if (circulation.banner) {
+        const b = circulation.banner;
+        console.warn(
+            `[house-layout] §DIAG-CI-1-BANNER severity=${b.severity} — ${b.headline}\n`
+            + b.lines.map(l => `  ${l}`).join('\n')
+            + `\n  ${b.qualifier}`,
+        );
+    }
+
+    return { storeys, perStoreyLayout, stairs, voids, roof, circulation };
 }
 
 export { stairCoreAreaM2 as __stairCoreAreaM2ForTest, clampStoreyCount as __clampStoreyCountForTest };

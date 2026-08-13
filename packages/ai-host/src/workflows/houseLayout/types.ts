@@ -12,6 +12,7 @@
 import type { Pt } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram, RoomType, ScoredLayoutOption } from '../apartmentLayout/types.js';
 import type { StairCorePositionKind } from './stairPosition.js';
+import type { HouseCirculationReport } from './circulationBanner.js';
 
 export type { Pt };
 
@@ -226,6 +227,26 @@ export interface HouseLayoutResult {
     readonly stairs: StairCore[];
     readonly voids: SlabVoid[];
     readonly roof: RoofDescriptor;
+    /**
+     * §CI-1-BANNER (SPEC-49 §4 CI-1; founder decision 2026-08-13) — the per-storey
+     * circulation verdict the orchestrator accumulated while assembling this house,
+     * plus the blocking banner naming the sealed rooms and the failed rules.
+     *
+     * REQUIRED, not optional, and deliberately so. `assembleHouse` is the only
+     * producer of a `HouseLayoutResult`, it always fills this, and a consumer must
+     * never be able to read a house that has no verdict block and conclude the house
+     * is fine. Whether a given STOREY was measured is answered INSIDE the report, per
+     * storey, with a reason — see {@link HouseCirculationReport}.
+     *
+     * `report.storeys` is STRICTLY index-aligned with {@link storeys} (and therefore
+     * with {@link perStoreyLayout}): one verdict per plate, blank plates included.
+     *
+     * ⚠ THIS CHANGES NO GEOMETRY. The house still ships the least-bad option on every
+     * storey exactly as before (ADR-0061 invariant I2 holds for the apartment path,
+     * which never touches this module). The banner is the thing that used to be a
+     * console.warn nobody read.
+     */
+    readonly circulation: HouseCirculationReport;
 }
 
 /**

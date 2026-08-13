@@ -135,14 +135,28 @@ describe('§CI-1-BANNER — ARM A: a storey with a SEALED room produces a banner
             // NAMED, not counted. Every independently-doorless room must appear by name.
             // (`doorlessRoomNames` guards the 1-room option; the verdict does not, so
             //  compare only where the independent predicate had something to say.)
-            const named = new Set([...v!.unreachableRoomNames, ...v!.doorlessRoomNames]);
+            const named = new Set([
+                ...v!.unreachableRoomNames, ...v!.doorlessRoomNames, ...v!.strandedRoomNames,
+            ]);
             for (const room of s.indepDoorless) {
                 expect(named.has(room), `${s.label}: doorless room "${room}" not named`).toBe(true);
+            }
+            // §BUILT-PLAN-REACH — the banner's own reach measurement must agree EXACTLY
+            // with the independent replica of the L7 predicate. This is the arm that
+            // caught the engine reporting `hardValid: true` over an isolated
+            // `Storage 2 ↔ Storage 3` island: the engine's rules run on the bubble graph
+            // and never see residual-fill rooms, so its verdict alone cannot carry this
+            // banner. See the module header for the measurement.
+            expect([...v!.strandedRoomNames].sort(), `${s.label}: stranded set`)
+                .toEqual([...s.indepUnreached].sort());
+            for (const room of s.indepUnreached) {
+                expect(named.has(room), `${s.label}: stranded room "${room}" not named`).toBe(true);
             }
             // The rendered line carries the storey, the rooms and the failed rules.
             const line = banner!.lines.find(l => l.startsWith(`Storey ${s.storeyIndex} `));
             expect(line, `${s.label}: no banner line for storey ${s.storeyIndex}`).toBeTruthy();
             for (const room of s.indepDoorless) expect(line!).toContain(room);
+            for (const room of s.indepUnreached) expect(line!).toContain(room);
             // A sealed storey ALWAYS names at least one failed rule (the founder asked
             // for "the failed rule", not just the rooms).
             expect(v!.failedRules.length, `${s.label}: sealed but no rule named`).toBeGreaterThan(0);

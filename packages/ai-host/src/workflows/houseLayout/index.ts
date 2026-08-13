@@ -13,6 +13,20 @@ export { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 export type { EnrichStoreyOptions } from './houseProgramFloor.js';
 export { reserveStairCore, reserveStairCoreShaped, splitRisersForShape } from './stairCore.js';
 export type { StairCoreShaped } from './stairCore.js';
+// §CI-1-BANNER (SPEC-49 §4 CI-1; founder 2026-08-13) — the per-storey circulation
+// verdict + the blocking banner naming the sealed rooms. `HouseLayoutResult.circulation`
+// carries the report; these are exported so the editor surface can render it and so a
+// consumer can judge a single storey it holds outside a full house result.
+// §BUILT-PLAN-REACH — `builtPlanReach` is the L2 home of the reachability invariant that
+// SPEC-49 §5 flags as existing ONLY at L7, where the generator cannot call it.
+export {
+    buildHouseCirculationReport, judgeStoreyCirculation, builtPlanReach,
+} from './circulationBanner.js';
+export type {
+    HouseCirculationReport, HouseCirculationBanner, StoreyCirculationVerdict,
+    StoreyCirculationInput, StoreyCirculationStatus, NotMeasuredReason, BannerSeverity,
+    BuiltPlanReach,
+} from './circulationBanner.js';
 export { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 export type { HouseStoreyEnvelopeInput, HouseStoreyBand } from './houseEnvelope.js';
 export {
