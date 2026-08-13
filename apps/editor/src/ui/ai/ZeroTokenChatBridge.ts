@@ -71,6 +71,7 @@ import { batchCoordinator, selectionBus, storeRegistry } from '@pryzm/core-app-m
 // capability registry exists to delete.
 import { resolveWallSystemTypeRef } from '@pryzm/command-registry';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel';
+import { resolveRoomWallScope } from './roomWallScope.js';
 
 // ─── Minimal window facets (P4: typed casts, no `(window as any)`) ───────────
 
@@ -281,9 +282,19 @@ function makeScopeResolver(
             }
             const kind = scope.elementKind ?? 'wall';
             if (kind === 'wall') {
-                const ids = [...new Set(rooms.flatMap((r) => r.boundingWallIds ?? []))];
+                // GR-10 / C75 §1.4 — `r.boundingWallIds ?? []` made "this room
+                // bounds zero walls" and "nobody ever recorded what bounds this
+                // room" the same value, and this is a COMMAND SCOPE: the collapse
+                // silently acted on a subset of the user's ask. The resolver now
+                // REFUSES with both numbers when any matched room is unreadable
+                // (resolveRoomWallScope — pure, tested).
+                const resolution = resolveRoomWallScope(rooms);
+                if (resolution.kind === 'refused') {
+                    return { error: resolution.error };
+                }
+                const ids = resolution.ids;
                 return {
-                    ids,
+                    ids: [...ids],
                     kindCounts: ids.length > 0 ? { wall: ids.length } : {},
                     skipped: [],
                     diagnostics: [rooms.map((r) => r.name ?? r.id).join(' + ')],
