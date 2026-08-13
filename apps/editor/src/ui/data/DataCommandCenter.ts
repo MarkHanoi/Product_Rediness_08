@@ -117,6 +117,13 @@ export class DataCommandCenter {
 
   get element(): HTMLElement { return this._el; }
 
+  /**
+   * §L-847 — parked surface, manual entry point. The F3 mode event no longer
+   * shows this shell (DataWorkbench ships instead); a future host (e.g. a
+   * DataWorkbench sub-tab or a debug console call) can still surface it here.
+   */
+  show(): void { this._show(); }
+
   dispose(): void {
     this._pipRenderer?.dispose();
     this._pipRenderer = null;
@@ -437,12 +444,15 @@ export class DataCommandCenter {
     // subscription survives construction at module-load (runtime null). Returns
     // a () => void unsubscribe, same shape as the previous direct on() call.
     this._unsubModeHandler = onRuntimeEvent('pryzm-workspace-mode', (payload: unknown) => {
-      const mode = (payload as { mode?: string })?.mode;
-      if (mode === 'data') {
-        this._show();
-      } else {
-        this._hide();
-      }
+      // §L-847 (2026-08-13, founder decision): DataWorkbench ships as the F3
+      // Data surface (WorkspaceController now drives it to 'full'); this shell
+      // is PARKED, not deleted. It no longer claims the 'data' mode event —
+      // showing here would overlay the DataWorkbench and hide the Hierarchy
+      // (model-tree) sub-tab again. The class, its four buckets (AuditBucket
+      // et al.) and the module singleton stay constructed and importable; a
+      // future decision may re-mount it as a sub-tab.
+      void (payload as { mode?: string })?.mode;
+      this._hide();
     });
 
     this._unsubDeltaHandler = onRuntimeEvent('pryzm-delta-updated', () => {

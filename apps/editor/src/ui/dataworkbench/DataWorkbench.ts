@@ -1,5 +1,8 @@
 import { escHtml } from '@pryzm/ui-base';
 import { triggerWindowResize } from '../../engine/triggerWindowResize'; // F.events.16
+// §L-847 — deferral bridge for runtime-event subscriptions (see _bindEvents).
+// Concrete module import, not a barrel (§SCC-no-barrel-access-at-module-load).
+import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
 /**
  * ## DataWorkbench — BIM 3.0 Lifecycle Hub (Phase 1: Navigation Refactor)
  *
@@ -630,6 +633,11 @@ export class DataWorkbench implements IDataWorkbench {
     private _applyMode(): void {
         const container = document.getElementById('container');
         this._el.classList.remove('dw--hidden', 'dw--split', 'dw--full');
+        // §L-847 — 'panel' sets an INLINE width below; inline style outranks the
+        // .dw--split/.dw--full class rules, so without clearing it here a
+        // panel→full transition rendered "full" as a 420px strip. F3 (data mode)
+        // now drives this to 'full' (WorkspaceController), making that real.
+        this._el.style.width = '';
 
         switch (this._mode) {
             case 'hidden':
@@ -654,29 +662,43 @@ export class DataWorkbench implements IDataWorkbench {
     // ── Event binding ──────────────────────────────────────────────────────────
 
     private _bindEvents(): void {
-        // F.events.10 — pryzm-toggle-workbench via runtime.events
-        window.runtime?.events?.on('pryzm-toggle-workbench', () => this.toggle('panel'));
+        // §L-847 — routed through the onRuntimeEvent() deferral bridge (the
+        // §INSPECT-DATA-TAB-WIRE pattern). These previously used raw
+        // `window.runtime?.events?.on` / `this.runtime?.events?.on`, which
+        // silently no-op if this class is ever constructed before the runtime
+        // exists (null-at-mount race). In the normal bootstrap order
+        // (engineLauncher publishes window.runtime BEFORE constructing this)
+        // the bridge subscribes immediately, so behaviour is unchanged; in the
+        // null-runtime order it queues until flushRuntimeEventListeners() and
+        // is stated, not silent, if the runtime never arrives.
+        //
+        // Note: F3 show/hide does NOT depend on any of these — the
+        // WorkspaceController calls window.dataWorkbench.setMode() directly.
 
-        window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+        // F.events.10 — pryzm-toggle-workbench via runtime.events
+        onRuntimeEvent('pryzm-toggle-workbench', () => this.toggle('panel'));
+
+        onRuntimeEvent('pryzm-project-loaded', () => { // F.events.9
             setTimeout(() => this.refresh(), 50);
         });
 
         // F.events.6 — pryzm-workspace-mode migrated to runtime.events typed bus.
-        this.runtime?.events?.on('pryzm-workspace-mode', (payload: unknown) => {
+        onRuntimeEvent('pryzm-workspace-mode', (payload: unknown) => {
             const mode = (payload as { mode?: string })?.mode;
             if (mode === 'inspect') {
                 this._switchBucket('audit', 'hierarchy');
             }
         });
 
-        this.runtime?.events?.on('pryzm-element-selected', (detail) => {
-            if (detail.source === '3d' && this._mode !== 'hidden') {
+        onRuntimeEvent('pryzm-element-selected', (payload: unknown) => {
+            const detail = payload as { source?: string } | undefined;
+            if (detail?.source === '3d' && this._mode !== 'hidden') {
                 this._switchBucket('audit', 'hierarchy');
             }
         });
 
         // F.events.7 — pryzm-workbench-select migrated to runtime.events typed bus.
-        window.runtime?.events?.on('pryzm-workbench-select', (payload: unknown) => {
+        onRuntimeEvent('pryzm-workbench-select', (payload: unknown) => {
             const p = payload as { id?: string; nodeId?: string; elementId?: string } | undefined;
             if ((p?.id ?? p?.nodeId ?? p?.elementId) && this._activeBucket === 'audit') {
                 this._showAuditSheet();

@@ -138,7 +138,15 @@ export class WorkspaceController {
 
       case 'data':
         if (canvas) canvas.style.display = 'none';
-        if (dw) dw.setMode('hidden');
+        // §L-847 (2026-08-13, founder decision): DataWorkbench IS the shipped F3
+        // Data surface, full width — exactly what this file's own header always
+        // said ("data (F3) — DataWorkbench full width"). The line below used to
+        // read `dw.setMode('hidden')`, which benched the only surface with the
+        // Hierarchy (model-tree) sub-tab while the DataCommandCenter overlay
+        // (AuditBucket delta grid, no sub-tab bar) claimed the mode event and
+        // covered the screen. DataCommandCenter is now PARKED, not deleted —
+        // see DataCommandCenter._bindEvents.
+        if (dw) dw.setMode('full');
         if (propPanel) propPanel.style.display = 'none';
         break;
     }
