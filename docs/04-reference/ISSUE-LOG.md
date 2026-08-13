@@ -2839,3 +2839,117 @@ of that class this session (L-862, L-863) is the accurate count. Not three.
 `§CTX-PMTILES-READER rail/trees: tiles configured but unreadable (404 known missing this session) —
 rendering NO rail/trees`. The refusal is correct and explicit (it renders nothing rather than
 inventing). Recorded so the two missing layers are tracked as a **data/asset** gap, not a code one.
+
+## L-866 — PARTY-WALL BLINDNESS: windows are cut in ALL four façades on a mid-block infill plot
+
+**2026-08-13, founder OBSERVED live on `517f7a70`** (Barcelona mid-block plot, `casa-unifamiliar`,
+2 storeys, `origin 41.393289, 2.172275`). Screenshots + console captured.
+
+**Observed**: the buildable envelope sits **between two existing neighbouring buildings** — a
+party-wall (*mitgera*) condition, which is the dominant Barcelona Eixample plot type. The generator
+places **windows on every façade**, including the two that abut the neighbours. Realistically those
+two faces are **blind party walls**; only the street façade and the rear (patd'illa) façade may be
+glazed. Log corroborates: `detail placed: 46/46 opening inset(s) (windows + doors)`.
+
+**⚠ THE DATA IS ALREADY PRESENT — this is not a sourcing gap, it is an unused input.** All of the
+following were in the same session's log, computed correctly:
+- `§ENVELOPE-RESOLVE-DIAG — SOLVED envelope → 1 solid(s) (source=solved, **confidence=block-constructed**, maxHeight=25.75 m)` — the envelope was *constructed from the real Catastro block*, so the abutting neighbours are known.
+- `§PLOT-CLEAR-PHOTOREAL — parcel-shaped void clipped into the photoreal tileset (19-vertex ring)` — the neighbour geometry is loaded and the plot footprint is known well enough to cut a hole in it.
+- `Constructed per PGM Art. 242.2 from the real Catastro block — real inputs + accepted rule` (envelope panel).
+
+So PRYZM knows the plot is block-constructed, knows the neighbours, and still glazes the party
+walls. **A façade-exposure classification (street / party-wall / courtyard / free) must be derived
+from the envelope's own construction basis and passed to the opening placer.**
+
+**Why this matters beyond aesthetics**: a window in a party wall is not a style choice, it is
+**illegal** in most jurisdictions (Spain: CC Art. 580 luces y vistas; and the *mitgera* is by
+definition blind). PRYZM currently produces a design that could not be built, on a plot type that
+is the *default* in the city it has the deepest rule pack for. It also silently overstates
+daylight, since the daylight engine will score glazed party walls as if they admitted light.
+
+**Contracts offended**: **C75** (a façade exposure of *unknown* must be a value with a reason, never
+silently defaulted to *free*); **C63** (a refusal is a correct answer — better to place no window
+than a wrong one); **C58** (the envelope's `confidence=block-constructed` is exactly the fact that
+should drive this and does not).
+
+**Fix shape**: derive `facadeExposure` per wall at generation time from the envelope construction
+basis + the context tileset, type it as a closed union `street | party-wall | courtyard | free |
+unknown-with-reason`, and make the opening placer **refuse** to glaze `party-wall`, and refuse *with
+a named reason* on `unknown`. Feeds the daylight engine too.
+
+**Owner**: `packages/ai-host/src/workflows/houseLayout` (opening placement) + whatever resolves the
+envelope basis. **Cross-refs**: SPEC-49 (generative quality), `GENERATIVE-QUALITY-MASTER-TRACKER`
+(candidate gate R8-R10 family — this is a *context-fidelity* gate, which the current 7 do not cover).
+
+---
+
+## L-867 — THE STAIR IS NOT ACCESSIBLE, AND THE STAIR ZONE IS THE WORST PART OF EVERY HOUSE PLAN
+
+**2026-08-13, founder OBSERVED live on `517f7a70`.** *"The stair area is always messy — it should
+be simpler. The stair is NOT accessible, even if it might look like it."*
+
+**This is the browser confirming SPEC-49's measurement, from the opposite direction.** SPEC-49
+measured `casa-unifamiliar` at **12/24 unreachable and 11/24 doorless**, and recorded that one
+victim was a **`Stair` with no opening**. The founder — looking at a picture, not a graph — points
+at the stair. **Two independent methods, same defect, same element.** Record the agreement: it
+raises the confidence of both.
+
+**Corroborating log evidence from the same run:**
+- `[lighting-layout] §LIGHT-SUMMARY rooms_total=11 rooms_lit=10 **rooms_skipped=1**` — one room was
+  skipped by the lighting pass. A skipped room in a chain that otherwise covers 10/11 is a strong
+  candidate for the sealed one; **verify whether the skipped room is the stair**.
+- `[EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=12 mesh#0 elemType=**Stair** faceCount=624` —
+  the stair carries 624 faces, by far the heaviest element in the plan, consistent with the
+  "messy" reading.
+- `[StairSymbolTechnicalDrawingBridge] Injected 2 line(s) + 1 arrow(s)` — the plan symbol renders,
+  which is *why it looks accessible when it is not*: **the drawing shows a stair; the graph shows no
+  way in.**
+
+**The general lesson, and it is the session's pattern again:** a plan symbol is drawn from geometry,
+not from topology. **Rendering a stair does not prove you can reach it.** Any future accessibility
+gate must read the circulation graph, never the drawing.
+
+**Blocked on**: SPEC-49's `CI-0` (carry `hardValid`/`hardFailedRules` onto `LayoutOption`) — until
+the verdict survives the `emitGeometry` boundary, nothing downstream can refuse a sealed stair.
+
+---
+
+## L-868 — THE FURNISH STAGE TAKES 13 SECONDS, WHICH IS WHY IT IS SILENTLY DROPPED ELSEWHERE
+
+**2026-08-13, measured in the founder's house run on `517f7a70`.** Direct timing, first-party:
+
+```
+§DIAG-POSTGEN-TIMING storey=L0 step=name          stepMs=26      cumMs=26
+§DIAG-POSTGEN-TIMING storey=L0 step=floor+ceiling stepMs=7104    cumMs=7131
+§DIAG-POSTGEN-TIMING storey=L0 step=furnish       stepMs=13188   cumMs=20319
+§DIAG-POSTGEN-TIMING storey=L0 step=lighting      stepMs=1389    cumMs=21707
+```
+
+**Furnish: 13.2 s for ELEVEN rooms.** The residential-building chain (L-863) drops the furnish stage
+at a **12 000 ms** `§CHAIN-TIMEOUT`. **The budget is smaller than the measured cost of the smallest
+case.** The house path survives only because it awaits the step instead of racing a timer — same
+engine, two orchestrators, one of which cannot win.
+
+So L-863's "furnish times out" is not an occasional flake: **on current performance the residential
+path is expected to lose furniture on every non-trivial building.** Two separable defects:
+**(a) furnish is ~1.2 s per room and needs a performance fix**, and **(b) a chain that drops a stage
+on timeout must report it, not advance silently** (the honesty half, and the cheaper of the two).
+
+⚠ Also note the house snapshot: `Snapshot created: 77 elements, 3 levels, 49 walls, 2 slabs,
+**0 furniture**` — recorded **after** furnish ran for 13.2 s. Either furnish placed nothing despite
+running, or furniture is excluded from the serialiser count. **Determine which before treating
+(a) as purely a performance problem** — 13 s that produces nothing is a different bug entirely.
+
+**Also observed, unrelated but recorded here rather than lost:**
+- `W5-3: command type '**room.delete**' has NO sync disposition` and the same for `**lighting.create**`
+  — two commands whose properties are not replicated (C67/C68 territory; `check-sync-disposition`
+  should be naming these).
+- `[WallJoinResolver] §MULTI-CLUSTER-PARTITION-TRIM ... angled arm 0.377 m off junction →
+  square-cap to consensus` ×3 — **this is the mechanism behind the founder's "wall extrusions going
+  wild"**: arms arriving up to 0.43 m off a junction get square-capped. The trim is a *rescue*, so
+  the real question is why the arms are that far off in the first place.
+- `§GEN-UNDO-COALESCE — collapsed 17 generation command(s) into ONE undo entry` — **working
+  correctly**, and it is the C81 §6 one-edit-one-undo behaviour already proven on the generate path.
+- `[house-layout] §DIAG-PARITY option(preview)↔built: latMax=0mm latMean=0mm endTrimMax=6mm ✓ built
+  == previewed` — **preview fidelity is exact.** Worth keeping; it is the property C80's
+  execute-the-same-plan rule demands, already true here.
