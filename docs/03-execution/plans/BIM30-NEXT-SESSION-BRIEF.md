@@ -294,3 +294,161 @@ has been measurably wrong before**. Before changing anything governed by C01–C
 | **L-850** | Three constraint-rule defects **pinned, not fixed**: all three acoustic RT60 rules compare `>=` while their message says *"exceeds"* (self-refuting at the limit) · `ACOUSTIC_RT60_COURT`'s ≥500 m³ clause is **dead code** · `PLUMBING_ZONE`'s FP exact-tolerance gap gives one shared-stack pair's two rooms **different verdicts**. |
 | **L-851** | The root vitest config's **two founding patterns point at a directory that does not exist** — 72 specs / ~1,140 cases never run. Full census: 2,043 test files × 163 runners → 147 dark, 137 after enabling 9 green suites (+115 tests). Five red suites **refused and quarantined** — headline: **ADR-0315 U2.2 typed room predicates are unverified and always have been**. |
 | **L-852** | Pre-deploy cover ALL GREEN at session end; **deploy ready-not-run**. |
+
+---
+
+## §9 — WHAT A USER CAN ACTUALLY DO AT 100 % — 32 REAL SCENARIOS, ASSESSED
+
+> **Founder question, 2026-08-13:** *"After 100/100 — open PRYZM. What could the user do? Could
+> they achieve these 32 prompts?"* Assessed one by one below, **against the code that exists**,
+> not against ambition.
+
+### §9.0 ⚠ THE MOST IMPORTANT THING ON THIS PAGE: 100 % OF *WHAT*
+
+**The 82 rows do not measure "can PRYZM generate an apartment". They measure "when the model
+changes, does PRYZM stay truthful".** They are the *consequence* layer: does a moved wall drag its
+slab · does a relationship answer DETERMINED/UNDETERMINED instead of silently guessing · is a
+number AUTHORED or COMPUTED or INVENTED · does a refusal say why.
+
+| | What 100 % on the register buys | What it does NOT buy |
+|---|---|---|
+| **Buys** | Every edit propagates or refuses honestly. Areas, schedules and exports agree with the geometry. Nothing is silently wrong. **You can trust the model enough to sell from it.** | — |
+| **Does not buy** | — | **New generative capability.** A typology PRYZM cannot design today, it still cannot design at 100 %. That lives in the **typology packs / executors** — a different axis with its own roadmap. |
+
+**Two independent axes. Both are needed for the 32 prompts. Only one of them is what "100/100" counts.**
+
+- **AXIS 1 — TRUST** (the 82 rows + the three bars). Nearly every *modification* prompt depends on this.
+- **AXIS 2 — GENERATIVE REACH** (the executors). Nearly every *generation* prompt depends on this.
+
+**Measured 2026-08-13**, `packages/ai-host/src/workflows/` contains: `apartmentLayout` ·
+`houseLayout` · `residentialBuilding` · `officeBuilding` · `officeFurnish` · `furnishLayout` ·
+`ceilingLayout` · `lightingLayout` · `daylight` · `Generate3Options` · `PlanCritique` ·
+`VoiceCommand`. **There is no `townhouse`, no `housingScheme`, no `masterplan`, no `courtyard`.**
+
+### §9.1 — THE ONE STRUCTURAL LIMIT THAT DECIDES 16 OF THE 32 PROMPTS
+
+Every prompt in categories **2, 4, 6 and 8** (MODIFICATION) asks PRYZM to **change an existing
+design and keep everything else valid**. That is exactly what **bar 3** measures, and its reading is:
+
+> **4,100 cells (100 consequential verbs × 41 relationships): 4,018 SILENT · 72 refusal-BLOCKED ·
+> 10 structurally-answerable.** 98 of 100 verbs have **no normaliser and no composed planner**;
+> the preview entry point is still bare-null.
+
+**In plain words: PRYZM can today *make* a design far better than it can *modify* one.** A
+modification needs the system to work out what its change breaks — which walls, slabs, doors,
+rooms, schedules, daylight results and areas are now wrong — and either fix them or say it cannot.
+Until bar 3 is green that reasoning is mostly absent, so a modification either regenerates from
+scratch (losing your work) or leaves stale artefacts behind.
+
+**Corollary worth holding onto:** *shipping bar 3 is worth more commercially than any new typology*
+— it converts 16 of these 32 prompts from "no" to "yes" at once, and it is the difference between
+a generator and a design tool.
+
+### §9.2 — THE 32 PROMPTS
+
+**Legend** — ✅ **YES at 100 %** · 🟡 **PARTIAL** (works, with a named gap) · 🔴 **NO** (needs work
+that is *not* in the 82 rows or the three bars — a new executor, engine or rule set).
+
+#### 1. APARTMENTS — GENERATION · *the strongest category in the product*
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **1** | 2-bed ~85 m² in envelope | ✅ **YES** | `apartmentLayout` (D-TGL, P1–P9, 67 tests) + the normative `programRules` room DB + `furnishLayout` + `daylight`. Area targeting, room mix, circulation minimisation and daylight scoring all exist. |
+| **2** | 5 types, 50–120 m², studio→4-bed | 🟡 **PARTIAL** | Each type generates. **"Consistent architectural language" is not a modelled objective** — no cross-unit style constraint. You get five good plans, not a designed family. |
+| **3** | Apartment behind a façade bay | 🟡 **PARTIAL** | Window-aware placement exists (`wallsAndDoors`, default door/window resolver) and daylight-depth fields drive room placement. **Gap:** the façade *bay* is not a first-class input — you align to openings, not to a bay rhythm. |
+| **4** | 110 m² family, 3-bed, terrace, cross-vent | 🟡 **PARTIAL** | Zoning, two bathrooms, storage, daylight: yes. **Terrace is weak** (outdoor space is not a modelled room type) and **cross-ventilation is not computed** — daylight is, airflow is not. |
+
+#### 2. APARTMENTS — MODIFICATION · *blocked on bar 3*
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **5** | 75 → 90 m², absorb adjacent area | 🔴 **NO** | Boundary surgery preserving entrance, grid and openings. `RECONCILABLE_TYPES` is `['Wall','Slab']` — columns, stairs, doors and furniture on a changed plate are classified **STRANDED** (C72). |
+| **6** | 2-bed → 3-bed, same envelope | 🔴 **NO** | Topology re-partition of an *existing* plan. The only honest path today is regenerate-with-new-brief, which discards your edits. |
+| **7** | Improve layout, same envelope | 🔴 **NO** | Needs *critique → targeted edit*. `PlanCritique` exists and can score a plan — **the edit half is the silent-verb problem**. It can tell you what is wrong and not fix it. |
+| **8** | Combine two apartments, reuse wet areas | 🔴 **NO** | Hardest of the four: cross-unit merge, party-wall removal, service-zone reuse. Needs bar 3 **and** junction re-weld (§2.5 item 3 — walls still do not re-mitre after a move). |
+
+#### 3. HOUSING — GENERATION · *strong for a single house, absent at scheme scale*
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **9** | 180 m² 3-bed detached house | ✅ **YES** | `houseLayout` with spine-first upper-floor logic, containment checks, stair placement and garden orientation. Well-tested; known defects (stair fragmentation, roof clash) logged and largely closed. |
+| **10** | 3-storey 150 m² narrow townhouse | 🟡 **PARTIAL** | No `townhouse` workflow — you would drive `houseLayout` on a narrow plot. **Vertical circulation on a narrow plate is the known weak spot** (§CORRIDOR-STAIR-CONTIGUITY: stairs fragment the plate). Roof-level daylight not modelled. |
+| **11** | Scheme of 12 houses on a site | 🔴 **NO** | **No site-scale multi-building placement engine exists.** Plot subdivision, unit orientation, shared vs private outdoor space, pedestrian networks — none built. A new engine ("masterplan pack"), not a gap in the 82 rows. |
+| **12** | Compact 100 m² 3-bed homes, repeated | 🟡 **PARTIAL** | One home: yes. **"Across the scheme" is the prompt-11 gap** — repetition with consistent character is not modelled. |
+
+#### 4. HOUSING — MODIFICATION
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **13** | 2-bed → 3-bed house, same envelope | 🔴 **NO** | Same root as prompt 6. |
+| **14** | Extend house 25 m² to garden | 🔴 **NO** | An extension is a *consequential* geometry change: new walls must weld to existing ones (**junction re-weld, untouched**), the slab must extend (works now), the roof must follow — **roof has no reference field and needs an L0 schema change** (§2.5 item 2). |
+| **15** | Optimise scheme, same site area | 🔴 **NO** | Needs prompt 11's engine *plus* modification. Furthest of all 32 from shipping. |
+| **16** | Change housing mix 20×2-bed → mixed | 🔴 **NO** | Same. |
+
+#### 5. RESIDENTIAL BUILDING — GENERATION · *real capability, with named blockers*
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **17** | 8-storey, ~8,000 m², ~80 apartments | 🟡 **PARTIAL** | `residentialBuilding` does shared core + N apartments/floor + corridor with plate partitioning. **Known blocker: the corner-cell problem** — doors cannot be routed in cells with two external faces, so some plates fail. Communal spaces are not a modelled programme. |
+| **18** | 5-storey courtyard, ~60 apartments | 🟡 **PARTIAL** | No courtyard typology; the plate partitioner assumes a solid floorplate, not a ring. **Dual-aspect maximisation is not an objective function** — it is an outcome you may or may not get. |
+| **19** | 6-storey urban, responding to street + neighbours | 🟡 **PARTIAL** | **Where PRYZM is genuinely differentiated:** real context (3D site tiles, neighbour heights, terrain), real envelope law (Barcelona/Madrid/Murcia, Portugal in progress), street-width-driven height. Balconies and public-realm relationship are not modelled. |
+| **20** | From programme: 40×1-bed, 30×2-bed, 20×3-bed | 🟡 **PARTIAL** | The typology brief schema is brief/slider-driven, so the *input* is expressible. **Core positioning is not optimised** — it is placed, not solved for. |
+
+#### 6. RESIDENTIAL BUILDING — MODIFICATION
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **21** | +15 % apartments, same footprint | 🔴 **NO** | Whole-building re-partition holding quality floors. Bar 3 plus a constrained optimiser that does not exist. |
+| **22** | Add two floors, keep façade language | 🔴 **NO** | **The clearest single example of why bar 3 matters.** Adding a level must reconcile columns, stairs, cores, roof and façade. `RECONCILABLE_TYPES` covers **Wall and Slab only**; every other type is classified **STRANDED by design and announced at runtime** — so PRYZM honestly tells you it did not move them. Correct, and still not the feature. |
+| **23** | Optimise floorplate, keep core + grid | 🔴 **NO** | "Improve without breaking" — bar 3 exactly. |
+| **24** | Change apartment mix, same GFA | 🔴 **NO** | Same. |
+
+#### 7. OFFICE — GENERATION
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **25** | 6-storey ~12,000 m² office building | 🟡 **PARTIAL** | `officeBuilding` + `officeStoreyFloors` exist. **Programme depth is the gap**: meeting rooms, quiet rooms and collaboration zones need normative rules the room database only partly has (missing-room-types is a live queue item). |
+| **26** | Flexible 1,800 m² floor for ~150 people | 🟡 **PARTIAL** | `officeFurnish` exists. **The occupancy chain (people → desks → area → support ratio) is not modelled** — you can furnish a floor, not solve one for a headcount. |
+| **27** | Hybrid office: café, event space, amenities | 🔴 **NO** | Those room types are **not in the programme rules database**. Without normative rules a generator invents dimensions — the exact C75 "never invented" failure. Needs rule authoring first: cheap, unglamorous, high value. |
+| **28** | 5-storey office around a courtyard | 🟡 **PARTIAL** | Same courtyard limitation as prompt 18. |
+
+#### 8. OFFICE — MODIFICATION
+| # | Prompt | Verdict | Why |
+|---|---|---|---|
+| **29** | Cellular → hybrid workplace | 🔴 **NO** | Demolition plus re-partition of an existing fit-out. Bar 3. |
+| **30** | 120 → 160 people, same area | 🔴 **NO** | Bar 3 **plus** the occupancy chain from prompt 26. |
+| **31** | Make floor flexible (movable partitions) | 🔴 **NO** | Needs a **movable/demountable partition element type** that does not exist. A new element kind makes C67/C68 mandatory. |
+| **32** | Extend office by 2,000 m² | 🔴 **NO** | Same class as prompt 14 (extension = consequential), at building scale. |
+
+### §9.3 — THE SCORE, AND WHAT IT SAYS
+
+| | ✅ YES | 🟡 PARTIAL | 🔴 NO |
+|---|---|---|---|
+| **All 32 prompts, at 100 % of the current programme** | **2** | **12** | **18** |
+| Generation prompts (1–4, 9–12, 17–20, 25–28) | 2 | 12 | 2 |
+| **Modification prompts (5–8, 13–16, 21–24, 29–32)** | **0** | **0** | **16** |
+
+**Read the bottom row twice.** At 100 % of the 82 rows and the three bars, **generation is 14 of 16
+working or partly working — modification is 0 of 16.** Not because modification is harder to
+*design*, but because modification is where **truth** is required, and truth is what the 82 rows and
+bar 3 are building. **Finishing bar 3 is what flips that row.**
+
+### §9.4 — WHAT THE USER CAN HONESTLY DO ON DAY ONE OF 100 %
+
+Open PRYZM, and this works end to end, on real land, with numbers you can defend:
+
+1. **Pick a real site** anywhere there is a rule pack (Barcelona, Madrid, Murcia; Portugal in progress) — real terrain, real neighbours, real cadastral parcel.
+2. **Get a legally-reasoned envelope** — or an honest refusal naming the missing instrument, never a guess (C63: a refusal is a correct answer).
+3. **Generate a residential building, a house, or an office** inside it, with rule-checked rooms, furniture, ceilings and lighting.
+4. **Get real analysis** — daylight and solar hours computed, not estimated.
+5. **Change something and trust the result** — move a wall and the slab follows in both the drawing *and* the recorded area; anything the system cannot determine says so with a typed reason instead of silently guessing.
+6. **Export and schedule** with confidence that the numbers match the geometry.
+
+**What they still cannot do:** ask PRYZM to *improve, convert, combine, extend or re-mix* an
+existing design. For that they open the model and edit by hand — with the difference that, at
+100 %, **their hand edits stay consistent**. That is precisely what the 82 rows buy.
+
+### §9.5 — THE THREE INVESTMENTS THAT UNLOCK THE MOST
+
+| Rank | Investment | Unlocks |
+|---|---|---|
+| **1** | **Bar 3 to green** (Phase C — verb families through normaliser + planner; relationship refusal arms) | **All 16 modification prompts.** The highest-leverage item in the programme. |
+| **2** | **A masterplan / multi-building pack** (plot subdivision, orientation, shared vs private outdoor space, pedestrian networks) | Prompts **11, 12, 15, 16** — the whole housing-scheme category, today a hard no. |
+| **3** | **Programme-rule authoring** (café, event, amenity, quiet room, collaboration; the occupancy→desks→area chain; courtyard/ring plates) | Prompts **26, 27, 28, 18** — and it is the **cheapest** of the three: rule authoring, not engine building. |
+
+> **The one-line answer to the founder's question:** at 100 % PRYZM becomes a **trustworthy
+> generator** — it designs well and never lies about what it did. It becomes a **design partner you
+> can argue with** only when bar 3 is green.
