@@ -23,6 +23,7 @@
 // §FIX-REGION-RING-PRETRIM-FRAME (founder, 2026-08-07) — THE ONE curved-wall
 // tessellation for topology. Leaf subpath export: THREE-free, so this module keeps
 // the purity its header promises. See the note on `wallPlanCenterline`.
+import { pointInPolygonXY } from '@pryzm/geometry-kernel';
 import {
     tessellateCurvedWallForTopology,
     resolveArcSegmentCount,
@@ -513,19 +514,13 @@ function traceLoop(
     return loopIdxs;
 }
 
-/** Standard even-odd ray-cast point-in-polygon test (XZ plane). */
+/**
+ * Standard even-odd ray-cast point-in-polygon test (XZ plane; RegionPoint2D's
+ * `y` field carries Z). §C73-PIP-CANONICAL — delegates to the kernel's one
+ * even-odd body; kept exported because ./region-tracer consumers call it.
+ */
 export function pointInPolygon(pt: RegionPoint2D, polygon: ReadonlyArray<RegionPoint2D>): boolean {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const pi = polygon[i]!, pj = polygon[j]!;
-        const xi = pi.x, yi = pi.y;
-        const xj = pj.x, yj = pj.y;
-        const intersect =
-            ((yi > pt.y) !== (yj > pt.y)) &&
-            (pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXY(pt.x, pt.y, polygon);
 }
 
 /**

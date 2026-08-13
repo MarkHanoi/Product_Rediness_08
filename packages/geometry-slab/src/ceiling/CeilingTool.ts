@@ -24,6 +24,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { CeilingVertex, CeilingToolState, CeilingLayer } from '@pryzm/core-app-model/stores';
 import { computeCeilingArea as computeArea } from '@pryzm/core-app-model/stores';
@@ -1114,19 +1115,11 @@ export class CeilingTool {
   }
 
   /**
-   * Point-in-polygon test using ray casting (works for any simple polygon).
-   * Polygon vertices are { x, z } (XZ plane).
+   * Point-in-polygon test (XZ plane). §C73-PIP-CANONICAL — delegates to the
+   * kernel's one even-odd body.
    */
   private _pointInPolygon(pt: { x: number; z: number }, polygon: Array<{ x: number; z: number }>): boolean {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const xi = polygon[i].x, zi = polygon[i].z;
-      const xj = polygon[j].x, zj = polygon[j].z;
-      const intersect = ((zi > pt.z) !== (zj > pt.z)) &&
-        pt.x < ((xj - xi) * (pt.z - zi)) / (zj - zi) + xi;
-      if (intersect) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(pt.x, pt.z, polygon);
   }
 
   // ── CommandContext helpers ─────────────────────────────────────────────────

@@ -19,6 +19,7 @@
 //                 projection consistent across element families.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { pointInPolygonXY } from '@pryzm/geometry-kernel';
 import { ColumnData } from '@pryzm/core-app-model';
 import { SlabStore } from './SlabStore';
 
@@ -38,17 +39,10 @@ function _pointInPolygon(
     pz:   number,
     poly: { x: number; y: number }[],
 ): boolean {
-    let inside = false;
-    const n = poly.length;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = poly[i].x, yi = poly[i].y;
-        const xj = poly[j].x, yj = poly[j].y;
-        if (((yi > pz) !== (yj > pz)) &&
-            (px < (xj - xi) * (pz - yi) / (yj - yi) + xi)) {
-            inside = !inside;
-        }
-    }
-    return inside;
+    // §C73-PIP-CANONICAL — delegates to the kernel's one even-odd body; the
+    // slab-polygon convention (the `y` field carries Z) is the XY wrapper's
+    // documented second use.
+    return pointInPolygonXY(px, pz, poly);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
