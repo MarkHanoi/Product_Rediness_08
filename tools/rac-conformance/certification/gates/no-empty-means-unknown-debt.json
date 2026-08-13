@@ -371,7 +371,23 @@
     "ShellAnalysis inputs (ai-host, out of lane) cannot carry unknown, so the",
     "unknown travels beside the analysis. Differentiating spec:",
     "apps/editor/src/ui/__tests__/shellOpeningsHonesty.spec.ts (5 cases, 2",
-    "negative controls) — the absent-set case FAILS against ?? []."
+    "negative controls) — the absent-set case FAILS against ?? [].",
+    "",
+    "NOT STRUCK 2026-08-13 (lane L-EMPTY) — two REASONED DECLINES, rows retained:",
+    "· houseEntranceWall.ts (2 sites): occupiedSpansByWall?.get(id) ?? [] reads a",
+    "  SPARSE ACCUMULATOR — HouseLayoutExecutor builds shellWindowSpans by pushing",
+    "  claims, so key-absence IS the determined \"zero claimed spans\" (the gate's",
+    "  own honest-accumulator control), and a wholly-absent map is the DOCUMENTED",
+    "  caller opt-out (\"Absent => centred placement\" in the param doc). Rewriting",
+    "  it would mint refusals for a case determined by construction. Declined",
+    "  pending a contract ruling on whether opt-out inputs need explicit arms.",
+    "· OverridePanel.ts (1 site): overrides?.graphicOverrides ?? [] — localOverrides",
+    "  is a REQUIRED OverrideLayer (VisibilityIntentTypes.ts:743) defaulted to",
+    "  EMPTY_OVERRIDE_LAYER by the store on every instance; overrides is undefined",
+    "  ONLY when no instance is bound, a state the panel already renders as",
+    "  \"View: - none -\". The ?? [] can only fire on type-violating persisted data;",
+    "  the honest fix is a persistence probe/migration decision, not a UI arm.",
+    "  Declined pending that probe (ship the probe before the fix)."
   ],
   "swallowed": [
     {
