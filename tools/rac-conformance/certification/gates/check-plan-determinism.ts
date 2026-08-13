@@ -190,21 +190,50 @@ const REGISTRY_SOURCES = [
   'apps/editor/src/ui/consequence/confirmationFlowComposition.ts',
 ];
 
+// §FOLLOW-THE-SHARED-FACTORY (2026-08-13, commit 46d06234). Registration was
+// centralised into ONE `createConsequencePlanners()` factory, because three
+// hand-built maps is exactly HOW the wall.create planner came to be registered
+// nowhere while looking registered. A parser that only greps `planners.set(` in
+// each consumer therefore reads centralisation as DIVERGENCE — every consumer
+// reports [—] and the gate warns the roots disagree, when in truth they share
+// one source. That would punish the fix for U-INV-5 and pressure a future author
+// back toward duplicated maps, so the parser follows the factory instead:
+// a consumer that CALLS the factory inherits the factory's key set.
+const PLANNER_FACTORY = 'createConsequencePlanners';
+
 function parseRegisteredPlanners(): { keys: string[]; perSource: Map<string, string[]>; sourcesRead: number } {
   const perSource = new Map<string, string[]>();
   const all = new Set<string>();
   let sourcesRead = 0;
+
+  const keysIn = (src: string): string[] => {
+    const keys: string[] = [];
+    for (const m of src.matchAll(/planners\.set\(\s*['"`]([^'"`]+)['"`]/g)) keys.push(m[1]!);
+    return keys;
+  };
+
+  // Pass 1 — the factory's own key set, wherever it is defined among the sources.
+  const factoryKeys: string[] = [];
+  for (const rel of REGISTRY_SOURCES) {
+    const p = resolve(REPO, rel);
+    if (!existsSync(p)) continue;
+    const src = readFileSync(p, 'utf8');
+    if (new RegExp(`(export\\s+)?function\\s+${PLANNER_FACTORY}\\b`).test(src)) {
+      factoryKeys.push(...keysIn(src));
+    }
+  }
+
+  // Pass 2 — per consumer: its own literal registrations, PLUS the factory's
+  // keys when it delegates to the factory.
   for (const rel of REGISTRY_SOURCES) {
     const p = resolve(REPO, rel);
     if (!existsSync(p)) { perSource.set(rel, []); continue; }
     sourcesRead++;
     const src = readFileSync(p, 'utf8');
-    const keys: string[] = [];
-    for (const m of src.matchAll(/planners\.set\(\s*['"`]([^'"`]+)['"`]/g)) {
-      keys.push(m[1]!);
-      all.add(m[1]!);
-    }
-    perSource.set(rel, keys.sort());
+    const keys = new Set<string>(keysIn(src));
+    if (new RegExp(`${PLANNER_FACTORY}\\s*\\(`).test(src)) for (const k of factoryKeys) keys.add(k);
+    for (const k of keys) all.add(k);
+    perSource.set(rel, [...keys].sort());
   }
   return { keys: [...all].sort(), perSource, sourcesRead };
 }
