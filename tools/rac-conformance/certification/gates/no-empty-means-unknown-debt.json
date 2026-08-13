@@ -333,7 +333,20 @@
     "apps/editor/src/ui/documentation/__tests__/openingsUnrecordedReconcile.spec.ts",
     "(4 cases, 2 negative controls) — the unrecorded cases FAIL against ?? [].",
     "Documentation dir re-run: 108 passed, 2 failed — the SAME autoTagActiveView",
-    "typeMark pair f1595c29 verified pre-existing."
+    "typeMark pair f1595c29 verified pre-existing.",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 77 -> 76) — FurnishLayoutExecutor.ts, ARM C",
+    "x1: for (const op of w.openings ?? []) in buildInput furnished a room AS IF",
+    "a wall with an UNRECORDED opening set had no doors/windows — the engine",
+    "could place furniture across a real door and the door-clearance validator",
+    "had nothing to validate (the founder-reported failure this family exists to",
+    "prevent). Extracted openingPosesForWall (exported, pure, shared seam): an",
+    "unrecorded set fires onOpeningsUnrecorded — surfaced through the run's",
+    "EXISTING validationWarnings channel naming room+wall — and contributes no",
+    "poses; a present empty array is a real no-openings and stays silent.",
+    "Differentiating spec:",
+    "apps/editor/src/ui/__tests__/furnishOpeningsHonesty.spec.ts (3 cases,",
+    "negative control incl.) — the unrecorded case FAILS against ?? []."
   ],
   "swallowed": [
     {
@@ -385,11 +398,6 @@
       "site": "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
       "arm": "C (8 site(s))",
       "why": "C@383 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@384 `const slabIds: string[] = room.boundingSlabIds ?? [];` · C@385 `const colIds: string[]  = room.boundingColumnIds ?? [];` · C@424 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@446 `.flatMap((wid: string) => doorStore.getByWallId(wid) ?? [])` · C@462 `.flatMap((wid: string) => windowStore.getByWallId(wid) ?? [])` · "
-    },
-    {
-      "site": "apps/editor/src/ui/furnish-layout/FurnishLayoutExecutor.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@317 `for (const op of w.openings ?? []) {`"
     },
     {
       "site": "apps/editor/src/ui/geospatial/CesiumViewport.ts",

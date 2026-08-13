@@ -63,6 +63,51 @@ interface FacadeLike {
 
 const EPS = 1e-6;
 
+// §GR-10 — the shared honesty seam (C78 §8.1 vocabulary, imported not restated).
+import { relationshipArrayOrUnknown } from '../relationshipDetermination.js';
+
+/**
+ * §GR-10 (C75 §1.4 · C78 §1.4/§8.1 · C71 §4.4) — the honest opening-pose read
+ * for ONE matched wall. The old inline `for (const op of w.openings ?? [])`
+ * furnished a room AS IF a wall with an UNRECORDED opening set had no doors or
+ * windows — so the engine could place a wardrobe across a real door and the
+ * door-clearance validator had nothing to validate. An unrecorded set now
+ * fires `onOpeningsUnrecorded` (the caller surfaces it as a validation
+ * warning) and contributes no poses; a PRESENT empty array is a real
+ * "no openings" and stays silent. Exported for the differentiating spec.
+ */
+export function openingPosesForWall(
+    w: WallLike,
+    inwardNormal: Pt,
+    onOpeningsUnrecorded?: (wallId: string) => void,
+): { doors: OpeningPose[]; windows: OpeningPose[] } {
+    const doors: OpeningPose[] = [];
+    const windows: OpeningPose[] = [];
+    const known = relationshipArrayOrUnknown<NonNullable<WallLike['openings']>[number]>(w.openings);
+    if (known === null) {
+        onOpeningsUnrecorded?.(w.id);
+        return { doors, windows };
+    }
+    for (const op of known) {
+        if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
+        const bl = w.baseLine;
+        if (!bl || bl.length < 2) continue;
+        const ws: Pt = { x: bl[0]!.x, z: bl[0]!.z };
+        const we: Pt = { x: bl[1]!.x, z: bl[1]!.z };
+        const wdir = unit(sub(we, ws));
+        const centerWorld = add(ws, mul(wdir, op.offset + op.width / 2));
+        const pose: OpeningPose = {
+            type: op.type,
+            center: centerWorld,
+            normal: inwardNormal,
+            width: op.width,
+        };
+        if (op.type === 'door') doors.push(pose);
+        else windows.push(pose);
+    }
+    return { doors, windows };
+}
+
 /** §FURNISH-DROP-SURFACING (editor half, 2026-08-13) — the explicit outcome
  *  stamped on EVERY `furnish.layout-executed` payload, so downstream consumers
  *  (the lighting cascade, the all-floors driver) can distinguish "completed,
@@ -350,22 +395,20 @@ export class FurnishLayoutExecutor {
                     wallSegs.push({ a, b, inwardNormal, length: len, isExterior, thickness: w?.thickness });
 
                     if (w) {
-                        for (const op of w.openings ?? []) {
-                            if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
-                            const bl = w.baseLine!;
-                            const ws: Pt = { x: bl[0]!.x, z: bl[0]!.z };
-                            const we: Pt = { x: bl[1]!.x, z: bl[1]!.z };
-                            const wdir = unit(sub(we, ws));
-                            const centerWorld = add(ws, mul(wdir, op.offset + op.width / 2));
-                            const pose: OpeningPose = {
-                                type: op.type,
-                                center: centerWorld,
-                                normal: inwardNormal,
-                                width: op.width,
-                            };
-                            if (op.type === 'door') doors.push(pose);
-                            else windows.push(pose);
-                        }
+                        // §GR-10 — an UNRECORDED opening set is a validation
+                        // warning naming the wall, never a silent "no doors":
+                        // furniture placed over an unenumerable door is the
+                        // exact founder-reported failure this family exists
+                        // to prevent.
+                        const poses = openingPosesForWall(w, inwardNormal, (wallId) => {
+                            const tagged = `[${roomId}] openings of wall ${wallId} were never recorded ` +
+                                `(RELATIONSHIP_NOT_RECORDED) — door/window clearances NOT honoured for this edge; ` +
+                                `unknown, not "none" (C75 §1.4)`;
+                            validationWarnings.push(tagged);
+                            console.warn('[furnish-layout] §GR-10', tagged);
+                        });
+                        doors.push(...poses.doors);
+                        windows.push(...poses.windows);
                     }
                 }
                 return {
