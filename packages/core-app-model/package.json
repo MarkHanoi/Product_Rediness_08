@@ -46,6 +46,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/event-bus": "workspace:*",
     "three": "^0.183.2",
     "@pryzm/renderer-three": "workspace:*",

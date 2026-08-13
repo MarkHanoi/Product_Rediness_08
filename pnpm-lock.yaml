@@ -971,6 +971,9 @@ importers:
       '@pryzm/entitlements':
         specifier: workspace:*
         version: link:../../packages/entitlements
+      '@pryzm/finish-host-tracker':
+        specifier: workspace:*
+        version: link:../../packages/finish-host-tracker
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../../packages/frame-scheduler
@@ -1572,6 +1575,9 @@ importers:
       '@pryzm/geometry-furniture':
         specifier: workspace:*
         version: link:../geometry-furniture
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/geometry-lift':
         specifier: workspace:*
         version: link:../geometry-lift
@@ -1649,6 +1655,9 @@ importers:
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../frame-scheduler
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/geometry-wall':
         specifier: workspace:*
         version: link:../geometry-wall
@@ -2247,6 +2256,9 @@ importers:
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../frame-scheduler
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/geometry-wall':
         specifier: workspace:*
         version: link:../geometry-wall
