@@ -85,6 +85,13 @@ import {
     type WeldWall,
     type ProjectNorthFrame,
 } from '@pryzm/ai-host';
+// §CI-1-BANNER (SPEC-49 §4 CI-1) — the circulation-verdict announce seam + the
+// verdict types (derived from HouseLayoutResult['circulation']; see that module's header).
+import {
+    announceHouseCirculation,
+    houseBuildSuccessMessage,
+    type HouseCirculationReport,
+} from './houseCirculationNotice.js';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 import { resolveBlindFacades } from '../apartment-layout/resolveBlindFacades.js';
@@ -94,6 +101,7 @@ import { resetStairVoids, recordStairVoid } from './houseStairVoids.js';
 import { resetStairRects, recordStairRect } from './houseStairRects.js';
 import { resetShellWalls, recordShellWalls } from './houseShellWalls.js';
 import { reseatEntranceOnHallWall } from './houseEntranceWall.js';
+import { readShellWallOpenings, warnShellOpeningsUnrecorded } from './shellOpeningsReading.js';
 
 const MM_PER_M = 1000;
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
@@ -263,16 +271,24 @@ function analyseActiveShell(levelId: string): ShellAnalysis | null {
     const orientationByWall: Record<string, 'N' | 'E' | 'S' | 'W' | null> = {};
     let entranceWallId = '';
 
+    // §GR-10 (C75 §1.4) — walls whose opening sets were never recorded: their
+    // window counts / door status are UNKNOWN, not zero/none. Declared
+    // half-fix: ShellAnalysis inputs cannot carry unknown, so the unknown is
+    // NAMED beside the analysis (see shellOpeningsReading.ts).
+    const openingsUnrecorded: string[] = [];
     for (const w of all) {
         if (w.levelId !== levelId) continue;
         if (!facades.get(w.id)?.isExterior) continue;
         const bl = w.baseLine;
         if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
         walls.push({ id: w.id, baseLine: [{ x: bl[0].x, z: bl[0].z }, { x: bl[1].x, z: bl[1].z }] });
-        windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;
+        const rd = readShellWallOpenings(w.openings);
+        if (rd.windowCount === null) openingsUnrecorded.push(w.id);
+        else windowCountByWall[w.id] = rd.windowCount;
         orientationByWall[w.id] = facades.get(w.id)?.orientation ?? null;
-        if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w.id;
+        if (!entranceWallId && rd.hasDoor === true) entranceWallId = w.id;
     }
+    warnShellOpeningsUnrecorded('[house-layout]', openingsUnrecorded);
     if (walls.length < 3) return null;
     if (!entranceWallId) entranceWallId = walls[0]!.id;
 
@@ -297,6 +313,10 @@ export interface HouseExecuteResult {
     readonly stairCount?: number;
     readonly slabCount?: number;
     readonly roofCreated?: boolean;
+    /** §CI-1-BANNER — the engine's accumulated circulation verdict for the house that
+     *  was ACTUALLY BUILT (`HouseLayoutResult.circulation`, required on every engine
+     *  result). Present on every ok build; absent only on refusals. */
+    readonly circulation?: HouseCirculationReport;
 }
 
 export interface HouseExecuteInput {
@@ -1840,7 +1860,18 @@ export class HouseLayoutExecutor {
                 voidCount: result.voids.length,
                 roofKind: result.roof.kind,
             });
-            toast(`Built ${result.storeys.length}-storey house — ${result.stairs.length} stair(s), roof on top. Finishing storeys…`, 'success');
+            // §CI-1-BANNER (SPEC-49 §4 CI-1, founder 2026-08-13) — this toast used to fire
+            // UNCONDITIONALLY: the silent-ship surface the founder ruled out. The route now
+            // branches on the engine's accumulated circulation verdict: banner null → the
+            // byte-identical success toast; 'blocking'/'unknown' → NO success toast, the
+            // persistent dismiss-required banner naming the sealed rooms and the failed
+            // rule; 'advisory' → a warning toast carrying the headline. Never success over
+            // an unmeasured or sealed storey (C70 §2.2).
+            announceHouseCirculation(
+                result.circulation,
+                houseBuildSuccessMessage(result.storeys.length, result.stairs.length),
+                toast,
+            );
 
             return {
                 ok: true,
@@ -1848,6 +1879,9 @@ export class HouseLayoutExecutor {
                 stairCount: result.stairs.length,
                 slabCount: result.storeys.length,
                 roofCreated: true,
+                // §CI-1-BANNER — the verdict rides back to the caller so the headless/chat
+                // path (HouseLayoutController.buildDirect) can report it too.
+                circulation: result.circulation,
             };
         } catch (err) {
             console.error('[house-layout] executor threw:', err);

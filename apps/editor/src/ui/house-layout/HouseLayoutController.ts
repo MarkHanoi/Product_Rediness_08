@@ -38,12 +38,15 @@ import { facadeOrientationService } from '@pryzm/spatial-index';
 import { checkMaxHeightGate, maxHeightRefusalText } from '../generation/maxHeightGate.js';
 import { HouseLayoutModal } from './HouseLayoutModal.js';
 import { HouseLayoutExecutor } from './HouseLayoutExecutor.js';
+// §CI-1-BANNER — the circulation verdict type the headless/chat result now carries.
+import type { HouseCirculationReport } from './houseCirculationNotice.js';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { getRoomAreaOverrides } from '../apartment-layout/activeRoomAreaOverrides.js';
 import { getRoomTypeOverrides } from '../apartment-layout/activeRoomTypeOverrides.js';
 import { getRoomFloorOverrides } from '../apartment-layout/activeRoomFloorOverrides.js';
 import { getRoomAdjacencyOverrides } from '../apartment-layout/activeRoomAdjacencyOverrides.js';
 import type { HouseProgramFormState } from './houseModalHtml.js';
+import { readShellWallOpenings, warnShellOpeningsUnrecorded } from './shellOpeningsReading.js';
 import {
     computeProgramShortfall,
     buildReducedProgramNoticeHtml,
@@ -123,16 +126,24 @@ function analyseActiveShell(levelId: string): ShellAnalysis | null {
     const orientationByWall: Record<string, 'N' | 'E' | 'S' | 'W' | null> = {};
     let entranceWallId = '';
 
+    // §GR-10 (C75 §1.4) — walls whose opening sets were never recorded: their
+    // window counts / door status are UNKNOWN, not zero/none. Declared
+    // half-fix: ShellAnalysis inputs cannot carry unknown, so the unknown is
+    // NAMED beside the analysis (see shellOpeningsReading.ts).
+    const openingsUnrecorded: string[] = [];
     for (const w of all) {
         if (w.levelId !== levelId) continue;
         if (!facades.get(w.id)?.isExterior) continue;
         const bl = w.baseLine;
         if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
         walls.push({ id: w.id, baseLine: [{ x: bl[0].x, z: bl[0].z }, { x: bl[1].x, z: bl[1].z }] });
-        windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;
+        const rd = readShellWallOpenings(w.openings);
+        if (rd.windowCount === null) openingsUnrecorded.push(w.id);
+        else windowCountByWall[w.id] = rd.windowCount;
         orientationByWall[w.id] = facades.get(w.id)?.orientation ?? null;
-        if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w.id;
+        if (!entranceWallId && rd.hasDoor === true) entranceWallId = w.id;
     }
+    warnShellOpeningsUnrecorded('[house-layout/preview]', openingsUnrecorded);
     if (walls.length < 3) return null;
     if (!entranceWallId) entranceWallId = walls[0]!.id;
 
@@ -146,8 +157,17 @@ export interface RequestHouseLayoutResult {
     readonly optionCount?: number;
     /** §GEN-CHAT (RAC U5b.2/U5b.4) — engine-honesty lines from the headless
      *  `buildDirect` path (variants enumerated, storeys/stairs/roof built).
-     *  Absent on the modal path — the modal IS that report there. */
+     *  Absent on the modal path — the modal IS that report there.
+     *  §CI-1-BANNER — when the built house raised a circulation banner, its
+     *  per-storey lines are absorbed here so the chat transcript carries the
+     *  verdict verbatim (no toast-only dead end). */
     readonly report?: readonly string[];
+    /** §CI-1-BANNER (SPEC-49 §4 CI-1) — the engine's full circulation verdict for
+     *  the house that was built, so the headless/chat path returns the verdict
+     *  structurally (banner severity, sealed/unsound/not-measured storeys, failed
+     *  rules) rather than only prose. Present on ok `buildDirect` builds; absent
+     *  on the modal path (the executor surfaces the banner there) and on refusals. */
+    readonly circulation?: HouseCirculationReport;
 }
 
 /**
@@ -409,7 +429,18 @@ export class HouseLayoutController {
                 `${storeyCount} storey${storeyCount === 1 ? '' : 's'}, ${roomsBuilt} room${roomsBuilt === 1 ? '' : 's'}, ` +
                 `${roofKind} roof${typeof execResult.stairCount === 'number' && execResult.stairCount > 0 ? `, ${execResult.stairCount} stair${execResult.stairCount === 1 ? '' : 's'}` : ''}.`,
             ];
-            return { ok: true, optionCount: variants.length, report };
+            // §CI-1-BANNER — absorb the banner's per-storey lines into the chat report so
+            // the headless path never ships the verdict silently: one line per non-sound
+            // storey (sealed AND unsound AND not-measured — no bucket hidden), verbatim
+            // from the engine. The full structured verdict rides `circulation` beside it.
+            const circulation = execResult.circulation;
+            if (circulation?.banner) report.push(...circulation.banner.lines);
+            return {
+                ok: true,
+                optionCount: variants.length,
+                report,
+                ...(circulation ? { circulation } : {}),
+            };
         } catch (err) {
             console.error('[house-layout] buildDirect threw:', err);
             this._regen = null;

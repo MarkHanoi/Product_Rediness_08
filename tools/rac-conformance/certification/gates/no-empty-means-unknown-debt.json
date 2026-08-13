@@ -357,7 +357,21 @@
     "ABSENT field to null while a PRESENT empty array still counts 0.",
     "Differentiating spec: apps/editor/src/ui/__tests__/auditCountHonesty.spec.ts",
     "(5 cases at both the helper and the descriptor grain) — the absent-field",
-    "cases FAIL against the ?? [] shape."
+    "cases FAIL against the ?? [] shape.",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 75 -> 73) — the analyseActiveShell TWINS,",
+    "HouseLayoutController.ts + HouseLayoutExecutor.ts (ARM C x2 each): a wall",
+    "whose opening set was never recorded entered the generator as \"zero",
+    "windows, no door\" — an unmeasured façade read as a blank one, and a",
+    "hand-placed front door on such a wall was invisible to entrance detection",
+    "(the known generator-ignores-the-front-door failure shape). Both twins now",
+    "ride readShellWallOpenings (shellOpeningsReading.ts, pure, shared seam):",
+    "unrecorded → null (never forged 0/false), the wall ids are collected and",
+    "console.warned by name via warnShellOpeningsUnrecorded. DECLARED HALF-FIX:",
+    "ShellAnalysis inputs (ai-host, out of lane) cannot carry unknown, so the",
+    "unknown travels beside the analysis. Differentiating spec:",
+    "apps/editor/src/ui/__tests__/shellOpeningsHonesty.spec.ts (5 cases, 2",
+    "negative controls) — the absent-set case FAILS against ?? []."
   ],
   "swallowed": [
     {
@@ -424,16 +438,6 @@
       "site": "apps/editor/src/ui/house-layout/houseExecDiagnostics.ts",
       "arm": "C (8 site(s))",
       "why": "C@224 `boundingWallIds: r.boundingWallIds ?? [],` · C@338 `for (const op of w.openings ?? []) {` · C@415 `const ops = w.openings ?? [];` · C@469 `for (const wid of d.boundingWallIds) for (const rid of roomByWall.get(wid) ?? []) if (rid ` · C@512 `const wins = (w.openings ?? []).filter(o => o.type === 'window');` · C@549 `if ((w?.openings ?? []).some(o => o.type === 'door')) hasShellDoor = true;` ·"
-    },
-    {
-      "site": "apps/editor/src/ui/house-layout/HouseLayoutController.ts",
-      "arm": "C (2 site(s))",
-      "why": "C@132 `windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;` · C@134 `if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w`"
-    },
-    {
-      "site": "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
-      "arm": "C (2 site(s))",
-      "why": "C@271 `windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;` · C@273 `if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w`"
     },
     {
       "site": "apps/editor/src/ui/layout/GISAreaLayout.ts",
