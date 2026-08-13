@@ -67,6 +67,7 @@
 import { trace } from '@opentelemetry/api';
 import type { MeasuredDesign } from '@pryzm/site-parcel-data';
 import { polygonAreaXZ, type XZVertex } from './siteInspectorData';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 
 const _tracer = trace.getTracer('pryzm.site.designMeasurement');
 
@@ -321,15 +322,9 @@ function bounds(ring: readonly XZVertex[]): { minX: number; maxX: number; minZ: 
     return { minX, maxX, minZ, maxZ };
 }
 
+/** §C73-PIP-CANONICAL — delegates to THE kernel ray cast (geometry-kernel). */
 function pointInRing(pt: XZVertex, ring: readonly XZVertex[]): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const a = ring[i]!;
-        const b = ring[j]!;
-        const straddles = (a.z > pt.z) !== (b.z > pt.z);
-        if (straddles && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(pt.x, pt.z, ring);
 }
 
 const cross = (o: XZVertex, a: XZVertex, b: XZVertex): number =>

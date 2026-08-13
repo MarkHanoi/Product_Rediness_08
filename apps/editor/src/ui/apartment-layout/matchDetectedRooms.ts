@@ -12,6 +12,8 @@
 // Determinism (ADR-0061): the result depends only on the inputs and the
 // nearest-first ordering tie-break; no RNG, no time, no global state.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 export interface EngineRoom {
     readonly name: string;
     readonly occupancy?: string;
@@ -41,15 +43,13 @@ export interface RoomRename {
     readonly occupancy?: string;
 }
 
+/** §C73-PIP-CANONICAL — delegates to THE kernel ray cast (geometry-kernel). Kept
+ *  exported under this name because callers and tests import it; the NAME is a
+ *  local alias, the BODY is no longer a rival definition of "inside". */
 export function pointInPolygon(
     px: number, pz: number, poly: ReadonlyArray<{ readonly x: number; readonly z: number }>,
 ): boolean {
-    let hit = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
-        if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) hit = !hit;
-    }
-    return hit;
+    return pointInPolygonXZ(px, pz, poly);
 }
 
 /** Mean of a polygon's vertices (world XZ, metres). A cheap, winding-agnostic

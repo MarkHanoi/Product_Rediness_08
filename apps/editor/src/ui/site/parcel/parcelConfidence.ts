@@ -16,6 +16,7 @@
 // coordinate/projection float-noise, NOT as a behavioural threshold.
 
 import type { LatLon } from '../boundaryProjection.js';
+import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 import type {
     ParcelConfidence, ParcelGeometryMetrics, ParcelAreaSource,
 } from './ParcelProvider.js';
@@ -79,16 +80,15 @@ export function computeParcelMetrics(ring: ReadonlyArray<LatLon>): ParcelGeometr
     };
 }
 
-/** Ray-casting point-in-ring test (WGS84 lon/lat, planar-good at parcel scale). */
+/** Ray-casting point-in-ring test (WGS84 lon/lat, planar-good at parcel scale).
+ *
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast with `{lat,lon}`
+ *  accessors: lon is the abscissa, lat the ordinate. The private `|| 1e-12`
+ *  denominator guard is gone as dead code (kernel header §1). NOTE the argument
+ *  order is `(lat, lon)` — unchanged, so every caller is untouched — while the
+ *  kernel takes `(x, y)`; the swap happens HERE, once, instead of at each site. */
 export function pointInRing(lat: number, lon: number, ring: ReadonlyArray<LatLon>): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const a = ring[i]!, b = ring[j]!;
-        const intersect = (a.lat > lat) !== (b.lat > lat) &&
-            lon < ((b.lon - a.lon) * (lat - a.lat)) / ((b.lat - a.lat) || 1e-12) + a.lon;
-        if (intersect) inside = !inside;
-    }
-    return inside;
+    return pointInRingEvenOdd(lon, lat, ring.length, (i) => ring[i]!.lon, (i) => ring[i]!.lat);
 }
 
 export interface ParcelConfidenceInput {

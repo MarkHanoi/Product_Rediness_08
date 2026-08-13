@@ -11,18 +11,22 @@ import type { LatLon } from '../boundaryProjection.js';
 import type { ParcelFeature } from './ParcelProvider.js';
 import type { ContextBuildingFeature } from '../../geospatial/contextBuildings.js';
 import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
+import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 
-/** Ray-casting point-in-polygon on a GeoJSON [lon,lat] outer ring. */
+/** Ray-casting point-in-polygon on a GeoJSON [lon,lat] outer ring.
+ *
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast with `[lon,lat]` tuple
+ *  accessors. Two local behaviours are PRESERVED deliberately rather than tidied:
+ *  the `?? 0` per-ordinate fallback (a malformed GeoJSON vertex reads as null
+ *  island, which is what this ring's callers already tolerate) stays in the
+ *  accessors; the `|| 1e-12` denominator guard does NOT, because the straddle
+ *  test makes the divisor structurally nonzero and it was dead code. */
 export function ringContainsLonLat(coords: number[][], lon: number, lat: number): boolean {
-    let inside = false;
-    for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
-        const xi = coords[i]?.[0] ?? 0, yi = coords[i]?.[1] ?? 0;
-        const xj = coords[j]?.[0] ?? 0, yj = coords[j]?.[1] ?? 0;
-        const intersect = (yi > lat) !== (yj > lat) &&
-            lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi;
-        if (intersect) inside = !inside;
-    }
-    return inside;
+    return pointInRingEvenOdd(
+        lon, lat, coords.length,
+        (i) => coords[i]?.[0] ?? 0,
+        (i) => coords[i]?.[1] ?? 0,
+    );
 }
 
 /** Approx planar area (m²) of a small [lon,lat] ring via local equirectangular. */

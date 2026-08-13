@@ -17,6 +17,7 @@
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     furnishRoom, furnishRoomCompound, buildFurnishCommands,
@@ -131,14 +132,10 @@ interface SubZone {
     readonly polygon: ReadonlyArray<{ x: number; z: number }>;
 }
 
-/** Ray-cast point-in-polygon (world XZ). */
+/** Ray-cast point-in-polygon (world XZ).
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast (geometry-kernel). */
 function pointInPolygon(p: Pt, poly: ReadonlyArray<{ x: number; z: number }>): boolean {
-    let hit = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
-        if (((zi > p.z) !== (zj > p.z)) && (p.x < ((xj - xi) * (p.z - zi)) / (zj - zi) + xi)) hit = !hit;
-    }
-    return hit;
+    return pointInPolygonXZ(p.x, p.z, poly);
 }
 
 export class FurnishLayoutExecutor {

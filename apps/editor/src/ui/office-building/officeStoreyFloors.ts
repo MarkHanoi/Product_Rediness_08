@@ -17,6 +17,8 @@
 // turns the disc footprint + the minted levels + the already-finished (detailed) indices + a
 // stair-void lookup into the per-storey floor-plate specs. The executor stamps ids and dispatches.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 /** A 2-D plan point (metres, world XZ). */
 export interface PlanPt { readonly x: number; readonly z: number }
 
@@ -46,17 +48,10 @@ function centroid(poly: readonly PlanPt[]): PlanPt {
     return { x: sx / n, z: sz / n };
 }
 
-/** Even-odd point-in-polygon. */
+/** Even-odd point-in-polygon.
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast (geometry-kernel). */
 function pointInPoly(pt: PlanPt, poly: readonly PlanPt[]): boolean {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        if (((a.z > pt.z) !== (b.z > pt.z)) &&
-            pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) {
-            inside = !inside;
-        }
-    }
-    return inside;
+    return pointInPolygonXZ(pt.x, pt.z, poly);
 }
 
 /**

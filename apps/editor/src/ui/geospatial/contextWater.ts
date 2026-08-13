@@ -14,6 +14,7 @@ import {
     type Bbox,
 } from './contextBuildings';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
+import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 
 export interface ContextWaterArea {
     /** Closed ring as [lon,lat] pairs (a lake / pond / reservoir polygon). */
@@ -339,14 +340,12 @@ function distPointToSegment(
     return Math.hypot(p[0] - (a[0] + t * vx), p[1] - (a[1] + t * vy));
 }
 
-/** Even-odd point-in-polygon (ring = [lon,lat] loop). */
+/** Even-odd point-in-polygon (ring = [lon,lat] loop).
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast with `[lon,lat]` tuple
+ *  accessors; the private `|| 1e-12` denominator guard is gone as dead code (the
+ *  straddle test makes the divisor structurally nonzero — kernel header §1). */
 function pointInRing(pt: readonly [number, number], ring: ReadonlyArray<readonly [number, number]>): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const xi = ring[i]![0], yi = ring[i]![1], xj = ring[j]![0], yj = ring[j]![1];
-        if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
-    }
-    return inside;
+    return pointInRingEvenOdd(pt[0], pt[1], ring.length, (i) => ring[i]![0], (i) => ring[i]![1]);
 }
 
 /**

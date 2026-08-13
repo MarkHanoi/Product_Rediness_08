@@ -15,6 +15,7 @@
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { ceilingForRoom, buildCeilingCommands } from '@pryzm/ai-host';
 import type { CeilingRoomInput, PlacedCeiling } from '@pryzm/ai-host';
@@ -243,16 +244,10 @@ export class CeilingLayoutExecutor {
         return { x: sx / n, z: sz / n };
     }
 
-    /** Ray-cast point-in-polygon test in world X-Z. */
+    /** Ray-cast point-in-polygon test in world X-Z.
+     *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast (geometry-kernel). */
     private _pointInPoly(pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean {
-        let inside = false;
-        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-            const a = poly[i]!, b = poly[j]!;
-            const intersects = (a.z > pt.z) !== (b.z > pt.z)
-                && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x;
-            if (intersects) inside = !inside;
-        }
-        return inside;
+        return pointInPolygonXZ(pt.x, pt.z, poly);
     }
 
     /** §RESI-CEILING-DEGENERATE-GUARD-2 — clean a ring: drop consecutive near-coincident points

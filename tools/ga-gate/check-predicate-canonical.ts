@@ -718,13 +718,31 @@ lines.push(
 
 const floors: Floor[] = [
   { what: 'source files scanned', measured: detected.filesScanned, min: 500 },
-  // The DETECTOR-BROKE floor. This family measured dozens of bodies at every
-  // cut. A reading in the single digits is a regex regression, not a clean
-  // repo, and reporting it as progress is the exact lie exit 2 exists to
-  // prevent. It is a MISCONFIGURATION detector, never a target: when the
-  // collapse genuinely lands and C1 approaches 0, this floor is what must be
-  // REMOVED — in the same commit, with the reason — not quietly lowered.
-  { what: 'point-in-polygon subjects detected (a collapse to single digits is a BROKEN DETECTOR, not a clean repo)', measured: bodies.length, min: 30 },
+  // The DETECTOR-BROKE floor, RE-ANCHORED 2026-08-13 — read this before touching it.
+  //
+  // It used to read `measured: bodies.length, min: 30` — ALL detected bodies,
+  // production + test + canonical. Its own comment named the day it would have to
+  // change: "when the collapse genuinely lands and C1 approaches 0, this floor is
+  // what must be REMOVED — in the same commit, with the reason — not quietly
+  // lowered." That day is here: C1 went 51 → 7 and total subjects fell 39 → 22, so
+  // the floor fired exit 2 on a repo that is CLEANER, not on a broken regex.
+  //
+  // It is RE-ANCHORED rather than removed, because removal would leave the recipe
+  // with no count-shaped liveness check at all. The defect in the old form was not
+  // the threshold, it was the DENOMINATOR: it measured a quantity this gate exists
+  // to drive to zero, so it was guaranteed to collide with its own success and the
+  // only available moves would be "lower it" (the lie it was written to prevent) or
+  // "delete it". The new denominator is the TEST-TREE bodies — explicitly NOT
+  // ratcheted, never migrated by a collapse PR, and therefore a subject set the
+  // gate's own progress cannot erode. A regex regression still drives it to 0 and
+  // still exits 2; a completed collapse does not touch it. Lowering THIS floor
+  // would be the lie; it must not be, and it has no reason to be.
+  //
+  // The PRIMARY liveness proof is the executed control below (synthetic fixtures in
+  // four operand shapes, plus two negative controls) — a positive control on inputs
+  // the repo cannot change, which is stronger than any census. This floor is the
+  // cheap corroborating one.
+  { what: 'test-tree point-in-polygon bodies detected (NOT migratable — the liveness anchor a collapse cannot erode)', measured: bodies.filter((b) => b.isTest).length, min: 10 },
   { what: 'executed controls passed (0 = blind comparator)', measured: control.ok ? 1 : 0, min: 1 },
 ];
 

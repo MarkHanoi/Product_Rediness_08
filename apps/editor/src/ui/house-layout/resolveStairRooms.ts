@@ -30,6 +30,8 @@
 // reconciliation). The §STAIR-ROOM-TYPE doctrine (one named `stair` room at the
 // keep-out) is enforced here at the DETECTION boundary, completing it.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 /** A stair keep-out region in WORLD XZ (metres) — the same shape `houseStairRects`
  *  records and `§DIAG-EXEC-STAIR` already reads. The min/max fields are the
  *  axis-aligned AABB (used as a fast pre-cull); `poly` — when present — is the
@@ -84,16 +86,12 @@ function centreOf(r: StairRect): { x: number; z: number } {
     return { x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2 };
 }
 
-/** Ray-cast point-in-polygon test (world XZ). */
+/** Ray-cast point-in-polygon test (world XZ).
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast (geometry-kernel). */
 function pointInPoly(
     px: number, pz: number, poly: ReadonlyArray<{ readonly x: number; readonly z: number }>,
 ): boolean {
-    let hit = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
-        if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) hit = !hit;
-    }
-    return hit;
+    return pointInPolygonXZ(px, pz, poly);
 }
 
 // §STAIR-ROTATED-POLY (founder defect #1, 2026-06-11) — the AABB (min/max) is the

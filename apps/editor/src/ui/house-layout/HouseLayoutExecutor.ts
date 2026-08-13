@@ -28,6 +28,7 @@
 
 import { batchCoordinator, storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import {
     AddLevelCommand,
     CreateStairCommand,
@@ -504,14 +505,11 @@ export class HouseLayoutExecutor {
                 const sp = shell.perimeter;
                 const sxs = sp.map(p => p.x), szs = sp.map(p => p.z);
                 const shellBox = `x[${Math.min(...sxs).toFixed(1)},${Math.max(...sxs).toFixed(1)}] z[${Math.min(...szs).toFixed(1)},${Math.max(...szs).toFixed(1)}]`;
-                const inPoly = (pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean => {
-                    let c = false;
-                    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-                        const a = poly[i]!, b = poly[j]!;
-                        if (((a.z > pt.z) !== (b.z > pt.z)) && (pt.x < (b.x - a.x) * (pt.z - a.z) / (b.z - a.z) + a.x)) c = !c;
-                    }
-                    return c;
-                };
+                // §C73-PIP-CANONICAL — THE kernel ray cast. A DIAGNOSTIC must answer
+                // "is the stair inside the shell?" with the same predicate the build
+                // itself uses, or the log is a second opinion, not a probe.
+                const inPoly = (pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean =>
+                    pointInPolygonXZ(pt.x, pt.z, poly);
                 console.log(`[house-layout] §DIAG-STAIR shell perimeter ${shellBox} (${shell.netAreaM2.toFixed(1)}m²); ${result.stairs.length} stair(s)`);
                 for (let si = 0; si < result.stairs.length; si++) {
                     const st = result.stairs[si]!;

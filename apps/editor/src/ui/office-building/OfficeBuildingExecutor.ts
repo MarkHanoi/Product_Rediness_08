@@ -31,6 +31,7 @@ import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 // are punched in a deferred pass that polls for the host walls to appear in the store,
 // mirroring ResidentialBuildingExecutor._finishGroundCommercialWindows.
 import { deferWork } from '@pryzm/frame-scheduler';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { createId } from '@pryzm/schemas';
 import {
     AddLevelCommand,
@@ -1254,14 +1255,10 @@ export class OfficeBuildingExecutor {
         const polyCentroid = (poly: ReadonlyArray<{ x: number; z: number }>): { x: number; z: number } => {
             let sx = 0, sz = 0; for (const p of poly) { sx += p.x; sz += p.z; } const n = poly.length || 1; return { x: sx / n, z: sz / n };
         };
-        const pointInPoly = (pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean => {
-            let inside = false;
-            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-                const a = poly[i]!, b = poly[j]!;
-                if (((a.z > pt.z) !== (b.z > pt.z)) && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
-            }
-            return inside;
-        };
+        // §C73-PIP-CANONICAL — THE kernel ray cast. This decides whether a stairwell
+        // void is cut out of a finish ring, so it must not be a private "inside".
+        const pointInPoly = (pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean =>
+            pointInPolygonXZ(pt.x, pt.z, poly);
         // §OFFICE-STAIR-VOID-IN-FINISH — CW-wound holes for every recorded stairwell void inside a
         // finish ring, so the finish is CUT around the open stair (canonical hole winding vs CCW ring).
         const voidHolesFor = (levelId: string, ring: ReadonlyArray<{ x: number; z: number }>): Array<Record<string, unknown>> => {

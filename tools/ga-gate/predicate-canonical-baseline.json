@@ -8,21 +8,7 @@
     "packages/geometry-slab/src/ceiling/CeilingTool.ts:1125::point-in-polygon": "none",
     "packages/geometry-slab/src/floor/FloorTool.ts:1176::point-in-polygon": "none",
     "packages/geometry-slab/src/SlabColumnCoupling.ts:46::point-in-polygon": "none",
-    "packages/geometry-slab/src/SlabRegionTracer.ts:524::point-in-polygon": "none",
-    "apps/editor/src/ui/apartment-layout/matchDetectedRooms.ts:50::point-in-polygon": "none",
-    "apps/editor/src/ui/ceiling-layout/CeilingLayoutExecutor.ts:251::point-in-polygon": "none",
-    "apps/editor/src/ui/furnish-layout/FurnishLayoutExecutor.ts:139::point-in-polygon": "none",
-    "apps/editor/src/ui/geospatial/contextBuildings.ts:1403::point-in-polygon": "no-interpolation-divide-in-window",
-    "apps/editor/src/ui/geospatial/contextWater.ts:347::point-in-polygon": "|| 1e-12",
-    "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts:511::point-in-polygon": "none",
-    "apps/editor/src/ui/house-layout/resolveStairRooms.ts:94::point-in-polygon": "none",
-    "apps/editor/src/ui/office-building/OfficeBuildingExecutor.ts:1261::point-in-polygon": "none",
-    "apps/editor/src/ui/office-building/officeStoreyFloors.ts:54::point-in-polygon": "none",
-    "apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts:3085::point-in-polygon": "none",
-    "apps/editor/src/ui/residential-building/residentialCorridorResidual.ts:36::point-in-polygon": "none",
-    "apps/editor/src/ui/site/designMeasurement.ts:329::point-in-polygon": "none",
-    "apps/editor/src/ui/site/parcel/footprintPick.ts:21::point-in-polygon": "|| 1e-12",
-    "apps/editor/src/ui/site/parcel/parcelConfidence.ts:87::point-in-polygon": "|| 1e-12"
+    "packages/geometry-slab/src/SlabRegionTracer.ts:524::point-in-polygon": "none"
   },
   "c2": 0,
   "c3": []

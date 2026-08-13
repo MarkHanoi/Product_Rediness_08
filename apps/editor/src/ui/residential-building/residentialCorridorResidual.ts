@@ -16,6 +16,8 @@
 // AND not inside the core. All coordinates are LOCAL (axis-aligned) plan-XZ; the
 // caller rotates the resulting rings to world. PURE + deterministic (no THREE/DOM).
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 export interface Pt { x: number; z: number }
 export interface Rect { x0: number; z0: number; x1: number; z1: number }
 
@@ -28,14 +30,12 @@ function norm(r: Rect, eps = 1e-4): Rect | null {
 }
 
 /** Even-odd point-in-polygon (ray cast). Boundary handling is irrelevant here — we
- *  only ever test grid-cell CENTRES, which never land exactly on an edge. */
+ *  only ever test grid-cell CENTRES, which never land exactly on an edge.
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast (geometry-kernel). The
+ *  note above is exactly why this site could not detect a boundary disagreement
+ *  with its rivals: it never asks a boundary question. */
 function pointInPoly(pt: Pt, poly: ReadonlyArray<Pt>): boolean {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        if (((a.z > pt.z) !== (b.z > pt.z)) && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(pt.x, pt.z, poly);
 }
 
 const inRect = (cx: number, cz: number, r: Rect): boolean => cx > r.x0 && cx < r.x1 && cz > r.z0 && cz < r.z1;

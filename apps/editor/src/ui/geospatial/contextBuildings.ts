@@ -13,6 +13,7 @@ import { readContextTileFeatures, contextTilesEnabled, type ContextTileFeature }
 import { resolveUseTag } from './contextBuildingUse';
 // §CTX-HEIGHT-C62 (L-646) — the shared confidence/provenance vocabulary every PRYZM datum speaks.
 import type { DomainConfidence } from '@pryzm/schemas';
+import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 // §CTX-RING-SANITIZE (L-663) — repair near-duplicate/near-collinear vertices BEFORE a ring reaches
 // Cesium's earcut-based triangulator. See contextRingGeometry.ts header for the full defect trace.
 import { sanitizeRing } from './contextRingGeometry';
@@ -1391,20 +1392,16 @@ export function selectNearRingRenderTiers(input: {
 export type PlanarRing = ReadonlyArray<readonly number[]>;
 
 /** Even-odd ray-cast point-in-polygon. Treats the ring as closed (a trailing
- *  duplicate closing vertex is harmless). PURE. Never throws. */
+ *  duplicate closing vertex is harmless). PURE. Never throws.
+ *
+ *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast with `[x,y]` tuple
+ *  accessors. The private `|| Number.EPSILON` denominator guard is GONE and its
+ *  removal changes no answer: the straddle test short-circuits past every
+ *  horizontal edge, so `yj - yi` was never 0 where the divide executes. Both
+ *  documented properties above survive unchanged — closure-independence and the
+ *  `< 3` refusal are decided semantics of the kernel body, not local behaviour. */
 export function pointInPolygon(px: number, py: number, ring: PlanarRing): boolean {
-    const n = ring.length;
-    if (n < 3) return false;
-    let inside = false;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = ring[i]![0]!, yi = ring[i]![1]!;
-        const xj = ring[j]![0]!, yj = ring[j]![1]!;
-        const denom = (yj - yi) || Number.EPSILON;
-        const intersects = (yi > py) !== (yj > py)
-            && px < ((xj - xi) * (py - yi)) / denom + xi;
-        if (intersects) inside = !inside;
-    }
-    return inside;
+    return pointInRingEvenOdd(px, py, ring.length, (i) => ring[i]![0]!, (i) => ring[i]![1]!);
 }
 
 /** Arithmetic mean of a ring's vertices (drops a trailing closing duplicate). PURE. */
