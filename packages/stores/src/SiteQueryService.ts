@@ -29,6 +29,7 @@
 // headless/tests inject their own. Unset provider = no site = nulls.
 
 import type { SiteModelStore } from './SiteModelStore.js';
+import { pointInPolygonXZ as kernelPointInPolygonXZ } from '@pryzm/geometry-kernel';
 
 type SiteModelLike = ReturnType<SiteModelStore['getSite']>;
 
@@ -122,21 +123,13 @@ export class SiteQueryService {
     }
 }
 
-/** Ray-casting point-in-polygon on scene-XZ (pure, exported for tests). */
+/** Ray-casting point-in-polygon on scene-XZ (pure, exported for tests) —
+ *  §C73-PIP-CANONICAL: delegates to THE kernel ray cast. */
 export function pointInPolygonXZ(
     p: SitePointXZ,
     polygon: readonly SitePointXZ[],
 ): boolean {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const a = polygon[i]!;
-        const b = polygon[j]!;
-        const intersects =
-            (a.z > p.z) !== (b.z > p.z) &&
-            p.x < ((b.x - a.x) * (p.z - a.z)) / (b.z - a.z) + a.x;
-        if (intersects) inside = !inside;
-    }
-    return inside;
+    return kernelPointInPolygonXZ(p.x, p.z, polygon);
 }
 
 /** Module singleton — the editor wires its provider in initTools and exposes

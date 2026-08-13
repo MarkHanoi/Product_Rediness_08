@@ -11,6 +11,7 @@
  */
 
 import { RoomVertex, RoomBoundary, RoomComputedMetrics } from './RoomTypes';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 // §FIX-REGION-RING-PRETRIM-FRAME (2026-08-07) — ONE ring-simplicity predicate,
 // shared with the slab triangulation gate. Leaf subpath, so no THREE is pulled in
 // and this file stays pure. See the note on `isSimple` below.
@@ -161,19 +162,12 @@ export function isSimple(polygon: RoomVertex[]): boolean {
 
 /**
  * Ray-casting algorithm: true if point (px, pz) is inside the polygon.
+ * §C73-PIP-CANONICAL — delegates to THE kernel ray cast (this was one of the
+ * two rival "shared" implementations C73 §0.2 records; it now shares the one
+ * body instead of being one).
  */
 export function pointInPolygon(px: number, pz: number, polygon: RoomVertex[]): boolean {
-  const n = polygon.length;
-  if (n < 3) return false;
-  let inside = false;
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const xi = polygon[i].x, zi = polygon[i].z;
-    const xj = polygon[j].x, zj = polygon[j].z;
-    const intersect = ((zi > pz) !== (zj > pz)) &&
-      (px < (xj - xi) * (pz - zi) / (zj - zi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
+  return pointInPolygonXZ(px, pz, polygon);
 }
 
 /**

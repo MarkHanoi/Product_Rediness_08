@@ -6,6 +6,8 @@
 // metrics" UX. Pure: no I/O, no THREE/Cesium/DOM, no RNG, no Date.now.
 
 /** A point in scene-XZ metres (ENU east = +x, north = −z) from the site origin. */
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 export interface Pt {
   readonly x: number;
   readonly z: number;
@@ -36,18 +38,10 @@ export interface GridOptions {
   readonly maxCells?: number;
 }
 
-/** Ray-casting point-in-polygon on the XZ plane. */
+/** Ray-casting point-in-polygon on the XZ plane — §C73-PIP-CANONICAL:
+ *  delegates to THE kernel ray cast. */
 export function pointInPolygon(pt: Pt, poly: readonly Pt[]): boolean {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i]!.x, zi = poly[i]!.z;
-    const xj = poly[j]!.x, zj = poly[j]!.z;
-    const intersect =
-      (zi > pt.z) !== (zj > pt.z) &&
-      pt.x < ((xj - xi) * (pt.z - zi)) / (zj - zi) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
+  return pointInPolygonXZ(pt.x, pt.z, poly);
 }
 
 /**

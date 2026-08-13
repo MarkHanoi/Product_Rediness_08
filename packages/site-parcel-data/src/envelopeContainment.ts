@@ -25,6 +25,8 @@
 // AND edge crossings.
 
 /** A point in world XZ metres. */
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 export interface XZ {
     readonly x: number;
     readonly z: number;
@@ -68,17 +70,11 @@ export interface ContainmentReport {
  */
 export const CONTAINMENT_TOLERANCE_M = 0.01;
 
-/** Ray-casting point-in-polygon. Boundary points count as INSIDE (see distanceOutside). */
+/** Ray-casting point-in-polygon — §C73-PIP-CANONICAL: delegates to THE kernel
+ *  ray cast (half-open; the boundary-inclusive READING of this check comes from
+ *  `distanceOutside`'s tolerance band, which stays the owner of that question). */
 function pointInRing(p: XZ, ring: ReadonlyArray<XZ>): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const a = ring[i]!, b = ring[j]!;
-        const straddles = (a.z > p.z) !== (b.z > p.z);
-        if (!straddles) continue;
-        const xCross = ((b.x - a.x) * (p.z - a.z)) / (b.z - a.z) + a.x;
-        if (p.x < xCross) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(p.x, p.z, ring);
 }
 
 /** Shortest distance from p to segment a→b. */
