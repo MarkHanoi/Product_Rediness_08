@@ -65,6 +65,9 @@ import {
     type IdPrefix,
     type LayoutExecuteOptions,
     type LayoutCommandSet,
+    // L-864 §RESI-UNIT-CONTAINMENT — the pure per-apartment UNIT plan (one hierarchy Unit per
+    // PLACED cell), in the SAME order this executor walks `perLevel.apartments`.
+    planBuildingUnits,
 } from '@pryzm/ai-host';
 import { computeStairFootprintRect } from '@pryzm/geometry-stair';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
@@ -76,6 +79,17 @@ import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 // wall commits so no observer-driven redetect can mint a generic "Room NN" to double
 // against the engine's named graph rooms.
 import { decideAndPreMarkGraphAuthority, type GraphAuthorityObserverLike } from './residentialGraphAuthority.js';
+// L-864 §RESI-UNIT-CONTAINMENT — the hierarchy spine planner + dispatcher (site → building →
+// levels → units), built from ALREADY-REGISTERED bus verbs. See that file's header for why this
+// writes `room.unitId` + `hierarchyStore` and NOT a semantic-graph `partOf` edge (C71 §2.5).
+import {
+    planUnitHierarchy,
+    dispatchUnitHierarchy,
+    unitKey,
+    type ExistingHierarchy,
+    type BimLevelRef,
+    type UnitHierarchyPlan,
+} from './residentialUnitHierarchy.js';
 // §RESI-CORRIDOR-FINISH-SHAPE (founder 2026-06-26) — the public-corridor floor finish is
 // the CLEAN RESIDUAL region (shell interior − apartment cells − core), not a union of thin
 // per-band strips. PURE residual-grid + ring tracer (LOCAL frame; caller rotates to world).
@@ -210,6 +224,11 @@ interface ApartmentBuild {
      *  §RESI-ENTRY-INTO-CORRIDOR — `corridorAligned` ⇒ `offset` already targets where the
      *  internal corridor meets the edge; the punch keeps it verbatim (no re-centre). */
     readonly entryDoor?: { readonly wallId: string; readonly offset: number; readonly width: number; readonly corridorAligned: boolean };
+    /** L-864 §RESI-UNIT-CONTAINMENT — the hierarchy UNIT this apartment's rooms belong to. THE
+     *  thing the old build discarded: the partitioner knows the grouping at partition time, this
+     *  loop iterates it, and every room built from `set.roomCommands` carries it as the
+     *  authoritative `room.unitId`. Absent only when no hierarchy level could parent the unit. */
+    readonly unitId?: string;
 }
 
 export class ResidentialBuildingExecutor {
@@ -338,6 +357,43 @@ export class ResidentialBuildingExecutor {
         if (roofGarden) levelIdByIndex.set(result.levels.length, roofLevelId);
         const levelIds = [...levelIdByIndex.values()];
         console.log('[resi-building] minted levels', levelIds);
+
+        // ── L-864 §RESI-UNIT-CONTAINMENT ────────────────────────────────────────────────────
+        // THE FIX for "Unassigned rooms on Level 01". The partitioner placed N apartments per
+        // floor and this executor is about to walk them; without this block their grouping dies
+        // here and every room ships flat under its level, so "combine these two apartments" has
+        // nothing to combine (C81 §8 — unit containment is a HARD PRECONDITION of the edit
+        // layer). Plan ONE hierarchy Unit per PLACED apartment now, dispatch the spine (site →
+        // building → levels → units) through the ALREADY-REGISTERED hierarchy bus verbs, and
+        // carry each unitId into the apartment loop below so every room is born ASSIGNED.
+        // The building node also gets the BUILDING USE + STOREYS it knew all along.
+        const plannedUnits = planBuildingUnits(result.perLevelApartments);
+        const bimLevelRefs: BimLevelRef[] = [...levelIdByIndex.entries()]
+            .sort((a, b) => a[0] - b[0])
+            .map(([levelIndex, bimLevelId]) => ({
+                bimLevelId,
+                levelIndex,
+                name: levelIndex === 0
+                    ? 'Ground Floor'
+                    : (levelIndex >= result.levels.length ? 'Roof' : `Level ${String(levelIndex).padStart(2, '0')}`),
+            }));
+        const hierarchyPlan: UnitHierarchyPlan = planUnitHierarchy({
+            existing: this._readExistingHierarchy(),
+            projectName: runtime.projectContext?.projectName ?? undefined,
+            bimLevels: bimLevelRefs,
+            units: plannedUnits,
+            storeys: result.levels.length,
+            newId: () => crypto.randomUUID(),
+        });
+        if (hierarchyPlan.ops.length > 0) {
+            // Fire-and-forget: the rooms below carry `unitId` as a plain field, so they do not
+            // WAIT on the node existing; the node only has to be in the store by the time the
+            // hierarchy tree renders. A failed op degrades to today's "unassigned", never to a
+            // failed building.
+            void dispatchUnitHierarchy(runtime.bus, hierarchyPlan)
+                .then((n) => console.log(`[resi-building] §RESI-UNIT-CONTAINMENT — ${n}/${hierarchyPlan.ops.length} hierarchy op(s), ${hierarchyPlan.unitIdByKey.size} unit(s)`))
+                .catch((e) => console.warn('[resi-building] §RESI-UNIT-CONTAINMENT — hierarchy dispatch failed (non-fatal):', e));
+        }
 
         // ── Pre-build the per-apartment command sets (pure — no mutation yet). Each
         // apartment cell is a clean plate: emit its 4-wall perimeter (pre-minted) +
@@ -505,9 +561,14 @@ export class ResidentialBuildingExecutor {
             }
 
             // Upper-floor apartments.
+            // L-864 §RESI-UNIT-CONTAINMENT — `indexOnLevel` counts the PLACED apartments on this
+            // level in exactly the order `planBuildingUnits` counted them, so each apartment zips
+            // to its planned unit. A rejected cell consumes no index (it ships no rooms).
+            let indexOnLevel = 0;
             for (const apt of perLevel.apartments) {
                 if (apt.status !== 'ok' || !apt.layout) { rejectedCount++; continue; }
                 placedCount++;
+                const unitId = hierarchyPlan.unitIdByKey.get(unitKey(lvl.levelIndex, indexOnLevel++));
                 // Apartment cell perimeter (4 walls, pre-minted) so façade windows resolve.
                 // Built from the LOCAL cell.rect, rotated to world by the rigid transform.
                 const perimeter = this._buildCellPerimeter(levelId, apt, levelFtf, xf);
@@ -535,7 +596,7 @@ export class ResidentialBuildingExecutor {
                 };
                 try {
                     const set = buildLayoutCommands(apt.layout, opts, (p: IdPrefix) => createId(p));
-                    apartmentBuilds.push({ levelId, set, option: apt.layout, entryDoor: perimeter.entryDoor });
+                    apartmentBuilds.push({ levelId, set, option: apt.layout, entryDoor: perimeter.entryDoor, unitId });
                     // §RESI-BALCONY — this is an UPPER-floor apartment (only upper levels carry
                     // apartments); remember it for the projecting-balcony post-pass.
                     balconyCandidates.push({ levelId, apt });
@@ -1569,6 +1630,29 @@ export class ResidentialBuildingExecutor {
             if (Math.hypot(first.x - last.x, first.z - last.z) < 0.05) ring.pop();
         }
         return ring;
+    }
+
+    /** L-864 §RESI-UNIT-CONTAINMENT — read the CURRENT hierarchy nodes so a second generation
+     *  reuses the existing site / building / levels instead of minting rivals. Defensive: an
+     *  absent or throwing store reads as an empty hierarchy (⇒ a full spine is planned), never
+     *  as a failure. Typed narrowing, not `as any` (P4). */
+    private _readExistingHierarchy(): ExistingHierarchy {
+        type HierarchyStoreLike = {
+            getSites?: () => ReadonlyArray<{ id: string; name?: string }>;
+            getBuildings?: () => ReadonlyArray<{ id: string; siteId: string }>;
+            getLevels?: () => ReadonlyArray<{ id: string; buildingId: string; bimLevelId: string }>;
+        };
+        const hs = (globalThis as { hierarchyStore?: HierarchyStoreLike }).hierarchyStore;
+        try {
+            return {
+                sites: hs?.getSites?.() ?? [],
+                buildings: hs?.getBuildings?.() ?? [],
+                levels: hs?.getLevels?.() ?? [],
+            };
+        } catch (e) {
+            console.warn('[resi-building] §RESI-UNIT-CONTAINMENT — hierarchyStore read failed; planning a fresh spine', e);
+            return { sites: [], buildings: [], levels: [] };
+        }
     }
 
     /** Dispatch a wall.batch.create through the bus, swallowing async rejection. */
@@ -3275,7 +3359,12 @@ export class ResidentialBuildingExecutor {
             for (const rc of set.roomCommands) {
                 const spec = rc.payload as GraphRoomSpec;
                 const rd = roomDataFromGraphSpec({ ...spec, levelId }, { levelHeightM: roomHeightM, roomNumber: String(++rn).padStart(2, '0') });
-                if (rd) rooms.push(rd);
+                // L-864 §RESI-UNIT-CONTAINMENT — stamp the AUTHORITATIVE `room.unitId` (the same
+                // field `AssignRoomToUnitCommand` writes and `getRoomsForUnit` /
+                // `getUnassignedRooms` / the IFC zone writer read) at BIRTH, so the room is never
+                // an unassigned room that someone has to reassign by hand. `unitId` is already in
+                // `RoomDataAddSchema`, so the store's Zod gate accepts it unchanged.
+                if (rd) rooms.push(b.unitId ? { ...rd, unitId: b.unitId } : rd);
             }
         }
         return { levelId, openings: allOpenings, boundaries, rooms };
