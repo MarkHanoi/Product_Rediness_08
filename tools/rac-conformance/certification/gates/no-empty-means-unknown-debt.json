@@ -1,0 +1,564 @@
+{
+  "//": [
+    "NAMED, SHRINK-ONLY ledger for check-no-empty-means-unknown (C78 §20 · U-INV-4 ·",
+    "§1.4 · C70 §5.4/§5.5). Pinned at the FIRST HONEST READING, 2026-08-13.",
+    "",
+    "FIRST READING: 206 raw sites in 105 production files — ARM A (catch-to-empty) 9,",
+    "ARM B (optional-called method defaulted to empty) 5, ARM C (relationship",
+    "expression defaulted to empty) 192.",
+    "",
+    "GRAIN. One row per FILE, not per line. A line number is not a stable identity:",
+    "an edit above a site renumbers it, which would fire the ratchet on a whitespace",
+    "change and let a real regression hide inside the churn. The file is the unit a",
+    "fix is actually made in. Every line, arm and source text is named in the row us",
+    "why, and the per-file SITE COUNT is carried in arm, so 8 sites collapsing to 1",
+    "still reads as a shrink even though the row survives.",
+    "",
+    "ARMS A and B carry NO residual doubt — a caught throw is I-could-not-look by",
+    "construction, and an optional-CALLED method may not exist. ARM C carries",
+    "declared doubt, and the gate prints that doubt as UNPROVEN on every run rather",
+    "than hiding it inside the count.",
+    "",
+    "THE STANDING EXAMPLE. room.boundingWallIds ?? [] recurs across this ledger.",
+    "C78 §0.g measures boundingWallIds as HARDCODED [] by both CreateFloorCommand and",
+    "CreateCeilingCommand, and §0.3 records that rebuildSemanticGraph us boundedBy arm",
+    "reads it at the WRONG PATH. So the field is empty at the writer, misread at the",
+    "rebuild, and defaulted to empty at every reader — the same fact denied three",
+    "times over, and every ?? [] listed here is the third denial.",
+    "",
+    "EXIT CONDITION (C78 §20, U-INV-4 row): no ?? [], ?. or catch-arm on a discovery",
+    "path collapses failure into emptiness — i.e. swallowed reaches EMPTY. A row",
+    "leaves this list in the commit that makes its file return a determination; a row",
+    "no longer measured is STALE and exits 3. The list may never grow.",
+    "",
+    "DO NOT narrow RELATIONSHIP_RE, widen WHOLE_STORE_RE, or raise a floor to make",
+    "this number smaller (roadmap §0.1). Red at a named ledger IS the deliverable."
+  ],
+  "swallowed": [
+    {
+      "site": "apps/editor/src/engine/WallRebuildCoordinator.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@33 `for (const op of (wall.openings ?? [])) {` · C@1173 `const _openings = fresh.openings ?? [];` · C@1278 `const ops = (w.openings ?? [])`"
+    },
+    {
+      "site": "apps/editor/src/engine/apartmentLayoutWallMapper.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@38 `openings: (w.openings ?? []).map(o => ({ type: o.type, elementId: o.elementId })),`"
+    },
+    {
+      "site": "apps/editor/src/engine/buildBuildingGraph.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@224 `rels = topology.getAdjacencyRelationships(id) ?? [];` · C@396 `for (const other of rn.adjacentRooms ?? []) {` · C@782 `const children = scene?.children ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/engine/consequence/ConsequenceExecutionService.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@388 `const predicted = bound.predictedGeometry ?? [];` · C@463 `const predicted = plan.predictedGeometry ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/engine/consequence/WallMoveConsequencePlanner.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@251 `for (const o of currentWall.openings ?? []) {`"
+    },
+    {
+      "site": "apps/editor/src/engine/initBusHandlers.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@1986 `fn: (cmd) => { _cmExec(new UpdateRoomBoundaryCommand(cmd.id, cmd.boundary, cmd.boundingWal`"
+    },
+    {
+      "site": "apps/editor/src/engine/transforms/elementMove.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@429 `boundingWallIds: r.boundingWallIds ?? [],`"
+    },
+    {
+      "site": "apps/editor/src/engine/undo/elementUndoStoreAdapter.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@152 `const current = wall.openings ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/engine/undo/performUndoRedo.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@432 `const stores = pair?.affectedStores ?? [];` · C@550 `const stores = pair?.affectedStores ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@282 `getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),`"
+    },
+    {
+      "site": "apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@479 `getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),`"
+    },
+    {
+      "site": "apps/editor/src/ui/OverridePanel.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@115 `const graphics = overrides?.graphicOverrides ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/ui/ViewBrowser/panels/unified-browser/BrowserDataHelpers.ts",
+      "arm": "A (1 site(s))",
+      "why": "A@308 `} catch { return []; }`"
+    },
+    {
+      "site": "apps/editor/src/ui/a11y/ScreenReaderListView.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@170 `nodes.reduce((acc, n) => acc + 1 + count(n.children ?? []), 0);`"
+    },
+    {
+      "site": "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@284 `const ids = [...new Set(rooms.flatMap((r) => r.boundingWallIds ?? []))];`"
+    },
+    {
+      "site": "apps/editor/src/ui/apartment-layout/gatherLayoutPayload.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@83 `openings: (w.openings ?? []).map(o => ({`"
+    },
+    {
+      "site": "apps/editor/src/ui/apartment-layout/layoutBubbleGraph.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@528 `for (const n of (r.doorAdjacentTo ?? [])) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/apartment-layout/resolveBlindFacades.ts",
+      "arm": "A (1 site(s))",
+      "why": "A@181 `return new Set();`"
+    },
+    {
+      "site": "apps/editor/src/ui/bottom-menu/BottomActionMenu.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@1310 `for (const id of level.childrenIds ?? []) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
+      "arm": "C (8 site(s))",
+      "why": "C@383 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@384 `const slabIds: string[] = room.boundingSlabIds ?? [];` · C@385 `const colIds: string[]  = room.boundingColumnIds ?? [];` · C@424 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@446 `.flatMap((wid: string) => doorStore.getByWallId(wid) ?? [])` · C@462 `.flatMap((wid: string) => windowStore.getByWallId(wid) ?? [])` · "
+    },
+    {
+      "site": "apps/editor/src/ui/daylight/daylightConsole.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@152 `for (const op of wall.openings ?? []) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/documentation/applyAutoDimensions.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@160 `const openings = (w.openings ?? [])` · C@463 `for (const o of w.openings ?? []) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/documentation/applyElevationAutoDimensions.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@181 `for (const o of w.openings ?? []) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/documentation/autoTagActiveView.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@171 `const openings = wall.openings ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/ui/documentation/reconcileDimensions.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@122 `openings: (w.openings ?? [])` · C@214 `? { ...wall, openings: (wall.openings ?? []).filter((o) => visibleIds.has((o.elementId ?? `"
+    },
+    {
+      "site": "apps/editor/src/ui/documentation/setOut.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@97 `for (const o of wall.openings ?? []) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/furnish-layout/FurnishLayoutExecutor.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@317 `for (const op of w.openings ?? []) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/geospatial/CesiumViewport.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@5276 `const openings = input.openings ?? [];` · C@10165 `const metricOpenings: FacadeOpening[] = (studySubject === 'envelope' ? [] : (input?.openin`"
+    },
+    {
+      "site": "apps/editor/src/ui/house-layout/HouseLayoutController.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@132 `windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;` · C@134 `if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w`"
+    },
+    {
+      "site": "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@271 `windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;` · C@273 `if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w`"
+    },
+    {
+      "site": "apps/editor/src/ui/house-layout/houseEntranceWall.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@238 `const occupied = occupiedSpansByWall?.get(near.wall.id) ?? [];` · C@286 `const occupied = occupiedSpansByWall?.get(best.wall.id) ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/ui/house-layout/houseExecDiagnostics.ts",
+      "arm": "C (8 site(s))",
+      "why": "C@224 `boundingWallIds: r.boundingWallIds ?? [],` · C@338 `for (const op of w.openings ?? []) {` · C@415 `const ops = w.openings ?? [];` · C@469 `for (const wid of d.boundingWallIds) for (const rid of roomByWall.get(wid) ?? []) if (rid ` · C@512 `const wins = (w.openings ?? []).filter(o => o.type === 'window');` · C@549 `if ((w?.openings ?? []).some(o => o.type === 'door')) hasShellDoor = true;` ·"
+    },
+    {
+      "site": "apps/editor/src/ui/house-layout/houseModalHtml.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@688 `for (const n of (r.doorAdjacentTo ?? [])) {`"
+    },
+    {
+      "site": "apps/editor/src/ui/inspect/audit/DiscoveryModeZone.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@74 `case 'wallCount':      return (r.boundingWallIds ?? []).length;` · C@78 `const bset = new Set<string>(r.boundingWallIds ?? []);` · C@84 `const bset = new Set<string>(r.boundingWallIds ?? []);`"
+    },
+    {
+      "site": "apps/editor/src/ui/inspect/audit/ElementTypeSelectorZone.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@144 `extract: el => _contents(el.id)?.bounding.walls.length ?? (el.boundingWallIds ?? []).lengt` · C@154 `extract: el => _contents(el.id)?.bounding.columns.length ?? (el.boundingColumnIds ?? []).l`"
+    },
+    {
+      "site": "apps/editor/src/ui/layout/GISAreaLayout.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@1518 `return { polygon: poly, edgeClassifications: b?.edgeClassifications ?? [] };` · C@2437 `const edgeCls = committed?.edgeClassifications ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/ui/living-graph/LivingGraphOverlay.ts",
+      "arm": "A (1 site(s))",
+      "why": "A@1485 `const lines = (() => { try { return roomRelationshipSentences(ubgNode, graph); } catch { r`"
+    },
+    {
+      "site": "apps/editor/src/ui/living-graph/livingGraphData.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@290 `rawEdges = ubg.allEdges() ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/ui/living-graph/livingGraphSelection.ts",
+      "arm": "A (1 site(s))",
+      "why": "A@72 `return [];`"
+    },
+    {
+      "site": "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@619 `const adj: any[] = qs.getAdjacentRooms(room.id) ?? [];` · C@641 `const conn: any[] = qs.getConnectedRooms(room.id) ?? [];` · C@734 `const boundingSet    = new Set<string>(room.boundingWallIds ?? []);`"
+    },
+    {
+      "site": "apps/editor/src/ui/property-panel/RelationshipViewer.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@39 `const children = elementData.childrenIds ?? elementData.hostedElements ?? [];` · C@46 `const openings = elementData.openings ?? [];` · C@63 `const connectedTo = elementData.connectedTo ?? elementData.adjacentIds ?? [];`"
+    },
+    {
+      "site": "apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@1178 `: new Set<string>(apt.facadeEdges ?? []);` · C@2179 `: (apt.facadeEdges ?? []);`"
+    },
+    {
+      "site": "apps/editor/src/ui/site/parcel/resolveCordobaMcStreetWidth.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@157 `const neighbourRingsXZ = (block.neighbours ?? []).map((n) => n.ring.map(toAuthoringFrame))`"
+    },
+    {
+      "site": "apps/editor/src/ui/site/siteDispatch.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@1611 `edgeClassifications: boundary.edgeClassifications ?? [],` · C@8030 `const placeholderFront = (boundary.edgeClassifications ?? [])` · C@8106 `const neighbourRingsXZ = (block.neighbours ?? []).map((n) =>`"
+    },
+    {
+      "site": "packages/ai-host/src/AIReadModel.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@50 `childrenIds: l.childrenIds || []`"
+    },
+    {
+      "site": "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@344 `const spans = proposedSpansByWall.get(wallUUID) ?? [];`"
+    },
+    {
+      "site": "packages/ai-host/src/SemanticQueryEngine.ts",
+      "arm": "A (1 site(s))",
+      "why": "A@462 `return [];`"
+    },
+    {
+      "site": "packages/ai-host/src/WorldModelAdapter.ts",
+      "arm": "A+C (4 site(s))",
+      "why": "C@167 `boundingWallCount:    (room.boundingWallIds ?? []).length,` · A@352 `} catch { return []; }` · A@358 `} catch { return []; }` · A@367 `} catch { return []; }`"
+    },
+    {
+      "site": "packages/ai-host/src/workflows/apartmentLayout/tgl/emitGeometry.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@148 `adjacentTo: [...(neighbours.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),`"
+    },
+    {
+      "site": "packages/ai-host/src/workflows/apartmentLayout/tgl/entrySightlineRaycast.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@161 `openings: openingsByWall.get(w.guid) ?? [],`"
+    },
+    {
+      "site": "packages/ai-host/src/workflows/apartmentLayout/tgl/enumerate.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@616 `const targets = doorTargets.get(e.id) ?? [];`"
+    },
+    {
+      "site": "packages/ai-host/src/workflows/apartmentLayout/tgl/objectives.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@776 `const list = wallOpenings.get(e.to) ?? [];` · C@783 `const offsets = (wallOpenings.get(wallGuid) ?? []).slice().sort((a, b) => a - b);`"
+    },
+    {
+      "site": "packages/ai-host/src/workflows/apartmentLayout/validators/layout-adapter.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@204 `const edges = Object.freeze((dto.edges ?? []).map(toEdge));`"
+    },
+    {
+      "site": "packages/ai-host/src/workflows/apartmentLayout/validators/topology/sequencing.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@233 `const hosts = (neighbourTypes.get(room.id) ?? [])`"
+    },
+    {
+      "site": "packages/ai-host/src/workflows/residentialBuilding/runApartmentCellLayout.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@374 `input.facadeEdges instanceof Set ? input.facadeEdges : new Set(input.facadeEdges ?? []);`"
+    },
+    {
+      "site": "packages/auto-dimension/src/planAutoDimensions.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@477 `const ops = runOpenings.get(run.id) ?? [];`"
+    },
+    {
+      "site": "packages/command-registry/src/composite/CompositeCommand.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@78 `for (const s of child.affectedStores ?? []) stores.add(s);`"
+    },
+    {
+      "site": "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@315 `const existingIds = isRedo ? (this.createdIdsBySlabId.get(slab.id) ?? []) : [];`"
+    },
+    {
+      "site": "packages/command-registry/src/levels/DuplicateFloorPlanCommand.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@278 `for (const childId of wall.childrenIds ?? []) {`"
+    },
+    {
+      "site": "packages/command-registry/src/rooms/DetectAllRoomsCommand.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@150 `for (const wallId of room.boundingWallIds ?? []) {` · C@194 `for (const wallId of room.boundingWallIds ?? []) {`"
+    },
+    {
+      "site": "packages/command-registry/src/rooms/DetectRoomFromWallsCommand.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@69 `const ids = (r.boundingWallIds ?? []) as string[];`"
+    },
+    {
+      "site": "packages/command-registry/src/rooms/ReDetectRoomsCommand.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@152 `for (const wallId of room.boundingWallIds ?? []) {` · C@188 `for (const wallId of room.boundingWallIds ?? []) {`"
+    },
+    {
+      "site": "packages/command-registry/src/walls/CreateDoorsBetweenAdjacentRoomsCommand.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@81 `if ((wall.openings ?? []).some((o: { type?: string }) => o.type === 'door')) continue;` · C@163 `for (const wid of room.boundingWallIds ?? []) {` · C@164 `const arr = byWall.get(wid) ?? [];`"
+    },
+    {
+      "site": "packages/command-registry/src/walls/CreateWallCommand.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@414 `const childrenIds = existing.childrenIds ?? [];`"
+    },
+    {
+      "site": "packages/command-registry/src/walls/DeleteElementCommand.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@236 `const childrenIds: string[] = wall.childrenIds ?? [];` · C@653 `const openings: any[] = this.deletedData.openings ?? [];`"
+    },
+    {
+      "site": "packages/constraint-solver/src/ConstraintEngine.ts",
+      "arm": "B (4 site(s))",
+      "why": "B@302 `const adjacent: any[] = roomStore.getRoomsAdjacentToWall?.(door.wallId) ?? [];` · B@333 `const adjacent: any[] = roomStore.getRoomsAdjacentToWall?.(win.wallId) ?? [];` · B@392 `const adj: any[] = roomStore.getRoomsAdjacentToWall?.(door.wallId) ?? [];` · B@426 `const adj: any[] = roomStore.getRoomsAdjacentToWall?.(door.wallId) ?? [];`"
+    },
+    {
+      "site": "packages/core-app-model/src/BimKernel.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@353 `childrenIds: level.childrenIds || []`"
+    },
+    {
+      "site": "packages/core-app-model/src/RoomFinishResolver.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@77 `const boundingWallIds: string[] = room.boundingWallIds ?? [];`"
+    },
+    {
+      "site": "packages/core-app-model/src/drawing/DetailLevelResolver.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@139 `const overrides = instance?.localOverrides?.graphicOverrides ?? [];`"
+    },
+    {
+      "site": "packages/core-app-model/src/geometry/hostedDragParam.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@226 `const occupied = (host.openings ?? [])`"
+    },
+    {
+      "site": "packages/core-app-model/src/schedules/ScheduleExtractor.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@193 `const wallCount = (r.boundingWallIds ?? []).length;` · C@194 `const boundingSet = new Set<string>(r.boundingWallIds ?? []);`"
+    },
+    {
+      "site": "packages/family-runtime/src/resolution/resolveParameter.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@100 `const list = dependents.get(depParam.id) ?? [];` · C@111 `for (const child of dependents.get(id) ?? []) {`"
+    },
+    {
+      "site": "packages/file-format/src/export/ifc/ExportIFC.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@156 `relationships.push(...(graphJson.relationships ?? []));`"
+    },
+    {
+      "site": "packages/geometry-door/src/DoorDependencyTracker.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@174 `return Array.from(this.graph.get(wallId) ?? []);`"
+    },
+    {
+      "site": "packages/geometry-kernel/src/edge-projection.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@115 `for (const d of doorsByWall.get(wall.id) ?? []) {` · C@121 `for (const w of winsByWall.get(wall.id) ?? []) {`"
+    },
+    {
+      "site": "packages/geometry-kernel/src/poche.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@113 `for (const d of doorsByWall.get(wall.id) ?? []) {` · C@119 `for (const w of winsByWall.get(wall.id) ?? []) {`"
+    },
+    {
+      "site": "packages/geometry-slab/src/SlabFragmentBuilder.ts",
+      "arm": "B (1 site(s))",
+      "why": "B@1011 `const winOpenings: any[] = window.openingStore.getByHostId?.(data.id) ?? [];`"
+    },
+    {
+      "site": "packages/geometry-wall/src/WallDeltaClassifier.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@170 `const po = prev.openings ?? [];` · C@171 `const no = next.openings ?? [];`"
+    },
+    {
+      "site": "packages/geometry-wall/src/WallFragmentBuilder.ts",
+      "arm": "C (7 site(s))",
+      "why": "C@946 `wallGroup.userData.openings = wall.openings ?? [];` · C@2339 `openings: (wall.openings ?? []).map((o) => ({` · C@2456 `const _openingVoids = (wall.openings ?? []).length;` · C@2715 `(wall.openings ?? []).map(o => ({` · C@2857 `for (const op of wall.openings ?? []) {` · C@3860 `ud.openings      = wall.openings ?? [];` · C@3864 `ud.childrenIds   = wall.childrenIds         || [];`"
+    },
+    {
+      "site": "packages/geometry-wall/src/WallLayerPlanLines.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@204 `for (const op of wall.openings ?? []) {`"
+    },
+    {
+      "site": "packages/geometry-wall/src/WallOccupancyStore.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@286 `const openings: Opening[] = candidate.openings ?? [];` · C@513 `const openings: Opening[] = wall.openings ?? [];` · C@573 `const openings: Opening[] = wall.openings ?? [];`"
+    },
+    {
+      "site": "packages/geometry-wall/src/WallPipelineV2.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@488 `return { ok: true, wallId, junctions: this._junctionsByWall.get(wallId) ?? [] };` · C@505 `for (const rec of this._junctionsByWall.get(wallId) ?? []) {`"
+    },
+    {
+      "site": "packages/geometry-wall/src/WallStore.ts",
+      "arm": "C (22 site(s))",
+      "why": "C@68 `openings: Object.freeze(wall.openings?.map(cloneOpening) ?? []),` · C@261 `childrenIds: level.childrenIds || []` · C@284 `childrenIds: l.childrenIds || []` · C@348 `openings: wall.openings ?? [],` · C@349 `childrenIds: wall.childrenIds ?? [],` · C@445 `const openings = wall.openings ?? [];` · C@659 `(wall.childrenIds ?? []).forEach(childId => {` · C@698 `const openings = wall.openings ?? [];"
+    },
+    {
+      "site": "packages/geometry-window/src/WindowDependencyTracker.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@149 `return Array.from(this.graph.get(wallId) ?? []);`"
+    },
+    {
+      "site": "packages/room-topology/src/RoomContentsService.ts",
+      "arm": "A+C (12 site(s))",
+      "why": "C@97 `walls:        this._refsByIds(this._wallStore(), room.boundingWallIds ?? [], 'wall'),` · C@99 `columns:      this._refsByIds(this._columnStore(), room.boundingColumnIds ?? [], 'column')` · C@103 `doors:    this._hostedOpenings(this._doorStore(),    room.boundingWallIds ?? [], 'door'),` · C@104 `windows:  this._hostedOpenings(this._windowStore(),  room.boundingWallIds ?? [], 'window')` · C@10"
+    },
+    {
+      "site": "packages/room-topology/src/RoomDetectionEngine.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@956 `const dSet = new Set(d.boundingWallIds ?? []);` · C@959 `const eIds = room.boundingWallIds ?? [];`"
+    },
+    {
+      "site": "packages/room-topology/src/RoomPolygonUtils.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@1549 `const openings = wall.openings ?? [];`"
+    },
+    {
+      "site": "packages/spatial-index/src/FacadeOrientationMath.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@108 `for (const wid of room.boundingWallIds ?? []) {`"
+    },
+    {
+      "site": "packages/spatial-index/src/FacadeOrientationService.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@117 `boundingWallIds: r.boundingWallIds ?? [],`"
+    },
+    {
+      "site": "packages/spatial-index/src/RoomQueryService.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@229 `for (const neighbourId of accessibleNeighbours.get(roomId) ?? []) {`"
+    },
+    {
+      "site": "plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@133 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@149 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@182 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/view/src/handlers/DeleteElementsBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@129 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/AddWallLayerBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@145 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/CreateWallOpening.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@110 `if ((wall.openings ?? []).some((o) => o.id === shape.opening.id)) {` · C@150 `w.openings = [...(w.openings ?? []), opening];`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/CreateWallOpeningLegacyAdapter.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@99 `w.openings = [...(w.openings ?? []), opening as Parameters<typeof Array.prototype.push>[0]`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/CutWall.ts",
+      "arm": "C (4 site(s))",
+      "why": "C@118 `for (const op of wall.openings ?? []) {` · C@154 `for (const op of wall.openings ?? []) {` · C@190 `const sharedChildren = new Set((wall.childrenIds ?? []).map((c) => c));` · C@191 `for (const op of wall.openings ?? []) {`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/UpdateWallsColorBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@154 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/UpdateWallsHeightBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@255 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/UpdateWallsRakeBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@137 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@140 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/wall/src/occupancy.ts",
+      "arm": "C (2 site(s))",
+      "why": "C@119 `for (const existing of wall.openings ?? []) {` · C@140 `const out: OccupiedSpan[] = (wall.openings ?? []).map((o) => ({`"
+    },
+    {
+      "site": "plugins/window/src/handlers/CreateWindowsParametricBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@135 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    },
+    {
+      "site": "plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@149 `affectedElementIds: result?.affectedElementIds ?? [],`"
+    }
+  ]
+}
