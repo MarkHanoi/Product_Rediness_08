@@ -21,6 +21,8 @@
 // the long-standing `y > 0` invariant).
 
 /** A scored candidate stair-core placement (plate-local mm; min corner). */
+import { pointInPolygonXY } from '@pryzm/geometry-kernel';
+
 export interface StairCorePosition {
     /** Min-corner X (plate-local mm). */
     readonly x: number;
@@ -198,14 +200,10 @@ function pointInPoly(px: number, py: number, poly: readonly PlatePolyPt[], tolMm
         const qx = a.x + t * ex, qy = a.y + t * ey;
         if (Math.hypot(px - qx, py - qy) <= tolMm) return true;
     }
-    let inside = false;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const yi = poly[i]!.y, yj = poly[j]!.y, xi = poly[i]!.x, xj = poly[j]!.x;
-        const hit = ((yi > py) !== (yj > py)) &&
-            (px < (xj - xi) * (py - yi) / ((yj - yi) || 1e-30) + xi);
-        if (hit) inside = !inside;
-    }
-    return inside;
+    // §C73-PIP-CANONICAL — interior test delegates to THE kernel ray cast in the
+    // plate-local mm x/y frame (the predicate is dimensionless; the local
+    // `|| 1e-30` guard was dead code). The tolMm edge-band pre-pass stays.
+    return pointInPolygonXY(px, py, poly);
 }
 
 /** True when the whole core rect (min corner x,y; extent coreW×coreH) lies inside

@@ -38,6 +38,7 @@
 // (core containment — a centred core is trivially contained); P8 (≥1 span per exported fn).
 
 import { trace } from '@opentelemetry/api';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 // §RESI-CORE-REWORK — derive the minimum core plan size from the stair + lift footprints +
 // the 1.2 m approach clearances (single source of truth shared with the executor).
 import { deriveCoreSizing } from './coreSizing.js';
@@ -385,17 +386,11 @@ function bbox(poly: readonly Pt[]): Rect {
     return { x0, z0, x1, z1 };
 }
 
-/** §RESI-CORE-IN-BOUNDARY — ray-casting point-in-polygon (plan XZ). Used to test whether the bbox-
- *  centroid core sits inside the real (possibly concave) footprint before relocating it. Pure. */
+/** §RESI-CORE-IN-BOUNDARY — point-in-polygon (plan XZ). §C73-PIP-CANONICAL:
+ *  delegates to THE kernel ray cast. Used to test whether the bbox-centroid
+ *  core sits inside the real (possibly concave) footprint before relocating it. */
 function pointInPolygon(px: number, pz: number, poly: readonly Pt[]): boolean {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        const intersect = (a.z > pz) !== (b.z > pz) &&
-            px < ((b.x - a.x) * (pz - a.z)) / (b.z - a.z) + a.x;
-        if (intersect) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(px, pz, poly);
 }
 
 /** A near-axis-aligned plate (|θ| < ~0.6°) collapses to θ = 0 so it stays byte-identical to

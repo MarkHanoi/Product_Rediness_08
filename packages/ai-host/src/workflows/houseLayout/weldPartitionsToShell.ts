@@ -24,6 +24,8 @@
 // HouseLayoutExecutor calls this over the GROUND interior partitions + the gathered
 // (pre-drawn) shell walls, then dispatches the welded partitions.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 export interface XZ { readonly x: number; readonly z: number }
 
 /** A wall the weld operates on. `id` is preserved; only endpoints move. World METRES. */
@@ -388,14 +390,9 @@ function pointInsideRing(p: XZ, ring: readonly XZ[], tolM: number): boolean {
     for (let i = 0; i < n; i++) {
         if (nearestOnSeg(p, ring[i]!, ring[(i + 1) % n]!).dist <= tolM) return true;   // on/near boundary
     }
-    let inside = false;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = ring[i]!.x, zi = ring[i]!.z, xj = ring[j]!.x, zj = ring[j]!.z;
-        const hit = ((zi > p.z) !== (zj > p.z)) &&
-            (p.x < (xj - xi) * (p.z - zi) / ((zj - zi) || 1e-30) + xi);
-        if (hit) inside = !inside;
-    }
-    return inside;
+    // §C73-PIP-CANONICAL — interior test delegates to THE kernel ray cast (the
+    // local `|| 1e-30` guard was dead code); the tolM edge-band pre-pass stays.
+    return pointInPolygonXZ(p.x, p.z, ring);
 }
 
 /** Nearest point on the shell ring boundary to p (across all edges). */

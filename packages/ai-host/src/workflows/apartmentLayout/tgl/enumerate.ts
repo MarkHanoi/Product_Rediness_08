@@ -10,6 +10,7 @@
 // subdivision and untransform the result), so candidates are genuinely different
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
@@ -484,14 +485,11 @@ function ptInShell(x: number, z: number, poly: readonly Pt[], epsM: number): boo
             if (Math.hypot(x - px, z - pz) <= epsM) return true;   // on a shell edge (flush) → inside
         }
     }
-    let win = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        const intersect = ((a.z > z) !== (b.z > z)) &&
-            (x < (b.x - a.x) * (z - a.z) / ((b.z - a.z) || 1e-30) + a.x);
-        if (intersect) win = !win;
-    }
-    return win;
+    // §C73-PIP-CANONICAL — interior test delegates to THE kernel ray cast (the
+    // `|| 1e-30` guard the local loop carried was dead code: the straddle test
+    // makes the divisor structurally nonzero). The edge-band pre-pass above is
+    // the boundary-INCLUSIVE composition and stays here, where its epsM lives.
+    return pointInPolygonXZ(x, z, poly);
 }
 
 /**

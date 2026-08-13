@@ -17,6 +17,7 @@
 //   - Wall sconces beside bedroom doors / living-room mirrors.
 //   - Vanity-wall detection for mirror_light XZ snapping.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { archetypeForLighting } from './archetypes.js';
 import type { LightRoomInput, PlacedLight, Pt } from './types.js';
 
@@ -54,14 +55,10 @@ function cornerSeats(input: LightRoomInput): Pt[] {
     return [...corners].sort((a, b) => (d2(b) - d2(a)) || (a.x - b.x) || (a.z - b.z));
 }
 
-/** Even-odd point-in-polygon (room polygon, plan XZ). */
+/** Even-odd point-in-polygon (room polygon, plan XZ) — §C73-PIP-CANONICAL:
+ *  delegates to THE kernel ray cast (the `|| 1e-30` guard was dead code). */
 function pointInPoly(px: number, pz: number, poly: readonly Pt[]): boolean {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
-        if (((zi > pz) !== (zj > pz)) && (px < (xj - xi) * (pz - zi) / ((zj - zi) || 1e-30) + xi)) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(px, pz, poly);
 }
 
 /**

@@ -58,6 +58,7 @@
 // PURE + DETERMINISTIC: zero THREE / Cesium / DOM, no Date.now, no Math.random.
 // Same inputs → byte-identical outputs (the grid + sample order are deterministic).
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type {
     BuildingDaylightResult,
     DaylightOptions,
@@ -104,17 +105,10 @@ function bbox(poly: ReadonlyArray<Pt2>): { minX: number; maxX: number; minZ: num
     return { minX, maxX, minZ, maxZ };
 }
 
-/** Ray-cast point-in-polygon (world XZ). Boundary handling is the standard
- *  half-open rule — deterministic across runs. */
+/** Ray-cast point-in-polygon (world XZ) — §C73-PIP-CANONICAL: delegates to THE
+ *  kernel ray cast. Boundary handling is the standard half-open rule. */
 function pointInPolygon(p: Pt2, poly: ReadonlyArray<Pt2>): boolean {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i]!.x, zi = poly[i]!.z;
-        const xj = poly[j]!.x, zj = poly[j]!.z;
-        if (((zi > p.z) !== (zj > p.z)) &&
-            (p.x < ((xj - xi) * (p.z - zi)) / (zj - zi) + xi)) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(p.x, p.z, poly);
 }
 
 /**

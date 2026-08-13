@@ -16,6 +16,8 @@
 //
 // PURE + DETERMINISTIC L2 — no stores, no DOM, no THREE, no RNG. World-XZ metres.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 export interface XZ2 { readonly x: number; readonly z: number }
 
 /** Ray-cast point-in-polygon (world XZ). A point on/within `tol` of an edge counts as inside. */
@@ -33,14 +35,9 @@ function pointInPoly(p: XZ2, poly: readonly XZ2[], tol = 1e-6): boolean {
         const qx = a.x + t * ex, qz = a.z + t * ez;
         if (Math.hypot(p.x - qx, p.z - qz) <= tol) return true;
     }
-    let inside = false;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const zi = poly[i]!.z, zj = poly[j]!.z, xi = poly[i]!.x, xj = poly[j]!.x;
-        if (((zi > p.z) !== (zj > p.z)) && (p.x < (xj - xi) * (p.z - zi) / ((zj - zi) || 1e-30) + xi)) {
-            inside = !inside;
-        }
-    }
-    return inside;
+    // §C73-PIP-CANONICAL — interior test delegates to THE kernel ray cast (the
+    // local `|| 1e-30` guard was dead code); the tol edge-band pre-pass stays.
+    return pointInPolygonXZ(p.x, p.z, poly);
 }
 
 /** True when every corner of `corners` is inside (or on) `poly`. */

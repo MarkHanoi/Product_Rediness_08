@@ -10,6 +10,8 @@
 //
 // PURE + DETERMINISTIC L2 — no stores, no DOM, no THREE.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+
 export interface XZ { readonly x: number; readonly z: number }
 
 const EPS = 1e-9;
@@ -32,13 +34,9 @@ function pointRing(p: XZ, ring: readonly XZ[]): { inside: boolean; edgeDist: num
         const d = nearestOnSeg(p, ring[i]!, ring[(i + 1) % n]!).dist;
         if (d < edgeDist) edgeDist = d;
     }
-    let inside = false;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = ring[i]!.x, zi = ring[i]!.z, xj = ring[j]!.x, zj = ring[j]!.z;
-        const hit = ((zi > p.z) !== (zj > p.z)) &&
-            (p.x < (xj - xi) * (p.z - zi) / ((zj - zi) || 1e-30) + xi);
-        if (hit) inside = !inside;
-    }
+    // §C73-PIP-CANONICAL — interior test delegates to THE kernel ray cast (the
+    // local `|| 1e-30` guard was dead code); edgeDist keeps its own owner above.
+    const inside = pointInPolygonXZ(p.x, p.z, ring);
     return { inside, edgeDist };
 }
 

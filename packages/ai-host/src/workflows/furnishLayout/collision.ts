@@ -6,6 +6,7 @@
 // against axis-aligned walls keeps yaw ∈ {0,90,180,270}, so footprints stay
 // axis-aligned in world coordinates and AABB tests are exact.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { Pt, Rect } from './types.js';
 
 const EPS = 1e-6;
@@ -15,14 +16,10 @@ export function rectsOverlap(a: Rect, b: Rect): boolean {
     return a.x0 < b.x1 - EPS && b.x0 < a.x1 - EPS && a.z0 < b.z1 - EPS && b.z0 < a.z1 - EPS;
 }
 
-/** Ray-cast point-in-polygon (polygon in world XZ, any winding). */
+/** Ray-cast point-in-polygon (polygon in world XZ, any winding) —
+ *  §C73-PIP-CANONICAL: delegates to THE kernel ray cast. */
 export function pointInPolygon(p: Pt, poly: readonly Pt[]): boolean {
-    let hit = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
-        if (((zi > p.z) !== (zj > p.z)) && (p.x < ((xj - xi) * (p.z - zi)) / (zj - zi) + xi)) hit = !hit;
-    }
-    return hit;
+    return pointInPolygonXZ(p.x, p.z, poly);
 }
 
 export const rectCorners = (r: Rect): Pt[] =>

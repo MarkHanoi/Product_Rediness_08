@@ -25,6 +25,7 @@
 // C50 §1.7 (infeasible → soft-fail, never throw); P8 (≥1 span per exported fn).
 
 import { trace } from '@opentelemetry/api';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { Pt, Rect } from '../apartmentLayout/tgl/rectDecomposition.js';
 import {
     rectArea, rectWidth, rectDepth,
@@ -323,17 +324,10 @@ function isRectangle(poly: readonly Pt[], bb: Rect): boolean {
     return rectWidth(bb) > EPS && rectDepth(bb) > EPS;
 }
 
-/** Ray-casting point-in-polygon (plan XZ). Boundary points count as inside-ish (we only use
- *  this on cell CENTRES, which are never exactly on an edge for a real plate). */
+/** Ray-casting point-in-polygon (plan XZ) — §C73-PIP-CANONICAL: delegates to
+ *  THE kernel ray cast (half-open; we only test cell CENTRES, never edges). */
 function pointInPolygon(px: number, pz: number, poly: readonly Pt[]): boolean {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        const intersect = (a.z > pz) !== (b.z > pz) &&
-            px < ((b.x - a.x) * (pz - a.z)) / (b.z - a.z) + a.x;
-        if (intersect) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(px, pz, poly);
 }
 
 /** Shoelace area (abs, m²) of a closed polygon. */

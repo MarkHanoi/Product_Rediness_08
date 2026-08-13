@@ -24,6 +24,7 @@
 //
 // Coordinates: metres, plan frame { x, z }. Rounded to 1e-6 at the boundary (§6).
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
 import type { RoomType } from '../types.js';
 import { rectArea, subtractRectsFromRects, mergeHorizontally, clampRectToConvexShell, type Rect, type Pt } from './rectDecomposition.js';
@@ -1935,14 +1936,9 @@ function ptInShellLocal(x: number, z: number, poly: readonly Pt[]): boolean {
             if (Math.hypot(x - px, z - pz) <= EPS) return true;
         }
     }
-    let win = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        const intersect = ((a.z > z) !== (b.z > z)) &&
-            (x < (b.x - a.x) * (z - a.z) / ((b.z - a.z) || 1e-30) + a.x);
-        if (intersect) win = !win;
-    }
-    return win;
+    // §C73-PIP-CANONICAL — interior test delegates to THE kernel ray cast (the
+    // local `|| 1e-30` guard was dead code); the edge-band pre-pass stays.
+    return pointInPolygonXZ(x, z, poly);
 }
 
 /**
@@ -3286,14 +3282,9 @@ function rectInsidePolygon(rect: Rect, poly: readonly Pt[]): boolean {
                 if (Math.hypot(x - px, z - pz) <= EPS) return true;
             }
         }
-        let win = false;
-        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-            const a = poly[i]!, b = poly[j]!;
-            const intersect = ((a.z > z) !== (b.z > z)) &&
-                (x < (b.x - a.x) * (z - a.z) / ((b.z - a.z) || 1e-30) + a.x);
-            if (intersect) win = !win;
-        }
-        return win;
+        // §C73-PIP-CANONICAL — interior test delegates to THE kernel ray cast
+        // (the local `|| 1e-30` guard was dead code); the edge-band pre-pass stays.
+        return pointInPolygonXZ(x, z, poly);
     };
     // (a) all four corners inside-or-on (sample a hair inside so a corner flush to a slanted edge
     // — which the ray-cast may classify either way — is judged by its true interior side).

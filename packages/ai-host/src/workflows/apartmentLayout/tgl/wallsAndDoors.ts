@@ -19,6 +19,7 @@
 // exactly one segment. Pure + deterministic (sorted sweep, stable ids). Metres,
 // plan frame { x, z }; the consumer converts to mm.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
@@ -490,15 +491,10 @@ function segmentOnPerimeter(a: Pt, b: Pt, poly: readonly Pt[], tol = PERIMETER_M
 function pointInPolygon(p: Pt, poly: readonly Pt[]): boolean {
     if (poly.length < 3) return false;
     if (pointOnPolygonBoundary(p, poly)) return false;     // on the edge ⇒ NOT inside
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        const yi = a.z, yj = b.z, xi = a.x, xj = b.x;
-        const intersect = ((yi > p.z) !== (yj > p.z)) &&
-            (p.x < (xj - xi) * (p.z - yi) / ((yj - yi) || 1e-30) + xi);
-        if (intersect) inside = !inside;
-    }
-    return inside;
+    // §C73-PIP-CANONICAL — the boundary-EXCLUSIVE composition: the explicit
+    // on-boundary pre-check above owns the boundary question; the interior test
+    // delegates to THE kernel ray cast (the `|| 1e-30` guard was dead code).
+    return pointInPolygonXZ(p.x, p.z, poly);
 }
 
 /** Cast a ray from `from` along (dx, dz) (unit) and return the t parameter to

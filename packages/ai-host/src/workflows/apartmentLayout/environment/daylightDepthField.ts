@@ -21,6 +21,7 @@
 // consumers (L1-α-4 modal axis, L4 compositional geometry) query via
 // `field.at({ x, z })`.
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { Pt } from '../tgl/rectDecomposition.js';
 import type { FacadeValueField } from './facadeValueField.js';
 
@@ -73,22 +74,12 @@ function distSqToSegment(p: Pt, a: Pt, b: Pt): number {
 }
 
 /**
- * Standard ray-cast point-in-polygon. Polygon is open-form (last vertex
- * implicitly closes to the first). Returns true for points on the boundary
- * within ~1e-9 m tolerance via the segment-distance check below.
+ * Point-in-polygon — §C73-PIP-CANONICAL: delegates to THE kernel ray cast.
+ * (The private copy that lived here carried a `+ 1e-30` divisor perturbation;
+ * the canonical body computes the exact interpolation.)
  */
 function pointInPolygon(p: Pt, poly: readonly Pt[]): boolean {
-    const n = poly.length;
-    if (n < 3) return false;
-    let inside = false;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const a = poly[i]!;
-        const b = poly[j]!;
-        const intersects = ((a.z > p.z) !== (b.z > p.z))
-            && (p.x < (b.x - a.x) * (p.z - a.z) / (b.z - a.z + 1e-30) + a.x);
-        if (intersects) inside = !inside;
-    }
-    return inside;
+    return pointInPolygonXZ(p.x, p.z, poly);
 }
 
 /**
