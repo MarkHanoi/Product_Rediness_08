@@ -27,6 +27,11 @@ import { ElementMeshRegistryAdapter, type SceneLike } from '../inspect/ElementMe
 import { createIsolationStateStore, type IsolationStateStore } from '@pryzm/stores';
 import { IsolationAnimator, type FrameSchedulerLike } from '@pryzm/renderer-three';
 import type { InspectSelection } from '@pryzm/schemas';
+import {
+  relationshipUndetermined,
+  relationshipUndeterminedLabel,
+  type RelationshipDetermination,
+} from '../relationshipDetermination.js';
 
 /** The select/isolate mode the panel toggle drives. */
 export type RoomFocusMode = 'select' | 'isolate';
@@ -54,27 +59,48 @@ function resolveRuntime(): BuildModelElementLocationsRuntime {
  * Resolve a room id → its scene element-instance ids, using the SAME
  * `buildModelElementLocations` projection the Inspect tree uses. An element
  * belongs to the room when its parent chain contains `{ kind:'room', id }`.
- * Read-only, never throws — a partial/empty model yields `[]`.
+ *
+ * §GR-10 (C75 §1.4 · C78 §1.4/§8.1 · C71 §4.4) — this used to `catch { return
+ * []; }`. "This room contains no element instances" and "the model projection
+ * THREW, so nobody could look" then arrived at `focus()` as the same value, and
+ * the panel selected the room alone as though that were the determined answer.
+ * The projection is the ONLY source for this relationship, so its failure is
+ * `RELATIONSHIP_NOT_READABLE` — the substrate could not answer — while an
+ * absent runtime is `ENGINE_NOT_AVAILABLE`. A PRESENT projection that lists no
+ * children for the room is a real `determined` empty and still reads as one.
  */
-export function elementIdsForRoom(roomId: string): string[] {
-  if (!roomId) return [];
-  try {
-    const locations = buildModelElementLocations(resolveRuntime());
-    const out: string[] = [];
-    for (const loc of locations) {
-      if (loc.kind !== 'elementInstance') continue;
-      if (loc.parentChain.some((p) => p.kind === 'room' && p.id === roomId)) {
-        out.push(loc.elementId);
-      }
-    }
-    return out;
-  } catch {
-    return [];
+export function determineElementIdsForRoom(roomId: string): RelationshipDetermination<string> {
+  const scope = `elements of room ${roomId || '(no id)'}`;
+  if (!roomId) {
+    return relationshipUndetermined(
+      scope,
+      'INVALID_REQUEST',
+      'no room id was supplied — the relationship was never asked, not answered as empty.',
+    );
   }
+  let locations: ReturnType<typeof buildModelElementLocations>;
+  try {
+    locations = buildModelElementLocations(resolveRuntime());
+  } catch (err) {
+    return relationshipUndetermined(
+      scope,
+      'RELATIONSHIP_NOT_READABLE',
+      `the model-element projection threw (${String((err as Error)?.message ?? err)}) — ` +
+        'the room may well contain elements; nobody could look.',
+    );
+  }
+  const out: string[] = [];
+  for (const loc of locations) {
+    if (loc.kind !== 'elementInstance') continue;
+    if (loc.parentChain.some((p) => p.kind === 'room' && p.id === roomId)) {
+      out.push(loc.elementId);
+    }
+  }
+  return { kind: 'determined', elements: out };
 }
 
 /**
- * §A.26.5b — the REVERSE of {@link elementIdsForRoom}: given an element id
+ * §A.26.5b — the REVERSE of {@link determineElementIdsForRoom}: given an element id
  * selected in the 3D/plan model (the selection bus), resolve the ROOM it
  * belongs to, so the open Living Graph can highlight that room's node. Uses the
  * SAME `buildModelElementLocations` projection in reverse: find the element's
@@ -213,7 +239,19 @@ export class RoomFocusController {
       return;
     }
     this.activeRoomId = roomId;
-    const ids = elementIdsForRoom(roomId);
+    // §GR-10 — an UNDETERMINED membership (projection threw / no runtime) is no
+    // longer silently the same as "this room has no child elements": it is
+    // NAMED in the console, and the room is still selected as primary so the
+    // user sees a highlight rather than a silent nothing — but the child
+    // marquee is honestly absent-because-unknown, not absent-because-empty.
+    const det = determineElementIdsForRoom(roomId);
+    if (det.kind === 'undetermined') {
+      console.warn(
+        `[living-graph] §GR-10 room→element membership undetermined — ` +
+          relationshipUndeterminedLabel(det),
+      );
+    }
+    const ids = det.kind === 'determined' ? [...det.elements] : [];
     if (this.mode === 'select') {
       // Highlight only — and lift any isolation so the two modes don't stack.
       this.clearIsolation();

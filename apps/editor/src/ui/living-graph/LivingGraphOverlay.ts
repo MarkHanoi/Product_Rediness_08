@@ -970,7 +970,7 @@ export class LivingGraphOverlay {
    * Subscribe (while mounted) to the canonical SelectionBus. When an element /
    * room is picked in the 3D or plan model (any source OTHER than the graph
    * itself), map the picked element → its ROOM via `roomIdForElement` (the
-   * reverse of `elementIdsForRoom`) and EMPHASISE that room's graph node: focus +
+   * reverse of `determineElementIdsForRoom`) and EMPHASISE that room's graph node: focus +
    * inspect card + pan-into-view. This is the LIGHTWEIGHT reflection — it sets the
    * draw focus + shows the card; it does NOT call `focusCtl.focus` (no isolation /
    * re-select side-effects back into the model, which would loop). Falls back to

@@ -237,7 +237,21 @@
     "undetermined still take the same branch DOWNSTREAM. That is a room-topology",
     "change, out of the fixing commit's lane. The gate is file-scoped and cannot see",
     "it; this note is the only place it is written down. Do not read those two",
-    "strikes as \"the plan-tool path now distinguishes the two cases end-to-end\"."
+    "strikes as \"the plan-tool path now distinguishes the two cases end-to-end\".",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, row 85 -> 84) — livingGraphSelection.ts, an ARM A",
+    "row: elementIdsForRoom() ended in catch { return []; }, so a THROWN model",
+    "projection and a room that genuinely contains no element instances arrived at",
+    "focus() as the same value and the canvas silently highlighted nothing extra.",
+    "Now determineElementIdsForRoom() returns RelationshipDetermination<string>",
+    "(the shared apps/editor seam; C78 §8.1 vocabulary imported type-only from",
+    "command-bus): a thrown projection is RELATIONSHIP_NOT_READABLE with the error",
+    "named, a missing room id is INVALID_REQUEST, and a readable model with zero",
+    "members is a real determined-empty. The caller logs the refusal and still",
+    "selects the room primary. Differentiating spec:",
+    "apps/editor/src/ui/__tests__/livingGraphSelectionHonesty.spec.ts (4 cases,",
+    "incl. negative control) — the unreadable-substrate case FAILS against the old",
+    "catch-to-[] shape."
   ],
   "swallowed": [
     {
@@ -354,11 +368,6 @@
       "site": "apps/editor/src/ui/living-graph/LivingGraphOverlay.ts",
       "arm": "A (1 site(s))",
       "why": "A@1485 `const lines = (() => { try { return roomRelationshipSentences(ubgNode, graph); } catch { r`"
-    },
-    {
-      "site": "apps/editor/src/ui/living-graph/livingGraphSelection.ts",
-      "arm": "A (1 site(s))",
-      "why": "A@72 `return [];`"
     },
     {
       "site": "apps/editor/src/ui/OverridePanel.ts",
