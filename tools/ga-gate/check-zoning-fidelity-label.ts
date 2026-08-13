@@ -83,6 +83,24 @@
  *    MIN_CONFIDENCE_TIERS. Any of them breached is a MISCONFIGURATION and exits
  *    **2**, never 0 and never 1.
  *
+ * ── §FIX-ZONING-GATE-SAFE-PREFIX (2026-08-13) ────────────────────────────────
+ * Commit 9b60f2e2 applied the Wave-A14 / C08 §3.1 escaped-before-assignment
+ * convention to the render: `reasonLine` → `safeReasonLine`, `badge` →
+ * `safeBadge` (each builder escapes its runtime strings where it builds them).
+ * The render got MORE honest — all four refusal arms still interpolate
+ * `${escHtml(r.code)}` — and this gate went blind (exit 2), because its
+ * discovery pattern and anchors hunted the old identifier SPELLING.
+ *
+ * This is the FOURTH L-811-shape blinding in this file's history (after the
+ * mis-slice, the hardcoded path, and the anchor-rename cases documented above):
+ * a gate anchored on identifier spelling is re-blinded by every rename wave.
+ * **The `safe*` prefix is now the house idiom** for escaped-before-assignment
+ * HTML builders, so every anchor here is tolerant of an optional `safe` prefix
+ * (`badge`/`safeBadge`, `reasonLine`/`safeReasonLine`) — matching structure,
+ * not spelling. The green-fallback detector likewise accepts the escaped
+ * `${escHtml(env.confidence)}` spelling beside the bare one. The floors are
+ * unchanged; nothing about the invariant is relaxed.
+ *
  * ── EXIT CODES ───────────────────────────────────────────────────────────────
  *   0 — the render is honest.
  *   1 — CHECK FAILED. A real fidelity violation. Absorbable as declared debt.
@@ -126,14 +144,36 @@ export const MIN_REFUSAL_ARMS = 4;
  */
 export const MIN_CONFIDENCE_TIERS = 3;
 
-/** Content markers that identify the envelope-refusal render, whatever its path. */
-export const SUBJECT_DISCOVERY_PATTERN = /const\s+reasonLine\s*=/;
+/**
+ * Content markers that identify the envelope-refusal render, whatever its path.
+ * §FIX-ZONING-GATE-SAFE-PREFIX: tolerant of the optional `safe` prefix
+ * (`reasonLine` / `safeReasonLine`) so the C08 §3.1 escaped-before-assignment
+ * rename convention cannot re-blind this gate.
+ */
+export const SUBJECT_DISCOVERY_PATTERN = /const\s+(?:safe)?[Rr]easonLine\s*=/;
 export const SUBJECT_CONFIRM_MARKER = 'env.refusal';
+/** The refusal-reason statement anchor — prefix-tolerant, see above. */
+export const REASONLINE_ANCHOR = /const\s+(?:safe)?[Rr]easonLine\s*=/;
+/** The confidence-badge statement anchor — prefix-tolerant, see above. */
+export const BADGE_ANCHOR = /const\s+(?:safe)?[Bb]adge\s*=/;
 /**
  * Statements the checks slice on. If ANY is missing the render was restructured
  * and this gate can no longer see what it polices → exit 2, not a pass.
+ * The LABELS carry the current (`safe*`) spelling; matching goes through
+ * `anchorMatches`, which is tolerant of both the prefixed and bare spellings.
  */
-export const REQUIRED_ANCHORS = ['const badge =', 'const reasonLine =', 'panel.innerHTML ='] as const;
+export const REQUIRED_ANCHORS = ['const safeBadge =', 'const safeReasonLine =', 'panel.innerHTML ='] as const;
+
+/** Tolerant matcher per anchor label. Absent from this map ⇒ literal include. */
+const ANCHOR_PATTERNS: Readonly<Record<string, RegExp>> = {
+  'const safeBadge =': BADGE_ANCHOR,
+  'const safeReasonLine =': REASONLINE_ANCHOR,
+};
+
+export function anchorMatches(mask: string, anchor: string): boolean {
+  const re = ANCHOR_PATTERNS[anchor];
+  return re ? re.test(mask) : mask.includes(anchor);
+}
 
 // Confidence tiers that DESCRIBE A NUMERIC ENVELOPE and are AUTHORITATIVE-grade
 // (certificate / real / constructed). These may wear the plain green pill.
@@ -262,6 +302,21 @@ export function lineOf(src: string, index: number): number {
   return src.slice(0, index).split('\n').length;
 }
 
+/** A statement marker: a literal string, or a tolerant RegExp (§FIX-ZONING-GATE-SAFE-PREFIX). */
+export type Marker = string | RegExp;
+
+/** First occurrence of `marker` in `mask` at or after `from`, with its matched length. */
+function findMarker(mask: string, marker: Marker, from = 0): { at: number; len: number } | null {
+  if (typeof marker === 'string') {
+    const at = mask.indexOf(marker, from);
+    return at === -1 ? null : { at, len: marker.length };
+  }
+  const re = new RegExp(marker.source, marker.flags.includes('g') ? marker.flags : marker.flags + 'g');
+  re.lastIndex = from;
+  const m = re.exec(mask);
+  return m ? { at: m.index, len: m[0].length } : null;
+}
+
 /**
  * Slice the ONE statement that begins at `marker`, ending at ITS OWN terminating
  * `;` — a semicolon in real code, never one inside a comment, a string or an HTML
@@ -270,28 +325,28 @@ export function lineOf(src: string, index: number): number {
  */
 export function sliceStatement(
   src: string,
-  marker: string,
+  marker: Marker,
   tok: Tokenized = tokenize(src),
 ): { text: string; at: number; end: number } | null {
-  const a = tok.mask.indexOf(marker);
-  if (a === -1) return null;
-  const semi = tok.mask.indexOf(';', a + marker.length);
+  const hit = findMarker(tok.mask, marker);
+  if (!hit) return null;
+  const semi = tok.mask.indexOf(';', hit.at + hit.len);
   if (semi === -1) return null;
-  return { text: src.slice(a, semi + 1), at: a, end: semi + 1 };
+  return { text: src.slice(hit.at, semi + 1), at: hit.at, end: semi + 1 };
 }
 
 /** Slice from the first occurrence of `start` to the first `end` after it. */
 export function region(
   src: string,
-  start: string,
+  start: Marker,
   end: string,
   tok: Tokenized = tokenize(src),
 ): { text: string; at: number } | null {
-  const a = tok.mask.indexOf(start);
-  if (a === -1) return null;
-  const b = tok.mask.indexOf(end, a + start.length);
+  const hit = findMarker(tok.mask, start);
+  if (!hit) return null;
+  const b = tok.mask.indexOf(end, hit.at + hit.len);
   if (b === -1) return null;
-  return { text: src.slice(a, b), at: a };
+  return { text: src.slice(hit.at, b), at: hit.at };
 }
 
 /**
@@ -303,7 +358,7 @@ export function refusalArms(
   src: string,
   tok: Tokenized = tokenize(src),
 ): { arms: string[]; at: number } | null {
-  const stmt = sliceStatement(src, 'const reasonLine =', tok);
+  const stmt = sliceStatement(src, REASONLINE_ANCHOR, tok);
   if (!stmt) return null;
   const arms = tok.templates
     .filter((t) => t.start >= stmt.at && t.end <= stmt.end)
@@ -335,7 +390,7 @@ export function analyze(src: string, schemaSrc: string, rel: string): Analysis {
 
   // ── SUBJECT FLOOR — can this gate still SEE what it polices? ───────────────
   for (const anchor of REQUIRED_ANCHORS) {
-    if (!tok.mask.includes(anchor)) {
+    if (!anchorMatches(tok.mask, anchor)) {
       misconfigurations.push(
         `${rel}: required anchor \`${anchor}\` is GONE. The envelope render was restructured, so ` +
           `this gate can no longer locate the region it polices. That is a blind gate, not a clean render.`,
@@ -357,15 +412,16 @@ export function analyze(src: string, schemaSrc: string, rel: string): Analysis {
 
   // ─────────────────────────────────────────────────────────────────────────
   // Locate the confidence-badge assignment region.
-  // `const badge = …;` … ends where the next statement (`const heightTxt =`)
-  // begins. Both markers are stable in GISAreaLayout.ts.
+  // `const [safe]Badge = …;` … ends where the next statement (`const heightTxt =`)
+  // begins. Both markers are stable in GISAreaLayout.ts; the start marker is
+  // prefix-tolerant (§FIX-ZONING-GATE-SAFE-PREFIX).
   // ─────────────────────────────────────────────────────────────────────────
-  const badge = region(src, 'const badge =', 'const heightTxt', tok);
+  const badge = region(src, BADGE_ANCHOR, 'const heightTxt', tok);
 
   // ── CHECK A — field-estimate forces an "Estimated" headline (C58 §5.4a) ────
   if (!badge) {
     misconfigurations.push(
-      `${rel}: could not locate the \`const badge =\` … \`const heightTxt\` region — the ` +
+      `${rel}: could not locate the \`const [safe]Badge =\` … \`const heightTxt\` region — the ` +
         `confidence-badge render moved or was removed. CHECKS A and B did not run.`,
     );
   } else {
@@ -384,8 +440,10 @@ export function analyze(src: string, schemaSrc: string, rel: string): Analysis {
     // The generic fallback pill interpolates the raw confidence into a green
     // (certificate) chip: background:#eef7ee / color:#2e7d32 + ${env.confidence}.
     // Every non-authoritative tier MUST be branched out before it.
+    // Tolerant of the escaped-before-assignment spelling `${escHtml(env.confidence)}`
+    // beside the bare `${env.confidence}` (§FIX-ZONING-GATE-SAFE-PREFIX).
     const greenFallback =
-      /\$\{env\.confidence\}/.test(badge.text) &&
+      /\$\{(?:escHtml\()?env\.confidence\)?\}/.test(badge.text) &&
       /#eef7ee/.test(badge.text) &&
       /#2e7d32/.test(badge.text);
 
@@ -411,7 +469,7 @@ export function analyze(src: string, schemaSrc: string, rel: string): Analysis {
   const reason = refusalArms(src, tok);
   if (!reason) {
     misconfigurations.push(
-      `${rel}: could not slice the \`const reasonLine = …;\` statement. CHECK C — the C58 §1.13 ` +
+      `${rel}: could not slice the \`const [safe]ReasonLine = …;\` statement. CHECK C — the C58 §1.13 ` +
         `"a refusal carries its code" invariant — did not run.`,
     );
   } else if (reason.arms.length < MIN_REFUSAL_ARMS) {
