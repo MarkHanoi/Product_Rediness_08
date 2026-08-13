@@ -97,6 +97,15 @@ export interface NormalizedEventRecord<TPayload = unknown> {
   readonly inverse: EventRecord<TPayload>['inverse'];
   /** Present only when the record carried a report; provenance stripped. */
   readonly consequence?: NormalizedConsequence;
+  /**
+   * C80 §1.4 — KEPT, not stripped, and the reason is the parity rule itself:
+   * a refusal is BEHAVIOUR. If a human is refused `room.regenerate` and an AI
+   * is not, that is the exact asymmetry G-REASON-04 exists to catch — the
+   * §5.f header's "the AI gets a shortcut" defect wearing a refusal. It
+   * carries no actor, origin, timestamp or approval, so nothing in the
+   * ADR-0324 §3 exclusion list rides here.
+   */
+  readonly refusal?: EventRecord<TPayload>['refusal'];
 }
 
 /**
@@ -129,6 +138,10 @@ export function normalizeForParity<TPayload>(
           ),
         }
       : {}),
+    // C80 §1.4 — a refusal is behaviour, so it is KEPT verbatim (see the
+    // field doc). Conditionally spread so records that never refused
+    // normalize to objects WITHOUT the key, exactly as before.
+    ...(record.refusal !== undefined ? { refusal: record.refusal } : {}),
   };
   return normalized;
 }

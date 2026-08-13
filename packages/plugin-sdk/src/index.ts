@@ -144,6 +144,11 @@ export {
   CascadeDepthExceededError,
   MAX_CASCADE_DEPTH,
   defaultExtractEntityId,
+  // C80 §1.4 / GEN-GAP-1 — the ONE constructor for a verb that declines to
+  // act. A plugin handler refusing a capability returns this VALUE on
+  // `HandlerResult.refusal`; it never throws (C80 §10.f) and never returns a
+  // bare empty patch pair (C16 CA-18(b)).
+  capabilityRefused,
 } from '@pryzm/command-bus';
 
 export type {
@@ -165,6 +170,11 @@ export type {
   CascadeCommand,
   CascadeOtelSpan,
   CascadeDispatchStats,
+  // C80 / C78 §8 — the refusal vocabulary a plugin handler needs to decline a
+  // capability in the CLOSED eleven-member union rather than minting a rival.
+  CapabilityRefusal,
+  UndeterminedReason,
+  UndeterminedSubReason,
 } from '@pryzm/command-bus';
 
 // ── @pryzm/stores ──────────────────────────────────────────────────────────

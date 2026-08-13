@@ -14,7 +14,12 @@
 // present in `ctx.stores` (R1A-16 mitigation, spec line 718).
 
 import type { Patch as ImmerPatch } from 'immer';
-import type { CommandExecutionContext, ConsequencePlan, ConsequenceReport } from './consequence.js';
+import type {
+  CapabilityRefusal,
+  CommandExecutionContext,
+  ConsequencePlan,
+  ConsequenceReport,
+} from './consequence.js';
 
 /** Identifier of a logical store (`'wall'`, `'slab'`, …). */
 export type StoreId = string;
@@ -97,6 +102,21 @@ export interface HandlerResult {
    * No bus code reads this field in R1.
    */
   readonly consequence?: ConsequenceReport;
+  /**
+   * C80 §1.4 / GEN-GAP-1 — the verb's typed decision NOT to act, returned as
+   * a VALUE rather than thrown. PRESENT ⇒ `forward`/`inverse` are empty BY
+   * CONSTRUCTION and the empty pair is a determined refusal, not the C16
+   * CA-18(b) silent no-op it would otherwise be indistinguishable from.
+   *
+   * ⚠ The reason this is not `canExecute({valid:false})`: that path THROWS
+   * (`CommandBus.ts:426–432`), and a throw is swallowable by the `catch {}`
+   * C80 §10.f names as the fire-and-forget defect. A refusal the caller can
+   * drop on the floor is an exception, not a refusal.
+   *
+   * The bus reads NOTHING from this field — it rides on the `EventRecord` the
+   * same way `consequence` does, so a caller that ignores it is unchanged.
+   */
+  readonly refusal?: CapabilityRefusal;
 }
 
 /**
@@ -224,4 +244,16 @@ export interface EventRecord<TPayload = unknown> {
    * when R4/R5 land for an operation. Optional forever during migration.
    */
   readonly consequence?: ConsequenceReport;
+  /**
+   * C80 §1.4 / GEN-GAP-1 — the handler's typed decision NOT to act, carried
+   * verbatim from `HandlerResult.refusal` by conditional spread exactly as
+   * `context` and `plan` above are, so a record from a handler that did not
+   * refuse is byte-identical to a pre-C80 one.
+   *
+   * PRESENT ⇒ this record's empty patch pair is a DETERMINED refusal with a
+   * stated reason, not the C16 CA-18(b) silent no-op it would otherwise be
+   * indistinguishable from. A caller reads `record.refusal` and reports it;
+   * a caller that ignores it behaves exactly as before.
+   */
+  readonly refusal?: CapabilityRefusal;
 }

@@ -713,6 +713,100 @@ export function previewPlannerThrew(
   };
 }
 
+// ─── CapabilityRefusal — a VERB that declines to act (C80 §1.4 / GEN-GAP-1) ──
+//
+// C78 §1.1 gives a consequence path exactly two legal outcomes: a plan, or a
+// typed statement of why no plan. {@link PreviewOutcome} is that pair at the
+// PREVIEW entry point. This type is the same pair at the EXECUTION entry
+// point, for the one case the preview vocabulary cannot express:
+//
+//   the verb is REGISTERED, the payload is VALID, a planner could be written
+//   — and the capability is DELIBERATELY WITHHELD because performing it would
+//   destroy something the system cannot account for.
+//
+// ⚠ WHY THIS IS NOT ONE OF THE EXISTING SHAPES, stated so it is not re-minted:
+//
+//   • NOT `canExecute({valid:false})`. `CommandBus.executeCommand` converts
+//     that into a THROWN `CommandBusError` (CommandBus.ts:426–432). A throw is
+//     a caller-side control-flow event that a `catch {}` swallows — which is
+//     the §10.f fire-and-forget shape C80 exists to forbid. A refusal the
+//     caller can drop on the floor is not a refusal, it is an exception.
+//   • NOT `{ forward: [], inverse: [] }` alone. C16 CA-18 PROHIBITS that as the
+//     whole of a handler's effect by name (shape (b)): it is indistinguishable
+//     from a mutation that silently did nothing.
+//   • NOT a {@link ConsequenceRefusal}. That is a per-element line INSIDE a
+//     plan (`ConsequencePlan.refused`) — it presupposes a plan exists. Here no
+//     plan is produced at all.
+//
+// C80 §1.4 is the shape rule: a refusal carries BOTH NUMBERS — what was asked
+// for, and what could not be accounted for — so the reader can act on it. The
+// fields below make both mandatory rather than hoping the sentence contains
+// them.
+
+/**
+ * A verb's typed decision NOT to act, returned as a VALUE from `execute()`
+ * rather than thrown. Read by the caller; never silent.
+ *
+ * `reason` is drawn from the SAME closed eleven-member
+ * {@link UndeterminedReason} union the rest of the consequence path uses — a
+ * refusal is a determination that could not be made safely, and minting a
+ * twelfth vocabulary for it would be the C69 rival-list defect.
+ */
+export interface CapabilityRefusal {
+  readonly kind: 'refused';
+  /** The verb that refused, e.g. `'room.regenerate'`. */
+  readonly commandType: string;
+  /** WHY, in the closed §8.1 vocabulary. */
+  readonly reason: UndeterminedReason;
+  /** Typed per-family specificity (C78 §8.3). Never prose. */
+  readonly subReason?: UndeterminedSubReason;
+  /**
+   * C80 §1.4, first number — HOW MANY elements the caller's ask would touch.
+   * `undefined` ONLY when the ask names no element set at all; it is never
+   * `0`-as-a-stand-in for "we did not look" (§5.2's known-vs-unknown rule).
+   */
+  readonly asked: number | undefined;
+  /**
+   * C80 §1.4, second number — HOW MANY of those the verb could NOT account
+   * for. Same `undefined` discipline as {@link asked}.
+   */
+  readonly unaccountedFor: number | undefined;
+  /**
+   * C80 §3.2 — WHAT the refusal is protecting, named. A refusal that cannot
+   * say what it is protecting cannot be acted on: the user is told "something
+   * is in the way" and has no move to make. MUST be non-empty.
+   */
+  readonly protects: string;
+  /** The human sentence. Carries both numbers; never branched on. */
+  readonly detail: string;
+}
+
+/**
+ * The `refused` constructor. Named so a grep for capability withholding finds
+ * one site, and so both numbers and `protects` cannot be forgotten.
+ */
+export function capabilityRefused(input: {
+  readonly commandType: string;
+  readonly reason: UndeterminedReason;
+  readonly subReason?: UndeterminedSubReason;
+  readonly asked: number | undefined;
+  readonly unaccountedFor: number | undefined;
+  readonly protects: string;
+  readonly detail: string;
+}): CapabilityRefusal {
+  return input.subReason !== undefined
+    ? { kind: 'refused', ...input, subReason: input.subReason }
+    : {
+        kind: 'refused',
+        commandType: input.commandType,
+        reason: input.reason,
+        asked: input.asked,
+        unaccountedFor: input.unaccountedFor,
+        protects: input.protects,
+        detail: input.detail,
+      };
+}
+
 // ─── ConsequenceReport (ADR-0322 §2; R5) ─────────────────────────────────────
 
 /**

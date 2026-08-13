@@ -545,6 +545,15 @@ export class CommandBus {
           // ADR-0322 §2 (R4) — the consumed plan rides the record verbatim,
           // conditionally spread for the same byte-identity reason as above.
           ...(consumedPlan !== undefined ? { plan: consumedPlan } : {}),
+          // C80 §1.4 (GEN-GAP-1) — a handler's typed decision NOT to act rides
+          // the record verbatim, conditionally spread for the same byte-identity
+          // reason as the two above: a handler that did not refuse produces a
+          // record WITHOUT the property, so every legacy record is unchanged.
+          // The bus does not branch on it — refusing is the HANDLER's decision
+          // and reporting it is the CALLER's; the bus only carries it, which is
+          // what makes the refusal a value the caller can read instead of a
+          // throw a `catch {}` can swallow (C80 §10.f).
+          ...(result.refusal !== undefined ? { refusal: result.refusal } : {}),
         };
 
         // 4. Emit to PatchEmitter subscribers (EventLogPersistor, etc.).

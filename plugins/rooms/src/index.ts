@@ -70,6 +70,12 @@ export {
   RedetectRoomsHandler,
   type RedetectRoomsPayload,
 } from './handlers/RedetectRooms.js';
+// C80 GEN-GAP-1 — generation-as-verb. v1 returns a typed refusal.
+export {
+  RegenerateRoomsHandler,
+  buildRegenerationRefusal,
+  type RegenerateRoomsPayload,
+} from './handlers/RegenerateRooms.js';
 
 export {
   RoomSeedTool,

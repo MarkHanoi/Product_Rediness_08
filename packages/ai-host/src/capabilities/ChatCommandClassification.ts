@@ -352,6 +352,37 @@ const E_BULK = family(
   { blockedBy: 'preview-before-execute (deliberately out of scope in ADR-0313)' },
 );
 
+// C80 GEN-GAP-1 (2026-08-12) — `room.regenerate`, the first generation-family
+// bus verb. It is classified E rather than shipped as a capability because the
+// verb ITSELF refuses today, and the honesty rule cuts both ways: a capability
+// declaring "I regenerate rooms" over a handler that returns a refusal would be
+// the §2.2 ElementCapabilities lie in a new costume — a confident "Done" over a
+// mutation that never happened.
+//
+// The blocker is NOT confidence or copy. It is that no element in this model
+// carries provenance (C80 §0.1(2): generationId / generatedBy / isGenerated →
+// 0 first-party element hits), so the authority question — may this pass
+// overwrite this element? — answers `unknown-authority` for every room, and
+// C80 §2.3 forbids reading that as permission. It was MEASURED destroying a
+// hand-drawn room on 2026-08-12 (`check-authored-state-protection` clause (b):
+// seeded=2 · remaining=0 · the authored room survived=false).
+//
+// This graduates to a capability when C80 GEN-GAP-2 lands element-grain
+// provenance and the verb returns a ConsequencePlan instead of a blanket
+// refusal — at which point the confirmation card can state the exact truth
+// ("this replaces 12 rooms and protects 3 you drew"), which is the same bar
+// E_BULK above is waiting on and for the same reason.
+const E_REGENERATE = family(
+  'E',
+  'Regeneration replaces elements a user may have drawn, and no element in this model records where it came from — so the pass cannot tell a hand-drawn room from a generated one, and the confirmation card could not state what would be lost. The verb itself refuses for exactly this reason (C80 §2.3: unknown-authority is not permission; measured destroying an authored room on 2026-08-12). Declaring it reachable would claim a capability the handler withholds.',
+  ['room.regenerate'],
+  {
+    blockedBy:
+      'element-grain provenance (C80 GEN-GAP-2 / roadmap Phase 8) — until then the authority question answers unknown-authority for every room',
+    potentialCapability: 'regenerate-rooms',
+  },
+);
+
 // ─── F — explicitly deferred (chat-ready shape, next tranche) ────────────────
 
 // §FIX-CHAT-DEAD-ROUTES (ADR-0315 liveness audit): the old F entries claimed
@@ -391,6 +422,7 @@ export const CHAT_CLASSIFIED: ReadonlyMap<string, ChatCommandClassification> = n
   ...C_BATCH, ...C_PLUMBING,
   ...D_DELETE, ...D_LEGACY, ...D_DEAD_F,
   ...E_BULK,
+  ...E_REGENERATE,
   ...F_NEXT,
 ]);
 

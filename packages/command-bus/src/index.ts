@@ -93,6 +93,9 @@ export type {
   PreviewOutcome,
   // C78 §9.3 — the typed home the two hash sentinels move into.
   PlanBindingVerification,
+  // C80 §1.4 / GEN-GAP-1 — a VERB's typed decision not to act, returned as a
+  // value rather than thrown (the `HandlerResult.refusal` channel).
+  CapabilityRefusal,
 } from './consequence.js';
 // C78 §8 — value exports: the sub-reason→parent ownership map, the typed
 // room-prediction bridge (§8.5 — explicit map, never re-labelling), and the
@@ -106,6 +109,9 @@ export {
   previewInvalidRequest,
   previewPlannerNotComposed,
   previewPlannerThrew,
+  // C80 §1.4 — the ONE constructor for a withheld capability, so both numbers
+  // and the protected subject cannot be forgotten.
+  capabilityRefused,
 } from './consequence.js';
 // G-REASON-04's normalize rule (ADR-0324 §3) — authored in R1, gated in R7.
 export { normalizeForParity } from './parity.js';

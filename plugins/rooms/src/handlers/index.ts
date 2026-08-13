@@ -12,6 +12,7 @@ import { SetRoomFinishHandler } from './SetRoomFinish.js';
 import { SetRoomHeightOffsetHandler } from './SetRoomHeightOffset.js';
 import { RecomputeRoomBoundaryHandler } from './RecomputeRoomBoundary.js';
 import { RedetectRoomsHandler } from './RedetectRooms.js';
+import { RegenerateRoomsHandler } from './RegenerateRooms.js';
 import { RenameRoomHandler } from './RenameRoom.js';
 import { CreateTemplateHandler } from './CreateTemplate.js';
 import { AssignTemplateToNodeHandler } from './AssignTemplateToNode.js';
@@ -28,6 +29,10 @@ export const ROOM_HANDLER_TYPES = [
   'room.setHeightOffset',
   'room.recomputeBoundary',
   'room.redetect',
+  // C80 GEN-GAP-1 — the first generation-family bus verb. v1 REFUSES (typed,
+  // returned not thrown); see RegenerateRooms.ts for why refusing is the
+  // design and what closes it.
+  'room.regenerate',
   'room.rename',
   'template.create',
   'template.assignToNode',
@@ -48,6 +53,7 @@ export function buildRoomHandlerSet(): readonly CommandHandler<unknown>[] {
     new SetRoomHeightOffsetHandler() as unknown as CommandHandler<unknown>,
     new RecomputeRoomBoundaryHandler() as unknown as CommandHandler<unknown>,
     new RedetectRoomsHandler() as unknown as CommandHandler<unknown>,
+    new RegenerateRoomsHandler() as unknown as CommandHandler<unknown>,
     RenameRoomHandler as unknown as CommandHandler<unknown>,
     CreateTemplateHandler as unknown as CommandHandler<unknown>,
     AssignTemplateToNodeHandler as unknown as CommandHandler<unknown>,
@@ -85,6 +91,11 @@ export {
   RedetectRoomsHandler,
   type RedetectRoomsPayload,
 } from './RedetectRooms.js';
+export {
+  RegenerateRoomsHandler,
+  buildRegenerationRefusal,
+  type RegenerateRoomsPayload,
+} from './RegenerateRooms.js';
 export { RenameRoomHandler, type RenameRoomPayload } from './RenameRoom.js';
 export { CreateTemplateHandler, type CreateTemplatePayload } from './CreateTemplate.js';
 export { AssignTemplateToNodeHandler, type AssignTemplateToNodePayload } from './AssignTemplateToNode.js';
