@@ -88,6 +88,13 @@ import { getCurrentSiteOrigin, resolveActiveProjectId } from "../site/siteDispat
 // registers itself as a NAMED OWNER of per-project state so `ClearProjectCommand` tears it
 // down on every load and `ProjectIsolationAudit` can SEE a GIS leak. See the constructor.
 import { projectScopeRegistry, registerProjectScopeProbe } from "@pryzm/core-app-model";
+// §C73-PIP-CANONICAL — THE point-in-polygon ray cast (C73 §3.1). This file used to hold
+// THREE private copies of the even-odd straddle test with THREE DIFFERENT degenerate-divide
+// conventions (`|| 1e-12`, `|| 1e-9`, bare), so one horizontal edge could read "inside" in
+// the sea clip and "outside" in the façade study — in ONE session, on ONE polygon (C73 §2.4).
+// All three now delegate to the kernel body; the predicate is plane-agnostic, so the lon/lat,
+// {e,n} and {x,z} call sites pass ACCESSORS rather than each minting a wrapper.
+import { pointInRingEvenOdd, pointInPolygonXZ } from "@pryzm/geometry-kernel";
 import { trace } from "@opentelemetry/api";
 // §L-430 slice 2b — the scene(PROJECT-north) → ENU(TRUE-north) frame boundary, extracted
 // headless so it is unit-testable (this file is not). See sceneEnuFrame.ts for why.
@@ -9612,15 +9619,20 @@ export class CesiumViewport {
   }
 
   /** §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — even-odd test: is [lon,lat] inside ANY current sea ring?
-   *  Used to keep the land-use drape from bleeding over the coast into the sea. */
+   *  Used to keep the land-use drape from bleeding over the coast into the sea.
+   *
+   *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast with `[lon,lat]` tuple accessors.
+   *  The former private `|| 1e-12` divide guard is GONE, not relocated: the straddle test
+   *  short-circuits past every horizontal edge, so the divisor was structurally nonzero and
+   *  the guard was dead code (see the kernel header, decided semantics §1).
+   *
+   *  Ring composition is deliberately OR, not XOR: `contextSeaRingsLonLat` holds INDEPENDENT
+   *  sea bodies (each its own closed coastline), not the outer-plus-hole rings of one polygon,
+   *  so "inside any" is the question — folding them with XOR would make a point inside two
+   *  overlapping sea rings read as LAND. Preserved exactly as it was. */
   private isLonLatInSea(lon: number, lat: number): boolean {
     for (const ring of this.contextSeaRingsLonLat) {
-      let inside = false;
-      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const xi = ring[i]![0], yi = ring[i]![1], xj = ring[j]![0], yj = ring[j]![1];
-        if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
-      }
-      if (inside) return true;
+      if (pointInRingEvenOdd(lon, lat, ring.length, (i) => ring[i]![0], (i) => ring[i]![1])) return true;
     }
     return false;
   }
@@ -10309,15 +10321,12 @@ export class CesiumViewport {
     }
     for (let v = 0; v < roofNV; v++) for (let u = 0; u < roofNU; u++) nodes.push({ kind: 'roof', u, v });
 
-    const pointInRoof = (e: number, n: number): boolean => {
-      // ray-cast even-odd (same convention as buildFacadeSamplePoints' pointInRing).
-      let inside = false;
-      for (let i = 0, j = roofRing.length - 1; i < roofRing.length; j = i++) {
-        const ei = roofRing[i]!.e, ni = roofRing[i]!.n, ej = roofRing[j]!.e, nj = roofRing[j]!.n;
-        if ((ni > n) !== (nj > n) && e < ((ej - ei) * (n - ni)) / (nj - ni || 1e-9) + ei) inside = !inside;
-      }
-      return inside;
-    };
+    // §C73-PIP-CANONICAL — THE kernel ray cast with {e,n} accessors. The comment used to claim
+    // "same convention as buildFacadeSamplePoints' pointInRing" while carrying a DIFFERENT divide
+    // guard (`|| 1e-9` here vs `|| 1e-12` in the sea clip vs bare elsewhere in this same file):
+    // the claim of sameness was the defect C73 §2.4 names. Now it is true by construction.
+    const pointInRoof = (e: number, n: number): boolean =>
+      pointInRingEvenOdd(e, n, roofRing.length, (i) => roofRing[i]!.e, (i) => roofRing[i]!.n);
 
     // §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — record the signature of the study we are about
     // to compute, so a later repaint with identical inputs (a massing re-render that didn't
@@ -12824,9 +12833,20 @@ export class CesiumViewport {
     // outside it) self-rejects → per-wall-box fallback. This is robust to any number
     // of interior partitions, L/U shells, and skewed plots.
     const RING_EPS_M = SNAP_M * 2; // on-edge tolerance (~10 cm) so perimeter nodes count as inside.
+    // §C73-PIP-CANONICAL — this call site needs BOUNDARY-INCLUSIVE containment, which the
+    // canonical predicate deliberately does NOT provide (it is half-open even-odd, and the
+    // on-boundary question belongs to the point-to-segment-distance family — C73 §3.1/§3.5,
+    // a different family that must not be folded into the ray cast). So the composition stays
+    // HERE, explicitly, exactly as it was: an on-edge band first, then THE kernel ray cast.
+    //
+    // The two loops are equivalent to the one interleaved loop this replaces: the on-edge arm
+    // returns EARLY with `true`, so the parity accumulated up to that edge is discarded either
+    // way, and if no edge is within the band the parity loop runs over the identical edge set.
+    // What DID change is the ray cast's divide: this copy ran unguarded while the other two in
+    // this same file guarded with `|| 1e-12` and `|| 1e-9`. The kernel body is the unguarded
+    // exact interpolation — i.e. THIS copy's behaviour is the one that survived, because it is
+    // the correct one (the guards were dead code, never a semantic the other sites relied on).
     const insideOrOn = (px: number, pz: number): boolean => {
-      // Even-odd ray cast + an on-edge test (perimeter nodes sit exactly on the ring).
-      let inside = false;
       for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
         const xi = ring[i]!.x, zi = ring[i]!.z;
         const xj = ring[j]!.x, zj = ring[j]!.z;
@@ -12839,11 +12859,8 @@ export class CesiumViewport {
           const cx = xi + t * ex, cz = zi + t * ez;
           if ((px - cx) * (px - cx) + (pz - cz) * (pz - cz) <= RING_EPS_M * RING_EPS_M) return true;
         }
-        const intersects = (zi > pz) !== (zj > pz)
-          && px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi;
-        if (intersects) inside = !inside;
       }
-      return inside;
+      return pointInPolygonXZ(px, pz, ring);
     };
     for (const c of coord.values()) {
       if (!insideOrOn(c.x, c.z)) return null; // a node outside the ring → not the outer boundary.
