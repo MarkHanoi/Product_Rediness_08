@@ -8,11 +8,19 @@
 // UNDO PATH UNDER CERTIFICATION (declared honestly): every verb in this file
 // carries register column `undo: legacy-stack` — the LEGACY CommandManager
 // history owns the undo step, and this harness drives `cm.undo()` / `cm.redo()`
-// directly. The UNIFIED performUndoRedo path (ring-buffer-first + the 250 ms
-// three-stack wall-clock reconciliation, pinned RED-BY-DESIGN by the 3
-// `it.fails` in undoGestureOrdering.test.ts) is NOT certified here; mutations
-// are applied and asserted ONE AT A TIME precisely so that window cannot make a
-// stale read look like a pass. Those pins are respected, not disturbed.
+// directly. The UNIFIED performUndoRedo path is NOT certified here.
+//   ⚠ Header re-stamped 2026-08-13: this paragraph used to cite "the 250 ms
+//   three-stack wall-clock reconciliation, pinned RED-BY-DESIGN by the 3
+//   `it.fails` in undoGestureOrdering.test.ts" as the reason. That reason has
+//   EXPIRED — §UNDO-GESTURE-ID (2026-08-12) deleted the 250 ms constant, the
+//   twin predicate now compares gestureId, and all three `it.fails` markers are
+//   gone; performUndoRedo.test.ts + undoGestureOrdering.test.ts run 26/26 green
+//   at HEAD (executed 2026-08-13). Those are EXECUTED UNIT suites over the real
+//   `performUndoRedo` routing with stub stores/cm — evidence, not certification
+//   (C70 §0.1): no seeded world, no whole-store comparator, not enrolled in
+//   certify.ts. The unified path therefore remains UNCERTIFIED-not-untested
+//   (gap register CE-04), and extending THIS harness to drive `performUndo()`
+//   against the seeded world is no longer blocked by any pin.
 //
 // `performUndo()` returns void (C03 §4.6 U-4, pinned elsewhere) — nothing in
 // this file reads an undo return value as evidence; state is re-captured after
