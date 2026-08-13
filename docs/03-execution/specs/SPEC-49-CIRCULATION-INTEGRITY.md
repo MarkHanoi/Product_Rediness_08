@@ -266,10 +266,15 @@ furniture-realism findings, several of which already have hard rules in `enumera
 "detected, ranked, shipped anyway" fate (`window` was the single largest hard-fail in the sweep at
 25 occurrences).
 
-**Proposed, for the founder to accept or decline — deliberately not created unilaterally:**
-`docs/04-reference/GENERATOR-READINESS-REGISTER.md`, one row per invariant, columns
-*invariant · typology · measured rate at HEAD · reproduction · enforcing gate · status*. It would
-open with CI-1…CI-4 above plus the `window` rule, and its denominator would be **shipped generator
-outputs**, never model-edit propagation.
+This SPEC proposed such a register rather than creating one unilaterally. **It now exists:**
+`docs/03-execution/plans/GENERATIVE-QUALITY-MASTER-TRACKER.md`, minted concurrently by the
+programme lane in `a487fe87` with its **own denominator (28)**, explicitly never folded into the
+BIM 3.0 82. It consumes this SPEC's §2 readings directly and maps the founder's three defects to
+invariants **R1 REACHABILITY / R2 APERTURE / R3 CLEARANCE** (= CI-1 / CI-2 / CI-3 here).
 
-Until that decision, this SPEC and `ISSUE-LOG.md` L-854…L-858 are the record.
+**Division of labour, so neither document drifts:** this SPEC owns the *measurement method, the
+per-typology readings, and the gate design*; the tracker owns *programme sequencing and status*.
+A changed rate is re-measured HERE first (re-run the four reproductions in §2), then quoted there.
+
+`ISSUE-LOG.md` L-854…L-858 carry the findings. (The tracker was written while those rows were
+still in flight and flags them "verify before citing" — they landed in `df028328`.)
