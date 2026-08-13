@@ -19,25 +19,31 @@
 
 ## ⏱ THE NUMBER — read this line and stop
 
-> ### **0 of 28 readiness cells PROVEN** · 0 FAILED-by-instrument · **28 UNPROVEN**
-> **The programme is 0 % PROVEN and that is a statement about measurement, not about the code.**
-> Nobody has ever run an instrument over generator output quality. UNPROVEN is neither a pass nor a
-> fail — it is *"nobody looked"* (C70 §2.2), and every cell in §1's matrix is in that state today.
+> ### **4 of 28 readiness cells FAILED by execution · 2 PROVEN on a stated sample · 22 UNPROVEN**
+> ### **and 0 of 28 are GATED — every reading here can regress silently tomorrow.**
+> Source: [SPEC-49-CIRCULATION-INTEGRITY](../specs/SPEC-49-CIRCULATION-INTEGRITY.md) §2, the
+> circulation-audit lane's executed sweeps, 2026-08-13. **That SPEC is the authority on these
+> readings; this line only quotes it.** Re-run its sweeps rather than trusting this table.
 >
 > | | |
 > |---|---|
 > | **Denominator** | **28** = **4 registered typology packs × 7 readiness gates** (§-1) |
-> | **Proven by an executed instrument** | **0** |
-> | **Failed by an executed instrument** | **0** |
-> | **UNPROVEN — nobody measured** | **28** |
-> | **Founder-reported defects awaiting reproduction** | **3** (GQ-D1 · GQ-D2 · GQ-D3, §1.3) |
-> | **Readiness gates that exist as code** | **0 of 7** — measured 2026-08-13, see §1.4 |
+> | **FAILED by an executed instrument** | **4** — `apartment` R1 + R2, `casa-unifamiliar` R1 + R2 |
+> | **PROVEN on a stated sample** | **2** — `residential-building` R1 + R2 (0/34 units) ⚠ *sample is synthetic, see §1.2* |
+> | **UNPROVEN — nobody measured** | **22** |
+> | **Cells held by a GATE** | **0 of 28** — the readiness gates do not exist (§1.4) |
+> | **Founder-reported defects now REPRODUCED** | **3 of 3** (GQ-D1 · GQ-D2 · GQ-D3, §1.3) |
 >
-> ⚠ **Do not read "0 failed" as "nothing is broken."** The founder tested the shipped generators on
-> 2026-08-13 and reported three defects (§1.3). They are **real and unreproduced by any instrument**,
-> which is exactly why they count as UNPROVEN rather than FAILED: this programme's first act is to
-> convert UNPROVEN → FAILED, which will look like collapse and is the opposite. BIM 3.0 spent its
-> first week doing the same thing.
+> **The worst single reading, so it is not buried:** `casa-unifamiliar` (house) ships **12 of 24
+> storeys with an unreachable room** and **11 of 24 with a doorless room** — including one storey
+> whose **`Stair` has no opening at all**. Apartment is **7 / 106** on both. Residential-building is
+> **0 / 34**. **The three generators are not in the same condition**, and a blended rate would have
+> been true of none of them and pointed the fix at the wrong one.
+>
+> ⚠ **"2 PROVEN" is the weakest word in this table.** Those two cells rest on a one-off sweep over
+> **synthetic convex quads**, not real user plates — the audit names that gap itself
+> (SPEC-49 §6, `CI-5-INSTRUMENT`). A one-off sweep is a *measurement*, not a *gate*: nothing stops
+> those cells regressing to FAILED without anyone noticing. Do not report them as production-ready.
 >
 > ⚠ **This 28 is NOT part of BIM 3.0's 82.** Merging them would corrupt both. See §-1.
 
@@ -74,6 +80,25 @@ would recover the split afterwards.
 >    enumerated cannot be scored, and inventing a score for it is the empty-seed lie.
 > 5. **Cross-reference BIM 3.0; never fold into it.** Cite `BIM30-GAP-REGISTER.md` rows by id where
 >    a dependency exists. Never copy a row across, and never re-state a row's content (C70 §0.2).
+
+### §-1.1 — A row-level register is PROPOSED and deliberately NOT created
+
+[SPEC-49](../specs/SPEC-49-CIRCULATION-INTEGRITY.md) §8 proposes
+`docs/04-reference/GENERATOR-READINESS-REGISTER.md` — one row per *(invariant × typology)*, with
+measured rate, reproduction, enforcing gate and status — and **declines to create it unilaterally,
+leaving the decision to the founder.** That restraint is correct and this file does not overrule it.
+
+**If it is created, the two artefacts nest and do not compete**, in the same relation as
+`BIM30-GAP-REGISTER.md` to `BIM30-MASTER-COMPLETION-TRACKER.md`:
+
+| | This tracker | The proposed register |
+|---|---|---|
+| Grain | **programme** — 28 cells, `typology × readiness gate` | **row** — one per invariant occurrence, incl. non-circulation rules (`window`, room-proportion, daylight, out-of-bounds) |
+| Answers | *"how far is the programme from production?"* | *"which specific defects are open, at what rate, behind which gate?"* |
+| Authority | quotes the register | **the authority on rates** |
+
+**Until the founder decides, SPEC-49 + `ISSUE-LOG.md` are the record** and this tracker quotes them.
+**Do not create that register as a side effect of another task.**
 
 ---
 
@@ -129,7 +154,7 @@ would recover the split afterwards.
 > as a gate over generated output.** That is a *reachability* problem, and this repository has a
 > documented history of authored-but-unwired machinery reading as working machinery.
 
-### §1.2 — The readiness matrix — 4 × 7 = 28 cells, ALL UNPROVEN
+### §1.2 — The readiness matrix — 4 × 7 = 28 cells · 4 FAILED · 2 PROVEN-on-sample · 22 UNPROVEN
 
 The seven readiness gates, **in dependency order**. A typology is production-ready when all seven
 read PROVEN for it. Nothing below R1 is negotiable: a plan whose rooms cannot be reached is not a
@@ -145,15 +170,30 @@ plan with a defect, it is not a plan.
 | **R6** | **DETERMINISM** | the same brief on the same site produces the same plan | ❌ **no file at HEAD** for generator output |
 | **R7** | **REGENERATION SAFETY** | the plan survives a user edit with its circulation intact — the bridge to Phase 3 | ❌ **no file at HEAD** |
 
-| Typology pack | R1 | R2 | R3 | R4 | R5 | R6 | R7 |
-|---|---|---|---|---|---|---|---|
-| `apartment` | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ |
-| `casa-unifamiliar` (house) | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ |
-| `residential-building` | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ |
-| `office-building` | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ |
+| Typology pack | R1 | R2 | R3 | R4 | R5 | R6 | R7 | Sample behind the non-❔ cells |
+|---|---|---|---|---|---|---|---|---|
+| `apartment` | ❌ **7/106** | ❌ **7/106** | ❔ | ❔ | ❔ | ❔ | ❔ | 106 shipped winners of 108 shell × programme combos through `generateDeterministicLayouts` |
+| `casa-unifamiliar` (house) | ❌ **12/24** | ❌ **11/24** | ❔ | ❔ | ❔ | ❔ | ❔ | 24 shipped storeys through `generateHouseLayout`, 0 null |
+| `residential-building` | ✅ **0/34** | ✅ **0/34** | ❔ | ❔ | ❔ | ❔ | ❔ | 34 shipped units through `orchestrateResidentialBuilding`; `coreReachable` affirmative, not defaulted |
+| `office-building` | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | **never swept** |
 
-**❔ = UNPROVEN. There is no ✅ and no ❌ in this matrix, and putting one there without an executed
-instrument behind it is the defect this repository spent 2026-08-13 correcting.**
+**❌ = FAILED by an executed instrument · ✅ = holds over the stated sample · ❔ = UNPROVEN, nobody
+measured.** Readings quoted from [SPEC-49](../specs/SPEC-49-CIRCULATION-INTEGRITY.md) §2; that SPEC
+names the reproduction file and the exact `vitest` command for each. **Never put a ✅ or ❌ here
+without one.**
+
+> **Three qualifications that the marks alone would hide:**
+>
+> 1. **✅ means "held over a sample", never "production-ready".** The residential sweep used
+>    synthetic convex quads and founder-scale rectangles. Whether the rate holds on real user plates
+>    is a **named missing instrument** (SPEC-49 §6, `CI-5-INSTRUMENT`).
+> 2. **No cell is gated.** Zero of the seven gates exist, so **every** mark in this table — the ✅s
+>    included — is a snapshot that can go stale on the next commit with nothing to catch it.
+> 3. **R3's ❔ is not ignorance.** The furniture sweep measured a **1 % floor** (3 of 288 rooms,
+>    against a door's *real* swing arc) — but on single-door, centred-door, **rectangular** rooms
+>    called directly, not on generated typology output. The defect is confirmed present in the
+>    engine; **its rate per typology is unmeasured**, and SPEC-49 §5/§6 records why (the room-payload
+>    builder sits at L7 and cannot be called from the L2 engine).
 
 **Cross-cutting engines score INSIDE these cells, not beside them.** `furnishLayout` and
 `officeFurnish` are where R3 CLEARANCE is won or lost; `ceilingLayout`, `lightingLayout` and
@@ -166,23 +206,27 @@ blocks a door fails the **typology's** R3 — the defect belongs to the plan a u
 > door. The graph layout is critical — every room must be accessible; corridors and circulation are
 > critical."*
 
-| id | Defect as reported | Maps to | State |
+| id | Defect as reported | Maps to | State — 2026-08-13 |
 |---|---|---|---|
-| **GQ-D1** | the corridor does not reach the relevant bedrooms | **R1 REACHABILITY** | **FOUNDER-REPORTED · unreproduced by any instrument** |
-| **GQ-D2** | rooms without doors | **R2 APERTURE** | **FOUNDER-REPORTED · unreproduced by any instrument** |
-| **GQ-D3** | furniture in front of a door | **R3 CLEARANCE** | **FOUNDER-REPORTED · unreproduced by any instrument** |
+| **GQ-D1** | the corridor does not reach the relevant bedrooms | **R1 REACHABILITY** (SPEC-49 CI-1) | ✅ **REPRODUCED** — apartment 7/106, house **12/24**, residential 0/34 |
+| **GQ-D2** | rooms without doors | **R2 APERTURE** (SPEC-49 CI-2) | ✅ **REPRODUCED** — apartment 7/106, house **11/24**, residential 0/34 |
+| **GQ-D3** | furniture in front of a door | **R3 CLEARANCE** (SPEC-49 CI-3) | ✅ **REPRODUCED in the engine** at a **1 % floor** (3/288 against the real swing arc) — **per-typology rate UNPROVEN** |
 
-**"Unreproduced" is not scepticism about the report.** It means no artefact in this repository can
-yet be pointed at to show the defect, watch it go red, and watch it go green — and until one can,
-"fixed" would be an opinion. Reproducing these three is **Phase 1's first work item**, and it is
-owned by the circulation-audit lane, whose findings land in
-[`SPEC-XX-circulation-integrity.md`](../specs/SPEC-XX-circulation-integrity.md) (**PENDING — path is
-the intended path; verify it exists before citing it**) and as `L-853+` rows in
-[ISSUE-LOG](../../04-reference/ISSUE-LOG.md).
+> ### ⚠ The measurement corrected the report, and the correction changes the fix
+>
+> The founder named **two** symptoms — *the corridor does not reach the bedrooms* and *rooms without
+> doors*. **The sweep says they are ONE defect.** In the apartment run the two failing sets are
+> **identical**; in the house run **11 of the 12** unreachable storeys are doorless. So this is not
+> *"a well-doored bedroom stranded behind a bad spine"* — **no door was ever emitted.**
+>
+> Fixing the corridor-routing would therefore have moved nothing. Full mechanism, victims and the
+> `§DOOR-RESCUE-REACH` wet-room exclusion that explains why bathrooms dominate: **SPEC-49 §2**.
+> That SPEC owns the defect analysis; this file does not restate it.
 
-**Which typologies these were seen in is NOT recorded and must not be guessed.** The founder tested;
-the per-typology attribution is UNPROVEN. That is why §1.2's matrix is uniformly ❔ rather than
-selectively ❌.
+**Owner**: the circulation-audit lane. Findings live in
+[SPEC-49-CIRCULATION-INTEGRITY](../specs/SPEC-49-CIRCULATION-INTEGRITY.md) and as ISSUE-LOG rows
+**L-854…L-858** (⚠ *pending at the time this line was written — verify before citing; `L-853` is
+already taken by the manual Fly deploy*).
 
 ### §1.4 — What is NOT-YET-TRUE, stated so nobody mistakes it for a settled invariant
 
@@ -191,11 +235,17 @@ selectively ❌.
   **56 files** and none is scoped to generator output. `check-deterministic-regeneration` exists but
   is a **BIM 3.0** gate about model regeneration, **not** about generator plan determinism — do not
   cite it for R6.
-- **`SPEC-CIRCULATION-GRAPH.md` is a canonical brief with NO gate behind it.** It states its
-  invariants in binding language — *"a layout that fails any invariant below is INVALID and must be
-  rejected before scoring"* — and **whether the code enforces that is UNPROVEN.** A specification
-  describing enforcement that does not exist is the exact defect class recorded as **L-809 / L-812**
-  in `CLAUDE.md`. Treat that spec as a *source of invariants*, not as evidence of them.
+- **`SPEC-CIRCULATION-GRAPH.md` states its invariants in binding language and the code does not
+  hold them.** It says *"a layout that fails any invariant below is INVALID and must be rejected
+  before scoring"*; §1.2 measures 4 cells failing. A specification describing enforcement that does
+  not exist is the exact defect class recorded as **L-809 / L-812** in `CLAUDE.md`. Treat that spec
+  as a *source of invariants*, not as evidence of them.
+- ⛔ **The verdict is COMPUTED AND THROWN AWAY at the emit boundary.** SPEC-49 §3 measured that
+  `hardValid` / `hardFailedRules` do not survive onto the emitted `LayoutOption`, so **a caller that
+  wanted to refuse a broken plan cannot see that it is broken.** This is why validators exist and
+  defects ship anyway, and it is why SPEC-49 makes carrying the verdict (`CI-0`) the prerequisite
+  beneath every gate on its list. **Nothing in Phase 1 is buildable before it.** The machinery was
+  never missing; its answer was discarded one layer before the decision that needed it.
 - **The 14 dimensional and 10 topology validators are apartment-scoped.** Whether
   `casa-unifamiliar`, `residential-building` or `office-building` reach them at all is **UNPROVEN**.
 - **There is exactly ONE normative programme-rules database and it is residential.** `office-building`
@@ -225,20 +275,22 @@ typologies (school, museum, hospital) · THEN the edit engine.** It is encoded b
 > **The edit layer has a hard precondition that engineering cannot route around.** It is not a
 > sequencing preference; see §2.3.
 
-### §2.1 — PHASE 1 — CORRECT THE GENERATORS · **0 % · circulation first**
+### §2.1 — PHASE 1 — CORRECT THE GENERATORS · **measured, not fixed · circulation first**
 
 *The founder's first priority. Nothing in Phase 2 starts while any R1/R2/R3 cell is FAILED.*
 
 | # | Work item | Exit condition | Status |
 |---|---|---|---|
-| 1.1 | **Reproduce GQ-D1/D2/D3 as failing artefacts** | each defect has a runnable case that goes red today | ⬜ **NEXT — owned by the circulation-audit lane** |
-| 1.2 | **Ratify the seven readiness gates** as a contract, not a plan | a contract section defines "production-ready generator" normatively | ⬜ TODO — **contract lane owns this, not this file** |
-| 1.3 | **Build R1 REACHABILITY** — enumerate the denominator from the registry, land RED | every generated plan's every room is DETERMINED-reachable, DETERMINED-unreachable, or **UNDETERMINED with a typed reason**; silence is a failure | ⬜ TODO |
-| 1.4 | **Build R2 APERTURE** | zero sealed rooms across all four packs, or a named shrink-only ledger | ⬜ TODO |
-| 1.5 | **Build R3 CLEARANCE** | zero door-swing and circulation-path occlusions, or a named ledger | ⬜ TODO |
-| 1.6 | **Wire R4 + R5** — the 24 existing validators become gates over generated output | validators run over emitted plans, not only over solver candidates | ⬜ TODO |
-| 1.7 | **Build R6 DETERMINISM** for generator output | same brief + same site → byte-identical plan, or a typed reason why not | ⬜ TODO |
-| 1.8 | **Extend all seven beyond `apartment`** | each gate's subject is the **registry**, not a hand-written typology list | ⬜ TODO |
+| 1.0 | **Reproduce GQ-D1/D2/D3 as failing artefacts** | each defect has a runnable case that goes red today | ✅ **DONE 2026-08-13** — SPEC-49 §2; four reproduction files named there, each driving the real production entry (C74 §3.4) |
+| 1.1 | ⛔ **`CI-0` — carry the circulation verdict across the emit boundary** | `hardValid` / `hardFailedRules` / unreachable + doorless room names ride on the emitted `LayoutOption` | ⬜ **NEXT, AND IT BLOCKS EVERYTHING BELOW.** Additive, no behaviour change on its own. SPEC-49 §4 |
+| 1.2 | **Fix the house generator first** | `casa-unifamiliar` R1/R2 off **12/24 · 11/24**; the doorless `Stair` case gone | ⬜ TODO — **house is an order of magnitude worse than apartment; sequence by measured severity, not by alphabet** |
+| 1.3 | **Ratify the seven readiness gates** as a contract, not a plan | a contract section defines "production-ready generator" normatively | ⬜ TODO — **contract lane owns this, not this file** |
+| 1.4 | **Build R1 REACHABILITY** — enumerate the denominator from the registry, land RED | every generated plan's every room is DETERMINED-reachable, DETERMINED-unreachable, or **UNDETERMINED with a typed reason**; silence is a failure. ⚠ **key the access graph by room `id`, not display name** — SPEC-49 §7 records a latent duplicate-name defect that currently reads a sealed room as reached | ⬜ TODO |
+| 1.5 | **Build R2 APERTURE** | zero sealed rooms across all four packs, or a named shrink-only ledger | ⬜ TODO |
+| 1.6 | **Build R3 CLEARANCE** + close `CI-3-INSTRUMENT` | the keep-out the solver consults becomes the **real swing arc**; and an end-to-end probe measures the production rate, which needs the L7 room-payload builder reachable from L2 | ⬜ TODO |
+| 1.7 | **Wire R4 + R5** — the 24 existing validators become gates over emitted plans | validators run over emitted plans, not only over solver candidates | ⬜ TODO — depends on 1.1 |
+| 1.8 | **Build R6 DETERMINISM** for generator output | same brief + same site → identical plan, or a typed reason why not. ⚠ **not** `check-deterministic-regeneration`, which is a BIM 3.0 gate about a different subject | ⬜ TODO |
+| 1.9 | **Sweep `office-building`, and sweep all four on REAL plates** (`CI-5-INSTRUMENT`) | no ❔ left in §1.2; each gate's subject is the **registry**, not a hand-written typology list | ⬜ TODO |
 
 **Exit**: all seven gates exist, enumerate their subject from the registry, exit 2 if they cannot,
 and every one has been **watched go red**. All 28 cells read PROVEN, FAILED or UNPROVEN **by
@@ -280,7 +332,11 @@ correct behaviour and must not be smoothed.
 ### §2.3 — PHASE 3 — THE EDIT LAYER · **DOES NOT EXIST · HARD-PRECONDITIONED ON BIM 3.0 BAR 3**
 
 *No workstream anywhere in this repository transforms an existing design while preserving intent.
-Measured 2026-08-13: there is no such package, no such workflow, no such contract section.*
+Measured 2026-08-13: there is no such package and no such workflow. **The contract now exists** —
+[C81 — Design Edit & Intent Preservation](../../02-decisions/contracts/C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md),
+CANONICAL 2026-08-13, authored by the contract lane. **A contract is not an engine**: C81's own §7
+names four gates and records every one as **UNBUILT / UNPROVEN** at stamp time. Nothing about the
+edit layer's status below changes because a contract was written.*
 
 Generation answers *"make me a building."* Editing answers *"make this building different, and keep
 everything about it that I did not ask you to change."* The second is strictly harder, because it
@@ -311,10 +367,11 @@ requires knowing **what a change breaks**.
 
 | # | Work item | Status |
 |---|---|---|
-| 3.1 | **Precondition**: BIM 3.0 bar 3 gate exists and its ledger is shrinking | ⛔ **BLOCKED — gate does not exist** |
-| 3.2 | Contract the edit layer: what "intent" is, what survives a transform, what a refusal looks like | ⬜ TODO — **contract lane** |
-| 3.3 | Establish the edit layer's own denominator (`transform × element × preserved-property`) | ⛔ **cannot be established until 3.1** |
-| 3.4 | The engine | ⬜ not scheduled |
+| 3.1 | **Precondition**: BIM 3.0 bar 3 gate exists and its ledger is shrinking | ⛔ **BLOCKED — gate does not exist.** C81 §8 makes the same dependency binding from the contract side |
+| 3.2 | Contract the edit layer: what "intent" is, what survives a transform, what a refusal looks like | ✅ **DONE — [C81](../../02-decisions/contracts/C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md), CANONICAL 2026-08-13** |
+| 3.3 | Build C81 §7's four gates | ⬜ TODO — **all four UNBUILT at C81's stamp**; C81 is the authority on what they must do, not this file |
+| 3.4 | Establish the edit layer's own denominator (`transform × element × preserved-property`) | ⛔ **cannot be established until 3.1** |
+| 3.5 | The engine | ⬜ not scheduled |
 
 **The edit layer holds NO cell in the 28** (§-1 rule 4). Its denominator is a different product and
 cannot be enumerated today; scoring it now would be a verdict over an unestablished subject.
@@ -328,7 +385,7 @@ cannot be enumerated today; scoring it now would be a verdict over an unestablis
 
 | Phase | DONE means | Today |
 |---|---|---|
-| **1** | 7 gates exist · each enumerates its subject from the registry · each exits 2 rather than guess · each watched go red · 28 cells all measured · GQ-D1/D2/D3 each have a case that went red then green | **0 of 7 gates; 0 of 28 cells measured** |
+| **1** | 7 gates exist · each enumerates its subject from the registry · each exits 2 rather than guess · each watched go red · 28 cells all measured · GQ-D1/D2/D3 each have a case that went red **then green** | **0 of 7 gates · 6 of 28 cells measured · all 3 defects red, none yet green** |
 | **2** | school + museum + hospital each have P-a…P-d · each registered · each scoring all 7 gates · denominator restated at 49 | **not started; blocked** |
 | **3** | bar-3 gate exists and shrinks · edit contract ratified · edit denominator enumerable · engine passes it | **blocked at the precondition** |
 
@@ -342,7 +399,13 @@ its discipline).
 
 | Date | SHA | What changed | Cells moved |
 |---|---|---|---|
-| 2026-08-13 | *(this commit)* | Programme created. Denominator declared at 28. All cells UNPROVEN. | — |
+| 2026-08-13 | `a487fe87` | Programme created. Denominator declared at **28**. All 28 cells UNPROVEN — nothing had been measured. | — |
+| 2026-08-13 | *(this commit)* | **First measurement, from SPEC-49's executed sweeps.** 4 cells → FAILED, 2 → PROVEN-on-sample, 22 stay UNPROVEN. GQ-D1/D2/D3 all reproduced; the measurement **merged D1 and D2 into one defect** (no door emitted, not a routing failure). C81 landed, so Phase 3.2 closes. `CI-0` inserted as Phase 1's blocking prerequisite. | **UNPROVEN → FAILED ×4 · UNPROVEN → PROVEN ×2** |
+
+> **The first entry that moves a cell moves four of them to FAILED, and that is progress.** §0's
+> rule: converting UNPROVEN → FAILED looks like collapse and is the opposite. The programme knew
+> nothing on the morning of 2026-08-13; by evening it knew that the house generator ships a broken
+> storey half the time. Nothing got worse — the lights came on.
 
 ---
 
@@ -370,8 +433,9 @@ reported, not reproduced, and the distinction is the whole programme.
 | [typology-expansion-roadmap.md](./typology-expansion-roadmap.md) | the **vision** (25+ typologies, packs, marketplace, effort model). This file is its **status half**. Neither replaces the other. |
 | [C50-TYPOLOGY-PIPELINE.md](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md) | the binding contract for typology packs and the 7-stage pipeline |
 | [SPEC-CIRCULATION-GRAPH.md](../specs/SPEC-CIRCULATION-GRAPH.md) | the **source of R1's invariants** — the access DAG. ⚠ canonical brief, **no gate behind it** (§1.4) |
-| [SPEC-XX-circulation-integrity.md](../specs/SPEC-XX-circulation-integrity.md) | **PENDING** — the circulation-audit lane's defect audit; intended path, verify before citing |
-| [ISSUE-LOG.md](../../04-reference/ISSUE-LOG.md) | where GQ-D1/D2/D3 reproductions land as `L-853+` |
+| [SPEC-49-CIRCULATION-INTEGRITY.md](../specs/SPEC-49-CIRCULATION-INTEGRITY.md) | **THE AUTHORITY on §1.2's measured rates.** CI-1…CI-4, the reproductions, the `CI-0` emit-boundary finding, the named missing instruments. This file quotes it and **never restates it** |
+| [C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md](../../02-decisions/contracts/C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md) | **the binding contract for Phase 3.** What an edit is, the preserved set, refusal obligations, one-edit-one-undo, and §8's hard bar-3 dependency |
+| [ISSUE-LOG.md](../../04-reference/ISSUE-LOG.md) | GQ-D1/D2/D3 findings as `L-854…L-858` (verify — pending when this file was written) |
 | [BIM30-MASTER-COMPLETION-TRACKER.md](./BIM30-MASTER-COMPLETION-TRACKER.md) | the **other** programme — model trust under change. §-3 is the doctrine this file's gate design copies |
 | [BIM30-IMPLEMENTATION-ROADMAP.md](./BIM30-IMPLEMENTATION-ROADMAP.md) §3.1 | **the three bars**; bar 3 is Phase 3's precondition |
 | [BIM30-GAP-REGISTER.md](../../04-reference/BIM30-GAP-REGISTER.md) | the 82 rows. **Cross-reference only — never merge** |
