@@ -17,7 +17,7 @@ import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { lightRoom, buildLightingCommands } from '@pryzm/ai-host';
-import type { LightRoomInput, PlacedLight } from '@pryzm/ai-host';
+import type { FurnishStageOutcome, LightRoomInput, PlacedLight } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 
 interface Pt { x: number; z: number }
@@ -56,14 +56,30 @@ export class LightingLayoutExecutor {
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
         };
-        const sub = events.on?.('lighting.layout-execute', () => {
-            void this._execute(runtime);
+        const sub = events.on?.('lighting.layout-execute', (payload) => {
+            void this._execute(runtime, payload);
         });
         this._dispose = typeof sub === 'function' ? sub : () => { /* */ };
     }
     detach(): void { this._dispose?.(); this._dispose = null; }
 
-    private async _execute(runtime: PryzmRuntime): Promise<void> {
+    /** §FURNISH-DROP-SURFACING — read the furnish outcome the trigger carried
+     *  on the `lighting.layout-execute` payload. Anything malformed collapses
+     *  to `undefined`, which the ai-host basis resolver treats as
+     *  unfurnished-with-reason — NEVER a silent furnished default (C70 §2.2). */
+    private static _readFurnishOutcome(payload: unknown): FurnishStageOutcome | undefined {
+        const p = payload as { furnishOutcome?: { state?: string; placedCount?: number; roomCount?: number; reason?: string } } | undefined;
+        const o = p?.furnishOutcome;
+        if (o?.state === 'dropped' && typeof o.reason === 'string') {
+            return { state: 'dropped', reason: o.reason };
+        }
+        if (o?.state === 'completed' && typeof o.placedCount === 'number') {
+            return { state: 'completed', placedCount: o.placedCount, roomCount: o.roomCount };
+        }
+        return undefined;
+    }
+
+    private async _execute(runtime: PryzmRuntime, payload?: unknown): Promise<void> {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };
@@ -117,15 +133,24 @@ export class LightingLayoutExecutor {
                 `rooms_skipped=${skipped} fixtures_placed=${allPlaced.length}`,
             );
 
+            // §FURNISH-DROP-SURFACING — the furnish outcome the trigger carried;
+            // undefined resolves to unfurnished-with-reason inside ai-host.
+            const furnishOutcome = LightingLayoutExecutor._readFurnishOutcome(payload);
+
             if (allPlaced.length === 0) {
                 toast('No lighting placed — no rooms match a lighting archetype.', 'warn');
+                // Stamp the basis on THIS emit too — no path renders unstamped.
+                // buildLightingCommands over an empty placement is pure and only
+                // computes the stamp (zero commands).
+                const emptySet = buildLightingCommands([], level.id, () => createId('lighting'), furnishOutcome);
                 runtime.events.emit('lighting.layout-executed', {
                     placedCount: 0, roomCount: allRooms.length, levelId: level.id,
+                    basis: emptySet.basis, basisDisclosure: emptySet.basisDisclosure,
                 });
                 return;
             }
 
-            const set = buildLightingCommands(allPlaced, level.id, () => createId('lighting'));
+            const set = buildLightingCommands(allPlaced, level.id, () => createId('lighting'), furnishOutcome);
             for (const w of set.warnings) console.warn('[lighting-layout] warning:', w);
 
             // §FIX-RUNBATCH-NESTING-DROPS-GUARDS (L-209) — commit the N `lighting.create`
@@ -178,11 +203,35 @@ export class LightingLayoutExecutor {
                     placedCount: set.commands.length,
                     roomCount: allRooms.length,
                     levelId: level.id,
+                    // §FURNISH-DROP-SURFACING — the basis stamp travels on the
+                    // completion event so downstream (house chain, panels) can
+                    // render it (C75 §1.2).
+                    basis: set.basis,
+                    basisDisclosure: set.basisDisclosure,
                 });
-                toast(
-                    `Lit ${lit}/${allRooms.length} rooms — ${set.commands.length} fixtures placed.`,
-                    'success',
-                );
+                // §FURNISH-DROP-SURFACING — the user-visible half. Production
+                // (founder 2026-08-12): furnish dropped, lighting fired anyway,
+                // and the user saw a finished-looking building with a SUCCESS
+                // toast. Three renderings, never collapsed (C75 §1.2):
+                //   unfurnished            → WARN carrying the drop reason
+                //   furnished, 0 items     → success, the zero named
+                //   furnished, items       → the plain success (unchanged)
+                if (set.basis === 'unfurnished') {
+                    toast(
+                        `Lit ${lit}/${allRooms.length} rooms — computed WITHOUT furniture: ${set.basisDisclosure ?? 'no furnish report available'}`,
+                        'warn',
+                    );
+                } else if (set.basisDisclosure !== null && set.basisDisclosure !== undefined) {
+                    toast(
+                        `Lit ${lit}/${allRooms.length} rooms — ${set.commands.length} fixtures placed. Note: ${set.basisDisclosure}`,
+                        'success',
+                    );
+                } else {
+                    toast(
+                        `Lit ${lit}/${allRooms.length} rooms — ${set.commands.length} fixtures placed.`,
+                        'success',
+                    );
+                }
             };
 
             if (batchCoordinator.isBatching) {
