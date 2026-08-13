@@ -69,6 +69,7 @@ export {
 // boundary, no divide guard, <3 vertices reads false — decided on the record in
 // the module header per C73 §3.7).
 export {
+  pointInEdgeSetEvenOdd,
   pointInRingEvenOdd,
   pointInPolygonXZ,
   pointInPolygonXY,

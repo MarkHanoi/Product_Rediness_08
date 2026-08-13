@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  pointInEdgeSetEvenOdd,
   pointInPolygonXY,
   pointInPolygonXZ,
   pointInRingEvenOdd,
@@ -180,5 +181,84 @@ describe('pointInRingEvenOdd — oracle at known answers', () => {
       const first = pointInPolygonXZ(x, z, SQUARE);
       for (let k = 0; k < 5; k++) expect(pointInPolygonXZ(x, z, SQUARE)).toBe(first);
     }
+  });
+});
+
+// ── The edge-set body: multi-loop even-odd over one flat buffer ─────────────
+//
+// This is the shape `pointInSilhouette` (HiddenLineRemoval.ts) actually holds:
+// a flat [ax, ay, bx, by, …] quad array carrying SEVERAL closed loops at once
+// — a wall outline plus the window rectangles punched through it — with no
+// loop separators. Even-odd parity over that UNION is what makes an opening
+// read as see-through; these fixtures pin that this is behaviour of the ONE
+// canonical body, not of a private rival.
+describe('pointInEdgeSetEvenOdd — multi-loop even-odd over a flat edge buffer', () => {
+  /** Flat quad array: outer 10×10 wall outline + a 4..6 window rectangle. */
+  const WALL_WITH_WINDOW: number[] = [
+    // outer outline (0,0)→(10,0)→(10,10)→(0,10)→close
+    0, 0, 10, 0,
+    10, 0, 10, 10,
+    10, 10, 0, 10,
+    0, 10, 0, 0,
+    // window rectangle (4,4)→(6,4)→(6,6)→(4,6)→close
+    4, 4, 6, 4,
+    6, 4, 6, 6,
+    6, 6, 4, 6,
+    4, 6, 4, 4,
+  ];
+
+  const inSegs = (px: number, py: number, segs: number[]): boolean =>
+    pointInEdgeSetEvenOdd(
+      px, py, segs.length >> 2,
+      (k) => segs[k * 4]!, (k) => segs[k * 4 + 1]!,
+      (k) => segs[k * 4 + 2]!, (k) => segs[k * 4 + 3]!,
+    );
+
+  it('a point inside the outline but INSIDE the window rectangle reads OUTSIDE (the opening is see-through)', () => {
+    expect(inSegs(5, 5, WALL_WITH_WINDOW)).toBe(false); // in the window
+    expect(inSegs(4.001, 5.999, WALL_WITH_WINDOW)).toBe(false); // window corner region
+  });
+
+  it('the solid wall between outline and window reads INSIDE; the exterior reads OUTSIDE', () => {
+    expect(inSegs(2, 2, WALL_WITH_WINDOW)).toBe(true); // solid wall
+    expect(inSegs(5, 3, WALL_WITH_WINDOW)).toBe(true); // solid strip below the window
+    expect(inSegs(9, 5, WALL_WITH_WINDOW)).toBe(true); // solid strip beside the window
+    expect(inSegs(-1, 5, WALL_WITH_WINDOW)).toBe(false); // outside everything
+    expect(inSegs(11, 11, WALL_WITH_WINDOW)).toBe(false);
+  });
+
+  it('parity is invariant to edge ORDER and per-edge endpoint order', () => {
+    // Reverse the edge sequence AND swap each edge's endpoints.
+    const shuffled: number[] = [];
+    for (let k = (WALL_WITH_WINDOW.length >> 2) - 1; k >= 0; k--) {
+      shuffled.push(
+        WALL_WITH_WINDOW[k * 4 + 2]!, WALL_WITH_WINDOW[k * 4 + 3]!,
+        WALL_WITH_WINDOW[k * 4]!, WALL_WITH_WINDOW[k * 4 + 1]!,
+      );
+    }
+    for (let x = -1; x <= 11; x += 0.5) {
+      for (let y = -1; y <= 11; y += 0.5) {
+        expect(inSegs(x, y, shuffled)).toBe(inSegs(x, y, WALL_WITH_WINDOW));
+      }
+    }
+  });
+
+  it('the ring wrapper and a hand-built closed edge set agree everywhere on the L-shape', () => {
+    const segs: number[] = [];
+    for (let i = 0; i < L_SHAPE.length; i++) {
+      const a = L_SHAPE[i]!, b = L_SHAPE[(i + 1) % L_SHAPE.length]!;
+      segs.push(a.x, a.z, b.x, b.z);
+    }
+    for (let x = -1; x <= 11; x += 0.25) {
+      for (let z = -1; z <= 11; z += 0.25) {
+        expect(inSegs(x, z, segs)).toBe(pointInPolygonXZ(x, z, L_SHAPE));
+      }
+    }
+  });
+
+  it('fewer than 3 edges cannot bound an area and reads false', () => {
+    expect(pointInEdgeSetEvenOdd(0, 0, 0, () => 0, () => 0, () => 0, () => 0)).toBe(false);
+    const two = [0, -5, 0, 5, -5, 0, 5, 0];
+    expect(inSegs(0, 0, two)).toBe(false);
   });
 });
