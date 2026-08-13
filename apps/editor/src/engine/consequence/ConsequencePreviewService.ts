@@ -231,6 +231,53 @@ export function normalizeToOpeningMoveFromWindow(command: PreviewCommand): Seman
   return openingMoveFrom(p.windowId, p.newOffset, p.prevOffset, p.wallId);
 }
 
+// ─── door.move / window.move — the REGISTER move-verbs of the same family (2026-08-13) ─
+//
+// The C69 register carries `door.move` and `window.move` as move-class consequential verbs.
+// Both are REFUSES-status at the bus (§FIX-DEAD-MOVE-VERB-REFUSE: they wrote a detached
+// plugin DTO store nothing renders, and now refuse naming `door.setOffset` /
+// `window.setOffset` as the commit path) — exactly the `wall.move` situation, and resolved
+// the same way (L-49 precedent): a refused-but-semantic bus verb is still a QUESTION the
+// consequence surface must answer. check-relationship-determination counted both as
+// silent-dispatch — every one of their 41 relationship cells yielded C78 §1.1's forbidden
+// fourth answer — because no rule mapped them onto the composed `opening.move` planner.
+//
+// Their payloads are the handlers' own declared shapes (`MoveDoorPayload { doorId, offset }`,
+// `MoveWindowPayload { windowId, offset }` — plugins/door/src/handlers/MoveDoor.ts,
+// plugins/window/src/handlers/MoveWindow.ts): the offset is already the LEFT-EDGE offset
+// along the host baseline in metres, the same quantity `door.setOffset.newOffset` carries,
+// so the mapping is a key rename, not a unit conversion. Neither payload carries `wallId`
+// or a previous offset — nothing is invented; the planner's reverse-scan branch resolves
+// the host, and the metric `before` is read from the store.
+
+/** The `door.move` payload keys (plugins/door MoveDoorHandler — the C69 register verb). */
+interface DoorMovePayload {
+  readonly doorId: string;
+  readonly offset: number;
+}
+
+/** The `window.move` payload keys (plugins/window MoveWindowHandler). Same shape, different key. */
+interface WindowMovePayload {
+  readonly windowId: string;
+  readonly offset: number;
+}
+
+/** `door.move` → the semantic `opening.move`. */
+export function normalizeToOpeningMoveFromDoorMove(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'door.move') return null;
+  const p = command.payload as Partial<DoorMovePayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  return openingMoveFrom(p.doorId, p.offset, undefined, undefined);
+}
+
+/** `window.move` → the semantic `opening.move`. */
+export function normalizeToOpeningMoveFromWindowMove(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'window.move') return null;
+  const p = command.payload as Partial<WindowMovePayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  return openingMoveFrom(p.windowId, p.offset, undefined, undefined);
+}
+
 /**
  * `opening.move` dispatched under its own SEMANTIC name — a validating pass-through, the same
  * shape as `normalizeToWallCreate`. Present for the same reason `wall.move` is a normaliser
@@ -265,6 +312,10 @@ export const CONSEQUENCE_NORMALIZERS: ReadonlyMap<string, NormalizerRule> = new 
   ['opening.move', normalizeToOpeningMove],
   ['door.setOffset', normalizeToOpeningMoveFromDoor],
   ['window.setOffset', normalizeToOpeningMoveFromWindow],
+  // The register move-verbs of the SAME family (refused-but-semantic, the wall.move shape) —
+  // five dispatch spellings, ONE semantic planner key, one occupancy rule, one answer.
+  ['door.move', normalizeToOpeningMoveFromDoorMove],
+  ['window.move', normalizeToOpeningMoveFromWindowMove],
 ]);
 
 /**
