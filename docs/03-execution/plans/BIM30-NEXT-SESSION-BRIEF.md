@@ -677,3 +677,133 @@ symbols and hidden-line removal all inject correctly into plan views.
 
 **PRYZM generates a real building on real land with real law. What it does not yet do is tell you
 what is wrong with it, or let you change it.**
+
+---
+
+## §11 — SESSION CLOSE 2026-08-13 (EVENING) · THE FLEET SESSION — ~80 COMMITS, 25 AGENTS
+
+> **Where §11 disagrees with anything above it — §10 included — §11 wins.** Everything here is
+> executed, committed, cited by SHA.
+
+### §11.0 — READ FIRST
+
+1. **THE DEPLOY WAS NOT RUN.** Production is still `517f7a70`. HEAD carries ~80 commits of
+   verified work. §7 applies verbatim; browser checks in §11.5.
+2. **THE REGISTER STILL SAYS 34/82 — KNOWN-WRONG, PESSIMISTIC.** Executed recount this session:
+   **38/82** (+PR-03, CO-12, GR-18, GE-03, GE-11; **GR-09 RE-OPENED** as §2.2 predicted, narrowed
+   to `sitsOn` — the `joinedTo` half is now false). Earned since, unstamped: GE-02, PR-12, PV-04
+   → **~41/82 (50%)**. ⚠ The founder REJECTED two restamp edits without stating why — ASK before
+   touching `BIM30-GAP-REGISTER.md`, then stamp from fresh gate runs, never from this paragraph.
+3. **THE GATE SUITE RAN ZERO GATES IN CI FOR A DAY** (incomplete newly-measured entry blocked
+   `run-all.ts` pre-execution). Repaired `64edbc8e`; full exit-2/3 triage done; most cleared (§11.2).
+
+### §11.1 — LANDED, BY PROGRAMME
+
+**TRUST:**
+- **CI-0** `1559275e` — `LayoutOption.circulation`; THREE room sets never merged (unreachable ≠
+  unrouted ≠ doorless), keyed by ID never name.
+- **GE-02 53→0 CLEAN**, gate deleted its own baseline. Kernel edge-set body `faf52bae` ((k,k−1)
+  pairing bit-identical, deliberate); HiddenLineRemoval multi-loop preserved `51f89b0b`.
+- **BAR 3 MOVED: 134 → 132; structurally-answerable cells 10 → 20** (`e34d2543`) — `door.move` +
+  `window.move` landed WHOLE (C78 §19.1) as normaliser rules + registry entries, ZERO new planner
+  machinery (§PLANNER-REGISTRY-GENERIC's predicted extension). Reaching verbs now
+  wall.move/wall.create/door.move/window.move. The 36 refusal-BLOCKED relationships are the other
+  half — refusal-bearing readers in `SemanticGraph.ts`, untouched.
+- **PR-12** `befb4244` (canonical geometry-event family; structural spec now SPIES real
+  registrations). **PV-04 5→0 CLEAN** (IFC pset; absence-by-name inside DXF/PDF artefacts).
+- **A5/A6 HONESTLY PAYABLE**: `5b36fad5` wired finish-host-tracker (reached: wall +2 m → floor
+  22.04→33.64 m², once). Re-strike the two rows citing that SHA; the arm itself still counts
+  files and should move to reached behaviour.
+- **`[]`-drain 85→73** (12 paid + 2 reasoned DECLINES `935bcf8f`; remaining rows listed in the
+  L-EMPTY report — houseExecDiagnostics ×8 is the largest).
+- **Refusal identity** `10e1c975` — minted `CanPlaceRefusalCode` (closed 6-member union) in
+  WallOccupancyStore; gate 89→88 exit 0.
+- **structuredClone→produceWithPatches: BOTH new files done** (`476c4b06`/`42d1594c` stair,
+  `34f83dda`/`435b07f1` rooms; byte-equal round-trip pins green against OLD code first; gate
+  135→129, exit still 3 on OTHER lanes' 10 remaining uses in the two MODIFIED boundary commands —
+  the migration shape + `PatchSnapshot.ts` landing zone are proven, follow the pins).
+- Epsilon roles: `RECOMPUTE_IDENTITY_M` `f580a721`; WallMoveReweld→EPSILON_ZERO `2b7737bb`.
+- **+1,433 tests** `2f374805` (dark ledger 137→65); certify runs 20 gates `beed92b0`.
+
+**GENERATIVE QUALITY:**
+- **CI-2 gate** `6c065bb1` — drives 166 real generator runs; 18-row ledger (7/106 · 11/24, four a
+  doorless Stair · 0/34). First CI gate on generator output. Blind-comparator proofs by mutation.
+- **CI-1** `c6ed8618`+`30fae370` — house names sealed rooms. Banner carries a FOURTH set
+  (built-plan reachability) because the engine's verdict reads clean over two measured unwalkable
+  cases (residual-fill islands; stair-as-BFS-root). Report REQUIRED; undefined → not-measured,
+  never sound. UI toast branch was committing at close — VERIFY (`HouseLayoutExecutor` ~1843 is
+  the last silent-ship surface).
+- **§10.2 SURFACING COMPLETE** (8 commits): three non-emitting furnish paths emit typed outcomes;
+  §CHAIN-TIMEOUT double-fire killed; lighting stamps basis + disclosure; WARN "computed WITHOUT
+  furniture". Root cause: 12 s was UNSATISFIABLE (L-716 class). FOLLOW-UP: extend `PryzmEventMap`
+  (runtime-composer), delete the annotated casts.
+- **UNIT CONTAINMENT SHIPPED** (→`806292f3`): rooms stamped `unitId` AT BIRTH; hierarchy from
+  existing verbs; NO partOf write (the ADR is still owed and now louder). Only residential;
+  house/apartment/office still ship flat rooms.
+
+**PHASE C:**
+- **Junction re-weld MEASURED + ENGINE LANDED** (`a370cbed`, `81e35360`): L-corner gap 1.000 m,
+  no re-mitre; T 1.100 m; DIFFERENT breakage from the slab cascade. `computeMoveReweld` 11/11
+  with refusal guards (CLAMP-COSHARE slides, over-extension, degenerate stubs). REMAINING: the
+  move-commit dispatch (joinedTo partners → ONE CascadeWallBaselineCommand, slab-service latch
+  pattern; mechanism in the instrument header). NB: the dev "hang" was vitest's 2–7 min import
+  phase on a saturated machine; tests run in 93 ms.
+- **PR-10/GE-06 slice** `83c82c02` (13 oracle tests; subscriber point:
+  `initWallLevelSubscribers.ts:39-57`). GE-06-general still missing.
+- **H6 gesture probe** `b32d56ff` — **all 30 toolbars have ZERO importers; 267/280 toolbar verbs
+  dispatch into NOTHING** (only the 4 §C-B1 hand-registered resolve — the probe's own validation).
+  No baseline until the founder's mount-or-delete.
+- PR-11 OPEN by recorded decisions (F-1.4 + R2), but `c5ca3dd9` killed the silent no-op seam and
+  fixed a real bug: 100% of wall→room follow-ons dropped as FALSE CYCLES (payload carried the
+  root wall's id).
+- Predicate families (segment-intersection, area-winding) were committing at close — VERIFY;
+  L-PREDFAM owed 3 epsilon-ledger strikes in its commits.
+- **Compile roots** (4 commits `ccef72e9`/`3977cf95`/`62f9b504`/`8ff72e7d` + schemas `6e1df658`):
+  the window-global root recurred in 23 of 27 failing packages. ⚠ HONEST SWATH CORRECTION: the
+  roots are ~11 of ~1,800 errors per package — NO package flips PASS from them alone; the bulk is
+  latent `noUncheckedIndexedAccess` debt (top: PlanViewAnnotationRenderer 103, WallJoinResolver
+  86, SelectionManager 73) masked at root by the flag being off. Two triage citations DISPROVEN
+  by measurement (`AiPlane.ts:169` — no such error; `epwParser.ts:86` — clean; the real
+  climate-host root was `liveNormalsAdapter`). `polygonOffset.ts:333` one-liner deferred
+  (conditional spread; file was contended at close).
+- CE-03/04 measured (15/15 · 48/48 · 26/26 — EXCEEDS the rows); stale cert pin fixed `d27bb92b`;
+  drop-in row texts in the L-CETEXT report. NEW GAP: Supabase remote-save leg has ZERO client tests.
+
+### §11.2 — GATE ESTATE
+Cleared: zoning (4th spelling-blinding; learned `safe*`), secrets (26→12 arithmetic; NO credential;
+top row `PRYZM_PUBLISHER_TOKEN` undeclared-not-leaked), subject-floors (3rd false accusation;
+reads reportGate contract now), otel (Zone B at baseline), layers (finish-host-tracker L2
+MEASURED), verb-register V1 (V4 = C80 author's UNKNOWN-vs-REFUSES call), xss struck, epsilon
+re-anchored-not-struck `67355f18`, refusal-identity exit 0.
+Still red by design: 8 newly-measured · 2 declared-debt at ZERO headroom (the 11 tolerated
+`commandManager.execute` are in the GENERATION EXECUTORS) · bar 3 at 132 · custom-event-packages
+(test-scope gate defect; triage has the C70-compliant exclusion recipe, wants a second opinion) ·
+structuredclone at 129>119 (the two MODIFIED files).
+
+### §11.3 — FOUNDER DECISIONS OPEN
+1. Register restamp direction (two edits rejected unstated). 2. Toolbar mount-or-delete (267 dead
+verbs). 3. per-package-compile newly-measured entry (27/85/9 — file's rule makes it a founder
+edge case; two cascade roots named, bulk is nUIA debt). 4. PV-06 schemas confidence fields.
+5. structuredclone remainder (UpdateFloor/CeilingBoundaryCommand ~10 uses — rewrite or accept).
+6. The `partOf` ADR (unit containment made the mid-session disagreement louder).
+
+### §11.4 — NEXT SESSION, IN ORDER
+1. VERIFY the last close-out commits (L-PREDFAM families, L-HBANNER toast) — `git log` since
+   `2b7737bb`, re-run their gates; treat claims as suspect.
+2. RECOUNT + restamp (founder direction first). Strike A5/A6 citing `5b36fad5`.
+3. **DEPLOY** (§7 verbatim; BOTH npipe halves; bundle proof reads VALUES). Then §11.5.
+4. Re-weld dispatch wiring (solo lane; engine init is shared-dangerous).
+5. Bar 3 by family (next: the refusal-BLOCKED 36 via SemanticGraph readers, or the slab.move
+   family); PryzmEventMap extension; drain 73→; dark-runner scope call (57 files).
+
+### §11.5 — BROWSER CHECKS FOR THE FOUNDER (post-deploy)
+> 🚀 LIVE — hard-refresh first:
+> 1. **Move a wall carrying a floor finish/ceiling** — it now ACTUALLY re-projects (mesh + area),
+>    once. The §10.2b false green is real code (`5b36fad5`).
+> 2. **Generate a residential building** → Data F3 → Hierarchy: rooms grouped under UNITS; no
+>    "Unassigned rooms on Level 01" for apartment rooms (corridor/core correctly stay unassigned).
+> 3. **Generate a house that seals rooms** — a BLOCKING banner names them; no silent success toast.
+> 4. **Force a furnish failure/timeout** — lighting completes with WARN "computed WITHOUT
+>    furniture: <reason>"; no double fixtures on slow furnish.
+> 5. **Known NOT fixed**: walls still do not re-mitre after a neighbour moves — the engine exists
+>    (`81e35360`), the dispatch wiring does not. Expected; say so if asked.
