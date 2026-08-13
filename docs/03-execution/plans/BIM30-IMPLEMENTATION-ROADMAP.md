@@ -752,6 +752,46 @@ Phase 0R  ─►  Phase 1  ─►  Phase 2 (MT-01 wall/slab/room only)  ─►  
               one suite
 ```
 
+---
+
+### §3.1 — ⚠ THREE DIFFERENT BARS, AND THIS ROADMAP ONLY SEQUENCES THE FIRST
+
+Added 2026-08-13, because the founder asked *"how do I know this works 100 %, for every element,
+not just walls?"* — and **no section of this document answered it.** The §3 definition above is
+the narrowest of three bars, and quoting it as "BIM 3.0 is closed" is C70 §8.i.
+
+| # | Bar | What it means | Owner | Status |
+|---|---|---|---|---|
+| **1** | **CI gate closed** | Every C70 §7 gate exists, in one suite, establishes its subject, exits 0/1 at a named ledger, watched go red | §3 above | near — Phase 9's CE-02 landed 2026-08-13 |
+| **2** | **Definition of Done** | C70 §6's eight conditions: ratchets at 0, the 8 golden operations holding their **entire** chain, the ladder to L8 | [C70](../../02-decisions/contracts/C70-BIM30-TARGET-AND-GOLDEN-CHAIN.md) §6 | 1 of 8 met; L7/L8 founder-blocked |
+| **3** | **UNIVERSAL — every element** | **C78 §19.1's no-partial-credit applied ACROSS the `element × relationship × operation` product**, not along one chain | [C78](../../02-decisions/contracts/C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) §19.1, §20 U-INV-1 | **UNMEASURED — its gate does not exist** |
+
+> **C78's own words, and the load-bearing sentence for this whole program:** C70 §3.2's
+> no-partial-credit applies *along a chain*; **C78 §19.1 applies the same rule across the
+> product** — and **"Neither may be satisfied by the other."**
+
+**Bar 3 is the founder's question, and it is not on the critical path above.** It has one
+instrument: **`check-relationship-determination` (C78 §20, U-INV-1)** — a NAMED GAP, **no file at
+HEAD, measured 2026-08-13**. Until it exists, "every element works" is a claim no artefact in this
+repository can support, and per C70 §0.1 the honest word is **UNPROVEN**.
+
+**What it must do** is specified in
+[BIM30-MASTER-COMPLETION-TRACKER.md](BIM30-MASTER-COMPLETION-TRACKER.md) §-3: enumerate the product
+from the registries (exit 2 if it cannot establish that denominator), require every cell to be
+DETERMINED-affected / DETERMINED-unaffected / **UNDETERMINED-with-a-typed-reason** — an honest
+refusal is a **pass**, silence is a failure — carry a named shrink-only ledger, and land RED.
+
+**It became buildable on 2026-08-13** and was not before: the 2026-08-12 audit's blocker C.1
+(*"`ConsequencePlanner<WallMoveCommand>` is hard-bound — no second family can register; everything
+else waits behind this"*) is **dead** — the map now types `ConsequencePlanner<never>` and three
+families are registered. A universal gate finally has something real to iterate over instead of one
+family and a wall of N/A.
+
+> **Sequencing note.** Bar 3 does not replace Phases 0R–9; it is what those phases were *for*. The
+> phases build the instruments; bar 3 is the instrument that measures whether the capability
+> generalised. **Add `check-relationship-determination` to Phase 1's gate wave** — it is a gate, it
+> lands red, and it is the only row in this document that can ever answer the founder's question.
+
 **Four links, and each is a floor, not a preference:**
 
 1. **0R before 1** — two of Phase 1's gates carry arms that Phase 0R specifies; a host gate merged
