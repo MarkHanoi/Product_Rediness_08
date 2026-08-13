@@ -187,6 +187,16 @@ export class FurnishLayoutExecutor {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };
+        // §FURNISH-DROP-SURFACING — the emitted payload carries `outcome` (and a
+        // possibly-absent levelId on failure paths), which is AHEAD of the
+        // `PryzmEventMap['furnish.layout-executed']` typing in
+        // packages/runtime-composer/src/types.ts. Extending that map is outside
+        // this lane's territory (L-CHAIN); until it lands, emit through the same
+        // untyped narrowing this file already uses for `.on` subscriptions.
+        const emitExecuted = (payload: unknown): void => {
+            (runtime.events as unknown as { emit?: (k: string, p: unknown) => void } | undefined)
+                ?.emit?.('furnish.layout-executed', payload);
+        };
         try {
             // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): furnish the EXPLICIT
             // level when the driver supplied one (all-floors path); else the
@@ -200,7 +210,7 @@ export class FurnishLayoutExecutor {
                 // emitted, so the §CHAIN-TIMEOUT waiter downstream could never
                 // be satisfied (L-716 class: unsatisfiable gate). Emit the
                 // dropped outcome so the chain advances WITH the fact.
-                runtime.events.emit('furnish.layout-executed', {
+                emitExecuted({
                     placedCount: 0, roomCount: 0, roomsFurnished: 0, roomsSkipped: 0,
                     levelId: explicitId, validationWarnings: [], skipped: [],
                     outcome: {
@@ -223,7 +233,7 @@ export class FurnishLayoutExecutor {
                 // even on the no-rooms path so the all-floors driver ADVANCES
                 // immediately (instead of waiting out the 12 s per-storey timeout)
                 // and records this level as a skip with a clear reason.
-                runtime.events.emit('furnish.layout-executed', {
+                emitExecuted({
                     placedCount: 0, roomCount: 0, roomsFurnished: 0, roomsSkipped: 0,
                     levelId: level.id, validationWarnings: [],
                     skipped: [{ roomId: '', reason: 'no rooms on level' }],
@@ -482,7 +492,7 @@ export class FurnishLayoutExecutor {
                     '(generate the layout, or ensure rooms carry a recognised name).',
                 );
                 toast('No furniture placed — rooms have no recognised occupancy type. See console.', 'warn');
-                runtime.events.emit('furnish.layout-executed', {
+                emitExecuted({
                     placedCount: 0, roomCount: allRooms.length,
                     roomsFurnished: 0, roomsSkipped, levelId: level.id,
                     validationWarnings: [],
@@ -542,7 +552,7 @@ export class FurnishLayoutExecutor {
                 // this return placed ZERO furniture and never emitted, so the
                 // §CHAIN-TIMEOUT fallback fired lighting 12 s later with no
                 // fact attached. Emit the drop WITH its reason instead.
-                runtime.events.emit('furnish.layout-executed', {
+                emitExecuted({
                     placedCount: 0, roomCount: allRooms.length,
                     roomsFurnished: 0, roomsSkipped, levelId: level.id,
                     validationWarnings: [], skipped: [...skipped],
@@ -572,7 +582,7 @@ export class FurnishLayoutExecutor {
                     skipped.map(s => `${s.name ?? s.roomId}(${s.reason})`).join('; '),
                 );
             }
-            runtime.events.emit('furnish.layout-executed', {
+            emitExecuted({
                 placedCount: set.commands.length,
                 roomCount: allRooms.length,
                 roomsFurnished: roomsProcessed,
@@ -597,7 +607,7 @@ export class FurnishLayoutExecutor {
             // surfacing: emit the dropped outcome so the chain waiter is
             // satisfied and the drop reason travels with the event.
             try {
-                runtime.events?.emit('furnish.layout-executed', {
+                emitExecuted({
                     placedCount: 0, roomCount: 0, roomsFurnished: 0, roomsSkipped: 0,
                     levelId: opts?.levelId, validationWarnings: [], skipped: [],
                     outcome: {
