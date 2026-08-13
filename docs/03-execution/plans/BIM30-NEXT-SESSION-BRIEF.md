@@ -216,6 +216,41 @@ last session.
 
 ---
 
+## §8 — THE DOCUMENT MAP (every reference, one place)
+
+### Read these — the program
+| Doc | What it is | When |
+|---|---|---|
+| **THIS FILE** | the plan and the opening prompt | first, always |
+| [BIM30-MASTER-COMPLETION-TRACKER](BIM30-MASTER-COMPLETION-TRACKER.md) | **§-3 the 100 % bar · §-2 the matrix · §-1 the first fix · §1 the counted figure** | first, always |
+| [BIM30-IMPLEMENTATION-ROADMAP](BIM30-IMPLEMENTATION-ROADMAP.md) | phases 0R–9 + F; **§3.1 the three bars** | when sequencing |
+| [BIM30-GAP-REGISTER](../../04-reference/BIM30-GAP-REGISTER.md) | **the 82 rows and their Status column** — the denominator | for the recount |
+| [BIM30-READINESS-GATES](../../04-reference/BIM30-READINESS-GATES.md) | per-gate BUILT / SPECIFIED-NOT-BUILT | when building a gate |
+| [BIM30-DISPOSITION-DOCKET](../../04-reference/BIM30-DISPOSITION-DOCKET.md) | the only dated CLOSED/EXECUTED rows | when checking history |
+| [ISSUE-LOG](../../04-reference/ISSUE-LOG.md) | L-NNN findings — **latest L-847** | append every founder-reported bug |
+| [BIM30-CERTIFICATION-PLAN](BIM30-CERTIFICATION-PLAN.md) | the harness, verdicts, exit-code order | when touching certify |
+| [BIM30-REASONING-LOOP-PLAN](BIM30-REASONING-LOOP-PLAN.md) | R0–R9 + the golden-operation matrix | when opening a matrix row |
+
+### The contracts — open only the § you are changing
+`C70` target/chain/exit-codes · `C78` universal relationships **(the 100 % bar)** · `C79` regions ·
+`C80` generation · `C71` graph · `C72` propagation · `C73` geometry determinism · `C74` constraint
+honesty · `C75` provenance · `C67`/`C68` chat reachability *(mandatory for any new bus command)* ·
+`C16` command authoring · `C11` creation pipeline · `C15` hosted elements · `C03` what a command is.
+All at `docs/02-decisions/contracts/`. **The index is `contracts/README.md` — it is the authority
+on the suite, which is C01–C68 plus C70–C80.**
+
+### ⚠ Contracts NOT digested in §1, and what that means
+§1 digests **C67–C80 only** — those were read in full. **C01–C66 have NOT been read** in the
+session that produced this brief; what is known of them comes from `CLAUDE.md`'s summary, which has
+been **measurably wrong before** (it claimed the suite was C01–C15 when it was C01–C68, and claimed
+a CI enforcement that did not exist). **Before changing anything governed by C01–C66, open that
+contract.** Do not infer its content from this brief.
+
+### The deploy path
+[DEPLOY-CONTRACT-MANUAL-FLY](../../02-decisions/DEPLOY-CONTRACT-MANUAL-FLY.md) — see §7 below.
+
+---
+
 ## §7 — DEPLOY (contract: `docs/02-decisions/DEPLOY-CONTRACT-MANUAL-FLY.md`)
 
 1. §6 cover **before** deploying: root tsc (with the memory flag), `check:isolation`,
