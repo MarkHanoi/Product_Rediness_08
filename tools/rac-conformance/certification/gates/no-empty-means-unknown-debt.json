@@ -303,7 +303,20 @@
     "render ? with a named note instead of zeros. Determined-empty keeps the",
     "original pixels, isolation diagnosis included. Differentiating spec:",
     "apps/editor/src/ui/__tests__/roomNeighboursHonesty.spec.ts (5 cases, negative",
-    "control incl.) — the no-array case FAILS against the ?? [] shape."
+    "control incl.) — the no-array case FAILS against the ?? [] shape.",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 80 -> 79) — houseModalHtml.ts, ARM C x1, a",
+    "DEAD default: computeEntranceReach guards with",
+    "every(r => Array.isArray(r.doorAdjacentTo)) and returns null (reach",
+    "UNDETERMINED — the isolation verdict is skipped) when any door graph is",
+    "unrecorded, so the flagged r.doorAdjacentTo ?? [] below it could never fire.",
+    "It was, however, exactly the line that would silently reintroduce the",
+    "unknown-to-empty collapse if the guard were ever weakened. The default is",
+    "replaced with a non-null assertion + comment, and the guard is now PINNED:",
+    "apps/editor/src/ui/__tests__/houseModalCirculationHonesty.spec.ts (3 cases)",
+    "asserts an UNRECORDED door graph never produces \"isolated from the",
+    "entrance\" while a DETERMINED zero-door room still does — the assertion fails",
+    "against any shape that defaults an absent door list to []."
   ],
   "swallowed": [
     {
@@ -395,11 +408,6 @@
       "site": "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
       "arm": "C (2 site(s))",
       "why": "C@271 `windowCountByWall[w.id] = (w.openings ?? []).filter(o => o.type === 'window').length;` · C@273 `if (!entranceWallId && (w.openings ?? []).some(o => o.type === 'door')) entranceWallId = w`"
-    },
-    {
-      "site": "apps/editor/src/ui/house-layout/houseModalHtml.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@688 `for (const n of (r.doorAdjacentTo ?? [])) {`"
     },
     {
       "site": "apps/editor/src/ui/inspect/audit/ElementTypeSelectorZone.ts",

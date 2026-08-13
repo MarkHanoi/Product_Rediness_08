@@ -685,7 +685,13 @@ function computeEntranceReach(storeyRooms: readonly LayoutRoom[]): Set<string> |
     const idxByName = new Map(storeyRooms.map((r, i) => [r.name, i] as const));
     const adj: number[][] = storeyRooms.map(() => []);
     storeyRooms.forEach((r, i) => {
-        for (const n of (r.doorAdjacentTo ?? [])) {
+        // §GR-10 (C75 §1.4) — no `?? []` here: the every()-guard above has
+        // already REFUSED (returned null — reach undetermined) when any room's
+        // door graph is unrecorded, so by this line every list is a present
+        // array. A default would silently reintroduce the unknown→empty
+        // collapse if the guard were ever weakened; the non-null assertion
+        // makes that weakening a visible decision instead.
+        for (const n of r.doorAdjacentTo!) {
             const j = idxByName.get(n);
             if (j != null && j !== i) { adj[i]!.push(j); adj[j]!.push(i); }
         }
