@@ -28,8 +28,7 @@
     "apps/editor/src/ui/site/designMeasurement.ts:329::point-in-polygon": "none",
     "apps/editor/src/ui/site/parcel/footprintPick.ts:21::point-in-polygon": "|| 1e-12",
     "apps/editor/src/ui/site/parcel/parcelConfidence.ts:87::point-in-polygon": "|| 1e-12",
-    "apps/editor/src/workers/solarCodec.ts:188::point-in-polygon": "none",
-    "plugins/annotations/src/commands/CreateElevationMarkCommand.ts:55::point-in-polygon": "|| 1e-9"
+    "apps/editor/src/workers/solarCodec.ts:188::point-in-polygon": "none"
   },
   "c2": 0,
   "c3": [

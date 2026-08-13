@@ -10,6 +10,7 @@ import {
     CommandResult, SerializedCommand, CommandContext,
 } from '../legacy-command-protocol';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
+import { pointInPolygonXZ } from '@pryzm/plugin-sdk';
 import { viewDefinitionStore as viewDefinitionStoreSingleton } from '@pryzm/core-app-model';
 import { viewIntentInstanceStore as viewIntentInstanceStoreSingleton } from '@pryzm/core-app-model';
 import type { ViewSpatialContext, ViewSectionVolume } from '@pryzm/core-app-model';
@@ -48,17 +49,11 @@ function polygonArea(polygon: Array<{ x: number; z: number }>): number {
     return Math.abs(sum) / 2;
 }
 
+// §C73-PIP-CANONICAL — delegates to THE kernel ray cast via the SDK facade
+// (the `|| 1e-9` guard the local copy carried was dead code: the straddle test
+// makes the divisor structurally nonzero).
 function pointInPolygon(x: number, z: number, polygon: Array<{ x: number; z: number }>): boolean {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const pi = polygon[i]!; const pj = polygon[j]!;
-        const crosses = (pi.z > z) !== (pj.z > z);
-        if (crosses) {
-            const xAtZ = ((pj.x - pi.x) * (z - pi.z)) / ((pj.z - pi.z) || 1e-9) + pi.x;
-            if (x < xAtZ) inside = !inside;
-        }
-    }
-    return inside;
+    return pointInPolygonXZ(x, z, polygon);
 }
 
 function nearestRayPolygonHit(origin: { x: number; z: number }, dir: { x: number; z: number }, polygon: Array<{ x: number; z: number }>): number | null {

@@ -335,6 +335,12 @@ export {
   evaluateCondition,
   resolveElementInstructions,
   produceSectionCut,
+  // §C73-PIP-CANONICAL — THE point-in-polygon, surfaced through the SDK facade
+  // so a plugin never mints a private ray cast (and never needs a direct
+  // kernel import — an SDK bypass — to avoid minting one).
+  pointInRingEvenOdd,
+  pointInPolygonXZ,
+  pointInPolygonXY,
 } from '@pryzm/geometry-kernel';
 
 export type {
