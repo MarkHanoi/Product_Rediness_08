@@ -375,6 +375,14 @@
       "territory": "docs/02-decisions/adrs/ADR-0319-audit-fields-are-derived-not-authored.md (the classification decision) and tools/rac-conformance/certification/capture.ts (the enforced lists, once the ADR decides). NOT fixable inside the gate: the gate MEASURES the classification, it does not author it. Deliberately NOT touched by this lane: the persistence cert suite and its comparator, which are at 0 FAILED and owned elsewhere.",
       "exitCondition": "TWO conditions, and the first alone is NOT sufficient. (1) classification-ledger.json reaches 0 entries — i.e. ADR-0319 assigns metadata.createdBy a class AND that class is added to the corresponding enforced list in capture.ts (never by deleting the ledger line). (2) The class-1 population acquires an ENFORCEMENT mechanism — a type, a schema brand, or a runtime check that marks a field AUTHORITATIVE — so that \"every field carries its class\" stops resting on the unlisted-implies-class-1 convention. C70 §7’s exit condition (\"every field carries its ADR-0319 class and the class is ENFORCED, not documented\") is UNMET until BOTH hold, and the gate says so on every run even at zero ledger entries.",
       "reviewBy": "2026-11-12"
+    },
+    {
+      "gate": "check-no-dark-test-files.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-13",
+      "builtBy": "L-849 follow-through (lane L10) - C70 4.2 authored-but-unreachable applied to the instruments; sibling axis to scripts/check/check-test-ci-coverage.mjs",
+      "firstReading": "exit 1 DECLARED-LEVEL - 137 dark test files against a named ledger of 137 (132 no-runner, 2 excluded-by, 3 compiled-artefact), measured over 2,043 test files x 163 runners. Watched red in both directions: a planted package-root .test.ts exits 3 named by exact path; a bogus ledger row exits 3 STALE. Clean fixture repo reads 0 findings every run (green REACHABLE, L-716).",
+      "pinnedTo": "tools/ga-gate/dark-test-files-ledger.json - 137 named rows, shrink-only, checked in both directions. Exit condition: the ledger reaches 0 (every test file matched by at least one runner include, or explicitly quarantined beside a comment naming its failure)."
     }
   ]
 }

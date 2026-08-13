@@ -274,6 +274,18 @@ const GATES: Gate[] = [
   // Carries a gate-newly-measured.json entry, NOT gate-debt.json: its findings
   // predate it and nobody chose to ship them.
   { name: 'graph-write-coverage (C71 §6 · C-INV-1/4)', script: 'check-graph-write-coverage.ts' },
+  // L-849/L-851 (2026-08-13) — every test file must be matched by at least one
+  // runner's include globs. Born from two measured incidents the same day: a
+  // geometry-lift suite that had NEVER run (L-849, 11 recovered tests) and the
+  // repo-wide sweep it demanded, which found 147 dark files — including 72
+  // specs (~1,140 cases) pointed at by this repo's own ROOT vitest config via
+  // two founding patterns naming a directory that no longer exists (L-851).
+  // Lands RED at a NAMED shrink-only 137-row ledger checked in both directions,
+  // with planted/clean fixture repos exercised INSIDE every run (exit 2 as a
+  // blind comparator if an arm stays silent) and a demonstrated exit-0 state
+  // (L-716). Scope printed in its own output: GLOB REACHABILITY, not CI
+  // invocation — scripts/check/check-test-ci-coverage.mjs owns that axis.
+  { name: 'no-dark-test-files (C70 §4.2 · L-849/L-851)', script: 'check-no-dark-test-files.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];

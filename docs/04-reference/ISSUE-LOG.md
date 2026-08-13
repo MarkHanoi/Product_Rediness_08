@@ -1997,3 +1997,35 @@ that lane's brief.** Logged so the pins cannot be mistaken for endorsements.
 **Where the pins live**: `packages/constraint-solver/__tests__/ConstraintEngine.physics.test.ts` +
 `ConstraintEngine.spatial.test.ts` — the fixtures document current behaviour; changing the rules
 will rightly fail them, which is the pin doing its job. **Fix and re-pin in the same commit.**
+
+## L-851 — THE ROOT VITEST CONFIG'S TWO FOUNDING PATTERNS POINT AT A DIRECTORY THAT DOES NOT EXIST
+
+**2026-08-13, found by the L10 dark-test sweep (the repo-wide generalisation L-849 demanded).**
+
+**Measured**: the root `vitest.config.ts` opens with `'src/ui/__tests__/**/*.spec.ts'` and
+`'src/ui/toolbar/__tests__/**/*.spec.ts'` — repo-root-relative — and **repo-root `src/ui/` does not
+exist**. The tree moved to `apps/editor/` and the two *founding* include patterns were never
+repointed; every later entry carries the `apps/editor/` prefix. Consequence: **72 spec files
+(~1,140 test cases) under `apps/editor/src/ui/{__tests__/binding, toolbar/__tests__}` have never
+run** — in the config CI invokes as `test-root`. This is L-849 at ~6× scale, in the flagship suite.
+
+**The sweep's full census** (2,043 test files × 163 runners): **147 dark files** before the pass,
+**137 after** — nine green suites enabled (+115 tests: geometry-kernel +84, plugins/wall +12,
+plan-view +5, geometry-furniture +6, room-topology +8, apps/editor rendering +8, per-suite
+measured-dark-then-measured-green before every enablement), five RED suites REFUSED and quarantined
+beside comments naming their failures (headline: `roomPredicates.test.ts` — **ADR-0315 U2.2 typed
+predicates are unverified and always have been**; its fixtures predate `RoomDataAddSchema`).
+Also: 57 files under `tests/{parity,visual-diff,contract-44,ci,playwright}` belong to NO runner at
+all — 5 red in isolation, 24 snapshots written on first run; needs a runner **created**, a founder
+scope call. And `packages/webhooks` has stale compiled `.js` test output CHECKED IN beside its
+green `.ts` twins — red where the source is green; stop committing build output.
+
+**Gate**: `tools/ga-gate/check-no-dark-test-files.ts`, registered in `run-all.ts` +
+`gate-newly-measured.json` (this commit) at a 137-row shrink-only ledger, watched red in both
+directions, exit-0 state demonstrated.
+
+**Remaining fix, deliberately NOT done mid-session**: measure the 72 `src/ui` specs green in
+isolation FIRST, then repoint the two root patterns — never repoint blind; 72 never-run suites may
+contain real red, and enabling red without measuring it is how a gap becomes a broken build.
+(Numbering note: L10's commit subjects cite "L-850" for this work — that number was already taken
+by the constraint-defect entry above; the canonical number for the dark-test findings is L-849/L-851.)
