@@ -2029,3 +2029,18 @@ isolation FIRST, then repoint the two root patterns — never repoint blind; 72 
 contain real red, and enabling red without measuring it is how a gap becomes a broken build.
 (Numbering note: L10's commit subjects cite "L-850" for this work — that number was already taken
 by the constraint-defect entry above; the canonical number for the dark-test findings is L-849/L-851.)
+
+## L-852 — PRE-DEPLOY GATE COVER, 2026-08-13 session end: ALL GREEN, deploy READY-NOT-RUN
+
+Cover per DEPLOY-CONTRACT-MANUAL-FLY §6, all executed this session end at HEAD ≥ 77372664:
+root tsc (NODE_OPTIONS=--max-old-space-size=6144) **exit 0, 0 errors** · `check:isolation` **exit 0**
+(41/41 baseline) · `test:server` **613/613**. Gate suite stale-free: move-propagation 3/3 ·
+no-empty 85/85 · prevstate hard-0 · room-aabb CLEAN · predicate-canonical 7/7 · constraint-honesty
+2/2 · xss exit 0 · plan-determinism exit 0 · deterministic-regeneration 134/134 (re-anchored).
+
+**The deploy itself was NOT run** — session context exhausted; a deploy interrupted mid-flight is
+worse than one not started (§6.6.5 delivery-failure handling needs an operator). It is the FIRST
+action of the next session: §7 steps 2-5 (builder VM check → script with only
+DOCKER_CONFIG=/tmp/empty-docker-config → fly-bundle-proof reading VALUES → reference-deploy on
+delivery failure). The deployed build (`aa219a31`) predates EVERY fix in this session — browser
+verification of the slab-follows-wall fix and the L-847 model tree stays UNPROVEN until then.
