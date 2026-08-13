@@ -31,6 +31,34 @@
 
 ---
 
+## 🔴 §-1 — THE FINDING THAT OUTRANKS EVERYTHING BELOW (2026-08-13)
+
+> **The founder's original question — *"closed polyline of walls → slab by region → move a wall —
+> does the slab follow?"* — is ANSWERED. It does NOT follow. And the cause is a two-word bug.**
+
+Measured by an executed probe (`packages/geometry-slab/__tests__/c79MovePropagation.test.ts`), which
+first proved it could *detect* a non-following slab before being trusted (C74 §3.4).
+
+| § | Measured |
+|---|---|
+| §1 | **The re-projection MATH is correct.** The production sketch→polygon path tracks a moved centreline exactly, and is idempotent and order-independent. |
+| §2 | **A slab created after the tracker is wired NEVER re-projects — 0 rebuilds.** Positive control: the same harness *does* observe a rebuild after `tracker.bootstrap()`. |
+| §2 | **ROOT CAUSE, pinned:** the store emits `{ id }`; **all three tracker listeners read `{ slab }` / `{ slabId }`.** An event-shape mismatch. |
+| §4 | The mesh follows; **the stored polygon does not** — the sketch resolves to 36 m² while `slab.polygon` still says 24 m². |
+| §5 | **Finish references are CORRECT and read by NOTHING.** Structural: the finish edge uses `{x,z}`; the only resolver in the tree returns `{x,y}`. |
+| §3 | **C79 §5.2's five states are NOT distinguishable** — `preserved` and `undetermined` are **byte-identical**, the §5.2.1 FORBIDDEN COLLAPSE, executed. |
+
+**What this means, stated plainly:** today's work made **11 of 11 region paths carry correct host
+references at creation** — and *almost nothing consumes them at move time*. The reference graph is
+real, the maths is right, and the wire between them is cut. This is C70 §4.2's *machinery present ≠
+capability reachable*, at the centre of the product's core promise.
+
+**Why this is good news:** the cause is small, named, and pinned by a test. It is a listener
+payload-shape fix, not a redesign. **This is the highest-value single fix available in the
+program** and should be the first work of the next session.
+
+---
+
 ## §0 — How to read this file
 
 **Three states, never collapsed** (C70 §2.2): **PASS** = executed evidence it works ·
@@ -80,7 +108,7 @@ blended percentage hides exactly that distinction, which is why §1 carries two 
 | Element kinds purging relationships on delete | **9 of 19** | `check-graph-delete-integrity`: 20 → **10** findings (`ca0a7ce3`, `86776ddf`, `7546ce0f`, `19825e25`, `76d42dd9`, `03e93609`) |
 | Gates at exit 3 (never absorbable, C70 §5.1) | **9 → 0** | `96939dd4`, `719452a7`, `a0fedd87`, `e45752e4`, `89623324` + plant-debris removal |
 | Dependency indexes that can genuinely refuse | **1 of 10** | `check-index-can-refuse` (`6d87f324`), 9 findings |
-| Relationship families with writer **and** typed reader | **9 of 25** | `check-graph-write-coverage`, 5 findings |
+| Relationship families with writer **and** typed reader | ✅ **8 of the REQUIRED 9** | `check-graph-write-coverage` exit 1 at **2/2** (was 5). Only `partOf` shows ✗, and it is **DECLINED not deferred** — a 36-reader census found no consumer, and C71 §2.5 forbids writer-first unparking without an ADR naming the first consumer |
 | Files returning `[]` to mean "could not determine" | **105 files** | `check-no-empty-means-unknown` (`3fd164a1`) |
 | Element kinds carrying provenance | ✅ **27 adopted; ledger 28 → 1** | `check-provenance-coverage` [1] at 1/1. ⚠ **`27 covered ≠ provenance populated`** — every kind defaults to `predates-provenance`, which is honest and empty. **Instrumenting the producers is the real work** and is C75 §6.3(b)'s recorded blind spot |
 
@@ -323,8 +351,8 @@ never silently rewritten; `check-provenance-coverage` reaches its per-kind targe
 
 | # | Sub-phase | Rows | Status |
 |---|---|---|---|
-| F.1 | GEN-GAP-1 `room.regenerate` as a bus verb (v1 refuses honestly) | — | 🔄 **IN FLIGHT** |
-| F.2 | `check-generation-is-consequential` gate | — | 🔄 IN FLIGHT |
+| F.1 | GEN-GAP-1 `room.regenerate` as a bus verb (v1 refuses honestly) | — | ✅ **DONE** (`59187a0b`) — refuses as a **VALUE on `HandlerResult.refusal`, not a throw**, because `canExecute({valid:false})` throws and a throw is exactly what C80 §10.f's `catch {}` swallows. Zero mutations proven three independent ways through a real bus over a real `RoomStore`. `protects` names the `manual-boundary` rooms and cites GEN-GAP-2 |
+| F.2 | `check-generation-is-consequential` gate | — | ✅ **DONE** (`ee93de31`) — **C80 §1's exit condition MET: 1 generation verb discovered, was 0.** The audit found one detector (`produceCommand`) that had never been watched fail: the claim was arm-grain, so a fourth forbidden shape inside arm (b) read as tested while being UNPROVEN (C74 §6.2). Driven, and given its own row |
 | F.3 | GEN-GAP-2 authority: `may` / `protected` / `unknown-authority` per element | — | ⬜ TODO — blocks on **E.5** |
 | F.4 | GEN-GAP-3 prior-run discovery (what did the last run produce?) | — | ⬜ TODO — blocks on F.3 |
 | F.5 | The double defect: clear is too aggressive **and** too narrow | — | ⬜ TODO |
@@ -456,6 +484,46 @@ a solve it did not perform.*
 | 08-13 | `221fdef7` | CE-02: Geometry axis has an executed subject | A.9 |
 
 ---
+
+## §8 — NEXT SESSION STARTS HERE (handoff, 2026-08-13, 63 commits)
+
+### Do these first, in this order
+
+1. **🔴 Fix the move-propagation wire (see §-1).** The store emits `{ id }`; all three
+   `SlabDependencyTracker` listeners read `{ slab }` / `{ slabId }`. Pinned by
+   `packages/geometry-slab/__tests__/c79MovePropagation.test.ts`. **Highest-value single fix in the
+   program** — it is what makes "move a wall, the slab follows" true. Also fix the finish-edge
+   `{x,z}` vs resolver `{x,y}` mismatch (§5 of that probe).
+2. **Then re-run the probe** and watch §2 flip from *"0 rebuilds"* to a rebuild. That is the
+   founder's question turning green on executed evidence.
+3. **Then C79 §5.2's five states** — `preserved` and `undetermined` are currently byte-identical,
+   which is §5.2.1's FORBIDDEN COLLAPSE. The re-derivation returns no state at all.
+4. **Then RECOUNT the register** (`docs/04-reference/BIM30-GAP-REGISTER.md`) — it is status-bearing
+   as of `c0a1785c` but predates ~40 commits. **Do not increment the headline by hand** (§0.3).
+
+### Known-good state at handoff
+
+- **Root tsc: 0 errors.** ⚠ It **needs `NODE_OPTIONS=--max-old-space-size=6144`** — without it the
+  compiler can **exit 0 while OOM-ing**, i.e. report a false green. Always pass the flag.
+- **XSS: exit 0**, baseline tightened. Three sinks introduced by our own R5/R6 UI were closed; the
+  `data-plan-hash="${…}"` one could **mint event handlers on the Confirm button**.
+- Suites: command-bus 73/73 · command-registry 386/386 · core-app-model 801/801 ·
+  room-topology 145/145 · schemas 1555 pass (3 **pre-existing** failures: water round-trip ×2 —
+  a deliberate ADR-0124 refine, and view-template `detailLevel` ×1).
+- **Not deployed.** Everything is local. Deploy gates are green *except* that the founder question
+  above is answered NO, which is a product-honesty reason to fix first and ship after.
+
+### Traps this session hit — do not re-learn them
+
+- **`git commit` without `-- <paths>` takes the WHOLE shared index**, including other lanes' staged
+  files. It happened twice (once to me). **`git commit --amend` is worse — it swallowed 31 files.**
+  Always `git commit -F msg -- <explicit paths>`.
+- **A lane going silent while holding uncommitted work is the default failure mode**, not the
+  exception. Poll lanes by **file mtime and commits**, never by launch records.
+- **Verify inherited work by execution, never by its author's report.** Two examples this session:
+  a provenance abstraction that made its field **invisible to the gate measuring it** (27 kinds
+  covered, gate read `NONE`), and a ledger row **struck as PAID on a free-text string** in a suite
+  that never reaches the engine.
 
 ## §7 — Anti-patterns for this file
 
