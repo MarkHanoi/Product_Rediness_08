@@ -17,6 +17,7 @@
  */
 
 import { createId } from '@pryzm/schemas';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 // §FIX-CEILING-INNER-FACE-PARITY (2026-08-06) — the SAME canonical inner-face derivation
 // the floor plan tool (L-213) and the floor/ceiling command chokepoints use, so an
 // AUTO-from-room ceiling sits inside the walls (not on their centreline) regardless of
@@ -368,17 +369,9 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         });
     }
 
+    // §C73-PIP-CANONICAL — delegates to THE kernel ray cast.
     private _pointInPolygon(pt: { x: number; z: number }, polygon: Array<{ x: number; z: number }>): boolean {
-        let inside = false;
-        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-            const xi = polygon[i].x, zi = polygon[i].z;
-            const xj = polygon[j].x, zj = polygon[j].z;
-            const intersect =
-                (zi > pt.z) !== (zj > pt.z) &&
-                pt.x < ((xj - xi) * (pt.z - zi)) / (zj - zi) + xi;
-            if (intersect) inside = !inside;
-        }
-        return inside;
+        return pointInPolygonXZ(pt.x, pt.z, polygon);
     }
 
     private _commit(): void {
