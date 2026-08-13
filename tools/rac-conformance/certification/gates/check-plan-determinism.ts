@@ -54,6 +54,29 @@
 //   elsewhere) must produce different planHashes, proving the sensitivity arms
 //   are capable of seeing a difference at all.
 //
+// ─── WHAT IS SHARED BETWEEN FAMILIES, AND WHAT IS DELIBERATELY NOT ───────────
+// `compareRuns` / `Verdict` / `sleep` are the only machinery both harnesses use,
+// and they are family-AGNOSTIC by construction: they take two `Plan`s and compare
+// bytes and hashes. Nothing else is shared, on purpose.
+//
+// Everything else in the move harness is wall-MOVE-shaped and would smuggle
+// move assumptions into any family that inherited it: `freshWorld`/`makeRoom`
+// exist to give `predictRoomGeometry` a room whose `boundingWallIds` ALREADY
+// contains the subject wall (the create planner cannot use that predictor at
+// all — WallCreateConsequencePlanner.ts's header explains why); `scripted()`/
+// `R1`/`R1_SHEARED` script a ROOM-GEOMETRY PREDICTOR, a seam `wall.create` does
+// not have; `areaValidator` fires on a room area the create planner structurally
+// cannot move (its after-clone carries rooms UNCHANGED, by design). So the create
+// harness builds its OWN world, its OWN command and its OWN injected doubles.
+// That is duplication of ~40 lines of fixture, and it is the correct trade: a
+// shared `buildService` generalised over both families would have to be
+// parameterised by predictor-vs-resolver, room-vs-junction and move-vs-add
+// validator shapes, at which point the "shared" helper is a union of two
+// families that a THIRD (opening.move, room.regenerate — the next matrix rows)
+// would inherit wall-shaped defaults from silently. C70 §5.3's reasoning applied
+// to test machinery: a harness that is easy to add a row to by copying a wall
+// fixture is how a non-wall planner gets certified against wall assumptions.
+//
 // The gate's own output is deterministic: no timestamp, no random, no absolute
 // path prints below — two runs of this file are byte-identical.
 //
@@ -66,8 +89,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reportGate, type GateResult, type Floor } from '../contract.js';
 import { WallMoveConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallMoveConsequencePlanner.js';
+import { WallCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallCreateConsequencePlanner.js';
 import { ConsequencePreviewService } from '../../../../apps/editor/src/engine/consequence/ConsequencePreviewService.js';
 import { predictRoomGeometry } from '../../../../packages/room-topology/src/predictRoomGeometry.js';
+import { resolveJunctionsWithRecords } from '../../../../packages/geometry-wall/src/JunctionResolverV2.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '../../../..');
@@ -390,8 +415,321 @@ async function wallMoveHarness(): Promise<{ floors: Floor[]; lines: string[]; fi
   return { floors, lines, findings };
 }
 
+// ─── wall.create · the SECOND family ──────────────────────────────────────────
+//
+// The move harness above is not transcribable to create, and the gate must not
+// pretend otherwise. `wall.move` reasons about a wall that EXISTS: it reads a
+// RETAINED joinedTo index by id, and it runs `predictRoomGeometry`, which
+// `continue`s past any room whose `boundingWallIds` does not already list the
+// subject wall. A wall that does not exist yet is in no index and no room's
+// membership, so BOTH of the move harness's principal seams answer nothing for a
+// create. Reusing its fixtures would have produced a harness that runs, prints
+// green, and exercises the empty branch of every arm.
+//
+// So the create world and the create arms are built from the create planner's
+// OWN seams (WallCreateConsequencePlanner.ts, "Injected collaborators"):
+//
+//   resolveJunctions  the PURE `resolveJunctionsWithRecords` — the REAL one from
+//                     @pryzm/geometry-wall, not a script. The planner runs it
+//                     TWICE (level walls, then level walls + candidate) and DIFFS
+//                     miter signatures, which is the create-side substitute for
+//                     the move planner's joinedTo read.
+//   occupancy         the opening-refit seed → the `refused` section.
+//   validator         the violation core, diffed before/after the ADD.
+//
+// ── THE stateHash CONSTRAINT, AND WHAT IT FORCED ─────────────────────────────
+// The create planner's stateHash is `fnv1a({create: payload, walls: allWalls})`.
+// So for ARM 2 — where the difference MUST ride in the body with stateHash held
+// EQUAL — neither the payload nor the wall store may move. That rules out the
+// obvious "different baseline geometry" pair: it moves the payload, so it moves
+// the stateHash, and it would prove nothing about body coverage (measured:
+// stateHash 392a3afc → 377b954a). Different-geometry is therefore used where it
+// is honest — as the NEGATIVE CONTROL, proving the arms can see a difference at
+// all — and ARM 2's three pairs are planted in the three body sections a create
+// plan actually carries, each reached through a seam the stateHash does not
+// cover:
+//   2a junction-set-only  (the resolver's junction membership → changed/topology)
+//   2b refusal-only       (the occupancy seed → `refused`)
+//   2c validation-only    (the validator → `validation.violationsCreated`)
+// Each asserts stateHash equality as a FLOOR, exactly as the move arms do.
+
+interface CreateWorld {
+  walls: any[];
+  rooms: any[];
+}
+
+/** A wall as the create planner's `WallData` view expects it (thickness matters:
+ *  the junction resolver mitres by thickness, so 0 would flatten every corner). */
+const cw = (id: string, a: [number, number], b: [number, number], thickness = 0.2): any => ({
+  id, type: 'wall', levelId: 'L1', thickness, height: 2.7, openings: [],
+  baseLine: [{ x: a[0], y: 0, z: a[1] }, { x: b[0], y: 0, z: b[1] }],
+});
+
+// A closed 6×4 room. The create command below drives a NEW wall from (3,0) to
+// (3,4) — endpoints landing exactly ON wall-s and wall-n, which is a T-junction
+// at each end: the resolver DETECTS it (measured), so the junction branch returns
+// a populated determined set rather than the empty answer a wall floating in
+// space would give.
+const freshCreateWorld = (northX = 6): CreateWorld => ({
+  walls: [
+    cw('wall-s', [0, 0], [6, 0]),
+    cw('wall-e', [6, 0], [6, 4]),
+    cw('wall-n', [northX, 4], [0, 4]),
+    cw('wall-w', [0, 4], [0, 0]),
+  ],
+  // No `computed` block and no polygon: the create planner reads rooms ONLY for
+  // `boundingWallIds` (the partition test) and as validator clone fodder. Giving
+  // it a move-shaped room with a `computed.area` would imply an area prediction
+  // this planner deliberately does not make.
+  rooms: [{ id: 'room-1', levelId: 'L1', boundingWallIds: ['wall-s', 'wall-e', 'wall-n', 'wall-w'] }],
+});
+
+/** Read-only PlanningContext double. Duplicated from `contextFor` rather than
+ *  shared because the create planner reads FIVE stores (wall, room, door, window,
+ *  stair — the violation branch clones all five) where the move planner reads
+ *  two; a shared factory would have to be a superset, and a superset silently
+ *  hands every future family stores its planner never asked for. */
+const createContextFor = (world: CreateWorld) => () => ({
+  getStore(storeId: string) {
+    const items: any[] | undefined =
+      storeId === 'wall' ? world.walls
+        : storeId === 'room' ? world.rooms
+          : storeId === 'door' || storeId === 'window' || storeId === 'stair' ? []
+            : undefined;
+    if (!items) return undefined;
+    return {
+      getAll: () => items as readonly unknown[],
+      getById: (id: string) => items.find((i) => i.id === id) ?? null,
+    };
+  },
+}) as any;
+
+// The command: a 0.1 m-thick partition dropped between wall-s and wall-n. Thin on
+// purpose — the validator below has a 0.15 m floor, so the ADD creates a violation
+// and `validation.violationsCreated` is POPULATED (the move harness's discipline:
+// hash arms must cover a section that actually carries bytes).
+const CREATE_BASELINE = [{ x: 3, y: 0, z: 0 }, { x: 3, y: 0, z: 4 }];
+const CREATE_COMMAND = {
+  type: 'wall.create' as const,
+  payload: { id: 'wall-p', levelId: 'L1', baseLine: CREATE_BASELINE, thickness: 0.1, height: 2.7 },
+};
+
+/** Fires on the NEW wall only (0.1 < 0.15) and on nothing in the before-clone, so
+ *  the before/after diff yields exactly one `violationsCreated` entry. */
+const thicknessValidator = {
+  validateAll: (ctx: any) =>
+    (ctx.wallStore.getAll() as any[])
+      .filter((x) => typeof x.thickness === 'number' && x.thickness < 0.15)
+      .map((x) => ({ ruleId: 'WALL_MIN_THICKNESS', elementId: x.id, message: `wall thickness ${x.thickness} m is below the 0.15 m minimum` })),
+};
+
+const refusingOccupancy = {
+  planOpeningRefit: () => ({ ok: false, refusals: [{ openingId: 'op-1', elementId: 'door-1', reason: 'no-space' }], relocations: [] }),
+};
+const silentOccupancy = { planOpeningRefit: () => ({ ok: true, refusals: [], relocations: [] }) };
+
+/** Build the REAL service over the REAL create planner. Defaults are the REAL
+ *  junction resolver + a refusing occupancy seed + the thickness validator, so
+ *  the default plan carries a populated junction set, `refused` and
+ *  `violationsCreated` all at once. */
+function buildCreateService(world: CreateWorld, opts?: {
+  resolve?: typeof resolveJunctionsWithRecords;
+  occupancy?: { planOpeningRefit: (c: any) => any };
+  validator?: { validateAll: (c: any) => any[] };
+  plannerWrap?: (p: WallCreateConsequencePlanner) => { plan: (c: any, ctx: any) => Promise<any> };
+}): ConsequencePreviewService {
+  const planner = new WallCreateConsequencePlanner({
+    resolveJunctions: (opts?.resolve ?? resolveJunctionsWithRecords) as any,
+    occupancy: (opts?.occupancy ?? refusingOccupancy) as any,
+    validator: (opts?.validator ?? thicknessValidator) as any,
+  });
+  const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
+  const planners = new Map<string, any>();
+  planners.set('wall.create', subject);
+  return new ConsequencePreviewService(planners as any, createContextFor(world));
+}
+
+async function wallCreateHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
+  const floors: Floor[] = [];
+  const lines: string[] = [];
+  const findings: string[] = [];
+
+  // ── ARM 1 · REPEAT — the REAL resolver, the REAL planner, the REAL service ──
+  const world = freshCreateWorld();
+  const service = buildCreateService(world);
+  const runA = await service.preview(CREATE_COMMAND);
+  const runB = await service.preview(CREATE_COMMAND);
+  floors.push({ what: 'wall.create: real preview produced a plan (run A)', measured: runA ? 1 : 0, min: 1 });
+  floors.push({ what: 'wall.create: real preview produced a plan (run B)', measured: runB ? 1 : 0, min: 1 });
+  if (runA && runB) {
+    // The body must actually CARRY the sections the arms claim to cover, or the
+    // byte comparison is over an empty plan and proves nothing.
+    floors.push({ what: 'wall.create: plan carries topology.added (the newcomer)', measured: (runA as any).topology?.added?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.create: plan carries topology.modified (existing corners the newcomer re-cuts — the REAL junction diff)', measured: (runA as any).topology?.modified?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.create: plan carries violationsCreated (validation section populated by the ADD)', measured: runA.validation.violationsCreated.length, min: 1 });
+    floors.push({ what: 'wall.create: plan carries refused entries (the occupancy seed section populated)', measured: (runA as any).refused?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.create: plan carries undetermined entries (declared blind spots, not silent emptiness)', measured: (runA as any).undetermined?.length ?? 0, min: 1 });
+    const c = compareRuns(runA, runB);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.create][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.create REPEAT: ${c.detail}`);
+  }
+
+  // ── ARM 5 · NONDETERMINISM SOURCES — 30 ms apart, clock AND RNG spoofed ─────
+  // The create planner has TWO places a random source would be structurally
+  // tempting: `createId('wall')` when the payload omits an id (it answers with a
+  // payload-derived placeholder instead), and the resolver's clustering. Both are
+  // covered here, and the id-absent case gets its own repeat below.
+  const realNow = Date.now;
+  const realRandom = Math.random;
+  let clockReads = 0;
+  let rngReads = 0;
+  const planUnder = async (now: number, rand: number, cmd: any = CREATE_COMMAND): Promise<Plan | null> => {
+    Date.now = () => { clockReads++; return now; };
+    Math.random = () => { rngReads++; return rand; };
+    try { return await buildCreateService(freshCreateWorld()).preview(cmd); }
+    finally { Date.now = realNow; Math.random = realRandom; }
+  };
+  const t1 = await planUnder(1_000_000_000, 0.1111);
+  await sleep(30);
+  const t2 = await planUnder(9_999_999_999, 0.9999);
+  floors.push({ what: 'wall.create: time-arm produced both plans', measured: t1 && t2 ? 1 : 0, min: 1 });
+  if (t1 && t2) {
+    const c = compareRuns(t1, t2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · TIME/RNG [wall.create][${c.verdict}]: plans planned 30 ms apart under DIFFERENT spoofed Date.now/Math.random diverged — a clock or RNG read reaches the plan. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · wall.create TIME/RNG: 30 ms apart, Date.now spoofed 1000000000 vs 9999999999, Math.random 0.1111 vs 0.9999 → ${c.verdict} (planner path observed ${clockReads} Date.now / ${rngReads} Math.random reads)`);
+  }
+
+  // The id-ABSENT create — the case where the live handler mints a ULID. The
+  // planner must name the newcomer by a payload-DERIVED placeholder, so two runs
+  // under different spoofed clocks and RNG must still be byte-identical. This is
+  // create-specific: `wall.move` has no unminted-id case to get wrong.
+  const anonCmd = { type: 'wall.create' as const, payload: { levelId: 'L1', baseLine: CREATE_BASELINE, thickness: 0.1, height: 2.7 } };
+  const a1 = await planUnder(1_234_567, 0.4242, anonCmd);
+  await sleep(30);
+  const a2 = await planUnder(7_654_321, 0.8484, anonCmd);
+  floors.push({ what: 'wall.create: id-absent (ULID-minting) arm produced both plans', measured: a1 && a2 ? 1 : 0, min: 1 });
+  if (a1 && a2) {
+    const placeholderStable = (a1 as any).topology.added[0] === (a2 as any).topology.added[0] ? 1 : 0;
+    floors.push({ what: 'wall.create: the id-absent newcomer is named by a payload-DERIVED placeholder, identical across runs (no id minting in the planner)', measured: placeholderStable, min: 1 });
+    const c = compareRuns(a1, a2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · TIME/RNG [wall.create · id-absent][${c.verdict}]: a create with NO id planned two different futures — the placeholder is not payload-derived. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · wall.create id-absent: no payload id, clocks/RNG differing → ${c.verdict} (placeholder ${(a1 as any).topology.added[0]})`);
+  }
+
+  // ── ARM 2 · SENSITIVITY — one consequential fact each, stateHash held EQUAL ──
+  const pairHash = async (label: string, a: ConsequencePreviewService, b: ConsequencePreviewService, fact: string): Promise<void> => {
+    const pa = await a.preview(CREATE_COMMAND);
+    const pb = await b.preview(CREATE_COMMAND);
+    floors.push({ what: `wall.create: sensitivity pair "${label}" produced both plans`, measured: pa && pb ? 1 : 0, min: 1 });
+    if (!pa || !pb) return;
+    floors.push({ what: `wall.create: sensitivity pair "${label}" holds stateHash EQUAL (the difference rides in the BODY)`, measured: pa.stateHash === pb.stateHash ? 1 : 0, min: 1 });
+    if (pa.planHash === pb.planHash) {
+      findings.push(`ARM 2 · SENSITIVITY [wall.create · ${label}]: two plans differing in ${fact} share planHash ${pa.planHash} — the d63e7954 collision class is OPEN on the create row.`);
+      lines.push(`❌ ARM 2 · wall.create ${label}: planHash DID NOT MOVE (${pa.planHash}) for a difference in ${fact}`);
+    } else {
+      lines.push(`✓  ARM 2 · wall.create ${label}: planHash moved (${pa.planHash} → ${pb.planHash}) on ${fact}, with stateHash equal (${pa.stateHash})`);
+    }
+  };
+
+  // 2a · junction-set-only. The REAL resolver on one side; on the other, the REAL
+  // resolver with the candidate↔wall-n junction record withheld. The wall store
+  // and payload are byte-identical, so the ONLY difference is which existing
+  // walls the junction diff reports — `changed` and `topology.modified` move,
+  // nothing else does.
+  const narrowedResolver = ((walls: any, opts: any) => {
+    const r = resolveJunctionsWithRecords(walls, opts);
+    return { miters: r.miters, junctions: r.junctions.filter((j: any) => !(j.wallIds.includes('wall-p') && j.wallIds.includes('wall-n'))) };
+  }) as typeof resolveJunctionsWithRecords;
+  await pairHash('junction-set-only',
+    buildCreateService(freshCreateWorld()),
+    buildCreateService(freshCreateWorld(), { resolve: narrowedResolver }),
+    'ONLY the junction membership the resolver reports (the candidate↔wall-n record present vs withheld); wall store and payload byte-identical');
+
+  // 2b · refusal-only. The occupancy seed refuses on one side and is silent on
+  // the other: the `refused` section is the only body difference.
+  await pairHash('refusal-only',
+    buildCreateService(freshCreateWorld(), { occupancy: silentOccupancy }),
+    buildCreateService(freshCreateWorld(), { occupancy: refusingOccupancy }),
+    'ONLY the opening-refit `refused` section (seed silent vs refusing door-1)');
+
+  // 2c · validation-only. The validator's floor moves so the ADD creates a
+  // violation on one side and none on the other: `violationsCreated` alone.
+  await pairHash('validation-only',
+    buildCreateService(freshCreateWorld(), { validator: { validateAll: () => [] } }),
+    buildCreateService(freshCreateWorld()),
+    'ONLY validation.violationsCreated (the ADD trips WALL_MIN_THICKNESS vs a validator that finds nothing)');
+
+  // ── ARM 3 · INSENSITIVITY ────────────────────────────────────────────────────
+  const svcKeys = buildCreateService(freshCreateWorld());
+  const orderedA = await svcKeys.preview(CREATE_COMMAND);
+  const orderedB = await svcKeys.preview({
+    type: 'wall.create',
+    payload: { height: 2.7, thickness: 0.1, baseLine: CREATE_BASELINE, levelId: 'L1', id: 'wall-p' },
+  } as any);
+  floors.push({ what: 'wall.create: key-order pair produced both plans', measured: orderedA && orderedB ? 1 : 0, min: 1 });
+  if (orderedA && orderedB) {
+    if (orderedA.planHash !== orderedB.planHash) {
+      findings.push(`ARM 3 · INSENSITIVITY [wall.create · key-order]: permuting payload key insertion order moved the planHash (${orderedA.planHash} → ${orderedB.planHash}) — stableStringify is not doing its one job on the create row.`);
+      lines.push('❌ ARM 3 · wall.create key-order: payload key permutation MOVED the planHash');
+    } else {
+      lines.push(`✓  ARM 3 · wall.create key-order: payload {id,levelId,baseLine,thickness,height} vs {height,thickness,baseLine,levelId,id} → same planHash (${orderedA.planHash})`);
+    }
+  }
+
+  // Envelope provenance — same shape of proof as the move harness: the planner
+  // surface accepts no CommandExecutionContext, so two dispatch-side envelopes
+  // differing in actor/origin/timestamp/approval, each planned under ITS OWN
+  // spoofed clock, must yield BYTE-identical plans.
+  const envelopes = [
+    { actor: 'human', origin: 'direct-manipulation', timestamp: 1_111_111, gestureId: 'g-human-1' },
+    { actor: 'ai', origin: 'ai-proposal', timestamp: 9_999_999, gestureId: 'g-ai-2', approval: { approvedBy: 'user-7', planHash: 'stale-cafe' } },
+  ] as const;
+  const envPlans: (Plan | null)[] = [];
+  for (const env of envelopes) {
+    Date.now = () => env.timestamp;
+    try { envPlans.push(await buildCreateService(freshCreateWorld()).preview(CREATE_COMMAND)); }
+    finally { Date.now = realNow; }
+  }
+  floors.push({ what: 'wall.create: envelope pair produced both plans', measured: envPlans[0] && envPlans[1] ? 1 : 0, min: 1 });
+  if (envPlans[0] && envPlans[1]) {
+    const c = compareRuns(envPlans[0], envPlans[1]);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [wall.create · envelope]: actor/origin/timestamp/approval differences leaked into the plan — provenance must stay OFF the plan (C78 §9). ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · wall.create envelope: human/direct vs ai/proposal+approval, clocks 1111111 vs 9999999 → ${c.verdict}`);
+  }
+
+  // ── POSITIVE CONTROL (floor) — a nondeterministic create planner MUST be flagged
+  const noisy = buildCreateService(freshCreateWorld(), {
+    plannerWrap: (real) => ({
+      plan: async (c: any, ctx: any) => {
+        const p = await real.plan(c, ctx);
+        return { ...p, undetermined: [...p.undetermined, { scope: 'noise', reason: 'ENGINE_NOT_AVAILABLE', detail: `t=${realNow()}·r=${realRandom()}` }] };
+      },
+    }),
+  });
+  const n1 = await noisy.preview(CREATE_COMMAND);
+  const n2 = await noisy.preview(CREATE_COMMAND);
+  const noisyVerdict = n1 && n2 ? compareRuns(n1, n2) : null;
+  floors.push({ what: 'POSITIVE control (wall.create): a deliberately NONDETERMINISTIC planner is FLAGGED by the repeat checker', measured: noisyVerdict && noisyVerdict.verdict !== 'identical' ? 1 : 0, min: 1 });
+  floors.push({ what: 'POSITIVE control (wall.create): the checker CLASSIFIES it as the hash-bug shape (bodies differ, hash equal)', measured: noisyVerdict?.verdict === 'hash-bug' ? 1 : 0, min: 1 });
+  lines.push(`${noisyVerdict && noisyVerdict.verdict !== 'identical' ? '✓ ' : '❌'} POSITIVE control (wall.create): nondeterministic planner → ${noisyVerdict?.verdict ?? 'NO PLANS'}`);
+
+  // ── NEGATIVE CONTROL (floor) — genuinely different states must hash apart ────
+  // wall-n runs to x=9 instead of x=6, so the level the newcomer joins is
+  // ACTUALLY different. This is where different geometry belongs: it moves the
+  // stateHash, which is exactly why it cannot serve as an ARM 2 pair.
+  const g1 = await buildCreateService(freshCreateWorld(6)).preview(CREATE_COMMAND);
+  const g2 = await buildCreateService(freshCreateWorld(9)).preview(CREATE_COMMAND);
+  const negSeen = g1 && g2 && g1.planHash !== g2.planHash ? 1 : 0;
+  floors.push({ what: 'NEGATIVE control (wall.create): two GENUINELY different states produce different planHashes (the sensitivity arms can see)', measured: negSeen, min: 1 });
+  floors.push({ what: 'NEGATIVE control (wall.create): and their stateHashes differ too, confirming the difference is in the AUTHORITATIVE state, not only the body', measured: g1 && g2 && g1.stateHash !== g2.stateHash ? 1 : 0, min: 1 });
+  lines.push(`${negSeen ? '✓ ' : '❌'} NEGATIVE control (wall.create): wall-n from x=6 vs x=9 → planHash ${g1?.planHash} vs ${g2?.planHash}`);
+
+  return { floors, lines, findings };
+}
+
 const HARNESSES: Record<string, Harness> = {
   'wall.move': wallMoveHarness,
+  'wall.create': wallCreateHarness,
 };
 
 // ─── Run ──────────────────────────────────────────────────────────────────────
