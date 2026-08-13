@@ -23,6 +23,10 @@
 // Task 6.3 Phase 6: import BatchCoordinator for batch-mode gating in _scheduleRun().
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
+// §C78-U-INV-4 — the wall→room hop, with "I could not look" typed rather than
+// collapsed into `[]`. See wallRoomAdjacencyDetermination.ts for why the four
+// rules below could not keep using `getRoomsAdjacentToWall?.(id) ?? []`.
+import { AdjacencyPass } from './wallRoomAdjacencyDetermination.js';
 const _bus = new DOMEventBus();
 
 // ── Public Interfaces ─────────────────────────────────────────────────────────
@@ -295,12 +299,25 @@ class ConstraintEngineImpl {
             check({ roomStore, doorStore }) {
                 if (!roomStore || !doorStore) return [];
 
-                // Build room→hasADoor set via wall adjacency
+                // Build room→hasADoor set via wall adjacency.
+                // §C78-U-INV-4 — the membership set below is asserted on by its
+                // ABSENCE, so an unread adjacency would fabricate a Part B error
+                // against every room. AdjacencyPass records the difference.
+                const pass = new AdjacencyPass();
                 const roomsWithDoor = new Set<string>();
                 for (const door of doorStore.getAll()) {
                     if (!door.wallId) continue;
-                    const adjacent: any[] = roomStore.getRoomsAdjacentToWall?.(door.wallId) ?? [];
-                    for (const r of adjacent) roomsWithDoor.add(r.id);
+                    for (const r of pass.read(roomStore, door.wallId)) roomsWithDoor.add((r as any).id);
+                }
+
+                if (pass.incomplete) {
+                    return [{
+                        ruleId: 'ROOM_NEEDS_DOOR', tier: 1, severity: 'info',
+                        elementId: '', elementType: 'project',
+                        message: pass.message('Whether every room has a door'),
+                        suggestion: 'Restore the wall→room adjacency relationship, then re-run compliance',
+                        regulation: 'Building Regulations Part B (fire egress)',
+                    }];
                 }
 
                 const results: ValidationResult[] = [];
@@ -327,11 +344,22 @@ class ConstraintEngineImpl {
             check({ roomStore, windowStore }) {
                 if (!roomStore || !windowStore) return [];
 
+                // §C78-U-INV-4 — same absence-asserting shape as ROOM_NEEDS_DOOR.
+                const pass = new AdjacencyPass();
                 const roomsWithWindow = new Set<string>();
                 for (const win of windowStore.getAll()) {
                     if (!win.wallId) continue;
-                    const adjacent: any[] = roomStore.getRoomsAdjacentToWall?.(win.wallId) ?? [];
-                    for (const r of adjacent) roomsWithWindow.add(r.id);
+                    for (const r of pass.read(roomStore, win.wallId)) roomsWithWindow.add((r as any).id);
+                }
+
+                if (pass.incomplete) {
+                    return [{
+                        ruleId: 'HABITABLE_NEEDS_WINDOW', tier: 1, severity: 'info',
+                        elementId: '', elementType: 'project',
+                        message: pass.message('Whether every habitable room has a window'),
+                        suggestion: 'Restore the wall→room adjacency relationship, then re-run compliance',
+                        regulation: 'Building Regulations Part F / Part L (daylight & ventilation)',
+                    }];
                 }
 
                 const results: ValidationResult[] = [];
@@ -387,9 +415,15 @@ class ConstraintEngineImpl {
             check({ doorStore, roomStore }) {
                 if (!doorStore || !roomStore) return [];
                 const results: ValidationResult[] = [];
+                // §C78-U-INV-4 — this rule reads the same hop, but does NOT assert
+                // on absence: an unread adjacency merely SKIPS a corridor check, a
+                // false negative. The determination is still made explicitly rather
+                // than via `?? []`, so the two cases stop being the same value; the
+                // pass's incompleteness is reported as `info`, never as a verdict.
+                const pass = new AdjacencyPass();
                 for (const door of doorStore.getAll()) {
                     if (!door.wallId || !door.width) continue;
-                    const adj: any[] = roomStore.getRoomsAdjacentToWall?.(door.wallId) ?? [];
+                    const adj = pass.read(roomStore, door.wallId) as any[];
                     for (const room of adj) {
                         if (room.occupancyType !== 'corridor') continue;
                         // Approximate corridor width from bounding box
@@ -407,6 +441,15 @@ class ConstraintEngineImpl {
                         }
                     }
                 }
+                if (pass.incomplete) {
+                    results.push({
+                        ruleId: 'DOOR_WIDTH_vs_CIRCULATION', tier: 1, severity: 'info',
+                        elementId: '', elementType: 'project',
+                        message: pass.message('Whether doors obstruct the corridors they open into'),
+                        suggestion: 'Restore the wall→room adjacency relationship, then re-run compliance',
+                        regulation: 'Building Regulations Part M §4.2',
+                    });
+                }
                 return results;
             }
         });
@@ -419,16 +462,31 @@ class ConstraintEngineImpl {
                 const ACCESSIBLE_TYPES = new Set(['accessible-wc', 'waiting-room', 'patient-room',
                     'consultation-room', 'meeting-room', 'entrance-lobby', 'lift-lobby']);
 
-                // Room → all door widths
+                // Room → all door widths.
+                // §C78-U-INV-4 — the SHARPEST arm of this family: an unread
+                // adjacency left `widths` undefined, `maxWidth` collapsed to 0, and
+                // the engine printed "widest door is 0mm" as a MEASUREMENT citing
+                // BS 8300. A number nobody measured was reported as fact.
+                const pass = new AdjacencyPass();
                 const roomDoorWidths = new Map<string, number[]>();
                 for (const door of doorStore.getAll()) {
                     if (!door.wallId || !door.width) continue;
-                    const adj: any[] = roomStore.getRoomsAdjacentToWall?.(door.wallId) ?? [];
-                    for (const r of adj) {
-                        const ws = roomDoorWidths.get(r.id) ?? [];
+                    for (const r of pass.read(roomStore, door.wallId)) {
+                        const rid = (r as any).id;
+                        const ws = roomDoorWidths.get(rid) ?? [];
                         ws.push(door.width);
-                        roomDoorWidths.set(r.id, ws);
+                        roomDoorWidths.set(rid, ws);
                     }
+                }
+
+                if (pass.incomplete) {
+                    return [{
+                        ruleId: 'ACCESSIBLE_ROUTE', tier: 1, severity: 'info',
+                        elementId: '', elementType: 'project',
+                        message: pass.message('The widest door serving each accessible room'),
+                        suggestion: 'Restore the wall→room adjacency relationship, then re-run compliance',
+                        regulation: 'BS 8300:2018 §5.3',
+                    }];
                 }
 
                 const results: ValidationResult[] = [];
