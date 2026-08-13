@@ -55,6 +55,7 @@ import type {
   EventRecord,
   ElementId,
   PredictedGeometry,
+  MetricTransition,
   UndeterminedImpact,
   PlanBindingVerification,
   UndeterminedSubReason,
@@ -151,6 +152,28 @@ export interface ConsequenceExecutionDeps {
    * Absent ⇒ `report.geometryUndetermined`, never a silent "the polygons match".
    */
   readonly readRoomGeometry?: RoomGeometryReader;
+  /**
+   * R5 — reads the CURRENT value of the metrics the plan predicted, for the
+   * report's INDEPENDENT read-back. Must read the authoritative store, NEVER the
+   * plan's own numbers.
+   *
+   * WHY THIS EXISTS AS AN INJECTED, OPTIONAL DEP (and why its ABSENCE is loud).
+   * Before R5 this channel had no producer at all: the report type declared
+   * `metrics` and `metricsUndetermined`, the renderer rendered both, and the
+   * executor set NEITHER — so a real `wall.move` report came back with both
+   * fields `undefined`. Per this field's own contract in `consequence.ts`, an
+   * absent `metrics` means "this runtime has no metric read-back channel, which
+   * `metricsUndetermined` names" — but nothing named it. That is an UNTYPED
+   * absence on the consequence path, which C78 §8.8 forbids in terms, and it is
+   * the one channel in this file that was NOT honest while `validation`,
+   * `geometry` and `regeneration` all were.
+   *
+   * So: absent ⇒ `report.metricsUndetermined` with a typed
+   * `ENGINE_NOT_AVAILABLE`, exactly as {@link readRoomGeometry} does — never a
+   * silent `undefined`, and never an empty list (which would be the determined
+   * claim "the read-back looked and no metric moved").
+   */
+  readonly readMetrics?: MetricReader;
 }
 
 /** Applies the plan's predicted room geometry. Returns what it actually wrote. */
@@ -170,6 +193,17 @@ export interface RedetectSuppressor {
 export type RoomGeometryReader = (
   elementIds: readonly ElementId[],
 ) => readonly PredictedGeometry[];
+
+/**
+ * R5 — independent read-back of the CURRENT value of predicted metrics (never
+ * the plan's copy). Receives the plan's predicted transitions so the reader
+ * knows WHICH (element, metric) pairs to measure; returns the measured `after`
+ * for the pairs it could measure. A pair the reader omits is NOT scored as
+ * agreeing — see {@link ConsequenceExecutionService} `metricsReadback`.
+ */
+export type MetricReader = (
+  predicted: readonly MetricTransition[],
+) => readonly MetricTransition[];
 
 /** Where a finished {@link ExecutionConsequence} is delivered for display (R5). */
 export type ConsequenceSink = (consequence: ExecutionConsequence) => void;
@@ -505,6 +539,69 @@ export class ConsequenceExecutionService {
     return { geometry: actualGeometry, diverged };
   }
 
+  /**
+   * R5 — the METRIC arm of the independent read-back, and the third instance of
+   * this file's one discipline: a channel that could not be measured SAYS SO.
+   *
+   * Mirrors {@link geometryReadback} deliberately, arm for arm, because the
+   * failure it guards against is identical. `plan.metrics` carries the PREDICTED
+   * transitions ("room-k area 12.4 → 10.8 m²"); this reads the CURRENT value
+   * from the authoritative store and puts it beside them. The renderer already
+   * draws `measured …` from the result — that half was built and wired at R5 and
+   * was rendering nothing, because this producer did not exist.
+   *
+   * THE THREE OUTCOMES, and why none of them is a bare `undefined`:
+   *
+   *   • The plan predicted NO metric ⇒ `{}` — nothing is claimed, and nothing
+   *     needs to be. `metrics` stays absent because there was no question to ask,
+   *     not because a channel failed. (This is the ONE case where absence is
+   *     honest, and it is honest precisely because `plan.metrics` is empty
+   *     alongside it, so a reader can tell the two apart without guessing.)
+   *   • No reader is composed ⇒ `metricsUndetermined` with
+   *     `ENGINE_NOT_AVAILABLE`. NOT `metrics: []` — an empty list is the
+   *     DETERMINED claim "the read-back looked and no metric moved", which is
+   *     the known+unknown=[] defect wearing a number (C78 §1.4).
+   *   • The reader threw ⇒ the same, carrying the thrown message. A caught
+   *     exception is UNDETERMINED, never determined-unaffected (C78 §1.4).
+   *
+   * A predicted pair the reader OMITS is left out of `metrics` rather than
+   * defaulted, so the renderer's `measured …` simply does not appear for it. It
+   * is NOT invented as agreeing — that would be the fabricated-prediction defect
+   * with the sign flipped.
+   */
+  private metricsReadback(plan: ConsequencePlan): {
+    metrics?: readonly MetricTransition[];
+    metricsUndetermined?: UndeterminedImpact;
+  } {
+    const predicted = plan.metrics ?? [];
+    if (predicted.length === 0) return {};
+
+    if (!this.deps.readMetrics) {
+      return {
+        metricsUndetermined: {
+          scope: `actual value of ${predicted.length} predicted metric transition(s)`,
+          reason: 'ENGINE_NOT_AVAILABLE',
+          detail:
+            'no metric reader is composed in this runtime; the predicted metric transitions were NOT ' +
+            'measured after execution. The absence of a reported metric divergence here is NOT evidence ' +
+            'that the quantities landed as predicted.',
+        },
+      };
+    }
+
+    try {
+      return { metrics: this.deps.readMetrics(predicted) };
+    } catch (e) {
+      return {
+        metricsUndetermined: {
+          scope: `actual value of ${predicted.length} predicted metric transition(s)`,
+          reason: 'ENGINE_NOT_AVAILABLE',
+          detail: `the metric reader threw: ${e instanceof Error ? e.message : String(e)}`,
+        },
+      };
+    }
+  }
+
   // ── Read-back ──────────────────────────────────────────────────────────────────
 
   private storeIds(): readonly string[] {
@@ -627,6 +724,10 @@ export class ConsequenceExecutionService {
     // change is invisible to the set arithmetic above.
     const geo = this.geometryReadback(plan);
 
+    // R5 — the METRIC arm of the same independent read-back. Produces EITHER
+    // measured values OR a typed `ENGINE_NOT_AVAILABLE`; never a bare absence.
+    const met = this.metricsReadback(plan);
+
     // Divergence is a FIRST-CLASS, NAMED verdict (STR-06 §2), never a log line.
     const divergence: PlanDivergenceVerdict =
       unexpected.length > 0 || missing.length > 0 || geo.diverged.length > 0
@@ -671,6 +772,11 @@ export class ConsequenceExecutionService {
       // the elements whose committed ring differs from the predicted one. ABSENT vs
       // PRESENT-BUT-EMPTY differ here (consequence.ts): absent means no read-back
       // channel, which `geometryUndetermined` names.
+      // R5 — the measured metric transitions, or the typed statement that this
+      // runtime could not measure them. Exactly one of the two is present
+      // whenever the plan predicted a metric; neither is present when it did not.
+      ...(met.metrics !== undefined ? { metrics: met.metrics } : {}),
+      ...(met.metricsUndetermined !== undefined ? { metricsUndetermined: met.metricsUndetermined } : {}),
       ...(geo.geometry !== undefined ? { geometry: geo.geometry } : {}),
       ...(geo.geometryUndetermined !== undefined ? { geometryUndetermined: geo.geometryUndetermined } : {}),
       ...(geo.diverged.length > 0 ? { geometryDiverged: geo.diverged } : {}),

@@ -34,6 +34,8 @@
 //       the panel is non-empty AND it does NOT contain an agreement claim.
 //   (e) METRICS — the typed `metrics` field (R5, the Phase 6b stopgap's replacement)
 //       reaches the DOM as `before → after` with a UNIT.
+//   (f) NO UNTYPED ABSENCE ON THE PRODUCER (C78 §8.8) — added after clauses (a)–(e)
+//       read green over a report whose metric channel was SILENTLY ABSENT. See below.
 //
 // ── STUB LEDGER, declared loudly (world.ts doctrine) ─────────────────────────
 //   • happy-dom installed in-process. The renderer is DOM-only by design; nothing here
@@ -365,6 +367,100 @@ async function run(): Promise<GateResult> {
       (metricRendered ? 'the founder\'s "12.4 m² → 10.8 m²" line, from the TYPED field (R5), not a parsed sentence.' : 'the metric did not reach the DOM (floor).'));
   } catch (e) { harnessErrors.push('(e): ' + String(e).slice(0, 300)); }
   floors.push({ what: 'the typed metric transition renders as before → after WITH its unit', measured: metricRendered, min: 1 });
+
+  // ══ Clause (f) — NO UNTYPED ABSENCE ON THE PRODUCER (C78 §8.8) ═════════════
+  //
+  // WHY THIS CLAUSE EXISTS, stated plainly: clauses (a)–(e) all read GREEN over a
+  // production report whose metric channel was absent in BOTH directions —
+  // `report.metrics === undefined` AND `report.metricsUndetermined === undefined`.
+  // Measured on the real loop before this clause landed. The type's own contract
+  // says an absent `metrics` means "this runtime has no metric read-back channel,
+  // which `metricsUndetermined` names"; nothing named it, so the report asserted
+  // a capability gap by SILENCE. C78 §8.8 forbids exactly that ("no untyped
+  // absence on the consequence path"), and §1.4 forbids reading it as "nothing
+  // moved".
+  //
+  // Clause (e) could not see it because (e) drives the RENDERER over a hand-written
+  // literal that supplies `metrics` itself — it proves the renderer can draw a
+  // metric, not that the EXECUTOR ever produces one. The gap between "the renderer
+  // renders X" and "the producer emits X" is precisely where this defect lived.
+  //
+  // The rule, applied to every optional channel the report declares: for each
+  // (value, undetermined) PAIR, at most one may be present, and when the plan
+  // ASKED the question, at least one MUST be. Absence on both sides with a live
+  // question is the untyped absence.
+  const OPTIONAL_CHANNELS: {
+    name: string;
+    value: string;
+    undetermined: string;
+    /** Did the plan ask a question this channel was obliged to answer? */
+    asked: (r: Record<string, unknown>) => boolean;
+  }[] = [
+    {
+      name: 'metrics', value: 'metrics', undetermined: 'metricsUndetermined',
+      asked: (r) => ((r.plan as { metrics?: unknown[] })?.metrics ?? []).length > 0,
+    },
+    {
+      name: 'geometry', value: 'geometry', undetermined: 'geometryUndetermined',
+      asked: (r) => ((r.plan as { predictedGeometry?: unknown[] })?.predictedGeometry ?? []).length > 0,
+    },
+  ];
+
+  let noUntypedAbsence = 0;
+  try {
+    // Drive the REAL producer, not a literal: a plan that ASKS each question, over
+    // a runtime that composes NO reader for it. The honest answer is the typed
+    // undetermined; the defect is silence.
+    const { ConsequenceExecutionService: CES } = await import(
+      '../../../../apps/editor/src/engine/consequence/ConsequenceExecutionService.js') as {
+        ConsequenceExecutionService: new (d: unknown) => {
+          metricsReadback(p: unknown): Record<string, unknown>;
+          geometryReadback(p: unknown): Record<string, unknown>;
+        };
+      };
+
+    const askingPlan = {
+      ...basePlan,
+      metrics: [{ elementId: 'room-k', metric: 'area', before: 12.4, after: 10.8, unit: 'm2' }],
+      predictedGeometry: [{ elementId: 'room-k', polygon: [P(0, 0, 0), P(1, 0, 0), P(1, 0, 1)] }],
+    };
+
+    // NO readers composed — the exact production shape measured on the real loop.
+    const bare = new CES({
+      bus: { dispatch: () => { throw new Error('unused'); } },
+      planners: new Map(), context: () => ({ getStore: () => undefined }),
+    } as never);
+
+    const metOut = bare.metricsReadback(askingPlan);
+    const geoOut = bare.geometryReadback(askingPlan);
+    const produced: Record<string, unknown> = { plan: askingPlan, ...metOut, ...geoOut };
+
+    const offenders: string[] = [];
+    for (const ch of OPTIONAL_CHANNELS) {
+      const hasValue = produced[ch.value] !== undefined;
+      const hasUndet = produced[ch.undetermined] !== undefined;
+      if (hasValue && hasUndet) {
+        offenders.push(`${ch.name}: BOTH '${ch.value}' and '${ch.undetermined}' present — the channel claims to have measured AND not measured`);
+        continue;
+      }
+      if (!hasValue && !hasUndet && ch.asked(produced)) {
+        offenders.push(`${ch.name}: the plan ASKED (plan carries a predicted entry) but the report carries NEITHER '${ch.value}' NOR '${ch.undetermined}' — an UNTYPED ABSENCE (C78 §8.8); a reader cannot tell "nothing moved" from "I could not look"`);
+      }
+      // A typed undetermined must carry a §8.1 union member, never bare prose.
+      if (hasUndet) {
+        const u = produced[ch.undetermined] as { reason?: unknown; scope?: unknown };
+        if (typeof u?.reason !== 'string') offenders.push(`${ch.name}: '${ch.undetermined}' carries no typed 'reason' (C78 §8.1)`);
+        if (typeof u?.scope !== 'string') offenders.push(`${ch.name}: '${ch.undetermined}' carries no 'scope' naming WHAT was not determined (C78 §8.9)`);
+      }
+    }
+    for (const o of offenders) findingNames.push('(f) ' + o);
+    noUntypedAbsence = offenders.length === 0 ? 1 : 0;
+    lines.push(`(f) producer-side absence typing → ${OPTIONAL_CHANNELS.length} optional channel(s) checked over a plan that ASKS each · ` +
+      (noUntypedAbsence
+        ? 'each answered with EITHER a measured value OR a typed UNDETERMINED — never silence.'
+        : `UNTYPED ABSENCE found [${offenders.join(' | ')}]`));
+  } catch (e) { harnessErrors.push('(f): ' + String(e).slice(0, 400)); }
+  floors.push({ what: 'every optional report channel the plan ASKED answers with a value OR a typed undetermined — never both, never neither (C78 §8.8)', measured: noUntypedAbsence, min: 1 });
 
   for (const err of harnessErrors) {
     lines.push('harness error: ' + err);

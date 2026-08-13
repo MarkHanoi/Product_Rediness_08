@@ -30,7 +30,7 @@
 // (check-consequence-report-completeness) drives the real view; it does not claim a
 // production trigger it does not have.
 
-import type { ConsequencePlanner, PredictedGeometry } from '@pryzm/command-bus';
+import type { ConsequencePlanner, PredictedGeometry, MetricTransition } from '@pryzm/command-bus';
 import type { WallMoveCommand } from './WallMoveConsequencePlanner.js';
 import { createWallMoveConsequencePlanner } from './wallMovePlannerComposition.js';
 import { buildPlanningContext } from './consequencePreviewServiceComposition.js';
@@ -39,6 +39,7 @@ import {
   type ConsequenceDispatcher,
   type ConsequenceSink,
   type RoomGeometryReader,
+  type MetricReader,
   type RedetectSuppressor,
 } from './ConsequenceExecutionService.js';
 import { ConsequenceReportView } from '@app/ui/canvas/ConsequenceReportView';
@@ -74,6 +75,12 @@ export function createConsequenceExecutionService(
     applyPredictedRoomGeometry: createPredictedRoomGeometryApplier(),
     redetectSuppressor: liveRedetectSuppressor(),
     readRoomGeometry: createRoomGeometryReader(),
+    // R5 — the METRIC arm of the independent read-back. Composed from the same
+    // authoritative room store the geometry reader uses, so the report can put a
+    // MEASURED area beside the predicted one. Without it the report would carry a
+    // typed `metricsUndetermined` — honest, but a capability gap this runtime does
+    // not actually have.
+    readMetrics: createMetricReader(),
     ...(sink !== undefined ? { sink } : {}),
   });
 }
@@ -131,6 +138,46 @@ export function createRoomGeometryReader(): RoomGeometryReader {
         centroid: room.computed?.centroid ?? { x: 0, z: 0 },
         boundingBox: room.computed?.boundingBox ?? { minX: 0, minZ: 0, maxX: 0, maxZ: 0 },
       });
+    }
+    return out;
+  };
+}
+
+/**
+ * R5 — INDEPENDENT read-back of the metrics the plan predicted, straight off the
+ * authoritative room store. Same discipline as {@link createRoomGeometryReader}
+ * and for the same reason: it never consults the plan's own numbers, because a
+ * reader that echoed the prediction back would report perfect agreement no matter
+ * what was committed.
+ *
+ * ONLY the pairs it can actually measure are returned. A predicted metric whose
+ * element the store does not hold, or whose quantity this reader has no source
+ * for, is OMITTED rather than defaulted to zero or to the predicted value — the
+ * service leaves such a pair without a `measured …` line instead of inventing
+ * agreement. Omission here is the small, local version of the same rule the
+ * service applies globally: never manufacture a determination you did not make.
+ *
+ * Scope today is deliberately narrow — room `area` and `perimeter`, the two
+ * quantities `room.computed` actually holds. Wall/opening metrics have no
+ * equivalent authoritative source yet; when the plan predicts one, this reader
+ * omits it and the renderer simply shows the prediction unverified. Widening the
+ * scope is additive and needs no contract change.
+ */
+export function createMetricReader(): MetricReader {
+  return (predicted) => {
+    const store = storeRegistry.getStoreForType('room');
+    if (!store) return [];
+    const out: MetricTransition[] = [];
+    for (const p of predicted) {
+      if (p.metric !== 'area' && p.metric !== 'perimeter') continue;
+      const room = store.getById?.(p.elementId) as {
+        computed?: { area?: number; perimeter?: number };
+      } | null | undefined;
+      const measured = p.metric === 'area' ? room?.computed?.area : room?.computed?.perimeter;
+      if (typeof measured !== 'number' || !Number.isFinite(measured)) continue;
+      // `before` and `unit` are carried from the PREDICTION verbatim — they describe
+      // the same question; only `after` is the newly measured fact.
+      out.push({ ...p, after: measured });
     }
     return out;
   };
