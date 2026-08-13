@@ -170,7 +170,6 @@
   ],
 
   "declaredFindings": [
-    "slab·region · the STORED polygon follows the move, not only the drawn mesh",
     "all families · C79 §5.2.1 — `preserved` and `undetermined` are distinguishable at the caller",
     "all families · C79 §5.2 — a re-derivation reports exactly one of the five states",
     "floor-finish · the host reference written at creation is READ by something",
@@ -214,7 +213,28 @@
       "This is NOT a duplicate of finding 1: fixing the registration makes the MESH",
       "follow and leaves this one exactly as it is.",
       "OWNER: @pryzm/geometry-slab + @pryzm/command-registry — the write-back must go",
-      "through a command (P6), not a store write from inside the tracker."
+      "through a command (P6), not a store write from inside the tracker.",
+      "",
+      "✅ FIXED 2026-08-13 (§FIX-SLAB-POLYGON-WRITEBACK) — row struck in the same commit.",
+      "SlabDependencyTracker.reprojectStoredPolygon() persists the re-derived ring (the",
+      "SAME SlabFragmentBuilder.resolveLoop the mesh path draws from, never a",
+      "re-composition) into SlabData.polygon via slabStore.update(), with width/depth",
+      "AABB kept in sync per UpdateSlabPolygonCommand §03. Watched flipping: gate A2",
+      "drawn 36.000 ≡ recorded 36.000 m²; c79MovePropagation §4 inverted, +2 tests",
+      "(preserved → no write, no update event; undetermined → record never overwritten).",
+      "THE OWNER LINE ABOVE DID NOT SURVIVE IMPLEMENTATION, recorded rather than edited:",
+      "a command was measured architecturally WRONG here, not merely unnecessary. The",
+      "polygon of a sketch-bearing slab is DERIVED state (C79 §5.1 — deterministically",
+      "re-derivable from references + current walls); an undoable command would let one",
+      "Ctrl+Z restore the PRE-move polygon against POST-move walls — recreating this",
+      "row's exact divergence — while undo of the WALL move already re-derives the old",
+      "ring by re-firing the cascade. C79 §4.2 scopes the command mandate to DEGRADATION",
+      "(information-losing); P6 scopes the store-write ban to UI. The write is the",
+      "documented structural-cascade shape (SlabWallConnectivityService §01 §2.1),",
+      "through the store's sanctioned full-replacement update(), which carries prevState",
+      "(C72 §3.1). No @pryzm/command-registry change was needed. STILL OPEN, unchanged:",
+      "the §5.2 state-reporting channel (A4) — the write-back distinguishes",
+      "preserved / changed / undetermined at its own boundary but returns no value."
     ],
     "all families · C79 §5.2.1 — `preserved` and `undetermined` are distinguishable at the caller": [
       "MEASURED 2026-08-13, EXECUTED. C79 §5.2.1 forbids collapsing these two, in these",

@@ -381,14 +381,19 @@ describe('§2 — SLAB, LIVE WIRING: the founder\'s question, end to end', () =>
         //   loosen the assertion instead of reading it.
         expect(rebuilds).toContain('sb-live');
 
-        // And the mesh polygon the builder would draw is unchanged, because nothing
-        // asked it to redraw. The reference is CORRECT and UNREACHED.
+        // ⚠ INVERTED 2026-08-13 (second time, by §FIX-SLAB-POLYGON-WRITEBACK).
+        // This assertion pinned the SECOND half of the defect: after the wire fix
+        // the slab was ASKED to re-project, but the stored polygon still said 24 m²
+        // because nothing wrote the re-derived ring back. The tracker now persists
+        // it through slabStore.update() on the same move, so the RECORD follows too.
         const stored = slabStore.getById('sb-live')!;
-        expect(area(stored.polygon as { x: number; y: number }[])).toBeCloseTo(24, 6);
+        expect(area(stored.polygon as { x: number; y: number }[])).toBeCloseTo(36, 6);
 
         console.log(
             `[GR-12 §2 SLAB/LIVE] wall moved 2 m; SlabDependencyTracker requested ` +
-            `${rebuilds.length} rebuild(s). The slab does NOT follow.`,
+            `${rebuilds.length} rebuild(s) and SlabData.polygon now records ` +
+            `${area(stored.polygon as { x: number; y: number }[]).toFixed(3)} m². ` +
+            `The slab follows — mesh AND model.`,
         );
         tracker.dispose();
     });
@@ -584,14 +589,25 @@ describe('§3 — C79 §5.2/§5.5: the five states are NOT distinguishable', () 
 // ════════════════════════════════════════════════════════════════════════════
 // §4 — SLAB: even when it follows, WHAT follows? (mesh vs model)
 // ════════════════════════════════════════════════════════════════════════════
+//
+// ⚠ INVERTED 2026-08-13 by §FIX-SLAB-POLYGON-WRITEBACK. The first test in this
+// block pinned the defect: it asserted `recorded` STAYED 24 m² after the move,
+// proving nothing wrote the re-derived ring back to the model. Left as-is it
+// would FORBID the fix. It now positively enforces drawn ≡ recorded, and the
+// two tests after it pin the write-back's discriminations — `preserved` writes
+// nothing, `undetermined` never overwrites the record with a fiction
+// (C79 §5.2.1 — and never silently: the skip warns).
 
-describe('§4 — the mesh follows; the stored polygon does not', () => {
-    it('after a re-projection the sketch resolves to 36 m² while `slab.polygon` still says 24 m²', () => {
+describe('§4 — the mesh follows AND the stored polygon follows (write-back)', () => {
+    it('after a re-projection drawn ≡ recorded: `slab.polygon` re-derives 24 m² → 36 m²', () => {
         const slabStore = new SlabStore();
         const tracker = new SlabDependencyTracker(slabStore, asTrackerWallStore(walls), { current: undefined });
         const traced = traceRegionSketchAtPoint(walls.asRegionWalls(), 3, 2)!;
         slabStore.add(regionSlab('sb-model', traced.sketch, traced.ring));
         tracker.bootstrap();
+
+        const before = slabStore.getById('sb-model')!;
+        expect(area(before.polygon as { x: number; y: number }[])).toBeCloseTo(24, 6);
 
         walls.move('w-north', 0, 2);
 
@@ -599,17 +615,78 @@ describe('§4 — the mesh follows; the stored polygon does not', () => {
         const drawn = area(productionResolve(stored.sketch!.outerLoop));
         const recorded = area(stored.polygon as { x: number; y: number }[]);
 
-        expect(drawn).toBeCloseTo(36, 6);
-        expect(recorded).toBeCloseTo(24, 6);
+        // THE DIFFERENTIATOR: the stored polygon CHANGED, and it changed to
+        // exactly the ring the builder draws. 36 ≠ 24, so a write-back that
+        // silently failed cannot pass this by coincidence.
+        expect(recorded).toBeCloseTo(36, 6);
+        expect(recorded).not.toBeCloseTo(24, 6);
+        expect(drawn).toBeCloseTo(recorded, 9);
+
+        // Derived AABB metadata follows too — mirroring UpdateSlabPolygonCommand
+        // §03, the sanctioned polygon-write path this cascade is modelled on.
+        // 6 m × 4 m room, north wall +2 m → 6 m × 6 m extent.
+        expect(stored.width).toBeCloseTo(6, 6);
+        expect(stored.depth).toBeCloseTo(6, 6);
 
         console.log(
             `[GR-12 §4 MESH-vs-MODEL] after the move the builder draws ${drawn.toFixed(3)} m² ` +
-            `(createSlabMeshWithEdges:978 prefers data.sketch) but SlabData.polygon still ` +
-            `records ${recorded.toFixed(3)} m². Every consumer that reads the POLYGON — ` +
-            `root.userData.polygon (SlabFragmentBuilder:445), schedules, exports, area ` +
-            `take-off — sees the pre-move shape. "Follows" is TRUE of the mesh and FALSE ` +
-            `of the model.`,
+            `and SlabData.polygon records ${recorded.toFixed(3)} m² — the record follows the ` +
+            `same line the mesh is drawn on (§FIX-SLAB-POLYGON-WRITEBACK, via ` +
+            `SlabFragmentBuilder.resolveLoop → slabStore.update, a structural cascade).`,
         );
+        tracker.dispose();
+    });
+
+    it('`preserved` — a zero move re-derives, matches, and writes NOTHING (no update event)', () => {
+        const slabStore = new SlabStore();
+        const tracker = new SlabDependencyTracker(slabStore, asTrackerWallStore(walls), { current: undefined });
+        const traced = traceRegionSketchAtPoint(walls.asRegionWalls(), 3, 2)!;
+        slabStore.add(regionSlab('sb-prsv', traced.sketch, traced.ring));
+        tracker.bootstrap();
+
+        const polyBefore = slabStore.getById('sb-prsv')!.polygon;
+        const updates: string[] = [];
+        const unsubscribe = slabStore.subscribe((event, slab) => {
+            if (event === 'update') updates.push(slab.id);
+        });
+
+        walls.move('w-north', 0, 0); // fires the tracker; nothing actually moved
+
+        // Same frozen array INSTANCE — the store was not written at all. An update
+        // event claiming a change that did not happen would be noise to every
+        // diff-based subscriber (C72 §3.1).
+        expect(slabStore.getById('sb-prsv')!.polygon).toBe(polyBefore);
+        expect(updates).toEqual([]);
+
+        unsubscribe();
+        tracker.dispose();
+    });
+
+    it('`undetermined` — an unresolvable loop never overwrites the record (C79 §5.2.1)', () => {
+        const slabStore = new SlabStore();
+        const tracker = new SlabDependencyTracker(slabStore, asTrackerWallStore(walls), { current: undefined });
+        const traced = traceRegionSketchAtPoint(walls.asRegionWalls(), 3, 2)!;
+
+        // Strip the north edge's authoring-time fallback so that, once the wall
+        // vanishes, resolveOrFallback has NOTHING to absorb the failure into and
+        // resolveLoop honestly returns null (the un-absorbed undetermined case —
+        // the absorbed one is §3's standing §5.2.1 finding, at the resolver).
+        const northEdge = hostEdgesOf(traced.sketch).find((e) => e.hostId === 'w-north')!;
+        delete northEdge.fallback;
+
+        slabStore.add(regionSlab('sb-und', traced.sketch, traced.ring));
+        tracker.bootstrap();
+
+        walls.vanish('w-north');          // gone WITHOUT a remove event — no §4 degradation
+        walls.move('w-south', 0, -1);     // a real move of a wall the slab references
+
+        const stored = slabStore.getById('sb-und')!;
+        // The record keeps the last successfully derived ring — 24 m², NOT a
+        // partial ring, NOT an empty one, and NOT a fiction built from three
+        // resolvable walls. No answer beats a wrong answer (C79 §2.3).
+        expect(area(stored.polygon as { x: number; y: number }[])).toBeCloseTo(24, 6);
+        expect(productionResolve(stored.sketch!.outerLoop)).toBeNull();
+
         tracker.dispose();
     });
 });

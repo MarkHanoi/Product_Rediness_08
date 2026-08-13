@@ -680,7 +680,28 @@ export class SlabFragmentBuilder {
         return topY - data.thickness;
     }
 
-    private static resolveLoop(loop: SketchLoop): { x: number; y: number }[] | null {
+    /**
+     * THE production sketch→polygon resolution — the one function that decides
+     * where a sketch-bearing slab IS (C79 §5.1: deterministically re-derivable
+     * from references + the current state of the bounding elements).
+     *
+     * §FIX-SLAB-POLYGON-WRITEBACK (2026-08-13): visibility widened from
+     * `private` to public. `SlabDependencyTracker.reprojectStoredPolygon()` now
+     * persists this function's result into `SlabData.polygon` on a wall move, so
+     * the RECORD follows the same line the MESH is drawn on. Re-implementing the
+     * resolution there (WallFaceResolver.resolveOrFallback +
+     * SketchLoopIntersector.computePolygon, re-composed) would let the record
+     * drift from the drawn geometry — the exact two-paths defect C79 §0/§7.4
+     * forbids — so the ONE implementation is shared instead. It was already
+     * consumed through the class by `c79MovePropagation.test.ts` and
+     * `check-move-propagation.ts` (TS `private` is compile-time only); this
+     * makes that API honest.
+     *
+     * Returns null when any HostReferenceEdge fails to resolve AND carries no
+     * fallback — the caller must treat that as C79 §5.2 `undetermined`, never
+     * as an empty ring.
+     */
+    static resolveLoop(loop: SketchLoop): { x: number; y: number }[] | null {
         const segments: (Segment2D | null)[] = [];
 
         for (const edge of loop.edges) {

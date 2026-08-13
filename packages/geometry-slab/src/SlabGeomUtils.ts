@@ -50,6 +50,43 @@ export function signedArea(pts: { x: number; y: number }[]): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// polygonBoundingBox
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Axis-aligned bounding box (width along X, depth along Z) of a 2D polygon.
+ *
+ * §FIX-SLAB-POLYGON-WRITEBACK (2026-08-13): added for
+ * `SlabDependencyTracker.reprojectStoredPolygon()`, which mirrors
+ * `UpdateSlabPolygonCommand`'s rule that `SlabData.width` / `SlabData.depth`
+ * are kept in sync with the polygon's AABB whenever the polygon is replaced
+ * (the builder reads the polygon for geometry — width/depth are metadata read
+ * by the property panel, AI commands and UpdateSlabDimensionsCommand).
+ *
+ * NOTE: `UpdateSlabPolygonCommand.ts` still carries a module-private inline
+ * twin of this function (`polygonBoundingBox`, command-registry). It should
+ * migrate onto this export via `@pryzm/geometry-slab/geom-utils` — the same
+ * extraction `signedArea` above already made from that exact file — but that
+ * package is outside this change's ownership, so the migration is a named
+ * follow-up, not done silently here.
+ */
+export function polygonBoundingBox(
+    pts: { x: number; y: number }[],
+): { width: number; depth: number } {
+    const first = pts[0];
+    if (first === undefined) return { width: 0, depth: 0 };
+    let minX = first.x, maxX = first.x;
+    let minY = first.y, maxY = first.y;
+    for (const p of pts) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+    }
+    return { width: maxX - minX, depth: maxY - minY };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // lineIntersect2D
 // ─────────────────────────────────────────────────────────────────────────────
 

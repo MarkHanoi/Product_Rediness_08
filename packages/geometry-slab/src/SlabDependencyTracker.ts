@@ -3,6 +3,10 @@ import { SlabStore } from '@pryzm/geometry-slab';
 import { SlabData } from '@pryzm/geometry-slab';
 import { HostReferenceEdge, SketchEdge } from '@pryzm/geometry-slab';
 import { WallFaceResolver } from './WallFaceResolver';
+// §FIX-SLAB-POLYGON-WRITEBACK — relative import, NOT the package barrel: the
+// builder never imports this tracker, so the edge is acyclic (§SCC rule).
+import { SlabFragmentBuilder } from './SlabFragmentBuilder';
+import { polygonBoundingBox } from './SlabGeomUtils';
 import { DegradeSlabSketchCommand } from '@pryzm/command-registry';
 import { CommandManager } from '@pryzm/command-registry';
 
@@ -24,6 +28,38 @@ export interface CommandManagerRef {
 }
 
 /**
+ * §FIX-SLAB-POLYGON-WRITEBACK — are two rings the same closed boundary?
+ *
+ * Cyclic comparison: true iff `a` matches `b` under SOME rotation of the start
+ * vertex, every vertex within `eps`. Deliberately NOT reflection-invariant: a
+ * winding flip (an inverting move) is a real change and must be persisted so
+ * the record keeps agreeing with the mesh. Pure; O(n·k) for k anchor candidates
+ * (n is a handful for any real slab).
+ */
+function ringsEqualCyclic(
+    a: { x: number; y: number }[],
+    b: { x: number; y: number }[],
+    eps = 1e-9,
+): boolean {
+    if (a.length !== b.length) return false;
+    const n = a.length;
+    if (n === 0) return true;
+    const first = a[0]!;
+    for (let k = 0; k < n; k++) {
+        const cand = b[k]!;
+        if (Math.abs(first.x - cand.x) >= eps || Math.abs(first.y - cand.y) >= eps) continue;
+        let all = true;
+        for (let i = 1; i < n; i++) {
+            const p = a[i]!;
+            const q = b[(k + i) % n]!;
+            if (Math.abs(p.x - q.x) >= eps || Math.abs(p.y - q.y) >= eps) { all = false; break; }
+        }
+        if (all) return true;
+    }
+    return false;
+}
+
+/**
  * SlabDependencyTracker
  *
  * Maintains a live dependency graph: wallId → Set<slabId>.
@@ -41,8 +77,24 @@ export interface CommandManagerRef {
  *   calling slabStore.update() directly. Sketch degradation is now undoable:
  *   Ctrl+Z on a wall deletion also restores the slab's HostReferenceEdges.
  * - §02 Projection-Only: Re-projections triggered via slabStore.triggerRebuild().
- * - §03 Single Source of Truth: tracker reads stores read-only and
- *   writes only through the command layer.
+ * - §03 Single Source of Truth — the tracker reads stores read-only and has
+ *   exactly TWO write shapes, distinguished by what the write is:
+ *     · DEGRADATION (wall removed) is INFORMATION-LOSING — a hostReference
+ *       becomes a freeLine and nothing can re-derive it back. C79 §4.2 therefore
+ *       mandates an undoable command (DegradeSlabSketchCommand, above).
+ *     · POLYGON RE-PROJECTION (wall moved) is INFORMATION-NEUTRAL — the polygon
+ *       is DERIVED state (SlabTypes.ts: with a sketch present, geometry is
+ *       resolved from the sketch at projection time; the polygon mirrors it),
+ *       deterministically re-derivable per C79 §5.1. reprojectStoredPolygon()
+ *       persists it through slabStore.update() as a STRUCTURAL CASCADE — the
+ *       same documented pattern as SlabWallConnectivityService ("§01 §2.1
+ *       structural cascade") — deliberately NOT a command: a derived write on
+ *       the undo stack would let one Ctrl+Z restore the PRE-move polygon
+ *       against POST-move walls, recreating the drawn≠recorded divergence the
+ *       write-back exists to remove. Undo of the WALL move re-fires this
+ *       cascade and re-derives the old ring exactly (§5.1 determinism), so the
+ *       cascade is undo-NEUTRAL by construction. P6 ("no direct store writes
+ *       from UI code") is not in play: this is engine propagation, not UI.
  */
 export class SlabDependencyTracker {
     /** wallId → slabIds that reference it */
@@ -133,14 +185,102 @@ export class SlabDependencyTracker {
     /**
      * Wall was updated — re-project all slabs that reference it.
      * The builder will call WallFaceResolver.resolve() fresh on the next rebuild.
+     *
+     * §FIX-SLAB-POLYGON-WRITEBACK: the stored record is re-projected FIRST, then
+     * the builder is signalled — so any consumer reacting to either event reads
+     * a record that already agrees with the line the mesh will be drawn on.
+     * When the ring actually changed, the store update itself also emits
+     * `bim-slab-updated`, so the mesh is rebuilt twice per committed wall move
+     * (once per event). Accepted: both builds are idempotent projections of the
+     * same record, and the alternative — suppressing one of the two emissions —
+     * would be a parallel mutation path.
      */
     private onWallUpdated(wallId: string): void {
         const dependents = this.graph.get(wallId);
         if (!dependents || dependents.size === 0) return;
 
         dependents.forEach(slabId => {
+            this.reprojectStoredPolygon(slabId);
             this.slabStore.triggerRebuild(slabId);
         });
+    }
+
+    /**
+     * §FIX-SLAB-POLYGON-WRITEBACK (GR-12 · C79 §5.1 · check-move-propagation A2,
+     * 2026-08-13) — persist the re-derived ring into `SlabData.polygon`.
+     *
+     * THE DEFECT THIS CLOSES, as the gate measured it: after a wall move, the
+     * builder draws the slab from `data.sketch` (createSlabMeshWithEdges prefers
+     * the sketch — 36.000 m² after a 2 m move) while `SlabData.polygon` kept the
+     * authoring-time ring (24.000 m²). Every consumer that reads the POLYGON —
+     * root.userData.polygon, schedules, area take-off, IFC/DXF export, and any
+     * downstream region detection — saw the PRE-move shape. "It follows" was
+     * true of the picture and false of the record.
+     *
+     * THE FIX: the SAME production resolution the mesh path uses
+     * (SlabFragmentBuilder.resolveLoop — never a re-composition, so record and
+     * mesh cannot diverge), written back through the store's sanctioned
+     * full-replacement update(). Width/depth AABB metadata is kept in sync,
+     * mirroring UpdateSlabPolygonCommand §03 — the sanctioned polygon-write
+     * path this cascade is modelled on. Why a store write and not a command:
+     * see §03 in the class header (derived state; a command here would make
+     * Ctrl+Z itself recreate the divergence).
+     *
+     * C79 §5.2 states, honestly: this method distinguishes THREE of the five
+     * recomputation outcomes at its own boundary — `preserved` (ring unchanged:
+     * no write), a changed ring (`resized`/`regenerated`, persisted; nothing on
+     * the move path can yet tell those two apart), and `undetermined` (resolution
+     * failed: no write, audible warn — NEVER silently collapsed into `preserved`,
+     * per §5.2.1). It does NOT implement §5.2's reporting channel — no value is
+     * returned to a caller and `conflicted` has no refusal here (an inverting
+     * move persists the winding-flipped ring the mesh also draws, keeping
+     * record≡mesh; the §5.2.2 refusal belongs at resolveLoop, where BOTH
+     * consumers would inherit it). That design remains the open
+     * check-move-propagation A4 finding, owned by C79 §5's implementers.
+     */
+    private reprojectStoredPolygon(slabId: string): void {
+        const slab = this.slabStore.getById(slabId);
+        // No sketch → the polygon IS the authored boundary; nothing to re-derive.
+        if (!slab?.sketch) return;
+
+        const ring = SlabFragmentBuilder.resolveLoop(slab.sketch.outerLoop);
+        if (!ring || ring.length < 3) {
+            // C79 §5.2 `undetermined` — a host failed to resolve (resolveLoop has
+            // already warned per-edge). §5.2.1: not silently `preserved` — say so,
+            // and keep the last successfully derived ring rather than writing a
+            // fiction over it (§2.3: no answer beats a wrong answer).
+            console.warn(
+                `[SlabDependencyTracker] §FIX-SLAB-POLYGON-WRITEBACK slab "${slabId}": ` +
+                `re-derivation after a wall move is UNDETERMINED (sketch outer loop did ` +
+                `not resolve). SlabData.polygon was NOT updated and still holds the last ` +
+                `successfully derived ring. (C79 §5.2.1 — this is not 'preserved'.)`
+            );
+            return;
+        }
+
+        // `preserved` — re-derived and nothing moved (within 1e-9 m, far below any
+        // real wall move). No write: an update event claiming a change that did not
+        // happen would be noise to every diff-based subscriber (C72 §3.1).
+        //
+        // The comparison is CYCLIC: the creation-time ring (SlabRegionTracer) and the
+        // re-derived ring (SketchLoopIntersector, via resolveLoop) walk the SAME
+        // boundary but may start at a DIFFERENT vertex — measured on the reference
+        // fixture: [(0,0),(6,0),(6,4),(0,4)] stored vs [(6,0),(6,4),(0,4),(0,0)]
+        // re-derived, over a ZERO move. A per-index compare called that "changed" and
+        // fired a spurious update (caught by the §4 `preserved` test). A rotation is
+        // the same boundary; a WINDING FLIP is not — an inverted cycle never matches
+        // any rotation of the original, so an inverting move is still persisted and
+        // the record keeps agreeing with what the mesh draws.
+        if (slab.polygon && ringsEqualCyclic(ring, slab.polygon)) return;
+
+        // Full-replacement update through the store's sanctioned path (§01 §3.4):
+        // clone the frozen record, swap the derived fields, hand it back whole.
+        const next = structuredClone(slab) as SlabData;
+        next.polygon = ring;
+        const { width, depth } = polygonBoundingBox(ring);
+        next.width = parseFloat(width.toFixed(6));
+        next.depth = parseFloat(depth.toFixed(6));
+        this.slabStore.update(slabId, next);
     }
 
     /**
