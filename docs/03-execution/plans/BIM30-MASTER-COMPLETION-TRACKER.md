@@ -56,24 +56,46 @@ The wall→slab case is a single cell in a large matrix. C78 states the real bar
 **DETERMINED-affected · DETERMINED-unaffected · UNDETERMINED-with-a-typed-reason** — and
 **C78 §19.1 applies no-partial-credit ACROSS that product**, not just along one chain.
 
-So the honest shape of the work is a grid, not a list:
+### The authoritative matrix — from the 2026-08-12 certification audit, with 2026-08-13 deltas
 
-|  | create | **move** | delete | regenerate |
-|---|---|---|---|---|
-| wall → slab | ✅ references written | 🔴 **§-1: does not follow** | ✅ purge + verbatim undo | ⬜ |
-| wall → floor finish | ✅ references written | 🔴 0 consumers | 🟡 | ⬜ |
-| wall → ceiling | ✅ references written | 🔴 0 consumers | 🟡 | ⬜ |
-| wall → roof | 🔴 no field can hold it | 🔴 structurally cannot | ✅ | ⬜ |
-| wall → opening | ✅ | ✅ planner landed | ✅ | ⬜ |
-| wall → room | ✅ | ✅ | ✅ | 🔴 destroys authored rooms |
-| level → everything on it | ✅ | ⬜ **unmeasured** | ✅ | ⬜ |
-| stair/lift → levels | ✅ author-keyed | ⬜ unmeasured | ✅ verbatim | ⬜ |
-| column/beam → structure | ⬜ | ⬜ | 🟡 | ⬜ |
-| furniture → room | ✅ `contains` | ⬜ | 🟡 | 🔴 |
+That audit's verdict was **Zero GREEN · Five YELLOW · Nine RED**, and its decisive measurement was
+**2 planners · 4 dependency trackers · ceiling, roof, stair, floor-finish and level with ZERO
+`wallStore.subscribe`**.
 
-**⬜ is the largest category, and it is not "probably fine" — it is UNMEASURED.** Today's session
-turned a handful of ⬜ into 🔴 by measuring them, which is why the counted percentage went *down*.
-That is the program working: **you cannot wire what you have not proven is unwired.**
+| SOURCE → DEPENDENT | 2026-08-12 | **2026-08-13 delta** |
+|---|---|---|
+| wall → **wall** | 🟡 | 🟡 unchanged |
+| wall → **junction** | 🟡 | 🟡 unchanged — still the only fully plan-bound arrow |
+| wall → **opening** | 🟡 tracker-only | 🟡→ **real planner landed** (`cb3d59c6`), 5 of 6 matrix columns |
+| wall → **room** | 🔴 | 🔴 unchanged |
+| wall → **slab (region)** | 🔴 no ref | 🔴 **refs now correct; root cause PINNED** — §-1 |
+| wall → **floor finish** | 🔴 no edge at all | 🔴 **refs now written**, 0 consumers |
+| wall → **ceiling** | 🔴 | 🔴 **refs now written**, 0 consumers |
+| wall → **stair** | 🔴 | 🔴 unchanged (delete-purge + verbatim undo landed) |
+| wall → **roof** | 🔴 MEASURED-ABSENT | 🔴 **structurally blocked** — no field can hold a ref; Zod strips it |
+| level → **everything** | 🔴 strands 11 types | 🔴 delete-purge landed; move still unmeasured |
+| wall → **constraints** | 🟡 1 of 17 evidenced | 🟡 unchanged |
+| wall → **graph** | 🟡 | 🟡→ **8 of REQUIRED 9** families have writer + typed reader |
+| **generated elements** | 🔴 no verb at all | 🔴→ **`room.regenerate` exists and REFUSES honestly** (GEN-GAP-1) |
+| **AI-proposed** | 🟡 DECLARED | 🟡 unchanged — the AI half is structurally undispatchable |
+
+### 🟢 THE ARCHITECTURAL BLOCKER IS DEAD — verified 2026-08-13
+
+The audit's blocker **C.1** read: *"`ConsequencePlanner<WallMoveCommand>` is hard-bound — no second
+family can register. **Everything else waits behind this.**"*
+
+**It no longer holds.** `ConsequencePreviewService.ts:312` now types the map
+`ReadonlyMap<string, ConsequencePlanner<never>>`, its docstring records the old signature, and
+**three planners are registered** (`consequencePreviewServiceComposition.ts:65, 71, 82`). Opening
+the third row cost *one* `planners.set` in one shared factory — no service class was edited.
+
+That was the gate on every other family. **The pattern is now generalisable, and the remaining 🔴
+rows are work rather than redesign.** Of the audit's five blockers, C.1 is closed, C.4 (floor
+finish had no dependency edge) is closed at creation, and C.2/C.3/C.5 stand.
+
+**⬜/🔴 is still the majority, and 🔴 is not "probably fine" — much of it was ⬜ UNMEASURED until
+this week.** Measuring turned several ⬜ into 🔴, which is why the counted percentage *fell*. That
+is the program working: **you cannot wire what you have not proven is unwired.**
 
 **The end state**: every cell reads ✅ or carries a typed, named refusal. Not one flagship
 operation working — *all of them, or an honest "I cannot determine that" per cell.*
