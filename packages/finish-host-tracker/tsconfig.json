@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": false,
+    "noEmit": true,
+    // Off for the same reason command-registry turns it off: Bundler resolution
+    // typechecks DEPENDENCY SOURCE (room-topology / spatial-index via
+    // geometry-slab → command-registry), which was not written under this flag.
+    // This package's own code still indexes defensively as if it were on.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/**/*.bench.ts"
+  ]
+}

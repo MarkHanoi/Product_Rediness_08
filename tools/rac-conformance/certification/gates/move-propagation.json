@@ -172,8 +172,6 @@
   "declaredFindings": [
     "all families · C79 §5.2.1 — `preserved` and `undetermined` are distinguishable at the caller",
     "all families · C79 §5.2 — a re-derivation reports exactly one of the five states",
-    "floor-finish · the host reference written at creation is READ by something",
-    "ceiling · the host reference written at creation is READ by something",
     "roof·region · the region attribution reaches a reference-capable field on the roof record"
   ],
 
