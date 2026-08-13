@@ -123,7 +123,19 @@ export class ApartmentLayoutExecutor {
             // the engine suppresses every window + the entrance door. Default ⇒ empty
             // set ⇒ byte-identical to the pre-PW.1 behaviour (neighbour DETECTION is
             // the PW.2 follow-up; see resolveBlindFacades.ts + SPEC-PARTY-WALL-AWARENESS).
-            const blindFacadeWallIds = resolveBlindFacades(shellWalls);
+            // GR-10 / C75 §1.4 — the seam now returns a DETERMINATION. On the
+            // undetermined arm the decision to proceed WITHOUT suppression is
+            // made here, explicitly and visibly — not silently inside a catch.
+            const blindDetermination = resolveBlindFacades(shellWalls);
+            if (blindDetermination.kind === 'undetermined') {
+                console.warn(
+                    `[apartment-layout] §DIAG-PARTY-WALL ${blindDetermination.scope}: ` +
+                    `${blindDetermination.reason} — ${blindDetermination.detail}. ` +
+                    `Proceeding WITHOUT party-wall suppression: windows/entrance may land on unchecked façades.`,
+                );
+            }
+            const blindFacadeWallIds =
+                blindDetermination.kind === 'determined' ? blindDetermination.blind : new Set<string>();
 
             const opts: LayoutExecuteOptions = {
                 levelId: level.id,

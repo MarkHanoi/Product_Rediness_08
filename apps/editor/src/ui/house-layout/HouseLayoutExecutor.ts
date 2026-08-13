@@ -646,7 +646,19 @@ export class HouseLayoutExecutor {
                 // storey's shell walls. The engine suppresses windows + the entrance
                 // door there. Default ⇒ empty ⇒ byte-identical (neighbour DETECTION is
                 // the PW.2 follow-up; see resolveBlindFacades + SPEC-PARTY-WALL-AWARENESS).
-                const blindFacadeWallIds = resolveBlindFacades(shellWalls);
+                // GR-10 / C75 §1.4 — determination seam; on the undetermined arm
+                // the no-suppression decision is made HERE, visibly (see
+                // resolveBlindFacades.ts header).
+                const blindDetermination = resolveBlindFacades(shellWalls);
+                if (blindDetermination.kind === 'undetermined') {
+                    console.warn(
+                        `[house-layout] §DIAG-PARTY-WALL ${blindDetermination.scope}: ` +
+                        `${blindDetermination.reason} — ${blindDetermination.detail}. ` +
+                        `Proceeding WITHOUT party-wall suppression: windows/entrance may land on unchecked façades.`,
+                    );
+                }
+                const blindFacadeWallIds =
+                    blindDetermination.kind === 'determined' ? blindDetermination.blind : new Set<string>();
                 const opts: LayoutExecuteOptions = {
                     levelId: storey.levelId,
                     baseElevationM: storey.elevationM,

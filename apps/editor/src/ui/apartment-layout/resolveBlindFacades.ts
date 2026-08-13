@@ -29,9 +29,19 @@
 //     (explicit shared boundaries) override the proximity heuristic.
 //
 // ADDITIVE + SAFE: no site origin / no neighbours / detection finds nothing ⇒ EMPTY
-// set ⇒ byte-identical to the pre-PW.2 behaviour (the common case + all tests).
-// Pure geometry; deterministic per ADR-0061. NEVER throws.
+// DETERMINED set ⇒ byte-identical to the pre-PW.2 behaviour (the common case + all
+// tests). Pure geometry; deterministic per ADR-0061. NEVER throws.
+//
+// GR-10 / C75 §1.4 (2026-08-13) — the ARM A ledger row: the outer
+// `catch { return new Set(); }` made a CRASHED detection indistinguishable from
+// "no party walls found", and the engine then happily placed windows + the
+// entrance on façades nobody had cleared. The function now returns a
+// `BlindFacadeDetermination`: a determined (possibly empty) set, or a TYPED
+// refusal (`PLANNER_THREW`, C78 §8.1) the executors must branch on — the
+// explicit, logged decision to proceed without suppression replaces the silent
+// one.
 
+import type { UndeterminedReason } from '@pryzm/command-bus';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 import { getNeighbourFootprints } from '../site/neighbourFootprintStore.js';
 import { latLonToSceneXZ } from '../site/boundaryProjection.js';
@@ -49,6 +59,22 @@ export interface BlindFacadeShellWall {
     readonly start: { readonly x: number; readonly z: number };
     readonly end: { readonly x: number; readonly z: number };
 }
+
+/**
+ * The answer to "which shell walls are blind/party walls?", with its
+ * determination status in the type (C75 §1.4 · C71 §4.4). An EMPTY determined
+ * set is a real answer — no neighbour within setback, no override. The
+ * `undetermined` arm is what the old swallowed catch used to hide: the
+ * detection CRASHED, and "no blind walls" was never determined.
+ */
+export type BlindFacadeDetermination =
+    | { readonly kind: 'determined'; readonly blind: ReadonlySet<string> }
+    | {
+          readonly kind: 'undetermined';
+          readonly scope: string;
+          readonly reason: UndeterminedReason;
+          readonly detail: string;
+      };
 
 /**
  * Resolve the configured setback (m): `window.__pryzmPartyWallSetbackM` overrides
@@ -76,24 +102,29 @@ function shellCentroid(walls: readonly BlindFacadeShellWall[]): XZ | undefined {
 
 /**
  * Compute the BLIND set from captured neighbour footprints (PW.2). Returns the
- * subset of `shellWalls[].id` whose façade abuts a neighbour within the setback.
- * EMPTY when there is no site origin, no captured footprints, or nothing qualifies
- * (additive identity). Logs §DIAG-PARTY-WALL. NEVER throws.
+ * subset of `shellWalls[].id` whose façade abuts a neighbour within the setback,
+ * as a DETERMINED set — EMPTY when there is no site origin, no captured
+ * footprints, or nothing qualifies (additive identity). A crash is returned as
+ * the `undetermined` arm (PLANNER_THREW), never as a partial or empty set — the
+ * old warn-and-return-partial path asserted a suppression set nobody computed.
+ * Logs §DIAG-PARTY-WALL. NEVER throws.
  */
 function computeNeighbourBlindSet(
     shellWalls: readonly BlindFacadeShellWall[],
-): Set<string> {
+): BlindFacadeDetermination {
     const blind = new Set<string>();
     try {
-        if (shellWalls.length === 0) return blind;
+        if (shellWalls.length === 0) return { kind: 'determined', blind };
 
         const origin = getCurrentSiteOrigin();
         const snapshot = getNeighbourFootprints();
         const neighbourCount = snapshot?.footprints.length ?? 0;
 
         if (!origin || (origin.lat === 0 && origin.lon === 0) || neighbourCount === 0) {
-            // No site frame or no neighbours → nothing to detect (the common case).
-            return blind;
+            // No site frame or no neighbours → nothing to detect (the common
+            // case) — a DETERMINED empty, not an unknown: there is genuinely
+            // nothing to test against.
+            return { kind: 'determined', blind };
         }
 
         // Project each neighbour footprint (lon/lat ring → world-XZ) about the same
@@ -132,9 +163,18 @@ function computeNeighbourBlindSet(
                 : ''),
         );
     } catch (e) {
-        console.warn('[apartment-layout] §DIAG-PARTY-WALL detection failed (non-fatal):', e);
+        // GR-10 — the failure is a VALUE, not an empty set. The old path
+        // warned and fell through to `return blind`, asserting a suppression
+        // set the crashed detection never computed.
+        console.warn('[apartment-layout] §DIAG-PARTY-WALL detection failed:', e);
+        return {
+            kind: 'undetermined',
+            scope: `blind/party façade detection over ${shellWalls.length} shell wall(s)`,
+            reason: 'PLANNER_THREW',
+            detail: `neighbour-footprint detection threw: ${e instanceof Error ? e.message : String(e)}`,
+        };
     }
-    return blind;
+    return { kind: 'determined', blind };
 }
 
 /**
@@ -142,21 +182,27 @@ function computeNeighbourBlindSet(
  *
  * Computes the PW.2 neighbour-footprint blind set, then UNIONs it with the manual
  * override (`window.__pryzmBlindFacadeWallIds`, intersected with live shell ids so a
- * stale id never leaks). EMPTY when there is no site data / no neighbours / nothing
- * qualifies AND no override — byte-identical to the pre-PW.2 behaviour. NEVER throws;
- * on any error returns an empty set (no suppression).
+ * stale id never leaks). Determined-EMPTY when there is no site data / no neighbours /
+ * nothing qualifies AND no override — byte-identical to the pre-PW.2 behaviour.
+ * NEVER throws; on any error returns the `undetermined` arm (C78 §8.1
+ * `PLANNER_THREW`), never an empty set — "the detection crashed" and "no party
+ * walls" are different facts (C75 §1.4), and the executors must decide, visibly,
+ * what to do with the first one.
  *
  * @param shellWalls the storey's shell walls (world metres, from `gatherShellWalls`).
- * @returns the subset of `shellWalls[].id` that are blind party walls.
+ * @returns the determination: the blind subset of `shellWalls[].id`, or a typed refusal.
  */
 export function resolveBlindFacades(
     shellWalls: readonly BlindFacadeShellWall[],
-): ReadonlySet<string> {
+): BlindFacadeDetermination {
     try {
         const ids = new Set(shellWalls.map(w => w.id));
 
-        // PW.2 — neighbour-footprint proximity detection (empty when no site data).
-        const blind = computeNeighbourBlindSet(shellWalls);
+        // PW.2 — neighbour-footprint proximity detection (determined-empty when
+        // no site data; undetermined when the detection crashed).
+        const detection = computeNeighbourBlindSet(shellWalls);
+        if (detection.kind === 'undetermined') return detection;
+        const blind = new Set(detection.blind);
 
         // Manual / test / demo override: window.__pryzmBlindFacadeWallIds = ['wall-id', …].
         // The deterministic injection point — UNION-ed with the computed set so it
@@ -176,8 +222,15 @@ export function resolveBlindFacades(
                 );
             }
         }
-        return blind;
-    } catch {
-        return new Set();
+        return { kind: 'determined', blind };
+    } catch (e) {
+        // GR-10 (the ARM A row) — the failure leaves as a TYPED value. The old
+        // `return new Set()` here is exactly the collapse the ledger named.
+        return {
+            kind: 'undetermined',
+            scope: 'blind/party façade resolution',
+            reason: 'PLANNER_THREW',
+            detail: `resolveBlindFacades threw: ${e instanceof Error ? e.message : String(e)}`,
+        };
     }
 }

@@ -11,6 +11,10 @@ import type {
     ApartmentConstraints,
     ScoringWeights,
 } from '@pryzm/ai-host';
+import {
+    relationshipArrayOrUnknown,
+    relationshipUndetermined,
+} from '../relationshipDetermination.js';
 
 /** A wall as the builder needs it: id, exterior flag, baseline (world XZ), and
  *  its openings (with metre offsets + widths so we can resolve window spans to
@@ -37,6 +41,78 @@ export interface BuildPayloadInput {
     readonly constraints: ApartmentConstraints;
     readonly count?: number;
     readonly scoringWeights?: ScoringWeights;
+}
+
+/** A live wall record as the payload-wall discriminator needs it (matches the
+ *  gather glue's `WallRecord` shape without importing the store layer). */
+export interface PayloadWallSource {
+    readonly id: string;
+    readonly baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+    readonly openings?: ReadonlyArray<{
+        type: 'window' | 'door';
+        elementId?: string;
+        offset?: number;
+        width?: number;
+    }>;
+}
+
+/** The typed refusal arm (C78 §8.1 vocabulary, imported — never restated). */
+export type PayloadWallsRefusal = ReturnType<typeof relationshipUndetermined>;
+
+export type PayloadWallsDetermination =
+    | { readonly kind: 'determined'; readonly walls: PayloadWall[] }
+    | PayloadWallsRefusal;
+
+/**
+ * GR-10 / C75 §1.4 — the honest wall→PayloadWall mapping. The old shape mapped
+ * `openings: (w.openings ?? []).map(…)`, forging "this wall has no openings"
+ * out of "this wall's opening set was never recorded". The payload derives
+ * windowIds / entranceDoorId / window+door spans from these openings, so the
+ * forge fed the GENERATOR a positive claim nobody measured — windows could be
+ * punched into a wall that already has them. A wall with an UNRECORDED opening
+ * set now refuses the whole mapping, typed; a wall with a PRESENT empty array
+ * (the schema-default case) is a real zero-openings answer and proceeds
+ * (C71 §4.4). PURE — the node-tested half; the store glue reports the refusal.
+ */
+export function determinePayloadWalls(
+    onLevel: readonly PayloadWallSource[],
+    isExterior: (wallId: string) => boolean,
+    levelId: string,
+): PayloadWallsDetermination {
+    const unrecorded: string[] = [];
+    const walls: PayloadWall[] = [];
+    for (const w of onLevel) {
+        const bl = w.baseLine;
+        const baseLine = bl && bl.length >= 2
+            ? ([{ x: bl[0]!.x, z: bl[0]!.z }, { x: bl[1]!.x, z: bl[1]!.z }] as const)
+            : undefined;
+        const openings = relationshipArrayOrUnknown<NonNullable<PayloadWallSource['openings']>[number]>(w.openings);
+        if (openings === null) {
+            unrecorded.push(w.id);
+            continue;
+        }
+        walls.push({
+            id: w.id,
+            isExterior: isExterior(w.id),
+            ...(baseLine ? { baseLine } : {}),
+            openings: openings.map(o => ({
+                type: o.type,
+                elementId: o.elementId,
+                ...(typeof o.offset === 'number' ? { offset: o.offset } : {}),
+                ...(typeof o.width === 'number' ? { width: o.width } : {}),
+            })),
+        });
+    }
+    if (unrecorded.length > 0) {
+        return relationshipUndetermined(
+            `openings of ${unrecorded.length} of ${onLevel.length} wall(s) on level ${levelId}`,
+            'RELATIONSHIP_NOT_RECORDED',
+            `wall.openings is absent on [${unrecorded.join(', ')}] — no producer wrote the ` +
+                `opening set, so "no openings" was NOT determined; generating against a guess could ` +
+                `punch windows into walls that already have them.`,
+        );
+    }
+    return { kind: 'determined', walls };
 }
 
 export const DEFAULT_PROGRAM: ApartmentProgram = {

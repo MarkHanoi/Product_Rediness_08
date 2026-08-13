@@ -11,9 +11,10 @@ import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { ApartmentGenerateLayoutPayload, ApartmentProgram } from '@pryzm/ai-host';
 import {
     buildLayoutRequestPayload,
+    determinePayloadWalls,
     DEFAULT_PROGRAM,
     DEFAULT_CONSTRAINTS,
-    type PayloadWall,
+    type PayloadWallsRefusal,
 } from './layoutRequestPayload.js';
 import { resolveApartmentBrief } from './briefToProgram.js';
 import { getActiveBriefMetadata } from './activeBrief.js';
@@ -21,6 +22,10 @@ import { getActiveScoringWeights, getActiveEngineTuning } from './activeDesignPa
 import { getRoomAreaOverrides } from './activeRoomAreaOverrides.js';
 import { getRoomTypeOverrides } from './activeRoomTypeOverrides.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
+import { relationshipUndeterminedLabel } from '../relationshipDetermination.js';
+
+/** A typed gather refusal (C78 §8.1 vocabulary) handed to `onUndetermined`. */
+export type GatherLayoutRefusal = PayloadWallsRefusal;
 
 interface WallRecord {
     id: string;
@@ -58,10 +63,16 @@ interface WallRecord {
  *
  * @param levelId the active level.
  * @param programOverride optional explicit partial program (wins over the stash).
+ * @param onUndetermined optional refusal sink (GR-10 / C75 §1.4): called with the
+ *   TYPED reason when the gather refuses because a wall's opening set was never
+ *   recorded. Callers with a user-facing surface (the trigger's toast, the AI
+ *   relay's `{ ok:false, reason }`) render it; headless callers still get the
+ *   always-on console.warn.
  */
 export function gatherLayoutPayload(
     levelId: string,
     programOverride?: Partial<ApartmentProgram>,
+    onUndetermined?: (refusal: GatherLayoutRefusal) => void,
 ): ApartmentGenerateLayoutPayload | null {
     const wallStore = storeRegistry.getStoreForType('wall') as unknown as
         | { getAll?(): WallRecord[] }
@@ -70,24 +81,27 @@ export function gatherLayoutPayload(
     const onLevel = all.filter(w => w.levelId === levelId);
     if (onLevel.length === 0) return null;
 
+    // GR-10 / C75 §1.4 — the wall→PayloadWall mapping rides the PURE, node-
+    // tested discriminator (determinePayloadWalls, layoutRequestPayload.ts): a
+    // wall whose opening set was never recorded REFUSES the gather with a typed
+    // reason instead of entering the payload claiming zero openings; a wall
+    // with a PRESENT empty array proceeds (a real answer, C71 §4.4). This glue
+    // reports the refusal — always to the console, and to the caller's
+    // `onUndetermined` sink when one is supplied.
     const facades = facadeOrientationService.getFacades(levelId);
-    const walls: PayloadWall[] = onLevel.map(w => {
-        const bl = w.baseLine;
-        const baseLine = bl && bl.length >= 2
-            ? ([{ x: bl[0]!.x, z: bl[0]!.z }, { x: bl[1]!.x, z: bl[1]!.z }] as const)
-            : undefined;
-        return {
-            id: w.id,
-            isExterior: facades.get(w.id)?.isExterior ?? false,
-            ...(baseLine ? { baseLine } : {}),
-            openings: (w.openings ?? []).map(o => ({
-                type: o.type,
-                elementId: o.elementId,
-                ...(typeof o.offset === 'number' ? { offset: o.offset } : {}),
-                ...(typeof o.width  === 'number' ? { width:  o.width  } : {}),
-            })),
-        };
-    });
+    const wallsDetermination = determinePayloadWalls(
+        onLevel,
+        (wallId) => facades.get(wallId)?.isExterior ?? false,
+        levelId,
+    );
+    if (wallsDetermination.kind === 'undetermined') {
+        console.warn(
+            `[apartment-layout] §GR-10 gather REFUSED — ${relationshipUndeterminedLabel(wallsDetermination)}`,
+        );
+        onUndetermined?.(wallsDetermination);
+        return null;
+    }
+    const walls = wallsDetermination.walls;
 
     // §INTERIOR-HEIGHT-MATCH (2026-05-29 audit follow-up): derive the
     // partition height from the SHELL — read the max height of every wall

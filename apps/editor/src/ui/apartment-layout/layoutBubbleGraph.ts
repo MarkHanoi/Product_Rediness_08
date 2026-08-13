@@ -23,6 +23,34 @@ import {
     buildLayoutThumbnailSvg, computePlanTransform,
     type ThumbnailOptions,
 } from './layoutThumbnail.js';
+// GR-10 — pure, zero-runtime-dependency discriminator (type-only command-bus
+// import → erased), so this module's no-runtime-imports property is preserved.
+import { relationshipArrayOrUnknown } from '../relationshipDetermination.js';
+
+/**
+ * GR-10 / C75 §1.4 — the honest read of the per-room DOOR graph. Returns one
+ * `doorAdjacentTo` list per room (index-aligned), or `null` when ANY room's
+ * door graph was never recorded (pre-deploy engine builds) — in which case the
+ * §CIRC-REACH analysis must REFUSE to run rather than treat those rooms as
+ * door-less (sealed). A PRESENT empty list is a real answer: that room is
+ * genuinely sealed, and stays a red-flag candidate.
+ *
+ * The old shape (`r.doorAdjacentTo ?? []` inside the guarded branch) was the
+ * collapse this ledger row named: it re-merged "never recorded" into "no
+ * doors" one line after the guard distinguished them.
+ */
+export function doorGraphListsOrUnknown(
+    rooms: ReadonlyArray<{ readonly doorAdjacentTo?: readonly string[] }>,
+): ReadonlyArray<readonly string[]> | null {
+    if (rooms.length === 0) return null;
+    const lists: Array<readonly string[]> = [];
+    for (const r of rooms) {
+        const list = relationshipArrayOrUnknown<string>(r.doorAdjacentTo);
+        if (list === null) return null;
+        lists.push(list);
+    }
+    return lists;
+}
 
 export interface BubbleGraphOptions {
     readonly width?: number;        // px, default 160
@@ -519,13 +547,19 @@ export function buildPlanGraphOverlaySvg(
         const arr = reachIdxByName.get(r.name);
         if (arr) arr.push(i); else reachIdxByName.set(r.name, [i]);
     });
-    const hasFullDoorGraph = rooms.length > 0 && rooms.every(r => Array.isArray(r.doorAdjacentTo));
+    // GR-10 — the door graph is read ONCE through the honest discriminator:
+    // `null` ⇔ at least one room's door graph was never recorded ⇔ the whole
+    // reach analysis refuses (unchanged behaviour, now unforgeable — the lists
+    // are index-aligned and proven present, so no `?? []` can re-collapse an
+    // unrecorded room into a sealed one).
+    const doorGraphLists = doorGraphListsOrUnknown(rooms);
+    const hasFullDoorGraph = doorGraphLists !== null;
     const reachableFromEntrance = new Set<number>();
-    if (hasFullDoorGraph) {
+    if (doorGraphLists !== null) {
         // Undirected door adjacency (be robust if `doorAdjacentTo` is only one-sided).
         const doorAdj: number[][] = rooms.map(() => []);
-        rooms.forEach((r, i) => {
-            for (const n of (r.doorAdjacentTo ?? [])) {
+        rooms.forEach((_r, i) => {
+            for (const n of doorGraphLists[i]!) {
                 for (const j of (reachIdxByName.get(n) ?? [])) {
                     if (j !== i) { doorAdj[i]!.push(j); doorAdj[j]!.push(i); }
                 }

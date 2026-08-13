@@ -10,7 +10,8 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ApartmentProgram } from '@pryzm/ai-host';
 import { ApartmentLayoutController, requestApartmentLayout } from './ApartmentLayoutController.js';
 import { ApartmentLayoutExecutor } from './ApartmentLayoutExecutor.js';
-import { gatherLayoutPayload } from './gatherLayoutPayload.js';
+import { gatherLayoutPayload, type GatherLayoutRefusal } from './gatherLayoutPayload.js';
+import { relationshipUndeterminedLabel } from '../relationshipDetermination.js';
 import { resolveActiveLevelId } from './activeLevel.js';
 import { generateApartmentFromScratch, type ApartmentFromScratchOptions } from './apartmentFromScratch.js';
 import { generateApartmentFromBoundary } from './apartmentFromBoundary.js';
@@ -54,8 +55,16 @@ export function triggerApartmentLayout(
             return;
         }
 
-        const payload = gatherLayoutPayload(lid, programOverride);
+        // GR-10 / C75 §1.4 — a gather REFUSAL (unrecorded opening sets) is a
+        // different fact from "no shell yet", and the user is told which one
+        // happened rather than being asked to draw walls that already exist.
+        let gatherRefusal: GatherLayoutRefusal | null = null;
+        const payload = gatherLayoutPayload(lid, programOverride, (r) => { gatherRefusal = r; });
         console.log('[apartment-layout] payload', payload);
+        if (gatherRefusal !== null) {
+            toast(`Can't generate — ${relationshipUndeterminedLabel(gatherRefusal)}`, 'error');
+            return;
+        }
         if (!payload || payload.shellWallIds.length < 3) {
             toast(`Need at least 3 exterior walls on the active level (found ${payload?.shellWallIds.length ?? 0}).`, 'error');
             return;
@@ -122,7 +131,13 @@ export async function generateApartmentLayoutForChat(
             return { ok: false, reason: 'the AI runtime is stale — restart the dev server (npm run dev) and reload.' };
         }
 
-        const payload = gatherLayoutPayload(lid, programOverride);
+        // GR-10 / C75 §1.4 — surface a gather refusal as its own reason; it is
+        // not "draw more walls".
+        let gatherRefusal: GatherLayoutRefusal | null = null;
+        const payload = gatherLayoutPayload(lid, programOverride, (r) => { gatherRefusal = r; });
+        if (gatherRefusal !== null) {
+            return { ok: false, reason: relationshipUndeterminedLabel(gatherRefusal) };
+        }
         const wallCount = payload?.shellWallIds.length ?? 0;
         if (!payload || wallCount < 3) {
             return {
