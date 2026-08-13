@@ -1940,3 +1940,37 @@ wrong answer delivered confidently on delete.
 
 **Owner**: `packages/geometry-slab` (tracker) + `SketchTypes` doc. Un-gated; candidate arm for
 `check-move-propagation` (a delete-path arm beside the move-path arms).
+
+## L-849 — A WHOLE TEST SUITE HAD NEVER RUN: `geometry-lift`'s dark `__tests__/`
+
+**2026-08-13, lane-L7b-reported during §STEP7 prevState work (`649a79ed`) — reported, not silently
+worked around.** The lane needed somewhere to put a seam test, measured where tests *demonstrably*
+run rather than assuming, and found a suite that does not.
+
+**Measured**: `packages/geometry-lift/vitest.config.ts` declared
+`include: ['src/**/__tests__/**/*.spec.ts', 'src/**/*.spec.ts']`. The file
+`packages/geometry-lift/__tests__/liftStores.test.ts` misses **both** patterns twice over — it sits
+at **package root**, not under `src/**`, and uses the **`.test.ts`** suffix, not `.spec.ts`. The
+package ran **1 file / 9 tests** (`LiftToolPlacement.spec.ts` alone). An entire
+`LiftStore` / `LiftTypeStore` suite has **never executed in CI**.
+
+**Why this is the session's own defect class.** It is *authored-but-unreachable* (C70 §4.2) applied
+to **the instrument rather than the capability** — the same shape as L-847 (a workbench that
+shipped unreachable) and as `FloorHostReferenceEdge` (an edge with zero consumers). A test that
+cannot run is indistinguishable from a test that does not exist, except that it *reads* as
+coverage. Per [[probe-can-be-wrong-three-ways]], this is the **wrong-SYSTEM** failure: the suite was
+real, the assertions were real, and nothing ever asked whether the runner saw it.
+
+### FIXED — but measured dark, then measured green, before switching on
+
+Enabling a never-run suite can turn a silent gap into a broken build, so the order was: run it in
+isolation via a throwaway config first → **11/11 green** → only then widen the include. The package
+now runs **3 files / 23 tests** (12 from `src/**` after `649a79ed`, plus the 11 recovered). Because
+the suite was green before it was switched on, enabling it **asserts nothing new** — it stops
+silently discarding assertions that already held.
+
+**Not established**: whether other workspaces have the same suffix/root mismatch. `.test.ts` vs
+`.spec.ts` and root-`__tests__/` vs `src/**/__tests__/` both vary across this monorepo, so this is
+unlikely to be the only one. **A repo-wide sweep — "every test file matched by at least one
+runner's include" — is the real fix and does not exist.** Candidate gate:
+`check-no-dark-test-files.ts`.
