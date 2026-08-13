@@ -96,13 +96,64 @@ export interface RoomVertex {
   z: number;
 }
 
-/** How the room boundary was detected or created. */
+/**
+ * How the room boundary was detected or created.
+ *
+ * ─── C75 §1 — the five ORIGINAL members are DETERMINATIONS ───────────────────
+ * Each of the first five states something the system actually established about
+ * who produced the boundary. `ElementProvenanceIndex.ts` translates them into
+ * the canonical L0 five-value vocabulary (`@pryzm/schemas/provenance`,
+ * `ValueOrigin`), and two of them — `manual-boundary`, `point-pick` — translate
+ * to **authored**, the one origin the system may never invent (C75 §1.1).
+ *
+ * ─── The two members added 2026-08-12 (C75 §7 exit conditions 1 and 2) ───────
+ * They are NOT determinations. They are the two honest answers this union
+ * previously could not express, and their absence is exactly why both defects
+ * took the shape they did — a vocabulary with no way to say "not known" and no
+ * way to say "we substituted this" leaves `|| 'auto-topology'` as the cheapest
+ * thing to write:
+ *
+ *  • `origin-unknown` — **C75 §1.4.** The boundary's origin is genuinely not
+ *    known. It is a VALUE, not a blank, and it is never one of the five: an
+ *    absent provenance field must never be *read as* a determination. It always
+ *    travels with `RoomBoundary.detectionDetail`, which carries the REASON in
+ *    the ADR-0280 / `ProvenanceUnknownReason` idiom (`predates-provenance`,
+ *    `not-recorded`, …). Written by `deserializeRoom` for a snapshot that lacks
+ *    the field — which is the ONLY thing such a snapshot proves.
+ *
+ *  • `repaired-ring` — **C75 §2.3 / §1.1 `inferred`.** The traced ring was
+ *    self-intersecting and `repairToSimplePolygon()` replaced it with the
+ *    largest simple sub-ring: a polygon the topology never traced. Plausible,
+ *    not entailed — so it is NOT `auto-topology`, and merging the two would be
+ *    precisely the COMPUTED/INFERRED collapse C75 §1.2 forbids. `detectionDetail`
+ *    states the vertex counts, so the substitution lands in the MODEL rather
+ *    than only in the console (C75 §4.c).
+ *
+ * ⚠ Neither new member may ever be supplied as a `??` / `||` fallback for one of
+ * the five — that would be the same defect wearing a newer label. They are
+ * written deliberately, at the two sites named in C75 §7, and nowhere else.
+ */
 export type RoomDetectionMethod =
   | 'auto-topology'   // Flood-fill from wall graph (DetectRoomFromWallsCommand)
   | 'manual-boundary' // User drew explicit polygon
   | 'point-pick'      // User clicked inside a wall-enclosed zone
   | 'ai-generated'    // AI placed room from programme description
-  | 'ifc-import';     // Imported from IFC IfcSpace geometry
+  | 'ifc-import'      // Imported from IFC IfcSpace geometry
+  | 'origin-unknown'  // C75 §1.4 — origin NOT KNOWN; reason in `detectionDetail`
+  | 'repaired-ring';  // C75 §2.3 — geometry SUBSTITUTED by repair; reason in `detectionDetail`
+
+/**
+ * The subset of {@link RoomDetectionMethod} a producer may claim about work it
+ * actually did.
+ *
+ * ⭐ The `SystemWritableOrigin` / `KnownLandBasis` idiom (C75 §2.8: *make the
+ * wrong value unrepresentable rather than check for it*). A path that creates a
+ * room from a real determination takes THIS type, so it cannot reach
+ * `origin-unknown` at all — "we do not know" is not something a producer that
+ * just did the work is entitled to say, and a `??` onto this type does not
+ * type-check its way to the honest member either.
+ */
+export type DeterminedRoomDetectionMethod = Exclude<RoomDetectionMethod, 'origin-unknown'>;
 
 export interface RoomBoundary {
   /** Closed CCW polygon in world XZ coordinates. Last vertex implicitly connects to first. Min 3 vertices. */
@@ -113,6 +164,20 @@ export interface RoomBoundary {
   baseOffset: number;
   /** How this boundary was established. */
   detectionMethod: RoomDetectionMethod;
+  /**
+   * **C75 §1.4 / §2.3 — the reason, not a decoration.**
+   *
+   * Required in practice on `origin-unknown` (why the origin is not known) and
+   * on `repaired-ring` (what the repair did). Optional on the five
+   * determinations, where the member itself already names the producer.
+   *
+   * ⚠ Typed OPTIONAL rather than required-on-two-members because C75 §2.5 binds
+   * harder than the elegance: every field added here must parse existing
+   * snapshots unchanged, and a conditional-required field would reject the
+   * entire back-catalogue (C75 §4.e). The obligation is carried by the two
+   * writing sites and by `check-derived-not-authored`, not by the type.
+   */
+  detectionDetail?: string;
 }
 
 // ── Finish Specification ──────────────────────────────────────────────────────

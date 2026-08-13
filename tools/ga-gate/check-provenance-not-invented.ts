@@ -153,8 +153,31 @@ const TOO_GENERIC_FIELD = /^(kind|reason|type|value|constraint|weakest|weakestFi
 const REPAIR_MARKER = /\b(repair(?:ed|To)?|sanitis|sanitiz|heal(?:ed)?|recover(?:ed)?|substitut|fell?\s?back|fallback|salvag)/i;
 /** …and the ONLY place it was written down. */
 const CONSOLE_ONLY = /\bconsole\.(?:debug|warn|log|info|error)\b/;
-/** …unless the repair reached the MODEL: a field carrying the reason with it. */
-const RECORDED_IN_MODEL = /\b(reason|note|repairNote|provenanceNote|repairedBy|correction|warnings?|diagnostics?)\s*:/;
+/**
+ * …unless the repair reached the MODEL: a field carrying the reason with it.
+ *
+ * ⭐ **Widened 2026-08-12, and the gate found the gap by punishing its own fix.**
+ * When PV-02 was closed at `RoomDetectionEngine.ts` the repair began writing
+ * `detectionDetail: repairDetail` into the boundary — the substitution now lands
+ * in the model exactly as C75 §2.3 demands. This arm reported the fixed code as
+ * a finding anyway, twice, for two independent reasons:
+ *
+ *  1. **`detectionDetail` was not on the name list.** The list was written from
+ *     the names in play before any provenance field existed (`reason`, `note`,
+ *     `warnings`), so the field C75's own §1.4 idiom actually mints — a
+ *     `<thing>Detail` carrying the UNKNOWN/INFERRED reason — read as nothing at
+ *     all. `\w*Detail` is added, not `detectionDetail` alone: the idiom is the
+ *     subject, not the one site.
+ *  2. **The window was backward-only** (`lines.slice(from, i)`), which cannot
+ *     structurally see a reason field written AFTER the stamp — and in an object
+ *     literal it always is: `detectionMethod` on one line, `detectionDetail` on
+ *     the next. The window now spans both sides of the stamp.
+ *
+ * A gate that flags the prescribed fix trains authors to delete it (C74 §0), and
+ * this is the most dangerous shape of that: the arm would have stayed green only
+ * while PV-02 stayed OPEN.
+ */
+const RECORDED_IN_MODEL = /\b(reason|note|repairNote|provenanceNote|repairedBy|correction|warnings?|diagnostics?|\w*Detail)\s*:/;
 
 /**
  * Members that a codebase legitimately uses as *placeholders*. A vocabulary that
@@ -206,16 +229,42 @@ const UNKNOWN_MEMBERS = new Set(['unknown', 'unspecified', 'none', 'undetermined
  *    wrong is that it was honest only by the COINCIDENCE of `'assumed'` sorting
  *    last. It is now structural.
  *
- * THREE ENTRIES REMAIN, with line numbers re-measured. None is a silent
- * carry-over — each has a stated reason it could not close in this change:
+ * ─── 2026-08-12 (later the same day) · C75 §7.1 + §7.2 CLOSED · 5 → 2 ────────
  *
- *  ▸ `roomSnapshotUtils.ts:156` (V1 + V5) and `RoomDetectionEngine.ts:499` (V3)
- *    — C75's OWN canonical violations, and the two the contract names in §7.1
- *    and §7.2. NOT CLOSED HERE: `packages/room-topology/` was outside this
- *    change's territory and under concurrent edit by another agent. The V3 line
- *    moved 475 → 499 from that agent's work, which is exactly the drift a
- *    both-directions ledger is for. These remain the highest-value entries on
- *    the list: the five-value union they need now exists in `packages/schemas`.
+ * THREE MORE ENTRIES LEFT, because the two defects C75 names in its own exit
+ * conditions were FIXED. Struck in the commit that pays them, which is the
+ * whole point of a both-directions ledger — this gate exited 3 STALE until they
+ * were, and that exit is what forced this edit:
+ *
+ *  ▸ `roomSnapshotUtils.ts:156` (V1 + V5) — the canonical violation of the whole
+ *    contract, gone. `readBoundaryOrigin()` now records `origin-unknown` plus a
+ *    `ProvenanceUnknownReason` (`predates-provenance` for an absent field,
+ *    `conflicting-records` for a value the union cannot account for), the `as
+ *    any` is replaced by a real `RoomDetectionMethodSchema.safeParse`, and the
+ *    serialised shape is typed as the union instead of bare `string`. C75 §7
+ *    exit condition 1, both halves. Proven by
+ *    `packages/room-topology/src/__tests__/provenanceNotInvented.test.ts`,
+ *    which asserts NEGATIVELY against the whole determination set rather than
+ *    against `'auto-topology'` alone.
+ *
+ *  ▸ `RoomDetectionEngine.ts:499` (V3) — the repair path no longer stamps
+ *    substituted geometry as traced. A genuinely flood-filled ring stays
+ *    `auto-topology`; a ring `repairToSimplePolygon()` substituted is
+ *    `repaired-ring` (→ INFERRED in the L0 vocabulary) carrying the vertex
+ *    counts in `detectionDetail`. C75 §7 exit condition 2, taking §2.3's
+ *    record-it branch rather than its refuse-it branch.
+ *
+ * ⚠ **This gate reported the PV-02 fix as a V3 finding, twice, before those
+ * entries could be struck** — see RECORDED_IN_MODEL. The fix writes its reason
+ * into the model on the line AFTER the stamp, and this arm's window looked only
+ * backwards, with `detectionDetail` absent from its name list. Both halves are
+ * corrected above and the clean tree now controls the record-it branch, not just
+ * the refuse-it one. Recorded here rather than quietly patched: an arm that goes
+ * green only while the defect stays open is the most dangerous thing a gate can
+ * be, and it was invisible until the fix landed.
+ *
+ * TWO ENTRIES REMAIN. Neither is a silent carry-over — each has a stated reason
+ * it could not close:
  *
  *  ▸ `from-pipeline.ts:268` (was :225) — `opts.origin ?? 'user'` RETAINED, and
  *    the entry stays even though the HARM is closed, because the SHAPE the gate
@@ -241,9 +290,6 @@ const UNKNOWN_MEMBERS = new Set(['unknown', 'unspecified', 'none', 'undetermined
  *    "unstated"; closing it needs a C58 amendment, not a local edit.
  */
 const LEDGER: readonly string[] = [
-  "V1::packages/room-topology/src/roomSnapshotUtils.ts:156:detectionMethod defaults to 'auto-topology'",
-  'V5::packages/room-topology/src/roomSnapshotUtils.ts:156:as any at `detectionMethod`',
-  "V3::packages/room-topology/src/RoomDetectionEngine.ts:499:detectionMethod: 'auto-topology' on a repair path",
   "V1::packages/schemas/src/family-registry/from-pipeline.ts:268:origin defaults to 'user'",
   "V1::packages/site-parcel-data/src/ZoningRulesEngine.ts:163:provenance defaults to 'estimated'",
 ];
@@ -542,7 +588,18 @@ function analyse(root: string, dirs: readonly string[]): Analysis {
           const window = lines.slice(from, i);
           const repaired = window.some((w) => REPAIR_MARKER.test(w) && !/^\s*[*/]/.test(w));
           const consoled = window.some((w) => CONSOLE_ONLY.test(w));
-          const recorded = window.some((w) => RECORDED_IN_MODEL.test(w)) || RECORDED_IN_MODEL.test(l);
+          // ⚠ The repair and its console call necessarily PRECEDE the stamp, so
+          // those two stay backward-looking. The RECORD does not: in an object
+          // literal the reason field sits on the line AFTER the member
+          // (`detectionMethod:` then `detectionDetail:`), so a backward-only
+          // window is structurally blind to the one shape C75 §2.3 prescribes.
+          // See RECORDED_IN_MODEL's comment — this arm reported the PV-02 fix as
+          // the defect until both halves were corrected.
+          const after = lines.slice(i + 1, Math.min(lines.length, i + 9));
+          const recorded =
+            window.some((w) => RECORDED_IN_MODEL.test(w)) ||
+            RECORDED_IN_MODEL.test(l) ||
+            after.some((w) => RECORDED_IN_MODEL.test(w));
           if (repaired && consoled && !recorded) {
             findings.push({
               arm: 'V3',
@@ -674,6 +731,36 @@ const CLEAN = {
     '  }',
     "  return { id: 'x', provenance: 'computed' };",
     '}',
+  ].join('\n'),
+  /**
+   * C75 §2.3's OTHER permitted branch, and the one this repo actually took at
+   * `RoomDetectionEngine.ts` when PV-02 was closed: the repair happens, it is
+   * console-logged AND written into the record with its reason, and the stamp is
+   * a DISTINCT member (`repaired-ring` → inferred) rather than the traced one.
+   *
+   * ⚠ Added 2026-08-12 because its absence let a real regression through. The
+   * clean tree controlled only the REFUSE branch, so nothing proved this arm
+   * could tell "recorded in the model" from "console only" — and it could not:
+   * the reason field is written on the line AFTER the stamp, which the
+   * backward-only window could not see. The arm reported the fix as the defect.
+   * A positive control that omits the shape the codebase uses is not a control.
+   */
+  'packages/q/src/repairRecorded.ts': [
+    "import type { Thing } from './types.js';",
+    'export function build(poly: number[]): Thing & { detectionDetail?: string } {',
+    '  let p = poly;',
+    '  let detail: string | undefined;',
+    '  if (p.length < 3) {',
+    '    const repaired = salvageRing(p);',
+    "    console.warn('[build] repaired degenerate ring');",
+    "    detail = 'substituted the largest simple sub-ring; verts were discarded';",
+    '    p = repaired;',
+    '  }',
+    '  return detail === undefined',
+    "    ? { id: 'x', provenance: 'computed' }",
+    "    : { id: 'x', provenance: 'inferred', detectionDetail: detail };",
+    '}',
+    'function salvageRing(p: number[]) { return p; }',
   ].join('\n'),
 };
 

@@ -47,8 +47,16 @@ export const RoomOccupancyTypeSchema = z.enum(OCCUPANCY_TYPES);
 
 // ── Detection Method ──────────────────────────────────────────────────────────
 
+/**
+ * C75 §1 — mirrors `RoomTypes.RoomDetectionMethod` member-for-member. The last
+ * two are NOT determinations: `origin-unknown` is C75 §1.4's unknown-with-reason
+ * (the reason lives in `detectionDetail`), and `repaired-ring` is C75 §2.3's
+ * substituted geometry. Neither may be supplied as a `??` fallback for one of
+ * the first five — see the union's own doc comment in `RoomTypes.ts`.
+ */
 export const RoomDetectionMethodSchema = z.enum([
   'auto-topology', 'manual-boundary', 'point-pick', 'ai-generated', 'ifc-import',
+  'origin-unknown', 'repaired-ring',
 ]);
 
 // ── Boundary ──────────────────────────────────────────────────────────────────
@@ -58,6 +66,9 @@ export const RoomBoundarySchema = z.object({
   height: z.number().positive({ message: 'boundary.height must be > 0' }),
   baseOffset: z.number().finite({ message: 'boundary.baseOffset must be finite' }),
   detectionMethod: RoomDetectionMethodSchema,
+  // C75 §2.5 — OPTIONAL, so every pre-provenance snapshot parses unchanged. The
+  // reason behind `origin-unknown` / `repaired-ring`; see RoomBoundary's comment.
+  detectionDetail: z.string().min(1).optional(),
 })
   .refine(
     b => computeSignedArea(b.polygon) >= 0.01 || computeSignedArea(b.polygon) <= -0.01,
