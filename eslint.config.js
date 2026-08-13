@@ -172,6 +172,7 @@ export const layerElements = [
   { type: 'L2', pattern: 'packages/speculative-engine/**' }, // [floor] imports constraint-solver (L2)
   { type: 'L2', pattern: 'packages/site-parcel-data/**' },   // [floor] imports site-validators (L2)
   { type: 'L2', pattern: 'packages/street-analytics/**' },   // [floor] imports geometry-kernel (L2) since the C73 PIP collapse; consumed only by apps/editor (L7)
+  { type: 'L2', pattern: 'packages/finish-host-tracker/**' },// [floor] imports core-app-model (L2) only; consumed only by apps/editor (L7). Measured 2026-08-13.
   { type: 'L2', pattern: 'packages/site-validators/**' },    // [role]  bound L1..L3 (used by stores)
   { type: 'L2', pattern: 'packages/family-runtime/**' },     // [role]  bound L0..L3; leaf
   { type: 'L2', pattern: 'packages/auto-dimension/**' },     // [role]  bound L1..L4
