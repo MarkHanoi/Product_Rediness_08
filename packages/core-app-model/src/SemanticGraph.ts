@@ -211,6 +211,35 @@ export type JoinedWallsQuery =
     };
 
 /**
+ * §SITSON-REVERSE-READER (C71 §2.1 #5, ADR-0320) — the typed result of
+ * {@link SemanticGraphManager.getElementsSittingOn}, the REVERSE `sitsOn`
+ * traversal (`level → the elements that sit on it`).
+ *
+ * `sitsOn` was the widest write-only family in the estate — eighteen writers
+ * across every element kind, zero typed readers — and C71 §0 names it as THE
+ * defect this contract was written about. The writer was never the gap. This
+ * type exists so the gap closes with a CONSUMER, not with a call site added to
+ * satisfy a gate (C71 §2.5).
+ *
+ * FAILURE ≠ EMPTINESS (C71 §4.4). `{ok:true, elementIds:[]}` means "this id is
+ * a level the graph knows about and nothing sits on it" — a positive answer a
+ * caller may act on. `{ok:false}` means the graph holds NO edge of ANY kind
+ * touching this id, so it cannot distinguish "an empty level" from "a level the
+ * `sitsOn` writers never covered" (an id that is not a level; a project loaded
+ * from a pre-graph snapshot before the rebuild ran). A caller that conflates
+ * the two turns absent evidence into a PASS — which, for the level-delete
+ * guard, means deleting a populated level.
+ */
+export type SittingOnQuery =
+    | { readonly ok: true; readonly levelId: string; readonly elementIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly levelId: string;
+        readonly reason: 'level-unknown-to-sitsOn-writers';
+        readonly detail: string;
+    };
+
+/**
  * Plain-JSON serialisation of the SemanticGraph.
  * Stored in ProjectSnapshot.semanticGraph.
  */
@@ -398,6 +427,53 @@ export class SemanticGraphManager {
                 `joinedTo lookup for wall ${wallId}: the junction→graph writer has never ` +
                 `covered this id (no flush has run over its level since load, or the id is ` +
                 `not a wall). This is NO ANSWER, not "joins nothing".`,
+        };
+    }
+
+    /**
+     * §SITSON-REVERSE-READER — the typed `sitsOn` REVERSE reader (C71 §2.1 #5):
+     * "which elements sit on this level?", as a graph LOOKUP rather than a
+     * union of per-store `getByLevel` scans.
+     *
+     * CONSUMER: `DeleteLevelCommand.canExecute`. That guard asks exactly this
+     * question and answers it from `level.childrenIds` — a side index populated
+     * ONLY by `bimManager.registerElement`, which the command's own class
+     * docblock documents as incomplete (a stair registers on its BASE level and
+     * writes edges to its TOP level, so the top level holds edges while its
+     * `childrenIds` stays empty). The `sitsOn` edge set is the authoritative
+     * answer: it is written by every creation command AND reconstructed from
+     * each element's authoritative `levelId` by `rebuildSemanticGraphFromSnapshot`,
+     * so it survives a reload that `childrenIds` does not.
+     *
+     * Refusal-bearing per C71 §4.4: see {@link SittingOnQuery}. Coverage is
+     * decided by "does the graph hold ANY edge touching this id" rather than by
+     * a separate covered-set, because — unlike `joinedTo`, whose writer runs per
+     * level flush — `sitsOn` has no single flush that could maintain one. Every
+     * level that exists in a graph-bearing project is an endpoint of at least
+     * its own elements' edges or its stair/lift circulation edges; an id with no
+     * edges at all is one the writers have genuinely never covered.
+     *
+     * Complexity: O(k) in the number of edges touching the level.
+     */
+    getElementsSittingOn(levelId: string): SittingOnQuery {
+        const elementIds = this.getSources(levelId, 'sitsOn');
+        if (elementIds.length > 0) return { ok: true, levelId, elementIds };
+
+        const touchesGraph =
+            (this._bySource.get(levelId)?.size ?? 0) > 0 ||
+            (this._byTarget.get(levelId)?.size ?? 0) > 0;
+        if (touchesGraph) return { ok: true, levelId, elementIds: [] };
+
+        return {
+            ok: false,
+            levelId,
+            reason: 'level-unknown-to-sitsOn-writers',
+            detail:
+                `sitsOn reverse lookup for level ${levelId}: the graph holds no edge of any ` +
+                `kind touching this id, so "nothing sits on it" and "the sitsOn writers have ` +
+                `never covered it" are the same value here (the id may not be a level, or the ` +
+                `project may predate the graph and not yet have been rebuilt). This is NO ` +
+                `ANSWER, not "the level is empty" — C71 §4.4.`,
         };
     }
 

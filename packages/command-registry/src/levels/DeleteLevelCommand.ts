@@ -152,6 +152,37 @@ export class DeleteLevelCommand implements Command {
             };
         }
 
+        // §SITSON-REVERSE-READER (C71 §2.1 #5, ADR-0320) — the SECOND arm of the
+        // same guard, asked of the authoritative edge set instead of the side
+        // index.
+        //
+        // This class's own docblock (above) records why the `childrenIds` arm is
+        // not sufficient: `childrenIds` is populated ONLY by
+        // `bimManager.registerElement`, and nothing repopulates it on load —
+        // neither ProjectLoader re-registers elements after deserialize. The
+        // `sitsOn` edge set has the opposite disposition: it is written by every
+        // creation command AND reconstructed from each element's authoritative
+        // `levelId` by `rebuildSemanticGraphFromSnapshot`. So on a RELOADED
+        // project the graph knows what sits on this level and `childrenIds` may
+        // not, and the arm above passes a level that is in fact populated.
+        //
+        // FAILURE ≠ EMPTINESS (C71 §4.4): a REFUSAL from the reader is NOT
+        // treated as "the level is empty". It means the graph cannot answer, and
+        // this guard then falls through to the `childrenIds` verdict above
+        // rather than inventing a pass — an unanswerable query must never be the
+        // reason a destructive command proceeds.
+        const sitting = semanticGraphManager.getElementsSittingOn(this.payload.levelId);
+        if (sitting.ok && sitting.elementIds.length > 0) {
+            return {
+                ok: false,
+                reason:
+                    `Level "${level.name}" has ${sitting.elementIds.length} element(s) sitting on it ` +
+                    `(SemanticGraph \`sitsOn\`). Move or delete all elements before removing the level. ` +
+                    `These are invisible to the level's childrenIds index, which is populated only at ` +
+                    `creation time and is not repopulated when a project is loaded.`,
+            };
+        }
+
         return { ok: true };
     }
 

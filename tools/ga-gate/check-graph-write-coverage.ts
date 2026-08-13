@@ -323,9 +323,28 @@ const UNCLASSIFIED_EXPECTED: readonly string[] = [
 const HELPER_WRITERS: Readonly<Record<string, string>> = {
   replaceJoinedToForLevelWalls: 'joinedTo',
 };
-/** Named SemanticGraph methods that TYPED-READ one specific family. CLOSED map. */
+/**
+ * Named SemanticGraph methods that TYPED-READ one specific family, credited at
+ * their production CALL SITE outside SemanticGraph.ts. CLOSED map.
+ *
+ * ⚠ This is NOT an escape hatch, and the constraint that makes it safe is the
+ * same one that makes HELPER_WRITERS safe: each entry names ONE family, the
+ * method must itself perform a typed read of exactly that family inside
+ * SemanticGraph.ts, and a method with no production caller earns no credit —
+ * an entry here buys nothing on its own. Adding a name to this map does not
+ * make a family covered; a production call site does.
+ *
+ * Every entry is a REFUSAL-BEARING reader (C71 §4.4) whose return type
+ * distinguishes "no results" from "cannot answer" — which is precisely why the
+ * method exists rather than the raw `getTargets(id, 'X')` the arms already see.
+ * A bare `getTargets` at a call site returns `[]` for both, and C71 §7.h names
+ * that as the anti-pattern.
+ */
 const DEDICATED_READERS: Readonly<Record<string, string>> = {
   getJoinedWalls: 'joinedTo',
+  // §SITSON-REVERSE-READER (C71 §2.1 #5) — wraps `getSources(levelId,'sitsOn')`.
+  // Consumer: DeleteLevelCommand.canExecute.
+  getElementsSittingOn: 'sitsOn',
 };
 /** The type-agnostic cascade purge (d2). */
 const CASCADE_PURGE = 'removeAllRelationshipsForElement';
@@ -369,14 +388,45 @@ const LEDGER: readonly LedgerEntry[] = [
       'creation (CreateWallOpeningCommand.ts:239) and rebuilt (rebuildSemanticGraph.ts:122), ' +
       'so it is write-only state. C71 §2.1 requires the PAIR.',
   },
-  {
-    key: 'sitsOn/reader',
-    why: 'THE `sitsOn` DEFECT ITSELF (C71 §0, EV-05 §1): eleven writers across every ' +
-      'element kind, zero typed readers. initDependencyCascade.ts:59 filters a DERIVED ' +
-      'task on `task.relationshipType !== \'sitsOn\'` — that reads a scheduler task, not ' +
-      'the graph. This is the row ADR-0320 was written about; it stays ledgered by name ' +
-      'until dependency scheduling reads the edge it is handed.',
-  },
+  // ── PAID 2026-08-13 · `sitsOn/reader` ─────────────────────────────────────
+  // THE `sitsOn` DEFECT ITSELF (C71 §0, EV-05 §1): EIGHTEEN writers across every
+  // element kind at the last reading, ZERO typed readers — the widest write-only
+  // family in the estate, and the row ADR-0320 was written about.
+  // `initDependencyCascade.ts:59` filtered a DERIVED task on
+  // `task.relationshipType !== 'sitsOn'`, which reads a scheduler task and not
+  // the graph, so it never counted.
+  //
+  // CLOSED BY A TYPED REVERSE READER WITH A CONSUMER THAT WAS ALREADY WRONG
+  // WITHOUT IT (C71 §2.5 — the reader exists because a CONSUMER needs it, never
+  // to satisfy this gate): `SemanticGraphManager.getElementsSittingOn(levelId)`
+  // wraps `getSources(levelId,'sitsOn')`, and its consumer is
+  // `DeleteLevelCommand.canExecute`.
+  //
+  // WHY THAT CONSUMER IS GENUINE AND NOT A CALL SITE MINTED FOR THE RATCHET: the
+  // guard already asks exactly this question — "does anything sit on this level?"
+  // — and answered it from `level.childrenIds`, an index populated ONLY by
+  // `bimManager.registerElement` at creation time. MEASURED: neither
+  // `packages/persistence-client` nor `apps/editor/src/engine/persistence`
+  // contains a single `registerElement` call, so NOTHING repopulates
+  // `childrenIds` on load, while `rebuildSemanticGraphFromSnapshot` DOES
+  // reconstruct `sitsOn` from each element's authoritative `levelId`. On every
+  // reloaded project the guard was therefore blind and the graph was not.
+  //
+  // REACHABILITY PROVEN BY EXECUTED TEST, not by registration
+  // (`packages/command-registry/__tests__/sitsOnReverseReader.test.ts`): case (c)
+  // reproduces the reloaded state — edges present, `childrenIds` empty — and the
+  // real `canExecute` now REFUSES where it previously returned `{ok:true}` and
+  // stranded every element on the level; case (c2) removes the edges and watches
+  // the SAME call pass, so the reader is load-bearing rather than decorative.
+  // Case (f) proves the read is TYPED: `supports`, `connectedByStair` and
+  // `partOf` edges pointing at the same level contribute nothing (C71 §1.3).
+  //
+  // C71 §4.4 IS HONOURED AT BOTH ENDS: the reader distinguishes "this level is
+  // known and empty" (ok, `[]`) from "the sitsOn writers have never covered this
+  // id" (refusal, named reason), and the guard does NOT convert a refusal into a
+  // pass — it falls through to the `childrenIds` verdict, because an unanswerable
+  // query must never be the reason a destructive command proceeds (case c3).
+  //
   // ── PAID 2026-08-13 · `contains/writer` ───────────────────────────────────
   // C71 §2.1 #7 named this exactly: "needs its first-party writer, a named gap".
   // Two production readers (HierarchyTreePanel, WorldModelAdapter) asked and no
