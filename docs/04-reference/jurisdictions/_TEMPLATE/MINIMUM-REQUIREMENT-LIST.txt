@@ -1,0 +1,19 @@
+THE ABSOLUTE MINIMUM FOR YOUR 10/10 TEST
+
+If we want to simplify all of this into a hard pass/fail test, I would use these 15 mandatory information groups:
+
+1. Parcel geometry
+2. Parcel area
+3. Applicable planning instrument
+4. Current/legal plan status
+5. Zoning polygon
+6. Zoning/category
+7. Permitted use
+8. Maximum floor area / edificability
+9. Maximum site coverage / footprint
+10. Maximum height
+11. Maximum floors
+12. Setbacks/alignment/building depth
+13. Relevant overlays and constraints
+14. Conditional/override rules
+15. Legal provenance + currentness
