@@ -15,33 +15,33 @@
 
 ## ⏱ THE NUMBER — read this line and stop
 
-> ### **30 % COMPLETE · 70 % REMAINING** — and the number is STALE by ~40 commits
-> **25 of 82 classified gap-register rows CLOSED** · 39 OPEN · **18 UNPROVEN**
+> ### **41 % COMPLETE · 59 % REMAINING** — mid-session recount; end-of-session restamp IN FLIGHT
+> **34 of 82 classified gap-register rows CLOSED** · 33 OPEN · **15 UNPROVEN**
 > (C70 §2.2: UNPROVEN is *neither* a pass nor a fail — it is "nobody looked").
-> Source: `docs/04-reference/BIM30-GAP-REGISTER.md` at `c0a1785c`, re-stamped by an executed pass
-> over **26 gates**. That register is the authority; this line only quotes it.
+> Source: the register's §9.0 recount at `7028060c`, produced by executed gate runs at `b61f0ba3`
+> (lane L1, 2026-08-13 mid-session). That register is the authority; this line only quotes it.
 >
-> ⚠ **A previous version of this line read "33 of 82 · 40 %". That was wrong** and is recorded as
-> wrong rather than quietly swapped. Two measurements disagreed — an earlier looser pass said 33,
-> the register's stricter pass said 25 — and the looser one was left at the top. **The register
-> wins**: it splits UNPROVEN out as its own state instead of folding it into "closed", and it
-> grades its own evidence (21 of the 25 closures rest on an executed gate; **4 rest only on source
-> re-verification** and are flagged in-row as the weaker quarter).
+> ⚠ **The figure's own history, recorded rather than quietly swapped**: 33 (looser pass, wrong) →
+> 25 (the register's stricter pass, which split UNPROVEN out as its own state) → **34, by
+> execution** (`0c4ab1f6` + `7028060c`: nine rows closed on EXECUTED readings, two left UNPROVEN
+> by measurement). Every step was a recount, never an increment (§0.3).
 >
-> ⚠ **STALE**: ~40 commits have landed since `c0a1785c`, including provenance (ledger 28 → 1),
-> C71 (8 of the REQUIRED 9 families), GEN-GAP-1, and MT-09 measured at 26. **The true figure is
-> higher than 25 — but it will not be written here until a recount produces it** (§0.3: counted,
-> never incremented). Expect low-to-mid 30s.
+> ⚠ **RECOUNT IN FLIGHT**: the 34 was taken **mid-session** while seven lanes were still landing
+> commits; ~17 commits followed `b61f0ba3`, including GE-11 going CLEAN hard-0, prevstate reaching
+> hard-0, constraint-honesty reaching 2 and predicate-canonical reaching 7. An **end-of-session
+> re-verification pass (lane L14) is restamping every row**; where it disagrees with the 34, the
+> later execution wins — and **GR-09 may be RE-OPENED** by it (runtime `sitsOn=[]` evidence).
+> Per §0.3 this line will not be adjusted until that recount produces its figure.
 >
 > | | |
 > |---|---|
-> | **Complete** | **40 %** — 33 rows, executed evidence |
-> | **Remaining** | **60 %** — 47 rows open, 2 unknown |
-> | Instrumentation axis | ~78 % (32 of 41 gates at exit 0/1) — **the thermometer, not the fever** |
+> | **Complete** | **41 %** — 34 rows, executed mid-session recount (`7028060c`) |
+> | **Remaining** | **59 %** — 33 open, 15 unproven |
+> | Session-end gate cover (L-852) | ALL GREEN / stale-free: move-propagation **3/3** · no-empty **85/85** · prevstate **hard-0** · room-aabb **CLEAN** · predicate-canonical **7/7** · constraint-honesty **2/2** · xss 0 · plan-determinism 0 · deterministic-regeneration 134/134 (**re-anchored — debt MOVED, not paid**, `f36015e5`) |
 > | Blocked by founder decision | Ladder L7 + L8, all 4 collaboration rows |
 >
-> **Do not quote the 78 %.** It measures whether we can *see* defects, not whether they are fixed.
-> The single honest headline is **40 %**, and §1 explains what that number hides.
+> **Do not quote the gate cover as capability.** It measures whether we can *see* defects, not
+> whether they are fixed. The single honest headline is **41 %**, and §1 explains what it hides.
 
 ---
 
