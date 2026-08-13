@@ -251,7 +251,19 @@
     "selects the room primary. Differentiating spec:",
     "apps/editor/src/ui/__tests__/livingGraphSelectionHonesty.spec.ts (4 cases,",
     "incl. negative control) — the unreadable-substrate case FAILS against the old",
-    "catch-to-[] shape."
+    "catch-to-[] shape.",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 84 -> 83) — LivingGraphOverlay.ts, ARM A: the",
+    "\"Spaces\" inspector section wrapped roomRelationshipSentences in",
+    "catch { return []; }, and an empty list OMITS the section — so \"zero spatial",
+    "neighbours\" (determined) and \"the projection threw\" (nobody could look)",
+    "rendered as the same pixels. Now determineRoomRelationshipSentences",
+    "(livingGraphSentences.ts, pure, C78 §8.1 vocabulary via the shared seam)",
+    "returns a determination; the undetermined arm renders a VISIBLE refusal row",
+    "+ console.warn (RELATIONSHIP_NOT_READABLE with the error named), and only a",
+    "determined empty omits the section. Differentiating spec:",
+    "apps/editor/src/ui/__tests__/livingGraphSentencesHonesty.spec.ts (3 cases,",
+    "incl. negative control) — the unreadable case FAILS against catch-to-[]."
   ],
   "swallowed": [
     {
@@ -363,11 +375,6 @@
       "site": "apps/editor/src/ui/living-graph/livingGraphData.ts",
       "arm": "C (1 site(s))",
       "why": "C@290 `rawEdges = ubg.allEdges() ?? [];`"
-    },
-    {
-      "site": "apps/editor/src/ui/living-graph/LivingGraphOverlay.ts",
-      "arm": "A (1 site(s))",
-      "why": "A@1485 `const lines = (() => { try { return roomRelationshipSentences(ubgNode, graph); } catch { r`"
     },
     {
       "site": "apps/editor/src/ui/OverridePanel.ts",

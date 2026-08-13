@@ -24,9 +24,11 @@ import {
   BuildingGraph,
   humanNodeLabel,
   nodeRationale,
-  roomRelationshipSentences,
   type UbgNode,
 } from '@pryzm/building-graph';
+// §GR-10 — the honest "Spaces" projection (undetermined ≠ empty); see module.
+import { determineRoomRelationshipSentences } from './livingGraphSentences';
+import { relationshipUndeterminedLabel } from '../relationshipDetermination.js';
 import { buildLiveGraph } from './livingGraphData';
 import { LivingGraphCanvas, type DrawState } from './LivingGraphCanvas';
 import { RoomFocusController, roomIdForElement, type RoomFocusMode } from './livingGraphSelection';
@@ -1482,9 +1484,19 @@ export class LivingGraphOverlay {
       }
 
       // ── "Spaces" — typed neighbour relationships in plain language (D16) ─────
-      const lines = (() => { try { return roomRelationshipSentences(ubgNode, graph); } catch { return []; } })();
-      if (lines.length) {
-        el.appendChild(this.inspectorSection('Spaces', lines.slice(0, 6).map((s) => {
+      // §GR-10 (C75 §1.4 · C78 §8.1) — this used to be `catch { return []; }`,
+      // so a THROWN projection and "no spatial neighbours" both rendered as the
+      // section's absence. An undetermined answer now renders a VISIBLE refusal
+      // row; only a determined empty omits the section (a real answer).
+      const sentences = determineRoomRelationshipSentences(ubgNode, graph);
+      if (sentences.kind === 'undetermined') {
+        console.warn(`[living-graph] §GR-10 ${relationshipUndeterminedLabel(sentences)}`);
+        const r = document.createElement('div');
+        r.textContent = '⚠ could not be determined — the relationship projection failed; unknown, not "none".';
+        Object.assign(r.style, { color: '#9b6a1a', font: '500 11px/1.4 system-ui' });
+        el.appendChild(this.inspectorSection('Spaces', [r]));
+      } else if (sentences.elements.length) {
+        el.appendChild(this.inspectorSection('Spaces', sentences.elements.slice(0, 6).map((s) => {
           const r = document.createElement('div');
           r.textContent = `• ${s.text}`;
           Object.assign(r.style, { color: '#241a3a', font: '500 11px/1.4 system-ui' });
