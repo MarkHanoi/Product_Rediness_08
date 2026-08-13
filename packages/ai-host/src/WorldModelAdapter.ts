@@ -32,6 +32,17 @@ import { semanticGraphManager, RelationshipType } from '@pryzm/core-app-model';
 import { constraintEngine } from '@pryzm/constraint-solver/compliance';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { decisionRecordStore } from '@pryzm/core-app-model';
+// §C78-U-INV-4 — store reads that can REFUSE, so an unreadable store stops
+// telling an LLM that the building is empty. See storeReadDetermination.ts.
+import {
+    determineStoreRead,
+    countOrUnknown,
+    sumOrUnknown,
+    renderCount,
+    boundingWallCountOrUnknown,
+    type StoreReadDetermination,
+    type CountOrUnknown,
+} from './storeReadDetermination.js';
 
 // ── Lazy store access ─────────────────────────────────────────────────────────
 // Stores are project-scoped singletons published on `window` by initBuilders /
@@ -66,10 +77,22 @@ export interface ComplianceRuleSummary {
 
 export interface ComplianceContext {
     checkedAt: number;
-    totalElements: number;
+    totalElements: CountOrUnknown;
     violations: ComplianceRuleSummary[];
     warnings: ComplianceRuleSummary[];
-    passRate: number;
+    /**
+     * §C78-U-INV-4 — `null` when compliance could not be evaluated at all.
+     * This field previously returned `1` (i.e. "100% compliant") from the outer
+     * catch, so an INFRASTRUCTURE FAILURE was reported to the AI as a fully
+     * compliant building. A pass rate nobody computed is not 1.
+     */
+    passRate: number | null;
+    /** Present when the check could not run; names the reason (C78 §8.1). */
+    undetermined?: {
+        readonly scope: string;
+        readonly reason: string;
+        readonly detail?: string;
+    };
 }
 
 export interface ProgrammeRoomEntry {
@@ -101,19 +124,32 @@ export interface BuildingContext {
     projectId: string;
     snapshotAt: number;
     levels: LevelSummary[];
-    totalElements: number;
+    // §C78-U-INV-4 — `null` is UNKNOWN, and is never `0`. A store that could not
+    // be read must not be able to say "this building has no walls": these
+    // counts are the values `toPromptContext` serialises into an LLM prompt, so
+    // a fabricated `0` here becomes a fabricated premise in English.
+    totalElements: CountOrUnknown;
     semanticRelationshipCount: number;
-    wallCount: number;
-    roomCount: number;
-    doorCount: number;
-    windowCount: number;
+    wallCount: CountOrUnknown;
+    roomCount: CountOrUnknown;
+    doorCount: CountOrUnknown;
+    windowCount: CountOrUnknown;
+    /** The store reads that REFUSED, named, so a caller can render C78 §5's
+     *  visible "cannot determine" rather than inferring it from a `null`. */
+    undeterminedReads: ReadonlyArray<{
+        readonly scope: string;
+        readonly reason: string;
+        readonly detail?: string;
+    }>;
     rooms: Array<{
         id: string;
         name: string;
         levelId: string;
         occupancyType: string;
         areaM2: number;
-        boundingWallCount: number;
+        /** `null` when `boundingWallIds` was never written (C79 §7.1) — NOT 0,
+         *  which would assert the room is unbounded. */
+        boundingWallCount: CountOrUnknown;
         adjacentRoomIds: string[];
         connectedRoomIds: string[];
         containedElementIds: string[];
@@ -135,10 +171,22 @@ class WorldModelAdapterImpl {
      * Covers all levels, rooms, structural elements, and semantic relationships.
      */
     getFullBuildingContext(projectId: string): BuildingContext {
-        const rooms = this._getRooms();
-        const walls = this._getWalls();
-        const doors = this._getDoors();
-        const windows = this._getWindows();
+        // §C78-U-INV-4 — read each store as a DETERMINATION, so "unreadable"
+        // and "empty" stop being the same value on the way into an AI prompt.
+        const roomsD   = this._roomsDetermination();
+        const wallsD   = this._wallsDetermination();
+        const doorsD   = this._doorsDetermination();
+        const windowsD = this._windowsDetermination();
+
+        const undeterminedReads = [roomsD, wallsD, doorsD, windowsD]
+            .filter((d): d is Extract<typeof d, { kind: 'undetermined' }> => d.kind === 'undetermined')
+            .map((d) => ({
+                scope: d.scope,
+                reason: d.reason,
+                ...(d.detail !== undefined ? { detail: d.detail } : {}),
+            }));
+
+        const rooms = roomsD.kind === 'determined' ? (roomsD.elements as any[]) : [];
         const levels = this._getLevels();
 
         const levelMap = new Map<string, LevelSummary>();
@@ -164,23 +212,30 @@ class WorldModelAdapterImpl {
                 levelId:              room.levelId,
                 occupancyType:        room.occupancyType ?? 'unassigned',
                 areaM2:               room.computed?.area ?? 0,
-                boundingWallCount:    (room.boundingWallIds ?? []).length,
+                boundingWallCount:    boundingWallCountOrUnknown(room),
                 adjacentRoomIds:      adjacentRoomIds,
                 connectedRoomIds:     connectedRoomIds,
                 containedElementIds:  containedIds,
             };
         });
 
+        const wallCount   = countOrUnknown(wallsD);
+        const roomCount   = countOrUnknown(roomsD);
+        const doorCount   = countOrUnknown(doorsD);
+        const windowCount = countOrUnknown(windowsD);
+
         return {
             projectId,
             snapshotAt:                Date.now(),
             levels:                    Array.from(levelMap.values()),
-            totalElements:             walls.length + rooms.length + doors.length + windows.length,
+            // A total assembled from a partially-read model is not a total.
+            totalElements:             sumOrUnknown([wallCount, roomCount, doorCount, windowCount]),
             semanticRelationshipCount: semanticGraphManager.size,
-            wallCount:                 walls.length,
-            roomCount:                 rooms.length,
-            doorCount:                 doors.length,
-            windowCount:               windows.length,
+            wallCount,
+            roomCount,
+            doorCount,
+            windowCount,
+            undeterminedReads,
             rooms:                     roomSummaries,
         };
     }
@@ -191,7 +246,13 @@ class WorldModelAdapterImpl {
      */
     getComplianceContext(): ComplianceContext {
         try {
-            const rooms = this._getRooms();
+            // The DENOMINATOR of passRate. If the rooms could not be read there
+            // is no denominator, and a rate computed over one is fiction.
+            const roomsD = this._roomsDetermination();
+            if (roomsD.kind === 'undetermined') {
+                return this._complianceUndetermined(roomsD.reason, roomsD.detail);
+            }
+            const rooms = roomsD.elements as any[];
 
             const violations: ComplianceRuleSummary[] = [];
             const warnings: ComplianceRuleSummary[] = [];
@@ -209,13 +270,23 @@ class WorldModelAdapterImpl {
                 bimManager:  _store('bimManager'),
             };
 
-            let allResults: any[] = [];
+            // §C78-U-INV-4 — a validator that threw, or is not composed, has
+            // NOT established that the model is compliant. Both used to become
+            // `allResults = []`, i.e. "zero violations".
+            let allResults: any[];
+            if (!(constraintEngine as any).validateAll) {
+                return this._complianceUndetermined(
+                    'ENGINE_NOT_AVAILABLE',
+                    'the constraint engine is not composed in this runtime, so no rule was evaluated',
+                );
+            }
             try {
-                allResults = (constraintEngine as any).validateAll
-                    ? (constraintEngine as any).validateAll(ctx)
-                    : [];
-            } catch {
-                allResults = [];
+                allResults = (constraintEngine as any).validateAll(ctx);
+            } catch (e) {
+                return this._complianceUndetermined(
+                    'PLANNER_THREW',
+                    `constraintEngine.validateAll threw: ${String((e as Error)?.message ?? e)}`,
+                );
             }
 
             const failedElementIds = new Set<string>();
@@ -244,15 +315,36 @@ class WorldModelAdapterImpl {
                 warnings,
                 passRate,
             };
-        } catch {
-            return {
-                checkedAt:     Date.now(),
-                totalElements: 0,
-                violations:    [],
-                warnings:      [],
-                passRate:      1,
-            };
+        } catch (e) {
+            // §C78-U-INV-4 — this arm used to return `passRate: 1` with zero
+            // violations: an infrastructure failure reported as a fully
+            // compliant building, to a user and to an LLM. ARM A by
+            // construction — a caught throw is "I could not look".
+            return this._complianceUndetermined(
+                'PLANNER_THREW',
+                `compliance evaluation threw: ${String((e as Error)?.message ?? e)}`,
+            );
         }
+    }
+
+    /**
+     * The honest compliance answer when nothing could be evaluated (C78 §5).
+     * `passRate: null` — never `1`, never `0`: a rate nobody computed has no
+     * value, and BOTH numbers would be positive claims.
+     */
+    private _complianceUndetermined(reason: string, detail?: string): ComplianceContext {
+        return {
+            checkedAt:     Date.now(),
+            totalElements: null,
+            violations:    [],
+            warnings:      [],
+            passRate:      null,
+            undetermined: {
+                scope: 'project compliance',
+                reason,
+                ...(detail !== undefined ? { detail } : {}),
+            },
+        };
     }
 
     /**
@@ -338,41 +430,57 @@ class WorldModelAdapterImpl {
                 connectedTo: r.connectedRoomIds.map(id => id.substring(0, 8)),
             })),
             semanticRelationships: ctx.semanticRelationshipCount,
-            wallCount:   ctx.wallCount,
-            doorCount:   ctx.doorCount,
-            windowCount: ctx.windowCount,
+            // §C78-U-INV-4 — the LLM-facing half of the fix. An unknown count
+            // reaches the model as the WORD "unknown", never as a `0` it would
+            // reason from. Serialising a fabricated zero here is how "the store
+            // did not answer" became "the building has no walls" in English.
+            wallCount:   renderCount(ctx.wallCount),
+            doorCount:   renderCount(ctx.doorCount),
+            windowCount: renderCount(ctx.windowCount),
+            // Named, so the model is told WHAT it was not told (C78 §5).
+            ...(ctx.undeterminedReads.length > 0
+                ? { couldNotDetermine: ctx.undeterminedReads.map(u => `${u.scope} (${u.reason})`) }
+                : {}),
         }, null, 2);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    // ── §C78-U-INV-4 · store reads that can REFUSE ────────────────────────────
+    // These returned `[]` for BOTH "this project holds no walls" and "the store
+    // is absent / threw". The adapter then counted the `[]` and
+    // `toPromptContext` serialised the count into an LLM prompt — so an
+    // infrastructure failure told the model, in JSON, that the building has no
+    // walls. See storeReadDetermination.ts. The `Determination` suffix is kept
+    // in the name so a future `?? []` at a call site reads as obviously wrong.
+
+    private _roomsDetermination(): StoreReadDetermination<any> {
+        return determineStoreRead<any>(_store('roomStore'), 'roomStore');
+    }
+
+    private _wallsDetermination(): StoreReadDetermination<any> {
+        return determineStoreRead<any>(_store('wallStore'), 'wallStore');
+    }
+
+    /** Doors may live in their own store OR inside WallStore; either is a real
+     *  answer. Only when NEITHER can be read is the count unknown. */
+    private _doorsDetermination(): StoreReadDetermination<any> {
+        const primary = determineStoreRead<any>(_store('doorStore'), 'doorStore');
+        if (primary.kind === 'determined') return primary;
+        return determineStoreRead<any>(_store('wallStore'), 'wallStore', 'getAllDoors');
+    }
+
+    private _windowsDetermination(): StoreReadDetermination<any> {
+        const primary = determineStoreRead<any>(_store('windowStore'), 'windowStore');
+        if (primary.kind === 'determined') return primary;
+        return determineStoreRead<any>(_store('wallStore'), 'wallStore', 'getAllWindows');
+    }
+
+    /** The rooms themselves, or `[]` when unreadable — used only where the
+     *  determination has ALREADY been reported, never to manufacture a count. */
     private _getRooms(): any[] {
-        try {
-            return _store('roomStore')?.getAll?.() ?? [];
-        } catch { return []; }
-    }
-
-    private _getWalls(): any[] {
-        try {
-            return _store('wallStore')?.getAll?.() ?? [];
-        } catch { return []; }
-    }
-
-    private _getDoors(): any[] {
-        try {
-            const ds = _store('doorStore');
-            if (ds?.getAll) return ds.getAll();
-            // Doors live inside WallStore as well; fall back to the wall-side accessor.
-            return _store('wallStore')?.getAllDoors?.() ?? [];
-        } catch { return []; }
-    }
-
-    private _getWindows(): any[] {
-        try {
-            const ws = _store('windowStore');
-            if (ws?.getAll) return ws.getAll();
-            return _store('wallStore')?.getAllWindows?.() ?? [];
-        } catch { return []; }
+        const d = this._roomsDetermination();
+        return d.kind === 'determined' ? (d.elements as any[]) : [];
     }
 
     private _getLevels(): LevelSummary[] {
