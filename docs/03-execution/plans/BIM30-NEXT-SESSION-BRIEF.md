@@ -28,21 +28,39 @@ is the deploy, the stamp, and one doc edit.
 ## §0 — PASTE THIS AS THE OPENING PROMPT
 
 ```
-Read docs/03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md in full — §-1 FIRST,
-it records the two things that did NOT finish last session.
+Read docs/03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md — §10 FIRST (it is
+the session close and it OVERRIDES anything earlier it contradicts), then §-1,
+then §2.
 
-DO THESE TWO IN ORDER, BEFORE ANY NEW WORK:
-  1. DEPLOY. Production is still aa219a31 and predates the entire last
-     session. Follow docs/02-decisions/DEPLOY-CONTRACT-MANUAL-FLY.md §7.
-     The pre-deploy cover is ALREADY GREEN and recorded as ISSUE-LOG L-852
-     (root tsc 0 errors, isolation exit 0, server 613/613) — re-run it only
-     if HEAD has moved since 03356e5a. Then give me the browser checks in §7.4.
-  2. RECOUNT. Run the gates, restamp docs/04-reference/BIM30-GAP-REGISTER.md
-     and its §9.0. Face GR-09 honestly (§2.2) — it may move BACKWARD.
-     Report the counted figure only after a recount produces it.
+⚠ THE DEPLOY IS DONE. Production is 517f7a70, live, bundle proof 6/6
+(ISSUE-LOG L-853). Do NOT re-deploy at the start of the session.
 
-Then execute §2 Phase A. Launch the lanes in §3 IN PARALLEL on the partition
-map. Enforce §4 git discipline verbatim — every rule there cost real work.
+DO THIS FIRST, BEFORE ANY NEW WORK:
+  RECOUNT. The register still says 34/82. Run the gates, restamp
+  docs/04-reference/BIM30-GAP-REGISTER.md and its §9.0. Gate-confirmed since
+  the last stamp: PR-03, CO-12, GR-18, GE-03, GE-11 (~39). Face GR-09 honestly
+  (§2.2) — it may move BACKWARD. Report the counted figure only after a
+  recount produces it. Never hand-increment.
+
+THEN, in this order (§10.6):
+  1. CI-0 — carry hardValid/hardFailedRules onto LayoutOption (SPEC-49). Small,
+     purely additive, and the precondition for EVERY circulation gate: today the
+     engine computes the right answer and throws it away at emitGeometry.
+  2. ASK ME the house-refusal question (§10.6 item 3). A house storey currently
+     CANNOT refuse and ships a 50%-sealed-room plan silently. It is my decision,
+     not a code change, and it blocks the house typology.
+  3. SURFACE WHAT IS ALREADY KNOWN (§10.2) — the 121 unannounced compliance
+     errors, the furnish stage dropped at a 12s timeout, the discarded layout
+     verdict, and the "Circulation 100%" badge on a doorless plan (L-869).
+     No new detectors needed. Cheapest high-value work on the board.
+  4. Unit containment (L-864) — the hard precondition for C81's edit layer.
+
+Then §2 Phase A. Launch the lanes in §3 IN PARALLEL on the partition map.
+Enforce §4 git discipline verbatim — every rule there cost real work.
+
+DOCUMENTATION-FIRST STANDS: contracts/specs/ADRs before implementation. C81
+(edit layer), SPEC-49 (circulation) and GENERATIVE-QUALITY-MASTER-TRACKER all
+landed last session — read them before writing code against them.
 
 Do NOT re-read contracts C67-C80 end to end; §1 carries the digest. Open a
 contract only when you are about to change what it governs, and only that §.
