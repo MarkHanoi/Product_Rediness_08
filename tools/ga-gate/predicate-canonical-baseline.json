@@ -9,8 +9,6 @@
     "packages/geometry-slab/src/floor/FloorTool.ts:1176::point-in-polygon": "none",
     "packages/geometry-slab/src/SlabColumnCoupling.ts:46::point-in-polygon": "none",
     "packages/geometry-slab/src/SlabRegionTracer.ts:524::point-in-polygon": "none",
-    "apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts:377::point-in-polygon": "none",
-    "apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts:607::point-in-polygon": "none",
     "apps/editor/src/ui/apartment-layout/matchDetectedRooms.ts:50::point-in-polygon": "none",
     "apps/editor/src/ui/ceiling-layout/CeilingLayoutExecutor.ts:251::point-in-polygon": "none",
     "apps/editor/src/ui/furnish-layout/FurnishLayoutExecutor.ts:139::point-in-polygon": "none",
@@ -27,8 +25,7 @@
     "apps/editor/src/ui/residential-building/residentialCorridorResidual.ts:36::point-in-polygon": "none",
     "apps/editor/src/ui/site/designMeasurement.ts:329::point-in-polygon": "none",
     "apps/editor/src/ui/site/parcel/footprintPick.ts:21::point-in-polygon": "|| 1e-12",
-    "apps/editor/src/ui/site/parcel/parcelConfidence.ts:87::point-in-polygon": "|| 1e-12",
-    "apps/editor/src/workers/solarCodec.ts:188::point-in-polygon": "none"
+    "apps/editor/src/ui/site/parcel/parcelConfidence.ts:87::point-in-polygon": "|| 1e-12"
   },
   "c2": 0,
   "c3": [

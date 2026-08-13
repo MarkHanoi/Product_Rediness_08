@@ -33,6 +33,7 @@
 // changed); `siteMetricGrids` re-exports them so every existing main-thread caller is
 // unchanged, guaranteeing worker==main.
 import type { Pt } from '@pryzm/street-analytics';
+import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 import {
     generateSunSamples,
     juneSolsticeDayOfYear,
@@ -179,17 +180,11 @@ export function toPrisms(footprints: readonly MetricFootprint[]): Prism[] {
     return out;
 }
 
-/** Point-in-polygon (ray casting) in (east, north). */
+/** Point-in-polygon (ray casting) in (east, north) — §C73-PIP-CANONICAL:
+ *  delegates to THE kernel ray cast with {e,n} accessors (the predicate is
+ *  plane-agnostic; no wrapper is minted per naming convention). */
 export function pointInRing(e: number, n: number, ring: ReadonlyArray<{ e: number; n: number }>): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const ei = ring[i]!.e, ni = ring[i]!.n;
-        const ej = ring[j]!.e, nj = ring[j]!.n;
-        const intersect = (ni > n) !== (nj > n) &&
-            e < ((ej - ei) * (n - ni)) / (nj - ni) + ei;
-        if (intersect) inside = !inside;
-    }
-    return inside;
+    return pointInRingEvenOdd(e, n, ring.length, (i) => ring[i]!.e, (i) => ring[i]!.n);
 }
 
 /**
