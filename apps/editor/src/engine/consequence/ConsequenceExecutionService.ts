@@ -56,8 +56,13 @@ import type {
   ElementId,
   PredictedGeometry,
   UndeterminedImpact,
+  PlanBindingVerification,
+  UndeterminedSubReason,
 } from '@pryzm/command-bus';
-import { newGestureId, withGestureId } from '@pryzm/command-bus';
+// `UNDETERMINED_SUB_REASON_PARENT` is a VALUE (the §8.3 sub-reason → parent map), so
+// this import is not erased. It is the one place the parent of a sub-reason may be
+// decided: hand-writing the parent here would let the two drift silently.
+import { newGestureId, withGestureId, UNDETERMINED_SUB_REASON_PARENT } from '@pryzm/command-bus';
 import type { WallMoveCommand } from './WallMoveConsequencePlanner.js';
 import { stableStringify } from './WallMoveConsequencePlanner.js';
 import { normalizeToWallMove, type PreviewCommand } from './ConsequencePreviewService.js';
@@ -218,7 +223,9 @@ export class ConsequenceExecutionService {
     // ── 1. Binding (only when a plan was supplied) ────────────────────────────────
     const supplied = opts?.plan;
     let bound: ConsequencePlan | undefined;
-    let stale: { livePlanHash: string; liveStateHash: string } | undefined;
+    let stale:
+      | { livePlanHash: string; liveStateHash: string; verification: PlanBindingVerification }
+      | undefined;
 
     if (supplied) {
       const semantic = normalizeToWallMove(command);
@@ -230,13 +237,49 @@ export class ConsequenceExecutionService {
         if (livePlan.planHash === supplied.planHash) {
           bound = supplied;
         } else {
-          stale = { livePlanHash: livePlan.planHash, liveStateHash: livePlan.stateHash };
+          stale = {
+            livePlanHash: livePlan.planHash,
+            liveStateHash: livePlan.stateHash,
+            // The hashes ARE real re-computations, so a mismatch really is staleness.
+            verification: { kind: 'verified' },
+          };
         }
       } else {
         // A plan for a command this service cannot re-plan is unverifiable — an
         // unverifiable binding is REFUSED, not assumed (the §5 discipline: "could
         // not check" must never print as "checked, fine").
-        stale = { livePlanHash: 'UNVERIFIABLE:no-planner-for-type', liveStateHash: 'UNVERIFIABLE:no-planner-for-type' };
+        //
+        // ── C78 §9.3 — A HASH FIELD MAY NEVER CARRY A REASON ─────────────────────
+        // This branch used to mint `'UNVERIFIABLE:no-planner-for-type'` into BOTH
+        // hash fields. That is a reason wearing a hash's clothes, and it is worse
+        // than ugly: every consumer here compares `plannedPlanHash !== livePlanHash`
+        // and reports PLAN_STALE, so a CAPABILITY GAP (no planner for this verb) was
+        // reported to the user as "the model moved under your plan" — a false
+        // statement about the world, produced by a type that could hold a sentence.
+        //
+        // The reason now goes in `liveVerification`, its typed home (consequence.ts
+        // `PlanBindingVerification`), with the C78 §8.1 member that names WHY and the
+        // §8.3 sub-reason that names it per-family. The hash fields keep the ONE
+        // honest thing they can say about a re-computation that never happened: the
+        // planned hashes, unchanged — never a fabricated "live" value, because there
+        // is no live re-computation to report.
+        const subReason: UndeterminedSubReason = semantic ? 'no-planner-registered' : 'no-normalizer-for-verb';
+        stale = {
+          livePlanHash: supplied.planHash,
+          liveStateHash: supplied.stateHash,
+          verification: {
+            kind: 'unverifiable',
+            reason: UNDETERMINED_SUB_REASON_PARENT[subReason],
+            subReason,
+            detail: semantic
+              ? `no planner is composed for '${semantic.type}' in this runtime, so the plan's hash could not be ` +
+                're-computed over the live pre-state. This is a capability gap, NOT staleness: the model may not ' +
+                'have moved at all. The hash fields carry the PLANNED hashes because no live hash exists.'
+              : `no normalizer recognises command type '${command.type}', so no semantic command could be formed ` +
+                'to re-plan. This is a capability gap, NOT staleness. The hash fields carry the PLANNED hashes ' +
+                'because no live hash exists.',
+          },
+        };
       }
     }
 
@@ -286,6 +329,10 @@ export class ConsequenceExecutionService {
               plannedStateHash: supplied.stateHash,
               livePlanHash: stale.livePlanHash,
               liveStateHash: stale.liveStateHash,
+              // C78 §9.3 — the typed statement of whether those two hashes are real
+              // re-computations. A consumer that reads this arm must report the
+              // REASON, never PLAN_STALE-by-hash-mismatch.
+              liveVerification: stale.verification,
             },
             actual,
           }

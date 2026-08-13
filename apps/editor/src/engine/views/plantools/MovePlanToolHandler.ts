@@ -46,6 +46,8 @@ import { triggerConsequencePreview, hideConsequencePreview } from '@app/ui/canva
 import {
     requestWallMoveConfirmation,
     proceedWithoutConfirmation,
+    // C78 §10.2 — the plan-less fallback still reports a TYPED outcome (see its use below).
+    dispatchPlanless,
 } from '@app/ui/consequence/confirmationFlowComposition';
 // [F-1.2] R2/R3 dual-write — commandManager is authoritative for WallRebuildCoordinator.
 
@@ -519,10 +521,17 @@ export class MovePlanToolHandler implements PlanToolHandler {
         payload: { wallId: string; newBaseLine: unknown; prevBaseLine: unknown },
     ): Promise<void> {
         const bus = this._ctx?.runtime?.bus ?? window.runtime?.bus;
+        // C78 §10.2 — a plan-less dispatch is a TYPED outcome, never a console line.
+        // This used to call `bus.executeCommand` directly and log the reason, which made
+        // a missing planner indistinguishable from a successful, fully-predicted move:
+        // no consequence answer, no read-back, nothing rendered. `dispatchPlanless` runs
+        // the SAME bus dispatch through the R4 executor with no plan, so the caller (and
+        // the R5 report surface) get the `unplanned` arm with `NO_PLAN_SUPPLIED` and the
+        // independent read-back of what actually changed.
         const dispatchDirect = (why: string): void => {
-            console.warn(`[MoveTool] R6 confirmation unavailable (${why}) — dispatching plan-less.`);
-            bus?.executeCommand('wall.updateBaseline', payload)
-                ?.catch((e: unknown) => console.error('[MoveTool] wall.updateBaseline failed:', e));
+            if (!bus) return;
+            void dispatchPlanless(bus as never, { type: 'wall.updateBaseline', payload }, why)
+                .catch((e: unknown) => console.error('[MoveTool] wall.updateBaseline failed:', e));
         };
         if (!bus) { console.warn('[MoveTool] No command bus — move dropped'); return; }
 

@@ -32,7 +32,11 @@ import type { WallMoveCommand } from '@app/engine/consequence/WallMoveConsequenc
 import { createWallMoveConsequencePlanner } from '@app/engine/consequence/wallMovePlannerComposition';
 import { buildPlanningContext } from '@app/engine/consequence/consequencePreviewServiceComposition';
 import { createConsequenceExecutionServiceWithReportView } from '@app/engine/consequence/consequenceExecutionServiceComposition';
-import type { ConsequenceDispatcher } from '@app/engine/consequence/ConsequenceExecutionService';
+import type {
+    ConsequenceDispatcher,
+    ConsequenceExecutionService,
+} from '@app/engine/consequence/ConsequenceExecutionService';
+import type { ExecutionConsequence } from '@pryzm/command-bus';
 import {
     ConfirmationFlow,
     type ConfirmationRequest,
@@ -42,6 +46,7 @@ import { ConfirmationCard } from './ConfirmationCard.js';
 
 let _flow: ConfirmationFlow | null = null;
 let _card: ConfirmationCard | null = null;
+let _executor: ConsequenceExecutionService | null = null;
 
 /**
  * Build (once) the production confirmation flow over the live bus.
@@ -59,6 +64,9 @@ export function getConfirmationFlow(bus: ConsequenceDispatcher): ConfirmationFlo
     // The R4 executor with the R5 report view as its sink: confirming a plan therefore ends
     // in a rendered predicted-vs-actual report. Confirm and report are the same loop.
     const { service } = createConsequenceExecutionServiceWithReportView(bus);
+    // Held so the PLAN-LESS path (`dispatchPlanless` below) goes through the SAME
+    // executor — see that function for why a plan-less dispatch must not bypass it.
+    _executor = service;
 
     const card = new ConfirmationCard();
     _card = card;
@@ -119,8 +127,60 @@ export async function proceedWithoutConfirmation(
     });
 }
 
+/**
+ * THE PLAN-LESS PATH, and why it must not be a bare `bus.executeCommand`.
+ *
+ * ── C78 §10.2 — "executing WITHOUT a plan is a typed, first-class outcome, not a
+ * degraded success." The measured gap that clause names is exactly here: the wall-move
+ * tool's fallback dispatched straight onto the bus and logged the reason to the console,
+ * so a plan-less dispatch was INDISTINGUISHABLE, in the report, from a family that never
+ * had a planner — and indistinguishable from a fully reconciled move, because it produced
+ * no consequence answer at all. A console line is not a typed outcome; nothing downstream
+ * can read it, the report surface renders nothing, and "the planner was missing" silently
+ * became "the move succeeded".
+ *
+ * Routing the SAME dispatch through the R4 executor with NO plan changes the mutation not
+ * at all — the bus call underneath is byte-identical — but the caller now gets back the
+ * `unplanned` arm: `prediction: { kind: 'absent', reason: 'NO_PLAN_SUPPLIED' }` plus the
+ * INDEPENDENT read-back of what actually changed. The executor's sink is the R5 report
+ * view, so the user sees a report that says "this executed without a prediction" instead
+ * of seeing nothing.
+ *
+ * `why` is carried for the operator log only. It is deliberately NOT folded into the typed
+ * reason: `NO_PLAN_SUPPLIED` is a fact about the DISPATCH, and the many causes of a missing
+ * plan are not new members of that union (C78 §9.3's rule, applied one level up — a typed
+ * field may not become a free-text carrier).
+ *
+ * Falls back to the raw bus ONLY if no executor has been composed at all, which is the one
+ * case where there is no typed channel to report into. That fallback logs loudly.
+ */
+export async function dispatchPlanless(
+    bus: ConsequenceDispatcher,
+    command: PreviewCommand,
+    why: string,
+): Promise<ExecutionConsequence | null> {
+    // Composing the flow composes the executor; the plan-less path deliberately shares it
+    // rather than building a second one (one executor, one sink, one report surface).
+    getConfirmationFlow(bus);
+    const executor = _executor;
+    if (!executor) {
+        console.error(
+            `[consequence] plan-less dispatch (${why}) has NO executor composed — falling back to a raw ` +
+            'bus dispatch. This execution produces NO typed consequence and NO read-back (C78 §10.2).',
+        );
+        await bus.executeCommand(command.type, command.payload);
+        return null;
+    }
+    console.warn(`[consequence] dispatching plan-less (${why}) — reported as the typed 'unplanned' outcome.`);
+    const { consequence } = await executor.execute(command, {
+        context: { actor: { kind: 'human' }, origin: { surface: 'plan-tool' } },
+    });
+    return consequence;
+}
+
 /** Test seam — drop the singletons so a suite can compose a fresh flow. */
 export function __resetConfirmationFlowForTests(): void {
     _flow = null;
     _card = null;
+    _executor = null;
 }

@@ -19,7 +19,7 @@
 //           → the REAL window.commandManager bridge → UpdateWallBaselineCommand
 //             → the REAL geometry WallStore (the authoritative store)
 //
-// FOUR CLAUSES, each with the control that proves the harness could see it fail:
+// FIVE CLAUSES, each with the control that proves the harness could see it fail:
 //   (a) a bound plan yields a ConsequenceReport that reconciles EVERY plan item —
 //       changed ids land in actual∪missing, and every plan-time UNDETERMINED item
 //       is carried as `undetermined-at-plan-time`, never scored, never dropped.
@@ -35,6 +35,10 @@
 //       as the prediction.
 //   (d) plan-less execute works and reports the TYPED ABSENCE of a prediction
 //       (`NO_PLAN_SUPPLIED`) — never an after-the-fact fabricated one.
+//   (e) C78 §9.3 — a binding that could NOT be verified (no planner for the verb)
+//       names its reason in the typed `liveVerification` field, and the two hash
+//       fields hold hashes ONLY. Measured structurally (hex, not sentinel spelling)
+//       so a rename of the retired sentinels cannot slip past the arm.
 //
 // ─── STUB LEDGER, declared loudly (world.ts doctrine) ────────────────────────
 //   • happy-dom installed in-process (certify.ts spawns gates via `npx tsx`; the
@@ -317,6 +321,61 @@ async function run(): Promise<GateResult> {
       (ok ? 'typed absence; reality still independently read back.' : 'WRONG shape (floor).'));
   } catch (e) { harnessErrors.push('(d): ' + String(e).slice(0, 300)); }
   floors.push({ what: 'plan-less execute works and reports the TYPED absence of a prediction', measured: absenceTyped, min: 1 });
+
+  // ══ Clause (e) — C78 §9.3: a hash field may never carry a REASON ═════════════
+  // The measured defect this arm pins: when no planner can re-plan the supplied
+  // command, the binding cannot be verified. The service used to stuff the string
+  // 'UNVERIFIABLE:no-planner-for-type' into BOTH hash fields — and since every
+  // consumer decides staleness by `plannedPlanHash !== livePlanHash`, a CAPABILITY
+  // GAP was reported to the user as "the model moved under your plan". That is a
+  // false statement about the world produced by a field that could hold a sentence.
+  //
+  // The arm drives the real service with a plan for a verb it has no planner for,
+  // and requires: (i) the typed `liveVerification: 'unverifiable'` names WHY with a
+  // C78 §8.1 member, and (ii) NEITHER hash field contains a reason — measured
+  // structurally (a hash is hex; a reason is not), not by matching the two retired
+  // sentinel spellings, which a rename would slip straight past.
+  let verificationTyped = 0;
+  try {
+    const wid = seedWall();
+    const payload = movePayload(wid, 1);
+    const plan = await preview.preview({ type: 'wall.updateBaseline', payload });
+    if (plan) {
+      // The command and payload are the REAL, VALID ones (so the dispatch genuinely
+      // runs — an arm whose command throws would measure the throw, not the refusal
+      // shape). What is missing is the PLANNER: this executor is composed with an
+      // empty planner map, which is exactly the runtime in which a plan minted
+      // elsewhere (an AI proposal, another surface) arrives with nothing here able to
+      // re-plan it. No live re-computation is possible ⇒ the binding is unverifiable.
+      const plannerless = new ConsequenceExecutionService({
+        bus: bus as never,
+        planners: new Map() as never,
+        context: planningContext as never,
+        violations: () => [],
+      });
+      const { consequence } = await plannerless.execute(
+        { type: 'wall.updateBaseline', payload }, { plan });
+      if (consequence.kind !== 'plan-stale') {
+        findingNames.push(`(e) unverifiable binding did not refuse — got '${consequence.kind}'`);
+      } else {
+        const r = consequence.refusal;
+        const v = r.liveVerification;
+        const isHash = (s: string): boolean => /^[0-9a-f]+$/.test(s);
+        const hashesClean = isHash(r.livePlanHash) && isHash(r.liveStateHash);
+        const typed = v?.kind === 'unverifiable' && typeof v.reason === 'string' && v.reason.length > 0;
+        verificationTyped = hashesClean && typed ? 1 : 0;
+        if (!hashesClean) {
+          findingNames.push(`(e) C78 §9.3 VIOLATED — a hash field carries a reason: livePlanHash='${r.livePlanHash}' liveStateHash='${r.liveStateHash}'`);
+        }
+        if (!typed) {
+          findingNames.push(`(e) unverifiable binding carries no typed liveVerification — the reason has nowhere to live but a hash field (got ${JSON.stringify(v ?? null)})`);
+        }
+        lines.push(`(e) unverifiable binding → kind=${consequence.kind} · liveVerification=${v?.kind}${v?.kind === 'unverifiable' ? `/${v.reason}${v.subReason ? `/${v.subReason}` : ''}` : ''} · hashes=[${r.livePlanHash},${r.liveStateHash}] — ` +
+          (verificationTyped ? 'reason is TYPED; hash fields hold hashes only (C78 §9.3).' : 'a reason is wearing a hash\'s clothes (floor).'));
+      }
+    }
+  } catch (e) { harnessErrors.push('(e): ' + String(e).slice(0, 300)); }
+  floors.push({ what: 'C78 §9.3 — an unverifiable binding names its reason in a TYPED field, never in a hash', measured: verificationTyped, min: 1 });
 
   for (const err of harnessErrors) {
     lines.push('harness error: ' + err);
