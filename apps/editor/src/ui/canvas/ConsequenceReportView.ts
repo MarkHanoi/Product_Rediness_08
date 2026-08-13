@@ -49,6 +49,7 @@ import type {
     MetricTransition,
     UndeterminedImpact,
 } from '@pryzm/command-bus';
+import { escHtml } from '@pryzm/ui-base';
 
 const PANEL_ID = 'consequence-report-panel';
 
@@ -71,9 +72,27 @@ function buildPanel(): HTMLElement {
     return el;
 }
 
-function esc(s: string): string {
-    return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
-}
+/*
+ * §XSS-SINK-SCAN / MT-10 — THE SHARED ESCAPER, NOT A LOCAL COPY.
+ *
+ * This file carried its own local `esc()` escaping `&`, `<`, `>` only. Two
+ * problems, and the second is the one that bites:
+ *
+ *   1. A second implementation of an escaper is a second thing to tighten. When
+ *      `escHtml` gains a rule, a local copy silently does not.
+ *   2. `&`, `<`, `>` is NOT ENOUGH. It leaves `"` and `'` intact, so any value
+ *      that reaches an attribute position can close it and mint new attributes —
+ *      including event handlers. This renderer interpolates `report.commandId`,
+ *      element ids, actor ids, rule messages and refusal sentences, and element
+ *      names are USER-CONTROLLED: a user may name a wall
+ *      `<img src=x onerror=alert(1)>`.
+ *
+ * `escHtml` from `@pryzm/ui-base` escapes `& < > " '` — a strict SUPERSET of what
+ * the local copy did, so this is a tightening with nothing lost. Every call site
+ * below now names the shared guard directly rather than aliasing it, so the sink
+ * scanner recognises it without relying on its local-guard heuristic. Proven by
+ * `apps/editor/__tests__/consequenceUiXssEscaping.test.ts`.
+ */
 
 /** `12.4` — fixed to 1 dp, the founder's reading resolution for areas. */
 function num(n: number): string {
@@ -112,8 +131,8 @@ function capped<T>(xs: readonly T[], n: number, render: (x: T) => string, what: 
  * item without its reason is barely better than an empty section.
  */
 function renderUndetermined(u: UndeterminedImpact): string {
-    const detail = u.detail ? ` <span style="color:#a89a6a;">(${esc(u.detail)})</span>` : '';
-    return item(`${esc(u.scope)} — <b>${esc(u.reason)}</b>${detail}`, '#fde68a');
+    const detail = u.detail ? ` <span style="color:#a89a6a;">(${escHtml(u.detail)})</span>` : '';
+    return item(`${escHtml(u.scope)} — <b>${escHtml(u.reason)}</b>${detail}`, '#fde68a');
 }
 
 // ── The report renderer ───────────────────────────────────────────────────────
@@ -134,9 +153,9 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
     // ── Title ─────────────────────────────────────────────────────────────────
     L.push(
         `<div style="font-weight:700;color:#c4b5fd;margin-bottom:2px;">` +
-        `${esc(plan.command.type)} — what changed</div>`,
+        `${escHtml(plan.command.type)} — what changed</div>`,
     );
-    L.push(`<div style="color:#7a8aaa;font-size:10px;margin-bottom:6px;">command ${esc(report.commandId)}</div>`);
+    L.push(`<div style="color:#7a8aaa;font-size:10px;margin-bottom:6px;">command ${escHtml(report.commandId)}</div>`);
 
     // ── 1. THE DIVERGENCE VERDICT — first, loud, and branched on `kind` ────────
     // STR-06 §2: plan-fidelity divergence is a named failure class. It is rendered as a
@@ -158,11 +177,11 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
         ];
         if (d.unexpected.length > 0) {
             lines.push(`<div style="color:#fca5a5;font-size:11px;margin-top:4px;">changed but NOT predicted (${d.unexpected.length}):</div>`);
-            lines.push(...capped(d.unexpected, 6, (id) => item(esc(id), '#fca5a5'), 'unexpected'));
+            lines.push(...capped(d.unexpected, 6, (id) => item(escHtml(id), '#fca5a5'), 'unexpected'));
         }
         if (d.missing.length > 0) {
             lines.push(`<div style="color:#fca5a5;font-size:11px;margin-top:4px;">predicted but did NOT change (${d.missing.length}):</div>`);
-            lines.push(...capped(d.missing, 6, (id) => item(esc(id), '#fca5a5'), 'missing'));
+            lines.push(...capped(d.missing, 6, (id) => item(escHtml(id), '#fca5a5'), 'missing'));
         }
         lines.push('</div>');
         L.push(lines.join(''));
@@ -176,7 +195,7 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
     // ── 2. PREDICTED vs ACTUAL — the numbers behind the verdict ────────────────
     L.push(head('◆ predicted vs actual', '#a78bfa'));
     L.push(item(`predicted ${plan.changed.length} change(s) · actually changed ${report.actual.changed.length}`, '#ddd6fe'));
-    L.push(...capped(report.actual.changed, 6, (id) => item(esc(id), '#ddd6fe'), 'changed'));
+    L.push(...capped(report.actual.changed, 6, (id) => item(escHtml(id), '#ddd6fe'), 'changed'));
     if (report.predictedVsActual.undeterminedResolved.length > 0) {
         L.push(item(
             `${report.predictedVsActual.undeterminedResolved.length} blind-spot item(s) turned out to change (not a divergence — the plan was honest about not knowing)`,
@@ -204,13 +223,13 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
             const measured = act === undefined
                 ? ''
                 : ` · <span style="color:#6ee7b7;">measured ${num(act.after)}${u ? ' ' + u : ''}</span>`;
-            L.push(item(`${esc(m.elementId)} ${esc(m.metric)}: <b>${before} → ${after}</b> (predicted)${measured}`, '#ddd6fe'));
+            L.push(item(`${escHtml(m.elementId)} ${escHtml(m.metric)}: <b>${before} → ${after}</b> (predicted)${measured}`, '#ddd6fe'));
         }
         // Measured metrics with no prediction — visible, not dropped.
         for (const m of actualMetrics ?? []) {
             if (predicted.some((p) => p.elementId === m.elementId && p.metric === m.metric)) continue;
             const u = unitLabel(m.unit);
-            L.push(item(`${esc(m.elementId)} ${esc(m.metric)}: measured <b>${num(m.after)}${u ? ' ' + u : ''}</b> — not predicted`, '#fde68a'));
+            L.push(item(`${escHtml(m.elementId)} ${escHtml(m.metric)}: measured <b>${num(m.after)}${u ? ' ' + u : ''}</b> — not predicted`, '#fde68a'));
         }
         if (report.metricsUndetermined) {
             L.push(item('actual metrics NOT MEASURED in this runtime:', '#fbbf24'));
@@ -236,7 +255,7 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
             L.push(item(
                 outside.length === 0
                     ? '<i>actually changed outside the prediction: none</i>'
-                    : `<i>actually changed outside the prediction: ${esc(outside.slice(0, 4).join(', '))}${outside.length > 4 ? ` +${outside.length - 4}` : ''}</i>`,
+                    : `<i>actually changed outside the prediction: ${escHtml(outside.slice(0, 4).join(', '))}${outside.length > 4 ? ` +${outside.length - 4}` : ''}</i>`,
                 '#a89a6a',
             ));
         }
@@ -248,11 +267,11 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
     const regen = report.actual.regenerated;
     L.push(regen.length === 0
         ? item('none measured — this runtime has no regeneration read-back channel (see the blind spots above)', '#a89a6a')
-        : item(regen.slice(0, 6).map(esc).join(', ') + (regen.length > 6 ? ` +${regen.length - 6}` : ''), '#ddd6fe'));
+        : item(regen.slice(0, 6).map((id) => escHtml(id)).join(', ') + (regen.length > 6 ? ` +${regen.length - 6}` : ''), '#ddd6fe'));
 
     if (plan.refused.length > 0) {
         L.push(head(`✕ ${plan.refused.length} refused`, '#f87171'));
-        L.push(...capped(plan.refused, 4, (r) => item(`${r.elementId ? esc(r.elementId) + ': ' : ''}${esc(r.reason)}`, '#fca5a5'), 'refused'));
+        L.push(...capped(plan.refused, 4, (r) => item(`${r.elementId ? escHtml(r.elementId) + ': ' : ''}${escHtml(r.reason)}`, '#fca5a5'), 'refused'));
     }
 
     L.push(head('◆ validation', '#a78bfa'));
@@ -267,8 +286,8 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
         if (c.length === 0 && r.length === 0) {
             L.push(item('no violation changed', '#a89a6a'));
         } else {
-            for (const v of c.slice(0, 4)) L.push(item(`▲ NEW ${esc(v.ruleId)}${v.elementId ? ' · ' + esc(v.elementId) : ''}${v.message ? ' — ' + esc(v.message) : ''}`, '#fbbf24'));
-            for (const v of r.slice(0, 4)) L.push(item(`✓ resolved ${esc(v.ruleId)}${v.elementId ? ' · ' + esc(v.elementId) : ''}`, '#34d399'));
+            for (const v of c.slice(0, 4)) L.push(item(`▲ NEW ${escHtml(v.ruleId)}${v.elementId ? ' · ' + escHtml(v.elementId) : ''}${v.message ? ' — ' + escHtml(v.message) : ''}`, '#fbbf24'));
+            for (const v of r.slice(0, 4)) L.push(item(`✓ resolved ${escHtml(v.ruleId)}${v.elementId ? ' · ' + escHtml(v.elementId) : ''}`, '#34d399'));
         }
     }
 
@@ -292,14 +311,24 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
 
     // ── 7. PROVENANCE — actor + origin (ADR-0324 §1–2, kept SEPARATE) ─────────
     const p = report.provenance;
-    const originTxt = p.origin ? ` · via ${esc(p.origin.surface)}${p.origin.proposalId ? ` (proposal ${esc(p.origin.proposalId)})` : ''}` : '';
-    const approvalTxt = p.approval ? ` · approved by ${esc(p.approval.approvedBy)}` : '';
+    const originTxt = p.origin ? ` · via ${escHtml(p.origin.surface)}${p.origin.proposalId ? ` (proposal ${escHtml(p.origin.proposalId)})` : ''}` : '';
+    const approvalTxt = p.approval ? ` · approved by ${escHtml(p.approval.approvedBy)}` : '';
     L.push(
         `<div style="color:#4b5563;font-size:10px;">` +
-        `by ${esc(p.actor.kind)}${p.actor.id ? ' ' + esc(p.actor.id) : ''}${originTxt}${approvalTxt}</div>`,
+        `by ${escHtml(p.actor.kind)}${p.actor.id ? ' ' + escHtml(p.actor.id) : ''}${originTxt}${approvalTxt}</div>`,
     );
 
-    panel.innerHTML = L.join('');
+    // §XSS-SINK-SCAN — `safeHtml` is the gate's declared naming convention for a
+    // value that was escaped BEFORE assignment, and it carries a proof obligation,
+    // not a promise: every runtime string pushed into `L` above passes through
+    // `escHtml`, and everything else in `L` is markup written in this file. The
+    // scanner cannot see inside an accumulator, so the obligation is discharged by
+    // `apps/editor/__tests__/consequenceUiXssEscaping.test.ts`, which drives THIS
+    // function with a live payload in every user-controlled field and asserts it
+    // renders as text. A new `L.push` that interpolates an unescaped value breaks
+    // that test — keep it that way.
+    const safeHtml = L.join('');
+    panel.innerHTML = safeHtml;
 }
 
 /**
@@ -313,7 +342,7 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
 export function renderNoReport(panel: HTMLElement, detail: string): void {
     panel.innerHTML =
         `<div style="font-weight:700;color:#fbbf24;margin-bottom:4px;">NO CONSEQUENCE REPORT</div>` +
-        `<div style="color:#fde68a;font-size:11px;">${esc(detail)}</div>` +
+        `<div style="color:#fde68a;font-size:11px;">${escHtml(detail)}</div>` +
         `<div style="color:#a89a6a;font-size:10px;margin-top:6px;">` +
         `This is not "nothing changed" — it is the absence of a prediction to reconcile against. ` +
         `No predicted-vs-actual claim is made here.</div>`;

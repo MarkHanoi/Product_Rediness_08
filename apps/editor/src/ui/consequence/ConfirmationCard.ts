@@ -41,6 +41,7 @@
  */
 
 import type { ConfirmationPolicy, ConsequencePlan, UndeterminedImpact } from '@pryzm/command-bus';
+import { escHtml } from '@pryzm/ui-base';
 import { blockingItems } from './confirmationPolicy.js';
 
 const PANEL_ID = 'consequence-confirmation-card';
@@ -49,9 +50,22 @@ const PANEL_ID = 'consequence-confirmation-card';
 export type ConfirmHandler = (approvedPlanHash: string) => void;
 export type CancelHandler = () => void;
 
-function esc(s: string): string {
-    return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
-}
+/**
+ * §XSS-SINK-SCAN / MT-10 — THE SHARED ESCAPER, NOT A LOCAL COPY.
+ *
+ * This was a local `esc()` escaping `&`, `<`, `>` only. That was not merely
+ * duplicated, it was WRONG: `planHash` is interpolated into an ATTRIBUTE at
+ * `data-plan-hash="${esc(...)}"`, and a value containing `"` closed the
+ * attribute and minted arbitrary new ones — including event handlers — on the
+ * confirm button. `escHtml` escapes `"` and `'` as well, which closes that.
+ * Proven by `__tests__/consequenceUiXssEscaping.test.ts`, whose quote-breakout
+ * cases FAIL against the old local escaper.
+ *
+ * Kept as a one-line alias rather than rewriting ~30 call sites: the name `esc`
+ * stays, the implementation is now the single shared one, so a future
+ * tightening of `escHtml` reaches this file automatically.
+ */
+const esc = escHtml;
 
 function buildPanel(): HTMLElement {
     const el = document.createElement('div');
@@ -177,7 +191,13 @@ export function renderConfirmationCard(
         `</div>`,
     );
 
-    panel.innerHTML = L.join('');
+    // §XSS-SINK-SCAN — see `renderConfirmationRefusal` below and
+    // `__tests__/consequenceUiXssEscaping.test.ts`: every runtime string pushed
+    // into `L` went through `esc` (= the shared `escHtml`); the rest is markup
+    // written here. `safeHtml` is the gate's convention for "escaped before
+    // assignment", and the test is what discharges it.
+    const safeHtml = L.join('');
+    panel.innerHTML = safeHtml;
 }
 
 /**
@@ -213,7 +233,11 @@ export function renderConfirmationRefusal(
             `</div>`,
         );
     }
-    panel.innerHTML = L.join('');
+    // §XSS-SINK-SCAN — as above: `L` holds only escaped values and locally
+    // authored markup, and the injection suite proves it against the SHIPPING
+    // renderer rather than a copy of it.
+    const safeHtml = L.join('');
+    panel.innerHTML = safeHtml;
 }
 
 // ─── The card ──────────────────────────────────────────────────────────────────────────
