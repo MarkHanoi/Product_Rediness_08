@@ -76,6 +76,17 @@ import { RoofTool } from '@pryzm/geometry-roof';
 import { HandrailTool } from '@pryzm/geometry-stair';
 import { WallTool } from '@pryzm/geometry-wall';
 import { SlabDependencyTracker } from '@pryzm/geometry-slab';
+// §FINISH-FOLLOWS-WALL (GR-12 · C79 §5) — floor finishes and ceilings follow a
+// moved wall the way slabs do. The ONE resolver + ONE intersector in the tree
+// are injected into the finish trackers (C79 §6.5 single-resolver rule); the
+// write-back goes through UpdateFloor/CeilingBoundaryCommand (P6, C79 §4.2).
+import { WallFaceResolver, SketchLoopIntersector } from '@pryzm/geometry-slab';
+import {
+    FloorHostDependencyTracker,
+    CeilingHostDependencyTracker,
+    type FinishBoundaryWritePayload,
+} from '@pryzm/finish-host-tracker';
+import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand } from '@pryzm/command-registry';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
 import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
@@ -826,6 +837,45 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         slabStore, wallTool.getWallStore(), commandManagerRef,
     );
     slabDependencyTracker.bootstrap();
+
+    // ── Finish host trackers — §FINISH-FOLLOWS-WALL (GR-12 · C79 §5) ─────────
+    // The wiring `check-move-propagation` arms A5/A6 could not see was missing:
+    // the trackers existed as a package reachable from NOTHING (L-FINISH proved
+    // it by require.resolve → MODULE_NOT_FOUND). This block is the reachability.
+    // Wired HERE deliberately: `commandManagerRef.current = commandManager` is
+    // assigned earlier in this function (before the tool-deps section), so both
+    // bootstrap() and every event-driven write reach the COMMAND path — the
+    // trackers' declared non-undoable direct-store fallback stays what it is
+    // declared to be: never taken in normal operation.
+    const finishGeometryServices = {
+        resolver: WallFaceResolver,
+        intersector: SketchLoopIntersector,
+    };
+    const floorHostDependencyTracker = new FloorHostDependencyTracker(
+        floorStore, wallTool.getWallStore(), finishGeometryServices, commandManagerRef,
+        // Payloads map 1:1 (C79 §3.4 byte-identical shapes); only the id key
+        // differs — the command names its element (`floorId`), the tracker
+        // speaks generically (`elementId`).
+        (payload: FinishBoundaryWritePayload) => new UpdateFloorBoundaryCommand({
+            floorId: payload.elementId,
+            mode: payload.mode,
+            polygon: payload.polygon,
+            outerLoopEdges: payload.outerLoopEdges,
+            cause: payload.cause,
+        }),
+    );
+    floorHostDependencyTracker.bootstrap();
+    const ceilingHostDependencyTracker = new CeilingHostDependencyTracker(
+        ceilingStore, wallTool.getWallStore(), finishGeometryServices, commandManagerRef,
+        (payload: FinishBoundaryWritePayload) => new UpdateCeilingBoundaryCommand({
+            ceilingId: payload.elementId,
+            mode: payload.mode,
+            polygon: payload.polygon,
+            outerLoopEdges: payload.outerLoopEdges,
+            cause: payload.cause,
+        }),
+    );
+    ceilingHostDependencyTracker.bootstrap();
 
     // ── WindowTool, DoorTool, CurtainWallTool, ColumnTool ────────────────────
     const _sharedCbs = {

@@ -39,6 +39,8 @@ export * from './catalog/UpdateAssetCatalogEntryCommand';
 export * from './ceilings/CreateCeilingCommand';
 export * from './ceilings/CreateCeilingsByRoomCommand';
 export * from './ceilings/RemoveCeilingCommand';
+// §FINISH-FOLLOWS-WALL (GR-12 · C79 §4/§5) — the tracker's write-back path.
+export * from './ceilings/UpdateCeilingBoundaryCommand';
 export * from './ceilings/UpdateCeilingCommand';
 export * from './ceilings/UpdateCeilingLayersCommand';
 // §FEAT-CEILING-TYPE-BATCH (RAC U7.2)
@@ -82,6 +84,8 @@ export * from './doors/UpdateDoorsSystemTypeBatchCommand';
 export * from './floors/CreateFloorCommand';
 export * from './floors/CreateFloorsByRoomTypeCommand';
 export * from './floors/RemoveFloorCommand';
+// §FINISH-FOLLOWS-WALL (GR-12 · C79 §4/§5) — the tracker's write-back path.
+export * from './floors/UpdateFloorBoundaryCommand';
 export * from './floors/UpdateFloorCommand';
 export * from './floors/UpdateFloorLayersCommand';
 
