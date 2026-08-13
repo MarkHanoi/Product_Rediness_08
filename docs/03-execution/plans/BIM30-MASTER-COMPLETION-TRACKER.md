@@ -82,7 +82,7 @@ blended percentage hides exactly that distinction, which is why §1 carries two 
 | Dependency indexes that can genuinely refuse | **1 of 10** | `check-index-can-refuse` (`6d87f324`), 9 findings |
 | Relationship families with writer **and** typed reader | **9 of 25** | `check-graph-write-coverage`, 5 findings |
 | Files returning `[]` to mean "could not determine" | **105 files** | `check-no-empty-means-unknown` (`3fd164a1`) |
-| Element kinds carrying provenance | **~1 of 29** | C75 §3.3; coverage gate in flight |
+| Element kinds carrying provenance | ✅ **27 adopted; ledger 28 → 1** | `check-provenance-coverage` [1] at 1/1. ⚠ **`27 covered ≠ provenance populated`** — every kind defaults to `predates-provenance`, which is honest and empty. **Instrumenting the producers is the real work** and is C75 §6.3(b)'s recorded blind spot |
 
 ### Instrumentation
 
@@ -298,7 +298,8 @@ C78, C79 and C80 all consume it.*
 | E.2 | `check-provenance-coverage` per-kind ratchet | PV-07 | 🔄 **IN FLIGHT** |
 | E.3 | PV-01: unknown origin no longer upgraded to authoritative | PV-01 | 🔄 IN FLIGHT |
 | E.4 | Repair path writes INFERRED-with-reason | PV-02 | 🔄 IN FLIGHT |
-| E.5 | Provenance field on all 29 element schemas | PV-04 | ⬜ TODO |
+| E.5 | Provenance field on all 29 element schemas | PV-04 | ✅ **DONE** — 27 kinds, ledger **28 → 1**, backward-compat test **274/274** (per kind: a pre-change record parses, lands on `origin: null` + `predates-provenance` never on one of the five, is byte-stable across a JSON round-trip, and differs from the original by only the added key). ⚠ **The inherited version was reverted for a reason worth remembering:** it spread `...elementProvenanceField`, and the indirection made the field **invisible to the gate measuring it** — 27 schemas carried provenance while the gate read `covered kinds: NONE`. It also hid the field from the §2.5 retrofit-safety arm. Its own docstring had argued against exactly that pattern |
+| E.5b | ⚠ **The `water` fixture caught a test passing for the WRONG REASON** — the inherited backward-compat test derived its pre-change record from `parse({})`, which *throws* for water (`surfaceElevation > bottomElevation`; "an empty pool has no water element", ADR-0124). Two rejection arms would have gone **green on water for the wrong reason**, because a bad provenance and a zero depth both fail and `success === false` cannot tell them apart. Fixed with a fixture, an arm-0 baseline-validity floor, and a path assertion on every rejection | — | ✅ **DONE** |
 | E.6 | Generators stamp provenance (D-TGL, D-FLE, D-CE, roof) | PV-06 | ⬜ TODO |
 | E.7 | Provenance survives save→reload (round-trip test) | PV-05 | ⬜ TODO |
 | E.8 | Export boundary: how the 5 values land in IFC/DXF | PV-08 | ⬜ TODO — **largest open risk** (C75 §5) |
