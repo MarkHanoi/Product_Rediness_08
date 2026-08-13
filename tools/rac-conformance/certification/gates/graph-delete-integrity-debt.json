@@ -49,7 +49,7 @@
       { "file": "packages/command-registry/src/walls/DeleteElementCommand.ts", "marker": "handrail" }
     ] },
     { "kind": "grid", "paths": [{ "file": "packages/command-registry/src/grids/RemoveGridCommand.ts" }] },
-    { "kind": "level", "paths": [{ "file": "packages/command-registry/src/levels/DeleteLevelCommand.ts" }], "note": "Levels are the TARGET of every sitsOn edge; a purge-less level delete strands one edge per element on the level." },
+    { "kind": "level", "paths": [{ "file": "packages/command-registry/src/levels/DeleteLevelCommand.ts" }], "note": "Levels are the TARGET of every sitsOn edge. canExecute() refuses when childrenIds is non-empty, which makes the sitsOn strand set mostly unreachable — but childrenIds is populated by registerElement, and stairs/lifts register against their BASE level only while writing connectedByStair/connectedByLift to their TOP level. The top level of every stair and lift therefore holds edges with an EMPTY childrenIds and passes the guard. Fixed §FIX-LEVEL-DELETE-LEAVES-GRAPH-EDGES: whole-endpoint purge is correct here (unlike DeleteStairCommand's edge-wise purge) because the endpoint being purged IS the element being deleted." },
     { "kind": "room", "paths": [{ "file": "packages/command-registry/src/rooms/DeleteRoomCommand.ts" }] }
   ],
   "declaredFindings": [
@@ -62,7 +62,6 @@
     { "key": "plumbing/undo-restores-nothing:DeleteElementCommand.ts#plumbing", "why": "Branch purges all edges, undo restores none." },
     { "key": "opening/purge-missing:DeleteOpeningCommand.ts", "why": "Slab-opening delete never purges. Today no writer emits edges for slab openings, so the strand set is empty in practice — but that is coincidence, not integrity, and F-INV-2 forbids counting it as such." },
     { "key": "grid/purge-missing:RemoveGridCommand.ts", "why": "Grid delete never purges. No writer emits grid edges today; same coincidence-not-integrity reading as opening." },
-    { "key": "level/purge-missing:DeleteLevelCommand.ts", "why": "Levels are the TARGET of every sitsOn edge and both connectedByStair/connectedByLift endpoints. A purge-less level delete strands one edge per element that sat on the level — the largest strand-set in the estate." },
     { "key": "room/undo-restores-nothing:DeleteRoomCommand.ts", "why": "Room delete purges boundedBy/adjacentTo/connectedTo/partOf and undo restores none of them — precisely the wall-shaped case where reconstruction is impossible (room edges are authored by detection commands)." }
   ]
 }
