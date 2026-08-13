@@ -41,6 +41,11 @@ export default defineConfig({
       'apps/editor/src/ui/documentation/__tests__/**/*.spec.ts',
       // §FEAT-SWAP-LOADING-OVERLAY (L-141): renderer live-swap loading overlay specs.
       'apps/editor/src/ui/overlays/__tests__/**/*.spec.ts',
+      // §L-847: the shipped F3 Data surface. Differentiating specs — they fail
+      // if WorkspaceController's data mode reverts to benching DataWorkbench
+      // (setMode('hidden')) or DataCommandCenter re-claims the mode event,
+      // which is exactly the regression that made the Hierarchy tree unreachable.
+      'apps/editor/src/ui/dataworkbench/__tests__/**/*.spec.ts',
       // §CTX-QUERY-PANEL (L-592) / §CTX-USE-COLOUR (L-599) / §FACADE-STUDY-SUBJECT (L-596):
       // pure 3D-Site specs — use classification, height/id provenance labelling, and the
       // façade study's subject resolution + refusals.
