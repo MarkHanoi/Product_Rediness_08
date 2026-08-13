@@ -45,7 +45,47 @@
 
 ---
 
-## 🔴 §-1 — THE FINDING THAT OUTRANKS EVERYTHING BELOW (2026-08-13)
+## 🎯 §-2 — WHAT "DONE" ACTUALLY MEANS (read before §-1, or §-1 will mislead you)
+
+> **§-1 below is ONE EXAMPLE. It is not the goal.** The goal is that **every element is fully
+> wired to every element it relates to, for every operation** — and where it is not, the system
+> says so in a typed voice.
+
+The wall→slab case is a single cell in a large matrix. C78 states the real bar directly: for
+**every `(element, related element, operation)` triple**, the answer must be
+**DETERMINED-affected · DETERMINED-unaffected · UNDETERMINED-with-a-typed-reason** — and
+**C78 §19.1 applies no-partial-credit ACROSS that product**, not just along one chain.
+
+So the honest shape of the work is a grid, not a list:
+
+|  | create | **move** | delete | regenerate |
+|---|---|---|---|---|
+| wall → slab | ✅ references written | 🔴 **§-1: does not follow** | ✅ purge + verbatim undo | ⬜ |
+| wall → floor finish | ✅ references written | 🔴 0 consumers | 🟡 | ⬜ |
+| wall → ceiling | ✅ references written | 🔴 0 consumers | 🟡 | ⬜ |
+| wall → roof | 🔴 no field can hold it | 🔴 structurally cannot | ✅ | ⬜ |
+| wall → opening | ✅ | ✅ planner landed | ✅ | ⬜ |
+| wall → room | ✅ | ✅ | ✅ | 🔴 destroys authored rooms |
+| level → everything on it | ✅ | ⬜ **unmeasured** | ✅ | ⬜ |
+| stair/lift → levels | ✅ author-keyed | ⬜ unmeasured | ✅ verbatim | ⬜ |
+| column/beam → structure | ⬜ | ⬜ | 🟡 | ⬜ |
+| furniture → room | ✅ `contains` | ⬜ | 🟡 | 🔴 |
+
+**⬜ is the largest category, and it is not "probably fine" — it is UNMEASURED.** Today's session
+turned a handful of ⬜ into 🔴 by measuring them, which is why the counted percentage went *down*.
+That is the program working: **you cannot wire what you have not proven is unwired.**
+
+**The end state**: every cell reads ✅ or carries a typed, named refusal. Not one flagship
+operation working — *all of them, or an honest "I cannot determine that" per cell.*
+
+> **Why §-1 still leads**: `wall → slab @ move` is the cell the founder asked about first, it has
+> a pinned root cause with a worked precedent, and — most importantly — **its fix pattern is the
+> template for most other 🔴 move cells**, which fail the same way: a reference written at
+> creation that nothing reads at mutation time.
+
+---
+
+## 🔴 §-1 — THE WORKED EXAMPLE, AND THE FIRST CELL TO CLOSE (2026-08-13)
 
 > **The founder's original question — *"closed polyline of walls → slab by region → move a wall —
 > does the slab follow?"* — is ANSWERED. It does NOT follow. And the cause is a two-word bug.**
