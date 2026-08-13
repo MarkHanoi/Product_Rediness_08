@@ -84,19 +84,63 @@ function wireLightingCascade(runtime: PryzmRuntime): void {
         // timer on the predecessor-of-predecessor event (ceiling, here),
         // fire lighting on whichever happens first (normal furnish event
         // OR the fallback). Idempotency via `state.fired`.
-        interface ChainState { fired: boolean; timer: ReturnType<typeof setTimeout> | null }
-        const state: ChainState = { fired: false, timer: null };
+        interface ChainState {
+            fired: boolean;
+            timer: ReturnType<typeof setTimeout> | null;
+            /** §CHAIN-NO-DOUBLE-FIRE (2026-08-13) — true once the fallback has
+             *  fired for the CURRENT run. The next `furnish.layout-executed`
+             *  is then the LATE event from the timed-out run and must NOT
+             *  re-fire lighting (the old code reset `state.fired` and fired
+             *  AGAIN → double fixtures). One-shot: consumed by that late
+             *  event, so a genuinely NEW furnish run afterwards still lights
+             *  (§FURNISH-ALWAYS-LIGHTS preserved). */
+            fallbackFired: boolean;
+        }
+        const state: ChainState = { fired: false, timer: null, fallbackFired: false };
         const FALLBACK_MS = 12_000;
-        const fireLighting = (source: 'furnish-event' | 'fallback-timeout'): void => {
+        /** §FURNISH-DROP-SURFACING — what the cascade knows about the furnish
+         *  stage; mirrors `FurnishStageOutcome` (ai-host lightingBasis.ts). */
+        type FurnishOutcome =
+            | { state: 'completed'; placedCount: number; roomCount?: number }
+            | { state: 'dropped'; reason: string };
+        const fireLighting = (source: 'furnish-event' | 'fallback-timeout', furnishOutcome?: FurnishOutcome): void => {
             if (state.fired) return;
             state.fired = true;
             if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
             if (source === 'fallback-timeout') {
+                state.fallbackFired = true;
                 console.warn(`[lighting-layout] §CHAIN-TIMEOUT — no furnish.layout-executed within ${FALLBACK_MS} ms — firing lighting anyway.`);
             } else {
                 console.log('[lighting-layout] furnish.layout-executed → auto-lighting.');
             }
-            setTimeout(() => runtime.events.emit('lighting.layout-execute', {}), 0);
+            // §FURNISH-DROP-SURFACING — the fired payload CARRIES the outcome so
+            // the executor can stamp basis/basisDisclosure on its result. `{}`
+            // told downstream nothing; a dropped stage must travel WITH its
+            // reason (C75 §1.4).
+            setTimeout(() => runtime.events.emit('lighting.layout-execute', { furnishOutcome }), 0);
+        };
+        /** Read the furnish outcome off a `furnish.layout-executed` payload:
+         *  prefer the explicit `outcome` stamp (FurnishLayoutExecutor,
+         *  §FURNISH-DROP-SURFACING commit 1), fall back to the legacy counts,
+         *  and return undefined for a payload that says nothing — the ai-host
+         *  basis resolver treats undefined as unfurnished-with-reason, never a
+         *  silent pass (C70 §2.2). */
+        const outcomeFromFurnishPayload = (payload: unknown): FurnishOutcome | undefined => {
+            const p = payload as {
+                outcome?: { state?: string; placedCount?: number; roomCount?: number; reason?: string };
+                placedCount?: number; roomCount?: number;
+            } | undefined;
+            const o = p?.outcome;
+            if (o?.state === 'dropped' && typeof o.reason === 'string') {
+                return { state: 'dropped', reason: o.reason };
+            }
+            if (o?.state === 'completed' && typeof o.placedCount === 'number') {
+                return { state: 'completed', placedCount: o.placedCount, roomCount: o.roomCount };
+            }
+            if (typeof p?.placedCount === 'number') {
+                return { state: 'completed', placedCount: p.placedCount, roomCount: p.roomCount };
+            }
+            return undefined;
         };
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
@@ -110,10 +154,32 @@ function wireLightingCascade(runtime: PryzmRuntime): void {
             // New chain link — clear any leftover state, arm a fresh fallback.
             if (state.timer !== null) clearTimeout(state.timer);
             state.fired = false;
-            state.timer = setTimeout(() => { state.timer = null; fireLighting('fallback-timeout'); }, FALLBACK_MS);
+            state.fallbackFired = false;
+            state.timer = setTimeout(() => {
+                state.timer = null;
+                fireLighting('fallback-timeout', {
+                    state: 'dropped',
+                    reason: `no furnish.layout-executed within ${FALLBACK_MS} ms (§CHAIN-TIMEOUT fallback fired)`,
+                });
+            }, FALLBACK_MS);
         });
-        events.on?.('furnish.layout-executed', () => {
+        events.on?.('furnish.layout-executed', (payload) => {
             if (isHouseFanoutActive()) return;
+            // §CHAIN-NO-DOUBLE-FIRE — the fallback already fired lighting for
+            // this run; this is the LATE furnish event from the slow (>12 s)
+            // run. Re-firing here was the DOUBLE-FIXTURE hazard: the reset
+            // below would clear `state.fired` and light AGAIN. Swallow exactly
+            // this one event (one-shot), so the next furnish run still lights.
+            if (state.fallbackFired) {
+                state.fallbackFired = false;
+                console.warn(
+                    '[lighting-layout] §CHAIN-NO-DOUBLE-FIRE — late furnish.layout-executed after the ' +
+                    '§CHAIN-TIMEOUT fallback already fired lighting for this run; NOT re-firing ' +
+                    '(double-fixture guard). NOTE: the lighting result was stamped basis=unfurnished; ' +
+                    'the furniture that just landed was not part of that computation.',
+                );
+                return;
+            }
             // §FURNISH-ALWAYS-LIGHTS (founder 2026-06-19) — every furnish RUN lights
             // once. The dedup `state.fired` was only reset on a preceding `ceiling.
             // layout-executed`; a DIRECT "Furnish all rooms (AI)" click (no ceiling
@@ -125,7 +191,7 @@ function wireLightingCascade(runtime: PryzmRuntime): void {
             // timer still can't double-fire within a run.
             if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
             state.fired = false;
-            fireLighting('furnish-event');
+            fireLighting('furnish-event', outcomeFromFurnishPayload(payload));
         });
         console.log('[lighting-layout] auto-fire on furnish.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }
