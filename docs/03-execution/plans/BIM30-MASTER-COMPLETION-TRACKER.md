@@ -265,7 +265,7 @@ through the same verbs.*
 |---|---|---|---|
 | D.1 | C79 rows 6–8: floor/ceiling by region carry references | — | ✅ **DONE** (`9fd9c5b6`) — §10.3 decided: DERIVE FROM THE ROOM |
 | D.2 | C79 rows 9–10: ceiling/floor plan tools gain region capability | — | ⬜ TODO |
-| D.3 | ⚠ `wall.create` planner — **AUTHORED AND UNWIRED.** `WallCreateConsequencePlanner.ts` exists and `createWallCreateConsequencePlanner()` has **zero callers**; all three registries (execution `:69`, preview `:50`, confirmation `:62`) register `wall.move` only. The repo's signature authored-but-unwired hazard, reproduced inside the flagship program — machinery present, capability unreachable (C70 §4.2) | — | 🔄 **IN FLIGHT** |
+| D.3 | `wall.create` planner — was **AUTHORED AND UNWIRED** (zero callers; the repo's signature hazard reproduced inside the flagship program) | — | ✅ **DONE** (`46d06234`, `4f9e8082`, `e878bdad`). The chokepoint was **not** the map: all three surfaces funnelled through `normalizeToWallMove`, which returns `null` for any other verb — a planner in the map would still have been dead. That is U-INV-5's *nominal genericity* exactly. Now one shared factory + a verb→rule map, so a third row needs no service edit. Determinism harness proven by mutation: injecting a clock/RNG residue turns **4 arms red**. `check-plan-determinism` **exit 0, 2 of 2 planners** |
 | D.4 | `opening.move` planner | — | ⬜ TODO |
 | D.5 | `furniture.generate` planner | — | ⬜ TODO |
 | D.6 | The remaining ~10 families dispatching with no preview | PR-01…07 | ⬜ TODO |
