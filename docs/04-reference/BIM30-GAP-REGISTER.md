@@ -268,18 +268,23 @@ giving **86 type-instances**.
 | **MISSING SOLVER** | 1 | and it is **unauthorised** — C74 §4.5 stands |
 | **ARCHITECTURAL CHANGE** | **0** | — |
 
-### §9.0 — Status distribution at `bbcc11cd` (2026-08-13)
+### §9.0 — Status distribution — recount 2026-08-13, lane L1, at `b61f0ba3` (MID-SESSION)
 
-Counted over the same **82 classified rows**. This table is a count of *this document's rows*, at
-one HEAD, and it rots the moment a row closes — re-stamp it, per §0.0 rule 1.
+Counted over the same **82 classified rows**, re-produced by an executed recount (gates run between
+`9fc6804d` and `b61f0ba3`) — **counted, never hand-incremented**. This table is a count of *this
+document's rows*, at one HEAD, and it rots the moment a row closes — re-stamp it, per §0.0 rule 1.
+**This recount ran MID-SESSION with seven other lanes landing commits under it** (ten landed during
+the pass itself); readings marked *mid-flight* in-row read uncommitted lane work in the shared
+tree. **The end-of-session re-verification pass re-runs every gate; its later readings win.**
+The prior distribution at `bbcc11cd` was 25 / 39 / 18.
 
 | Status | Count | Reading |
 |---|---|---|
-| **CLOSED** | **25** | executed evidence in **21** of the 25 — a gate run or a test, named in-row. **4** are **CLOSED (BY-READ)**-adjacent: closed on source re-verification of the exact line the row indicts (PR-06, GR-15, PV-01, MT-08) rather than on an instrument that would go red if it regressed. Those four are the weaker quarter of the closures and are flagged as such. |
-| **OPEN** | **39** | measured and still failing. **Most are now INSTRUMENTED**, which is the real movement: they sit at a NAMED, shrink-only ledger level in an executed gate rather than in prose. |
-| **UNPROVEN** | **18** | nobody measured. Neither a pass nor a fail (C70 §2.2). Six of these are printed by the executed gates *themselves*, in their own not-measured blocks — the instruments now declare their own blind spots, which is a stronger position than a document declaring them. |
+| **CLOSED** | **34** | executed evidence in **31** of the 34 — a gate run or a test, named in-row. **3** remain source-verification closures (PR-06, GR-15, MT-08) — the weaker class, flagged as such; PV-01 left that class because `check-derived-not-authored`'s executed negative control now proves an arm fires on exactly its defect. **Nine rows closed in this recount** — GR-01 · GR-05 · PR-07 · CO-05 · CO-07 · CO-08 · PV-02 · PV-03 · MT-10 — every one on an executed gate or test reading, none on a commit subject. |
+| **OPEN** | **33** | measured and still failing, most at a NAMED shrink-only ledger level in an executed gate. Two rows *entered* OPEN from UNPROVEN by gaining a completed measurement — GR-12 (`check-move-propagation` exists and executes) and MT-09 (isolated compile completed: 26 fail) — movement in the honest direction even though this count barely falls. |
+| **UNPROVEN** | **15** | nobody measured. Neither a pass nor a fail (C70 §2.2). |
 
-**25 + 39 + 18 = 82.** The two non-gap rows (GR-02 PARKED, GR-03 the recount note) carry `n/a` and
+**34 + 33 + 15 = 82.** The two non-gap rows (GR-02 PARKED, GR-03 the recount note) carry `n/a` and
 are excluded, exactly as §9's type distribution excludes them.
 
 > **§9.0.1 — the shape of the movement, stated so it is not mistaken for progress on the defects.**
@@ -293,6 +298,8 @@ are excluded, exactly as §9's type distribution excludes them.
 > **One row moved the wrong way.** MT-10 (XSS) was closed by commit `9b60f2e2` and is re-opened
 > here on an **executed** `check-xss-guards` reading that contradicts it. Where a commit subject and
 > a gate disagree, the gate wins (C70 §0.2) — that rule is what this column exists to enforce.
+> *Recount 2026-08-13:* the same instrument now reads **exit 0** and MT-10 is re-closed on that
+> reading — decided by the gate in both directions, which is the column working as designed.
 
 > **§9.1 — say it loudly, because it is the headline.** **ARCHITECTURAL CHANGE is EMPTY.**
 > Eighty-two rows of measured defects, spanning six contracts and every one of the twelve pillars, and **not
