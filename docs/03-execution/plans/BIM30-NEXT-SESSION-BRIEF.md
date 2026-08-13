@@ -181,6 +181,13 @@ Verify by EXECUTION, never by a commit subject or an inherited claim.
 
 ## §5 — KNOWN-GOOD BASELINES (a regression is obvious against these)
 
+> ✅ **RE-VERIFIED BY EXECUTION at the end of the session**, after the final commit — not copied
+> forward from earlier in the day. Every gate below was re-run and returned the stated reading.
+> **If your first run disagrees with this table, something regressed between then and now — do not
+> assume the table is stale.** (One gotcha that cost time: `check-graph-write-coverage` lives in
+> `tools/ga-gate/`, **not** in `certification/gates/`. Looking in the wrong directory makes a
+> healthy gate look crashed.)
+
 | Thing | Value |
 |---|---|
 | Root tsc | **0 errors** — ⚠ **requires `NODE_OPTIONS=--max-old-space-size=6144`**; it can **exit 0 while OOM-ing** and report a false green |
