@@ -249,18 +249,19 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
  * (BIM30-READINESS-GATES §2.4).
  */
 const LEDGER: readonly string[] = [
-  // ── H3 · G-INV-2 — 11 of the 17 registered rule families still have no
-  // executable evidence binding the real rule, plus 2 of the 3 C74 §2 named
-  // families.
+  // ── H3 · G-INV-2 — ALL 17 registered rule families now have REAL executable
+  // evidence binding the rule registry. What remains is 2 of the 3 C74 §2
+  // named families, plus H5.
   //
-  // THE DECLARED LEVEL HAS MOVED 20 → 16 → 15 → 14, AND ONE OF THOSE STEPS WAS
-  // NOT A PAYMENT. 20 at the first honest reading; 16 on four earned strikes
-  // (34664b30); 15 on ONE UNEARNED strike (96939dd4 — FIRE_COMPARTMENT_AREA,
-  // see its row); 14 today, on two earned strikes plus that row's RESTORATION.
+  // THE DECLARED LEVEL HAS MOVED 20 → 16 → 15 → 14 → 3, AND ONE OF THOSE STEPS
+  // WAS NOT A PAYMENT. 20 at the first honest reading; 16 on four earned
+  // strikes (34664b30); 15 on ONE UNEARNED strike (96939dd4 —
+  // FIRE_COMPARTMENT_AREA, see the ELEVEN STRUCK block below); 14 on two
+  // earned strikes plus that row's RESTORATION; 3 on eleven earned strikes.
   // A ledger that only ever counts down cannot distinguish debt being paid from
   // debt being lost, and both look like progress in the number alone. The
   // reasons are therefore written beside every move. Net for 2026-08-13:
-  // −2 earned, +1 restored.
+  // −2 earned, +1 restored, then −11 earned in a second pass the same day.
   //
   // AT THE FIRST HONEST READING (2026-08-12) THIS WAS ALL 17. At that point
   // `packages/constraint-solver/` contained exactly two test files —
@@ -308,26 +309,47 @@ const LEDGER: readonly string[] = [
   // ledger went stale because the fixing lane had no reason to know this gate
   // existed. That is the ordinary way a shrink-only ledger goes stale, and
   // §5.4's exit 3 is what makes it visible instead of silently absorbed.
-  'H3::ROOM_MAX_TRAVEL_DISTANCE (warning)',
-  // RESTORED 2026-08-13 — struck as PAID in 96939dd4, and it was not paid.
-  // The strike cited `packages/command-bus/__tests__/refusal-vocabulary.test.ts
-  // :303` as the executable witness because this gate REPORTED IT REAL. That
-  // file imports only `../src/index.js`; its line 303 puts the rule id inside a
-  // free-text `detail` string in a suite about the C78 §8 reason union. It never
-  // reaches `ConstraintEngine`. The detector was wrong, the strike inherited the
-  // error, and the row is restored together with the UNBOUND arm and planted
-  // control that make the same mistake exit 2 rather than pass silently.
-  // See `findEvidence`'s header. FIRE_COMPARTMENT_AREA remains UNPROVEN.
-  'H3::FIRE_COMPARTMENT_AREA (error)',
-  'H3::MEANS_OF_ESCAPE_COUNT (error)',
-  'H3::CORRIDOR_WIDTH (warning)',
-  'H3::LIFT_ADJACENT_LOBBY (info)',
-  'H3::PLUMBING_ZONE (info)',
-  'H3::ACOUSTIC_RT60_HOSPITAL (warning)',
-  'H3::ACOUSTIC_RT60_SCHOOL (warning)',
-  'H3::ACOUSTIC_RT60_COURT (warning)',
-  'H3::DAYLIGHT_HABITABLE (warning)',
-  'H3::THERMAL_GLAZING_OVERHEATING (warning)',
+  //
+  // ELEVEN STRUCK 2026-08-13 (second pass) — every remaining registered
+  // family, witnessed by two suites that import the singleton from
+  // `packages/constraint-solver/src/ConstraintEngine.ts` and assert through
+  // the REAL `constraintEngine.validateAll(ctx)`:
+  //   • `ConstraintEngine.spatial.test.ts` — ROOM_MAX_TRAVEL_DISTANCE,
+  //     FIRE_COMPARTMENT_AREA, MEANS_OF_ESCAPE_COUNT, CORRIDOR_WIDTH,
+  //     LIFT_ADJACENT_LOBBY, PLUMBING_ZONE. Per family: fires at the DECLARED
+  //     severity with the engine's own message and numbers; silent on
+  //     satisfied input; threshold turnover at the boundary; and the
+  //     absence-reads-as-compliance guard paths PINNED as measured, not
+  //     endorsed (a store without `getTotalAreaForLevel` reads every level as
+  //     0 m²; a level with no exits is skipped, not reported; `getByLevel`
+  //     absent → the floor is exempt).
+  //   • `ConstraintEngine.physics.test.ts` — ACOUSTIC_RT60_HOSPITAL,
+  //     ACOUSTIC_RT60_SCHOOL, ACOUSTIC_RT60_COURT, DAYLIGHT_HABITABLE,
+  //     THERMAL_GLAZING_OVERHEATING. These five read
+  //     `window.physicsEngine.cache` + `window.roomStore`, NOT the
+  //     ConstraintContext — proven by driving them on the all-null context.
+  //     Two defects pinned, not fixed: D3 — all three acoustic rules compare
+  //     `>=` while the sentence says "exceeds", so a room AT the limit is
+  //     shown a self-refuting message (the D1 shape again); and the COURT
+  //     rule's ≥500 m³ clause is DEAD — a large non-court room can never fire.
+  //
+  //   FIRE_COMPARTMENT_AREA deserves its own sentence, because its row was
+  //   struck once before (96939dd4) on this gate's own false REAL — a
+  //   free-text mention in `packages/command-bus/__tests__/refusal-vocabulary
+  //   .test.ts:303`, a file that never references `ConstraintEngine` — and
+  //   RESTORED with the UNBOUND arm. This strike is the earned one: the
+  //   witness imports the registry module and asserts the rule fires `error`
+  //   at 2001 m², is silent at 2000 m², and reads a method-less store as
+  //   0 m² (pinned). The UNBOUND detector now classifies the command-bus
+  //   mention correctly, and the SPECTRE control keeps it that way.
+  //
+  //   C70 §5.6 was EXECUTED for every family, not asserted: each rule's
+  //   property was deliberately broken in the engine (threshold or filter
+  //   mutation, one family at a time), the suite WATCHED GO RED (1–4 failing
+  //   tests per family), the engine restored byte-identical (git diff empty),
+  //   and the suite watched green again (139/139). Both runs are recorded in
+  //   the commit message that carries this strike.
+  //
   // ── H3 · two of the three C74 §2 named families have no executable witness at
   // all. `annotationConstraints` is the one PERSISTED constraint family in the
   // system — written to the snapshot, read back and checked — and nothing
