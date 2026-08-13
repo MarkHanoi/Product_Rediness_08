@@ -51,7 +51,12 @@ diff packages/constraint-solver/src/StairValidationAuthority.ts \
 
 **Gate readings taken on this HEAD:**
 
-- `check-constraint-honesty` → **exit 1, DECLARED-LEVEL (16 findings, declared 16)**. 20 families
+- `check-constraint-honesty` → **exit 1, DECLARED-LEVEL (14 findings, declared 14 — re-measured
+  2026-08-13; was 16/16)**. Net −2: `DOOR_WIDTH_vs_CIRCULATION` and `ACCESSIBLE_ROUTE` struck as
+  genuinely earned, `FIRE_COMPARTMENT_AREA` **restored after an unearned strike** — it had been
+  struck citing a free-text rule name inside a `detail` string in a suite that never reaches
+  `ConstraintEngine`. The gate now carries an `UNBOUND` witness kind so a rule id in prose can no
+  longer read as an executed witness. 20 families
   enumerated, **5 evidenced**, 15 UNPROVEN. Both executed controls fired. (Re-run after `34664b30`;
   the earlier reading of 20 findings / 3 evidenced is **STALE** and is not used anywhere below.)
 - `check-provenance-not-invented` → exit 1, DECLARED-LEVEL (5 findings, declared 5). 22
@@ -1181,7 +1186,7 @@ surface. **Failure and emptiness are the same value, and the shared value is the
 
 ### 🟡 G-8 — 15 of 20 constraint families are UNPROVEN, and the evidenced ones STUB the hinge relation
 
-**Axis:** constraints · **Evidence:** `check-constraint-honesty` re-run after `34664b30` — 16
+**Axis:** constraints · **Evidence:** `check-constraint-honesty` re-run 2026-08-13 — 14 (was 16; see §54)
 findings at declared level 16 · §1.4b
 
 Five families now have executable evidence (`ROOM_MIN_AREA`, `ROOM_NEEDS_DOOR`,
