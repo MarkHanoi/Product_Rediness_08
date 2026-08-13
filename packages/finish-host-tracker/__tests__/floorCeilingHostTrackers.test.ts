@@ -160,15 +160,50 @@ const geometry = { resolver: WallFaceResolver, intersector: SketchLoopIntersecto
 
 const areaOf = (polygon: ReadonlyArray<XZ>): number => Math.abs(signedAreaXZ(polygon));
 
+// ── §REENTRANT-SET file-level write budget ──────────────────────────────────
+// WHY THIS IS AT THE FILE AND NOT IN THE TWO §REENTRANT-SET TESTS (measured,
+// 2026-08-13, lane L-FINISH): the fix in FinishHostDependencyTracker.ts was
+// reverted to `dependents.forEach(...)` and the file re-run. Capping only the
+// two dedicated tests was NOT enough — the whole file still died with "Worker
+// exited unexpectedly", `tests 93ms`, because EVERY test here constructs a real
+// store, wires a tracker and moves a wall, so every one of them runs away. The
+// file's fast-fail is only as good as its least-guarded case.
+//
+// A budget on the PROTOTYPE guards all 19 without touching each. Past the
+// budget `update` becomes a NO-OP rather than throwing: the write is what emits
+// `bim-{floor,ceiling}-updated`, which is what feeds the re-entry, so declining
+// it starves the loop. Throwing cannot escape — the re-entry crosses
+// `window.dispatchEvent`, and DOM semantics report a listener exception as an
+// uncaught error instead of propagating it to the dispatcher's caller.
+//
+// The budget is deliberately far above any legitimate count (the busiest test
+// makes 2 writes), so it can only ever fire on a runaway.
+const WRITE_BUDGET = 32;
+let writeBudgetLeft = WRITE_BUDGET;
+const realFloorUpdate = FloorStore.prototype.update;
+const realCeilingUpdate = CeilingStore.prototype.update;
+
 beforeEach(() => {
     walls = new ProbeWallStore();
     seedRoom(walls);
     Object.assign(window, { wallStore: walls });
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    writeBudgetLeft = WRITE_BUDGET;
+    function budgeted<A extends unknown[], R>(real: (...a: A) => R) {
+        return function (this: unknown, ...a: A): R | undefined {
+            if (writeBudgetLeft-- <= 0) return undefined; // starve, never throw
+            return real.apply(this, a);
+        };
+    }
+    FloorStore.prototype.update = budgeted(realFloorUpdate) as typeof realFloorUpdate;
+    CeilingStore.prototype.update = budgeted(realCeilingUpdate) as typeof realCeilingUpdate;
 });
 
 afterEach(() => {
+    FloorStore.prototype.update = realFloorUpdate;
+    CeilingStore.prototype.update = realCeilingUpdate;
     Object.assign(window, { wallStore: undefined });
     vi.restoreAllMocks();
 });
@@ -303,19 +338,35 @@ describe('§1 FLOOR — a floor created AFTER the tracker is wired FOLLOWS its w
     // move re-projected one floor without bound — 2033 MB, "Ineffective
     // mark-compacts near heap limit", ~300 s, zero tests completed.
     //
-    // WATCHED RED: against `dependents.forEach(...)` this test does not fail,
-    // it OOMs the worker — which is exactly why the counter is capped and
-    // throws. A plain `expect(writes).toBe(1)` would never be reached.
+    // WATCHED RED (2026-08-13, lane L-FINISH): the fix was reverted to
+    // `dependents.forEach(...)` and this test was re-run. It went red — but NOT
+    // the way the cap intended, and that is why the cap below no longer throws.
+    //
+    // A THROWN cap does not escape this loop. The re-entry travels through
+    // `window.dispatchEvent`, and DOM semantics REPORT an exception raised in a
+    // listener as an uncaught error rather than propagating it to the
+    // dispatcher's caller (DOM §2.9 "inner invoke"; happy-dom implements this).
+    // So the throw was swallowed at the event boundary, the runaway continued,
+    // and the measured result was still a dead worker: 89 s at a 512 MB heap
+    // cap, `tests 0ms`, 17 skipped, "Worker exited unexpectedly" — i.e. exactly
+    // the CI failure mode the cap was written to prevent.
+    //
+    // The cap therefore BREAKS THE FEEDBACK instead of throwing across it: past
+    // the cap `update` becomes a no-op, so no `bim-floor-updated` is emitted, no
+    // re-entry occurs, the loop terminates, and the regression surfaces as a
+    // plain failed assertion (`writes` 9, want 1) in milliseconds.
     // ────────────────────────────────────────────────────────────────────────
     it('§REENTRANT-SET — one wall move writes the boundary exactly ONCE (the re-entrant write must not re-feed the iteration)', () => {
         const floorStore = new FloorStore();
+        const REENTRY_CAP = 8;
         let writes = 0;
         const realUpdate = floorStore.update.bind(floorStore);
         (floorStore as unknown as { update: (...a: never[]) => unknown }).update = (...a: never[]) => {
             writes++;
-            // Cap BELOW the heap limit: unbounded re-entry must surface as a
-            // failed assertion, never as a dead CI worker.
-            if (writes > 8) throw new Error(`re-entrant boundary write: ${writes} store.update calls for ONE wall move`);
+            // Cap BELOW the heap limit. Past it, SWALLOW the write rather than
+            // throw: the write is what emits the event that feeds the runaway,
+            // so declining it starves the loop. Throwing cannot — see above.
+            if (writes > REENTRY_CAP) return undefined;
             return (realUpdate as (...x: never[]) => unknown)(...a);
         };
 
@@ -336,6 +387,19 @@ describe('§1 FLOOR — a floor created AFTER the tracker is wired FOLLOWS its w
         // for-of it would abandon every REMAINING dependent. Two dependents on
         // one wall is the smallest case that can tell those apart.
         const floorStore = new FloorStore();
+        // Same starvation cap as the test above, for the same measured reason:
+        // WITHOUT it this test is the one that still OOMs the worker under a
+        // reverted fix (the whole FILE then reports `tests 0ms`, 49 skipped), so
+        // the file's fast-fail is only as good as its least-guarded case. Two
+        // dependents ⇒ 2 legitimate writes; 8 leaves generous headroom.
+        const REENTRY_CAP = 8;
+        let writes = 0;
+        const realUpdate = floorStore.update.bind(floorStore);
+        (floorStore as unknown as { update: (...a: never[]) => unknown }).update = (...a: never[]) => {
+            writes++;
+            if (writes > REENTRY_CAP) return undefined;
+            return (realUpdate as (...x: never[]) => unknown)(...a);
+        };
         const tracker = new FloorHostDependencyTracker(floorStore, walls, geometry, noCm);
         floorStore.add(finishFloor('fl-a'));
         floorStore.add(finishFloor('fl-b'));
@@ -346,6 +410,10 @@ describe('§1 FLOOR — a floor created AFTER the tracker is wired FOLLOWS its w
         expect(areaOf(floorStore.getById('fl-b')!.boundary.polygon)).toBeCloseTo(33.64, 6);
         expect(floorStore.getById('fl-a')!.metadata.version).toBe(2);
         expect(floorStore.getById('fl-b')!.metadata.version).toBe(2);
+        // BOTH dependents, ONCE each — the count, not just the geometry. Under a
+        // reverted §REENTRANT-SET fix this reads 9 (capped) instead of 2, and it
+        // is the assertion that reports it rather than the heap.
+        expect(writes).toBe(2);
         tracker.dispose();
     });
 });
