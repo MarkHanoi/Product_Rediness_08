@@ -72,18 +72,16 @@
       "field": "boundingWallIds",
       "declaredOn": "FloorData",
       "writeSite": "packages/command-registry/src/floors/CreateFloorCommand.ts",
-      "disposition": "EMPTY",
-      "emptyLiteral": true,
-      "why": "C79 §7.1's named anti-pattern — hardcoded `boundingWallIds: []`. The field's NAME is a claim: this floor is bounded by these walls. Read by RoomWorldModelAdapter.ts:93,201 for ROOMS only, whose array is populated; the floor array is read by nothing, because there is nothing in it."
+      "disposition": "UNREACTED",
+      "why": "WAS EMPTY (C79 §7.1's hardcoded `boundingWallIds: []`); the empty literal is GONE as of 9fd9c5b6, which routes both finish commands through the shared `rooms/roomBoundarySketch.ts` builder and writes `sketch.boundingWallIds` derived from the host room's by-construction wall set (§10.3 answered DERIVE FROM THE ROOM). Re-measured to UNREACTED, NOT to POPULATE: population is only branch (a) when a reactor also re-derives on the named element changing, and no such reactor exists for FloorData — every `boundingWallIds` reactor in the tree (SyncStateEngine.ts:722,749,779,856,1051) is keyed on ROOMS. A wall moved, split or deleted leaves this floor's array stale. The row stays in declaredFindings and still counts as unhonoured."
     },
     {
       "id": "boundingWallIds@CeilingData",
       "field": "boundingWallIds",
       "declaredOn": "CeilingData",
       "writeSite": "packages/command-registry/src/ceilings/CreateCeilingCommand.ts",
-      "disposition": "EMPTY",
-      "emptyLiteral": true,
-      "why": "C79 §7.1 — same hardcoded empty array. No reader at all."
+      "disposition": "UNREACTED",
+      "why": "C79 §7.1 — same shape as the FloorData row, and paid by the same commit 9fd9c5b6 through the same shared builder. The empty literal is gone; `sketch.boundingWallIds` is written at CreateCeilingCommand.ts:209. Re-measured UNREACTED rather than POPULATE for the identical reason: no reactor re-derives a ceiling's bounding walls when a wall changes."
     },
     {
       "id": "hostRoomId@FloorData",
