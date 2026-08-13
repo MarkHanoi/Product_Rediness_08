@@ -245,14 +245,27 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         const dependents = this.graph.get(wall.id);
         if (!dependents || dependents.size === 0) return;
 
-        dependents.forEach((elementId) => {
+        // §FINISH-TRACKER-REENTRANT-SET — iterate a SNAPSHOT, never the live Set.
+        // The write below re-enters this tracker: store.update() emits
+        // `bim-<kind>-updated`, our own listener calls registerRecord(), and
+        // registerRecord() DELETES the element from every dependency Set and
+        // re-ADDs it. Set.prototype.forEach visits an element that is removed and
+        // re-inserted during iteration AGAIN (ECMA-262 24.2.3.6) — so a single
+        // wall move re-projected the same finish forever and exhausted the V8
+        // heap at ~2 GB. The event path being LIVE is the whole point of this
+        // tracker (it is the slab defect it exists to not repeat), so the fix is
+        // here, at the iteration, not by muting the listener.
+        for (const elementId of [...dependents]) {
             const rec = this.store.getById(elementId);
             if (!rec?.sketch) {
                 console.warn(
                     `[${this.constructorName()}] §C79-5.2 undetermined (RELATIONSHIP_NOT_RECORDED): ` +
                     `${this.kind} "${elementId}" is in the dependency graph but carries no sketch — not re-projected.`
                 );
-                return;
+                // `continue`, not `return`: under the previous forEach a bare
+                // return skipped ONE dependent; in a for-of it would abandon
+                // every remaining dependent of this wall.
+                continue;
             }
 
             const result = reprojectFinishBoundary({
@@ -264,7 +277,7 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
             });
 
             this.reportAndWrite(rec, wall.id, result);
-        });
+        }
     }
 
     /** C79 §5.2 — the verdict is REPORTED, one of five states, never absorbed. */
@@ -312,9 +325,12 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
     private onWallRemoved(wall: WallSnapshotLike): void {
         const dependents = this.graph.get(wall.id);
         if (dependents && dependents.size > 0) {
-            dependents.forEach((elementId) => {
+            // §FINISH-TRACKER-REENTRANT-SET — snapshot, for the same reason as
+            // onWallUpdated: the degrade write re-enters registerRecord, which
+            // delete-then-re-adds into this very Set.
+            for (const elementId of [...dependents]) {
                 const rec = this.store.getById(elementId);
-                if (!rec?.sketch) return;
+                if (!rec?.sketch) continue;
 
                 let changed = false;
                 const degraded: FinishSketchEdgeLike[] = rec.sketch.outerLoop.edges.map((edge) => {
@@ -327,7 +343,7 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
                     return freeLine;
                 });
 
-                if (!changed) return;
+                if (!changed) continue;
 
                 this.writeBoundary(rec, {
                     elementId: rec.id,
@@ -335,7 +351,7 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
                     outerLoopEdges: degraded,
                     cause: { wallId: wall.id, kind: 'wall-removed' },
                 });
-            });
+            }
         }
         this.graph.delete(wall.id);
     }

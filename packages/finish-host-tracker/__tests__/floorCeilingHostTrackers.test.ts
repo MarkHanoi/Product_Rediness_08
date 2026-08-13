@@ -288,6 +288,66 @@ describe('§1 FLOOR — a floor created AFTER the tracker is wired FOLLOWS its w
         walls.move('w-north', 0, 2);
         expect(areaOf(floorStore.getById('fl-disposed')!.boundary.polygon)).toBeCloseTo(22.04, 6);
     });
+
+    // ────────────────────────────────────────────────────────────────────────
+    // §FINISH-TRACKER-REENTRANT-SET — the regression that made this whole FILE
+    // unrunnable. This test is a COUNTER, not an assertion about geometry,
+    // because the defect was invisible to every geometry assertion above: the
+    // boundary it wrote was CORRECT, it just wrote it forever.
+    //
+    // Mechanism: onWallUpdated iterated the live `Set` of dependents. The write
+    // re-enters the tracker (store.update → `bim-floor-updated` → our own
+    // listener → registerRecord), and registerRecord delete-then-re-ADDS the
+    // element into that same Set. Set.prototype.forEach re-visits an element
+    // removed and re-inserted mid-iteration (ECMA-262 24.2.3.6), so one wall
+    // move re-projected one floor without bound — 2033 MB, "Ineffective
+    // mark-compacts near heap limit", ~300 s, zero tests completed.
+    //
+    // WATCHED RED: against `dependents.forEach(...)` this test does not fail,
+    // it OOMs the worker — which is exactly why the counter is capped and
+    // throws. A plain `expect(writes).toBe(1)` would never be reached.
+    // ────────────────────────────────────────────────────────────────────────
+    it('§REENTRANT-SET — one wall move writes the boundary exactly ONCE (the re-entrant write must not re-feed the iteration)', () => {
+        const floorStore = new FloorStore();
+        let writes = 0;
+        const realUpdate = floorStore.update.bind(floorStore);
+        (floorStore as unknown as { update: (...a: never[]) => unknown }).update = (...a: never[]) => {
+            writes++;
+            // Cap BELOW the heap limit: unbounded re-entry must surface as a
+            // failed assertion, never as a dead CI worker.
+            if (writes > 8) throw new Error(`re-entrant boundary write: ${writes} store.update calls for ONE wall move`);
+            return (realUpdate as (...x: never[]) => unknown)(...a);
+        };
+
+        const tracker = new FloorHostDependencyTracker(floorStore, walls, geometry, noCm);
+        floorStore.add(finishFloor('fl-reentrant'));
+        walls.move('w-north', 0, 2);
+
+        expect(writes).toBe(1);
+        // …and the write it did make is still the RIGHT one — the fix bounds the
+        // loop without changing the answer.
+        expect(areaOf(floorStore.getById('fl-reentrant')!.boundary.polygon)).toBeCloseTo(33.64, 6);
+        tracker.dispose();
+    });
+
+    it('§REENTRANT-SET — a wall carrying TWO dependent floors re-projects BOTH, exactly once each', () => {
+        // The snapshot fix must not turn the runaway into the opposite defect:
+        // `return` inside the old forEach skipped ONE element, but inside a
+        // for-of it would abandon every REMAINING dependent. Two dependents on
+        // one wall is the smallest case that can tell those apart.
+        const floorStore = new FloorStore();
+        const tracker = new FloorHostDependencyTracker(floorStore, walls, geometry, noCm);
+        floorStore.add(finishFloor('fl-a'));
+        floorStore.add(finishFloor('fl-b'));
+
+        walls.move('w-north', 0, 2);
+
+        expect(areaOf(floorStore.getById('fl-a')!.boundary.polygon)).toBeCloseTo(33.64, 6);
+        expect(areaOf(floorStore.getById('fl-b')!.boundary.polygon)).toBeCloseTo(33.64, 6);
+        expect(floorStore.getById('fl-a')!.metadata.version).toBe(2);
+        expect(floorStore.getById('fl-b')!.metadata.version).toBe(2);
+        tracker.dispose();
+    });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
