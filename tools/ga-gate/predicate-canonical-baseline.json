@@ -3,7 +3,6 @@
   "measuredAt": "2026-08-13",
   "bodies": {
     "packages/command-registry/src/floors/CreateFloorsByRoomTypeCommand.ts:389::point-in-polygon": "none",
-    "packages/core-app-model/src/drawing/HiddenLineRemoval.ts:331::point-in-polygon": "no-interpolation-divide-in-window",
     "packages/core-app-model/src/RoomFinishResolver.ts:81::point-in-polygon": "none",
     "packages/geometry-slab/src/ceiling/CeilingTool.ts:1125::point-in-polygon": "none",
     "packages/geometry-slab/src/floor/FloorTool.ts:1176::point-in-polygon": "none",

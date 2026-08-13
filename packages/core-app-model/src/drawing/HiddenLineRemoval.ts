@@ -92,6 +92,7 @@
  * @module HiddenLineRemoval
  */
 
+import { pointInEdgeSetEvenOdd } from '@pryzm/geometry-kernel';
 import * as THREE from '@pryzm/renderer-three/three';
 import type * as OBC from '@thatopen/components';
 import {
@@ -322,20 +323,28 @@ function segCrossT(
  * by that nearer element). Interior openings (e.g. a window rectangle inside a wall
  * outline) correctly read as NOT occluding — you can see through them — which is the
  * desired behaviour, not a defect.
+ *
+ * §C73-PIP-CANONICAL — delegates to the kernel's ONE even-odd body. `segs` is a
+ * flat [ax, az, bx, bz, …] quad array carrying SEVERAL closed loops at once (the
+ * outline plus its openings) with no loop separators; that multi-loop union is
+ * exactly why the canonical body takes an EDGE SET and not a ring, and the
+ * see-through-openings behaviour above is pinned by the kernel's own oracle
+ * fixture ("wall outline + window rectangle"), not just by downstream drawings.
+ * Two knife-edge behaviours moved onto canonical semantics with the swap: the
+ * crossing abscissa is computed as the kernel writes it (same anchor vertex,
+ * associativity may differ in the last ulp from the old local form), and fewer
+ * than 3 edges — which can never close a loop — now reads OUTSIDE instead of
+ * being ray-tested.
  */
 function pointInSilhouette(px: number, pz: number, segs: number[]): boolean {
-    let inside = false;
-    for (let i = 0; i + 3 < segs.length; i += 4) {
-        const cz = segs[i + 1];
-        const dz = segs[i + 3];
-        if ((cz > pz) !== (dz > pz)) {
-            const cx = segs[i];
-            const dx = segs[i + 2];
-            const xInt = cx + ((pz - cz) / (dz - cz)) * (dx - cx);
-            if (xInt > px) inside = !inside;
-        }
-    }
-    return inside;
+    const edgeCount = segs.length >> 2; // trailing partial quad ignored, as before
+    return pointInEdgeSetEvenOdd(
+        px, pz, edgeCount,
+        (k) => segs[k * 4],
+        (k) => segs[k * 4 + 1],
+        (k) => segs[k * 4 + 2],
+        (k) => segs[k * 4 + 3],
+    );
 }
 
 function pointInAabb(px: number, pz: number, o: SilhouetteOccluder): boolean {
