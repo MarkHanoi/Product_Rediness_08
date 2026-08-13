@@ -54,16 +54,46 @@ export class SlabDependencyTracker {
         wallStore: WallStoreRef,
         private commandManagerRef: CommandManagerRef
     ) {
+        // §FIX-SLAB-TRACKER-EVENT-SHAPE (GR-12 · C78 §6) —────────────────────
+        // These three listeners guarded on `e.detail.slab` / `e.detail.slabId`,
+        // which the store HAS NEVER SENT. `SlabStore.emit` fires all three with
+        // the F.events.18 payload `{ id }` (event-bus/src/catalog.ts:95-97), so
+        // every guard was `undefined` and `registerSlab()` was UNREACHABLE from
+        // the event path. Only `bootstrap()` (initTools.ts:828, run ONCE at
+        // wiring) ever filled the dependency graph — so any slab created OR
+        // LOADED after boot was invisible to it, and moving its bounding wall
+        // produced ZERO rebuilds. Measured by check-move-propagation: the
+        // re-projection maths is correct and was simply never reached.
+        //
+        // `initBuilders.ts:367-383` was fixed for this EXACT mismatch
+        // (§DOM-EVENT-LISTENER-AUDIT-2026-05-18); these two trackers were not.
+        //
+        // Both shapes are accepted deliberately: `{ id }` is what the store
+        // sends today, and an object payload is tolerated so that a future or
+        // out-of-tree emitter passing the record cannot silently re-break this.
+        // The lookup is the same `slabStore.getById` this class already uses at
+        // its wall-rebuild path, so no new reachability assumption is added.
+        const slabFromDetail = (detail: any): SlabData | undefined => {
+            if (detail?.slab) return detail.slab as SlabData;
+            const id: string | undefined = detail?.id ?? detail?.slabId;
+            return id ? this.slabStore.getById(id) : undefined;
+        };
+
         window.addEventListener('bim-slab-added', (e: any) => {
-            if (e.detail?.slab) this.registerSlab(e.detail.slab);
+            const slab = slabFromDetail(e.detail);
+            if (slab) this.registerSlab(slab);
         });
 
         window.addEventListener('bim-slab-updated', (e: any) => {
-            if (e.detail?.slab) this.registerSlab(e.detail.slab);
+            const slab = slabFromDetail(e.detail);
+            if (slab) this.registerSlab(slab);
         });
 
         window.addEventListener('bim-slab-removed', (e: any) => {
-            if (e.detail?.slabId) this.unregisterSlab(e.detail.slabId);
+            // Removal cannot look the record up — it is already gone from the
+            // store by the time the event fires — so take the id directly.
+            const slabId: string | undefined = e.detail?.slabId ?? e.detail?.id;
+            if (slabId) this.unregisterSlab(slabId);
         });
 
         this.unsubscribeWall = wallStore.subscribe((event, wall) => {

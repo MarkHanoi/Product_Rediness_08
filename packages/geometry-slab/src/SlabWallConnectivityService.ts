@@ -112,14 +112,33 @@ export class SlabWallConnectivityService {
         this.isJoinResolving = isJoinResolving;
         this.commandManager  = commandManager;
 
+        // §FIX-SLAB-TRACKER-EVENT-SHAPE (GR-12) — the identical defect that made
+        // SlabDependencyTracker's listeners dead, in a second service. The store
+        // emits `{ id }` (event-bus/src/catalog.ts:95-97); these guarded on
+        // `e.detail.slab` / `e.detail.slabId`, so every one was `undefined` and
+        // registerSlab() was unreachable from the event path. Only the
+        // `getAll().forEach(registerSlab)` bootstrap below ever populated this
+        // service — so a slab created or loaded after wiring never joined its
+        // walls. Same shape, same fix, same precedent (initBuilders.ts:367-383,
+        // §DOM-EVENT-LISTENER-AUDIT-2026-05-18).
+        const slabFromDetail = (detail: any): SlabData | undefined => {
+            if (detail?.slab) return detail.slab as SlabData;
+            const id: string | undefined = detail?.id ?? detail?.slabId;
+            return id ? this.slabStore.getById(id) : undefined;
+        };
+
         window.addEventListener('bim-slab-added',   (e: any) => {
-            if (e.detail?.slab) this.registerSlab(e.detail.slab);
+            const slab = slabFromDetail(e.detail);
+            if (slab) this.registerSlab(slab);
         });
         window.addEventListener('bim-slab-updated', (e: any) => {
-            if (e.detail?.slab) this.registerSlab(e.detail.slab);
+            const slab = slabFromDetail(e.detail);
+            if (slab) this.registerSlab(slab);
         });
         window.addEventListener('bim-slab-removed', (e: any) => {
-            if (e.detail?.slabId) this.unregisterSlab(e.detail.slabId);
+            // The record is already gone from the store here — take the id.
+            const slabId: string | undefined = e.detail?.slabId ?? e.detail?.id;
+            if (slabId) this.unregisterSlab(slabId);
         });
 
         this.unsubscribeWall = wallStore.subscribe((event, wall) => {

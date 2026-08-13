@@ -170,7 +170,6 @@
   ],
 
   "declaredFindings": [
-    "slab·region · a slab created AFTER wiring re-projects when a bounding wall moves",
     "slab·region · the STORED polygon follows the move, not only the drawn mesh",
     "all families · C79 §5.2.1 — `preserved` and `undetermined` are distinguishable at the caller",
     "all families · C79 §5.2 — a re-derivation reports exactly one of the five states",

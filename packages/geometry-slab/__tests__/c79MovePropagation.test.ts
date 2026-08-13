@@ -344,7 +344,15 @@ function regionSlab(id: string, sketch: SlabSketch, ring: { x: number; y: number
 }
 
 describe('§2 — SLAB, LIVE WIRING: the founder\'s question, end to end', () => {
-    it('MEASURED: a slab created AFTER the tracker is wired NEVER re-projects — 0 rebuilds', () => {
+    // ⚠ INVERTED 2026-08-13 by §FIX-SLAB-TRACKER-EVENT-SHAPE. This test pinned the
+    // DEFECT: it asserted `rebuilds` stayed EMPTY, because the tracker's listeners
+    // guarded on `e.detail.slab` while the store emits `{ id }`, so registerSlab()
+    // was unreachable and nothing was ever asked to re-project.
+    //
+    // The wire is now fixed, so the pin must flip — a test that still demanded 0
+    // rebuilds would FORBID the fix and force the next author to delete the proof
+    // rather than the defect. It now positively enforces that the slab follows.
+    it('a slab created AFTER the tracker is wired DOES re-project — the wire is fixed', () => {
         const slabStore = new SlabStore();
         const rebuilds: string[] = [];
         const realTrigger = slabStore.triggerRebuild.bind(slabStore);
@@ -366,7 +374,12 @@ describe('§2 — SLAB, LIVE WIRING: the founder\'s question, end to end', () =>
 
         walls.move('w-north', 0, 2);
 
-        expect(rebuilds).toEqual([]); // ← THE ANSWER. Nothing was asked to re-project.
+        // ← THE ANSWER, post-fix: the slab IS asked to re-project. `toContain`
+        //   rather than `toEqual([...])` because the count is not the invariant —
+        //   "at least once, for THIS slab" is. Pinning an exact call count would
+        //   go red on a harmless coalescing change and teach the next author to
+        //   loosen the assertion instead of reading it.
+        expect(rebuilds).toContain('sb-live');
 
         // And the mesh polygon the builder would draw is unchanged, because nothing
         // asked it to redraw. The reference is CORRECT and UNREACHED.
@@ -695,7 +708,7 @@ describe('§5 — FINISHES: the references are CORRECT and read by NOTHING', () 
 // unmeasured."* This is that measurement.
 
 describe('§6 — the RELOADED slab: does it follow?', () => {
-    it('the reloaded sketch re-projects correctly — and is registered by nothing, exactly as before', () => {
+    it('the reloaded sketch re-projects correctly — AND is now registered, exactly as a fresh slab is', () => {
         const traced = traceRegionSketchAtPoint(walls.asRegionWalls(), 3, 2)!;
         const authored = regionSlab('sb-reload', traced.sketch, traced.ring);
 
@@ -718,8 +731,13 @@ describe('§6 — the RELOADED slab: does it follow?', () => {
         // The RELATIONSHIP survived the round trip and re-projects perfectly…
         const drawn = area(productionResolve((slabStore.getById('sb-reload')!.sketch as SlabSketch).outerLoop));
         expect(drawn).toBeCloseTo(36, 6);
-        // …and the LIVE path is just as unreachable after a load as before one.
-        expect(rebuilds).toEqual([]);
+        // …and the LIVE path is now reachable after a load, exactly as it is for a
+        // freshly-created slab. ⚠ INVERTED 2026-08-13 by §FIX-SLAB-TRACKER-EVENT-SHAPE:
+        // this asserted `[]` to pin that a RELOADED slab was as unreachable as a new
+        // one. That was the sharper half of the defect — a project could be saved
+        // with correct references and reopened with a dependency graph that never
+        // learned about them. Both halves are fixed by the same wire.
+        expect(rebuilds).toContain('sb-reload');
 
         console.log(
             `[GR-12 §6 POST-LOAD] the reloaded sketch re-projects to ${drawn.toFixed(3)} m² ` +
