@@ -9,3 +9,7 @@
 
 export const PLUGIN_ID = 'dxf' as const;
 export const PLUGIN_NAME = '@pryzm/plugin-dxf' as const;
+
+// PV-04 / C75 §7.7 — the ValueProvenance mapping for DXF is absent and the
+// absence is recorded by name, binding on the F.x wiring that lands here.
+export { DXF_PROVENANCE_MAPPING } from './provenance-absence.js';

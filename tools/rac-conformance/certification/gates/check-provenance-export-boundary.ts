@@ -337,7 +337,11 @@ const result: GateResult = {
     // per format (dxf/pdf/glb/ifc-legacy) and injects the statement into the
     // artefacts themselves (DXF 999 comments, PDF metadata). Nothing there
     // mints an origin. Remaining: the dxf and export-pdf plugin shells.
-    declared: 2,
+    // 2 → 1, 2026-08-13 (PV-04): the dxf plugin shell (F-prereq.0, no pipeline
+    // yet) gained its §7.7 named-absence declaration (DXF_PROVENANCE_MAPPING,
+    // exported from the plugin surface), binding on the F.x wiring that lands
+    // there. Remaining: the export-pdf plugin shell.
+    declared: 1,
     findingNames,
 };
 process.exit(reportGate(result));
