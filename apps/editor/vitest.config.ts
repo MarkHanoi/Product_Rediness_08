@@ -28,6 +28,14 @@ export default defineConfig({
     // bootstrap.data.test.ts:85 `expect(globalThis.window).toBeUndefined()`.
     // Do NOT switch this to happy-dom — it would invert those assertions.
     environment: 'node',
-    include: ['__tests__/**/*.test.ts'],
+    // §L-850 (2026-08-13, the L-849 sweep): the first pattern matches only the app-ROOT
+    // `__tests__/` tree, so `src/rendering/rendererBackendPreference.test.ts` — the
+    // §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION regression suite, which sits beside its subject —
+    // had NEVER run. Measured dark, then measured GREEN in isolation (1 file / 8 tests)
+    // under these same aliases BEFORE this line was widened, so switching it on asserts
+    // nothing new. `src/**/*.test.ts` matches exactly that one file today (every other
+    // in-src suite here uses the `.spec.ts` suffix and is claimed by the ROOT
+    // `vitest.config.ts`) and is deliberately broad so the next one lands claimed.
+    include: ['__tests__/**/*.test.ts', 'src/**/*.test.ts'],
   },
 });
