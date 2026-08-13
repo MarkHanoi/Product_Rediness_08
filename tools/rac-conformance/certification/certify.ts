@@ -421,7 +421,18 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // byte-identical — verified, no timestamp or random ever prints). Lands GREEN — hard-0, no
 // ledger entry: a plan that is not a pure function of (command, state) cannot bind an approval
 // (R6) or be compared against an actual (G-REASON-03).
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-plan-determinism', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification'];
+// §A6-ENROL — check-room-aabb-canonical (C73 §1/§3 · GE-11) ENROLLED 2026-08-13. The gate's own
+// header recorded that it was deliberately kept OUT of this list only while it read red; that
+// reason has expired. Executed today it reads [0] CLEAN — hard-0, no baseline, 0 findings across
+// all 8 discovered `roomSpatialIndex.insert(` sites, DISTINCT AABB CONVENTIONS FEEDING ONE
+// INDEX: 1 — TRUE-BBOX. A green gate outside the runner is not enforcement: nothing would have
+// caught a CIRCLE-APPROX site coming back. This list is an EXPLICIT ALLOWLIST, not directory
+// discovery, so enrolment is a hand edit and omission is silent — which is exactly why the
+// omission survived. Note its ARM B is the PREMISE arm: if the synthetic concave L-room ever
+// stops reproducing the 1.277 m maxX disagreement the gate exits 2 MISCONFIGURED, which certify
+// never absorbs as debt. Enrolling it changed no other gate's verdict (before/after runs
+// compared line by line: 13 CLEAN + 5 DECLARED-LEVEL + two-client, exit 1, identical).
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-plan-determinism', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification', 'check-room-aabb-canonical'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
