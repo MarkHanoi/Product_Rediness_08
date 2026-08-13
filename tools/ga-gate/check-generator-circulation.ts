@@ -103,7 +103,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { reportGate, type Floor, EXIT_MISCONFIGURED } from '../rac-conformance/certification/contract.js';
+import { reportGate, type Floor } from '../rac-conformance/certification/contract.js';
 
 import { generateDeterministicLayouts } from '../../packages/ai-host/src/workflows/apartmentLayout/tgl/runDeterministicLayout.js';
 import { generateHouseLayout } from '../../packages/ai-host/src/workflows/houseLayout/index.js';
@@ -118,6 +118,21 @@ import type {
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const LEDGER_PATH = join(HERE, 'generator-circulation-ledger.json');
+
+// ─── SUBJECT FLOORS (R5 / L-811 — the empty-seed guard) ──────────────────────
+// A doorless count over generators that were never driven is the empty-seed lie:
+// "0 problems found" over nothing. Every constant below is compared against the
+// measured subject before any verdict is published; below any of them the gate
+// exits 2 MISCONFIGURED via contract.ts's floor short-circuit (and the control
+// arm's own process.exit(2) path). Values sit just under the committed sweep
+// sizes (108 / 24 / 34), so a truncated sweep cannot read as a clean one.
+const MIN_APARTMENT_SUBJECTS = 100;   // sweep is 108 cases
+const MIN_HOUSE_SUBJECTS = 20;        // sweep is 24 storeys
+const MIN_RESI_SUBJECTS = 25;         // sweep is 34 units
+const MIN_SHIPPED_SUBJECTS = 140;     // 164 at the first reading
+const MIN_MEASURED_SUBJECTS = 140;    // options CARRYING a CI-0 verdict (C70 §2.2)
+const MIN_ROOM_SUBJECTS = 700;        // 1460 at the first reading
+const MIN_CONTROLS = 7;               // all seven arms, both directions
 
 const CONSTRAINTS: ApartmentConstraints =
   { minCorridorWidth: 900, wallThickness: 100, floorToCeiling: 2700, wallTypeId: '' };
@@ -428,11 +443,13 @@ function main(): number {
   lines.push('ARM C — CONTROLS (executed this run, watched in BOTH directions · C70 §5.6, L-716):');
   const ctl = runControls();
   lines.push(...ctl.lines);
-  if (!ctl.ok) {
+  if (!ctl.ok || ctl.passed < MIN_CONTROLS) {
     console.log('\n── check-generator-circulation ───────────────────────────');
     for (const l of lines) console.log('   ' + l);
-    console.log('   → [2] MISCONFIGURED — a control failed. A reader never watched firing publishes no verdict. NEVER absorbable as debt.');
-    return EXIT_MISCONFIGURED;
+    console.log(`   → [2] MISCONFIGURED — controls proven ${ctl.passed}/${MIN_CONTROLS}. A reader never watched firing publishes no verdict. NEVER absorbable as debt.`);
+    // Literal exit(2), not only the shared constant, so the R5 meta-gate's
+    // static EXIT2_RE can see the misconfiguration path from source.
+    process.exit(2);
   }
   lines.push('');
 
@@ -537,13 +554,13 @@ function main(): number {
   lines.push('    LATENT-unsafe. It is latent, not active, only because §DUP-NAME-UNIQUE mints unique names — a guard, not a fix.');
 
   const floors: Floor[] = [
-    { what: 'apartmentLayout cases driven', measured: readings.filter((r) => r.generator === 'apartmentLayout').length, min: 100 },
-    { what: 'houseLayout storeys driven', measured: readings.filter((r) => r.generator === 'houseLayout').length, min: 20 },
-    { what: 'residentialBuilding units driven', measured: readings.filter((r) => r.generator === 'residentialBuilding').length, min: 25 },
-    { what: 'options that SHIPPED', measured: totalShipped, min: 140 },
-    { what: 'options CARRYING a CI-0 verdict', measured: totalMeasured, min: 140 },
-    { what: 'rooms examined', measured: totalRooms, min: 700 },
-    { what: 'controls proven in-run (both directions)', measured: ctl.passed, min: 7 },
+    { what: 'apartmentLayout cases driven', measured: readings.filter((r) => r.generator === 'apartmentLayout').length, min: MIN_APARTMENT_SUBJECTS },
+    { what: 'houseLayout storeys driven', measured: readings.filter((r) => r.generator === 'houseLayout').length, min: MIN_HOUSE_SUBJECTS },
+    { what: 'residentialBuilding units driven', measured: readings.filter((r) => r.generator === 'residentialBuilding').length, min: MIN_RESI_SUBJECTS },
+    { what: 'options that SHIPPED', measured: totalShipped, min: MIN_SHIPPED_SUBJECTS },
+    { what: 'options CARRYING a CI-0 verdict', measured: totalMeasured, min: MIN_MEASURED_SUBJECTS },
+    { what: 'rooms examined', measured: totalRooms, min: MIN_ROOM_SUBJECTS },
+    { what: 'controls proven in-run (both directions)', measured: ctl.passed, min: MIN_CONTROLS },
   ];
 
   return reportGate({
