@@ -18,7 +18,7 @@ import type { SlabData } from '@pryzm/geometry-slab';
 // subpath is honest. Same pattern as `@pryzm/ai-host/types`.
 // The remaining slab imports in this package are all TYPES, hence `import type`,
 // which is erased and creates no runtime edge.
-import { signedArea } from '@pryzm/geometry-slab/geom-utils';
+import { polygonBoundingBox, signedArea } from '@pryzm/geometry-slab/geom-utils';
 
 /**
  * UpdateSlabPolygonCommand
@@ -86,25 +86,6 @@ export interface UpdateSlabPolygonPayload {
      * See §11 §1.4 Sketch Degradation on Profile Edit Entry.
      */
     clearSketch?: boolean;
-}
-
-/**
- * Recompute the axis-aligned bounding box width and depth for a polygon.
- * Used to keep `SlabData.width` and `SlabData.depth` in sync with the new polygon
- * so that existing consumers (property panel, AI commands, `UpdateSlabDimensionsCommand`)
- * read consistent values.
- */
-function polygonBoundingBox(pts: { x: number; y: number }[]): { width: number; depth: number } {
-    if (pts.length === 0) return { width: 0, depth: 0 };
-    let minX = pts[0].x, maxX = pts[0].x;
-    let minY = pts[0].y, maxY = pts[0].y;
-    for (const p of pts) {
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
-    }
-    return { width: maxX - minX, depth: maxY - minY };
 }
 
 export class UpdateSlabPolygonCommand implements Command {

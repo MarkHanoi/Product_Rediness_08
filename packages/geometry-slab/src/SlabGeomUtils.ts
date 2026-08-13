@@ -63,12 +63,10 @@ export function signedArea(pts: { x: number; y: number }[]): number {
  * (the builder reads the polygon for geometry — width/depth are metadata read
  * by the property panel, AI commands and UpdateSlabDimensionsCommand).
  *
- * NOTE: `UpdateSlabPolygonCommand.ts` still carries a module-private inline
- * twin of this function (`polygonBoundingBox`, command-registry). It should
- * migrate onto this export via `@pryzm/geometry-slab/geom-utils` — the same
- * extraction `signedArea` above already made from that exact file — but that
- * package is outside this change's ownership, so the migration is a named
- * follow-up, not done silently here.
+ * `UpdateSlabPolygonCommand.ts` (command-registry) imports this export via
+ * `@pryzm/geometry-slab/geom-utils` — its former module-private twin was
+ * deleted 2026-08-13, completing the same extraction `signedArea` already
+ * made from that exact file. This is the ONE owner.
  */
 export function polygonBoundingBox(
     pts: { x: number; y: number }[],
