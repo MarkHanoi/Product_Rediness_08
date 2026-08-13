@@ -508,3 +508,154 @@ correct response is **not** more typologies (a townhouse generator wins nothing)
 *intelligent*, **(c)** spend a cheap week on programme rules to stop losing prompts to missing
 tables, and **(d)** decide masterplanning and airflow in the open, as product scope, rather than
 letting them read as defects.
+
+---
+
+## §10 — SESSION CLOSE 2026-08-13 · THE BROWSER TOLD US MORE THAN THE GATES DID
+
+> Written after the deploy landed and the founder tested it live. **Everything above §10 was
+> written before that test. Where they disagree, §10 wins** — it is OBSERVED (C75), the strongest
+> evidence class for anything a user can see.
+
+### §10.1 — DEPLOY: DONE. `517f7a70` IS LIVE.
+
+`https://pryzm.fly.dev` · bundle proof **6/6, values read** · `GIT_SHA` verified
+`517f7a7080e5992086d03bc678afe688fc521766` · `/api/health/live` ok · recorded **L-853**.
+**§-1 item 1 is CLOSED.** It took three attempts; both failure causes are in L-853 and both recur:
+
+1. **STALE LOCKFILE** — `pnpm-lock.yaml` declared a dependency `finish-host-tracker`'s
+   `package.json` had dropped. The Docker build runs `--frozen-lockfile` and fails closed.
+   **RULE: a lane that edits any package.json re-syncs the lockfile IN THE SAME COMMIT.**
+2. **§6.5.6 HALF-APPLIED** — the npipe fix is TWO commands. Only `mkdir` was run; the
+   `echo '{}' > /tmp/empty-docker-config/config.json` was skipped, so flyctl still resolved the
+   Windows named pipe from the context file. **Both halves, every time.**
+
+### §10.2 ⚠ THE PATTERN OF THE SESSION — PRYZM FINDS PROBLEMS AND DOES NOT SAY
+
+Four independent instances, measured the same day. **This is one defect class, not four bugs.**
+
+| # | What PRYZM knew | What the user saw |
+|---|---|---|
+| 1 | `Compliance overlay: 121 error, 0 warning room(s) tracked` on a generated building (and `2 error` on a 10-wall manual test) | The Validate panel DOES show them (founder confirmed). But **both PROACTIVE channels default off**, so nothing tells the user to go and look. **L-862** |
+| 2 | `[lighting-layout] §CHAIN-TIMEOUT — no furnish.layout-executed within 12000 ms — firing lighting anyway` | A finished-looking building with **0 furniture** and no warning. |
+| 3 | The layout engine computes `hardValid` / `hardFailedRules` **correctly** for every rule (reach · circulation · served-through · corridor-stair · corridor-hall) | The verdict is **dropped at the `emitGeometry` boundary**. A caller that wanted to refuse cannot see it. |
+
+### §10.2b ⚠⚠ THE FINDING OF THE SESSION — A GATE WENT GREEN *BECAUSE OF* UNREACHABLE CODE
+
+`check-move-propagation` arms **A5/A6 (floor-finish, ceiling) now print ✓**. They count *consumer
+files*. The count moved **0 → 1**. The one consumer is `packages/finish-host-tracker` — which is
+**wired into nothing** (grep confirmed zero sites repo-wide; no `package.json` declares it). Both
+rows were struck from `declaredFindings` as **PAID**. **They were not paid.**
+
+> **A gate built to detect unreachable code was satisfied by authoring MORE unreachable code**, and
+> its own output still prints *"machinery present, capability unreachable"* beside the green tick.
+> **Those two ledger rows are a FALSE GREEN and must be re-opened.** This is why the founder sees
+> floor finishes and ceilings not follow a moved wall while the gate says they do.
+>
+> **The general lesson, and it belongs in every gate review from now on: a gate that counts
+> ARTEFACTS can be satisfied by producing artefacts. Only a gate that counts REACHED BEHAVIOUR
+> cannot be gamed — including accidentally, by an honest lane.** Cross-reference CE-05.
+
+> **The cheapest, highest-value work in the whole programme is not a new engine. It is making
+> PRYZM say what it already knows.** Every one of these four is a surfacing fix, not a detection
+> fix. Contrast the envelope panel, which gets this exactly right in production today
+> (*"within the limits that could be checked · indicative only, not a compliance determination ·
+> NO LIMIT SET"*). **That is the standard the other four must meet.**
+
+### §10.3 — CIRCULATION: MEASURED, PER TYPOLOGY (SPEC-49 · L-854…L-858)
+
+| Defect | apartmentLayout | houseLayout | residentialBuilding |
+|---|---|---|---|
+| Unreachable room | **7 %** (7/106) | **50 %** (12/24) | **0 %** (0/34) |
+| Room with no door | **7 %** (7/106) | **46 %** (11/24) | **0 %** (0/34) |
+| Furniture blocks a door | 0 % vs the solver's box · **1 % vs the real swing arc** (3/288); production rate **UNPROVEN** | | |
+
+**Two corrections to the founder's report, produced by measurement:**
+- **Defects 1 and 2 are ONE defect.** The failing sets are *identical* on apartment and 11-of-12 on
+  house. It is not "the corridor fails to reach a doored bedroom" — **no door was ever emitted**.
+  One victim was a doorless **Stair**.
+- **residentialBuilding is CLEAN at 0 %**, affirmatively measured — matching the founder's own
+  observation that the rectangular-footprint building "looked better".
+
+**ROOT CAUSE — the detection is not missing, the REFUSAL is.** `§TOPO-HARD-REJECT-ALL` ships the
+least-bad **hard-invalid** candidate by design, and on the house path structured rejection is
+**disabled outright** (`isHousePath` is always true for a house storey). Same engine, same door
+router, one fewer refusal — that is the entire 50 %-vs-7 % gap.
+
+**A METHOD NOTE THAT SAVED THE NUMBER:** the furniture probe's first run reported a clean 0/288.
+The C70 §5.6 negative control caught it as a **FALSE ALL-CLEAR** — a struct-field mismatch
+(`{x0,z0}` vs `{minX,minZ}`) that **Vitest does not typecheck in test files**. Watching the check
+go red is the only reason that 1 % is real. *Never trust a green arm you have not watched fail.*
+
+### §10.4 — THE MODEL TREE: FIXED, AND IT EXPOSED A BIGGER GAP
+
+**L-847 is browser-CONFIRMED.** `[DataWorkbench] Mode → full` · `[DataCommandCenter] Hidden` ·
+`Bucket → audit / Tab → hierarchy`, rendering real rooms with real areas (Corridor 11.9 m²,
+Living Room 25.0 m², Bedroom 12.6 m² …). **Close it.**
+
+**But the tree header reads "Unassigned rooms on Level 01."** Every room sits flat under its level:
+Corridor, Kitchen, Living Room, Bathroom, Bedroom 1, Bedroom 2, then *another* Living Room,
+Kitchen, Bedroom. A building generated as five apartments per floor produces rooms with **no unit
+containment** — nothing in the model knows which rooms form an apartment. `+ Unit` exists as a
+manual affordance; the generator never uses it. The generator also never triggers the hierarchy
+auto-setup it already offers, and ships the building object with `BUILDING USE —`, `STOREYS —`,
+`No template assigned` — all three of which it knew.
+
+> **⚠ THIS IS A HARD PRECONDITION FOR C81.** "Combine these two apartments" and "convert this
+> 2-bed to a 3-bed" are meaningless instructions to a model with no concept of an apartment.
+> **Unit containment must land before the edit layer, not alongside it.**
+
+### §10.5 — THE THREE PROGRAMMES, AND THE RULE THAT KEEPS THEM HONEST
+
+| Programme | Measures | Denominator | Home |
+|---|---|---|---|
+| **BIM 3.0 — TRUST** | does the model stay truthful when it changes | the **82 rows** + the three bars | `BIM30-GAP-REGISTER.md` |
+| **GENERATIVE QUALITY** | is the generated output fit to ship | **its own**, do not merge | `GENERATIVE-QUALITY-MASTER-TRACKER.md` |
+| **THE EDIT LAYER** | can an existing design be transformed with intent preserved | contract-defined | `contracts/C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md` |
+
+**NEVER fold one denominator into another.** "X/82" means *trust*, and a generator defect counted
+there destroys the meaning of the number. They cross-reference; they do not merge.
+
+**C81 §8 states bar 3 as a HARD PRECONDITION** — an edit engine cannot be built on a model that
+does not know what its changes break. The founder's ordering is therefore also the correct
+engineering ordering: **fix the generators → expand typologies → build the edit layer.**
+Expanding typologies before circulation correctness would multiply one defect across school,
+museum and hospital.
+
+### §10.6 — NEXT SESSION, IN ORDER
+
+1. **RECOUNT** (§-1 item 2, still owed). The register still says **34/82**. Gate-confirmed since:
+   PR-03 · CO-12 · GR-18 · GE-03 · GE-11 → ~39. **Face GR-09 honestly (§2.2) — it may move
+   backward.** Never hand-increment.
+2. **CI-0 — carry `hardValid`/`hardFailedRules` onto `LayoutOption`.** Small, purely additive,
+   changes no behaviour by itself, and is **the precondition for every circulation gate**. Today
+   the engine computes the right answer and throws it away. Highest leverage in SPEC-49.
+3. **A FOUNDER DECISION, not a code change:** a house storey currently **cannot refuse**. Either it
+   refuses and says why, or it ships with a blocking banner naming the sealed rooms. **Silently
+   shipping a plan the engine knows is broken is the one option that should be off the table.**
+4. **Surface what is already known** (§10.2): default the compliance overlay ON or promote its
+   errors; make the furnish `§CHAIN-TIMEOUT` report a dropped stage instead of advancing silently;
+   verify `ConflictResolutionDialog` actually opens.
+5. **Unit containment** (§10.4) — the C81 precondition.
+6. Then Phase A as written in §2.3: GE-02's last 7 · L-851's 72 dark specs · PR-12's one-liner ·
+   `certify.ts` enrolment of the now-green room-aabb gate · the `finish-host-tracker` audit
+   (its trackers are **still unwired into any init path**, which is why floor finishes and
+   ceilings do not follow a moved wall — machinery present, capability unreachable, C70 §4.2).
+
+### §10.7 — WHAT IS PROVEN TO WORK IN PRODUCTION (say this too)
+
+Perimeter walls + slab: **move a wall, the slab follows — mesh AND recorded area** (the harness
+claim is now browser-confirmed). **Walls extend — but only in one narrow case, now precisely bounded (L-859).** Walls in the OUTER
+LOOP of a pick-walls slab sketch do extend: `SlabWallConnectivityService` welds neighbour endpoints
+and emits `CASCADE_WALL_BASELINE`. The **mitre pass (`WallJoinResolver`) is genuinely untouched** —
+the service suppresses itself while it runs. So §2.5 item 3 is **NARROWED, not struck**; still
+unmeasured are non-slab walls, `FreeLineEdge` neighbours (explicitly skipped), inner loops, and
+true mitre geometry. ⚠ **My `scope=[wall]` explanation for the finish defect was a RED HERRING** —
+a partition IS a wall. The real mechanism: the graph is keyed on **slab-loop membership**, so a
+polyline partition belongs to no loop and receives no cascade. **One cause, two symptoms** (L-861). Envelope: `SOLVED envelope → 1 solid,
+confidence=block-constructed, maxHeight 22.4 m`, `FRAME VERDICT: CONSISTENT`. Ceilings: 22/22 rooms
+per level. Lighting: 24/24 rooms, 51 fixtures. Room tags, door swing arcs, window symbols, stair
+symbols and hidden-line removal all inject correctly into plan views.
+
+**PRYZM generates a real building on real land with real law. What it does not yet do is tell you
+what is wrong with it, or let you change it.**
