@@ -69,7 +69,14 @@
  * proximity search, and `C79-NOTE` at the bottom for the named gap this leaves.
  * ────────────────────────────────────────────────────────────────────────── */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { RoomFinishWall } from '@pryzm/room-topology';
+
+// P8 / C10 §2 — every exported function carries ≥ 1 OTel span. Same tracer-name
+// idiom as `SeatingDatumResolver.ts` / `StairSlabOpeningReconciler.ts` in this package.
+function _tracer(): Tracer {
+    return trace.getTracer('@pryzm/command-registry');
+}
 
 /** Planar point in the world X-Z frame every room / finish boundary is authored in. */
 export interface XZ { x: number; z: number }
@@ -218,6 +225,25 @@ const DIR_TOL = 0.985;
  * gap rather than papered over.
  */
 export function buildRoomFinishBoundarySketch(
+    ring: ReadonlyArray<XZ>,
+    hostRoomId: string | undefined,
+    lookup: RoomBoundarySketchLookup,
+): FinishBoundarySketch {
+    return _tracer().startActiveSpan('pryzm.room.buildFinishBoundarySketch', (span) => {
+        try {
+            const sketch = _buildRoomFinishBoundarySketch(ring, hostRoomId, lookup);
+            span.setAttribute('pryzm.room.hostRoomId', hostRoomId ?? '');
+            span.setAttribute('pryzm.attribution.hostEdges', sketch.attribution.hostEdges);
+            span.setAttribute('pryzm.attribution.freeEdges', sketch.attribution.freeEdges);
+            span.setAttribute('pryzm.attribution.hostWalls', sketch.attribution.hostWallIds.length);
+            return sketch;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _buildRoomFinishBoundarySketch(
     ring: ReadonlyArray<XZ>,
     hostRoomId: string | undefined,
     lookup: RoomBoundarySketchLookup,
