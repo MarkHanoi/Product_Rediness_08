@@ -56,6 +56,7 @@
  */
 
 import type { Point3D } from '@pryzm/core-app-model';
+import { EPSILON_ZERO } from '@pryzm/geometry-kernel';
 import { DEGENERATE_STUB_LENGTH } from './WallJoinResolver';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -108,7 +109,13 @@ export interface MoveReweldEntry {
 interface Pt { x: number; z: number }
 
 const MIN_ANGLE_RAD = 0.1; // ~5.7°, mirrors WallJoinResolver's near-parallel skip
-const EPS = 1e-9;
+// C73 §2.2 — the zero-of-arithmetic guard comes from the kernel's declared
+// tolerance module, never a local literal. Both uses below guard DEGENERATE
+// ARITHMETIC (a squared length and a length against a divide/normalise), which
+// is EPSILON_ZERO's role — not RECOMPUTE_IDENTITY_M (same value, different
+// QUESTION: that one asks whether a re-derived ring is the stored ring) and not
+// COINCIDENT_M (model-point sameness, 6 orders wider).
+const EPS = EPSILON_ZERO;
 /** Displacements below this are noise, not a weld worth committing. */
 const MIN_DISPLACEMENT = 1e-6;
 
