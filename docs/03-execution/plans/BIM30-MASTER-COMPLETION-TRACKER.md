@@ -50,7 +50,7 @@ blended percentage hides exactly that distinction, which is why §1 carries two 
 |---|---|---|
 | Golden operations holding the full 11-link chain | **1 of 5** | `wall.move` (`867e128c`) |
 | Region paths conforming (C79 §6.3) | **8 of 10 rows** | `625a9926`, `86030325`, `9fd9c5b6` — only rows 9–10 (capability-absent) remain |
-| Element kinds purging relationships on delete | **3 of 19** | `check-graph-delete-integrity` (`4eedca8c`), 20 findings |
+| Element kinds purging relationships on delete | **6 of 19** | `check-graph-delete-integrity`: 20 → **15** findings (`ca0a7ce3`, `86776ddf`, `7546ce0f`) |
 | Dependency indexes that can genuinely refuse | **1 of 10** | `check-index-can-refuse` (`6d87f324`), 9 findings |
 | Relationship families with writer **and** typed reader | **9 of 25** | `check-graph-write-coverage`, 5 findings |
 | Files returning `[]` to mean "could not determine" | **105 files** | `check-no-empty-means-unknown` (`3fd164a1`) |
@@ -120,7 +120,7 @@ whole loop end to end.*
 | B.4 | C78 §8 closed reason union (11) + typed `PreviewOutcome` | — | ✅ **DONE** | `ac06733f` |
 | B.5 | Plan determinism gate (G-REASON-02) | — | ✅ **DONE** | `40d77a14`, exit 0 |
 | B.6 | R4 execution consumes the plan + reconciliation | — | ✅ **DONE** | `867e128c` |
-| B.7 | R5 the consequence report | — | 🔄 **IN FLIGHT** | — |
+| B.7 | R5 the consequence report | — | ✅ **DONE** | `2fde7359` — gate was green over an untyped absence; new clause (f) drives the real producer |
 | B.8 | R6 confirmation policy + approval binding | — | ⬜ TODO | — |
 | B.9 | G-1 graph families restored on load | GR-17 | ✅ **DONE** | `a55ed23e` |
 | B.10 | Undo does not walk the version counter | — | ✅ **DONE** | `fbed1a7d` |
@@ -147,9 +147,11 @@ verbatim undo. This is where "3 of 19 kinds" becomes 19 of 19.*
 
 | # | Sub-phase | Rows | Status |
 |---|---|---|---|
-| C.1 | Delete-purge + verbatim undo: opening | GR-05 | 🔄 **IN FLIGHT** |
-| C.2 | Delete-purge + verbatim undo: ceiling, floor | GR-05 | 🔄 IN FLIGHT |
-| C.3 | Delete-purge + verbatim undo: roof, stair, handrail, grid, level | GR-05 | ⬜ TODO |
+| C.1 | Delete-purge + verbatim undo: **stair, handrail, roof** | GR-05 | ✅ **DONE** (`ca0a7ce3`, `86776ddf`, `7546ce0f`) — 5 ledger rows struck |
+| C.2 | Delete-purge + verbatim undo: ceiling, floor | GR-05 | 🔄 **IN FLIGHT** — same two-producer shape |
+| C.3 | Delete-purge + verbatim undo: level (largest strand-set: one edge per element on the level) | GR-05 | ⬜ TODO |
+| C.3b | `opening`, `grid` — **no edge writers today**; rows are declared-coincidence, not live strands | GR-05 | ⬜ TODO (declare or write the writer) |
+| C.3c | ⚠ **NEW LANE NEEDED** — `addRelationship` idempotency ignores metadata, so two stairs joining the same level pair share ONE `connectedByStair` edge; deleting either unlinks the survivor. Upstream **keying** defect (`SemanticGraph._findExact` + `CreateStairCommand`), not a delete defect | GR-04 | ⬜ TODO — pinned by a named failing-if-regressed test |
 | C.4 | 8 kinds that purge but restore nothing on undo | GR-06 | ⬜ TODO |
 | C.5 | 5 kinds that reconstruct instead of restoring verbatim | GR-06 | ⬜ TODO |
 | C.6 | `contains` — no writer on ANY path (IFC arm unreachable) | GR-04 | ⬜ TODO |
