@@ -489,8 +489,13 @@ const LEDGER: readonly LedgerEntry[] = [
   // REBUILD DISPOSITION CHANGED WITH IT (C71 §1.2 semantic 4):
   // `rebuildSemanticGraphFromSnapshot` reconstructs `contains` from the
   // persisted `hostedSpaceId`, so the family LEAVES the `unreconstructable` loss
-  // list in the same commit — a name left there once it is reconstructable is
-  // the stale claim C70 I-INV-3 forbids in the other direction.
+  // list — a name left there once it is reconstructable is the stale claim
+  // C70 I-INV-3 forbids in the other direction.
+  // ⚠ CORRECTED: that half landed in the ADJACENT commit `76a212aa` (the
+  // concurrent persistence lane), not in the writer's own commit `e1e375d0`.
+  // The writer's message originally claimed "in the same commit"; both halves
+  // are on `main` and `76a212aa` is an ancestor, which is what §2.6 asks for,
+  // but the provenance is recorded as it happened rather than as claimed.
   // Proven by executed tests: the writer and its non-invention case
   // (`packages/command-registry/__tests__/containsFirstPartyWriter.test.ts`) and
   // the rebuild (`packages/persistence-client/__tests__/rebuildSemanticGraph.test.ts`).
@@ -503,17 +508,55 @@ const LEDGER: readonly LedgerEntry[] = [
   // that gate's ledger rather than silently absorbed here.
   {
     key: 'partOf/reader',
-    why: 'Room→unit containment. Written ONLY by the rebuild (rebuildSemanticGraph.ts:165) ' +
+    why: 'Room→unit containment. Written ONLY by the rebuild (rebuildSemanticGraph.ts) ' +
       'from `room.unitId` — so the edge exists only after a load, never after a live ' +
       'command — and no production path typed-reads it. Both halves are gaps; the writer ' +
-      'half is ledgered separately below.',
+      'half is ledgered separately below. ' +
+      '⟨DECLINED 2026-08-13, deliberately, per C71 §2.5 — a reader must be added because a ' +
+      'CONSUMER needs it, never to satisfy this gate.⟩ A census of `room.unitId` readers ' +
+      '(36 property accesses, measured) finds NO currently-worse-off consumer. The forward ' +
+      'readers (SyncStateEngine._findAffectedNodes, ScheduleExtractor, SpatialQueryPanel, ' +
+      'RoomBoundaryBuilder, IfcSemanticWriter) already hold the room and take ONE property ' +
+      'access; routing them through `getTargets(roomId,\'partOf\')` would be more ' +
+      'indirection AND LESS CORRECT, since the edge is empty until a reload while the field ' +
+      'is right immediately. The 8 reverse scans ' +
+      '(`roomStore.getAll().filter(r => r.unitId === unitId)` in SyncStateEngine:408/503/525, ' +
+      'ScheduleExtractor:540, DataSheetPanel:454/493/512/557, AnalyticsPanel:266/312, ' +
+      'HierarchyTreeAddActions:275) are the strongest candidates and still fail the bar: ' +
+      'they are always right today, they run inside passes that already scan the room store ' +
+      'for area, and their sibling `getUnassignedRooms` ' +
+      '(HierarchyTreeAddActions:279, `filter(r => ... && !r.unitId)`) needs the ABSENCE set ' +
+      '— which an unwritten edge cannot answer. WorldModelAdapter, the component that would ' +
+      'most naturally want "which rooms are in this unit", does not model units at all ' +
+      '(zero occurrences of "unit" in the file). Converting a correct O(n) scan into a graph ' +
+      'call that is empty until reload is a REGRESSION, and parking an uncalled reader is ' +
+      'the authored-but-unwired hazard. Stays ledgered.',
   },
   {
     key: 'partOf/writer',
     why: 'No LIVE command writes `partOf`. The sole writer is the loader\'s reconstruction ' +
       'from the authoritative `room.unitId` field. A room assigned to a unit in-session ' +
       'carries no edge until the project is reloaded, which makes the graph and the ' +
-      'authoritative field disagree for the whole session.',
+      'authoritative field disagree for the whole session — and GraphQueryService lists ' +
+      '`partOf` as supported, so `graph.query` answers that disagreement POSITIVELY with an ' +
+      'empty set. Its `unknown-element` refusal does NOT cover this case: it fires only when ' +
+      'the id is a node of NO edge at all, and a room carries `boundedBy`/`adjacentTo` edges, ' +
+      'so the room IS a node and the `partOf` question gets a confident `[]` (C71 §4.4). ' +
+      '⟨DECLINED 2026-08-13 — needs an ADR first, per C71 §2.5.⟩ The write site is obvious ' +
+      '(AssignRoomToUnitCommand.execute/undo at ' +
+      'packages/command-registry/src/hierarchy/, beside the `room.unitId` update), and adding ' +
+      'it would end the mid-session disagreement. It is NOT written here because §2.5 ' +
+      'requires the ADR to name the first CONSUMER, and the reader row above records that ' +
+      'no consumer is currently worse off — a writer justified only by "the gate wants a ' +
+      'pair" would manufacture the `sitsOn` defect on purpose (C71 §7.a). ' +
+      'THE PRIOR QUESTION THE ADR MUST SETTLE: should hierarchy nodes ' +
+      '(unit / level / building / site) be graph citizens AT ALL, or is ' +
+      '`hierarchyStore` + `parentId` the sole hierarchy substrate? The repo answers both ' +
+      'ways at once — `partOf`/`unitOf`/`levelOf` are in the vocabulary and advertised as ' +
+      'supported by GraphQueryService, while every production hierarchy traversal goes ' +
+      'through `hierarchyStore.getChildren`/`getUnits`/`parentId`. Answering that decides ' +
+      'this row AND the two parked siblings; answering it by shipping a writer decides it ' +
+      'by accident. Stays ledgered.',
   },
 ];
 
