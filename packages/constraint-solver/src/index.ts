@@ -45,11 +45,11 @@ export type {
 } from './LevelTraversalPolicy.js';
 export { LevelTraversalPolicy } from './LevelTraversalPolicy.js';
 
-export type {
-    StairCodeRegion,
-    StairValidationContext,
-} from './StairValidationAuthority.js';
-export {
-    STAIR_CONSTRAINTS_REGIONS,
-    StairValidationAuthority,
-} from './StairValidationAuthority.js';
+// `./StairValidationAuthority.js` was DELETED 2026-08-13 (C74 §2.2 — one
+// owner per rule set). It was a byte-near copy of
+// `packages/geometry-stair/src/StairValidationAuthority.ts` (same rules; only
+// the import specifiers and one non-null assertion differed) with ZERO
+// importers outside this barrel, while production imports the geometry-stair
+// copy (`command-registry/src/stair/ValidateStairCommand.ts`). A rule set
+// that can drift from shipped behaviour with a green suite may not stay. The
+// stair rules live in `@pryzm/geometry-stair` — import them from there.

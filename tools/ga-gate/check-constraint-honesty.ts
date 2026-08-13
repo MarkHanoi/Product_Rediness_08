@@ -226,7 +226,7 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
     site: 'packages/geometry-stair/src/StairValidationAuthority.ts',
     witness: /StairValidationAuthority|validateStair/,
     binder: /\bStairValidationAuthority\b/i,
-    note: 'C74 §2.2 — exists in TWO copies; production imports the geometry-stair one.',
+    note: 'C74 §2.2 — single owner since 2026-08-13 (the constraint-solver duplicate was deleted); production imports this geometry-stair copy.',
   },
   {
     id: 'annotationConstraints',
@@ -251,13 +251,14 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
 const LEDGER: readonly string[] = [
   // ── H3 · G-INV-2 — ALL 17 registered rule families now have REAL executable
   // evidence binding the rule registry. What remains is 2 of the 3 C74 §2
-  // named families, plus H5.
+  // named families.
   //
-  // THE DECLARED LEVEL HAS MOVED 20 → 16 → 15 → 14 → 3, AND ONE OF THOSE STEPS
-  // WAS NOT A PAYMENT. 20 at the first honest reading; 16 on four earned
+  // THE DECLARED LEVEL HAS MOVED 20 → 16 → 15 → 14 → 3 → 2, AND ONE OF THOSE
+  // STEPS WAS NOT A PAYMENT. 20 at the first honest reading; 16 on four earned
   // strikes (34664b30); 15 on ONE UNEARNED strike (96939dd4 —
   // FIRE_COMPARTMENT_AREA, see the ELEVEN STRUCK block below); 14 on two
-  // earned strikes plus that row's RESTORATION; 3 on eleven earned strikes.
+  // earned strikes plus that row's RESTORATION; 3 on eleven earned strikes;
+  // 2 on the H5 dedup (the duplicate deleted, not extended).
   // A ledger that only ever counts down cannot distinguish debt being paid from
   // debt being lost, and both look like progress in the number alone. The
   // reasons are therefore written beside every move. Net for 2026-08-13:
@@ -353,8 +354,11 @@ const LEDGER: readonly string[] = [
   // ── H3 · two of the three C74 §2 named families have no executable witness at
   // all. `annotationConstraints` is the one PERSISTED constraint family in the
   // system — written to the snapshot, read back and checked — and nothing
-  // executable names it. `StairValidationAuthority` is the shipped copy of a rule
-  // set that exists twice (see H5), and neither copy is exercised.
+  // executable names it. `StairValidationAuthority` is since 2026-08-13 the
+  // ONLY copy (H5 resolved — the constraint-solver duplicate, zero importers,
+  // was deleted; geometry-stair owns the rules), and it is not exercised.
+  // Its evidence belongs beside its owner in `packages/geometry-stair/` — a
+  // suite binding the deleted copy would have been the C74 §2.2 trap.
   //
   // The third, `WallOccupancyStore.canPlace`, reads REAL and is THE POSITIVE
   // CONTROL for this arm: if it ever joins this list the arm is broken, not the
@@ -363,8 +367,12 @@ const LEDGER: readonly string[] = [
   'H3::annotationConstraints (VALIDATION)',
   // ── H4 is deliberately absent: `check-no-hidden-mock`'s M-C arm owns it, at
   // finer resolution (per injection site). See the header. ONE DEFECT, ONE OWNER.
-  // ── H5 — the two copies (C74 §2.2).
-  'H5::StairValidationAuthority',
+  // ── H5 STRUCK 2026-08-13 — the constraint-solver copy was DELETED, not
+  // extended (C74 §2.2's required order). The two copies were verified
+  // byte-near identical first (import specifiers + one non-null assertion),
+  // zero importers of the deleted copy outside its own barrel, and production
+  // untouched on the geometry-stair copy. The arm STAYS ARMED: a reappearing
+  // second copy fires H5 as NOT ON THE LEDGER → exit 3.
 ];
 
 // ─── Model ───────────────────────────────────────────────────────────────────
