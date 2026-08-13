@@ -2953,3 +2953,58 @@ running, or furniture is excluded from the serialiser count. **Determine which b
 - `[house-layout] §DIAG-PARITY option(preview)↔built: latMax=0mm latMean=0mm endTrimMax=6mm ✓ built
   == previewed` — **preview fidelity is exact.** Worth keeping; it is the property C80's
   execute-the-same-plan rule demands, already true here.
+
+## L-869 — ⚠ THE UI SHOWS "CIRCULATION 100 %" ON A PLAN WITH NO DOORS. The score is the lie.
+
+**2026-08-13, founder OBSERVED live on `517f7a70`** (`casa-unifamiliar`, 2 storeys, Almería
+`37.340559,-2.134975`, `confidence=estimated-ruleset`). Founder verdict, verbatim: *"really bad:
+the stair doesn't connect with upstairs; not logical wall partitions; no door everywhere; bad
+layout in general — not as an architect would design; some areas have just party walls creating
+small rooms/spaces."*
+
+**THE HEADLINE.** The generator's own live panel displays **`522.9 m² · score 73 · Circulation
+100 %`** for the ground floor and **`score 53 · Circulation 73 %`** for the first — on the plan the
+founder is calling doorless and disconnected. **A "Circulation 100 %" badge on a plan whose stair
+cannot be reached is worse than no badge at all**: it is the product asserting a quality it has not
+established, in the one place a user would look to check.
+
+This is the session's pattern (L-862/863/L-859 §10.2) **inverted and made worse**. Elsewhere PRYZM
+detects a defect and stays silent. Here it **actively publishes a passing grade**. Whatever
+"Circulation %" measures, it is demonstrably NOT "every room is reachable" — SPEC-49 measured this
+same typology at **12/24 unreachable**. **Find what that number actually computes, and either
+re-base it on the reachability predicate or rename it so it cannot be read as an accessibility
+guarantee.** A score whose meaning is unstated is an invented number (C75).
+
+### Corroborating measurements from the same run
+
+| Signal | Reading | What it means |
+|---|---|---|
+| `§LIGHT-SUMMARY rooms_total=14 rooms_lit=10 **rooms_skipped=4**` | 4 of 14 rooms skipped | **29 % of rooms were unlightable.** Previous house run skipped 1 of 11. The lighting pass is an *accidental* reachability probe — it skips what it cannot resolve. **Check whether skipped ⊆ unreachable; if so it is a free signal we are throwing away.** |
+| `rendering massing: **106 wall(s)**, 2 slab(s), 45 opening(s), 1 stair(s)` | 106 walls | The previous, better house had **49**. **The wall count more than doubled for a comparable programme** — direct corroboration of "not logical wall partitions" and "party walls creating small rooms". Over-partitioning is measurable and should be a gate (walls-per-room ratio, or minimum room area). |
+| `[floor-layout] §VOID-FINISH cutting **1 stairwell void(s)**` | void cut | **The stairwell void IS cut in the upper floor finish** — so the vertical opening exists geometrically. The stair still "doesn't connect". So the defect is **not** a missing void; it is the absence of a *topological* stair↔level connection. Confirms L-867's lesson: geometry is not topology. |
+| `step=furnish stepMs=**13039**` (14 rooms) | 13.0 s | Second independent confirmation of **L-868** — furnish is ~1 s/room regardless of typology, against residential's 12 s timeout. |
+| `§ENVELOPE-RESOLVE-DIAG confidence=**estimated-ruleset**` | estimated | Correctly labelled — this plot has no block-constructed basis, unlike L-866's Barcelona case. **The honesty layer is working**; it is the layout engine that is not. |
+
+### ✅ AND A CORRECTION THAT SETTLES AN OPEN QUESTION
+
+The founder's screenshot shows a real toast: **"Your change to 'semantic-elevation-mismatch' was
+overridden by a concurrent edit from collaborator. Click to resolve the conflict."** — fired
+alongside `§E.1 CRDT blackout ... status=**CONFLICTED**` and `§G3-T3 1 semantic conflict(s)
+detected`.
+
+**Conflict surfacing IS wired and DOES fire.** This closes the question raised in §10.2 and
+independently confirms the documentation lane's correction (it found the banner→dialog path at
+`engineLauncher.ts:1022-1035`). **My earlier suspicion was wrong; record it as settled, not as a
+defect.** The remaining question is narrower and legitimate: a conflict on
+`semantic-elevation-mismatch` during a *single-user generation run* suggests the generator is
+racing itself, not a collaborator — worth its own investigation.
+
+### Where this belongs
+
+`GENERATIVE-QUALITY-MASTER-TRACKER` — this is the **R8-R10 candidate-gate family** (context
+fidelity + reported-quality honesty) that the current 7 readiness gates do not cover, and it
+strengthens the case for ratifying the gate set as **10 in one pass**. Two new gate shapes are
+implied and neither exists: **(1) a published quality score must be derived from the same predicate
+the audit uses, or be renamed**; **(2) over-partitioning must be bounded** (walls-per-room,
+minimum habitable room area). Cross-refs: SPEC-49 (CI-0 still the precondition), L-867 (stair
+topology), L-868 (furnish cost), C75 §1.4 (a number without a stated meaning is invented).
