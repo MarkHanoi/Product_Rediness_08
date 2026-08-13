@@ -19,6 +19,8 @@ import {
 } from '../types';
 import { FloorData } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+import { semanticGraphManager } from '@pryzm/core-app-model';
+import type { Relationship } from '@pryzm/core-app-model';
 // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — deleting a finish LOWERS the FFL. The re-seat is
 // the exact mirror of the create arm; leaving it off would strand every item on that floor
 // hovering 15 mm in the air, which is the same defect with the sign flipped.
@@ -41,10 +43,66 @@ export class RemoveFloorCommand implements Command {
   /** §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — retained so `undo()` restores the exact prior Y. */
   private _reseat: ReseatLevelElementsCommand | null = null;
 
+  /**
+   * §FIX-FLOOR-DELETE-LEAVES-GRAPH-EDGES (BIM 3.0 C71 §5.6) — this producer
+   * never purged the SemanticGraph while DeleteElementCommand's `floor` branch
+   * did: two producers of the same delete, two behaviours. A well-formed edge
+   * pointing at a deleted id is NOT self-erasing — it survives
+   * serialize()/deserialize() and persists forever.
+   *
+   * Undo restores VERBATIM from a pre-delete capture rather than re-authoring
+   * anything from the snapshot, per C71 §5.6 and the 3ee632f6 reference shape:
+   * a reconstruction can only restore the edges the floor itself knows about
+   * (levelId, coveredRoomIds, boundingWallIds) and silently drops whatever
+   * another command authored against it.
+   *
+   * NOTE the asymmetry this makes visible: execute() ALREADY drove a
+   * ReseatLevelElementsCommand — a full cross-element consequence — while
+   * leaving the floor's own graph edges behind. One delete, one consequence
+   * honoured and one silently skipped.
+   */
+  private _removedRelationships: Relationship[] | null = null;
+
   constructor(private readonly _payload: RemoveFloorPayload) {
     this.id = `cmd-floor-rm-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     this.timestamp = Date.now();
     this.targetIds = [_payload.floorId];
+  }
+
+  /**
+   * §FIX-FLOOR-DELETE-LEAVES-GRAPH-EDGES — capture every edge touching any of
+   * `ids` (source OR target), deduped by relationship id. Mirrors 3ee632f6's
+   * `_captureRelationships`. MUST run before any removal.
+   */
+  private _captureRelationships(ids: string[]): void {
+    const byRelId = new Map<string, Relationship>();
+    for (const eid of ids) {
+      if (!eid) continue;
+      for (const rel of semanticGraphManager.getRelationships(eid)) {
+        byRelId.set(rel.id, { ...rel });
+      }
+    }
+    this._removedRelationships = [...byRelId.values()];
+  }
+
+  /**
+   * §FIX-FLOOR-DELETE-LEAVES-GRAPH-EDGES — undo side: re-add the captured edges
+   * verbatim. addRelationship() re-mints ids but is idempotent on
+   * (source, target, type), so redo→undo cycles cannot duplicate.
+   */
+  private _restoreRelationships(): void {
+    if (!this._removedRelationships) return;
+    for (const rel of this._removedRelationships) {
+      try {
+        semanticGraphManager.addRelationship({
+          type: rel.type,
+          sourceId: rel.sourceId,
+          targetId: rel.targetId,
+          createdBy: rel.createdBy,
+          ...(rel.metadata ? { metadata: rel.metadata } : {}),
+        });
+      } catch { /* noop — graph write is non-fatal, as in CreateFloorCommand */ }
+    }
   }
 
   canExecute(context: CommandContext): CommandValidationResult {
@@ -71,9 +129,18 @@ export class RemoveFloorCommand implements Command {
 
     const floorId = this._payload.floorId;
 
+    // §FIX-FLOOR-DELETE-LEAVES-GRAPH-EDGES — capture BEFORE any removal. Scoped
+    // to the floor id alone: unlike RemoveCeilingCommand, this execute() does
+    // NOT unregister serviceHoles, so their ids are still live elements and
+    // purging their edges here would be an over-purge (C71 §5.6).
+    this._captureRelationships([floorId]);
+
     // Remove in reverse order of creation: ①②③
     try { elementRegistry.unregister(floorId); } catch { /* not registered */ }
     try { context.bimManager.unregisterElement(floorId); } catch { /* not registered */ }
+    // §FIX-FLOOR-DELETE-LEAVES-GRAPH-EDGES — …then purge the SEMANTIC graph,
+    // matching DeleteElementCommand's floor branch so the two producers agree.
+    try { semanticGraphManager.removeAllRelationshipsForElement(floorId); } catch { /* noop */ }
     floorStore.remove(floorId);
 
     // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — the finish is gone, so the FFL over its
@@ -110,6 +177,10 @@ export class RemoveFloorCommand implements Command {
     floorStore.restoreSnapshot(snap);
     try { context.bimManager.registerElement(snap.id, snap.levelId); } catch { /* already registered */ }
     try { elementRegistry.registerSemantic(snap.id, 'floor'); } catch { /* already registered */ }
+
+    // §FIX-FLOOR-DELETE-LEAVES-GRAPH-EDGES — restore the exact edges execute()
+    // captured and purged, verbatim (never re-authored from snapshot.levelId).
+    this._restoreRelationships();
 
     // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — lift the dependents back with the finish. The
     // stored records carry absolute before/after Y, so this restores exactly, never a delta.
