@@ -86,14 +86,20 @@
  *       "Executable evidence at that strength" is defined, not gestured at:
  *         • a `.test.ts`/`.spec.ts`/`.cert.ts` file, or an executed certification
  *           gate, that names the family's rule id, AND
+ *         • REFERENCES THE MODULE THAT OWNS THE FAMILY, in code — otherwise the
+ *           id is a string in a file that never went near the rule, AND
  *         • is not merely re-declaring the id inside a HAND-BUILT STAND-IN of
  *           the rule. §1.1 RULE 1(6) — *a test that never exercised the real
  *           path* — is one of the six reasons a gate may not pass, and it is the
  *           reason the room-area evidence needed reading rather than counting.
- *       Evidence that reaches the family only through a stand-in is reported as
- *       **STAND-IN**, distinctly from **NONE**, because the two are different
- *       facts and collapsing them would repeat §CONTEXT-DATA-HONESTY inside the
- *       gate that exists to enforce it.
+ *       A non-REAL reading is reported as one of THREE distinct kinds —
+ *       **STAND-IN** (the rule re-implemented inline), **UNBOUND** (the id named
+ *       by a file that never references its owner) and **NONE** (nothing names
+ *       it at all) — because three different facts are three different facts,
+ *       and collapsing them would repeat §CONTEXT-DATA-HONESTY inside the gate
+ *       that exists to enforce it. UNBOUND was added on 2026-08-13 after this
+ *       arm certified a free-text string as REAL and a ledger row was struck as
+ *       PAID on the strength of it; see `findEvidence`.
  *
  *   H5  *(finding)* The same authority in two copies, production importing one
  *       (C74 §2.2 — `StairValidationAuthority`).
@@ -195,6 +201,12 @@ interface NamedFamily {
   readonly site: string;
   /** A regex that an executable evidence file must match to witness this family. */
   readonly witness: RegExp;
+  /**
+   * A regex identifying the MODULE THAT OWNS the family. An evidence file that
+   * names the family but never references its owner witnesses the STRING, not
+   * the rule — see `findEvidence`'s UNBOUND arm.
+   */
+  readonly binder: RegExp;
   readonly note: string;
 }
 
@@ -204,6 +216,7 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
     strength: 'ENFORCEMENT',
     site: 'packages/geometry-wall/src/WallOccupancyStore.ts',
     witness: /\bcanPlace\s*\(/,
+    binder: /\bWallOccupancyStore\b/i,
     note: 'C74 §2 — a real refusal on a real mutation path (opening commit). THE POSITIVE CONTROL for H3: ' +
       'if this family reads NO EVIDENCE the arm is broken, not the estate.',
   },
@@ -212,6 +225,7 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
     strength: 'VALIDATION',
     site: 'packages/geometry-stair/src/StairValidationAuthority.ts',
     witness: /StairValidationAuthority|validateStair/,
+    binder: /\bStairValidationAuthority\b/i,
     note: 'C74 §2.2 — exists in TWO copies; production imports the geometry-stair one.',
   },
   {
@@ -219,6 +233,8 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
     strength: 'VALIDATION',
     site: 'packages/schemas',
     witness: /annotationConstraints/,
+    // The family IS the symbol; naming it in code IS referencing its owner.
+    binder: /\bannotationConstraints\b/,
     note: 'C74 §2 — the one PERSISTED constraint family: written to the snapshot, read back, checked.',
   },
 ];
@@ -233,9 +249,18 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
  * (BIM30-READINESS-GATES §2.4).
  */
 const LEDGER: readonly string[] = [
-  // ── H3 · G-INV-2 — 13 of the 17 registered rule families still have no
+  // ── H3 · G-INV-2 — 11 of the 17 registered rule families still have no
   // executable evidence binding the real rule, plus 2 of the 3 C74 §2 named
   // families.
+  //
+  // THE DECLARED LEVEL HAS MOVED 20 → 16 → 15 → 14, AND ONE OF THOSE STEPS WAS
+  // NOT A PAYMENT. 20 at the first honest reading; 16 on four earned strikes
+  // (34664b30); 15 on ONE UNEARNED strike (96939dd4 — FIRE_COMPARTMENT_AREA,
+  // see its row); 14 today, on two earned strikes plus that row's RESTORATION.
+  // A ledger that only ever counts down cannot distinguish debt being paid from
+  // debt being lost, and both look like progress in the number alone. The
+  // reasons are therefore written beside every move. Net for 2026-08-13:
+  // −2 earned, +1 restored.
   //
   // AT THE FIRST HONEST READING (2026-08-12) THIS WAS ALL 17. At that point
   // `packages/constraint-solver/` contained exactly two test files —
@@ -245,7 +270,7 @@ const LEDGER: readonly string[] = [
   // families deep and wired to a live event bus at
   // `apps/editor/src/engine/initDataPlatform.ts:298`, had no suite at all.
   //
-  // FOUR ARE NOW STRUCK — ROOM_MIN_AREA, ROOM_NEEDS_DOOR,
+  // FOUR WERE STRUCK FIRST — ROOM_MIN_AREA, ROOM_NEEDS_DOOR,
   // HABITABLE_NEEDS_WINDOW and STAIR_HEADROOM — witnessed by
   // `packages/constraint-solver/__tests__/ConstraintEngine.rules.test.ts`, which
   // calls the REAL `constraintEngine.validateAll(ctx)` and asserts, per family:
@@ -268,9 +293,32 @@ const LEDGER: readonly string[] = [
   // contradicts itself at the boundary (`.toFixed(1)` rounds the shown area up
   // to equal the minimum it is being reported as below), and STAIR_HEADROOM's
   // own defaults fire `error` on a standard 3.0 m residential storey.
-  'H3::DOOR_WIDTH_vs_CIRCULATION (warning)',
-  'H3::ACCESSIBLE_ROUTE (warning)',
+  // TWO MORE STRUCK 2026-08-13 — DOOR_WIDTH_vs_CIRCULATION and ACCESSIBLE_ROUTE,
+  // witnessed by `packages/constraint-solver/__tests__/wallRoomAdjacencyDetermination
+  // .test.ts`, which imports `constraintEngine` from `../src/ConstraintEngine.js`
+  // and asserts through `constraintEngine.validateAll(ctx)` — at severity, on the
+  // message, and with a negative control that a readable store never refuses.
+  //
+  // NEITHER WAS PAID BY THIS GATE'S OWN WORK, and that is the interesting part.
+  // That suite was written by the C78 U-INV-4 lane (d4061563) to close a
+  // different defect: `roomStore.getRoomsAdjacentToWall?.(wallId) ?? []` made
+  // ACCESSIBLE_ROUTE print "widest door is 0mm" — a measurement of a door it
+  // never read — against valid models. Fixing an ABSENCE-BECOMES-A-CLAIM defect
+  // requires exercising the real rule, which is the same act H3 asks for. The
+  // ledger went stale because the fixing lane had no reason to know this gate
+  // existed. That is the ordinary way a shrink-only ledger goes stale, and
+  // §5.4's exit 3 is what makes it visible instead of silently absorbed.
   'H3::ROOM_MAX_TRAVEL_DISTANCE (warning)',
+  // RESTORED 2026-08-13 — struck as PAID in 96939dd4, and it was not paid.
+  // The strike cited `packages/command-bus/__tests__/refusal-vocabulary.test.ts
+  // :303` as the executable witness because this gate REPORTED IT REAL. That
+  // file imports only `../src/index.js`; its line 303 puts the rule id inside a
+  // free-text `detail` string in a suite about the C78 §8 reason union. It never
+  // reaches `ConstraintEngine`. The detector was wrong, the strike inherited the
+  // error, and the row is restored together with the UNBOUND arm and planted
+  // control that make the same mistake exit 2 rather than pass silently.
+  // See `findEvidence`'s header. FIRE_COMPARTMENT_AREA remains UNPROVEN.
+  'H3::FIRE_COMPARTMENT_AREA (error)',
   'H3::MEANS_OF_ESCAPE_COUNT (error)',
   'H3::CORRIDOR_WIDTH (warning)',
   'H3::LIFT_ADJACENT_LOBBY (info)',
@@ -314,14 +362,21 @@ interface Family {
   readonly id: string;
   readonly strength: string;
   readonly site: string;
+  /** The registry module that owns this family — see `findEvidence`'s UNBOUND arm. */
+  readonly binder: RegExp;
   readonly note: string;
 }
 
 interface Evidence {
   /** file:line of the witness, or undefined. */
   readonly at?: string;
-  readonly kind: 'REAL' | 'STAND-IN' | 'NONE';
+  readonly kind: 'REAL' | 'STAND-IN' | 'UNBOUND' | 'NONE';
   readonly detail: string;
+}
+
+/** The word used for a non-REAL reading in a finding sentence. */
+function evidenceWord(kind: Evidence['kind']): string {
+  return kind === 'STAND-IN' ? 'only STAND-IN' : kind === 'UNBOUND' ? 'only UNBOUND' : 'NO';
 }
 
 interface Finding { readonly arm: 'H1' | 'H2' | 'H3' | 'H5'; readonly key: string; readonly detail: string }
@@ -402,11 +457,17 @@ function collectRegisteredFamilies(root: string, registries: readonly string[]):
   for (const rel of registries) {
     let src: string; try { src = readFileSync(join(root, rel), 'utf8'); } catch { continue; }
     const lines = stripCommentsToLines(src);
+    // The OWNER of every family in this registry is the registry module itself.
+    // `ConstraintEngine.ts` → /\bConstraintEngine\b/i, which matches both the
+    // module specifier and the `constraintEngine` singleton it exports.
+    const owner = rel.split('/').pop()!.replace(/\.tsx?$/, '');
+    const binder = new RegExp(`\\b${owner.replace(/[^\w]/g, '\\$&')}\\b`, 'i');
     for (let i = 0; i < lines.length; i++) {
       const m = /\bid\s*:\s*['"]([A-Z][\w]*)['"]\s*,\s*tier\s*:\s*([12])\s*,\s*severity\s*:\s*['"](error|warning|info)['"]/.exec(lines[i]!);
       if (!m) continue;
       out.push({
         id: m[1]!,
+        binder,
         // C74 §1.1: the `./compliance` registry is ADVISORY by construction — it
         // is debounced, off the critical path, and blocks nothing. `severity` is
         // the strength the family DECLARES to the user WITHIN that advisory, and
@@ -482,11 +543,51 @@ function collectEvidenceFiles(root: string, dirs: readonly string[]): Array<{ re
  * exercises the real one is reported STAND-IN, which understates it. That
  * direction is the safe one — this gate's failure mode must be calling real
  * evidence a stand-in, never calling a stand-in real.
+ *
+ * ─── UNBOUND — ADDED 2026-08-13, AFTER THIS ARM CERTIFIED A COMMENT ──────────
+ * The stand-in discrimination above catches a file that RE-IMPLEMENTS a rule.
+ * It does not catch the weaker and commoner thing: a file that merely CONTAINS
+ * THE ID AS A STRING while never going near the rule at all.
+ *
+ * That is not hypothetical. `H3::FIRE_COMPARTMENT_AREA (error)` was struck from
+ * the ledger below on 2026-08-13 (96939dd4) as PAID, on the strength of this
+ * arm reporting it REAL at `packages/command-bus/__tests__/refusal-vocabulary
+ * .test.ts:303`. That file imports `../src/index.js` and nothing else. Its line
+ * 303 reads:
+ *
+ *     undeterminedOutcome('AGGREGATE_SCOPE_UNSUPPORTED',
+ *                         'FIRE_COMPARTMENT_AREA takes the level as subject')
+ *
+ * — free text in a `detail` string, in a suite about the C78 §8 reason union.
+ * It never imports `ConstraintEngine`, never calls `validateAll`, and asserts
+ * nothing whatever about whether that family fires at `error`. The strike was
+ * made in good faith against a detector that was wrong, and the row is RESTORED
+ * below. **A row struck on a false REAL is worse than a row never struck**: the
+ * ledger records the debt as paid, so the family is now UNPROVEN with nothing
+ * left pointing at it. Striking it also removed the only thing that would have
+ * exited 3 when the reading changed.
+ *
+ * So a witness must also BIND THE OWNER: the evidence file must reference the
+ * module the family lives in (the rule registry for a registered family; the
+ * declaring module for a named one), in CODE, comment-stripped. This is exactly
+ * the discrimination C74 §1.1 RULE 1(6) already required — *a test that never
+ * exercised the real path* — applied one level weaker than the stand-in arm,
+ * which needed the file to go to the trouble of re-implementing something.
+ *
+ * Reported as **UNBOUND**, distinctly from NONE and from STAND-IN, because
+ * three different facts are three different facts (the same reason STAND-IN was
+ * split out) — a mention is not an absence, and it is not a re-implementation.
+ *
+ * WHAT THIS STILL CANNOT SEE, stated rather than implied: a file that imports
+ * the owner for an unrelated reason and separately names the family in a string
+ * reads REAL. Binding is necessary, not sufficient. The self-test's planted
+ * SPECTRE_MIN_AREA control is the guard against this arm silently going blind.
  */
 function findEvidence(
   familyId: string, witness: RegExp,
   evidence: ReadonlyArray<{ rel: string; lines: string[]; raw: string[] }>,
   declaringFile: string,
+  binder: RegExp,
 ): Evidence {
   /**
    * A FILE-LEVEL stand-in disclosure, scoped to THIS family by requiring the
@@ -513,6 +614,7 @@ function findEvidence(
    */
   const STANDIN_WORD = /\bstand[-_ ]?in\b|\bminimal (?:stand|fake|mock)|\bfake\b|\bmock\b|\bstub\b|\bre-?implement|\bdouble\b|\bscripted\b|\bverbatim\b|\bthe shape\b|\bsynthesi[sz]e/i;
   let standInHit: string | undefined;
+  let unboundHit: string | undefined;
 
   for (const f of evidence) {
     if (f.rel === declaringFile) continue;   // the declaration is not its own witness
@@ -523,9 +625,14 @@ function findEvidence(
       const lo = Math.max(0, i - 3), hi = Math.min(f.raw.length, i + 4);
       if (witness.test(f.raw.slice(lo, hi).join('\n'))) declaresStandIn = true;
     }
+    // Does it reference the module that OWNS the family — in CODE? Computed
+    // once per file, and only when the file turns out to name the family.
+    let bindsOwner: boolean | undefined;
     for (let i = 0; i < f.lines.length; i++) {
       if (!witness.test(f.lines[i]!)) continue;
       if (declaresStandIn) { standInHit ??= `${f.rel}:${i + 1}`; break; }
+      bindsOwner ??= f.lines.some((l) => binder.test(l));
+      if (!bindsOwner) { unboundHit ??= `${f.rel}:${i + 1}`; break; }
       return { at: `${f.rel}:${i + 1}`, kind: 'REAL', detail: `witnessed by ${f.rel}:${i + 1}` };
     }
   }
@@ -535,6 +642,15 @@ function findEvidence(
       detail: `the ONLY witness is a HAND-BUILT STAND-IN at ${standInHit} — it names \`${familyId}\` while ` +
         're-implementing the rule inline, so it exercises the id STRING and never the real path (§1.1 RULE 1(6)). ' +
         'Reported distinctly from NONE: a stand-in and an absence are different facts.',
+    };
+  }
+  if (unboundHit) {
+    return {
+      at: unboundHit, kind: 'UNBOUND',
+      detail: `the ONLY witness is UNBOUND at ${unboundHit} — that file NAMES \`${familyId}\` but never ` +
+        `references the module that owns it (${binder}), so nothing there can have exercised the rule. ` +
+        'A mention in a string literal is evidence of a string (§1.1 RULE 1(6)). Reported distinctly from ' +
+        'NONE and from STAND-IN: a mention, a re-implementation and an absence are three different facts.',
     };
   }
   return { kind: 'NONE', detail: `NO executable evidence names \`${familyId}\` anywhere in the repo` };
@@ -594,27 +710,27 @@ function analyse(
   const families: Analysis['families'] = [];
   for (const f of collectRegisteredFamilies(root, opts.registries)) {
     const declFile = f.site.split(':')[0]!;
-    const ev = findEvidence(f.id, new RegExp(`\\b${f.id.replace(/[$]/g, '\\$')}\\b`), evidence, declFile);
+    const ev = findEvidence(f.id, new RegExp(`\\b${f.id.replace(/[$]/g, '\\$')}\\b`), evidence, declFile, f.binder);
     families.push({ f, strength: f.strength, ev });
     if (ev.kind !== 'REAL') {
       const sev = f.strength.split('/')[1] ?? f.strength;
       findings.push({
         arm: 'H3',
         key: `H3::${f.id} (${sev})`,
-        detail: `${f.site} — family \`${f.id}\` declares strength ${f.strength} and has ${ev.kind === 'STAND-IN' ? 'only STAND-IN' : 'NO'} ` +
+        detail: `${f.site} — family \`${f.id}\` declares strength ${f.strength} and has ${evidenceWord(ev.kind)} ` +
           `executable evidence at that strength: ${ev.detail}. A declared strength with no executable witness ` +
           'is UNPROVEN, and UNPROVEN is neither a pass nor a fail — it is *nobody looked* (C70 §2.2, G-INV-2).',
       });
     }
   }
   for (const nf of opts.named) {
-    const ev = findEvidence(nf.id, nf.witness, evidence, nf.site);
+    const ev = findEvidence(nf.id, nf.witness, evidence, nf.site, nf.binder);
     families.push({ f: nf, strength: nf.strength, ev });
     if (ev.kind !== 'REAL') {
       findings.push({
         arm: 'H3',
         key: `H3::${nf.id} (${nf.strength})`,
-        detail: `${nf.site} — family \`${nf.id}\` declares strength ${nf.strength} and has ${ev.kind === 'STAND-IN' ? 'only STAND-IN' : 'NO'} ` +
+        detail: `${nf.site} — family \`${nf.id}\` declares strength ${nf.strength} and has ${evidenceWord(ev.kind)} ` +
           `executable evidence at that strength: ${ev.detail}. ${nf.note}`,
       });
     }
@@ -686,15 +802,20 @@ const PLANTED: Record<string, string> = {
     '  solve() { return null; }',
     '}',
   ].join('\n'),
-  // H3 — two families declaring `error`. GHOST_MIN_AREA has NO evidence at all;
-  // PHANTOM_MIN_AREA has a test that NAMES it while hand-rolling the rule, and
-  // must be caught as STAND-IN rather than certified REAL. The second is the
-  // control for the near-miss recorded in `findEvidence`'s header — the ONLY
-  // reason that defect is not still shipping is that a control exists for it.
+  // H3 — three families declaring `error`, one per way a witness can be absent.
+  // GHOST_MIN_AREA has NO evidence at all; PHANTOM_MIN_AREA has a test that
+  // NAMES it while hand-rolling the rule, and must be caught as STAND-IN rather
+  // than certified REAL; SPECTRE_MIN_AREA is NAMED IN A STRING by a file that
+  // never touches the registry, and must be caught as UNBOUND. The second is the
+  // control for the near-miss recorded in `findEvidence`'s header; the third is
+  // the control for the FIRE_COMPARTMENT_AREA false REAL that got a ledger row
+  // struck. The ONLY reason either defect is not still shipping is that a
+  // control exists for it.
   [PLANTED_REGISTRY]: [
     'export function build(r: { register(x: unknown): void }) {',
     "  r.register({ id: 'GHOST_MIN_AREA', tier: 1, severity: 'error', check: () => [] });",
     "  r.register({ id: 'PHANTOM_MIN_AREA', tier: 1, severity: 'error', check: () => [] });",
+    "  r.register({ id: 'SPECTRE_MIN_AREA', tier: 1, severity: 'error', check: () => [] });",
     '}',
   ].join('\n'),
   'packages/x/__tests__/standin.test.ts': [
@@ -719,8 +840,18 @@ const PLANTED: Record<string, string> = {
     '};',
     "it('fires', () => { expect(phantomValidator.validateAll(ctx)).toHaveLength(1); });",
   ].join('\n'),
-  // A test exists, so the evidence walk is non-empty — it just witnesses nothing.
-  'packages/x/__tests__/unrelated.test.ts': "it('does something else', () => { expect(1).toBe(1); });",
+  // THE UNBOUND CONTROL — the exact shape of the false REAL that got
+  // H3::FIRE_COMPARTMENT_AREA struck from the ledger: a suite about a DIFFERENT
+  // subject that happens to carry the rule id inside a free-text string. It
+  // imports nothing from the registry, asserts nothing about the rule, and uses
+  // no stand-in vocabulary — so neither the STAND-IN arm nor a NONE reading
+  // catches it. If this file is ever classified REAL, the arm is blind again.
+  'packages/x/__tests__/unrelated.test.ts': [
+    "it('does something else', () => { expect(1).toBe(1); });",
+    "it('carries a reason string', () => {",
+    "  expect(outcome.detail).toBe('SPECTRE_MIN_AREA takes the level as subject');",
+    '});',
+  ].join('\n'),
 };
 
 const CLEAN: Record<string, string> = {
@@ -800,6 +931,22 @@ function selfTest(): { ok: boolean; lines: string[] } {
     } else {
       lines.push(`    ✓ STAND-IN discrimination — planted hand-built stand-in correctly classified STAND-IN (${phantom.ev.at}), not REAL.`);
     }
+
+    // The UNBOUND discrimination, asserted separately for the same reason: this
+    // is the arm that certified a free-text string in an unrelated suite as REAL
+    // evidence, and a ledger row was struck as PAID on the strength of it.
+    const spectre = bad.families.find((x) => x.f.id === 'SPECTRE_MIN_AREA');
+    if (!spectre) {
+      ok = false;
+      lines.push('    ✗ BLIND COMPARATOR — the planted UNBOUND family was never enumerated.');
+    } else if (spectre.ev.kind !== 'UNBOUND') {
+      ok = false;
+      lines.push(`    ✗ BLIND COMPARATOR — a family named ONLY in a free-text string, by a file that never ` +
+        `references its registry, was classified '${spectre.ev.kind}'. It must be UNBOUND. Certifying a ` +
+        'mention as REAL is how H3::FIRE_COMPARTMENT_AREA was struck from the ledger while UNPROVEN.');
+    } else {
+      lines.push(`    ✓ UNBOUND discrimination — planted string-only mention correctly classified UNBOUND (${spectre.ev.at}), not REAL.`);
+    }
     if (bad.families.length === 0 || good.families.length === 0) {
       ok = false; lines.push('    ✗ BLIND COMPARATOR — a control tree enumerated ZERO families; H3 was never exercised.');
     }
@@ -853,7 +1000,11 @@ lines.push('  FAMILY                              DECLARED STRENGTH     EXECUTAB
 for (const { f, strength, ev } of a.families) {
   const mark = ev.kind === 'REAL' ? '✓' : '✗';
   lines.push(
-    `  ${mark} ${f.id.padEnd(34)}${strength.padEnd(22)}${ev.kind === 'REAL' ? `REAL — ${ev.at}` : ev.kind === 'STAND-IN' ? `STAND-IN ONLY — ${ev.at}` : 'NONE'}`,
+    `  ${mark} ${f.id.padEnd(34)}${strength.padEnd(22)}${
+      ev.kind === 'REAL' ? `REAL — ${ev.at}`
+        : ev.kind === 'STAND-IN' ? `STAND-IN ONLY — ${ev.at}`
+        : ev.kind === 'UNBOUND' ? `UNBOUND MENTION ONLY — ${ev.at}`
+        : 'NONE'}`,
   );
 }
 
