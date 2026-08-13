@@ -26,6 +26,53 @@ import {
     makeRow, makeReadonlyValue, makePrimaryBtn, makeGhostBtn, makeWideBtn,
     showFeedback, makeCard,
 } from './RoomPropertySectionHelpers';
+// §GR-10 — the shared honesty seam (C78 §8.1 vocabulary, imported not restated).
+import {
+    relationshipArrayOrUnknown,
+    relationshipUndetermined,
+    relationshipUndeterminedLabel,
+    type RelationshipDetermination,
+} from '../relationshipDetermination.js';
+
+/**
+ * §GR-10 (C75 §1.4 · C78 §1.4/§8.1 · C71 §4.4) — the honest wrapper for a
+ * room-neighbour query. The old shape was `qs.getXRooms(id) ?? []` inside a
+ * try/catch: a THROW already rendered "unavailable", but a query that ANSWERED
+ * WITH NOTHING (undefined/null — the substrate did not produce an array)
+ * silently became "No adjacent rooms detected" / "room is isolated". Those are
+ * diagnoses; this returns an explicit undetermined arm instead so the DOM can
+ * refuse them. Exported for the differentiating spec.
+ */
+export function determineRoomNeighbours(
+    query: (() => unknown) | undefined,
+    scope: string,
+): RelationshipDetermination<any> {
+    if (typeof query !== 'function') {
+        return relationshipUndetermined(
+            scope,
+            'ENGINE_NOT_AVAILABLE',
+            'the room query service does not expose this query — unknown, not zero.',
+        );
+    }
+    let raw: unknown;
+    try {
+        raw = query();
+    } catch (err) {
+        return relationshipUndetermined(
+            scope,
+            'RELATIONSHIP_NOT_READABLE',
+            `the query threw (${String((err as Error)?.message ?? err)}) — nobody could look.`,
+        );
+    }
+    if (!Array.isArray(raw)) {
+        return relationshipUndetermined(
+            scope,
+            'RELATIONSHIP_NOT_READABLE',
+            'the query answered with no array — the neighbour set is UNKNOWN, not empty (C71 §4.4).',
+        );
+    }
+    return { kind: 'determined', elements: raw };
+}
 
 export function appendRoomPropertySection(
     content: HTMLElement,
@@ -613,11 +660,29 @@ export function appendRoomPropertySection(
                 return chip;
             };
 
+            // §GR-10 — one refusal row shape for both neighbour blocks: unknown
+            // must not wear the pixels of a determined answer.
+            const makeUndeterminedRow = (
+                det: Extract<RelationshipDetermination<any>, { kind: 'undetermined' }>,
+                text: string,
+            ) => {
+                const row = document.createElement('div');
+                row.style.cssText = `font-size:10px;color:#9b6a1a;`;
+                row.textContent = `⚠ ${text} — unknown, not "none"`;
+                row.title = relationshipUndeterminedLabel(det);
+                return row;
+            };
+
             // Adjacent rooms
             id6.body.appendChild(makeSubHdr('Adjacent — shared wall'));
-            try {
-                const adj: any[] = qs.getAdjacentRooms(room.id) ?? [];
-                if (adj.length === 0) {
+            {
+                const det = determineRoomNeighbours(
+                    typeof qs.getAdjacentRooms === 'function' ? () => qs.getAdjacentRooms(room.id) : undefined,
+                    `rooms adjacent to ${room.id}`,
+                );
+                if (det.kind === 'undetermined') {
+                    id6.body.appendChild(makeUndeterminedRow(det, 'Adjacency could not be determined'));
+                } else if (det.elements.length === 0) {
                     const empty = document.createElement('div');
                     empty.style.cssText = `font-size:10px;color:${C.textFaint};`;
                     empty.textContent = 'No adjacent rooms detected';
@@ -625,21 +690,24 @@ export function appendRoomPropertySection(
                 } else {
                     const grid = document.createElement('div');
                     grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
-                    adj.forEach((r: any) => grid.appendChild(makeRoomChip(r)));
+                    det.elements.forEach((r: any) => grid.appendChild(makeRoomChip(r)));
                     id6.body.appendChild(grid);
                 }
-            } catch {
-                const err = document.createElement('div');
-                err.style.cssText = `font-size:10px;color:${C.textFaint};`;
-                err.textContent = 'Adjacency unavailable';
-                id6.body.appendChild(err);
             }
 
             // Connected rooms (via door)
             id6.body.appendChild(makeSubHdr('Connected — via door'));
-            try {
-                const conn: any[] = qs.getConnectedRooms(room.id) ?? [];
-                if (conn.length === 0) {
+            {
+                const det = determineRoomNeighbours(
+                    typeof qs.getConnectedRooms === 'function' ? () => qs.getConnectedRooms(room.id) : undefined,
+                    `rooms connected to ${room.id} via a door`,
+                );
+                if (det.kind === 'undetermined') {
+                    // The old shape printed the red "room is isolated" DIAGNOSIS
+                    // here — an accessibility claim forged from a query that
+                    // never answered (C78 §1.4).
+                    id6.body.appendChild(makeUndeterminedRow(det, 'Door connectivity could not be determined'));
+                } else if (det.elements.length === 0) {
                     const empty = document.createElement('div');
                     empty.style.cssText = `font-size:10px;color:${C.red};`;
                     empty.textContent = 'No door connections — room is isolated';
@@ -647,14 +715,9 @@ export function appendRoomPropertySection(
                 } else {
                     const grid = document.createElement('div');
                     grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
-                    conn.forEach((r: any) => grid.appendChild(makeRoomChip(r)));
+                    det.elements.forEach((r: any) => grid.appendChild(makeRoomChip(r)));
                     id6.body.appendChild(grid);
                 }
-            } catch {
-                const err = document.createElement('div');
-                err.style.cssText = `font-size:10px;color:${C.textFaint};`;
-                err.textContent = 'Connectivity unavailable';
-                id6.body.appendChild(err);
             }
 
             // Contents summary
@@ -731,7 +794,12 @@ export function appendRoomPropertySection(
     {
         const wallStore      = window.wallStore; // TODO(E.wall.S): replace with runtime.stores.wall — Phase E.wall.S
         const furnitureStore = window.furnitureStore; // TODO(E.furniture.S): replace with runtime.stores.furniture — Phase E.furniture.S
-        const boundingSet    = new Set<string>(room.boundingWallIds ?? []);
+        // §GR-10 (C75 §1.4 · C78 §1.4) — `room.boundingWallIds ?? []` made the
+        // Walls/Doors/Windows tiles show hard ZEROS about a room whose bounding
+        // walls were never recorded (the standing C78 §0.g example). An
+        // unrecorded set now renders '?' tiles, not 0s.
+        const boundingKnown  = relationshipArrayOrUnknown<string>(room.boundingWallIds);
+        const boundingSet    = new Set<string>(boundingKnown ?? []);
 
         const allDoors   = wallStore?.getAllDoors?.()   ?? [];
         const allWindows = wallStore?.getAllWindows?.() ?? [];
@@ -753,7 +821,7 @@ export function appendRoomPropertySection(
         const grid = document.createElement('div');
         grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;';
 
-        const addTile = (label: string, count: number, icon: string) => {
+        const addTile = (label: string, count: number | '?', icon: string) => {
             const tile = document.createElement('div');
             tile.style.cssText = [
                 'display:flex;align-items:center;gap:7px;',
@@ -777,10 +845,19 @@ export function appendRoomPropertySection(
             grid.appendChild(tile);
         };
 
-        addTile('Doors',     containedDoors.length,     '🚪');
-        addTile('Windows',   containedWindows.length,   '🪟');
-        addTile('Walls',     boundingSet.size,           '🧱');
+        // §GR-10 — with the bounding-wall set unrecorded, door/window/wall
+        // counts are UNKNOWN (they are derived through that set), not zero.
+        const unknownWalls = boundingKnown === null;
+        addTile('Doors',     unknownWalls ? '?' : containedDoors.length,     '🚪');
+        addTile('Windows',   unknownWalls ? '?' : containedWindows.length,   '🪟');
+        addTile('Walls',     unknownWalls ? '?' : boundingSet.size,           '🧱');
         addTile('Furniture', containedFurniture.length, '🪑');
+        if (unknownWalls) {
+            const note = document.createElement('div');
+            note.style.cssText = 'font-size:10px;color:#9b6a1a;margin-bottom:6px;';
+            note.textContent = '⚠ bounding walls were never recorded — wall-derived counts are unknown, not zero';
+            id7.body.appendChild(note);
+        }
         id7.body.appendChild(grid);
 
         // Select all contents

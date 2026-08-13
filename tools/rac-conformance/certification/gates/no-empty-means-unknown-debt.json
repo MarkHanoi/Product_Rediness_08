@@ -288,7 +288,22 @@
     "block + a different empty-state sentence, so unknown and empty are",
     "different pixels. Differentiating spec:",
     "apps/editor/src/ui/__tests__/relationshipViewerHonesty.spec.ts (6 cases,",
-    "2 negative controls) — the all-absent cases FAIL against the ?? [] shape."
+    "2 negative controls) — the all-absent cases FAIL against the ?? [] shape.",
+    "",
+    "STRUCK 2026-08-13 (lane L-EMPTY, 81 -> 80) — RoomPropertySection.ts, ARM C x3.",
+    "The worst of the three was a DIAGNOSIS: getConnectedRooms(id) ?? [] let a",
+    "query that answered with NO array fall into the red \"No door connections —",
+    "room is isolated\" branch — an accessibility claim forged from an unanswered",
+    "question. getAdjacentRooms had the same shape, and room.boundingWallIds ?? []",
+    "made the Contained Elements tiles print hard zeros for doors/windows/walls",
+    "about a room whose bounding set was never recorded (the standing C78 §0.g",
+    "example). Now determineRoomNeighbours (exported, pure) wraps both queries —",
+    "missing method ENGINE_NOT_AVAILABLE, throw/non-array",
+    "RELATIONSHIP_NOT_READABLE — and the DOM renders a ⚠ refusal row; the tiles",
+    "render ? with a named note instead of zeros. Determined-empty keeps the",
+    "original pixels, isolation diagnosis included. Differentiating spec:",
+    "apps/editor/src/ui/__tests__/roomNeighboursHonesty.spec.ts (5 cases, negative",
+    "control incl.) — the no-array case FAILS against the ?? [] shape."
   ],
   "swallowed": [
     {
@@ -400,11 +415,6 @@
       "site": "apps/editor/src/ui/OverridePanel.ts",
       "arm": "C (1 site(s))",
       "why": "C@115 `const graphics = overrides?.graphicOverrides ?? [];`"
-    },
-    {
-      "site": "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
-      "arm": "C (3 site(s))",
-      "why": "C@619 `const adj: any[] = qs.getAdjacentRooms(room.id) ?? [];` · C@641 `const conn: any[] = qs.getConnectedRooms(room.id) ?? [];` · C@734 `const boundingSet    = new Set<string>(room.boundingWallIds ?? []);`"
     },
     {
       "site": "apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts",
