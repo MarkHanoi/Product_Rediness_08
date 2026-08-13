@@ -9,6 +9,16 @@
 
 export * from './RoofTypes';
 export * from './roofSnapshotUtils';
+// §GE-06-ROOF-WALL-SLICE — pure roof-vs-walls-beneath clash detection (PR-10).
+export {
+    detectRoofWallClashes,
+    roofUndersideYAt,
+    SAMPLES_PER_WALL,
+    type RoofClashRoof,
+    type RoofClashWall,
+    type RoofWallClashFinding,
+    type RoofWallClashKind,
+} from './pure/roofWallClash';
 export { RoofStore } from './RoofStore';
 export { RoofLevelCleanupHandler } from './RoofLevelCleanupHandler';
 // ── §TOMBSTONE-ROOF-REGION-DETECTOR (2026-08-12, C79 §6.5) ───────────────────
