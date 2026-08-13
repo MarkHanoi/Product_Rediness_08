@@ -487,10 +487,33 @@ command that measured it:
 Stated as questions, with what is known, because C70 §0.1 forbids recording an unanswered
 question as an answer.
 
-1. **Does the region relationship survive persistence?** No evidence either way was found for
-   the slab sketch under snapshot round-trip. If it does not, a region slab follows its walls
-   until the file is saved and reloaded, and then silently stops — the §0 defect with a delay.
-   **This is the single highest-risk unknown in this contract** (C71 §1 item 3; C70 I-INV-2).
+1. ~~**Does the region relationship survive persistence?**~~ **ANSWERED 2026-08-13 by executed
+   measurement — IT SURVIVES.** Retained here rather than deleted, because §10 records what the
+   evidence could not settle and this entry now records how it was settled.
+
+   `hostId`, `reference` (`'centerLine'`), `offset` (`0`) and `hostType` round-trip **byte-identical**
+   through `ProjectSerializer.serializeSlab:432` → JSON → `ProjectLoader:531` /
+   `ImportProjectCommand:546` → `CreateSlabCommand:153` → `SlabValidator:59`. The reloaded sketch
+   reproduces `SlabDependencyTracker.registerSlab`'s dependency graph; §2.5's counts are
+   reproducible from the reloaded sketch alone; and §1.5's freehand/region distinguishability
+   holds after save→load (a freehand slab with an identical polygon still has no sketch).
+
+   **The answer is CONTINGENT on one line and must be re-measured if it ever tightens:**
+   `SlabValidator.ts:59` reads `sketch: z.any().optional()`. A typed object schema without
+   `.passthrough()` at that line would silently strip the sketch — and `SlabStore.add()` stores the
+   original rather than the parse result, which is the second half of why it survives.
+
+   Evidence: `packages/persistence-client/__tests__/regionSketchPersistenceRoundTrip.test.ts`
+   (16 tests, commit `458c013a`), proven load-bearing by MUTATION rather than assertion —
+   `ProjectSerializer.ts:432` was edited to `sketch: undefined` and **9 tests went red**, then
+   restored. The probe never writes a `hostReference` literal (the sketch under test is produced by
+   the tracer), so C74 §3.4's fixture-supplies-the-answer failure mode does not apply.
+
+   **Residual UNPROVEN, stated so it is not read as fully closed:** `ProjectLoader.load()` itself is
+   pinned by source assertion rather than executed (it needs a live `CommandManager`, `BimManager`
+   and ~40 singleton stores, unavailable in a Node-env suite); and post-load **re-projection** —
+   whether the reloaded slab actually *follows* when its wall moves — is `SlabDependencyTracker`'s
+   axis and remains unmeasured.
 2. **What is the correct reference frame for a non-wall bounding element?** §3.5. Every path at
    HEAD bounds against walls only.
 3. **Should ceilings and floor finishes get a region mode at all, or should they derive from the
