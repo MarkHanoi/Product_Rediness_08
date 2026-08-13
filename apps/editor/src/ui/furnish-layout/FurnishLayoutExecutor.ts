@@ -63,6 +63,17 @@ interface FacadeLike {
 
 const EPS = 1e-6;
 
+/** §FURNISH-DROP-SURFACING (editor half, 2026-08-13) — the explicit outcome
+ *  stamped on EVERY `furnish.layout-executed` payload, so downstream consumers
+ *  (the lighting cascade, the all-floors driver) can distinguish "completed,
+ *  zero items" from "failed/dropped" without inferring it from counts
+ *  (C75 §1.2: two facts never print one value). A drop ALWAYS carries a reason
+ *  (C75 §1.4). Shape mirrors `FurnishStageOutcome` in
+ *  `packages/ai-host/src/workflows/lightingLayout/lightingBasis.ts`. */
+export type FurnishRunOutcome =
+    | { readonly state: 'completed'; readonly placedCount: number; readonly roomCount: number }
+    | { readonly state: 'dropped'; readonly reason: string };
+
 function dist(a: Pt, b: Pt): number { return Math.hypot(a.x - b.x, a.z - b.z); }
 function dot(a: Pt, b: Pt): number  { return a.x * b.x + a.z * b.z; }
 function sub(a: Pt, b: Pt): Pt      { return { x: a.x - b.x, z: a.z - b.z }; }
@@ -183,7 +194,22 @@ export class FurnishLayoutExecutor {
             const explicitId = typeof opts?.levelId === 'string' && opts.levelId.length > 0
                 ? opts.levelId : undefined;
             const level = explicitId ? resolveLevelById(explicitId) : resolveActiveLevel();
-            if (!level?.id) { toast('No active level — open a project first.', 'error'); return; }
+            if (!level?.id) {
+                toast('No active level — open a project first.', 'error');
+                // §FURNISH-DROP-SURFACING path (1) — this early return NEVER
+                // emitted, so the §CHAIN-TIMEOUT waiter downstream could never
+                // be satisfied (L-716 class: unsatisfiable gate). Emit the
+                // dropped outcome so the chain advances WITH the fact.
+                runtime.events.emit('furnish.layout-executed', {
+                    placedCount: 0, roomCount: 0, roomsFurnished: 0, roomsSkipped: 0,
+                    levelId: explicitId, validationWarnings: [], skipped: [],
+                    outcome: {
+                        state: 'dropped',
+                        reason: 'no active level resolved — furnish never ran',
+                    } satisfies FurnishRunOutcome,
+                });
+                return;
+            }
 
             const wallStore = storeRegistry.getStoreForType('wall') as unknown as
                 { getAll?(): WallLike[] } | undefined;
@@ -201,6 +227,9 @@ export class FurnishLayoutExecutor {
                     placedCount: 0, roomCount: 0, roomsFurnished: 0, roomsSkipped: 0,
                     levelId: level.id, validationWarnings: [],
                     skipped: [{ roomId: '', reason: 'no rooms on level' }],
+                    // §FURNISH-DROP-SURFACING — zero rooms is an ANSWER the
+                    // executor gave, not a drop: outcome completed.
+                    outcome: { state: 'completed', placedCount: 0, roomCount: 0 } satisfies FurnishRunOutcome,
                 });
                 return;
             }
@@ -458,6 +487,11 @@ export class FurnishLayoutExecutor {
                     roomsFurnished: 0, roomsSkipped, levelId: level.id,
                     validationWarnings: [],
                     skipped: [...skipped],
+                    // §FURNISH-DROP-SURFACING — "completed with 0 items" is the
+                    // engine's answer, NEVER conflated with a drop (C75 §1.2).
+                    outcome: {
+                        state: 'completed', placedCount: 0, roomCount: allRooms.length,
+                    } satisfies FurnishRunOutcome,
                 });
                 return;
             }
@@ -504,6 +538,19 @@ export class FurnishLayoutExecutor {
             } catch (e) {
                 console.warn('[furnish-layout] runBatch threw:', e);
                 toast('Furnishing failed — see console.', 'error');
+                // §FURNISH-DROP-SURFACING path (2) — the founder's exact case:
+                // this return placed ZERO furniture and never emitted, so the
+                // §CHAIN-TIMEOUT fallback fired lighting 12 s later with no
+                // fact attached. Emit the drop WITH its reason instead.
+                runtime.events.emit('furnish.layout-executed', {
+                    placedCount: 0, roomCount: allRooms.length,
+                    roomsFurnished: 0, roomsSkipped, levelId: level.id,
+                    validationWarnings: [], skipped: [...skipped],
+                    outcome: {
+                        state: 'dropped',
+                        reason: `furniture.batch.create runBatch threw: ${e instanceof Error ? e.message : String(e)}`,
+                    } satisfies FurnishRunOutcome,
+                });
                 return;
             }
             if (fails > 0) console.warn(`[furnish-layout] §FIX-FURNISH-BATCH-PERF — ${fails} batch dispatch failure(s).`);
@@ -533,6 +580,11 @@ export class FurnishLayoutExecutor {
                 skipped: [...skipped],
                 levelId: level.id,
                 validationWarnings: [...validationWarnings],
+                outcome: {
+                    state: 'completed',
+                    placedCount: set.commands.length,
+                    roomCount: allRooms.length,
+                } satisfies FurnishRunOutcome,
             });
             toast(
                 `Furnished ${roomsProcessed}/${allRooms.length} rooms — ${set.commands.length} items placed.`,
@@ -541,6 +593,21 @@ export class FurnishLayoutExecutor {
         } catch (err) {
             console.warn('[FurnishLayoutExecutor] execute failed (non-fatal):', err);
             runtime.events?.emit('pryzm:toast', { message: 'Furnishing failed.', severity: 'error' });
+            // §FURNISH-DROP-SURFACING path (3) — a toast alone is not
+            // surfacing: emit the dropped outcome so the chain waiter is
+            // satisfied and the drop reason travels with the event.
+            try {
+                runtime.events?.emit('furnish.layout-executed', {
+                    placedCount: 0, roomCount: 0, roomsFurnished: 0, roomsSkipped: 0,
+                    levelId: opts?.levelId, validationWarnings: [], skipped: [],
+                    outcome: {
+                        state: 'dropped',
+                        reason: `furnish execute failed: ${err instanceof Error ? err.message : String(err)}`,
+                    } satisfies FurnishRunOutcome,
+                });
+            } catch (emitErr) {
+                console.warn('[FurnishLayoutExecutor] failed to emit dropped outcome:', emitErr);
+            }
         }
     }
 }
