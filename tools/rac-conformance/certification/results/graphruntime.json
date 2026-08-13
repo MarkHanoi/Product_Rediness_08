@@ -1,0 +1,59 @@
+{
+  "harness": "H5-graph-runtime-readback",
+  "generatedAt": "2026-08-13T14:13:54.647Z",
+  "seedLog": [
+    "level GRT-L0: OK"
+  ],
+  "registrationFailures": [],
+  "notMeasured": [
+    "GESTURE reachability — no user gesture, tool or panel is driven",
+    "PERSISTENCE — no serialize/deserialize round-trip",
+    "MULTI-CLIENT / MULTI-LEVEL — one client, one seeded level",
+    "the relationship families not named in the cases",
+    "DELETE and MOVE propagation into the graph"
+  ],
+  "rows": [
+    {
+      "path": "CreateColumnCommand  (POSITIVE CONTROL)",
+      "edgeType": "sitsOn",
+      "declared": "REACHED",
+      "measured": "REACHED",
+      "detail": "getTargets('grt-col-1','sitsOn')=[\"GRT-L0\"] hasRelationship('grt-col-1'→'GRT-L0')=true"
+    },
+    {
+      "path": "CreateRoofCommand",
+      "edgeType": "sitsOn",
+      "declared": "REACHED",
+      "measured": "REACHED",
+      "detail": "getTargets('grt-roof-1','sitsOn')=[\"GRT-L0\"] hasRelationship('grt-roof-1'→'GRT-L0')=true"
+    },
+    {
+      "path": "CreatePlumbingFixtureCommand",
+      "edgeType": "sitsOn",
+      "declared": "REACHED",
+      "measured": "REACHED",
+      "detail": "getTargets('grt-wc-1','sitsOn')=[\"GRT-L0\"] hasRelationship('grt-wc-1'→'GRT-L0')=true"
+    },
+    {
+      "path": "CreateFurnitureCommand — sitsOn",
+      "edgeType": "sitsOn",
+      "declared": "REACHED",
+      "measured": "REACHED",
+      "detail": "getTargets('grt-furn-1','sitsOn')=[\"GRT-L0\"] hasRelationship('grt-furn-1'→'GRT-L0')=true"
+    },
+    {
+      "path": "CreateFurnitureCommand — contains (§CONTAINS-FIRST-PARTY-WRITER)",
+      "edgeType": "contains",
+      "declared": "REACHED",
+      "measured": "REACHED",
+      "detail": "getTargets('grt-room-1','contains')=[\"grt-furn-1\"] hasRelationship('grt-room-1'→'grt-furn-1')=true"
+    },
+    {
+      "path": "CreateWallCommand  (NEGATIVE CONTROL)",
+      "edgeType": "sitsOn",
+      "declared": "NOT-REACHED",
+      "measured": "NOT-REACHED",
+      "detail": "getTargets('grt-wall-1','sitsOn')=[] hasRelationship('grt-wall-1'→'GRT-L0')=false"
+    }
+  ]
+}
