@@ -21,9 +21,13 @@ export class RoofStore {
         return this.projectContext.activeLevelId;
     }
 
-    private emit(event: string, payload: any): void {
+    // §STEP7 (C72 §3.1, gap PR-03): 'update' emissions carry the frozen
+    // PRE-MUTATION roof as an optional second listener argument, captured
+    // before the clone/merge — never re-read after the write (C72 §3.5).
+    // Absent on 'add' (no prior) and 'remove' (payload is the id).
+    private emit(event: string, payload: any, prevState?: RoofData): void {
         const listeners = this._listeners.get(event);
-        if (listeners) listeners.forEach(fn => fn(payload));
+        if (listeners) listeners.forEach(fn => fn(payload, prevState));
     }
 
     on(event: 'add' | 'update' | 'remove', listener: Function): void {
@@ -117,7 +121,8 @@ export class RoofStore {
         const frozen = Object.freeze(cloned);
         this._roofs.set(id, frozen);
 
-        this.emit('update', frozen);
+        // §STEP7: `existing` is the frozen pre-mutation record, captured before the merge.
+        this.emit('update', frozen, existing);
         _bus.emit('bim-roof-updated', { id: frozen.id }); // F.events.18
         storeEventBus.emit({ elementId: id, elementType: 'roof', operation: 'update', timestamp: Date.now() });
         return frozen;
@@ -134,7 +139,8 @@ export class RoofStore {
         const frozen = Object.freeze(cloned);
         this._roofs.set(snapshot.id, frozen);
 
-        this.emit('update', frozen);
+        // §STEP7: `existing` was captured above, before the write (C72 §3.5).
+        this.emit('update', frozen, existing);
         _bus.emit('bim-roof-updated', { id: frozen.id }); // F.events.18
         storeEventBus.emit({ elementId: frozen.id, elementType: 'roof', operation: 'update', timestamp: Date.now() });
     }

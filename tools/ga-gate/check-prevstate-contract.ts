@@ -137,15 +137,20 @@ const MIN_EMIT_SITES = 10;
  * (never a §3.5 re-read), same commit as this strike. Seam tests per store in
  * packages/core-app-model/src/stores/StorePrevStateSeam.test.ts drive the real
  * mutation entry points (C72 §3.4). 17 → 6.
+ *
+ * STRUCK 2026-08-13 (PR-03, batch 2): the last six sites — the geometry-*
+ * copies (geometry-lift/LiftStore :88/:99, geometry-roof/RoofStore :120/:137,
+ * geometry-stair/StairStore :90/:105) — same §STEP7 treatment, same commit as
+ * this strike, each with a seam test in its own package. 6 → 0.
+ *
+ * ⚠ P1 IS NOW EMPTY AND THE LEDGER IS EMPTY. If this gate reads 0 findings it
+ * exits 0 (hard-clean), and its `gate-newly-measured.json` entry must be
+ * STRUCK in the commit that achieves it — run-all.ts enforces exactly that
+ * ("paid instrument debt leaves its ledger in the commit that pays it").
+ * Do NOT re-add rows here to keep the gate at exit 1: an empty ledger with a
+ * clean reading is the exit condition, not a problem to be papered over.
  */
-const LEDGER: readonly string[] = [
-  'P1::packages/geometry-lift/src/LiftStore.ts:88',
-  'P1::packages/geometry-lift/src/LiftStore.ts:99',
-  'P1::packages/geometry-roof/src/RoofStore.ts:120',
-  'P1::packages/geometry-roof/src/RoofStore.ts:137',
-  'P1::packages/geometry-stair/src/StairStore.ts:90',
-  'P1::packages/geometry-stair/src/StairStore.ts:105',
-];
+const LEDGER: readonly string[] = [];
 
 // ─── Subject discovery ───────────────────────────────────────────────────────
 

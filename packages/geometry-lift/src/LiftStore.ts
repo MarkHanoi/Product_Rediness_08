@@ -85,7 +85,8 @@ export class LiftStore {
         const cloned = structuredClone(updated);
         this.lifts.set(liftId, cloned);
         _bus.emit('bim-lift-updated', { id: liftId }); // F.events.18
-        this.emit('update', cloned);
+        // §STEP7: `lift` is the pre-mutation record, captured before the merge.
+        this.emit('update', cloned, lift);
 
         console.log(`[LiftStore] Updated lift ${liftId} (v${cloned.metadata.version})`);
         return cloned;
@@ -94,9 +95,13 @@ export class LiftStore {
     /** §F5 (mirror): clone before storing — used by the undo/redo path. */
     restoreSnapshot(lift: LiftData): void {
         const cloned = structuredClone(lift);
+        // §STEP7: capture the stored prior BEFORE the write — a post-write read
+        // would diff the snapshot against itself (C72 §3.5). Undefined when no
+        // prior exists (restore into an empty slot behaves like an add).
+        const prev = this.lifts.get(cloned.id);
         this.lifts.set(cloned.id, cloned);
         _bus.emit('bim-lift-updated', { id: cloned.id }); // F.events.18
-        this.emit('update', cloned);
+        this.emit('update', cloned, prev);
     }
 
     remove(liftId: string): LiftData | undefined {
@@ -153,8 +158,8 @@ export class LiftStore {
         };
     }
 
-    private emit(event: LiftEventType, lift: LiftData): void {
-        this.listeners.forEach(l => l(event, lift));
+    private emit(event: LiftEventType, lift: LiftData, prevState?: LiftData): void {
+        this.listeners.forEach(l => l(event, lift, prevState));
         // §3.8 — publish to centralized StoreEventBus for DependencyResolver,
         // Topology, World Model (same channel StairStore uses).
         storeEventBus.emit({

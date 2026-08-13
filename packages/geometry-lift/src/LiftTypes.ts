@@ -80,4 +80,8 @@ export interface LiftData {
 }
 
 export type LiftEventType = 'add' | 'update' | 'remove';
-export type LiftEventListener = (event: LiftEventType, lift: LiftData) => void;
+// §STEP7 (C72 §3.1, gap PR-03): 'update' emissions carry the PRE-MUTATION
+// lift as an optional third argument, captured before the clone/merge —
+// never re-read after the write (C72 §3.5). Absent on 'add'/'remove', and
+// absent on a restoreSnapshot for an id with no stored prior.
+export type LiftEventListener = (event: LiftEventType, lift: LiftData, prevState?: LiftData) => void;

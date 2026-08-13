@@ -153,21 +153,6 @@
       "reviewByNote": "Longer than its two Tier-1 siblings on purpose, and the difference is argued rather than assumed: they are 4 and 7 NAMED sites, fixable in a sitting. This is 271 declarations across 164 files whose first step is building a module that does not exist. A three-month date on this entry would expire before anyone could honestly act on it, and an expiry nobody can meet teaches people to extend dates rather than to meet them."
     },
     {
-      "gate": "check-prevstate-contract.ts",
-      "runner": "ga-gate",
-      "addedAt": "2026-08-12",
-      "builtBy": "BIM 3.0 Phase 1 Tier 2 · BIM30-READINESS-GATES §3.10 · C72 §3.1–§3.5/§6.2",
-      "firstReading": "exit 1 DECLARED-LEVEL — 21 findings against a declared level of 21, all P1 (update-emit sites carrying no prevState). P2 reads 0: the one discovered classifier pair (WallDeltaClassifier ← WallStore) has a 3-arg feed. P3 reads 0: a seam test constructing the real WallStore exists. Floors met: 120 *Store.ts files (min 100), 39 update emit sites (min 10), 1 diff consumer (min 1), controls 1/1.",
-      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-prevstate-contract.ts — 21 NAMED file:line emit sites, checked in both directions (an unledgered finding exits 3; a ledgered finding no longer measured exits 3).",
-      "predatesTheGate": [
-        "P1 · 18 two-argument 'update' emit sites across 10 stores (Ceiling, Floor, FloorSystemType, Handrail, Roof ×2 copies, Stair ×2 copies, Lift) — the §STEP7 convention C72 §3.1 names is carried by only 10 of 19 update-emitting stores.",
-        "P1 · WallStore.ts:1021/:1065/:1102/:1134 — FOUR update paths in the ONE store whose classifier consumes prevState still emit two arguments, i.e. edits through them classify whole-level/no-prevState today. The same famine shape ADR-057 paid for, in the same file that was fixed."
-      ],
-      "exitCondition": "each named site either passes the pre-mutation snapshot as the third argument (the WallStore.ts:1279/:1363 shape) or its store is shown to have no diff consumer and the site is struck with that argument recorded. C72 §6.2's own exit additionally requires StoreChangeEvent (or its successor) to carry a pre-mutation field — that closes §3.2's standing finding and is OUTSIDE this gate's arms (stated in the gate header). LEDGER reaches 0 and the gate flips hard-0.",
-      "territory": "packages/core-app-model/, packages/geometry-wall/, packages/geometry-roof/, packages/geometry-stair/, packages/geometry-lift/ — NOT tools/.",
-      "reviewBy": "2026-11-12"
-    },
-    {
       "gate": "check-suppression-is-reversible.ts",
       "runner": "ga-gate",
       "addedAt": "2026-08-12",
