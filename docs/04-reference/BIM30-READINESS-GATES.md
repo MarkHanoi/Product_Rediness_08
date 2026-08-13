@@ -46,6 +46,15 @@ built gates rots exactly as fast as one that over-counts them.)*
 > gates). Run them. `check-collab-graph-integrity` is additionally **structurally incapable of
 > exit 0 against production** while no transport is deployed, and that is correct behaviour, not
 > a defect of the gate.
+>
+> **Corrected 2026-08-13 (A.13).** That sentence was true and still let the defect through, because
+> it only ever spoke about *production* scope. The gate's **local-harness** run exited **0** under a
+> `✓` headline until this date — and by C70 §7's exit-condition row for this gate, *any* run that
+> has not reached a real transport must report **UNPROVEN, never green** (§3.4). It now exits **1
+> UNPROVEN** on every local run and names the three axes it cannot reach. The lesson generalises to
+> every row in §3: **a gate is not honest because its caveat is written down — it is honest when the
+> caveat is in the exit code.** Prose beneath a zero is not read by CI, by a status table, or by the
+> next gate's ledger; this zero had already been cited elsewhere as "GREEN".
 
 > **§0.2 — 19 of 23 means BIM 3.0 readiness is mostly UNPROVEN.** UNPROVEN is neither a pass nor
 > a fail; it is *"nobody looked"* (C70 §2.2). No status document, roadmap, or summary may render
@@ -730,8 +739,9 @@ Two definitions used throughout:
 | **Negative control** | **built in, and it runs every time**: the harness re-runs its own checker over a **deliberately broken pair**. A checker that calls a dangling host "clean" makes the run `blind-comparator` → **exit 2**, invalidating every verdict it produced. This is the pattern every gate in this document should copy. |
 | **Three results it refuses to conflate** | **no transport** → exit 2 `transport-absent` (before this gate, "the sync server is not deployed" and "collaboration works fine" produced the same observation — nothing went wrong — and C8 could have been scored green by a harness that never opened a socket) · **blind comparator** → exit 2 · **broken relationship** → exit 3. |
 | **Ratchet** | **0, and not on `gate-debt.json`.** |
-| **Exit condition** | green against a **real deployed transport**. `PRYZM_COLLAB_GATE_SCOPE=production` with no URL configured returns **exit 1**, reported as a declared level rather than dressed up as green. |
-| **Cannot see** | production behaviour — production still runs socket.io last-writer-wins, and **C66 tiers remain CLAIMED, not HELD** · anything beyond the hosting edge (rooms, junctions, boundaries are §3.22's and future arms' work) · more than two peers. |
+| **Exit condition** | green against a **real deployed transport** — and **exit 0 is reachable ONLY from a `PRYZM_COLLAB_GATE_URL` target**. Every local-harness run lands **exit 1 UNPROVEN**, whatever `PRYZM_COLLAB_GATE_SCOPE` says. **Corrected 2026-08-13 (A.13):** until that date the local run exited **0** under a `✓` headline, with its narrowness carried only in prose beneath — and C70 §7's row for this gate requires *"UNPROVEN, never green"* until a real transport is reached (§3.4). Nothing it measures changed; the **label** did. The zero had already propagated: `gate-newly-measured.json` cited this gate as *"owns the transport question and **is GREEN**"*, which is C70 §8.k reached through a citation. Ledgered in `gate-newly-measured.json`, so `run-all` prints it 🔵 NEWLY-MEASURED with its exit condition on screen — UNPROVEN is neither a pass nor a fail (C70 §2.2). |
+| **The narrow claim it DOES earn** | stated separately from C8 and kept: in the local in-process harness, N hosting edges survive a genuine disconnect-write-reconnect partition on **both** documents over real `y-websocket` sockets with `disableBc`, with N and the element count printed against their floors. This is the only executed evidence in the repo for that leg, and the fix renames it rather than discarding it. |
+| **Cannot see** | production behaviour — production still runs socket.io last-writer-wins, and **C66 tiers remain CLAIMED, not HELD** · anything beyond the hosting edge (rooms, junctions, boundaries are §3.22's and future arms' work) · more than two peers · **three axes now named as UNPROVEN on every run** (C70 §7.1): **real transport**, **two processes** (C78 §15.4 — the concurrency arm needs two processes and is not measurable in one Node realm; both peers here share one event loop and one heap), **network partition** (no latency, reordering, loss or server-side linearisation — a `provider.disconnect()` is not a partitioned network). |
 
 ---
 
