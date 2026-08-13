@@ -26,6 +26,7 @@ import {
     CommandContext,
 } from '../types';
 import { CreateFloorCommand } from './CreateFloorCommand';
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { batchCoordinator, type FloorServiceHole } from '@pryzm/core-app-model';
 import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type PerRoomCtx } from '../rooms/perRoomBoundary';
 import { floorFinishFor } from './floorFinish';
@@ -381,16 +382,12 @@ export class CreateFloorsByRoomTypeCommand implements Command {
         return { x: sx / n, z: sz / n };
     }
 
-    /** Ray-cast point-in-polygon test in world X-Z. */
+    /**
+     * Ray-cast point-in-polygon test in world X-Z. §C73-PIP-CANONICAL —
+     * delegates to the kernel's one even-odd body.
+     */
     private _pointInPoly(pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean {
-        let inside = false;
-        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-            const a = poly[i]!, b = poly[j]!;
-            const intersects = (a.z > pt.z) !== (b.z > pt.z)
-                && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x;
-            if (intersects) inside = !inside;
-        }
-        return inside;
+        return pointInPolygonXZ(pt.x, pt.z, poly);
     }
 
     private _finishCategory(occ: string | undefined): 'timber' | 'tile-stone' | null {

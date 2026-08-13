@@ -1,10 +1,7 @@
 {
   "recipe": "a POINT-IN-POLYGON body = the even-odd VERTICAL STRADDLE test `(yi > y) !== (yj > y)` in any operand shape/direction, comment-stripped, over a 3-line window so a wrapped body is seen whole; a two-straddle AND (segment/segment crossing) is a DIFFERENT §3.1 family and is excluded structurally; counting unit = (file × body), so N straddles in one file are N bodies; dirs packages,apps,plugins,src; tests counted separately and NOT ratcheted.",
   "measuredAt": "2026-08-13",
-  "bodies": {
-    "packages/command-registry/src/floors/CreateFloorsByRoomTypeCommand.ts:389::point-in-polygon": "none",
-    "packages/core-app-model/src/RoomFinishResolver.ts:81::point-in-polygon": "none"
-  },
+  "bodies": {},
   "c2": 0,
   "c3": []
 }

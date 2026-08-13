@@ -32,6 +32,7 @@
  *   - ScheduleExtractor.ts    (room schedule rows)
  */
 
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import {
   determineBoundingWalls,
   type BoundingWallUndeterminedReason,
@@ -72,17 +73,10 @@ export interface ResolvedRoomFinishes {
  * Returns true when (px, pz) is inside the polygon defined by vertices [{x, z}].
  */
 function pointInPolygon(px: number, pz: number, polygon: Array<{ x: number; z: number }>): boolean {
-  if (!polygon || polygon.length < 3) return false;
-  let inside = false;
-  const n = polygon.length;
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const xi = polygon[i].x, zi = polygon[i].z;
-    const xj = polygon[j].x, zj = polygon[j].z;
-    if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) {
-      inside = !inside;
-    }
-  }
-  return inside;
+  // §C73-PIP-CANONICAL — delegates to the kernel's one even-odd body. The old
+  // local `!polygon` null-guard is kept: callers pass store-shaped data.
+  if (!polygon) return false;
+  return pointInPolygonXZ(px, pz, polygon);
 }
 
 // ── Main resolver ─────────────────────────────────────────────────────────────
