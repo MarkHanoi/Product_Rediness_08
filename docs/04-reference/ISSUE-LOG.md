@@ -2079,3 +2079,128 @@ half-delivered release happens.
 (mesh AND record), the L-847 model tree reachable via Data F3 - AUDIT - Hierarchy, floor/ceiling
 finish trackers (incl. the REENTRANT-SET fix `f5f312de`), and every gate landed this session.
 **Browser verification by the founder is still owed and is the only UNPROVEN axis.**
+
+## L-854 — THE CIRCULATION GATES ALL WORK. NOTHING REFUSES THE LAYOUT THEY REJECT.
+
+**2026-08-13, circulation-integrity audit lane, in response to the founder's production report
+("the corridor doesn't reach the relevant bedrooms · rooms without doors").** Measured at HEAD by
+execution; the report itself was NOT trusted.
+
+**Measured** — three new reproductions, all driving the REAL production entries (C74 §3.4):
+
+| Typology | Sample | unreachable room | doorless room |
+|---|---|---|---|
+| `apartmentLayout` | 106 shipped winners / 108 combos | **7%** | **7%** |
+| `houseLayout` | 24 shipped storeys | **50%** | **46%** |
+| `residentialBuilding` | 34 shipped units | **0%** | **0%** |
+
+`packages/ai-host/__tests__/circulationIntegrityAudit.test.ts` ·
+`circulationIntegrityHouseResi.test.ts` · `helpers/circulationPredicates.ts`.
+
+**The detection is not missing — the refusal is.** Rules `reach`, `circulation`, `served-through`,
+`corridor-stair`, `corridor-hall` all exist in `enumerate.ts` and all compute correctly over the
+realised door graph. But **§TOPO-HARD-REJECT-ALL ships the least-bad HARD-INVALID candidate by
+design** ("never an empty result"), and on the HOUSE path the structured rejection is disabled
+outright — `isHousePath = envelopeValidator !== undefined` is always true for a house storey, and
+the empty branch is guarded `if (viable.length === 0 && !isHousePath)`. Same engine, same door
+router, one fewer refusal: **that is the whole of the 50% vs 7% gap.** No orchestrator adds a final
+gate (`assembleHouse` pushes argmax-score with no soundness check; `runApartmentCellLayout` takes
+`options[0]` unconditionally).
+
+**The most consequential structural fact: `hardValid` / `hardFailedRules` are DROPPED at the emit
+boundary.** They live on `TglCandidate`; `emitGeometry` projects to `LayoutOption`, which has no
+such field. A caller that WANTED to refuse cannot see the verdict. Nothing else can be gated until
+this is carried across (SPEC-49 CI-0).
+
+**Also measured**: unreachable and doorless fail on the SAME cases (identical sets on apartment;
+11 of 12 on house). This is not "the corridor fails to reach a well-doored bedroom" — it is **no
+door was ever emitted**. Victims include a **doorless `Stair`** (`17.491x13.416-b2-s2/F1`).
+Bathrooms dominate, by construction: §DOOR-RESCUE-REACH excludes wet rooms from its rescue pass.
+
+Full analysis + the gate design: **`docs/03-execution/specs/SPEC-49-CIRCULATION-INTEGRITY.md`**.
+
+## L-855 — THE EXISTING CIRCULATION SWEEP IS STRUCTURALLY BLIND TO THIS DEFECT
+
+**2026-08-13.** `packages/ai-host/__tests__/circulationRobustnessSweep.test.ts` counts a candidate
+`sound` only when it is ALREADY `hardValid` — which excludes **exactly** the case the founder is
+looking at (nothing hard-valid ⇒ least-bad ships). Measured at HEAD it reports 88/108 shipped,
+60/108 hard-valid: **28 shipped winners are hard-INVALID and the harness never inspects them.** Its
+tripwire, `expect(sound).toBeGreaterThanOrEqual(50)` of 108, tolerates a 54% failure rate.
+
+It is a good instrument for the question it asks (candidate-level robustness, the ADR-0073
+acceptance metric) and should be KEPT. It is simply not a measurement of what ships. The new
+audit probes measure the shipped artefact unconditionally.
+
+**And there is NO CI gate for any of this.** Enumerated all 56 `tools/ga-gate/*.ts`: none reads
+`doorAdjacentTo` / `unreachableHabitableRoomIds`, none drives a generator. The two that mention
+`apartmentLayout` (`check-refusal-identity`, `check-suppression-is-reversible`) cover refusal
+*messaging*, not soundness. **Generator output quality is entirely ungated in CI.**
+
+## L-856 — `doorSwingKeepout.ts` IS DEAD CODE; `Door.swing` NEVER REACHES THE FURNISHER
+
+**2026-08-13, founder defect 3 "furniture in front of a door".** Measured over 288 rooms through
+the REAL `furnishRoom` (`packages/ai-host/__tests__/furnitureDoorClearanceAudit.test.ts`):
+
+- **0/288** intrude the box placement ACTUALLY consults (`placeSolver.doorObstacles`) — the wired
+  keep-out holds, the solver is not regressing;
+- **3/288 (1%)** intrude the REAL 90° swing arc on either hinge (`dining_chair` ×2,
+  `japanese_walnut_bed` ×1); **2/288** are blocked whichever way the door is hung;
+- **22 across 96 rooms** by collision-EXEMPT paths — all `rug`.
+
+**The gap between those two numbers is the defect, and its cause is a dead module.**
+`packages/ai-host/src/workflows/furnishLayout/doorSwingKeepout.ts` — correct sector geometry, HARD
+by design (`rejectFurnitureClashingDoors` DROPS clashing items), fully unit-tested — is imported by
+**nothing in the repo except its own test**, since commit `bd43b2bf`, whose header promised
+"engine wiring follows". **Root cause is upstream of the furnisher:** `Door.swing` exists on the
+schema but is dropped at the wall-opening boundary, so `OpeningPose` carries no hinge side and the
+sector has no data to run on (`placeSolver.ts:184-185` says so and settles for a symmetric box).
+
+Compounding: that box is **duplicated 4×** (`placeSolver`, `kitchenLayout`, `wardrobeLayout`,
+`rules/kitchenValidation`) and **one has drifted** — `kitchenValidation.doorSwingAabb` uses a 0.9 m
+depth where placement uses `max(width, 0.9)`. `validate.ts` has **no area test** for door
+clearance (only a soft 1-D entry→centroid ray). `placeUnder` (rug), `placeOnLeaderWall`, and
+`placeBedsideLamps` bypass the obstacle set entirely — `furnishRoom.ts:93` omits it while the
+integrated-bed branch one line above passes it.
+
+**UNPROVEN (C70 §2.2):** the production rate on GENERATED rooms (multi-door, off-centre, non-rect).
+1% is a measured FLOOR on synthetic single-door rectangles. Missing instrument named in SPEC-49 §6.
+
+## L-857 — THE REACHABILITY INVARIANT LIVES IN THE UI, SO IT CAN NEVER BE A GATE
+
+**2026-08-13.** The only implementation of "is every room reachable" is
+`computeCirculationReachability` in `apps/editor/src/ui/apartment-layout/layoutBubbleGraph.ts` —
+**L7**. The generators that ship the layouts are in `packages/ai-host` — **L2**. A lower layer
+cannot import a higher one, so **the engine physically cannot call the invariant that judges it.**
+
+Consequence, and it is exactly what L-854 measures: the invariant can only ever be a *displayed
+number* (the "Circulation NN%" chip), never a *refusal*. The audit reproductions had to REPLICATE
+the predicate (`__tests__/helpers/circulationPredicates.ts`) to measure it at all — a replica that
+will now drift from the original unless one of them is deleted.
+
+Same fault in the furnish path: the room-payload builder is L7-only
+(`apps/editor/src/ui/furnish-layout/FurnishLayoutExecutor.ts`), which is why the end-to-end
+furniture probe (L-856) cannot be written. **Remedy proposed in SPEC-49 §5** (promote the predicate
++ payload builder to L1/L2, leave L7 a thin consumer); it is a PRECONDITION for the CI-1 gate, and
+should be sequenced before the gate work, not after.
+
+## L-858 — §DUP-NAME-SAFE IS STILL NAME-KEYED; AND A CLEAN 0/288 THAT WAS AN INSTRUMENT BUG
+
+**2026-08-13, two findings from watching the checks go red (C70 §5.6).**
+
+**(a) The duplicate-name reachability defect is only half-fixed — LATENT, measured absent.**
+§DUP-NAME-SAFE (ADR-0098) keys the BFS by array index and resolves a name to ALL bearers. That
+fixes the collapse-to-one-node half, but the reverse edge is minted for every bearer too — so a
+room whose own `doorAdjacentTo` is EMPTY still receives an inbound edge from a neighbour naming its
+duplicate, and reads as reached. That is the founder's original "Circulation 100% while the top
+rooms are sealed", still live in the predicate. It does not fire today because `emitGeometry`'s
+§DUP-NAME-UNIQUE pass mints unique names — **measured, not assumed: 0 of 106 shipped winners carry
+a duplicate room name.** Pinned as current behaviour. Durable fix: key the access graph by room
+**id**, not display name; the uniqueness pass is a guard, not a fix.
+
+**(b) A false all-clear, caught only by the negative control.** The furniture probe's first run
+reported **0/288 on all three arms** — a clean bill of health. The C70 §5.6 control then failed:
+`RectXZ` is `{minX,minZ,maxX,maxZ}` and the probe passed `{x0,z0,x1,z1}`, so every rect was garbage
+and the swing arm could never fire. **Vitest does not typecheck test files**, so nothing else in
+the pipeline would have caught it. Watching the check go red is the only reason L-856 has a real
+number instead of a zero. Recorded as method: on this exact question, a false all-clear is what
+production is reported to have already delivered once.

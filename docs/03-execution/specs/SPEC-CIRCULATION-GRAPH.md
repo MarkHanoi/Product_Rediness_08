@@ -1,5 +1,15 @@
 # SPEC-CIRCULATION-GRAPH — Graph-theory residential circulation (founder, 2026-06-17)
 
+> ⚠ **Measured against HEAD 2026-08-13 — see [SPEC-49-CIRCULATION-INTEGRITY](SPEC-49-CIRCULATION-INTEGRITY.md).**
+> The gates and passes described below (the PART 5 rejection set, §9.5 §DOOR-RESCUE-REACH, the
+> §RESI-CORE-CIRCULATION repair) were re-verified by execution and **all compute correctly**. What
+> §9.4's "a winner ships only if `fraction === 1`" describes as the platform invariant **is NOT
+> wired**: §TOPO-HARD-REJECT-ALL ships the least-bad hard-INVALID candidate, the house path has its
+> structured rejection disabled outright, and `hardValid` is dropped at the `emitGeometry` boundary
+> so no orchestrator can even read the verdict. Measured shipped-artefact rates at HEAD:
+> **apartment 7% · house 50% · residential 0%** unreachable. Read SPEC-49 before assuming any
+> statement below about enforcement is live.
+
 Status: **canonical brief**. This governs the D-TGL house generator's circulation. A
 layout that fails **any** invariant below is INVALID and must be rejected *before* scoring —
 not down-weighted. Origin: founder message "§CIRCULATION-GRAPH — COMPLETE ARCHITECTURAL
