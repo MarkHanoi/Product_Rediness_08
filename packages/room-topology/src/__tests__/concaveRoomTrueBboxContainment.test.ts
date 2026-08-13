@@ -51,7 +51,7 @@ function makeLRoom() {
     levelId: LEVEL_ID,
     name: 'L-Room',
     roomNumber: '00-001',
-    occupancyType: 'living' as const,
+    occupancyType: 'living-room' as const,
     boundingWallIds: ['wall-a', 'wall-b', 'wall-c', 'wall-d', 'wall-e', 'wall-f'],
     boundingSlabIds: [],
     boundingColumnIds: [],
@@ -67,6 +67,7 @@ function makeLRoom() {
       centroid: { x: 2.2, z: 2.2 },
       boundingBox: { minX: 0, minZ: 0, maxX: 6, maxZ: 6 },
     },
+    finishes: {},
     metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'test', version: 1 },
   };
 }
