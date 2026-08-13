@@ -20,6 +20,11 @@ import {
     type ExistingHierarchy,
 } from '../src/ui/residential-building/residentialUnitHierarchy';
 import type { PlannedUnit } from '@pryzm/ai-host';
+// Deep source imports, NOT the `@pryzm/room-topology` barrel: the barrel pulls the whole
+// topology package (detection engine + boundary builder) into this suite and costs minutes of
+// transform for two symbols. These are the exact two modules the executor's room path uses.
+import { roomDataFromGraphSpec } from '../../../packages/room-topology/src/roomFromGraphSpec';
+import { RoomDataAddSchema } from '../../../packages/room-topology/src/RoomDataSchema';
 
 const EMPTY: ExistingHierarchy = { sites: [], buildings: [], levels: [] };
 
@@ -130,6 +135,32 @@ describe('planUnitHierarchy — REUSE, so a second generation does not duplicate
         expect(created.sort()).toEqual(['bim-0', 'bim-2']);
         // and the unit hangs off the EXISTING level node
         expect(plan.ops.find(o => o.verb === 'hierarchy.createUnit')!.payload.levelId).toBe('lvl-1');
+    });
+});
+
+describe('the stamped room — the executor writes room.unitId at BIRTH', () => {
+    // The executor builds each room with `roomDataFromGraphSpec(...)` and, when the apartment has
+    // a planned unit, ships `{ ...rd, unitId }`. That object must survive the SAME Zod gate
+    // `RoomStore.add` runs, or the whole containment silently drops every room.
+    it('a graph room stamped with a unitId still passes RoomDataAddSchema', () => {
+        const rd = roomDataFromGraphSpec(
+            {
+                levelId: 'bim-1',
+                name: 'Bedroom 1',
+                occupancyType: 'bedroom',
+                polygon: [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 }],
+            },
+            { levelHeightM: 2.7, roomNumber: '01' },
+        );
+        expect(rd).not.toBeNull();
+        // Unstamped: the pre-L-864 shape, an "unassigned room".
+        expect(RoomDataAddSchema.safeParse(rd).success).toBe(true);
+        expect((rd as { unitId?: string }).unitId).toBeUndefined();
+        // Stamped: what the executor now dispatches.
+        const stamped = { ...rd!, unitId: 'unit-01A' };
+        const parsed = RoomDataAddSchema.safeParse(stamped);
+        expect(parsed.success).toBe(true);
+        expect((parsed as { data: { unitId?: string } }).data.unitId).toBe('unit-01A');
     });
 });
 
