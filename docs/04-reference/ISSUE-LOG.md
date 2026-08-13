@@ -1781,3 +1781,67 @@ expected live path named.
 
 **A runtime harness is the single largest outstanding piece of work this exercise identifies.**
 Static analysis can prove a verb is dead; it cannot prove a live one is alive.
+
+---
+
+## L-846 — MANUAL FLY DEPLOY, `aa219a31` · gate-bypass cover · bundle proof 6/6
+
+**2026-08-13.** Fourth execution of `DEPLOY-CONTRACT-MANUAL-FLY.md`. Image
+`registry.fly.io/pryzm:deployment-01KZXC3JFSGFE41MMPAZE2B2B6`, served chunk
+`assets/main-DT_Gc9Ox.js`.
+
+### §6 gate-bypass cover — run against `aa219a31`, BEFORE deploying
+
+`§L-540-CI-GATE` and `§L-570-BUNDLE-PROOF` do not run on this path, so §6 requires the cover be
+recorded rather than implied:
+
+| Check | Result |
+|---|---|
+| root `tsc -p tsconfig.json --noEmit` | **exit 0** |
+| `npm run check:isolation` | **clean** — declaration and code agree, 41/41 |
+| `npm run test:server` | **613/613**, 41 files |
+
+⚠ **Not run**, and the cover is therefore narrower than CI's: root `npx vitest run`,
+`test:pryzm1`, Playwright E2E. Stated rather than implying parity, per §6.
+
+⚠ **Root tsc must be run with `NODE_OPTIONS=--max-old-space-size=6144`.** Measured this session:
+**it can exit 0 while OOM-ing** and report a false green. A tsc pass without the flag is not
+evidence.
+
+### §5 bundle proof — MANDATORY, and it read VALUES not lengths
+
+```
+served chunk: assets/main-DT_Gc9Ox.js
+PASS  VITE_CESIUM_TOKEN — len=257
+PASS  VITE_GOOGLE_MAPS_KEY — len=39
+PASS  VITE_GLB_URL — '/api/catalog/items/'      (root-relative — NOT MSYS-mangled)
+PASS  VITE_CONTEXT_TILES_URL — '/api/context-tiles/'  (proxy live, HTTP 200)
+PASS  GIT_SHA — /version git_sha == aa219a31f6314c3ddb5ba79d65ae582ef755c331
+PASS  /api/health/live — {"ok":true}
+BUNDLE PROOF PASSED.
+```
+
+The two URL args are the §MSYS-PATHCONV shape that once shipped green while mangled to
+`C:/Program Files/Git/...`; both read root-relative here. §6.5.2's advice to export
+`MSYS_NO_PATHCONV` was **not** followed — per §6.6.1 the script owns its own defence and the
+global export breaks its `curl`. Only the §6.5.6 `DOCKER_CONFIG` guard was used.
+
+### Preconditions
+
+Builder `fly-builder-twilight-songbird-4866` was already `shared-cpu-8x:16384MB` — **verified,
+not re-applied** (§6.6.2: the legacy builder app gets reaped, so never assume the §2.1 name).
+Working tree clean at capture; ~6 documentation commits landed during the ~35 min window and are
+**not** in the image, exactly as §2.3 predicts. Compare against the printed SHA, never `HEAD`.
+
+### What shipped
+
+68 commits. Security: three XSS sinks introduced by our own consequence UI, closed — the
+`data-plan-hash="${…}"` one could **close the attribute and mint event handlers on the Confirm
+button**, proven exploitable by mutation-testing the old escaper. Correctness: undo no longer
+walks the version counter; three graph families restored on load; six element kinds purge
+relationships on delete and restore them verbatim on undo; `contains` gained a first-party writer
+so the Furniture group can finally render. Instruments: ~12 new gates, each negative-tested.
+
+**Not fixed, and shipped knowingly:** a moved wall's slab does not follow (root cause pinned —
+event payload `{ id }` vs listeners reading `{ slab }`). Pre-existing, not a regression; see
+`BIM30-MASTER-COMPLETION-TRACKER.md` §-1.
