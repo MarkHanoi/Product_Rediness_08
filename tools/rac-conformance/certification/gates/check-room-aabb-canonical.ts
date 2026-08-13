@@ -55,6 +55,18 @@
 //           gate's own premise has failed and it exits 2 MISCONFIGURED rather
 //           than publishing a verdict it cannot support.
 //
+//           ⚠ ARM B IS THE PREMISE, NOT THE VERDICT (wording corrected
+//           2026-08-13). It proves the two conventions DISAGREE — 1.277 m on
+//           maxX for this footprint — which is what licenses ARM A to call
+//           CIRCLE-APPROX a defect at all. It says NOTHING about whether such a
+//           site exists in production; ARM A answers that, and today it reads
+//           DISTINCT AABB CONVENTIONS FEEDING ONE INDEX: 1 — TRUE-BBOX. ARM B
+//           therefore prints on EVERY run, including clean ones, and its output
+//           must never be quoted as evidence that GE-11 is live. It was, in the
+//           original wording ("GE-11 is a live correctness bug, measured"), and
+//           a recount reading that line literally would have re-opened a closed
+//           register row from a gate that was green.
+//
 //   ARM C · CONTROLS, executed every run, both directions (C70 §5.6). A
 //           comparator never watched going red publishes no verdict. Five
 //           controls run in-process before any finding is reported; any control
@@ -446,7 +458,10 @@ function main(): number {
   }
   lines.push('  ⛔ MISS REPRODUCED. `RoomStore.getRoomsContainingPoint` filters candidates through this');
   lines.push('     index BEFORE `pointInPolygon` runs, so a room dropped here is a silent false negative');
-  lines.push('     at a shipped public method — GE-11 is a live correctness bug, measured, not inferred.');
+  lines.push('     at a shipped public method — GE-11 WOULD BE a live correctness bug the moment any');
+  lines.push('     CIRCLE-APPROX site feeds this index. This arm establishes the gate\'s PREMISE (that the');
+  lines.push('     two conventions genuinely disagree), NOT that a defect is live today: whether one IS');
+  lines.push('     live is ARM A\'s reading above, and it is the only line to quote on that question.');
   lines.push('');
 
   // Ledger, both directions.
