@@ -13,11 +13,6 @@
       "key": "packages/command-registry/src/rooms/DetectAllRoomsCommand.ts#1",
       "convention": "CIRCLE-APPROX",
       "why": "FALLBACK arm — reached only when `room.computed.boundingBox` is absent; the arm above it (#0) is canonical. Two conventions inside ONE command, chosen by data availability, which is the shape C73 §3 exists to forbid."
-    },
-    {
-      "key": "packages/command-registry/src/rooms/ReDetectRoomsCommand.ts#0",
-      "convention": "CIRCLE-APPROX",
-      "why": "THE LOAD-BEARING ONE — this site is UNCONDITIONAL. ReDetectRoomsCommand has no bounding-box arm at all: every room it re-detects enters the index as centroid ± sqrt(area/PI). Its own comment concedes the intent was a convex hull `when available` and that nothing makes it available. Re-detection runs after wall edits, so this is the path by which an initially-correct index becomes uniformly approximate."
     }
   ]
 }

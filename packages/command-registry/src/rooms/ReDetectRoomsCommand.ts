@@ -40,7 +40,7 @@ import {
   SerializedCommand, CommandContext,
 } from '../types';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
-import { RoomDetectionEngine } from '@pryzm/room-topology';
+import { RoomDetectionEngine, polygonAABB } from '@pryzm/room-topology';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { roomSpatialIndex } from '@pryzm/core-app-model';
 import { assignUniqueRoomNumbers, resolveRoomLevelPrefix } from './RoomNumbering';
@@ -158,18 +158,23 @@ export class ReDetectRoomsCommand implements Command {
           console.warn('[ReDetectRoomsCommand] SemanticGraph boundedBy write failed:', err);
         }
 
-        // Phase D — D-5: SpatialIndex — insert room AABB derived from polygon centroid + area.
-        // boundingWallIds exist but no polygon is stored on RoomData; use the convex hull of
-        // the polygon vertices when available, otherwise fall back to centroid ± √(area/π).
+        // Phase D — D-5: SpatialIndex — insert the room's TRUE bounding box (GE-11, C73 §1/§3).
+        // ONE canonical AABB convention feeds roomSpatialIndex: the polygon's own extent
+        // (`computed.boundingBox`, which RoomStore recomputes from boundary.polygon on every
+        // add/update). The old centroid ± sqrt(area/PI) circle box preserved AREA, not
+        // EXTENT — exact only for a square, it understates every other footprint in at
+        // least one axis; and because re-detection runs after every wall edit, this site
+        // silently re-poisoned the whole index, making RoomStore.getRoomsContainingPoint
+        // return false negatives for interior points of concave rooms.
         try {
-          const { centroid, area } = room.computed ?? {};
-          if (centroid) {
-            const r2 = Math.sqrt((area ?? 10) / Math.PI);
+          const boundingBox = room.computed?.boundingBox
+            ?? (room.boundary?.polygon?.length ? polygonAABB(room.boundary.polygon) : undefined);
+          if (boundingBox) {
             roomSpatialIndex.insert(room.id, {
-              minX: centroid.x - r2,
-              minZ: centroid.z - r2,
-              maxX: centroid.x + r2,
-              maxZ: centroid.z + r2,
+              minX: boundingBox.minX,
+              minZ: boundingBox.minZ,
+              maxX: boundingBox.maxX,
+              maxZ: boundingBox.maxZ,
             });
           }
         } catch (err) {
