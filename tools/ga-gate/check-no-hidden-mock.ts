@@ -155,7 +155,13 @@ const LEDGER: readonly string[] = [
   'M-B::apps/editor/src/ui/rooms/EvacuationSimulatorPanel.ts',
   'M-B::apps/editor/src/ui/rooms/RoomGraphPanel.ts',
   'M-B::packages/ai-host/src/AmbientIntelligence.ts',
-  'M-B::packages/ai-host/src/WallRegionExtractor.ts',
+  // M-B::packages/ai-host/src/WallRegionExtractor.ts STRUCK 2026-08-14 (CO-06) —
+  // the header now carries owner + date + an EXECUTABLE retiring assertion:
+  // `__tests__/WallRegionExtractor.hullRefusal.test.ts` asserts an L-shaped plan is
+  // REFUSED, which a real planar topology layer would not do, so the assertion fails
+  // the moment the Phase E replacement lands and forces the header retired with it.
+  // The declaration states what is FAKE (a Jarvis-march convex hull standing in for a
+  // planar graph) — it does not claim the scaffold is real.
   'M-B::packages/command-registry/src/catalog/AddAssetCatalogEntryCommand.ts',
   'M-B::packages/command-registry/src/catalog/DeleteAssetCatalogEntryCommand.ts',
   'M-B::packages/command-registry/src/catalog/UpdateAssetCatalogEntryCommand.ts',

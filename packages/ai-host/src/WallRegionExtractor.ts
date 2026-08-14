@@ -6,6 +6,43 @@
  * ARCHITECTURAL STATUS: PLACEHOLDER — DO NOT EXTEND
  * ─────────────────────────────────────────────────────────────────────────────
  *
+ * ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06) ───────────────────────────────────
+ * owner: @pryzm/ai-host (topology-layer stream; the Phase E replacement is this
+ *   package's debt, not the caller's)
+ * date: 2026-08-14
+ *
+ * WHAT IS FAKE, stated plainly — this file is named for a region extractor and
+ *   is not one. It computes a JARVIS-MARCH CONVEX HULL and offers it where a
+ *   PLANAR-GRAPH TOPOLOGY LAYER is specified (01-BIM-ENGINE-CORE-CONTRACT §1.2
+ *   Phase 2). A hull cannot represent an L, a U, or a courtyard: on any
+ *   non-convex building it BRIDGES THE NOTCH, and that ring used to be committed
+ *   as the building perimeter by `AIService.CREATE_ROOF_BY_REGION` — roof over
+ *   open air, then elaborated by the eave and hip offsets into a confidently
+ *   wrong roof. It also reads `window.wallStore` directly, which is the
+ *   store-unification debt tracked as TASK-08 / ADR-0318, not a local shortcut.
+ *
+ * WHAT IS REAL — the REFUSAL. Since §W2A-HULL-IS-NOT-A-PERIMETER the caller-facing
+ *   path returns `{ kind: 'refused', reason }` naming the bridging edge rather
+ *   than returning a hull it cannot justify. The stand-in is honest about its own
+ *   limit; it is still a stand-in.
+ *
+ * RETIRING ASSERTION (executable, not prose) —
+ *   `packages/ai-host/__tests__/WallRegionExtractor.hullRefusal.test.ts`, the test
+ *   named "THE DEFECT: an L-shaped building is REFUSED — the old path committed
+ *   the hull", asserts `r.kind === 'refused'` for an L-shaped plan. A REAL planar
+ *   topology layer returns the correct L perimeter instead of refusing, so that
+ *   assertion FAILS the moment the replacement lands — which forces this header
+ *   and the placeholder posture to be retired in the same change. It cannot rot
+ *   quietly: the pair is all-or-nothing.
+ *
+ * EXIT CONDITION — Phase E of the PDF-to-BIM reconstruction plan: a planar graph
+ *   built from wall-intersection nodes, DFS cycle detection for room faces, outer
+ *   face extraction for the perimeter, driven through `AIReadModel.getWallsByLevel()`
+ *   (which also discharges the `window.wallStore` half). Until that exists this
+ *   file stays a refusing placeholder. There is no third state where it quietly
+ *   becomes adequate.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
  * This file is currently used only by AIService.ts → CREATE_ROOF_BY_REGION intent.
  * It contains two known contract violations and one algorithmic inadequacy:
  *
