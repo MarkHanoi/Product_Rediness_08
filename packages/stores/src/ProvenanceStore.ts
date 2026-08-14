@@ -30,6 +30,47 @@ import type {
 } from '@pryzm/schemas/provenance';
 
 /**
+ * Version of the serialised provenance slice (PV-05).
+ * Bumping this is a BREAKING read: `hydrate()` refuses any other value
+ * rather than loading a partial audit log.
+ */
+export const PROVENANCE_SLICE_VERSION = 1 as const;
+
+/**
+ * The persisted shape of the C23 lineage substrate — the snapshot slice
+ * `ProjectSerializer` writes and `ProjectLoader` restores (PV-05).
+ * Plain JSON, no class instances, deterministic member order.
+ */
+export interface SerializedProvenance {
+    version: typeof PROVENANCE_SLICE_VERSION;
+    artefacts: AIArtefact[];
+    edges: ProvenanceEdge[];
+    contextSnapshots: ContextSnapshot[];
+    redactions: RedactionRecord[];
+}
+
+/** A row the hydrate refused, NAMED rather than silently discarded. */
+export interface ProvenanceDroppedRow {
+    kind: 'artefact' | 'edge' | 'contextSnapshot' | 'redaction';
+    id: string;
+    reason: string;
+}
+
+/**
+ * Outcome of `ProvenanceStore.hydrate()`. `absent` is non-null only when
+ * the snapshot carried NO provenance slice at all — an UNKNOWN with a
+ * reason (C75 §1.4), never an empty audit log presented as a complete one.
+ */
+export interface ProvenanceHydrateResult {
+    artefacts: number;
+    edges: number;
+    contextSnapshots: number;
+    redactions: number;
+    dropped: ProvenanceDroppedRow[];
+    absent: 'predates-provenance-persistence' | null;
+}
+
+/**
  * L3 reactive append-only store for the C23 Provenance substrate.
  * One instance per runtime session (constructed by composeRuntime).
  * Idempotent disposal.
@@ -276,6 +317,159 @@ export class ProvenanceStore {
             producedElementIds: [...a.producedElementIds, elementId],
         });
         this._notify();
+    }
+
+    // ── Persistence (PV-05 · C70 I-INV-2) ──────────────────────────────────
+
+    /**
+     * Serialise the whole C23 lineage substrate to a plain-JSON slice.
+     *
+     * PV-05 · C70 I-INV-2. Before 2026-08-14 this store had NO serialise
+     * surface at all — measured, not assumed: zero `serialize`/`toJSON`/
+     * `hydrate` members here and zero references from
+     * `packages/persistence-client`. That is the "genuinely unpersisted"
+     * defect, NOT the "persisted-and-not-rebuilt" one (register §0
+     * separates them): every artefact, edge, context snapshot and
+     * redaction record was destroyed on reload, and the AI audit log C23
+     * §1.8 promises a regulator could not survive a page refresh.
+     *
+     * Ordering is DETERMINISTIC (timestamp/createdAt then id) so a
+     * serialise → hydrate → serialise round trip is byte-equal; the
+     * round trip is pinned by `ProvenanceStore.persistence.test.ts`.
+     * Rows are deep-cloned — the caller cannot alias live store state.
+     */
+    serialize(): SerializedProvenance {
+        return {
+            version: PROVENANCE_SLICE_VERSION,
+            artefacts: this.listArtefacts().map((a) => structuredClone(a) as AIArtefact),
+            edges: this.listEdges().map((e) => structuredClone(e) as ProvenanceEdge),
+            contextSnapshots: Array.from(this._snapshotsById.values())
+                .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+                .map((s) => structuredClone(s) as ContextSnapshot),
+            redactions: Array.from(this._redactionsById.values())
+                .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+                .map((r) => structuredClone(r) as RedactionRecord),
+        };
+    }
+
+    /**
+     * Restore a serialised slice into an EMPTY store.
+     *
+     * Three refusals, all deliberate, all C75/C70 rules rather than
+     * defensive noise:
+     *
+     *  1. An unknown `version` THROWS. A shape this build cannot read is
+     *     not an empty shape — silently accepting it would load a
+     *     truncated audit log as if it were complete.
+     *  2. Hydrating over a non-empty store THROWS. Merging a persisted
+     *     lineage into a live one fabricates a DAG neither session had;
+     *     provenance is append-only (C23 §1.9), not mergeable.
+     *  3. A malformed row is DROPPED **and named in the result**, never
+     *     silently. This is the same defect shape `check-graph-persistence`
+     *     ARM E finds in `SemanticGraphManager.deserialize` (C71 §5.7):
+     *     a row that vanishes without a count is a defect nobody can
+     *     reproduce. Rows here are re-validated by the ordinary write
+     *     API, so the §1.3 DAG and dangling-reference invariants are
+     *     re-checked on load rather than trusted from disk.
+     *
+     * Passing `undefined` (a snapshot written before this slice existed)
+     * is NOT an error and is NOT an empty audit log: it returns
+     * `absent: 'predates-provenance-persistence'` — UNKNOWN with a
+     * reason, per C75 §1.4. The store stays empty; nothing is invented.
+     */
+    hydrate(slice: SerializedProvenance | undefined): ProvenanceHydrateResult {
+        const result: ProvenanceHydrateResult = {
+            artefacts: 0,
+            edges: 0,
+            contextSnapshots: 0,
+            redactions: 0,
+            dropped: [],
+            absent: null,
+        };
+        if (this._disposed) {
+            throw new Error('ProvenanceStore: hydrate() after dispose');
+        }
+        if (slice === undefined) {
+            // C75 §1.4 — absence is a value WITH A REASON, never an
+            // invented empty audit log.
+            result.absent = 'predates-provenance-persistence';
+            return result;
+        }
+        if (slice.version !== PROVENANCE_SLICE_VERSION) {
+            throw new Error(
+                `ProvenanceStore: cannot hydrate provenance slice version ${String(slice.version)} — this build reads version ${PROVENANCE_SLICE_VERSION} only (refusing rather than loading a partial audit log)`,
+            );
+        }
+        if (
+            this._artefactsById.size > 0 ||
+            this._edgesById.size > 0 ||
+            this._snapshotsById.size > 0 ||
+            this._redactionsById.size > 0
+        ) {
+            throw new Error(
+                'ProvenanceStore: hydrate() requires an empty store — merging a persisted lineage into a live one would fabricate a DAG neither session had (C23 §1.9)',
+            );
+        }
+
+        const drop = (
+            kind: ProvenanceDroppedRow['kind'],
+            id: string,
+            reason: string,
+        ): void => {
+            result.dropped.push({ kind, id, reason });
+        };
+
+        // Snapshots first (artefacts reference them), then artefacts,
+        // then edges (which reference artefacts), then redactions.
+        for (const s of slice.contextSnapshots ?? []) {
+            if (!s || typeof s.id !== 'string' || typeof s.contextHash !== 'string') {
+                drop('contextSnapshot', String((s as { id?: unknown })?.id ?? '<no id>'), 'missing id or contextHash');
+                continue;
+            }
+            try {
+                this.addOrReuseSnapshot(s);
+                result.contextSnapshots++;
+            } catch (err) {
+                drop('contextSnapshot', s.id, (err as Error).message);
+            }
+        }
+        for (const a of slice.artefacts ?? []) {
+            if (!a || typeof a.id !== 'string') {
+                drop('artefact', '<no id>', 'missing id');
+                continue;
+            }
+            try {
+                this.addArtefact(a);
+                result.artefacts++;
+            } catch (err) {
+                drop('artefact', a.id, (err as Error).message);
+            }
+        }
+        for (const e of slice.edges ?? []) {
+            if (!e || typeof e.id !== 'string' || typeof e.fromArtefactId !== 'string') {
+                drop('edge', String((e as { id?: unknown })?.id ?? '<no id>'), 'missing id or fromArtefactId');
+                continue;
+            }
+            try {
+                this.addEdge(e);
+                result.edges++;
+            } catch (err) {
+                drop('edge', e.id, (err as Error).message);
+            }
+        }
+        for (const r of slice.redactions ?? []) {
+            if (!r || typeof r.id !== 'string') {
+                drop('redaction', '<no id>', 'missing id');
+                continue;
+            }
+            try {
+                this.addRedaction(r);
+                result.redactions++;
+            } catch (err) {
+                drop('redaction', r.id, (err as Error).message);
+            }
+        }
+        return result;
     }
 
     /** Clear all rows — used by the C13 project-switch reset hook. */
