@@ -843,6 +843,26 @@ export class ViewDependencyTracker {
      * re-projected.  Including them triggers exportForView() over all 156
      * native groups + OBC edge projection of all 9,461 edge geometries,
      * observed as a 12,635ms LONGTASK after the curtain-wall batch.
+     *
+     * ⚠ §DIAG-3D-STALE-AFTER-WALL-MOVE — READ THIS BEFORE "FIXING" A STALE 3D VIEWPORT HERE.
+     *
+     * Founder, build 46232e2d: *"user moves a wall in 3d — in plan view renders correctly,
+     * but the 3d environment did not catch up"*. The console line that looks like the
+     * culprit is this class's own
+     *   `flush — 1 active dirty view(s): vd-sys-p (+4 deferred inactive)`
+     * and the natural reading — "the 3D pane is one of the four DEFERRED-INACTIVE views" —
+     * IS FALSE. The `continue` below means a 3D view is never dirtied, never deferred,
+     * never flushed and never force-projected: it is structurally outside this class. The
+     * four deferred views are the L-110 default elevations (§FEAT-DEFAULT-ELEVATIONS).
+     *
+     * So NO change to `_isViewActive`, to `notifyViewActivated`, or to how the split-view
+     * panes register their visibility can refresh a stale 3D viewport. That refresh path is
+     * the wall MESH rebuild (WallRebuildCoordinator → WallFragmentBuilder), not 2D edge
+     * re-projection, and the fix belongs there.
+     *
+     * PINNED BY: `__tests__/threeDViewIsNeverTracked.test.ts` (5 assertions, incl. the
+     * founder's own differential: a window `create` — the coarse path that visibly brought
+     * the 3D up to date — also never reaches a 3D view through here).
      */
     private _getAffectedViews(_elementId: string, levelId: string): string[] {
         const affected: string[] = [];
