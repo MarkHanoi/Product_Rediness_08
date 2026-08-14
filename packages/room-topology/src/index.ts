@@ -58,6 +58,15 @@ export { RoomDetectionEngine } from './RoomDetectionEngine';
 // boundary-provenance decision the engine delegates to.
 export { buildDetectedRoomBoundary, isRoomBoundaryRefusal } from './detectedRoomBoundary';
 export type { RoomBoundaryResult, RoomBoundaryRefusal } from './detectedRoomBoundary';
+// §OPENED-REGION (L-880) — the PURE before/after room-set comparison that answers
+// "did that wall move leave a region standing open?", plus the one channel it
+// publishes on. See the module header for why `unresolvedLoopBreaks`, the compliance
+// overlay and the §GR12 undetermined mark are each measured NOT to be this signal.
+export { scanForOpenedRegions, openedRegionNotifier } from './OpenedRegionDetector';
+export type {
+    RegionSnapshot, SurvivingWall, OpenedRegionScanInput, OpenedRegionScan,
+    OpenedRegionFinding, OpenedRegionGap, OpenedRegionCause, UnknownPositionReason,
+} from './OpenedRegionDetector';
 export { RoomStore } from './RoomStore';
 
 // ── Sprint H P9.2 (2026-05-10) — RoomDataSchema + LightingRoomResolver ───────
