@@ -4594,3 +4594,52 @@ consequence is identical: rooms that will not close. Whether the fix is a draw-t
 post-move re-weld, or an honest report is unmeasured. **Also**: `doorsRegistered=0
 windowsRegistered=0` in `[PickDiag] §L-99b` while 2 door swing arcs render — hosted openings are
 absent from the pick registry (the 3D-selection instanced gap family).
+
+---
+
+## L-913 — OPEN, FOUNDER-PRIORITY — the opened-region refusal is HONEST but its premise is TOO NARROW: a corner gap is a KNOWN POLYLINE, not a guess — propose the multi-segment wall instead of refusing
+
+**OBSERVED by the founder on `21919312` (bundle `main-CglAW_HE.js`), 2026-08-14.** Moved a wall;
+Room 00-002 (12.3 m²) stopped being closed. PRYZM said, in chat:
+
+> *"That wall move left something open. Room 00-002 (12.3 m²) stopped being a closed room and the
+> unwalled stretch (10.08 m) turns a corner. One straight wall cannot close it, and a wall drawn
+> straight across would enclose a different room than the one that was lost. I am not proposing a
+> wall for it, because I would be guessing where it goes."*
+
+Console: `§OPENED-REGION level='L0' REFUSED to propose a position (gap-turns-corner, listeners=1)`.
+
+**The founder''s verdict, and it is correct: "the message is sound — it seems to understand the
+logic — HOWEVER IT IS WRONG: it could have perfectly created a wall."** The second screenshot shows
+the geometry: the lost stretch is an ordinary L (the highlighted wall `WA-XX-014`,
+start (16.125, −43.078) → end (16.125, −51.110), length 8.032 m, with the short returning leg
+rendered in red at the corner). Two segments close it exactly.
+
+**WHY THE REFUSAL IS WRONG-BUT-WELL-BUILT.** `§OPENED-REGION` (landed `499360c6`/`a75e8e1e`)
+proposes **ONE STRAIGHT SEGMENT** and, per C83 §4.2, refuses rather than offering a candidate it
+cannot defend — which is the right doctrine and the reason the refusal reads so well. But the
+premise *"I would be guessing where it goes"* is **false in this case**: the room''s previous
+boundary polygon IS held (the room existed and was closed one command ago; `§GR12-BOUNDARY-
+INVALIDATION` names the very rooms whose conclusions were invalidated). **The unwalled stretch is a
+recorded polyline, not an unknown** — so proposing the exact 2-segment (or N-segment) run along the
+lost boundary is DERIVED, not guessed, and satisfies §4.2 rather than violating it.
+
+**THE FIX:** widen the proposal from a single segment to the **polyline of the lost boundary**:
+walk the former room polygon between the two surviving anchor points, emit one wall per straight
+run (2 for an L, N for a more complex gap), each pre-validated by `canPlace` exactly as the current
+single-segment offer already validates its candidate. Confirm = **ONE undoable composite** (all
+segments in one gesture, one Ctrl+Z — the §L-874-ONE-UNDO shape), and the chat sentence states how
+many walls it will draw and their total length. **Keep the refusal** for the genuinely
+undeterminable cases (an anchor that no longer exists, a curved run the resolver cannot express,
+an ambiguous reconstruction) — the refusal text is good and must survive for those; only the
+*"turns a corner"* branch stops being a refusal reason.
+
+**ALSO IN THIS LOG, unchanged and still open:** `§DIAG-ROOM-LOOP BREAK` ×5 then ×2 (endpoints
+783 mm / 993 mm off-centreline vs a 200 mm host-snap) on HAND-DRAWN walls — the L-912 tail-note
+family, not yet fixed for hand edits · `[PickDiag] doorsRegistered=0 windowsRegistered=0` while
+2 door arcs render — hosted openings absent from the pick registry.
+
+**WORKING, recorded so the good half is not lost:** `§C79-5.2 resized: floor follows wall
+99.626 → 77.645 m²` · `§MOVE-REWELD-DISPATCH` re-welding a junction partner · `§GR12-BOUNDARY-
+INVALIDATION` naming the invalidated rooms · the opened-region detector correctly NOTICING the
+lost room and speaking in chat within one action of the move.
