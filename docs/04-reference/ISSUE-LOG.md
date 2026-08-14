@@ -4218,6 +4218,45 @@ Candidate new rows: boundary-capture (a), plan-fidelity (b). C80 §6.4 protects 
 the fixes are INPUT wiring, executor clipping/refusal, and chooser disclosure, not an engine
 rewrite. Lane L-GENBOUNDARY owns the investigation; mechanism map to be appended when measured.
 
+**LANE APPEND (L-GENBOUNDARYv2, 2026-08-14) — MECHANISM MAP, measured by execution** (scratchpad
+probe driving `analyseShell → generateDeterministicLayouts → generateProceduralLayout →
+buildLayoutCardModel`, the real pipeline pieces):
+
+**(a) Where the boundary lives, and where the rectangle is minted.** The captured footprint is NOT
+lost in the request: `gatherLayoutPayload.ts:77-104` (apps/editor/src/ui/apartment-layout) reads the
+level's walls; `buildLayoutRequestPayload` (`layoutRequestPayload.ts:138-187`) carries
+`shellWallIds` (ids, not a polygon); `createStoreShellReader`
+(packages/ai-host/src/workflows/apartmentLayout/`shellReader.ts:47-78`) re-reads the baselines; and
+`wallsToPolygon` + `analyseShell` (`shellAnalysis.ts:51-69, 145-168`) chain the REAL perimeter
+polygon into `ShellAnalysis.perimeter`. D-TGL receives that polygon. **The rectangle is minted at
+`proceduralLayout.ts:57-87`** (`generateProceduralLayout`, the strip slicer): it discards
+`shell.perimeter` except for the min corner and slices the `widthM × depthM` BOUNDING BOX
+(`shellAnalysis.ts:149-152`) into parallel bands — the header comment (line 8) admits "this
+subdivides the shell's bounding box". That branch runs only via `generate.ts:336-344`: AI relay
+produced no valid option AND D-TGL returned `[]` AND the envelope is admissible — the founder's
+"Procedural A/B" chips prove this exact branch executed in production. Probe measurement: on a
+non-orthogonal T-shell (118 m² net vs 184.8 m² bbox) the strip slicer put **10 of 18 partition-wall
+endpoints/midpoints OUTSIDE the captured boundary**. Caveat, stated so nobody over-claims: the
+synthetic T-shell did NOT make D-TGL decline (it shipped 3 least-bad options via
+§POLYGON-NATIVE-ROUTE / §TOPO-HARD-REJECT-ALL); the production shell's decline reason is
+shell-specific and was not persisted. The mint site is pinned regardless of which shells reach it.
+
+**(b) The instrument is a console.log.** `ApartmentLayoutExecutor.ts:464-473` — the room-detection
+diagnostic (`detected=<roomStore.getByLevel().length> / D-TGL expected=<option.rooms.length>`) fires
+inside a 500 ms `setTimeout` after the door+boundary batch and goes ONLY to the console. No toast,
+no banner — §15.7 lesson 1 verbatim.
+
+**(c) Both chips reproduced exactly, and both are partly FALSE readings.** The probe's card model on
+the strip-slicer option read **"25 errors" + "Circulation ~0%"** — the founder's numbers to the
+digit. Decomposition: of the 25 errors, **A-7×5 + G-10×5 + G-7×5 = 15 are minted by the report path
+itself** — `optionToDto` (`layoutCardModel.ts:305-360`) never populates
+frontage/glazing/exterior-edge, and `layout-adapter.ts:150-163` defaults them to 0/0/false, so
+UNMEASURED inputs print as measured zeros. The **"Circulation ~0%" is measuring an UNBUILT graph**:
+`proceduralLayout.ts:93-100` emits every room with `adjacentTo: []` and no `doorAdjacentTo` while
+emitting a door on every partition (a fully-connected linear chain by construction);
+`computeCirculationReachability` (`layoutBubbleGraph.ts:736+`) BFS-es the edge-less graph → 0%. The
+CTA at `layoutModalHtml.ts:290` renders enabled and confident regardless.
+
 ---
 
 ## L-908 — OPEN (render) — WebGPU crash in production: ShadowDepthTexture destroyed while referenced by an in-flight submit; §RECOVERY-MUST-REFUSE refused the blind rebuild and recovery succeeded
@@ -4277,3 +4316,55 @@ a defect.
 
 **Home**: GENERATIVE-QUALITY tracker (evidence cells) + this row. Assigned: L-GENBOUNDARY lane
 extends to (b)''s false-vs-true determination; (a) needs its own emission-seam lane.
+
+**LANE APPEND (L-GENBOUNDARYv2, 2026-08-14) — (b) FALSE-vs-TRUE DETERMINATION, measured by
+execution.** D-TGL on a 12×8 m rect shell emitted `option.windows = 9` shell windows and every
+habitable room carried `windowCount = 1` — **windows WERE generated**. The SAME option object,
+pushed through the production report surface (`buildLayoutCardModel → validateAndFormatLayout`),
+read **G-10×5 "glazed-to-floor ratio 0.000" + G-7×5 "external frontage 0.00 m" + A-7×5
+no-exterior-edge**. Determination: **the exterior-edge/frontage/glazing classification at the
+REPORT layer is broken — the G-10/G-7/A-7 triple is FALSE, which makes 15 of the founder's 19
+errors FALSE readings.** Mechanism: the card-model DTO projector (`layoutCardModel.ts:305-360`,
+`optionToDto`) drops the window/frontage data that exists on the very option it is projecting;
+`layout-adapter.ts:150-163` then defaults `externalFrontageM = 0`, `glazedAreaM2 = 0`,
+`hasExteriorEdge = false` ("conservative"), and G-7/G-10/A-7 print those unmeasured defaults as
+measured zeros. The honest disclosure is therefore **"frontage/glazing NOT MEASURED by this
+report"**, NOT "no windows generated yet" — the windows are on the same object the projector read.
+The remaining findings (corridor oversize G-1/G-2 family, A-3 forbidden bedroom↔kitchen door) are
+NOT of this class and remain presumptively TRUE — the remediation asks (corridor resize,
+forbidden-door rerouting, report-as-verdict) stand. Chooser-side honesty fix (unmeasured split +
+unmissable verdict) lands under L-907(c) this lane; feeding REAL frontage/glazing into the DTO is
+the enrichment follow-up and belongs to the (a) emission-seam lane.
+
+---
+
+## L-910 — OPEN, FOUNDER-PRIORITY (isolation) — NEW project in the same session renders the PREVIOUS project''s linework: project-switch does not purge the plan-projection/render caches
+
+**OBSERVED by the founder in production 2026-08-14**: start a NEW project from the same session
+(new Cordoba parcel, ZERO authored walls — the GIS side even logs *"no authored building yet"*)
+— and the PREVIOUS project''s building outline (its hidden-line plan linework, the cross-shaped
+footprint) renders in the viewport beside the new parcel. *"Lines + issues came from previous
+project."*
+
+**Class**: C13 project-lifecycle-and-isolation breach at the RENDER/PROJECTION layer — the same
+family as the fixed auth-session client-cache leak ([[auth-session-leak-account-switch]]: fixed
+via identity-change purge) and the render-reconstruction-boundary rule
+([[render-reconstruction-boundary-gpu-reset]]: device-loss / first-load / PROJECT-SWITCH all
+need a full reset). Candidate un-purged substrates, from the surfaces named in this session''s
+logs: EdgeProjectorService''s per-view cache (`cacheEntries=N/5000` persists across loads?) ·
+NativeElementMeshExporter §H2-NME-CACHE · ViewDependencyTracker view state · the plan-view
+projection groups in initScene · stale scene meshes surviving the switch. The new project''s
+stores are empty (the empty plan pane says "Add walls to see the floor plan") while the 3D pane
+draws old linework — so the leak is downstream of the stores, in a cache keyed by nothing
+project-scoped.
+
+**Also in the same log, honest no-ops recorded as CORRECT, not defects**: §CTX-PMTILES-READER
+rail/trees 404 → "rendering NO rail/trees" (known missing, no silent fallback) ·
+§OVERPASS-CLIENT-FAILOVER treating all-mirrors-failed as "no answer" rather than "no context" ·
+§FEAT-FORMA-SEA-CONTEXT honest no-op inland. The isolation leak is the defect; these are the
+honesty doctrine working.
+
+**Ask**: executed repro first (project A with walls → switch to B → assert zero projection
+groups/meshes/cache entries attributable to A), then purge at the project-switch reconstruction
+boundary — keyed on project identity, not on "looks empty". `npm run check:isolation` (41/41
+baseline) must not regress; if the static checker CAN express this leak class, add the arm.
