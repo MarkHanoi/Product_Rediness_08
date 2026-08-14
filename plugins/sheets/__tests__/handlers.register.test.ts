@@ -14,8 +14,9 @@ const EXPECTED_TYPES = [
   'sheet.delete',
   'sheet.rename',
   'sheet.reorder',
-  // S38
-  'sheet.addViewport',
+  // S38 — NB 'sheet.addViewport' is deliberately ABSENT: its live arm is the
+  // initBusHandlers §E.5.5 bridge (§FIX-SHEET-ADDVIEWPORT-SHADOW, MT-03; see
+  // __tests__/addViewportShadow.test.ts).
   'sheet.removeViewport',
   'sheet.setViewportScale',
   'sheet.setTitleBlock',
@@ -26,7 +27,7 @@ const EXPECTED_TYPES = [
 ] as const;
 
 describe('buildSheetHandlerSet', () => {
-  it('returns all 11 handlers in S37→S39 declaration order', () => {
+  it('returns all 10 handlers in S37→S39 declaration order', () => {
     const set = buildSheetHandlerSet();
     expect(set.map((h) => h.type)).toEqual([...EXPECTED_TYPES]);
   });
@@ -43,7 +44,7 @@ describe('buildSheetHandlerSet', () => {
 });
 
 describe('registerSheetHandlers', () => {
-  it('registers all 11 handlers on a fresh CommandBus', () => {
+  it('registers all 10 handlers on a fresh CommandBus', () => {
     const bus = new CommandBus({
       storesProvider: () => ({ sheet: {} }),
       audit: { actorId: 'test', projectId: 'p', clientId: 'c' },

@@ -31,7 +31,36 @@
 
 import type { CommandBus } from '@pryzm/plugin-sdk';
 import type { ViewportDto } from '@pryzm/plugin-sdk';
-import type { AddViewportPayload } from './handlers/AddViewport.js';
+
+/**
+ * The payload `handleDropView()` builds and dispatches under
+ * `sheet.addViewport`.
+ *
+ * §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03) — this interface used to live on the
+ * plugin's AddViewportHandler, one arm of a SHADOWED dual registration. That
+ * handler is DELETED: the executed read-back
+ * (apps/editor/__tests__/SheetAddViewportReachesSheetStore.test.ts) proved the
+ * initBusHandlers §E.5.5 bridge → AddViewportToSheetCommand → core-app-model
+ * sheetStore is the arm that reaches authoritative state. The type now
+ * belongs to the one thing still building this shape.
+ *
+ * ⚠ KNOWN PAYLOAD FORK, recorded not hidden: the surviving bridge's
+ * AddViewportToSheetParams takes `{ viewportId, position: {x, y} }` (what
+ * ViewsRailPanel.ts:909 sends), NOT this flat `{ x, y, width, height }`
+ * shape. `handleDropView()` has no production caller today; wiring it to the
+ * live verb must first reconcile the shapes.
+ */
+export interface AddViewportPayload {
+  readonly sheetId: string;
+  readonly viewId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly scale: number;
+  readonly id?: string;
+  readonly clippingBox?: ViewportDto['clippingBox'];
+}
 
 /** Default viewport size in millimetres when the user drops a view
  *  without dragging out a target rectangle.  120 × 90 mm is the

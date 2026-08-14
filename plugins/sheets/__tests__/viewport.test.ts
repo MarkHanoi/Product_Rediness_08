@@ -5,45 +5,42 @@
 // through `computeWorldBounds`.
 
 import { describe, it, expect } from 'vitest';
-import { applyPatches } from 'immer';
 import { CommandBus } from '@pryzm/plugin-sdk';
 import {
   ViewportManager,
   DEFAULT_VIEWPORT_WIDTH_MM,
   DEFAULT_VIEWPORT_HEIGHT_MM,
   DEFAULT_VIEWPORT_SCALE,
+  type AddViewportPayload,
 } from '../src/viewport.js';
-import { AddViewportHandler } from '../src/handlers/AddViewport.js';
-import type { SheetData, ViewportDto } from '@pryzm/plugin-sdk';
-import type { SheetsState } from '@pryzm/plugin-sdk';
+import type { ViewportDto } from '@pryzm/plugin-sdk';
 
-const baseSheet: SheetData = {
-  id: 'sheet-1', name: 'Plan', number: 'A-001',
-  size: 'A1', orientation: 'landscape',
-  titleBlockId: 'standard', viewports: [], widgets: [],
-  revision: '', issue: '', seq: 0,
-};
-
-function makeBus(initial: SheetsState = { 'sheet-1': baseSheet }): {
-  bus: CommandBus;
-  getSheet: () => SheetsState;
-} {
-  let sheetState = initial;
+// §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03) — this suite used to register the
+// plugin's AddViewportHandler here. That handler was one arm of a SHADOWED
+// dual registration and is DELETED: the executed read-back
+// (apps/editor/__tests__/SheetAddViewportReachesSheetStore.test.ts) proved the
+// initBusHandlers §E.5.5 bridge → AddViewportToSheetCommand → core-app-model
+// sheetStore is the arm that reaches authoritative state. What THIS suite
+// still owns is ViewportManager's DISPATCH CONTRACT: the payload it builds and
+// sends under 'sheet.addViewport'. A local recorder handler pins that without
+// re-claiming the verb's authority (CA-21 — a dead arm's tests must not pin
+// the lie).
+function makeBus(): { bus: CommandBus; dispatched: AddViewportPayload[] } {
+  const dispatched: AddViewportPayload[] = [];
   const bus = new CommandBus({
-    storesProvider: () => ({ sheet: sheetState }),
+    storesProvider: () => ({ sheet: {} }),
     audit: { actorId: 'test', projectId: 'p', clientId: 'c' },
   });
-  // Wire a tiny "apply forward patches back to the store" loop — mirrors
-  // what `wireSheetsBus` does in production.
-  bus.patches.subscribe((_bytes, record) => {
-    for (const entry of record.patches) {
-      if (entry.storeKey === 'sheet') {
-        sheetState = applyPatches(sheetState, [...entry.forwardPatches]) as SheetsState;
-      }
-    }
-  });
-  bus.register(new AddViewportHandler() as never);
-  return { bus, getSheet: () => sheetState };
+  bus.register({
+    type: 'sheet.addViewport',
+    affectedStores: [] as const,
+    canExecute: () => ({ valid: true }),
+    execute: (_ctx: unknown, cmd: AddViewportPayload) => {
+      dispatched.push(cmd);
+      return { forward: [], inverse: [] };
+    },
+  } as never);
+  return { bus, dispatched };
 }
 
 describe('ViewportManager.buildDropPayload', () => {
@@ -72,15 +69,17 @@ describe('ViewportManager.buildDropPayload', () => {
   });
 });
 
-describe('ViewportManager.handleDropView (integration with bus + handler)', () => {
-  it('dispatches sheet.addViewport and writes the new viewport into the store', async () => {
-    const { bus, getSheet } = makeBus();
+describe('ViewportManager.handleDropView (dispatch contract)', () => {
+  it('dispatches sheet.addViewport with exactly the payload buildDropPayload computes', async () => {
+    const { bus, dispatched } = makeBus();
     const mgr = new ViewportManager(bus, 'sheet-1');
     const payload = await mgr.handleDropView({
       viewId: 'view-1', dropX: 50, dropY: 60, width: 100, height: 80, scale: 50, id: 'vp-explicit',
     });
     expect(payload.id).toBe('vp-explicit');
-    expect(getSheet()['sheet-1']!.viewports.map((v) => v.id)).toEqual(['vp-explicit']);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]).toEqual(payload);
+    expect(dispatched[0]).toMatchObject({ sheetId: 'sheet-1', viewId: 'view-1', x: 50, y: 60, width: 100, height: 80, scale: 50 });
   });
 });
 

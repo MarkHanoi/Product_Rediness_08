@@ -37,7 +37,6 @@ export {
   DeleteSheetHandler,
   RenameSheetHandler,
   ReorderSheetHandler,
-  AddViewportHandler,
   RemoveViewportHandler,
   SetViewportScaleHandler,
   SetTitleBlockHandler,
@@ -50,7 +49,6 @@ export {
   type DeleteSheetPayload,
   type RenameSheetPayload,
   type ReorderSheetPayload,
-  type AddViewportPayload,
   type RemoveViewportPayload,
   type SetViewportScalePayload,
   type SetTitleBlockPayload,
@@ -66,6 +64,9 @@ export {
   DEFAULT_VIEWPORT_SCALE,
   type DropViewOptions,
   type WorldBounds,
+  // §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03) — the payload type moved here from
+  // the deleted AddViewportHandler; ViewportManager is what still builds it.
+  type AddViewportPayload,
 } from './viewport.js';
 
 export {

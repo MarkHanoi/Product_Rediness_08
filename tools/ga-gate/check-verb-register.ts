@@ -252,6 +252,28 @@ const SHADOWED_BASELINE: readonly string[] = [
   // `plugins/selection/__tests__/handlers/ElementMarkShadow.test.ts` (3 cases incl. a
   // negative control on `selection.select`, watched failing 3/3 first). 8 → 7.
   'furniture.updateParameters',
+  // §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03 / L-MT8) — 'sheet.addViewport' PAID and removed
+  // in the same commit. This was one of the TWO verbs the MT-03 brief marked CONTESTED
+  // (plugin arm produceCommands against a real declared store), so the direction was
+  // decided by an EXECUTED READ-BACK, not precedent:
+  // `apps/editor/__tests__/SheetAddViewportReachesSheetStore.test.ts`. Verdict — the
+  // §E.5.5 bridge at initBusHandlers.ts:2320 → AddViewportToSheetCommand → the
+  // core-app-model `sheetStore` MODULE SINGLETON (the CA-21 census's authoritative row
+  // for the sheet family) wins on all three axes: (1) store — the plugin arm wrote a
+  // detached DTO SheetsState nothing else reads; (2) wiring — registerSheetHandlers()
+  // has ZERO production callers, so the plugin arm never claimed the verb on any real
+  // bus; (3) payload — the one live dispatcher (ViewsRailPanel.ts:909) sends the
+  // bridge's `{viewportId, position:{x,y}}` shape, which the plugin arm REFUSED
+  // (watched RED: "canExecute rejected — sheet not found" against a sheet that exists
+  // in the authoritative store). `plugins/sheets/src/handlers/AddViewport.ts` is
+  // DELETED with its barrel/index exports and its dead unit suite
+  // (handlers.add-viewport.test.ts — CA-21: a dead verb's tests must not pin the lie);
+  // AddViewportPayload moved to viewport.ts, whose ViewportManager still builds that
+  // shape (its payload fork vs AddViewportToSheetParams is recorded there — its
+  // handleDropView has no production caller). Pins:
+  // `plugins/sheets/__tests__/addViewportShadow.test.ts` (3 cases incl. negative
+  // control on `sheet.create`, watched failing 3/3 first) + the read-back suite
+  // (watched failing 2/3 first). 4 → 3.
   // §FIX-LEVEL-ADD-SHADOW (MT-03 / L-MT8) — 'level.add' PAID and removed in the same
   // commit, per the rule at the head of this list. Never two different things: BOTH arms
   // built the SAME `AddLevelCommand` and BOTH honoured the §R7-FIX `_skipBridge`
@@ -267,7 +289,6 @@ const SHADOWED_BASELINE: readonly string[] = [
   // skip no longer fires and the bridge registers. Pin:
   // `plugins/stair/__tests__/addLevelShadow.test.ts` (3 cases incl. a negative control
   // on `stair.create`, watched failing 3/3 first). 7 → 6.
-  'sheet.addViewport',
   'stair.create',
   'stair.move',
   // §FIX-VIEW-CROP-SHADOW (MT-03 / L-MT8) — 'view.setCrop' PAID and removed in the same

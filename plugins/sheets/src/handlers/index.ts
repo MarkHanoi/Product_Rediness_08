@@ -5,7 +5,6 @@ import { CreateSheetHandler } from './CreateSheet.js';
 import { DeleteSheetHandler } from './DeleteSheet.js';
 import { RenameSheetHandler } from './RenameSheet.js';
 import { ReorderSheetHandler } from './ReorderSheet.js';
-import { AddViewportHandler } from './AddViewport.js';
 import { RemoveViewportHandler } from './RemoveViewport.js';
 import { SetViewportScaleHandler } from './SetViewportScale.js';
 import { SetTitleBlockHandler } from './SetTitleBlock.js';
@@ -20,7 +19,16 @@ export const SHEET_HANDLER_TYPES = [
   'sheet.rename',
   'sheet.reorder',
   // S38 — viewports + title block + metadata.
-  'sheet.addViewport',
+  // §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03) — 'sheet.addViewport' is NOT
+  // declared here. The executed read-back
+  // (apps/editor/__tests__/SheetAddViewportReachesSheetStore.test.ts) proved
+  // the §E.5.5 bridge at initBusHandlers.ts:2320 → AddViewportToSheetCommand →
+  // core-app-model sheetStore is the arm that reaches authoritative state;
+  // this plugin's arm wrote a detached DTO state, was never registered in
+  // production (registerSheetHandlers has no production caller), and REFUSED
+  // the one live dispatcher's payload shape (ViewsRailPanel.ts:909). Authority
+  // declared: the bridge. Loser deleted, not commented. Pin:
+  // __tests__/addViewportShadow.test.ts.
   'sheet.removeViewport',
   'sheet.setViewportScale',
   'sheet.setTitleBlock',
@@ -38,7 +46,6 @@ export function buildSheetHandlerSet(): readonly CommandHandler<unknown>[] {
     new DeleteSheetHandler() as unknown as CommandHandler<unknown>,
     new RenameSheetHandler() as unknown as CommandHandler<unknown>,
     new ReorderSheetHandler() as unknown as CommandHandler<unknown>,
-    new AddViewportHandler() as unknown as CommandHandler<unknown>,
     new RemoveViewportHandler() as unknown as CommandHandler<unknown>,
     new SetViewportScaleHandler() as unknown as CommandHandler<unknown>,
     new SetTitleBlockHandler() as unknown as CommandHandler<unknown>,
@@ -57,7 +64,6 @@ export { CreateSheetHandler, type CreateSheetPayload } from './CreateSheet.js';
 export { DeleteSheetHandler, type DeleteSheetPayload } from './DeleteSheet.js';
 export { RenameSheetHandler, type RenameSheetPayload } from './RenameSheet.js';
 export { ReorderSheetHandler, type ReorderSheetPayload } from './ReorderSheet.js';
-export { AddViewportHandler, type AddViewportPayload } from './AddViewport.js';
 export { RemoveViewportHandler, type RemoveViewportPayload } from './RemoveViewport.js';
 export { SetViewportScaleHandler, type SetViewportScalePayload } from './SetViewportScale.js';
 export { SetTitleBlockHandler, type SetTitleBlockPayload } from './SetTitleBlock.js';

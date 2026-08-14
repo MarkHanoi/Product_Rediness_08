@@ -15,13 +15,13 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1242 (floor 900) |
+| Handler files read | 1241 (floor 900) |
 | **Verbs** | **325** (floor 250) |
-| LIVE | 115 |
+| LIVE | 116 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 4 |
+| SHADOWED (dead route) | 3 |
 | UNKNOWN | 170 |
-| authoritative store NONE or UNKNOWN | 210 |
+| authoritative store NONE or UNKNOWN | 209 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
 
@@ -248,7 +248,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `selection.clear` | plugins/selection | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `selection.deselect` | plugins/selection | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `selection.select` | plugins/selection | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
-| `sheet.addViewport` | plugins/sheets | SHADOWED | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
+| `sheet.addViewport` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `sheet.addWidget` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
 | `sheet.create` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | n/a (not a property verb) | classified B |
 | `sheet.delete` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | n/a (not a property verb) | classified B |
@@ -378,6 +378,5 @@ the second site is the one nobody knew was dead.
 | verb | sites |
 |---|---|
 | `furniture.updateParameters` | `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `sheet.addViewport` | `plugins/sheets/src/handlers/AddViewport.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.create` | `plugins/stair/src/handlers/CreateStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.move` | `plugins/stair/src/handlers/MoveStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
