@@ -12,9 +12,12 @@
 // green — it is edited to match a measurement.
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import * as path from 'node:path';
-import { BACKED_TOOLBAR_VERBS, isBacked, refuseUnbacked, applyCommandBacking, unbackedReason } from '../commandBacking.js';
+import {
+    BACKED_TOOLBAR_VERBS, isBacked, refuseUnbacked, applyCommandBacking,
+    unbackedReason, SPEC50_SURFACE_IDS,
+} from '../commandBacking.js';
 
 const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 const CENSUS = path.resolve(HERE, '..', '..', '..', '..', '..', '..',
@@ -74,5 +77,49 @@ describe('commandBacking — the refusal behaves, both polarities', () => {
     it('refuseUnbacked never throws — a refusal is an answer, not a crash', () => {
         expect(() => refuseUnbacked('does-not-exist-at-all')).not.toThrow();
         expect(refuseUnbacked('does-not-exist-at-all')).toBe(true);
+    });
+});
+
+describe('commandBacking — C82 §1.3: the reason names the MISSING CAPABILITY', () => {
+    const SPEC50 = path.resolve(HERE, '..', '..', '..', '..', '..', '..',
+        'docs', '03-execution', 'specs', 'SPEC-50-RIBBON-HANDLER-BACKLOG.md');
+
+    it('the SPEC-50 map covers every surface id in the toolbar directory, exactly', () => {
+        const dir = path.resolve(HERE, '..');
+        const measured: string[] = [];
+        for (const f of readdirSync(dir).filter((x) => /Toolbar\.ts$/.test(x))) {
+            const m = /_TOOLBAR_ID = '([a-z-]+)'/.exec(readFileSync(path.join(dir, f), 'utf8'));
+            if (m?.[1] !== undefined) measured.push(m[1]);
+        }
+        // both directions: a surface missing from the map refuses with the weaker,
+        // row-less reason; a stale extra entry points at a surface that is gone.
+        expect([...SPEC50_SURFACE_IDS].sort()).toEqual(measured.sort());
+    });
+
+    it('every SPEC-50 section a reason can cite EXISTS as a heading in SPEC-50.md', () => {
+        const doc = readFileSync(SPEC50, 'utf8');
+        for (const id of SPEC50_SURFACE_IDS) {
+            const reason = unbackedReason('probe-verb', id);
+            const m = /SPEC-50 §([A-C]\.\d+)/.exec(reason);
+            expect(m, `${id}: reason cites no SPEC-50 row — C82 §1.3 requires one`).toBeTruthy();
+            // grouped surfaces share a heading line (e.g. "### A.5 PlanToolbar … ·
+            // A.6 SectionToolbar … · ElevationToolbar"), so the section token may
+            // appear anywhere in a ### line, not only at its start.
+            const section = m![1]!;
+            const found = doc.split('\n')
+                .some((l) => l.startsWith('### ') && l.includes(`${section} `));
+            expect(found,
+                `${id}: cited row §${section} has no heading in SPEC-50.md — renumbering `
+                + 'upstream would leave the button pointing at nothing; fix the map',
+            ).toBe(true);
+        }
+    });
+
+    it('a threaded surface id upgrades the reason from verb-only to row-cited', () => {
+        const bare = unbackedReason('sheet-set-export');
+        const cited = unbackedReason('sheet-set-export', 'sheet-sets-toolbar');
+        expect(bare).not.toContain('SPEC-50');
+        expect(cited).toContain('SPEC-50 §A.10');
+        expect(cited).toContain('sheet-set-export');
     });
 });

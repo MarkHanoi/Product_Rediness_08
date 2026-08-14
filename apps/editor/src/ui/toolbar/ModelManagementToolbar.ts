@@ -91,7 +91,7 @@ export class ModelManagementToolbar {
             btn.setAttribute('data-command', def.commandType);
             // §L-MOUNT Phase 3 — refuse, never silently no-op. Unbacked verbs render
             // disabled with the reason named. See ./commandBacking.ts.
-            applyCommandBacking(btn, def.commandType);
+            applyCommandBacking(btn, def.commandType, MODEL_MANAGEMENT_TOOLBAR_ID);
             const iconEl = document.createElement('span');
             iconEl.className = 'mmtb-btn-icon';
             iconEl.textContent = def.icon;
@@ -113,7 +113,7 @@ export class ModelManagementToolbar {
         }
         // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
         // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
-        if (refuseUnbacked(commandType)) return;
+        if (refuseUnbacked(commandType, MODEL_MANAGEMENT_TOOLBAR_ID)) return;
         this.runtime.bus.executeCommand(commandType, {});
     }
 

@@ -183,7 +183,7 @@ export class DrawingToolbar {
             btn.setAttribute('data-command', def.commandType);
             // §L-MOUNT Phase 3 — refuse, never silently no-op. Unbacked verbs render
             // disabled with the reason named. See ./commandBacking.ts.
-            applyCommandBacking(btn, def.commandType);
+            applyCommandBacking(btn, def.commandType, DRAWING_TOOLBAR_ID);
 
             const iconEl = document.createElement('span');
             iconEl.className = 'dt-btn-icon';
@@ -221,7 +221,7 @@ export class DrawingToolbar {
         }
         // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
         // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
-        if (refuseUnbacked(commandType)) return;
+        if (refuseUnbacked(commandType, DRAWING_TOOLBAR_ID)) return;
         this.runtime.bus.executeCommand(commandType, {});
     }
 

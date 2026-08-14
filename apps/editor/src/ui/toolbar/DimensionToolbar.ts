@@ -79,7 +79,7 @@ export class DimensionToolbar {
         }
         // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
         // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
-        if (refuseUnbacked(commandType)) return;
+        if (refuseUnbacked(commandType, DIMENSION_TOOLBAR_ID)) return;
         this._runtime.bus.executeCommand(commandType, payload);
     }
 
@@ -117,7 +117,7 @@ export class DimensionToolbar {
         btn.setAttribute('data-command', def.commandType);
         // §L-MOUNT Phase 3 — refuse, never silently no-op. Unbacked verbs render
         // disabled with the reason named. See ./commandBacking.ts.
-        applyCommandBacking(btn, def.commandType);
+        applyCommandBacking(btn, def.commandType, DIMENSION_TOOLBAR_ID);
         btn.addEventListener('click', () => {
             if (!this._runtime) {
                 console.warn(`[DimensionToolbar] ${def.commandType} clicked — no runtime attached`);
@@ -125,7 +125,7 @@ export class DimensionToolbar {
             }
             // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
             // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
-            if (refuseUnbacked(def.commandType)) return;
+            if (refuseUnbacked(def.commandType, DIMENSION_TOOLBAR_ID)) return;
             this._runtime.bus.executeCommand(def.commandType, {});
         });
         return btn;

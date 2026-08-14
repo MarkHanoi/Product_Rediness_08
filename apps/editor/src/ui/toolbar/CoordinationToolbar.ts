@@ -94,7 +94,7 @@ export class CoordinationToolbar {
             btn.setAttribute('data-command', def.commandType);
             // §L-MOUNT Phase 3 — refuse, never silently no-op. Unbacked verbs render
             // disabled with the reason named. See ./commandBacking.ts.
-            applyCommandBacking(btn, def.commandType);
+            applyCommandBacking(btn, def.commandType, COORDINATION_TOOLBAR_ID);
             const iconEl = document.createElement('span');
             iconEl.className = 'ctb-btn-icon';
             iconEl.textContent = def.icon;
@@ -116,7 +116,7 @@ export class CoordinationToolbar {
         }
         // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
         // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
-        if (refuseUnbacked(commandType)) return;
+        if (refuseUnbacked(commandType, COORDINATION_TOOLBAR_ID)) return;
         this.runtime.bus.executeCommand(commandType, {});
     }
 

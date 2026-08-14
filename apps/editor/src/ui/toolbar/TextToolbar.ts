@@ -76,7 +76,7 @@ export class TextToolbar {
         }
         // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
         // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
-        if (refuseUnbacked(commandType)) return;
+        if (refuseUnbacked(commandType, TEXT_TOOLBAR_ID)) return;
         this._runtime.bus.executeCommand(commandType, payload);
     }
 
@@ -114,7 +114,7 @@ export class TextToolbar {
         btn.setAttribute('data-command', def.commandType);
         // §L-MOUNT Phase 3 — refuse, never silently no-op. Unbacked verbs render
         // disabled with the reason named. See ./commandBacking.ts.
-        applyCommandBacking(btn, def.commandType);
+        applyCommandBacking(btn, def.commandType, TEXT_TOOLBAR_ID);
         btn.addEventListener('click', () => {
             if (!this._runtime) {
                 console.warn(`[TextToolbar] ${def.commandType} clicked — no runtime attached`);
@@ -122,7 +122,7 @@ export class TextToolbar {
             }
             // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
             // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
-            if (refuseUnbacked(def.commandType)) return;
+            if (refuseUnbacked(def.commandType, TEXT_TOOLBAR_ID)) return;
             this._runtime.bus.executeCommand(def.commandType, {});
         });
         return btn;
