@@ -16,6 +16,7 @@ import type { ConsequencePlanner } from '@pryzm/command-bus';
 import { createWallMoveConsequencePlanner } from './wallMovePlannerComposition.js';
 import { createWallCreateConsequencePlanner } from './wallCreatePlannerComposition.js';
 import { createOpeningMoveConsequencePlanner } from './openingMovePlannerComposition.js';
+import { createWallOpeningCreateConsequencePlanner } from './wallOpeningCreatePlannerComposition.js';
 import { ConsequencePreviewService } from './ConsequencePreviewService.js';
 
 /**
@@ -82,6 +83,17 @@ export function createConsequencePlanners(): ReadonlyMap<string, ConsequencePlan
   planners.set(
     'opening.move',
     createOpeningMoveConsequencePlanner() as unknown as ConsequencePlanner<never>,
+  );
+  // THE FOURTH FAMILY, 2026-08-14 — hosted-opening CREATE. Exactly the extension the
+  // §PLANNER-REGISTRY-GENERIC note predicts: this ONE entry plus four normaliser rules
+  // (`wall.opening.create` / `wall.createOpening` / `door.create` / `window.create`,
+  // ConsequencePreviewService.ts). NO service edit; all three surfaces inherit it here.
+  // Single-step assertion, not `as unknown as` (U-INV-5): a ConsequencePlanner of a
+  // concrete command IS comparable to the family-agnostic `never` form (method-position
+  // bivariance), so no double cast is needed to put it in the map.
+  planners.set(
+    'wall.opening.create',
+    createWallOpeningCreateConsequencePlanner() as ConsequencePlanner<never>,
   );
   return planners;
 }

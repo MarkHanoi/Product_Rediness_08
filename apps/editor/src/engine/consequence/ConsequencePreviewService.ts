@@ -295,6 +295,175 @@ export function normalizeToOpeningMove(command: PreviewCommand): SemanticCommand
   return openingMoveFrom(p.id, p.offset, p.prevOffset, p.wallId);
 }
 
+// ─── wall.opening.create — the hosted-opening CREATE family (2026-08-14) ──────────────
+//
+// The C69 register carries THREE consequential create-class verbs for wall-hosted
+// openings — `wall.opening.create` (the live PRYZM3 adapter), `door.create` and
+// `window.create` (both REFUSES-status, §FIX-CREATE-LIVENESS-LIE) — plus the
+// unclassified authoritative spelling `wall.createOpening`, which both refusal texts
+// name as THE commit path. All four name ONE atomic semantic operation: create a hosted
+// opening on a host wall, occupying `[offset, offset + width]` along its baseline. The
+// old two-step choreography (`wall.createOpening` then `door.create { openingId }`)
+// survives only in unregistered plugin tools; the register's own documentation of the
+// family — the refusal sentences themselves — is the one-command form, and that is the
+// form these rules translate to. check-relationship-determination counted the three
+// register verbs as silent-dispatch; this family lands them WHOLE (C78 §19.1: all
+// spellings or none) onto ONE planner, `WallOpeningCreateConsequencePlanner`.
+//
+// The subject IDENTITY rule, stated once for all four spellings: the rules never mint an
+// id. The adapter's execute() falls back to `crypto.randomUUID()` when the payload
+// carries no ids — a planner that mirrored that would produce a different plan on every
+// run (G-REASON-02 dead on arrival) — so a payload with NO stable identity normalises to
+// `null` (a capability gap, typed downstream as `no-normalizer-for-verb`), never to a
+// plan about an invented element.
+
+/** The `wall.opening.create` ADAPTER payload (CreateWallOpeningLegacyAdapter). */
+interface WallOpeningCreateAdapterPayload {
+  readonly wallId: string;
+  readonly openingData: Readonly<Record<string, unknown>>;
+}
+
+/** The `wall.createOpening` payload (CreateWallOpeningHandler — the authoritative path). */
+interface CreateWallOpeningPayload {
+  readonly wallId: string;
+  readonly opening: Readonly<Record<string, unknown>>;
+}
+
+/** The `door.create` / `window.create` payload keys this surface reads (CreateDoorPayload
+ *  / CreateWindowPayload — the hosted-element create halves of the refused choreography). */
+interface HostedElementCreatePayload {
+  readonly wallId: string;
+  readonly openingId: string;
+  readonly id?: string;
+  readonly offset?: number;
+  readonly width?: number;
+  readonly height?: number;
+  readonly sillHeight?: number;
+}
+
+/**
+ * Build the semantic `wall.opening.create` command from resolved parts, or `null` when
+ * no well-formed create can be stated. `offset` and `width` are REQUIRED finite numbers:
+ * a create without a span is not a question this planner can pose (the same rule as
+ * `openingMoveFrom`'s required offset — and NOT the `wall.create` permissive case, whose
+ * planner has a typed UNDETERMINED for a missing baseline; here a missing span admits no
+ * typed answer that is not an invented number).
+ */
+function wallOpeningCreateFrom(
+  elementId: unknown,
+  wallId: unknown,
+  offset: unknown,
+  width: unknown,
+  openingType: unknown,
+  openingId: unknown,
+  height: unknown,
+  sillHeight: unknown,
+): SemanticCommand | null {
+  if (typeof elementId !== 'string' || elementId.length === 0) return null;
+  if (typeof wallId !== 'string' || wallId.length === 0) return null;
+  if (typeof offset !== 'number' || !Number.isFinite(offset)) return null;
+  if (typeof width !== 'number' || !Number.isFinite(width)) return null;
+  return {
+    type: 'wall.opening.create',
+    payload: {
+      id: elementId,
+      wallId,
+      offset,
+      width,
+      ...(openingType === 'door' || openingType === 'window' ? { openingType } : {}),
+      ...(typeof openingId === 'string' && openingId.length > 0 ? { openingId } : {}),
+      ...(typeof height === 'number' && Number.isFinite(height) ? { height } : {}),
+      ...(typeof sillHeight === 'number' && Number.isFinite(sillHeight) ? { sillHeight } : {}),
+    },
+  };
+}
+
+/**
+ * `wall.opening.create` → the semantic command. TWO payload shapes arrive under this one
+ * verb, and both are accepted: the ADAPTER shape `{ wallId, openingData }` (what the
+ * plan tools dispatch) and the FLAT semantic shape `{ id, wallId, offset, width, … }`
+ * (what the AI/parity surfaces and certification harnesses dispatch — the same reason
+ * `opening.move` has a pass-through rule). The flat form is recognised by its own `id`;
+ * a payload carrying NEITHER `openingData` NOR a flat identity is not this command.
+ */
+export function normalizeToWallOpeningCreate(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'wall.opening.create') return null;
+  const p = command.payload as Partial<WallOpeningCreateAdapterPayload> &
+    Partial<{ id: string; offset: number; width: number; openingType: string; openingId: string; height: number; sillHeight: number }> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  const d = p.openingData;
+  if (d && typeof d === 'object') {
+    return wallOpeningCreateFrom(
+      (typeof d.elementId === 'string' && d.elementId.length > 0 ? d.elementId : d.id),
+      p.wallId, d.offset, d.width, d.type, d.id, d.height, d.sillHeight,
+    );
+  }
+  return wallOpeningCreateFrom(
+    p.id, p.wallId, p.offset, p.width, p.openingType, p.openingId, p.height, p.sillHeight,
+  );
+}
+
+/** `wall.createOpening` (the authoritative path both create-refusals cite) → the semantic
+ *  command. The handler's own shape: `{ wallId, opening: { id, elementId, type, offset,
+ *  width, height, sillHeight } }`, with `elementId` the bus identity. */
+export function normalizeToWallOpeningCreateFromLegacy(
+  command: PreviewCommand,
+): SemanticCommand | null {
+  if (command.type !== 'wall.createOpening') return null;
+  const p = command.payload as Partial<CreateWallOpeningPayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  const o = p.opening;
+  if (!o || typeof o !== 'object') return null;
+  return wallOpeningCreateFrom(
+    (typeof o.elementId === 'string' && o.elementId.length > 0 ? o.elementId : o.id),
+    p.wallId, o.offset, o.width, o.type, o.id, o.height, o.sillHeight,
+  );
+}
+
+/**
+ * `door.create` → the semantic `wall.opening.create` (openingType 'door').
+ *
+ * `offset` and `width` must be EXPLICIT in the payload. The handler's own default chain
+ * runs `cmd.width ?? getDoorType(systemTypeId)?.width ?? 0.9` — a TYPE-REGISTRY lookup
+ * this surface deliberately does not consult (a normaliser translates; it does not
+ * resolve registries), and answering with the base literal while a `systemTypeId` is
+ * present would plan a width the handler would not commit. A defaulted dispatch
+ * therefore normalises to `null` — the typed capability-gap answer — never to a span
+ * assembled from guessed numbers.
+ *
+ * The subject id is `cmd.id` when the caller supplied one, else `cmd.openingId` — the
+ * payload's only other STABLE identity (the wall-side opening id, which C15 §1 pairs 1:1
+ * with the hosted element). The handler's `createId('door')` fallback is NOT mirrored:
+ * minting is nondeterministic and minting is not translating.
+ */
+export function normalizeToWallOpeningCreateFromDoor(
+  command: PreviewCommand,
+): SemanticCommand | null {
+  if (command.type !== 'door.create') return null;
+  const p = command.payload as Partial<HostedElementCreatePayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  if (typeof p.openingId !== 'string' || p.openingId.length === 0) return null;
+  return wallOpeningCreateFrom(
+    (typeof p.id === 'string' && p.id.length > 0 ? p.id : p.openingId),
+    p.wallId, p.offset, p.width, 'door', p.openingId, p.height, p.sillHeight,
+  );
+}
+
+/** `window.create` → the semantic `wall.opening.create` (openingType 'window'). Same
+ *  shape and same rules as the door rule, differing only in the element kind. */
+export function normalizeToWallOpeningCreateFromWindow(
+  command: PreviewCommand,
+): SemanticCommand | null {
+  if (command.type !== 'window.create') return null;
+  const p = command.payload as Partial<HostedElementCreatePayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  if (typeof p.openingId !== 'string' || p.openingId.length === 0) return null;
+  return wallOpeningCreateFrom(
+    (typeof p.id === 'string' && p.id.length > 0 ? p.id : p.openingId),
+    p.wallId, p.offset, p.width, 'window', p.openingId, p.height, p.sillHeight,
+  );
+}
+
 /**
  * THE canonical normaliser registry — bus verb → rule. The three composition roots share
  * this ONE map, for the same reason preview and execute shared ONE normaliser function
@@ -316,6 +485,12 @@ export const CONSEQUENCE_NORMALIZERS: ReadonlyMap<string, NormalizerRule> = new 
   // five dispatch spellings, ONE semantic planner key, one occupancy rule, one answer.
   ['door.move', normalizeToOpeningMoveFromDoorMove],
   ['window.move', normalizeToOpeningMoveFromWindowMove],
+  // The hosted-opening CREATE family (2026-08-14) — four dispatch spellings, ONE semantic
+  // planner key, the SAME canPlace rule the commit path runs, one answer.
+  ['wall.opening.create', normalizeToWallOpeningCreate],
+  ['wall.createOpening', normalizeToWallOpeningCreateFromLegacy],
+  ['door.create', normalizeToWallOpeningCreateFromDoor],
+  ['window.create', normalizeToWallOpeningCreateFromWindow],
 ]);
 
 /**
