@@ -88,14 +88,44 @@ import type { RoomVertex } from './RoomTypes';
 import { polygonAreaM2, pointInPolygon } from './RoomPolygonUtils';
 
 // ── Tunables, each with the reason it has the value it has ───────────────────
+//
+// §C73-EPSILON-POLICY — NONE of these is a tolerance in the policy module's sense,
+// and two of them were originally MIS-NAMED as one. See the note above
+// `WALL_COVER_BAND_M` for the classification and the migration that was declined.
 
 /**
  * Extra clearance added to a wall's half-thickness when asking "is this point on a
  * wall?". Room polygons are traced along wall INNER faces, so a perimeter sample sits
  * ≈ thickness/2 from the wall centreline by construction; this absorbs the join-trim
  * and corner-snap slop on top of that.
+ *
+ * §C73-EPSILON-POLICY — **a DOMAIN BAND, not a tolerance**, and named accordingly.
+ *
+ * It was first written with a `_TOL_M` suffix, which `check-epsilon-policy` counted as
+ * a rival tolerance declaration (E2 258 → 260, exit [3]) hours after another lane had
+ * drained that ratchet 382 → 357. The name was the error, not the value:
+ *
+ *   · **Migration onto `COINCIDENT_M` (0.001 m) was considered and DECLINED.** That
+ *     role answers "are these two model points THE SAME POINT?" at 1 mm. This asks
+ *     "does this stretch of former boundary still have a wall along it?" at 150 mm —
+ *     a coverage question, not an identity one. Consuming `COINCIDENT_M` here would
+ *     TIGHTEN the band 150×, so `coveredByWall` would answer false almost everywhere,
+ *     every room would read as fully unwalled, and the detector would fire constantly.
+ *     C73 §2.5 forbids widening a declared tolerance; silently narrowing a call site
+ *     by two orders of magnitude is the same class of harm in the other direction.
+ *   · `EPSILON_ZERO` / `RECOMPUTE_IDENTITY_M` (1e-9) and `PARALLEL_RAD` (radians) are
+ *     not this question at all. **No declared role fits.**
+ *
+ * `tolerance.ts`'s own header settles the disposition: *"Domain bands are not epsilons:
+ * `defaultJunctionBandM` (0.20 m wall-junction band) and `CENTROID_MATCH_RADIUS` (2.0 m
+ * room-identity radius) are correct where they are, under their own owners"*, and
+ * *"domain bands stay under their own domain owner — do NOT fold them onto
+ * `COINCIDENT_M`; only true 'same point' tests migrate"* (C73 §2.1). Note that BOTH
+ * blessed exemplars carry band/radius names rather than `TOL`/`EPS` ones. This constant
+ * is the same kind of thing as `defaultJunctionBandM`, at a comparable magnitude, and
+ * now says so. The value is unchanged and no behaviour moves.
  */
-const WALL_COVER_TOL_M = 0.15;
+const WALL_COVER_BAND_M = 0.15;
 /** Half-thickness assumed for a wall that reports none. The repo's plain-wall default. */
 const DEFAULT_WALL_THICKNESS_M = 0.20;
 /** Perimeter sampling pitch. Fine enough to localise a gap to ~1 door-leaf. */
@@ -109,8 +139,18 @@ const MAX_PERIMETER_SAMPLES = 600;
 const MIN_SIGNIFICANT_GAP_M = 0.40;
 /** Above this fraction of the perimeter the region was demolished, not opened. */
 const MAX_GAP_FRACTION_OF_PERIMETER = 0.5;
-/** A run whose samples deviate further than this from its own chord bends. */
-const GAP_STRAIGHTNESS_TOL_M = 0.15;
+/**
+ * A run whose samples deviate further than this from its own chord bends.
+ *
+ * §C73-EPSILON-POLICY — **a DOMAIN BAND, not a tolerance** (same disposition and the
+ * same declined migration as `WALL_COVER_BAND_M` above; it too originally carried a
+ * `_TOL_M` suffix). It classifies a SHAPE — "is this stretch straight enough
+ * for one wall to close it, or does it turn a corner?" — at architectural scale. It is
+ * not an identity test, and at 150 mm it is 150× `COINCIDENT_M`; migrating it would
+ * make every real gap read as bent and turn every offer into a `gap-turns-corner`
+ * refusal. Value unchanged.
+ */
+const GAP_STRAIGHTNESS_MAX_DEVIATION_M = 0.15;
 /** Interior-sample grid resolution per axis when testing region containment. */
 const CONTAINMENT_GRID = 9;
 /** Fraction of a region's interior samples that must land inside a candidate successor. */
@@ -250,7 +290,7 @@ function perimeterM(ring: readonly RoomVertex[]): number {
 function coveredByWall(p: RoomVertex, walls: readonly SurvivingWall[]): SurvivingWall | undefined {
     for (const w of walls) {
         const half = (w.thickness && w.thickness > 0 ? w.thickness : DEFAULT_WALL_THICKNESS_M) / 2;
-        if (distToSegment(p, w.start, w.end) <= half + WALL_COVER_TOL_M) return w;
+        if (distToSegment(p, w.start, w.end) <= half + WALL_COVER_BAND_M) return w;
     }
     return undefined;
 }
@@ -451,7 +491,7 @@ function assessRegion(
     }
 
     const run = runs[0]!;
-    if (chordDeviation(run.points) > GAP_STRAIGHTNESS_TOL_M) {
+    if (chordDeviation(run.points) > GAP_STRAIGHTNESS_MAX_DEVIATION_M) {
         return {
             ...base,
             kind: 'position-unknown',
