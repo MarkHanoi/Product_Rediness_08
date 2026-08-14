@@ -81,6 +81,11 @@ import { resolveSiteFramingExtent } from '../site/siteFramingExtent';
 // select mode fetches REAL geometry globally, with Spain-parity "click to select" in every country;
 // adding a country is a data addition in `@pryzm/site-parcel-data`, not an edit to this L5 file.
 import { defaultParcelProvider } from '../site/parcel';
+// §GR-10/GR-14 — "nobody classified the edges" ≠ "no edge is street frontage".
+import {
+    parcelEdgeClassificationsOrUnknown,
+    frontageClause,
+} from '../site/parcelEdgeClassificationDetermination';
 import { makeDraggable } from '../makeDraggable';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
@@ -1498,7 +1503,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      */
     const getCommittedParcelBoundary = (): {
         polygon: ReadonlyArray<XZ>;
-        edgeClassifications: ReadonlyArray<string>;
+        /**
+         * §GR-10/GR-14 — `null` means NOBODY CLASSIFIED THE EDGES, which is not
+         * the same fact as "no edge is street frontage". The old `?? []` merged
+         * the two and the card then printed the negative one. See
+         * `parcelEdgeClassificationDetermination.ts`.
+         */
+        edgeClassifications: ReadonlyArray<string> | null;
     } | null => {
         type BoundaryStore = {
             getParcelBoundary?: () => {
@@ -1515,7 +1526,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const b = store?.getParcelBoundary?.();
         const poly = b?.polygon;
         if (!poly || poly.length < 3) return null;
-        return { polygon: poly, edgeClassifications: b?.edgeClassifications ?? [] };
+        return {
+            polygon: poly,
+            // Length-aware: the schema DEFAULTS this array to `[]`, so a committed
+            // but never-classified parcel carries `[]` against a real polygon —
+            // that is the unrecorded state, not a landlocked finding (C19 §2.7).
+            edgeClassifications: parcelEdgeClassificationsOrUnknown(b?.edgeClassifications, poly.length),
+        };
     };
 
     /**
@@ -2434,8 +2451,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // resolver, not `runtime?.siteModelStore` directly. See `getCommittedParcelBoundary`.
         const committed = getCommittedParcelBoundary();
         const parcelRing = committed?.polygon ?? [];
-        const edgeCls = committed?.edgeClassifications ?? [];
-        const frontEdges = edgeCls.filter((c) => c === 'front').length;
+        // §GR-10/GR-14 — THREE outcomes, not two: never-classified, classified-
+        // and-landlocked, and classified-with-N-frontages. `frontageClause`
+        // prints a non-empty sentence for each; the old `?? []` + `> 0` test
+        // printed the SAME empty string for the first two, so a card about an
+        // unmeasured plot read exactly like a card about a landlocked one.
+        const frontage = frontageClause(committed === null ? undefined : committed.edgeClassifications);
         const inset = env.insetPolygon ?? [];
 
         const row = (label: string, value: string, hint?: string): string =>
@@ -2457,7 +2478,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 + row('Perimeter', num(polyPerimeterM(parcelRing), 'm'))
                 + row('Bounding box', `${num(polyBboxM(parcelRing).w, '', 1)} × ${num(polyBboxM(parcelRing).d, 'm', 1)}`,
                     'Axis-aligned extent. A non-rectangular parcel has no single width × depth, so this is deliberately labelled a bounding box.')
-                + row('Boundary edges', `${parcelRing.length}${frontEdges > 0 ? ` (${frontEdges} street frontage)` : ''}`))
+                + row('Boundary edges', `${parcelRing.length}${frontage}`,
+                    'Street frontage is the edge buildable depth insets FROM. "Not recorded" means '
+                    + 'nobody classified this parcel\'s edges — it is NOT a finding that the plot has none.'))
             // §CONTEXT-DATA-HONESTY (L-422/457/467/469) — an ABSENT ring must SAY it is absent.
             // Rendering '' made the card jump from the header straight to ORDINANCE LIMITS, which
             // reads as "there is no parcel constraint" rather than "we could not read the parcel".
