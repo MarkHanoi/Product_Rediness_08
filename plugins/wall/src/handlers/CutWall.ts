@@ -154,7 +154,28 @@ export class CutWallHandler
     ctx: HandlerContext<WallHandlerStores>,
     cmd: CutWallPayload,
   ): HandlerResult {
-    return withHandlerSpan(this.verb + '.handler', { 'pryzm.command.type': this.verb }, () => {
+    return withHandlerSpan(this.verb + '.handler', { 'pryzm.command.type': this.verb }, () =>
+      this.executeCore(ctx, cmd),
+    );
+  }
+
+  /**
+   * The cut itself, UNWRAPPED.
+   *
+   * §FEAT-WALL-SPLIT-ID (GE-10) + P8 (C10 §2). `SplitWallHandler` is a second verb
+   * id over this one handler, and it must open its OWN span — Zone A of
+   * `check-otel-spans` is zero-tolerance per handler FILE, and more importantly a
+   * trace that never names `wall.split` cannot answer "what did that verb do".
+   * If it delegated to `execute()` the two spans would nest and every split would
+   * report twice; so the span lives in each `execute()` and the arithmetic lives
+   * here, once. Public only so the sibling handler can reach it — it is not part
+   * of the CommandHandler contract and nothing else should call it.
+   */
+  executeCore(
+    ctx: HandlerContext<WallHandlerStores>,
+    cmd: CutWallPayload,
+  ): HandlerResult {
+    {
     const wall = ctx.stores.wall[cmd.id];
     if (wall === undefined) throw new WallNotFoundError(cmd.id);
 
@@ -246,6 +267,6 @@ export class CutWallHandler
       draft[rightId] = rightWall;
     });
     return { forward, inverse, nextStates: { wall: next } };
-    }); // withHandlerSpan — C10 §2
+    }
   }
 }

@@ -25,6 +25,7 @@
 // for the same honest reason — splitting needs a picked point, which a sentence
 // does not carry. Declared, not silently undeclared.
 
+import { withHandlerSpan } from '@pryzm/plugin-sdk';
 import type {
   CommandHandler,
   HandlerContext,
@@ -55,10 +56,20 @@ export class SplitWallHandler
     return this.inner.canExecute(ctx, cmd);
   }
 
+  /**
+   * P8 (C10 §2) — this verb opens its OWN span. It does NOT call
+   * `inner.execute()`, which would wrap a second time and report every split
+   * twice; it calls the unwrapped `executeCore`. So one span per dispatch, named
+   * `wall.split.handler`, over the one shared implementation.
+   */
   execute(
     ctx: HandlerContext<WallHandlerStores>,
     cmd: SplitWallPayload,
   ): HandlerResult {
-    return this.inner.execute(ctx, cmd);
+    return withHandlerSpan(
+      'wall.split.handler',
+      { 'pryzm.command.type': 'wall.split' },
+      () => this.inner.executeCore(ctx, cmd),
+    );
   }
 }

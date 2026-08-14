@@ -436,6 +436,18 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'wall.join',
   'wall.opening.create',
   'wall.setSystemType',
+  // §FEAT-WALL-SPLIT-ID (GE-10, 2026-08-14) — `wall.split` is a SECOND ID over the
+  // one opening-aware cut handler (`SplitWallHandler` holds a `CutWallHandler` and
+  // calls its unwrapped core). It is UNKNOWN for EXACTLY the reason `wall.cut` two
+  // lines up is UNKNOWN, and not one reason more: a lone plugin `produceCommand`
+  // handler against `ctx.stores.wall`, with no `commandManager` delegation. It is
+  // listed rather than argued away — the alternative was to claim a liveness its
+  // parent does not have, which is the precise dishonesty this list exists to stop.
+  // ⚠ IT PAYS OFF WITH `wall.cut`, NOT SEPARATELY. The two share one implementation,
+  // so whatever proof retires `wall.cut` from this list retires this verb in the same
+  // commit; a fix that retired only one of them would be evidence the cut path had
+  // been forked, which `plugins/wall/__tests__/wallSplitId.test.ts` fails on.
+  'wall.split',
   'wall.updateBaseline',
   // §FIX-CW-UPDATE-REACH-RECORD — 'wall.updateCurtainWall' PAID and removed in the same
   // commit. It was UNKNOWN rather than SHADOWED because it had only ONE declaring site:
