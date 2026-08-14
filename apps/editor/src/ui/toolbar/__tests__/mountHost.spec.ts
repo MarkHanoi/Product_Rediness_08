@@ -67,7 +67,7 @@ describe('§L-MOUNT Phase 2 — the mount hosts the brief named are stale', () =
         }
         expect(creators, 'a .plat-left-panel creator appeared — the hidden-host '
             + 'finding may no longer hold; RE-MEASURE before mounting anything').toEqual([]);
-    });
+    }, 60_000);
 
     it('FINDING 2b — buildToolbar() hides .plat-toolbar when that wrapper is absent', () => {
         const src = readFileSync(
@@ -113,5 +113,9 @@ describe('§L-MOUNT Phase 2 — the mount hosts the brief named are stale', () =
         // and record the new EXECUTED-REACHED / NOT-REACHED split here.
         expect(importers, 'a toolbar surface gained a production importer — re-run '
             + 'the H6 probe and update this pin with the new reachability split').toEqual([]);
-    });
+        // 60 s: this walks + reads every .ts under apps/editor/src (~12 s on an
+        // idle machine, more under a loaded fleet). The default 10 s made the
+        // test flaky-red on load, which is the worst failure mode a tripwire can
+        // have — it teaches people to ignore it.
+    }, 60_000);
 });
