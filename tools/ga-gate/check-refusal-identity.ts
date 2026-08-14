@@ -236,8 +236,9 @@ const BASELINE: readonly Offender[] = [
     // subject instead of the manufactured 'refused'. Baseline 85 → 83.
     { file: "packages/command-registry/src/generic/UpdateElementParameterCommand.ts", fragment: "info: [validated.reason ?? 'Parameter validation failed']", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/project/ImportProjectCommand.ts", fragment: "info: [validation.reason ?? 'Sub-command validation failed'],", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/slabs/UpdateSlabsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Slab ${id} refused the type change`);", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/slabs/UpdateSlabsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ slabId: id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-14 (GE-09v3, slabs family): all three seams of
+    // UpdateSlabsSystemTypeBatchCommand render through the shared
+    // childRefusalText(). Baseline 79 → 77.
     { file: "packages/command-registry/src/walls/AddWallLayerBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Wall ${w.id} refused the layer`);", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/walls/AddWallLayerBatchCommand.ts", fragment: "this._skipped.push({ wallId: w.id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/walls/UpdateWallsColorBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Wall ${wallId} refused the colour change`);", why: "arm A — measured 2026-08-11" },

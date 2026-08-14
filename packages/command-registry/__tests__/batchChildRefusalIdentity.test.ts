@@ -32,6 +32,8 @@ import { UpdateWindowsSystemTypeBatchCommand } from '../src/windows/UpdateWindow
 import { UpdateWindowSystemTypeCommand } from '../src/windows/UpdateWindowSystemTypeCommand';
 import { UpdateCeilingsSystemTypeBatchCommand } from '../src/ceilings/UpdateCeilingsSystemTypeBatchCommand';
 import { UpdateCeilingLayersCommand } from '../src/ceilings/UpdateCeilingLayersCommand';
+import { UpdateSlabsSystemTypeBatchCommand } from '../src/slabs/UpdateSlabsSystemTypeBatchCommand';
+import { UpdateSlabLayersCommand } from '../src/slabs/UpdateSlabLayersCommand';
 import { childRefusalText, REFUSED_WITHOUT_REASON_CODE } from '../src/refusal/childRefusalText';
 import type { CommandContext } from '../src/types';
 
@@ -298,6 +300,101 @@ describe('UpdateCeilingsSystemTypeBatchCommand — child refusals keep their ide
         expect(v.warnings).toBeUndefined();
 
         const r = cmd.execute(cctx);
+        expect(r.success).toBe(true);
+        expect(cmd.skipped).toHaveLength(0);
+        const info = (r.info ?? []).join('\n');
+        expect(info).not.toContain(MARKER);
+        expect(info).not.toContain('skipped');
+    });
+});
+
+// ─── slabs: UpdateSlabsSystemTypeBatchCommand ────────────────────────────────
+// The ceilings twin (ctx.stores-backed), same three seams. Paid GE-09v3.
+
+interface FakeSlab { id: string; systemTypeId?: string | null; layers?: unknown[]; thickness: number }
+
+function fakeSlabCtx(slabs: FakeSlab[]): CommandContext {
+    const byId = new Map(slabs.map(s => [s.id, s]));
+    const type = {
+        id: 'ge09-slab-type', name: 'GE09 Slab', totalThickness: 0.2,
+        layers: [{ material: 'concrete', thickness: 0.2 }],
+    };
+    return {
+        stores: {
+            slabStore: {
+                getAll: () => [...byId.values()],
+                getById: (id: string) => byId.get(id),
+                has: (id: string) => byId.has(id),
+                update: (id: string, next: Record<string, unknown>) => {
+                    const s = byId.get(id);
+                    if (!s) return undefined;
+                    Object.assign(s, next);
+                    return s;
+                },
+                remove: (id: string) => byId.delete(id),
+            },
+            slabSystemTypeStore: {
+                getAll: () => [type],
+                getById: (id: string) => (id === type.id ? type : undefined),
+            },
+        },
+    } as unknown as CommandContext;
+}
+
+describe('UpdateSlabsSystemTypeBatchCommand — child refusals keep their identity (GE-09)', () => {
+    const S1 = 'ge09-slab-1';
+    const GHOST = 'ge09-slab-ghost';
+    const TYPE = 'ge09-slab-type';
+
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    const live = (): FakeSlab[] => [{ id: S1, thickness: 0.15 }];
+
+    it('VERBATIM: a child that states its reason has it reach CommandResult.info untouched', () => {
+        const sctx = fakeSlabCtx(live());
+        const cmd = new UpdateSlabsSystemTypeBatchCommand({ slabIds: [S1, GHOST], systemType: TYPE });
+        const r = cmd.execute(sctx);
+        expect(r.success).toBe(true);
+        const info = (r.info ?? []).join('\n');
+        expect(info).toContain(`Slab "${GHOST}" not found`);
+        expect(info).not.toContain(MARKER);
+        expect(cmd.skipped.map(s => s.reason).join('\n')).toContain(`Slab "${GHOST}" not found`);
+    });
+
+    it('VERBATIM at canExecute: an all-refused batch surfaces the child sentence in .reason', () => {
+        const sctx = fakeSlabCtx(live());
+        const cmd = new UpdateSlabsSystemTypeBatchCommand({ slabIds: [GHOST], systemType: TYPE });
+        const v = cmd.canExecute(sctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(`Slab "${GHOST}" not found`);
+    });
+
+    it('SILENT child: a reason-less refusal arrives NAMED, not paraphrased as "refused"', () => {
+        vi.spyOn(UpdateSlabLayersCommand.prototype, 'canExecute').mockReturnValue({ ok: false });
+        const sctx = fakeSlabCtx(live());
+        const cmd = new UpdateSlabsSystemTypeBatchCommand({ slabIds: [S1], systemType: TYPE });
+
+        const v = cmd.canExecute(sctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(MARKER);
+        expect(v.reason).toContain('UpdateSlabLayersCommand.canExecute');
+        expect(v.reason).toContain(`slab ${S1}`);
+
+        const r = cmd.execute(sctx);
+        expect(r.success).toBe(false);
+        expect((r.info ?? []).join('\n')).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).not.toBe('refused');
+    });
+
+    it('SILENCE CONTROL: a fully-legal batch renders NO refusal line and NO absence marker', () => {
+        const sctx = fakeSlabCtx(live());
+        const cmd = new UpdateSlabsSystemTypeBatchCommand({ slabIds: [S1], systemType: TYPE });
+        const v = cmd.canExecute(sctx);
+        expect(v.ok).toBe(true);
+        expect(v.warnings).toBeUndefined();
+
+        const r = cmd.execute(sctx);
         expect(r.success).toBe(true);
         expect(cmd.skipped).toHaveLength(0);
         const info = (r.info ?? []).join('\n');
