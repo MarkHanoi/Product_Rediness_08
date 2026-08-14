@@ -1117,3 +1117,90 @@ large body of work without trusting its authors, including when the author is th
 5. **Standing rule**: before building against any row, **re-measure it**. Five row headlines were
    overturned this session in the healthy direction (§12/§8.5) and one forecast was 23 rows high.
    The register describes the past; the gate describes the present.
+
+---
+
+## §14 — THE DEPLOY LANDED, AND THE 24 OPEN ROWS, ONE BY ONE
+
+> **§14 supersedes §12.0 item 2 and §12.1's row counts.** Written last, after the deploy and the
+> restamp both completed.
+
+### §14.0 ⚠ CORRECTION — THE DEPLOY *WAS* RUN
+
+**§12.0 item 2 says "THE DEPLOY WAS NOT RUN. Production is still `517f7a70`." That is FALSE as of
+2026-08-14.**
+
+- **`v1272` is LIVE at https://pryzm.fly.dev**, deployed via the manual Fly path
+  (`tools/deploy/fly-manual-deploy.sh`, exit 0). Prior release v1271 was 17 h earlier.
+- **Bundle proof PASSED 5/5, reading VALUES not lengths** (`tools/deploy/fly-bundle-proof.sh`):
+  served chunk `assets/main-ZFoqwagh.js` · `VITE_CESIUM_TOKEN` len 257 · `VITE_GOOGLE_MAPS_KEY`
+  len 39 · `VITE_GLB_URL` = `/api/catalog/items/` · `VITE_CONTEXT_TILES_URL` =
+  `/api/context-tiles/` (proxy HTTP 200) · `/api/health/live` → `{"ok":true}`.
+- Preconditions held without intervention: builder already `shared-cpu-8x:16384MB`; both npipe
+  halves applied (`mkdir` **and** `echo '{}' > config.json` — §6.5.6, half-applying it failed a
+  prior deploy).
+- ⚠ **One thing shipped that the gate flags**: `check-xss-guards` went exit 3 on
+  `houseCirculationNotice.ts:159` **after** the deploy captured its SHA, so v1272 carries it. The
+  builder escapes every interpolation through its local `esc()`, so it is **not believed
+  exploitable** — but a gate that cannot see through a function call is doing its job, MT-10 is
+  re-opened, and the sink is being eliminated (DOM + `textContent`, not a regex workaround).
+  **The next deploy must carry that fix.**
+
+### §14.1 — THE 24 OPEN ROWS, WITH WHAT EACH NEEDS
+
+The counted figure is **51 CLOSED / 24 OPEN / 7 UNPROVEN** (`8788b5cd`). §12.1's "~74" was a
+forecast and is superseded (§12.7). These are the 24, grouped by what actually unblocks them.
+
+**⚙ YOUR DECISION — 3 rows, no engineering**
+
+| Row | What it needs |
+|---|---|
+| **CB-01** | one always-on sync process (~$5–10/mo). Transport is convergence-proven; scoping plan `4fd537a1` |
+| **CB-02** | one env flip: `PRYZM_AUTHZ_MODE` off `memory-allow-by-default` + `DATABASE_URL`. `PgAuthz` is written, wired, tested, fail-closed |
+| **CB-05** | per-capability convergence proofs — sequenced behind CB-01's transport |
+
+**🏗 GENUINE CONSTRUCTION — 3 rows, multi-session**
+
+| Row | What it needs |
+|---|---|
+| **CO-06** | 57 scaffold declarations (row says 19 — three stamps stale). ⚠ Close the gate's grace-clause loophole FIRST or a bulk pay walks the ratchet down having bought nothing |
+| **GE-06** | the clash engine. Decomposition landed (`69f7dda1`); roof×wall slice is real (`83c82c02`); remaining slices ordered by pain |
+| **GE-12** | triangulation ×5 and `PlanarTopologyEngine` ×3 have **no instrument at all** — the arm must be built before the collapse |
+
+**🔧 BOUNDED WORK, MECHANISM NAMED — 12 rows**
+
+| Row | What it needs |
+|---|---|
+| **GR-10 / GR-14** | the `[]`-means-unknown drain, at ledger **71**. One site + one differentiating test per commit; ~14 reference commits exist |
+| **GR-12** | move-time invalidation. **Now measured FAILING** — H6 reads `boundedBy` STALE after a ring-breaking wall move. The arm exists; the fix does not |
+| **PR-05** | dedup half CLOSED (`cbbc1009`). The behavioural half needs the §4.1 decision: update-surrender vs pre-sweep clear |
+| **GE-01** | the tolerance POLICY is cured (4 roles, 8 consumers, E1 PRESENT). The **drain** remains: E2 270, E5 112 |
+| **GE-04** | three sub-claims disproven; **`RoomStore` ×3 survives** (`packages/stores`, `room-topology`, `plugins/rooms`) |
+| **GE-09** | first site paid (`d42357fe`). ~10 consumers still drop the refusal code — DoorTool ×2, WindowTool ×2, six command-registry commands. Plus the row's original ask (a reachability arm) is unbuilt |
+| **CO-03** | two M-C ledger entries on `PlanegcsAdapter.test.ts` delegation seams |
+| **PV-08** | an exhaustive type-checked L0 `member → ValueOrigin` map. **Pay it WITH `check-provenance-coverage` FINDING C2** — same `floor` kind |
+| **MT-03** | **3 of 9 left.** `stair.create` (needs a geometry-store read-back; the `sheetStore` pattern will not compose headlessly) · `stair.move` (deliberately dual-write — **needs a MERGE, not a deletion**) · `furniture.updateParameters` (its plugin arm carries the L-72 undo capture the bridge lacks) |
+| **CB-03** | contracts unified (`d3317123`); row not re-verified after the fix |
+| **CE-05** | gesture reachability, narrowed by the H6 probe + C82. Remaining unowned surface: ~120 panel `executeCommand` sites, command palette, context menus, keyboard shortcuts |
+| **MT-10** | **re-opened today** — the XSS sink above. Fix in flight |
+
+**📐 CORRECTLY DEFERRED — 1 row**
+
+| Row | Why |
+|---|---|
+| **CO-04** | planegcs remains **unauthorised** (C74 §4.5). `grep '"planegcs"' --include=package.json` → 0. Verified, deliberately unchanged |
+
+**❓ NOT RE-MEASURED THIS PASS — 3 rows**
+
+**MT-06, MT-07, MT-09.** The restamp marked them rather than inheriting a claim. **MT-09 matters
+most**: its "26 packages fail isolated compilation" is a two-day-old reading and the cascade roots
+have since been fixed — **re-run it before citing it.**
+
+### §14.2 — AND THE 7 UNPROVEN, FOR COMPLETENESS
+
+**GE-08** (its own new instrument proves same-machine cross-process only; cross-MACHINE and GPU are
+outside the process model) · **MT-04**, **MT-05** (the authoritative-state probe cannot see them
+headlessly) · **CB-05** (behind CB-01) · **CE-03**, **CE-04** (narrowed to **UNCERTIFIED-NOT-
+UNTESTED** — the suites are green, the certification arms landed this session, but C70 §0.1 forbids
+laundering one into the other) · **CE-06** (a one-client fixture cannot prove a multi-client claim —
+**closing it would be the lie the row exists to prevent**).
