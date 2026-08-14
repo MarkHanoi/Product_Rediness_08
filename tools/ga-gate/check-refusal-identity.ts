@@ -274,7 +274,10 @@ const BASELINE: readonly Offender[] = [
     { file: "plugins/slab/src/handlers/CreateSlabBatch.ts", fragment: "return { valid: false, reason: `slabs[${i}].holes[${h}]: ${v.reason ?? 'invalid hole'}` };", why: "arm A — measured 2026-08-11" },
     { file: "plugins/slab/src/handlers/CreateSlabBatch.ts", fragment: "if (!v.ok) throw new SlabBoundaryError(v.reason ?? 'invalid');", why: "arm A — measured 2026-08-11" },
     { file: "plugins/slab/src/handlers/CreateSlabBatch.ts", fragment: "if (!v.ok) throw new SlabBoundaryError(`hole[${h}]: ${v.reason ?? 'invalid'}`);", why: "arm A — measured 2026-08-11" },
-    { file: "plugins/stair/src/handlers/CreateStair.ts", fragment: "if (!v.ok) return { valid: false, reason: v.reason ?? 'invalid dimensions' };", why: "arm A — measured 2026-08-11" },
+    // DE-LISTED 2026-08-14 (GE-09v2, ledger hygiene): plugins/stair/src/handlers/CreateStair.ts
+    // — the FILE was deleted in ce7cc5ae (MT-03: stair.create's plugin arm lost on store,
+    // payload and function), taking its offender row with it. The row went stale in a
+    // COMMITTED tree, so this gate sat at exit 3 for every lane. Baseline 86 → 85.
     { file: "plugins/stair/src/handlers/CreateStairBatch.ts", fragment: "return { valid: false, reason: `stairs[${i}]: ${v.reason ?? 'invalid dimensions'}` };", why: "arm A — measured 2026-08-11" },
     // FIXED + DE-LISTED 2026-08-14 (§REFUSAL-IDENTITY-CANPLACE, GE-09). `canPlace`
     // now returns a CLOSED six-member `CanPlaceRefusalCode`, and the handler renders
