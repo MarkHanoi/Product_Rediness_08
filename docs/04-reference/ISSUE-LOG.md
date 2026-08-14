@@ -4446,3 +4446,37 @@ race them). Offer surface: reuse `chatPromptHost` exactly as L-904''s `WallMoveC
 (commit `895b8d49`) does; wiring hook: `gateWallMove` unblocked path (both gestures, MOVE-only by
 construction) with before/after eligibility diff so pre-existing generator-butted pairs do not
 cry wolf; UNDETERMINED stub data → no offer.
+
+### L-910 — mechanism map + fix (lane L-ISOLATEv2, 2026-08-14)
+
+**Leaked substrate found**: `ViewTechnicalDrawingCache` (core-app-model). The C13 switch
+chokepoint (initScene.ts:3216) DOES run and DOES call `clear()` — but `clear()` reset
+`_generations` and `_lastAcceptedGen` to zero, which is EXACTLY the state
+§FIX-PLAN-BLANK-STALEGEN''s force-accept reads as "cold cache" (`setIfCurrent`,
+ViewTechnicalDrawingCache.ts: empty + `gen > lastAcceptedGen(0)`). Any projection in
+flight for project A across the switch resolves AFTER the purge and was FORCE-ACCEPTED
+into project B''s cache under the SAME system-deterministic view id (`vd-sys-plan-l0`
+exists in every project). From the cache the plan pane reads it and view activation
+mounts its THREE group into B''s scene; a later `invalidate()` empties the cache (plan
+pane → empty state) but never unmounts (mountedDrawingScope detaches only at the switch,
+which already ran) — plan pane empty + 3D linework, the exact sighting. The acceptance
+was keyed on "cache looks empty", not project identity — the L-910 ask verbatim.
+
+**Other candidates checked, all cleared at the switch**: EPS `_cwProjectionCache`
+(initScene:3196; element ids globally unique, B cannot hit A entries — residual is only
+in-flight re-population garbage, bounded by the 5000 LRU, noted not fixed) · NME cache
+(initScene:3214 + bim-project-cleared:1369) · ViewDependencyTracker (bim-project-cleared:
+1356) · mountedDrawing (initScene:3236). Supersede-cancel predicates only fire at EPS
+chunk boundaries, so they never protected the final-chunk/assembly window.
+
+**Fix** (§C13-PROJECTION-EPOCH, e602314c; repro f3a1aa0d red-then-green): `clear()` — the
+project-lifecycle boundary — bumps an epoch; generations are issued above the epoch floor
+(stride 1e9); `setIfCurrent` refuses any completion at/below the floor BEFORE the
+anti-blank branch, no catch-up. One chokepoint covers every driver (all commit through
+`setIfCurrent`; mounts happen only on accept). Intra-project L-90/L-703/L-705/L-222
+behaviour unchanged — all five VTDC suites 46/46 green. `check:isolation` before == after
+(43 vs 41 baseline; both readings are two `ui/ai/*` files from another lane''s working
+tree, pre-existing). The static checker cannot express "in-flight async completion
+crossing a lifecycle boundary" (it sweeps module-level state declarations, not promise
+lifetimes) — no arm added; stated honestly. Founder browser check still owed: project A
+with walls → new project → nothing of A visible in either pane.
