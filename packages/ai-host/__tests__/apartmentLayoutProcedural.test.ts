@@ -1,7 +1,11 @@
 // Apartment Layout — procedural fallback generator tests (offline demo).
 
 import { describe, expect, it } from 'vitest';
-import { generateProceduralLayout } from '../src/workflows/apartmentLayout/proceduralLayout.js';
+import {
+    generateProceduralLayout,
+    generateProceduralLayoutHonest,
+    largestInscribedAxisRect,
+} from '../src/workflows/apartmentLayout/proceduralLayout.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
 
 // 30 m × 20 m shell positioned away from origin (like a real project).
@@ -59,5 +63,95 @@ describe('generateProceduralLayout (offline fallback)', () => {
     it('returns [] for a zero-size shell', () => {
         const empty: ShellAnalysis = { netAreaM2: 0, widthM: 0, depthM: 0, perimeter: [], faces: [] };
         expect(generateProceduralLayout(empty, program, constraints, weights, 2)).toEqual([]);
+    });
+
+    // ── §L-907c — the built door graph is RECORDED on the rooms ──────────────
+    it('records the linear door chain on the rooms (adjacentTo + doorAdjacentTo)', () => {
+        const [opt] = generateProceduralLayout(shell, program, constraints, weights, 1);
+        const rooms = opt!.rooms;
+        expect(rooms.length).toBe(7);
+        // Ends have 1 neighbour, middles 2; door graph mirrors wall adjacency.
+        expect(rooms[0]!.doorAdjacentTo).toEqual([rooms[1]!.name]);
+        expect(rooms[3]!.doorAdjacentTo).toEqual([rooms[2]!.name, rooms[4]!.name]);
+        expect(rooms[6]!.doorAdjacentTo).toEqual([rooms[5]!.name]);
+        for (const r of rooms) expect(r.adjacentTo).toEqual(r.doorAdjacentTo);
+    });
+});
+
+// ── §L-907a — HONEST REGION on non-rectangular captured footprints ──────────
+
+describe('generateProceduralLayoutHonest (§L-907a boundary honesty)', () => {
+    // Rectangular T-shell probe frame: 16.8 × 11 bbox, 118 m² net (non-rect).
+    const tPerimeter = [
+        { x: 0, z: 0 }, { x: 16, z: 0 }, { x: 16.8, z: 5 }, { x: 11, z: 5 },
+        { x: 11, z: 11 }, { x: 5, z: 11 }, { x: 5, z: 5 }, { x: 0, z: 5 },
+    ];
+    const tShell: ShellAnalysis = {
+        netAreaM2: 118, widthM: 16.8, depthM: 11, perimeter: tPerimeter, faces: [],
+    };
+
+    function pointInPoly(pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i]!, b = poly[j]!;
+            if ((a.z > pt.z) !== (b.z > pt.z) &&
+                pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+        }
+        return inside;
+    }
+
+    it('plans EVERY partition endpoint + midpoint INSIDE the captured boundary (was 10/18 outside)', () => {
+        const { options, refusal } = generateProceduralLayoutHonest(tShell, program, constraints, weights, 2);
+        expect(refusal).toBeUndefined();
+        expect(options.length).toBeGreaterThan(0);
+        for (const opt of options) {
+            for (const w of opt.walls) {
+                for (const p of [w.start, w.end, { x: (w.start.x + w.end.x) / 2, y: (w.start.y + w.end.y) / 2 }]) {
+                    expect(pointInPoly({ x: p.x / 1000, z: p.y / 1000 }, tPerimeter)).toBe(true);
+                }
+            }
+        }
+    });
+
+    it('DISCLOSES the inscribed-rectangle planning in every option summary', () => {
+        const { options } = generateProceduralLayoutHonest(tShell, program, constraints, weights, 2);
+        for (const opt of options) {
+            expect(opt.summary).toMatch(/inscribed .*rectangle; site is non-rectangular/);
+        }
+    });
+
+    it('keeps the legacy summary (no disclosure) on a truly rectangular shell', () => {
+        const { options, refusal } = generateProceduralLayoutHonest(shell, program, constraints, weights, 1);
+        expect(refusal).toBeUndefined();
+        expect(options[0]!.summary).not.toMatch(/inscribed/);
+    });
+
+    it('REFUSES with a named reason when no usable rectangle fits (thin L sliver)', () => {
+        // A 2 m-wide L: bbox 20×20 but nothing ≥3×3 fits inside.
+        const sliver = [
+            { x: 0, z: 0 }, { x: 20, z: 0 }, { x: 20, z: 2 }, { x: 2, z: 2 },
+            { x: 2, z: 20 }, { x: 0, z: 20 },
+        ];
+        const sliverShell: ShellAnalysis = {
+            netAreaM2: 76, widthM: 20, depthM: 20, perimeter: sliver, faces: [],
+        };
+        const { options, refusal } = generateProceduralLayoutHonest(sliverShell, program, constraints, weights, 2);
+        expect(options).toEqual([]);
+        expect(refusal).toMatch(/non-rectangular/);
+        expect(refusal).toMatch(/refusing to plan on an invented rectangle/);
+    });
+
+    it('largestInscribedAxisRect returns a rect fully inside the T polygon', () => {
+        const rect = largestInscribedAxisRect(tPerimeter);
+        expect(rect).not.toBeNull();
+        const { x0, z0, w, d } = rect!;
+        expect(w).toBeGreaterThanOrEqual(3);
+        expect(d).toBeGreaterThanOrEqual(3);
+        for (const p of [
+            { x: x0 + 0.01, z: z0 + 0.01 }, { x: x0 + w - 0.01, z: z0 + 0.01 },
+            { x: x0 + 0.01, z: z0 + d - 0.01 }, { x: x0 + w - 0.01, z: z0 + d - 0.01 },
+        ]) {
+            expect(pointInPoly(p, tPerimeter)).toBe(true);
+        }
     });
 });

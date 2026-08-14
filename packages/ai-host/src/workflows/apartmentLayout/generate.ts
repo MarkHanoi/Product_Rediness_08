@@ -22,7 +22,7 @@ import type {
 import type { ShellAnalysis } from './shellAnalysis.js';
 import { validateLayout } from './validate.js';
 import { scoreLayout } from './score.js';
-import { generateProceduralLayout } from './proceduralLayout.js';
+import { generateProceduralLayoutHonest } from './proceduralLayout.js';
 import { validateApartmentEnvelope } from './dimensions/validateApartmentEnvelope.js';
 import { generateDeterministicLayouts } from './tgl/runDeterministicLayout.js';
 
@@ -333,13 +333,22 @@ export async function generateLayoutOptions(
             }
         }
 
-        const procedural = generateProceduralLayout(
+        const procedural = generateProceduralLayoutHonest(
             input.shell, adjustedProgram, input.constraints, input.weights, input.count,
         );
-        if (procedural.length > 0) {
+        if (procedural.options.length > 0) {
             return {
-                options: procedural, status: 'ok', attempts: attempt,
+                options: procedural.options, status: 'ok', attempts: attempt,
                 reason: `AI unavailable — procedural offline layout (D-TGL declined)${adjustedNote}`,
+            };
+        }
+        // §L-907a — the strip slicer REFUSED (non-rectangular footprint with no
+        // usable inscribed rectangle). Surface the NAMED reason instead of
+        // falling through to a generic "no valid layouts".
+        if (procedural.refusal) {
+            return {
+                options: [], status: 'rejected', attempts: attempt,
+                reason: `${procedural.refusal}${adjustedNote}`,
             };
         }
     }
