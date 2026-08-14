@@ -1706,3 +1706,53 @@ the correct refusal shape · the PMTiles 404 and Overpass-failover honest no-ops
    re-owned partials (PR-05, gen-ledger) were verified by execution before commit — and the audit
    found real corrections each time (the gen-ledger lane corrected its own brief''s "house 12/24"
    to the measured 11/24; PR-05 refused to strike a ledger row whose letter it had not satisfied).
+
+### §16.6 — ⛔ THE DEPLOY WAS ATTEMPTED AND CORRECTLY REFUSED — this is action #1 next session
+
+The founder asked for a Fly deploy at session close. **It was refused, by the cover, not by
+choice.** The manual Fly deploy ships the WORKING TREE, and the §7 cover (root tsc) exited **2 with
+8 errors** — every one of them in ONE lane''s uncommitted in-flight work
+(`apps/editor/src/ui/dataworkbench/roomContentsFacets.ts` + its spec: a `RoomContents` facet type
+mismatch, TS2353/TS2559 ×8). Deploying would have shipped a non-compiling tree.
+
+**The recipe next session, in order:**
+1. `git status --porcelain` — resolve the 3 remaining uncommitted files (below). Either finish
+   `roomContentsFacets.ts`''s type (it reads a `RoomContents` bucket shape that does not declare
+   `id`), or `git restore --source=HEAD` those two untracked files if the successor lane does not
+   want them. **Never `git stash`.**
+2. Re-run the cover: `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --skipLibCheck --noEmit`
+   → **must be 0 errors**. Then `npm run check:isolation`, then `npm run test:server`.
+3. Deploy per `DEPLOY-CONTRACT-MANUAL-FLY.md` (founder-confirmed method): builder at 16 GB ·
+   **BOTH npipe halves** (`mkdir` AND `echo '{}' > config.json` — half-applying it has failed a
+   deploy before) · `DOCKER_CONFIG=/tmp/empty-docker-config` only, no MSYS exports ·
+   then `bash tools/deploy/fly-bundle-proof.sh <SHA>` reading **VALUES not lengths**.
+4. Give the founder §16.7''s browser checklist.
+
+**Uncommitted at close, with owners** (all are additive new work, none blocks a revert):
+`apps/editor/src/ui/dataworkbench/roomContentsFacets.ts` + `__tests__/roomContentsFacetsHonesty.spec.ts`
++ `HierarchyTreePanel.ts` (L-EMPTYv2 — the tsc blocker; the facets honesty work) ·
+`packages/ai-host/src/intents/PlacementActivation.ts` + `packages/ai-host/src/index.ts`
+(L-CHATPLACEv2 / L-906 — the chat→placement-tool capability, unfinished at cut) ·
+`no-empty-means-unknown-debt.json` (L-EMPTYv2 ledger, mid-strike) · `.claude/settings.local.json`
+(environment, ignore) · `test-results/` (artefact, ignore or gitignore).
+
+### §16.7 — THE BROWSER CHECKLIST FOR THE FOUNDER (after the deploy lands)
+
+> 🚀 Hard-refresh first. Each line names what LANDED this session, so a failure is a real finding.
+> 1. **Drag a wall onto a door** → the chat OPENS, names the door with both intervals, and offers
+>    two clear directions; Confirm moves it, ONE Ctrl+Z reverts. (L-904, `895b8d49`)
+> 2. **Chat: "make room 001 a bedroom"** → occupancy AND the label change (`Bedroom 01`); a name
+>    you typed yourself is KEPT and the reply says so; ONE Ctrl+Z reverts both. (L-905, `e78d2536`)
+> 3. **Generate a layout on the Córdoba (non-rectangular) parcel** → the option cards now DISCLOSE
+>    *"planned on inscribed W×D m rectangle"*; a boundary breach or a room-count divergence
+>    TOASTS with both numbers. (L-907, `f7d21bf6` + `39d462c2`)
+> 4. **Regenerate the D-TGL apartment on a skewed shell** → console shows **ZERO**
+>    `§DIAG-PARTITION-REACH reconnected` lines. A `§EMIT-SHORT-RUN-DROPPED` warning is the NEW
+>    honest refusal — report it if you see it. ⚠ **Triangular-prism corners will PERSIST** until
+>    the junction-infill clamp lands (mechanism named in L-909a, repro owed). (`c5d3d4f5`)
+> 5. **Project A → draw walls → start a NEW project** → nothing of A appears in the plan pane or
+>    the 3D viewport. (L-910, `e602314c`)
+> 6. **Drag a wall on a GENERATED level** → rooms re-detect (they used to stay frozen for the
+>    session). (PR-05, `372b6635`)
+> 7. **Not yet shipped, do not test**: "Create a bed" chat placement (L-906, uncommitted) ·
+>    collinear wall MERGE (L-903, detector only, unwired).
