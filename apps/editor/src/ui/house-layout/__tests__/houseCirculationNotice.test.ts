@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+//
 // §CI-1-BANNER wiring (SPEC-49 §4 CI-1, founder decision 2026-08-13) — the FINAL seam:
 // the editor stops success-toasting over a house that shipped a sealed room.
 //
@@ -10,9 +12,19 @@
 // These tests drive the REAL announce seam the executor calls, with a payload stubbed
 // ONLY at the boundary the type defines (`HouseCirculationReport` — that is the
 // contract, not the value under test; C74 §3.4 is satisfied because the RENDERING
-// decision is what is asserted). Plain-Node (the apps/editor vitest 'node' env), same
-// as `residentialError.ts`'s pure builders: the HTML is asserted as a string; the thin
-// DOM mount guards on `typeof document`.
+// decision is what is asserted).
+//
+// §XSS-NO-SINK (L-XSS, 2026-08-14) — WHY THIS FILE RUNS UNDER happy-dom RATHER THAN THE
+// apps/editor DEFAULT 'node' ENV. The subject used to be `buildHouseCirculationBannerHtml`,
+// a pure string builder assigned through `host.innerHTML`, and these assertions were
+// substring matches against that string. The builder is now
+// `buildHouseCirculationBannerElement`, which returns a DOM subtree with every dynamic
+// value set via `textContent` — so there is ONE render path, not a string path for the
+// tests and a DOM path for the mount, and no opportunity for the two to drift apart.
+// The assertions moved with it and got stronger: `querySelector` on the real tree
+// instead of `indexOf` on markup, exact `textContent` equality instead of `toContain`,
+// and — the assertion the whole change exists for — a room name carrying
+// `<img src=x onerror=…>` must appear as LITERAL TEXT and produce NO element.
 //
 // THE FOUR VERDICT RENDERINGS UNDER TEST (C70 §2.2 — 'unknown' NEVER renders success):
 //   banner null        → the success toast, BYTE-IDENTICAL to the pre-wiring text.
@@ -21,11 +33,13 @@
 //   severity unknown   → the SAME banner surface at WARNING weight — never success.
 //   severity advisory  → a warning toast carrying the headline. No success toast.
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
     houseBuildSuccessMessage,
     announceHouseCirculation,
-    buildHouseCirculationBannerHtml,
+    buildHouseCirculationBannerElement,
+    presentHouseCirculationBanner,
+    dismissHouseCirculationBanner,
     type HouseCirculationReport,
     type HouseCirculationBanner,
     type StoreyCirculationVerdict,
@@ -155,6 +169,31 @@ const reportWith = (banner: HouseCirculationBanner | null): HouseCirculationRepo
     banner,
 });
 
+// ── DOM helpers ───────────────────────────────────────────────────────────────
+
+const build = (banner: HouseCirculationBanner): HTMLDivElement =>
+    buildHouseCirculationBannerElement(banner, document);
+
+/** The card's fixed chrome, one element per node, EXCLUDING the per-storey lines:
+ *  header · region · notice · icon · body · headline · lines · qualifier · footer · button. */
+const FIXED_ELEMENT_COUNT = 10;
+
+const textOf = (root: ParentNode, selector: string): string =>
+    root.querySelector(selector)?.textContent ?? '<<missing>>';
+
+const lineTexts = (root: ParentNode): string[] =>
+    [...root.querySelectorAll('[data-role="hcb-line"]')].map((n) => n.textContent ?? '');
+
+/** The `data-role` stamps in DOCUMENT ORDER — the contractual render order, read off
+ *  the real tree rather than inferred from substring offsets in a markup string. */
+const roleOrder = (root: ParentNode): string[] =>
+    [...root.querySelectorAll('[data-role]')].map((n) => n.getAttribute('data-role') ?? '');
+
+afterEach(() => {
+    dismissHouseCirculationBanner();
+    document.body.innerHTML = '';
+});
+
 // ── (b) null banner → success toast unchanged, byte-identical text ───────────
 
 describe('§CI-1-BANNER — null banner (every storey measured sound)', () => {
@@ -199,43 +238,61 @@ describe('§CI-1-BANNER — blocking severity', () => {
     });
 
     it('renders the sealed-room names, error weight, headline → lines → qualifier, and a dismiss control', () => {
-        const html = buildHouseCirculationBannerHtml(blockingBanner);
+        const card = build(blockingBanner);
 
-        // The rooms the founder saw — all three names, from BOTH distinct sets.
-        expect(html).toContain('Storage 2');
-        expect(html).toContain('Storage 3');
-        expect(html).toContain('Storage 4');
+        // The rooms the founder saw — all three names, from BOTH distinct sets. VERBATIM:
+        // the whole engine line, exact-equal, not a substring of escaped markup.
+        expect(lineTexts(card)).toEqual([sealedVerdict.line]);
+        expect(card.textContent).toContain('Storage 2');
+        expect(card.textContent).toContain('Storage 3');
+        expect(card.textContent).toContain('Storage 4');
         // The failed rule travels with the rooms (the founder asked for both).
-        expect(html).toContain('reach');
+        expect(card.textContent).toContain('rules failed: reach');
 
-        // Order: headline, then the per-storey lines, then the honesty qualifier.
-        const headlineAt = html.indexOf('1 of 2 storeys ships with a sealed room');
-        const lineAt = html.indexOf('SEALED — no door at all: Storage 4');
-        const qualifierAt = html.indexOf('Checked 2 of 2 storeys');
-        expect(headlineAt).toBeGreaterThan(-1);
-        expect(lineAt).toBeGreaterThan(headlineAt);
-        expect(qualifierAt).toBeGreaterThan(lineAt);
+        // Order: headline, then the per-storey lines, then the honesty qualifier —
+        // asserted as DOCUMENT ORDER, which a substring offset could only approximate.
+        expect(roleOrder(card)).toEqual(['hcb-headline', 'hcb-line', 'hcb-qualifier']);
+        expect(textOf(card, '[data-role="hcb-headline"]')).toBe(blockingBanner.headline);
+        expect(textOf(card, '[data-role="hcb-qualifier"]')).toBe(blockingBanner.qualifier);
 
         // Severity is stamped (machine-readable, quotable in a bug report) and the
         // established ERROR token carries the weight — no ad-hoc red.
-        expect(html).toContain('data-severity="blocking"');
-        expect(html).toContain('alm-notice--rejected');
+        expect(card.getAttribute('data-severity')).toBe('blocking');
+        expect(card.querySelector('.alm-notice')?.className).toBe('alm-notice alm-notice--rejected hcb-notice');
         // Persistent + dismiss-required: an explicit dismiss control, no auto-hide.
-        expect(html).toContain('data-action="dismiss-circulation-banner"');
+        expect(card.querySelector('[data-action="dismiss-circulation-banner"]')).not.toBeNull();
         // Blocking interrupts assistive tech too.
-        expect(html).toContain('role="alert"');
+        expect(card.getAttribute('role')).toBe('alert');
+        expect(card.getAttribute('aria-live')).toBe('assertive');
+        expect(card.getAttribute('aria-label')).toBe('House built with sealed rooms');
     });
 
     it('renders EVERY non-empty bucket — one rendered line per banner line, none hidden', () => {
-        const html = buildHouseCirculationBannerHtml(blockingWithAllBuckets);
-        for (const line of blockingWithAllBuckets.lines) {
-            // Lines are HTML-escaped; assert on an escape-stable prefix of each.
-            expect(html).toContain(line.slice(0, 24));
-        }
-        const rendered = html.match(/data-role="hcb-line"/g) ?? [];
-        expect(rendered).toHaveLength(blockingWithAllBuckets.lines.length);
+        const card = build(blockingWithAllBuckets);
+        // Exact, in order, untruncated: a silently shortened list understates the defect.
+        expect(lineTexts(card)).toEqual(blockingWithAllBuckets.lines);
         // The not-measured bucket is named as such — never laundered into a pass.
-        expect(html).toContain('NOT MEASURED');
+        expect(card.textContent).toContain('NOT MEASURED');
+        // …and the unsound bucket, which has neither a sealed room nor an absent verdict.
+        expect(card.textContent).toContain('UNSOUND — rules failed: window-min-area');
+    });
+
+    it('carries the exact chrome — classes, region structure and the dismiss button', () => {
+        const card = build(blockingBanner);
+        expect(card.className).toBe('alm-panel hcb-card');
+        expect(card.querySelector('.alm-header')?.className).toBe('alm-header hcb-header');
+        expect(card.querySelector('.alm-notice-region')?.className).toBe('alm-notice-region hcb-region');
+        expect(card.querySelector('.alm-notice-icon')?.getAttribute('aria-hidden')).toBe('true');
+        expect(card.querySelector('.hcb-headline')?.className).toBe('alm-notice-title hcb-headline');
+        expect(card.querySelector('.hcb-lines')?.className).toBe('alm-notice-text hcb-lines');
+        expect(card.querySelector('.hcb-qualifier')?.className).toBe('alm-notice-hint hcb-qualifier');
+        expect(card.querySelector('.alm-footer')?.className).toBe('alm-footer hcb-footer');
+
+        const dismiss = card.querySelector<HTMLButtonElement>('[data-action="dismiss-circulation-banner"]');
+        expect(dismiss?.tagName).toBe('BUTTON');
+        expect(dismiss?.getAttribute('type')).toBe('button');
+        expect(dismiss?.className).toBe('alm-select hcb-dismiss');
+        expect(dismiss?.textContent).toBe('I understand — dismiss');
     });
 });
 
@@ -254,17 +311,19 @@ describe('§CI-1-BANNER — unknown severity (C70 §2.2: not-measured is never s
     });
 
     it('renders at WARNING weight — the informative token, not the error token, and role="status"', () => {
-        const html = buildHouseCirculationBannerHtml(unknownBanner);
-        expect(html).toContain('data-severity="unknown"');
-        expect(html).not.toContain('alm-notice--rejected');
-        expect(html).toContain('alm-notice--reduced');
-        expect(html).toContain('role="status"');
+        const card = build(unknownBanner);
+        expect(card.getAttribute('data-severity')).toBe('unknown');
+        const notice = card.querySelector('.alm-notice');
+        expect(notice?.classList.contains('alm-notice--rejected')).toBe(false);
+        expect(notice?.classList.contains('alm-notice--reduced')).toBe(true);
+        expect(card.getAttribute('role')).toBe('status');
+        expect(card.getAttribute('aria-live')).toBe('polite');
+        expect(card.getAttribute('aria-label')).toBe('House built — circulation could not be fully checked');
         // Still dismiss-required, still ordered headline → lines → qualifier.
-        expect(html).toContain('data-action="dismiss-circulation-banner"');
-        const headlineAt = html.indexOf('could not be checked at all');
-        const qualifierAt = html.indexOf('Checked 1 of 2 storeys');
-        expect(headlineAt).toBeGreaterThan(-1);
-        expect(qualifierAt).toBeGreaterThan(headlineAt);
+        expect(card.querySelector('[data-action="dismiss-circulation-banner"]')).not.toBeNull();
+        expect(roleOrder(card)).toEqual(['hcb-headline', 'hcb-line', 'hcb-qualifier']);
+        expect(textOf(card, '[data-role="hcb-headline"]')).toBe(unknownBanner.headline);
+        expect(textOf(card, '[data-role="hcb-qualifier"]')).toBe(unknownBanner.qualifier);
     });
 });
 
@@ -279,5 +338,103 @@ describe('§CI-1-BANNER — advisory severity', () => {
         expect(present).not.toHaveBeenCalled();
         expect(toast).toHaveBeenCalledTimes(1);
         expect(toast).toHaveBeenCalledWith(advisoryBanner.headline, 'warn');
+    });
+});
+
+// ── §XSS-NO-SINK — the assertion the DOM conversion exists for ───────────────
+//
+// Room names reach this banner from AI generation and from user input. Under the former
+// `innerHTML` builder these tests would go RED the moment a future edit dropped one
+// `esc()` call — which is the failure mode this file must be able to catch. They are
+// written against the DOM, not the markup, so they cannot be satisfied by an escape
+// that merely LOOKS applied: an injected `<img>` either is an element in the tree or
+// it is not.
+
+describe('§XSS-NO-SINK — engine/user text is TEXT, structurally', () => {
+    const XSS = '<img src=x onerror="alert(1)">';
+
+    const injected: HouseCirculationBanner = {
+        ...blockingBanner,
+        headline: `1 of 2 storeys ships with a sealed room ${XSS}`,
+        qualifier: `Checked 2 of 2 storeys ${XSS}`,
+        lines: [
+            `Storey 1 (L-house-01): SEALED — no door at all: ${XSS} · rules failed: reach`,
+            `Storey 2 (L-house-02): SEALED — no door at all: <script>alert(2)</script>`,
+        ],
+    };
+
+    it('renders an injected room name as literal text and creates NO element from it', () => {
+        const card = build(injected);
+
+        // NOTHING was parsed as markup — not in the tree, not in a detached branch.
+        expect(card.querySelector('img')).toBeNull();
+        expect(card.querySelector('script')).toBeNull();
+        // Element census: the fixed chrome plus exactly one <div> per banner line, and
+        // not one node more. An injected element would push this over.
+        expect(card.querySelectorAll('*')).toHaveLength(FIXED_ELEMENT_COUNT + injected.lines.length);
+
+        // …and the payload is still SHOWN to the user, verbatim, as text. Dropping the
+        // dangerous characters instead of rendering them would be its own defect: the
+        // room name in the model is what the architect has to go and fix.
+        expect(lineTexts(card)).toEqual(injected.lines);
+        expect(textOf(card, '[data-role="hcb-headline"]')).toBe(injected.headline);
+        expect(textOf(card, '[data-role="hcb-qualifier"]')).toBe(injected.qualifier);
+    });
+
+    it('survives the mount — the injected payload is inert in the live document too', () => {
+        presentHouseCirculationBanner(injected);
+
+        const host = document.getElementById('hcb-circulation-banner-host');
+        expect(host).not.toBeNull();
+        expect(document.querySelector('img')).toBeNull();
+        expect(document.querySelector('script')).toBeNull();
+        expect(host?.textContent).toContain(XSS);
+    });
+
+    it('cannot break out of an attribute value either', () => {
+        // `severity` is a closed union at the type boundary, so a hostile value can only
+        // arrive from an engine/protocol drift — exactly the case setAttribute makes safe.
+        const hostile = { ...blockingBanner, severity: '" onmouseover="alert(1)' } as unknown as HouseCirculationBanner;
+        const card = build(hostile);
+        expect(card.getAttribute('data-severity')).toBe('" onmouseover="alert(1)');
+        expect(card.getAttribute('onmouseover')).toBeNull();
+        expect(card.querySelectorAll('*')).toHaveLength(FIXED_ELEMENT_COUNT + hostile.lines.length);
+    });
+
+    it('renders a missing headline/qualifier as empty text, never the word "null"', () => {
+        // Pins the one normalisation the former `esc()` performed (`String(v ?? '')`).
+        const sparse = { ...blockingBanner, headline: null, qualifier: undefined } as unknown as HouseCirculationBanner;
+        const card = build(sparse);
+        expect(textOf(card, '[data-role="hcb-headline"]')).toBe('');
+        expect(textOf(card, '[data-role="hcb-qualifier"]')).toBe('');
+    });
+});
+
+// ── The mount: singleton, dismiss-required, no auto-hide ─────────────────────
+
+describe('§CI-1-BANNER — the DOM mount', () => {
+    it('mounts one host, and the dismiss button click handler removes it', () => {
+        presentHouseCirculationBanner(blockingBanner);
+        const host = document.getElementById('hcb-circulation-banner-host');
+        expect(host).not.toBeNull();
+        expect(host?.querySelector('.hcb-card')).not.toBeNull();
+
+        const dismiss = host?.querySelector<HTMLButtonElement>('[data-action="dismiss-circulation-banner"]');
+        expect(dismiss).not.toBeNull();
+        dismiss?.click();
+        expect(document.getElementById('hcb-circulation-banner-host')).toBeNull();
+    });
+
+    it('is a singleton — a re-run replaces the previous card rather than stacking', () => {
+        presentHouseCirculationBanner(blockingBanner);
+        presentHouseCirculationBanner(unknownBanner);
+        expect(document.querySelectorAll('#hcb-circulation-banner-host')).toHaveLength(1);
+        expect(document.querySelectorAll('.hcb-card')).toHaveLength(1);
+        expect(document.querySelector('.hcb-card')?.getAttribute('data-severity')).toBe('unknown');
+    });
+
+    it('dismiss is idempotent and never throws when nothing is mounted', () => {
+        expect(() => dismissHouseCirculationBanner()).not.toThrow();
+        expect(() => dismissHouseCirculationBanner()).not.toThrow();
     });
 });

@@ -25,6 +25,14 @@
 // fixed-position notification pattern `ConflictDisclosureBanner` uses, minus its
 // auto-hide: THIS banner never times out — the user must dismiss it.
 //
+// XSS: this module has NO HTML sink. The card is built with `createElement`, and every
+// dynamic value — headline, qualifier, each storey line, severity, title — is assigned
+// with `textContent`. The banner renders ROOM NAMES, which come from AI generation and
+// from user input, so escaping here must be structural rather than remembered: the
+// earlier form built an HTML string with a hand-applied local `esc()` and assigned it
+// through `innerHTML`, which was safe only for as long as every future edit remembered
+// the call. (§XSS-SINK-SCAN / C08 §3.1 — L-XSS, 2026-08-14.)
+//
 // TYPES: the `@pryzm/ai-host` ROOT barrel exports `HouseLayoutResult` but not (yet) the
 // circulation types themselves, and this lane's territory does not include the barrel.
 // `circulation` is a REQUIRED field of the exported type, so the types are derived by
@@ -55,16 +63,26 @@ export function houseBuildSuccessMessage(storeyCount: number, stairCount: number
     return `Built ${storeyCount}-storey house — ${stairCount} stair(s), roof on top. Finishing storeys…`;
 }
 
-/** Minimal HTML-escape for interpolated engine text (mirrors residentialError.ts). */
-function esc(s: unknown): string {
-    return String(s ?? '').replace(/[&<>"']/g, (c) => (
-        c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'
-    ));
+/**
+ * The ONE text normalisation. Mirrors what the former `esc()` did to a value BEFORE
+ * escaping it — `null`/`undefined` collapse to the empty string rather than rendering
+ * the words "null"/"undefined" — and stops there, because there is nothing left to
+ * escape: every dynamic value below is assigned with `textContent`, which cannot
+ * produce markup by construction.
+ */
+function asText(v: unknown): string {
+    return String(v ?? '');
 }
 
 /**
- * Build the banner card's inner HTML. PURE (string in → string out, XSS-guarded) so it
- * unit-tests in plain Node like `residentialError.ts`'s builders.
+ * Build the banner card as a DOM SUBTREE. §XSS-NO-SINK (L-XSS, C08 §3.1): this used to
+ * be `buildHouseCirculationBannerHtml(): string` assigned through `host.innerHTML`, with
+ * every interpolation hand-routed through a local `esc()`. That was correct on the day it
+ * was written and one forgotten `esc()` away from injecting AI- and user-authored ROOM
+ * NAMES into the editor's DOM. Escaping is now STRUCTURAL, not remembered: structure comes
+ * from `createElement`, every dynamic value goes in via `textContent`, and there is no HTML
+ * sink in this module at all. Do not reintroduce one — the fix is to delete the sink, not
+ * to satisfy the scanner's regex.
  *
  * Render order is CONTRACTUAL: headline, then one line per non-sound storey (EVERY
  * banner line — no bucket hidden), then the honesty qualifier. Severity weight:
@@ -72,8 +90,15 @@ function esc(s: unknown): string {
  *   'unknown'  → `.alm-notice--reduced` (the established informative/warning purple
  *                token) + role="status" — warning weight, NEVER the success surface.
  * ('advisory' never reaches this builder — it rides a warning toast instead.)
+ *
+ * `doc` is injected so the builder is testable against any Document; production callers
+ * omit it. Attribute-for-attribute (and order-for-order) identical to the string the
+ * former builder produced — the chrome did not change, only how it is constructed.
  */
-export function buildHouseCirculationBannerHtml(banner: HouseCirculationBanner): string {
+export function buildHouseCirculationBannerElement(
+    banner: HouseCirculationBanner,
+    doc: Document = document,
+): HTMLDivElement {
     const blocking = banner.severity === 'blocking';
     const noticeTone = blocking ? 'alm-notice--rejected' : 'alm-notice--reduced';
     const role = blocking ? 'alert' : 'status';
@@ -81,29 +106,73 @@ export function buildHouseCirculationBannerHtml(banner: HouseCirculationBanner):
     const title = blocking
         ? 'House built with sealed rooms'
         : 'House built — circulation could not be fully checked';
-    const lineItems = banner.lines
-        .map((l) => `<div class="hcb-line" data-role="hcb-line">${esc(l)}</div>`)
-        .join('');
-    return (
-        `<div class="alm-panel hcb-card" role="${role}" aria-live="${blocking ? 'assertive' : 'polite'}" ` +
-        `data-severity="${esc(banner.severity)}" aria-label="${esc(title)}">` +
-        `<div class="alm-header hcb-header">${esc(title)}</div>` +
-        '<div class="alm-notice-region hcb-region">' +
-        `<div class="alm-notice ${noticeTone} hcb-notice">` +
-        `<span class="alm-notice-icon" aria-hidden="true">${icon}</span>` +
-        '<span class="alm-notice-body">' +
-        `<span class="alm-notice-title hcb-headline" data-role="hcb-headline">${esc(banner.headline)}</span>` +
-        `<span class="alm-notice-text hcb-lines">${lineItems}</span>` +
-        `<span class="alm-notice-hint hcb-qualifier" data-role="hcb-qualifier">${esc(banner.qualifier)}</span>` +
-        '</span>' +
-        '</div>' +
-        '</div>' +
-        '<div class="alm-footer hcb-footer">' +
-        '<button type="button" class="alm-select hcb-dismiss" data-action="dismiss-circulation-banner">' +
-        'I understand — dismiss</button>' +
-        '</div>' +
-        '</div>'
-    );
+
+    const card = doc.createElement('div');
+    card.className = 'alm-panel hcb-card';
+    card.setAttribute('role', role);
+    card.setAttribute('aria-live', blocking ? 'assertive' : 'polite');
+    card.setAttribute('data-severity', asText(banner.severity));
+    card.setAttribute('aria-label', title);
+
+    const header = doc.createElement('div');
+    header.className = 'alm-header hcb-header';
+    header.textContent = title;
+    card.appendChild(header);
+
+    const region = doc.createElement('div');
+    region.className = 'alm-notice-region hcb-region';
+    card.appendChild(region);
+
+    const notice = doc.createElement('div');
+    notice.className = `alm-notice ${noticeTone} hcb-notice`;
+    region.appendChild(notice);
+
+    const iconEl = doc.createElement('span');
+    iconEl.className = 'alm-notice-icon';
+    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.textContent = icon;
+    notice.appendChild(iconEl);
+
+    const body = doc.createElement('span');
+    body.className = 'alm-notice-body';
+    notice.appendChild(body);
+
+    const headline = doc.createElement('span');
+    headline.className = 'alm-notice-title hcb-headline';
+    headline.setAttribute('data-role', 'hcb-headline');
+    headline.textContent = asText(banner.headline);
+    body.appendChild(headline);
+
+    const lines = doc.createElement('span');
+    lines.className = 'alm-notice-text hcb-lines';
+    body.appendChild(lines);
+    // EVERY banner line, unfiltered and untruncated (C75 §1.2) — one child per line.
+    for (const l of banner.lines) {
+        const line = doc.createElement('div');
+        line.className = 'hcb-line';
+        line.setAttribute('data-role', 'hcb-line');
+        line.textContent = asText(l);
+        lines.appendChild(line);
+    }
+
+    const qualifier = doc.createElement('span');
+    qualifier.className = 'alm-notice-hint hcb-qualifier';
+    qualifier.setAttribute('data-role', 'hcb-qualifier');
+    qualifier.textContent = asText(banner.qualifier);
+    body.appendChild(qualifier);
+
+    const footer = doc.createElement('div');
+    footer.className = 'alm-footer hcb-footer';
+    card.appendChild(footer);
+
+    const dismiss = doc.createElement('button');
+    dismiss.type = 'button';
+    dismiss.className = 'alm-select hcb-dismiss';
+    dismiss.setAttribute('data-action', 'dismiss-circulation-banner');
+    dismiss.textContent = 'I understand — dismiss';
+    footer.appendChild(dismiss);
+
+    return card;
 }
 
 // ── The thin DOM surface ─────────────────────────────────────────────────────
@@ -156,7 +225,9 @@ export function presentHouseCirculationBanner(banner: HouseCirculationBanner): v
 
     const host = document.createElement('div');
     host.id = HOST_ID;
-    host.innerHTML = buildHouseCirculationBannerHtml(banner);
+    // §XSS-NO-SINK — appendChild of a built subtree, never `innerHTML =`. Room names
+    // reaching this banner are AI- and user-authored; they are TEXT, structurally.
+    host.appendChild(buildHouseCirculationBannerElement(banner, document));
     host.addEventListener('click', (e: MouseEvent) => {
         const target = e.target as HTMLElement | null;
         if (target?.closest('[data-action="dismiss-circulation-banner"]')) {
