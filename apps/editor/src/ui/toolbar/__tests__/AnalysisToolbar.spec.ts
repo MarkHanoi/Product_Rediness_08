@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AnalysisToolbar, ANALYSIS_TOOLBAR_ID, ANALYSIS_TOOLBAR_BUTTONS } from '../AnalysisToolbar.js';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import { isBacked } from '../commandBacking.js';
 
 function makeBusMock() {
     return { executeCommand: vi.fn(), register: vi.fn(() => ({ dispose: vi.fn() })), registry: new Map() };
@@ -42,22 +43,43 @@ describe('AnalysisToolbar — wave-6-c-d10 binding contract', () => {
     });
 
     it.each(ANALYSIS_TOOLBAR_BUTTONS.map(b => [b.commandType, b.title]))(
-        'button "%s" dispatches executeCommand',
+        'button "%s" dispatches when BACKED, refuses visibly when not',
         (commandType) => {
             const runtime = makeRuntime();
             const toolbar = new AnalysisToolbar(runtime);
             const btn = toolbar.element.querySelector(`[data-command="${commandType}"]`) as HTMLButtonElement;
             expect(btn).not.toBeNull();
             btn.click();
-            expect(runtime.bus.executeCommand).toHaveBeenCalledWith(commandType, expect.any(Object));
+            // §L-MOUNT Phase 3 — THE CONTRACT CHANGED, and it changed because the old
+            // one was false. These specs used to assert that EVERY button dispatches;
+            // the H6 probe + the Phase-1 census measured that 276 of the 280 declared
+            // verbs have no handler anywhere, so "dispatches" meant "dispatches into
+            // nothing" — the §C-B1 silent no-op, asserted as a feature. A backed verb
+            // must still dispatch; an unbacked one must REFUSE, visibly.
+            if (isBacked(commandType)) {
+                expect(btn.disabled).toBe(false);
+                expect(runtime.bus.executeCommand).toHaveBeenCalledWith(commandType, expect.any(Object));
+            } else {
+                expect(btn.disabled).toBe(true);
+                expect(btn.getAttribute('data-unbacked')).toBe('1');
+                expect(btn.getAttribute('aria-disabled')).toBe('true');
+                expect(btn.title).toContain(commandType);
+                expect(runtime.bus.executeCommand).not.toHaveBeenCalled();
+            }
         },
     );
 
-    it('triggerCommand() dispatches via runtime.bus.executeCommand', () => {
+    it('triggerCommand() dispatches when BACKED, refuses when not', () => {
         const runtime = makeRuntime();
         const toolbar = new AnalysisToolbar(runtime);
         toolbar.triggerCommand('analysis-energy-run');
-        expect(runtime.bus.executeCommand).toHaveBeenCalledWith('analysis-energy-run', expect.any(Object));
+        // §L-MOUNT Phase 3 — triggerCommand is the PROGRAMMATIC door (keyboard
+        // shortcuts). `disabled` cannot guard it, so refuseUnbacked() does.
+        if (isBacked('analysis-energy-run')) {
+            expect(runtime.bus.executeCommand).toHaveBeenCalledWith('analysis-energy-run', expect.any(Object));
+        } else {
+            expect(runtime.bus.executeCommand).not.toHaveBeenCalled();
+        }
     });
 
     it('triggerCommand() for unknown command is a noop', () => {

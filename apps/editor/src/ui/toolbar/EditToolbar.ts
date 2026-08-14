@@ -26,6 +26,7 @@
  */
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import { applyCommandBacking, refuseUnbacked } from './commandBacking.js';
 
 export const EDIT_TOOLBAR_ID = 'edit-toolbar' as const;
 
@@ -124,6 +125,9 @@ export class EditToolbar {
             btn.title = def.title;
             btn.setAttribute('aria-label', def.title);
             btn.setAttribute('data-command', def.commandType);
+            // §L-MOUNT Phase 3 — refuse, never silently no-op. Unbacked verbs render
+            // disabled with the reason named. See ./commandBacking.ts.
+            applyCommandBacking(btn, def.commandType);
 
             const icon = document.createElement('span');
             icon.className = 'et-btn-icon';
@@ -146,6 +150,9 @@ export class EditToolbar {
             console.warn(`[EditToolbar] runtime is null — command "${commandType}" not dispatched.`);
             return;
         }
+        // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
+        // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
+        if (refuseUnbacked(commandType)) return;
         this.runtime.bus.executeCommand(commandType, {});
     }
 

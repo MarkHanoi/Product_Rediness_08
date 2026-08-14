@@ -16,6 +16,7 @@
  */
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import { applyCommandBacking, refuseUnbacked } from './commandBacking.js';
 
 export const TEXT_TOOLBAR_ID = 'text-toolbar' as const;
 
@@ -73,6 +74,9 @@ export class TextToolbar {
             console.warn(`[TextToolbar] triggerCommand(${commandType}) — no runtime`);
             return;
         }
+        // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
+        // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
+        if (refuseUnbacked(commandType)) return;
         this._runtime.bus.executeCommand(commandType, payload);
     }
 
@@ -108,11 +112,17 @@ export class TextToolbar {
         btn.title           = def.title;
         btn.setAttribute('aria-label', def.title);
         btn.setAttribute('data-command', def.commandType);
+        // §L-MOUNT Phase 3 — refuse, never silently no-op. Unbacked verbs render
+        // disabled with the reason named. See ./commandBacking.ts.
+        applyCommandBacking(btn, def.commandType);
         btn.addEventListener('click', () => {
             if (!this._runtime) {
                 console.warn(`[TextToolbar] ${def.commandType} clicked — no runtime attached`);
                 return;
             }
+            // §L-MOUNT Phase 3 — refuse, never dispatch into nothing. Guards the
+            // PROGRAMMATIC door too (triggerCommand), which `disabled` cannot.
+            if (refuseUnbacked(def.commandType)) return;
             this._runtime.bus.executeCommand(def.commandType, {});
         });
         return btn;

@@ -130,6 +130,15 @@ interface PairRow {
   /** Files (outside this surface / type maps / tests) where the quoted verb occurs. */
   occurrences: string[];
   surfaceMounted: boolean;
+  /**
+   * §L-MOUNT Phase 3 — the button rendered DISABLED with `data-unbacked`, i.e.
+   * the surface DECLARES it cannot serve this verb. The verdict is UNCHANGED
+   * (still NOT-REACHED: the user cannot reach the command), but the DETAIL must
+   * not read "the wiring is broken at the gesture" — that is a different, worse
+   * defect, and merging the two would make a deliberate refusal indistinguishable
+   * from an accident. Refusal is never promoted to any passing verdict.
+   */
+  declaredRefusal: boolean;
   verdict: Verdict;
   detail: string;
 }
@@ -359,13 +368,19 @@ beforeAll(async () => {
         delta = dispatches.slice(before);
       }
       const c = classify(b.commandType, delta, btn !== null);
+      const declaredRefusal = btn?.getAttribute('data-unbacked') === '1' && btn.disabled === true;
       pairRows.push({
         surface: d.surface,
         gesture: `click [data-command="${b.commandType}"]`,
         declaredCommand: b.commandType,
         dispatchObserved: c.dispatchObserved, busHandler: c.busHandler,
         registerRow: c.registerRow, occurrences: c.occ,
-        surfaceMounted: mounted, verdict: c.verdict, detail: c.detail,
+        surfaceMounted: mounted, declaredRefusal, verdict: c.verdict,
+        detail: declaredRefusal
+          ? 'button rendered DISABLED with data-unbacked and the verb named in its title — '
+            + 'a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. '
+            + 'The verdict stays NOT-REACHED: the user still cannot reach this command.'
+          : c.detail,
       });
     }
   }
@@ -388,7 +403,8 @@ beforeAll(async () => {
     controlRows.push({
       surface: name, gesture: `click [data-command="${command}"]`, declaredCommand: command,
       dispatchObserved: c.dispatchObserved, busHandler: c.busHandler, registerRow: c.registerRow,
-      occurrences: c.occ, surfaceMounted: false, verdict: c.verdict, detail: c.detail,
+      occurrences: c.occ, surfaceMounted: false, declaredRefusal: false,
+      verdict: c.verdict, detail: c.detail,
     });
   };
 
@@ -458,6 +474,10 @@ describe('HARNESS 6 — gesture→command reachability (CE-05)', () => {
     const unmounted = surfaceRows.filter((s) => s.mountedBy.length === 0);
     console.log(`[H6 SUMMARY] ${pairRows.length} pairs — EXECUTED-REACHED ${n('EXECUTED-REACHED')} · ` +
       `RESOLVED-ONLY ${n('RESOLVED-ONLY')} · NOT-REACHED ${n('NOT-REACHED')} · UNPROVEN ${n('UNPROVEN')}`);
+    const refusals = pairRows.filter((r) => r.declaredRefusal).length;
+    console.log(`[H6 REFUSAL] ${refusals} of the NOT-REACHED pairs render a DECLARED REFUSAL ` +
+      `(disabled + reason named). Still unreachable — but no longer a silent no-op. ` +
+      `${n('NOT-REACHED') - refusals} NOT-REACHED pair(s) remain unlabelled.`);
     console.log(`[H6 MOUNT] ${unmounted.length} of ${surfaceRows.length} surfaces have ZERO production importers ` +
       `(L-847-class: authored, tested, never mounted): ${unmounted.map((s) => s.surface).join(', ') || 'none'}`);
     const notReached = pairRows.filter((r) => r.verdict === 'NOT-REACHED');
@@ -499,6 +519,11 @@ afterAll(() => {
         resolvedOnly: n('RESOLVED-ONLY'),
         notReached: n('NOT-REACHED'),
         unproven: n('UNPROVEN'),
+        // §L-MOUNT Phase 3 — a STRICT SUBSET of notReached, never a deduction
+        // from it. These pairs are still unreachable; they are merely honest
+        // about it. Reporting them separately is what keeps "refused" from
+        // being read as "fixed".
+        declaredRefusal: pairRows.filter((r) => r.declaredRefusal).length,
       },
       registrationFailures,
       notMeasured: [

@@ -13,6 +13,7 @@ import {
     IFC_INSPECTOR_TOOLBAR_BUTTONS,
 } from '../IfcInspectorToolbar.js';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import { isBacked } from '../commandBacking.js';
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ describe('IfcInspectorToolbar — wave-6-c-d8 binding contract', () => {
     // ── Command dispatch — all 8 buttons ──────────────────────────────────────
 
     it.each(IFC_INSPECTOR_TOOLBAR_BUTTONS.map(b => [b.commandType, b.title]))(
-        'button "%s" (%s) dispatches executeCommand with type "%s"',
+        'button "%s" (%s) dispatches when BACKED, refuses visibly when not',
         (commandType) => {
             const runtime = makeRuntime();
             const toolbar = new IfcInspectorToolbar(runtime);
@@ -83,23 +84,35 @@ describe('IfcInspectorToolbar — wave-6-c-d8 binding contract', () => {
             ) as HTMLButtonElement | null;
             expect(btn).not.toBeNull();
             btn!.click();
-            expect(runtime.bus.executeCommand).toHaveBeenCalledWith(
-                commandType,
-                expect.any(Object),
-            );
+            // §L-MOUNT Phase 3 — THE CONTRACT CHANGED, and it changed because the old one was
+            // false: 276 of the 280 declared verbs have no handler anywhere, so
+            // "dispatches" meant "dispatches into nothing" — §C-B1 asserted as a
+            // feature. Backed verbs still dispatch; unbacked ones must REFUSE.
+            if (isBacked(commandType)) {
+                expect(btn!.disabled).toBe(false);
+                expect(runtime.bus.executeCommand).toHaveBeenCalledWith(commandType, expect.any(Object));
+            } else {
+                expect(btn!.disabled).toBe(true);
+                expect(btn!.getAttribute('data-unbacked')).toBe('1');
+                expect(btn!.title).toContain(commandType);
+                expect(runtime.bus.executeCommand).not.toHaveBeenCalled();
+            }
         },
     );
 
     // ── triggerCommand API ────────────────────────────────────────────────────
 
-    it('triggerCommand() dispatches via runtime.bus.executeCommand', () => {
+    it('triggerCommand() dispatches when BACKED, refuses when not', () => {
         const runtime = makeRuntime();
         const toolbar = new IfcInspectorToolbar(runtime);
         toolbar.triggerCommand('ifc-validate');
-        expect(runtime.bus.executeCommand).toHaveBeenCalledWith(
-            'ifc-validate',
-            expect.any(Object),
-        );
+        // §L-MOUNT Phase 3 — triggerCommand is the PROGRAMMATIC door (keyboard shortcuts);
+        // `disabled` cannot guard it, so refuseUnbacked() does.
+        if (isBacked('ifc-validate')) {
+            expect(runtime.bus.executeCommand).toHaveBeenCalledWith('ifc-validate', expect.any(Object));
+        } else {
+            expect(runtime.bus.executeCommand).not.toHaveBeenCalled();
+        }
     });
 
     it('triggerCommand() for unknown command is a noop (no throw)', () => {

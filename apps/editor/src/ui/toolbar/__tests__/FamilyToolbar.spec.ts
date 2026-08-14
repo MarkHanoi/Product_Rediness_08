@@ -13,6 +13,7 @@ import {
     FAMILY_TOOLBAR_BUTTONS,
 } from '../FamilyToolbar.js';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import { isBacked } from '../commandBacking.js';
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ describe('FamilyToolbar — wave-6-c-d7 binding contract', () => {
     // ── Command dispatch — all 8 buttons ──────────────────────────────────────
 
     it.each(FAMILY_TOOLBAR_BUTTONS.map(b => [b.commandType, b.title]))(
-        'button "%s" (%s) dispatches executeCommand with type "%s"',
+        'button "%s" (%s) dispatches when BACKED, refuses visibly when not',
         (commandType) => {
             const runtime = makeRuntime();
             const toolbar = new FamilyToolbar(runtime);
@@ -78,20 +79,38 @@ describe('FamilyToolbar — wave-6-c-d7 binding contract', () => {
             ) as HTMLButtonElement | null;
             expect(btn).not.toBeNull();
             btn!.click();
-            expect(runtime.bus.executeCommand).toHaveBeenCalledWith(commandType, expect.any(Object));
+            // §L-MOUNT Phase 3 — THE CONTRACT CHANGED, and it changed because the old
+            // one was false. These specs used to assert that EVERY button dispatches;
+            // the H6 probe + the Phase-1 census measured that 276 of the 280 declared
+            // verbs have no handler anywhere, so "dispatches" meant "dispatches into
+            // nothing" — the §C-B1 silent no-op, asserted as a feature. A backed verb
+            // must still dispatch; an unbacked one must REFUSE, visibly.
+            if (isBacked(commandType)) {
+                expect(btn.disabled).toBe(false);
+                expect(runtime.bus.executeCommand).toHaveBeenCalledWith(commandType, expect.any(Object));
+            } else {
+                expect(btn.disabled).toBe(true);
+                expect(btn.getAttribute('data-unbacked')).toBe('1');
+                expect(btn.getAttribute('aria-disabled')).toBe('true');
+                expect(btn.title).toContain(commandType);
+                expect(runtime.bus.executeCommand).not.toHaveBeenCalled();
+            }
         },
     );
 
     // ── triggerCommand API ────────────────────────────────────────────────────
 
-    it('triggerCommand() dispatches via runtime.bus.executeCommand', () => {
+    it('triggerCommand() dispatches when BACKED, refuses when not', () => {
         const runtime = makeRuntime();
         const toolbar = new FamilyToolbar(runtime);
         toolbar.triggerCommand('browse-family-types');
-        expect(runtime.bus.executeCommand).toHaveBeenCalledWith(
-            'browse-family-types',
-            expect.any(Object),
-        );
+        // §L-MOUNT Phase 3 — triggerCommand is the PROGRAMMATIC door (keyboard shortcuts);
+        // `disabled` cannot guard it, so refuseUnbacked() does.
+        if (isBacked('browse-family-types')) {
+            expect(runtime.bus.executeCommand).toHaveBeenCalledWith('browse-family-types', expect.any(Object));
+        } else {
+            expect(runtime.bus.executeCommand).not.toHaveBeenCalled();
+        }
     });
 
     it('triggerCommand() logs a warning when runtime is null', () => {
