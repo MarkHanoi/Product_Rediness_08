@@ -68,7 +68,14 @@ export interface RoomFacetRefusal {
  *  becomes this; the `null` arm forces the caller to write down what it does
  *  when the answer is unknown. */
 export function facetIdsOrUnknown(
-    room: { readonly [k in RoomFacetField]?: unknown } | null | undefined,
+    // §L-EMPTY-FACET-PARAM — an INDEX SIGNATURE, not a two-key mapped type. The
+    // narrow form had no properties in common with a real room record (which
+    // carries `id` and an index signature), so every production call site and
+    // every fixture failed TS2559/TS2353. This function reads exactly
+    // `room[field]` and nothing else, so the widening is honest: the CALLER's
+    // shape is not this function's business, and `RoomFacetField` still pins
+    // which fields may be asked for.
+    room: { readonly [k: string]: unknown } | null | undefined,
     field: RoomFacetField,
 ): readonly string[] | null {
     return relationshipArrayOrUnknown<string>(room?.[field]);
