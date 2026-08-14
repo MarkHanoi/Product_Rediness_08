@@ -800,17 +800,112 @@ function repairSegments(segments: readonly WallSeg[]): WallSeg[] {
     }
 
     // 3. Rebuild segments with welded endpoints; drop any that the weld
-    //    collapsed to zero length (two endpoints welded to the same point) OR that the
-    //    clamp/weld left below the editor's degeneracy floor (A.21.D34(h)) — such a
-    //    near-zero stub self-clusters in WallJoinResolver and goes silently missing.
+    //    collapsed to zero length (two endpoints welded to the same point). A segment
+    //    below the editor's degeneracy floor (A.21.D34(h) / §SELF-CLUSTER-FLOOR) is
+    //    still un-buildable — the resolver would self-cluster + skip it — but it is
+    //    NO LONGER silently dropped: see §EMIT-SHORT-RUN-MERGE below.
     const out: WallSeg[] = [];
+    const shorts: Array<{ a: Pt; b: Pt; src: WallSeg }> = [];
     for (let i = 0; i < live.length; i++) {
         const a = weld[i * 2]!;            // 'a' endpoint of seg i
         const b = weld[i * 2 + 1]!;        // 'b' endpoint of seg i
         if (Math.abs(a.x - b.x) < EPS && Math.abs(a.z - b.z) < EPS) continue;   // collapsed → drop
-        // A.21.D34(h) — drop near-zero stubs the resolver would self-cluster + skip.
-        if (Math.hypot(b.x - a.x, b.z - a.z) < WJR_SAFE_MIN_LEN_M) continue;
-        out.push({ ...live[i]!, a: { x: round6(a.x), z: round6(a.z) }, b: { x: round6(b.x), z: round6(b.z) } });
+        const wa: Pt = { x: round6(a.x), z: round6(a.z) };
+        const wb: Pt = { x: round6(b.x), z: round6(b.z) };
+        if (Math.hypot(wb.x - wa.x, wb.z - wa.z) < WJR_SAFE_MIN_LEN_M) {
+            shorts.push({ a: wa, b: wb, src: live[i]! });
+            continue;
+        }
+        out.push({ ...live[i]!, a: wa, b: wb });
+    }
+
+    // ── §EMIT-SHORT-RUN-MERGE (L-909a, founder 2026-08-14) ────────────────────────
+    // THE DEFECT this closes: the A.21.D34(h)/§SELF-CLUSTER-FLOOR drop above used to
+    // DELETE any 0.01–0.50 m run SILENTLY. On a skewed / polygon-native tiling the
+    // wall sweep legitimately splits a wall LINE into sub-runs wherever the bounding
+    // cell changes, and a sub-run shorter than 0.50 m is common near a shell corner or
+    // between two close junctions. Deleting it holed the wall line: BOTH neighbours'
+    // endpoints were left dangling by up to ~1 m, the room loop could not close, and
+    // the RoomDetectionEngine's §DIAG-PARTITION-REACH rescuer dragged endpoints —
+    // including SHELL CORNERS — onto the wrong hosts (measured on the skewed-quad
+    // fixture: rescued 918 mm / 965 mm / 438 mm gaps == the founder's production
+    // "closed a 988mm dangling gap" log lines; see tglEmissionJunctionBand.test.ts).
+    //
+    // THE FIX at the seam: a sub-floor run is ABSORBED into a surviving COLLINEAR
+    // neighbour on the same wall line (the survivor's span is extended across the
+    // stub, so every junction the stub used to serve is still met exactly) — the
+    // resulting wall set has the SAME closed geometry with no un-buildable stub.
+    // Collinearity + endpoint-sharing are judged at the weld tolerance the pass
+    // already owns (JUNCTION_WELD_TOL_M — no new magic literal). Preference order:
+    // a survivor whose 'b' end touches the stub absorbs it FIRST — extending 'b'
+    // never moves the wall's 'a' origin, which door offsets are measured from.
+    // Chained stubs converge via repeated passes (each merge can enable the next).
+    //
+    // A stub that has NO collinear surviving neighbour cannot be honestly rebuilt:
+    // keeping it resurrects the §SELF-CLUSTER-FLOOR vanish (worse: silently missing
+    // MESH in the editor), so it is dropped — but LOUDLY, as a NAMED emission
+    // refusal (ADR-0299: a recovery that conceals is a defect). This warn is
+    // always-on: it fires only on a genuine emission defect, never in a hot loop.
+    const perpToLine = (p: Pt, s: WallSeg): number => {
+        const dx = s.b.x - s.a.x, dz = s.b.z - s.a.z;
+        const L = Math.hypot(dx, dz);
+        if (L < EPS) return Infinity;
+        return Math.abs(((p.x - s.a.x) * dz - (p.z - s.a.z) * dx) / L);
+    };
+    const nearPt = (p: Pt, q: Pt): boolean =>
+        Math.hypot(p.x - q.x, p.z - q.z) <= JUNCTION_WELD_TOL_M + EPS;
+    let pending = shorts;
+    for (let pass = 0; pass < shorts.length && pending.length > 0; pass++) {
+        const next: typeof pending = [];
+        let progressed = false;
+        for (const s of pending) {
+            let hostIdx = -1;
+            let hostViaB = false;
+            for (let i = 0; i < out.length; i++) {
+                const o = out[i]!;
+                const touchesB = nearPt(o.b, s.a) || nearPt(o.b, s.b);
+                const touchesA = nearPt(o.a, s.a) || nearPt(o.a, s.b);
+                if (!touchesA && !touchesB) continue;
+                if (perpToLine(s.a, o) > JUNCTION_WELD_TOL_M || perpToLine(s.b, o) > JUNCTION_WELD_TOL_M) continue;
+                // Prefer a 'b'-end attachment (offset-safe: 'a' never moves).
+                if (touchesB) { hostIdx = i; hostViaB = true; break; }
+                if (hostIdx === -1) { hostIdx = i; hostViaB = false; }
+            }
+            if (hostIdx === -1) { next.push(s); continue; }
+            const o = out[hostIdx]!;
+            // Extend the survivor across the stub's span: project all four endpoints
+            // onto the survivor's axis and take the extremes (the union of two
+            // contiguous collinear spans). Endpoints are re-derived ON the survivor's
+            // line so the merge never bends the wall.
+            const dx = o.b.x - o.a.x, dz = o.b.z - o.a.z;
+            const L = Math.hypot(dx, dz);
+            const ux = dx / L, uz = dz / L;
+            const tOf = (p: Pt): number => (p.x - o.a.x) * ux + (p.z - o.a.z) * uz;
+            const ts = [0, L, tOf(s.a), tOf(s.b)];
+            const tMin = Math.min(...ts), tMax = Math.max(...ts);
+            const newA: Pt = { x: round6(o.a.x + ux * tMin), z: round6(o.a.z + uz * tMin) };
+            const newB: Pt = { x: round6(o.a.x + ux * tMax), z: round6(o.a.z + uz * tMax) };
+            out[hostIdx] = { ...o, a: newA, b: newB };
+            progressed = true;
+            if (!hostViaB && tMin < -EPS && _layoutDiagOn()) {
+                console.log(
+                    `[D-TGL] §EMIT-SHORT-RUN-MERGE absorbed ${s.src.id} at survivor ${o.id}'s 'a' end ` +
+                    `(a moved ${(-tMin * 1000).toFixed(0)}mm — door offsets on ${o.id} shift by the same amount)`,
+                );
+            }
+        }
+        pending = next;
+        if (!progressed) break;
+    }
+    for (const s of pending) {
+        const len = Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z);
+        console.warn(
+            `[D-TGL] §EMIT-SHORT-RUN-DROPPED ${s.src.id}: ${(len * 1000).toFixed(0)}mm run ` +
+            `(${s.a.x.toFixed(3)},${s.a.z.toFixed(3)})→(${s.b.x.toFixed(3)},${s.b.z.toFixed(3)}) is below the ` +
+            `${(WJR_SAFE_MIN_LEN_M * 1000).toFixed(0)}mm buildable floor (§SELF-CLUSTER-FLOOR) and has NO collinear ` +
+            `surviving neighbour to absorb it. DROPPED — its junctions may be left open ` +
+            `(rooms bounded by this run may not close). This is an emission refusal, not a rescue.`,
+        );
     }
     return out;
 }
