@@ -195,6 +195,12 @@ Enforce §4 git discipline verbatim — every rule there cost real work.
 
 ### §2.1 — WHERE THE NUMBER STANDS
 
+> ⛔ **SUPERSEDED — the live number is in [§15.3](#153--the-counted-position-55--20--7-and-three-refusals-that-matter-more): 55 CLOSED / 20 OPEN / 7 UNPROVEN**,
+> stamped at `a75e8e1e` in GAP-REGISTER §9.0. Ceiling **74/82** after the founder's CB-01/02/05
+> deferral (77/82 absolute). **Everything below this line is the 2026-08-13 reading**, kept because
+> the *method* it demonstrates is still the rule — one executed run per closure, never a
+> hand-increment — not because any of its numbers are current.
+
 **Last EXECUTED recount: `34/82`.** Gate-confirmed closures landed after it, each verified by a run:
 
 | Row | Closing evidence (executed) |
@@ -388,14 +394,17 @@ Verify by EXECUTION, never by a commit subject or an inherited claim.
 | [GENERATIVE-QUALITY-MASTER-TRACKER](GENERATIVE-QUALITY-MASTER-TRACKER.md) | ⚠ **a DIFFERENT programme with a DIFFERENT denominator** — generator output quality (**28** = 4 typology packs × 7 readiness gates) and, as its Phase 3, the **edit layer**. §-1 says why it must never be folded into the 82. Its Phase 3 is blocked on **this** programme's bar 3 | when the work is *"is the generated design correct?"* rather than *"did the model stay truthful?"* |
 | [typology-expansion-roadmap](typology-expansion-roadmap.md) | the multi-typology **vision** (25+ typologies, packs, marketplace). Carries **no status** — the tracker above is its status half | when scoping typology work |
 | [IMPLEMENTATION-ROADMAP](BIM30-IMPLEMENTATION-ROADMAP.md) | phases 0R–9 + F; **§3.1 the three bars** | when sequencing |
-| [GAP-REGISTER](../../04-reference/BIM30-GAP-REGISTER.md) | **the 82 rows** — the denominator | for the recount |
+| [GAP-REGISTER](../../04-reference/BIM30-GAP-REGISTER.md) | **the 82 rows** — the denominator. **§9.0 is the stamp: 55 / 20 / 7 at `a75e8e1e`** | for the recount |
 | [READINESS-GATES](../../04-reference/BIM30-READINESS-GATES.md) | per-gate BUILT / SPECIFIED-NOT-BUILT | when building a gate |
-| [ISSUE-LOG](../../04-reference/ISSUE-LOG.md) | L-NNN findings — **latest L-852; next is L-853** | append every founder-reported bug |
+| [ISSUE-LOG](../../04-reference/ISSUE-LOG.md) | L-NNN findings — **highest in the file is L-885** (`grep -oE 'L-[0-9]{3}' \| sort -u \| tail -1`, 2026-08-14 evening). ⚠ Other lanes append concurrently: **re-run that command, never trust this number** | append every founder-reported bug |
 | [CERTIFICATION-PLAN](BIM30-CERTIFICATION-PLAN.md) | the harness, verdicts, exit-code order | when touching certify |
 | [DEPLOY-CONTRACT-MANUAL-FLY](../../02-decisions/DEPLOY-CONTRACT-MANUAL-FLY.md) | §7 above | every deploy |
 
 **Contracts** at `docs/02-decisions/contracts/`; the index `README.md` is the authority on the suite
-(**C01–C68 plus C70–C80**). ⚠ **§1 digests C67–C80 only.** C01–C66 have **not** been read in the
+(**C01–C68 plus C70–C83** — measured `ls docs/02-decisions/contracts/ | grep -E '^C8'` → C80, C81,
+**C82** ribbon-capability-surface, **C83** spatial-validity-and-design-logic).
+**C83 is the one you will actually open next session** — it is minted, amended by a 26-agent
+prior-art survey, and its findings are §15.6. ⚠ **§1 digests C67–C80 only.** C01–C66 have **not** been read in the
 sessions that produced this brief; what is known of them comes from `CLAUDE.md`'s summary, **which
 has been measurably wrong before**. Before changing anything governed by C01–C66, open that contract.
 
