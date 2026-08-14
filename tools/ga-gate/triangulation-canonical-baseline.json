@@ -1,0 +1,18 @@
+{
+  "recipe": "a TRIANGULATION body = one of four arithmetic anchors, comment-stripped: (1) modular-predecessor walk over a list the SAME FILE splices/filters an interior element from (a walk over an immutable ring is a clipper/checker, NOT an ear clip); (2) z-order bit interleave, counted once per file (one line per axis); (3) push(0,i,i+1) index fan; (4) nine-ordinate shared-height coplanar triangle push over a 6-line window WITH a ring-successor index in the 4 lines above it (an emitter of earcut output triples has no ring successor and is not counted). A PLANAR-TOPOLOGY-ENGINE body = one FILE containing BOTH the atan2-XZ angular sort about a shared vertex AND a `${u}→${v}` directed half-edge key. Counting unit = (file × signature-occurrence) for triangulation, (file) for the engine; dirs packages,apps,plugins,src; tests counted separately and NOT ratcheted.",
+  "measuredAt": "2026-08-14",
+  "bodies": {
+    "packages/ai-host/src/PlanarTopologyEngine.ts::planar-topology-engine": "left-face half-edge trace (angular sort :298 + directed-edge key :286)",
+    "packages/auto-dimension/src/perimeter.ts::planar-topology-engine": "left-face half-edge trace (angular sort :258 + directed-edge key :247)",
+    "packages/core-app-model/src/ai/PlanarTopologyEngine.ts::planar-topology-engine": "left-face half-edge trace (angular sort :298 + directed-edge key :286)",
+    "packages/geometry-kernel/src/producers/ceiling.ts:84::fan-centroid": "centroid/cap fan — nine-ordinate shared-height triangle emission driven by a ring-successor walk",
+    "packages/geometry-kernel/src/producers/ceiling.ts:100::fan-centroid": "centroid/cap fan — nine-ordinate shared-height triangle emission driven by a ring-successor walk",
+    "packages/geometry-kernel/src/producers/extrude.ts:309::earclip-worklist": "O(n²) ear clip — modular predecessor over a SHRINKING candidate list (same list is spliced/filtered)",
+    "packages/geometry-kernel/src/producers/room.ts:391::fan-centroid": "centroid/cap fan — nine-ordinate shared-height triangle emission driven by a ring-successor walk",
+    "packages/geometry-kernel/src/producers/_internal/earcut.ts:391::earcut-zorder": "hashed earcut — z-order curve bit interleave (counted once per file; the interleave is per-axis)",
+    "packages/geometry-kernel/src/producers/_internal/roof/triangulate.ts:32::earclip-worklist": "O(n²) ear clip — modular predecessor over a SHRINKING candidate list (same list is spliced/filtered)",
+    "packages/geometry-kernel/src/producers/_shared/linear-structural.ts:174::fan-index": "index fan from vertex 0 — convex-only triangulation",
+    "packages/room-topology/src/PlanarTopologyEngine.ts::planar-topology-engine": "left-face half-edge trace (angular sort :123 + directed-edge key :113)"
+  },
+  "c2": 2
+}
