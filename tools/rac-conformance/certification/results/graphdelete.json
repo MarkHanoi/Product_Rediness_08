@@ -1,10 +1,10 @@
 {
   "harness": "H7-graph-delete-invalidation",
-  "generatedAt": "2026-08-14T13:13:26.010Z",
+  "generatedAt": "2026-08-14T13:34:45.229Z",
   "row": "GR-12 — C71 §1.2 semantic 5 / §1.4 / §6.2(c), DELETE half",
   "levelId": "GDL-L0",
-  "roomLo": "a659a420-5578-4ba1-95a7-39bcd81bdf80",
-  "roomHi": "c95c91f1-d311-4cba-addd-0915ed7eb6f9",
+  "roomLo": "9ec2d364-8406-4621-b4d0-92f6c415e061",
+  "roomHi": "da87ce69-f67c-4b68-b566-5f8262993749",
   "deletedWallId": "gdl-w-mid",
   "seedLog": [
     "level GDL-L0: OK",
@@ -54,34 +54,34 @@
       "verdict": "SURVIVED — correct"
     },
     {
-      "family": "boundedBy — the SURVIVING walls of a broken ring (lower room)",
+      "family": "boundedBy RAW getTargets — the SURVIVING walls of a broken ring (lower room)",
       "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
       "beforeDelete": "[\"gdl-w-east-lo\",\"gdl-w-mid\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
       "afterDelete": "[\"gdl-w-east-lo\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
       "vacuous": false,
-      "verdict": "PARTIAL CONCLUSION SURVIVES — the room reads as bounded by the walls that remain, though its ring no longer closes and nothing re-derived it"
+      "verdict": "EDGES RETAINED — the raw lookup still lists the walls that remain, though the ring no longer closes and nothing re-derived it. Whether that is a defect is decided by the getBoundingWalls arms below, not here"
     },
     {
-      "family": "boundedBy — the SURVIVING walls of a broken ring (upper room)",
+      "family": "boundedBy RAW getTargets — the SURVIVING walls of a broken ring (upper room)",
       "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
       "beforeDelete": "[\"gdl-w-east-hi\",\"gdl-w-mid\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
       "afterDelete": "[\"gdl-w-east-hi\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
       "vacuous": false,
-      "verdict": "PARTIAL CONCLUSION SURVIVES — same as the lower room"
+      "verdict": "EDGES RETAINED — same as the lower room"
     },
     {
       "family": "adjacentTo (room ↔ room, authored by the DELETED shared wall)",
       "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
-      "beforeDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
-      "afterDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "beforeDelete": "[\"da87ce69-f67c-4b68-b566-5f8262993749\"]",
+      "afterDelete": "[\"da87ce69-f67c-4b68-b566-5f8262993749\"]",
       "vacuous": false,
       "verdict": "STALE — the rooms still read as adjacent via a wall that no longer exists; the wall is named in NO endpoint, so no index could reach this edge"
     },
     {
       "family": "connectedTo (room ↔ room, authored by a door in the DELETED wall)",
       "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
-      "beforeDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
-      "afterDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "beforeDelete": "[\"da87ce69-f67c-4b68-b566-5f8262993749\"]",
+      "afterDelete": "[\"da87ce69-f67c-4b68-b566-5f8262993749\"]",
       "vacuous": false,
       "verdict": "STALE — the rooms still read as connected by a door that was cascaded away with its host"
     },
@@ -89,22 +89,22 @@
       "family": "getBoundingWalls — the TYPED, refusal-bearing reader (lower room)",
       "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
       "beforeDelete": "ok:true [\"gdl-w-east-lo\",\"gdl-w-mid\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
-      "afterDelete": "ok:true [\"gdl-w-east-lo\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
+      "afterDelete": "ok:false reason=boundary-undetermined-after-element-delete",
       "vacuous": false,
-      "verdict": "ANSWERS CONFIDENTLY — the reader returns ok:true over a boundary nobody re-derived; \"undetermined\" and \"determined\" print the same shape (C79 §5.2.1)"
+      "verdict": "REFUSES — the reader reports it cannot answer, which is the correct answer"
     },
     {
       "family": "getBoundingWalls — the TYPED, refusal-bearing reader (upper room)",
       "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
       "beforeDelete": "ok:true [\"gdl-w-east-hi\",\"gdl-w-mid\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
-      "afterDelete": "ok:true [\"gdl-w-east-hi\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
+      "afterDelete": "ok:false reason=boundary-undetermined-after-element-delete",
       "vacuous": false,
-      "verdict": "ANSWERS CONFIDENTLY — same as the lower room"
+      "verdict": "REFUSES — the reader reports it cannot answer, which is the correct answer"
     },
     {
       "family": "region-derived — RE-DETECT CONTROL",
       "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
-      "beforeDelete": "[\"gdl-w-east-lo\",\"gdl-w-south\",\"gdl-w-west-lo\"]|[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]|[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "beforeDelete": "[\"gdl-w-east-lo\",\"gdl-w-south\",\"gdl-w-west-lo\"]|[\"da87ce69-f67c-4b68-b566-5f8262993749\"]|[\"da87ce69-f67c-4b68-b566-5f8262993749\"]",
       "afterDelete": "[\"gdl-w-east-hi\",\"gdl-w-east-lo\",\"gdl-w-north\",\"gdl-w-south\",\"gdl-w-west-hi\",\"gdl-w-west-lo\"]|[]|[]",
       "vacuous": false,
       "verdict": "the corrective pass IS observable by this probe"

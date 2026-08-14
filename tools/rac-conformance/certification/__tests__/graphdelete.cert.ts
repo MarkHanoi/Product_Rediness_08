@@ -331,22 +331,29 @@ describe('HARNESS 7 — delete-time invalidation of semantic-graph edges (GR-12 
             .toBe(before.hostsSurviving);
 
         // ── (2) DELETE-SENSITIVE arms — the actual row ────────────────────────
+        // The RAW `getTargets` lookup. It is reported because it is what a caller
+        // bypassing the typed reader sees — but it is NOT the honesty surface, and
+        // a verdict here must not be read as the row's answer either way. This file
+        // already documents the same split for `getJoinedWalls`/`getBoundingWalls`:
+        // the raw lookup stays raw, and the typed reader is the surface that can
+        // say it does not know. The two `getBoundingWalls` arms below are the row.
         observations.push(observe(
-            'boundedBy — the SURVIVING walls of a broken ring (lower room)',
+            'boundedBy RAW getTargets — the SURVIVING walls of a broken ring (lower room)',
             'DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)',
             before.boundedByLo, after.boundedByLo,
             after.boundedByLo === '[]'
-                ? 'INVALIDATED by the delete path'
-                : 'PARTIAL CONCLUSION SURVIVES — the room reads as bounded by the walls that remain, ' +
-                'though its ring no longer closes and nothing re-derived it',
+                ? 'EDGES REMOVED by the delete path'
+                : 'EDGES RETAINED — the raw lookup still lists the walls that remain, though the ring ' +
+                'no longer closes and nothing re-derived it. Whether that is a defect is decided by ' +
+                'the getBoundingWalls arms below, not here',
         ));
         observations.push(observe(
-            'boundedBy — the SURVIVING walls of a broken ring (upper room)',
+            'boundedBy RAW getTargets — the SURVIVING walls of a broken ring (upper room)',
             'DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)',
             before.boundedByHi, after.boundedByHi,
             after.boundedByHi === '[]'
-                ? 'INVALIDATED by the delete path'
-                : 'PARTIAL CONCLUSION SURVIVES — same as the lower room',
+                ? 'EDGES REMOVED by the delete path'
+                : 'EDGES RETAINED — same as the lower room',
         ));
         observations.push(observe(
             'adjacentTo (room ↔ room, authored by the DELETED shared wall)',

@@ -229,21 +229,44 @@ export type JoinedWallsQuery =
  *     graph channel keeps its own kebab union per C78 §8.2 (`graph-unavailable`
  *     row note) and the `getJoinedWalls` precedent.
  *
+ *   `boundary-undetermined-after-element-delete` — §GR12-DELETE-INVALIDATION.
+ *     A bounding element of this room was DELETED. Distinct from the move
+ *     member, and NOT a cosmetic split: after a move the element MIGHT still
+ *     bound the room, after a delete it PROVABLY cannot, and a reason string
+ *     saying "moved" about a deletion would be a false name for the cause —
+ *     the same two-facts-one-value defect this reader exists to prevent,
+ *     committed inside the refusal itself (C79 §5.2 requires the reason be
+ *     NAMED, not merely present). Maps to the same C78 §8.1 member,
+ *     `STALE_DERIVED_STATE`; the repair is the same re-derivation. What the
+ *     split buys a consumer is the ability to say *"the wall you deleted left
+ *     this room un-enclosed"* rather than a generic staleness notice.
+ *
  *   `room-unknown-to-boundedBy-writer` — the graph holds no `boundedBy` edge
  *     from this id and no undetermined mark: the id is not a room, or the
  *     boundary writers never covered it (C78 §8.1 `RELATIONSHIP_NOT_RECORDED`).
  *
  * There is no legitimate empty success: a detected room is bounded by ≥1
- * elements by construction, so zero edges is always one of the two refusals.
+ * elements by construction, so zero edges is always one of the three refusals.
  */
 export type BoundingWallsQuery =
     | { readonly ok: true; readonly roomId: string; readonly boundingWallIds: readonly string[] }
     | {
         readonly ok: false;
         readonly roomId: string;
-        readonly reason: 'boundary-undetermined-after-element-move' | 'room-unknown-to-boundedBy-writer';
+        readonly reason: BoundaryUndeterminedReason | 'room-unknown-to-boundedBy-writer';
         readonly detail: string;
     };
+
+/**
+ * §GR12-DELETE-INVALIDATION — the named causes of C79 §5.2 `undetermined` on the
+ * boundary layer. Declared as its own union because the MARK stores it (see
+ * `_boundaryUndetermined`) and {@link getBoundingWalls} re-emits it verbatim:
+ * one place to add a cause, and no way to mark with a code the reader cannot
+ * report.
+ */
+export type BoundaryUndeterminedReason =
+    | 'boundary-undetermined-after-element-move'
+    | 'boundary-undetermined-after-element-delete';
 
 /**
  * §SITSON-REVERSE-READER (C71 §2.1 #5, ADR-0320) — the typed result of
@@ -340,23 +363,34 @@ export class SemanticGraphManager {
 
     /**
      * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5, C79 §5.2) — room ids
-     * whose boundary conclusion is **`undetermined`**: a bounding element moved
-     * and no re-derivation (room detection) has run since. Value = the named
-     * reason (C79 §5.2 says the reason MUST be named), keyed on the durable
-     * room id, never on a transient handle.
+     * whose boundary conclusion is **`undetermined`**: a bounding element
+     * moved, or was deleted, and no re-derivation (room detection) has run
+     * since. Value = the named CAUSE plus its prose (C79 §5.2 says the reason
+     * MUST be named), keyed on the durable room id, never on a transient
+     * handle.
      *
      * Populated by {@link invalidateRegionConclusionsForMovedElement} (the
-     * move-time invalidation writer); cleared the moment a fresh `boundedBy`
-     * edge is written for the room (the detection writer's re-emit IS the
-     * re-derivation), or when the room itself leaves the graph
+     * move-time invalidation writer) and
+     * {@link invalidateRegionConclusionsForDeletedElement} (§GR12-DELETE-
+     * INVALIDATION, the delete-time one); cleared the moment a fresh
+     * `boundedBy` edge is written for the room (the detection writer's re-emit
+     * IS the re-derivation), or when the room itself leaves the graph
      * ({@link removeAllRelationshipsForElement} — a dead id is *unknown*, not
      * undetermined). Read by {@link getBoundingWalls}, which refuses rather
      * than answering `[]` while a room is marked (C71 §4.4 / §7.h; C79 §5.2.1
      * — `undetermined` must never collapse into `preserved`).
      *
+     * The cause is stored rather than folded into one prose string so the
+     * reader can emit a machine-readable code that MATCHES what happened: a
+     * delete reported as `…-after-element-move` would be a false name in the
+     * refusal itself.
+     *
      * Derived state, never serialized — same disposition as `_joinedToCovered`.
      */
-    private readonly _boundaryUndetermined = new Map<string, string>();
+    private readonly _boundaryUndetermined = new Map<
+        string,
+        { readonly reason: BoundaryUndeterminedReason; readonly detail: string }
+    >();
 
     // ── Mutation ──────────────────────────────────────────────────────────────
 
@@ -416,8 +450,23 @@ export class SemanticGraphManager {
     /**
      * Remove ALL relationships where the element is either source OR target.
      * Called by DeleteWallCommand, etc.
+     *
+     * §GR12-DELETE-INVALIDATION — this is also THE delete chokepoint for the
+     * boundary layer. It runs {@link invalidateRegionConclusionsForDeletedElement}
+     * FIRST, before the purge destroys the evidence of which rooms named this
+     * element. Placing it here rather than in each command is deliberate: this
+     * method is the single call every delete path already makes, and
+     * `tools/rac-conformance/certification/gates/check-graph-delete-integrity.ts`
+     * ARM A already fails any element kind whose delete path does not call it.
+     * The delete-time invalidation therefore inherits that gate's coverage
+     * instead of needing a second, parallel one (C71 §3.4 — clear derived state
+     * at the writer).
      */
     removeAllRelationshipsForElement(elementId: string): void {
+        // MUST precede the purge: it reads `getSources(elementId, 'boundedBy')`,
+        // which the purge below is about to empty.
+        this.invalidateRegionConclusionsForDeletedElement(elementId);
+
         const toRemove = new Set<string>();
 
         // Collect all rel IDs where element is source
@@ -592,12 +641,94 @@ export class SemanticGraphManager {
                 }
             }
             for (const relId of toRemove) this.removeRelationship(relId);
-            this._boundaryUndetermined.set(
-                roomId,
-                `bounding element ${movedElementId} moved and the boundary has not been ` +
-                `re-derived since — the room may no longer be bounded by it, or may no ` +
-                `longer close at all. Re-derivation (room detection) resolves this state.`,
-            );
+            this._boundaryUndetermined.set(roomId, {
+                reason: 'boundary-undetermined-after-element-move',
+                detail:
+                    `bounding element ${movedElementId} moved and the boundary has not been ` +
+                    `re-derived since — the room may no longer be bounded by it, or may no ` +
+                    `longer close at all. Re-derivation (room detection) resolves this state.`,
+            });
+        }
+        return { invalidatedRoomIds: roomIds };
+    }
+
+    /**
+     * §GR12-DELETE-INVALIDATION (GR-12 · C71 §1.2 semantic 5 / §3.4; C79 §5.2)
+     * — the DELETE twin of {@link invalidateRegionConclusionsForMovedElement},
+     * called from {@link removeAllRelationshipsForElement} (every delete path,
+     * by way of the one call `check-graph-delete-integrity` ARM A already
+     * enforces) and from `WallRebuildCoordinator._flush` on `'remove'` events
+     * (the chokepoint every wall-store mutation drains through, including
+     * direct store writes that never went near a command).
+     *
+     * THE DEFECT IT CLOSES, measured before it existed by harness H7
+     * (`tools/rac-conformance/certification/__tests__/graphdelete.cert.ts`,
+     * `results/graphdelete.json`): delete one wall shared by two detected rooms
+     * and the `3ee632f6` cascade correctly purges every edge whose ENDPOINT is
+     * that wall — `hosts` → `[]`, `sitsOn` → `[]`, and the two
+     * `room —boundedBy→ wall` edges gone. But each room's REMAINING `boundedBy`
+     * edges survive, and `getBoundingWalls` answered
+     * **`ok:true ["east-lo","south","west-lo"]`** — a confident, complete-looking
+     * boundary for a ring that no longer closes. Before and after the delete the
+     * reader printed the same SHAPE, so "this boundary was re-derived" and "a
+     * wall it depended on was deleted and nobody recomputed" were the same
+     * value. That is the C79 §5.2.1 collapse the move half was written to
+     * prevent, reappearing on the delete path.
+     *
+     * WHY THIS MARKS BUT DOES NOT REMOVE — the one deliberate difference from
+     * the move writer, and the reason it is not an oversight:
+     *
+     *   The move path has no undo snapshot of the graph; a move is geometry, and
+     *   the conclusion is re-derived by detection. Removal there costs nothing
+     *   recoverable.
+     *
+     *   The delete path DOES have one. `DeleteElementCommand._captureRelationships`
+     *   snapshots exactly the edges TOUCHING the deleted id and
+     *   `_restoreRelationships` re-adds them on undo. Removing a room's OTHER
+     *   `boundedBy` edges here would put them outside that snapshot: undo would
+     *   restore only `room —boundedBy→ deletedWall`, the re-add would clear the
+     *   room's mark (that is `addRelationship`'s contract), and the reader would
+     *   then answer **`ok:true` with ONE wall** — confident and wrong, strictly
+     *   worse than the defect being fixed. The invalidation must stay inside what
+     *   the delete's own undo can restore.
+     *
+     *   The mark alone is SUFFICIENT for the row, because the refusal — not the
+     *   edge set — is what carries the honesty here: while a room is marked,
+     *   `getBoundingWalls` cannot answer at all, so no consumer can mistake an
+     *   undetermined boundary for a determined one. The raw `getTargets` stays
+     *   raw, exactly as this file already documents for `getJoinedWalls` and
+     *   `getBoundingWalls` ("the raw lookup stays raw, and THIS is the surface
+     *   that can say it does not know").
+     *
+     * NOT CLOSED BY THIS WRITER, and measured as still-open by the same harness:
+     * `adjacentTo` / `connectedTo` (room ↔ room) survive a delete of the wall or
+     * door that authored them. BOTH endpoints are rooms, so the deleted id
+     * appears in no index and no purge can reach them — the `connectedByStair`
+     * shape the `authoredBy` docblock above already names. H7's re-detect control
+     * proves those edges are not merely unverified but FALSE (a re-detect takes
+     * them to `[]`). They are left alone here on purpose rather than half-fixed:
+     * neither family has a refusal-bearing reader to absorb the difference, so
+     * removing them would trade a stale TRUE-shaped answer for a silent empty
+     * one — this repository's signature defect — and restoring them on undo is
+     * likewise outside the delete snapshot. That needs its own reader first.
+     *
+     * Idempotent, and an honest no-op for an element no room is bounded by
+     * (reported as zero invalidated rooms). A later no-op never erases an
+     * earlier mark.
+     */
+    invalidateRegionConclusionsForDeletedElement(
+        deletedElementId: string,
+    ): { readonly invalidatedRoomIds: readonly string[] } {
+        const roomIds = [...new Set(this.getSources(deletedElementId, 'boundedBy'))];
+        for (const roomId of roomIds) {
+            this._boundaryUndetermined.set(roomId, {
+                reason: 'boundary-undetermined-after-element-delete',
+                detail:
+                    `bounding element ${deletedElementId} was DELETED and the boundary has not ` +
+                    `been re-derived since. Unlike a move, this element provably no longer bounds ` +
+                    `the room; whether the room still closes at all — and whether it is still a ` +
+                    `room — is unknown until re-derivation (room detection) runs.`,
+            });
         }
         return { invalidatedRoomIds: roomIds };
     }
@@ -616,10 +747,13 @@ export class SemanticGraphManager {
             return {
                 ok: false,
                 roomId,
-                reason: 'boundary-undetermined-after-element-move',
+                // §GR12-DELETE-INVALIDATION — the code is whatever the WRITER
+                // recorded, never a hard-coded 'move'. A deletion reported as
+                // `…-after-element-move` would be a false name for the cause.
+                reason: undetermined.reason,
                 detail:
                     `boundedBy lookup for room ${roomId}: the boundary is UNDETERMINED — ` +
-                    undetermined +
+                    undetermined.detail +
                     ` This is C79 §5.2's undetermined state, NOT "bounded by nothing" ` +
                     `(§5.2.1), and NOT a preserved boundary.`,
             };

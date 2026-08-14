@@ -1453,9 +1453,21 @@ export class WallRebuildCoordinator {
         // §STEP7: Diff-based dirty marking — find former neighbours of moved/removed walls.
         // §GR12-BOUNDARY-INVALIDATION — the same diff also identifies the walls that
         // genuinely MOVED this flush (update + prevState + baseline beyond 1 mm), for
-        // the boundary-layer graph invalidation below. 'remove' is excluded there:
-        // a deleted wall's edges are the delete cascade's job (3ee632f6), not a move.
+        // the boundary-layer graph invalidation below. 'remove' is excluded from the
+        // MOVED set — a delete is not a move — and is collected separately just below
+        // (§GR12-DELETE-INVALIDATION). This comment used to end "a deleted wall's edges
+        // are the delete cascade's job (3ee632f6), not a move", which is true about the
+        // deleted wall's OWN edges and silent about the CONCLUSIONS they authored:
+        // harness H7 measured `getBoundingWalls` still answering `ok:true` with the
+        // surviving walls of a ring the delete had broken.
         const _movedWallIds = new Set<string>();
+        // §GR12-DELETE-INVALIDATION — every wall LEAVING the store this flush. Collected
+        // off the batch key rather than off `prevState`, so a delete is seen whether or
+        // not the emitter supplied a previous state.
+        const _deletedWallIds = new Set<string>();
+        for (const [wallId, { event }] of batch) {
+            if (event === 'remove') _deletedWallIds.add(wallId);
+        }
         for (const [, entry] of batch) {
             const { event, wall, prevState } = entry;
             if (!prevState) continue;
@@ -1504,6 +1516,33 @@ export class WallRebuildCoordinator {
                 }
             } catch (err) {
                 console.warn('[WallRebuildCoordinator] §GR12-BOUNDARY-INVALIDATION graph write failed (non-fatal):', err);
+            }
+        }
+
+        // ── §GR12-DELETE-INVALIDATION (GR-12 · C71 §1.2 semantic 5 / §3.4) ────────
+        // The DELETE twin of the block above, at the same chokepoint and for the same
+        // reason: a wall can leave the store without a command (direct store write,
+        // generator teardown), and those paths never reach
+        // `removeAllRelationshipsForElement` — where the primary delete-time
+        // invalidation lives — at all. Command-path deletes have already marked by the
+        // time this runs, so the second call is an idempotent no-op (the room's edge to
+        // the wall is purged, so the wall bounds nothing) and a no-op never erases the
+        // earlier mark. Non-fatal, like every graph write in this flush.
+        if (_deletedWallIds.size > 0) {
+            try {
+                const _invalidatedRooms = new Set<string>();
+                for (const id of _deletedWallIds) {
+                    for (const roomId of semanticGraphManager.invalidateRegionConclusionsForDeletedElement(id).invalidatedRoomIds) {
+                        _invalidatedRooms.add(roomId);
+                    }
+                }
+                if (_invalidatedRooms.size > 0 && perfTraceOn()) {
+                    perfLog('§GR12-DELETE-INVALIDATION',
+                        `_flush invalidated boundary conclusions for ${_invalidatedRooms.size} room(s) ` +
+                        `after ${_deletedWallIds.size} deleted wall(s) — undetermined until re-detect`);
+                }
+            } catch (err) {
+                console.warn('[WallRebuildCoordinator] §GR12-DELETE-INVALIDATION graph write failed (non-fatal):', err);
             }
         }
 
