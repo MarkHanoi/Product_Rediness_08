@@ -6,9 +6,22 @@
 > [IMPLEMENTATION-ROADMAP](BIM30-IMPLEMENTATION-ROADMAP.md) §3.1 (the three bars) ·
 > [GAP-REGISTER](../../04-reference/BIM30-GAP-REGISTER.md) (the 82 rows)
 >
-> ⚠ **TWO THINGS DID NOT FINISH AND ARE THE FIRST TWO ACTIONS BELOW.** The session ended on an
-> API session limit that killed four lanes mid-flight: the **final recount never ran**, and the
-> **deploy never completed**. Neither failure is a code failure. Read §-1 before anything else.
+> ⛔⛔ **STOP — THIS HEADER AND §-1 ARE STALE. GO STRAIGHT TO [§11](#11--session-close-2026-08-13-evening--the-fleet-session--80-commits-25-agents), THE 2026-08-13 EVENING FLEET-SESSION CLOSE.**
+> §11 is the youngest, fully-executed state and **overrides everything above it, §10 included**.
+> The two actions §-1 below calls "first" are **both resolved**: the recount RAN (38/82 counted,
+> GR-09 re-opened) and the deploy it refers to LANDED as `517f7a70`. §-1's task list is likewise
+> spent — GE-02 is CLEAN at 0, PR-12 and PV-04 are closed, the dark specs are on, the
+> finish-trackers are wired, CI-0/CI-1/CI-2 all shipped.
+>
+> **What is actually owed now** (§11.0 and §11.3 carry the detail): a **restamp of the register,
+> which still reads 34/82 and is known-wrong in the pessimistic direction** (counted 38, earned
+> ~41 — and the founder rejected two restamp edits without stating why, so **ask first**); a
+> **deploy of the ~80 commits HEAD now carries beyond `517f7a70`**; and six founder decisions.
+>
+> ⚠ Everything from here to §11 is retained as the historical record and as the still-valid
+> reference material (§1's contract digest, §4's git discipline, §5's path gotchas, §7's deploy
+> contract, §9's 32-prompt assessment). **Read those sections for their content; do not read §-1's
+> ordering as a live instruction.**
 
 ---
 
