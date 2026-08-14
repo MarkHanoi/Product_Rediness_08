@@ -501,7 +501,20 @@
     "exactly why the conflation looked safe — so the tests assert they are IDENTICAL",
     "on that field and differ on `reason`. 40/40 green including cordobaSiteDispatch.",
     "  · apps/editor/src/ui/site/siteDispatch.ts",
-    "  · apps/editor/src/ui/site/parcel/resolveCordobaMcStreetWidth.ts"
+    "  · apps/editor/src/ui/site/parcel/resolveCordobaMcStreetWidth.ts",
+    "",
+    "RECONCILED 2026-08-14 (lane L-EMPTYv2) — the gate read 68 findings against 67",
+    "declared and the decomposition was measured, not guessed: (a) HierarchyTree-",
+    "Panel's row still declared 8 sites though the two boundingWallIds reads were",
+    "paid on 2026-08-13 (boundingWallIdsOrUnknown at lines 456/507, verified at",
+    "HEAD) — site count shrunk 8 -> 6 in its row; (b) WallOccupancyStore GREW 3 -> 4",
+    "sites and WallCrossesOpening.ts ARRIVED as a NEW file, both from the",
+    "2026-08-14 hosted-opening-host-move / C83-S1 lane (5b33c439, fb87089b,",
+    "1e80e3a2) — each is DECLARED BY NAME in its row below with the argument and",
+    "an exit condition, per the DeleteStairCommand ARRIVED precedent. The ledger",
+    "row count is therefore 67 -> 68, and this is the ONE sanctioned way it may",
+    "move upward: a named, argued declaration of a site that already exists at",
+    "HEAD, never an unnamed baseline bump (C70 §5.4/§5.5)."
   ],
   "swallowed": [
     {
@@ -551,8 +564,8 @@
     },
     {
       "site": "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
-      "arm": "C (8 site(s))",
-      "why": "C@383 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@384 `const slabIds: string[] = room.boundingSlabIds ?? [];` · C@385 `const colIds: string[]  = room.boundingColumnIds ?? [];` · C@424 `const wallIds: string[] = room.boundingWallIds ?? [];` · C@446 `.flatMap((wid: string) => doorStore.getByWallId(wid) ?? [])` · C@462 `.flatMap((wid: string) => windowStore.getByWallId(wid) ?? [])` · "
+      "arm": "C (6 site(s))",
+      "why": "RECONCILED 2026-08-14 (L-EMPTYv2): the row previously declared 8 sites; the two `room.boundingWallIds ?? []` reads (old C@383, C@424) were PAID when the file moved to boundingWallIdsOrUnknown (verified at HEAD: lines 456 and 507 call the discriminator with an explicit no-`?? []` comment) but the site count was never shrunk. The 6 REMAINING sites are the same family, unfixed: C@459 `room.boundingSlabIds ?? []` · C@460 `room.boundingColumnIds ?? []` · C@531 `.flatMap((wid) => doorStore.getByWallId(wid) ?? [])` · C@547 `.flatMap((wid) => windowStore.getByWallId(wid) ?? [])` · C@561 `room.boundingSlabIds ?? []` · C@579 `room.boundingColumnIds ?? []`"
     },
     {
       "site": "apps/editor/src/ui/geospatial/CesiumViewport.ts",
@@ -715,6 +728,11 @@
       "why": "C@113 `for (const d of doorsByWall.get(wall.id) ?? []) {` · C@119 `for (const w of winsByWall.get(wall.id) ?? []) {`"
     },
     {
+      "site": "packages/geometry-wall/src/WallCrossesOpening.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@454 `const rawOpening = (host.openings ?? []).find((x) => x.id === o.openingId);` — ARRIVED 2026-08-14 in 5b33c439/1e80e3a2 (C83-S1 wall-crosses-opening predicate, another lane) and DECLARED by the L-EMPTYv2 reconciliation per the DeleteStairCommand ARRIVED precedent (C70 §5.5): growing the ledger to name a PRE-EXISTING-at-HEAD undetected finding is honest declaration, not a weakening — the alternative was an unnamed +1. ARGUABLY LEGITIMATE (the ARM C optional-field case): the site is an ID-ENRICHMENT lookup INSIDE a violation report — the crossing VIOLATION is pushed either way, and `?? []` only degrades `openingElementId` to the occupancy record's openingId via `rawOpening?.elementId ?? o.openingId`. No failure is collapsed into a no-violation verdict, which is the collapse this gate exists for. Retained as a row rather than a code exclusion because the gate is file-scoped and cannot prove that argument, and the file is out of this lane's write scope. EXIT: thread elementId through the occupancy record (it is already carried at canPlace time) so the raw-openings lookup disappears."
+    },
+    {
       "site": "packages/geometry-wall/src/WallDeltaClassifier.ts",
       "arm": "C (2 site(s))",
       "why": "C@170 `const po = prev.openings ?? [];` · C@171 `const no = next.openings ?? [];`"
@@ -731,8 +749,8 @@
     },
     {
       "site": "packages/geometry-wall/src/WallOccupancyStore.ts",
-      "arm": "C (3 site(s))",
-      "why": "C@286 `const openings: Opening[] = candidate.openings ?? [];` · C@513 `const openings: Opening[] = wall.openings ?? [];` · C@573 `const openings: Opening[] = wall.openings ?? [];`"
+      "arm": "C (4 site(s))",
+      "why": "C@423 `const openings: Opening[] = candidate.openings ?? [];` · C@558 `const openings: Opening[] = current.openings ?? [];` · C@786 `const openings: Opening[] = wall.openings ?? [];` · C@847 `const openings: Opening[] = wall.openings ?? [];` — the FOURTH site (C@558, planOpeningRebase) ARRIVED 2026-08-14 in the fb87089b/1e80e3a2 hosted-opening-host-move lane and is DECLARED here (grown site count, same row) rather than silently absorbed: it is the identical `wall.openings ?? []` family this row already names — an unrecorded opening set enters the rebase as \"zero openings\" and short-circuits to planOpeningRefit, so unknown and opening-less walls take the same branch. Declared by the L-EMPTYv2 reconciliation, NOT by the owning lane; the file is out of this lane's write scope (renderer-region ownership), so the honest disposition is a named site, per C70 §5.5 and the DeleteStairCommand ARRIVED precedent."
     },
     {
       "site": "packages/geometry-wall/src/WallPipelineV2.ts",
