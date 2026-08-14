@@ -301,12 +301,20 @@ export class SlabDependencyTracker {
         // §5.2.1 — `undetermined` is never silently collapsed into `preserved`,
         // and `conflicted` never passes without both numbers. Audible for a
         // developer; NOT the user-facing surface (C79 §10.6, still absent).
+        //
+        // Inside this branch `state` is `'undetermined' | 'conflicted'`, so the
+        // write rule above reduces to `writable` alone — the `!== 'preserved'`
+        // conjunct was dead here and TS2367 said so. Both outcomes are still
+        // REAL and must be distinguishable in the trace:
+        //   · `conflicted`   → live ring, written (record ≡ mesh, the A2 property)
+        //   · `undetermined` via a stale fallback → not live, NOT written
+        //   · `undetermined` via no previously derived ring → live, written
         if (verdict.state === 'undetermined' || verdict.state === 'conflicted') {
             console.warn(
                 `[SlabDependencyTracker] §C79-5.2 ${verdict.state}` +
                 `${verdict.reason ? ` (${verdict.reason})` : ''}: slab "${slabId}" — ` +
                 `${verdict.subReason}. SlabData.polygon ` +
-                `${writable && verdict.state !== 'preserved' ? 'WAS updated to the derived ring' : 'was NOT updated'}.`
+                `${writable ? 'WAS updated to the derived ring' : 'was NOT updated'}.`
             );
         }
 
