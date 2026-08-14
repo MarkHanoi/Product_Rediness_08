@@ -4413,3 +4413,36 @@ verbatim · no-host DOM-reach — fallback card visible, Confirm there dispatche
 command. Pre-existing suites re-run green post-wiring (16/16 surfacing, 17/17 opened-region).
 Root tsc: zero diagnostics on every file in this change (4 pre-existing errors in other lanes''
 in-flight files, none in this change).
+
+---
+
+## L-903 — UPDATE 2026-08-14 (lane L-MERGEv2, session cut at limit) — pure detector LANDED (⚠ NOT yet executed-tested); offer/execution NOT built; Stage-3 one-undo machinery measured as MISSING
+
+**Landed**: `packages/geometry-wall/src/WallMergeDetector.ts` (+ index export) — pure detector:
+(a) `detectCollinearMerge` — same axis (kernel `isParallel` + `COINCIDENT_M` perpendicular
+offsets), contiguous/overlapping spans, shared junction (`arePointsCoincident2D`), same
+type+thickness (`isCoincidentDistanceM`, `systemTypeId` both-absent = identical); emits a full
+merge plan (merged baseline, `survivorOpeningShiftM` for start-extensions, every absorbed-wall
+opening re-stationed via WORLD positions and validated through `canPlace` incrementally — ONE
+unplaceable opening refuses the WHOLE merge atomically, as a named `merge-refused`).
+(b) `detectRedundantStubs` — authority = `room.boundingWallIds` (C83 §0.2), face test = both
+±(thickness/2 + COINCIDENT_M) midpoint probes inside the SAME listing room''s recorded polygon;
+empty `boundingWallIds` / no rooms ⇒ `stubsUndetermined: true` with reason (C83 §5.3 / §0.2.1
+defect 3 — empty means UNKNOWN). `detectWallMerge` scopes stubs to walls junctioned to the
+mover/absorbed — no level sweep. **⚠ HONESTY: committed to survive a session kill — NO test has
+executed against it and it has NOT been typechecked. A successor must test before wiring.**
+
+**Measured, settles Stage-3**: `BatchCoordinator.ts:233` (its own header): *"`runBatch` is
+undo-neutral. One gesture = one undo entry is bought by dispatching ONE `*.batch.create` command
+(C16 §8.6) — never by holding a batch open."* `wall.join` (plugins/wall/handlers/JoinWall.ts) is
+an endpoint-snap primitive, not a merge. **No existing single command covers extend-survivor →
+transfer-openings → delete-absorbed → delete-stub, so the confirmed merge CANNOT be one Ctrl+Z
+today.** Execution design for the successor: ONE new composite command (command-registry,
+e.g. `MergeCollinearWallsCommand`, verb `wall.mergeCollinear`) doing all four steps in execute()
+with verbatim snapshots for undo (the `3ee632f6` prevState pattern for graph edges; cascade purge
+handles edges on the deletes); C67/C68 checklist is MANDATORY for the new verb
+(check-verb-register + API-VERB-REGISTER.md are currently dirty in another lane''s tree — do not
+race them). Offer surface: reuse `chatPromptHost` exactly as L-904''s `WallMoveClashProposal`
+(commit `895b8d49`) does; wiring hook: `gateWallMove` unblocked path (both gestures, MOVE-only by
+construction) with before/after eligibility diff so pre-existing generator-butted pairs do not
+cry wolf; UNDETERMINED stub data → no offer.

@@ -28,6 +28,9 @@ export * from './WallOccupancyStore';
 // openings). Sits beside WallOccupancyStore because it extends that store's
 // closed `CanPlaceRefusalCode` union rather than rivalling it (C83 §1.4).
 export * from './WallCrossesOpening';
+// §C83-MERGE (L-903) — pure detector: collinear-merge candidates + redundant
+// stubs after a wall MOVE. Detector ONLY — offer/execution wiring not yet built.
+export * from './WallMergeDetector';
 
 // ── Geometry builders ─────────────────────────────────────────────────────────
 export * from './PathResolver';
