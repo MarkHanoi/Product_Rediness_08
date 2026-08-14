@@ -13,7 +13,7 @@ import {
   Command, CommandType, CommandValidationResult, CommandResult,
   SerializedCommand, CommandContext,
 } from '../types';
-import { RoomData } from '@pryzm/room-topology';
+import { RoomData, RoomOccupancyType } from '@pryzm/room-topology';
 
 export class RenameRoomCommand implements Command {
     readonly affectedStores = ["room"] as const;
@@ -28,7 +28,13 @@ export class RenameRoomCommand implements Command {
 
   constructor(
     private readonly roomId: string,
-    private readonly updates: { name?: string; roomNumber?: string },
+    // §L-905 (C78 §12) — `occupancyType` is ADDITIVE: "make room 003 a bedroom"
+    // renames the auto-default label in the SAME gesture, and one gesture must
+    // be ONE undo entry. Two sibling commands (RenameRoomCommand +
+    // SetRoomOccupancyCommand) are two legacy history entries — two Ctrl+Z for
+    // one user sentence — so the occupancy rides the SAME store patch here.
+    // The full-RoomData snapshot above already restores it on undo.
+    private readonly updates: { name?: string; roomNumber?: string; occupancyType?: RoomOccupancyType },
   ) {
     this.targetIds = [roomId];
   }
@@ -53,6 +59,9 @@ export class RenameRoomCommand implements Command {
       const patch: Partial<RoomData> = {};
       if (this.updates.name !== undefined)       patch.name       = this.updates.name;
       if (this.updates.roomNumber !== undefined)  patch.roomNumber = this.updates.roomNumber;
+      // §L-905 — occupancy in the SAME patch: one store update, one history
+      // entry, one undo (the snapshot restore covers all three fields).
+      if (this.updates.occupancyType !== undefined) patch.occupancyType = this.updates.occupancyType;
 
       roomStore.update(this.roomId, patch);
       return { success: true, affectedElementIds: [this.roomId] };

@@ -42,6 +42,15 @@ import {
 // arm below (the switch's default). applySemanticIntent remains the single
 // semantic authority; the spec file holds data, not a second dispatcher.
 import { applyExecutionSpec, type SpecDrivenIntent } from './CapabilityExecutionSpec.js';
+// §FEAT-CHAT-TOOL-ACTIVATION (L-906) — "create a bed" activates the palette's
+// own placement tool. The grammar's noun extraction and the local-action
+// builder live in their own thin module; resolution against the REAL creation
+// matrix + furniture catalogue happens editor-side (one ladder, C69).
+import {
+  applyActivatePlacement,
+  parsePlacementRef,
+  type PlacementLocalDispatch,
+} from './PlacementActivation.js';
 // §FEAT-CHAT-ROOM-OCCUPANCY — the GRAMMAR's room-use recognizer. Used only to
 // decide whether an ambiguous utterance is claim-able; the authoritative
 // resolution (and its refusal copy) belongs to the spec's value stage.
@@ -84,6 +93,12 @@ import {
   type ScopeResult,
 } from './ScopeDescriptor.js';
 import { parseFilterClauses } from './FilterScope.js';
+// §L-905 — the room snapshot row the auto-label rename decision reads; the
+// decision itself lives in roomAutoLabel.ts (pure) and is exercised by the
+// set-room-occupancy spec in CapabilityExecutionSpec.ts.
+import type { RoomLabelRow } from './roomAutoLabel.js';
+
+export type { RoomLabelRow } from './roomAutoLabel.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +128,15 @@ export interface ResolverContext {
   readonly levels: readonly ResolverLevel[];
   /** Id minter for commands whose payload REQUIRES an id (level.add). */
   readonly mintId: () => string;
+  /**
+   * §L-905 — a snapshot of the project's rooms (id, name, roomNumber, levelId),
+   * injected by the editor so `set-room-occupancy` can decide the auto-label
+   * rename PURELY (authored-name protection + next-free numbering live in
+   * roomAutoLabel.ts). ABSENT means the label follow-through is silently off —
+   * the capability degrades to occupancy-only, exactly its pre-L-905 shape, and
+   * the reply then claims nothing about names.
+   */
+  readonly rooms?: readonly RoomLabelRow[];
   /**
    * §FEAT-CHAT-WALL-TYPE — the forgiving wall-type lookup, INJECTED.
    *
@@ -211,7 +235,15 @@ export interface BusCommandRef {
  *    IS the answer; the bridge dispatches NOTHING and mutates NOTHING.
  */
 export type ZeroTokenLocalAction =
-  | 'undo' | 'redo' | 'setActiveLevel' | 'applyVisibilityIntent' | 'answer';
+  | 'undo' | 'redo' | 'setActiveLevel' | 'applyVisibilityIntent' | 'answer'
+  // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — 'activateTool': the bridge resolves
+  // `placement.itemRef` against the REAL creation matrix + furniture catalogue
+  // (editor-side, ONE resolveCatalogueRef ladder) and activates the SAME
+  // placement tool the palette button activates. Carried as a local action,
+  // not `kind: 'commands'`: nothing is dispatched and nothing mutates — the
+  // user places via the existing mouse preview, and the mutation flows
+  // through the command path only when they click (P6, C83 §4.2).
+  | 'activateTool';
 
 /** The three compose-root-registered visibility intent commands the chat can
  *  reach today. `visibility.set.transparency` and `visibility.edge.toggle`
@@ -250,6 +282,9 @@ export type ZeroTokenResolution =
       readonly levelName?: string;
       /** For applyVisibilityIntent — the ONE bus command the bridge dispatches. */
       readonly visibility?: VisibilityLocalDispatch;
+      /** For activateTool (L-906) — the raw item reference the bridge resolves
+       *  against the creation matrix + catalogue and activates. */
+      readonly placement?: PlacementLocalDispatch;
     }
   | {
       readonly kind: 'refusal';
@@ -537,6 +572,16 @@ export type SemanticIntent =
       readonly occupancyRef: string;
       readonly scope?: IntentScope;
     }
+  /**
+   * §FEAT-CHAT-TOOL-ACTIVATION (L-906) — "create a bed" / "place a sofa" /
+   * "add a wardrobe": activate the SAME placement tool the palette button
+   * activates, for ALL placeable elements. `itemRef` is the RAW spoken noun —
+   * resolution against the creation matrix + furniture catalogue happens in
+   * the editor bridge through the ONE resolveCatalogueRef ladder (C69), never
+   * in the grammar. Routed through the `default:` arm — no new case arm
+   * (coverage-gate check 8, 27/27).
+   */
+  | { readonly intent: 'activate-placement'; readonly itemRef: string }
   /**
    * §FIX-CHAT-COMPOUND-DIMENSIONS (2026-08-10) — live production repro.
    *
@@ -961,6 +1006,8 @@ export type SemanticApplication =
       readonly levelId?: string;
       readonly levelName?: string;
       readonly visibility?: VisibilityLocalDispatch;
+      /** For activateTool (L-906) — see ZeroTokenResolution's local member. */
+      readonly placement?: PlacementLocalDispatch;
     }
   | {
       readonly kind: 'refusal';
@@ -2170,6 +2217,13 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
     // template: the U4 spec arm emits ONE batch command over a scope, this one
     // fans a selection out per element on its own kind's route.
     default: {
+      // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — the placement family, routed by
+      // intent id through the default arm (no new case arm; gate check 8).
+      // Its whole application is one thin module: the raw noun becomes a
+      // LOCAL activateTool action the editor bridge resolves and executes.
+      if (si.intent === 'activate-placement') {
+        return applyActivatePlacement(si);
+      }
       const prop = asPropertyIntent(si);
       // The cast is the exhaustiveness the union can no longer express on its
       // own: two generic families now share the default arm, and only one of
@@ -3470,6 +3524,21 @@ const matchFinishChain: Matcher = (text) => parseFinishChainIntent(text);
 
 const matchRoomFinishes: Matcher = (text) => parseRoomFinishIntent(text);
 
+// §FEAT-CHAT-TOOL-ACTIVATION (L-906) — "create a bed" → activate the palette's
+// bed placement tool. LAST in the matcher list, so every existing creation
+// sentence keeps its owner. The exclusion set is built FROM the tier-1
+// `SYNONYMS` table (never a second hand-written list): a noun tier-1 rewrites
+// into another grammar's word ("floor"/"storey" → "level") must stay a tier-0
+// miss here, or "add a floor" would stop meaning add-level.
+const PLACEMENT_EXCLUDED_NOUNS: ReadonlySet<string> = new Set([
+  ...Object.keys(SYNONYMS),
+  'level', 'levels',
+]);
+const matchActivatePlacement: Matcher = (text) => {
+  const ref = parsePlacementRef(text, PLACEMENT_EXCLUDED_NOUNS);
+  return ref === null ? null : { intent: 'activate-placement', itemRef: ref };
+};
+
 const MATCHERS: readonly Matcher[] = [
   matchUndoRedo,
   matchZoom,
@@ -3565,6 +3634,13 @@ const MATCHERS: readonly Matcher[] = [
   matchAddLevel,
   matchCreateWall,
   matchRenameRoom,
+  // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — LAST, deliberately: it claims only a
+  // bare "create/place/add <noun-phrase>" that every richer grammar above has
+  // already passed on. "create a wall" (create-wall), "add a level at 3m"
+  // (add-level), "create a 3 bedroom apartment" (generation) and "create a
+  // window in every wall segment" (parametric) are all untouched by
+  // construction and by the ordering.
+  matchActivatePlacement,
 ];
 
 /**

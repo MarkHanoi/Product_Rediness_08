@@ -895,9 +895,34 @@ async function buildContext(): Promise<ResolverContext> {
     // §GATE-VIS-READONLY — the read-only visibility question's data. Absence
     // means UNREADABLE and the answer says so.
     const visibility = visibilityIntentSnapshot();
+    // §L-905 — the rooms snapshot (id / name / roomNumber / levelId) the
+    // set-room-occupancy spec reads to make the LABEL follow the use: an
+    // auto-default `Room 00-003` renames to `Bedroom 01` in the same command,
+    // an authored name is kept and said so (roomAutoLabel.ts owns the decision,
+    // pure). Read off the SAME legacy store the room arm resolves against.
+    // Unreadable ⇒ omitted ⇒ the capability degrades to occupancy-only —
+    // never a rename claimed on data nobody read (§CONTEXT-DATA-HONESTY).
+    let roomsSnapshot: readonly { id: string; name?: string; roomNumber?: string; levelId?: string }[] | null = null;
+    try {
+        const roomStore = storeRegistry.getStoreForType('room') as unknown as {
+            getAll?: () => Array<{ id: string; name?: string; roomNumber?: string; levelId?: string }>;
+        } | undefined;
+        const all = roomStore?.getAll?.();
+        if (Array.isArray(all)) {
+            roomsSnapshot = all.map((r) => ({
+                id: r.id,
+                ...(typeof r.name === 'string' ? { name: r.name } : {}),
+                ...(typeof r.roomNumber === 'string' ? { roomNumber: r.roomNumber } : {}),
+                ...(typeof r.levelId === 'string' ? { levelId: r.levelId } : {}),
+            }));
+        }
+    } catch (err) {
+        console.warn('[ZeroTokenChatBridge] rooms snapshot unavailable (label follow-through off):', err);
+    }
     return {
         selection: currentSelection(),
         levels,
+        ...(roomsSnapshot !== null ? { rooms: roomsSnapshot } : {}),
         ...(activeLevelId !== undefined ? { activeLevelId } : {}),
         ...(visibility !== undefined ? { visibility } : {}),
         ...(catalogue !== null
@@ -1426,6 +1451,24 @@ async function runLocal(
             // §GATE-VIS-INTENT — dispatch + project (see runVisibilityIntent).
             case 'applyVisibilityIntent': {
                 failText = await runVisibilityIntent(r);
+                break;
+            }
+            // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — "create a bed" activates the
+            // SAME placement tool the palette button activates. INTERIM HONESTY
+            // (this commit): the editor-side activation module (resolution
+            // against the creation matrix + furniture catalogue via the ONE
+            // resolveCatalogueRef ladder, then ToolManager/runtime.tools
+            // activation) has not landed yet, so this arm says exactly that and
+            // ACTIVATES NOTHING — it must never render the resolver's summary
+            // as if something happened, and never the bare "No matching
+            // commands" dead end. The successor lane replaces this body with
+            // `chatPlacementActivation.activatePlacementFromChat(ref)`.
+            case 'activateTool': {
+                const ref = r.placement?.itemRef ?? 'that';
+                failText =
+                    `I recognise "${ref}" as a placement ask, but chat tool-activation ` +
+                    `isn't wired yet — nothing was activated. Meanwhile: open the Create ` +
+                    `palette and click the ${ref} item to place it with the mouse preview.`;
                 break;
             }
             // §GATE-QUERYENGINE-READ-ONLY — the summary IS the answer; nothing

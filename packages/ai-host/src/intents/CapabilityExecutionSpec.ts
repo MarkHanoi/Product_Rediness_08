@@ -56,6 +56,9 @@ import {
   resolveOccupancyRef,
   speakOccupancy,
 } from './roomOccupancyRef.js';
+// §L-905 — the auto-label rename plan (authored-name protection + next-free
+// numbering), pure; consumed by set-room-occupancy's planFanOut.
+import { planRoomOccupancyFanOut } from './roomAutoLabel.js';
 // §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
 // constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
 // the purity note above still holds — no store instance is constructed here.
@@ -229,6 +232,24 @@ export interface CapabilityExecutionSpec<I extends SpecDrivenIntent = SpecDriven
    * makes the capability smaller and truer rather than merely quieter.
    */
   readonly spatialKinds?: readonly ('level' | 'room' | 'orientation')[];
+  /**
+   * §L-905 — a fan-out spec may PLAN its per-id commands instead of stamping
+   * one identical payload per id: `set-room-occupancy` uses this to make the
+   * room LABEL follow the use ("make room 003 a bedroom" also renames the
+   * auto-default `Room 00-003` to `Bedroom 01`, in the SAME command so one
+   * Ctrl+Z reverts both — C78 §12), while an AUTHORED name is protected and
+   * the reply says so (C81 §2.2). The returned `notes` join the summary's
+   * notes tail, so the reply states BOTH actions. Only consulted when
+   * `fanOutPerId` is set; absent ⇒ the plain one-command-per-id stamp.
+   */
+  readonly planFanOut?: (
+    ids: readonly string[],
+    payload: Readonly<Record<string, unknown>>,
+    ctx: ResolverContext,
+  ) => {
+    readonly commands: readonly BusCommandRef[];
+    readonly notes: readonly string[];
+  };
 }
 
 // ─── The table ───────────────────────────────────────────────────────────────
@@ -516,6 +537,14 @@ export const EXECUTION_SPECS: SpecTable = {
     // One `room.setOccupancy` per resolved room — see the flag's doc for the
     // disclosed undo-granularity trade and the batch verb that closes it.
     fanOutPerId: true,
+    // §L-905 — the LABEL follows the use. Auto-default names (`Room 00-003`,
+    // matched against the RoomNumbering minting pattern exactly) rename to
+    // `Bedroom 01` (next free index on the level) IN THE SAME `room.rename`
+    // command as the occupancy, so each room stays one undo step; authored
+    // names are kept and the note says so. No snapshot ⇒ occupancy-only,
+    // the pre-L-905 shape. Decision logic: roomAutoLabel.ts (pure, tested).
+    planFanOut: (ids, payload, ctx) =>
+      planRoomOccupancyFanOut(ids, String(payload['occupancy'] ?? ''), ctx.rooms),
     // ROOM ONLY. A room has no facade orientation, and "rooms on level 2" is a
     // real ask this capability's grammar cannot yet produce — so neither is
     // claimed, and the arm refuses both instead of quietly honouring them.
@@ -703,22 +732,36 @@ export function applyExecutionSpec(
     : ids === 'all'
       ? `every ${kind} in the project`
       : `${ids.length} selected ${plural(ids.length)}`;
-  const notesTail = scopeNotes.length > 0 ? ` (${scopeNotes.join(' · ')})` : '';
   // §FEAT-CHAT-ROOM-OCCUPANCY — the fan-out form: one command per resolved id,
   // `idsField` naming the SINGULAR payload field. `ids` is guaranteed to be a
   // real array here because `fanOutPerId` takes the resolve-first branch above.
-  const commands: readonly BusCommandRef[] = spec.fanOutPerId === true && ids !== 'all'
-    ? ids.map((id) => ({
+  // §L-905 — a spec with `planFanOut` decides its per-id commands itself (the
+  // room auto-label rename); its notes join the summary's notes tail so the
+  // reply states everything that will happen, not only the occupancy.
+  let fanOutNotes: readonly string[] = [];
+  let commands: readonly BusCommandRef[];
+  if (spec.fanOutPerId === true && ids !== 'all') {
+    if (spec.planFanOut !== undefined) {
+      const plan = spec.planFanOut(ids, value.payload, ctx);
+      commands = plan.commands;
+      fanOutNotes = plan.notes;
+    } else {
+      commands = ids.map((id) => ({
         type: spec.busCommand,
         payload: { [spec.idsField]: id, ...value.payload },
-      }))
-    : [{
-        type: spec.busCommand,
-        payload: {
-          [spec.idsField]: ids === 'all' ? 'all' : [...ids],
-          ...value.payload,
-        },
-      }];
+      }));
+    }
+  } else {
+    commands = [{
+      type: spec.busCommand,
+      payload: {
+        [spec.idsField]: ids === 'all' ? 'all' : [...ids],
+        ...value.payload,
+      },
+    }];
+  }
+  const allNotes = [...scopeNotes, ...fanOutNotes];
+  const notesTail = allNotes.length > 0 ? ` (${allNotes.join(' · ')})` : '';
   return {
     kind: 'commands',
     intent: si.intent,
