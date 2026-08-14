@@ -1124,9 +1124,14 @@ function main(): number {
   // is now measured and by what, so nobody re-derives "unproven" from silence.
   lines.push('  • move-time invalidation (C71 §1.2 semantic 5) — NO ARM **HERE**, and no static arm is possible.');
   lines.push('      MEASURED ELSEWHERE, executed: tools/rac-conformance/certification/__tests__/graphmove.cert.ts');
-  lines.push('      (H6). Its first reading: `boundedBy` is STALE after a real wall move — the move command');
-  lines.push('      performs no invalidation and the edge still names a wall that no longer bounds the room;');
-  lines.push('      `sitsOn` and `hosts` correctly SURVIVE (id-keyed edges are move-INVARIANT by construction).');
+  lines.push('      (H6). Its first reading (2026-08-14 am): `boundedBy` STALE after a real wall move — the move');
+  lines.push('      command performed no invalidation and the edge still named a wall that no longer bounds the');
+  lines.push('      room. SECOND READING (2026-08-14, post-fix §GR12-BOUNDARY-INVALIDATION): `boundedBy` is');
+  lines.push('      INVALIDATED by the move command — the writer removes the affected rooms\' region-derived');
+  lines.push('      conclusions and marks them UNDETERMINED (C79 §5.2; typed refusal via getBoundingWalls, C71');
+  lines.push('      §4.4) until a detection pass re-emits. `sitsOn` and `hosts` correctly SURVIVE in both');
+  lines.push('      readings (id-keyed edges are move-INVARIANT by construction), and the re-detect control');
+  lines.push('      still observes the corrective pass. Read results/graphmove.json, not this prose.');
   lines.push('      STILL UNPROVEN: every family H6 does not drive, and SUBSCRIBER REACHABILITY — whether any');
   lines.push('      production path drives a re-detect on a move (GR-18/CE-05 territory).');
   lines.push('  • dynamic dispatch — GraphQueryService reads a payload string; deliberate under-count (§1.3).');

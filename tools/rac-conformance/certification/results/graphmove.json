@@ -1,9 +1,9 @@
 {
   "harness": "H6-graph-move-invalidation",
-  "generatedAt": "2026-08-14T07:54:33.905Z",
+  "generatedAt": "2026-08-14T10:42:16.343Z",
   "row": "GR-12 — C71 §1.2 semantic 5 / §1.4 / §6.2(c)",
   "levelId": "GMV-L0",
-  "roomId": "e00ab512-a916-427e-b111-b67f032d3645",
+  "roomId": "722c267b-703a-4f98-b4b0-12aa39443b56",
   "seedLog": [
     "level GMV-L0: OK",
     "wall south: OK",
@@ -35,9 +35,9 @@
       "family": "boundedBy (room → bounding walls)",
       "obligation": "MOVE-SENSITIVE (region-derived)",
       "beforeMove": "[\"gmv-w-east\",\"gmv-w-north\",\"gmv-w-south\",\"gmv-w-west\"]",
-      "afterMove": "[\"gmv-w-east\",\"gmv-w-north\",\"gmv-w-south\",\"gmv-w-west\"]",
+      "afterMove": "[]",
       "vacuous": false,
-      "verdict": "STALE — the move command performed no invalidation, and the edge still names a wall that no longer bounds the room"
+      "verdict": "INVALIDATED by the move command"
     },
     {
       "family": "adjacentTo (room → room)",
@@ -50,7 +50,7 @@
     {
       "family": "boundedBy — RE-DETECT CONTROL",
       "obligation": "MOVE-SENSITIVE (region-derived)",
-      "beforeMove": "[\"gmv-w-east\",\"gmv-w-north\",\"gmv-w-south\",\"gmv-w-west\"]",
+      "beforeMove": "[]",
       "afterMove": "[]",
       "vacuous": false,
       "verdict": "the corrective pass IS observable by this probe"
