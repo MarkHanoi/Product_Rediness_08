@@ -18,9 +18,21 @@
 // boundary points gracefully. For cadastral parcels — reliably convex quadrilaterals far more
 // often than manzana footprints are — S-H against the convex member is both exact and robust.
 //
-// The caller (`explicitArea.ts`) picks whichever of the two rings is convex as the clip and
-// REFUSES when neither is — an honest limitation flagged to the user, never a fabricated region
-// (C58 §1.4). A future general clipper can lift that restriction without changing this contract.
+// The caller (`explicitArea.ts`) picks whichever of the two rings is convex as the clip.
+//
+// §GE-05-WIRED — IT NO LONGER REFUSES WHEN NEITHER IS CONVEX. This header used to end "A future
+// general clipper can lift that restriction without changing this contract." That clipper landed:
+// `@pryzm/geometry-kernel` `pure/polygonBoolean.ts` (§C73-POLY-BOOLEAN) computes concave-vs-concave
+// intersection exactly, and `explicitArea.ts` falls through to it. The restriction is lifted and
+// this contract is indeed unchanged.
+//
+// ⚠ THIS FILE IS NOT DEAD, AND MUST NOT BE COLLAPSED INTO THE GENERAL CLIPPER. S-H against a convex
+// clip is exact and has NO arrangement/chaining step, therefore no near-coincidence resolution limit
+// (the general boolean declares an area bound of COINCIDENT_M × perimeter / 2). On a legally-binding
+// buildable-area path the narrower exact tool wins wherever it applies, which — for cadastral
+// parcels, reliably convex quadrilaterals — is most of the time. `explicitArea.intersectRings` tries
+// this FIRST and reaches the general clipper only on inputs that previously refused; that ordering
+// is what makes the wiring behaviour-preserving rather than a silent re-answer of every plot.
 //
 // PURE (C58 §1.9) — no THREE, no DOM, no I/O, no RNG. Deterministic (C58 §1.1). Jurisdiction-
 // agnostic (C58 §1.5): plain rings in scene-XZ metres, zero knowledge of any city.

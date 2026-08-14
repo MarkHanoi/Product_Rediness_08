@@ -41,6 +41,7 @@
 
 import type { Pt, ExplicitAreaRule } from '@pryzm/schemas';
 import { polygonArea, polygonContains } from '@pryzm/site-validators';
+import { intersectPolygons2D } from '@pryzm/geometry-kernel';
 import { clipPolygonToConvex, isConvexRing } from './polygonClip.js';
 import {
     boundsDisjoint,
@@ -305,11 +306,30 @@ export type ExplicitAreaSolveRefusal =
     /** Parcel and footprint do not overlap in a region of ≥ 3 vertices. */
     | 'no-overlap'
     /**
-     * NEITHER ring is convex, so the exact convex-clip intersection cannot be computed and a
-     * result would be a fabricated region (C58 §1.4). The honest limitation of this MVP; a future
-     * general (concave-vs-concave) clipper lifts it. Reported so the caller can say WHY.
+     * ⚠ **NO LONGER MINTED — the general clipper landed (GE-05, §C73-POLY-BOOLEAN).**
+     *
+     * This used to fire whenever NEITHER ring was convex, because the convex-clip contract could
+     * not compute that intersection exactly and a result would have been a fabricated region
+     * (C58 §1.4). It was not a rare corner: the DK Tier-1 run measured it on **472 of 1,000 real
+     * cadastral parcels (47.2%)** — see `docs/04-reference/jurisdictions/dk/findings/
+     * DK-TIER1-LIVE.md`, where it is the load-bearing finding.
+     *
+     * `packages/geometry-kernel/src/pure/polygonBoolean.ts` now computes concave-vs-concave
+     * intersection exactly, so the non-convex path returns an ANSWER. The member is RETAINED,
+     * not deleted, because `tools/dk-byggefelt-probe/measure-tier1-reach.ts` compares against it
+     * and the DK finding cites it by name; deleting it would break the probe that measured the
+     * problem this solved. **Nothing in this module returns it any more** — a general-clipper
+     * failure comes back as `'general-clip-refused'`.
      */
     | 'non-convex-both'
+    /**
+     * The general 2-D boolean itself refused (`degenerate-input` / `self-intersecting-input` /
+     * `unresolved-topology` — the kernel's reason is carried in `detail`). This is NOT the old
+     * convexity limitation: it means the ring geometry is malformed or hit the boolean's stated
+     * resolution limit, so no exact intersection exists to publish. Refusing is still the correct
+     * answer — it just has a different, narrower cause than it used to.
+     */
+    | 'general-clip-refused'
     /** Both / neither of `footprintRing` and `footprintParts` were supplied. */
     | 'ambiguous-input'
     /**
@@ -368,12 +388,18 @@ export type ExplicitAreaSolveResult =
 /**
  * Clip the published buildable footprint to the parcel — the `explicit-area` geometric solve.
  *
- * Uses convex-clip Sutherland–Hodgman (`polygonClip.ts`): whichever of the two rings is convex
- * becomes the clip polygon (the intersection is symmetric, so either assignment yields the same
- * region). Cadastral parcels are convex quadrilaterals far more often than manzana footprints are,
- * so this resolves the overwhelming majority exactly and robustly — including the shared
- * street-frontage edge that a general clipper would choke on. When NEITHER ring is convex it
- * refuses (`non-convex-both`) rather than fabricate.
+ * Uses convex-clip Sutherland–Hodgman (`polygonClip.ts`) FIRST: whichever of the two rings is
+ * convex becomes the clip polygon (the intersection is symmetric, so either assignment yields the
+ * same region). Cadastral parcels are convex quadrilaterals far more often than manzana footprints
+ * are, so this resolves the overwhelming majority exactly and robustly — including the shared
+ * street-frontage edge that a general clipper would choke on.
+ *
+ * §GE-05-WIRED — when NEITHER ring is convex this no longer refuses. It falls through to the
+ * kernel's general 2-D boolean (`@pryzm/geometry-kernel` §C73-POLY-BOOLEAN), which computes
+ * concave-vs-concave intersection exactly. The convex path is UNCHANGED, so no input that already
+ * produced an answer produces a different one — see `intersectRings` for why the branch order is
+ * load-bearing. The old `'non-convex-both'` refusal is retained in the union but is no longer
+ * minted; a general-clipper failure surfaces as `'general-clip-refused'`.
  *
  * §MULTI-PART-EXPLICIT-AREA — every part is clipped, not just the first. Parts whose bounding box
  * is disjoint from the parcel's are PROVABLY irrelevant and skipped without a clip (a sound
@@ -381,6 +407,48 @@ export type ExplicitAreaSolveResult =
  * Exactly one surviving region is placeable; two or more, or a hole that bites, refuse with a typed
  * reason rather than publish a ring that is not the answer.
  */
+/**
+ * §GE-05-WIRED — `subject ∩ clip`, by the exact route available for THIS pair of rings.
+ *
+ * ⚠ THE ORDER OF THE TWO BRANCHES IS LOAD-BEARING, AND IT IS WHY THIS WIRING IS
+ * BEHAVIOUR-PRESERVING. When either ring is convex the convex-clip Sutherland–Hodgman path runs
+ * EXACTLY as before, bit for bit — every input that already produced an answer produces the same
+ * answer, and the general clipper never touches it. The general path is reached ONLY on inputs
+ * that previously returned the `'non-convex-both'` REFUSAL. This wiring can therefore turn a
+ * refusal into an answer; it cannot change an answer.
+ *
+ * That is not a marginal set. The DK Tier-1 run measured `'non-convex-both'` on **472 of 1,000
+ * real cadastral parcels (47.2%)** — the load-bearing finding of `DK-TIER1-LIVE.md`.
+ *
+ * Why keep the convex path at all, rather than route everything through the general clipper?
+ * Because S-H against a convex clip is EXACT and carries no arrangement/chaining step at all, so
+ * it has no near-coincidence resolution limit (§C73-POLY-BOOLEAN's `COINCIDENT_M × perimeter / 2`
+ * area bound). On a legally-binding buildable-area path the narrower, exact tool wins wherever it
+ * applies. Replacing it would be a behaviour change dressed as a simplification.
+ *
+ * The general path may return MORE THAN ONE region — two concave rings genuinely can overlap in
+ * disjoint pieces. Every region is returned; the caller's `'multi-region-on-parcel'` refusal is
+ * what decides that a single-ring inset cannot carry them.
+ */
+function intersectRings(
+    subject: ReadonlyArray<Pt>,
+    clip: ReadonlyArray<Pt>,
+):
+    | { readonly ok: true; readonly regions: Pt[][] }
+    | { readonly ok: false; readonly reason: 'general-clip-refused'; readonly detail: string } {
+    if (isConvexRing(clip)) return { ok: true, regions: [clipPolygonToConvex(subject, clip)] };
+    if (isConvexRing(subject)) return { ok: true, regions: [clipPolygonToConvex(clip, subject)] };
+    // Neither is convex — the case that used to refuse. §C73-POLY-BOOLEAN computes it exactly.
+    const r = intersectPolygons2D(
+        subject.map((p) => [p.x, p.z] as [number, number]),
+        clip.map((p) => [p.x, p.z] as [number, number]),
+    );
+    if (!r.ok) {
+        return { ok: false, reason: 'general-clip-refused', detail: `general 2-D boolean refused: ${r.reason}` };
+    }
+    return { ok: true, regions: r.loops.map((loop) => loop.map((p) => ({ x: p[0], z: p[1] }))) };
+}
+
 export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSolveResult {
     const { parcelRing } = input;
     const hasRing = Array.isArray(input.footprintRing);
@@ -425,19 +493,12 @@ export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSo
             continue;
         }
 
-        let ring: Pt[];
-        if (isConvexRing(parcelRing)) {
-            ring = clipPolygonToConvex(part.outer, parcelRing);
-        } else if (isConvexRing(part.outer)) {
-            ring = clipPolygonToConvex(parcelRing, part.outer);
-        } else {
-            return {
-                ok: false,
-                reason: 'non-convex-both',
-                detail: `part ${i}: neither the parcel nor this part is convex`,
-            };
+        const clipped = intersectRings(part.outer, parcelRing);
+        if (!clipped.ok) {
+            return { ok: false, reason: clipped.reason, detail: `part ${i}: ${clipped.detail}` };
         }
-        if (ring.length < 3) continue; // this part does not actually reach the parcel
+        const partRegions = clipped.regions.filter((r) => r.length >= 3);
+        if (partRegions.length === 0) continue; // this part does not actually reach the parcel
 
         // ⚠ A HOLE THAT BITES THIS PARCEL IS FATAL, a hole that does not is irrelevant. Checked per
         // surviving part only: a hole in a part 400 m away says nothing about this plot.
@@ -447,34 +508,42 @@ export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSo
             const holeBounds = ringBounds(hole);
             if (holeBounds === null) continue;
             if (boundsDisjoint(holeBounds, parcelBounds)) continue;
-            let holeInParcel: Pt[] = [];
-            if (isConvexRing(parcelRing)) holeInParcel = clipPolygonToConvex(hole, parcelRing);
-            else if (isConvexRing(hole)) holeInParcel = clipPolygonToConvex(parcelRing, hole);
-            else {
-                // Cannot prove the hole misses the parcel ⇒ must assume it bites. Refusing on an
-                // unprovable hole is the conservative direction; assuming it misses would inflate.
+            // §GE-05-HOLE-EXACT — this branch used to REFUSE whenever neither the hole nor the
+            // parcel was convex, on the sound reasoning that a hole which cannot be proven to
+            // MISS the plot must be assumed to bite (assuming it misses over-states buildable
+            // area — C58 §1.4, the L-616 direction). The general clipper removes the need to
+            // assume: the hole ∩ parcel region is now computed exactly, so a hole that genuinely
+            // misses no longer costs the user their answer, and one that genuinely bites still
+            // refuses. The CONSERVATIVE direction is preserved — a general-clipper refusal here
+            // still means "cannot prove it misses", and still refuses.
+            const holeClip = intersectRings(hole, parcelRing);
+            if (!holeClip.ok) {
                 return {
                     ok: false,
                     reason: 'hole-intersects-parcel',
                     detail:
-                        `part ${i} hole ${h} overlaps this parcel's bounding box and neither ring is ` +
-                        'convex, so the hole cannot be proven to miss the plot. Assuming it misses ' +
-                        'would OVER-STATE the buildable area, so this refuses.',
+                        `part ${i} hole ${h} overlaps this parcel's bounding box and the exact ` +
+                        `hole ∩ parcel region could not be computed (${holeClip.detail}), so the ` +
+                        'hole cannot be proven to miss the plot. Assuming it misses would ' +
+                        'OVER-STATE the buildable area, so this refuses.',
                 };
             }
-            if (holeInParcel.length >= 3 && Math.abs(polygonArea(holeInParcel)) > 1e-9) {
+            const holeAreaM2 = holeClip.regions
+                .filter((r) => r.length >= 3)
+                .reduce((acc, r) => acc + Math.abs(polygonArea(r)), 0);
+            if (holeAreaM2 > 1e-9) {
                 return {
                     ok: false,
                     reason: 'hole-intersects-parcel',
                     detail:
-                        `part ${i} hole ${h} falls inside this parcel (≈${Math.abs(polygonArea(holeInParcel)).toFixed(1)} m²). ` +
+                        `part ${i} hole ${h} falls inside this parcel (≈${holeAreaM2.toFixed(1)} m²). ` +
                         'A hole is a published "do not build here" and a single-ring inset cannot ' +
                         'carry it; dropping it would OVER-STATE the buildable area (C58 §1.4).',
                 };
             }
         }
 
-        regions.push(ring);
+        for (const r of partRegions) regions.push(r);
         if (!anyPartCoversParcel && polygonContains(part.outer, parcelRing)) anyPartCoversParcel = true;
     }
 

@@ -831,11 +831,27 @@ export function computeBuildableEnvelope(
                                 solved.reason === 'no-overlap'
                                     ? 'Explicit-area zone: the published buildable footprint does not ' +
                                       'overlap this parcel — no buildable area here. No envelope.'
+                                    // §GE-05-WIRED — `non-convex-both` is RETIRED, not renamed. It used to
+                                    // fire whenever neither ring was convex ("A general concave clipper is
+                                    // the follow-up"), which the DK Tier-1 run measured on 472 of 1,000
+                                    // real parcels. The general clipper landed (§C73-POLY-BOOLEAN) and
+                                    // that path now returns an ANSWER. The branch is kept because the
+                                    // refusal member is kept — see explicitArea.ts on why the probe needs
+                                    // it — but nothing mints it, so this string should never be seen.
                                     : solved.reason === 'non-convex-both'
                                     ? 'Explicit-area zone: neither the parcel nor the published footprint ' +
                                       'is convex, so their intersection cannot be computed exactly on this ' +
                                       'plot. Refusing rather than publish an approximate buildable area ' +
-                                      '(C58 §1.4). A general concave clipper is the follow-up.'
+                                      '(C58 §1.4).'
+                                    // The narrow residue the general clipper does NOT close: ring geometry
+                                    // that is malformed (self-intersecting, degenerate) or that hits the
+                                    // boolean's stated resolution limit. Still a refusal, and still the
+                                    // correct answer — but a much narrower cause than convexity.
+                                    : solved.reason === 'general-clip-refused'
+                                    ? 'Explicit-area zone: the exact parcel ∩ published-footprint region ' +
+                                      'could not be computed on this plot — the ring geometry is malformed ' +
+                                      'or below the model’s resolution. Refusing rather than publish an ' +
+                                      `approximate buildable area (C58 §1.4). ${solved.detail ?? ''}`.trim()
                                     // §MULTI-PART-EXPLICIT-AREA — two NEW refusals, and both are about
                                     // THIS parcel rather than about the source's shape. They are the
                                     // narrow residue left after multi-part support: the footprint fits

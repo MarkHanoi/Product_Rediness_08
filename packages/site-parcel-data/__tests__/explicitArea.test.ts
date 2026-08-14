@@ -138,7 +138,20 @@ describe('solveExplicitArea — the geometric solve (parcel ∩ footprint)', () 
         if (out.ok) expect(out.areaM2).toBeCloseTo(64, 6);
     });
 
-    it('refuses `non-convex-both` when NEITHER ring is convex — never a fabricated region', () => {
+    // ── §GE-05-WIRED ────────────────────────────────────────────────────────────────────────
+    // This block replaces the old `refuses 'non-convex-both'` assertion. That refusal was NOT a
+    // corner case: the DK Tier-1 run measured it on 472 of 1,000 real cadastral parcels (47.2%).
+    // The kernel's general 2-D boolean (§C73-POLY-BOOLEAN) now computes concave-vs-concave
+    // intersection exactly, so the refusal is retired — and the tests below pin the ANSWER, not
+    // merely the absence of the refusal, which would be a much weaker statement.
+
+    it('ANSWERS where it used to refuse `non-convex-both` — concave parcel ∩ concave footprint', () => {
+        // Both rings are staircase L's with their corner at the origin.
+        //   parcel    = [0,10]×[0,4] ∪ [0,4]×[0,10]   ⇒ 100 − 36 = 64
+        //   footprint = [0,8]×[0,3]  ∪ [0,3]×[0,8]    ⇒  64 − 25 = 39
+        // The footprint's two arms both sit inside the parcel's two arms
+        // ([0,8]×[0,3] ⊂ [0,10]×[0,4] and [0,3]×[0,8] ⊂ [0,4]×[0,10]), so the footprint is
+        // WHOLLY CONTAINED and the intersection is the footprint itself: area 39, one region.
         const concaveParcel: Pt[] = [
             { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 4 },
             { x: 4, z: 4 }, { x: 4, z: 10 }, { x: 0, z: 10 },
@@ -148,8 +161,47 @@ describe('solveExplicitArea — the geometric solve (parcel ∩ footprint)', () 
             { x: 3, z: 3 }, { x: 3, z: 8 }, { x: 0, z: 8 },
         ];
         const res = solveExplicitArea({ parcelRing: concaveParcel, footprintRing: concaveFootprint });
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+            expect(res.areaM2).toBeCloseTo(39, 6);
+            expect(res.ring).toHaveLength(6);
+        }
+    });
+
+    it('the general path reaches `multi-region-on-parcel` — a REAL property of the answer', () => {
+        // parcel = a U opening upward: 6×6 = 36 minus the notch [2,4]×[2,6] = 8 ⇒ 28.
+        // footprint = a band z ∈ [3,5] spanning x ∈ [−1,7], made non-convex by a nub cut into its
+        // top edge at x ∈ [6.2,6.8] — which lies OUTSIDE the parcel (x ≤ 6), so it changes the
+        // convexity of the input without touching the answer.
+        // The band crosses the U's two arms and misses the notch, so parcel ∩ footprint is TWO
+        // disjoint regions of 2×2 = 4 each. A single-ring inset cannot carry two, so the solver
+        // refuses — but now for a property of the ANSWER, not of the input's convexity.
+        const uParcel: Pt[] = [
+            { x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 6 }, { x: 4, z: 6 },
+            { x: 4, z: 2 }, { x: 2, z: 2 }, { x: 2, z: 6 }, { x: 0, z: 6 },
+        ];
+        const notchedBand: Pt[] = [
+            { x: -1, z: 3 }, { x: 7, z: 3 }, { x: 7, z: 5 }, { x: 6.8, z: 5 },
+            { x: 6.8, z: 4.8 }, { x: 6.2, z: 4.8 }, { x: 6.2, z: 5 }, { x: -1, z: 5 },
+        ];
+        const res = solveExplicitArea({ parcelRing: uParcel, footprintRing: notchedBand });
         expect(res.ok).toBe(false);
-        expect(res.ok === false && res.reason).toBe('non-convex-both');
+        expect(res.ok === false && res.reason).toBe('multi-region-on-parcel');
+        expect(res.ok === false && res.detail).toContain('2 DISJOINT');
+    });
+
+    it('a malformed (self-intersecting) ring still refuses — `general-clip-refused`, never a guess', () => {
+        const bowtieParcel: Pt[] = [
+            { x: 0, z: 0 }, { x: 10, z: 10 }, { x: 10, z: 0 }, { x: 0, z: 10 },
+        ];
+        const concaveFootprint: Pt[] = [
+            { x: 0, z: 0 }, { x: 8, z: 0 }, { x: 8, z: 3 },
+            { x: 3, z: 3 }, { x: 3, z: 8 }, { x: 0, z: 8 },
+        ];
+        const res = solveExplicitArea({ parcelRing: bowtieParcel, footprintRing: concaveFootprint });
+        expect(res.ok).toBe(false);
+        expect(res.ok === false && res.reason).toBe('general-clip-refused');
+        expect(res.ok === false && res.detail).toContain('self-intersecting-input');
     });
 
     it('is deterministic', () => {
