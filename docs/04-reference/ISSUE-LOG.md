@@ -4043,3 +4043,237 @@ From the same production log as L-900. The WebGPU swapchain texture was not read
 known-limitation rather than a defect — it is the correct shape (a missing value beats a wrong one,
 [[envelope-solid-overstates-partial-data]]). Worth a row purely so it is not rediscovered and
 mistaken for a rendering regression.
+
+---
+
+## L-903 — OPEN — collinear wall alignment does NOT merge: three independent walls, redundant perpendicular stub survives, ugly triple join (founder, production 2026-08-14)
+
+**OBSERVED by the founder in production** (deploy carrying `46232e2d`-era bundle, project with 25
+walls on L0): move a wall so its baseline becomes **collinear and contiguous with a neighbouring
+parallel wall** — the intent is plainly "these are now ONE wall". What happens instead:
+
+1. The two collinear walls remain **two independent elements** butted end-to-end;
+2. The **perpendicular connector wall** that used to join them — which after the move separates
+   NOTHING (same room on both of its faces) — **is not removed, not flagged, not offered**;
+3. The three-wall junction renders as a visibly broken join (mitre residual of L-872 makes it
+   uglier, but the defect is MODEL-level, not render-level: the elements themselves are wrong).
+
+**The founder''s framing, verbatim intent**: *"the building needs to behave like a living entity
+(connected digital ecosystem — live, linked, semantic) and in this case we should have a result of
+a single combined wall."*
+
+**Why this is the opened-region pattern, mirrored.** `a75e8e1e`/`fa261daf` shipped: wall MOVE →
+detector notices a region left unenclosed → PRYZM ASKS in chat → Confirm dispatches ONE undoable
+`wall.create`. This finding is the exact symmetric case: wall MOVE → detector notices (a) two
+collinear contiguous same-type walls sharing a junction and (b) a perpendicular wall whose two
+faces now bound the SAME room (it separates nothing — the SEMANTIC test for redundancy, not a
+geometry-proximity test, per C83 §2) → PRYZM ASKS "merge into one wall and remove the redundant
+stub?" → Confirm = ONE undo unit (survivor baseline extended + hosted openings TRANSFERRED with
+recomputed offsets + absorbed wall deleted + stub deleted), all through the bus, gesture-scoped
+(§L-874-ONE-UNDO precedent).
+
+**Hard constraints from the contracts**: NEVER auto-apply (C83 §4.3 + founder doctrine: always
+ASK); hosted openings on the absorbed/stub walls are known dependencies — silently destroying one
+is C78 §1.2(a); if an opening cannot be re-hosted (no clear span on the survivor), the offer
+REFUSES naming the opening and both numbers (C73 §4); authority per element (C80 §2 — an authored
+wall is protected; the offer must name what it deletes); the offer reaches the DOM with silence
+controls (§15.7 lesson 1, `80e72a75` pattern).
+
+**Detection hook candidates**: `WallMoveReweldService` (the post-move chokepoint, `ca878883`) ·
+the opened-region detector''s own subscription point (`499360c6`, 16/16) · post-move settle
+(C83 §3 legal moment). Lane L-MERGE owns the investigation; root-cause and mechanism to be
+appended when measured.
+
+---
+
+## L-904 — OPEN — wall moved into a door/window clash: the refusal (where it exists) is not the ASK — the chat must OPEN with concrete left/right alternatives (founder, production 2026-08-14, SECOND report of this ask)
+
+**OBSERVED by the founder in production, and stated as a REPEAT request**: moving a wall so it
+clashes a hosted door/window should make the AI chat (RAC) **open automatically** and offer a
+solution — *"move the wall to the left or right, but NOT where it is planned to be moved."* In a
+connected digital ecosystem a wall and a window are live, linked, semantic.
+
+**The state, split honestly in three:**
+
+1. **The refusal chokepoint EXISTS at HEAD** — `1e80e3a2` (C83-S1-MOVE/L-885): wall MOVE onto a
+   door is REFUSED and EXPLAINED at `UpdateWallBaselineCommand.canExecute` /
+   `CascadeWallBaselineCommand.canExecute`, `OCC_CROSSES_HOSTED_OPENING`, DOM-reach proven
+   (`80e72a75`). **The founder''s production build predates it or the case missed the predicate**:
+   their log shows `UPDATE_WALL_BASELINE` EXECUTING through a clash with no refusal
+   (§MOVE-REWELD-DISPATCH fired, floors followed). Lane must verify the deployed SHA vs `1e80e3a2`
+   AND re-verify the predicate catches the founder''s exact gesture.
+2. **The OFFER half is UNBUILT everywhere**: today''s best case is a refusing card/toast. The
+   founder asked for the C83 §4 resolution offer: chat OPENS (the `fa261daf` rule — open the
+   surface, never degrade to console), names the clash (wall + the specific door/window + both
+   numbers), and offers the **two nearest clear stations** — derivable per C83 §4.2 as the
+   complement of `WallOccupancyStore.getOccupiedSpans(wall)` along the crossed wall, each
+   candidate **pre-validated by `canPlace` before being offered** (never offer a candidate you
+   cannot defend; if no clear interval fits, refuse with the reason and offer NOTHING).
+3. **Never auto-apply** (C83 §4.3): the user picks left/right/cancel; an accepted candidate
+   executes as ONE ordinary undoable command through the bus. Dismissal honoured (C83 §5.4).
+
+**Pattern**: identical skeleton to the opened-region offer (`a75e8e1e`/`fa261daf`) and to L-903''s
+merge offer — post-gesture detection → chat opens → typed offer → Confirm = one undo. Owned by
+lane L-MERGE (it owns the chat-offer seam this session) as its second deliverable, to avoid two
+lanes racing on one surface. Root cause of the production non-refusal to be appended when measured.
+
+---
+
+## L-905 — OPEN (QUEUED by founder) — chat occupancy change works; the room LABEL must follow ("make it a bedroom" should also rename `Room 00-003` -> `Bedroom 01`)
+
+**OBSERVED by the founder in production 2026-08-14, reported as WORKING plus a follow-through
+ask.** `SET_ROOM_OCCUPANCY` via RAC chat executed correctly (the `0a2dbd84` fix confirmed live —
+occupancy was LIVE-and-unreachable, now reached; SchedulePanel re-rendered reactively, the PR-12
+fix also visibly working). But the room name stays `Room 00-003` while occupancy reads `bedroom`
+in the schedule. Founder: *"I want the label to be changed also — to Bedroom 01 for example.
+QUEUE IT!"*
+
+**Design constraints (contracts):**
+1. **Authored-name protection (C81 §2.2, C80 §2.2)** — a name a human typed is AUTHORED even on a
+   generated room. Rename ONLY when the current name matches the auto-default pattern
+   (`Room NN-NNN` / the generator''s default); an authored name is kept and the chat reply SAYS SO
+   ("occupancy set to bedroom; kept your name ''X''"). Never silently overwrite.
+2. **Numbering** — `Bedroom 01`: next free index among same-occupancy rooms on the level,
+   deterministic and stable (zero-padded), no re-numbering of existing rooms.
+3. **One gesture = one undo (C78 §12)** — occupancy change + rename in one gesture scope; one
+   Ctrl+Z reverts both. The chat reply states both actions ("Set occupancy to bedroom and renamed
+   to Bedroom 01 — undo with Ctrl+Z").
+4. **C67/C68** — the chat capability''s declared behaviour is enriched: run
+   `check-chat-capability-coverage` before/after; no baseline weakened. Reuse the existing room
+   rename verb — no new verb should be needed; if one is, full C68 §5 checklist applies.
+5. **Schedule + room tag** must reflect the new name reactively (already proven reactive by this
+   same log).
+
+**Side-observation from the founder''s schedule screenshot, recorded not chased**: the NO. and
+NAME columns disagree on several rows (e.g. NO. 00-004 named `Room 00-001`) — the display-name vs
+room-number drift may deserve its own row once L-905''s rename logic touches this surface.
+
+---
+
+## L-906 — OPEN, URGENT (founder) — RAC "Create a bed" -> "No matching commands"; chat must ACTIVATE THE PLACEMENT TOOL (same as clicking the palette button) for ALL placeable elements
+
+**OBSERVED by the founder in production 2026-08-14**: typing `Create a bed` into the RAC chat
+yields *"No matching commands — press Enter to send as query"*. Expected — founder''s words:
+*"what he will be provided is like if the user clicks via UI in Bed element — it could then go
+with the mouse and see preview of the element and set it via UI, in the canvas. ENABLE THIS FOR
+ALL ELEMENTS."*
+
+**The architecturally sound shape (and why it is the cheap one):**
+1. **Chat -> TOOL ACTIVATION, not chat -> creation.** Resolve "create/place/add <thing>" to the
+   SAME `ToolManager.activateTool` call the UI palette button makes (same args, same catalogue
+   item). The user places via the existing mouse preview. No position is guessed (C83 §4.2/§4.3 —
+   never auto-apply, never offer what you cannot defend), preview ghosts never enter a store
+   (C18), and the mutation still flows through the one command path when the user clicks (P6).
+2. **One resolution ladder, no rival list (C69).** `<thing>` resolves against (a) the element
+   creation matrix the palette reads (wall, door, window, slab, roof, column, stair...) and
+   (b) the C17 catalogue for furniture kinds (bed, sofa, wardrobe, kitchen cabinets...) via the
+   existing `resolveCatalogueRef` ladder. The chat must enumerate FROM those sources — a
+   hand-written list in the resolver is the drift defect.
+3. **Ambiguity ASKS** ("create a cabinet" -> kitchen cabinet vs wardrobe cabinet: chat offers the
+   choices); **no match REFUSES honestly** naming the nearest available items — never a silent
+   "no matching commands" dead end for a thing the palette can place.
+4. **Zero-token** — this is deterministic table resolution, per C68 §5.i (a capability of known
+   shape is a TABLE ROW, not resolver code; PR states resolver LOC added, target ~0 per kind).
+5. **C67/C68 binding**: capability declared in the registry, examples with adversarial pin,
+   `check-chat-capability-coverage` before/after, no baseline weakened.
+
+**Why it is currently dead**: the zero-token matcher resolves VERBS and the 51 generated
+abilities; "bed" is a catalogue item, not a verb, and no capability bridges item-name ->
+tool-activation. Root cause to be appended by the lane when measured.
+
+---
+
+## L-907 — OPEN, FOUNDER-PRIORITY (generative) — apartment layout: proposal is a RECTANGLE that ignores the captured site boundary; executed result diverges from the chosen proposal; chooser offers options carrying 25 errors + ~0% circulation
+
+**OBSERVED by the founder in production 2026-08-14** on a real Cordoba parcel (LAT 37.883747
+LON -4.775683). Three distinct defects, filed as one row because one user action surfaced all
+three; the lane must keep them separate:
+
+**(a) BOUNDARY NOT READ (the A.8 boundary-capture gap, caught in the act).** The "Choose a
+layout" proposals (Procedural A/B, 7 rooms, 71/100) both draw a clean RECTANGLE of 5 stacked
+bands. The actual captured building footprint is a complex non-orthogonal cross/T-shape (site
+walls already in the model, envelope drawn). The planner planned on a rectangle it invented —
+*"did not even read properly the boundary — which is the basic"* (founder). Where the boundary is
+LOST must be measured: does the layout request even carry the captured polygon? Does D-TGL
+receive it? Honest interim behaviours, in order of preference (C73 §4 refusal doctrine +
+[[envelope-solid-overstates-partial-data]]): plan INSIDE the real boundary; or plan on the
+largest inscribed rectangle WITH DISCLOSURE in the chooser ("planned on inscribed rectangle —
+site is non-rectangular"); or REFUSE with the reason. Silently pretending the site is a
+rectangle is the one forbidden option.
+
+**(b) RESULT ≠ PROPOSAL.** The executed model does not reproduce the chosen option. The
+instrument already exists and fired: `[apartment-layout] room-detection diagnostic — detected=6 /
+D-TGL expected=7 ⚠ open-plan rooms may be merging (boundary lines not splitting)`. C80 §1.2 /
+C78 §10 (execute-the-same-plan): the model built must be the plan chosen, or the divergence is
+REPORTED — a diagnostic console line is not a report (§15.7 lesson 1).
+
+**(c) THE CHOOSER SELLS KNOWN-BAD OPTIONS.** Both options carried a `25 errors` chip and
+`Circulation ~0%` while presenting an enabled "Use this layout" CTA. SPEC-49/CI-1 doctrine: an
+option the engine knows is broken is offered only with the verdict UNMISSABLE, or not offered.
+25 errors rendered as a small pink chip under a confident purple button is the §10.2 "PRYZM finds
+problems and does not say" family.
+
+**Programme home**: GENERATIVE-QUALITY-MASTER-TRACKER (its own denominator — NOT the 82).
+Candidate new rows: boundary-capture (a), plan-fidelity (b). C80 §6.4 protects the D-TGL engine —
+the fixes are INPUT wiring, executor clipping/refusal, and chooser disclosure, not an engine
+rewrite. Lane L-GENBOUNDARY owns the investigation; mechanism map to be appended when measured.
+
+---
+
+## L-908 — OPEN (render) — WebGPU crash in production: ShadowDepthTexture destroyed while referenced by an in-flight submit; §RECOVERY-MUST-REFUSE refused the blind rebuild and recovery succeeded
+
+**OBSERVED by the founder in production 2026-08-14**, same session as L-907, immediately after a
+generation batch + auto-frame: `GPUDevice.uncapturederror: Destroyed texture [ShadowDepthTexture]
+used in a submit` → `ViewportCrashGuard` crash (*Render pipeline retries exhausted — phase=error*)
+→ `recoverFromRenderFailure()` rebuilt with fresh light-owned shadow maps (§L-819 node-state
+reset) and the viewport recovered. Root cause named by the guard itself: *"a shadow-map realloc
+not ordered against submission — see §GPU-RESOURCE-LIFETIME L2."* Trigger context: SHADOW_REBUILD
+scheduled during batch drain + `batchAutoFrame` on generation-complete. Known family
+([[webgpu-heavy-scene-crash-and-instancing]], [[render-reconstruction-boundary-gpu-reset]]) — the
+refusal-then-targeted-recovery behaved CORRECTLY; the remaining defect is the ordering of the
+shadow-map realloc against in-flight submits. Also observed in the same log: ~12 suppressed
+non-fatal `usedTimes` errors from the old pipeline dispose (§FIX-DISPOSE-USEDTIMES, known
+non-fatal). Not laned this session unless the founder re-hits it; recorded so the crash is not
+rediscovered.
+
+---
+
+## L-909 — OPEN, FOUNDER-PRIORITY (generative, half-2 tier) — D-TGL apartment EXECUTES now, but (a) wall joins are terrible (clashes + triangular-prism corner polygons, recurring), and (b) the 23-violation report is KNOWN and UNMITIGATED — the generator ships errors it can see
+
+**OBSERVED by the founder in production 2026-08-14**, D-TGL path this time (distinct from
+L-907''s procedural chooser). The layout generated (8 rooms, 75/100, Circulation 100%) and the
+interior walls were emitted. Founder''s two questions, kept separate:
+
+**(a) WALL JOINS: "almost not a single join is clean."** Clashes at junctions, corner polygons
+extruded as TRIANGULAR PRISMS (raised repeatedly across sessions — the WallJoinResolver
+degenerate-wall / L-872 render-mitre residual class, now with a fresh executed repro). The log
+also shows the join machinery straining: §DIAG-PARTITION-REACH rescued 988mm/1100mm dangling
+gaps, and §DIAG-ROOM-LOOP BREAK — *"endpoint 235mm from centreline EXCEEDS hostSnap 200mm → loop
+will NOT close (flood/merge risk)"* — fired twice on an accepted opened-region wall. The
+generator emits wall endpoints that land OUTSIDE the junction band, then downstream rescuers
+half-recover. Fix belongs at EMISSION (endpoints ON the host centreline/junction, kernel
+tolerances) + the mitre mesh residual; not another rescuer.
+
+**(b) ERRORS KNOWN BUT NOT MITIGATED.** The validation report lists 23 violations (19 errors):
+all five habitable rooms G-10 glazed-ratio 0.000 and G-7 frontage 0.00m and A-7 "no exterior
+edge" (self-consistent triple: NO WINDOWS WERE GENERATED and/or exterior-edge classification
+returned zero — determine which; a room visibly on the shell with frontage 0.00 suggests the
+exterior classification itself may be broken, which would make 15 of the 19 errors FALSE);
+corridor 15.76m² vs max 8 + 3.97m wide vs 2.50; A-3 FORBIDDEN bedroom↔kitchen direct door.
+Founder doctrine: *"even if we know — the errors should be mitigated."* The engine computed
+every one of these BEFORE emitting and shipped anyway with no remediation pass and no unmissable
+verdict — SPEC-49''s thesis again ("the detection is not missing, the refusal is"), now at the
+validator layer. Ordered asks: (1) determine false-vs-true for the frontage/lighting triple;
+(2) window generation for habitable rooms (or an honest "no windows generated yet" disclosure on
+the report); (3) a remediation loop for the mitigable classes (corridor resize, forbidden-door
+rerouting are D-TGL objectives that exist); (4) the report reaches the user as a verdict, not a
+console artefact.
+
+**Also in the same log, recorded as WORKING**: the §OPENED-REGION chat proposal fired, asked,
+and its accepted `wall.create` executed (0.20 m × 2.80 m) — the a75e8e1e/fa261daf feature
+CONFIRMED live in production. And the envelope panel''s "TEMPORARILY UNAVAILABLE / NOT CHECKED /
+no buildable footprint (OA-1 manual zone)" card is the CORRECT refusal shape doing its job — not
+a defect.
+
+**Home**: GENERATIVE-QUALITY tracker (evidence cells) + this row. Assigned: L-GENBOUNDARY lane
+extends to (b)''s false-vs-true determination; (a) needs its own emission-seam lane.
