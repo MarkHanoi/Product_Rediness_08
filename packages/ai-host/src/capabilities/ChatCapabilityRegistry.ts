@@ -2131,6 +2131,10 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['wall.transform', 'Rotating and mirroring from chat is not wired yet — use the Modify tools.'],
   ['wall.join', 'Joining walls needs two picked walls — use the Join tool.'],
   ['wall.cut', 'Cutting a wall needs a picked cut point — use the Cut tool.'],
+  // §FEAT-WALL-SPLIT-ID (GE-10) — `wall.split` is a second id over the SAME
+  // opening-aware cut handler, so it inherits the same honest refusal: the point
+  // is picked, not spoken.
+  ['wall.split', 'Splitting a wall needs a picked split point — use the Cut tool.'],
   ['wall.createOpening', 'Openings are placed by pointing at a spot on the wall — use the Door or Window tool.'],
   ['wall.opening.create', 'Openings are placed by pointing at a spot on the wall — use the Door or Window tool.'],
   ['door.move', 'Moving a door along its wall needs a picked position — drag it.'],

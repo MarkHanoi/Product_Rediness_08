@@ -23,6 +23,7 @@ import { CreateWallBatchHandler } from './CreateWallBatch.js';
 import { ChangeWallLevelHandler } from './ChangeWallLevel.js';
 import { JoinWallHandler } from './JoinWall.js';
 import { CutWallHandler } from './CutWall.js';
+import { SplitWallHandler } from './SplitWall.js';
 import { UpdateWallSystemTypeHandler } from './UpdateWallSystemType.js';
 import { UpdateWallsSystemTypeBatchHandler } from './UpdateWallsSystemTypeBatch.js';
 import { UpdateWallsColorBatchHandler } from './UpdateWallsColorBatch.js';
@@ -76,6 +77,9 @@ export const WALL_HANDLER_TYPES = [
   'wall.changeLevel',
   'wall.join',
   'wall.cut',
+  // §FEAT-WALL-SPLIT-ID (GE-10, C70 §3) — a SECOND ID over the one opening-aware
+  // cut handler, not a second cut path. See SplitWall.ts.
+  'wall.split',
   'wall.updateSystemType',
   // §FEAT-WALL-TYPE-BATCH (RAC prep) — batch retype ('all' or explicit ids), one undo entry.
   'wall.updateSystemTypeBatch',
@@ -135,6 +139,7 @@ export function buildWallHandlerSet(
     new ChangeWallLevelHandler() as unknown as CommandHandler<unknown>,
     new JoinWallHandler() as unknown as CommandHandler<unknown>,
     new CutWallHandler() as unknown as CommandHandler<unknown>,
+    new SplitWallHandler() as unknown as CommandHandler<unknown>,
   ];
   if (deps.systemTypeStore !== undefined) {
     set.push(

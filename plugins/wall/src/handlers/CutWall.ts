@@ -87,6 +87,21 @@ export class CutWallHandler
   readonly type = 'wall.cut';
   readonly affectedStores = ['wall'] as const;
 
+  /**
+   * §FEAT-WALL-SPLIT-ID (GE-10) — the verb NAMED IN REFUSALS AND SPANS.
+   * `wall.split` (see `SplitWall.ts`) is a second id over THIS ONE handler, not a
+   * second cut path. Without this, a user who typed "split" read a refusal about
+   * "wall.cut" and a trace named `wall.cut.handler` — the same defect class the
+   * refusal-identity gate exists to stop, one level up: the refusal would be
+   * attributable to the wrong verb. Defaults to `wall.cut`, so the existing
+   * registration and every existing message are byte-unchanged.
+   */
+  protected readonly verb: string;
+
+  constructor(verb = 'wall.cut') {
+    this.verb = verb;
+  }
+
   canExecute(
     ctx: HandlerContext<WallHandlerStores>,
     cmd: CutWallPayload,
@@ -139,14 +154,14 @@ export class CutWallHandler
     ctx: HandlerContext<WallHandlerStores>,
     cmd: CutWallPayload,
   ): HandlerResult {
-    return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
+    return withHandlerSpan(this.verb + '.handler', { 'pryzm.command.type': this.verb }, () => {
     const wall = ctx.stores.wall[cmd.id];
     if (wall === undefined) throw new WallNotFoundError(cmd.id);
 
     const { t, len } = projectOntoBaseline(wall, cmd.at);
     if (len < MIN_WALL_LEN * 2 || t <= MIN_WALL_LEN || t >= len - MIN_WALL_LEN) {
       throw new WallDimensionsError(
-        `wall.cut rejected — cut point ${t.toFixed(4)} m outside cuttable interval`,
+        `${this.verb} rejected — cut point ${t.toFixed(4)} m outside cuttable interval`,
       );
     }
     // Race-defensive opening straddle re-check.
@@ -156,7 +171,7 @@ export class CutWallHandler
     }
     if (straddling.length > 0) {
       throw new WallCutOpeningStraddleError(
-        `wall.cut rejected — opening(s) straddle cut point: ${straddling.join(', ')}`,
+        `${this.verb} rejected — opening(s) straddle cut point: ${straddling.join(', ')}`,
         straddling,
       );
     }
@@ -173,11 +188,11 @@ export class CutWallHandler
     const leftId = cmd.leftId ?? createId('wall');
     const rightId = cmd.rightId ?? createId('wall');
     if (leftId === rightId) {
-      throw new WallDimensionsError('wall.cut rejected — leftId === rightId');
+      throw new WallDimensionsError(`${this.verb} rejected — leftId === rightId`);
     }
     if (leftId === cmd.id || rightId === cmd.id) {
       throw new WallDimensionsError(
-        'wall.cut rejected — leftId / rightId must differ from the source id',
+        `${this.verb} rejected — leftId / rightId must differ from the source id`,
       );
     }
 
