@@ -34,7 +34,11 @@ import {
 } from '@pryzm/plugin-sdk';
 import { WallNotFoundError, WallSystemError } from '../errors.js';
 import type { WallData, WallsState } from '../store.js';
-import { wallOccupancyStore } from '../occupancy.js';
+import {
+  wallOccupancyStore,
+  canPlaceRefusalText,
+  type CanPlaceRefusalCode,
+} from '../occupancy.js';
 
 type Opening = WallData['openings'][number];
 
@@ -47,9 +51,20 @@ type WallHandlerStores = Readonly<{ wall: WallsState } & Record<string, unknown>
 
 export class WallOpeningOverlapError extends WallSystemError {
   public readonly conflictIds: readonly string[];
-  constructor(message: string, conflictIds: readonly string[]) {
+  /**
+   * §REFUSAL-IDENTITY-CANPLACE (GE-09) — the occupancy verdict's identity,
+   * carried OUT of the handler rather than flattened into the message. A caller
+   * that wants to branch (offer "move it" for an overlap, "resize it" for a span
+   * that runs past the wall end) can; a caller that only renders still gets the
+   * code inside `message`, because `canPlaceRefusalText` puts it there.
+   * Optional ONLY because a producer can refuse without one — and when it does,
+   * that absence is reported as `OCC_UNIDENTIFIED`, never smoothed over.
+   */
+  public readonly code?: CanPlaceRefusalCode;
+  constructor(message: string, conflictIds: readonly string[], code?: CanPlaceRefusalCode) {
     super(message, 'WallOpeningOverlapError');
     this.conflictIds = conflictIds;
+    this.code = code;
   }
 }
 
@@ -116,7 +131,12 @@ export class CreateWallOpeningHandler
       shape.opening.width,
     );
     if (!occ.valid) {
-      return { valid: false, reason: occ.reason ?? 'opening placement rejected' };
+      // §REFUSAL-IDENTITY-CANPLACE (GE-09) — was `occ.reason ?? 'opening
+      // placement rejected'`, a manufactured sentence emitted exactly when the
+      // validator refused AND said nothing, hiding the under-reporting arm. The
+      // shared renderer carries `occ.code` into the text, so the six distinct
+      // verdicts stay six.
+      return { valid: false, reason: canPlaceRefusalText(occ) ?? '' };
     }
     return { valid: true };
   }
@@ -134,9 +154,13 @@ export class CreateWallOpeningHandler
     // a typed error so the bus skips the undo push.
     const occ = wallOccupancyStore.canPlace(wall, cmd.opening.offset, cmd.opening.width);
     if (!occ.valid) {
+      // §REFUSAL-IDENTITY-CANPLACE (GE-09) — same seam, race-defensive half. The
+      // old fallback named a CAUSE ("overlap") the verdict may not have had: five
+      // of the six arms are not overlaps at all.
       throw new WallOpeningOverlapError(
-        occ.reason ?? `opening overlap on wall ${cmd.wallId}`,
+        canPlaceRefusalText(occ) ?? '',
         occ.conflictIds,
+        occ.code,
       );
     }
 

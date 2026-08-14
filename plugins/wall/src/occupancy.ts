@@ -31,11 +31,105 @@ import type { WallData } from './store.js';
 /** 1 mm tolerance — see header. */
 export const OCCUPANCY_EPSILON_M = 0.001;
 
+/**
+ * §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8, C73 §4.4) — the CLOSED set of
+ * reasons THIS store's `canPlace` can refuse. One member per refusal arm below,
+ * in source order.
+ *
+ * ⚠ THE DUPLICATION IS REAL AND IS NAMED HERE RATHER THAN PAPERED OVER.
+ * `packages/geometry-wall/src/WallOccupancyStore.ts` carries a union of the same
+ * shape (`CanPlaceRefusalCode`) — this file is the plugin-side port of that store
+ * (see the header) and the two are a known duplicate family. The code STRINGS are
+ * deliberately identical where the ARMS are identical, so a user never reads two
+ * different names for one verdict. They are NOT identical sets, and pretending
+ * otherwise would be the lie:
+ *   • only geometry-wall checks rake, so only it can emit `OCC_HOST_RAKED`;
+ *   • only this store validates offset finiteness separately, so only it can emit
+ *     `OCC_OFFSET_NOT_FINITE`.
+ * Collapsing the two rosters to look matched would assert a behavioural parity
+ * that does not exist. When the family is collapsed for real (GE-04's recipe: one
+ * owner, shipping copy named first), the union collapses with it.
+ *
+ * NEVER widen this to `string`.
+ */
+export type CanPlaceRefusalCode =
+  | 'OCC_HOST_ZERO_LENGTH'         // degenerate host — no span exists to occupy
+  | 'OCC_WIDTH_NOT_POSITIVE'       // requested width is not a finite positive number
+  | 'OCC_OFFSET_NOT_FINITE'        // requested offset is NaN / Infinity
+  | 'OCC_OFFSET_BEFORE_WALL_START' // requested span starts before the wall
+  | 'OCC_SPAN_BEYOND_WALL_END'     // requested span runs past the wall end
+  | 'OCC_OVERLAPS_SIBLING';        // 1-D overlap with an existing opening (conflictIds names them)
+
+/** The union as a VALUE, so the set can be iterated as well as type-checked. */
+export const CAN_PLACE_REFUSAL_CODES = [
+  'OCC_HOST_ZERO_LENGTH',
+  'OCC_WIDTH_NOT_POSITIVE',
+  'OCC_OFFSET_NOT_FINITE',
+  'OCC_OFFSET_BEFORE_WALL_START',
+  'OCC_SPAN_BEYOND_WALL_END',
+  'OCC_OVERLAPS_SIBLING',
+] as const satisfies readonly CanPlaceRefusalCode[];
+
+/** Compile-time completeness — `never` only when the roster covers the union. */
+type _RosterIsComplete =
+  Exclude<CanPlaceRefusalCode, (typeof CAN_PLACE_REFUSAL_CODES)[number]> extends never
+    ? true
+    : ['MISSING FROM CAN_PLACE_REFUSAL_CODES', Exclude<CanPlaceRefusalCode, (typeof CAN_PLACE_REFUSAL_CODES)[number]>];
+const _rosterIsComplete: _RosterIsComplete = true;
+void _rosterIsComplete;
+
 export interface CanPlaceResult {
   readonly valid: boolean;
   readonly conflictIds: readonly string[];
+  /** Present exactly when `valid` is false — the refusal's identity. */
+  readonly code?: CanPlaceRefusalCode;
   readonly reason?: string;
 }
+
+/**
+ * §REFUSAL-IDENTITY-CANPLACE (GE-09) — THE renderer for a `canPlace` refusal.
+ *
+ * Replaces `occ.reason ?? 'opening placement rejected'` at the handler. That
+ * fallback fired exactly when the validator refused AND said nothing — a sentence
+ * with the grammatical shape of an explanation and the information content of a
+ * shrug, indistinguishable from a real reason, HIDING the under-reporting
+ * validator. C58 §1.13.8 states the seam rule it broke: "the resolver's
+ * distinction MUST reach the card."
+ *
+ * Six distinct verdicts reached the user as one string. They are not
+ * interchangeable to someone trying to act: two are fixed by moving the opening,
+ * one by resizing it, one by fixing the wall, and two are malformed input. The
+ * rendered text CARRIES the code so the distinction survives the trip to a sink
+ * that takes only a string.
+ *
+ * A refusal that arrives with NO code is reported AS unidentified — a producer
+ * that refuses without saying why is a defect that must stay visible.
+ *
+ * @returns the refusal text, or `undefined` when the result is valid.
+ */
+export function canPlaceRefusalText(result: CanPlaceResult): string | undefined {
+  if (result.valid) return undefined;
+  const code: string = result.code ?? 'OCC_UNIDENTIFIED';
+  const sentence = result.reason !== undefined && result.reason.length > 0
+    ? result.reason
+    : result.code === undefined
+      ? 'the occupancy check refused this placement without stating a reason — that omission is the defect'
+      : DEFAULT_SENTENCE[result.code];
+  const conflicts = result.conflictIds.length > 0
+    ? ` (conflicts: ${result.conflictIds.join(', ')})`
+    : '';
+  return `[${code}] ${sentence}${conflicts}`;
+}
+
+/** One arm per union member — `Record<...>` makes a missing arm a compile error. */
+const DEFAULT_SENTENCE: Record<CanPlaceRefusalCode, string> = {
+  OCC_HOST_ZERO_LENGTH:         'the host wall has no length, so there is no span for an opening to occupy',
+  OCC_WIDTH_NOT_POSITIVE:       'the requested opening width is not a positive number',
+  OCC_OFFSET_NOT_FINITE:        'the requested opening offset is not a finite number',
+  OCC_OFFSET_BEFORE_WALL_START: 'the requested opening starts before the wall does',
+  OCC_SPAN_BEYOND_WALL_END:     'the requested opening runs past the end of the wall',
+  OCC_OVERLAPS_SIBLING:         'the requested opening overlaps an opening already on this wall',
+};
 
 export interface OccupiedSpan {
   readonly openingId: string;
@@ -75,6 +169,7 @@ export class WallOccupancyStore {
       return {
         valid: false,
         conflictIds: [],
+        code: 'OCC_HOST_ZERO_LENGTH',
         reason: 'Wall has zero length — cannot place openings',
       };
     }
@@ -83,6 +178,7 @@ export class WallOccupancyStore {
       return {
         valid: false,
         conflictIds: [],
+        code: 'OCC_WIDTH_NOT_POSITIVE',
         reason: `Opening width must be > 0 (got ${widthM})`,
       };
     }
@@ -90,6 +186,7 @@ export class WallOccupancyStore {
       return {
         valid: false,
         conflictIds: [],
+        code: 'OCC_OFFSET_NOT_FINITE',
         reason: `Offset must be a finite number (got ${offsetM})`,
       };
     }
@@ -100,6 +197,7 @@ export class WallOccupancyStore {
       return {
         valid: false,
         conflictIds: [],
+        code: 'OCC_OFFSET_BEFORE_WALL_START',
         reason: `Offset ${offsetM.toFixed(3)} m is before wall start`,
       };
     }
@@ -109,6 +207,7 @@ export class WallOccupancyStore {
       return {
         valid: false,
         conflictIds: [],
+        code: 'OCC_SPAN_BEYOND_WALL_END',
         reason:
           `Opening [${offsetM.toFixed(3)} m, ${newEnd.toFixed(3)} m] ` +
           `extends beyond wall length ${wallLengthM.toFixed(3)} m`,
@@ -127,6 +226,7 @@ export class WallOccupancyStore {
       return {
         valid: false,
         conflictIds: conflicts,
+        code: 'OCC_OVERLAPS_SIBLING',
         reason: `Opening overlaps existing opening(s): ${conflicts.join(', ')}`,
       };
     }

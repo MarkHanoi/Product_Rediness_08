@@ -92,6 +92,100 @@ export interface CanPlaceResult {
 }
 
 /**
+ * §REFUSAL-IDENTITY-CANPLACE (GE-09) — the CLOSED union as a VALUE, so the set can
+ * be iterated (tests, exhaustiveness) as well as type-checked. Typed as
+ * `readonly CanPlaceRefusalCode[]` with an `Exclude`-based completeness assertion
+ * below, so adding a seventh member to the union without adding it here is a
+ * COMPILE error, not a silently short roster.
+ */
+export const CAN_PLACE_REFUSAL_CODES = [
+    'OCC_HOST_ZERO_LENGTH',
+    'OCC_HOST_RAKED',
+    'OCC_WIDTH_NOT_POSITIVE',
+    'OCC_OFFSET_BEFORE_WALL_START',
+    'OCC_SPAN_BEYOND_WALL_END',
+    'OCC_OVERLAPS_SIBLING',
+] as const satisfies readonly CanPlaceRefusalCode[];
+
+/** Compile-time completeness: resolves to `never` only when the roster covers the
+ *  union exactly. A missing member makes this line an error naming the gap. */
+type _CanPlaceRosterIsComplete =
+    Exclude<CanPlaceRefusalCode, (typeof CAN_PLACE_REFUSAL_CODES)[number]> extends never
+        ? true
+        : ['MISSING FROM CAN_PLACE_REFUSAL_CODES', Exclude<CanPlaceRefusalCode, (typeof CAN_PLACE_REFUSAL_CODES)[number]>];
+const _canPlaceRosterIsComplete: _CanPlaceRosterIsComplete = true;
+void _canPlaceRosterIsComplete;
+
+/**
+ * §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8, C73 §4.4) — THE renderer for a
+ * `canPlace` refusal.
+ *
+ * Why this function exists rather than `occ.reason ?? 'opening placement rejected'`
+ * at each of the ~12 call sites:
+ *
+ *   • That fallback fires exactly when the validator refused AND said nothing.
+ *     The sentence it produces has the grammatical shape of an explanation and
+ *     the information content of a shrug — and, being indistinguishable from a
+ *     real reason, it HIDES the under-reporting validator. C58 §1.13.8 is the
+ *     rule it breaks: "the resolver's distinction MUST reach the card."
+ *   • `canPlace` resolves a SIX-member closed union. Six distinct verdicts —
+ *     "the host has no length", "the host is raked and cannot carry an opening",
+ *     "the requested width is not positive", "the span starts before the wall",
+ *     "the span runs past the wall end", "it overlaps siblings X and Y" — arrived
+ *     at the user as ONE string. A user cannot act on the collapsed form: four of
+ *     the six are fixed by moving the opening, one by resizing it, and one by
+ *     unraking the wall.
+ *
+ * The rendered text CARRIES the code, so the distinction survives the trip to the
+ * DOM even where the sink takes only a string. A refusal that arrives with NO
+ * code is reported AS unidentified (`OCC_UNIDENTIFIED`) rather than smoothed over:
+ * a producer that refuses without saying why is a defect that must stay visible.
+ *
+ * NEVER widen `CanPlaceRefusalCode` to `string` to make this easier.
+ *
+ * @returns the user-facing refusal text, or `undefined` when the result is valid
+ *          (there is no refusal to render).
+ */
+export function canPlaceRefusalText(result: CanPlaceResult): string | undefined {
+    if (result.valid) return undefined;
+
+    const detail = result.reason !== undefined && result.reason.length > 0
+        ? result.reason
+        : undefined;
+
+    // The identity. `OCC_UNIDENTIFIED` is NOT a member of the closed union — it is
+    // the honest name for "the producer refused without an identity", which is a
+    // different fact from any of the six and must not borrow one of their names.
+    const code: string = result.code ?? 'OCC_UNIDENTIFIED';
+
+    const conflicts = result.conflictIds.length > 0
+        ? ` (conflicts: ${result.conflictIds.join(', ')})`
+        : '';
+
+    const sentence = detail ?? (
+        result.code === undefined
+            ? 'the occupancy check refused this placement without stating a reason — that omission is the defect'
+            : CAN_PLACE_DEFAULT_SENTENCE[result.code]
+    );
+
+    return `[${code}] ${sentence}${conflicts}`;
+}
+
+/**
+ * The sentence used when a refusal carries its code but no prose. One arm per
+ * union member — `Record<CanPlaceRefusalCode, string>` makes a missing arm a
+ * compile error, so a seventh code cannot land here silently either.
+ */
+const CAN_PLACE_DEFAULT_SENTENCE: Record<CanPlaceRefusalCode, string> = {
+    OCC_HOST_ZERO_LENGTH:         'the host wall has no length, so there is no span for an opening to occupy',
+    OCC_HOST_RAKED:               'the host wall is raked and cannot carry an opening',
+    OCC_WIDTH_NOT_POSITIVE:       'the requested opening width is not a positive number',
+    OCC_OFFSET_BEFORE_WALL_START: 'the requested opening starts before the wall does',
+    OCC_SPAN_BEYOND_WALL_END:     'the requested opening runs past the end of the wall',
+    OCC_OVERLAPS_SIBLING:         'the requested opening overlaps an opening already on this wall',
+};
+
+/**
  * §FIX-WINDOW-OOB-OPENING-RESTORE — a hosted opening's four positional /
  * dimensional degrees of freedom along + across its host wall.
  */

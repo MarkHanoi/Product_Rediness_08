@@ -259,7 +259,10 @@ const BASELINE: readonly Offender[] = [
     { file: "plugins/slab/src/handlers/CreateSlabBatch.ts", fragment: "if (!v.ok) throw new SlabBoundaryError(`hole[${h}]: ${v.reason ?? 'invalid'}`);", why: "arm A — measured 2026-08-11" },
     { file: "plugins/stair/src/handlers/CreateStair.ts", fragment: "if (!v.ok) return { valid: false, reason: v.reason ?? 'invalid dimensions' };", why: "arm A — measured 2026-08-11" },
     { file: "plugins/stair/src/handlers/CreateStairBatch.ts", fragment: "return { valid: false, reason: `stairs[${i}]: ${v.reason ?? 'invalid dimensions'}` };", why: "arm A — measured 2026-08-11" },
-    { file: "plugins/wall/src/handlers/CreateWallOpening.ts", fragment: "return { valid: false, reason: occ.reason ?? 'opening placement rejected' };", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-14 (§REFUSAL-IDENTITY-CANPLACE, GE-09). `canPlace`
+    // now returns a CLOSED six-member `CanPlaceRefusalCode`, and the handler renders
+    // it through the shared `canPlaceRefusalText()` instead of manufacturing
+    // "opening placement rejected" when the validator said nothing. Baseline 88 → 87.
     { file: "apps/bake-worker/src/jobs/RebakeFamilyInstanceJob.ts", fragment: "const message = `[familyInstance] loadFamily failed: ${loaded.reason} — ${loaded.message}`;", why: "arm B — measured 2026-08-11" },
     { file: "apps/component-editor/src/marketplace/publishFlow.ts", fragment: "message: `${packed.reason}: ${packed.message}`,", why: "arm B — measured 2026-08-11" },
     { file: "apps/editor/src/engine/views/PaneViewPicker.ts", fragment: "if (o.reason) row.appendChild(reasonEl(o.reason, !o.enabled));", why: "arm B — measured 2026-08-11" },
