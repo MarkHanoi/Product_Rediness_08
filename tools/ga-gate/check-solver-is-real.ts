@@ -141,13 +141,21 @@ const LEDGER: readonly string[] = [
   //      callers; the binding it scaffolded is unauthorised, C74 §4.5).
   //
   // Measured, NOT specified: C74 §3.3 and the gates doc §3.13 named `loadSolver`
-  // alone. `loadRelay` is the identical defect one package over — the ai-host
-  // relay selector returns `new MockAnthropicRelay()` when ANTHROPIC_RELAY_URL is
-  // absent AND after the dynamic import throws. Recorded here rather than
-  // excluded, because a gate that only ever finds the sites its spec listed is a
-  // spec transcription, not a measurement. It is ai-host territory, not the
-  // constraint-solver pass's.
-  'R2::packages/ai-host/src/AnthropicRelay.ts:loadRelay',
+  // alone. `loadRelay` was the identical defect one package over. Recorded here
+  // rather than excluded, because a gate that only ever finds the sites its spec
+  // listed is a spec transcription, not a measurement.
+  //
+  // R2::packages/ai-host/src/AnthropicRelay.ts:loadRelay STRUCK 2026-08-14 (CO-02).
+  //   NOT-CONFIGURED now returns the labelled `MockAnthropicRelay` default;
+  //   CONFIGURED-BUT-FAILED THROWS a typed error naming ANTHROPIC_RELAY_URL and the
+  //   cause. The measurement also found MORE than the register row claimed: the
+  //   swallowed `catch` was no longer covering an absent file — `CfWorkerRelay.ts`
+  //   has shipped — and the indirect-eval `Function('s','return import(s)')` bundler
+  //   evasion resolved `./CfWorkerRelay.js` against the realm rather than the module,
+  //   so the CONFIGURED path ALWAYS threw and ALWAYS served demo layout fixtures as
+  //   AI output. Witness: `packages/ai-host/__tests__/loadRelay.selector.test.ts`,
+  //   RED before the fix on exactly that assertion, calling the production
+  //   construction with no injected underlying and no stubbed importer (C74 §3.4).
 ];
 
 // ─── Subject discovery ───────────────────────────────────────────────────────

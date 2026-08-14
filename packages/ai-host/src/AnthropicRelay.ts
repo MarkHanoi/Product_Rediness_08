@@ -179,31 +179,53 @@ export const DEFAULT_LAYOUT_FIXTURE: readonly unknown[] = (() => {
   ];
 })();
 
-/** Selector mirroring `selectRuntimeKind` / `createStorage` from the
- *  CV namespace. Returns the mock unless `ANTHROPIC_RELAY_URL` is
- *  set (in which case the real CF Worker adapter would be loaded
- *  via `await import('./CfWorkerRelay.js')` — that adapter ships at
- *  S52 D3, until then the selector still falls through to the mock). */
+/** Selector. Its two miss modes are DIFFERENT observable outcomes
+ *  (C74 §3.3, CO-02, §CONTEXT-DATA-HONESTY — failure and emptiness are
+ *  never the same value):
+ *
+ *    • NOT CONFIGURED (`ANTHROPIC_RELAY_URL` unset) → `MockAnthropicRelay`,
+ *      the legitimate stated default, labelled at its own boundary
+ *      (`kind = 'mock'`).
+ *    • CONFIGURED BUT FAILED (URL set, `./CfWorkerRelay.js` unloadable or
+ *      exporting no factory) → THROWS a typed error naming the URL and the
+ *      cause. The one action a deployer can take to ask for a real relay no
+ *      longer silently hands back DEMO LAYOUT FIXTURES.
+ *
+ *  ⚠ 2026-08-14 — this function used to say "the real adapter lands at S52 D3"
+ *  and swallow every failure into the mock. `CfWorkerRelay.ts` HAS shipped, so
+ *  that `catch` was no longer hiding an absent file: it was hiding a genuine
+ *  load failure of a module that exists, and the caller received demo data
+ *  believing it was AI output. The indirect-eval `Function('s', …)` bundler
+ *  evasion went with it — it existed only because the target was intentionally
+ *  absent, and it was itself the reason the import failed (an indirect import
+ *  resolves against the realm, not this module, so `./CfWorkerRelay.js` never
+ *  resolved). A plain dynamic `import()` resolves correctly and lets Vite
+ *  code-split it. */
 export async function loadRelay(opts: { env?: Record<string, string | undefined> } = {}): Promise<RelayPorter> {
   const env = opts.env ?? (typeof process !== 'undefined' ? process.env : {});
   const url = env.ANTHROPIC_RELAY_URL;
-  if (!url) return new MockAnthropicRelay();
-  // Real adapter lands at S52 D3; for now fall through.
-  // We use the indirect-eval Function trick + a non-literal specifier so
-  // that bundlers (Vite/Rollup) cannot statically resolve the import and
-  // therefore cannot fail when the file is intentionally absent until
-  // the S52 D3 ship.
-  try {
-    const dynImport = (new Function('s', 'return import(s)') as (s: string) => Promise<unknown>);
-    const specifier = './' + 'CfWorkerRelay.js';
-    const mod = await dynImport(specifier);
-    if (mod && typeof (mod as { createCfWorkerRelay?: unknown }).createCfWorkerRelay === 'function') {
-      return (mod as { createCfWorkerRelay: (u: string) => RelayPorter }).createCfWorkerRelay(url);
-    }
-  } catch {
-    // Adapter not yet shipped — fall through to mock.
+  if (!url) {
+    // Not configured — the mock is the stated default, and it announces
+    // itself through `kind = 'mock'`.
+    return new MockAnthropicRelay();
   }
-  return new MockAnthropicRelay();
+  // Configured — from here on every miss is a FAILURE, never a default.
+  try {
+    const mod = await import('./CfWorkerRelay.js');
+    const factory = (mod as { createCfWorkerRelay?: unknown } | null)?.createCfWorkerRelay;
+    if (typeof factory !== 'function') {
+      throw new Error('relay module loaded but exports no createCfWorkerRelay() function');
+    }
+    return (factory as (u: string) => RelayPorter)(url);
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `loadRelay: ANTHROPIC_RELAY_URL is set ('${url}') but the relay adapter could not be loaded: ${cause}. ` +
+        'CONFIGURED-BUT-FAILED is a failure, not a default (C74 §3.3) — this selector no longer returns the ' +
+        'mock on this branch, because returning it would serve DEMO LAYOUTS as if they were AI output. ' +
+        'Unset ANTHROPIC_RELAY_URL to use the stated MockAnthropicRelay default.',
+    );
+  }
 }
 
 /** Cheap token estimator for mock cost — 4 chars/token average. */

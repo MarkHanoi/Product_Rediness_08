@@ -476,9 +476,9 @@ function constraintSignature(c: SketchConstraint, set: ConstraintSet): string {
  *      caller can take to ask for a real engine no longer silently
  *      hands back the mock.
  *
- *  (`loadRelay` in `@pryzm/ai-host` still has the old conflated shape —
- *  noted on the check-solver-is-real ledger; it is that package's fix,
- *  not this one's.) */
+ *  (`loadRelay` in `@pryzm/ai-host` carried the identical conflated shape;
+ *  it was fixed to this same shape on 2026-08-14 under CO-02 and its
+ *  check-solver-is-real ledger line is struck.) */
 export async function loadSolver(
   opts: { env?: Record<string, string | undefined> } = {},
 ): Promise<SolverPorter> {
