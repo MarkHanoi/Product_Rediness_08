@@ -4,7 +4,8 @@ import { SlabData } from '@pryzm/geometry-slab';
 import { HostReferenceEdge } from '@pryzm/geometry-slab';
 import { WallFaceResolver } from './WallFaceResolver';
 import { SketchLoopIntersector } from './SketchLoopIntersector';
-import { WallData } from '@pryzm/geometry-wall';
+import { RECOMPUTE_IDENTITY_M } from '@pryzm/geometry-kernel';
+import { WallData, DEFAULT_SNAP_RADIUS } from '@pryzm/geometry-wall';
 import { Point3D } from '@pryzm/core-app-model';
 import {
     CascadeWallBaselineCommand,
@@ -15,9 +16,31 @@ import {
 type WallEventType = 'add' | 'update' | 'remove';
 
 interface WallStoreRef {
-    subscribe: (cb: (event: WallEventType, wall: WallData) => void) => () => void;
+    subscribe: (cb: (event: WallEventType, wall: WallData, prevState?: WallData) => void) => () => void;
     getById: (id: string) => WallData | undefined;
     update: (id: string, updates: Partial<WallData>) => WallData | undefined;
+}
+
+/** Segment in the resolver's 2D space (x = world.x, y = world.z). */
+interface Seg2 { start: { x: number; y: number }; end: { x: number; y: number } }
+
+/** §L-873/§L-875 — "was welded" tolerance, in metres. DEFAULT_SNAP_RADIUS
+ *  parity with WallJoinResolver / computeMoveReweld, so the three mechanisms
+ *  agree on what counts as a junction. */
+const WELD_TOL_M = DEFAULT_SNAP_RADIUS;
+
+/** Distance from p to the SEGMENT [a,b] in the resolver's 2D space. */
+function distToSegment2D(
+    p: { x: number; y: number },
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+): number {
+    const abx = b.x - a.x, aby = b.y - a.y;
+    const l2 = abx * abx + aby * aby;
+    if (l2 < 1e-12) return Math.hypot(p.x - a.x, p.y - a.y);
+    let t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (a.x + abx * t), p.y - (a.y + aby * t));
 }
 
 /**
@@ -145,8 +168,11 @@ export class SlabWallConnectivityService {
             if (slabId) this.unregisterSlab(slabId);
         });
 
-        this.unsubscribeWall = wallStore.subscribe((event, wall) => {
-            if (event === 'update') this.onWallUpdated(wall.id, wallStore);
+        this.unsubscribeWall = wallStore.subscribe((event, wall, prevState) => {
+            // §STEP7 prevState (C72 §3.1) — the pre-move baseline is what the
+            // §L-873/§L-875 weld preconditions measure against. Optional: probe
+            // doubles that emit two-argument keep the legacy behaviour.
+            if (event === 'update') this.onWallUpdated(wall.id, wallStore, prevState);
         });
     }
 
@@ -170,7 +196,7 @@ export class SlabWallConnectivityService {
 
     // ── Core propagation logic ────────────────────────────────────────────────
 
-    private onWallUpdated(wallId: string, wallStore: WallStoreRef): void {
+    private onWallUpdated(wallId: string, wallStore: WallStoreRef, prevState?: WallData): void {
         // Skip when WallJoinResolver is applying miter-cut corrections —
         // those are small structural adjustments, not user-driven wall moves.
         // Reacting to them would cause incorrect cascading snaps of neighbours.
@@ -204,23 +230,60 @@ export class SlabWallConnectivityService {
             // Single dispatch ⇒ single undo entry for the whole user-visible
             // cascade — Ctrl-Z reverts all snaps atomically rather than
             // requiring N undos.
+            // §L-873 — the moved wall's PRE-move centreline, when the store
+            // supplied it (§STEP7). This is what "was this endpoint welded to
+            // the moved wall?" is measured against.
+            const prevSeg: Seg2 | null = prevState?.baseLine && prevState.baseLine.length >= 2
+                ? {
+                    start: { x: prevState.baseLine[0].x, y: prevState.baseLine[0].z },
+                    end:   { x: prevState.baseLine[1].x, y: prevState.baseLine[1].z },
+                }
+                : null;
+
             const batch: CascadeWallBaselineEntry[] = [];
             for (const slabId of dependentSlabIds) {
                 const slab = this.slabStore.getById(slabId);
                 if (!slab?.sketch) continue;
 
-                this.propagateForSlab(wallId, slab, wallStore, batch);
+                this.propagateForSlab(wallId, slab, wallStore, batch, prevSeg);
             }
 
             if (batch.length === 0) return;
 
-            // De-duplicate: if a wall appears more than once in the batch
-            // (e.g. an outer-loop edge references the same wall twice, or two
-            // different slabs touch the same neighbour) keep only the LAST
-            // computed entry — that is the one that respects all preceding
-            // snaps in the cascade order.
+            // §L-875 MERGE-DEDUPE — a wall can appear more than once in the
+            // batch (an outer-loop edge referencing it twice, or TWO region
+            // slabs sharing the neighbour). The old last-wins dedupe silently
+            // DISCARDED every earlier weld: with two slabs, loop A's endpoint
+            // snap was thrown away whenever loop B also touched the wall — one
+            // slab's corner stayed open and its boundary broke (founder repro
+            // 3, "on top of that the slab breaks"). Fold instead: apply each
+            // entry's CHANGED endpoint(s) (diffed against its own prevBaseLine)
+            // onto the accumulated baseline, so loop A's snap of one endpoint
+            // and loop B's snap of the other both survive.
             const dedupedMap = new Map<string, CascadeWallBaselineEntry>();
-            for (const e of batch) dedupedMap.set(e.wallId, e);
+            for (const e of batch) {
+                const prior = dedupedMap.get(e.wallId);
+                if (!prior || !e.prevBaseLine) {
+                    dedupedMap.set(e.wallId, e);
+                    continue;
+                }
+                const merged: [Point3D, Point3D] = [
+                    { ...prior.newBaseLine[0] },
+                    { ...prior.newBaseLine[1] },
+                ];
+                for (const k of [0, 1] as const) {
+                    const moved = Math.hypot(
+                        e.newBaseLine[k].x - e.prevBaseLine[k].x,
+                        e.newBaseLine[k].z - e.prevBaseLine[k].z,
+                    ) > RECOMPUTE_IDENTITY_M;
+                    if (moved) merged[k] = { ...e.newBaseLine[k] };
+                }
+                dedupedMap.set(e.wallId, {
+                    wallId: e.wallId,
+                    newBaseLine: merged,
+                    prevBaseLine: prior.prevBaseLine,
+                });
+            }
 
             // §L-871 IDENTITY-SUPPRESSION — drop entries that change nothing.
             // The founder's console showed CASCADE_WALL_BASELINE firing FROM a
@@ -229,9 +292,12 @@ export class SlabWallConnectivityService {
             // endpoints, and this service dispatched a batch of byte-identical
             // writes — a phantom undo entry per opening, plus redundant rebuild
             // storms. An entry is dispatched only if it MOVES an endpoint by
-            // more than 1e-9 m (far below any real weld; same order as the
-            // tracker's ringsEqualCyclic epsilon).
-            const IDENTITY_EPS = 1e-9;
+            // more than the kernel's declared RECOMPUTE_IDENTITY_M (1e-9 m) —
+            // C73 §2.2. That role is the exact question here: "did re-deriving
+            // this baseline change it AT ALL?", not "are these two points the
+            // same place?" (which is COINCIDENT_M, 1 mm, six orders looser and
+            // would swallow real sub-millimetre welds). Replaces the local
+            // IDENTITY_EPS = 1e-9; identical value, identical verdicts.
             const deduped: CascadeWallBaselineEntry[] = [...dedupedMap.values()].filter(e => {
                 const cur = wallStore.getById(e.wallId);
                 if (!cur) return false;
@@ -239,7 +305,7 @@ export class SlabWallConnectivityService {
                 const dz0 = e.newBaseLine[0].z - cur.baseLine[0].z;
                 const dx1 = e.newBaseLine[1].x - cur.baseLine[1].x;
                 const dz1 = e.newBaseLine[1].z - cur.baseLine[1].z;
-                return Math.hypot(dx0, dz0) > IDENTITY_EPS || Math.hypot(dx1, dz1) > IDENTITY_EPS;
+                return Math.hypot(dx0, dz0) > RECOMPUTE_IDENTITY_M || Math.hypot(dx1, dz1) > RECOMPUTE_IDENTITY_M;
             });
             if (deduped.length === 0) return;
 
@@ -257,6 +323,9 @@ export class SlabWallConnectivityService {
         // here is appended to this list rather than written to the store
         // directly, so the caller can dispatch a single undoable command.
         batch: CascadeWallBaselineEntry[],
+        // §L-873/§L-875 — the moved wall's PRE-move centreline (null when the
+        // emitter supplied no prevState; the two weld preconditions then skip).
+        prevSeg: Seg2 | null,
     ): void {
         const edges = slab.sketch!.outerLoop.edges;
         const n = edges.length;
@@ -282,6 +351,18 @@ export class SlabWallConnectivityService {
             let cornerPrevCurr: { x: number; y: number } | null = null;
             let cornerCurrNext: { x: number; y: number } | null = null;
 
+            // §L-873 CORNER-ON-NEW-SEGMENT — a corner the moved wall no longer
+            // occupies is not a re-formable junction. A wall that slid AWAY
+            // ALONG ITS OWN AXIS intersects its neighbour's line at the OLD
+            // corner; snapping anything there is exactly the founder's "it kept
+            // the original point, moving the 2 wall point to connect" — the
+            // moved wall was stretched back to the stale corner. Same rule,
+            // same tolerance as computeMoveReweld step 3: refuse, leave the
+            // honest gap. (Applies to the neighbour snap AND the moved-wall
+            // seat, which only ever consumes gated corners.)
+            const cornerUsable = (corner: { x: number; y: number }): boolean =>
+                distToSegment2D(corner, segCurr.start, segCurr.end) <= WELD_TOL_M;
+
             // ── Compute corner with predecessor & queue predecessor wall snap ─
             if (prevEdge.type === 'hostReference') {
                 const prevHE = prevEdge as HostReferenceEdge;
@@ -292,9 +373,9 @@ export class SlabWallConnectivityService {
                             segPrev.start, segPrev.end,
                             segCurr.start, segCurr.end
                         );
-                        if (corner) {
+                        if (corner && cornerUsable(corner)) {
                             cornerPrevCurr = corner;
-                            const entry = this._computeNearestEndpointEntry(prevHE.hostId, corner, wallStore);
+                            const entry = this._computeNearestEndpointEntry(prevHE.hostId, corner, wallStore, prevSeg);
                             if (entry) batch.push(entry);
                         }
                     }
@@ -311,9 +392,9 @@ export class SlabWallConnectivityService {
                             segCurr.start, segCurr.end,
                             segNext.start, segNext.end
                         );
-                        if (corner) {
+                        if (corner && cornerUsable(corner)) {
                             cornerCurrNext = corner;
-                            const entry = this._computeNearestEndpointEntry(nextHE.hostId, corner, wallStore);
+                            const entry = this._computeNearestEndpointEntry(nextHE.hostId, corner, wallStore, prevSeg);
                             if (entry) batch.push(entry);
                         }
                     }
@@ -440,6 +521,15 @@ export class SlabWallConnectivityService {
         const applyCorner = (corner: { x: number; y: number }): void => {
             const distToStart = Math.hypot(corner.x - sx, corner.y - sz);
             const distToEnd   = Math.hypot(corner.x - ex, corner.y - ez);
+            // §L-873 T-SEAT-GUARD (mirrors computeMoveReweld's §L-872 guard):
+            // a corner farther than WELD_TOL_M from BOTH endpoints is strictly
+            // INTERIOR to the moved wall's segment — a junction on its BODY.
+            // Seating an endpoint there SHORTENS the wall to the corner: on an
+            // along-axis slide this is exactly the founder's "kept the original
+            // point, moving the 2 wall point to connect". A legitimate corner
+            // weld always lands within the weld radius of the endpoint it
+            // seats; anything farther is refused.
+            if (Math.min(distToStart, distToEnd) > WELD_TOL_M) return;
             if (distToStart <= distToEnd) {
                 sx = corner.x;
                 sz = corner.y;
@@ -472,6 +562,10 @@ export class SlabWallConnectivityService {
         wallId: string,
         corner: { x: number; y: number },
         wallStore: WallStoreRef,
+        // §L-875 — the moved wall's PRE-move centreline. When present, the
+        // endpoint to snap is the one that WAS WELDED to it (computeMoveReweld
+        // step 1's rule), and a wall with NO welded endpoint is refused.
+        prevSeg: Seg2 | null = null,
     ): CascadeWallBaselineEntry | null {
         const wall = wallStore.getById(wallId);
         if (!wall) return null;
@@ -482,8 +576,27 @@ export class SlabWallConnectivityService {
         const prevStart: Point3D = { x: s.x, y: s.y, z: s.z };
         const prevEnd:   Point3D = { x: e.x, y: e.y, z: e.z };
 
-        const distToStart = Math.hypot(corner.x - s.x, corner.y - s.z);
-        const distToEnd   = Math.hypot(corner.x - e.x, corner.y - e.z);
+        let distToStart: number;
+        let distToEnd: number;
+        if (prevSeg) {
+            // §L-875 WELD-PRECONDITION — "which endpoint follows the junction?"
+            // is answered by which endpoint WAS AT the junction, never by which
+            // is nearest to the new corner. A long wall shared by two region
+            // slabs (or T-abutted mid-span) has NEITHER endpoint on the moved
+            // wall's old line: under nearest-to-corner it got an endpoint
+            // YANKED to a mid-span foot — visibly truncating it out of the
+            // other room, the founder's "on top of that the slab breaks".
+            // Refuse it; the body junction is not an endpoint's business.
+            const dWeldStart = distToSegment2D({ x: s.x, y: s.z }, prevSeg.start, prevSeg.end);
+            const dWeldEnd   = distToSegment2D({ x: e.x, y: e.z }, prevSeg.start, prevSeg.end);
+            if (Math.min(dWeldStart, dWeldEnd) > WELD_TOL_M) return null;
+            distToStart = dWeldStart;
+            distToEnd   = dWeldEnd;
+        } else {
+            // Legacy emitters (no prevState): nearest-to-corner, unchanged.
+            distToStart = Math.hypot(corner.x - s.x, corner.y - s.z);
+            distToEnd   = Math.hypot(corner.x - e.x, corner.y - e.z);
+        }
 
         let newBaseLine: [Point3D, Point3D];
         if (distToStart <= distToEnd) {

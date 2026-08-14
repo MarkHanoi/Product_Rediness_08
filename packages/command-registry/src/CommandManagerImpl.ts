@@ -10,7 +10,12 @@ import { windowStore } from '@pryzm/geometry-window';
 // per-command produceWithPatches migration (Phase 1.5) can proceed incrementally.
 enablePatches();
 
-export type CommandSource = 'HUMAN_DIRECT' | 'AI_PROPOSAL' | 'REMOTE' | 'PROJECT_LOAD';
+// §L-874-ONE-UNDO: 'STRUCTURAL_CASCADE' was ALREADY the runtime value both
+// cascade dispatchers send (SlabWallConnectivityService / WallMoveReweldService
+// pass it through their untyped CommandManagerRef seams) — the union simply
+// never admitted it. Naming it lets execute() compose cascades into their
+// spawning gesture instead of comparing against a value the type denies.
+export type CommandSource = 'HUMAN_DIRECT' | 'AI_PROPOSAL' | 'REMOTE' | 'PROJECT_LOAD' | 'STRUCTURAL_CASCADE';
 
 export interface CommandMetadata {
     source: CommandSource;
@@ -71,9 +76,21 @@ type CommandExecutedCallback = (cmd: Command, result: CommandResult) => void;
  *   (E-finish.3).  Do NOT add new call sites — use the bus instead.
  *   See `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/05-phase-E-audit-and-plan.md`.
  */
+/**
+ * §L-874-ONE-UNDO — one undo-stack record. `structuralChildren` carries the
+ * STRUCTURAL_CASCADE commands a gesture spawned from inside its execute()
+ * (slab corner welds, junction re-welds): they revert and replay WITH the
+ * gesture, so one user move costs ONE Ctrl+Z (founder acceptance, repro 3).
+ */
+export interface HistoryEntry {
+    command: Command;
+    metadata: CommandMetadata;
+    structuralChildren?: HistoryEntry[];
+}
+
 export class CommandManager {
-    private history: { command: Command, metadata: CommandMetadata }[] = [];
-    private redoStack: { command: Command, metadata: CommandMetadata }[] = [];
+    private history: HistoryEntry[] = [];
+    private redoStack: HistoryEntry[] = [];
     private context: CommandContext;
 
     // FIX 1: Persistent callback list instead of a single ad-hoc registration
@@ -99,6 +116,24 @@ export class CommandManager {
     // before (single snapshot + single history push).
     // ------------------------------------------------------------------
     private _genBatch: { command: Command, metadata: CommandMetadata }[] | null = null;
+
+    // ------------------------------------------------------------------
+    // §L-874-ONE-UNDO — structural cascades compose into their gesture.
+    //
+    // A wall move dispatches nested STRUCTURAL_CASCADE commands (slab corner
+    // welds, junction re-welds) from INSIDE the move command's execute().
+    // Pushed as separate history entries, one user gesture cost 2–3 Ctrl+Z —
+    // and the founder's acceptance for repro 3 is explicit: ONE undo restores
+    // the entire pre-move state. This frame stack records, per in-flight
+    // execute(), the structural children it spawned; on success they are
+    // attached to the OUTER entry (`structuralChildren`) instead of the
+    // history, and undo()/redo() replay them with the gesture: children are
+    // undone FIRST in reverse chronological order (they mutated last), then
+    // the outer command; redo re-executes outer then children in order.
+    // A top-level STRUCTURAL_CASCADE (no enclosing execute) still becomes its
+    // own entry — live-drag paths that emit outside a command are unchanged.
+    // ------------------------------------------------------------------
+    private _execFrames: Array<{ children: HistoryEntry[] }> = [];
 
     constructor(context: CommandContext) {
         // Ensure stores are available in context stores from window if needed
@@ -200,6 +235,12 @@ export class CommandManager {
             }
         }
 
+        // §L-874-ONE-UNDO — open a frame so nested STRUCTURAL_CASCADE dispatches
+        // (fired by store-event reactors DURING this command's execute) compose
+        // into THIS gesture instead of minting their own undo entries.
+        const myFrame: { children: HistoryEntry[] } = { children: [] };
+        this._execFrames.push(myFrame);
+
         try {
             const result = command.execute(this.context);
 
@@ -262,14 +303,37 @@ export class CommandManager {
                     .__pryzmRemoteOriginDispatch === true;
 
             if (!command.nonUndoable && !isRemoteOrigin && !isLoad) {
+                const entry: HistoryEntry = {
+                    command, metadata,
+                    ...(myFrame.children.length > 0
+                        ? { structuralChildren: [...myFrame.children] }
+                        : {}),
+                };
+                // §L-874-ONE-UNDO — a structural cascade dispatched INSIDE
+                // another command's execute() belongs to that gesture: attach
+                // to the ENCLOSING frame instead of the history. Top-level
+                // cascades (no enclosing execute — e.g. live-drag store writes)
+                // keep their own entry, unchanged.
+                const enclosing = this._execFrames.length >= 2
+                    ? this._execFrames[this._execFrames.length - 2]
+                    : null;
                 if (inGenBatch) {
                     // §GEN-UNDO-COALESCE — accumulate for one composite entry at
                     // endGenerationBatch() instead of pushing per command.
-                    this._genBatch!.push({ command, metadata });
+                    this._genBatch!.push(entry);
+                } else if (enclosing && metadata.source === 'STRUCTURAL_CASCADE') {
+                    enclosing.children.push(entry);
                 } else {
-                    this.history.push({ command, metadata });
+                    this.history.push(entry);
                     this.redoStack = [];
                 }
+            } else if (myFrame.children.length > 0 && !isLoad) {
+                // The outer command itself is not undoable (or is REMOTE) but it
+                // spawned undoable structural children — never lose them from
+                // history: push them as their own entries (the pre-composition
+                // shape), so the cascade stays revertible.
+                for (const child of myFrame.children) this.history.push(child);
+                this.redoStack = [];
             }
 
             // FIX 1: Notify all post-command subscribers
@@ -292,6 +356,11 @@ export class CommandManager {
                 info: ['Execution failed — state rolled back'],
                 error: err instanceof Error ? err.message : 'Unknown error'
             };
+        } finally {
+            // §L-874-ONE-UNDO — close this command's frame on EVERY exit path.
+            // A leaked frame would make every later top-level command look
+            // nested, silently swallowing its cascades from the history.
+            this._execFrames.pop();
         }
     }
 
@@ -602,6 +671,22 @@ export class CommandManager {
             // §L-874 — replayed inverse mutations are not user gestures.
             this._reverting++;
             try {
+                // §L-874-ONE-UNDO — the gesture's structural cascades mutated
+                // AFTER the command's own write: revert them FIRST, in reverse
+                // chronological order, so the whole gesture is one Ctrl+Z.
+                const subs = entry.structuralChildren;
+                if (subs) {
+                    for (let i = subs.length - 1; i >= 0; i--) {
+                        try {
+                            const r = subs[i]!.command.undo(this.context);
+                            if (!r.success) {
+                                console.warn(`[CommandManager] UNDO structural child ${subs[i]!.command.type} reported failure`, r.info ?? '');
+                            }
+                        } catch (e) {
+                            console.warn(`[CommandManager] UNDO structural child ${subs[i]!.command.type} threw`, e);
+                        }
+                    }
+                }
                 const result = entry.command.undo(this.context);
                 console.log(`[CommandManager] UNDO result: success=${result.success}`, result.info ?? '');
                 if (result.success) {
@@ -632,6 +717,22 @@ export class CommandManager {
                 const result = entry.command.execute(this.context);
                 console.log(`[CommandManager] REDO result: success=${result.success}`, result.info ?? '');
                 if (result.success) {
+                    // §L-874-ONE-UNDO — replay the gesture's structural cascades
+                    // in chronological order (services are silent behind the
+                    // reverting latch, so nothing re-fires them implicitly).
+                    const subs = entry.structuralChildren;
+                    if (subs) {
+                        for (const child of subs) {
+                            try {
+                                const r = child.command.execute(this.context);
+                                if (!r.success) {
+                                    console.warn(`[CommandManager] REDO structural child ${child.command.type} reported failure`, r.info ?? '');
+                                }
+                            } catch (e) {
+                                console.warn(`[CommandManager] REDO structural child ${child.command.type} threw`, e);
+                            }
+                        }
+                    }
                     this.history.push(entry);
                 }
                 return result;
@@ -670,7 +771,7 @@ export class CommandManager {
         }
     }
 
-    getHistory(): { command: Command, metadata: CommandMetadata }[] {
+    getHistory(): HistoryEntry[] {
         return [...this.history];
     }
 
