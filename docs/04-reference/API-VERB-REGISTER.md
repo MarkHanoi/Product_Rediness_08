@@ -17,11 +17,11 @@ change, not a rename — see C69 §2.
 |---|---|
 | Handler files read | 1245 (floor 900) |
 | **Verbs** | **325** (floor 250) |
-| LIVE | 111 |
+| LIVE | 112 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 8 |
+| SHADOWED (dead route) | 7 |
 | UNKNOWN | 170 |
-| authoritative store NONE or UNKNOWN | 214 |
+| authoritative store NONE or UNKNOWN | 213 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
 
@@ -131,7 +131,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `element.hideInView` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `element.isolateInView` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `element.setGraphicOverride` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
-| `element.updateMark` | plugins/selection | SHADOWED | UNKNOWN | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | classified D |
+| `element.updateMark` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | classified D |
 | `element.updateParameters` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | capability: set-height |
 | `elementType.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | classified C |
 | `elementType.delete` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
@@ -377,7 +377,6 @@ the second site is the one nobody knew was dead.
 
 | verb | sites |
 |---|---|
-| `element.updateMark` | `plugins/selection/src/handlers/UpdateElementMark.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `furniture.updateParameters` | `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `level.add` | `plugins/stair/src/handlers/AddLevel.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `sheet.addViewport` | `plugins/sheets/src/handlers/AddViewport.ts` · `apps/editor/src/engine/initBusHandlers.ts` |

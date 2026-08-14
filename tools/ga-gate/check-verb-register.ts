@@ -235,7 +235,22 @@ const SHADOWED_BASELINE: readonly string[] = [
   // `registry.has()` skip at :2575 no longer fires and the bridge registers. Pin:
   // `plugins/rooms/__tests__/templateAssignShadow.test.ts` (3 cases incl. a negative
   // control on `room.create`, watched failing 3/3 first). 9 → 8.
-  'element.updateMark',
+  //
+  // §FIX-ELEMENT-MARK-SHADOW (MT-03 / L-MT8) — 'element.updateMark' PAID and removed in
+  // the same commit, per the rule at the head of this list. The selection plugin's
+  // `UpdateElementMarkHandler` (contributed by PluginRegistry at composeRuntime, so it won
+  // boot) was the CA-18 swallow shape — `catch { console.error }` → `{forward:[],inverse:[]}`,
+  // silent no-op when `window.commandManager` is absent — AND it routed
+  // `UpdateElementMarkCommand`, which writes `properties.mark` for every type, while the
+  // schedule reads the TOP-LEVEL `mark` field (C28; PropertyPanel.ts:1035). The
+  // §FIX-ELEMENT-MARK-UNHANDLED bridge at initBusHandlers.ts:2041 routes the ONE generic
+  // `UpdateElementParameterCommand` with the stair `properties.mark` mapping handled
+  // explicitly. Authority declared: the bridge.
+  // `plugins/selection/src/handlers/UpdateElementMark.ts` is DELETED with its barrel
+  // exports and its SELECTION_HANDLER_TYPES entry, so the §OI-053 `registry.has()` skip
+  // no longer fires and the bridge registers. Pin:
+  // `plugins/selection/__tests__/handlers/ElementMarkShadow.test.ts` (3 cases incl. a
+  // negative control on `selection.select`, watched failing 3/3 first). 8 → 7.
   'furniture.updateParameters',
   'level.add',
   'sheet.addViewport',

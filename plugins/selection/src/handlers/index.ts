@@ -4,7 +4,6 @@ import type { CommandBus } from '@pryzm/plugin-sdk';
 import { SelectSelectionHandler, type SelectPayload } from './Select.js';
 import { DeselectSelectionHandler, type DeselectPayload } from './Deselect.js';
 import { ClearSelectionHandler, type ClearSelectionPayload } from './ClearSelection.js';
-import { UpdateElementMarkHandler, type UpdateElementMarkPayload } from './UpdateElementMark.js';
 import { CopySelectionHandler, type CopySelectionPayload } from './CopySelectionHandler.js';
 import { PasteClipboardHandler, type PasteClipboardPayload } from './PasteClipboardHandler.js';
 import {
@@ -17,7 +16,6 @@ export {
   SelectSelectionHandler,
   DeselectSelectionHandler,
   ClearSelectionHandler,
-  UpdateElementMarkHandler,
   CopySelectionHandler,
   PasteClipboardHandler,
 };
@@ -30,7 +28,6 @@ export type {
   SelectPayload,
   DeselectPayload,
   ClearSelectionPayload,
-  UpdateElementMarkPayload,
   CopySelectionPayload,
   PasteClipboardPayload,
 };
@@ -47,7 +44,16 @@ export const SELECTION_HANDLER_TYPES = [
   'selection.select',
   'selection.deselect',
   'selection.clear',
-  'element.updateMark',
+  // §FIX-ELEMENT-MARK-SHADOW (MT-03) — 'element.updateMark' is NOT declared
+  // here. It has a live §FIX-ELEMENT-MARK-UNHANDLED bridge in
+  // initBusHandlers.ts:2041, and this plugin claiming the type first (this set
+  // is contributed by PluginRegistry at composeRuntime, before initBusHandlers)
+  // was the ONLY reason that bridge never registered (the §OI-053
+  // `registry.has()` skip). The plugin arm swallowed a failed dispatch into
+  // `{forward:[],inverse:[]}` (C16 CA-18 PROHIBITED) and wrote `properties.mark`
+  // where the schedule reads the top-level `mark` field (C28). Authority
+  // declared: the bridge. Loser deleted, not commented. Pin:
+  // __tests__/handlers/ElementMarkShadow.test.ts.
   'copy-selection',
   'paste-clipboard',
 ] as const;
@@ -69,7 +75,6 @@ export function buildSelectionHandlerSet(
   SelectSelectionHandler,
   DeselectSelectionHandler,
   ClearSelectionHandler,
-  typeof UpdateElementMarkHandler,
   CopySelectionHandler,
   PasteClipboardHandler,
 ] {
@@ -79,7 +84,6 @@ export function buildSelectionHandlerSet(
     new SelectSelectionHandler(),
     new DeselectSelectionHandler(),
     new ClearSelectionHandler(),
-    UpdateElementMarkHandler,
     new CopySelectionHandler(clipboard, port),
     new PasteClipboardHandler(clipboard, port),
   ];
