@@ -54,11 +54,17 @@
 // experiment in a commit message:
 //   POSITIVE CONTROL — `column.create` drives a writer that IS reached; the case
 //     returns REACHED. Green exists.
-//   NEGATIVE CONTROL — `wall.create` executes successfully and creates a real
-//     wall, and `packages/command-registry/src/walls/CreateWallCommand.ts` holds
-//     ZERO `semanticGraphManager` calls. The identical read-back therefore MUST
-//     return NOT-REACHED. If this case ever reports REACHED, the probe is
-//     manufacturing edges and every other verdict in the file is void.
+//   NEGATIVE CONTROL — an element id NO command was ever executed for. The
+//     identical read-back MUST return NOT-REACHED. If this case ever reports
+//     REACHED, the probe is manufacturing edges and every other verdict in the
+//     file is void.
+//     ⚠ §GR-09 — this duty USED TO belong to `wall.create`, on the grounds that
+//     `CreateWallCommand.ts` held ZERO `semanticGraphManager` calls. That was a
+//     DEFECT doubling as an instrument, and it has been fixed: the command now
+//     writes `sitsOn`, its case below is declared REACHED, and the control was
+//     moved onto something structural in the SAME commit. A harness whose only
+//     proof it can report absence is a bug it is waiting to lose is a harness
+//     that silently stops working the day the repo improves.
 //   PHANTOM CONTROL — the same query shape against an element id that was never
 //     created must be empty, so "found" can never be the reader's default.
 //
@@ -197,11 +203,21 @@ const CASES: ProbeCase[] = [
         drive: () => driveFurniture(),
     },
     {
-        path: 'CreateWallCommand  (NEGATIVE CONTROL)',
+        // ⚠ RE-STATED §GR-09. This case was the harness's NEGATIVE CONTROL for as
+        // long as `CreateWallCommand` held zero `semanticGraphManager` calls. That
+        // is no longer true: the command now writes `sitsOn` (wall → level) beside
+        // its store write, so the declared expectation is flipped to REACHED IN THE
+        // SAME COMMIT as the writer. Leaving it declared NOT-REACHED would have
+        // turned a real fix into a red test; leaving it LABELLED "negative control"
+        // while it passed positively would have been a false green — the harness
+        // would claim it can still report absence while every one of its rows was
+        // positive. The absence-reporting duty moved to the NEVER-CREATED case
+        // below, which is structural and can never be "fixed" away.
+        path: 'CreateWallCommand — sitsOn (§GR-09, was the NEGATIVE CONTROL)',
         edge: { type: 'sitsOn', from: () => made.wall, to: () => LEVEL_ID },
-        expect: 'NOT-REACHED',
-        because: 'packages/command-registry/src/walls/CreateWallCommand.ts contains ZERO semanticGraphManager ' +
-                 'calls at HEAD — the command succeeds and writes no edge. If this reads REACHED the probe is broken.',
+        expect: 'REACHED',
+        because: 'CreateWallCommand.ts writes sitsOn(wallId → levelId) authoritatively beside wallStore.add(); ' +
+                 'its named consumer is DeleteLevelCommand.ts:174, whose stranded-element guard did not cover walls before',
         drive: () => {
             const id = 'grt-wall-1';
             const r = world.cm.execute(new reg.CreateWallCommand(id, {
@@ -210,6 +226,27 @@ const CASES: ProbeCase[] = [
             })) as { success?: boolean; error?: string } | void;
             if (r && r.success === false) return { unprovable: 'command refused: ' + (r.error ?? '') };
             made.wall = id;
+            return { id };
+        },
+    },
+    {
+        // ── THE NEGATIVE CONTROL (STRUCTURAL) ────────────────────────────────
+        // C70 §5.6: a comparator never watched go red is not trusted, and the
+        // SUMMARY below asserts at least one NOT-REACHED for exactly that reason.
+        // The old negative control was a DEFECT (`wall.create` writing no edge),
+        // so closing the defect would have destroyed the harness's ability to
+        // report absence — a gate that gets weaker every time the repo gets
+        // better. This control is structural instead: an element that was never
+        // created can never acquire an edge, so NOT-REACHED here is permanent and
+        // is not a thing anyone can "fix". If this ever reads REACHED, the probe
+        // is manufacturing edges and every other verdict in the file is void.
+        path: 'NEVER-CREATED ELEMENT  (NEGATIVE CONTROL)',
+        edge: { type: 'sitsOn', from: () => made.ghost, to: () => LEVEL_ID },
+        expect: 'NOT-REACHED',
+        because: 'no command was executed for this id — nothing in the repository has ever written an edge for it',
+        drive: () => {
+            const id = 'grt-never-created-' + Math.random().toString(36).slice(2);
+            made.ghost = id;
             return { id };
         },
     },

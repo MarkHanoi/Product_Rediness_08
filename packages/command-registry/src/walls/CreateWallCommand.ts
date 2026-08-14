@@ -9,7 +9,9 @@
  * Impact Assessment:
  *   Semantic Impact:     No
  *   Constraint Impact:   No
- *   Graph Impact:        No
+ *   Graph Impact:        Yes — §GR-09: writes `sitsOn` (wall → level) on execute
+ *                        and purges the wall's edges on undo. Was "No" while this
+ *                        command held zero graph calls at all.
  *   Propagation Impact:  No
  *   Topology Impact:     No
  *   World Model Impact:  No
@@ -35,6 +37,7 @@ import { WallData, WallCurve, WallLayer, WallBaseline } from '@pryzm/geometry-wa
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { generateMark } from '@pryzm/core-app-model';
 import { batchCoordinator } from '@pryzm/core-app-model';
+import { semanticGraphManager } from '@pryzm/core-app-model';
 
 /**
  * §UNDO-AUDIT-2026 §01-§2.3 — Per-neighbour pre-create snapshot used to
@@ -388,6 +391,46 @@ export class CreateWallCommand implements Command {
         //    which acts as a redo-safety guard (undo calls unregister, so redo is clean).
         elementRegistry.registerSemantic(this.wallId, 'wall');
 
+        // 4️⃣ §GR-09 / C71 §5.5 — SemanticGraph: the wall SITS ON its level.
+        //
+        // THE ROW THIS CLOSES: GR-09 — *"CreateWallCommand writes no graph edges at
+        // all"*. It was literally true: this file held ZERO `semanticGraphManager`
+        // calls, so the loader's `_rebuildSemanticGraph` was the ONLY source of a
+        // wall's graph presence and a wall created in-session had none until reload.
+        // Every other structural create command already writes this edge —
+        // CreateColumnCommand:186, CreateBeamCommand:221, CreateRoofCommand,
+        // CreateSlabCommand, CreateFurnitureCommand:201 — walls were the hole.
+        //
+        // THE NAMED FIRST CONSUMER (C71 §2.5 — a writer needs one, never "the gate
+        // wants a pair"): `DeleteLevelCommand.ts:174` reads `sitsOn` to find every
+        // element that would be STRANDED by deleting a level. Without this write,
+        // that guard silently did not cover walls — the most numerous element on
+        // any level — and a level delete stranded them all. The edge is therefore
+        // load-bearing, so this write is AUTHORITATIVE and failures bubble, exactly
+        // as in CreateFurnitureCommand: a half-registered wall must be visible, not
+        // swallowed. (CreateColumnCommand's non-fatal try/catch predates that rule.)
+        //
+        // DIRECTION is element → level, matching every sibling writer, the rebuild
+        // (`rebuildSemanticGraph.ts:202`) and the reader's `getTargets(id,'sitsOn')`.
+        //
+        // NOT written here: `joinedTo`. That edge is emitted at flush time by
+        // `WallRebuildCoordinator` (ADR-0321 §CONNECT-3) from the RETAINED junction
+        // index, remove-and-re-emit per level — it is not knowable at create time
+        // and duplicating it here would fight the owner. And NOT `partOf`: C71 §2.5
+        // holds that row DECLINED pending an ADR on whether hierarchy nodes are
+        // graph citizens at all.
+        //
+        // Removal is already owned: `DeleteElementCommand` calls
+        // `removeAllRelationshipsForElement(id)` for the wall and its children, and
+        // `undo()` below mirrors it for the create-then-undo path.
+        semanticGraphManager.addRelationship({
+            type: 'sitsOn',
+            sourceId: this.wallId,
+            targetId: this.wallData.levelId,
+            createdBy: 'CreateWallCommand',
+            metadata: { addedBy: 'CreateWallCommand' },
+        });
+
         // ✅ §2.7 FIX (v8): Removed _resolveAndRebuild() — the subscriber in main.ts
         // already runs WallJoinResolver.resolveLevel() and calls builder.buildWall()
         // for every wall on the level on each store mutation. Calling it here too
@@ -415,6 +458,9 @@ export class CreateWallCommand implements Command {
         for (const childId of childrenIds) {
             ctx.bimManager.unregisterElement(childId);
             elementRegistry.unregister(childId);
+            // §GR-09 — the child's graph edges leak on undo exactly as its spatial
+            // registration used to. Non-fatal: an undo must complete.
+            try { semanticGraphManager.removeAllRelationshipsForElement(childId); } catch { /* side index */ }
         }
 
         ctx.bimManager.unregisterElement(this.wallId);
@@ -422,6 +468,18 @@ export class CreateWallCommand implements Command {
         // Mirrors the registration done in execute(). Safe to call even if the
         // entry is absent (unregister is a no-op for unknown IDs).
         elementRegistry.unregister(this.wallId);
+        // §GR-09 — mirror of the execute()-side `sitsOn` write. Undoing a create
+        // must leave no edge behind, or the graph accumulates edges pointing at a
+        // wall that no store holds — the write-only-state defect one row over.
+        // Also purges the flush-time `joinedTo` edges WallRebuildCoordinator may
+        // have emitted for this wall (ADR-0321 §CONNECT-3); the coordinator
+        // remove-and-re-emits per level on the next pass, so this cannot desync it.
+        // Non-fatal, per the §SWALLOW-SIDE-INDEX convention in DeleteElementCommand.
+        try {
+            semanticGraphManager.removeAllRelationshipsForElement(this.wallId);
+        } catch (err) {
+            console.warn('[CreateWallCommand.undo] SemanticGraph cleanup failed (non-fatal):', err);
+        }
         ctx.stores.wallStore.remove(this.wallId);
 
         // §UNDO-AUDIT-2026 §01-§2.3 — Restore neighbour baselines that were
