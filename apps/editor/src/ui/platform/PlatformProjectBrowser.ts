@@ -98,15 +98,26 @@ export class PlatformProjectBrowser {
         // The inner row is 36px; removing the 18px strip makes total ≤40px.
         this.toolbar.appendChild(this.toolbarInner);
 
-        // The plat-left-panel wrapper has been removed from Layout.ts (left panel now
-        // uses its own vb-panel at 52px, matching the right tp-panel dimensions).
-        // The toolbar is kept in the DOM (hidden) so Ctrl+S save and project-name
-        // change handlers remain functional, but it is not visually rendered.
+        // §L-MOUNT host fix (founder decision, C82 / ADR-0326). History: the
+        // `.plat-left-panel` wrapper was removed from Layout.ts, and this
+        // else-branch then hid the toolbar (`display:none`) as a byproduct —
+        // no file in the tree creates `.plat-left-panel`, so the hidden branch
+        // was the ONLY branch (proven by execution in
+        // `../toolbar/__tests__/mountHost.spec.ts`). Every feature later
+        // injected into `.plat-toolbar` — the Data workbench button + physics
+        // overlay dropdown (initDataPlatform.ts), the ActiveLevelHUD slot
+        // (CreatePanelLayout.ts) — landed in an invisible node: the L-847
+        // shape, three features deep.
+        //
+        // The fix is to stop hiding it: the `.plat-toolbar` CSS was always a
+        // self-positioning fixed top-center bar (platformToolbar.ts —
+        // `position:fixed; top:0; left:50%; z-index:9000`), so appending it to
+        // `document.body` VISIBLE is the layout it was written for. The
+        // left-panel branch is kept for the day that wrapper returns.
         const leftPanel = document.querySelector('.plat-left-panel');
         if (leftPanel) {
             leftPanel.insertBefore(this.toolbar, leftPanel.firstChild);
         } else {
-            this.toolbar.style.display = 'none';
             document.body.appendChild(this.toolbar);
         }
 

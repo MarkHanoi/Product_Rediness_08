@@ -69,17 +69,23 @@ describe('§L-MOUNT Phase 2 — the mount hosts the brief named are stale', () =
             + 'finding may no longer hold; RE-MEASURE before mounting anything').toEqual([]);
     }, 60_000);
 
-    it('FINDING 2b — buildToolbar() hides .plat-toolbar when that wrapper is absent', () => {
+    it('FINDING 2b — RESOLVED by the host fix: buildToolbar() renders .plat-toolbar '
+        + 'VISIBLE when the wrapper is absent (it no longer sets display:none)', () => {
+        // HISTORY: this assertion originally pinned the DEFECT (`display:none` +
+        // hidden body-append) as the measured state that made mounting unsafe.
+        // The founder then ordered the host made visible, so the pin now guards
+        // the FIX: if anyone re-hides the toolbar, every surface mounted into it
+        // goes invisible again — L-847, silently. Given 2a (no wrapper exists),
+        // the body-append branch is still the only reachable branch.
         const src = readFileSync(
             path.join(EDITOR_SRC, 'ui', 'platform', 'PlatformProjectBrowser.ts'), 'utf8');
-        // The else-branch is the only reachable branch given 2a.
         expect(src).toMatch(/querySelector\('\.plat-left-panel'\)/);
-        expect(src).toMatch(/this\.toolbar\.style\.display\s*=\s*'none'/);
+        expect(src).not.toMatch(/this\.toolbar\.style\.display\s*=\s*'none'/);
         expect(src).toMatch(/document\.body\.appendChild\(this\.toolbar\)/);
     });
 
-    it('FINDING 2c — shipped features DO inject into that hidden host (so the '
-        + 'defect is real and not hypothetical)', () => {
+    it('FINDING 2c — shipped features inject into that host (visible since the '
+        + 'host fix; they were injected into a hidden node before it)', () => {
         const injectors = [
             path.join(EDITOR_SRC, 'engine', 'initDataPlatform.ts'),
             path.join(EDITOR_SRC, 'ui', 'layout', 'CreatePanelLayout.ts'),
