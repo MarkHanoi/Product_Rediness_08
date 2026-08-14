@@ -1004,22 +1004,30 @@ export function initBusHandlers(
             },
             fn: (cmd) => { _cmExec(new UpdateScheduleCommand(cmd.scheduleId, cmd.patch)); },
         },
-        {
-            type: 'furniture.updateParameters',
-            stores: [] as const,
-            validate: (cmd) => (!cmd.id ? 'id is required' : null),
-            fn: (cmd) => {
-                const { id, ...rest } = cmd;
-                _cmExec(new UpdateFurnitureParametersCommand({ id, ...rest }));
-            },
-        },
+        // §FIX-FURNITURE-UPDATEPARAMS-SHADOW (MT-03) — the 'furniture.updateParameters'
+        // bridge is DELETED here. It was DEAD on every production boot: PluginRegistry
+        // contributes the furniture handler set at composeRuntime, before initBusHandlers,
+        // so the §OI-053 `registry.has()` skip below always fired. Keeping the PLUGIN arm
+        // is not a coin toss — `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts`
+        // carries the §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) undo capture this bridge LACKS:
+        // it declares `affectedStores: ['furniture']` and emits the forward/inverse
+        // PatchPair on a 3-D gizmo drag-end, which is what puts the move/rotate on the
+        // unified ring buffer. This bridge's `stores: []` + empty patches would have been
+        // classified an EMPTY-PATCH record and SKIPPED the ring, re-opening L-72 (the
+        // ring-first performUndo() reverts some other covered element; the furniture
+        // "stays moved"). It performs the identical authoritative mutation the plugin arm
+        // already bridges — `UpdateFurnitureParametersCommand` — so nothing is lost.
+        // Pins: plugins/furniture __tests__/updateParameters-undo-capture.test.ts (the
+        // executed L-72 proof) + __tests__/updateParametersOwner.test.ts (ownership).
         {
             // §FURNITURE-UPDATE-REPLAY (founder 2026-06-19) — RemoteCommandDispatcher
             // dispatches the COMMAND TYPE ('UPDATE_FURNITURE_PARAMETERS') as the bus key
-            // on collaboration catch-up/replay, but the authoring handler above is keyed
-            // 'furniture.updateParameters'. Without a handler under the CommandType key the
-            // replayed move/rotate no-ops and the furniture reverts to its created pose
-            // ("sofa rotates back to origin after I move it"). Same fn, CommandType key.
+            // on collaboration catch-up/replay, but the authoring handler is the PLUGIN's
+            // 'furniture.updateParameters' (see the deletion note above). Without a handler
+            // under the CommandType key the replayed move/rotate no-ops and the furniture
+            // reverts to its created pose ("sofa rotates back to origin after I move it").
+            // This is a DIFFERENT WIRE IDENTIFIER, not a duplicate registration, so it
+            // stays: it is the replay key, and no plugin claims it.
             type: 'UPDATE_FURNITURE_PARAMETERS',
             stores: [] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : null),

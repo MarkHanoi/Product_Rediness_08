@@ -19,8 +19,8 @@ change, not a rename — see C69 §2.
 | **Verbs** | **325** (floor 250) |
 | LIVE | 117 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 1 |
-| UNKNOWN | 171 |
+| SHADOWED (dead route) | 0 |
+| UNKNOWN | 172 |
 | authoritative store NONE or UNKNOWN | 208 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
@@ -151,7 +151,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `furniture.setMaterial` | plugins/furniture | REFUSES | NONE | patch-pair → furniture | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `furniture.setRepresentation` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | synced via 'furnitureId' (disclose) | classified C |
 | `furniture.setScale` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | synced via 'furnitureId' (disclose) | classified B |
-| `furniture.updateParameters` | plugins/furniture | SHADOWED | UNKNOWN | NONE (empty patch pair) | synced via 'id' (disclose) | classified D |
+| `furniture.updateParameters` | plugins/furniture | UNKNOWN | UNKNOWN | NONE (empty patch pair) | synced via 'id' (disclose) | classified D |
 | `generation.apartment` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | capability: generate-apartment-layout |
 | `generation.building` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | capability: generate-building |
 | `generation.finish-chain` | apps/editor | LIVE | legacy geometry store (via commandManager) | NONE (empty patch pair) | n/a (not a property verb) | capability: finish-apartment-chain |
@@ -377,4 +377,3 @@ the second site is the one nobody knew was dead.
 
 | verb | sites |
 |---|---|
-| `furniture.updateParameters` | `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts` · `apps/editor/src/engine/initBusHandlers.ts` |

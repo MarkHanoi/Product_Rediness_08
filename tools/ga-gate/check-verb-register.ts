@@ -272,7 +272,25 @@ const SHADOWED_BASELINE: readonly string[] = [
   // `stair.batch.create` entry shape (moved to CreateStairBatch.ts). Pin:
   // `plugins/stair/__tests__/createStairShadow.test.ts` (3 cases incl. a negative
   // control on `stair.move`, watched failing first). 3 → 2.
-  'furniture.updateParameters',
+  // §FIX-FURNITURE-UPDATEPARAMS-SHADOW (MT-03 / L-MT8) — 'furniture.updateParameters'
+  // PAID and removed in the same commit, per the rule at the head of this list. It was
+  // the LAST name here: with it gone, the SHADOWED class this list was minted to hold —
+  // the `roof.update` defect, "it is not one verb: it is SIXTEEN" — is EMPTY.
+  // ⚠ SAME REVERSED DIRECTION as 'stair.move', for a sharper reason: the PLUGIN arm is
+  // the winner because it carries the §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) undo capture the
+  // bridge LACKS. `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts` declares
+  // `affectedStores: ['furniture']` and emits the forward/inverse PatchPair on a 3-D
+  // gizmo drag-end (`_recordUndo` + `_prev*`), which is what routes the move/rotate onto
+  // the ring buffer — while ALSO bridging the same `UpdateFurnitureParametersCommand` to
+  // commandManager for the authoritative geometry write. The initBusHandlers bridge had
+  // `stores: []` and empty patches: handing it the verb would have re-opened L-72
+  // (empty-patch record → skipped ring → ring-first performUndo reverts the wrong
+  // element → "the furniture stays moved"). So the LOSER is the bridge, and it is
+  // DELETED. Pins: `plugins/furniture/__tests__/updateParameters-undo-capture.test.ts`
+  // (4 executed cases) + `__tests__/updateParametersOwner.test.ts` (3 cases). The
+  // 'UPDATE_FURNITURE_PARAMETERS' replay bridge is a DIFFERENT wire identifier and
+  // stays. 1 → 0. It moves to UNKNOWN_LIVENESS_BASELINE below — same hybrid-classifier
+  // limit recorded there for 'stair.move'.
   // §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03 / L-MT8) — 'sheet.addViewport' PAID and removed
   // in the same commit. This was one of the TWO verbs the MT-03 brief marked CONTESTED
   // (plugin arm produceCommands against a real declared store), so the direction was
@@ -446,6 +464,20 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'furniture.create',
   'furniture.delete',
   'furniture.setActiveLod',
+  // §FIX-FURNITURE-UPDATEPARAMS-SHADOW (MT-03 / L-MT8) — 'furniture.updateParameters'
+  // ARRIVES here from SHADOWED_BASELINE in the same commit that deletes its dead bridge,
+  // for the IDENTICAL gate limit recorded at 'stair.move' below: it is a DUAL-DISPATCH
+  // HYBRID (commandManager delegation AND a declared `affectedStores`), a shape neither
+  // `isBridge()` (which requires zero declared stores) nor the published UNKNOWN
+  // definition ("a lone plugin produceCommand handler") describes. UNKNOWN is the honest
+  // STATIC verdict; the EXECUTED proof is
+  // `plugins/furniture/__tests__/updateParameters-undo-capture.test.ts` — four cases
+  // reading the ring buffer back, including the two negative controls (a non-opt-in
+  // caller and a missing `_prev` snapshot record NOTHING). Retiring this row and
+  // 'stair.move' is ONE change — a hybrid arm on this gate's classifier — and it is its
+  // own lane, because widening the gate's subject inside the commit that uses the gate
+  // as its measurement is how a ratchet stops measuring.
+  'furniture.updateParameters',
   'furniture.setRepresentation',
   'furniture.setScale',
   'grid.create',
