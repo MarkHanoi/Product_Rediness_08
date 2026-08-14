@@ -40,6 +40,19 @@ import { buildWorld, type World } from '../world';
 import { seedWorld } from '../seed';
 import { captureState, diffState, kindReaders, isAdr0319Class3 } from '../capture';
 
+/**
+ * CE-06 / C70 §7.3(c)(d) — how many CLIENTS this harness composed.
+ *
+ * §7.3(c) says every non-collaboration gate is "single-client by construction"
+ * and §7.3(d) says the fixture "is itself a declared, reviewable artefact". Both
+ * were true and BOTH WERE PROSE: the single-client claim lived only in gate
+ * headers, so a harness that one day composed a second world would keep printing
+ * the same sentence. This counter is incremented AT THE COMPOSITION SITE, so the
+ * claim is derived from the fixture instead of asserted about it — which is what
+ * "reviewable by construction" has to mean if it is to mean anything.
+ */
+let worldsComposed = 0;
+
 /** A verb under measurement, with the property set its dispatch is DECLARED to move. */
 interface VerbCase {
   /** bus verb */
@@ -265,6 +278,7 @@ describe('authoritative-state measurement', () => {
   it('dispatches every certified verb and records the independent read-back diff', async () => {
     const roomId = crypto.randomUUID();
     const world = await buildWorld();
+    worldsComposed++;
     const seed = await seedWorld(world, roomId);
 
     const doorId = (await import('@pryzm/geometry-door')).doorStore.getAll()[0]?.id;
@@ -552,6 +566,38 @@ describe('authoritative-state measurement', () => {
     // It ASSERTS NOTHING, per this file's rule. The counts are written and the
     // gate floors them — a build that reported 0 meshes over a seeded world must
     // read as MISCONFIGURED there, never as "geometry is fine".
+    // ── FIXTURE MANIFEST (CE-06 · C70 §7.3(c)(d)) ─────────────────────
+    // §7.3(d): "an executed run proves the seeded fixture, not the user's
+    // project, and the fixture is itself a declared, reviewable artefact."
+    //
+    // The fixture WAS declared — in TypeScript, in `../seed.ts` — and every
+    // artefact already carried `seedOutcomes` (which kinds seeded, refused or
+    // threw). What no artefact carried was the fixture's SHAPE along the two axes
+    // §7.3 actually names: how many LEVELS and how many CLIENTS. Those two facts
+    // were stated in gate PROSE, where no run could contradict them. A fixture
+    // that gained a second level would not have changed one printed word.
+    //
+    // Measured here, from the composed world, so the scope sentence a reader
+    // relies on is a READING. It does NOT close CE-06: proving the fixture is one
+    // level and one client is not proving anything about a user's project. It
+    // makes the DECLARATION honest, which is exactly what the row asks for.
+    let fixture: Record<string, unknown> = { measured: false };
+    try {
+      const bim = world.bimManager as unknown as { getAllLevels?: () => Array<{ id?: string }>; getLevels?: () => Array<{ id?: string }> };
+      const levels = (bim.getAllLevels?.() ?? bim.getLevels?.() ?? []) as Array<{ id?: string }>;
+      fixture = {
+        measured: true,
+        clients: worldsComposed,
+        levels: levels.length,
+        levelIds: levels.map((l) => String(l?.id ?? '?')),
+        kindsSeeded: Object.keys(seed.seedOutcomes).length,
+        kindsSeededOk: Object.values(seed.seedOutcomes).filter((v) => v === 'SEEDED').length,
+        records: baselineRecords,
+      };
+    } catch (e) {
+      fixture = { measured: false, error: String(e).slice(0, 400) };
+    }
+
     let geometry: Record<string, unknown> = { ran: false };
     try {
       const { buildHeadlessGeometry } = await import('../headlessGeometry');
@@ -580,6 +626,7 @@ describe('authoritative-state measurement', () => {
         measuredAt: new Date().toISOString(),
         seedOutcomes: seed.seedOutcomes,
         geometry,
+        fixture,
         registrationFailures: world.registrationFailures,
         dtoReached: dto.reached,
         dtoHow: dto.how,

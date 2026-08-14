@@ -148,6 +148,17 @@ interface Artefact {
   positiveControl?: { ran?: boolean; pathCount?: number; paths?: string[]; error?: string };
   negativeControl?: { ran?: boolean; authoritativePathCount?: number; dtoChanged?: boolean; error?: string };
   wideningControl?: { ran?: boolean; undeclared?: string[]; observedPaths?: string[]; error?: string };
+  /** CE-06 — the fixture's own shape, measured rather than asserted. */
+  fixture?: {
+    measured?: boolean;
+    clients?: number;
+    levels?: number;
+    levelIds?: string[];
+    kindsSeeded?: number;
+    kindsSeededOk?: number;
+    records?: number;
+    error?: string;
+  };
   /** CE-02 — the headless fragment build over THIS harness's world. */
   geometry?: {
     ran?: boolean;
@@ -364,6 +375,29 @@ function run(): GateResult {
 
   // ── 8 · what this gate cannot see, restated EVERY run ─────────────────────
   lines.push('');
+  // ── 8z · FIXTURE MANIFEST — MEASURED (CE-06 · C70 §7.3(c)(d)) ────────
+  // §7.3(d) requires the fixture to be a DECLARED, REVIEWABLE artefact. It was
+  // declared in TypeScript and its per-kind outcomes were already published; what
+  // was prose is the SHAPE — "single-client by construction", "one level" — stated
+  // in gate headers where no run could falsify it. Now it is a reading taken from
+  // the composed world, and floored, so a fixture that silently grew a second
+  // client cannot keep printing the single-client scope sentence.
+  const fx = art.fixture;
+  lines.push('');
+  lines.push('FIXTURE MANIFEST (CE-06 · C70 §7.3(c)(d)) — what this run actually proved over:');
+  if (!fx || fx.measured !== true) {
+    lines.push(`  ❌ the harness published no measured fixture manifest — ${fx?.error ?? 'block absent'}`);
+  } else {
+    lines.push(`  clients composed: ${fx.clients} · levels: ${fx.levels} [${(fx.levelIds ?? []).join(', ')}] · kinds seeded: ${fx.kindsSeededOk}/${fx.kindsSeeded} · records: ${fx.records}`);
+    lines.push(`  ⚠ SCOPE, now MEASURED rather than asserted: this run proves the SEEDED FIXTURE, not a`);
+    lines.push(`    user's project. ${fx.clients} client(s) and ${fx.levels} level(s) is what was driven; C70 §7.3(c)/(d)`);
+    lines.push('    hold in full — every verdict above is single-client, and no multi-level or');
+    lines.push('    multi-client behaviour is measured by this gate or by any non-collaboration gate.');
+  }
+  floors.push({ what: 'CE-06 fixture manifest measured (clients + levels + kinds, from the composed world)', measured: (fx?.measured === true ? 1 : 0), min: 1 });
+  floors.push({ what: 'CE-06 clients composed (the single-client claim, MEASURED not asserted)', measured: fx?.clients ?? 0, min: 1 });
+  floors.push({ what: 'CE-06 levels in the fixture', measured: fx?.levels ?? 0, min: 1 });
+
   // ── 8a · GEOMETRY CHAIN LINK — MEASURED (CE-02) ──────────────────────
   // This block used to be ONE HARD-CODED SENTENCE — "no fragment builders are
   // registered in the harness; meshes are never built, so the Geometry chain
