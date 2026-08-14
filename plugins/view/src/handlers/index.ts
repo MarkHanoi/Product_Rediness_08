@@ -12,7 +12,6 @@ import { SwitchViewHandler } from './SwitchView.js';
 import { UpdateViewCameraHandler } from './UpdateViewCamera.js';
 import { SetViewOutputHandler } from './SetViewOutput.js';
 import { SetViewRangeHandler } from './SetViewRange.js';
-import { SetViewCropHandler } from './SetViewCrop.js';
 import { SetViewUnderlayHandler } from './SetViewUnderlay.js';
 import { UpdateViewDefinitionHandler } from './UpdateViewDefinition.js';
 import { DeleteElementHandler } from './DeleteElement.js';
@@ -29,7 +28,6 @@ export { SwitchViewHandler } from './SwitchView.js';
 export { UpdateViewCameraHandler } from './UpdateViewCamera.js';
 export { SetViewOutputHandler } from './SetViewOutput.js';
 export { SetViewRangeHandler } from './SetViewRange.js';
-export { SetViewCropHandler } from './SetViewCrop.js';
 export { SetViewUnderlayHandler } from './SetViewUnderlay.js';
 export { UpdateViewDefinitionHandler } from './UpdateViewDefinition.js';
 export { DeleteElementHandler, type DeleteElementPayload } from './DeleteElement.js';
@@ -67,7 +65,6 @@ export type {
 } from './UpdateViewCamera.js';
 export type { SetViewOutputPayload } from './SetViewOutput.js';
 export type { SetViewRangePayload } from './SetViewRange.js';
-export type { SetViewCropPayload } from './SetViewCrop.js';
 export type { SetViewUnderlayPayload } from './SetViewUnderlay.js';
 export type { UpdateViewDefinitionPayload } from './UpdateViewDefinition.js';
 
@@ -79,7 +76,12 @@ const ALL_HANDLERS = [
   UpdateViewCameraHandler,
   SetViewOutputHandler,
   SetViewRangeHandler,
-  SetViewCropHandler,
+  // §FIX-VIEW-CROP-SHADOW (MT-03) — SetViewCropHandler is NOT in this set. The
+  // §E.5.4 bridge at initBusHandlers.ts:2150 is the live arm for 'view.setCrop'
+  // (initBusHandlers runs BEFORE registerViewHandlers; first registration
+  // wins), and the handler's "sole state-mutation path" header was false at
+  // runtime. Loser deleted, not commented. Pin:
+  // __tests__/handlers/SetViewCropShadow.test.ts.
   SetViewUnderlayHandler,
   UpdateViewDefinitionHandler,
   DeleteElementHandler,

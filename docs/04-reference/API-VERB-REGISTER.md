@@ -15,13 +15,13 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1244 (floor 900) |
+| Handler files read | 1243 (floor 900) |
 | **Verbs** | **325** (floor 250) |
-| LIVE | 113 |
+| LIVE | 114 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 6 |
+| SHADOWED (dead route) | 5 |
 | UNKNOWN | 170 |
-| authoritative store NONE or UNKNOWN | 212 |
+| authoritative store NONE or UNKNOWN | 211 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
 
@@ -313,7 +313,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `view.hideElement` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified B |
 | `view.isolateElement` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified B |
 | `view.rename` | plugins/view | UNKNOWN | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified F |
-| `view.setCrop` | plugins/view | SHADOWED | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified B |
+| `view.setCrop` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `view.setGraphicOverride` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `view.setOutput` | plugins/view | UNKNOWN | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified B |
 | `view.setProjection` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
@@ -381,5 +381,4 @@ the second site is the one nobody knew was dead.
 | `sheet.addViewport` | `plugins/sheets/src/handlers/AddViewport.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.create` | `plugins/stair/src/handlers/CreateStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.move` | `plugins/stair/src/handlers/MoveStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `view.setCrop` | `plugins/view/src/handlers/SetViewCrop.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `view.updateDefinition` | `plugins/view/src/handlers/UpdateViewDefinition.ts` · `apps/editor/src/engine/initBusHandlers.ts` |

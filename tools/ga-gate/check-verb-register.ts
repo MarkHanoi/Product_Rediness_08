@@ -270,7 +270,19 @@ const SHADOWED_BASELINE: readonly string[] = [
   'sheet.addViewport',
   'stair.create',
   'stair.move',
-  'view.setCrop',
+  // §FIX-VIEW-CROP-SHADOW (MT-03 / L-MT8) — 'view.setCrop' PAID and removed in the same
+  // commit, per the rule at the head of this list. ⚠ THE DIRECTION IS THE REVERSE of the
+  // header's "plugins register first" story, which is per-verb false for the view plugin:
+  // PluginRegistry's `view` entry contributes ONLY the five S17 handlers
+  // (PluginRegistry.ts:466-472); `registerViewHandlers()` runs at engineLauncher.ts:605,
+  // AFTER initBusHandlers at :451, and aborts on its FIRST duplicate (`view.create`,
+  // already taken from composeRuntime — CommandBus.register throws). So the BRIDGE at
+  // initBusHandlers.ts:2150 has been the live arm all along and the plugin handler —
+  // whose header claimed to be "the sole state-mutation path" — never registered on any
+  // production bus. `plugins/view/src/handlers/SetViewCrop.ts` is DELETED with its barrel
+  // exports and ALL_HANDLERS entry. Pin:
+  // `plugins/view/__tests__/handlers/SetViewCropShadow.test.ts` (incl. a negative control
+  // on `view.create`, watched failing first). 6 → 5.
   'view.updateDefinition',
 ];
 
