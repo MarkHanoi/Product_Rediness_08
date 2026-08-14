@@ -1,7 +1,7 @@
 import { Command, CommandContext, CommandType, CommandValidationResult, CommandResult, SerializedCommand } from '../types';
 import * as THREE from '@pryzm/renderer-three/three';
 import { windowStore } from '@pryzm/geometry-window';
-import { wallOccupancyStore } from '@pryzm/geometry-wall';
+import { wallOccupancyStore, canPlaceRefusalText } from '@pryzm/geometry-wall';
 
 export class CenterWindowInWallCommand implements Command {
     readonly affectedStores = ["window", "wall"] as const;
@@ -38,7 +38,9 @@ export class CenterWindowInWallCommand implements Command {
         // DW-01 FIX: Occupancy check with excludeId so the window's own footprint is ignored.
         const occupancy = wallOccupancyStore.canPlace(wall, newOffset, windowElem.width, windowElem.id);
         if (!occupancy.valid) {
-            return { ok: false, reason: occupancy.reason ?? 'Centered position is occupied or out of bounds' };
+            // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the shared renderer
+            // carries occupancy.code into the reason, so the refusal keeps its identity.
+            return { ok: false, reason: canPlaceRefusalText(occupancy) };
         }
 
         return { ok: true };

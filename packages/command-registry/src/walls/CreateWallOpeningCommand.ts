@@ -1,6 +1,6 @@
 import { Command, CommandContext, CommandType, CommandValidationResult, CommandResult, SerializedCommand } from '../types';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
-import { wallOccupancyStore } from '@pryzm/geometry-wall';
+import { wallOccupancyStore, canPlaceRefusalText } from '@pryzm/geometry-wall';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 import { doorSystemTypeStore } from '@pryzm/geometry-door';
@@ -75,7 +75,11 @@ export class CreateWallOpeningCommand implements Command {
                 `[CreateWallOpeningCommand] canExecute rejected: ${occupancyResult.reason}`,
                 { wallId: this.data.wallId, offsetM, widthM }
             );
-            return { ok: false, reason: occupancyResult.reason ?? 'Opening conflicts with existing opening' };
+            // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — render through the shared
+            // canPlaceRefusalText() so the refusal reaches the user CARRYING its
+            // CanPlaceRefusalCode. The old fallback named a cause ("conflicts with
+            // existing opening") that five of the six refusal arms do not have.
+            return { ok: false, reason: canPlaceRefusalText(occupancyResult) };
         }
 
         return { ok: true };

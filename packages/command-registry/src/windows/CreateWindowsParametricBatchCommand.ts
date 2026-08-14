@@ -276,7 +276,13 @@ export class CreateWindowsParametricBatchCommand implements Command {
                         const v = child.canExecute(ctx);
                         if (!v.ok) {
                             // Occupancy conflicts (existing doors/windows) land here.
-                            this._skipped.push({ wallId: w.id, reason: v.reason ?? 'placement refused' });
+                            // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the child's
+                            // canPlace refusals now arrive with their [OCC_*] identity inside
+                            // `v.reason` (canPlaceRefusalText). A child that refuses with NO
+                            // reason is named as an absence — never handed a manufactured
+                            // verdict sentence ('placement refused') that hides the
+                            // under-reporting validator.
+                            this._skipped.push({ wallId: w.id, reason: v.reason ?? '(no reason stated by the child command)' });
                             continue;
                         }
                         const r = child.execute(ctx);

@@ -154,9 +154,17 @@ const REFUSAL_VOCAB =
  * the very call site it had just been written to protect. Real UI methods are named
  * `setFacadeSubjectBadge`, `showRejectNotice`, `emitToast`; a sink list of bare verbs
  * describes a codebase nobody has.
+ *
+ * `HudState(` added 2026-08-14 (§REFUSAL-IDENTITY-CANPLACE, GE-09). DoorTool /
+ * WindowTool render refusals via `setHudState(state, customMsg)` → `.th-overlay`
+ * textContent — a USER surface this list could not see, which is exactly how the
+ * canPlace consumers dropped a six-way closed union there for months without a
+ * single finding. Both known sites now render through `canPlaceRefusalText()`
+ * (matched by CARRIES_IDENTITY_RE), so adding the sink creates ZERO findings
+ * today and exists to catch the regression back to `setHudState(x, o.reason)`.
  */
 const USER_SINK_RE =
-    /(?:\btextContent\b|\binnerHTML\b|\balert\s*\(|\bconfirm\s*\(|\w*[Tt]oast\s*\(|\w*Badge\s*\(|\w*[Nn]otice\s*\(|\bshow\w*\s*\(|\bfail\s*\(|\bsetStatus\b|\bmessage\s*:)/;
+    /(?:\btextContent\b|\binnerHTML\b|\balert\s*\(|\bconfirm\s*\(|\w*[Tt]oast\s*\(|\w*Badge\s*\(|\w*[Nn]otice\s*\(|\bshow\w*\s*\(|\bfail\s*\(|\bsetStatus\b|\w*HudState\s*\(|\bmessage\s*:)/;
 
 /** …and reads a `.reason` off an object while doing it. */
 const READS_REASON_RE = /\.reason\b/;
@@ -233,7 +241,16 @@ const BASELINE: readonly Offender[] = [
     { file: "packages/command-registry/src/walls/UpdateWallsColorBatchCommand.ts", fragment: "this._skipped.push({ wallId, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/walls/UpdateWallsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Wall ${wallId} refused the type change`);", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/walls/UpdateWallsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ wallId, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/windows/CreateWindowsParametricBatchCommand.ts", fragment: "this._skipped.push({ wallId: w.id, reason: v.reason ?? 'placement refused' });", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-14 (§REFUSAL-IDENTITY-CANPLACE, GE-09, consumer pass).
+    // CreateWindowsParametricBatchCommand's child (CreateWallOpeningCommand) now renders
+    // its canPlace refusals through the shared `canPlaceRefusalText()` — the [OCC_*]
+    // identity arrives inside `v.reason` — and the batch's fallback names the absence
+    // ("(no reason stated by the child command)") instead of manufacturing
+    // 'placement refused'. Baseline 87 → 86. The same pass threaded the code through
+    // the six single-shot commands (Set/Move/Center door+window offset,
+    // CreateWallOpeningCommand) and DoorTool/WindowTool's HUD — sites this gate's
+    // arm A/B regexes never flagged (no refusal vocab, HUD sink not in USER_SINK_RE),
+    // which is exactly the reachability gap GE-09's original ask names.
     { file: "packages/command-registry/src/windows/UpdateWindowsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Window ${id} refused the type change`);", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/windows/UpdateWindowsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ windowId: id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
     { file: "plugins/ceiling/src/handlers/CreateCeiling.ts", fragment: "if (!v.ok) return { valid: false, reason: v.reason ?? 'invalid boundary' };", why: "arm A — measured 2026-08-11" },

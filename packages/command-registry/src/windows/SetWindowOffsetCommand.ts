@@ -16,7 +16,7 @@ import {
     CommandResult,
     SerializedCommand,
 } from '../types';
-import { wallOccupancyStore } from '@pryzm/geometry-wall';
+import { wallOccupancyStore, canPlaceRefusalText } from '@pryzm/geometry-wall';
 import { windowStore } from '@pryzm/geometry-window';
 
 export class SetWindowOffsetCommand implements Command {
@@ -40,7 +40,11 @@ export class SetWindowOffsetCommand implements Command {
         const wall = ctx.stores.wallStore.getById(win.wallId);
         if (!wall) return { ok: false, reason: 'Host wall not found' };
         const occ  = wallOccupancyStore.canPlace(wall, this.newOffset, win.width, this.windowId);
-        if (!occ.valid) return { ok: false, reason: occ.reason ?? 'Position occupied or out of bounds' };
+        // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — render through the shared
+        // canPlaceRefusalText() so the refusal reaches the user CARRYING its
+        // CanPlaceRefusalCode, instead of manufacturing a verdict sentence exactly
+        // when the validator refused and said nothing.
+        if (!occ.valid) return { ok: false, reason: canPlaceRefusalText(occ) };
         return { ok: true };
     }
 

@@ -3,6 +3,9 @@ import * as OBC from '@thatopen/components';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
 import {
     WallStore, WallFragmentBuilder, wallOccupancyStore,
+    // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — THE renderer for a canPlace
+    // refusal; carries the CanPlaceRefusalCode into the HUD text.
+    canPlaceRefusalText,
     // §FEAT-HOSTED-ON-CURVED-WALL — arc-length placement on curved hosts.
     isArcHost, wallCentrelineLength, arcLengthAtPointXZ, arcFrameAt,
 } from '@pryzm/geometry-wall';
@@ -186,7 +189,10 @@ export class WindowTool {
                 this.setHudState('curved-wall-blocked');
             } else if (wallData) {
                 const occupancy = this._evaluateOccupancyAt(hit, wallData);
-                this.setHudState(occupancy.ok ? 'wall-snapping' : occupancy.state);
+                // §REFUSAL-IDENTITY-CANPLACE (GE-09) — a blocked hover carries the
+                // occupancy refusal's identity into the HUD, not just a generic state.
+                if (occupancy.ok) this.setHudState('wall-snapping');
+                else this.setHudState(occupancy.state, occupancy.message);
             } else {
                 this.setHudState('wall-snapping');
             }
@@ -201,7 +207,7 @@ export class WindowTool {
     private _evaluateOccupancyAt(
         hit: THREE.Intersection,
         wallData: any,
-    ): { ok: true } | { ok: false; state: 'out-of-range' | 'occupancy-blocked' } {
+    ): { ok: true } | { ok: false; state: 'out-of-range' | 'occupancy-blocked'; message?: string } {
         try {
             // §FEAT-HOSTED-ON-CURVED-WALL — hover feedback uses the SAME arc-length
             // measure `placeWindow` uses, so the HUD never goes green where placement
@@ -215,7 +221,10 @@ export class WindowTool {
                 return { ok: false, state: 'out-of-range' };
             }
             const occ = wallOccupancyStore.canPlace(wallData, rawOffset, width);
-            if (!occ.valid) return { ok: false, state: 'occupancy-blocked' };
+            // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the refusal used to be
+            // flattened to a bare state here, so the HUD showed one generic sentence
+            // for six distinct verdicts. The shared renderer carries occ.code through.
+            if (!occ.valid) return { ok: false, state: 'occupancy-blocked', message: canPlaceRefusalText(occ) };
             return { ok: true };
         } catch {
             return { ok: false, state: 'out-of-range' };
@@ -423,7 +432,10 @@ export class WindowTool {
         // the opening would overlap an existing one or extend beyond the wall end.
         const occupancy = wallOccupancyStore.canPlace(wallData, offset, width);
         if (!occupancy.valid) {
-            this.setHudState('occupancy-blocked', occupancy.reason);
+            // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the shared renderer
+            // carries occupancy.code into the HUD text, so the refusal the user reads
+            // is attributable to its rule (bare `.reason` dropped the identity).
+            this.setHudState('occupancy-blocked', canPlaceRefusalText(occupancy));
             this.clearPreview();
             return;
         }

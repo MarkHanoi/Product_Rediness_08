@@ -1,7 +1,7 @@
 import { Command, CommandContext, CommandType, CommandValidationResult, CommandResult, SerializedCommand } from '../types';
 import * as THREE from '@pryzm/renderer-three/three';
 import { windowStore } from '@pryzm/geometry-window';
-import { wallOccupancyStore } from '@pryzm/geometry-wall';
+import { wallOccupancyStore, canPlaceRefusalText } from '@pryzm/geometry-wall';
 
 /**
  * MoveWindowCommand — relative-move command (distance + direction).  Mirror of
@@ -41,7 +41,9 @@ export class MoveWindowCommand implements Command {
 
         const occupancy = wallOccupancyStore.canPlace(wall, targetOffset, windowElem.width, windowElem.id);
         if (!occupancy.valid) {
-            return { ok: false, reason: occupancy.reason ?? 'Position is occupied or out of bounds' };
+            // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the shared renderer
+            // carries occupancy.code into the reason, so the refusal keeps its identity.
+            return { ok: false, reason: canPlaceRefusalText(occupancy) };
         }
 
         return { ok: true };
