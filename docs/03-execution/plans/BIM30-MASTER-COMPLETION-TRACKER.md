@@ -840,3 +840,39 @@ would be the lie the row exists to prevent.
   one file. Three collisions across 220 commits, all self-detected and repaired by the lanes.
 - **Lane msgfiles belong in the scratchpad, never the repo root.** The orchestrator's root cleanup
   swept several mid-flight; the lanes recovered, but the rule is now explicit.
+
+### §8.8 — New governance from this session: **C83 — Spatial Validity & Design Logic**
+
+**Pointer row. This is NOT one of the 82** — it is a founder-requested capability programme, and per
+§0 the 82 measure model trust under change. **Do not fold it in; cross-reference it.**
+
+| | |
+|---|---|
+| **Contract** | [C83 — Spatial Validity & Design Logic](../../02-decisions/contracts/C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md) · DRAFT 2026-08-14 (`28b47ec1`) |
+| **The question it owns** | *is this arrangement of elements valid?* — asked of a design a human is authoring, while they author it |
+| **Founder's cases** | interior wall through a window opening = **IMPOSSIBLE** (refuse + offer concrete alternatives) · sofa/bed blocking a door = **INADVISABLE** (offer, user decides) · sofa at a window, bed under a window = **FINE** (silent) |
+| **Phases** | **S1** `OCC_CROSSES_HOSTED_OPENING` (unblocked, small) → **S2** surface it through `ConsequencePlan`/`ConfirmationCard`/chat (C68 §5 a–j is the expensive half) → **S3** thread `Door.swing` into `OpeningPose`, closing **L-856** → **S4** `DL_BLOCKS_PASSAGE`. **S4 is hard-blocked on S3.** |
+| **Gates** | four named, **all UNBUILT — UNPROVEN** per C70 §7.1 |
+
+**The three findings worth reading even if you never build this:**
+
+1. **The founder's *"every room knows what elements are within it (I think)"* is RIGHT, and the
+   parenthetical is the right doubt.** `RoomContentsService` already answers it three ways
+   (`bounding` / `hosted` / `contained`) and is wired into the property panel and Inspect. But
+   **`hosted` is DERIVED from `bounding`**, so an unrecorded bounding-wall list empties doors and
+   windows too — the service returns `undetermined` rather than zero, and any consumer must read it.
+2. **Containment has two rival mechanisms and they cover different furniture.** The `'contains'`
+   graph edge is written only when `hostedSpaceId` is set, which only the D-FLE furnish engine
+   stamps — so **hand-placed furniture has no edge**, and it is not maintained on move. Rules must
+   resolve containment **geometrically**. Not a defect in the edge; a different question.
+3. **`SPEC-49` §3 already wrote this programme's thesis: "The detection is not missing. The refusal
+   is."** The correct door-swing sector exists and is imported only by its own tests (**L-856**);
+   `programRules.ts` declares `excludeDoorSwing` per furniture kind and nothing reads it; the
+   16-slice apartment validator family (A-1…A-8) has zero production callers. Measured: **3/288**
+   generated rooms intrude the true swing arc, **0/288** intrude the box that ships.
+
+⚠ **Adjacent, and deliberately NOT C83** (see its §8.5): whole-plan reachability is SPEC-49's. One
+genuinely unowned defect sits between them — `houseCirculationNotice.ts`'s **§BUILT-PLAN-REACH**
+records a verdict reporting `hardValid: true` while two doored storage rooms form an unreachable
+island, because the hard rules run on the **bubble graph**, not the **realised door graph**. Schedule
+it under SPEC-49.

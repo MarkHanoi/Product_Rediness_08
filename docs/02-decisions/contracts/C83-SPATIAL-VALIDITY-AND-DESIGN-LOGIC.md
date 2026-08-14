@@ -137,6 +137,38 @@ There are two mechanisms and they do not cover the same furniture:
 > intent* and it has two live readers (`HierarchyTreePanel`, `WorldModelAdapter`). It is simply not
 > an answer to C83's question. Two mechanisms, two questions.
 
+### §0.2.1 — ⚠ The `contained` arm did NOT receive the `undetermined` treatment the `bounding` arm did
+
+Found while verifying the above, and load-bearing on Slice 4. `RoomContentsService`'s §GR-10/GR-14
+pass hardened the **bounding** reads — `determineBoundingIds` returns `undetermined` for an absent
+field, and `totals.exact` goes false. **The `contained` arm has no equivalent guard**:
+
+```ts
+private _containedByCentroid(store: MinReadable | undefined, …): ElementRef[] {
+    if (!store || polygon.length < 3) return [];
+```
+
+An **unattached** `furnitureStore` and a room with **no furniture** produce the identical value, and
+so does a room whose boundary polygon has fewer than three vertices. `initBuilders.ts:524-525` states
+the wiring intent plainly — *"The service degrades gracefully — any unattached store simply yields an
+empty bucket, so partial wiring never throws"* — which is graceful for a property-panel label and
+**wrong for a rule**: a C83 finding suppressed by an empty bucket would be silent for the reason
+§5.3 says is disqualifying, and would look exactly like a healthy room.
+
+**Binding on Slice 4**: it MUST assert the furniture store is attached before evaluating, and treat
+"not attached" / "degenerate boundary" as **UNDETERMINED → no finding, reason recorded** — never as
+a clear floor. Hardening the arm to return a determination is the honest fix and belongs to this
+service's owner; **C83 does not silently rely on it being done.**
+
+### §0.2.2 — Both readers reach the service through a legacy global
+
+`ElementTypeSelectorZone.ts:98` and `PropertyPanelStoreEnricher.ts:107` both read
+`window.roomContentsService`, each carrying the same marker: `TODO(E.18-R): legacy
+roomContentsService — replace with runtime.rooms.contentsService`. **A C83 rule MUST take the service
+by injection**, as the consequence planners already do for every heavyweight collaborator
+(`WallCreatePlannerDeps`), and MUST NOT add a third reader of the global — that is P4 debt this
+contract will not deepen.
+
 ### §0.3 — What already exists, and what reaches a person
 
 The founder's instruction was *don't build from scratch*. The survey found a great deal built. It
@@ -680,6 +712,9 @@ wrong answer.*
 
 - **Detects**: an `OCCUPIABLE` item whose footprint intrudes a `PASSAGE`'s approach clearance or
   swing sector, in the room that **geometrically** contains it (§0.2's MUST).
+- **Precondition (§0.2.1)**: asserts the furniture store is attached and the room boundary is
+  non-degenerate **before** evaluating; either absence is UNDETERMINED with the reason recorded,
+  never an empty bucket read as a clear floor.
 - **Reuses**: `RoomContentsService.getContents(roomId).contained.furniture` for membership;
   `doorSwingKeepout.rectIntersectsSwing` for the test; `programRules.ts`'s `excludeDoorSwing` and
   `clearFoot`/`clearSide` as the authored thresholds — **promoted, not re-authored** (§6.2).
