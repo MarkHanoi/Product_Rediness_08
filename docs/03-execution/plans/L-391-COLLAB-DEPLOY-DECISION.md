@@ -1,6 +1,6 @@
 # L-391 leg C — the collaboration deploy decision packet
 
-> **Stamp**: 2026-08-11 · **Branch**: `main` · **Status**: DECISION PENDING — founder
+> **Stamp**: 2026-08-11 · **Branch**: `main` · **Status**: ⚖ **DECIDED 2026-08-14 — see §0 below**
 > **Nothing in this document has been deployed, provisioned, configured or flipped.**
 > No infrastructure was created and no production configuration was changed to write it.
 >
@@ -9,6 +9,65 @@
 > scored, 10/10 is arithmetically unreachable, and it cannot be scored without a deployed CRDT
 > transport. That deployment is a founder decision because it costs money. This packet exists so
 > the decision is a **yes/no**, not a research project.
+
+---
+
+## §0 — THE DECISION (founder, 2026-08-14)
+
+**This section exists because the decision had already been taken informally and was never written
+down, so it kept resurfacing as an open register row (CB-01) that nobody could close.** A decided
+thing that is undocumented is indistinguishable from an undecided one — that is the same
+§CONTEXT-DATA-HONESTY failure this programme keeps paying for, applied to governance rather than
+to data.
+
+### §0.1 — CB-01, the transport: **DEFERRED. Not needed for now.**
+
+`pryzm-sync` is **not provisioned** and is **not to be provisioned** until the founder revisits it.
+Verified 2026-08-14: `flyctl apps list` shows `pryzm` only — no sync app exists, and none was
+created.
+
+**This is a DECIDED state, not a gap.** Per C63's doctrine that a refusal with a reason is a correct
+answer, and C70 §2.2's rule that an undecided thing may not be scored as a failure:
+
+- **CB-01 closes as CORRECTLY DEFERRED**, not as an open defect.
+- **CB-05** (per-capability convergence proofs) is sequenced behind the transport and inherits the
+  deferral. It does **not** become UNPROVEN-for-want-of-effort; it is unmeasurable by decision.
+- **C8** (BIM 2.0's "collaboration preserves relationships") therefore **remains unscoreable**, and
+  `BIM20-ACCEPTANCE-10-OF-10.md` must keep saying so rather than counting it as failed.
+
+**What is NOT deferred, and must not be mistaken for it:** the code half is complete and measured.
+`check-two-client-convergence` runs green — 8 real crossings across 2 independently composed
+clients, both controls fired. The client provider seam is wired end to end
+(`engineLauncher.ts:954–1005`), WS-upgrade auth is fail-closed, and `PgAuthz` is written, wired and
+tested. **The deferral is a spending decision about one always-on process (~$5–10/mo), not an
+engineering gap.** Whoever revisits this should read §3 for the provisioning steps and expect them
+to work as written.
+
+### §0.2 — CB-02, the authorization mode: **`pg` is the decided target.**
+
+When the sync server is provisioned, it runs **`PRYZM_AUTHZ_MODE=pg` with `DATABASE_URL`** — real
+per-project membership through `PgAuthz`, which queries the live `project_members` table the BFF
+already creates (`server/dbMigrate.js:120`) and populates (`server/projectMembers.js:149`).
+
+⚠ **`apps/sync-server/fly.toml` currently sets `memory-allow-by-default`**, and its comment calls
+`pg` "the separate production flip". That file is now **one flip behind this decision**. It was left
+unchanged deliberately: editing a config for an app that does not exist would be provisioning-by-
+paperwork, and the value must be set in the same act that creates the machine, with `DATABASE_URL`
+present — a `pg` mode without a database URL is a server that fails closed on every join.
+
+**Why `pg` and not the staging default**, recorded so it is not re-litigated:
+`memory-allow-by-default` means **any signed-in PRYZM user who can name a room can join it**. That
+is acceptable for a closed cohort and is not acceptable for anything a customer touches. Deciding it
+now — while nothing is deployed — means the first provisioning act is the correct one, rather than a
+staging posture that quietly becomes production.
+
+### §0.3 — What this changes in the register
+
+| Row | Was | Now |
+|---|---|---|
+| **CB-01** | OPEN — blocked on an unmade decision | **CLOSED — correctly deferred (founder, 2026-08-14)** |
+| **CB-05** | OPEN / UNPROVEN, gated behind CB-01 | **inherits the deferral** — unmeasurable by decision, not by neglect |
+| **CB-02** | OPEN — "an implementation nothing selects" | **DECIDED: `pg`.** Stays OPEN until provisioning applies it — the gap is now one config act inside a deferred deployment, and its headline ("`PgAuthz` has not been written") remains factually wrong |
 
 ---
 
