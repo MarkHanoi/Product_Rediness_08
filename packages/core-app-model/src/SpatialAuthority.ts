@@ -37,9 +37,16 @@ export class SpatialAuthority {
 
     // ✅ FIX §2.1 §4: Callback registered by the owner layer (EngineBootstrap) so
     // the reconciliation listener never touches scene objects directly.
-    // The callback receives (levelId, elementIds[]) and is responsible for triggering
-    // the correct store → event bus → builder rebuild pipeline.
-    private _levelRebuildCallback: ((levelId: string, elementIds: string[]) => void) | null = null;
+    // The callback receives (levelId, elementIds[], elevationDeltaM?) and is
+    // responsible for triggering the correct store → event bus → builder rebuild
+    // pipeline. `elevationDeltaM` (PR-10, 2026-08-14) is the level's elevation
+    // change (new − old) carried by the 'spatial-authority-reconcile' detail —
+    // the BimKernel dispatch has always sent it and this listener used to drop
+    // it. The roof→walls-beneath clash subscriber needs it: a STRANDED roof's
+    // real origin is (newElevation − delta) + baseOffset, and without the delta
+    // every strand would read as clean.
+    private _levelRebuildCallback:
+        ((levelId: string, elementIds: string[], elevationDeltaM?: number) => void) | null = null;
 
     // Injected store reference — eliminates window global read in getSemanticData
     private _roofStore: any = null;
@@ -68,7 +75,9 @@ export class SpatialAuthority {
      *
      * Only one callback is supported; a second call replaces the previous one.
      */
-    registerLevelRebuildCallback(fn: (levelId: string, elementIds: string[]) => void): void {
+    registerLevelRebuildCallback(
+        fn: (levelId: string, elementIds: string[], elevationDeltaM?: number) => void,
+    ): void {
         this._levelRebuildCallback = fn;
     }
 
@@ -183,7 +192,12 @@ export class SpatialAuthority {
         this._reconciliationListenerRegistered = true;
 
         window.addEventListener('spatial-authority-reconcile', (e: any) => {
-            const { levelId } = e.detail;
+            const { levelId, delta } = e.detail;
+            // PR-10 — pass the elevation delta through instead of dropping it.
+            // Absence is preserved as `undefined`, never coerced to 0: "no delta
+            // recorded" and "the level did not move" are different facts, and the
+            // stranded-roof consumer refuses to classify on the former.
+            const elevationDeltaM = typeof delta === 'number' && Number.isFinite(delta) ? delta : undefined;
 
             const level = this.bimManager?.getLevelById(levelId);
             if (!level) return;
@@ -257,7 +271,7 @@ export class SpatialAuthority {
             // ✅ §2.1 §4 COMPLIANT: delegate to the owner layer for rebuilds.
             // Invoked whenever the level has children — the slab half of the
             // callback queries by levelId, independent of the delivered ids.
-            this._levelRebuildCallback(levelId, delivered);
+            this._levelRebuildCallback(levelId, delivered, elevationDeltaM);
         });
     }
 

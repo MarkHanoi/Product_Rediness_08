@@ -190,6 +190,25 @@ describe('the reconcile listener CONSUMES the set (C72 §5.2 — no consumer-les
         expect(calls[0]!.elementIds).toContain(IDS.ghost);
     });
 
+    it('passes the elevation delta through to the rebuild callback (PR-10 — the stranded-roof check needs the OLD elevation)', () => {
+        // The BimKernel dispatch has ALWAYS carried `delta` (BimKernel.ts:374,
+        // typed on the event-bus catalog since its entry), and the listener
+        // dropped it on the floor. The roof→walls-beneath clash subscriber
+        // (gap register PR-10) cannot classify a STRANDED roof without it:
+        // the stranded roof's real origin is (newElevation − delta) + baseOffset,
+        // and computing from the NEW elevation alone would read every strand
+        // as clean — a false-clean, the dishonesty C72 §5.1 exists to name.
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const deltas: Array<number | undefined> = [];
+        spatialAuthority.registerLevelRebuildCallback((_levelId, _elementIds, elevationDeltaM) => {
+            deltas.push(elevationDeltaM);
+        });
+        spatialAuthority.resolveWorldTransform(IDS.wall); // registers the window listener
+        deltas.length = 0;
+        fireReconcile(); // dispatches detail { levelId, delta: 1.5 }
+        expect(deltas).toEqual([1.5]);
+    });
+
     it('still invokes the callback when every child is stranded (the slab half queries by level)', () => {
         // A level whose children are ALL stranded kinds must still trigger the
         // callback: the consumer's slab rebuild is a levelId query, independent
