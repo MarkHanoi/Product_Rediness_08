@@ -199,6 +199,8 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-overhang': ['roof'],
       'rename-room': ['room'],
       'set-room-number': ['room'],
+      // §FEAT-CHAT-ROOM-OCCUPANCY — the founder's "a bathroom in room 001".
+      'set-room-occupancy': ['room'],
     };
     for (const cap of allChatCapabilities()) {
       if (cap.targets === 'global') continue;

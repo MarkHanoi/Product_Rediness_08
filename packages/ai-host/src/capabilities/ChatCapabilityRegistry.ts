@@ -1825,6 +1825,90 @@ const CAPABILITIES: readonly ChatCapability[] = [
     examples: ['set the room number to 101', 'change the room number to 2.04'],
   },
   {
+    id: 'set-room-occupancy',
+    // §FEAT-CHAT-ROOM-OCCUPANCY (2026-08-14) — the founder's ask, verbatim:
+    // "if i want to go to the RAC and say i want a bathroom in the room 001,
+    // a bedroom in room 002 and 003 and a living room — can that be done?"
+    //
+    // ── WHAT WAS ACTUALLY MISSING ────────────────────────────────────────────
+    //
+    // Nothing about the MODEL. `room.setOccupancy` has been LIVE (a registered
+    // bus verb with a row in API-VERB-REGISTER, a legacy-bridge handler and an
+    // undoable command), and `RoomOccupancyType` has carried bathroom, bedroom,
+    // living-room and kitchen among 51 members all along. The founder's rooms
+    // read `unclassified` because NOTHING COULD REACH THE VERB from a sentence —
+    // the authored-but-unreachable defect, one more time.
+    //
+    // It was reachable-in-principle and BLOCKED IN FACT: ChatCommandClassification
+    // filed `room.setOccupancy` under B_CATALOGUE — "the value is a
+    // project-catalogue reference … those catalogues are not injected into the
+    // resolver context yet". That reason was FALSE FOR THIS VERB. Occupancy is
+    // not a project catalogue at all; it is a CLOSED COMPILE-TIME ENUM in
+    // packages/schemas' sibling `room-topology`, knowable without any injection
+    // and identical in every project. The classification blocked a capability on
+    // a dependency it never had, and the fix was to delete the wrong reason —
+    // not to build the injection it asked for.
+    description: 'set what a room is used for',
+    verbs: ['make', 'set', 'change', 'turn', 'assign'],
+    aliases: ['occupancy', 'room use', 'use', 'usage', 'function', 'programme'],
+    refusalLabel: 'use',
+    targets: ['room'],
+    parameters: [
+      {
+        name: 'occupancy',
+        description:
+          'the room use, from the canonical room-occupancy vocabulary (bathroom, bedroom, living room, kitchen, …)',
+        required: true,
+        // `user-text` is the honest available source, NOT a claim that this is
+        // free text. The value is a closed 51-member enum and the spec refuses
+        // by listing real options. A dedicated 'room-occupancy' source would be
+        // truer, but CapabilityValueSource members must also exist in
+        // check-chat-capability-coverage.ts's KNOWN_VALUE_SOURCES, and that gate
+        // was owned by another lane — so the precise source is deferred with a
+        // logged row rather than half-added here.
+        valueSource: 'user-text',
+        example: 'bathroom',
+      },
+      {
+        name: 'room',
+        description:
+          'which room, by its NUMBER (unique) or its name — omit it to use the selected room',
+        required: false,
+        valueSource: 'project-rooms',
+        example: 'room 001',
+      },
+    ],
+    // Selection by default; `room` is the founder's route ("room 001"), which
+    // rides the SAME U3 spatial-scope channel "make all walls white in the
+    // kitchen" already uses, so the editor's injected resolver does the lookup
+    // and the resolver package stays pure.
+    //
+    // 'all' is deliberately ABSENT: "make every room in the project a bathroom"
+    // has no correct answer, and a use assignment is exactly the edit where a
+    // too-wide scope is worst.
+    scope: 'selection',
+    scopeModes: ['selection', 'room'],
+    destructive: false,
+    busCommand: 'room.setOccupancy',
+    // `scope: 'selection'` is explicit for the same reason set-wall-type's probe
+    // is: only the selection scope reads ctx.selection, so only it can exercise
+    // the target guard the coverage gate probes with.
+    probe: { intent: 'set-room-occupancy', occupancyRef: 'bathroom', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/rooms/SetRoomOccupancyCommand.ts',
+      mustMention: ['roomStore', 'occupancyType', 'restoreSnapshot'],
+      note:
+        'The command reads ctx.stores.roomStore and writes { occupancyType } for a single roomId, so rooms are its whole reachable set; restoreSnapshot is the undo that makes each fanned-out step reversible.',
+    },
+    examples: [
+      'make room 001 a bathroom',
+      'set room 002 to bedroom',
+      'i want a bathroom in room 001',
+      'room 003 is a living room',
+      'set the occupancy to kitchen',
+    ],
+  },
+  {
     id: 'generate-building',
     // §GEN-CHAT (RAC U5b.2, Dimension B core) — conversational building
     // generation over the FOUR proven executors, reached through ONE bus verb

@@ -190,6 +190,116 @@ async function wallTypeCatalogue(): Promise<{
     };
 }
 
+// ─── §FEAT-CHAT-ROOM-OCCUPANCY — resolving "room 001" ────────────────────────
+//
+// The founder refers to rooms the way the Room Schedule labels them. That
+// schedule has TWO candidate handles and only one of them is trustworthy:
+//
+//   NUMBER — unique per project ("00-001", "00-004"). The generator mints it.
+//   NAME   — NOT unique. The founder's own screenshot shows two rooms with
+//            distinct numbers and areas (61.32 m² / 85.73 m²) sharing the name
+//            "Room 00-001". `RoomStore.findByName` is a substring match, so a
+//            name-first resolver returns both and silently edits the wrong one.
+//
+// So: numbers first, tiered from strictest to loosest, and the FIRST tier that
+// matches anything wins. More than one match inside a tier is genuine ambiguity
+// and REFUSES with the candidates — never a guess.
+
+/** The room fields this resolver reads. `roomNumber` is RoomData's own field. */
+interface RoomRefRow {
+    readonly id: string;
+    readonly name?: string;
+    readonly roomNumber?: string;
+    readonly boundingWallIds?: string[];
+}
+
+/** How a room is spoken back to the user: number first, name in support. */
+function describeRoomRow(room: RoomRefRow): string {
+    const number = typeof room.roomNumber === 'string' ? room.roomNumber.trim() : '';
+    const name = typeof room.name === 'string' ? room.name.trim() : '';
+    if (number.length > 0 && name.length > 0) return `${number} (${name})`;
+    return number.length > 0 ? number : name;
+}
+
+/** Digits only — "00-001" and "001" share the tail "1" once leading zeros go. */
+function numericTail(raw: string): string {
+    const digits = raw.replace(/\D+/g, '');
+    return digits.replace(/^0+/, '');
+}
+
+type RoomNumberMatch =
+    | { readonly kind: 'matched'; readonly rooms: readonly RoomRefRow[] }
+    | { readonly kind: 'ambiguous'; readonly error: string };
+
+/**
+ * Match a spoken room reference against the unique NUMBER column.
+ *
+ * Also splits a multi-room reference ("002 and 003") — but ONLY after the whole
+ * string fails, so no existing single-reference behaviour changes. A part that
+ * resolves to nothing collapses the whole match rather than silently acting on
+ * the subset the user did not ask for alone.
+ */
+function matchRoomsByNumber(rawRef: string, rooms: readonly RoomRefRow[]): RoomNumberMatch {
+    const ref = rawRef.trim().replace(/^rooms?\s+/i, '').trim();
+    if (ref.length === 0 || rooms.length === 0) return { kind: 'matched', rooms: [] };
+
+    const single = (needle: string): RoomNumberMatch => {
+        const key = needle.trim().replace(/^rooms?\s+/i, '').trim().toLowerCase();
+        if (key.length === 0) return { kind: 'matched', rooms: [] };
+        const numberOf = (r: RoomRefRow): string =>
+            (typeof r.roomNumber === 'string' ? r.roomNumber : '').trim().toLowerCase();
+        // Tier 1 — the number, exactly as shown in the schedule.
+        // Tier 2 — the trailing segment ("001" for "00-001"), the form the
+        //          founder actually types.
+        // Tier 3 — digits with leading zeros dropped ("1" ≡ "001" ≡ "00-001").
+        const tiers: ((r: RoomRefRow) => boolean)[] = [
+            (r) => numberOf(r).length > 0 && numberOf(r) === key,
+            (r) => {
+                const n = numberOf(r);
+                if (n.length === 0) return false;
+                const segments = n.split(/[-_.\s/]+/);
+                return segments[segments.length - 1] === key;
+            },
+            (r) => {
+                const n = numericTail(numberOf(r));
+                const k = numericTail(key);
+                return n.length > 0 && k.length > 0 && n === k;
+            },
+        ];
+        for (const tier of tiers) {
+            const hits = rooms.filter(tier);
+            if (hits.length === 1) return { kind: 'matched', rooms: hits };
+            if (hits.length > 1) {
+                return {
+                    kind: 'ambiguous',
+                    error:
+                        `"${needle.trim()}" matches ${hits.length} rooms — ` +
+                        `${hits.map((r) => describeRoomRow(r) || r.id).join(', ')}. ` +
+                        `Nothing was changed; say the full room number so I change the right one.`,
+                };
+            }
+        }
+        return { kind: 'matched', rooms: [] };
+    };
+
+    const whole = single(ref);
+    if (whole.kind === 'ambiguous' || whole.rooms.length > 0) return whole;
+
+    // Multi-reference: "002 and 003", "002, 003 and 004".
+    const parts = ref.split(/\s*(?:,|\band\b|&|\+)\s*/i).map((p) => p.trim()).filter((p) => p.length > 0);
+    if (parts.length < 2) return { kind: 'matched', rooms: [] };
+    const collected: RoomRefRow[] = [];
+    for (const part of parts) {
+        const hit = single(part);
+        if (hit.kind === 'ambiguous') return hit;
+        // All-or-nothing: acting on the parts that happened to resolve would be
+        // doing a fraction of the ask without saying so.
+        if (hit.rooms.length === 0) return { kind: 'matched', rooms: [] };
+        for (const r of hit.rooms) if (!collected.some((c) => c.id === r.id)) collected.push(r);
+    }
+    return { kind: 'matched', rooms: collected };
+}
+
 /**
  * ADR-0315 U3.2 — the editor-side SCOPE RESOLVER (F2), injected into the pure
  * resolver. Turns a ScopeDescriptor into element ids ONCE, over indexed paths:
@@ -258,29 +368,63 @@ function makeScopeResolver(
             // matching the reference ("kitchen" ×2) all contribute — the
             // diagnostics name them so the summary is honest about the set.
             const roomStore = storeRegistry.getStoreForType('room') as unknown as {
-                findByName?: (pattern: string) => Array<{ id: string; name?: string; boundingWallIds?: string[] }>;
-                findByOccupancy?: (types: string[]) => Array<{ id: string; name?: string; boundingWallIds?: string[] }>;
-                getAll?: () => Array<{ id: string; name?: string }>;
+                findByName?: (pattern: string) => Array<RoomRefRow>;
+                findByOccupancy?: (types: string[]) => Array<RoomRefRow>;
+                getAll?: () => Array<RoomRefRow>;
             } | undefined;
             if (!roomStore) {
                 return { error: `I can't look up rooms here — the room store isn't available.` };
             }
-            const byName = roomStore.findByName?.(scope.roomRef) ?? [];
+            // §FEAT-CHAT-ROOM-OCCUPANCY — NUMBER BEFORE NAME.
+            //
+            // The founder says "room 001", and the Room Schedule's NUMBER column
+            // is the unique handle: their own screenshot shows two different
+            // rooms (61.32 m² and 85.73 m²) BOTH NAMED "Room 00-001" while
+            // carrying distinct numbers 00-001 and 00-004. `findByName` is a
+            // case-insensitive SUBSTRING match, so on that project a name-first
+            // lookup for "room 001" matches both and would have picked one — a
+            // silently wrong room, which is the worst possible outcome for an
+            // edit the user cannot see happening. Numbers are matched first, and
+            // an ambiguous number REFUSES with the candidates rather than
+            // guessing (§CONTEXT-DATA-HONESTY).
+            const allRooms = roomStore.getAll?.() ?? [];
+            const numbered = matchRoomsByNumber(scope.roomRef, allRooms);
+            if (numbered.kind === 'ambiguous') {
+                return { error: numbered.error };
+            }
+            const byName = numbered.rooms.length > 0
+                ? numbered.rooms
+                : roomStore.findByName?.(scope.roomRef) ?? [];
             const rooms = byName.length > 0
                 ? byName
                 : roomStore.findByOccupancy?.([scope.roomRef.replace(/\s+/g, '-')]) ?? [];
             if (rooms.length === 0) {
-                const names = (roomStore.getAll?.() ?? [])
-                    .map((r) => r.name)
-                    .filter((n): n is string => typeof n === 'string' && n.length > 0)
+                // The refusal names rooms by NUMBER — the column that is unique
+                // and the one the user can retype unambiguously.
+                const labels = allRooms
+                    .map((r) => describeRoomRow(r))
+                    .filter((n) => n.length > 0)
                     .slice(0, 8);
                 return {
-                    error: names.length === 0
-                        ? `There are no named rooms in this project yet — detect rooms first.`
-                        : `No room called "${scope.roomRef}" — the rooms here include: ${names.join(', ')}.`,
+                    error: labels.length === 0
+                        ? `There are no rooms in this project yet — detect rooms first.`
+                        : `I can't find a room "${scope.roomRef}". The rooms here are: ${labels.join(', ')}.`,
                 };
             }
             const kind = scope.elementKind ?? 'wall';
+            if (kind === 'room') {
+                // §FEAT-CHAT-ROOM-OCCUPANCY — the rooms ARE the scope. Every other
+                // kind asks "what is INSIDE this room"; a room-use edit targets the
+                // room itself, so it must never take the roomQueryService path
+                // below (which would return the room's CONTENTS and find no rooms).
+                const ids = rooms.map((r) => r.id);
+                return {
+                    ids,
+                    kindCounts: { room: ids.length },
+                    skipped: [],
+                    diagnostics: [rooms.map((r) => describeRoomRow(r) || r.id).join(' + ')],
+                };
+            }
             if (kind === 'wall') {
                 // GR-10 / C75 §1.4 — `r.boundingWallIds ?? []` made "this room
                 // bounds zero walls" and "nobody ever recorded what bounds this

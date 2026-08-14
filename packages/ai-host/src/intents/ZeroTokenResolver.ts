@@ -42,6 +42,10 @@ import {
 // arm below (the switch's default). applySemanticIntent remains the single
 // semantic authority; the spec file holds data, not a second dispatcher.
 import { applyExecutionSpec, type SpecDrivenIntent } from './CapabilityExecutionSpec.js';
+// §FEAT-CHAT-ROOM-OCCUPANCY — the GRAMMAR's room-use recognizer. Used only to
+// decide whether an ambiguous utterance is claim-able; the authoritative
+// resolution (and its refusal copy) belongs to the spec's value stage.
+import { resolveOccupancyRef } from './roomOccupancyRef.js';
 // §GATE-VIS-INTENT (VIS-CLASS) — the visibility family module. Value
 // dependency runs ONE way (this file → VisibilityIntents); that module
 // imports only TYPES back, so there is no load-order cycle.
@@ -518,6 +522,21 @@ export type SemanticIntent =
   | { readonly intent: 'set-roof-pitch'; readonly degrees: number }
   /** §FEAT-CHAT-SYMMETRY — room number, the sibling of rename-room. */
   | { readonly intent: 'set-room-number'; readonly number?: string }
+  /**
+   * §FEAT-CHAT-ROOM-OCCUPANCY — a room's USE (the Room Schedule's OCCUPANCY
+   * column), the founder's "i want a bathroom in the room 001".
+   *
+   * SPEC-DRIVEN: executed by `applyExecutionSpec`'s fan-out arm through the
+   * `default:` route, so it adds NO case arm here. `occupancyRef` is the raw
+   * spoken word — resolution against the canonical vocabulary happens in the
+   * spec's value stage, never in the grammar, so one utterance shape and one
+   * refusal copy serve every room use.
+   */
+  | {
+      readonly intent: 'set-room-occupancy';
+      readonly occupancyRef: string;
+      readonly scope?: IntentScope;
+    }
   /**
    * §FIX-CHAT-COMPOUND-DIMENSIONS (2026-08-10) — live production repro.
    *
@@ -2572,6 +2591,116 @@ const matchRoomNumber: Matcher = (text) => {
   return { intent: 'set-room-number', ...(num.length > 0 ? { number: num } : {}) };
 };
 
+// §FEAT-CHAT-ROOM-OCCUPANCY — the founder's sentence and its family.
+//
+// Four shapes, ONE intent. `occupancyRef` is forwarded RAW: the spec's value
+// stage owns resolution and the refusal copy, so the grammar never has two
+// opinions about what a room use is.
+//
+// ── WHAT CLAIMS THE UTTERANCE (the anti-nibbling rule) ──────────────────────
+//
+// Shapes A–C name a ROOM explicitly ("room 001"), which is claim enough — an
+// unknown use word must reach the value stage so the user gets the vocabulary
+// listed back, not a blank "I'm not sure how to help with that". Shape D is the
+// SELECTION form, and its bare variant ("make this a bathroom") is shaped like
+// half the grammars in this file, so it claims ONLY when the word really
+// resolves; the explicit variant ("set the occupancy to …") names the property
+// and so claims unconditionally.
+//
+// A room reference becomes the U3 `{kind:'room', roomRef}` spatial scope — the
+// SAME channel the wall-colour grammar uses for "in the kitchen" — so the
+// editor's injected resolver does the store lookup and this module stays pure.
+
+/** A room reference as spoken: "001", "00-001", "2", "kitchen", "002 and 003". */
+const ROOM_REF_SRC = String.raw`([\w][\w .,&-]*?)`;
+/** A room use as spoken — anything; the value stage decides if it is real. */
+const OCCUPANCY_SRC = String.raw`(.+?)`;
+
+/** "make room 001 a bathroom" · "set room 002 to bedroom" · "change rooms 002 and 003 into bedrooms" */
+const ROOM_OCC_NAMED_RE = new RegExp(
+  `^(?:make|set|change|turn|assign) (?:the )?rooms? ${ROOM_REF_SRC}` +
+  ` (?:(?:in)?to |as |an? |the )+${OCCUPANCY_SRC}$`,
+);
+/** "i want a bathroom in room 001" · "put a bedroom in rooms 002 and 003" */
+const ROOM_OCC_IN_RE = new RegExp(
+  `^(?:i (?:want|need|would like) |please |can you |could you )*(?:put |add |make |place )?` +
+  `(?:an? |the )?${OCCUPANCY_SRC} in (?:the )?rooms? ${ROOM_REF_SRC}$`,
+);
+/** "room 001 is a bathroom" · "room 002 should be a bedroom" */
+const ROOM_OCC_IS_RE = new RegExp(
+  `^(?:the )?rooms? ${ROOM_REF_SRC} (?:is|are|should be|becomes?|will be) (?:an? |the )?${OCCUPANCY_SRC}$`,
+);
+/** SELECTION, explicit property — claims even when the use word is unknown. */
+const ROOM_OCC_PROP_RE =
+  /^(?:set|change|make) (?:the |this |these )?(?:rooms? )?(?:occupancy|room use|use|usage|function|programme|program)(?: (?:to|as|into))? (?:an? |the )?(.+)$/;
+/** "make rooms 002 and 003 bedrooms" — no connector; split by meaning. */
+const ROOM_OCC_BARE_RE = /^(?:make|set|change|turn|assign) (?:the )?rooms? (.+)$/;
+/** SELECTION, bare — claims ONLY when the use word resolves. */
+const ROOM_OCC_SEL_RE =
+  /^(?:make|set|change|turn) (?:this|these|it|them|the selection|the selected rooms?|the rooms?)(?: rooms?)?(?: (?:in)?to| as)? (?:an? |the )?(.+)$/;
+
+/** Trim quotes/punctuation off a captured phrase. */
+function cleanCapture(raw: string): string {
+  return raw.trim().replace(/^["']|["']$/g, '').replace(/[.!?]+$/, '').trim();
+}
+
+const matchRoomOccupancy: Matcher = (text) => {
+  const named = ROOM_OCC_NAMED_RE.exec(text) ?? ROOM_OCC_IS_RE.exec(text);
+  if (named) {
+    const roomRef = cleanCapture(named[1]!);
+    const occupancyRef = cleanCapture(named[2]!);
+    if (roomRef.length > 0 && occupancyRef.length > 0) {
+      return { intent: 'set-room-occupancy', occupancyRef, scope: { kind: 'room', roomRef } };
+    }
+  }
+  const inForm = ROOM_OCC_IN_RE.exec(text);
+  if (inForm) {
+    const occupancyRef = cleanCapture(inForm[1]!);
+    const roomRef = cleanCapture(inForm[2]!);
+    // The "X in room Y" shape overlaps every other "… in the <room>" grammar
+    // in this file (wall colour, deletes). The use word must RESOLVE for this
+    // to be a room-use sentence rather than "make all walls white in room 001".
+    if (roomRef.length > 0 && resolveOccupancyRef(occupancyRef) !== null) {
+      return { intent: 'set-room-occupancy', occupancyRef, scope: { kind: 'room', roomRef } };
+    }
+  }
+  const prop = ROOM_OCC_PROP_RE.exec(text);
+  if (prop) {
+    const occupancyRef = cleanCapture(prop[1]!);
+    // Named property ⇒ claim unconditionally, so an unknown word is REFUSED
+    // with the vocabulary rather than silently missing.
+    if (occupancyRef.length > 0) {
+      return { intent: 'set-room-occupancy', occupancyRef, scope: 'selection' };
+    }
+  }
+  // The CONNECTOR-LESS form: "make rooms 002 and 003 bedrooms". There is no
+  // "to"/"as"/"a" to split on, so the split is found by MEANING — the longest
+  // trailing phrase that resolves to a real room use wins, and the rest is the
+  // room reference. Deliberately AFTER the explicit-property form above, or
+  // "set the room use to kitchen" would be read as a room called "use to".
+  const bare = ROOM_OCC_BARE_RE.exec(text);
+  if (bare) {
+    const words = cleanCapture(bare[1]!).split(/\s+/).filter((w) => w.length > 0);
+    // i ascending ⇒ the LONGEST candidate use is tried first, so "living room"
+    // is preferred over the bare "room" it ends with.
+    for (let i = 1; i < words.length; i += 1) {
+      const roomRef = cleanCapture(words.slice(0, i).join(' '));
+      const occupancyRef = cleanCapture(words.slice(i).join(' '));
+      if (roomRef.length > 0 && resolveOccupancyRef(occupancyRef) !== null) {
+        return { intent: 'set-room-occupancy', occupancyRef, scope: { kind: 'room', roomRef } };
+      }
+    }
+  }
+  const sel = ROOM_OCC_SEL_RE.exec(text);
+  if (sel) {
+    const occupancyRef = cleanCapture(sel[1]!);
+    if (occupancyRef.length > 0 && resolveOccupancyRef(occupancyRef) !== null) {
+      return { intent: 'set-room-occupancy', occupancyRef, scope: 'selection' };
+    }
+  }
+  return null;
+};
+
 const matchGoToLevel: Matcher = (text, ctx) => {
   const m = /^(?:go to|open|show) (?:the )?(?:level|levels)?\s*(.+)$/.exec(text);
   if (!m) return null;
@@ -3425,6 +3554,12 @@ const MATCHERS: readonly Matcher[] = [
   matchProperty,
   matchRoofPitch,
   matchRoomNumber,
+  // §FEAT-CHAT-ROOM-OCCUPANCY — AFTER every wall matcher above (so
+  // "make all walls white in the kitchen" is never re-read as a room use) and
+  // AFTER matchRoomNumber (so "set the room number to 001" keeps its meaning).
+  // Its own guards do the rest: the bare selection form claims only when the
+  // use word resolves against the canonical vocabulary.
+  matchRoomOccupancy,
   matchGoToLevel,
   matchDuplicateLevel,
   matchAddLevel,

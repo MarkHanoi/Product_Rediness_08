@@ -78,7 +78,22 @@ const B_CATALOGUE = family(
     'beam.setSection', 'beam.setType', 'column.setType', 'door.setType',
     'door.setFireRating', 'window.setType', 'window.setFireRating',
     'slab.setType', 'stair.setType', 'roof.setShape', 'stair.setShape',
-    'structural.setKind', 'plumbing.setSystem', 'room.setOccupancy',
+    'structural.setKind', 'plumbing.setSystem',
+    // §FEAT-CHAT-ROOM-OCCUPANCY (2026-08-14) — `room.setOccupancy` LEFT this
+    // family and is now the `set-room-occupancy` CAPABILITY.
+    //
+    // It never belonged here. This family's reason is "the value is a
+    // project-catalogue reference … those catalogues are not injected into the
+    // resolver context yet" — and room occupancy is not a project catalogue.
+    // It is a CLOSED COMPILE-TIME ENUM (`RoomOccupancyTypeSchema`, 51 members,
+    // the same in every project), so there was never an injection to wait for.
+    // The blocker was unsatisfiable in the sense that matters: nothing anyone
+    // could build would ever have "arrived", because the missing thing did not
+    // exist. Cost of the miscategorisation: the founder's rooms read
+    // `unclassified` while a LIVE, undoable verb sat one sentence away.
+    //
+    // The lesson generalises — when a deferral names a dependency, check the
+    // dependency is real for THAT verb before inheriting the family's reason.
     'curtain-wall.setMullionType', 'curtain-wall.setPanelType',
     'curtain-wall.setTransomType', 'element.changeType',
   ],

@@ -48,6 +48,14 @@ import { describeFilters, filterRefusalCopy } from './FilterScope.js';
 import { normalizeElementKind } from '../capabilities/ChatCapabilityRegistry.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
 import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
+// §FEAT-CHAT-ROOM-OCCUPANCY — the room-use vocabulary, read off the same Zod
+// enum RoomStore validates against (see roomOccupancyRef.ts's header).
+import {
+  allOccupancyNames,
+  exampleOccupancyNames,
+  resolveOccupancyRef,
+  speakOccupancy,
+} from './roomOccupancyRef.js';
 // §FEAT-WALL-RAKE-BATCH — the rake bounds are the geometry package's exported
 // constants, never re-typed (C65 §3.5: one policy, one place). Constants only;
 // the purity note above still holds — no store instance is constructed here.
@@ -94,7 +102,12 @@ export type SpecDrivenIntentId =
   // different from every spec above is `destructive: true` +
   // `requireResolvedIds: true`, both set by the generator.
   | DeleteFamilyIntentId
-  | 'add-wall-layer';
+  | 'add-wall-layer'
+  // §FEAT-CHAT-ROOM-OCCUPANCY — the founder's "a bathroom in room 001". The
+  // FIRST fan-out spec (`fanOutPerId`): the vocabulary and the scope stage are
+  // the template's, but the bus verb it drives is singular, so see that flag's
+  // doc for why this is N commands instead of one and what would make it one.
+  | 'set-room-occupancy';
 
 export type SpecDrivenIntent = Extract<SemanticIntent, { intent: SpecDrivenIntentId }>;
 
@@ -175,6 +188,47 @@ export interface CapabilityExecutionSpec<I extends SpecDrivenIntent = SpecDriven
    * exactly the failure the flag exists to prevent.
    */
   readonly requireResolvedIds?: boolean;
+  /**
+   * §FEAT-CHAT-ROOM-OCCUPANCY — emit ONE command PER resolved id instead of one
+   * batch command, with `idsField` naming the SINGULAR payload field
+   * (`'roomId'`, not `'roomIds'`).
+   *
+   * ⚠ THIS COSTS THE ONE-UNDO PROPERTY, AND THAT IS A DISCLOSED TRADE, NOT AN
+   * OVERSIGHT. Every other spec in this table dispatches a single `*Batch`
+   * verb, which is the ONLY thing that buys "one gesture = one undo entry"
+   * (BatchCoordinator's own header: `runBatch` is undo-NEUTRAL). `room.setOccupancy`
+   * is singular and there is no `room.setOccupancyBatch`, so N rooms are N
+   * undo steps — which `dispatchCommands` already states out loud as
+   * "undo with Ctrl+Z (N steps)", so the user is never misled about it.
+   *
+   * Minting the batch verb was deliberately NOT done in the same change: a new
+   * bus verb requires a row in `docs/04-reference/API-VERB-REGISTER.md` or
+   * `check-verb-register.ts` V1 hard-fails, and that register was being edited
+   * by another lane at the time. Reusing the registered singular verb ships the
+   * founder's sentence now; the batch verb is the follow-up that upgrades N
+   * steps to one, and it changes only this flag and the table entry.
+   *
+   * Implies `requireResolvedIds`: fan-out over the unbounded `'all'` form is
+   * not representable (there are no ids to fan over), so the spec resolves the
+   * scope to real ids first and refuses if no resolver is injected.
+   */
+  readonly fanOutPerId?: true;
+  /**
+   * §FEAT-CHAT-ROOM-OCCUPANCY — the spatial scope kinds this capability really
+   * accepts. Absent ⇒ all of them, which is what every pre-existing spec means.
+   *
+   * WHY IT EXISTS. The scope stage handles the SUPERSET (level / room /
+   * orientation) with one implementation, so a new spec silently "honours"
+   * scope kinds its grammar never produces and its declaration never claims.
+   * For walls that is harmless breadth. For rooms it is WRONG: the editor's
+   * orientation arm answers "facing south" with the WALLS that face south, so
+   * `set-room-occupancy` scoped by orientation would fan `room.setOccupancy`
+   * out over wall ids and refuse once per wall — reach that exists only as a
+   * defect. C68 §6.3-G3 counts exactly this gap (arm reach minus declared
+   * reach), and closing it here keeps the two honest in the direction that
+   * makes the capability smaller and truer rather than merely quieter.
+   */
+  readonly spatialKinds?: readonly ('level' | 'room' | 'orientation')[];
 }
 
 // ─── The table ───────────────────────────────────────────────────────────────
@@ -406,6 +460,68 @@ export const EXECUTION_SPECS: SpecTable = {
     destructive: false,
   },
 
+  /**
+   * §FEAT-CHAT-ROOM-OCCUPANCY — the founder's sentence, verbatim: "i want a
+   * bathroom in the room 001". Assigns a room's USE, the field the Room
+   * Schedule shows as OCCUPANCY and every row of the founder's screenshot
+   * carried as `unclassified`.
+   *
+   * The value resolves through `roomOccupancyRef`, whose vocabulary IS the Zod
+   * enum `RoomStore.update()` validates against — so the chat can never accept
+   * a word the store then rejects. An unknown word refuses by LISTING real
+   * options and changes nothing (§CONTEXT-DATA-HONESTY); it never guesses,
+   * because a confidently wrong room assignment is worse than a question.
+   *
+   * Scope: the SELECTION, or the U3 room reference ("room 001"). Deliberately
+   * NOT `'all'` — "make every room in the project a bathroom" is not a sentence
+   * with a correct answer, and omitting it also keeps the mass-edit gate's
+   * one-command rule inapplicable to a fan-out spec.
+   */
+  'set-room-occupancy': {
+    elementKind: 'room',
+    busCommand: 'room.setOccupancy',
+    // SINGULAR — this is a fan-out spec; see `fanOutPerId`.
+    idsField: 'roomId',
+    noSelectionReason:
+      'No room is selected — select a room, or name it, as in "make room 001 a bathroom".',
+    mismatchPrefix: 'Room use applies to rooms',
+    suggestions: ['make room 001 a bathroom', 'set room 002 to bedroom'],
+    spatialAbility: 'set the use of the selected room, or of a room you name — "make room 001 a bathroom"',
+    resolveValue: (si) => {
+      const occupancy = resolveOccupancyRef(si.occupancyRef);
+      if (occupancy === null) {
+        return {
+          refusal: {
+            reason:
+              `I don't know the room use "${si.occupancyRef}". I understand uses like ` +
+              `${exampleOccupancyNames().join(', ')} — there are ` +
+              `${allOccupancyNames().length} in total, and nothing was changed.`,
+            suggestions: ['make room 001 a bathroom', 'set room 002 to bedroom'],
+          },
+        };
+      }
+      return {
+        // The handler's payload field is `occupancy` (SetRoomOccupancyPayload);
+        // it maps '' / undefined to 'unclassified' and forwards the rest to
+        // SetRoomOccupancyCommand, which writes RoomData.occupancyType.
+        payload: { occupancy },
+        summary: (scopeLabel, notesTail) =>
+          `Set ${scopeLabel} to ${speakOccupancy(occupancy)}${notesTail}`,
+      };
+    },
+    // NOT destructive: it deletes nothing and every step is undoable
+    // (SetRoomOccupancyCommand snapshots the WHOLE RoomData before writing,
+    // because occupancy also drives colour and finish defaults).
+    destructive: false,
+    // One `room.setOccupancy` per resolved room — see the flag's doc for the
+    // disclosed undo-granularity trade and the batch verb that closes it.
+    fanOutPerId: true,
+    // ROOM ONLY. A room has no facade orientation, and "rooms on level 2" is a
+    // real ask this capability's grammar cannot yet produce — so neither is
+    // claimed, and the arm refuses both instead of quietly honouring them.
+    spatialKinds: ['room'],
+  },
+
 };
 
 // ─── The generic arm ─────────────────────────────────────────────────────────
@@ -474,6 +590,18 @@ export function applyExecutionSpec(
     // resolver; its absence refuses honestly, never guesses.
     const base: 'all' | 'selection' | IntentSpatialScope =
       scope.kind === 'filter' ? scope.base : scope;
+    // §FEAT-CHAT-ROOM-OCCUPANCY — a spec may narrow the superset the arm
+    // handles to the spatial kinds it can answer correctly. Refuses rather than
+    // resolving a scope whose ids would be the wrong element kind entirely.
+    if (
+      base !== 'all' && base !== 'selection'
+      && spec.spatialKinds !== undefined && !spec.spatialKinds.includes(base.kind)
+    ) {
+      return refuse(
+        `I can't scope ${spec.nounPlural ?? `${kind}s`} that way. ` +
+        `I can ${spec.spatialAbility ?? `change the selected ${kind}s`}.`,
+      );
+    }
     const basePhrase = spatialPhrase(base);
     const filterPhrase = scope.kind === 'filter' ? describeFilters(scope.filters) : '';
     const phrase = [basePhrase, filterPhrase].filter((p) => p.length > 0).join(' ');
@@ -534,15 +662,22 @@ export function applyExecutionSpec(
     const matches = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === kind);
     if (matches.length === 0) return refuse(selectionRefusal(spec, ctx));
     ids = matches.map((s) => s.elementId);
-  } else if (spec.requireResolvedIds === true) {
+  } else if (spec.requireResolvedIds === true || spec.fanOutPerId === true) {
     // RAC U9.2 — a destructive capability may not dispatch the unbounded
     // 'all' form: the Confirm card has to state a COUNT before the user
     // agrees to it. Resolve the project-wide scope to real ids here, and
     // refuse if the resolver is absent rather than silently widening.
     if (ctx.resolveScope === undefined) {
       return refuse(
-        `I can't count every ${kind} here — scope resolution isn't wired into this chat ` +
-        `context, and I won't run a delete without telling you how many first.`,
+        spec.fanOutPerId === true
+          // §FEAT-CHAT-ROOM-OCCUPANCY — a fan-out spec has no unbounded form to
+          // fall back to: with no resolver there are no ids to fan over, so it
+          // refuses rather than widening (the same discipline, different reason
+          // from the destructive one below — the delete copy would be a lie here).
+          ? `I can't list every ${spec.nounPlural ?? `${kind}s`} here — scope resolution isn't wired ` +
+            `into this chat context. Select the ${kind} you mean and say it again.`
+          : `I can't count every ${kind} here — scope resolution isn't wired into this chat ` +
+            `context, and I won't run a delete without telling you how many first.`,
       );
     }
     const result = ctx.resolveScope({ kind: 'all', elementKind: kind });
@@ -569,18 +704,26 @@ export function applyExecutionSpec(
       ? `every ${kind} in the project`
       : `${ids.length} selected ${plural(ids.length)}`;
   const notesTail = scopeNotes.length > 0 ? ` (${scopeNotes.join(' · ')})` : '';
-  const command: BusCommandRef = {
-    type: spec.busCommand,
-    payload: {
-      [spec.idsField]: ids === 'all' ? 'all' : [...ids],
-      ...value.payload,
-    },
-  };
+  // §FEAT-CHAT-ROOM-OCCUPANCY — the fan-out form: one command per resolved id,
+  // `idsField` naming the SINGULAR payload field. `ids` is guaranteed to be a
+  // real array here because `fanOutPerId` takes the resolve-first branch above.
+  const commands: readonly BusCommandRef[] = spec.fanOutPerId === true && ids !== 'all'
+    ? ids.map((id) => ({
+        type: spec.busCommand,
+        payload: { [spec.idsField]: id, ...value.payload },
+      }))
+    : [{
+        type: spec.busCommand,
+        payload: {
+          [spec.idsField]: ids === 'all' ? 'all' : [...ids],
+          ...value.payload,
+        },
+      }];
   return {
     kind: 'commands',
     intent: si.intent,
     summary: value.summary(scopeLabel, notesTail),
-    commands: [command],
+    commands,
     destructive: spec.destructive,
   };
 }

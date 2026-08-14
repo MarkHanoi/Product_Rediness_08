@@ -413,6 +413,23 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    // §FEAT-CHAT-ROOM-OCCUPANCY — the founder's ask, verbatim: "i want a
+    // bathroom in the room 001, a bedroom in room 002 and 003 and a living
+    // room". `scoped` supplies the injected room resolver the named-room
+    // phrasings go through; `ctx` supplies the selection the last one uses.
+    id: 'set-room-occupancy',
+    ctx: scopedSel('room'),
+    scoped: true,
+    phrasings: [
+      'make room 001 a bathroom',
+      'set room 002 to bedroom',
+      'i want a bathroom in room 001',
+      'room 003 is a living room',
+      'make rooms 002 and 003 bedrooms',
+      'set the occupancy to kitchen',
+    ],
+  },
+  {
     id: 'set-sill-height',
     ctx: sel('window'),
     phrasings: ['set sill height to 1m', 'change the sill height to 900mm'],
