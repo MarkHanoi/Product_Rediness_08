@@ -69,31 +69,65 @@ describe('§L-MOUNT Phase 2 — the mount hosts the brief named are stale', () =
             + 'finding may no longer hold; RE-MEASURE before mounting anything').toEqual([]);
     }, 60_000);
 
-    it('FINDING 2b — RESOLVED by the host fix: buildToolbar() renders .plat-toolbar '
-        + 'VISIBLE when the wrapper is absent (it no longer sets display:none)', () => {
-        // HISTORY: this assertion originally pinned the DEFECT (`display:none` +
-        // hidden body-append) as the measured state that made mounting unsafe.
-        // The founder then ordered the host made visible, so the pin now guards
-        // the FIX: if anyone re-hides the toolbar, every surface mounted into it
-        // goes invisible again — L-847, silently. Given 2a (no wrapper exists),
-        // the body-append branch is still the only reachable branch.
+    it('FINDING 2b — §L-MOUNT-DETACH: buildToolbar() NEVER attaches .plat-toolbar to '
+        + 'the document when the wrapper is absent — detached, not display:none', () => {
+        // HISTORY, all three states, so the next reader does not re-litigate:
+        //   1. originally `display:none` + a hidden body-append — the DEFECT this
+        //      file was written to pin (three features injecting into a node
+        //      nobody could see: the L-847 shape).
+        //   2. `0926167c` made it a VISIBLE body-append. The founder saw the
+        //      result: `position:fixed; top:0; left:50%` + `flex-direction:column`
+        //      stacked every injected feature down the MIDDLE of the viewport.
+        //   3. now DETACHED (founder decision, 2026-08-14).
+        //
+        // ⚠ The assertion is `not body.appendChild`, NOT `display:none`, and the
+        // distinction is the whole point. A hidden-but-ATTACHED node still
+        // matches `document.querySelector('.plat-toolbar')`, so the ActiveLevelHUD
+        // would mount into an invisible slot and the "Ground" pill would vanish.
+        // Detached ⇒ the selector returns null ⇒ every injector takes the null
+        // branch 2c proves it has. Re-introducing either the body-append or a
+        // display:none-and-attached node fails here.
         const src = readFileSync(
             path.join(EDITOR_SRC, 'ui', 'platform', 'PlatformProjectBrowser.ts'), 'utf8');
-        expect(src).toMatch(/querySelector\('\.plat-left-panel'\)/);
-        expect(src).not.toMatch(/this\.toolbar\.style\.display\s*=\s*'none'/);
-        expect(src).toMatch(/document\.body\.appendChild\(this\.toolbar\)/);
+        expect(src, 'the left-panel branch is retained for the day the wrapper returns')
+            .toMatch(/querySelector\('\.plat-left-panel'\)/);
+        expect(src, 'the toolbar must NOT be appended to the body — it is detached')
+            .not.toMatch(/document\.body\.appendChild\(this\.toolbar\)/);
+        expect(src, 'display:none would keep the node ATTACHED and matching the '
+            + "injectors' selector — that is the trap, not the fix")
+            .not.toMatch(/this\.toolbar\.style\.display\s*=\s*'none'/);
     });
 
-    it('FINDING 2c — shipped features inject into that host (visible since the '
-        + 'host fix; they were injected into a hidden node before it)', () => {
-        const injectors = [
-            path.join(EDITOR_SRC, 'engine', 'initDataPlatform.ts'),
-            path.join(EDITOR_SRC, 'ui', 'layout', 'CreatePanelLayout.ts'),
+    it('FINDING 2c — every .plat-toolbar injector has a NULL branch, which is what '
+        + 'makes the host removable at all', () => {
+        // This is the invariant §L-MOUNT-DETACH rests on. Each injector looks the
+        // host up by selector; with the host detached the lookup returns null, so
+        // each MUST already handle null — the HUD by falling back to its canvas
+        // mount (#alh-hud-mount, Layout.ts), the other two by skipping.
+        // An injector that appended unconditionally would throw on a null host.
+        const cases: Array<{ file: string; guard: RegExp; note: string }> = [
+            {
+                file: path.join(EDITOR_SRC, 'ui', 'layout', 'CreatePanelLayout.ts'),
+                guard: /getElementById\('alh-hud-mount'\)/,
+                note: 'ActiveLevelHUD must fall back to the canvas overlay, or the '
+                    + 'Ground pill disappears with the bar',
+            },
+            {
+                file: path.join(EDITOR_SRC, 'engine', 'initDataPlatform.ts'),
+                guard: /if\s*\(\s*platToolbar\s*&&/,
+                note: 'the Data button + physics dropdown must skip on a null host',
+            },
+            {
+                file: path.join(EDITOR_SRC, 'ui', 'canvas', 'VoiceCommandIndicator.ts'),
+                guard: /if\s*\(\s*!toolbar\b/,
+                note: 'the voice indicator must skip on a null host',
+            },
         ];
-        for (const f of injectors) {
-            const src = readFileSync(f, 'utf8');
-            expect(src, `${path.basename(f)} no longer injects into .plat-toolbar`)
+        for (const { file, guard, note } of cases) {
+            const src = readFileSync(file, 'utf8');
+            expect(src, `${path.basename(file)} no longer looks up .plat-toolbar`)
                 .toMatch(/querySelector\('\.plat-toolbar'\)/);
+            expect(src, `${path.basename(file)}: ${note}`).toMatch(guard);
         }
     });
 

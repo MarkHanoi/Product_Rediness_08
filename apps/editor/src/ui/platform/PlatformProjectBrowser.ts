@@ -98,27 +98,48 @@ export class PlatformProjectBrowser {
         // The inner row is 36px; removing the 18px strip makes total ≤40px.
         this.toolbar.appendChild(this.toolbarInner);
 
-        // §L-MOUNT host fix (founder decision, C82 / ADR-0326). History: the
-        // `.plat-left-panel` wrapper was removed from Layout.ts, and this
-        // else-branch then hid the toolbar (`display:none`) as a byproduct —
-        // no file in the tree creates `.plat-left-panel`, so the hidden branch
-        // was the ONLY branch (proven by execution in
-        // `../toolbar/__tests__/mountHost.spec.ts`). Every feature later
-        // injected into `.plat-toolbar` — the Data workbench button + physics
-        // overlay dropdown (initDataPlatform.ts), the ActiveLevelHUD slot
-        // (CreatePanelLayout.ts) — landed in an invisible node: the L-847
-        // shape, three features deep.
+        // §L-MOUNT-DETACH (founder decision, 2026-08-14). The `.plat-toolbar` is
+        // NOT attached to the document when no `.plat-left-panel` wrapper exists.
         //
-        // The fix is to stop hiding it: the `.plat-toolbar` CSS was always a
-        // self-positioning fixed top-center bar (platformToolbar.ts —
-        // `position:fixed; top:0; left:50%; z-index:9000`), so appending it to
-        // `document.body` VISIBLE is the layout it was written for. The
-        // left-panel branch is kept for the day that wrapper returns.
+        // HISTORY, so this is not re-litigated a third time. The wrapper was
+        // removed from Layout.ts long ago and no file in the tree creates one
+        // (proven by execution — `../toolbar/__tests__/mountHost.spec.ts`
+        // FINDING 2a), so this branch is the ONLY branch. It originally hid the
+        // node with `display:none`; `0926167c` made it a VISIBLE body-append on
+        // the reasoning that three shipped features were injecting into an
+        // invisible node (the L-847 shape). The founder then saw the result in
+        // the browser: `.plat-toolbar` is `position:fixed; top:0; left:50%`
+        // with `flex-direction:column`, so every injected feature stacked into
+        // a bar down the MIDDLE of the viewport, over the model. Removed.
+        //
+        // ⚠ DETACHED, NOT `display:none` — and the difference is load-bearing.
+        // The injectors all key on `document.querySelector('.plat-toolbar')`:
+        //   · CreatePanelLayout.ts  — ActiveLevelHUD, `if (platToolbar) … else
+        //     document.getElementById('alh-hud-mount')` (Layout.ts:182)
+        //   · initDataPlatform.ts   — Data button + physics dropdown, `if (platToolbar && …)`
+        //   · VoiceCommandIndicator — `if (!toolbar) return`
+        // A hidden-but-attached node still MATCHES that selector, so the HUD
+        // would mount into an invisible slot and the "Ground +0.000 m" pill
+        // would DISAPPEAR. Detached ⇒ the selector returns null ⇒ each injector
+        // takes the null branch it already has: the HUD falls back to its
+        // canvas overlay and stays visible, and the other three skip cleanly
+        // instead of appending orphan DOM into a node nobody can see.
+        //
+        // The node itself is retained (not destroyed) because `ctx` reads its
+        // children directly below — `this.toolbarInner.querySelector(...)`, not
+        // `document.getElementById` — so the project-name input, the save-status
+        // dot and the Ctrl+S handler (bound on `document`) all keep working.
+        //
+        // ⚠ What this REMOVES from the screen, recorded rather than discovered
+        // later: the Author/Inspect/Data mode switcher (F1/F2/F3 still switch),
+        // the Data-workbench button (Data mode reaches it), the physics overlay
+        // dropdown, and the voice indicator. Those last two have NO other entry
+        // point today — ISSUE-LOG L-870.
+        //
+        // The left-panel branch is kept for the day that wrapper returns.
         const leftPanel = document.querySelector('.plat-left-panel');
         if (leftPanel) {
             leftPanel.insertBefore(this.toolbar, leftPanel.firstChild);
-        } else {
-            document.body.appendChild(this.toolbar);
         }
 
         // ── Wire DOM refs into ctx ─────────────────────────────────────────────

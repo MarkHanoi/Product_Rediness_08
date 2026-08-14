@@ -3008,3 +3008,55 @@ implied and neither exists: **(1) a published quality score must be derived from
 the audit uses, or be renamed**; **(2) over-partitioning must be bounded** (walls-per-room,
 minimum habitable room area). Cross-refs: SPEC-49 (CI-0 still the precondition), L-867 (stair
 topology), L-868 (furnish cost), C75 §1.4 (a number without a stated meaning is invented).
+
+---
+
+## L-870 — The `.plat-toolbar` host is DETACHED (founder decision); four injected features lose their only entry point
+
+**2026-08-14, founder OBSERVED live on `465d01f3`**, screenshot. Verdict, verbatim: *"this bar
+needs to also go! remove it and re-deploy"*.
+
+**WHAT THE FOUNDER SAW.** `.plat-toolbar` is `position:fixed; top:0; left:50%` with
+`flex-direction:column` (`platformToolbar.ts`). Every feature that injects into it therefore
+stacks into a vertical bar down the **middle of the viewport**, over the model: the project-name
+row, then the Data button, the physics-overlay dropdown, the `Ground +0.000 m` level HUD and the
+Voice indicator. The two ribbon rows mounted by `282fc1b6` made it ~900 px tall; removing them
+(`cef4492b`) left the column above.
+
+**THE FIX — DETACHED, NOT `display:none`, and the difference is load-bearing.**
+`buildToolbar()` no longer appends the node to `document.body` (§L-MOUNT-DETACH). The node is
+retained in memory, because `ctx` reads its children through `this.toolbarInner.querySelector(...)`
+rather than `document.getElementById` — so the project-name input, the save-status dot and the
+Ctrl+S handler (bound on `document`) all keep working.
+
+A hidden-but-**attached** node would still match `document.querySelector('.plat-toolbar')`, which
+is what all four injectors key on. The ActiveLevelHUD would then mount into an invisible slot and
+the **`Ground` pill would disappear**. Detached ⇒ the selector returns null ⇒ each injector takes
+the null branch it already has: the HUD falls back to `#alh-hud-mount` (`Layout.ts:182`) and stays
+visible; the other three skip cleanly instead of appending orphan DOM into a node nobody can see.
+
+**⚠ THE COST, RECORDED RATHER THAN DISCOVERED LATER.** Four surfaces lose their rendered entry
+point:
+
+| Surface | Injector | Other entry point? |
+|---|---|---|
+| Author / Inspect / Data mode switcher | `PlatformProjectBrowser` | **YES** — F1 / F2 / F3 |
+| Data-workbench button | `initDataPlatform.ts` | **YES** — Data mode (F3) → AUDIT → Hierarchy (L-847) |
+| ActiveLevelHUD (`Ground`) | `CreatePanelLayout.ts` | **YES** — falls back to the canvas overlay, unchanged |
+| **Physics overlay dropdown** (thermal / acoustic / daylight) | `initDataPlatform.ts` | **NO — none today** |
+| **Voice indicator** | `VoiceCommandIndicator.ts` | **NO — none today** |
+
+The last two are **OPEN**: they are shipped features with no reachable surface. This is the L-847
+shape (a capability present and unreachable), and it is recorded here rather than left implicit so
+it is not rediscovered as a bug report. Closing it means giving each a home in real chrome — not
+re-attaching this bar.
+
+**History, so this is not re-litigated a fourth time.** `display:none` (original, the L-847 defect
+three features deep) → visible body-append (`0926167c`, on the reasoning that invisible injection
+was the defect) → ribbon rows mounted into it (`282fc1b6`) → rows unmounted (`cef4492b`) → host
+detached (this entry). The lane that made it visible could not run a browser and said so in its own
+commit message; the browser was the instrument that settled it.
+
+**Guarded by** `apps/editor/src/ui/toolbar/__tests__/mountHost.spec.ts` FINDING 2b (asserts **not**
+body-appended **and not** `display:none`, with the reason for both) and FINDING 2c (asserts every
+injector has the null branch that makes the host removable at all). 5/5 green.
