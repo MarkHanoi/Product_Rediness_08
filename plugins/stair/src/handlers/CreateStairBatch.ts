@@ -21,7 +21,33 @@ import {
 } from '../errors.js';
 import type { StairData, StairsState } from '../store.js';
 import { isFiniteVec3, validateStairDims } from '../intent.js';
-import type { CreateStairPayload } from './CreateStair.js';
+
+/**
+ * One batch entry — the plugin-DTO stair seed shape.
+ *
+ * §FIX-STAIR-CREATE-SHADOW (MT-03) — this interface used to live in
+ * `CreateStair.ts` as the payload of a single `stair.create`. That handler is
+ * DELETED: the CA-21 read-back
+ * (`apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts`) ruled the
+ * verb belongs to the §E.5.4 initBusHandlers bridge → `CreateStairCommand` →
+ * the geometry `StairStore`, whose input is the DIFFERENT `CreateStairInput`
+ * shape (`baseLevelId` / `startPosition` / `flights`). This DTO shape survives
+ * only as the entry type of `stair.batch.create` below, which still writes the
+ * plugin store (UNKNOWN-liveness baseline, not resolved by MT-03).
+ */
+export interface CreateStairPayload {
+  readonly id?: string;
+  readonly levelId?: string;
+  readonly topLevelId?: string;
+  readonly shape?: StairData['shape'];
+  readonly origin?: StairData['origin'];
+  readonly rotation?: number;
+  readonly treadDepth?: number;
+  readonly riserHeight?: number;
+  readonly width?: number;
+  readonly numRisers?: number;
+  readonly materialId?: string;
+}
 
 export interface CreateStairBatchPayload {
   readonly stairs: readonly CreateStairPayload[];

@@ -251,6 +251,27 @@ const SHADOWED_BASELINE: readonly string[] = [
   // no longer fires and the bridge registers. Pin:
   // `plugins/selection/__tests__/handlers/ElementMarkShadow.test.ts` (3 cases incl. a
   // negative control on `selection.select`, watched failing 3/3 first). 8 → 7.
+  // §FIX-STAIR-CREATE-SHADOW (MT-03 / L-MT8) — 'stair.create' PAID and removed in the
+  // same commit, per the rule at the head of this list. Decided by an EXECUTED CA-21
+  // READ-BACK, not precedent (the MT-03 brief marked it CONTESTED):
+  // `apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts` (3 cases, watched
+  // failing 3/3 first). Verdict — the §E.5.4 bridge → CreateStairCommand → the geometry
+  // `StairStore` (`window.stairStore`, the record StairMeshBuilder / the plan projector /
+  // ProjectSerializer read) wins on all three sheet-precedent axes: (1) store — the
+  // plugin arm `produceCommand`ed only the DETACHED plugin DTO store; (2) payload — the
+  // ONE live dispatcher (StairPlanToolHandler.ts:246, bus-only since §P3.3) sends
+  // CreateStairInput with shape 'I'|'L'|'U', which the plugin Zod enum
+  // ('straight'|'l-shape'|'u-shape'|'spiral') REFUSED, and `baseLevelId` /
+  // `startPosition` / `flights` were ignored even when a payload parsed; (3) function —
+  // the 3-D tools' fire-and-forget `{}` telemetry dispatches (StairTool.ts:283,
+  // StairPathToolController.ts:746) minted a PHANTOM default DTO stair per placement
+  // (watched in the RED run's diff), where the bridge refuses them at validate.
+  // `plugins/stair/src/handlers/CreateStair.ts` is DELETED with its barrel exports and
+  // its STAIR_HANDLER_TYPES entry, so the §OI-053 `registry.has()` skip no longer fires
+  // and the bridge registers; CreateStairPayload survives only as the
+  // `stair.batch.create` entry shape (moved to CreateStairBatch.ts). Pin:
+  // `plugins/stair/__tests__/createStairShadow.test.ts` (3 cases incl. a negative
+  // control on `stair.move`, watched failing first). 3 → 2.
   'furniture.updateParameters',
   // §FIX-SHEET-ADDVIEWPORT-SHADOW (MT-03 / L-MT8) — 'sheet.addViewport' PAID and removed
   // in the same commit. This was one of the TWO verbs the MT-03 brief marked CONTESTED
@@ -289,7 +310,6 @@ const SHADOWED_BASELINE: readonly string[] = [
   // skip no longer fires and the bridge registers. Pin:
   // `plugins/stair/__tests__/addLevelShadow.test.ts` (3 cases incl. a negative control
   // on `stair.create`, watched failing 3/3 first). 7 → 6.
-  'stair.create',
   'stair.move',
   // §FIX-VIEW-CROP-SHADOW (MT-03 / L-MT8) — 'view.setCrop' PAID and removed in the same
   // commit, per the rule at the head of this list. ⚠ THE DIRECTION IS THE REVERSE of the

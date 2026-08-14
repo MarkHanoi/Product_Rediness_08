@@ -132,13 +132,21 @@ describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
     expect((rt.stores.beam as unknown as BeamStore).get(beamId)).toBeDefined();
 
     // ---- 10. stair ----
+    // §FIX-STAIR-CREATE-SHADOW (MT-03) — `stair.create` is no longer answered by
+    // a plugin handler. The CA-21 read-back (StairCreateReachesGeometryStore.
+    // test.ts, watched failing 3/3 first) ruled the verb belongs to the §E.5.4
+    // initBusHandlers bridge → CreateStairCommand → the geometry StairStore (the
+    // record the mesh builder, plan projector and ProjectSerializer read); the
+    // plugin arm wrote only a detached DTO store, refused the live plan-tool
+    // payload (shape 'I'), and minted phantom DTO stairs for the 3-D tools'
+    // `{}` telemetry dispatches. A plugins-only runtime therefore has NO
+    // stair.create handler — the editor boot owns the verb. What is true here:
+    // the dispatch is refused loudly, and the plugin store minted nothing.
     const stairId = createId('stair');
-    await rt.bus.executeCommand('stair.create', {
-      id: stairId,
-      levelId: 'lvl',
-      topLevelId: 'lvl_top',
-    });
-    expect((rt.stores.stair as unknown as StairStore).get(stairId)).toBeDefined();
+    await expect(
+      rt.bus.executeCommand('stair.create', { id: stairId, levelId: 'lvl', topLevelId: 'lvl_top' }),
+    ).rejects.toThrow(/no handler registered/i);
+    expect((rt.stores.stair as unknown as StairStore).get(stairId)).toBeUndefined();
 
     // ---- 11. handrail ----
     const handrailId = createId('handrail');

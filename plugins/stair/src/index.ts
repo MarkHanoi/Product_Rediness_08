@@ -10,7 +10,10 @@ export {
   isStairSystemError,
 } from './errors.js';
 
-export { CreateStairHandler, type CreateStairPayload } from './handlers/CreateStair.js';
+// §FIX-STAIR-CREATE-SHADOW (MT-03) — CreateStairHandler deleted (the verb belongs
+// to the §E.5.4 initBusHandlers bridge; see handlers/index.ts). The payload type
+// survives as the `stair.batch.create` entry shape.
+export { type CreateStairPayload } from './handlers/CreateStairBatch.js';
 export { DeleteStairHandler, type DeleteStairPayload } from './handlers/DeleteStair.js';
 export { MoveStairHandler, type MoveStairPayload } from './handlers/MoveStair.js';
 export { SetStairTypeHandler, type SetStairTypePayload } from './handlers/SetStairType.js';

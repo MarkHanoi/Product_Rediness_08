@@ -70,7 +70,9 @@ describe('§FIX-LEVEL-ADD-SHADOW — the stair plugin yields level.add to the br
     expect(bus.registry?.has?.('level.add' as never) ?? false).toBe(false);
 
     // Negative control — the guard is not vacuously false: a verb the stair
-    // plugin DOES own reads `true` through the same call.
-    expect(bus.registry?.has?.('stair.create' as never) ?? false).toBe(true);
+    // plugin DOES own reads `true` through the same call. (`stair.create` was
+    // this control until §FIX-STAIR-CREATE-SHADOW handed it to the bridge too;
+    // `stair.move` is the plugin's ruled KEEP — the dual-store hybrid.)
+    expect(bus.registry?.has?.('stair.move' as never) ?? false).toBe(true);
   });
 });

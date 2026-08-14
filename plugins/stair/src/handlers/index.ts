@@ -1,7 +1,6 @@
 // Stair handler registration helper (S14-T1 + Sprint A30 batch).
 
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
-import { CreateStairHandler } from './CreateStair.js';
 import { CreateStairBatchHandler } from './CreateStairBatch.js';
 import { DeleteStairHandler } from './DeleteStair.js';
 import { MoveStairHandler } from './MoveStair.js';
@@ -16,7 +15,19 @@ import { UpdateStairParametersHandler } from './UpdateStairParameters.js';
 import { SetStairMaterialHandler } from './SetStairMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const STAIR_HANDLER_TYPES = [
-  'stair.create',
+  // §FIX-STAIR-CREATE-SHADOW (MT-03) — 'stair.create' is NOT declared here. It has
+  // a live §E.5.4 bridge in initBusHandlers.ts (→ CreateStairCommand → the geometry
+  // StairStore the mesh builder, plan projector and serializer read), and this
+  // plugin claiming the type first (this set is contributed by PluginRegistry at
+  // composeRuntime, before initBusHandlers) was the ONLY reason that bridge never
+  // registered (the §OI-053 `registry.has()` skip). The CA-21 read-back
+  // (apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts, watched failing
+  // 3/3 first) ruled the plugin arm the loser on store, payload AND function:
+  // it wrote only the detached DTO store, refused the live StairPlanToolHandler
+  // payload (shape 'I' is not in the plugin Zod enum), and minted a phantom
+  // default DTO stair for every 3-D tool telemetry dispatch (`{}`). Authority
+  // declared: the bridge. Loser deleted, not commented.
+  // Pin: __tests__/createStairShadow.test.ts.
   'stair.batch.create',
   'stair.delete',
   'stair.move',
@@ -45,7 +56,6 @@ export type StairHandlerType = (typeof STAIR_HANDLER_TYPES)[number];
 
 export function buildStairHandlerSet(): readonly CommandHandler<unknown>[] {
   return [
-    new CreateStairHandler() as unknown as CommandHandler<unknown>,
     new CreateStairBatchHandler() as unknown as CommandHandler<unknown>,
     new DeleteStairHandler() as unknown as CommandHandler<unknown>,
     new MoveStairHandler() as unknown as CommandHandler<unknown>,
@@ -66,8 +76,13 @@ export function registerStairHandlers(bus: CommandBus): readonly string[] {
   return STAIR_HANDLER_TYPES;
 }
 
-export { CreateStairHandler, type CreateStairPayload } from './CreateStair.js';
-export { CreateStairBatchHandler, type CreateStairBatchPayload } from './CreateStairBatch.js';
+// §FIX-STAIR-CREATE-SHADOW (MT-03) — CreateStairHandler deleted; the payload type
+// survives as the batch entry shape and is re-exported from its new home.
+export {
+  CreateStairBatchHandler,
+  type CreateStairBatchPayload,
+  type CreateStairPayload,
+} from './CreateStairBatch.js';
 export { DeleteStairHandler, type DeleteStairPayload } from './DeleteStair.js';
 export { MoveStairHandler, type MoveStairPayload } from './MoveStair.js';
 export { SetStairTypeHandler, type SetStairTypePayload } from './SetStairType.js';

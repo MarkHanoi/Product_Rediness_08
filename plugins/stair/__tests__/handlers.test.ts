@@ -5,13 +5,28 @@ import {
   CommandBus, PatchEmitter, UndoStack, type EventRecord,
 } from '@pryzm/plugin-sdk';
 import { attachStores } from '@pryzm/plugin-sdk';
-import { createId } from '@pryzm/plugin-sdk';
+import { createId, Stair } from '@pryzm/plugin-sdk';
 import { StairStore, type StairsState, type StairData } from '../src/store.js';
 import {
   buildStairHandlerSet,
   registerStairHandlers,
   STAIR_HANDLER_TYPES,
 } from '../src/handlers/index.js';
+
+/**
+ * §FIX-STAIR-CREATE-SHADOW (MT-03) — seed the plugin DTO store DIRECTLY.
+ * These suites used to seed through `stair.create`, but that verb's plugin
+ * handler is deleted (the CA-21 read-back ruled it a dead route to a detached
+ * store — see __tests__/createStairShadow.test.ts). The setter/move handlers
+ * under test here still operate on the plugin store, so the seed goes in at
+ * the store seam, parsed through the SAME canonical Zod schema the deleted
+ * handler used, not through a verb the product no longer answers with a write.
+ */
+function seedStair(store: StairStore, id: string, overrides: Partial<StairData> = {}): StairData {
+  const stair = Stair.parse({ id, ...overrides }) as StairData;
+  store.applyPatch([{ op: 'add', path: [id], value: stair }]);
+  return stair;
+}
 
 function buildEnv() {
   const stair = new StairStore();
@@ -40,7 +55,7 @@ function undoLast(store: StairStore, ev: EventRecord<unknown>): void {
 }
 
 describe('stair handler registration', () => {
-  it('registers all 9 command types', () => {
+  it('registers every type in STAIR_HANDLER_TYPES, and only those', () => {
     const env = buildEnv();
     const bus = new CommandBus({
       audit: { actorId: 't', projectId: 'p', clientId: 'c' },
@@ -53,28 +68,26 @@ describe('stair handler registration', () => {
   });
 });
 
-describe('stair.create / delete', () => {
+describe('stair.delete', () => {
+  // §FIX-STAIR-CREATE-SHADOW (MT-03) — the `stair.create` cases that lived here
+  // pinned the DELETED plugin arm (detached DTO store; the live verb is the
+  // §E.5.4 bridge → CreateStairCommand → geometry StairStore). A dead verb's
+  // tests must not pin the lie (CA-21 / sheet.addViewport precedent), so they
+  // are gone with the handler; __tests__/createStairShadow.test.ts pins the
+  // absence, and apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts
+  // pins the live route.
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
-  it('creates a stair with caller-provided id and inverts cleanly', async () => {
+  it('deletes a seeded stair and inverts cleanly', async () => {
     env = buildEnv();
     const id = createId('stair');
+    seedStair(env.stair, id);
     const before = snap(env.stair);
-    const ev = await env.bus.executeCommand('stair.create', {
-      id, levelId: 'level:0', topLevelId: 'level:1',
-    });
-    expect(env.stair.get(id)?.shape).toBe('straight');
-    expect(env.stair.get(id)?.numRisers).toBe(15);
+    const ev = await env.bus.executeCommand('stair.delete', { stairId: id });
+    expect(env.stair.get(id)).toBeUndefined();
     undoLast(env.stair, ev);
     expect(snap(env.stair)).toEqual(before);
-  });
-
-  it('rejects invalid numRisers (< 2)', async () => {
-    env = buildEnv();
-    await expect(
-      env.bus.executeCommand('stair.create', { id: createId('stair'), numRisers: 1 }),
-    ).rejects.toThrow();
   });
 
   it('delete rejects unknown id', async () => {
@@ -92,7 +105,7 @@ describe('stair.move', () => {
   it('translates origin and undoes', async () => {
     env = buildEnv();
     const id = createId('stair');
-    await env.bus.executeCommand('stair.create', { id });
+    seedStair(env.stair, id);
     const ev = await env.bus.executeCommand('stair.move', {
       stairId: id, delta: { x: 1, y: 0, z: 2 },
     });
@@ -169,7 +182,7 @@ describe('stair.setShape / setTreadCount / setRiserHeight / setWidth / rotate', 
   it('round-trips each setter', async () => {
     env = buildEnv();
     const id = createId('stair');
-    await env.bus.executeCommand('stair.create', { id });
+    seedStair(env.stair, id);
     await env.bus.executeCommand('stair.setShape', { stairId: id, shape: 'l-shape' });
     await env.bus.executeCommand('stair.setTreadCount', { stairId: id, numRisers: 18 });
     await env.bus.executeCommand('stair.setRiserHeight', { stairId: id, riserHeight: 0.20 });
@@ -195,7 +208,7 @@ describe('stair.setShape / setTreadCount / setRiserHeight / setWidth / rotate', 
   it('rejects setTreadCount < 2', async () => {
     env = buildEnv();
     const id = createId('stair');
-    await env.bus.executeCommand('stair.create', { id });
+    seedStair(env.stair, id);
     await expect(
       env.bus.executeCommand('stair.setTreadCount', { stairId: id, numRisers: 1 }),
     ).rejects.toThrow();
@@ -204,7 +217,7 @@ describe('stair.setShape / setTreadCount / setRiserHeight / setWidth / rotate', 
   it('setType updates materialId', async () => {
     env = buildEnv();
     const id = createId('stair');
-    await env.bus.executeCommand('stair.create', { id });
+    seedStair(env.stair, id);
     await env.bus.executeCommand('stair.setType', { stairId: id, materialId: 'concrete.precast' });
     expect(env.stair.get(id)?.materialId).toBe('concrete.precast');
   });

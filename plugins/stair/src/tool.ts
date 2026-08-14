@@ -3,6 +3,16 @@
 // The tool layer is non-rendering: it captures one click → emits a
 // `stair.create` command via the bus.  Renderer-side tool affordances
 // (preview ghost, snap glyphs) live in a future viewport tool layer.
+//
+// ⚠ §FIX-STAIR-CREATE-SHADOW (MT-03) — this tool has NO production caller
+// (nothing registers STAIR_TOOL_ID; the live stair tools are
+// `@pryzm/geometry-stair`'s StairTool + the editor's StairPlanToolHandler),
+// and its payload is the DELETED plugin arm's DTO shape. The verb is now
+// answered by the §E.5.4 initBusHandlers bridge → CreateStairCommand, whose
+// CreateStairInput requires `baseLevelId` / `startPosition` / `flights` —
+// so this dispatch would be REFUSED at validate ("baseLevelId is required").
+// Wiring this tool up must first convert the payload; recorded here rather
+// than silently left to fail.
 
 import type { CommandBus } from '@pryzm/plugin-sdk';
 import type { StairData } from './store.js';

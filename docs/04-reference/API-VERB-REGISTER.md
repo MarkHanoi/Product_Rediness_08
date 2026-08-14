@@ -15,13 +15,13 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1241 (floor 900) |
+| Handler files read | 1240 (floor 900) |
 | **Verbs** | **325** (floor 250) |
-| LIVE | 116 |
+| LIVE | 117 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 3 |
+| SHADOWED (dead route) | 2 |
 | UNKNOWN | 170 |
-| authoritative store NONE or UNKNOWN | 209 |
+| authoritative store NONE or UNKNOWN | 208 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
 
@@ -278,7 +278,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `slab.updatePolygon` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | synced via 'slabId' (disclose) | classified B |
 | `slab.updateSystemTypeBatch` | plugins/slab | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-slab-type |
 | `stair.batch.create` | plugins/stair | UNKNOWN | UNKNOWN | patch-pair → stair | n/a (not a property verb) | classified C |
-| `stair.create` | plugins/stair | SHADOWED | UNKNOWN | patch-pair → stair | synced via 'id' (disclose) | classified B |
+| `stair.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `stair.createRailing` | plugins/stair | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified B |
 | `stair.delete` | plugins/stair | UNKNOWN | UNKNOWN | patch-pair → stair | n/a (not a property verb) | classified D |
 | `stair.move` | plugins/stair | SHADOWED | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -378,5 +378,4 @@ the second site is the one nobody knew was dead.
 | verb | sites |
 |---|---|
 | `furniture.updateParameters` | `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `stair.create` | `plugins/stair/src/handlers/CreateStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.move` | `plugins/stair/src/handlers/MoveStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
