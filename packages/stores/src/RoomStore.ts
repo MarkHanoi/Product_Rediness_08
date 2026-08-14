@@ -1,8 +1,27 @@
-// A.23.b.2 (Phase A · Sprint 2) — L3 RoomStore.
+// A.23.b.2 (Phase A · Sprint 2) — L3 aggregate Room store (C20).
 //
-// Reactive wrapper around the L0 `Room` schema (A.23.a). Per
-// [C20 §1.4] cross-store invariants (enforced by room.* commands
-// in A.23.c, NOT by this store):
+// ⚠ GE-04 (measured 2026-08-14) — DEPRECATED-AS-NAMED, unwired-as-built.
+// This class was one of THREE named `RoomStore`. The one shipping paths
+// execute is `packages/room-topology/src/RoomStore.ts` (module singleton,
+// storeRegistry key `'room'`, `window.roomStore`, typed into the command
+// surface at packages/command-registry/src/types.ts). THIS store's runtime
+// slot — `runtime.stores.roomStore`, constructed by composeRuntime — has
+// ZERO readers anywhere in the repo, and its room.* aggregate handlers
+// (../aggregate-commands/room*.ts) are invoked only by packages/stores'
+// own tests. It is authored-but-unwired: the A.23.c room.* command surface
+// never reached a bus.
+//
+// It is renamed `AggregateRoomStore` (deprecated `RoomStore` alias below
+// keeps composeRuntime / runtime-composer types / the tests compiling) so
+// the canonical name has exactly one owner. Whether the C20 aggregate Room
+// concept should live on as its own store or collapse onto the winner's
+// RoomData is a CONTRACT decision (aggregates/Room carries `apartmentId`,
+// which RoomData does not) — that call needs an ADR, not a silent pick
+// (C73 §3.7). Until then: no new consumers of this store.
+//
+// Original A.23.b.2 notes — reactive wrapper around the L0 aggregate
+// `Room` schema (A.23.a). Per [C20 §1.4] cross-store invariants (enforced
+// by room.* commands in A.23.c, NOT by this store):
 //   - When apartmentId is non-null, Room.levelId MUST equal
 //     Apartment(apartmentId).levelId
 //   - apartmentId may be null for public-corridor / plant-room /
@@ -19,7 +38,7 @@ import type {
     ApartmentId,
 } from '@pryzm/schemas/aggregates';
 
-export class RoomStore {
+export class AggregateRoomStore {
     private readonly _byId = new Map<RoomId, Room>();
     private readonly _listeners = new Set<() => void>();
     private _disposed = false;
@@ -153,3 +172,13 @@ export class RoomStore {
         }
     }
 }
+
+/**
+ * @deprecated GE-04 transitional alias — `RoomStore` is the canonical name of
+ * `packages/room-topology/src/RoomStore.ts`, the store shipping paths execute.
+ * THIS class is the unwired C20 aggregate row store; call it
+ * `AggregateRoomStore`. The alias survives only so composeRuntime,
+ * runtime-composer's types and packages/stores' tests compile until the
+ * C20-aggregate ADR (see file header) lands.
+ */
+export { AggregateRoomStore as RoomStore };

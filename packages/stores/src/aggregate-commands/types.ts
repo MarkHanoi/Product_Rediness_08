@@ -225,7 +225,7 @@ export type ApartmentUpdatePayload = z.infer<
 
 /**
  * `apartment.delete` — per [C20 §4.3] + §1.9.
- * Cascade-deletes the Rooms via RoomStore.removeForApartment. (Once
+ * Cascade-deletes the Rooms via AggregateRoomStore.removeForApartment. (Once
  * A.23.b.3 ships nullable apartmentId, this switches to UNASSIGN
  * semantics per the contract.)
  */

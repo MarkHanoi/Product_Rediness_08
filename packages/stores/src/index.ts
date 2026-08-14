@@ -61,12 +61,17 @@ export { ClimateStore } from './ClimateStore.js';
 // command handlers in A.23.c — the store does per-row schema only.
 export { BuildingStore } from './BuildingStore.js';
 export { LevelStore } from './LevelStore.js';
-// A.23.b.2 (Phase A · Sprint 2) — L3 ApartmentStore + RoomStore.
+// A.23.b.2 (Phase A · Sprint 2) — L3 ApartmentStore + AggregateRoomStore.
 // Wrap the L0 Apartment + Room aggregates. Cross-store invariants
 // (unitNumber uniqueness · apartmentId↔levelId consistency) enforced
 // by apartment.*/room.* commands in A.23.c. Both join C13 reset list.
+// GE-04 (2026-08-14): the room half is renamed AggregateRoomStore — the
+// canonical `RoomStore` is packages/room-topology's (the one shipping paths
+// execute). The deprecated `RoomStore` alias below keeps composeRuntime +
+// runtime-composer types compiling; see src/RoomStore.ts header for the
+// measured evidence and the pending C20-aggregate ADR decision.
 export { ApartmentStore } from './ApartmentStore.js';
-export { RoomStore } from './RoomStore.js';
+export { AggregateRoomStore, RoomStore } from './RoomStore.js';
 // A.30.c (Phase A · Sprint 2) — L3 ConsentStore.
 // Wraps the L0 C22 Consent substrate (`@pryzm/schemas/privacy`). The
 // store is USER-scoped (not project-scoped) — survives project switches

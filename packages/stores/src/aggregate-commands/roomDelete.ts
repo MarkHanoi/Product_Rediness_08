@@ -7,7 +7,7 @@
 // (per §1.9 "deepest first" deletion order).
 
 import type { RoomId } from '@pryzm/schemas/aggregates';
-import type { RoomStore } from '../RoomStore.js';
+import type { AggregateRoomStore } from '../RoomStore.js';
 import {
     RoomDeletePayloadSchema,
     type AggregateCommandResult,
@@ -16,7 +16,7 @@ import {
 
 export function roomDelete(
     rawPayload: unknown,
-    roomStore: RoomStore,
+    roomStore: AggregateRoomStore,
 ): AggregateCommandResult<RoomDeletedEvent> {
     let payload;
     try {

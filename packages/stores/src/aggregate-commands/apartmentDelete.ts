@@ -15,7 +15,7 @@ import type {
     ApartmentId,
 } from '@pryzm/schemas/aggregates';
 import type { ApartmentStore } from '../ApartmentStore.js';
-import type { RoomStore } from '../RoomStore.js';
+import type { AggregateRoomStore } from '../RoomStore.js';
 import {
     ApartmentDeletePayloadSchema,
     type AggregateCommandResult,
@@ -25,7 +25,7 @@ import {
 export function apartmentDelete(
     rawPayload: unknown,
     apartmentStore: ApartmentStore,
-    roomStore: RoomStore,
+    roomStore: AggregateRoomStore,
 ): AggregateCommandResult<ApartmentDeletedEvent> {
     let payload;
     try {

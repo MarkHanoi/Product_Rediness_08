@@ -13,7 +13,7 @@ import {
 } from '@pryzm/schemas/aggregates';
 import type { LevelStore } from '../LevelStore.js';
 import type { ApartmentStore } from '../ApartmentStore.js';
-import type { RoomStore } from '../RoomStore.js';
+import type { AggregateRoomStore } from '../RoomStore.js';
 import {
     RoomUpdatePayloadSchema,
     type AggregateCommandResult,
@@ -24,7 +24,7 @@ export function roomUpdate(
     rawPayload: unknown,
     levelStore: LevelStore,
     apartmentStore: ApartmentStore,
-    roomStore: RoomStore,
+    roomStore: AggregateRoomStore,
     now: () => string = () => new Date().toISOString(),
 ): AggregateCommandResult<RoomUpdatedEvent> {
     let payload;
