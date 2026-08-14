@@ -211,6 +211,41 @@ export type JoinedWallsQuery =
     };
 
 /**
+ * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5, C79 §5.2) — the typed
+ * result of {@link SemanticGraphManager.getBoundingWalls}, the refusal-bearing
+ * `boundedBy` reader ("which walls bound this room?").
+ *
+ * FAILURE ≠ EMPTINESS (C71 §4.4), and here the failure has TWO distinct
+ * shapes that call for different repairs:
+ *
+ *   `boundary-undetermined-after-element-move` — a bounding element of this
+ *     room MOVED and no re-derivation (room detection) has run since. This is
+ *     C79 §5.2's **`undetermined`** recomputation state made representable for
+ *     the boundary layer: the edges were removed by the move-time invalidation
+ *     writer, and answering `[]` here would collapse `undetermined` into a
+ *     confident "bounded by nothing" — the §5.2.1 defect. The C78 §8.1 member
+ *     this maps to on the consequence path is `STALE_DERIVED_STATE` (the
+ *     derived state is known out-of-date; an answer would be a guess); the
+ *     graph channel keeps its own kebab union per C78 §8.2 (`graph-unavailable`
+ *     row note) and the `getJoinedWalls` precedent.
+ *
+ *   `room-unknown-to-boundedBy-writer` — the graph holds no `boundedBy` edge
+ *     from this id and no undetermined mark: the id is not a room, or the
+ *     boundary writers never covered it (C78 §8.1 `RELATIONSHIP_NOT_RECORDED`).
+ *
+ * There is no legitimate empty success: a detected room is bounded by ≥1
+ * elements by construction, so zero edges is always one of the two refusals.
+ */
+export type BoundingWallsQuery =
+    | { readonly ok: true; readonly roomId: string; readonly boundingWallIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly roomId: string;
+        readonly reason: 'boundary-undetermined-after-element-move' | 'room-unknown-to-boundedBy-writer';
+        readonly detail: string;
+    };
+
+/**
  * §SITSON-REVERSE-READER (C71 §2.1 #5, ADR-0320) — the typed result of
  * {@link SemanticGraphManager.getElementsSittingOn}, the REVERSE `sitsOn`
  * traversal (`level → the elements that sit on it`).
@@ -303,6 +338,26 @@ export class SemanticGraphManager {
      */
     private readonly _joinedToCovered = new Set<string>();
 
+    /**
+     * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5, C79 §5.2) — room ids
+     * whose boundary conclusion is **`undetermined`**: a bounding element moved
+     * and no re-derivation (room detection) has run since. Value = the named
+     * reason (C79 §5.2 says the reason MUST be named), keyed on the durable
+     * room id, never on a transient handle.
+     *
+     * Populated by {@link invalidateRegionConclusionsForMovedElement} (the
+     * move-time invalidation writer); cleared the moment a fresh `boundedBy`
+     * edge is written for the room (the detection writer's re-emit IS the
+     * re-derivation), or when the room itself leaves the graph
+     * ({@link removeAllRelationshipsForElement} — a dead id is *unknown*, not
+     * undetermined). Read by {@link getBoundingWalls}, which refuses rather
+     * than answering `[]` while a room is marked (C71 §4.4 / §7.h; C79 §5.2.1
+     * — `undetermined` must never collapse into `preserved`).
+     *
+     * Derived state, never serialized — same disposition as `_joinedToCovered`.
+     */
+    private readonly _boundaryUndetermined = new Map<string, string>();
+
     // ── Mutation ──────────────────────────────────────────────────────────────
 
     /**
@@ -323,6 +378,14 @@ export class SemanticGraphManager {
      * @returns The ID of the relationship (existing or newly created).
      */
     addRelationship(rel: Omit<Relationship, 'id' | 'createdAt'>): string {
+        // §GR12-BOUNDARY-INVALIDATION — a fresh `boundedBy` write for a room IS
+        // the re-derivation the undetermined mark was waiting for (the detection
+        // writer re-emits the whole conclusion per room), so the mark clears
+        // here, at the writer, not in a follow-up (C71 §3.4 shape). Runs before
+        // the idempotency guard on purpose: a re-derivation that reproduces an
+        // existing edge byte-identically is still a re-derivation.
+        if (rel.type === 'boundedBy') this._boundaryUndetermined.delete(rel.sourceId);
+
         // Idempotency guard — don't duplicate the same logical relationship
         const existing = this._findExact(rel.sourceId, rel.targetId, rel.type, rel.authoredBy);
         if (existing) return existing.id;
@@ -373,6 +436,13 @@ export class SemanticGraphManager {
         // answers through the edge branch; a joinless wall stays a refusal
         // until the next flush covers it — honest, per C71 §4.4.
         this._joinedToCovered.delete(elementId);
+
+        // §GR12-BOUNDARY-INVALIDATION — a room whose every edge is purged
+        // (deleted, or replaced by a detection cycle) is UNKNOWN again, not
+        // undetermined: `getBoundingWalls` must refuse with
+        // `room-unknown-to-boundedBy-writer`, not with a stale move mark for a
+        // dead id. Mirrors the `_joinedToCovered` disposition above.
+        this._boundaryUndetermined.delete(elementId);
     }
 
     /**
@@ -454,6 +524,118 @@ export class SemanticGraphManager {
                 `joinedTo lookup for wall ${wallId}: the junction→graph writer has never ` +
                 `covered this id (no flush has run over its level since load, or the id is ` +
                 `not a wall). This is NO ANSWER, not "joins nothing".`,
+        };
+    }
+
+    /**
+     * §GR12-BOUNDARY-INVALIDATION (GR-12 · C71 §1.2 semantic 5 / §1.4 / §3.4;
+     * C79 §5.2) — move-time invalidation of the REGION-DERIVED conclusion
+     * families, called by the geometry-mutation writers the moment a bounding
+     * element's geometry changes (`UpdateWallBaselineCommand` on the command
+     * path; `WallRebuildCoordinator._flush` — the same chokepoint as the
+     * `joinedTo` writer — for every other wall-geometry mutation path).
+     *
+     * WHY THE WRITER AND NOT A FOLLOW-UP (C71 §3.4): `boundedBy` /
+     * `adjacentTo` / `connectedTo` are CONCLUSIONS recomputed from geometry —
+     * which walls enclose this room, which rooms touch. Move a bounding wall
+     * and the conclusion can become false while the edge still reads true and
+     * confident (H6's measured STALE reading, `graphmove.cert.ts`). Whether a
+     * re-detect follows the move is a REACHABILITY question (GR-18/CE-05) the
+     * move writer must not depend on: stale-edge removal is part of the move
+     * itself, exactly as a wall that stops joining drops its `joinedTo` edge
+     * at flush.
+     *
+     * WHAT IT DOES, per room R holding a `boundedBy` edge to the moved
+     * element: removes R's ENTIRE region-derived conclusion — every
+     * `boundedBy` edge from R and every `adjacentTo`/`connectedTo` edge
+     * touching R in either direction — and marks R's boundary
+     * **`undetermined`** with a named reason. The whole conclusion goes, not
+     * just the edge naming the moved element, because at move time NOTHING is
+     * re-derived: whether the moved wall still bounds R, and whether R still
+     * closes at all, are both unknowable without a detection pass, and keeping
+     * the other edges would assert a confident partial boundary no one has
+     * verified (C79 §5.3 — the element-level state is the WORST of its edges).
+     * The re-emit half belongs to the next detection pass, whose `boundedBy`
+     * writes clear the mark (see `addRelationship`).
+     *
+     * The paired adjacency room S (of a removed R↔S edge) is NOT marked: S's
+     * own boundary was not touched — only the pair conclusion involving R was,
+     * and R's mark carries that. Identity is durable ids only, never a
+     * transient handle (C71 §3.5 discipline).
+     *
+     * ID-KEYED families (`sitsOn`, `hosts`/`hostedBy`, `contains`,
+     * `supports`) are deliberately untouched: a moved wall still sits on the
+     * same level and hosts the same door — surviving a move is their CORRECT
+     * behaviour, proven by H6's id-keyed control arms.
+     *
+     * A caller may invoke this for an element that bounds nothing (or on a
+     * path where a re-detect already ran) — the answer is an honest no-op,
+     * reported as zero invalidated rooms, and calling twice is idempotent.
+     */
+    invalidateRegionConclusionsForMovedElement(
+        movedElementId: string,
+    ): { readonly invalidatedRoomIds: readonly string[] } {
+        const roomIds = [...new Set(this.getSources(movedElementId, 'boundedBy'))];
+        for (const roomId of roomIds) {
+            const toRemove = new Set<string>();
+            for (const index of [this._bySource, this._byTarget]) {
+                const set = index.get(roomId);
+                if (!set) continue;
+                for (const relId of set) {
+                    const rel = this._rels.get(relId);
+                    if (!rel) continue;
+                    const regionDerived =
+                        (rel.type === 'boundedBy' && rel.sourceId === roomId) ||
+                        rel.type === 'adjacentTo' ||
+                        rel.type === 'connectedTo';
+                    if (regionDerived) toRemove.add(relId);
+                }
+            }
+            for (const relId of toRemove) this.removeRelationship(relId);
+            this._boundaryUndetermined.set(
+                roomId,
+                `bounding element ${movedElementId} moved and the boundary has not been ` +
+                `re-derived since — the room may no longer be bounded by it, or may no ` +
+                `longer close at all. Re-derivation (room detection) resolves this state.`,
+            );
+        }
+        return { invalidatedRoomIds: roomIds };
+    }
+
+    /**
+     * §GR12-BOUNDARY-INVALIDATION — the typed, refusal-bearing `boundedBy`
+     * reader ("which walls bound room R?"). Same idiom as
+     * {@link getJoinedWalls}: the raw `getTargets(roomId, 'boundedBy')` stays
+     * raw, and THIS is the surface that can say it does not know (C71 §4.4).
+     * See {@link BoundingWallsQuery} for the two refusal shapes and the C79
+     * §5.2 / C78 §8.1 mapping.
+     */
+    getBoundingWalls(roomId: string): BoundingWallsQuery {
+        const undetermined = this._boundaryUndetermined.get(roomId);
+        if (undetermined !== undefined) {
+            return {
+                ok: false,
+                roomId,
+                reason: 'boundary-undetermined-after-element-move',
+                detail:
+                    `boundedBy lookup for room ${roomId}: the boundary is UNDETERMINED — ` +
+                    undetermined +
+                    ` This is C79 §5.2's undetermined state, NOT "bounded by nothing" ` +
+                    `(§5.2.1), and NOT a preserved boundary.`,
+            };
+        }
+        const boundingWallIds = this.getTargets(roomId, 'boundedBy');
+        if (boundingWallIds.length > 0) return { ok: true, roomId, boundingWallIds };
+        return {
+            ok: false,
+            roomId,
+            reason: 'room-unknown-to-boundedBy-writer',
+            detail:
+                `boundedBy lookup for room ${roomId}: the graph holds no boundedBy edge ` +
+                `from this id and no undetermined mark. The id may not be a room, or the ` +
+                `boundary writers never covered it. This is NO ANSWER, not "bounded by ` +
+                `nothing" — a detected room is bounded by at least one element by ` +
+                `construction (C71 §4.4).`,
         };
     }
 
@@ -565,6 +747,7 @@ export class SemanticGraphManager {
         this._bySource.clear();
         this._byTarget.clear();
         this._joinedToCovered.clear();
+        this._boundaryUndetermined.clear();
     }
 
     // ── Queries ───────────────────────────────────────────────────────────────
