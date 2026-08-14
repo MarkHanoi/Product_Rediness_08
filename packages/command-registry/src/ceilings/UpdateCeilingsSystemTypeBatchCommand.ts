@@ -41,6 +41,7 @@ import { trace, type Tracer } from '@opentelemetry/api';
 // resolver and the CI gate (§SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD).
 import type { CeilingSystemType } from '@pryzm/core-app-model';
 import { resolveCatalogueRef } from '../catalogue/resolveCatalogueRef';
+import { childRefusalText } from '../refusal/childRefusalText';
 import { UpdateCeilingLayersCommand } from './UpdateCeilingLayersCommand';
 
 let _cachedTracer: Tracer | null = null;
@@ -164,7 +165,9 @@ export class UpdateCeilingsSystemTypeBatchCommand implements Command {
         for (const id of ids) {
             const v = this._child(id, type).canExecute(ctx);
             if (v.ok) acceptable++;
-            else refusals.push(v.reason ?? `Ceiling ${id} refused the type change`);
+            // §REFUSAL-IDENTITY (GE-09): a stated reason passes VERBATIM; a silent
+            // child is NAMED as silent — never re-worded into a manufactured verdict.
+            else refusals.push(childRefusalText(v.reason, 'UpdateCeilingLayersCommand.canExecute', `ceiling ${id}`));
         }
         if (acceptable === 0) {
             return {
@@ -207,7 +210,7 @@ export class UpdateCeilingsSystemTypeBatchCommand implements Command {
                     const child = this._child(id, type);
                     const v = child.canExecute(ctx);
                     if (!v.ok) {
-                        this._skipped.push({ ceilingId: id, reason: v.reason ?? 'refused' });
+                        this._skipped.push({ ceilingId: id, reason: childRefusalText(v.reason, 'UpdateCeilingLayersCommand.canExecute', `ceiling ${id}`) });
                         continue;
                     }
                     let r: CommandResult;
@@ -224,7 +227,9 @@ export class UpdateCeilingsSystemTypeBatchCommand implements Command {
                         this.executedChildren.push(child);
                         affected.push(id);
                     } else {
-                        this._skipped.push({ ceilingId: id, reason: r.info?.[0] ?? 'execution refused' });
+                        // Same seam, same discipline — a child that FAILED its execute
+                        // without a message is named, not paraphrased as 'execution refused'.
+                        this._skipped.push({ ceilingId: id, reason: childRefusalText(r.info?.[0], 'UpdateCeilingLayersCommand.execute', `ceiling ${id}`) });
                     }
                 }
 

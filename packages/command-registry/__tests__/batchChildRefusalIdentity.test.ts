@@ -30,6 +30,8 @@ import { UpdateDoorsSystemTypeBatchCommand } from '../src/doors/UpdateDoorsSyste
 import { UpdateDoorSystemTypeCommand } from '../src/doors/UpdateDoorSystemTypeCommand';
 import { UpdateWindowsSystemTypeBatchCommand } from '../src/windows/UpdateWindowsSystemTypeBatchCommand';
 import { UpdateWindowSystemTypeCommand } from '../src/windows/UpdateWindowSystemTypeCommand';
+import { UpdateCeilingsSystemTypeBatchCommand } from '../src/ceilings/UpdateCeilingsSystemTypeBatchCommand';
+import { UpdateCeilingLayersCommand } from '../src/ceilings/UpdateCeilingLayersCommand';
 import { childRefusalText, REFUSED_WITHOUT_REASON_CODE } from '../src/refusal/childRefusalText';
 import type { CommandContext } from '../src/types';
 
@@ -197,6 +199,105 @@ describe('UpdateWindowsSystemTypeBatchCommand — child refusals keep their iden
         expect(v.warnings).toBeUndefined();
 
         const r = cmd.execute(ctx);
+        expect(r.success).toBe(true);
+        expect(cmd.skipped).toHaveLength(0);
+        const info = (r.info ?? []).join('\n');
+        expect(info).not.toContain(MARKER);
+        expect(info).not.toContain('skipped');
+    });
+});
+
+// ─── ceilings: UpdateCeilingsSystemTypeBatchCommand ──────────────────────────
+// Same three seams; this family reaches its stores through `ctx.stores` rather
+// than a module singleton, so the context is built here. The fakes are the
+// SMALLEST surface the real child command touches — nothing about the refusal
+// path is stubbed. Paid GE-09v3.
+
+interface FakeCeiling { id: string; systemTypeId?: string; layers?: unknown[]; boundary: { thickness: number } }
+
+function fakeCeilingCtx(ceilings: FakeCeiling[]): CommandContext {
+    const byId = new Map(ceilings.map(c => [c.id, c]));
+    const type = {
+        id: 'ge09-ceil-type', name: 'GE09 Ceiling', totalThickness: 0.12,
+        layers: [{ material: 'gypsum', thickness: 0.12 }],
+    };
+    return {
+        stores: {
+            ceilingStore: {
+                getAll: () => [...byId.values()],
+                getById: (id: string) => byId.get(id),
+                has: (id: string) => byId.has(id),
+                update: (id: string, patch: Record<string, unknown>) => {
+                    const c = byId.get(id);
+                    if (!c) return undefined;
+                    Object.assign(c, patch);
+                    return c;
+                },
+                remove: (id: string) => byId.delete(id),
+                restoreSnapshot: (c: FakeCeiling) => byId.set(c.id, c),
+            },
+            ceilingSystemTypeStore: {
+                getAll: () => [type],
+                getById: (id: string) => (id === type.id ? type : undefined),
+            },
+        },
+    } as unknown as CommandContext;
+}
+
+describe('UpdateCeilingsSystemTypeBatchCommand — child refusals keep their identity (GE-09)', () => {
+    const C1 = 'ge09-ceiling-1';
+    const GHOST = 'ge09-ceiling-ghost';
+    const TYPE = 'ge09-ceil-type';
+
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    const live = (): FakeCeiling[] => [{ id: C1, boundary: { thickness: 0.1 } }];
+
+    it('VERBATIM: a child that states its reason has it reach CommandResult.info untouched', () => {
+        const cctx = fakeCeilingCtx(live());
+        const cmd = new UpdateCeilingsSystemTypeBatchCommand({ ceilingIds: [C1, GHOST], systemType: TYPE });
+        const r = cmd.execute(cctx);
+        expect(r.success).toBe(true);
+        const info = (r.info ?? []).join('\n');
+        expect(info).toContain(`Ceiling "${GHOST}" not found.`);
+        expect(info).not.toContain(MARKER);
+        expect(cmd.skipped.map(s => s.reason).join('\n')).toContain(`Ceiling "${GHOST}" not found.`);
+    });
+
+    it('VERBATIM at canExecute: an all-refused batch surfaces the child sentence in .reason', () => {
+        const cctx = fakeCeilingCtx(live());
+        const cmd = new UpdateCeilingsSystemTypeBatchCommand({ ceilingIds: [GHOST], systemType: TYPE });
+        const v = cmd.canExecute(cctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(`Ceiling "${GHOST}" not found.`);
+    });
+
+    it('SILENT child: a reason-less refusal arrives NAMED, not paraphrased as "refused"', () => {
+        vi.spyOn(UpdateCeilingLayersCommand.prototype, 'canExecute').mockReturnValue({ ok: false });
+        const cctx = fakeCeilingCtx(live());
+        const cmd = new UpdateCeilingsSystemTypeBatchCommand({ ceilingIds: [C1], systemType: TYPE });
+
+        const v = cmd.canExecute(cctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(MARKER);
+        expect(v.reason).toContain('UpdateCeilingLayersCommand.canExecute');
+        expect(v.reason).toContain(`ceiling ${C1}`);
+
+        const r = cmd.execute(cctx);
+        expect(r.success).toBe(false);
+        expect((r.info ?? []).join('\n')).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).not.toBe('refused');
+    });
+
+    it('SILENCE CONTROL: a fully-legal batch renders NO refusal line and NO absence marker', () => {
+        const cctx = fakeCeilingCtx(live());
+        const cmd = new UpdateCeilingsSystemTypeBatchCommand({ ceilingIds: [C1], systemType: TYPE });
+        const v = cmd.canExecute(cctx);
+        expect(v.ok).toBe(true);
+        expect(v.warnings).toBeUndefined();
+
+        const r = cmd.execute(cctx);
         expect(r.success).toBe(true);
         expect(cmd.skipped).toHaveLength(0);
         const info = (r.info ?? []).join('\n');

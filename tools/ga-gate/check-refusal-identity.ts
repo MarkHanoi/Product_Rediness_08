@@ -225,8 +225,9 @@ const BASELINE: readonly Offender[] = [
     { file: "apps/editor/src/ui/residential-building/ResidentialBuildingController.ts", fragment: "return { ok: false, reason: execResult.reason ?? 'the build executor refused', apartmentCount };", why: "arm A — measured 2026-08-11" },
     { file: "packages/ai-host/src/FloorPlanBatchExecutor.ts", fragment: ": (proposal.validation.reason || 'FAILED'),", why: "arm A — measured 2026-08-11" },
     { file: "packages/ai-host/src/workflows/apartmentLayout/workflow.ts", fragment: "reason: result.reason ?? 'Engine declined to generate layouts',", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/ceilings/UpdateCeilingsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Ceiling ${id} refused the type change`);", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/ceilings/UpdateCeilingsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ ceilingId: id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-14 (GE-09v3, ceilings family): all three seams of
+    // UpdateCeilingsSystemTypeBatchCommand render through the shared
+    // childRefusalText(). Baseline 81 → 79.
     { file: "packages/command-registry/src/CommandManagerImpl.ts", fragment: "const _human = validation.blockingIssues?.[0] || validation.reason || 'Validation failed';", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/CommandManagerImpl.ts", fragment: "return { success: false, affectedElementIds: [], info: [validation.reason || 'Validation failed'] };", why: "arm A — measured 2026-08-11" },
     // FIXED + DE-LISTED 2026-08-14 (GE-09v2, doors family): UpdateDoorsSystemTypeBatchCommand
