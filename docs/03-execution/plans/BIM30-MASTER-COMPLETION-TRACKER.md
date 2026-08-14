@@ -729,3 +729,114 @@ Also present with no unmerged work: `agent/c17-rake-ui`, `fix-hostwall-freeze`, 
 - **§7.e** Letting a capability claim outrun its gate. A gate that exists and reads RED means the
   capability is **absent and now visible** — not present.
 - **§7.f** Scheduling Phase H. It is a founder decision; estimating it is fiction.
+
+---
+
+## §8 — SESSION 2026-08-14 · THE 30-AGENT SESSION · 220+ COMMITS
+
+> **Authority: [`BIM30-NEXT-SESSION-BRIEF.md` §12](BIM30-NEXT-SESSION-BRIEF.md).** This section is
+> the tracker-shaped view of it. Where they differ, §12 wins — it carries the executed readings.
+
+### §8.1 — Where the programme stands
+
+**~74 of 82 rows are closable on executed evidence. The register file still reads 34/82.** That gap
+is not work; it is an unstamped file. Per §0.1 this tracker does not quote the higher number as
+fact — it records that the evidence exists, names where, and leaves the counted figure to the stamp.
+
+**Corroboration, new for this programme:** a 12-agent read-only verification workflow re-ran every
+decisive gate independently and audited seven closure claims **refute-by-default**. All seven
+CONFIRMED, every cited commit an ancestor of HEAD, every artefact present. The evidence base is no
+longer self-reported.
+
+### §8.2 — Instrumentation: what reached CLEAN
+
+| Gate | Session open → close |
+|---|---|
+| `check-predicate-canonical` | 53 → **[0] CLEAN hard-0** |
+| `check-provenance-export-boundary` | 5 → **[0] CLEAN** |
+| `check-prevstate-contract` | → **[0] CLEAN, empty ledger** |
+| **`check-conflict-surfacing`** | *did not exist* → built → **[0] CLEAN** (103 silent merges → 0) |
+| `check-structuredclone-new-commands` | 135 → **exit 0, AT baseline 119** |
+| `check-no-empty-means-unknown` | 85 → **71** |
+| `check-no-dark-test-files` | 137 → **13** |
+| `check-relationship-determination` (**bar 3**) | 134 → **132** |
+| Root `tsc` | RED at close → **0 errors repo-wide** (PV-06 required a field three hand-built parts did not carry) |
+
+⚠ **§8.2.a — the instrumentation finding that outranks the rest.** **Four committed gates are
+registered in NO runner** — not `run-all.ts`'s `GATES`, not `ci.yml`, not `package.json`, and no
+exemption allowlist exists: `check-derived-not-authored`, `check-deterministic-regeneration`,
+**`check-predicate-canonical`**, `check-provenance-coverage`. This is §7.e's failure mode one level
+up: not a gate that reads RED, but a gate that **runs nowhere**. `check-predicate-canonical` is the
+instrument GE-02, GE-03 and GE-12 are measured against; `check-deterministic-regeneration` is one of
+three GE-07 is recorded CLOSED on. Those readings are true when a human runs the script and enforced
+never. **First action next session — cheaper than any row.**
+
+### §8.3 — Capability: what a user can now do that they could not
+
+- **A moved wall drags its floor finish and ceiling** — proven by reached behaviour (22.04 → 33.64 m²,
+  exactly once), retiring the prior session's false green.
+- **A house that seals a room says so** — a blocking, dismiss-only card naming the sealed rooms and
+  the failed rule, replacing an unconditional green success toast.
+- **A dropped furnish stage reaches the result** — lighting stamps `furnished`/`unfurnished` with a
+  mandatory disclosure; the §CHAIN-TIMEOUT double-fire is dead. Root cause was **unsatisfiable**,
+  not a short timer.
+- **Generated buildings have units** — rooms are born carrying `unitId`; C81's precondition met for
+  residential.
+- **The BIM ribbon exists.** 30 professional toolbars had zero production importers and the editor
+  had **no visible chrome host at all**. The host is visible, two surfaces mounted, and **all 276
+  unbacked verbs refuse by name citing their SPEC-50 backlog row** instead of dispatching into
+  nothing.
+- **Roof-vs-walls clash is detected AND announced**, consuming an elevation delta the reconcile had
+  always carried and always dropped.
+
+### §8.4 — Defects nobody knew about, found by execution
+
+1. **The AI relay was dead in production.** A bundler-evasion `Function('s','return import(s)')`
+   resolved against the realm, so the configured branch **always threw** and the `catch` **always
+   served demo layout fixtures as AI output**.
+2. **P8 data loss**: whole-doc pending bookkeeping wiped after any merge → a second concurrent edit
+   discarded **silently, 103 of 103 measured cases**.
+3. **§CE04-RING-PIN**: the unified ring-buffer undo is **measurably less faithful than the legacy
+   path it replaces** — ratchets class-2 counters, drops `_sourceBaseLine`. Plus
+   `UpdateWallBaselineCommand` declares no `targetIds`, defeating U-8's shadow-drop: **one phantom
+   Ctrl+Z after a gizmo wall move**.
+4. **`boundedBy` is STALE** after a ring-breaking wall move (GR-12's first reading; the arm existed
+   nowhere before this session).
+5. **A dev-only module executed unguarded in the shipped editor**, with three production
+   capabilities riding on it (split, then guarded).
+
+### §8.5 — Rows that were WRONG IN THE HEALTHY DIRECTION
+
+Re-measurement overturned five row headlines. Standing rule: **re-measure before building.**
+MT-06's two opening stores hold disjoint facts and *cannot* diverge · MT-07's rival was deleted
+months ago · GE-01's "geometry-kernel exports no epsilon" is false (four roles, eight consumers) ·
+GE-09's "Invalid geometry" string exists nowhere user-facing · CO-10's premise was false (a
+production caller exists; the real defect was the inverse).
+
+### §8.6 — What 82/82 still needs
+
+**Stamp-only (~8 rows):** the restamp, using each lane's drop-in evidence text.
+**Small and owned:** MT-03's last verbs · the drain from 71 · PV-08 (pay it with
+`check-provenance-coverage` FINDING C2 — same `floor` kind) · CE-05's mount queue.
+**Founder, not engineering:** **CB-02 is one env flip** (`PgAuthz` is written, wired, tested,
+fail-closed) · **CB-01 is ~$5–10/mo for one always-on process** (code half convergence-proven).
+**Genuine construction:** CO-06's 57 scaffolds (⚠ close the gate's grace-clause loophole first, or
+a bulk pay walks the ratchet down having bought nothing) · MT-04's 11 kind migrations · GE-06's
+slices.
+**Correctly unclosable:** CE-06 — a one-client fixture cannot prove a multi-client claim. Closing it
+would be the lie the row exists to prevent.
+
+**BAR 3 is the second half of 100 %** and moved by 2 verbs of 100. It lands by verb family
+(C78 §19.1 forbids partial credit) and is load-bearing for C81's edit layer.
+
+### §8.7 — Traps added to §6's list
+
+- **Lanes idle on background test runs.** The default stall, now measured: vitest's import phase is
+  **2–7 minutes** on a saturated tree (once, 93 ms of tests sat behind 420 s of import). A lane that
+  reports "waiting" twice must be told to **read its output file**, not re-arm a monitor.
+- **Transient API 529s and model usage limits kill lanes mid-flight.** They resume from transcript
+  with state intact.
+- **Hunk-level staging (`git apply --cached`) is the correct rescue** when two lanes interleave in
+  one file. Three collisions across 220 commits, all self-detected and repaired by the lanes.
+- **Lane msgfiles belong in the scratchpad, never the repo root.** The orchestrator's root cleanup
+  swept several mid-flight; the lanes recovered, but the rule is now explicit.
