@@ -154,7 +154,30 @@ export { serializeHandrailSnapshot, deserializeHandrailSnapshot } from './Handra
 
 // Columns
 export * from './ColumnTypes.js';
-export { ColumnStore } from './ColumnStore.js';
+// ── §TOMBSTONE-COLUMN-STORE-FORK (2026-08-14, gap register PR-13) ───────────
+//
+// DELETED HERE: `ColumnStore` (was `./ColumnStore.ts`).
+//
+// The third and last of the PR-13 store forks — Door and Window fell 2026-08-12
+// (§TOMBSTONE-HOSTED-STORE-FORK above, `f718d768`). Same disease, same proof:
+// a separately-declared near-twin that had stopped tracking its original. This
+// copy had `validateColumnData` (Zod, §COLUMN-AUDIT-2026 §W4) STRIPPED to a
+// `/* validation deferred to command layer */` comment on both write paths,
+// while its doc header still CLAIMED "All write-path entries are validated via
+// validateColumnData" — a store whose contract comments lie about its body.
+//
+// THE LIVE OWNER — import from this, and only this:
+//   `@pryzm/geometry-column` → ColumnStore (validating copy). Every real
+// consumer already did: initBuilders (the shipping instantiation), BOTH
+// ProjectSerializer pairs, ai-host AIReadModel, file-format IFC readers, the
+// rac-conformance certification world. This export had ZERO importers anywhere
+// in the repo — one authority, proven by deletion (root tsc unchanged).
+//
+// `ColumnTypes` (the ColumnData TYPE, above) deliberately STAYS: geometry-slab's
+// SlabColumnCoupling consumes it from here and cannot reach geometry-column
+// without closing a package cycle (geometry-column → geometry-slab). A shared
+// type is not a rival store; the STORE is what PR-13 forbids duplicating.
+// ────────────────────────────────────────────────────────────────────────────
 
 // Roofs
 export * from './RoofTypes.js';
