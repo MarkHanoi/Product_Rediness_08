@@ -227,7 +227,21 @@ export class RoomTopologyObserver {
   /** Levels currently held by a consequence plan. Test/diagnostic read. */
   get planCoveredLevelCount(): number { return this._planCoveredLevels.size; }
 
-  /** Surrender graph authority for a level (manual edit / explicit re-detect). */
+  /**
+   * Surrender graph authority for a level (manual edit / explicit re-detect).
+   *
+   * §PR-05-ONE-RELEASE-AUTHORITY (C72 §4.1, 2026-08-14) — this method is THE
+   * single release path for `_graphAuthoritativeLevels`. The GR2 branch in
+   * `attach()` used to hold an inline `this._graphAuthoritativeLevels.delete(…)`
+   * twin beside it — a release wired in one place and duplicated in another is
+   * how a widened release reaches only half the sites. The inline branch now
+   * delegates here. NOTE what this does NOT fix (the still-open half of gap
+   * register PR-05 / gate `check-suppression-is-reversible` S1): release REACH
+   * is unchanged — only a manual, unbatched wall `add`/`remove` gets here, so a
+   * wall `update`, a batched mutation, or the end-of-generation sweep still
+   * never surrenders authority. Widening reach is a behavioural decision that
+   * belongs to the C72 §4.1 row, not to this dedup.
+   */
   clearGraphAuthoritative(levelId: string): void {
     this._graphAuthoritativeLevels.delete(levelId);
   }
@@ -287,7 +301,9 @@ export class RoomTopologyObserver {
         // now on (the graph was a generation-time seed, not a permanent lock).
         if ((event === 'add' || event === 'remove') && !batchCoordinator.isBatching
             && this._graphAuthoritativeLevels.has(wall.levelId)) {
-          this._graphAuthoritativeLevels.delete(wall.levelId);
+          // §PR-05-ONE-RELEASE-AUTHORITY — delegate to the ONE release method
+          // instead of an inline `.delete(…)` twin (see clearGraphAuthoritative).
+          this.clearGraphAuthoritative(wall.levelId);
           console.debug(`[RoomTopologyObserver] graph authority surrendered (level=${wall.levelId}, manual ${event}) — ADR-0069 GR2`);
         }
         this._scheduleRedetect(wall.levelId, DEBOUNCE_MS);
