@@ -3193,3 +3193,79 @@ segment, never seats an endpoint (the "kept the original point, moving the 2 wal
 connect" snap-back, executed as the slide test). **Guarded by** the seam suite's L-875 test
 (two region slabs, shared side walls byte-untouched, partition moves cleanly, both rooms survive
 with their ids) and the L-873 slide test.
+
+## L-880 — A wall move left a region UNENCLOSED and PRYZM said nothing — CLOSED (detect → ask → execute), coverage stated
+
+**2026-08-14, founder OBSERVED live on build `9ee11d2a`; source-verified at HEAD `a75e8e1e`.**
+Moving perimeter wall `wall_01KZZYWAVGR2H6SRBY0TM4ZF4F` ran every mechanism that had landed that
+morning, and each behaved: `§C79-5.2 resized: 195.510 m² → 134.192 m²`,
+`§GR12-BOUNDARY-INVALIDATION` marked the affected rooms undetermined, and
+`WallMoveReweldService §MOVE-REWELD-DISPATCH` re-welded the junctions (L-872 / L-873). The move
+nevertheless left a region that used to be a room standing **open on one side**. The log read
+`Detected 2 room(s) … unresolvedLoopBreaks=0`, and
+`RoomBoundaryBuilder Compliance overlay: 1 error room(s) tracked (overlay OFF)`.
+**The user was told nothing.**
+
+**THE MEASUREMENT THAT DECIDED WHERE THE FIX BELONGS.** Three signals already existed and **none of
+them is this signal** — saying which is the load-bearing part of this row.
+
+1. **`unresolvedLoopBreaks=0` was CORRECT, not a miss.** `RoomDetectionEngine._diagRoomLoop`
+   (`packages/room-topology/src/RoomDetectionEngine.ts:569-624`) counts a guest endpoint projecting
+   onto another wall's MID-SPAN (`0.01 < t < 0.99`) at a centreline distance BOTH beyond that host's
+   snap radius AND **`< 1.0` m**. It is a thick-shell T-junction *clamp* diagnostic with a one-metre
+   ceiling. A perimeter wall that sheds 61 m² of floor leaves the partition endpoints projecting onto
+   nothing — `t` falls outside the body span, or the distance clears the ceiling. **The region simply
+   stopped being a room**; that is not a loop break in this detector's sense, so detection could not
+   live inside that diagnostic.
+2. **The compliance overlay is the ConstraintEngine channel** (`_complianceStatus`,
+   `RoomBoundaryBuilder.ts:40/376`), fed only from `pryzm-constraints-updated` (`ROOM_MIN_AREA`,
+   `ROOM_NEEDS_DOOR`, `HABITABLE_NEEDS_WINDOW` …) — a downstream symptom channel (**L-862**) that
+   cannot name a missing edge.
+3. **The §GR12 `boundedBy` undetermined mark** (`02157ebb` / `9fa40ae2`) is the right *state* in the
+   wrong *shape*: a room that never returns from the detection pass never gets the fresh `boundedBy`
+   write that would clear its mark, so the graph does know that it does not know — but it holds a
+   MARK, not a GEOMETRY, and the founder asked for a wall "in the expected space".
+
+**FIX — two commits, detector then offer.** `499360c6`
+(`packages/room-topology/src/OpenedRegionDetector.ts`): a pure before/after room-set comparison
+(`merged` / `vanished`), with the proposed segment computed from the lost region's OWN former
+perimeter (its longest contiguous unwalled run) rather than guessed. Four **named refusals** instead
+of a guess — `no-unwalled-edge`, `gap-dominates-perimeter`, `multiple-disjoint-gaps`,
+`gap-turns-corner`. `a75e8e1e` (`apps/editor/src/ui/ai/OpenedRegionProposal.ts` +
+`chatPromptHost.ts`, armed from `RoomTopologyObserver`): PRYZM **asks** — Confirm dispatches
+`runtime.bus.executeCommand('wall.create', …)`, the ordinary canonical verb on the ordinary bus, so
+it is ONE command and therefore ONE Ctrl+Z (C83 §4.1.1 — undo cost stated truthfully before
+consent). Nothing is created without consent; a finding it cannot defend shows no button at all.
+
+**⚠ THE COVERAGE, STATED RATHER THAN IMPLIED — this closes ONE path, not the class:**
+- The detector is armed **exclusively** by `RoomTopologyObserver._onWallMutationCommitted`, so it
+  fires **only after a wall MOVE settles**. A region left open by a wall **delete**, a slab edit or
+  a generator pass is **NOT covered**. Same defect, no detection.
+- The offer proposes **one straight wall**. A gap that turns a corner refuses (`gap-turns-corner`)
+  rather than proposing two walls.
+- **Nothing here is gate-enforced.** It is protected by tests only — un-arming the observer or
+  deleting the offer would pass CI unchallenged.
+
+**Guarded by** `packages/room-topology/src/__tests__/OpenedRegionDetector.test.ts` (**16/16**) and
+`apps/editor/__tests__/OpenedRegionProposal.test.ts` (**13/13**) — both re-run green at `a75e8e1e`,
+covering the millimetre-exact gap segment, donor thickness/height, Confirm → exactly one
+`wall.create`, Cancel → nothing dispatched, "nobody could be asked" treated as NOT a decline
+(re-arms), and the identical gap asked only ONCE across repeated re-detects.
+
+**FOR THE NEXT C83 SLICE — the surface binding, recorded so a fifth offer surface is not minted.**
+The offer speaks on the **C83 §4.1 item 3 chat prompt** (`ZeroTokenUiHooks.confirm`, cited in the
+code as §4.1.3) — the chat half of that section's "one plan, two prompts". `chatPromptHost.ts` (new,
+`a75e8e1e`) is the accessor for `AIPanel`'s own `ZeroTokenUiHooks` pair: both halves (`addMessage`,
+`showZeroTokenConfirm`) were closures inside `createAIPanel`, handed to `tryHandleZeroToken` by
+argument and reachable from nowhere else — so **the only cross-boundary channel into the transcript
+was `ai-proposal-added`, i.e. the doubly-declared `CommandProposal` type that C83 §4.1 forbids new
+work from building on**. Any future C83 slice that needs to speak between user turns should use this
+accessor rather than mint another route. Not yet done here: the offer does not emit a
+`ConsequencePlan`, so it sits beside the canonical plan pipeline rather than inside it.
+
+**One caveat that does NOT apply here, checked rather than assumed.** The `RoomContentsService`
+`[]`-collapse (C83 §0.2.1, the `contained` arm) is untouched by this change: nothing in it calls
+`RoomContentsService`. The detector reads room polygons from `RoomStore.getByLevel` and wall
+baselines from `WallStore.getByLevel`, and refuses explicitly when either store cannot answer
+(`_snapshotRooms` returns `undefined`, which **disables** the comparison rather than comparing
+against an unknown "before"). No empty list is treated as evidence anywhere in this change.
