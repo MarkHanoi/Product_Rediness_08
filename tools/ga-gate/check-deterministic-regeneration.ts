@@ -701,6 +701,18 @@ const staleFlow = [...pFlow].filter((k) => !mFlow.has(k));
 const staleOrder = [...pOrder].filter((k) => !mOrder.has(k));
 const stalePol = [...pPol].filter((k) => !mPol.has(k));
 const newFlow = [...mFlow].filter((k) => !pFlow.has(k));
+// §NAME-THE-EXCESS (2026-08-14). D1 has printed `+ NEW SINCE BASELINE` since it was
+// written; D2 and D3 printed only a TOTAL and a `struck:` count. So a run in which
+// one D2 row was re-anchored and a different site was newly violated printed
+// "42 (baseline 41) · struck: 2" — three separate facts collapsed into two numbers,
+// and the reader had to diff 42 lines against a JSON file by hand to learn WHICH
+// site was the excess. That is the same defect as a bare count in a shrink-only
+// ledger (C69 §7.c): one removal and one addition read as "no change".
+//
+// Nothing here changes a threshold, a verdict or an arm. It only makes the arm that
+// already exits 3 say what it exited 3 ABOUT.
+const newOrder = [...mOrder].filter((k) => !pOrder.has(k));
+const newPol = [...mPol].filter((k) => !pPol.has(k));
 
 const lines: string[] = [];
 lines.push(`RECIPE: ${RECIPE}`);
@@ -737,14 +749,20 @@ for (const [f, n] of [...discByFile.entries()].sort((a, b) => b[1] - a[1] || a[0
 lines.push('');
 
 // ── D2 ───────────────────────────────────────────────────────────────────────
-lines.push(`D2  ${mOrder.size} order-dependence site(s) (baseline ${pOrder.size}) · struck: ${staleOrder.length}`);
+lines.push(
+  `D2  ${mOrder.size} order-dependence site(s) (baseline ${pOrder.size}) · new: ${newOrder.length} · struck: ${staleOrder.length}`,
+);
 for (const s of det.orderSites) lines.push(`      ${s.file}:${s.line}  ${s.kind} — ${s.why}\n          ${s.text}`);
+for (const k of newOrder) lines.push(`      + NEW SINCE BASELINE: ${k}`);
 lines.push('');
 
 // ── D3 ───────────────────────────────────────────────────────────────────────
-lines.push(`D3  ${mPol.size} PERSIST-OR-LOSE field path(s) (baseline ${pPol.size}) · struck: ${stalePol.length}`);
+lines.push(
+  `D3  ${mPol.size} PERSIST-OR-LOSE field path(s) (baseline ${pPol.size}) · new: ${newPol.length} · struck: ${stalePol.length}`,
+);
 lines.push(`      input: ${relPath(ROOT, DERIVED_LEDGER)} — ${d3.reason}`);
 for (const k of [...mPol].sort()) lines.push(`      · ${k}`);
+for (const k of newPol) lines.push(`      + NEW SINCE BASELINE: ${k}`);
 for (const l of d3GeometryResidual()) lines.push(l);
 lines.push('');
 
