@@ -307,6 +307,27 @@ const GATES: Gate[] = [
   // if any arm stays silent. Carries a gate-newly-measured.json entry, NOT
   // gate-debt.json: the defects predate the instrument and nobody chose to ship them.
   { name: 'generator-circulation (SPEC-49 CI-2)',      script: 'check-generator-circulation.ts' },
+  // C70 K-INV-2 · C08 §3.1/§3.3 · P8 (2026-08-14) — CB-04. THE CONFLICT-SURFACING
+  // HALF OF P8, WHICH HAD NO INSTRUMENT AT ALL. `fb7cd4a0` (§RIVAL-MINT) stopped
+  // the CRDT EATING disjoint properties; nothing measured whether a merge that
+  // legitimately DISCARDS one side's value SAYS SO. Convergence and disclosure are
+  // two different facts and this suite exists because two different facts must
+  // never print the same value.
+  //
+  // ⚠ It DRIVES 309 real merges through real `YjsDocAdapter` pairs and the
+  // production `SYNC_DISPOSITIONS` table — it counts REACHED BEHAVIOUR, never
+  // files: a gate that counted conflict-handling FILES would be satisfied by
+  // writing one. It lives in the certification tree beside the other
+  // collaboration gates and imports the ONE exit-code contract (../contract.ts);
+  // the PATH is what is registered, not a copy.
+  //
+  // Lands RED at exit 1 against a NAMED shrink-only 103-row ledger
+  // (conflict-surfacing-ledger.json), checked in BOTH directions, with 6
+  // controls executed INSIDE every run — including a PLANTED SILENT MERGE that
+  // must be flagged BY NAME and a clean corpus that must read 0 (L-716
+  // satisfiability) — and exit 2 as a blind detector if any control stays
+  // silent. Carries a gate-newly-measured.json entry, NOT gate-debt.json.
+  { name: 'conflict-surfacing (C70 K-INV-2 · CB-04)',  script: '../rac-conformance/certification/gates/check-conflict-surfacing.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];
