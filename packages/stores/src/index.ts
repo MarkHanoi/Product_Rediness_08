@@ -116,7 +116,13 @@ export {
 // `updateApprovalStatus()` (§1.7) and `linkElement()` (§4.4). Cycle
 // detection rejects edges that would close a loop (§1.3 DAG invariant).
 // Snapshots dedup by contextHash. Joins the C13 reset list.
-export { ProvenanceStore } from './ProvenanceStore.js';
+export { ProvenanceStore, PROVENANCE_SLICE_VERSION } from './ProvenanceStore.js';
+// PV-05 (C70 I-INV-2) — the persisted lineage slice + its load result.
+export type {
+    SerializedProvenance,
+    ProvenanceHydrateResult,
+    ProvenanceDroppedRow,
+} from './ProvenanceStore.js';
 // A.R.3 (Revit round-trip · S55) — L3 IfcMetaStore. Durable home for IFC/Revit
 // element metadata (globalId + psets/quantities/tier), serialisable into
 // `.pryzm` so a Revit round-trip survives reload. Wraps `@pryzm/schemas/ifc`.

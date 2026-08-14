@@ -215,6 +215,23 @@ export interface ProjectSnapshot {
     decisionRecords?: import('@pryzm/core-app-model').SerializedDecisionRecords;
 
     /**
+     * PV-05 (C70 I-INV-2) — the C23 AI-lineage substrate: artefacts,
+     * lineage edges, context snapshots and redaction records.
+     *
+     * Optional and ADDITIVE: every snapshot written before 2026-08-14
+     * omits it, and omission is NOT an empty audit log. `ProvenanceStore
+     * .hydrate(undefined)` returns `absent: 'predates-provenance-
+     * persistence'` — UNKNOWN with a reason (C75 §1.4) — and the loader
+     * NAMES the loss rather than starting a fresh lineage silently.
+     *
+     * Written only when a `provenanceStore` is supplied in ProjectStores;
+     * bootstraps that do not wire one omit the key entirely, so an
+     * unwired session can never write a MISLEADING empty slice over a
+     * project that has one.
+     */
+    provenance?: import('@pryzm/stores').SerializedProvenance;
+
+    /**
      * Phase L — L-1 + L-2 (schema v5).  TOMBSTONE — the in-engine lifecycle /
      * maintenance stores were deleted at S70 D8 alongside `src/lifecycle/`
      * per SPEC-27 §4.3 + ADR-030 Part D + ADR-0052 §B.7.  The field is kept
@@ -638,6 +655,12 @@ export interface ProjectStores {
     floorStore?: import('@pryzm/core-app-model/stores').FloorStore;
     /** FloorSystemTypeStore — needed to persist custom floor assembly types. */
     floorSystemTypeStore?: import('@pryzm/core-app-model/stores').FloorSystemTypeStore;
+    /**
+     * PV-05 — the C23 AI-lineage store. Optional: when absent the
+     * `provenance` snapshot key is OMITTED rather than written empty, so
+     * an unwired bootstrap cannot erase a project's audit log by saving.
+     */
+    provenanceStore?: import('@pryzm/stores').ProvenanceStore;
 }
 
 export class ProjectSerializer {
@@ -786,6 +809,15 @@ export class ProjectSerializer {
 
             // Phase G — G-3 (schema v4): Decision records (architect rationale)
             decisionRecords: decisionRecordStore.serialize(),
+
+            // PV-05 (C70 I-INV-2): C23 AI-lineage substrate. Written ONLY
+            // when the store is wired — an unwired bootstrap omits the key
+            // rather than writing an empty slice, because an empty slice
+            // would overwrite a real audit log with a claim of "no AI ever
+            // touched this project", which is a fabrication (C75 §1.4).
+            provenance: stores.provenanceStore
+                ? stores.provenanceStore.serialize()
+                : undefined,
 
             // Phase L — L-1/L-2 (schema v5): TOMBSTONE.  The lifecycle /
             // maintenance stores were deleted at S70 D8 (SPEC-27 §4.3 +
