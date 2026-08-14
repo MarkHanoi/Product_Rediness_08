@@ -26,8 +26,19 @@
 > the register in the same PR). **Supersedes nothing.**
 > **Gate**: **no gate decides C83 today.** §9 names four; every one is UNBUILT at stamp time and its
 > honest status is **UNPROVEN**.
-> **Changelog**: 2026-08-14 — created, on a founder request (§0), after a survey found that this
-> product's spatial reasoning is real, good, and **almost entirely locked inside the generators**.
+> **Changelog**:
+> · 2026-08-14 — created, on a founder request (§0), after a survey found that this product's spatial
+> reasoning is real, good, and **almost entirely locked inside the generators**.
+> · 2026-08-14 (same day, `28b47ec1` → this revision) — **materially corrected** by a 26-agent
+> prior-art survey with adversarial reachability checking. **§0.2.3 REFUTES a premise the first draft
+> was built on** (the `contains` edge exists for generated furniture — it does not; no path writes
+> it). **§1.1.1 maps this contract's three verdicts onto C74's four canonical classifications** rather
+> than minting a fifth vocabulary, after the survey found a two-tier split independently decided four
+> times already. **§2.2.1 records that the role split is already materialised** as the `RoomContents`
+> bucket boundary, which makes the first rule far cheaper. **§8 REORDERED**: the founder's headline
+> ENFORCEMENT case moved from first to last — not because it shrank, but because it costs a C74 §2
+> contract row and a preview trigger that has zero callers, while a regression fix and one advisory
+> rule were found to be strictly cheaper and immediately shippable.
 
 ---
 
@@ -84,62 +95,134 @@ code, because a `head -30` on the grep was consumed by its own test file — rec
 - constructed at
   [`apps/editor/src/engine/initBuilders.ts:526`](../../../apps/editor/src/engine/initBuilders.ts),
   with all fifteen element stores attached (`:990` logs *"all element stores attached"*);
-- read by `PropertyPanelStoreEnricher.ts:108-109` → `getRoomForElement(id, type, levelId)` — this is
-  how the property panel already tells a user which room an element is in;
-- read by `apps/editor/src/ui/inspect/audit/ElementTypeSelectorZone.ts:99-103` → `getContents(roomId)`.
+- **most-executed reader**: `PropertyPanelStoreEnricher.ts:109` → `getRoomForElement(id, type,
+  levelId)`, on the **unconditional path of `PropertyPanel.showElement` for every selected element**;
+- `RoomPropertySection.ts:1076` — the room inspector's "Contents" card;
+- `apps/editor/src/ui/inspect/audit/ElementTypeSelectorZone.ts:99-103` → `getContents(roomId)`.
 
 So a live, honest, per-frame-memoised containment answer already reaches the shipping UI. **C83 does
 not need to build one.**
 
-| Meaning | Mechanism | Written by | Maintained on MOVE? | Maintained on DELETE? |
-|---|---|---|---|---|
-| **BOUND** — walls that enclose the room | `room.boundingWallIds` + `'boundedBy'` graph edge (`SemanticGraph.ts:50`) | `DetectAllRoomsCommand.ts:152`, `ReDetectRoomsCommand.ts:154` (`createdBy: 'system'`) | **INVALIDATED, not recomputed** — GR-12 move-time invalidation (`02157ebb`, `9fa40ae2`) marks it UNDETERMINED | edge survives wall delete unless the cascade runs (`wallDeleteLeavesGraphEdges.test.ts`) |
-| **HOSTED** — doors/windows in that boundary | **DERIVED from BOUND** — `_hostedOpenings(store, wallIds, …)` (`RoomContentsService.ts:289-291`) | nobody directly; it is a join through the bounding-wall list | inherits BOUND's invalidation | inherits BOUND |
-| **CONTAINED** — furniture standing in the room | **TWO rival mechanisms — see below** | — | — | — |
+> ⚠ **Everything from here to §0.2.3 was CORRECTED on 2026-08-14 by a 26-agent prior-art survey with
+> adversarial reachability checking** (the "prior-art map", `whhjjb27r`). Two of the three verdicts
+> below moved, and **one of the corrections refutes a premise this contract's first draft was built
+> on.** Corrections are made in place with the refuted claim preserved, per this suite's convention.
+> The survey is the evidence; C83 carries only the verdicts that bind its design.
+
+| Meaning | Mechanism | Verdict |
+|---|---|---|
+| **BOUND** — walls that enclose the room | `room.boundingWallIds`, **top-level on the schema** (`packages/schemas/src/elements/Room.ts:140`), written by `RoomDetectionEngine.ts:518`, persisted verbatim (`ProjectSerializer.ts:975`). The `'boundedBy'` graph edge is a **mirror, not the authority.** | **STORED, WRITTEN, MAINTAINED, HAND-REACHED — with three live defects (§0.2.1)** |
+| **HOSTED** — doors/windows in that boundary | `hosts`/`hostedBy` is **wall ↔ opening, never room ↔ opening**. Room→doors is **DERIVED AT READ TIME** by scanning `boundingWallIds` (`RoomContentsService._hostedOpenings:601-608`) | **YES as wall↔opening; NO as room↔opening — and the plan tools do not write the edge at all (§0.2.2)** |
+| **CONTAINED** — furniture standing in the room | `pointInPolygon` over element centroids at read time (`_containedByCentroid:620-637`). `RoomContentsService` imports `semanticGraphManager` **zero times.** | ⚠ **THE `contains` EDGE DOES NOT EXIST ON ANY PATH (§0.2.3)** |
 
 **BOUND and HOSTED are the same fact.** `RoomContentsService.ts:218-221` states the consequence in
 its own words: *"A `boundingWallIds` record here means `bounding.walls` AND all three `hosted.*`
 buckets are undetermined — doors, windows and openings are found THROUGH the bounding walls, so an
-unrecorded wall list silently empties them too."* This is already handled honestly — the service
+unrecorded wall list silently empties them too."* This is handled honestly *inside the service* — it
 returns `undetermined` and sets `totals.exact = false` (`:203-212`) rather than reporting zero doors.
 **A C83 rule MUST read `undetermined` before acting on an empty bucket** (§5.3).
 
-**CONTAINED is where the founder's model needs the correction, and it is a good-news correction.**
-There are two mechanisms and they do not cover the same furniture:
+### §0.2.1 — BOUND is real, and carries three live defects a C83 rule must survive
 
-1. **The `'contains'` graph edge** (`SemanticGraph.ts:51`, *"room → furniture/equipment"*).
-   Sole first-party writer: `CreateFurnitureCommand.ts:249-255` — and **only when `hostedSpaceId` is
-   set** (`:246-247`). Every producer of `hostedSpaceId` is inside
-   `packages/ai-host/src/workflows/furnishLayout/**` — the D-FLE furnish engine
-   (`placeSolver.ts`, `kitchenLayout.ts`, `wardrobeLayout.ts`, `bedVariety.ts`, `bedsideLamps.ts`).
-   **Therefore: generated furniture has the edge; HAND-PLACED FURNITURE HAS NONE.** The command's
-   own comment is explicit and correct that this is deliberate (`:233-235`): *"an item with no
-   `hostedSpaceId` (hand-placed, not yet resolved to a room) writes NO edge, because inventing a
-   containment the model does not assert is the provenance-invented defect one layer over."*
-   It is also **not maintained on move**: `packages/command-registry/src/furniture/` contains no move
-   command (`Create`, `ChangeType`, `UpdateParameters` only); `furniture.move` is a declared-dead verb
-   that refuses (`plugins/furniture/src/handlers/MoveFurniture.ts:73`), and real moves go through
-   `UpdateFurnitureParametersCommand`, which never touches the edge. **Drag a generated sofa into the
-   next room and the graph still says the first room contains it.**
-2. **Geometric containment** — `RoomContentsService._containedByCentroid(…)` (`:294`), a live
-   `pointInPolygon` on the item centroid against `room.boundary.polygon`. **Computed on demand, so it
-   is never stale, and it works identically for hand-placed and generated furniture.**
+1. **The refusal-bearing reader has ZERO production callers.** `SemanticGraph.getBoundingWalls`
+   (`:613-640`) distinguishes `boundary-undetermined-after-element-move` from
+   `room-unknown-to-boundedBy-writer`; its only caller is `SemanticGraph.boundedByInvalidation.test.ts`.
+   **Every production reader uses raw `getTargets(roomId,'boundedBy')` → `[]`** — so a move-invalidated
+   room is reported to `SemanticQueryEngine.ts:148` (*"rooms without a door"*) as an affirmative
+   *bounded by nothing*. **This is the `[]`-means-unknown collapse C71 §4.4 forbids, inside the family
+   this contract's first draft called the mature one.**
+2. **"Maintained" is FALSE on generated levels.** `markGraphAuthoritative` has four production callers
+   (the four building executors); `clearGraphAuthoritative` has **0 production callers** — stated by
+   the gate itself, `tools/ga-gate/check-suppression-is-reversible.ts:13`, row S1. So on a generated
+   level a hand wall move deletes the edges (`WallRebuildCoordinator.ts:1496`) and the corrective
+   re-detect is suppressed at `RoomTopologyObserver.ts:728-731` — **permanently.**
+3. **Hand-drawn rooms start empty.** `RoomPlanToolHandler.ts:127` creates rooms with
+   `boundingWallIds: []`.
 
-> ### ⚠ THE SINGLE MOST IMPORTANT SENTENCE IN THIS DOCUMENT
+**Consequence for C83, and it is not small**: for a hand-drawn room, and for any room on a generated
+level after a wall move, the `hosted.doors` bucket is **empty for a reason that is not "no doors"** —
+while the `contained.*` centroid arms still answer normally. A rule that reads `hosted.doors` and
+finds nothing MUST NOT conclude the room has no doors.
+
+### §0.2.2 — ⚠ NAMED DEFECT: the same user action produces different graph state in plan vs 3D
+
+Independent of this feature, and recorded here because C83's first rule sits on exactly this seam:
+
+- **3D writes the edge** — `packages/geometry-door/src/DoorTool.ts:503` (`WindowTool.ts:455` symmetric)
+  → `CreateWallOpeningCommand.ts:236/:242`.
+- **PLAN does not** — `DoorPlanToolHandler.ts:174` dispatches bus `wall.opening.create` →
+  `plugins/wall/src/handlers/CreateWallOpeningLegacyAdapter.ts`, which writes only the Immer store.
+  `grep semanticGraph plugins/` returns exactly one file, and it is a test: **the entire L6 plugin
+  tier — the tier tools are being migrated INTO — writes zero SemanticGraph edges.**
+
+The "recovered on next load" consolation is weaker than it looks: `rebuildSemanticGraphFromSnapshot`
+is gated on `if (semanticGraphManager.size === 0)` (`ProjectLoader.ts:1879`) while
+`ProjectSerializer.ts:1083` serialises the graph on **every** save — so once a project's graph is
+non-empty for any reason, a plan-placed door's `hosts` edge is never reconstructed.
+⚠ **That last step is a DERIVED INFERENCE from two file reads, not an executed result. C83 records it
+as UNPROVEN** and does not build on it; one executed probe would settle it.
+
+### §0.2.3 — ⚠ REFUTED: the `contains` edge does not exist on ANY path, hand-authored or AI
+
+**This contract's first draft (`28b47ec1`) stated: *"generated furniture has the edge; hand-placed
+furniture has none."* That is WRONG, and the correction is preserved rather than quietly swapped.**
+
+The measured state:
+
+- Exactly one first-party writer — `CreateFurnitureCommand.ts:249-255`, gated at `:246` on
+  `data.hostedSpaceId`, populated only from `payload.metadata.hostedSpaceId` (`:179-181`).
+- **All 14 non-test `new CreateFurnitureCommand(...)` sites were read. Not one sets it.** Every
+  hand-placement surface (`plugins/furniture/src/tool.ts:67`, `FurniturePlanToolHandler.ts:412`,
+  `FurnitureDragDropHandler.ts:475`, `KitchenCabinetTool.ts:410`, `WardrobeCabinetTool.ts:384`,
+  `CopyPlanToolHandler.ts:477`) dispatches bus `furniture.create` into
+  `plugins/furniture/src/handlers/CreateFurniture.ts`, which has **zero** `semanticGraphManager` calls.
+- **The AI path computes the right answer and drops it three times.** D-FLE stamps `hostedSpaceId`
+  (`buildFurnishCommands.ts:76`); it is discarded at `CreateFurnitureBatch.ts:99-122`
+  (`Furniture.parse(seed)` strips it), at `CommandEventBridge.ts:687-736`, and at
+  `initTools.ts:2011-2033`. The codebase says so in its own words at `initTools.ts:1985-1990`.
+- Reload cannot bootstrap it: `ProjectSerializer` reads `f.hostedSpaceId` off a record nothing writes,
+  so `rebuildSemanticGraph.ts:255` `continue`s on every item.
+- **There is no refusing reader for `contains` at all** — only four families have one (`joinedTo`,
+  `boundedBy`, `sitsOn`, `hostedBy`). Both live readers use raw `getTargets` → `[]`
+  (`HierarchyTreePanel.ts:626` silently renders no Furniture group; `WorldModelAdapter.ts:200`).
+- **Also REFUTED**: the earlier claim that room re-detect and furniture delete *destroy* these edges.
+  Both destruction sites are live, but **there is never an edge to destroy.** `contains` is
+  authored-but-unreachable **at the write end** — a distinct failure mode from the read-end
+  unreachability this contract catalogues elsewhere, and worth the distinction.
+
+**So the founder's belief holds for BOUND, holds with a caveat for HOSTED, and is FALSE for
+CONTAINED.** The good news is that the correction does not change the design — it strengthens the
+conclusion the first draft reached for the wrong reason.
+
+> ### ⚠ THE BINDING DECISION OF THIS CONTRACT
 >
-> **C83 rules MUST resolve containment geometrically, via `RoomContentsService`, and MUST NOT read
-> the `'contains'` edge.** The edge is absent for exactly the population a live design-logic check
-> exists to serve — furniture a human placed by hand — and stale for the population it does cover.
-> A rule built on it would be silent on hand-authored designs and wrong after any drag: it would fail
-> in the two ways §5 says are disqualifying, simultaneously.
+> **C83 rules MUST resolve containment GEOMETRICALLY, via `RoomContentsService`, and MUST NOT read the
+> `'contains'` edge.** Four reasons, in order of force:
 >
-> This does **not** make the edge a defect. It is a correct record of *the furnish engine's stated
-> intent* and it has two live readers (`HierarchyTreePanel`, `WorldModelAdapter`). It is simply not
-> an answer to C83's question. Two mechanisms, two questions.
+> 1. **The edge does not exist** (§0.2.3). A rule reading it would be silent on every design, always.
+> 2. **The geometric answer is self-correcting on move and delete for free.** The stored edge would
+>    not be: there is no furniture move command that maintains it (`packages/command-registry/src/
+>    furniture/` has `Create`, `ChangeType`, `UpdateParameters` only; `furniture.move` is a
+>    declared-dead verb refusing at `plugins/furniture/src/handlers/MoveFurniture.ts:73`).
+> 3. **A stored `contains` edge would today be actively WORSE than none.**
+>    `tools/rac-conformance/certification/__tests__/graphmove.cert.ts` classifies `contains` as
+>    **ID-KEYED** — *"surviving a move is CORRECT"*. That is right for `sitsOn`/`hosts` and **wrong for
+>    a spatial containment**: drag a sofa from the bedroom to the kitchen and the edge would keep
+>    asserting the bedroom, with full confidence and no refusal reader to catch it. **That
+>    classification must be corrected to position-derived BEFORE anyone stores this edge.**
+> 4. `RoomContentsService` carries a typed `undetermined[]` drawn from C78 §8.1's imported reasons and
+>    a `totals.exact` flag. It is the highest-quality prior art in this area.
+>
+> ⚠ **The honest cost, stated rather than buried.** C71 §1.1 reads: *"Topology that is re-detected on
+> every query is a cache pretending to be knowledge."* That sentence indicts the mechanism this
+> contract has just chosen. C83's answer is not that C71 is wrong; it is that **for a validity rule,
+> freshness beats retention** — a rule must judge where the sofa *is*, not where it was recorded. The
+> tension is real, it is C71's to resolve for the graph generally, and §8's Slice C is where C83 pays
+> into it rather than around it.
 
-### §0.2.1 — ⚠ The `contained` arm did NOT receive the `undetermined` treatment the `bounding` arm did
+### §0.2.4 — ⚠ The `contained` arm did NOT receive the `undetermined` treatment the `bounding` arm did
 
-Found while verifying the above, and load-bearing on Slice 4. `RoomContentsService`'s §GR-10/GR-14
+Found while verifying the above, and load-bearing on every furniture rule. `RoomContentsService`'s §GR-10/GR-14
 pass hardened the **bounding** reads — `determineBoundingIds` returns `undetermined` for an absent
 field, and `totals.exact` goes false. **The `contained` arm has no equivalent guard**:
 
@@ -155,12 +238,12 @@ empty bucket, so partial wiring never throws"* — which is graceful for a prope
 **wrong for a rule**: a C83 finding suppressed by an empty bucket would be silent for the reason
 §5.3 says is disqualifying, and would look exactly like a healthy room.
 
-**Binding on Slice 4**: it MUST assert the furniture store is attached before evaluating, and treat
-"not attached" / "degenerate boundary" as **UNDETERMINED → no finding, reason recorded** — never as
-a clear floor. Hardening the arm to return a determination is the honest fix and belongs to this
-service's owner; **C83 does not silently rely on it being done.**
+**Binding on every furniture rule**: it MUST assert the furniture store is attached before
+evaluating, and treat "not attached" / "degenerate boundary" as **UNDETERMINED → no finding, reason
+recorded** — never as a clear floor. Hardening the arm to return a determination is the honest fix
+and belongs to this service's owner; **C83 does not silently rely on it being done.**
 
-### §0.2.2 — Both readers reach the service through a legacy global
+### §0.2.5 — Both readers reach the service through a legacy global
 
 `ElementTypeSelectorZone.ts:98` and `PropertyPanelStoreEnricher.ts:107` both read
 `window.roomContentsService`, each carrying the same marker: `TODO(E.18-R): legacy
@@ -247,7 +330,9 @@ proposed wall, the list of existing walls whose **body** the newcomer crosses
 It holds the crossed wall ids and the crossing geometry, in a planner that already runs before
 commit. It simply never asks the next question: *is there an opening at that station?* —
 for which `getOccupiedSpans(wall)` (`WallOccupancyStore.ts:684`) already exists and returns exactly
-the `[offsetM, endM]` intervals needed. **That is §8's Slice 1, and it is small.**
+the `[offsetM, endM]` intervals needed. **That is §8's Slice 4** — small in geometry, though §8.0.1
+records the two non-geometric costs (a C74 §2 row, and a preview trigger with zero callers) that
+moved it out of first position.
 
 ---
 
@@ -260,6 +345,25 @@ the `[offsetM, endM]` intervals needed. **That is §8's Slice 1, and it is small
 | **IMPOSSIBLE** | The proposed state is **self-contradictory as geometry or as construction**. No amount of context makes it right; no user preference can license it. | **Always flagged. Never silent.** Refuse at the command seam, or commit-with-forced-resolution — never commit quietly. | interior wall crossing a window opening; wall through a door |
 | **INADVISABLE** | The state is **buildable and internally consistent, but defeats the function** of an element involved. Context can make it right. | **Offer, never impose.** Surface a proposal (§4); the user decides; dismissal is honoured and remembered (§5.4). | sofa or bed blocking a door |
 | **FINE** | No rule fires. | **Silence.** Not a green tick, not a toast, not a badge. | sofa in front of a window; bed under a window |
+
+### §1.1.1 — ⚠ These are NOT a new classification. They map onto C74's four, which are canonical.
+
+A two-tier hard/soft split has been **independently decided four times in this repository**, with
+four vocabularies and no shared type: ADR-0071 §2 (HARD/SCORING) · SPEC-LAYOUT-CONSTRAINT-DATABASE §1
+(Mandatory/Recommended/Info) · SPEC-ROOM-PLACEMENT-RULES §8 · SPEC-37 §2.1 (hard/soft/clearance).
+**[C74](C74-CONSTRAINT-HONESTY.md) §1.1's four classifications are the canonical one** — it is a
+contract; the others are ADRs and SPECs. **Minting a fifth is the drift ADR-0322 Decision 1 exists to
+forbid, and C83 does not mint one.**
+
+| C83 verdict | C74 §1.1 classification | What that binds |
+|---|---|---|
+| **IMPOSSIBLE** | **ENFORCEMENT** — *"a validation wired into a mutation path such that failure REFUSES the mutation"* | ⚠ C74 §2's protected table names **exactly one** ENFORCEMENT row today: `WallOccupancyStore.canPlace()`. **A second one is a C74 §2 contract edit, in the same PR** — it is not a code change with a doc follow-up. |
+| **INADVISABLE** | **ADVISORY** | Flags; never refuses. No contract row needed. |
+| **FINE** | *(not a classification — the absence of a finding)* | — |
+
+C74 §1.3 also binds by default: **an unclassified family is VALIDATION until proven otherwise**, and
+§4.1 **MUST NOT** build a solver on the argument that the product category implies one. C83 is a
+rule layer, not a solver, and says so.
 
 ### §1.2 — Why the boundary sits exactly there
 
@@ -339,6 +443,24 @@ nothing an aperture is for — light still arrives above the sofa back, the view
 FINE. A bed under a window is a normal, often preferred, arrangement. **One rule, keyed on role,
 produces all three answers correctly and needs no exceptions list.**
 
+### §2.2.1 — ⭐ The role split is ALREADY MATERIALISED as the `RoomContents` bucket boundary
+
+The survey's sharpest finding, and it makes §2 far cheaper than it looks. `RoomContents` (`:169-222`,
+built at `:282-303`) already returns **four buckets**: `bounding{walls,slabs,columns,curtainWalls}` /
+`hosted{doors,windows,openings}` / `contained{furniture,columns,plumbing,lighting,beams,handrails,
+stairs,annotations}` / `vertical{above,below}`.
+
+**"Door = passage, window = aperture, sofa = occupant" does not need a new taxonomy to be executable
+today. It needs a rule that reads `hosted.doors` and `contained.furniture` and DELIBERATELY DOES NOT
+READ `hosted.windows`.** The founder's whole distinction is expressible as *code that does not
+exist* — which is the cheapest possible way to express it, and the least likely to drift.
+
+This does not retire §2.2's role vocabulary; it sequences it. **The bucket boundary is the role split
+for the element kinds that already have buckets** (Slice 1 needs nothing more), and the declared-role
+registry is what generalises it to kinds that do not — a typology pack's new element, a fixture, a
+partition system. **Ship the rule on buckets first; mint the vocabulary when a second rule needs a
+kind the buckets cannot classify.**
+
 ### §2.3 — The honest cost of the role approach
 
 Stated rather than sold:
@@ -352,9 +474,10 @@ Stated rather than sold:
   typology-pack override (§7) — never a hard-coded kind exception, which would rebuild the matrix
   one `if` at a time.
 - **`Door.swing` must actually reach the evaluator.** The swing arc is a property of the `PASSAGE`
-  role, and today the field is dropped before `OpeningPose` (§0.3, L-856). **Slice 3 is blocked on
-  this and says so.** Until then, `PASSAGE` clearance uses the documented symmetric box and **the
-  finding must say which geometry produced it** — a swing-shaped claim from a box-shaped test is a
+  role, and today the field is dropped before `OpeningPose` (§0.3, L-856). **Slice 3 exists solely to
+  close this, and Slice 1 ships before it on a DISCLOSED proxy.** Until then, `PASSAGE` clearance uses
+  the documented symmetric box and **the finding must say which geometry produced it** — an
+  *undisclosed* swing-shaped claim from a box-shaped test is a
   confident wrong answer.
 
 ### §2.4 — Where roles live
@@ -370,23 +493,59 @@ section defers to it.** C83 mints no second element taxonomy.
 
 | Moment | Which verdicts | Cost | Status |
 |---|---|---|---|
-| **Pre-commit `canExecute`** | IMPOSSIBLE only | one query per commit; already paid on the opening path | the seam Slice 1 uses |
-| **Consequence plan** (`WallCreateConsequencePlanner` et al.) | IMPOSSIBLE + INADVISABLE | already computed for these operations | the seam Slice 1 and 2 use |
+| **Pre-commit `canExecute`** | IMPOSSIBLE only | one query per commit; already paid on the opening path | the seam Slices 0 and 4 use |
+| **Consequence plan** (`WallCreateConsequencePlanner` et al.) | IMPOSSIBLE + INADVISABLE | already computed for these operations | the seam Slice 4 uses — ⚠ its trigger has zero callers (§8.0.1) |
+| **Debounced post-edit sweep** (`ConstraintEngine`, 800 ms off `storeEventBus`) | INADVISABLE | already paid; non-blocking by construction | **the seam Slice 1 uses** |
 | **Post-move settle** | both | one pass per settled move | move-propagation now emits exactly such a point |
 | **On demand** ("check my plan") | both, whole model | O(elements) — user-initiated, so acceptable | the CompliancePanel button |
 | **Continuous, per frame** | — | **FORBIDDEN** (§3.2) | — |
 
-### §3.1 — The debounce already exists and is already tuned
+### §3.0 — ⚠ Of the ConstraintEngine's three registered triggers, only ONE fires
 
-`ConstraintEngine._scheduleRun()` debounces **600 ms** on model change and — importantly — is
-**suppressed entirely while `batchCoordinator.isBatching`** (`ConstraintEngine.ts:252-255`), with the
-reason stated in source: *"The model is in an incomplete state — validating now produces spurious
-compliance errors."* C83 rules run on the **same schedule, through the same suppression**. A generator
-that emits 400 commands must not produce 400 findings about intermediate states; that is not a
-performance concern, it is §5's concern.
+Measured, and binding on Slice 1 because it is the seam Slice 1 sits on:
+
+- **LIVE** — hand wall edit → `WallStore.ts:1463` `storeEventBus.emit` → `initDataPlatform.ts:304-311`
+  (**800 ms** debounce) → `ConstraintEngine.run()` → `:264` `_broadcast` → a real `window.dispatchEvent`.
+- **SILENT NO-OP** — `ConstraintEngine.ts:113` `window.runtime?.events?.on(...)` runs at **module
+  evaluation**, and `window.runtime` is not assigned until `engineLauncher.ts:142`, after the static
+  import graph. It subscribes to nothing.
+- **DEAD** — `:115`'s `pryzm-project-loaded` via `window.addEventListener`; all emitters route through
+  the typed bus (`PlatformShell.ts:205/211/399`).
+
+**A C83 rule must not assume the other two exist.** And the latent hazard beneath them is §8's Slice 1
+precondition (b): `_constraintQuietUntil = Number.POSITIVE_INFINITY` is released only inside the dead
+handler's live sibling, so a change in module ordering silently kills **every** automatic run.
+
+### §3.1 — ⚠ The batch suppression sits on the path that never fires
+
+> **CORRECTED 2026-08-14 by reading the code rather than trusting this contract's own first draft,
+> which asserted that a C83 rule would inherit the batch suppression. It would not.**
+
+There are **two independent entry points, not one pipeline**, and the live one bypasses the guard:
+
+| Entry point | Debounce | `batchCoordinator.isBatching` suppression |
+|---|---|---|
+| `storeEventBus.subscribe` → `constraintEngine.run()` **directly** (`initDataPlatform.ts:304-311`) — **the only live trigger** (§3.0) | **800 ms** | ❌ **NO — it calls `run()`, never `_scheduleRun()`** |
+| `_scheduleRun()` (`ConstraintEngine.ts:245-260`) — reached only from the module-scope listeners at `:113-115`, i.e. the **no-op and the dead** ones | 600 ms | ✅ yes (`:252-255`) |
+
+So the `isBatching` guard — written for exactly the right reason, *"the model is in an incomplete
+state — validating now produces spurious compliance errors"* — sits on the path that never fires,
+while the path that does fire has no such guard. **A generator emitting 400 commands is throttled by
+an 800 ms debounce, not excluded.**
+
+**Binding on Slice 1**: a C83 rule MUST check `batchCoordinator.isBatching` **itself**, or be
+registered behind a `_scheduleRun`-equivalent — it may not assume the engine's suppression covers it.
+This is not a performance concern; it is §5's concern, because findings about intermediate states are
+false positives and false positives are what get the whole surface muted.
+
+The load-quiet latch is genuine but narrow: `_constraintQuietUntil` initialises to
+`Number.POSITIVE_INFINITY` (`initDataPlatform.ts:295`) and is only ever lowered, to `Date.now() +
+2000`, inside the `pryzm-project-loaded` handler (`:297`). **If that handler ever stops firing, every
+automatic constraint run dies silently** — Slice 1's precondition (b).
 
 Note also `__pryzmLoadActive()` (`WallOccupancyStore.ts:60-68`), which suppresses logging during
-project restore and generation for the same reason. **Any C83 evaluator MUST honour both flags.**
+project restore and generation for the same reason. **A C83 evaluator MUST honour these flags
+explicitly.**
 
 ### §3.2 — MUST NOT: no per-frame evaluation, and no evaluation inside the geometry pipeline
 
@@ -523,6 +682,26 @@ order of magnitude for a healthy rule: **rare**. If a C83 rule fires on 30 % of 
 finding 30 % bad designs; it is measuring the wrong thing, or the threshold encodes a preference and
 not a fact. §5.1(4) exists to catch this before a user does.
 
+### §5.2.1 — ⚠ The worst outcome already ships, and it is the one to design against
+
+`RoomValidationService.ROOM_AREA_TOO_SMALL` / `ROOM_AREA_OVER_TARGET`
+(`packages/spatial-index/src/RoomValidationService.ts:124-137`) are guarded on
+`window.roomSystemTypeStore`, which is **never assigned anywhere in the repository** — six
+occurrences, all reads or type declarations; `new RoomSystemTypeStore` returns zero hits. **The guard
+fails CLOSED into a green "✓ No issues found."** A 2 m² bedroom renders identical to a conforming
+room. **Absence-of-check and absence-of-defect are the same pixels** — the context-data-honesty
+defect, in the exact surface C83 wants to occupy. (`validateLevel` at `:192-214`, the "badge counts
+on toolbar" reader, has **zero callers repo-wide**; that badge does not exist.)
+
+⚠ **And two independent room-area authorities both reach the user and disagree**:
+`ConstraintEngine.ROOM_MIN_AREA` (hardcoded table `:65-94`) versus the above — different codes,
+thresholds, severities and panels. **C83 must not become a third.** Where a C83 rule overlaps an
+existing one, it replaces it or defers to it; it does not sit beside it.
+
+**Binding**: a C83 rule that cannot compute its own precondition **emits nothing and records why**.
+It may never render a pass it did not compute — which is the same rule as §5.3, stated from the
+failure side rather than the data side.
+
 ### §5.3 — Silence on UNDETERMINED, always
 
 If the containment answer, the bounding-wall list or the swing geometry is `undetermined`
@@ -647,9 +826,130 @@ every edge to `@pryzm/geometry-wall` and `@pryzm/constraint-solver` (both L2) is
 every heavyweight collaborator is **injected** (`WallCreateConsequencePlanner.ts:48-58`). C83 slices
 follow that placement exactly, and add zero layer violations.
 
-### Slice 1 — `OCC_CROSSES_HOSTED_OPENING` (IMPOSSIBLE, wall × opening)
+### §8.0.1 — ⚠ THE ORDER CHANGED 2026-08-14, and the reason is worth more than the order
 
-*The founder's headline case, and the smallest genuine value.*
+The first draft opened with the IMPOSSIBLE wall × opening rule, on the argument that it is
+unambiguous and needs no judgement. **The survey did not refute the rule; it refuted its cheapness.**
+Three measured facts moved it:
+
+1. **It is ENFORCEMENT, and ENFORCEMENT costs a contract row.** C74 §2's protected table has exactly
+   one entry. A second is a C74 edit in the same PR (§1.1.1) — real work, and correctly so.
+2. **Its delivery trigger does not exist.** The `wall.create` planner is registered
+   (`consequencePreviewServiceComposition.ts:63-87`) but `wireToolForConsequencePreview` has **zero
+   callers repo-wide**, and `triggerConsequencePreview` has exactly one production caller
+   (`MovePlanToolHandler.ts:256`) which returns early unless `_targetType === 'wall'`. The registry's
+   own comment names the class: *"authored and proven standalone (38/38) but registered nowhere."*
+   **The engine is done; the trigger is the missing piece** — and C11 §7.6 warns precisely about what
+   happens if you ship the refusal without it: *"a rejection surfaces to the user as a DEAD CLICK
+   BEHIND A PERFECT PREVIEW."*
+3. **A strictly cheaper, strictly more urgent item was found in the same family** — and it is a
+   regression, not a feature (Slice 0).
+
+So the order is now: **fix a regression → ship one advisory rule → make the graph honest → thread the
+swing → then the enforcement rule.** The founder's headline case is *later, not smaller*, and Slice 0
+delivers a real piece of it on day one.
+
+### Slice 0 — plan-view opening occupancy parity (REGRESSION FIX, not a feature)
+
+*Ship this first and independently. It is the §0.2.2 defect's sibling and it is two lines.*
+
+- **The defect**: `canPlace` guards the 3D path (`DoorTool.ts:238/:477`) and **not** the plan path.
+  `DoorPlanToolHandler.ts:85-179` → `CreateWallOpeningLegacyAdapter.ts:50-77` performs structural
+  checks only, and `WallStore.addOpening:927-957` applies Zod + rake only. **Two overlapping doors
+  are creatable from plan view; the identical action is refused in 3D.** `CopyPlanToolHandler.ts:370`
+  pastes through the same unguarded verb. The bridge was removed for C11 §3 single-pipeline
+  compliance (`initBusHandlers.ts:2340-2345`) and the replacement never inherited the gate.
+- **The fix**: call `canPlace` + `canPlaceRefusalText` in `CreateWallOpeningLegacyAdapter.canExecute`,
+  exactly as the sibling handler `plugins/wall/src/handlers/CreateWallOpening.ts:128` already does
+  one file away. ⚠ **Import from `@pryzm/geometry-wall`** (arc-aware, rake-refusing) — **NOT** the
+  drifted plugin copy at `plugins/wall/src/occupancy.ts`, which uses **chord** length (wrong on
+  curved hosts) and lacks `OCC_HOST_RAKED`.
+- **Why safe**: pure `canExecute` addition; no new vocabulary (the closed union exists); no second
+  mutation path (C67 §2); the executed test pattern already exists
+  (`packages/command-registry/__tests__/canPlaceRefusalIdentity.test.ts`, `6688d82c`).
+- **Does NOT cover**: anything about walls. This is opening-vs-opening only.
+
+### Slice 1 — `FURNITURE_BLOCKS_DOOR` (ADVISORY, the founder's second case)
+
+*Promoted to first rule because it needs **zero** new geometry, refusal vocabulary, UI surface or
+schema change — and it establishes role-keying as **data** (§2.2.1) rather than as a fifth taxonomy.*
+
+- **Detects**: furniture whose footprint intrudes a door's clearance, in the room that
+  **geometrically** contains it.
+- **Classification**: **ADVISORY** (C74 §1.1). It flags; it does not refuse. **Slice 1 must not mint
+  a second ENFORCEMENT family.**
+- **Reuses**: one `this.register({...})` in `ConstraintEngine._registerBuiltIns`; `_getContext`
+  (`:234-243`) gains `roomContentsService` — **not** the furniture store, because the service already
+  has all fourteen stores attached and already returns a typed `undetermined[]`. Reads exactly
+  `hosted.doors` and `contained.furniture`; **`hosted.windows` is deliberately not read — that is the
+  semantic-role decision, expressed as code that does not exist.**
+- **Geometry**: the **symmetric keep-out proxy** (`placeSolver.doorObstacles:139-203`,
+  `swingR = max(doorWidth, 0.9)`), and **the message must say it is a proxy**, because `Door.swing`
+  does not reach the opening. **Do NOT import `doorSwingKeepout.ts`** — it has no hinge data to run
+  on; wiring it is Slice 3, with a schema change at its head.
+- **Surfaces at**: `CompliancePanel` via the **Data pill / F3 → VALIDATE → Compliance**
+  (`WorkspaceModeBar.ts:89`, `DataWorkbench.ts:406`) — severity, rule, element, message, regulation,
+  suggestion and row-click-to-navigate all render with **no new code** (`CompliancePanel.ts:415-441`).
+  ⚠ It also reaches the compliance tint and both toasts, but those are **preference-gated OFF by
+  default — do not claim them.** ⚠ The *"🏗 Data toolbar button"* is **DEAD** (`.plat-toolbar` is
+  never in the DOM, ISSUE-LOG **L-870**); cite the Data pill / F3 path only.
+- **Tested by**: positive (sofa in a door swing → 1 warning); **silence, three ways, all mandatory** —
+  *sofa in front of a window → **0** findings* (this is the assertion the whole brief turns on);
+  *bed under a window → 0*; *the same sofa rotated clear by 200 mm → 0*; **undetermined control** — a
+  room whose `boundingWallIds` was never recorded (§0.2.1 defect 3 makes this the common case for
+  hand-drawn rooms) → the rule emits **nothing and records why**, never a clean pass.
+- ⚠ **Two honest preconditions to verify before committing**: (a) `ConstraintEngine` reads stores off
+  `window.*` and touches `window` at module scope (`:113`, `:234-243`) — `check-constraint-honesty.ts:17-26`
+  records this as why the gate cannot import it, so a rule added there **inherits that debt**;
+  whether a runtime-composed alternative reaches hand-edits as reliably is **UNPROVEN**.
+  (b) `initDataPlatform.ts:~297` initialises `_constraintQuietUntil = Number.POSITIVE_INFINITY`, an
+  infinite latch released only inside the `pryzm-project-loaded` handler; it works today only because
+  of module ordering. One executed probe closes it.
+- **Does NOT cover**: refusing anything; producing a fix command (§5.1 of the survey remains the true
+  gap — Slice 1 emits the finding in the *shape* a later capability can consume: typed `ruleId` +
+  `elementId` + both numbers); firing during the gesture.
+
+### Slice C — make `contains` reachable (its own slice, and NOT a blocker for Slice 1)
+
+*The coordinator asked whether this deserves its own slice. It does — and it must not be smuggled
+into Slice 1, because Slice 1 is correct without it and would be made **worse** by it today.*
+
+- **What it is**: stop dropping `hostedSpaceId` at the three named sites —
+  `CreateFurnitureBatch.ts:99-122` (`Furniture.parse(seed)` strips it),
+  `CommandEventBridge.ts:687-736`, `initTools.ts:2011-2033` — so the AI path's already-computed answer
+  (`buildFurnishCommands.ts:76`) survives to `CreateFurnitureCommand.ts:246`. Three drop sites, no new
+  concepts.
+- ⚠ **HARD PRECONDITION**: `graphmove.cert.ts` classifies `contains` as **ID-KEYED** ("surviving a
+  move is CORRECT"). **That classification must be corrected to position-derived in the same PR.**
+  Landing the edge under the current classification would ship a relationship that keeps asserting the
+  bedroom after the sofa is dragged to the kitchen, with no refusing reader to catch it — **strictly
+  worse than the absence it replaces.**
+- **Also owed by C71 §2.6** in that PR: a **typed** reader (the `contains` family has none — only four
+  families do), a rebuild disposition, and delete behaviour.
+- **Why it is NOT a Slice 1 dependency**: Slice 1 resolves containment geometrically (§0.2.3), which
+  is fresher, self-correcting, and covers hand-placed furniture that this slice still would not.
+  Slice C gives the Living Graph a fact it currently only pretends to have; it does not make any C83
+  rule possible that was impossible before.
+
+### Slice 3 — `Door.swing` reaches the evaluator (enabler; no user-visible rule)
+
+*Deliberately a rule-free slice, because shipping a swing rule on box geometry would be a confident
+wrong answer.*
+
+- **Closes**: [ISSUE-LOG L-856](../../04-reference/ISSUE-LOG.md) — thread `Door.swing` from the
+  schema through the wall-opening boundary into `OpeningPose` (`placeSolver.ts:184-185` is where the
+  hinge side is currently absent).
+- **Unblocks**: `doorSwingKeepout.ts`'s already-written sector geometry and its hard rejector
+  `rejectFurnitureClashingDoors:113`; `SPEC-49`'s CI-3 remediation. Unwired since `bd43b2bf`
+  (*"engine wiring follows"* — it never did).
+- **Upgrades Slice 1 in place**: the proxy disclaimer comes out of the message and the real sector
+  goes in. The existing `furnitureDoorClearanceAudit` corpus is the verification — the 3/288 true
+  intrusions become detectable where the box finds 0/288.
+- **Does NOT cover**: replacing the four duplicated box copies (separate, sequenced clean-up).
+
+### Slice 4 — `OCC_CROSSES_HOSTED_OPENING` (ENFORCEMENT, the founder's headline case)
+
+*Last, not least. It is the only slice that refuses, and refusal is the expensive verdict.*
 
 - **Detects**: a proposed or moved wall whose centreline crosses an existing wall at a station that
   falls inside one of that wall's `openings[]` intervals.
@@ -659,25 +959,35 @@ follow that placement exactly, and add zero layer violations.
   the station. **No new geometry, no new store, no new panel.**
 - **Adds**: one member to `CanPlaceRefusalCode`, its roster entry, its default sentence (all three
   forced by the compile-time completeness assertion), and the branch that calls it.
+- ⚠ **Also adds, and this is the part that is not geometry**: a **second row in C74 §2's protected
+  ENFORCEMENT table, in the same PR** (§1.1.1); and **the missing trigger** —
+  `wireToolForConsequencePreview` has zero callers, so `triggerConsequencePreview` must be called from
+  the wall tool. **Shipping the refusal without the trigger produces C11 §7.6's dead click behind a
+  perfect preview**, which is a worse user experience than the silent bug it replaces.
+- **Reuses the already-proven predicate rather than inventing one**: the generator's
+  **`§DOOR-CLEAR-OFFSET`** (`packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts:1170-1260`)
+  is *the exact predicate* for "a wall crossing a door opening" — it projects a perpendicular wall's
+  endpoint into a door footprint. It exists, it is proven, and it currently resolves the conflict by
+  **moving the door**. Extract its endpoint-projection into a pure package and call it here; C83
+  changes only *what is done about it* (refuse the wall, offer the alternatives), not how it is
+  detected. §6.2's promote-don't-re-author rule, applied.
 - **Offers**: the two nearest clear stations, each pre-validated by `canPlace` — or, per §4.2,
   **nothing but a reason** when the wall has no clear interval wide enough.
+- **Delivered through** the existing `ConsequencePlan` → `ConfirmationCard`, and spoken in chat via
+  `ZeroTokenUiHooks.confirm(summary)` — so the founder's *"do you want to move the wall upwards or
+  backwards?"* is answered in the place they asked for it. One plan, two prompts (§4.1).
 - **Tested by**: positive (wall crossing a window → fires, exact code); **silence** (a wall
   T-junctioning into a clear stretch of the same wall → zero findings; a wall merely *touching* an
   endpoint → zero, since `segmentsProperlyCross` is deliberately strict); near-miss (crossing 10 mm
   clear of the opening edge → silent); the full generated-building corpus → **zero findings**, since
   generators do not author this defect.
-- **Does NOT cover**: furniture; the true swing arc; curved hosts (the resolver is chord-based —
-  declared `undetermined`, not guessed); walls on different levels; wall × wall crossings with no
-  opening involved (that is a separate, already-declared blind spot).
-
-### Slice 2 — surface Slice 1 through the RAC proposal path
-
-- **Detects**: nothing new. Pure delivery.
-- **Adds**: Slice 1's refusal + candidates surfaced as `plan.refused` on the existing
-  `ConsequencePlan`, rendered by the existing `ConfirmationCard`, and spoken in chat through
-  `ZeroTokenUiHooks.confirm(summary)` — so the founder's *"do you want to move the wall upwards or
-  backwards?"* is answered in the place they asked for it. One plan, two prompts (§4.1).
-- **Binding — and this is the expensive part of the slice, not the geometry**: **C68 §4 applies**
+- **Does NOT cover**: furniture; curved hosts (the resolver is chord-based — declared `undetermined`,
+  not guessed); walls on different levels; **wall × wall solid overlap with no opening involved** —
+  that is declared `ENGINE_NOT_AVAILABLE` in those words at `WallCreateConsequencePlanner.ts:362-372`,
+  and `WallJoinResolver`'s complete clash trim is **DEFAULT-OFF** behind
+  `globalThis.__pryzmWallFaceTrimNoClash` because enabling it turns 20 assertions across 11 files red
+  (L-94). **Do not absorb that into this slice.**
+- ⚠ **Binding on the delivery**: **C68 §4 applies**
   (the PR registers a bus route and a user-visible capability), so **§5's checklist a–j applies in
   full**: a LIVE command route with a batch sibling (a `plugins/**` handler is LIVE *only* with both
   the `commandManager` delegation **and** `affectedStores: [] as const`); a declaration in **exactly
@@ -690,51 +1000,28 @@ follow that placement exactly, and add zero layer violations.
   Verify by running the gate, never by transcribing it:
   `npx tsx tools/ga-gate/check-chat-capability-coverage.ts`. Any verb joins the C69 register
   (`docs/04-reference/API-VERB-REGISTER.md`) in the same commit.
-- **Does NOT cover**: any new rule.
+- **Precondition** carried from Slice 1's lessons: any room whose bounding relationship is
+  `undetermined` (§0.2.1 — the *common* case for hand-drawn rooms and for generated levels after a
+  wall move) yields **no finding and a recorded reason**, never a refusal and never a pass.
 
-### Slice 3 — `Door.swing` reaches the evaluator (enabler; no user-visible rule)
+### §8.1 — Sequencing, and what blocks what
 
-*Deliberately a rule-free slice, because shipping a swing rule on box geometry would be a confident
-wrong answer.*
+| Slice | Verdict class | Blocked by | Delivers to the founder |
+|---|---|---|---|
+| **0** — plan-view `canPlace` parity | (regression fix) | **nothing** | overlapping doors stop being creatable in plan view |
+| **1** — `FURNITURE_BLOCKS_DOOR` | ADVISORY | **nothing** | *"a sofa should never be in front of a door"* — flagged, with the window case provably silent |
+| **C** — make `contains` reachable | (graph honesty) | its own `graphmove.cert` reclassification | the Living Graph stops pretending to hold a fact it has never held |
+| **3** — `Door.swing` → `OpeningPose` | (enabler) | nothing; upgrades Slice 1 in place | the swing rule becomes *true* rather than a documented proxy |
+| **4** — `OCC_CROSSES_HOSTED_OPENING` | **ENFORCEMENT** | C74 §2 row + the missing preview trigger | *"an interior wall can not be in the same place where a window is"* — refused, with alternatives |
 
-- **Closes**: [ISSUE-LOG L-856](../../04-reference/ISSUE-LOG.md) — thread `Door.swing` from the
-  schema through the wall-opening boundary into `OpeningPose`.
-- **Unblocks**: `doorSwingKeepout.ts`'s already-written, already-tested sector geometry, and
-  `SPEC-49`'s CI-3 remediation (`docs/03-execution/specs/SPEC-49-CIRCULATION-INTEGRITY.md` §4).
-- **Verified by**: the existing `furnitureDoorClearanceAudit` corpus — the 3/288 true intrusions
-  become detectable where the box test finds 0/288.
-- **Does NOT cover**: any live check on hand-authored furniture (Slice 4), and does not itself
-  replace the four duplicated box copies (a separate, sequenced clean-up).
+**Slices 0, 1 and C are each unblocked today and independent of one another.** Slice 3 is unblocked
+but has a schema change at its head. **Slice 4 is last by cost, not by importance** — it is the only
+one that refuses, and refusal is the verdict that must not be shipped behind a dead click.
 
-### Slice 4 — `DL_BLOCKS_PASSAGE` (INADVISABLE, `OCCUPIABLE` × `PASSAGE`)
-
-*The founder's second case. Sequenced last because it is the one that can cry wolf.*
-
-- **Detects**: an `OCCUPIABLE` item whose footprint intrudes a `PASSAGE`'s approach clearance or
-  swing sector, in the room that **geometrically** contains it (§0.2's MUST).
-- **Precondition (§0.2.1)**: asserts the furniture store is attached and the room boundary is
-  non-degenerate **before** evaluating; either absence is UNDETERMINED with the reason recorded,
-  never an empty bucket read as a clear floor.
-- **Reuses**: `RoomContentsService.getContents(roomId).contained.furniture` for membership;
-  `doorSwingKeepout.rectIntersectsSwing` for the test; `programRules.ts`'s `excludeDoorSwing` and
-  `clearFoot`/`clearSide` as the authored thresholds — **promoted, not re-authored** (§6.2).
-- **Offers**: the nearest position clear of the sector, as an `UpdateFurnitureParameters` proposal —
-  or nothing but a reason.
-- **Tested by**: positive (sofa in a door swing → fires); **silence, three ways, all mandatory** —
-  *sofa in front of a window → zero findings*; *bed under a window → zero findings*; *the same sofa
-  rotated clear by 200 mm → zero findings*; and the 288-room corpus, where the expected finding
-  count is **3, the known true intrusions** — a materially higher count refutes the rule (§5.1(4)).
-- **Does NOT cover**: circulation-route reachability across a whole plan (that is SPEC-49's
-  `§CIRCULATION-GRAPH`, a different instrument); offices, until a typology pack declares its own
-  threshold (§7); any item whose kind has not declared a role — those are counted as undeclared, not
-  passed.
-
-### Sequencing note
-
-Slices 1–2 are unblocked today. **Slice 4 is hard-blocked on Slice 3**: shipping it on the symmetric
-box would produce a swing-shaped claim from a box-shaped test, and the audit measured that the box
-misses every true intrusion. That is not an approximation; it is the wrong answer with a confident
-sentence attached.
+⚠ **Slice 1 ships on the proxy and says so.** That is not the same defect as shipping Slice 4 early:
+a disclosed proxy in an advisory message is honest and upgradeable in place; an undisclosed
+swing-shaped claim from a box-shaped test is the confident wrong answer §4.2 forbids. The distinction
+is **disclosure**, and Slice 1's message text is where it lives.
 
 ### §8.5 — Adjacent work that is NOT C83, and must not be absorbed into it
 
@@ -767,11 +1054,21 @@ stamp time.**
 
 ### §9.1 — What this contract does NOT claim
 
-- **Nothing here is executed.** §0.2 and §0.3 are file reads at HEAD `28c6b05c`. Where a run
+- **Nothing here is executed.** §0.2–§0.3 are file reads at HEAD `28c6b05c`, corroborated by a
+  26-agent prior-art survey with adversarial reachability checking on 2026-08-14. Where a run
   disagrees with this document, **the run wins**.
-- The `'contains'`-edge finding (§0.2) is read from source, not from a live session. It should be
-  confirmed by an executed probe before Slice 4 relies on the geometric path — though the
-  geometric path is chosen precisely so that the edge's state does not matter.
+- ⚠ **One claim is explicitly an INFERENCE, not a reading**: §0.2.2's conclusion that a plan-placed
+  door's `hosts` edge is *never* reconstructed follows from two file reads (`ProjectLoader.ts:1879`'s
+  `size === 0` gate and `ProjectSerializer.ts:1083`'s unconditional serialise). **UNPROVEN. One
+  executed probe settles it, and C83 builds nothing on it.**
+- **§0.2.3 corrected a premise this contract shipped with.** The first draft (`28b47ec1`) asserted
+  that generated furniture carries the `contains` edge. It does not; **no path does.** The correction
+  strengthened rather than changed the design, which is luck, not method — recorded so the next
+  reader treats §0.2's verdicts as measured rather than assumed.
+- **Two upstream corrections this contract depends on and does not own**: `graphmove.cert.ts`'s
+  ID-KEYED classification of `contains` (Slice C's hard precondition), and C71 §5.2's now-stale
+  *"`contains` has no first-party writer"* (a writer landed 2026-08-13; the reachability gap is at
+  the **call sites**, not the writer).
 - **The role vocabulary in §2.2 is a proposal, not a measurement.** Five roles are what the founder's
   cases and the surveyed rules need; the real set is discovered by declaring roles across the
   existing kinds, and §2.2 will be corrected in place when it is.
