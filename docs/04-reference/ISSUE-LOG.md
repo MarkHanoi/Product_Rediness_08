@@ -4510,3 +4510,41 @@ zoom-dependent radius, and it computes clusters on the FILTERED wall subset (wro
 when a V2 wall shares the junction). Successor repro: `computeJunctionInfills` on three WallData
 forming a ~175° pass-through T; assert every void vertex within ~2× max thickness of the consensus
 point; bounded fix = clamp the vertex distance (mirror §MITER-T-CLAMP) + fall back to the midpoint.
+
+---
+
+## L-911 — OPEN, FOUNDER-URGENT — "create 3 bedroom apartment": the COUNT IS DROPPED (chat says 2), the engine sizes FIVE, the envelope refusal reaches only the CONSOLE, and NOTHING is created
+
+**OBSERVED by the founder on the deploy of `21919312` (bundle `main-CglAW_HE.js`), 2026-08-14.**
+Typed **"CREATE 3 BEDRROM APPARMENT"** into RAC chat. Three numbers exist in one flow and none of
+them is the user''s:
+
+1. **The requested count is DROPPED.** The chat replied *"Laying out **2 bedrooms**, 1 bathroom, an
+   open-plan kitchen/dining inside the 8-wall shell on this level"* — that is the DEFAULT brief.
+   The resolver did not parse (or did not carry) `3` from the utterance. ⚠ Note the typo in the
+   founder''s input ("3 BEDRROM"): a robust parser must still read the digit; and if it genuinely
+   could not, it must ASK, never silently substitute a default (C78 §1.2b — a default presented as
+   the user''s request is failure-as-emptiness in the intent layer).
+2. **The engine then sized FIVE bedrooms.** Console:
+   `[apartment-layout] §D3.5 envelope reject: 5-bedroom apartment gross 322.5 m² > hard max 220 m²
+   (more bedrooms make sense for this shell)`. Where 5 came from is unknown and is the first thing
+   to measure — an escalation loop reporting its last attempt, or a rival brief. **The parenthetical
+   reads backwards** for a rejection ("more bedrooms make sense for this shell" while refusing for
+   being too big) — the sentence must state what was asked and what fits, both numbers (C73 §4.4).
+3. **THE REFUSAL NEVER REACHED THE USER.** The chat promised the layout picker would open; the
+   picker never opened; no card, no toast, no chat line. **Nothing was created and nothing was
+   said.** This is §15.7 lesson 1 on a path shipped TODAY: a console.log is not a user-facing
+   message. `[apartment-layout] controller attached — listening for options-ready +
+   layout-rejected` is present, so a `layout-rejected` channel EXISTS — either the reject did not
+   emit on it, or the listener does not surface it.
+4. **Secondary, same log**: `/api/anthropic/v1/messages` **500** and `/api/ai/cache/lookup` +
+   `/api/ai/cache/store` **401**. The zero-token path resolved the intent anyway ("resolved without
+   AI tokens"), so this is not the cause of (1)–(3) — but a 500 on the relay and 401s on the cache
+   are their own finding (relay health / auth on the cache endpoints). Also present:
+   `[YjsDocAdapter] W5-3: command type ''generation.apartment'' has NO sync disposition` — the
+   L-901 class, now naming a generation verb.
+
+**ORDER OF FIX (all four are separable):** (a) carry the requested bedroom/bathroom counts from the
+utterance into the brief, and ASK when unparseable — never default silently; (b) find where 5 comes
+from; (c) **the reject must reach the user** through the existing `layout-rejected` channel with
+both numbers and the shell''s own capacity; (d) log the relay 500 / cache 401 separately.
