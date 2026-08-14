@@ -131,6 +131,62 @@ export class ViewTechnicalDrawingCache {
     /** §FIX-PLAN-GEN-SELF-SUPERSEDE — consecutive stale-accepts tolerated before alarming. */
     private static readonly STALE_ACCEPT_ALARM_THRESHOLD = 3;
 
+    /**
+     * §C13-PROJECTION-EPOCH (L-910) — the PROJECT-LIFECYCLE epoch this cache is living in.
+     *
+     * THE DEFECT THIS CLOSES (founder, 2026-08-14): a NEW project in the same session
+     * rendered the PREVIOUS project's hidden-line plan linework while its own stores were
+     * empty. `clear()` — the C13 project-switch purge (initScene `pryzm-project-switch`
+     * chokepoint + `bim-project-cleared`) — reset `_generations` and `_lastAcceptedGen`
+     * to zero, which is EXACTLY the state §FIX-PLAN-BLANK-STALEGEN's force-accept branch
+     * reads as "cold cache": empty + `gen > lastAcceptedGen(0)`. Any projection still in
+     * flight for project A when the switch fired therefore resolved AFTER the purge and
+     * was FORCE-ACCEPTED into project B's cache — under the SAME view id, because view
+     * definition ids are system-deterministic (`vd-sys-plan-l0` exists in EVERY project).
+     * From the cache, the plan pane reads it and the view-activation path mounts its
+     * THREE group into B's scene.
+     *
+     * The anti-blank recovery was keyed on "the cache looks empty". After a project
+     * switch, empty does not mean "cold start" — it means "different project". The purge
+     * and the acceptance decision must be linked by PROJECT IDENTITY, not coincidentally
+     * aligned by counter arithmetic (C13 §3.10; the same identity-purge shape as the
+     * auth-session client-cache fix).
+     *
+     * MECHANISM: `clear()` increments the epoch. Every generation issued by
+     * `beginProjection` / `bumpGeneration` / `invalidate` lives strictly ABOVE the
+     * current epoch's floor (`epoch × EPOCH_STRIDE`). `setIfCurrent` refuses ANY
+     * completion whose generation is at or below the floor — it was begun in a previous
+     * project's lifetime, and no emptiness heuristic may resurrect it. All intra-epoch
+     * behaviour (L-90 anti-blank, L-703 INVARIANT D, L-705 self-supersede alarm) is
+     * numerically unchanged: within one epoch the floor is a constant offset.
+     */
+    private _lifecycleEpoch = 0;
+
+    /**
+     * §C13-PROJECTION-EPOCH — generations per epoch. One epoch per project entry;
+     * generations advance by 1 per projection, so 1e9 is unreachable within a project
+     * (and Number stays exact up to 2^53 — ~9 million switches per session).
+     */
+    private static readonly EPOCH_STRIDE = 1_000_000_000;
+
+    /** §C13-PROJECTION-EPOCH — generations ≤ this floor belong to a PREVIOUS project. */
+    private get _epochFloor(): number {
+        return this._lifecycleEpoch * ViewTechnicalDrawingCache.EPOCH_STRIDE;
+    }
+
+    /**
+     * §C13-PROJECTION-EPOCH — the next generation for `viewId`, guaranteed to be inside
+     * the CURRENT epoch. The one place generation arithmetic happens; `beginProjection`,
+     * `bumpGeneration` and `invalidate` all advance through here so a stored value from
+     * before the epoch bump (there should be none — `clear()` empties the map — but
+     * defence costs one comparison) can never leak a below-floor generation back out.
+     */
+    private _nextGeneration(viewId: string): number {
+        const floor = this._epochFloor;
+        const prev = this._generations.get(viewId) ?? floor;
+        return (prev < floor ? floor : prev) + 1;
+    }
+
     constructor() {
         this._wireDirtyTracking();
     }
@@ -321,7 +377,8 @@ export class ViewTechnicalDrawingCache {
      *   cache.setIfCurrent(viewId, gen, drawing); // no-op if stale
      */
     beginProjection(viewId: string): number {
-        const gen = (this._generations.get(viewId) ?? 0) + 1;
+        // §C13-PROJECTION-EPOCH (L-910) — issued inside the current project's epoch.
+        const gen = this._nextGeneration(viewId);
         this._generations.set(viewId, gen);
         return gen;
     }
@@ -394,7 +451,8 @@ export class ViewTechnicalDrawingCache {
      * first time a view is ever projected (nothing warm to hold).
      */
     bumpGeneration(viewId: string): void {
-        this._generations.set(viewId, (this._generations.get(viewId) ?? 0) + 1);
+        // §C13-PROJECTION-EPOCH (L-910) — advances inside the current project's epoch.
+        this._generations.set(viewId, this._nextGeneration(viewId));
     }
 
     /**
@@ -406,6 +464,24 @@ export class ViewTechnicalDrawingCache {
      * for any THREE.js geometry cleanup on rejected drawings.
      */
     setIfCurrent(viewId: string, gen: number, drawing: OBC.TechnicalDrawing): boolean {
+        // §C13-PROJECTION-EPOCH (L-910) — a generation at or below the epoch floor was
+        // issued BEFORE the last project-lifecycle clear(): this completion belongs to a
+        // PREVIOUS project. Refuse it unconditionally — BEFORE the anti-blank branch
+        // below, whose "empty cache" heuristic is precisely the post-switch state and
+        // whose force-accept is how project A's linework reached project B's viewport
+        // (view ids are system-deterministic, so A's `vd-sys-plan-l0` collides with
+        // B's). No catch-up reprojection is requested: this completion says nothing
+        // about the CURRENT project's view state, and B's own drivers hold their own
+        // in-epoch generations. The caller's reject path disposes the drawing.
+        if (gen <= this._epochFloor) {
+            console.log(
+                `[ViewTechnicalDrawingCache] §C13-PROJECTION-EPOCH (L-910) — cross-project ` +
+                `stale completion REFUSED: viewId=${viewId} gen=${gen} ` +
+                `epochFloor=${this._epochFloor} (begun before the last project switch/close; ` +
+                `an empty cache after a switch means "different project", not "cold start")`,
+            );
+            return false;
+        }
         if (this._generations.get(viewId) !== gen) {
             // §FIX-PLAN-BLANK-STALEGEN (L-90, C04 §3.3 / DOC-1.5f) — the generation
             // guard exists to stop an OLDER projection from CLOBBERING a NEWER good
@@ -566,7 +642,8 @@ export class ViewTechnicalDrawingCache {
      * §02 §4.3 — All THREE.js geometry owned by the drawing is released here.
      */
     invalidate(viewId: string): void {
-        this._generations.set(viewId, (this._generations.get(viewId) ?? 0) + 1);
+        // §C13-PROJECTION-EPOCH (L-910) — the bump advances inside the current epoch.
+        this._generations.set(viewId, this._nextGeneration(viewId));
         // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — the drawing is gone; any
         // provisional-stale marker no longer applies (a fresh projection is coming).
         this._provisionalStaleViewIds.delete(viewId);
@@ -781,6 +858,15 @@ export class ViewTechnicalDrawingCache {
      * from the previous project session cannot contaminate the next project's cache.
      */
     clear(): void {
+        // §C13-PROJECTION-EPOCH (L-910) — `clear()` is called ONLY at the project
+        // lifecycle boundary (C13 switch chokepoint / `bim-project-cleared`), so it IS
+        // the project-identity signal. Bump the epoch FIRST: every generation issued
+        // before this line is now below the floor, and `setIfCurrent` will refuse its
+        // completion no matter how empty the cache looks. This is what makes the purge
+        // and the empty new project CAUSALLY linked rather than coincidentally aligned —
+        // resetting the counters alone re-armed §FIX-PLAN-BLANK-STALEGEN's force-accept
+        // for the very drawings the purge existed to remove.
+        this._lifecycleEpoch += 1;
         for (const [viewId, drawing] of this._cache) {
             try {
                 drawing.onDisposed.trigger();

@@ -67,8 +67,13 @@ describe('ViewTechnicalDrawingCache — §FIX-PLAN-DISPLAY-GEN-MONOTONIC (INVARI
     let cache: ViewTechnicalDrawingCache;
 
     beforeEach(() => {
+        // §C13-PROJECTION-EPOCH (L-910): `clear()` is a PROJECT-LIFECYCLE boundary now
+        // (it bumps the epoch, after which literal generation numbers below the epoch
+        // floor are refused as cross-project). A fresh instance is already clean, so the
+        // old belt-and-suspenders `cache.clear()` here would put this suite's hardcoded
+        // generation literals (1..5) below the floor. The tests that exercise `clear()`
+        // itself do so explicitly mid-test, with issued generations.
         cache = new ViewTechnicalDrawingCache();
-        cache.clear();
     });
 
     // ── The founder's bug, asserted directly ─────────────────────────────────
@@ -299,7 +304,8 @@ describe('ViewTechnicalDrawingCache — §FIX-PLAN-DISPLAY-GEN-MONOTONIC (INVARI
  */
 describe('ViewTechnicalDrawingCache — §FIX-PLAN-COMPUTE-THEN-SWAP (the white flash)', () => {
     let cache: ViewTechnicalDrawingCache;
-    beforeEach(() => { cache = new ViewTechnicalDrawingCache(); cache.clear(); });
+    // §C13-PROJECTION-EPOCH (L-910): no `clear()` here — see the note in the suite above.
+    beforeEach(() => { cache = new ViewTechnicalDrawingCache(); });
 
     it('beginSwap() keeps the current drawing renderable for the whole re-projection', () => {
         const first = makeDrawing('first');
