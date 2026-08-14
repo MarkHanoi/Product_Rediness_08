@@ -5,6 +5,10 @@ import { serializeWallSnapshot } from './wallSnapshotUtils';
 // opening gate. See the policy note on `planOpeningRefit`.
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
 import type { Opening, WallData } from '@pryzm/geometry-wall';
+// §C73-EPSILON-POLICY (C73 §2.2) — the declared model-space coincidence role.
+// A geometric predicate consumes the policy module; it does not declare a raw
+// tolerance at the call site.
+import { isCoincidentDistanceM } from '@pryzm/geometry-kernel';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -79,20 +83,26 @@ export class UpdateWallBaselineCommand implements Command {
 
     /**
      * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5) — did this wall's
-     * baseline actually MOVE beyond the §STEP7 threshold (1 mm)? A sub-mm
-     * update cannot change any boundary conclusion within detection tolerance,
-     * so invalidating on one would convert C79 §5.2 `preserved` into
-     * `undetermined` — the inverse of the §5.2.1 defect and just as wrong.
+     * baseline actually MOVE? Endpoint identity is asked through the declared
+     * model-space coincidence role (`COINCIDENT_M` via `isCoincidentDistanceM`,
+     * C73 §2.2) — "is the previous endpoint the same point as the new one?" —
+     * the same 1 mm answer §STEP7's neighbour-diff uses (that pre-baseline raw
+     * literal is the epsilon drain's to migrate, per C73 §3.5 one family per
+     * PR). A sub-mm update cannot change any boundary conclusion within
+     * detection tolerance, so invalidating on one would convert C79 §5.2
+     * `preserved` into `undetermined` — the inverse of the §5.2.1 defect and
+     * just as wrong. The helper's strict-< direction means a displacement
+     * exactly AT tolerance counts as MOVED — the canon (and permitted,
+     * tightening) reading of the boundary case.
      */
     private static _baselineMoved(
         prev: ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
         next: [Point3D, Point3D],
     ): boolean {
         if (!prev || prev.length < 2) return true; // no prior evidence — treat as moved
-        const TOL = 0.001;
         const d = (a: { x: number; y?: number; z: number }, b: Point3D): number =>
             Math.hypot(a.x - b.x, (a.y ?? 0) - (b.y ?? 0), a.z - b.z);
-        return d(prev[0]!, next[0]) > TOL || d(prev[1]!, next[1]) > TOL;
+        return !isCoincidentDistanceM(d(prev[0]!, next[0])) || !isCoincidentDistanceM(d(prev[1]!, next[1]));
     }
 
     constructor(input: UpdateWallBaselineInput) {
