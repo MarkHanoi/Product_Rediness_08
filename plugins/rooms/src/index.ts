@@ -3,7 +3,18 @@
 // Spec: `phases/PHASE-2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S25.
 // Decision: `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md`.
 
-export { RoomStore, type RoomData, type RoomId, type RoomsState } from './store.js';
+// GE-04 (2026-08-14): `RoomStore` here is a DEPRECATED bus-contribution shim —
+// the room store shipping paths execute is `packages/room-topology`'s
+// (`window.roomStore`, storeRegistry key 'room'). See ./store.ts header for
+// the measured evidence and the retirement path. `RoomsPluginStore` is the
+// honest name; the `RoomStore` alias survives only for PluginRegistry.ts.
+export {
+  RoomsPluginStore,
+  RoomStore,
+  type RoomData,
+  type RoomId,
+  type RoomsState,
+} from './store.js';
 
 export {
   RoomSystemError,

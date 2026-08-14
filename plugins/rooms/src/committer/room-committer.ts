@@ -20,7 +20,11 @@ import type {
   MaterialPool,
   PrimitiveCommitter,
 } from '@pryzm/plugin-sdk';
-import type { RoomData } from '../store.js';
+// GE-04: type comes straight from the SDK schema (`@pryzm/schemas/elements/
+// Room` via the plugin-sdk re-export) rather than the deprecated store shim —
+// the committer's contract is with the L0 shape, not with the placeholder
+// store nothing reads.
+import type { Room as RoomData } from '@pryzm/plugin-sdk';
 import { buildRoomBufferGeometry, disposeRoomGeometry } from './geometry-bridge.js';
 import { makeRoomMaterialFactory } from './material-bridge.js';
 
