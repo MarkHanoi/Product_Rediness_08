@@ -1,0 +1,121 @@
+{
+  "harness": "H7-graph-delete-invalidation",
+  "generatedAt": "2026-08-14T13:13:26.010Z",
+  "row": "GR-12 — C71 §1.2 semantic 5 / §1.4 / §6.2(c), DELETE half",
+  "levelId": "GDL-L0",
+  "roomLo": "a659a420-5578-4ba1-95a7-39bcd81bdf80",
+  "roomHi": "c95c91f1-d311-4cba-addd-0915ed7eb6f9",
+  "deletedWallId": "gdl-w-mid",
+  "seedLog": [
+    "level GDL-L0: OK",
+    "wall south: OK",
+    "wall eastLo: OK",
+    "wall mid: OK",
+    "wall westLo: OK",
+    "wall eastHi: OK",
+    "wall north: OK",
+    "wall westHi: OK",
+    "door in shared (mid) wall: OK",
+    "door in south wall (control): OK",
+    "detect rooms: OK"
+  ],
+  "registrationFailures": [],
+  "observations": [
+    {
+      "family": "hosts (deleted wall → its door)",
+      "obligation": "DEAD-ID (endpoint is the deleted element)",
+      "beforeDelete": "[\"gdl-door-mid-el\"]",
+      "afterDelete": "[]",
+      "vacuous": false,
+      "verdict": "PURGED — correct"
+    },
+    {
+      "family": "sitsOn (deleted wall → level)",
+      "obligation": "DEAD-ID (endpoint is the deleted element)",
+      "beforeDelete": "[\"GDL-L0\"]",
+      "afterDelete": "[]",
+      "vacuous": false,
+      "verdict": "PURGED — correct"
+    },
+    {
+      "family": "hosts (surviving wall → its door)",
+      "obligation": "DELETE-INVARIANT (id-keyed, untouched element)",
+      "beforeDelete": "[\"gdl-door-south-el\"]",
+      "afterDelete": "[\"gdl-door-south-el\"]",
+      "vacuous": false,
+      "verdict": "SURVIVED — correct"
+    },
+    {
+      "family": "sitsOn (surviving wall → level)",
+      "obligation": "DELETE-INVARIANT (id-keyed, untouched element)",
+      "beforeDelete": "[\"GDL-L0\"]",
+      "afterDelete": "[\"GDL-L0\"]",
+      "vacuous": false,
+      "verdict": "SURVIVED — correct"
+    },
+    {
+      "family": "boundedBy — the SURVIVING walls of a broken ring (lower room)",
+      "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
+      "beforeDelete": "[\"gdl-w-east-lo\",\"gdl-w-mid\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
+      "afterDelete": "[\"gdl-w-east-lo\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
+      "vacuous": false,
+      "verdict": "PARTIAL CONCLUSION SURVIVES — the room reads as bounded by the walls that remain, though its ring no longer closes and nothing re-derived it"
+    },
+    {
+      "family": "boundedBy — the SURVIVING walls of a broken ring (upper room)",
+      "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
+      "beforeDelete": "[\"gdl-w-east-hi\",\"gdl-w-mid\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
+      "afterDelete": "[\"gdl-w-east-hi\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
+      "vacuous": false,
+      "verdict": "PARTIAL CONCLUSION SURVIVES — same as the lower room"
+    },
+    {
+      "family": "adjacentTo (room ↔ room, authored by the DELETED shared wall)",
+      "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
+      "beforeDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "afterDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "vacuous": false,
+      "verdict": "STALE — the rooms still read as adjacent via a wall that no longer exists; the wall is named in NO endpoint, so no index could reach this edge"
+    },
+    {
+      "family": "connectedTo (room ↔ room, authored by a door in the DELETED wall)",
+      "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
+      "beforeDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "afterDelete": "[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "vacuous": false,
+      "verdict": "STALE — the rooms still read as connected by a door that was cascaded away with its host"
+    },
+    {
+      "family": "getBoundingWalls — the TYPED, refusal-bearing reader (lower room)",
+      "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
+      "beforeDelete": "ok:true [\"gdl-w-east-lo\",\"gdl-w-mid\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
+      "afterDelete": "ok:true [\"gdl-w-east-lo\",\"gdl-w-south\",\"gdl-w-west-lo\"]",
+      "vacuous": false,
+      "verdict": "ANSWERS CONFIDENTLY — the reader returns ok:true over a boundary nobody re-derived; \"undetermined\" and \"determined\" print the same shape (C79 §5.2.1)"
+    },
+    {
+      "family": "getBoundingWalls — the TYPED, refusal-bearing reader (upper room)",
+      "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
+      "beforeDelete": "ok:true [\"gdl-w-east-hi\",\"gdl-w-mid\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
+      "afterDelete": "ok:true [\"gdl-w-east-hi\",\"gdl-w-north\",\"gdl-w-west-hi\"]",
+      "vacuous": false,
+      "verdict": "ANSWERS CONFIDENTLY — same as the lower room"
+    },
+    {
+      "family": "region-derived — RE-DETECT CONTROL",
+      "obligation": "DELETE-SENSITIVE (region-derived, deleted element is NOT an endpoint)",
+      "beforeDelete": "[\"gdl-w-east-lo\",\"gdl-w-south\",\"gdl-w-west-lo\"]|[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]|[\"c95c91f1-d311-4cba-addd-0915ed7eb6f9\"]",
+      "afterDelete": "[\"gdl-w-east-hi\",\"gdl-w-east-lo\",\"gdl-w-north\",\"gdl-w-south\",\"gdl-w-west-hi\",\"gdl-w-west-lo\"]|[]|[]",
+      "vacuous": false,
+      "verdict": "the corrective pass IS observable by this probe"
+    }
+  ],
+  "notMeasured": [
+    "SUBSCRIBER REACHABILITY — whether any production path drives a re-detect on a delete",
+    "UNDO of a delete (the _removedRelationships restore path)",
+    "collaboration merge; multi-level; multi-client",
+    "element kinds other than wall",
+    "every PARKED family (C71 §2.3 — untouched is not absent)",
+    "whether a USER is ever told a conclusion went undetermined (C79 §10.6)"
+  ]
+}
