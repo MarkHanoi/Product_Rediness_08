@@ -92,6 +92,27 @@ export {
   segmentsProperlyCross2D,
   type SegmentIntersection2D,
 } from './pure/segmentIntersection.js';
+// §C73-POLY-BOOLEAN — THE 2-D polygon boolean (GE-05). Before it, the tree had
+// ≥5 independent Sutherland–Hodgman half-plane clippers, NO general clipper and
+// NO union primitive; three files independently deferred one, and "merge two
+// footprints" was not expressible. Arrangement + midpoint classification (NOT
+// Greiner–Hormann, whose entry/exit classification breaks on the shared
+// street-frontage edge that real cadastral data always carries). Mints no new
+// predicate family and no epsilon literal. Oracle-pinned in
+// __tests__/polygonBoolean.oracle.test.ts and stressed in
+// __tests__/polygonBoolean.differential.test.ts.
+//
+// ⚠ INTERSECTION AND UNION ONLY — difference (A \ B) is deliberately NOT
+// delivered, because it is not oracle-pinned. Read the module header's
+// "WHAT THIS IS NOT" before reaching for this.
+export {
+  polygonBoolean2D,
+  intersectPolygons2D,
+  unionPolygons2D,
+  type PolygonBooleanOp,
+  type PolygonBooleanRefusal,
+  type PolygonBooleanResult,
+} from './pure/polygonBoolean.js';
 // §W2A-ROOF-FORM-HONESTY — the PRE-FLIGHT, exported so a command handler can
 // refuse IN FRONT OF THE USER before committing, instead of the user discovering
 // afterwards that the mansard they asked for was built as a hip.

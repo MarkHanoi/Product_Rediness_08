@@ -61,6 +61,26 @@
  *     Shewchuk). The design AVOIDS the classic fragility instead of surviving
  *     it — see the next section — but two rings whose crossings are separated
  *     by less than `COINCIDENT_M` are outside what this can resolve.
+ *   • **THE RESOLUTION LIMIT IS AN AREA BOUND, AND HERE IT IS.** When a ring
+ *     vertex of A lands within `COINCIDENT_M` of B's boundary, the crossing
+ *     point and that vertex are THE SAME PLACE by declaration, and the two
+ *     operations may pick different members of that pair as the loop's
+ *     representative. The resulting area disagreement is bounded by
+ *
+ *           |A| + |B| − (|A ∪ B| + |A ∩ B|)  ≤  COINCIDENT_M × (P_A + P_B) / 2
+ *
+ *     (each merged vertex perturbs the boundary laterally by at most
+ *     `COINCIDENT_M` over its two adjacent edges — a triangle of base ≤ edge
+ *     length and height ≤ `COINCIDENT_M`). For a 30 m parcel perimeter that is
+ *     **≤ 0.015 m²**, i.e. 150 mm², which is orders below any reportable
+ *     buildable-area precision. It is MEASURED, not assumed: the differential
+ *     arm (`__tests__/polygonBoolean.differential.test.ts`) evaluates the
+ *     inclusion–exclusion identity on 240 generated concave pairs against
+ *     exactly this bound, and reports how many exceed plain float noise. On
+ *     inputs with no near-coincidence — every hand-computed oracle case — the
+ *     identity holds to 1e-9. **Do not "fix" this by widening a tolerance:**
+ *     the bound shrinks only if `COINCIDENT_M` shrinks, which is the ratchet
+ *     direction C73 §2.5 permits.
  *
  * ── WHY THIS ALGORITHM, AND NOT GREINER–HORMANN / WEILER–ATHERTON ───────────
  *
@@ -373,7 +393,17 @@ function chainLoops(edges: ReadonlyArray<SubEdge>): Pt2[][] | null {
             if (guard-- < 0) return null; // cannot happen (each edge is used once) — refuse, never spin
             used[current] = true;
             const e = edges[current]!;
-            loop.push([e.x0, e.y0]);
+            // EMIT THE VERTEX REPRESENTATIVE, NOT THE SUB-EDGE'S OWN ENDPOINT.
+            // Two sub-edges that meet here agree only to within COINCIDENT_M —
+            // A's ring vertex and B's computed crossing can be 0.3 mm apart and
+            // still be THE SAME PLACE by the declared identity. Emitting each
+            // edge's own coordinate would stitch that sub-millimetre disagreement
+            // into the output ring as a hairline notch, which a downstream
+            // simplicity or offset check can legitimately choke on. Emitting the
+            // representative makes every loop self-consistent. It does NOT make
+            // the answer exact: see the module header's resolution-limit note.
+            const rep = verts[from[current]!]!;
+            loop.push([rep[0], rep[1]]);
             const at = to[current]!;
             if (at === startVertex) break;
             const candidates = outgoing[at]!.filter((i) => !used[i]);
