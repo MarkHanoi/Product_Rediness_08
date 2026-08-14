@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`visual-diff/3d — stair (front) > emits a non-empty serialised payload 1`] = `"{"camera":"front","primitives":[{"elementId":"stair-0000","family":"stair","translation":{"x":0,"y":0,"z":0},"rotation":{"x":0,"y":0,"z":0},"dimensions":{"x":1.2,"y":3,"z":4},"materialId":"pryzm.material.stair.default","renderOrder":4},{"elementId":"stair-0001","family":"stair","translation":{"x":1.4,"y":0,"z":0},"rotation":{"x":0,"y":0,"z":0},"dimensions":{"x":1.2,"y":3,"z":4},"materialId":"pryzm.material.stair.default","renderOrder":4}]}"`;

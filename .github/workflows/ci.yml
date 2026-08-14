@@ -14,6 +14,10 @@
 #                     1,495-test suite is green and this job is now hard-fail. It is
 #                     the first unit-test gate the estate has ever had.)
 #   - test-root      (§L-540-CI-GATE — the root vitest suite; was wired to NOTHING)
+#   - test-suites    (§L-850 — tests/{parity,contract-44,ci,visual-diff} had NO RUNNER AT
+#                     ALL, not merely a missed include. Measured in isolation first: 52 of
+#                     56 files green, 4 quarantined by name and still ledgered. Lands
+#                     hard-fail because it was proven green before it was wired.)
 #   - build
 #   - apex-gates
 #   - docker-image   (Fly parity — build + boot smoke; ~15-20 min)
@@ -264,6 +268,39 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:root
+
+  # §L-850 — THE STANDALONE CORPORA HAD NO RUNNER AT ALL.
+  #
+  # `tests/{parity,contract-44,ci,visual-diff}` are not pnpm workspaces, have no
+  # package.json, and were named by no script — so 57 test files could not be
+  # selected by ANY invocation. That is a strictly worse defect than L-849/L-851
+  # (an include that missed): there was nothing to widen. `vitest.suites.config.ts`
+  # is the runner the founder approved creating; this job is what INVOKES it,
+  # because glob reachability and CI invocation are different axes and only the
+  # second one is this job.
+  #
+  # Measured in isolation BEFORE wiring, under a throwaway config held outside the
+  # repo: 56 files / 398 tests / 374 pass / 24 fail. The 52 green files are claimed
+  # and the 4 red ones are quarantined BY NAME in the config beside their actual
+  # failures, and stay on tools/ga-gate/dark-test-files-ledger.json. Re-measured
+  # after wiring: 52 files / 317 tests / 317 pass. So this lands HARD-FAIL, not
+  # advisory — the L-247 "land it advisory first" ladder is for suites that land
+  # RED; landing a proven-green suite as advisory would be theatre.
+  test-suites:
+    name: Unit tests — standalone corpora (parity · contract-44 · visual-diff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:suites
 
   # §L-540-CI-GATE / L-544 — `test:pryzm1` WAS WIRED TO NOTHING, AND IT IS RED.
   #

@@ -44,6 +44,8 @@
     "test:pryzm1": "tsx --test tests/*.test.ts tools/city-completion/*.test.ts tools/dataset-discovery/*.test.ts",
     "//test:root": "§L-540-CI-GATE — the root vitest.config.ts suite (src/ui panel + toolbar happy-dom specs). It existed and was green (23 files / 263 tests) but was invoked by NOTHING in CI. Named here so ci.yml can call a script instead of an ad-hoc `npx vitest run`.",
     "test:root": "vitest run",
+    "//test:suites": "§L-850 — the standalone corpora under tests/{parity,contract-44,ci,visual-diff}. They are not pnpm workspaces and no runner could select them under ANY invocation, so 57 files were dark. Measured in isolation first (56 vitest files, 398 tests, 374 pass / 24 fail); this script claims the 52 GREEN files, and vitest.suites.config.ts quarantines the 4 RED ones by name beside their actual failures.",
+    "test:suites": "vitest run --config vitest.suites.config.ts",
     "gen:openapi": "node scripts/build/gen-openapi.mjs",
     "lint": "eslint . --max-warnings=999999",
     "wireup:baseline": "scripts/one-offs/wireup-baseline.sh > .local/wireup-floor.json",
