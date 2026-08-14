@@ -253,6 +253,18 @@ export function computeMoveReweld(
             const dToE = Math.hypot(corner.x - ex, corner.z - ez);
             const d = Math.min(dToS, dToE);
             if (d < MIN_DISPLACEMENT || d > maxExtension) continue;
+            // §L-872 T-SEAT-GUARD: a corner farther than weldTol from BOTH
+            // endpoints is strictly INTERIOR to the moved wall's new segment —
+            // a T-abutment on its BODY (step 3 above already guarantees every
+            // corner lies on/near the segment, so "far from both ends" can only
+            // mean "on the body"). Seating an endpoint there would SHORTEN the
+            // moved wall to the stem's foot — e.g. a host moved 1 m with a stem
+            // abutting 1 m from its end lost that metre (the displacement cap
+            // only catches stems near the middle). An L-corner's intersection
+            // always lands within weldTol of the seating endpoint (a farther
+            // corner means the wall slid along its own axis, which step 3
+            // refuses), so this guard cannot suppress a legitimate corner seat.
+            if (d > weldTol) continue;
             if (dToS <= dToE) { sx = corner.x; sz = corner.z; } else { ex = corner.x; ez = corner.z; }
             changed = true;
         }

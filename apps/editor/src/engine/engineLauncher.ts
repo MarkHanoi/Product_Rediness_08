@@ -30,7 +30,12 @@ import { SchedulePanel } from '@app/ui/SchedulePanel/SchedulePanel';
 import { DataWorkbench } from '@app/ui/dataworkbench/DataWorkbench';
 import { UpdateElementMarkCommand, CreatePlanViewCommand, ReDetectRoomsCommand, CopyElementCommand } from '@pryzm/command-registry';
 import { annotationStore } from '@pryzm/plugin-annotations';
-import { WallInstanceBridge } from '@pryzm/geometry-wall';
+import { WallInstanceBridge, WallMoveReweldService } from '@pryzm/geometry-wall';
+// §MOVE-REWELD-DISPATCH (L-871/L-872) — cascade command class + the cross-service
+// latch, injected into WallMoveReweldService (factory pattern: geometry-wall must
+// not import command-registry at module load, §SCC).
+import { CascadeWallBaselineCommand, isCascadeWallBaselineApplying } from '@pryzm/command-registry';
+import { semanticGraphManager } from '@pryzm/core-app-model';
 import { initScene }          from './initScene';
 import { initDataPlatform }   from './initDataPlatform';
 import { initBuilders }       from './initBuilders';
@@ -766,6 +771,23 @@ export async function bootstrap(
         commandManager,
     );
     slabWallConnectivityService.bootstrap();
+
+    // ── §MOVE-REWELD-DISPATCH (L-871/L-872): junction re-weld on wall move ────
+    // The slab service above welds only slab-loop CORNER neighbours. This
+    // service welds the moved wall's `joinedTo` partners — including interior
+    // walls abutting MID-SPAN (T junctions), which no slab loop ever carries —
+    // so a perimeter move no longer detaches the partition and kills the room
+    // (founder repro 2026-08-14). Constructed AFTER the slab service so its
+    // subscriber runs second: corner welds land first, and already-seated
+    // partners fall below computeMoveReweld's displacement floor (no re-write).
+    const wallMoveReweldService = new WallMoveReweldService(wallTool.getWallStore(), {
+        commandManagerRef: { current: commandManager },
+        makeCascadeCommand: (input) => new CascadeWallBaselineCommand(input),
+        getJoinedWalls: (wallId) => semanticGraphManager.getJoinedWalls(wallId),
+        isJoinResolving: () => wallRebuildCoordinator.isJoinsResolving,
+        isCascadeApplying: isCascadeWallBaselineApplying,
+    });
+    void wallMoveReweldService; // owned by the engine lifetime; disposed with it
 
     // ── §3.2: StoreRegistry ───────────────────────────────────────────────────
     registerAllStores({

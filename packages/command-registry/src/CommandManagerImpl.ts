@@ -563,6 +563,22 @@ export class CommandManager {
         }
     }
 
+    /**
+     * §L-874 — revert-in-progress latch. While undo()/redo() replays a
+     * command's inverse (or re-executes it), every store event it fires is a
+     * REPLAY, not a user gesture. Structural wall-cascade services
+     * (SlabWallConnectivityService, WallMoveReweldService) MUST consult this:
+     * without it, undoing UPDATE_WALL_BASELINE re-emitted the moved wall's
+     * restore, the services dispatched a fresh FORWARD cascade (via execute(),
+     * which also pushed a new history entry and cleared the redo stack), and
+     * every Ctrl+Z was immediately compensated — the founder's "2–3 undos did
+     * not work, screenshots identical" treadmill. The cascade entries on the
+     * history stack restore the neighbours themselves; during a revert the
+     * services' only correct behaviour is silence.
+     */
+    private _reverting = 0;
+    isReverting(): boolean { return this._reverting > 0; }
+
     undo(): CommandResult | null {
         const entry = this.history.pop();
         if (!entry) {
@@ -583,12 +599,18 @@ export class CommandManager {
         // around bulk hydration (apps/editor/src/engine/persistence/
         // ProjectLoader.ts:279-296 + finally block at 1456-1495).
         return this._withPausedObservers('UNDO', () => {
-            const result = entry.command.undo(this.context);
-            console.log(`[CommandManager] UNDO result: success=${result.success}`, result.info ?? '');
-            if (result.success) {
-                this.redoStack.push(entry);
+            // §L-874 — replayed inverse mutations are not user gestures.
+            this._reverting++;
+            try {
+                const result = entry.command.undo(this.context);
+                console.log(`[CommandManager] UNDO result: success=${result.success}`, result.info ?? '');
+                if (result.success) {
+                    this.redoStack.push(entry);
+                }
+                return result;
+            } finally {
+                this._reverting--;
             }
-            return result;
         });
     }
 
@@ -603,12 +625,19 @@ export class CommandManager {
         // §56 — same pause/resume scaffold for redo (re-executing a command
         // fires the same store-event burst that the original execute did).
         return this._withPausedObservers('REDO', () => {
-            const result = entry.command.execute(this.context);
-            console.log(`[CommandManager] REDO result: success=${result.success}`, result.info ?? '');
-            if (result.success) {
-                this.history.push(entry);
+            // §L-874 — a redo replays the recorded forward mutation; the cascade
+            // entries replay themselves. Services must not re-cascade on top.
+            this._reverting++;
+            try {
+                const result = entry.command.execute(this.context);
+                console.log(`[CommandManager] REDO result: success=${result.success}`, result.info ?? '');
+                if (result.success) {
+                    this.history.push(entry);
+                }
+                return result;
+            } finally {
+                this._reverting--;
             }
-            return result;
         });
     }
 

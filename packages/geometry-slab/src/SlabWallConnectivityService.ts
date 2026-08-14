@@ -9,6 +9,7 @@ import { Point3D } from '@pryzm/core-app-model';
 import {
     CascadeWallBaselineCommand,
     CascadeWallBaselineEntry,
+    isCascadeWallBaselineApplying,
 } from '@pryzm/command-registry';
 
 type WallEventType = 'add' | 'update' | 'remove';
@@ -29,6 +30,9 @@ interface WallStoreRef {
  */
 interface CommandManagerRef {
     execute: (command: CascadeWallBaselineCommand, metadata?: any) => unknown;
+    /** §L-874 — true while the manager is replaying an undo/redo. Optional so
+     *  narrow test stubs keep working; the real CommandManager implements it. */
+    isReverting?: () => boolean;
 }
 
 /**
@@ -175,6 +179,20 @@ export class SlabWallConnectivityService {
         // Reentrancy guard: skip if we ourselves triggered this update
         if (this.propagating) return;
 
+        // §L-871/§L-872 cross-service latch: a CascadeWallBaselineCommand being
+        // applied (ours via the legacy fallback path, or WallMoveReweldService's
+        // 'move-reweld' cascade, or an undo restore) is structural propagation.
+        // Our own `propagating` flag cannot see the OTHER dispatcher's writes;
+        // this chokepoint latch can. Without it, each service re-cascades the
+        // other's writes — extra undo entries per user move.
+        if (isCascadeWallBaselineApplying()) return;
+
+        // §L-874 — undo/redo replays are not user moves. Reacting to a restore
+        // dispatched a fresh FORWARD cascade that compensated the very undo the
+        // user just performed (and cleared the redo stack). The history's own
+        // cascade entries restore the neighbours; during a revert, stay silent.
+        if (this.commandManager?.isReverting?.()) return;
+
         const dependentSlabIds = this.graph.get(wallId);
         if (!dependentSlabIds || dependentSlabIds.size === 0) return;
 
@@ -203,7 +221,27 @@ export class SlabWallConnectivityService {
             // snaps in the cascade order.
             const dedupedMap = new Map<string, CascadeWallBaselineEntry>();
             for (const e of batch) dedupedMap.set(e.wallId, e);
-            const deduped: CascadeWallBaselineEntry[] = [...dedupedMap.values()];
+
+            // §L-871 IDENTITY-SUPPRESSION — drop entries that change nothing.
+            // The founder's console showed CASCADE_WALL_BASELINE firing FROM a
+            // door's ADD_OPENING: wallStore.addOpening emits 'update' with the
+            // baseline untouched, every corner re-derives to exactly the current
+            // endpoints, and this service dispatched a batch of byte-identical
+            // writes — a phantom undo entry per opening, plus redundant rebuild
+            // storms. An entry is dispatched only if it MOVES an endpoint by
+            // more than 1e-9 m (far below any real weld; same order as the
+            // tracker's ringsEqualCyclic epsilon).
+            const IDENTITY_EPS = 1e-9;
+            const deduped: CascadeWallBaselineEntry[] = [...dedupedMap.values()].filter(e => {
+                const cur = wallStore.getById(e.wallId);
+                if (!cur) return false;
+                const dx0 = e.newBaseLine[0].x - cur.baseLine[0].x;
+                const dz0 = e.newBaseLine[0].z - cur.baseLine[0].z;
+                const dx1 = e.newBaseLine[1].x - cur.baseLine[1].x;
+                const dz1 = e.newBaseLine[1].z - cur.baseLine[1].z;
+                return Math.hypot(dx0, dz0) > IDENTITY_EPS || Math.hypot(dx1, dz1) > IDENTITY_EPS;
+            });
+            if (deduped.length === 0) return;
 
             this._dispatchCascade(deduped, wallStore);
         } finally {

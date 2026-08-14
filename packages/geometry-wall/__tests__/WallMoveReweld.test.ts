@@ -99,6 +99,34 @@ describe('computeMoveReweld — T-junction', () => {
     const entries = computeMoveReweld(moved, [host]);
     expect(entries.find(e => e.wallId === 'H')).toBeUndefined();
   });
+
+  it('§L-872 T-SEAT-GUARD: a stem abutting NEAR the host end never shortens the moved host', () => {
+    // Host H(0,0)→(10,0) moves −1 m z; stem S abuts the host BODY at x=9 — only
+    // 1 m from the host's end. Pre-guard, the moved-wall seating loop snapped
+    // the host's end endpoint onto the stem's foot (d=1 ≤ cap 1.5), silently
+    // shortening the host to 9 m. The stem must still be re-welded; the host's
+    // own baseline must come through byte-unchanged (no seat on a body corner).
+    const moved = { id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]) };
+    const stem = { id: 'S', baseLine: bl([9, 0.1], [9, 4]) };
+    const entries = computeMoveReweld(moved, [stem]);
+    const eS = entries.find(e => e.wallId === 'S')!;
+    expect(eS).toBeTruthy();
+    expect(eS.newBaseLine[0].x).toBeCloseTo(9, 9);
+    expect(eS.newBaseLine[0].z).toBeCloseTo(-1, 9);           // stem follows the host
+    expect(entries.find(e => e.wallId === 'H')).toBeUndefined(); // host NEVER shortened
+  });
+
+  it('§L-872 CONTROL: the L-corner seat still fires (guard does not over-suppress)', () => {
+    // Same diagonal-move shape as the L-corner suite: the corner lands within
+    // weldTol of the moved wall's start endpoint → the seat entry must survive.
+    const diag = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0.5], [6, 5.5]) };
+    const partnerA = { id: 'A', baseLine: bl([0, 0], [5, 0]) };
+    const entries = computeMoveReweld(diag, [partnerA]);
+    const eB = entries.find(e => e.wallId === 'B')!;
+    expect(eB).toBeTruthy();
+    expect(eB.newBaseLine[0].x).toBeCloseTo(6, 9);
+    expect(eB.newBaseLine[0].z).toBeCloseTo(0, 9);
+  });
 });
 
 describe('computeMoveReweld — refusals (the scars)', () => {

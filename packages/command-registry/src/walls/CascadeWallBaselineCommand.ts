@@ -27,8 +27,34 @@ export interface CascadeWallBaselineEntry {
 export interface CascadeWallBaselineInput {
     /** Each entry mutates one wall; all entries are applied atomically in execute(). */
     entries: CascadeWallBaselineEntry[];
-    /** Free-form tag (e.g. "slab-connectivity") for diagnostics / inspector display. */
+    /** Free-form tag (e.g. "slab-connectivity", "move-reweld") for diagnostics / inspector display. */
     cause?: string;
+}
+
+/**
+ * §L-871/§L-872 — cross-service structural-cascade latch.
+ *
+ * TWO services now dispatch this command from wallStore 'update' subscriptions:
+ * `SlabWallConnectivityService` (slab-loop corner welds) and
+ * `WallMoveReweldService` (joinedTo junction re-welds, incl. T-abutments).
+ * Each carries its OWN `propagating` flag, which only guards against feeding
+ * its OWN event path — it cannot stop the OTHER service from treating this
+ * command's store writes as fresh user moves and dispatching a second cascade
+ * (extra undo entries; in the worst ordering, a ping-pong of identity welds).
+ *
+ * The command is the ONE chokepoint every structural wall cascade passes
+ * through (C11 §5.4 shape), so the latch lives here: depth-counted around the
+ * mutation phases of execute() AND undo(). Both services consult it before
+ * propagating. Module-level rather than instance state because the reactors
+ * never see the instance — they see store events.
+ */
+let _cascadeApplyDepth = 0;
+
+/** True while a CascadeWallBaselineCommand is applying (or undoing) its wall
+ *  writes. Store-event reactors that would dispatch a FURTHER cascade must
+ *  treat these updates as structural propagation, not user moves. */
+export function isCascadeWallBaselineApplying(): boolean {
+    return _cascadeApplyDepth > 0;
 }
 
 /**
@@ -170,13 +196,20 @@ export class CascadeWallBaselineCommand implements Command {
 
         // Phase 2 — apply all mutations. _renderVersion bumped per entry so the
         // builder dirty-check (§VIEW-DIRTY-CHECK §2.2) sees a real change.
-        for (const e of this.entries) {
-            const wall = wallStore.getById(e.wallId);
-            const baseVersion = (wall?._renderVersion ?? 0) + 1;
-            wallStore.update(e.wallId, {
-                baseLine: e.newBaseLine,
-                _renderVersion: baseVersion,
-            } as any);
+        // §L-871/§L-872: the writes run inside the cross-service latch so no
+        // wall-update reactor mistakes them for user moves (see the module doc).
+        _cascadeApplyDepth++;
+        try {
+            for (const e of this.entries) {
+                const wall = wallStore.getById(e.wallId);
+                const baseVersion = (wall?._renderVersion ?? 0) + 1;
+                wallStore.update(e.wallId, {
+                    baseLine: e.newBaseLine,
+                    _renderVersion: baseVersion,
+                } as any);
+            }
+        } finally {
+            _cascadeApplyDepth--;
         }
 
         this.executed = true;
@@ -190,13 +223,20 @@ export class CascadeWallBaselineCommand implements Command {
         const wallStore = ctx.stores.wallStore;
         // Restore in REVERSE order so any in-store hooks that observe
         // dependent walls see the same final state as before execute().
+        // §L-871/§L-872: latched for the same reason as execute() — an undo
+        // restore is structural propagation, not a user move.
         const restored: string[] = [];
-        for (const e of [...this.entries].reverse()) {
-            const snap = this.prevSnapshots.get(e.wallId);
-            if (snap) {
-                wallStore.restoreSnapshot(snap);
-                restored.push(e.wallId);
+        _cascadeApplyDepth++;
+        try {
+            for (const e of [...this.entries].reverse()) {
+                const snap = this.prevSnapshots.get(e.wallId);
+                if (snap) {
+                    wallStore.restoreSnapshot(snap);
+                    restored.push(e.wallId);
+                }
             }
+        } finally {
+            _cascadeApplyDepth--;
         }
         this.executed = false;
         return { success: true, affectedElementIds: restored };
