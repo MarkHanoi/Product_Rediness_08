@@ -191,6 +191,13 @@ describe('§RIVAL-MINT — the fixed adapter keeps BOTH first-touch edits', () =
     // converges by LWW and still tells the user.
     const a = new YjsDocAdapter('rival-p8');
     const b = new YjsDocAdapter('rival-p8');
+    // Pin the Yjs client ids so A deterministically LOSES the per-key LWW
+    // tiebreak (higher clientID wins). Unpinned, this test measured a coin
+    // flip: whenever A drew the higher id its value SURVIVED the merge, no
+    // disclosure was owed, and the assertion failed ~50% of runs — same
+    // defect family as the pinning in 'CONVERGENCE IS ORDER-INDEPENDENT'.
+    (a.doc as unknown as { clientID: number }).clientID = 101;
+    (b.doc as unknown as { clientID: number }).clientID = 202;
 
     a.applyCommand('wall.create', { id: 'w', height: 3 });
     b.applyUpdate(a.encodeStateAsUpdate());

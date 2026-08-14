@@ -355,13 +355,24 @@ export class YjsDocAdapter {
   private readonly _unresolvedSubjectTypes = new Set<string>();
   /**
    * Locally-authored property values not yet reconciled against a remote
-   * update, keyed docKey → elementId → property → value.  Consumed (and
-   * cleared) by `_discloseOverwrittenLocalWrites()` on the next merge; this is
-   * what makes "a remote update silently discarded MY edit" detectable rather
-   * than a value that simply changes underneath the user.
+   * update, keyed docKey → elementId → property → {value, atMs}.
+   *
+   * §PENDING-PER-PROP — lifecycle is PER PROPERTY, never per doc. An entry
+   * leaves this map only when a merge actually TOUCHED its property: either it
+   * was compared against an arriving rival and disclosed via `emitConflict`,
+   * or the merged document converged to the locally-authored value (our write
+   * completed its exchange, so no rival can still race it). A merge that does
+   * not touch the property leaves the entry in place — the first honest
+   * reading of check-conflict-surfacing (2026-08-14, S2-INTERVENING 103/103
+   * SILENT) proved that clearing the whole doc's bookkeeping after ANY merge
+   * destroys disclosure eligibility for edits still in flight, which an
+   * unrelated collaborator's merge triggers on every hub topology.
+   *
+   * `atMs` bounds the trade-off of keeping entries: see
+   * `_PENDING_WRITE_TTL_MS` in `_discloseOverwrittenLocalWrites`.
    */
   private readonly _localPendingWrites =
-    new Map<string, Map<string, Map<string, unknown>>>();
+    new Map<string, Map<string, Map<string, { value: unknown; atMs: number }>>>();
 
   // ── §E.1 — Batch blackout hooks ────────────────────────────────────────────
   // Optional callbacks wired by BatchCoordinator via registerYjsDocAdapter().
@@ -803,7 +814,8 @@ export class YjsDocAdapter {
     if (!perDoc) { perDoc = new Map(); this._localPendingWrites.set(docKey, perDoc); }
     let perElement = perDoc.get(elementId);
     if (!perElement) { perElement = new Map(); perDoc.set(elementId, perElement); }
-    for (const [k, v] of Object.entries(properties)) perElement.set(k, v);
+    const atMs = Date.now();
+    for (const [k, v] of Object.entries(properties)) perElement.set(k, { value: v, atMs });
   }
 
   // ── W5-3: reading the canonical element record ─────────────────────────────
@@ -1005,7 +1017,36 @@ export class YjsDocAdapter {
    * Properties declared `last-writer-wins` never enter `_localPendingWrites`,
    * so they are silently converged BY DECLARATION, with the reason written in
    * `syncDisposition.ts` — not by omission.
+   *
+   * §PENDING-PER-PROP — cleanup is PER PROPERTY, never per doc. This method
+   * used to end with `this._localPendingWrites.delete(docKey)`, wiping the
+   * whole doc's bookkeeping after ANY merge — including entries for properties
+   * the arriving merge never touched. When those entries' concurrent rival
+   * landed on the NEXT merge there was nothing left to compare against, the
+   * authored value was discarded, and no conflict fired
+   * (check-conflict-surfacing S2-INTERVENING: 103/103 SILENT, 2026-08-14).
+   * The first merge worked; the second is where P8 stopped holding.
+   *
+   * An entry now leaves the books only when:
+   *   (a) a merge changed its property to a DIFFERENT value → disclosed above,
+   *       and the comparison is spent — replaying the same winner state must
+   *       not re-fire it; or
+   *   (b) a merge changed its property TO the locally-authored value — our
+   *       write completed its round trip, no rival can still race it; or
+   *   (c) it aged past `_PENDING_WRITE_TTL_MS` without ever meeting a rival.
+   *
+   * (c) names a trade-off: this adapter has no explicit per-write server ack,
+   * so "no rival can still race it" is not knowable for an entry no merge ever
+   * touches (e.g. this client authored it and every peer went quiet). Keeping
+   * such an entry forever risks disclosing a much-later SEQUENTIAL overwrite —
+   * one authored by a peer who had already seen our value — as if it were a
+   * concurrent rival (noise, the S3 failure mode), and leaks memory. The TTL
+   * bounds both. It deliberately errs long: expiring early is exactly the bug
+   * this section fixes, so the window comfortably exceeds any realistic
+   * in-flight exchange.
    */
+  private static readonly _PENDING_WRITE_TTL_MS = 10 * 60_000;
+
   private _discloseOverwrittenLocalWrites(
     docKey: string,
     pre: ReadonlyMap<string, unknown>,
@@ -1014,25 +1055,38 @@ export class YjsDocAdapter {
     if (!perDoc || perDoc.size === 0) return;
     // §RIVAL-MINT — same authoritative accessor as the pre-merge snapshot.
     const levelId = docKey === COORD_KEY ? undefined : docKey;
+    const now = Date.now();
 
     for (const [elementId, props] of perDoc) {
-      for (const [prop, localValue] of props) {
+      for (const [prop, entry] of props) {
         const before = pre.get(`${elementId} ${prop}`);
         const after = this.readElementProperty(elementId, prop, levelId);
-        if (_valuesEqual(before, after)) continue;   // merge did not touch it
-        if (_valuesEqual(after, localValue)) continue; // our value survived
+        if (_valuesEqual(before, after)) {
+          // The merge did not touch this property: its rival may still be in
+          // flight, so the entry SURVIVES — unless it has aged out (case c).
+          if (now - entry.atMs > YjsDocAdapter._PENDING_WRITE_TTL_MS) props.delete(prop);
+          continue;
+        }
+        if (_valuesEqual(after, entry.value)) {
+          // Case (b): converged to OUR value — the write met its exchange.
+          props.delete(prop);
+          continue;
+        }
+        // Case (a): a rival discarded the authored value — disclose, then the
+        // comparison is spent.
         this.emitConflict({
           elementId,
           property: prop,
-          localValue,
+          localValue: entry.value,
           remoteValue: after,
           remoteAuthor: 'collaborator',
-          timestamp: Date.now(),
+          timestamp: now,
         });
+        props.delete(prop);
       }
+      if (props.size === 0) perDoc.delete(elementId);
     }
-    // Reconciled: everything pending has now been through a merge.
-    this._localPendingWrites.delete(docKey);
+    if (perDoc.size === 0) this._localPendingWrites.delete(docKey);
   }
 
   /**
