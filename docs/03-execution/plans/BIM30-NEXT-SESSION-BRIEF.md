@@ -51,6 +51,78 @@ is the deploy, the stamp, and one doc edit.
 
 ## §0 — PASTE THIS AS THE OPENING PROMPT
 
+> ⚠ **The block below was REWRITTEN 2026-08-14 evening against §15.** The version it replaces
+> pointed at §10, told you to recount from 34/82, and ordered four items that have all landed. It
+> is preserved as §0-PRIOR only so the diff is legible; **paste the block below, not that one.**
+
+```
+Read docs/03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md — §15 FIRST (it is the
+youngest session close and it OVERRIDES everything earlier it contradicts,
+§11-§14 included), then §1 (contract digest), §4 (git discipline), §5 (path
+gotchas), §7 (deploy contract).
+
+⚠ DO NOT RECOUNT AT THE START. The register is stamped 55 CLOSED / 20 OPEN /
+7 UNPROVEN at a75e8e1e (GAP-REGISTER §9.0). Ceiling is 74/82 after my
+CB-01/CB-02/CB-05 deferral, 77/82 absolute. Quote 74 unless you name the
+deferral in the same sentence.
+
+⚠ DO NOT tell me walls cannot re-mitre after a neighbour moves. They can, since
+ca878883/6c1b3919/f2256eba, and I tested it in production. That line is struck
+in four places (§15.1).
+
+⚠ DEPLOY STATE IS NOT ASSERTED IN THE FILE. Before deploying or claiming
+anything is live, run `fly releases` and `git log --oneline` (§15.8).
+46232e2d was mid-deploy when the brief was written.
+
+ASK ME THESE BEFORE WRITING CODE (§15.10):
+  1. PR-05 §4.1 — update-surrender vs pre-sweep clear. This has been open ALL
+     of last session and blocks the behavioural half of PR-05. Ask it plainly,
+     in your first message, and do not start PR-05 until I answer.
+  2. Re-confirm the CB-01/CB-02/CB-05 deferral (it is what holds 74 below 77).
+  3. Whether the generative-quality ledger gets an owner (§13.4).
+
+THEN, in this order (§15.10):
+  1. The remaining unowned OPEN rows — I DEFERRED these to this session by
+     explicit instruction; they are scheduled, not dropped. Read §14.1 for the
+     per-row detail, minus the four now closed (MT-10, CO-03, GE-04, PV-08),
+     and read GE-12/GE-09/GR-12 through §15.3's refusals, not §14.1's prose.
+  2. The three drains at their measured remaining counts (§15.4):
+     epsilon 357 · empty-means-unknown 67 · hidden-mock/CO-06 15.
+     Re-drain epsilon at the END of feature work — it re-reds on new features.
+  3. The C83 phase plan, in order: S0 plan-view canPlace parity ->
+     furniture-blocks-door advisory -> make `contains` reachable (FIX THE
+     ID-KEYED CLASSIFICATION FIRST, §15.6) -> Door.swing -> the headline
+     enforcement.
+  4. Half 2 bar 3 — 132 relationship-determination findings, 100 verbs x 41
+     relationships, no partial credit by verb family. Untouched by design and
+     the largest remaining body of work.
+
+TWO RULES FROM LAST SESSION, ENFORCE THEM ON EVERY LANE (§15.7):
+  - A console.log is NOT a user-facing message. If the surface you need is
+    unavailable, OPEN it, or fail LOUDLY — never degrade to silence, and never
+    synthesise a user answer (a panel resolved a fabricated "cancelled" for a
+    prompt I never saw). Prove reach at the DOM, with silence controls.
+  - A gate that classifies by NAME can be satisfied by RENAMING. If a gate goes
+    green on a rename, the commit message must say why the new name is TRUE and
+    what adopting the checked role would have done to behaviour.
+
+Launch the lanes in §3 IN PARALLEL on the partition map. Enforce §4 git
+discipline verbatim — every rule there cost real work.
+
+DOCUMENTATION-FIRST STANDS: contracts/specs/ADRs before implementation. C83
+(spatial validity & design logic) was minted and amended last session — read
+it, and its 26-agent survey findings in §15.6, before writing code against it.
+
+Do NOT re-read contracts C67-C83 end to end; §1 carries the digest. Open a
+contract only when you are about to change what it governs, and only that §.
+
+Poll lanes by commits and file mtimes, never by launch records. A lane that
+has written nothing in 15 minutes is stalled: message it to commit-or-report.
+```
+
+<details>
+<summary>§0-PRIOR — the 2026-08-13 opening prompt, superseded. Do not paste.</summary>
+
 ```
 Read docs/03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md — §10 FIRST (it is
 the session close and it OVERRIDES anything earlier it contradicts), then §-1,
@@ -81,17 +153,9 @@ THEN, in this order (§10.6):
 
 Then §2 Phase A. Launch the lanes in §3 IN PARALLEL on the partition map.
 Enforce §4 git discipline verbatim — every rule there cost real work.
-
-DOCUMENTATION-FIRST STANDS: contracts/specs/ADRs before implementation. C81
-(edit layer), SPEC-49 (circulation) and GENERATIVE-QUALITY-MASTER-TRACKER all
-landed last session — read them before writing code against them.
-
-Do NOT re-read contracts C67-C80 end to end; §1 carries the digest. Open a
-contract only when you are about to change what it governs, and only that §.
-
-Poll lanes by commits and file mtimes, never by launch records. A lane that
-has written nothing in 15 minutes is stalled: message it to commit-or-report.
 ```
+
+</details>
 
 ---
 
