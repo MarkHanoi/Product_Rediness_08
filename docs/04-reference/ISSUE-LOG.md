@@ -4368,3 +4368,48 @@ honesty doctrine working.
 groups/meshes/cache entries attributable to A), then purge at the project-switch reconstruction
 boundary — keyed on project identity, not on "looks empty". `npm run check:isolation` (41/41
 baseline) must not regress; if the static checker CAN express this leak class, add the arm.
+
+---
+
+## L-904 — UPDATE 2026-08-14 (lane L-MERGEv2) — refusal RE-VERIFIED at HEAD; production non-refusal explained; the OFFER half SHIPPED (chat opens with two pre-validated clear stations)
+
+**1. The refusal chokepoint re-verified by execution at HEAD** (all green, this session):
+`geometry-wall WallCrossesOpening.test.ts` 29/29 · `apps/editor WallPlacementGateSurfacing.test.ts`
+16/16 (9 create + 7 MOVE, every one asserting the DOM) · `command-registry
+hostedOpeningHostMoveSeam.test.ts` 9/9. The founder''s exact gesture direction — a wall moved so
+its OWN path crosses ANOTHER wall''s hosted opening — is pinned by the MOVE arm (mover dragged from
+a clear station onto the door span 3.005–3.931 m): `blocked: true`, door element id + host wall id
++ BOTH intervals read back off the visible panel. Both gestures funnel through ONE seam,
+`gateWallMove` (`registerTransformDragHandler.ts:192` = 3D gizmo · `MovePlanToolHandler.ts:485` =
+plan drag), so the verification covers both by construction.
+
+**2. Why the founder''s production build did not refuse**: `1e80e3a2` was committed 2026-08-14
+14:52 local, and both fleet-session closes (2026-08-13, 2026-08-14) record **deploy NOT run** —
+the production bundle predates the refusal chokepoint. The predicate at HEAD catches the reported
+gesture (re-executed above); no predicate miss was found. *Caveat, stated honestly: the deployed
+SHA was not readable from this session — the verdict is commit-time + deploy-log reasoning, and
+one read of the served bundle SHA would settle it outright.*
+
+**3. THE OFFER SHIPPED — §C83-S1-MOVE-OFFER.** New `apps/editor/src/ui/ai/WallMoveClashProposal.ts`
++ wiring in `gateWallMove` (the one seam, so neither gesture needs its own). On the
+`OCC_CROSSES_HOSTED_OPENING` refusal the chat OPENS through the `a75e8e1e`/`fa261daf` surface
+(`chatPromptHost` — §PROMPT-REACHES-A-HUMAN guarantee: opens the panel, waits for a renderable
+transcript, visible fallback card rather than a console line) and offers the **two nearest CLEAR
+stations** — `verdict.offers`, computed by the already-shipped `computeWallCrossingOffers`
+(`@pryzm/geometry-wall`): complement of `WallOccupancyStore.getOccupiedSpans(crossedWall)`,
+nearest clear interval either side, EACH re-run through the whole placement predicate before it
+may be offered (C83 §4.2). No defensible candidate → the chat states the reason and offers
+NOTHING. Accepted candidate → ONE ordinary `wall.updateBaseline` (`_recordUndo: true`, L-49 ring
+buffer) — one history entry, one Ctrl+Z. NEVER auto-applied (C83 §4.3); a stale acceptance the
+command re-refuses is reported honestly, not claimed as done. Detection scope: wall MOVES only.
+
+**EXECUTED**: new `WallMoveClashProposal.test.ts` 8/8 — clash → chat opens with 2 candidates
+(finding names door + host + both intervals; both directions posed; decline-all → zero dispatches)
+· identical re-drag de-duplicated · no-clash → chat SILENT · no-clear-interval (1 m host, 0.9 m
+door) → reason reaches transcript, ZERO candidates, no Confirm posed · accept → exactly ONE
+`wall.updateBaseline`, dispatched position re-gated CLEAR · EXECUTED undo proof —
+`UpdateWallBaselineCommand` execute/undo on a live fake store restores the pre-move baseline
+verbatim · no-host DOM-reach — fallback card visible, Confirm there dispatches the same one
+command. Pre-existing suites re-run green post-wiring (16/16 surfacing, 17/17 opened-region).
+Root tsc: zero diagnostics on every file in this change (4 pre-existing errors in other lanes''
+in-flight files, none in this change).

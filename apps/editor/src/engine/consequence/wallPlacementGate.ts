@@ -87,6 +87,9 @@ import {
 import { showToast } from '@app/ui/platform/PlatformToastSystem';
 import { ConfirmationCard } from '@app/ui/consequence/ConfirmationCard';
 import { getConfirmationCard } from '@app/ui/consequence/confirmationFlowComposition';
+// §C83-S1-MOVE-OFFER (L-904) — the chat half of the MOVE refusal. This file
+// already imports two `@app/ui` surfaces (card + toast), so the edge is not new.
+import { presentWallMoveClash } from '@app/ui/ai/WallMoveClashProposal';
 
 /** Headline the founder reads. Short, and it states the verdict, not a severity. */
 const HEADLINE = 'THIS WALL CANNOT GO HERE';
@@ -311,7 +314,7 @@ export function gateWallMove(
   }
 
   const cur = subject.baseLine as readonly PlanPointLike[] | undefined;
-  return gateWallPlacement({
+  const result = gateWallPlacement({
     id: wallId,
     levelId: subject.levelId,
     thickness: typeof subject.thickness === 'number' ? subject.thickness : 0,
@@ -325,4 +328,31 @@ export function gateWallMove(
       ? { curve: (subject as { curve?: unknown }).curve }
       : {}),
   });
+
+  // ── §C83-S1-MOVE-OFFER (ISSUE-LOG L-904) — the refusal is not the ASK ───────
+  // The card + toast above REFUSE and EXPLAIN. The founder's twice-repeated ask
+  // is the step beyond: the chat OPENS and offers the two nearest CLEAR stations
+  // (`verdict.offers`, each pre-validated by the full occupancy predicate before
+  // it may be offered — C83 §4.2). Placed HERE, on the one seam both the 3D
+  // gizmo and the plan drag funnel through, so neither gesture needs its own
+  // wiring and the two cannot drift. Fire-and-forget: the gate's verdict is
+  // already returned; the chat question is asynchronous by nature and NEVER
+  // auto-applies (C83 §4.3) — an accepted candidate dispatches ONE ordinary
+  // undoable `wall.updateBaseline` through the bus.
+  if (result.blocked && result.verdict && cur?.[0] && cur?.[1]) {
+    console.log(
+      `[wallPlacementGate] §C83-S1-MOVE-OFFER routing refusal to chat — ` +
+      `${result.verdict.offers.length} pre-validated candidate(s) for wall ${wallId}`,
+    );
+    void presentWallMoveClash({
+      wallId,
+      prevBaseLine: [cur[0], cur[1]],
+      attemptedBaseLine: [newBaseLine[0], newBaseLine[1]],
+      verdict: result.verdict,
+    }).catch((err) => {
+      console.warn('[wallPlacementGate] §C83-S1-MOVE-OFFER failed (non-fatal):', err);
+    });
+  }
+
+  return result;
 }
