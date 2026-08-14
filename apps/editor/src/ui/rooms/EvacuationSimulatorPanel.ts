@@ -13,7 +13,7 @@
  *   doors with doorWidth >= 0.775 m (Part M / ADA compliant).
  *
  * DATA FLOW (read-only):
- *   window.roomStore.getAll()                            → populate dropdowns // TODO(TASK-08)
+ *   window.roomStore.getAll()                            → populate dropdowns
  *   window.roomQueryService.findAccessiblePath()         → PathResult
  *   window.roomBoundaryBuilder.highlightPath()           → 3D highlight
  *   window.selectionManager.selectById()                 → room selection
@@ -106,7 +106,7 @@ function _clearHighlight(): void {
 function _refreshDropdowns(): void {
     if (!_fromSelect || !_toSelect) return;
 
-    const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
+    const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot // TODO(TASK-08)
     const prevFrom = _fromSelect.value;
     const prevTo   = _toSelect.value;
 

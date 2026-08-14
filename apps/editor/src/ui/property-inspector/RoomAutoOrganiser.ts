@@ -17,7 +17,7 @@
  *   RenameRoomCommand through commandManager — never writes directly to stores.
  *
  * DATA FLOW (read-only until user confirms):
- *   window.roomStore.getAll()                     → room data // TODO(TASK-08)
+ *   storeRegistry.getStoreForType("room")         → room data
  *   window.roomTypeInferenceEngine.inferLevel()   → ProposedChange list
  *   bus.executeCommand()                          → mutations (after confirm only)
  *
@@ -115,7 +115,7 @@ export class RoomAutoOrganiser {
      */
     propose(levelId: string): ProposedChange[] {
         const roomStore = storeRegistry.getStoreForType("room") as any;
-        const inferenceEngine = window.roomTypeInferenceEngine;
+        const inferenceEngine = window.roomTypeInferenceEngine; // TODO(TASK-08): legacy window global — replace with a runtime-composed engine slot
         if (!roomStore || !inferenceEngine) return [];
 
         const rooms = typeof roomStore.getByLevel === 'function'

@@ -11,7 +11,7 @@
  *   Singleton floating panel for BFS door-traversal pathfinding between rooms.
  *
  * DATA FLOW (read-only):
- *   window.roomStore.getAll()           → populate dropdowns // TODO(TASK-08)
+ *   window.roomStore.getAll()           → populate dropdowns
  *   window.roomQueryService.findPath()  → PathResult
  *   window.roomBoundaryBuilder          → highlightPath() / clearHighlight()
  *
@@ -107,7 +107,7 @@ function _clearHighlight(): void {
 function _refreshDropdowns(): void {
     if (!_fromSelect || !_toSelect) return;
 
-    const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.rooms.S): replace with runtime.stores.rooms — Phase E.rooms.S
+    const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.rooms.S): replace with runtime.stores.rooms — Phase E.rooms.S // TODO(TASK-08)
     const prevFrom = _fromSelect.value;
     const prevTo   = _toSelect.value;
 

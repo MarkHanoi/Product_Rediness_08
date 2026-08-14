@@ -14,7 +14,7 @@
  *
  * DATA FLOW (read-only):
  *   window.roomGraphService.getGraph(levelId)  → graph nodes + edges
- *   window.roomStore.getAll()                   → room data (names, occupancy) // TODO(TASK-08)
+ *   window.roomStore.getAll()                   → room data (names, occupancy)
  *   window.selectionManager.selectById()        → selection (no store write)
  *   RoomColourSystem.resolve(room)              → node colours
  *
@@ -98,7 +98,7 @@ function _resolveActiveLevel(): string | null {
         const levels: any[] = levelStore.getAll();
         if (levels.length > 0) return levels[0].id;
     }
-    const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
+    const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot // TODO(TASK-08)
     return rooms[0]?.levelId ?? null;
 }
 

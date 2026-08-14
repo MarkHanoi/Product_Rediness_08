@@ -183,13 +183,36 @@ const LEDGER: readonly string[] = [
   'M-B::apps/component-editor/src/sketch/tools/FilletTool.ts',
   'M-B::apps/component-editor/src/sketch/tools/TrimTool.ts',
   'M-B::apps/editor/src/familyCreatorPlaceholder.ts',
-  'M-B::apps/editor/src/ui/ViewBrowser/panels/unified-browser/BrowserDataHelpers.ts',
+  // ─── CO-06v2 — 6 ROWS STRUCK 2026-08-14: the FOURTH round of the same
+  // ratified reclassification (lanes E, F, core-app-model above). All six are
+  // live production modules whose HEADER carried inline `// TODO(TASK-08)`
+  // work notes appended to prose lines DESCRIBING window.*-store reads — the
+  // header walk cannot tell those from a module-scaffold claim. Verified per
+  // file before striking: the ONLY marker removed is `TODO(TASK-08)`; no
+  // `SCAFFOLD` word, no `lands at S##`, so no file lost a scaffold
+  // declaration, and NO note was lost:
+  //   BrowserDataHelpers.ts — 18 header notes → 18 inline copies at the exact
+  //     code sites (the 16-store getAllStores array, ifcModelStore :111,
+  //     projectStore :432). The header's window-globals TABLE stays (it is
+  //     documentation), only the work markers moved to the reads they mark.
+  //   RoomPathfinderPanel.ts / EvacuationSimulatorPanel.ts / RoomGraphPanel.ts
+  //     — one header note each, relocated onto the primary
+  //     `window.roomStore?.getAll?.()` read the header line described (each
+  //     already carried a TODO(E.*) phase note; TASK-08 now sits beside it).
+  //   RoomAutoOrganiser.ts — the header's `window.roomStore.getAll()` DATA
+  //     FLOW line was STALE twice over: the code reads rooms via
+  //     `storeRegistry.getStoreForType("room")` (:117), not window.roomStore.
+  //     Header corrected to the real flow; the TASK-08 note relocated to the
+  //     one legacy window-global the file still reads,
+  //     `window.roomTypeInferenceEngine` (:118).
+  //   CurtainWallBuilder.ts — the inline copy ALREADY existed at the accessor
+  //     (:791, the `window.curtainPanelStore` fallback); the header copy was a
+  //     duplicate and is stripped, same as lane F's three pre-annotated files.
+  //     (Its "date 2026-04-08" was an unrelated fix-stamp in the MODIFICATION
+  //     DECLARATION, not a scaffold decision — the same DATE_RE ambiguity the
+  //     core-app-model block records.)
   'M-B::apps/editor/src/ui/dataworkbench/DataVisualizerService.ts',
   'M-B::apps/editor/src/ui/dataworkbench/ProgrammePanel.ts',
-  'M-B::apps/editor/src/ui/property-inspector/RoomAutoOrganiser.ts',
-  'M-B::apps/editor/src/ui/property-inspector/RoomPathfinderPanel.ts',
-  'M-B::apps/editor/src/ui/rooms/EvacuationSimulatorPanel.ts',
-  'M-B::apps/editor/src/ui/rooms/RoomGraphPanel.ts',
   // M-B::packages/ai-host/src/AmbientIntelligence.ts STRUCK 2026-08-14 (CO-06,
   // lane F) — RECLASSIFIED, not deleted. Full reasoning in the lane-F block below,
   // where the other 13 rows of the same payment are recorded together.
@@ -316,7 +339,8 @@ const LEDGER: readonly string[] = [
   // :154) still say the flag is OFF. They are outside the header block this arm
   // reads, so they cannot hold the row open — but they are stale and are the next
   // honest edit in that file, recorded here so the omission is deliberate.
-  'M-B::packages/geometry-curtain-wall/src/CurtainWallBuilder.ts',
+  // M-B::packages/geometry-curtain-wall/src/CurtainWallBuilder.ts STRUCK
+  // 2026-08-14 (CO-06v2) — part of the six-row reclassification block above.
 ];
 
 // ─── Subject discovery ───────────────────────────────────────────────────────

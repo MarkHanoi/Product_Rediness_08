@@ -7,25 +7,28 @@
  *
  * Window globals (all Phase D/E/C scope — unchanged from original file):
  *   window.bimManager        TODO(D.4)
- *   window.wallStore         TODO(E.wall.S) // TODO(TASK-08)
- *   window.curtainWallStore  TODO(E.curtain-wall.S) // TODO(TASK-08)
- *   window.slabStore         TODO(E.slab.S) // TODO(TASK-08)
- *   window.floorStore        TODO(E.floor.S) // TODO(TASK-08)
- *   window.ceilingStore      TODO(E.ceiling.S) // TODO(TASK-08)
- *   window.doorStore         TODO(E.door.S) // TODO(TASK-08)
- *   window.windowStore       TODO(E.window.S) // TODO(TASK-08)
- *   window.openingStore      TODO(E.14) // TODO(TASK-08)
- *   window.furnitureStore    TODO(E.furniture.S) // TODO(TASK-08)
- *   window.lightingStore     TODO(E.lighting.S) // TODO(TASK-08)
- *   window.stairStore        TODO(E.stair.S) // TODO(TASK-08)
- *   window.handrailStore     TODO(E.handrail.S) // TODO(TASK-08)
- *   window.columnStore       TODO(E.column.S) // TODO(TASK-08)
- *   window.beamStore         TODO(E.beam.S) // TODO(TASK-08)
- *   window.plumbingStore     TODO(E.plumbing.S) // TODO(TASK-08)
- *   window.roomStore         TODO(E.18-R.S) // TODO(TASK-08)
- *   window.ifcModelStore     TODO(E.ifc.S) // TODO(TASK-08)
- *   window.projectStore      TODO(C.3.x) // TODO(TASK-08)
+ *   window.wallStore         TODO(E.wall.S)
+ *   window.curtainWallStore  TODO(E.curtain-wall.S)
+ *   window.slabStore         TODO(E.slab.S)
+ *   window.floorStore        TODO(E.floor.S)
+ *   window.ceilingStore      TODO(E.ceiling.S)
+ *   window.doorStore         TODO(E.door.S)
+ *   window.windowStore       TODO(E.window.S)
+ *   window.openingStore      TODO(E.14)
+ *   window.furnitureStore    TODO(E.furniture.S)
+ *   window.lightingStore     TODO(E.lighting.S)
+ *   window.stairStore        TODO(E.stair.S)
+ *   window.handrailStore     TODO(E.handrail.S)
+ *   window.columnStore       TODO(E.column.S)
+ *   window.beamStore         TODO(E.beam.S)
+ *   window.plumbingStore     TODO(E.plumbing.S)
+ *   window.roomStore         TODO(E.18-R.S)
+ *   window.ifcModelStore     TODO(E.ifc.S)
+ *   window.projectStore      TODO(C.3.x)
  *   window.projectContext    TODO(C.3.x)
+ *
+ * (The per-global window.*-store migration work notes live inline on the code
+ * sites below, where the reads actually happen — not here.)
  */
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
@@ -105,7 +108,7 @@ export function setActiveLevel(levelId: string): void {
 // ── IFC helpers ───────────────────────────────────────────────────────────────
 
 export function getIfcModels(): any[] {
-    const store = window.ifcModelStore; // TODO(E.ifc.S): legacy ifcModelStore — replace with runtime.stores.ifcModel
+    const store = window.ifcModelStore; // TODO(E.ifc.S): legacy ifcModelStore — replace with runtime.stores.ifcModel // TODO(TASK-08)
     if (!store?.getAll) return [];
     return store.getAll();
 }
@@ -168,23 +171,23 @@ export function getUnifiedLevels(): Array<{ id: string; name: string; elevation?
 
 export function getAllStores(bag: UBPBag): any[] {
     return [
-        window.wallStore,         // TODO(E.wall.S)
-        window.curtainWallStore,  // TODO(E.curtain-wall.S)
-        window.slabStore,         // TODO(E.slab.S)
-        window.floorStore,        // TODO(E.floor.S)
-        window.ceilingStore,      // TODO(E.ceiling.S)
+        window.wallStore,         // TODO(E.wall.S) // TODO(TASK-08)
+        window.curtainWallStore,  // TODO(E.curtain-wall.S) // TODO(TASK-08)
+        window.slabStore,         // TODO(E.slab.S) // TODO(TASK-08)
+        window.floorStore,        // TODO(E.floor.S) // TODO(TASK-08)
+        window.ceilingStore,      // TODO(E.ceiling.S) // TODO(TASK-08)
         bag.roofStore,
-        window.doorStore,         // TODO(E.door.S)
-        window.windowStore,       // TODO(E.window.S)
-        window.openingStore,      // TODO(E.14)
-        window.furnitureStore,    // TODO(E.furniture.S)
-        window.lightingStore,     // TODO(E.lighting.S)
-        window.stairStore,        // TODO(E.stair.S)
-        window.handrailStore,     // TODO(E.handrail.S)
-        window.columnStore,       // TODO(E.column.S)
-        window.beamStore,         // TODO(E.beam.S)
-        window.plumbingStore,     // TODO(E.plumbing.S)
-        window.roomStore,         // TODO(E.18-R.S)
+        window.doorStore,         // TODO(E.door.S) // TODO(TASK-08)
+        window.windowStore,       // TODO(E.window.S) // TODO(TASK-08)
+        window.openingStore,      // TODO(E.14) // TODO(TASK-08)
+        window.furnitureStore,    // TODO(E.furniture.S) // TODO(TASK-08)
+        window.lightingStore,     // TODO(E.lighting.S) // TODO(TASK-08)
+        window.stairStore,        // TODO(E.stair.S) // TODO(TASK-08)
+        window.handrailStore,     // TODO(E.handrail.S) // TODO(TASK-08)
+        window.columnStore,       // TODO(E.column.S) // TODO(TASK-08)
+        window.beamStore,         // TODO(E.beam.S) // TODO(TASK-08)
+        window.plumbingStore,     // TODO(E.plumbing.S) // TODO(TASK-08)
+        window.roomStore,         // TODO(E.18-R.S) // TODO(TASK-08)
     ];
 }
 
@@ -426,7 +429,7 @@ export function getSubType(catLabel: string, el: any): string {
 
 export function getProjectName(): string {
     try {
-        const ps = window.projectStore; // TODO(C.3.x): legacy projectStore — replace with runtime.projectContext
+        const ps = window.projectStore; // TODO(C.3.x): legacy projectStore — replace with runtime.projectContext // TODO(TASK-08)
         if (ps && typeof ps.getActive === 'function') return ps.getActive()?.name ?? 'Project';
         const pc = window.projectContext; // TODO(C.3.x): legacy projectContext — replace with runtime.projectContext
         return pc?.projectName ?? pc?.name ?? 'Project';

@@ -10,7 +10,8 @@
  * Phase 1 Enhancements:
  *   - Reads CurtainGridSystem from CurtainWallData (or migrates from scalar spacing)
  *   - Computes cells via CurtainCellComputer (pure, unit-testable)
- *   - Reads per-cell panel data from CurtainPanelStore (via window.curtainPanelStore) // TODO(TASK-08)
+ *   - Reads per-cell panel data from CurtainPanelStore (via window.curtainPanelStore;
+ *     the migration work note lives inline on the accessor, where the read happens)
  *   - Renders panels via CurtainWallInstanceManager (InstancedMesh — 1 draw call per type)
  *   - Falls back to CurtainPanelBuilder for panels with materialOverride
  *
