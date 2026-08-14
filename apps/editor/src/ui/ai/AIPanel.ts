@@ -27,6 +27,9 @@ import { aiApprovalStore } from '@pryzm/ai-host';
 import { AIResponseParser } from '@pryzm/ai-host';
 // §ADR-0313 — zero-token tier 0/1 command resolution in front of the LLM path.
 import { tryHandleZeroToken } from './ZeroTokenChatBridge';
+// §OPENED-REGION (L-880) / C83 §4.1.3 — the accessor for this panel's own
+// `ZeroTokenUiHooks` pair, so code outside `createAIPanel` reaches the SAME prompt.
+import { registerChatPromptHost } from './chatPromptHost';
 // §PLANNER (RAC U10.2) — the last rung of the ladder, between the zero-token
 // tiers and the legacy QueryEngine path.
 import { plannerIsConfigured, tryHandleWithPlanner } from './LlmPlannerBridge';
@@ -1726,6 +1729,34 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
                 else aiPanel.style.display = 'flex';
             }
         }
+    });
+
+    // §OPENED-REGION (L-880) / C83 §4.1.3 — publish the `ZeroTokenUiHooks` pair this
+    // panel already implements (`addMessage` = say, `showZeroTokenConfirm` = confirm)
+    // so a subsystem that notices something BETWEEN user turns can use the SAME chat
+    // prompt the zero-token bridge uses, instead of a fifth offer surface being minted
+    // for it. Both were closures scoped inside `createAIPanel`, handed to
+    // `tryHandleZeroToken` by argument and reachable from nowhere else; this is the
+    // accessor and nothing more — no new message shape, no new card, no new store.
+    registerChatPromptHost({
+        say: (text: string) => {
+            addMessage('assistant', text);
+            const aiPanel = document.getElementById('ai-panel-container');
+            if (aiPanel && aiPanel.style.display === 'none') {
+                const aiToggle = document.querySelector('[icon="material-symbols:robot-2"]') as HTMLElement;
+                if (aiToggle) (aiToggle as any).click();
+                else aiPanel.style.display = 'flex';
+            }
+        },
+        confirm: (summary: string) => {
+            const aiPanel = document.getElementById('ai-panel-container');
+            if (aiPanel && aiPanel.style.display === 'none') {
+                const aiToggle = document.querySelector('[icon="material-symbols:robot-2"]') as HTMLElement;
+                if (aiToggle) (aiToggle as any).click();
+                else aiPanel.style.display = 'flex';
+            }
+            return showZeroTokenConfirm(summary);
+        },
     });
 
     window.addEventListener('bim-level-added', () => { /* no-op in chat panel */ });

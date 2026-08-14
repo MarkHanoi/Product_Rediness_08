@@ -12,6 +12,9 @@ import { ReDetectRoomsCommand } from '@pryzm/command-registry';
 import { BimManager } from '@pryzm/core-app-model';
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { CurtainWallBuilder } from '../../geometry-curtain-wall/src/CurtainWallBuilder';
+// §OPENED-REGION (L-880) — the pure before/after comparison and its one channel out.
+import { scanForOpenedRegions, openedRegionNotifier } from './OpenedRegionDetector';
+import type { RegionSnapshot, SurvivingWall } from './OpenedRegionDetector';
 
 interface IRoomStoreLite {
   subscribe?(listener: (event: string, room: any) => void): () => void;
@@ -115,6 +118,17 @@ export class RoomTopologyObserver {
   // guard so it is inert in minimal/test harnesses.
   private _lastRedetectWallSig = new Map<string, string>();
   private _noProgressBurst = new Map<string, { sig: string; count: number; ts: number }>();
+  /**
+   * §OPENED-REGION (L-880) — levels whose NEXT completed re-derivation should be
+   * compared against the room set that preceded it. Armed ONLY by
+   * `_onWallMutationCommitted` (the wall-settle path), so the comparison is scoped to
+   * exactly the gesture the founder described: a wall moved, and it left something
+   * open. A project load, an undo/redo apply, a generation sweep and a `resume()`
+   * discharge all reach `_executeRedetect` WITHOUT arming — and must, because the
+   * first redetect after a load routinely disagrees with the persisted rooms, and
+   * reporting that as "your move opened a region" is the cry-wolf failure.
+   */
+  private _openedRegionArmed = new Set<string>();
   // ── ADR-0069 (GR1/GR2) — graph-authoritative levels ─────────────────────────
   // A level whose rooms were created DIRECTLY from the engine graph (the
   // executors dispatch `BatchCreateRoomsCommand` from `option.rooms`). For such a
@@ -411,6 +425,16 @@ export class RoomTopologyObserver {
       this.debounceTimers.delete(levelId);
       this._firstScheduleAt.delete(levelId);
       this._resetCount.delete(levelId);
+
+      // §OPENED-REGION (L-880) — ARM the opened-region comparison for this level.
+      // Deliberately armed HERE and nowhere else: this is the wall-settle path, past
+      // the paused branch (a project load queues into `_suppressedCommitLevels` and
+      // returns above, so a load-time redetect that disagrees with the persisted rooms
+      // can never be reported as "your move opened a region") and past the drag guard.
+      // Consumed once, inside `_executeRedetect`, at the moment a redetect genuinely
+      // runs — so a redetect swallowed by one of the six suppression guards leaves the
+      // arm standing for the one that follows.
+      this._openedRegionArmed.add(levelId);
 
       const prevCoalesce = this._commitCoalesceTimers.get(levelId);
       if (prevCoalesce) clearTimeout(prevCoalesce);
@@ -757,7 +781,17 @@ export class RoomTopologyObserver {
       }
       const cmd = new ReDetectRoomsCommand(levelId, level.elevation, level.height ?? 3.0);
       if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.update', {}).catch(() => {}); }
+      // §OPENED-REGION (L-880) — consume the arm HERE, at the moment a redetect
+      // genuinely runs, so a redetect swallowed by one of the guards above leaves the
+      // arm standing for the next one. Unarmed (load, resume, generation, an explicit
+      // redetect) means no comparison at all — not a silent one.
+      const openedRegionArmed = this._openedRegionArmed.delete(levelId);
+      // The room set as it stood BEFORE this re-derivation. This is the only instant
+      // at which it is still readable: ReDetectRoomsCommand replaces the level's rooms
+      // in place. Cheap (ids + polygons), and only taken when armed.
+      const roomsBefore = openedRegionArmed ? this._snapshotRooms(levelId) : undefined;
       this.commandManager.execute(cmd);
+      if (openedRegionArmed) this._reportOpenedRegions(levelId, roomsBefore);
       // Record the geometry this completed redetect saw so a subsequent no-progress
       // committed event (identical walls) is gated out.
       if (sig !== '') this._lastRedetectWallSig.set(levelId, sig);
@@ -774,6 +808,102 @@ export class RoomTopologyObserver {
    * wall store cannot be read (e.g. a minimal test harness with no `getByLevel`), which
    * disables both no-progress gates — behaviour is then exactly as before this guard.
    */
+  /**
+   * §OPENED-REGION (L-880) — read the level's current rooms as plain
+   * `RegionSnapshot`s. Returns `undefined` when the room store cannot answer (a
+   * minimal test harness with no `getByLevel`), which disables the whole feature
+   * rather than guessing — a comparison against an unknown "before" would produce
+   * exactly the false offers this feature exists to avoid.
+   */
+  private _snapshotRooms(levelId: string): RegionSnapshot[] | undefined {
+    try {
+      const rs = this.roomStore as {
+        getByLevel?: (id: string) => Array<{
+          id?: string; name?: string;
+          boundary?: { polygon?: Array<{ x?: number; z?: number }> };
+        }>;
+      };
+      if (typeof rs?.getByLevel !== 'function') return undefined;
+      const rooms = rs.getByLevel(levelId);
+      if (!Array.isArray(rooms)) return undefined;
+      const out: RegionSnapshot[] = [];
+      for (const r of rooms) {
+        const poly = r?.boundary?.polygon;
+        if (!r?.id || !Array.isArray(poly) || poly.length < 3) continue;
+        out.push({
+          id: r.id,
+          name: r.name,
+          polygon: poly.map(v => ({ x: v?.x ?? 0, z: v?.z ?? 0 })),
+        });
+      }
+      return out;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * §OPENED-REGION (L-880) — compare the room set across the re-derivation that just
+   * ran and publish anything the move left standing open.
+   *
+   * NON-FATAL BY CONSTRUCTION. This is an observation about the edit, never part of
+   * it: a throw here must not colour the wall move the user actually performed. Every
+   * finding is logged whether or not anyone is subscribed — detection is not
+   * contingent on the chat surface being reachable (the same reasoning that put the
+   * §GR12 invalidation in the move writer rather than in a follow-up).
+   */
+  private _reportOpenedRegions(levelId: string, before: RegionSnapshot[] | undefined): void {
+    if (!before || before.length === 0) return;
+    try {
+      const after = this._snapshotRooms(levelId);
+      if (!after) return;
+      const ws = this.wallStore as {
+        getByLevel?: (id: string) => Array<{
+          id?: string;
+          baseLine?: ReadonlyArray<{ x?: number; z?: number }>;
+          thickness?: number; height?: number; systemTypeId?: string;
+        }>;
+      };
+      if (typeof ws?.getByLevel !== 'function') return;
+      const rawWalls = ws.getByLevel(levelId) ?? [];
+      const wallsAfter: SurvivingWall[] = [];
+      for (const w of rawWalls) {
+        const bl = w?.baseLine;
+        if (!w?.id || !bl || bl.length < 2) continue;
+        wallsAfter.push({
+          id: w.id,
+          start: { x: bl[0]?.x ?? 0, z: bl[0]?.z ?? 0 },
+          end: { x: bl[1]?.x ?? 0, z: bl[1]?.z ?? 0 },
+          thickness: w.thickness,
+          height: w.height,
+          systemTypeId: w.systemTypeId,
+        });
+      }
+      if (wallsAfter.length === 0) return;
+
+      const scan = scanForOpenedRegions({ levelId, roomsBefore: before, roomsAfter: after, wallsAfter });
+      if (scan.findings.length === 0) return;
+
+      for (const finding of scan.findings) {
+        if (finding.kind === 'region-opened') {
+          console.warn(
+            `[RoomTopologyObserver] §OPENED-REGION level='${levelId}' — ${finding.detail} ` +
+            `(gap ${finding.gap.lengthM.toFixed(2)} m, anchored ${finding.gap.anchoredEndpoints}/2, ` +
+            `rooms ${scan.roomsBefore} → ${scan.roomsAfter})`,
+          );
+        } else {
+          console.warn(
+            `[RoomTopologyObserver] §OPENED-REGION level='${levelId}' REFUSED to propose a position ` +
+            `(${finding.reason}) — ${finding.detail}`,
+          );
+        }
+        openedRegionNotifier.publish(finding);
+      }
+    } catch (err) {
+      console.warn('[RoomTopologyObserver] §OPENED-REGION scan failed (non-fatal):', err);
+    }
+  }
+
   private _computeWallSig(levelId: string): string {
     try {
       const ws = this.wallStore as { getByLevel?: (id: string) => Array<{ id?: string; baseLine?: ReadonlyArray<{ x?: number; z?: number }>; thickness?: number }> };

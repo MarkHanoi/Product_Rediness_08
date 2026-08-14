@@ -104,6 +104,8 @@ import { RadialMenu } from '@app/ui/RadialMenu';
 import { DrawingEditor } from '@thatopen/components-front';
 import { RoomDetectionEngine } from '@pryzm/room-topology';
 import { RoomTopologyObserver } from '@pryzm/room-topology';
+// §OPENED-REGION (L-880) — the OFFER half of "a wall move left a region open".
+import { initOpenedRegionProposals } from '../ui/ai/OpenedRegionProposal';
 import { RoomTool } from '@pryzm/room-topology';
 import { RoomBoundingLineTool } from '@pryzm/geometry-wall';
 
@@ -2248,6 +2250,20 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     );
     roomTopologyObserver.attach();
     window.roomTopologyObserver = roomTopologyObserver;
+
+    // §OPENED-REGION (L-880) — the observer's redetect chokepoint now compares the
+    // room set across every re-derivation and publishes any region a wall move left
+    // standing open. This subscribes the OFFER half: the finding becomes an
+    // Accept/Cancel question in the RAC chat, and Accept dispatches the ordinary
+    // CreateWallCommand through the ordinary manager as ONE undoable action. Installed
+    // here, beside the detector, rather than inside the chat panel — the panel is
+    // created lazily and a question the user never sees is the same as no question.
+    // Idempotent; a second bootstrap cannot double-ask.
+    try {
+        initOpenedRegionProposals();
+    } catch (e) {
+        console.warn('[initTools] §OPENED-REGION offer channel not installed (non-fatal):', e);
+    }
 
     // ── RoomTool ──────────────────────────────────────────────────────────────
     // RoomTool is statically imported at the top of this file (alongside
