@@ -81,6 +81,11 @@ export * from './doors/UpdateDoorSystemTypeCommand';
 export * from './doors/UpdateDoorsSystemTypeBatchCommand';
 
 // ─── Floors ───────────────────────────────────────────────────────────────
+// §C83-S5 — the pure IMPOSSIBLE-class predicate for "two finishes over one
+// floor area", plus its closed refusal union and THE renderer that carries the
+// code. Exported so the L7 gate (`apps/editor/.../floorFinishGate.ts`) can call
+// DOWN to it rather than owning a second copy (C83 §8.0).
+export * from './floors/FloorRegionOverlap';
 export * from './floors/CreateFloorCommand';
 export * from './floors/CreateFloorsByRoomTypeCommand';
 export * from './floors/RemoveFloorCommand';

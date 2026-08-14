@@ -41,6 +41,13 @@ import { resolveFinishSeating, DEFAULT_FINISH_THICKNESS_M } from '@pryzm/core-ap
 // time only, never at module evaluation, so the command-registry ↔ room-topology cycle is
 // not exercised at load (see MEMORY §SCC: no barrel access at module load).
 import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@pryzm/room-topology';
+// §C83-S5 — the IMPOSSIBLE-class "two finishes over one floor area" predicate and
+// THE renderer that carries its code. Pure, same package, no store access.
+import {
+  evaluateFloorFinishPlacement,
+  floorRegionRefusalText,
+  type ExistingFloorRegion,
+} from './FloorRegionOverlap';
 // §FIX-SEATING-DYNAMIC-REDATUM (W1-4) — see the block in execute() for WHY the CREATE
 // arm needs this and not just the UPDATE arm.
 import { ReseatLevelElementsCommand } from '../seating/ReseatLevelElementsCommand';
@@ -146,6 +153,70 @@ export class CreateFloorCommand implements Command {
     const thickness = this._payload.thickness ?? this._payload.finishThicknessM ?? DEFAULT_FINISH_THICKNESS_M;
     if (thickness <= 0) {
       return { ok: false, reason: 'Floor thickness must be > 0.' };
+    }
+
+    // ── §C83-S5 — TWO FINISHES MAY NOT COVER ONE FLOOR AREA ──────────────────
+    //
+    // The founder's report, verbatim: *"the user tries to create a different
+    // floor finish in the room - and creates an overlapping one - wrong!"*
+    // C83 §1.1 classes this IMPOSSIBLE: two finishes over one patch of floor are
+    // two mutually exclusive claims about one surface, and no context reverses
+    // that. So it refuses here, at the ONE create chokepoint every path reaches
+    // — the 3D FloorTool, the plan handler's bus route, the four building
+    // executors, IFC import, paste and project restore.
+    //
+    // ⚠ This arm is the BACKSTOP, not the delivery. `CommandManagerImpl:217`
+    // renders `blockingIssues[0]` into `result.info[0]`, and L-884 measured that
+    // **no tool renders `result.info[0]`** — a refusal that stops here reaches
+    // devtools and nothing else. The user-facing half is
+    // `apps/editor/src/engine/consequence/floorFinishGate.ts`, called by the
+    // tools BEFORE they build the command. This arm exists so that the creators
+    // that never pass a tool — import, paste, an executor, a future handler —
+    // cannot author the defect silently.
+    //
+    // Suppressed during project restore and building generation (C83 §3.1). The
+    // restore half is load-bearing: projects saved by build 46232e2d may ALREADY
+    // contain overlapping finishes, and refusing on replay would turn a visual
+    // defect into a project that will not open. A rule introduced today may not
+    // retroactively refuse yesterday's documents.
+    const _c83g = globalThis as unknown as {
+      __pryzmProjectLoadActive?: boolean;
+      __pryzmBuildingGenActive?: boolean;
+    };
+    if (_c83g.__pryzmProjectLoadActive !== true && _c83g.__pryzmBuildingGenActive !== true) {
+      // Evaluate the ring the model would actually HOLD, not the payload's. For a
+      // `'room-centreline'` payload those differ by the L-240 inner-face inset,
+      // and checking the pre-inset ring would over-state the claimed area by half
+      // a wall thickness on every edge. `_resolveBoundary` is read-only.
+      const resolved = this._resolveBoundary(context);
+      const existing: ExistingFloorRegion[] = (
+        typeof floorStore.getAll === 'function' ? (floorStore.getAll() as FloorData[]) : []
+      ).map((f) => ({
+        id: f.id,
+        levelId: f.levelId,
+        polygon: f.boundary?.polygon ?? [],
+        ...(f.label !== undefined ? { label: f.label } : {}),
+        ...(f.systemTypeId !== undefined ? { systemTypeId: f.systemTypeId } : {}),
+        ...(f.hostRoomId !== undefined ? { hostRoomId: f.hostRoomId } : {}),
+      }));
+
+      const spatial = evaluateFloorFinishPlacement(
+        { id: this._payload.floorId, levelId, polygon: resolved },
+        existing,
+      );
+      if (!spatial.valid) {
+        // §REFUSAL-IDENTITY — the SHARED renderer, never
+        // `spatial.reason ?? '<fallback>'`. `reason` stays the machine token;
+        // `blockingIssues[0]` is the human sentence, which CommandManagerImpl:217
+        // prefers (§FIX-VALIDATION-REASON-IS-HUMAN-READABLE, L-813).
+        const refusalText = floorRegionRefusalText(spatial.violations, spatial.offers);
+        console.warn(`[CreateFloorCommand] §C83-S5 REFUSED: ${refusalText}`);
+        return {
+          ok: false,
+          reason: 'FIN_REGION_ALREADY_FINISHED',
+          blockingIssues: [refusalText],
+        };
+      }
     }
 
     return { ok: true };
