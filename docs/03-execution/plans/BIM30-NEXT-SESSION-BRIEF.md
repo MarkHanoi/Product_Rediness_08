@@ -1000,3 +1000,120 @@ state and next steps:
   banner now *announces* it, which makes the fix measurable; (4) unit containment for the house,
   apartment and office generators (residential is done; the pattern transfers directly).
 - **The 28-cell denominator stays separate from the 82.** Different questions. Never merge them.
+
+### §12.7 ⚠ CORRECTION TO §12.1 — THE COUNTED FIGURE IS **51**, NOT ~74
+
+**§12.1 said "~74 of 82 rows are closable on executed evidence." That number was a FORECAST
+wearing a count's clothing, and it is superseded.** The restamp ran and produced the counted
+figure at commit **`8788b5cd`**:
+
+| | Count |
+|---|---|
+| **CLOSED** | **51** — executed evidence in 48; 3 source-verified only (PR-06, GR-15, MT-08) |
+| **OPEN** | **24** — most at named shrink-only ledgers |
+| **UNPROVEN** | **7** — GE-08, MT-04, MT-05, CB-05, CE-03, CE-04, CE-06 |
+| | **= 82** |
+
+**Progression across three stamps: 25 → 34 → 51.** This session moved it 34 → 51: nineteen rows
+closed, two moved UNPROVEN→OPEN by being measured, and **MT-10 re-opened** on an XSS regression
+(`houseCirculationNotice.ts:159`, a new unguarded innerHTML sink — the builder does escape via its
+local `esc()`, so it is not believed exploitable, but `check-xss-guards` is exit 3 and a baseline
+may never be raised).
+
+**Why the forecast was 23 rows high, stated plainly because the mechanism will recur:** the
+orchestrator counted rows for which *a lane had produced evidence*. The restamp counted rows for
+which *it had re-run the gate itself*. It marked **nine rows NOT RE-MEASURED THIS PASS** rather than
+inheriting a lane's claim — including **MT-09**, whose "26 packages fail isolated compilation" is a
+two-day-old reading. That is §0.1 working exactly as designed, and it caught the orchestrator doing
+the thing this programme exists to prevent. **Use 51. Anything above it in this file or in chat
+history is a projection, not a measurement.**
+
+---
+
+## §13 — THE STRATEGIC PATH: WHAT PRYZM SHOULD DO NEXT
+
+> §12 is tactical — the next actions. §13 is the argument for *why those and not others*, written
+> at session close while the evidence is fresh. It is opinion **derived from measurement**, and it
+> says so; where it recommends, it names what it is recommending against.
+
+### §13.1 — Finish trust, but stop treating 82/82 as the goal
+
+51 closed; the remaining 31 are, with few exceptions, **measured and named** rather than mysterious.
+Chasing the number for its own sake would now buy less than the work it displaces.
+
+**The single highest-value item is not a row at all.** Four committed gates are registered in **no
+runner** — `check-derived-not-authored`, `check-deterministic-regeneration`,
+**`check-predicate-canonical`**, `check-provenance-coverage` (§12.0). One of them is the instrument
+**three closures depend on**. Enforcement that runs only when a human remembers is not enforcement,
+and this repository has paid for that lesson twice already (L-774, and the 56-gate suite that ran
+zero gates for a day). **Register them first.** It is hours of work and it retroactively hardens
+everything the session claimed.
+
+### §13.2 — Bar 3 is the gate to the product the founder actually wants
+
+It moved **134 → 132** this session: two verbs of a hundred. That sounds like nothing and is
+actually the proof of concept — the pattern is now established (three planners, one registry, two
+entries per verb family) and the next family is cheaper than the last.
+
+Everything in the "change an existing design" category sits behind it, and **C81's edit layer is
+blocked on it entirely** (C81 §8). §9.3 measured the stake: at 100 % of the register, *generation*
+prompts are 14 of 16 working-or-partial while *modification* prompts are **0 of 16**. Bar 3 is what
+flips that row.
+
+**Recommendation: fund bar 3 as a standing multi-session workstream by verb family**, not as
+opportunistic row-closing. It converts PRYZM from a generator into a design tool, and no new
+typology does.
+
+### §13.3 — Collaboration is a purchase decision, not an engineering one
+
+Measured this session and it surprised everyone: **the code half is done.** The client provider seam
+is wired end-to-end, WS-upgrade auth is fail-closed, `PgAuthz` is written/wired/tested/fail-closed,
+and `check-two-client-convergence` runs green with 8 real crossings across 2 composed clients.
+
+What is missing is **one always-on process (~$5–10/mo)** and **one env flip**
+(`PRYZM_AUTHZ_MODE` off `memory-allow-by-default`, plus `DATABASE_URL`). Two register rows and a
+headline capability for less than the cost of a lunch. **It is the cheapest capability on the board
+by an order of magnitude** and it is waiting on a decision, not a sprint.
+
+### §13.4 — Generative quality needs its ledger, and that is a founder call
+
+`check-generator-circulation` **measures** the unreachable-room and corridor-contiguity rates and
+**deliberately does not ratchet them** — SPEC-49 §4 says ledgering is a product decision. The
+consequence, stated flatly: **nothing fails today if the generation quality regresses.** The
+instrument exists and is blind by consent.
+
+**Recommendation: ledger CI-1/CI-4 at their measured baselines.** Then the next generative step is
+CI-3 — thread `Door.swing` into `OpeningPose` so the real swing sector reaches the furnisher
+(`doorSwingKeepout.ts` is authored, tested, and imported by exactly one file: its own test).
+
+### §13.5 — The pattern worth institutionalising: fund instruments before features
+
+Every one of this session's largest findings was **invisible to the existing test suite and obvious
+to a probe**:
+
+| Found | Was invisible because |
+|---|---|
+| The AI relay served demo fixtures in every configured deployment | the fallback was silent and the tests injected the adapter |
+| 103 of 103 concurrent edits discarded without a conflict | the second-merge path had no arm |
+| 30 toolbars unmounted, 267 verbs dispatching into nothing | 30 spec files asserted dispatch **against a mock bus** |
+| The ring-buffer undo less faithful than the path it replaced | nothing compared the two |
+| `boundedBy` stale after a wall move | C71 §1.2 semantic 5 had **NO ARM for any family** |
+
+In every case the *code* had been reviewed and the *tests* were green. **The measurement was the
+deliverable.** The corollary for planning: when a capability is claimed but unproven, the cheapest
+next step is almost always the probe, not the fix — and this session's own verification workflow
+(12 agents, refute-by-default, all seven sampled claims CONFIRMED) is the pattern for auditing a
+large body of work without trusting its authors, including when the author is the orchestrator.
+
+### §13.6 — What this implies for sequencing
+
+1. **Register the four gates** (§13.1) — hours, hardens everything already claimed.
+2. **Deploy** — production is 220+ commits behind and the user-visible wins of this session
+   (finishes following walls, the sealed-room banner, the ribbon, honest lighting) are all unshipped.
+3. **Two decisions, both cheap**: the collaboration process + env flip (§13.3); the CI-1/CI-4
+   ledger (§13.4).
+4. **Then bar 3, as a programme** (§13.2) — and treat remaining register rows as opportunistic
+   rather than as the plan.
+5. **Standing rule**: before building against any row, **re-measure it**. Five row headlines were
+   overturned this session in the healthy direction (§12/§8.5) and one forecast was 23 rows high.
+   The register describes the past; the gate describes the present.
