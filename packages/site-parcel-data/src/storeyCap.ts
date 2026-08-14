@@ -14,6 +14,8 @@
 // tool — telling a developer they may build less than the law allows is a commercial harm,
 // and an invisible one, because the result still looks plausible.
 
+import { EPSILON_ZERO } from '@pryzm/geometry-kernel';
+
 /** Which constraint actually limited the storey count. */
 export type StoreyCapBinding = 'none' | 'height' | 'far';
 
@@ -83,21 +85,19 @@ export interface StoreyCapResult {
     readonly explanation: string;
 }
 
-/**
- * Floating-point tolerance for the "how many storeys fit" division.
- *
- * WHY THIS IS NOT COSMETIC: exact-fit cases are the COMMON case in zoning (a 12 m limit with
- * 3 m storeys is meant to be 4 storeys, not 3). Naive `Math.floor(9.9 / 3.3)` yields 2 —
- * because 9.9/3.3 is 2.9999999999999996 in IEEE 754 — silently stealing a whole legal storey
- * from the developer. The epsilon restores the intended answer without ever granting a storey
- * that does not genuinely fit: 1e-9 is ~1 nanometre at these scales, far below any real
- * tolerance, so it cannot mask a true overflow.
- */
-const FIT_EPSILON = 1e-9;
+// Floating-point nudge for the "how many storeys fit" division — the kernel's declared
+// numeric-zero role (C73 §2.2), consumed rather than re-declared.
+//
+// WHY THIS IS NOT COSMETIC: exact-fit cases are the COMMON case in zoning (a 12 m limit with
+// 3 m storeys is meant to be 4 storeys, not 3). Naive `Math.floor(9.9 / 3.3)` yields 2 —
+// because 9.9/3.3 is 2.9999999999999996 in IEEE 754 — silently stealing a whole legal storey
+// from the developer. The epsilon restores the intended answer without ever granting a storey
+// that does not genuinely fit: EPSILON_ZERO (1e-9) is far below any real tolerance on a
+// dimensionless storey ratio, so it cannot mask a true overflow.
 
 /** How many whole storeys of `storeyHeightM` fit within `limitM`. */
 function storeysWithin(limitM: number, storeyHeightM: number): number {
-    return Math.floor(limitM / storeyHeightM + FIT_EPSILON);
+    return Math.floor(limitM / storeyHeightM + EPSILON_ZERO);
 }
 
 /**
@@ -150,7 +150,7 @@ export function capStoreysToEnvelope(input: StoreyCapInput): StoreyCapResult {
         ? input.footprintAreaM2
         : null;
     const farAllowed = far !== null && siteArea !== null && footprintArea !== null
-        ? Math.floor((siteArea * far) / footprintArea + FIT_EPSILON)
+        ? Math.floor((siteArea * far) / footprintArea + EPSILON_ZERO)
         : null;
 
     // ── Resolve ───────────────────────────────────────────────────────────────────────────

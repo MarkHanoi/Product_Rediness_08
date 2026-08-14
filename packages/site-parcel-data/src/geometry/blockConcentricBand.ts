@@ -119,7 +119,7 @@ export const BLOCK_BAND_BISECTION_STEPS = 40;
  * inside 69.4–69.8 % changes no block's outcome. That is the property a threshold on a compliance
  * number has to have, and it is checkable — re-run the probe if this file changes.
  */
-export const BLOCK_BAND_RATIO_TOLERANCE = 0.005;
+export const BLOCK_BAND_TOLERANCE_RATIO = 0.005;
 
 export interface BlockConcentricBandInput {
     /** The BLOCK ring (*illa*) in scene-XZ metres — never the parcel. */
@@ -140,7 +140,7 @@ export interface BlockConcentricBandResult {
     readonly achievedBandRatio: number;
     /**
      * TRUE when the construction did not solve its own equality — the achieved ratio missed the
-     * target by more than `BLOCK_BAND_RATIO_TOLERANCE`.
+     * target by more than `BLOCK_BAND_TOLERANCE_RATIO`.
      *
      * ⚠ **THIS IS A STATEMENT ABOUT OUR GEOMETRY, NOT ABOUT THE ORDINANCE.** Art. 350.2.b always
      * has a solution on a well-formed block (the band ratio runs continuously from 0 to 1 in the
@@ -252,10 +252,10 @@ export function solveBlockConcentricBandDepth(
 
     const atLo = interiorFreeAt(input, lo);
     const achievedBandRatio = 1 - atLo.area_m2 / blockArea;
-    // THE EQUALITY IS ITS OWN VERIFICATION — see `BLOCK_BAND_RATIO_TOLERANCE`. A bisection that
+    // THE EQUALITY IS ITS OWN VERIFICATION — see `BLOCK_BAND_TOLERANCE_RATIO`. A bisection that
     // converged on a DISCONTINUITY of our erosion rather than on the article's target lands far
     // from `bandAreaRatio`, and that answer is thrown away rather than published.
-    const degenerate = Math.abs(achievedBandRatio - bandAreaRatio) > BLOCK_BAND_RATIO_TOLERANCE;
+    const degenerate = Math.abs(achievedBandRatio - bandAreaRatio) > BLOCK_BAND_TOLERANCE_RATIO;
 
     return {
         depth_m: lo,

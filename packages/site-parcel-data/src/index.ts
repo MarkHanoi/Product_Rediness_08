@@ -173,7 +173,7 @@ export {
 // how much have I used, how much is left, am I over?).
 export {
     buildCapacityComparison,
-    CAPACITY_EPSILON,
+    CAPACITY_AT_LIMIT_BAND_M2_OR_M,
     type CapacityComparison,
     type CapacityRow,
     type CapacityStatus,
@@ -626,7 +626,7 @@ export {
 export {
     solveBlockConcentricBandDepth,
     BLOCK_BAND_BISECTION_STEPS,
-    BLOCK_BAND_RATIO_TOLERANCE,
+    BLOCK_BAND_TOLERANCE_RATIO,
     type BlockConcentricBandInput,
     type BlockConcentricBandResult,
 } from './geometry/blockConcentricBand.js';

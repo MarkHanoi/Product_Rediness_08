@@ -50,6 +50,7 @@
 
 import type { Pt } from '@pryzm/schemas';
 import type { ParcelEdgeClassification } from '@pryzm/schemas';
+import { EPSILON_ZERO } from '@pryzm/geometry-kernel';
 import {
     polygonSignedArea,
     pointInPolygon,
@@ -71,9 +72,12 @@ export interface InsetResult {
     readonly degenerate: boolean;
 }
 
-const EPS = 1e-9;
-/** Vertices closer than this (metres) are treated as coincident (1 µm). */
-const COINCIDENT_EPS = 1e-6;
+/**
+ * Vertices closer than this (METRES) are treated as coincident (1 µm). Deliberately 1000×
+ * TIGHTER than the kernel's `COINCIDENT_M` (1 mm): adopting the shared role would WIDEN this
+ * dedupe band by three orders of magnitude (forbidden, C73 §2.5/E4).
+ */
+const COINCIDENT_EPS_M = 1e-6;
 /**
  * §INSET-BOUNDARY-TOLERANT (L-462) — how far outside the parcel an inset vertex may test before
  * the soundness gate rejects it. 1 mm: far below any planning dimension, so it cannot mask a
@@ -122,7 +126,7 @@ function length(v: Pt): number {
  */
 function lineIntersect(p0: Pt, d0: Pt, p1: Pt, d1: Pt): Pt | null {
     const denom = cross(d0, d1);
-    if (Math.abs(denom) < EPS) return null;
+    if (Math.abs(denom) < EPSILON_ZERO) return null;
     const t = cross(sub(p1, p0), d1) / denom;
     return { x: p0.x + t * d0.x, z: p0.z + t * d0.z };
 }
@@ -158,12 +162,12 @@ function cleanRing(
     for (let i = 0; i < polygon.length; i++) {
         const p = polygon[i]!;
         const prev = pts[pts.length - 1];
-        if (prev && length(sub(p, prev)) < COINCIDENT_EPS) continue;
+        if (prev && length(sub(p, prev)) < COINCIDENT_EPS_M) continue;
         pts.push({ x: p.x, z: p.z });
         cls.push(edgeClassifications[i]);
     }
     // Also fold a coincident wrap (last ≈ first).
-    while (pts.length >= 2 && length(sub(pts[pts.length - 1]!, pts[0]!)) < COINCIDENT_EPS) {
+    while (pts.length >= 2 && length(sub(pts[pts.length - 1]!, pts[0]!)) < COINCIDENT_EPS_M) {
         pts.pop();
         cls.pop();
     }
@@ -189,14 +193,14 @@ function pointSegmentDistance(p: Pt, a: Pt, b: Pt): number {
     const vx = b.x - a.x;
     const vz = b.z - a.z;
     const l2 = vx * vx + vz * vz;
-    const t = l2 < EPS ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.z - a.z) * vz) / l2));
+    const t = l2 < EPSILON_ZERO ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.z - a.z) * vz) / l2));
     return Math.hypot(p.x - (a.x + t * vx), p.z - (a.z + t * vz));
 }
 
 function arcInteriorPoints(c: Pt, r: number, e: Pt, q: Pt, out: Pt[]): void {
-    if (r < EPS) return;
+    if (r < EPSILON_ZERO) return;
     const chord = length(sub(q, e));
-    if (chord < EPS) return;
+    if (chord < EPSILON_ZERO) return;
     let levels = 0;
     let ratio = chord / r;
     while (ratio > ARC_CHORD_RATIO && levels < ARC_MAX_LEVELS) {
@@ -212,7 +216,7 @@ function bisectArc(c: Pt, r: number, e: Pt, q: Pt, levels: number, out: Pt[]): v
     const mx = (e.x + q.x) / 2 - c.x;
     const mz = (e.z + q.z) / 2 - c.z;
     const m = Math.hypot(mx, mz);
-    if (m < EPS) return; // antipodal chord — no defined short-way midpoint
+    if (m < EPSILON_ZERO) return; // antipodal chord — no defined short-way midpoint
     const mid: Pt = { x: c.x + (mx / m) * r, z: c.z + (mz / m) * r };
     bisectArc(c, r, e, mid, levels - 1, out);
     out.push(mid);
@@ -225,7 +229,7 @@ function segmentsCross(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
     const d2 = cross(sub(b, a), sub(d, a));
     const d3 = cross(sub(d, c), sub(a, c));
     const d4 = cross(sub(d, c), sub(b, c));
-    return (d1 > EPS) !== (d2 > EPS) && (d3 > EPS) !== (d4 > EPS);
+    return (d1 > EPSILON_ZERO) !== (d2 > EPSILON_ZERO) && (d3 > EPSILON_ZERO) !== (d4 > EPSILON_ZERO);
 }
 
 /** Does the closed ring self-intersect (any non-adjacent edge pair crossing)? */
@@ -292,7 +296,7 @@ function segmentCrossPoint(
     const r = sub(b, a);
     const s = sub(d, c);
     const denom = cross(r, s);
-    if (Math.abs(denom) < EPS) return null;
+    if (Math.abs(denom) < EPSILON_ZERO) return null;
     const t = cross(sub(c, a), s) / denom;
     const u = cross(sub(c, a), r) / denom;
     return { t, u, p: { x: a.x + t * r.x, z: a.z + t * r.z } };
@@ -387,7 +391,7 @@ export function insetPolygonPerEdge(
     if (pts.length < 3) return { polygon: [], degenerate: true };
 
     const signed = polygonSignedArea(pts);
-    if (Math.abs(signed) < EPS) return { polygon: [], degenerate: true };
+    if (Math.abs(signed) < EPSILON_ZERO) return { polygon: [], degenerate: true };
 
     // ── Zero setback on every edge → the inset IS the parcel (eroding by 0 is
     //    the identity). Short-circuit the offset/miter/soundness pipeline, whose
@@ -403,7 +407,7 @@ export function insetPolygonPerEdge(
         setbacks.rear,
         setbacks.unclassified,
     );
-    if (maxSetback <= EPS) {
+    if (maxSetback <= EPSILON_ZERO) {
         return { polygon: pts.map((p) => ({ x: p.x, z: p.z })), degenerate: false };
     }
 
@@ -491,7 +495,7 @@ export function insetPolygonPerEdge(
         const b = ring[(i + 1) % n]!;
         const v = sub(b, a);
         const len = length(v);
-        if (len < EPS) return { polygon: [], degenerate: true }; // cleanRing should have removed it
+        if (len < EPSILON_ZERO) return { polygon: [], degenerate: true }; // cleanRing should have removed it
         dirs[i] = { x: v.x / len, z: v.z / len };
         nrms[i] = { x: -v.z / len, z: v.x / len }; // CCW ⇒ the interior is LEFT of the directed edge
         sbs[i] = Math.max(0, setbackForClass(ringCls[i], setbacks));
@@ -504,7 +508,7 @@ export function insetPolygonPerEdge(
     let out: Pt[] = [];
     const push = (p: Pt): void => {
         const last = out[out.length - 1];
-        if (last && length(sub(p, last)) < COINCIDENT_EPS) return;
+        if (last && length(sub(p, last)) < COINCIDENT_EPS_M) return;
         out.push(p);
     };
     for (let i = 0; i < n; i++) {
@@ -525,14 +529,14 @@ export function insetPolygonPerEdge(
             const tPrev = (m.x - V.x) * dp.x + (m.z - V.z) * dp.z;
             const tCurr = (m.x - V.x) * dc.x + (m.z - V.z) * dc.z;
             // Feet on the GENERATING SEGMENTS ⇒ the mitre is the exact capsule-union corner.
-            if (tPrev <= EPS && tCurr >= -EPS) {
+            if (tPrev <= EPSILON_ZERO && tCurr >= -EPSILON_ZERO) {
                 push(m);
                 continue;
             }
         }
 
         const r = Math.max(a, b);
-        if (r < EPS) {
+        if (r < EPSILON_ZERO) {
             push({ x: V.x, z: V.z }); // both neighbours are party walls — the corner is the corner
             continue;
         }
@@ -547,7 +551,7 @@ export function insetPolygonPerEdge(
         push(q);
     }
     // The wrap can close on a duplicate of the first point.
-    while (out.length >= 2 && length(sub(out[out.length - 1]!, out[0]!)) < COINCIDENT_EPS) out.pop();
+    while (out.length >= 2 && length(sub(out[out.length - 1]!, out[0]!)) < COINCIDENT_EPS_M) out.pop();
     if (out.length < 3) return { polygon: [], degenerate: true };
 
     // ── 4b. §INSET-EROSION-PREDICATE (L-586) — keep only points that are GENUINELY in the erosion.
@@ -579,7 +583,7 @@ export function insetPolygonPerEdge(
         let ok = true;
         for (let j = 0; j < n; j++) {
             const s = sbs[j]!;
-            if (s <= EPS) continue;
+            if (s <= EPSILON_ZERO) continue;
             if (pointSegmentDistance(p, ring[j]!, ring[(j + 1) % n]!) < s - PREDICATE_TOLERANCE_M) {
                 ok = false;
                 break;
@@ -588,7 +592,7 @@ export function insetPolygonPerEdge(
         if (ok) admissible.push(p);
     }
     out = admissible;
-    while (out.length >= 2 && length(sub(out[out.length - 1]!, out[0]!)) < COINCIDENT_EPS) out.pop();
+    while (out.length >= 2 && length(sub(out[out.length - 1]!, out[0]!)) < COINCIDENT_EPS_M) out.pop();
     if (out.length < 3) return { polygon: [], degenerate: true };
 
     // ── 5. Clean up any residual self-intersection (narrow concavities). ─────
@@ -599,7 +603,7 @@ export function insetPolygonPerEdge(
     // cadastral block and a compliance number, which is what L-525b was.
     if (selfIntersects(out)) {
         const loops = decomposeToSimpleLoops(out);
-        const kept = loops.filter((l) => l.length >= 3 && polygonSignedArea(l) > EPS);
+        const kept = loops.filter((l) => l.length >= 3 && polygonSignedArea(l) > EPSILON_ZERO);
         if (kept.length === 0) return { polygon: [], degenerate: true };
         // An offset can genuinely sever a polygon into several disjoint pieces (a block pinched
         // at a narrow waist). `InsetResult` carries ONE ring, so the largest surviving piece is
@@ -615,10 +619,10 @@ export function insetPolygonPerEdge(
     // ── 6. Final validity gates (soundness — genuine over-inset detection). ──
     const insetSigned = polygonSignedArea(out);
     // Collapsed area, or a flipped winding (offset lines crossed the far side).
-    if (insetSigned <= EPS) return { polygon: [], degenerate: true };
+    if (insetSigned <= EPSILON_ZERO) return { polygon: [], degenerate: true };
     // The inset is an EROSION — it can never be larger than the parcel. A bigger
     // area means the offset/cleanup produced garbage (a folded or escaped ring).
-    if (insetSigned > Math.abs(signed) + EPS) return { polygon: [], degenerate: true };
+    if (insetSigned > Math.abs(signed) + EPSILON_ZERO) return { polygon: [], degenerate: true };
 
     // Every inset vertex must lie inside the original parcel. This is the strict soundness gate:
     // an inward offset stays within the parcel, so a vertex that escaped (a pathological fold on

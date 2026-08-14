@@ -14,7 +14,7 @@
 // for failing on the exact degeneracy this data ALWAYS contains: a published buildable footprint
 // follows the *alineación* — i.e. it SHARES the parcel's street-frontage edge by construction, so
 // footprint and parcel are collinear/coincident along a whole edge. Greiner–Hormann's classic
-// entry/exit classification breaks on shared edges; S-H's half-plane inclusion (`>= -EPS`) keeps
+// entry/exit classification breaks on shared edges; S-H's half-plane inclusion (`>= -EPSILON_ZERO`) keeps
 // boundary points gracefully. For cadastral parcels — reliably convex quadrilaterals far more
 // often than manzana footprints are — S-H against the convex member is both exact and robust.
 //
@@ -38,11 +38,15 @@
 // agnostic (C58 §1.5): plain rings in scene-XZ metres, zero knowledge of any city.
 
 import type { Pt } from '@pryzm/schemas';
+import { EPSILON_ZERO } from '@pryzm/geometry-kernel';
 import { polygonSignedArea } from '@pryzm/site-validators';
 
-const EPS = 1e-9;
-/** Vertices closer than this (metres) are treated as coincident — matches the other clippers. */
-const COINCIDENT_EPS = 1e-6;
+/**
+ * Vertices closer than this (METRES) are treated as coincident — matches the other clippers
+ * (1 µm). Deliberately 1000× TIGHTER than the kernel's `COINCIDENT_M` (1 mm): adopting the
+ * shared role would WIDEN this dedupe band (forbidden, C73 §2.5/E4).
+ */
+const COINCIDENT_EPS_M = 1e-6;
 
 /**
  * Is `ring` a CONVEX simple polygon? Every turn has the same sign (collinear runs ignored). A
@@ -58,7 +62,7 @@ export function isConvexRing(ring: ReadonlyArray<Pt>): boolean {
         const b = ring[(i + 1) % n]!;
         const c = ring[(i + 2) % n]!;
         const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
-        if (Math.abs(cross) < EPS) continue; // collinear vertex — no information about convexity
+        if (Math.abs(cross) < EPSILON_ZERO) continue; // collinear vertex — no information about convexity
         const s = cross > 0 ? 1 : -1;
         if (sign === 0) sign = s;
         else if (s !== sign) return false;
@@ -72,7 +76,7 @@ function lineSegmentIntersect(p: Pt, q: Pt, a: Pt, b: Pt): Pt {
     const dp = (b.x - a.x) * (p.z - a.z) - (b.z - a.z) * (p.x - a.x);
     const dq = (b.x - a.x) * (q.z - a.z) - (b.z - a.z) * (q.x - a.x);
     const denom = dp - dq;
-    if (Math.abs(denom) < EPS) return { x: q.x, z: q.z }; // near-parallel — clamp to q (guarded)
+    if (Math.abs(denom) < EPSILON_ZERO) return { x: q.x, z: q.z }; // near-parallel — clamp to q (guarded)
     const t = dp / denom;
     return { x: p.x + (q.x - p.x) * t, z: p.z + (q.z - p.z) * t };
 }
@@ -85,12 +89,12 @@ function dedup(ring: ReadonlyArray<Pt>): Pt[] {
     const out: Pt[] = [];
     for (const p of ring) {
         const last = out[out.length - 1];
-        if (!last || Math.hypot(p.x - last.x, p.z - last.z) > COINCIDENT_EPS) out.push({ x: p.x, z: p.z });
+        if (!last || Math.hypot(p.x - last.x, p.z - last.z) > COINCIDENT_EPS_M) out.push({ x: p.x, z: p.z });
     }
     if (out.length > 1) {
         const first = out[0]!;
         const last = out[out.length - 1]!;
-        if (Math.hypot(first.x - last.x, first.z - last.z) <= COINCIDENT_EPS) out.pop();
+        if (Math.hypot(first.x - last.x, first.z - last.z) <= COINCIDENT_EPS_M) out.pop();
     }
     return out;
 }
@@ -122,7 +126,7 @@ export function clipPolygonToConvex(
         const b = clip[(i + 1) % n]!;
         const inside = (p: Pt): boolean => {
             const cross = (b.x - a.x) * (p.z - a.z) - (b.z - a.z) * (p.x - a.x);
-            return ccw ? cross >= -EPS : cross <= EPS;
+            return ccw ? cross >= -EPSILON_ZERO : cross <= EPSILON_ZERO;
         };
         const input = output;
         output = [];

@@ -25,7 +25,7 @@
 // AND edge crossings.
 
 /** A point in world XZ metres. */
-import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+import { pointInPolygonXZ, EPSILON_ZERO } from '@pryzm/geometry-kernel';
 
 export interface XZ {
     readonly x: number;
@@ -102,11 +102,11 @@ function distToRing(p: XZ, ring: ReadonlyArray<XZ>): number {
 function segmentsCross(p1: XZ, p2: XZ, p3: XZ, p4: XZ): boolean {
     const d = (a: XZ, b: XZ, c: XZ): number => (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
     const d1 = d(p3, p4, p1), d2 = d(p3, p4, p2), d3 = d(p1, p2, p3), d4 = d(p1, p2, p4);
-    const EPS = 1e-9;
     // Strict sign change on BOTH segments — touching at a vertex is tolerated, because
     // building exactly TO the setback line is the intended design move, not a violation.
-    return ((d1 > EPS && d2 < -EPS) || (d1 < -EPS && d2 > EPS))
-        && ((d3 > EPS && d4 < -EPS) || (d3 < -EPS && d4 > EPS));
+    // Degenerate-sign guard consumes the kernel's declared numeric-zero role (C73 §2.2).
+    return ((d1 > EPSILON_ZERO && d2 < -EPSILON_ZERO) || (d1 < -EPSILON_ZERO && d2 > EPSILON_ZERO))
+        && ((d3 > EPSILON_ZERO && d4 < -EPSILON_ZERO) || (d3 < -EPSILON_ZERO && d4 > EPSILON_ZERO));
 }
 
 /**

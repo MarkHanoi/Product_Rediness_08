@@ -15,7 +15,7 @@ import { describe, it, expect } from 'vitest';
 import type { Pt, ParcelEdgeClassification } from '@pryzm/schemas';
 import {
     solveBlockConcentricBandDepth,
-    BLOCK_BAND_RATIO_TOLERANCE,
+    BLOCK_BAND_TOLERANCE_RATIO,
 } from '../src/geometry/blockConcentricBand.js';
 import { solveBlockDerivedDepth } from '../src/geometry/blockDerivedDepth.js';
 
@@ -219,7 +219,7 @@ describe('ADR-0273 — the equality VERIFIES ITSELF, and refuses when it misses'
             });
             if (r === null) continue;   // could not be asked at all — a different refusal
             expect(r.degenerate).toBe(
-                Math.abs(r.achievedBandRatio - 0.7) > BLOCK_BAND_RATIO_TOLERANCE,
+                Math.abs(r.achievedBandRatio - 0.7) > BLOCK_BAND_TOLERANCE_RATIO,
             );
             // A published depth is always a real, finite, non-negative distance.
             if (!r.degenerate) {

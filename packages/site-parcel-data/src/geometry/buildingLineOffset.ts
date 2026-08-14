@@ -23,10 +23,9 @@
 
 import { trace } from '@opentelemetry/api';
 import type { Pt, ParcelEdgeClassification } from '@pryzm/schemas';
+import { EPSILON_ZERO, RECOMPUTE_IDENTITY_M } from '@pryzm/geometry-kernel';
 
 const tracer = trace.getTracer('pryzm.zoning.dk');
-
-const EPS = 1e-9;
 
 /**
  * A byggelinje (building line) as an HONEST geometry constraint.
@@ -81,7 +80,7 @@ function length(v: Pt): number {
 function unitDir(a: Pt, b: Pt): Pt | null {
     const v = sub(b, a);
     const len = length(v);
-    if (len < EPS) return null;
+    if (len < EPSILON_ZERO) return null;
     return { x: v.x / len, z: v.z / len };
 }
 /** Average of a point set (representative point of a polyline). */
@@ -138,10 +137,12 @@ export function matchBuildingLineToParcelEdge(
             if (sinTheta > maxSin) continue; // too oblique to be the edge this line governs
             const dist = pointToLineDistance(lineMid, a, edgeDir);
             const parallelism = 1 - sinTheta;
+            // Two candidate offsets that agree to within float path noise (metres) are THE SAME
+            // distance — the tie then breaks toward parallelism. Kernel role, not a private eps.
             if (
                 best === null ||
-                dist < best.offsetM - EPS ||
-                (Math.abs(dist - best.offsetM) <= EPS && parallelism > best.parallelism)
+                dist < best.offsetM - RECOMPUTE_IDENTITY_M ||
+                (Math.abs(dist - best.offsetM) <= RECOMPUTE_IDENTITY_M && parallelism > best.parallelism)
             ) {
                 best = { edgeIndex: i, offsetM: dist, parallelism };
             }

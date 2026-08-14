@@ -25,6 +25,7 @@
 
 import type { Pt } from '@pryzm/schemas';
 import { polygonSignedArea } from '@pryzm/site-validators';
+import { EPSILON_ZERO, RECOMPUTE_IDENTITY_M } from '@pryzm/geometry-kernel';
 
 export interface DepthClipResult {
     /** The clipped ring (scene-XZ metres). Empty when `degenerate`. */
@@ -40,9 +41,13 @@ export interface DepthClipResult {
     readonly bandInactive: boolean;
 }
 
-/** Vertices closer than this (metres) are treated as coincident — matches insetPolygon.ts. */
-const COINCIDENT_EPS = 1e-6;
-const EPS = 1e-9;
+/**
+ * Vertices closer than this (METRES) are treated as coincident — matches insetPolygon.ts.
+ * A 1 µm dedupe band, deliberately 1000× TIGHTER than the kernel's `COINCIDENT_M` (1 mm):
+ * adopting the shared role here would WIDEN what "the same vertex" means for this clip by
+ * three orders of magnitude (forbidden, C73 §2.5/E4).
+ */
+const COINCIDENT_EPS_M = 1e-6;
 
 function sub(a: Pt, b: Pt): Pt {
     return { x: a.x - b.x, z: a.z - b.z };
@@ -69,7 +74,7 @@ function centroid(ring: ReadonlyArray<Pt>): Pt {
 function inwardNormal(a: Pt, b: Pt, ring: ReadonlyArray<Pt>): Pt | null {
     const d = sub(b, a);
     const len = Math.hypot(d.x, d.z);
-    if (len <= COINCIDENT_EPS) return null;   // degenerate edge — caller must handle
+    if (len <= COINCIDENT_EPS_M) return null;   // degenerate edge — caller must handle
     const n = { x: -d.z / len, z: d.x / len };
     const toInterior = sub(centroid(ring), a);
     return dot(n, toInterior) >= 0 ? n : { x: -n.x, z: -n.z };
@@ -104,7 +109,7 @@ export function clipToDepthBand(
     // than the ordinance permits and the clip is a no-op — reported, not silently discarded.
     let maxDepth = -Infinity;
     for (const p of ring) maxDepth = Math.max(maxDepth, depthOf(p));
-    if (maxDepth <= depth + EPS) {
+    if (maxDepth <= depth + RECOMPUTE_IDENTITY_M) {
         return { polygon: ring.map((p) => ({ x: p.x, z: p.z })), degenerate: false, bandInactive: true };
     }
 
@@ -156,11 +161,11 @@ export function clipBeyondDepthBand(
     }
     // Wholly inside the band ⇒ there is no block-interior part of this parcel at all. An empty
     // region, reported as such (see the note above on why this is NOT `bandInactive`).
-    if (maxDepth <= depth + EPS) {
+    if (maxDepth <= depth + RECOMPUTE_IDENTITY_M) {
         return { polygon: [], degenerate: true, bandInactive: false };
     }
     // Wholly beyond the band ⇒ the clip removed nothing. The genuine no-op.
-    if (minDepth >= depth - EPS) {
+    if (minDepth >= depth - RECOMPUTE_IDENTITY_M) {
         return { polygon: ring.map((p) => ({ x: p.x, z: p.z })), degenerate: false, bandInactive: true };
     }
 
@@ -217,7 +222,7 @@ function clipHalfPlaneLoops(
         const dPrev = depthOf(prev) - depth;
         const dCur = depthOf(cur) - depth;
         const denom = dCur - dPrev;
-        const t = Math.abs(denom) > EPS ? -dPrev / denom : 0;
+        const t = Math.abs(denom) > EPSILON_ZERO ? -dPrev / denom : 0;
         return { x: prev.x + (cur.x - prev.x) * t, z: prev.z + (cur.z - prev.z) * t };
     };
 
@@ -285,12 +290,12 @@ function sutherlandHodgman(
             const dedup: Pt[] = [];
             for (const p of loop) {
                 const last = dedup[dedup.length - 1];
-                if (!last || Math.hypot(p.x - last.x, p.z - last.z) > COINCIDENT_EPS) dedup.push(p);
+                if (!last || Math.hypot(p.x - last.x, p.z - last.z) > COINCIDENT_EPS_M) dedup.push(p);
             }
             if (dedup.length > 1) {
                 const first = dedup[0]!;
                 const last = dedup[dedup.length - 1]!;
-                if (Math.hypot(first.x - last.x, first.z - last.z) <= COINCIDENT_EPS) dedup.pop();
+                if (Math.hypot(first.x - last.x, first.z - last.z) <= COINCIDENT_EPS_M) dedup.pop();
             }
             return dedup;
         })

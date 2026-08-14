@@ -36,8 +36,17 @@
 
 import type { BuildableEnvelope } from '@pryzm/schemas';
 
-/** Floating-point tolerance for "at the limit" (m² / m). Below this, treat as equal. */
-export const CAPACITY_EPSILON = 0.05;
+/**
+ * The "at the limit" half-band, in the METRIC'S OWN UNIT — m² for areas, m for height,
+ * storeys for floors. A proposed value within ±0.05 of the permitted value reads
+ * `'at-limit'` rather than `'over'`/`'within'`. This is a DOMAIN VERDICT BAND, not a
+ * float epsilon: 0.05 m² / 5 cm is a deliberate judgement of "equal for compliance
+ * purposes" (measured GFA is never sub-decimetre-exact). Folding it onto the kernel's
+ * `COINCIDENT_M` (0.001 m) would TIGHTEN it 50× and flip real at-limit rows to
+ * over/within — a behaviour change, not a cleanup (C73 §2.1: domain bands stay under
+ * their own owner).
+ */
+export const CAPACITY_AT_LIMIT_BAND_M2_OR_M = 0.05;
 
 /**
  * The DESIGN as measured from the authored model. Every field is nullable because every field
@@ -67,7 +76,7 @@ export type CapacityMetric =
 
 /**
  * `'within'`  — measured and permitted, and inside the limit.
- * `'at-limit'` — equal within {@link CAPACITY_EPSILON}.
+ * `'at-limit'` — equal within {@link CAPACITY_AT_LIMIT_BAND_M2_OR_M}.
  * `'over'`    — exceeds the limit.
  * `'unknown'` — either side missing. **NOT a pass** (honesty rule 1).
  * `'no-limit'`— measured, and the ordinance sets no limit for this metric. Distinct from
@@ -138,9 +147,9 @@ function judge(
     } else if (lim === null || !Number.isFinite(lim)) {
         // Honesty rule 1 — a missing limit is NOT a pass.
         status = 'unknown';
-    } else if (p > lim + CAPACITY_EPSILON) {
+    } else if (p > lim + CAPACITY_AT_LIMIT_BAND_M2_OR_M) {
         status = 'over';
-    } else if (p >= lim - CAPACITY_EPSILON) {
+    } else if (p >= lim - CAPACITY_AT_LIMIT_BAND_M2_OR_M) {
         status = 'at-limit';
     } else {
         status = 'within';

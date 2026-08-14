@@ -373,7 +373,7 @@ function absArea(ring: ReadonlyArray<Pt>): number {
  * magnitude below the smallest real void measured (0.014 m²) and six below the smallest overlap
  * this guard has to reject. Widening it would be the L-529 mistake; it does not need widening.
  */
-const VOID_IDENTITY_REL_TOLERANCE = 1e-6;
+const VOID_IDENTITY_TOLERANCE_RATIO = 1e-6;
 
 /**
  * The EXACT edge-cancellation pass.
@@ -533,11 +533,11 @@ function dissolveExact(
 
     // (c) THE IDENTITY THAT MAKES THIS SAFE. Parcels that tile the outline minus the voids satisfy
     // `|outer| − Σ|voids| == Σ|parcels|` exactly. Two disjoint blocks, or an overlapping pair, miss
-    // it by square metres. See `VOID_IDENTITY_REL_TOLERANCE` for why its bound is float noise.
+    // it by square metres. See `VOID_IDENTITY_TOLERANCE_RATIO` for why its bound is float noise.
     const parcelAreaSum = parcelRings.reduce((s, r) => s + absArea(openRing(r)), 0);
     const voidAreaSum = inner.reduce((s, r) => s + absArea(r), 0);
     const residual = Math.abs(absArea(outer) - voidAreaSum - parcelAreaSum);
-    if (residual > VOID_IDENTITY_REL_TOLERANCE * Math.max(parcelAreaSum, 1)) {
+    if (residual > VOID_IDENTITY_TOLERANCE_RATIO * Math.max(parcelAreaSum, 1)) {
         return fail('open-or-disjoint');
     }
 
