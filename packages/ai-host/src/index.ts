@@ -163,6 +163,11 @@ export type {
   PlanReport,
   PlanStepReport,
 } from './intents/ZeroTokenResolver.js';
+// §FEAT-CHAT-TOOL-ACTIVATION (L-906) — the 'activateTool' local action's
+// payload, and the pure parse/apply pair (exported for the editor bridge's
+// specs; the bridge itself reads `placement` off the resolution union).
+export { parsePlacementRef, applyActivatePlacement } from './intents/PlacementActivation.js';
+export type { PlacementLocalDispatch } from './intents/PlacementActivation.js';
 export { AiBus } from './AiBus.js';
 export type { AiBusEvent, AiBusEventKind, AiBusListener, AiBusOptions } from './AiBus.js';
 export { WorkflowRegistry } from './WorkflowRegistry.js';
