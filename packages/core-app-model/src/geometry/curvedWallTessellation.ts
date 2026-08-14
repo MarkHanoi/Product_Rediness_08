@@ -92,7 +92,8 @@ export interface TessPoint { x: number; y?: number; z: number }
  *     chords shorter than the weld radius get their interior vertices WELDED
  *     AWAY by the loop builder, so density beyond that bound is not just wasted,
  *     it corrupts the ring. Each consumer passes its own survival bound
- *     (SlabRegionTracer: 1.5 × REGION_WELD_TOLERANCE).
+ *     (SlabRegionTracer: 1.5 × REGION_WELD_TOLERANCE_M — renamed 2026-08-14 by
+ *     the GE-01 epsilon drain; the unit suffix is the point, see C73 §2.4).
  * When either bound forces the count below what the sagitta target requires,
  * `resolveArcSegmentCount` says so once per (tag, bound) on the console instead
  * of silently shipping a faceted curve.
