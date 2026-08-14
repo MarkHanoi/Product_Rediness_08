@@ -24,6 +24,10 @@ export * from './errors';
 export * from './WallStore';
 export * from './WallSystemTypeStore';
 export * from './WallOccupancyStore';
+// §C83-S1 — the WALL-side occupancy gate (a proposed wall vs existing hosted
+// openings). Sits beside WallOccupancyStore because it extends that store's
+// closed `CanPlaceRefusalCode` union rather than rivalling it (C83 §1.4).
+export * from './WallCrossesOpening';
 
 // ── Geometry builders ─────────────────────────────────────────────────────────
 export * from './PathResolver';

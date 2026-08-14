@@ -82,7 +82,16 @@ export type CanPlaceRefusalCode =
     | 'OCC_WIDTH_NOT_POSITIVE'      // requested width ≤ 0
     | 'OCC_OFFSET_BEFORE_WALL_START'// requested span starts before the wall
     | 'OCC_SPAN_BEYOND_WALL_END'    // requested span runs past the wall end
-    | 'OCC_OVERLAPS_SIBLING';       // 1-D overlap with an existing opening (conflictIds names them)
+    | 'OCC_OVERLAPS_SIBLING'        // 1-D overlap with an existing opening (conflictIds names them)
+    // §C83-S1 — the WALL-SIDE mirror of the five arms above. Those all ask "may
+    // this OPENING go here?"; this one asks "may this WALL go here?", and it is
+    // the same question about the same volume asked from the other side, so it
+    // belongs in the same closed union rather than in a rival one (C83 §1.4).
+    // The precedent is `planOpeningRefit` (:395), already described in this file
+    // as "the WALL-SIDE mirror of clampToWall". Produced by
+    // `evaluateWallPlacement` in WallCrossesOpening.ts, never by `canPlace` —
+    // `canPlace` takes ONE wall and cannot express a second wall's footprint.
+    | 'OCC_CROSSES_HOSTED_OPENING'; // a proposed WALL's footprint crosses an existing door/window
 
 export interface CanPlaceResult {
     valid:       boolean;
@@ -106,6 +115,7 @@ export const CAN_PLACE_REFUSAL_CODES = [
     'OCC_OFFSET_BEFORE_WALL_START',
     'OCC_SPAN_BEYOND_WALL_END',
     'OCC_OVERLAPS_SIBLING',
+    'OCC_CROSSES_HOSTED_OPENING',
 ] as const satisfies readonly CanPlaceRefusalCode[];
 
 /** Compile-time completeness: resolves to `never` only when the roster covers the
@@ -129,13 +139,22 @@ void _canPlaceRosterIsComplete;
  *     the information content of a shrug — and, being indistinguishable from a
  *     real reason, it HIDES the under-reporting validator. C58 §1.13.8 is the
  *     rule it breaks: "the resolver's distinction MUST reach the card."
- *   • `canPlace` resolves a SIX-member closed union. Six distinct verdicts —
+ *   • The union is a SEVEN-member closed set (six that `canPlace` itself
+ *     resolves, plus the wall-side arm below). Seven distinct verdicts —
  *     "the host has no length", "the host is raked and cannot carry an opening",
  *     "the requested width is not positive", "the span starts before the wall",
- *     "the span runs past the wall end", "it overlaps siblings X and Y" — arrived
- *     at the user as ONE string. A user cannot act on the collapsed form: four of
- *     the six are fixed by moving the opening, one by resizing it, and one by
- *     unraking the wall.
+ *     "the span runs past the wall end", "it overlaps siblings X and Y", and
+ *     "this WALL would cross an existing door/window" — arrived at the user as
+ *     ONE string. A user cannot act on the collapsed form: four are fixed by
+ *     moving the opening, one by resizing it, one by unraking the wall, and one
+ *     by moving the WALL.
+ *
+ *     ⚠ Six of the seven are produced by `canPlace`; the seventh
+ *     (`OCC_CROSSES_HOSTED_OPENING`, §C83-S1) is produced by
+ *     `evaluateWallPlacement` in WallCrossesOpening.ts, because `canPlace` takes
+ *     ONE wall and structurally cannot express a second wall's footprint. They
+ *     share this union — and therefore this renderer — because they are the same
+ *     question about the same volume asked from opposite sides (C83 §1.4).
  *
  * The rendered text CARRIES the code, so the distinction survives the trip to the
  * DOM even where the sink takes only a string. A refusal that arrives with NO
@@ -184,6 +203,11 @@ const CAN_PLACE_DEFAULT_SENTENCE: Record<CanPlaceRefusalCode, string> = {
     OCC_OFFSET_BEFORE_WALL_START: 'the requested opening starts before the wall does',
     OCC_SPAN_BEYOND_WALL_END:     'the requested opening runs past the end of the wall',
     OCC_OVERLAPS_SIBLING:         'the requested opening overlaps an opening already on this wall',
+    // §C83-S1 — the fallback only. The real producer (`evaluateWallPlacement`)
+    // always supplies prose NAMING the opening and BOTH intervals, because a
+    // refusal the user cannot act on is the defect this whole family exists to
+    // stop. This sentence is what they read if that prose is ever lost.
+    OCC_CROSSES_HOSTED_OPENING:   'this wall would pass through a door or window opening on an existing wall',
 };
 
 /**

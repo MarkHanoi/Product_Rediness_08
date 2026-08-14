@@ -42,8 +42,14 @@ describe('canPlaceRefusalText — the refusal identity reaches the render (GE-09
     // CAN_PLACE_REFUSAL_CODES, this assignment stops compiling — the roster is
     // typed as covering the union exactly.
     const roster: readonly CanPlaceRefusalCode[] = CAN_PLACE_REFUSAL_CODES;
-    expect(roster.length).toBe(6);
-    expect(new Set(roster).size).toBe(6);
+    // 6 → 7 on 2026-08-14: §C83-S1 added `OCC_CROSSES_HOSTED_OPENING`, the
+    // WALL-SIDE arm (a proposed wall crossing an existing door/window). The
+    // count is deliberately hard-coded rather than derived from the roster —
+    // deriving it would make this assertion tautological, and the point is that
+    // a member cannot join the union without a human editing this number.
+    expect(roster.length).toBe(7);
+    expect(new Set(roster).size).toBe(7);
+    expect(roster).toContain('OCC_CROSSES_HOSTED_OPENING');
   });
 
   it('names a MISSING identity as missing — never a generic sentence', () => {
