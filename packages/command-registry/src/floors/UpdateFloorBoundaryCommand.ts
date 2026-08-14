@@ -1,5 +1,40 @@
+import type { Patch } from 'immer';
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
+import { producePatchedSlice, applyPatchesToSlice } from '../PatchSnapshot';
 import type { FloorData, FloorSketch, FloorSketchEdge, FloorVertex } from '@pryzm/core-app-model';
+
+/**
+ * Deep copy returning PLAIN, UNFROZEN objects — the defensive copy this command
+ * needs at both handoffs to the store.
+ *
+ * Why not `structuredClone`: `check-structuredclone-new-commands` (G-NEW-05)
+ * prohibits it here; undo capture moved to Immer `produceWithPatches`.
+ *
+ * Why not just hand the Immer result to the store: Immer AUTO-FREEZES what it
+ * produces (nothing in this repo calls `setAutoFreeze(false)`), and both finish
+ * stores WRITE THROUGH the object they are given — `FloorStore.update` does
+ * `delete (updates as any).levelId`, `CeilingStore.update` additionally does
+ * `delete (updates as any).holeElements` and
+ * `clone.boundary.polygon = ensureCCW(clone.boundary.polygon)` after
+ * `Object.assign`. On a frozen input those are TypeErrors in strict mode, i.e. a
+ * broken undo on a live, founder-visible path. Every value that leaves this
+ * command for the store therefore passes through here first.
+ *
+ * Own enumerable string keys only, explicit `undefined` preserved — the same
+ * surface `structuredClone` gave for this payload, which is plain JSON data by
+ * construction (it round-trips through `SerializedCommand`).
+ */
+function deepCopy<T>(value: T): T {
+    if (Array.isArray(value)) return value.map(v => deepCopy(v)) as unknown as T;
+    if (value !== null && typeof value === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const key of Object.keys(value as object)) {
+            out[key] = deepCopy((value as Record<string, unknown>)[key]);
+        }
+        return out as unknown as T;
+    }
+    return value;
+}
 
 /**
  * UpdateFloorBoundaryCommand — §FINISH-FOLLOWS-WALL (GR-12 · C79 §4/§5 · C72 §0.3)
@@ -64,7 +99,17 @@ export class UpdateFloorBoundaryCommand implements Command {
      *  'degrade' is C79 §4.2-mandated undoable. See the class doc. */
     readonly nonUndoable: boolean;
 
-    private prevSnapshot?: FloorData;
+    /**
+     * Immer INVERSE PATCHES for the record this command rewrote (G-NEW-05), the
+     * patch-based form of the pre-mutation snapshot `DegradeSlabSketchCommand`
+     * keeps. Undo applies them to the floor's CURRENT record, reconstructing the
+     * pre-execute record byte-equal — pinned by
+     * `__tests__/updateFloorBoundaryUndoRoundtrip.test.ts`, which was watched
+     * green against the snapshot-clone implementation before this migration.
+     * Patches cannot alias the record about to be mutated: their values are read
+     * off the untouched base by `produceWithPatches`.
+     */
+    private inversePatches?: readonly Patch[];
 
     constructor(private payload: UpdateFloorBoundaryPayload) {
         this.id = `cmd-update-floor-boundary-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -119,20 +164,42 @@ export class UpdateFloorBoundaryCommand implements Command {
             };
         }
 
-        this.prevSnapshot = structuredClone(current) as FloorData;
-
-        const nextSketch: FloorSketch = {
+        // The post-state values, built exactly as before: inner loops preserved
+        // through the sketch spread, untouched boundary fields through the boundary
+        // spread, and the payload deep-copied so the stored record cannot alias it.
+        const nextSketch = deepCopy({
             ...(current.sketch ?? {}),
-            outerLoop: { edges: structuredClone(outerLoopEdges) as FloorSketchEdge[] },
-        };
+            outerLoop: { edges: outerLoopEdges },
+        }) as FloorSketch;
+        const nextBoundary = this.payload.mode === 'reproject' && this.payload.polygon
+            ? deepCopy({
+                ...current.boundary,
+                polygon: this.payload.polygon as FloorVertex[],
+            })
+            : undefined;
+
+        // G-NEW-05 CAPTURE — one `produceWithPatches` pass over the CURRENT record
+        // yields the inverse patches that are this command's undo. The draft is
+        // handed its OWN copies of the post-state values: Immer freezes what it
+        // produces, and the objects below travel on to the store, which writes
+        // through them (see `deepCopy`).
+        const { inversePatches } = producePatchedSlice<FloorData>(current, (draft) => {
+            draft.sketch = deepCopy(nextSketch);
+            if (nextBoundary) draft.boundary = deepCopy(nextBoundary);
+            // §AUDIT-TRAIL — the store bumps `metadata.version` / `modifiedAt` on the
+            // write below (preserveMetadata defaults false). The snapshot idiom this
+            // replaces restored the WHOLE pre-execute record with
+            // preserveMetadata=true, which put the audit trail back. Re-assigning
+            // `metadata` marks it touched (Immer compares by reference, so a copy IS a
+            // change), which lands the PRE-execute metadata in `inversePatches` and
+            // makes undo byte-equal exactly as before. `metadata` is NOT part of the
+            // execute write — `updates` below carries only the boundary sketch.
+            draft.metadata = deepCopy(draft.metadata);
+        });
+        this.inversePatches = inversePatches;
 
         const updates: Partial<FloorData> = { sketch: nextSketch };
-        if (this.payload.mode === 'reproject' && this.payload.polygon) {
-            updates.boundary = {
-                ...structuredClone(current.boundary),
-                polygon: structuredClone(this.payload.polygon) as FloorVertex[],
-            };
-        }
+        if (nextBoundary) updates.boundary = nextBoundary;
 
         const updated = store.update(this.payload.floorId, updates);
         if (!updated) {
@@ -169,16 +236,31 @@ export class UpdateFloorBoundaryCommand implements Command {
             };
         }
         const store = context.stores.floorStore;
-        if (!store || !this.prevSnapshot) {
+        if (!store || !this.inversePatches) {
             return {
                 success: false,
                 affectedElementIds: [],
                 error: 'No pre-degradation snapshot captured — cannot undo floor boundary degradation.',
             };
         }
+        const currentNow = store.getById(this.payload.floorId);
+        if (!currentNow) {
+            // The floor vanished outside this undo unit. Say so rather than invent a
+            // record — this command never creates floors, in undo any more than in
+            // execute.
+            return {
+                success: false,
+                affectedElementIds: [],
+                error: `Floor "${this.payload.floorId}" no longer exists — nothing to restore.`,
+            };
+        }
+        // Inverse patches onto the CURRENT record reconstruct the pre-execute record
+        // byte-equal (G-NEW-05). `deepCopy` un-freezes the Immer result before it
+        // reaches the store, which writes through what it is given.
+        const prev = deepCopy(applyPatchesToSlice<FloorData>(currentNow, this.inversePatches));
         // preserveMetadata=true — an undo must not corrupt the audit trail
         // (mirrors FloorStore.restoreSnapshot).
-        store.update(this.payload.floorId, this.prevSnapshot, true);
+        store.update(this.payload.floorId, prev, true);
         console.log(
             `[UpdateFloorBoundaryCommand] UNDO: restored sketch on floor "${this.payload.floorId}" ` +
             `(HostReferenceEdges for wall "${this.payload.cause.wallId}" restored).`
@@ -193,7 +275,7 @@ export class UpdateFloorBoundaryCommand implements Command {
     serialize(): SerializedCommand {
         return {
             type: this.type,
-            payload: structuredClone(this.payload) as unknown as Record<string, any>,
+            payload: deepCopy(this.payload) as unknown as Record<string, any>,
             targetIds: this.targetIds,
             timestamp: this.timestamp,
             version: 1,
