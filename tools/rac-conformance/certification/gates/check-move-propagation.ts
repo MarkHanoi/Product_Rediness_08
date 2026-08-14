@@ -224,6 +224,16 @@ async function run(): Promise<void> {
   const wnd = globalThis.window as unknown as Record<string, unknown>;
 
   const slabMod = await import('@pryzm/geometry-slab');
+  // §C79-5.2-SLAB-STATES — the reporting channel A3/A4 read. Imported from the
+  // package barrel, i.e. the same surface production consumes; a gate that
+  // re-implemented the classification would be measuring itself.
+  const classifySlabRecompute = (slabMod as unknown as {
+    classifySlabRecompute: (i: {
+      slabId: string;
+      previousRing: { x: number; y: number }[] | null | undefined;
+      resolution: unknown;
+    }) => { state: string; reason?: string; subReason: string; numbers?: { oldAreaM2: number; newAreaM2: number } };
+  }).classifySlabRecompute;
   const {
     SlabStore, SlabDependencyTracker, traceRegionSketchAtPoint, SlabFragmentBuilder,
   } = slabMod as unknown as {
@@ -242,6 +252,21 @@ async function run(): Promise<void> {
   };
   const resolveLoop = (l: unknown): { x: number; y: number }[] | null =>
     (SlabFragmentBuilder as unknown as { resolveLoop(x: unknown): { x: number; y: number }[] | null }).resolveLoop(l);
+
+  // §C79-5.2-SLAB-STATES — the same call, WITH the per-edge provenance A3/A4 read.
+  interface LoopVerdict {
+    ring: { x: number; y: number }[] | null;
+    fullyLive: boolean;
+    edgeOutcomes: { index: number; source: string; state: string; reason?: string }[];
+    undetermined?: { reason: string; subReason: string };
+  }
+  const resolveLoopVerdict = (l: unknown): LoopVerdict =>
+    (SlabFragmentBuilder as unknown as { resolveLoopVerdict(x: unknown): LoopVerdict }).resolveLoopVerdict(l);
+  const classify = (
+    slabId: string,
+    previousRing: { x: number; y: number }[] | null | undefined,
+    resolution: LoopVerdict,
+  ) => classifySlabRecompute({ slabId, previousRing, resolution });
 
   /** A minimal, schema-valid region slab — the shape the plan handler commits. */
   const regionSlab = (id: string, sketch: unknown, ring: { x: number; y: number }[]): unknown => ({
@@ -361,46 +386,101 @@ async function run(): Promise<void> {
   } catch (e) { harnessErrors.push('A2: ' + String(e).slice(0, 300)); }
 
   // ══ A3 · C79 §5.2.1 — `preserved` vs `undetermined` ═════════════════════════
+  //
+  // ⚠ PREDICATE CORRECTED 2026-08-14, and the correction is the FINDING, not a
+  // convenience. The arm used to require `JSON.stringify(ringA) !== JSON.stringify(ringB)`
+  // — i.e. it could only ever go green if the two RINGS differed. But the two
+  // rings are the same by construction ("the same PIXELS and opposite FACTS"),
+  // and the only way to make them differ is to DELETE the §4.3 fallback, which
+  // C79 §4.3 requires and this ledger's own note forbids in these words: *"The
+  // fix is a reason channel on the resolve result, never the removal of the
+  // fallback."* So the old predicate demanded the one repair the arm's own
+  // prescription rules out. It is now the honest question — CAN THE CALLER TELL?
+  // — and it is STRICTER, not looser: the byte-identity of the rings is still
+  // measured and is now a REQUIRED half of the verdict (if the rings ever stop
+  // matching, this arm fails, because the §5.2.1 claim would be true for the
+  // wrong reason), and a channel that answered `undetermined` for everything is
+  // ruled out by requiring the live case to report `live` with no reason.
   try {
     const w = world({ bootstrap: true });
     w.walls.move('w-north', 0, 0);                       // PRESERVED: a zero move
     const preserved = resolveLoop(w.sketch.outerLoop);
+    const preservedV = resolveLoopVerdict(w.sketch.outerLoop);
 
     const w2 = world({ bootstrap: true });
     // UNDETERMINED: the host becomes unresolvable WITHOUT a 'remove' event, so no
-    // C79 §4 degradation runs and `resolveOrFallback` silently returns the stale
-    // authoring-time fallback (WallFaceResolver.ts:56-61).
+    // C79 §4 degradation runs and `resolveOrFallback` returns the stale
+    // authoring-time fallback (WallFaceResolver.ts).
     w2.walls.vanish('w-north');
     const undetermined = resolveLoop(w2.sketch.outerLoop);
+    const undeterminedV = resolveLoopVerdict(w2.sketch.outerLoop);
 
-    const distinguishable = JSON.stringify(preserved) !== JSON.stringify(undetermined);
+    const sameRing = JSON.stringify(preserved) === JSON.stringify(undetermined);
+    const preservedState = classify('sb', w.traced.ring, preservedV).state;
+    const undeterminedState = classify('sb', w2.traced.ring, undeterminedV).state;
+    const undeterminedReason = classify('sb', w2.traced.ring, undeterminedV).reason;
     arm('all families · C79 §5.2.1 — `preserved` and `undetermined` are distinguishable at the caller',
-      distinguishable,
-      `a zero-move re-derivation and a re-derivation whose host cannot be resolved both return the SAME ` +
-      `${area(preserved).toFixed(3)} m² ring, byte-identical: ${JSON.stringify(preserved) === JSON.stringify(undetermined)}. ` +
-      'WallFaceResolver.resolve() returns null — it KNOWS the host is gone — and resolveOrFallback() ' +
-      'absorbs that into a stale segment with no reason attached. C79 §5.2.1: "they are the same PIXELS ' +
-      'and opposite FACTS", and conflating them is §0\'s defect exactly — a slab that did not follow is ' +
-      'indistinguishable from a slab that had nothing to follow.');
+      sameRing                                   // the pixels really are identical
+      && preservedV.fullyLive === true           // …and the live case is not just refused
+      && preservedState === 'preserved'
+      && undeterminedV.fullyLive === false
+      && undeterminedState === 'undetermined'
+      && undeterminedReason === 'STALE_DERIVED_STATE',
+      `a zero-move re-derivation and a re-derivation whose host cannot be resolved return the SAME ` +
+      `${area(preserved).toFixed(3)} m² ring, byte-identical: ${sameRing} — and the CALLER now reads ` +
+      `"${preservedState}" vs "${undeterminedState}" (${undeterminedReason}). ` +
+      'WallFaceResolver.resolve() returns null — it KNOWS the host is gone — and ' +
+      'resolveWithProvenance() now says so beside the identical geometry instead of absorbing it ' +
+      '(§C79-5.2-SLAB-STATES). The §4.3 fallback is NOT removed: C79 §5.2.1 asks whether the caller ' +
+      'can tell, not whether the pixels differ.');
     w.tracker.dispose(); w2.tracker.dispose();
   } catch (e) { harnessErrors.push('A3: ' + String(e).slice(0, 300)); }
 
   // ══ A4 · C79 §5.2 — is ANY of the five states reported? ═════════════════════
+  //
+  // ⚠ PREDICATE STRENGTHENED 2026-08-14. It used to sniff `triggerRebuild() !==
+  // undefined || ring.state !== undefined` — a shape check that any non-void
+  // return would satisfy, including a meaningless one. It now DRIVES three
+  // distinct outcomes through the real path and requires three DISTINCT named
+  // states, each a member of C79 §5.2's five, with both numbers on the
+  // `conflicted` refusal (§5.2.2 / C73 §4). The original observation is kept in
+  // the message because it is still true and is why the channel exists: the ring
+  // entry points are deliberately unchanged, so no draw path moved.
   try {
-    const w = world({ bootstrap: true });
-    const trig = w.store.triggerRebuild('sb') as unknown;
-    const ring = resolveLoop(w.sketch.outerLoop) as unknown as Record<string, unknown> | null;
-    const reportsState = trig !== undefined || (ring !== null && ring.state !== undefined);
+    const zero = world({ bootstrap: true });
+    zero.walls.move('w-north', 0, 0);
+    const vZero = classify('sb', zero.traced.ring, resolveLoopVerdict(zero.sketch.outerLoop));
+
+    const grew = world({ bootstrap: true });
+    grew.walls.move('w-north', 0, 2);
+    const vGrew = classify('sb', grew.traced.ring, resolveLoopVerdict(grew.sketch.outerLoop));
+
+    const inverted = world({ bootstrap: true });
+    inverted.walls.move('w-north', 0, -8);   // drive the north wall THROUGH the south
+    const vInv = classify('sb', inverted.traced.ring, resolveLoopVerdict(inverted.sketch.outerLoop));
+
+    const FIVE = ['preserved', 'resized', 'regenerated', 'conflicted', 'undetermined'];
+    const seen = [vZero.state, vGrew.state, vInv.state];
+    const trig = zero.store.triggerRebuild('sb') as unknown;
     arm('all families · C79 §5.2 — a re-derivation reports exactly one of the five states',
-      reportsState,
-      'the whole move path returns no state: SlabStore.triggerRebuild → void, ' +
-      'SlabDependencyTracker.onWallUpdated → void, SlabFragmentBuilder.resolveLoop → a bare ring | null, ' +
-      'WallFaceResolver.resolveOrFallback → Segment2D | null. No value anywhere names ' +
-      'preserved | resized | regenerated | conflicted | undetermined, and no per-edge state channel exists ' +
-      'on SlabSketch. C79 §5.5 is CONFIRMED by execution, not refuted. ' +
-      '(§5.3\'s worst-of-its-edges rule has no implementation to exercise; §5.2.2\'s conflicted-must-refuse ' +
-      'has none either — an inverting move re-derives a winding-flipped ring, refusing nothing.)');
-    w.tracker.dispose();
+      seen.every((s) => FIVE.includes(s))
+      && new Set(seen).size === 3
+      && vZero.state === 'preserved' && vGrew.state === 'resized' && vInv.state === 'conflicted'
+      && vInv.numbers !== undefined && vGrew.numbers !== undefined,
+      `three re-derivations of the SAME slab over three different wall moves report three DISTINCT ` +
+      `states: zero move → "${vZero.state}", +2 m → "${vGrew.state}" ` +
+      `(${vGrew.numbers?.oldAreaM2.toFixed(3)} → ${vGrew.numbers?.newAreaM2.toFixed(3)} m²), ` +
+      `north-through-south → "${vInv.state}" (${vInv.subReason}). ` +
+      `The ring entry points are UNCHANGED by design — SlabStore.triggerRebuild still → ` +
+      `${String(trig)}, SlabFragmentBuilder.resolveLoop still → a bare ring | null — because the state ` +
+      'is a property of a RE-DERIVATION, not of a ring; it travels beside the geometry in ' +
+      'SlabFragmentBuilder.resolveLoopVerdict + classifySlabRecompute, and SlabDependencyTracker.' +
+      'recomputeForWall returns it. `regenerated` is classified but NOT producible by a wall move ' +
+      '(computePolygon returns one vertex per segment and a move changes neither edge count nor host ' +
+      'set) — named in slabRecomputeVerdict.ts, owned by the sketch-EDIT path, not counted as shipped. ' +
+      'STILL OPEN and NOT claimed by this arm: C79 §10.6 — no USER-facing surface carries the refusal; ' +
+      'a console.warn is a developer trace, not a message.');
+    zero.tracker.dispose(); grew.tracker.dispose(); inverted.tracker.dispose();
   } catch (e) { harnessErrors.push('A4: ' + String(e).slice(0, 300)); }
 
   // ══ STRUCTURAL ARMS — the families with nothing to drive ════════════════════
