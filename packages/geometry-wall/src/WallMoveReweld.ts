@@ -115,7 +115,6 @@ const MIN_ANGLE_RAD = 0.1; // ~5.7°, mirrors WallJoinResolver's near-parallel s
 // is EPSILON_ZERO's role — not RECOMPUTE_IDENTITY_M (same value, different
 // QUESTION: that one asks whether a re-derived ring is the stored ring) and not
 // COINCIDENT_M (model-point sameness, 6 orders wider).
-const EPS = EPSILON_ZERO;
 /** Displacements below this are noise, not a weld worth committing. */
 const MIN_DISPLACEMENT = 1e-6;
 
@@ -129,7 +128,7 @@ function dist(a: Pt, b: Pt): number { return len(sub(a, b)); }
 function distToSegment(p: Pt, a: Pt, b: Pt): number {
     const ab = sub(b, a);
     const L2 = ab.x * ab.x + ab.z * ab.z;
-    if (L2 < EPS) return dist(p, a);
+    if (L2 < EPSILON_ZERO) return dist(p, a);
     let t = ((p.x - a.x) * ab.x + (p.z - a.z) * ab.z) / L2;
     t = Math.max(0, Math.min(1, t));
     return dist(p, { x: a.x + ab.x * t, z: a.z + ab.z * t });
@@ -143,7 +142,7 @@ function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
     const dA = sub(a2, a1);
     const dB = sub(b2, b1);
     const lA = len(dA), lB = len(dB);
-    if (lA < EPS || lB < EPS) return null;
+    if (lA < EPSILON_ZERO || lB < EPSILON_ZERO) return null;
     const cross = dA.x * dB.z - dA.z * dB.x;
     const sinAngle = Math.abs(cross) / (lA * lB);
     if (sinAngle < Math.sin(MIN_ANGLE_RAD)) return null;
