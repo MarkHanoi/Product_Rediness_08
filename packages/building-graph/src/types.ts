@@ -94,8 +94,43 @@ export const UbgEdgeSchema = z
 export type UbgEdge = z.infer<typeof UbgEdgeSchema>;
 
 /**
- * The serialisable UBG snapshot (strategy §5) — persists in the `.pryzm`
- * snapshot and exports as the relational view alongside IFC.
+ * The serialisable UBG snapshot (strategy §5) — the wire/export shape, consumed
+ * by {@link BuildingGraph.toJSON}/`fromJSON` and by the relational view exported
+ * alongside IFC.
+ *
+ * ⚠ §GR-17 — CORRECTED 2026-08-14. This comment used to read *"persists in the
+ * `.pryzm` snapshot"*. **It does not, and it deliberately must not.** Measured at
+ * HEAD: `apps/editor/src/engine/persistence/ProjectSerializer.ts` writes
+ * `semanticGraph: semanticGraphManager.serialize()` (line 1083) and carries **no
+ * `ubg` key at all** — no writer, no reader, no schema slot. The doc claimed a
+ * persistence guarantee the code never made, which is the same defect class as
+ * L-809/L-812: a document describing machinery that does not exist.
+ *
+ * THE DRIFT IS RESOLVED IN FAVOUR OF THE CODE, and the code is RIGHT:
+ *
+ * The UBG is a **read-only projection**, not a store. Every one of the ten edge
+ * types in {@link UBG_EDGE_TYPES} is documented above with the specialised graph
+ * it is projected FROM, and `apps/editor/src/engine/buildBuildingGraph.ts` states
+ * the same in its header — *"we never mutate any source graph — we only read each
+ * service and emit UBG nodes/edges"*. It holds **zero authored state**: there is
+ * no field of a `UbgNode` or `UbgEdge` that a user or a command originates, and
+ * no production write path into a `BuildingGraph` other than the five adapters.
+ * `ubgSnapshotIsDerivedNotAuthored.test.ts` beside this file MEASURES that, and
+ * its negative arm shows a hand-added node is DESTROYED by the next rebuild —
+ * i.e. the substrate has no authored state to lose.
+ *
+ * Persisting a wholly-derived structure would therefore buy nothing and cost the
+ * two failure modes this repository keeps paying for: a snapshot that can go
+ * STALE against the sources it was projected from (and then be believed), and an
+ * unread persisted key — the authored-but-unwired hazard in a new costume. The
+ * sources themselves already persist or rebuild (`semanticGraph` is serialised;
+ * topology, room graph, dependency and constraint state are regenerated on load),
+ * so the UBG is reconstructed by calling the adapters again. That is the C70
+ * I-INV-2 / `check-derived-not-authored` position, not an omission.
+ *
+ * IF THAT EVER CHANGES — if some future adapter lets a user author a UBG-only
+ * fact that no source graph holds — this comment is wrong again and the fix is a
+ * `ubg` key in `ProjectSerializer` WITH a reader, not a re-edit of this comment.
  */
 export const UbgSnapshotSchema = z
   .object({
