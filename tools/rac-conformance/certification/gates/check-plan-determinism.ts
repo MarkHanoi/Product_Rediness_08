@@ -91,6 +91,7 @@ import { reportGate, type GateResult, type Floor } from '../contract.js';
 import { WallMoveConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallMoveConsequencePlanner.js';
 import { WallCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallCreateConsequencePlanner.js';
 import { OpeningMoveConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/OpeningMoveConsequencePlanner.js';
+import { WallOpeningCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallOpeningCreateConsequencePlanner.js';
 import { ConsequencePreviewService } from '../../../../apps/editor/src/engine/consequence/ConsequencePreviewService.js';
 import { predictRoomGeometry } from '../../../../packages/room-topology/src/predictRoomGeometry.js';
 import { resolveJunctionsWithRecords } from '../../../../packages/geometry-wall/src/JunctionResolverV2.js';
@@ -1168,10 +1169,444 @@ async function openingMoveHarness(): Promise<{ floors: Floor[]; lines: string[];
   return { floors, lines, findings };
 }
 
+// ─── wall.opening.create · the FOURTH family ──────────────────────────────────
+//
+// The opening.MOVE harness above is the nearest neighbour and is STILL not transcribable,
+// for a reason the planner's own header states as doctrine: this family has NO CLAMP SEAM
+// AT ALL. The move row's two occupancy seams are `clampToWall` (the host-fit rule, which
+// REFITS) and `canPlace` (sibling collision). The create row has exactly one —
+// `canPlace` — because `CreateWallOpening.canExecute`/`execute` REFUSE on every invalid
+// arm, bounds and overlap alike, and never clamp. A create harness that inherited the move
+// harness's `shiftedClamp`/`refusingClamp` doubles would therefore be certifying a seam the
+// subject planner does not have, and — worse — the two arms that ride on it
+// (`metric-value-only`, `refusal-numbers-only`) would be exercising an injection point the
+// production composition never fills. So the seams here are the planner's OWN:
+//
+//   occupancy   `WallOccupancyStore.canPlace` — the REAL one, the SAME function the commit
+//               path runs. Its verdict is refuse-or-proceed; there is no third answer.
+//   validator   the violation core, diffed before/after the ADD (clone → append to the
+//               CLONE → validateAll → diff).
+//
+// ── THE stateHash CONSTRAINT, RE-DERIVED FOR THIS ROW ────────────────────────
+// `fnv1a({wallOpeningCreate: payload, walls: allWalls})`. So ARM 2 may move neither the
+// payload nor the wall store, and — as on the move row — the ONE remaining seam is a pure
+// function of that hashed state. Every pair below therefore varies the seam THROUGH AN
+// INJECTED READER over byte-identical state, asserts stateHash equality as a FLOOR, and
+// carries the move row's two inert-arm floors (section populated; element sets held equal).
+//
+// ⚠ WHAT THIS ROW MAKES HARDER THAN THE MOVE ROW, AND WHAT REPLACED IT. On the move row the
+// three body sections could each be moved while the plan still PROCEEDED. Here `proceeds`
+// is `refused.length === 0`, so a refusal COLLAPSES changed / topology / metrics all at
+// once — every "refuse vs proceed" pair co-varies four sections and can pass for a reason
+// unrelated to the one it names (the exact defect the move row's `refusal-only` draft had).
+// The three pairs below are the three that survive that constraint:
+//   2a refusal-numbers-only    both sides REFUSE on bounds, differing only in the length
+//                              the refusal quotes → `refused` alone.
+//   2b validation-only         both sides PROCEED, validator fires vs quiet →
+//                              `validation.violationsCreated` alone.
+//   2c undetermined-detail-only  both sides reach the SAME undetermined verdict by two
+//                              different routes (no reader composed vs the reader threw) →
+//                              `undetermined[].detail` alone. This is C78 §1.4 as a hash
+//                              claim: two DIFFERENT reasons for "not checked" are two
+//                              materially different answers, and an approval that could not
+//                              tell them apart would bind a plan that never checked
+//                              occupancy to one whose reader crashed.
+//
+// ── ALL THREE VERIFIED BY MUTATION, ONE SECTION AT A TIME (measured 2026-08-14) ──────
+// `assemble`'s hashed body was stripped of ONE section per run and the gate re-run:
+//   `refused` removed        → 2a RED, 2b and 2c still green
+//   `undetermined` removed   → 2c RED, 2a and 2b still green
+//   `validation` removed     → 2b RED, 2a and 2c still green
+// So each pair fails for its OWN section and for no other — the arms are load-bearing and
+// mutually independent, not three readings of one difference. The mutation was reverted;
+// this note is the record, because "the arm printed green" is not evidence that the arm
+// can go red (this gate's own opening.move row shipped two inert arms before it learned).
+
+interface OpeningCreateWorld {
+  walls: any[];
+}
+
+/** A 6 m host already carrying a 1.2 m window. The create command below drops a 0.9 m door
+ *  at 0.5 — clear of the sibling and inside the host — so the DEFAULT plan is the PROCEED
+ *  plan and carries changed / excluded / topology / metrics / violationsCreated at once.
+ *  `siblingOffset` is the NEGATIVE CONTROL's one knob. */
+const freshOpeningCreateWorld = (siblingOffset = 3.0): OpeningCreateWorld => ({
+  walls: [
+    {
+      id: 'wall-1', type: 'wall', levelId: 'L1', height: 2.7, thickness: 0.2,
+      baseLine: [{ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }],
+      openings: [
+        { id: 'op-w1', elementId: 'win-1', type: 'window', offset: siblingOffset, width: 1.2, height: 1.2, sillHeight: 0.9 },
+      ],
+    },
+  ],
+});
+
+/** Read-only PlanningContext double. The room store is deliberately EMPTY: this planner
+ *  consults no room-geometry predictor at all (C78 §6.4 disposition (iii) — an opening is a
+ *  void in the wall SOLID and moves no room ring), so handing it a move-shaped room with a
+ *  `computed.area` would imply a prediction it does not make. It still clones 'room' as
+ *  validator fodder, which an empty array serves honestly. */
+const openingCreateContextFor = (world: OpeningCreateWorld) => () => ({
+  getStore(storeId: string) {
+    const items: any[] | undefined =
+      storeId === 'wall' ? world.walls
+        : storeId === 'room' || storeId === 'door' || storeId === 'window' || storeId === 'stair' ? []
+          : undefined;
+    if (!items) return undefined;
+    return {
+      getAll: () => items as readonly unknown[],
+      getById: (id: string) => items.find((i) => i.id === id) ?? null,
+    };
+  },
+}) as any;
+
+// The command in its FLAT semantic form. [0.500, 1.400] on a 6 m host, clear of the sibling
+// window at [3.000, 4.200].
+const OC_COMMAND = {
+  type: 'wall.opening.create' as const,
+  payload: {
+    id: 'door-2', wallId: 'wall-1', openingId: 'op-d2', openingType: 'door',
+    offset: 0.5, width: 0.9, height: 2.1, sillHeight: 0,
+  },
+};
+// Bounds refusal, from the REAL store: [5.500, 6.400] runs past the 6.000 m host end.
+const OC_COMMAND_BOUNDS = {
+  type: 'wall.opening.create' as const,
+  payload: { ...OC_COMMAND.payload, offset: 5.5 },
+};
+// Overlap refusal, from the REAL store: [3.500, 4.400] cuts the sibling's [3.000, 4.200].
+const OC_COMMAND_OVERLAP = {
+  type: 'wall.opening.create' as const,
+  payload: { ...OC_COMMAND.payload, offset: 3.5 },
+};
+
+/** Fires on any DOOR opening narrower than 1.0 m. The sibling is a window, so the BEFORE
+ *  clone is clean and the ADD of the 0.9 m door creates exactly one violation — the same
+ *  discipline the other three harnesses apply: a hash arm must cover a section that
+ *  actually carries bytes. */
+const doorWidthValidator = {
+  validateAll: (ctx: any) =>
+    (ctx.wallStore.getAll() as any[]).flatMap((wl) =>
+      (wl.openings ?? [])
+        .filter((o: any) => o.type === 'door' && typeof o.width === 'number' && o.width < 1.0)
+        .map((o: any) => ({ ruleId: 'DOOR_MIN_WIDTH', elementId: o.elementId ?? o.id, message: `door width ${o.width} m is below the 1.0 m minimum` })),
+    ),
+};
+const ocQuietValidator = { validateAll: () => [] as any[] };
+
+/** Build the REAL service over the REAL create planner. The default occupancy is the REAL
+ *  `wallOccupancyStore` — so the fit/collision verdicts under test are the PRODUCTION rules
+ *  the commit path enforces. `omitOccupancy` is an explicit ABSENCE (distinct from "not
+ *  overridden"), which 2c needs and which `?? default` cannot express. */
+function buildOpeningCreateService(world: OpeningCreateWorld, opts?: {
+  occupancy?: any;
+  omitOccupancy?: boolean;
+  validator?: { validateAll: (c: any) => any[] };
+  plannerWrap?: (p: WallOpeningCreateConsequencePlanner) => { plan: (c: any, ctx: any) => Promise<any> };
+}): ConsequencePreviewService {
+  const planner = new WallOpeningCreateConsequencePlanner({
+    ...(opts?.omitOccupancy ? {} : { occupancy: (opts?.occupancy ?? wallOccupancyStore) as any }),
+    validator: (opts?.validator ?? doorWidthValidator) as any,
+  });
+  const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
+  const planners = new Map<string, any>();
+  planners.set('wall.opening.create', subject);
+  return new ConsequencePreviewService(planners as any, openingCreateContextFor(world));
+}
+
+async function wallOpeningCreateHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
+  const floors: Floor[] = [];
+  const lines: string[] = [];
+  const findings: string[] = [];
+
+  // ── ARM 1 · REPEAT — the REAL occupancy store, the REAL planner, the REAL service ──
+  const service = buildOpeningCreateService(freshOpeningCreateWorld());
+  const runA = await service.preview(OC_COMMAND);
+  const runB = await service.preview(OC_COMMAND);
+  floors.push({ what: 'wall.opening.create: real preview produced a plan (run A)', measured: runA ? 1 : 0, min: 1 });
+  floors.push({ what: 'wall.opening.create: real preview produced a plan (run B)', measured: runB ? 1 : 0, min: 1 });
+  if (runA && runB) {
+    floors.push({ what: 'wall.opening.create: plan carries changed entries (the new opening AND its host)', measured: runA.changed.length, min: 2 });
+    floors.push({ what: 'wall.opening.create: plan carries topology.added (the newcomer)', measured: (runA as any).topology?.added?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.opening.create: plan carries topology.modified (the host whose openings array gains a member)', measured: (runA as any).topology?.modified?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.opening.create: plan carries excluded entries (siblings CHECKED and found clear — the positive verdict)', measured: (runA as any).excluded?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.opening.create: plan carries metric transitions (offset and width, before=undefined)', measured: (runA as any).metrics?.length ?? 0, min: 2 });
+    floors.push({ what: 'wall.opening.create: plan carries violationsCreated (validation section populated by the ADD)', measured: runA.validation.violationsCreated.length, min: 1 });
+    floors.push({ what: 'wall.opening.create: plan carries undetermined entries (declared blind spots, not silent emptiness)', measured: (runA as any).undetermined?.length ?? 0, min: 3 });
+    // C70 F-INV-3 clause 3, asserted in the GATE: this family structurally cannot plan a
+    // deletion — `removed` is a literal [] with no parameter that could populate it.
+    floors.push({ what: 'wall.opening.create: C70 F-INV-3 — topology.removed is EMPTY on the PROCEED plan (nothing is deleted to make room)', measured: ((runA as any).topology?.removed?.length ?? 0) === 0 ? 1 : 0, min: 1 });
+    const c = compareRuns(runA, runB);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.opening.create][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.opening.create REPEAT: ${c.detail}`);
+  }
+
+  // ── ARM 1b · THE REFUSAL REPEAT — create-specific, and the arm the move row cannot have ─
+  // The move row's refusal is a REFIT decision; this row's is terminal. A refused create is
+  // the family's most consequential answer (it is what the user is told), it takes a
+  // DIFFERENT branch through `assemble` (no changed, no metrics, no topology), and it is
+  // where BOTH NUMBERS live (C70 F-INV-3 / G-INV-4). A harness that only repeated the
+  // proceed plan would leave the entire refusal body uncertified.
+  const refService = buildOpeningCreateService(freshOpeningCreateWorld());
+  const r1 = await refService.preview(OC_COMMAND_OVERLAP);
+  const r2 = await refService.preview(OC_COMMAND_OVERLAP);
+  floors.push({ what: 'wall.opening.create: refusal repeat produced both plans', measured: r1 && r2 ? 1 : 0, min: 1 });
+  if (r1 && r2) {
+    const reason = (r1 as any).refused?.[0]?.reason ?? '';
+    floors.push({ what: 'wall.opening.create: the REAL canPlace refused the overlapping span (refused section populated)', measured: (r1 as any).refused?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.opening.create: the refusal names BOTH spans (C70 F-INV-3 / G-INV-4 — the proposed one AND the sibling it would cut)', measured: reason.includes('[3.500 m, 4.400 m]') && reason.includes('[3.000 m, 4.200 m]') ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.opening.create: a REFUSED create changes nothing — changed is EMPTY (a plan that claimed otherwise would make R4 score a divergence it caused itself)', measured: r1.changed.length === 0 ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.opening.create: C70 F-INV-3 — topology.removed is EMPTY on the REFUSED plan too (the sibling is neither moved aside nor removed)', measured: ((r1 as any).topology?.removed?.length ?? 0) === 0 ? 1 : 0, min: 1 });
+    const c = compareRuns(r1, r2);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.opening.create · refused][${c.verdict}]: the same REFUSED create planned twice over one state produced two different refusals — the sentence the user is shown is not a pure function of state. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.opening.create REFUSAL repeat: ${c.detail}`);
+  }
+
+  // The OTHER refusal arm the REAL store produces — BOUNDS, which carries the closed
+  // `CanPlaceRefusalCode` VERBATIM (§REFUSAL-IDENTITY, C58 §1.13). Repeated for the same
+  // reason: it is a different branch of `occupancyBranch` (no conflict ids), so its
+  // determinism is a separate claim from the overlap branch's.
+  const bService = buildOpeningCreateService(freshOpeningCreateWorld());
+  const b1 = await bService.preview(OC_COMMAND_BOUNDS);
+  const b2 = await bService.preview(OC_COMMAND_BOUNDS);
+  floors.push({ what: 'wall.opening.create: bounds-refusal repeat produced both plans', measured: b1 && b2 ? 1 : 0, min: 1 });
+  if (b1 && b2) {
+    const reason = (b1 as any).refused?.[0]?.reason ?? '';
+    floors.push({ what: 'wall.opening.create: the REAL canPlace refused the out-of-bounds span (refused section populated)', measured: (b1 as any).refused?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.opening.create: the bounds refusal carries the store\'s closed refusal CODE verbatim (OCC_SPAN_BEYOND_WALL_END), never reworded', measured: reason.includes('OCC_SPAN_BEYOND_WALL_END') ? 1 : 0, min: 1 });
+    const c = compareRuns(b1, b2);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.opening.create · bounds-refused][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.opening.create BOUNDS-refusal repeat: ${c.detail}`);
+  }
+
+  // ── ARM 5 · NONDETERMINISM SOURCES — 30 ms apart, clock AND RNG spoofed ─────
+  const realNow = Date.now;
+  const realRandom = Math.random;
+  let clockReads = 0;
+  let rngReads = 0;
+  const planUnder = async (now: number, rand: number, cmd: any = OC_COMMAND): Promise<Plan | null> => {
+    Date.now = () => { clockReads++; return now; };
+    Math.random = () => { rngReads++; return rand; };
+    try { return await buildOpeningCreateService(freshOpeningCreateWorld()).preview(cmd); }
+    finally { Date.now = realNow; Math.random = realRandom; }
+  };
+  const t1 = await planUnder(1_000_000_000, 0.1111);
+  await sleep(30);
+  const t2 = await planUnder(9_999_999_999, 0.9999);
+  floors.push({ what: 'wall.opening.create: time-arm produced both plans', measured: t1 && t2 ? 1 : 0, min: 1 });
+  if (t1 && t2) {
+    const c = compareRuns(t1, t2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · TIME/RNG [wall.opening.create][${c.verdict}]: plans planned 30 ms apart under DIFFERENT spoofed Date.now/Math.random diverged — a clock or RNG read reaches the plan. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · wall.opening.create TIME/RNG: 30 ms apart, Date.now spoofed 1000000000 vs 9999999999, Math.random 0.1111 vs 0.9999 → ${c.verdict} (planner path observed ${clockReads} Date.now / ${rngReads} Math.random reads)`);
+  }
+
+  // The SIBLING-ORDER arm — this family's analogue of the create row's id-absent case and
+  // the move row's reverse-scan case, and a real risk rather than a ceremonial one. The
+  // refusals are emitted ONE PER COLLIDING SIBLING, and the collision ids arrive from the
+  // store in ITS OWN array iteration order. A refusal LIST whose order followed the host's
+  // openings array would make the plan a function of storage order, not of state — and the
+  // user would be shown two conflicts in two different orders for one identical situation.
+  // Here the SAME two siblings are presented in both orders against a span that cuts BOTH.
+  const twoSiblings = (order: 'ab' | 'ba'): OpeningCreateWorld => {
+    const a = { id: 'op-w1', elementId: 'win-1', type: 'window', offset: 3.0, width: 1.2, height: 1.2, sillHeight: 0.9 };
+    const b = { id: 'op-w2', elementId: 'win-2', type: 'window', offset: 4.5, width: 0.8, height: 1.2, sillHeight: 0.9 };
+    const wl = freshOpeningCreateWorld().walls[0];
+    return { walls: [{ ...wl, openings: order === 'ab' ? [a, b] : [b, a] }] };
+  };
+  const wideCmd = { type: 'wall.opening.create' as const, payload: { ...OC_COMMAND.payload, offset: 3.5, width: 1.5 } };
+  const o1 = await buildOpeningCreateService(twoSiblings('ab')).preview(wideCmd);
+  const o2 = await buildOpeningCreateService(twoSiblings('ba')).preview(wideCmd);
+  floors.push({ what: 'wall.opening.create: sibling-order arm produced both plans', measured: o1 && o2 ? 1 : 0, min: 1 });
+  if (o1 && o2) {
+    floors.push({ what: 'wall.opening.create: the sibling-order arm actually COLLIDES with both siblings (two refusals, not an inert pass)', measured: (o1 as any).refused?.length ?? 0, min: 2 });
+    // stateHash DOES move here (the openings array order is part of the hashed state), so
+    // this is a plan-BODY claim, not a byte-identity claim.
+    const same =
+      JSON.stringify({ r: (o1 as any).refused, e: o1.excluded, c: o1.changed, t: o1.topology }) ===
+      JSON.stringify({ r: (o2 as any).refused, e: o2.excluded, c: o2.changed, t: o2.topology });
+    floors.push({ what: 'wall.opening.create: the refusal LIST and the element sets are independent of the host openings-array order', measured: same ? 1 : 0, min: 1 });
+    if (!same) findings.push('ARM 5 · TIME/RNG [wall.opening.create · sibling-order]: the refusals/excluded sets depend on the order the host stores its openings — the plan is not a pure function of state, and one situation would be explained two ways.');
+    lines.push(`${same ? '✓ ' : '❌'} ARM 5 · wall.opening.create sibling-order: host openings [op-w1,op-w2] vs [op-w2,op-w1] → same refusal list and same element sets`);
+  }
+
+  // ── ARM 2 · SENSITIVITY — one consequential fact each, stateHash held EQUAL ──
+  // Same contract as the move row's `pairHash`, including BOTH inert-arm floors: the named
+  // section must be POPULATED on at least one side, and the element sets must be IDENTICAL
+  // unless the pair opts out — because changed/excluded/topology are hashed independently of
+  // every named section, so a pair whose sides differ there can pass on the SET difference
+  // while the section it advertises is absent from the hash entirely.
+  const ocPairHash = async (
+    label: string,
+    a: ConsequencePreviewService,
+    b: ConsequencePreviewService,
+    fact: string,
+    section: { name: string; read: (p: Plan) => number },
+    cmd: any = OC_COMMAND,
+  ): Promise<void> => {
+    const setsOf = (p: Plan): string =>
+      JSON.stringify({ c: p.changed, e: p.excluded, t: p.topology });
+    const pa = await a.preview(cmd);
+    const pb = await b.preview(cmd);
+    floors.push({ what: `wall.opening.create: sensitivity pair "${label}" produced both plans`, measured: pa && pb ? 1 : 0, min: 1 });
+    if (!pa || !pb) return;
+    floors.push({ what: `wall.opening.create: sensitivity pair "${label}" holds stateHash EQUAL (the difference rides in the BODY)`, measured: pa.stateHash === pb.stateHash ? 1 : 0, min: 1 });
+    const populated = Math.max(section.read(pa), section.read(pb));
+    floors.push({ what: `wall.opening.create: sensitivity pair "${label}" is NOT INERT — the body section it names (${section.name}) is populated on at least one side`, measured: populated, min: 1 });
+    floors.push({
+      what: `wall.opening.create: sensitivity pair "${label}" holds the ELEMENT SETS identical (changed/excluded/topology) — so the planHash can only move via ${section.name}`,
+      measured: setsOf(pa) === setsOf(pb) ? 1 : 0,
+      min: 1,
+    });
+    if (pa.planHash === pb.planHash) {
+      findings.push(`ARM 2 · SENSITIVITY [wall.opening.create · ${label}]: two plans differing in ${fact} share planHash ${pa.planHash} — the d63e7954 collision class is OPEN on the opening-create row.`);
+      lines.push(`❌ ARM 2 · wall.opening.create ${label}: planHash DID NOT MOVE (${pa.planHash}) for a difference in ${fact}`);
+    } else {
+      lines.push(`✓  ARM 2 · wall.opening.create ${label}: planHash moved (${pa.planHash} → ${pb.planHash}) on ${fact}, stateHash equal (${pa.stateHash}), section ${section.name} populated (${populated})`);
+    }
+  };
+
+  // 2a · refusal-numbers-only. BOTH readers refuse on BOUNDS with the SAME closed code, so
+  // `proceeds` is false on both and changed/topology/metrics are byte-identically empty and
+  // `excluded` is the same single cleared sibling. They differ ONLY in the host length the
+  // refusal quotes — 5.900 m vs 6.100 m. That is exactly what G-INV-4 requires an approval
+  // to bind: two refusals that differ only in how much wall is available are two materially
+  // different answers to the user.
+  const boundsRefusal = (hostLenText: string) => ({
+    canPlace: () => ({
+      valid: false, conflictIds: [] as string[], code: 'OCC_SPAN_BEYOND_WALL_END',
+      reason: `Opening [0.500 m, 1.400 m] extends beyond wall length ${hostLenText} m`,
+    }),
+  });
+  await ocPairHash('refusal-numbers-only',
+    buildOpeningCreateService(freshOpeningCreateWorld(), { occupancy: boundsRefusal('5.900'), validator: ocQuietValidator }),
+    buildOpeningCreateService(freshOpeningCreateWorld(), { occupancy: boundsRefusal('6.100'), validator: ocQuietValidator }),
+    'ONLY the numbers inside the refused section (5.900 m vs 6.100 m of host length), with changed/topology BYTE-IDENTICALLY EMPTY and excluded identical on both sides — so the hash cannot move via a co-varying element set',
+    { name: 'refused', read: (p) => (p as any).refused?.length ?? 0 });
+
+  // 2b · validation-only. Both sides PROCEED (the REAL canPlace clears the span), so every
+  // element set is identical; only the validator's verdict differs.
+  await ocPairHash('validation-only',
+    buildOpeningCreateService(freshOpeningCreateWorld(), { validator: ocQuietValidator }),
+    buildOpeningCreateService(freshOpeningCreateWorld()),
+    'ONLY validation.violationsCreated (the ADD trips DOOR_MIN_WIDTH vs a validator that finds nothing)',
+    { name: 'validation.violationsCreated', read: (p) => p.validation.violationsCreated.length });
+
+  // 2c · undetermined-detail-only. C78 §1.4 as a HASH claim. Both sides reach the same
+  // ENGINE_NOT_AVAILABLE verdict with the same scope — one because NO occupancy reader is
+  // composed, one because the composed reader THREW — so both proceed with byte-identical
+  // changed/excluded/topology/metrics/validation, and the only differing bytes in either
+  // plan are inside `undetermined[].detail`. Without this pair the whole `undetermined`
+  // section could be dropped from the hashed body and every other arm would stay green,
+  // which would let an approval of "occupancy was never checked" bind a plan whose reader
+  // crashed mid-check — two different states of knowledge, one hash.
+  const throwingOccupancy = { canPlace: () => { throw new Error('occupancy reader unavailable'); } };
+  await ocPairHash('undetermined-detail-only',
+    buildOpeningCreateService(freshOpeningCreateWorld(), { omitOccupancy: true }),
+    buildOpeningCreateService(freshOpeningCreateWorld(), { occupancy: throwingOccupancy }),
+    'ONLY undetermined[].detail — the SAME ENGINE_NOT_AVAILABLE verdict over the SAME scope reached by two different routes (no reader composed vs the composed reader threw); every element set, metric and validation entry is byte-identical',
+    { name: 'undetermined', read: (p) => (p as any).undetermined?.length ?? 0 });
+
+  // ── ARM 3 · INSENSITIVITY ────────────────────────────────────────────────────
+  const svcKeys = buildOpeningCreateService(freshOpeningCreateWorld());
+  const orderedA = await svcKeys.preview(OC_COMMAND);
+  const orderedB = await svcKeys.preview({
+    type: 'wall.opening.create',
+    payload: { sillHeight: 0, height: 2.1, width: 0.9, offset: 0.5, openingType: 'door', openingId: 'op-d2', wallId: 'wall-1', id: 'door-2' },
+  } as any);
+  floors.push({ what: 'wall.opening.create: key-order pair produced both plans', measured: orderedA && orderedB ? 1 : 0, min: 1 });
+  if (orderedA && orderedB) {
+    if (orderedA.planHash !== orderedB.planHash) {
+      findings.push(`ARM 3 · INSENSITIVITY [wall.opening.create · key-order]: permuting payload key insertion order moved the planHash (${orderedA.planHash} → ${orderedB.planHash}) — stableStringify is not doing its one job on the opening-create row.`);
+      lines.push('❌ ARM 3 · wall.opening.create key-order: payload key permutation MOVED the planHash');
+    } else {
+      lines.push(`✓  ARM 3 · wall.opening.create key-order: payload written forwards vs fully reversed → same planHash (${orderedA.planHash})`);
+    }
+  }
+
+  // VERB-SPELLING insensitivity — the sharpest arm on this row, because this family has
+  // FOUR dispatch spellings normalising onto ONE semantic command, in THREE different
+  // payload SHAPES: the flat semantic form, the adapter's `{ wallId, openingData }`, the
+  // authoritative handler's `{ wallId, opening }`, and door.create's flat-with-openingId.
+  // If any rule let its own shape leak into the semantic payload, one physical operation
+  // would hash four ways, and an approval minted by the plan tool could not bind a plan
+  // re-minted by the AI path or by the authoritative commit verb. All four must be
+  // BYTE-identical, not merely equal-hashed.
+  const openingRecord = { id: 'op-d2', elementId: 'door-2', type: 'door', offset: 0.5, width: 0.9, height: 2.1, sillHeight: 0 };
+  const spellings: { label: string; cmd: any }[] = [
+    { label: 'wall.opening.create (flat semantic)', cmd: OC_COMMAND },
+    { label: 'wall.opening.create (adapter {wallId,openingData})', cmd: { type: 'wall.opening.create', payload: { wallId: 'wall-1', openingData: openingRecord } } },
+    { label: 'wall.createOpening (authoritative {wallId,opening})', cmd: { type: 'wall.createOpening', payload: { wallId: 'wall-1', opening: openingRecord } } },
+    { label: 'door.create (refused-but-semantic)', cmd: { type: 'door.create', payload: { wallId: 'wall-1', openingId: 'op-d2', id: 'door-2', offset: 0.5, width: 0.9, height: 2.1, sillHeight: 0 } } },
+  ];
+  const spelt: (Plan | null)[] = [];
+  for (const s of spellings) spelt.push(await buildOpeningCreateService(freshOpeningCreateWorld()).preview(s.cmd));
+  floors.push({ what: 'wall.opening.create: every one of the FOUR dispatch spellings produced a plan (none silently unroutable)', measured: spelt.filter(Boolean).length, min: 4 });
+  const base = spelt[0];
+  if (base) {
+    for (let i = 1; i < spelt.length; i++) {
+      const other = spelt[i];
+      if (!other) continue;
+      const c = compareRuns(base, other);
+      if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [wall.opening.create · verb-spelling]: the SAME operation dispatched as '${spellings[0]!.label}' and as '${spellings[i]!.label}' produced different plans — the dispatch shape is leaking into the semantic command, so one operation hashes two ways. ${c.detail}`);
+      lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · wall.opening.create verb-spelling: ${spellings[0]!.label} vs ${spellings[i]!.label} → ${c.verdict}`);
+    }
+  }
+
+  // Envelope provenance — same shape of proof as all three earlier harnesses.
+  const envelopes = [
+    { actor: 'human', origin: 'direct-manipulation', timestamp: 1_111_111, gestureId: 'g-human-1' },
+    { actor: 'ai', origin: 'ai-proposal', timestamp: 9_999_999, gestureId: 'g-ai-2', approval: { approvedBy: 'user-7', planHash: 'stale-cafe' } },
+  ] as const;
+  const envPlans: (Plan | null)[] = [];
+  for (const env of envelopes) {
+    Date.now = () => env.timestamp;
+    try { envPlans.push(await buildOpeningCreateService(freshOpeningCreateWorld()).preview(OC_COMMAND)); }
+    finally { Date.now = realNow; }
+  }
+  floors.push({ what: 'wall.opening.create: envelope pair produced both plans', measured: envPlans[0] && envPlans[1] ? 1 : 0, min: 1 });
+  if (envPlans[0] && envPlans[1]) {
+    const c = compareRuns(envPlans[0], envPlans[1]);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [wall.opening.create · envelope]: actor/origin/timestamp/approval differences leaked into the plan — provenance must stay OFF the plan (C78 §9). ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · wall.opening.create envelope: human/direct vs ai/proposal+approval, clocks 1111111 vs 9999999 → ${c.verdict}`);
+  }
+
+  // ── POSITIVE CONTROL (floor) — a nondeterministic create planner MUST be flagged ──
+  const noisy = buildOpeningCreateService(freshOpeningCreateWorld(), {
+    plannerWrap: (real) => ({
+      plan: async (c: any, ctx: any) => {
+        const p = await real.plan(c, ctx);
+        return { ...p, undetermined: [...p.undetermined, { scope: 'noise', reason: 'ENGINE_NOT_AVAILABLE', detail: `t=${realNow()}·r=${realRandom()}` }] };
+      },
+    }),
+  });
+  const n1 = await noisy.preview(OC_COMMAND);
+  const n2 = await noisy.preview(OC_COMMAND);
+  const noisyVerdict = n1 && n2 ? compareRuns(n1, n2) : null;
+  floors.push({ what: 'POSITIVE control (wall.opening.create): a deliberately NONDETERMINISTIC planner is FLAGGED by the repeat checker', measured: noisyVerdict && noisyVerdict.verdict !== 'identical' ? 1 : 0, min: 1 });
+  floors.push({ what: 'POSITIVE control (wall.opening.create): the checker CLASSIFIES it as the hash-bug shape (bodies differ, hash equal)', measured: noisyVerdict?.verdict === 'hash-bug' ? 1 : 0, min: 1 });
+  lines.push(`${noisyVerdict && noisyVerdict.verdict !== 'identical' ? '✓ ' : '❌'} POSITIVE control (wall.opening.create): nondeterministic planner → ${noisyVerdict?.verdict ?? 'NO PLANS'}`);
+
+  // ── NEGATIVE CONTROL (floor) — genuinely different states must hash apart ────
+  // The sibling window sits at 3.000 on one side and 1.000 on the other, which genuinely
+  // flips the occupancy answer for the proposed [0.500, 1.400] span from clear to colliding.
+  // This is where different STATE belongs: it moves the stateHash, which is exactly why it
+  // cannot serve as an ARM 2 pair.
+  const g1 = await buildOpeningCreateService(freshOpeningCreateWorld(3.0)).preview(OC_COMMAND);
+  const g2 = await buildOpeningCreateService(freshOpeningCreateWorld(1.0)).preview(OC_COMMAND);
+  const negSeen = g1 && g2 && g1.planHash !== g2.planHash ? 1 : 0;
+  floors.push({ what: 'NEGATIVE control (wall.opening.create): two GENUINELY different states produce different planHashes (the sensitivity arms can see)', measured: negSeen, min: 1 });
+  floors.push({ what: 'NEGATIVE control (wall.opening.create): and their stateHashes differ too, confirming the difference is in the AUTHORITATIVE state, not only the body', measured: g1 && g2 && g1.stateHash !== g2.stateHash ? 1 : 0, min: 1 });
+  lines.push(`${negSeen ? '✓ ' : '❌'} NEGATIVE control (wall.opening.create): sibling window at 3.0 (clear) vs 1.0 (colliding) → planHash ${g1?.planHash} vs ${g2?.planHash}`);
+
+  return { floors, lines, findings };
+}
+
 const HARNESSES: Record<string, Harness> = {
   'wall.move': wallMoveHarness,
   'wall.create': wallCreateHarness,
   'opening.move': openingMoveHarness,
+  'wall.opening.create': wallOpeningCreateHarness,
 };
 
 // ─── Run ──────────────────────────────────────────────────────────────────────
