@@ -78,13 +78,16 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// §CB-03 (2026-08-14): this line used to hand-roll the four constants, making this
+// file the second implementation of the contract INSIDE the directory whose
+// contract.ts claims to be the only one. Same values, so nothing behavioural
+// changed — but a duplicate that CAN drift is the defect, not the drift.
+import { EXIT_CLEAN, EXIT_DECLARED, EXIT_MISCONFIGURED, EXIT_RATCHET_EXCEEDED } from '../contract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CERT_DIR = resolve(__dirname, '..');
 const ARTEFACT = resolve(CERT_DIR, 'results', 'two-client-convergence.json');
 const LEDGER = resolve(CERT_DIR, 'two-client-ledger.json');
-
-const EXIT_CLEAN = 0, EXIT_DECLARED = 1, EXIT_MISCONFIGURED = 2, EXIT_RATCHET = 3;
 
 interface Finding { arm: string; kind: string; detail: string; }
 interface FloorReading { what: string; measured: number; min: number; }
@@ -236,7 +239,7 @@ if (findings.length > declared) {
   line('  Two clients editing concurrently do not agree, or undo crossed the user boundary.');
   line('  The ledger is SHRINK-ONLY: fix the finding, or prove it predates this gate and pin');
   line('  it in gate-newly-measured.json with an exitCondition — never raise it to pass.');
-  code = EXIT_RATCHET;
+  code = EXIT_RATCHET_EXCEEDED;
 } else if (findings.length > 0) {
   line(`DECLARED-LEVEL — ${findings.length} finding(s), at or below the declared level of ${declared}.`);
   code = EXIT_DECLARED;
@@ -244,7 +247,7 @@ if (findings.length > declared) {
   line(`✗ STALE LEDGER — 0 findings but the ledger still declares ${declared}.`);
   line('  Debt that has been paid must LEAVE the ledger in the commit that pays it,');
   line('  or the next regression hides inside it.');
-  code = EXIT_RATCHET;
+  code = EXIT_RATCHET_EXCEEDED;
 } else {
   line(`✓ arms 1-3 clean: ${art.comparedCount ?? 0} properties compared across 2 independently`);
   line(`  composed clients, ${art.crossings ?? 0} crossings transported, both controls fired.`);

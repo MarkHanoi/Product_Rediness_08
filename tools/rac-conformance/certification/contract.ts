@@ -6,8 +6,15 @@
 //
 //   0  CLEAN              — the gate measured its subject and found nothing wrong
 //   1  DECLARED-LEVEL     — the gate found exactly the failures its ledger declares
+//                           (see EXIT_UNPROVEN below for the SECOND reading of 1)
 //   2  MISCONFIGURED      — the gate could not ESTABLISH its subject. NEVER absorbable.
 //   3  RATCHET EXCEEDED   — worse than the ledger declares.        NEVER absorbable.
+//
+// §CB-03 (2026-08-14): "the only implementation" was FALSE until today —
+// check-two-client-convergence.ts hand-rolled the same four constants in
+// gates/, and tools/ga-gate/check-collab-graph-integrity.ts used bare literals.
+// Both now import from here. Duplicates with identical values are still
+// duplicates: the one that drifts does so silently.
 //
 // The whole point of separating 1 from 2 is the C10 rule: **emptiness is never a
 // pass**. A gate that scanned no files, read no records, or read a STALE artefact
@@ -25,6 +32,30 @@ export const EXIT_CLEAN = 0;
 export const EXIT_DECLARED = 1;
 export const EXIT_MISCONFIGURED = 2;
 export const EXIT_RATCHET_EXCEEDED = 3;
+
+/**
+ * §CB-03 — the SECOND reading of wire value 1, named so it cannot be misread.
+ *
+ * tools/ga-gate/check-collab-graph-integrity.ts exits 1 meaning UNPROVEN: the
+ * run could not reach the axes its criterion (C8) is actually about — no
+ * deployed transport — so the result is neither a pass nor a fail (C70 §2.2,
+ * that gate's §UNPROVEN-IS-NOT-GREEN). That is NOT the DECLARED-LEVEL claim
+ * ("measured the subject, found exactly the ledgered failures"), and renaming
+ * it EXIT_DECLARED at the call site would misdescribe a state that is not a
+ * tolerated failure — which is why this is a separate export, not a rename.
+ *
+ * Sharing the wire value is SAFE because every consumer of code 1 reads it the
+ * same, narrower way: "not clean; absorbable ONLY if a ledger declares it".
+ * tools/ga-gate/run-all.ts (its header, "Exit codes THIS RUNNER READS") absorbs
+ * a 1 only via gate-debt.json (🟡 KNOWN-DEBT) or gate-newly-measured.json
+ * (🔵 NEWLY-MEASURED); certify.ts folds 1 below 3 and 2 with worst(). The
+ * LEDGER carries the distinction between the two readings: a certification
+ * ledger declares a finding COUNT, while gate-newly-measured.json's
+ * check-collab-graph-integrity entry declares the STATE 'UNPROVEN' (nothing
+ * numeric). A consumer that needs to know WHICH reading applies must read the
+ * gate's ledger entry — never re-derive it from the number.
+ */
+export const EXIT_UNPROVEN = 1;
 
 export type ExitCode = 0 | 1 | 2 | 3;
 

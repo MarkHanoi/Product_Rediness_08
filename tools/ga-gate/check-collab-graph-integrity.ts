@@ -34,7 +34,16 @@
  *     never been tolerated here, so there is no baseline to ratchet down from.
  *     Exit 3 is never absorbable by the ledger.
  *
- * ─── EXIT CODES (the four-code contract) ────────────────────────────────────
+ * ─── EXIT CODES (the four-code contract — IMPORTED, §CB-03) ─────────────────
+ *
+ * The wire values come from tools/rac-conformance/certification/contract.ts —
+ * the ONE implementation — since 2026-08-14; this gate used bare literals
+ * before that. ⚠ SEMANTIC NOTE: this gate's exit 1 is UNPROVEN, which is NOT
+ * the certification suite's DECLARED-LEVEL reading of the same value. The
+ * contract exports it as the distinctly named EXIT_UNPROVEN and documents why
+ * sharing the wire value is safe (every consumer reads 1 as "not clean,
+ * absorbable only if ledgered"; the LEDGER — a finding count vs the state
+ * 'UNPROVEN' in gate-newly-measured.json — carries the distinction).
  *
  *   0  clean            — reachable ONLY against a REAL DEPLOYED TRANSPORT
  *                         (`PRYZM_COLLAB_GATE_URL`).  Transport live, both
@@ -123,6 +132,12 @@ import {
   MIN_COMPARED_RELATIONSHIPS,
   type CollabGateReport,
 } from '../../apps/sync-server/src/collab-gate/collabGraphIntegrity.js';
+import {
+  EXIT_CLEAN,
+  EXIT_UNPROVEN,
+  EXIT_MISCONFIGURED,
+  EXIT_RATCHET_EXCEEDED,
+} from '../rac-conformance/certification/contract.js';
 
 /** Tolerated relationship/edit violations.  Zero, and not on gate-debt.json. */
 const RATCHET = 0;
@@ -208,7 +223,7 @@ async function main(): Promise<number> {
       line('  C66 tiers remain CLAIMED. The remaining step is a founder decision:');
       line('  see docs/03-execution/plans/L-391-COLLAB-DEPLOY-DECISION.md.');
     }
-    return 2;
+    return EXIT_MISCONFIGURED;
   }
 
   if (report.violations.length > RATCHET) {
@@ -216,7 +231,7 @@ async function main(): Promise<number> {
       `✗ RATCHET EXCEEDED — ${report.violations.length} relationship/edit violation(s), tolerated ${RATCHET}.`,
     );
     line('  Collaboration converged the BYTES and lost the MODEL. C8 = FAIL.');
-    return 3;
+    return EXIT_RATCHET_EXCEEDED;
   }
 
   // ── What the run ACTUALLY earned, stated as the narrower claim it is. ─────
@@ -231,7 +246,7 @@ async function main(): Promise<number> {
     // The only path to exit 0. A real deployed transport was configured, it
     // accepted the upgrade, and the model survived the merge across it.
     line(`✓ PROVEN against a real transport (${report.url}) — ${earned}`);
-    return 0;
+    return EXIT_CLEAN;
   }
 
   // ── §UNPROVEN-IS-NOT-GREEN — the local harness never reaches exit 0. ──────
@@ -261,7 +276,10 @@ async function main(): Promise<number> {
     line('   configured — C8 stays FAIL — BLOCKED. Same exit code; UNPROVEN is now the default');
     line('   for every local run, not only for production scope.)');
   }
-  return 1;
+  // §CB-03: EXIT_UNPROVEN, not EXIT_DECLARED — same wire value 1, different
+  // claim. This is a ledgered STATE (gate-newly-measured.json), not a tolerated
+  // finding count. The contract module documents the split.
+  return EXIT_UNPROVEN;
 }
 
 main().then(
@@ -269,6 +287,12 @@ main().then(
   (err) => {
     console.error('check-collab-graph-integrity: unexpected failure —', err);
     // An unexpected throw is a gate that could not establish its subject.
+    // Deliberately the LITERAL 2 (= EXIT_MISCONFIGURED): the R5 meta-gate
+    // (check-gate-subject-floors.ts EXIT2_RE) proves exit-2 reachability by
+    // matching a literal `process.exit(2)` / `die(2` — this gate does not use
+    // the reportGate/floors: idiom R5 accepts as the alternative, so swapping
+    // this literal for the constant would flip R5's reading of this gate to
+    // "unfloored" (exit 3 at MAX_UNFLOORED=0).
     process.exit(2);
   },
 );
