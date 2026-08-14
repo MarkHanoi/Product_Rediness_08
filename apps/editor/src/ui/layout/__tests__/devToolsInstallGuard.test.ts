@@ -71,9 +71,12 @@ describe('C74-class guard — dev-tools install is dev-mode-only', () => {
         }
     });
 
-    // 30s: the first dev-mode call transforms the whole @pryzm/schemas barrel
-    // behind the dynamic import — slow under vitest's transform, not at runtime.
-    it('A2 — dev mode (isDev=true) installs ALL __pryzm* globals', { timeout: 30_000 }, async () => {
+    // 120s: the first dev-mode call transforms the whole @pryzm/schemas barrel
+    // behind the dynamic import — vitest transform cost, not runtime cost. On a
+    // lane-saturated machine the transform alone was MEASURED at 28.3s (the
+    // known "2-7 min import phase" condition), so 30s flaked; the assertion
+    // itself runs in milliseconds once the transform is cached.
+    it('A2 — dev mode (isDev=true) installs ALL __pryzm* globals', { timeout: 120_000 }, async () => {
         await installDevTestFunctions(true);
         const w = (globalThis as Record<string, unknown>).window as Record<string, unknown>;
         for (const name of PRYZM_GLOBALS) {
