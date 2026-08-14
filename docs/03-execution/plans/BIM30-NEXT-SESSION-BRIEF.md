@@ -1588,3 +1588,121 @@ class of claim this document exists to refuse (§4, C70 §0.1).
    started, on purpose, because bar 3 is the gate to the product the founder actually wants
    (§13.2). **It is the largest single body of remaining work in this programme and nothing in
    §15 reduced it.**
+
+---
+
+## §16 — SESSION CLOSE 2026-08-14 (NIGHT) · THE INTERRUPTED-FLEET SESSION — 13 commits, 2 fleets
+
+> **§16 is the youngest state in this file and OVERRIDES §15 wherever they disagree.** A gate you
+> run yourself still overrides §16 (C70 §0.2).
+
+### §16.0 — READ FIRST
+
+1. **THE DEPLOY WAS NOT RUN.** Production predates this session entirely. §7 applies verbatim;
+   the founder confirmed DEPLOY-CONTRACT-MANUAL-FLY.md as the method. **Action #1.**
+2. **⚠ FLEET-KILL MECHANISM, LEARNED THE HARD WAY**: pressing Esc / interrupting the orchestrator
+   chat KILLS every background agent. Fleet v1 (19 agents incl. 5 contract-digest + 2 measurement
+   readers) died to founder interrupts that were not intended as kills; ~2 lanes'' partial edits
+   were salvaged, verified, and re-owned by fleet v2. **Tell the founder: type and send, never Esc.**
+3. **FOUNDER DECISIONS LOCKED 2026-08-14**: PR-05 = UPDATE-SURRENDER (landed 372b6635) ·
+   CB-01/02/05 deferral RE-CONFIRMED (ceiling 74/82; do not re-litigate) · generative ledger =
+   PIN NOW (landed 45a99b86, 38 rows, red-proven both directions).
+4. **EIGHT NEW FOUNDER-REPORTED PRODUCTION FINDINGS: L-903…L-910** (ISSUE-LOG) — logged same-turn
+   with owners; several already fixed (below). The founder tested live all session; treat their
+   reports as the highest-value input stream and log+lane each immediately.
+
+### §16.1 — THE 13 COMMITS (all verified by execution before or at landing)
+
+| SHA | What |
+|---|---|
+| d8cbcde8 | RECOVERED LANE C (prev session): street-width neighbours honesty — 4 empty-drain sites paid at the PRODUCER; 21/21 |
+| e090f826 | RECOVERED MT-03 code half: dead furniture.updateParameters bridge DELETED; SHADOWED class now EMPTY; 7/7 |
+| ed68d7ac | L-903…L-909 logged, PURE APPEND |
+| 45a99b86 | check-generator-circulation: CI-1/CI-4 LEDGERED, 38 named rows at measured reading (166 runs), negative-tested both directions |
+| fcb2826c | L-907/L-909 mechanism maps: boundary survives to ShellAnalysis.perimeter, rectangle minted at proceduralLayout.ts:57-87 (bbox slice); **L-909(b): 15 of 19 founder errors are FALSE** — optionToDto drops window/frontage data, layout-adapter defaults 0/0/false, G-7/G-10/A-7 print unmeasured as measured zeros |
+| 48989c03 | check-no-empty-means-unknown reconciled exit3→exit1 truthful 68/68 (2 stale counts struck, 2 arrived sites DECLARED by name) — independently re-run by orchestrator |
+| f3a1aa0d | L-910 REPRO (red-first): project-switch purge RE-ARMS the stale-accept — project-A in-flight projection force-accepted into project B |
+| 372b6635 | PR-05 UPDATE-SURRENDER: hand wall update surrenders graph authority; seam 4/4 real-store; suite 219/219; gate honestly stays 41/41 (S1 counts out-of-file callers; annotation corrected instead — do NOT hand-strike) |
+| 66ba6fd7 | GE-09 ledger hygiene: orphaned stair row de-listed |
+| 895b8d49 | **L-904 SHIPPED**: wall-move clash OPENS the chat with the two nearest CLEAR stations (canPlace-prevalidated) |
+| f7d21bf6 | **L-907a/c**: strip slicer stops inventing a rectangle — honest region + recorded door chain |
+| 62625504 | CO-06: 15→9, six M-B rows paid by reclassification; grace-fix verified present |
+| (+ this commit) | this §16 handoff |
+
+### §16.2 — LANE STATES AT CUTOFF (fleet v2, 14 lanes; COMMIT-NOW broadcast sent at 90%)
+
+**DONE, final-reported**: L-PR05v2 · L-GENLEDGERv2 · L-CO06v2 (successor list: 2 dataworkbench rows
+were forbidden to it; 5 planned-unstarted — familyCreatorPlaceholder src copy=DEAD delete §3.8,
+apps copy LIVE via CreateRailPanel.ts:1105 needs §3.2/§3.4; constraint-solver.bench re-milestone
+per C74 §4.2(c); SketchCanvas "until frame-scheduler lands" is STALE-FALSE; FilletTool/TrimTool
+genuine declared-missing. ⚠ gate-newly-measured.json pinnedTo says 15, gate reads 9 — update by
+RUNNING the gate, 742b0dda doctrine).
+
+**COMMITTED PARTIALLY, final reports were pending at close** (their last-known states):
+L-MERGEv2 (L-904 SHIPPED; L-903 merge detector/offer state unknown — check its report/commits) ·
+L-GENBOUNDARYv2 (probes + slicer fix landed; REMAINING: the DTO report-honesty fix — feed real
+frontage/glazing into optionToDto or disclose NOT-MEASURED — and the unmissable chooser verdict) ·
+L-ISOLATEv2 (repro landed; the stale-accept FIX was in flight — the fix must key acceptance on
+project identity) · L-GE09v2 (hygiene landed; DoorTool/WindowTool/command-registry families
+in flight vs baseline 85→?) · L-EMPTYv2 (reconcile landed; drain continuation in flight from 68) ·
+L-EPSILONv2 (from 357) · L-GE12v2 (triangulation ×7 → ?; owns pnpm-lock) · L-BAR3v2 (family
+choice + scoping vs 132) · L-ROOMNAMEv2 (L-905) · L-CHATPLACEv2 (L-906) · L-JOINSv2 (L-909a:
+emission gaps ~1m short of hosts + prism-corner repro).
+**Check `git log` and each lane''s ISSUE-LOG appends before assuming any of these landed or died.**
+
+### §16.3 — NEXT SESSION, IN ORDER
+
+1. **DEPLOY** (§7 verbatim; founder-confirmed method) — then the browser checklist: L-904 clash→
+   chat offer · L-907 layout on a non-rectangular parcel stays inside the boundary · PR-05 drag a
+   wall on a generated level → rooms re-detect once · plus whatever §16.2 lanes landed.
+2. **Inventory §16.2''s in-flight lanes by `git log` + tree state**; resume as suspect-inheritance
+   lanes (the L-PR05v2/L-GENLEDGERv2 pattern worked: audit the diff, keep what proves out).
+3. **RESTAMP the register** from fresh gate runs (PR-05 behavioural half, MT-03, CO-06 15→9,
+   GR-10/14 progress, no-empty truthful-68). Never hand-increment.
+4. **Wave 3**: PR-11 handler-first · GR-12 remainder · PV-08 (schemas SOLO lane) · GE-06 slices ·
+   MT-06/07/09 re-measure · CE-05 · the L-909(b) DTO honesty fix if L-GENBOUNDARYv2 did not land it.
+5. **Half 2 / bar 3** continues by verb family (132 at last reading) — plus the generative
+   improvement stream the founder directed (L-907/L-909 class: boundary fidelity, plan fidelity,
+   join emission, error mitigation).
+6. **Open founder decision, no urgency**: CI-1 runtime half — refuse vs blocking banner when a
+   house strands a room (the ledger does not pre-empt it).
+
+### §16.4 — THE FOUNDER''S EIGHT PRODUCTION FINDINGS, WITH THEIR MEASURED VERDICTS
+
+All logged in ISSUE-LOG the turn they were reported. **The founder tested live in production all
+session; this stream produced more truth per hour than any gate run.** Order is as reported.
+
+| Row | Finding (founder''s words, compressed) | Measured verdict at close |
+|---|---|---|
+| **L-903** | move a wall collinear with its neighbour → they stay THREE independent walls, the now-redundant perpendicular stub survives, join is ugly. *"The building needs to behave like a living entity."* | **OPEN.** Design ratified: detect (collinear+contiguous+same type/thickness) AND (stub whose two faces bound the SAME room — SEMANTIC test, not proximity) → ASK in chat → Confirm = ONE undoable composite (extend survivor, TRANSFER hosted openings with canPlace validation, delete absorbed + stub). L-MERGEv2 state at cutoff unknown — check its commits |
+| **L-904** | move a wall into a door/window clash → chat should OPEN and offer left/right alternatives. **Asked TWICE.** | ✅ **SHIPPED `895b8d49`** — the clash refusal now opens the chat with the two nearest CLEAR stations (complement of getOccupiedSpans, each canPlace-prevalidated; no defensible candidate → reason and NO offer). *The refusal was never the ask.* ⚠ The founder''s build predated `1e80e3a2` (the refusal itself), which is why they saw the move execute silently |
+| **L-905** | chat "make room 001 a bedroom" WORKS — but the label must follow (`Bedroom 01`) | **QUEUED/in flight** (L-ROOMNAMEv2). Design: rename ONLY if the current name matches the generator''s minting pattern; an AUTHORED name is preserved and the reply says so (C81 §2.2); occupancy+rename share one gesture → one Ctrl+Z. ⚠ Side-finding recorded: the Room Schedule''s NO. and NAME columns disagree on several rows — own row when touched |
+| **L-906** | **URGENT** — RAC "Create a bed" → *"No matching commands"*. It should activate the placement tool exactly as the palette button does, mouse preview and all, **for ALL elements** | **IN FLIGHT** (L-CHATPLACEv2). Ratified shape: chat → TOOL ACTIVATION (never chat→creation): nothing is created until the user clicks, so no position is guessed (C83 §4.3) and C18 preview ghosts never enter a store. ONE generic capability resolving against the element-creation matrix + the C17 catalogue via `resolveCatalogueRef` — enumerate from those sources, never a hand-written list (C69 rival-list rule). Ambiguity ASKS; no-match names the nearest items instead of dead-ending |
+| **L-907** | proposals are RECTANGLES on a complex cross-shaped parcel — *"did not even read properly the boundary — which is the basic"*; the built result differs from the chosen proposal; both options carried **25 errors** + **Circulation ~0%** under a confident "Use this layout" | ✅ **LARGELY FIXED.** (a) The boundary SURVIVES into the request (`ShellAnalysis.perimeter`) — the rectangle was minted at `proceduralLayout.ts:57-87`, which sliced the BOUNDING BOX and threw the perimeter away. Probe: **10 of 18 partition endpoints/midpoints outside the captured boundary**. Fixed `f7d21bf6` (plans on the largest inscribed rectangle **with chooser disclosure**, or refuses by name; rooms record their door chain; 11/11) + `39d462c2` (executor `§L-907A-BOUNDARY-GUARD` chokepoint). (b) the result-vs-plan divergence was a `console.log` inside a **500 ms setTimeout** — now a USER-VISIBLE toast carrying both numbers (`39d462c2`). (c) chooser unmissable-CTA restyle **NOT STARTED** — design recorded in `fcb2826c` |
+| **L-908** | WebGPU crash: ShadowDepthTexture destroyed while referenced by an in-flight submit | **LOGGED, not laned.** The `§RECOVERY-MUST-REFUSE` guard REFUSED the blind rebuild and the targeted recovery worked — correct behaviour. Residual: shadow-map realloc not ordered against submission (§GPU-RESOURCE-LIFETIME L2) |
+| **L-909** | (a) D-TGL apartment executes, but *"almost not a single join is clean"* — clashes, **triangular-prism corners** (*"raised many times, still coming"*). (b) 23 violations / 19 errors shipped: *"even if we know — the errors should be mitigated"* | (a) **IN FLIGHT** (L-JOINSv2). The log names the mechanism: the generator emits partition endpoints **988 mm and 1100 mm short of their hosts**, then `§DIAG-PARTITION-REACH` half-rescues them, and `§DIAG-ROOM-LOOP BREAK` fires at *"endpoint 235 mm from centreline EXCEEDS hostSnap 200 mm"*. **Fix belongs at EMISSION, not in another rescuer.** (b) ✅ **ANSWERED BY EXECUTION: 15 of the 19 errors are FALSE.** D-TGL emitted 9 shell windows and every habitable room carried `windowCount = 1` — windows WERE generated. `layoutCardModel.ts optionToDto` DROPS the window/frontage data off the very option it projects; `layout-adapter.ts:150-163` then defaults `externalFrontageM=0, glazedAreaM2=0, hasExteriorEdge=false` "conservatively", and G-7×5 / G-10×5 / A-7×5 print those **unmeasured defaults as measured zeros**. Honest disclosure is *"frontage/glazing NOT MEASURED by this report"*. The other 4 (corridor 15.76 m² over max 8, 3.97 m over max 2.50, kitchen-hierarchy, FORBIDDEN bedroom↔kitchen door) are presumptively TRUE and the mitigation ask stands |
+| **L-910** | start a NEW project in the same session → the PREVIOUS project''s linework renders (new project has ZERO walls) | **ROOT CAUSE PINNED, red-first repro `f3a1aa0d`.** Sharper than a stale cache: **the project-switch purge RE-ARMS a stale-accept** — a project-A projection still in flight at switch time is FORCE-ACCEPTED into project B after the guard resets. Fix must key acceptance on PROJECT IDENTITY. C13 isolation family, same shape as the auth-session leak |
+
+**Also CONFIRMED WORKING in production this session, from the founder''s own logs** (record these —
+they are the payoff of prior sessions): `§OPENED-REGION` fired, ASKED in chat, and its accepted
+`wall.create` executed (0.20 × 2.80 m) · `§C79-5.2 resized: floor follows wall 28.7 → 60.0 m²` ·
+`§MOVE-REWELD-DISPATCH` junction re-weld · `§GR12-BOUNDARY-INVALIDATION` marking rooms undetermined
+after a move · `SET_ROOM_OCCUPANCY` chat-reachable with the schedule re-rendering reactively ·
+the envelope panel''s *"TEMPORARILY UNAVAILABLE / NOT CHECKED / no buildable footprint"* card —
+the correct refusal shape · the PMTiles 404 and Overpass-failover honest no-ops.
+
+### §16.5 — THREE METHOD LESSONS THIS SESSION PAID FOR
+
+1. **The founder''s live testing outranks every synthetic sweep.** Eight findings in one session,
+   two of them (L-907, L-909b) overturning what the product''s own report was telling everybody.
+   **L-909(b) is the sharpest: a validation report printing unmeasured defaults as measured zeros
+   made the generator look 15 errors worse than it is.** Failure-vs-emptiness, in the reporting
+   layer — the family this programme exists to kill, hiding where nobody had looked for it.
+2. **An interrupt kills the fleet.** Nineteen agents died to chat interrupts that were never meant
+   as kills. Two lanes'' partial edits survived only because they were uncommitted-in-tree and got
+   audited and re-owned. **Brief every lane to commit incrementally, and tell the founder plainly:
+   type and send, never Esc.**
+3. **Inherit suspiciously, and it pays.** Both recovered lanes (LANE C empty-drain, MT-03) and both
+   re-owned partials (PR-05, gen-ledger) were verified by execution before commit — and the audit
+   found real corrections each time (the gen-ledger lane corrected its own brief''s "house 12/24"
+   to the measured 11/24; PR-05 refused to strike a ledger row whose letter it had not satisfied).
