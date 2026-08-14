@@ -387,10 +387,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # 32 gates — `ls tools/ga-gate/check-*.ts | wc -l` = 32, and run-all.ts derives the
-      # number it PRINTS from GATES.length, so its output is authoritative over this label.
-      # (Both strings said 31, measured 2026-08-11. Prefer adding a gate to GATES over
-      # re-typing a count here; this label is the one that will rot next.)
+      # NO GATE COUNT HERE, ON PURPOSE — and this comment is the third correction of the
+      # same rotting number. It said 31 while `ls` said 32 (2026-08-11); it was retyped as
+      # 32 with the prediction "this label is the one that will rot next", and by
+      # 2026-08-14 `ls tools/ga-gate/check-*.ts | wc -l` read 56. The prediction was right,
+      # so the fix this time is to DELETE the number rather than retype it — the same
+      # remedy already applied to the job `name:` above. run-all.ts derives what it prints
+      # from GATES.length; its run output is the only authority, and it is one scroll away.
+      #
+      # ⚠ THE COUNT AND THE REGISTRATION ARE DIFFERENT FACTS. `ls` counts FILES; GATES
+      # counts REGISTERED gates, and on 2026-08-14 four committed files were registered in
+      # nothing at all. A count typed here could never have shown that gap — only run-all's
+      # committed-but-unregistered pre-flight can, which is why the authority is the run.
+      #
+      # This job invokes run-all WHOLESALE (`pnpm run ga-gate:all` → tsx tools/ga-gate/
+      # run-all.ts). Registering a gate therefore needs NO change in this file — add it to
+      # GATES and it runs here. Do not add a per-gate step; a second list is a second thing
+      # that can disagree.
       - name: Contract gates (ratcheted — count printed by run-all.ts)
         run: pnpm run ga-gate:all
       - name: Legacy release gate (advisory)

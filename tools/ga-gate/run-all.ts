@@ -328,6 +328,47 @@ const GATES: Gate[] = [
   // satisfiability) — and exit 2 as a blind detector if any control stays
   // silent. Carries a gate-newly-measured.json entry, NOT gate-debt.json.
   { name: 'conflict-surfacing (C70 K-INV-2 · CB-04)',  script: '../rac-conformance/certification/gates/check-conflict-surfacing.ts' },
+  // §GATE-AUTHORED-BUT-UNWIRED, round 2 (2026-08-14) — FOUR COMMITTED GATES WERE
+  // REGISTERED IN NO RUNNER AT ALL. Not this array, not ci.yml, not package.json:
+  //   check-derived-not-authored · check-deterministic-regeneration
+  //   check-predicate-canonical  · check-provenance-coverage
+  // Same shape as check-verb-liveness (2026-08-11) and it matters more, because
+  // these are cited as evidence: check-predicate-canonical is the instrument GE-02,
+  // GE-03 and GE-12 are measured against, and check-deterministic-regeneration is
+  // one of three gates GE-07 is recorded CLOSED on. Those readings were real — and
+  // they were enforcement only for as long as a human remembered to type the
+  // command. The `committed` pre-flight above has been shouting about all four on
+  // every run since they landed; this is the other half of that complaint.
+  //
+  // TWO OF THE FOUR ARE REGISTERED HERE. Each was RE-RUN at HEAD before its row was
+  // written — a gate registered on a reading someone else reported is a gate
+  // registered on hearsay, and this array is not the place to find out:
+  //   ✓ derived-not-authored  exit 0 CLEAN, hard-0, no baseline. 4540 files, all 5
+  //                           arms watched firing against a planted tree, positive
+  //                           control (clean tree) 0.
+  //   ✓ predicate-canonical   exit 0 CLEAN, hard-0, no baseline. C1/C2/C3 all 0.
+  // Both are born-passing and therefore on NEITHER ledger — nothing to absorb.
+  //
+  // THE OTHER TWO ARE DELIBERATELY NOT HERE, and the reason is the point:
+  //   ✗ provenance-coverage           exit 1 at ITS OWN declared level of 1 (FINDING
+  //     C2 — FloorDetectionMethod is an element-family provenance vocabulary and
+  //     there is no defineElement('floor') in L0 at all). This runner cannot read a
+  //     gate's internal declared level; it reads the exit code and then asks the two
+  //     ledgers. With no row on gate-debt.json or gate-newly-measured.json it would
+  //     be printed as "❌ REGRESSION — something got WORSE", which is FALSE: the
+  //     defect predates the instrument and nobody chose to ship it. Registering it
+  //     needs a gate-newly-measured.json entry landing in the SAME commit.
+  //   ✗ deterministic-regeneration    exit 3 RATCHET EXCEEDED (135 findings vs a
+  //     declared 134). Its three "stale" rows were RE-ANCHORED, not struck — the
+  //     defects are all still present at shifted line numbers (28a25791) — which
+  //     uncovered the one genuinely new site underneath:
+  //     packages/geometry-kernel/src/pure/polygonBoolean.ts:307. C70 §5.1: exit 3
+  //     is NEVER absorbable, so registering it is registering an absorption.
+  // Both are recorded rather than quietly dropped, because "we looked and it was not
+  // ready" and "nobody looked" must not print the same — which is the whole reason
+  // the committed-but-unregistered pre-flight exists.
+  { name: 'derived-not-authored (C75 §2.2/§2.6/§2.7)',  script: 'check-derived-not-authored.ts' },
+  { name: 'predicate-canonical (C73 §3.1/§3.3)',        script: 'check-predicate-canonical.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
