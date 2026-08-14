@@ -28,7 +28,7 @@
  *   §01 §2.2  — Full snapshot captured before mutation (structuredClone)
  *   §01 §2.3  — Undo restores full snapshot via store.update(full)
  *   §01 §2.4  — Redo reapplies the cached next-state
- *   §01 §2.7  — Builder never called from command; store.update() fires StoreEventBus // TODO(TASK-08)
+ *   §01 §2.7  — Builder never called from command; store.update() fires StoreEventBus
  *   §03 §3.4  — Immutability via structuredClone inside ColumnStore.update()
  */
 
@@ -37,6 +37,11 @@ import {
     CommandResult, SerializedCommand, CommandContext
 } from '../types';
 import { ColumnData } from '@pryzm/geometry-column';
+// TODO(TASK-08): store-unification debt (ADR-0318) — the StoreEventBus emission
+// noted in §01 §2.7 above is the surface TASK-08 unifies. Work note relocated
+// from the file header, where it read to the C74 §3.4 M-B gate as a
+// module-scaffold claim; this command is production, not a stand-in
+// (CO-06, 2026-08-14).
 
 export interface UpdateColumnPayload {
     id: string;

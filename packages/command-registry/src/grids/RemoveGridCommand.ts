@@ -9,12 +9,17 @@
  *            bimManager.removeGrid?.() without error handling.
  * §01 §2.2  Snapshot Rule — full Grid snapshot captured before removal for undo.
  * §01 §2.3  Undo re-adds the grid to both stores.
- * §01 §3.8  GridStore.remove() emits StoreEventBus 'delete' event. // TODO(TASK-08)
+ * §01 §3.8  GridStore.remove() emits StoreEventBus 'delete' event.
  */
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { Grid } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
+// TODO(TASK-08): store-unification debt (ADR-0318) — the GridStore StoreEventBus
+// emission noted in §01 §3.8 above is the surface TASK-08 unifies. Work note
+// relocated from the file header, where it read to the C74 §3.4 M-B gate as a
+// module-scaffold claim; this command is production, not a stand-in
+// (CO-06, 2026-08-14).
 const _bus = new DOMEventBus();
 
 export interface RemoveGridPayload {

@@ -16,7 +16,7 @@
  *
  * Note: The DesignOptionStore (Phase VIII entity store) is not yet created.
  *       This command stores the reference ID on the ViewDefinition; the
- *       engine resolves the entity via window.designOptionStore at activation // TODO(TASK-08)
+ *       engine resolves the entity via window.designOptionStore at activation
  *       time when the store exists.
  *
  * Contract compliance:
@@ -31,6 +31,13 @@ import {
     CommandResult, SerializedCommand, CommandContext,
 } from '../types';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+// TODO(TASK-08): store-unification debt (ADR-0318) — the header's note that the
+// engine resolves the design option via window.designOptionStore is exactly the
+// window.*-store seam TASK-08 retires. Work note relocated from the file header,
+// where it read to the C74 §3.4 M-B gate as a module-scaffold claim; this command
+// is production, not a stand-in — the not-yet-created store is the ENGINE's
+// resolution concern, not a stand-in behaviour of this command
+// (CO-06, 2026-08-14).
 
 export interface SetViewDesignOptionParams {
     viewDefinitionId: string;

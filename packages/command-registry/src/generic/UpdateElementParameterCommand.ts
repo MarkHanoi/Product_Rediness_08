@@ -3,7 +3,7 @@
  *
  * Generic command for updating one or more parameters on any BIM element.
  * Routes to the correct element store based on elementType.
- * The store emits a change event → StoreEventBus → DependencyResolver → Builder. // TODO(TASK-08)
+ * The store emits a change event → StoreEventBus → DependencyResolver → Builder.
  *
  * Contract compliance:
  *  - §01 CORE: Mutations go through commands, not direct store access from UI
@@ -22,6 +22,11 @@
 import { Command, CommandResult, CommandValidationResult, CommandContext, SerializedCommand, CommandType } from '../types';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
+// TODO(TASK-08): store-unification debt (ADR-0318) — the doorStore/windowStore
+// barrel singletons above and the StoreEventBus leg of the header's flow line are
+// the surface TASK-08 unifies. Work note relocated from the file header, where it
+// read to the C74 §3.4 M-B gate as a module-scaffold claim; this command is
+// production, not a stand-in (CO-06, 2026-08-14).
 import { resolveElementRebuildDescriptor, isGeometryAffectingChange } from './ElementRebuildRegistry';
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812/L-814) — the SINGLE rake gate, shared with
 // WallDataSchema / WallStore.update / WallStore.addOpening / UpdateWallSystemTypeCommand.

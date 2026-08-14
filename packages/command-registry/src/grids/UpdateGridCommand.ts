@@ -7,7 +7,7 @@
  * §01 §2.1  Single Source of Mutation.
  * §01 §2.2  Snapshot Rule — full Grid snapshot captured before mutation.
  * §01 §2.3  Undo is full replacement of the previous snapshot.
- * §01 §3.8  GridStore.update() emits StoreEventBus 'update' event. // TODO(TASK-08)
+ * §01 §3.8  GridStore.update() emits StoreEventBus 'update' event.
  *
  * Both GridStore (semantic) and BimManager (visual) are updated atomically.
  * On undo, both are fully restored from the snapshot.
@@ -16,6 +16,11 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { Grid } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
+// TODO(TASK-08): store-unification debt (ADR-0318) — the GridStore StoreEventBus
+// emission noted in §01 §3.8 above is the surface TASK-08 unifies. Work note
+// relocated from the file header, where it read to the C74 §3.4 M-B gate as a
+// module-scaffold claim; this command is production, not a stand-in
+// (CO-06, 2026-08-14).
 const _bus = new DOMEventBus();
 
 export interface UpdateGridPayload {

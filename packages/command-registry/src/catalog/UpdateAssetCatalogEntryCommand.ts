@@ -8,7 +8,7 @@
  * Updates an existing AssetCatalogEntry in the AssetCatalogStore.
  * Captures a pre-state snapshot for full undo support.
  *
- * Flow: CommandManager → UpdateAssetCatalogEntryCommand → AssetCatalogStore → StoreEventBus // TODO(TASK-08)
+ * Flow: CommandManager → UpdateAssetCatalogEntryCommand → AssetCatalogStore → StoreEventBus
  * NEVER called directly from UI — always dispatched via commandManager.execute().
  */
 
@@ -22,6 +22,11 @@ import {
 } from '../types';
 import { AssetCatalogEntry, AssetCatalogParamUpdate } from '@pryzm/core-app-model';
 import { assetCatalogStore } from '@pryzm/core-app-model';
+// TODO(TASK-08): store-unification debt (ADR-0318) — this command reaches the
+// assetCatalogStore barrel singleton; the StoreEventBus leg of the flow above is
+// the surface TASK-08 unifies. Work note relocated from the file header, where it
+// read to the C74 §3.4 M-B gate as a module-scaffold claim; this command is
+// production, not a stand-in (CO-06, 2026-08-14).
 
 export interface UpdateAssetCatalogEntryPayload {
   id: string;

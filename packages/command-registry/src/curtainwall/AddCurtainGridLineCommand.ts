@@ -1,6 +1,17 @@
-// TODO(E.5.x): ORPHANED — AddCurtainGridLineHandler (plugins/curtain-wall/src/handlers/AddCurtainGridLine.ts)
-// was migrated to produceCommand (TASK-07 Phase B). This class is no longer called by
-// that handler. Confirm no other live callers exist then remove in Phase E.5.x cleanup.
+// ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06, §CO-06-GRACE-FIX 2026-08-14) ──────
+// owner: curtain-wall verb family (plugins/curtain-wall) — the E.5.x cleanup
+//   owns this file's deletion.
+// date: 2026-08-14 (disposition first recorded as "TODO(E.5.x): ORPHANED",
+//   undated).
+// WHAT THIS IS — an ORPHANED legacy command, not a stand-in that computes:
+//   the live path is AddCurtainGridLineHandler (plugins/curtain-wall/src/
+//   handlers/AddCurtainGridLine.ts), migrated to produceCommand in TASK-07
+//   Phase B. This class is no longer called by that handler and is retained
+//   only until the caller census below is run.
+// RETIRING CONDITION — REMOVED when the E.5.x cleanup confirms zero live
+//   callers repo-wide (the census is the gate: any caller it does find
+//   migrates to the produceCommand path in the same change). This class must
+//   not be extended in the meantime.
 /**
  * AddCurtainGridLineCommand
  *

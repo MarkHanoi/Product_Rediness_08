@@ -8,7 +8,7 @@
  * Creates a brand-new RoomRequirement in the RequirementStore.
  * Uses structuredClone for all snapshots. Fully undo-able.
  *
- * Flow: CommandManager → SetRoomRequirementCommand → RequirementStore → StoreEventBus // TODO(TASK-08)
+ * Flow: CommandManager → SetRoomRequirementCommand → RequirementStore → StoreEventBus
  * NEVER called directly from UI — always dispatched via commandManager.execute().
  */
 
@@ -22,6 +22,11 @@ import {
 } from '../types';
 import { RoomRequirement } from '@pryzm/core-app-model';
 import { requirementStore } from '@pryzm/core-app-model';
+// TODO(TASK-08): store-unification debt (ADR-0318) — this command reaches the
+// requirementStore barrel singleton; the StoreEventBus leg of the flow above is
+// the surface TASK-08 unifies. Work note relocated from the file header, where it
+// read to the C74 §3.4 M-B gate as a module-scaffold claim; this command is
+// production, not a stand-in (CO-06, 2026-08-14).
 import { buildDefaultRequirement } from './requirementDefaults';
 
 export interface SetRoomRequirementPayload {

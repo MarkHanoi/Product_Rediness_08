@@ -9,7 +9,7 @@
  *   #2  Removed direct builder call — store mutation triggers subscriber in main.ts
  *   #7  Full snapshot via store.get() (which returns a deep clone from CurtainWallStore)
  *       Undo restores via store.set() for complete state replacement
- *   #9  Uses context.stores.curtainWallStore (injected), not window.curtainWallStore // TODO(TASK-08)
+ *   #9  Uses context.stores.curtainWallStore (injected), not window.curtainWallStore
  *
  * Fix DW-03 (2026-03-31): Added spatial re-registration when levelId changes.
  *   When updates.levelId differs from snapshot.levelId:
@@ -32,6 +32,11 @@
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { CurtainWallData } from '@pryzm/geometry-curtain-wall';
+// TODO(TASK-08): store-unification debt (ADR-0318) — fix #9 above records that this
+// command already takes the injected store rather than window.curtainWallStore; the
+// remaining TASK-08 work is retiring the window.* seam globally. Work note relocated
+// from the file header, where it read to the C74 §3.4 M-B gate as a module-scaffold
+// claim; this command is production, not a stand-in (CO-06, 2026-08-14).
 
 export interface UpdateCurtainWallInput {
     id: string;

@@ -198,17 +198,35 @@ const LEDGER: readonly string[] = [
   // the moment the Phase E replacement lands and forces the header retired with it.
   // The declaration states what is FAKE (a Jarvis-march convex hull standing in for a
   // planar graph) — it does not claim the scaffold is real.
-  'M-B::packages/command-registry/src/catalog/AddAssetCatalogEntryCommand.ts',
-  'M-B::packages/command-registry/src/catalog/DeleteAssetCatalogEntryCommand.ts',
-  'M-B::packages/command-registry/src/catalog/UpdateAssetCatalogEntryCommand.ts',
-  'M-B::packages/command-registry/src/columns/UpdateColumnCommand.ts',
-  'M-B::packages/command-registry/src/curtainwall/AddCurtainGridLineCommand.ts',
-  'M-B::packages/command-registry/src/curtainwall/UpdateCurtainWallCommand.ts',
-  'M-B::packages/command-registry/src/generic/UpdateElementParameterCommand.ts',
-  'M-B::packages/command-registry/src/grids/RemoveGridCommand.ts',
-  'M-B::packages/command-registry/src/grids/UpdateGridCommand.ts',
-  'M-B::packages/command-registry/src/requirements/SetRoomRequirementCommand.ts',
-  'M-B::packages/command-registry/src/views/SetViewDesignOptionCommand.ts',
+  // M-B::packages/command-registry/* — ALL 11 ROWS STRUCK 2026-08-14 (CO-06,
+  // lane E), two treatments, stated so the strike cannot read as a bulk stamp:
+  //
+  // TEN were NOT scaffolds — real, wired production commands whose header
+  // carried an inline `// TODO(TASK-08)` work note appended to a StoreEventBus /
+  // window.*-store flow line: the exact "inline task note is a work marker, not
+  // a module standing in for production" shape this gate's own header zones OUT
+  // of M-B. Paid by RECLASSIFICATION, not deletion: each TASK-08 note moved
+  // beside the import/code it annotates (still greppable inline, still owned by
+  // TASK-08/ADR-0318), and the header stopped making a module-scaffold claim
+  // the module never made. No note lost, none re-stamped bare:
+  //   catalog/AddAssetCatalogEntryCommand.ts
+  //   catalog/DeleteAssetCatalogEntryCommand.ts
+  //   catalog/UpdateAssetCatalogEntryCommand.ts
+  //   columns/UpdateColumnCommand.ts
+  //   curtainwall/UpdateCurtainWallCommand.ts
+  //   generic/UpdateElementParameterCommand.ts
+  //   grids/RemoveGridCommand.ts
+  //   grids/UpdateGridCommand.ts
+  //   requirements/SetRoomRequirementCommand.ts
+  //   views/SetViewDesignOptionCommand.ts
+  //
+  // The ELEVENTH, curtainwall/AddCurtainGridLineCommand.ts, IS a disposition
+  // case — an ORPHANED legacy command whose live path moved to the
+  // produceCommand handler (TASK-07 Phase B) — and received the full C74 §3.4
+  // declaration: owner (curtain-wall verb family / E.5.x cleanup), date,
+  // WHAT-THIS-IS, and a REMOVED-when-zero-callers retiring condition. The
+  // pre-existing "TODO(E.5.x): ORPHANED" note is preserved inside it verbatim
+  // in substance; nothing was softened.
   // M-B::packages/constraint-solver/src/PlanegcsAdapter.ts STRUCK 2026-08-12 —
   // header now carries owner, date, a retiring assertion (the "scaffold
   // retirement guard" test), and the S52-D2/S53-D1 disagreement resolved to
