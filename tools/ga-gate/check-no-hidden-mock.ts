@@ -25,12 +25,22 @@
  *      and is reported present-and-declared, never as a finding.
  *  M-B *(the dated-scaffold rule, C74 §3.4)*  a scaffold marker in a file's
  *      HEADER comment block (`SCAFFOLD` / `TODO(TASK-` / `lands at S<n>`) with
- *      no owner, no date, and no retiring assertion. Tolerance, stated: a
- *      header carrying a YYYY-MM-DD date younger than GRACE_DAYS is tolerated
- *      without the rest (a fresh scaffold is a decision still warm); an
- *      UNDATED marker, or a dated one past grace with no retirement reference,
- *      is a finding — *a scaffold whose retirement date is untracked is
- *      permanent architecture that nobody chose*. Scope, stated: the HEADER
+ *      no owner, no date, and no retiring assertion. Tolerance, restated
+ *      (§CO-06-GRACE-FIX 2026-08-14): a fresh date buys NOTHING by itself.
+ *      The pre-fix rule tolerated a bare YYYY-MM-DD younger than GRACE_DAYS
+ *      with none of the rest — so a bulk re-stamp of every header would have
+ *      walked the whole M-B ledger to zero having declared nothing, and one
+ *      header in the estate had already reached compliance on a FUTURE stamp
+ *      alone (plugins/ai-generative/src/descriptor.ts, reviewBy 2026-09-12,
+ *      matched by DATE_RE and inside "grace" for as long as the deadline lay
+ *      ahead). Now: inside grace a header must still name its OWNER and put
+ *      in writing WHAT IS FAKE (FAKE_DECL_RE) — only the executable retiring
+ *      assertion may lag, and only until the stamp is GRACE_DAYS old. A
+ *      future-dated stamp opens no grace: it is a deadline, not a decision
+ *      record. Outside grace, always: date + owner + retirement reference.
+ *      An UNDATED marker, or a dated one past grace with no retirement
+ *      reference, is a finding — *a scaffold whose retirement date is
+ *      untracked is permanent architecture that nobody chose*. Scope, stated: the HEADER
  *      block only. The estate carries 800+ inline `TODO(TASK-…)` lines; an
  *      inline task note on line 412 is a work marker, not a module standing in
  *      for production, and sweeping them in would bury the 59 real scaffold
@@ -93,7 +103,11 @@ const GATE = 'check-no-hidden-mock';
 const DIRS = ['packages', 'plugins', 'apps', 'src'] as const;
 
 const MIN_FILES = 500;
-/** M-B grace: a DATED scaffold younger than this needs no retirement reference yet. */
+/**
+ * M-B grace (§CO-06-GRACE-FIX): a dated scaffold younger than this may still owe
+ * its executable retiring assertion — but NEVER its owner or its written
+ * declaration of what is fake. A date alone opens nothing.
+ */
 const GRACE_DAYS = 90;
 
 /** Kinds that describe a stand-in honestly — outside M-A by construction. */
@@ -108,6 +122,14 @@ const SCAFFOLD_MARK = /\bSCAFFOLD\b|TODO\(TASK-|lands at S\d+/;
 const DATE_RE = /\b(20\d{2}-\d{2}-\d{2})\b/g;
 const RETIREMENT_RE = /retir\w+|remove(?:d)? when|delete(?:d)? when|fails? when|assert/i;
 const OWNER_RE = /@owner|owner\s*:/i;
+/**
+ * §CO-06-GRACE-FIX — inside grace the retiring assertion may still be being
+ * built, but the header must already DECLARE what is fake (the WallRegionExtractor
+ * house style: "WHAT IS FAKE", "stands in for", "stand-in", "placeholder",
+ * "NOT WIRED"). Matched loosely on the words an honest declaration uses; a match
+ * can only ever NARROW a finding (it sits on the compliance side), never mint one.
+ */
+const FAKE_DECL_RE = /WHAT IS FAKE|\bFAKE\b|\bstand[\s-]?ins?\b|\bstands? in for\b|\bplaceholder\b|\bNOT WIRED\b/i;
 /** M-C: a docstring that forbids PRODUCTION from INJECTING the field. */
 const FORBIDDEN_DOC = /production(?:\s+\w+){0,3}\s+MUST\s+NOT(?:\s+\w+)?\s+(pass|set|supply|provide|inject)|MUST\s+NOT\s+(?:pass|set|supply|provide|inject)(?:\s+\w+){0,4}\s+production/i;
 
@@ -121,8 +143,11 @@ const FORBIDDEN_DOC = /production(?:\s+\w+){0,3}\s+MUST\s+NOT(?:\s+\w+)?\s+(pass
  *      stops naming an engine it does not run — and per C74 §4.3 the
  *      truthfulness change lands in ITS OWN COMMIT, before any binding work.
  * M-B: every scaffold HEADER in the estate lacking owner+date+retirement.
- * M-C: PlanegcsAdapter.test.ts injects `underlying:` at :67 and :94 — the
- *      field whose docstring says "Production callers MUST NOT pass this".
+ * M-C: was PlanegcsAdapter.test.ts injecting `underlying:` at :67 and :94 —
+ *      the field whose docstring said "Production callers MUST NOT pass
+ *      this". PAID 2026-08-14 (CO-03), see the struck block below. The arm
+ *      stays armed with an empty ledger: any new injection of any
+ *      docstring-forbidden field fires as NOT ON THE LEDGER → exit 3.
  */
 const LEDGER: readonly string[] = [
   // M-A::PlanegcsAdapter STRUCK 2026-08-12 — the adapter's `kind` now reports
@@ -133,8 +158,19 @@ const LEDGER: readonly string[] = [
   // coverage (the un-injected `?? new MockSolver()` construction, C74 §3.5's
   // demand) and a §3.5 coverage statement in its header; the two remaining
   // seam-test injection sites moved accordingly. Same two sites, new lines.
-  'M-C::packages/constraint-solver/__tests__/PlanegcsAdapter.test.ts:121:underlying',
-  'M-C::packages/constraint-solver/__tests__/PlanegcsAdapter.test.ts:150:underlying',
+  // M-C::PlanegcsAdapter.test.ts:121/:150 STRUCK 2026-08-14 (CO-03) — paid by
+  // DELETING THE SEAM, not by disclosure alone. The `underlying?:` option
+  // (docstring-forbidden to production) is gone from PlanegcsAdapterOptions;
+  // the constructor builds its MockSolver unconditionally (the `??` fallback
+  // no longer exists as a branch to leave untested); and the suite proves
+  // delegation by spying on the REAL MockSolver behind the production
+  // construction (`vi.spyOn(MockSolver.prototype, …)`), so every test
+  // exercises exactly the configuration production runs (C74 §3.5). The 2026-
+  // 08-12 pass had already added production-path tests and the §3.5 header
+  // statement — the arm kept firing because the injection SITES remained;
+  // removing the sites' reason to exist is the honest payment, and weakening
+  // the arm to read the disclosure would not have been (a boilerplate
+  // disclosure line must never buy a pass).
   // M-B — 60 scaffold headers (of 62 found) carrying no owner+date+retiring-
   // assertion. Note the PAIR src/familyCreatorPlaceholder.ts and
   // apps/editor/src/familyCreatorPlaceholder.ts — the same scaffold twice, in
@@ -269,17 +305,40 @@ function analyse(root: string, dirs: readonly string[], today: Date): Analysis {
         scaffoldHeaders++;
         const dates = [...hdr.matchAll(DATE_RE)].map((m) => m[1]!);
         const newest = dates.map((d) => new Date(d)).sort((a, b) => b.getTime() - a.getTime())[0];
-        const withinGrace = newest !== undefined &&
-          (today.getTime() - newest.getTime()) / 86_400_000 <= GRACE_DAYS;
+        // §CO-06-GRACE-FIX (2026-08-14) — the old rule here was
+        //   `compliant = (date && owner && retirement) || withinGrace`
+        // and the `|| withinGrace` term let a header pass on a fresh DATE ALONE:
+        // a bulk re-stamp would have paid the ledger down having bought nothing,
+        // and a FUTURE stamp (age negative, so trivially ≤ GRACE_DAYS) passed
+        // indefinitely. Grace now relaxes only the DEADLINE, never the
+        // declaration: inside grace the header must still carry an owner and a
+        // written statement of what is fake; a future stamp opens no grace at
+        // all (−1 day of slack tolerates same-day timezone skew, nothing more).
+        const ageDays = newest === undefined
+          ? Number.POSITIVE_INFINITY
+          : (today.getTime() - newest.getTime()) / 86_400_000;
+        const withinGrace = ageDays >= -1 && ageDays <= GRACE_DAYS;
+        const hasOwner = OWNER_RE.test(hdr);
+        const hasRetirement = RETIREMENT_RE.test(hdr);
         const compliant =
-          (newest !== undefined && OWNER_RE.test(hdr) && RETIREMENT_RE.test(hdr)) || withinGrace;
+          (newest !== undefined && hasOwner && hasRetirement) ||       // the full declaration
+          (withinGrace && hasOwner && FAKE_DECL_RE.test(hdr));         // fresh: assertion may lag; the declaration may not
         if (!compliant) {
+          const missing: string[] = [];
+          if (newest === undefined) missing.push('NO date');
+          else if (ageDays > GRACE_DAYS) missing.push(`date ${newest.toISOString().slice(0, 10)} past the ${GRACE_DAYS}-day grace`);
+          else if (ageDays < -1) missing.push(`date ${newest.toISOString().slice(0, 10)} in the FUTURE — a forward stamp is a deadline, not a decision record, and opens no grace (§CO-06-GRACE-FIX)`);
+          else missing.push(`date ${newest.toISOString().slice(0, 10)} inside grace — but a date alone buys nothing (§CO-06-GRACE-FIX)`);
+          if (!hasOwner) missing.push('no owner');
+          if (!hasRetirement) {
+            missing.push(withinGrace
+              ? 'no retiring assertion and no written declaration of what is fake'
+              : 'no retiring assertion');
+          }
           findings.push({
             arm: 'M-B',
             key: `M-B::${rel}`,
-            detail: `${rel} — scaffold header (${SCAFFOLD_MARK.exec(hdr)![0]}) with ` +
-              `${newest ? `date ${newest.toISOString().slice(0, 10)} past the ${GRACE_DAYS}-day grace` : 'NO date'}` +
-              `${OWNER_RE.test(hdr) ? '' : ', no owner'}${RETIREMENT_RE.test(hdr) ? '' : ', no retiring assertion'}. ` +
+            detail: `${rel} — scaffold header (${SCAFFOLD_MARK.exec(hdr)![0]}) with ${missing.join(', ')}. ` +
               'A scaffold whose retirement date is untracked is permanent architecture that nobody chose (C74 §3.4).',
           });
         }
@@ -390,6 +449,8 @@ function writeTree(base: string, files: Record<string, string>): void {
   }
 }
 
+const CLEAN_DATE = () => new Date().toISOString().slice(0, 10);
+
 const PLANTED = {
   // M-A — a FakeXStore wired into a production class with no external signal.
   'packages/x/src/EngineStore.ts': [
@@ -408,6 +469,15 @@ const PLANTED = {
     '// SCAFFOLD — real implementation later.',
     'export const x = 1;',
   ].join('\n'),
+  // M-B grace loophole (§CO-06-GRACE-FIX) — a DATE-ONLY header, stamped fresh.
+  // Under the pre-fix rule (`|| withinGrace`) this was COMPLIANT: a bulk
+  // re-stamp could walk the whole ledger down having declared nothing. It must
+  // now fire, and selfTest() asserts THIS KEY specifically — the loophole
+  // cannot quietly reopen.
+  'packages/x/src/dateOnlyScaffold.ts': [
+    `// SCAFFOLD ${CLEAN_DATE()} — real implementation later.`,
+    'export const z = 1;',
+  ].join('\n'),
   // M-C — a docstring-forbidden field, injected by a test.
   'packages/x/src/Widget.ts': [
     'export interface WidgetOpts {',
@@ -424,7 +494,6 @@ const PLANTED = {
   ].join('\n'),
 };
 
-const CLEAN_DATE = () => new Date().toISOString().slice(0, 10);
 const CLEAN = {
   // an honest stand-in — must be reported present-and-declared, NOT a finding.
   'packages/y/src/HonestMock.ts': [
@@ -438,6 +507,17 @@ const CLEAN = {
     `// SCAFFOLD ${CLEAN_DATE()} — owner: platform team. Retired when S99 lands;`,
     '// __tests__/retirement.test.ts asserts this file is deleted at S99.',
     'export const y = 1;',
+  ].join('\n'),
+  // §CO-06-GRACE-FIX — the accepted GRACE shape: fresh date + owner + a written
+  // declaration of what is fake, executable retiring assertion still being
+  // built. Deliberately carries NO retirement vocabulary, so compliance can
+  // come only from the grace branch — if this fires, grace has been narrowed
+  // to nothing, which is as wrong as the loophole (the CLEAN tree is the
+  // false-positive control).
+  'packages/y/src/declaredFreshScaffold.ts': [
+    `// SCAFFOLD ${CLEAN_DATE()} — owner: platform team.`,
+    '// WHAT IS FAKE: returns a hard-coded plan; a stand-in for the layout engine.',
+    'export const y2 = 1;',
   ].join('\n'),
   'packages/y/src/Widget.ts': [
     'export interface WidgetOpts {',
@@ -471,6 +551,14 @@ function selfTest(): { ok: boolean; lines: string[] } {
     for (const f of good.findings) lines.push(`    ✗ FALSE POSITIVE — ${f.key}`);
     for (const arm of ['M-A', 'M-B', 'M-C'] as const) {
       if (!armsFired.has(arm)) { ok = false; lines.push(`    ✗ BLIND COMPARATOR — ${arm} did not fire on a deliberately planted violation.`); }
+    }
+    // §CO-06-GRACE-FIX — the date-only plant must fire ON ITS OWN KEY. The
+    // arms-fired set above cannot see this: M-B fires for the undated plant
+    // anyway, so a reopened grace loophole would leave the set intact while a
+    // fresh date once again bought a silent pass.
+    if (!bad.findings.some((f) => f.key === 'M-B::packages/x/src/dateOnlyScaffold.ts')) {
+      ok = false;
+      lines.push('    ✗ GRACE LOOPHOLE REOPENED — a DATE-ONLY scaffold header inside grace did not fire M-B (§CO-06-GRACE-FIX).');
     }
     if (good.findings.length > 0) ok = false;
     if (good.declaredStandIns.length < 1) {
