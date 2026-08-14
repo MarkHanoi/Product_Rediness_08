@@ -11,6 +11,15 @@ export default defineConfig({
       '@app/ui': resolve(__dirname, '../../../apps/editor/src/ui'),
       '@app/engine': resolve(__dirname, '../../../apps/editor/src/engine'),
       '@app/rendering': resolve(__dirname, '../../../apps/editor/src/rendering'),
+      // CE-03 — fake-indexeddb is a devDependency of @pryzm/persistence-client
+      // (not hoisted to the workspace root), so the IndexedDB round-trip arm in
+      // persistence.cert.ts resolves the SAME copy that package's own 15/15
+      // executed suite uses. It is a SHIM, not a browser — the arm says so on
+      // every run.
+      'fake-indexeddb/auto': resolve(
+        __dirname,
+        '../../../packages/persistence-client/node_modules/fake-indexeddb/auto/index.mjs',
+      ),
     },
   },
   test: {

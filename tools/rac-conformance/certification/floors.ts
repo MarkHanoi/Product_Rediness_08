@@ -59,9 +59,10 @@ export interface SuiteFloors {
 export const SUITE_FLOORS: Record<string, SuiteFloors> = {
   persistence: {
     file: 'persistence.json',
-    // 18 rows measured. The row set is a literal list in the suite, so a drop
+    // 19 rows measured (18 kinds + the CE-03 IndexedDB round-trip arm,
+    // 2026-08-14). The row set is a literal list in the suite, so a drop
     // means rows were deleted, never that the model got smaller.
-    minRows: 18,
+    minRows: 19,
     // 19 records measured across 18 kinds. 12 leaves the seed room to lose a
     // few kinds to an unrelated regression without disarming the whole gate,
     // while an EMPTY seed (0) can never satisfy it.
@@ -72,7 +73,9 @@ export const SUITE_FLOORS: Record<string, SuiteFloors> = {
   },
   undoredo: {
     file: 'undoredo.json',
-    minRows: 16,
+    // 18 rows measured (16 CASES + the two CE-04 unified-path arms,
+    // 2026-08-14). Literal list — a drop means rows were deleted.
+    minRows: 18,
     // undo/redo rows are capability rows, not record rows: the record floor is
     // carried by the seed-log check below instead.
     minRecords: 0,
