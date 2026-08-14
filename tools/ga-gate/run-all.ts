@@ -349,19 +349,23 @@ const GATES: Gate[] = [
   //   ✓ predicate-canonical   exit 0 CLEAN, hard-0, no baseline. C1/C2/C3 all 0.
   // Both are born-passing and therefore on NEITHER ledger — nothing to absorb.
   //
-  // ONE OF THE FOUR REMAINS DELIBERATELY NOT HERE, and the reason is the point:
-  //   ✗ provenance-coverage           exit 1 at ITS OWN declared level of 1 (FINDING
-  //     C2 — FloorDetectionMethod is an element-family provenance vocabulary and
-  //     there is no defineElement('floor') in L0 at all). This runner cannot read a
-  //     gate's internal declared level; it reads the exit code and then asks the two
-  //     ledgers. With no row on gate-debt.json or gate-newly-measured.json it would
-  //     be printed as "❌ REGRESSION — something got WORSE", which is FALSE: the
-  //     defect predates the instrument and nobody chose to ship it. Registering it
-  //     needs a gate-newly-measured.json entry landing in the SAME commit — which is
-  //     WAITING on purpose (2026-08-14): the gate is under live extension (the PV-08
-  //     member-level arm), and pinning a first reading to an instrument mid-change
-  //     would stale the pin within the day. It registers when that lane lands, at
-  //     the reading the FINISHED instrument produces.
+  //   ✓ provenance-coverage           REGISTERED BELOW (2026-08-14), and it registers
+  //     CLEAN — which is why waiting was worth it. It was held at exit 1 / declared 1
+  //     (FINDING C2: FloorDetectionMethod is an element-family provenance vocabulary
+  //     and there was no defineElement('floor') in L0 at all), and registering THAT
+  //     would have needed a gate-newly-measured.json entry, because this runner
+  //     cannot read a gate's internal declared level — it reads the exit code and
+  //     then asks the two ledgers, so an unledgered exit 1 prints as "❌ REGRESSION"
+  //     which would have been FALSE. Registration was deferred rather than absorbed;
+  //     PV-08 then gave `floor` an L0 schema and drove the ledger 1 → 0 (5c9b48e7),
+  //     so the row lands as hard-0 on NEITHER ledger — nothing tolerated anywhere.
+  //     Re-run at HEAD by the registering commit: "[0] CLEAN — 0 findings, hard-0,
+  //     no baseline", floors 28 kinds / 30 element files / 4372 outside files /
+  //     canonical union 1 / L0 map 1 / 18 members read / controls 1.
+  //     ⚠ The general lesson, kept because it will recur: an instrument under live
+  //     extension must not be pinned mid-change. A pin taken that day would have
+  //     minted a tolerated-debt row for a defect that was fixed hours later, and
+  //     tolerated rows are far harder to remove than to add.
   //   ✓ deterministic-regeneration    REGISTERED BELOW (2026-08-14) — and the path it
   //     took is the ratchet working, recorded so nobody reads the row as routine: it
   //     sat at exit 3 RATCHET EXCEEDED (135 vs 134) because re-anchoring its three
@@ -378,6 +382,7 @@ const GATES: Gate[] = [
   { name: 'derived-not-authored (C75 §2.2/§2.6/§2.7)',  script: 'check-derived-not-authored.ts' },
   { name: 'predicate-canonical (C73 §3.1/§3.3)',        script: 'check-predicate-canonical.ts' },
   { name: 'deterministic-regeneration (C73 §1.3/§6 · GE-07)', script: 'check-deterministic-regeneration.ts' },
+  { name: 'provenance-coverage (C75 §3.1/§3.3 · PV-08)', script: 'check-provenance-coverage.ts' },
   // GE-12 (2026-08-14) — the triangulation family and the PlanarTopologyEngine
   // family, COUNTED for the first time. Structural detection (C73 §3.2): four
   // arithmetic anchors for triangulation bodies, a two-anchor conjunction for
