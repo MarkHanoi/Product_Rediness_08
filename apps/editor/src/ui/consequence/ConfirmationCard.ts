@@ -240,6 +240,80 @@ export function renderConfirmationRefusal(
     panel.innerHTML = safeHtml;
 }
 
+/**
+ * §C83-S1 — render an **IMPOSSIBLE** spatial refusal: a proposed element whose
+ * geometry contradicts an element that already exists.
+ *
+ * ── WHY THIS IS A SIBLING OF `renderConfirmationRefusal`, NOT A NEW SURFACE ────
+ * C83 §4.1 counts FOUR live propose→consent surfaces and says plainly that a
+ * fifth is the failure mode. This adds none: it is a second RENDERER on the
+ * SAME `ConfirmationCard`, the same panel element, the same delegated click
+ * listener. `renderConfirmationRefusal` could not be reused as-is only because
+ * its heading is hard-coded to the stale-approval case ("THE PLAN IS STALE"),
+ * which is a different and false account of what happened here.
+ *
+ * ── WHY THERE IS NO CONFIRM BUTTON, AND WHY THAT IS THE WHOLE POINT ───────────
+ * C83 §1.1 classifies this verdict IMPOSSIBLE: the proposed state is
+ * self-contradictory as geometry, so no amount of context makes it right and no
+ * user preference can license it. C83 §5.4 draws the consequence — *"an
+ * IMPOSSIBLE finding CANNOT be dismissed … if a rule offers a dismiss button,
+ * it was never IMPOSSIBLE"*. Nothing was executed and nothing is pending, so
+ * there is no decision to take: the only control is an acknowledgement. A
+ * Confirm button here would be an offer to build a contradiction.
+ *
+ * `offers` are the concrete alternatives (C83 §4) — the founder's *"do you want
+ * to move the wall upwards or backwards?"*. They are rendered as INFORMATION,
+ * not as buttons: applying one is a mutation, and a mutation must travel the
+ * bus as an ordinary undoable command (P6), not fire from a notification. When
+ * `offers` is empty the card says so explicitly rather than staying quiet,
+ * because silence there reads as "there is no way to fix this" (C83 §4.2.1).
+ */
+export function renderSpatialRefusal(
+    panel: HTMLElement,
+    headline: string,
+    sentence: string,
+    offers: readonly string[],
+): void {
+    const L: string[] = [
+        `<div style="background:#3a1f24;border-left:3px solid #f87171;padding:8px 10px;border-radius:4px;margin-bottom:8px;">`,
+        `<div style="font-weight:700;color:#fca5a5;">${esc(headline)}</div>`,
+        `<div style="color:#fca5a5;font-size:11px;margin-top:3px;">${esc(sentence)}</div>`,
+        `<div style="color:#a89a6a;font-size:10px;margin-top:5px;">Nothing was created. This is not a warning you can click past — a wall and an opening cannot share the same volume, so there is no version of this placement the model can hold.</div>`,
+        `</div>`,
+    ];
+
+    if (offers.length > 0) {
+        L.push(head('◆ positions that ARE clear', '#a78bfa'));
+        for (const o of offers) L.push(item(esc(o), '#ddd6fe'));
+        L.push(
+            `<div style="color:#8b93a8;font-size:10px;margin-top:6px;">Each was re-checked against every wall on this level before being offered.</div>`,
+        );
+    } else {
+        // C83 §4.2's MUST NOT, rendered. An offer carries an implicit claim that
+        // the alternative is valid; when none can be defended, the absence is
+        // stated rather than filled with a nearest-fit guess.
+        L.push(head('◆ no alternative is offered', '#fbbf24'));
+        L.push(
+            item(
+                'No clear position could be computed and defended for this wall, so none is suggested — a guessed position that landed on another opening would be worse than none.',
+                '#fde68a',
+            ),
+        );
+    }
+
+    L.push(
+        `<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">` +
+        `<button type="button" data-role="cancel" style="padding:6px 14px;border-radius:6px;border:1px solid #40465c;background:transparent;color:#c9cede;font-size:12px;cursor:pointer;">Dismiss</button>` +
+        `</div>`,
+    );
+
+    // §XSS-SINK-SCAN — as in the two renderers above: every runtime string in `L`
+    // went through `esc`, the rest is markup authored here, and the injection
+    // suite drives the SHIPPING renderer rather than a copy of it.
+    const safeHtml = L.join('');
+    panel.innerHTML = safeHtml;
+}
+
 // ─── The card ──────────────────────────────────────────────────────────────────────────
 
 export class ConfirmationCard {
@@ -288,6 +362,21 @@ export class ConfirmationCard {
     /** {@link ConfirmationPrompt.showRefusal} — the stale-approval path. */
     showRefusal(message: string, replan: ConsequencePlan | null): void {
         renderConfirmationRefusal(this._panel, message, replan);
+        this._reveal();
+    }
+
+    /**
+     * §C83-S1 — an IMPOSSIBLE spatial refusal (a wall through a door/window).
+     *
+     * Deliberately NOT routed through `ConfirmationFlow`: the flow exists to bind
+     * an APPROVAL to a plan hash, and there is nothing here to approve. The
+     * command was refused before it executed, so no plan is pending, no hash is
+     * outstanding, and inventing one to reuse the flow would put a fabricated
+     * approval record on a mutation that never happened (ADR-0324's exact
+     * prohibition). The CARD is the shared surface; the FLOW is not.
+     */
+    showSpatialRefusal(headline: string, sentence: string, offers: readonly string[]): void {
+        renderSpatialRefusal(this._panel, headline, sentence, offers);
         this._reveal();
     }
 

@@ -32,6 +32,30 @@ import {
     toolInteractionRef,
 } from '@pryzm/core-app-model';
 import { WallAlignmentGuide } from './WallAlignmentGuide';
+// §C83-S1 — the wall-side occupancy predicate (a proposed wall vs existing
+// hosted openings). Same package; the predicate is pure and takes the wall list
+// as a parameter, so this import couples nothing.
+import { evaluateWallPlacement } from './WallCrossesOpening';
+
+/**
+ * §C83-S1 / C83 §3.1 — the two suppression flags, honoured because C83 makes it
+ * a MUST. Identical globals to `WallOccupancyStore.__pryzmLoadActive()`, so the
+ * pre-flight decline and the store's own suppression cannot drift apart.
+ *
+ * Restore: an existing saved project may ALREADY contain a wall crossing a door
+ * — build a75e8e1e created one and saved it — and a rule introduced today may
+ * not retroactively refuse to open yesterday's documents. Generation: a
+ * generator emitting hundreds of commands must not be judged on its
+ * intermediate states, the reason `ConstraintEngine` gives for its own
+ * batching suppression.
+ */
+function __pryzmWallGateSuppressed(): boolean {
+    const g = globalThis as unknown as {
+        __pryzmProjectLoadActive?: boolean;
+        __pryzmBuildingGenActive?: boolean;
+    };
+    return g.__pryzmProjectLoadActive === true || g.__pryzmBuildingGenActive === true;
+}
 
 /**
  * Legacy in-tree wall tool (PRYZM 1 layout).  The spec moves this to a
@@ -1754,6 +1778,48 @@ export class WallTool {
             curve,
             systemTypeId: this.selectedSystemTypeId
         };
+
+        // §C83-S1 — THE PRE-COMMIT SPATIAL GATE for the 3D gesture.
+        //
+        // Founder, live build a75e8e1e: "also the wall can be placed in front of a
+        // door still: which it should not." C83 §1.1 classes this IMPOSSIBLE — a
+        // wall's solid and an opening's void are two exclusive claims on one
+        // volume — so it REFUSES rather than warns.
+        //
+        // It sits HERE, above BOTH dispatches, and that placement is the point.
+        // This method dual-writes: the bus `wall.create` (which fills the plugin
+        // Immer store) AND the legacy `CreateWallCommand` (which fills the
+        // authoritative WallStore and drives the mesh). A refusal in only the
+        // legacy half would leave a phantom DTO record behind with no geometry.
+        // Refusing above both keeps the two stores in agreement.
+        //
+        // `this.wallStore` is the authoritative store — the one that carries
+        // openings from BOTH the 3D path (`WallStore.addOpening`) and the plan
+        // path (bridged at initTools.ts:1162), so the check cannot be blind to
+        // where the door was placed.
+        const spatial = __pryzmWallGateSuppressed()
+            ? null
+            : evaluateWallPlacement(
+                {
+                    levelId: finalLevelId,
+                    thickness: this.defaultWallThickness,
+                    baseLine: [
+                        { x: s.x, y: elevation, z: s.z },
+                        { x: e.x, y: elevation, z: e.z },
+                    ],
+                    ...(curve ? { curve } : {}),
+                },
+                this.wallStore.getAll(),
+            );
+        if (spatial && !spatial.valid) {
+            // The tool's OWN instruction bar — the same strip that says "Click to
+            // place wall start", so the refusal arrives where the user is already
+            // reading. C83 §5.4: an IMPOSSIBLE finding is never merely surfaced,
+            // it refuses; there is nothing here to dismiss.
+            this.showStatus(spatial.reason ?? 'This wall cannot be placed here.');
+            console.warn('[WallTool] §C83-S1 REFUSED wall create —', spatial.reason);
+            return;
+        }
 
         // E.5.x (E-bus.1 P2d): prefer runtime.bus.executeCommand('wall.create', ...)
         // when the runtime is available and the handler is registered in the bus.

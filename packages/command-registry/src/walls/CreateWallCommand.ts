@@ -34,6 +34,10 @@
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { WallData, WallCurve, WallLayer, WallBaseline } from '@pryzm/geometry-wall';
+// §C83-S1 — the wall-side occupancy predicate. Already a dependency of this
+// package (`CreateWallOpeningCommand` imports `wallOccupancyStore` from it), so
+// this adds no edge and no layer violation.
+import { evaluateWallPlacement } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { generateMark } from '@pryzm/core-app-model';
 import { batchCoordinator } from '@pryzm/core-app-model';
@@ -159,6 +163,64 @@ export class CreateWallCommand implements Command {
         // Contract §03-1.2: curved walls do not support openings at creation time.
         if (this.wallData.curve && this.wallData.curve.segments < 4) {
             return { ok: false, reason: 'Curved wall must have at least 4 segments' };
+        }
+
+        // ── §C83-S1 — ENFORCEMENT: a wall may not occupy a hosted opening ──────
+        //
+        // C74 §1.1 ENFORCEMENT ("a validation wired into a mutation path such that
+        // failure REFUSES the mutation"), and the SECOND row of C74 §2's protected
+        // table — added there in this same change, because a protected-table row is
+        // a contract edit, not a doc follow-up.
+        //
+        // C83 §1.1 classifies it IMPOSSIBLE: a wall's solid and an opening's void
+        // are two mutually exclusive claims about one volume. No context reverses
+        // it, so it refuses rather than advises.
+        //
+        // ⚠ THIS IS THE BACKSTOP, NOT THE ONLY GATE. The two interactive gestures
+        // check earlier and show the user a sentence (WallTool's instruction bar in
+        // 3D; the ConfirmationCard + toast in plan). This arm exists so the OTHER
+        // legacy creators — IFC import, DuplicateFloorPlan, CreateWallsFromSlab —
+        // cannot author the defect silently. `blockingIssues[0]` carries the human
+        // sentence because `CommandManagerImpl:217` prefers it over `reason`
+        // (§FIX-VALIDATION-REASON-IS-HUMAN-READABLE, L-813) — `reason` stays the
+        // machine-readable token.
+        //
+        // Suppressed during project restore and building generation (C83 §3.1).
+        // Restore is the load-bearing half: projects saved by build a75e8e1e may
+        // ALREADY contain this defect, and refusing on replay would turn a
+        // cosmetic bug into a project that will not open.
+        const _c83g = globalThis as unknown as {
+            __pryzmProjectLoadActive?: boolean;
+            __pryzmBuildingGenActive?: boolean;
+        };
+        const _c83Suppressed =
+            _c83g.__pryzmProjectLoadActive === true || _c83g.__pryzmBuildingGenActive === true;
+        // The payload carries `start`/`end` (this command builds `baseLine` itself
+        // in `execute`, stamping `level.elevation` into `y`). The predicate reads
+        // only x/z, so the elevation is passed for shape completeness, not for the
+        // test — it is level-scoped by `levelId`, never by height.
+        if (!_c83Suppressed && this.wallData.start && this.wallData.end) {
+            const spatial = evaluateWallPlacement(
+                {
+                    id: this.wallId,
+                    levelId: this.wallData.levelId,
+                    thickness: this.wallData.thickness,
+                    baseLine: [
+                        { x: this.wallData.start.x, y: level.elevation, z: this.wallData.start.z },
+                        { x: this.wallData.end.x,   y: level.elevation, z: this.wallData.end.z },
+                    ],
+                    ...(this.wallData.curve ? { curve: this.wallData.curve } : {}),
+                },
+                ctx.stores.wallStore.getAll(),
+            );
+            if (!spatial.valid) {
+                console.warn(`[CreateWallCommand] §C83-S1 REFUSED: ${spatial.reason}`);
+                return {
+                    ok: false,
+                    reason: 'OCC_CROSSES_HOSTED_OPENING',
+                    blockingIssues: [spatial.reason ?? 'This wall would cross a door or window.'],
+                };
+            }
         }
 
         // Validate systemTypeId if provided

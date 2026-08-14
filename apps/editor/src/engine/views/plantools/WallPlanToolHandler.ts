@@ -24,6 +24,9 @@
 
 
 import { WallDimensionInput } from '@pryzm/geometry-wall';
+// §C83-S1 — the wall-side occupancy gate. apps/editor is L7, so this edge is
+// DOWNWARD and adds nothing to check-layer-boundaries.
+import { gateWallPlacement } from '@app/engine/consequence/wallPlacementGate';
 import { createId } from '@pryzm/schemas';
 // §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — pure alignment inference mirrored from
 // the 3D tool's WallAlignmentGuide, consumed here for the plan-view wall tool.
@@ -419,6 +422,46 @@ export class WallPlanToolHandler implements PlanToolHandler {
         // initTools.ts §P2.1 mirrors into the legacy WallStore → WallRebuildCoordinator
         // → 3D mesh.  Plan view: WallStore.add() emits storeEventBus →
         // ViewTechnicalDrawingCache._onStoreChange → vd:projection-stale → Canvas2D.
+        // §C83-S1 — THE PRE-COMMIT SPATIAL GATE (C83 §3, "pre-commit canExecute":
+        // IMPOSSIBLE verdicts only, one query per commit).
+        //
+        // Founder, live build a75e8e1e: "also the wall can be placed in front of a
+        // door still: which it should not." Nothing checked it, because
+        // `canPlace(wall, offset, width)` takes ONE wall and compares against THAT
+        // wall's own openings — a NEW wall arriving at a wall that already holds a
+        // door is not expressible in that signature.
+        //
+        // It runs HERE, before the dispatch, rather than inside the handler's
+        // `canExecute`, for a measured reason: the handler sees `ctx.stores.wall`,
+        // the plugin's Immer draft, which never receives an opening placed in 3D
+        // (that path writes the legacy `WallStore` directly). Gating on the draft
+        // would be blind to exactly the case reported. The gate reads the
+        // authoritative store, which is a superset of both paths.
+        //
+        // On refusal the stroke is abandoned but `_wallFirstPoint` is deliberately
+        // LEFT WHERE IT IS: the user's start point was fine, only the end was
+        // rejected, so they can re-aim from the same origin without re-clicking it.
+        const spatial = gateWallPlacement({
+            levelId,
+            thickness,
+            baseLine: [
+                { x: startPt.worldX, y: 0, z: startPt.worldZ },
+                { x: endPt.worldX,   y: 0, z: endPt.worldZ   },
+            ],
+            ...(curvePayload ? { curve: curvePayload } : {}),
+        });
+        if (spatial.blocked) {
+            console.warn(
+                '[WallPlanToolHandler] §C83-S1 REFUSED wall.create —',
+                spatial.verdict?.reason ?? '(no reason rendered)',
+            );
+            this._arcMidPt        = null;
+            this._wallCursorPoint = null;
+            this._syncCreationHud();
+            this._clearOverlay();
+            return;
+        }
+
         const wallId = createId('wall');
         window.runtime?.bus?.executeCommand('wall.create', {
             id:       wallId,
