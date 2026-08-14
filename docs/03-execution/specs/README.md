@@ -1,9 +1,14 @@
 # Specs — per-system normative specifications
 
 > 82 spec files (39 numbered SPEC-NN + 43 special-named) + 1 legacy PLAN. One per major capability. Numbered `SPEC-NN-<TOPIC>.md`.
+> **Updated 2026-08-14**: **SPEC-50-RIBBON-HANDLER-BACKLOG** minted (the per-toolbar handler
+> backlog surfaced by the founder's ribbon mount decision, ADR-0326/C82 — explicitly a BACKLOG,
+> NOT A PROMISE; every count cited from the H6 census `ae659c96`). Highest numbered is now
+> **SPEC-50**.
+>
 > **Updated 2026-08-13**: **SPEC-49-CIRCULATION-INTEGRITY** minted (generator output quality —
 > the founder's unreachable-room / doorless-room / furniture-blocking-door report, measured at
-> HEAD per typology). Highest numbered is now **SPEC-49**.
+> HEAD per typology).
 >
 > **Reconciled 2026-07-16**: count refreshed (39 numbered + 43 special-named = 82; highest numbered is **SPEC-48**; 14, 16–20, 22, 23, 25 remain unassigned/absent).
 
@@ -22,7 +27,7 @@ A spec is NORMATIVE — code MUST conform to it. But specs sit BELOW contracts i
 
 ## §2 — Numbering
 
-Monotonic `SPEC-NN` (2-digit). Once assigned, never moves. Currently assigned through **SPEC-49** (with 14, 16–20, 22, 23, 25 unassigned) + a number of special-purpose SPEC-* without numbers (e.g. SPEC-APARTMENT-LAYOUT-GENERATOR).
+Monotonic `SPEC-NN` (2-digit). Once assigned, never moves. Currently assigned through **SPEC-50** (with 14, 16–20, 22, 23, 25 unassigned) + a number of special-purpose SPEC-* without numbers (e.g. SPEC-APARTMENT-LAYOUT-GENERATOR).
 
 The legacy plan `PLAN-GENERATIVE-DESIGN-SPRINTS.md` lives here too as a historical artefact.
 
@@ -108,6 +113,7 @@ All spec files, sorted by filename. Numbered `SPEC-NN` (gaps: 14, 16–20, 22, 2
 | `SPEC-47-GENERATE-3-OPTIONS-WORKFLOW` | [SPEC-47 — Generate-3-Options Workflow](./SPEC-47-GENERATE-3-OPTIONS-WORKFLOW.md) |
 | `SPEC-48-CONSTRAINT-SOLVER` | [SPEC-48 — Constraint Solver](./SPEC-48-CONSTRAINT-SOLVER.md) |
 | `SPEC-49-CIRCULATION-INTEGRITY` | [SPEC-49 — Circulation Integrity (generator output quality)](./SPEC-49-CIRCULATION-INTEGRITY.md) |
+| `SPEC-50-RIBBON-HANDLER-BACKLOG` | [SPEC-50 — Ribbon Handler Backlog (a backlog, not a promise)](./SPEC-50-RIBBON-HANDLER-BACKLOG.md) |
 | `SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR` | [SPEC — Access Graph & Spatial Grammar (residential generative layout)](./SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR.md) |
 | `SPEC-APARTMENT-LAYOUT-GENERATOR` | [SPEC — Apartment Layout Generator (`apartment.generate-layout`) · the "50 + 1" capstone](./SPEC-APARTMENT-LAYOUT-GENERATOR.md) |
 | `SPEC-ARCHITECTURAL-PROGRAM-RULES` | [SPEC — Architectural Program Rules (the room rule database)](./SPEC-ARCHITECTURAL-PROGRAM-RULES.md) |
