@@ -118,7 +118,10 @@ import {
   // CreateSectionMarkCommand removed — §P3.4-SE: section.create now routes to CreateSectionHandler
   // via registerSectionHandlers() in engineLauncher.ts. Phase 3 exit gate: grep 'section.create' bridges → 0 entries.
   CreateStairCommand,
-  MoveStairCommand,
+  // §FIX-STAIR-MOVE-SHADOW (MT-03): MoveStairCommand import removed — its bridge here
+  // was dead (the plugin hybrid MoveStairHandler registers first and owns the verb; it
+  // constructs the SAME command). Exit gate: grep 'MoveStairCommand' initBusHandlers.ts
+  // → 0 constructions.
   CreateElevationMarkCommand,
   // §FIX-SECTION-MARK-CREATE (G8, V1-audit §3.5) — the plan-view Section tool
   // and the 3D SectionMarkTool both need to mint a section ViewDefinition + a
@@ -2251,17 +2254,20 @@ export function initBusHandlers(
             validate: (cmd) => (!cmd.baseLevelId ? 'baseLevelId is required' : null),
             fn: (cmd) => { _cmExec(new CreateStairCommand(cmd)); },
         },
-        // §STAIR-3D-MOVE (2026-06-11) — translate a stair by a world-space delta.
-        // Mirrors the wall move path (wall.updateBaseline). The 3D-gizmo drag-end
-        // in registerTransformDragHandler.ts dispatches this; MoveStairCommand
-        // shifts startPosition + flight overrides + landing centres and re-emits
-        // bim-stair-updated so StairMeshBuilder rebuilds at the new location.
-        {
-            type: 'stair.move',
-            stores: [] as const,
-            validate: (cmd) => (!cmd.stairId ? 'stairId is required' : (!cmd.delta ? 'delta is required' : null)),
-            fn: (cmd) => { _cmExec(new MoveStairCommand(cmd)); },
-        },
+        // §FIX-STAIR-MOVE-SHADOW (MT-03) — the §STAIR-3D-MOVE bridge is DELETED here.
+        // It was DEAD on every production boot: PluginRegistry contributes the stair
+        // handler set at composeRuntime, before initBusHandlers, so the §OI-053
+        // `registry.has('stair.move')` skip below always fired. The live arm is
+        // `plugins/stair/src/handlers/MoveStair.ts`, which since
+        // §FIX-STAIR-MOVE-DETACHED-STORE (2026-08-06) is the DUAL-STORE hybrid — and a
+        // side-by-side read made this a MERGE, not a coin toss: everything the bridge
+        // did is a strict subset of the handler (same `new MoveStairCommand({stairId,
+        // delta})`, weaker presence-only validation vs the handler's finite-Vec3 guard,
+        // and `_cmExec`'s void return where the handler THROWS when the move can land
+        // in neither store). `_cmExec`'s §UNDO-GESTURE-ID stamp is not load-bearing on
+        // this path: the bridged move returns EMPTY patches, so there is no ring-buffer
+        // twin for performUndo to pair — the commandManager entry owns the undo alone.
+        // Read-back proof: apps/editor/__tests__/StairMoveReachesGeometryStore.test.ts.
         {
             type: 'elevation.create',
             stores: [] as const,

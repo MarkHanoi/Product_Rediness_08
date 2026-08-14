@@ -310,7 +310,23 @@ const SHADOWED_BASELINE: readonly string[] = [
   // skip no longer fires and the bridge registers. Pin:
   // `plugins/stair/__tests__/addLevelShadow.test.ts` (3 cases incl. a negative control
   // on `stair.create`, watched failing 3/3 first). 7 → 6.
-  'stair.move',
+  // §FIX-STAIR-MOVE-SHADOW (MT-03 / L-MT8) — 'stair.move' PAID and removed in the same
+  // commit, per the rule at the head of this list. ⚠ THE DIRECTION IS THE REVERSE of the
+  // delete-the-plugin verbs above: this one is DELIBERATELY dual-write and needed a
+  // MERGE. The plugin arm (plugins/stair/src/handlers/MoveStair.ts) has been the
+  // DUAL-STORE hybrid since §FIX-STAIR-MOVE-DETACHED-STORE (2026-08-06, the founder's
+  // build-096e12b4 "stair not found" report): canExecute accepts the stair from EITHER
+  // store, execute bridges `MoveStairCommand` through commandManager whenever the
+  // geometry store holds it (that command owns the mutation, the undo snapshot, the
+  // slab-void re-reconcile and the `bim-stair-updated` emit that carries the railings)
+  // AND applies the Immer patch when the DTO store holds it. Read side-by-side, the
+  // initBusHandlers §STAIR-3D-MOVE bridge was a strict SUBSET — same command, weaker
+  // presence-only validation, `_cmExec`'s void return where the hybrid THROWS — so the
+  // merged handler is the plugin arm and the BRIDGE is deleted. Its §UNDO-GESTURE-ID
+  // stamp is not load-bearing here (the bridged move returns empty patches, so no
+  // ring-buffer twin exists to pair). Read-back proof:
+  // `apps/editor/__tests__/StairMoveReachesGeometryStore.test.ts` (3 cases). 2 → 1.
+  // It moves to UNKNOWN_LIVENESS_BASELINE below — see the note there.
   // §FIX-VIEW-CROP-SHADOW (MT-03 / L-MT8) — 'view.setCrop' PAID and removed in the same
   // commit, per the rule at the head of this list. ⚠ THE DIRECTION IS THE REVERSE of the
   // header's "plugins register first" story, which is per-verb false for the view plugin:
@@ -501,6 +517,26 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'slab.updatePolygon',
   'stair.batch.create',
   'stair.delete',
+  // §FIX-STAIR-MOVE-SHADOW (MT-03 / L-MT8) — 'stair.move' ARRIVES here from
+  // SHADOWED_BASELINE in the same commit that deletes its dead bridge, and the reason is
+  // a LIMIT OF THIS GATE, stated rather than papered over. The verb is a DUAL-DISPATCH
+  // HYBRID: it delegates to `commandManager` (→ MoveStairCommand → the geometry
+  // stairStore) AND declares `affectedStores: ['stair']` for the plugin store. That
+  // shape defeats both static classifiers — `isBridge()` requires ZERO declared stores,
+  // and the published UNKNOWN definition ("a lone plugin produceCommand handler") does
+  // not describe it either. UNKNOWN is therefore the honest STATIC verdict, exactly as
+  // it is for `wall.create` two families down: the gate cannot prove liveness, while the
+  // EXECUTED proof that it reaches the authoritative record lives in
+  // `apps/editor/__tests__/StairMoveReachesGeometryStore.test.ts` (the gizmo payload
+  // shifts startPosition + flight startOverride + landing centre in the geometry store)
+  // and in `transformDragUndoCapture.matrix.test.ts`, which keeps this verb as its
+  // POSITIVE CONTROL. Both facts are true, so the value is UNKNOWN, never LIVE.
+  // ⚠ IT PAYS OFF WITH A CLASSIFIER ARM, NOT WITH A CODE CHANGE: retiring it means
+  // teaching this gate to recognise the hybrid shape (delegation + declared stores), a
+  // change that would also move `furniture.updateParameters` below. Doing that inside a
+  // verb-resolution commit would have widened the gate's own subject while using it as
+  // the measurement — its own lane.
+  'stair.move',
   'stair.setRiserHeight',
   'stair.setShape',
   'stair.setTreadCount',

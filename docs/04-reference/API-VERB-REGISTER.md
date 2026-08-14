@@ -19,8 +19,8 @@ change, not a rename — see C69 §2.
 | **Verbs** | **325** (floor 250) |
 | LIVE | 117 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 2 |
-| UNKNOWN | 170 |
+| SHADOWED (dead route) | 1 |
+| UNKNOWN | 171 |
 | authoritative store NONE or UNKNOWN | 208 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
@@ -221,7 +221,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `room.delete` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified D |
 | `room.move` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `room.recomputeBoundary` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | classified C |
-| `room.redetect` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | classified C |
+| `room.redetect` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | classified C |
 | `room.regenerate` | plugins/rooms | REFUSES | NONE | NONE (empty patch pair) | n/a (not a property verb) | classified E |
 | `room.rename` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (last-writer-wins) | capability: rename-room |
 | `room.setFinish` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
@@ -281,7 +281,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `stair.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `stair.createRailing` | plugins/stair | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified B |
 | `stair.delete` | plugins/stair | UNKNOWN | UNKNOWN | patch-pair → stair | n/a (not a property verb) | classified D |
-| `stair.move` | plugins/stair | SHADOWED | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `stair.move` | plugins/stair | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `stair.rotate` | plugins/stair | REFUSES | NONE | patch-pair → stair | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `stair.setMaterial` | plugins/stair | REFUSES | NONE | patch-pair → stair | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `stair.setRiserHeight` | plugins/stair | UNKNOWN | UNKNOWN | patch-pair → stair | synced via 'stairId' (disclose) | classified D |
@@ -378,4 +378,3 @@ the second site is the one nobody knew was dead.
 | verb | sites |
 |---|---|
 | `furniture.updateParameters` | `plugins/furniture/src/handlers/UpdateFurnitureParameters.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `stair.move` | `plugins/stair/src/handlers/MoveStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
