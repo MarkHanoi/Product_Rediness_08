@@ -687,10 +687,10 @@ describe('HARNESS 2 — undo/redo round-trip vs authoritative state (§11)', () 
         const undoVerdict = !routedUndo
           ? `FAIL — performUndo() answered {status:'${out.status}', path:'${String(out.path)}'} (expected ring-buffer${undoDiff.misconfigured.length > 0 ? `; misconfigured kinds [${undoDiff.misconfigured.join(',')}]` : ''})`
           : uc.kind === 'clean'
-            ? `PROVEN — performUndo() routed to the RING BUFFER, applied the inverse patch to the AUTHORITATIVE wallStore, and state ≡ State A (deep, whole-store${excl(undoDiff.toleratedCount)}); cm twin shadow-dropped (U-8, history ${historyBefore + cmArmed}→${droppedTwin}); ${uc.text}`
+            ? `PROVEN — performUndo() routed to the RING BUFFER, applied the inverse patch to the AUTHORITATIVE wallStore, and state ≡ State A (deep, whole-store${excl(undoDiff.toleratedCount)}); cm history ${historyBefore + cmArmed}→${droppedTwin} (U-8 shadow-drop removed ${historyBefore + cmArmed - droppedTwin} — MEASURED 0 on first execution: UpdateWallBaselineCommand declares no targetIds, so the drop never engages and the legacy twin stays, costing one phantom keypress; named, not graded here); ${uc.text}`
             : uc.kind === 'beyond'
               ? `FAIL — ring-buffer undo: ${uc.text}`
-              : `MEASURED-DIVERGENCE (declared §CE04-RING-PIN, ADR-0319 §2 defect, NOT a pass) — performUndo() routed to the RING BUFFER and ${uc.text}; cm twin shadow-dropped (U-8, history ${historyBefore + cmArmed}→${droppedTwin}); owner: elementUndoStoreAdapter/WallStore.update; exit condition: counters restored, pin struck`;
+              : `MEASURED-DIVERGENCE (declared §CE04-RING-PIN, ADR-0319 §2 defect, NOT a pass) — performUndo() routed to the RING BUFFER and ${uc.text}; cm history ${historyBefore + cmArmed}→${droppedTwin} (U-8 shadow-drop removed ${historyBefore + cmArmed - droppedTwin} — MEASURED 0 on first execution: UpdateWallBaselineCommand declares no targetIds, so the drop never engages and the legacy twin stays, costing one phantom keypress; named, not graded here); owner: elementUndoStoreAdapter/WallStore.update; exit condition: counters restored, pin struck`;
         const redoVerdict = !routedRedo
           ? `FAIL — performRedo() answered {status:'${rout.status}', path:'${String(rout.path)}'} (expected ring-buffer)`
           : rc.kind === 'clean'
