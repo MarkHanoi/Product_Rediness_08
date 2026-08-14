@@ -286,7 +286,8 @@ const GATES: Gate[] = [
   // (L-716). Scope printed in its own output: GLOB REACHABILITY, not CI
   // invocation — scripts/check/check-test-ci-coverage.mjs owns that axis.
   { name: 'no-dark-test-files (C70 §4.2 · L-849/L-851)', script: 'check-no-dark-test-files.ts' },
-  // SPEC-49 CI-2 (2026-08-13) — GENERATOR OUTPUT QUALITY, WHICH WAS ENTIRELY
+  // SPEC-49 CI-2 (2026-08-13; CI-1/CI-4 ledgered 2026-08-14 by FOUNDER DECISION)
+  // — GENERATOR OUTPUT QUALITY, WHICH WAS ENTIRELY
   // UNGATED. Verified by enumeration in SPEC-49 §3 item 6: not one of the 56 gates
   // above read `doorAdjacentTo`, read `unreachableHabitableRoomIds`, or DROVE any
   // generator. The two that mention `apartmentLayout` are about refusal MESSAGING.
@@ -301,12 +302,15 @@ const GATES: Gate[] = [
   // satisfied by producing artefacts, which is how check-move-propagation went green
   // over a consumer file wired into nothing.
   //
-  // Lands RED at exit 1 against a NAMED shrink-only 18-row ledger
-  // (generator-circulation-ledger.json), checked in both directions, with 7
+  // Lands RED at exit 1 against a NAMED shrink-only 38-row ledger
+  // (generator-circulation-ledger.json: DOORLESS ×18 · UNREACHABLE ×12 ·
+  // CORRIDOR-STAIR-GAP ×6 · CORRIDOR-HALL-GAP ×2 — the CI-1/CI-4 classes pinned
+  // 2026-08-14 at the executed reading under the founder decision that closed
+  // SPEC-49 §4's standing ledger question), checked in both directions, with 8
   // planted/clean controls executed INSIDE every run — exit 2 as a blind comparator
   // if any arm stays silent. Carries a gate-newly-measured.json entry, NOT
   // gate-debt.json: the defects predate the instrument and nobody chose to ship them.
-  { name: 'generator-circulation (SPEC-49 CI-2)',      script: 'check-generator-circulation.ts' },
+  { name: 'generator-circulation (SPEC-49 CI-1/CI-2/CI-4)', script: 'check-generator-circulation.ts' },
   // C70 K-INV-2 · C08 §3.1/§3.3 · P8 (2026-08-14) — CB-04. THE CONFLICT-SURFACING
   // HALF OF P8, WHICH HAD NO INSTRUMENT AT ALL. `fb7cd4a0` (§RIVAL-MINT) stopped
   // the CRDT EATING disjoint properties; nothing measured whether a merge that

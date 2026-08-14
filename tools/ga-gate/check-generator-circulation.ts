@@ -1,9 +1,20 @@
-// ─── GATE · check-generator-circulation  (SPEC-49 CI-2 · C70 §5 · C70 §7) ────
+// ─── GATE · check-generator-circulation  (SPEC-49 CI-1/CI-2/CI-4 · C70 §5 · C70 §7)
 //
-// THE INVARIANT (SPEC-49 §1, CI-2 — "every room has a door"):
-//   **Every room a generator SHIPS has at least one realised opening.**
-//   Circulation rooms INCLUDED — a doorless `Stair` or `Corridor` is the most
-//   severe form, and SPEC-49 §2 measured exactly that on `17.491x13.416-b3-s2/F1`.
+// THE INVARIANTS (SPEC-49 §1 — three of the four, each ledgered under its OWN class):
+//   CI-2 "every room has a door" — **every room a generator SHIPS has at least one
+//        realised opening.** Circulation rooms INCLUDED — a doorless `Stair` or
+//        `Corridor` is the most severe form, and SPEC-49 §2 measured exactly that on
+//        `17.491x13.416-b3-s2/F1`. Ledgered since the gate was born (6c065bb1).
+//   CI-1 "every room is reachable" — no room is SEALED by BFS from the entrance.
+//        LEDGERED 2026-08-14 BY FOUNDER DECISION (see below). The figure is the
+//        ENGINE's own carried verdict — the UNPROVEN block names what that leaves open.
+//   CI-4 "corridors connect what they claim to" — the carried per-storey
+//        `corridorStairGap` / `corridorHallGap` flags (LEDGERED 2026-08-14, same
+//        decision). STOREY SCALE ONLY: building-scale core reachability is
+//        §RESI-CORE-CIRCULATION's, enforced in the orchestrator and measured clean
+//        (SPEC-49 §2 CI-4, 0/34 orphans); and CI-4's second half — "every private room
+//        takes a DIRECT door onto the corridor" — is the SERVED-THROUGH set, which
+//        remains deliberately UNLEDGERED (see the three-sets block below).
 //
 // ─── WHY THIS GATE EXISTS ────────────────────────────────────────────────────
 // SPEC-49 §3 item 6, verified by enumeration of `tools/ga-gate/*.ts`: not one of
@@ -15,9 +26,14 @@
 // (CI-0) the verdict was DROPPED at the emit boundary, so a caller that WANTED to
 // refuse could not see that the plan was broken.
 //
-// This gate is CI-2 of SPEC-49 §4: the cheapest real gate on that list, needing no
-// product decision. It does not refuse anything at runtime. It pins the measured
-// doorless rate and lets it move in one direction only.
+// This gate was born as CI-2 of SPEC-49 §4 alone: the cheapest real gate on that
+// list, needing no product decision. **On 2026-08-14 the founder MADE the standing
+// §4 product decision: LEDGER CI-1 and CI-4 as well**, at their measured baselines,
+// shrink-only (C73 §3.4 — pinned AT the reading, never above it). The gate still
+// refuses nothing at runtime: the runtime-refusal half of §4 CI-1 — refuse the
+// storey vs ship-with-blocking-banner — is a SEPARATE open product decision this
+// gate does not pre-empt. It pins the measured doorless, unreachable and
+// corridor-contiguity rates and lets each move in one direction only.
 //
 // ─── IT DRIVES THE ENGINE. IT DOES NOT COUNT ARTEFACTS. ──────────────────────
 // A gate that counts ARTEFACTS can be satisfied by producing artefacts —
@@ -35,8 +51,8 @@
 // ─── FOUR ARMS ───────────────────────────────────────────────────────────────
 //   ARM C · CONTROLS, executed every run, WATCHED IN BOTH DIRECTIONS (C70 §5.6).
 //           Runs FIRST; any control failure exits 2 MISCONFIGURED and NO verdict
-//           is published. Six controls, and the reason there are six rather than
-//           two is SPEC-49 §7's second recorded instrument defect: a sibling probe
+//           is published. Seven controls, and the reason there are seven rather
+//           than two is SPEC-49 §7's second recorded instrument defect: a sibling probe
 //           reported a clean 0/288 on its first run and the negative control caught
 //           it — the struct field was `{minX,minZ}` and the probe passed `{x0,z0}`,
 //           which **Vitest does not typecheck in test files**. Every reader in this
@@ -56,7 +72,10 @@
 //           disagreement is a FINDING in its own right: it means the verdict a
 //           banner would display no longer describes the plan the user got.
 //
-//   ARM D · THE LEDGER, shrink-only and checked in BOTH directions.
+//   ARM D · THE LEDGER, shrink-only and checked in BOTH directions. Four finding
+//           classes — DOORLESS (CI-2) · UNREACHABLE (CI-1) · CORRIDOR-STAIR-GAP /
+//           CORRIDOR-HALL-GAP (CI-4) — one ledger row per (class, sweep case),
+//           so a fix in one class can never cancel a break in another.
 //
 // ─── ⚠ `circulation` IS OPTIONAL, AND `undefined` MEANS NOT MEASURED ─────────
 // C70 §2.2. `LayoutOption.circulation` is optional for back-compat with AI-produced
@@ -71,20 +90,29 @@
 //                                      may HAVE a door, if every route to it is sealed.
 //   • `unroutedToCirculationRoomIds` — no door ONTO CIRCULATION (served-through).
 //   • `doorlessRoomIds`              — NO DOOR AT ALL.
-// THIS GATE'S LEDGERED SUBJECT IS THE THIRD — the one the founder saw in the
-// browser. The other two are MEASURED AND PRINTED under their own names on every
-// run, and are deliberately NOT ledgered here: they are SPEC-49's CI-1, which needs
-// a product decision this gate must not pre-empt. Merging them would produce one
-// blended number true of nothing (SPEC-49 §2, fact 1).
+// LEDGERED HERE: the FIRST (CI-1, class UNREACHABLE — since 2026-08-14, the founder
+// decision that closed SPEC-49 §4's standing question) and the THIRD (CI-2, class
+// DOORLESS — the one the founder saw in the browser, since the gate was born).
+// NOT LEDGERED: the SECOND. Served-through is not CI-1 — an en-suite legitimately
+// served through its master satisfies CI-1 through its parent (SPEC-49 §1) — and
+// no decision covers it, so it stays MEASURED AND PRINTED under its own name and
+// its unledgered status is NAMED in the UNPROVEN block rather than left to read as
+// coverage. The sets are still never merged (C75 §1.2): each ledgered class keys
+// its own rows, so one fix and one new break in different classes cannot cancel
+// out into one blended number true of nothing (SPEC-49 §2, fact 1).
 //
 // ─── THE LEDGER ─────────────────────────────────────────────────────────────
 // `generator-circulation-ledger.json`, keyed by `<CLASS>::<generator>::<sweep-case>`
+// with CLASS ∈ { DOORLESS · UNREACHABLE · CORRIDOR-STAIR-GAP · CORRIDOR-HALL-GAP }
 // — never by room name, which the engine may legitimately re-mint, and never by a
-// bare count, which lets one fix and one new break cancel out. Shrink-only (C70
-// §5.3): a case that starts shipping doors must LEAVE the ledger in the commit that
-// fixes it, or this gate exits 3 STALE. An unledgered finding also exits 3, because
-// `declared` below counts only ledger rows that are STILL MEASURED — a count-only
-// comparison would let a swap read as no change.
+// bare count, which lets one fix and one new break cancel out (C70 §5.5). Shrink-only
+// (C70 §5.3): a case that stops exhibiting its class must LEAVE the ledger in the
+// commit that fixes it, or this gate exits 3 STALE. An unledgered finding also exits
+// 3, because `declared` below counts only ledger rows that are STILL MEASURED — a
+// count-only comparison would let a swap read as no change. The CI-1/CI-4 rows were
+// pinned 2026-08-14 AT the executed reading of that day (C73 §3.4 — a ratchet above
+// its own reading is free slots), under the founder decision recorded in the ledger
+// file and SPEC-49 §4.
 //
 // Sweep-case keys are the gate's own (`p0-b1-a1-s0-x0.92`), not the reproduction
 // tests' labels, because those collide: two of the four apartment programs both
@@ -132,7 +160,7 @@ const MIN_RESI_SUBJECTS = 25;         // sweep is 34 units
 const MIN_SHIPPED_SUBJECTS = 140;     // 164 at the first reading
 const MIN_MEASURED_SUBJECTS = 140;    // options CARRYING a CI-0 verdict (C70 §2.2)
 const MIN_ROOM_SUBJECTS = 700;        // 1460 at the first reading
-const MIN_CONTROLS = 7;               // all seven arms, both directions
+const MIN_CONTROLS = 8;               // all eight arms, both directions (C7 added 2026-08-14 with the CI-1/CI-4 ledger)
 
 const CONSTRAINTS: ApartmentConstraints =
   { minCorridorWidth: 900, wallThickness: 100, floorToCeiling: 2700, wallTypeId: '' };
@@ -164,7 +192,16 @@ interface Reading {
 }
 
 interface LedgerRow { key: string; generator: string; rooms: string; why: string }
-interface Ledger { gate: string; note: string; pinnedAt: string; doorlessCases: LedgerRow[] }
+interface Ledger {
+  gate: string; note: string; pinnedAt: string;
+  /** CI-2 — cases shipping a room with NO DOOR AT ALL. Pinned 2026-08-13. */
+  doorlessCases: LedgerRow[];
+  /** CI-1 — cases whose carried verdict names a room SEALED by BFS. Pinned 2026-08-14 (founder decision). */
+  unreachableCases: LedgerRow[];
+  /** CI-4 — cases whose carried verdict flags corridor↔stair or corridor↔hall
+   *  contiguity broken. `rooms` names the disconnected pair. Pinned 2026-08-14. */
+  corridorGapCases: LedgerRow[];
+}
 
 // ── The two readers. Both are watched firing before either is trusted. ───────
 
@@ -427,6 +464,37 @@ function runControls(): { ok: boolean; passed: number; lines: string[] } {
     r6.carriedDoorless.length === 0 && r6.unreachable.length === 1 && r6.unrouted.length === 1,
     `doorless=${r6.carriedDoorless.length} (want 0), unreachable=${r6.unreachable.length} (want 1), unrouted=${r6.unrouted.length} (want 1)`);
 
+  // C7 — the CI-1/CI-4 readers, both directions (added 2026-08-14, the day the
+  //      founder LEDGERED those subjects: a reader whose findings feed a ratchet
+  //      graduates to the same discipline as the doorless pair, C70 §5.6).
+  //      SPELLING: the substrate's ENGINE-EMITTED block must expose the gap flags
+  //      and the unreachable list under EXACTLY the property names the gate reads
+  //      (hasOwnProperty) — a renamed engine field would otherwise read `undefined`
+  //      → false → a 0% gap rate FOREVER, the §7 struct-mismatch failure mode in
+  //      boolean form, invisible to a clean/planted pair because false ≡ absent.
+  //      CLEAN: all three read empty/false on the untouched substrate (the state in
+  //      which their arms report 0). RED: a planted stair-gap and a planted
+  //      hall-gap must each fire through read(), independently, without cross-
+  //      contaminating the other flag. (The unreachable reader's RED direction is
+  //      C6's planted 'UNREACHABLE-ONLY', already watched above.)
+  const circ = base.circulation!;
+  const hasFields = (['corridorStairGap', 'corridorHallGap', 'unreachableRoomNames'] as const)
+    .every((f) => Object.prototype.hasOwnProperty.call(circ, f));
+  const rClean = read('apartmentLayout', 'ctl/ci14-clean', base);
+  const rStair = read('apartmentLayout', 'ctl/ci14-stair',
+    { ...cloneOption(base), circulation: { ...circ, corridorStairGap: true } });
+  const rHall = read('apartmentLayout', 'ctl/ci14-hall',
+    { ...cloneOption(base), circulation: { ...circ, corridorHallGap: true } });
+  check('C7 CI-1/CI-4 readers · spelling + both directions',
+    hasFields
+      && !rClean.corridorStairGap && !rClean.corridorHallGap && rClean.unreachable.length === 0
+      && rStair.corridorStairGap && !rStair.corridorHallGap
+      && rHall.corridorHallGap && !rHall.corridorStairGap,
+    `engine emits the exact field names=${hasFields} (want true) · clean substrate stair/hall/unreachable=`
+      + `${rClean.corridorStairGap}/${rClean.corridorHallGap}/${rClean.unreachable.length} (want false/false/0) · `
+      + `planted stair-gap fires=${rStair.corridorStairGap} hall stays=${rStair.corridorHallGap} (want true/false) · `
+      + `planted hall-gap fires=${rHall.corridorHallGap} stair stays=${rHall.corridorStairGap} (want true/false)`);
+
   return { ok, passed, lines: out };
 }
 
@@ -481,22 +549,37 @@ function main(): number {
     lines.push(`    SUBJECTS: ${rs.length} case(s) driven · ${shipped.length} shipped an option · ${rooms} room(s) examined`);
     lines.push(`    verdict CARRIED (CI-0): ${measured.length}/${shipped.length} — an absent block is NOT MEASURED, never sound (C70 §2.2)`);
     lines.push(`    ⛔ CI-2  DOORLESS (LEDGERED SUBJECT): ${doorless.length}/${shipped.length} (${pct(doorless.length, shipped.length)}) case(s) ship a room with NO DOOR AT ALL`);
-    // Enumerated in FULL, never truncated: the ledger is keyed on these cases and a
-    // reader must be able to reconcile it against this block without re-running.
+    // Every ledgered class is enumerated in FULL, never truncated: the ledger is
+    // keyed on these cases and a reader must be able to reconcile it against this
+    // block without re-running.
     for (const r of doorless) {
       const names = (r.carriedDoorless.length ? r.carriedDoorless : r.independentDoorless).join(', ');
       lines.push(`         · ${r.key} → ${names}`);
     }
-    lines.push(`    ── the OTHER two sets, counted under their OWN names and NEVER merged into the above (C75 §1.2):`);
-    lines.push(`       CI-1 UNREACHABLE (sealed by BFS):     ${unreachable.length}/${measured.length} (${pct(unreachable.length, measured.length)})`);
-    lines.push(`       NO DOOR ONTO CIRCULATION (served-thru): ${unrouted.length}/${measured.length} (${pct(unrouted.length, measured.length)})`);
-    lines.push(`       hard-INVALID winners shipped anyway:   ${hardInvalid.length}/${measured.length} (${pct(hardInvalid.length, measured.length)}) — §TOPO-HARD-REJECT-ALL`);
-    lines.push(`       CI-4 corridor↔stair / ↔hall gap:       ${gaps.length}/${measured.length} (${pct(gaps.length, measured.length)})`);
-    lines.push(`       ⚠ NOT ledgered by this gate. They are SPEC-49's CI-1/CI-4, which need a product decision this gate must not pre-empt.`);
+    lines.push(`    ⛔ CI-1  UNREACHABLE (LEDGERED SUBJECT since 2026-08-14, founder decision): ${unreachable.length}/${measured.length} (${pct(unreachable.length, measured.length)}) case(s) carry a room SEALED by BFS from the entrance`);
+    for (const r of unreachable) {
+      lines.push(`         · ${r.key} → ${r.unreachable.join(', ')}`);
+    }
+    lines.push(`    ⛔ CI-4  CORRIDOR-CONTIGUITY GAP (LEDGERED SUBJECT since 2026-08-14, same decision): ${gaps.length}/${measured.length} (${pct(gaps.length, measured.length)}) case(s) whose corridor shares no door-width with its origin`);
+    for (const r of gaps) {
+      const which = [r.corridorStairGap ? 'corridor↔stair' : '', r.corridorHallGap ? 'corridor↔hall' : ''].filter(Boolean).join(' + ');
+      lines.push(`         · ${r.key} → ${which}`);
+    }
+    lines.push(`    ── the sets that remain MEASURED AND PRINTED but NOT ledgered, counted under their OWN names and NEVER merged into the above (C75 §1.2):`);
+    lines.push(`       NO DOOR ONTO CIRCULATION (served-thru): ${unrouted.length}/${measured.length} (${pct(unrouted.length, measured.length)}) — not CI-1 (an en-suite may be served through its master); no decision covers it`);
+    lines.push(`       hard-INVALID winners shipped anyway:   ${hardInvalid.length}/${measured.length} (${pct(hardInvalid.length, measured.length)}) — §TOPO-HARD-REJECT-ALL; the union of many rules, not one class`);
+    lines.push(`       ⚠ nothing fails if either of these two doubles. That silence is NAMED in the UNPROVEN block, never left to read as coverage.`);
 
     for (const r of rs) {
       if (r.shipped && !r.measured) findings.push(`UNMEASURED::${gen}::${r.key}`);
       if (r.carriedDoorless.length > 0 || r.independentDoorless.length > 0) findings.push(`DOORLESS::${gen}::${r.key}`);
+      // CI-1/CI-4 — ledgered 2026-08-14 (founder decision, SPEC-49 §4). Both read
+      // the CARRIED verdict, so they can only fire on MEASURED options — and an
+      // option that LOSES its verdict fires UNMEASURED above rather than silently
+      // dropping out of these classes.
+      if (r.unreachable.length > 0) findings.push(`UNREACHABLE::${gen}::${r.key}`);
+      if (r.corridorStairGap) findings.push(`CORRIDOR-STAIR-GAP::${gen}::${r.key}`);
+      if (r.corridorHallGap) findings.push(`CORRIDOR-HALL-GAP::${gen}::${r.key}`);
     }
   }
 
@@ -520,7 +603,14 @@ function main(): number {
   // ARM D — the ledger, both directions.
   let ledger: Ledger | null = null;
   try { ledger = JSON.parse(readFileSync(LEDGER_PATH, 'utf8')) as Ledger; } catch { ledger = null; }
-  const declaredKeys = new Set((ledger?.doorlessCases ?? []).map((r) => r.key));
+  // All four classes declare into ONE key set — a missing array reads as "declared
+  // nothing" for its class, which makes every finding of that class UNLEDGERED and
+  // exits 3. Deleting an array from the ledger is therefore loud, never a bypass.
+  const declaredKeys = new Set([
+    ...(ledger?.doorlessCases ?? []),
+    ...(ledger?.unreachableCases ?? []),
+    ...(ledger?.corridorGapCases ?? []),
+  ].map((r) => r.key));
   const measuredKeys = new Set(findings);
   const stale = [...declaredKeys].filter((k) => !measuredKeys.has(k)).sort();
   // `declared` counts only ledger rows that are STILL MEASURED, so an UNLEDGERED
@@ -548,10 +638,17 @@ function main(): number {
   lines.push('  ◌ It reads the ENGINE payload, never the BUILT MODEL. Everything downstream of `LayoutOption` — executePlan,');
   lines.push('    the wall-opening cascade, room re-detection — is outside this gate. A door that is emitted and then dropped');
   lines.push('    at build time is invisible here.');
-  lines.push('  ◌ CI-1 and CI-4 are MEASURED AND PRINTED above but NOT LEDGERED. Their silence is not coverage: nothing fails');
-  lines.push('    if the unreachable rate doubles. That gate is SPEC-49 §4 CI-1 and needs the founder decision §4 names.');
-  lines.push('  ◌ The reachability figure is the ENGINE\'s own (`unreachableRoomIds`), which SPEC-49 §7 records as duplicate-name');
-  lines.push('    LATENT-unsafe. It is latent, not active, only because §DUP-NAME-UNIQUE mints unique names — a guard, not a fix.');
+  lines.push('  ◌ SERVED-THROUGH (no door onto circulation) and HARD-INVALID-WINNER rates are MEASURED AND PRINTED above but');
+  lines.push('    NOT LEDGERED: nothing fails if either doubles. Served-through is not CI-1 (an en-suite may legitimately be');
+  lines.push('    served through its master, SPEC-49 §1) and no founder decision covers it; hard-invalid winners are');
+  lines.push('    §TOPO-HARD-REJECT-ALL, the union of many rules rather than one class. Named here, never read as coverage.');
+  lines.push('  ◌ The CI-4 ledger covers the CARRIED storey-scale contiguity flags ONLY. Building-scale core reachability is');
+  lines.push('    §RESI-CORE-CIRCULATION\'s (enforced in the orchestrator, measured 0/34 orphans); CI-4\'s "every private room');
+  lines.push('    takes a DIRECT door onto the corridor" half is the SERVED-THROUGH set above — measured, printed, unledgered.');
+  lines.push('  ◌ The reachability figure is the ENGINE\'s own (`unreachableRoomIds`) — the CI-1 ledger pins the engine\'s own');
+  lines.push('    verdict about itself, there is no independent BFS in this gate — and SPEC-49 §7 records that predicate as');
+  lines.push('    duplicate-name LATENT-unsafe. Latent, not active, only because §DUP-NAME-UNIQUE mints unique names — a');
+  lines.push('    guard, not a fix. C7 watches the FIELD SPELLING and C6 the reader; neither re-derives the BFS.');
 
   const floors: Floor[] = [
     { what: 'apartmentLayout cases driven', measured: readings.filter((r) => r.generator === 'apartmentLayout').length, min: MIN_APARTMENT_SUBJECTS },
@@ -564,7 +661,7 @@ function main(): number {
   ];
 
   return reportGate({
-    gate: 'check-generator-circulation (SPEC-49 CI-2 · C70 §5)',
+    gate: 'check-generator-circulation (SPEC-49 CI-1/CI-2/CI-4 · C70 §5)',
     floors,
     lines,
     findings: findings.length,

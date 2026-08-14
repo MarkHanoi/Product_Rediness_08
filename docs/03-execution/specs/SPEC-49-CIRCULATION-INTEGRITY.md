@@ -185,13 +185,25 @@ For **CI-3** the shape of the failure is different and simpler: the correct mach
 Each is stated so it can be built and watched red (C70 §5.6). **None of these is implemented by
 this audit — this lane diagnoses.**
 
+> **2026-08-14 — FOUNDER DECISION (the standing §4 decision, LEDGER half).** The founder
+> authorized ledgering **CI-1 and CI-4** in `tools/ga-gate/check-generator-circulation.ts`
+> alongside CI-2, at their **measured baselines, shrink-only** (C73 §3.4 — pinned AT the executed
+> reading, never above it). Pinned same-commit at: CI-1 UNREACHABLE **5/106 · 7/24 · 0/34**,
+> CI-4 CORRIDOR-GAP **0/106 · 8/24 (6 stair + 2 hall) · 0/34** (apartment · house · residential),
+> as named rows per (class × sweep case) in `generator-circulation-ledger.json` (C70 §5.5 — never
+> bare counts). The gate exits 3 on regression AND on a stale (paid-but-unstruck) row; both
+> directions were watched red before the pin (C70 §5.6). **This closes only the ledger question.**
+> The RUNTIME-REFUSAL half of CI-1 below — refuse the storey vs ship-with-blocking-banner —
+> remains a separate open decision the ledger does not pre-empt; silently shipping remains ruled
+> out as the end state.
+
 | Invariant | Gate | Where | Shape |
 |---|---|---|---|
 | **CI-0 (prerequisite)** | **Carry the verdict across the emit boundary** | `emitGeometry.ts` → `LayoutOption` | Add a `circulation: { hardValid, hardFailedRules, unreachableRoomNames, doorlessRoomNames }` block to the emitted option. **Nothing else on this list is buildable until this exists** — today the verdict is computed and thrown away. Additive; no behaviour change on its own. |
-| **CI-1** | **Final orchestrator gate** | `houseOrchestrator.assembleHouse`, `runApartmentCellLayout`, `generate.ts` | A winner ships only if `fraction === 1`. Requires a decision the founder owns: house currently CANNOT refuse a storey. Options: (a) refuse and surface the reason, (b) ship + a blocking honest banner naming the sealed rooms. **Silently shipping is the one option this SPEC rules out.** |
+| **CI-1** | **Final orchestrator gate** | `houseOrchestrator.assembleHouse`, `runApartmentCellLayout`, `generate.ts` | A winner ships only if `fraction === 1`. Requires a decision the founder owns: house currently CANNOT refuse a storey. Options: (a) refuse and surface the reason, (b) ship + a blocking honest banner naming the sealed rooms. **Silently shipping is the one option this SPEC rules out.** *2026-08-14: the CI ledger half is DECIDED and BUILT (see the decision block above); the (a)-vs-(b) runtime half is still open.* |
 | **CI-2** | **Shrink-only doorless ratchet** | `tools/ga-gate/check-generator-circulation.ts` (new) | Drives the three generators over the committed sweeps, counts doorless rooms, fails if the count exceeds a baseline. Start at the measured 7/106 · 11/24 · 0/34, ratchet to 0. This is the cheapest real gate on the list and needs no product decision. |
 | **CI-3** | **Wire the sector, then hard-assert it** | schema → `OpeningPose` → `placeSolver` | Three ordered steps: (1) thread `Door.swing` through the wall-opening payload into `OpeningPose`; (2) replace `doorObstacles` with `doorSwingKeepout`'s sector at all four duplicate sites, deleting the drift; (3) add an AREA validator to `validate.ts` and promote it from soft-warn to hard. Step 1 is the blocker and is the only one that leaves the furnisher. |
-| **CI-4** | **Carry contiguity onto the option** | `enumerate.ts` → `emitGeometry.ts` | `corridorStairGap` / `corridorHallGap` exist per-candidate and are dropped. Carry them (part of CI-0's block), then gate. Building scale is already enforced and measured clean — do not rebuild it. |
+| **CI-4** | **Carry contiguity onto the option** | `enumerate.ts` → `emitGeometry.ts` | `corridorStairGap` / `corridorHallGap` exist per-candidate and are dropped. Carry them (part of CI-0's block), then gate. Building scale is already enforced and measured clean — do not rebuild it. *2026-08-14: carried and LEDGERED (storey scale), see the decision block above.* |
 
 **Ordering.** CI-0 first — it is a small additive change and it unblocks CI-1, CI-2 and CI-4. CI-2's
 ratchet is the cheapest independent win. CI-3 is a separate track that shares no code with the
@@ -226,7 +238,7 @@ before the gate work rather than after.
 | Id | What is UNPROVEN | Instrument needed |
 |---|---|---|
 | **CI-3-INSTRUMENT** | the production furniture-vs-door rate on GENERATED rooms (multi-door, off-centre, non-rect). Measured floor 1% on synthetic rooms. | end-to-end probe `generateDeterministicLayouts → room payload → furnishRoom`. Blocked on the L7-only payload builder (§5). |
-| **CI-4-INSTRUMENT** | the storey-scale corridor-contiguity rate on SHIPPED artefacts | blocked on CI-0 — `corridorStairGap`/`corridorHallGap` are dropped at emit. |
+| **CI-4-INSTRUMENT** | ~~the storey-scale corridor-contiguity rate on SHIPPED artefacts~~ **EXISTS since 2026-08-14**: `check-generator-circulation.ts` reads the carried flags and ledgers the rate (8/24 house · 0/106 apartment · 0/34 residential). | ~~blocked on CI-0~~ CI-0 shipped the flags; the instrument is the gate. |
 | **CI-5-INSTRUMENT** | whether these rates hold on REAL user plates (the sweeps use synthetic convex quads and founder-scale rectangles) | a corpus of real project shells replayed through the generators. |
 | **CI-6-INSTRUMENT** | the DUPLICATE-NAME latent defect (§7) firing in production | it is guarded upstream and measured absent (0 duplicate-named winners in 106); the instrument exists, the risk does not currently realise. |
 
