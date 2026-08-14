@@ -1115,7 +1115,20 @@ function main(): number {
   for (const s of a.computedTypeWrites.slice(0, 6)) lines.push(`      ${s.file}:${s.line}  ${s.text}`);
   lines.push('  • runtime reachability — a writer that exists but is never reached counts as PRESENT.');
   lines.push('  • correctness — a writer emitting the WRONG edge passes every arm.');
-  lines.push('  • move-time invalidation (C71 §1.2 semantic 5) — NO ARM. UNPROVEN for every family.');
+  // §GR-12 — this line used to read "NO ARM. UNPROVEN for every family." That
+  // was true when written and is now FALSE in the healthy direction, which is
+  // the same class of defect the register keeps catching in its own rows. An arm
+  // exists; it is EXECUTED and it is not in this file, because the question is a
+  // runtime one and no static scan can answer it (C79 §8.3(b)). What this GATE
+  // cannot see is unchanged — hence the line stays, restated to say which half
+  // is now measured and by what, so nobody re-derives "unproven" from silence.
+  lines.push('  • move-time invalidation (C71 §1.2 semantic 5) — NO ARM **HERE**, and no static arm is possible.');
+  lines.push('      MEASURED ELSEWHERE, executed: tools/rac-conformance/certification/__tests__/graphmove.cert.ts');
+  lines.push('      (H6). Its first reading: `boundedBy` is STALE after a real wall move — the move command');
+  lines.push('      performs no invalidation and the edge still names a wall that no longer bounds the room;');
+  lines.push('      `sitsOn` and `hosts` correctly SURVIVE (id-keyed edges are move-INVARIANT by construction).');
+  lines.push('      STILL UNPROVEN: every family H6 does not drive, and SUBSCRIBER REACHABILITY — whether any');
+  lines.push('      production path drives a re-detect on a move (GR-18/CE-05 territory).');
   lines.push('  • dynamic dispatch — GraphQueryService reads a payload string; deliberate under-count (§1.3).');
   lines.push('');
   lines.push(`  cascade purge (d2) sites: ${a.cascadeSites.length} · rebuild implementations: ${a.rebuildFiles.join(', ') || '(none)'}`);
