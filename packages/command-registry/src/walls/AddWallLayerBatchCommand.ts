@@ -47,6 +47,7 @@ import {
     CommandContext,
 } from '../types';
 import { trace, type Tracer } from '@opentelemetry/api';
+import { childRefusalText } from '../refusal/childRefusalText';
 import { UpdateWallSystemTypeCommand } from './UpdateWallSystemTypeCommand';
 
 let _cachedTracer: Tracer | null = null;
@@ -204,7 +205,9 @@ export class AddWallLayerBatchCommand implements Command {
         for (const w of walls) {
             const v = this._child(w).canExecute(ctx);
             if (v.ok) acceptable++;
-            else refusals.push(v.reason ?? `Wall ${w.id} refused the layer`);
+            // §REFUSAL-IDENTITY (GE-09): a stated reason passes VERBATIM; a silent
+            // child is NAMED as silent — never re-worded into a manufactured verdict.
+            else refusals.push(childRefusalText(v.reason, 'UpdateWallSystemTypeCommand.canExecute', `wall ${w.id}`));
         }
         if (acceptable === 0) {
             return {
@@ -232,7 +235,7 @@ export class AddWallLayerBatchCommand implements Command {
                     const child = this._child(w);
                     const v = child.canExecute(ctx);
                     if (!v.ok) {
-                        this._skipped.push({ wallId: w.id, reason: v.reason ?? 'refused' });
+                        this._skipped.push({ wallId: w.id, reason: childRefusalText(v.reason, 'UpdateWallSystemTypeCommand.canExecute', `wall ${w.id}`) });
                         continue;
                     }
                     const r = child.execute(ctx);
@@ -240,7 +243,9 @@ export class AddWallLayerBatchCommand implements Command {
                         this.executedChildren.push(child);
                         affected.push(w.id);
                     } else {
-                        this._skipped.push({ wallId: w.id, reason: r.info?.[0] ?? 'execution refused' });
+                        // Same seam, same discipline — a child that FAILED its execute
+                        // without a message is named, not paraphrased as 'execution refused'.
+                        this._skipped.push({ wallId: w.id, reason: childRefusalText(r.info?.[0], 'UpdateWallSystemTypeCommand.execute', `wall ${w.id}`) });
                     }
                 }
 

@@ -239,12 +239,10 @@ const BASELINE: readonly Offender[] = [
     // FIXED + DE-LISTED 2026-08-14 (GE-09v3, slabs family): all three seams of
     // UpdateSlabsSystemTypeBatchCommand render through the shared
     // childRefusalText(). Baseline 79 → 77.
-    { file: "packages/command-registry/src/walls/AddWallLayerBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Wall ${w.id} refused the layer`);", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/walls/AddWallLayerBatchCommand.ts", fragment: "this._skipped.push({ wallId: w.id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/walls/UpdateWallsColorBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Wall ${wallId} refused the colour change`);", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/walls/UpdateWallsColorBatchCommand.ts", fragment: "this._skipped.push({ wallId, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/walls/UpdateWallsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Wall ${wallId} refused the type change`);", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/walls/UpdateWallsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ wallId, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-14 (GE-09v3, WALLS family — the fifth and, for
+    // command-registry's batch commands, the last). All three seams of all three
+    // wall batch commands (AddWallLayer, UpdateWallsColor, UpdateWallsSystemType)
+    // render through the shared childRefusalText(). Baseline 77 → 71, arm A 44 → 38.
     // FIXED + DE-LISTED 2026-08-14 (§REFUSAL-IDENTITY-CANPLACE, GE-09, consumer pass).
     // CreateWindowsParametricBatchCommand's child (CreateWallOpeningCommand) now renders
     // its canPlace refusals through the shared `canPlaceRefusalText()` — the [OCC_*]

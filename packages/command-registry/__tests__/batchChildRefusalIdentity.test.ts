@@ -34,6 +34,8 @@ import { UpdateCeilingsSystemTypeBatchCommand } from '../src/ceilings/UpdateCeil
 import { UpdateCeilingLayersCommand } from '../src/ceilings/UpdateCeilingLayersCommand';
 import { UpdateSlabsSystemTypeBatchCommand } from '../src/slabs/UpdateSlabsSystemTypeBatchCommand';
 import { UpdateSlabLayersCommand } from '../src/slabs/UpdateSlabLayersCommand';
+import { UpdateWallsColorBatchCommand } from '../src/walls/UpdateWallsColorBatchCommand';
+import { UpdateWallColorCommand } from '../src/walls/UpdateWallColorCommand';
 import { childRefusalText, REFUSED_WITHOUT_REASON_CODE } from '../src/refusal/childRefusalText';
 import type { CommandContext } from '../src/types';
 
@@ -395,6 +397,119 @@ describe('UpdateSlabsSystemTypeBatchCommand — child refusals keep their identi
         expect(v.warnings).toBeUndefined();
 
         const r = cmd.execute(sctx);
+        expect(r.success).toBe(true);
+        expect(cmd.skipped).toHaveLength(0);
+        const info = (r.info ?? []).join('\n');
+        expect(info).not.toContain(MARKER);
+        expect(info).not.toContain('skipped');
+    });
+});
+
+// ─── walls: UpdateWallsColorBatchCommand ─────────────────────────────────────
+// The FIFTH and last command-registry batch family. Same three seams, same
+// shared renderer. Driven through UpdateWallsColorBatchCommand because its child
+// (UpdateWallColorCommand) is the one whose `execute()` returns `success: false`
+// carrying NO `info` at all — so the THIRD seam (`r.info?.[0]`) is provably
+// exercised here against a real child, not only via a mock.
+
+interface FakeWall { id: string; baseLine: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }]; materialColor?: string }
+
+function fakeWallCtx(walls: FakeWall[]): CommandContext {
+    const byId = new Map(walls.map(w => [w.id, w]));
+    return {
+        stores: {
+            wallStore: {
+                getAll: () => [...byId.values()],
+                getById: (id: string) => byId.get(id),
+                updateWall: (next: { id: string }) => {
+                    const w = byId.get(next.id);
+                    if (w) Object.assign(w, next);
+                    return w;
+                },
+                restoreSnapshot: (snap: { id: string }) => {
+                    const w = byId.get(snap.id);
+                    if (w) Object.assign(w, snap);
+                    return w;
+                },
+            },
+        },
+    } as unknown as CommandContext;
+}
+
+describe('UpdateWallsColorBatchCommand — child refusals keep their identity (GE-09)', () => {
+    const W1 = 'ge09-wall-1';
+    const GHOST = 'ge09-wall-ghost';
+    const COLOR = '#6600ff';
+
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    const live = (): FakeWall[] => [
+        { id: W1, baseLine: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }] },
+    ];
+
+    it('VERBATIM: a child that states its reason has it reach CommandResult.info untouched', () => {
+        const wctx = fakeWallCtx(live());
+        const cmd = new UpdateWallsColorBatchCommand({ wallIds: [W1, GHOST], materialColor: COLOR });
+        const r = cmd.execute(wctx);
+        expect(r.success).toBe(true);
+        const info = (r.info ?? []).join('\n');
+        expect(info).toContain(`Wall ${GHOST} not found`);
+        expect(info).not.toContain(MARKER);
+        expect(cmd.skipped.map(s => s.reason).join('\n')).toContain(`Wall ${GHOST} not found`);
+    });
+
+    it('VERBATIM at canExecute: an all-refused batch surfaces the child sentence in .reason', () => {
+        const wctx = fakeWallCtx(live());
+        const cmd = new UpdateWallsColorBatchCommand({ wallIds: [GHOST], materialColor: COLOR });
+        const v = cmd.canExecute(wctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(`Wall ${GHOST} not found`);
+    });
+
+    it('SILENT child: a reason-less refusal arrives NAMED, not paraphrased as "refused"', () => {
+        vi.spyOn(UpdateWallColorCommand.prototype, 'canExecute').mockReturnValue({ ok: false });
+        const wctx = fakeWallCtx(live());
+        const cmd = new UpdateWallsColorBatchCommand({ wallIds: [W1], materialColor: COLOR });
+
+        const v = cmd.canExecute(wctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(MARKER);
+        expect(v.reason).toContain('UpdateWallColorCommand.canExecute');
+        expect(v.reason).toContain(`wall ${W1}`);
+
+        const r = cmd.execute(wctx);
+        expect(r.success).toBe(false);
+        expect((r.info ?? []).join('\n')).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).not.toBe('refused');
+    });
+
+    it('SILENT at the EXECUTE seam: a child that fails with NO info is named, not "execution refused"', () => {
+        // The child passes validation, then its execute() returns success:false with
+        // no `info` — the real UpdateWallColorCommand's own missing-wall path. The
+        // third seam must name it rather than invent 'execution refused'.
+        vi.spyOn(UpdateWallColorCommand.prototype, 'canExecute').mockReturnValue({ ok: true });
+        vi.spyOn(UpdateWallColorCommand.prototype, 'execute').mockReturnValue({ success: false, affectedElementIds: [] });
+        const wctx = fakeWallCtx(live());
+        const cmd = new UpdateWallsColorBatchCommand({ wallIds: [W1], materialColor: COLOR });
+
+        const r = cmd.execute(wctx);
+        expect(r.success).toBe(false);
+        expect(cmd.skipped).toHaveLength(1);
+        expect(cmd.skipped[0]!.reason).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).toContain('UpdateWallColorCommand.execute');
+        expect(cmd.skipped[0]!.reason).toContain(`wall ${W1}`);
+        expect(cmd.skipped[0]!.reason).not.toContain('execution refused');
+    });
+
+    it('SILENCE CONTROL: a fully-legal batch renders NO refusal line and NO absence marker', () => {
+        const wctx = fakeWallCtx(live());
+        const cmd = new UpdateWallsColorBatchCommand({ wallIds: [W1], materialColor: COLOR });
+        const v = cmd.canExecute(wctx);
+        expect(v.ok).toBe(true);
+        expect(v.warnings).toBeUndefined();
+
+        const r = cmd.execute(wctx);
         expect(r.success).toBe(true);
         expect(cmd.skipped).toHaveLength(0);
         const info = (r.info ?? []).join('\n');
