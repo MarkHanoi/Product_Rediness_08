@@ -26,6 +26,11 @@ import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandS
 import { resolveActiveLevel } from './activeLevel.js';
 import { nameDetectedRooms } from './nameDetectedRooms.js';
 import { resolveBlindFacades } from './resolveBlindFacades.js';
+import {
+    checkPlannedWallsInsideBoundary,
+    boundaryFindingMessage,
+    roomCountDivergenceMessage,
+} from './boundaryGuard.js';
 
 /** T1.W-C (2026-05-30) — gather existing shell walls from the wall store
  *  for a given level. Returns world-metres { id, start, end } records for
@@ -117,6 +122,21 @@ export class ApartmentLayoutExecutor {
             // dropped with the dropped externals.
             const shellWalls = gatherShellWalls(level.id);
             console.log(`[apartment-layout] §T1.W-C shellWalls=${shellWalls.length}`);
+
+            // §L-907A-BOUNDARY-GUARD — the executor chokepoint: planned interior
+            // walls outside the CAPTURED boundary are a NAMED, user-visible
+            // finding (toast + console), never a silent build. Covers every path
+            // into the executor (AI relay / D-TGL / procedural / hand-built).
+            // 'unmeasurable' (unclosed perimeter) is reported too — NOT MEASURED
+            // is never rendered as a pass (C70 §2.2).
+            const boundaryCheck = checkPlannedWallsInsideBoundary(option.walls, shellWalls);
+            const boundaryFinding = boundaryFindingMessage(boundaryCheck);
+            if (boundaryFinding) {
+                console.warn(`[apartment-layout] §L-907A-BOUNDARY-GUARD ${boundaryCheck.kind} — ${boundaryFinding}`);
+                runtime.events?.emit('pryzm:toast', { message: boundaryFinding, severity: 'error' });
+            } else {
+                console.log(`[apartment-layout] §L-907A-BOUNDARY-GUARD inside — all ${boundaryCheck.total} planned interior walls within the captured boundary`);
+            }
 
             // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — resolve the BLIND/PARTY shell
             // walls (façades abutting a neighbour within setback). On those façades
@@ -470,6 +490,13 @@ export class ApartmentLayoutExecutor {
                 const detected = rs?.getByLevel?.(levelId)?.length ?? -1;
                 const expected = option.rooms.length;
                 console.log(`[apartment-layout] room-detection diagnostic — detected=${detected} / D-TGL expected=${expected}${detected >= 0 && detected < expected ? ' ⚠ open-plan rooms may be merging (boundary lines not splitting)' : ''}`);
+                // §L-907b — RESULT ≠ PROPOSAL is a USER-VISIBLE report with both
+                // numbers, not a console artefact (§15.7 lesson 1 / C78 §10
+                // execute-the-same-plan). Same instrument, now a toast too.
+                const divergence = roomCountDivergenceMessage(detected, expected);
+                if (divergence) {
+                    runtime.events?.emit('pryzm:toast', { message: divergence, severity: 'error' });
+                }
             }, 500);
 
             emitDone(doorsMade);
