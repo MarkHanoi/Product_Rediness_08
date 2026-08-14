@@ -39,6 +39,7 @@ import type { BufferGeometryDescriptor } from '../types/BufferGeometryDescriptor
 import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import type { MaterialKey } from '../types/MaterialKey.js';
 import { asMaterialKey } from '../types/MaterialKey.js';
+import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
 
 const HASH_SCHEMA_VERSION = 'extrude:1' as const;
 
@@ -273,15 +274,13 @@ export function composeExtrudeHash(
   return `${HASH_SCHEMA_VERSION}|h=${heightM.toFixed(6)}|y=${worldY.toFixed(6)}|m=${material}|v=${verts}`;
 }
 
-/** Signed area of the closed polyline (positive when CCW in XZ from +Y). */
+/**
+ * Signed area of the closed polyline (positive when CCW in XZ from +Y).
+ * §C73-AREA-CANONICAL — delegates to the kernel's ONE shoelace accumulation
+ * (bit-identical arithmetic; winding stays the sign of the same computation).
+ */
 function computeSignedArea(profile: readonly ProfilePoint[]): number {
-  let acc = 0;
-  for (let i = 0; i < profile.length; i++) {
-    const a = profile[i]!;
-    const b = profile[(i + 1) % profile.length]!;
-    acc += a.x * b.z - b.x * a.z;
-  }
-  return 0.5 * acc;
+  return polygonSignedAreaOrdinates(profile.length, (i) => profile[i]!.x, (i) => profile[i]!.z);
 }
 
 /**

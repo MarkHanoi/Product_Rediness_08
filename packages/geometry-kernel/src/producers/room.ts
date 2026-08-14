@@ -22,6 +22,7 @@ import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeRoomGeometryHash } from './_internal/composeRoomGeometryHash.js';
+import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
 
 const FILL_FALLBACK_COLOR = '#b3d8ff';
 const NODE_EPSILON_DEFAULT = 1e-3; // 1 mm — wall endpoint snap
@@ -182,14 +183,10 @@ function nextFaceEdge(e: HalfEdge): HalfEdge | undefined {
   return v.out[nextIdx];
 }
 
+// §C73-AREA-CANONICAL — delegates to the kernel's ONE shoelace accumulation
+// (bit-identical arithmetic; winding stays the sign of the same computation).
 function signedAreaOf(loop: readonly { x: number; z: number }[]): number {
-  let sum = 0;
-  for (let i = 0, n = loop.length; i < n; i++) {
-    const a = loop[i]!;
-    const b = loop[(i + 1) % n]!;
-    sum += a.x * b.z - b.x * a.z;
-  }
-  return sum / 2;
+  return polygonSignedAreaOrdinates(loop.length, (i) => loop[i]!.x, (i) => loop[i]!.z);
 }
 
 function extractFaces(graph: Graph): Face[] {

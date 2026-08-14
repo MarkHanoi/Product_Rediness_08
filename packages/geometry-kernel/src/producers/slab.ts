@@ -22,6 +22,7 @@ import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeSlabGeometryHash } from './_internal/composeSlabGeometryHash.js';
 import { earcut } from './_internal/earcut.js';
+import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
 
 export type SlabProducer = (
   slab: Readonly<SlabData>,
@@ -44,15 +45,13 @@ function composeSlabMaterialKey(
 
 interface Pt2 { readonly x: number; readonly z: number }
 
-/** Compute the signed XZ area (Y-up convention).  Positive = CCW from above. */
+/**
+ * Compute the signed XZ area (Y-up convention).  Positive = CCW from above.
+ * §C73-AREA-CANONICAL — delegates to the kernel's ONE shoelace accumulation
+ * (bit-identical arithmetic; winding stays the sign of the same computation).
+ */
 function signedArea(loop: readonly Pt2[]): number {
-  let sum = 0;
-  for (let i = 0, n = loop.length; i < n; i++) {
-    const a = loop[i]!;
-    const b = loop[(i + 1) % n]!;
-    sum += a.x * b.z - b.x * a.z;
-  }
-  return sum / 2;
+  return polygonSignedAreaOrdinates(loop.length, (i) => loop[i]!.x, (i) => loop[i]!.z);
 }
 
 function ensureCCW(loop: readonly Pt2[]): Pt2[] {

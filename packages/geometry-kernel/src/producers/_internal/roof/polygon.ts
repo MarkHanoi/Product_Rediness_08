@@ -12,6 +12,8 @@
 // THREE-FREE: zero THREE imports per K1B-1 (real-enforced by
 // `pryzm/no-three-in-kernel`).
 
+import { polygonSignedAreaOrdinates } from '../../../pure/polygonOffset.js';
+
 export type Pt = readonly [number, number];
 
 export interface BBox {
@@ -41,16 +43,13 @@ export function centroid(pts: readonly Pt[]): Pt {
   return [cx / n, cz / n];
 }
 
-/** Signed area of a polygon — positive when CCW, negative when CW. */
+/**
+ * Signed area of a polygon — positive when CCW, negative when CW.
+ * §C73-AREA-CANONICAL — delegates to the kernel's ONE shoelace accumulation
+ * (bit-identical arithmetic; winding stays the sign of the same computation).
+ */
 export function signedArea(pts: readonly Pt[]): number {
-  const n = pts.length;
-  let s = 0;
-  for (let i = 0; i < n; i++) {
-    const [x1, z1] = pts[i]!;
-    const [x2, z2] = pts[(i + 1) % n]!;
-    s += x1 * z2 - x2 * z1;
-  }
-  return s * 0.5;
+  return polygonSignedAreaOrdinates(pts.length, (i) => pts[i]![0], (i) => pts[i]![1]);
 }
 
 /** Force CCW winding by reversing if signedArea is negative. */

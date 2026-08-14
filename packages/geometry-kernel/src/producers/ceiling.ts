@@ -16,6 +16,7 @@ import type { BufferGeometryDescriptor } from '../types/BufferGeometryDescriptor
 import type { JoinData } from '../types/JoinData.js';
 import { asMaterialKey, type MaterialKey } from '../types/MaterialKey.js';
 import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
+import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeCeilingGeometryHash } from './_internal/ceiling/composeCeilingGeometryHash.js';
@@ -38,14 +39,10 @@ function centroid(pts: readonly Pt2[]): Pt2 {
   return { x: sx / pts.length, z: sz / pts.length };
 }
 
+// §C73-AREA-CANONICAL — delegates to the kernel's ONE shoelace accumulation
+// (bit-identical arithmetic; winding stays the sign of the same computation).
 function signedArea(pts: readonly Pt2[]): number {
-  let s = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]!;
-    const b = pts[(i + 1) % pts.length]!;
-    s += a.x * b.z - b.x * a.z;
-  }
-  return s * 0.5;
+  return polygonSignedAreaOrdinates(pts.length, (i) => pts[i]!.x, (i) => pts[i]!.z);
 }
 
 export const produceCeiling: CeilingProducer = (ceiling, _joinData, worldY) => {
