@@ -8,6 +8,7 @@
 
 import { pointInPolygon } from './RoomPolygonUtils';
 import type { RoomData } from './RoomTypes';
+import { readRoomsDetermined, type RoomStoreDetermination } from './roomStoreDetermination';
 
 export interface ElementRef {
   id: string;
@@ -128,13 +129,44 @@ export class RoomContentsService {
     return contents;
   }
 
+  /**
+   * Which room(s) is this element in?
+   *
+   * §GR-10/GR-14 — the result now carries an OPTIONAL `undetermined`. Read it:
+   * `{ rooms: [], relationship: 'none' }` alone has always been ambiguous, and
+   * `undetermined` is the field that resolves it.
+   *
+   *   · `undetermined` ABSENT  → the room store was read, and this element
+   *                              genuinely belongs to no room. A real answer.
+   *   · `undetermined` PRESENT → the room store could not be read at all. The
+   *                              empty `rooms` says NOTHING about the building
+   *                              and must not be rendered as "no room".
+   *
+   * The field is optional and additive, so every existing caller keeps compiling
+   * and keeps its current behaviour — but a caller that wants the truth can now
+   * obtain it, which it could not before at any price.
+   */
   getRoomForElement(
     elementId: string,
     elementType?: string,
     levelIdHint?: string,
-  ): { rooms: RoomData[]; primaryRoomId: string | null; relationship: 'bounding' | 'hosted' | 'contained' | 'none' } {
+  ): {
+    rooms: RoomData[];
+    primaryRoomId: string | null;
+    relationship: 'bounding' | 'hosted' | 'contained' | 'none';
+    /** Present ONLY when the answer could not be determined. Never `[]`-shaped. */
+    undetermined?: Extract<RoomStoreDetermination, { kind: 'undetermined' }>;
+  } {
     const empty = { rooms: [] as RoomData[], primaryRoomId: null, relationship: 'none' as const };
     if (!elementId) return empty;
+
+    // Taken ONCE, before any branch: every branch below funnels into the same
+    // `empty`, so classifying at the end would have to guess which branch ran.
+    const determination = this.roomsDetermination();
+    const unreadable = determination.kind === 'undetermined'
+      ? { ...empty, undetermined: determination }
+      : null;
+    if (unreadable) return unreadable;
 
     const t = (elementType || '').toLowerCase().trim();
 
@@ -187,12 +219,33 @@ export class RoomContentsService {
     return empty;
   }
 
+  /**
+   * §GR-10/GR-14 — the DETERMINED room-store read. See
+   * `roomStoreDetermination.ts` for why this exists: the previous body of
+   * `_allRooms()` returned `[]` for three distinguishable cases (no rooms /
+   * store has no `getAll` / `getAll` threw) and `getRoomForElement` rendered all
+   * three as *"this element belongs to no room"*.
+   *
+   * Public because the distinction is worthless if only this class can see it —
+   * an unreadable store is a fact a caller may need to surface.
+   */
+  roomsDetermination(): RoomStoreDetermination {
+    return readRoomsDetermined(this.deps.roomStore, 'RoomContentsService.roomStore.getAll');
+  }
+
+  /**
+   * The rooms, or `[]`.
+   *
+   * ⚠ RETAINED DELIBERATELY, and it is NOT the defect. The internal callers
+   * below iterate and filter; for them "no rooms" and "unreadable" genuinely
+   * lead to the same loop body. The defect was that the distinction was
+   * DESTROYED here and therefore unavailable to anyone. It is now preserved in
+   * {@link roomsDetermination} and reported by `getRoomForElement`, and this
+   * accessor is a narrowing of that value rather than a second, rival read.
+   */
   private _allRooms(): RoomData[] {
-    try {
-      const fn = (this.deps.roomStore as any).getAll;
-      if (typeof fn === 'function') return fn.call(this.deps.roomStore) ?? [];
-    } catch { /* fall through */ }
-    return [];
+    const d = this.roomsDetermination();
+    return d.kind === 'determined' ? (d.rooms as RoomData[]) : [];
   }
 
   private _resolveHostWallId(elementId: string, type: string): string | null {

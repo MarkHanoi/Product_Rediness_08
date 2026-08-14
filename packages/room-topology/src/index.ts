@@ -87,6 +87,11 @@ export type { SerializedRoomTypeStore } from './RoomSystemTypeStore';
 export { RoomContentsService } from './RoomContentsService';
 export type { ElementRef, RoomContents, RoomContentsServiceDeps } from './RoomContentsService';
 
+// §GR-10/GR-14 — the room-store read determination. Exported because a
+// distinction only this package can see is a distinction nobody can act on.
+export { readRoomsDetermined } from './roomStoreDetermination';
+export type { RoomStoreDetermination, RoomStoreUndeterminedReason } from './roomStoreDetermination';
+
 export { RoomLabelRenderer } from './RoomLabelRenderer';
 
 export { RoomBoundaryBuilder } from './RoomBoundaryBuilder';
