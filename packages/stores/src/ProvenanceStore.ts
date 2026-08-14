@@ -28,6 +28,11 @@ import type {
     ContextSnapshot,
     RedactionRecord,
 } from '@pryzm/schemas/provenance';
+// §GR-10 / C78 §8.1 — the CLOSED undetermined vocabulary, imported type-only
+// and never restated here. `hydrate()` answers a RELATIONSHIP question (which
+// artefact derives from which); a slice that never recorded the edge set is
+// UNKNOWN, not a project with zero lineage.
+import type { UndeterminedReason } from '@pryzm/command-bus';
 
 /**
  * Version of the serialised provenance slice (PV-05).
@@ -68,6 +73,16 @@ export interface ProvenanceHydrateResult {
     redactions: number;
     dropped: ProvenanceDroppedRow[];
     absent: 'predates-provenance-persistence' | null;
+    /**
+     * §GR-10 · C78 §8.1 · C75 §1.4 — non-null when the slice was PRESENT but
+     * carried no `edges` member at all. `edges: 0` then means "nobody recorded
+     * the lineage relationships", which is NOT the same value as a slice
+     * carrying `edges: []` ("this project genuinely has no lineage edges").
+     * The former shape used `slice.edges ?? []`, which made the two identical.
+     * Callers that render or reason over lineage MUST branch on this before
+     * reading `edges`.
+     */
+    edgesUndetermined: UndeterminedReason | null;
 }
 
 /**
@@ -385,6 +400,7 @@ export class ProvenanceStore {
             redactions: 0,
             dropped: [],
             absent: null,
+            edgesUndetermined: null,
         };
         if (this._disposed) {
             throw new Error('ProvenanceStore: hydrate() after dispose');
@@ -393,6 +409,9 @@ export class ProvenanceStore {
             // C75 §1.4 — absence is a value WITH A REASON, never an
             // invented empty audit log.
             result.absent = 'predates-provenance-persistence';
+            // No slice at all ⇒ the lineage EDGE set was certainly never
+            // recorded either. Saying so keeps `edges: 0` unreadable as "none".
+            result.edgesUndetermined = 'RELATIONSHIP_NOT_RECORDED';
             return result;
         }
         if (slice.version !== PROVENANCE_SLICE_VERSION) {
@@ -445,16 +464,24 @@ export class ProvenanceStore {
                 drop('artefact', a.id, (err as Error).message);
             }
         }
-        for (const e of slice.edges ?? []) {
-            if (!e || typeof e.id !== 'string' || typeof e.fromArtefactId !== 'string') {
-                drop('edge', String((e as { id?: unknown })?.id ?? '<no id>'), 'missing id or fromArtefactId');
-                continue;
-            }
-            try {
-                this.addEdge(e);
-                result.edges++;
-            } catch (err) {
-                drop('edge', e.id, (err as Error).message);
+        // §GR-10 — the edge set is the RELATIONSHIP payload of this slice.
+        // `slice.edges ?? []` conflated "the writer never recorded lineage"
+        // with "there is no lineage"; the two now differ in the RESULT.
+        const persistedEdges: unknown = (slice as { edges?: unknown }).edges;
+        if (!Array.isArray(persistedEdges)) {
+            result.edgesUndetermined = 'RELATIONSHIP_NOT_RECORDED';
+        } else {
+            for (const e of persistedEdges as ProvenanceEdge[]) {
+                if (!e || typeof e.id !== 'string' || typeof e.fromArtefactId !== 'string') {
+                    drop('edge', String((e as { id?: unknown })?.id ?? '<no id>'), 'missing id or fromArtefactId');
+                    continue;
+                }
+                try {
+                    this.addEdge(e);
+                    result.edges++;
+                } catch (err) {
+                    drop('edge', e.id, (err as Error).message);
+                }
             }
         }
         for (const r of slice.redactions ?? []) {

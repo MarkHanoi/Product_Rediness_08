@@ -249,3 +249,73 @@ describe('ProvenanceStore — no provenance must never ACQUIRE one (PV-05 negati
         expect(store.artefactCount()).toBe(1); // untouched
     });
 });
+
+// ── §GR-10 — an UNRECORDED edge set ≠ an EMPTY one (C78 §8.1, C75 §1.4) ──
+//
+// The old body was `for (const e of slice.edges ?? [])`. Under it, a slice
+// that OMITTED `edges` and a slice carrying `edges: []` produced byte-identical
+// results — both `{ edges: 0, dropped: [] }`. These assertions are chosen to
+// FAIL against that shape rather than merely describe the new one (C74 §3.4):
+// the first compares the two results directly and demands they DIFFER.
+
+describe('ProvenanceStore.hydrate — "no edges recorded" is not "no edges" (GR-10)', () => {
+    /** A slice with the edge member removed entirely — what a pre-PV-05 or
+     *  partially-written snapshot actually looks like on disk. */
+    function sliceWithoutEdges(): SerializedProvenance {
+        const s = JSON.parse(JSON.stringify(seed().serialize())) as SerializedProvenance;
+        delete (s as { edges?: unknown }).edges;
+        return s;
+    }
+
+    it('DIFFERENTIATOR: omitted-edges and empty-edges do NOT hydrate to the same value', () => {
+        const unrecorded = new ProvenanceStore().hydrate(sliceWithoutEdges());
+        const emptyEdges = new ProvenanceStore().hydrate({
+            ...(JSON.parse(JSON.stringify(seed().serialize())) as SerializedProvenance),
+            edges: [],
+        });
+
+        // Both load the same artefacts and BOTH report edges: 0 — that is
+        // precisely why the count alone can never be the answer.
+        expect(unrecorded.edges).toBe(0);
+        expect(emptyEdges.edges).toBe(0);
+        expect(unrecorded.dropped).toEqual([]);
+        expect(emptyEdges.dropped).toEqual([]);
+
+        // FAILS against `slice.edges ?? []`: under it these two objects were
+        // deep-equal, so the conflation was invisible to every caller.
+        expect(unrecorded).not.toEqual(emptyEdges);
+    });
+
+    it('an omitted edge set is UNDETERMINED with a C78 §8.1 reason, never a zero', () => {
+        const r = new ProvenanceStore().hydrate(sliceWithoutEdges());
+        expect(r.edgesUndetermined).toBe('RELATIONSHIP_NOT_RECORDED');
+        // The rest of the slice still loads — this is an unknown about the
+        // RELATIONSHIPS, not a refusal of the whole audit log.
+        expect(r.artefacts).toBe(3);
+        expect(r.absent).toBeNull();
+    });
+
+    it('negative control: a recorded-but-empty edge set is DETERMINED', () => {
+        const r = new ProvenanceStore().hydrate({
+            ...(JSON.parse(JSON.stringify(seed().serialize())) as SerializedProvenance),
+            edges: [],
+        });
+        expect(r.edgesUndetermined).toBeNull();
+        expect(r.edges).toBe(0);
+    });
+
+    it('negative control: a populated edge set is DETERMINED and counted', () => {
+        const r = new ProvenanceStore().hydrate(
+            JSON.parse(JSON.stringify(seed().serialize())) as SerializedProvenance,
+        );
+        expect(r.edgesUndetermined).toBeNull();
+        expect(r.edges).toBe(3);
+    });
+
+    it('an ENTIRELY absent slice is undetermined about edges too', () => {
+        const r = new ProvenanceStore().hydrate(undefined);
+        expect(r.absent).toBe('predates-provenance-persistence');
+        // `edges: 0` here must not read as "this project has no lineage".
+        expect(r.edgesUndetermined).toBe('RELATIONSHIP_NOT_RECORDED');
+    });
+});
