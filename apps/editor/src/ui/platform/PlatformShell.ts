@@ -48,11 +48,6 @@ import { apiFetch } from '@pryzm/core-app-model';
 import { generateId } from './PlatformToastSystem';
 import { mountPresenceStrip, initSocketCollaboration } from './PlatformCollabPill';
 import { PlatformSaveController } from './PlatformSaveController';
-// §L-MOUNT Phase 2 (ADR-0326) — the ribbon rows. These two imports are the
-// family's first production importers; mountHost.spec.ts pins the importer
-// list, so adding one here without updating that pin fails the suite.
-import { MainToolbar } from '../toolbar/MainToolbar';
-import { DrawingToolbar } from '../toolbar/DrawingToolbar';
 import { PlatformVersionController } from './PlatformVersionController';
 import { PlatformProjectBrowser } from './PlatformProjectBrowser';
 
@@ -118,39 +113,6 @@ export class PlatformShell {
         this.browser.buildToolbar();
         this.browser.buildHubMenu();
         mountPresenceStrip(this.ctx.presenceChips, this.runtime?.events);
-
-        // ── §L-MOUNT PHASE 2 — the ribbon mount (ADR-0326, C82) ──────────────
-        // The FIRST production importer of the toolbar family. Mount site
-        // chosen because (a) `.plat-toolbar` is the one visible host (visible
-        // since the §L-MOUNT host fix; `flex-direction:column`, so each toolbar
-        // is a ribbon row under the project/status row), and (b) `this.runtime`
-        // is the SAME composed runtime whose bus engineLauncher registers the
-        // four backed handlers on (§C-B1 zoom-fit/zoom-selected, §FIX-COPY-PASTE
-        // copy/paste) — `_busRaw = runtime.bus`, engineLauncher.ts:483.
-        //
-        // Every unbacked verb on these surfaces renders DISABLED with its
-        // SPEC-50 row named (commandBacking.ts, C82 §1.1/§1.3) — mounting a
-        // mixed-backing surface is safe BECAUSE the refusal machinery landed
-        // first (4bfe86f0). Do not add a surface here without it.
-        //
-        // TIMING CAVEAT, stated not hidden: the shell constructs before
-        // engineLauncher registers those four handlers. A backed button clicked
-        // in that boot window dispatches into a bus that does not hold its
-        // handler yet — the promise rejects loudly (CommandBus throws on an
-        // unregistered verb), it does not silently no-op. The window is the
-        // engine-boot interval; closing it needs a bus-readiness signal this
-        // shell does not own (recorded in the mount queue, L-MOUNT report).
-        if (this.runtime !== null) {
-            const ribbonMain = new MainToolbar(this.runtime);
-            this.browser.toolbar.appendChild(ribbonMain.element);
-            const ribbonDrawing = new DrawingToolbar(this.runtime);
-            this.browser.toolbar.appendChild(ribbonDrawing.element);
-            console.log('[PlatformShell] §L-MOUNT ribbon rows mounted: MainToolbar (4 backed / 8 refusing), DrawingToolbar (0 backed / 18 refusing)');
-        } else {
-            // No composed runtime (legacy boot) — an unmounted ribbon is honest;
-            // a mounted one whose every dispatch warns "runtime is null" is not.
-            console.log('[PlatformShell] §L-MOUNT ribbon NOT mounted — no composed runtime on this boot path');
-        }
 
         console.log(
             '[PlatformShell] Initialized — project ID:',
