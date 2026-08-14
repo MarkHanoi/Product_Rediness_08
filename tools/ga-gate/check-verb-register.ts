@@ -252,7 +252,21 @@ const SHADOWED_BASELINE: readonly string[] = [
   // `plugins/selection/__tests__/handlers/ElementMarkShadow.test.ts` (3 cases incl. a
   // negative control on `selection.select`, watched failing 3/3 first). 8 → 7.
   'furniture.updateParameters',
-  'level.add',
+  // §FIX-LEVEL-ADD-SHADOW (MT-03 / L-MT8) — 'level.add' PAID and removed in the same
+  // commit, per the rule at the head of this list. Never two different things: BOTH arms
+  // built the SAME `AddLevelCommand` and BOTH honoured the §R7-FIX `_skipBridge`
+  // dual-write guard (plugin arm AddLevel.ts:56, bridge initBusHandlers.ts:2097), so the
+  // dual-write callers (StairLevelRequiredPanel, PlanViewToolOverlay) lose nothing. The
+  // plugin wrapper — parked in plugins/stair "to avoid creating a new plugin
+  // registration" — was the worse one: CA-18 swallow (`catch { console.error }` →
+  // `{forward:[],inverse:[]}`), silent no-op without `window.commandManager`, and an
+  // unconditional `{valid:true}` canExecute where the bridge validates `levelId` (all
+  // four live dispatchers send one). Authority declared: the §E.5.4 bridge at
+  // initBusHandlers.ts:2088. `plugins/stair/src/handlers/AddLevel.ts` is DELETED with its
+  // barrel exports and its STAIR_HANDLER_TYPES entry, so the §OI-053 `registry.has()`
+  // skip no longer fires and the bridge registers. Pin:
+  // `plugins/stair/__tests__/addLevelShadow.test.ts` (3 cases incl. a negative control
+  // on `stair.create`, watched failing 3/3 first). 7 → 6.
   'sheet.addViewport',
   'stair.create',
   'stair.move',

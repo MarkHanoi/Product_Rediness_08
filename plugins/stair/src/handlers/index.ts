@@ -13,7 +13,6 @@ import { SetWidthHandler } from './SetWidth.js';
 import { RotateStairHandler } from './RotateStair.js';
 import { CreateStairRailingHandler } from './CreateStairRailing.js';
 import { UpdateStairParametersHandler } from './UpdateStairParameters.js';
-import { AddLevelHandler } from './AddLevel.js';
 import { SetStairMaterialHandler } from './SetStairMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const STAIR_HANDLER_TYPES = [
@@ -29,7 +28,16 @@ export const STAIR_HANDLER_TYPES = [
   'stair.rotate',
   'stair.createRailing',
   'stair.updateParameters',
-  'level.add',
+  // §FIX-LEVEL-ADD-SHADOW (MT-03) — 'level.add' is NOT declared here. It has a
+  // live §E.5.4 bridge in initBusHandlers.ts:2088, and this plugin claiming the
+  // type first (this set is contributed by PluginRegistry at composeRuntime,
+  // before initBusHandlers) was the ONLY reason that bridge never registered
+  // (the §OI-053 `registry.has()` skip). Both arms built the SAME
+  // AddLevelCommand and honoured the same §R7-FIX `_skipBridge` guard; the
+  // plugin arm additionally swallowed a failed dispatch into
+  // `{forward:[],inverse:[]}` (C16 CA-18 PROHIBITED) and no-op'd silently when
+  // `window.commandManager` was absent. Authority declared: the bridge. Loser
+  // deleted, not commented. Pin: __tests__/addLevelShadow.test.ts.
   'stair.setMaterial',
 ] as const;
 
@@ -49,7 +57,6 @@ export function buildStairHandlerSet(): readonly CommandHandler<unknown>[] {
     new RotateStairHandler() as unknown as CommandHandler<unknown>,
     CreateStairRailingHandler as unknown as CommandHandler<unknown>,
     UpdateStairParametersHandler as unknown as CommandHandler<unknown>,
-    AddLevelHandler as unknown as CommandHandler<unknown>,
     new SetStairMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
@@ -71,5 +78,4 @@ export { SetWidthHandler, type SetWidthPayload } from './SetWidth.js';
 export { RotateStairHandler, type RotateStairPayload } from './RotateStair.js';
 export { CreateStairRailingHandler, type CreateStairRailingPayload } from './CreateStairRailing.js';
 export { UpdateStairParametersHandler, type UpdateStairParametersPayload } from './UpdateStairParameters.js';
-export { AddLevelHandler, type AddLevelPayload } from './AddLevel.js';
 export { SetStairMaterialHandler, type SetStairMaterialPayload } from './SetStairMaterial.js';
