@@ -4480,3 +4480,33 @@ tree, pre-existing). The static checker cannot express "in-flight async completi
 crossing a lifecycle boundary" (it sweeps module-level state declarations, not promise
 lifetimes) — no arm added; stated honestly. Founder browser check still owed: project A
 with walls → new project → nothing of A visible in either pane.
+
+### L-909(a) — 2026-08-14 lane L-JOINSv2: emission root CLOSED (§EMIT-SHORT-RUN-MERGE, `c5d3d4f5`); prism-corner mechanism NAMED, repro owed
+
+**THE DANGLING-GAP ROOT, executed + measured.** `repairSegments` (`wallsAndDoors.ts`) carried a
+silent §SELF-CLUSTER-FLOOR drop: ANY 0.01–0.50 m wall run was DELETED with no log. On skewed /
+polygon-native tilings the sweep legitimately splits a wall line into sub-runs near shell corners
+and close junctions; deleting one holed the line and left BOTH neighbours dangling 0.4–1.0 m.
+Reproduced through the REAL emit path on a skewed-quad shell: the engine's §DIAG-PARTITION-REACH
+"rescued" 918 mm / 965 mm / 438 mm gaps — the founder's 988/1100 mm production lines — and one
+rescue dragged a SHELL CORNER 918 mm onto the wrong host (the rescuer destroying evidence, ADR-0299
+class). FIX at the seam (`c5d3d4f5`): sub-floor runs are ABSORBED into a surviving collinear
+neighbour (span union on the same line, 'b'-end preferred so door-offset origin 'a' never moves);
+an unabsorbable stub is dropped LOUDLY as §EMIT-SHORT-RUN-DROPPED. PIN:
+`tglEmissionJunctionBand.test.ts` — 4 shells through `generateDeterministicLayouts`, asserts 0
+dangling endpoints (port of the engine's own reach gate) AND that the real RoomDetectionEngine
+rescues NOTHING; 8/8 executed, 2 failed pre-fix.
+
+**TRIANGULAR-PRISM CORNERS — mechanism named, NOT yet executed-reproduced.**
+`WallJunctionInfill.computeJunctionInfills` builds, per 3+-wall cluster, a void polygon with ONE
+vertex per adjacent wall pair — a 3-wall junction is a LITERAL extruded triangle — and each vertex
+is an UNCLAMPED line–line intersection (`_intersect2D_XZ`, |denom| guard 1e-9, no distance cap): a
+near-collinear adjacent pair (a T whose through-arms are a few degrees off straight — exactly the
+skewed-shell case) puts the vertex METRES from the junction → the giant prism spike. It is LIVE in
+production for walls with openings/layers (`WallRebuildCoordinator.ts` ~2184: V2 filter passes
+exactly those to `computeJunctionInfills`) — and D-TGL walls host doors/windows, so apartment
+junctions take this path. Also mismatched: it hardcodes SNAP_RADIUS 0.5 while the resolver uses the
+zoom-dependent radius, and it computes clusters on the FILTERED wall subset (wrong void polygon
+when a V2 wall shares the junction). Successor repro: `computeJunctionInfills` on three WallData
+forming a ~175° pass-through T; assert every void vertex within ~2× max thickness of the consensus
+point; bounded fix = clamp the vertex distance (mirror §MITER-T-CLAMP) + fall back to the midpoint.
