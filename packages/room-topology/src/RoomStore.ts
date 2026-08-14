@@ -21,6 +21,26 @@
  *   roomSpatialIndex is maintained on every add/update/remove so that
  *   getRoomsContainingPoint and getRoomsInBoundingBox are O(1)/O(c) instead of O(n).
  *   The <5ms acceptance criterion for 500-room models is met with this change.
+ *
+ * ── GE-04 (measured 2026-08-14) — THE canonical RoomStore ──────────────────
+ *   Three classes named `RoomStore` existed; every shipping read/write path
+ *   executes THIS one: the room command surface (`ctx.stores.roomStore` in
+ *   packages/command-registry/src/types.ts is typed to this class), the
+ *   renderers (PlanViewFillRenderer / RoomBoundaryBuilder / RoomLabelRenderer
+ *   via `window.roomStore`), persistence (apps/editor ProjectSerializer +
+ *   initPersistence), room detection (DetectAllRooms / ReDetectRooms), IFC
+ *   export (FragmentReader → RoomReader), undo (performUndoRedo), and the
+ *   storeRegistry `'room'` key — composeRuntime wave-1 and registerAllStores
+ *   both register the SAME module singleton below (ADR-0318 I-1).
+ *   The two rivals are deprecated shims nothing ships against:
+ *     • plugins/rooms/src/store.ts — bus storeKey `'rooms'`; all twelve
+ *       room.* handlers declare `affectedStores: []` and bridge to the
+ *       commands that write HERE. Nothing reads or writes that store.
+ *     • packages/stores/src/RoomStore.ts — C20 aggregate row store; its
+ *       `runtime.stores.roomStore` slot has zero readers and its room.*
+ *       aggregate handlers are invoked only by its own tests.
+ *   Do NOT mint a fourth: new room state belongs here, or in an ADR that
+ *   supersedes this note. (C65 §3.5 drift disease; C73 §3.6 method.)
  */
 
 import { ProjectContext } from '@pryzm/core-app-model';
