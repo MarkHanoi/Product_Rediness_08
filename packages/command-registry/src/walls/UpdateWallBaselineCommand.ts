@@ -1,5 +1,5 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { Point3D } from '@pryzm/core-app-model';
+import { Point3D, semanticGraphManager } from '@pryzm/core-app-model';
 import { serializeWallSnapshot } from './wallSnapshotUtils';
 // §FIX-WALL-SHRINK-REFIT (W2-1) — the wall-side use of the ALREADY-EXISTING
 // opening gate. See the policy note on `planOpeningRefit`.
@@ -68,6 +68,32 @@ export class UpdateWallBaselineCommand implements Command {
     private relocated: Opening[] = [];
 
     private executed = false;
+
+    /**
+     * §GR12-BOUNDARY-INVALIDATION — whether execute() judged the baseline to
+     * have genuinely moved. undo() reverses exactly that move, so it re-runs
+     * the invalidation only when execute() did — a no-op edit stays a no-op in
+     * both directions.
+     */
+    private movedOnExecute = false;
+
+    /**
+     * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5) — did this wall's
+     * baseline actually MOVE beyond the §STEP7 threshold (1 mm)? A sub-mm
+     * update cannot change any boundary conclusion within detection tolerance,
+     * so invalidating on one would convert C79 §5.2 `preserved` into
+     * `undetermined` — the inverse of the §5.2.1 defect and just as wrong.
+     */
+    private static _baselineMoved(
+        prev: ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
+        next: [Point3D, Point3D],
+    ): boolean {
+        if (!prev || prev.length < 2) return true; // no prior evidence — treat as moved
+        const TOL = 0.001;
+        const d = (a: { x: number; y?: number; z: number }, b: Point3D): number =>
+            Math.hypot(a.x - b.x, (a.y ?? 0) - (b.y ?? 0), a.z - b.z);
+        return d(prev[0]!, next[0]) > TOL || d(prev[1]!, next[1]) > TOL;
+    }
 
     constructor(input: UpdateWallBaselineInput) {
         this.id = crypto.randomUUID();
@@ -330,6 +356,38 @@ export class UpdateWallBaselineCommand implements Command {
             }
         }
 
+        // ── §GR12-BOUNDARY-INVALIDATION (GR-12 · C71 §1.2 semantic 5 / §3.4) ──
+        // The wall MOVED, so every region-derived conclusion naming it
+        // (`boundedBy`, and the `adjacentTo`/`connectedTo` edges that derive
+        // from the boundary) is now UNDETERMINED — the room may no longer be
+        // bounded by this wall, or may no longer close at all. Stale-edge
+        // removal is part of the WRITER, not a follow-up: this command must not
+        // depend on a re-detect subscriber being reachable (GR-18/CE-05). The
+        // graph removes the affected rooms' conclusions and marks them
+        // undetermined (C79 §5.2 — never collapsed into `preserved`); the next
+        // detection pass re-emits and clears. Id-keyed edges (`sitsOn`,
+        // `hosts`) are untouched — surviving a move is their correct behaviour.
+        // Non-fatal by the same rule as the flush's joinedTo writer: graph
+        // maintenance must never fail the geometry edit it describes.
+        this.movedOnExecute = UpdateWallBaselineCommand._baselineMoved(
+            this.prevSnapshot?.baseLine as ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
+            effectiveBaseLine,
+        );
+        if (this.movedOnExecute) {
+            try {
+                const inv = semanticGraphManager.invalidateRegionConclusionsForMovedElement(this.wallId);
+                if (inv.invalidatedRoomIds.length > 0) {
+                    console.log(
+                        `[UpdateWallBaselineCommand] §GR12-BOUNDARY-INVALIDATION — wall ${this.wallId} moved; ` +
+                        `boundary conclusions invalidated (undetermined until re-detect) for room(s): ` +
+                        inv.invalidatedRoomIds.join(', '),
+                    );
+                }
+            } catch (err) {
+                console.warn('[UpdateWallBaselineCommand] §GR12-BOUNDARY-INVALIDATION graph write failed (non-fatal):', err);
+            }
+        }
+
         this.executed = true;
         return { success: true, affectedElementIds: [this.wallId] };
     }
@@ -360,6 +418,20 @@ export class UpdateWallBaselineCommand implements Command {
             }
         }
         this.relocated = [];
+
+        // §GR12-BOUNDARY-INVALIDATION — undo is ALSO a move (the wall travels
+        // back), so the boundary conclusions derived while it stood at the
+        // undone position are equally undetermined. Same writer, same
+        // non-fatality; skipped when execute() judged the edit a geometric
+        // no-op. A re-detect that ran between execute and undo re-derived from
+        // the moved position; this correctly invalidates that conclusion too.
+        if (this.movedOnExecute) {
+            try {
+                semanticGraphManager.invalidateRegionConclusionsForMovedElement(this.wallId);
+            } catch (err) {
+                console.warn('[UpdateWallBaselineCommand] §GR12-BOUNDARY-INVALIDATION undo graph write failed (non-fatal):', err);
+            }
+        }
 
         this.executed = false;
         return { success: true, affectedElementIds: [this.wallId] };

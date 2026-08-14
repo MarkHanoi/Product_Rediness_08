@@ -1451,6 +1451,11 @@ export class WallRebuildCoordinator {
         // ──────────────────────────────────────────────────────────────────────
 
         // §STEP7: Diff-based dirty marking — find former neighbours of moved/removed walls.
+        // §GR12-BOUNDARY-INVALIDATION — the same diff also identifies the walls that
+        // genuinely MOVED this flush (update + prevState + baseline beyond 1 mm), for
+        // the boundary-layer graph invalidation below. 'remove' is excluded there:
+        // a deleted wall's edges are the delete cascade's job (3ee632f6), not a move.
+        const _movedWallIds = new Set<string>();
         for (const [, entry] of batch) {
             const { event, wall, prevState } = entry;
             if (!prevState) continue;
@@ -1459,12 +1464,46 @@ export class WallRebuildCoordinator {
                 WallRebuildCoordinator._pt3dDist(prevState.baseLine[1], wall.baseLine[1]) > 0.001
             ));
             if (baselineChanged) {
+                if (event === 'update') _movedWallIds.add(wall.id);
                 for (const nId of WallRebuildCoordinator._findAdjacentWallIds(prevState.baseLine, wall.id, store)) {
                     if (!batch.has(nId)) {
                         const neighbour = store.getById(nId);
                         if (neighbour) batch.set(nId, { event: 'update', wall: neighbour });
                     }
                 }
+            }
+        }
+
+        // ── §GR12-BOUNDARY-INVALIDATION (GR-12 · C71 §1.2 semantic 5 / §3.4) ──────
+        // Move-time invalidation of the REGION-DERIVED conclusion families
+        // (`boundedBy`, and the `adjacentTo`/`connectedTo` edges that derive from
+        // the boundary) — at the SAME chokepoint as the `joinedTo` writer below,
+        // because every wall-geometry mutation path (command, gizmo drag, direct
+        // store write, generator pipeline) drains through this flush. A moved
+        // bounding wall leaves its rooms' boundary conclusions UNDETERMINED (C79
+        // §5.2 — removed and marked, never left reading true and confident, and
+        // never collapsed into `preserved`); the next room-detection pass re-emits
+        // and clears. Command-path moves (`UpdateWallBaselineCommand`) already
+        // invalidated at execute time — the second call is an idempotent no-op
+        // (the edges are gone, so the moved wall bounds nothing). Id-keyed edges
+        // (`sitsOn`, `hosts`) are untouched: surviving a move is correct for them.
+        // Non-fatal like every graph write in this flush: graph maintenance must
+        // never break geometry rebuilding.
+        if (_movedWallIds.size > 0) {
+            try {
+                const _invalidatedRooms = new Set<string>();
+                for (const id of _movedWallIds) {
+                    for (const roomId of semanticGraphManager.invalidateRegionConclusionsForMovedElement(id).invalidatedRoomIds) {
+                        _invalidatedRooms.add(roomId);
+                    }
+                }
+                if (_invalidatedRooms.size > 0 && perfTraceOn()) {
+                    perfLog('§GR12-BOUNDARY-INVALIDATION',
+                        `_flush invalidated boundary conclusions for ${_invalidatedRooms.size} room(s) ` +
+                        `after ${_movedWallIds.size} moved wall(s) — undetermined until re-detect`);
+                }
+            } catch (err) {
+                console.warn('[WallRebuildCoordinator] §GR12-BOUNDARY-INVALIDATION graph write failed (non-fatal):', err);
             }
         }
 
