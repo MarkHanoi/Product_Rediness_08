@@ -30,6 +30,12 @@ export * from './ValueOrigin.js';
 // this namespace beside ValueOrigin: same axis family, deliberately SEPARATE
 // values (C75 §1.2 — a computed value may be low-confidence, an observed one stale).
 export * from './ElementConfidence.js';
+// PV-08 (C75 §1.2) — the exhaustive, TYPE-CHECKED translation from the legacy
+// per-family `detectionMethod` vocabularies into the five. Lives here, at L0,
+// because the only prior translation lived at L7 (`ElementProvenanceIndex.ts`),
+// covered one of the three vocabularies, and was typed `Record<string, …>` — so a
+// member added upstream compiled cleanly and silently meant nothing.
+export * from './DetectionMethodOrigin.js';
 
 export * from './AIArtefact.js';
 export * from './ProvenanceEdge.js';
