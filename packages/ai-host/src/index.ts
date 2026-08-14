@@ -816,6 +816,9 @@ export type {
 export {
     GraphQueryService,
     GRAPH_QUERY_SUPPORTED_RELATIONSHIPS,
+    // ADR-0325 — the hierarchy families this surface refuses. Exported beside the
+    // supported set so a gate or probe can assert the two are DISJOINT.
+    GRAPH_QUERY_PARKED_HIERARCHY_RELATIONSHIPS,
 } from './graph/GraphQueryService.js';
 export type {
     GraphQueryResult,
@@ -823,6 +826,7 @@ export type {
     GraphPathResult,
     GraphNeighbor,
     GraphRefusalReason,
+    GraphHierarchyUndeterminedReason,
     GraphQueryServiceDeps,
     RoomGraphLike,
 } from './graph/GraphQueryService.js';
