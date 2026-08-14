@@ -14,10 +14,13 @@
  * zoning / AI-artefact domains were rich and disciplined (C75 §0 Finding 3). The
  * discipline stopped exactly where the user's own authored model began.
  *
- * ⭐ **Re-measured 2026-08-13 (PV-04): all 27 kinds now carry the field at L0.**
+ * ⭐ **Re-measured 2026-08-13 (PV-04): all 27 kinds then known carried the field
+ * at L0. Re-measured 2026-08-14 (PV-08): 28 kinds, all covered** — `floor` was
+ * added as the 28th, which is what emptied the ledger (see LEDGER below).
  * The sentence above is written in the past tense on purpose — it is the defect
  * this gate was built to measure, not a live reading. The live reading is the
  * gate's own output on every run, and the ledger below carries the history.
+ * ⚠ Do not re-freeze a count into this paragraph; the run header prints it.
  * ⚠ Coverage here means the field EXISTS and defaults honestly; it does NOT mean
  * a producer writes a real origin (C75 §6.3.b — a RECORDED BLIND SPOT).
  *
@@ -43,25 +46,36 @@
  *                            `packages/schemas/src/provenance/ValueOrigin.ts`,
  *                            which this gate USES and never restates) or
  *                            declares a provenance-named field. Leaves the
- *                            ledger. **All 27 kinds, since PV-04 (2026-08-13).**
+ *                            ledger. **All 28 kinds, since PV-08 (2026-08-14).**
  *  outside-schemas-only    — a `<Kind>DetectionMethod` vocabulary exists for
  *                            the kind, but OUTSIDE `packages/schemas` (§4.d).
- *                            Was room and ceiling; both now covered at L0. ⚠ The
- *                            outside vocabularies still EXIST (they are printed
- *                            in the run header regardless) — a kind covered at L0
- *                            simply stops being a C1 finding; retiring the
- *                            out-of-layer copy is C75 §7.1's separate subject.
+ *                            Was room and ceiling, then floor; all three are now
+ *                            covered at L0. ⚠ The outside vocabularies still
+ *                            EXIST (they are printed in the run header
+ *                            regardless) — a kind covered at L0 simply stops
+ *                            being a C1 finding; retiring the out-of-layer copy
+ *                            is C75 §7.1's separate subject, and C4 below is what
+ *                            keeps the surviving copies translatable meanwhile.
  *  no-provenance-in-schema — nothing anywhere. **None today.**
  *  no-schema-for-provenance-bearing-kind
  *                          — the INVERSE hole: a `<Kind>DetectionMethod`
  *                            vocabulary exists but there is NO
- *                            `defineElement('<kind>')` at L0 at all. FLOOR
- *                            today: `FloorDetectionMethod` lives in
- *                            `core-app-model/src/stores/FloorTypes.ts` and the
- *                            schema package has never heard of floors. This is
+ *                            `defineElement('<kind>')` at L0 at all. This is
  *                            reported as its own class rather than silently
  *                            dropped, because a kind the L0 layer cannot name
  *                            can never be retrofitted there.
+ *                            ⭐ **FLOOR was this class from 2026-08-12 until
+ *                            2026-08-14**, when `defineElement('floor')` landed
+ *                            (`packages/schemas/src/elements/Floor.ts`) and the
+ *                            class emptied. Named in the past tense on purpose:
+ *                            the class is live and fires the day another family
+ *                            grows a vocabulary without a schema.
+ *  vocabulary-member-not-mapped-at-L0
+ *                          — C4. The kind has a schema AND a vocabulary, and a
+ *                            MEMBER of that vocabulary is not named in the L0
+ *                            translation map, so L0 can store the value and
+ *                            cannot say which of the five it means. **None
+ *                            today: 18 distinct members, all mapped.**
  *
  * ─── The arms ────────────────────────────────────────────────────────────────
  *  C1  per-kind schema coverage — the ledger above. EVALUATED.
