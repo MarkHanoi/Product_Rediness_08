@@ -253,8 +253,10 @@ const BASELINE: readonly Offender[] = [
     // CreateWallOpeningCommand) and DoorTool/WindowTool's HUD — sites this gate's
     // arm A/B regexes never flagged (no refusal vocab, HUD sink not in USER_SINK_RE),
     // which is exactly the reachability gap GE-09's original ask names.
-    { file: "packages/command-registry/src/windows/UpdateWindowsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Window ${id} refused the type change`);", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/windows/UpdateWindowsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ windowId: id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-14 (GE-09v3, windows family): the doors twin, seam
+    // for seam. UpdateWindowsSystemTypeBatchCommand renders child refusals through
+    // the shared childRefusalText() — stated reason VERBATIM, silence arrives as
+    // [REFUSED_WITHOUT_REASON] + validator + subject. Baseline 83 → 81.
     { file: "plugins/ceiling/src/handlers/CreateCeiling.ts", fragment: "if (!v.ok) return { valid: false, reason: v.reason ?? 'invalid boundary' };", why: "arm A — measured 2026-08-11" },
     { file: "plugins/ceiling/src/handlers/CreateCeiling.ts", fragment: "if (!v.ok) throw new CeilingGeometryError(v.reason ?? 'invalid boundary');", why: "arm A — measured 2026-08-11" },
     { file: "plugins/ceiling/src/handlers/CreateCeilingBatch.ts", fragment: "if (!v.ok) return { valid: false, reason: `ceilings[${i}].boundary: ${v.reason ?? 'invalid'}` };", why: "arm A — measured 2026-08-11" },

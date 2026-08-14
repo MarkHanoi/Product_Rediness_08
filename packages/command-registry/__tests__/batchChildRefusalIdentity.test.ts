@@ -25,8 +25,11 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
+import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 import { UpdateDoorsSystemTypeBatchCommand } from '../src/doors/UpdateDoorsSystemTypeBatchCommand';
 import { UpdateDoorSystemTypeCommand } from '../src/doors/UpdateDoorSystemTypeCommand';
+import { UpdateWindowsSystemTypeBatchCommand } from '../src/windows/UpdateWindowsSystemTypeBatchCommand';
+import { UpdateWindowSystemTypeCommand } from '../src/windows/UpdateWindowSystemTypeCommand';
 import { childRefusalText, REFUSED_WITHOUT_REASON_CODE } from '../src/refusal/childRefusalText';
 import type { CommandContext } from '../src/types';
 
@@ -116,6 +119,79 @@ describe('UpdateDoorsSystemTypeBatchCommand — child refusals keep their identi
 
     it('SILENCE CONTROL: a fully-legal batch renders NO refusal line and NO absence marker', () => {
         const cmd = new UpdateDoorsSystemTypeBatchCommand({ doorIds: [D1], systemType: typeId() });
+        const v = cmd.canExecute(ctx);
+        expect(v.ok).toBe(true);
+        expect(v.warnings).toBeUndefined();
+
+        const r = cmd.execute(ctx);
+        expect(r.success).toBe(true);
+        expect(cmd.skipped).toHaveLength(0);
+        const info = (r.info ?? []).join('\n');
+        expect(info).not.toContain(MARKER);
+        expect(info).not.toContain('skipped');
+    });
+});
+
+// ─── windows: UpdateWindowsSystemTypeBatchCommand ────────────────────────────
+// The doors twin, seam for seam (canExecute roster · execute skip roster · the
+// `r.info?.[0]` execute-failure twin). Paid GE-09v3.
+
+describe('UpdateWindowsSystemTypeBatchCommand — child refusals keep their identity (GE-09)', () => {
+    const W1 = 'ge09-window-1';
+    const GHOST = 'ge09-window-ghost';
+
+    const typeId = (): string => windowSystemTypeStore.getAll()[0]!.id;
+
+    beforeEach(() => {
+        if (windowStore.getById(W1)) windowStore.remove(W1);
+        windowStore.add({
+            id: W1, openingId: 'ge09-wop-1', wallId: 'ge09-wall-1',
+            offset: 2, width: 1.2, height: 1.4, sillHeight: 0.9, windowType: 'single',
+        } as never);
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        if (windowStore.getById(W1)) windowStore.remove(W1);
+    });
+
+    it('VERBATIM: a child that states its reason has it reach CommandResult.info untouched', () => {
+        const cmd = new UpdateWindowsSystemTypeBatchCommand({ windowIds: [W1, GHOST], systemType: typeId() });
+        const r = cmd.execute(ctx);
+        expect(r.success).toBe(true);
+        const info = (r.info ?? []).join('\n');
+        expect(info).toContain(`Window ${GHOST} not found`);
+        expect(info).not.toContain(MARKER);
+        expect(cmd.skipped.map(s => s.reason).join('\n')).toContain(`Window ${GHOST} not found`);
+    });
+
+    it('VERBATIM at canExecute: an all-refused batch surfaces the child sentence in .reason', () => {
+        const cmd = new UpdateWindowsSystemTypeBatchCommand({ windowIds: [GHOST], systemType: typeId() });
+        const v = cmd.canExecute(ctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(`Window ${GHOST} not found`);
+    });
+
+    it('SILENT child: a reason-less refusal arrives NAMED, not paraphrased as "refused"', () => {
+        vi.spyOn(UpdateWindowSystemTypeCommand.prototype, 'canExecute')
+            .mockReturnValue({ ok: false });
+        const cmd = new UpdateWindowsSystemTypeBatchCommand({ windowIds: [W1], systemType: typeId() });
+
+        const v = cmd.canExecute(ctx);
+        expect(v.ok).toBe(false);
+        expect(v.reason).toContain(MARKER);
+        expect(v.reason).toContain('UpdateWindowSystemTypeCommand.canExecute');
+        expect(v.reason).toContain(`window ${W1}`);
+
+        const r = cmd.execute(ctx);
+        expect(r.success).toBe(false);
+        expect((r.info ?? []).join('\n')).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).toContain(MARKER);
+        expect(cmd.skipped[0]!.reason).not.toBe('refused');
+    });
+
+    it('SILENCE CONTROL: a fully-legal batch renders NO refusal line and NO absence marker', () => {
+        const cmd = new UpdateWindowsSystemTypeBatchCommand({ windowIds: [W1], systemType: typeId() });
         const v = cmd.canExecute(ctx);
         expect(v.ok).toBe(true);
         expect(v.warnings).toBeUndefined();

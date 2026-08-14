@@ -45,6 +45,7 @@ import {
     type WindowSystemType,
 } from '@pryzm/geometry-window';
 import { resolveCatalogueRef } from '../catalogue/resolveCatalogueRef';
+import { childRefusalText } from '../refusal/childRefusalText';
 import { UpdateWindowSystemTypeCommand } from './UpdateWindowSystemTypeCommand';
 
 let _cachedTracer: Tracer | null = null;
@@ -148,7 +149,9 @@ export class UpdateWindowsSystemTypeBatchCommand implements Command {
             const v = new UpdateWindowSystemTypeCommand({ windowId: id, systemTypeId: type.id })
                 .canExecute(ctx);
             if (v.ok) acceptable++;
-            else refusals.push(v.reason ?? `Window ${id} refused the type change`);
+            // §REFUSAL-IDENTITY (GE-09): a stated reason passes VERBATIM; a silent
+            // child is NAMED as silent — never re-worded into a manufactured verdict.
+            else refusals.push(childRefusalText(v.reason, 'UpdateWindowSystemTypeCommand.canExecute', `window ${id}`));
         }
         if (acceptable === 0) {
             return {
@@ -189,7 +192,7 @@ export class UpdateWindowsSystemTypeBatchCommand implements Command {
                     });
                     const v = child.canExecute(ctx);
                     if (!v.ok) {
-                        this._skipped.push({ windowId: id, reason: v.reason ?? 'refused' });
+                        this._skipped.push({ windowId: id, reason: childRefusalText(v.reason, 'UpdateWindowSystemTypeCommand.canExecute', `window ${id}`) });
                         continue;
                     }
                     const r = child.execute(ctx);
@@ -199,7 +202,9 @@ export class UpdateWindowsSystemTypeBatchCommand implements Command {
                         const host = windowStore.getById(id)?.wallId;
                         if (host) this._affectedWallIds.add(host);
                     } else {
-                        this._skipped.push({ windowId: id, reason: r.info?.[0] ?? 'execution refused' });
+                        // Same seam, same discipline — a child that FAILED its execute
+                        // without a message is named, not paraphrased as 'execution refused'.
+                        this._skipped.push({ windowId: id, reason: childRefusalText(r.info?.[0], 'UpdateWindowSystemTypeCommand.execute', `window ${id}`) });
                     }
                 }
 
