@@ -106,6 +106,9 @@ export {
 } from './capabilities/CapabilityRefusal.js';
 export type { CapabilityGapRefusal, ChatResolutionState } from './capabilities/CapabilityRefusal.js';
 export { parseWallTypeIntent } from './intents/ZeroTokenResolver.js';
+// L-911 — the apartment default the chat QUOTES, exported so the editor can
+// pin it against the DEFAULT_PROGRAM the engine actually uses.
+export { APARTMENT_STATED_DEFAULT } from './intents/ZeroTokenResolver.js';
 // ADR-0315 U3 — the canonical scope representation + the injected resolver's
 // result contract (F1/F2).
 export { isScopeError } from './intents/ScopeDescriptor.js';

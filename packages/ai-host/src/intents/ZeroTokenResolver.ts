@@ -2163,9 +2163,15 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           suggestions: ['create a 3 bedroom apartment with 2 bathrooms'],
         };
       }
+      // L-911 (C78 §1.2b) — an UNSTATED count is a default, and a default
+      // presented as the user's request is failure-as-emptiness in the intent
+      // layer. "the default programme" alone does not let anyone SEE what was
+      // substituted, so the sentence names the numbers and invites the
+      // correction before the Confirm card is signed.
       const bedLabel = si.bedrooms !== null
         ? `${si.bedrooms}-bedroom`
-        : 'apartment with the default programme';
+        : `apartment with the DEFAULT programme (${APARTMENT_STATED_DEFAULT.bedrooms} bedrooms, ` +
+          `${APARTMENT_STATED_DEFAULT.bathrooms} bathroom) — say how many bedrooms you want and I'll use that instead`;
       const bathLabel = si.bathrooms !== null
         ? `, ${si.bathrooms} bathroom${si.bathrooms === 1 ? '' : 's'}`
         : '';
@@ -3389,10 +3395,33 @@ const APT_NOUN_RE = /\b(?:apartments?|appartments?|apparments?|aparments?|aparta
 // TOWER, or anything with a storey count, is a new envelope, not a plan laid
 // into an existing shell.
 const APT_BUILDING_RE = /\b(?:buildings?|blocks?|towers?|complex|storeys?|stor(?:y|ies)|floors?|levels?)\b/;
-const APT_BEDROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six|seven|eight)[\s-]?bed(?:room)?s?\b/;
-const APT_BATHROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six)[\s-]?bath(?:room)?s?\b/;
+// L-911 (founder, 2026-08-14) — THE COUNT MUST SURVIVE THE SAME TYPOS THE NOUN
+// DOES. He typed "CREATE 3 BEDRROM APPARMENT": the noun alternation above
+// tolerated "apparment", but `bed(?:room)?s?` did NOT tolerate "bedrrom" — so
+// the sentence resolved as an apartment ask with NO count, the editor spread
+// the empty brief over DEFAULT_PROGRAM, and the chat announced "2 bedrooms"
+// while he had asked for 3. Half-tolerance is worse than none: it produces a
+// confident answer to a question nobody asked.
+//
+// The tolerance is bounded on purpose: "bed" must be followed by an OPTIONAL
+// r-initial tail ("room", "rooms", "rrom", "rom", "roooms", " rooms"). "bed"
+// alone and "beds" still match; "2 bedside tables" and "2 bedding sets" do NOT
+// (no 'r' after the stem), so the count can never be invented from a furniture
+// noun. Same shape for bathrooms ("bathrom", "bath rooms").
+const APT_BEDROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six|seven|eight)[\s-]?bed(?:\s?r\w{0,5})?s?\b/;
+const APT_BATHROOMS_RE = /(?:^|\s)(\d{1,2}|one|two|three|four|five|six)[\s-]?bath(?:\s?r\w{0,5})?s?\b/;
 const APT_ENSUITE_RE = /\ben[\s-]?suite\b/;
 const APT_OPENPLAN_RE = /\bopen[\s-]?plan\b/;
+
+/**
+ * L-911 — the programme the EDITOR falls back to when the sentence names no
+ * count (`DEFAULT_PROGRAM`, apps/editor `layoutRequestPayload.ts`). The
+ * resolver is L2 and cannot import an L7 constant, so it is restated here and
+ * PINNED against the real one by `apps/editor/__tests__/
+ * ApartmentBriefDefaultStated.test.ts` — the summary must never quote a
+ * default the engine does not actually use.
+ */
+export const APARTMENT_STATED_DEFAULT = { bedrooms: 2, bathrooms: 1 } as const;
 
 /** Parse an apartment-layout sentence into the semantic intent — SHARED by the
  *  tier-0 grammar and the NL classifier. Returns null (a miss) when no
