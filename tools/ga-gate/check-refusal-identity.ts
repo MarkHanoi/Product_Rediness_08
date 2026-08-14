@@ -229,8 +229,10 @@ const BASELINE: readonly Offender[] = [
     { file: "packages/command-registry/src/ceilings/UpdateCeilingsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ ceilingId: id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/CommandManagerImpl.ts", fragment: "const _human = validation.blockingIssues?.[0] || validation.reason || 'Validation failed';", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/CommandManagerImpl.ts", fragment: "return { success: false, affectedElementIds: [], info: [validation.reason || 'Validation failed'] };", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/doors/UpdateDoorsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Door ${id} refused the type change`);", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/doors/UpdateDoorsSystemTypeBatchCommand.ts", fragment: "this._skipped.push({ doorId: id, reason: v.reason ?? 'refused' });", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-14 (GE-09v2, doors family): UpdateDoorsSystemTypeBatchCommand
+    // now renders child refusals through the shared childRefusalText() — a stated reason
+    // passes VERBATIM; a silent child arrives as [REFUSED_WITHOUT_REASON] + validator +
+    // subject instead of the manufactured 'refused'. Baseline 85 → 83.
     { file: "packages/command-registry/src/generic/UpdateElementParameterCommand.ts", fragment: "info: [validated.reason ?? 'Parameter validation failed']", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/project/ImportProjectCommand.ts", fragment: "info: [validation.reason ?? 'Sub-command validation failed'],", why: "arm A — measured 2026-08-11" },
     { file: "packages/command-registry/src/slabs/UpdateSlabsSystemTypeBatchCommand.ts", fragment: "else refusals.push(v.reason ?? `Slab ${id} refused the type change`);", why: "arm A — measured 2026-08-11" },

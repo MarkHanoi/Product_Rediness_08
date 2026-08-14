@@ -47,6 +47,7 @@ import {
     type DoorSystemType,
 } from '@pryzm/geometry-door';
 import { resolveCatalogueRef } from '../catalogue/resolveCatalogueRef';
+import { childRefusalText } from '../refusal/childRefusalText';
 import { UpdateDoorSystemTypeCommand } from './UpdateDoorSystemTypeCommand';
 
 let _cachedTracer: Tracer | null = null;
@@ -150,7 +151,9 @@ export class UpdateDoorsSystemTypeBatchCommand implements Command {
             const v = new UpdateDoorSystemTypeCommand({ doorId: id, systemTypeId: type.id })
                 .canExecute(ctx);
             if (v.ok) acceptable++;
-            else refusals.push(v.reason ?? `Door ${id} refused the type change`);
+            // §REFUSAL-IDENTITY (GE-09): a stated reason passes VERBATIM; a silent
+            // child is NAMED as silent — never re-worded into a manufactured verdict.
+            else refusals.push(childRefusalText(v.reason, 'UpdateDoorSystemTypeCommand.canExecute', `door ${id}`));
         }
         if (acceptable === 0) {
             return {
@@ -191,7 +194,7 @@ export class UpdateDoorsSystemTypeBatchCommand implements Command {
                     });
                     const v = child.canExecute(ctx);
                     if (!v.ok) {
-                        this._skipped.push({ doorId: id, reason: v.reason ?? 'refused' });
+                        this._skipped.push({ doorId: id, reason: childRefusalText(v.reason, 'UpdateDoorSystemTypeCommand.canExecute', `door ${id}`) });
                         continue;
                     }
                     const r = child.execute(ctx);
@@ -201,7 +204,9 @@ export class UpdateDoorsSystemTypeBatchCommand implements Command {
                         const host = doorStore.getById(id)?.wallId;
                         if (host) this._affectedWallIds.add(host);
                     } else {
-                        this._skipped.push({ doorId: id, reason: r.info?.[0] ?? 'execution refused' });
+                        // Same seam, same discipline — a child that FAILED its execute
+                        // without a message is named, not paraphrased as 'execution refused'.
+                        this._skipped.push({ doorId: id, reason: childRefusalText(r.info?.[0], 'UpdateDoorSystemTypeCommand.execute', `door ${id}`) });
                     }
                 }
 
