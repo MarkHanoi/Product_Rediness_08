@@ -9,7 +9,7 @@
  * ## MODIFICATION DECLARATION — P1.1: Depth-Counted Batch Bus
  *
  * Layer Affected:    Event Bus (cross-cutting)
- * Phase:             Phase 1 — StoreEventBus Batching (P1.1) // TODO(TASK-08)
+ * Phase:             Phase 1 — StoreEventBus Batching (P1.1)
  * Classification:    A
  *
  * Problem (prior implementation):

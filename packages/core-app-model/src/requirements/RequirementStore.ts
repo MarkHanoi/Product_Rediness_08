@@ -7,7 +7,7 @@
  *
  * P9-W6 (2026-05-10) — lifted to packages/core-app-model/src/requirements/.
  * All imports resolve within the package:
- *   StoreEventBus, StoreRegistry — packages/core-app-model/src/ // TODO(TASK-08)
+ *   StoreEventBus, StoreRegistry — packages/core-app-model/src/
  *   RequirementTypes, RequirementSchema — ./  (being migrated together)
  *   ProjectScopeRegistry — ../persistence/ (already in packages)
  *
@@ -17,7 +17,7 @@
  * Contract compliance:
  *   - ALL writes go through Commands — this store is never mutated by UI
  *   - Every record is structuredClone()'d on write (immutable snapshot)
- *   - Emits StoreEventBus events + DOM CustomEvents for downstream consumers // TODO(TASK-08)
+ *   - Emits StoreEventBus events + DOM CustomEvents for downstream consumers
  *   - No THREE.js imports, no builder calls, no elementRegistry access
  *   - BimStore interface satisfied (getAll, has, get) for StoreRegistry lookup
  *

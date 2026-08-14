@@ -1,7 +1,7 @@
 /**
  * GridStore — Semantic authority for BIM structural grids.
  *
- * §01 §3.8 CONTRACT: Emits all mutations through the centralized StoreEventBus // TODO(TASK-08)
+ * §01 §3.8 CONTRACT: Emits all mutations through the centralized StoreEventBus
  * so DependencyResolver, Topology Layer (Phase 2), and World Model (Phase 3)
  * receive deterministic change notifications.
  *

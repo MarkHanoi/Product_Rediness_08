@@ -13,7 +13,7 @@
  *   navigation/   — GeospatialAdapter, Georeference
  *   persistence/  — ProjectScopeRegistry, ProjectScopedStorage
  *   views/        — ViewDefinitionTypes
- *   root          — CoreElement, StoreEventBus, StoreRegistry, MarkGenerator, // TODO(TASK-08)
+ *   root          — CoreElement, StoreEventBus, StoreRegistry, MarkGenerator,
  *                   SelectionBus, SemanticTagRegistry
  *
  * Layer contract: L3 — may import L0–L2 packages; must not import L4+ packages

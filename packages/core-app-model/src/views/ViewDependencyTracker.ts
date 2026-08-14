@@ -2,7 +2,7 @@
  * ViewDependencyTracker — DOC-1.4
  *
  * Tracks which views depend on which spatial levels.
- * Subscribes to StoreEventBus. When geometry-relevant elements change, // TODO(TASK-08)
+ * Subscribes to StoreEventBus. When geometry-relevant elements change,
  * marks only the affected views (same levelId) as dirty and queues a
  * debounced re-projection.
  *

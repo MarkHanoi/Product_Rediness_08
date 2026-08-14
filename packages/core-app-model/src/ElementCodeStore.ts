@@ -16,7 +16,7 @@
  *   Codes are permanent identifiers, not sequence numbers. Gaps are acceptable.
  *
  * AUTO-ASSIGNMENT WIRING:
- *   EngineBootstrap subscribes to StoreEventBus and calls: // TODO(TASK-08)
+ *   EngineBootstrap subscribes to StoreEventBus and calls:
  *     assignCode(event.elementId, event.elementType)  on operation='create'
  *     releaseCode(event.elementId)                    on operation='delete'
  *   The store itself emits 'element-code' create events so SyncStateEngine

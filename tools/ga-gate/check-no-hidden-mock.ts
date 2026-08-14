@@ -231,22 +231,30 @@ const LEDGER: readonly string[] = [
   // header now carries owner, date, a retiring assertion (the "scaffold
   // retirement guard" test), and the S52-D2/S53-D1 disagreement resolved to
   // ONE milestone: C74 §4.2(c) authorisation.
-  'M-B::packages/core-app-model/src/ElementCodeStore.ts',
-  'M-B::packages/core-app-model/src/IFCPsetAdapter.ts',
-  'M-B::packages/core-app-model/src/SemanticIndex.ts',
-  'M-B::packages/core-app-model/src/StoreEventBus.ts',
-  'M-B::packages/core-app-model/src/TemporalGraph.ts',
-  'M-B::packages/core-app-model/src/batch/BatchCoordinator.ts',
-  'M-B::packages/core-app-model/src/catalog/AssetCatalogStore.ts',
-  'M-B::packages/core-app-model/src/comparison/ComparisonEngine.ts',
-  'M-B::packages/core-app-model/src/hierarchy/HierarchyStore.ts',
-  'M-B::packages/core-app-model/src/index.ts',
-  'M-B::packages/core-app-model/src/requirements/RequirementStore.ts',
-  'M-B::packages/core-app-model/src/stores/GridStore.ts',
-  'M-B::packages/core-app-model/src/stores/RoomBoundingLineStore.ts',
-  'M-B::packages/core-app-model/src/sync/SyncStateEngine.ts',
-  'M-B::packages/core-app-model/src/views/ViewDependencyTracker.ts',
-  'M-B::packages/core-app-model/src/views/ViewTemplateStore.ts',
+  // M-B::packages/core-app-model/* — ALL 16 ROWS STRUCK 2026-08-14 (CO-06,
+  // lane E). NONE was a scaffold: every file is live production (the batch
+  // coordinator, the store event bus itself, the semantic index, the element
+  // stores, the barrel). Each header carried `// TODO(TASK-08)` appended to
+  // prose lines MENTIONING StoreEventBus — and in ALL 16 files the SAME
+  // annotation already sits inline on the actual `import { storeEventBus }` /
+  // code lines outside the header (verified per file before striking;
+  // StoreEventBus.ts alone carries 19 inline copies, TemporalGraph 7,
+  // BatchCoordinator 6, index.ts has them on both export lines). The header
+  // copies were DUPLICATES whose only effect was to make production modules
+  // read as scaffolds to this gate. Paid by stripping the header duplicates
+  // only — every inline TASK-08 annotation at a code site remains, so the
+  // TASK-08/ADR-0318 work inventory is unchanged:
+  //   ElementCodeStore.ts · IFCPsetAdapter.ts · SemanticIndex.ts ·
+  //   StoreEventBus.ts · TemporalGraph.ts · batch/BatchCoordinator.ts ·
+  //   catalog/AssetCatalogStore.ts · comparison/ComparisonEngine.ts ·
+  //   hierarchy/HierarchyStore.ts · index.ts ·
+  //   requirements/RequirementStore.ts · stores/GridStore.ts ·
+  //   stores/RoomBoundingLineStore.ts · sync/SyncStateEngine.ts ·
+  //   views/ViewDependencyTracker.ts · views/ViewTemplateStore.ts
+  // (The three dated ones — BatchCoordinator 2026-05-04, RequirementStore
+  // 2026-05-10, ViewTemplateStore 2026-04-26 — were dated by unrelated fix
+  // stamps in their headers, not by scaffold decisions; DATE_RE cannot tell
+  // those apart, which is one more reason a date alone must buy nothing.)
   'M-B::packages/event-bus/src/catalog.ts',
   'M-B::packages/file-format/src/import/dxf/DxfLayerStore.ts',
   'M-B::packages/file-format/src/import/dxf/DxfOverlayStore.ts',

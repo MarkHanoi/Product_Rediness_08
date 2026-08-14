@@ -11,9 +11,9 @@
  *   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *
  * Impact Assessment:
- *   Store Reads:      NO — passive observer of StoreEventBus // TODO(TASK-08)
+ *   Store Reads:      NO — passive observer of StoreEventBus
  *   Store Writes:     NO — append-only own data structure
- *   Event Bus:        SUBSCRIBES — listens to StoreEventBus for auto-recording // TODO(TASK-08)
+ *   Event Bus:        SUBSCRIBES — listens to StoreEventBus for auto-recording
  *   Builder Calls:    NO
  *   Command Dispatch: NO
  *
@@ -27,7 +27,7 @@
  *   is captured.
  *
  *   NodeMutationRecords track element-level changes: create/update/delete events
- *   are captured automatically by subscribing to StoreEventBus inside init(). // TODO(TASK-08)
+ *   are captured automatically by subscribing to StoreEventBus inside init().
  *   No existing command files need to be touched for this auto-recording to work.
  *
  *   Time-slice queries (queryAt) let the DesignHistoryPanel (G-2) reconstruct

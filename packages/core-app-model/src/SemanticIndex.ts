@@ -2,7 +2,7 @@
  * SemanticIndex — O(1) semantic query index for BIM elements.
  *
  * Contract compliance:
- *   §01 §3.8  — Subscribes to StoreEventBus (read-only). Does not call stores directly. // TODO(TASK-08)
+ *   §01 §3.8  — Subscribes to StoreEventBus (read-only). Does not call stores directly.
  *   §03 §1.1  — Maintains metadata.tags as a first-class index.
  *   §04       — Not part of AI layer; used by AIReadModel as a read source.
  *   §07       — No server routes; no DOM; no Three.js.
@@ -10,7 +10,7 @@
  * Responsibility:
  *   - Single source of truth for element semantic tags (Phase A).
  *   - Provides `getElementsByTag(tag)` in O(1) via inverted index.
- *   - Clears stale entries when elements are deleted (via StoreEventBus). // TODO(TASK-08)
+ *   - Clears stale entries when elements are deleted (via StoreEventBus).
  *   - Exposes `evaluateQuery(expr, elementId)` for QueryExpression evaluation.
  *   - Serialisable for ProjectSnapshot persistence.
  *

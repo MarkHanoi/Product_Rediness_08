@@ -37,7 +37,7 @@
  * Pset data is already dot-notation from a database load or IFC parse cache).
  *
  * **Auto-cleanup:**
- * Subscribes to StoreEventBus `delete` events — stale Pset entries are removed // TODO(TASK-08)
+ * Subscribes to StoreEventBus `delete` events — stale Pset entries are removed
  * when an element is deleted, preventing memory leaks in long-running sessions.
  *
  * **Architecture rules (§01 §3.8, §05 §1.1):**

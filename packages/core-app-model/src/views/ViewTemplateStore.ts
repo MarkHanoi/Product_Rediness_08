@@ -19,7 +19,7 @@
  * A lint sweep in Wave 11 will reject any new caller of these write methods.
  *
  * Manages the library of ViewTemplate entities. Follows the ElementStore pattern
- * (§01 §3.3): stable ids, StoreEventBus emission, DOM CustomEvent dispatch, // TODO(TASK-08)
+ * (§01 §3.3): stable ids, StoreEventBus emission, DOM CustomEvent dispatch,
  * serialize / deserialize, singleton export.
  *
  * Only Commands write to this store. UI and AI layers read via the public API.

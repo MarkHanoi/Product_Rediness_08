@@ -11,7 +11,7 @@
  * Contract compliance:
  *   - ALL writes go through Commands — this store is never mutated by UI
  *   - Every record is structuredClone()'d on write (immutable snapshot)
- *   - Emits StoreEventBus events + DOM CustomEvents for downstream consumers // TODO(TASK-08)
+ *   - Emits StoreEventBus events + DOM CustomEvents for downstream consumers
  *   - No THREE.js imports, no builder calls, no elementRegistry access
  *   - BimStore interface satisfied (getAll, has, get) for StoreRegistry lookup
  *

@@ -37,8 +37,8 @@
  *
  * CRITICAL DESIGN RULE — setSyncState() anti-loop contract:
  *   setSyncState() dispatches a DOM CustomEvent ONLY.
- *   It MUST NOT emit StoreEventBus. // TODO(TASK-08)
- *   Reason: SyncStateEngine subscribes to StoreEventBus. If setSyncState() emitted // TODO(TASK-08)
+ *   It MUST NOT emit StoreEventBus.
+ *   Reason: SyncStateEngine subscribes to StoreEventBus. If setSyncState() emitted
  *   the bus, it would trigger SyncStateEngine → setSyncState → bus → SyncStateEngine,
  *   causing an infinite loop. This is the sole exception to the "all mutations emit bus"
  *   rule in this codebase.

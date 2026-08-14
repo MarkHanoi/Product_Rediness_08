@@ -28,7 +28,7 @@
  *   (depth never returned to 0), silently dropping all future events.
  *
  *   Fix — `runBatch<T>(fn, opts)`:
- *     A new safe entry point that exploits P1.1's depth-counting StoreEventBus: // TODO(TASK-08)
+ *     A new safe entry point that exploits P1.1's depth-counting StoreEventBus:
  *
  *     Depth flow (normal execution):
  *       runBatch() calls storeEventBus.beginBatch()    → depth: 0 → 1  (outer async bracket)
@@ -58,7 +58,7 @@
  *     _executeFinalSweep() now calls endBatchYielded() instead of endBatch().
  *     The drain is distributed across ~30 FrameScheduler 'pre-render' frames (200
  *     events/frame, ≤ 16 ms each). The FrameScheduler is injected as a callback
- *     — StoreEventBus has no @pryzm/frame-scheduler import (C01 §2 layer boundary). // TODO(TASK-08)
+ *     — StoreEventBus has no @pryzm/frame-scheduler import (C01 §2 layer boundary).
  *     All post-flush logic (_isBatching=false, restore(), P1.3, PERF-FIX-3, REDETECT_ROOMS)
  *     runs inside onComplete, preserving §BATCH-BUS-DISCARD ordering exactly.
  *
@@ -86,7 +86,7 @@
  *     all events in emission order with no coalescing; onComplete fires after final chunk.
  *
  * Impact Assessment:
- *   StoreEventBus Impact:   Yes — endBatchYielded() added; endBatch() untouched (error path). // TODO(TASK-08)
+ *   StoreEventBus Impact:   Yes — endBatchYielded() added; endBatch() untouched (error path).
  *   Shadow Map Impact:      No change — shadow reactivation callback fires in onComplete.
  *   Semantic Impact:        No — no store reads or writes.
  *   Undo/Redo Impact:       No — undo() path does not call runBatch() or beginBatch().
@@ -95,7 +95,7 @@
  *         watchdog into a single FrameScheduler 'pre-render' slot; updated forceReset()
  *         to cancel and flush on project switch; updated error path for consistency.
  *
- * Risk Level: Low — purely additive to StoreEventBus; _executeFinalSweep() behaviour // TODO(TASK-08)
+ * Risk Level: Low — purely additive to StoreEventBus; _executeFinalSweep() behaviour
  *   is identical to the synchronous path but distributed across frames.
  */
 

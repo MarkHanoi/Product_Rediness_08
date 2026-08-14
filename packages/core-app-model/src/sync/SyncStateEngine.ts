@@ -7,7 +7,7 @@
  *                   docs/00_PRZYM/PRYZM_DATA_PLATFORM_IMPLEMENTATION_ROADMAP.md § PHASE 5
  *
  * Anti-infinite-loop design:
- *   - Writes sync state ONLY via hierarchyStore.setSyncState() (DOM CustomEvent, NOT StoreEventBus) // TODO(TASK-08)
+ *   - Writes sync state ONLY via hierarchyStore.setSyncState() (DOM CustomEvent, NOT StoreEventBus)
  *   - NEVER calls hierarchyStore.update() or roomStore.update()
  *   - Re-entrancy guard: _computing Set<string> prevents re-scheduling mid-computation
  *
@@ -15,7 +15,7 @@
  *   no-template < planned-only < synced < partial < derived < conflict
  *
  * Trigger paths:
- *   1. StoreEventBus subscription (start() → findAffectedNodes → scheduleRecompute) // TODO(TASK-08)
+ *   1. StoreEventBus subscription (start() → findAffectedNodes → scheduleRecompute)
  *   2. Direct call from Commands (AssignTemplateToNodeCommand etc.)
  *   3. Project load completion → resume()
  */

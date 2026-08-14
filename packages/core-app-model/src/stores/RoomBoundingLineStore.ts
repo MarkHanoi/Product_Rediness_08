@@ -14,7 +14,7 @@
  *   - No THREE.js scene access.
  *   - No builder calls.
  *   - No elementRegistry calls.
- *   - Emits StoreEventBus events + legacy DOM events. // TODO(TASK-08)
+ *   - Emits StoreEventBus events + legacy DOM events.
  */
 
 import { storeEventBus } from '../StoreEventBus'; // TODO(TASK-08)

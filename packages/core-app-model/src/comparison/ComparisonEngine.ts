@@ -3,15 +3,15 @@
  *
  * Layer Affected:    Side System (read-only analytical observer)
  * File:             src/core/comparison/ComparisonEngine.ts
- * Contract:         01-BIM-ENGINE-CORE-CONTRACT §3.8 (StoreEventBus consumer) // TODO(TASK-08)
+ * Contract:         01-BIM-ENGINE-CORE-CONTRACT §3.8 (StoreEventBus consumer)
  *
- * Subscribes to the StoreEventBus and computes a live DeltaMap by comparing // TODO(TASK-08)
+ * Subscribes to the StoreEventBus and computes a live DeltaMap by comparing
  * RequirementStore data (what is Required) against RoomStore / element store
  * data (what is Actual).
  *
  * CONTRACT RULES (non-negotiable):
  *   - READ ONLY — never calls commandManager.execute(), never mutates any store
- *   - Subscribes to StoreEventBus via the singleton pattern (not polling) // TODO(TASK-08)
+ *   - Subscribes to StoreEventBus via the singleton pattern (not polling)
  *   - Emits 'pryzm-delta-updated' CustomEvent on window after every recalc
  *   - DeltaMap is a readonly view — consumers must not mutate it
  *
