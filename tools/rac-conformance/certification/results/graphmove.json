@@ -1,0 +1,66 @@
+{
+  "harness": "H6-graph-move-invalidation",
+  "generatedAt": "2026-08-14T07:54:33.905Z",
+  "row": "GR-12 — C71 §1.2 semantic 5 / §1.4 / §6.2(c)",
+  "levelId": "GMV-L0",
+  "roomId": "e00ab512-a916-427e-b111-b67f032d3645",
+  "seedLog": [
+    "level GMV-L0: OK",
+    "wall south: OK",
+    "wall east: OK",
+    "wall north: OK",
+    "wall west: OK",
+    "opening in south wall: OK",
+    "detect rooms: OK"
+  ],
+  "registrationFailures": [],
+  "observations": [
+    {
+      "family": "sitsOn (wall → level)",
+      "obligation": "MOVE-INVARIANT (id-keyed)",
+      "beforeMove": "[\"GMV-L0\"]",
+      "afterMove": "[\"GMV-L0\"]",
+      "vacuous": false,
+      "verdict": "SURVIVED — correct"
+    },
+    {
+      "family": "hosts (wall → opening)",
+      "obligation": "MOVE-INVARIANT (id-keyed)",
+      "beforeMove": "[\"gmv-door-el-1\"]",
+      "afterMove": "[\"gmv-door-el-1\"]",
+      "vacuous": false,
+      "verdict": "SURVIVED — correct"
+    },
+    {
+      "family": "boundedBy (room → bounding walls)",
+      "obligation": "MOVE-SENSITIVE (region-derived)",
+      "beforeMove": "[\"gmv-w-east\",\"gmv-w-north\",\"gmv-w-south\",\"gmv-w-west\"]",
+      "afterMove": "[\"gmv-w-east\",\"gmv-w-north\",\"gmv-w-south\",\"gmv-w-west\"]",
+      "vacuous": false,
+      "verdict": "STALE — the move command performed no invalidation, and the edge still names a wall that no longer bounds the room"
+    },
+    {
+      "family": "adjacentTo (room → room)",
+      "obligation": "MOVE-SENSITIVE (region-derived)",
+      "beforeMove": "[]",
+      "afterMove": "[]",
+      "vacuous": true,
+      "verdict": "VACUOUS — the edge set was empty on both sides; this row measures nothing about this family"
+    },
+    {
+      "family": "boundedBy — RE-DETECT CONTROL",
+      "obligation": "MOVE-SENSITIVE (region-derived)",
+      "beforeMove": "[\"gmv-w-east\",\"gmv-w-north\",\"gmv-w-south\",\"gmv-w-west\"]",
+      "afterMove": "[]",
+      "vacuous": false,
+      "verdict": "the corrective pass IS observable by this probe"
+    }
+  ],
+  "notMeasured": [
+    "SUBSCRIBER REACHABILITY — whether any production path drives a re-detect on a move",
+    "undo/redo of a move",
+    "collaboration merge; multi-level; multi-client",
+    "the seven declared families not observed here",
+    "every PARKED family (C71 §2.3 — untouched is not absent)"
+  ]
+}

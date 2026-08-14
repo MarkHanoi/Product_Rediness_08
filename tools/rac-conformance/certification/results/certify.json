@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-08-12T21:01:23.036Z",
-  "vitestStatus": 1,
+  "startedAt": "2026-08-14T07:36:44.881Z",
+  "vitestStatus": 0,
   "failedRows": {
     "persistence": 0,
-    "undoredo": 1
+    "undoredo": 0
   },
   "gates": {
     "check-identity-roundtrip": 0,
@@ -24,10 +24,11 @@
     "check-authoritative-state": 1,
     "check-two-client-convergence": 0,
     "check-topology-survives": 0,
-    "check-derived-classification": 1
+    "check-derived-classification": 1,
+    "check-room-aabb-canonical": 0
   },
-  "exitCode": 3,
-  "finishedAt": "2026-08-12T21:04:54.799Z",
+  "exitCode": 1,
+  "finishedAt": "2026-08-14T07:56:18.558Z",
   "floors": {
     "persistence": {
       "floors": [
@@ -38,8 +39,8 @@
         },
         {
           "what": "rows emitted",
-          "measured": 18,
-          "min": 18
+          "measured": 19,
+          "min": 19
         },
         {
           "what": "element records in the EXPECTED capture",
@@ -74,17 +75,17 @@
         },
         {
           "what": "rows emitted",
-          "measured": 16,
-          "min": 16
+          "measured": 18,
+          "min": 18
         },
         {
           "what": "capabilities that actually dispatched",
-          "measured": 15,
+          "measured": 17,
           "min": 12
         },
         {
           "what": "undo entries armed across the run",
-          "measured": 15,
+          "measured": 16,
           "min": 5
         },
         {

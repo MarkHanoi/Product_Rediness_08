@@ -1,6 +1,6 @@
 {
   "harness": "H5-graph-runtime-readback",
-  "generatedAt": "2026-08-13T14:13:54.647Z",
+  "generatedAt": "2026-08-14T06:54:15.537Z",
   "seedLog": [
     "level GRT-L0: OK"
   ],
@@ -49,11 +49,18 @@
       "detail": "getTargets('grt-room-1','contains')=[\"grt-furn-1\"] hasRelationship('grt-room-1'→'grt-furn-1')=true"
     },
     {
-      "path": "CreateWallCommand  (NEGATIVE CONTROL)",
+      "path": "CreateWallCommand — sitsOn (§GR-09, was the NEGATIVE CONTROL)",
+      "edgeType": "sitsOn",
+      "declared": "REACHED",
+      "measured": "REACHED",
+      "detail": "getTargets('grt-wall-1','sitsOn')=[\"GRT-L0\"] hasRelationship('grt-wall-1'→'GRT-L0')=true"
+    },
+    {
+      "path": "NEVER-CREATED ELEMENT  (NEGATIVE CONTROL)",
       "edgeType": "sitsOn",
       "declared": "NOT-REACHED",
       "measured": "NOT-REACHED",
-      "detail": "getTargets('grt-wall-1','sitsOn')=[] hasRelationship('grt-wall-1'→'GRT-L0')=false"
+      "detail": "getTargets('grt-never-created-3nalb6uo4x8','sitsOn')=[] hasRelationship('grt-never-created-3nalb6uo4x8'→'GRT-L0')=false"
     }
   ]
 }
