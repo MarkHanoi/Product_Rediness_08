@@ -329,6 +329,15 @@ const GATES: Gate[] = [
   // silent. Carries a gate-newly-measured.json entry, NOT gate-debt.json.
   { name: 'conflict-surfacing (C70 K-INV-2 · CB-04)',  script: '../rac-conformance/certification/gates/check-conflict-surfacing.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
+  // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
+  // other determinism check here is a static read; this one RUNS the geometry in
+  // three separate processes (including one under --jitless) and compares raw
+  // IEEE-754 bytes. It is registered as a hard gate because it was born passing
+  // at 4/4 and a disagreement is never tolerable: geometry that differs between
+  // two runs on ONE machine cannot converge between two clients.
+  // ⚠ It does NOT prove cross-MACHINE determinism or GPU geometry, and it says so
+  // on every run. GE-08 stays UNPROVEN for those two — do not cite this as closure.
+  { name: 'cross-process-determinism (C73 §5.4b, partial)', script: 'check-cross-process-determinism.ts' },
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
 ];
 
