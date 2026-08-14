@@ -11,7 +11,7 @@
  */
 
 import { RoomVertex, RoomBoundary, RoomComputedMetrics } from './RoomTypes';
-import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+import { intersectSegments2D, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 // §FIX-REGION-RING-PRETRIM-FRAME (2026-08-07) — ONE ring-simplicity predicate,
 // shared with the slab triangulation gate. Leaf subpath, so no THREE is pulled in
 // and this file stays pure. See the note on `isSimple` below.
@@ -927,15 +927,17 @@ function segmentCrossPoint(
   p1: RoomVertex, p2: RoomVertex,
   p3: RoomVertex, p4: RoomVertex,
 ): RoomVertex | null {
-  const d1x = p2.x - p1.x, d1z = p2.z - p1.z;
-  const d2x = p4.x - p3.x, d2z = p4.z - p3.z;
-  const cross = d1x * d2z - d1z * d2x;
-  if (Math.abs(cross) < 1e-10) return null; // parallel / collinear
-  const dx = p3.x - p1.x, dz = p3.z - p1.z;
-  const t = (dx * d2z - dz * d2x) / cross;
-  const u = (dx * d1z - dz * d1x) / cross;
-  if (t > 1e-10 && t < 1 - 1e-10 && u > 1e-10 && u < 1 - 1e-10) {
-    return { x: p1.x + t * d1x, z: p1.z + t * d1z };
+  // §C73-SEGSEG-CANONICAL — the solve delegates to the kernel's ONE
+  // segment/segment body; the INTERIOR-ONLY filter (a shared chain endpoint is
+  // not a place to split the ring) is this caller's boundary composition,
+  // applied to the returned parameters with EXACT comparisons. The private
+  // `1e-10` parallel guard and interior band are retired (C73 §2.4/§3.7): the
+  // parallel refusal now comes from the declared EPSILON_ZERO, and a crossing
+  // within 1e-10 of an endpoint reads as the crossing it geometrically is.
+  const hit = intersectSegments2D(p1.x, p1.z, p2.x, p2.z, p3.x, p3.z, p4.x, p4.z);
+  if (!hit) return null;
+  if (hit.t > 0 && hit.t < 1 && hit.u > 0 && hit.u < 1) {
+    return { x: hit.x, z: hit.y };
   }
   return null;
 }

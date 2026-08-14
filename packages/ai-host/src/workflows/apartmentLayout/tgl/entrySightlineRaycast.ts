@@ -16,6 +16,7 @@
 // Pure + deterministic — ai-host unit-tests in plain Node. No I/O, no THREE,
 // no DOM.
 
+import { EPSILON_ZERO, intersectSegments2D } from '@pryzm/geometry-kernel';
 import type { GraphNode, LayoutGraph, Pt } from './semanticGraph.js';
 
 /** Architectural scoring buckets — IDENTICAL to L2-β-2 graph-distance form so
@@ -50,26 +51,25 @@ export function polygonCentroid(polygon: readonly Pt[]): Pt {
  * Segment-segment intersection in 2D. Returns the parametric (t, u) pair
  * where t ∈ [0,1] along (a1→a2) and u ∈ [0,1] along (b1→b2), or null when
  * the segments do NOT properly intersect (parallel, collinear, or end-only
- * touch within EPS). Touch-at-endpoint counts as no-intersect to keep the
+ * touch within EPSILON_ZERO). Touch-at-endpoint counts as no-intersect to keep the
  * raycaster from spuriously blocking on wall meet-points the sight-line
  * just grazes.
  */
-const EPS = 1e-9;
+// §C73-SEGSEG-CANONICAL — the interior/touch band consumes the kernel's
+// declared EPSILON_ZERO directly (same value the private `EPS = 1e-9` literal
+// carried), per C73 §2.2 — no local tolerance name survives here.
 export function segmentIntersect(
     a1: Pt, a2: Pt, b1: Pt, b2: Pt,
 ): { t: number; u: number } | null {
-    const r1 = a2.x - a1.x;
-    const r2 = a2.z - a1.z;
-    const s1 = b2.x - b1.x;
-    const s2 = b2.z - b1.z;
-    const den = r1 * s2 - r2 * s1;
-    if (Math.abs(den) < EPS) return null;       // parallel / collinear
-    const dx = b1.x - a1.x;
-    const dz = b1.z - a1.z;
-    const t = (dx * s2 - dz * s1) / den;
-    const u = (dx * r2 - dz * r1) / den;
-    if (t <= EPS || t >= 1 - EPS) return null;  // touch-at-endpoint → not a block
-    if (u <= EPS || u >= 1 - EPS) return null;
+    // §C73-SEGSEG-CANONICAL — the solve delegates to the kernel's ONE
+    // segment/segment body; the touch-at-endpoint EXCLUSION (a sight-line
+    // grazing a wall meet-point is not a block) is this caller's own boundary
+    // composition and stays here, on the returned parameters (C73 §3.7).
+    const hit = intersectSegments2D(a1.x, a1.z, a2.x, a2.z, b1.x, b1.z, b2.x, b2.z);
+    if (!hit) return null;                      // parallel / collinear / off-segment
+    const { t, u } = hit;
+    if (t <= EPSILON_ZERO || t >= 1 - EPSILON_ZERO) return null;  // touch-at-endpoint → not a block
+    if (u <= EPSILON_ZERO || u >= 1 - EPSILON_ZERO) return null;
     return { t, u };
 }
 
@@ -96,10 +96,10 @@ export function closedWallRanges(
     const out: { u0: number; u1: number }[] = [];
     let cursor = 0;
     for (const o of sorted) {
-        if (o.a > cursor + EPS) out.push({ u0: cursor, u1: o.a });
+        if (o.a > cursor + EPSILON_ZERO) out.push({ u0: cursor, u1: o.a });
         cursor = Math.max(cursor, o.b);
     }
-    if (cursor < 1 - EPS) out.push({ u0: cursor, u1: 1 });
+    if (cursor < 1 - EPSILON_ZERO) out.push({ u0: cursor, u1: 1 });
     return out;
 }
 
@@ -120,7 +120,7 @@ export function isSightBlocked(
         const wallLen = Math.hypot(wb.x - wa.x, wb.z - wa.z);
         const ranges = closedWallRanges(wallLen, w.openings);
         for (const r of ranges) {
-            if (hit.u > r.u0 + EPS && hit.u < r.u1 - EPS) return true;
+            if (hit.u > r.u0 + EPSILON_ZERO && hit.u < r.u1 - EPSILON_ZERO) return true;
         }
     }
     return false;

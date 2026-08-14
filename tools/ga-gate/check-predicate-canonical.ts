@@ -283,11 +283,19 @@ const FAMILIES: readonly Family[] = [
     exclusions: [],
     counted: false,
     notYetReason:
-      'NOT-YET-COUNTED — C73 §3.5, one family per PR. Its structural signature (two straddles AND-ed) is ' +
-      'already WRITTEN here as SEGMENT_CROSS_SHAPE and is what keeps it out of the point-in-polygon count, ' +
-      'so lighting this arm is a small change; the blocker is not detection but §3.6: the parametric (t/u) ' +
-      'form and the cross-product form must be shown to be the SAME family before a single count over both ' +
-      'means anything, and neither form has an identified shipping consumer yet.',
+      'NOT-YET-COUNTED as an arm, but the §3.6/§3.7 blocker is DISCHARGED (2026-08-13): the one-family ' +
+      'proof (d1 = −u·D, d2 = (1−u)·D, d3 = t·D, d4 = (t−1)·D — both spellings are decision procedures over ' +
+      'the same four scalars) is on the record in the canonical file ' +
+      '`packages/geometry-kernel/src/pure/segmentIntersection.ts` and EXECUTED by ' +
+      '`__tests__/segmentIntersection.oracle.test.ts`, which drives both rival forms over a degenerate grid. ' +
+      'Nine production rivals were collapsed onto it in the same series (kernel fold-detect, the three ' +
+      'WallIntersectionResolver clones, tgl sightline, ringSimplicity + RoomPolygonUtils, ' +
+      'CeilingPolygonUtils). What the arm still needs before counted:true: a detector for the PARAMETRIC ' +
+      'spelling (denominator cross + dual t/u range check — SEGMENT_CROSS_SHAPE only sees the straddle ' +
+      'pair) with its own negative controls, and a baseline write for the deferred rivals (site-parcel-data ' +
+      'EPS-signed variants under legally-scoped fixtures; snapping/auto-dimension/finish-host-tracker ' +
+      'awaiting a kernel dep + lockfile sync; PlanSnapEngine/HiddenLineRemoval, whose boundary bands extend ' +
+      'beyond the closed [0,1] the canonical answers).',
   },
   {
     id: 'polygon-area-and-winding',
@@ -296,13 +304,17 @@ const FAMILIES: readonly Family[] = [
     exclusions: [],
     counted: false,
     notYetReason:
-      'NOT-YET-COUNTED — C73 §3.5. `polygonSignedArea2D` IS already exported from geometry-kernel ' +
-      '(pure/polygonOffset.ts, re-exported from the barrel), so unlike point-in-polygon this family HAS a ' +
-      'plausible canonical file and the work is a migration rather than a mint. Not started here because ' +
-      'the shoelace accumulate step is a bare `+=` over a cross product, which is far weaker as a structural ' +
-      'signature than the straddle test and will need its own negative controls against every unrelated ' +
-      'running sum in the tree before its count can be trusted (§7.k — a tally that cannot be trusted is worse ' +
-      'than no tally).',
+      'NOT-YET-COUNTED — C73 §3.5. `polygonSignedArea2D` IS the canonical (pure/polygonOffset.ts, barrel-' +
+      'exported), now accessor-backed as `polygonSignedAreaOrdinates` so any vertex shape reads area AND ' +
+      'winding (= the SIGN of the same accumulation, oracle-pinned in polygonAreaWinding.oracle.test.ts) ' +
+      'without minting a copy; the kernel’s own five producer clones (slab/room/ceiling/extrude/roof-' +
+      'polygon) collapsed onto it 2026-08-13. The census measured ~80 further production `+= a.x*b.z - ' +
+      'b.x*a.z` accumulations across apps/plugins/packages. Still not counted because the shoelace ' +
+      'accumulate step is a bare `+=` over a cross product — far weaker as a structural signature than the ' +
+      'straddle test. The arm’s designed signature is the ACCUMULATION shape `+= A*B - C*D` (and the ' +
+      'trapezoid spelling `(x2-x1)*(y2+y1)`) restricted to a loop over ring-successor pairs, with negative ' +
+      'controls against dot-product sums, energy sums and non-cyclic accumulators — those controls must ' +
+      'exist before the count can be trusted (§7.k — a tally that cannot be trusted is worse than no tally).',
   },
   {
     id: 'point-to-segment-distance',

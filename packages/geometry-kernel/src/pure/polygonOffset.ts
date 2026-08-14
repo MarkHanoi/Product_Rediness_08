@@ -67,6 +67,7 @@
  */
 
 import { EPSILON_ZERO } from '../tolerance.js';
+import { segmentsCrossHalfOpen2D } from './segmentIntersection.js';
 
 export type Pt2 = [number, number]; // [x, z]
 
@@ -90,16 +91,37 @@ export interface OffsetResult {
  */
 export const FOLD_CHECK_MAX_VERTS = 1024;
 
-/** Shoelace signed area in the XZ plane. Positive ⇒ the winding this module calls CCW. */
-export function signedArea(poly: ReadonlyArray<Pt2>): number {
+/**
+ * §C73-AREA-CANONICAL — THE shoelace accumulation (C73 §3.1 family
+ * "polygon-area-and-winding"; exported from the barrel as
+ * `polygonSignedArea2D` via {@link signedArea}). Accessor-based for the same
+ * reason `pointInRingEvenOdd` is: every vertex shape in the estate ({x,z},
+ * {x,y}, [x,z] tuples, ProfilePoint) reads area from this ONE accumulation
+ * instead of minting a per-shape copy — the kernel's own producers carried
+ * FIVE verbatim clones of it before the collapse.
+ *
+ * WINDING IS THE SIGN OF THIS SAME COMPUTATION: positive ⇒ CCW in the
+ * (first, second) ordinate plane. There is deliberately no separate
+ * orientation body — an `ensureCCW`-style caller compares this to 0.
+ * Degenerate input (< 3 vertices) reads 0: a line has no area, and 0 carries
+ * the winding question's honest answer ("neither").
+ */
+export function polygonSignedAreaOrdinates(
+    vertexCount: number,
+    xAt: (index: number) => number,
+    yAt: (index: number) => number,
+): number {
     let a = 0;
-    const n = poly.length;
-    for (let i = 0; i < n; i++) {
-        const [x1, z1] = poly[i]!;
-        const [x2, z2] = poly[(i + 1) % n]!;
-        a += x1 * z2 - x2 * z1;
+    for (let i = 0; i < vertexCount; i++) {
+        const j = (i + 1) % vertexCount;
+        a += xAt(i) * yAt(j) - xAt(j) * yAt(i);
     }
     return a / 2;
+}
+
+/** Shoelace signed area in the XZ plane. Positive ⇒ the winding this module calls CCW. */
+export function signedArea(poly: ReadonlyArray<Pt2>): number {
+    return polygonSignedAreaOrdinates(poly.length, (i) => poly[i]![0], (i) => poly[i]![1]);
 }
 
 /** Drop consecutive (and wrap-around) duplicate vertices within `tol`. */
@@ -135,14 +157,21 @@ export function dedupeRing(poly: ReadonlyArray<Pt2>, tol = 1e-7): Pt2[] {
  *
  * Exact O(n²) segment-pair test, adjacency-skipping. Returns `null` when the ring
  * is simple, else `{ i, j }` — the two edge indices that cross.
+ *
+ * §C73-SEGSEG-CANONICAL — the per-pair verdict delegates to the kernel's ONE
+ * segment/segment body (`pure/segmentIntersection.ts`). The HALF-OPEN view is
+ * the deliberate choice: it is bit-identical to the four-cross-product straddle
+ * this loop carried before the collapse (`(d>0) !== (d>0)` with zero on the ≤
+ * side), so an endpoint T-touch still reads as a fold — swapping to the
+ * strict-interior view would have silently stopped refusing rings that pinch
+ * exactly at a vertex, a behaviour change this delegation must not smuggle in
+ * (C73 §3.7).
  */
 export function findSelfIntersection(
     ring: ReadonlyArray<Pt2>,
 ): { readonly i: number; readonly j: number } | null {
     const n = ring.length;
     if (n < 4) return null;
-    const cross = (o: Pt2, a: Pt2, b: Pt2): number =>
-        (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
     for (let i = 0; i < n; i++) {
         const a = ring[i]!;
         const b = ring[(i + 1) % n]!;
@@ -151,11 +180,7 @@ export function findSelfIntersection(
             if ((j + 1) % n === i || (i + 1) % n === j) continue;
             const c = ring[j]!;
             const d = ring[(j + 1) % n]!;
-            const d1 = cross(a, b, c);
-            const d2 = cross(a, b, d);
-            const d3 = cross(c, d, a);
-            const d4 = cross(c, d, b);
-            if ((d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0)) return { i, j };
+            if (segmentsCrossHalfOpen2D(a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1])) return { i, j };
         }
     }
     return null;

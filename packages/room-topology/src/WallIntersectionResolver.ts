@@ -27,6 +27,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { intersectSegments2D } from '@pryzm/geometry-kernel';
 import { v4 as uuid } from 'uuid';
 
 export const DEFAULT_CORNER_THRESHOLD_M = 0.10;
@@ -87,16 +88,17 @@ function segSegIntersectXZ(
     aStart: THREE.Vector3, aEnd: THREE.Vector3,
     bStart: THREE.Vector3, bEnd: THREE.Vector3,
 ): { tA: number; tB: number; point: THREE.Vector3 } | null {
-    const dax = aEnd.x - aStart.x; const daz = aEnd.z - aStart.z;
-    const dbx = bEnd.x - bStart.x; const dbz = bEnd.z - bStart.z;
-    const denom = dax * dbz - daz * dbx;
-    if (Math.abs(denom) < 1e-10) return null;
-    const dx = bStart.x - aStart.x;
-    const dz = bStart.z - aStart.z;
-    const tA = (dx * dbz - dz * dbx) / denom;
-    const tB = (dx * daz - dz * dax) / denom;
-    if (tA < 0 || tA > 1 || tB < 0 || tB > 1) return null;
-    return { tA, tB, point: new THREE.Vector3(aStart.x + tA * dax, 0, aStart.z + tA * daz) };
+    // §C73-SEGSEG-CANONICAL — delegates to the kernel's ONE segment/segment
+    // body (closed [0,1] bounds, same as the loop this replaces). The private
+    // `1e-10` parallel guard is retired for the declared EPSILON_ZERO (1e-9,
+    // C73 §2.4): pairs parallel to within one extra order of magnitude now
+    // refuse instead of returning a far-flung pseudo-intersection.
+    const hit = intersectSegments2D(
+        aStart.x, aStart.z, aEnd.x, aEnd.z,
+        bStart.x, bStart.z, bEnd.x, bEnd.z,
+    );
+    if (!hit) return null;
+    return { tA: hit.t, tB: hit.u, point: new THREE.Vector3(hit.x, 0, hit.y) };
 }
 
 function nodeId(x: number, z: number): string {

@@ -3,6 +3,7 @@
  * Safe to call from any layer including unit tests without a renderer.
  */
 
+import { segmentsProperlyCross2D } from '@pryzm/geometry-kernel';
 import { CeilingVertex } from './CeilingTypes';
 
 export interface BoundingBox2D {
@@ -117,25 +118,23 @@ export function isPointInPolygon(
   return inside;
 }
 
-/** True if two line segments intersect (excluding shared endpoints). */
+/**
+ * True if two line segments intersect (excluding shared endpoints).
+ *
+ * §C73-SEGSEG-CANONICAL — delegates to the kernel's ONE segment/segment body
+ * (strict-interior view: exact sign tests, no divide, no epsilon). The private
+ * `1e-12` parallel guard and `1e-8` interior band this carried are RETIRED
+ * (C73 §2.4): crossings within 1e-8 of an endpoint now read as the proper
+ * crossings they geometrically are. Stated per §3.7 — the verdict moves only
+ * on that band.
+ */
 function segmentsIntersect(
   a1: CeilingVertex,
   a2: CeilingVertex,
   b1: CeilingVertex,
   b2: CeilingVertex
 ): boolean {
-  const dax = a2.x - a1.x;
-  const daz = a2.z - a1.z;
-  const dbx = b2.x - b1.x;
-  const dbz = b2.z - b1.z;
-  const denom = dax * dbz - daz * dbx;
-  if (Math.abs(denom) < 1e-12) return false; // parallel
-  const dx = b1.x - a1.x;
-  const dz = b1.z - a1.z;
-  const t = (dx * dbz - dz * dbx) / denom;
-  const u = (dx * daz - dz * dax) / denom;
-  const eps = 1e-8;
-  return t > eps && t < 1 - eps && u > eps && u < 1 - eps;
+  return segmentsProperlyCross2D(a1.x, a1.z, a2.x, a2.z, b1.x, b1.z, b2.x, b2.z);
 }
 
 /** O(n²) self-intersection check. */

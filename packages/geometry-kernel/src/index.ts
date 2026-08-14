@@ -59,6 +59,10 @@ export {
   offsetPolygonOrSelf,
   findSelfIntersection,
   signedArea as polygonSignedArea2D,
+  // §C73-AREA-CANONICAL — the same shoelace body behind accessors, so any
+  // vertex shape reads area/winding without minting a copy; winding is the
+  // SIGN of this computation, never a second orientation body.
+  polygonSignedAreaOrdinates,
   dedupeRing,
   FOLD_CHECK_MAX_VERTS,
   type OffsetResult,
@@ -76,6 +80,18 @@ export {
   pointInPolygonXY,
   type RingOrdinateAt,
 } from './pure/pointInPolygon.js';
+// §C73-SEGSEG-CANONICAL — THE segment/segment intersection. One arithmetic
+// body (four cross products) with three named boundary views — strict-interior,
+// half-open, and the parametric closed-[0,1] hit; the parametric divide is
+// guarded by the declared EPSILON_ZERO, never a per-call-site literal. The
+// cross-product and t/u spellings are proven ONE family in the module header
+// and executed as such in __tests__/segmentIntersection.oracle.test.ts.
+export {
+  intersectSegments2D,
+  segmentsCrossHalfOpen2D,
+  segmentsProperlyCross2D,
+  type SegmentIntersection2D,
+} from './pure/segmentIntersection.js';
 // §W2A-ROOF-FORM-HONESTY — the PRE-FLIGHT, exported so a command handler can
 // refuse IN FRONT OF THE USER before committing, instead of the user discovering
 // afterwards that the mansard they asked for was built as a hip.

@@ -26,6 +26,8 @@
  * `plugins/&#42;/src/handlers/`.)
  */
 
+import { segmentsProperlyCross2D } from '@pryzm/geometry-kernel';
+
 /** A ring vertex in ANY planar convention — `x`/`y` are simply the two axes. */
 export interface RingPoint2D { x: number; y: number }
 
@@ -34,22 +36,21 @@ export interface RingPoint2D { x: number; y: number }
  *
  * Exclusive on both parameters, because a closed ring's consecutive edges always
  * share an endpoint and a touch is not a crossing.
+ *
+ * §C73-SEGSEG-CANONICAL — delegates to the kernel's ONE segment/segment body
+ * (strict-interior view: exact sign tests, no divide, no epsilon). The private
+ * `1e-10` parallel guard and `1e-10` interior band this carried are RETIRED
+ * (C73 §2.4): a crossing whose parameters sat inside the old band — within
+ * 1e-10 of an endpoint — now reads as the proper crossing it geometrically is,
+ * and near-parallel pairs are decided by exact sign rather than a private
+ * threshold. The verdicts differ only on that measure-zero band, stated here
+ * per §3.7 rather than smuggled in as a refactor.
  */
 export function ringSegmentsProperlyCross(
   p1: RingPoint2D, p2: RingPoint2D,
   p3: RingPoint2D, p4: RingPoint2D,
 ): boolean {
-  const d1x = p2.x - p1.x, d1y = p2.y - p1.y;
-  const d2x = p4.x - p3.x, d2y = p4.y - p3.y;
-
-  const cross = d1x * d2y - d1y * d2x;
-  if (Math.abs(cross) < 1e-10) return false; // parallel
-
-  const dx = p3.x - p1.x, dy = p3.y - p1.y;
-  const t = (dx * d2y - dy * d2x) / cross;
-  const u = (dx * d1y - dy * d1x) / cross;
-
-  return t > 1e-10 && t < 1 - 1e-10 && u > 1e-10 && u < 1 - 1e-10;
+  return segmentsProperlyCross2D(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y);
 }
 
 /**
