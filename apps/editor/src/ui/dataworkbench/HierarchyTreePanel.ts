@@ -40,6 +40,22 @@ import {
     boundingWallsUndeterminedLabel,
     isBoundingWallsUndetermined,
 } from '@pryzm/core-app-model';
+// §FIX-ROOM-FACETS-UNDETERMINED (GR-10, the []-means-unknown drain) — the
+// slab/column facets and the hosted door/window lookups were the SAME family
+// as the bounding-wall fix above, still live in this file. The decisions moved
+// to the PURE `roomContentsFacets` module (stores as parameters) so they are
+// assertable; an unrecorded facet now renders a ⚠ refusal row and the count
+// badge says "≥ N" instead of forging an exact number.
+import {
+    buildRoomElementGroups,
+    countRoomElements,
+    FACET_LABEL,
+    type RoomElement,
+    type RoomElementCount,
+    type RoomElementGroup,
+    type RoomElementGroupsResult,
+    type RoomFacetRefusal,
+} from './roomContentsFacets';
 import { syncStateDetailDrawer } from './SyncStateDetailDrawer';
 import {
     addSite, addBuilding, addLevel, addUnit,
@@ -47,21 +63,9 @@ import {
     type HierarchyTreeActionHost,
 } from './HierarchyTreeAddActions';
 
-// ── Element row types ──────────────────────────────────────────────────────
-
-interface RoomElement {
-    id: string;
-    elementType: 'wall' | 'door' | 'window' | 'slab' | 'column' | 'furniture';
-    label: string;
-    code?: string;
-    meta?: string;       // e.g. "4.2 m", "12.1 m²"
-}
-
-interface RoomElementGroup {
-    groupLabel: string;  // e.g. "Walls (4)"
-    icon: string;
-    elements: RoomElement[];
-}
+// ── Element row types — moved to `roomContentsFacets.ts` (pure, testable);
+//    re-imported above. `RoomElement` stays used here by the furniture group,
+//    which is built in this file (async, SemanticGraph). ──
 
 // ── Sync state → colour mapping (from Phase 7 spec) ───────────────────────
 const SYNC_COLOURS: Record<string, string> = {
@@ -130,7 +134,9 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
     // Tracks which rooms have their element list expanded (separate from hierarchy _expanded)
     private _roomExpanded = new Set<string>();
     // Per-room element cache — populated on first expand, invalidated on store events
-    private _elementCache = new Map<string, RoomElementGroup[]>();
+    // §FIX-ROOM-FACETS-UNDETERMINED — caches the RESULT (refusals included),
+    // so a cached room re-renders its ⚠ facet rows too, not just its groups.
+    private _elementCache = new Map<string, RoomElementGroupsResult>();
     // Filter integration — opt-in flag (defaults false for performance)
     private _showElementsInFilter = false;
 
@@ -363,19 +369,28 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         const wallsUndetermined = isBoundingWallsUndetermined(boundingWalls);
 
         // PERFORMANCE GUARD: only count elements (reads array .length only, no store fetch)
-        const elementCount = wallsUndetermined ? -1 : this._countRoomElements(room);
+        const elementCount = wallsUndetermined ? null : this._countRoomElements(room);
         // An undetermined room is EXPANDABLE — its child is the refusal row.
         // Making it a leaf would hide the refusal behind a disclosure the user
-        // has no reason to try.
-        const hasElements = wallsUndetermined || elementCount > 0;
+        // has no reason to try. A room with an UNRECORDED slab/column facet is
+        // expandable for the same reason: its children include the ⚠ rows.
+        const hasElements =
+            wallsUndetermined || elementCount!.total > 0 || !elementCount!.exact;
         const expanded = this._roomExpanded.has(room.id);
 
         // Step 9: element count badge on collapsed room row.
         // §FIX-BOUNDING-WALLS-UNDETERMINED — `· 0 el` on a room nobody measured
         // is a claim the panel is not entitled to make. It says so instead.
+        // §FIX-ROOM-FACETS-UNDETERMINED — when a slab/column facet was never
+        // recorded the count is a FLOOR, not a total: `≥ N el ⚠`, never a bare
+        // number (the ScreenReaderListView "at least N" precedent).
         const elBadge = wallsUndetermined
             ? ' · ⚠ contents undetermined'
-            : (hasElements && !expanded ? ` · ${elementCount} el` : '');
+            : (hasElements && !expanded
+                ? (elementCount!.exact
+                    ? ` · ${elementCount!.total} el`
+                    : ` · ≥ ${elementCount!.total} el ⚠`)
+                : '');
 
         const row = this._buildRow({
             id: room.id,
@@ -398,9 +413,15 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
             // empty group list: a row that names the C78 §8.1 reason.
             wrapper.appendChild(this._renderUndeterminedBoundingWalls(boundingWalls, depth + 1));
         } else if (expanded && hasElements) {
-            const groups = this._getElementGroups(room);
-            for (const group of groups) {
+            const result = this._getElementGroups(room);
+            for (const group of result.groups) {
                 wrapper.appendChild(this._renderElementGroup(group, depth + 1));
+            }
+            // §FIX-ROOM-FACETS-UNDETERMINED — the VISIBLE refusals for the
+            // slab/column facets, BESIDE the determined groups. An unrecorded
+            // facet must not present as an absent group (C78 §5).
+            for (const refusal of result.undetermined) {
+                wrapper.appendChild(this._renderUndeterminedFacet(refusal, depth + 1));
             }
             // Step 4: furniture via SemanticGraph (async, fire-and-forget)
             this._appendFurnitureGroup(room, wrapper, depth);
@@ -435,166 +456,90 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
 
     // ── Step 2: Element count — cheap path (no store object fetch) ──────────
 
-    /** @returns the element count, or **-1** when the bounding-wall
-     *  relationship could not be read (C78 §1.4 — never `0`, which is a real
-     *  count this method has no right to assert). */
-    private _countRoomElements(room: any): number {
+    /** @returns the element count with its EXACTNESS carried, or **null** when
+     *  the bounding-wall relationship could not be read (C78 §1.4 — never `0`,
+     *  which is a real count this method has no right to assert). */
+    private _countRoomElements(room: any): RoomElementCount | null {
         // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4/§5 · C71 §4.4 · C79 §5.2.0).
         // `room.boundingWallIds ?? []` made "this room contains nothing" and
         // "nobody ever recorded what bounds this room" the same value — the
         // EXACT shape of the defect this panel's own changelog documents at
-        // `_appendFurnitureGroup`. The caller now branches on the determination
-        // (`_boundingWallsUndetermined`) and renders a REFUSAL row rather than
-        // a silently empty tree. This counter keeps returning a number because
-        // a badge needs one; it is only ever consulted when the relationship
-        // WAS determined.
+        // `_appendFurnitureGroup`. The caller branches on the determination
+        // and renders a REFUSAL row rather than a silently empty tree.
         // `?? []` is deliberately NOT written here — that would re-collapse the
-        // two cases one line after distinguishing them (the regression the
-        // `boundingWallIdsOrUnknown` test pins explicitly). `-1` is impossible
-        // for a real count, so an undetermined room can never be mistaken for
-        // an empty one by a caller that forgets to check.
+        // two cases one line after distinguishing them.
+        // §FIX-ROOM-FACETS-UNDETERMINED — the slab/column facets and the
+        // hosted lookups had the SAME defect one line below the wall fix; the
+        // decisions now live in `roomContentsFacets.countRoomElements` (pure,
+        // tested), and an unrecorded facet makes the count INEXACT rather than
+        // silently smaller.
         const determined = boundingWallIdsOrUnknown(room);
-        if (determined === null) return -1;
-        const wallIds: readonly string[] = determined;
-        const slabIds: string[] = room.boundingSlabIds ?? [];
-        const colIds: string[]  = room.boundingColumnIds ?? [];
-
-        const doorStore   = window.doorStore; // TODO(E.door.S): legacy doorStore — replace with runtime.stores.door
-        const windowStore = window.windowStore; // TODO(E.window.S): legacy windowStore — replace with runtime.stores.window
-
-        let doorCount   = 0;
-        let windowCount = 0;
-
-        if (doorStore && wallIds.length > 0) {
-            for (const wid of wallIds) {
-                doorCount += (doorStore.getByWallId(wid)?.length ?? 0);
-            }
-        }
-        if (windowStore && wallIds.length > 0) {
-            for (const wid of wallIds) {
-                windowCount += (windowStore.getByWallId(wid)?.length ?? 0);
-            }
-        }
+        if (determined === null) return null;
 
         // Furniture excluded from count — SemanticGraph query is async
-        return wallIds.length + slabIds.length + colIds.length + doorCount + windowCount;
+        return countRoomElements(
+            room,
+            determined,
+            window.doorStore, // TODO(E.door.S): legacy doorStore — replace with runtime.stores.door
+            window.windowStore, // TODO(E.window.S): legacy windowStore — replace with runtime.stores.window
+        );
     }
 
     // ── Step 3: Element group builder — full fetch, cache-backed ───────────
 
-    private _getElementGroups(room: any): RoomElementGroup[] {
+    private _getElementGroups(room: any): RoomElementGroupsResult {
         if (this._elementCache.has(room.id)) {
             return this._elementCache.get(room.id)!;
         }
-
-        const wallStore   = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
-        const slabStore   = window.slabStore; // TODO(E.slab.S): legacy slabStore — replace with runtime.stores.slab
-        const columnStore = window.columnStore; // TODO(E.column.S): legacy columnStore — replace with runtime.stores.column
-        const doorStore   = window.doorStore; // TODO(E.door.S): legacy doorStore — replace with runtime.stores.door
-        const windowStore = window.windowStore; // TODO(E.window.S): legacy windowStore — replace with runtime.stores.window
-
-        const groups: RoomElementGroup[] = [];
 
         // ── Walls ────────────────────────────────────────────────────────
         // §FIX-BOUNDING-WALLS-UNDETERMINED — see `_countRoomElements`. When the
         // relationship is UNDETERMINED this method is not reached: `_renderRoom`
         // renders `_renderUndeterminedBoundingWalls()` instead, so an unknown
-        // never masquerades as an empty group list.
-        // No `?? []` — see `_countRoomElements`. An undetermined room must not
-        // reach here at all: `_renderRoom` renders the refusal row instead. If
-        // one somehow does, this REFUSES (returns no groups) rather than
-        // presenting an empty tree as a finding (C78 §1.4).
+        // never masquerades as an empty group list. If one somehow does, this
+        // REFUSES (returns no groups) rather than presenting an empty tree as
+        // a finding (C78 §1.4).
+        // §FIX-ROOM-FACETS-UNDETERMINED — the group building itself moved to
+        // the PURE `roomContentsFacets.buildRoomElementGroups`: slab/column
+        // facets classify absent-vs-empty and come back as `undetermined`
+        // refusals beside the groups; the door/window `getByWallId` dead
+        // defaults are gone (the store contract is enforced, not defaulted).
         const determinedWallIds = boundingWallIdsOrUnknown(room);
-        if (determinedWallIds === null) return [];
-        const wallIds: readonly string[] = determinedWallIds;
-        if (wallStore && wallIds.length > 0) {
-            const walls: RoomElement[] = wallIds
-                .map((id: string) => wallStore.getById(id))
-                .filter(Boolean)
-                .map((w: any) => ({
-                    id: w.id,
-                    elementType: 'wall' as const,
-                    label: w.name ?? w.metadata?.name ?? 'Wall',
-                    code: w.ifcData?.globalId?.slice(0, 8),
-                    meta: w.baseLine
-                        ? `${this._wallLength(w).toFixed(1)} m`
-                        : undefined,
-                }));
-            if (walls.length > 0) {
-                groups.push({ groupLabel: `Walls (${walls.length})`, icon: '🧱', elements: walls });
-            }
-        }
+        if (determinedWallIds === null) return { groups: [], undetermined: [] };
 
-        // ── Doors (via bounding walls) ────────────────────────────────────
-        if (doorStore && wallIds.length > 0) {
-            const doors: RoomElement[] = wallIds
-                .flatMap((wid: string) => doorStore.getByWallId(wid) ?? [])
-                .map((d: any) => ({
-                    id: d.id,
-                    elementType: 'door' as const,
-                    label: d.doorType ?? 'Door',
-                    code: d.systemTypeId?.slice(0, 8),
-                    meta: d.width != null ? `${d.width.toFixed(2)} m` : undefined,
-                }));
-            if (doors.length > 0) {
-                groups.push({ groupLabel: `Doors (${doors.length})`, icon: '🚪', elements: doors });
-            }
-        }
+        const result = buildRoomElementGroups(room, determinedWallIds, {
+            wallStore: window.wallStore, // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
+            slabStore: window.slabStore, // TODO(E.slab.S): legacy slabStore — replace with runtime.stores.slab
+            columnStore: window.columnStore, // TODO(E.column.S): legacy columnStore — replace with runtime.stores.column
+            doorStore: window.doorStore, // TODO(E.door.S): legacy doorStore — replace with runtime.stores.door
+            windowStore: window.windowStore, // TODO(E.window.S): legacy windowStore — replace with runtime.stores.window
+            wallLength: (w) => this._wallLength(w),
+        });
 
-        // ── Windows (via bounding walls) ──────────────────────────────────
-        if (windowStore && wallIds.length > 0) {
-            const windows: RoomElement[] = wallIds
-                .flatMap((wid: string) => windowStore.getByWallId(wid) ?? [])
-                .map((win: any) => ({
-                    id: win.id,
-                    elementType: 'window' as const,
-                    label: win.windowType ?? 'Window',
-                    code: win.systemTypeId?.slice(0, 8),
-                    meta: win.width != null ? `${win.width.toFixed(2)} m` : undefined,
-                }));
-            if (windows.length > 0) {
-                groups.push({ groupLabel: `Windows (${windows.length})`, icon: '🪟', elements: windows });
-            }
-        }
+        this._elementCache.set(room.id, result);
+        return result;
+    }
 
-        // ── Slabs ─────────────────────────────────────────────────────────
-        const slabIds: string[] = room.boundingSlabIds ?? [];
-        if (slabStore && slabIds.length > 0) {
-            const slabs: RoomElement[] = slabIds
-                .map((id: string) => slabStore.getById(id))
-                .filter(Boolean)
-                .map((s: any) => ({
-                    id: s.id,
-                    elementType: 'slab' as const,
-                    label: s.name ?? s.slabType ?? 'Slab',
-                    code: s.ifcData?.globalId?.slice(0, 8),
-                    meta: s.area != null ? `${s.area.toFixed(1)} m²` : undefined,
-                }));
-            if (slabs.length > 0) {
-                groups.push({ groupLabel: `Slabs (${slabs.length})`, icon: '⬜', elements: slabs });
-            }
-        }
-
-        // ── Columns ───────────────────────────────────────────────────────
-        const colIds: string[] = room.boundingColumnIds ?? [];
-        if (columnStore && colIds.length > 0) {
-            const columns: RoomElement[] = colIds
-                .map((id: string) => columnStore.getById(id))
-                .filter(Boolean)
-                .map((c: any) => ({
-                    id: c.id,
-                    elementType: 'column' as const,
-                    label: c.name ?? c.profileType ?? 'Column',
-                    code: c.ifcData?.globalId?.slice(0, 8),
-                    meta: c.height != null ? `h: ${c.height.toFixed(2)} m` : undefined,
-                }));
-            if (columns.length > 0) {
-                groups.push({ groupLabel: `Columns (${columns.length})`, icon: '▐', elements: columns });
-            }
-        }
-
-        this._elementCache.set(room.id, groups);
-        return groups;
+    /**
+     * §FIX-ROOM-FACETS-UNDETERMINED — the ⚠ row for a slab/column facet whose
+     * relationship was never recorded. Same visual language as
+     * `_renderUndeterminedBoundingWalls`, so every unknown in this panel reads
+     * the same way.
+     */
+    private _renderUndeterminedFacet(d: RoomFacetRefusal, depth: number): HTMLElement {
+        const row = document.createElement('div');
+        row.className = 'pryzm-tree-row pryzm-tree-undetermined';
+        row.dataset.undeterminedReason = d.reason;
+        row.dataset.undeterminedField = d.field;
+        row.style.cssText =
+            `display:flex;align-items:center;gap:6px;padding:4px 8px 4px ${8 + depth * 14}px;` +
+            `font-size:11px;color:#b45309;background:rgba(245,158,11,0.08);` +
+            `border-left:2px solid #f59e0b;cursor:default;`;
+        row.title =
+            `${d.scope}\n\nreason: ${d.reason}\n${d.detail}` +
+            `\n\nThis is NOT "the room has none" — the relationship was never recorded.`;
+        row.textContent = `⚠ ${FACET_LABEL[d.field]} — cannot determine (${d.reason})`;
+        return row;
     }
 
     private _wallLength(wall: any): number {
@@ -999,9 +944,12 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         }
 
         // Step 10: optionally include element-level nodes in filter
+        // §FIX-ROOM-FACETS-UNDETERMINED — `.groups` only: an undetermined
+        // facet has no element nodes to filter, and it is not silently zero —
+        // the tree renders its ⚠ row wherever the room is shown.
         if (this._showElementsInFilter) {
             for (const r of rooms) {
-                const groups = this._getElementGroups(r);
+                const groups = this._getElementGroups(r).groups;
                 for (const group of groups) {
                     for (const el of group.elements) {
                         nodes.push({

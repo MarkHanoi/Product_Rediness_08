@@ -514,7 +514,28 @@
     "an exit condition, per the DeleteStairCommand ARRIVED precedent. The ledger",
     "row count is therefore 67 -> 68, and this is the ONE sanctioned way it may",
     "move upward: a named, argued declaration of a site that already exists at",
-    "HEAD, never an unnamed baseline bump (C70 §5.4/§5.5)."
+    "HEAD, never an unnamed baseline bump (C70 §5.4/§5.5).",
+    "",
+    "STRUCK 2026-08-14 (lane L-EMPTYv2, 68 -> 67) — HierarchyTreePanel.ts, ALL six",
+    "remaining sites, completing the row the 2026-08-13 wall fix opened. Four were",
+    "`room.boundingSlabIds ?? []` / `boundingColumnIds ?? []` (count + groups): an",
+    "unrecorded facet counted zero slabs/columns and rendered no group, exactly",
+    "like a room examined and found to bound none. Two were `getByWallId(wid) ??",
+    "[]` — DEAD DEFAULTS on index-backed methods whose contract always answers an",
+    "array (DoorStore.ts:157 / WindowStore.ts:132; absent bucket IS the determined",
+    "'hosts none'); the default could fire only on a broken substrate and would",
+    "then forge 'no doors' out of it — removed per the d8cbcde8 precedent, the",
+    "contract now enforced loudly (hostedOnWall throws a named error). Decisions",
+    "extracted to the PURE roomContentsFacets.ts (stores as parameters; classifies",
+    "via the shared ui/relationshipDetermination seam — no vocabulary minted): an",
+    "unrecorded facet renders a ⚠ refusal row beside the determined groups and",
+    "makes the count badge read '≥ N el ⚠' (the ScreenReaderListView 'at least'",
+    "precedent), while a present-empty facet keeps its original pixels. Test:",
+    "__tests__/roomContentsFacetsHonesty.spec.ts — 12 differentiating cases; the",
+    "unknown arms FAIL against `?? []`, and each pair asserts the inputs stay",
+    "IDENTICAL on the field that made the defect invisible (total / groups)",
+    "before differing on the new one (exact / undetermined).",
+    "  · apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts"
   ],
   "swallowed": [
     {
@@ -561,11 +582,6 @@
       "site": "apps/editor/src/engine/WallRebuildCoordinator.ts",
       "arm": "C (3 site(s))",
       "why": "C@33 `for (const op of (wall.openings ?? [])) {` · C@1173 `const _openings = fresh.openings ?? [];` · C@1278 `const ops = (w.openings ?? [])`"
-    },
-    {
-      "site": "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
-      "arm": "C (6 site(s))",
-      "why": "RECONCILED 2026-08-14 (L-EMPTYv2): the row previously declared 8 sites; the two `room.boundingWallIds ?? []` reads (old C@383, C@424) were PAID when the file moved to boundingWallIdsOrUnknown (verified at HEAD: lines 456 and 507 call the discriminator with an explicit no-`?? []` comment) but the site count was never shrunk. The 6 REMAINING sites are the same family, unfixed: C@459 `room.boundingSlabIds ?? []` · C@460 `room.boundingColumnIds ?? []` · C@531 `.flatMap((wid) => doorStore.getByWallId(wid) ?? [])` · C@547 `.flatMap((wid) => windowStore.getByWallId(wid) ?? [])` · C@561 `room.boundingSlabIds ?? []` · C@579 `room.boundingColumnIds ?? []`"
     },
     {
       "site": "apps/editor/src/ui/geospatial/CesiumViewport.ts",
@@ -746,6 +762,11 @@
       "site": "packages/geometry-wall/src/WallLayerPlanLines.ts",
       "arm": "C (1 site(s))",
       "why": "C@204 `for (const op of wall.openings ?? []) {`"
+    },
+    {
+      "site": "packages/geometry-wall/src/WallMergeDetector.ts",
+      "arm": "C (3 site(s))",
+      "why": "C@288 `const hypoOpenings: Opening[] = (mover.openings ?? []).map((o) => ({` · C@301 `for (const o of partner.openings ?? []) {` · C@436 `hostedOpenings: (wall.openings ?? []).map((o) => ({ ...o })),` — ARRIVED 2026-08-14 in 9d75b25b (C83-MERGE/L-903 collinear-merge detector, another lane, landed MID-SESSION while this reconciliation was in flight) and DECLARED by the L-EMPTYv2 lane per the DeleteStairCommand ARRIVED precedent: the same `wall.openings ?? []` family as the file's geometry-wall siblings — an unrecorded opening set enters merge planning as 'zero openings', so unknown and opening-less walls plan the same merge. Out of this lane's write scope (packages/geometry-wall owned elsewhere); named, not silently absorbed (C70 §5.5)."
     },
     {
       "site": "packages/geometry-wall/src/WallOccupancyStore.ts",
