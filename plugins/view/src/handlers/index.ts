@@ -2,7 +2,9 @@
 //
 // Spec: PHASE-1C §S17 line 793 (D6).
 // ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
-// E.5.x P3: SetViewOutput/Range/Crop/Underlay + UpdateViewDefinition handlers added.
+// E.5.x P3: SetViewOutput/Range/Underlay handlers added. (SetViewCrop and
+// UpdateViewDefinition were REMOVED by MT-03 — their live arms are the
+// initBusHandlers bridges; see the §FIX-VIEW-*-SHADOW notes below.)
 
 import type { CommandBus } from '@pryzm/plugin-sdk';
 import { CreateViewHandler } from './CreateView.js';
@@ -13,7 +15,6 @@ import { UpdateViewCameraHandler } from './UpdateViewCamera.js';
 import { SetViewOutputHandler } from './SetViewOutput.js';
 import { SetViewRangeHandler } from './SetViewRange.js';
 import { SetViewUnderlayHandler } from './SetViewUnderlay.js';
-import { UpdateViewDefinitionHandler } from './UpdateViewDefinition.js';
 import { DeleteElementHandler } from './DeleteElement.js';
 import { DeleteElementsBatchHandler } from './DeleteElementsBatch.js';
 import { HideElementInViewHandler } from './HideElementInView.js';
@@ -29,7 +30,6 @@ export { UpdateViewCameraHandler } from './UpdateViewCamera.js';
 export { SetViewOutputHandler } from './SetViewOutput.js';
 export { SetViewRangeHandler } from './SetViewRange.js';
 export { SetViewUnderlayHandler } from './SetViewUnderlay.js';
-export { UpdateViewDefinitionHandler } from './UpdateViewDefinition.js';
 export { DeleteElementHandler, type DeleteElementPayload } from './DeleteElement.js';
 // §FEAT-SCOPED-DELETE (RAC U9.2) — N deletes, ONE undo entry.
 export {
@@ -66,7 +66,6 @@ export type {
 export type { SetViewOutputPayload } from './SetViewOutput.js';
 export type { SetViewRangePayload } from './SetViewRange.js';
 export type { SetViewUnderlayPayload } from './SetViewUnderlay.js';
-export type { UpdateViewDefinitionPayload } from './UpdateViewDefinition.js';
 
 const ALL_HANDLERS = [
   CreateViewHandler,
@@ -83,7 +82,13 @@ const ALL_HANDLERS = [
   // runtime. Loser deleted, not commented. Pin:
   // __tests__/handlers/SetViewCropShadow.test.ts.
   SetViewUnderlayHandler,
-  UpdateViewDefinitionHandler,
+  // §FIX-VIEW-UPDATEDEF-SHADOW (MT-03) — UpdateViewDefinitionHandler is NOT in
+  // this set. The §FIX-VIEW-UPDATE-PAYLOAD-KEY bridge at
+  // initBusHandlers.ts:2134 is the live arm (its own comment names it, pinned
+  // by apps/editor/__tests__/viewBusLifecycle.test.ts), and it accepts the
+  // legacy `updates` payload key the plugin arm did not (L-222 scope-drag).
+  // Loser deleted, not commented. Pin:
+  // __tests__/handlers/UpdateViewDefinitionShadow.test.ts.
   DeleteElementHandler,
   DeleteElementsBatchHandler,
   HideElementInViewHandler,

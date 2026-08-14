@@ -283,7 +283,19 @@ const SHADOWED_BASELINE: readonly string[] = [
   // exports and ALL_HANDLERS entry. Pin:
   // `plugins/view/__tests__/handlers/SetViewCropShadow.test.ts` (incl. a negative control
   // on `view.create`, watched failing first). 6 → 5.
-  'view.updateDefinition',
+  //
+  // §FIX-VIEW-UPDATEDEF-SHADOW (MT-03 / L-MT8) — 'view.updateDefinition' PAID and removed
+  // in the same commit. Same reversed direction as 'view.setCrop' above, and here the
+  // repo had ALREADY ruled in writing: the §FIX-VIEW-UPDATE-PAYLOAD-KEY comment at
+  // initBusHandlers.ts:2124 — "This bridge, not plugins/view's
+  // UpdateViewDefinitionHandler, is the live handler" — pinned by
+  // apps/editor/__tests__/viewBusLifecycle.test.ts. The plugin arm was also functionally
+  // the loser: it read ONLY `cmd.patch`, while the bridge accepts `patch ?? updates` and
+  // the §PERF-ELEV-CROP-DRAG-FLOW (L-222) scope-drag commit sends `updates`.
+  // `plugins/view/src/handlers/UpdateViewDefinition.ts` is DELETED with its barrel
+  // exports and ALL_HANDLERS entry. Pin:
+  // `plugins/view/__tests__/handlers/UpdateViewDefinitionShadow.test.ts` (watched failing
+  // first). 5 → 4.
 ];
 
 /**

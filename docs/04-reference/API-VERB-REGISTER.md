@@ -15,13 +15,13 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1243 (floor 900) |
+| Handler files read | 1242 (floor 900) |
 | **Verbs** | **325** (floor 250) |
-| LIVE | 114 |
+| LIVE | 115 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 5 |
+| SHADOWED (dead route) | 4 |
 | UNKNOWN | 170 |
-| authoritative store NONE or UNKNOWN | 211 |
+| authoritative store NONE or UNKNOWN | 210 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
 
@@ -321,7 +321,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `view.setUnderlay` | plugins/view | UNKNOWN | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified B |
 | `view.switch` | plugins/view | UNKNOWN | UNKNOWN | patch-pair → active-view | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `view.updateCamera` | plugins/view | UNKNOWN | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified B |
-| `view.updateDefinition` | plugins/view | SHADOWED | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified C |
+| `view.updateDefinition` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `viewTemplate.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
 | `viewTemplate.delete` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
 | `viewTemplate.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
@@ -381,4 +381,3 @@ the second site is the one nobody knew was dead.
 | `sheet.addViewport` | `plugins/sheets/src/handlers/AddViewport.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.create` | `plugins/stair/src/handlers/CreateStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.move` | `plugins/stair/src/handlers/MoveStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `view.updateDefinition` | `plugins/view/src/handlers/UpdateViewDefinition.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
