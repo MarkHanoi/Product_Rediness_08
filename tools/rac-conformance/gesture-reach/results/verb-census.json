@@ -1,0 +1,3633 @@
+{
+  "census": "H6-PHASE-1-verb-backing",
+  "generatedAt": "2026-08-14T06:06:31.064Z",
+  "sourceProbeGeneratedAt": "2026-08-14T06:01:55.160Z",
+  "totals": {
+    "verbs": 280,
+    "pairs": 280,
+    "backed": 4,
+    "registerOnly": 0,
+    "unbacked": 276,
+    "surfaces": 30,
+    "surfacesMountableWhole": 0,
+    "surfacesMountablePartial": 1,
+    "surfacesNoBackedVerb": 29
+  },
+  "notMeasured": [
+    "handler-write CORRECTNESS — check-verb-liveness owns it",
+    "whether a BACKED handler is REGISTERED on the bus at click time — this is a DECLARATION census; H6 re-run is the executed arm",
+    "keyboard shortcuts, command palette, context menus, panel executeCommand sites"
+  ],
+  "surfaces": [
+    {
+      "surface": "AnalysisToolbar",
+      "total": 11,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 11,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "AnnotationToolbar",
+      "total": 10,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 10,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "AreaToolbar",
+      "total": 5,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 5,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "BCFToolbar",
+      "total": 11,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 11,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "CDEToolbar",
+      "total": 11,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 11,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "ClashDetectionToolbar",
+      "total": 12,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 12,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "ColorToolbar",
+      "total": 6,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 6,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "CoordinationToolbar",
+      "total": 12,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 12,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "DimensionToolbar",
+      "total": 11,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 11,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "DrawingToolbar",
+      "total": 18,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 18,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "EditToolbar",
+      "total": 14,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 14,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "ElevationToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "FamilyToolbar",
+      "total": 8,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 8,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "IfcFilterToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "IfcInspectorToolbar",
+      "total": 8,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 8,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "LayerToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "MainToolbar",
+      "total": 12,
+      "backed": 4,
+      "registerOnly": 0,
+      "unbacked": 8,
+      "mountVerdict": "MOUNTABLE-PARTIAL"
+    },
+    {
+      "surface": "ModelManagementToolbar",
+      "total": 10,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 10,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "PlanToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "PluginManagerToolbar",
+      "total": 12,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 12,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "PrintSetupToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "QuantityToolbar",
+      "total": 10,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 10,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "RoomToolbar",
+      "total": 6,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 6,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "ScheduleToolbar",
+      "total": 8,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 8,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "SectionToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "SettingsToolbar",
+      "total": 12,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 12,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "SheetSetsToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "SheetToolbar",
+      "total": 7,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 7,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "TextToolbar",
+      "total": 8,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 8,
+      "mountVerdict": "NO-BACKED-VERB"
+    },
+    {
+      "surface": "ViewToolbar",
+      "total": 9,
+      "backed": 0,
+      "registerOnly": 0,
+      "unbacked": 9,
+      "mountVerdict": "NO-BACKED-VERB"
+    }
+  ],
+  "rows": [
+    {
+      "verb": "add-annotation",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "add-beam",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "add-column",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "add-elevation-mark",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "align-bottom",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "align-left",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "align-right",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "align-top",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-carbon-calculate",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-compare",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-daylighting-run",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-energy-run",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-export-idf",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-gbxml-export",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-mep-run",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-report-generate",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-reset-params",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-structural-run",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "analysis-view-results",
+      "surfaces": [
+        "AnalysisToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "annotation-symbol",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "area-boundary",
+      "surfaces": [
+        "AreaToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "area-color-fill",
+      "surfaces": [
+        "AreaToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "area-place",
+      "surfaces": [
+        "AreaToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "area-scheme",
+      "surfaces": [
+        "AreaToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "area-tag",
+      "surfaces": [
+        "AreaToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-export",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-filter",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-import",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-issue-assign",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-issue-close",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-issue-comment",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-issue-new",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-issue-open",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-issue-snapshot",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-issue-status",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "bcf-viewpoint-save",
+      "surfaces": [
+        "BCFToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "browse-family-types",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-cancel-checkout",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-check-in",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-check-out",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-download-doc",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-folder-browse",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-link-model",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-revision-new",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-status-update",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-transmittal-create",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-transmittal-send",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cde-upload-doc",
+      "surfaces": [
+        "CDEToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-approve-selected",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-filter-new",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-filter-save",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-group-clashes",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-highlight-toggle",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-report-export",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-reset",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-resolve-selected",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-run",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-select-a",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-select-b",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "clash-tolerance-set",
+      "surfaces": [
+        "ClashDetectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "color-fill-by-category",
+      "surfaces": [
+        "ColorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "color-fill-by-parameter",
+      "surfaces": [
+        "ColorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "color-fill-legend",
+      "surfaces": [
+        "ColorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "color-fill-scheme",
+      "surfaces": [
+        "ColorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "color-override-element",
+      "surfaces": [
+        "ColorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "color-reset-element",
+      "surfaces": [
+        "ColorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-bcf-export",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-clash-detect",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-clash-filter",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-clash-group",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-model-compare",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-model-overlay",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-review-assign",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-review-comment",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-review-export",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-review-new",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-review-open",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "coordination-review-resolve",
+      "surfaces": [
+        "CoordinationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "copy-selection",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": true,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [
+        "plugins/selection/src/handlers/CopySelectionHandler.ts"
+      ],
+      "h6Verdict": "RESOLVED-ONLY",
+      "surfaceMounted": false,
+      "backing": "BACKED"
+    },
+    {
+      "verb": "create-family",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "cut-selection",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "delete-layer",
+      "surfaces": [
+        "LayerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "delete-selection",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-aligned",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-angular",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-arc-length",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-diameter",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-linear",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-lock",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-override",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-radial",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-reset",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-witness-gap",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "dimension-witness-show",
+      "surfaces": [
+        "DimensionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-area",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-curtain-wall",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-door",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-ramp",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-roof",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-room",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-slab",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-stair",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-wall",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "draw-window",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "edit-family",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "edit-family-type",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "elevation-callout",
+      "surfaces": [
+        "ElevationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "elevation-exterior",
+      "surfaces": [
+        "ElevationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "elevation-flip",
+      "surfaces": [
+        "ElevationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "elevation-framing",
+      "surfaces": [
+        "ElevationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "elevation-interior",
+      "surfaces": [
+        "ElevationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "elevation-open-view",
+      "surfaces": [
+        "ElevationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "elevation-properties",
+      "surfaces": [
+        "ElevationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "export-family",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "filled-region-place",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "group-elements",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-copy-guid",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-export-subset",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-by-category",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-by-property",
+      "surfaces": [
+        "IfcFilterToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-by-storey",
+      "surfaces": [
+        "IfcFilterToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-by-type",
+      "surfaces": [
+        "IfcFilterToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-clear",
+      "surfaces": [
+        "IfcFilterToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-load",
+      "surfaces": [
+        "IfcFilterToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-save",
+      "surfaces": [
+        "IfcFilterToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-filter-spatial",
+      "surfaces": [
+        "IfcFilterToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-inspect-element",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-open-file",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-show-properties",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-toggle-spatial-tree",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ifc-validate",
+      "surfaces": [
+        "IfcInspectorToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "isolate-layer",
+      "surfaces": [
+        "LayerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "load-family",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "lock-element",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "lock-layer",
+      "surfaces": [
+        "LayerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "mirror-selection",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-design-option-new",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-design-option-primary",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-link-add",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-link-bind",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-link-reload",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-link-remove",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-link-unload",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-phase-set",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-workset-new",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "model-workset-settings",
+      "surfaces": [
+        "ModelManagementToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "move-selection",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "move-to-layer",
+      "surfaces": [
+        "LayerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "new-layer",
+      "surfaces": [
+        "LayerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "open-project",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "paste-clipboard",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": true,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [
+        "plugins/selection/src/handlers/PasteClipboardHandler.ts"
+      ],
+      "h6Verdict": "RESOLVED-ONLY",
+      "surfaceMounted": false,
+      "backing": "BACKED"
+    },
+    {
+      "verb": "pin-element",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "place-camera",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "place-family-instance",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "place-furniture",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "place-grid",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "place-level",
+      "surfaces": [
+        "DrawingToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plan-area",
+      "surfaces": [
+        "PlanToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plan-callout",
+      "surfaces": [
+        "PlanToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plan-crop",
+      "surfaces": [
+        "PlanToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plan-floor",
+      "surfaces": [
+        "PlanToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plan-scope-box",
+      "surfaces": [
+        "PlanToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plan-structural",
+      "surfaces": [
+        "PlanToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plan-underlay",
+      "surfaces": [
+        "PlanToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-api-explorer",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-browse-marketplace",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-devtools-open",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-disable",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-enable",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-install",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-logs-show",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-reload",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-sandbox-start",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-settings-open",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-uninstall",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "plugin-update",
+      "surfaces": [
+        "PluginManagerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-plot-execute",
+      "surfaces": [
+        "PrintSetupToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-plot-preview",
+      "surfaces": [
+        "PrintSetupToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-setup-margin",
+      "surfaces": [
+        "PrintSetupToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-setup-orientation",
+      "surfaces": [
+        "PrintSetupToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-setup-paper-size",
+      "surfaces": [
+        "PrintSetupToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-setup-save-preset",
+      "surfaces": [
+        "PrintSetupToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-setup-scale",
+      "surfaces": [
+        "PrintSetupToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "print-view",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-area-calculate",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-element-count",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-export-csv",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-export-excel",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-export-ifc",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-filter-apply",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-material-takeoff",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-report-print",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-schedule-create",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "quantity-volume-calculate",
+      "surfaces": [
+        "QuantityToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "redo",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "reload-family",
+      "surfaces": [
+        "FamilyToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "rename-layer",
+      "surfaces": [
+        "LayerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "revision-cloud-place",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "room-area-boundary",
+      "surfaces": [
+        "RoomToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "room-from-enclosed-area",
+      "surfaces": [
+        "RoomToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "room-place",
+      "surfaces": [
+        "RoomToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "room-properties",
+      "surfaces": [
+        "RoomToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "room-separator",
+      "surfaces": [
+        "RoomToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "room-tag",
+      "surfaces": [
+        "RoomToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "rotate-selection",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "save-project",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "scale-selection",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-edit-cells",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-export-csv",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-export-ifc",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-field-add",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-filter-add",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-from-template",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-new",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "schedule-sort-add",
+      "surfaces": [
+        "ScheduleToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "screenshot-view",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "section-callout",
+      "surfaces": [
+        "SectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "section-crop",
+      "surfaces": [
+        "SectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "section-flip",
+      "surfaces": [
+        "SectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "section-new",
+      "surfaces": [
+        "SectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "section-open-view",
+      "surfaces": [
+        "SectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "section-properties",
+      "surfaces": [
+        "SectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "section-reference",
+      "surfaces": [
+        "SectionToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-about",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-display",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-license",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-open",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-project-info",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-purge-unused",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-shared-params",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-shortcuts",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-snapping",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-transfer-standards",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-units",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "settings-warnings",
+      "surfaces": [
+        "SettingsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-export-pdf",
+      "surfaces": [
+        "SheetToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-from-template",
+      "surfaces": [
+        "SheetToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-new",
+      "surfaces": [
+        "SheetToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-print",
+      "surfaces": [
+        "SheetToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-revision-add",
+      "surfaces": [
+        "SheetToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-set-add-sheet",
+      "surfaces": [
+        "SheetSetsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-set-close",
+      "surfaces": [
+        "SheetSetsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-set-export",
+      "surfaces": [
+        "SheetSetsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-set-new",
+      "surfaces": [
+        "SheetSetsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-set-open",
+      "surfaces": [
+        "SheetSetsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-set-remove-sheet",
+      "surfaces": [
+        "SheetSetsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-set-reorder",
+      "surfaces": [
+        "SheetSetsToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-title-block",
+      "surfaces": [
+        "SheetToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "sheet-view-add",
+      "surfaces": [
+        "SheetToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "spot-coordinate",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "spot-elevation",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "tag-all-elements",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "tag-by-category",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "tag-keynote",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "tag-leader",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "tag-multi-leader",
+      "surfaces": [
+        "AnnotationToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-bold",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-find-replace",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-italic",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-place",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-place-model",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-spellcheck",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-style",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "text-underline",
+      "surfaces": [
+        "TextToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "toggle-ambient-occlusion",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "toggle-layer-panel",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "toggle-property-panel",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "toggle-shadows",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "undo",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "UNPROVEN",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "ungroup-elements",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "unlock-element",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "unlock-layer",
+      "surfaces": [
+        "LayerToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "unpin-element",
+      "surfaces": [
+        "EditToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "view-3d",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "view-elevation",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "view-plan",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "view-section",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "view-walkthrough",
+      "surfaces": [
+        "ViewToolbar"
+      ],
+      "registerRow": false,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [],
+      "h6Verdict": "NOT-REACHED",
+      "surfaceMounted": false,
+      "backing": "UNBACKED"
+    },
+    {
+      "verb": "zoom-fit",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": true,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [
+        "apps/editor/src/engine/engineLauncher.ts"
+      ],
+      "h6Verdict": "RESOLVED-ONLY",
+      "surfaceMounted": false,
+      "backing": "BACKED"
+    },
+    {
+      "verb": "zoom-selected",
+      "surfaces": [
+        "MainToolbar"
+      ],
+      "registerRow": true,
+      "harnessBusHandler": false,
+      "handlerTypeSites": [
+        "apps/editor/src/engine/engineLauncher.ts"
+      ],
+      "h6Verdict": "RESOLVED-ONLY",
+      "surfaceMounted": false,
+      "backing": "BACKED"
+    }
+  ]
+}
