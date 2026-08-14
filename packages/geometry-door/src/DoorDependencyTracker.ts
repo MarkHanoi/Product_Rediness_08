@@ -255,7 +255,9 @@ export class DoorDependencyTracker {
      */
     getDoorIdsForWall(wallId: string): string[] {
         const d = this.doorIdsForWallDetermination(wallId);
-        return d.kind === 'determined' ? d.doorIds : [];
+        // The determination carries a readonly list; this legacy accessor's contract
+        // is a mutable array, so copy rather than widen the determination's type.
+        return d.kind === 'determined' ? [...d.doorIds] : [];
     }
 
     dispose(): void {

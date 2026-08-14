@@ -26,6 +26,10 @@
 // model data, most of which no AI ever touched. They compose (a `regenerated`
 // value's chain is a `ProvenanceEdge`) and neither restates the other.
 export * from './ValueOrigin.js';
+// PV-06 (C75 §1.3 · C62/ADR-0280) — the element-side confidence field lives in
+// this namespace beside ValueOrigin: same axis family, deliberately SEPARATE
+// values (C75 §1.2 — a computed value may be low-confidence, an observed one stale).
+export * from './ElementConfidence.js';
 
 export * from './AIArtefact.js';
 export * from './ProvenanceEdge.js';

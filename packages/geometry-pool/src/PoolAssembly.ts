@@ -25,7 +25,7 @@
 
 import { trace } from '@opentelemetry/api';
 import type { Pool, Slab, Wall, Water } from '@pryzm/schemas';
-import { systemProvenance, type ValueProvenance } from '@pryzm/schemas/provenance';
+import { confidencePredatingTheField, systemProvenance, type ValueProvenance } from '@pryzm/schemas/provenance';
 import { resolvePoolDimensions, type PoolSystemType, type ResolvedPoolDimensions } from './PoolDimensions.js';
 
 /**
@@ -151,6 +151,9 @@ export function buildPoolAssembly(
           childrenIds: [],
           metadata: pool.metadata,
           provenance: partProvenance('wall'),
+          // PV-06 — this part is CONSTRUCTED by the assembly, never measured, so its
+          // confidence is the predating default: pending-implementation, score null.
+          confidence: confidencePredatingTheField(),
           levelId: pool.levelId,
           // Wall baselines are horizontal by contract (the schema refines it), and
           // both endpoints carry the level elevation in `y`.
@@ -179,6 +182,9 @@ export function buildPoolAssembly(
         childrenIds: [],
         metadata: pool.metadata,
         provenance: partProvenance('floor slab'),
+        // PV-06 — this part is CONSTRUCTED by the assembly, never measured, so its
+        // confidence is the predating default: pending-implementation, score null.
+        confidence: confidencePredatingTheField(),
         levelId: pool.levelId,
         boundary: boundary.map((p) => ({ x: p.x, y: datumY, z: p.z })),
         holes: [],
@@ -202,6 +208,9 @@ export function buildPoolAssembly(
         childrenIds: [],
         metadata: pool.metadata,
         provenance: partProvenance('water'),
+        // PV-06 — this part is CONSTRUCTED by the assembly, never measured, so its
+        // confidence is the predating default: pending-implementation, score null.
+        confidence: confidencePredatingTheField(),
         levelId: pool.levelId,
         poolId: pool.id,
         boundary: boundary.map((p) => ({ x: p.x, y: datumY, z: p.z })),
