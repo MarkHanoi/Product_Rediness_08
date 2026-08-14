@@ -97,8 +97,8 @@ describe('§L-MOUNT Phase 2 — the mount hosts the brief named are stale', () =
         }
     });
 
-    it('none of the 30 toolbar surfaces is imported by production code (H6 mount '
-        + 'column, re-measured here so this file fails the moment one IS)', () => {
+    it('the production importer set is EXACTLY the declared ribbon mounts (H6 mount '
+        + 'column, re-measured here so an unrecorded mount fails this file)', () => {
         const TOOLBAR_DIR = path.join(EDITOR_SRC, 'ui', 'toolbar');
         const surfaces = readdirSync(TOOLBAR_DIR)
             .filter((f) => /Toolbar\.ts$/.test(f))
@@ -114,11 +114,28 @@ describe('§L-MOUNT Phase 2 — the mount hosts the brief named are stale', () =
                 }
             }
         }
-        // NOT a "must stay zero" assertion — it is a CHANGE DETECTOR. When a
-        // surface is mounted this fails, and whoever mounts it must re-run H6
-        // and record the new EXECUTED-REACHED / NOT-REACHED split here.
-        expect(importers, 'a toolbar surface gained a production importer — re-run '
-            + 'the H6 probe and update this pin with the new reachability split').toEqual([]);
+        // A CHANGE DETECTOR, not a "must stay zero": every mount must be
+        // recorded here WITH a fresh H6 run, or this fails.
+        //
+        // §L-MOUNT PHASE 2 MOUNT RECORD (ADR-0326; host fix + this mount):
+        //   PlatformShell mounts MainToolbar + DrawingToolbar as ribbon rows
+        //   in the now-visible .plat-toolbar.
+        //   H6 re-run after the mount: 280 pairs — EXECUTED-REACHED 0 ·
+        //   RESOLVED-ONLY 4 · NOT-REACHED 276 (declaredRefusal 276) ·
+        //   UNPROVEN 0; surfacesUnmounted 30 → 28.
+        //   The pair verdicts did NOT move, and CANNOT move from a mount alone:
+        //   the probe's harness world composes initBusHandlers + 9 plugin
+        //   verbs, not the engineLauncher boot where the four backed handlers
+        //   register — so RESOLVED-ONLY is the probe's ceiling for them (its
+        //   own §"RESOLVED" block says exactly this). EXECUTED-REACHED for the
+        //   four needs the harness world to compose those registrations —
+        //   recorded in the L-MOUNT report as instrument work, not wiring work.
+        expect(importers.sort(), 'the toolbar importer set changed — re-run the H6 '
+            + 'probe and update this MOUNT RECORD with the new reachability split')
+            .toEqual([
+                'apps/editor/src/ui/platform/PlatformShell.ts → DrawingToolbar',
+                'apps/editor/src/ui/platform/PlatformShell.ts → MainToolbar',
+            ]);
         // 60 s: this walks + reads every .ts under apps/editor/src (~12 s on an
         // idle machine, more under a loaded fleet). The default 10 s made the
         // test flaky-red on load, which is the worst failure mode a tripwire can
