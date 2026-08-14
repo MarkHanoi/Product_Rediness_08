@@ -35,7 +35,7 @@ import { WallAlignmentGuide } from './WallAlignmentGuide';
 // §C83-S1 — the wall-side occupancy predicate (a proposed wall vs existing
 // hosted openings). Same package; the predicate is pure and takes the wall list
 // as a parameter, so this import couples nothing.
-import { evaluateWallPlacement } from './WallCrossesOpening';
+import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from './WallCrossesOpening';
 
 /**
  * §C83-S1 / C83 §3.1 — the two suppression flags, honoured because C83 makes it
@@ -1816,8 +1816,21 @@ export class WallTool {
             // place wall start", so the refusal arrives where the user is already
             // reading. C83 §5.4: an IMPOSSIBLE finding is never merely surfaced,
             // it refuses; there is nothing here to dismiss.
-            this.showStatus(spatial.reason ?? 'This wall cannot be placed here.');
-            console.warn('[WallTool] §C83-S1 REFUSED wall create —', spatial.reason);
+            //
+            // §REFUSAL-IDENTITY — rendered through the SHARED renderer, never
+            // `spatial.reason ?? '<some sentence>'`. That fallback fires exactly
+            // when the producer refused AND said nothing, and the sentence it
+            // manufactures has the grammatical shape of an explanation and the
+            // information content of a shrug — hiding the under-reporting arm.
+            // `check-refusal-identity` caught precisely that here, and it was
+            // right to: the shared renderer always carries the
+            // `OCC_CROSSES_HOSTED_OPENING` code into the text the user reads.
+            const refusalText = wallCrossesOpeningRefusalText(
+                spatial.violations,
+                spatial.offers,
+            );
+            this.showStatus(refusalText);
+            console.warn('[WallTool] §C83-S1 REFUSED wall create —', refusalText);
             return;
         }
 

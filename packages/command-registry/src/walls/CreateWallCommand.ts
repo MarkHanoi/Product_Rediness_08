@@ -37,7 +37,7 @@ import { WallData, WallCurve, WallLayer, WallBaseline } from '@pryzm/geometry-wa
 // §C83-S1 — the wall-side occupancy predicate. Already a dependency of this
 // package (`CreateWallOpeningCommand` imports `wallOccupancyStore` from it), so
 // this adds no edge and no layer violation.
-import { evaluateWallPlacement } from '@pryzm/geometry-wall';
+import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { generateMark } from '@pryzm/core-app-model';
 import { batchCoordinator } from '@pryzm/core-app-model';
@@ -214,11 +214,21 @@ export class CreateWallCommand implements Command {
                 ctx.stores.wallStore.getAll(),
             );
             if (!spatial.valid) {
-                console.warn(`[CreateWallCommand] §C83-S1 REFUSED: ${spatial.reason}`);
+                // §REFUSAL-IDENTITY — the SHARED renderer, never
+                // `spatial.reason ?? '<fallback>'`: a manufactured sentence fires
+                // exactly when the producer refused AND said nothing, and then
+                // reads identically to a real reason. `reason` stays the machine
+                // token; `blockingIssues[0]` is the human sentence, which
+                // CommandManagerImpl:217 prefers (L-813).
+                const refusalText = wallCrossesOpeningRefusalText(
+                    spatial.violations,
+                    spatial.offers,
+                );
+                console.warn(`[CreateWallCommand] §C83-S1 REFUSED: ${refusalText}`);
                 return {
                     ok: false,
                     reason: 'OCC_CROSSES_HOSTED_OPENING',
-                    blockingIssues: [spatial.reason ?? 'This wall would cross a door or window.'],
+                    blockingIssues: [refusalText],
                 };
             }
         }

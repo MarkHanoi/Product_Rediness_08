@@ -451,9 +451,13 @@ export class WallPlanToolHandler implements PlanToolHandler {
             ...(curvePayload ? { curve: curvePayload } : {}),
         });
         if (spatial.blocked) {
+            // §REFUSAL-IDENTITY — no `?? '<fallback>'`: the gate has already
+            // rendered the user-facing sentence through the shared renderer, and
+            // manufacturing a second one here would be a rival account of one
+            // refusal. An absent reason is logged as absent.
             console.warn(
                 '[WallPlanToolHandler] §C83-S1 REFUSED wall.create —',
-                spatial.verdict?.reason ?? '(no reason rendered)',
+                spatial.verdict?.reason,
             );
             this._arcMidPt        = null;
             this._wallCursorPoint = null;

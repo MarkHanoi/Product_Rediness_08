@@ -63,6 +63,7 @@
 import { storeRegistry } from '@pryzm/core-app-model';
 import {
   evaluateWallPlacement,
+  wallCrossesOpeningRefusalText,
   type CandidateWall,
   type WallData,
   type WallPlacementVerdict,
@@ -171,7 +172,13 @@ export function wallPlacementSurfaceFailures(): number {
 }
 
 function surfaceRefusal(verdict: WallPlacementVerdict): boolean {
-  const sentence = verdict.reason ?? '';
+  // §REFUSAL-IDENTITY — through the SHARED renderer, never `verdict.reason ??
+  // '<fallback>'`. A fallback fires exactly when the producer refused AND said
+  // nothing, and is then indistinguishable from a real reason — which hides the
+  // under-reporting arm rather than exposing it. The shared renderer always
+  // carries `OCC_CROSSES_HOSTED_OPENING` into the text, so the identity survives
+  // the trip to a DOM sink that takes only a string.
+  const sentence = wallCrossesOpeningRefusalText(verdict.violations, verdict.offers);
   let surfaced = false;
 
   const card = acquireCard();
