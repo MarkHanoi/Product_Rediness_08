@@ -3365,3 +3365,681 @@ move path is structurally different:
   approval-bound path governed by `check-approval-binding` and `check-plan-determinism`.
 
 A follow-up slice with its own tests, not a line in L-882.
+
+---
+
+## L-886 — CLOSED — the wall-cascade chokepoint had NO hosted-opening gate; four PROVEN defects
+
+**Contract:** C15 §2 / §5 / §6 · C11 §5.4 · C70 C-INV-3. **Commit:** `fb87089b`.
+**Proof:** `packages/command-registry/__tests__/hostedOpeningHostMoveSeam.test.ts` — **9/9 green;
+was 5 pass / 4 fail.**
+
+`packages/command-registry/src/walls/CascadeWallBaselineCommand.ts` — the ONE chokepoint every
+structural wall cascade passes through (its own class doc, C11 §5.4 shape) — wrote `baseLine` on
+walls and asked **nothing** about the openings hosted on them. `UpdateWallBaselineCommand` has
+asked `planOpeningRefit` since §FIX-WALL-SHRINK-REFIT (W2-1). The cascade never did.
+
+**THE ROOT CAUSE IS THE PART WORTH KEEPING: L-871/L-872 made a dormant path REACHABLE, and nobody
+audited what that path never had to handle.** Joined neighbours now re-weld, so a host wall can
+change LENGTH from a gesture aimed at a *different* wall. The gate had been missing for as long as
+the class had existed; it only became reachable in production this week. Any fix that promotes a
+path from dormant to live inherits every question that path was never asked.
+
+Four measured defects, all EXECUTED — not reasoned:
+
+| Probe | Gesture | Measured before fix |
+|---|---|---|
+| §Z-3a | drag north wall outward 2 m; west wall extends 4→6 m **at baseLine[0]** | door world position (0, 2.55) → (0, **4.55**) — slid 2.00 m across the room |
+| §Z-3b | same gesture, doors on both east and west walls | east door moved **0 m**, west door moved **2 m** — outcome decided by stored endpoint ORDER, which the user cannot see and did not choose |
+| §Z-4a | drag north wall inward 2 m; east wall 4→2 m | 0.9 m door recorded spanning [3.000, 3.900] on a **2.000 m** wall — 1.9 m off the end of its host (C15 §5) |
+| §Z-4c | drag north wall inward 3.5 m; east wall 4→0.5 m | 0.9 m door recorded on a **0.500 m** wall — the one state `planOpeningRefit`'s policy note names as forbidden, and it happened with **no clamp, no refusal and no event** |
+
+**Fix.** `WallOccupancyStore.planOpeningRebase` (new, PURE, geometry-wall L2) contributes exactly
+ONE thing the refit gate cannot know because it never sees the previous baseline: the **ANCHOR
+SHIFT**, i.e. how far `baseLine[0]` travelled ALONG the wall. It re-expresses each authored offset
+against the new origin so the opening's WORLD position is preserved, then delegates to the
+unchanged `planOpeningRefit` policy — same clamp/refuse rules, unduplicated.
+`CascadeWallBaselineCommand` asks it in `canExecute` (the channel `WallMoveReweldService` already
+logs) and re-asks it in `execute`; relocations go through `updateOpening` inside the §L-871
+`_cascadeApplyDepth` latch, so they are structural propagation and not a fresh user edit;
+`relocated` records the PRE-EDIT opening, because `restoreSnapshot()` restores
+baseLine/height/thickness/layers/metadata but **NOT** `openings` — without it, undo would put the
+4 m wall back and leave the door at the offset the 2 m wall forced on it (C70 C-INV-3).
+
+**Deliberate silences, stated rather than invented:** a wall that ROTATED or REVERSED gets shift 0
+(there is no defensible "same place along the wall"), and a purely perpendicular translation gets
+shift 0 by construction — the whole wall moved, so the opening rides along. §Z-1 and §Z-2 prove
+both. ATOMIC: one refused entry refuses the WHOLE cascade and no wall is re-baselined.
+
+Two residuals from this row carry their own entries: **L-887** (the direct endpoint drag) and
+**L-888** (what an atomic refusal leaves behind).
+
+---
+
+## L-887 — OPEN — the DIRECT endpoint drag has the same `baseLine[0]` slide, and it is UNMEASURED
+
+`UpdateWallBaselineCommand`
+(`packages/command-registry/src/walls/UpdateWallBaselineCommand.ts:247`) asks `planOpeningRefit`,
+**not** `planOpeningRebase`. So the identical §Z-3 defect fixed in L-886 is still reachable through
+the DIRECT gesture: drag a wall's `baseLine[0]` endpoint along the wall's own axis
+(`WallEndpointController`) and every opening on that wall slides by the drag distance, because
+`offset` is measured from the endpoint that moved (C15 §2).
+
+**The seam test does not cover it — every §Z row reaches the wall through the cascade — so this is
+UNMEASURED, not proven.** It is a one-line swap (`planOpeningRefit` → `planOpeningRebase`, same
+return type, same policy), but it was deliberately left out of L-886's commit because it changes
+the behaviour of a command with an existing suite (`wallShrinkOpeningRefit.test.ts`) that the lane
+had no window to re-run and reason about.
+
+⚠ **Do not ship the swap without a probe row for the direct endpoint drag first.** The correct
+order is the one `fd85a876` → `77d77a69` used on GR-12: measure, then fix, then re-measure with the
+same probe.
+
+file:line — `UpdateWallBaselineCommand.ts:156` (canExecute gate) and `:247` (execute gate).
+
+---
+
+## L-888 — OPEN — an atomic cascade refusal leaves the topology UNWELDED, and nobody is told
+
+When one entry's opening cannot survive, the whole cascade is refused — correct per the class's
+all-or-nothing contract and per `planOpeningRefit`'s "refuse the WALL edit, never damage the
+opening" policy. **But the DIRECT move that triggered the cascade has already committed.**
+
+Net effect for the founder: drag the north wall hard inward past a door's survivable limit and the
+north wall moves while its neighbours stay put — a visibly open loop, with a `console.warn` and no
+toast.
+
+`UpdateWallBaselineCommand` toasts on its equivalent refusal (`window.showAppToast`, `:260`). The
+cascade does not, because it is dispatched by a **service reacting to a store event**, not by a
+user gesture — there is no obvious owner for the message.
+
+**⚙ OPEN QUESTION FOR THE FOUNDER / THE NEXT LANE:** should the originating move be refused too
+(one gesture, one verdict), or should the cascade refusal surface its own toast? These are
+different products, not different implementations — the first says "that move is not allowed", the
+second says "your move happened and half of what should have followed did not".
+
+---
+
+## L-889 — CLOSED — a wall MOVED onto a door is now REFUSED and EXPLAINED; L-885's gap is shut
+
+**Reported:** the founder retested the shipped CREATE fix (L-882) and hit it again — *"user can
+still place a wall in front of a door - without any notification"*. Their console names the
+gesture: `[PlanDrag] wall drag started` → `EXECUTE: UPDATE_WALL_BASELINE` →
+`EXECUTE: CASCADE_WALL_BASELINE` → `[WallMoveReweldService] §MOVE-REWELD-DISPATCH` →
+`§GR12-BOUNDARY-INVALIDATION`. **A MOVE, which every create-side gate is structurally blind to.**
+That is L-885, the gap the create slice deliberately named rather than half-wired.
+
+**Commit:** `1e80e3a2` (after `5b33c439` · `ffa5ffa1` · `80e72a75` · `46232e2d` · `5b0fcea0`).
+
+**THE LOAD-BEARING FINDING — the chokepoint exists; do not re-derive it.** All four
+`wall.updateBaseline` dispatch sites — `registerTransformDragHandler:202`, `elementMove.ts:103`,
+`AlignPlanToolHandler:342`, `MovePlanToolHandler:538` — funnel into **one** command.
+`plugins/wall/src/handlers/UpdateWallBaseline.ts` is documented as *"Maps bus type
+wall.updateBaseline to the legacy UpdateWallBaselineCommand"* and bridges at `:122`. So enforcement
+lands in **`UpdateWallBaselineCommand.canExecute`** (+ `CascadeWallBaselineCommand` for carried
+neighbours, atomically), not at four tool sites — and it covers the AI and CRDT-sync callers too,
+because they reach a wall only through the bus. Both hold `ctx.stores.wallStore`, the authoritative
+store carrying openings from BOTH the 3D and plan placement paths.
+
+**REFUSE rather than warn — settled on evidence, not preference.** The `OPENING_DOES_NOT_FIT` arm
+three lines above the new one has refused moves at this exact seam for months; adding a second arm
+beside it is the consistent change and a new refusal mechanism would have been the risk. The state
+question was verified too: at drag-end the store still holds the PRE-drag baseline (`oldStart` is
+read from it), so declining costs a mesh snap-back and nothing else — no half-applied move, no
+missing undo entry. The 3D gizmo path restores `obj.position` on refusal, because a wall left
+sitting visually across a door while the store says otherwise is a refusal that LOOKS like it
+succeeded.
+
+**⚠ TWO CORPUS REFUTATIONS — read these before touching the geometry.** C83 §5.1(4) demands running
+a new rule over existing corpora, and says a rule that fires on known-good output is REFUTED by
+that run, not tuned until it passes. It fired twice, on known-good fixtures. **Both were real
+defects in the new geometry, fixed at the MODEL rather than tuned:**
+
+1. **`§CORNER-JOIN-IS-NOT-A-CROSSING`** — `hostedOpeningHostMoveSeam` §Z-5 refused an ordinary move
+   because the door and the moving wall overlapped by 0.100 m. That overlap is real and is **the
+   mitre zone**: two walls meeting at a corner necessarily overlap by a half-thickness; that is
+   what a corner IS. Without the guard, **every corner of every rectangular room is a latent
+   violation.** The fix also RESTORES what C83 §8 Slice 4 originally specified (*"a wall merely
+   touching an endpoint → zero, since `segmentsProperlyCross` is deliberately strict"*), which the
+   thickness-aware footprint clip had silently traded away. **Narrow by construction: shared
+   ENDPOINT only**, so a T-junction into the middle of a host — the founder's actual case — is
+   still fully refused.
+2. **`§PRE-WELD-TRANSIENT`**, the subtler one. A move commits in TWO commands: Update moves the
+   dragged wall, Cascade then RE-WELDS its neighbours. Validation runs at `canExecute` on the
+   FIRST, so neighbours are still at their old, about-to-be-corrected length. §Z-5 was refused for
+   crossing a door at station 2.0–2.9 on a `w-west` that was momentarily still 6 m long; after the
+   cascade it is 4 m, the door is at the corner, and the walls are joined. **The refused state
+   never persists.** Left unfixed, every carry-neighbours move would be refusable whenever a door
+   sits near the moving corner. `CandidateWall.currentBaseLine` now lets the rule exclude hosts
+   joined at the subject's present pose.
+
+Both have named regression controls in
+`packages/geometry-wall/__tests__/WallCrossesOpening.test.ts`.
+
+**Coverage, stated rather than implied:**
+
+| Path | Enforced | Surfaced |
+|---|---|---|
+| Plan drag (`MovePlanToolHandler`) | ✅ command + pre-commit gate | ✅ card + toast |
+| 3D gizmo (`registerTransformDragHandler`) | ✅ command + pre-commit gate | ✅ card + toast, **mesh snapped back** |
+| `elementMove.ts:103`, `AlignPlanToolHandler:342` | ✅ via the command | ⚠ **console only** |
+| Carried neighbours (cascade) | ✅ atomic | ⚠ via the dragged wall's message |
+| AI / CRDT-sync callers | ✅ via the command | n/a |
+
+The two ⚠ rows are enforced but not card-surfaced; they are secondary gestures (align, generic
+element move) and adding `gateWallMove(...)` at each is a one-line change if wanted. Both are
+instances of L-894.
+
+**Executed:** geometry-wall **536/536** (28 predicate, incl. both new regression controls) ·
+apps/editor surfacing **16/16** — 9 create + 7 MOVE, every one asserting the DOM rather than the
+return value (the door NAMED in the panel, no `[data-role=confirm]`, the toast present) **and
+SILENCE** (moving to a clear station is completely quiet; a wall that HOSTS the door may still
+move; an unknown wall is skipped, not cleared) · `hostedOpeningHostMoveSeam` **9/9** — the fixture
+that refuted the rule twice, green · root `tsc --noEmit --skipLibCheck` **zero errors repo-wide**.
+
+**What the founder sees now.** Drag a wall onto a door, plan or 3D: the wall does not move. A panel
+appears headed **THIS WALL CANNOT GO HERE**, naming the door element id, its host wall, both
+intervals and the overlap, then *"positions that ARE clear"* with two concrete distances — Dismiss
+only, no Confirm. A red toast reads *"Wall not placed — it would cut through a door."* In 3D the
+mesh snaps back to where the model still says it is. **Moving a wall anywhere legal is completely
+silent.**
+
+⚠ This closes the MOVE half only. The CREATE half still has bypasses — **L-890**.
+
+---
+
+## L-890 — OPEN — the CREATE path has BYPASSES: Copy / Mirror / Offset write straight to `wallStore.add()`
+
+**From a 26-tool audit run at the close of the C83-S1 MOVE slice. The create fix (L-882) is NOT
+universal, and this is the highest-value remaining gap in the family: a wall can still be offset
+across a door.** Measured, user-reachable, ungated:
+
+- **`CopyElementCommand` / `MirrorElementCommand` / `OffsetElementCommand`** — direct
+  `wallStore.add()` writes, wired live via `DockingLayout.ts:155-158,168-171` and
+  `ContextualEditBar.ts:29-42`. **Offset a wall 0.1 m across a door and it lands.** Highest-value
+  gap of the set.
+- `CopyPlanToolHandler.ts:268` (paste), `PreviewManager.ts:311` (AI accept),
+  `OpenedRegionProposal.ts:225` (AI offer) — all dispatch bus `wall.create`, which is **not** a
+  chokepoint: `plugins/wall/src/handlers/CreateWall.ts` `canExecute` has no spatial gate.
+- **`wall.batch.create` — zero seams.**
+- `CreateWallBetweenMarksCommand` — direct store write, separate class; seam 3 does not apply.
+- `wall.createFromSlab` — `WallTool.ts:1681` returns at `:1693` before `createWall()`, bypassing
+  seam 2.
+- `plugins/wall/src/tool.ts:329,348,373` — a third interactive tool, ungated, currently **not
+  registered in production** — latent, and becomes live the moment anyone registers it.
+
+**ONE NEXT STEP, highest value: put the spatial gate in `plugins/wall/src/handlers/CreateWall.ts`
+`canExecute` and in `CreateWallBatch.ts`** — that collapses most rows at once. ⚠ **Blocked by
+L-883:** `plugins/wall` has no `@pryzm/geometry-wall` dependency, so this needs a `package.json` +
+lockfile change (frozen-lockfile CI risk) **OR** a re-export through `@pryzm/command-registry`,
+which `plugins/wall` already depends on. **The re-export is the cheaper route and avoids the
+lockfile.**
+
+Then, separately, gate Copy / Mirror / Offset — they never touch either verb, so no chokepoint fix
+reaches them.
+
+---
+
+## L-891 — CLOSED — two floor finishes could be created over one floor area, silently
+
+**Reported:** founder, build `46232e2d`: *"then the user tries to create a different floor finish
+in the room - and creates an overlapping one - wrong!"* Their log:
+`EXECUTE: CREATE_FLOOR → [FloorTool] Floor created: 885eadf8-… with 4 vertices` — a rival finish
+over an area that already had one, with no check and no message.
+
+**Commits:** `af430f34` (the predicate + the create chokepoint) · `72d24912` (the surface).
+**Contract:** C83 §1.1 **IMPOSSIBLE**, not INADVISABLE — the boundary is not severity, it is *"can
+context reverse it?"* Two finishes over one patch of floor are two mutually exclusive claims about
+one surface (oak here AND tile here, same FFL, same square metre). No site, no typology, no brief
+makes that right; the meshes fight and the area is counted twice in every schedule and export.
+
+**Root cause: no creation path asked the question.**
+
+**Built ON, not beside — nothing authored from scratch.** `intersectPolygons2D`
+(`@pryzm/geometry-kernel/pure/polygonBoolean`, GE-05) is the repo's only oracle-pinned 2-D boolean;
+it **refuses** on self-intersecting input instead of returning a plausible ring (so C83 §5.3's
+silence-on-undetermined comes free) and treats sub-`COINCIDENT_M` overlap as **no** overlap by
+declaration (so two edge-sharing finishes are silent, free). `CanPlaceRefusalCode`'s *structure* is
+adopted wholesale per C83 §1.4. `wallPlacementGate.ts` (§C83-S1, landed the same day) was copied as
+a *pattern*, and its two channels reused rather than a fifth surface minted.
+`CreateFloorCommand._resolveBoundary` is used so the command checks the ring the model would
+actually hold (post-L-240 inner-face inset), not the payload's.
+
+**Why a sibling union and not a `CanPlaceRefusalCode` member:** §1.4.1 admits wall-side codes
+because they are *"the same question about the same volume asked from the other side"*. Every
+`OCC_*` member is a **1-D span on ONE wall** (`canPlace(wall, offsetM, widthM)`); a floor region is
+a **2-D ring on a level** and the signature cannot express it. Borrowing the union on §1.4.1's
+strength would be the drift §1.4 exists to stop. New closed union `FloorRegionRefusalCode`
+(`FIN_REGION_ALREADY_FINISHED`) + roster + `Exclude<>` completeness assert + `Record<>` sentences +
+`FIN_UNIDENTIFIED`.
+
+**Executed:** `floorRegionOverlap.test.ts` **22/22** (nine silence controls + five undetermined
+controls) · `FloorFinishGateSurfacing.test.ts` (happy-dom) **15/15**, asserting the DOM not the
+return value, six of them SILENCE at the SURFACE · `WallPlacementGateSurfacing` **16/16**
+(regression, §C83-S1 untouched) · `consequenceUiXssEscaping` + `curvedRoomFloorCeilingParity` +
+`floorFinishInnerFaceAllPaths` + `floorTypeSwap` **25/25** · `floorDeleteLeavesGraphEdges` +
+`roomFinishBoundaryHostAttribution` **36/36** · root tsc **exit 0, zero output**, run after both
+commits.
+
+One silence control is load-bearing and is recorded so it is not deleted as redundant: **a finish's
+OWN boundary re-proposed → nothing.** Without it, the §C79-5.2 follow-the-wall re-projection would
+have broken the day this shipped.
+
+**What the founder sees:** a red panel headed **"THIS FLOOR AREA ALREADY HAS A FINISH"**, naming
+`"Oak plank"` and its element id, stating **both numbers** (*"already covers 10.000 m² of the
+10.000 m² you are drawing (100 %)"*), carrying `[FIN_REGION_ALREADY_FINISHED]`, explaining that two
+finishes cannot cover one area — and offering, **in words, never as a button** (C83 §4.3), their
+own alternative: *change the finish that is already there*. Plus an error toast. **No Confirm
+control**, because an IMPOSSIBLE finding has nothing to approve (C83 §5.4). Drawing in a room with
+no finish is completely silent.
+
+**⚠ FIVE CAVEATS, stated rather than buried:**
+
+1. **Pre-existing overlapping finishes in saved projects are NOT healed.** The gate is suppressed
+   during restore and generation **by design** — a rule introduced today may not retroactively
+   refuse yesterday's documents, and enforcing on replay would turn a visual bug into a project
+   that will not open (C83 §3.1).
+2. **The C74 §2 row is OWED.** This is a third row in C74 §2's protected ENFORCEMENT table
+   (`canPlace`, `evaluateWallPlacement`, `evaluateFloorFinishPlacement`). C74 was fenced this
+   session and was **not** edited. **This must not be forgotten.**
+3. **The 3D tool's gate is very slightly EAGER, never lax.** `FloorTool` passes the pre-inset
+   centreline ring for `AUTO_FROM_ROOM`; `CreateFloorCommand` checks the resolved ring. This cannot
+   produce a false refusal between adjacent rooms (the neighbour's stored finish already stops half
+   a wall thickness short of the shared centreline — covered by an executed silence test), but the
+   two arms are not byte-identical and that is recorded rather than hidden.
+4. **No whole-project baseline run** (C83 §5.1(4)). The rule was not executed over the
+   generated-building corpus. It is suppressed during generation, so generators cannot trip it —
+   but the corpus run is the evidence §5.1(4) asks for and **it was not done**.
+5. **Not covered:** the split (**L-892**) · the pre-existing clash · finishes vs *ceilings*
+   (`CreateCeilingCommand` has the identical shape and no such gate — an obvious, cheap follow-up:
+   the predicate is element-agnostic) · overlap across levels (correctly out of scope) · healing
+   already-saved overlaps.
+
+**C67/C68 not triggered, checked deliberately.** No bus verb was minted, no chat capability
+registered, no user-visible *attribute* added — this is a refusal on an existing verb
+(`floor.create` / `CREATE_FLOOR`), so C69's `API-VERB-REGISTER.md` needs no row. **If a later slice
+adds a "split the finish" verb, C68 §5's a–j checklist applies in full.**
+
+---
+
+## L-892 — OPEN — a FLOOR FINISH FOLLOWS WALLS BUT NOT ROOMS; subdividing a room leaves the finish spanning the new partitions
+
+**Reported:** founder, build `46232e2d`: *"in an area with a floor finish already in place the user
+creates two internal partitions - this is fine - in this moment - we have created a new room and
+therefore - the floor finish should have been 'divided' from a big room floor finish to two
+independent floor finish elements - both with the same finish … current wrong workflow: the user
+creates the two internal partitions - fine - the floor runs through them (meaning clashes - this is
+not correct and in BIM 3.0 there should be consciousness to avoid this)"*.
+
+**THE MEASUREMENT THAT MATTERS, from a full-repo survey.** `FloorHostDependencyTracker`
+(`packages/finish-host-tracker/src/`) subscribes to **wall** updates and writes
+`UpdateFloorBoundaryCommand`; the *"§C79-5.2 resized … 88.353 m² → 61.363 m²"* log the founder saw
+comes from `FinishHostDependencyTracker.reportAndWrite:289` — i.e. the wall channel is **working**.
+**Nothing anywhere re-derives `FloorData.boundary.polygon` when the ROOM SET changes.** Their log
+also reads `[RoomDetectionEngine] Detected 4 room(s)` — the information existed and nothing
+consumed it. Rooms went 3 → 4, correctly, and the finish was never asked about it. **That is the
+whole of the defect.** NOT FIXED.
+
+**The signal already exists and is already published — this is a sibling of a shipped mechanism,
+not new machinery.** `RoomTopologyObserver` (`packages/room-topology/src/RoomTopologyObserver.ts`)
+debounces wall edits, dispatches `ReDetectRoomsCommand`, captures `before` and computes a diff at
+`_reportOpenedRegions(levelId, before)`. `OpenedRegionDetector` → `openedRegionNotifier` (`:721`)
+is the existing, live *"the room set changed → tell someone"* channel, and its only consumer,
+`apps/editor/src/ui/ai/OpenedRegionProposal.ts` (installed at `initTools.ts:2263`), is the proven
+propose→consent surface from L-880.
+
+**⚠ THE ONE NEXT STEP — one executed probe, and it decides the design:** does
+`openedRegionNotifier` (or `RoomTopologyObserver`'s room diff) fire on a room **SPLIT** (one room →
+two), or only on a merge/opening, and what does it carry? If it carries the before/after room sets,
+this is a `FloorSplitOnRoomSubdivision` reactor sitting beside `FloorHostDependencyTracker` — same
+package, same commands (`UpdateFloorBoundaryCommand` for the survivor + one `CreateFloorCommand`
+per new fragment, inheriting `systemTypeId` + `layers` + `finishSpec` verbatim). If it does not,
+the signal has to be added at `RoomTopologyObserver`, and that is a larger and different piece of
+work.
+
+**Two design decisions, argued now so the next lane does not re-open them:**
+
+**(i) Is SPLIT a sixth C79 §5.2 outcome, or a form of `regenerated`? It is its own outcome.** All
+five existing states (`preserved` / `resized` / `regenerated` / `conflicted` / `undetermined`)
+preserve element identity **1 : 1** — one finish in, one finish out. A split changes
+**cardinality**: one element becomes N. Folding it into `regenerated` would make that word mean two
+different things (same element, new geometry) vs (one element, N elements), and every consumer that
+today assumes a verdict describes *one* record would silently mis-handle it. Name it `split` and
+give it `{ survivorId, newIds[] }`. ⚠ **Coordinate, do not collide:**
+`packages/geometry-slab/src/slabRecomputeVerdict.ts` and
+`packages/geometry-slab/__tests__/c79RecomputeStates.test.ts` landed this session (`445e7650`) and
+are that channel's owner.
+
+**(ii) Does the original finish survive? The original MUST survive as one of the fragments** — the
+one with the largest resulting area, deterministically tie-broken. Three reasons in order of force:
+**(1) C70 C-INV-3 / references** — `hostRoomId`, `coveredRoomIds`, `hostSlabId`, the sketch's
+`boundingWallIds`, IFC GUID, any annotation or schedule row pointing at the finish: deleting the id
+invalidates all of them at once, and there is no reader that would refuse rather than silently read
+`[]`. **(2) Undo** — if the original is destroyed and two new ones minted, Ctrl+Z is a
+*re-creation*, not a restoration: the IFC GUID changes and the provenance chain breaks. If it
+survives, undo is a boundary restore plus one delete — the shape `UpdateFloorBoundaryCommand`
+already has an inverse for. **(3) Honesty** — the user drew ONE finish; reporting *"your finish was
+replaced by two new ones"* is a different, larger claim than *"your finish now stops at the new
+wall, and the other side got a matching one"*.
+
+**Automatic or proposed? AUTOMATIC, and it is defensible:** the founder was explicit that both
+fragments carry *the same finish* (*"both with the same finish"*), so the operation is
+**information-preserving and non-destructive** — no user choice is being guessed at. That is
+materially unlike C83's INADVISABLE offers, where the system would substitute its judgement for the
+architect's. ⚠ **But it must obey C83 §4.1.1 / ADR-0314:** `runBatch` is undo-NEUTRAL, so a split
+that fans out to N commands makes N history entries. Either coalesce it into one gesture
+(§L-874-ONE-UNDO) or **state N**. Claiming "one undo" for a fan-out is named as an anti-pattern in
+C68 §7.f.
+
+**⚠ DO NOT ship a standalone "finish crosses a wall" detector first** — it was considered and
+rejected. A **structural** floor legitimately runs under every wall, and only a *finish* is inset
+to inner faces (L-240). A rule that cannot tell those apart would fire on correct models, which is
+C83 §5's disqualifying failure. Pre-existing finishes authored before this change still clash; they
+are healed by the split plus a one-shot migration, not by a new refusal.
+
+---
+
+## L-893 — OPEN (NAMED GAP, not a defect) — C79 §5.2's `regenerated` is unreachable from the move path
+
+**Commit:** `2da4ac63` (the five-state channel) · `0804360f` (TS2367) · `445e7650` (gate ledger
+3 findings → 1). **Owner:** whoever wires `DegradeSlabSketchCommand` into the classifier
+(C70 §7.1).
+
+Four of the five states are driven end-to-end on the slab move path — `preserved` · `resized` ·
+`conflicted` · `undetermined`. **`regenerated` is classified and unit-driven, but a wall MOVE
+cannot produce it:** `SketchLoopIntersector.computePolygon` returns exactly one vertex per segment
+(parallel corners fall back to a raw endpoint rather than collapsing), and a move changes neither
+the sketch's edge count nor its host set — so the re-derived ring is always topologically identical
+to the sketch.
+
+**The reachable producer is a sketch EDIT.** `DegradeSlabSketchCommand` converts a `hostReference`
+edge to a `freeLine` on a wall delete, which changes the HOST SET — C79 §5.2's own words for
+`regenerated`. **That path does not call `classifySlabRecompute` yet.**
+
+**Recorded so the count is not re-read as five-of-five**, and so a 1-finding
+`check-move-propagation` ledger is not read as a closed C79 §9.4 — the inherited-green mistake
+§8.1 forbids. The gate's own ledger says the same thing in its own words.
+
+⚠ **One caveat carried from `0804360f`, worth keeping:** the TS2367 that blocked a deploy was
+**not** a type nit dressed as a defect and **not** a defect dressed as a nit. The `console.warn`
+sits inside `if (state === 'undetermined' || state === 'conflicted')`, so `state` cannot be
+`'preserved'` there and the write rule `writable && state !== 'preserved'` reduces to `writable`
+alone. **A `preserved` verdict is a NO-WRITE and a NO-WARN by design** (an update event claiming a
+change that did not happen is noise to every diff-based subscriber, C72 §3.1) — the guard above was
+right and the conjunct inside it was dead. Fixed by saying what the branch knows, with no cast.
+
+---
+
+## L-894 — OPEN — **THE CONSOLE IS NOT A SURFACE.** Three lanes found the same defect in three different channels
+
+**This row exists because three independent lanes reported the same finding on 2026-08-14 and each
+proposed its own entry. It is ONE defect with three instances, and it is the sibling of L-884 and
+the third recurrence of §15.7's lesson 1.** *A refusal or verdict that exists in a return value and
+reaches nobody is indistinguishable, from the user's side, from no refusal at all.*
+
+**Instance 1 — the COMMAND channel. `CommandResult.info[0]` STILL reaches nobody, so each new
+refusal pays for its own surface.** `CommandManagerImpl:217` carefully prefers `blockingIssues[0]`
+over `reason` (L-813) so a human sentence survives — **and no tool renders `result.info[0]`**
+(L-884 measured this: `ColumnTool.ts:236`, `LiftTool.ts:219`, `OpeningTool.ts:473`,
+`DoorSection.ts:61` are all `console.error` / `console.warn`). Consequence, measured this session:
+**§C83-S1 and §C83-S5 each had to build their own carrying module** (`wallPlacementGate.ts`,
+`floorFinishGate.ts`). That is two copies of the same seam, and the third will be a third. It is
+worse than it looks on the floor path: `FloorTool._createFloor` calls `cmd.canExecute()` **itself**
+and `console.error`s the failure, so the command never reaches `CommandManagerImpl` at all; and
+`wireToolForConsequencePreview` has **ZERO callers repo-wide** while `triggerConsequencePreview` has
+one, gated to wall MOVE — so the preview overlay is **not** a delivery channel either, and building
+on it produces C11 §7.6's *"dead click behind a perfect preview"*. **The structural fix is a
+tool-side renderer for `CommandResult.info[0]`; until then every ENFORCEMENT rule costs a gate
+module, and a rule that skips it ships as a dead click.**
+
+**Instance 2 — the C79 §5.2 SLAB channel has no user-facing surface at all.** *(Owner: C79 §10.6 —
+the contract already names it.)* `SlabDependencyTracker.reprojectStoredPolygon` now returns one of
+C79 §5.2's five states, and `conflicted` / `undetermined` are announced with `console.warn`:
+`[SlabDependencyTracker] §C79-5.2 conflicted: slab "sb" — the re-derived boundary INVERTED its
+winding (24.000 m² → 24.000 m², on the far side of the walls it was drawn between) — the region
+enclosed at authoring time no longer exists.` **A `console.warn` is a developer trace, not a
+message a user sees.** A user who drives a wall through another wall still watches the slab flip to
+the far side with no refusal, no dialogue, and no both-numbers report. C79 §8.3(c) and the gate's
+own *"what this gate cannot see (d)"* already say this axis is unmeasured; it is now also the last
+half of §9.4. The verdict object carries everything a surface needs (`state`, `reason`, `subReason`,
+`numbers.{oldAreaM2,newAreaM2}`, `edgeOutcomes`) — **what is missing is a consumer above L2, because
+geometry-slab cannot import a renderer.** The shape of the fix is the one L-889 used: shared refusal
+renderer, four sites, DOM-proven.
+
+**Instance 3 — and the reason instance 2 cannot be fixed by "just read the return value": the LIVE
+wall-store subscription DISCARDS the verdict.** *(Low severity. Owner: `@pryzm/geometry-slab`.)*
+`SlabDependencyTracker`'s `wallStore.subscribe` callback calls `onWallUpdated(wall.id)` and drops
+its return value. The verdict is still READ inside that call (it decides the write-back and drives
+the refusal trace), and `recomputeForWall()` returns it to any caller that asks — **so nothing here
+is an unread field.** But on the LIVE path the verdict reaches no subscriber, which is the same
+shape C70 F-INV-1 warns about.
+
+**One test failure worth recording as evidence, not as noise:** the first run of
+`c79RecomputeStates.test.ts` reported `expected 'preserved' to be 'resized'`, because the live
+subscription had already re-derived and persisted before the explicit call. **That is C79 §5.1
+determinism showing up as a test failure, and it is now an assertion of its own** rather than a
+swallowed verdict.
+
+**Also in this family, from L-889's coverage table:** `elementMove.ts:103` and
+`AlignPlanToolHandler:342` are enforced but console-only. Cf. L-884, L-880's coverage note, and
+[[context-data-honesty-family]].
+
+---
+
+## L-895 — CLOSED — RAC room occupancy was authored, LIVE and unreachable, blocked by a reason that was FALSE for that verb
+
+**Reported:** founder, verbatim — *"the rooms are called Room 001 … the occupancy is unclassified
+… if i want to go to the RAC and say i want a bathroom in the room 001 … can that be done?"*
+**Commit:** `0a2dbd84`.
+
+**Measured before writing a line — almost nothing was missing.** `room.setOccupancy` has been a
+LIVE registered bus verb (`plugins/rooms/src/handlers/SetRoomOccupancy.ts` →
+`SetRoomOccupancyCommand`, which snapshots the whole `RoomData` and is undoable, with a row in
+`API-VERB-REGISTER`). `RoomOccupancyType` is a **CLOSED 51-member enum** carrying `bathroom` /
+`bedroom` / `living-room` / `kitchen` from the start. The U3 room spatial scope (*"… in the
+kitchen"*) was already injected by the editor for wall capabilities.
+
+**THE DEFECT: the chat could not reach it because `ChatCommandClassification` filed the verb under
+`B_CATALOGUE` — *"the value is a project-catalogue reference … those catalogues are not injected
+into the resolver context yet"*. That reason was FALSE FOR THIS VERB.** Occupancy is not a project
+catalogue; it is a compile-time enum (`RoomOccupancyTypeSchema`), identical in every project, with
+no catalogue to inject and therefore **no blocker that could ever arrive**. The capability was
+deferred on a dependency it never had, so the deferral could never expire. **The fix was to delete
+the wrong reason, not to build what it asked for.**
+
+**GENERALISATION, and it is the reusable half of this row: when a deferral names a dependency,
+verify the dependency is real FOR THAT VERB before inheriting the family's reason.** Cf.
+[[unsatisfiable-gate-decomposition-is-the-fix]], [[authored-but-unwired-is-the-bottleneck]].
+
+**The one genuinely missing piece was aiming.** The chat could target a selection, "all", or a
+spatial scope — it could never say WHICH room, and `roomNumber` appeared nowhere in the chat path.
+**A registered verb the user cannot aim is not a capability.** Resolution is by NUMBER, for the
+reason in L-896.
+
+**Wired with NO new case arm and NO new bus verb:** `set-room-occupancy` is a TABLE ENTRY in
+`EXECUTION_SPECS`, executed by the existing generic arm through the `default:` route, so the
+resolver-case-arm ratchet is unmoved at 27/27. The vocabulary is read off
+`RoomOccupancyTypeSchema.options` — the same Zod enum `RoomStore.update()` validates against — so
+the chat can never accept a word the store then rejects; a hand-copied list would have been exactly
+the *"capability table that lies"* the registry's own header warns about.
+
+**Executed:** 13 new tests driving the REAL grammar (`resolveUtterance` → `applySemanticIntent` →
+bus commands), including the duplicate-name room resolved correctly by number, both refusal paths,
+the no-resolver refusal, and proof the wall grammars keep their sentences. **412 passing** across
+the six resolver/capability suites; `check-chat-capability-coverage` exits 0.
+
+**What the founder can type:** `make room 001 a bathroom` · `i want a bathroom in room 001` ·
+`set room 002 to bedroom` · `make rooms 002 and 003 bedrooms` · `room 003 is a living room` ·
+`set the occupancy to kitchen` (with a room selected). The Room Schedule's OCCUPANCY column changes
+from `unclassified` to the assigned use, the room re-colours through `RoomColourSystem`, and Ctrl+Z
+restores the prior occupancy. An unknown room refuses by listing the real rooms BY NUMBER; an
+unknown use refuses by listing real uses. **Neither ever guesses.**
+
+**Unlocks downstream, NOT touched here:** occupancy already drives floor-finish selection by room
+type, ceiling category, lighting circulation skips, and the constraint engine's corridor logic —
+all of which have been reading a field nothing could set from chat.
+
+Follow-ups: **L-896** (name uniqueness), **L-897** (batch verb + value source), **L-898** (scope
+declaration), **L-899** (the corridor ask).
+
+---
+
+## L-896 — OPEN — duplicate room NAMES make name-based chat resolution unsafe; the NUMBER column is the only unique handle
+
+**CONFIRMED from the founder's own Room Schedule:** rows `00-001` (85.73 m²) and `00-004`
+(61.32 m²) are **different rooms both named "Room 00-001"**. `RoomStore.findByName` is a
+case-insensitive **substring** match, so a name-first lookup for "room 001" matches BOTH and would
+silently have edited whichever came first — **the worst possible outcome for an edit the user
+cannot watch happen.**
+
+**MITIGATED in the chat path only.** `ZeroTokenChatBridge`'s room scope arm now matches the unique
+`roomNumber` FIRST (tiered exact → trailing segment → digits), refuses an ambiguous number by
+LISTING the candidates, and names rooms by NUMBER in every refusal. Name/occupancy matching is
+unchanged behind it. Multi-room references (*"002 and 003"*) resolve **all-or-nothing**: a part
+that matches nothing collapses the whole ask rather than quietly doing a fraction of it.
+
+**⚠ NOT FIXED AT THE SOURCE.** Hand-created rooms still bypass the generator's §DUP-NAME-UNIQUE
+minting pass, which exists **only** in `workflows/apartmentLayout/tgl/emitGeometry.ts` — i.e. the
+GENERATIVE path. Open: give `CreateRoomCommand` / the room-numbering path the same uniqueness
+guard, **or** accept names as non-unique repo-wide and make every name-based lookup refuse on
+ambiguity. Owner: rooms.
+
+---
+
+## L-897 — OPEN — two disclosed limits of the room-occupancy capability, BOTH blocked by a file another lane held
+
+Recorded together because they share a root cause that is a fleet-discipline finding, not a code
+one: **both are one-line changes that could not be made because the file they needed was owned by a
+live lane.**
+
+**(a) `room.setOccupancy` is singular, so a multi-room chat instruction is N undo steps, not one.**
+Every other spec-driven chat capability dispatches a single `*Batch` verb, which is the only thing
+that buys "one gesture = one undo entry" (`BatchCoordinator`: `runBatch` is undo-NEUTRAL,
+ADR-0314). There is no `room.setOccupancyBatch`, so *"make rooms 002 and 003 bedrooms"* fans out to
+two `room.setOccupancy` dispatches. **DISCLOSED, not hidden:** `dispatchCommands` already prints
+*"undo with Ctrl+Z (N steps)"*, so the user is never misled. Minting the batch verb was deliberately
+NOT done in the same change because **a new bus verb requires a row in
+`docs/04-reference/API-VERB-REGISTER.md` or `check-verb-register.ts` V1 hard-fails**, and that
+register was being edited by another lane. FOLLOW-UP: mint `room.setOccupancyBatch` + register row;
+the chat side then changes only `fanOutPerId` and the table entry in `CapabilityExecutionSpec.ts`.
+
+**(b) `CapabilityValueSource` has no member for a closed domain enum, so occupancy is declared as
+`user-text`.** The room-use parameter is a 51-member closed vocabulary, but the nearest available
+`CapabilityValueSource` is `'user-text'`. A truer `'room-occupancy'` source could not be added
+because `CapabilityValueSource` members must **also** appear in `KNOWN_VALUE_SOURCES` inside
+`tools/ga-gate/check-chat-capability-coverage.ts`, which was owned by another lane. **Consequence
+today: cosmetic only** — the spec still refuses unknown words by listing real options, and the
+vocabulary is read off the Zod enum so chat and store can never disagree. FOLLOW-UP: add
+`'room-occupancy'` to both the enum and the gate's known set.
+
+---
+
+## L-898 — the generic spec arm HONOURED spatial scopes its capabilities never declared — FIXED for one capability, UNAUDITED for 25
+
+**C68 §6.3-G3. Fixed in `0a2dbd84`; the remainder is open.**
+
+`applyExecutionSpec`'s scope stage handles the level / room / orientation **SUPERSET** with one
+implementation, so every new spec silently "honours" scope kinds its grammar never produces.
+Harmless breadth for walls; **WRONG for rooms** — the editor's orientation arm answers *"facing
+south"* with the **WALLS** that face south, so an orientation-scoped `set-room-occupancy` would
+have fanned **room** commands out over **wall** ids.
+
+**FIXED** by adding `spatialKinds` to `CapabilityExecutionSpec` (absent ⇒ all, as before) and
+setting `['room']` on the new capability, **which returned the ratchet to its 24 baseline by making
+the capability smaller and truer rather than by raising the number.** That direction is the point of
+the row: the gate went from 24 → 26 on one new capability and was paid at the declaration, not at
+the baseline.
+
+**⚠ OPEN: the other 25 entries are still arm-reach the declarations do not claim**, and each should
+be audited the same way rather than left to the baseline. Nobody has checked them.
+
+---
+
+## L-899 — OPEN (REPORTED, NOT BUILT) — *"How can I make the corridor 30 cms wider?"* needs a RELATIVE dimensional change, which no chat capability supports
+
+The founder typed this and got *"I'm not sure how to help with that yet."* **Half of it is now
+solved and half is not**, and the split is the useful part of this row:
+
+- **SOLVED — resolving "the corridor" to a room.** The U3 room scope resolves by name/occupancy,
+  and `corridor` is a canonical `RoomOccupancyType`, so `findByOccupancy(['corridor'])` finds it.
+- **NOT SOLVED, two gaps.**
+  **(a) Every dimensional capability is ABSOLUTE.** `matchProperty` / `set-width` parse *"to 3m"*,
+  never *"by 30cm"* or *"wider"*; there is no relative-delta grammar and no intent field for a
+  signed delta.
+  **(b) A room has no editable width.** A room is a *detected boundary polygon*; widening it means
+  **MOVING ITS BOUNDING WALLS**, and `wall.updateBaseline` is classified **B** (*"sub-entity
+  reference resolution"*) and is therefore unavailable from chat. So the ask is really *"move the
+  two walls bounding this corridor 30 cm apart, preserving joins"* — **a wall-geometry capability,
+  not a room one.**
+
+**Estimate:** the relative-delta grammar is small and reusable. The room-widening semantics are a
+real design step, and they need a **founder decision** before code: widen by moving ONE wall 30 cm,
+or BOTH walls 15 cm? Plus joins, openings, and adjacent rooms.
+
+---
+
+## L-900 — OPEN — the 3D viewport is STALE after a wall move; the `ViewDependencyTracker` lead is REFUTED with a test, and ONE founder answer picks the next probe
+
+**Reported:** founder, live build `46232e2d`: *"user moves a wall in 3d — in plan view renders
+correctly, but seems like the 3d environment did not catch up with the change"*, then the
+differential they ran themselves: *"once the user creates a window on the wall — in plan view — the
+wall in 3d comes to the updated place — correct"*.
+
+**REFUTED, with a test — commit `3bc832b1`.** The `ViewDependencyTracker` *"+4 deferred inactive"*
+lead is FALSE and is now impossible to hold again. `_getAffectedViews()` skips `viewType === '3d'`
+**unconditionally** (§PERF-3D-SKIP, `packages/core-app-model/src/views/ViewDependencyTracker.ts:850-851`;
+the guard is repeated defensively at `apps/editor/src/engine/initScene.ts:1110`). A 3D view is
+never dirtied, never deferred, never flushed, never force-projected — it is **structurally outside
+the class**. The four deferred views are the L-110 default elevations
+(§FEAT-DEFAULT-ELEVATIONS). The split-view secondary pane is Canvas2D-only
+(`apps/editor/src/engine/views/SplitViewManager.ts:1-23`) and registers no 3D pane with the tracker
+at all, so *"make mounted panes active"* would have fixed nothing either. Pinned by
+`packages/core-app-model/src/views/__tests__/threeDViewIsNeverTracked.test.ts` — **1 file / 5 tests
+passed**, and one of the five pins the founder's own differential: the window `create` also never
+reaches a 3D view through this class, so whatever refreshed the 3D happened elsewhere.
+
+**Consequence: no change to the active/inactive predicate, to `notifyViewActivated()`, or to
+split-pane registration can refresh a stale 3D viewport.** Any fix belongs in the wall MESH rebuild
+path (`WallRebuildCoordinator` → `WallFragmentBuilder`), not in 2-D edge re-projection.
+
+**Where the fix must live — and the open question.** The 3D viewport draws the live THREE scene.
+The plan projection is built by `nativeElementMeshExporter.exportForView()` (`initScene.ts:1219`),
+which proxies **the live scene meshes**
+(`packages/core-app-model/src/geometry/NativeElementMeshExporter.ts:45-56`). **The plan was CORRECT
+after the move ⇒ at plan-projection time the moved wall's scene mesh was already at the new
+position ⇒ this is NOT simply "the mesh rebuild never fired."** Two candidates remain, neither
+excluded, both cheap to discriminate:
+
+- **(a)** a stale/orphaned previous wall group left in the scene alongside the rebuilt one
+  (`WallFragmentBuilder._disposeWallGroupChildren`,
+  `packages/geometry-wall/src/WallFragmentBuilder.ts:894-897`, `:805`);
+- **(b)** the founder's 3D surface is the SVP **mirror** pane (`_svpMode === '3d'`,
+  `SplitViewManager.ts:1282, :1331-1374` — a `drawImage` copy of the main renderer, pinned alive
+  via `MAIN_RENDERER_PIN_SVP_3D_MIRROR`, `:1062-1065`), in which case the staleness is in what the
+  MAIN renderer drew, not in the wall mesh.
+
+**⚙ NEXT PROBE — ASK THE FOUNDER, ONE LINE: was the 3D they were watching the MAIN viewport or the
+SECOND (split) pane?** That single answer eliminates one branch outright.
+
+---
+
+## L-901 — OPEN — `wall.opening.create` has NO sync disposition
+
+From the same production log as L-900: `[YjsDocAdapter] W5-3: command type 'wall.opening.create'
+has NO sync disposition`.
+
+**Same class as the `room.redetect` gap closed today in `6bfb50a8`** — a command type that reaches
+the CRDT adapter without a declared disposition, so the adapter cannot know whether to replicate,
+suppress or re-derive it. Not investigated further this session; recorded so it is not
+rediscovered from the log a third time.
+
+---
+
+## L-902 — OPEN (handled honestly; non-fatal) — `[captureThumbnail] Read a blank/transparent frame — keeping the last good thumbnail`
+
+From the same production log as L-900. The WebGPU swapchain texture was not readable that turn.
+
+**The recovery REFUSES rather than writing a blank thumbnail**, so this is a logged
+known-limitation rather than a defect — it is the correct shape (a missing value beats a wrong one,
+[[envelope-solid-overstates-partial-data]]). Worth a row purely so it is not rediscovered and
+mistaken for a rendering regression.
