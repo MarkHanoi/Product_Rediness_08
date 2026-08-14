@@ -4643,3 +4643,49 @@ family, not yet fixed for hand edits · `[PickDiag] doorsRegistered=0 windowsReg
 99.626 → 77.645 m²` · `§MOVE-REWELD-DISPATCH` re-welding a junction partner · `§GR12-BOUNDARY-
 INVALIDATION` naming the invalidated rooms · the opened-region detector correctly NOTICING the
 lost room and speaking in chat within one action of the move.
+
+---
+
+## L-914 — OPEN, FOUNDER-QUEUED (RAC parity) — "select any element, change ANY property via chat, as I do via the UI": coverage is partial, and the noun-vs-selection MISMATCH is answered silently
+
+**FOUNDER, 2026-08-14, on `21919312`:** *"I should be able to select any element and via RAC change
+any property via chat as I do via UI — I thought this was mature now. Make it architecturally
+sound, no shortcuts."* Typed: **"make the selected window 1 meter height by 2 meters width"**.
+Reply: *"I can''t set the width of a slab from chat — the command behind it has no route for that
+element type, so it would look like it worked and change nothing. I can change slab height,
+thickness, base offset and slab type."*
+
+**THREE SEPARABLE DEFECTS. The second is the sharpest and the cheapest.**
+
+**(1) COVERAGE IS PARTIAL — the actual ask.** The chat can set *some* properties on *some* kinds.
+The target is **parity with the property panel**: for every element kind and every property the UI
+can edit, chat can edit it — or refuses with a reason a user can act on. ⚠ **Architecturally
+sound, per the founder''s instruction**: the resolver must NOT grow a hand-written per-kind
+property table (C69''s rival-list defect — it will drift the day someone adds a property). It must
+enumerate from the SAME source the property panel reads (the element type/parameter registry +
+the C69 verb register), so a new property is chat-reachable the day the panel gains it. Where a
+verb genuinely has no route for a kind, the refusal stays as it is today — it is already correct
+and the founder did not dispute it.
+
+**(2) THE NOUN AND THE SELECTION DISAGREED, AND NOTHING SAID SO.** The user said **"window"**;
+the selected element was a **SLAB** (`[PlanViewInteraction] Element selected via plan view click:
+d9660d06-79ca-42cb-aaf7-00c9c6e99de1` = Slab). The resolver silently bound "the selected element"
+and answered about a slab, so the reply is *honest about the wrong element* — which reads to the
+user as PRYZM not understanding windows. **RULE: when the utterance names a kind and the selection
+is a different kind, that is a MISMATCH and must be surfaced** — "you said window, but a slab is
+selected; select the window, or say which one you mean". Never silently prefer one over the other.
+Cheap, high-value, and it is the same failure family as a default presented as the user''s request
+(L-911).
+
+**(3) THIS DEPLOY HAS NO AI UPSTREAM.** The chat itself disclosed it: *"free-phrasing needs the AI
+planner, and this deploy has no AI upstream configured (no `CF_WORKER_URL` / `ANTHROPIC_API_KEY`)"*
+— which is ALSO the cause of the `/api/anthropic/v1/messages` **500** and the `/api/ai/cache/*`
+**401** recorded under L-911. So free-phrased commands degrade to the zero-token matcher by
+CONFIGURATION, not by design. ⚠ This is a founder/ops decision (a key + its cost), not an
+engineering fix — C70 §1.3''s posture is that removing the AI box must cost no capability except
+conversation, and the disclosure above is that posture behaving correctly. **Recorded so nobody
+"fixes" it in code.** Decide it in the open: set the key, or accept zero-token-only phrasing.
+
+**Also in this log, already-known and unchanged**: `§DIAG-ROOM-LOOP BREAK` ×4 (783/898 mm vs the
+200 mm host-snap) on hand-drawn walls — the L-912/L-913 tail-note family, still unfixed for hand
+edits.
