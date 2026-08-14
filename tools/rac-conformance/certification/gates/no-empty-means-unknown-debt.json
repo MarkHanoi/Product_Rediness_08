@@ -621,11 +621,6 @@
       "why": "C@113 `for (const d of doorsByWall.get(wall.id) ?? []) {` · C@119 `for (const w of winsByWall.get(wall.id) ?? []) {`"
     },
     {
-      "site": "packages/geometry-slab/src/SlabFragmentBuilder.ts",
-      "arm": "B (1 site(s))",
-      "why": "B@1011 `const winOpenings: any[] = window.openingStore.getByHostId?.(data.id) ?? [];`"
-    },
-    {
       "site": "packages/geometry-wall/src/WallDeltaClassifier.ts",
       "arm": "C (2 site(s))",
       "why": "C@170 `const po = prev.openings ?? [];` · C@171 `const no = next.openings ?? [];`"

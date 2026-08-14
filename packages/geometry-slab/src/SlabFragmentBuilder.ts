@@ -25,6 +25,8 @@ import { HostReferenceEdge, SketchLoop } from './SketchTypes';
 import { WallFaceResolver } from './WallFaceResolver';
 import { SketchLoopIntersector, Segment2D } from './SketchLoopIntersector';
 import { outsetPolygon, SLAB_WALL_OUTSET } from './SlabGeometryUtils';
+// §GR-10/GR-14 — the window-global opening-store read, DETERMINED.
+import { readWindowOpeningsForDiagnostic } from './windowOpeningStoreDetermination';
 // §REFUSE-NONSIMPLE-SLAB-RING (ADR-0299 §RECOVERY-MUST-REFUSE) — earcut's precondition,
 // asserted before triangulation. Leaf subpath: pure maths, no second THREE import.
 import { findRingSelfIntersection } from '@pryzm/core-app-model/ring-simplicity';
@@ -1028,10 +1030,38 @@ export class SlabFragmentBuilder {
         if (openingHoles.length > 0) {
             console.log(`[SlabFragmentBuilder] opening holes slabId="${data.id}" count=${openingHoles.length}`);
         } else if (window.openingStore) { // TODO(TASK-08)
-            // openingStore reachable on window but deps not injected — legacy bootstrap path
-            const winOpenings: any[] = window.openingStore.getByHostId?.(data.id) ?? []; // TODO(TASK-08)
-            if (winOpenings.length > 0) {
-                console.warn(`[SlabFragmentBuilder] DEPS NOT INJECTED — ${winOpenings.length} opening(s) on slab "${data.id}" found via window.openingStore but NOT via deps. Call slabBuilder.setDeps({ openingStore }) in initBuilders.`); // TODO(TASK-08)
+            // §GR-10/GR-14 — `check-no-empty-means-unknown` ARM B. This branch used
+            // to read:
+            //
+            //     const winOpenings: any[] = window.openingStore.getByHostId?.(data.id) ?? [];
+            //     if (winOpenings.length > 0) { console.warn('DEPS NOT INJECTED …'); }
+            //
+            // and it silently DISABLED ITSELF in exactly the situation it exists to
+            // detect. The optional call `?.` plus `?? []` collapses three cases into
+            // one empty array: the slab genuinely has no openings; the window store
+            // carries no `getByHostId` at all; and the call threw. Only the first is
+            // an answer — and in the other two, `winOpenings.length > 0` is false, so
+            // the warning that a legacy bootstrap path is in use NEVER PRINTS. A
+            // diagnostic whose failure mode is silence is not a diagnostic; this is
+            // the same defect one layer down from the one it was written to catch.
+            //
+            // Vocabulary: `RELATIONSHIP_NOT_READABLE`, the C78 §8.1 member for "the
+            // substrate that would answer is absent or threw". Nothing is minted and
+            // nothing is extended; the member is restated as a literal because
+            // `@pryzm/command-bus` is not a declared dependency of this package (the
+            // same reasoning as `boundingWallDetermination` / `storeReadDetermination`
+            // / `roomStoreDetermination`), and the companion test pins it against the
+            // command-bus source so a drift in the closed union fails a test rather
+            // than forking in silence.
+            const probe = readWindowOpeningsForDiagnostic(window.openingStore, data.id); // TODO(TASK-08)
+            if (probe.kind === 'undetermined') {
+                console.warn(
+                    `[SlabFragmentBuilder] RELATIONSHIP_NOT_READABLE — could not ask window.openingStore ` +
+                    `about slab "${data.id}": ${probe.detail}. This is NOT "the slab has no openings"; ` +
+                    `it is "nobody looked", and the legacy-bootstrap check below could not run.`,
+                );
+            } else if (probe.openings.length > 0) {
+                console.warn(`[SlabFragmentBuilder] DEPS NOT INJECTED — ${probe.openings.length} opening(s) on slab "${data.id}" found via window.openingStore but NOT via deps. Call slabBuilder.setDeps({ openingStore }) in initBuilders.`); // TODO(TASK-08)
             }
         }
 
