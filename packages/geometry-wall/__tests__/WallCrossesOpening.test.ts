@@ -248,6 +248,127 @@ describe('SILENCE — the rule stays quiet on healthy designs', () => {
     expect(verdict.violations).toHaveLength(0);
   });
 
+  it('§CORNER-JOIN — a wall JOINED at a shared endpoint never violates, even with a door at that corner', () => {
+    // ⚠ REGRESSION CONTROL. This rule shipped without this guard and immediately
+    // fired on a known-good fixture (`hostedOpeningHostMoveSeam` §Z-5, a closed
+    // rectangular room with a door hard against a corner), refusing an ordinary
+    // wall move with *"the door occupies 2.000–2.900 m and this wall would occupy
+    // 1.900–2.100 m, overlapping by 0.100 m"*.
+    //
+    // That overlap is real and is NOT a violation: two walls meeting at a corner
+    // necessarily overlap by a half-thickness, which is what a corner IS. Without
+    // the guard, every corner of every rectangular room is a latent violation and
+    // moving any of its walls is refused — the exact "cries wolf, gets muted"
+    // failure C83 §5 opens with, and the reason C83 §5.1(4) demands a corpus run.
+    const host: WallData = {
+      ...hostWallWithDoor(),
+      // Door hard against the wall's START endpoint, i.e. in the mitre zone.
+      openings: [
+        {
+          id: DOOR_OPENING_ID,
+          type: 'door',
+          offset: 0,
+          width: 0.9,
+          height: 2.1,
+          sillHeight: 0,
+          elementId: DOOR_ELEMENT_ID,
+        },
+      ],
+    } as unknown as WallData;
+
+    // A wall CORNERING into the host at that same endpoint (0,0) — a normal room corner.
+    const corner: CandidateWall = {
+      levelId: LEVEL,
+      thickness: 0.2,
+      baseLine: [
+        { x: 0, y: 0, z: 0 },
+        { x: 0, y: 0, z: 6 },
+      ],
+    };
+
+    const verdict = evaluateWallPlacement(corner, [host]);
+    expect(verdict.valid).toBe(true);
+    expect(verdict.violations).toHaveLength(0);
+    expect(verdict.undetermined).toHaveLength(0);
+  });
+
+  it('§CORNER-JOIN is NARROW — a T-junction into a door is still refused', () => {
+    // The guard must not become a blanket amnesty. A wall whose end butts into
+    // the MIDDLE of the host shares no endpoint, so it is fully tested — and this
+    // is the founder's actual case, which must not be weakened by the fix above.
+    const tee: CandidateWall = {
+      levelId: LEVEL,
+      thickness: 0.2,
+      baseLine: [
+        { x: 3.5, y: 0, z: 0 },   // lands ON the host's body, at the door
+        { x: 3.5, y: 0, z: 5 },
+      ],
+    };
+    const verdict = evaluateWallPlacement(tee, [hostWallWithDoor()]);
+    expect(verdict.valid).toBe(false);
+    expect(verdict.code).toBe('OCC_CROSSES_HOSTED_OPENING');
+    expect(verdict.violations[0].openingElementId).toBe(DOOR_ELEMENT_ID);
+  });
+
+  it('§PRE-WELD-TRANSIENT — a host JOINED at the subject\'s current pose is not judged mid-weld', () => {
+    // ⚠ REGRESSION CONTROL, and the second refutation this rule earned from an
+    // executed corpus run — subtler than the corner case above.
+    //
+    // A wall move commits in TWO commands: `UpdateWallBaselineCommand` moves the
+    // dragged wall, then `CascadeWallBaselineCommand` RE-WELDS its neighbours.
+    // Validation runs at `canExecute` on the FIRST, so neighbours are still at
+    // their old, about-to-be-corrected length.
+    //
+    // MEASURED (`hostedOpeningHostMoveSeam` §Z-5): moving `w-north` back was
+    // refused for crossing a door at station 2.0–2.9 on a `w-west` that was
+    // momentarily still 6 m long. After the cascade `w-west` is 4 m, the door sits
+    // at the corner, and the walls are joined. The refused state NEVER PERSISTS.
+    const host: WallData = {
+      ...hostWallWithDoor(),
+      id: 'w-west',
+      baseLine: [
+        { x: 0, y: 0, z: 6 },
+        { x: 0, y: 0, z: 0 },
+      ],
+      openings: [
+        {
+          id: DOOR_OPENING_ID,
+          type: 'door',
+          offset: 2.0,
+          width: 0.9,
+          height: 2.1,
+          sillHeight: 0,
+          elementId: DOOR_ELEMENT_ID,
+        },
+      ],
+    } as unknown as WallData;
+
+    // `w-north` moving from z=6 back to z=4 — its CURRENT pose shares the (0,6)
+    // endpoint with the host, so the host is mid-weld and is not judged.
+    const moving: CandidateWall = {
+      id: 'w-north',
+      levelId: LEVEL,
+      thickness: 0.2,
+      baseLine: [
+        { x: 6, y: 0, z: 4 },
+        { x: 0, y: 0, z: 4 },
+      ],
+      currentBaseLine: [
+        { x: 6, y: 0, z: 6 },
+        { x: 0, y: 0, z: 6 },
+      ],
+    };
+
+    expect(evaluateWallPlacement(moving, [host]).valid).toBe(true);
+
+    // WITHOUT the current pose (i.e. treated as a CREATE, nothing to re-weld) the
+    // same geometry IS a violation — proving the guard is the `currentBaseLine`
+    // exclusion doing its job, not the crossing test having gone blind.
+    const asCreate: CandidateWall = { ...moving };
+    delete (asCreate as { currentBaseLine?: unknown }).currentBaseLine;
+    expect(evaluateWallPlacement(asCreate, [host]).valid).toBe(false);
+  });
+
   it('a host wall with NO openings can never be violated', () => {
     const bare = { ...hostWallWithDoor(), openings: [] } as unknown as WallData;
     const verdict = evaluateWallPlacement(crossingWall(3.5), [bare]);

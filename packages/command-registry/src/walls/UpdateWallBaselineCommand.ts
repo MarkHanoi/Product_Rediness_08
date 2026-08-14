@@ -4,6 +4,8 @@ import { serializeWallSnapshot } from './wallSnapshotUtils';
 // §FIX-WALL-SHRINK-REFIT (W2-1) — the wall-side use of the ALREADY-EXISTING
 // opening gate. See the policy note on `planOpeningRefit`.
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
+// §C83-S1-MOVE (L-885) — the wall-side occupancy predicate + its shared renderer.
+import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from '@pryzm/geometry-wall';
 import type { Opening, WallData } from '@pryzm/geometry-wall';
 // §C73-EPSILON-POLICY (C73 §2.2) — the declared model-space coincidence role.
 // A geometric predicate consumes the policy module; it does not declare a raw
@@ -162,6 +164,81 @@ export class UpdateWallBaselineCommand implements Command {
                 reason: 'OPENING_DOES_NOT_FIT',
                 blockingIssues: refit.refusals.map(r => `OPENING_DOES_NOT_FIT: ${r.reason}`),
             };
+        }
+
+        // ── §C83-S1-MOVE — a wall may not be MOVED onto someone else's opening ──
+        //
+        // ISSUE-LOG L-885. The create slice (L-882) shipped and the founder
+        // retested it: *"user can still place a wall in front of a door - without
+        // any notification"*. Their console names the gesture —
+        // `EXECUTE: UPDATE_WALL_BASELINE` → `CASCADE_WALL_BASELINE` →
+        // `§MOVE-REWELD-DISPATCH` — a MOVE, which create-side gates cannot see.
+        //
+        // ── WHY THIS IS THE RIGHT SEAM, AND WHY IT IS ONE SEAM AND NOT FOUR ────
+        // All four dispatch sites (`registerTransformDragHandler:202`,
+        // `elementMove.ts:103`, `AlignPlanToolHandler:342`,
+        // `MovePlanToolHandler:538`) dispatch bus `wall.updateBaseline`, whose
+        // handler is documented as *"Maps bus type wall.updateBaseline to the
+        // legacy UpdateWallBaselineCommand"* and bridges straight into THIS
+        // command (`plugins/wall/src/handlers/UpdateWallBaseline.ts:122`). So this
+        // one arm covers every move path, plus the AI and CRDT-sync callers that
+        // reach the wall only through the bus.
+        //
+        // ── WHY REFUSING A MOVE IS SAFE HERE (the question that decided it) ────
+        // A refusal that strands a half-dragged wall would be worse than the
+        // defect. It does not, and the evidence is three lines above: the
+        // `OPENING_DOES_NOT_FIT` arm ALREADY refuses moves at this exact seam, and
+        // has shipped for months. Whatever this command's decline semantics are,
+        // they are the ones the product already relies on for the sibling case
+        // (shrinking a wall until its door no longer fits). Adding a second arm
+        // beside it is consistent, not novel — a NEW refusal mechanism would have
+        // been the risk, and this deliberately is not one.
+        //
+        // Suppressed during restore and generation for the same load-bearing
+        // reason as the create arm (C83 §3.1): projects saved before this landed
+        // may already contain the defect, and a re-weld cascade on load must not
+        // refuse a document into unopenability.
+        const _c83g = globalThis as unknown as {
+            __pryzmProjectLoadActive?: boolean;
+            __pryzmBuildingGenActive?: boolean;
+        };
+        if (
+            _c83g.__pryzmProjectLoadActive !== true &&
+            _c83g.__pryzmBuildingGenActive !== true
+        ) {
+            const spatial = evaluateWallPlacement(
+                {
+                    id: this.wallId,      // excludes the subject from its own host list
+                    levelId: wall.levelId,
+                    thickness: typeof wall.thickness === 'number' ? wall.thickness : 0,
+                    baseLine: [this.newBaseLine[0], this.newBaseLine[1]],
+                    // §PRE-WELD-TRANSIENT — where the wall stands NOW. Neighbours
+                    // joined to it here are re-welded by the CASCADE half of this
+                    // gesture, so their present geometry is a transient, not a fact.
+                    ...(wall.baseLine?.[0] && wall.baseLine?.[1]
+                        ? { currentBaseLine: [wall.baseLine[0], wall.baseLine[1]] as const }
+                        : {}),
+                    ...((wall as { curve?: unknown }).curve !== undefined
+                        ? { curve: (wall as { curve?: unknown }).curve }
+                        : {}),
+                },
+                ctx.stores.wallStore.getAll(),
+            );
+            if (!spatial.valid) {
+                // §REFUSAL-IDENTITY — the shared renderer, never a manufactured
+                // fallback. `reason` stays the machine token; `blockingIssues[0]`
+                // is the human sentence CommandManagerImpl:217 prefers (L-813).
+                const refusalText = wallCrossesOpeningRefusalText(
+                    spatial.violations,
+                    spatial.offers,
+                );
+                console.warn(`[UpdateWallBaselineCommand] §C83-S1-MOVE REFUSED: ${refusalText}`);
+                return {
+                    ok: false,
+                    reason: 'OCC_CROSSES_HOSTED_OPENING',
+                    blockingIssues: [refusalText],
+                };
+            }
         }
 
         return { ok: true };

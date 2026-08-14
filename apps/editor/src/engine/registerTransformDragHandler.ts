@@ -9,6 +9,8 @@ import type { TransformControllerSet } from './initTransformControllers';
 // entry (C11 no new representation; C16 one gesture = one undo entry, on BOTH surfaces).
 // Pinned by views/plantools/__tests__/planMoveParity.spec.ts.
 import { buildMoveCommand } from './transforms/elementMove';
+// §C83-S1-MOVE (L-885) — the wall-side occupancy gate, MOVE arm.
+import { gateWallMove } from './consequence/wallPlacementGate';
 
 /**
  * §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — typed drag-command dispatch that
@@ -172,6 +174,38 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                         // skipped by the cache guard.  Without this patch the 2-frame-delayed
                         // applyHighlight() may read the stale pre-drag baseLine and render the
                         // highlight box at the original position.
+                        // §C83-S1-MOVE (L-885) — the spatial gate, placed BEFORE the
+                        // §R5-FIX patch below and before the dispatch, because at THIS
+                        // point the store still holds the PRE-drag baseLine (`oldStart`
+                        // was read from it above) and only the MESH has moved. That
+                        // ordering is what makes a refusal clean: nothing authoritative
+                        // has changed yet, so declining costs a mesh snap-back and
+                        // nothing else — no half-applied move, no missing undo entry.
+                        //
+                        // `UpdateWallBaselineCommand.canExecute` refuses this move too,
+                        // so the MODEL is safe without this call. What it is not, without
+                        // this call, is EXPLAINED: L-884 measured that no tool renders
+                        // `result.info[0]`, so a command-layer refusal reaches devtools
+                        // and nobody else. The founder's verdict on the create fix was
+                        // "without any notification" — a silent correct refusal is
+                        // indistinguishable from no refusal at all.
+                        const spatialMove = gateWallMove(wallId, [newStart, newEnd]);
+                        if (spatialMove.blocked) {
+                            console.warn(
+                                '[WallTransform] §C83-S1-MOVE REFUSED wall.updateBaseline —',
+                                spatialMove.verdict?.reason,
+                            );
+                            // Snap the MESH back to where the model still says it is.
+                            // Without this the wall would sit visually across the door
+                            // while the store held the old position — a refusal that
+                            // LOOKS like it succeeded, which is worse than either
+                            // outcome. `userData.baseLine` is deliberately left
+                            // untouched: the patch below has not run yet.
+                            obj.position.x -= dx;
+                            obj.position.z -= dz;
+                            window.__wallDragInProgress = false;
+                        } else {
+
                         obj.userData.baseLine = [
                             { x: newStart.x, y: newStart.y, z: newStart.z },
                             { x: newEnd.x,   y: newEnd.y,   z: newEnd.z   },
@@ -205,6 +239,7 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                             prevBaseLine: [prevStart, prevEnd],
                             _recordUndo: true,
                         });
+                        } // §C83-S1-MOVE — end of the "placement is legal" branch
                     }
 
                     const capturedObj = obj;

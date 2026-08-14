@@ -91,6 +91,13 @@ import { getConfirmationCard } from '@app/ui/consequence/confirmationFlowComposi
 /** Headline the founder reads. Short, and it states the verdict, not a severity. */
 const HEADLINE = 'THIS WALL CANNOT GO HERE';
 
+/** The minimum a caller must supply per endpoint; `y` carries level elevation. */
+export interface PlanPointLike {
+  readonly x: number;
+  readonly y?: number;
+  readonly z: number;
+}
+
 /**
  * §C83-S3.1 — the two suppression flags, honoured because C83 §3.1 makes it a MUST.
  *
@@ -260,4 +267,62 @@ export function gateWallPlacement(candidate: CandidateWall): WallPlacementGateRe
   if (verdict.valid) return { blocked: false, verdict, surfaced: false };
 
   return { blocked: true, verdict, surfaced: surfaceRefusal(verdict) };
+}
+
+/**
+ * §C83-S1-MOVE (ISSUE-LOG L-885) — the MOVE arm of the same gate.
+ *
+ * ── WHY A MOVE NEEDED ITS OWN ENTRY POINT ────────────────────────────────────
+ * The founder retested the shipped create fix and reported the defect again:
+ * *"user can still place a wall in front of a door - without any notification"*.
+ * Their console settles which gesture — `EXECUTE: UPDATE_WALL_BASELINE` →
+ * `CASCADE_WALL_BASELINE` → `§MOVE-REWELD-DISPATCH` — a **move**, which the
+ * create slice deliberately left uncovered and named as L-885.
+ *
+ * A caller moving a wall knows only `wallId` and the new baseline; the wall's
+ * OWN thickness, level and curvature come off the record. Resolving them HERE
+ * rather than at each of the four dispatch sites is the point — a tool that
+ * must remember to look up three fields is a tool that will forget one, and
+ * four copies of that lookup is four chances to drift.
+ *
+ * ⚠ `id: wallId` is load-bearing, not decorative. It excludes the subject from
+ * its own host list, so a wall that HOSTS a door does not refuse its own move by
+ * detecting its own opening. That is the wall-side form of `canPlace`'s
+ * `excludeId` self-conflict defect, and it is covered by an executed silence
+ * test ("a wall does not violate ITSELF when its own baseline is re-proposed").
+ *
+ * Returns `skipped: 'no-wall-store'` when the subject cannot be read — never a
+ * clear verdict about a wall this function could not find.
+ */
+export function gateWallMove(
+  wallId: string,
+  newBaseLine: readonly [PlanPointLike, PlanPointLike],
+): WallPlacementGateResult {
+  if (isWallPlacementGateSuppressed()) {
+    return { blocked: false, verdict: null, surfaced: false, skipped: 'suppressed' };
+  }
+  const walls = readAuthoritativeWalls();
+  if (walls === null) {
+    return { blocked: false, verdict: null, surfaced: false, skipped: 'no-wall-store' };
+  }
+  const subject = walls.find((w) => w.id === wallId);
+  if (!subject) {
+    return { blocked: false, verdict: null, surfaced: false, skipped: 'no-wall-store' };
+  }
+
+  const cur = subject.baseLine as readonly PlanPointLike[] | undefined;
+  return gateWallPlacement({
+    id: wallId,
+    levelId: subject.levelId,
+    thickness: typeof subject.thickness === 'number' ? subject.thickness : 0,
+    baseLine: [newBaseLine[0], newBaseLine[1]],
+    // §PRE-WELD-TRANSIENT — neighbours joined to the wall's CURRENT pose are
+    // re-welded by the cascade half of this same drag, so their present geometry
+    // is not yet judgeable. Without this, moving any wall of a rectangular room
+    // is refusable whenever a door sits near the moving corner.
+    ...(cur?.[0] && cur?.[1] ? { currentBaseLine: [cur[0], cur[1]] as const } : {}),
+    ...((subject as { curve?: unknown }).curve !== undefined
+      ? { curve: (subject as { curve?: unknown }).curve }
+      : {}),
+  });
 }

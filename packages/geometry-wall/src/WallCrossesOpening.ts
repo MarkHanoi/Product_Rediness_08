@@ -72,7 +72,12 @@
  * @file packages/geometry-wall/src/WallCrossesOpening.ts
  */
 
-import { COINCIDENT_M, isNumericallyZero, isParallel } from '@pryzm/geometry-kernel';
+import {
+  COINCIDENT_M,
+  arePointsCoincident2D,
+  isNumericallyZero,
+  isParallel,
+} from '@pryzm/geometry-kernel';
 import type { WallData } from './WallTypes';
 import type { CanPlaceRefusalCode } from './WallOccupancyStore';
 import { wallOccupancyStore } from './WallOccupancyStore';
@@ -99,6 +104,29 @@ export interface CandidateWall {
   readonly baseLine: readonly [PlanPoint, PlanPoint];
   /** Metres. A wall is not a line — this is what makes the crossing an interval. */
   readonly thickness: number;
+  /**
+   * §PRE-WELD-TRANSIENT — where this wall is NOW, supplied only for a MOVE.
+   *
+   * ⚠ ADDED after an executed corpus run refuted the rule a SECOND time, and the
+   * second refutation was subtler than the first. A wall move commits in two
+   * commands: `UpdateWallBaselineCommand` moves the dragged wall, and
+   * `CascadeWallBaselineCommand` then RE-WELDS its joined neighbours. Validation
+   * runs at `canExecute` on the FIRST — so the neighbours are still standing at
+   * their OLD, about-to-be-corrected geometry.
+   *
+   * MEASURED (`hostedOpeningHostMoveSeam` §Z-5): moving `w-north` back from z=6
+   * to z=4 was refused for crossing a door on `w-west` at station 2.0–2.9 —
+   * because `w-west` was momentarily still 6 m long. After the cascade it is 4 m,
+   * the door relocates to the corner, and the two walls are joined again. **The
+   * state the refusal described never persists.** Refusing on it would make every
+   * carry-neighbours move refusable whenever a door sits near the moving corner.
+   *
+   * Supplying this lets the rule exclude hosts that are JOINED to the subject at
+   * its current pose, on the honest ground that this same gesture is about to
+   * re-weld them and their geometry is therefore not yet judgeable. Absent (a
+   * CREATE) nothing is excluded — a new wall welds nothing.
+   */
+  readonly currentBaseLine?: readonly [PlanPoint, PlanPoint];
   /** Present ⇒ curved. The station model is chord-based, so this is UNDETERMINED, never guessed. */
   readonly curve?: unknown;
 }
@@ -326,6 +354,48 @@ export function findWallOpeningCrossings(
 
     const hb = host.baseLine;
     if (!hb || !hb[0] || !hb[1]) continue;
+
+    // ── §CORNER-JOIN-IS-NOT-A-CROSSING — a JOINED wall is never a violation ───
+    //
+    // ⚠ ADDED 2026-08-14 after this rule fired on a known-good fixture. C83
+    // §5.1(4) requires a new rule to be run over existing corpora and says a rule
+    // that fires on known-good output is REFUTED by that run, not tuned until it
+    // passes. This is that refutation, and the fix is to the MODEL, not to a
+    // threshold.
+    //
+    // MEASURED (`hostedOpeningHostMoveSeam` §Z-5, a closed rectangular room with a
+    // door hard against a corner): moving `w-north` was refused because *"the door
+    // occupies 2.000–2.900 m and this wall would occupy 1.900–2.100 m, overlapping
+    // by 0.100 m"*. That overlap is REAL but it is not a wall driven through a
+    // door — it is the MITRE ZONE. Two walls meeting at a corner necessarily
+    // overlap by a half-thickness there; that is what a corner IS, and resolving
+    // it is `JunctionResolverV2`'s job, not this rule's. Without this guard every
+    // one of a rectangular room's four corners is a standing violation waiting for
+    // an opening to be placed near it, and moving ANY wall of that room would be
+    // refused — the "cries wolf, gets muted" failure C83 §5 opens with.
+    //
+    // This also restores the behaviour C83 §8 Slice 4 specified in the first
+    // place — *"a wall merely touching an endpoint → zero, since
+    // `segmentsProperlyCross` is deliberately strict"* — which the footprint clip
+    // had silently dropped in exchange for thickness-awareness. Both are now kept.
+    //
+    // NARROW BY CONSTRUCTION: it skips only when an ENDPOINT IS SHARED. A wall
+    // whose end butts into the MIDDLE of a host (a T-junction into a door) shares
+    // no endpoint, is still fully tested, and is still refused — which is the
+    // founder's actual case and the one that must not be weakened.
+    const touchesEndpoint = (p: PlanPoint): boolean =>
+      arePointsCoincident2D(p.x, p.z, hb[0].x, hb[0].z) ||
+      arePointsCoincident2D(p.x, p.z, hb[1].x, hb[1].z);
+
+    if (touchesEndpoint(a) || touchesEndpoint(b)) continue;
+
+    // §PRE-WELD-TRANSIENT — the same exclusion, asked of where the wall IS rather
+    // than where it is going. A host joined to the subject at its CURRENT pose is
+    // about to be re-welded by the cascade half of this very gesture, so its
+    // present geometry is a transient the rule must not judge. See
+    // `CandidateWall.currentBaseLine` for the measured case this closes.
+    const cur = candidate.currentBaseLine;
+    if (cur && (touchesEndpoint(cur[0]) || touchesEndpoint(cur[1]))) continue;
 
     const span = clipHostAgainstCandidateFootprint(
       hb[0],

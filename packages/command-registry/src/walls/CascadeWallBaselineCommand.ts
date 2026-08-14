@@ -12,6 +12,8 @@ import { serializeWallSnapshot } from './wallSnapshotUtils';
 // UpdateWallBaselineCommand already asks (§FIX-WALL-SHRINK-REFIT), asked here
 // too because the cascade re-baselines walls the user never aimed at.
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
+// §C83-S1-MOVE (L-885) — the wall-side occupancy predicate + its shared renderer.
+import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from '@pryzm/geometry-wall';
 import type { Opening, OpeningRefitPlan } from '@pryzm/geometry-wall';
 
 /**
@@ -209,6 +211,71 @@ export class CascadeWallBaselineCommand implements Command {
         }
         if (openingIssues.length > 0) {
             return { ok: false, reason: 'OPENING_DOES_NOT_FIT', blockingIssues: openingIssues };
+        }
+
+        // ── §C83-S1-MOVE — no cascaded wall may be carried ONTO someone's opening ──
+        //
+        // ISSUE-LOG L-885, the neighbour half. The founder's console shows this
+        // command firing immediately after the move they reported
+        // (`EXECUTE: UPDATE_WALL_BASELINE` → `EXECUTE: CASCADE_WALL_BASELINE` →
+        // `§MOVE-REWELD-DISPATCH: moved wall … → 1 junction re-weld(s)`), so a
+        // gate on the moved wall alone would leave the carried neighbours
+        // ungated — and a re-weld moves walls the user never dragged.
+        //
+        // Each entry is judged against the store as it stands. That is a
+        // deliberate approximation and it is stated rather than hidden: the
+        // cascade applies all entries together, so an entry is not tested against
+        // its siblings' post-cascade positions. It cannot produce a FALSE refusal
+        // (a wall landing on a door lands on it regardless of where its siblings
+        // end up — openings travel with their host), and the residual miss is a
+        // door on a sibling that is itself moving clear in the same cascade,
+        // which is rarer than the defect this closes.
+        //
+        // ATOMIC, matching the arm above: one refused entry refuses the WHOLE
+        // cascade, because a partial weld leaves a topology no user asked for.
+        const _c83g = globalThis as unknown as {
+            __pryzmProjectLoadActive?: boolean;
+            __pryzmBuildingGenActive?: boolean;
+        };
+        if (
+            _c83g.__pryzmProjectLoadActive !== true &&
+            _c83g.__pryzmBuildingGenActive !== true
+        ) {
+            const allWalls = wallStore.getAll();
+            const crossingIssues: string[] = [];
+            for (const e of this.entries) {
+                const wall = wallStore.getById(e.wallId);
+                if (!wall) continue;
+                const spatial = evaluateWallPlacement(
+                    {
+                        id: e.wallId,   // excludes the subject from its own host list
+                        levelId: wall.levelId,
+                        thickness: typeof wall.thickness === 'number' ? wall.thickness : 0,
+                        baseLine: [e.newBaseLine[0], e.newBaseLine[1]],
+                        // §PRE-WELD-TRANSIENT — a cascade is ALL re-weld, so every
+                        // entry's joined neighbours are mid-correction by definition.
+                        ...(wall.baseLine?.[0] && wall.baseLine?.[1]
+                            ? { currentBaseLine: [wall.baseLine[0], wall.baseLine[1]] as const }
+                            : {}),
+                        ...((wall as { curve?: unknown }).curve !== undefined
+                            ? { curve: (wall as { curve?: unknown }).curve }
+                            : {}),
+                    },
+                    allWalls,
+                );
+                if (!spatial.valid) {
+                    crossingIssues.push(
+                        wallCrossesOpeningRefusalText(spatial.violations, spatial.offers),
+                    );
+                }
+            }
+            if (crossingIssues.length > 0) {
+                return {
+                    ok: false,
+                    reason: 'OCC_CROSSES_HOSTED_OPENING',
+                    blockingIssues: crossingIssues,
+                };
+            }
         }
 
         return { ok: true };

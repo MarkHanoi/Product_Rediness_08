@@ -39,6 +39,8 @@ import {
 // wall's destination, emit a PreviewCommand for the candidate baseline so the overlay
 // renders the READ-ONLY ConsequencePlan (ADR-0322 §3) before the move is committed.
 import { triggerConsequencePreview, hideConsequencePreview } from '@app/ui/canvas/ConsequencePreviewOverlay';
+// §C83-S1-MOVE (L-885) — the wall-side occupancy gate, MOVE arm.
+import { gateWallMove } from '@app/engine/consequence/wallPlacementGate';
 // BIM30 R6 — confirmation at CONFIRM time, not at hover time. The R3 preview above is minted
 // while the cursor moves and can never be bound (the payload changes on the next frame); this
 // import is the OTHER moment — the gesture is finished, the payload is FINAL, and a fresh plan
@@ -461,6 +463,36 @@ export class MovePlanToolHandler implements PlanToolHandler {
                 newBaseLine:  wNext,
                 prevBaseLine: [{ ...wbl[0] }, { ...wbl[1] }],
             });
+        }
+
+        // §C83-S1-MOVE (L-885) — THE PLAN-DRAG SEAM, and the one the founder hit.
+        //
+        // Their console for the reported sequence reads `[PlanDrag] wall drag started`
+        // → `EXECUTE: UPDATE_WALL_BASELINE` → `EXECUTE: CASCADE_WALL_BASELINE` →
+        // `§MOVE-REWELD-DISPATCH`, i.e. this handler. The create-side gates shipped in
+        // L-882 cannot see a move, which is why the defect survived them.
+        //
+        // Placed BEFORE both branches so it covers the single-wall move and the
+        // carry-neighbours cascade alike, and before the confirmation flow so a plan
+        // is never minted for a move that cannot happen — an approvable card offering
+        // an IMPOSSIBLE arrangement is worse than no card (C83 §5.4: if it offers a
+        // Confirm button, it was never a refusal).
+        //
+        // Only the DRAGGED wall is gated here; the carried neighbours are gated
+        // atomically inside `CascadeWallBaselineCommand.canExecute`. That split is
+        // deliberate — the user asked about this wall, so this is the one the message
+        // should name.
+        const spatialMove = gateWallMove(id, next);
+        if (spatialMove.blocked) {
+            console.warn(
+                '[MoveTool] §C83-S1-MOVE REFUSED wall move —',
+                spatialMove.verdict?.reason,
+            );
+            hideConsequencePreview();
+            // Nothing dispatched: the store still holds the pre-drag baseline at this
+            // point, so declining here leaves the model exactly as it was. The plan
+            // overlay is cleared so no stale preview implies the move landed.
+            return;
         }
 
         if (entries.length === 1) {

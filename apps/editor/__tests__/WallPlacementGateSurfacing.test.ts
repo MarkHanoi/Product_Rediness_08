@@ -24,6 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { storeRegistry } from '@pryzm/core-app-model';
 import type { WallData } from '@pryzm/geometry-wall';
 import {
+  gateWallMove,
   gateWallPlacement,
   isWallPlacementGateSuppressed,
   wallPlacementSurfaceFailures,
@@ -189,6 +190,119 @@ describe('§C83-S1 SILENCE — a legal wall is created with NO interruption at a
       ] as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }],
     };
     expect(gateWallPlacement(away).blocked).toBe(false);
+    expect(visiblePanelText()).toBe('');
+  });
+});
+
+// ── The MOVE arm (ISSUE-LOG L-885) ────────────────────────────────────────────
+//
+// The founder retested the shipped CREATE fix and reported the same defect:
+// "user can still place a wall in front of a door - without any notification".
+// Their console names the gesture — `EXECUTE: UPDATE_WALL_BASELINE` →
+// `CASCADE_WALL_BASELINE` → `§MOVE-REWELD-DISPATCH` — a MOVE, which every
+// create-side gate is structurally blind to.
+
+/** An existing interior wall, currently parked clear of the door at x = 10. */
+const MOVER_ID = 'wall_01M0027RDCJAMTZRY3CFWZC2M1';
+function interiorWallAtClearStation(): WallData {
+  return {
+    id: MOVER_ID,
+    type: 'wall',
+    levelId: LEVEL,
+    baseLine: [
+      { x: 10, y: 0, z: -2 },
+      { x: 10, y: 0, z: 4 },
+    ],
+    height: 3,
+    thickness: 0.2,
+    childrenIds: [],
+    openings: [],
+  } as unknown as WallData;
+}
+
+/** The baseline that wall would have after being dragged to station `x`. */
+function draggedTo(x: number) {
+  return [
+    { x, y: 0, z: -2 },
+    { x, y: 0, z: 4 },
+  ] as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
+}
+
+describe('§C83-S1-MOVE (L-885) — dragging an EXISTING wall onto a door', () => {
+  beforeEach(() => {
+    registerWalls([hostWallWithDoor(), interiorWallAtClearStation()]);
+  });
+
+  it('blocks the move AND surfaces it', () => {
+    const result = gateWallMove(MOVER_ID, draggedTo(3.5));
+    expect(result.blocked).toBe(true);
+    expect(result.surfaced).toBe(true);
+    expect(wallPlacementSurfaceFailures()).toBe(0);
+  });
+
+  it('the DOM NAMES the door — this is the "without any notification" half', () => {
+    gateWallMove(MOVER_ID, draggedTo(3.5));
+    const text = visiblePanelText();
+
+    expect(text).toContain('THIS WALL CANNOT GO HERE');
+    expect(text).toContain(DOOR_ELEMENT_ID);
+    expect(text).toContain(HOST_ID);
+    expect(text).toContain('3.005');
+    expect(text).toContain('3.931');
+    // …and the way forward, which is what the founder actually asked for.
+    expect(text).toContain('positions that ARE clear');
+    expect(document.querySelector('[data-role="confirm"]')).toBeNull();
+
+    const toast = document.querySelector('.plat-toast');
+    expect(toast?.textContent).toContain('Wall not placed');
+  });
+
+  it('resolves the moved wall\'s OWN thickness from the record', () => {
+    // The caller supplies only wallId + the new baseline. A 0.2 m mover parked
+    // so its CENTRELINE clears the door still takes part of it with its body —
+    // the thickness-only case — and that only works if the gate looked the
+    // thickness up rather than assuming one.
+    const result = gateWallMove(MOVER_ID, draggedTo(3.98));
+    expect(result.blocked).toBe(true);
+    expect(result.verdict?.violations[0].crossingSpanM[0]).toBeCloseTo(3.88, 6);
+  });
+
+  it('SILENCE — moving to a clear station is completely quiet', () => {
+    // The control that decides whether this rule survives contact with users.
+    // Dragging a wall anywhere legal must be indistinguishable from no gate.
+    const result = gateWallMove(MOVER_ID, draggedTo(14));
+    expect(result.blocked).toBe(false);
+    expect(result.surfaced).toBe(false);
+    expect(document.querySelector('.plat-toast')).toBeNull();
+    expect(visiblePanelText()).toBe('');
+  });
+
+  it('SILENCE — a wall that HOSTS the door may still move (no self-violation)', () => {
+    // The host carries the door with it. Without `id`-based self-exclusion this
+    // would refuse every move of every wall that hosts an opening — the
+    // wall-side form of canPlace's `excludeId` self-conflict defect, and by far
+    // the most damaging false positive this rule could ship.
+    const result = gateWallMove(HOST_ID, [
+      { x: 0, y: 0, z: 1 },
+      { x: 21, y: 0, z: 1 },
+    ]);
+    expect(result.blocked).toBe(false);
+    expect(visiblePanelText()).toBe('');
+  });
+
+  it('a wall the store does not know is UNRESOLVED, not cleared', () => {
+    const result = gateWallMove('wall_DOES_NOT_EXIST', draggedTo(3.5));
+    expect(result.blocked).toBe(false);
+    expect(result.skipped).toBe('no-wall-store');
+    expect(result.verdict).toBeNull();
+  });
+
+  it('restore and generation suppress the MOVE arm too', () => {
+    (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive =
+      true;
+    const result = gateWallMove(MOVER_ID, draggedTo(3.5));
+    expect(result.blocked).toBe(false);
+    expect(result.skipped).toBe('suppressed');
     expect(visiblePanelText()).toBe('');
   });
 });
