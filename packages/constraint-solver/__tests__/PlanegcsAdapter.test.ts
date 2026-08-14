@@ -1,14 +1,20 @@
 // PlanegcsAdapter — scaffold tests.
 //
 // C74 §3.5 coverage statement — what binds to what:
-//   • "delegation (seam)" injects `opts.underlying`, the field production
-//     MUST NOT pass. Those tests cover the injection seam ONLY.
-//   • "production path" constructs `new PlanegcsAdapter(...)` with NO
-//     injection — the `?? new MockSolver()` fallback every production
-//     construction takes — and asserts the adapter TELLS THE TRUTH about
-//     it (kind='mock', intendedEngine='planegcs', first-call warning).
+//   • EVERY test constructs the adapter exactly as production does
+//     (`new PlanegcsAdapter({ wasmUrl })` / `createPlanegcsAdapter(url)`,
+//     no injection). This suite substitutes NO double for the production
+//     subject: the injection seam an earlier version used — an
+//     `underlying?:` options field whose own docstring forbade production
+//     to pass it, flagged M-C ×2 on check-no-hidden-mock's ledger — was
+//     DELETED from the adapter on 2026-08-14 (CO-03). Delegation is proven
+//     by spying on the REAL `MockSolver` the production construction
+//     creates (`vi.spyOn(MockSolver.prototype, …)`), so the delegation
+//     tests and the production configuration are the SAME configuration.
 //   • NOT covered anywhere: a real planegcs engine. None exists in this
-//     repo and none is authorised (C74 §4.5).
+//     repo and none is authorised (C74 §4.5) — `kind` reads 'mock' and the
+//     scaffold retirement guard below fails the moment that stops being
+//     true.
 
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -16,7 +22,7 @@ import {
   PlanegcsAdapter,
 } from '../src/PlanegcsAdapter.js';
 import { loadSolver, MockSolver, type SolverPorter } from '../src/engine.js';
-import type { ConstraintSet, DiagnoseResult, SolveHints, SolveResult } from '../src/types.js';
+import type { ConstraintSet, SolveHints } from '../src/types.js';
 
 const SAMPLE_SET: ConstraintSet = {
   variables: { 'p-x': 0, 'p-y': 0 },
@@ -98,60 +104,60 @@ describe('PlanegcsAdapter — PRODUCTION path (no injection — the config produ
   });
 });
 
-describe('PlanegcsAdapter — delegation (seam; injects the field production MUST NOT pass)', () => {
-  it('delegates solve() to the injected underlying, and reports ITS declared kind', async () => {
-    let solveCalls = 0;
-    const stub: SolverPorter = {
-      kind: 'test',
-      async solve(_set: ConstraintSet, _hints?: SolveHints): Promise<SolveResult> {
-        solveCalls++;
-        return {
-          ok: true,
-          values: { 'p-x': 5, 'p-y': 7 },
-          status: 'well-constrained',
-          dof: 0,
-          durationMs: 0.1,
-          iterations: 1,
-        };
-      },
-      async diagnose(_set: ConstraintSet): Promise<DiagnoseResult> {
-        return { redundant: [], freeDOF: 0, unconstrained: [] };
-      },
-    };
-    const adapter = createPlanegcsAdapter({ wasmUrl: 'file:///x.wasm', underlying: stub });
-    // kind reflects the ACTUAL underlying — here the stub's own declared kind.
-    expect(adapter.kind).toBe('test');
-    const result = await adapter.solve(SAMPLE_SET);
-    expect(solveCalls).toBe(1);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.values).toEqual({ 'p-x': 5, 'p-y': 7 });
+describe('PlanegcsAdapter — delegation (production construction; spies on the real MockSolver)', () => {
+  it('solve() reaches the MockSolver the production construction creates, arguments intact', async () => {
+    const solveSpy = vi.spyOn(MockSolver.prototype, 'solve');
+    try {
+      const adapter = createPlanegcsAdapter({ wasmUrl: 'file:///x.wasm' });
+      const hints: SolveHints = { tolerance: 0.5, maxIterations: 7 };
+      const result = await adapter.solve(SAMPLE_SET, hints);
+      // The call reached the REAL MockSolver — not a double — with the
+      // caller's own arguments.
+      expect(solveSpy).toHaveBeenCalledTimes(1);
+      expect(solveSpy).toHaveBeenCalledWith(SAMPLE_SET, hints);
+      // And the adapter handed back the mock's own result object, unrelabelled.
+      expect(result).toBe(await solveSpy.mock.results[0]!.value);
+      expect(adapter.kind).toBe('mock');
+    } finally {
+      solveSpy.mockRestore();
     }
   });
 
-  it('delegates diagnose() to the injected underlying SolverPorter', async () => {
-    let diagCalls = 0;
-    const stub: SolverPorter = {
-      async solve(_set: ConstraintSet): Promise<SolveResult> {
-        return {
-          ok: true,
-          values: {},
-          status: 'well-constrained',
-          dof: 0,
-          durationMs: 0,
-          iterations: 0,
-        };
-      },
-      async diagnose(_set: ConstraintSet): Promise<DiagnoseResult> {
-        diagCalls++;
-        return { redundant: ['c1'], freeDOF: 1, unconstrained: ['v-z'] };
-      },
-    };
-    const adapter = createPlanegcsAdapter({ wasmUrl: 'file:///x.wasm', underlying: stub });
-    const result = await adapter.diagnose(SAMPLE_SET);
-    expect(diagCalls).toBe(1);
-    expect(result.redundant).toEqual(['c1']);
-    expect(result.freeDOF).toBe(1);
+  it('diagnose() reaches the same MockSolver, and its result is returned unaltered', async () => {
+    const diagSpy = vi.spyOn(MockSolver.prototype, 'diagnose');
+    try {
+      const adapter = createPlanegcsAdapter({ wasmUrl: 'file:///x.wasm' });
+      // A set with a duplicate constraint and an untouched variable, so
+      // "came from the real mock" is checkable on content as well as on the
+      // spy: only MockSolver's own redundancy/unconstrained analysis
+      // produces exactly this shape.
+      const set: ConstraintSet = {
+        variables: { 'p-x': 0, 'p-y': 0, 'q-x': 3 },
+        constraints: [
+          { id: 'c1', kind: 'fixed', p: 'p', x: 5, y: 7 },
+          { id: 'c2', kind: 'fixed', p: 'p', x: 5, y: 7 },
+        ],
+        pointVariables: { p: ['p-x', 'p-y'] },
+      };
+      const viaAdapter = await adapter.diagnose(set);
+      expect(diagSpy).toHaveBeenCalledTimes(1);
+      expect(viaAdapter).toBe(await diagSpy.mock.results[0]!.value);
+      expect(viaAdapter.redundant).toEqual(['c2']);
+      expect(viaAdapter.unconstrained).toEqual(['q-x']);
+      // Independent replication: a bare MockSolver on the same input agrees.
+      expect(viaAdapter).toEqual(await new MockSolver().diagnose(set));
+    } finally {
+      diagSpy.mockRestore();
+    }
+  });
+
+  it('kind is DERIVED from the constructed underlying, not asserted as prose', () => {
+    // The adapter reads `kind` off the solver it constructs. With the
+    // injection seam deleted, the only constructible underlying is
+    // MockSolver, so the derivation is pinned against the one
+    // configuration that exists — and the retirement guard above pins
+    // that it flips the day a real engine replaces the construction.
+    expect(new PlanegcsAdapter({ wasmUrl: 'file:///x.wasm' }).kind).toBe(new MockSolver().kind);
   });
 });
 

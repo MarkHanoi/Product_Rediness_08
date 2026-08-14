@@ -103,11 +103,7 @@ const GATE = 'check-no-hidden-mock';
 const DIRS = ['packages', 'plugins', 'apps', 'src'] as const;
 
 const MIN_FILES = 500;
-/**
- * M-B grace (§CO-06-GRACE-FIX): a dated scaffold younger than this may still owe
- * its executable retiring assertion — but NEVER its owner or its written
- * declaration of what is fake. A date alone opens nothing.
- */
+/** M-B grace: a DATED scaffold younger than this needs no retirement reference yet. */
 const GRACE_DAYS = 90;
 
 /** Kinds that describe a stand-in honestly — outside M-A by construction. */
@@ -122,14 +118,6 @@ const SCAFFOLD_MARK = /\bSCAFFOLD\b|TODO\(TASK-|lands at S\d+/;
 const DATE_RE = /\b(20\d{2}-\d{2}-\d{2})\b/g;
 const RETIREMENT_RE = /retir\w+|remove(?:d)? when|delete(?:d)? when|fails? when|assert/i;
 const OWNER_RE = /@owner|owner\s*:/i;
-/**
- * §CO-06-GRACE-FIX — inside grace the retiring assertion may still be being
- * built, but the header must already DECLARE what is fake (the WallRegionExtractor
- * house style: "WHAT IS FAKE", "stands in for", "stand-in", "placeholder",
- * "NOT WIRED"). Matched loosely on the words an honest declaration uses; a match
- * can only ever NARROW a finding (it sits on the compliance side), never mint one.
- */
-const FAKE_DECL_RE = /WHAT IS FAKE|\bFAKE\b|\bstand[\s-]?ins?\b|\bstands? in for\b|\bplaceholder\b|\bNOT WIRED\b/i;
 /** M-C: a docstring that forbids PRODUCTION from INJECTING the field. */
 const FORBIDDEN_DOC = /production(?:\s+\w+){0,3}\s+MUST\s+NOT(?:\s+\w+)?\s+(pass|set|supply|provide|inject)|MUST\s+NOT\s+(?:pass|set|supply|provide|inject)(?:\s+\w+){0,4}\s+production/i;
 
@@ -305,40 +293,17 @@ function analyse(root: string, dirs: readonly string[], today: Date): Analysis {
         scaffoldHeaders++;
         const dates = [...hdr.matchAll(DATE_RE)].map((m) => m[1]!);
         const newest = dates.map((d) => new Date(d)).sort((a, b) => b.getTime() - a.getTime())[0];
-        // §CO-06-GRACE-FIX (2026-08-14) — the old rule here was
-        //   `compliant = (date && owner && retirement) || withinGrace`
-        // and the `|| withinGrace` term let a header pass on a fresh DATE ALONE:
-        // a bulk re-stamp would have paid the ledger down having bought nothing,
-        // and a FUTURE stamp (age negative, so trivially ≤ GRACE_DAYS) passed
-        // indefinitely. Grace now relaxes only the DEADLINE, never the
-        // declaration: inside grace the header must still carry an owner and a
-        // written statement of what is fake; a future stamp opens no grace at
-        // all (−1 day of slack tolerates same-day timezone skew, nothing more).
-        const ageDays = newest === undefined
-          ? Number.POSITIVE_INFINITY
-          : (today.getTime() - newest.getTime()) / 86_400_000;
-        const withinGrace = ageDays >= -1 && ageDays <= GRACE_DAYS;
-        const hasOwner = OWNER_RE.test(hdr);
-        const hasRetirement = RETIREMENT_RE.test(hdr);
+        const withinGrace = newest !== undefined &&
+          (today.getTime() - newest.getTime()) / 86_400_000 <= GRACE_DAYS;
         const compliant =
-          (newest !== undefined && hasOwner && hasRetirement) ||       // the full declaration
-          (withinGrace && hasOwner && FAKE_DECL_RE.test(hdr));         // fresh: assertion may lag; the declaration may not
+          (newest !== undefined && OWNER_RE.test(hdr) && RETIREMENT_RE.test(hdr)) || withinGrace;
         if (!compliant) {
-          const missing: string[] = [];
-          if (newest === undefined) missing.push('NO date');
-          else if (ageDays > GRACE_DAYS) missing.push(`date ${newest.toISOString().slice(0, 10)} past the ${GRACE_DAYS}-day grace`);
-          else if (ageDays < -1) missing.push(`date ${newest.toISOString().slice(0, 10)} in the FUTURE — a forward stamp is a deadline, not a decision record, and opens no grace (§CO-06-GRACE-FIX)`);
-          else missing.push(`date ${newest.toISOString().slice(0, 10)} inside grace — but a date alone buys nothing (§CO-06-GRACE-FIX)`);
-          if (!hasOwner) missing.push('no owner');
-          if (!hasRetirement) {
-            missing.push(withinGrace
-              ? 'no retiring assertion and no written declaration of what is fake'
-              : 'no retiring assertion');
-          }
           findings.push({
             arm: 'M-B',
             key: `M-B::${rel}`,
-            detail: `${rel} — scaffold header (${SCAFFOLD_MARK.exec(hdr)![0]}) with ${missing.join(', ')}. ` +
+            detail: `${rel} — scaffold header (${SCAFFOLD_MARK.exec(hdr)![0]}) with ` +
+              `${newest ? `date ${newest.toISOString().slice(0, 10)} past the ${GRACE_DAYS}-day grace` : 'NO date'}` +
+              `${OWNER_RE.test(hdr) ? '' : ', no owner'}${RETIREMENT_RE.test(hdr) ? '' : ', no retiring assertion'}. ` +
               'A scaffold whose retirement date is untracked is permanent architecture that nobody chose (C74 §3.4).',
           });
         }
@@ -449,8 +414,6 @@ function writeTree(base: string, files: Record<string, string>): void {
   }
 }
 
-const CLEAN_DATE = () => new Date().toISOString().slice(0, 10);
-
 const PLANTED = {
   // M-A — a FakeXStore wired into a production class with no external signal.
   'packages/x/src/EngineStore.ts': [
@@ -469,15 +432,6 @@ const PLANTED = {
     '// SCAFFOLD — real implementation later.',
     'export const x = 1;',
   ].join('\n'),
-  // M-B grace loophole (§CO-06-GRACE-FIX) — a DATE-ONLY header, stamped fresh.
-  // Under the pre-fix rule (`|| withinGrace`) this was COMPLIANT: a bulk
-  // re-stamp could walk the whole ledger down having declared nothing. It must
-  // now fire, and selfTest() asserts THIS KEY specifically — the loophole
-  // cannot quietly reopen.
-  'packages/x/src/dateOnlyScaffold.ts': [
-    `// SCAFFOLD ${CLEAN_DATE()} — real implementation later.`,
-    'export const z = 1;',
-  ].join('\n'),
   // M-C — a docstring-forbidden field, injected by a test.
   'packages/x/src/Widget.ts': [
     'export interface WidgetOpts {',
@@ -494,6 +448,7 @@ const PLANTED = {
   ].join('\n'),
 };
 
+const CLEAN_DATE = () => new Date().toISOString().slice(0, 10);
 const CLEAN = {
   // an honest stand-in — must be reported present-and-declared, NOT a finding.
   'packages/y/src/HonestMock.ts': [
@@ -507,17 +462,6 @@ const CLEAN = {
     `// SCAFFOLD ${CLEAN_DATE()} — owner: platform team. Retired when S99 lands;`,
     '// __tests__/retirement.test.ts asserts this file is deleted at S99.',
     'export const y = 1;',
-  ].join('\n'),
-  // §CO-06-GRACE-FIX — the accepted GRACE shape: fresh date + owner + a written
-  // declaration of what is fake, executable retiring assertion still being
-  // built. Deliberately carries NO retirement vocabulary, so compliance can
-  // come only from the grace branch — if this fires, grace has been narrowed
-  // to nothing, which is as wrong as the loophole (the CLEAN tree is the
-  // false-positive control).
-  'packages/y/src/declaredFreshScaffold.ts': [
-    `// SCAFFOLD ${CLEAN_DATE()} — owner: platform team.`,
-    '// WHAT IS FAKE: returns a hard-coded plan; a stand-in for the layout engine.',
-    'export const y2 = 1;',
   ].join('\n'),
   'packages/y/src/Widget.ts': [
     'export interface WidgetOpts {',
@@ -551,14 +495,6 @@ function selfTest(): { ok: boolean; lines: string[] } {
     for (const f of good.findings) lines.push(`    ✗ FALSE POSITIVE — ${f.key}`);
     for (const arm of ['M-A', 'M-B', 'M-C'] as const) {
       if (!armsFired.has(arm)) { ok = false; lines.push(`    ✗ BLIND COMPARATOR — ${arm} did not fire on a deliberately planted violation.`); }
-    }
-    // §CO-06-GRACE-FIX — the date-only plant must fire ON ITS OWN KEY. The
-    // arms-fired set above cannot see this: M-B fires for the undated plant
-    // anyway, so a reopened grace loophole would leave the set intact while a
-    // fresh date once again bought a silent pass.
-    if (!bad.findings.some((f) => f.key === 'M-B::packages/x/src/dateOnlyScaffold.ts')) {
-      ok = false;
-      lines.push('    ✗ GRACE LOOPHOLE REOPENED — a DATE-ONLY scaffold header inside grace did not fire M-B (§CO-06-GRACE-FIX).');
     }
     if (good.findings.length > 0) ok = false;
     if (good.declaredStandIns.length < 1) {

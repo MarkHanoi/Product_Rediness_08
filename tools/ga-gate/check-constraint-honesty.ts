@@ -109,7 +109,9 @@
  * configuration is thereby not covered* (C74 §3.5). It was built, it fired, and
  * it was **removed**, because `check-no-hidden-mock`'s **M-C arm already owns
  * that exact defect** and owns it better: M-C keys per INJECTION SITE
- * (`M-C::…/PlanegcsAdapter.test.ts:121:underlying` and `:150:`), inventories the
+ * (`M-C::…/PlanegcsAdapter.test.ts:121:underlying` and `:150:` — both PAID
+ * 2026-08-14 under CO-03 by deleting the `underlying` seam itself; the arm
+ * remains the owner for any future injection site), inventories the
  * docstring-forbidden fields it is checking, and prints its exclusions by name.
  * A duplicated finding is a finding whose fix strikes one ledger and leaves the
  * other **stale — exit 3 from the gate that did not get the memo**, which is the

@@ -18,12 +18,26 @@
 // TRUTHFULNESS (C74 §3.1/§3.2, 2026-08-12) — this class previously declared
 //   `readonly kind = 'planegcs'` while delegating 100% of its work to
 //   `MockSolver`. That was the defect C74 was written for. Now:
-//   • `kind` reports what ACTUALLY executes — `'mock'` for every production
-//     construction, or the injected underlying's own declared kind;
+//   • `kind` reports what ACTUALLY executes — derived from the underlying
+//     solver, `'mock'` for every construction until a real binding lands;
 //   • `intendedEngine = 'planegcs'` is a SEPARATE field carrying what the
 //     scaffold is FOR, so intent can never be read as capability;
 //   • the first call on a mock-backed instance emits a one-time console
 //     warning — the §3.2 non-suppressible boundary signal.
+//
+// SEAM DELETED (C74 §3.5, 2026-08-14, CO-03) — the options interface used to
+//   carry `underlying?: SolverPorter`, a test-only injection field whose own
+//   docstring said "Production callers MUST NOT pass this". Production could
+//   never pass it, and the only tests that did were exercising a
+//   configuration production never runs — the "31 of 33 passing tests test
+//   the mock" shape from C74 §0, flagged as M-C ×2 on check-no-hidden-mock's
+//   ledger. A field that neither production nor tests may honestly use has
+//   no honest user, so the SEAM IS GONE: the constructor builds its
+//   `MockSolver` unconditionally, and the suite proves delegation by spying
+//   on that real construction (`vi.spyOn(MockSolver.prototype, …)`) instead
+//   of substituting a double. When a real binding is authorised (C74
+//   §4.2(c)) it replaces the construction in the constructor — it does not
+//   get an injection seam back.
 //
 // LAYERING — L4-equivalent (constraint solver lives outside the
 //   layered stack but obeys the L4-pure rule: no THREE, no DOM, no
@@ -47,14 +61,8 @@ export interface PlanegcsAdapterOptions {
    */
   readonly wasmUrl: string;
 
-  /**
-   * Optional override for the underlying solver implementation, used
-   * exclusively by tests so they can verify delegation without
-   * loading a real WASM module.  Production callers MUST NOT pass
-   * this.  When omitted (or undefined) the adapter falls back to
-   * `MockSolver` — and reports `kind = 'mock'` accordingly.
-   */
-  readonly underlying?: SolverPorter;
+  // There is deliberately NO `underlying?:` injection field here — see the
+  // SEAM DELETED note in the file header (C74 §3.5, 2026-08-14).
 }
 
 /**
@@ -84,18 +92,19 @@ export function createPlanegcsAdapter(
 
 /**
  * Scaffold SolverPorter for the (unauthorised, see header) planegcs
- * binding.  Every call delegates to `MockSolver` (or the test-injected
- * underlying), and — unlike the pre-2026-08-12 version — its externally
- * visible identity SAYS SO: `kind` is the underlying's actual identity
- * ('mock' in every production construction), and the engine this
- * scaffold is FOR lives in the separate `intendedEngine` field.  No
- * consumer branching on `kind` can read mock output as planegcs output.
+ * binding.  Every call delegates to the `MockSolver` the constructor
+ * builds — there is no injection seam (SEAM DELETED, header) — and,
+ * unlike the pre-2026-08-12 version, its externally visible identity
+ * SAYS SO: `kind` is the underlying's actual identity ('mock' in
+ * every construction), and the engine this scaffold is FOR lives in
+ * the separate `intendedEngine` field.  No consumer branching on
+ * `kind` can read mock output as planegcs output.
  */
 export class PlanegcsAdapter implements SolverPorter {
   /**
-   * The identity of what ACTUALLY executes (C74 §3.1).  `'mock'` for
-   * every production construction; a test-injected underlying's own
-   * declared kind when it has one.  Never `'planegcs'` until a real
+   * The identity of what ACTUALLY executes (C74 §3.1) — read off the
+   * underlying solver, never asserted independently of it.  `'mock'`
+   * for every construction today; never `'planegcs'` until a real
    * planegcs engine performs the work.
    */
   readonly kind: string;
@@ -118,7 +127,9 @@ export class PlanegcsAdapter implements SolverPorter {
 
   constructor(opts: PlanegcsAdapterOptions) {
     this.wasmUrl = opts.wasmUrl;
-    this.underlying = opts.underlying ?? new MockSolver();
+    // Unconditional — the `opts.underlying ??` injection seam was deleted
+    // (C74 §3.5, header). An authorised real binding replaces THIS line.
+    this.underlying = new MockSolver();
     this.kind = this.underlying.kind ?? 'mock';
   }
 
