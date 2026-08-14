@@ -18,7 +18,7 @@
  *
  * The Topology Layer is a **read-only side system** that:
  *
- *   1. Subscribes to the `StoreEventBus`. // TODO(TASK-08)
+ *   1. Subscribes to the `StoreEventBus`.
  *   2. Uses `TopologySpatialIndex` (Task 3.1) to maintain a spatial index.
  *   3. Computes adjacency relationships: which elements share endpoints or
  *      are spatially adjacent (wall-to-wall, wall-to-slab, etc.).

@@ -1,4 +1,34 @@
-// SWITZERLAND — the FAR-harvest ceiling-lift (SCAFFOLD + prototype, default OFF).
+// SWITZERLAND — the FAR-harvest ceiling-lift. PARTIALLY RETIRED: Zürich (ZH) is signed and live.
+//
+// ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06, §CO-06-GRACE-FIX 2026-08-14) ───────────────────────
+// owner: site-parcel-data / CH jurisdiction seat (the per-canton harvest is this package's debt).
+// date: 2026-08-14 (this declaration). Zürich sign-off: 2026-07-26, repo owner, ch/sources/VERIFICATION.md.
+//
+// ⚠ THE HEADER BELOW WAS FACTUALLY STALE UNTIL THIS PASS, and that is the CO-06 defect itself:
+//   it said "default OFF … NO canton catalogue harvested and NO L-449 sign-off … returns `null` for
+//   every input". NONE of that is true today. `CH_FAR_CERTIFIED` is `true` (line ~71, signed
+//   2026-07-26), `ZURICH_ZH_FAR_CATALOGUE` IS wired into `CH_CANTON_FAR_CATALOGUES`, and
+//   `__tests__/chZurichBzoCatalogue.test.ts` asserts a real ZH zone (`W2bIII`) RESOLVES a signed AZ.
+//   A reader trusting the old header would have believed a live, envelope-binding number was a stub.
+//   The scaffold was partially retired and its declaration never caught up — exactly "permanent
+//   architecture that nobody chose", in the direction nobody watches for.
+//
+// WHAT IS REAL — Zürich ZH: a human-verified TRANSCRIPTION of the BZO 700.100 per-code table,
+//   signed under L-449, wired, and GFA-capping the massing (AZ × parcel area binds the engine's
+//   `farLimitedHeight_m`). Not a live authoritative feed — never `structured` confidence.
+// WHAT IS STILL SCAFFOLD — EVERY OTHER CANTON. `CH_CANTON_FAR_CATALOGUES` holds ZH alone, so an
+//   unharvested canton refuses `no-canton-catalogue` rather than returning a number. The harvest
+//   recipe below is the remaining work, per canton.
+//
+// RETIRING ASSERTIONS (executable, not prose) — in `packages/site-parcel-data/__tests__/`:
+//   • `chZurichBzoCatalogue.test.ts` — "the gate is ON (owner-signed 2026-07-26 …)" asserts
+//     `CH_FAR_CERTIFIED === true`, and the next case asserts `resolveChFarFromCantonCatalogue`
+//     returns `ok: true` for `W2bIII`. Flipping the flag back, or unwiring ZH, FAILS these.
+//   • `chGrundnutzungProvider.test.ts` — asserts an UNHARVESTED canton refuses
+//     `no-canton-catalogue` and never fabricates a FAR. That case must be updated, deliberately,
+//     by whichever harvest lands next — so this header cannot rot silently again.
+// FULLY RETIRED when `CH_CANTON_FAR_CATALOGUES` covers every canton this product sells into and
+//   the per-canton refusal branch has no reachable input left.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // WHY THIS EXISTS — Switzerland's ONE structural edge over France (recon §2, §5)
@@ -19,9 +49,12 @@
 // flips from "refused" to a real, cited structured number. That is a data-plumbing job, NOT OCR.
 //
 // ⚠ BUT: the slot is OPTIONAL (no `MANDATORY`), the national geodienste WFS does NOT surface it at all
-// (recon §1.1), and getting it means a PER-CANTON harvest, not one national call. So today, with NO
-// canton catalogue harvested and NO L-449 sign-off, this resolver returns `null` for every input. It is
-// a SCAFFOLD: the shape the day-it-lands code plugs into, gated so it can never fabricate a number.
+// (recon §1.1), and getting it means a PER-CANTON harvest, not one national call. ⚠ CORRECTED
+// 2026-08-14 (CO-06): this paragraph used to end "with NO canton catalogue harvested and NO L-449
+// sign-off, this resolver returns `null` for every input" — false since the 2026-07-26 ZH sign-off.
+// ZH is harvested, signed and wired; every OTHER canton is still unharvested and refuses
+// `no-canton-catalogue`. The gating principle is unchanged and still holds: this resolver can
+// never fabricate a number — it returns a signed one or a typed reason it has none.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // THE HARVEST RECIPE (documented so the flip is a data drop, not a redesign)

@@ -16,7 +16,7 @@
  *   3. Inject outline + crosshair LineSegments onto layer S-COLS.
  *
  * §COLUMN-AUDIT-2026 §W8 — `columnStore` is now constructor-injected. The
- * legacy `window.columnStore` global read was eliminated. The module // TODO(TASK-08)
+ * legacy `window.columnStore` global read was eliminated. The module
  * exports an `installColumnPlanSymbolBuilder(columnStore)` factory invoked by
  * `EngineBootstrap` once `columnStore` is constructed; the resolved
  * `columnPlanSymbolBuilder` singleton (used by `EdgeProjectorService`) is set

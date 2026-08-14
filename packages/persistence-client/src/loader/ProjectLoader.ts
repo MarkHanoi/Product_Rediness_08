@@ -10,7 +10,7 @@
  *   Store Reads:      Yes — reads snapshot data (plain objects)
  *   Store Writes:     NO DIRECT WRITES — all mutations go through CommandManager
  *   Command Dispatch: YES — dispatches existing Create* commands per PlanOrdering
- *   Event Bus:        BATCHED — all StoreEventBus events buffered during load(), // TODO(TASK-08)
+ *   Event Bus:        BATCHED — all StoreEventBus events buffered during load(),
  *                     flushed once at end → builders fire once per type, not once per element.
  *   Builder Calls:    Collapsed from O(N²) to O(N): 100 walls = 1 WallBuilder call (was 100).
  *
@@ -19,7 +19,7 @@
  *               prevents nesting issues. try/finally guarantees endBatch() always fires.
  *
  * Rationale:
- *   BEFORE: Each commandManager.execute() fires StoreEventBus → DependencyResolver → // TODO(TASK-08)
+ *   BEFORE: Each commandManager.execute() fires StoreEventBus → DependencyResolver →
  *   WallBuilder.rebuild(). For 100 walls, WallBuilder runs 100 times, each rebuilding
  *   all walls seen so far. This is O(N²) in geometry operations, causing 30-second loads.
  *
@@ -46,6 +46,11 @@
  */
 
 import { CommandManager } from '@pryzm/command-registry';
+// TODO(TASK-08): store-unification debt (ADR-0318) — the StoreEventBus batching this
+// loader relies on (buffer during load(), flush once at the end) is the surface
+// TASK-08 unifies. Work note relocated from the file header, where it read to the
+// C74 §3.4 M-B gate as a module-scaffold claim; this loader is production, not a
+// stand-in (CO-06, 2026-08-14).
 import { storeEventBus } from '@pryzm/core-app-model';
 import { ProjectSnapshot } from './ProjectSerializer';
 import { BatchCreateRoomsCommand } from '@pryzm/command-registry';

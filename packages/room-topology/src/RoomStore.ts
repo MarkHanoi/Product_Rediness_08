@@ -15,7 +15,7 @@
  *   - No THREE.js scene access.
  *   - No builder calls.
  *   - No elementRegistry calls (those are the Command's responsibility).
- *   - Emits StoreEventBus events + DOM events for downstream consumers. // TODO(TASK-08)
+ *   - Emits StoreEventBus events + DOM events for downstream consumers.
  *
  * D-5 — SpatialIndex integration:
  *   roomSpatialIndex is maintained on every add/update/remove so that
@@ -44,6 +44,10 @@
  */
 
 import { ProjectContext } from '@pryzm/core-app-model';
+// TODO(TASK-08): store-unification debt (ADR-0318) — this store's StoreEventBus +
+// legacy DOM event emission is the surface TASK-08 unifies. Work note relocated from
+// the file header, where it read to the C74 §3.4 M-B gate as a module-scaffold claim;
+// this store is production, not a stand-in (CO-06, 2026-08-14).
 import { BimManager } from '@pryzm/core-app-model';
 import { storeEventBus } from '@pryzm/core-app-model';
 import {

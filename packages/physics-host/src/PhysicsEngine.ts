@@ -35,7 +35,7 @@
  *   docs/00_PRZYM/PRYZM_WORLD_MODEL_MASTER_PLAN_2026.md § H-1
  *
  * Architecture notes:
- *   - Reads stores via `window.roomStore` / `windowStore` (same pattern // TODO(TASK-08)
+ *   - Reads stores via `window.roomStore` / `windowStore` (same pattern
  *     as WorldModelAdapter — safe for the client layer).
  *   - RAF-batched queue: rooms are enqueued on `pryzm-physics-enqueue` or via
  *     `enqueueRoom(id)`. Up to 5 rooms are processed per animation frame.

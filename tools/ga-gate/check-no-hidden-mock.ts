@@ -190,7 +190,9 @@ const LEDGER: readonly string[] = [
   'M-B::apps/editor/src/ui/property-inspector/RoomPathfinderPanel.ts',
   'M-B::apps/editor/src/ui/rooms/EvacuationSimulatorPanel.ts',
   'M-B::apps/editor/src/ui/rooms/RoomGraphPanel.ts',
-  'M-B::packages/ai-host/src/AmbientIntelligence.ts',
+  // M-B::packages/ai-host/src/AmbientIntelligence.ts STRUCK 2026-08-14 (CO-06,
+  // lane F) — RECLASSIFIED, not deleted. Full reasoning in the lane-F block below,
+  // where the other 13 rows of the same payment are recorded together.
   // M-B::packages/ai-host/src/WallRegionExtractor.ts STRUCK 2026-08-14 (CO-06) —
   // the header now carries owner + date + an EXECUTABLE retiring assertion:
   // `__tests__/WallRegionExtractor.hullRefusal.test.ts` asserts an L-shaped plan is
@@ -255,20 +257,66 @@ const LEDGER: readonly string[] = [
   // 2026-05-10, ViewTemplateStore 2026-04-26 — were dated by unrelated fix
   // stamps in their headers, not by scaffold decisions; DATE_RE cannot tell
   // those apart, which is one more reason a date alone must buy nothing.)
-  'M-B::packages/event-bus/src/catalog.ts',
-  'M-B::packages/file-format/src/import/dxf/DxfLayerStore.ts',
-  'M-B::packages/file-format/src/import/dxf/DxfOverlayStore.ts',
-  'M-B::packages/geometry-column/src/ColumnPlanSymbolBuilder.ts',
+  // ─── CO-06 lane F — 14 ROWS STRUCK 2026-08-14. Two treatments, stated
+  // separately so the strike cannot read as a bulk stamp. ────────────────────
+  //
+  // ⚠ HOW THIS WAS FOUND, because the finding matters more than the strike: the
+  // gate was reading exit 3 STALE LEDGER, and the fix commits it was attributed
+  // to (eb966187, fb7d56ca) turn out NOT to be the cause — those two DID strike
+  // their own rows, correctly, in the commits that paid them (the command-registry
+  // and core-app-model blocks above). The real cause was that lane F's payment
+  // existed ONLY as UNCOMMITTED edits in the shared worktree. Striking these rows
+  // alone would have made the gate read green against a dirty tree and exit 3 in
+  // the OPPOSITE direction at HEAD (14 findings NOT ON THE LEDGER), which is the
+  // worse failure. So the 14 payments and these 14 strikes land in ONE commit —
+  // which is exactly what C70 §5.4 asks for and why it asks for it.
+  //
+  // THIRTEEN were NOT scaffolds — the same shape already ratified twice above: an
+  // inline `// TODO(TASK-08)` (once `TODO(TASK-15)`) work note appended to the END
+  // of a prose line inside the file's leading comment, which this gate's header
+  // walk cannot distinguish from a module-scaffold claim. Verified before striking:
+  // the ONLY markers removed across all 13 files are 15 × `TODO(TASK-08)` and
+  // 1 × `TODO(TASK-15)` — no `SCAFFOLD` word, no `lands at S##`, so no file lost a
+  // scaffold DECLARATION; and no note was lost. Ten were relocated beside the
+  // import/code they annotate; three already carried inline copies at the code site
+  // and needed no new one (ColumnPlanSymbolBuilder.ts:125 `window.columnStore`
+  // fallback · PhysicsEngine.ts:223/:232/:342/:351 `window.roomStore`/`windowStore`
+  // reads · TopologyLayer.ts:193, the class docstring over the `storeEventBus
+  // .subscribe(…)` at :219). The TASK-08/ADR-0318 work inventory is unchanged:
+  //   packages/ai-host/src/AmbientIntelligence.ts
+  //   packages/event-bus/src/catalog.ts                      (TASK-15)
+  //   packages/file-format/src/import/dxf/DxfLayerStore.ts
+  //   packages/file-format/src/import/dxf/DxfOverlayStore.ts
+  //   packages/geometry-column/src/ColumnPlanSymbolBuilder.ts
+  //   packages/geometry-door/src/DoorSystemTypeStore.ts
+  //   packages/geometry-window/src/WindowSystemTypeStore.ts
+  //   packages/persistence-client/src/loader/ProjectLoader.ts
+  //   packages/physics-host/src/PhysicsEngine.ts
+  //   packages/room-topology/src/RoomStore.ts
+  //   packages/room-topology/src/TopologyLayer.ts
+  //   packages/spatial-index/src/RoomTypeInferenceEngine.ts
+  //   packages/spatial-index/src/index.ts
+  //
+  // The FOURTEENTH, providers/resolveChFarFromCantonCatalogue.ts, IS a real
+  // scaffold and KEEPS its `SCAFFOLD` marker — it was paid by DECLARATION, and it
+  // is the interesting one. Its header had rotted in the direction nobody watches:
+  // it claimed "default OFF … NO canton catalogue harvested and NO L-449 sign-off …
+  // returns `null` for every input" while `CH_FAR_CERTIFIED` has been `true` since
+  // the 2026-07-26 owner sign-off (declared at :104) and `ZURICH_ZH_FAR_CATALOGUE`
+  // has been wired into `CH_CANTON_FAR_CATALOGUES` (:145) — i.e. a live,
+  // envelope-binding number was documented as a stub. It now carries owner, date,
+  // what is REAL (the signed ZH BZO transcription, GFA-capping the massing) vs what
+  // is STILL scaffold (every other canton, which refuses `no-canton-catalogue`
+  // rather than returning a number), and two EXECUTABLE retiring assertions
+  // verified to exist and to assert what the header says they assert:
+  // `__tests__/chZurichBzoCatalogue.test.ts:297` (`CH_FAR_CERTIFIED === true`) and
+  // `:300` (a real ZH zone `W2bIII` RESOLVES a signed AZ), plus
+  // `__tests__/chGrundnutzungProvider.test.ts` on the unharvested-canton refusal.
+  // ⚠ NAMED, not silently left: two prose blocks DEEPER in that same file (:138,
+  // :154) still say the flag is OFF. They are outside the header block this arm
+  // reads, so they cannot hold the row open — but they are stale and are the next
+  // honest edit in that file, recorded here so the omission is deliberate.
   'M-B::packages/geometry-curtain-wall/src/CurtainWallBuilder.ts',
-  'M-B::packages/geometry-door/src/DoorSystemTypeStore.ts',
-  'M-B::packages/geometry-window/src/WindowSystemTypeStore.ts',
-  'M-B::packages/persistence-client/src/loader/ProjectLoader.ts',
-  'M-B::packages/physics-host/src/PhysicsEngine.ts',
-  'M-B::packages/room-topology/src/RoomStore.ts',
-  'M-B::packages/room-topology/src/TopologyLayer.ts',
-  'M-B::packages/site-parcel-data/src/providers/resolveChFarFromCantonCatalogue.ts',
-  'M-B::packages/spatial-index/src/RoomTypeInferenceEngine.ts',
-  'M-B::packages/spatial-index/src/index.ts',
 ];
 
 // ─── Subject discovery ───────────────────────────────────────────────────────

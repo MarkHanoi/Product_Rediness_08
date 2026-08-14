@@ -5,7 +5,7 @@
  * Contract: docs/00_PRZYM/PRYZM_World_Model_Plan_V3_Complete.md §K-3
  *
  * Architecture:
- *   StoreEventBus events (throttled — max 1 AI call per 30 seconds) // TODO(TASK-08)
+ *   StoreEventBus events (throttled — max 1 AI call per 30 seconds)
  *     → AmbientIntelligence.analyseState()
  *     → Run deterministic checks FIRST (no AI call):
  *         - New constraint violations since last run?
@@ -31,6 +31,10 @@
  */
 
 const AI_THROTTLE_MS  = 30_000;
+// TODO(TASK-08): store-unification debt (ADR-0318) — the StoreEventBus source this
+// throttle sits in front of is the surface TASK-08 unifies. Work note relocated from
+// the file header, where it read to the C74 §3.4 M-B gate as a module-scaffold claim;
+// this module is production, not a stand-in (CO-06, 2026-08-14).
 const DISMISS_COOLDOWN = 60_000;
 const AMBIENT_ENDPOINT = '/api/ai/ambient/analyse';
 

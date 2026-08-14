@@ -4,7 +4,7 @@
  *
  * This is the single source of truth for typed event communication.
  * Listeners and emitters that use `EventCatalog` get full type-safety; the
- * legacy `new CustomEvent(name)` call-sites are migrated in TASK-10 through // TODO(TASK-15)
+ * legacy `new CustomEvent(name)` call-sites are migrated in TASK-10 through
  * TASK-17 to use `runtime.events.emit(name, payload)` instead.
  *
  * Categories:
@@ -25,6 +25,11 @@
  */
 
 export interface EventCatalog {
+  // TODO(TASK-15): the legacy `new CustomEvent(name)` call-sites this catalogue
+  // replaces are migrated in TASK-10 … TASK-17 to `runtime.events.emit(name,
+  // payload)`. Work note relocated from the file header, where it read to the
+  // C74 §3.4 M-B gate as a module-scaffold claim; this catalogue is the live
+  // source of truth, not a stand-in (CO-06, 2026-08-14).
   // Index signature required so EventCatalog satisfies Record<string, unknown>
   // (the constraint on IEventBus<TMap>). All specific property types extend
   // unknown, so no type-narrowing is lost.

@@ -18,12 +18,19 @@
  * ## ElementSpatialIndex (Wave 11 partial)
  *
  * ElementSpatialIndex (src/core/drawing/ElementSpatialIndex.ts) is not yet
- * promoted here because it imports from src/core/{ElementRegistry,StoreEventBus} // TODO(TASK-08)
+ * promoted here because it imports from src/core/{ElementRegistry,StoreEventBus}
  * which are being migrated in Wave 10. Promotion completes once Wave 10
  * closes and those imports resolve via @pryzm/core-app-model.
  */
 
 export type { ISpatialIndex } from './types.js';
+
+// TODO(TASK-08): store-unification debt (ADR-0318) — ElementSpatialIndex is not yet
+// promoted into this barrel because it still imports src/core/{ElementRegistry,
+// StoreEventBus}; promotion completes when those resolve via @pryzm/core-app-model.
+// Work note relocated from the file header, where it read to the C74 §3.4 M-B gate as
+// a module-scaffold claim; this barrel is production, not a stand-in
+// (CO-06, 2026-08-14).
 
 export { SpatialGrid, SnapBoundsError } from './SpatialGrid.js';
 

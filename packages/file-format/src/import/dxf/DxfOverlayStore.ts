@@ -5,12 +5,17 @@
  * Used by ProjectSerializer/ProjectLoader for save-restore (§31 Phase 2).
  *
  * CONTRACT (§31 §7.1):
- *   - NOT an ElementStore. Not wired to StoreEventBus. // TODO(TASK-08)
+ *   - NOT an ElementStore. Not wired to StoreEventBus.
  *   - Stores only plain serializable data — no THREE.js objects.
  *   - The live scene objects are owned by DxfUnderlayTool.
  */
 
 export interface DxfOverlayRecord {
+    // TODO(TASK-08): store-unification debt (ADR-0318) — this store is deliberately
+    // NOT an ElementStore and NOT wired to StoreEventBus (§31 §7.1); TASK-08 decides
+    // whether that exemption survives unification. Work note relocated from the file
+    // header, where it read to the C74 §3.4 M-B gate as a module-scaffold claim; this
+    // store is production, not a stand-in (CO-06, 2026-08-14).
     overlayId: string;
     fileName: string;
     /** Full DXF source text — restored from this on project reload */

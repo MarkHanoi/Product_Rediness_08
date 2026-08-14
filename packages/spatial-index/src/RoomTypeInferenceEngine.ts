@@ -19,10 +19,10 @@
  *   Surfaced in RoomPropertySection.ts as a dismissible suggestion banner.
  *
  * DATA FLOW (read-only):
- *   window.roomStore          → room data // TODO(TASK-08)
+ *   window.roomStore          → room data
  *   window.roomQueryService   → getElementsInRoom()
- *   window.furnitureStore     → element type hints // TODO(TASK-08)
- *   window.plumbingStore      → fixture type hints // TODO(TASK-08)
+ *   window.furnitureStore     → element type hints
+ *   window.plumbingStore      → fixture type hints
  *
  * RULES:
  *   - No store writes anywhere in this file.
@@ -34,6 +34,12 @@
  */
 
 import type { RoomOccupancyType } from '@pryzm/room-topology';
+// TODO(TASK-08): store-unification debt (ADR-0318) — this engine reads
+// window.roomStore / window.furnitureStore / window.plumbingStore at call time; those
+// window.*-store reads are the surface TASK-08 retires. Work note relocated from the
+// file header's DATA FLOW block, where it read to the C74 §3.4 M-B gate as a
+// module-scaffold claim; this engine is production, not a stand-in
+// (CO-06, 2026-08-14).
 import { storeRegistry } from '@pryzm/core-app-model';
 
 // ── Public Types ──────────────────────────────────────────────────────────────

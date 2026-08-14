@@ -6,7 +6,7 @@
  *
  * CONTRACT COMPLIANCE:
  *   §01-BIM-ENGINE-CORE §2.2   : structuredClone for all immutable store updates.
- *   §01-BIM-ENGINE-CORE §3.8   : StoreEventBus emitted on all type store mutations. // TODO(TASK-08)
+ *   §01-BIM-ENGINE-CORE §3.8   : StoreEventBus emitted on all type store mutations.
  *   §01-BIM-ENGINE-CORE §2.7   : Commands read from this store; never write to it directly.
  *   §03-COMMAND-PIPELINE §1.3  : Side system — not in undo/redo history.
  *
@@ -21,6 +21,10 @@
  */
 
 import { storeEventBus } from '@pryzm/core-app-model';
+// TODO(TASK-08): store-unification debt (ADR-0318) — this storeEventBus import is the
+// §01 §3.8 emission surface TASK-08 unifies. Work note relocated from the file header,
+// where it read to the C74 §3.4 M-B gate as a module-scaffold claim; this store is
+// production, not a stand-in (CO-06, 2026-08-14).
 
 // ─── Finish descriptor ─────────────────────────────────────────────────────────
 /** A single finish component on a window (frame, glazing, sill). */
