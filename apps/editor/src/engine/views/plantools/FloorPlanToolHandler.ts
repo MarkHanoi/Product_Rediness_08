@@ -91,6 +91,10 @@ import {
 // mutation path) via the ONE authorised typed→legacy bridge file, exactly as the
 // slab plan tool does. See that function's header for why a second command.
 import { attachFloorSketchViaLegacyBridge } from '../../initBusHandlers';
+// §C83-S5 — the floor-finish overlap gate. Same module the 3D FloorTool is wired
+// to at `initTools.ts`, so plan and 3D refuse identically (C11 §3: one rule, one
+// implementation, never a per-view copy).
+import { gateFloorFinishPlacement } from '@app/engine/consequence/floorFinishGate';
 
 const STROKE = '#10b981';
 const FILL_A = 'rgba(16,185,129,0.10)';
@@ -378,6 +382,23 @@ export class FloorPlanToolHandler implements PlanToolHandler {
          */
         attribution?: Extract<FinishRegionAttribution, { kind: 'attributed' }>,
     ): void {
+        // ── §C83-S5 — TWO FINISHES MAY NOT COVER ONE FLOOR AREA ──────────────
+        //
+        // Asked BEFORE the modal opens, deliberately. Asking an architect to
+        // choose a finish type, a thickness and an FFL and THEN telling them the
+        // area is already taken spends their time to deliver the same refusal;
+        // and a modal that closes onto an unexplained no-op is the dead click
+        // C11 §7.6 names. The gate has already told them why by the time this
+        // returns.
+        //
+        // ⚠ This is the PLAN twin of the injected gate on the 3D `FloorTool`.
+        // Both paths must ask, or the identical gesture refuses in one view and
+        // succeeds in the other — the exact parity defect C83 §8's Slice 0 was
+        // written about for openings (`DoorPlanToolHandler` vs `DoorTool`). Here
+        // the polygon is already the INNER-FACE ring (`_innerFacePolygon`), so
+        // this arm tests the exact geometry the model would hold.
+        if (gateFloorFinishPlacement({ levelId, polygon }).blocked) return;
+
         const seeded = resolveFloorFinish(this._floorConfig(), floorSystemTypeStore);
 
         getFloorFinishCreationModal().show({

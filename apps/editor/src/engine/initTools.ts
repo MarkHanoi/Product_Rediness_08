@@ -50,6 +50,9 @@ import { resolvePickStrategy } from '@pryzm/picking';
 import { SlabTool } from '@pryzm/geometry-slab';
 import { CeilingTool } from '@pryzm/geometry-slab';
 import { FloorTool } from '@pryzm/geometry-slab';
+// §C83-S5 — the floor-finish overlap gate. Injected into FloorTool below so an
+// L2 tool can refuse and TELL THE USER without importing an L7 surface.
+import { gateFloorFinishPlacement } from '@app/engine/consequence/floorFinishGate';
 import { SlabDimensionsEditor } from '@app/ui/property-panel/SlabDimensionsEditor';
 // §FEAT-SLAB-DRAW-MODES — the surface-independent slab drawing-mode store.
 import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSlabDrawMode';
@@ -529,6 +532,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         getBimManager: () => bimManager,
         openCreationModal: (opts) => floorCreationModal.show(opts as any),
         dismissCreationModal: () => floorCreationModal.dismiss(),
+        // §C83-S5 — the injected spatial gate. THIS LINE is what makes the
+        // "two finishes over one floor area" refusal reach a person: without it
+        // the predicate still fires and the founder still sees nothing (L-884 —
+        // no tool renders `CommandResult.info[0]`). The tool is L2, the card and
+        // the toast are L7, so the decision is injected downward rather than
+        // imported upward (C83 §8.0).
+        gateFloorPlacement: (candidate) => gateFloorFinishPlacement(candidate),
     });
     window.floorTool = floorTool;
 

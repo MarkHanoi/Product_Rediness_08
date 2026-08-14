@@ -94,6 +94,24 @@ import { arcSegmentThroughMidpoint } from '../boundaryArc';
 import { consumeToolKey, releaseFocusedControl } from '../toolKeyGuard';
 export { DEFAULT_FLOOR_FINISH_BASE_OFFSET_M, DEFAULT_FLOOR_FINISH_THICKNESS_M };
 
+/**
+ * §C83-S5 — the injected spatial gate for "two finishes over one floor area".
+ *
+ * Structural, deliberately: this tool is L2 and the surfaces a refusal must
+ * reach are L7. Typing the port by SHAPE rather than importing the L7 result
+ * type keeps the dependency one-way (C83 §8.0) — the editor calls down into the
+ * predicate and injects the telling, and the tool never imports upward.
+ *
+ * Absent ⇒ no gate. That is honest for a headless/test construction, and it is
+ * why `initTools.ts` wires it explicitly rather than relying on a default.
+ */
+export interface FloorPlacementGatePort {
+  (candidate: { levelId: string; polygon: ReadonlyArray<{ x: number; z: number }> }): {
+    /** true ⇒ the tool MUST NOT create. The gate has already told the user why. */
+    readonly blocked: boolean;
+  };
+}
+
 export interface FloorToolDeps {
   getCommandManager?: () => any;
   getFloorStore?: () => any;
@@ -101,6 +119,8 @@ export interface FloorToolDeps {
   getBimManager?: () => any;
   openCreationModal?: (opts: FloorModalOptions) => void;
   dismissCreationModal?: () => void;
+  /** §C83-S5 — see {@link FloorPlacementGatePort}. */
+  gateFloorPlacement?: FloorPlacementGatePort;
 }
 
 export class FloorTool {
@@ -690,6 +710,42 @@ export class FloorTool {
     // In DRAW mode, auto-detect the room whose boundary contains the polygon centroid
     if (!this._pendingHostRoomId && this._drawingMode !== 'AUTO_FROM_ROOM') {
       this._pendingHostRoomId = this._detectRoomAtCentroid(polygon, levelId);
+    }
+
+    // ── §C83-S5 — TWO FINISHES MAY NOT COVER ONE FLOOR AREA ──────────────────
+    //
+    // Asked BEFORE the command is built, and asked through an INJECTED port
+    // rather than an import: the refusal has to reach a person, the surfaces
+    // that reach a person (`ConfirmationCard`, `showToast`) live at L7, and this
+    // tool is L2. Importing them would be an upward edge; injecting the decision
+    // keeps every edge downward (C83 §8.0) and leaves the tool testable with no
+    // DOM at all.
+    //
+    // ⚠ Why not rely on `cmd.canExecute()` twelve lines below — it REFUSES this
+    // too, and the founder would still see nothing. That branch `console.error`s
+    // and returns; the command never reaches `CommandManagerImpl`, and L-884
+    // measured that even when it does, no tool renders `result.info[0]`. A
+    // refusal that exists only in a return value is indistinguishable from no
+    // refusal, which is precisely what build 46232e2d shipped.
+    //
+    // The polygon passed here is the payload's — for AUTO_FROM_ROOM that is the
+    // room's CENTRELINE ring, before `CreateFloorCommand` insets it to the
+    // bounding walls' inner faces (L-240). That makes this check very slightly
+    // EAGER, never lax, and it cannot produce a false refusal between two
+    // adjacent rooms: the neighbour's stored finish already stops half a wall
+    // thickness short of the shared centreline, so the two rings do not overlap.
+    // The exact-geometry check is the command's, on the resolved ring.
+    if (this._deps.gateFloorPlacement) {
+      const gate = this._deps.gateFloorPlacement({
+        levelId,
+        polygon: polygon.map(v => ({ x: v.x, z: v.z })),
+      });
+      if (gate.blocked) {
+        // No console fallback and no HUD line here on purpose: the gate OWNS the
+        // telling, and a second sentence from a second author is how two
+        // accounts of one event start to disagree.
+        return;
+      }
     }
 
     const floorId = crypto.randomUUID();

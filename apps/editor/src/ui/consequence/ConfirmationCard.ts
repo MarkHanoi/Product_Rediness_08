@@ -268,37 +268,69 @@ export function renderConfirmationRefusal(
  * `offers` is empty the card says so explicitly rather than staying quiet,
  * because silence there reads as "there is no way to fix this" (C83 §4.2.1).
  */
+/**
+ * §C83-S5 — the per-rule wording, so a SECOND IMPOSSIBLE rule reuses this
+ * renderer instead of minting a rival card (C83 §4.1: *"a fifth is the failure
+ * mode"*).
+ *
+ * Every field defaults to the wall × opening wording this renderer shipped with,
+ * so the existing caller and its executed surfacing suite are unchanged. Only
+ * the three strings that are actually rule-specific are parameterised: a floor
+ * refusal that told the user *"a wall and an opening cannot share the same
+ * volume"* would be a true panel carrying a false sentence, which is worse than
+ * no panel — the user would go looking for a wall.
+ */
+export interface SpatialRefusalWording {
+    /** The invariant, in one sentence. Why NO version of this can be held. */
+    readonly invariant?: string;
+    /** Heading over the offers list. */
+    readonly offersHeading?: string;
+    /** Footnote under the offers list — how they were validated. */
+    readonly offersFootnote?: string;
+    /** The honest "nothing can be defended" text (C83 §4.2). */
+    readonly noOffersText?: string;
+}
+
+const WALL_OPENING_WORDING: Required<SpatialRefusalWording> = {
+    invariant:
+        'Nothing was created. This is not a warning you can click past — a wall and an opening cannot share the same volume, so there is no version of this placement the model can hold.',
+    offersHeading: '◆ positions that ARE clear',
+    offersFootnote: 'Each was re-checked against every wall on this level before being offered.',
+    noOffersText:
+        'No clear position could be computed and defended for this wall, so none is suggested — a guessed position that landed on another opening would be worse than none.',
+};
+
 export function renderSpatialRefusal(
     panel: HTMLElement,
     headline: string,
     sentence: string,
     offers: readonly string[],
+    wording: SpatialRefusalWording = {},
 ): void {
+    const W = { ...WALL_OPENING_WORDING, ...wording };
     const L: string[] = [
         `<div style="background:#3a1f24;border-left:3px solid #f87171;padding:8px 10px;border-radius:4px;margin-bottom:8px;">`,
         `<div style="font-weight:700;color:#fca5a5;">${esc(headline)}</div>`,
         `<div style="color:#fca5a5;font-size:11px;margin-top:3px;">${esc(sentence)}</div>`,
-        `<div style="color:#a89a6a;font-size:10px;margin-top:5px;">Nothing was created. This is not a warning you can click past — a wall and an opening cannot share the same volume, so there is no version of this placement the model can hold.</div>`,
+        `<div style="color:#a89a6a;font-size:10px;margin-top:5px;">${esc(W.invariant)}</div>`,
         `</div>`,
     ];
 
     if (offers.length > 0) {
-        L.push(head('◆ positions that ARE clear', '#a78bfa'));
+        // §XSS-SINK-SCAN — the wording strings are `esc`'d too. They are authored
+        // literals today, but they are now PARAMETERS, and a sink that is safe
+        // only while every caller behaves is not a safe sink.
+        L.push(head(esc(W.offersHeading), '#a78bfa'));
         for (const o of offers) L.push(item(esc(o), '#ddd6fe'));
         L.push(
-            `<div style="color:#8b93a8;font-size:10px;margin-top:6px;">Each was re-checked against every wall on this level before being offered.</div>`,
+            `<div style="color:#8b93a8;font-size:10px;margin-top:6px;">${esc(W.offersFootnote)}</div>`,
         );
     } else {
         // C83 §4.2's MUST NOT, rendered. An offer carries an implicit claim that
         // the alternative is valid; when none can be defended, the absence is
         // stated rather than filled with a nearest-fit guess.
         L.push(head('◆ no alternative is offered', '#fbbf24'));
-        L.push(
-            item(
-                'No clear position could be computed and defended for this wall, so none is suggested — a guessed position that landed on another opening would be worse than none.',
-                '#fde68a',
-            ),
-        );
+        L.push(item(esc(W.noOffersText), '#fde68a'));
     }
 
     L.push(
@@ -375,8 +407,15 @@ export class ConfirmationCard {
      * approval record on a mutation that never happened (ADR-0324's exact
      * prohibition). The CARD is the shared surface; the FLOW is not.
      */
-    showSpatialRefusal(headline: string, sentence: string, offers: readonly string[]): void {
-        renderSpatialRefusal(this._panel, headline, sentence, offers);
+    showSpatialRefusal(
+        headline: string,
+        sentence: string,
+        offers: readonly string[],
+        // §C83-S5 — optional per-rule wording. Omitted ⇒ the wall × opening
+        // wording this card shipped with, so the §C83-S1 caller is untouched.
+        wording?: SpatialRefusalWording,
+    ): void {
+        renderSpatialRefusal(this._panel, headline, sentence, offers, wording);
         this._reveal();
     }
 
