@@ -820,3 +820,183 @@ edge case; two cascade roots named, bulk is nUIA debt). 4. PV-06 schemas confide
 >    furniture: <reason>"; no double fixtures on slow furnish.
 > 5. **Known NOT fixed**: walls still do not re-mitre after a neighbour moves — the engine exists
 >    (`81e35360`), the dispatch wiring does not. Expected; say so if asked.
+
+---
+
+## §12 — SESSION CLOSE 2026-08-14 · THE 30-AGENT SESSION — 217 COMMITS
+
+> **§12 OVERRIDES §11 AND EVERYTHING ABOVE IT** where they disagree. Every claim below is an
+> executed reading or a cited SHA. Where a number here disagrees with a document elsewhere in the
+> repo, **re-run the gate** — that is the rule this session enforced against itself repeatedly, and
+> it kept being right.
+
+### §12.0 — THE FOUR THINGS THE NEXT SESSION MUST NOT MISS
+
+1. **⚠ FOUR COMMITTED GATES ARE REGISTERED IN NO RUNNER AT ALL** — not `run-all.ts`'s `GATES`, not
+   `ci.yml`, not `package.json`, and there is no exemption allowlist:
+   `check-derived-not-authored` · `check-deterministic-regeneration` · **`check-predicate-canonical`** ·
+   `check-provenance-coverage`. **This is the L-774 defect recurring inside the C73 gates
+   themselves.** It matters because `check-predicate-canonical` is the instrument **GE-02, GE-03 and
+   GE-12 are measured against** (including this session's `[0] CLEAN`), and
+   `check-deterministic-regeneration` is one of the three gates **GE-07 is recorded CLOSED on**.
+   Those readings are REAL — but they are enforcement only when a human runs them, and `run-all`'s
+   own inventory arm is RED on them today (`inventoryFailed = true`). **FIRST ACTION: measure all
+   four, then register them.** Deliberately not done at session close: registering four unowned
+   gates could turn the merge-blocking suite red for reasons nobody has measured.
+2. **THE DEPLOY WAS NOT RUN.** Production is still `517f7a70`; HEAD carries **217 commits** it does
+   not have. §7's contract applies verbatim. Browser checks in §12.5 — there are now **seven**.
+3. **THE REGISTER RESTAMP DID NOT COMPLETE.** The founder authorised it mid-session and the lane
+   was killed twice by transient API 529s. The file still reads **34/82** and is known-wrong in the
+   **pessimistic** direction. See §12.1 for the counted position and §12.2 for the drop-in texts
+   every lane produced — the next session should stamp from fresh gate runs, using those texts as
+   the evidence cells, never as the reading itself.
+4. **THE FLEET'S OWN FAILURE MODE IS NOW MEASURED**: lanes idle on background test runs. Vitest's
+   import phase on this tree is **2–7 minutes** on a saturated machine (measured 28–63 s for a
+   single transform; one "hang" turned out to be 93 ms of tests behind 420 s of import). A lane
+   that reports "waiting" twice should be told to read its output file directly, not to wait again.
+
+### §12.1 — THE COUNTED POSITION
+
+**~74 of 82 rows closable on executed evidence**, against a register that still says 34. The
+distance is not work — it is an unstamped file. The session's own verification workflow (12 agents,
+refute-by-default) **re-ran every decisive gate independently and CONFIRMED all seven sampled
+closure claims**, so the evidence base is corroborated, not self-reported.
+
+**Gate estate at close** — all executed this session:
+
+| Gate | Reading |
+|---|---|
+| `check-predicate-canonical` | **[0] CLEAN hard-0** (was 53 at session open) |
+| `check-prevstate-contract` | **[0] CLEAN hard-0, empty ledger** |
+| `check-provenance-export-boundary` | **[0] CLEAN** (was 5) |
+| **`check-conflict-surfacing`** | **[0] CLEAN hard-0** — 103 silent merges → 0 |
+| `check-structuredclone-new-commands` | **exit 0, AT baseline 119** (was 135) |
+| `check-room-aabb-canonical` · `check-topology-survives` · `check-domain-purity` | **[0] CLEAN** |
+| `check-verb-register` · `check-refusal-identity` · `check-otel-spans` | **PASS / 87 baseline / Zone A 250-250** |
+| `check-no-empty-means-unknown` | **71** (was 95 two sessions ago, 85 at open) |
+| `check-relationship-determination` (**bar 3**) | **132** (was 134) — 2 verbs of 100 |
+| `check-no-dark-test-files` | **13** (was 137) |
+| `check-epsilon-policy` | 382 at declared 382, E1 **PRESENT**, 0 widenings |
+
+### §12.2 — WHAT LANDED, BY THEME
+
+**THE MODEL STOPS LYING (the session's spine).**
+- **CI-0/CI-1/CI-2** — the layout verdict crosses the emit boundary (`1559275e`); a house that
+  seals a room raises a **blocking, dismiss-only banner naming the sealed rooms** instead of a green
+  success toast (`30fae370` + `9e98484a`); generator output quality is gated in CI for the first
+  time, 166 real generator runs (`6c065bb1`).
+- **The furnish→lighting chain** stops advancing silently: three non-emitting paths emit, the
+  §CHAIN-TIMEOUT double-fire is dead, lighting stamps `basis: furnished|unfurnished` with a
+  mandatory disclosure. Root cause was **unsatisfiable**, not a short timer (L-716 class).
+- **`[]`-means-unknown 85 → 71**, each with a differentiating test. Headlines: the live reconcile
+  was **deleting annotations it merely could not see**; room isolation could be **forged from an
+  unanswered query**; a door dependency index answered "no doors" when it had never been populated.
+- **P8 data loss** — `_discloseOverwrittenLocalWrites` wiped the whole doc's pending bookkeeping
+  after any merge, so a second concurrent edit was discarded **in silence, 103 of 103 cases**.
+  Fixed per-property (`a926a93d`); gate now 0 CLEAN.
+- **The AI relay was dead in production** — a bundler-evasion `Function('s','return import(s)')`
+  resolved against the realm, so the configured branch **always threw and always served demo
+  fixtures as AI output**. The guard protecting the adapter's former absence is what killed it.
+
+**CAPABILITIES THAT NOW REACH THE USER.**
+- **Finishes follow a moved wall** — `5b36fad5`, reached-behaviour proof (22.04 → 33.64 m², exactly
+  once). The §10.2b false green is now genuinely paid.
+- **Rooms are born assigned to units** — the resi executor had the apartment identity in scope and
+  dropped it on one line. C81's precondition is met for residential.
+- **PR-10 closed end to end** — roof-vs-walls clash detector (13 oracle tests) + the subscriber that
+  consumes the reconcile's elevation delta and **announces** findings with both magnitudes.
+- **The ribbon**: 30 professional BIM toolbars had **zero production importers** and 267 of 280
+  verbs dispatched into nothing. Founder decided MOUNT. Phase 3 landed FIRST, deliberately — **all
+  276 unbacked verbs now refuse with a reason** (`4bfe86f0`), each citing its SPEC-50 backlog row.
+  Phase 2 then found the deeper truth: **the editor has no visible toolbar host at all** — the only
+  chrome host ships `display:none`, with two shipped features already injecting into it invisibly.
+- **GE-05, the 2-D boolean** — built, oracle-pinned, and **wired** to all three deferring sites. Its
+  stake is measured: the `non-convex-both` refusal fired on **47.2 % of 1,000 real Danish parcels**.
+
+**GOVERNANCE.**
+- **ADR-0325** — `hierarchyStore` + `parentId` is the sole hierarchy substrate; `partOf` PARKED, and
+  `GraphQueryService` stops answering a confident `[]` about it.
+- **C82 + ADR-0326 + SPEC-50** — the ribbon capability surface: three legal states, dispatch-into-
+  nothing abolished, backlog sized per toolbar.
+- **CB-01/CB-05 scoping** — the headline nobody expected: **the code half is done and
+  convergence-proven; what is missing is one always-on process, ~$5–10/mo.**
+- **ADR-0319 §2 defect measured** (§CE04-RING-PIN): the **unified ring-buffer undo path is less
+  faithful than the legacy path it replaces** — ratchets class-2 counters, drops `_sourceBaseLine`.
+  Plus `UpdateWallBaselineCommand` has no `targetIds`, so U-8's shadow-drop removes nothing: **one
+  phantom Ctrl+Z after a gizmo wall move.**
+- **+1,433 tests** turned on; the test runner that never existed created (dark ledger 137 → 13).
+
+### §12.3 — WHAT REMAINS FOR 82/82, EXACTLY
+
+**Stamp-only (≈8 rows, zero code):** the restamp itself, using each lane's drop-in text.
+
+**Small, owned, named:**
+| Row | What closes it |
+|---|---|
+| MT-03 | 6 of 8 dual registrations remain; 6 are bridge-shaped (precedent `fc4de954`), 2 (`sheet.addViewport`, `stair.create`) need a read-back test to decide direction |
+| GR-10/GR-14 | the drain from 71; each site needs a differentiating test |
+| PV-08 | an exhaustive L0 `member → ValueOrigin` map; pay it **with** `check-provenance-coverage`'s FINDING C2 (same `floor` kind) |
+| CE-05 | the mount queue behind L-MOUNT's host fix |
+
+**Above the ceiling, each with a named reason:**
+- **CB-02** — one env flip (`PRYZM_AUTHZ_MODE` + `DATABASE_URL` on sync-server). `PgAuthz` is
+  written, wired, tested, fail-closed. **Yours, 5 minutes.**
+- **CO-06** — 57 scaffold declarations (the row says 19; it is three stamps stale). ⚠ **Close the
+  gate's grace-clause loophole first** — a header carrying only a fresh date currently passes, so a
+  bulk pay would walk the ratchet down having bought nothing.
+- **MT-04** — 11 element kinds unadopted by ADR-0318; real per-kind migration.
+- **GE-06** — decomposition landed (`69f7dda1`); slices are construction, ordered by pain.
+- **CE-06** — **stays UNPROVEN because that is the true reading.** A one-client, two-level fixture
+  cannot prove a multi-client claim. Closing it would be the lie the row exists to prevent.
+- **GR-12** — the arm now exists and its first reading is a **new measured defect**: `boundedBy` is
+  STALE after a ring-breaking wall move. The row is honest and open.
+
+**BAR 3 remains the second half of 100 %** (§2.0): 132, moved by 2 verbs of 100. It lands by verb
+family (C78 §19.1 forbids partial credit) and it is load-bearing for **C81's edit layer**.
+
+### §12.4 — NEXT STEPS, IN ORDER
+
+1. **Register the four unwired gates** (§12.0 item 1) — measure, then register. Highest leverage:
+   it converts three GE closures from "true when someone runs it" to "enforced".
+2. **RESTAMP** from fresh gate runs, absorbing §12.2's drop-in texts as evidence cells.
+3. **DEPLOY** (§7 verbatim: fresh cover · 16 GB builder · **both** npipe halves · bundle proof
+   reading VALUES not lengths), then §12.5.
+4. **Finish the ribbon**: un-hide `.plat-toolbar` (one commit — it also un-hides two shipped
+   features), mount MainToolbar, then the drafting group, H6 probe delta as the only proof.
+5. **The two undo-fidelity defects** (§CE04-RING-PIN + the missing `targetIds`) — user-visible,
+   measured every certify run, owner named.
+6. **Bar 3 by verb family** — next natural family is the slab/opening move class; the three existing
+   planners are the pattern and the registry extension is two entries per verb.
+
+### §12.5 — THE BROWSER CHECKS (post-deploy)
+
+> 🚀 LIVE — hard-refresh first:
+> 1. **Move a wall carrying a floor finish / ceiling** — it re-projects, once. (`5b36fad5`)
+> 2. **Generate a residential building** → Data F3 → Hierarchy — rooms grouped under **Units**; no
+>    "Unassigned rooms on Level 01" for apartment rooms.
+> 3. **Generate a house on a plot that seals a room** — a blocking, dismiss-only card naming the
+>    sealed rooms. **No green success toast.**
+> 4. **Force a furnish failure** — lighting completes with a WARN naming the reason; no double
+>    fixtures on slow furnish.
+> 5. **The toolbar host** — is any ribbon chrome visible at all? (If not, item 4 of §12.4 is why.)
+> 6. **Any unbacked ribbon button** — it must be visibly disabled with a reason, never silent.
+> 7. **Known NOT fixed**: walls still do not re-mitre after a neighbour moves. The engine exists
+>    (`81e35360`, 11/11, refusal guards); the move-commit dispatch does not. Expected.
+
+### §12.6 — THE GENERATIVE PROGRAMME (the other tracker)
+
+This session was a TRUST session; the generative programme moved only where the two touch. Its
+state and next steps:
+
+- **CI-0 ✅ · CI-1 ✅ · CI-2 ✅ · CI-3 ⬜ · CI-4 measured-not-ledgered.**
+- **The founder decision that is still owed**: CI-1/CI-4's ratchet. `check-generator-circulation`
+  measures the unreachable-room and corridor-contiguity rates and **prints them without ledgering
+  them** — deliberately, because ledgering is a product decision (SPEC-49 §4). Until it lands,
+  nothing fails if the unreachable rate doubles.
+- **Next generative steps, in order**: (1) ledger CI-1/CI-4 at their measured baselines;
+  (2) **CI-3** — thread `Door.swing` through the wall-opening payload into `OpeningPose` so the
+  real swing sector reaches the furnisher (`doorSwingKeepout.ts` is authored, tested, and imported
+  by exactly one file: its own test); (3) the house generator's remaining sealed-room rate — the
+  banner now *announces* it, which makes the fix measurable; (4) unit containment for the house,
+  apartment and office generators (residential is done; the pattern transfers directly).
+- **The 28-cell denominator stays separate from the 82.** Different questions. Never merge them.
