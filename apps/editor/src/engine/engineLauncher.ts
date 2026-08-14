@@ -754,7 +754,9 @@ export async function bootstrap(
         world, bimManager, selectionManager, updateInspector,
     });
 
-    initWallLevelSubscribers({ wallTool, slabStore, spatialAuthority });
+    // PR-10: roofStore + bimManager feed the roof→walls-beneath clash check
+    // inside the level-rebuild callback (see roofWallClashAnnouncer.ts).
+    initWallLevelSubscribers({ wallTool, slabStore, spatialAuthority, roofStore, bimManager });
 
     // ── §03: Slab-wall connectivity ───────────────────────────────────────────
     const slabWallConnectivityService = new SlabWallConnectivityService(
@@ -815,6 +817,24 @@ export async function bootstrap(
     workspaceController.restoreFromStorage();
     window.workspaceController = workspaceController;
 
+    // ── §MT-05 same-instance guard ────────────────────────────────────────────
+    // Bootstrap has three window-store writers (initBuilders → initTools → initUI),
+    // and initPersistence below falls back to the LOCAL instances. Today every
+    // writer provably republishes the same instance, so the fallbacks are inert —
+    // but nothing upstream enforces that. A future writer publishing a DIFFERENT
+    // instance would make persistence serialise a store the UI no longer writes:
+    // silent data loss. Fail loudly instead (precedent: CurtainWallTool
+    // §CURTAIN-WALL-AUDIT-2026 §5.1 throws rather than construct a parallel
+    // store). Unset globals are tolerated — that is what the `??` fallbacks are
+    // for; only a set-and-different global is divergence. Pinned in CI by
+    // apps/editor/src/engine/__tests__/mt05WindowStoreSameInstance.spec.ts.
+    if (window.columnStore !== undefined && window.columnStore !== columnStoreInstance) {
+        throw new Error('[EngineBootstrap] §MT-05: window.columnStore diverged from the launcher columnStoreInstance — a writer published a different instance.');
+    }
+    if (window.curtainWallStore !== undefined && window.curtainWallStore !== curtainWallStoreInstance) {
+        throw new Error('[EngineBootstrap] §MT-05: window.curtainWallStore diverged from the launcher curtainWallStoreInstance — a writer published a different instance.');
+    }
+
     // ── Persistence + collaboration ───────────────────────────────────────────
     initPersistence({
         world, bimManager, toolManager, unselectAll,
@@ -823,7 +843,7 @@ export async function bootstrap(
             slabStore,
             columnStore:        window.columnStore ?? columnStoreInstance, // TODO(TASK-08)
             gridStore,          stairStore,         beamStore,
-            curtainWallStore:   window.curtainWallStore || curtainWallStoreInstance, // TODO(TASK-08)
+            curtainWallStore:   window.curtainWallStore ?? curtainWallStoreInstance, // §MT-05: `??` not `||` — nullish-only fallback, matching columnStore above // TODO(TASK-08)
             roofStore,          plumbingStore,       furnitureStore,
             handrailStore,      openingStore,        roomStore,
             slabSystemTypeStore, wallSystemTypeStore,
