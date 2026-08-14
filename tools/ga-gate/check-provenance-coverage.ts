@@ -81,6 +81,27 @@
  *      EVALUATED, never silent (an arm that passes because its subject does not
  *      exist is not coverage).
  *
+ *  C4  PV-08 · vocabulary members are TRANSLATABLE at L0 — every string literal a
+ *      discovered `<Kind>DetectionMethod` declares must be NAMED in
+ *      `packages/schemas/src/provenance/DetectionMethodOrigin.ts`, the L0 map from
+ *      legacy member → one of the five. EVALUATED. C1 asks whether L0 can name
+ *      the KIND; C4 asks whether L0 can say what the kind's stored origin MEANS —
+ *      a field L0 can hold and cannot interpret is C75 §4.d one notch finer, and
+ *      it is exactly the state the room family was in until PV-08 (its only
+ *      translation lived at **L7**, `apps/editor/.../ElementProvenanceIndex.ts`,
+ *      typed `Record<string, …>` so a new member compiled and silently meant
+ *      nothing; the floor and ceiling families had no translation at all).
+ *
+ *      ⚠ **RECORDED BLIND SPOT, stated rather than implied.** C4 checks that the
+ *      member literal APPEARS in the map file. It does not — cannot, from a
+ *      source scan — prove it is a KEY of the map rather than a mention. What
+ *      proves key-ness is the map's own mapped-type annotation
+ *      (`{ readonly [K in Members]: ValueProvenance }`), which makes a missing row
+ *      and a row for a non-member both compile errors. C4 is the GATE rung of C75
+ *      §2.8's ladder standing under a type check that L0 cannot point upward: the
+ *      member lists are declared at L0 because a layer may not import from L2/L3,
+ *      so only a gate can compare them with the live upstream declarations.
+ *
  *      ⚠ C3 is why the 27 adoption sites spell `provenance:
  *      RetrofittedProvenanceSchema` out at each kind instead of spreading a
  *      shared constant. Measured 2026-08-13: a `...elementProvenanceField` spread
@@ -151,6 +172,12 @@ const OUTSIDE_DIRS = ['packages', 'plugins', 'apps', 'src'] as const;
  */
 const CANONICAL_UNION_FILE = 'packages/schemas/src/provenance/ValueOrigin.ts';
 const CANONICAL_UNION_TYPE = 'ValueOriginSchema';
+/**
+ * PV-08 — the L0 file that translates every legacy `<Kind>DetectionMethod` member
+ * into one of the five. C4's subject. Its absence is MISCONFIGURED (a floor), not
+ * a pass: an arm whose subject does not exist measures nothing.
+ */
+const L0_ORIGIN_MAP_FILE = 'packages/schemas/src/provenance/DetectionMethodOrigin.ts';
 /** The §2.5 retrofit-safe schema — C3's "covered SAFELY" evidence. */
 const RETROFIT_SCHEMA = 'RetrofittedProvenanceSchema';
 /** The §1.4 constructors whose use in a `.default(` is equally retrofit-safe. */
@@ -213,7 +240,42 @@ function isDerivedVocab(prefix: string, allPrefixes: readonly string[]): boolean
 // ─── Discovery (§3.3 — the enumeration is the gate's OUTPUT) ─────────────────
 
 interface ElementKind { readonly kind: string; readonly file: string }
-interface OutsideVocab { readonly prefix: string; readonly file: string; readonly line: number }
+interface OutsideVocab {
+  readonly prefix: string;
+  readonly file: string;
+  readonly line: number;
+  /** The string literals the declaration lists — C4's subject. May be empty. */
+  readonly members: readonly string[];
+}
+
+/**
+ * How far a single vocabulary declaration may span. `RoomDetectionMethod` is 7
+ * lines; `z.enum([…])` copies are 7. A cap exists so a malformed declaration
+ * cannot make the reader swallow the rest of the file and mint phantom members.
+ */
+const DECL_SPAN_MAX_LINES = 40;
+
+/**
+ * The string literals one vocabulary declaration lists. Reads forward from the
+ * declaration to the first `;` — which terminates both spellings in use here,
+ * the multi-line `type X = 'a' | 'b';` union and the `z.enum([…]);` copy.
+ *
+ * Comments are already stripped by the caller, so a member named only in prose
+ * cannot be counted as declared.
+ */
+function readDeclaredMembers(lines: readonly string[], start: number, from: number): string[] {
+  let text = (lines[start] ?? '').slice(from);
+  for (let i = start; ;) {
+    const semi = text.indexOf(';');
+    if (semi >= 0) { text = text.slice(0, semi); break; }
+    i++;
+    if (i >= lines.length || i - start >= DECL_SPAN_MAX_LINES) break;
+    text += '\n' + lines[i]!;
+  }
+  const out: string[] = [];
+  for (const q of text.matchAll(/'([^'\n]+)'|"([^"\n]+)"/g)) out.push((q[1] ?? q[2])!);
+  return [...new Set(out)];
+}
 
 function discoverElementKinds(root: string, elementsDir: string): { kinds: ElementKind[]; filesRead: number } {
   const kinds: ElementKind[] = [];
@@ -246,7 +308,12 @@ function discoverOutsideVocabularies(root: string, dirs: readonly string[]): { v
       const lines = stripCommentsToLines(src);
       for (let i = 0; i < lines.length; i++) {
         for (const m of lines[i]!.matchAll(new RegExp(OUTSIDE_VOCAB_DECL.source, 'g'))) {
-          vocabs.push({ prefix: m[1]!, file: rel, line: i + 1 });
+          vocabs.push({
+            prefix: m[1]!,
+            file: rel,
+            line: i + 1,
+            members: readDeclaredMembers(lines, i, m.index ?? 0),
+          });
         }
       }
     }
@@ -259,7 +326,7 @@ const norm = (s: string): string => s.replace(/[^a-z0-9]/gi, '').toLowerCase();
 
 // ─── Classification ──────────────────────────────────────────────────────────
 
-interface Finding { readonly arm: 'C1' | 'C2' | 'C3'; readonly key: string; readonly detail: string }
+interface Finding { readonly arm: 'C1' | 'C2' | 'C3' | 'C4'; readonly key: string; readonly detail: string }
 
 interface Analysis {
   readonly findings: Finding[];
@@ -270,6 +337,10 @@ interface Analysis {
   readonly coveredKinds: string[];
   /** true once at least one covered kind exists — C3's live subject. */
   readonly c3Evaluated: boolean;
+  /** Distinct member literals read out of the outside declarations — C4's subject. */
+  readonly declaredMembers: number;
+  /** Does the L0 translation map exist at all? A floor, not a finding. */
+  readonly l0MapPresent: boolean;
 }
 
 function analyse(root: string, elementsDir: string, outsideDirs: readonly string[]): Analysis {
@@ -368,9 +439,45 @@ function analyse(root: string, elementsDir: string, outsideDirs: readonly string
     });
   }
 
+  // C4 — PV-08: is every member of every discovered vocabulary NAMED in the L0
+  // translation map? A kind whose schema the L0 layer can name is still opaque
+  // there if L0 cannot say what its stored `detectionMethod` MEANS.
+  let l0Map = '';
+  let l0MapPresent = false;
+  try {
+    l0Map = stripCommentsToLines(
+      readFileSync(join(root, L0_ORIGIN_MAP_FILE.split('/').join(sep)), 'utf8'),
+    ).join('\n');
+    l0MapPresent = true;
+  } catch { /* absent — reported through the floor below, never as a silent pass */ }
+
+  const seenMembers = new Set<string>();
+  const reportedUnmapped = new Set<string>();
+  for (const v of outsideVocabs) {
+    for (const member of v.members) {
+      seenMembers.add(`${norm(v.prefix)}::${member}`);
+      if (!l0MapPresent) continue;
+      if (l0Map.includes(`'${member}'`) || l0Map.includes(`"${member}"`)) continue;
+      const key = `vocabulary-member-not-mapped-at-L0::${v.prefix.toLowerCase()}::${member}`;
+      if (reportedUnmapped.has(key)) continue;
+      reportedUnmapped.add(key);
+      findings.push({
+        arm: 'C4',
+        key,
+        detail:
+          `${v.prefix}DetectionMethod (${v.file}:${v.line}) declares the member '${member}', and ` +
+          `${L0_ORIGIN_MAP_FILE} does not name it. The L0 layer can therefore store this value and ` +
+          'cannot say which of the five it means (C75 §1.2, PV-08) — an exporter, the renderer and ' +
+          'the AI host all read L0 and would see an origin they cannot translate. Add the row; the ' +
+          "map's mapped-type key makes a row for a non-member an error in the same edit.",
+      });
+    }
+  }
+
   return {
     findings, kinds, elementFilesRead, outsideVocabs, outsideFilesScanned,
     coveredKinds, c3Evaluated: coveredKinds.length > 0,
+    declaredMembers: seenMembers.size, l0MapPresent,
   };
 }
 
@@ -409,26 +516,44 @@ function canonicalUnionPresent(root: string): boolean {
  * enumerates only what `defineElement` declares plus the C2 orphans, so it can
  * never be diluted by the domains that were already disciplined.
  *
- * ─── THE ONE REMAINING ENTRY, AND WHY IT IS NOT ARGUED OUT OF SCOPE ──────────
- * `floor` is the C2 orphan: `FloorDetectionMethod` (`manual-polygon` | `from-room`
- * | `from-slab` | `ai-generated` | `ifc-import`) lives in
- * `core-app-model/src/stores/FloorTypes.ts` and the schema package has never
- * heard of floors, so there is no `defineElement('floor')` to retrofit. C75 §5
- * permits arguing a kind out of scope IN WRITING here — and this one is NOT
- * being argued out. It is a genuine hole and the vocabulary's own members prove
- * it: `ai-generated` and `ifc-import` are precisely the INFERRED and OBSERVED
- * cases C75 §0.1 says a user must be able to tell from their own work. It closes
- * only by floor gaining an L0 schema, which is a C65/C03 element-type decision,
- * not a provenance one.
+ * ⭐ THIRD READING, 2026-08-14 (PV-08) — **1 → 0. The ledger is EMPTY.**
+ * `floor` was the last entry and the only C2 orphan. It is struck here because
+ * the kind gained `packages/schemas/src/elements/Floor.ts` —
+ * `defineElement('floor')` with `provenance: RetrofittedProvenanceSchema` — in the
+ * same commit, which is the §3.2 both-directions mechanic doing its job again (it
+ * forced exit 3 STALE until this line was removed).
+ *
+ * ─── WHY `floor` WAS NOT ARGUED OUT OF SCOPE (C75 §5, decided IN WRITING) ────
+ * C75 §5 permits arguing a kind out of scope on this ledger, never by omission.
+ * `floor` was considered for it and the answer is NO — the evidence is that it
+ * was already a first-class element everywhere except L0:
+ *   • `FloorData extends CoreElement` with `type: 'floor'`, its own `FloorStore`,
+ *     tool and commands (`core-app-model/src/stores/FloorTypes.ts`);
+ *   • `'floor'` was ALREADY in L0's `ElementType` union and `FloorId = Id<'floor'>`
+ *     already existed — the id system admitted floors; only the schema was absent,
+ *     which is what made the hole easy to miss for so long;
+ *   • it is NOT a duplicate of `slab`: a finish is `IfcCovering{FLOORING}` and
+ *     *"structural slabs remain as IfcSlab"* — two IFC classes, two elements;
+ *   • its twin `ceiling` — same 5-member vocabulary, mirrored geometry — has
+ *     carried `defineElement('ceiling')` all along. The asymmetry was the anomaly;
+ *   • `FloorDetectionMethod`'s own members settle it: `ai-generated` (INFERRED)
+ *     and `ifc-import` (OBSERVED) are exactly the cases C75 §0.1 says a user must
+ *     be able to tell apart from their own work.
+ * The full argument, with the C65/C03 boundary it does NOT cross, is at the head
+ * of `packages/schemas/src/elements/Floor.ts`.
+ *
+ * ⚠ **An empty ledger is not "provenance is done".** It means every element kind
+ * L0 declares carries the FIELD, retrofit-safely, and every legacy vocabulary
+ * member is translatable at L0. It says nothing about whether a producer writes a
+ * real origin — every kind still reads `predates-provenance` — which is C75
+ * §6.3.b's RECORDED BLIND SPOT and no arm here can see it.
  *
  * A kind that gains a provenance field in its L0 schema stops being measured
  * here and its entry MUST be struck in the same commit, or contract.ts forces
  * exit 3 (STALE). A kind that loses one goes red as RATCHET EXCEEDED. Both
  * directions, mechanically.
  */
-const LEDGER: readonly string[] = [
-  'no-schema-for-provenance-bearing-kind::floor',
-];
+const LEDGER: readonly string[] = [];
 
 // ─── Executed controls (C75 §6.2) ────────────────────────────────────────────
 
@@ -457,9 +582,16 @@ const PLANTED = {
     "export const Doohickey = defineElement('doohickey', { span: z.number() });",
   'packages/other/src/DoohickeyTypes.ts':
     "export type DoohickeyDetectionMethod = 'traced' | 'drawn';",
-  // C2 orphan — the floor shape: a vocabulary with no schema kind at all.
+  // C2 orphan — the shape `floor` had until 2026-08-14: a vocabulary with no
+  // schema kind at all. ⚠ Its members are deliberately ABSENT from the planted L0
+  // map below, so this file arms C2 and C4 at once.
   'packages/other/src/FloorishTypes.ts':
     "export type FloorishDetectionMethod = 'manual-polygon' | 'from-room';",
+  // C4 — the L0 translation map, planted INCOMPLETE: it names 'traced' but not
+  // 'drawn', and neither Floorish member. An unmapped member must fire.
+  'packages/schemas/src/provenance/DetectionMethodOrigin.ts': [
+    "export const MAP = { 'traced': systemProvenance('computed', 'x') };",
+  ].join('\n'),
   // ⚠ The C75 §2.8 NARROWING idiom, planted so the isDerivedVocab exclusion is
   // itself controlled. It must NOT be reported as an orphan family (it is the
   // prescribed fix, not a hole) — while `FloorishDetectionMethod` above, a
@@ -478,6 +610,18 @@ const CLEAN = {
     "export const Gadget = defineElement('gadget', {",
     '  provenance: RetrofittedProvenanceSchema,',
     '});',
+  ].join('\n'),
+  // …and C4's correct end state beside it: a kind that HAS an outside vocabulary,
+  // whose every member is named in the L0 translation map. Present so C4 is
+  // controlled in both directions — an arm proven only by firing could be firing
+  // on everything.
+  'packages/other/src/GadgetTypes.ts':
+    "export type GadgetDetectionMethod = 'traced' | 'drawn';",
+  'packages/schemas/src/provenance/DetectionMethodOrigin.ts': [
+    'export const MAP = {',
+    "  'traced': systemProvenance('computed', 'x'),",
+    "  'drawn': authoredProvenance('y'),",
+    '};',
   ].join('\n'),
 };
 
@@ -498,6 +642,11 @@ function selfTest(): { ok: boolean; lines: string[] } {
       'covered-but-not-retrofit-safe::gizmo',
       'outside-schemas-only::doohickey',
       'no-schema-for-provenance-bearing-kind::floorish',
+      // C4 — a declared member the L0 translation map does not name. Both a
+      // vocabulary that HAS a schema kind (doohickey) and one that does not
+      // (floorish), so the arm is not accidentally scoped to orphans.
+      'vocabulary-member-not-mapped-at-L0::doohickey::drawn',
+      'vocabulary-member-not-mapped-at-L0::floorish::manual-polygon',
     ];
     for (const key of expect) {
       if (!bad.findings.some((f) => f.key === key)) {
@@ -520,6 +669,28 @@ function selfTest(): { ok: boolean; lines: string[] } {
       lines.push(
         '    ✓ isDerivedVocab: the planted narrowing is excluded, while the planted TRUE orphan ' +
         "('FloorishDetectionMethod') still fires — the exclusion is scoped, not blanket",
+      );
+    }
+    // C4 in the other direction, on the SAME tree: 'traced' IS named in the
+    // planted L0 map and must NOT be reported. An arm that flagged a mapped
+    // member would flag every member and prove nothing by firing.
+    if (bad.findings.some((f) => f.key.endsWith('::traced'))) {
+      ok = false;
+      lines.push(
+        "    ✗ FALSE POSITIVE — C4 reported 'traced', which the planted L0 map DOES name. The arm " +
+        'is firing on presence rather than on absence.',
+      );
+    } else {
+      lines.push(
+        "    ✓ C4 is scoped to ABSENCE: the planted mapped member ('traced') is silent while the " +
+        "planted unmapped ones ('drawn', 'manual-polygon', 'from-room') all fire",
+      );
+    }
+    if (bad.declaredMembers < 4) {
+      ok = false;
+      lines.push(
+        `    ✗ BLIND COMPARATOR — only ${bad.declaredMembers} member literal(s) were read out of the ` +
+        'planted vocabularies; C4 cannot be measuring absence if it is not reading the members.',
       );
     }
     lines.push(`positive control (clean tree — covered via ${RETROFIT_SCHEMA}): ${good.findings.length} finding(s) — must be 0`);
@@ -563,7 +734,16 @@ lines.push(
 lines.push(
   `  outside-schemas vocabularies found: ${a.outsideVocabs.length === 0 ? 'none' : ''}`,
 );
-for (const v of a.outsideVocabs) lines.push(`    ${v.prefix}DetectionMethod — ${v.file}:${v.line}`);
+for (const v of a.outsideVocabs) {
+  lines.push(
+    `    ${v.prefix}DetectionMethod — ${v.file}:${v.line} — members: ` +
+    `${v.members.length === 0 ? '(none declared inline)' : v.members.join(', ')}`,
+  );
+}
+lines.push(
+  `  distinct vocabulary members read: ${a.declaredMembers} · L0 translation map ` +
+  `(${L0_ORIGIN_MAP_FILE}): ${a.l0MapPresent ? 'present' : 'ABSENT'}`,
+);
 lines.push('  arms:');
 lines.push('    C1  EVALUATED      — per-kind schema coverage (the ledger; §3.1 forbids any percentage here)');
 lines.push('    C2  EVALUATED      — outside-schemas vocabularies, associated to kinds by normalised name');
@@ -572,6 +752,10 @@ lines.push(a.c3Evaluated
   : '    C3  NOT EVALUATED over the live tree — zero covered kinds exist, so retrofit-safety has no ' +
     'live subject yet; the arm is proven against the planted control above and arms the day the first ' +
     'kind is covered');
+lines.push(a.l0MapPresent
+  ? '    C4  EVALUATED      — PV-08: every declared vocabulary member is NAMED in the L0 translation map'
+  : '    C4  NOT EVALUATED over the live tree — the L0 translation map is absent, which the floor below ' +
+    'reports as MISCONFIGURED rather than as a pass');
 lines.push(
   '  NOT MEASURED HERE, stated so silence is never read as coverage: the site/context/climate/zoning/' +
   'AI-artefact domains (rich, C75 §0 Finding 3 — not element kinds, so they can never dilute this ' +
@@ -595,6 +779,10 @@ const floors: Floor[] = [
   { what: 'element schema files read', measured: a.elementFilesRead, min: 25 },
   { what: 'outside-schemas files scanned', measured: a.outsideFilesScanned, min: 500 },
   { what: `canonical C75 §1 union present (${CANONICAL_UNION_FILE})`, measured: canonPresent ? 1 : 0, min: 1 },
+  // PV-08 — C4's two subject floors. The map's absence, or a reader that stops
+  // extracting members, would both make the arm silently green.
+  { what: `L0 translation map present (${L0_ORIGIN_MAP_FILE})`, measured: a.l0MapPresent ? 1 : 0, min: 1 },
+  { what: 'distinct vocabulary members read', measured: a.declaredMembers, min: 10 },
   { what: 'executed controls passed (0 = blind comparator)', measured: control.ok ? 1 : 0, min: 1 },
 ];
 

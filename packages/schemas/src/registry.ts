@@ -12,6 +12,9 @@ import { Stair } from './elements/Stair.js';
 import { VerticalCirculation } from './elements/VerticalCirculation.js';
 import { Handrail } from './elements/Handrail.js';
 import { Ceiling } from './elements/Ceiling.js';
+// PV-08 / C75 §5 — the applied floor finish. See `elements/Floor.ts` for why the
+// kind is IN scope rather than argued out on the coverage gate's ledger.
+import { Floor } from './elements/Floor.js';
 import { Room } from './elements/Room.js';
 import { Furniture } from './elements/Furniture.js';
 import { Annotation } from './elements/Annotation.js';
@@ -47,6 +50,7 @@ export const SCHEMA_REGISTRY = {
   verticalCirculation: VerticalCirculation,
   handrail: Handrail,
   ceiling: Ceiling,
+  floor: Floor,
   room: Room,
   furniture: Furniture,
   annotation: Annotation,

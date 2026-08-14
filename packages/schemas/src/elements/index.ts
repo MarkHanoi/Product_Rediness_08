@@ -11,6 +11,11 @@ export { Stair } from './Stair.js';
 export { VerticalCirculation, LiftKind } from './VerticalCirculation.js';
 export { Handrail } from './Handrail.js';
 export { Ceiling } from './Ceiling.js';
+// PV-08 / C75 §5 — the applied floor FINISH (IfcCovering/FLOORING), the mirror of
+// Ceiling and NOT a structural Slab. Added 2026-08-14 to close
+// `check-provenance-coverage`'s C2 finding: `FloorDetectionMethod` existed in
+// core-app-model while L0 had no `defineElement('floor')` to retrofit at all.
+export { Floor } from './Floor.js';
 export { Room } from './Room.js';
 export { Furniture, FurnitureRepresentation, FurnitureLod } from './Furniture.js';
 export { Annotation } from './Annotation.js';
