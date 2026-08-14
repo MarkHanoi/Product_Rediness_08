@@ -132,8 +132,20 @@ const MEDIA_RECEIVER = /video|audio|media|player|^v$|^vid(eo)?El/i;
  *
  * S1: `clearGraphAuthoritative` — the spec's positive-control defect, red the
  *     day this gate landed, exactly as §3.11 requires. 1 definition, 0
- *     production callers, 1 test caller — every generated level keeps its
- *     rooms suppressed for the session.
+ *     production callers, 1 test caller.
+ *     UPDATE 2026-08-14 (§PR-05-UPDATE-SURRENDER, founder decision): the
+ *     SUBSTANTIVE half of this row is paid — a manual, unbatched,
+ *     non-generation wall `add`/`remove`/`update` now surrenders authority via
+ *     the GR2 branch (which delegates to this method), so a hand-dragged
+ *     bounding wall on a generated level re-detects again; "every generated
+ *     level keeps its rooms suppressed for the session" is no longer true.
+ *     The row itself REMAINS MEASURED and must NOT be struck: S1 counts
+ *     production callers of the release METHOD outside its defining file, and
+ *     the GR2 delegation is same-file by design (§PR-05-ONE-RELEASE-AUTHORITY
+ *     keeps the one release path internal). The row leaves the ledger when a
+ *     production caller outside RoomTopologyObserver.ts exists — e.g. an
+ *     explicit user-facing "release this level" verb — not before. Seam
+ *     coverage: packages/room-topology/src/__tests__/gr2UpdateSurrenderSeam.test.ts.
  * S2: PlanViewToolOverlay.ts:368, MEASURED NOT SPECIFIED: the spec named the
  *     initPersistence pair alone; this is the identical shape one directory
  *     over, recorded rather than excluded, because a gate that only ever finds

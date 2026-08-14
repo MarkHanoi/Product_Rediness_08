@@ -136,15 +136,19 @@ export class RoomTopologyObserver {
   // loose) walls would `mergeWithExisting`-ADD the fragmented faces ALONGSIDE the
   // graph rooms → DOUBLE rooms (the founder's "RBedroom002 / Room00-002" overlap).
   // The graph is the source of room identity. GR2: a genuine MANUAL structural
-  // wall edit (`add`/`remove`, NOT a batched generation mutation, NOT a rebuild
-  // `update`) on the level CLEARS the flag → detection re-asserts from then on.
+  // wall edit (`add`/`remove`/`update` — since 2026-08-14 §PR-05-UPDATE-SURRENDER
+  // a hand wall `update` surrenders too; NOT a batched mutation, NOT a
+  // generation-driven write, NOT a WallJoinResolver rebuild storm) on the level
+  // CLEARS the flag → detection re-asserts from then on.
   //
   // Scope is PER LEVEL and the code honours it: every read is keyed by levelId
   // (`_scheduleRedetect` / `_executeRedetect`), marking and clearing are both
-  // per-level, so suppressing one level never suppresses another. Its RELEASE
-  // reach is a separate, still-open defect tracked as the S1 entry in
-  // `tools/ga-gate/check-suppression-is-reversible.ts` — annotating the scope
-  // does not discharge that, and this comment must not be read as doing so.
+  // per-level, so suppressing one level never suppresses another. RELEASE reach
+  // was widened 2026-08-14 (§PR-05-UPDATE-SURRENDER) to cover hand `update`s;
+  // the S1 entry in `tools/ga-gate/check-suppression-is-reversible.ts` stays
+  // regardless — it counts out-of-file production callers of
+  // `clearGraphAuthoritative`, which the in-branch delegation is not (see the
+  // ledger annotation there for why the row must not be struck).
   // @suppression-scope level
   private _graphAuthoritativeLevels = new Set<string>();
 
@@ -249,12 +253,20 @@ export class RoomTopologyObserver {
    * `attach()` used to hold an inline `this._graphAuthoritativeLevels.delete(…)`
    * twin beside it — a release wired in one place and duplicated in another is
    * how a widened release reaches only half the sites. The inline branch now
-   * delegates here. NOTE what this does NOT fix (the still-open half of gap
-   * register PR-05 / gate `check-suppression-is-reversible` S1): release REACH
-   * is unchanged — only a manual, unbatched wall `add`/`remove` gets here, so a
-   * wall `update`, a batched mutation, or the end-of-generation sweep still
-   * never surrenders authority. Widening reach is a behavioural decision that
-   * belongs to the C72 §4.1 row, not to this dedup.
+   * delegates here.
+   *
+   * RELEASE REACH (§PR-05-UPDATE-SURRENDER, founder decision 2026-08-14 —
+   * update-surrender, NOT pre-sweep clear): a manual, unbatched, non-generation
+   * wall `add`/`remove`/**`update`** gets here — a hand-dragged bounding wall on
+   * a generated level now surrenders authority and re-detection re-asserts
+   * (C83 §0.2.1 defect 2 closed at this seam). STILL EXCLUDED, by design: a
+   * batched mutation, a generation-driven write (the lease flag spans the
+   * unbatched gaps between sub-batches), the WallJoinResolver storm, and the
+   * end-of-generation sweep (the founder rejected pre-sweep clearing — the
+   * graph rooms must survive generation settle). The gate
+   * `check-suppression-is-reversible` S1 row stays on its ledger regardless:
+   * it counts production callers of this METHOD outside this file, which the
+   * in-branch delegation deliberately is not.
    */
   clearGraphAuthoritative(levelId: string): void {
     this._graphAuthoritativeLevels.delete(levelId);
@@ -309,16 +321,36 @@ export class RoomTopologyObserver {
         return;
       }
       if (event === 'add' || event === 'update' || event === 'remove') {
-        // ADR-0069 GR2 — a genuine MANUAL structural wall edit (add/remove of a
-        // wall, NOT a batched generation mutation and NOT a rebuild 'update')
-        // surrenders graph authority for this level, so detection re-asserts from
-        // now on (the graph was a generation-time seed, not a permanent lock).
-        if ((event === 'add' || event === 'remove') && !batchCoordinator.isBatching
+        // ADR-0069 GR2 + §PR-05-UPDATE-SURRENDER (founder decision 2026-08-14) —
+        // a genuine MANUAL structural wall edit surrenders graph authority for
+        // this level, so detection re-asserts from now on (the graph was a
+        // generation-time seed, not a permanent lock). `update` is included
+        // since 2026-08-14: a hand-DRAGGED bounding wall deletes its rooms'
+        // boundedBy edges (WallRebuildCoordinator §GR12) while the corrective
+        // re-detect stayed suppressed at the GR1 chokepoint FOREVER — the
+        // add/remove-only arm froze every hand-moved generated level for the
+        // session (C83 §0.2.1 defect 2 / gap register PR-05).
+        //
+        // EXCLUSIONS (C72 §4.4 — the surrender fires on USER hand-edits only):
+        //   • `batchCoordinator.isBatching` — RAC runBatch / generation
+        //     sub-batches: store-local wall events still fan out synchronously
+        //     inside a batch (only the GLOBAL bus buffers), so the branch must
+        //     check for itself;
+        //   • `__pryzmBuildingGenActive()` — the generation lease spans ALL
+        //     sub-batches INCLUDING the unbatched gaps between them, where the
+        //     generators' rebuild `update` storms fire (L-369 measured exactly
+        //     those gaps). Without this guard the generator's own wall writes
+        //     would release suppression mid-generation and re-detection would
+        //     fight the generator — the reason the suppression exists;
+        //   • the §WS-2.A `_joinsResolving` early-return above already drops
+        //     WallJoinResolver rebuild-`update` storms after a hand edit.
+        if (!batchCoordinator.isBatching && !__pryzmBuildingGenActive()
             && this._graphAuthoritativeLevels.has(wall.levelId)) {
           // §PR-05-ONE-RELEASE-AUTHORITY — delegate to the ONE release method
           // instead of an inline `.delete(…)` twin (see clearGraphAuthoritative).
           this.clearGraphAuthoritative(wall.levelId);
-          console.debug(`[RoomTopologyObserver] graph authority surrendered (level=${wall.levelId}, manual ${event}) — ADR-0069 GR2`);
+          const cause = event === 'update' ? 'hand wall update' : `manual ${event}`;
+          console.debug(`[RoomTopologyObserver] authority surrendered: ${cause} (level=${wall.levelId}) — ADR-0069 GR2 / C72 §4.4 / PR-05`);
         }
         this._scheduleRedetect(wall.levelId, DEBOUNCE_MS);
       }
@@ -745,7 +777,8 @@ export class RoomTopologyObserver {
     // the engine's named graph rooms (the founder's duplicated/generic labels).
     // An EXPLICIT redetect (commandManager.execute(new ReDetectRoomsCommand)) is
     // unaffected — it bypasses the observer entirely. GR2 surrender (manual wall
-    // add/remove) clears the flag first, so manual edits still re-detect normally.
+    // add/remove/update — §PR-05-UPDATE-SURRENDER) clears the flag first, so
+    // manual edits still re-detect normally.
     if (this._graphAuthoritativeLevels.has(levelId)) {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=graph-authoritative ADR-0069 GR1)`);
       return;
