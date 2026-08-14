@@ -14,14 +14,16 @@
  *     wall (C83 §4.2 MUST NOT).
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { OpenedRegionFinding } from '@pryzm/room-topology';
 import {
     buildOpenedRegionOffer,
     presentOpenedRegion,
     __resetOpenedRegionProposalState,
 } from '../src/ui/ai/OpenedRegionProposal';
-import { registerChatPromptHost, __resetChatPromptHost, chatSay } from '../src/ui/ai/chatPromptHost';
+import {
+    registerChatPromptHost, __resetChatPromptHost, chatSay, getSurfaceDiagnostics,
+} from '../src/ui/ai/chatPromptHost';
 
 const OPENED: Extract<OpenedRegionFinding, { kind: 'region-opened' }> = {
     kind: 'region-opened',
@@ -144,7 +146,7 @@ describe('§OPENED-REGION — nothing is created until the user confirms', () =>
     });
 
     it('treats "nobody could be asked" as NOT a decline — it dispatches nothing and re-arms', async () => {
-        const h = harness(undefined); // no chat host registered at all
+        const h = harness(undefined); // no chat host, no DOM
         await presentOpenedRegion(OPENED);
         expect(h.executeCommand).not.toHaveBeenCalled();
         // The key stood down, so the question can be asked once a panel exists.
@@ -156,6 +158,144 @@ describe('§OPENED-REGION — nothing is created until the user confirms', () =>
         await presentOpenedRegion(OPENED);
         expect(h2.asked).toHaveLength(1);
     });
+});
+
+/**
+ * §PROMPT-REACHES-A-HUMAN (L-881) — the founder's EXACT starting state, reproduced.
+ *
+ * Build `a75e8e1e` shipped with the detector firing correctly in production (console:
+ * `gap 2.81 m, anchored 2/2, rooms 2 → 1`) and the founder seeing NOTHING: the question
+ * went to `console.warn` and stopped. These arms fail on that code.
+ *
+ * The state under test is "the AI chat has never been opened and no host is
+ * registered". The obligation is that the offer still reaches a VISIBLE surface — by
+ * opening the panel if it can, and by rendering a visible fallback prompt if it
+ * cannot. What is NOT acceptable is the run ending with only a console line.
+ */
+describe('§PROMPT-REACHES-A-HUMAN — the question reaches a visible surface with NO host pre-registered', () => {
+    /** A minimal DOM double: enough for openChatSurface() and the fallback card. */
+    function domHarness(opts: { withPanel: boolean; withToggle: boolean }) {
+        const appended: Array<Record<string, unknown>> = [];
+        const clicks: string[] = [];
+        const mkEl = (): Record<string, unknown> => {
+            const attrs: Record<string, string> = {};
+            const children: Array<Record<string, unknown>> = [];
+            const el: Record<string, unknown> = {
+                style: { cssText: '', display: '' },
+                children,
+                textContent: '',
+                type: '',
+                setAttribute: (k: string, v: string) => { attrs[k] = v; },
+                getAttribute: (k: string) => attrs[k],
+                appendChild: (c: Record<string, unknown>) => { children.push(c); return c; },
+                addEventListener: () => { /* buttons are not pressed in this arm */ },
+                remove: () => { /* detach is a no-op for the double */ },
+                click: () => { clicks.push('toggle'); },
+            };
+            return el;
+        };
+        const panel = mkEl();
+        (panel.style as { display: string }).display = 'none';
+        const toggle = mkEl();
+        const body = mkEl();
+        const document = {
+            body,
+            getElementById: (id: string) =>
+                (opts.withPanel && id === 'ai-panel-container' ? panel : null),
+            querySelector: (_sel: string) => (opts.withToggle ? toggle : null),
+            createElement: (_tag: string) => {
+                const el = mkEl();
+                appended.push(el);
+                return el;
+            },
+        };
+        (globalThis as { document?: unknown }).document = document;
+        (globalThis as { window?: unknown }).window = {
+            runtime: { bus: { executeCommand: vi.fn(async () => ({ success: true })) } },
+            bimManager: { getLevelById: () => ({ height: 3.0 }) },
+        };
+        return { panel, body, clicks, appended };
+    }
+
+    afterEach(() => {
+        delete (globalThis as { document?: unknown }).document;
+        delete (globalThis as { window?: unknown }).window;
+    });
+
+    it('OPENS the AI panel rather than giving up — the founder had never opened it', async () => {
+        const d = domHarness({ withPanel: true, withToggle: true });
+        // No registerChatPromptHost() — exactly the state the founder was in.
+        // Not awaited: the prompt stays open until a human answers it, which is the
+        // point. What is asserted is that the surface was opened, promptly.
+        const run = presentOpenedRegion(OPENED);
+        await vi.waitFor(
+            () => { expect(d.clicks).toContain('toggle'); },
+            { timeout: 10_000, interval: 50 },
+        );
+        expect(getSurfaceDiagnostics().surfaceOpensForced).toBeGreaterThan(0);
+        void run;
+        // This arm deliberately leaves a prompt un-answered; stand the module down so
+        // its eventual render cannot bleed into the next arm's counters.
+        __resetOpenedRegionProposalState();
+    }, 30_000);
+
+    it('renders a VISIBLE prompt when no host ever arrives — never console-only', async () => {
+        const d = domHarness({ withPanel: true, withToggle: true });
+        const run = presentOpenedRegion(OPENED);
+        // Let ensureChatSurface exhaust its deadline; no host will ever register.
+        // The assertion is on THIS arm's own document double: a real element carrying
+        // the fallback marker was appended to the body. That is what fails on
+        // a75e8e1e, where the run ended at console.warn with nothing rendered.
+        await vi.waitFor(
+            () => {
+                const card = d.appended.find(
+                    el => (el.getAttribute as (k: string) => string | undefined)('data-pryzm-fallback-prompt') === 'true',
+                );
+                expect(card).toBeDefined();
+                expect((d.body.children as unknown[]).length).toBeGreaterThan(0);
+            },
+            { timeout: 20_000, interval: 100 },
+        );
+        expect(getSurfaceDiagnostics().fallbackPrompts).toBeGreaterThanOrEqual(1);
+        void run;
+    }, 40_000);
+
+    it('picks up a host that registers WHILE the panel is coming up, and asks there', async () => {
+        domHarness({ withPanel: true, withToggle: true });
+        const asked: string[] = [];
+        const run = presentOpenedRegion(OPENED);
+        // The panel finishes mounting a moment later, as it does in the browser.
+        setTimeout(() => {
+            registerChatPromptHost({
+                say: () => { /* transcript */ },
+                confirm: async s => { asked.push(s); return false; },
+                isReady: () => true,
+            });
+        }, 250);
+        await run;
+        expect(asked).toHaveLength(1);
+        expect(asked[0]).toContain('Create an interior wall');
+        // It reached the real chat prompt, so no fallback was needed.
+        expect(getSurfaceDiagnostics().fallbackPrompts).toBe(0);
+    }, 30_000);
+
+    it('does NOT ask a host whose transcript is not built — that would fabricate a cancel', async () => {
+        domHarness({ withPanel: true, withToggle: true });
+        const asked: string[] = [];
+        registerChatPromptHost({
+            say: () => { /* transcript */ },
+            // AIPanel.showZeroTokenConfirm resolves a fabricated `false` in this state.
+            confirm: async s => { asked.push(s); return false; },
+            isReady: () => false,
+        });
+        const run = presentOpenedRegion(OPENED);
+        await vi.waitFor(
+            () => { expect(getSurfaceDiagnostics().fallbackPrompts).toBe(1); },
+            { timeout: 15_000, interval: 100 },
+        );
+        expect(asked).toHaveLength(0);
+        void run;
+    }, 30_000);
 });
 
 describe('§OPENED-REGION — it refuses to show a button it cannot defend', () => {

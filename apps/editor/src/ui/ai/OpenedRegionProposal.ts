@@ -194,12 +194,19 @@ export async function presentOpenedRegion(finding: OpenedRegionFinding): Promise
         // therefore exactly one undo (C83 §4.1.1).
         const answer = await chatConfirm(offer.summary);
         if (answer === undefined) {
-            // Nobody could be asked — NOT a decline. Say nothing further and let the
-            // key stand down so a later re-detect can ask once the panel exists.
+            // §PROMPT-REACHES-A-HUMAN (L-881) — reachable ONLY with no `document` at
+            // all (a node harness). `chatConfirm` opens the panel, waits for it, and
+            // renders a visible fallback card before it will ever return this. It is
+            // "nobody could be asked", NOT a decline, so the de-dup key stands down and
+            // the question can be put again. In build a75e8e1e this branch was the
+            // whole failure: it degraded to a console line, and the founder saw
+            // nothing. A console line is not a user-facing message.
             lastAskedKey.delete(finding.levelId);
-            console.warn(
-                '[OpenedRegionProposal] §OPENED-REGION found an opened region but no chat surface ' +
-                'was available to ask — the question was NOT asked and NOT answered.',
+            console.error(
+                '[OpenedRegionProposal] §PROMPT-REACHES-A-HUMAN — an opened region was found and ' +
+                'there was no surface of ANY kind to put the question to. NOT asked, NOT answered, ' +
+                'NOT declined.',
+                { levelId: finding.levelId, roomName: finding.roomName },
             );
             return;
         }

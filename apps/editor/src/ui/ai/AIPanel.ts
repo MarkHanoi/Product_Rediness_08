@@ -1739,24 +1739,14 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     // `tryHandleZeroToken` by argument and reachable from nowhere else; this is the
     // accessor and nothing more — no new message shape, no new card, no new store.
     registerChatPromptHost({
-        say: (text: string) => {
-            addMessage('assistant', text);
-            const aiPanel = document.getElementById('ai-panel-container');
-            if (aiPanel && aiPanel.style.display === 'none') {
-                const aiToggle = document.querySelector('[icon="material-symbols:robot-2"]') as HTMLElement;
-                if (aiToggle) (aiToggle as any).click();
-                else aiPanel.style.display = 'flex';
-            }
-        },
-        confirm: (summary: string) => {
-            const aiPanel = document.getElementById('ai-panel-container');
-            if (aiPanel && aiPanel.style.display === 'none') {
-                const aiToggle = document.querySelector('[icon="material-symbols:robot-2"]') as HTMLElement;
-                if (aiToggle) (aiToggle as any).click();
-                else aiPanel.style.display = 'flex';
-            }
-            return showZeroTokenConfirm(summary);
-        },
+        say: (text: string) => { addMessage('assistant', text); },
+        confirm: (summary: string) => showZeroTokenConfirm(summary),
+        // §PROMPT-REACHES-A-HUMAN (L-881) — `showZeroTokenConfirm` resolves a
+        // FABRICATED `false` when `transcriptEl` is falsy (`:1180`; the binding at
+        // :819 is declared uninitialised and assigned during DOM build below). A
+        // caller must be able to find out BEFORE asking, or a question posed too
+        // early comes back as "the user cancelled" when no human saw anything.
+        isReady: () => !!transcriptEl,
     });
 
     window.addEventListener('bim-level-added', () => { /* no-op in chat panel */ });
