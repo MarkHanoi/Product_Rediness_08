@@ -4689,3 +4689,31 @@ conversation, and the disclosure above is that posture behaving correctly. **Rec
 **Also in this log, already-known and unchanged**: `§DIAG-ROOM-LOOP BREAK` ×4 (783/898 mm vs the
 200 mm host-snap) on hand-drawn walls — the L-912/L-913 tail-note family, still unfixed for hand
 edits.
+
+---
+
+## L-915 — QUEUED (polish, low risk) — the consequence-preview card is CORRECT and shows RAW reason codes: keep the code, add the human sentence; and do not truncate the answer
+
+**FOUNDER, 2026-08-14, on `21919312`** — shown the `wall.move` consequence preview and asked *"is
+this as expected?"*: **YES.** Recorded as a WORKING confirmation first, because it is the clearest
+production evidence to date that C78 §1.3 reaches a user: the card lists **5 elements would
+change** (DETERMINED-affected, by id) and **3 impacts UNDETERMINED**, each carrying a member of the
+closed §8.1 union — `STALE_DERIVED_STATE` ×2 (predicted polygon + area of two rooms under the move)
+and `NO_DEPENDENCY_INDEX` ×1 (regeneration of elements dependent on that wall). Nothing is reported
+as unaffected that was merely unreachable; nothing is invented. **That is bar 3''s doctrine visible
+in the product.**
+
+**TWO POLISH ITEMS, both small, neither a defect of correctness:**
+1. **The reason codes render RAW.** `NO_DEPENDENCY_INDEX` / `STALE_DERIVED_STATE` are precise and
+   must stay (they are the typed identity C78 §8.1 requires, and `check-refusal-identity` exists to
+   keep codes attached) — but a user-facing card should show **the code AND a human sentence**:
+   e.g. *"nothing records what depends on this wall yet, so I can''t say what would regenerate
+   (NO_DEPENDENCY_INDEX)"*, *"the room''s derived boundary is out of date since the last change, so
+   its predicted area would be a guess (STALE_DERIVED_STATE)"*. This is the C73 §4.4 standard —
+   the same standard the `OCC_CROSSES_HOSTED_OPENING` card already meets beautifully — applied to
+   the undetermined arm. **Do NOT replace the code with prose** (that is the §8.3 defect in
+   reverse); carry both.
+2. **`+ 1 more…` truncates the answer.** A determined set the user cannot fully read is a partial
+   answer presented as complete. Show all, or make the truncation expandable and state the total.
+
+Sequenced behind the L-914 parity work (same surface family). No engine change; presentation only.
