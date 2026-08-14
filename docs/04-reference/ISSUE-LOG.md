@@ -3060,3 +3060,136 @@ commit message; the browser was the instrument that settled it.
 **Guarded by** `apps/editor/src/ui/toolbar/__tests__/mountHost.spec.ts` FINDING 2b (asserts **not**
 body-appended **and not** `display:none`, with the reason for both) and FINDING 2c (asserts every
 injector has the null branch that makes the host removable at all). 5/5 green.
+
+## L-871 — After a door was created, "the walls meant to extend misbehaved" — verdict: the door was incidental; the real actors were a phantom cascade and L-872
+
+**2026-08-14, founder OBSERVED live on `465d01f3`**, verbatim: *"I moved a wall and the slab and
+floor finish moved … perfect — but then I think I created a door … then the walls that were meant
+to extend misbehaved — they did not follow and were not properly attached."* Console: every move
+ran UPDATE_WALL_BASELINE → §C79-5.2 floor resized → CASCADE_WALL_BASELINE; the door's ADD_OPENING
+**itself** fired a CASCADE_WALL_BASELINE (scope=[wall]).
+
+**EXECUTED VERDICT** (`packages/command-registry/__tests__/wallMoveReweldSeam.test.ts`, real
+WallStore + real CommandManager + real commands + real SlabWallConnectivityService): H1 (stale
+dependency graph / stuck latch), H2 (room replacement invalidating loop membership) and H3
+(opening-add shifting neighbour baselines) are all **REFUTED** — the full founder sequence
+(move → door → move) keeps every corner-joined weld working and shifts no baseline at the door.
+What ADD_OPENING really did: `wallStore.addOpening` emits `'update'` with the baseline untouched;
+`SlabWallConnectivityService.onWallUpdated` cannot tell a non-move from a move, so it dispatched a
+batch of **byte-identical** cascade writes — a phantom undo entry per opening plus a redundant
+rebuild storm (the founder's console line). The walls that genuinely did not follow were
+T-abutting interiors — that is **L-872**, not the door.
+
+**FIX** (`SlabWallConnectivityService.ts` §L-871 IDENTITY-SUPPRESSION): entries that move no
+endpoint by >1e-9 m are dropped; an all-identity batch dispatches nothing. C79 §5.2's five-state
+reporting (finish trackers) is untouched. **Guarded by** the seam suite's L-871 test (history
+grows by exactly ONE entry on ADD_OPENING; baselines byte-unchanged; post-door welds still fire).
+
+## L-872 — Interior wall abutting MID-SPAN (T-junction) never extends when its perimeter host moves; the move destroys a room
+
+**2026-08-14, founder OBSERVED live** (repro 2): perimeter → slab → one interior wall T-abutting
+both sides → two floor finishes → move one perimeter segment. Console: §C79-5.2 resized BOTH
+floors correctly; CASCADE_WALL_BASELINE welded the corner neighbours; **no re-baseline was ever
+issued for the interior wall**; REDETECT_ROOMS then "Detected 1 room(s)" (was 2) and unregistered
+a room — **a move destroyed a semantic entity**.
+
+**ROOT CAUSE (H0, confirmed).** The only extend mechanism was
+`SlabWallConnectivityService`, whose dependency graph is keyed on slab-sketch **outer-loop
+membership** (`SlabWallConnectivityService.ts` `registerSlab`, walks
+`slab.sketch.outerLoop.edges` only). A mid-span abutment is an edge of no slab loop, so no cascade
+can ever address it. The purpose-built engine `computeMoveReweld`
+(`packages/geometry-wall/src/WallMoveReweld.ts`) — which handles exactly this, T-stems included —
+had **zero production callers**; its own header documented the missing move-commit dispatch.
+
+**FIX** (`ca878883`): `WallMoveReweldService` (`packages/geometry-wall/src/WallMoveReweldService.ts`)
+— on a committed baseline change, read the moved wall's `joinedTo` partners (ADR-0321 graph;
+C71 §4.4: a **refusal** falls back to a same-level geometric scan and says so — refusal ≠ "joins
+nothing"), run `computeMoveReweld`, dispatch ONE `CascadeWallBaselineCommand`
+(cause `'move-reweld'`, STRUCTURAL_CASCADE) behind propagating + `isJoinResolving` +
+cascade-applying + reverting latches. Command class factory-injected (§SCC: no command-registry
+import at geometry-wall module load). Wired in `engineLauncher.ts` after the slab service, so
+corner welds land first and seated partners fall below the displacement floor. Also fixed while
+wiring: **§L-872 T-SEAT-GUARD** in `computeMoveReweld` — a corner strictly interior to the moved
+wall's new segment is a T-abutment on its BODY; the seating loop could silently SHORTEN a moved
+host whose stem abuts near its end (only the over-extend cap saved mid-span stems).
+
+**Founder's stated expectation, recorded as the standard:** *"all elements as living entities
+connected semantically that adapt to the new design."* **Guarded by** the seam suite's L-872 pair
+(pre-fix wiring pinned: interior wall stays, room count 2→1; fixed wiring: interior wall follows
+to the new centreline, welded endpoint only, and BOTH rooms survive REDETECT with their ids —
+C70 C-INV-3) and `WallMoveReweld.test.ts` 13/13.
+
+## L-873 — Wall moved beyond its neighbour's extent: "the joint should follow" — same missing mechanism, second symptom
+
+**2026-08-14, founder OBSERVED live** (repro 3): moving a wall outward past its corner-joined
+neighbour's far end. Expected (verbatim): *"the system to be clever and understand that as this
+wall was moving out — the joint should follow"* — the neighbour extends **along its own axis** to
+the new line intersection. Actual: *"it kept the original point, moving the 2 wall point to
+connect"* — a skewed run anchored to the stale corner.
+
+**ROOT CAUSE.** One mechanism, two symptoms: outside a slab loop **nothing** re-welds a junction
+after a move (`WallMoveJunctionReweld.measure.test.ts` had already measured exactly this: baseline
+never extends, the gap exceeds `snapRadius`, and the mitre pass can no longer even detect the
+junction). `computeMoveReweld` computes precisely the extend-along-axis / line-intersection weld
+the founder expected. **FIX = L-872's dispatch** (`ca878883`). **Guarded by** the seam suite's
+L-873 pair: pre-fix wiring pinned (no slab ⇒ neighbours never follow); fixed wiring asserts the
+welded endpoint travels beyond the neighbour's old far end to the new intersection, far endpoints
+never move (§CLAMP-COSHARE-WELD doctrine), and each neighbour stays on its own axis — **no skew**.
+Residual, named honestly: the render-side symptom (stale mitre mesh drawn to the old corner) is
+downstream of the baselines this fixes and was not separately reproduced at this seam.
+
+## L-874 — Undo after a move+cascade restored NOTHING: every Ctrl+Z was compensated by a fresh forward cascade
+
+**2026-08-14, founder OBSERVED live** (repro 3, verbatim): *"i did undo to show you the original
+version but the undo did not revert properly — actually 2 or 3 undos did not work"* — two
+screenshots, identical.
+
+**ROOT CAUSE (confirmed at `CommandManagerImpl.undo()` + the services).** `undo()` replays a
+command's inverse with observers paused but with **no structural-cascade suppression**:
+`UpdateWallBaselineCommand.undo → restoreSnapshot` re-emits the wall `'update'`, the connectivity
+service treated it as a fresh user move and dispatched a NEW FORWARD cascade via `execute()` —
+which **also pushed a new history entry and cleared the redo stack** (`CommandManagerImpl.ts`
+history push / `redoStack = []`). Net: pop one, push one compensator; the visible state never
+changes. "2–3 undos did not work" is this loop, exactly.
+
+**FIX** (`ca878883`): `CommandManager.isReverting()` — a depth-counted latch around `undo()` and
+`redo()` — consulted by BOTH cascade services alongside the new
+`isCascadeWallBaselineApplying()` command-side latch; during a revert the history's own cascade
+entries restore the neighbours and the services stay silent. **Guarded by** the seam suite's
+L-874 test: one gesture mints a bounded entry set (move + its cascades, REDETECT never on the
+stack), the FIRST undo visibly reverts the moved wall, draining exactly those entries restores
+every baseline **byte-equal**, and redo replays the whole gesture.
+
+**AMENDED same day — founder acceptance ratified ONE undo, and it now holds.** §L-874-ONE-UNDO
+(`CommandManagerImpl.ts`): a nested `STRUCTURAL_CASCADE` dispatched from inside another command's
+`execute()` now COMPOSES into that gesture's history entry (`HistoryEntry.structuralChildren`)
+instead of minting its own; `undo()` reverts children first in reverse order then the command,
+`redo()` replays command then children (services silent behind `isReverting`). One move = ONE
+history entry = ONE Ctrl+Z restoring the ENTIRE pre-move state, asserted byte-equal in the seam
+suite's L-874 test. Top-level cascades (no enclosing execute, e.g. live-drag store writes) keep
+their own entry, and a nonUndoable/REMOTE outer command flushes its children as separate entries
+so no cascade ever becomes unrevertible. `'STRUCTURAL_CASCADE'` was added to `CommandSource` —
+it was already the runtime value both dispatchers send; the union simply never admitted it.
+
+## L-875 — Multi-slab: the shared bounding wall was YANKED to a mid-span foot, and last-wins dedupe discarded one loop's weld ("on top of that the slab breaks")
+
+**2026-08-14, founder OBSERVED live** (repro 3, L-shaped layout, three region slabs): moving a
+wall also visibly broke a slab boundary.
+
+**ROOT CAUSE (two defects in `SlabWallConnectivityService`).** (1) `_computeNearestEndpointEntry`
+chose the endpoint to snap by **nearest-to-the-new-corner**. A full-height side wall shared by
+TWO region slabs (or T-abutted mid-span) has NEITHER endpoint at the moved wall's junction — yet
+one got snapped to the partition's mid-span foot, visibly truncating the wall out of the other
+room. (2) the batch dedupe was **last-wins per wall**: when two slab loops each welded a
+DIFFERENT endpoint of the same neighbour, the earlier loop's weld was silently discarded — its
+corner stayed open. **FIX** (same commit family): (1) §L-875 WELD-PRECONDITION — the endpoint to
+snap is the one that **was welded** to the moved wall's PRE-move segment (§STEP7 `prevState`,
+now threaded through the service's subscription; `computeMoveReweld` step 1's exact rule); a wall
+with no welded endpoint is refused. (2) merge-dedupe — entries for the same wall FOLD (each
+entry's changed endpoint, diffed against its own `prevBaseLine`, applied onto the accumulated
+baseline) so both loops' welds survive. Plus §L-873 CORNER-ON-NEW-SEGMENT and the seat-side
+T-SEAT-GUARD — a corner the moved wall no longer occupies, or one strictly interior to its
+segment, never seats an endpoint (the "kept the original point, moving the 2 wall point to
+connect" snap-back, executed as the slide test). **Guarded by** the seam suite's L-875 test
+(two region slabs, shared side walls byte-untouched, partition moves cleanly, both rooms survive
+with their ids) and the L-873 slide test.
