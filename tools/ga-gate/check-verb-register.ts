@@ -221,13 +221,26 @@ const SHADOWED_BASELINE: readonly string[] = [
   // genuinely dual-registered (plugin handler in a live handler set, registering
   // before the bridge) and each needs the ceiling-precedent treatment: delete the
   // plugin declaration, prove the bridge write with a read-back test.
+  //
+  // §FIX-TEMPLATE-ASSIGN-SHADOW (MT-03) — 'template.assignToNode' PAID and removed in
+  // the same commit, per the rule three paragraphs up. Both declarations built the SAME
+  // `AssignTemplateToNodeCommand` (plugins/rooms/src/handlers/legacyCommands.ts re-exports
+  // it from @pryzm/command-registry), so this was never two different things — it was one
+  // command with a rival wrapper, and the plugin wrapper was the worse one: it swallowed a
+  // failed `commandManager.execute` into `{forward:[],inverse:[]}` (C16 CA-18 PROHIBITED),
+  // no-op'd silently when `window.commandManager` was absent, and dropped the bridge's
+  // `assignedBy: 'user'` default. Authority declared: the §E.5.7 bridge at
+  // initBusHandlers.ts:2352. `plugins/rooms/src/handlers/AssignTemplateToNode.ts` is
+  // DELETED with its barrel exports and its ROOM_HANDLER_TYPES entry, so the §OI-053
+  // `registry.has()` skip at :2575 no longer fires and the bridge registers. Pin:
+  // `plugins/rooms/__tests__/templateAssignShadow.test.ts` (3 cases incl. a negative
+  // control on `room.create`, watched failing 3/3 first). 9 → 8.
   'element.updateMark',
   'furniture.updateParameters',
   'level.add',
   'sheet.addViewport',
   'stair.create',
   'stair.move',
-  'template.assignToNode',
   'view.setCrop',
   'view.updateDefinition',
 ];

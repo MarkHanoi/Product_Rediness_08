@@ -16,11 +16,11 @@ change, not a rename — see C69 §2.
 | | |
 |---|---|
 | Handler files read | 1245 (floor 900) |
-| **Verbs** | **324** (floor 250) |
-| LIVE | 110 |
+| **Verbs** | **325** (floor 250) |
+| LIVE | 111 |
 | REFUSES | 36 |
-| SHADOWED (dead route) | 9 |
-| UNKNOWN | 169 |
+| SHADOWED (dead route) | 8 |
+| UNKNOWN | 170 |
 | authoritative store NONE or UNKNOWN | 214 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
@@ -297,7 +297,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `structural.setDimensions` | plugins/structural | UNKNOWN | UNKNOWN | patch-pair → structural | synced via 'structuralId' (disclose) | classified F |
 | `structural.setKind` | plugins/structural | UNKNOWN | UNKNOWN | patch-pair → structural | synced via 'structuralId' (disclose) | classified B |
 | `structural.setMaterial` | plugins/structural | REFUSES | NONE | patch-pair → structural | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
-| `template.assignToNode` | plugins/rooms | SHADOWED | UNKNOWN | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
+| `template.assignToNode` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
 | `template.create` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
 | `template.unassign` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
 | `vg.assignIntent` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified C |
@@ -344,6 +344,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.setDimensions` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | classified D |
 | `wall.setLayers` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | classified B |
 | `wall.setSystemType` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | synced via 'id' (disclose) | classified D |
+| `wall.split` | plugins/wall | UNKNOWN | UNKNOWN | UNKNOWN (declares wall) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `wall.transform` | plugins/wall | REFUSES | NONE | patch-pair → wall | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `wall.updateBaseline` | plugins/wall | UNKNOWN | UNKNOWN | NONE (empty patch pair) | synced via 'wallId' (disclose) | classified B |
 | `wall.updateColor` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | deferred (CHAT_UNAVAILABLE) |
@@ -382,6 +383,5 @@ the second site is the one nobody knew was dead.
 | `sheet.addViewport` | `plugins/sheets/src/handlers/AddViewport.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.create` | `plugins/stair/src/handlers/CreateStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `stair.move` | `plugins/stair/src/handlers/MoveStair.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
-| `template.assignToNode` | `plugins/rooms/src/handlers/AssignTemplateToNode.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `view.setCrop` | `plugins/view/src/handlers/SetViewCrop.ts` · `apps/editor/src/engine/initBusHandlers.ts` |
 | `view.updateDefinition` | `plugins/view/src/handlers/UpdateViewDefinition.ts` · `apps/editor/src/engine/initBusHandlers.ts` |

@@ -15,7 +15,6 @@ import { RedetectRoomsHandler } from './RedetectRooms.js';
 import { RegenerateRoomsHandler } from './RegenerateRooms.js';
 import { RenameRoomHandler } from './RenameRoom.js';
 import { CreateTemplateHandler } from './CreateTemplate.js';
-import { AssignTemplateToNodeHandler } from './AssignTemplateToNode.js';
 
 export const ROOM_HANDLER_TYPES = [
   'room.create',
@@ -35,7 +34,14 @@ export const ROOM_HANDLER_TYPES = [
   'room.regenerate',
   'room.rename',
   'template.create',
-  'template.assignToNode',
+  // §FIX-TEMPLATE-ASSIGN-SHADOW (MT-03) — 'template.assignToNode' is NOT
+  // declared here. It has a live §E.5.7 bridge in initBusHandlers.ts:2352, and
+  // this plugin claiming the type first was the ONLY reason that bridge never
+  // registered (the §OI-053 `registry.has()` skip at :2575). Both sites built
+  // the SAME AssignTemplateToNodeCommand; the plugin arm additionally swallowed
+  // a failed dispatch into `{forward:[],inverse:[]}` (C16 CA-18 PROHIBITED) and
+  // dropped the bridge's `assignedBy: 'user'` default. Authority declared: the
+  // bridge. Loser deleted, not commented. Pin: __tests__/templateAssignShadow.test.ts.
 ] as const;
 
 export type RoomHandlerType = (typeof ROOM_HANDLER_TYPES)[number];
@@ -56,7 +62,6 @@ export function buildRoomHandlerSet(): readonly CommandHandler<unknown>[] {
     new RegenerateRoomsHandler() as unknown as CommandHandler<unknown>,
     RenameRoomHandler as unknown as CommandHandler<unknown>,
     CreateTemplateHandler as unknown as CommandHandler<unknown>,
-    AssignTemplateToNodeHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -98,4 +103,3 @@ export {
 } from './RegenerateRooms.js';
 export { RenameRoomHandler, type RenameRoomPayload } from './RenameRoom.js';
 export { CreateTemplateHandler, type CreateTemplatePayload } from './CreateTemplate.js';
-export { AssignTemplateToNodeHandler, type AssignTemplateToNodePayload } from './AssignTemplateToNode.js';
