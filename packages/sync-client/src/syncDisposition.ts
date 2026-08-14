@@ -315,6 +315,20 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
       'routing (levelId selects the doc, so it cannot also be a record within one). ' +
       'Needs a coordination-scope disposition kind; W5-3 did not wire it.',
   },
+  'room.redetect': {
+    kind: 'not-synced',
+    reason:
+      'DERIVED RECOMPUTE with a LEVEL subject: payload is `levelId` (+ optional ' +
+      'elevation/height), and its output — rooms — is derived state re-computed from ' +
+      'wall geometry (RedetectRoomsHandler, @pryzm/plugin-rooms). Two independent ' +
+      'reasons not to replicate it: the element-property path resolves one ELEMENT id ' +
+      'and a level is not an element (see level.add), and replicating a recompute ' +
+      'TRIGGER would sync the instruction rather than the state — each client ' +
+      'derives rooms from the wall edits it already receives. NOT asserted here: ' +
+      'that remote clients actually re-run detection when replicated wall edits ' +
+      'arrive. That is the derived-refresh question; this entry declares the ' +
+      'disposition, not that answer.',
+  },
   'projectOrigin.setVisible': {
     kind: 'not-synced',
     reason: 'Per-viewer display toggle for the origin marker; not model state.',
