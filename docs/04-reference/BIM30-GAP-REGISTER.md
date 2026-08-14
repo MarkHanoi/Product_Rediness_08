@@ -3,6 +3,15 @@
 > **Stamp**: 2026-08-14 · **Phase 0** of the founder's BIM 3.0 master directive · **Branch**: `main` · **HEAD**: `0c098d81`
 > **Recount (lane L1)**: 2026-08-13, **MID-SESSION** — gates executed between `9fc6804d` and `b61f0ba3`; every re-run row carries its reading and the SHA it ran at in-row. Seven other lanes were landing commits during the pass (ten landed mid-recount), and readings marked *mid-flight* read uncommitted lane work in the shared tree. **An end-of-session re-verification pass will re-run every gate**; where it disagrees with a reading here, the later execution wins.
 > **Recount (lane L-STAMP)**: 2026-08-14, **END-OF-SESSION** — this is that pass. Every deciding gate re-executed between `a5211b46` and `0c098d81` (~28 gate runs + 9 test-suite executions, each named in-row); other lanes were still landing commits under it, and rows whose number moved mid-pass carry both readings with their SHAs. Where this stamp and an earlier one disagree, **this one was measured later and wins — until the next execution.** Founder authorisation for this restamp: "stamp it from fresh gate runs" (2026-08-14).
+> **Restamp (lane R2)**: 2026-08-14, **at `a75e8e1e`** — a second, later pass over the **13 rows a
+> day of paying work had moved**, after the L-STAMP pass above. Every reading was produced by an
+> instrument this lane executed itself: 11 gate runs + 5 test/harness executions, each named in-row.
+> **§9.0 is 55 / 20 / 7.** Four rows closed (MT-10, CO-03, GE-04, PV-08); **six moved and did not
+> close, two of which this lane was briefed were closable** — `GE-12` (its own new gate reads 13/13
+> and corrects this register's arithmetic upward) and `GE-09` (85 offenders against a baseline of
+> 86). Where a brief, a commit subject and a gate disagreed, **the gate decided, every time**
+> (C70 §0.2). `MT-09` was **not** re-measured and says so in its own cell rather than carrying a
+> two-day-old number forward as current.
 > **This register is now STATUS-BEARING.** Every classified row carries a **Status** column with exactly three values — **CLOSED**, **OPEN**, **UNPROVEN** — and every CLOSED row names *how* the closure was established. A row closed on an **executed gate run or an executed test** says so and names the instrument. A row closed only on a commit subject is marked **CLOSED (BY-READ)** and is explicitly the weaker evidence; the two are never laundered into one another (C70 §0.1).
 > **Companion**: [`BIM30-DO-NOT-REBUILD.md`](BIM30-DO-NOT-REBUILD.md) — the architecture-protection half. Read them as a pair: this document says what is missing, that one says what must survive the fixing.
 > **Authority**: the contracts, not this file. [C70](../02-decisions/contracts/C70-BIM30-TARGET-AND-GOLDEN-CHAIN.md) · [C71](../02-decisions/contracts/C71-GRAPH-AND-TOPOLOGY.md) · [C72](../02-decisions/contracts/C72-PROPAGATION-AND-PREVSTATE.md) · [C73](../02-decisions/contracts/C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) · [C74](../02-decisions/contracts/C74-CONSTRAINT-HONESTY.md) · [C75](../02-decisions/contracts/C75-PROVENANCE.md) carry the binding invariants and the measured facts. This register **indexes** them into one addressable list; where it and a contract disagree, **the contract wins**.
@@ -269,7 +278,46 @@ giving **86 type-instances**.
 | **MISSING SOLVER** | 1 | and it is **unauthorised** — C74 §4.5 stands |
 | **ARCHITECTURAL CHANGE** | **0** | — |
 
-### §9.0 — Status distribution — recount 2026-08-14, lane L-STAMP, `a5211b46` → `0c098d81` (END-OF-SESSION)
+### §9.0 — Status distribution — **RESTAMP 2026-08-14, lane R2**, at `a75e8e1e` (supersedes the L-STAMP table below it)
+
+> **This table was restamped by a second, later pass and the numbers changed.** Lane R2 re-executed
+> the deciding instrument for **13 rows** — the ones a day of paying work had moved — and left the
+> other 69 exactly as lane L-STAMP measured them. **Rows this restamp re-measured:** MT-10, MT-07
+> (batch 1) · CO-03, GE-04, PV-08, GE-12, GE-09, GR-12, GE-07, MT-03, GE-01, GR-14, CO-06. **MT-09
+> was NOT re-measured** and says so in its own cell. Every other row is *carried*, and carrying is
+> not re-verifying (§0.0 rule 5).
+>
+> | Status | **Restamp @ `a75e8e1e`** | was @ `0c098d81` | movement |
+> |---|---|---|---|
+> | **CLOSED** | **55** | 51 | +4 — MT-10 (re-closed on its own executed `check-xss-guards`, batch 1) · **CO-03** · **GE-04** · **PV-08** |
+> | **OPEN** | **20** | 24 | −4, the same four |
+> | **UNPROVEN** | **7** | 7 | unchanged |
+>
+> **55 + 20 + 7 = 82.** Counted mechanically over the Status column, not hand-incremented; the two
+> `n/a` rows (GR-02 PARKED, GR-03 the recount note) are excluded as always.
+>
+> **⚠ Read the movement before the number. Four rows closed; SIX moved and did NOT close, and two
+> of those were handed to this lane as closable.** `GE-12` — its own new counting gate reads **13
+> findings at a declared level of 13**, and *corrects this register's arithmetic upward* (7
+> triangulation bodies / 4 engine copies, not "×5" and "×3"): an instrument that counts a
+> duplication is not a collapse of it. `GE-09` — `check-refusal-identity` reads **85 offenders
+> against a baseline of 86**; one family is paid and executed-proven, eighty-five are not.
+> `GR-12` — the most valuable movement of the day and still open: **`boundedBy` went STALE →
+> INVALIDATED** under H6, re-run here, and `check-move-propagation` still holds **3 findings** with
+> C79 §5.2's five-state channel MEASURED-ABSENT for every family. `MT-03` — 9 → **1 at HEAD**, not
+> 0; the 0 reading exists only in **uncommitted** shared-tree work. `GE-01` — the fence was drained
+> to 357 and is **RED again at 359**, the two new declarations minted by the very next feature.
+> `CO-06` — **15 measured, ~29 still declared**, because its gate exits **[3] STALE LEDGER**.
+>
+> **Two gates are RED at this restamp and neither is hidden in a count:** `check-epsilon-policy`
+> **[3] RATCHET EXCEEDED (359/357)** and `check-no-hidden-mock` / `check-deterministic-regeneration`
+> **[3] STALE LEDGER** (14 and 16 unstruck entries). A ledger that keeps paid entries can absorb the
+> next regression silently — that is the *mechanism* these rows exist to protect, and it is
+> currently unprotected in three places.
+
+---
+
+### §9.0-PRIOR — Status distribution — recount 2026-08-14, lane L-STAMP, `a5211b46` → `0c098d81` (END-OF-SESSION)
 
 Counted over the same **82 classified rows**, re-produced by an executed end-of-session recount
 (~28 gate executions + 9 test-suite executions, every one named in-row) — **counted, never
@@ -292,6 +340,10 @@ earlier executed reading of 26), CB-02, CO-05, CO-09.
 
 **51 + 24 + 7 = 82.** The two non-gap rows (GR-02 PARKED, GR-03 the recount note) carry `n/a` and
 are excluded, exactly as §9's type distribution excludes them.
+
+> ⚠ **SUPERSEDED by §9.0 above (lane R2, `a75e8e1e`, later the same day): 55 / 20 / 7.** This
+> table is kept, not deleted, so the movement is auditable — §0.0 rule 4's spirit applied to the
+> counts as well as to the rows. Where the two disagree, the **later execution wins**.
 
 > **§9.0.1 — the shape of the movement, stated so it is not mistaken for progress on the defects.**
 > The largest single change since `a8f15234` is **not** that gaps closed. It is that **16 gates the
@@ -516,3 +568,54 @@ would overstate the gap in the opposite direction — the same failure mode, mir
    has checked whether the detector is right at that scale.
 4. **No causal link between L-865's redetect suppression and L-862's error count.** That is a stated
    hypothesis with a named test, and it must not be cited as a cause until the test is run.
+
+---
+
+### ADDENDUM 2026-08-14 (lane R2) — three items with executed evidence and **NO owning row**
+
+> **Same banner as the section above: these are NOT counted rows and they change no number in
+> §9.0.** They are recorded here because lane R2 was asked to judge whether an existing row covers
+> them and the honest answer is **no** — inventing rows is a recount's job, not a restamp's. Each
+> item below states what this lane *executed itself* separately from what it was *told*.
+
+**1 — L-861's class was paid, and the founder verified it in production.** §12's `L-861` above reads
+*"🔴 Interior partitions drawn by polyline do not extend when a bounding wall moves — NEW CLASS,
+room-boundary preservation."* That class is now **L-871 – L-875** in the ISSUE-LOG, with root causes
+at file:line, and it is fixed: `ca878883` (wire `computeMoveReweld` dispatch + the cascade/revert
+latches, §L-872 T-SEAT-GUARD for a corner strictly interior to the moved span), `f2256eba`
+(one-undo composition in `CommandManagerImpl` + §L-875 WELD-PRECONDITION, so two region slabs'
+welds of the same shared wall both survive instead of last-wins discarding one). **Executed by this
+lane at `a75e8e1e`:** `packages/command-registry/__tests__/wallMoveReweldSeam.test.ts` → **8/8 PASS**
+— the seam suite that pins L-871 (identity-suppression of no-move entries), L-872/L-873 (pre-fix
+wiring pinned as a negative control, fixed wiring asserted), L-874 (**one gesture ⇒ one history
+entry, one undo byte-equal restore, one redo replay**) and L-875 (two-slab shared wall).
+**Reported to this lane, NOT verified by it:** the founder's production acceptance of that work.
+That acceptance is the strongest instrument available on the viewport axis (§12's own asymmetry
+argument) and it is *reported*, so it is written as reported. **Why it has no row:** the register's
+move rows are `GR-12` (semantic-graph edges surviving a move) and `check-move-propagation`'s
+region-derived geometry families. *Interior partitions re-welding to a moved host* is neither — it
+is the L-861 class, and L-861 was already parked in this section awaiting a row.
+
+**2 — Contract C83 was minted and nothing in this register points at it.** `28b47ec1` +
+`2e5204f0` created `docs/02-decisions/contracts/C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md`, whose
+thesis — *"the detection is not missing, the refusal is"* — is the same shape as this register's
+`GR-14` (`[]` conflated with unknown) and `CO-01`. **This document's Authority line names C70–C75
+only.** A CANONICAL contract that binds spatial-validity work while sitting outside the register's
+stated authority chain is a governance gap, not a defect; naming it is the fix, and the next
+recount should either extend the Authority line or state why C83 is out of scope.
+
+**3 — The living graph now NOTICES an opened region and ASKS — and no row scored this capability.**
+`499360c6` added `packages/room-topology/src/OpenedRegionDetector.ts`, a **pure** before/after
+room-set comparison (**executed by this lane: 16/16 PASS**); `a75e8e1e` wired detect → **offer** →
+execute: `RoomTopologyObserver` raises it, `OpenedRegionProposal` puts an accept/decline question on
+the C83-canonical chat prompt, and **Confirm dispatches ONE undoable `wall.create` through the bus**
+(**executed by this lane: 17/17 PASS** — the commit subject says 13/13; the file carries 17 cases
+and 17 is what ran). ISSUE-LOG `L-880` records the measurement that decided where the fix belongs,
+and it is the valuable part: **three signals already existed and none of them was this signal** —
+`unresolvedLoopBreaks=0` was *correct* (a thick-shell T-junction clamp diagnostic with a 1 m
+ceiling), the compliance overlay is a downstream symptom channel that cannot name a missing edge,
+and §GR12's `boundedBy` undetermined mark is the right *state* in the wrong *shape* (a mark, not a
+geometry). **Why it has no row:** this register grades *gaps*, and G6 — *"closed-loop: the answer
+feeds back into the model and maintains itself"* — has no row anywhere above claiming it. A
+detect → ask → one-undoable-command loop is the first G6-shaped behaviour in the tree, and the
+register currently has no cell in which to say so.
