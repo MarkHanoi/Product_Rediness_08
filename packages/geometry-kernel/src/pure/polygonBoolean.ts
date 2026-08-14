@@ -303,9 +303,28 @@ function splitRing(ring: ReadonlyArray<Pt2>, other: ReadonlyArray<Pt2>): SubEdge
         // Materialise, drop parameters that land on an existing endpoint, sort,
         // and dedupe by POINT identity (not by parameter distance — a parameter
         // band would be an undeclared, length-dependent epsilon).
+        // §C73-DETERMINISTIC-ORDER (C73 §1.2) — the cut parameters are ordered by
+        // the SPEC-DEFINED numeric sort of a typed array, not by a user
+        // comparator. `%TypedArray%.prototype.sort` with no comparator is a
+        // TOTAL order over float64: ascending, −0 before +0, NaN last — fixed by
+        // ECMA-262, so the sequence is a function of the multiset of values and
+        // of nothing else. `Array.prototype.sort((p, q) => p - q)` is weaker on
+        // both counts: it returns 0 on a tie (so the result depends on the order
+        // the pushes happened to occur in — the clause §1.2 is about), and it
+        // returns NaN for a NaN input, which makes it an INCONSISTENT comparator
+        // whose output is implementation-defined. Neither hazard can bite here
+        // today — `cuts` holds primitives, so tied entries are indistinguishable
+        // values rather than records, and NaN cannot enter (`prepareRing`
+        // refuses non-finite ordinates, both producers guard their divide with
+        // `isNumericallyZero`, and both range-check `t`) — but "deterministic
+        // because of three facts proved elsewhere in the file" is exactly the
+        // kind of invariant that rots silently when one of the three moves. The
+        // typed-array sort is deterministic because the spec says so, which is
+        // an argument that cannot rot. Not a rewrite of the algorithm: for
+        // NaN-free input the resulting sequence is identical.
+        const orderedCuts = Float64Array.from(cuts).sort();
         const pts: Pt2[] = [[a[0], a[1]]];
-        cuts.sort((p, q) => p - q);
-        for (const t of cuts) {
+        for (const t of orderedCuts) {
             const px = a[0] + t * (b[0] - a[0]);
             const py = a[1] + t * (b[1] - a[1]);
             const last = pts[pts.length - 1]!;
