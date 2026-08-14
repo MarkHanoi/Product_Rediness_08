@@ -4548,3 +4548,49 @@ them is the user''s:
 utterance into the brief, and ASK when unparseable — never default silently; (b) find where 5 comes
 from; (c) **the reject must reach the user** through the existing `layout-rejected` channel with
 both numbers and the shell''s own capacity; (d) log the relay 500 / cache 401 separately.
+
+---
+
+## L-912 — OPEN, FOUNDER-URGENT — the L-904 clash refusal does NOT fire on the founder''s gesture: `segmentsProperlyCross` misses COLLINEAR/OVERLAPPING wall-onto-door, and no offer appears
+
+**OBSERVED by the founder ON THE DEPLOY THAT SHIPPED L-904** (`21919312`, bundle
+`main-CglAW_HE.js`), 2026-08-14. Moved a wall to overlap a door: **no notification, no message,
+no refusal** — `[CommandManager] EXECUTE: UPDATE_WALL_BASELINE` executed clean, and the
+`§C83-S1-MOVE` / `OCC_CROSSES_HOSTED_OPENING` arm never appeared in the log.
+
+**This is a NARROWING of L-904, not a regression of it.** The shipped predicate reaches the move
+seam correctly (`UpdateWallBaselineCommand.canExecute` → `CascadeWallBaselineCommand.canExecute`),
+but its detector is `WallCreateConsequencePlanner.segmentsProperlyCross` (`:571-581`), which C83
+§8.4 documents as **deliberately strict**: *"a wall merely TOUCHING an endpoint → zero findings,
+since `segmentsProperlyCross` is deliberately strict"*. A **proper crossing** is two segments
+intersecting transversally at an interior point. The founder''s gesture — sliding a wall so it lies
+**collinear with / overlapping** the wall that hosts the door, or so it lands flush against the
+door''s span rather than crossing it — is **not a proper crossing** and is therefore invisible to
+the predicate. The refusal is correct about the question it asks; it is asking too narrow a
+question.
+
+**HYPOTHESIS TO MEASURE FIRST (do not fix before measuring):** reproduce the founder''s exact
+gesture from the geometry in this log (`wall_01M00GR2H2KM3TMEKDNWDPCMJN` moved; floor followed
+106.03 → 133.734 m²; §GR12 invalidated 2 rooms) and determine which of these it is —
+(a) collinear overlap along the host wall''s own line; (b) T-touch at an endpoint inside the
+door''s span; (c) a proper crossing the predicate SHOULD have caught but did not (a real bug in
+the arm, distinct from a scope gap). **The fix differs per branch**, and (c) would be the only
+regression.
+
+**THE PREDICATE THIS NEEDS** (per C83 §1.2''s IMPOSSIBLE test — two mutually exclusive claims about
+one volume): a moved wall''s SOLID (baseline ± thickness/2) overlapping the SOLID SPAN of a hosted
+opening on another wall, in plan — an area/interval overlap test, not a segment-crossing test.
+`getOccupiedSpans(wall)` already yields the intervals; what is missing is projecting the MOVED
+wall''s footprint onto the host and testing interval overlap. ⚠ `WallJoinResolver`''s complete
+clash trim is DEFAULT-OFF behind `globalThis.__pryzmWallFaceTrimNoClash` (L-94) — do NOT absorb
+that; this is the opening-overlap question only.
+
+**ALSO IN THE SAME LOG, a separate finding worth its own attention:** **five**
+`§DIAG-ROOM-LOOP BREAK` entries — `endpoint 783mm` (×2) and `993mm` (×3) `from centreline EXCEEDS
+hostSnap 200mm → loop will NOT close (flood/merge risk)`, `unresolvedLoopBreaks=5`. This is the
+**L-909(a) emission-gap family appearing on HAND-DRAWN walls** — `c5d3d4f5` closed it at the D-TGL
+emission seam only. Hand-drawn/hand-moved walls can leave the same sub-snap dangling ends, and the
+consequence is identical: rooms that will not close. Whether the fix is a draw-time snap, a
+post-move re-weld, or an honest report is unmeasured. **Also**: `doorsRegistered=0
+windowsRegistered=0` in `[PickDiag] §L-99b` while 2 door swing arcs render — hosted openings are
+absent from the pick registry (the 3D-selection instanced gap family).
