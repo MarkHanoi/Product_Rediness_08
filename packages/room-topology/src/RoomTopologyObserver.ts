@@ -884,17 +884,35 @@ export class RoomTopologyObserver {
       const scan = scanForOpenedRegions({ levelId, roomsBefore: before, roomsAfter: after, wallsAfter });
       if (scan.findings.length === 0) return;
 
+      // §PROMPT-REACHES-A-HUMAN (L-881) — the subscriber count is printed with EVERY
+      // finding, and its absence is an ERROR, not a debug line.
+      //
+      // WHY: build `a75e8e1e` shipped with this detector firing correctly in production
+      // and the founder seeing nothing. The console carried the finding and NOTHING
+      // else, which is consistent with two very different failures — "the offer ran and
+      // could not reach a surface" and "no offer was ever subscribed" — and the log
+      // could not tell them apart. That ambiguity cost a founder test cycle. A reading
+      // of `listeners=0` now names the second one on sight.
+      const listeners = openedRegionNotifier.listenerCount;
       for (const finding of scan.findings) {
         if (finding.kind === 'region-opened') {
           console.warn(
             `[RoomTopologyObserver] §OPENED-REGION level='${levelId}' — ${finding.detail} ` +
             `(gap ${finding.gap.lengthM.toFixed(2)} m, anchored ${finding.gap.anchoredEndpoints}/2, ` +
-            `rooms ${scan.roomsBefore} → ${scan.roomsAfter})`,
+            `rooms ${scan.roomsBefore} → ${scan.roomsAfter}, listeners=${listeners})`,
           );
         } else {
           console.warn(
             `[RoomTopologyObserver] §OPENED-REGION level='${levelId}' REFUSED to propose a position ` +
-            `(${finding.reason}) — ${finding.detail}`,
+            `(${finding.reason}, listeners=${listeners}) — ${finding.detail}`,
+          );
+        }
+        if (listeners === 0) {
+          console.error(
+            `[RoomTopologyObserver] §PROMPT-REACHES-A-HUMAN — a region was found to be OPEN and ` +
+            `NOTHING is subscribed to say so. The user will not be asked. This is a wiring defect ` +
+            `(initOpenedRegionProposals did not run, or ran against a different module instance), ` +
+            `not a detection result.`,
           );
         }
         openedRegionNotifier.publish(finding);

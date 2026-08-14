@@ -251,7 +251,20 @@ export function initOpenedRegionProposals(): () => void {
             console.warn('[OpenedRegionProposal] failed to present finding (non-fatal):', err);
         });
     });
-    console.log('[OpenedRegionProposal] §OPENED-REGION offer channel installed');
+    // §PROMPT-REACHES-A-HUMAN (L-881) — assert the subscription actually took against
+    // the SAME notifier instance the detector publishes on, and say so loudly if it
+    // did not. A silently-unsubscribed offer looks exactly like a detector that never
+    // fired, and that ambiguity cost a founder test cycle on build a75e8e1e.
+    const count = openedRegionNotifier.listenerCount;
+    if (count < 1) {
+        console.error(
+            '[OpenedRegionProposal] §PROMPT-REACHES-A-HUMAN — subscribe() returned but the ' +
+            'notifier reports 0 listeners. The offer is NOT wired to the detector; opened ' +
+            'regions will be found and never surfaced.',
+        );
+    } else {
+        console.log(`[OpenedRegionProposal] §OPENED-REGION offer channel installed (listeners=${count})`);
+    }
     return () => { off(); installed = false; };
 }
 
