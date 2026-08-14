@@ -148,6 +148,16 @@ interface Artefact {
   positiveControl?: { ran?: boolean; pathCount?: number; paths?: string[]; error?: string };
   negativeControl?: { ran?: boolean; authoritativePathCount?: number; dtoChanged?: boolean; error?: string };
   wideningControl?: { ran?: boolean; undeclared?: string[]; observedPaths?: string[]; error?: string };
+  /** CE-02 — the headless fragment build over THIS harness's world. */
+  geometry?: {
+    ran?: boolean;
+    sameWorldAsCases?: boolean;
+    framesPumped?: number;
+    totals?: { meshes: number; vertices: number; triangles: number };
+    families?: Array<{ family: string; path: string; attempted: number; built: number; meshes: number; triangles: number; error: string }>;
+    familiesWithGeometry?: number;
+    error?: string;
+  };
 }
 
 interface Ledger {
@@ -354,8 +364,46 @@ function run(): GateResult {
 
   // ── 8 · what this gate cannot see, restated EVERY run ─────────────────────
   lines.push('');
+  // ── 8a · GEOMETRY CHAIN LINK — MEASURED (CE-02) ──────────────────────
+  // This block used to be ONE HARD-CODED SENTENCE — "no fragment builders are
+  // registered in the harness; meshes are never built, so the Geometry chain
+  // link is UNPROVEN by construction" — with no guard of any kind. Nothing a
+  // run could do would change it, which is the §8.c defect (a count restated in
+  // prose) applied to an UNPROVEN: an honest word frozen into a place where it
+  // could never become false. BIM30-GAP-REGISTER row CE-02 is that sentence.
+  //
+  // It is now a READING. `__tests__/authoritative-state.cert.ts` runs
+  // `buildHeadlessGeometry(world)` over THE SAME world instance the cases above
+  // measured, and the numbers below come off that build. Geometry built from a
+  // DIFFERENT world would prove geometry and prove the CHAIN of nothing.
+  const geo = art.geometry;
+  lines.push('GEOMETRY CHAIN LINK (CE-02) — headless fragment build over the SAME world these cases measured:');
+  if (!geo || geo.ran !== true) {
+    // A build that could not be REACHED is not a build that found nothing. The
+    // gate refuses to publish either reading as the other (C75 §1.2), so this
+    // becomes a floor failure below rather than a printed zero.
+    lines.push(`  ❌ the build did not run — ${geo?.error ?? 'the harness wrote no geometry block'}`);
+  } else {
+    const t = geo.totals ?? { meshes: 0, vertices: 0, triangles: 0 };
+    lines.push(`  ${geo.familiesWithGeometry ?? 0} of ${geo.families?.length ?? 0} fragment families produced geometry · ${t.meshes} mesh(es), ${t.vertices} vertices, ${t.triangles} triangles · ${geo.framesPumped ?? 0} frame(s) pumped`);
+    for (const f of geo.families ?? []) {
+      lines.push(`  ${f.meshes > 0 ? '·' : '◌'} ${f.family} [${f.path}] attempted ${f.attempted} → built ${f.built} (${f.meshes} mesh, ${f.triangles} tri)${f.error ? ' — ' + f.error.slice(0, 120) : ''}`);
+    }
+    lines.push('  ⚠ SCOPE: this proves MESHES WERE BUILT from this world. It does NOT grade their');
+    lines.push('    correctness — dimensional fidelity is `geometry.cert.ts`\'s oracle arm, and nothing');
+    lines.push('    here calls WebGLRenderer.render(), so nothing here says a user SEES them.');
+  }
+  // Floors, so an empty build can never read as a chain link. `min 1` on families
+  // and meshes is deliberately the weakest possible non-zero claim: this gate's
+  // subject is authoritative state, and the geometry arm exists to close the CHAIN,
+  // not to become a second geometry gate with a second set of thresholds that could
+  // disagree with `geometryFloors.ts`.
+  floors.push({ what: 'CE-02 fragment families producing geometry from THIS world', measured: (geo?.ran === true ? (geo.familiesWithGeometry ?? 0) : 0), min: 1 });
+  floors.push({ what: 'CE-02 meshes built headlessly from THIS world', measured: (geo?.ran === true ? (geo.totals?.meshes ?? 0) : 0), min: 1 });
+
+  lines.push('');
   lines.push('NOT CHECKED by this gate, restated every run so a green reading is never over-read:');
-  lines.push('  · GEOMETRY — no fragment builders are registered in the harness; meshes are never built, so the Geometry chain link is UNPROVEN by construction.');
+  lines.push('  · GEOMETRY CORRECTNESS — the build above proves meshes exist, never that they are RIGHT. Dimensional fidelity, the offset oracle and the geometry negative control are `geometry.cert.ts`/`gradeGeometry.ts`\'s subject, and NO GPU path is exercised anywhere: WebGLRenderer.render() is never called, so "a user sees it" remains UNPROVEN.');
   lines.push('  · whether the DECLARED property set is the ARCHITECTURALLY RIGHT one — the arms assert the diff matches the declaration, never that the declaration is correct.');
   lines.push('  · verbs outside the families world.ts composes. The register lists 110 LIVE verbs; ' + String(mutating.length) + ' mutating verbs are measured here, and the floor guards that subset — it is NOT repo-wide coverage.');
   lines.push('  · collaboration/merge behaviour, and persistence (that is §3.1 check-identity-roundtrip\'s subject).');

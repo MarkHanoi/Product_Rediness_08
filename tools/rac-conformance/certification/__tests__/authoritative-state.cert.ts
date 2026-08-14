@@ -533,11 +533,53 @@ describe('authoritative-state measurement', () => {
       wideningControl = { ran: false, error: String(e).slice(0, 400) };
     }
 
+    // ── GEOMETRY CHAIN LINK (CE-02) ───────────────────────────────
+    // Until now this harness composed a world, proved its authoritative state,
+    // and the gate printed "no fragment builders are registered in the harness"
+    // as HARD-CODED PROSE — a sentence no run could change. CE-02 is the row
+    // that says so.
+    //
+    // The build is run over THIS world — the same instance whose authoritative
+    // state the cases above measured — and not over a second one. That is the
+    // whole content of a CHAIN LINK (C70 §3.2): geometry built from a DIFFERENT
+    // world proves geometry and proves the chain of nothing. `geometry.cert.ts`
+    // already builds fragments headlessly over `seedBuilding30`; what did not
+    // exist was the link from THIS subject to that capability.
+    //
+    // No GPU is involved: `BufferGeometry`/`Mesh`/`Scene` are CPU objects and
+    // `WebGLRenderer.render()` is never called (headlessGeometry.ts header).
+    //
+    // It ASSERTS NOTHING, per this file's rule. The counts are written and the
+    // gate floors them — a build that reported 0 meshes over a seeded world must
+    // read as MISCONFIGURED there, never as "geometry is fine".
+    let geometry: Record<string, unknown> = { ran: false };
+    try {
+      const { buildHeadlessGeometry } = await import('../headlessGeometry');
+      const built = await buildHeadlessGeometry(world);
+      geometry = {
+        ran: true,
+        sameWorldAsCases: true,
+        framesPumped: built.framesPumped,
+        totals: built.totals,
+        families: built.families.map((f) => ({
+          family: f.family, path: f.path, attempted: f.attempted,
+          built: f.built, meshes: f.meshes, triangles: f.triangles, error: f.error,
+        })),
+        familiesWithGeometry: built.families.filter((f) => f.meshes > 0).length,
+      };
+    } catch (e) {
+      // A THROW IS NOT AN EMPTY BUILD. Recorded distinctly so the gate can tell
+      // "the builders could not be reached" from "the builders ran and produced
+      // nothing" — two facts that must never print the same value (C75 §1.2).
+      geometry = { ran: false, error: String(e).slice(0, 500) };
+    }
+
     writeFileSync(
       resolve(__dirname, '../results/authoritative-state.json'),
       JSON.stringify({
         measuredAt: new Date().toISOString(),
         seedOutcomes: seed.seedOutcomes,
+        geometry,
         registrationFailures: world.registrationFailures,
         dtoReached: dto.reached,
         dtoHow: dto.how,
