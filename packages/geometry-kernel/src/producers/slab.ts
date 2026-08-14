@@ -21,7 +21,8 @@ import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeSlabGeometryHash } from './_internal/composeSlabGeometryHash.js';
-import { earcut } from './_internal/earcut.js';
+// §C73-TRIANGULATION-CANONICAL — THE polygon triangulation (holes API).
+import { earcut } from '../pure/triangulatePolygon.js';
 import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
 
 export type SlabProducer = (

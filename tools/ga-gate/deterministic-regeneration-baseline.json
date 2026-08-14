@@ -140,7 +140,7 @@
     "packages/geometry-kernel/src/producers/_internal/buildLayeredOpenings.ts:59::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",
     "packages/geometry-kernel/src/producers/_internal/buildLayeredOpenings.ts:115::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",
     "packages/geometry-kernel/src/producers/_internal/buildLayeredOpenings.ts:116::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",
-    "packages/geometry-kernel/src/producers/_internal/earcut.ts:280::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",
+    "packages/geometry-kernel/src/pure/triangulatePolygon.ts:371::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",
     "packages/geometry-lift/src/LiftToolPlacement.ts:62::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",
     "packages/geometry-roof/src/pure/roofLevelPolicy.ts:89::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",
     "packages/geometry-roof/src/roofDecompose.ts:64::unstable-sort": "a numeric comparator returns 0 on a tie, so tied elements ke",

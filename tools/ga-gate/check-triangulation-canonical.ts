@@ -285,11 +285,20 @@ const FAMILIES: readonly Family[] = [
   {
     id: 'polygon-triangulation',
     what: 'simple-polygon → triangles (ear clip / hashed earcut / index fan / centroid fan)',
-    // NOT designated. The collapse PR names it (C73 §3.6/§3.7) after identifying
-    // the shipping consumers by name. Candidate on the record: the vendored
-    // earcut (`_internal/earcut.ts`) — the only body that handles holes, already
-    // called by produceSlab — but a gate must not make the decision it awaits.
-    canonical: null,
+    // DESIGNATED by the GE-12 collapse PR (2026-08-14, C73 §3.6/§3.7): the
+    // vendored mapbox/earcut port, moved to pure/ as THE body. Shipping
+    // consumers identified by name: produceSlab (slab-committer), produceRoof's
+    // three cap builders (roof-committer), produceExtrude (family-instance
+    // bake + KernelCSG), buildLinearExtrusion (column/beam/structural/
+    // plumbing/lighting committers), produceCeiling (ceiling-committer),
+    // produceRoom (room-committer). §3.7 decision in the canonical file's
+    // header: earcut is the only body correct on concave input WITH hole
+    // support; the fans were silently wrong on concave rings; refusing
+    // consumers keep their refusal via triangulationAreaDeviation. Oracle:
+    // __tests__/triangulatePolygon.oracle.test.ts (concave L at a known answer).
+    // The canonical file is COUNTED (its earcut z-order body is the family's
+    // C1 = 1), not excluded — the exit condition reads 1, not 0.
+    canonical: 'packages/geometry-kernel/src/pure/triangulatePolygon.ts',
     exclusions: [
       // None. Every body the recipe matches today IS a rival triangulator.
       // door.ts/window.ts quad emissions (`push(b, b+1, b+2, b, b+2, b+3)`) do

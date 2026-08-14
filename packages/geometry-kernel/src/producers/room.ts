@@ -23,6 +23,7 @@ import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeRoomGeometryHash } from './_internal/composeRoomGeometryHash.js';
 import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
+import { triangulateRingOrdinates } from '../pure/triangulatePolygon.js';
 
 const FILL_FALLBACK_COLOR = '#b3d8ff';
 const NODE_EPSILON_DEFAULT = 1e-3; // 1 mm — wall endpoint snap
@@ -377,21 +378,29 @@ function bakeDescriptor(
   // z-fight with the slab.  Phase 2A v1 uses a 1 mm offset; the
   // committer additionally bumps `renderOrder = -1`.
   const fillY = worldY + (room.heightOffset ?? 0) + 0.001;
-  const centroid = analytic.centroid;
 
-  // Centroid fan, NON-INDEXED.  Each triangle has its own three
-  // vertices so face-aligned hard-edge normals don't get shared.
+  // §C73-TRIANGULATION-CANONICAL (GE-12) — NON-INDEXED soup from THE canonical
+  // triangulation. The old centroid fan was silently wrong on non-star-shaped
+  // rooms (an L-shaped room's fill leaked outside its own boundary) and, for a
+  // CW-wound polygon, emitted back-facing triangles under hard-coded +Y
+  // normals. §3.7: canonical output is positively oriented (CCW from +Y)
+  // regardless of ring winding, so the fill always front-faces its normal.
   const positions: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
-  for (let i = 0, n = polygon.length; i < n; i++) {
-    const a = polygon[i]!;
-    const b = polygon[(i + 1) % n]!;
-    // Triangle (centroid, a, b).
+  const fillTris = triangulateRingOrdinates(
+    polygon.length,
+    (i) => polygon[i]!.x,
+    (i) => polygon[i]!.z,
+  );
+  for (let t = 0; t < fillTris.length; t += 3) {
+    const a = polygon[fillTris[t]!]!;
+    const b = polygon[fillTris[t + 1]!]!;
+    const c = polygon[fillTris[t + 2]!]!;
     positions.push(
-      centroid.x, fillY, centroid.z,
-      a.x,        fillY, a.z,
-      b.x,        fillY, b.z,
+      a.x, fillY, a.z,
+      b.x, fillY, b.z,
+      c.x, fillY, c.z,
     );
     // All three vertices share the up-facing normal.
     normals.push(
@@ -400,9 +409,9 @@ function bakeDescriptor(
       0, 1, 0,
     );
     uvs.push(
-      centroid.x, centroid.z,
-      a.x,        a.z,
-      b.x,        b.z,
+      a.x, a.z,
+      b.x, b.z,
+      c.x, c.z,
     );
   }
 

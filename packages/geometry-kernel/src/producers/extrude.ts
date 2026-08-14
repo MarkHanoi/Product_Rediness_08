@@ -30,16 +30,20 @@
 //     per face later in the sprint).
 //
 // CAP TRIANGULATION
-//   • The cap is triangulated with an O(n²) ear-clipping that
-//     handles arbitrary simple polygons — convex AND concave.  For
-//     the S52 D1 use case (profiles up to ~50 vertices, per the
-//     perf budget at plan §15) this is well within the < 1 ms target.
+//   • §C73-TRIANGULATION-CANONICAL — the cap delegates to THE polygon
+//     triangulation (`pure/triangulatePolygon.ts`), correct on convex
+//     AND concave simple profiles.  Self-intersecting profiles are
+//     refused via an area-deviation check (see `triangulateCap`).
 
 import type { BufferGeometryDescriptor } from '../types/BufferGeometryDescriptor.js';
 import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import type { MaterialKey } from '../types/MaterialKey.js';
 import { asMaterialKey } from '../types/MaterialKey.js';
 import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
+import {
+  triangulateRingOrdinates,
+  triangulationAreaDeviation,
+} from '../pure/triangulatePolygon.js';
 
 const HASH_SCHEMA_VERSION = 'extrude:1' as const;
 
@@ -199,7 +203,7 @@ export const produceExtrude: ExtrudeProducer = (profile, heightM, options) => {
   }
 
   // ── 4. Indices. ───────────────────────────────────────────────────
-  const capTriangles = triangulateEarClipping(ccw); // n-2 triangles, indices into ccw
+  const capTriangles = triangulateCap(ccw); // n-2 triangles, indices into ccw
   const sideTriCount = 2 * n;
   const totalTris = 2 * capTriangles.length / 3 + sideTriCount;
   const totalIndices = 3 * totalTris;
@@ -284,76 +288,37 @@ function computeSignedArea(profile: readonly ProfilePoint[]): number {
 }
 
 /**
- * Ear-clipping triangulation.  Returns flat array of indices into the
- * input polygon — every group of three indices is one CCW triangle.
- *
- * Assumes the polygon is simple (non-self-intersecting) and CCW.
- * Handles both convex and concave profiles.  O(n²) worst case; for
- * S52 D1 profile sizes (≤ 50 vertices per the perf budget at plan
- * §15) this completes in well under 1 ms.
+ * Maximum tolerated relative deviation between the profile's shoelace area and
+ * the area covered by its cap triangulation. A faithful triangulation of a
+ * simple polygon reads ≈0 (floating-point noise only); a self-intersecting
+ * profile cannot be covered and reads large.
  */
-function triangulateEarClipping(polygon: readonly ProfilePoint[]): number[] {
+const TRIANGULATION_AREA_DEVIATION_TOL = 1e-6;
+
+/**
+ * Cap triangulation — §C73-TRIANGULATION-CANONICAL (GE-12). Returns a flat
+ * array of indices into the input polygon; every group of three indices is one
+ * CCW triangle (positively oriented in XZ, facing +Y for the CCW profile the
+ * caller has already normalised).
+ *
+ * This used to be a second O(n²) ear clip — a near-verbatim rival of the roof
+ * one, counted by `tools/ga-gate/check-triangulation-canonical.ts`. It now
+ * delegates to the ONE body in `pure/triangulatePolygon.ts`. §3.7: the old
+ * body THREW when its ear search got stuck; that refusal is kept — but keyed
+ * on the honest observable (the triangulation measurably failing to cover the
+ * profile's own area) rather than on the algorithm's internal progress.
+ */
+function triangulateCap(polygon: readonly ProfilePoint[]): number[] {
   const n = polygon.length;
   if (n === 3) return [0, 1, 2];
-
-  // Working list of remaining vertex indices.
-  const remaining: number[] = [];
-  for (let i = 0; i < n; i++) remaining.push(i);
-
-  const out: number[] = [];
-  let guard = remaining.length * 4; // hard upper bound; refuses to spin forever on malformed input
-
-  while (remaining.length > 3 && guard-- > 0) {
-    let earFound = false;
-    for (let k = 0; k < remaining.length; k++) {
-      const iPrev = remaining[(k - 1 + remaining.length) % remaining.length]!;
-      const iCurr = remaining[k]!;
-      const iNext = remaining[(k + 1) % remaining.length]!;
-      const a = polygon[iPrev]!;
-      const b = polygon[iCurr]!;
-      const c = polygon[iNext]!;
-      if (!isConvex(a, b, c)) continue;
-      // Check that no other vertex lies inside triangle (a, b, c).
-      let containsOther = false;
-      for (const m of remaining) {
-        if (m === iPrev || m === iCurr || m === iNext) continue;
-        if (pointInTriangle(polygon[m]!, a, b, c)) {
-          containsOther = true;
-          break;
-        }
-      }
-      if (containsOther) continue;
-      out.push(iPrev, iCurr, iNext);
-      remaining.splice(k, 1);
-      earFound = true;
-      break;
-    }
-    if (!earFound) {
-      throw new DescriptorInvariantError(
-        'produceExtrude: ear-clipping failed; profile may be self-intersecting.',
-      );
-    }
+  const xAt = (i: number): number => polygon[i]!.x;
+  const yAt = (i: number): number => polygon[i]!.z;
+  const tris = triangulateRingOrdinates(n, xAt, yAt);
+  const deviation = triangulationAreaDeviation(n, xAt, yAt, tris);
+  if (deviation > TRIANGULATION_AREA_DEVIATION_TOL) {
+    throw new DescriptorInvariantError(
+      `produceExtrude: cap triangulation covers the wrong area (relative deviation ${deviation.toExponential(3)}); profile may be self-intersecting.`,
+    );
   }
-  if (remaining.length === 3) {
-    out.push(remaining[0]!, remaining[1]!, remaining[2]!);
-  }
-  return out;
-}
-
-function isConvex(a: ProfilePoint, b: ProfilePoint, c: ProfilePoint): boolean {
-  // Cross product of (b-a) × (c-b); positive = left turn = convex for CCW.
-  return (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x) > 0;
-}
-
-function pointInTriangle(p: ProfilePoint, a: ProfilePoint, b: ProfilePoint, c: ProfilePoint): boolean {
-  const d1 = sign(p, a, b);
-  const d2 = sign(p, b, c);
-  const d3 = sign(p, c, a);
-  const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
-  const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
-  return !(hasNeg && hasPos);
-}
-
-function sign(p: ProfilePoint, a: ProfilePoint, b: ProfilePoint): number {
-  return (p.x - b.x) * (a.z - b.z) - (a.x - b.x) * (p.z - b.z);
+  return tris;
 }

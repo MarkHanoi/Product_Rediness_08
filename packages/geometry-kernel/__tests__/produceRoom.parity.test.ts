@@ -85,9 +85,13 @@ describe('produceRoom — parity suite (synthetic-but-analytic)', () => {
       expect(desc.groups).toHaveLength(1);
       expect(desc.materialKeys).toHaveLength(1);
       expect(desc.materialKeys[0]).toMatch(/^room\|/);
-      // 4 polygon vertices → 4 fan-triangles → 12 non-indexed verts.
-      expect(desc.position.length).toBe(12 * 3);
-      expect(desc.index.length).toBe(12);
+      // §C73-TRIANGULATION-CANONICAL (GE-12): 4 polygon vertices → n−2 = 2
+      // triangles → 6 non-indexed verts. This line used to pin the centroid
+      // fan's 4 triangles; the fan was retired because it is silently wrong on
+      // concave rooms (fill leaking outside the boundary). Same covered area,
+      // fewer triangles — the count change is the §3.7 decision surfacing.
+      expect(desc.position.length).toBe(6 * 3);
+      expect(desc.index.length).toBe(6);
     });
 
     it('determinism: same input → identical hash across two runs', () => {

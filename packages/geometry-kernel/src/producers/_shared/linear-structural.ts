@@ -17,6 +17,7 @@
 
 import type { RawGroup } from '../_internal/rawGeometry.js';
 import { asMaterialKey, type MaterialKey } from '../../types/MaterialKey.js';
+import { triangulateRingOrdinates } from '../../pure/triangulatePolygon.js';
 
 export type StructuralShape = 'rectangular' | 'circular' | 'i-section' | 't-section';
 
@@ -163,35 +164,24 @@ function buildProfilePolygon(profile: StructuralProfile): Pt2[] {
   }
 }
 
-/** Triangulate a simple convex-or-near-convex profile polygon by
- *  fan-triangulation from vertex 0.  Sufficient for the shapes above
- *  (rectangle / circle / I / T are all triangulated correctly by a
- *  simple fan IF the polygon is convex.  I and T sections are
- *  *non-convex* — for those we use a small dispatch table). */
-function triangulateProfile(profile: StructuralProfile, poly: readonly Pt2[]): number[] {
-  if (profile.shape === 'rectangular' || profile.shape === 'circular') {
-    const tris: number[] = [];
-    for (let i = 1; i < poly.length - 1; i++) tris.push(0, i, i + 1);
-    return tris;
-  }
-  if (profile.shape === 'i-section') {
-    // I-section: split into bottom flange (4 verts), top flange (4
-    // verts), web (4 verts).  poly indices match buildProfilePolygon.
-    return [
-      // bottom flange [0,1,2,11]
-      0, 1, 2, 0, 2, 11,
-      // web [10,3,4,9]
-      10, 3, 4, 10, 4, 9,
-      // top flange [8,5,6,7]
-      8, 5, 6, 8, 6, 7,
-    ];
-  }
-  // t-section
-  // top flange [3,4,5,6]; web [0,1,2,7]
-  return [
-    0, 1, 2, 0, 2, 7,
-    3, 4, 5, 3, 5, 6,
-  ];
+/** Triangulate the profile polygon — §C73-TRIANGULATION-CANONICAL (GE-12).
+ *  This used to be a vertex-0 index fan for rectangle/circle plus a
+ *  hand-maintained index dispatch table for the concave I/T sections —
+ *  two of the seven rival triangulation bodies/paths the counting gate
+ *  (`tools/ga-gate/check-triangulation-canonical.ts`) exists to collapse.
+ *  Both now delegate to the ONE body in `pure/triangulatePolygon.ts`.
+ *  §3.7: the hand tables were coverage-correct but silently coupled to
+ *  `buildProfilePolygon`'s exact vertex order (an edit there would corrupt
+ *  caps without any test naming the table); the canonical triangulator
+ *  derives the same coverage from the ring itself. Triangle COUNT for the
+ *  caps changes (I: 6 → 10, T: 4 → 6 — a decomposition into ring triangles
+ *  instead of quads); covered area and orientation are identical. */
+function triangulateProfile(poly: readonly Pt2[]): number[] {
+  return triangulateRingOrdinates(
+    poly.length,
+    (i) => poly[i]!.x,
+    (i) => poly[i]!.y,
+  );
 }
 
 /** Build the linear extrusion as raw geometry parts.  Outputs ONE
@@ -203,7 +193,7 @@ export function buildLinearExtrusion(
   materialKey: MaterialKey,
 ): RawGroup[] {
   const poly = buildProfilePolygon(profile);
-  const tris = triangulateProfile(profile, poly);
+  const tris = triangulateProfile(poly);
   const { u, v, w } = makeBasis(extrusion.start, extrusion.end, extrusion.rotation);
 
   const positions: number[] = [];

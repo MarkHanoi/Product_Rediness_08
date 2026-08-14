@@ -17,6 +17,7 @@ import type { JoinData } from '../types/JoinData.js';
 import { asMaterialKey, type MaterialKey } from '../types/MaterialKey.js';
 import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import { polygonSignedAreaOrdinates } from '../pure/polygonOffset.js';
+import { triangulateRingOrdinates } from '../pure/triangulatePolygon.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeCeilingGeometryHash } from './_internal/ceiling/composeCeilingGeometryHash.js';
@@ -32,12 +33,6 @@ function composeCeilingMaterialKey(c: CeilingData, slot: 'top' | 'bottom' | 'edg
 }
 
 interface Pt2 { readonly x: number; readonly z: number }
-
-function centroid(pts: readonly Pt2[]): Pt2 {
-  let sx = 0, sz = 0;
-  for (const p of pts) { sx += p.x; sz += p.z; }
-  return { x: sx / pts.length, z: sz / pts.length };
-}
 
 // §C73-AREA-CANONICAL — delegates to the kernel's ONE shoelace accumulation
 // (bit-identical arithmetic; winding stays the sign of the same computation).
@@ -70,36 +65,47 @@ export const produceCeiling: CeilingProducer = (ceiling, _joinData, worldY) => {
 
   const groups: RawGroup[] = [];
 
-  const c2 = centroid(ccw);
+  // §C73-TRIANGULATION-CANONICAL (GE-12) — top/bottom faces triangulate via
+  // THE canonical body instead of the old centroid fan, which was silently
+  // wrong on concave boundaries (an L-shaped ceiling's fill leaked outside
+  // its own boundary; this file's header used to defer "full ear-clipping"
+  // to S15+). §3.7: UVs are now planar world-XZ for every cap vertex — the
+  // fan's centroid vertex carried a magic (0.5, 0.5) UV that disappears with
+  // the centroid vertex itself; slab already ships planar-XZ cap UVs.
+  const capTris = triangulateRingOrdinates(
+    ccw.length,
+    (i) => ccw[i]!.x,
+    (i) => ccw[i]!.z,
+  );
 
-  // Top face: fan from centroid (CCW seen from +Y → normal +Y).
+  // Top face (CCW seen from +Y → normal +Y).
   {
     const positions: number[] = [];
     const normals: number[] = [];
     const uvs: number[] = [];
-    for (let i = 0; i < ccw.length; i++) {
-      const a = ccw[i]!;
-      const b = ccw[(i + 1) % ccw.length]!;
-      // tri: centroid → a → b
-      positions.push(c2.x, topY, c2.z, a.x, topY, a.z, b.x, topY, b.z);
+    for (let t = 0; t < capTris.length; t += 3) {
+      const a = ccw[capTris[t]!]!;
+      const b = ccw[capTris[t + 1]!]!;
+      const c = ccw[capTris[t + 2]!]!;
+      positions.push(a.x, topY, a.z, b.x, topY, b.z, c.x, topY, c.z);
       normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
-      uvs.push(0.5, 0.5, a.x, a.z, b.x, b.z);
+      uvs.push(a.x, a.z, b.x, b.z, c.x, c.z);
     }
     groups.push({ geometry: { positions, normals, uvs }, materialKey: topKey });
   }
 
-  // Bottom face: fan from centroid, REVERSED winding so normal = -Y.
+  // Bottom face: REVERSED winding so normal = -Y.
   {
     const positions: number[] = [];
     const normals: number[] = [];
     const uvs: number[] = [];
-    for (let i = 0; i < ccw.length; i++) {
-      const a = ccw[i]!;
-      const b = ccw[(i + 1) % ccw.length]!;
-      // tri: centroid → b → a (reversed)
-      positions.push(c2.x, bottomY, c2.z, b.x, bottomY, b.z, a.x, bottomY, a.z);
+    for (let t = 0; t < capTris.length; t += 3) {
+      const a = ccw[capTris[t]!]!;
+      const b = ccw[capTris[t + 2]!]!;
+      const c = ccw[capTris[t + 1]!]!;
+      positions.push(a.x, bottomY, a.z, b.x, bottomY, b.z, c.x, bottomY, c.z);
       normals.push(0, -1, 0, 0, -1, 0, 0, -1, 0);
-      uvs.push(0.5, 0.5, b.x, b.z, a.x, a.z);
+      uvs.push(a.x, a.z, b.x, b.z, c.x, c.z);
     }
     groups.push({ geometry: { positions, normals, uvs }, materialKey: bottomKey });
   }

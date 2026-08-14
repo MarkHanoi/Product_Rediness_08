@@ -255,7 +255,10 @@ const FAMILIES: readonly Family[] = [
     canonical: 'packages/geometry-kernel/src/pure/pointInPolygon.ts',
     exclusions: [
       [
-        'packages/geometry-kernel/src/producers/_internal/earcut.ts',
+        // Path updated by the GE-12 triangulation collapse: the vendored earcut
+        // moved to pure/triangulatePolygon.ts as THE canonical triangulation body
+        // (§C73-TRIANGULATION-CANONICAL); the exclusion reason is unchanged.
+        'packages/geometry-kernel/src/pure/triangulatePolygon.ts',
         'middleInside — a genuine even-odd ray cast, but inside the VENDORED mapbox/earcut port, walking the ' +
         'triangulator’s internal circular linked list mid-hole-elimination. Routing it through the kernel ' +
         'predicate would fork the vendored algorithm (and add a per-call ring materialisation in the ' +
