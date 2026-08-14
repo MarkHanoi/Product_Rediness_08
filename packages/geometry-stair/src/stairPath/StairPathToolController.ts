@@ -639,15 +639,15 @@ export class StairPathToolController {
         // degenerate final run segment whose treadDepth ≈ 0 → the solver rejects the
         // whole stair with "Run too short — tread 1 mm (min 220 mm)", so a stair can
         // never be finished by double-click in plan/split view. Drop a click that is
-        // within DEDUP_EPS of the previous point. DEDUP_EPS (50 mm) is far below the
+        // within DEDUP_RADIUS_M of the previous point. DEDUP_RADIUS_M (50 mm) is far below the
         // solver's MIN_SEG_LEN (300 mm), so this only ever filters coincident
         // double-click artifacts — never a legitimate run or landing corner.
-        const DEDUP_EPS = 0.05;
+        const DEDUP_RADIUS_M = 0.05;   // §C73 §2.1/§2.3 — a domain BAND, not an epsilon: a double-click ARTEFACT filter, 50 mm, sized against the solver MIN_SEG_LEN (300 mm). Renamed from `DEDUP_EPS`; value unchanged.
         const last = this._model.last;
         if (last) {
             const dx = pt.x - last.x;
             const dz = pt.z - last.z;
-            if ((dx * dx + dz * dz) < DEDUP_EPS * DEDUP_EPS) return;
+            if ((dx * dx + dz * dz) < DEDUP_RADIUS_M * DEDUP_RADIUS_M) return;
         }
         this._model.addPoint(pt);
         this._cursor = pt;

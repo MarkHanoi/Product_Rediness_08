@@ -1,4 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import { WallData } from './WallTypes';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -146,7 +147,7 @@ function _getPos(
  *
  * Strategy:
  *   FIRST check for a "committed corner" — two endpoints from different walls
- *   that are already exactly coincident (within PINNED_TOLERANCE).  This happens
+ *   that are already exactly coincident (within COINCIDENT_M).  This happens
  *   when the user connects a new wall to an existing corner between two walls that
  *   were already joined.  In that case the two original walls' shared position is
  *   the true, user-placed anchor and must NOT be moved.  We return it directly.
@@ -158,7 +159,10 @@ function _getPos(
  *   Without this guard, all three walls are trimmed to a freshly-computed consensus
  *   that may differ from the original corner, displacing the two pre-existing walls.
  */
-const PINNED_TOLERANCE = 0.001; // 1 mm — endpoints within this are "already joined"
+// §C73-EPSILON-POLICY — "endpoints within this are already joined" is the
+// MODEL-SPACE COINCIDENCE question (C73 §2.2), so it consumes the kernel's
+// declared `COINCIDENT_M` (1 mm) rather than the local `PINNED_TOLERANCE = 0.001`
+// it replaces. Same value, same role, same strictness (`<=` preserved).
 
 function _computeConsensusPoint(
     members: ClusterEndpoint[],
@@ -174,7 +178,7 @@ function _computeConsensusPoint(
         for (let j = i + 1; j < members.length; j++) {
             if (members[i].wallId === members[j].wallId) continue; // same wall — skip
             const posJ = _getPos(members[j], bl);
-            if (posI.distanceTo(posJ) <= PINNED_TOLERANCE) {
+            if (posI.distanceTo(posJ) <= COINCIDENT_M) {
                 // Return the midpoint of the two coincident positions (effectively
                 // identical) so floating-point noise is averaged out.
                 return new THREE.Vector3(

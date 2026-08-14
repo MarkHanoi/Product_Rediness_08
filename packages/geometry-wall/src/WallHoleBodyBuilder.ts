@@ -53,7 +53,7 @@ export interface WallHoleBodyParams {
     readonly openings: ReadonlyArray<WallOpeningRect>;
 }
 
-const EPS = 1e-4;
+const OPENING_EPS_M = 1e-4;   // C73 §2.3 — 0.1 mm, in wall-local METRES: the margin that keeps a flush opening off the wall ends and stops two merely-touching rects reading as overlapping.
 
 /** A validated opening rectangle in wall-local metres, classified by kind. */
 export interface NormRect { x0: number; x1: number; y0: number; y1: number; floorNotch: boolean }
@@ -91,10 +91,10 @@ export function normaliseWallHoles(p: WallHoleBodyParams): NormWallHoles | null 
         const y1 = y0 + op.height;
         // Must sit strictly inside the wall in x; the head must stay below the top
         // (a full-height opening is a wall split, not a hole/notch — box path).
-        if (x0 <= EPS || x1 >= p.length - EPS) return null;
-        if (y1 >= p.height - EPS) return null;
+        if (x0 <= OPENING_EPS_M || x1 >= p.length - OPENING_EPS_M) return null;
+        if (y1 >= p.height - OPENING_EPS_M) return null;
         // Sill at (or below) the floor → floor notch (door); else interior hole.
-        const floorNotch = y0 <= EPS;
+        const floorNotch = y0 <= OPENING_EPS_M;
         rects.push({ x0, x1, y0: floorNotch ? 0 : y0, y1, floorNotch });
     }
 
@@ -102,8 +102,8 @@ export function normaliseWallHoles(p: WallHoleBodyParams): NormWallHoles | null 
     for (let i = 0; i < rects.length; i++) {
         for (let j = i + 1; j < rects.length; j++) {
             const a = rects[i], b = rects[j];
-            if (a.x0 < b.x1 - EPS && b.x0 < a.x1 - EPS &&
-                a.y0 < b.y1 - EPS && b.y0 < a.y1 - EPS) {
+            if (a.x0 < b.x1 - OPENING_EPS_M && b.x0 < a.x1 - OPENING_EPS_M &&
+                a.y0 < b.y1 - OPENING_EPS_M && b.y0 < a.y1 - OPENING_EPS_M) {
                 return null;
             }
         }

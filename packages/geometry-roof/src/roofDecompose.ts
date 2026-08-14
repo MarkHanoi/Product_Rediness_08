@@ -12,6 +12,8 @@
 // SAME pitch & eave height, and let the ridges meet at a valley where wings abut.
 // This module does the SPLIT; the builder puts a gable on each returned rect.
 
+import { EPSILON_ZERO } from '@pryzm/geometry-kernel';
+
 export type Pt2 = [number, number]; // [x, z]
 
 export interface Rect2 {
@@ -20,8 +22,6 @@ export interface Rect2 {
     minZ: number;
     maxZ: number;
 }
-
-const EPS = 1e-6;
 
 /** Rectangle → CCW polygon ([x,z] verts) for downstream gable building. */
 export function rectToPolygon(r: Rect2): Pt2[] {
@@ -69,7 +69,15 @@ function sortedUnique(values: number[], tol: number): number[] {
     return out;
 }
 
-/** Even-odd point-in-polygon for the cell-centre coverage test. */
+/** Even-odd point-in-polygon for the cell-centre coverage test.
+ *
+ *  The `|| EPSILON_ZERO` on the divisor is the degenerate-divide guard C73 §2.4
+ *  requires to come from the DECLARED policy rather than be chosen per call
+ *  site: `|| 1e-12`, `|| 1e-9` and no guard at all are three different
+ *  geometries of the same polygon. It is dimensionless (a guard on arithmetic,
+ *  not on model-space distance) and it only ever engages when `zj - zi` is
+ *  EXACTLY 0 — which the crossing test on the line above has already excluded —
+ *  so the substituted magnitude changes neither the sign nor the verdict. */
 function pointInPolygon(px: number, pz: number, poly: ReadonlyArray<Pt2>): boolean {
     let inside = false;
     const n = poly.length;
@@ -78,7 +86,7 @@ function pointInPolygon(px: number, pz: number, poly: ReadonlyArray<Pt2>): boole
         const [xj, zj] = poly[j]!;
         const intersect =
             zi > pz !== zj > pz &&
-            px < ((xj - xi) * (pz - zi)) / (zj - zi || EPS) + xi;
+            px < ((xj - xi) * (pz - zi)) / (zj - zi || EPSILON_ZERO) + xi;
         if (intersect) inside = !inside;
     }
     return inside;

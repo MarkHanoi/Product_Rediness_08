@@ -1,4 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import { WallData } from './WallTypes';
 import { detectJunctionClusters } from './WallJunctionClustering';
 import { SpatialGrid } from '@pryzm/snapping';
@@ -678,8 +679,8 @@ export class WallJoinResolver {
         // curLateral <  hostHalfT  → the endpoint is on the centreline side / inside the
         //                            host body / past it toward the outer face → CLAMP it
         //                            out to the inner face so it butts cleanly.
-        const INNER_EPS = 0.001;   // 1 mm overlap into the host body (no Z-fighting, no gap)
-        const targetLateral = hostHalfT - INNER_EPS;
+        const INNER_OVERLAP_M = 0.001;   // §C73 §2.3 — NOT a tolerance: a deliberate 1 mm overlap DIMENSION added into the geometry (no Z-fighting, no gap). Nothing is compared against it; it is subtracted from a lateral offset. Named for what it is, in metres.
+        const targetLateral = hostHalfT - INNER_OVERLAP_M;
         if (curLateral >= targetLateral - 1e-4) {
             // Already on (or just inside) the inner face — clean. Nothing to do.
             return;
@@ -928,8 +929,7 @@ export class WallJoinResolver {
             //       see all four endpoints at the same position and produce six
             //       cross-pair corner joins instead of two correct ones.
             //       We now detect these secondary pairs and handle them inline.
-            const PINNED_TOL = 0.001;
-            const pinnedKeys = new Set<string>();
+            const pinnedKeys = new Set<string>();   // §C73-EPSILON-POLICY: "pinned" = within the kernel's declared COINCIDENT_M (1 mm), replacing the local PINNED_TOL = 0.001 — same value, same question, same verdicts
             const pinnedPairMap = new Map<string, { partnerKey: string; coincidentPt: THREE.Vector3 }>();
 
             for (let i = 0; i < endpoints.length; i++) {
@@ -938,7 +938,7 @@ export class WallJoinResolver {
                 for (let j = i + 1; j < endpoints.length; j++) {
                     if (endpoints[i].wallId === endpoints[j].wallId) continue;
                     const posJ = this._getEpPos(endpoints[j], bl);
-                    if (posI.distanceTo(posJ) <= PINNED_TOL) {
+                    if (posI.distanceTo(posJ) <= COINCIDENT_M) {
                         const keyJ = `${endpoints[j].wallId}:${endpoints[j].side}`;
                         pinnedKeys.add(keyI);
                         pinnedKeys.add(keyJ);
@@ -1015,7 +1015,7 @@ export class WallJoinResolver {
 
                     // Require the two endpoints to be directly coincident
                     // (not merely sharing a transitive cluster membership).
-                    if (posA.distanceTo(posB) > PINNED_TOL) continue;
+                    if (posA.distanceTo(posB) > COINCIDENT_M) continue;
 
                     const [aS, aE] = bl.get(epA.wallId)!;
                     const [bS, bE] = bl.get(epB.wallId)!;
@@ -1056,7 +1056,7 @@ export class WallJoinResolver {
             // sit a few mm–cm apart (post-weld / post-miter / principal-axis drift). When
             // an interior partition T-joins the shell mid-span NEAR that corner, the
             // editor's ZOOM-DEPENDENT (large) snapRadius sweeps all three endpoints into
-            // ONE cluster. Because the two shell endpoints are > PINNED_TOL (1 mm) apart,
+            // ONE cluster. Because the two shell endpoints are > COINCIDENT_M (1 mm) apart,
             // the pinned primary-pair loop above finds NO primary corner → the two shell
             // walls fall to the §MULTI-CLUSTER consensus-trim branch and each gets a
             // SQUARE (perpendicular) end cap trimmed to its own axis. Two perpendicular
@@ -1457,7 +1457,7 @@ export class WallJoinResolver {
             // The founder reported the recurring "rooms merge after creation"
             // defect with EVERY interior cluster logging `primary=0 t-into=0
             // pinned=0 trimmed=3`. That signature means: NO two endpoints from
-            // different walls in this cluster are within PINNED_TOL (1 mm), so no
+            // different walls in this cluster are within COINCIDENT_M (1 mm), so no
             // pinned pair → no primary corner → no T-into → every member falls to
             // the consensus trim. When one of those members was actually welded
             // ONTO a SHELL (perimeter) wall's BODY — and the shell wall's own
@@ -1781,7 +1781,7 @@ export class WallJoinResolver {
                             // _applyT bailed, causing incorrect geometry).
                             // _applyT uses currentContact (re-projected endpoint) so
                             // the slight positional difference (pinned pt vs consensus)
-                            // is at most PINNED_TOL (1 mm) — negligible in practice.
+                            // is at most COINCIDENT_M (1 mm) — negligible in practice.
                             //
                             const tJoin: TJoin = {
                                 kind:        't',
@@ -2033,7 +2033,7 @@ export class WallJoinResolver {
                     // trim (a member drawn SHORT of the junction reaching forward to it — the
                     // genuine-star / near-collinear-Y / shallow-Y cases). It is left untouched,
                     // so those paths stay BYTE-IDENTICAL. Only an over-long BACKWARD retreat is
-                    // capped: the endpoint may retreat at most OVERTRIM_BACK_TOL (a tiny align-
+                    // capped: the endpoint may retreat at most OVERTRIM_BACK_ALLOWANCE_M (a tiny align-
                     // to-neighbour trim); beyond that it is pinned at its original on-axis
                     // position. The endpoint stays EXACTLY on its own centreline (zero lateral
                     // drift) and is never pushed forward beyond the foot (no over-extend spike),
@@ -2043,15 +2043,15 @@ export class WallJoinResolver {
                     // other cluster members.
                     const _tJoin = 1;                       // axis param of the current join end
                     const _axisLen = Math.sqrt(_axLen2);
-                    const OVERTRIM_BACK_TOL = 0.05;         // ≤50 mm legitimate backward align
-                    const _minT = _tJoin - OVERTRIM_BACK_TOL / _axisLen;
+                    const OVERTRIM_BACK_ALLOWANCE_M = 0.05; // §C73 §2.3 — an ALLOWANCE, not a coincidence tolerance: the furthest an endpoint may legitimately retreat (50 mm) before the retreat is treated as over-trim. Metres.
+                    const _minT = _tJoin - OVERTRIM_BACK_ALLOWANCE_M / _axisLen;
                     if (_t < _minT) {
                         if ((globalThis as any).window?.__pryzmDebugWalls) {
                             const _retreat = (_tJoin - _t) * _axisLen;
                             console.log(
                                 `[WallJoinResolver] §CONSENSUS-OVERTRIM-GUARD wall=${ep.wallId}(${ep.side}) ` +
                                 `consensus would RETREAT join end ${(_retreat * 1000).toFixed(0)}mm back along axis ` +
-                                `(> ${(OVERTRIM_BACK_TOL * 1000).toFixed(0)}mm) — pinned at original end so it keeps ` +
+                                `(> ${(OVERTRIM_BACK_ALLOWANCE_M * 1000).toFixed(0)}mm) — pinned at original end so it keeps ` +
                                 `reaching its host (no ~285mm short-fall; loop seals via snap tol)`,
                             );
                         }

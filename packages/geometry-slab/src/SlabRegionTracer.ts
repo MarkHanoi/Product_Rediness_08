@@ -90,8 +90,13 @@ export interface RegionWallLike {
  * MUST be sampled coarser than this so intermediate arc vertices are NOT welded
  * away — enforced by passing `minChordLength` (below) into the shared density
  * resolver, not by a local chord constant.
+ *
+ * §C73 §2.1/§2.3 — a DOMAIN BAND (wall-thickness-scale room-closure weld, 150×
+ * the kernel's COINCIDENT_M point-identity), so it stays here under its domain
+ * owner rather than folding onto the kernel role. Renamed from
+ * `REGION_WELD_TOLERANCE` to state its unit; value unchanged.
  */
-export const REGION_WELD_TOLERANCE = 0.15;
+export const REGION_WELD_TOLERANCE_M = 0.15;
 
 /**
  * §ARC-DENSITY (founder "not organic", 2026-08-07) — chord-survival bound handed
@@ -106,7 +111,7 @@ export const REGION_WELD_TOLERANCE = 0.15;
  * (`@pryzm/core-app-model/curved-wall-tessellation` §ARC-DENSITY) — the same
  * copy-disease §FIX-REGION-RING-PRETRIM-FRAME documents for the sampling maths.
  */
-const ARC_MIN_CHORD_FOR_WELD = REGION_WELD_TOLERANCE * 1.5;
+const ARC_MIN_CHORD_FOR_WELD = REGION_WELD_TOLERANCE_M * 1.5;
 
 /** Quadratic-Bézier sampler in the tracer's `{x, z}` world-plan frame. */
 function sampleQuadraticBezier(
@@ -128,7 +133,7 @@ function sampleQuadraticBezier(
  * Sample a wall's plan centreline into XZ points.
  *   • Straight wall → `[start, end]`.
  *   • Curved wall   → the authored quadratic-Bézier arc, tessellated into chords
- *                     each longer than {@link REGION_WELD_TOLERANCE} so the
+ *                     each longer than {@link REGION_WELD_TOLERANCE_M} so the
  *                     intermediate nodes survive the loop-builder's weld step.
  *
  * §FIX-REGION-RING-PRETRIM-FRAME (founder, 2026-08-07) — THE FRAME MATTERS.
@@ -327,7 +332,7 @@ export function wallsToAttributedSegments(
  */
 export function buildClosedLoops(
     segments: ReadonlyArray<[RegionPoint2D, RegionPoint2D]>,
-    tolerance = REGION_WELD_TOLERANCE,
+    tolerance = REGION_WELD_TOLERANCE_M,
 ): RegionPoint2D[][] {
     return buildAttributedClosedLoops(
         segments.map(([a, b]) => ({ start: a, end: b, hostId: null })),
@@ -360,7 +365,7 @@ export interface AttributedRingVertex {
  */
 export function buildAttributedClosedLoops(
     segments: ReadonlyArray<AttributedSegment>,
-    tolerance = REGION_WELD_TOLERANCE,
+    tolerance = REGION_WELD_TOLERANCE_M,
 ): AttributedRingVertex[][] {
     const points: RegionPoint2D[] = [];
     const adj = new Map<number, number[]>();

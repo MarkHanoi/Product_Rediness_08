@@ -22,7 +22,7 @@ import {
     wallPlanCenterline,
     findRegionAtPoint,
     pointInPolygon,
-    REGION_WELD_TOLERANCE,
+    REGION_WELD_TOLERANCE_M,
     type RegionWallLike,
     type RegionPoint2D,
 } from '../src/SlabRegionTracer';
@@ -91,7 +91,7 @@ describe('§ARC-DENSITY — wallPlanCenterline adaptive density', () => {
         const pts = wallPlanCenterline([ARC_A, ARC_B], { control: ARC_CTRL, segments: 16 });
         for (let i = 0; i + 1 < pts.length; i++) {
             const d = Math.hypot(pts[i + 1]!.x - pts[i]!.x, pts[i + 1]!.y - pts[i]!.y);
-            expect(d).toBeGreaterThan(REGION_WELD_TOLERANCE);
+            expect(d).toBeGreaterThan(REGION_WELD_TOLERANCE_M);
         }
     });
 
@@ -128,7 +128,7 @@ describe('§ARC-DENSITY — the founder region stays SIMPLE across the density r
     it('trimmed arc (pre-trim frame + clip) also yields a simple ring at adaptive density', () => {
         // The b431a17b defect class: post-trim endpoints + pre-trim control.
         const walls = founderWalls(16);
-        // Trim must stay within REGION_WELD_TOLERANCE of the junction corners so
+        // Trim must stay within REGION_WELD_TOLERANCE_M of the junction corners so
         // the loop still closes (a real resolver trim lands on the shared
         // junction node). Points lie ON the arc (t ≈ 0.01 / 0.99).
         walls[0] = {

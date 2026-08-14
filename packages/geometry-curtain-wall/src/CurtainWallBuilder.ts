@@ -151,7 +151,7 @@ export interface CurtainWallBuilderDependencies {
     /**
      * §C.4.1 — Thin interface to EdgeProjectorService so remove() can invalidate
      * the CW projection cache without importing the full service module.
-     * Optional — missing at construction time is valid (lazy EPS facade not yet created).
+     * Optional — missing at construction time is valid (lazy edge-projector facade not yet created).
      */
     edgeProjectorService?: { invalidateCwElement: (id: string) => void };
     /**
@@ -1590,10 +1590,10 @@ export class CurtainWallBuilder {
         // Uses _deps first; falls back to window.edgeProjectorService for
         // the pre-injection window where _deps.edgeProjectorService is not yet set.
         try {
-            const eps = this._deps.edgeProjectorService
+            const projector = this._deps.edgeProjectorService
                 ?? window.edgeProjectorService;
-            eps?.invalidateCwElement?.(id);
-        } catch { /* noop — EPS may not be loaded yet */ }
+            projector?.invalidateCwElement?.(id);
+        } catch { /* noop — the projector may not be loaded yet */ }
     }
 
     /**

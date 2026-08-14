@@ -306,9 +306,9 @@ export function stairAuthoredLayoutDiffers(
     stair: StairData,
     layout: Pick<StairDerivedGeometry, 'flights' | 'landings'>,
 ): boolean {
-    const EPS = 1e-4;
+    const EPS_M = 1e-4;   // C73 §2.3 — 0.1 mm, METRES: every quantity compared here (treadDepth, landing depth, override/centre x-z) is a model-space length.
     const near = (a: number | undefined, b: number | undefined): boolean =>
-        Math.abs((a ?? 0) - (b ?? 0)) <= EPS;
+        Math.abs((a ?? 0) - (b ?? 0)) <= EPS_M;
     const nearVec = (a: Vec3 | undefined, b: Vec3 | undefined): boolean => {
         if (!a && !b) return true;
         if (!a || !b) return false;
@@ -338,16 +338,16 @@ export function stairAuthoredLayoutDiffers(
  * left the derived geometry unchanged.
  */
 export function stairDerivedGeometryDiffers(stair: StairData, derived: StairDerivedGeometry): boolean {
-    const EPS = 1e-4;
+    const EPS_M = 1e-4;   // C73 §2.3 — 0.1 mm, METRES: riserHeight and landing depth are lengths.
     if (derived.riserCount !== stair.riserCount) return true;
-    if (Math.abs(derived.riserHeight - stair.riserHeight) > EPS) return true;
+    if (Math.abs(derived.riserHeight - stair.riserHeight) > EPS_M) return true;
     if (derived.flights.length !== (stair.flights?.length ?? 0)) return true;
     for (let i = 0; i < derived.flights.length; i++) {
         if (derived.flights[i].riserCount !== stair.flights?.[i]?.riserCount) return true;
     }
     if (derived.landings.length !== (stair.landings?.length ?? 0)) return true;
     for (let i = 0; i < derived.landings.length; i++) {
-        if (Math.abs(derived.landings[i].depth - (stair.landings?.[i]?.depth ?? 0)) > EPS) return true;
+        if (Math.abs(derived.landings[i].depth - (stair.landings?.[i]?.depth ?? 0)) > EPS_M) return true;
     }
     return false;
 }

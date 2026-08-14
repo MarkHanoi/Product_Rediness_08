@@ -124,8 +124,8 @@ export class WallAlignmentGuide {
     /** Extension (metres) added past the cursor so the guide over-shoots slightly. */
     private readonly overshoot = 0.35;
 
-    /** Minimum distance (metres) a reference point must be from startPoint to be included. */
-    private readonly excludeEpsilon = 0.05;
+    /** Minimum distance (m) a reference point must be from startPoint to be included. §C73 §2.1 — a snap-guide CANDIDATE BAND, not an epsilon: `tolerance.ts` records that "most 0.05 m sites are DOMAIN BANDS (snap radii, adjacency search) rather than identity tests", and domain bands stay under their own owner. Renamed from `excludeEpsilon`; value and every verdict unchanged. */
+    private readonly excludeRadiusM = 0.05;
 
     /**
      * §FIX-ALIGN-GUIDE-PERPENDICULAR — dominance ratio (|a| / |b|) beyond which
@@ -377,7 +377,7 @@ export class WallAlignmentGuide {
     private _collectCandidates(levelId: string, exclude: THREE.Vector3): THREE.Vector3[] {
         const walls = this.wallStore.getByLevel(levelId);
         const out: THREE.Vector3[] = [];
-        const eps = this.excludeEpsilon;
+        const excludeRadiusM = this.excludeRadiusM;
 
         // Reuse scratch vectors to compute distances — only clone when adding.
         const tmp = new THREE.Vector3();
@@ -385,12 +385,12 @@ export class WallAlignmentGuide {
         for (const wall of walls) {
             const [aPt, bPt] = wall.baseLine;
             tmp.set(aPt.x, aPt.y, aPt.z);
-            if (tmp.distanceTo(exclude) > eps) out.push(tmp.clone());
+            if (tmp.distanceTo(exclude) > excludeRadiusM) out.push(tmp.clone());
             tmp.set(bPt.x, bPt.y, bPt.z);
-            if (tmp.distanceTo(exclude) > eps) out.push(tmp.clone());
+            if (tmp.distanceTo(exclude) > excludeRadiusM) out.push(tmp.clone());
             // midpoint
             tmp.set((aPt.x + bPt.x) / 2, (aPt.y + bPt.y) / 2, (aPt.z + bPt.z) / 2);
-            if (tmp.distanceTo(exclude) > eps) out.push(tmp.clone());
+            if (tmp.distanceTo(exclude) > excludeRadiusM) out.push(tmp.clone());
         }
         return out;
     }

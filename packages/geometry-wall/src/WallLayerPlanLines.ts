@@ -52,7 +52,7 @@ export interface LayerLineSeg {
     readonly offset: number;
 }
 
-const EPS = 1e-6;
+const PLAN_EPS_M = 1e-6;   // C73 §2.3 — 1 micron, in METRES: the degenerate-length guard for layer thicknesses, spans and zones in this file.
 /** Vertical tolerance for deciding an opening void straddles the cut plane. */
 const CUT_MARGIN_M = 0.05;
 
@@ -75,7 +75,7 @@ export function computeWallLayerLines(
     const { sx, sz, dx, dz, ox, oz, len } = basis;
 
     const total = layers.reduce((s, l) => s + (l.thickness > 0 ? l.thickness : 0), 0);
-    if (total < EPS) return [];
+    if (total < PLAN_EPS_M) return [];
 
     // Internal boundary offsets (skip the two outer faces at ±total/2).
     const boundaries: number[] = [];
@@ -93,7 +93,7 @@ export function computeWallLayerLines(
     for (const offset of boundaries) {
         const px = sx + ox * offset, pz = sz + oz * offset;   // boundary line origin (wall start)
         for (const [a, b] of keptIntervals) {
-            if (b - a < EPS) continue;
+            if (b - a < PLAN_EPS_M) continue;
             segs.push({
                 ax: px + dx * a, az: pz + dz * a,
                 bx: px + dx * b, bz: pz + dz * b,
@@ -148,7 +148,7 @@ export function computeWallLayerInsulationHatch(
     const { sx, sz, dx, dz, ox, oz, len } = basis;
 
     const total = layers.reduce((s, l) => s + (l.thickness > 0 ? l.thickness : 0), 0);
-    if (total < EPS) return [];
+    if (total < PLAN_EPS_M) return [];
 
     const keptIntervals = subtractZones(len, openingZones(wall, cutRelToBase, len));
 
@@ -158,7 +158,7 @@ export function computeWallLayerInsulationHatch(
         const t = Math.max(0, layer.thickness);
         const near = cursor;
         cursor += t;
-        if (layer.function !== 'insulation' || t < EPS) continue;
+        if (layer.function !== 'insulation' || t < PLAN_EPS_M) continue;
         const far = cursor;
 
         // World point at (along, offset) in the wall's plan frame.
@@ -171,7 +171,7 @@ export function computeWallLayerInsulationHatch(
             // 45° strokes: run `t` along the wall while crossing the band's `t` depth.
             // Pitch = t. Only whole strokes are emitted, so no stroke escapes the band
             // or the kept interval — the hatch never draws where the wall is not.
-            for (let s = a; s + t <= b + EPS; s += t) {
+            for (let s = a; s + t <= b + PLAN_EPS_M; s += t) {
                 const [ax, az] = at(s, near);
                 const [bx, bz] = at(s + t, far);
                 segs.push({ ax, az, bx, bz, offset: (near + far) / 2 });
@@ -189,7 +189,7 @@ function wallPlanBasis(wall: LayerLineWall):
     const sx = bl[0].x, sz = bl[0].z;
     const dxRaw = bl[1].x - sx, dzRaw = bl[1].z - sz;
     const len = Math.hypot(dxRaw, dzRaw);
-    if (len < EPS) return null;
+    if (len < PLAN_EPS_M) return null;
     const dx = dxRaw / len, dz = dzRaw / len;
     return { sx, sz, dx, dz, ox: -dz, oz: dx, len };
 }
@@ -208,7 +208,7 @@ function openingZones(
         if (cutRelToBase <= sill + CUT_MARGIN_M || cutRelToBase >= sill + h - CUT_MARGIN_M) continue;
         const min = Math.max(0, Math.min(len, off));
         const max = Math.max(0, Math.min(len, off + w));
-        if (max - min > EPS) zones.push({ min, max });
+        if (max - min > PLAN_EPS_M) zones.push({ min, max });
     }
     return zones;
 }
@@ -220,15 +220,15 @@ function subtractZones(len: number, zones: ReadonlyArray<{ min: number; max: num
     const merged: Array<{ min: number; max: number }> = [];
     for (const z of sorted) {
         const last = merged[merged.length - 1];
-        if (last && z.min <= last.max + EPS) last.max = Math.max(last.max, z.max);
+        if (last && z.min <= last.max + PLAN_EPS_M) last.max = Math.max(last.max, z.max);
         else merged.push({ min: z.min, max: z.max });
     }
     const kept: Array<[number, number]> = [];
     let x = 0;
     for (const z of merged) {
-        if (z.min - x > EPS) kept.push([x, z.min]);
+        if (z.min - x > PLAN_EPS_M) kept.push([x, z.min]);
         x = Math.max(x, z.max);
     }
-    if (len - x > EPS) kept.push([x, len]);
+    if (len - x > PLAN_EPS_M) kept.push([x, len]);
     return kept;
 }

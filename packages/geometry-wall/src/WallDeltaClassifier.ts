@@ -31,10 +31,16 @@
  * a fast-but-wrong branch is not acceptable.
  */
 
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import type { WallData, Opening } from './WallTypes';
 
-/** Endpoint-move epsilon (metres). Matches the existing `_flush` baseline diff. */
-export const BASELINE_EPS_M = 0.001;
+// §C73-EPSILON-POLICY — "did this endpoint move, or is it still the same
+// point?" is the MODEL-SPACE COINCIDENCE question (C73 §2.2), so it consumes
+// the kernel's declared `COINCIDENT_M` (1 mm) instead of the local
+// `BASELINE_EPS_M = 0.001` it replaces. Identical value, identical comparison
+// direction (`dist > tol` ⇒ moved), so the classification is byte-unchanged —
+// which matters here: this file's stated contract is that the fast path is a
+// pure subset of the correct-but-slow one.
 
 /** Result of classifying a single rebuild batch. */
 export type WallDeltaClassification =
@@ -62,7 +68,7 @@ export type WallDeltaClassification =
            * changed) instead of re-extruding every wall on the level.
            */
           kind: 'moved-wall';
-          /** The walls whose baseline actually moved (>= BASELINE_EPS_M). Never empty. */
+          /** The walls whose baseline actually moved (>= COINCIDENT_M). Never empty. */
           movedWallIds: string[];
           /** Every wall in the batch (moved + any openings-value-only edits alongside). */
           wallIds: string[];
@@ -90,14 +96,15 @@ function pt3dDist(
     return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
 }
 
-/** True if the two baselines differ by more than the endpoint epsilon. */
+/** True if the two baselines differ by more than the declared model-space
+ *  coincidence tolerance — i.e. an endpoint is no longer "the same place". */
 export function baselineMoved(prev: WallData, next: WallData): boolean {
     const pb = prev.baseLine;
     const nb = next.baseLine;
     if (!pb || !nb || pb.length < 2 || nb.length < 2) return true; // can't prove stable → treat as moved
     return (
-        pt3dDist(pb[0], nb[0]) > BASELINE_EPS_M ||
-        pt3dDist(pb[1], nb[1]) > BASELINE_EPS_M
+        pt3dDist(pb[0], nb[0]) > COINCIDENT_M ||
+        pt3dDist(pb[1], nb[1]) > COINCIDENT_M
     );
 }
 
@@ -148,7 +155,7 @@ export function joinGeometryChangedExcludingBaseline(prev: WallData, next: WallD
     if ((pc === undefined) !== (nc === undefined)) return true;
     if (pc && nc) {
         if (
-            pt3dDist(pc.control, nc.control) > BASELINE_EPS_M ||
+            pt3dDist(pc.control, nc.control) > COINCIDENT_M ||
             pc.segments !== nc.segments
         ) {
             return true;

@@ -190,7 +190,7 @@ export class StairCreationController {
         // direction is one of just 4 axes and barely ever changes — made the preview
         // stutter instead of flow. Skip the (expensive) updatePreview() whenever the
         // resolved direction is unchanged within epsilon.
-        const DIR_EPS = 1e-6;
+        const DIR_EPS_RAD = 1e-3;   // C73 §2.3 — dir1/dir2/normalized are UNIT vectors, so their chord separation IS the angle between them in radians for small angles (chord = 2·sin(θ/2) ≈ θ). Was DIR_EPS = 1e-6 compared against distanceToSquared; 1e-3 against distanceTo is the same threshold (√1e-6), now stating its unit.
 
         if (this.phase === StairCreationPhase.FirstFlight) {
             const dir = currentPoint.clone().sub(this.startPosition);
@@ -200,7 +200,7 @@ export class StairCreationController {
                 if (this._drawingMode === 'ortho') {
                     normalized = this._snapOrtho(normalized);
                 }
-                if (this.dir1 && this.dir1.distanceToSquared(normalized) < DIR_EPS) {
+                if (this.dir1 && this.dir1.distanceTo(normalized) < DIR_EPS_RAD) {
                     return; // direction unchanged → identical geometry, skip rebuild
                 }
                 this.dir1 = normalized;
@@ -222,7 +222,7 @@ export class StairCreationController {
             // L/U second-flight direction is DETERMINISTIC from dir1 (already fixed
             // when flight 1 was confirmed), so it never changes as the mouse moves —
             // the preview was already drawn on confirm (onConfirm → updatePreview).
-            if (this.dir2 && this.dir2.distanceToSquared(newDir2) < DIR_EPS) {
+            if (this.dir2 && this.dir2.distanceTo(newDir2) < DIR_EPS_RAD) {
                 return; // unchanged → skip redundant rebuild
             }
             this.dir2 = newDir2;

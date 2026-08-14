@@ -36,6 +36,7 @@
  *   §2.7     — Builder is never called from here
  */
 
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import { WallData, Opening } from './WallTypes';
 import { wallCentrelineLength } from './WallArcParam';
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the same predicate WallStore uses,
@@ -252,11 +253,12 @@ export interface OpeningRefitPlan {
  */
 export class WallOccupancyStore {
 
-    /**
-     * 1 mm tolerance so that openings that share an exact edge
-     * (e.g., a door flush against a window) are NOT treated as conflicting.
-     */
-    private static readonly EPSILON_M = 0.001;
+    // §C73-EPSILON-POLICY — "do these two opening edges sit at the same station?"
+    // (so a door flush against a window is NOT a conflict) is the MODEL-SPACE
+    // COINCIDENCE question, in metres along the wall, so it consumes the kernel's
+    // declared `COINCIDENT_M` (1 mm, C73 §2.2) rather than the private
+    // `WallOccupancyStore.EPSILON_M = 0.001` it replaces — same value, same role,
+    // every verdict unchanged. That constant was `private`: no external referent.
 
     /**
      * §FIX-WINDOW-OOB-OPENING-RESTORE — smallest hosted-opening dimension the
@@ -591,9 +593,7 @@ export class WallOccupancyStore {
             };
         }
 
-        const eps = WallOccupancyStore.EPSILON_M;
-
-        if (offsetM < -eps) {
+        if (offsetM < -COINCIDENT_M) {
             return {
                 valid:       false,
                 conflictIds: [],
@@ -603,7 +603,7 @@ export class WallOccupancyStore {
         }
 
         const newEnd = offsetM + widthM;
-        if (newEnd > wallLengthM + eps) {
+        if (newEnd > wallLengthM + COINCIDENT_M) {
             return {
                 valid:       false,
                 conflictIds: [],
@@ -641,8 +641,8 @@ export class WallOccupancyStore {
             const exEnd   = existing.offset + existing.width;
 
             const overlaps = (
-                offsetM < exEnd   - eps &&
-                newEnd  > exStart + eps
+                offsetM < exEnd   - COINCIDENT_M &&
+                newEnd  > exStart + COINCIDENT_M
             );
 
             if (overlaps) {

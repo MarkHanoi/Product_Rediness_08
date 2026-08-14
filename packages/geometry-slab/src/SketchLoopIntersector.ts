@@ -36,6 +36,8 @@
  * ```
  */
 
+import { isNumericallyZero } from '@pryzm/geometry-kernel';
+
 export interface Point2D {
     x: number;
     y: number;
@@ -89,7 +91,13 @@ export class SketchLoopIntersector {
      * Line 1 passes through p1 and p2.
      * Line 2 passes through p3 and p4.
      *
-     * Returns null when lines are parallel (cross product magnitude < EPSILON).
+     * Returns null when the two lines are parallel — i.e. when the cross product
+     * that becomes the divisor below is numerically zero. That guard comes from
+     * the kernel's declared tolerance policy (C73 §2.2, §2.4:
+     * `isNumericallyZero` / `EPSILON_ZERO`, dimensionless), not from a literal
+     * invented here. `cross` is a RAW determinant of un-normalised deltas, so
+     * the role is the numeric-zero divide guard, NOT `PARALLEL_RAD` (which is
+     * defined on UNIT vectors).
      *
      * Math:
      *   Let D1 = p2 - p1,  D2 = p4 - p3,  D3 = p3 - p1
@@ -108,8 +116,7 @@ export class SketchLoopIntersector {
 
         const cross = dx1 * dy2 - dy1 * dx2;
 
-        const EPSILON = 1e-9;
-        if (Math.abs(cross) < EPSILON) return null;
+        if (isNumericallyZero(cross)) return null;
 
         const dx3 = p3.x - p1.x;
         const dy3 = p3.y - p1.y;
