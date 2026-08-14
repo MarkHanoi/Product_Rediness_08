@@ -31,13 +31,29 @@
  *     missing stylesheet — the failure mode that killed the "🏗 Data toolbar
  *     button" (ISSUE-LOG L-870, `.plat-toolbar` never in the DOM).
  *  3. `showToast` is live — the founder already sees save/export/collaborator
- *     toasts — and its `.plat-toast` rule DOES exist, at
+ *     toasts — and its `.plat-toast` rule is not merely PRESENT but INJECTED.
+ *     The distinction is the whole subject of this file, so the chain is walked
+ *     rather than asserted: the rule at
  *     `ui/styles/panels/platform-shell/platformToolbar.ts:328`
- *     (`position:fixed; bottom:24px; right:24px; z-index:99999`). A first probe
- *     that grepped only `*.css`/`*.html` found nothing and would have concluded
- *     the toast was unstyled; the rule lives in a TypeScript template string.
- *     Recorded because that near-miss is exactly the "probe can be wrong three
- *     ways" trap.
+ *     (`position:fixed; bottom:24px; right:24px; z-index:99999`) lives in
+ *     `PLATFORM_SHELL_STYLES` → re-exported by `panels/platformShell.ts:9` →
+ *     concatenated into the assembled sheet at `styles/AppTheme.ts:121` →
+ *     emitted by `injectAppTheme()` (`:95`), the SOLE runtime CSS injection
+ *     point (§05 §2.1), idempotent and called from many live UI modules.
+ *
+ *     ⚠ Three probes were needed and TWO of them lied, in different ways.
+ *     Grepping `*.css`/`*.html` found nothing — the rule is inside a TypeScript
+ *     template string — and would have concluded the toast was unstyled. A
+ *     follow-up `grep -rn` over every file type had its output eaten by
+ *     `.git/lost-found` objects before `head` cut it, and ALSO missed the live
+ *     source. Only a search that ignored VCS internals found it. "Probe can be
+ *     wrong three ways" is not a slogan here; it cost two wrong answers about
+ *     one CSS rule.
+ *
+ *     None of this is load-bearing for correctness, and that is by design: the
+ *     CARD is the primary surface precisely because its styles are INLINE and
+ *     therefore cannot be defeated by a stylesheet that fails to inject. The
+ *     toast is the redundant second channel, not the guarantee.
  *
  * So the refusal is delivered TWICE, both proven live, for different reasons:
  * the CARD carries the full sentence and the alternatives (it is the canonical
