@@ -3269,3 +3269,99 @@ accessor rather than mint another route. Not yet done here: the offer does not e
 baselines from `WallStore.getByLevel`, and refuses explicitly when either store cannot answer
 (`_snapshotRooms` returns `undefined`, which **disables** the comparison rather than comparing
 against an unknown "before"). No empty list is treated as evidence anywhere in this change.
+
+---
+
+## L-882 — CLOSED — a new wall could be drawn straight through an existing door or window
+
+**Reported:** founder, live production build `a75e8e1e`, 2026-08-14, with screenshot. Verbatim:
+*"also the wall can be placed in front of a door still: which it should not"*. Earlier statement of
+intent: *"a interior wall can not be in the same place where a window is — this should be flagged —
+in the AI chat RAC again — and ask the user do you want to move the wall upwards or backwards? the
+wall should never be in this position - same with a door"*.
+
+**Root cause, measured rather than inferred.** `WallOccupancyStore.canPlace(wall, offsetM, widthM)`
+takes ONE wall and compares a span against THAT wall's own `openings[]`. All ~12 production call
+sites are opening-side (create an opening, move a door, set an offset). A NEW WALL arriving at a
+wall that already holds a door is **not expressible in that signature**, so no arm could fire — the
+detection was not missing, the QUESTION was never asked. Two executed controls pin the prior state
+(`§PRIOR-ART-SILENCE` in `packages/geometry-wall/__tests__/WallCrossesOpening.test.ts`): the only
+pre-existing wall-side instrument, `planOpeningRefit`, returns `ok:true` / 0 refusals for the
+offending candidate — a correct answer to *"do MY openings still fit?"* and no answer at all to
+*"am I driving through SOMEONE ELSE'S door?"* — and `canPlace` on the new wall returns `valid`
+because the new wall's own opening list is empty.
+
+**Fix — C83 slice S1.** New pure L2 predicate `packages/geometry-wall/src/WallCrossesOpening.ts`;
+`CanPlaceRefusalCode` extended 6 → 7 with `OCC_CROSSES_HOSTED_OPENING` (C83 §1.4 — extends the
+existing union, mints no rival); enforced at three seams; surfaced on the ConfirmationCard + toast
+(plan view) and the tool instruction bar (3D). The second ENFORCEMENT row was added to the C74 §2
+protected table in the same change rather than deferred.
+
+⚠ **Two scope limits, deliberate.** Wall MOVE into an opening is NOT covered (see L-885). And the
+refusal is SUPPRESSED during restore and generation (C83 §3.1) — load-bearing: projects saved before
+this landed may already contain the defect, and enforcing on replay would turn a visual bug into a
+project that will not open.
+
+**Commits:** `5b33c439` · `ffa5ffa1` · `80e72a75` · `46232e2d` · `5b0fcea0`.
+**Executed:** 31 predicate + 9 surfacing (incl. six silence controls) + geometry-wall 533/533 +
+consequence suites 69/69 + root tsc 0. Deployed and bundle-proven on `46232e2d`.
+
+---
+
+## L-883 — OPEN — C83 §8's Slice S0 is NOT "two lines"; its mandated import does not exist
+
+C83 §8 Slice 0 says to call `canPlace` + `canPlaceRefusalText` in
+`CreateWallOpeningLegacyAdapter.canExecute`, *"exactly as the sibling handler
+`plugins/wall/src/handlers/CreateWallOpening.ts:128` already does one file away"*, and warns
+**"⚠ Import from `@pryzm/geometry-wall` — NOT the drifted plugin copy at
+`plugins/wall/src/occupancy.ts`"**. Three measured facts contradict the estimate:
+
+1. **`plugins/wall` has no `@pryzm/geometry-wall` dependency.** Its full set is `immer`, `three`,
+   `ulid`, `@pryzm/plugin-sdk`, `@pryzm/command-registry`. **No plugin in the repo depends on
+   `geometry-wall`** (`grep -l geometry-wall plugins/*/package.json` → empty), and
+   `@pryzm/plugin-sdk` re-exports none of it. The mandated import therefore requires a
+   `package.json` + `pnpm-lock.yaml` change — a known frozen-lockfile CI breaker.
+2. **The cited precedent is the thing being forbidden.** `CreateWallOpening.ts:128` imports
+   `wallOccupancyStore, canPlaceRefusalText, CanPlaceRefusalCode` from **`../occupancy.js`** — the
+   drifted plugin-local copy the very next sentence warns against. "Do it like the sibling handler"
+   and "do not use the local copy" are mutually exclusive as written.
+3. It would move a governed number: `check-layer-boundaries` counts `plugin → geometry-wall` as an
+   **sdk-bypass**, currently 171/182. Headroom exists (it would pass at 172), but the ratchet is
+   shrink-only and this pushes it the wrong way.
+
+**Left untouched deliberately** — it is not the founder's reported defect, and a lockfile change
+immediately before an urgent deploy is the wrong risk. C83 §8 Slice 0 should be RE-COSTED.
+
+---
+
+## L-884 — OPEN — `CommandManagerImpl:213`'s comment claims a user surface that does not exist
+
+The comment reads: *"The tools render `result.info[0]` straight into the operation overlay, so the
+token was what the founder saw."* **Measured: no tool does.** Every consumer of `result.info`
+outside the AI panels sends it to the console — `ColumnTool.ts:236`, `LiftTool.ts:219`,
+`OpeningTool.ts:473`, `DoorSection.ts:61` are all `console.error` / `console.warn`.
+
+Consequence: the L-813 fix (prefer `blockingIssues[0]`, a human sentence, over `reason`, a machine
+token) improved a string that, for these tools, still reaches only devtools. **Any future work that
+assumes a `canExecute` refusal is user-visible on the legacy command path is assuming a surface that
+is not there.** L-882 gave both wall-creation gestures a real surface of their own rather than
+relying on it. Same family as L-881: a refusal that exists in a return value and reaches nobody is
+indistinguishable, from the user's side, from no refusal at all.
+
+---
+
+## L-885 — OPEN — wall MOVE into an opening is uncovered, and is NOT reachable through L-882's chokepoint
+
+The predicate already supports it — `CandidateWall.id` excludes the subject from its own host list,
+and the self-move silence case is executed (*"a wall does not violate ITSELF when its own baseline
+is re-proposed"*). Only the wiring is missing, and it was left rather than half-wired because the
+move path is structurally different:
+
+- `wall.updateBaseline` is dispatched from at least four places (`registerTransformDragHandler:202`,
+  `elementMove.ts:103`, `AlignPlanToolHandler:342`, `MovePlanToolHandler:538`);
+- the bus handler lives in `plugins/wall`, which has the same missing-dependency problem as L-883;
+- `MovePlanToolHandler` already routes through `ConfirmationFlow` with plan-hash binding, so
+  injecting a refusal means teaching `WallMoveConsequencePlanner` to emit it — touching an
+  approval-bound path governed by `check-approval-binding` and `check-plan-determinism`.
+
+A follow-up slice with its own tests, not a line in L-882.
