@@ -606,11 +606,6 @@
       "why": "C@156 `relationships.push(...(graphJson.relationships ?? []));`"
     },
     {
-      "site": "packages/geometry-door/src/DoorDependencyTracker.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@174 `return Array.from(this.graph.get(wallId) ?? []);`"
-    },
-    {
       "site": "packages/geometry-kernel/src/edge-projection.ts",
       "arm": "C (2 site(s))",
       "why": "C@115 `for (const d of doorsByWall.get(wall.id) ?? []) {` · C@121 `for (const w of winsByWall.get(wall.id) ?? []) {`"

@@ -27,6 +27,25 @@ export interface DoorTrackerCommandManagerRef {
 type WallEventType = 'add' | 'update' | 'remove';
 type WallStoreRef = Pick<WallStore, 'subscribe'>;
 
+/**
+ * §GR-10/GR-14 — the answer to "which doors hang on this wall?" WITH its
+ * determination status. `[]` is representable only through the `determined`
+ * arm, so C71 §4.4 (*"`[]` may only ever mean zero results"*) holds by
+ * construction rather than by a caller remembering to check.
+ *
+ * `STALE_DERIVED_STATE` is the C78 §8.1 member, restated as a literal — the
+ * union is CLOSED at eleven at `packages/command-bus/src/consequence.ts`;
+ * nothing here mints, extends or renames. See
+ * {@link DoorDependencyTracker.doorIdsForWallDetermination}.
+ */
+export type DoorTrackerDetermination =
+    | { readonly kind: 'determined'; readonly doorIds: readonly string[] }
+    | {
+        readonly kind: 'undetermined';
+        readonly reason: 'STALE_DERIVED_STATE';
+        readonly detail: string;
+    };
+
 export class DoorDependencyTracker {
     /** wallId → doorIds hosted on that wall */
     private graph = new Map<string, Set<string>>();
@@ -162,16 +181,81 @@ export class DoorDependencyTracker {
         this.home.delete(doorId);
     }
 
+    /**
+     * §GR-10/GR-14 — has {@link bootstrap} ever run on this instance?
+     *
+     * Not a diagnostic nicety: an un-bootstrapped tracker's index is EMPTY, and
+     * every read off it returns `[]` — indistinguishable from "this wall hosts no
+     * doors". `check-move-propagation`'s PC1 control exists for the identical
+     * shape one element type over: *"with `tracker.bootstrap()` called, the
+     * identical wall move must produce exactly 1 rebuild"* — the slab tracker's
+     * wire was cut in two places and the symptom was silence.
+     */
+    private _bootstrapped = false;
+
     /** Build an initial dependency graph snapshot from all existing doors. */
     bootstrap(): void {
         for (const door of doorStore.getAll()) {
             this.register(door.id, door.wallId);
         }
+        this._bootstrapped = true;
     }
 
-    /** Read-only access used by tests and cleanup handlers. */
+    /**
+     * §GR-10/GR-14 — "which doors hang on this wall?", with the determination
+     * status in the TYPE rather than inferred from a length.
+     *
+     * THE DEFECT THIS ENDS. `getDoorIdsForWall` used to be
+     * `Array.from(this.graph.get(wallId) ?? [])`, and returned `[]` for two
+     * cases that are not the same fact:
+     *   (1) the index was read and this wall genuinely hosts no doors;
+     *   (2) THE INDEX WAS NEVER POPULATED — `bootstrap()` was not called and no
+     *       door event has fired since construction — so nothing was ever
+     *       recorded and `[]` is not an answer about the building at all.
+     * Case (2) is not hypothetical: it is exactly the failure
+     * `check-move-propagation` pins for the SLAB tracker, whose wire was found
+     * cut in two places. Its only symptom is a correct-looking empty array.
+     *
+     * The disagreement is DETECTABLE, and this method detects it rather than
+     * asserting it: the authoritative source is `doorStore`, so an index that is
+     * empty while the store holds doors is provably out of date with
+     * authoritative state — `STALE_DERIVED_STATE`, the C78 §8.1 member whose
+     * definition is exactly *"the derived state this branch reads is known to be
+     * out of date with authoritative state, so an answer would be a guess."*
+     * (Restated as a literal, not imported: `@pryzm/command-bus` is not a
+     * declared dependency of `@pryzm/geometry-door`, the same call the four
+     * sibling determination modules made. The test pins it against the
+     * command-bus source and asserts the union is still closed at eleven.)
+     *
+     * An empty store and an empty index AGREE, so that is `determined` and empty
+     * — refusing there would be the mirror-image defect.
+     */
+    doorIdsForWallDetermination(wallId: string): DoorTrackerDetermination {
+        if (!this._bootstrapped && this.graph.size === 0 && doorStore.getAll().length > 0) {
+            return {
+                kind: 'undetermined',
+                reason: 'STALE_DERIVED_STATE',
+                detail: `the door dependency index is empty while doorStore holds ` +
+                    `${doorStore.getAll().length} door(s) and bootstrap() has never run — ` +
+                    `nothing was ever indexed, so "no doors on this wall" would be a guess`,
+            };
+        }
+        const bucket = this.graph.get(wallId);
+        return { kind: 'determined', doorIds: bucket ? Array.from(bucket) : [] };
+    }
+
+    /**
+     * Read-only access used by tests and cleanup handlers.
+     *
+     * RETAINED at its original signature so every existing caller compiles and
+     * behaves identically. It is now a NARROWING of
+     * {@link doorIdsForWallDetermination} rather than a second, rival read — the
+     * distinction is preserved there for any caller that needs the truth, which
+     * is what it never was before.
+     */
     getDoorIdsForWall(wallId: string): string[] {
-        return Array.from(this.graph.get(wallId) ?? []);
+        const d = this.doorIdsForWallDetermination(wallId);
+        return d.kind === 'determined' ? d.doorIds : [];
     }
 
     dispose(): void {

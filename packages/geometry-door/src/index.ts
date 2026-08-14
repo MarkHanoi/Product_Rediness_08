@@ -51,6 +51,8 @@ export {
 } from './DoorTypeChange';
 export { DoorBuilder } from './DoorBuilder';
 export { DoorDependencyTracker } from './DoorDependencyTracker';
+// §GR-10/GR-14 — a distinction only this package can see is one nobody can act on.
+export type { DoorTrackerDetermination } from './DoorDependencyTracker';
 export { DoorLevelCleanupHandler } from './DoorLevelCleanupHandler';
 export { buildDoorSection, injectDwStyles, setDoorSectionCommandManager } from './DoorSection';
 
