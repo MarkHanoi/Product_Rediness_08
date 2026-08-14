@@ -6,9 +6,159 @@
  * (pointInPolygon, RoomTypes) or @pryzm/* packages already imported transitively.
  */
 
+import { determineBoundingWalls, type BoundingWallCarrier } from '@pryzm/core-app-model';
 import { pointInPolygon } from './RoomPolygonUtils';
 import type { RoomData } from './RoomTypes';
-import { readRoomsDetermined, type RoomStoreDetermination } from './roomStoreDetermination';
+import {
+  readRoomsDetermined,
+  type RoomStoreDetermination,
+  type RoomStoreUndeterminedReason,
+} from './roomStoreDetermination';
+import type { BoundingWallUndeterminedReason } from '@pryzm/core-app-model';
+
+// ─── §GR-10/GR-14 — the bounding-id READER layer of this service ─────────────
+//
+// THE DEFECT. `room.boundingWallIds ?? []` (and its slab / column / curtain-wall
+// siblings) appeared at eleven sites in this file. Each collapsed THREE
+// distinguishable facts into one value:
+//   1. the room was examined and bounds ZERO walls — a real, determined answer;
+//   2. the field is ABSENT because no producer ever wrote it (C79 §7.1);
+//   3. the room record itself is partial or unreadable.
+// C71 §4.4: "`[]` may only ever mean zero results." C78 §1.4: an absent field and
+// a `?? []` are UNDETERMINED, never DETERMINED-unaffected.
+//
+// WHY IT TRAVELS HERE IN PARTICULAR. This service is the single canonical answer
+// to "what is in room R?" and to "which room is this element in?". On case (2)
+// `getContents` returned `bounding.walls: []`, `hosted.doors: []`,
+// `hosted.windows: []`, `hosted.openings: []` and `totals.bounding: 0` — a
+// positive claim that the room bounds nothing and hosts nothing — while
+// `getRoomForElement` silently dropped every unrecorded room from its candidate
+// scan and then answered *"this element belongs to no room"*. Both are the
+// `FacadeOrientationService` shape (C79 §5.2.0): an absence rendered as a fact
+// about the building.
+//
+// NO RIVAL VOCABULARY (C78 §8.1). Nothing is minted below. The wall arm IS
+// core-app-model's `determineBoundingWalls`, CALLED — not re-implemented — and
+// the two reason literals are the two already-pinned imports:
+// `BoundingWallUndeterminedReason` ('RELATIONSHIP_NOT_RECORDED', pinned by
+// `boundingWallDetermination.test.ts`) and `RoomStoreUndeterminedReason`
+// ('RELATIONSHIP_NOT_READABLE', pinned by `roomStoreDetermination.test.ts`).
+// `RoomContentsUndeterminedReason` is their UNION — a type alias over two
+// imported literals, so a twelfth member is unrepresentable here (C75 §2.8).
+
+/** The two C78 §8.1 members this service can produce. Both imported, never restated. */
+export type RoomContentsUndeterminedReason =
+  | RoomStoreUndeterminedReason
+  | BoundingWallUndeterminedReason;
+
+/**
+ * A named question this service could NOT answer. Deliberately NOT `[]`-shaped:
+ * its presence is the whole signal.
+ *
+ * Supertype of `Extract<RoomStoreDetermination, { kind: 'undetermined' }>`, so
+ * the store-unreadable record flows into the same channel as the
+ * relationship-unrecorded one without a second dialect.
+ */
+export interface RoomContentsUndetermined {
+  readonly kind: 'undetermined';
+  /** WHAT went unanswered, for a card / log line / tooltip to render. */
+  readonly scope: string;
+  readonly reason: RoomContentsUndeterminedReason;
+  /** WHY, in words. Always present here — a rendered refusal must never be blank. */
+  readonly detail: string;
+}
+
+/** The bounding relationship fields this service reads off a room record. */
+export type BoundingIdsField =
+  | 'boundingWallIds'
+  | 'boundingSlabIds'
+  | 'boundingColumnIds'
+  | 'boundingCurtainWallIds';
+
+const BOUNDING_FIELD_LABEL: Record<BoundingIdsField, string> = {
+  boundingWallIds:        'bounding walls',
+  boundingSlabIds:        'bounding slabs',
+  boundingColumnIds:      'bounding columns',
+  boundingCurtainWallIds: 'bounding curtain walls',
+};
+
+/** Which bounding list answers "is this element bounding room R?", per element type. */
+const BOUNDING_FIELD_FOR_TYPE: Readonly<Record<string, BoundingIdsField>> = {
+  wall:            'boundingWallIds',
+  slab:            'boundingSlabIds',
+  column:          'boundingColumnIds',
+  curtainwall:     'boundingCurtainWallIds',
+  'curtain-wall':  'boundingCurtainWallIds',
+};
+
+export type BoundingIdsDetermination =
+  | {
+      readonly kind: 'determined';
+      /** MAY be empty — an empty DETERMINED list is a real answer: this room was
+       *  examined and bounds zero elements of that kind. */
+      readonly elements: readonly string[];
+    }
+  | RoomContentsUndetermined;
+
+/**
+ * THE discriminator. Replaces `room.boundingXIds ?? []` at every reader here.
+ *
+ * - a **present array** → `determined`, whatever its length;
+ * - **absent / null / not an array / no room record** → `undetermined` +
+ *   `RELATIONSHIP_NOT_RECORDED` (C79 §5.2.0): the field names a dependency and
+ *   nothing wrote it, so zero was NOT determined.
+ *
+ * PURE: no store access, no I/O, no throw.
+ */
+export function determineBoundingIds(
+  room: BoundingWallCarrier | Readonly<Record<string, unknown>> | null | undefined,
+  field: BoundingIdsField,
+  scopeLabel?: string,
+): BoundingIdsDetermination {
+  const roomId = (room as { id?: string } | null | undefined)?.id ?? 'an unidentified room';
+  const scope = scopeLabel ?? `${BOUNDING_FIELD_LABEL[field]} of room ${roomId}`;
+  const unrecorded =
+    `room.${field} is absent — the field names a dependency that no producer wrote ` +
+    `(C79 §7.1). Zero ${BOUNDING_FIELD_LABEL[field].replace('bounding ', '')} was NOT determined.`;
+
+  // The WALL arm is core-app-model's authority, CALLED. Its `detail` is optional
+  // there and total here, so the only local work is making it so.
+  if (field === 'boundingWallIds') {
+    const d = determineBoundingWalls(room as BoundingWallCarrier | null | undefined, scope);
+    return d.kind === 'determined'
+      ? { kind: 'determined', elements: d.elements }
+      : { kind: 'undetermined', scope: d.scope, reason: d.reason, detail: d.detail ?? unrecorded };
+  }
+
+  if (room === null || room === undefined) {
+    return {
+      kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_RECORDED',
+      detail: `no room record was supplied, so ${BOUNDING_FIELD_LABEL[field]} was never read`,
+    };
+  }
+
+  const raw = (room as Readonly<Record<string, unknown>>)[field];
+  if (!Array.isArray(raw)) {
+    return { kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_RECORDED', detail: unrecorded };
+  }
+  return { kind: 'determined', elements: raw as readonly string[] };
+}
+
+/**
+ * The ids, or `null` when they could not be determined.
+ *
+ * The migration affordance for readers whose whole use of the field is to
+ * iterate or membership-test it. It is NOT a shorthand for `?? []` — returning
+ * `null` where the old code returned `[]` is exactly the observable difference
+ * this task exists to create.
+ */
+export function boundingIdsOrUnknown(
+  room: BoundingWallCarrier | Readonly<Record<string, unknown>> | null | undefined,
+  field: BoundingIdsField,
+): readonly string[] | null {
+  const d = determineBoundingIds(room, field);
+  return d.kind === 'determined' ? d.elements : null;
+}
 
 export interface ElementRef {
   id: string;
@@ -50,7 +200,27 @@ export interface RoomContents {
     contained: number;
     vertical:  number;
     total:     number;
+    /**
+     * §GR-10/GR-14 — is `total` an EXACT count, or a floor?
+     *
+     * `false` whenever {@link RoomContents.undetermined} is non-empty: at least
+     * one relationship was never recorded, so the counts above are "at least N",
+     * not "N". A caller that renders a bare number without reading this is
+     * publishing an unknown as a fact.
+     */
+    exact:     boolean;
   };
+  /**
+   * §GR-10/GR-14 — the questions this answer could NOT settle. ABSENT when
+   * everything was determined; never `[]`-shaped, because an empty array here
+   * would reintroduce exactly the ambiguity the field exists to remove.
+   *
+   * READ IT BEFORE RENDERING AN EMPTY BUCKET. A `boundingWallIds` record here
+   * means `bounding.walls` AND all three `hosted.*` buckets are undetermined —
+   * doors, windows and openings are found THROUGH the bounding walls, so an
+   * unrecorded wall list silently empties them too.
+   */
+  undetermined?: readonly RoomContentsUndetermined[];
 }
 
 interface MinReadable<T = any> { getAll(): T[] }
@@ -91,23 +261,38 @@ export class RoomContentsService {
     const polygon = room.boundary?.polygon ?? [];
     const bbox    = room.computed?.boundingBox;
 
+    // ─── §GR-10/GR-14 — every bounding relationship is DETERMINED once, here ──
+    // Taken before any bucket is built, so an unrecorded field is RECORDED as a
+    // known-unknown instead of being silently spent as an empty id list at three
+    // or four different call sites.
+    const undetermined: RoomContentsUndetermined[] = [];
+    const read = (field: BoundingIdsField): readonly string[] | null => {
+      const d = determineBoundingIds(room, field, `${BOUNDING_FIELD_LABEL[field]} of room ${roomId}`);
+      if (d.kind === 'determined') return d.elements;
+      undetermined.push(d);
+      return null;
+    };
+    const wallIds   = read('boundingWallIds');
+    const columnIds = read('boundingColumnIds');
+    const slabIds   = read('boundingSlabIds');
+
     const contents: RoomContents = {
       roomId,
       levelId,
       bounding: {
-        walls:        this._refsByIds(this._wallStore(), room.boundingWallIds ?? [], 'wall'),
-        slabs:        this._slabsForRoom(room),
-        columns:      this._refsByIds(this._columnStore(), room.boundingColumnIds ?? [], 'column'),
+        walls:        this._refsByIds(this._wallStore(), wallIds, 'wall'),
+        slabs:        this._slabsForRoom(room, slabIds),
+        columns:      this._refsByIds(this._columnStore(), columnIds, 'column'),
         curtainWalls: this._curtainWallsForRoom(room),
       },
       hosted: {
-        doors:    this._hostedOpenings(this._doorStore(),    room.boundingWallIds ?? [], 'door'),
-        windows:  this._hostedOpenings(this._windowStore(),  room.boundingWallIds ?? [], 'window'),
-        openings: this._hostedOnHostId(this._openingStore(), room.boundingWallIds ?? [], 'opening'),
+        doors:    this._hostedOpenings(this._doorStore(),    wallIds, 'door'),
+        windows:  this._hostedOpenings(this._windowStore(),  wallIds, 'window'),
+        openings: this._hostedOnHostId(this._openingStore(), wallIds, 'opening'),
       },
       contained: {
         furniture:   this._containedByCentroid(this._furnitureStore(), levelId, polygon, 'furniture'),
-        columns:     this._containedFreeStandingColumns(room),
+        columns:     this._containedFreeStandingColumns(room, columnIds),
         plumbing:    this._containedByCentroid(this._plumbingStore(), levelId, polygon, 'plumbing'),
         lighting:    this._containedByCentroid(this._lightingStore(), levelId, polygon, 'lighting'),
         beams:       this._containedByMidSpan(this._beamStore(),     levelId, polygon, 'beam'),
@@ -116,7 +301,7 @@ export class RoomContentsService {
         annotations: this._containedByCentroid(this._annotationStore(), levelId, polygon, 'annotation'),
       },
       vertical: this._verticalNeighbours(room, bbox),
-      totals: { bounding: 0, hosted: 0, contained: 0, vertical: 0, total: 0 },
+      totals: { bounding: 0, hosted: 0, contained: 0, vertical: 0, total: 0, exact: true },
     };
 
     contents.totals.bounding  = sumLen(contents.bounding);
@@ -126,21 +311,39 @@ export class RoomContentsService {
     contents.totals.total     = contents.totals.bounding + contents.totals.hosted +
                                 contents.totals.contained + contents.totals.vertical;
 
+    // The counts above are a FLOOR, not a census, whenever anything went
+    // unanswered. `undetermined` stays ABSENT when nothing did — an empty array
+    // would be the same ambiguity in a new costume.
+    contents.totals.exact = undetermined.length === 0;
+    if (undetermined.length > 0) contents.undetermined = undetermined;
+
     return contents;
   }
 
   /**
    * Which room(s) is this element in?
    *
-   * §GR-10/GR-14 — the result now carries an OPTIONAL `undetermined`. Read it:
+   * §GR-10/GR-14 — the result carries an OPTIONAL `undetermined`. Read it:
    * `{ rooms: [], relationship: 'none' }` alone has always been ambiguous, and
-   * `undetermined` is the field that resolves it.
+   * `undetermined` is the field that resolves it. It now covers BOTH ways this
+   * answer can fail to be authoritative:
    *
-   *   · `undetermined` ABSENT  → the room store was read, and this element
-   *                              genuinely belongs to no room. A real answer.
-   *   · `undetermined` PRESENT → the room store could not be read at all. The
-   *                              empty `rooms` says NOTHING about the building
-   *                              and must not be rendered as "no room".
+   *   · `undetermined` ABSENT  → every room was read AND examined, and this
+   *                              element genuinely belongs to the rooms listed
+   *                              (an empty list means no room). A real answer.
+   *   · `RELATIONSHIP_NOT_READABLE` → the room store could not be read at all.
+   *                              The empty `rooms` says NOTHING about the
+   *                              building and must not be rendered as "no room".
+   *   · `RELATIONSHIP_NOT_RECORDED` → the store was read, but one or more rooms
+   *                              carry NO recorded bounding-id list for this
+   *                              element type. Those rooms could be neither
+   *                              confirmed nor denied, so `rooms` is a SUBSET,
+   *                              not a census — including when it is empty, and
+   *                              including when it is non-empty.
+   *
+   * That third case is the one this service used to deny outright: an unrecorded
+   * room failed `.includes()` exactly like a room that had been examined and
+   * ruled out, and the caller was told "belongs to no room" either way.
    *
    * The field is optional and additive, so every existing caller keeps compiling
    * and keeps its current behaviour — but a caller that wants the truth can now
@@ -154,8 +357,8 @@ export class RoomContentsService {
     rooms: RoomData[];
     primaryRoomId: string | null;
     relationship: 'bounding' | 'hosted' | 'contained' | 'none';
-    /** Present ONLY when the answer could not be determined. Never `[]`-shaped. */
-    undetermined?: Extract<RoomStoreDetermination, { kind: 'undetermined' }>;
+    /** Present ONLY when the answer could not be fully determined. Never `[]`-shaped. */
+    undetermined?: RoomContentsUndetermined;
   } {
     const empty = { rooms: [] as RoomData[], primaryRoomId: null, relationship: 'none' as const };
     if (!elementId) return empty;
@@ -170,20 +373,27 @@ export class RoomContentsService {
 
     const t = (elementType || '').toLowerCase().trim();
 
+    // Rooms that carried NO recorded bounding list for this element type. They
+    // were not scanned — they were UNSCANNABLE — and they are named rather than
+    // silently counted as a "no" (C78 §1.4).
+    const unexamined: string[] = [];
+    /** Attach the doubt, if any, to whatever answer was reached. */
+    const withDoubt = <R extends { rooms: RoomData[] }>(answer: R): R => {
+      const doubt = boundingDoubt(unexamined);
+      return doubt === null ? answer : { ...answer, undetermined: doubt };
+    };
+
     if (t === 'wall' || t === 'slab' || t === 'column' || t === 'curtainwall' || t === 'curtain-wall') {
+      const field = BOUNDING_FIELD_FOR_TYPE[t]!;
       const allRooms = this._allRooms();
       const matches: RoomData[] = [];
       for (const r of allRooms) {
-        const hit =
-          (t === 'wall'        && (r.boundingWallIds   ?? []).includes(elementId)) ||
-          (t === 'slab'        && (r.boundingSlabIds   ?? []).includes(elementId)) ||
-          (t === 'column'      && (r.boundingColumnIds ?? []).includes(elementId)) ||
-          ((t === 'curtainwall' || t === 'curtain-wall') &&
-            ((r as any).boundingCurtainWallIds ?? []).includes(elementId));
-        if (hit) matches.push(r);
+        const ids = boundingIdsOrUnknown(r as unknown as Readonly<Record<string, unknown>>, field);
+        if (ids === null) { unexamined.push(r.id); continue; }
+        if (ids.includes(elementId)) matches.push(r);
       }
       if (matches.length > 0) {
-        return { rooms: matches, primaryRoomId: matches[0].id, relationship: 'bounding' };
+        return withDoubt({ rooms: matches, primaryRoomId: matches[0].id, relationship: 'bounding' as const });
       }
     }
 
@@ -191,9 +401,14 @@ export class RoomContentsService {
       const hostWallId = this._resolveHostWallId(elementId, t);
       if (hostWallId) {
         const allRooms = this._allRooms();
-        const matches = allRooms.filter(r => (r.boundingWallIds ?? []).includes(hostWallId));
+        const matches: RoomData[] = [];
+        for (const r of allRooms) {
+          const ids = boundingIdsOrUnknown(r, 'boundingWallIds');
+          if (ids === null) { unexamined.push(r.id); continue; }
+          if (ids.includes(hostWallId)) matches.push(r);
+        }
         if (matches.length > 0) {
-          return { rooms: matches, primaryRoomId: matches[0].id, relationship: 'hosted' };
+          return withDoubt({ rooms: matches, primaryRoomId: matches[0].id, relationship: 'hosted' as const });
         }
       }
     }
@@ -212,11 +427,14 @@ export class RoomContentsService {
         if (pointInPolygon(xz.x, xz.z, polygon)) matches.push(r);
       }
       if (matches.length > 0) {
-        return { rooms: matches, primaryRoomId: matches[0].id, relationship: 'contained' };
+        return withDoubt({ rooms: matches, primaryRoomId: matches[0].id, relationship: 'contained' as const });
       }
     }
 
-    return empty;
+    // THE SITE THIS WHOLE CHANGE EXISTS FOR. Reaching here used to mean, flatly,
+    // "this element belongs to no room" — whether every room had been examined
+    // and ruled out, or some had never recorded the relationship at all.
+    return withDoubt(empty);
   }
 
   /**
@@ -320,17 +538,29 @@ export class RoomContentsService {
     return out;
   }
 
-  private _refsByIds(store: MinReadable | undefined, ids: string[], type: string): ElementRef[] {
-    if (!store || ids.length === 0) return [];
+  /**
+   * `ids === null` means the id list was NEVER RECORDED, not "zero ids". The
+   * bucket is still `[]` — there is nothing to look up — but the caller is told
+   * why through `RoomContents.undetermined`, which is the distinction that was
+   * destroyed here before (compare `_allRooms()` below: same reasoning).
+   */
+  private _refsByIds(store: MinReadable | undefined, ids: readonly string[] | null, type: string): ElementRef[] {
+    if (!store || ids === null || ids.length === 0) return [];
     const set = new Set(ids);
     const all = this._safe(() => store.getAll()) ?? [];
     return all.filter((e: any) => e?.id && set.has(e.id)).map((e: any) => toRef(e, type));
   }
 
-  private _slabsForRoom(room: RoomData): ElementRef[] {
+  /**
+   * @param declaredSlabIds `null` = the declared list was never recorded. Slabs
+   * are ALSO found by geometric overlap below, so this degrades to overlap-only
+   * rather than claiming zero — and `RoomContents.undetermined` carries the fact
+   * that the declared half of the answer was unavailable.
+   */
+  private _slabsForRoom(room: RoomData, declaredSlabIds: readonly string[] | null): ElementRef[] {
     const slabStore = this._slabStore();
     if (!slabStore) return [];
-    const declared = new Set(room.boundingSlabIds ?? []);
+    const declared = new Set<string>(declaredSlabIds === null ? [] : declaredSlabIds);
     const bbox = room.computed?.boundingBox;
     const all = this._safe(() => slabStore.getAll()) ?? [];
 
@@ -367,8 +597,9 @@ export class RoomContentsService {
     return out;
   }
 
-  private _hostedOpenings(store: MinReadable | undefined, boundingWallIds: string[], type: string): ElementRef[] {
-    if (!store || boundingWallIds.length === 0) return [];
+  /** @param boundingWallIds `null` = never recorded — see {@link _refsByIds}. */
+  private _hostedOpenings(store: MinReadable | undefined, boundingWallIds: readonly string[] | null, type: string): ElementRef[] {
+    if (!store || boundingWallIds === null || boundingWallIds.length === 0) return [];
     const wallSet = new Set(boundingWallIds);
     const all = this._safe(() => store.getAll()) ?? [];
     return all
@@ -376,8 +607,9 @@ export class RoomContentsService {
       .map((o: any) => toRef(o, type));
   }
 
-  private _hostedOnHostId(store: MinReadable | undefined, boundingWallIds: string[], type: string): ElementRef[] {
-    if (!store || boundingWallIds.length === 0) return [];
+  /** @param boundingWallIds `null` = never recorded — see {@link _refsByIds}. */
+  private _hostedOnHostId(store: MinReadable | undefined, boundingWallIds: readonly string[] | null, type: string): ElementRef[] {
+    if (!store || boundingWallIds === null || boundingWallIds.length === 0) return [];
     const wallSet = new Set(boundingWallIds);
     const all = this._safe(() => store.getAll()) ?? [];
     return all
@@ -423,12 +655,21 @@ export class RoomContentsService {
     return out;
   }
 
-  private _containedFreeStandingColumns(room: RoomData): ElementRef[] {
+  /**
+   * @param declaredColumnIds `null` = the declared BOUNDING column list was never
+   * recorded. `declared` is used here as an EXCLUSION set — free-standing means
+   * "geometrically inside AND not declared bounding" — so an unknown set makes
+   * this bucket OVER-inclusive: bounding columns are reported as free-standing
+   * because nothing said they were bounding. That is the honest degradation
+   * (an over-report a caller is warned about beats a silent under-report), and
+   * `RoomContents.undetermined` is what does the warning.
+   */
+  private _containedFreeStandingColumns(room: RoomData, declaredColumnIds: readonly string[] | null): ElementRef[] {
     const columnStore = this._columnStore();
     if (!columnStore) return [];
     const polygon = room.boundary?.polygon ?? [];
     if (polygon.length < 3) return [];
-    const declared = new Set(room.boundingColumnIds ?? []);
+    const declared = new Set<string>(declaredColumnIds === null ? [] : declaredColumnIds);
     const all = this._safe(() => columnStore.getAll()) ?? [];
     const out: ElementRef[] = [];
     for (const c of all as any[]) {
@@ -488,6 +729,30 @@ export class RoomContentsService {
   private _safe<T>(fn: () => T): T | undefined {
     try { return fn(); } catch { return undefined; }
   }
+}
+
+/**
+ * The doubt an unexamined-room set casts over a `getRoomForElement` answer, or
+ * `null` when there is none.
+ *
+ * `null` — not an empty record — is the "no doubt" value ON PURPOSE: an
+ * always-present `undetermined` whose emptiness meant "fine" would rebuild the
+ * exact ambiguity this module removes, one level up.
+ */
+export function boundingDoubt(unexaminedRoomIds: readonly string[]): RoomContentsUndetermined | null {
+  if (unexaminedRoomIds.length === 0) return null;
+  const shown = unexaminedRoomIds.slice(0, 8).join(', ');
+  const more = unexaminedRoomIds.length > 8 ? `, +${unexaminedRoomIds.length - 8} more` : '';
+  return {
+    kind: 'undetermined',
+    reason: 'RELATIONSHIP_NOT_RECORDED',
+    scope: `bounding relationship of ${unexaminedRoomIds.length} room(s)`,
+    detail:
+      `${unexaminedRoomIds.length} room(s) carry no recorded bounding-id list for this element ` +
+      `type (${shown}${more}), so they could be neither confirmed nor denied. The \`rooms\` list ` +
+      `is a SUBSET, not a census — an empty one is NOT a statement that this element belongs to ` +
+      `no room (C71 §4.4, C78 §1.4).`,
+  };
 }
 
 function toRef(e: any, type: string): ElementRef {
