@@ -349,7 +349,7 @@ const GATES: Gate[] = [
   //   ✓ predicate-canonical   exit 0 CLEAN, hard-0, no baseline. C1/C2/C3 all 0.
   // Both are born-passing and therefore on NEITHER ledger — nothing to absorb.
   //
-  // THE OTHER TWO ARE DELIBERATELY NOT HERE, and the reason is the point:
+  // ONE OF THE FOUR REMAINS DELIBERATELY NOT HERE, and the reason is the point:
   //   ✗ provenance-coverage           exit 1 at ITS OWN declared level of 1 (FINDING
   //     C2 — FloorDetectionMethod is an element-family provenance vocabulary and
   //     there is no defineElement('floor') in L0 at all). This runner cannot read a
@@ -357,18 +357,27 @@ const GATES: Gate[] = [
   //     ledgers. With no row on gate-debt.json or gate-newly-measured.json it would
   //     be printed as "❌ REGRESSION — something got WORSE", which is FALSE: the
   //     defect predates the instrument and nobody chose to ship it. Registering it
-  //     needs a gate-newly-measured.json entry landing in the SAME commit.
-  //   ✗ deterministic-regeneration    exit 3 RATCHET EXCEEDED (135 findings vs a
-  //     declared 134). Its three "stale" rows were RE-ANCHORED, not struck — the
-  //     defects are all still present at shifted line numbers (28a25791) — which
-  //     uncovered the one genuinely new site underneath:
-  //     packages/geometry-kernel/src/pure/polygonBoolean.ts:307. C70 §5.1: exit 3
-  //     is NEVER absorbable, so registering it is registering an absorption.
-  // Both are recorded rather than quietly dropped, because "we looked and it was not
-  // ready" and "nobody looked" must not print the same — which is the whole reason
-  // the committed-but-unregistered pre-flight exists.
+  //     needs a gate-newly-measured.json entry landing in the SAME commit — which is
+  //     WAITING on purpose (2026-08-14): the gate is under live extension (the PV-08
+  //     member-level arm), and pinning a first reading to an instrument mid-change
+  //     would stale the pin within the day. It registers when that lane lands, at
+  //     the reading the FINISHED instrument produces.
+  //   ✓ deterministic-regeneration    REGISTERED BELOW (2026-08-14) — and the path it
+  //     took is the ratchet working, recorded so nobody reads the row as routine: it
+  //     sat at exit 3 RATCHET EXCEEDED (135 vs 134) because re-anchoring its three
+  //     stale ledger rows (28a25791) uncovered one genuinely NEW post-baseline site,
+  //     packages/geometry-kernel/src/pure/polygonBoolean.ts:307. Exit 3 is NEVER
+  //     absorbable (C70 §5.1), so registration refused to proceed until the site was
+  //     FIXED — 13d48db7, cut-parameter order made spec-defined — never ledgered.
+  //     Re-run at HEAD by the registering commit: exit 1 DECLARED-LEVEL, 134/134,
+  //     new: 0 · struck: 0 on all three arms. Its gate-newly-measured.json entry
+  //     lands in this same commit.
+  // The absence is recorded rather than quietly dropped, because "we looked and it
+  // was not ready" and "nobody looked" must not print the same — which is the whole
+  // reason the committed-but-unregistered pre-flight exists.
   { name: 'derived-not-authored (C75 §2.2/§2.6/§2.7)',  script: 'check-derived-not-authored.ts' },
   { name: 'predicate-canonical (C73 §3.1/§3.3)',        script: 'check-predicate-canonical.ts' },
+  { name: 'deterministic-regeneration (C73 §1.3/§6 · GE-07)', script: 'check-deterministic-regeneration.ts' },
   // GE-12 (2026-08-14) — the triangulation family and the PlanarTopologyEngine
   // family, COUNTED for the first time. Structural detection (C73 §3.2): four
   // arithmetic anchors for triangulation bodies, a two-anchor conjunction for
