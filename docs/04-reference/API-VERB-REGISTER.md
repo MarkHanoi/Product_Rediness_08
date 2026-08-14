@@ -15,12 +15,12 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1243 (floor 900) |
+| Handler files read | 1245 (floor 900) |
 | **Verbs** | **324** (floor 250) |
 | LIVE | 110 |
-| REFUSES | 35 |
+| REFUSES | 36 |
 | SHADOWED (dead route) | 9 |
-| UNKNOWN | 170 |
+| UNKNOWN | 169 |
 | authoritative store NONE or UNKNOWN | 214 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
@@ -34,7 +34,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 |---|---|
 | **verb** | the `type` literal a handler registers. Wire identifier. |
 | **owner** | workspace containing the declaring file. |
-| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`) or a legacy bridge. `REFUSES` — `canExecute` ends in an unconditional `{valid:false}` (§FIX-DEAD-VERB-REFUSE). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |
+| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`) or a legacy bridge. `REFUSES` — the verb is registered and answers, in the open, that it will not act. TWO shapes count, and both are checked: `canExecute` can never return `{valid:true}` (§FIX-DEAD-VERB-REFUSE), **or** `execute` returns a `CapabilityRefusal` on `HandlerResult.refusal` beside an empty patch pair and mutates nothing (§REFUSAL-IS-A-VALUE, the shape C16 CA-18 prescribes — a refusal the caller reads, rather than a throw a `catch {}` can swallow). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |
 | **authoritative store** | the `affectedStores` names when LIVE; `NONE` when the verb refuses; `UNKNOWN` otherwise. Never blank, never a favourable default. |
 | **undo** | the declared shape — a forward/inverse pair and the stores `affectedStores` names, or the legacy stack, or NONE. Declared shape, not an executed proof. |
 | **sync** | cited from `packages/sync-client/src/syncDisposition.ts`. `UNDECLARED` = a property-mutation verb with no disposition. |
@@ -222,7 +222,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `room.move` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `room.recomputeBoundary` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | classified C |
 | `room.redetect` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | classified C |
-| `room.regenerate` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | classified E |
+| `room.regenerate` | plugins/rooms | REFUSES | NONE | NONE (empty patch pair) | n/a (not a property verb) | classified E |
 | `room.rename` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (last-writer-wins) | capability: rename-room |
 | `room.setFinish` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `room.setHeightOffset` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | capability: set-room-height-offset |

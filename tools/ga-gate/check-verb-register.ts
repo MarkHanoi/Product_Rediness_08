@@ -496,7 +496,7 @@ function storesOf(slice: string): string[] {
  * The rule below is structural rather than positional: a validator that never
  * produces a valid result is one, and only one, thing.
  */
-function refuses(slice: string): boolean {
+function refusesInCanExecute(slice: string): boolean {
   const at = slice.indexOf('canExecute');
   if (at === -1) return false;
   const after = slice.slice(at);
@@ -504,6 +504,59 @@ function refuses(slice: string): boolean {
   const body = end === -1 ? after : after.slice(0, end);
   if (!/valid:\s*false/.test(body)) return false;
   return !/valid:\s*true/.test(body);
+}
+
+/**
+ * §REFUSAL-IS-A-VALUE — the SECOND refusal shape, and the one C16 CA-18
+ * actually prescribes.
+ *
+ * ⚠ Recorded because this gate was CONFIDENTLY WRONG about it (MT-02,
+ * 2026-08-14). `refusesInCanExecute` above knows exactly ONE refusal: the
+ * §FIX-DEAD-VERB-REFUSE shape, where `canExecute` can never return
+ * `{ valid: true }`. But `canExecute({valid:false})` is converted by
+ * `CommandBus.ts:426-432` into a THROWN `CommandBusError`, and a throw is
+ * precisely what a fire-and-forget `catch {}` swallows. So C16 CA-18 requires
+ * the *better* shape — the refusal rides back as a VALUE on
+ * `HandlerResult.refusal` (`CapabilityRefusal`, C80 §1.4) beside an empty patch
+ * pair — and this gate graded a handler written that way `UNKNOWN`, whose
+ * published meaning is "nobody has proven either way", about a handler that
+ * refuses in the open, by construction, with both numbers and a named reason.
+ * The strictly better refusal read as the weakest available verdict, and the
+ * register published that reading.
+ *
+ * `room.regenerate` (`plugins/rooms/src/handlers/RegenerateRooms.ts`,
+ * `59187a0b`) is the first such verb and was the WHOLE of the V4 UNKNOWN
+ * failure at HEAD.
+ *
+ * The rule is structural, and deliberately narrow so this arm cannot become the
+ * over-reporting sink the ⚠ on `refusesInCanExecute` warns about. It requires
+ * the refusal to be a PROPERTY OF THE SAME OBJECT LITERAL as the empty patch
+ * pair, and requires the body to carry no populated patch array at all.
+ *
+ * ⚠ The adjacency clause is not cosmetic — the first draft asked only "does the
+ * body mention `refusal:` anywhere", and it promoted
+ * `slab.updateSystemTypeBatch` from LIVE to REFUSES on the strength of
+ * `let refusal: string | null = null` — a LOCAL VARIABLE DECLARATION in a
+ * bridge that mutates through `commandManager` and throws that string. A gate
+ * that grades a working bridge "refuses" is worse than the defect it was
+ * written to fix, so the shape is matched, not the word. A handler that refuses
+ * on SOME paths and mutates on others also stays out: a conditional refusal is
+ * not a dead verb, exactly as `MoveStair` is not.
+ */
+const CA18_SHAPE =
+  /forward:\s*\[\s*\]\s*,\s*inverse:\s*\[\s*\]\s*,\s*(?:\/\/[^\n]*\n\s*)*refusal:\s*\S/;
+
+function refusesByValue(slice: string): boolean {
+  const at = slice.search(/\n\s{2}(?:async\s+)?execute\s*[(<]/);
+  if (at === -1) return false;
+  const body = slice.slice(at);
+  if (!CA18_SHAPE.test(body)) return false;
+  // A populated patch array anywhere ⇒ this handler CAN mutate ⇒ not a refusal.
+  return !/\b(?:forward|inverse):\s*\[\s*[^\]\s]/.test(body);
+}
+
+function refuses(slice: string): boolean {
+  return refusesInCanExecute(slice) || refusesByValue(slice);
 }
 
 /** The legacy-bridge signature `check-chat-capability-coverage.ts` accepts as
@@ -703,7 +756,7 @@ function render(): string {
   L.push('|---|---|');
   L.push('| **verb** | the `type` literal a handler registers. Wire identifier. |');
   L.push('| **owner** | workspace containing the declaring file. |');
-  L.push('| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`) or a legacy bridge. `REFUSES` — `canExecute` ends in an unconditional `{valid:false}` (§FIX-DEAD-VERB-REFUSE). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |');
+  L.push('| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`) or a legacy bridge. `REFUSES` — the verb is registered and answers, in the open, that it will not act. TWO shapes count, and both are checked: `canExecute` can never return `{valid:true}` (§FIX-DEAD-VERB-REFUSE), **or** `execute` returns a `CapabilityRefusal` on `HandlerResult.refusal` beside an empty patch pair and mutates nothing (§REFUSAL-IS-A-VALUE, the shape C16 CA-18 prescribes — a refusal the caller reads, rather than a throw a `catch {}` can swallow). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |');
   L.push('| **authoritative store** | the `affectedStores` names when LIVE; `NONE` when the verb refuses; `UNKNOWN` otherwise. Never blank, never a favourable default. |');
   L.push('| **undo** | the declared shape — a forward/inverse pair and the stores `affectedStores` names, or the legacy stack, or NONE. Declared shape, not an executed proof. |');
   L.push('| **sync** | cited from `packages/sync-client/src/syncDisposition.ts`. `UNDECLARED` = a property-mutation verb with no disposition. |');
