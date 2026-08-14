@@ -6,19 +6,30 @@
 > [IMPLEMENTATION-ROADMAP](BIM30-IMPLEMENTATION-ROADMAP.md) §3.1 (the three bars) ·
 > [GAP-REGISTER](../../04-reference/BIM30-GAP-REGISTER.md) (the 82 rows)
 >
-> ⛔⛔ **STOP — THIS HEADER AND §-1 ARE STALE. GO STRAIGHT TO [§11](#11--session-close-2026-08-13-evening--the-fleet-session--80-commits-25-agents), THE 2026-08-13 EVENING FLEET-SESSION CLOSE.**
-> §11 is the youngest, fully-executed state and **overrides everything above it, §10 included**.
-> The two actions §-1 below calls "first" are **both resolved**: the recount RAN (38/82 counted,
-> GR-09 re-opened) and the deploy it refers to LANDED as `517f7a70`. §-1's task list is likewise
-> spent — GE-02 is CLEAN at 0, PR-12 and PV-04 are closed, the dark specs are on, the
-> finish-trackers are wired, CI-0/CI-1/CI-2 all shipped.
+> ⛔⛔ **STOP — THIS HEADER AND §-1 ARE STALE. GO STRAIGHT TO [§15](#15--session-close-2026-08-14-evening--the-wall-move-session--56-commits), THE 2026-08-14 EVENING FLEET-SESSION CLOSE.**
+> §15 is the youngest, fully-executed state and **overrides everything above it — §11, §12, §13
+> and §14 included.** Where a number here disagrees with §15, §15 wins; where §15 disagrees with a
+> gate you just ran, **the gate wins** (C70 §0.2).
 >
-> **What is actually owed now** (§11.0 and §11.3 carry the detail): a **restamp of the register,
-> which still reads 34/82 and is known-wrong in the pessimistic direction** (counted 38, earned
-> ~41 — and the founder rejected two restamp edits without stating why, so **ask first**); a
-> **deploy of the ~80 commits HEAD now carries beyond `517f7a70`**; and six founder decisions.
+> **The one line in this file that §15 STRIKES OUTRIGHT** — it appears four times above (§2.5 item
+> 3, §7.4 item 4, §11.5 item 5, §12.5 item 7) and is **now FALSE**: *"walls do not re-mitre / do not
+> follow after a neighbour moves — expected, Phase C."* The dispatch was wired and executed on
+> 2026-08-14 (`ca878883` · `6c1b3919` · `f2256eba`). Each of those four occurrences is struck in
+> place. **Do not resurrect it, and do not tell the founder it is a known limitation.**
 >
-> ⚠ Everything from here to §11 is retained as the historical record and as the still-valid
+> **What is actually owed now** (§15.0 carries the detail, §15.10 carries the order): **one founder
+> decision that has been open all session — PR-05 §4.1** (update-surrender vs pre-sweep clear); the
+> **remaining unowned OPEN rows, which the founder DEFERRED to the next session by explicit
+> instruction**; the **three named drains** (§15.4 gives each its measured remaining count); the
+> **C83 phase plan** (§15.6); and **Half 2's bar 3**, untouched by design (§15.10).
+>
+> **Two things this header used to owe are now PAID and must not be re-owed.** The four gates that
+> ran in no runner are all registered (§15.2) — including `check-provenance-coverage` at
+> `28c6b05c`. The register restamp LANDED: §9.0 reads **55 CLOSED / 20 OPEN / 7 UNPROVEN** at
+> `a75e8e1e` (§15.3). Deploy state: **do not assert it from this file** — §15.8 tells you how to
+> read it.
+>
+> ⚠ Everything from here to §15 is retained as the historical record and as the still-valid
 > reference material (§1's contract digest, §4's git discipline, §5's path gotchas, §7's deploy
 > contract, §9's 32-prompt assessment). **Read those sections for their content; do not read §-1's
 > ordering as a live instruction.**
@@ -175,9 +186,13 @@ gate wins.** A recount that only moves rows forward is not a recount.
 2. **Roof.** `RoofTypes.ts` has no field that can hold a reference and `schemas/elements/Roof.ts`
    types `boundary` as `Vec3[]`, so **Zod strips a reference in transit**. Roof needs an **L0 schema
    field first** — and `packages/schemas/**` is shared-dangerous, so it is a sequenced, solo change.
-3. **Junction re-weld after a move.** Walls still do not extend to re-mitre a corner when a
-   neighbour moves. **Untouched all session.** It is the founder's other product promise and it is
-   a different subsystem from the slab cascade — investigate, do not assume it is the same bug.
+3. ~~**Junction re-weld after a move.** Walls still do not extend to re-mitre a corner when a
+   neighbour moves. **Untouched all session.**~~ **STRUCK 2026-08-14 (§15.1).** The dispatch is
+   wired and executed: `ca878883` (WallMoveReweldService) · `6c1b3919` (four-repro seam suite) ·
+   `f2256eba` (§L-874-ONE-UNDO + slab weld preconditions). The prediction *"a different subsystem
+   from the slab cascade"* was **half right and the half it got wrong was the important half** —
+   it is ONE root with the slab path, not two (§15.1). What genuinely remains is the **render-side
+   mitre mesh**, scoped in ISSUE-LOG L-872's residual, not the follow behaviour.
 4. **The four NOT-YET-COUNTED predicate families** (C73, one per PR, in this order):
    `segment-segment-intersection` (signature written as `SEGMENT_CROSS_SHAPE`; blocker is proving
    the parametric and cross-product forms are one family) · `polygon-area-and-winding`
@@ -294,7 +309,9 @@ Verify by EXECUTION, never by a commit subject or an inherited claim.
 > 1. **Move a wall** — the slab should follow, **both** the drawn mesh **and** the recorded area (click the slab, read its area in properties; the bug was 36 m² drawn vs 24 m² recorded).
 > 2. **Data (F3) → AUDIT → Hierarchy** — the model tree should render, including the **Furniture group**, which C71 §5.2 records as *"has never rendered"*.
 > 3. **Move a wall carrying a floor finish / ceiling** — it should re-project **once**, not loop (the §REENTRANT-SET bug, fixed in `f5f312de`).
-> 4. **Known NOT fixed:** walls do **not** re-mitre a corner after a neighbour moves. Expected. Phase C.
+> 4. ~~**Known NOT fixed:** walls do **not** re-mitre a corner after a neighbour moves. Expected. Phase C.~~
+>    **STRUCK 2026-08-14** — they follow now (`ca878883`/`6c1b3919`/`f2256eba`). See §15.9 for the
+>    replacement browser checks.
 
 ---
 
@@ -818,8 +835,9 @@ edge case; two cascade roots named, bulk is nUIA debt). 4. PV-06 schemas confide
 > 3. **Generate a house that seals rooms** — a BLOCKING banner names them; no silent success toast.
 > 4. **Force a furnish failure/timeout** — lighting completes with WARN "computed WITHOUT
 >    furniture: <reason>"; no double fixtures on slow furnish.
-> 5. **Known NOT fixed**: walls still do not re-mitre after a neighbour moves — the engine exists
->    (`81e35360`), the dispatch wiring does not. Expected; say so if asked.
+> 5. ~~**Known NOT fixed**: walls still do not re-mitre after a neighbour moves — the engine exists
+>    (`81e35360`), the dispatch wiring does not. Expected; say so if asked.~~ **STRUCK 2026-08-14** —
+>    the dispatch wiring landed (`ca878883`). Superseded by §15.9.
 
 ---
 
@@ -980,8 +998,11 @@ family (C78 §19.1 forbids partial credit) and it is load-bearing for **C81's ed
 >    fixtures on slow furnish.
 > 5. **The toolbar host** — is any ribbon chrome visible at all? (If not, item 4 of §12.4 is why.)
 > 6. **Any unbacked ribbon button** — it must be visibly disabled with a reason, never silent.
-> 7. **Known NOT fixed**: walls still do not re-mitre after a neighbour moves. The engine exists
->    (`81e35360`, 11/11, refusal guards); the move-commit dispatch does not. Expected.
+> 7. ~~**Known NOT fixed**: walls still do not re-mitre after a neighbour moves. The engine exists
+>    (`81e35360`, 11/11, refusal guards); the move-commit dispatch does not. Expected.~~
+>    **⚠ THIS LINE IS NOW FALSE AND IS STRUCK — 2026-08-14.** The move-commit dispatch is
+>    `WallMoveReweldService`, wired at `engineLauncher` in `ca878883`, seam-proven in `6c1b3919`,
+>    and composed to ONE undo in `f2256eba`. **Use §15.9's checks instead of this list.**
 
 ### §12.6 — THE GENERATIVE PROGRAMME (the other tracker)
 
@@ -1204,3 +1225,293 @@ headlessly) · **CB-05** (behind CB-01) · **CE-03**, **CE-04** (narrowed to **U
 UNTESTED** — the suites are green, the certification arms landed this session, but C70 §0.1 forbids
 laundering one into the other) · **CE-06** (a one-client fixture cannot prove a multi-client claim —
 **closing it would be the lie the row exists to prevent**).
+
+---
+
+## §15 — SESSION CLOSE 2026-08-14 (EVENING) · THE WALL-MOVE SESSION — 56 COMMITS
+
+> **§15 is the youngest state in this file and overrides §11, §12, §13 and §14 wherever they
+> disagree.** It does **not** override a gate you run yourself: where §15 and a gate reading
+> disagree, **the gate wins** (C70 §0.2), and the disagreement is a finding worth writing down.
+>
+> **56 commits** — measured, not estimated: `git log --oneline a449a1c2..HEAD | wc -l` → **56** at
+> HEAD `5b0fcea0`. (From the session's first deploy SHA `465d01f3` the same command reads **58**.)
+
+### §15.0 — READ FIRST
+
+Four sentences, in the order they matter.
+
+1. **PHASE C IS OPEN AND ITS FIRST THREE DEFECTS ARE FIXED IN PRODUCTION** — verified by the
+   founder in the browser, not by us (§15.1). The line this file repeated four times — *"walls do
+   not re-mitre after a neighbour moves — expected, Phase C"* — is **FALSE** and is struck in all
+   four places. Do not resurrect it.
+2. **PHASE A IS CLOSED.** All four gates that ran in no runner are registered (§15.2).
+3. **The register was restamped to 55 / 20 / 7** (§15.3) — and the restamp lane **refused to close
+   three rows it was handed as closable**. Read the refusals before the number.
+4. **The founder DEFERRED the remaining unowned OPEN rows to the next session, by explicit
+   instruction.** Nothing in that set is abandoned; it is scheduled. §15.10 has it in order, with
+   the **decisions-needed list first** — and **PR-05 §4.1 has been open all session**.
+
+### §15.1 — PHASE C OPENED FOR REAL: THE WALL-MOVE REGRESSIONS, VERIFIED IN PRODUCTION
+
+The founder reported three wall regressions from production use. They are fixed, deployed, and
+**the founder tested them and said so — "Lane W - testing and sound - really good"**. That sentence
+is the only acceptance evidence class this file has ever ranked above a green suite, and it is the
+one we have here.
+
+- **ISSUE-LOG L-871 … L-875** carry the four repros and their residuals.
+- `ca878883` — **the dispatch is wired**: `computeMoveReweld` dispatch + cascade/revert latches. The
+  engine had existed since `81e35360`; what was missing was the move-commit path calling it.
+- `6c1b3919` — **the four-repro seam suite, EXECUTED GREEN**. Four repros, not one: the suite exists
+  so a regression names *which* repro it broke.
+- `f2256eba` — **one-undo composition** (§L-874-ONE-UNDO) plus slab weld preconditions. A cascade
+  that costs the user four undos is a different defect from a cascade that does not run.
+
+⚠ **The prediction §2.5 item 3 made — "a different subsystem from the slab cascade" — was half
+wrong, and the wrong half was the load-bearing one.** It is ONE root with the slab path, not two.
+Record this as the cost of forecasting a root cause in a brief: the forecast was cited as a reason
+to schedule the work separately, and that scheduling was wrong.
+
+**`boundedBy` move-time invalidation (GR-12) is the same story told at the graph layer.** The row is
+still OPEN and it moved further than any closed row did:
+
+- `02157ebb` — the mechanism, making C79 §5.2's *undetermined* representable rather than assumed.
+- `9fa40ae2` — the two call sites: the command path **and** the flush chokepoint. One of the two is
+  not a fix; a graph edge invalidated on only one path is invalidated on neither, from the user's
+  side.
+- `6c8197be` — `_baselineMoved` consumes `COINCIDENT_M`; **no raw tolerance at the call site** (this
+  is the GE-01 policy being *used*, not merely declared).
+- `9ee11d2a` — **the H6 second reading: `boundedBy` STALE → INVALIDATED.** A before/after reading
+  from the same probe on the same scenario. That is the shape of evidence this programme should
+  prefer to a passing test, and the coverage gate's prose now carries **both** readings so the
+  improvement cannot be quietly re-inherited as a starting condition.
+
+**GR-12 still does not close** — `check-move-propagation` holds **3 findings** and C79 §5.2's
+five-state channel is MEASURED-ABSENT for every family. **The right red is still red.**
+
+### §15.2 — PHASE A IS CLOSED: FOUR GATES THAT RAN IN NO RUNNER ARE REGISTERED
+
+A gate that no runner invokes is a file, not a gate. Four were in that state; all four now run.
+
+| Gate | Commit | The thing worth remembering |
+|---|---|---|
+| `check-derived-not-authored` | `e737b877` | registered together with `check-predicate-canonical`; the same commit **names why the other two could not yet be** rather than registering them optimistically |
+| `check-predicate-canonical` | `e737b877` | ″ |
+| `check-deterministic-regeneration` | `1892eccb` | ⚠ registered **only after its post-baseline site was FIXED** at `13d48db7` (polygonBoolean cut-parameter order is spec-defined, not comparator-defined). **The kill was never ledgered** — the ratchet's first captured regression was paid at source instead of being bought off with a ledger entry. That is the intended behaviour of a ratchet and it is the first time we have seen it happen here |
+| `check-provenance-coverage` | `28c6b05c` | lands **CLEAN, HARD-0, on neither ledger** — its own coverage debt had been drained to 0 at `5c9b48e7` (floor gains an L0 schema) first. Registering a gate at 0 with no ledger entry is the only registration that cannot rot |
+
+**The pattern to carry forward:** *fix the site, then register the gate at 0.* Registering first and
+ledgering the breach is how `gate-debt.json` grew. Two of these four were done the right way round
+deliberately, and `1892eccb`'s message says so out loud.
+
+### §15.3 — THE COUNTED POSITION: 55 / 20 / 7, AND THREE REFUSALS THAT MATTER MORE
+
+**§9.0 of the GAP-REGISTER was restamped 2026-08-14 (lane R2, at `a75e8e1e`): 55 CLOSED / 20 OPEN /
+7 UNPROVEN**, up from 51 / 24 / 7. Counted mechanically over the Status column; 55 + 20 + 7 = 82.
+Commits: `dcc5dac6` (CO-03, GE-04, PV-08 closed) · `40376354` · `2064bca3` · `8df4924e`.
+
+**⚠ Read the refusals before the number. The restamp lane was handed rows as closable and REFUSED
+to close three of them, because the gates contradicted the brief it was given.**
+
+- **GE-12** — its own new counting gate reads **13 findings at a declared level of 13**, and
+  *corrects this register's arithmetic upward*: **7 triangulation bodies / 4 engine copies**, not
+  "×5" and "×3" (`595b87c5`, `5fe84c9f`). **An instrument that counts a duplication is not a
+  collapse of it.**
+- **GE-09** — `check-refusal-identity` reads **85 offenders against a baseline of 86**. One family
+  is paid and executed-proven (`d18bc7a5`, `6688d82c` — six consumers PROVEN to carry `[OCC_*]`);
+  eighty-five are not.
+- **GR-12** — its red went green on one reading (§15.1's H6) **and it still does not close**,
+  because `check-move-propagation` holds 3 findings.
+
+**That refusal is the register working correctly, and it is worth writing down as its own result.**
+The register's value is precisely that it can be handed a plausible instruction and answer *no,
+here is the reading*. A register that closes what it is told to close measures the brief, not the
+product. Three refusals in one restamp is the strongest evidence this session produced that the
+instrument is load-bearing.
+
+**The ceiling, stated honestly.** **77 / 82 absolute** — and **74 / 82** once the founder's
+**CB-01 / CB-02 / CB-05 deferral** (manual deploy only, no always-on sync process) is applied.
+74 is the number to plan against; 77 is the number to quote only with the deferral named in the
+same sentence.
+
+### §15.4 — GATE ESTATE AT HEAD, AND THE THREE DRAINS WITH THEIR REMAINING COUNTS
+
+Measured at HEAD by the orchestrator, exit code in brackets:
+
+| Gate | Reading at HEAD | Was | Note |
+|---|---|---|---|
+| `check-epsilon-policy` | **[1] 357 / 357** | 382 | the drain ran (`3a7e2c50`: E2 270→258, E5 112→99, **ledger struck same-commit**), then the restamp caught it **RED at 359** — two new declarations minted by the very next feature — and `68ceef7f` paid them back to 357. **This gate regresses on feature work by default.** |
+| `check-no-hidden-mock` | **[1] 15 / 15** | 63 | `f6513b60` paid **and struck** 14 M-B rows in one commit; `742b0dda` corrected a `pinnedTo` that had been **stale across two payment rounds**. A stale pin is an uncommitted payment |
+| `check-move-propagation` | **[1] 3 / 3** | — | green at its baseline, and the baseline is 3, not 0. GR-12 stays OPEN on it (§15.1) |
+| `check-no-empty-means-unknown` | **67** | 95 | the `[]`-means-unknown drain; `67902b35` and `d7c27985` are the reference commits — one site + one differentiating test per commit |
+
+**The three drains, with what each still owes:**
+
+1. **`check-epsilon-policy` — 357 remaining** (E2 258 · E5 99 after `3a7e2c50`). ⚠ It re-reds on
+   new features; budget a re-drain at the END of any feature lane, not the start.
+2. **`check-no-empty-means-unknown` — 67 remaining** (from 95). This is GR-10 / GR-14.
+3. **`check-no-hidden-mock` / CO-06 — 15 remaining** (from 63). ⚠ `45ffc533` closed the **grace
+   clause** first — *the gate no longer sells compliance for a date* — which is why the subsequent
+   bulk payments bought something. `7cd1db5e` had to **restore** `§CO-06-GRACE-FIX` after a
+   shared-tree race reverted it: check it is still present before trusting a green reading.
+
+### §15.5 — TWO FEATURES SHIPPED AND DEPLOYED
+
+Both are the same shape, and it is the shape C83 argues for: **the model already knew; what was
+missing was the sentence to the user.**
+
+**(a) The living graph NOTICES a region left unenclosed by a wall move, and ASKS whether to close it.**
+
+- `499360c6` — the pure detector, **16/16 executed**. Detection on wall **moves**.
+- `a75e8e1e` — the offer, on the **C83-canonical chat prompt**; **Confirm dispatches ONE undoable
+  `wall.create`**. One command, one undo — the user who says yes and changes their mind pays one
+  keystroke.
+- `fa261daf` — the fix that matters more than the feature (see §15.7): the offer **opens the chat
+  and is rendered no matter what**.
+- `7bca7f89` — the diagnostic that prevents the recurrence: **print the subscriber count with every
+  finding**, so the next occurrence names its own cause.
+- `98ae15eb` — L-880 landed honestly: **closed on wall MOVES only**, and covered by **tests, not a
+  gate**. Say both halves if asked.
+
+**(b) A wall drawn through a door is REFUSED — naming the door, and listing the positions that ARE
+clear.**
+
+- `5b33c439` — `OCC_CROSSES_HOSTED_OPENING`, the wall-side occupancy predicate, **31/31 executed**.
+- `ffa5ffa1` — **the refusal REACHES THE USER**: 3 gates, 2 live surfaces, C74 row 2.
+- `80e72a75` — **PROVE it reaches the DOM — 9/9, including four silence controls.** The silence
+  controls are the point: a test that only asserts the message appears cannot fail the way this
+  class of bug actually fails.
+- `46232e2d` — ⚠ **`check-refusal-identity` caught our own code**; fixed by rendering through the
+  shared renderer at **all four** sites. A gate catching the lane that registered it is the
+  cheapest possible proof the gate is real.
+- `5b0fcea0` — a docs correction: the toast CSS comment claimed *"exists"* where the load-bearing
+  fact is *"is injected"*.
+
+**40 tests across the two, DOM reach proven.**
+
+### §15.6 — C83 IS MINTED AND AMENDED, AND ITS FINDINGS ARE WHERE THE NEXT SESSION STARTS
+
+**C83 — spatial validity & design logic.** `28b47ec1` (mint) · `2e5204f0` (index + tracker row + one
+more measured gap) · `840526a0` (**amended by a 26-agent prior-art survey — one premise REFUTED,
+the phases reordered**) · `aafc91c2` (propagate the corrections into the index and tracker rows).
+
+**Its thesis:** *the detection is not missing — the refusal is.* Both §15.5 features are that thesis
+executed once each.
+
+**The three survey findings the next session MUST start from** — these were measured, and two of
+them contradict what the contract assumed before the survey:
+
+1. **room → BOUNDING walls is REAL and REACHABLE.** The authority is **`room.boundingWallIds`**,
+   **not** the graph. Build on the field; do not re-derive it from edges.
+2. **room → HOSTED openings is derived at read time**, and there is **a named asymmetry**: the
+   **PLAN tools do not write the graph edge while the 3D tools do.** Two tools for one concept
+   producing two different persisted states is a defect that will be discovered by a user before it
+   is discovered by a gate.
+3. **room → CONTAINED furniture has NO WRITER on any path** — and the cert classifies `contains` as
+   **ID-KEYED, which is WRONG for a spatial containment.** ⚠ **Storing it today would be worse than
+   the absence**: an ID-keyed `contains` is a claim about space that is maintained as a claim about
+   identity, and it would go stale silently the first time anything moved. **Fix the classification
+   before writing the first edge.** (This is the [[envelope-solid-overstates-partial-data]] failure
+   mode in a new subsystem: a wrong value is worse than a missing one.)
+
+### §15.7 — TWO LESSONS FOR THE FLEET-DISCIPLINE SECTION
+
+**(1) A `console.log` is not a user-facing message. An unavailable surface must fail LOUDLY, never
+degrade to silence.**
+
+The opened-region detector **fired perfectly** — 16/16, correct region, correct geometry — and spoke
+**only to the console**. The founder tested it and **saw nothing**. From the outside, a perfect
+detector that logs is indistinguishable from a detector that does not exist. Worse, a panel in the
+same path was **resolving a fabricated `"cancelled"` for a prompt the user never saw**: the system
+recorded a user decision that no user made.
+
+The fix (`fa261daf`) is the rule: **when the surface you need is unavailable, open it — and if you
+cannot, fail loudly.** Never fall back to a channel the user is not looking at, and **never
+synthesise an answer on the user's behalf.** `7bca7f89` adds the diagnostic that makes the next
+occurrence self-naming: **print the subscriber count with every finding** — zero subscribers is the
+signature.
+
+This is the same family as [[context-data-honesty-family]] and §10.2's *"PRYZM finds problems and
+does not say"*. **It has now recurred three times. Treat "does the user SEE it?" as an acceptance
+criterion, not a polish step** — and prove it at the DOM, as `80e72a75` does.
+
+**(2) A gate that classifies by NAME can be satisfied by RENAMING — so a rename must argue for
+itself.**
+
+The epsilon fix `68ceef7f` was **a rename**. It was **correct**: the two breaches were **mis-named
+domain bands, not tolerances**, and adopting the shared `0.001 m` role would have **TIGHTENED a
+0.15 m domain band by 150×** — a rename here was the safe change and the semantic one. But note
+what the gate actually verified: **a name**.
+
+**The lane flagged the hazard itself**, which is why this is a lesson and not an incident. The rule:
+**when a gate goes green on a rename, the commit message must state why the new name is TRUE, and
+what the alternative (adopting the checked role) would have done to behaviour.** A green gate whose
+green was bought by a rename is only as good as that paragraph. Generalise it: **ask of any
+name-classifying gate what a rename would do to it, and require the argument in the commit.**
+
+### §15.8 — DEPLOYS: FOUR THIS SESSION, EACH BUNDLE-PROOF 6 / 6
+
+Deploy SHAs this session: **`465d01f3`** · **`a449a1c2`** · **`9ee11d2a`** · **`a75e8e1e`** ·
+**`7bca7f89`** — each with **bundle proof 6/6**, reading VALUES not lengths
+(`tools/deploy/fly-bundle-proof.sh`).
+
+⚠ **`46232e2d` was deploying as this section was written. Its outcome is NOT asserted here.**
+**Verify before you quote it** — `fly releases` for the live release, and `git log --oneline` for
+what HEAD carries beyond it. A brief that asserts a deploy it did not watch land is exactly the
+class of claim this document exists to refuse (§4, C70 §0.1).
+
+### §15.9 — THE BROWSER CHECKS FOR THE FOUNDER (these REPLACE the struck item 7 / item 5 / item 4)
+
+> 1. **Move a wall that shares a corner with another** — the neighbour **follows and re-mitres**.
+>    This is the line this file called a known limitation for three sessions; it is fixed
+>    (`ca878883` / `6c1b3919` / `f2256eba`) and the founder has already confirmed it in production.
+>    **One `Ctrl+Z` should undo the whole cascade**, not four (§L-874-ONE-UNDO).
+> 2. **Move a wall so a room stops being enclosed** — PRYZM should **ask, in the chat, "shall I
+>    close it?"** and **Confirm should draw one wall that one `Ctrl+Z` removes**. ⚠ If you see
+>    nothing, that is §15.7 lesson 1 recurring — check the console for the subscriber count
+>    (`7bca7f89`) and report the number.
+> 3. **Draw a wall through a door** — it must be **REFUSED**, the refusal must **name the door**,
+>    and it must **list positions that ARE clear**. Silence is a failure; a generic "cannot place
+>    here" is also a failure.
+> 4. **Move a wall carrying a slab** — the slab follows in **both** the drawn mesh **and** the
+>    recorded area (click it, read the area in properties).
+> 5. **What is genuinely NOT done** (say this, it is not the old struck line): the **render-side
+>    mitre mesh residual** scoped in ISSUE-LOG **L-872**, and **opened-region detection fires on
+>    wall MOVES only** (`98ae15eb`) — not yet on delete or on other element kinds.
+
+### §15.10 — NEXT SESSION, IN ORDER
+
+**⚙ DECISIONS NEEDED FROM THE FOUNDER — ask these FIRST, they block engineering**
+
+| # | Decision | State |
+|---|---|---|
+| **1** | **PR-05 §4.1 — update-surrender vs pre-sweep clear.** The dedup half is CLOSED (`cbbc1009`); the behavioural half cannot be built until this is chosen | ⚠ **OPEN ALL SESSION.** It has now been carried across sessions without being asked plainly. **Ask it in the first message** |
+| **2** | **CB-01 / CB-02 / CB-05** — one always-on sync process (~$5–10/mo) + one env flip | **DEFERRED by the founder** (manual deploy only). This is what moves the ceiling 74 → 77. Re-confirm; do not re-litigate |
+| **3** | **The generative-quality ledger** (§13.4) | still unowned |
+
+**Then, in this order:**
+
+1. **The remaining unowned OPEN rows** — **the founder DEFERRED these to the next session by
+   explicit instruction.** They are scheduled, not dropped. §14.1 still holds the per-row detail;
+   subtract the four now closed (MT-10, CO-03, GE-04, PV-08) and read GE-12 / GE-09 / GR-12 through
+   §15.3's refusals rather than §14.1's older prose.
+2. **Finish the three drains** at their named remaining counts (§15.4): epsilon **357** · empty-means-
+   unknown **67** · hidden-mock/CO-06 **15**. ⚠ Re-drain epsilon at the END of feature work, not the
+   start.
+3. **The C83 phase plan, in this order** — each phase is a refusal that reaches a user, not a
+   detector:
+   1. **S0 — plan-view `canPlace` parity.** The plan tools must refuse what the 3D tools refuse.
+      This is also where §15.6 finding 2's asymmetry gets closed.
+   2. **furniture-blocks-door advisory** — advisory, deliberately: the first furniture-side spatial
+      claim should not be a hard refusal.
+   3. **make `contains` reachable** — ⚠ **fix the ID-KEYED classification FIRST** (§15.6 finding 3).
+      Writing the edge before fixing the classification is the wrong order and would be worse than
+      today's absence.
+   4. **`Door.swing`** — the swing arc is the first spatial claim that is a *property of an
+      element* rather than a relation between two.
+   5. **the headline enforcement** — the one the founder will demo.
+4. **Half 2, bar 3 — UNTOUCHED BY DESIGN.** **132 relationship-determination findings · 100 verbs ×
+   41 relationships · no partial credit by verb family** (C78 §19.1). It is not behind; it was not
+   started, on purpose, because bar 3 is the gate to the product the founder actually wants
+   (§13.2). **It is the largest single body of remaining work in this programme and nothing in
+   §15 reduced it.**
