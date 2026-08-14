@@ -369,6 +369,21 @@ const GATES: Gate[] = [
   // the committed-but-unregistered pre-flight exists.
   { name: 'derived-not-authored (C75 §2.2/§2.6/§2.7)',  script: 'check-derived-not-authored.ts' },
   { name: 'predicate-canonical (C73 §3.1/§3.3)',        script: 'check-predicate-canonical.ts' },
+  // GE-12 (2026-08-14) — the triangulation family and the PlanarTopologyEngine
+  // family, COUNTED for the first time. Structural detection (C73 §3.2): four
+  // arithmetic anchors for triangulation bodies, a two-anchor conjunction for
+  // the planar engine — the register's "~5"/"~3" were name censuses and both
+  // undercount (measured 7 bodies / 6 files + 4 engine copies; auto-dimension's
+  // traceFaces is a fourth engine body the class name never matched). Lands at
+  // exit 1 against triangulation-canonical-baseline.json pinned at that
+  // reading, shrink-only, with 8 executed controls per run (exit 2 as a blind
+  // comparator if one stays silent) and a real-tree planted-duplicate test
+  // recorded in its header. Carries a gate-newly-measured.json entry landing in
+  // the SAME commit — NOT gate-debt.json: the bodies predate the instrument and
+  // nobody chose to ship them. The COLLAPSE is a later PR (C73 §3.5, one family
+  // per PR); this row is the arm that makes a sixth triangulator or a fifth
+  // engine copy fail loudly in the meantime.
+  { name: 'triangulation-canonical (GE-12 · C73 §3)',   script: 'check-triangulation-canonical.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
