@@ -17,7 +17,8 @@ import { installFloorLayoutTrigger } from '../floor-layout/floorLayoutTrigger';
 import { installDaylightConsole } from '../daylight/daylightConsole';
 import { installSunHoursConsole } from '../daylight/sunHoursConsole';
 import { installSolarPanelConsole } from '../daylight/SolarSunHoursPanel';
-import { installPryzmTestFunctions } from '../../dev/installPryzmTestFunctions';
+import { installLiveGraphWiring } from './installLiveGraphWiring';
+import { installDevTestFunctions } from './installDevTestFunctions';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
 import { createSpatialTree } from '../SpatialTree';
@@ -309,11 +310,20 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // the D-TGL scorer weights (via the activeDesignParams stash) and debounce a
     // live re-generate through the SAME apartment-layout trigger above.
     installDesignParamsConsoleTrigger(runtime ?? null);
-    // Dev-only test functions (Family Platform pipeline + apartment validator
-    // framework). Exposes `window.__pryzm*` helpers so the architect can
-    // smoke-test the pure L0/L2 functions from DevTools without invoking the
-    // live AI generation path. See apps/editor/src/dev/installPryzmTestFunctions.ts.
-    installPryzmTestFunctions();
+    // PRODUCTION — UBG graph wiring (provideLiveGraphSources → `violates`
+    // projection, `window.pryzmBuildBuildingGraph()` hook, Building-Graph +
+    // Living-Graph overlays). Unconditional: these are user-facing
+    // capabilities, NOT dev tooling. See ./installLiveGraphWiring.ts.
+    installLiveGraphWiring();
+    // DEV-ONLY (C74-class guard, 2026-08-14) — the `window.__pryzm*` DevTools
+    // test helpers (Family Platform pipeline + apartment validator framework).
+    // Previously installed UNCONDITIONALLY here, so a self-declared dev-only
+    // module (`src/dev/`) executed in the shipped editor. Canonical guard per
+    // engineLauncher.ts / window-shim.ts Pattern D; dynamic import inside the
+    // seam keeps `src/dev/` out of the production chunk graph.
+    if (import.meta.env.DEV) {
+        void installDevTestFunctions(true);
+    }
     // #54 — register the D-CE ceiling-layout trigger:
     //   • console command `pryzmCeilAllRooms()` (manual test)
     //   • auto-fire on `apartment.layout-executed` (continuous flow:

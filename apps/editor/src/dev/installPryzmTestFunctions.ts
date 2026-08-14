@@ -25,14 +25,6 @@
 //   • Uses existing exports — does NOT inline the pipeline / validator logic.
 
 import { runFamilyPipeline, isPipelineSuccess } from '@pryzm/schemas';
-import { semanticGraphManager } from '@pryzm/core-app-model';
-import { aiService } from '@pryzm/ai-host';
-import {
-    installBuildBuildingGraph,
-    provideLiveGraphSources,
-} from '../engine/buildBuildingGraph';
-import { installBuildingGraphOverlay } from '../ui/graph';
-import { installLivingGraphOverlay } from '../ui/living-graph';
 
 // The validator + adapter surface is NOT (yet) re-exported from the
 // `@pryzm/ai-host` root barrel — its `package.json` `exports` map only lists
@@ -195,6 +187,14 @@ function pryzmSampleLayoutDto(): unknown {
 /**
  * Install the dev-only `window.__pryzm*` test helpers. Idempotent — calling
  * twice simply overwrites the same names. Safe to call from any boot path.
+ *
+ * DEV-ONLY, ENFORCED (2026-08-14, the C74-class unguarded-install fix): the
+ * ONLY caller is `ui/layout/installDevTestFunctions.ts`, which dynamic-imports
+ * this module behind `import.meta.env.DEV`. The production UBG graph wiring
+ * (provideLiveGraphSources / installBuildBuildingGraph / both graph overlays)
+ * that USED to ride on this function now lives in
+ * `ui/layout/installLiveGraphWiring.ts` and is installed unconditionally —
+ * do NOT re-add production capabilities here.
  */
 export function installPryzmTestFunctions(): void {
     window.__pryzmFamilyPipeline      = pryzmFamilyPipeline;
@@ -202,26 +202,6 @@ export function installPryzmTestFunctions(): void {
     window.__pryzmListTestFunctions   = pryzmListTestFunctions;
     window.__pryzmSampleFamilyRequest = pryzmSampleFamilyRequest;
     window.__pryzmSampleLayoutDto     = pryzmSampleLayoutDto;
-
-    // GRAPH.2-wiring — expose `window.pryzmBuildBuildingGraph()` (read-only UBG
-    // projection of the live topology/roomGraph/semantic/dependency/constraint
-    // graphs) + emit `pryzm:building-graph-rebuilt` on rebuild, for a future
-    // GRAPH.3 overlay. Provide the live semantic + constraint singletons so the
-    // resolver can read them (topology + roomGraph come off window directly).
-    provideLiveGraphSources({ semantic: semanticGraphManager, constraint: aiService });
-    installBuildBuildingGraph();
-
-    // GRAPH.3 — install the living-blob Building-Graph overlay + the
-    // `window.pryzmShowBuildingGraph()` toggle hook. The overlay reads the UBG
-    // produced above (read-only) and re-renders on `pryzm:building-graph-rebuilt`.
-    installBuildingGraphOverlay();
-
-    // A.21.D17 — install the Living Building Graph overlay (force-directed,
-    // physics-animated, 5 relationship layers) + the `window.pryzmOpenLivingGraph()`
-    // / `pryzmCloseLivingGraph()` console openers. Consumes the SAME UBG above
-    // (read-only) and re-syncs on `pryzm:building-graph-rebuilt`. Intended to
-    // SUPERSEDE the static graph view as the primary graph UI.
-    installLivingGraphOverlay();
 
     console.log('[__pryzm] Dev test functions ready — run __pryzmListTestFunctions() for the menu.');
 }
