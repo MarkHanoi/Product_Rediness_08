@@ -8,6 +8,11 @@ import {
 } from '../types';
 import { Point3D } from '@pryzm/core-app-model';
 import { serializeWallSnapshot } from './wallSnapshotUtils';
+// §HOSTED-OPENING-HOST-MOVE — the SAME wall-side opening gate
+// UpdateWallBaselineCommand already asks (§FIX-WALL-SHRINK-REFIT), asked here
+// too because the cascade re-baselines walls the user never aimed at.
+import { wallOccupancyStore } from '@pryzm/geometry-wall';
+import type { Opening, OpeningRefitPlan } from '@pryzm/geometry-wall';
 
 /**
  * One per-wall mutation in a cascade batch.
@@ -110,6 +115,21 @@ export class CascadeWallBaselineCommand implements Command {
      */
     private prevSnapshots: Map<string, any> = new Map();
 
+    /**
+     * §HOSTED-OPENING-HOST-MOVE — the PRE-EDIT openings this cascade moved, per
+     * wall, so undo can put them back.
+     *
+     * Exists for exactly the reason `UpdateWallBaselineCommand.relocated` does:
+     * `WallStore.restoreSnapshot()` restores baseLine / height / thickness /
+     * layers / metadata but **NOT `openings`** — openings have their own
+     * mutation API. So `prevSnapshots` alone cannot undo a relocation, and
+     * without this record an undo would put a 4 m wall back while leaving its
+     * door at the offset the 2 m wall forced on it. Silent data loss on the undo
+     * path is the same defect as silent data loss on the edit path (C70 C-INV-3:
+     * a move mints no new identity, and undo restores the one that was there).
+     */
+    private relocated: Map<string, Opening[]> = new Map();
+
     private executed = false;
 
     constructor(input: CascadeWallBaselineInput) {
@@ -159,6 +179,38 @@ export class CascadeWallBaselineCommand implements Command {
                 blockingIssues: tooShort.map(id => `WALL_TOO_SHORT: ${id} minimum 0.1m`),
             };
         }
+
+        // §HOSTED-OPENING-HOST-MOVE — the pre-flight half of the opening gate.
+        // Until now this command had NO opening gate at all: it is the chokepoint
+        // every structural wall cascade passes through (see the class doc), and a
+        // cascade shortened a 4 m wall to 0.5 m while leaving its 0.9 m door
+        // recorded at offset 1.0 — 1.4 m off the end of its host, with no clamp,
+        // no refusal and no event (hostedOpeningHostMoveSeam §Z-4). That is the
+        // EXACT defect §FIX-WALL-SHRINK-REFIT closed on UpdateWallBaselineCommand,
+        // reachable through the OTHER command — and through a gesture the user
+        // never aimed at the damaged wall, which makes it strictly worse.
+        //
+        // Declining HERE is the channel WallMoveReweldService already reads: it
+        // calls canExecute() before execute() and logs the refusal (§MOVE-REWELD-
+        // DISPATCH step 3). A deliberate policy refusal reaches the caller as a
+        // decline, never as a throw.
+        //
+        // ATOMIC: one refused entry refuses the WHOLE cascade. The class contract
+        // is "all entries applied atomically"; a partial weld would leave the
+        // topology in a state no user asked for AND still damage nothing usefully.
+        const openingIssues: string[] = [];
+        for (const e of this.entries) {
+            const wall = wallStore.getById(e.wallId);
+            if (!wall) continue;   // already reported above
+            const plan = wallOccupancyStore.planOpeningRebase(wall, e.newBaseLine);
+            for (const r of plan.refusals) {
+                openingIssues.push(`OPENING_DOES_NOT_FIT: ${e.wallId}: ${r.reason}`);
+            }
+        }
+        if (openingIssues.length > 0) {
+            return { ok: false, reason: 'OPENING_DOES_NOT_FIT', blockingIssues: openingIssues };
+        }
+
         return { ok: true };
     }
 
@@ -194,10 +246,45 @@ export class CascadeWallBaselineCommand implements Command {
             this.prevSnapshots.set(e.wallId, snapshot);
         }
 
+        // Phase 1b — §HOSTED-OPENING-HOST-MOVE: plan the opening consequences
+        // against the PRE-cascade walls, BEFORE any mutation, for the same
+        // atomicity reason Phase 1 captures snapshots first. execute() re-asks
+        // the gate canExecute() asked as defence in depth for any caller that
+        // dispatched without validating; a refusal here leaves the store
+        // completely untouched.
+        const plans = new Map<string, OpeningRefitPlan>();
+        const refusalSentences: string[] = [];
+        for (const e of this.entries) {
+            const wall = wallStore.getById(e.wallId)!;   // Phase 1 proved it exists
+            const plan = wallOccupancyStore.planOpeningRebase(wall, e.newBaseLine);
+            plans.set(e.wallId, plan);
+            for (const r of plan.refusals) {
+                refusalSentences.push(`${e.wallId}: ${r.reason}`);
+            }
+        }
+        if (refusalSentences.length > 0) {
+            const reason = refusalSentences.join('; ');
+            console.warn(
+                `[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE refusing ` +
+                `'${this.cause}' cascade (${this.entries.length} entry/entries): ${reason} ` +
+                `— no wall was re-baselined.`,
+            );
+            return {
+                success: false,
+                affectedElementIds: [],
+                info: [`OPENING_DOES_NOT_FIT: ${reason}`],
+                error: `OPENING_DOES_NOT_FIT: ${reason}`,
+            };
+        }
+
         // Phase 2 — apply all mutations. _renderVersion bumped per entry so the
         // builder dirty-check (§VIEW-DIRTY-CHECK §2.2) sees a real change.
         // §L-871/§L-872: the writes run inside the cross-service latch so no
         // wall-update reactor mistakes them for user moves (see the module doc).
+        // §HOSTED-OPENING-HOST-MOVE: the opening re-writes are latched too — they
+        // are part of the same structural propagation, and they must not read as
+        // a fresh user edit to any reactor.
+        this.relocated = new Map();
         _cascadeApplyDepth++;
         try {
             for (const e of this.entries) {
@@ -207,6 +294,44 @@ export class CascadeWallBaselineCommand implements Command {
                     baseLine: e.newBaseLine,
                     _renderVersion: baseVersion,
                 } as any);
+            }
+
+            // Phase 3 — §HOSTED-OPENING-HOST-MOVE: re-seat the openings on the
+            // walls that just changed. AFTER the baseline write and through
+            // `updateOpening` — the sanctioned opening-mutation API — so the
+            // store's own clamp sees the NEW wall and agrees, `childrenIds` stays
+            // in lock-step with `openings` (C15 §6), and the hosted door/window
+            // record moves with its opening instead of desyncing. `relocations`
+            // only ever carries POSITION (offset / sillHeight): anything whose
+            // authored width or height no longer fits was refused above, so
+            // nothing reaching here can be silently narrowed.
+            for (const e of this.entries) {
+                const plan = plans.get(e.wallId);
+                if (!plan || plan.relocations.length === 0) continue;
+                const pre: Opening[] = [];
+                for (const r of plan.relocations) {
+                    const next: Opening = {
+                        ...r.opening,
+                        offset:     r.next.offset,
+                        sillHeight: r.next.sillHeight,
+                    };
+                    try {
+                        wallStore.updateOpening(e.wallId, next);
+                        pre.push(r.opening);   // PRE-edit record, for undo
+                        console.log(
+                            `[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE re-seated ` +
+                            `${r.opening.type} ${r.opening.elementId ?? r.opening.id} on wall ` +
+                            `${e.wallId}: offset ${r.opening.offset.toFixed(3)} → ` +
+                            `${r.next.offset.toFixed(3)} m (cause '${this.cause}')`,
+                        );
+                    } catch (err) {
+                        console.warn(
+                            `[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE could not ` +
+                            `re-seat opening ${r.opening.id} on wall ${e.wallId}:`, err,
+                        );
+                    }
+                }
+                if (pre.length > 0) this.relocated.set(e.wallId, pre);
             }
         } finally {
             _cascadeApplyDepth--;
@@ -234,10 +359,28 @@ export class CascadeWallBaselineCommand implements Command {
                     wallStore.restoreSnapshot(snap);
                     restored.push(e.wallId);
                 }
+                // §HOSTED-OPENING-HOST-MOVE — restoreSnapshot does NOT carry
+                // `openings` (see the `relocated` field doc), so every opening
+                // this cascade re-seated must be put back explicitly. Ordered
+                // AFTER this wall's snapshot restore so the wall is already back
+                // at its original length when the store re-runs its own clamp —
+                // which is then a no-op, because these are exactly the offsets
+                // that fitted before the cascade.
+                for (const opening of this.relocated.get(e.wallId) ?? []) {
+                    try {
+                        wallStore.updateOpening(e.wallId, opening);
+                    } catch (err) {
+                        console.warn(
+                            `[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE undo could ` +
+                            `not restore opening ${opening.id} on wall ${e.wallId}:`, err,
+                        );
+                    }
+                }
             }
         } finally {
             _cascadeApplyDepth--;
         }
+        this.relocated = new Map();
         this.executed = false;
         return { success: true, affectedElementIds: restored };
     }

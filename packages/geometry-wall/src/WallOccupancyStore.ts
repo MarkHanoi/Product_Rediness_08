@@ -502,6 +502,139 @@ export class WallOccupancyStore {
     }
 
     /**
+     * §HOSTED-OPENING-HOST-MOVE (Z-3) — the ANCHOR half of the wall-side gate.
+     *
+     * ── The defect this closes ──────────────────────────────────────────────
+     * `planOpeningRefit` asks only "does the opening still FIT the candidate
+     * wall?". It is blind to WHERE the wall changed, because it never sees the
+     * wall's previous baseline. That blindness is a real, user-visible defect
+     * the moment a wall can be re-baselined at `baseLine[0]`:
+     *
+     *   C15 §2 — a hosted opening has NO independent world coordinate. Its world
+     *   position is `baseLine[0] + offset x wallDir`. So moving `baseLine[0]`
+     *   ALONG the wall's own axis (an extend/trim at the START end — exactly
+     *   what `computeMoveReweld` issues for a partner welded at its [0]) drags
+     *   every opening on that wall by the same distance, even though the part of
+     *   the wall the opening sits on never moved. The offset still "fits", so
+     *   `planOpeningRefit` reports OK and the door silently slides across the
+     *   room. Measured: a 4 m west wall extended to 6 m at [0] moved its door
+     *   2.00 m (hostedOpeningHostMoveSeam §Z-3).
+     *
+     * The asymmetry is the tell: the SAME user gesture leaves a door on the wall
+     * welded at [1] exactly where it was (shift 0) and throws the door on the
+     * wall welded at [0] across the plan. Stored endpoint ORDER is invisible to
+     * the user and was never chosen by them, so it cannot be allowed to decide
+     * whether their door moves.
+     *
+     * ── What this adds, and what it deliberately does NOT ────────────────────
+     * ONE thing: it re-expresses each authored offset against the NEW
+     * `baseLine[0]` so the opening's WORLD position is preserved, and then hands
+     * the rebased openings to `planOpeningRefit` — the SAME clamp/refuse policy,
+     * unchanged and unduplicated. Position is still recoverable (CLAMP);
+     * authored width/height are still not (REFUSE). No new policy is minted.
+     *
+     * The rebase applies ONLY when the wall keeps its direction — an extend, a
+     * trim or a translation. A wall that ROTATED has no defensible "same place
+     * along the wall" answer, and inventing one would be worse than doing
+     * nothing, so the shift is 0 there and the plain refit gate still applies.
+     * A pure PERPENDICULAR translation also yields shift 0 by construction (the
+     * displacement has no along-axis component), which is correct: the whole
+     * wall moved, so the opening rides along with it.
+     *
+     * PURE — reads only; writes nothing, emits nothing. The caller owns the undo
+     * record for any relocation it applies (`restoreSnapshot` does NOT carry
+     * `openings`), and every `relocations[].opening` handed back is the
+     * PRE-EDIT record, never the intermediate rebased one.
+     *
+     * @param current      The wall AS IT STANDS, with its current baseLine and
+     *                     its `openings` array.
+     * @param nextBaseLine The baseline the wall is about to be given.
+     */
+    planOpeningRebase(
+        current: WallData,
+        nextBaseLine: ReadonlyArray<{ x: number; y?: number; z: number }>,
+    ): OpeningRefitPlan {
+        const candidate = { ...current, baseLine: nextBaseLine } as unknown as WallData;
+        const openings: Opening[] = current.openings ?? [];
+        if (openings.length === 0) return this.planOpeningRefit(candidate);
+
+        const shift = WallOccupancyStore.anchorShiftM(current.baseLine, nextBaseLine);
+        if (shift === 0) return this.planOpeningRefit(candidate);
+
+        // Rebase, then ask the EXISTING gate. It owns the whole clamp/refuse
+        // policy; this method contributes only the shift.
+        const rebased: Opening[] = openings.map(o => ({ ...o, offset: o.offset + shift }));
+        const plan = this.planOpeningRefit(
+            { ...candidate, openings: rebased } as unknown as WallData,
+        );
+        if (!plan.ok) {
+            // Refusals name the same opening ids either way (the rebase copies
+            // id/elementId/type/width verbatim), and a refused edit relocates
+            // nothing.
+            return { ok: false, refusals: plan.refusals, relocations: [] };
+        }
+
+        // The gate reports a relocation only when its OWN clamp moved something.
+        // A rebase that fitted without clamping is still a write the caller must
+        // perform, so the final position is compared against the AUTHORED one.
+        const clampedById = new Map(plan.relocations.map(r => [r.opening.id, r.next]));
+        const relocations: OpeningRelocation[] = [];
+        for (let i = 0; i < openings.length; i++) {
+            const authored = openings[i];
+            const r = rebased[i];
+            const next: OpeningDims = clampedById.get(r.id) ?? {
+                offset:     r.offset,
+                width:      r.width,
+                height:     r.height,
+                sillHeight: r.sillHeight,
+            };
+            if (next.offset !== authored.offset || next.sillHeight !== authored.sillHeight) {
+                relocations.push({ opening: { ...authored }, next });
+            }
+        }
+        return { ok: true, refusals: [], relocations };
+    }
+
+    /**
+     * §HOSTED-OPENING-HOST-MOVE (Z-3) — how far the wall's measuring origin
+     * (`baseLine[0]`, C15 §2) travelled ALONG the wall, signed in the direction
+     * of the new baseline. Adding this to an authored offset re-expresses it
+     * against the new origin, leaving the opening's world position untouched.
+     *
+     * Returns 0 — meaning "no rebase" — for a degenerate new baseline, a missing
+     * previous baseline, and any direction change (rotation or reversal): see
+     * the `planOpeningRebase` doc for why silence beats invention there. XZ
+     * only, matching every other along-wall measurement in this package (walls
+     * are horizontal; Y is height, not sweep).
+     */
+    private static anchorShiftM(
+        prev: ReadonlyArray<{ x: number; y?: number; z: number }> | undefined,
+        next: ReadonlyArray<{ x: number; y?: number; z: number }>,
+    ): number {
+        if (!prev || prev.length < 2 || !next || next.length < 2) return 0;
+
+        const nDx = next[1].x - next[0].x;
+        const nDz = next[1].z - next[0].z;
+        const nLen = Math.hypot(nDx, nDz);
+        if (!(nLen > 0)) return 0;
+
+        const pDx = prev[1].x - prev[0].x;
+        const pDz = prev[1].z - prev[0].z;
+        const pLen = Math.hypot(pDx, pDz);
+        if (!(pLen > 0)) return 0;
+
+        // Direction must be preserved (same heading, not merely the same line):
+        // a reversal swaps which endpoint offsets are measured from, and that is
+        // the store's BaselineReversalError to refuse, not ours to compensate.
+        const cross = (pDx * nDz - pDz * nDx) / (pLen * nLen);
+        const dot   = (pDx * nDx + pDz * nDz) / (pLen * nLen);
+        if (dot <= 0 || Math.abs(cross) > 1e-6) return 0;
+
+        // Signed along-axis distance from the NEW origin to the OLD origin.
+        return ((prev[0].x - next[0].x) * nDx + (prev[0].z - next[0].z) * nDz) / nLen;
+    }
+
+    /**
      * Checks whether a new opening [offsetM, offsetM + widthM] can be placed
      * on `wall` without overlapping any existing opening in wall.openings[].
      *
