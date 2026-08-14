@@ -23,6 +23,14 @@ import {
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { HostReferenceEdge, SketchLoop } from './SketchTypes';
 import { WallFaceResolver } from './WallFaceResolver';
+// §C79-5.2-SLAB-STATES — the five-state reporting vocabulary. Pure module; the
+// builder writes the per-edge provenance, the tracker classifies it.
+import {
+    worstSlabRecomputeState,
+    type SlabLoopResolution,
+    type SlabLoopEdgeOutcome,
+    type SlabRecomputeUndeterminedReason,
+} from './slabRecomputeVerdict';
 import { SketchLoopIntersector, Segment2D } from './SketchLoopIntersector';
 import { outsetPolygon, SLAB_WALL_OUTSET } from './SlabGeometryUtils';
 // §GR-10/GR-14 — the window-global opening-store read, DETERMINED.
@@ -702,28 +710,93 @@ export class SlabFragmentBuilder {
      * Returns null when any HostReferenceEdge fails to resolve AND carries no
      * fallback — the caller must treat that as C79 §5.2 `undetermined`, never
      * as an empty ring.
+     *
+     * §C79-5.2-SLAB-STATES: this is now a PROJECTION of
+     * {@link resolveLoopVerdict} — same ring, byte for byte, so every draw path
+     * is untouched. A caller that needs to know whether the ring is a
+     * re-derivation or a memory calls the verdict instead.
      */
     static resolveLoop(loop: SketchLoop): { x: number; y: number }[] | null {
-        const segments: (Segment2D | null)[] = [];
+        return SlabFragmentBuilder.resolveLoopVerdict(loop).ring;
+    }
 
-        for (const edge of loop.edges) {
+    /**
+     * §C79-5.2-SLAB-STATES — the production resolution, WITH per-edge provenance.
+     *
+     * THE DEFECT THIS CLOSES (check-move-propagation A3, measured 2026-08-14):
+     * *"a zero-move re-derivation and a re-derivation whose host cannot be
+     * resolved both return the SAME 24.000 m² ring, byte-identical: true."* The
+     * ring cannot distinguish them — they ARE the same pixels — so the fact
+     * travels beside it, per edge, in `edgeOutcomes`.
+     *
+     * The fallback is NOT removed. C79 §4.3 requires it, and removing it would
+     * make a deleted wall degrade the slab to nothing. What changes is that a
+     * fallback-sourced ring now says so: `fullyLive === false` and
+     * `undetermined` is set, which `classifySlabRecompute` turns into C79 §5.2's
+     * `undetermined` rather than a false `preserved` (§5.2.1).
+     *
+     * §5.3 — the loop-level `undetermined` is the WORST of the edges, computed
+     * with `worstSlabRecomputeState` over the same per-edge states reported here,
+     * so a partly-referenced boundary cannot report a false green while one host
+     * edge failed to resolve.
+     */
+    static resolveLoopVerdict(loop: SketchLoop): SlabLoopResolution {
+        const segments: (Segment2D | null)[] = [];
+        const edgeOutcomes: SlabLoopEdgeOutcome[] = [];
+        let fullyLive = true;
+        let firstFailure: { reason: SlabRecomputeUndeterminedReason; subReason: string } | undefined;
+
+        for (let i = 0; i < loop.edges.length; i++) {
+            const edge = loop.edges[i]!;
             if (edge.type === 'freeLine') {
                 segments.push({ start: edge.start, end: edge.end });
-            } else {
-                const segment = WallFaceResolver.resolveOrFallback(edge as HostReferenceEdge);
-                if (!segment) {
-                    console.warn(
-                        `[SlabFragmentBuilder] HostReferenceEdge to wall ` +
-                        `"${(edge as HostReferenceEdge).hostId}" could not be resolved.`
-                    );
-                    return null;
-                }
-                segments.push(segment);
+                edgeOutcomes.push({ index: i, source: 'freeLine', state: 'preserved' });
+                continue;
             }
+
+            const host = edge as HostReferenceEdge;
+            const resolved = WallFaceResolver.resolveWithProvenance(host);
+            if (resolved.source !== 'live') {
+                fullyLive = false;
+                const subReason = `edge ${i}: ${resolved.subReason}`;
+                if (!firstFailure) {
+                    firstFailure = { reason: resolved.reason ?? 'STALE_DERIVED_STATE', subReason };
+                }
+                edgeOutcomes.push({
+                    index: i, source: resolved.source, hostId: host.hostId,
+                    state: 'undetermined', reason: resolved.reason, subReason,
+                });
+            } else {
+                edgeOutcomes.push({ index: i, source: 'live', hostId: host.hostId, state: 'preserved' });
+            }
+
+            if (!resolved.segment) {
+                // Unchanged behaviour: no geometry at all ends the resolution.
+                console.warn(
+                    `[SlabFragmentBuilder] §C79-5.2 undetermined ` +
+                    `(${resolved.reason ?? 'RELATIONSHIP_NOT_RECORDED'}): HostReferenceEdge to wall ` +
+                    `"${host.hostId}" could not be resolved. ${resolved.subReason ?? ''}`
+                );
+                return {
+                    ring: null, edgeOutcomes, fullyLive: false,
+                    undetermined: firstFailure ?? {
+                        reason: 'RELATIONSHIP_NOT_RECORDED',
+                        subReason: `edge ${i}: host wall "${host.hostId}" could not be resolved`,
+                    },
+                };
+            }
+            segments.push(resolved.segment);
         }
 
         const polygon = SketchLoopIntersector.computePolygon(segments);
-        return polygon ?? null;
+        // §5.3 — one unresolved edge decides the element, whatever the others did.
+        const worst = worstSlabRecomputeState(edgeOutcomes.map((o) => o.state));
+        return {
+            ring: polygon ?? null,
+            edgeOutcomes,
+            fullyLive,
+            undetermined: worst === 'undetermined' ? firstFailure : undefined,
+        };
     }
 
     /**

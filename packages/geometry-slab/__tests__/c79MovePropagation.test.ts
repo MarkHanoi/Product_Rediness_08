@@ -65,6 +65,8 @@ import { WallFaceResolver } from '../src/WallFaceResolver';
 import { SlabFragmentBuilder } from '../src/SlabFragmentBuilder';
 import { SlabStore } from '../src/SlabStore';
 import { SlabDependencyTracker } from '../src/SlabDependencyTracker';
+// §C79-5.2-SLAB-STATES — the five-state channel this suite used to measure as absent.
+import { classifySlabRecompute } from '../src/slabRecomputeVerdict';
 import { validateSlabData } from '../src/SlabValidator';
 import type {
     HostReferenceEdge,
@@ -471,24 +473,38 @@ describe('§2 — SLAB, LIVE WIRING: the founder\'s question, end to end', () =>
 // §3 — C79 §5: can the system DISTINGUISH the five recomputation states?
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('§3 — C79 §5.2/§5.5: the five states are NOT distinguishable', () => {
-    it('the re-derivation returns NO state at all — every entry point is void or a bare polygon', () => {
+// §C79-5.2-SLAB-STATES (2026-08-14) — THIS BLOCK'S TITLE WAS INVERTED. It read
+// "the five states are NOT distinguishable", which was true when it was written
+// and is the two declared check-move-propagation findings A3/A4. The RING-level
+// observations below are unchanged and still true — the rings ARE byte-identical,
+// which is exactly why the fact had to travel beside them — but the caller-level
+// claim is now the opposite, and is proven by `c79RecomputeStates.test.ts`.
+// Leaving the old title would have been a document describing a state the code
+// no longer has, which is the defect this suite exists to catch.
+describe('§3 — C79 §5.2: the RING cannot distinguish the states; the VERDICT does', () => {
+    it('the ring-level entry points are still bare — the state travels BESIDE them', () => {
         const slabStore = new SlabStore();
         const tracker = new SlabDependencyTracker(slabStore, asTrackerWallStore(walls), { current: undefined });
         const traced = traceRegionSketchAtPoint(walls.asRegionWalls(), 3, 2)!;
         slabStore.add(regionSlab('sb-state', traced.sketch, traced.ring));
         tracker.bootstrap();
 
-        // The whole propagation chain, and what each link can tell a caller:
-        expect(slabStore.triggerRebuild('sb-state')).toBeUndefined();          // void
+        // Unchanged, deliberately: no draw path was given a new shape.
+        expect(slabStore.triggerRebuild('sb-state')).toBeUndefined();          // still void
         const poly = productionResolve(traced.sketch.outerLoop);
-        expect(Array.isArray(poly)).toBe(true);                                 // a ring, no state
+        expect(Array.isArray(poly)).toBe(true);                                 // still a bare ring
         expect((poly as unknown as Record<string, unknown>).state).toBeUndefined();
 
+        // …and the channel that DOES carry the state is reachable from the same act.
+        const verdicts = tracker.recomputeForWall('w-north');
+        expect(verdicts).toHaveLength(1);
+        expect(verdicts[0]!.state).toBe('preserved');   // nothing moved, and we checked
+
         console.log(
-            `[GR-12 §3 STATES] triggerRebuild → void · resolveLoop → ring | null. ` +
-            `No value anywhere on the move path names preserved | resized | ` +
-            `regenerated | conflicted | undetermined. C79 §5.5 is CONFIRMED, not refuted.`,
+            `[GR-12 §3 STATES] triggerRebuild → void · resolveLoop → ring | null, both ` +
+            `UNCHANGED. SlabDependencyTracker.recomputeForWall → ` +
+            `${JSON.stringify(verdicts.map((v) => v.state))} — C79 §5.2's five states are ` +
+            `reported beside the ring, not encoded into it (§C79-5.2-SLAB-STATES).`,
         );
         tracker.dispose();
     });
@@ -514,22 +530,25 @@ describe('§3 — C79 §5.2/§5.5: the five states are NOT distinguishable', () 
         expect(undetermined).toEqual(p0);
         expect(undetermined).toEqual(preserved);
 
-        // And the resolver itself does not report which branch it took.
+        // §C79-5.2-SLAB-STATES — the resolver KNEW and used not to say. It says now.
         const northEdge = hostEdgesOf(traced2.sketch).find((e) => e.hostId === 'w-north')!;
         expect(WallFaceResolver.resolve(northEdge)).toBeNull();            // it KNOWS
-        expect(WallFaceResolver.resolveOrFallback(northEdge)).not.toBeNull(); // …and does not say
+        expect(WallFaceResolver.resolveOrFallback(northEdge)).not.toBeNull(); // §4.3 fallback kept
+        const provenance = WallFaceResolver.resolveWithProvenance(northEdge);
+        expect(provenance.source).toBe('fallback');                        // …and now it SAYS
+        expect(provenance.reason).toBe('STALE_DERIVED_STATE');
 
         console.log(
             `[GR-12 §3 §5.2.1] preserved and undetermined both resolve to the same ` +
-            `${area(preserved).toFixed(3)} m² ring. WallFaceResolver.resolve() returns ` +
-            `null (it knows the host is gone) and resolveOrFallback() absorbs that into ` +
-            `a stale segment with no reason attached — C79 §5.2.1's forbidden collapse, ` +
-            `EXECUTED. This is C79 §0's defect exactly: "a slab that did not follow was ` +
-            `indistinguishable from a slab that had nothing to follow".`,
+            `${area(preserved).toFixed(3)} m² ring — the RING still cannot tell them ` +
+            `apart, and never could: they are the same pixels. What changed is that ` +
+            `WallFaceResolver.resolveWithProvenance now reports source="${provenance.source}" ` +
+            `reason="${provenance.reason}" beside the identical geometry, so the CALLER can ` +
+            `(§C79-5.2-SLAB-STATES; the end-to-end verdicts are in c79RecomputeStates.test.ts).`,
         );
     });
 
-    it('§5.2 `regenerated` / `conflicted` are not reported either — an INVERTING move returns a ring', () => {
+    it('§5.2.2 an INVERTING move still returns a ring — and is now REPORTED as `conflicted`', () => {
         const signed = (poly: ReadonlyArray<{ x: number; y: number }> | null): number => {
             if (!poly || poly.length < 3) return 0;
             let a = 0;
@@ -554,19 +573,33 @@ describe('§3 — C79 §5.2/§5.5: the five states are NOT distinguishable', () 
         expect(Math.sign(after)).toBe(-Math.sign(before));                 // winding flipped
         expect(Math.abs(after)).toBeGreaterThan(0);                        // plausible area
 
+        // §C79-5.2-SLAB-STATES — the ring is unchanged (record ≡ mesh, §4's
+        // property) and the winding flip is now a NAMED verdict carrying both
+        // numbers, instead of a plausible ring handed back in silence.
+        const res = SlabFragmentBuilder.resolveLoopVerdict(traced.sketch.outerLoop);
+        const v = classifySlabRecompute({
+            slabId: 'sb-invert',
+            previousRing: traced.ring,
+            resolution: res,
+        });
+        expect(v.state).toBe('conflicted');
+        expect(v.subReason).toMatch(/INVERTED its winding/);
+        expect(v.numbers!.oldAreaM2).toBeCloseTo(Math.abs(before), 6);
+        expect(v.numbers!.newAreaM2).toBeCloseTo(Math.abs(after), 6);
+
         console.log(
-            `[GR-12 §3 REGENERATED/CONFLICTED] a move that drives w-north through ` +
-            `w-south re-derives a ring whose signed area goes ${before.toFixed(3)} → ` +
-            `${after.toFixed(3)} m² — the winding INVERTED and the slab now covers ` +
-            `ground the user never enclosed. The re-derivation refuses nothing, reports ` +
-            `nothing, and hands back a plausible ring. SlabFragmentBuilder.` +
-            `refuseNonSimpleRings exists but sits DOWNSTREAM of resolveLoop, catches ` +
-            `only self-INTERSECTION (which four straight lines cannot produce), and ` +
-            `only logs — it is not a §5.2 verdict any caller reads.`,
+            `[GR-12 §3 CONFLICTED] a move that drives w-north through w-south re-derives ` +
+            `a ring whose signed area goes ${before.toFixed(3)} → ${after.toFixed(3)} m² — ` +
+            `the winding INVERTED and the slab covers ground the user never enclosed. ` +
+            `The re-derivation still hands back that ring (record ≡ mesh), and now REPORTS ` +
+            `"${v.state}": ${v.subReason}. NOTE what is still open: this is a verdict a ` +
+            `caller can read, NOT a message a user sees — C79 §10.6's UI surface is absent ` +
+            `and is not claimed closed here. \`regenerated\` is classified but not ` +
+            `producible by a move (see slabRecomputeVerdict.ts's header).`,
         );
     });
 
-    it('§5.3 element-state-is-worst-of-its-edges has no implementation to exercise', () => {
+    it('§5.3 element-state-is-worst-of-its-edges: the SKETCH still carries none, the VERDICT does', () => {
         // A mixed boundary: three references and one free edge (id-less wall).
         const mixed: RegionWallLike[] = [
             { id: 'w-south', baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
@@ -578,11 +611,24 @@ describe('§3 — C79 §5.2/§5.5: the five states are NOT distinguishable', () 
         expect(traced.attribution.hostEdges).toBe(3);
         expect(traced.attribution.missingIdFallbacks).toBe(1);
 
-        // Authoring-time counts exist (C79 §2.5). Nothing carries them to move time:
-        // the sketch stored on SlabData has edges only — no per-edge state channel.
+        // Authoring-time counts exist (C79 §2.5). The PERSISTED sketch still carries
+        // no per-edge state, deliberately — the state is a property of a
+        // RE-DERIVATION, not of a stored edge, so persisting it would be a cache
+        // that can go stale (C79 §5.1 forbids depending on one).
         for (const e of traced.sketch.outerLoop.edges) {
             expect((e as unknown as Record<string, unknown>).state).toBeUndefined();
         }
+
+        // §C79-5.2-SLAB-STATES — the per-edge channel exists at re-derivation time,
+        // and one bad edge decides the element (§5.3's worst-of rule).
+        walls.vanish('w-north');
+        const res = SlabFragmentBuilder.resolveLoopVerdict(traced.sketch.outerLoop);
+        expect(res.edgeOutcomes).toHaveLength(traced.sketch.outerLoop.edges.length);
+        expect(res.edgeOutcomes.filter((o) => o.state === 'undetermined')).toHaveLength(1);
+        expect(res.fullyLive).toBe(false);
+        expect(classifySlabRecompute({
+            slabId: 'sb-mixed', previousRing: traced.ring, resolution: res,
+        }).state).toBe('undetermined');
     });
 });
 

@@ -46,6 +46,10 @@ export * from './SlabFragmentBuilder';
 // ── Profile editor ────────────────────────────────────────────────────────────
 export * from './SlabProfileEditor';
 
+// ── §C79-5.2-SLAB-STATES — the five recomputation states (C79 §5.2) ──────────
+// The reporting channel a wall move did not have. Pure; no DOM, no THREE.
+export * from './slabRecomputeVerdict';
+
 // ── Sketch-resolution services (co-migrated from subsystems/services/) ────────
 export * from './WallFaceResolver';
 // Segment2D is exported from WallFaceResolver; explicitly name SketchLoopIntersector exports to avoid re-export ambiguity
