@@ -39,12 +39,17 @@ const INTERIOR_PARCEL_RING: Pt[] = [
     { x: 8, z: 8 }, { x: 12, z: 8 }, { x: 12, z: 12 }, { x: 8, z: 12 },
 ];
 
-function blockFixture(opts: { neighbours: ReadonlyArray<{ refcat: string; ring: LatLon[] }> }): BlockFeature {
+function blockFixture(opts: {
+    /** §GR-10/GR-14 — `null` models a response that carried NO neighbours array. */
+    neighbours: ReadonlyArray<{ refcat: string; ring: LatLon[] }> | null;
+    neighboursDropped?: number;
+}): BlockFeature {
     return {
         manzana: 'TESTMZ',
         parcels: BLOCK_PARCELS,
         totalAreaM2: 400,
         neighbours: opts.neighbours,
+        neighboursDropped: opts.neighboursDropped ?? 0,
     };
 }
 
@@ -77,7 +82,8 @@ describe('§COR-MC-STREET-WIDTH — block availability', () => {
     it('refuses `block-unavailable` on fewer than 3 parcels (no freeStanding signal at this layer)', async () => {
         const r = await resolveCordobaMcStreetWidth('REF1', undefined, INTERIOR_PARCEL_RING, identityFrame, {
             fetchBlock: async () => ({
-                manzana: 'MZ', parcels: BLOCK_PARCELS.slice(0, 2), totalAreaM2: 100, neighbours: [],
+                manzana: 'MZ', parcels: BLOCK_PARCELS.slice(0, 2), totalAreaM2: 100,
+                neighbours: [], neighboursDropped: 0,
             }),
         });
         expect(r).toEqual({ ok: false, reason: 'block-unavailable' });
@@ -85,9 +91,52 @@ describe('§COR-MC-STREET-WIDTH — block availability', () => {
 });
 
 describe('§COR-MC-STREET-WIDTH — neighbours / dissolve / measurement', () => {
-    it('refuses `no-neighbours` when the block bbox returned none', async () => {
+    it('refuses `no-neighbours` when the block bbox ANSWERED and returned none', async () => {
         const r = await resolveCordobaMcStreetWidth('REF1', undefined, INTERIOR_PARCEL_RING, identityFrame, {
             fetchBlock: async () => blockFixture({ neighbours: [] }),
+        });
+        expect(r).toEqual({ ok: false, reason: 'no-neighbours' });
+    });
+
+    // ── §GR-10/GR-14 · check-no-empty-means-unknown ARM C at line 157 ─────────
+    // `(block.neighbours ?? []).map(...)` made a response that carried NO
+    // neighbours array indistinguishable from one that carried an empty one. Both
+    // refuse — but one is a fact about Córdoba (an isolated block) and the other
+    // is a fact about our own data path, and coverage telemetry that merges them
+    // sends an operator hunting for a block that does not exist.
+    it('DIFFERENTIATING — an ABSENT neighbours array refuses with its OWN reason', async () => {
+        const notReturned = await resolveCordobaMcStreetWidth('REF1', undefined, INTERIOR_PARCEL_RING, identityFrame, {
+            fetchBlock: async () => blockFixture({ neighbours: null }),
+        });
+        const answeredEmpty = await resolveCordobaMcStreetWidth('REF1', undefined, INTERIOR_PARCEL_RING, identityFrame, {
+            fetchBlock: async () => blockFixture({ neighbours: [] }),
+        });
+
+        // Identical on the shape the old code had — both are `ok: false`, which is
+        // precisely why the conflation was invisible and safe-looking.
+        expect(notReturned.ok).toBe(false);
+        expect(answeredEmpty.ok).toBe(false);
+        // …and NOT identical where it counts.
+        expect(notReturned).toEqual({ ok: false, reason: 'neighbours-not-returned' });
+        expect(answeredEmpty).toEqual({ ok: false, reason: 'no-neighbours' });
+        expect(notReturned).not.toEqual(answeredEmpty);
+    });
+
+    it('a REAL measurement still succeeds — the reader is not now refusing everything', async () => {
+        const r = await resolveCordobaMcStreetWidth('REF1', undefined, INTERIOR_PARCEL_RING, identityFrame, {
+            fetchBlock: async () => blockFixture({ neighbours: [NEIGHBOUR_6M] }),
+        });
+        expect(r.ok).toBe(true);
+    });
+
+    it('an all-dropped neighbour set still refuses `no-neighbours`, and the drop count survives', async () => {
+        // The third fact: the server answered, and every row it sent was unusable.
+        // The refusal is the same, but `neighboursDropped` is what tells an
+        // operator this was corrupt data rather than an isolated block.
+        const block = blockFixture({ neighbours: [], neighboursDropped: 4 });
+        expect(block.neighboursDropped).toBe(4);
+        const r = await resolveCordobaMcStreetWidth('REF1', undefined, INTERIOR_PARCEL_RING, identityFrame, {
+            fetchBlock: async () => block,
         });
         expect(r).toEqual({ ok: false, reason: 'no-neighbours' });
     });

@@ -58,8 +58,26 @@ export interface BlockFeature {
      * §STREET-WIDTH-NEIGHBOURS — surrounding blocks' parcels, for the *amplada de vial*
      * measurement (L-537). Empty is NORMAL and non-fatal: it costs a street width, therefore a
      * height, and the caller falls back to no constructed height — never to a guessed one.
+     *
+     * §GR-10/GR-14 — `null` vs `[]` ARE DIFFERENT FACTS (C78 §1.4, C71 §4.4):
+     *   · `null` — the response carried NO `neighbours` array at all. The question
+     *     was never answered: an older proxy, a truncated body, a route that does
+     *     not ship the bbox sweep. NOTHING was learned about this block.
+     *   · `[]`   — it WAS answered, and no usable neighbouring parcel came back.
+     *     A genuine finding: an isolated or edge-of-coverage block.
+     * Both still cost the street width, so the OUTCOME is the same refusal — but
+     * they have different CAUSES and therefore different fixes, and an operator
+     * reading coverage telemetry cannot chase a server gap that is reported as a
+     * geographic fact. Empty may only ever mean "zero results".
      */
-    readonly neighbours: ReadonlyArray<NeighbourParcel>;
+    readonly neighbours: ReadonlyArray<NeighbourParcel> | null;
+    /**
+     * How many neighbour rows were DROPPED as unparseable (see the failure-policy
+     * note in `parseBlockResponse`). `neighbours: []` with this `> 0` is a THIRD
+     * fact again — the server answered, and every row it sent was unusable — which
+     * an empty list alone would have reported as "isolated block".
+     */
+    readonly neighboursDropped: number;
 }
 
 function isFiniteNum(v: unknown): v is number {
@@ -135,11 +153,22 @@ export function parseBlockResponse(json: unknown): BlockFeature | null {
     // only removes one candidate opposing frontage: the worst it can do is make a street
     // unmeasurable, and an unmeasurable street produces NO height rather than a wrong one. So one
     // bad neighbour is dropped and the rest are kept.
-    const neighbours: NeighbourParcel[] = [];
+    //
+    // §GR-10/GR-14 — the ABSENT array stays absent. The old body seeded
+    // `neighbours = []` and only filled it when `b.neighbours` was an array, so a
+    // response that never mentioned neighbours became the positive claim "this
+    // block has no neighbouring parcels" — and both consumers then refused with
+    // reasons that named a geographic fact for what was a missing answer. `null`
+    // is now carried through, and dropped rows are COUNTED rather than silently
+    // shortening the list (C78 §1.4).
+    let neighbours: NeighbourParcel[] | null = null;
+    let neighboursDropped = 0;
     if (Array.isArray(b.neighbours)) {
+        neighbours = [];
         for (const raw of b.neighbours) {
             const p = parseParcel(raw);
             if (p) neighbours.push({ refcat: p.refcat, ring: p.ring });
+            else neighboursDropped++;
         }
     }
 
@@ -148,6 +177,7 @@ export function parseBlockResponse(json: unknown): BlockFeature | null {
         parcels,
         totalAreaM2: parcels.reduce((s, p) => s + p.areaM2, 0),
         neighbours,
+        neighboursDropped,
     };
 }
 

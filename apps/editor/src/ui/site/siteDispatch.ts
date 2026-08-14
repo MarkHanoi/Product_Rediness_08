@@ -1606,9 +1606,16 @@ export function reapplyZoningForActiveSite(ctx: SiteContext): boolean {
     if (!site || !boundary || !Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
         return false;
     }
+    // §GR-10/GR-14 — read BARE, exactly as this file's ~25 sibling reads do.
+    // `Parcel['boundary'].edgeClassifications` is REQUIRED (zod `.default([])`,
+    // packages/schemas/src/site/Parcel.ts), so the removed `?? []` could only
+    // ever fire on type-violating data — and then it would have silently forged
+    // "classified, zero fronts" out of a corrupt record while every sibling read
+    // crashed loudly. Failure must not impersonate emptiness (C78 §1.4); the
+    // schema guarantee is pinned by ParcelFrontageHonesty.test.ts.
     const zoningBoundary = {
         polygon: boundary.polygon,
-        edgeClassifications: boundary.edgeClassifications ?? [],
+        edgeClassifications: boundary.edgeClassifications,
     };
     const envelope = computeAndCacheEstimatedEnvelope(zoningBoundary);
     applyZoning(ctx, zoningBoundary, envelope);
@@ -8027,7 +8034,11 @@ async function applyBcnZoningThenFallback(
                 const mx = ((a.x + b.x) / 2).toFixed(1), mz = ((a.z + b.z) / 2).toFixed(1);
                 return `#${i}@(${mx},${mz}) ${deg.toFixed(0)}°`;
             };
-            const placeholderFront = (boundary.edgeClassifications ?? [])
+            // §GR-10/GR-14 — bare read: `boundary` is a `ZoningBoundary`, whose
+            // `edgeClassifications` is REQUIRED. The removed `?? []` would have
+            // printed an empty placeholder-front list — indistinguishable from a
+            // genuinely front-less parcel — out of a corrupt record.
+            const placeholderFront = boundary.edgeClassifications
                 .map((c, i) => (c === 'front' ? bearingOf(boundary.polygon, i) : null)).filter(Boolean);
             const fixedFront = parcelEdgeClassifications
                 .map((c, i) => (c === 'front' ? bearingOf(boundary.polygon, i) : null)).filter(Boolean);
@@ -8103,11 +8114,24 @@ async function applyBcnZoningThenFallback(
             let measurement = null as ReturnType<typeof governingStreetWidth>;
             let measureNote = '';
             if (!declared) {
-                const neighbourRingsXZ = (block.neighbours ?? []).map((n) =>
-                    n.ring.map(toAuthoringFrame),
-                );
-                if (neighbourRingsXZ.length === 0) {
-                    measureNote = 'no neighbour parcels returned for this block';
+                // §GR-10/GR-14 — `null` (the response carried no neighbours array
+                // at all) is NOT `[]` (it did, and this block is isolated). Both
+                // cost the width, but only one of them is a fact about Barcelona;
+                // the other is a fact about our own data path, and an operator
+                // reading `alcadaWhy` must not be sent hunting for an isolated
+                // block that does not exist (C78 §1.4).
+                const neighbourRingsXZ = block.neighbours === null
+                    ? null
+                    : block.neighbours.map((n) => n.ring.map(toAuthoringFrame));
+                if (neighbourRingsXZ === null) {
+                    measureNote =
+                        'the block response carried NO neighbours array — the street-width question '
+                        + 'was never answered for this block (not a finding that it has no neighbours)';
+                } else if (neighbourRingsXZ.length === 0) {
+                    measureNote = block.neighboursDropped > 0
+                        ? `all ${block.neighboursDropped} neighbour parcel(s) returned for this block were `
+                          + 'unparseable — measured against none'
+                        : 'the block response returned zero neighbour parcels (isolated or edge-of-coverage block)';
                 } else {
                     const widths = measureStreetWidths(blockRing, neighbourRingsXZ);
                     // Restrict to the block edges THIS parcel fronts. Taking the narrowest street
@@ -8185,7 +8209,8 @@ async function applyBcnZoningThenFallback(
             console.log(
                 `${TAG} §BCN-ALCADA height=${alcadaHeightM === null ? 'NONE' : alcadaHeightM.toFixed(2) + 'm'} ` +
                     `floors=${alcadaFloors ?? 'n/a'} tier=${alcadaProvenance ?? 'none'} ` +
-                    `neighbours=${block.neighbours?.length ?? 0} — ${alcadaWhy}.`,
+                    `neighbours=${block.neighbours === null ? 'NOT-RETURNED' : block.neighbours.length}`
+                    + `${block.neighboursDropped > 0 ? ` (+${block.neighboursDropped} dropped)` : ''} — ${alcadaWhy}.`,
             );
         } catch (e) {
             // Never allowed to cost the (already-correct) DEPTH envelope.

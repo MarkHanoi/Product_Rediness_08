@@ -67,8 +67,18 @@ export type CordobaMcStreetWidthRefusal =
     | 'block-unavailable'
     /** `dissolveParcelsToBlockRing` refused a non-conforming tiling (`degenerate`). */
     | 'block-dissolve-refused'
-    /** The block bbox returned no neighbouring parcels — nothing to measure a width against. */
+    /** The block bbox ANSWERED and returned no neighbouring parcels — an isolated or
+     *  edge-of-coverage block. A finding about Córdoba. */
     | 'no-neighbours'
+    /**
+     * §GR-10/GR-14 — the block response carried NO `neighbours` array AT ALL, so the
+     * question was never answered. A finding about OUR DATA PATH (an older proxy, a
+     * truncated body, a route that does not ship the bbox sweep), not about the city.
+     * Distinct from `no-neighbours` because the two have different causes and
+     * therefore different fixes, and coverage telemetry that merges them sends an
+     * operator hunting for an isolated block that does not exist (C78 §1.4, C71 §4.4).
+     */
+    | 'neighbours-not-returned'
     /** Rays found no usable opposing frontage on any governing edge (or the parcel fronts none). */
     | 'no-opposing-frontage';
 
@@ -154,9 +164,18 @@ export async function resolveCordobaMcStreetWidth(
         }
         const blockRing = dissolved.ring;
 
-        const neighbourRingsXZ = (block.neighbours ?? []).map((n) => n.ring.map(toAuthoringFrame));
+        // §GR-10/GR-14 — "the server never sent a neighbours array" and "it sent one
+        // and this block has none" are DIFFERENT refusals, because they have
+        // different causes and different fixes. The old `?? []` reported the first
+        // as the second: a data-path gap published as a fact about the city.
+        if (block.neighbours === null) {
+            span.setAttribute('resultFields', 'neighbours-not-returned');
+            return { ok: false, reason: 'neighbours-not-returned' };
+        }
+        const neighbourRingsXZ = block.neighbours.map((n) => n.ring.map(toAuthoringFrame));
         if (neighbourRingsXZ.length === 0) {
             span.setAttribute('resultFields', 'no-neighbours');
+            span.setAttribute('neighboursDropped', block.neighboursDropped);
             return { ok: false, reason: 'no-neighbours' };
         }
 
