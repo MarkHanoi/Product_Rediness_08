@@ -323,40 +323,44 @@ describe('L-872 — interior T-junction wall follows a perimeter move', () => {
         expect(after.length).toBe(1);
     });
 
-    // ⚠ SUPERSEDED BY CONTRACT, 2026-08-15 — read this before "fixing" it back.
+    // ⚠⚠ RE-RECONCILED 2026-08-15 (§L-926) — READ THIS BEFORE INVERTING IT AGAIN.
     //
-    // This test used to assert `ip[1] → [10,3]`: the T-abutting interior wall
-    // FOLLOWING the moved perimeter. That was the L-872 fix, and C83 §10.2.2
-    // (minted 2026-08-15) makes it a violation:
+    // THIS TEST HAS NOW BEEN WRITTEN BOTH WAYS, AND THE SECOND WAY SHIPPED A
+    // REGRESSION. Its history, so the next agent does not complete the cycle:
     //
-    //   *"A re-weld MUST NOT close a joint by moving a non-subject wall's
-    //    baseline."*
+    //   L-872 fix    `ip[1] → [10,3]` — the T-abutting interior wall FOLLOWS the
+    //                moved perimeter. Correct.
+    //   `19ddf6bb`   inverted to "`ip` is an INCUMBENT, byte-identical", citing
+    //                C83 §10.2.2 (*"A re-weld MUST NOT close a joint by moving a
+    //                non-subject wall's baseline"*). The comment here even
+    //                conceded the price — *"the loop DOES open and the rooms DO
+    //                collapse. That is honest"* — and called it honest because
+    //                the contract appeared to demand it.
+    //   L-926        THE CONTRACT NEVER DEMANDED IT. §10.2.2 is about a CORNER
+    //                incumbent. `ip`'s END TERMINATES ON `sh-r`'s BODY, three
+    //                metres from either of `sh-r`'s endpoints — that is a
+    //                DEPENDENT, and a dependent follows its host (§10.6). The
+    //                founder, on the deployed build: *"they are already
+    //                connected — they should simply follow along"*, and of the
+    //                §OPENED-REGION offer that resulted, *"in this case it is
+    //                NOT NECESSARY — the interior walls should simply EXTEND."*
     //
-    // `ip` is not the gesture's subject — `sh-r` is. `ip` was already correctly
-    // joined, which under §10.1 makes it AUTHORITATIVE. L-922 is the same
-    // mechanism at production scale: an interior wall was moved and this engine
-    // shifted the PERIMETER's baseline start ~2.19 m, re-seating three hosted
-    // doors by that delta and clamping one to offset 0.000.
+    // L-922's mechanism is the OPPOSITE assignment: there the wall carrying three
+    // hosted doors was a perimeter whose ENDPOINT met the moved wall's ENDPOINT —
+    // a corner incumbent. That case is still forbidden and is pinned in
+    // `packages/geometry-wall/__tests__/L926StemFollowAuthorship.measure.test.ts`
+    // as a byte-for-byte golden, alongside this one, so the two can never again
+    // be traded for each other.
     //
-    // The founder's own words are the reason: *"The perimeter wall joints NEVER
-    // should be changed after creation… the 3rd wall needs to ADAPT and connect
-    // with the FACE of the wall originally there."*
-    //
-    // So the assertion is INVERTED, and the consequence is not hidden: the loop
-    // DOES open and the rooms DO collapse. That is honest — closing it would
-    // require lengthening an incumbent, which is now forbidden. The gesture
-    // therefore has to refuse at the GESTURE seam (C83 §10.3 / C78 U-INV-8),
-    // which is the gate's job and is asserted in
-    // `apps/editor/__tests__/wallMoveAcceptHalfExecuted.test.ts`. What this
-    // seam owes is the §10.4 assertion: the incumbent did not move.
-    it('§C83-10.2.2: the T-abutting interior wall is an INCUMBENT and is left BYTE-IDENTICAL', () => {
+    // A ROOM COUNT IS ASSERTED HERE and it is the point: "the loop opens and the
+    // rooms collapse" was measurable all along, and nothing measured it.
+    it('§C83-10.6: the T-abutting interior wall is a DEPENDENT — it follows, and the room survives', () => {
         world = makeWorld({ withReweld: true });
         buildShellWithInterior(world);
 
         const before = redetect(world);
         expect(before.length).toBe(2);
 
-        // §10.4 — capture the incumbent BEFORE the gesture.
         const ipBefore = JSON.stringify(world.wallStore.getById('ip')!.baseLine);
 
         const res = moveWall(world, 'sh-r', 2, 0);
@@ -368,13 +372,15 @@ describe('L-872 — interior T-junction wall follows a perimeter move', () => {
         expect(near(bl2(world, 'sh-b')[1], [10, 0])).toBe(true);
         expect(near(bl2(world, 'sh-t')[0], [10, 6])).toBe(true);
 
-        // §C83 §10.4 — THE INCUMBENT-UNCHANGED ASSERTION. Byte-identical, which
-        // is the half that was silently failing everywhere: every prior fix
-        // asserted on the newcomer and nothing asserted the incumbents stayed
-        // still, which is why this defect family survived fix after fix.
-        expect(JSON.stringify(world.wallStore.getById('ip')!.baseLine)).toBe(ipBefore);
-        expect(near(bl2(world, 'ip')[1], [8, 3])).toBe(true);   // NOT [10,3]
-        expect(near(bl2(world, 'ip')[0], [0, 3])).toBe(true);
+        // §C83 §10.6 — THE DEPENDENT FOLLOWED. Axially: the end that terminated
+        // on `sh-r` moved with it, the far end did not move at all.
+        expect(JSON.stringify(world.wallStore.getById('ip')!.baseLine)).not.toBe(ipBefore);
+        expect(near(bl2(world, 'ip')[1], [10, 3])).toBe(true);  // followed
+        expect(near(bl2(world, 'ip')[0], [0, 3])).toBe(true);   // far end fixed
+
+        // THE FOUNDER-LEVEL ASSERTION: the partition still seals, so the room
+        // that `19ddf6bb` destroyed is still here. 2 rooms in, 2 rooms out.
+        expect(redetect(world).length).toBe(2);
     });
 });
 
@@ -524,13 +530,14 @@ describe('L-874 — ONE undo restores the entire pre-move state (founder accepta
         const history = world.cm.getHistory();
         expect(history.length).toBe(1);
         expect(history[0]!.command.type).toBe(CommandType.UPDATE_WALL_BASELINE);
-        // §C83-10.2.2 — this used to demand >= 1 structural child, i.e. that a
-        // cascade re-baselined SOMEONE ELSE. Post-§10.2.2 a junction re-weld
-        // that would move an incumbent is refused, so a gesture may legitimately
-        // carry ZERO children. What must NOT change is the number of UNDO
-        // entries: whatever the gesture did, one Ctrl+Z still undoes all of it,
-        // which is what the rest of this test executes.
-        expect(history[0]!.structuralChildren?.length ?? 0).toBeGreaterThanOrEqual(0);
+        // §L-926 — RESTORED to ">= 1". `19ddf6bb` weakened this to ">= 0" on the
+        // reasoning that a re-weld which would move an incumbent is refused, so a
+        // gesture may carry no children at all. True of a corner; false here —
+        // this gesture has a DEPENDENT that must follow, so it must produce a
+        // structural child. ">= 0" is an assertion about nothing, and it is what
+        // let the child quietly disappear: the count it was guarding went to zero
+        // in production and this line could not notice.
+        expect(history[0]!.structuralChildren?.length ?? 0).toBeGreaterThanOrEqual(1);
 
         // FOUNDER ACCEPTANCE, executed: ONE undo → the ENTIRE pre-move state.
         world.cm.undo();
@@ -543,11 +550,14 @@ describe('L-874 — ONE undo restores the entire pre-move state (founder accepta
         // services stay silent behind isReverting):
         world.cm.redo();
         expect(near(bl2(world, 'sh-r')[0], [10, 0])).toBe(true);
-        // §C83-10.2.2 — the redo replays the SUBJECT and only the subject. The
-        // incumbent `ip` stays at [8,3] on the way forward exactly as it stayed
-        // there on the way out; a redo that re-ran a mutating cascade against an
-        // incumbent would re-open L-922 one keystroke later.
-        expect(near(bl2(world, 'ip')[1], [8, 3])).toBe(true);
+        // §L-926 — the redo replays the subject AND its dependents, as one
+        // gesture. `ip` is back at [10,3], the same place the forward pass put
+        // it: the stem follows on redo exactly as it followed on execute, and
+        // the undo above already proved it returns byte-equal. (A CORNER
+        // incumbent would still stay put on both passes — re-running a mutating
+        // cascade against one is what would re-open L-922, and that case is
+        // asserted in the §10.6 test above and in the geometry-wall goldens.)
+        expect(near(bl2(world, 'ip')[1], [10, 3])).toBe(true);
         expect(world.cm.getHistory().length).toBe(1);
 
         // …and undo works again after the redo (round-trip stability).
