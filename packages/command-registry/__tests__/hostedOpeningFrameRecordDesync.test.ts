@@ -356,21 +356,18 @@ describe('§D-2 — cascade re-seat: the VOID record and the FRAME record must n
         // THE ASSERTION THE SEAM SUITE NEVER MADE. One gesture, one element,
         // one position — the two records that describe it must agree (C15 §2).
         //
-        // ⚠ §MEASURED-DESYNC PIN — FLIP IN THE FIX COMMIT.
-        // MEASURED 2026-08-15, unfixed: VOID 3.000000 m, FRAME 1.000000 m,
-        // Δ = −2.000000 m. The frame record never moved: `WindowBuilder` will
-        // rebuild it at offset 1.0 on a baseline whose [0] end travelled 2 m, so
-        // the frame lands 2 m from its own hole. THE CORRECT ASSERTION IS
-        //     expect(after.frame).toBeCloseTo(after.void!, 9);
-        // and it is written below, disabled, so the fix flips two lines and
-        // deletes none of the evidence.
+        // ✅ §MEASURED-DESYNC PIN FLIPPED (§L-916-FRAME-RECORD-SYNC).
+        // WAS pinned at the defect: VOID 3.000000 m, FRAME 1.000000 m, Δ = −2 m.
+        // The frame record never moved, so `WindowBuilder` rebuilt it at offset
+        // 1.0 on a baseline whose [0] end had travelled 2 m — the frame landed
+        // 2 m from its own hole. NOW both records carry the same number.
         expect(
             after.frame,
-            `§MEASURED-DESYNC pin: frame record expected to still hold the PRE-cascade ` +
-            `offset (the defect). void=${after.void} frame=${after.frame}`,
-        ).toBeCloseTo(1.0, 9);
-        expect(Math.abs(after.void! - after.frame!)).toBeCloseTo(2.0, 9);
-        // FIX FLIPS TO:  expect(after.frame).toBeCloseTo(after.void!, 9);
+            `the wall records the void at ${after.void} m; the frame record ` +
+            `(windowStore — what WindowBuilder positions the mesh from) says ` +
+            `${after.frame} m. One element, one position, two records: they must agree.`,
+        ).toBeCloseTo(after.void!, 9);
+        expect(after.frame).toBeCloseTo(3.0, 9);
     });
 
     it('§MEASURED-DESYNC — a door on the connected wall: same gesture, same seam', () => {
@@ -384,15 +381,15 @@ describe('§D-2 — cascade re-seat: the VOID record and the FRAME record must n
         const after = offsets(world, 'w-west', door, 'door');
         report('§D-2 door AFTER drag', after);
         expect(after.void).toBeCloseTo(3.0, 9);
-        // ⚠ §MEASURED-DESYNC PIN — FLIP IN THE FIX COMMIT.
-        // MEASURED 2026-08-15, unfixed: VOID 3.000000 m, FRAME 1.000000 m.
-        // Doors are not a separate defect — the SAME `wallStore.updateOpening`
-        // call serves both kinds, so the door arm confirms the seam is generic.
+        // ✅ §MEASURED-DESYNC PIN FLIPPED. WAS VOID 3.000000 / FRAME 1.000000.
+        // Doors were never a separate defect — the SAME `updateOpening` call
+        // serves both kinds — so the door arm confirms the seam is generic, and
+        // the single shared helper closes both at once.
         expect(
             after.frame,
-            `§MEASURED-DESYNC pin (door): void at ${after.void} m, frame record at ${after.frame} m.`,
-        ).toBeCloseTo(1.0, 9);
-        // FIX FLIPS TO:  expect(after.frame).toBeCloseTo(after.void!, 9);
+            `(door): void at ${after.void} m, frame record at ${after.frame} m.`,
+        ).toBeCloseTo(after.void!, 9);
+        expect(after.frame).toBeCloseTo(3.0, 9);
     });
 });
 
@@ -419,18 +416,17 @@ describe('§D-3 — direct shrink refit: the same two records, the other command
         const after = offsets(world, 'w-south', win, 'window');
         report('§D-3 window AFTER direct shrink', after);
         expect(after.void! + 1.2).toBeLessThanOrEqual(wallLength(world, 'w-south') + 1e-9);
-        // ⚠ §MEASURED-DESYNC PIN — FLIP IN THE FIX COMMIT.
-        // MEASURED 2026-08-15, unfixed: VOID 3.800000 m (clamped inside the 5 m
-        // wall), FRAME 4.500000 m (the authored offset, now 0.7 m past the end of
-        // a wall it is recorded on). This arm matters because it proves the seam
-        // is NOT specific to the cascade: `UpdateWallBaselineCommand`'s
-        // §FIX-WALL-SHRINK-REFIT re-clamps through the same one-record call, so a
-        // fix that only patched CascadeWallBaselineCommand would leave it open.
+        // ✅ §MEASURED-DESYNC PIN FLIPPED. WAS VOID 3.800000 m (clamped inside
+        // the 5 m wall) against FRAME 4.500000 m — the authored offset, left
+        // 0.700 m PAST THE END of the very wall the record names as its host.
+        // This arm is why the fix is a shared helper and not a patch to the
+        // cascade: `UpdateWallBaselineCommand`'s §FIX-WALL-SHRINK-REFIT re-clamps
+        // through the same one-record call, so a cascade-only fix left it open.
         expect(
             after.frame,
-            `§MEASURED-DESYNC pin (shrink refit): void at ${after.void} m, frame record at ${after.frame} m.`,
-        ).toBeCloseTo(4.5, 9);
-        // FIX FLIPS TO:  expect(after.frame).toBeCloseTo(after.void!, 9);
+            `(shrink refit): void at ${after.void} m, frame record at ${after.frame} m.`,
+        ).toBeCloseTo(after.void!, 9);
+        expect(after.frame).toBeCloseTo(3.8, 9);
     });
 });
 
@@ -439,11 +435,13 @@ describe('§D-3 — direct shrink refit: the same two records, the other command
 //        A fix that syncs only the forward path trades a forward desync for an
 //        undo desync, which is the same defect one keystroke later.
 //
-// ⚠ STATED SO IT IS NOT MISREAD: these two rows PASS on the unfixed code, and
-// they pass for a WORTHLESS reason — the frame record never moved in the first
-// place, so "restoring" it is a no-op (VOID 1 → 3 → 1; FRAME 1 → 1 → 1). They
-// are here as a TRAP for the fix, not as evidence the undo path is sound. The
-// moment §D-2 is closed forward-only, these rows go RED. That is the point.
+// ⚠ HISTORY, KEPT: these two rows PASSED on the unfixed code, and they passed
+// for a WORTHLESS reason — the frame record never moved in the first place, so
+// "restoring" it was a no-op (VOID 1 → 3 → 1; FRAME 1 → 1 → 1). They were
+// written as a TRAP for the fix, not as evidence the undo path was sound: the
+// moment §D-2 was closed forward-only, they would go RED. §L-916-FRAME-RECORD-SYNC
+// therefore routes BOTH undo() paths through the same helper as execute(), and
+// these rows now measure something real — FRAME 1 → 3 → 1.
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('§D-4 — one undo restores BOTH records', () => {
@@ -454,6 +452,15 @@ describe('§D-4 — one undo restores BOTH records', () => {
         const authored = offsets(world, 'w-west', win, 'window');
 
         expect(moveWall(world, 'w-north', 0, 2).success).toBe(true);
+
+        // The row is only worth anything if the frame record ACTUALLY MOVED
+        // first — otherwise "restored" is indistinguishable from "never touched",
+        // which is exactly how this row passed on the unfixed code.
+        const mid = offsets(world, 'w-west', win, 'window');
+        report('§D-4 window BEFORE undo (must have moved)', mid);
+        expect(mid.frame, 'nothing to restore — the forward path did not move the frame')
+            .toBeCloseTo(3.0, 9);
+
         world.cm.undo();
 
         expect(wallLength(world, 'w-west')).toBeCloseTo(4, 9);

@@ -15,6 +15,9 @@ import { wallOccupancyStore } from '@pryzm/geometry-wall';
 // §C83-S1-MOVE (L-885) — the wall-side occupancy predicate + its shared renderer.
 import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from '@pryzm/geometry-wall';
 import type { Opening, OpeningRefitPlan } from '@pryzm/geometry-wall';
+// §L-916-FRAME-RECORD-SYNC — `updateOpening` writes the VOID record only; the
+// FRAME mesh is positioned from a SECOND store this package must write itself.
+import { reseatOpeningWithFrame } from './hostedOpeningFrameSync';
 
 /**
  * One per-wall mutation in a cascade batch.
@@ -365,13 +368,26 @@ export class CascadeWallBaselineCommand implements Command {
 
             // Phase 3 — §HOSTED-OPENING-HOST-MOVE: re-seat the openings on the
             // walls that just changed. AFTER the baseline write and through
-            // `updateOpening` — the sanctioned opening-mutation API — so the
-            // store's own clamp sees the NEW wall and agrees, `childrenIds` stays
-            // in lock-step with `openings` (C15 §6), and the hosted door/window
-            // record moves with its opening instead of desyncing. `relocations`
-            // only ever carries POSITION (offset / sillHeight): anything whose
-            // authored width or height no longer fits was refused above, so
-            // nothing reaching here can be silently narrowed.
+            // `reseatOpeningWithFrame` — which calls `updateOpening`, the
+            // sanctioned opening-mutation API — so the store's own clamp sees the
+            // NEW wall and agrees and `childrenIds` stays in lock-step with
+            // `openings` (C15 §6). `relocations` only ever carries POSITION
+            // (offset / sillHeight): anything whose authored width or height no
+            // longer fits was refused above, so nothing reaching here can be
+            // silently narrowed.
+            //
+            // §L-916-FRAME-RECORD-SYNC — this block used to call
+            // `wallStore.updateOpening` DIRECTLY, and the comment here used to
+            // claim that made "the hosted door/window record move with its
+            // opening instead of desyncing". That was FALSE for the record that
+            // matters. `updateOpening` writes the wall's `openings[]` (the VOID)
+            // and WallStore's OWN window/door maps — but the FRAME MESH is built
+            // by WindowBuilder/DoorBuilder from `windowStore`/`doorStore` in
+            // @pryzm/geometry-window / -door, which nothing on this path touched.
+            // WindowDependencyTracker then saw the host move and called
+            // `touch()`, faithfully rebuilding the frame at the STALE offset on
+            // the NEW baseline: the founder's clean void with no frame in it.
+            // MEASURED at Δ 2.000 m — hostedOpeningFrameRecordDesync §D-2.
             for (const e of this.entries) {
                 const plan = plans.get(e.wallId);
                 if (!plan || plan.relocations.length === 0) continue;
@@ -383,7 +399,9 @@ export class CascadeWallBaselineCommand implements Command {
                         sillHeight: r.next.sillHeight,
                     };
                     try {
-                        wallStore.updateOpening(e.wallId, next);
+                        reseatOpeningWithFrame(
+                            wallStore, e.wallId, next, 'CascadeWallBaselineCommand',
+                        );
                         pre.push(r.opening);   // PRE-edit record, for undo
                         console.log(
                             `[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE re-seated ` +
@@ -433,9 +451,18 @@ export class CascadeWallBaselineCommand implements Command {
                 // at its original length when the store re-runs its own clamp —
                 // which is then a no-op, because these are exactly the offsets
                 // that fitted before the cascade.
+                //
+                // §L-916-FRAME-RECORD-SYNC — the undo goes through the SAME seam
+                // as execute(), deliberately. Syncing the frame record forward
+                // only would trade a forward desync for an undo desync, which is
+                // the same defect one keystroke later: ONE Ctrl+Z must put BOTH
+                // records back (C70 C-INV-3). hostedOpeningFrameRecordDesync §D-4
+                // is the row that fails if this line ever diverges from Phase 3.
                 for (const opening of this.relocated.get(e.wallId) ?? []) {
                     try {
-                        wallStore.updateOpening(e.wallId, opening);
+                        reseatOpeningWithFrame(
+                            wallStore, e.wallId, opening, 'CascadeWallBaselineCommand.undo',
+                        );
                     } catch (err) {
                         console.warn(
                             `[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE undo could ` +

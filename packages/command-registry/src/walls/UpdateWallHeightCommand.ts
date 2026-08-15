@@ -3,6 +3,11 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 // opening gate. See the policy note on `planOpeningRefit`.
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
 import type { Opening, WallData } from '@pryzm/geometry-wall';
+// §L-916-FRAME-RECORD-SYNC — `updateOpening` writes the VOID record only; the
+// FRAME mesh is positioned from a SECOND store this package must write itself.
+// A height re-clamp moves `sillHeight`, so this command carries the SAME defect
+// as the two baseline commands, in the vertical axis instead of the horizontal.
+import { reseatOpeningWithFrame } from './hostedOpeningFrameSync';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -180,11 +185,16 @@ export class UpdateWallHeightCommand implements Command {
                     const moved: Opening[] = [];
                     for (const r of refit.relocations) {
                         try {
-                            ctx.stores.wallStore.updateOpening(wallId, {
-                                ...r.opening,
-                                offset:     r.next.offset,
-                                sillHeight: r.next.sillHeight,
-                            });
+                            reseatOpeningWithFrame(
+                                ctx.stores.wallStore,
+                                wallId,
+                                {
+                                    ...r.opening,
+                                    offset:     r.next.offset,
+                                    sillHeight: r.next.sillHeight,
+                                },
+                                'UpdateWallHeightCommand',
+                            );
                             moved.push(r.opening);   // PRE-clamp record, for undo
                             console.log(
                                 `[UpdateWallHeightCommand] §FIX-WALL-SHRINK-REFIT re-clamped ` +
@@ -243,9 +253,13 @@ export class UpdateWallHeightCommand implements Command {
             // `openings`, so put back any sill this command moved. Ordered AFTER
             // the restore: the wall is already back at its original height, so
             // the store's re-clamp is a no-op on these known-good values.
+            // §L-916-FRAME-RECORD-SYNC — same seam as execute(), so ONE Ctrl+Z
+            // puts BOTH records back (C70 C-INV-3).
             for (const opening of this.relocated.get(wallId) ?? []) {
                 try {
-                    ctx.stores.wallStore.updateOpening(wallId, opening);
+                    reseatOpeningWithFrame(
+                        ctx.stores.wallStore, wallId, opening, 'UpdateWallHeightCommand.undo',
+                    );
                 } catch (err) {
                     console.warn(
                         `[UpdateWallHeightCommand] §FIX-WALL-SHRINK-REFIT undo could not restore ` +

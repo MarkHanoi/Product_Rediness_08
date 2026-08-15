@@ -7,6 +7,9 @@ import { wallOccupancyStore } from '@pryzm/geometry-wall';
 // §C83-S1-MOVE (L-885) — the wall-side occupancy predicate + its shared renderer.
 import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from '@pryzm/geometry-wall';
 import type { Opening, WallData } from '@pryzm/geometry-wall';
+// §L-916-FRAME-RECORD-SYNC — `updateOpening` writes the VOID record only; the
+// FRAME mesh is positioned from a SECOND store this package must write itself.
+import { reseatOpeningWithFrame } from './hostedOpeningFrameSync';
 // §C73-EPSILON-POLICY (C73 §2.2) — the declared model-space coincidence role.
 // A geometric predicate consumes the policy module; it does not declare a raw
 // tolerance at the call site.
@@ -415,11 +418,22 @@ export class UpdateWallBaselineCommand implements Command {
         // authored width or height no longer fits was refused above, so nothing
         // reaching here can be silently narrowed.
         //
-        // Applied AFTER the store update, and through `updateOpening` — the
-        // sanctioned opening-mutation API — so the store's own `clampToWall`
-        // (WallStore.updateWindow) sees the NEW wall and agrees, `childrenIds`
-        // stays in sync with `openings` (§WALL-AUDIT-2026-M8), and the hosted
-        // door/window record moves with its opening instead of desyncing.
+        // Applied AFTER the store update, and through `reseatOpeningWithFrame`
+        // (which calls `updateOpening`, the sanctioned opening-mutation API) so
+        // the store's own `clampToWall` (WallStore.updateWindow) sees the NEW
+        // wall and agrees and `childrenIds` stays in sync with `openings`
+        // (§WALL-AUDIT-2026-M8).
+        //
+        // §L-916-FRAME-RECORD-SYNC — CORRECTION. This comment used to end "…and
+        // the hosted door/window record moves with its opening instead of
+        // desyncing". That was FALSE, and it is the exact false claim that let
+        // the founder's defect stand. `updateOpening` moves the wall's
+        // `openings[]` (the VOID) and WallStore's OWN window/door maps; it does
+        // NOT move `windowStore`/`doorStore` in @pryzm/geometry-window / -door,
+        // which is where WindowBuilder/DoorBuilder read the FRAME position from.
+        // MEASURED: a shrink refit left VOID at 3.800 m and FRAME at 4.500 m —
+        // 0.700 m apart, with the frame recorded past the end of its own host
+        // wall (hostedOpeningFrameRecordDesync §D-3). The helper writes both.
         this.relocated = [];
         for (const r of refit.relocations) {
             const next: Opening = {
@@ -428,7 +442,9 @@ export class UpdateWallBaselineCommand implements Command {
                 sillHeight: r.next.sillHeight,
             };
             try {
-                ctx.stores.wallStore.updateOpening(this.wallId, next);
+                reseatOpeningWithFrame(
+                    ctx.stores.wallStore, this.wallId, next, 'UpdateWallBaselineCommand',
+                );
                 this.relocated.push(r.opening);   // PRE-clamp record, for undo
                 console.log(
                     `[UpdateWallBaselineCommand] §FIX-WALL-SHRINK-REFIT re-clamped ${r.opening.type} ` +
@@ -494,9 +510,14 @@ export class UpdateWallBaselineCommand implements Command {
         // restore so the wall is already back at its original length when the
         // store re-runs its own clamp — which is then a no-op, because these are
         // exactly the offsets that fitted before the edit.
+        //
+        // §L-916-FRAME-RECORD-SYNC — same seam as execute(), so ONE Ctrl+Z puts
+        // BOTH records back (C70 C-INV-3).
         for (const opening of this.relocated) {
             try {
-                ctx.stores.wallStore.updateOpening(this.wallId, opening);
+                reseatOpeningWithFrame(
+                    ctx.stores.wallStore, this.wallId, opening, 'UpdateWallBaselineCommand.undo',
+                );
             } catch (err) {
                 console.warn(
                     `[UpdateWallBaselineCommand] §FIX-WALL-SHRINK-REFIT undo could not restore ` +
