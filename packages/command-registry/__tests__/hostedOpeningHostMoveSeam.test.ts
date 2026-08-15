@@ -194,6 +194,36 @@ function moveWall(world: World, id: string, dx: number, dz: number) {
     }));
 }
 
+/**
+ * §C83-10.2.2 — re-baseline a wall through the CASCADE directly.
+ *
+ * These suites used to reach `CascadeWallBaselineCommand` by moving a
+ * NEIGHBOUR and letting the move-reweld drag this wall along. C83 §10.2.2
+ * (minted 2026-08-15) forbids exactly that — *"a re-weld MUST NOT close a joint
+ * by moving a non-subject wall's baseline"* — so the old route no longer
+ * extends or shrinks anything and the assertions below would pass vacuously.
+ *
+ * The SUBJECT of these tests was never the re-weld: it is what happens to a
+ * HOSTED OPENING when its host is re-baselined by a cascade (C15 §5/§6). That
+ * is unchanged and still reachable — `SlabWallConnectivityService` dispatches
+ * this same command for slab-loop corner welds. So the tests now dispatch it
+ * directly, which also makes the wall under test the cascade's own subject
+ * rather than somebody else's incumbent.
+ */
+function cascadeWall(world: World, id: string, newBaseLine: [[number, number], [number, number]]) {
+    const w = world.wallStore.getById(id)!;
+    return world.cm.execute(new CascadeWallBaselineCommand({
+        entries: [{
+            wallId: id,
+            newBaseLine: [
+                { x: newBaseLine[0][0], y: w.baseLine[0].y, z: newBaseLine[0][1] },
+                { x: newBaseLine[1][0], y: w.baseLine[1].y, z: newBaseLine[1][1] },
+            ],
+        }],
+        cause: 'slab-connectivity',
+    }));
+}
+
 const bl2 = (world: World, id: string): [number, number][] => {
     const b = world.wallStore.getById(id)!.baseLine;
     return [[b[0].x, b[0].z], [b[1].x, b[1].z]];
@@ -401,8 +431,11 @@ describe('§Z-2 — host EXTENDED at baseLine[1] by a reweld the user never aime
         const worldBefore = openingWorldCentre(world, 'w-east', door);
         expect(worldBefore).toEqual([6, 1.45]);
 
-        // The user drags w-north outward. w-east is EXTENDED 4 m → 6 m.
-        expect(moveWall(world, 'w-north', 0, 2).success).toBe(true);
+        // A cascade EXTENDS w-east 4 m → 6 m at its baseLine[1] end.
+        // (§C83-10.2.2: dispatched directly — see `cascadeWall`. This used to be
+        // reached by dragging w-north and letting the re-weld drag w-east, which
+        // is now forbidden; the SUBJECT of this test is the door, not the route.)
+        expect(cascadeWall(world, 'w-east', [[6, 0], [6, 6]]).success).toBe(true);
         expect(near(bl2(world, 'w-east')[1], [6, 6])).toBe(true);
         expect(wallLength(world, 'w-east')).toBeCloseTo(6, 9);
 
@@ -431,8 +464,10 @@ describe('§Z-3 — host EXTENDED at baseLine[0]: the opening must NOT slide', (
         const worldBefore = openingWorldCentre(world, 'w-west', door);
         expect(worldBefore).toEqual([0, 2.55]);   // 4 − 1.45, measured from (0,4)
 
-        // EXACTLY the §Z-2 gesture. w-west is EXTENDED 4 m → 6 m at baseLine[0].
-        expect(moveWall(world, 'w-north', 0, 2).success).toBe(true);
+        // EXACTLY the §Z-2 cascade, mirrored. w-west is EXTENDED 4 m → 6 m at
+        // baseLine[0] — the endpoint offsets are measured FROM, which is the
+        // whole point of this probe. (§C83-10.2.2: dispatched directly.)
+        expect(cascadeWall(world, 'w-west', [[0, 6], [0, 0]]).success).toBe(true);
         expect(near(bl2(world, 'w-west')[0], [0, 6])).toBe(true);
         expect(near(bl2(world, 'w-west')[1], [0, 0])).toBe(true);
         expect(wallLength(world, 'w-west')).toBeCloseTo(6, 9);
@@ -495,10 +530,9 @@ describe('§Z-4 — host SHRUNK by a reweld: the opening never hangs off the end
         const door = addDoor(world, 'w-east', { offset: 3.0 });
         expect(openingOf(world, 'w-east', door)!.offset).toBeCloseTo(3.0, 9);
 
-        // The user drags w-north INWARD by 2 m. w-east is shortened 4 m → 2 m
-        // by CascadeWallBaselineCommand — a command that never asks
-        // `planOpeningRefit`.
-        expect(moveWall(world, 'w-north', 0, -2).success).toBe(true);
+        // w-east is shortened 4 m → 2 m by CascadeWallBaselineCommand.
+        // (§C83-10.2.2: dispatched directly — see `cascadeWall`.)
+        expect(cascadeWall(world, 'w-east', [[6, 0], [6, 2]]).success).toBe(true);
         expect(wallLength(world, 'w-east')).toBeCloseTo(2, 9);
 
         // C15 §5 — offset + width <= wallLength. ALWAYS.

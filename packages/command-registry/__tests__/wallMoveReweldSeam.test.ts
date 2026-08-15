@@ -49,6 +49,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { WallStore } from '@pryzm/geometry-wall';
 import type { WallData } from '@pryzm/geometry-wall';
 import { WallMoveReweldService } from '@pryzm/geometry-wall';
+// §C83-10.2.2 — the plan form, which reports the junctions it refuses to close
+// by moving an incumbent instead of dropping them silently.
+import { computeMoveReweldPlan } from '@pryzm/geometry-wall';
 import {
     SlabStore,
     SlabWallConnectivityService,
@@ -320,29 +323,58 @@ describe('L-872 — interior T-junction wall follows a perimeter move', () => {
         expect(after.length).toBe(1);
     });
 
-    it('FIX: with §MOVE-REWELD-DISPATCH wired, the interior wall extends and BOTH rooms survive with their ids', () => {
+    // ⚠ SUPERSEDED BY CONTRACT, 2026-08-15 — read this before "fixing" it back.
+    //
+    // This test used to assert `ip[1] → [10,3]`: the T-abutting interior wall
+    // FOLLOWING the moved perimeter. That was the L-872 fix, and C83 §10.2.2
+    // (minted 2026-08-15) makes it a violation:
+    //
+    //   *"A re-weld MUST NOT close a joint by moving a non-subject wall's
+    //    baseline."*
+    //
+    // `ip` is not the gesture's subject — `sh-r` is. `ip` was already correctly
+    // joined, which under §10.1 makes it AUTHORITATIVE. L-922 is the same
+    // mechanism at production scale: an interior wall was moved and this engine
+    // shifted the PERIMETER's baseline start ~2.19 m, re-seating three hosted
+    // doors by that delta and clamping one to offset 0.000.
+    //
+    // The founder's own words are the reason: *"The perimeter wall joints NEVER
+    // should be changed after creation… the 3rd wall needs to ADAPT and connect
+    // with the FACE of the wall originally there."*
+    //
+    // So the assertion is INVERTED, and the consequence is not hidden: the loop
+    // DOES open and the rooms DO collapse. That is honest — closing it would
+    // require lengthening an incumbent, which is now forbidden. The gesture
+    // therefore has to refuse at the GESTURE seam (C83 §10.3 / C78 U-INV-8),
+    // which is the gate's job and is asserted in
+    // `apps/editor/__tests__/wallMoveAcceptHalfExecuted.test.ts`. What this
+    // seam owes is the §10.4 assertion: the incumbent did not move.
+    it('§C83-10.2.2: the T-abutting interior wall is an INCUMBENT and is left BYTE-IDENTICAL', () => {
         world = makeWorld({ withReweld: true });
         buildShellWithInterior(world);
 
         const before = redetect(world);
         expect(before.length).toBe(2);
 
+        // §10.4 — capture the incumbent BEFORE the gesture.
+        const ipBefore = JSON.stringify(world.wallStore.getById('ip')!.baseLine);
+
         const res = moveWall(world, 'sh-r', 2, 0);
         expect(res.success).toBe(true);
 
-        // Corner welds unchanged in behaviour:
+        // Slab-loop corner welds are a DIFFERENT service and are unchanged here
+        // (SlabWallConnectivityService carries the same §10.2.2 hole — recorded,
+        // not fixed in this lane).
         expect(near(bl2(world, 'sh-b')[1], [10, 0])).toBe(true);
         expect(near(bl2(world, 'sh-t')[0], [10, 6])).toBe(true);
-        // THE FIX — the T-abutting interior wall follows to the new centreline:
-        expect(near(bl2(world, 'ip')[1], [10, 3])).toBe(true);
-        // …and ONLY its welded endpoint moved (§CLAMP-COSHARE-WELD doctrine):
-        expect(near(bl2(world, 'ip')[0], [0, 3])).toBe(true);
 
-        // C70 C-INV-3 — the move mints no new semantic identity: both rooms
-        // survive REDETECT with the SAME ids.
-        const after = redetect(world);
-        expect(after.length).toBe(2);
-        expect(after).toEqual(before);
+        // §C83 §10.4 — THE INCUMBENT-UNCHANGED ASSERTION. Byte-identical, which
+        // is the half that was silently failing everywhere: every prior fix
+        // asserted on the newcomer and nothing asserted the incumbents stayed
+        // still, which is why this defect family survived fix after fix.
+        expect(JSON.stringify(world.wallStore.getById('ip')!.baseLine)).toBe(ipBefore);
+        expect(near(bl2(world, 'ip')[1], [8, 3])).toBe(true);   // NOT [10,3]
+        expect(near(bl2(world, 'ip')[0], [0, 3])).toBe(true);
     });
 });
 
@@ -413,25 +445,57 @@ describe('L-873 — joint follows a move beyond the neighbour\'s extent (no slab
         expect(near(bl2(world, 'w-west')[0], [0, 4])).toBe(true);
     });
 
-    it('FIX: the neighbour EXTENDS ALONG ITS OWN AXIS to the new intersection — no skew, welded endpoint only', () => {
+    // ⚠ SUPERSEDED BY CONTRACT, 2026-08-15 — C83 §10.2.2. See the §10.2.2 note
+    // on the L-872 test above; this is the same reversal on the clearest case.
+    //
+    // The old assertion said the joint "must travel BEYOND w-east's current far
+    // end (6,4) to the new line intersection (6,6)" — i.e. the incumbent is
+    // LENGTHENED by 2 m to chase the subject. That is precisely what §10.2.2
+    // forbids, and `computeMoveReweldPlan` now answers it with an explicit
+    // `INCUMBENT_EXTENSION_REQUIRED` refusal rather than a silent stretch.
+    //
+    // Refusing is not the same as doing nothing quietly: the refusal is
+    // reported to the user through the service's `onConsequence` sink, and the
+    // gesture aborts at the gate (C83 §10.3).
+    it('§C83-10.2.2: a joint that needs the neighbour LENGTHENED is refused, and the neighbours are BYTE-IDENTICAL', () => {
         world = makeWorld({ withReweld: true });
         buildLoop(world, false); // joinedTo graph is the ONLY connectivity source
 
-        // Move w-north outward: the joint must travel BEYOND w-east's current
-        // far end (6,4) to the new line intersection (6,6).
+        // §10.4 — capture the incumbents BEFORE the gesture.
+        const eastBefore = JSON.stringify(world.wallStore.getById('w-east')!.baseLine);
+        const westBefore = JSON.stringify(world.wallStore.getById('w-west')!.baseLine);
+
         expect(moveWall(world, 'w-north', 0, 2).success).toBe(true);
 
-        const east = bl2(world, 'w-east');
-        const west = bl2(world, 'w-west');
-        // Corner lands at the new line intersection…
-        expect(near(east[1], [6, 6])).toBe(true);
-        expect(near(west[0], [0, 6])).toBe(true);
-        // …the far endpoints never move (§CLAMP-COSHARE-WELD doctrine)…
-        expect(near(east[0], [6, 0])).toBe(true);
-        expect(near(west[1], [0, 0])).toBe(true);
-        // …and there is NO SKEW: each neighbour stays on its own axis.
-        expect(east[0][0]).toBeCloseTo(east[1][0], 9); // x = 6 both ends
-        expect(west[0][0]).toBeCloseTo(west[1][0], 9); // x = 0 both ends
+        // §C83 §10.4 — THE INCUMBENT-UNCHANGED ASSERTION.
+        expect(JSON.stringify(world.wallStore.getById('w-east')!.baseLine)).toBe(eastBefore);
+        expect(JSON.stringify(world.wallStore.getById('w-west')!.baseLine)).toBe(westBefore);
+
+        // Stated positively too, so a reader sees WHERE they stayed: at their
+        // original far ends, NOT stretched to the new intersection at z = 6.
+        expect(near(bl2(world, 'w-east')[1], [6, 4])).toBe(true);
+        expect(near(bl2(world, 'w-west')[0], [0, 4])).toBe(true);
+    });
+
+    it('§C83-10.2.2: the engine REPORTS the refusal rather than dropping the junction silently', () => {
+        // A dropped junction with nobody told is L-921 wearing L-922's clothes.
+        // The plan form carries the refusal, its partner, and the distance.
+        const plan = computeMoveReweldPlan(
+            {
+                id: 'w-north',
+                prevBaseLine: [{ x: 0, y: 0, z: 4 }, { x: 6, y: 0, z: 4 }],
+                newBaseLine:  [{ x: 0, y: 0, z: 6 }, { x: 6, y: 0, z: 6 }],
+            },
+            [{ id: 'w-east', baseLine: [{ x: 6, y: 0, z: 0 }, { x: 6, y: 0, z: 4 }] }],
+            { weldTol: 0.5 },
+        );
+        // NOTHING is proposed for the incumbent…
+        expect(plan.entries.some(e => e.wallId === 'w-east')).toBe(false);
+        // …and the refusal names it, with the gap in millimetres.
+        expect(plan.refusals).toHaveLength(1);
+        expect(plan.refusals[0]!.partnerId).toBe('w-east');
+        expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+        expect(plan.refusals[0]!.beyondMm).toBe(2000); // 2 m past w-east's end
     });
 });
 
@@ -460,7 +524,13 @@ describe('L-874 — ONE undo restores the entire pre-move state (founder accepta
         const history = world.cm.getHistory();
         expect(history.length).toBe(1);
         expect(history[0]!.command.type).toBe(CommandType.UPDATE_WALL_BASELINE);
-        expect((history[0]!.structuralChildren?.length ?? 0)).toBeGreaterThanOrEqual(1);
+        // §C83-10.2.2 — this used to demand >= 1 structural child, i.e. that a
+        // cascade re-baselined SOMEONE ELSE. Post-§10.2.2 a junction re-weld
+        // that would move an incumbent is refused, so a gesture may legitimately
+        // carry ZERO children. What must NOT change is the number of UNDO
+        // entries: whatever the gesture did, one Ctrl+Z still undoes all of it,
+        // which is what the rest of this test executes.
+        expect(history[0]!.structuralChildren?.length ?? 0).toBeGreaterThanOrEqual(0);
 
         // FOUNDER ACCEPTANCE, executed: ONE undo → the ENTIRE pre-move state.
         world.cm.undo();
@@ -473,7 +543,11 @@ describe('L-874 — ONE undo restores the entire pre-move state (founder accepta
         // services stay silent behind isReverting):
         world.cm.redo();
         expect(near(bl2(world, 'sh-r')[0], [10, 0])).toBe(true);
-        expect(near(bl2(world, 'ip')[1], [10, 3])).toBe(true);
+        // §C83-10.2.2 — the redo replays the SUBJECT and only the subject. The
+        // incumbent `ip` stays at [8,3] on the way forward exactly as it stayed
+        // there on the way out; a redo that re-ran a mutating cascade against an
+        // incumbent would re-open L-922 one keystroke later.
+        expect(near(bl2(world, 'ip')[1], [8, 3])).toBe(true);
         expect(world.cm.getHistory().length).toBe(1);
 
         // …and undo works again after the redo (round-trip stability).

@@ -168,11 +168,92 @@ function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
  * safely is left exactly where it is (the founder's doctrine: refuse rather
  * than guess).
  */
-export function computeMoveReweld(
+/**
+ * A junction this move breaks and which CANNOT be closed without moving a wall
+ * that is not the gesture's subject — forbidden by C83 §10.2.2.
+ *
+ * This is a REFUSAL, not an absence, and it exists because dropping the partner
+ * entry silently would trade L-922 (the incumbent gets dragged) for L-921 (the
+ * corner is left open and nobody is told), which is the same defect wearing the
+ * other hat.
+ */
+export interface MoveReweldRefusal {
+    readonly partnerId: string;
+    readonly reason: 'INCUMBENT_EXTENSION_REQUIRED';
+    /** How far past the incumbent's existing segment the new corner falls, mm. */
+    readonly beyondMm: number;
+}
+
+export interface MoveReweldPlan {
+    /**
+     * Post-§10.2.2 these describe the SUBJECT adapting, and nothing else. A
+     * non-subject `wallId` appearing here is a contract violation by
+     * construction.
+     */
+    readonly entries: MoveReweldEntry[];
+    /** Junctions that cannot be closed without mutating an incumbent. */
+    readonly refusals: MoveReweldRefusal[];
+}
+
+/**
+ * How far off an incumbent's segment a corner may fall and still count as
+ * "on it". Not a new tolerance: the corner lies on the incumbent's LINE by
+ * construction, so this only absorbs floating-point noise in the intersection.
+ */
+const ON_SEGMENT_EPS = 1e-6;
+
+/**
+ * §C83-10.2.2 — the plan form: what the SUBJECT must do, and which joints
+ * cannot be closed without touching an incumbent.
+ *
+ * ── WHAT CHANGED, AND WHY IT IS A CONTRACT FIX RATHER THAN A TUNING ──────────
+ *
+ * This engine used to emit TWO kinds of entry: a re-baseline of each PARTNER
+ * (moving the incumbent's welded endpoint onto the new corner) and a seat for
+ * the MOVED wall's own endpoints. The first kind is now forbidden outright:
+ *
+ *   *"A re-weld MUST NOT close a joint by moving a non-subject wall's
+ *    baseline."* — C83 §10.2.2, minted 2026-08-15 from the founder's
+ *   §JOINT-AUTHORITY-IS-THE-INCUMBENT: *"The perimeter wall joints NEVER should
+ *   be changed after creation… the 3rd wall needs to ADAPT and connect with the
+ *   FACE of the wall originally there."*
+ *
+ * MEASURED CONSEQUENCE OF THE OLD BEHAVIOUR (L-922, founder's console): moving
+ * an INTERIOR wall shifted the PERIMETER's baseline start ~2.19 m — proven by
+ * three hosted doors on the perimeter re-seated by the same delta, one of them
+ * clamped from 0.541 to 0.000, which is §10.2.4's named example of a clamp
+ * standing where a refusal belongs. The old code did this BY DESIGN: the corner
+ * at the `intersectLines` call below is the partner's centreline ∩ the MOVED
+ * wall's NEW centreline, hard-coded toward the mover with no directionality
+ * branch anywhere, and `maxExtension = movedDisplacement + weldTol` legally
+ * permitted displacing the incumbent by the user's full move delta.
+ *
+ * ── WHY THE PARTNER LOOP SURVIVES AT ALL ─────────────────────────────────────
+ *
+ * The corners are still computed from the partners — they have to be, because a
+ * corner IS the intersection with an incumbent, and the subject cannot adapt to
+ * a face it has not located. What changes is what is DONE with each corner:
+ *
+ *   corner lies ON the incumbent's existing segment
+ *       ⇒ the subject terminates there. The incumbent is untouched. §10.1
+ *         satisfied: the newcomer adapted.
+ *   corner lies BEYOND the incumbent's existing segment
+ *       ⇒ closing it would require LENGTHENING the incumbent. Forbidden. The
+ *         junction is REFUSED and reported, and the caller decides whether the
+ *         whole gesture aborts (it does — C83 §10.3 / C78 U-INV-8).
+ *
+ * ⚠ SCOPE, stated so it is not over-read: the subject is seated on the
+ * incumbent's CENTRELINE, not its FACE. Face-accurate termination is L-919's
+ * work on the create path and L-920's on the infill. Centreline seating is the
+ * incumbent-PRESERVING approximation that was already in this file for the
+ * moved wall's own endpoints; this change does not improve it and does not make
+ * it worse. It removes the incumbent mutation, which is the contract breach.
+ */
+export function computeMoveReweldPlan(
     moved: MoveReweldMovedWall,
     partners: ReadonlyArray<MoveReweldPartner>,
     options?: MoveReweldOptions,
-): MoveReweldEntry[] {
+): MoveReweldPlan {
     const weldTol =
         options?.weldTol != null && Number.isFinite(options.weldTol) && options.weldTol > 0
             ? options.weldTol
@@ -191,7 +272,8 @@ export function computeMoveReweld(
             : movedDisplacement + weldTol;
 
     const entries: MoveReweldEntry[] = [];
-    if (movedDisplacement < MIN_DISPLACEMENT) return entries; // nothing moved
+    const refusals: MoveReweldRefusal[] = [];
+    if (movedDisplacement < MIN_DISPLACEMENT) return { entries, refusals }; // nothing moved
 
     // Track the corners formed, so the moved wall can be seated on them too.
     const cornersOnMoved: Pt[] = [];
@@ -227,17 +309,34 @@ export function computeMoveReweld(
         // 5. Never shrink the partner into a degenerate stub.
         if (dist(corner, far) < DEGENERATE_STUB_LENGTH) continue;
 
-        // 6. Propose: ONLY the welded endpoint moves, onto the corner.
-        //    y (elevation) of each endpoint is preserved verbatim.
-        const prevBaseLine: ReweldBaseline = [
-            { ...partner.baseLine[0] },
-            { ...partner.baseLine[1] },
-        ];
-        const newBaseLine: ReweldBaseline = weldedIsStart
-            ? [{ x: corner.x, y: partner.baseLine[0].y, z: corner.z }, { ...partner.baseLine[1] }]
-            : [{ ...partner.baseLine[0] }, { x: corner.x, y: partner.baseLine[1].y, z: corner.z }];
+        // 6. §C83-10.2.2 — THE INCUMBENT IS NOT OURS TO MOVE.
+        //
+        // This is where the partner's baseline used to be rewritten. When
+        // `weldedIsStart` that rewrote `partner.baseLine[0]` — the datum every
+        // hosted opening's offset is measured from — which is precisely L-922's
+        // ~2.19 m signature and why three perimeter doors moved by one delta.
+        //
+        // The only question now is whether the SUBJECT can reach this corner
+        // without the incumbent moving, i.e. whether the corner already lies on
+        // the incumbent's existing segment. `corner` is on the incumbent's LINE
+        // by construction, so this distance is exactly how far past its nearer
+        // END the corner falls; ON_SEGMENT_EPS absorbs intersection noise only.
+        const beyond = distToSegment(corner, ps, pe);
+        if (beyond > ON_SEGMENT_EPS) {
+            // Closing this joint would mean LENGTHENING the incumbent. Refused —
+            // and REPORTED, because a silently dropped junction is L-921 (the
+            // corner left open with nobody told), which is the same defect as
+            // L-922 wearing the other hat.
+            refusals.push({
+                partnerId: partner.id,
+                reason: 'INCUMBENT_EXTENSION_REQUIRED',
+                beyondMm: Math.round(beyond * 1000),
+            });
+            continue;
+        }
 
-        entries.push({ wallId: partner.id, newBaseLine, prevBaseLine });
+        // The corner is ON the incumbent's body: the subject can terminate
+        // against it and the incumbent comes out byte-identical (C83 §10.4).
         cornersOnMoved.push(corner);
     }
 
@@ -281,5 +380,22 @@ export function computeMoveReweld(
         }
     }
 
-    return entries;
+    return { entries, refusals };
+}
+
+/**
+ * Backwards-compatible entry point: the SUBJECT's own re-seats.
+ *
+ * Kept because several callers and tests want only the dispatchable entries.
+ * Post-§10.2.2 this can no longer contain a non-subject wall, so a caller that
+ * dispatches it can no longer move an incumbent — but a caller that uses THIS
+ * form cannot see the refusals either, and a refused junction is a fact a user
+ * must be told. `WallMoveReweldService` therefore uses `computeMoveReweldPlan`.
+ */
+export function computeMoveReweld(
+    moved: MoveReweldMovedWall,
+    partners: ReadonlyArray<MoveReweldPartner>,
+    options?: MoveReweldOptions,
+): MoveReweldEntry[] {
+    return computeMoveReweldPlan(moved, partners, options).entries;
 }

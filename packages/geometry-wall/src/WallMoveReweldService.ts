@@ -52,9 +52,10 @@
 
 import type { WallData } from './WallTypes';
 import {
-    computeMoveReweld,
+    computeMoveReweldPlan,
     type MoveReweldEntry,
     type MoveReweldPartner,
+    type MoveReweldRefusal,
     type ReweldBaseline,
 } from './WallMoveReweld';
 import { DEFAULT_SNAP_RADIUS } from './WallJoinResolver';
@@ -78,7 +79,40 @@ export type ReweldJoinedWallsQuery =
     | { readonly ok: false; readonly wallId: string; readonly reason: string; readonly detail?: string };
 
 export interface ReweldCommandLike {
-    canExecute(context: unknown): { ok: boolean; reason?: string };
+    canExecute(context: unknown): {
+        ok: boolean;
+        reason?: string;
+        /**
+         * §L-921 — WHERE THE NUMBERS LIVE, and the field this interface used to
+         * omit. `CascadeWallBaselineCommand.canExecute` returns one string per
+         * refused opening carrying the metres required against the metres
+         * available; the service logged `reason` alone, so the evidence was
+         * discarded one line after it was computed. Declared here so it cannot
+         * be dropped again by accident.
+         */
+        blockingIssues?: string[];
+    };
+}
+
+/**
+ * A re-weld consequence the USER must be told about.
+ *
+ * §L-921. The refusals below used to end at `console.warn`, and a console line
+ * is not a user-facing message — "we told the user" and "we wrote a line nobody
+ * reads" must never print as the same outcome. The service does not know what a
+ * user-facing surface looks like (it is L2 and must not), so it does not try:
+ * it hands the finding to an injected sink and the composition root decides.
+ */
+export interface ReweldConsequenceReport {
+    readonly movedWallId: string;
+    /** `plan` = no cascade could be formed; `cascade` = the cascade declined. */
+    readonly stage: 'plan' | 'cascade';
+    /** The refusal's own code — its IDENTITY, never flattened to prose here. */
+    readonly reason: string;
+    /** The walls whose junctions are consequently left unrepaired. */
+    readonly partnerIds: readonly string[];
+    /** One sentence per issue, each carrying its numbers. */
+    readonly detail: readonly string[];
 }
 
 export interface ReweldCommandManagerLike {
@@ -112,6 +146,12 @@ export interface WallMoveReweldServiceDeps {
     isCascadeApplying?: () => boolean;
     /** "Was welded" tolerance in metres; defaults to DEFAULT_SNAP_RADIUS. */
     weldTol?: () => number;
+    /**
+     * §L-921 — where an unrepaired junction goes. Absent ⇒ the finding is still
+     * logged, but the caller has accepted that no human will see it; wire it in
+     * any composition that has a chat or a card. Never throws through.
+     */
+    onConsequence?: (report: ReweldConsequenceReport) => void;
 }
 
 /** Endpoint displacement below this is not a move (matches WallMoveReweld's
@@ -198,7 +238,7 @@ export class WallMoveReweldService {
         }
         if (partners.length === 0) return;
 
-        const entries = computeMoveReweld(
+        const plan = computeMoveReweldPlan(
             {
                 id: wall.id,
                 prevBaseLine: this.toBaseline(prevBL),
@@ -207,6 +247,26 @@ export class WallMoveReweldService {
             partners,
             { weldTol: this.deps.weldTol?.() ?? DEFAULT_SNAP_RADIUS },
         );
+        const entries = plan.entries;
+
+        // §L-921-NO-SILENT-HALF — a junction that CANNOT be closed without
+        // moving an incumbent (C83 §10.2.2) is a fact the user must be told.
+        // Reporting it is not optional and it happens whether or not there are
+        // also entries to dispatch: "the corner is open and nobody said so" is
+        // the exact defect this lane exists to abolish.
+        if (plan.refusals.length > 0) {
+            this.report({
+                movedWallId: wall.id,
+                stage: 'plan',
+                reason: 'INCUMBENT_EXTENSION_REQUIRED',
+                partnerIds: plan.refusals.map(r => r.partnerId),
+                detail: plan.refusals.map(
+                    r => `INCUMBENT_EXTENSION_REQUIRED: ${r.partnerId}: the new corner falls ` +
+                         `${r.beyondMm} mm past that wall's end, so closing the joint would ` +
+                         `require lengthening it — forbidden by C83 §10.2.2`,
+                ),
+            });
+        }
         if (entries.length === 0) return;
 
         const cm = this.deps.commandManagerRef.current;
@@ -227,10 +287,24 @@ export class WallMoveReweldService {
             const cmd = this.deps.makeCascadeCommand({ entries, cause: 'move-reweld' });
             const validation = cmd.canExecute(cm.getContext());
             if (!validation.ok) {
+                // §L-921 — THE FOUNDER'S SILENT LINE. This branch used to be a
+                // `console.warn` of `validation.reason` and a `return`: the move
+                // stayed committed (it was applied by the OTHER command, before
+                // this subscriber ever ran), the junction stayed open, and the
+                // `blockingIssues` array — the only place the metres live — was
+                // discarded one line after it was computed.
                 console.warn(
                     `[WallMoveReweldService] move-reweld cascade refused for moved wall ` +
-                    `${wall.id}: ${validation.reason ?? 'unspecified'}`
+                    `${wall.id}: ${validation.reason ?? 'unspecified'}`,
+                    { blockingIssues: validation.blockingIssues },
                 );
+                this.report({
+                    movedWallId: wall.id,
+                    stage: 'cascade',
+                    reason: validation.reason ?? 'unspecified',
+                    partnerIds: entries.map(e => e.wallId).filter(id => id !== wall.id),
+                    detail: validation.blockingIssues ?? [],
+                });
                 return;
             }
             cm.execute(cmd, { source: 'STRUCTURAL_CASCADE' });
@@ -244,12 +318,35 @@ export class WallMoveReweldService {
         }
     }
 
+    /**
+     * Hand an unrepaired-junction finding to the injected sink.
+     *
+     * Never throws through: a broken reporter must not turn a reported defect
+     * into an unreported one, which would be the failure mode this method
+     * exists to prevent.
+     */
+    private report(r: ReweldConsequenceReport): void {
+        try {
+            this.deps.onConsequence?.(r);
+        } catch (err) {
+            console.warn('[WallMoveReweldService] §L-921 consequence sink threw (non-fatal):', err);
+        }
+    }
+
     /** Normalise a stored baseline (THREE.Vector3s or plain Point3D) to the
      *  plain-object pair computeMoveReweld consumes. */
     private toBaseline(bl: ReadonlyArray<{ x: number; y: number; z: number }>): ReweldBaseline {
+        // Indexed reads are narrowed explicitly rather than asserted: every
+        // caller checks `length >= 2` first, so the fallbacks are unreachable —
+        // but an unreachable zero is still better than a `!`, which would make
+        // a future caller's missing length check a runtime NaN instead of a
+        // type error. (Pre-existing strictness error at HEAD, closed here
+        // because this file's build feeds the stricter root tsc.)
+        const a = bl[0] ?? { x: 0, y: 0, z: 0 };
+        const b = bl[1] ?? { x: 0, y: 0, z: 0 };
         return [
-            { x: bl[0].x, y: bl[0].y, z: bl[0].z },
-            { x: bl[1].x, y: bl[1].y, z: bl[1].z },
+            { x: a.x, y: a.y, z: a.z },
+            { x: b.x, y: b.y, z: b.z },
         ];
     }
 
