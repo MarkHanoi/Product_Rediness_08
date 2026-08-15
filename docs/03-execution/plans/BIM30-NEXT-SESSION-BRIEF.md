@@ -1756,3 +1756,71 @@ mismatch, TS2353/TS2559 ×8). Deploying would have shipped a non-compiling tree.
 >    session). (PR-05, `372b6635`)
 > 7. **Not yet shipped, do not test**: "Create a bed" chat placement (L-906, uncommitted) ·
 >    collinear wall MERGE (L-903, detector only, unwired).
+
+---
+
+## §17 — SESSION CLOSE 2026-08-15 (MORNING) · THE RESUMED-FLEET SESSION — 8 lanes, 2 deploys
+
+> **§17 is the youngest state in this file and OVERRIDES §16 wherever they disagree.** A gate you
+> run yourself still overrides §17 (C70 §0.2).
+
+### §17.0 — READ FIRST
+
+1. **TWO DEPLOYS RAN.** `499549a8` — bundle proof **6/6 PASSED** (chunk `main-BVPCYrPp.js`). Then
+   `9e780581` (the fleet's work: L-906, L-912, L-909b, L-911, DELETE family) — launched from a
+   clean worktree; check its proof result in the session log / re-run
+   `bash tools/deploy/fly-bundle-proof.sh 9e78058151ac9ad8a55148eafbd9c195b58e432b` if unrecorded.
+   Rollback tag before both: `deployment-01M00FPSCRCHXC9E3NY7QRD98T` (SHA `21919312`).
+   ⚠ Deploy contract §6.5.6 was amended: DOCKER_CONFIG guard needs a **Windows-shaped path**.
+2. **THE FLEET-KILL MECHANISM FIRED AGAIN** (third session): lane A1 (L-912) was killed by a chat
+   interrupt mid-commit; the orchestrator landed its verified work at `966686cc`. The defence held:
+   everything else was committed incrementally. **Type and send, never Esc.**
+3. **Deploys were run from a CLEAN DETACHED WORKTREE** (`C:/pzdep2`) at a committed SHA while 8
+   lanes edited the main tree — this is now the proven pattern for deploying mid-fleet.
+
+### §17.1 — WHAT LANDED (all verified by execution; full detail in ISSUE-LOG 2026-08-15 append)
+
+| SHA | Lane | What |
+|---|---|---|
+| `499549a8` | orch | GE-09v3 WALLS family (5th/last command-registry batch); baseline 77→71; +5 arms red-proven |
+| `966686cc` | orch (A1†) | **L-912 CLOSED** — solid-overlap predicate; B-a/B-a2/B-g pins flipped; 44/44 + 550/551 |
+| `e4e952ef` | A2 | **L-909b CLOSED** — NOT-MEASURED threaded DTO→adapter→validators→formatter→badge; 15 false errors impossible |
+| `8a394fbb` | A2 | **L-911 CLOSED** — refusal reaches user w/ asked-vs-sized counts + both areas; founder's 322.5/220 pinned |
+| `9e780581` | A3 | **bar 3 DELETE family whole** — gate 128→126; determinism harness 5/5 CLEAN (ARM-4 debt PAID); 31/31 |
+| `53dc31d3` | A4 | epsilon 338→322 (26 rows; zero widenings); core-app-model 854/854 |
+| `e5d78672`+`e89a5485` | A8 | **L-906 SHIPPED** — chat "Create X"→palette's own tool, all 20 matrix tools + furniture; 12/12 + 327/327 |
+| `113ef892`,`799255c0`,`b7277753` | A7 | GR-10/no-empty drain (facet refusal identity; OverridePanel; entrance-door occupancy) |
+| `2f374805` | A6 (verify) | L-851 confirmed complete (83 specs green, ledger 13/13); **no new commit — correct outcome** |
+| `80e77458` | orch | ISSUE-LOG append + deploy-contract §6.5.6 amendment |
+
+† A1 killed mid-flight; its verified work landed by the orchestrator (suspect-inheritance, §16.5.3).
+
+### §17.2 — IN FLIGHT AT CLOSE (check git log before assuming)
+
+- **A5 (PV-04 provenance)**: IFC surface DONE (pset + negative arm, 256 green at last report);
+  file-format suite was running. If uncommitted: the work sits in plugins/ifc-export + the gate;
+  inherit suspiciously.
+- **A7 (no-empty drain)**: 3 commits landed, drain was continuing from the reconciled truthful 68.
+
+### §17.3 — NEXT SESSION, IN ORDER
+
+1. **Verify deploy #2's bundle proof** (if not already 6/6) and give the founder the checklist:
+   ① "Create a bed"/"Create slab" in chat → tool activates, mouse preview live (L-906) ·
+   ② drag a wall onto a DOOR → refusal card + two offers, same as window (L-912) ·
+   ③ generate an apartment → report shows "N unchecked/NOT MEASURED", no fake zeros (L-909b) ·
+   ④ "create 3 bedroom apartment" oversized → chat refusal names BOTH counts and BOTH areas (L-911) ·
+   ⑤ delete a door/window via chat → consequence preview, refuse-not-refit (DELETE family).
+2. **Collect A5/A7 remainders** (§17.2) — land or declare.
+3. **The 7 committed-at-HEAD test regressions** (ISSUE-LOG 2026-08-15 row 4) — root suite is
+   10 failed / 2520 passed; every failure classified with an owner. Fix the specs that pin stale
+   behaviour; fix the 3 real otel violations; update the xss baseline for 799255c0.
+4. **Wave 2 (Phase B close)**: CE-05 gesture-probe (tools/rac-conformance is free again) ·
+   PR-11 handler-first · PR-10 (GE-06 clash detector) · CE-03/04 text corrections ·
+   apps/editor E5 epsilon renames (~23 rows, pre-analysed).
+5. **Phase C continues**: **wall.delete family** (A3 named it: host-side cascade on the recorded-
+   relationship substrate) · roof L0 schema field (SOLO lane, schemas are shared-dangerous) ·
+   render-side mitre mesh (L-872 residual) · OpenedRegionDetector patch
+   (`openedRegionDetector-deadlane.patch` in the 2026-08-15 session scratchpad) — finish + verify
+   or discard, do NOT blind-apply.
+6. **Open founder decisions, no urgency**: CI-1 runtime half (refuse vs banner) · dark-test
+   no-runner scope call (§2.5 item 5).
