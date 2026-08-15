@@ -4907,3 +4907,68 @@ any fix, exactly as `59bc6f71`→`966686cc` (L-912) and `fc88e454`→`c100df8f` 
 - The lane is briefed to be able to REFUTE this: if the mode IS delivered and the plan handler
   simply cannot render a region preview, that is a different defect elsewhere and the refutation
   with its measurement is the correct deliverable.
+
+---
+
+## L-919 — OPEN, FOUNDER-URGENT, **REPEATEDLY REQUESTED AND STILL NOT FIXED** — a wall started on another wall's body passes THROUGH it instead of joining its face
+
+**Reported again 2026-08-15 on deploy `023d903a`.** The founder's words, recorded verbatim because
+they are the invariant, not a preference:
+
+> *"walls should be sound — walls junctions should be sound. If the user starts at point 1 **even if
+> the insertion point is mid a wall** — it should **always connect with the face of the wall** —
+> **never create a clash** — **never** should the created wall go **through** the other wall. You
+> understand — this has been requested multiple times — still not fixed."*
+
+Screenshots: a wall drawn from a **Midpoint** snap on an existing wall. The new wall's body crosses
+INTO and THROUGH the host's thickness, leaving lines inside the host instead of a clean junction.
+
+**⚠ THIS ENTRY EXISTS BECAUSE THE ASK KEEPS BEING RE-MADE. That is itself the finding.** A
+requirement restated by the founder multiple times, still open, means previous passes either fixed a
+neighbouring symptom or never reached the seam. This entry names the seam so the next pass cannot
+miss it again.
+
+### The mechanism, from their console
+
+```
+[WallPlanToolHandler] Polyline start point set Object mode: ortho     <- snapped to Midpoint
+[WallPlanToolHandler] Wall dispatched — mode: ortho (straight)        <- dispatched RAW
+```
+
+**There is no junction step between the snap and the dispatch, and nothing in the entire session
+logs one.** The snap resolves to a point on the host's **CENTRELINE** — that is what "Midpoint"
+means geometrically. The new wall is then created *starting at that centreline point*, so **half the
+host's thickness is already occupied by the new wall's body at the moment of creation.** The clash
+is baked in before any resolver could observe it. No downstream weld can repair what creation
+asserted as intended geometry.
+
+### Why this is not the same as the wall-move work already landed
+
+The MOVE path re-welds junctions correctly today (`ca878883`, `f2256eba` — §L-872 T-SEAT-GUARD,
+§L-875 WELD-PRECONDITION, one-undo composition). **Moving a wall welds; CREATING one does not.**
+That asymmetry is the strongest clue: the resolver exists and works, and the creation path does not
+call it. Today's L-912 predicate rewrite also states the boundary explicitly — a parallel overlap
+that misses every opening *"remains SILENT: that is the wall×wall solid clash question, which lives
+behind `__pryzmWallFaceTrimNoClash` (L-94) and is NOT absorbed here."* **So the machinery is named
+in two places and the creation path reaches neither.** If it turns out to be present-but-unwired,
+that is the fourth instance of the authored-but-unwired class found this session alone.
+
+**Owner:** lane L919, opened same-turn. Binding instructions given to it:
+
+1. **MEASURE FIRST, COMMITTED ALONE** — reproduce the exact gesture through the REAL creation path,
+   assert on GEOMETRY (does the new wall's footprint overlap the host's solid?), print the overlap
+   in mm, pin it §MEASURED-JUNCTION-CLASH. Also measure the END case and an ARBITRARY point along
+   the host — the founder said *"even if the insertion point is mid a wall"*, meaning anywhere on it,
+   not only the midpoint.
+2. **Reuse, never reinvent** — make CREATE call the same resolver MOVE already uses
+   (`WallJoinResolver` / `JunctionResolverV2` / ADR-0055's Pascal pipeline /
+   `__pryzmWallFaceTrimNoClash`). A second trimming routine would be rival wiring (P1/P6).
+3. **⛔ DO NOT "fix" it by moving the snap point.** Snapping to a midpoint is CORRECT — the user is
+   aiming at a real feature of the host, and the UI's dimension readouts (1979 mm / 21 mm in the
+   screenshot) are driven by it. **Creation must interpret the snap as "join here", not as "start my
+   centreline here".** A fix that offsets the snap would corrupt both the user's intent and the
+   dimensions they are reading.
+4. **One gesture, one undo** — a wall that welds to a host on creation is ONE undoable action
+   restoring both.
+5. **No overclaiming** — if only the T case is proven, say so; X-junctions, oblique angles and
+   curved hosts must be named as unproven rather than implied.
