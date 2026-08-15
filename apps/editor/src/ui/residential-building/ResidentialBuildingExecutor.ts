@@ -54,6 +54,9 @@ import {
 import { roomDataFromGraphSpec, type GraphRoomSpec, type RoomData, type RoomFinishes } from '@pryzm/room-topology';
 import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+// §FIX-RESI-FACADE-UNKNOWN (GR-10) — the pure facadeEdges discriminator: an
+// unrecorded façade set is UNKNOWN (said out loud), never "interior cell".
+import { determineFacadeEdges, facadeEdgesUnknownNote } from './facadeEdgesDetermination';
 import {
     buildLayoutCommands,
     clampOpeningToWall,
@@ -1235,9 +1238,19 @@ export class ResidentialBuildingExecutor {
         // corridor-facing wall that carries the entry door. The door edge is NEVER skipped so the entry
         // door always has a host. `facadeEdges` are the true exterior edges (the rest are blind party walls).
         const EDGE_BY_INDEX = ['z0', 'x1', 'z1', 'x0'] as const;
-        const facade: ReadonlySet<string> = apt.facadeEdges instanceof Set
-            ? (apt.facadeEdges as ReadonlySet<string>)
-            : new Set<string>(apt.facadeEdges ?? []);
+        // §FIX-RESI-FACADE-UNKNOWN (GR-10) — was `new Set(apt.facadeEdges ?? [])`,
+        // which read "façade set never recorded" as "interior cell, skip nothing"
+        // and silently re-minted the §RESI-NO-DOUBLE-WALL defect. Unknown still
+        // builds (mid-pipeline, the cell must get walls) but says so out loud.
+        const facadeDet = determineFacadeEdges(apt.facadeEdges);
+        if (!facadeDet.known) {
+            console.warn(
+                `[resi-building] cell ${apt.typology} rect=(${r.x0},${r.z0})-(${r.x1},${r.z1}) ` +
+                facadeEdgesUnknownNote(facadeDet,
+                    'emitting cell walls on EVERY edge; façade edges may be COINCIDENT with the building shell (double wall).'),
+            );
+        }
+        const facade: ReadonlySet<string> = facadeDet.known ? facadeDet.edges : new Set<string>();
         let doorWallId: string | undefined;
         for (let i = 0; i < corners.length; i++) {
             const edge = EDGE_BY_INDEX[i]!;
@@ -2259,9 +2272,20 @@ export class ResidentialBuildingExecutor {
         for (const { levelId, apt } of builds) {
             const r = apt.cell.rect;
             const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;   // cell centre (LOCAL)
-            const facade: ReadonlyArray<string> = apt.facadeEdges instanceof Set
-                ? [...(apt.facadeEdges as ReadonlySet<string>)]
-                : (apt.facadeEdges ?? []);
+            // §FIX-RESI-FACADE-UNKNOWN (GR-10) — was `(apt.facadeEdges ?? [])`: an
+            // UNRECORDED façade set silently skipped this apartment's balcony as if
+            // it were an interior cell. Same outcome (no balcony can be placed
+            // without knowing the exterior edges), but the skip now states its
+            // basis instead of impersonating a determined "no façade".
+            const facadeDet = determineFacadeEdges(apt.facadeEdges);
+            if (!facadeDet.known) {
+                console.warn(
+                    `[resi-building] balcony skip: cell ${apt.typology} rect=(${r.x0},${r.z0})-(${r.x1},${r.z1}) ` +
+                    facadeEdgesUnknownNote(facadeDet, 'no balcony can be sited without the exterior edge set.'),
+                );
+                continue;
+            }
+            const facade: ReadonlyArray<string> = [...facadeDet.edges];
             // Pick the LONGEST façade edge that is NOT the corridor door edge (the living room
             // fronts the longest façade) and is long enough to host a real balcony.
             let bestEdge: string | undefined; let bestLen = 0;
