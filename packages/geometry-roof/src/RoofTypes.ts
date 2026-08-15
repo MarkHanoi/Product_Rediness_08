@@ -115,6 +115,49 @@ export interface RoofData extends CoreElement {
     /** P3.4 — Segment composition: sub-polygons for compound roofs. */
     segments?: RoofSegmentSpec[];
 
+    /**
+     * §ROOF-BOUNDING-WALLS — the walls whose centrelines produced this roof's
+     * footprint, when it was created BY REGION. Closes the DATA-MODEL half of
+     * the C79 §6.3 named storage gap (owner `@pryzm/geometry-roof`); the L0 half
+     * is `boundingWallIds` on `packages/schemas/src/elements/Roof.ts`, added in
+     * the same change so a reference can actually TRANSIT the bus rather than
+     * being stripped by Zod in flight.
+     *
+     * The attribution has always existed: `traceRoofRegionAtPoint` returns
+     * `attribution.hostWallIds` ("distinct wall ids the resulting sketch depends
+     * on"), attributed BY CONSTRUCTION from each wall's own centreline, never by
+     * proximity. Until this field there was nowhere to put it, so it was measured,
+     * reported, and thrown away — see `RoofRegionTrace.ts`.
+     *
+     * SHAPE mirrors `FloorData.boundingWallIds` (`core-app-model/src/stores/
+     * FloorTypes.ts`), the proven twin — deliberately NOT a `RoofSketch` /
+     * `RoofHostReferenceEdge` triple copied from the slab and floor sketches. A
+     * per-edge sketch would be a field the model cannot honour (C79 §7.1): the
+     * roof tracer reports `hostEdges` as a COUNT and exposes host identity only
+     * as a distinct wall-id LIST, so there is no per-edge host mapping in hand to
+     * populate one with. A wall-id list is the strongest reference the available
+     * data honestly supports; the full parametric sketch is a later step that
+     * needs the tracer to surface per-edge identity first.
+     *
+     * OPTIONAL, and the absence is meaningful — the same `absent ≠ empty` rule
+     * the L0 field carries (ADR-0299 / §CONTEXT-DATA-HONESTY):
+     *
+     *   `undefined` → never attributed (drawn by rectangle/polyline, or predates the field)
+     *   `[]`        → region-traced, and attributed to no wall
+     *
+     * ⚠ NOT YET POPULATED AT CREATION — stated here rather than discovered later.
+     * This field makes a roof reference-CAPABLE; it does not yet make one FOLLOW.
+     * Both creation paths must be wired in ONE change, because populating only
+     * one is C79 §7.4 per-path divergence, which the contract rates WORSE than
+     * uniform absence. The two sites are `RoofTool._handleRegionClick` (3D, which
+     * currently keeps `traced.polygon` and drops `traced.attribution`) and
+     * `apps/editor/.../RoofPlanToolHandler` (plan) — and both reach the store
+     * through `CreateRoofCommand`, whose payload must carry the ids first.
+     * Consuming them on a wall move then needs a roof dependency tracker
+     * modelled on `SlabDependencyTracker`.
+     */
+    boundingWallIds?: string[];
+
     properties: { mark?: string; [key: string]: any };
     ifcData?: {
         guid: string;
