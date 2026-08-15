@@ -5029,3 +5029,61 @@ spike; any tolerance touched must be CONSUMED from `@pryzm/geometry-kernel` (C73
 **Honesty requirement given to the lane:** if the fix covers the 3-wall cluster but leaves 4-wall
 clusters, curved hosts or differing-thickness stacks unproven, it must say so by name. *That is how
 this stops returning a fifth time.*
+
+---
+
+## L-921 — OPEN, FOUNDER-URGENT — an ACCEPTED clash offer HALF-EXECUTES: the wall moves, the reweld cascade refuses, and nobody is told
+
+**Reported 2026-08-15 on deploy `023d903a`.** Four asks, deliberately kept distinct:
+
+1. *"WE HAVE RIGHTFULLY IMPLEMENTED THIS MESSAGE — **BUT I WANT THE MESSAGE ONLY ON THE AI CHAT** —
+   THE OTHER PANEL INFORMATION SHOULD BE IN THE AI CHAT."*
+2. *"WHEN I ACCEPT THE PROPOSAL FROM THE AI CHAT **THE DOOR MOVES — WITHOUT THE WALL**."*
+3. *"IN PLAN VIEW I SEE THE PROJECTION OF THE WALLS + DOOR IN THE ACCEPTED LOCATION — **THE OLD WALL
+   IS ALSO VISIBLE** IN PLAN AND 3D — THE WALL MOVED **LEAVES A GAP THAT NEEDS TO BE PROPERLY
+   JOINED**."*
+4. *"THE ORIGINAL L SHAPE WALL NEARBY THAT HAD A CORRECT JUNCTION **NOW BECOMES CORRUPTED GEOMETRY
+   IN 3D**"* (the triangle prism — that is **L-920**, not this row).
+
+### ⭐ THE ENGINE DEFECT, from their console — a HALF-EXECUTED GESTURE
+
+```
+[WallMoveClashProposal] §C83-S1-MOVE-OFFER accepted: wall.updateBaseline (0.44 m back along the host wall)
+[CommandManager]        EXECUTE: UPDATE_WALL_BASELINE
+[WallMoveReweldService] move-reweld cascade refused for moved wall wall_01M02TS7MA2K81NHTPCQ3X6QHQ:
+                        OPENING_DOES_NOT_FIT
+[RoomDetectionEngine]   §DIAG-ROOM-LOOP BREAK — endpoint 305mm from centreline EXCEEDS hostSnap 200mm
+                        → loop will NOT close (flood/merge risk)      (×3)
+[RoomDetectionEngine]   detectedRooms=9 ... unresolvedLoopBreaks=3
+```
+
+**The offer was accepted, the baseline move executed, the cascade that repairs the junctions
+REFUSED — and the user was never told.** The engine then measured its own damage (three unresolved
+loop breaks; endpoints **305 mm** from the centreline against a **200 mm** snap) and stayed silent.
+That measured 305 mm IS ask 3's gap, and the orphaned junction is the prime suspect for feeding
+ask 4's prism.
+
+**The architectural defect is atomicity.** C70/C78 doctrine: one gesture is one unit. A move whose
+dependent cascade refuses must either (a) not execute, refusing with both numbers, or (b) execute
+AND report the unrepaired consequence in the same breath. **It must never half-apply, know it, and
+say nothing.**
+
+**⚠ The irony, recorded because it is instructive:** the FIRST refusal in this very flow is
+*exemplary* — `[OCC_CROSSES_HOSTED_OPENING]` names the rule, both intervals, the overlap in metres
+and two clear alternatives, and it reaches the chat. The SECOND refusal, `OPENING_DOES_NOT_FIT` from
+the cascade, **reaches nobody.** The same product, the same gesture, one refusal beautifully
+surfaced and one swallowed. *A refusal channel is only as good as its least-wired producer.*
+
+**Ask 2 is NOT yet diagnosed and must not be assumed.** "The door moves without the wall" has two
+completely different causes with completely different fixes: a genuine independent DATA move, or a
+STALE RENDER where the door draws at the new location while the wall still draws at the old one.
+Ask 3's *"the old wall is ALSO visible"* points at the render explanation. **The lane is instructed
+to distinguish these by measurement before fixing** — guessing here would be the classic
+probe-wrong-about-the-system error this repo has been bitten by ([[probe-can-be-wrong-three-ways]]).
+
+**Owner:** lane L921. Ask 4 stays with **L-920**; if L921 proves the orphaned junction from the
+refused cascade is what triggers the prism, that link is to be reported — neither lane can see it
+alone.
+
+**Related, kept separate on purpose:** L-916 (opening record desync, CLOSED `c100df8f`) · L-919
+(wall CREATED through another wall) · L-920 (junction-infill prism) · L-918 (draw mode dropped).
