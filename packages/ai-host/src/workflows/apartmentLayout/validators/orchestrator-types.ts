@@ -22,16 +22,26 @@
 
 import type { DimensionalViolation } from './dimensional/types.js';
 import type { AdjacencyEdge, TopologyViolation } from './topology/types.js';
+import type { NotMeasuredNote } from './not-measured.js';
+
+export type { NotMeasuredField, NotMeasuredNote } from './not-measured.js';
 
 /**
  * A room in the validation input — superset of every per-validator room shape.
  *
- * Every field is required: the orchestrator's contract is "one canonical room
- * record feeds every validator", so callers must compute the geometry-derived
- * fields (`longestUsableWallM`, `externalFrontageM`) before calling. Callers
+ * The three geometry-derived DAYLIGHT fields (`externalFrontageM`,
+ * `hasExteriorEdge`, `glazedAreaM2`) are OPTIONAL — see §L-909(b) below.
+ *
+ * ⚠ **Corrected 2026-08-14 (§L-909(b)).** This doc-block used to read: *"Callers
  * that don't yet compute those fields can pass `0` — the underlying validator
- * will then flag G-5 / G-7 violations, which is the correct surface for
- * "missing data => missing daylight / wall surface".
+ * will then flag G-5 / G-7 violations, which is the correct surface for missing
+ * data."* **That instruction WAS the defect.** A caller that could not measure
+ * frontage/glazing passed `0`/`false`, and G-7 / G-10 / A-7 printed those
+ * unmeasured defaults as MEASURED zeros — the founder's generated apartment
+ * reported 15 daylight errors on rooms that had windows. `undefined` now means
+ * NOT MEASURED and is a DIFFERENT value from `0`; the rule skips and records a
+ * `NotMeasuredNote` (C83 §5.2.1/§5.3, C78 §1.4, C70 L-INV-1, C75 §1.4).
+ * Never pass `0` for "unknown".
  */
 export interface ApartmentLayoutRoom {
     readonly id: string;
@@ -44,12 +54,15 @@ export interface ApartmentLayoutRoom {
     readonly lengthM: number;
     /** Longest continuous wall NOT broken by opening (m) — read by G-5. */
     readonly longestUsableWallM: number;
-    /** Length of room-owned external (perimeter) wall (m) — read by G-7. */
-    readonly externalFrontageM: number;
-    /** Forward-compat for A-7 (frontage-quality) — NOT yet read. */
-    readonly hasExteriorEdge: boolean;
-    /** Forward-compat for G-10 (lighting) — NOT yet read. */
-    readonly glazedAreaM2: number;
+    /** Length of room-owned external (perimeter) wall (m) — read by G-7.
+     *  `undefined` ⇒ NOT MEASURED (G-7 skips + records a note). */
+    readonly externalFrontageM?: number;
+    /** Whether the room's perimeter meets the apartment shell — read by A-7.
+     *  `undefined` ⇒ NOT MEASURED (A-7 skips + records a note). */
+    readonly hasExteriorEdge?: boolean;
+    /** Total glazed pane area (m²) the room owns — read by G-10.
+     *  `undefined` ⇒ NOT MEASURED (G-10 skips + records a note). */
+    readonly glazedAreaM2?: number;
 }
 
 /**
@@ -88,4 +101,13 @@ export interface AggregatedViolationReport {
     readonly total: number;
     /** `classId` → count (e.g. `'G-1' → 2`, `'A-3' → 1`). */
     readonly violationsByClass: Readonly<Record<string, number>>;
+    /**
+     * §L-909(b) — checks that COULD NOT RUN because their measured input was
+     * absent. These are NOT violations: they never contribute to `errors`,
+     * `warnings`, `total` or `violationsByClass`, and they never fail the
+     * legality gate. They exist so the report can say *"frontage not measured
+     * by this report"* instead of silently omitting the check or (the old
+     * behaviour) minting a violation from a defaulted zero.
+     */
+    readonly notMeasured: ReadonlyArray<NotMeasuredNote>;
 }

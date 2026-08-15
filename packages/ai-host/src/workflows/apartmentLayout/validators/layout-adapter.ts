@@ -11,26 +11,37 @@
 // over mutable state, no THREE/DOM/async), takes a POJO DTO, returns a frozen
 // POJO that the orchestrator + every per-validator can consume directly.
 //
-// CONSERVATIVE DEFAULTS — fields the engine doesn't yet populate map to values
-// that PRODUCE A VALIDATOR FAILURE (rather than silently passing). This is the
-// correct surface for "missing geometry data" → callers see the violation and
-// either fix the upstream computation or pass an explicit override:
+// DEFAULTS — one field still defaults, three no longer do.
 //
 //   • `longestUsableWallM` defaults to `max(widthM, lengthM)` — the wall is
 //     assumed FULLY usable until an opening-aware upstream slice computes the
 //     real value. CONSERVATIVE for G-5 (no spurious failures); UNSOUND when
 //     the room has windows / doors on its longest wall (slight over-report).
-//   • `externalFrontageM` defaults to `0` — no exterior contact assumed.
-//     CONSERVATIVE for G-7 (will surface false failures for habitable rooms
-//     until the upstream populates the field). This is the user-visible
-//     "missing daylight data" surface flagged in the orchestrator-types.ts
-//     header.
-//   • `hasExteriorEdge` is DERIVED from `externalFrontageM > 0` (rather than
-//     a separate default) so the two stay coherent — no caller can produce
-//     "0 m frontage but exterior=true" by accident.
-//   • `glazedAreaM2` defaults to `0` — no glazing assumed (G-10 will fire on
-//     habitable rooms; corridor / bathroom are skipped by G-10's no-daylight
-//     allowlist so they don't false-flag).
+//
+// ⚠ **Corrected 2026-08-14 (§L-909(b)) — THE 0/false DEFAULTS ARE GONE.**
+// This header used to say `externalFrontageM` defaults to `0`, `glazedAreaM2`
+// defaults to `0`, and `hasExteriorEdge` is derived from `frontage > 0`, and
+// called that "CONSERVATIVE … the correct surface for missing geometry data".
+// **It was not.** The founder's generated apartment carried 9 emitted windows
+// and `windowCount = 1` on every habitable room, yet the report printed
+// *"external frontage 0.00 m"*, *"glazed-to-floor ratio 0.000"* and
+// *"no exterior edge"* ×5 — 15 of its 19 errors were minted HERE, out of
+// values nobody ever measured. `not measured` and `measured: zero` were the
+// same value; that is the context-data-honesty defect, forbidden by C78 §1.4,
+// C70 L-INV-1 and C75 §1.4.
+//
+//   • `externalFrontageM`, `glazedAreaM2`, `hasExteriorEdge` now pass through
+//     as `undefined` when the DTO omits them AND no explicit `AdapterOptions`
+//     default is supplied. `undefined` means NOT MEASURED; G-7 / G-10 / A-7
+//     then SKIP and record a `NotMeasuredNote` (C83 §5.2.1/§5.3) which the
+//     report renders as *"frontage not measured by this report"*.
+//   • `hasExteriorEdge` is still DERIVED from `externalFrontageM > 0` **when
+//     the frontage was measured** — so no caller can produce "0 m frontage
+//     but exterior=true". When frontage is NOT measured, the flag is NOT
+//     measured either; it is never silently `false`.
+//   • The `AdapterOptions` defaults remain, but they are now OPT-IN: passing
+//     `defaultExternalFrontageM: 0` is an explicit caller assertion that zero
+//     was MEASURED, and G-7 will fire on it. Do not pass them to mean "unknown".
 //
 // SCOPE — this slice ships the ADAPTER ONLY. The wire-in from the live AI
 // generation path (`generate.ts` / `runDeterministicLayout.ts`) is a future
@@ -85,14 +96,17 @@ export interface DtglLayoutRoom {
     /** Pre-computed longest unbroken wall (m). Falls back to
      *  `defaultLongestUsableWallM` (see options) or `max(widthM, lengthM)`. */
     readonly longestUsableWallM?: number;
-    /** Pre-computed external-frontage length (m). Falls back to
-     *  `defaultExternalFrontageM` (default `0`). */
+    /** MEASURED external-frontage length (m). Falls back to
+     *  `defaultExternalFrontageM` when the caller supplies one; otherwise
+     *  stays `undefined` = **NOT MEASURED** (§L-909(b)). Never emit `0` to
+     *  mean "we could not measure this". */
     readonly externalFrontageM?: number;
-    /** Pre-computed exterior-edge flag. When omitted, DERIVED from
-     *  `externalFrontageM > 0`. */
+    /** MEASURED exterior-edge flag. When omitted, DERIVED from
+     *  `externalFrontageM > 0` **if frontage was measured**; otherwise stays
+     *  `undefined` = NOT MEASURED. Never emit `false` to mean "unknown". */
     readonly hasExteriorEdge?: boolean;
-    /** Pre-computed glazed area (m²). Falls back to `defaultGlazedAreaM2`
-     *  (default `0`). */
+    /** MEASURED glazed area (m²). Falls back to `defaultGlazedAreaM2` when
+     *  the caller supplies one; otherwise stays `undefined` = NOT MEASURED. */
     readonly glazedAreaM2?: number;
 }
 
@@ -111,9 +125,12 @@ export interface DtglLayoutEdge {
  *  header. Tests use them to inject specific values; production callers can
  *  leave the object empty and rely on the defaults. */
 export interface AdapterOptions {
-    /** Default for `externalFrontageM` when the room omits it. Default `0`. */
+    /** Default for `externalFrontageM` when the room omits it. When itself
+     *  omitted the field stays **NOT MEASURED** (§L-909(b)) — there is no
+     *  implicit `0`. */
     readonly defaultExternalFrontageM?: number;
-    /** Default for `glazedAreaM2` when the room omits it. Default `0`. */
+    /** Default for `glazedAreaM2` when the room omits it. When itself omitted
+     *  the field stays **NOT MEASURED** — there is no implicit `0`. */
     readonly defaultGlazedAreaM2?: number;
     /** Default for `longestUsableWallM` when the room omits it. When
      *  `undefined`, the adapter uses `max(widthM, lengthM)` (the conservative
@@ -147,21 +164,26 @@ function toRoom(src: DtglLayoutRoom, opts: AdapterOptions): ApartmentLayoutRoom 
         ?? num(opts.defaultLongestUsableWallM)
         ?? Math.max(widthM, lengthM);
 
-    // externalFrontageM — honour explicit field, else opts default, else 0.
+    // §L-909(b) — externalFrontageM: explicit field, else an EXPLICIT opts
+    // default, else NOT MEASURED. No `?? 0` — that was the defect.
     const externalFrontageM = num(src.externalFrontageM)
-        ?? num(opts.defaultExternalFrontageM)
-        ?? 0;
+        ?? num(opts.defaultExternalFrontageM);
 
-    // hasExteriorEdge — honour explicit field, else DERIVE from frontage > 0.
+    // hasExteriorEdge — honour explicit field; else DERIVE from frontage > 0
+    // ONLY when frontage was measured. Unmeasured frontage ⇒ unmeasured flag.
     const hasExteriorEdge = typeof src.hasExteriorEdge === 'boolean'
         ? src.hasExteriorEdge
-        : externalFrontageM > 0;
+        : externalFrontageM !== undefined
+            ? externalFrontageM > 0
+            : undefined;
 
-    // glazedAreaM2 — honour explicit field, else opts default, else 0.
+    // §L-909(b) — glazedAreaM2: explicit field, else an EXPLICIT opts default,
+    // else NOT MEASURED.
     const glazedAreaM2 = num(src.glazedAreaM2)
-        ?? num(opts.defaultGlazedAreaM2)
-        ?? 0;
+        ?? num(opts.defaultGlazedAreaM2);
 
+    // Absent measurements are OMITTED rather than written as `undefined` keys,
+    // so `'externalFrontageM' in room` is a truthful "was this measured?" test.
     return Object.freeze({
         id: src.id,
         type: src.type,
@@ -169,9 +191,9 @@ function toRoom(src: DtglLayoutRoom, opts: AdapterOptions): ApartmentLayoutRoom 
         widthM,
         lengthM,
         longestUsableWallM,
-        externalFrontageM,
-        hasExteriorEdge,
-        glazedAreaM2,
+        ...(externalFrontageM !== undefined ? { externalFrontageM } : {}),
+        ...(hasExteriorEdge !== undefined ? { hasExteriorEdge } : {}),
+        ...(glazedAreaM2 !== undefined ? { glazedAreaM2 } : {}),
     });
 }
 
@@ -193,8 +215,9 @@ function toEdge(src: DtglLayoutEdge): AdjacencyEdge {
  * cloning.
  *
  * Defaults for the geometry-derived fields the engine doesn't yet compute are
- * documented in this file's header — short version: the adapter is
- * CONSERVATIVE (missing data ⇒ validator failure rather than silent pass).
+ * documented in this file's header — short version (§L-909(b)): missing
+ * daylight data ⇒ the field is ABSENT and the rule reports NOT MEASURED.
+ * It is neither a silent pass nor a fabricated failure.
  */
 export function toValidationInput(
     dto: DtglLayoutDto,

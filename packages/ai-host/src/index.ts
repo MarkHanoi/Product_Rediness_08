@@ -792,6 +792,12 @@ export type {
     ApartmentLayoutForValidation,
     AggregatedViolationReport,
 } from './workflows/apartmentLayout/validators/orchestrator-types.js';
+// §L-909(b) — the "this check could not run" record. Exported at the root so
+// report surfaces can render unmeasured checks instead of over-claiming.
+export type {
+    NotMeasuredField,
+    NotMeasuredNote,
+} from './workflows/apartmentLayout/validators/not-measured.js';
 export {
     toValidationInput,
 } from './workflows/apartmentLayout/validators/layout-adapter.js';

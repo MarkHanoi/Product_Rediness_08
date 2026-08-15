@@ -31,19 +31,19 @@
 import type { DimensionalViolation } from './dimensional/types.js';
 import type { TopologyViolation } from './topology/types.js';
 import {
+    evaluateFrontage,
+    evaluateLighting,
     validateAreaMax,
     validateAspect,
     validateCirculationWidth,
-    validateFrontage,
     validateHierarchy,
-    validateLighting,
     validateWallUsability,
     validateWidthMax,
 } from './dimensional/index.js';
 import {
+    evaluateFrontageTopology,
     validateAcousticSeparation,
     validateForbiddenAdjacency,
-    validateFrontageTopology,
     validateMandatoryAdjacency,
     validatePreferredAdjacency,
     validatePrivacyGradient,
@@ -54,6 +54,7 @@ import type {
     AggregatedViolationReport,
     ApartmentLayoutForValidation,
 } from './orchestrator-types.js';
+import type { NotMeasuredNote } from './not-measured.js';
 
 /**
  * Run the 16 shipped validators on a single apartment layout.
@@ -74,15 +75,20 @@ export function validateApartmentLayout(
     // ApartmentLayoutRoom; the superset shape feeds all eight unchanged.
     // `glazedAreaM2` (G-10) and the apartment-level relational rule (G-8)
     // are read from the same ApartmentLayoutRoom superset — no projection.
+    // §L-909(b) — G-7 and G-10 return BOTH halves: the violations they found
+    // AND the rooms whose precondition was never measured. The not-measured
+    // notes are aggregated separately and NEVER counted as violations.
+    const g7 = evaluateFrontage(input.rooms);
+    const g10 = evaluateLighting(input.rooms);
     const dimensional: DimensionalViolation[] = [
         ...validateAreaMax(input.rooms),
         ...validateWidthMax(input.rooms),
         ...validateAspect(input.rooms),
         ...validateWallUsability(input.rooms),
         ...validateCirculationWidth(input.rooms),
-        ...validateFrontage(input.rooms),
+        ...g7.violations,
         ...validateHierarchy(input.rooms),
-        ...validateLighting(input.rooms),
+        ...g10.violations,
     ];
 
     // ── Topology (A-class) — 8 validators, fixed order ──────────────────────
@@ -92,6 +98,7 @@ export function validateApartmentLayout(
     // A-8 (sequencing) requires the apartment's entrance vertex id; the
     // orchestrator SKIPS the validator when `entranceRoomId` is undefined
     // (sequencing without an entrance is meaningless).
+    const a7 = evaluateFrontageTopology(input.rooms);
     const topology: TopologyViolation[] = [
         ...validateMandatoryAdjacency(input.rooms, input.edges),
         ...validatePreferredAdjacency(input.rooms, input.edges),
@@ -99,7 +106,7 @@ export function validateApartmentLayout(
         ...validatePrivacyGradient(input.rooms, input.edges),
         ...validateAcousticSeparation(input.rooms, input.edges),
         ...validateWetCluster(input.rooms, input.edges),
-        ...validateFrontageTopology(input.rooms),
+        ...a7.violations,
         // A-8 requires entranceRoomId — SKIP if not provided.
         ...(input.entranceRoomId !== undefined
             ? validateSequencing({
@@ -123,6 +130,15 @@ export function validateApartmentLayout(
         byClass[v.classId] = (byClass[v.classId] ?? 0) + 1;
     }
 
+    // §L-909(b) — checks that could not run. Ordered G-7 → G-10 → A-7 to match
+    // the validator order above. NEVER folded into errors/warnings/total: a
+    // check that did not run is not a defect, and must not read as one.
+    const notMeasured: NotMeasuredNote[] = [
+        ...g7.notMeasured,
+        ...g10.notMeasured,
+        ...a7.notMeasured,
+    ];
+
     return Object.freeze({
         dimensional: Object.freeze(dimensional) as ReadonlyArray<DimensionalViolation>,
         topology: Object.freeze(topology) as ReadonlyArray<TopologyViolation>,
@@ -130,6 +146,7 @@ export function validateApartmentLayout(
         warnings,
         total: dimensional.length + topology.length,
         violationsByClass: Object.freeze(byClass) as Readonly<Record<string, number>>,
+        notMeasured: Object.freeze(notMeasured) as ReadonlyArray<NotMeasuredNote>,
     });
 }
 

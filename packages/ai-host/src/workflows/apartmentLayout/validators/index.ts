@@ -26,6 +26,10 @@ export type {
     AggregatedViolationReport,
 } from './orchestrator-types.js';
 
+// ── NOT MEASURED (§L-909(b)) — a rule that cannot compute its precondition ──
+export { notMeasuredNote } from './not-measured.js';
+export type { NotMeasuredField, NotMeasuredNote } from './not-measured.js';
+
 // ── Convenience re-exports from the per-discipline barrels ──────────────────
 export * from './dimensional/index.js';
 export * from './topology/index.js';

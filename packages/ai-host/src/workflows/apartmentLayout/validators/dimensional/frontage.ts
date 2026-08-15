@@ -25,6 +25,7 @@
 
 import { limitsFor } from './limits.js';
 import type { DimensionalViolation } from './types.js';
+import { notMeasuredNote, type NotMeasuredNote } from '../not-measured.js';
 
 /** One room as the validator sees it. POJO on purpose — no Zod, no class. */
 export interface FrontageRoom {
@@ -34,8 +35,21 @@ export interface FrontageRoom {
      * Length (m) of EXTERNAL (perimeter) wall the room owns — the sum of
      * room-edge segments coincident with the apartment exterior shell.
      * Computed by the caller.
+     *
+     * §L-909(b) — `undefined` means **NOT MEASURED**, and is NOT the same
+     * value as `0` ("measured, and the room touches no exterior wall").
+     * A caller that cannot measure the frontage MUST leave this absent; the
+     * rule then SKIPS and records a `NotMeasuredNote` instead of minting a
+     * violation out of a default. Never pass `0` for "unknown".
      */
-    readonly externalFrontageM: number;
+    readonly externalFrontageM?: number;
+}
+
+/** Both halves of one G-7 pass: the violations it DID find, and the rooms it
+ *  could not check because their frontage was never measured. */
+export interface FrontageOutcome {
+    readonly violations: readonly DimensionalViolation[];
+    readonly notMeasured: readonly NotMeasuredNote[];
 }
 
 /**
@@ -58,12 +72,49 @@ export interface FrontageRoom {
 export function validateFrontage(
     rooms: ReadonlyArray<FrontageRoom>,
 ): DimensionalViolation[] {
+    return evaluateFrontage(rooms).violations as DimensionalViolation[];
+}
+
+/**
+ * §L-909(b) — the NOT-MEASURED half of the same pass. Returns one note per
+ * in-scope room whose `externalFrontageM` was never measured. Derived from
+ * the SAME `evaluateFrontage` walk as `validateFrontage`, so the skip set and
+ * the note set cannot drift apart.
+ */
+export function frontageNotMeasured(
+    rooms: ReadonlyArray<FrontageRoom>,
+): NotMeasuredNote[] {
+    return evaluateFrontage(rooms).notMeasured as NotMeasuredNote[];
+}
+
+/**
+ * The single G-7 walk. Rooms in scope (known type + a defined `minFrontageM`)
+ * split three ways:
+ *   • frontage measured and below the floor → VIOLATION
+ *   • frontage measured and at/above the floor → nothing
+ *   • frontage NOT measured (`undefined`) → NOT-MEASURED NOTE, no violation
+ */
+export function evaluateFrontage(
+    rooms: ReadonlyArray<FrontageRoom>,
+): FrontageOutcome {
     const out: DimensionalViolation[] = [];
+    const notMeasured: NotMeasuredNote[] = [];
     for (const room of rooms) {
         const limits = limitsFor(room.type);
         if (limits === undefined) continue;                  // unknown type → skip
         const min = limits.minFrontageM;
         if (min === undefined) continue;                     // no-daylight room → skip
+        // §L-909(b) — precondition ABSENT ⇒ the rule cannot run. Record why,
+        // emit nothing. `0` would be a MEASURED "touches no exterior wall".
+        if (typeof room.externalFrontageM !== 'number'
+            || !Number.isFinite(room.externalFrontageM)) {
+            notMeasured.push(notMeasuredNote(
+                'G-7', room.id, room.type, 'externalFrontageM',
+                `external frontage not measured by this report — G-7 (min ` +
+                `${min.toFixed(2)} m) NOT CHECKED for ${room.type} '${room.id}'`,
+            ));
+            continue;
+        }
         if (!(room.externalFrontageM < min)) continue;       // ≥ min ⇒ OK (boundary inclusive)
         out.push({
             classId: 'G-7',
@@ -84,5 +135,5 @@ export function validateFrontage(
                 `(below this floor the room cannot satisfy daylight + ventilation requirements).`,
         });
     }
-    return out;
+    return { violations: out, notMeasured };
 }

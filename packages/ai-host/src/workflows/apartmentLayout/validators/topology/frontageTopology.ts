@@ -43,6 +43,22 @@
 //     `NEEDS_FRONTAGE`.
 
 import type { TopologyViolation } from './types.js';
+import { notMeasuredNote, type NotMeasuredNote } from '../not-measured.js';
+
+/** One room as A-7 sees it. `hasExteriorEdge` is OPTIONAL: §L-909(b) —
+ *  `undefined` means **NOT MEASURED**, and is NOT the same value as `false`
+ *  ("measured, and the room's perimeter never meets the shell"). */
+export interface FrontageTopologyRoom {
+    readonly id: string;
+    readonly type: string;
+    readonly hasExteriorEdge?: boolean;
+}
+
+/** Both halves of one A-7 pass. */
+export interface FrontageTopologyOutcome {
+    readonly violations: readonly TopologyViolation[];
+    readonly notMeasured: readonly NotMeasuredNote[];
+}
 
 /**
  * The canonical residential HABITABLE-needs-frontage type set. Every room
@@ -96,13 +112,46 @@ export const NEEDS_FRONTAGE: ReadonlyArray<string> = [
  * rooms-array order so test assertions can rely on stable output.
  */
 export function validateFrontageTopology(
-    rooms: ReadonlyArray<{ id: string; type: string; hasExteriorEdge: boolean }>,
+    rooms: ReadonlyArray<FrontageTopologyRoom>,
 ): TopologyViolation[] {
+    return evaluateFrontageTopology(rooms).violations as TopologyViolation[];
+}
+
+/**
+ * §L-909(b) — the NOT-MEASURED half of the same pass. One note per in-scope
+ * room whose exterior-edge flag was never measured.
+ */
+export function frontageTopologyNotMeasured(
+    rooms: ReadonlyArray<FrontageTopologyRoom>,
+): NotMeasuredNote[] {
+    return evaluateFrontageTopology(rooms).notMeasured as NotMeasuredNote[];
+}
+
+/**
+ * The single A-7 walk. In-scope (NEEDS_FRONTAGE) rooms split three ways:
+ *   • flag measured `false` → VIOLATION (genuinely interior room)
+ *   • flag measured `true`  → nothing
+ *   • flag NOT measured (`undefined`) → NOT-MEASURED NOTE, no violation
+ */
+export function evaluateFrontageTopology(
+    rooms: ReadonlyArray<FrontageTopologyRoom>,
+): FrontageTopologyOutcome {
     const needSet = new Set<string>(NEEDS_FRONTAGE);
     const violations: TopologyViolation[] = [];
+    const notMeasured: NotMeasuredNote[] = [];
 
     for (const room of rooms) {
         if (!needSet.has(room.type)) continue;
+        // §L-909(b) — precondition ABSENT ⇒ the rule cannot run. `false` here
+        // would assert "we checked, and this room touches no exterior wall".
+        if (typeof room.hasExteriorEdge !== 'boolean') {
+            notMeasured.push(notMeasuredNote(
+                'A-7', room.id, room.type, 'hasExteriorEdge',
+                `exterior-edge contact not measured by this report — A-7 ` +
+                `NOT CHECKED for ${room.type} '${room.id}'`,
+            ));
+            continue;
+        }
         if (room.hasExteriorEdge) continue;
 
         violations.push({
@@ -117,5 +166,5 @@ export function validateFrontageTopology(
                 `or admit a code-required window opening`,
         });
     }
-    return violations;
+    return { violations, notMeasured };
 }

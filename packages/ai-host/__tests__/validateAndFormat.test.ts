@@ -184,10 +184,12 @@ describe('validateAndFormatLayout — single A-2 warning', () => {
 
 describe('validateAndFormatLayout — adapter option threading', () => {
 
-    it('opts.adapter.defaultExternalFrontageM = 5 prevents G-7 firing on a habitable room', () => {
-        // A bedroom with no explicit `externalFrontageM` would default to 0,
-        // firing G-7 (bedrooms require ≥ 1.5 m frontage). With default 5,
-        // the validator sees 5 m of frontage and stays quiet.
+    it('§L-909(b): NO frontage supplied → G-7 does NOT fire, it reports NOT MEASURED', () => {
+        // ⚠ This test used to assert the OPPOSITE: that an unsupplied
+        // `externalFrontageM` defaulted to 0 and FIRED G-7. That was the
+        // founder-facing defect — an unmeasured input printed as
+        // "external frontage 0.00 m". A rule that cannot compute its own
+        // precondition now emits nothing and records why (C83 §5.2.1/§5.3).
         const dto: DtglLayoutDto = {
             rooms: [{
                 id: 'br', type: 'bedroom', rect: { w: 3, h: 4 },
@@ -196,19 +198,52 @@ describe('validateAndFormatLayout — adapter option threading', () => {
             }],
         };
 
-        // WITHOUT the override → G-7 fires.
         const baseline = validateAndFormatLayout(dto);
         const baselineG7 = baseline.report.dimensional
             .filter(v => v.classId === 'G-7').length;
-        expect(baselineG7).toBeGreaterThanOrEqual(1);
+        expect(baselineG7).toBe(0);
+        // ...and the skip is DISCLOSED, not silent.
+        const notes = baseline.report.notMeasured.filter(n => n.classId === 'G-7');
+        expect(notes).toHaveLength(1);
+        expect(notes[0]!.roomId).toBe('br');
+        expect(notes[0]!.field).toBe('externalFrontageM');
+        expect(notes[0]!.reason).toContain('not measured');
+        expect(baseline.markdownReport).toContain('NOT MEASURED');
+        expect(baseline.summaryLine).toContain('NOT MEASURED');
+    });
 
-        // WITH the override → no G-7.
+    it('opts.adapter.defaultExternalFrontageM = 5 keeps G-7 quiet AND measured', () => {
+        const dto: DtglLayoutDto = {
+            rooms: [{
+                id: 'br', type: 'bedroom', rect: { w: 3, h: 4 },
+                glazedAreaM2: 1.5,
+            }],
+        };
         const overridden = validateAndFormatLayout(dto, {
             adapter: { defaultExternalFrontageM: 5 },
         });
         const overriddenG7 = overridden.report.dimensional
             .filter(v => v.classId === 'G-7').length;
         expect(overriddenG7).toBe(0);
+        // An EXPLICIT default is a caller assertion that the value WAS
+        // measured — so nothing is reported as unmeasured for G-7 here.
+        expect(overridden.report.notMeasured.filter(n => n.classId === 'G-7'))
+            .toHaveLength(0);
+    });
+
+    it('§L-909(b) CONTROL: an EXPLICIT frontage of 0 still fires G-7', () => {
+        // The rules were not silenced — a MEASURED zero is still a violation.
+        const dto: DtglLayoutDto = {
+            rooms: [{
+                id: 'br', type: 'bedroom', rect: { w: 3, h: 4 },
+                externalFrontageM: 0, glazedAreaM2: 1.5,
+            }],
+        };
+        const out = validateAndFormatLayout(dto);
+        expect(out.report.dimensional.filter(v => v.classId === 'G-7'))
+            .toHaveLength(1);
+        expect(out.report.notMeasured.filter(n => n.classId === 'G-7'))
+            .toHaveLength(0);
     });
 });
 

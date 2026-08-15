@@ -10,5 +10,11 @@ export { FORBIDDEN_ADJACENCIES, validateForbiddenAdjacency } from './forbiddenAd
 export { PRIVACY_GRADIENT_VIOLATIONS, validatePrivacyGradient } from './privacyGradient.js';
 export { ACOUSTIC_INCOMPATIBLE, validateAcousticSeparation } from './acousticSeparation.js';
 export { WET_TYPES, validateWetCluster } from './wetCluster.js';
-export { NEEDS_FRONTAGE, validateFrontageTopology } from './frontageTopology.js';
+export {
+    NEEDS_FRONTAGE,
+    evaluateFrontageTopology,
+    frontageTopologyNotMeasured,
+    validateFrontageTopology,
+} from './frontageTopology.js';
+export type { FrontageTopologyOutcome, FrontageTopologyRoom } from './frontageTopology.js';
 export { validateSequencing, type SequencingInput } from './sequencing.js';

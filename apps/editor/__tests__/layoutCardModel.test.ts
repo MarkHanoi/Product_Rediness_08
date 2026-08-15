@@ -298,10 +298,16 @@ describe('buildLayoutCardModel (A5-modal-core)', () => {
         });
 
         it('label matches the canonical shape — "✓ Passes" / "N error(s)" / "N warning(s)"', () => {
+            // §L-909(b) — one NEW canonical shape: "✓ 0 errors · N unchecked".
+            // A zero-violation card whose daylight inputs were never measured
+            // must NOT read "✓ Passes" — this fixture's walls carry no
+            // `isExternal` and its rooms no polygon, so G-7/G-10/A-7 cannot
+            // run and the label discloses exactly that.
             const m = buildLayoutCardModel(opt(), 0);
             const label = m.validation.label;
             const ok =
                 label === '✓ Passes' ||
+                /^✓ 0 errors · \d+ unchecked$/.test(label) ||
                 /^\d+ warnings?$/.test(label) ||
                 /^\d+ errors?$/.test(label) ||
                 label === '? Unknown';

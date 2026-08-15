@@ -23,11 +23,23 @@
 //   • widthM / lengthM default to `sqrt(area)` (square approximation —
 //     LayoutRoom carries no rect today).
 //   • longestUsableWallM defaults to `max(widthM, lengthM)` — over-reports.
-//   • externalFrontageM / glazedAreaM2 default to 0 — conservative.
-//   • hasExteriorEdge defaults to `false` — A-7 may surface false flags.
 // The whole call is wrapped in try/catch so a projector or validator throw
 // NEVER blocks the modal from rendering — defensive '? Unknown' badge is
 // returned instead. The live AI generation path is UNCHANGED.
+//
+// §L-909(b) REPORT HONESTY (2026-08-14) — ⚠ two more bullets used to sit in
+// that list: "externalFrontageM / glazedAreaM2 default to 0 — conservative"
+// and "hasExteriorEdge defaults to `false` — A-7 may surface false flags".
+// THOSE WERE THE DEFECT, not a caveat. The founder's D-TGL apartment emitted
+// 9 shell windows and stamped `windowCount = 1` on every habitable room, and
+// this projector dropped all of it; the adapter then filled 0/0/false and
+// G-7 ×5, G-10 ×5, A-7 ×5 printed those UNMEASURED defaults as MEASURED
+// zeros — 15 of the 19 reported errors were FALSE. `optionToDto` now MEASURES
+// the three values off the same option (`roomFacadeMetrics.ts`: room polygons
+// ∩ external walls, then each emitted window attributed to the room owning
+// that stretch of façade), and anything it genuinely cannot measure stays
+// ABSENT so the rule reports "not measured" instead of a fabricated violation
+// (C83 §5.2.1/§5.3, C78 §1.4, C70 L-INV-1, C75 §1.4).
 
 // IMPORTANT: the `@pryzm/ai-host` root barrel pulls in heavy runtime modules
 // (geometry-slab → @thatopen/ui → `HTMLElement`) that break this card model
@@ -43,6 +55,7 @@ import type {
 } from '@pryzm/ai-host/validators/layout-adapter';
 import type { LayoutOption, LayoutRoom, ScoredLayoutOption } from '@pryzm/ai-host';
 import { computeCirculationReachability } from './layoutBubbleGraph.js';
+import { measureRoomFacades, type RoomFacadeMetrics } from './roomFacadeMetrics.js';
 
 /** Axis key — closed union. The 4 primary axes are always present; the
  *  11 cognition axes are emitted only when the breakdown carries them. */
@@ -94,6 +107,11 @@ export interface ValidationBadge {
     readonly errors: number;
     /** Warning count. */
     readonly warnings: number;
+    /** §L-909(b) — how many checks COULD NOT RUN because their input was
+     *  never measured. NOT part of `total` / `errors` / `warnings`, and it
+     *  never fails legality — but a card showing "✓ Passes" with a non-zero
+     *  count here has NOT been fully checked, and the label says so. */
+    readonly notMeasured: number;
     /** Short pill label, e.g. "✓ Passes" / "1 warning" / "3 errors". */
     readonly label: string;
     /** Longer one-line summary, e.g. the formatter's
@@ -288,6 +306,7 @@ const UNKNOWN_BADGE: ValidationBadge = Object.freeze({
     total: 0,
     errors: 0,
     warnings: 0,
+    notMeasured: 0,
     label: '? Unknown',
     summaryLine: 'validation skipped (projector error)',
     markdownReport: '',
@@ -300,9 +319,14 @@ function isFiniteNonNeg(n: unknown): n is number {
 
 /** Project one `LayoutRoom` into a validator `DtglLayoutRoom`. Throws on
  *  a fundamentally malformed room (so the outer try/catch surfaces the
- *  defensive badge) — every defensive default is applied INSIDE
- *  `validateAndFormatLayout`'s adapter, not here. */
-function projectRoom(r: LayoutRoom): DtglLayoutRoom {
+ *  defensive badge).
+ *
+ *  §L-909(b) — `facade` carries the MEASURED frontage / exterior-edge /
+ *  glazing for this room (see `roomFacadeMetrics.ts`). Whatever it could not
+ *  measure is left ABSENT here, and the adapter now propagates the absence
+ *  instead of substituting `0 / 0 / false`; G-7 / G-10 / A-7 then report
+ *  "not measured" rather than a fabricated violation. */
+function projectRoom(r: LayoutRoom, facade: RoomFacadeMetrics): DtglLayoutRoom {
     if (!r || typeof r.name !== 'string' || r.name.length === 0) {
         throw new Error('projectRoom: missing name');
     }
@@ -320,9 +344,19 @@ function projectRoom(r: LayoutRoom): DtglLayoutRoom {
         areaM2: r.area,
         widthM: side,
         lengthM: side,
-        // Leave the rest UNSET — the adapter applies its CONSERVATIVE
-        // defaults (longestUsableWallM = max(widthM,lengthM);
-        // externalFrontageM = 0; hasExteriorEdge = false; glazedAreaM2 = 0).
+        // §L-909(b) — the three daylight inputs, MEASURED off the same option
+        // this projector is reading. Spread conditionally: an absent field
+        // means NOT MEASURED all the way down to the validator. Writing an
+        // explicit `undefined` key would be equivalent, but omitting it keeps
+        // `'externalFrontageM' in dto` a truthful "was this measured?" test.
+        ...(facade.externalFrontageM !== undefined
+            ? { externalFrontageM: facade.externalFrontageM } : {}),
+        ...(facade.hasExteriorEdge !== undefined
+            ? { hasExteriorEdge: facade.hasExteriorEdge } : {}),
+        ...(facade.glazedAreaM2 !== undefined
+            ? { glazedAreaM2: facade.glazedAreaM2 } : {}),
+        // `longestUsableWallM` is still left UNSET — the adapter's
+        // max(widthM,lengthM) fallback for G-5 is unchanged by this slice.
     };
 }
 
@@ -354,7 +388,13 @@ function optionToDto(option: LayoutOption): DtglLayoutDto {
     if (!option || !Array.isArray(option.rooms)) {
         throw new Error('optionToDto: malformed option (no rooms array)');
     }
-    const rooms = option.rooms.map(projectRoom);
+    // §L-909(b) — measure frontage / exterior-edge / glazing from the option's
+    // OWN walls + polygons + windows BEFORE projecting. This is the data the
+    // projector used to drop on the floor, and its absence is what made 15 of
+    // the founder's 19 reported errors false.
+    const facades = measureRoomFacades(option);
+    const rooms = option.rooms.map(r =>
+        projectRoom(r, facades.get(r?.name as string) ?? {}));
     const edges = projectEdges(option.rooms);
     return { rooms, edges };
 }
@@ -369,9 +409,14 @@ function buildValidationBadge(option: LayoutOption): ValidationBadge {
         const total    = report.total;
         const errors   = report.errors;
         const warnings = report.warnings;
+        // §L-909(b) — checks that could not run. Never counted as violations.
+        const notMeasured = (report.notMeasured ?? []).length;
+        // A zero-violation card with unrun checks must NOT read "✓ Passes" —
+        // that is the over-claim this lane exists to stop. Every other label
+        // is byte-identical to before.
         const label =
             passesLegality && total === 0
-                ? '✓ Passes'
+                ? (notMeasured === 0 ? '✓ Passes' : `✓ 0 errors · ${notMeasured} unchecked`)
                 : passesLegality
                     ? `${warnings} warning${warnings === 1 ? '' : 's'}`
                     : `${errors} error${errors === 1 ? '' : 's'}`;
@@ -380,6 +425,7 @@ function buildValidationBadge(option: LayoutOption): ValidationBadge {
             total,
             errors,
             warnings,
+            notMeasured,
             label,
             summaryLine,
             // §VALIDATION-DETAILS (2026-06-01) — plumb the full markdown

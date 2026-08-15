@@ -25,6 +25,7 @@
 
 import { limitsFor } from './limits.js';
 import type { DimensionalViolation } from './types.js';
+import { notMeasuredNote, type NotMeasuredNote } from '../not-measured.js';
 
 /** One room as the validator sees it. POJO on purpose — no Zod, no class. */
 export interface LightingRoom {
@@ -36,8 +37,22 @@ export interface LightingRoom {
      * Total glazed window area (m²) the room owns — the sum of every window
      * pane glazing area inside this room's perimeter. Computed by the
      * caller.
+     *
+     * §L-909(b) — `undefined` means **NOT MEASURED**, and is NOT the same
+     * value as `0` ("measured, and the room owns no glazing"). A caller that
+     * cannot sum the room's window panes MUST leave this absent; the rule
+     * then SKIPS and records a `NotMeasuredNote`. Reporting a defaulted `0`
+     * as a measured ratio of `0.000` is exactly the defect this guard exists
+     * to stop.
      */
-    readonly glazedAreaM2: number;
+    readonly glazedAreaM2?: number;
+}
+
+/** Both halves of one G-10 pass: the violations it DID find, and the rooms it
+ *  could not check because their glazed area was never measured. */
+export interface LightingOutcome {
+    readonly violations: readonly DimensionalViolation[];
+    readonly notMeasured: readonly NotMeasuredNote[];
 }
 
 /**
@@ -63,13 +78,47 @@ export interface LightingRoom {
 export function validateLighting(
     rooms: ReadonlyArray<LightingRoom>,
 ): DimensionalViolation[] {
+    return evaluateLighting(rooms).violations as DimensionalViolation[];
+}
+
+/**
+ * §L-909(b) — the NOT-MEASURED half of the same pass. One note per in-scope
+ * room whose `glazedAreaM2` was never measured. Same walk as
+ * `validateLighting`, so skip set and note set cannot drift.
+ */
+export function lightingNotMeasured(
+    rooms: ReadonlyArray<LightingRoom>,
+): NotMeasuredNote[] {
+    return evaluateLighting(rooms).notMeasured as NotMeasuredNote[];
+}
+
+/**
+ * The single G-10 walk. In-scope rooms split three ways:
+ *   • glazing measured, ratio below the floor → VIOLATION
+ *   • glazing measured, ratio at/above the floor → nothing
+ *   • glazing NOT measured (`undefined`) → NOT-MEASURED NOTE, no violation
+ */
+export function evaluateLighting(
+    rooms: ReadonlyArray<LightingRoom>,
+): LightingOutcome {
     const out: DimensionalViolation[] = [];
+    const notMeasured: NotMeasuredNote[] = [];
     for (const room of rooms) {
         const limits = limitsFor(room.type);
         if (limits === undefined) continue;                  // unknown type → skip
         const min = limits.minLightRatio;
         if (min === undefined) continue;                     // no-daylight room → skip
         if (!(room.areaM2 > 0)) continue;                    // degenerate room → skip
+        // §L-909(b) — precondition ABSENT ⇒ the rule cannot run.
+        if (typeof room.glazedAreaM2 !== 'number'
+            || !Number.isFinite(room.glazedAreaM2)) {
+            notMeasured.push(notMeasuredNote(
+                'G-10', room.id, room.type, 'glazedAreaM2',
+                `glazed area not measured by this report — G-10 (min ratio ` +
+                `${min.toFixed(2)}) NOT CHECKED for ${room.type} '${room.id}'`,
+            ));
+            continue;
+        }
         const ratio = room.glazedAreaM2 / room.areaM2;
         if (!(ratio < min)) continue;                        // ≥ min ⇒ OK (boundary inclusive)
         out.push({
@@ -92,5 +141,5 @@ export function validateLighting(
                 `(below this floor the room cannot satisfy Building Regs Part F1 daylight requirements).`,
         });
     }
-    return out;
+    return { violations: out, notMeasured };
 }

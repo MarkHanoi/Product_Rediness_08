@@ -22,14 +22,14 @@ export type { WallUsabilityRoom } from './wallUsability.js';
 export { validateCirculationWidth } from './circulationWidth.js';
 export type { CirculationWidthRoom } from './circulationWidth.js';
 
-export { validateFrontage } from './frontage.js';
-export type { FrontageRoom } from './frontage.js';
+export { evaluateFrontage, frontageNotMeasured, validateFrontage } from './frontage.js';
+export type { FrontageOutcome, FrontageRoom } from './frontage.js';
 
 export { validateHierarchy } from './hierarchy.js';
 export type { HierarchyRoom } from './hierarchy.js';
 
-export { validateLighting } from './lighting.js';
-export type { LightingRoom } from './lighting.js';
+export { evaluateLighting, lightingNotMeasured, validateLighting } from './lighting.js';
+export type { LightingOutcome, LightingRoom } from './lighting.js';
 
 export { DIMENSIONAL_LIMITS, limitsFor } from './limits.js';
 export type { DimensionalLimits } from './limits.js';

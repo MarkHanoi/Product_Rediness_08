@@ -54,9 +54,16 @@ describe('toValidationInput — apartment-layout validator adapter', () => {
         expect(room.widthM).toBe(3);           // min(3, 4)
         expect(room.lengthM).toBe(4);          // max(3, 4)
         expect(room.longestUsableWallM).toBe(4); // max(widthM, lengthM)
-        expect(room.externalFrontageM).toBe(0);
-        expect(room.hasExteriorEdge).toBe(false);
-        expect(room.glazedAreaM2).toBe(0);
+        // §L-909(b) — these three used to assert 0 / false / 0. That WAS the
+        // defect: `not measured` and `measured: zero` were the same value, and
+        // G-7 / G-10 / A-7 printed the defaults as measured zeros. Absent now
+        // means NOT MEASURED and the rules skip + record why.
+        expect(room.externalFrontageM).toBeUndefined();
+        expect(room.hasExteriorEdge).toBeUndefined();
+        expect(room.glazedAreaM2).toBeUndefined();
+        expect('externalFrontageM' in room).toBe(false);
+        expect('hasExteriorEdge' in room).toBe(false);
+        expect('glazedAreaM2' in room).toBe(false);
     });
 
     // ── areaM2 derivation ──────────────────────────────────────────────────
@@ -136,11 +143,11 @@ describe('toValidationInput — apartment-layout validator adapter', () => {
     });
 
     // ── externalFrontageM ──────────────────────────────────────────────────
-    it('externalFrontageM defaults to 0 when absent', () => {
+    it('§L-909(b): externalFrontageM stays NOT MEASURED when absent — never 0', () => {
         const out = toValidationInput({
             rooms: [{ id: 'r1', type: 'bedroom', rect: { w: 3, h: 4 } }],
         });
-        expect(out.rooms[0]!.externalFrontageM).toBe(0);
+        expect(out.rooms[0]!.externalFrontageM).toBeUndefined();
     });
 
     it('AdapterOptions.defaultExternalFrontageM overrides the default', () => {
@@ -195,11 +202,20 @@ describe('toValidationInput — apartment-layout validator adapter', () => {
     });
 
     // ── glazedAreaM2 ───────────────────────────────────────────────────────
-    it('glazedAreaM2 defaults to 0 when absent', () => {
+    it('§L-909(b): glazedAreaM2 stays NOT MEASURED when absent — never 0', () => {
         const out = toValidationInput({
             rooms: [{ id: 'r1', type: 'bedroom', rect: { w: 3, h: 4 } }],
         });
-        expect(out.rooms[0]!.glazedAreaM2).toBe(0);
+        expect(out.rooms[0]!.glazedAreaM2).toBeUndefined();
+    });
+
+    it('§L-909(b): unmeasured frontage leaves hasExteriorEdge UNMEASURED too', () => {
+        // The derived flag must not become `false` on the back of a frontage
+        // nobody measured — that is how A-7 minted five false errors.
+        const out = toValidationInput({
+            rooms: [{ id: 'r1', type: 'bedroom', rect: { w: 3, h: 4 } }],
+        });
+        expect(out.rooms[0]!.hasExteriorEdge).toBeUndefined();
     });
 
     it('AdapterOptions.defaultGlazedAreaM2 overrides the default', () => {

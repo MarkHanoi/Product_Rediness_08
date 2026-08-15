@@ -27,6 +27,7 @@
 import type { DimensionalViolation } from '../validators/dimensional/types.js';
 import type { TopologyViolation } from '../validators/topology/types.js';
 import type { AggregatedViolationReport } from '../validators/orchestrator-types.js';
+import type { NotMeasuredNote } from '../validators/not-measured.js';
 
 // ── Options ────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,36 @@ const CLASS_LABEL: Readonly<Record<string, string>> = Object.freeze({
 /** "1 violation" / "N violations" — saves a ternary at every call site. */
 function noun(count: number, singular: string, plural: string): string {
     return count === 1 ? singular : plural;
+}
+
+/**
+ * §L-909(b) — the NOT-MEASURED section.
+ *
+ * Rules whose measured input was absent are listed HERE, never among the
+ * violations. The header is deliberately blunt: a reader who sees "0 errors"
+ * must also see which checks never ran, or the report over-claims. Rows are
+ * sorted (classId, then roomId) so the output is byte-stable.
+ */
+function notMeasuredSection(
+    notes: ReadonlyArray<NotMeasuredNote>,
+): string[] {
+    const sorted = [...notes].sort((a, b) =>
+        a.classId === b.classId
+            ? (a.roomId < b.roomId ? -1 : a.roomId > b.roomId ? 1 : 0)
+            : (a.classId < b.classId ? -1 : 1));
+    const classes = Array.from(new Set(sorted.map(n => n.classId))).sort();
+    const lines: string[] = [];
+    lines.push('### NOT MEASURED — checks that could not run');
+    lines.push(
+        `${sorted.length} ${noun(sorted.length, 'check', 'checks')} SKIPPED ` +
+        `because the value they compare was never measured by this report ` +
+        `(${classes.join(', ')}). These are NOT violations, and their absence ` +
+        `from the counts above is NOT a pass.`,
+    );
+    for (const n of sorted) {
+        lines.push(`- **${n.classId}** [${n.roomId}] (${n.field}): ${n.reason}`);
+    }
+    return lines;
 }
 
 /**
@@ -147,13 +178,23 @@ export function formatViolationReport(
     const maxPerClass = opts.maxPerClass ?? 5;
     const includeLegend = opts.includeLegend ?? true;
 
+    // §L-909(b) — checks that COULD NOT RUN. Rendered as their own section,
+    // never as violations. Defensive `?? []` so a hand-built or older frozen
+    // report without the field still formats.
+    const notMeasured = report.notMeasured ?? [];
+
     // ─── Empty report fast-path ────────────────────────────────────────────
     if (report.total === 0) {
-        return [
+        const head = [
             '## Apartment Layout Validation Report',
             '',
             '**No violations.** Layout passes all 15 validator slices.',
-        ].join('\n');
+        ];
+        // A clean report with unrun checks is NOT a clean bill of health —
+        // say so, or the reader reads "no violations" as "everything checked".
+        return notMeasured.length === 0
+            ? head.join('\n')
+            : [...head, '', ...notMeasuredSection(notMeasured)].join('\n');
     }
 
     const lines: string[] = [];
@@ -234,6 +275,12 @@ export function formatViolationReport(
         }
     }
 
+    // ─── Not measured (§L-909(b)) ──────────────────────────────────────────
+    if (notMeasured.length > 0) {
+        lines.push('');
+        lines.push(...notMeasuredSection(notMeasured));
+    }
+
     // ─── Legend ────────────────────────────────────────────────────────────
     if (includeLegend) {
         lines.push('');
@@ -262,7 +309,15 @@ export function formatViolationReport(
 export function formatViolationLine(
     report: AggregatedViolationReport,
 ): string {
-    if (report.total === 0) return '0 violations';
+    // §L-909(b) — unrun checks are DISCLOSED on the one line most callers show
+    // (it is the modal card's `summaryLine`). Appended only when non-empty, so
+    // every fully-measured report's line is byte-identical to before.
+    const unrun = report.notMeasured ?? [];
+    const suffix = unrun.length === 0
+        ? ''
+        : ` · ${unrun.length} ${noun(unrun.length, 'check', 'checks')} NOT MEASURED ` +
+          `(${Array.from(new Set(unrun.map(n => n.classId))).sort().join(', ')})`;
+    if (report.total === 0) return `0 violations${suffix}`;
     const tallyKeys = Object.keys(report.violationsByClass).sort();
     const tally = tallyKeys
         .map(k => `${k}×${report.violationsByClass[k]}`)
@@ -271,7 +326,7 @@ export function formatViolationLine(
         `${report.total} ${noun(report.total, 'violation', 'violations')}: ` +
         `${report.errors} ${noun(report.errors, 'error', 'errors')}, ` +
         `${report.warnings} ${noun(report.warnings, 'warning', 'warnings')} ` +
-        `(${tally})`
+        `(${tally})${suffix}`
     );
 }
 
