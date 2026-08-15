@@ -66,7 +66,7 @@
 
 import type { Point3D } from '@pryzm/core-app-model';
 import {
-    computeMoveReweld,
+    computeMoveReweldPlan,
     DEFAULT_SNAP_RADIUS,
     type WallData,
 } from '@pryzm/geometry-wall';
@@ -211,7 +211,7 @@ export function previewMoveReweld(
         }
         if (partners.length === 0) return EMPTY;
 
-        const entries = computeMoveReweld(
+        const plan = computeMoveReweldPlan(
             {
                 id: wallId,
                 prevBaseLine: [
@@ -222,10 +222,46 @@ export function previewMoveReweld(
                     { x: newBaseLine[0].x, y: newBaseLine[0].y, z: newBaseLine[0].z },
                     { x: newBaseLine[1].x, y: newBaseLine[1].y, z: newBaseLine[1].z },
                 ],
+                // §L-926 — the mover's thickness, which the weld-authorship
+                // band is derived from. WITHOUT IT the engine cannot tell a
+                // corner incumbent from a T-stem dependent and conservatively
+                // calls everything an incumbent, so this pre-flight refused the
+                // founder's gesture outright (measured at `094acd33`:
+                // allowed=false, 773 mm). A gate that asks the question with an
+                // input missing gets a truthful answer to a different question.
+                thickness: mover.thickness,
             },
             partners,
             { weldTol },
-        ) as CascadeWallBaselineEntry[];
+        );
+        const entries = plan.entries as CascadeWallBaselineEntry[];
+
+        // ── C83 §10.2.2, ARM 2a — the joint that CANNOT be closed ─────────────
+        //
+        // Since `19ddf6bb` the engine no longer PROPOSES an incumbent's baseline;
+        // it refuses instead, and the refusal arrives here in `plan.refusals`
+        // rather than as a foreign entry. Reading only `entries` would therefore
+        // have let the strongest refusal through as an empty, allowed plan —
+        // exactly the "absence read as consent" failure this pre-flight exists to
+        // prevent. MEASURED: the L-921 accept-path test refused to refuse until
+        // this branch existed.
+        if (plan.refusals.length > 0) {
+            return {
+                allowed: false,
+                ok: true,               // the cascade itself never got to object
+                entries,
+                reason: 'INCUMBENT_EXTENSION_REQUIRED',
+                blockingIssues: plan.refusals.map(
+                    r => `INCUMBENT_EXTENSION_REQUIRED: ${r.partnerId}: the new corner falls ` +
+                         `${r.beyondMm} mm past that wall's end, so closing the joint would ` +
+                         `require lengthening it`,
+                ),
+                partnerIds: plan.refusals.map(r => r.partnerId),
+                incumbentWallIds: plan.refusals.map(r => r.partnerId),
+                incumbentBreach: true,
+                maxIncumbentShiftMm: plan.refusals.reduce((m, r) => Math.max(m, r.beyondMm), 0),
+            };
+        }
 
         // No junction to repair ⇒ nothing can refuse. A POSITIVE ok.
         if (entries.length === 0) return EMPTY;
@@ -262,6 +298,17 @@ export function previewMoveReweld(
         const incumbent: { id: string; shiftMm: number }[] = [];
         for (const e of entries) {
             if (e.wallId === wallId) continue;          // the SUBJECT adapting — permitted
+            // §L-926 — a DEPENDENT is not an incumbent. A wall whose endpoint
+            // TERMINATES ON the subject's body follows the subject by rule
+            // (C83 §10.6); counting it here made this arm refuse the mandatory
+            // direction as if it were the forbidden one, which is `19ddf6bb`'s
+            // error committed a second time, at the gate instead of the engine.
+            //
+            // The verdict is CONSUMED, never re-derived: `role` is stamped by
+            // `computeMoveReweldPlan`, the only place that measured whose
+            // endpoint abuts whose body. Re-testing it here would be the second
+            // copy of a predicate this file's header refuses to keep.
+            if ((e as { role?: string }).role === 'dependent-stem') continue;
             const before = wallStore.getById(e.wallId);
             const bl = before?.baseLine as readonly Point3D[] | undefined;
             if (!bl || bl.length < 2) continue;

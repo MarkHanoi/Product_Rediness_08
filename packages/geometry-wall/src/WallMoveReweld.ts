@@ -117,6 +117,20 @@ export interface MoveReweldEntry {
     wallId: string;
     newBaseLine: ReweldBaseline;
     prevBaseLine: ReweldBaseline;
+    /**
+     * §L-926 — WHY this entry exists, carried to whoever must judge it.
+     *
+     * Present ONLY on a dependent T-stem following its host; the subject's own
+     * seats carry nothing, so `JSON.stringify` of a subject-only plan is
+     * unchanged (the L-922 golden controls depend on that, and they still pass).
+     *
+     * It exists because `moveReweldPreflight`'s C83 §10.2.2 arm has to answer
+     * "is this entry an incumbent being dragged?" and the ONLY correct answer
+     * comes from weld authorship. Re-deriving authorship there would be a second
+     * copy of a geometric predicate — the drift that file's own header warns
+     * against — so the engine that decided it says so instead.
+     */
+    role?: 'dependent-stem';
 }
 
 // ─── Internal 2D helpers (XZ plane; y is carried through untouched) ──────────
@@ -410,6 +424,7 @@ function computeStemFollow(
         wallId: partner.id,
         newBaseLine: weldedIsStart ? [seated(a), { ...b }] : [{ ...a }, seated(b)],
         prevBaseLine: [{ ...a }, { ...b }],
+        role: 'dependent-stem',
     } };
 }
 
