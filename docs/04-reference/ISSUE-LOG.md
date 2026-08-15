@@ -5208,3 +5208,53 @@ lives. Its verdicts go to L-921/L-920.
 **Related, one family, kept distinct:** §JOINT-AUTHORITY-IS-THE-INCUMBENT (the invariant) · L-919
 (CREATE through a wall) · L-920 (infill prism) · L-921 (accepted offer half-executes) · L-922
 (this — reweld mutates the incumbent).
+
+---
+
+## L-925 — OPEN, FOUNDER-URGENT — moving a perimeter wall PAST its partner's far endpoint: the slab-connectivity cascade throws a FATAL BaselineReversalError mid-gesture and the enclosure is left broken
+
+**Reported 2026-08-15 on deploy `9abee8f9` (the deploy carrying the L-919/920/921/922 fixes — this is
+the NEXT sibling, not a regression of those).** Founder's words:
+
+> *"Whenever I move a wall WITHOUT passing the previous wall boundary it's fine — everything adapted
+> [photo 2]. If I SURPASS the segment of the wall connected to the moving wall — the wall moves, the
+> slab adapts properly, but NONE of the connected walls behaved as expected [photos 3-4]."*
+
+### The mechanism, from their console — the guard is RIGHT and the caller is the defect
+
+```
+[CommandManager] FATAL ERROR DURING EXECUTION BaselineReversalError: [WallStore.update]
+  §WALL-DEEP-2026 B2 — refusing to reverse baseLine direction on wall …DJE64 which hosts
+  1 opening(s). The caller must either (a) migrate each opening's offset to
+  (wallLength − offset) and pass _allowBaseLineReversal:true, or (b) keep the baseLine
+  direction stable and emit endpoint-only changes.
+      at CASCADE_WALL_BASELINE.execute … at Of._dispatchCascade … at onWallUpdated   (×2 this session)
+```
+
+The stack is the **SLAB-CONNECTIVITY weld path** (`onWallUpdated → _dispatchCascade`, cause
+`'slab-connectivity'`) — NOT `WallMoveReweldService`, which L-921/L-922 fixed. Geometry: the
+enclosure-preserving corner weld slides the shared corner along the partner's axis. While the corner
+stays within the partner's extent, the weld is a legal endpoint move (photo 2 — works, and the
+founder explicitly wants it). When the move crosses PAST the partner's far endpoint, the recomputed
+corner lies beyond the partner's other end — the partner's baseline would have to REVERSE direction.
+`WallStore`'s B2 guard refuses (correctly — silent reversal would corrupt the hosted door's
+offsets). **The cascade does not catch the refusal: it dies FATAL, mid-gesture**, wall moved,
+junctions unrepaired, room lost. The guard even PRINTS the two legal continuations, and the caller
+implements neither.
+
+### Scope notes for the fix (laned same-turn)
+
+1. **The enclosure-adapting weld is SANCTIONED, not a §10 violation.** For a perimeter-wall move,
+   the gesture's subject is the moved wall PLUS the shared corners it owns with directly-welded
+   partners — that adaptation is what photo 2 shows working and what the founder asked slab/roof to
+   mirror. C83 §10 forbids mutating incumbents for a NEWCOMER; it does not forbid an enclosure
+   keeping itself closed under a move. State this in the fix so §10 is not over-applied.
+2. **The crossing-past-endpoint case must resolve by the guard's own menu**: (b) endpoint-only
+   changes with stable direction where the span admits it, or (a) explicit reversal WITH offset
+   migration `offset → wallLength − offset` and `_allowBaseLineReversal:true` when reversal is the
+   true geometry. Choose per case; never bypass the guard.
+3. **No FATAL, ever** (C78 U-INV-8/U-INV-9, the L-921 atomicity doctrine): preflight the cascade —
+   if the weld cannot resolve legally, the WHOLE gesture refuses with both numbers BEFORE the wall
+   moves; if it can, it completes whole. One Ctrl+Z restores everything either way.
+4. Same reversal hole likely exists on the `move-reweld` path for the same crossing geometry —
+   verify both callers of the B2 guard.
