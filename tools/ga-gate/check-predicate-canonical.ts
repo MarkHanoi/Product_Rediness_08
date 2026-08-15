@@ -380,7 +380,21 @@ const FAMILIES: readonly Family[] = [
       'straddle test. The arm’s designed signature is the ACCUMULATION shape `+= A*B - C*D` (and the ' +
       'trapezoid spelling `(x2-x1)*(y2+y1)`) restricted to a loop over ring-successor pairs, with negative ' +
       'controls against dot-product sums, energy sums and non-cyclic accumulators — those controls must ' +
-      'exist before the count can be trusted (§7.k — a tally that cannot be trusted is worse than no tally).',
+      'exist before the count can be trusted (§7.k — a tally that cannot be trusted is worse than no tally). ' +
+      '── UPDATE 2026-08-15: THOSE CONTROLS NOW EXIST and execute on every run, so the family HAS ITS ' +
+      'DENOMINATOR (see CENSUS below). The weak-signature problem is real and is discharged by three ' +
+      'conditions rather than by the `+=`: a CROSS term (rejects dot-product sums), ACCUMULATED rather than ' +
+      'DIVIDED BY (rejects the segment/segment family built on the identical cross — each arm proves it ' +
+      'rejects the other\'s fixtures, or one fix would read as two wins), and RING-SUCCESSOR pairing ' +
+      '(rejects energy sums and non-cyclic accumulators). Two measurement corrections were forced by the ' +
+      'controls: the term grammar had to admit CALLS, because the canonical `polygonSignedAreaOrdinates` is ' +
+      'accessor-backed (`xAt(i) * yAt(j) - xAt(j) * yAt(i)`) and a census that counts every rival but not ' +
+      'the canonical flatters the tree; and the successor lookback had to reach 8 lines, because the parcel ' +
+      'providers hoist the ring pairing into the `for` header — at ±3 lines SEVEN genuine bodies read as ' +
+      '"no successor" and the family was undercounted by 7. Not counted:true because 77 rivals across 70 ' +
+      'files cannot reach 0 in one PR and flipping the flag today would move this gate off hard-0 — a ' +
+      'registration decision, not a lane decision. §3.5 also still binds: this family and segment/segment ' +
+      'must not flip in the same PR.',
   },
   {
     id: 'point-to-segment-distance',
@@ -585,6 +599,91 @@ function detectSegmentIntersection(root: string, dirs: readonly string[]): { bod
     }
   }
   return { bodies, lineLine };
+}
+
+// ─── Family "polygon-area-and-winding" — the CENSUS arm (C73 §3.1) ───────────
+
+/**
+ * THE SHOELACE ACCUMULATION: `area += a.x * b.z - b.x * a.z`.
+ *
+ * The register named this family's blocker exactly right — a bare `+=` is a
+ * MUCH weaker signature than the straddle test, and a matcher keyed on it
+ * over-matches. The strength here comes from THREE conditions together, none of
+ * which is sufficient alone:
+ *
+ *   1. the accumulated term is a 2D CROSS (`A*B − C*D`), not a sum of products.
+ *      This is what separates it from a DOT PRODUCT accumulation
+ *      (`+= a.x*b.x + a.z*b.z`), which is the same shape with the other sign
+ *      and is common in this tree;
+ *   2. it is ACCUMULATED, not DIVIDED BY. Segment/segment intersection is built
+ *      on the identical 2D cross — the two families are told apart ONLY by the
+ *      surrounding operator, which is why both arms carry a control asserting
+ *      the other family's fixture reads 0;
+ *   3. it accumulates over RING-SUCCESSOR PAIRS. This is the condition that
+ *      rejects a generic `sum += w*x − y*z` over unrelated indices: an energy
+ *      sum, a determinant tally, any non-cyclic accumulator.
+ */
+const SHOELACE_ACC = new RegExp(`\\+=\\s*\\(?\\s*${CROSS_2D}`);
+
+/**
+ * The TRAPEZOID spelling — `(x2 − x1) * (y2 + y1)` — the same signed area by
+ * the other classical decomposition, and the one the reduce-based call sites
+ * use (`acc + (next.x - p.x) * (next.y + p.y)`). A census that saw only the
+ * cross form would silently miss them and report a number that looks better
+ * than the tree is. Requires an additive accumulation context for condition 2.
+ */
+const TRAPEZOID_ACC = new RegExp(
+  `(?:\\+=|\\w+\\s*\\+)\\s*\\(\\s*${OPERAND}\\s*-\\s*${OPERAND}\\s*\\)\\s*\\*\\s*\\(\\s*${OPERAND}\\s*\\+\\s*${OPERAND}\\s*\\)`,
+);
+
+/**
+ * RING-SUCCESSOR evidence — condition 3. Every live spelling of "pair each
+ * vertex with the next, cyclically", measured from the tree rather than
+ * imagined: `(i + 1) % n`, `poly[i + 1]`, a `next`/`prev` pair from a reduce or
+ * a zip, and the two classic index-walk idioms `for (i = 0, j = n - 1; …; j = i++)`
+ * and `j = (i + 1) % n`.
+ */
+const RING_SUCCESSOR = /\(\s*\w+\s*\+\s*1\s*\)\s*%|\[\s*\w+\s*\+\s*1\s*\]|\bnext\b|\bprev\b|%\s*\w+(?:\.\w+)*\.length|\bj\s*=\s*\w+\+\+|\.length\s*-\s*1\s*[;,)]/;
+
+/**
+ * The successor-evidence window. Measured, not guessed: the parcel providers
+ * hoist the pairing to the `for` header and then spend five lines converting
+ * lon/lat to metres before the accumulate line, so a ±3-line window read SEVEN
+ * genuine shoelace bodies as "no successor" and would have UNDERCOUNTED the
+ * family by 7. Eight lines of lookback covers every live instance.
+ */
+const SUCCESSOR_LOOKBACK = 8;
+
+interface AreaBody {
+  readonly file: string;
+  readonly line: number;
+  readonly form: string;
+  readonly text: string;
+  readonly isTest: boolean;
+}
+
+function detectPolygonArea(root: string, dirs: readonly string[]): { bodies: AreaBody[]; noSuccessor: AreaBody[] } {
+  const bodies: AreaBody[] = [];
+  const noSuccessor: AreaBody[] = [];
+  for (const dir of dirs) {
+    for (const abs of walk(join(root, dir))) {
+      const rel = relPath(root, abs);
+      let src: string;
+      try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+      const lines = stripCommentsToLines(src);
+      const isTest = isTestPath(rel);
+      for (let i = 0; i < lines.length; i++) {
+        const L = lines[i]!;
+        const form = SHOELACE_ACC.test(L) ? 'shoelace' : TRAPEZOID_ACC.test(L) ? 'trapezoid' : null;
+        if (form === null) continue;
+        const near = lines.slice(Math.max(0, i - SUCCESSOR_LOOKBACK), i + 4).join(' ');
+        const body: AreaBody = { file: rel, line: i + 1, form, text: L.trim().slice(0, 120), isTest };
+        if (RING_SUCCESSOR.test(near)) bodies.push(body);
+        else noSuccessor.push(body);
+      }
+    }
+  }
+  return { bodies, noSuccessor };
 }
 
 // ─── Baseline ────────────────────────────────────────────────────────────────
@@ -861,6 +960,122 @@ function selfTest(): { ok: boolean; lines: string[] } {
     const segClean = detectSegmentIntersection(join(base, 'clean'), ['packages']);
     lines.push(`    SEGSEG zero (a tree with no intersection body): ${segClean.bodies.length} bod(ies) — expected 0`);
     if (segClean.bodies.length !== 0) fail('SEGSEG counted a body in a tree containing none — the zero reading is unreachable, so the census cannot be trusted (C73 §7.k).');
+
+    // ── AREA census: detect both spellings, INCLUDING the canonical's ───────
+    // `canonicalAccessor.ts` is the canonical `polygonSignedAreaOrdinates`
+    // spelling: the terms are ACCESSOR CALLS (`xAt(i)`), because that body is
+    // accessor-backed so every vertex shape in the estate reads one
+    // accumulation. The narrow OPERAND grammar the straddle test uses cannot
+    // see a call, so a census built on it would miss THE canonical body while
+    // counting all ~77 of its rivals — a tally that flatters the tree.
+    // `parcelWalk.ts` is the parcel-provider shape whose ring pairing sits in
+    // the `for` header, five lines above the accumulate.
+    writeTree(join(base, 'area'), {
+      'packages/a/src/canonicalAccessor.ts': [
+        'export function areaOrdinates(n: number, xAt: (i: number) => number, yAt: (i: number) => number) {',
+        '  let a = 0;',
+        '  for (let i = 0; i < n; i++) {',
+        '    const j = (i + 1) % n;',
+        '    a += xAt(i) * yAt(j) - xAt(j) * yAt(i);',
+        '  }',
+        '  return a / 2;',
+        '}',
+      ].join('\n'),
+      'packages/a/src/members.ts': [
+        'export function s(poly: P[]) {',
+        '  let area = 0;',
+        '  for (let i = 0; i < poly.length; i++) {',
+        '    const a = poly[i]!, b = poly[(i + 1) % poly.length]!;',
+        '    area += a.x * b.z - b.x * a.z;',
+        '  }',
+        '  return area / 2;',
+        '}',
+      ].join('\n'),
+      'packages/a/src/parcelWalk.ts': [
+        'export function ringArea(ring: LL[], mx: number, my: number) {',
+        '  let acc = 0;',
+        '  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {',
+        '    const xi = ring[i]!.lon * mx;',
+        '    const yi = ring[i]!.lat * my;',
+        '    const xj = ring[j]!.lon * mx;',
+        '    const yj = ring[j]!.lat * my;',
+        '    acc += xj * yi - xi * yj;',
+        '  }',
+        '  return Math.abs(acc) / 2;',
+        '}',
+      ].join('\n'),
+      'packages/a/src/trapezoid.ts': [
+        'export function t(pts: P[]) {',
+        '  return pts.reduce((acc, p, i) => {',
+        '    const next = pts[(i + 1) % pts.length]!;',
+        '    return acc + (next.x - p.x) * (next.y + p.y);',
+        '  }, 0) / 2;',
+        '}',
+      ].join('\n'),
+    });
+    const area = detectPolygonArea(join(base, 'area'), ['packages']);
+    const areaFiles = [...new Set(area.bodies.map((b) => b.file.split('/').pop()))].sort();
+    lines.push(`    AREA detect (accessor / member / parcel-walk / trapezoid): ${area.bodies.length} bod(ies) in [${areaFiles.join(', ')}], ${area.noSuccessor.length} without ring-successor evidence`);
+    for (const want of ['canonicalAccessor.ts', 'members.ts', 'parcelWalk.ts', 'trapezoid.ts']) {
+      if (!areaFiles.some((f) => f === want)) fail(`AREA did not detect the planted shoelace body in ${want} — the signature misses a live spelling${want === 'canonicalAccessor.ts' ? ', and this one is THE CANONICAL BODY: a census that counts every rival but not the implementation they must collapse onto reports a number that flatters the tree' : ''}.`);
+    }
+
+    // ── AREA reject: the four things that are NOT a signed area ─────────────
+    //   1. DOT PRODUCT accumulation — the same shape with `+` instead of `−`.
+    //   2. NON-CYCLIC accumulator — a cross-shaped term summed over unrelated
+    //      indices, with no ring-successor pairing. This is what condition 3
+    //      exists for; without it the census would swallow every weighted
+    //      difference-of-products sum in the tree.
+    //   3. SEGMENT/SEGMENT — the identical 2D cross, DIVIDED BY rather than
+    //      accumulated. Both remaining families are built on this one cross, so
+    //      each arm must prove it rejects the other's fixture or the two
+    //      censuses double-count and one fix reads as two wins (§3.5).
+    //   4. a plain product sum with no subtraction at all.
+    writeTree(join(base, 'areareject'), {
+      'packages/b/src/dot.ts': [
+        'export function d(a: V[], b: V[]) {',
+        '  let dot = 0;',
+        '  for (let i = 0; i < a.length; i++) {',
+        '    const p = a[i]!, q = b[(i + 1) % b.length]!;',
+        '    dot += p.x * q.x + p.z * q.z;',
+        '  }',
+        '  return dot;',
+        '}',
+      ].join('\n'),
+      'packages/b/src/energy.ts': [
+        'export function e(w: number[], v: number[], c: number[], d: number[]) {',
+        '  let sum = 0;',
+        '  for (let i = 0; i < w.length; i++) {',
+        '    sum += w[i]! * v[i]! - c[i]! * d[i]!;',
+        '  }',
+        '  return sum;',
+        '}',
+      ].join('\n'),
+      'packages/b/src/segsolve.ts': [
+        'export function g(r: V, s: V, qp: V) {',
+        '  const denom = r.x * s.z - r.z * s.x;',
+        '  if (Math.abs(denom) < 1e-9) return null;',
+        '  const t = (qp.x * s.z - qp.z * s.x) / denom;',
+        '  const u = (qp.x * r.z - qp.z * r.x) / denom;',
+        '  return { t, u };',
+        '}',
+      ].join('\n'),
+    });
+    const areaRej = detectPolygonArea(join(base, 'areareject'), ['packages']);
+    lines.push(`    AREA reject (dot product / non-cyclic sum / segment solve): ${areaRej.bodies.length} counted — expected 0`);
+    if (areaRej.bodies.some((b) => b.file.endsWith('dot.ts'))) fail('AREA counted a DOT PRODUCT accumulation as a signed area — the accumulated term must be a CROSS (minus), and a sign error here silently inflates the census with every dot-product sum in the tree.');
+    if (areaRej.bodies.some((b) => b.file.endsWith('energy.ts'))) fail('AREA counted a NON-CYCLIC accumulator (cross-shaped term, no ring-successor pairing) — condition 3 is what makes a bare `+=` a trustworthy signature, and without it this census is not a tally of polygon areas.');
+    if (areaRej.bodies.some((b) => b.file.endsWith('segsolve.ts'))) fail('AREA counted a SEGMENT/SEGMENT solve as a signed area — the two families share the same 2D cross and differ only in divide-vs-accumulate; merging them double-counts every body in both and makes one fix read as two wins.');
+
+    // ── AREA zero: the zero reading must be reachable ───────────────────────
+    const areaClean = detectPolygonArea(join(base, 'clean'), ['packages']);
+    lines.push(`    AREA zero (a tree with no accumulation): ${areaClean.bodies.length} bod(ies) — expected 0`);
+    if (areaClean.bodies.length !== 0) fail('AREA counted a body in a tree containing none — the zero reading is unreachable, so the census cannot be trusted (C73 §7.k).');
+
+    // ── Cross-family: the SEGSEG arm must reject the AREA fixtures too ──────
+    const segOnArea = detectSegmentIntersection(join(base, 'area'), ['packages']);
+    lines.push(`    CROSS-FAMILY (SEGSEG run over the AREA fixtures): ${segOnArea.bodies.length} bod(ies) — expected 0`);
+    if (segOnArea.bodies.length !== 0) fail('The SEGSEG arm counted the AREA fixtures — the two censuses overlap, so a body would be counted under both family names and the ratchets would move together for one fix (C73 §3.5, the polygon-containment argument applied here).');
   } catch (e) {
     ok = false; lines.push(`    ✗ self-test threw: ${(e as Error).message}`);
   } finally {
@@ -886,6 +1101,14 @@ const segProduction = segAll.bodies.filter((b) => !b.isTest);
 const segRivals = segProduction.filter((b) => b.file !== SEGSEG_CANONICAL);
 const segCanonical = segProduction.filter((b) => b.file === SEGSEG_CANONICAL);
 const segLineLine = segAll.lineLine.filter((b) => !b.isTest);
+
+// ─── The polygon-area CENSUS (measured, printed, recorded — NOT ratcheted) ────
+const AREA_CANONICAL = 'packages/geometry-kernel/src/pure/polygonOffset.ts';
+const areaAll = detectPolygonArea(ROOT, DIRS);
+const areaProduction = areaAll.bodies.filter((b) => !b.isTest);
+const areaRivals = areaProduction.filter((b) => b.file !== AREA_CANONICAL);
+const areaCanonical = areaProduction.filter((b) => b.file === AREA_CANONICAL);
+const areaNoSucc = areaAll.noSuccessor.filter((b) => !b.isTest);
 const bodies = detected.bodies.filter((b) => !excluded.has(b.file));
 const production = bodies.filter((b) => !b.isTest);
 // C3 runs over ALL production bodies INCLUDING the canonical file, so a rival
@@ -921,6 +1144,11 @@ if (WRITE) {
         production: segRivals.length,
         test: segAll.bodies.filter((b) => b.isTest).length,
         bodies: segRivals.map((b) => `${b.file}:${b.line}::${b.form}`),
+      },
+      'polygon-area-and-winding': {
+        production: areaRivals.length,
+        test: areaAll.bodies.filter((b) => b.isTest).length,
+        bodies: areaRivals.map((b) => `${b.file}:${b.line}::${b.form}`),
       },
     },
   };
@@ -1041,6 +1269,50 @@ lines.push(
   'defeats. Declared, not counted, not pretended away.',
 );
 lines.push('');
+const priorArea = prior.census?.['polygon-area-and-winding'];
+const areaByFile = new Map<string, number>();
+for (const b of areaRivals) areaByFile.set(b.file, (areaByFile.get(b.file) ?? 0) + 1);
+lines.push(
+  `CENSUS  polygon-area-and-winding — ${areaRivals.length} production rival bod(ies) across ${areaByFile.size} file(s)` +
+  (priorArea ? ` (recorded ${priorArea.production})` : ' (not yet recorded)') +
+  `, + ${areaCanonical.length} in the canonical file ${AREA_CANONICAL}, ` +
+  `+ ${areaAll.bodies.filter((b) => b.isTest).length} in tests. ` +
+  `Forms: ${areaRivals.filter((b) => b.form === 'shoelace').length} shoelace cross, ` +
+  `${areaRivals.filter((b) => b.form === 'trapezoid').length} trapezoid.`,
+);
+lines.push(
+  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT — same standing as the segment/segment census above: these ' +
+  'bodies contribute NO findings, so the CLEAN/hard-0 verdict covers point-in-polygon ONLY. This is the ' +
+  'largest family in §3.1 and it is nowhere near collapsed.',
+);
+lines.push(
+  '        THE BLOCKER THE REGISTER NAMED IS REAL AND IS DISCHARGED BY THREE CONDITIONS, NOT BY THE `+=`: a ' +
+  'bare `+=` over a cross product over-matches, so a body counts only when (1) the accumulated term is a 2D ' +
+  'CROSS — rejecting dot-product sums, which differ by one sign; (2) it is ACCUMULATED, not DIVIDED BY — ' +
+  'segment/segment is built on the identical cross, and both arms carry an executed control proving they ' +
+  'reject each other\'s fixtures, without which one fix would read as two wins; and (3) it accumulates over ' +
+  'RING-SUCCESSOR pairs — rejecting energy sums and every non-cyclic accumulator. All three run as executed ' +
+  'controls on every invocation.',
+);
+for (const [file, n] of [...areaByFile.entries()].sort()) lines.push(`        · ${file}  (${n} bod${n === 1 ? 'y' : 'ies'})`);
+if (priorArea) {
+  const now = new Set(areaRivals.map((b) => `${b.file}:${b.line}::${b.form}`));
+  const grew = [...now].filter((k) => !priorArea.bodies.includes(k));
+  const left = priorArea.bodies.filter((k) => !now.has(k));
+  if (grew.length) lines.push(`        + ${grew.length} NEW since the recorded census: ${grew.slice(0, 8).join(' · ')}`);
+  if (left.length) lines.push(`        − ${left.length} GONE since the recorded census (rebaseline to bank it): ${left.slice(0, 8).join(' · ')}`);
+}
+if (areaNoSucc.length) {
+  lines.push(
+    `        ${areaNoSucc.length} cross-shaped accumulation(s) with NO ring-successor evidence — NOT counted, ` +
+    'printed so the recipe\'s one judgement call stays auditable: each is either a genuine shoelace whose ' +
+    'pairing sits outside the 8-line lookback (an UNDERCOUNT, the direction that flatters the tree) or a ' +
+    'non-cyclic accumulator correctly rejected. A reviewer can settle each by reading it; a silent filter ' +
+    'could not be settled at all.',
+  );
+  for (const b of areaNoSucc.slice(0, 12)) lines.push(`        · (no-successor) ${b.file}:${b.line}  ${b.text}`);
+}
+lines.push('');
 lines.push(`C3  ${disagreements.length} file(s) holding the SAME family twice with DIFFERENT degenerate-divide guards (C73 §2.4).`);
 for (const d of disagreements) lines.push(`      ✗ ${d}`);
 lines.push('');
@@ -1089,6 +1361,7 @@ const floors: Floor[] = [
   // exactly when the detector breaks. It is deliberately NOT a floor on the
   // rival count, which IS what the family exists to drive to zero.
   { what: 'segment/segment bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: segCanonical.length, min: 1 },
+  { what: 'polygon-area bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: areaCanonical.length, min: 1 },
 ];
 
 // c2Integrity is HARD — it is never part of `declared`, so any integrity
