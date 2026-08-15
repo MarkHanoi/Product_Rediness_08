@@ -153,8 +153,23 @@ const ANON_ELEMENT = '_anon';
  */
 const DEFAULT_OCCLUSION_DEPTH_MARGIN = 0.05;
 
-/** Numeric slop (drawing units ≈ m) for de-duplicating split boundaries along an edge. */
-const SPLIT_T_EPS = 1e-6;
+/**
+ * Numeric slop for de-duplicating split boundaries along an edge.
+ *
+ * §C73 §2.3 — was `SPLIT_T_EPS`, documented as "drawing units ≈ m". **That was
+ * wrong, and the rename fixes the statement as well as the name.** Both uses
+ * compare a PARAMETRIC `t` along the edge (`t > this && t < 1 - this`, and
+ * `t1 - prevT <= this`), so the quantity is a dimensionless fraction of the
+ * edge — not a metre. A 1e-6 slop therefore means "within one millionth of the
+ * edge's own length", which scales with the edge; reading it as 1 µm would be a
+ * different (and, on a 10 m edge, ten-times-looser) test.
+ *
+ * NOT the kernel's `EPSILON_ZERO`: that role is the dimensionless guard for
+ * "is this magnitude zero before I divide by it", and adopting it here would
+ * TIGHTEN this de-duplication 1000× (1e-6 → 1e-9), splitting spans that today
+ * collapse as duplicates. The band stays under its own owner (C73 §2.1).
+ */
+const SPLIT_T_EPS_RATIO = 1e-6;
 
 /**
  * The `userData` key on which `EdgeProjectorService` stamps an element's nearest depth along
@@ -391,7 +406,7 @@ function splitSegmentByOccluders(
                 if (Math.abs(delta) < 1e-12) continue;
                 for (const edge of [min, max]) {
                     const t = (edge - start) / delta;
-                    if (t > SPLIT_T_EPS && t < 1 - SPLIT_T_EPS) bounds.push(t);
+                    if (t > SPLIT_T_EPS_RATIO && t < 1 - SPLIT_T_EPS_RATIO) bounds.push(t);
                 }
             }
         }
@@ -403,7 +418,7 @@ function splitSegmentByOccluders(
     let prevT = bounds[0];
     for (let i = 1; i < bounds.length; i++) {
         const t1 = bounds[i];
-        if (t1 - prevT <= SPLIT_T_EPS) continue; // collapse duplicate / zero-width
+        if (t1 - prevT <= SPLIT_T_EPS_RATIO) continue; // collapse duplicate / zero-width
         const tm = (prevT + t1) / 2;
         const px = ax + (bx - ax) * tm;
         const pz = az + (bz - az) * tm;

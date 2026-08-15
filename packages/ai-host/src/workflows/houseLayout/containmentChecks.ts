@@ -10,16 +10,20 @@
 //
 // PURE + DETERMINISTIC L2 — no stores, no DOM, no THREE.
 
-import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+import { EPSILON_ZERO, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 
 export interface XZ { readonly x: number; readonly z: number }
 
-const EPS = 1e-9;
+// §C73-EPSILON-POLICY — the private `const EPS = 1e-9` that stood here is DELETED,
+// not aliased. Both uses are degenerate-arithmetic guards (a zero-length segment
+// before the projection divide, a zero-length edge before normalising), which is
+// precisely the question the kernel's `EPSILON_ZERO` answers. The kernel value IS
+// 1e-9 — byte-identical to the literal removed — so every verdict here is unchanged.
 
 function nearestOnSeg(p: XZ, a: XZ, b: XZ): { pt: XZ; dist: number } {
     const ex = b.x - a.x, ez = b.z - a.z;
     const L2 = ex * ex + ez * ez;
-    if (L2 < EPS) return { pt: { x: a.x, z: a.z }, dist: Math.hypot(p.x - a.x, p.z - a.z) };
+    if (L2 < EPSILON_ZERO) return { pt: { x: a.x, z: a.z }, dist: Math.hypot(p.x - a.x, p.z - a.z) };
     let t = ((p.x - a.x) * ex + (p.z - a.z) * ez) / L2;
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     const pt = { x: a.x + t * ex, z: a.z + t * ez };
@@ -149,7 +153,7 @@ export function checkWindowCornerOverflow(
         const seg = segById.get(w.hostWallId);
         if (!seg) continue;                                   // unknown host → not this check's job
         const len = Math.hypot(seg.end.x - seg.start.x, seg.end.z - seg.start.z);
-        if (len < EPS) continue;
+        if (len < EPSILON_ZERO) continue;
         const half = w.widthM / 2;
         const lo = w.offsetM - half;                          // run start, from wall start
         const hi = w.offsetM + half;                          // run end

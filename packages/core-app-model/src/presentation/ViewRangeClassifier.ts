@@ -29,7 +29,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { computeBoundsTree } from 'three-mesh-bvh';
-import { classificationCacheKey, EPSILON, type ViewRangeHashInput } from '../drawing/DrawingConstants.js';
+import { classificationCacheKey, GEOMETRIC_EPSILON_M, type ViewRangeHashInput } from '../drawing/DrawingConstants.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ function queryMeshSlab(mesh: THREE.Mesh, minY: number, maxY: number, extent: THR
         }
     }
     if (!geometry.boundsTree) return null;
-    const pad = Math.max(EPSILON, 1e-4);
+    const pad = Math.max(GEOMETRIC_EPSILON_M, 1e-4);
     _tmpSlabBox.min.set(extent.min.x - pad, minY, extent.min.z - pad);
     _tmpSlabBox.max.set(extent.max.x + pad, maxY, extent.max.z + pad);
     _tmpMatrix.copy(mesh.matrixWorld).invert();
@@ -165,7 +165,7 @@ export function classifyElement(
     }
 
     if (meshes.length > 0) {
-        const cutHit = intersectsAnyMesh(meshes, cutY - EPSILON, cutY + EPSILON, extent);
+        const cutHit = intersectsAnyMesh(meshes, cutY - GEOMETRIC_EPSILON_M, cutY + GEOMETRIC_EPSILON_M, extent);
         if (cutHit === true) {
             _classificationCache.set(cacheKey, 'CUT');
             return 'CUT';

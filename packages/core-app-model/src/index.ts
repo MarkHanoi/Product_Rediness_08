@@ -27,7 +27,7 @@
 
 export type { ViewRangeHashInput } from './drawing/DrawingConstants.js';
 export {
-    EPSILON, SNAP_TOLERANCE, COLLINEAR_ANGLE,
+    GEOMETRIC_EPSILON_M, SNAP_TOLERANCE_M, COLLINEAR_ANGLE,
     SCREEN_DPI, EXPORT_DPI, MM_PER_INCH, SCREEN_PX_PER_MM,
     pxPerMm, hashViewRange, hashMatrix4, classificationCacheKey, styleResolverCacheKey,
 } from './drawing/DrawingConstants.js';
@@ -537,7 +537,7 @@ export { LevelClipPlaneCache, levelClipPlaneCache } from './views/LevelClipPlane
 export type { DrawingBounds } from './views/TechnicalDrawingBounds.js';
 export { TechnicalDrawingBounds } from './views/TechnicalDrawingBounds.js';
 export { OrthoPlanCameraLockController } from './views/OrthoPlanCameraLockController.js';
-export { DEFAULT_SNAP_PIXEL_RADIUS, MIN_WORLD_TOLERANCE, MAX_WORLD_TOLERANCE, LEGACY_FALLBACK_TOLERANCE, getWorldToleranceForPixels, getWorldToleranceForActiveCamera } from './views/CameraToleranceService.js';
+export { DEFAULT_SNAP_PIXEL_RADIUS, MIN_WORLD_TOLERANCE_M, MAX_WORLD_TOLERANCE_M, LEGACY_FALLBACK_TOLERANCE_M, getWorldToleranceForPixels, getWorldToleranceForActiveCamera } from './views/CameraToleranceService.js';
 export type { ToleranceOptions } from './views/CameraToleranceService.js';
 export { ViewCameraStateStore } from './views/ViewCameraStateStore.js';
 export type { ActivePlanDrawingRef } from './views/ActivePlanDrawingRef.js';

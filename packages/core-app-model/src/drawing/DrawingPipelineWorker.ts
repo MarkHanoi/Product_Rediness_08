@@ -35,8 +35,13 @@ import type {
 
 // ─── Locked constants (Contract 23 §1.4) ─────────────────────────────────────
 
-const EPSILON           = 1e-6;
-const SNAP_TOLERANCE    = 0.005;   // 5 mm — polygon stitching snap grid
+// §C73 §2.3 — both were unit-unqualified (`EPSILON` / `SNAP_TOLERANCE`); both are
+// MODEL-SPACE METRES, the same drawing frame the `h`/`v` positions live in.
+// `EDGE_LENGTH_EPSILON_M` drops sub-micrometre segments before they enter the edge
+// list (`dh² + dv² < this²`); `SNAP_TOLERANCE_M` quantises the stitching key.
+// Kept mirrored, name for name, with DrawingConstants.ts (Contract 23 §1.4).
+const EDGE_LENGTH_EPSILON_M = 1e-6;
+const SNAP_TOLERANCE_M      = 0.005;   // 5 mm — polygon stitching snap grid
 
 // ─── Inline pen table (Contract 23 §8, locked values) ────────────────────────
 //
@@ -189,7 +194,7 @@ function stage1_geometryProvider(batches: PipelineElementBatch[]): RawEdge[] {
 
             const dh = h1 - h0;
             const dv = v1 - v0;
-            if (dh * dh + dv * dv < EPSILON * EPSILON) continue;
+            if (dh * dh + dv * dv < EDGE_LENGTH_EPSILON_M * EDGE_LENGTH_EPSILON_M) continue;
 
             edges.push({ h0, v0, h1, v1, elementId: batch.elementId, layerTag: batch.layerTag, zone, category });
         }
@@ -248,7 +253,7 @@ interface PolyGroup {
 }
 
 function snapKey(h: number, v: number): string {
-    return `${Math.round(h / SNAP_TOLERANCE)},${Math.round(v / SNAP_TOLERANCE)}`;
+    return `${Math.round(h / SNAP_TOLERANCE_M)},${Math.round(v / SNAP_TOLERANCE_M)}`;
 }
 
 function stitchPolygon(edges: RawEdge[]): number[][] {

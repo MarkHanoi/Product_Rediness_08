@@ -8,8 +8,8 @@
 export type { ViewRangeHashInput } from './DrawingConstants.js';
 
 export {
-    EPSILON,
-    SNAP_TOLERANCE,
+    GEOMETRIC_EPSILON_M,
+    SNAP_TOLERANCE_M,
     COLLINEAR_ANGLE,
     SCREEN_DPI,
     EXPORT_DPI,

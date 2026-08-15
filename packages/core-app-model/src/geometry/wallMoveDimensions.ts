@@ -68,7 +68,11 @@ const DEFAULT_MIN_WALL_LENGTH_M = 0.05;
  * gap) when its off-axis extent is within this fraction of its on-axis extent.
  * ~5.7° of skew — same tolerance as the draw-time `setOutDimensions.ts`.
  */
-const AXIS_ALIGNED_TOL = 0.1;
+// §C73 §2.3 — was `AXIS_ALIGNED_TOL`, which reads as 0.1 m to anyone who has not
+// opened the call sites. It is a RATIO: both uses are `offAxis <= this * onAxis`,
+// so the number is a slope (≈5.7° of skew), scale-free, and a metre reading would
+// be a category error — on a 6 m wall it would be 60× stricter than intended.
+const AXIS_ALIGNED_TOL_RATIO = 0.1;
 
 /**
  * The moving wall's OWN axis must clearly dominate for the perpendicular gap to
@@ -164,7 +168,7 @@ export function computeWallMoveDimensions(
         if (axis === 'x') {
             // Moving wall is HORIZONTAL (runs along X). Parallel neighbour is
             // near-horizontal (runs along X); gap runs along Z.
-            if (!(adx > minLen && adz <= AXIS_ALIGNED_TOL * adx)) continue;
+            if (!(adx > minLen && adz <= AXIS_ALIGNED_TOL_RATIO * adx)) continue;
             const loX = Math.min(seg.a.x, seg.b.x);
             const hiX = Math.max(seg.a.x, seg.b.x);
             // The moving wall's midpoint must project onto the neighbour's X span.
@@ -188,7 +192,7 @@ export function computeWallMoveDimensions(
         } else {
             // Moving wall is VERTICAL (runs along Z). Parallel neighbour is
             // near-vertical (runs along Z); gap runs along X.
-            if (!(adz > minLen && adx <= AXIS_ALIGNED_TOL * adz)) continue;
+            if (!(adz > minLen && adx <= AXIS_ALIGNED_TOL_RATIO * adz)) continue;
             const loZ = Math.min(seg.a.z, seg.b.z);
             const hiZ = Math.max(seg.a.z, seg.b.z);
             if (mid.z < loZ || mid.z > hiZ) continue;

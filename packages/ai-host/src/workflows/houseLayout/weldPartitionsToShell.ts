@@ -24,7 +24,7 @@
 // HouseLayoutExecutor calls this over the GROUND interior partitions + the gathered
 // (pre-drawn) shell walls, then dispatches the welded partitions.
 
-import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+import { EPSILON_ZERO, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 
 export interface XZ { readonly x: number; readonly z: number }
 
@@ -104,7 +104,14 @@ const SHELL_SNAP_SPAN_MARGIN_M = 0.10;
 // never fuse, line ~188) + the min-length drop both remain.
 const DEFAULT_PARTITION_WELD_M = 0.50;
 const DEFAULT_GRID_M = 0.001;
-const EPS = 1e-9;
+// §C73-EPSILON-POLICY — the private `const EPS = 1e-9` that stood here is DELETED,
+// not aliased. Every use is a degenerate-length guard before a divide (`s.len`,
+// `L2`, `oLen`/`wLen` — all "is this segment long enough to have a direction?"),
+// which is exactly the kernel's numeric-zero role. `EPSILON_ZERO` IS 1e-9 —
+// byte-identical to the literal removed — so no weld decision changes. Note this
+// file's OTHER tolerances (DEFAULT_PARTITION_WELD_M 0.50 m, TJUNC_SNAP_TOL_M
+// 0.30 m, DEFAULT_GRID_M 0.001 m) are DOMAIN BANDS with their own argued
+// derivations above and must NOT be folded onto a kernel role (C73 §2.1).
 
 // §WELD-NO-ROTATE (2026-06-15) — a welded partition's heading may deviate from its
 // ORIGINAL drawn heading by at most ~8° before the direction-preservation guard
@@ -129,13 +136,13 @@ interface UnitSeg { readonly ax: number; readonly az: number; readonly ux: numbe
 function unitSeg(a: XZ, b: XZ): UnitSeg {
     const dx = b.x - a.x, dz = b.z - a.z;
     const len = Math.hypot(dx, dz);
-    if (len < EPS) return { ax: a.x, az: a.z, ux: 1, uz: 0, len: 0 };
+    if (len < EPSILON_ZERO) return { ax: a.x, az: a.z, ux: 1, uz: 0, len: 0 };
     return { ax: a.x, az: a.z, ux: dx / len, uz: dz / len, len };
 }
 
 /** Closest point on segment `s` to `p`, plus the perpendicular distance + along param. */
 function closestOnSeg(p: XZ, s: UnitSeg): { x: number; z: number; perp: number; along: number } {
-    if (s.len < EPS) return { x: s.ax, z: s.az, perp: Math.hypot(p.x - s.ax, p.z - s.az), along: 0 };
+    if (s.len < EPSILON_ZERO) return { x: s.ax, z: s.az, perp: Math.hypot(p.x - s.ax, p.z - s.az), along: 0 };
     const rx = p.x - s.ax, rz = p.z - s.az;
     const t = Math.max(0, Math.min(s.len, rx * s.ux + rz * s.uz));
     const cx = s.ax + s.ux * t, cz = s.az + s.uz * t;
@@ -199,7 +206,7 @@ export function weldPartitionsToShell(
         let bestPerp = shellSnapTolM;
         let best: { x: number; z: number } | null = null;
         for (const s of shellSegs) {
-            if (s.len < EPS) continue;
+            if (s.len < EPSILON_ZERO) continue;
             const c = closestOnSeg(ep, s);
             // Span-interior guard: reject near-corner feet so we don't drag a far
             // interior endpoint onto a shell wall's extreme end.
@@ -238,7 +245,7 @@ export function weldPartitionsToShell(
         for (let q = 0; q < spanSegs.length; q++) {
             if (q === ownPart) continue;                 // never snap onto its own span
             const s = spanSegs[q]!;
-            if (s.len < EPS) continue;
+            if (s.len < EPSILON_ZERO) continue;
             const c = closestOnSeg(eps[i]!, s);
             // Genuine T-junction: perpendicular hit strictly INSIDE the host span.
             if (c.perp < bestPerp && c.along > TJUNC_MARGIN_M && c.along < s.len - TJUNC_MARGIN_M) {
@@ -338,7 +345,7 @@ export function weldPartitionsToShell(
         const oS = partitions[i]!.start, oE = partitions[i]!.end;   // ORIGINAL (un-welded)
         const oLen = Math.hypot(oE.x - oS.x, oE.z - oS.z);
         const wLen = Math.hypot(b.x - a.x, b.z - a.z);
-        if (oLen < EPS || wLen < EPS) continue;                     // degenerate → leave to Pass 3
+        if (oLen < EPSILON_ZERO || wLen < EPSILON_ZERO) continue;                     // degenerate → leave to Pass 3
         // Original + welded unit headings (start→end).
         const odx = (oE.x - oS.x) / oLen, odz = (oE.z - oS.z) / oLen;
         const wdx = (b.x - a.x) / wLen, wdz = (b.z - a.z) / wLen;
@@ -376,7 +383,7 @@ export function weldPartitionsToShell(
 function nearestOnSeg(p: XZ, a: XZ, b: XZ): { pt: XZ; dist: number } {
     const ex = b.x - a.x, ez = b.z - a.z;
     const L2 = ex * ex + ez * ez;
-    if (L2 < EPS) return { pt: { x: a.x, z: a.z }, dist: Math.hypot(p.x - a.x, p.z - a.z) };
+    if (L2 < EPSILON_ZERO) return { pt: { x: a.x, z: a.z }, dist: Math.hypot(p.x - a.x, p.z - a.z) };
     let t = ((p.x - a.x) * ex + (p.z - a.z) * ez) / L2;
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     const pt = { x: a.x + t * ex, z: a.z + t * ez };

@@ -29,19 +29,32 @@ import * as THREE from '@pryzm/renderer-three/three';
 /** Default pixel-radius the snap visualisation draws around the cursor. */
 export const DEFAULT_SNAP_PIXEL_RADIUS = 8;
 
-/** Lower clamp — must be ≥ wall MIN_WALL_LENGTH so joins never disappear. */
-export const MIN_WORLD_TOLERANCE = 0.05;
+// §C73 §2.3 — all three gained an `_M`. They were `MIN_WORLD_TOLERANCE` /
+// `MAX_WORLD_TOLERANCE` / `LEGACY_FALLBACK_TOLERANCE`, and the unit was stated
+// only inside the `ToleranceOptions` JSDoc two screens below — a real hazard in
+// a module whose OTHER exported constant (`DEFAULT_SNAP_PIXEL_RADIUS`) is in
+// PIXELS. This module converts pixels → world metres; the names now say which
+// side of that conversion each value lives on.
+//
+// None adopts a kernel role: these are DOMAIN BANDS for a zoom-dependent snap
+// radius (C73 §2.1), not identity tests. Folding the lower clamp onto
+// `COINCIDENT_M` would TIGHTEN it 50× (0.05 m → 0.001 m), taking the clamp
+// below the wall MIN_WALL_LENGTH it exists to protect, and joins would start
+// disappearing at zoom-in — precisely the failure the comment below names.
 
-/** Upper clamp — prevents extreme zoom-out from creating phantom junctions. */
-export const MAX_WORLD_TOLERANCE = 1.0;
+/** Lower clamp, METRES — must be ≥ wall MIN_WALL_LENGTH so joins never disappear. */
+export const MIN_WORLD_TOLERANCE_M = 0.05;
 
-/** Fallback used when no orthographic camera or canvas is available. */
-export const LEGACY_FALLBACK_TOLERANCE = 0.5;
+/** Upper clamp, METRES — prevents extreme zoom-out from creating phantom junctions. */
+export const MAX_WORLD_TOLERANCE_M = 1.0;
+
+/** Fallback, METRES, used when no orthographic camera or canvas is available. */
+export const LEGACY_FALLBACK_TOLERANCE_M = 0.5;
 
 export interface ToleranceOptions {
-    /** Lower clamp in metres. Default {@link MIN_WORLD_TOLERANCE}. */
+    /** Lower clamp in metres. Default {@link MIN_WORLD_TOLERANCE_M}. */
     min?: number;
-    /** Upper clamp in metres. Default {@link MAX_WORLD_TOLERANCE}. */
+    /** Upper clamp in metres. Default {@link MAX_WORLD_TOLERANCE_M}. */
     max?: number;
 }
 
@@ -60,21 +73,21 @@ export function getWorldToleranceForPixels(
     canvas: HTMLCanvasElement | null | undefined,
     opts?: ToleranceOptions,
 ): number {
-    const min = opts?.min ?? MIN_WORLD_TOLERANCE;
-    const max = opts?.max ?? MAX_WORLD_TOLERANCE;
+    const min = opts?.min ?? MIN_WORLD_TOLERANCE_M;
+    const max = opts?.max ?? MAX_WORLD_TOLERANCE_M;
 
     if (!camera || !canvas) {
-        return clamp(LEGACY_FALLBACK_TOLERANCE, min, max);
+        return clamp(LEGACY_FALLBACK_TOLERANCE_M, min, max);
     }
 
     const canvasWidth = canvas.clientWidth > 0 ? canvas.clientWidth : canvas.width;
     if (!canvasWidth || canvasWidth <= 0) {
-        return clamp(LEGACY_FALLBACK_TOLERANCE, min, max);
+        return clamp(LEGACY_FALLBACK_TOLERANCE_M, min, max);
     }
 
     const viewWidth = (camera.right - camera.left) / Math.max(camera.zoom, 0.001);
     if (!Number.isFinite(viewWidth) || viewWidth === 0) {
-        return clamp(LEGACY_FALLBACK_TOLERANCE, min, max);
+        return clamp(LEGACY_FALLBACK_TOLERANCE_M, min, max);
     }
 
     const worldRadius = (pixelRadius * Math.abs(viewWidth)) / canvasWidth;
@@ -95,9 +108,9 @@ export function getWorldToleranceForActiveCamera(
     if (camera instanceof THREE.OrthographicCamera) {
         return getWorldToleranceForPixels(pixelRadius, camera, canvas, opts);
     }
-    const min = opts?.min ?? MIN_WORLD_TOLERANCE;
-    const max = opts?.max ?? MAX_WORLD_TOLERANCE;
-    return clamp(LEGACY_FALLBACK_TOLERANCE, min, max);
+    const min = opts?.min ?? MIN_WORLD_TOLERANCE_M;
+    const max = opts?.max ?? MAX_WORLD_TOLERANCE_M;
+    return clamp(LEGACY_FALLBACK_TOLERANCE_M, min, max);
 }
 
 function clamp(value: number, min: number, max: number): number {

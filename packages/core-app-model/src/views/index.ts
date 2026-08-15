@@ -100,8 +100,8 @@ export { TechnicalDrawingBounds } from './TechnicalDrawingBounds.js';
 export { OrthoPlanCameraLockController } from './OrthoPlanCameraLockController.js';
 
 export {
-    DEFAULT_SNAP_PIXEL_RADIUS, MIN_WORLD_TOLERANCE, MAX_WORLD_TOLERANCE,
-    LEGACY_FALLBACK_TOLERANCE, getWorldToleranceForPixels, getWorldToleranceForActiveCamera,
+    DEFAULT_SNAP_PIXEL_RADIUS, MIN_WORLD_TOLERANCE_M, MAX_WORLD_TOLERANCE_M,
+    LEGACY_FALLBACK_TOLERANCE_M, getWorldToleranceForPixels, getWorldToleranceForActiveCamera,
 } from './CameraToleranceService.js';
 export type { ToleranceOptions } from './CameraToleranceService.js';
 

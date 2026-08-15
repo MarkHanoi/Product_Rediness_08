@@ -14,14 +14,24 @@ import * as THREE from '@pryzm/renderer-three/three';
 
 // ─── Tolerance constants ────────────────────────────────────────────────────
 
-/** Floating-point comparison epsilon. Used in geometric tests. */
-export const EPSILON = 1e-6;
+/**
+ * §C73 §2.3 — was `EPSILON`, which stated no unit while every production use is
+ * MODEL-SPACE METRES: `ViewRangeClassifier` pads the cut plane with it
+ * (`cutY ± this`, world Y in metres) and floors its own pad at it. 1e-6 m = 1 µm.
+ * NOT the kernel's dimensionless `EPSILON_ZERO` — this is a metre band, and the
+ * kernel role is six orders tighter besides.
+ */
+export const GEOMETRIC_EPSILON_M = 1e-6;
 
 /**
  * Polygon stitching snap tolerance in metres (5 mm).
  * Segment endpoints within this distance are merged into one vertex.
+ *
+ * §C73 §2.3 — was `SNAP_TOLERANCE`; the unit was stated only in prose. It is a
+ * DOMAIN BAND (a stitching snap grid), not an identity test, so per C73 §2.1 it
+ * stays under its own owner and is NOT folded onto `COINCIDENT_M`.
  */
-export const SNAP_TOLERANCE = 0.005;
+export const SNAP_TOLERANCE_M = 0.005;
 
 /**
  * Dot-product threshold for declaring two edge directions collinear.

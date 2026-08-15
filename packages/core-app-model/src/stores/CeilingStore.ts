@@ -21,7 +21,14 @@ import { DOMEventBus } from '@pryzm/event-bus';
 
 const _bus = new DOMEventBus();
 
-const LAYER_THICKNESS_TOLERANCE = 0.0001; // 0.1 mm
+// §C73 §2.3 — was `LAYER_THICKNESS_TOLERANCE`; the unit lived only in the trailing
+// comment. Both uses compare `|Σ layerThickness − boundary.thickness|`, metres, so
+// `_M` states what the number already meant: 0.1 mm of accumulated float slop is
+// allowed before a ceiling's layer stack is declared inconsistent with its total.
+// NOT `COINCIDENT_M` (0.001 m): adopting the kernel role would WIDEN this 10×,
+// admitting a 1 mm build-up mismatch as "consistent" — and it is a layer-sum
+// reconciliation, not a "same point" test (C73 §2.1).
+const LAYER_THICKNESS_TOLERANCE_M = 0.0001; // 0.1 mm
 
 /** Deep-freeze a CeilingData and all nested mutable structures. */
 function freezeCeilingData(ceiling: CeilingData): CeilingData {
@@ -104,7 +111,7 @@ export class CeilingStore {
     // Thickness coherence — auto-correct from layer sum.
     if (clone.layers && clone.layers.length > 0) {
       const layerSum = clone.layers.reduce((s, l) => s + l.thickness, 0);
-      if (Math.abs(layerSum - clone.boundary.thickness) > LAYER_THICKNESS_TOLERANCE) {
+      if (Math.abs(layerSum - clone.boundary.thickness) > LAYER_THICKNESS_TOLERANCE_M) {
         console.warn(
           `[CeilingStore.add] §R-9: boundary.thickness (${clone.boundary.thickness}) ` +
           `differs from layer sum (${layerSum.toFixed(4)}). Auto-correcting.`
@@ -197,7 +204,7 @@ export class CeilingStore {
       // Re-check layer thickness coherence.
       if (clone.layers && clone.layers.length > 0) {
         const layerSum = clone.layers.reduce((s, l) => s + l.thickness, 0);
-        if (Math.abs(layerSum - clone.boundary.thickness) > LAYER_THICKNESS_TOLERANCE) {
+        if (Math.abs(layerSum - clone.boundary.thickness) > LAYER_THICKNESS_TOLERANCE_M) {
           clone.boundary.thickness = layerSum;
         }
       }

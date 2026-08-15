@@ -58,7 +58,7 @@
 // PURE + DETERMINISTIC: zero THREE / Cesium / DOM, no Date.now, no Math.random.
 // Same inputs → byte-identical outputs (the grid + sample order are deterministic).
 
-import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+import { EPSILON_ZERO, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type {
     BuildingDaylightResult,
     DaylightOptions,
@@ -71,7 +71,12 @@ import type {
 } from './types.js';
 
 const DEG = Math.PI / 180;
-const EPS = 1e-9;
+// §C73-EPSILON-POLICY — the private `const EPS = 1e-9` that used to sit here is
+// DELETED, not aliased: every use below is a degenerate-arithmetic guard (zero
+// length, zero normal, vanishing plane denominator, zero distance² before a
+// divide), which is exactly the question the kernel's `EPSILON_ZERO` answers.
+// The kernel value IS 1e-9 — byte-identical to the literal it replaces — so no
+// predicate in this file changes its verdict.
 
 const DEFAULT_GRID_SPACING_M = 0.5;
 const DEFAULT_SAMPLE_HEIGHT_M = 0.0;
@@ -195,13 +200,13 @@ interface ApertureGeom {
 function prepAperture(w: WindowAperture): ApertureGeom | null {
     const d = sub2(w.b, w.a);
     const L = len2(d);
-    if (L < EPS) return null;
+    if (L < EPSILON_ZERO) return null;
     const dir: Pt2 = { x: d.x / L, z: d.z / L };
     const nLen = len2(w.outwardNormal);
-    if (nLen < EPS) return null;
+    if (nLen < EPSILON_ZERO) return null;
     const outward: Pt2 = { x: w.outwardNormal.x / nLen, z: w.outwardNormal.z / nLen };
     const heightM = w.headM - w.sillM;
-    if (heightM <= EPS) return null;
+    if (heightM <= EPSILON_ZERO) return null;
     return {
         a: { x: w.a.x, z: w.a.z }, dir, len: L, outward,
         sillM: w.sillM, headM: w.headM, heightM,
@@ -226,7 +231,7 @@ function apertureContribution(
     // Sun must be on the OUTWARD side of the façade (else the wall faces away).
     const sunHoriz: Pt2 = { x: sun.x, z: sun.z };
     const facing = dot2(sunHoriz, ap.outward);
-    if (facing <= EPS) return 0;
+    if (facing <= EPSILON_ZERO) return 0;
 
     // Plane: points X with (X − a)·outward = 0 (vertical façade plane, XZ normal).
     // Ray: X(s) = P + s·sun (P has Y = pY). Solve for s where horizontal offset
@@ -234,7 +239,7 @@ function apertureContribution(
     const toPlane = dot2(sub2(ap.a, P), ap.outward); // signed distance P→plane along outward
     const denom = facing;                            // sun·outward (XZ) > 0
     const s = toPlane / denom;
-    if (s <= EPS) return 0; // plane is behind the ray origin
+    if (s <= EPSILON_ZERO) return 0; // plane is behind the ray origin
 
     // Hit point.
     const hx = P.x + s * sun.x;
@@ -243,11 +248,11 @@ function apertureContribution(
 
     // Horizontal position along the aperture segment.
     const along = (hx - ap.a.x) * ap.dir.x + (hz - ap.a.z) * ap.dir.z;
-    if (along < -EPS || along > ap.len + EPS) return 0;
+    if (along < -EPSILON_ZERO || along > ap.len + EPSILON_ZERO) return 0;
 
     // Vertical band (relative to the floor datum 0; pY already includes the
     // sample working-plane height).
-    if (hy < ap.sillM - EPS || hy > ap.headM + EPS) return 0;
+    if (hy < ap.sillM - EPSILON_ZERO || hy > ap.headM + EPSILON_ZERO) return 0;
 
     // Self-shadow guard: the horizontal midpoint of P→hit must lie inside the
     // room polygon (a concave wall blocking the grazing path fails this). The
@@ -258,7 +263,7 @@ function apertureContribution(
     // Distance from the sample point to the aperture hit (3-D).
     const dx = hx - P.x, dz = hz - P.z, dy = hy - pY;
     const dist2 = dx * dx + dy * dy + dz * dz;
-    if (dist2 < EPS) return 0;
+    if (dist2 < EPSILON_ZERO) return 0;
 
     // Solid-angle proxy: apertureArea · cos(view) / (π · d²). We fold the view
     // foreshortening (the window seen obliquely subtends less) into `facing`
@@ -269,7 +274,7 @@ function apertureContribution(
     // = sun.y (already the up-component of the unit sun vector). Below horizon
     // (sun.y ≤ 0) contributes nothing.
     const floorCos = sun.y;
-    if (floorCos <= EPS) return 0;
+    if (floorCos <= EPSILON_ZERO) return 0;
 
     return solidAngle * floorCos;
 }
@@ -292,13 +297,13 @@ function diffuseContribution(
     // The point must be on the INTERIOR side of the façade (vector P→centre must
     // point outward, i.e. align with the outward normal).
     const toC: Pt2 = { x: cx - P.x, z: cz - P.z };
-    if (dot2(toC, ap.outward) <= EPS) return 0;
+    if (dot2(toC, ap.outward) <= EPSILON_ZERO) return 0;
     // Self-shadow: the path midpoint must lie inside the room polygon.
     const mid: Pt2 = { x: (P.x + cx) / 2, z: (P.z + cz) / 2 };
     if (!pointInPolygon(mid, poly)) return 0;
     const dx = cx - P.x, dz = cz - P.z, dy = ap.midH; // vertical rise to mid-head
     const dist2 = dx * dx + dy * dy + dz * dz;
-    if (dist2 < EPS) return 0;
+    if (dist2 < EPSILON_ZERO) return 0;
     return (ap.area) / (Math.PI * dist2);
 }
 
@@ -339,7 +344,7 @@ export function computeRoomDaylight(
     const { minX, maxX, minZ, maxZ } = bbox(poly);
     const spanX = Math.max(0, maxX - minX);
     const spanZ = Math.max(0, maxZ - minZ);
-    let step = spacing > EPS ? spacing : DEFAULT_GRID_SPACING_M;
+    let step = spacing > EPSILON_ZERO ? spacing : DEFAULT_GRID_SPACING_M;
     // Cap the grid count: enlarge `step` until nx·nz ≤ maxPts.
     let nx = Math.floor(spanX / step) + 1;
     let nz = Math.floor(spanZ / step) + 1;
@@ -419,14 +424,14 @@ export function computeRoomDaylight(
 
     const sampleCount = points.length;
     const rawPerSample = sampleCount > 0 ? raw / sampleCount : 0;
-    const score = clamp01(rawPerSample / (fullRaw > EPS ? fullRaw : DEFAULT_FULL_DAYLIGHT_RAW_PER_SAMPLE));
+    const score = clamp01(rawPerSample / (fullRaw > EPSILON_ZERO ? fullRaw : DEFAULT_FULL_DAYLIGHT_RAW_PER_SAMPLE));
     const sunlitFraction = totalTests > 0 ? litTests / totalTests : 0;
 
     const windows: WindowContribution[] = apertures.map((_, wi) => ({
         windowIndex: wi,
         label: input.windows[wi]?.label,
         raw: perWindowRaw[wi]!,
-        fraction: raw > EPS ? perWindowRaw[wi]! / raw : 0,
+        fraction: raw > EPSILON_ZERO ? perWindowRaw[wi]! / raw : 0,
     })).sort((p, q) => q.raw - p.raw);
 
     return {
@@ -471,7 +476,7 @@ function centroidOf(poly: ReadonlyArray<Pt2>): Pt2 {
         A += cr; cx += (p.x + q.x) * cr; cz += (p.z + q.z) * cr;
     }
     A *= 0.5;
-    if (Math.abs(A) < EPS) {
+    if (Math.abs(A) < EPSILON_ZERO) {
         // Degenerate — fall back to the vertex mean.
         let sx = 0, sz = 0;
         for (const p of poly) { sx += p.x; sz += p.z; }
