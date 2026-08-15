@@ -272,3 +272,40 @@ describe('misses — not command-shaped, falls through to the LLM tier', () => {
     expect(resolveUtterance('show walls', baseCtx()).kind).toBe('miss');
   });
 });
+
+// §FEAT-CHAT-TOOL-ACTIVATION (L-906) — the placement family. "Create a bed"
+// resolves to the LOCAL 'activateTool' action carrying the RAW noun; the
+// editor bridge resolves it against the element-creation matrix + furniture
+// catalogue and activates the palette's own tool (nothing is created until
+// the user clicks — C83 §4.3). The matcher runs LAST, so every existing
+// creation sentence must keep its owner.
+describe('tier 0 — activate-placement (L-906)', () => {
+  it.each([
+    ['create a bed', 'bed'],
+    ['place a sofa', 'sofa'],
+    ['create slab', 'slab'],
+    ['add a wardrobe', 'wardrobe'],
+    ['put a table', 'table'],
+    ['insert a double bed', 'double bed'],
+  ])('"%s" → local activateTool carrying "%s"', (utterance, ref) => {
+    const r = expectLocal(resolveUtterance(utterance, baseCtx()));
+    expect(r.action).toBe('activateTool');
+    expect(r.intent).toBe('activate-placement');
+    expect(r.placement?.itemRef).toBe(ref);
+  });
+
+  it.each([
+    // Ownership non-theft: each of these belonged to a richer grammar before
+    // the placement matcher existed and must STILL not resolve to it.
+    'add a floor',                             // tier-1 synonym → add-level
+    'add a level at 3m',                       // add-level's own shape
+    'create a wall from (0,0) to (5,0)',       // coordinate wall creation
+    'create a 3 bedroom apartment',            // apartment generation
+    'create a window in every wall segment',   // scoped creation
+  ])('"%s" keeps its original owner — never activate-placement', (utterance) => {
+    const r = resolveUtterance(utterance, baseCtx());
+    const intent =
+      r.kind === 'commands' || r.kind === 'local' || r.kind === 'refusal' ? r.intent : null;
+    expect(intent).not.toBe('activate-placement');
+  });
+});

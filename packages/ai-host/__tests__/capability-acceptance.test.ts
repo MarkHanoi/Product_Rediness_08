@@ -198,6 +198,16 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   { id: 'undo', ctx: {}, phrasings: ['undo', 'undo that', 'Actually, undo that.', 'go back'] },
   { id: 'redo', ctx: {}, phrasings: ['redo', 'redo that', 'do that again'] },
   {
+    // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — chat → TOOL ACTIVATION, never
+    // chat → creation. The resolution is a LOCAL 'activateTool' action; the
+    // editor bridge resolves the noun against the element-creation matrix +
+    // furniture catalogue and activates the palette's own tool. Nothing is
+    // created until the user clicks (C83 §4.3).
+    id: 'activate-placement',
+    ctx: {},
+    phrasings: ['create a bed', 'place a sofa', 'create slab', 'add a wardrobe', 'put a table'],
+  },
+  {
     id: 'zoom-fit',
     ctx: {},
     phrasings: ['zoom to fit', 'fit the model', 'frame everything', 'zoom out so I can see everything'],
@@ -1156,6 +1166,15 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     "don't change the roof overhang to 300mm",
     // The founder's own class: a REPORT paste-back quoting the number back.
     'Roof overhang: 300 mm',
+    // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — the placement grammar's own pins.
+    // Tool ACTIVATION is a local action, so a misread here would arm a
+    // placement tool off a report or a musing. The verb must be uncorrected,
+    // imperative and OPENING: a past-tense paste-back ("created"), a
+    // hypothetical and a mid-sentence verb must all stay misses.
+    'I created a bed yesterday',
+    'Created a bed and a sofa',
+    'what if I place a sofa here?',
+    'maybe we should add a wardrobe',
   ])('"%s" produces no command and no local action', (utterance) => {
     const ctx = ctxOf(sel('wall'));
     expect(mutating(resolveUtterance(utterance, ctx)), 'tier 0/1 mutated').toBe(false);

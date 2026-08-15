@@ -234,8 +234,13 @@ export interface ChatCapability {
    *  composeRuntime §4d-bis, which the coverage gate's handler-file scan
    *  cannot see, so declaring it as `busCommand` would read as a phantom —
    *  then projects the intent onto the scene) and 'answer' (the READ-ONLY
-   *  class: the summary IS the answer, nothing is dispatched). */
-  readonly localAction?: 'undo' | 'redo' | 'setActiveLevel' | 'applyVisibilityIntent' | 'answer';
+   *  class: the summary IS the answer, nothing is dispatched).
+   *  §FEAT-CHAT-TOOL-ACTIVATION (L-906) added 'activateTool': the bridge
+   *  resolves the spoken item against the element-creation matrix + the
+   *  furniture catalogue (the ONE resolveCatalogueRef ladder, C69) and
+   *  activates the SAME placement tool the Create palette button does —
+   *  no bus command, no store write; the user's canvas click creates. */
+  readonly localAction?: 'undo' | 'redo' | 'setActiveLevel' | 'applyVisibilityIntent' | 'answer' | 'activateTool';
   /**
    * §PLAN (RAC U6) — a COMPOSITE capability dispatches no command of its own:
    * it composes other declared capabilities and dispatches THEIR commands. The
@@ -496,6 +501,47 @@ const CAPABILITIES: readonly ChatCapability[] = [
     localAction: 'answer',
     probe: { intent: 'visibility-query', topic: 'hidden' },
     examples: ['what is hidden', 'which elements are hidden in this view', 'what levels are visible'],
+  },
+  {
+    id: 'activate-placement',
+    // §FEAT-CHAT-TOOL-ACTIVATION (L-906, founder-urgent) — "create a bed"
+    // activates the SAME placement tool the Create palette button does, mouse
+    // preview and all, for ALL placeable elements. Chat → TOOL ACTIVATION,
+    // never chat → creation: nothing is created until the user clicks in the
+    // canvas, so no position is ever guessed (C83 §4.3) and activation writes
+    // no store — there is nothing to undo until the user places. The bridge
+    // (`apps/editor/src/ui/ai/chatPlacementActivation.ts`) resolves the RAW
+    // noun against the element-creation matrix + the furniture catalogue
+    // through the ONE resolveCatalogueRef ladder (C69 — no hand-written
+    // list); ambiguity ASKS naming candidates; a no-match names the nearest
+    // real items instead of dead-ending.
+    description:
+      'start placing an element or furniture item — activates the same tool as the Create palette; you click in the canvas to place it',
+    verbs: ['create', 'place', 'add', 'insert', 'draw', 'put'],
+    aliases: ['placement', 'placement tool'],
+    targets: 'global',
+    parameters: [
+      {
+        name: 'item',
+        description:
+          'what to place — a creation tool (slab, wall, roof, …) from the element-creation matrix, or a furniture catalogue item (bed, sofa, wardrobe, …)',
+        required: true,
+        valueSource: 'user-text',
+        example: 'bed',
+      },
+    ],
+    scope: 'global',
+    destructive: false,
+    busCommand: null,
+    localAction: 'activateTool',
+    probe: { intent: 'activate-placement', itemRef: 'bed' },
+    commandProof: {
+      file: 'apps/editor/src/ui/ai/chatPlacementActivation.ts',
+      mustMention: ['ELEMENT_CREATION_MATRIX', 'getCategories', 'resolveCatalogueRef'],
+      note:
+        'The editor bridge enumerates placeables LIVE from the element-creation matrix and the furniture catalogue and resolves through the one resolveCatalogueRef ladder — the two sources the L-906 ratified shape names; a kind added to either is automatically chat-reachable (proven by ChatPlacementActivation.spec.ts).',
+    },
+    examples: ['create a bed', 'place a sofa', 'create slab', 'add a wardrobe', 'put a table'],
   },
   {
     id: 'delete-selected',
@@ -1848,7 +1894,14 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // and identical in every project. The classification blocked a capability on
     // a dependency it never had, and the fix was to delete the wrong reason —
     // not to build the injection it asked for.
-    description: 'set what a room is used for',
+    //
+    // §FEAT-OCCUPANCY-LABEL-FOLLOWS (L-905, `e78d2536`) — the LABEL follows
+    // the occupancy in the same gesture: a generator-minted name ("Room
+    // 00-003") is renamed to the occupancy's own numbering ("Bedroom 01"),
+    // while a name the user typed themselves is PRESERVED and the reply says
+    // so (C81 §2.2). Occupancy + rename share ONE gesture → one Ctrl+Z.
+    description:
+      'set what a room is used for (a generated room label follows — "Room 00-003" becomes e.g. "Bedroom 01"; a name you typed yourself is kept)',
     verbs: ['make', 'set', 'change', 'turn', 'assign'],
     aliases: ['occupancy', 'room use', 'use', 'usage', 'function', 'programme'],
     refusalLabel: 'use',
