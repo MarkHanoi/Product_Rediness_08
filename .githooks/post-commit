@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# .githooks/post-commit — "every time a file is committed the tracker is updated".
+#
+# OPT IN (one line, per clone):
+#     git config core.hooksPath .githooks
+#
+# OPT OUT:
+#     git config --unset core.hooksPath
+#
+# CONTRACT OF THIS HOOK
+#   * It is POST-commit: the commit already exists. It cannot and must not reject
+#     anything. `exit 0` is unconditional — see the trailing line.
+#   * It is ADVISORY. It records commit activity and gate-reading staleness in a
+#     machine-owned block. It never changes a row's STATUS; only an executed gate
+#     run may do that.
+#   * It must be FAST. A slow post-commit hook gets uninstalled by the first
+#     person it annoys. This runs a handful of `git log` calls and one file write.
+#   * It NEVER amends, never stages, never commits. The refreshed block is left in
+#     the working tree for you to include in your NEXT commit. A hook that ran
+#     `git commit --amend` here would rewrite the SHA the block just recorded —
+#     which is both a lie and a footgun in a multi-worktree fleet.
+
+set -u
+
+# Resolve the repo root so the hook works from any subdirectory or worktree.
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -n "$ROOT" ] || exit 0
+
+SCRIPT="$ROOT/tools/tracker/update-tracker.ts"
+[ -f "$SCRIPT" ] || exit 0
+
+# Prefer the workspace-local tsx; fall back to npx only if it is absent. Errors
+# are swallowed into the log, never propagated.
+if [ -x "$ROOT/node_modules/.bin/tsx" ]; then
+  TSX="$ROOT/node_modules/.bin/tsx"
+elif command -v tsx >/dev/null 2>&1; then
+  TSX=tsx
+else
+  echo "tracker: tsx not found — auto-block NOT updated (this is not a commit failure)."
+  exit 0
+fi
+
+"$TSX" "$SCRIPT" --repo "$ROOT" 2>&1 || \
+  echo "tracker: update-tracker.ts errored — auto-block NOT updated (commit is unaffected)."
+
+# UNCONDITIONAL. Do not replace with the exit status of anything above.
+exit 0

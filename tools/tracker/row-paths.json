@@ -1,0 +1,78 @@
+{
+  "_README": [
+    "MAPPING SIDECAR for tools/tracker/update-tracker.ts. Machine-readable on purpose:",
+    "the hook must never infer ownership by guessing at path names.",
+    "",
+    "SCHEMA",
+    "  version : number    — bump when the shape changes, not when entries change.",
+    "  rows[]  : { id, title, globs[], note? }",
+    "      id    — the tracker ROW ID. MUST match the row ids the tracker itself uses",
+    "              (the gap register's GE-01..GE-12 / GR-01..GR-18 / … vocabulary).",
+    "      globs — repo-relative, forward-slash. Supports ** (any, incl. /), * (any,",
+    "              excl. /), ? (one, excl. /). No braces, no extglob.",
+    "      A path may belong to several rows; it is reported to each. A path in NO row",
+    "      is reported under UNMAPPED — never silently dropped.",
+    "  gates[] : { id, gate, evidence[], note? }",
+    "      evidence — the artefact(s) a gate RUN writes its reading into. Their last",
+    "              commit is treated as the gate's last recorded measurement. The hook",
+    "              NEVER executes a gate; it only counts commits since that artefact",
+    "              changed. If none resolve, the row renders NOT DETERMINED with the",
+    "              reason — never '0', which would read as 'freshly measured'.",
+    "",
+    "DELIBERATELY INCOMPLETE. Two example rows only, both verified against real paths.",
+    "The full row set is the TRACKER LANE's to fill in: it owns the row ids and knows",
+    "which paths each row governs. Guessing the other ~80 mappings here would have",
+    "produced confident-looking ownership claims nobody measured — the failure mode",
+    "this repo logs most often. An unmapped path is disclosed loudly; a WRONG mapping",
+    "is invisible. So we ship two right ones and a mechanism that shouts about the rest."
+  ],
+  "version": 1,
+  "rows": [
+    {
+      "id": "bar-3",
+      "title": "Relationship determination under change (consequence propagation)",
+      "globs": [
+        "apps/editor/src/engine/consequence/**",
+        "packages/command-registry/src/walls/**"
+      ],
+      "note": "PROVISIONAL ID. 'bar-3' is the roadmap's name (roadmap §3.1), not a gap-register row id. The tracker lane must re-key this to the register row(s) that actually carry it."
+    },
+    {
+      "id": "epsilon-policy",
+      "title": "Numeric tolerance policy — one declared epsilon per comparison site",
+      "globs": [
+        "tools/ga-gate/check-epsilon-policy.ts",
+        "tools/ga-gate/epsilon-policy-baseline.json",
+        "packages/geometry-kernel/**"
+      ],
+      "note": "PROVISIONAL ID, same caveat as bar-3."
+    }
+  ],
+  "gates": [
+    {
+      "id": "epsilon-policy",
+      "gate": "check-epsilon-policy",
+      "evidence": ["tools/ga-gate/epsilon-policy-baseline.json"],
+      "note": "Shrink-only ratchet; the baseline json is rewritten only by --write-baseline, so its last commit IS the last recorded reading."
+    },
+    {
+      "id": "deterministic-regeneration",
+      "gate": "check-deterministic-regeneration",
+      "evidence": ["tools/ga-gate/deterministic-regeneration-baseline.json"]
+    },
+    {
+      "id": "predicate-canonical",
+      "gate": "check-predicate-canonical",
+      "evidence": ["tools/ga-gate/predicate-canonical-baseline.json"]
+    },
+    {
+      "id": "bar-3",
+      "gate": "check-relationship-determination",
+      "evidence": [
+        "tools/ga-gate/check-relationship-determination.ts",
+        "tools/ga-gate/relationship-determination-baseline.json"
+      ],
+      "note": "EXPECTED TO RENDER 'NOT DETERMINED' TODAY, and that is the point. This gate does not exist yet (tracker §bar 3). A staleness table that quietly omitted it, or printed 0, would let a reader believe bar 3 was measured. It must read NOT DETERMINED until the gate is built."
+    }
+  ]
+}
