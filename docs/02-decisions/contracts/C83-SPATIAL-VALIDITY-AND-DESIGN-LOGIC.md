@@ -1082,3 +1082,60 @@ stamp time.**
   from "reuse the new surface" to "there are already four, here is the canonical one" — which is a
   materially different instruction. **Do not re-introduce a fifth on the strength of the earlier
   draft.**
+
+---
+
+## §10 — §JOINT-AUTHORITY-IS-THE-INCUMBENT (founder-stated 2026-08-15, MINTED same day)
+
+> Stated verbatim by the founder while reporting L-919/L-920/L-922, and minted here because four
+> production defects in one day were the SAME rule violated at four seams:
+>
+> *"The perimeter wall joints — **NEVER** should be changed after creation because an interior wall
+> is created. **NO MATTER the mitre joint. NO MATTER the type of wall.** The 3rd wall created in
+> this case needs to **ADAPT and connect with the FACE of the wall originally there.**"*
+
+### §10.1 — The invariant (MUST)
+
+**An existing junction is AUTHORITATIVE. The gesture's SUBJECT is the only wall whose baseline may
+change.** A wall being CREATED onto, or MOVED against, existing walls ADAPTS to them — trimmed or
+terminated at the incumbent's **FACE** — and the incumbents' resolved geometry comes out
+**byte-identical**. This holds regardless of wall type (layered or not), regardless of the
+incumbent's mitre style, and regardless of angle: the founder closed both escape hatches explicitly.
+
+An enclosed-polyline perimeter is incumbent **by construction** for every interior wall that later
+touches it (L-922: a move-reweld that shifted a perimeter baseline ~2.19 m, proven by three hosted
+doors re-seated by the same delta, is this invariant violated on the MOVE path).
+
+### §10.2 — MUST NOT
+
+1. A junction resolver MUST NOT re-solve, re-mitre, or re-cluster walls that were already joined
+   because a newcomer arrived (L-920: a third wall re-clustering a correct 2-wall L into a 3-wall
+   problem is the mechanism, not a side effect).
+2. A re-weld MUST NOT close a joint by moving a non-subject wall's baseline (L-922).
+3. A creation MUST NOT be "resolved" by interpreting a snap point as "start my centreline here" —
+   a snap onto a wall's body means **join here**, and the newcomer terminates at the face (L-919).
+4. An impossible adaptation MUST NOT be absorbed by a silent clamp (a hosted opening re-seated to
+   offset 0.000 is a clamp standing where a refusal belongs).
+
+### §10.3 — The refusal arm (MUST)
+
+If the newcomer cannot be soundly adapted to the incumbent's face, the gesture REFUSES per §4's
+offer shape — naming the rule and both numbers — or, for a cascade mid-gesture, the whole gesture
+resolves per U-INV-8/U-INV-9 (C78): the plan executed is the plan approved, one gesture is one undo
+unit, and a dependent cascade's refusal either aborts the gesture or is REPORTED to the user in the
+same breath. Half-applied-and-silent is the one forbidden outcome (L-921).
+
+### §10.4 — The test this section makes mandatory
+
+Every junction-touching change (create, move, re-weld, infill) MUST carry an
+**incumbent-unchanged assertion**: capture the incumbent walls' resolved geometry BEFORE the
+gesture, perform it, assert the incumbents byte-identical. **This is the half that was silently
+failing everywhere** — every prior fix asserted on the newcomer, and nothing asserted the incumbents
+stayed still, which is why the defect family survived fix after fix.
+
+### §10.5 — Residency
+
+Violations are C83-taxonomy IMPOSSIBLE-class findings (§1.2 — two mutually exclusive claims about
+one volume, here about one JOINT). Open instances at mint time: L-919 (CREATE), L-920 (infill),
+L-921 (gesture atomicity), L-922 (move-reweld) — each laned, each owing the §10.4 assertion.
+Tolerances touched by any fix are CONSUMED from `@pryzm/geometry-kernel` per C73 §2.2, never minted.
