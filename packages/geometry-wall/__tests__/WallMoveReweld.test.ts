@@ -9,7 +9,24 @@
 // stubs feeding the multi-cluster black-spike hole).
 
 import { describe, it, expect } from 'vitest';
-import { computeMoveReweld, type ReweldBaseline } from '../src/WallMoveReweld';
+// ⚠ RECONCILED 2026-08-15 against C83 §10.2.2 (fix `19ddf6bb`). Seven tests in
+// this file pinned the engine's ORIGINAL designed behaviour: the partner's
+// welded endpoint pulled onto the moved wall's new line. The founder's
+// §JOINT-AUTHORITY-IS-THE-INCUMBENT and the contract minted from it now forbid
+// exactly that — *"A re-weld MUST NOT close a joint by moving a non-subject
+// wall's baseline"* — because it is L-922: an interior wall was moved and the
+// PERIMETER's baseline start shifted ~2.19 m, re-seating three hosted doors and
+// clamping one to offset 0.000.
+//
+// Each reconciled test says so at its own site. NONE was deleted, and none was
+// weakened to make a count go green: where a test's assertion is now forbidden
+// it asserts the REFUSAL instead, and where a test had a still-true half (the
+// moved host must not be shortened) that half is kept verbatim.
+import {
+  computeMoveReweld,
+  computeMoveReweldPlan,
+  type ReweldBaseline,
+} from '../src/WallMoveReweld';
 import { WallJoinResolver } from '../src/WallJoinResolver';
 import type { WallData } from '../src/WallTypes';
 
@@ -37,59 +54,95 @@ describe('computeMoveReweld — L-corner', () => {
   const moved = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0], [6, 5]) };
   const partnerA = { id: 'A', baseLine: bl([0, 0], [5, 0]) };
 
-  it('extends the partner welded endpoint to the new corner (6,0); far endpoint untouched', () => {
-    const entries = computeMoveReweld(moved, [partnerA]);
-    const eA = entries.find(e => e.wallId === 'A')!;
-    expect(eA).toBeTruthy();
-    expect(eA.newBaseLine[1]).toEqual({ x: 6, y: 0, z: 0 }); // welded end → corner
-    expect(eA.newBaseLine[0]).toEqual({ x: 0, y: 0, z: 0 }); // far end NEVER moves
-    expect(eA.prevBaseLine).toEqual(bl([0, 0], [5, 0]));     // prevState carried
+  // RECONCILED (was: "extends the partner welded endpoint to the new corner").
+  // A is (0,0)→(5,0) and the new corner is (6,0) — ONE METRE PAST A's end. The
+  // old engine lengthened A to reach it. C83 §10.2.2 forbids moving a
+  // non-subject baseline, so the joint is refused and the refusal carries the
+  // distance. The incumbent is not touched, which is the whole point.
+  it('§C83-10.2.2: a corner PAST the incumbent\'s end is REFUSED, not reached by lengthening it', () => {
+    const plan = computeMoveReweldPlan(moved, [partnerA]);
+    expect(plan.entries.find(e => e.wallId === 'A')).toBeUndefined();
+    expect(plan.refusals).toHaveLength(1);
+    expect(plan.refusals[0]!.partnerId).toBe('A');
+    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+    expect(plan.refusals[0]!.beyondMm).toBe(1000); // exactly the 1 m overshoot
   });
 
-  it('GREEN RE-STATEMENT of the pinned defect: applying the entries closes the gap and the resolver re-mitres', () => {
-    const entries = computeMoveReweld(moved, [partnerA]);
-    const eA = entries.find(e => e.wallId === 'A')!;
-    const a = wall('A', eA.newBaseLine, 0.2);
+  // RECONCILED (was: "GREEN RE-STATEMENT … applying the entries closes the gap").
+  // The old test proved the gap closes AFTER A is lengthened. It cannot be
+  // restated as-is, because closing it that way is now the defect. What IS
+  // restated — and it is the honest half — is that the engine proposes NOTHING
+  // for A, so A's resolved geometry is byte-identical (C83 §10.4) and the
+  // corner is left open for the GESTURE to refuse (C83 §10.3), not for the
+  // engine to paper over.
+  it('§C83-10.4: the incumbent\'s geometry is byte-identical, and the open corner is not papered over', () => {
+    const plan = computeMoveReweldPlan(moved, [partnerA]);
+    expect(plan.entries.find(e => e.wallId === 'A')).toBeUndefined();
+
+    // Resolve A exactly as it stood: unchanged in, unchanged out.
+    const a = wall('A', bl([0, 0], [5, 0]), 0.2);
     const b = wall('B', moved.newBaseLine, 0.2);
-    // (a) baseline gap closed:
-    expect(distToLine(a.baseLine[1], b.baseLine[0], b.baseLine[1])).toBeLessThan(1e-9);
-    // (b) mitre re-formed by the ordinary flush-time pass:
+    const before = JSON.stringify(a.baseLine);
     const res = WallJoinResolver.resolveLevel([a, b], { snapRadius: 0.5 });
-    expect(res.get('A')!.endMN).not.toBeNull();
-    expect(res.get('B')!.startMN).not.toBeNull();
-    const gap = Math.hypot(
-      (res.get('A')!.baseLine[1] as any).x - (res.get('B')!.baseLine[0] as any).x,
-      (res.get('A')!.baseLine[1] as any).z - (res.get('B')!.baseLine[0] as any).z,
-    );
-    expect(gap).toBeLessThan(1e-6);
+    expect(JSON.stringify(a.baseLine)).toBe(before);
+    void res;
+    // The gap is REAL and is reported, not silently welded shut.
+    expect(plan.refusals.map(r => r.partnerId)).toEqual(['A']);
   });
 
-  it('diagonal move also seats the MOVED wall endpoint on the formed corner', () => {
-    // B moves +1x, +0.5z: its start (6,0.5) is 0.5 short of the corner (6,0).
+  // RECONCILED (was: "diagonal move also seats the MOVED wall endpoint").
+  // Same geometry as above: the corner (6,0) lies past A's end, so there is no
+  // joint to form and the SUBJECT must not be seated onto a point hanging off
+  // the end of the incumbent either. The subject's own adaptation is still
+  // alive and is proved positively by the test that follows.
+  it('§C83-10.2.2: with the corner past the incumbent, NEITHER wall is re-baselined', () => {
     const diag = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0.5], [6, 5.5]) };
-    const entries = computeMoveReweld(diag, [partnerA]);
-    const eA = entries.find(e => e.wallId === 'A')!;
-    expect(eA.newBaseLine[1].x).toBeCloseTo(6, 9);
-    expect(eA.newBaseLine[1].z).toBeCloseTo(0, 9);
-    const eB = entries.find(e => e.wallId === 'B')!;
+    const plan = computeMoveReweldPlan(diag, [partnerA]);
+    expect(plan.entries).toEqual([]);
+    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+  });
+
+  // NEW, and it is the positive half the reconciliation owes: §10.1 says the
+  // newcomer ADAPTS to the incumbent. When the corner lands ON the incumbent's
+  // body, the SUBJECT is re-seated onto it and the incumbent never moves. This
+  // is the capability that must survive the §10.2.2 restriction, so it is
+  // asserted rather than assumed.
+  it('§C83-10.1: when the corner lands ON the incumbent\'s body, the SUBJECT adapts and the incumbent does not move', () => {
+    // A is welded to B's OLD start at (5,0) and runs on to x=10, so the new
+    // corner (6,0) falls INSIDE A's body rather than past its end.
+    const longA = { id: 'A', baseLine: bl([5, 0], [10, 0]) };
+    const diag = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0.5], [6, 5.5]) };
+    const plan = computeMoveReweldPlan(diag, [longA]);
+
+    expect(plan.refusals).toEqual([]);
+    // NOTHING is proposed for the incumbent…
+    expect(plan.entries.find(e => e.wallId === 'A')).toBeUndefined();
+    // …and the SUBJECT is seated on the corner it now forms.
+    const eB = plan.entries.find(e => e.wallId === 'B')!;
     expect(eB).toBeTruthy();
     expect(eB.newBaseLine[0].x).toBeCloseTo(6, 9);
-    expect(eB.newBaseLine[0].z).toBeCloseTo(0, 9); // extended down to the corner
+    expect(eB.newBaseLine[0].z).toBeCloseTo(0, 9);
     expect(eB.newBaseLine[1]).toEqual({ x: 6, y: 0, z: 5.5 }); // far end untouched
   });
 });
 
 describe('computeMoveReweld — T-junction', () => {
-  it('extends the stem start onto the moved host centreline', () => {
-    // Host H(0,0)→(10,0) moves −1 m z; stem S start (5,0.1) was welded to its body.
+  // RECONCILED (was: "extends the stem start onto the moved host centreline").
+  // THIS IS L-922'S EXACT SHAPE, in miniature. The host moves and the STEM — a
+  // wall the user never touched, already correctly joined, therefore the
+  // incumbent — was dragged 1.1 m to chase it. In production that stem was a
+  // perimeter carrying three doors, and dragging it re-seated all three by the
+  // same delta and clamped one to offset 0.000 (C83 §10.2.4). Refused now.
+  it('§C83-10.2.2: the stem is an INCUMBENT — a moving host does not drag it onto its new centreline', () => {
     const moved = { id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]) };
     const stem = { id: 'S', baseLine: bl([5, 0.1], [5, 4]) };
-    const entries = computeMoveReweld(moved, [stem]);
-    const eS = entries.find(e => e.wallId === 'S')!;
-    expect(eS).toBeTruthy();
-    expect(eS.newBaseLine[0].x).toBeCloseTo(5, 9);
-    expect(eS.newBaseLine[0].z).toBeCloseTo(-1, 9); // onto new host centreline
-    expect(eS.newBaseLine[1]).toEqual({ x: 5, y: 0, z: 4 }); // far end untouched
+    const plan = computeMoveReweldPlan(moved, [stem]);
+    expect(plan.entries.find(e => e.wallId === 'S')).toBeUndefined();
+    expect(plan.refusals).toHaveLength(1);
+    expect(plan.refusals[0]!.partnerId).toBe('S');
+    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+    // 1.1 m: from the stem's start at z=0.1 down to the host's new z=−1.
+    expect(plan.refusals[0]!.beyondMm).toBe(1100);
   });
 
   it('host is a NO-OP partner when the stem is what moved (no host endpoint was welded)', () => {
@@ -108,24 +161,34 @@ describe('computeMoveReweld — T-junction', () => {
     // own baseline must come through byte-unchanged (no seat on a body corner).
     const moved = { id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]) };
     const stem = { id: 'S', baseLine: bl([9, 0.1], [9, 4]) };
-    const entries = computeMoveReweld(moved, [stem]);
-    const eS = entries.find(e => e.wallId === 'S')!;
-    expect(eS).toBeTruthy();
-    expect(eS.newBaseLine[0].x).toBeCloseTo(9, 9);
-    expect(eS.newBaseLine[0].z).toBeCloseTo(-1, 9);           // stem follows the host
-    expect(entries.find(e => e.wallId === 'H')).toBeUndefined(); // host NEVER shortened
+    const plan = computeMoveReweldPlan(moved, [stem]);
+    // ── THE STILL-TRUE HALF, KEPT VERBATIM ────────────────────────────────
+    // §L-872's guard protects the MOVED HOST from being shortened onto a stem's
+    // foot. That is about the SUBJECT, not an incumbent, so §10.2.2 does not
+    // touch it and it must keep holding. This is the assertion the guard exists
+    // for and it is unchanged.
+    expect(plan.entries.find(e => e.wallId === 'H')).toBeUndefined(); // host NEVER shortened
+    // ── THE HALF §C83-10.2.2 REVERSES ─────────────────────────────────────
+    // "the stem follows the host" was the other assertion. The stem is the
+    // incumbent; it no longer follows, and the refusal says so.
+    expect(plan.entries.find(e => e.wallId === 'S')).toBeUndefined();
+    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
   });
 
-  it('§L-872 CONTROL: the L-corner seat still fires (guard does not over-suppress)', () => {
-    // Same diagonal-move shape as the L-corner suite: the corner lands within
-    // weldTol of the moved wall's start endpoint → the seat entry must survive.
+  // RECONCILED (was: "§L-872 CONTROL: the L-corner seat still fires"). The
+  // control's PURPOSE — proving the T-SEAT-GUARD does not over-suppress the
+  // subject's own seat — is preserved, but its fixture had the corner past A's
+  // end. Given a full-length incumbent the seat fires exactly as before, which
+  // is what the control was really asserting.
+  it('§L-872 CONTROL: the subject\'s own seat still fires against a full-length incumbent', () => {
     const diag = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0.5], [6, 5.5]) };
-    const partnerA = { id: 'A', baseLine: bl([0, 0], [5, 0]) };
-    const entries = computeMoveReweld(diag, [partnerA]);
-    const eB = entries.find(e => e.wallId === 'B')!;
+    const longA = { id: 'A', baseLine: bl([5, 0], [10, 0]) };
+    const plan = computeMoveReweldPlan(diag, [longA]);
+    const eB = plan.entries.find(e => e.wallId === 'B')!;
     expect(eB).toBeTruthy();
     expect(eB.newBaseLine[0].x).toBeCloseTo(6, 9);
     expect(eB.newBaseLine[0].z).toBeCloseTo(0, 9);
+    expect(plan.entries.find(e => e.wallId === 'A')).toBeUndefined(); // §10.2.2
   });
 });
 
@@ -171,12 +234,28 @@ describe('computeMoveReweld — refusals (the scars)', () => {
     expect(computeMoveReweld(moved, [partnerA])).toEqual([]);
   });
 
-  it('never emits a lateral slide: every proposed endpoint lies ON the partner axis extension', () => {
-    // §CLAMP-COSHARE-WELD: the doubling came from moving baselines laterally.
+  // RECONCILED (was: "never emits a lateral slide: every proposed endpoint lies
+  // ON the partner axis extension"). §CLAMP-COSHARE-WELD guarded against
+  // sliding a PARTNER's baseline sideways. §C83-10.2.2 supersedes it with a
+  // strictly stronger guarantee — a partner's baseline is never proposed AT ALL,
+  // laterally or otherwise — so the invariant is restated at that strength
+  // rather than at the old one. `distToLine` stays in use below.
+  it('§C83-10.2.2 (supersedes §CLAMP-COSHARE-WELD): NO partner baseline is ever proposed', () => {
     const moved = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0], [6, 5]) };
-    const entries = computeMoveReweld(moved, [partnerA]);
-    const eA = entries.find(e => e.wallId === 'A')!;
-    // A's axis is z=0; the proposed endpoint must stay on it.
-    expect(distToLine(eA.newBaseLine[1], { x: 0, z: 0 }, { x: 5, z: 0 })).toBeLessThan(1e-9);
+    const longA = { id: 'A', baseLine: bl([5, 0], [10, 0]) };
+    for (const partner of [partnerA, longA]) {
+      const plan = computeMoveReweldPlan(moved, [partner]);
+      expect(plan.entries.every(e => e.wallId === 'B')).toBe(true);
+    }
+    // And the subject's own seat, when it fires, still lies on the incumbent's
+    // axis — the anti-skew property the old assertion actually cared about.
+    const plan = computeMoveReweldPlan(moved, [longA]);
+    for (const e of plan.entries) {
+      const onAxis = Math.min(
+        distToLine(e.newBaseLine[0], { x: 5, z: 0 }, { x: 10, z: 0 }),
+        distToLine(e.newBaseLine[1], { x: 5, z: 0 }, { x: 10, z: 0 }),
+      );
+      expect(onAxis).toBeLessThan(1e-9);
+    }
   });
 });
