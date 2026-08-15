@@ -215,6 +215,59 @@ const GUARD_SHAPES: ReadonlyArray<readonly [string, RegExp]> = [
   ['+', /^\s*\+\s*(\d+(?:\.\d+)?(?:e[-+]?\d+)?)/i],
 ];
 
+/**
+ * ─── TERM GRAMMAR for the ARITHMETIC families (segment/segment, area) ────────
+ *
+ * `OPERAND` above is deliberately narrow — a ray cast's straddle test compares
+ * plain ordinates. The arithmetic families do NOT have that luxury: the
+ * canonical bodies themselves are written in shapes `OPERAND` cannot see, and a
+ * signature that misses the canonical is not a signature.
+ *
+ *   • `polygonSignedAreaOrdinates` accumulates `xAt(i) * yAt(j) - xAt(j) * yAt(i)`
+ *     — ACCESSOR CALLS, because it is accessor-backed so every vertex shape in
+ *     the estate reads one accumulation. A grammar without calls misses THE
+ *     canonical shoelace body.
+ *   • `intersectSegments2D` divides by `D` assigned from `rx * sy - ry * sx`
+ *     — precomputed vector components, not parenthesised differences. The
+ *     rivals span all three spellings (`(x1-x2)*(y3-y4)-…` in snapping,
+ *     `r.x*s.z-r.z*s.x` in auto-dimension, `rX*sZ-rZ*sX` in HiddenLineRemoval).
+ *
+ * TERM therefore admits an atom, a bounded call, or a bounded parenthesised
+ * expression, with an optional leading minus. Every repetition stays BOUNDED —
+ * never `.*` — for the same reason the straddle pattern is bounded: an
+ * unbounded term runs past its own expression and reads the next one's operands.
+ */
+const CALL = '\\w+\\s*\\([^()]{0,80}\\)';
+const PAREN = '\\([^()]{1,100}\\)';
+const TERM = `-?\\s*(?:${CALL}|${OPERAND}|${PAREN})`;
+
+/**
+ * THE 2D CROSS PRODUCT `A*B − C*D`. This one shape is the shared arithmetic of
+ * BOTH remaining families — it is the segment/segment determinant AND the
+ * shoelace term — which is precisely why they must be told apart by what
+ * SURROUNDS it (a divide, or an accumulation), never by the cross alone.
+ */
+const CROSS_2D = `${TERM}\\s*\\*\\s*${TERM}\\s*-\\s*${TERM}\\s*\\*\\s*${TERM}`;
+
+/**
+ * A DIVISOR ASSIGNED A 2D CROSS: `const denom = rx * sy - ry * sx;`. The
+ * captured name is what the parametric detector then counts divisions by.
+ */
+const DIVISOR_ASSIGN = new RegExp(`(?:const|let|var)\\s+(\\w+)\\s*=\\s*[^;]{0,10}${CROSS_2D}`);
+
+/**
+ * The window a PARAMETRIC segment/segment solve may span, measured — not
+ * guessed — from the widest live instance: the canonical `intersectSegments2D`
+ * puts `D` at :208 and `u` at :216, NINE lines apart, because the guard, the
+ * cross-quad destructure and two explanatory comments sit between them.
+ *
+ * An 8-line window READ THE CANONICAL AS A SINGLE-QUOTIENT BODY and therefore
+ * classified it as the adjacent line/line family — i.e. the first cut of this
+ * arm could not see its own canonical implementation. 12 is that measured span
+ * plus headroom, and it is bounded for the usual reason.
+ */
+const SEG_WINDOW = 12;
+
 // ─── The families (C73 §3.1) ─────────────────────────────────────────────────
 
 interface Family {
@@ -298,7 +351,17 @@ const FAMILIES: readonly Family[] = [
       'pair) with its own negative controls, and a baseline write for the deferred rivals (site-parcel-data ' +
       'EPS-signed variants under legally-scoped fixtures; snapping/auto-dimension/finish-host-tracker ' +
       'awaiting a kernel dep + lockfile sync; PlanSnapEngine/HiddenLineRemoval, whose boundary bands extend ' +
-      'beyond the closed [0,1] the canonical answers).',
+      'beyond the closed [0,1] the canonical answers). ' +
+      '── UPDATE 2026-08-15: THE DETECTOR NOW EXISTS and the family HAS ITS DENOMINATOR (see CENSUS below). ' +
+      'The parametric spelling is detected structurally — a divisor assigned a 2D cross, then TWO OR MORE ' +
+      'quotients of that same divisor — which covers all three live determinant spellings (parenthesised ' +
+      'differences, member components, bare locals) and, critically, the CANONICAL body itself. Negative ' +
+      'controls execute on every run against vector normalisation, single-quotient line/line solves and ' +
+      'shoelace accumulation. What remains before counted:true is NOT a detector problem: it is that the ' +
+      'measured rivals cannot reach 0 in one PR (four of them need a new @pryzm/geometry-kernel dependency ' +
+      'and a pnpm-lock sync, which is single-owner), so flipping the flag today would move this gate off ' +
+      'hard-0 — a registration decision, not a lane decision. The census is recorded so the successor ' +
+      'inherits a measured number instead of a sweep.',
   },
   {
     id: 'polygon-area-and-winding',
@@ -446,6 +509,84 @@ function guardDisagreements(bodies: readonly Body[]): string[] {
   return out;
 }
 
+// ─── Family "segment-segment-intersection" — the CENSUS arm (C73 §3.1) ───────
+
+interface SegBody {
+  readonly file: string;
+  readonly line: number;
+  /** `cross-product` (four signs) or `parametric` (two quotients of one determinant). */
+  readonly form: string;
+  readonly text: string;
+  readonly isTest: boolean;
+}
+
+/**
+ * Detect segment/segment intersection bodies in BOTH spellings the canonical
+ * file's one-family proof unifies (`§C73-SEGSEG-CANONICAL`: d1 = −u·D,
+ * d2 = (1−u)·D, d3 = t·D, d4 = (t−1)·D — two decision procedures over the same
+ * four scalars).
+ *
+ *   FORM A — CROSS-PRODUCT: two straddle tests AND-ed, i.e. SEGMENT_CROSS_SHAPE,
+ *     the shape the point-in-polygon arm already excludes structurally. It is
+ *     counted HERE, which is the whole point of that exclusion: those bodies were
+ *     never unmeasurable, they were parked until this family's turn.
+ *
+ *   FORM B — PARAMETRIC: a divisor assigned a 2D cross, then TWO OR MORE
+ *     quotients of that same divisor in the window. Two parameters solved
+ *     against one determinant IS the segment/segment solve.
+ *
+ * ── Why TWO quotients, and not one (the taxonomy decision, C73 §3.3) ─────────
+ * A divisor-assigned-a-cross with exactly ONE quotient solves for ONE parameter
+ * — that is a LINE/LINE intersection (extend both to infinity, take the point),
+ * which is a DIFFERENT question: it has no [0,1] band, no "do they actually
+ * cross" verdict, and 15 production instances in this tree (wall junction
+ * resolvers, fillet, slab loop intersectors) that a segment/segment collapse
+ * CANNOT remove, because they must keep answering the unbounded question.
+ * Folding them in would inflate this census with bodies no fix in this family
+ * can retire — the identical error SEGMENT_CROSS_SHAPE exists to prevent in the
+ * point-in-polygon arm. They are DETECTED and PRINTED as an adjacent family
+ * (so the decision is auditable and they cannot be quietly forgotten), and they
+ * are NOT counted. The canonical body itself is a TWO-quotient body, which is
+ * the corroboration that two is the right cut.
+ *
+ * ── Named blind spot (C73 §5.4a) ─────────────────────────────────────────────
+ * A determinant computed by a HELPER (`const denom = cross(d1x, d1z, d2x, d2z)`
+ * — `finish-host-tracker/src/reprojectFinishBoundary.ts:186` is the live
+ * instance) is invisible to arithmetic matching: there is no cross product in
+ * the text, only a call. Matching it would require keying on the callee NAME,
+ * which C73 §3.2 forbids and a rename defeats. It is declared, not counted, and
+ * not pretended away.
+ */
+function detectSegmentIntersection(root: string, dirs: readonly string[]): { bodies: SegBody[]; lineLine: SegBody[] } {
+  const bodies: SegBody[] = [];
+  const lineLine: SegBody[] = [];
+  for (const dir of dirs) {
+    for (const abs of walk(join(root, dir))) {
+      const rel = relPath(root, abs);
+      let src: string;
+      try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+      const lines = stripCommentsToLines(src);
+      const isTest = isTestPath(rel);
+      for (let i = 0; i < lines.length; i++) {
+        const L = lines[i]!;
+        if (SEGMENT_CROSS_SHAPE.test(L)) {
+          bodies.push({ file: rel, line: i + 1, form: 'cross-product', text: L.trim().slice(0, 120), isTest });
+          continue;
+        }
+        const m = DIVISOR_ASSIGN.exec(L);
+        if (!m) continue;
+        const name = m[1]!;
+        const window = lines.slice(i, i + SEG_WINDOW).join('\n');
+        const quotients = window.match(new RegExp(`\\/\\s*${name}\\b`, 'g'))?.length ?? 0;
+        const body: SegBody = { file: rel, line: i + 1, form: `parametric(${quotients} quotients)`, text: L.trim().slice(0, 120), isTest };
+        if (quotients >= 2) bodies.push(body);
+        else if (quotients === 1) lineLine.push(body);
+      }
+    }
+  }
+  return { bodies, lineLine };
+}
+
 // ─── Baseline ────────────────────────────────────────────────────────────────
 
 interface Baseline {
@@ -457,6 +598,27 @@ interface Baseline {
   readonly c2: number;
   /** C3's declared level — the guard disagreements known at baseline. */
   readonly c3: string[];
+  /**
+   * ─── CENSUS (not a ratchet) — the NOT-YET-COUNTED families' denominators ───
+   *
+   * C73 §3.5 allows ONE family per PR to become `counted: true`. This field is
+   * the step BEFORE that: a family's measured denominator, recorded so it is
+   * re-derivable and so a reviewer can diff which bodies left, WITHOUT the
+   * family yet contributing findings.
+   *
+   * WHY RECORDED BUT NOT RATCHETED — stated plainly rather than left to be
+   * inferred, because a gate that exits 0 while carrying known duplicates is
+   * exactly the two-facts-one-value dishonesty this repo keeps paying for:
+   * turning a census into findings would move this gate off HARD-0 (findings > 0
+   * ⇒ exit 1 for as long as the debt exists, per `verdictOf`). Whether this gate
+   * leaves hard-0 is a REGISTRATION decision — `gate-debt.json` requires an
+   * explicit founder/architect decision, and `gate-newly-measured.json` exists
+   * precisely for "the instrument arrived" — and neither is a lane's to make
+   * unilaterally. So the measurement lands, the ratchet does not, and the gate's
+   * printed output says the number out loud on every run so nobody reads its
+   * CLEAN verdict as "no duplicates". The flip is one field: `counted: true`.
+   */
+  readonly census?: Record<string, { readonly production: number; readonly test: number; readonly bodies: string[] }>;
 }
 
 function keyOf(b: Body): string { return `${b.file}:${b.line}::point-in-polygon`; }
@@ -593,6 +755,112 @@ function selfTest(): { ok: boolean; lines: string[] } {
     lines.push(`    C3 detect (one file, UNGUARDED divide vs \`|| 1e-9\`): ${ngDis.length} disagreement(s), guards read [${ng.map((b) => b.guard).join(', ')}]`);
     if (!ng.some((b) => b.guard === 'none')) fail(`C3 did not read an UNGUARDED divide as \`none\` (got [${ng.map((b) => b.guard).join(', ')}]) — the third CesiumViewport convention, and the one that divides by zero.`);
     if (ngDis.length !== 1) fail('C3 did not report an UNGUARDED ray cast alongside a guarded one as a disagreement — "no guard" must be a DISTINCT convention, not a missing datum.');
+
+    // ── SEGMENT/SEGMENT census: detect BOTH spellings, in all three live
+    //    determinant shapes, and REJECT the three things that look like it ────
+    //
+    // The canonical body's own spelling is fixture #3 (`rx * sy - ry * sx`,
+    // nine lines from determinant to second quotient). That is not decoration:
+    // the first cut of this arm used an 8-line window and read THE CANONICAL as
+    // a single-quotient line/line solve — the arm could not see the very
+    // implementation it exists to collapse onto. This control is what would have
+    // caught it, so it is pinned here in the canonical's exact shape.
+    writeTree(join(base, 'segseg'), {
+      'packages/a/src/crossprod.ts':
+        'export function x(d1: number, d2: number, d3: number, d4: number) { return (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0); }\n',
+      'packages/a/src/paramDiffs.ts': [
+        'export function a(x1: number, x2: number, x3: number, x4: number, y1: number, y2: number, y3: number, y4: number) {',
+        '  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);',
+        '  if (Math.abs(denom) < 1e-10) return null;',
+        '  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;',
+        '  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;',
+        '  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : null;',
+        '}',
+      ].join('\n'),
+      'packages/a/src/paramMembers.ts': [
+        'export function b(r: V, s: V, qp: V) {',
+        '  const denom = r.x * s.z - r.z * s.x;',
+        '  if (Math.abs(denom) < 1e-9) return false;',
+        '  const t = (qp.x * s.z - qp.z * s.x) / denom;',
+        '  const u = (qp.x * r.z - qp.z * r.x) / denom;',
+        '  return t > 0 && t < 1 && u > 0 && u < 1;',
+        '}',
+      ].join('\n'),
+      // The canonical's OWN shape and span — determinant to second quotient is
+      // NINE lines, because a guard, a destructure and two comments sit between.
+      'packages/a/src/paramCanonicalSpan.ts': [
+        'export function c(rx: number, ry: number, sx: number, sy: number, d1: number, d3: number) {',
+        '  const D = rx * sy - ry * sx;',
+        '  // the declared numeric-zero epsilon guards the divide;',
+        '  // the five rival per-site guards are retired by the collapse.',
+        '  if (Math.abs(D) < 1e-9) return null;',
+        '  const quad = { d1, d3 };',
+        '  const t = quad.d3 / D;',
+        '  // `+ 0` canonicalises IEEE -0 to +0 so a touch at a segment start',
+        '  // reports u = 0, not -0; exact identity for every other value.',
+        '  const u = -quad.d1 / D + 0;',
+        '  if (t < 0 || t > 1 || u < 0 || u > 1) return null;',
+        '  return { t, u };',
+        '}',
+      ].join('\n'),
+    });
+    const seg = detectSegmentIntersection(join(base, 'segseg'), ['packages']);
+    const segFiles = [...new Set(seg.bodies.map((b) => b.file.split('/').pop()))].sort();
+    lines.push(`    SEGSEG detect (cross-product + three determinant spellings): ${seg.bodies.length} bod(ies) in [${segFiles.join(', ')}]`);
+    for (const want of ['crossprod.ts', 'paramDiffs.ts', 'paramMembers.ts', 'paramCanonicalSpan.ts']) {
+      if (!segFiles.some((f) => f === want)) fail(`SEGSEG did not detect the planted segment/segment body in ${want} — the signature misses a live determinant spelling${want === 'paramCanonicalSpan.ts' ? ', and this one is THE CANONICAL BODY’S OWN shape and 9-line span: an arm blind to its own canonical cannot assert a collapse' : ''}.`);
+    }
+
+    // ── SEGSEG reject: the three near-misses ────────────────────────────────
+    //   1. NORMALISATION — two quotients of one divisor, but the divisor is a
+    //      LENGTH, not a cross. This is the over-match that sinks a naive
+    //      "two divisions by the same name" rule; it is everywhere in this tree.
+    //   2. LINE/LINE — a cross divisor with exactly ONE quotient. Adjacent
+    //      family, reported separately, never counted (see the detector's note).
+    //   3. SHOELACE — a 2D cross ACCUMULATED, not divided by. The other
+    //      remaining family shares this exact arithmetic; only the surrounding
+    //      operator tells them apart, so a cross-only rule would merge two
+    //      families and double-count every body in both.
+    writeTree(join(base, 'segreject'), {
+      'packages/b/src/normalise.ts': [
+        'export function n(dx: number, dz: number) {',
+        '  const len = Math.hypot(dx, dz);',
+        '  if (len < 1e-9) return null;',
+        '  const nx = dx / len;',
+        '  const nz = dz / len;',
+        '  return { nx, nz };',
+        '}',
+      ].join('\n'),
+      'packages/b/src/lineline.ts': [
+        'export function l(d1: V, d2: V, ax: number, az: number) {',
+        '  const det = d1.x * d2.z - d1.z * d2.x;',
+        '  if (Math.abs(det) < 1e-9) return null;',
+        '  const t = (ax * d2.z - az * d2.x) / det;',
+        '  return { x: ax + t * d1.x, z: az + t * d1.z };',
+        '}',
+      ].join('\n'),
+      'packages/b/src/shoelace.ts': [
+        'export function s(poly: P[]) {',
+        '  let a = 0;',
+        '  for (let i = 0; i < poly.length; i++) {',
+        '    const p = poly[i]!, q = poly[(i + 1) % poly.length]!;',
+        '    a += p.x * q.z - q.x * p.z;',
+        '  }',
+        '  return a / 2;',
+        '}',
+      ].join('\n'),
+    });
+    const segRej = detectSegmentIntersection(join(base, 'segreject'), ['packages']);
+    lines.push(`    SEGSEG reject (normalisation / line-line / shoelace): ${segRej.bodies.length} counted, ${segRej.lineLine.length} adjacent line-line — expected 0 and 1`);
+    if (segRej.bodies.some((b) => b.file.endsWith('normalise.ts'))) fail('SEGSEG counted a VECTOR NORMALISATION (two quotients of one length) as a segment/segment solve — the divisor must be a CROSS, or this census is mostly normalisations.');
+    if (segRej.bodies.some((b) => b.file.endsWith('lineline.ts'))) fail('SEGSEG counted a single-quotient LINE/LINE solve as a segment/segment body — an adjacent family whose 15 production instances no segment/segment collapse can remove.');
+    if (segRej.bodies.some((b) => b.file.endsWith('shoelace.ts'))) fail('SEGSEG counted a SHOELACE accumulation as a segment/segment body — both families are built on the same 2D cross, so merging them double-counts every body in both.');
+    if (!segRej.lineLine.some((b) => b.file.endsWith('lineline.ts'))) fail('SEGSEG did not REPORT the single-quotient line/line solve as the adjacent family — an excluded body must stay visible, or it is forgotten rather than decided (C73 §3.3).');
+
+    // ── SEGSEG zero: the zero reading must be reachable ──────────────────────
+    const segClean = detectSegmentIntersection(join(base, 'clean'), ['packages']);
+    lines.push(`    SEGSEG zero (a tree with no intersection body): ${segClean.bodies.length} bod(ies) — expected 0`);
+    if (segClean.bodies.length !== 0) fail('SEGSEG counted a body in a tree containing none — the zero reading is unreachable, so the census cannot be trusted (C73 §7.k).');
   } catch (e) {
     ok = false; lines.push(`    ✗ self-test threw: ${(e as Error).message}`);
   } finally {
@@ -610,6 +878,14 @@ for (const l of control.lines) console.log('   ' + l);
 const pip = FAMILIES.find((f) => f.id === 'point-in-polygon')!;
 const excluded = new Set(pip.exclusions.map(([f]) => f));
 const detected = detectPointInPolygon(ROOT, DIRS);
+
+// ─── The segment/segment CENSUS (measured, printed, recorded — NOT ratcheted) ─
+const SEGSEG_CANONICAL = 'packages/geometry-kernel/src/pure/segmentIntersection.ts';
+const segAll = detectSegmentIntersection(ROOT, DIRS);
+const segProduction = segAll.bodies.filter((b) => !b.isTest);
+const segRivals = segProduction.filter((b) => b.file !== SEGSEG_CANONICAL);
+const segCanonical = segProduction.filter((b) => b.file === SEGSEG_CANONICAL);
+const segLineLine = segAll.lineLine.filter((b) => !b.isTest);
 const bodies = detected.bodies.filter((b) => !excluded.has(b.file));
 const production = bodies.filter((b) => !b.isTest);
 // C3 runs over ALL production bodies INCLUDING the canonical file, so a rival
@@ -640,6 +916,13 @@ if (WRITE) {
     bodies: Object.fromEntries(rivalProduction.map((b) => [keyOf(b), b.guard])),
     c2: FAMILIES.filter((f) => f.counted && f.canonical === null).length,
     c3: disagreements.map((d) => d.split(' — ')[0]!),
+    census: {
+      'segment-segment-intersection': {
+        production: segRivals.length,
+        test: segAll.bodies.filter((b) => b.isTest).length,
+        bodies: segRivals.map((b) => `${b.file}:${b.line}::${b.form}`),
+      },
+    },
   };
   writeFileSync(BASELINE, JSON.stringify(next, null, 2) + '\n', 'utf8');
   console.log(`\n[${GATE}] wrote ${relPath(ROOT, BASELINE)} — ${Object.keys(next.bodies).length} production bod(ies), ${next.c3.length} guard disagreement(s). SHRINK-ONLY: a reviewer must see this diff go DOWN.`);
@@ -718,6 +1001,46 @@ for (const f of c2Missing) {
 }
 for (const v of c2Integrity) lines.push(`      ✗ ${v}`);
 lines.push('');
+// ─── CENSUS — measured, printed, recorded; deliberately NOT ratcheted ────────
+const priorSeg = prior.census?.['segment-segment-intersection'];
+lines.push(
+  `CENSUS  segment-segment-intersection — ${segRivals.length} production rival bod(ies) across ` +
+  `${new Set(segRivals.map((b) => b.file)).size} file(s)` +
+  (priorSeg ? ` (recorded ${priorSeg.production})` : ' (not yet recorded)') +
+  `, + ${segCanonical.length} in the canonical file ${SEGSEG_CANONICAL}, ` +
+  `+ ${segAll.bodies.filter((b) => b.isTest).length} in tests.`,
+);
+lines.push(
+  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT. These bodies do NOT contribute findings, so the ' +
+  'CLEAN/hard-0 line below covers point-in-polygon ONLY — it is not a claim that this family is collapsed. ' +
+  'Ratcheting it would move this gate off hard-0 for as long as the debt exists (findings > 0 ⇒ exit 1), and ' +
+  'that is a REGISTRATION decision (gate-debt.json needs an explicit founder/architect decision; ' +
+  'gate-newly-measured.json is the "the instrument arrived" category) — not a lane\'s to take unilaterally. ' +
+  'The measurement lands so the successor inherits a number instead of a sweep. FLIP: set counted:true on the ' +
+  'family and add these to `findings`, in the commit that registers the gate\'s new state.',
+);
+for (const b of segRivals) lines.push(`        · ${b.file}:${b.line}  ${b.form}`);
+if (priorSeg) {
+  const now = new Set(segRivals.map((b) => `${b.file}:${b.line}::${b.form}`));
+  const grew = [...now].filter((k) => !priorSeg.bodies.includes(k));
+  const left = priorSeg.bodies.filter((k) => !now.has(k));
+  if (grew.length) lines.push(`        + ${grew.length} NEW since the recorded census: ${grew.join(' · ')}`);
+  if (left.length) lines.push(`        − ${left.length} GONE since the recorded census (rebaseline to bank it): ${left.join(' · ')}`);
+}
+lines.push(
+  `        ADJACENT, NOT COUNTED: ${segLineLine.length} production single-quotient LINE/LINE solves (one ` +
+  'parameter against one determinant — the unbounded question, no [0,1] band). A segment/segment collapse ' +
+  'cannot retire them, so counting them here would inflate the census with bodies no fix in this family can ' +
+  'remove — the same argument SEGMENT_CROSS_SHAPE makes against folding this family into point-in-polygon.',
+);
+for (const b of segLineLine) lines.push(`        · (adjacent) ${b.file}:${b.line}`);
+lines.push(
+  '        BLIND SPOT (C73 §5.4a): a determinant computed by a HELPER — `const denom = cross(d1x, d1z, d2x, ' +
+  'd2z)` at packages/finish-host-tracker/src/reprojectFinishBoundary.ts:186 — carries no cross product in its ' +
+  'text, only a call. Seeing it would require keying on the callee NAME, which §3.2 forbids and a rename ' +
+  'defeats. Declared, not counted, not pretended away.',
+);
+lines.push('');
 lines.push(`C3  ${disagreements.length} file(s) holding the SAME family twice with DIFFERENT degenerate-divide guards (C73 §2.4).`);
 for (const d of disagreements) lines.push(`      ✗ ${d}`);
 lines.push('');
@@ -759,6 +1082,13 @@ const floors: Floor[] = [
   // cheap corroborating one.
   { what: 'test-tree point-in-polygon bodies detected (NOT migratable — the liveness anchor a collapse cannot erode)', measured: bodies.filter((b) => b.isTest).length, min: 10 },
   { what: 'executed controls passed (0 = blind comparator)', measured: control.ok ? 1 : 0, min: 1 },
+  // The segment/segment census's liveness anchor. Same reasoning as the
+  // test-tree floor above: the CANONICAL body is a subject no collapse in this
+  // family can ever remove — collapsing rivals ONTO it can only keep it at 1 —
+  // so this floor cannot collide with the gate's own success, and it goes to 0
+  // exactly when the detector breaks. It is deliberately NOT a floor on the
+  // rival count, which IS what the family exists to drive to zero.
+  { what: 'segment/segment bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: segCanonical.length, min: 1 },
 ];
 
 // c2Integrity is HARD — it is never part of `declared`, so any integrity

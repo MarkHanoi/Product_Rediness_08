@@ -1,7 +1,26 @@
 {
   "recipe": "a POINT-IN-POLYGON body = the even-odd VERTICAL STRADDLE test `(yi > y) !== (yj > y)` in any operand shape/direction, comment-stripped, over a 3-line window so a wrapped body is seen whole; a two-straddle AND (segment/segment crossing) is a DIFFERENT §3.1 family and is excluded structurally; counting unit = (file × body), so N straddles in one file are N bodies; dirs packages,apps,plugins,src; tests counted separately and NOT ratcheted.",
-  "measuredAt": "2026-08-13",
+  "measuredAt": "2026-08-15",
   "bodies": {},
   "c2": 0,
-  "c3": []
+  "c3": [],
+  "census": {
+    "segment-segment-intersection": {
+      "production": 11,
+      "test": 2,
+      "bodies": [
+        "packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts:193::parametric(2 quotients)",
+        "packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts:513::parametric(2 quotients)",
+        "packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts:586::parametric(2 quotients)",
+        "packages/auto-dimension/src/geometry.ts:115::parametric(2 quotients)",
+        "packages/core-app-model/src/drawing/HiddenLineRemoval.ts:323::parametric(2 quotients)",
+        "packages/core-app-model/src/views/PlanSnapEngine.ts:554::parametric(2 quotients)",
+        "packages/site-parcel-data/src/geometry/insetPolygon.ts:232::cross-product",
+        "packages/site-parcel-data/src/geometry/streetWidth.ts:164::parametric(2 quotients)",
+        "packages/snapping/src/GeometryUtils.ts:13::parametric(2 quotients)",
+        "packages/snapping/src/GeometryUtils.ts:110::parametric(2 quotients)",
+        "plugins/annotations/src/commands/CreateElevationMarkCommand.ts:64::parametric(2 quotients)"
+      ]
+    }
+  }
 }
