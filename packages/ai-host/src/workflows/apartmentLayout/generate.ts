@@ -277,7 +277,12 @@ export async function generateLayoutOptions(
             if (direction !== 0) {
                 let next = bedrooms + direction;
                 while (next >= MIN_BEDROOMS && next <= MAX_BEDROOMS) {
-                    const test = validateApartmentEnvelope({ bedrooms: next, grossAreaM2: programNet });
+                    // L-911 — the iterate loop's LAST attempt is what the user
+                    // is shown, so it must carry the count he actually asked
+                    // for alongside the one that was tried (C73 §4.4).
+                    const test = validateApartmentEnvelope({
+                        bedrooms: next, grossAreaM2: programNet, requestedBedrooms: originalBedrooms,
+                    });
                     bedrooms = next;
                     envelope = test;
                     if (test.admissible) break;

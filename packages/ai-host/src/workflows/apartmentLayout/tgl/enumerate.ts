@@ -2827,6 +2827,10 @@ function enumerateLayoutsImpl(input: EnumerateInput): TglCandidate[] {
         : validateApartmentEnvelope({
             bedrooms: scaleProgramToShell(input.program, shellArea).bedrooms,
             grossAreaM2: shellArea,
+            // L-911 (C73 §4.4) — the SCALED count is what is being judged, but
+            // the reason must also name what the user actually asked for. The
+            // founder asked for 3 and every sentence he saw said 5.
+            requestedBedrooms: input.program.bedrooms,
         });
     if (!env.admissible) {
         for (const f of env.hardFindings) {
