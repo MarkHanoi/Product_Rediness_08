@@ -2,6 +2,12 @@
 
 exports[`§MEASURED-FATAL-REVERSAL — moving w-west +7 m, PAST w-south's far end at x=6 > records what the gesture does today: throw or refusal, and the model state it leaves 1`] = `
 {
+  "authoredCornerDriftMm": [
+    1000,
+    1000,
+    1000,
+    1000,
+  ],
   "cascadeCause": "slab-connectivity",
   "cascadeCount": 1,
   "cascadeEntries": [
@@ -18,11 +24,11 @@ exports[`§MEASURED-FATAL-REVERSAL — moving w-west +7 m, PAST w-south's far en
       ],
       "to": [
         [
-          6,
+          7,
           4,
         ],
         [
-          7,
+          6,
           4,
         ],
       ],
@@ -41,35 +47,35 @@ exports[`§MEASURED-FATAL-REVERSAL — moving w-west +7 m, PAST w-south's far en
       ],
       "to": [
         [
-          7,
+          6,
           0,
         ],
         [
-          6,
+          7,
           0,
         ],
       ],
       "wallId": "w-south",
     },
   ],
-  "cascadeErrorIsB2": true,
-  "cascadeErrorNamesTheWall": true,
-  "cascadeSuccess": false,
+  "cascadeErrorIsB2": false,
+  "cascadeErrorNamesTheWall": false,
+  "cascadeSuccess": true,
   "doorCount": 1,
-  "doorOffset": 2,
-  "enclosedAreaM2": 10,
+  "doorOffset": 0,
+  "enclosedAreaM2": 4,
   "gestureSuccess": true,
   "gestureThrew": false,
-  "northDirX": -6,
-  "northLen": 6,
-  "openCornersMm": [
+  "loopClosureGapsMm": [
     0,
     0,
-    7000,
-    7000,
+    0,
+    0,
   ],
-  "southDirX": 6,
-  "southLen": 6,
+  "northDirX": -1,
+  "northLen": 1,
+  "southDirX": 1,
+  "southLen": 1,
   "wEast": [
     [
       6,
@@ -82,21 +88,21 @@ exports[`§MEASURED-FATAL-REVERSAL — moving w-west +7 m, PAST w-south's far en
   ],
   "wNorth": [
     [
-      6,
+      7,
       4,
     ],
     [
-      0,
+      6,
       4,
     ],
   ],
   "wSouth": [
     [
-      0,
+      6,
       0,
     ],
     [
-      6,
+      7,
       0,
     ],
   ],

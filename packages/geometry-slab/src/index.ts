@@ -86,6 +86,10 @@ export { SlabLevelCleanupHandler } from './SlabLevelCleanupHandler';
 // CommandManagerRef is already exported via SlabLevelCleanupHandler (same interface shape).
 export { SlabDependencyTracker } from './SlabDependencyTracker';
 export { SlabWallConnectivityService } from './SlabWallConnectivityService';
+// §L-925-NO-FATAL — the refusal the slab-connectivity weld raises instead of
+// throwing. Exported because the SINK lives in apps/editor (this package cannot
+// import `@app/ui`), so the composition root needs the shape to speak it.
+export type { SlabWeldRefusal } from './SlabWallConnectivityService';
 
 // ── §FEAT-SWIMMING-POOL-ELEMENT (L-292, ADR-0124 §5) — ADDITIVE ──────────────
 // The L1 ⇄ LEGACY coordinate contract for a slab hole. There are TWO `holes`

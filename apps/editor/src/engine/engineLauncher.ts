@@ -21,6 +21,9 @@ import { SceneTheme } from '@pryzm/core-app-model';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { SlabWallConnectivityService } from '@pryzm/geometry-slab';
+// §L-925-NO-FATAL — the SAME chat sink `wallPlacementGate` routes §C83-S1-MOVE
+// and §L-921-ATOMIC-GESTURE refusals to. Reused, never duplicated.
+import { chatSay } from '@app/ui/ai/chatPromptHost';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 import { spatialAuthority } from '@pryzm/core-app-model';
@@ -793,6 +796,28 @@ export async function bootstrap(
         wallTool.getWallStore(),
         () => wallRebuildCoordinator.isJoinsResolving,
         commandManager,
+        // §L-925-NO-FATAL (ISSUE-LOG L-925) — where a refused slab-loop weld goes
+        // to REACH A PERSON.
+        //
+        // The service raises a typed refusal instead of letting a store-level
+        // policy throw (§WALL-DEEP-2026 B2 and its siblings) escape from inside a
+        // store subscriber. It cannot surface the refusal itself: `geometry-slab`
+        // sits far below `@app/ui`, and a package that reached up for a DOM sink
+        // would be the layer breach, not the fix. So the sink is injected here,
+        // at the composition root, which is the only place that legitimately
+        // knows both halves.
+        //
+        // ⚠ THE CHANNEL IS DELIBERATELY THE ONE THAT ALREADY EXISTS.
+        // `wallPlacementGate` routes §C83-S1-MOVE and §L-921-ATOMIC-GESTURE
+        // refusals to `chatSay`, and it does so because the founder asked for it
+        // in those words: *"I WANT THE MESSAGE ONLY ON THE AI CHAT"*
+        // (§L-921-ONE-CHANNEL). A wall move refused by the slab weld is the same
+        // gesture, refused one subscriber later — giving it a card, a toast or a
+        // console line of its own would be the fifth surface C83 §4.1 names as
+        // the failure mode. One gesture, one channel.
+        (refusal) => {
+            chatSay(refusal.sentence);
+        },
     );
     slabWallConnectivityService.bootstrap();
 

@@ -29,6 +29,78 @@ interface Seg2 { start: { x: number; y: number }; end: { x: number; y: number } 
  *  agree on what counts as a junction. */
 const WELD_TOL_M = DEFAULT_SNAP_RADIUS;
 
+/**
+ * §L-925-DIRECTION-STABLE — the guard's option (b), applied at the point every
+ * cascade entry is minted.
+ *
+ * ── THE GEOMETRY, WHICH IS NOT THE DEFECT ────────────────────────────────────
+ * Both entry builders below produce a new baseline by replacing ONE endpoint
+ * with a computed corner and keeping the other verbatim. The corner is the
+ * intersection of the partner's OWN line with the moved wall's line, so it
+ * always lies ON the partner's line: the new segment is a sub-segment of the
+ * line the wall already occupied. Its direction can therefore only be +old or
+ * −old. Nothing rotates, and no reversal is ever GEOMETRICALLY meant.
+ *
+ * ── THE DEFECT, WHICH IS BOOKKEEPING ─────────────────────────────────────────
+ * When the moved wall crosses PAST the partner's far endpoint, the corner lands
+ * beyond that far end and the "keep the other endpoint" rule writes the pair in
+ * the order that flips the heading. MEASURED (§MEASURED-FATAL-REVERSAL):
+ *
+ *   w-south [0,0]→[6,0]  with the corner at (7,0)  →  emitted [7,0]→[6,0]
+ *
+ * which is the same physical segment as [6,0]→[7,0] and the opposite heading.
+ * `WallStore`'s §WALL-DEEP-2026 B2 guard then refuses — CORRECTLY, because
+ * `Opening.offset` is measured from `baseLine[0]` (C15 §2) and a silent flip
+ * re-measures every hosted opening from the wrong end. That is L-916 one
+ * keystroke later, and the guard is not to be softened or bypassed.
+ *
+ * ── WHY (b) AND NEVER (a), ON THIS PATH ──────────────────────────────────────
+ * The guard prints two legal continuations. Option (a) — reverse for real, and
+ * migrate every opening `offset → wallLength − offset` — is the right answer
+ * when the wall's LINE genuinely reverses. On this path it never does (see the
+ * geometry paragraph), so (a) would be a migration performed for a reversal
+ * that was only ever a transcription error. Option (b) — *"keep the baseLine
+ * direction stable and emit endpoint-only changes"* — is exact here, costs
+ * nothing, and is total: ordering the same two points by the incumbent heading
+ * always satisfies the guard.
+ *
+ * That also SETTLES a question this lane was asked to answer rather than guess:
+ * no direction-keyed state (opening offsets, layer sidedness, door handing,
+ * window orientation) is touched at all, because the heading is unchanged. A
+ * partial migration would have been worse than a refusal; not needing one is
+ * better than both.
+ *
+ * ── AND IT IS STRICTLY BETTER FOR THE OPENINGS, NOT MERELY LEGAL ─────────────
+ * `WallOccupancyStore.anchorShiftM` returns 0 — "no rebase" — for ANY direction
+ * change, by design ("that is the store's BaselineReversalError to refuse, not
+ * ours to compensate"). So a reversed entry that somehow reached the store would
+ * carry openings across at their RAW authored offsets, measured from the wrong
+ * end. Normalising first restores a real, collinear, direction-preserving shift,
+ * which is the branch that actually preserves each opening's WORLD position.
+ *
+ * @returns the same segment, ordered so its XZ heading agrees with `current`.
+ *          Degenerate inputs are returned untouched — this function's job is
+ *          ordering, and inventing geometry for a zero-length span is the
+ *          collapse case, which `_weldRefusal` refuses by name.
+ */
+function orderByIncumbentHeading(
+    proposed: [Point3D, Point3D],
+    current: readonly { x: number; z: number }[],
+): { baseLine: [Point3D, Point3D]; swapped: boolean } {
+    const c0 = current?.[0];
+    const c1 = current?.[1];
+    if (!c0 || !c1) return { baseLine: proposed, swapped: false };
+    const oldDx = c1.x - c0.x;
+    const oldDz = c1.z - c0.z;
+    const newDx = proposed[1].x - proposed[0].x;
+    const newDz = proposed[1].z - proposed[0].z;
+    // The SAME planar dot product WallStore's B2 guard computes, deliberately —
+    // one predicate, so the caller and the guard cannot drift into disagreeing
+    // about what counts as a reversal.
+    if (oldDx * newDx + oldDz * newDz >= 0) return { baseLine: proposed, swapped: false };
+    return { baseLine: [proposed[1], proposed[0]], swapped: true };
+}
+
 /** Distance from p to the SEGMENT [a,b] in the resolver's 2D space. */
 function distToSegment2D(
     p: { x: number; y: number },
@@ -56,6 +128,38 @@ interface CommandManagerRef {
     /** §L-874 — true while the manager is replaying an undo/redo. Optional so
      *  narrow test stubs keep working; the real CommandManager implements it. */
     isReverting?: () => boolean;
+}
+
+/**
+ * §L-925-NO-FATAL — the shortest wall this service will weld a corner onto.
+ *
+ * The SAME 0.1 m floor `CascadeWallBaselineCommand.canExecute` enforces as
+ * `WALL_TOO_SHORT`, restated here rather than imported because the point is to
+ * refuse BEFORE dispatch, with a sentence naming both numbers. If the command's
+ * floor ever moves, this is the second site.
+ */
+const MIN_WELDED_WALL_LENGTH_M = 0.1;
+
+/**
+ * §L-925 — a weld this service will not perform, as DATA.
+ *
+ * Every field exists because the founder-facing sentence needs it. `sentence`
+ * carries the reason code inside the prose (§REFUSAL-IDENTITY) so the identity
+ * survives the trip to a sink that takes only a string.
+ */
+export interface SlabWeldRefusal {
+    readonly code:
+        | 'WELD_COLLAPSES_PARTNER'
+        | 'WELD_REFUSED_BY_CASCADE'
+        | 'WELD_FAILED';
+    /** The wall the user actually dragged. */
+    readonly movedWallId: string;
+    /** Every wall the refused weld would have touched. */
+    readonly wallIds: readonly string[];
+    /** One sentence, both numbers, ready for a chat sink. */
+    readonly sentence: string;
+    /** The cascade's own blockingIssues, verbatim, where it produced any. */
+    readonly blockingIssues?: readonly string[];
 }
 
 /**
@@ -130,14 +234,32 @@ export class SlabWallConnectivityService {
      */
     private readonly commandManager: CommandManagerRef | null;
 
+    /**
+     * §L-925-NO-FATAL — where a refused weld goes to REACH A PERSON.
+     *
+     * This package cannot import `@app/ui` (it sits far below it), and it must
+     * not mint a second refusal channel — `wallPlacementGate` already routes
+     * §C83-S1-MOVE refusals to the chat and the founder asked for ONE channel
+     * (§L-921-ONE-CHANNEL). So the sink is INJECTED: `engineLauncher` hands in a
+     * function that speaks into the same chat, and this file stays layer-clean.
+     *
+     * Null ⇒ console only. That is a real degradation and it is logged as one,
+     * never treated as equivalent to having surfaced (the `wallPlacementGate`
+     * doctrine: a gate that quietly stops surfacing looks exactly like a gate
+     * that stopped firing).
+     */
+    private readonly onRefusal: ((refusal: SlabWeldRefusal) => void) | null;
+
     constructor(
         private readonly slabStore: SlabStore,
         wallStore: WallStoreRef,
         isJoinResolving: () => boolean = () => false,
         commandManager: CommandManagerRef | null = null,
+        onRefusal: ((refusal: SlabWeldRefusal) => void) | null = null,
     ) {
         this.isJoinResolving = isJoinResolving;
         this.commandManager  = commandManager;
+        this.onRefusal       = onRefusal;
 
         // §FIX-SLAB-TRACKER-EVENT-SHAPE (GR-12) — the identical defect that made
         // SlabDependencyTracker's listeners dead, in a second service. The store
@@ -309,7 +431,7 @@ export class SlabWallConnectivityService {
             });
             if (deduped.length === 0) return;
 
-            this._dispatchCascade(deduped, wallStore);
+            this._dispatchCascade(deduped, wallStore, wallId);
         } finally {
             this.propagating = false;
         }
@@ -429,17 +551,99 @@ export class SlabWallConnectivityService {
     private _dispatchCascade(
         batch: CascadeWallBaselineEntry[],
         wallStore: WallStoreRef,
+        movedWallId: string,
     ): void {
         if (this.commandManager) {
+            // ── §L-925-NO-FATAL, ARM 1: refuse the COLLAPSE before dispatching ──
+            //
+            // A corner that lands within MIN_WELDED_WALL_LENGTH_M of a partner's
+            // OTHER endpoint leaves that partner a stub — or nothing. The command
+            // would decline it as WALL_TOO_SHORT, atomically and CORRECTLY, but
+            // silently: the caller has never read the return value, which is
+            // precisely §MEASURED-FATAL-REVERSAL's finding. Asked here so the
+            // refusal carries the wall, both numbers, and a sink.
+            const collapsing = batch
+                .map(e => ({
+                    wallId: e.wallId,
+                    len: Math.hypot(
+                        e.newBaseLine[1].x - e.newBaseLine[0].x,
+                        e.newBaseLine[1].z - e.newBaseLine[0].z,
+                    ),
+                }))
+                .filter(w => w.len < MIN_WELDED_WALL_LENGTH_M);
+            if (collapsing.length > 0) {
+                this._refuse({
+                    code: 'WELD_COLLAPSES_PARTNER',
+                    movedWallId,
+                    wallIds: collapsing.map(w => w.wallId),
+                    sentence:
+                        `WELD_COLLAPSES_PARTNER — that move cannot be completed. Closing the ` +
+                        `corner would shorten ` +
+                        collapsing
+                            .map(w => `wall ${w.wallId} to ${(w.len * 1000).toFixed(0)} mm`)
+                            .join(', ') +
+                        `, below the ${(MIN_WELDED_WALL_LENGTH_M * 1000).toFixed(0)} mm minimum ` +
+                        `a wall may be. Nothing was changed.`,
+                });
+                return;
+            }
+
             // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
             if (window.runtime?.bus) { window.runtime.bus.executeCommand('slab.update', {}).catch(() => {}); }
-            this.commandManager.execute(
-                new CascadeWallBaselineCommand({
-                    entries: batch,
-                    cause: 'slab-connectivity',
-                }),
-                { source: 'STRUCTURAL_CASCADE' },
-            );
+
+            // ── §L-925-NO-FATAL, ARM 2: a store refusal may not escape ─────────
+            //
+            // The B2 guard is one of SEVERAL deliberate throws `wallStore.update`
+            // can raise (LevelResolveError, OpeningInvariantError, WallSchemaError
+            // are its siblings). Every one of them is a POLICY decision, and a
+            // policy decision that reaches the user as an unhandled exception from
+            // inside a store subscriber is a defect in the caller, not the store.
+            //
+            // ⚠ MEASURED, and it is why this arm is not merely a try/catch:
+            // `CommandManager.execute` ALREADY catches, logs `FATAL ERROR DURING
+            // EXECUTION`, rolls the cascade back and returns `{ success: false }`.
+            // So the throw was never the delivered defect — the DISCARDED RETURN
+            // VALUE was. Both are handled below, and the result arm is the one
+            // that fires in production.
+            let result: { success?: boolean; error?: string; info?: string[] } | undefined;
+            try {
+                result = this.commandManager.execute(
+                    new CascadeWallBaselineCommand({
+                        entries: batch,
+                        cause: 'slab-connectivity',
+                    }),
+                    { source: 'STRUCTURAL_CASCADE' },
+                ) as { success?: boolean; error?: string; info?: string[] } | undefined;
+            } catch (err) {
+                this._refuse({
+                    code: 'WELD_FAILED',
+                    movedWallId,
+                    wallIds: batch.map(e => e.wallId),
+                    sentence:
+                        `WELD_FAILED — that move was made, but the corner repair could not be ` +
+                        `completed and was abandoned: ${String((err as Error)?.message ?? err)}`,
+                });
+                return;
+            }
+
+            // A cascade that DECLINED is not a cascade that ran. `success !== true`
+            // is read as refusal; `undefined` (narrow test stubs that return
+            // nothing) is read as "no answer", which refuses nothing — C83 §5.3,
+            // and the same reading `previewMoveReweld` gives an unanswerable
+            // question.
+            if (result && result.success === false) {
+                this._refuse({
+                    code: 'WELD_REFUSED_BY_CASCADE',
+                    movedWallId,
+                    wallIds: batch.map(e => e.wallId),
+                    sentence:
+                        `WELD_REFUSED_BY_CASCADE — that move was made, but the corners it shares ` +
+                        `with ${batch.map(e => e.wallId).join(', ')} could not be repaired: ` +
+                        `${result.error ?? result.info?.join('; ') ?? 'no reason given'}. ` +
+                        `Those walls are unchanged.`,
+                    blockingIssues: result.info,
+                });
+            }
             return;
         }
         // §WALL-DEEP-2026 O3 (RESOLVED 2026-04-24) — hard-fail-once warning.
@@ -478,6 +682,47 @@ export class SlabWallConnectivityService {
 
     /** §WALL-DEEP-2026 O3 — process-lifetime latch for the missing-CM warning. */
     private static _warnedNoCommandManager = false;
+
+    /**
+     * §L-925-NO-FATAL — the ONE place a refused weld becomes visible.
+     *
+     * Counted as well as spoken. A gate that quietly stops surfacing is
+     * indistinguishable from a gate that stopped firing (`wallPlacementGate`'s
+     * own doctrine), so the two outcomes are separate values a test can assert:
+     * `__pryzmL925Refusals` counts refusals RAISED, `__pryzmL925Unsurfaced`
+     * counts those that reached no injected sink.
+     */
+    private _refuse(refusal: SlabWeldRefusal): void {
+        const g = globalThis as unknown as {
+            __pryzmL925Refusals?: number;
+            __pryzmL925Unsurfaced?: number;
+            __pryzmL925Last?: SlabWeldRefusal;
+        };
+        g.__pryzmL925Refusals = (g.__pryzmL925Refusals ?? 0) + 1;
+        g.__pryzmL925Last = refusal;
+
+        console.warn(
+            `[SlabWallConnectivityService] §L-925-NO-FATAL refusing the slab-connectivity weld ` +
+            `for moved wall ${refusal.movedWallId}: ${refusal.sentence}`,
+            { code: refusal.code, wallIds: refusal.wallIds, blockingIssues: refusal.blockingIssues },
+        );
+
+        if (!this.onRefusal) {
+            g.__pryzmL925Unsurfaced = (g.__pryzmL925Unsurfaced ?? 0) + 1;
+            return;
+        }
+        try {
+            this.onRefusal(refusal);
+        } catch (err) {
+            // A sink that throws must not become a second, worse version of the
+            // very defect this method exists to remove.
+            g.__pryzmL925Unsurfaced = (g.__pryzmL925Unsurfaced ?? 0) + 1;
+            console.error(
+                '[SlabWallConnectivityService] §L-925-NO-FATAL the refusal sink threw; the ' +
+                'refusal reached no user-visible surface:', err,
+            );
+        }
+    }
 
     /**
      * Trim / extend the moved wall so that each of its two baseLine endpoints
@@ -544,9 +789,19 @@ export class SlabWallConnectivityService {
         if (cornerPrevCurr) applyCorner(cornerPrevCurr);
         if (cornerCurrNext) applyCorner(cornerCurrNext);
 
+        // §L-925-DIRECTION-STABLE. The moved wall's own seats land within
+        // WELD_TOL_M of the endpoints they replace, so this branch is not
+        // expected to fire here — it is applied anyway because "not expected"
+        // is not "cannot", and the cost of being wrong is the FATAL this lane
+        // exists to remove.
+        const ordered = orderByIncumbentHeading(
+            [{ x: sx, y: sy, z: sz }, { x: ex, y: ey, z: ez }],
+            wall.baseLine,
+        );
+
         return {
             wallId,
-            newBaseLine: [{ x: sx, y: sy, z: sz }, { x: ex, y: ey, z: ez }],
+            newBaseLine: ordered.baseLine,
             prevBaseLine: [prevStart, prevEnd],
         };
     }
@@ -613,7 +868,26 @@ export class SlabWallConnectivityService {
             ];
         }
 
-        return { wallId, newBaseLine, prevBaseLine: [prevStart, prevEnd] };
+        // §L-925-DIRECTION-STABLE — THE fix site. When the moved wall crossed
+        // PAST this partner's far endpoint, the corner lands beyond that end and
+        // the two branches above write the pair in the heading-flipping order.
+        // Ordering by the incumbent heading emits the SAME segment as an
+        // endpoint-only change, which is the B2 guard's own option (b). See the
+        // function's header for why (a) is never the right answer on this path.
+        const ordered = orderByIncumbentHeading(newBaseLine, wall.baseLine);
+        if (ordered.swapped) {
+            console.log(
+                `[SlabWallConnectivityService] §L-925-DIRECTION-STABLE wall ${wallId}: the new ` +
+                `corner (${corner.x.toFixed(3)}, ${corner.y.toFixed(3)}) lies PAST this wall's ` +
+                `far endpoint, so the weld was emitted as an endpoint-only change with the ` +
+                `baseLine heading preserved (guard option (b)) — span ` +
+                `[${ordered.baseLine[0].x.toFixed(3)}, ${ordered.baseLine[0].z.toFixed(3)}] → ` +
+                `[${ordered.baseLine[1].x.toFixed(3)}, ${ordered.baseLine[1].z.toFixed(3)}]. ` +
+                `No opening offset was migrated because no heading changed.`,
+            );
+        }
+
+        return { wallId, newBaseLine: ordered.baseLine, prevBaseLine: [prevStart, prevEnd] };
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────

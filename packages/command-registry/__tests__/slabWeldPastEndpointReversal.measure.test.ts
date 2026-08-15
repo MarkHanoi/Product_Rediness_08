@@ -265,6 +265,25 @@ const lengthOf = (world: World, id: string): number => {
 const openingsOf = (world: World, wallId: string): Opening[] =>
     (world.wallStore.getById(wallId)!.openings ?? []) as Opening[];
 
+/** C15 §5 — `0 ≤ offset` and `offset + width ≤ wallLength`, on EVERY wall. */
+function assertAllOpeningsInBounds(world: World): void {
+    for (const w of world.wallStore.getAll()) {
+        const len = Math.hypot(
+            w.baseLine[1].x - w.baseLine[0].x,
+            w.baseLine[1].z - w.baseLine[0].z,
+        );
+        for (const o of (w.openings ?? []) as Opening[]) {
+            expect(o.offset, `wall ${w.id} opening ${o.elementId}: offset < 0`)
+                .toBeGreaterThanOrEqual(-1e-9);
+            expect(
+                o.offset + o.width,
+                `wall ${w.id} (len ${len.toFixed(3)} m) opening ${o.elementId} spans ` +
+                `[${o.offset.toFixed(3)}, ${(o.offset + o.width).toFixed(3)}] — C15 §5`,
+            ).toBeLessThanOrEqual(len + 1e-9);
+        }
+    }
+}
+
 /** Place a door through the REAL creation command; return its minted elementId. */
 function addDoor(world: World, wallId: string, offset: number, width = 0.9): string {
     const before = new Set(openingsOf(world, wallId).map(o => o.elementId));
@@ -283,16 +302,24 @@ function addDoor(world: World, wallId: string, offset: number, width = 0.9): str
 const LOOP_ORDER = ['w-south', 'w-east', 'w-north', 'w-west'] as const;
 
 /**
- * Which endpoint of wall i is welded to which endpoint of wall i+1, recorded
- * from the UNDISTURBED loop.
+ * TWO corner metrics, because ONE of them is a trap in each direction and the
+ * trap is worth writing down rather than re-discovering.
  *
- * A metric that just takes the NEAREST endpoint pair reads the wrong corner once
- * a wall travels far: at +7 m the moved w-west passes so close to w-north's
- * *other* end that "nearest" reports a 1.000 m gap for a corner that is actually
- * open by 7.000 m. So the corner is pinned by IDENTITY — the endpoint indices
- * that were coincident before the gesture — and those same indices are measured
- * afterwards. That question ("did THIS corner open?") is the one the founder is
- * asking, and it has one answer regardless of how far anything moved.
+ *  · `loopClosureGapsMm` — NEAREST endpoint pair. Answers *"do these two walls
+ *    still meet anywhere?"*, i.e. **is the room closed**. Correct in every
+ *    regime, and it is the one the assertions gate on.
+ *
+ *  · `authoredCornerDriftMm` — the endpoint INDICES that were coincident before
+ *    the gesture, measured again afterwards. Answers *"did this specific
+ *    authored corner stay put?"*
+ *
+ * Neither alone is honest. Before the fix, nearest-pair UNDER-REPORTS: the moved
+ * w-west stops 1.000 m from w-north's far end, so it says 1000 where the
+ * authored corner is open by 7000. After the fix, authored-index OVER-REPORTS:
+ * a legal §L-925-DIRECTION-STABLE weld re-seats the shared corner on the wall's
+ * OTHER endpoint, so the authored indices are 1000 mm apart while the walls are
+ * touching exactly. So both are recorded, and the closure question — the one
+ * about the founder's room — is answered by the metric that cannot lie about it.
  */
 type CornerMap = Array<[0 | 1, 0 | 1]>;
 
@@ -314,8 +341,8 @@ function authoredCorners(world: World): CornerMap {
     return map;
 }
 
-/** Gap in mm at each authored corner, in `LOOP_ORDER` sequence. */
-function openCornersMm(world: World, corners: CornerMap): number[] {
+/** Drift in mm at each AUTHORED corner (fixed endpoint indices), LOOP_ORDER sequence. */
+function authoredCornerDriftMm(world: World, corners: CornerMap): number[] {
     return corners.map(([ia, ib], i) => {
         const a = world.wallStore.getById(LOOP_ORDER[i])!.baseLine;
         const b = world.wallStore.getById(LOOP_ORDER[(i + 1) % LOOP_ORDER.length])!.baseLine;
@@ -323,18 +350,44 @@ function openCornersMm(world: World, corners: CornerMap): number[] {
     });
 }
 
+/** The nearest endpoint pair of each adjacent wall pair. 0 ⇒ that corner is closed. */
+function loopClosureGapsMm(world: World): number[] {
+    const gaps: number[] = [];
+    for (let i = 0; i < LOOP_ORDER.length; i++) {
+        const a = world.wallStore.getById(LOOP_ORDER[i])!.baseLine;
+        const b = world.wallStore.getById(LOOP_ORDER[(i + 1) % LOOP_ORDER.length])!.baseLine;
+        let d = Infinity;
+        for (const pa of [a[0], a[1]]) {
+            for (const pb of [b[0], b[1]]) {
+                d = Math.min(d, Math.hypot(pa.x - pb.x, pa.z - pb.z));
+            }
+        }
+        gaps.push(Math.round(d * 1000));
+    }
+    return gaps;
+}
+
 /**
- * The room, as an AREA — the shoelace over the four authored corners (each read
- * as the midpoint of its endpoint pair, so a small residual gap does not make
+ * The room, as an AREA — the shoelace over the four closure corners (each read
+ * as the midpoint of its nearest endpoint pair, so a residual gap does not make
  * the polygon undefined). The cheapest honest reading of "is there still a room
  * here". m², rounded to mm².
  */
-function enclosedAreaM2(world: World, corners: CornerMap): number {
-    const pts = corners.map(([ia, ib], i) => {
+function enclosedAreaM2(world: World): number {
+    const pts: Array<{ x: number; z: number }> = [];
+    for (let i = 0; i < LOOP_ORDER.length; i++) {
         const a = world.wallStore.getById(LOOP_ORDER[i])!.baseLine;
         const b = world.wallStore.getById(LOOP_ORDER[(i + 1) % LOOP_ORDER.length])!.baseLine;
-        return { x: (a[ia].x + b[ib].x) / 2, z: (a[ia].z + b[ib].z) / 2 };
-    });
+        let best = { x: 0, z: 0 };
+        let d = Infinity;
+        for (const pa of [a[0], a[1]]) {
+            for (const pb of [b[0], b[1]]) {
+                const dd = Math.hypot(pa.x - pb.x, pa.z - pb.z);
+                if (dd < d) { d = dd; best = { x: (pa.x + pb.x) / 2, z: (pa.z + pb.z) / 2 }; }
+            }
+        }
+        pts.push(best);
+    }
     let s = 0;
     for (let i = 0; i < pts.length; i++) {
         const p = pts[i], q = pts[(i + 1) % pts.length];
@@ -419,10 +472,12 @@ describe('§CONTROL-WITHIN-EXTENT — moving w-west +3 m, stopping short of w-so
         expect(lengthOf(world, 'w-south')).toBeCloseTo(3, 9);
         expect(lengthOf(world, 'w-north')).toBeCloseTo(3, 9);
 
-        // The loop is still closed: every authored corner still coincident.
-        expect(openCornersMm(world, corners)).toEqual([0, 0, 0, 0]);
+        // The loop is still closed: every corner coincident, by BOTH metrics —
+        // within the extent nothing is re-seated, so they agree.
+        expect(loopClosureGapsMm(world)).toEqual([0, 0, 0, 0]);
+        expect(authoredCornerDriftMm(world, corners)).toEqual([0, 0, 0, 0]);
         // …and it still encloses a room: 3 m × 4 m.
-        expect(enclosedAreaM2(world, corners)).toBeCloseTo(12, 6);
+        expect(enclosedAreaM2(world)).toBeCloseTo(12, 6);
 
         // The door: it stays hosted and in bounds (C15 §5).
         const door = openingsOf(world, 'w-south')[0];
@@ -496,8 +551,9 @@ describe('§MEASURED-FATAL-REVERSAL — moving w-west +7 m, PAST w-south\'s far 
             northLen: Number(lengthOf(world, 'w-north').toFixed(6)),
             doorOffset: openingsOf(world, 'w-south')[0]?.offset ?? null,
             doorCount: openingsOf(world, 'w-south').length,
-            openCornersMm: openCornersMm(world, corners),
-            enclosedAreaM2: enclosedAreaM2(world, corners),
+            loopClosureGapsMm: loopClosureGapsMm(world),
+            authoredCornerDriftMm: authoredCornerDriftMm(world, corners),
+            enclosedAreaM2: enclosedAreaM2(world),
         };
 
         // Recorded as a single artefact so the fix's diff shows exactly which
@@ -505,22 +561,72 @@ describe('§MEASURED-FATAL-REVERSAL — moving w-west +7 m, PAST w-south\'s far 
         // careless `-u` cannot quietly re-baseline the defect into "correct".
         expect(observed).toMatchSnapshot();
 
-        // ── THE FOUR FACTS THAT MAKE THIS A DEFECT ───────────────────────────
-        // 1. The user's gesture claims to have succeeded.
-        expect(observed.gestureSuccess, 'the move reports success to its caller').toBe(true);
-        // 2. A cascade WAS computed, and BOTH partners were asked to reverse.
+        // ═══ WHAT THIS ROW MEASURED BEFORE §L-925-DIRECTION-STABLE ══════════
+        //
+        // Committed alone as `86e749d7` and left here in full, because the
+        // snapshot key is unchanged: `git diff` on the `.snap` puts the defect
+        // and the resolution side by side, value for value.
+        //
+        //   cascadeSuccess          false   ← B2 refused the whole weld
+        //   cascadeErrorIsB2        true    ← "…refusing to reverse baseLine
+        //                                      direction on wall w-south which
+        //                                      hosts 1 opening(s)…"
+        //   wSouth                  [[0,0],[6,0]]     UNMOVED
+        //   wNorth                  [[6,4],[0,4]]     UNMOVED
+        //   southLen / northLen     6 / 6             UNMOVED
+        //   loopClosureGapsMm       [0,0,1000,1000]   the room is OPEN
+        //   authoredCornerDriftMm   [0,0,7000,7000]
+        //   enclosedAreaM2          10                (a self-crossing bowtie)
+        //   doorOffset              2                 untouched, on a dead loop
+        //
+        // ═══ AND WHAT IT MEASURES NOW ═══════════════════════════════════════
+        //
+        // 1. The gesture still reports success — and now it is TELLING THE TRUTH.
+        expect(observed.gestureSuccess).toBe(true);
+
+        // 2. The same cascade is computed for the same two partners. The fix did
+        //    not change WHICH walls the enclosure welds — C83 §10 is not
+        //    over-applied here, the subject of a perimeter move includes the
+        //    corners it owns with its directly-welded partners.
         expect(observed.cascadeCount).toBe(1);
         expect(observed.cascadeEntries!.map(e => e.wallId).sort())
             .toEqual(['w-north', 'w-south']);
-        // 3. It was refused by the B2 guard, naming the wall that hosts the door.
-        expect(observed.cascadeErrorIsB2, 'the refusal is §WALL-DEEP-2026 B2').toBe(true);
-        expect(observed.cascadeSuccess).toBe(false);
-        // 4. And NOTHING happened as a result: the wall stands where it was
-        //    dragged, both partners are exactly where they started, and the room
-        //    is open by 7.000 m at BOTH welded corners.
+
+        // 3. NOTHING is refused any more. No B2, no throw, no decline.
+        expect(observed.cascadeErrorIsB2, 'no B2 refusal survives the fix').toBe(false);
+        expect(observed.cascadeSuccess).toBe(true);
+
+        // 4. Both partners followed to the new enclosure x ∈ [6, 7], and BOTH
+        //    kept their heading — which is the whole of guard option (b).
+        //    w-south was emitted as [7,0]→[6,0] before (heading flipped); it is
+        //    now [6,0]→[7,0], the SAME SEGMENT, heading intact.
         expect(observed.wWest).toEqual([[7, 4], [7, 0]]);
-        expect(observed.wSouth).toEqual([[0, 0], [6, 0]]);
-        expect(observed.wNorth).toEqual([[6, 4], [0, 4]]);
-        expect(observed.openCornersMm).toEqual([0, 0, 7000, 7000]);
+        expect(observed.wSouth).toEqual([[6, 0], [7, 0]]);
+        expect(observed.wNorth).toEqual([[7, 4], [6, 4]]);
+        expect(observed.southDirX, 'w-south still runs +x').toBeGreaterThan(0);
+        expect(observed.northDirX, 'w-north still runs −x').toBeLessThan(0);
+        expect(observed.southLen).toBeCloseTo(1, 9);
+        expect(observed.northLen).toBeCloseTo(1, 9);
+
+        // 5. THE ROOM IS CLOSED. Every corner coincident; a 1 m × 4 m enclosure.
+        expect(observed.loopClosureGapsMm).toEqual([0, 0, 0, 0]);
+        expect(observed.enclosedAreaM2).toBeCloseTo(4, 6);
+
+        // 6. The door is still hosted, still in bounds (C15 §5), and it was
+        //    re-seated by the cascade's OWN opening machinery rather than by
+        //    anything this lane wrote: offset 2.000 → 0.000.
+        //
+        //    ⚠ STATED, NOT HIDDEN: that is a 4.0 m world-position clamp. The
+        //    room went from 6 m to 1 m and a 0.9 m door has exactly one legal
+        //    position left, so a clamp is forced here — but it is the SAME
+        //    C83 §10.2.4 "clamp standing where a refusal belongs" the
+        //    §CONTROL-WITHIN-EXTENT row already carries at 1.0 m. It is
+        //    PRE-EXISTING policy in `WallOccupancyStore.planOpeningRebase`,
+        //    identical on the gesture the founder likes, and deliberately NOT
+        //    changed by L-925: making the two gestures disagree about opening
+        //    policy would be a new defect, not a fix.
+        expect(observed.doorCount).toBe(1);
+        expect(observed.doorOffset).toBeCloseTo(0, 6);
+        assertAllOpeningsInBounds(world);
     });
 });
