@@ -54,10 +54,20 @@
 //   F  pass-through T 175 deg, W3 t=0.1        1.606 m =   4.3x t    SPIKE ← new
 //   Acute sweep: 2x-thickness bound is crossed at ~30 deg of separation;
 //   40 deg → 0.573 m, 30 deg → 0.749 m, 10 deg → 2.176 m, 1 deg → 21.511 m.
+//
+// AFTER §JUNCTION-VERTEX-CLAMP (this file now asserts the right-hand column):
+//   A  0.290 → 0.290 m   unchanged (below the bound — byte-identical)
+//   B  4.324 → 0.825 m   clamped
+//   C  214.884 → 0.825 m clamped
+//   D  0.290 → REFUSED   typed 'collapsed-polygon', no geometry emitted
+//   E  0.303 → 0.303 m   unchanged
+//   F  1.606 → 0.825 m   clamped
+//   sweep 40/30 deg unchanged; 20/10/5/1/0.1 deg all pinned at the bound.
+//   0.825 = the 0.800 m clamp bound + §JUNCTION-INFLATE's 0.025 m outward.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { describe, it, expect } from 'vitest';
-import { computeJunctionInfills } from '../src/WallJunctionInfill';
+import { computeJunctionInfills, computeJunctionInfillsDetailed } from '../src/WallJunctionInfill';
 import type { WallData } from '../src/WallTypes';
 
 const T = 0.375;   // wt-exterior-brick total thickness — the founder's layered wall
@@ -120,47 +130,68 @@ describe('§MEASURED-PRISM-SPIKE — junction infill vertex distance (L-920)', (
         expect(m.max).toBeLessThan(2 * T);
     });
 
-    it('§MEASURED-PRISM-SPIKE — an acute 5 deg corner throws a vertex 4.3 m out (11.5x thickness)', () => {
+    // §JUNCTION-VERTEX-CLAMP bound for these fixtures: 4*(t/2) + 0.05 = 0.800 m,
+    // plus §JUNCTION-INFLATE's 0.025 m outward = 0.825 m as EMITTED.
+    const BOUND_EMITTED = 0.825;
+
+    it('§JUNCTION-VERTEX-CLAMP — the acute 5 deg corner: 4.324 m BEFORE → 0.825 m after', () => {
         const m = maxVertexDistance(founderCluster(85));   // 5 deg from W2
         expect(m.count).toBe(1);
-        expect(m.max).toBeCloseTo(4.324, 2);
-        expect(m.max).toBeGreaterThan(2 * T);              // PINNED WRONG
+        expect(m.max).toBeCloseTo(BOUND_EMITTED, 3);
     });
 
-    it('§MEASURED-PRISM-SPIKE — a near-duplicate wall (0.1 deg) throws a vertex 215 m out', () => {
+    it('§JUNCTION-VERTEX-CLAMP — the near-duplicate: 214.884 m BEFORE → 0.825 m after', () => {
         const m = maxVertexDistance(founderCluster(89.9));
         expect(m.count).toBe(1);
-        expect(m.max).toBeCloseTo(214.884, 1);             // PINNED WRONG — 573x thickness
-        expect(m.max).toBeGreaterThan(200);
+        expect(m.max).toBeCloseTo(BOUND_EMITTED, 3);
     });
 
-    it('EXACTLY parallel — the 1e-9 guard DOES fire, so only the NEAR-MISS is unsafe', () => {
-        const m = maxVertexDistance(founderCluster(90));
-        expect(m.max).toBeCloseTo(0.290, 2);
-        expect(m.max).toBeLessThan(2 * T);
+    it('EXACTLY parallel — a duplicate wall now REFUSES rather than emitting a patch', () => {
+        const r = computeJunctionInfillsDetailed(founderCluster(90));
+        expect(r.infills).toHaveLength(0);
+        expect(r.refusals).toHaveLength(1);
+        // Typed refusal, not a console.warn — a developer trace is not a refusal.
+        // The vertices are SPREAD but collinear (the duplicate wall contributes no
+        // independent direction), so it is the zero-area arm that catches it, not
+        // the collapsed-onto-the-junction arm.
+        expect(r.refusals[0].reason).toBe('zero-area-polygon');
+        expect(r.refusals[0].clampBound).toBeCloseTo(0.800, 3);
     });
 
-    it('L-909a\'s STATED case (pass-through T, equal thickness) is SAFE — the row text is wrong', () => {
+    it('L-909a\'s STATED case (pass-through T, equal thickness) is SAFE and UNTOUCHED by the clamp', () => {
+        // Byte-identical to the pre-fix measurement: a legitimate vertex is well
+        // inside the bound and passes through unchanged.
         expect(maxVertexDistance(founderCluster(5)).max).toBeCloseTo(0.303, 2);
-        // and it gets SMALLER toward collinear, the opposite of the row's claim
         expect(maxVertexDistance(founderCluster(0.1)).max).toBeLessThan(0.303);
     });
 
-    it('§MEASURED-PRISM-SPIKE — but a THINNER joining wall re-arms the pass-through (1.606 m)', () => {
+    it('§JUNCTION-VERTEX-CLAMP — the thin-newcomer pass-through: 1.606 m BEFORE → 0.825 m after', () => {
         const m = maxVertexDistance(founderCluster(5, 0.1));
-        expect(m.max).toBeCloseTo(1.606, 2);               // PINNED WRONG — 4.3x thickness
-        expect(m.max).toBeGreaterThan(2 * T);
+        expect(m.max).toBeCloseTo(BOUND_EMITTED, 3);
     });
 
-    it('ACUTE SWEEP — distance goes as t/sin(delta); 2x thickness is crossed at ~30 deg', () => {
-        // separation from W2 → max vertex distance, pinned pre-fix
-        const pins: Array<[number, number]> = [
-            [40, 0.573], [30, 0.749], [20, 1.105], [10, 2.176], [5, 4.324], [1, 21.511],
-        ];
-        for (const [sep, expected] of pins) {
-            expect(maxVertexDistance(founderCluster(90 - sep)).max).toBeCloseTo(expected, 2);
+    it('ACUTE SWEEP — legitimate values unchanged, every runaway pinned at the bound', () => {
+        // Below the bound → BYTE-IDENTICAL to the pre-fix numbers (the clamp only
+        // ever touches the runaway, exactly as §MITER-T-CLAMP does).
+        expect(maxVertexDistance(founderCluster(90 - 40)).max).toBeCloseTo(0.573, 2);
+        expect(maxVertexDistance(founderCluster(90 - 30)).max).toBeCloseTo(0.749, 2);
+        // Above the bound → clamped. Pre-fix these were 1.105 / 2.176 / 4.324 /
+        // 21.511 / 214.884 m.
+        for (const sep of [20, 10, 5, 1, 0.1]) {
+            expect(maxVertexDistance(founderCluster(90 - sep)).max).toBeCloseTo(BOUND_EMITTED, 3);
         }
-        // UNBOUNDED — no cap exists anywhere on this path today.
-        expect(maxVertexDistance(founderCluster(90 - 0.1)).max).toBeGreaterThan(200);
+    });
+
+    it('NOTHING on this path can emit a vertex past the bound, at any angle or thickness', () => {
+        // The honest form of the fix: a sweep of the WHOLE parameter space this
+        // lane can reach, not one fixture. 3-wall clusters only — see the header
+        // of WallJunctionIncumbentAuthority.measure.test.ts for what is NOT proven.
+        for (let deg = -180; deg <= 180; deg += 0.5) {
+            for (const t3 of [0.05, 0.1, 0.2, 0.375, 0.6]) {
+                const m = maxVertexDistance(founderCluster(deg, t3));
+                const bound = 4 * (Math.max(T, t3) / 2) + 0.05 + 0.025 + 1e-9;
+                expect(m.max).toBeLessThanOrEqual(bound);
+            }
+        }
     });
 });
