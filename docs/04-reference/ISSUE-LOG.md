@@ -5144,3 +5144,67 @@ to report that measurement even where fixing it exceeds the lane.
 - **`§OPENED-REGION` worked correctly**: it detected that Room 00-005 (43.4 m²) had stopped being a
   room, named the **4.32 m** of boundary with no wall on it, and anchored both ends on surviving
   walls. The detect→ask loop doing its job — do not regress it.
+
+---
+
+## L-922 — OPEN, FOUNDER-URGENT — moving an INTERIOR wall MUTATES THE PERIMETER: the reweld moves the outer wall's baseline start ~2.19 m, drags its three doors, jams one at offset 0.000, and corrupts geometry
+
+**Reported 2026-08-15 on deploy `023d903a`**, founder's words:
+
+> *"I move an interior wall and the wall was supposed to be just moved — redefine the floor finish
+> and that all in this scenario — HOWEVER, THE PERIMETER OUTER WALL IS IMPACTED — IT IS MOVED WITH
+> THE INNER WALL (even if the outer walls were created as an enclosed polyline — they should NOT be
+> impacted or modified by inner wall movement) — and not only that — a CORRUPTED GEOMETRY comes into
+> the game. This issue is present since long ago — walls take smaller shapes or 'weird ones'."*
+
+### The mechanism, PROVEN by the founder's own console — no hypothesis needed
+
+```
+[WallMoveReweldService]      §MOVE-REWELD-DISPATCH: moved wall …74WY → 2 junction re-weld(s)
+                             via joinedTo-graph [ …4KV39Q, …B19E16JQ32XRJQ5B6Q ]
+[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE re-seated door … on wall …B6Q:
+                                 offset 0.541 → 0.000 m   (cause 'move-reweld')
+                                 offset 2.829 → 0.635 m
+                                 offset 8.980 → 6.785 m
+```
+
+Door offsets are measured from their wall's baseline START. All three doors on perimeter wall
+`…B6Q` shifted by the **same Δ ≈ 2.194 m** — a rigid shift of the offset origin. **Therefore the
+reweld moved the PERIMETER wall's baseline start by ~2.19 m.** That is the founder's "outer wall
+moved with the inner wall", read straight off the numbers. The first door was **clamped at
+0.000 m** — jammed into the corner, which is its own visible wrongness (a clamp silently absorbing
+an impossible re-seat instead of refusing it).
+
+Consequences in the same log: `§DIAG-ROOM-LOOP BREAK` ×3 at **590 mm** vs the 200 mm hostSnap →
+rooms 6 → 5 → 4 → `§OPENED-REGION` reporting Room 00-005 (38.8 m²) no longer a room with **3.51 m**
+of boundary unwalled. The floor-follow half behaved correctly throughout (`§C79-5.2 resized:
+12.892 → 6.454 m²` and back on undo) — the founder explicitly expected that part.
+
+### This is §JOINT-AUTHORITY-IS-THE-INCUMBENT violated on the MOVE path
+
+The invariant the founder stated an hour earlier for CREATE applies verbatim here, extended:
+
+> **The gesture's SUBJECT is the only wall whose baseline may change. A re-weld ADAPTS the MOVED
+> wall to the incumbents' faces — it NEVER moves an incumbent's baseline to close the joint.**
+> An enclosed-polyline perimeter is incumbent BY CONSTRUCTION for every interior wall that ever
+> touches it.
+
+The reweld had two legal outcomes: extend/trim the MOVED wall to the perimeter's face, or refuse
+with both numbers. It chose a third, forbidden one: pull the perimeter to the moved wall.
+
+⚠ **Undo/redo thrash multiplies the damage**: the log shows repeated
+`CASCADE_WALL_BASELINE` execute/undo cycles re-seating the same three doors back and forth
+(0.000→1.704, 0.635→2.339, 6.785→8.489 and back), with room count oscillating 4↔5 and
+`unresolvedLoopBreaks` oscillating 0↔3↔4. Each accepted-then-undone gesture RE-RUNS the mutating
+cascade — the treadmill shape L-871..875 fought on the forward path, now visible on the reweld.
+
+**Ownership:** the seam (`WallMoveReweldService` / `computeMoveReweld` + `CASCADE_WALL_BASELINE`'s
+'move-reweld' cause) is LANE L-921's territory — this entry is EVIDENCE for it, not a new lane's
+file claim. The corrupted-geometry half feeds L-920 (the infill re-solve). A read-only diagnosis
+fan-out was dispatched same-turn to pin, from source: (a) which wall's baseline `computeMoveReweld`
+writes, (b) why §L-872's T-SEAT-GUARD did not protect the perimeter, (c) where the 0.000 clamp
+lives. Its verdicts go to L-921/L-920.
+
+**Related, one family, kept distinct:** §JOINT-AUTHORITY-IS-THE-INCUMBENT (the invariant) · L-919
+(CREATE through a wall) · L-920 (infill prism) · L-921 (accepted offer half-executes) · L-922
+(this — reweld mutates the incumbent).
