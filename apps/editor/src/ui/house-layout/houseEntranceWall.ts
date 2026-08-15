@@ -154,6 +154,48 @@ function toWorld(poly: ReadonlyArray<{ x: number; y: number }>): XZ[] {
 type Span = readonly [number, number];
 
 /**
+ * §FIX-ENTRANCE-OCCUPANCY-UNKNOWN (GR-10, the []-means-unknown drain) —
+ * the answer to "which spans are already claimed on this wall?", with its
+ * determination carried in the type instead of inferred from a length.
+ *
+ * The old shape, `occupiedSpansByWall?.get(wallId) ?? []`, collapsed two facts:
+ *   · the CALLER never supplied the occupancy map (`?.` arm) — nothing about
+ *     this wall's claims was examined, and a "clear-gap" placement may in fact
+ *     collide with an unclaimed window (the exact §ENTRANCE-DOOR-CLEAR defect:
+ *     collide → CreateWallOpenings skips → "no entrance door");
+ *   · the map IS supplied and has no bucket for this wall — which, by the
+ *     map's construction contract (HouseLayoutExecutor inserts EVERY
+ *     shellWindowOpeningCommand span), is the DETERMINED "zero claims here".
+ * C75 §1.4 / C78 §1.4: the two must not print the same value.
+ */
+export type OccupancyDetermination =
+    | { readonly known: true; readonly spans: readonly Span[] }
+    | { readonly known: false; readonly reason: 'RELATIONSHIP_NOT_RECORDED' };
+
+export function determineOccupiedSpans(
+    occupiedSpansByWall: ReadonlyMap<string, readonly Span[]> | undefined,
+    wallId: string,
+): OccupancyDetermination {
+    if (!occupiedSpansByWall) {
+        // The map itself was never supplied — occupancy UNEXAMINED, not clear.
+        return { known: false, reason: 'RELATIONSHIP_NOT_RECORDED' };
+    }
+    // Map present: a missing bucket is DETERMINED-zero by the construction
+    // contract above (dense index — every claimed span was inserted), so the
+    // empty here is an answer, not a default over an unknown.
+    const spans = occupiedSpansByWall.get(wallId);
+    return { known: true, spans: spans !== undefined ? spans : [] };
+}
+
+/** The log fragment naming the occupancy basis of a placement — UNKNOWN is
+ *  said out loud (§REFUSAL-IDENTITY: the token, not a shrug). */
+export function occupancyLogNote(det: OccupancyDetermination): string {
+    return det.known
+        ? `${det.spans.length} claimed span(s) examined`
+        : `occupancy UNKNOWN (${det.reason} — occupiedSpansByWall not supplied; placement may collide with an unclaimed window)`;
+}
+
+/**
  * Place a door of up to ENTRANCE_WIDTH_M inside the free interval [lo,hi] that avoids the
  * `occupied` spans (± a small gap). Returns the {offsetM,widthM} centred in the largest
  * free sub-interval, or null when none ≥ MIN_DOOR_M. Pure + deterministic.
@@ -235,13 +277,19 @@ export function reseatEntranceOnHallWall(
             const wallLen = unit(near.wall.start, near.wall.end).len;
             const spanLo = Math.max(END_CLEAR_M, near.lo);
             const spanHi = Math.min(wallLen - END_CLEAR_M, near.hi);
-            const occupied = occupiedSpansByWall?.get(near.wall.id) ?? [];
+            // §FIX-ENTRANCE-OCCUPANCY-UNKNOWN — was `occupiedSpansByWall?.get(id) ?? []`,
+            // which placed the door as if occupancy were KNOWN-clear when the map was
+            // never supplied. Unknown still places (the house must get a front door —
+            // same doctrine as the loud ENGINE-SIDE path below) but says so.
+            const occ = determineOccupiedSpans(occupiedSpansByWall, near.wall.id);
+            const occupied = occ.known ? occ.spans : [];
             const placed = spanHi - spanLo >= MIN_DOOR_M ? placeInClearGap(spanLo, spanHi, occupied) : null;
             if (placed) {
                 console.log(
                     `${logTag} §DIAG-ENTRANCE-FIX RE-SEAT (nearest-shell fallback) door from wall=${door.shellWallId} ` +
                     `→ wall=${near.wall.id} offset=${placed.offsetM.toFixed(2)}m width=${placed.widthM.toFixed(2)}m ` +
-                    `boundsHall≈✓ hall='${hall.name ?? hall.type}' (no edge ran alongside; hall centroid fronts this wall).`,
+                    `boundsHall≈✓ hall='${hall.name ?? hall.type}' (no edge ran alongside; hall centroid fronts this wall; ` +
+                    `${occupancyLogNote(occ)}).`,
                 );
                 return { ...door, shellWallId: near.wall.id, offsetM: placed.offsetM, widthM: placed.widthM };
             }
@@ -283,7 +331,10 @@ export function reseatEntranceOnHallWall(
         return door;
     }
     // Place inside the hall frontage, avoiding any window already claimed on this wall.
-    const occupied = occupiedSpansByWall?.get(best.wall.id) ?? [];
+    // §FIX-ENTRANCE-OCCUPANCY-UNKNOWN — see the fallback arm above: unknown occupancy
+    // still places, but the verdict line names the basis instead of implying clear.
+    const occ = determineOccupiedSpans(occupiedSpansByWall, best.wall.id);
+    const occupied = occ.known ? occ.spans : [];
     const placed = placeInClearGap(spanLo, spanHi, occupied);
     if (!placed) {
         console.warn(
@@ -296,7 +347,7 @@ export function reseatEntranceOnHallWall(
     console.log(
         `${logTag} §DIAG-ENTRANCE-FIX RE-SEAT door from wall=${door.shellWallId} → wall=${best.wall.id} ` +
         `(longest hall frontage ${best.overlap.toFixed(2)}m) offset=${offsetM.toFixed(2)}m width=${widthM.toFixed(2)}m ` +
-        `boundsHall=✓ hall='${hall.name ?? hall.type}'`,
+        `boundsHall=✓ hall='${hall.name ?? hall.type}' (${occupancyLogNote(occ)})`,
     );
     return { ...door, shellWallId: best.wall.id, offsetM, widthM };
 }

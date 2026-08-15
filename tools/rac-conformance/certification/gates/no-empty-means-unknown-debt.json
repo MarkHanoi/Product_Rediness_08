@@ -589,11 +589,6 @@
       "why": "C@5276 `const openings = input.openings ?? [];` · C@10165 `const metricOpenings: FacadeOpening[] = (studySubject === 'envelope' ? [] : (input?.openin`"
     },
     {
-      "site": "apps/editor/src/ui/house-layout/houseEntranceWall.ts",
-      "arm": "C (2 site(s))",
-      "why": "C@238 `const occupied = occupiedSpansByWall?.get(near.wall.id) ?? [];` · C@286 `const occupied = occupiedSpansByWall?.get(best.wall.id) ?? [];`"
-    },
-    {
       "site": "apps/editor/src/ui/house-layout/houseExecDiagnostics.ts",
       "arm": "C (8 site(s))",
       "why": "C@224 `boundingWallIds: r.boundingWallIds ?? [],` · C@338 `for (const op of w.openings ?? []) {` · C@415 `const ops = w.openings ?? [];` · C@469 `for (const wid of d.boundingWallIds) for (const rid of roomByWall.get(wid) ?? []) if (rid ` · C@512 `const wins = (w.openings ?? []).filter(o => o.type === 'window');` · C@549 `if ((w?.openings ?? []).some(o => o.type === 'door')) hasShellDoor = true;` ·"
