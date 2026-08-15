@@ -55,7 +55,6 @@ import {
     computeMoveReweldPlan,
     type MoveReweldEntry,
     type MoveReweldPartner,
-    type MoveReweldRefusal,
     type ReweldBaseline,
 } from './WallMoveReweld';
 import { DEFAULT_SNAP_RADIUS } from './WallJoinResolver';
