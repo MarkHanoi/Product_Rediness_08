@@ -4796,3 +4796,64 @@ L-912). Undo must restore BOTH records in one Ctrl+Z.
 **The lane is briefed to be able to refute this**: if measurement shows both records ARE updated and
 the frame is rebuilt from a stale RENDER cache, that is a different defect in a different package
 and the honest deliverable is the refutation, not a forced fix.
+
+---
+
+## L-917 — STRUCTURAL, OWNERLESS × 3 — carried out of BIM30-GAP-REGISTER §12 + ADDENDUM before that file was deleted
+
+The gap register was collapsed into `BIM30-MASTER-COMPLETION-TRACKER.md` on 2026-08-15. The tracker
+carries all 82 classified rows. **Three items in the register's §12 ADDENDUM could NOT be carried,
+because they are not row content — they are gaps in the register's own structure**, each with
+executed evidence and no cell to live in. They are recorded here so the deletion does not bury them.
+**None of these is a counted row and none changes 30/19/5/28.**
+
+**1 — The L-861 class (interior partitions re-welding to a moved host) was PAID, and still has no
+row.** Fixed at `ca878883` (wire `computeMoveReweld` dispatch + cascade/revert latches, §L-872
+T-SEAT-GUARD) and `f2256eba` (one-undo composition + §L-875 WELD-PRECONDITION so two region slabs'
+welds of the same shared wall both survive instead of last-wins discarding one). Executed evidence:
+`wallMoveReweldSeam.test.ts` **8/8**, pinning L-871 identity-suppression, L-872/L-873 (pre-fix wiring
+as a NEGATIVE control, fixed wiring asserted), L-874 (one gesture ⇒ one history entry ⇒ one
+byte-equal undo), L-875 (two-slab shared wall). **Why no row:** the register's move rows are GR-12
+(semantic-graph edges surviving a move) and `check-move-propagation`'s region-derived geometry
+families. *Interior partitions re-welding to a moved host is neither.* **Needs a row minted, or an
+explicit statement that the tracker does not grade it.**
+
+**2 — C83 is CANONICAL and binds spatial-validity work, while sitting OUTSIDE the register's stated
+authority chain.** `docs/02-decisions/contracts/C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md` (`28b47ec1`
++ `2e5204f0`) has the thesis *"the detection is not missing, the refusal is"* — the same shape as
+GR-14 (`[]` conflated with unknown) and CO-01. The register's Authority line named **C70–C75 only**.
+**This is a governance gap, not a defect**, and naming it is the fix: the tracker must either extend
+its authority chain to include C83 or state why C83 is out of scope. Carried forward unresolved.
+
+**3 — The first G6-shaped behaviour in the tree has no cell to be recorded in.** G6 is
+*"closed-loop: the answer feeds back into the model and maintains itself."*
+`packages/room-topology/src/OpenedRegionDetector.ts` (`499360c6`) is a PURE before/after room-set
+comparison (**16/16 executed**); `a75e8e1e` wired detect → **offer** → execute, so
+`RoomTopologyObserver` raises it, `OpenedRegionProposal` puts an accept/decline question on the
+C83-canonical chat prompt, and Confirm dispatches **ONE undoable `wall.create` through the bus**
+(**17/17 executed** — note the commit subject says 13/13; the file carries 17 cases and 17 is what
+ran, which is itself a small instance of a claim outrunning its evidence).
+**The valuable part is L-880's measurement of why three existing signals were all the wrong
+instrument**: `unresolvedLoopBreaks=0` was *correct* (a thick-shell T-junction clamp diagnostic with
+a 1 m ceiling); the compliance overlay is a downstream symptom channel that cannot name a missing
+edge; and §GR12's `boundedBy` undetermined mark is the right STATE in the wrong SHAPE (a mark, not a
+geometry). **The register grades gaps, and nothing above it ever claimed G6 — so a detect → ask →
+one-undoable-command loop, the first of its kind here, had nowhere to be scored.**
+⚠ Related and open: `OpenedRegionDetector.ts` also has an UNVERIFIED +361-line rewrite from a killed
+lane, preserved as `openedRegionDetector-deadlane.patch` (2026-08-15 session scratchpad). Finish and
+test it, or discard it — never blind-apply.
+
+### The method principle worth preserving out of §12, because it governs how founder reports are weighed
+
+The register's §11 declared, as a limit on everything in it: *"No runtime probe was executed against
+a live graph, a live cascade, or a composed browser session — every gate run here is static or
+headless."* When a human finally ran that probe against production, the evidence it produced was
+**asymmetric, and the asymmetry is the rule**:
+
+> **For the viewport axis a founder observation is STRONGER than any gate reading — it is the only
+> instrument that sees what the product actually does. For everything the founder did not look at,
+> it is SILENT, and silence is not a pass.**
+
+Both halves bind. The first is why founder-reported findings (L-903…L-916) outrank synthetic sweeps
+and are laned the same turn they arrive. The second is why a clean founder session may never be
+cited as coverage of anything they did not exercise.
