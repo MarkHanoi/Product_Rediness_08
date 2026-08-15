@@ -2106,3 +2106,89 @@ anything."*
 
 **And the claim that survived every downgrade**: *"A complete BIM 3.0 is achievable in this codebase
 **with zero LLM involvement**. **The LLM is a client of the graph, never a component of it.**"*
+
+---
+
+# §11 — PLAN AMENDMENTS, 2026-08-15 (measured, not forecast)
+
+> Ten lanes ran against Half 1's open rows and Half 2's next family. **Every lane that closed found
+> its row's premise partly wrong.** These amendments record what the plan must now say differently.
+> Status readings live in the TRACKER (§12 there); this section carries only what changes the PLAN.
+
+## §11.1 — Phase B · PR-11 is NOT a wiring task, and the plan must stop describing it as one
+
+The roadmap said *"implement the handler FIRST — registering a no-op and claiming coverage is the
+defect."* The handler is now genuinely implemented (`278b99e5`). **The row still cannot close, for a
+reason the plan did not contain:** `new CascadeRunner()` appears **only in test files, repo-wide** —
+there is no production registry for `registerCrossHandlers` to register into.
+
+**Amendment:** PR-11's remaining work is **standing up a production cascade runner**, which is a
+composition-root change (P1 — production code obtains a runtime only via `composeRuntime()`) and
+therefore a **sequenced, founder-visible decision, not a handler task**. Recorded normatively in
+[C72 §2.5](../../02-decisions/contracts/C72-PROPAGATION-AND-PREVSTATE.md), which also notes the
+contradiction this creates with C72 §2.1's "no third state may persist": *handler real, channel
+absent* is a third state.
+
+## §11.2 — Phase B · GE-06 needs FIVE detectors, and one already exists unwired
+
+The plan treated GE-06 as "a missing algorithm". Measured, it is more specific and cheaper in one
+place than assumed:
+- All **12 declared `clash-*` bus verbs now REFUSE** with typed identity (`ENGINE_NOT_AVAILABLE`,
+  C80 §1.4) instead of being registered ids with no handler (`8de42e12`/`c2162b05`/`2bcc07ce`).
+  **That is a refusal, not a detector — GE-06 stays OPEN**, and its commit says so.
+- **What remains: five pure pair-detectors** — wall×wall, column×slab, stair×slab,
+  furniture×clearance, opening×wall — roughly one lane-session each.
+- ⭐ **`geometry-roof` ALREADY HAS an oracle-tested roof×wall detector in state
+  `EXISTS_BUT_UNWIRED`** — kept a distinct third state from `REGISTERED` precisely so it cannot be
+  counted as coverage. **PR-10 needs exactly this detector**, so PR-10's cheapest path is WIRING,
+  not construction. The plan previously implied PR-10 waits on the whole clash engine; it does not.
+- **New finding for a future lane:** the bus declares 12 `clash-*` ids and the **toolbar declares a
+  DIFFERENT 12, with only 3 overlapping.** Two rival id sets for one capability (C69 rival-list
+  class).
+
+## §11.3 — Half 2 · the family cadence is confirmed, and the next family is named
+
+Three families have now landed WHOLE (C78 §19.1): hosted-opening CREATE `78394be2`, hosted-opening
+DELETE `9e780581`, **wall.delete `d572fb7e`**. Recorded normatively in
+[C78 §19.3](../../02-decisions/contracts/C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md).
+
+**The selection rule, now proven three times: choose by cheapest reuse of proven substrate, never by
+verb popularity.** Next family = **`wall.batch.create`** (reuses `WallCreateConsequencePlanner` and
+the occupancy seam; C78 §1.5 counts a batch as ONE consequential verb either way).
+
+⚠ **`check-relationship-determination` ran in NO runner until `df0f6692`.** Every bar-3 number
+quoted before then was hand-run with nothing defending it. Gate registration now precedes family
+work, not follows it.
+
+## §11.4 — ⭐ THE STRUCTURAL AMENDMENT: drains do not converge without a LANDING ARM
+
+**Five of the eleven RED gates measured this session were minted by this session's own feature
+work** — epsilon ×2, predicate-canonical ×2, otel ×3, declared-project-scopes ×2 — all from the
+lanes that were simultaneously closing founder findings. They were paid at source (`703d9404`), but
+the pattern is the point, and GE-01's refusal names it exactly:
+
+> **Draining does not close a ratchet row; a LANDING ARM does.**
+
+**Amendment, binding on every drain row (GE-01, GE-09, GR-14, CO-06):** a drain lane's deliverable
+is not only the count going down. It is an arm that makes a NEW declaration fail at the door.
+Without it a drain is a treadmill: the next feature mints debt faster than the drain retires it, and
+the row re-reds — which GE-01 has now done **twice**. Budget the landing arm at the END of a feature
+lane, never only at the start of a drain lane.
+
+## §11.5 — Wave order, revised by measurement
+
+1. **Register every gate before trusting any of its numbers.** 11 of 13 orphans registered
+   (`df0f6692`); **2 refused** — `check-index-can-refuse` and `check-region-reference-frame`, both
+   at exit 3, which no ledger may absorb. Those two need lanes that FIX, not lanes that register.
+2. **Landing arms for the four drain rows** (§11.4) — ahead of further draining.
+3. **MT-06** — one opening authority. Promoted: it produced a user-visible defect the day it was
+   listed as tidiness (ISSUE-LOG L-916). See [tracker §12.3].
+4. **PR-10 by wiring the existing roof×wall detector** (§11.2), not by building the engine.
+5. **CE-05's driving half** — the census landed (`e08869f9`) at `EXECUTED-REACHED 0/230` **by
+   construction**; the follow-on gate answers the residency question YES and belongs under
+   `certify.ts`. Two prerequisites it must not skip: resolve the three indirection idioms
+   (`commandType` ×30, `def.commandType` ×11, `_cmd.type` ×4 — 45 of the 61 undetermined sites),
+   and cross the result with `build-census.ts`, because **a resolved dispatch into an UNBACKED verb
+   is still a dead button.**
+6. **The 14 UI files that dispatch commands with zero importers** — ten of them bind a gesture.
+   L-847's shape, found by instrument this time rather than by the founder noticing.

@@ -125,6 +125,41 @@ propagation in the product.
 > cascade as part of wiring it. A migration off them requires the replacement to be
 > demonstrated propagating *first*, per-pair, under §4 — never a flag-day swap.
 
+### §2.5 — ⚠ MEASURED 2026-08-15: THE RUNNER §2.1's "WIRED" STATE REQUIRES DOES NOT EXIST IN PRODUCTION
+
+**§2.1 offers two terminal states, WIRED or DELETED, and assumes reaching WIRED is a matter of
+registering a handler. Measurement says otherwise, and the contract must say so rather than let
+successive lanes discover it one at a time.**
+
+Lane R2 (PR-11, commit `278b99e5`) implemented `room.recomputeBoundary` properly — a genuine
+tri-state determination returning independently-determined forward AND inverse impacts, with four
+reasons reused from C78 §8.1's closed union, differentiation proven by executing the suite against
+a no-op stand-in (6 failed) and against a wrong-impact stand-in (6 failed, a **different** set). The
+handler is real. **PR-11 still cannot reach WIRED**, for a reason no row anticipated:
+
+> **`new CascadeRunner()` appears ONLY IN TEST FILES, repo-wide.** There is no live registry in
+> production for `registerCrossHandlers` to register into.
+
+So `registerCrossHandlers` having zero production callers was **never a wiring oversight**. The
+channel §2.1 describes has no production instance at all — the tests instantiate their own runner,
+which is why every suite around it passes while nothing propagates in the product. This is the
+authored-but-unwired class one level up: not an unreached handler, but an unreached *framework*.
+
+**Consequences, binding:**
+1. **A handler registered against a runner that only tests instantiate does NOT satisfy §2.1's
+   WIRED state**, and must not be reported as satisfying it. §1.1's two arms are unreachable by
+   construction until a production runner exists.
+2. **Standing up a production `CascadeRunner` is a composition-root change** (P1 — production code
+   obtains a runtime only via `composeRuntime()`), and therefore a sequenced, founder-visible
+   decision, not a task a handler lane may absorb.
+3. **§2.2 now bites harder than when it was written.** "No new consumer may be written against the
+   generic cascade while it is in neither terminal state" was aimed at plugins; it applies equally
+   to any lane tempted to register a handler and call the row closed. A registration into a
+   nonexistent registry is precisely the "dependency graph of dead subsystems" §2.2 forbids.
+4. Until it is resolved, the honest status of any such row is **"handler real, channel absent"** —
+   which is neither WIRED nor DELETED, and is therefore a THIRD state §2.1 does not permit to
+   persist. **That contradiction is the finding, and it is the decision this section escalates.**
+
 ---
 
 ## §3 — prevState

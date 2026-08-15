@@ -806,6 +806,37 @@ would decide it.
 > written*. The denominator is **composed, reachable** planners over consequential verbs (§0.b,
 > §0.c), and the reachability question is the one to ask (C70 §4.2).
 
+### §19.3 — Families landed WHOLE, and the measured position (living record, appended never rewritten)
+
+§19.1 forbids partial credit, so a family is recorded here **only when it landed whole in one
+commit** — planner + normaliser rules for every spelling + registration in the shared
+`createConsequencePlanners()` factory + tests + its determinism harness. A family half-landed is not
+listed, because listing it would be the partial credit §19.1 forbids.
+
+| Family | SHA | `check-relationship-determination` | Notes |
+|---|---|---|---|
+| hosted-opening **CREATE** | `78394be2` | 131 → **128** | 4 spellings → one composed planner; refuse-not-refit mirroring `CreateWallOpening.canPlace` verbatim |
+| hosted-opening **DELETE** | `9e780581` | 128 → **126** | door.delete · window.delete · semantic opening.delete; ARM-4 harness debt PAID in the same commit |
+| **wall.delete** | `d572fb7e` | 126 → **125** | HOST-side cascade (children, joined-wall mitres, bounding rooms) — deliberately a different relationship set from the hosted-side purge |
+
+**Measured 2026-08-15: 125 findings.** The denominator is **4,100 cells = 100 consequential verbs
+× 41 relationships**; reaching verbs 10, refusal-BLOCKED 350, structurally-answerable 60.
+`check-plan-determinism` reads **6 registered / 6 tested / 0 findings / exit 0 CLEAN**.
+
+> **⚠ §19.3a — the gate that measures this ran in NO RUNNER until 2026-08-15.**
+> `check-relationship-determination` was one of **13 gates registered in neither `run-all.ts` nor
+> `certify.ts`** (registered at `df0f6692`). Every bar-3 number quoted before that date — including
+> the 131 and 128 above — was a **hand-run reading with nothing in CI defending it against
+> regression**. The readings were real; the *protection* was absent. This is the L-774 / §2.1d shape
+> recurring, and it is recorded here so no future reader assumes a cited number was gated.
+
+> **§19.3b — MUST, learned from three families.** The next family is chosen by *cheapest reuse of
+> proven substrate*, never by verb popularity: CREATE built the composed-planner seam, DELETE reused
+> it and paid the harness, wall.delete reused both. The named next family is **`wall.batch.create`**
+> — it reuses `WallCreateConsequencePlanner`'s machinery and occupancy seam rather than minting new
+> discovery. Its open question, per §1.5, is whether a batch plans as one plan or N; **either way it
+> counts as ONE consequential verb.**
+
 ---
 
 ## §20 — Gates, and the exit condition per invariant
