@@ -7,7 +7,7 @@ import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
 import { WindowOpening } from './WindowTypes';
-import { WallStore, hostedElementFrame } from '@pryzm/geometry-wall';
+import { WallStore, hostedElementFrame, withAuthoritativeGeometry } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the 3D window is a DetailLevel consumer, through
@@ -500,6 +500,30 @@ export class WindowBuilder {
     // ── Private ─────────────────────────────────────────────────────────────
 
     private rebuild(win: WindowOpening, prev?: WindowOpening): void {
+        // §MT-06-ONE-AUTHORITY — the frame is built from RECORD A, always.
+        //
+        // This is THE line the founder's L-916 defect turns on. `WindowOpening`
+        // carries its own offset/width/height/sillHeight, but the record that
+        // drives the VOID — and that `clampToWall` has already had its say over —
+        // is `WallData.openings[]` / `WallStore`'s window map. When a wall moves,
+        // the structural commands re-seat RECORD A and `WindowDependencyTracker`
+        // then calls `windowStore.touch(id)`, which re-notifies the UNCHANGED
+        // frame record. Built from that record, the frame is placed with the OLD
+        // offset against the NEW baseline: a clean hole with no frame in it.
+        //
+        // Resolving here rather than at `_enqueue` is deliberate — the queue
+        // drains on a LATER frame, so a value captured at enqueue time could
+        // itself be stale by the time it becomes geometry. This is the moment the
+        // record becomes meshes, so this is where authority must be read.
+        //
+        // `prev` is deliberately NOT resolved. It is the state the mesh was last
+        // BUILT from, and its only job is the property-only comparison below.
+        // Deriving both would make a pure host-move look like "nothing changed"
+        // (touch passes the same record as `win` and `prev`), take the fast path,
+        // and skip the reposition — reinstating the defect through the back door.
+        // Leaving it raw is what makes a moved void register as geometric.
+        win = withAuthoritativeGeometry(win, this.wallStore.hostedOpeningGeometry(win.id));
+
         // PLAN-06: determine add vs update BEFORE dispose() clears the map.
         const isUpdate = this.windowGroups.has(win.id);
 

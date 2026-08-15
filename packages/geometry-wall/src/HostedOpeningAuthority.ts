@@ -65,6 +65,36 @@ export interface HostedOpeningAuthoritySource {
     hostedOpeningGeometry(elementId: string): HostedOpeningGeometry | undefined;
 }
 
+/**
+ * The authoritative geometry for a hosted element, read straight off a wall
+ * RECORD rather than out of a store.
+ *
+ * For callers that already hold the `WallData` — the plan-symbol builders take
+ * it as a parameter — this is both cheaper and STRICTER than going back to the
+ * store: it derives from the very wall the caller is drawing on, so a symbol can
+ * never be positioned against one wall's opening list and another wall's
+ * baseline. `WallStore` keeps `openings[]` and its internal window/door maps in
+ * lock-step (`updateWindow`/`updateDoor` write the geometry back into
+ * `openings[]`; `updateOpening` delegates to them), so the two spellings of
+ * RECORD A agree by construction — this is not a third authority.
+ *
+ * Matches on `elementId`, the hosted element's primary key. Returns `undefined`
+ * — never zero — when the wall is absent or carries no opening for that element.
+ */
+export function openingGeometryFromWall(
+    wall: { openings?: readonly (HostedOpeningGeometry & { elementId?: string })[] } | undefined | null,
+    elementId: string,
+): HostedOpeningGeometry | undefined {
+    const found = wall?.openings?.find(o => o.elementId === elementId);
+    if (!found) return undefined;
+    return {
+        offset:     found.offset,
+        width:      found.width,
+        height:     found.height,
+        sillHeight: found.sillHeight,
+    };
+}
+
 /** True when every one of the four authoritative numbers already matches. */
 export function hostedGeometryAgrees(
     record: HostedOpeningGeometry,

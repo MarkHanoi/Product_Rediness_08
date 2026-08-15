@@ -10,7 +10,7 @@ import { doorSystemTypeStore } from './DoorSystemTypeStore';
 // the placed 3D frame is dimensionally identical to what the user previewed.
 import { resolveDoorDimensions } from './DoorDimensions';
 import { DoorOpening } from './DoorTypes';
-import { WallStore, hostedElementFrame } from '@pryzm/geometry-wall';
+import { WallStore, hostedElementFrame, withAuthoritativeGeometry } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 // §FEAT-DOOR-3D-LOD (L-266) — the 3D door is a DetailLevel consumer, through the SAME
@@ -326,6 +326,19 @@ export class DoorBuilder {
     // ── Private ─────────────────────────────────────────────────────────────
 
     private rebuild(door: DoorOpening, prev?: DoorOpening): void {
+        // §MT-06-ONE-AUTHORITY — the leaf and frame are built from RECORD A,
+        // always. The exact mirror of `WindowBuilder.rebuild`; see that method
+        // for the full statement of the founder's L-916 path (host moves →
+        // structural command re-seats RECORD A → `DoorDependencyTracker` calls
+        // `doorStore.touch(id)` → the UNCHANGED door record is re-notified → the
+        // leaf is rebuilt with the OLD offset against the NEW baseline).
+        //
+        // Resolved HERE, at the moment the record becomes meshes, because the
+        // build queue drains a frame later than it fills. `prev` stays raw so a
+        // pure host-move still reads as a geometric change rather than being
+        // waved through the property-only fast path.
+        door = withAuthoritativeGeometry(door, this.wallStore.hostedOpeningGeometry(door.id));
+
         // PLAN-06: determine add vs update BEFORE dispose() clears the map.
         const isUpdate = this.doorGroups.has(door.id);
 

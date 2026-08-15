@@ -78,7 +78,7 @@ import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDime
 // resolver. `WindowBuilder.positionGroup` calls exactly this function to place the
 // 3-D window; the plan symbol now calls it too, so the two cannot disagree about
 // where on the host the opening is or which way it faces.
-import { hostedElementFrame } from '@pryzm/geometry-wall';
+import { hostedElementFrame, withAuthoritativeGeometry, openingGeometryFromWall } from '@pryzm/geometry-wall';
 
 const WINDOW_LAYER = 'A-GLAZ';
 /**
@@ -207,8 +207,17 @@ export class WindowPlanSymbolBuilder {
      * symbol drawn at a guessed wall thickness would be a dimensional lie (L-127),
      * so we draw nothing and say so.
      */
-    private _computeSymbolGeometry(win: any, wallData: any, lod: DetailLevel = 'medium'):
+    // §MT-06-ONE-AUTHORITY — the PLAN symbol resolves the same authority the 3D
+    // frame does. `wallData` is already in hand here, so the four numbers come
+    // off the very wall this symbol is being drawn on (see
+    // `openingGeometryFromWall`). Without this the 2D plan would keep the defect
+    // §L-916 fixed in 3D: after a host move the void in plan is re-cut from
+    // RECORD A while the symbol was still drawn from the frame record's stale
+    // offset — the same hole-without-a-frame, one view over.
+    private _computeSymbolGeometry(winRaw: any, wallData: any, lod: DetailLevel = 'medium'):
         { cut: THREE.BufferGeometry | null; proj: THREE.BufferGeometry | null } | null {
+        const win = withAuthoritativeGeometry(winRaw, openingGeometryFromWall(wallData, winRaw?.id));
+
         const bl0 = wallData.baseLine?.[0];
         const bl1 = wallData.baseLine?.[1];
         if (!bl0 || !bl1) return null;

@@ -32,7 +32,7 @@ import { doorStore } from '@pryzm/geometry-door';
 // 3-D door; the plan symbol now calls it too, so the two cannot disagree about
 // where on the host the opening is or which way it faces (C15 §2 generalised to
 // the wall CENTRELINE — §FEAT-HOSTED-ON-CURVED-WALL).
-import { hostedElementFrame } from '@pryzm/geometry-wall';
+import { hostedElementFrame, withAuthoritativeGeometry, openingGeometryFromWall } from '@pryzm/geometry-wall';
 // §FIX-DOOR-PREVIEW-EXACT / §FIX-DOOR-FRAME (L-127) — same dimension source as
 // the 3D builder + the plan-tool preview so the swing symbol matches exactly.
 import { resolveDoorDimensions } from './DoorDimensions';
@@ -358,9 +358,15 @@ export class DoorPlanSymbolBuilder {
      *
      * Returns null if the wall baseline data is missing or malformed.
      */
-    private _computeSwingGeometry(door: any, wallData: any, lod: DetailLevel = 'medium'):
+    // §MT-06-ONE-AUTHORITY — the plan swing resolves RECORD A, exactly as
+    // `WindowPlanSymbolBuilder._computeSymbolGeometry` does and for the same
+    // reason: the leaf and its swing arc must start at the edge of the void the
+    // wall actually cut, not at the frame record's remembered offset.
+    private _computeSwingGeometry(doorRaw: any, wallData: any, lod: DetailLevel = 'medium'):
         { cut: THREE.BufferGeometry | null; proj: THREE.BufferGeometry | null;
           ghost: THREE.BufferGeometry | null } | null {
+        const door = withAuthoritativeGeometry(doorRaw, openingGeometryFromWall(wallData, doorRaw?.id));
+
         const bl0 = wallData.baseLine?.[0];
         const bl1 = wallData.baseLine?.[1];
         if (!bl0 || !bl1) return null;
