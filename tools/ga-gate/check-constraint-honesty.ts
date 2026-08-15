@@ -252,15 +252,17 @@ const NAMED_FAMILIES: readonly NamedFamily[] = [
  */
 const LEDGER: readonly string[] = [
   // ── H3 · G-INV-2 — ALL 17 registered rule families now have REAL executable
-  // evidence binding the rule registry. What remains is 2 of the 3 C74 §2
+  // evidence binding the rule registry. What remains is 1 of the 3 C74 §2
   // named families.
   //
-  // THE DECLARED LEVEL HAS MOVED 20 → 16 → 15 → 14 → 3 → 2, AND ONE OF THOSE
+  // THE DECLARED LEVEL HAS MOVED 20 → 16 → 15 → 14 → 3 → 2 → 1, AND ONE OF THOSE
   // STEPS WAS NOT A PAYMENT. 20 at the first honest reading; 16 on four earned
   // strikes (34664b30); 15 on ONE UNEARNED strike (96939dd4 —
   // FIRE_COMPARTMENT_AREA, see the ELEVEN STRUCK block below); 14 on two
   // earned strikes plus that row's RESTORATION; 3 on eleven earned strikes;
-  // 2 on the H5 dedup (the duplicate deleted, not extended).
+  // 2 on the H5 dedup (the duplicate deleted, not extended); 1 on
+  // StairValidationAuthority earning an at-strength suite (CO-09, 2026-08-15 —
+  // four planted violations watched failing; see the STRUCK block below).
   // A ledger that only ever counts down cannot distinguish debt being paid from
   // debt being lost, and both look like progress in the number alone. The
   // reasons are therefore written beside every move. Net for 2026-08-13:
@@ -353,19 +355,80 @@ const LEDGER: readonly string[] = [
   //   and the suite watched green again (139/139). Both runs are recorded in
   //   the commit message that carries this strike.
   //
-  // ── H3 · two of the three C74 §2 named families have no executable witness at
-  // all. `annotationConstraints` is the one PERSISTED constraint family in the
-  // system — written to the snapshot, read back and checked — and nothing
-  // executable names it. `StairValidationAuthority` is since 2026-08-13 the
-  // ONLY copy (H5 resolved — the constraint-solver duplicate, zero importers,
-  // was deleted; geometry-stair owns the rules), and it is not exercised.
-  // Its evidence belongs beside its owner in `packages/geometry-stair/` — a
-  // suite binding the deleted copy would have been the C74 §2.2 trap.
+  // ── H3 · ONE of the three C74 §2 named families still has no executable
+  // witness. `annotationConstraints` is the one PERSISTED constraint family in
+  // the system — written to the snapshot, read back and checked — and nothing
+  // executable names it. It lives in `packages/schemas` (L0) and is NOT this
+  // gate's lane to pay; it is named here so the row is owned, not orphaned.
   //
   // The third, `WallOccupancyStore.canPlace`, reads REAL and is THE POSITIVE
   // CONTROL for this arm: if it ever joins this list the arm is broken, not the
   // estate, and the fix is the gate.
-  'H3::StairValidationAuthority (VALIDATION)',
+  //
+  // ── H3::StairValidationAuthority STRUCK 2026-08-15 (CO-09) ────────────────
+  // Witnessed by `packages/geometry-stair/src/__tests__/StairValidationAuthority
+  // .spec.ts` — 19 cases importing the REAL authority from `../StairValidation
+  // Authority` and calling `StairValidationAuthority.validate()`. NO substitution
+  // sits on the evaluated path: the authority is a pure static function over
+  // plain data, `Level` is built as the real five-field record, and the optional
+  // `typeStore` context field is left absent.
+  //
+  // STRUCK AT THE DECLARED STRENGTH, which is the only thing that earns a strike
+  // on a VALIDATION row. The suite does not assert that `validate()` is callable
+  // — that would pass against a gutted validator, and is the exact C74 §1.1
+  // defect this row measures. It asserts the two things VALIDATION means:
+  //   • a code-compliant stair is ACCEPTED — zero errors, zero advisories. A
+  //     validator that refused everything would satisfy every negative case, so
+  //     the accept arm is load-bearing, not decoration.
+  //   • each illegal stair is REFUSED WITH ITS IDENTITY — the rule's own code,
+  //     its own sentence and BOTH numbers (measured value and breached limit),
+  //     asserted by exact equality. Nine refusal families are covered:
+  //     RISER-TOO-HIGH / -TOO-LOW, TREAD-TOO-SHALLOW, WIDTH-TOO-NARROW,
+  //     ACCESSIBLE-WIDTH-TOO-NARROW, SAME-LEVEL, INVALID-BASE/TOP-LEVEL,
+  //     HEIGHT-MISMATCH, ZERO-DIRECTION, TOO-FEW-RISERS.
+  //   • three thresholds are probed AT THE EDGE (riser max, width min, height
+  //     tolerance), because a limit nobody probed at the boundary could be `>=`
+  //     where its sentence says "exceeds" and nothing would notice.
+  //   • the region set is shown LIVE rather than decorative: the same 200 mm
+  //     rise is refused under the default code and accepted under `IBC-USA`.
+  //
+  // C70 §5.6 EXECUTED, not asserted — the arm was WATCHED FAILING on four
+  // separately planted violations, the authority restored byte-identical after
+  // each (`git diff` empty), and the suite watched green again (19/19, and
+  // 225/225 for the package):
+  //   M1 rule DELETED  (riser-max branch disabled)      → 4 failed / 15 passed
+  //   M2 WRONG IDENTITY (`STAIR-WIDTH-TOO-NARROW` →
+  //      `STAIR-TOO-NARROW`, the rival engine's code)   → 2 failed / 17 passed
+  //   M3 region resolution disabled                     → 1 failed / 18 passed
+  //   M4 OFF-BY-ONE at the width minimum (`<` → `<=`)   → 1 failed / 18 passed
+  // M2 and M4 are the pair that matter: both leave `validate()` callable and
+  // still returning a refusal, and only an at-strength assertion catches them.
+  //
+  // TWO DEFECTS ARE PINNED AS MEASURED, NOT ENDORSED — for this authority
+  // MISSING and COMPLIANT are the same value (§CONTEXT-DATA-HONESTY): a stair
+  // with NO dimensions at all validates `isValid: true` (every dimensional rule
+  // is guarded by `!== undefined`), and the storey-height rule is nested inside
+  // the flights branch, so a riser height that cannot reach the top level is
+  // not refused while the flights array is absent.
+  //
+  // ⚠ A RIVAL VALIDATION SURFACE SURVIVES UNDER A DIFFERENT NAME, and this
+  // gate's H5 arm cannot see it — H5 stats two hard-coded paths both named
+  // `StairValidationAuthority.ts`, so a rival called something else is invisible.
+  // `StairConstraintEngine` (`packages/constraint-solver/src/stair-constraint-
+  // engine.ts:63`) hand-inlines its OWN copy of the `STAIR_CONSTRAINTS` table
+  // (:7-19) and is live on a production mutation path —
+  // `command-registry/src/stair/UpdateStairFlightsCommand.ts:78` calls
+  // `validateQuick`, and `ChangeStairShapeCommand` / `StairCommandPlan` call
+  // `computeOptimalParameters`. It does NOT route through the authority, and the
+  // two have ALREADY DRIFTED on refusal identity: the same defect is
+  // `STAIR-WIDTH-TOO-NARROW` here and `STAIR-TOO-NARROW` there,
+  // `STAIR-ACCESSIBLE-WIDTH-TOO-NARROW` here and `STAIR-ACCESSIBLE-TOO-NARROW`
+  // there, and the region override is keyed `region`/`IBC-USA`/200 mm here
+  // against `buildingCode`/`UK_ADM`/220 mm there. The authority's own header
+  // claims `StairConstraintEngine` "consults the same rules"; it does not.
+  // This is NOT struck and NOT paid — consolidating it is solver work, which
+  // C74 §4.5 forbids until a family proves it needs solving. Recorded so the
+  // next reader does not mistake a REAL row for a single owner.
   'H3::annotationConstraints (VALIDATION)',
   // ── H4 is deliberately absent: `check-no-hidden-mock`'s M-C arm owns it, at
   // finer resolution (per injection site). See the header. ONE DEFECT, ONE OWNER.
