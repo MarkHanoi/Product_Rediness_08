@@ -198,6 +198,53 @@ describe('§MEASURED-STEM-ORPHANED — a T-stem follows the host it terminates o
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §L-926-NAMED-REFUSALS — the two ways a follow must NOT be completed
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('§L-926-NAMED-REFUSALS — a follow that would wreck the stem refuses BY NAME', () => {
+    // Raised at L-925's request. It verified that the MOVED wall's own seat path
+    // cannot emit a reversing baseline (index-preserving writes + nearest-endpoint
+    // routing + a 0.15 m floor) but noted there is no NAMED refusal to catch a
+    // future change that breaks the invariant — a structural protection nobody
+    // can see fail is one nobody notices losing. The DEPENDENT path is new code
+    // and gets both refusals named, reachable, and asserted here.
+
+    it('STEM_REVERSAL: a seat past the stem\'s far end refuses instead of flipping the wall', () => {
+        // Stem (5,0.1)→(5,0.5); the host rises to z=0.6, so the seat at its own
+        // depth lands at z=0.7 — 0.2 m PAST the far endpoint. Completing it would
+        // hand back a wall pointing the other way.
+        const host = {
+            id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, 0.6], [10, 0.6]),
+            thickness: T,
+        };
+        const stem = { id: 'S', baseLine: bl([5, 0.1], [5, 0.5]) };
+        const plan = computeMoveReweldPlan(host, [stem]);
+        expect(plan.entries).toEqual([]);
+        expect(plan.refusals).toHaveLength(1);
+        expect(plan.refusals[0]!.reason).toBe('STEM_REVERSAL');
+        expect(plan.refusals[0]!.beyondMm).toBe(200); // how far past the far end
+        expect(plan.refusals[0]!.limitMm).toBe(0);
+    });
+
+    it('STEM_COLLAPSE: a seat that shortens the stem below the buildable floor refuses', () => {
+        // Same stem; the host rises to z=0.3, so the seat lands at z=0.4 and the
+        // stem would come out 100 mm long — under DEGENERATE_STUB_LENGTH (150 mm),
+        // which is the multi-cluster black-spike hole. Never manufacture a stub.
+        const host = {
+            id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, 0.3], [10, 0.3]),
+            thickness: T,
+        };
+        const stem = { id: 'S', baseLine: bl([5, 0.1], [5, 0.5]) };
+        const plan = computeMoveReweldPlan(host, [stem]);
+        expect(plan.entries).toEqual([]);
+        expect(plan.refusals).toHaveLength(1);
+        expect(plan.refusals[0]!.reason).toBe('STEM_COLLAPSE');
+        expect(plan.refusals[0]!.beyondMm).toBe(100);  // the length it would be
+        expect(plan.refusals[0]!.limitMm).toBe(150);   // the floor it must clear
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §L-922-CONTROL — the direction `19ddf6bb` got RIGHT, pinned as bytes
 // ─────────────────────────────────────────────────────────────────────────────
 
