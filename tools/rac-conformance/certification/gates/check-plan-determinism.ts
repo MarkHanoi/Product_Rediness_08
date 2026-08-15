@@ -93,6 +93,7 @@ import { WallCreateConsequencePlanner } from '../../../../apps/editor/src/engine
 import { OpeningMoveConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/OpeningMoveConsequencePlanner.js';
 import { WallOpeningCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallOpeningCreateConsequencePlanner.js';
 import { OpeningDeleteConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/OpeningDeleteConsequencePlanner.js';
+import { WallDeleteConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallDeleteConsequencePlanner.js';
 import { ConsequencePreviewService } from '../../../../apps/editor/src/engine/consequence/ConsequencePreviewService.js';
 import { predictRoomGeometry } from '../../../../packages/room-topology/src/predictRoomGeometry.js';
 import { resolveJunctionsWithRecords } from '../../../../packages/geometry-wall/src/JunctionResolverV2.js';
@@ -2008,12 +2009,458 @@ async function openingDeleteHarness(): Promise<{ floors: Floor[]; lines: string[
   return { floors, lines, findings };
 }
 
+// ─── wall.delete — the WALL (host-side) DELETE family (the SIXTH registered row) ─────────
+//
+// ── THE SEAMS ARE THIS FAMILY'S OWN — THREE READERS, TWO OF THEM REFUSAL-BEARING ────────
+// Neither delete harness above is transcribable here, and the reason is the same one that
+// makes this a separate FAMILY rather than a row on the hosted-opening one: that planner
+// deletes a CHILD and reads one host record by reverse scan; this one deletes the HOST and
+// reads THREE disjoint records, two of which can REFUSE. The opening-delete doubles answer
+// for none of them.
+//
+//   relationships  `getRelationships` — the RECORDED edge index the commit path purges and
+//                  restores verbatim (3ee632f6, C78 §5.1). Shared in NAME with the
+//                  opening-delete row and in nothing else: here it is the only seam that
+//                  feeds `changed` without also feeding `topology`, which is what makes it
+//                  the 2a lever.
+//   joinedWalls    `getJoinedWalls` — REFUSAL-BEARING (ADR-0321). `{ok:true,[]}` is a
+//                  POSITIVE answer ("covered, joins nothing"); `{ok:false}` is no answer.
+//                  It also GATES the level-sibling `excluded` verdict, so a harness that
+//                  only ever fed it `ok:true` would never see the branch where the planner
+//                  correctly declines to offer a sibling verdict at all.
+//   boundingWalls  `getBoundingWalls` — REFUSAL-BEARING (§GR12-BOUNDARY-INVALIDATION), and
+//                  the only seam in ANY of the six harnesses that is asked once PER ROOM.
+//                  Its three per-room outcomes (affected / CHECKED-unaffected / refused)
+//                  are the whole reason this planner pays a loop instead of one
+//                  `getSources` call, so the harness drives all three in ONE plan.
+//   validator      the violation core, diffed before/after the removal. This row certifies
+//                  `violationsCreated` — the UNflattering half (a room left without its
+//                  egress wall). The opening-delete row certifies `violationsResolved`;
+//                  between them both halves of the diff are load-bearing somewhere.
+//
+// ── THE stateHash CONSTRAINT, RE-DERIVED FOR THIS ROW ───────────────────────────────────
+// `fnv1a({wallDelete: payload, walls: allWalls})` — so ARM 2 may move neither the payload
+// nor the wall store. Every pair below varies ONE injected reader over byte-identical
+// state, asserts stateHash equality as a FLOOR, and names the one body section it moves.
+// This is a TIGHTER constraint than the opening-delete row's, because on that row the
+// element sets came mostly from the wall record; here three of the four sections are fed by
+// injected readers, so the pairs are correspondingly easier to build and correspondingly
+// easier to build WRONG (two sections co-varying). Each pair therefore pins the sections it
+// is NOT moving, as floors, not as hopes.
+//
+// ── ALL THREE VERIFIED BY MUTATION, ONE SECTION AT A TIME (measured 2026-08-15) ─────────
+// `assemble`'s hashed body was stripped of ONE section per run and this gate re-run:
+//   `changed` dropped from hash       → 2a RED, 2b and 2c still green
+//   `validation` dropped from hash    → 2b RED, 2a and 2c still green
+//   `undetermined` dropped from hash  → 2c RED, 2a and 2b still green
+// Each pair fails for its OWN section and no other, so the arms are load-bearing and
+// mutually independent rather than three readings of one difference. The mutations were
+// reverted; this note is the record — "the arm printed green" is not evidence the arm CAN
+// go red (the create row's lesson, re-paid rather than cited).
+//
+// ── THE REFUSAL BRANCHES ARE THIS ROW'S SIGNATURE, AND BOTH ARE REPEATED ────────────────
+// Unlike the hosted-opening delete family — where `refused` is a literal [] because no
+// commit path declines — BOTH wall commit paths carry real canExecute refusals, mirrored
+// verbatim by the planner. They are the plans a user is most likely to be SHOWN and least
+// likely to have checked, so each is repeated for byte-identity: the sentence explaining a
+// refusal must be a pure function of state exactly as much as a proceed plan is.
+
+interface WallDeleteWorld {
+  walls: any[];
+  rooms: any[];
+}
+
+/** THE WORLD. `wall-1` is the doomed host: it carries TWO children whose two records
+ *  AGREE (childrenIds ≡ openings[].elementId), so the default plan's cascade is clean and
+ *  the orphan declaration is proven ABSENT by default and driven separately below.
+ *  `wall-2` is joined to it; `wall-3` is a level sibling that is NOT joined — the
+ *  `excluded` positive verdict. `spurLength` is the NEGATIVE CONTROL's one knob. */
+const freshWallDeleteWorld = (spurLength = 4): WallDeleteWorld => ({
+  walls: [
+    {
+      id: 'wall-1', type: 'wall', levelId: 'L1', height: 2.7, thickness: 0.2,
+      baseLine: [{ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }],
+      childrenIds: ['door-1', 'win-1'],
+      openings: [
+        { id: 'op-d1', elementId: 'door-1', type: 'door', offset: 0.5, width: 0.9, height: 2.1, sillHeight: 0 },
+        { id: 'op-w1', elementId: 'win-1', type: 'window', offset: 3.0, width: 1.2, height: 1.2, sillHeight: 0.9 },
+      ],
+    },
+    {
+      id: 'wall-2', type: 'wall', levelId: 'L1', height: 2.7, thickness: 0.2,
+      baseLine: [{ x: 6, y: 0, z: 0 }, { x: 6, y: spurLength, z: 0 }],
+      childrenIds: [], openings: [],
+    },
+    {
+      id: 'wall-3', type: 'wall', levelId: 'L1', height: 2.7, thickness: 0.2,
+      baseLine: [{ x: 0, y: 9, z: 0 }, { x: 6, y: 9, z: 0 }],
+      childrenIds: [], openings: [],
+    },
+  ],
+  rooms: [{ id: 'room-1' }, { id: 'room-2' }, { id: 'room-3' }],
+});
+
+/** Read-only PlanningContext double — this family's OWN. The ROOM store is populated (this
+ *  is the only one of the six planners that ITERATES it), and door/window/stair are empty
+ *  arrays serving the violation diff honestly. */
+const wallDeleteContextFor = (world: WallDeleteWorld) => () => ({
+  getStore(storeId: string) {
+    const items: any[] | undefined =
+      storeId === 'wall' ? world.walls
+        : storeId === 'room' ? world.rooms
+          : storeId === 'door' || storeId === 'window' || storeId === 'stair' ? []
+            : undefined;
+    if (!items) return undefined;
+    return {
+      getAll: () => items as readonly unknown[],
+      getById: (id: string) => items.find((i) => i.id === id) ?? null,
+    };
+  },
+}) as any;
+
+/** The command as the register verb carries it — payload `{ id }`, the spelling
+ *  `plugins/wall DeleteWall.ts` reads. */
+const WD_COMMAND = { type: 'wall.delete' as const, payload: { id: 'wall-1' } };
+
+/** Recorded edges as the graph holds them — the double answers EDGES, never a verdict. */
+const WD_EDGES = [
+  { id: 'e1', type: 'hosts', sourceId: 'wall-1', targetId: 'door-1' },
+  { id: 'e2', type: 'boundedBy', sourceId: 'room-1', targetId: 'wall-1' },
+];
+
+/** The junction index, ANSWERING: wall-2 is joined, wall-3 is not. */
+const wdJoined = { getJoinedWalls: () => ({ ok: true as const, wallId: 'wall-1', joinedWallIds: ['wall-2'] }) };
+
+/** The per-room boundedBy reader driving ALL THREE outcomes in one plan:
+ *  room-1 affected · room-2 CHECKED-and-unaffected · room-3 REFUSED. */
+const wdBounding = {
+  getBoundingWalls: (roomId: string) =>
+    roomId === 'room-1'
+      ? { ok: true as const, roomId, boundingWallIds: ['wall-1', 'wall-2'] }
+      : roomId === 'room-2'
+        ? { ok: true as const, roomId, boundingWallIds: ['wall-3'] }
+        : { ok: false as const, roomId, reason: 'room-unknown-to-boundedBy-writer' as const, detail: `no boundedBy edge and no undetermined mark for ${roomId}` },
+};
+
+/** Fires WALL_EGRESS on room-1 whenever the wall store holds FEWER than 3 walls — absent
+ *  BEFORE the delete (three) and present AFTER (two), so `violationsCreated` carries bytes
+ *  on the default plan. The UNflattering half, deliberately: a planner that reported only
+ *  resolved violations would never talk a user out of a delete. */
+const wdEgressValidator = {
+  validateAll: (ctx: any) =>
+    (ctx.wallStore.getAll() as any[]).length < 3
+      ? [{ ruleId: 'ROOM_EGRESS', elementId: 'room-1', message: 'room-1 has no wall carrying an egress door' }]
+      : [],
+};
+const wdQuietValidator = { validateAll: () => [] as any[] };
+
+/** Build the REAL service over the REAL wall-delete planner. Each `omit*` flag is an
+ *  explicit ABSENCE — distinct from "not overridden", which `?? default` cannot express and
+ *  2c depends on. */
+function buildWallDeleteService(world: WallDeleteWorld, opts?: {
+  relationships?: any;
+  omitRelationships?: boolean;
+  joinedWalls?: any;
+  boundingWalls?: any;
+  validator?: { validateAll: (c: any) => any[] };
+  plannerWrap?: (p: WallDeleteConsequencePlanner) => { plan: (c: any, ctx: any) => Promise<any> };
+}): ConsequencePreviewService {
+  const planner = new WallDeleteConsequencePlanner({
+    ...(opts?.omitRelationships ? {} : { relationships: (opts?.relationships ?? { getRelationships: () => WD_EDGES }) as any }),
+    joinedWalls: (opts?.joinedWalls ?? wdJoined) as any,
+    boundingWalls: (opts?.boundingWalls ?? wdBounding) as any,
+    validator: (opts?.validator ?? wdEgressValidator) as any,
+  });
+  const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
+  const planners = new Map<string, any>();
+  planners.set('wall.delete', subject);
+  return new ConsequencePreviewService(planners as any, wallDeleteContextFor(world));
+}
+
+async function wallDeleteHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
+  const floors: Floor[] = [];
+  const lines: string[] = [];
+  const findings: string[] = [];
+  const realNow = Date.now;
+  const realRandom = Math.random;
+
+  // ── ARM 1 · REPEAT — the PROCEED plan, through the REAL planner and service ───────────
+  const service = buildWallDeleteService(freshWallDeleteWorld());
+  const runA = await service.preview(WD_COMMAND);
+  const runB = await service.preview(WD_COMMAND);
+  floors.push({ what: 'wall.delete: real preview produced a plan (run A)', measured: runA ? 1 : 0, min: 1 });
+  floors.push({ what: 'wall.delete: real preview produced a plan (run B)', measured: runB ? 1 : 0, min: 1 });
+  if (runA && runB) {
+    // The subject, its two children, the joined wall and the bounded room.
+    floors.push({ what: 'wall.delete: plan carries changed entries (subject + children + joined wall + bounded room)', measured: runA.changed.length, min: 4 });
+    // C70 F-INV-2, asserted in the GATE: a delete never answers with an empty cascade. On
+    // the HOST row the floor is 3 — the wall AND both its cascaded children.
+    floors.push({ what: 'wall.delete: C70 F-INV-2 — topology.removed carries the wall AND its cascaded children (a host delete never plans an empty cascade)', measured: (runA as any).topology?.removed?.length ?? 0, min: 3 });
+    floors.push({ what: 'wall.delete: topology.added is EMPTY (a delete creates nothing — structural, not asserted-and-hoped)', measured: ((runA as any).topology?.added?.length ?? 0) === 0 ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.delete: plan carries topology.modified (the joined wall that re-mitres AND the room whose ring loses a member)', measured: (runA as any).topology?.modified?.length ?? 0, min: 2 });
+    // The POSITIVE verdicts — the un-joined level sibling and the CHECKED-unaffected room.
+    // C78 §1.4 in its constructive direction: determined-unaffected is a reading, and a row
+    // that never produced one would be inferring unaffectedness from absence everywhere.
+    floors.push({ what: 'wall.delete: plan carries excluded entries (the un-joined level sibling AND the room the boundedBy reader CHECKED and cleared)', measured: (runA as any).excluded?.length ?? 0, min: 2 });
+    floors.push({ what: 'wall.delete: plan carries NO metrics key (a determined absence is untypeable under MetricTransition — declared, never fabricated as after:0)', measured: 'metrics' in (runA as any) ? 0 : 1, min: 1 });
+    floors.push({ what: 'wall.delete: the untypeable metric lines are DECLARED (AGGREGATE_SCOPE_UNSUPPORTED entry naming MetricTransition)', measured: (runA as any).undetermined?.some((u: any) => u.scope.includes('metric lines') && u.reason === 'AGGREGATE_SCOPE_UNSUPPORTED') ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.delete: plan carries violationsCreated (the UNflattering validation half — a delete that CREATES a violation)', measured: runA.validation.violationsCreated.length, min: 1 });
+    floors.push({ what: 'wall.delete: the affected room\'s GEOMETRY is DECLARED TOPOLOGY_CHANGE_POSSIBLE, never a predicted polygon', measured: (runA as any).undetermined?.some((u: any) => u.reason === 'TOPOLOGY_CHANGE_POSSIBLE') ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.delete: the REFUSED room is declared RELATIONSHIP_NOT_RECORDED per room, never inferred unaffected (C78 §1.4)', measured: (runA as any).undetermined?.some((u: any) => u.reason === 'RELATIONSHIP_NOT_RECORDED' && u.scope.includes('room-3')) ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.delete: the level-wide UNDO SNAPSHOT is declared AGGREGATE_SCOPE_UNSUPPORTED (so it is never read as a cascade)', measured: (runA as any).undetermined?.some((u: any) => u.reason === 'AGGREGATE_SCOPE_UNSUPPORTED' && u.scope.includes('level')) ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.delete: the two commit paths\' cascade divergence is DECLARED (disposition (iv)), not predicted', measured: (runA as any).undetermined?.some((u: any) => u.scope.includes('which cascade')) ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.delete: refused is EMPTY on the PROCEED plan (no commit path declines a wall delete on dependency grounds — measured, not assumed)', measured: ((runA as any).refused?.length ?? 0) === 0 ? 1 : 0, min: 1 });
+    const c = compareRuns(runA, runB);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.delete][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.delete REPEAT: ${c.detail}`);
+  }
+
+  // ── ARM 1b · THE TWO REFUSAL BRANCHES, REPEATED — this row's signature ────────────────
+  // `wall not found` — both commit paths refuse, and REFUSE-NOT-REFIT means the plan must
+  // claim NOTHING removed rather than fall through to an empty determined no-op.
+  const nf1 = await buildWallDeleteService(freshWallDeleteWorld()).preview({ type: 'wall.delete', payload: { id: 'wall-404' } } as any);
+  const nf2 = await buildWallDeleteService(freshWallDeleteWorld()).preview({ type: 'wall.delete', payload: { id: 'wall-404' } } as any);
+  floors.push({ what: 'wall.delete: wall-not-found repeat produced both plans', measured: nf1 && nf2 ? 1 : 0, min: 1 });
+  if (nf1 && nf2) {
+    floors.push({ what: 'wall.delete: wall-not-found REFUSES in the commit path\'s own words (refused populated — this row is not structurally refusal-free)', measured: (nf1 as any).refused?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.delete: wall-not-found claims NOTHING removed and leaves indirect UNDETERMINED (refuse, do not refit)', measured: ((nf1 as any).topology?.removed?.length ?? 0) === 0 && (nf1 as any).indirect?.kind === 'undetermined' ? 1 : 0, min: 1 });
+    const c = compareRuns(nf1, nf2);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.delete · wall-not-found][${c.verdict}]: the same refused delete planned twice produced two different refusal sentences — what the user is shown is not a pure function of state. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.delete WALL-NOT-FOUND repeat: ${c.detail}`);
+  }
+  // The empty-id shape guard — reachable only because the normaliser deliberately lets an
+  // empty string through (filtering it there would hide this branch behind a silent null).
+  const e1 = await buildWallDeleteService(freshWallDeleteWorld()).preview({ type: 'wall.delete', payload: { id: '' } } as any);
+  const e2 = await buildWallDeleteService(freshWallDeleteWorld()).preview({ type: 'wall.delete', payload: { id: '' } } as any);
+  floors.push({ what: 'wall.delete: empty-id repeat produced both plans (the normaliser lets the malformed dispatch REACH the mirrored guard)', measured: e1 && e2 ? 1 : 0, min: 1 });
+  if (e1 && e2) {
+    floors.push({ what: 'wall.delete: empty-id is a REFUSAL carrying the INVALID_REQUEST indirect verdict, never a plan about an inferred subject', measured: ((e1 as any).refused?.length ?? 0) >= 1 && (e1 as any).indirect?.reason === 'INVALID_REQUEST' ? 1 : 0, min: 1 });
+    const c = compareRuns(e1, e2);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.delete · empty-id][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.delete EMPTY-ID repeat: ${c.detail}`);
+  }
+
+  // ── ARM 1c · THE REFUSING JUNCTION INDEX — the branch that must NOT offer a verdict ───
+  // `{ok:false}` is NO ANSWER. The planner must then decline to publish ANY level-sibling
+  // `excluded` verdict rather than defaulting the siblings to unaffected — C71 §4.4 and
+  // C78 §1.4 as an assertion about what the plan does NOT contain.
+  const rj = await buildWallDeleteService(freshWallDeleteWorld(), {
+    joinedWalls: { getJoinedWalls: () => ({ ok: false as const, wallId: 'wall-1', reason: 'no-flush-since-load', detail: 'no junction flush has covered level L1 since load' }) },
+  }).preview(WD_COMMAND);
+  floors.push({ what: 'wall.delete: refusing-junction plan produced', measured: rj ? 1 : 0, min: 1 });
+  if (rj) {
+    floors.push({ what: 'wall.delete: a REFUSING junction index yields a typed UNDETERMINED, never "it joins nothing" (C71 §4.4)', measured: (rj as any).undetermined?.some((u: any) => u.scope.includes('junction')) ? 1 : 0, min: 1 });
+    const siblings = ((rj as any).excluded ?? []).filter((x: string) => x === 'wall-2' || x === 'wall-3');
+    floors.push({ what: 'wall.delete: and NO level-sibling is claimed unaffected while the junction index cannot answer (absence of evidence is not a positive verdict)', measured: siblings.length === 0 ? 1 : 0, min: 1 });
+    lines.push(`✓  ARM 1 · wall.delete REFUSING-JUNCTION: no sibling verdict offered (excluded holds ${siblings.length} level sibling(s))`);
+  }
+
+  // ── ARM 1d · THE TWO CHILD RECORDS DISAGREEING ───────────────────────────────────────
+  // An opening in `openings[]` but absent from `childrenIds` is one the commit path's
+  // cascade will NOT reach. Reporting it removed would be a prediction the commit path
+  // contradicts; omitting it would be silence. It is named by id.
+  const orphanWorld = freshWallDeleteWorld();
+  orphanWorld.walls[0].childrenIds = ['door-1'];
+  const orph = await buildWallDeleteService(orphanWorld).preview(WD_COMMAND);
+  floors.push({ what: 'wall.delete: child-record-disagreement plan produced', measured: orph ? 1 : 0, min: 1 });
+  if (orph) {
+    const decl = (orph as any).undetermined?.find((u: any) => u.reason === 'RELATIONSHIP_NOT_RECORDED' && u.scope.includes('childrenIds'));
+    floors.push({ what: 'wall.delete: the two host-side child records disagreeing is DECLARED and NAMES THE ORPHAN BY ID (checkable, not believed)', measured: decl && decl.scope.includes('win-1') ? 1 : 0, min: 1 });
+    floors.push({ what: 'wall.delete: the orphan is reported NEITHER removed NOR unaffected — the disagreement itself is the answer', measured: !((orph as any).topology?.removed ?? []).includes('win-1') && !((orph as any).excluded ?? []).includes('win-1') ? 1 : 0, min: 1 });
+    lines.push('✓  ARM 1 · wall.delete CHILD-RECORD DISAGREEMENT: win-1 named by id, reported neither removed nor unaffected');
+  }
+
+  // ── ARM 5 · NONDETERMINISM SOURCES — arm 1 at another time, clock+RNG spoofed ─────────
+  let clockReads = 0;
+  let rngReads = 0;
+  const wdPlanUnder = async (now: number, rand: number): Promise<Plan | null> => {
+    Date.now = () => { clockReads++; return now; };
+    Math.random = () => { rngReads++; return rand; };
+    try { return await buildWallDeleteService(freshWallDeleteWorld()).preview(WD_COMMAND); }
+    finally { Date.now = realNow; Math.random = realRandom; }
+  };
+  const t1 = await wdPlanUnder(1_000_000_000, 0.1111);
+  await sleep(30);
+  const t2 = await wdPlanUnder(9_999_999_999, 0.9999);
+  floors.push({ what: 'wall.delete: time-arm produced both plans', measured: t1 && t2 ? 1 : 0, min: 1 });
+  if (t1 && t2) {
+    const c = compareRuns(t1, t2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · TIME/RNG [wall.delete][${c.verdict}]: plans planned 30 ms apart under DIFFERENT spoofed Date.now/Math.random diverged — a clock or RNG read reaches the plan. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · wall.delete TIME/RNG: 30 ms apart, Date.now spoofed 1000000000 vs 9999999999, Math.random 0.1111 vs 0.9999 → ${c.verdict} (planner path observed ${clockReads} Date.now / ${rngReads} Math.random reads)`);
+  }
+
+  // ── ARM 5 · ROOM-STORE ORDER — the per-room loop sorts BEFORE it asks ─────────────────
+  // Unique to this row: it is the only planner that iterates the room store, so the order
+  // the store yields rooms is the order refusals would be REPORTED in. `sortedUnique`
+  // before the loop is what makes that order contractual instead of incidental.
+  const roWorldA = freshWallDeleteWorld();
+  const roWorldB = freshWallDeleteWorld();
+  roWorldB.rooms = [...roWorldB.rooms].reverse();
+  const s1 = await buildWallDeleteService(roWorldA).preview(WD_COMMAND);
+  const s2 = await buildWallDeleteService(roWorldB).preview(WD_COMMAND);
+  floors.push({ what: 'wall.delete: room-store-order arm produced both plans', measured: s1 && s2 ? 1 : 0, min: 1 });
+  if (s1 && s2) {
+    const same = JSON.stringify({ c: s1.changed, e: s1.excluded, t: s1.topology, u: (s1 as any).undetermined }) ===
+      JSON.stringify({ c: s2.changed, e: s2.excluded, t: s2.topology, u: (s2 as any).undetermined });
+    floors.push({ what: 'wall.delete: the element sets AND the per-room declarations are independent of room-store iteration order', measured: same ? 1 : 0, min: 1 });
+    if (!same) findings.push('ARM 5 · TIME/RNG [wall.delete · room-order]: the plan depends on the order the store yields rooms — the per-room refusal list is not deterministic, and one situation would be explained two ways.');
+    lines.push(`${same ? '✓ ' : '❌'} ARM 5 · wall.delete room-store order: rooms [1,2,3] vs [3,2,1] → same element sets and per-room declarations`);
+  }
+
+  // ── ARM 2 · SENSITIVITY — one consequential fact each, stateHash held EQUAL ───────────
+  const wdPairHash = async (
+    label: string,
+    a: ConsequencePreviewService,
+    b: ConsequencePreviewService,
+    fact: string,
+    section: { name: string; read: (p: Plan) => number },
+    opts?: { setsMayDiffer?: boolean },
+  ): Promise<void> => {
+    const setsOf = (p: Plan): string => JSON.stringify({ e: p.excluded, t: p.topology });
+    const pa = await a.preview(WD_COMMAND);
+    const pb = await b.preview(WD_COMMAND);
+    floors.push({ what: `wall.delete: sensitivity pair "${label}" produced both plans`, measured: pa && pb ? 1 : 0, min: 1 });
+    if (!pa || !pb) return;
+    floors.push({ what: `wall.delete: sensitivity pair "${label}" holds stateHash EQUAL (the difference rides in the BODY)`, measured: pa.stateHash === pb.stateHash ? 1 : 0, min: 1 });
+    const populated = Math.max(section.read(pa), section.read(pb));
+    floors.push({ what: `wall.delete: sensitivity pair "${label}" is NOT INERT — the body section it names (${section.name}) is populated on at least one side`, measured: populated, min: 1 });
+    if (!opts?.setsMayDiffer) {
+      floors.push({
+        what: `wall.delete: sensitivity pair "${label}" holds changed AND the element sets identical — so the planHash can only move via ${section.name}`,
+        measured: JSON.stringify(pa.changed) === JSON.stringify(pb.changed) && setsOf(pa) === setsOf(pb) ? 1 : 0,
+        min: 1,
+      });
+    } else {
+      floors.push({ what: `wall.delete: sensitivity pair "${label}" — changed DIFFERS (the planted fact) while excluded/topology are held identical`, measured: JSON.stringify(pa.changed) !== JSON.stringify(pb.changed) && setsOf(pa) === setsOf(pb) ? 1 : 0, min: 1 });
+    }
+    if (pa.planHash === pb.planHash) {
+      findings.push(`ARM 2 · SENSITIVITY [wall.delete · ${label}]: two plans differing in ${fact} share planHash ${pa.planHash} — the d63e7954 collision class is OPEN on the wall-delete row.`);
+      lines.push(`❌ ARM 2 · wall.delete ${label}: planHash DID NOT MOVE (${pa.planHash}) for a difference in ${fact}`);
+    } else {
+      lines.push(`✓  ARM 2 · wall.delete ${label}: planHash moved (${pa.planHash} → ${pb.planHash}) on ${fact}, stateHash equal (${pa.stateHash}), section ${section.name} populated (${populated})`);
+    }
+  };
+
+  // 2a · changed-set-only. The RECORDED edge index answers with vs without an edge to
+  // slab-9 — the ONE seam on this row that feeds `changed` without also feeding `topology`,
+  // so excluded/topology stay byte-identical and no second set co-varies.
+  await wdPairHash('changed-set-only',
+    buildWallDeleteService(freshWallDeleteWorld(), { validator: wdQuietValidator }),
+    buildWallDeleteService(freshWallDeleteWorld(), {
+      validator: wdQuietValidator,
+      relationships: { getRelationships: () => [...WD_EDGES, { id: 'e3', type: 'supports', sourceId: 'wall-1', targetId: 'slab-9' }] },
+    }),
+    'ONLY the changed-set membership (a recorded supports edge to slab-9 present vs absent), with excluded/topology identical',
+    { name: 'changed', read: (p) => p.changed.length },
+    { setsMayDiffer: true });
+
+  // 2b · validation-only. Both sides PROCEED over identical state; only the validator's
+  // verdict differs — quiet vs the ROOM_EGRESS violation the removal CREATES.
+  await wdPairHash('validation-only',
+    buildWallDeleteService(freshWallDeleteWorld(), { validator: wdQuietValidator }),
+    buildWallDeleteService(freshWallDeleteWorld()),
+    'ONLY validation.violationsCreated (the removal strands room-1 without egress vs a validator that finds nothing)',
+    { name: 'validation.violationsCreated', read: (p) => p.validation.violationsCreated.length });
+
+  // 2c · undetermined-detail-only. C78 §1.4 as a HASH claim: the SAME NO_DEPENDENCY_INDEX
+  // verdict over the SAME scope by two routes — no relationship reader composed vs the
+  // composed reader THREW. Every element set and validation entry is byte-identical; the
+  // only differing bytes are inside `undetermined[].detail`. An approval that could not
+  // tell these apart would bind "the graph was never asked" to "the graph crashed
+  // mid-answer" — two different states of knowledge under one hash.
+  await wdPairHash('undetermined-detail-only',
+    buildWallDeleteService(freshWallDeleteWorld(), { omitRelationships: true, validator: wdQuietValidator }),
+    buildWallDeleteService(freshWallDeleteWorld(), {
+      validator: wdQuietValidator,
+      relationships: { getRelationships: () => { throw new Error('index unavailable'); } },
+    }),
+    'ONLY undetermined[].detail — the SAME NO_DEPENDENCY_INDEX verdict over the SAME scope reached by two different routes (no reader composed vs the composed reader threw)',
+    { name: 'undetermined', read: (p) => (p as any).undetermined?.length ?? 0 });
+
+  // ── ARM 3 · INSENSITIVITY ────────────────────────────────────────────────────────────
+  // KEY-ORDER, driven through the NORMALISER: the bus payload carries BOTH live keys, and
+  // the two orders must collapse to one semantic command.
+  const svcKeys = buildWallDeleteService(freshWallDeleteWorld());
+  const orderedA = await svcKeys.preview({ type: 'wall.delete', payload: { id: 'wall-1', wallId: 'wall-1' } } as any);
+  const orderedB = await svcKeys.preview({ type: 'wall.delete', payload: { wallId: 'wall-1', id: 'wall-1' } } as any);
+  floors.push({ what: 'wall.delete: key-order pair produced both plans', measured: orderedA && orderedB ? 1 : 0, min: 1 });
+  if (orderedA && orderedB) {
+    if (orderedA.planHash !== orderedB.planHash) {
+      findings.push(`ARM 3 · INSENSITIVITY [wall.delete · key-order]: permuting payload key insertion order moved the planHash (${orderedA.planHash} → ${orderedB.planHash}) — stableStringify is not doing its one job on the wall-delete row.`);
+      lines.push('❌ ARM 3 · wall.delete key-order: payload key permutation MOVED the planHash');
+    } else {
+      lines.push(`✓  ARM 3 · wall.delete key-order: payload written {id,wallId} vs {wallId,id} → same planHash (${orderedA.planHash})`);
+    }
+  }
+
+  // PAYLOAD-SPELLING insensitivity. This family is ONE register verb — `wall.delete` — so
+  // there is no second verb to test (`element.delete` is the generic type-dispatching verb
+  // and is deliberately unmapped). What IS live in two spellings is the PAYLOAD KEY: the
+  // handler reads `cmd.id`, while the cross-plugin cascade rule that fires on this very
+  // verb reads `payload.wallId` first. Two live readers of one dispatch, so both spellings
+  // must name the same wall and plan byte-identically — or the planner and the wall→room
+  // cascade would explain one situation two ways.
+  const spellA = await buildWallDeleteService(freshWallDeleteWorld()).preview(WD_COMMAND);
+  const spellB = await buildWallDeleteService(freshWallDeleteWorld()).preview({ type: 'wall.delete', payload: { wallId: 'wall-1' } } as any);
+  floors.push({ what: 'wall.delete: both live payload spellings produced a plan (neither silently unroutable)', measured: [spellA, spellB].filter(Boolean).length, min: 2 });
+  if (spellA && spellB) {
+    const c = compareRuns(spellA, spellB);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [wall.delete · payload-spelling]: the SAME delete dispatched as {id} and as {wallId} produced different plans — the dispatch shape is leaking into the semantic command, and the planner would name a different wall from the wall→room cascade rule. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · wall.delete payload-spelling: {id} (handler) vs {wallId} (cross-cascade rule) → ${c.verdict}`);
+  }
+
+  // Envelope provenance — same shape of proof as all five earlier harnesses.
+  const envelopes = [
+    { actor: 'human', origin: 'direct-manipulation', timestamp: 1_111_111, gestureId: 'g-human-1' },
+    { actor: 'ai', origin: 'ai-proposal', timestamp: 9_999_999, gestureId: 'g-ai-2', approval: { approvedBy: 'user-7', planHash: 'stale-cafe' } },
+  ] as const;
+  const envPlans: (Plan | null)[] = [];
+  for (const env of envelopes) {
+    Date.now = () => env.timestamp;
+    try { envPlans.push(await buildWallDeleteService(freshWallDeleteWorld()).preview(WD_COMMAND)); }
+    finally { Date.now = realNow; }
+  }
+  floors.push({ what: 'wall.delete: envelope pair produced both plans', measured: envPlans[0] && envPlans[1] ? 1 : 0, min: 1 });
+  if (envPlans[0] && envPlans[1]) {
+    const c = compareRuns(envPlans[0], envPlans[1]);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [wall.delete · envelope]: actor/origin/timestamp/approval differences leaked into the plan — provenance must stay OFF the plan (C78 §9). ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · wall.delete envelope: human/direct vs ai/proposal+approval, clocks 1111111 vs 9999999 → ${c.verdict}`);
+  }
+
+  // ── POSITIVE CONTROL (floor) — a nondeterministic delete planner MUST be flagged ──────
+  const noisy = buildWallDeleteService(freshWallDeleteWorld(), {
+    plannerWrap: (real) => ({
+      plan: async (c: any, ctx: any) => {
+        const p = await real.plan(c, ctx);
+        return { ...p, undetermined: [...p.undetermined, { scope: 'noise', reason: 'ENGINE_NOT_AVAILABLE', detail: `t=${realNow()}·r=${realRandom()}` }] };
+      },
+    }),
+  });
+  const n1 = await noisy.preview(WD_COMMAND);
+  const n2 = await noisy.preview(WD_COMMAND);
+  const noisyVerdict = n1 && n2 ? compareRuns(n1, n2) : null;
+  floors.push({ what: 'POSITIVE control (wall.delete): a deliberately NONDETERMINISTIC planner is FLAGGED by the repeat checker', measured: noisyVerdict && noisyVerdict.verdict !== 'identical' ? 1 : 0, min: 1 });
+  floors.push({ what: 'POSITIVE control (wall.delete): the checker CLASSIFIES it as the hash-bug shape (bodies differ, hash equal)', measured: noisyVerdict?.verdict === 'hash-bug' ? 1 : 0, min: 1 });
+  lines.push(`${noisyVerdict && noisyVerdict.verdict !== 'identical' ? '✓ ' : '❌'} POSITIVE control (wall.delete): nondeterministic planner → ${noisyVerdict?.verdict ?? 'NO PLANS'}`);
+
+  // ── NEGATIVE CONTROL (floor) — genuinely different states must hash apart ─────────────
+  const g1 = await buildWallDeleteService(freshWallDeleteWorld(4)).preview(WD_COMMAND);
+  const g2 = await buildWallDeleteService(freshWallDeleteWorld(8)).preview(WD_COMMAND);
+  const negSeen = g1 && g2 && g1.planHash !== g2.planHash ? 1 : 0;
+  floors.push({ what: 'NEGATIVE control (wall.delete): two GENUINELY different states produce different planHashes (the sensitivity arms can see)', measured: negSeen, min: 1 });
+  floors.push({ what: 'NEGATIVE control (wall.delete): and their stateHashes differ too, confirming the difference is in the AUTHORITATIVE state, not only the body', measured: g1 && g2 && g1.stateHash !== g2.stateHash ? 1 : 0, min: 1 });
+  lines.push(`${negSeen ? '✓ ' : '❌'} NEGATIVE control (wall.delete): joined spur at length 4 vs 8 → planHash ${g1?.planHash} vs ${g2?.planHash}`);
+
+  return { floors, lines, findings };
+}
+
 const HARNESSES: Record<string, Harness> = {
   'wall.move': wallMoveHarness,
   'wall.create': wallCreateHarness,
   'opening.move': openingMoveHarness,
   'wall.opening.create': wallOpeningCreateHarness,
   'opening.delete': openingDeleteHarness,
+  'wall.delete': wallDeleteHarness,
 };
 
 // ─── Run ──────────────────────────────────────────────────────────────────────

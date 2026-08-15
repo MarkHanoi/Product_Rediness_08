@@ -557,6 +557,62 @@ export function normalizeToOpeningDelete(command: PreviewCommand): SemanticComma
   return openingDeleteFrom(p.id, t, p.wallId);
 }
 
+// ─── wall.delete — the WALL (host-side) DELETE family (2026-08-15) ────────────────────
+//
+// ENUMERATED FROM THE REGISTER, never hand-listed (C69's rival-list rule). The
+// denominator is the GENERATED `docs/04-reference/API-VERB-REGISTER.md`, the same file
+// check-relationship-determination parses. Filtered by that gate's own `opClassOf`, the
+// verbs able to remove a wall are exactly three, and this family is ONE of them:
+//
+//   `wall.delete`         (row 339 · plugins/wall DeleteWall.ts · payload `{ id }`) — HERE.
+//   `element.delete`      (row 129) — the generic TYPE-DISPATCHING legacy verb; it resolves
+//                         a kind at runtime, so mapping it here would plan a wall delete
+//                         for a beam. Excluded, exactly as the opening-delete family
+//                         excluded it (9e780581).
+//   `element.deleteBatch` (row 130) — generic AND outside the gate's own consequential
+//                         denominator (`opClassOf` returns null for a `deleteBatch` tail).
+//
+// MEASURED ABSENT: `wall.batch.delete`, `wall.deleteBatch`, `walls.delete` and
+// `wall.remove` do not exist anywhere in the tree. There is no batch-delete counterpart to
+// `wall.batch.create`. So this family is ONE verb — and, unlike the hosted-opening rows,
+// the register spelling IS the semantic spelling, as it already is for `wall.create` and
+// `wall.move`. No second rule is minted for a spelling nothing dispatches.
+//
+// THE PAYLOAD KEY IS NOT SETTLED IN-TREE. `DeleteWallHandler` reads `cmd.id`, but the
+// cross-plugin cascade rule `plugins/cross/src/wall-room.ts:87-96` — the rule that fires on
+// THIS verb to synthesise `room.recomputeBoundary` — reads `payload.wallId` first and falls
+// back to `payload.id`. This rule mirrors that precedence VERBATIM so the planner and the
+// wall→room cascade always name the same wall; a third order would let one dispatch be
+// explained two ways. `payload.targetId` (packages/sync-client's chaos generator) is a
+// TEST-ONLY spelling with no production dispatcher behind it and is deliberately NOT
+// accepted — normalising a fixture's shape would make the family answer for a dispatch
+// nobody emits.
+
+/** The `wall.delete` payload, in the two live spellings its two readers disagree over. */
+interface WallDeletePayload {
+  readonly id?: string;
+  readonly wallId?: string;
+}
+
+/**
+ * `wall.delete` → the semantic `wall.delete`. A validating KEY RENAME and nothing else: no
+ * geometry is invented, no host is inferred, and no registry is consulted. `null` — a
+ * capability gap, never a plan about an invented element — when no id is carried at all.
+ *
+ * NOTE the deliberate asymmetry with the planner: an EMPTY-STRING id normalises through
+ * (it is a well-formed dispatch of a malformed command) so that the planner's mirrored
+ * `cmd.id must be a non-empty string` REFUSAL is reachable. Filtering it here would hide a
+ * real refusal branch behind a silent null.
+ */
+export function normalizeToWallDelete(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'wall.delete') return null;
+  const p = command.payload as Partial<WallDeletePayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  const id = typeof p.wallId === 'string' ? p.wallId : typeof p.id === 'string' ? p.id : undefined;
+  if (id === undefined) return null;
+  return { type: 'wall.delete', payload: { id } };
+}
+
 /**
  * THE canonical normaliser registry — bus verb → rule. The three composition roots share
  * this ONE map, for the same reason preview and execute shared ONE normaliser function
@@ -590,6 +646,11 @@ export const CONSEQUENCE_NORMALIZERS: ReadonlyMap<string, NormalizerRule> = new 
   ['opening.delete', normalizeToOpeningDelete],
   ['door.delete', normalizeToOpeningDeleteFromDoor],
   ['window.delete', normalizeToOpeningDeleteFromWindow],
+  // The WALL (host-side) DELETE family (2026-08-15) — ONE register verb, ONE planner key.
+  // A different relationship set from the hosted-opening row above: the wall's CHILDREN,
+  // its JOINED walls' mitres, and the ROOMS it bounds. `element.delete` /
+  // `element.deleteBatch` are NOT mapped — they are the generic type-dispatching verbs.
+  ['wall.delete', normalizeToWallDelete],
 ]);
 
 /**

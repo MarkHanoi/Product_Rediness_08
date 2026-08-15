@@ -18,6 +18,7 @@ import { createWallCreateConsequencePlanner } from './wallCreatePlannerCompositi
 import { createOpeningMoveConsequencePlanner } from './openingMovePlannerComposition.js';
 import { createWallOpeningCreateConsequencePlanner } from './wallOpeningCreatePlannerComposition.js';
 import { createOpeningDeleteConsequencePlanner } from './openingDeletePlannerComposition.js';
+import { createWallDeleteConsequencePlanner } from './wallDeletePlannerComposition.js';
 import { ConsequencePreviewService } from './ConsequencePreviewService.js';
 
 /**
@@ -106,6 +107,21 @@ export function createConsequencePlanners(): ReadonlyMap<string, ConsequencePlan
   planners.set(
     'opening.delete',
     createOpeningDeleteConsequencePlanner() as ConsequencePlanner<never>,
+  );
+  // THE SIXTH FAMILY, 2026-08-15 — the WALL (host-side) DELETE (`wall.delete`, the one
+  // register verb able to remove a wall that is not a generic type-dispatching verb). This
+  // ONE entry plus one normaliser rule; NO service edit, so all three surfaces (preview /
+  // execution / confirmation) inherit the family here.
+  //
+  // It is NOT an extension of the hosted-opening delete row above: that row deletes a
+  // CHILD and reasons about one host record and its siblings; this one deletes the HOST and
+  // reasons about three disjoint relationship sets — the wall's own children, the walls
+  // whose mitres re-resolve without it, and the rooms whose rings it closed. It is also the
+  // first row to carry REAL refusals on a delete (both commit paths' canExecute sentences,
+  // mirrored verbatim) and the first to read the refusal-bearing `boundedBy` reader.
+  planners.set(
+    'wall.delete',
+    createWallDeleteConsequencePlanner() as ConsequencePlanner<never>,
   );
   return planners;
 }
