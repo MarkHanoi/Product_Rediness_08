@@ -1454,21 +1454,21 @@ async function runLocal(
                 break;
             }
             // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — "create a bed" activates the
-            // SAME placement tool the palette button activates. INTERIM HONESTY
-            // (this commit): the editor-side activation module (resolution
-            // against the creation matrix + furniture catalogue via the ONE
-            // resolveCatalogueRef ladder, then ToolManager/runtime.tools
-            // activation) has not landed yet, so this arm says exactly that and
-            // ACTIVATES NOTHING — it must never render the resolver's summary
-            // as if something happened, and never the bare "No matching
-            // commands" dead end. The successor lane replaces this body with
-            // `chatPlacementActivation.activatePlacementFromChat(ref)`.
+            // SAME placement tool the palette button activates, mouse preview
+            // and all. `chatPlacementActivation` resolves the raw noun against
+            // the element-creation matrix + the furniture catalogue through
+            // the ONE resolveCatalogueRef ladder, then activates via the
+            // palette's own seams (`runtime.tools.activate` /
+            // `activateFurnitureItem`). Its return is ALWAYS the reply —
+            // activated / ambiguity-ASK naming candidates / no-match naming
+            // the nearest items / not-ready — so the resolver's bare summary
+            // ("Activate X placement") is never rendered as if something
+            // happened when it did not (C83 §4.3: nothing is created until
+            // the user clicks; activation mutates no store, so there is
+            // nothing to undo until they place).
             case 'activateTool': {
-                const ref = r.placement?.itemRef ?? 'that';
-                failText =
-                    `I recognise "${ref}" as a placement ask, but chat tool-activation ` +
-                    `isn't wired yet — nothing was activated. Meanwhile: open the Create ` +
-                    `palette and click the ${ref} item to place it with the mouse preview.`;
+                const m = await import('./chatPlacementActivation.js');
+                failText = m.activatePlacementFromChat(r.placement?.itemRef ?? '');
                 break;
             }
             // §GATE-QUERYENGINE-READ-ONLY — the summary IS the answer; nothing

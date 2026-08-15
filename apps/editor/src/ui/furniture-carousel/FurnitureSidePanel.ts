@@ -5,26 +5,13 @@ import {
     FurnitureCategoryDescriptor,
     FurnitureTypeDescriptor,
 } from './FurnitureCategoryRegistry';
+import { activateFurnitureItem } from './activateFurnitureItem';
 import { buildFurniturePlanIcon } from './furniturePlanIcon';
 import { FurnitureThumbnailService } from './FurnitureThumbnailService';
 // L-570 — rewrite `/items/…` to the R2-hosted catalogue when VITE_GLB_URL is baked in.
 import { resolveCatalogAssetUrl } from './catalogAssetUrl';
 
 type SidePanelCategory = FurnitureCategory | 'all';
-
-type FurnitureAccessWindow = Window & {
-    toolManager?: {
-        activateFurniture?: (type: string) => void | Promise<void>;
-    };
-    furnitureTool?: {
-        setFurnitureType?: (type: FurnitureType) => void;
-        activate?: () => void;
-    };
-    furnitureCarousel?: {
-        setVisible?: (visible: boolean) => void;
-    };
-    _pryzmActiveFurnitureType?: string;
-};
 
 const CATEGORY_ABBREVIATIONS: Record<string, string> = {
     all: 'ALL',
@@ -322,42 +309,11 @@ export class FurnitureSidePanel {
     }
 
     private _activateItem(item: FurnitureTypeDescriptor): void {
-        if (item.glbPath) {
-            const accessWindow = window as FurnitureAccessWindow;
-            accessWindow._pryzmActiveFurnitureType = item.glbPath;
-            // §FIX-PLACEMENT-PREVIEW (L-21) — forward the descriptor's declared
-            // footprint so the click-to-place ghost is sized to the real item,
-            // not a generic 1 m box (matters most when the GLB 404s).
-            const d = item.defaultDimensions;
-            window.runtime?.events?.emit('fc-place-glb-start', {
-                path: item.glbPath,
-                label: item.label,
-                dimensions: d
-                    ? { width: d.width, length: d.length, height: d.height, baseOffset: d.baseOffset }
-                    : undefined,
-            }); // F.events.12
-            accessWindow.furnitureCarousel?.setVisible?.(false);
-            return;
-        }
-
-        const type = item.type as FurnitureType;
-        const accessWindow = window as FurnitureAccessWindow;
-        accessWindow._pryzmActiveFurnitureType = type;
-
-        if (accessWindow.toolManager?.activateFurniture) {
-            void accessWindow.toolManager.activateFurniture(type);
-            accessWindow.furnitureCarousel?.setVisible?.(false);
-            return;
-        }
-
-        const ft = accessWindow.furnitureTool;
-        if (!ft) {
-            console.error('[FurnitureSidePanel] furnitureTool not ready');
-            return;
-        }
-        ft.setFurnitureType?.(type);
-        ft.activate?.();
-        accessWindow.furnitureCarousel?.setVisible?.(false);
+        // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — the ladder that used to live
+        // here verbatim is now the ONE shared `activateFurnitureItem`, so the
+        // chat placement capability activates through the SAME path this card
+        // click does. See that module's header for the two disclosed deltas.
+        activateFurnitureItem(item);
     }
 
     private _getAllItems(): readonly FurnitureTypeDescriptor[] {
