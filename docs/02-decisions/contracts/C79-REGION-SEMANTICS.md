@@ -51,8 +51,9 @@ cannot see which surface they used.
 
 ### §0.1 — The five open instances this contract governs
 
-Measured at HEAD, all cited in
-[`BIM30-PHASE0-RELATIONSHIP-INVENTORY.md`](../../04-reference/BIM30-PHASE0-RELATIONSHIP-INVENTORY.md) §5:
+Measured at HEAD, all cited in `BIM30-PHASE0-RELATIONSHIP-INVENTORY.md` §5 (deleted 2026-08-15 in
+the corpus collapse and not carried forward — see git history; the file:line evidence for each
+instance is restated in full below, so this list stands on its own):
 
 1. **Roof-by-region uses a SECOND, INDEPENDENT tracer.** `WallRegionDetector` in
    `@pryzm/geometry-roof` (`packages/geometry-roof/src/WallRegionDetector.ts:35`,
@@ -302,7 +303,8 @@ choice so a future implementer cannot silently pick a face.**
 > `undetermined` means "we did not re-derive". Conflating them is exactly the §0 defect —
 > a slab that did not follow was indistinguishable from a slab that had nothing to follow.
 > The precedent for the discriminator is `ImpactDetermination`'s `determined | undetermined`
-> (`BIM30-PHASE0-CONSEQUENCE-MACHINERY.md:71`).
+> (`BIM30-PHASE0-CONSEQUENCE-MACHINERY.md:71` — deleted 2026-08-15, see git history; the
+> `ImpactDetermination` type itself is live in the tree and is the citable precedent).
 >
 > **§5.2.2 — MUST NOT.** `conflicted` MUST NOT be resolved by substituting a value that is not
 > the derived one. C73 §4's precedents (`planOpeningRefit` relocating or refusing with **both**
@@ -620,4 +622,4 @@ question as an answer.
 `apps/editor/src/engine/views/plantools/{SlabPlanToolHandler,RoofPlanToolHandler,CeilingPlanToolHandler,FloorPlanToolHandler}.ts` ·
 `packages/ai-host/src/rooms/RoomWorldModelAdapter.ts` ·
 `packages/geometry-slab/__tests__/regionHostAttribution.test.ts` ·
-[`BIM30-PHASE0-RELATIONSHIP-INVENTORY.md`](../../04-reference/BIM30-PHASE0-RELATIONSHIP-INVENTORY.md) §4.1, §5, §5.1*
+`BIM30-PHASE0-RELATIONSHIP-INVENTORY.md` §4.1, §5, §5.1 (deleted 2026-08-15 — see git history)*

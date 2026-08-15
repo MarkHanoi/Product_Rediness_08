@@ -19,8 +19,10 @@
 > service-role key breaks it), **C67**/**C68** (chat — the AI key path). Supersedes nothing.
 > **Register artefact**: `docs/04-reference/SECRETS-REGISTER.md` — **generated** (SPECIFIED, not
 > yet built; §6).
-> **Evidence appendix**: [`BIM30-SECRETS-MAPPING-AUDIT.md`](../../04-reference/BIM30-SECRETS-MAPPING-AUDIT.md)
-> — the read-only audit that found the surface unowned.
+> **Evidence appendix**: `BIM30-SECRETS-MAPPING-AUDIT.md` — the read-only audit that found the
+> surface unowned. **Deleted in the 2026-08-15 corpus collapse and not carried forward; citable
+> from git history only.** The inventory it seeded lives on in the register artefact above, which
+> is generated from the read-sites and is the thing to read.
 > **Gate**: `tools/ga-gate/check-secrets-register.ts` — **UNBUILT at stamp time** (§6).
 > **Changelog**: 2026-08-12 — created, in answer to the founder's ask *"make sure all the secrets
 > are contractually mapped — check all contracts"*, after a `SESSION_SECRET` misreading went

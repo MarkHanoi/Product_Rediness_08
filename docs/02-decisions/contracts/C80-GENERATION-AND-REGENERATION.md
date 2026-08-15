@@ -54,7 +54,8 @@ path swallowed (`catch { /* non-fatal */ }`), and **the user never told**.
 Each is cited, and each is a *different* missing thing, because each closes differently.
 
 **(1) Every generator is a UI controller. No `*.regenerate` bus verb exists anywhere.**
-`docs/04-reference/BIM30-PHASE0-RELATIONSHIP-INVENTORY.md` §6 enumerates nine generators — house,
+`BIM30-PHASE0-RELATIONSHIP-INVENTORY.md` §6 (deleted 2026-08-15, not carried forward — see git
+history) enumerates nine generators — house,
 apartment, office, residential, ceiling, furnish, lighting layout executors plus two `ai-host`
 services — and every row reads **UI controller**, `protects authored?` **NO**. Re-measured at
 HEAD: `grep -rn "\.regenerate'"` across `packages/`, `plugins/`, `apps/` → **0 hits**; the verb
@@ -111,7 +112,11 @@ gap is that the live generator path does not ask.**
 > ceilings, room detection, roof generation — `BIM30-DO-NOT-REBUILD.md` §6 calls the generation
 > stack *"the most-finished domain in the entire model"*, *"the bulk of BIM 3.0's delivered
 > value"*, and records that it came through **both** audit downgrades **strengthened**. Its own
-> extension plan is *"two wiring changes and **no engine change**"*. C80 asks for the consequence
+> extension plan is *"two wiring changes and **no engine change**"*. (That document was deleted
+> 2026-08-15 — the two quoted phrases are citable from git history; the **protection itself** was
+> carried forward and is live at
+> [`BIM30-IMPLEMENTATION-ROADMAP.md`](../../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md)
+> §6.2.6, which restates the both-downgrades finding and the two-wiring-changes plan.) C80 asks for the consequence
 > system these engines run inside. **It does not ask for one line of any engine to be rewritten,
 > and §6 states that as a MUST NOT.**
 
@@ -270,7 +275,8 @@ generator in the §0.1(1) inventory, and the gate's arm (b) and arm (c) **agree*
 
 > **§4.4 — UNPROVEN, and named rather than left to silence.** Whether provenance survives
 > **save → reload** across any generator is untested: `BIM30-CONTRACT-REVIEW-PART-E` §7's
-> "After save/reload?" column reads **NO test exists** / **NO** for D-TGL, D-FLE, D-CE and roof
+> "After save/reload?" column (that review transcript was deleted 2026-08-15 and not carried
+> forward — see git history) reads **NO test exists** / **NO** for D-TGL, D-FLE, D-CE and roof
 > generation alike. A provenance that survives the cascade in memory and not on disk protects
 > nothing across sessions.
 
@@ -321,8 +327,9 @@ duplicate-on-rerun defect is reproduced by a gate and then closed.
 > **§6.1 — MUST.** A generation pass is **one logical undo unit**. A user who runs a generator and
 > dislikes the result presses undo **once**.
 
-> **§6.2 — the measured state, per engine** (BY-READ from `BIM30-CONTRACT-REVIEW-PART-E` §7 —
-> **not re-executed here**, and therefore UNPROVEN in this contract by C70 §0.2):
+> **§6.2 — the measured state, per engine** (BY-READ from `BIM30-CONTRACT-REVIEW-PART-E` §7,
+> deleted 2026-08-15 and not carried forward — see git history — and **not re-executed here**,
+> and therefore UNPROVEN in this contract by C70 §0.2):
 >
 > | Engine | One undo unit? |
 > |---|---|
@@ -338,7 +345,9 @@ duplicate-on-rerun defect is reproduced by a gate and then closed.
 > from there is a second decision the user never asked to make.
 
 > **§6.4 — MUST NOT. C80 does not require any engine to be rewritten.** Per §0.2 and
-> `BIM30-DO-NOT-REBUILD.md` §6, the generation stack is protected. Every requirement in this
+> [`BIM30-IMPLEMENTATION-ROADMAP.md`](../../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md)
+> §6.1 row 11 and §6.2.6 (which absorbed `BIM30-DO-NOT-REBUILD.md` §6), the generation stack is
+> protected. Every requirement in this
 > contract is satisfiable by **wiring** — an authority call before the clear, a plan object around
 > the pass, a batch boundary, a provenance stamp — and any proposal that reaches inside D-TGL,
 > D-FLE, D-CE or the ADR-0055 join pipeline to satisfy C80 is **out of scope and MUST be
@@ -407,7 +416,7 @@ these four gaps, named so they can be owned rather than rediscovered.
 
 | Gap | What is missing | Owner | Roadmap placement | Blocks on |
 |---|---|---|---|---|
-| **GEN-GAP-1** — generation-as-verb | No `*.regenerate` verb; every generator is a UI controller (§0.1(1)). Until this exists there is **no central place** to enforce anything in §1–§3 | the BIM 3.0 reasoning-loop lane (R8 → R9) | `BIM30-REASONING-LOOP-PLAN.md`'s golden-operation matrix, **`room.regenerate` row** — currently empty across all six columns | nothing. **This is the unblocked one**, and per §0.1(4) the first task is *wiring the existing refusal, not designing one* |
+| **GEN-GAP-1** — generation-as-verb | No `*.regenerate` verb; every generator is a UI controller (§0.1(1)). Until this exists there is **no central place** to enforce anything in §1–§3 | the BIM 3.0 reasoning-loop lane (R8 → R9) | roadmap **§3.7 Phase F, row F.1** (`room.regenerate` as a bus verb whose v1 refuses honestly); the loop itself is roadmap **§5** R8 → R9. *Originally placed at the golden-operation matrix's **`room.regenerate` row** — empty across all six columns — in `BIM30-REASONING-LOOP-PLAN.md`, deleted 2026-08-15; the matrix was not carried forward, see git history* | nothing. **This is the unblocked one**, and per §0.1(4) the first task is *wiring the existing refusal, not designing one* |
 | **GEN-GAP-2** — element provenance fields | No element carries provenance (§0.1(2)), so §2's authority question answers `unknown-authority` for everything except rooms | C75 §3's per-kind coverage ratchet | roadmap **Phase 8**; R8 declares itself blocked on it | C75's `check-provenance-coverage`, itself UNBUILT |
 | **GEN-GAP-3** — prior-run discovery | §5.5 / §9: no persisted generation marker, and the substrate is **enumerated, not chosen** | undecided — **this is the open question §8 flags** | after GEN-GAP-2 lands the field, so a chosen substrate does not become a rival index | GEN-GAP-2 |
 | **GEN-GAP-4** — the four NOT-EVALUATED verifications | Authored wall byte-intact · authored/generated opening · generated wall UPDATED · AI element still INFERRED (§7.3(b)) | the gate's own enumeration floor | closes incrementally as GEN-GAP-1 and -2 land | both |
@@ -438,7 +447,8 @@ Stated so the boundaries are not inferred from silence.
   looks.
 - **How prior-run output is DISCOVERED.** §5.5. The four visible substrates —
   (i) a persisted `generationId` on the element (roadmap Phase 8's field, the end state);
-  (ii) the `project_command_log` (exists, unexposed — `BIM30-CONTRACT-REVIEW-PART-C` C-04);
+  (ii) the `project_command_log` (exists, unexposed — `BIM30-CONTRACT-REVIEW-PART-C` C-04,
+  deleted 2026-08-15, see git history);
   (iii) the level-scoped `markGraphAuthoritative` marker the house executor already sets
   (`ADR-0069` GR1) which is *level*-grain and cannot answer an element question;
   (iv) `DeclaredGenerationRun`, which §5.4 disqualifies as a model fact — are **enumerated, not
@@ -448,7 +458,8 @@ Stated so the boundaries are not inferred from silence.
 - **The layout algorithms.** C53, and §6.4's MUST NOT.
 - **Whether regeneration should be triggered by model change at all.** Measured today: **only
   room detection is reactive**; every other engine runs manual-or-chain-only
-  (`BIM30-CONTRACT-REVIEW-PART-E` §7's trigger column). Whether a wall move *should* re-run the
+  (`BIM30-CONTRACT-REVIEW-PART-E` §7's trigger column; deleted 2026-08-15, see git history).
+  Whether a wall move *should* re-run the
   furnish pass is a C72 propagation question, and answering it before §1 exists would give a
   cascade the power to run an unaccountable generator automatically — strictly worse than today.
 

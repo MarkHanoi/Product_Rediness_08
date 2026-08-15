@@ -23,11 +23,13 @@ PRYZM has two of the three things a design tool needs.
 It has **generation engines** — `packages/ai-host/src/workflows/` holds `apartmentLayout`,
 `houseLayout`, `residentialBuilding`, `officeBuilding`, `officeFurnish`, `furnishLayout`,
 `ceilingLayout`, `lightingLayout` and `daylight`, and `BIM30-DO-NOT-REBUILD.md` §6 calls that stack
-*"the most-finished domain in the entire model"*.
+*"the most-finished domain in the entire model"* (that document was deleted 2026-08-15 — the quoted
+phrase is citable from git history; the **protection** it carried is live at
+`BIM30-IMPLEMENTATION-ROADMAP.md` §6.1 row 11 and §6.2.6).
 
 It has a **trust layer** — the BIM 3.0 programme: the gap register's 82 classified rows, C78's
 universal relationship rule, C80's authority question, and the three bars of
-`BIM30-IMPLEMENTATION-ROADMAP.md` §3.1.
+`BIM30-IMPLEMENTATION-ROADMAP.md` §4.1.
 
 It has **no edit layer**. There is no workstream, no package, no verb and no contract whose subject
 is *transforming an existing design while preserving intent*. That absence has never been written
@@ -38,7 +40,10 @@ down, which is why it has never been scheduled.
 Each is cited, and each is a *different* missing thing.
 
 **(1) Sixteen of the founder's thirty-two prompts are modification prompts, and all sixteen are
-🔴 NO.** `BIM30-NEXT-SESSION-BRIEF.md` §9.2 scores 32 real prompts across eight categories. Four of
+🔴 NO.** The 32-prompt scenario assessment (`BIM30-NEXT-SESSION-BRIEF.md` §9.2, deleted in the
+2026-08-15 corpus collapse — see git history; the live scenario status is carried in
+[`BIM30-MASTER-COMPLETION-TRACKER.md`](../../03-execution/plans/BIM30-MASTER-COMPLETION-TRACKER.md))
+scores 32 real prompts across eight categories. Four of
 those categories are modification — apartments (5–8), housing (13–16), residential building
 (21–24), office (29–32) — and **every one of the sixteen rows reads 🔴 NO**. Not partial. Not
 "works with a named gap." No. The generation categories in the same table carry ✅ and 🟡 freely.
@@ -84,13 +89,15 @@ is correct behaviour and it is not the feature.
 
 > ### §0.2 — What this contract does NOT conclude
 >
-> **(a) The generators are not the defect.** C80 §0.2 and `BIM30-DO-NOT-REBUILD.md` §6 protect the
-> generation stack, and §6.2 below carries that protection forward as a MUST NOT. C81 asks for a
+> **(a) The generators are not the defect.** C80 §0.2 and `BIM30-IMPLEMENTATION-ROADMAP.md` §6.1
+> row 11 / §6.2.6 (which absorbed `BIM30-DO-NOT-REBUILD.md` §6) protect the generation stack, and
+> §6.2 below carries that protection forward as a MUST NOT. C81 asks for a
 > pass that *calls* those engines under constraint. It does not ask for one line of D-TGL, D-FLE,
 > D-CE or the ADR-0055 join pipeline to change.
 >
 > **(b) Bar 3 is not the edit layer, and this is the correction the brief's own §9.1 needs.**
-> `BIM30-NEXT-SESSION-BRIEF.md` §9.1 states that shipping bar 3 *"converts 16 of these 32 prompts
+> `BIM30-NEXT-SESSION-BRIEF.md` §9.1 (deleted 2026-08-15 — see git history) states that shipping
+> bar 3 *"converts 16 of these 32 prompts
 > from 'no' to 'yes' at once"*. **It does not, and C81 disagrees with that sentence in writing
 > rather than quietly.** Bar 3 makes a modification **SAFE** — every affected element is DETERMINED
 > or refused with a typed reason, and nothing goes silently stale. It does not decide **WHAT to
@@ -339,7 +346,8 @@ the plan, and the counts reconcile against the seed's cardinality.
 > share one unit.
 
 > **§6.2 — MUST NOT. C81 does not require any generation engine to be rewritten.** C80 §6.4 and
-> `BIM30-DO-NOT-REBUILD.md` §6 are carried forward verbatim in force. Every requirement in this
+> `BIM30-IMPLEMENTATION-ROADMAP.md` §6.1 row 11 / §6.2.6 (which absorbed
+> `BIM30-DO-NOT-REBUILD.md` §6) are carried forward verbatim in force. Every requirement in this
 > contract is satisfiable by a **new caller**: a seed, a preserved set, a plan, a batch boundary,
 > a report. Any proposal that reaches inside D-TGL, D-FLE, D-CE or the ADR-0055 join pipeline to
 > satisfy C81 is **out of scope and MUST be refused.** The zero-token property of the deterministic
@@ -410,7 +418,7 @@ C81 claims no gate coverage of any kind at stamp time.
 ## §8 — The dependency on bar 3, stated as a precondition
 
 > **§8.1 — MUST. The edit layer MUST NOT ship ahead of bar 3.** `BIM30-IMPLEMENTATION-ROADMAP.md`
-> §3.1 bar 3 — C78 §19.1's no-partial-credit applied across the `element × relationship ×
+> §4 / §4.1 bar 3 — C78 §19.1's no-partial-credit applied across the `element × relationship ×
 > operation` product, instrumented by `check-relationship-determination` — is a **precondition of
 > this contract, not an alternative to it.** You cannot build an edit engine on a model that does
 > not know what its changes break. An edit is the operation that reaches furthest into existing

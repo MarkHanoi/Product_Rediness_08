@@ -4,7 +4,7 @@
 > **Scope**: what BIM 3.0 **is**, stated as a testable claim. Owns the twelve capability pillars as binding invariants, the **Golden Chain** and its no-partial-credit rule, the **maturity ladder L4–L8** and its award condition, the **Definition of Done**, and the **four-exit-code contract** with the minimum-evidence floor that every BIM 3.0 gate must obey. It does **not** grade where PRYZM stands — a re-baseline artefact owns the live reading.
 > **Key principle**: *A capability is what an executed run proves, not what a document declares.* Every claim in this contract is falsifiable, and the mechanism that decides it is a program that could have said otherwise.
 > **Authority**: subordinate to `STR-03-engineering-vision.md` / `STR-04-architecture.md`. Peers with **C03** (owns what a command *is*), **C16** (owns how one is written), **C69** (owns the enumeration of verbs), **C05**/**C47** (own persistence and its versioning), **C08** (owns collaboration transport and merge), **C66** (owns what capacity may be *claimed*), **C23**/**C62** (own provenance and confidence), **C65** (owns element types), **C11**/**C15** (own creation and hosting), **C67**/**C68** (own chat reachability), and **C71** (owns the relationship vocabulary and the three graphs — C70 states *that* topology must be explicit; C71 states *which* edges and with what semantics). Supersedes nothing.
-> **Evidence appendices** (READ-ONLY, cited never restated): [`BIM30-TARGET-DEFINITION.md`](../../04-reference/BIM30-TARGET-DEFINITION.md) — the pillar arguments and the Golden Chain table · [`BIM30-CAPABILITY-MODEL.md`](../../04-reference/BIM30-CAPABILITY-MODEL.md) — the 16 capability domains wired to machinery · [`BIM30-EVOLUTION-AUDIT.md`](../../04-reference/BIM30-EVOLUTION-AUDIT.md) incl. §17 · [`BIM30-CONTINUITY-DELIVERABLE.md`](../../04-reference/BIM30-CONTINUITY-DELIVERABLE.md) · [`bim30-evidence/`](../../04-reference/bim30-evidence/) EV-03/04/05 · [`BIM20-CERTIFICATION-RESULTS.md`](../../04-reference/BIM20-CERTIFICATION-RESULTS.md) · [`BIM20-ACCEPTANCE-10-OF-10.md`](../../03-execution/plans/BIM20-ACCEPTANCE-10-OF-10.md) §0.1 (the close-out).
+> **Evidence appendices** (READ-ONLY, cited never restated): [`bim30-evidence/`](../../04-reference/bim30-evidence/) EV-03/04/05 · [`BIM20-CERTIFICATION-RESULTS.md`](../../04-reference/BIM20-CERTIFICATION-RESULTS.md) · [`BIM20-ACCEPTANCE-10-OF-10.md`](../../03-execution/plans/BIM20-ACCEPTANCE-10-OF-10.md) §0.1 (the close-out) · the live measured reading in [`BIM30-MASTER-COMPLETION-TRACKER.md`](../../03-execution/plans/BIM30-MASTER-COMPLETION-TRACKER.md) · the plan and its absorbed rules in [`BIM30-IMPLEMENTATION-ROADMAP.md`](../../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md). ⚠ **Four appendices this contract was written against were deleted in the 2026-08-15 corpus collapse and are citable from git history only** — `BIM30-TARGET-DEFINITION.md` (the pillar arguments and the Golden Chain table) · `BIM30-CAPABILITY-MODEL.md` (the 16 capability domains wired to machinery) · `BIM30-EVOLUTION-AUDIT.md` incl. §17 · `BIM30-CONTINUITY-DELIVERABLE.md`. Nothing in this contract depends on re-reading them; where one is cited below, it is cited as provenance, not as a live link.
 > **Gate**: the certification suite at `tools/rac-conformance/certification/` — `certify.ts` over `gates/*`, under the exit-code contract implemented once in `tools/rac-conformance/certification/contract.ts`.
 > **Changelog**: 2026-08-12 — created as Phase 0 of the founder's BIM 3.0 master directive, on the close-out of BIM 2.0 at 9/10.
 
@@ -17,8 +17,9 @@ spent one session proving that reading is not evidence**, and every instance bel
 its own artefacts, with the commit that closed it:
 
 - **~15 gates were green and blind at once.** Every one passed by conflating *emptiness* with
-  *success* — a scan that established no subject printed a pass (Continuity §I, carried into
-  [`BIM30-TARGET-DEFINITION.md`](../../04-reference/BIM30-TARGET-DEFINITION.md) pillar L).
+  *success* — a scan that established no subject printed a pass (recorded in `BIM30-CONTINUITY-DELIVERABLE.md` §I
+  and carried into `BIM30-TARGET-DEFINITION.md` pillar L — both deleted 2026-08-15, see git
+  history; the surviving binding form is pillar **L** in §2 below).
 - **A compile gate fabricated ~90 PASS lines per run, for its entire life.** It never compiled
   the thing it reported on. Un-blinded at `2b1e7e99`; it immediately surfaced **27 packages that
   fail isolated compilation** ([`BIM20-ACCEPTANCE-10-OF-10.md`](../../03-execution/plans/BIM20-ACCEPTANCE-10-OF-10.md) §0.1 C9).
@@ -27,12 +28,12 @@ its own artefacts, with the commit that closed it:
   run now exits **2 MISCONFIGURED** (`e5addac8`, §0.1 C10).
 - **The "FreeCAD-grade constraint solver" is a mock.** `PlanegcsAdapter` delegates 100 % to
   `MockSolver`, the WASM worker entry was never written, and **the 31/33 passing tests test the
-  mock** ([audit §17.1](../../04-reference/BIM30-EVOLUTION-AUDIT.md)). A green suite over a
+  mock** (`BIM30-EVOLUTION-AUDIT.md` §17.1, deleted 2026-08-15 — see git history). A green suite over a
   substituted implementation is worse than no suite: it is a suite that argues *for* the claim.
 - **Four typed cascade events have zero listeners.** `defaultRebuildDispatcher` emits
   `pryzm-dep-cascade`, `pryzm-room-reval`, `pryzm-hosted-reval`, `pryzm-structural-cascade`;
   nothing in the repository subscribes to any of them, and `setRebuildDispatcher` is never called
-  ([audit §17.2](../../04-reference/BIM30-EVOLUTION-AUDIT.md)). The propagation layer at the
+  (`BIM30-EVOLUTION-AUDIT.md` §17.2, deleted 2026-08-15 — see git history). The propagation layer at the
   centre of the BIM 3.0 story was authored, typed, tested-shaped — and unwired.
 
 Those five are not five careless mistakes. They are **one defect with five faces**: the artefact
@@ -77,10 +78,12 @@ to be believed.
 
 ## §2 — The twelve pillars, as binding invariants
 
-Each pillar's argument, its measured anti-targets and its line-level citations live in
-[`BIM30-TARGET-DEFINITION.md` §3](../../04-reference/BIM30-TARGET-DEFINITION.md); the machinery
-that must meet it lives in [`BIM30-CAPABILITY-MODEL.md`](../../04-reference/BIM30-CAPABILITY-MODEL.md).
-**The invariant ids below are stable and are the citable form.** A pillar with no falsifiable
+Each pillar's argument, its measured anti-targets and its line-level citations were recorded in
+`BIM30-TARGET-DEFINITION.md` §3, and the machinery that must meet it in
+`BIM30-CAPABILITY-MODEL.md`; **both were deleted in the 2026-08-15 corpus collapse and neither
+was carried forward — read them from git history if the argument is needed.** The invariants
+themselves are restated in full below and are binding here, so nothing normative depends on
+recovering either document. **The invariant ids below are stable and are the citable form.** A pillar with no falsifiable
 invariant is marketing, not a pillar.
 
 | Pillar | Binding invariants (ids are stable) |
