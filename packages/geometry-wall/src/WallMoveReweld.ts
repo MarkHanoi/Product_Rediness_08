@@ -56,7 +56,7 @@
  */
 
 import type { Point3D } from '@pryzm/core-app-model';
-import { EPSILON_ZERO } from '@pryzm/geometry-kernel';
+import { COINCIDENT_M, EPSILON_ZERO } from '@pryzm/geometry-kernel';
 import { DEGENERATE_STUB_LENGTH } from './WallJoinResolver';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -70,6 +70,21 @@ export interface MoveReweldMovedWall {
     prevBaseLine: ReweldBaseline;
     /** Baseline AFTER the user move (already committed by the move command). */
     newBaseLine: ReweldBaseline;
+    /**
+     * §L-926 — the moved wall's PLAN thickness in metres, as it stood BEFORE the
+     * move (it is the pre-move body the partners were welded to).
+     *
+     * REQUIRED FOR WELD AUTHORSHIP, and deliberately not defaulted. The corner /
+     * T-stem discriminator is a band derived from THIS number (see
+     * `authorshipBands`), and C73 §2.2 forbids minting a geometric threshold at
+     * the call site. Absent it, the engine cannot ask the question the rule is
+     * made of, so it does not guess: every partner falls through to the
+     * incumbent-preserving corner path, which is exactly the behaviour at
+     * `19ddf6bb`. That is the conservative direction — a missing thickness can
+     * only ever cost a follow that gets REPORTED as a refusal, never mint one
+     * that silently drags an incumbent.
+     */
+    thickness?: number;
 }
 
 export interface MoveReweldPartner {
@@ -150,6 +165,254 @@ function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
     return { x: a1.x + dA.x * t, z: a1.z + dA.z * t };
 }
 
+/**
+ * Decompose `p` in the frame of the DIRECTED segment a→b:
+ *   `axial`  — metres from `a` along the segment's own direction (may be < 0 or
+ *              > |ab|: the projection is not clamped, because "off the end" is
+ *              information here, not an error).
+ *   `offset` — SIGNED perpendicular distance, left-positive with respect to a→b.
+ * Null when the segment is degenerate. Together they reconstruct `p` exactly:
+ * `p = a + û·axial + n̂·offset`, so nothing is lost and nothing is invented.
+ */
+function inSegmentFrame(p: Pt, a: Pt, b: Pt): { axial: number; offset: number } | null {
+    const d = sub(b, a);
+    const L = len(d);
+    if (L < EPSILON_ZERO) return null;
+    const rx = p.x - a.x, rz = p.z - a.z;
+    return {
+        axial: (rx * d.x + rz * d.z) / L,
+        offset: (rx * -d.z + rz * d.x) / L,
+    };
+}
+
+// ─── §L-926 WELD AUTHORSHIP ───────────────────────────────────────────────────
+//
+// THE QUESTION NOBODY WAS ASKING. `19ddf6bb`'s own diagnosis named it —
+// *"Neither guard tests weld AUTHORSHIP — i.e. whose endpoint abutted whose
+// body"* — and then shipped without implementing it, which is why it deleted
+// the mandatory direction along with the forbidden one. There are two ways a
+// partner can be joined to the moved wall and they have OPPOSITE dependency:
+//
+//   T-STEM  the partner's endpoint TERMINATES ON the moved wall's BODY. The
+//           partner is the DEPENDENT: it exists at that point because the host
+//           is there. Host moves ⇒ the terminating endpoint follows, along the
+//           stem's own line. Same family as hosted-opening re-seat and
+//           slab/floor/roof follow. MANDATORY (founder: *"they are already
+//           connected — they should simply follow along"*).
+//   CORNER  the partner's endpoint sits at the moved wall's ENDPOINT. The
+//           partner is the INCUMBENT at a shared corner: its datum is never
+//           dragged by the other wall's displacement. FORBIDDEN — C83 §10.2.2,
+//           and the measured L-922 bite (a perimeter's baseline start shifted
+//           2.19 m, re-seating three hosted doors by one delta).
+//
+// ── WHERE THE THRESHOLD COMES FROM, and where it must NOT come from ──────────
+// It is derived from the HOST'S OWN THICKNESS and padded by the kernel's
+// declared model-space identity tolerance (C73 §2.2 — consumed, never minted):
+//
+//   cornerBand = t/2 + COINCIDENT_M   a partner terminating on the host's END
+//                                     FACE stands exactly t/2 from the host's
+//                                     centreline ENDPOINT. Anything inside that
+//                                     reach is inside the host's end cap, i.e.
+//                                     a corner, at any mitre.
+//   stemBand   = t   + COINCIDENT_M   one full thickness clear of the end is
+//                                     past every corner mitre zone the host can
+//                                     produce, so the abutment is on the BODY
+//                                     and can only be a stem.
+//
+// It is NOT the snap radius. `weldTol` is camera/zoom-aware (it is
+// `CameraToleranceService`'s world tolerance in production) and answers a
+// different question — "was this ever welded here?". Deciding AUTHORSHIP with a
+// camera-derived number is L-919's exact bug (`Math.abs(perpGap)` against a
+// zoom-derived `snapRadius`): the same two walls would classify differently at
+// two zoom levels, which is not a property a building has.
+//
+// The band BETWEEN the two is genuinely ambiguous — an abutment that near a
+// corner could have been authored either way — and C83 §10.3 says refuse with
+// both numbers rather than guess.
+
+interface AuthorshipBands { readonly cornerBandM: number; readonly stemBandM: number }
+
+function authorshipBands(hostThicknessM: number | undefined): AuthorshipBands | undefined {
+    if (hostThicknessM == null || !Number.isFinite(hostThicknessM) || hostThicknessM <= 0) {
+        return undefined;
+    }
+    return {
+        cornerBandM: hostThicknessM / 2 + COINCIDENT_M,
+        stemBandM: hostThicknessM + COINCIDENT_M,
+    };
+}
+
+type WeldAuthorship =
+    | { readonly kind: 'corner' }
+    | { readonly kind: 'stem'; readonly axialFromEndM: number }
+    | { readonly kind: 'ambiguous'; readonly axialFromEndM: number; readonly bands: AuthorshipBands };
+
+/**
+ * Classify by AXIAL position along the host's PRE-move centreline — how far the
+ * welded endpoint sits from the host's NEARER END, measured along the host.
+ *
+ * Axial, not euclidean: the two quantities a weld has are "how far along the
+ * body" and "how deep the seat", and only the first one answers authorship. A
+ * face-seated stem at mid-span is 0.1 m off the centreline and 4 m from either
+ * end; folding those together would make the seating depth contaminate the
+ * verdict for no reason.
+ *
+ * With no host thickness there is no declared band, so there is no question to
+ * answer: report `corner` — the incumbent-preserving branch, i.e. no new
+ * behaviour without the evidence the rule is made of.
+ */
+function classifyWeldAuthorship(
+    welded: Pt, prevS: Pt, prevE: Pt, bands: AuthorshipBands | undefined,
+): WeldAuthorship {
+    if (!bands) return { kind: 'corner' };
+    const frame = inSegmentFrame(welded, prevS, prevE);
+    if (!frame) return { kind: 'corner' };
+    const hostLen = dist(prevS, prevE);
+    // Negative when the projection falls OFF an end — unambiguously a corner.
+    const axialFromEndM = Math.min(frame.axial, hostLen - frame.axial);
+    if (axialFromEndM < bands.cornerBandM) return { kind: 'corner' };
+    if (axialFromEndM > bands.stemBandM) return { kind: 'stem', axialFromEndM };
+    return { kind: 'ambiguous', axialFromEndM, bands };
+}
+
+type StemFollowResult =
+    | { readonly kind: 'entry'; readonly entry: MoveReweldEntry }
+    | { readonly kind: 'refusal'; readonly refusal: MoveReweldRefusal }
+    | { readonly kind: 'none' };
+
+/**
+ * THE DEPENDENT FOLLOWS ITS HOST — an AXIAL re-seat, and nothing else.
+ *
+ * The stem's terminating endpoint slides ALONG THE STEM'S OWN LINE until it
+ * meets the host's new body. Its far endpoint does not move and its direction
+ * does not change, so the wall the user drew is the wall that survives: it just
+ * got longer or shorter. That is the founder's sentence made geometric — *"in
+ * this case it is NOT NECESSARY [to create a wall] — the interior walls should
+ * simply EXTEND."*
+ *
+ * ── CENTRELINE OR FACE? NEITHER, BY DECREE: WHERE IT ALREADY WAS ─────────────
+ *
+ * The obvious implementations are "seat on the host's centreline" and "seat on
+ * the host's near face", and BOTH are wrong as universal answers, because both
+ * MOVE walls the user never touched. A stem drawn to the host's face is 0.10 m
+ * short of its centreline; centreline-seating it would silently lengthen it by
+ * half a host thickness on the first unrelated move of its host, and a stem
+ * drawn to the centreline would be shortened by the face rule. The seat is
+ * therefore MEASURED, not chosen: the signed perpendicular offset of the stem's
+ * endpoint from the host's PRE-move centreline is read off the geometry as it
+ * stands, and the new seat reproduces it against the host's POST-move
+ * centreline. A face-seated stem stays face-seated; a centreline-seated stem
+ * stays centreline-seated; a stem seated somewhere in between (generated shells
+ * drift) keeps its own drift rather than being "corrected" by a move it had
+ * nothing to do with. The engine carries information across the move; it does
+ * not author any.
+ *
+ * Concretely: intersect the stem's own line with the host's new centreline
+ * OFFSET SIDEWAYS by that measured depth. For the founder's face-seated
+ * 0.20 × 2.80 m fixture that makes the stem's displacement equal the host's own
+ * 2.27 m — not 2.37 m, which is what seating on the centreline would have cost
+ * and what today's refusal number reports.
+ *
+ * Every refusal below carries BOTH numbers (C83 §10.3). None of them is a
+ * silent drop except the two that were already documented guard-rails of this
+ * module (near-parallel, and "already seated"), which are absences, not events.
+ */
+function computeStemFollow(
+    partner: MoveReweldPartner,
+    welded: Pt, far: Pt, weldedIsStart: boolean,
+    prevS: Pt, prevE: Pt, newS: Pt, newE: Pt,
+    weldTol: number, maxExtension: number,
+): StemFollowResult {
+    // 1. How was it seated? Signed depth from the host's PRE-move centreline.
+    const prevFrame = inSegmentFrame(welded, prevS, prevE);
+    if (!prevFrame) return { kind: 'none' };
+    const seatDepthM = prevFrame.offset;
+
+    // 2. The host's NEW body, at that same depth: its new centreline shifted
+    //    sideways by `seatDepthM` (left-positive, the same convention
+    //    `inSegmentFrame` measured it in, so the sign carries).
+    const dNew = sub(newE, newS);
+    const lNew = len(dNew);
+    if (lNew < EPSILON_ZERO) return { kind: 'none' };
+    const nx = -dNew.z / lNew, nz = dNew.x / lNew;
+    const seatLineA: Pt = { x: newS.x + nx * seatDepthM, z: newS.z + nz * seatDepthM };
+    const seatLineB: Pt = { x: newE.x + nx * seatDepthM, z: newE.z + nz * seatDepthM };
+
+    // 3. The stem's OWN line meets it. `welded`/`far` span exactly the stem's
+    //    stored line, so the direction is preserved by construction — this is
+    //    an extend/shrink, never a rotation and never a lateral slide
+    //    (§CLAMP-COSHARE-WELD: sliding a shared baseline doubled walls).
+    const seat = intersectLines(welded, far, seatLineA, seatLineB);
+    if (!seat) return { kind: 'none' }; // near-parallel: no T to re-form
+
+    // 4. Is the host still UNDER the foot? A host that slid along its own axis
+    //    past the stem leaves nothing to terminate on, and extending toward
+    //    where it used to be is worse than leaving the stem alone.
+    const seatFrame = inSegmentFrame(seat, newS, newE);
+    if (!seatFrame) return { kind: 'none' };
+    const overshootM = Math.max(0, -seatFrame.axial, seatFrame.axial - lNew);
+    if (overshootM > weldTol) {
+        return { kind: 'refusal', refusal: {
+            partnerId: partner.id,
+            reason: 'STEM_HOST_NO_LONGER_BENEATH',
+            beyondMm: Math.round(overshootM * 1000),
+            limitMm: Math.round(weldTol * 1000),
+        } };
+    }
+
+    // 5. §POST-RESOLVE-OVEREXTEND — a shallow-angle stem demands an extension
+    //    far larger than the host's own move; never spike a wall metres out.
+    const displacementM = dist(welded, seat);
+    if (displacementM < MIN_DISPLACEMENT) return { kind: 'none' }; // already seated
+    if (displacementM > maxExtension) {
+        return { kind: 'refusal', refusal: {
+            partnerId: partner.id,
+            reason: 'STEM_EXTENSION_EXCEEDS_CAP',
+            beyondMm: Math.round(displacementM * 1000),
+            limitMm: Math.round(maxExtension * 1000),
+        } };
+    }
+
+    // 6. The resulting stem, measured from its untouched far endpoint. Because
+    //    `seat` lies on the stem's own line, this projection IS the new length,
+    //    and its SIGN is the direction test: negative means the seat passed the
+    //    far endpoint and the wall would come out end-for-end.
+    const toWelded = sub(welded, far);
+    const stemLenM = len(toWelded);
+    if (stemLenM < EPSILON_ZERO) return { kind: 'none' };
+    const toSeat = sub(seat, far);
+    const newLenM = (toSeat.x * toWelded.x + toSeat.z * toWelded.z) / stemLenM;
+    if (newLenM <= 0) {
+        return { kind: 'refusal', refusal: {
+            partnerId: partner.id,
+            reason: 'STEM_REVERSAL',
+            beyondMm: Math.round(-newLenM * 1000),
+            limitMm: 0,
+        } };
+    }
+    if (newLenM < DEGENERATE_STUB_LENGTH) {
+        // Refuse rather than manufacture a stub: the multi-cluster degenerate
+        // guard skips stubs from the mitre pass but the mesh path has a known
+        // black-spike hole (§WallJoinResolver multi-cluster).
+        return { kind: 'refusal', refusal: {
+            partnerId: partner.id,
+            reason: 'STEM_COLLAPSE',
+            beyondMm: Math.round(newLenM * 1000),
+            limitMm: Math.round(DEGENERATE_STUB_LENGTH * 1000),
+        } };
+    }
+
+    // 7. Rewrite ONLY the terminating endpoint. The far endpoint is copied
+    //    through, y included — this engine has no opinion about elevation.
+    const a = partner.baseLine[0], b = partner.baseLine[1];
+    const seated = (src: Point3D): Point3D => ({ x: seat.x, y: src.y, z: seat.z });
+    return { kind: 'entry', entry: {
+        wallId: partner.id,
+        newBaseLine: weldedIsStart ? [seated(a), { ...b }] : [{ ...a }, seated(b)],
+        prevBaseLine: [{ ...a }, { ...b }],
+    } };
+}
+
 // ─── Engine ───────────────────────────────────────────────────────────────────
 
 /**
@@ -177,21 +440,55 @@ function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
  * corner is left open and nobody is told), which is the same defect wearing the
  * other hat.
  */
+export type MoveReweldRefusalReason =
+    /** A CORNER partner would have to be LENGTHENED to close the joint (C83 §10.2.2). */
+    | 'INCUMBENT_EXTENSION_REQUIRED'
+    /** §L-926 — the abutment sits in the band where corner and stem are indistinguishable. */
+    | 'AMBIGUOUS_WELD_AUTHORSHIP'
+    /** §L-926 — following the host would flip the stem end-for-end. */
+    | 'STEM_REVERSAL'
+    /** §L-926 — following the host would shrink the stem below the degenerate-stub floor. */
+    | 'STEM_COLLAPSE'
+    /** §L-926 — the required extension exceeds the §POST-RESOLVE-OVEREXTEND cap. */
+    | 'STEM_EXTENSION_EXCEEDS_CAP'
+    /** §L-926 — the host slid out from under the stem's foot; there is nothing to seat on. */
+    | 'STEM_HOST_NO_LONGER_BENEATH';
+
 export interface MoveReweldRefusal {
     readonly partnerId: string;
-    readonly reason: 'INCUMBENT_EXTENSION_REQUIRED';
-    /** How far past the incumbent's existing segment the new corner falls, mm. */
+    readonly reason: MoveReweldRefusalReason;
+    /**
+     * THE MEASURED NUMBER that produced the refusal, mm. For
+     * `INCUMBENT_EXTENSION_REQUIRED` (its original and only meaning) that is how
+     * far past the incumbent's existing segment the new corner falls; for the
+     * §L-926 reasons it is the quantity named by `limitMm`'s counterpart below.
+     */
     readonly beyondMm: number;
+    /**
+     * C83 §10.3 — THE SECOND NUMBER. A refusal states what was measured AND what
+     * it had to clear, so the user can see the size of the miss rather than be
+     * told "no". Omitted for `INCUMBENT_EXTENSION_REQUIRED`, whose limit is
+     * structurally zero (an incumbent may not be lengthened at all).
+     */
+    readonly limitMm?: number;
 }
 
 export interface MoveReweldPlan {
     /**
-     * Post-§10.2.2 these describe the SUBJECT adapting, and nothing else. A
+     * The SUBJECT adapting, plus — §L-926 — the subject's DEPENDENTS following.
+     *
+     * ⚠ This doc comment said "the SUBJECT adapting, and nothing else. A
      * non-subject `wallId` appearing here is a contract violation by
-     * construction.
+     * construction." That sentence was written at `19ddf6bb` and it is the
+     * regression in one line: it is true of a CORNER incumbent and false of a
+     * T-stem dependent, and stating it flat deleted the dependent. What is
+     * actually invariant is narrower and is enforced by `classifyWeldAuthorship`
+     * — a non-subject `wallId` appears here ONLY when that wall's own endpoint
+     * terminates on the subject's body, and then only as an axial extend/shrink
+     * along its own line.
      */
     readonly entries: MoveReweldEntry[];
-    /** Junctions that cannot be closed without mutating an incumbent. */
+    /** Junctions this engine will not close, each with the numbers that refused it. */
     readonly refusals: MoveReweldRefusal[];
 }
 
@@ -248,6 +545,25 @@ const ON_SEGMENT_EPS = 1e-6;
  * incumbent-PRESERVING approximation that was already in this file for the
  * moved wall's own endpoints; this change does not improve it and does not make
  * it worse. It removes the incumbent mutation, which is the contract breach.
+ *
+ * ── §L-926, THE HALF THE ABOVE OVER-CORRECTED ────────────────────────────────
+ *
+ * Everything above is about a CORNER partner and remains exactly true. What it
+ * got wrong was scope: it removed the partner entry unconditionally, and the
+ * same branch was the mechanism by which a T-STEM followed the host it
+ * terminates on. Measured on the deployed build within the hour — interior
+ * stems left 773 mm off their host, `§DIAG-ROOM-LOOP BREAK` ×3, rooms 6 → 4,
+ * and §OPENED-REGION offering to CREATE a wall across a 2.27 m gap that the
+ * stem should simply have extended across.
+ *
+ * The reconciling rule is WELD AUTHORSHIP (see `classifyWeldAuthorship`), which
+ * `19ddf6bb`'s own diagnosis named — *"Neither guard tests weld AUTHORSHIP"* —
+ * and did not implement. The partner loop now branches on it BEFORE any of the
+ * corner machinery runs, so the corner path below is reached by exactly the
+ * partners it was reached by at `19ddf6bb`, byte for byte. That equivalence is
+ * not asserted here as a belief: `L926StemFollowAuthorship.measure.test.ts`
+ * pins both corner plans as golden `JSON.stringify` strings, committed BEFORE
+ * this change, and they are unchanged by it.
  */
 export function computeMoveReweldPlan(
     moved: MoveReweldMovedWall,
@@ -271,6 +587,12 @@ export function computeMoveReweldPlan(
             ? options.maxExtension
             : movedDisplacement + weldTol;
 
+    // §L-926 — the corner/stem discriminator, derived from the HOST's thickness
+    // and padded by the kernel's declared identity tolerance. `undefined` when
+    // no thickness was supplied: authorship is then unanswerable and every
+    // partner takes the incumbent-preserving corner path (see `authorshipBands`).
+    const bands = authorshipBands(moved.thickness);
+
     const entries: MoveReweldEntry[] = [];
     const refusals: MoveReweldRefusal[] = [];
     if (movedDisplacement < MIN_DISPLACEMENT) return { entries, refusals }; // nothing moved
@@ -290,6 +612,39 @@ export function computeMoveReweldPlan(
         const weldedIsStart = dS <= dE;
         const welded = weldedIsStart ? ps : pe;
         const far = weldedIsStart ? pe : ps;
+
+        // 1b. §L-926 — WHOSE ENDPOINT ABUTS WHOSE BODY? This is the branch
+        //     `19ddf6bb` needed and did not have. Everything below it is
+        //     unchanged: a CORNER partner falls straight through to the
+        //     incumbent-preserving path exactly as it did at that commit.
+        const authorship = classifyWeldAuthorship(welded, prevS, prevE, bands);
+
+        if (authorship.kind === 'ambiguous') {
+            // C83 §10.3 — the abutment is within one host thickness of the
+            // host's end. A corner and a stem are the same picture there, and
+            // the two have OPPOSITE dependency, so guessing is a coin-flip
+            // between "drag a perimeter datum" and "orphan an interior wall".
+            refusals.push({
+                partnerId: partner.id,
+                reason: 'AMBIGUOUS_WELD_AUTHORSHIP',
+                beyondMm: Math.round(authorship.axialFromEndM * 1000),
+                limitMm: Math.round(authorship.bands.stemBandM * 1000),
+            });
+            continue;
+        }
+
+        if (authorship.kind === 'stem') {
+            const stem = computeStemFollow(
+                partner, welded, far, weldedIsStart,
+                prevS, prevE, newS, newE, weldTol, maxExtension,
+            );
+            if (stem.kind === 'entry') entries.push(stem.entry);
+            else if (stem.kind === 'refusal') refusals.push(stem.refusal);
+            // A stem's foot is on the host's BODY. It is NEVER pushed to
+            // `cornersOnMoved`: seating the host's own endpoint on a stem's foot
+            // shortens the host to that foot, which is §L-872's scar verbatim.
+            continue;
+        }
 
         // 2. New corner = partner centreline ∩ moved wall's NEW centreline.
         const corner = intersectLines(ps, pe, newS, newE);
@@ -387,10 +742,14 @@ export function computeMoveReweldPlan(
  * Backwards-compatible entry point: the SUBJECT's own re-seats.
  *
  * Kept because several callers and tests want only the dispatchable entries.
- * Post-§10.2.2 this can no longer contain a non-subject wall, so a caller that
- * dispatches it can no longer move an incumbent — but a caller that uses THIS
- * form cannot see the refusals either, and a refused junction is a fact a user
- * must be told. `WallMoveReweldService` therefore uses `computeMoveReweldPlan`.
+ * A caller that uses THIS form cannot see the refusals, and a refused junction
+ * is a fact a user must be told — `WallMoveReweldService` therefore uses
+ * `computeMoveReweldPlan`.
+ *
+ * ⚠ §L-926: post-§10.2.2 this was documented as "can no longer contain a
+ * non-subject wall". It can again, and must: a T-stem DEPENDENT is a non-subject
+ * wall whose follow is mandatory. What it can never contain is a CORNER
+ * incumbent.
  */
 export function computeMoveReweld(
     moved: MoveReweldMovedWall,

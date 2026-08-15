@@ -23,11 +23,12 @@
  * by a plan that also grew a field; a byte string cannot. C83 §10.4 asks for
  * "byte-identical", so the control asserts exactly that word.
  *
- * STATE AT THIS COMMIT: this file is committed ALONE, BEFORE the fix, and it
- * PASSES — every number below is today's measured, deployed, broken behaviour.
- * The fix commit flips ONLY the §MEASURED-STEM-ORPHANED expectations; the two
- * golden strings must survive it untouched, and that survival is the proof that
- * the L-922 fix was not reverted to buy the stem back.
+ * STATE: first committed ALONE at `8b8be0e4`, BEFORE the fix, PASSING against
+ * the deployed broken behaviour (stem orphaned by 773 mm / 2370 mm). The fix
+ * commit flipped ONLY the §MEASURED-STEM-ORPHANED expectations — each one still
+ * records the number it used to hold, next to the number it holds now. THE TWO
+ * GOLDEN STRINGS BELOW WERE NOT TOUCHED, and that is the proof the L-922 fix
+ * was not quietly reverted to buy the stem back.
  *
  * @file packages/geometry-wall/__tests__/L926StemFollowAuthorship.measure.test.ts
  */
@@ -59,7 +60,7 @@ const T = 0.2;
 // §MEASURED-STEM-ORPHANED — the direction `19ddf6bb` deleted
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('§MEASURED-STEM-ORPHANED — a T-stem does not follow the host it terminates on', () => {
+describe('§MEASURED-STEM-ORPHANED — a T-stem follows the host it terminates on', () => {
   /**
    * FOUNDER FIXTURE 1 — the 773 mm case, reproduced to the millimetre.
    *
@@ -74,34 +75,60 @@ describe('§MEASURED-STEM-ORPHANED — a T-stem does not follow the host it term
     id: 'H-perimeter',
     prevBaseLine: bl([0, 0], [8, 0]),
     newBaseLine: bl([0, -0.773], [8, -0.773]),
+    thickness: T,
   };
   const stemA = { id: 'S-interior', baseLine: bl([4, 0], [4, 5]) };
 
-  it('773 mm class: the stem is left EXACTLY the host displacement behind, and the engine calls it an incumbent', () => {
+  it('773 mm class: the stem FOLLOWS its host — orphan distance 773 mm -> 0 mm', () => {
     const plan = computeMoveReweldPlan(hostA, [stemA]);
 
-    // TODAY (broken): nothing is proposed for the stem at all.
-    expect(plan.entries.find(e => e.wallId === 'S-interior')).toBeUndefined();
+    // BEFORE (`8b8be0e4`, measured on the deployed build): no entry for the
+    // stem, and a refusal reading INCUMBENT_EXTENSION_REQUIRED / beyondMm 773 —
+    // a wall that TERMINATES ON THE HOST'S BODY classified as a corner
+    // incumbent. That misclassification WAS the defect, and the refusal's own
+    // number was the founder's 773 mm, arriving by exactly his geometry.
+    // AFTER: the authorship branch reads the abutment as a dependent.
+    expect(plan.refusals).toEqual([]);
 
-    // …and the reason given is INCUMBENT_EXTENSION_REQUIRED — the engine has
-    // classified a wall that TERMINATES ON THE HOST'S BODY as a corner
-    // incumbent. That misclassification IS the defect; the refusal's own
-    // number is the founder's 773 mm, arriving here by exactly his geometry.
-    expect(plan.refusals).toHaveLength(1);
-    expect(plan.refusals[0]!.partnerId).toBe('S-interior');
-    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
-    expect(plan.refusals[0]!.beyondMm).toBe(773);
+    const eS = plan.entries.find(e => e.wallId === 'S-interior')!;
+    expect(eS).toBeTruthy();
 
-    // AFTER THE FIX this becomes 0 mm: the stem's foot is re-seated on the
-    // host's new body along the stem's own line.
-    const stemFoot = { x: stemA.baseLine[0].x, z: stemA.baseLine[0].z };
-    const orphanM = distToLine(stemFoot, hostA.newBaseLine[0], hostA.newBaseLine[1]);
-    expect(orphanM).toBeCloseTo(0.773, 9);
+    // The foot is ON the host's new centreline: it was seated on the centreline
+    // (offset 0), so it comes back to the centreline. 773 mm -> 0 mm.
+    const orphanAfterM = distToLine(
+      eS.newBaseLine[0], hostA.newBaseLine[0], hostA.newBaseLine[1],
+    );
+    expect(orphanAfterM).toBeCloseTo(0, 9);
+    const orphanBeforeM = distToLine(
+      stemA.baseLine[0], hostA.newBaseLine[0], hostA.newBaseLine[1],
+    );
+    expect(orphanBeforeM).toBeCloseTo(0.773, 9); // the number the founder read
+
+    // AXIAL, and only axial: the far endpoint and the direction are untouched.
+    expect(eS.newBaseLine[1]).toEqual({ x: 4, y: 0, z: 5 });
+    expect(eS.newBaseLine[0].x).toBeCloseTo(4, 9);     // no lateral slide
+    expect(eS.newBaseLine[0].z).toBeCloseTo(-0.773, 9);
+    // prevBaseLine is the stem AS IT STOOD — the undo datum, unrounded.
+    expect(eS.prevBaseLine).toEqual([{ x: 4, y: 0, z: 0 }, { x: 4, y: 0, z: 5 }]);
   });
 
-  it('773 mm class: the host is not shortened either — the gesture produces NO plan at all', () => {
+  it('773 mm class: the host itself is NOT re-baselined — a stem never shortens its host (§L-872)', () => {
     const plan = computeMoveReweldPlan(hostA, [stemA]);
-    expect(JSON.stringify(plan.entries)).toBe('[]');
+    expect(plan.entries.find(e => e.wallId === 'H-perimeter')).toBeUndefined();
+    expect(plan.entries).toHaveLength(1); // the stem, and nothing else
+  });
+
+  it('773 mm class: with NO host thickness the engine refuses to guess authorship and stays at 19ddf6bb', () => {
+    // C73 §2.2 — the band is derived from the host's thickness and never minted
+    // at the call site. Absent that input the question cannot be asked, so the
+    // engine takes the incumbent-preserving branch rather than assuming one.
+    // This is the conservative direction: a missing thickness costs a REPORTED
+    // refusal, never a silent incumbent drag.
+    const { thickness: _omitted, ...hostNoThickness } = hostA;
+    const plan = computeMoveReweldPlan(hostNoThickness, [stemA]);
+    expect(plan.entries).toEqual([]);
+    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+    expect(plan.refusals[0]!.beyondMm).toBe(773);
   });
 
   /**
@@ -120,41 +147,53 @@ describe('§MEASURED-STEM-ORPHANED — a T-stem does not follow the host it term
     id: 'H-perimeter-2',
     prevBaseLine: bl([0, 0], [6, 0]),
     newBaseLine: bl([0, -2.27], [6, -2.27]),
+    thickness: T,
   };
   const stemB = { id: 'S-interior-2', baseLine: bl([3, 0.1], [3, 2.9]) }; // 2.80 m long
 
-  it('2.27 m gap class: a FACE-seated stem is orphaned by the full move plus its seating depth', () => {
+  it('2.27 m gap class: a FACE-seated stem comes back to the FACE, not to the centreline', () => {
     const plan = computeMoveReweldPlan(hostB, [stemB]);
+    expect(plan.refusals).toEqual([]);
+    const eS = plan.entries.find(e => e.wallId === 'S-interior-2')!;
+    expect(eS).toBeTruthy();
 
-    expect(plan.entries.find(e => e.wallId === 'S-interior-2')).toBeUndefined();
-    expect(plan.refusals).toHaveLength(1);
-    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
-    // 2370 mm = the 2.27 m host move + the 0.10 m the stem already stood off
-    // the host's centreline. The engine measures to the CENTRELINE; the founder
-    // sees the gap to the FACE (2.27 m). Both numbers are recorded so the fix
-    // can be judged against the right one: the stem was seated on the FACE and
-    // must come back to the FACE, i.e. its own displacement is 2.27 m, not 2.37.
-    expect(plan.refusals[0]!.beyondMm).toBe(2370);
-
-    const foot = { x: stemB.baseLine[0].x, z: stemB.baseLine[0].z };
-    expect(distToLine(foot, hostB.newBaseLine[0], hostB.newBaseLine[1])).toBeCloseTo(2.37, 9);
-    // The seating depth that must be preserved: half the host's thickness.
-    expect(distToLine(
-      { x: stemB.baseLine[0].x, z: stemB.baseLine[0].z },
-      hostB.prevBaseLine[0], hostB.prevBaseLine[1],
-    )).toBeCloseTo(T / 2, 9);
+    // BEFORE (`8b8be0e4`): no entry; refusal INCUMBENT_EXTENSION_REQUIRED with
+    // beyondMm 2370 = the 2.27 m host move PLUS the 0.10 m the stem already
+    // stood off the host's centreline. That 2370 is the tell: the engine was
+    // measuring to the CENTRELINE while the founder was looking at the FACE.
+    //
+    // AFTER: the seating depth is measured off the PRE-move geometry (+0.10 m =
+    // +t/2, i.e. the face) and reproduced against the POST-move centreline. So
+    // the stem's own displacement is the host's own 2.27 m — NOT 2.37 m, which
+    // is what centreline-seating would silently have added.
+    expect(distToLine(eS.newBaseLine[0], hostB.newBaseLine[0], hostB.newBaseLine[1]))
+      .toBeCloseTo(T / 2, 9);
+    expect(Math.hypot(
+      eS.newBaseLine[0].x - stemB.baseLine[0].x,
+      eS.newBaseLine[0].z - stemB.baseLine[0].z,
+    )).toBeCloseTo(2.27, 9);
+    expect(eS.newBaseLine[0].z).toBeCloseTo(-2.17, 9);
   });
 
-  it('2.27 m gap class: the stem keeps its ORIGINAL length — nothing extended, which is the founder\'s complaint verbatim', () => {
+  it('2.27 m gap class: the stem EXTENDS 2.80 m -> 5.07 m, far endpoint fixed', () => {
     const plan = computeMoveReweldPlan(hostB, [stemB]);
-    expect(plan.entries).toEqual([]);
-    const lengthM = Math.hypot(
+    const eS = plan.entries.find(e => e.wallId === 'S-interior-2')!;
+
+    const lengthBeforeM = Math.hypot(
       stemB.baseLine[1].x - stemB.baseLine[0].x,
       stemB.baseLine[1].z - stemB.baseLine[0].z,
     );
-    expect(lengthM).toBeCloseTo(2.8, 9);
-    // AFTER THE FIX: 2.80 + 2.27 = 5.07 m — *"the interior walls should simply
-    // EXTEND"*. The far endpoint (3, 2.9) never moves, in either state.
+    const lengthAfterM = Math.hypot(
+      eS.newBaseLine[1].x - eS.newBaseLine[0].x,
+      eS.newBaseLine[1].z - eS.newBaseLine[0].z,
+    );
+    expect(lengthBeforeM).toBeCloseTo(2.8, 9);
+    // *"in this case it is NOT NECESSARY [to create a wall] — the interior walls
+    // should simply EXTEND."* 2.80 + 2.27 = 5.07 m.
+    expect(lengthAfterM).toBeCloseTo(5.07, 9);
+    expect(lengthAfterM - lengthBeforeM).toBeCloseTo(2.27, 9);
+    // The far endpoint never moves, in either state.
+    expect(eS.newBaseLine[1]).toEqual({ x: 3, y: 0, z: 2.9 });
   });
 });
 
@@ -192,24 +231,74 @@ describe('§L-922-CONTROL — the incumbent at a CORNER is byte-identical, befor
     );
   });
 
-  it('the discriminator is WHOSE ENDPOINT ABUTS WHOSE BODY — measured, and today unmeasured', () => {
+  it('the discriminator is WHOSE ENDPOINT ABUTS WHOSE BODY — opposite geometry, opposite verdict', () => {
     // Corner partner: A's welded endpoint (5,0) sits ON B's prev endpoint (5,0).
     const partnerA = { id: 'A', baseLine: bl([0, 0], [5, 0]) };
     const cornerAxialM = Math.hypot(5 - 5, 0 - 0);
     expect(cornerAxialM).toBe(0); // AT the endpoint ⇒ incumbent
 
     // Stem partner: S's welded endpoint (4,0) sits 4 m along H's BODY, 4 m from
-    // either end ⇒ dependent. Two configurations three orders of magnitude
-    // apart in this one measure, and today's engine gives both the same verdict.
+    // either end ⇒ dependent. Two configurations four orders of magnitude apart
+    // in this one measure. At `8b8be0e4` the engine gave both the SAME verdict;
+    // this test was written as an equality to say so, and is now an inequality.
     const stemAxialM = 4;
-    expect(stemAxialM).toBeGreaterThan(cornerAxialM + 0.2); // one host thickness clear
+    expect(stemAxialM).toBeGreaterThan(cornerAxialM + T); // one host thickness clear
 
-    const cornerPlan = computeMoveReweldPlan(movedB, [partnerA]);
+    const cornerPlan = computeMoveReweldPlan({ ...movedB, thickness: T }, [partnerA]);
     const stemPlan = computeMoveReweldPlan(
-      { id: 'H', prevBaseLine: bl([0, 0], [8, 0]), newBaseLine: bl([0, -0.773], [8, -0.773]) },
+      { id: 'H', prevBaseLine: bl([0, 0], [8, 0]), newBaseLine: bl([0, -0.773], [8, -0.773]), thickness: T },
       [{ id: 'S', baseLine: bl([4, 0], [4, 5]) }],
     );
-    // THE DEFECT, STATED AS AN EQUALITY: identical verdict, opposite geometry.
-    expect(stemPlan.refusals[0]!.reason).toBe(cornerPlan.refusals[0]!.reason);
+
+    // The incumbent is refused and not touched…
+    expect(cornerPlan.entries.find(e => e.wallId === 'A')).toBeUndefined();
+    expect(cornerPlan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+    // …the dependent follows and is not refused.
+    expect(stemPlan.entries.find(e => e.wallId === 'S')).toBeTruthy();
+    expect(stemPlan.refusals).toEqual([]);
+  });
+
+  it('the AMBIGUOUS BAND between them refuses with BOTH numbers rather than guessing (C83 §10.3)', () => {
+    // The stem's foot sits 0.15 m from the host's end: past the corner band
+    // (t/2 = 0.10 m) but inside the stem band (t = 0.20 m). A corner and a stem
+    // are the same picture there and they follow in OPPOSITE directions, so the
+    // one thing that must not happen is a choice.
+    const host = {
+      id: 'H', prevBaseLine: bl([0, 0], [8, 0]), newBaseLine: bl([0, -0.5], [8, -0.5]),
+      thickness: T,
+    };
+    const near = { id: 'N', baseLine: bl([7.85, 0], [7.85, 3]) };
+    const plan = computeMoveReweldPlan(host, [near]);
+    expect(plan.entries).toEqual([]);
+    expect(plan.refusals).toHaveLength(1);
+    expect(plan.refusals[0]!.reason).toBe('AMBIGUOUS_WELD_AUTHORSHIP');
+    expect(plan.refusals[0]!.beyondMm).toBe(150);  // measured from the host's end
+    expect(plan.refusals[0]!.limitMm).toBe(201);   // the band it had to clear
+  });
+
+  it('the band edges are derived from the HOST\'s thickness, not from the camera-aware snap radius', () => {
+    // Same abutment at 0.15 m, same weldTol, but a THICKER host: 0.40 m moves
+    // the stem band to 0.401 m and the corner band to 0.201 m, so 0.15 m is now
+    // inside the corner band and reads as an incumbent. Nothing about the
+    // camera changed; the wall did. L-919's bug was the opposite — the same two
+    // walls classifying differently at two zoom levels.
+    const thickHost = {
+      id: 'H', prevBaseLine: bl([0, 0], [8, 0]), newBaseLine: bl([0, -0.5], [8, -0.5]),
+      thickness: 0.4,
+    };
+    const near = { id: 'N', baseLine: bl([7.85, 0], [7.85, 3]) };
+    const plan = computeMoveReweldPlan(thickHost, [near]);
+    expect(plan.entries).toEqual([]);
+    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+
+    // And the snap radius genuinely does NOT move the verdict: double it.
+    const wide = computeMoveReweldPlan(thickHost, [near], { weldTol: 1.0 });
+    expect(wide.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+    const wideStem = computeMoveReweldPlan(
+      { id: 'H', prevBaseLine: bl([0, 0], [8, 0]), newBaseLine: bl([0, -0.773], [8, -0.773]), thickness: T },
+      [{ id: 'S', baseLine: bl([4, 0], [4, 5]) }],
+      { weldTol: 1.0 },
+    );
+    expect(wideStem.entries.find(e => e.wallId === 'S')).toBeTruthy();
   });
 });

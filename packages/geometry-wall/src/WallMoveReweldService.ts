@@ -55,6 +55,7 @@ import {
     computeMoveReweldPlan,
     type MoveReweldEntry,
     type MoveReweldPartner,
+    type MoveReweldRefusal,
     type ReweldBaseline,
 } from './WallMoveReweld';
 import { DEFAULT_SNAP_RADIUS } from './WallJoinResolver';
@@ -157,6 +158,44 @@ export interface WallMoveReweldServiceDeps {
  *  MIN_DISPLACEMENT) — filters ADD_OPENING / property-only 'update' events. */
 const MIN_MOVE_M = 1e-6;
 
+/**
+ * One sentence per refusal, each carrying BOTH of its numbers (C83 §10.3).
+ *
+ * Exported so a test can assert the SENTENCE a user would read, not merely the
+ * code behind it: §L-921's whole finding was that a refusal computed and a
+ * refusal delivered had been printing as the same outcome.
+ */
+export function describeReweldRefusal(r: MoveReweldRefusal): string {
+    switch (r.reason) {
+        case 'INCUMBENT_EXTENSION_REQUIRED':
+            return `INCUMBENT_EXTENSION_REQUIRED: ${r.partnerId}: the new corner falls `
+                 + `${r.beyondMm} mm past that wall's end, so closing the joint would `
+                 + `require lengthening it — forbidden by C83 §10.2.2`;
+        case 'AMBIGUOUS_WELD_AUTHORSHIP':
+            return `AMBIGUOUS_WELD_AUTHORSHIP: ${r.partnerId}: its endpoint meets the moved `
+                 + `wall ${r.beyondMm} mm from that wall's end, inside the ${r.limitMm} mm band `
+                 + `where a corner and a T-stem are the same picture — and the two follow in `
+                 + `OPPOSITE directions, so this junction is left as it is rather than guessed `
+                 + `(C83 §10.3)`;
+        case 'STEM_REVERSAL':
+            return `STEM_REVERSAL: ${r.partnerId} terminates on the moved wall, but following it `
+                 + `would carry that end ${r.beyondMm} mm PAST the wall's other end and flip it `
+                 + `end-for-end — refused`;
+        case 'STEM_COLLAPSE':
+            return `STEM_COLLAPSE: ${r.partnerId} terminates on the moved wall, but following it `
+                 + `would shorten it to ${r.beyondMm} mm, below the ${r.limitMm} mm minimum a `
+                 + `wall can be built at — refused`;
+        case 'STEM_EXTENSION_EXCEEDS_CAP':
+            return `STEM_EXTENSION_EXCEEDS_CAP: ${r.partnerId} would have to move ${r.beyondMm} mm `
+                 + `to follow the moved wall, past the ${r.limitMm} mm this gesture allows — `
+                 + `refused rather than spiked out`;
+        case 'STEM_HOST_NO_LONGER_BENEATH':
+            return `STEM_HOST_NO_LONGER_BENEATH: ${r.partnerId} terminates on the moved wall, but `
+                 + `after the move that wall no longer passes beneath it — the seat would fall `
+                 + `${r.beyondMm} mm off its end, past the ${r.limitMm} mm allowed — refused`;
+    }
+}
+
 export class WallMoveReweldService {
     private unsubscribe?: () => void;
     /** §REENTRANT-SET: our own dispatch must not feed our own event path. */
@@ -242,6 +281,14 @@ export class WallMoveReweldService {
                 id: wall.id,
                 prevBaseLine: this.toBaseline(prevBL),
                 newBaseLine: this.toBaseline(moved.baseLine),
+                // §L-926 — the HOST's PRE-move thickness. Without it the engine
+                // cannot ask whose endpoint abuts whose body and silently
+                // declines every dependent follow (it says so at
+                // `MoveReweldMovedWall.thickness`). `prevState` is the geometry
+                // the partners were welded to, so its thickness is the one that
+                // defines the body they were welded to; `moved` is the fallback
+                // for a move event that carried no previous thickness.
+                thickness: prevState?.thickness ?? moved.thickness,
             },
             partners,
             { weldTol: this.deps.weldTol?.() ?? DEFAULT_SNAP_RADIUS },
@@ -254,17 +301,27 @@ export class WallMoveReweldService {
         // also entries to dispatch: "the corner is open and nobody said so" is
         // the exact defect this lane exists to abolish.
         if (plan.refusals.length > 0) {
-            this.report({
-                movedWallId: wall.id,
-                stage: 'plan',
-                reason: 'INCUMBENT_EXTENSION_REQUIRED',
-                partnerIds: plan.refusals.map(r => r.partnerId),
-                detail: plan.refusals.map(
-                    r => `INCUMBENT_EXTENSION_REQUIRED: ${r.partnerId}: the new corner falls ` +
-                         `${r.beyondMm} mm past that wall's end, so closing the joint would ` +
-                         `require lengthening it — forbidden by C83 §10.2.2`,
-                ),
-            });
+            // §L-926 — the reason is no longer a constant. `19ddf6bb` left this
+            // hard-coded to INCUMBENT_EXTENSION_REQUIRED because it was the only
+            // code the engine could emit; with weld authorship there are six,
+            // and flattening five of them into the sixth would report the wrong
+            // fact with the right confidence. The reasons are grouped so a
+            // gesture that refuses two junctions for two different causes says
+            // both, rather than picking one.
+            const byReason = new Map<string, typeof plan.refusals>();
+            for (const r of plan.refusals) {
+                const bucket = byReason.get(r.reason);
+                if (bucket) bucket.push(r); else byReason.set(r.reason, [r]);
+            }
+            for (const [reason, group] of byReason) {
+                this.report({
+                    movedWallId: wall.id,
+                    stage: 'plan',
+                    reason,
+                    partnerIds: group.map(r => r.partnerId),
+                    detail: group.map(r => describeReweldRefusal(r)),
+                });
+            }
         }
         if (entries.length === 0) return;
 
