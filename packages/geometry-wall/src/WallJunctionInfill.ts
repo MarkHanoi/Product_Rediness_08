@@ -67,6 +67,14 @@ export interface JunctionInfillData {
  * infills rather than logged and dropped.
  */
 export type JunctionInfillRefusalReason =
+    /**
+     * A vertex resolved FURTHER from the junction than a mitre can reach
+     * (§JUNCTION-VERTEX-BOUND) — the two edge lines are near-parallel and their
+     * intersection is degenerate, not a corner. C83 §10.2.4 forbids absorbing an
+     * impossible adaptation into a silent clamp, so this REFUSES rather than
+     * emitting a bounded-but-fabricated patch.
+     */
+    | 'degenerate-intersection'
     /** A vertex coordinate came back NaN/Infinity — nothing sound can be built. */
     | 'non-finite-vertex'
     /** Every vertex collapsed onto the junction point — there is no void to fill. */
@@ -80,8 +88,8 @@ export interface JunctionInfillRefusal {
     reason:     JunctionInfillRefusalReason;
     /** Max RAW (pre-clamp) vertex distance from the consensus point, in metres. */
     maxRawVertexDistance: number;
-    /** The §JUNCTION-VERTEX-CLAMP bound that applied to this cluster, in metres. */
-    clampBound: number;
+    /** The §JUNCTION-VERTEX-BOUND that applied to this cluster, in metres. */
+    vertexBound: number;
 }
 
 export interface JunctionInfillResult {
@@ -186,22 +194,25 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
 
         const clusterKey = [...wallIdsInCluster].sort().join('|');
 
-        // §JUNCTION-VERTEX-CLAMP (L-920, founder "in 3D we get a CORRUPTED GEOMETRY —
-        // TRIANGLE", raised many times) — the bound on how far an infill vertex may
-        // sit from the junction it is patching.
+        // §JUNCTION-VERTEX-BOUND (L-920, founder "in 3D we get a CORRUPTED GEOMETRY —
+        // TRIANGLE", raised many times) — the furthest an infill vertex may sit from
+        // the junction it is patching and still be a mitre. Past this the cluster
+        // REFUSES (see the refusal arm below); the bound decides emit-vs-refuse, it
+        // is deliberately NOT applied as a clamp — C83 §10.2.4.
         //
-        // MIRRORS §MITER-T-CLAMP in `MiterPrismBuilder.projectCapVertex`, and the
-        // mirror is LITERAL, not approximate. That clamp bounds a cap projection at
-        // `4 * latOff + 0.05`, where latOff is the vertex's lateral offset from the
-        // centreline. The infill's edge-line ANCHORS are exactly the wall's own
-        // half-thickness off the centreline, so latOff = thickness/2 here and the
-        // same formula reads `4 * (t/2) + 0.05` = `2 * t + 0.05` — which is precisely
+        // The NUMBER mirrors §MITER-T-CLAMP in `MiterPrismBuilder.projectCapVertex`,
+        // and the mirror is LITERAL, not approximate. That clamp bounds a cap
+        // projection at `4 * latOff + 0.05`, where latOff is the vertex's lateral
+        // offset from the centreline. The infill's edge-line ANCHORS are exactly the
+        // wall's own half-thickness off the centreline, so latOff = thickness/2 here
+        // and the same formula reads `4 * (t/2) + 0.05` = `2 * t + 0.05` — precisely
         // the "~2x the consensus wall thickness" bound the L-909a successor recipe
-        // specifies. One clamping idiom, one bound, derived not invented.
+        // specifies. One bound, derived from the existing idiom, not invented next
+        // door (P1/P6).
         //
         // The consensus thickness is the THICKEST wall in the cluster: a legitimate
         // mitre reaches furthest for the thickest participant, so bounding on the
-        // thinnest would clamp real geometry off a mixed-thickness junction (that is
+        // thinnest would reject real geometry at a mixed-thickness junction (that is
         // the §MITER-T-CLAMP-LAYER-LAT mistake, and it is not repeated here).
         //
         // WHY A DISTANCE CAP AND NOT A BETTER PARALLEL TEST: measured, the EXACT
@@ -218,7 +229,7 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
         // convention that `@pryzm/geometry-kernel/tolerance.ts` already records as an
         // un-canonised migration hazard — flagged, not silently re-minted.
         const maxThickness = entries.reduce((m, e) => Math.max(m, e.thickness), 0);
-        const clampBound   = 4 * (maxThickness / 2) + 0.05;
+        const vertexBound   = 4 * (maxThickness / 2) + 0.05;
 
         // Compute void polygon vertices — one per adjacent wall pair.
         const voidVerts: { x: number; z: number }[] = [];
@@ -257,31 +268,22 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
                 };
             }
 
-            // §JUNCTION-VERTEX-CLAMP — pull a runaway vertex back onto the bound,
-            // along its own direction from the junction (so the patch keeps its
-            // orientation and merely stops reaching). A legitimate vertex is well
-            // inside the bound and passes through byte-identical; this only ever
-            // touches the runaway, exactly as §MITER-T-CLAMP does.
+            // §JUNCTION-VERTEX-BOUND — measure how far this vertex resolved from
+            // the junction it is meant to patch. The DECISION it feeds (emit vs
+            // refuse) is taken once, after the loop.
             const dx = v.x - consensusPoint.x;
             const dz = v.z - consensusPoint.z;
             const d  = Math.hypot(dx, dz);
 
             if (!Number.isFinite(d) || !Number.isFinite(v.x) || !Number.isFinite(v.z)) {
-                // A non-finite vertex can never be clamped into soundness — it is
-                // recorded and the whole cluster refuses below. (Note `!(d > bound)`
-                // ordering elsewhere would FAIL OPEN on NaN, the §WALL-NAN-GUARD
-                // lesson; this tests finiteness explicitly instead.)
+                // (Note `!(d > bound)` ordering would FAIL OPEN on NaN — the
+                // §WALL-NAN-GUARD lesson; this tests finiteness explicitly.)
                 sawNonFinite = true;
                 voidVerts.push(v);
                 continue;
             }
 
             if (d > maxRawDist) maxRawDist = d;
-
-            if (d > clampBound) {
-                const k = clampBound / d;
-                v = { x: consensusPoint.x + dx * k, z: consensusPoint.z + dz * k };
-            }
 
             voidVerts.push(v);
         }
@@ -293,7 +295,27 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
         // emitting nothing: a missing mitre is a cosmetic gap the user can work
         // around, corrupted solid geometry is not.
         if (sawNonFinite) {
-            refusals.push({ clusterKey, reason: 'non-finite-vertex', maxRawVertexDistance: maxRawDist, clampBound });
+            refusals.push({ clusterKey, reason: 'non-finite-vertex', maxRawVertexDistance: maxRawDist, vertexBound });
+            continue;
+        }
+
+        // §JUNCTION-VERTEX-BOUND — the founder's corrupted triangle, refused.
+        //
+        // C83 §10.2.4: "an impossible adaptation MUST NOT be absorbed by a silent
+        // clamp" — its own example is a hosted opening re-seated to offset 0.000,
+        // "a clamp standing where a refusal belongs". Pulling a 214.9 m vertex back
+        // onto the bound is that same move: it would emit a BOUNDED but FABRICATED
+        // patch whose shape was never the real void, and it would do so silently.
+        // So a vertex past the bound REFUSES the cluster instead, carrying the
+        // measured overshoot so the finding is observable rather than swallowed.
+        //
+        // A vertex this far out is not a mitre. `d ~ t/sin(delta)` for two walls
+        // leaving the junction delta apart, so exceeding `2t` means delta < ~30 deg:
+        // the walls overlap so heavily that "the void between their end faces" is
+        // not a triangle at all. Emitting nothing leaves a cosmetic gap the user can
+        // work around; emitting a spike is corrupted solid geometry they cannot.
+        if (maxRawDist > vertexBound) {
+            refusals.push({ clusterKey, reason: 'degenerate-intersection', maxRawVertexDistance: maxRawDist, vertexBound });
             continue;
         }
 
@@ -302,7 +324,7 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
         const maxDist = voidVerts.reduce((m, v) =>
             Math.max(m, Math.hypot(v.x - consensusPoint.x, v.z - consensusPoint.z)), 0);
         if (maxDist < 1e-4) {
-            refusals.push({ clusterKey, reason: 'collapsed-polygon', maxRawVertexDistance: maxRawDist, clampBound });
+            refusals.push({ clusterKey, reason: 'collapsed-polygon', maxRawVertexDistance: maxRawDist, vertexBound });
             continue;
         }
 
@@ -310,7 +332,7 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
         // not a patch, it is a sliver, and extruding it is the corrupted-geometry
         // class this whole fix exists to stop.
         if (_polygonArea2D(voidVerts) < EPSILON_ZERO) {
-            refusals.push({ clusterKey, reason: 'zero-area-polygon', maxRawVertexDistance: maxRawDist, clampBound });
+            refusals.push({ clusterKey, reason: 'zero-area-polygon', maxRawVertexDistance: maxRawDist, vertexBound });
             continue;
         }
 
@@ -383,7 +405,7 @@ function _intersect2D_XZ(
     // Same value, same role, same strictness — this is a provenance change, NOT a
     // behaviour change, and deliberately so: the measured defect (L-920) is a
     // DISTANCE, and no value of this angular guard fixes it. The fix is
-    // §JUNCTION-VERTEX-CLAMP above; tightening or loosening this number here would
+    // §JUNCTION-VERTEX-BOUND above; tightening or loosening this number here would
     // have been the fifth wrong attempt at the same bug.
     if (Math.abs(denom) < PARALLEL_RAD) return null;
     const t = ((p2.x - p1.x) * d2.z - (p2.z - p1.z) * d2.x) / denom;

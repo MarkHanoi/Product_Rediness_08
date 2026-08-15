@@ -55,15 +55,19 @@
 //   Acute sweep: 2x-thickness bound is crossed at ~30 deg of separation;
 //   40 deg → 0.573 m, 30 deg → 0.749 m, 10 deg → 2.176 m, 1 deg → 21.511 m.
 //
-// AFTER §JUNCTION-VERTEX-CLAMP (this file now asserts the right-hand column):
+// AFTER §JUNCTION-VERTEX-BOUND (this file now asserts the right-hand column):
 //   A  0.290 → 0.290 m   unchanged (below the bound — byte-identical)
-//   B  4.324 → 0.825 m   clamped
-//   C  214.884 → 0.825 m clamped
-//   D  0.290 → REFUSED   typed 'collapsed-polygon', no geometry emitted
+//   B  4.324 → REFUSED   'degenerate-intersection'
+//   C  214.884 → REFUSED 'degenerate-intersection'
+//   D  0.290 → REFUSED   'zero-area-polygon' (inside the bound but collinear)
 //   E  0.303 → 0.303 m   unchanged
-//   F  1.606 → 0.825 m   clamped
-//   sweep 40/30 deg unchanged; 20/10/5/1/0.1 deg all pinned at the bound.
-//   0.825 = the 0.800 m clamp bound + §JUNCTION-INFLATE's 0.025 m outward.
+//   F  1.606 → REFUSED   'degenerate-intersection'
+//   sweep 40/30 deg unchanged; 20/10/5/1/0.1 deg all refused.
+//
+// REFUSED, NOT CLAMPED — C83 §10.2.4: "an impossible adaptation MUST NOT be
+// absorbed by a silent clamp". Pulling a 214.9 m vertex back to 0.8 m would emit
+// a bounded but FABRICATED patch whose shape was never the real void, and would
+// do it silently. The refusal carries the measured overshoot instead.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { describe, it, expect } from 'vitest';
@@ -130,62 +134,69 @@ describe('§MEASURED-PRISM-SPIKE — junction infill vertex distance (L-920)', (
         expect(m.max).toBeLessThan(2 * T);
     });
 
-    // §JUNCTION-VERTEX-CLAMP bound for these fixtures: 4*(t/2) + 0.05 = 0.800 m,
-    // plus §JUNCTION-INFLATE's 0.025 m outward = 0.825 m as EMITTED.
-    const BOUND_EMITTED = 0.825;
+    // §JUNCTION-VERTEX-BOUND for these fixtures: 4*(t/2) + 0.05 = 0.800 m.
+    // An EMITTED vertex may reach that plus §JUNCTION-INFLATE's 0.025 m = 0.825 m.
+    const BOUND = 0.800;
 
-    it('§JUNCTION-VERTEX-CLAMP — the acute 5 deg corner: 4.324 m BEFORE → 0.825 m after', () => {
-        const m = maxVertexDistance(founderCluster(85));   // 5 deg from W2
-        expect(m.count).toBe(1);
-        expect(m.max).toBeCloseTo(BOUND_EMITTED, 3);
-    });
-
-    it('§JUNCTION-VERTEX-CLAMP — the near-duplicate: 214.884 m BEFORE → 0.825 m after', () => {
-        const m = maxVertexDistance(founderCluster(89.9));
-        expect(m.count).toBe(1);
-        expect(m.max).toBeCloseTo(BOUND_EMITTED, 3);
-    });
-
-    it('EXACTLY parallel — a duplicate wall now REFUSES rather than emitting a patch', () => {
-        const r = computeJunctionInfillsDetailed(founderCluster(90));
-        expect(r.infills).toHaveLength(0);
+    /** The refusal reason for a cluster, or null if a patch was emitted. */
+    function refusal(walls: WallData[]): string | null {
+        const r = computeJunctionInfillsDetailed(walls);
+        if (r.infills.length > 0) return null;
         expect(r.refusals).toHaveLength(1);
-        // Typed refusal, not a console.warn — a developer trace is not a refusal.
-        // The vertices are SPREAD but collinear (the duplicate wall contributes no
-        // independent direction), so it is the zero-area arm that catches it, not
-        // the collapsed-onto-the-junction arm.
-        expect(r.refusals[0].reason).toBe('zero-area-polygon');
-        expect(r.refusals[0].clampBound).toBeCloseTo(0.800, 3);
+        return r.refusals[0].reason;
+    }
+
+    it('§JUNCTION-VERTEX-BOUND — the acute 5 deg corner: 4.324 m BEFORE → REFUSED', () => {
+        // C83 §10.2.4 — NOT clamped to the bound. A clamped patch would be bounded
+        // but FABRICATED: its shape was never the real void. Refusing says so.
+        expect(refusal(founderCluster(85))).toBe('degenerate-intersection');
     });
 
-    it('L-909a\'s STATED case (pass-through T, equal thickness) is SAFE and UNTOUCHED by the clamp', () => {
+    it('§JUNCTION-VERTEX-BOUND — the near-duplicate: 214.884 m BEFORE → REFUSED', () => {
+        expect(refusal(founderCluster(89.9))).toBe('degenerate-intersection');
+    });
+
+    it('the refusal carries the MEASURED overshoot, so nothing is swallowed', () => {
+        const r = computeJunctionInfillsDetailed(founderCluster(89.9));
+        expect(r.refusals[0].maxRawVertexDistance).toBeCloseTo(214.859, 1);
+        expect(r.refusals[0].vertexBound).toBeCloseTo(BOUND, 3);
+    });
+
+    it('EXACTLY parallel — a duplicate wall REFUSES rather than emitting a patch', () => {
+        // Its vertices are INSIDE the bound, so this is not the degenerate-intersection
+        // arm: they are spread but collinear (the duplicate contributes no independent
+        // direction), which the zero-area arm catches. Two different questions, two
+        // different answers — deliberately not merged.
+        expect(refusal(founderCluster(90))).toBe('zero-area-polygon');
+    });
+
+    it('L-909a\'s STATED case (pass-through T, equal thickness) is SAFE and UNTOUCHED', () => {
         // Byte-identical to the pre-fix measurement: a legitimate vertex is well
-        // inside the bound and passes through unchanged.
+        // inside the bound, so the fix does not touch it at all.
         expect(maxVertexDistance(founderCluster(5)).max).toBeCloseTo(0.303, 2);
         expect(maxVertexDistance(founderCluster(0.1)).max).toBeLessThan(0.303);
     });
 
-    it('§JUNCTION-VERTEX-CLAMP — the thin-newcomer pass-through: 1.606 m BEFORE → 0.825 m after', () => {
-        const m = maxVertexDistance(founderCluster(5, 0.1));
-        expect(m.max).toBeCloseTo(BOUND_EMITTED, 3);
+    it('§JUNCTION-VERTEX-BOUND — the thin-newcomer pass-through: 1.606 m BEFORE → REFUSED', () => {
+        expect(refusal(founderCluster(5, 0.1))).toBe('degenerate-intersection');
     });
 
-    it('ACUTE SWEEP — legitimate values unchanged, every runaway pinned at the bound', () => {
-        // Below the bound → BYTE-IDENTICAL to the pre-fix numbers (the clamp only
-        // ever touches the runaway, exactly as §MITER-T-CLAMP does).
+    it('ACUTE SWEEP — legitimate junctions unchanged, every runaway refused', () => {
+        // Below the bound → BYTE-IDENTICAL to the pre-fix numbers. The fix is not a
+        // blanket tightening: real junctions are untouched.
         expect(maxVertexDistance(founderCluster(90 - 40)).max).toBeCloseTo(0.573, 2);
         expect(maxVertexDistance(founderCluster(90 - 30)).max).toBeCloseTo(0.749, 2);
-        // Above the bound → clamped. Pre-fix these were 1.105 / 2.176 / 4.324 /
-        // 21.511 / 214.884 m.
+        // Above the bound → refused. Pre-fix these emitted 1.105 / 2.176 / 4.324 /
+        // 21.511 / 214.884 m of extruded triangle.
         for (const sep of [20, 10, 5, 1, 0.1]) {
-            expect(maxVertexDistance(founderCluster(90 - sep)).max).toBeCloseTo(BOUND_EMITTED, 3);
+            expect(refusal(founderCluster(90 - sep))).toBe('degenerate-intersection');
         }
     });
 
     it('NOTHING on this path can emit a vertex past the bound, at any angle or thickness', () => {
-        // The honest form of the fix: a sweep of the WHOLE parameter space this
-        // lane can reach, not one fixture. 3-wall clusters only — see the header
-        // of WallJunctionIncumbentAuthority.measure.test.ts for what is NOT proven.
+        // The honest form of the fix: a sweep of the WHOLE parameter space this lane
+        // can reach, not one fixture. 3-wall clusters ONLY — see the header of
+        // WallJunctionIncumbentAuthority.measure.test.ts for what is NOT proven.
         for (let deg = -180; deg <= 180; deg += 0.5) {
             for (const t3 of [0.05, 0.1, 0.2, 0.375, 0.6]) {
                 const m = maxVertexDistance(founderCluster(deg, t3));
