@@ -438,6 +438,24 @@ Rule for the next agent: "worked earlier, fails now, error mentions npipe or
 docker_engine" ⇒ Docker Desktop started in between. Not the script, not the
 code, not the env vars — the **context file**. Use `DOCKER_CONFIG`.
 
+> ⚠ **Amended 2026-08-15 (fourth/fifth executions, `499549a8` + `9e780581`).**
+> The recipe above bit its own tail: `DOCKER_CONFIG=/tmp/empty-docker-config`
+> uses an **MSYS path that native flyctl cannot resolve** — on a machine where
+> `C:\tmp` does not exist, flyctl silently falls back to `~/.docker/config.json`
+> and dies with the *identical* npipe error **with the guard set** (measured:
+> first 2026-08-15 attempt, exit 1 before any build). This may also be the
+> unexplained §6.5.7/§7-item-5 post-push failure. **Give the guard a
+> Windows-shaped path** (forward slashes fine):
+>
+> ```bash
+> DOCKER_CONFIG="C:/some/real/dir/empty-docker-config" bash tools/deploy/fly-manual-deploy.sh
+> ```
+>
+> with `config.json` = `{}` inside it. Verified: the retry with a Windows path
+> passed the builder handshake first try and both 2026-08-15 deploys completed
+> (bundle proof 6/6 on `499549a8`). Same lesson class as §MSYS-PATHCONV: a
+> Unix-shaped path handed to a native Windows binary fails silently.
+
 Also measured this execution: builder 16 GB precondition still held from
 2026-08-06 (no re-resize needed); local smoke gate inside the Docker build
 booted `dist/index.cjs` in **720 ms** (the L-442 precompile paying off — the

@@ -4717,3 +4717,33 @@ in the product.**
    answer presented as complete. Show all, or make the truncation expandable and state the total.
 
 Sequenced behind the L-914 parity work (same surface family). No engine change; presentation only.
+
+---
+
+## SESSION APPEND 2026-08-15 (morning fleet, 8 lanes + orchestrator) — closures and new rows, PURE APPEND
+
+**Closures (each verified by execution in its lane's final report; deploys `499549a8` bundle-proof 6/6 and `9e780581` in flight):**
+
+- **L-906 → SHIPPED** `e5d78672` + `e89a5485`. Chat "Create X" activates the palette's OWN placement tool (runtime.tools.activate / shared activateFurnitureItem) for ALL 20 ELEMENT_CREATION_MATRIX tools + every furniture catalogue item, enumerated LIVE from matrix + FurnitureCategoryRegistry (anti-rival-list proven by synthetic-row test). Ambiguity ASKS; no-match names nearest; no new bus verb; nothing created until the user clicks (C83 §4.3). Editor spec 12/12, ai-host 327/327, coverage gate PASS, red-first captured. Browser-verify after `9e780581` lands: "Create a bed", "Create slab".
+- **L-909(b) → CLOSED** `e4e952ef` (17 files). Measured facade metrics feed the DTO (`roomFacadeMetrics.ts`); layout-adapter propagates ABSENCE instead of inventing 0/0/false; G-7/G-10/A-7 skip + record `NotMeasuredNote`; formatter renders a NOT MEASURED section; card badge disclosed as `✓ 0 errors · N unchecked`. The founder's 15 false errors are structurally impossible now. Red-proof: re-introducing `?? 0` → 4 tests red. 58/58 + 51/51.
+- **L-911 → CLOSED** `b89bae67` (count typo carries) + `8a394fbb` (4 files: refusal reaches the USER with asked-vs-sized counts AND both areas; headroom-aware hint fixed; pinned on the founder's exact 322.5/220 case). The refusal itself was always correct — pinned so nobody loosens the gate (6605d007).
+- **L-912 → CLOSED** `966686cc`. §SOLID-OVERLAP-IS-THE-QUESTION: footprint×footprint solid overlap replaces the centreline clip; §WELD-EXCUSES-A-JUNCTION-NOT-A-CROSSING narrows the junction exclusions — a clean pass-through (both endpoints outside the host band, opposite sides) is never excused. Measured pins flipped: B-a 0→1, B-a2 0→1, B-g (the founder's slide-along gesture) 0→1 with offers; B-d/B-f pinned EXCUSED BY DESIGN. 44/44 + suite 550/551 (1 = perf test under fleet load, green solo). Browser-verify after `9e780581`: drag a wall onto a DOOR → same refusal card + offers as the window case.
+- **Bar 3 DELETE family → LANDED** `9e780581` (A3): door.delete / window.delete / semantic opening.delete → ONE composed planner; gate check-relationship-determination **128 → 126** (exit 1 DECLARED-LEVEL); check-plan-determinism **5/5, 0 findings, CLEAN** — the ARM-4 registered-without-harness debt is PAID. 31/31 red-first. Next-cheapest family: **wall.delete** (host-side cascade, 1 finding).
+- **Epsilon drain** `53dc31d3` (A4): gate **338 → 322** (26 rows: 13 E2 + 13 E5; 3 consumed roles byte-identical 1e-9, 10 truthful renames value-verbatim; E4 arm = zero widenings). core-app-model 854/854. Next-cheapest: apps/editor E5 renames (~23 rows).
+- **GE-09 refusal-identity walls family** `499549a8` (orchestrator): fifth and last command-registry batch family; baseline 77 → **71**; +5 executed arms incl. the execute-seam silent-child arm, red-proven.
+- **L-851 → VERIFIED COMPLETE** at pre-existing `2f374805` (A6): 83 repointed specs all green; dark ledger stable 13/13 DECLARED-LEVEL; no new commit needed.
+- **No-empty / GR-10 drain** (A7, in progress at close): `113ef892` (facet refusal identity token — check-refusal-identity's last novel arm-B finding PAID), `799255c0` (OverridePanel unbound view no longer "Clean"), `b7277753` (entrance-door placement: unsupplied occupancy map ≠ clear wall).
+- **PV-04 IFC surface** (A5, in progress at close): provenance pset attached per exported element with a NEGATIVE arm (no origin minted for an absent record); end-to-end through exportProjectToIFC; 256 green at last report.
+
+**NEW rows surfaced by the fleet (owners in parentheses, each needs its own lane):**
+
+1. **`runtime.tools` floor/ceiling activators DROP the mode argument** (`ToolsAreaLayout.ts:94/:101`) — latent for any programmatic caller; §FIX-FINISH-MODE-PLAN-UNREACHABLE class. (A8 finding; editor/tools)
+2. **`MetricTransition.after` is non-optional** — the L1 command-bus contract cannot express a delete's DETERMINED ABSENCE; A3 landed refuse-not-fabricate (typed AGGREGATE_SCOPE_UNSUPPORTED) as the honest interim; the widening is contract work (C78). (command-bus)
+3. **`door.delete`/`window.delete` bus handlers delete ONLY the standalone row**, leaving the host wall's opening record + graph edges — the un-fixed member of the §FIX-CREATE-LIVENESS-LIE family; fix in plugins/ handlers, not the planner. (A3 finding; plugins/door, plugins/window)
+4. **7 committed-at-HEAD test regressions across 7 files** (A6 classification, all reproduce in isolation): darkTestFiles.spec.ts:108 structurally breaks on every ledger shrink (fix the SPEC); otelSpanCoverage ×3 real uninstrumented violations; xssSinkScan (OverridePanel sinks 1→3 at 799255c0, baseline not updated); LlmPlannerBridge + QueryEngineDrain pinned specs stale after the RAC L-904..906 work; autoTagActiveView ×2 (door cachedLabel returns mark not type name); L847-shipped-data-surface WorkspaceController import exceeds 120 s hookTimeout even solo.
+5. **shellWallMatch §DIAG-WINDOW-RULE/OVERLAP console-spy tests fail at HEAD** (A2 finding, pre-existing, owner = windowEmission).
+6. **`roomFacadeMetrics.ts` has no dedicated unit test** — covered only end-to-end via layoutCardModel. (follow-up, small)
+7. **`OpenedRegionDetector.ts` +361-line rewrite is UNVERIFIED and was left tsc-broken by the killed A1 lane** — preserved as `openedRegionDetector-deadlane.patch` in the session scratchpad, file restored to HEAD. Do not re-apply without finishing + testing it. (room-topology)
+8. **Deploy contract §6.5.6 amended in place**: `/tmp`-shaped DOCKER_CONFIG is an MSYS path native flyctl cannot resolve → the guard silently no-ops; use a Windows-shaped path. Measured on the first 2026-08-15 attempt (exit 1), verified by the retry.
+
+**Fleet-kill count is now THREE sessions**: the A1 (L-912) lane was killed mid-commit by a chat interrupt; the orchestrator landed its verified work. Type and send, never Esc.
