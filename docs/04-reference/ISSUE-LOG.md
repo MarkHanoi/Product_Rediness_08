@@ -5258,3 +5258,52 @@ implements neither.
    moves; if it can, it completes whole. One Ctrl+Z restores everything either way.
 4. Same reversal hole likely exists on the `move-reweld` path for the same crossing geometry —
    verify both callers of the B2 guard.
+
+---
+
+## L-926 — OPEN, FOUNDER-URGENT, **REGRESSION of `19ddf6bb`** — interior T-stems no longer FOLLOW a moved perimeter wall: the L-922 fix removed partner adjustment WHOLESALE, both the forbidden direction and the mandatory one
+
+**Reported 2026-08-15 on deploy `9abee8f9`.** Founder: *"I rightfully move a perimeter wall segment —
+the interior walls within the scope should follow along — they are already connected — they should
+simply follow along — but they don't. THIS IS A REGRESSION — before it was working."*
+
+**The founder is right on both counts.** Console: interior stems left **773 mm** from their host's
+centreline (`§DIAG-ROOM-LOOP BREAK` ×3, rooms 6 → 4, `§OPENED-REGION` proposing a 6.01 m gap).
+Working correctly in the same log: floor-follow both directions, the §C83-S1 clash offer + accept,
+§OPENED-REGION detect→ask→create→undo round-trip.
+
+### Root: `19ddf6bb` removed BOTH directions of partner adjustment
+
+L-922's fix ("the re-weld stops moving the incumbent") stopped `computeMoveReweld` emitting partner
+entries — correct for the corner-partner case that yanked the perimeter's datum 2.19 m. **But the
+same partner branch was also what re-seated T-STEM partners** (walls whose ENDPOINT terminates on
+the moved wall's BODY) when their host moved. Removing all partner entries threw the mandatory
+follow out with the forbidden yank.
+
+### The reconciling rule — WELD AUTHORSHIP, which the L-922 diagnosis named and nobody implemented
+
+> *"Neither guard tests weld AUTHORSHIP — i.e. whose endpoint abutted whose body."*
+
+**§10.6 (to be minted into C83): the terminating endpoint is the DEPENDENT side.**
+- A wall whose **endpoint terminates ON another wall's body** (strict T-stem) is a DEPENDENT of that
+  host at that endpoint. **When the host moves, the dependent's terminating endpoint FOLLOWS** —
+  re-seated onto the host's new body along the stem's own line (an axial extension/shrink; the
+  stem's far endpoint and direction never change). Same family as hosted-opening re-seat and
+  slab/floor/roof follow. MANDATORY.
+- A partner whose **endpoint sits near the moved wall's ENDPOINT** (corner/L relationship) is an
+  INCUMBENT at a shared corner. Its datum is NEVER dragged along its own axis by the other wall's
+  displacement (the L-922 bite, still forbidden).
+- The discriminator is measured, not assumed: endpoint-on-body at distance > (threshold derived from
+  host thickness, consumed per C73 §2.2) from either host endpoint ⇒ T-stem; endpoint-near-endpoint
+  ⇒ corner. The ambiguous band refuses per §10.3 rather than guessing.
+
+**Secondary check for the same lane:** the recurring `§FIX-T-JOIN-PENETRATION … penetrates by
+200.0 mm but the axial retreat (200.0 mm) exceeds one host thickness — left un-trimmed` line fires
+on penetration EXACTLY equal to host thickness — a boundary condition (`>` vs `>=`) in L-919's new
+gate worth verifying against the intended geometry.
+
+**Owner:** lane L926, opened same-turn. Discipline: measurement first committed alone (host move →
+stem endpoint distance pinned at 773 mm class); restore the T-stem follow as its own branch keyed on
+AUTHORSHIP, never by reverting `19ddf6bb`; the L-922 regression pin (incumbent byte-identical) MUST
+STAY GREEN throughout — both directions tested side by side in one suite so they can never be traded
+off against each other again; one gesture one undo across host+stems.
