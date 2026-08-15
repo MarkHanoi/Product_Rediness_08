@@ -362,6 +362,9 @@ export * from './views/UpdateViewTemplateCommand';
 // Note: walls/GenericCommands.ts is a barrel re-exporting from individual files;
 // skip it here and export directly from the source files to avoid duplicates.
 export * from './walls/CascadeWallBaselineCommand';
+// §L-921-ATOMIC-GESTURE — "would the re-weld cascade refuse this move?", asked
+// BEFORE the baseline is committed, by building the real cascade command.
+export * from './walls/moveReweldPreflight';
 export * from './walls/ChangeWallLevelCommand';
 export * from './walls/CreateWallBetweenMarksCommand';
 export * from './walls/CreateWallCommand';

@@ -1,0 +1,294 @@
+/**
+ * §L-921-ATOMIC-GESTURE — ask the move-reweld cascade BEFORE the wall moves.
+ *
+ * ── THE DEFECT THIS EXISTS TO CLOSE (founder-reported, deploy `023d903a`) ────
+ *
+ * A wall move and the junction re-weld that repairs its neighbours are ONE
+ * gesture to the user and TWO commands to the model, in this order:
+ *
+ *   UpdateWallBaselineCommand.execute()
+ *     └─ wallStore.update()                       ← THE BASELINE IS COMMITTED
+ *          └─ (synchronous subscriber)
+ *             WallMoveReweldService.onWallUpdated()
+ *               └─ CascadeWallBaselineCommand.canExecute()  ← may REFUSE
+ *
+ * The cascade is a store SUBSCRIBER. It runs *inside* the write it is reacting
+ * to, it does not throw, and `UpdateWallBaselineCommand.execute()` returns
+ * `{ success: true }` regardless. So the command cannot see the refusal — there
+ * is no branch to fix, and the absence IS the finding
+ * (§MEASURED-HALF-EXECUTED, `apps/editor/__tests__/wallMoveAcceptHalfExecuted.test.ts`,
+ * which pins the measured consequence at an open L junction of **2096 mm**).
+ *
+ * The result is a HALF-EXECUTED GESTURE: the wall moves, the repair refuses,
+ * the partners keep standing at the old junction, and the user is told nothing.
+ * C78/C70 are explicit that one gesture is one atomic unit — a move whose
+ * dependent cascade refuses must either not happen at all or report what it
+ * left unrepaired. It may not half-apply, know it, and stay quiet.
+ *
+ * ── WHY A PRE-FLIGHT, AND WHY HERE ───────────────────────────────────────────
+ *
+ * Making the pair atomic *after* the write means unwinding a committed baseline
+ * plus its opening re-seats plus its `_renderVersion` bumps from inside a
+ * subscriber — a rollback with more failure modes than the defect. Asking the
+ * question BEFORE the write costs one predicate evaluation and cannot leave a
+ * partial state at all.
+ *
+ * This module answers exactly one question: *if wall W moved from A to B, would
+ * the re-weld cascade refuse, and with what?* It answers it by **building the
+ * real `CascadeWallBaselineCommand` and calling its real `canExecute`** — not by
+ * re-deriving the rule. A second copy of an opening-fit predicate is precisely
+ * the drift this codebase keeps paying for, so there is none here: every reason
+ * code and every number in the result was produced by the command that will
+ * later refuse.
+ *
+ * ── FAITHFULNESS, STATED RATHER THAN ASSUMED ─────────────────────────────────
+ *
+ * A pre-flight is only worth having if it gives the SAME verdict the real
+ * cascade will give. Two things make that true rather than hopeful:
+ *
+ *  1. **Partners are read as of BEFORE the move** — which is what the service
+ *     does too: it reads `joinedTo` at event time, when the graph still
+ *     describes the pre-move topology (§CONNECT-3). Same inputs, same answer.
+ *
+ *  2. **The mover is presented at its NEW baseline.** `canExecute`'s C83 arm
+ *     judges each entry against `wallStore.getAll()`, so a store still holding
+ *     the mover at its OLD position would answer a different question. This
+ *     module therefore hands the command a SHIM store that returns the mover
+ *     with `newBaseLine` and every other wall verbatim. Without the shim the
+ *     pre-flight would be a plausible-looking approximation, which is worse
+ *     than none: it would disagree with the real cascade exactly in the corner
+ *     cases the gate exists for.
+ *
+ * REFUSAL ≠ EMPTINESS (C71 §4.4). `entries.length === 0` here means "this move
+ * breaks no junction that can be re-welded", which is a POSITIVE ok — the same
+ * reading `WallMoveReweldService` gives it. It is never conflated with refusal.
+ */
+
+import type { Point3D } from '@pryzm/core-app-model';
+import {
+    computeMoveReweld,
+    DEFAULT_SNAP_RADIUS,
+    type WallData,
+} from '@pryzm/geometry-wall';
+import {
+    CascadeWallBaselineCommand,
+    type CascadeWallBaselineEntry,
+} from './CascadeWallBaselineCommand';
+import type { CommandContext } from '../types';
+
+/** The three reads this pre-flight needs. Structural, so any store satisfies it. */
+export interface PreflightWallStoreRef {
+    getById(id: string): WallData | undefined;
+    getAll(): WallData[];
+    getByLevel?(levelId: string): WallData[];
+}
+
+export interface MoveReweldPreflightInput {
+    readonly wallStore: PreflightWallStoreRef;
+    readonly wallId: string;
+    /** Where the wall stands now. */
+    readonly prevBaseLine: readonly [Point3D, Point3D];
+    /** Where it is proposed to go. */
+    readonly newBaseLine: readonly [Point3D, Point3D];
+    /**
+     * The `joinedTo` partners, when the caller can resolve them. `null` or
+     * omitted ⇒ fall back to a same-level scan and let `computeMoveReweld`'s
+     * weld tolerance decide geometrically — the SAME fallback, for the same
+     * stated reason, as `WallMoveReweldService` (C71 §4.4: "no answer" is not
+     * "joins nothing").
+     */
+    readonly joinedWallIds?: readonly string[] | null;
+    readonly weldTol?: number;
+}
+
+export interface MoveReweldPreflightResult {
+    /**
+     * THE DECISION. `ok && !incumbentBreach`. Callers gate on this and nothing
+     * else — two refusal arms with one answer, so the gate and the chat accept
+     * path cannot drift into disagreeing about whether a move may proceed.
+     */
+    readonly allowed: boolean;
+    /** false ⇒ the cascade WILL refuse; the caller must not commit the move. */
+    readonly ok: boolean;
+    /**
+     * §C83 §10.2.2 — the non-subject walls this re-weld would re-baseline.
+     *
+     * *"A re-weld MUST NOT close a joint by moving a non-subject wall's
+     * baseline"* (minted 2026-08-15 from the founder's §JOINT-AUTHORITY-IS-THE-
+     * INCUMBENT: *"The perimeter wall joints NEVER should be changed after
+     * creation… the 3rd wall needs to ADAPT and connect with the FACE of the
+     * wall originally there"*). L-922 is this violated on the MOVE path: an
+     * interior wall was moved and the cascade shifted the PERIMETER's baseline
+     * start ~2.19 m, proven by three hosted doors re-seated by the same delta —
+     * one of them clamped to offset 0.000, which is §10.2.4's named example of a
+     * clamp standing where a refusal belongs.
+     *
+     * `computeMoveReweld` emits two kinds of entry: seats for the MOVED wall's
+     * own endpoints (the subject adapting — permitted, indeed required) and
+     * re-baselines of its PARTNERS (incumbents — forbidden). Only the second
+     * kind lands here.
+     */
+    readonly incumbentWallIds: readonly string[];
+    /** True ⇒ forbidden by C83 §10.2.2 REGARDLESS of `ok`. */
+    readonly incumbentBreach: boolean;
+    /** How far the largest incumbent would have been shifted. The refusal names it. */
+    readonly maxIncumbentShiftMm: number;
+    /** The re-welds the move would require. Empty ⇒ it breaks no junction. */
+    readonly entries: readonly CascadeWallBaselineEntry[];
+    /** The cascade's own reason code, verbatim (e.g. `OPENING_DOES_NOT_FIT`). */
+    readonly reason?: string;
+    /**
+     * The cascade's own `blockingIssues` — where the NUMBERS live (required vs
+     * available metres, per opening, per wall). `WallMoveReweldService` drops
+     * this array on the floor today; nothing that consumes this result may.
+     */
+    readonly blockingIssues?: readonly string[];
+    /** Which wall ids the refused cascade would have re-welded. */
+    readonly partnerIds: readonly string[];
+}
+
+function moved(a: readonly Point3D[] | undefined): a is readonly [Point3D, Point3D] {
+    return !!a && a.length >= 2;
+}
+
+/**
+ * Would the move-reweld cascade refuse this move? Pure with respect to the
+ * model: it reads, it builds a command, it asks `canExecute`, and it never
+ * executes anything. Never throws — an unanswerable question returns `ok: true`
+ * with empty entries, because a pre-flight that cannot evaluate must not
+ * manufacture a refusal (C83 §5.3: a question nobody answered refuses nothing).
+ */
+export function previewMoveReweld(
+    input: MoveReweldPreflightInput,
+): MoveReweldPreflightResult {
+    const { wallStore, wallId, prevBaseLine, newBaseLine } = input;
+    const EMPTY: MoveReweldPreflightResult = {
+        allowed: true,
+        ok: true,
+        entries: [],
+        partnerIds: [],
+        incumbentWallIds: [],
+        incumbentBreach: false,
+        maxIncumbentShiftMm: 0,
+    };
+
+    try {
+        const mover = wallStore.getById(wallId);
+        if (!mover || !moved(mover.baseLine as readonly Point3D[])) return EMPTY;
+
+        const weldTol =
+            typeof input.weldTol === 'number' && input.weldTol > 0
+                ? input.weldTol
+                : DEFAULT_SNAP_RADIUS;
+
+        // ── Partners, exactly as the service resolves them ────────────────────
+        let partnerIds: readonly string[];
+        if (input.joinedWallIds && input.joinedWallIds.length > 0) {
+            partnerIds = input.joinedWallIds;
+        } else if (input.joinedWallIds && input.joinedWallIds.length === 0) {
+            return EMPTY;                       // POSITIVE "joins nothing"
+        } else {
+            const level = wallStore.getByLevel
+                ? wallStore.getByLevel(mover.levelId)
+                : wallStore.getAll().filter(w => w.levelId === mover.levelId);
+            partnerIds = level.map(w => w.id).filter(id => id !== wallId);
+        }
+        if (partnerIds.length === 0) return EMPTY;
+
+        const partners = [];
+        for (const id of partnerIds) {
+            const p = wallStore.getById(id);
+            if (p && moved(p.baseLine as readonly Point3D[])) {
+                const bl = p.baseLine as readonly Point3D[];
+                partners.push({
+                    id: p.id,
+                    baseLine: [
+                        { x: bl[0].x, y: bl[0].y, z: bl[0].z },
+                        { x: bl[1].x, y: bl[1].y, z: bl[1].z },
+                    ] as [Point3D, Point3D],
+                });
+            }
+        }
+        if (partners.length === 0) return EMPTY;
+
+        const entries = computeMoveReweld(
+            {
+                id: wallId,
+                prevBaseLine: [
+                    { x: prevBaseLine[0].x, y: prevBaseLine[0].y, z: prevBaseLine[0].z },
+                    { x: prevBaseLine[1].x, y: prevBaseLine[1].y, z: prevBaseLine[1].z },
+                ],
+                newBaseLine: [
+                    { x: newBaseLine[0].x, y: newBaseLine[0].y, z: newBaseLine[0].z },
+                    { x: newBaseLine[1].x, y: newBaseLine[1].y, z: newBaseLine[1].z },
+                ],
+            },
+            partners,
+            { weldTol },
+        ) as CascadeWallBaselineEntry[];
+
+        // No junction to repair ⇒ nothing can refuse. A POSITIVE ok.
+        if (entries.length === 0) return EMPTY;
+
+        // ── The shim: the model AS IT WILL BE the instant the cascade runs ────
+        // Only the mover differs, and only in its baseline. See the header —
+        // without this the C83 arm answers about the wrong world.
+        const movedMover = { ...mover, baseLine: [newBaseLine[0], newBaseLine[1]] } as WallData;
+        const shim: PreflightWallStoreRef = {
+            getById: (id: string) => (id === wallId ? movedMover : wallStore.getById(id)),
+            getAll: () => wallStore.getAll().map(w => (w.id === wallId ? movedMover : w)),
+            getByLevel: (levelId: string) =>
+                (wallStore.getByLevel
+                    ? wallStore.getByLevel(levelId)
+                    : wallStore.getAll().filter(w => w.levelId === levelId)
+                ).map(w => (w.id === wallId ? movedMover : w)),
+        };
+
+        const cmd = new CascadeWallBaselineCommand({ entries, cause: 'move-reweld' });
+        const verdict = cmd.canExecute({ stores: { wallStore: shim } } as unknown as CommandContext);
+
+        // ── C83 §10.2.2 — the INCUMBENT arm ──────────────────────────────────
+        //
+        // Judged on the entries themselves, not on the cascade's verdict, and
+        // that ordering is the point: a cascade that SUCCEEDS by shifting a
+        // perimeter 2.19 m is not a success, it is L-922. `ok` and this arm
+        // therefore answer two different questions and are reported separately;
+        // `allowed` is their conjunction.
+        //
+        // Only PARTNER entries count. `computeMoveReweld` also emits seats for
+        // the subject's own endpoints — the subject adapting to the incumbents'
+        // faces, which is exactly what §10.1 requires and must never be read as
+        // a breach.
+        const incumbent: { id: string; shiftMm: number }[] = [];
+        for (const e of entries) {
+            if (e.wallId === wallId) continue;          // the SUBJECT adapting — permitted
+            const before = wallStore.getById(e.wallId);
+            const bl = before?.baseLine as readonly Point3D[] | undefined;
+            if (!bl || bl.length < 2) continue;
+            const shift = Math.max(
+                Math.hypot(bl[0].x - e.newBaseLine[0].x, bl[0].z - e.newBaseLine[0].z),
+                Math.hypot(bl[1].x - e.newBaseLine[1].x, bl[1].z - e.newBaseLine[1].z),
+            );
+            incumbent.push({ id: e.wallId, shiftMm: Math.round(shift * 1000) });
+        }
+        const incumbentBreach = incumbent.length > 0;
+
+        return {
+            allowed: verdict.ok && !incumbentBreach,
+            ok: verdict.ok,
+            entries,
+            reason: verdict.reason,
+            blockingIssues: (verdict as { blockingIssues?: string[] }).blockingIssues,
+            partnerIds: entries.map(e => e.wallId),
+            incumbentWallIds: incumbent.map(i => i.id),
+            incumbentBreach,
+            maxIncumbentShiftMm: incumbent.reduce((m, i) => Math.max(m, i.shiftMm), 0),
+        };
+    } catch (err) {
+        // A pre-flight that crashed knows nothing, and "knows nothing" is not
+        // "refused" (§CONTEXT-DATA-HONESTY: failure and empty must never share a
+        // value). Audible, then out of the way.
+        console.warn('[moveReweldPreflight] §L-921-ATOMIC-GESTURE preview failed (non-fatal):', err);
+        return EMPTY;
+    }
+}
