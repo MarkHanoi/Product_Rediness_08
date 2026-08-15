@@ -17,11 +17,13 @@
  * Task:     46-IMPLEMENTATION-PLAN-2026-05-08.md §9 Task 7.2
  *
  * Exit codes:
- *   0 — all checked packages compiled cleanly
+ *   0 — all non-excluded packages compiled cleanly
  *   1 — one or more packages had TypeScript errors
  *   2 — MISCONFIGURED: tsc did not actually run (see §PER-PACKAGE-COMPILE-WAS-
  *       GREEN-AND-BLIND below), or too few packages were compiled to believe the
  *       result. NEVER absorbable as declared debt.
+ *   3 — LEDGER VIOLATION: the exclusion list grew, went stale, or carries a row
+ *       missing its reason/owner/exit-condition. See §MT-09-SKIP-LEDGER below.
  *
  * ⚠ RUNTIME (2026-08-11). This gate now spawns ~90 real `tsc --noEmit` runs and
  * takes TENS OF MINUTES on a cold cache. It used to finish in seconds — because it
@@ -29,22 +31,52 @@
  * if that is unaffordable in a pre-merge job, the answer is to shard or cache it,
  * NOT to let a failed spawn read as a pass.
  *
- * ── KNOWN ISSUES (deferred to future tasks) ─────────────────────────────────
+ * ── §MT-09-SKIP-LEDGER (2026-08-15, S3) ─────────────────────────────────────
  *
- * headless — Skipped: packages/headless/tsconfig.json uses
- *   exactOptionalPropertyTypes:true (stricter than tsconfig.base.json).
- *   When TypeScript traverses into transitively-imported workspace packages
- *   (runtime-composer → plugin system → plugins/annotations/), it surfaces
- *   exactOptionalPropertyTypes errors in plugin source code that is
- *   deliberately authored under the less-strict base config.
- *   FIX PATH: Apply exactOptionalPropertyTypes-safe patterns across the
- *   plugins/ layer (conditional-spread instead of `field: undefined`),
- *   or pre-build packages to .d.ts before running headless's compile.
- *   TRACKING: Task 7.2 follow-on; see 46-IMPLEMENTATION-PLAN §9.
+ * The exclusion list used to be a hard-coded `SKIP_PACKAGES` Map in this file,
+ * and the headline read "packages compiled: 85 · floor 40 · skipped 9". Both
+ * halves were dishonest in the same way: 85 was reported as though it were the
+ * population, and the 9 exclusions were an ASSERTION IN SOURCE, never a
+ * measurement. The population is 93 tsconfig-bearing packages. The exclusions
+ * covered command-registry, core-app-model, runtime-composer and ai-host, so the
+ * true position was 35 of 93 packages not proven to compile in isolation — not
+ * 26. A comparator that reports a pass must report its denominator with it.
+ *
+ * THREE CHANGES, none of which relax what is asserted:
+ *
+ *   1. The list moved to per-package-compile-skip-ledger.json, where each row
+ *      carries reason, owner, exitCondition, class and since. A row missing any
+ *      of the five is exit 3.
+ *
+ *   2. The list is SHRINK-ONLY against SKIP_CEILING, a constant in THIS file.
+ *      Adding a row to the ledger alone is exit 3; a new exclusion has to raise
+ *      the ceiling too. Two files, one reviewable act — that is the point.
+ *
+ *   3. EXCLUDED PACKAGES ARE STILL COMPILED. The ledger suppresses a package's
+ *      effect on the EXIT CODE, never its measurement. An exclusion that is not
+ *      measured cannot be proven stale, and an exclusion that cannot go stale is
+ *      permanent by construction. A ledgered package that compiles cleanly is
+ *      exit 3 (STALE) — paid debt leaves the ledger in the commit that pays it.
+ *
+ * ── §MT-09-AUTOSKIP-ABSORBED-A-FAILURE (2026-08-15, S3) ─────────────────────
+ *
+ * DELETED, and it was the worse of the two holes. This gate used to inspect the
+ * error text of a package that had ALREADY FAILED, and if every error line
+ * looked like a global-window.d.ts ambient miss, it printed
+ *
+ *     SKIP  packages/x  (auto-skip: all errors are global-window.d.ts isolation)
+ *
+ * and dropped the package from the failure list. A measured RED, reclassified as
+ * an exclusion by the gate itself, with no ledger row and no human in the loop.
+ * It was not theoretical: the 9th skip in the 2026-08-15 run was geometry-beam,
+ * which appears in no skip map anywhere. It FAILED and was absorbed. That is the
+ * §CONTEXT-DATA-HONESTY law broken in the same place as L-774 — "I looked and
+ * found nothing" and "I looked, found something, and swallowed it" printed the
+ * same line. geometry-beam now reads FAIL, which is what it always was.
  */
 
 import { spawnSync } from 'child_process';
-import { readdirSync, existsSync } from 'fs';
+import { readdirSync, existsSync, readFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -54,50 +86,99 @@ const repoRoot = resolve(__dir, '..', '..');
 const packagesDir = join(repoRoot, 'packages');
 
 /**
- * Packages skipped by this gate with documented reasons.
- * Each entry MUST have a clear rationale and a tracking reference.
+ * §MT-09-SKIP-LEDGER — SHRINK-ONLY CEILING on the exclusion list.
+ *
+ * This number lives in gate SOURCE on purpose. The ledger alone cannot police
+ * its own growth: anyone adding a row would also be the one deciding the row is
+ * acceptable. Raising this constant is a separate, deliberate, reviewable edit
+ * that says "we are shipping one more package nobody has proven compiles".
+ *
+ * MOVES DOWN ONLY.  8 (2026-08-15, minted from the hard-coded map — no row added).
  */
-const SKIP_PACKAGES = new Map<string, string>([
-  [
-    'headless',
-    'exactOptionalPropertyTypes:true traverses into plugins/ layer; tracked in Task 7.2 follow-on',
-  ],
-  [
-    'runtime-composer',
-    'exactOptionalPropertyTypes:true traverses into plugins/annotations/ source; same root cause as headless; tracked in Task 7.2 follow-on',
-  ],
-  [
-    'ai-host',
-    'Per-package isolation misses global-window.d.ts ambient declarations (visibilityIntentStore, commandContext, etc.). ' +
-    'These properties are declared in apps/editor/src/engine/global-window.d.ts which is outside packages/ai-host/tsconfig scope. ' +
-    'Fix path: promote global-window.d.ts to a shared @pryzm/global-types package (Phase F). OI-028 tracking.',
-  ],
-  [
-    'command-registry',
-    'Per-package isolation surfaces exactOptionalPropertyTypes errors from ai-host cross-reference (same global-window.d.ts issue as ai-host). ' +
-    'Phase F fix: @pryzm/global-types package + exactOptionalPropertyTypes alignment across command-registry. OI-028 tracking.',
-  ],
-  [
-    'constraint-solver',
-    'Per-package isolation surfaces ai-host cross-reference errors (window.bimManager from global-window.d.ts missing in scope). ' +
-    'Phase F fix: same as ai-host. OI-028 tracking.',
-  ],
-  [
-    'core-app-model',
-    'Per-package isolation misses global-window.d.ts; ai-host cross-reference surfaces window.commandContext, window.curtainPanelStore etc. ' +
-    'Same root cause as ai-host. Phase F fix: @pryzm/global-types package. OI-028 tracking.',
-  ],
-  [
-    'family-instance',
-    'Per-package isolation misses global-window.d.ts; ai-host cross-reference surfaces window.wallStore, window.bimManager etc. ' +
-    'Same root cause as ai-host. Phase F fix: @pryzm/global-types package. OI-028 tracking.',
-  ],
-  [
-    'family-loader',
-    'Per-package isolation misses global-window.d.ts; ai-host cross-reference surfaces window.wallStore, window.bimManager etc. ' +
-    'Same root cause as ai-host. Phase F fix: @pryzm/global-types package. OI-028 tracking.',
-  ],
-]);
+const SKIP_CEILING = 8;
+
+const LEDGER_PATH = join(__dir, 'per-package-compile-skip-ledger.json');
+
+interface SkipRow {
+  class?: string;
+  reason?: string;
+  owner?: string;
+  exitCondition?: string;
+  since?: string;
+}
+
+const ledgerViolations: string[] = [];
+
+function loadSkipLedger(): Map<string, SkipRow> {
+  if (!existsSync(LEDGER_PATH)) {
+    console.error(
+      `[per-package-compile] LEDGER VIOLATION (exit 3) — ${LEDGER_PATH} is missing.`
+      + `\n  The exclusion list is not optional. A gate that cannot read its own exclusions`
+      + `\n  does not know its denominator, and must not report a pass.`,
+    );
+    process.exit(3);
+  }
+  const raw = JSON.parse(readFileSync(LEDGER_PATH, 'utf8')) as {
+    skips?: Record<string, SkipRow>;
+  };
+  const rows = new Map<string, SkipRow>(Object.entries(raw.skips ?? {}));
+
+  // RULE 4 — every row needs all five fields. An exclusion nobody owns is an
+  // exclusion nobody removes.
+  for (const [name, row] of rows) {
+    for (const field of ['class', 'reason', 'owner', 'exitCondition', 'since'] as const) {
+      const value = row[field];
+      if (typeof value !== 'string' || value.trim().length === 0) {
+        ledgerViolations.push(
+          `row "${name}" is missing a non-empty "${field}" — an exclusion without one is undeletable by design`,
+        );
+      }
+    }
+  }
+
+  // RULE 1 — shrink-only.
+  if (rows.size > SKIP_CEILING) {
+    ledgerViolations.push(
+      `RATCHET EXCEEDED: ledger holds ${rows.size} rows against SKIP_CEILING ${SKIP_CEILING}. `
+      + `Adding an exclusion requires raising the ceiling in gate source in the same commit.`,
+    );
+  }
+
+  // RULE 5 — a row naming a package that does not exist, or that has no
+  // tsconfig.json, is stale: it excludes nothing and hides that it excludes nothing.
+  for (const name of rows.keys()) {
+    if (!existsSync(join(packagesDir, name, 'tsconfig.json'))) {
+      ledgerViolations.push(
+        `STALE: row "${name}" names no packages/${name}/tsconfig.json — delete the row`,
+      );
+    }
+  }
+
+  return rows;
+}
+
+function reportLedgerViolationsAndExit(): never {
+  console.error(
+    `\n[per-package-compile] LEDGER VIOLATION (exit 3) — ${ledgerViolations.length} problem(s) `
+    + `with per-package-compile-skip-ledger.json:`,
+  );
+  for (const v of ledgerViolations) console.error(`  • ${v}`);
+  console.error(
+    '\n  The exclusion list is SHRINK-ONLY. It exists so an exclusion cannot silently absorb'
+    + '\n  the next package that stops compiling — which is exactly what the deleted auto-skip'
+    + '\n  branch was doing to geometry-beam. See §MT-09-SKIP-LEDGER.',
+  );
+  process.exit(3);
+}
+
+const SKIP_PACKAGES = loadSkipLedger();
+
+// STRUCTURAL ledger faults (missing fields, ceiling exceeded, a row naming a package
+// that no longer exists) are decidable WITHOUT compiling anything — so they fail in
+// seconds rather than at the end of a ~25-minute run. Only RULE 2 (a ledgered package
+// that now compiles cleanly) needs the full run, and it is checked after the loop.
+if (ledgerViolations.length > 0) reportLedgerViolationsAndExit();
+
 
 const pkgNames = readdirSync(packagesDir).sort();
 
@@ -129,7 +210,14 @@ let compiled = 0;
 
 let anyFailed = false;
 const failures: string[] = [];
-const skipped: string[] = [];
+/** Ledgered exclusions that were compiled and DID fail — the expected state. */
+const excludedStillFailing: string[] = [];
+/** Ledgered exclusions that compiled CLEANLY — paid debt that never left the ledger. */
+const excludedNowClean: string[] = [];
+/** Package dirs carrying no tsconfig.json at all — outside this gate's population. */
+const noTsconfig: string[] = [];
+/** Every package dir that has a tsconfig.json — THE DENOMINATOR. */
+const tsconfigBearing: string[] = [];
 
 console.log('[per-package-compile] Checking per-package tsc --noEmit...\n');
 
@@ -138,16 +226,16 @@ for (const pkgName of pkgNames) {
   const tsconfig = join(pkgDir, 'tsconfig.json');
 
   if (!existsSync(tsconfig)) {
-    console.log(`  SKIP  packages/${pkgName}  (no tsconfig.json)`);
+    console.log(`  n/a   packages/${pkgName}  (no tsconfig.json — not in population)`);
+    noTsconfig.push(pkgName);
     continue;
   }
+  tsconfigBearing.push(pkgName);
 
-  const skipReason = SKIP_PACKAGES.get(pkgName);
-  if (skipReason !== undefined) {
-    console.log(`  SKIP  packages/${pkgName}  (known issue: ${skipReason})`);
-    skipped.push(pkgName);
-    continue;
-  }
+  // §MT-09-SKIP-LEDGER RULE 3 — a ledgered package is compiled anyway. The ledger
+  // suppresses its effect on the exit code, never its measurement.
+  const skipRow = SKIP_PACKAGES.get(pkgName);
+  const isExcluded = skipRow !== undefined;
 
   const result = spawnSync(
     'npx',
@@ -178,55 +266,42 @@ for (const pkgName of pkgNames) {
     output.includes(': error TS') ||
     (result.status !== 0 && output.trim().length > 0);
 
-  // Auto-detect packages that fail exclusively due to missing global-window.d.ts ambient
-  // declarations (window.wallStore, window.bimManager, etc.).  These properties are declared
-  // in apps/editor/src/engine/global-window.d.ts which is outside the per-package tsconfig
-  // scope.  This is a systemic isolation issue — all packages that transitively reference
-  // @pryzm/ai-host or @pryzm/core-app-model will fail with these errors.
-  // FIX PATH (Phase F): promote global-window.d.ts to @pryzm/global-types.  OI-028.
-  const isGlobalWindowIssue = hasErrors && (() => {
-    const errorLines = output.split('\n').filter(l => l.includes(': error TS'));
-    // All errors must be either:
-    //  (a) Property 'xxx' does not exist on 'Window & typeof globalThis' (TS2339/TS2551)
-    //  (b) exactOptionalPropertyTypes violations (TS2375/TS2379) from ai-host cross-ref
-    //  (c) 'Object is possibly undefined' (TS2532/TS18048) from UndoManager / StairFootprint
-    // from files outside this package (i.e. errors in ../ai-host/... or ../core-app-model/...)
-    // Both relative paths (../ai-host/) and workspace-absolute paths
-    // (packages/ai-host/) appear in tsc output depending on tsconfig resolution.
-    const isExternalError = (l: string) =>
-      l.includes('../ai-host/') || l.includes('packages/ai-host/') ||
-      l.includes('../core-app-model/') || l.includes('packages/core-app-model/') ||
-      l.includes('../command-registry/') || l.includes('packages/command-registry/') ||
-      l.includes('../constraint-solver/') || l.includes('packages/constraint-solver/');
-    const isWindowError = (l: string) =>
-      l.includes("does not exist on type 'Window & typeof globalThis'") ||
-      (l.includes("Did you mean '") && l.includes('Store'));
-    // TS2532/TS18048 = possibly undefined, TS2375/TS2379/TS2740/TS2345 = exactOptionalPropertyTypes
-    const isOptionalError = (l: string) =>
-      l.includes(': error TS2375') || l.includes(': error TS2379') ||
-      l.includes(': error TS2532') || l.includes(': error TS18048') ||
-      l.includes(': error TS2740') || l.includes(': error TS2345');
-    return errorLines.length > 0 && errorLines.every(l =>
-      isExternalError(l) || isWindowError(l) || isOptionalError(l),
-    );
-  })();
+  // §MT-09-AUTOSKIP-ABSORBED-A-FAILURE — the auto-skip branch that used to sit here
+  // has been DELETED. It read the error text of an ALREADY-FAILED package and, if every
+  // line looked like a global-window.d.ts ambient miss, reclassified the failure as a
+  // skip. A gate does not get to excuse its own red. If a package genuinely warrants an
+  // exclusion, that is a ledger row with an owner and an exit condition — a decision a
+  // human makes once, in a reviewable commit, not one the gate makes on every run with
+  // nobody watching. geometry-beam was being absorbed this way; it now reads FAIL.
 
-  if (isGlobalWindowIssue) {
-    console.log(
-      `  SKIP  packages/${pkgName}  (auto-skip: all errors are global-window.d.ts isolation; ` +
-      `Phase F fix: @pryzm/global-types; OI-028 tracking)`,
-    );
-    skipped.push(pkgName);
+  // Regex split, not '\n' — tsc emits CRLF on win32 and a bare-LF split leaves a
+  // trailing \r on every line, which quietly breaks any endsWith/equality check
+  // downstream. Same class of win32 defect as §PER-PACKAGE-COMPILE-WAS-GREEN-AND-BLIND.
+  const errorLines = output.split(/\r?\n/).filter((l) => l.includes(': error TS'));
+
+  if (isExcluded) {
+    // Measured, but not counted against the exit code. Both outcomes are reported —
+    // a clean compile here is a LEDGER VIOLATION, not a quiet success.
+    if (hasErrors) {
+      excludedStillFailing.push(pkgName);
+      console.log(
+        `  EXCL  packages/${pkgName}  (ledgered: ${skipRow?.class ?? '?'} - owner ${skipRow?.owner ?? '?'})`
+        + `  -- ${errorLines.length} error(s), exclusion still warranted`,
+      );
+    } else {
+      excludedNowClean.push(pkgName);
+      console.error(`  STALE packages/${pkgName}  — LEDGERED BUT COMPILES CLEANLY.`);
+      console.error(
+        '        Delete its row from per-package-compile-skip-ledger.json and drop'
+        + ' SKIP_CEILING in the same commit.',
+      );
+    }
     continue;
   }
 
   if (hasErrors) {
     console.error(`  FAIL  packages/${pkgName}`);
-    const errorLines = output
-      .split('\n')
-      .filter((l) => l.includes(': error TS'))
-      .slice(0, 8);
-    for (const line of errorLines) {
+    for (const line of errorLines.slice(0, 8)) {
       console.error(`        ${line.trim()}`);
     }
     failures.push(pkgName);
@@ -245,25 +320,63 @@ if (compiled < MIN_COMPILED_SUBJECTS) {
   );
   process.exit(2);
 }
-console.log(`[per-package-compile] packages compiled: ${compiled} · floor ${MIN_COMPILED_SUBJECTS} · skipped ${skipped.length}`);
-if (skipped.length > 0) {
-  console.log(`[per-package-compile] ⚠️  ${skipped.length} package(s) skipped (known issues): ${skipped.join(', ')}`);
+/**
+ * §MT-09-DENOMINATOR — THE FIVE NUMBERS, always printed together.
+ *
+ * The old headline was "packages compiled: 85 · floor 40 · skipped 9". It let
+ * "85 compiled" be quoted as health while 9 packages — including command-registry,
+ * core-app-model, runtime-composer and ai-host — were excluded in gate source and
+ * 26 more were failing. A comparator that reports a pass MUST report the population
+ * it drew that pass from. All five numbers below are printed on every run, in pass
+ * and in fail, so no single one of them can be lifted out and quoted alone.
+ */
+const excluded = excludedStillFailing.length + excludedNowClean.length;
+const passing = tsconfigBearing.length - excluded - failures.length;
+
+console.log('[per-package-compile] ── DENOMINATOR ──────────────────────────────');
+console.log(`[per-package-compile]   tsconfig-bearing packages : ${tsconfigBearing.length}   (the population)`);
+console.log(`[per-package-compile]   compiled (tsc actually ran): ${compiled}   · floor ${MIN_COMPILED_SUBJECTS}`);
+console.log(`[per-package-compile]   excluded by ledger         : ${excluded}   · ceiling ${SKIP_CEILING}`);
+console.log(`[per-package-compile]   FAILED                     : ${failures.length}`);
+console.log(`[per-package-compile]   passing in isolation       : ${passing}`);
+console.log(
+  `[per-package-compile]   NOT PROVEN to compile      : ${excluded + failures.length}`
+  + ` of ${tsconfigBearing.length}  ← quote THIS, not "compiled".`,
+);
+if (noTsconfig.length > 0) {
+  console.log(`[per-package-compile]   (outside population, no tsconfig.json: ${noTsconfig.length})`);
 }
+if (excluded > 0) {
+  console.log(
+    `[per-package-compile] ⚠️  ${excluded} ledgered exclusion(s), compiled but not counted: `
+    + `${[...excludedStillFailing, ...excludedNowClean].join(', ')}`,
+  );
+}
+console.log('[per-package-compile] ─────────────────────────────────────────────');
+
+// §MT-09-SKIP-LEDGER — ledger integrity is checked AFTER the run, because RULE 2
+// (a paid exclusion must leave the ledger) can only be evaluated once every ledgered
+// package has actually been compiled.
+if (excludedNowClean.length > 0) {
+  ledgerViolations.push(
+    `STALE: ${excludedNowClean.join(', ')} compile(s) cleanly but still hold a ledger row. `
+    + `Paid debt leaves the ledger in the commit that pays it, or the file rots into a list `
+    + `of things that are secretly fine.`,
+  );
+}
+
+if (ledgerViolations.length > 0) reportLedgerViolationsAndExit();
 
 if (anyFailed) {
   console.error(
-    `[per-package-compile] ❌ ${failures.length} package(s) failed: ${failures.join(', ')}`,
+    `[per-package-compile] ❌ ${failures.length} of ${tsconfigBearing.length} package(s) failed: ${failures.join(', ')}`,
   );
   console.error('[per-package-compile] Fix TypeScript errors above before merging.');
   process.exit(1);
-} else {
-  const checked = pkgNames.filter(
-    (n) =>
-      existsSync(join(packagesDir, n, 'tsconfig.json')) &&
-      !SKIP_PACKAGES.has(n),
-  ).length;
-  console.log(
-    `[per-package-compile] ✅ All ${checked} checked packages compiled cleanly.`,
-  );
-  process.exit(0);
 }
+
+console.log(
+  `[per-package-compile] ✅ All ${passing} non-excluded package(s) compiled cleanly`
+  + ` — ${excluded} still excluded by ledger, of ${tsconfigBearing.length} total.`,
+);
+process.exit(0);
