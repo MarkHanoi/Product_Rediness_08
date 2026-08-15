@@ -58,6 +58,11 @@ import {
 } from "./facadeStudySubject";
 // C06 §7 / §233 — z-index comes from the single named scale, never a hand-picked literal.
 import { zCss } from "../layout/zLayers";
+// §FIX-FORMA-OPENINGS-UNKNOWN (GR-10, the []-means-unknown drain) — the pure
+// openings decision: an OMITTED openings array (older callers) is UNKNOWN,
+// never a determined "this building has no openings"; the envelope subject's
+// empty stays DETERMINED by definition (L-596).
+import { determineStudyOpenings } from "./formaOpeningsDetermination";
 // C58 §1.14 / STRUCTURAL-SEAM-1 — the massing render is a DUMB RASTERISER of `MassingSolid[]`
 // derived by the pure L2 `envelopeToMassing`. This viewport holds NO per-field knowledge of the
 // envelope: it maps each solid's hue to the SAME two colours the flat surfaces use (imported from the
@@ -5280,7 +5285,16 @@ export class CesiumViewport {
     // gap — so it floats just in front of the white shell and is visible. The
     // reader's `normal` is an arbitrary perpendicular (could point either way), so
     // we orient it OUTWARD = away from the building centroid before pushing.
-    const openings = input.openings ?? [];
+    // §FIX-FORMA-OPENINGS-UNKNOWN (GR-10) — was `input.openings ?? []`. An older
+    // caller that OMITS `openings` never recorded the relationship; rendering
+    // solid façades is the documented fallback TIER, but it must not impersonate
+    // a determined "no openings" (C75 §1.4 / C78 §1.4). Behaviour unchanged —
+    // the unknown is now said out loud with its reason token, via the pure,
+    // tested decision in `formaOpeningsDetermination.ts`.
+    const openingsDecision = determineStudyOpenings<NonNullable<typeof input.openings>[number]>(
+      'design', input.openings, '[CesiumViewport][forma] §A.21.D34(d)');
+    if (openingsDecision.unrecorded) console.warn(openingsDecision.note);
+    const openings = openingsDecision.openings;
     // §A.21.D39#6 — TRANSLUCENT blue-tinted GLASS (alpha FORMA_GLAZING_ALPHA) so
     // windows read as see-through glazing, not opaque insets. Doors stay opaque.
     const glazingFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.glazing).withAlpha(FORMA_GLAZING_ALPHA);
@@ -10174,7 +10188,17 @@ export class CesiumViewport {
     // positions on a volume that has none, which is precisely the "no authored opening could
     // project onto any face" confusion L-272 produced from the other direction. An envelope face
     // is a solid legal plane, and the study answers which of those planes earn glazing.
-    const metricOpenings: FacadeOpening[] = (studySubject === 'envelope' ? [] : (input?.openings ?? [])).map((o) => {
+    // §FIX-FORMA-OPENINGS-UNKNOWN (GR-10) — the ternary's envelope arm is a
+    // DETERMINED empty (an envelope face has no authored openings BY DEFINITION,
+    // L-596 above). The design arm's old `input?.openings ?? []` was NOT: an
+    // unrecorded openings set runs the study on solid faces (the A.24 fallback
+    // tier) while presenting as "zero openings". Behaviour unchanged; the
+    // unknown now states itself with its reason token, via the pure, tested
+    // decision in `formaOpeningsDetermination.ts`.
+    const studyDecision = determineStudyOpenings<NonNullable<NonNullable<typeof input>['openings']>[number]>(
+      studySubject === 'envelope' ? 'envelope' : 'design', input?.openings, '[CesiumViewport][facade-study] A.24');
+    if (studyDecision.unrecorded) console.warn(studyDecision.note);
+    const metricOpenings: FacadeOpening[] = studyDecision.openings.map((o) => {
       const a = sceneXZToEnu(o.a.x, o.a.z, thetaRad);
       const b = sceneXZToEnu(o.b.x, o.b.z, thetaRad);
       return {

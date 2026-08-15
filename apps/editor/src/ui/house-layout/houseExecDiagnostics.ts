@@ -43,6 +43,13 @@ import { storeRegistry } from '@pryzm/core-app-model';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { ScoredLayoutOption } from '@pryzm/ai-host';
 import { pointInPolygon } from '../apartment-layout/matchDetectedRooms.js';
+// §FIX-DIAG-UNRECORDED (GR-10) — pure determinations: an unrecorded openings /
+// bounding-walls field prints as UNRECORDED, never as a measured zero.
+import {
+    determineRoomBoundingWalls,
+    determineWallOpenings,
+    unrecordedBasisMarker,
+} from './execDiagDeterminations.js';
 
 // ── §AREA-FRACTIONS cap table ────────────────────────────────────────────────
 // maxAreaFrac per room TYPE × plate net area = the room's area CEILING. Mirror of
@@ -103,6 +110,9 @@ interface DetectedRoomCmp {
     readonly cz: number;
     readonly polygon: ReadonlyArray<{ x: number; z: number }>;
     readonly boundingWallIds: readonly string[];
+    /** §FIX-DIAG-UNRECORDED — FALSE ⇒ the room store never recorded the wall
+     *  linkage; every per-room count below is a FLOOR, and its verdict says so. */
+    readonly wallsRecorded: boolean;
 }
 
 /** A wall as the legacy store exposes it (same shape HouseLayoutExecutor reads). */
@@ -221,7 +231,10 @@ export function logExecRoomDiagnostics(
                     areaM2: r.computed?.area ?? 0,
                     cx: c.x, cz: c.z,
                     polygon: poly,
-                    boundingWallIds: r.boundingWallIds ?? [],
+                    // §FIX-DIAG-UNRECORDED — was `r.boundingWallIds ?? []`, which made
+                    // "linkage never recorded" measure as "bounded by zero walls".
+                    boundingWallIds: determineRoomBoundingWalls(r).wallIds,
+                    wallsRecorded: determineRoomBoundingWalls(r).recorded,
                 };
             });
 
@@ -291,6 +304,15 @@ export function logExecRoomDiagnostics(
         let roomsWithDoor = 0, windowlessCount = 0, overCapCount = 0, noEngineMatchCount = 0;
         // §68 new accumulators (founder 2026-06-11 test report).
         let underMinCount = 0, genericNameCount = 0, winOutOfBoundsCount = 0, corridorDeadEndCount = 0;
+        // §FIX-DIAG-UNRECORDED — walls whose openings field was never recorded.
+        // Every door/window count touching one of these is a FLOOR; the rollup
+        // names the set size so a paste can't read a missing record as a zero.
+        const unrecordedOpeningWalls = new Set<string>();
+        const openingsOf = (w: WallRec): ReadonlyArray<NonNullable<WallRec['openings']>[number]> => {
+            const det = determineWallOpenings(w);
+            if (!det.recorded) unrecordedOpeningWalls.add(w.id);
+            return det.ops;
+        };
 
         // ── §DIAG-EXEC-AREA + §DIAG-EXEC-DOORS + §DIAG-EXEC-WINDOWS (per room) ─
         for (const d of detected) {
@@ -328,14 +350,21 @@ export function logExecRoomDiagnostics(
             }
 
             // §DIAG-EXEC-DOORS — door openings on this room's bounding walls.
+            // §FIX-DIAG-UNRECORDED — `w.openings ?? []` printed a wall whose
+            // openings were never recorded as doors=0 (⚠ NO-DOOR): a missing
+            // record wearing a measurement's clothes. Counts are unchanged;
+            // the verdict now names its basis when it is a floor.
             let doorN = 0, perimeterFronting = false, windowN = 0;
+            let roomOpeningsUnrecorded = false;
             const partitionWindows: string[] = [];
             for (const wid of d.boundingWallIds) {
                 const w = wallById.get(wid);
                 if (!w) continue;
                 const exterior = isExteriorWall(wid);
                 if (exterior) perimeterFronting = true;
-                for (const op of w.openings ?? []) {
+                const openingsDet = determineWallOpenings(w);
+                if (!openingsDet.recorded) { unrecordedOpeningWalls.add(w.id); roomOpeningsUnrecorded = true; }
+                for (const op of openingsDet.ops) {
                     if (op.type === 'door') doorN++;
                     else if (op.type === 'window') {
                         windowN++;
@@ -345,7 +374,8 @@ export function logExecRoomDiagnostics(
                 }
             }
             if (doorN > 0) roomsWithDoor++;
-            console.log(`${logTag} §DIAG-EXEC-DOORS ${levelId} ${d.name}[${type}] doors=${doorN}${doorN === 0 ? ' ⚠ NO-DOOR' : ''}`);
+            const basis = unrecordedBasisMarker(d.wallsRecorded, roomOpeningsUnrecorded);
+            console.log(`${logTag} §DIAG-EXEC-DOORS ${levelId} ${d.name}[${type}] doors=${doorN}${doorN === 0 ? ' ⚠ NO-DOOR' : ''}${basis}`);
 
             // §DIAG-EXEC-WINDOWS — only flag rooms that FRONT a perimeter wall and
             // are window-desired (so an interior wc / corridor is never flagged).
@@ -353,7 +383,7 @@ export function logExecRoomDiagnostics(
             if (perimeterFronting && windowDesired) {
                 const noWin = windowN === 0;
                 if (noWin) windowlessCount++;
-                console.log(`${logTag} §DIAG-EXEC-WINDOWS ${levelId} ${d.name}[${type}] windows=${windowN}${noWin ? ' ⚠ NO-WINDOW' : ''}`);
+                console.log(`${logTag} §DIAG-EXEC-WINDOWS ${levelId} ${d.name}[${type}] windows=${windowN}${noWin ? ' ⚠ NO-WINDOW' : ''}${basis}`);
             }
             if (partitionWindows.length > 0) {
                 console.warn(`${logTag} §DIAG-EXEC-WINDOWS ${levelId} ${d.name}[${type}] ⚠ WINDOW-ON-PARTITION wall=${partitionWindows.join(',')} (window hosted on an INTERIOR wall, not the shell)`);
@@ -412,10 +442,13 @@ export function logExecRoomDiagnostics(
             console.log(`${logTag} §DIAG-EXEC-WALLS ${levelId} total=${levelWalls.length} shell=${shellN} partition=${partN} distinctHeights={${[...heights].join(',')}}m`);
             for (const w of levelWalls) {
                 const role = isExteriorWall(w.id) ? 'shell' : 'partition';
-                const ops = w.openings ?? [];
-                const doors = ops.filter(o => o.type === 'door').length;
-                const wins = ops.filter(o => o.type === 'window').length;
-                console.log(`${logTag} §DIAG-EXEC-WALL ${levelId} ${w.id.slice(-6)} ${role} len=${wallLen(w).toFixed(2)}m h=${typeof w.height === 'number' ? w.height.toFixed(3) + 'm' : '?'} thk=${typeof w.thickness === 'number' ? (w.thickness * 1000).toFixed(0) + 'mm' : '?'} doors=${doors} windows=${wins}`);
+                // §FIX-DIAG-UNRECORDED — an unrecorded openings field prints `?`,
+                // matching this line's own convention for height/thickness.
+                const openingsDet = determineWallOpenings(w);
+                if (!openingsDet.recorded) unrecordedOpeningWalls.add(w.id);
+                const doors = openingsDet.recorded ? String(openingsDet.ops.filter(o => o.type === 'door').length) : '?';
+                const wins = openingsDet.recorded ? String(openingsDet.ops.filter(o => o.type === 'window').length) : '?';
+                console.log(`${logTag} §DIAG-EXEC-WALL ${levelId} ${w.id.slice(-6)} ${role} len=${wallLen(w).toFixed(2)}m h=${typeof w.height === 'number' ? w.height.toFixed(3) + 'm' : '?'} thk=${typeof w.thickness === 'number' ? (w.thickness * 1000).toFixed(0) + 'mm' : '?'} doors=${doors} windows=${wins}${openingsDet.recorded ? '' : ' [openings UNRECORDED]'}`);
             }
         }
 
@@ -466,13 +499,22 @@ export function logExecRoomDiagnostics(
             const typeById = new Map(detected.map(d => [d.id, (pairing.get(d.id)?.type ?? d.occupancyType)]));
             for (const d of detected) {
                 const neigh = new Set<string>();
-                for (const wid of d.boundingWallIds) for (const rid of roomByWall.get(wid) ?? []) if (rid !== d.id) neigh.add(rid);
+                for (const wid of d.boundingWallIds) {
+                    // §FIX-DIAG-UNRECORDED — dense by construction (built from every
+                    // detected room three lines up): a missing bucket is the DETERMINED
+                    // "no other room recorded this wall", not an unknown.
+                    const rids = roomByWall.get(wid);
+                    if (rids) for (const rid of rids) if (rid !== d.id) neigh.add(rid);
+                }
                 const neighNames = [...neigh].map(id => `${nameById.get(id)}[${typeById.get(id)}]`);
                 const touchesCirc = [...neigh].some(id => CIRC.has(String(typeById.get(id) ?? '')));
                 const self = pairing.get(d.id)?.type ?? d.occupancyType;
                 const needsCirc = !CIRC.has(String(self));
                 const circFlag = needsCirc ? (touchesCirc ? ' circ=✓' : ' circ=✗ ⚠ NOT-ON-CIRCULATION') : ' circ=n/a';
-                console.log(`${logTag} §DIAG-EXEC-ADJ ${levelId} ${d.name}[${self}] neighbours=[${neighNames.join(', ') || 'none'}]${circFlag}`);
+                // A room whose wall linkage was never recorded has UNDETERMINED
+                // adjacency — its "neighbours=[none]" is a floor, and it says so.
+                const adjBasis = d.wallsRecorded ? '' : ' [boundingWallIds UNRECORDED (RELATIONSHIP_NOT_RECORDED) — adjacency UNDETERMINED]';
+                console.log(`${logTag} §DIAG-EXEC-ADJ ${levelId} ${d.name}[${self}] neighbours=[${neighNames.join(', ') || 'none'}]${circFlag}${adjBasis}`);
             }
         }
 
@@ -509,7 +551,8 @@ export function logExecRoomDiagnostics(
         {
             let clashes = 0, riskWalls = 0;
             for (const w of wallById.values()) {
-                const wins = (w.openings ?? []).filter(o => o.type === 'window');
+                // §FIX-DIAG-UNRECORDED — unrecorded openings cannot clash; tracked, not zeroed.
+                const wins = openingsOf(w).filter(o => o.type === 'window');
                 if (wins.length < 2) continue;
                 const haveSpans = wins.every(o => typeof o.offset === 'number' && typeof o.width === 'number');
                 if (haveSpans) {
@@ -542,15 +585,24 @@ export function logExecRoomDiagnostics(
             }
             for (const h of halls) {
                 let onPerimeter = false, hasShellDoor = false, shellWalls2 = 0;
+                let hallOpeningsUnrecorded = false;
                 for (const wid of h.boundingWallIds) {
                     if (!isExteriorWall(wid)) continue;
                     onPerimeter = true; shellWalls2++;
                     const w = wallById.get(wid);
-                    if ((w?.openings ?? []).some(o => o.type === 'door')) hasShellDoor = true;
+                    if (!w) continue;
+                    // §FIX-DIAG-UNRECORDED — was `(w?.openings ?? []).some(...)`: a shell
+                    // wall with an unrecorded openings field measured as door-less, and
+                    // ⚠ NO-MAIN-DOOR fired as a fact. The verdict now carries its basis.
+                    const openingsDet = determineWallOpenings(w);
+                    if (!openingsDet.recorded) { unrecordedOpeningWalls.add(w.id); hallOpeningsUnrecorded = true; }
+                    if (openingsDet.ops.some(o => o.type === 'door')) hasShellDoor = true;
                 }
                 const verdict = onPerimeter && hasShellDoor ? '✓'
                     : !onPerimeter ? '⚠ NOT-ON-PERIMETER (hall is interior — must bound a shell wall)'
-                    : '⚠ NO-MAIN-DOOR (hall fronts the perimeter but has no door on a shell wall)';
+                    : hallOpeningsUnrecorded
+                        ? '⚠ NO-MAIN-DOOR? [openings UNRECORDED (RELATIONSHIP_NOT_RECORDED) on ≥1 shell wall — absence NOT determined]'
+                        : '⚠ NO-MAIN-DOOR (hall fronts the perimeter but has no door on a shell wall)';
                 console.log(`${logTag} §DIAG-EXEC-ENTRANCE ${levelId} ${h.name} perimeter=${onPerimeter} shellWalls=${shellWalls2} mainDoor=${hasShellDoor} ${verdict}`);
             }
         }
@@ -591,7 +643,8 @@ export function logExecRoomDiagnostics(
             for (const w of wallById.values()) {
                 const len = wallLen(w);
                 if (len <= 0) continue;
-                for (const op of w.openings ?? []) {
+                // §FIX-DIAG-UNRECORDED — unrecorded openings are not "in bounds"; tracked.
+                for (const op of openingsOf(w)) {
                     if (op.type !== 'window') continue;
                     if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
                     checked++;
@@ -635,19 +688,33 @@ export function logExecRoomDiagnostics(
             });
             for (const c of corridors) {
                 const neigh = new Set<string>();
-                for (const wid of c.boundingWallIds) for (const rid of roomByWall2.get(wid) ?? []) if (rid !== c.id) neigh.add(rid);
+                for (const wid of c.boundingWallIds) {
+                    // §FIX-DIAG-UNRECORDED — dense by construction (see §DIAG-EXEC-ADJ):
+                    // a missing bucket is the DETERMINED "no room recorded this wall".
+                    const rids = roomByWall2.get(wid);
+                    if (rids) for (const rid of rids) if (rid !== c.id) neigh.add(rid);
+                }
                 const ok = neigh.size >= 2;
                 if (!ok) corridorDeadEndCount++;
-                console.log(`${logTag} §DIAG-EXEC-CORRIDOR ${levelId} ${c.name} connectsRooms=${neigh.size}${ok ? ' ✓' : ' ⚠ DEAD-END (a corridor must link ≥2 rooms — absorb or remove)'}`);
+                const corrBasis = c.wallsRecorded ? '' : ' [boundingWallIds UNRECORDED (RELATIONSHIP_NOT_RECORDED) — connectivity UNDETERMINED]';
+                console.log(`${logTag} §DIAG-EXEC-CORRIDOR ${levelId} ${c.name} connectsRooms=${neigh.size}${ok ? ' ✓' : ' ⚠ DEAD-END (a corridor must link ≥2 rooms — absorb or remove)'}${corrBasis}`);
             }
         }
 
         // ── ROLLUP ───────────────────────────────────────────────────────────
+        // §FIX-DIAG-UNRECORDED — the rollup names how much of itself is a FLOOR:
+        // door/window counts touching unrecorded openings, and rooms whose wall
+        // linkage was never written, are unknowns, not zeros (C75 §1.4).
+        const roomsWithUnrecordedWalls = detected.filter(d => !d.wallsRecorded).length;
+        const floorNote = (unrecordedOpeningWalls.size > 0 || roomsWithUnrecordedWalls > 0)
+            ? ' ⚠ counts touching unrecorded records are FLOORS (RELATIONSHIP_NOT_RECORDED), not zeros'
+            : '';
         console.log(
             `${logTag} §DIAG-EXEC-ROLLUP ${levelId} roomsWithDoor=${roomsWithDoor}/${M} ` +
             `windowless=${windowlessCount} overCap=${overCapCount} noEngineMatch=${noEngineMatchCount} ` +
             `underMin=${underMinCount} genericNames=${genericNameCount} winOutOfBounds=${winOutOfBoundsCount} corridorDeadEnds=${corridorDeadEndCount} ` +
-            `(plate≈${plateM2.toFixed(1)}m²)`,
+            `openingsUnrecordedWalls=${unrecordedOpeningWalls.size} roomsWithUnrecordedWalls=${roomsWithUnrecordedWalls} ` +
+            `(plate≈${plateM2.toFixed(1)}m²)${floorNote}`,
         );
         console.log(`${logTag} ════════ §DIAG-EXEC END level=${levelId} ════════`);
     } catch (e) {

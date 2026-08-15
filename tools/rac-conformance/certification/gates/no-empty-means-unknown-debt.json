@@ -584,16 +584,6 @@
       "why": "C@33 `for (const op of (wall.openings ?? [])) {` · C@1173 `const _openings = fresh.openings ?? [];` · C@1278 `const ops = (w.openings ?? [])`"
     },
     {
-      "site": "apps/editor/src/ui/geospatial/CesiumViewport.ts",
-      "arm": "C (2 site(s))",
-      "why": "C@5276 `const openings = input.openings ?? [];` · C@10165 `const metricOpenings: FacadeOpening[] = (studySubject === 'envelope' ? [] : (input?.openin`"
-    },
-    {
-      "site": "apps/editor/src/ui/house-layout/houseExecDiagnostics.ts",
-      "arm": "C (8 site(s))",
-      "why": "C@224 `boundingWallIds: r.boundingWallIds ?? [],` · C@338 `for (const op of w.openings ?? []) {` · C@415 `const ops = w.openings ?? [];` · C@469 `for (const wid of d.boundingWallIds) for (const rid of roomByWall.get(wid) ?? []) if (rid ` · C@512 `const wins = (w.openings ?? []).filter(o => o.type === 'window');` · C@549 `if ((w?.openings ?? []).some(o => o.type === 'door')) hasShellDoor = true;` ·"
-    },
-    {
       "site": "packages/ai-host/src/AIReadModel.ts",
       "arm": "C (1 site(s))",
       "why": "C@50 `childrenIds: l.childrenIds || []`"
