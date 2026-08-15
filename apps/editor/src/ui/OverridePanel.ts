@@ -28,6 +28,7 @@ import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import type { ElementState, OverrideLayer, VisibilityIntent } from '@pryzm/core-app-model';
 import { makeDraggable } from './makeDraggable';
 import { panelManager } from './PanelManager';
+import { determineOverrideLayer, overrideLayerRefusalText } from './overridePanelModel';
 
 const PANEL_ID = 'panel:override';
 
@@ -110,12 +111,18 @@ export class OverridePanel {
         if (this.panel.style.display === 'none') return;
         const viewId = this.activeViewId;
         const instance = viewId ? viewIntentInstanceStore.get(viewId) : null;
-        const overrides = instance?.localOverrides;
-        const visibility = overrides?.visibilityOverrides ?? [];
-        const graphics = overrides?.graphicOverrides ?? [];
+        // §FIX-OVERRIDE-PANEL-UNDETERMINED (GR-10) — this used to read
+        // `overrides?.xOverrides ?? []`, which rendered an UNBOUND view (no
+        // instance, or a layer nobody wrote) as "Clean / No active overrides".
+        // The decision now rides the pure discriminator: an examined-empty
+        // layer is "Clean"; an unexamined one says so, with its reason token.
+        const det = determineOverrideLayer(viewId, instance ?? null);
+        const visibility = det.kind === 'determined' ? det.visibility : [];
+        const graphics = det.kind === 'determined' ? det.graphics : [];
         const intents = visibilityIntentStore.getAll();
         const activeIntent = instance ? visibilityIntentStore.get(instance.intentId) : null;
-        const customised = Boolean(overrides && (overrides.isolateActive || visibility.length || graphics.length));
+        const customised =
+            det.kind === 'determined' && (det.isolateActive || visibility.length > 0 || graphics.length > 0);
         const rows = [
             ...visibility.map(o => this.visibilityRow(o)),
             ...graphics.map(o => this.graphicRow(o)),
@@ -139,8 +146,9 @@ export class OverridePanel {
                                 </option>
                             `).join('')}
                         </select>
-                        <span class="ov-intent-badge ${customised ? 'ov-intent-badge--custom' : ''}">
-                            ${customised ? 'Customised' : 'Clean'}
+                        <span class="ov-intent-badge ${customised ? 'ov-intent-badge--custom' : ''}"
+                              ${det.kind === 'undetermined' ? `data-refusal-reason="${det.reason}"` : ''}>
+                            ${customised ? 'Customised' : det.kind === 'determined' ? 'Clean' : 'Undetermined'}
                         </span>
                     </div>
                     ${activeIntent?.description
@@ -148,13 +156,15 @@ export class OverridePanel {
                         : ''}
                 </section>
 
-                ${overrides?.isolateActive ? '<div class="ov-isolate-note">Isolate mode is active for this view.</div>' : ''}
+                ${det.kind === 'determined' && det.isolateActive ? '<div class="ov-isolate-note">Isolate mode is active for this view.</div>' : ''}
 
                 <section class="ov-section">
                     <div class="ov-section-title">Local overrides</div>
                     ${rows.length
                         ? `<div class="ov-list">${rows.join('')}</div>`
-                        : '<div class="vg-empty">No active overrides for this view.</div>'}
+                        : det.kind === 'determined'
+                            ? '<div class="vg-empty">No active overrides for this view.</div>'
+                            : `<div class="vg-empty ov-undetermined" data-refusal-reason="${det.reason}">${this.escape(overrideLayerRefusalText(det))}</div>`}
                 </section>
 
                 <div class="ov-actions">

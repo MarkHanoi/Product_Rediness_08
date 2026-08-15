@@ -599,11 +599,6 @@
       "why": "C@224 `boundingWallIds: r.boundingWallIds ?? [],` · C@338 `for (const op of w.openings ?? []) {` · C@415 `const ops = w.openings ?? [];` · C@469 `for (const wid of d.boundingWallIds) for (const rid of roomByWall.get(wid) ?? []) if (rid ` · C@512 `const wins = (w.openings ?? []).filter(o => o.type === 'window');` · C@549 `if ((w?.openings ?? []).some(o => o.type === 'door')) hasShellDoor = true;` ·"
     },
     {
-      "site": "apps/editor/src/ui/OverridePanel.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@115 `const graphics = overrides?.graphicOverrides ?? [];`"
-    },
-    {
       "site": "apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts",
       "arm": "C (2 site(s))",
       "why": "C@1178 `: new Set<string>(apt.facadeEdges ?? []);` · C@2179 `: (apt.facadeEdges ?? []);`"
