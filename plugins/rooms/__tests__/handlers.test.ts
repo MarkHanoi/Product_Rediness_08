@@ -605,12 +605,18 @@ describe('room.setNumber / setOccupancy / setMaterial / setHeightOffset — lega
   });
 });
 
-// §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — room.recomputeBoundary (fired by the
-// wall→room cascade on every wall edit) is now a NO-OP legacy bridge with
-// affectedStores:[]. Before the fix it declared affectedStores:['room'] and threw
-// "required store 'room' is missing" on every wall create/move/resize. The legacy
-// RoomStore owns room analytics, so the plugin recompute is a redundant no-op.
-describe('room.recomputeBoundary — no-op legacy bridge (§FIX-ROOM-SIBLING-HANDLERS-STORE, L-79)', () => {
+// §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — room.recomputeBoundary declares
+// affectedStores:[]; before L-79 it declared affectedStores:['room'] and threw
+// "required store 'room' is missing" on every wall create/move/resize.
+//
+// ⚠ RETITLED 2026-08-15 (PR-11). This block used to be called "no-op legacy
+// bridge" and its assertions were `resolves.toBeDefined()` + "mutated no store"
+// — BOTH OF WHICH PASS AGAINST A HANDLER THAT DOES NOTHING. That is the PR-11
+// defect expressed as a test: it pinned the no-op and reported it as coverage.
+// The handler now ANSWERS (typed determination, C78 §8.1), and the assertions
+// that can tell the difference live in `__tests__/recomputeRoomBoundary.test.ts`.
+// What survives HERE is only the store-key regression L-79 actually fixed.
+describe('room.recomputeBoundary — L-79 store-key regression only (see recomputeRoomBoundary.test.ts)', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());
 
@@ -623,13 +629,21 @@ describe('room.recomputeBoundary — no-op legacy bridge (§FIX-ROOM-SIBLING-HAN
     return bus;
   }
 
-  it('does NOT throw the missing-store error and mutates no store', async () => {
+  it('does NOT throw the missing-store error, and mutates no plugin store', async () => {
     env = buildEnv();
     const bus = busWithoutRoomStore();
-    await expect(
-      bus.executeCommand('room.recomputeBoundary', { roomId: 'room_abc', cascadedFrom: 'wall.move' }),
-    ).resolves.toBeDefined();
+    const record = await bus.executeCommand(
+      'room.recomputeBoundary',
+      { roomId: 'room_abc', cascadedFrom: 'wall.move' },
+    );
+    // L-79: resolves rather than throwing "required store 'room' is missing".
+    expect(record).toBeDefined();
+    // CA-19: the detached plugin RoomsState is untouched.
     expect(env.room.size()).toBe(0);
+    // PR-11: and — unlike the no-op this replaces — it does not report SUCCESS.
+    // With no readable room store it must refuse, typed.
+    expect((record as unknown as { refusal?: { reason: string } }).refusal?.reason)
+      .toBe('RELATIONSHIP_NOT_READABLE');
   });
 
   it('rejects an empty roomId payload', async () => {

@@ -33,6 +33,18 @@ export {
   type RoomAnalyticUpdate,
 } from './intent.js';
 
+// PR-11 — the boundary-recompute discriminator. Separates "recomputed, nothing
+// moved" from the three "I could not recompute" cases the old `room.recomputeBoundary`
+// no-op collapsed into one empty pair (C78 §8.1 · C71 §4.4).
+export {
+  determineRoomBoundaryRecompute,
+  type RoomBoundaryAnalytic,
+  type RoomBoundaryImpact,
+  type RoomBoundaryRecomputeInput,
+  type RoomBoundaryRecomputeOutcome,
+  type RoomBoundaryUndeterminedReason,
+} from './boundaryRecomputeDetermination.js';
+
 export {
   CreateRoomHandler,
   type CreateRoomPayload,
