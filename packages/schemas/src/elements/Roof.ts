@@ -80,9 +80,48 @@ export const Roof = defineElement('roof', {
   skylights: z.array(Skylight).default([]),
   /** IDs of adjacent roofs this roof has been joined to (W-1C-5). */
   joinedToRoofIds: z.array(z.string()).default([]),
+  /**
+   * §ROOF-BOUNDING-WALLS — the walls whose centrelines produced this roof's
+   * boundary, when it was created BY REGION. Closes the L0 half of the C79 §6.3
+   * named storage gap (owner `@pryzm/geometry-roof`).
+   *
+   * WHY THIS EXISTS: `RoofRegionTrace.traceRoofRegionAtPoint` already attributes
+   * every traced ring edge to the wall that produced it — by construction, never
+   * by proximity — and already returns `attribution.hostWallIds`. That reference
+   * was never missing; it was DISCARDED, because this schema declared no field it
+   * could occupy and Zod's default `strip` mode deleted it in transit while
+   * `parse()` reported success. A roof could not follow its walls for want of a
+   * FIELD, not for want of a wire.
+   *
+   * SHAPE mirrors the one proven L0 precedent, `Room.boundingWallIds`
+   * (`Room.ts`), down to the uniqueness refinement below — with exactly ONE
+   * deliberate deviation: `.optional()`, not `.default([])`.
+   *
+   * ⚠ THE DEVIATION IS FORCED, NOT STYLISTIC. C79 §7.1 — quoted at
+   * `RoofRegionTrace.ts` — names an unpopulated `boundingWallIds: []` on a roof
+   * as the anti-pattern BY NAME ("writing a field the model cannot honour"), and
+   * ADR-0299 / §CONTEXT-DATA-HONESTY requires that a refusal and an empty result
+   * not collapse to the same value. `Room` may default to `[]` because its
+   * producer repopulates it on every rebuild; a roof may not, because roofs drawn
+   * by rectangle or polyline are NEVER region-traced, and a defaulted `[]` would
+   * assert of every one of them that it was traced and bounded nothing.
+   *
+   *   absent  → never attributed (drawn by rectangle/polyline, or predates this field)
+   *   `[]`    → traced, and attributed to no wall
+   *
+   * Those are different facts. Keep them different values.
+   *
+   * ADDITIVE-OPTIONAL is also what preserves snapshot v3: a roof written before
+   * this field existed parses unchanged and lands on `undefined` — never on `[]`.
+   */
+  boundingWallIds: z.array(z.string().min(1)).optional(),
 }).refine(
   (r) => r.shape !== 'flat' || r.pitch === 0,
   { message: 'Roof with shape="flat" must have pitch=0.' },
+).refine(
+  (r) => r.boundingWallIds === undefined
+    || new Set(r.boundingWallIds).size === r.boundingWallIds.length,
+  { message: 'Roof boundingWallIds must be unique (do not list a wall twice).' },
 );
 
 export type Roof = z.infer<typeof Roof>;
