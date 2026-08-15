@@ -1,16 +1,50 @@
 /**
- * Family Creator — temporary placeholder dialog.
+ * @file familyCreatorPlaceholder.ts — Family Creator, temporary placeholder dialog.
  *
- * The legacy `src/component-editor/` prototype was removed on 2026-04-28 as the
- * §2 step of the Family Creator full rewrite. The new editor is being built as
- * a standalone SPA at `apps/component-editor/` over sprints S52–S59 per
- * docs/00_NEW_ARCHITECTURE/phases/PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN.md.
+ * ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06) ───────────────────────────────────
+ * owner: @pryzm/editor (create-rail surface; the handoff to
+ *   `apps/component-editor` is this app's debt, not the SPA's)
+ * date: 2026-08-15
  *
- * Until the new SPA lands at S58 (standalone deploy), this lightweight modal
- * keeps the existing "Component" / "Generic Component" menu entries from
- * regressing to a dead-link experience. The modal is intentionally inline
- * (no framework, no plugin surface) so it carries zero ongoing maintenance
- * cost and disappears entirely when S58 wires the real handoff.
+ * WHAT IS FAKE, stated plainly — this module is named for the Family Creator
+ *   and creates no family. It is a DOM modal that says "under construction" and
+ *   prints a path to a plan document. Clicking "Component" / "Generic Component"
+ *   in the create rail reaches a dialog, not an editor: nothing is authored,
+ *   nothing is persisted, no `.pryzm-family` artefact exists afterwards. It is a
+ *   dead-link guard wearing the name of the feature it stands in for.
+ *
+ * WHAT IS REAL — the modal itself: it mounts, traps Escape, is `role="dialog"`
+ *   with `aria-modal`, and it does honestly TELL the user the editor is not
+ *   built. The stand-in is truthful to the user; it is still a stand-in.
+ *
+ * LIVE — reached from `apps/editor/src/ui/tools-panel/panels/CreateRailPanel.ts:1105`
+ *   via `import('../../../familyCreatorPlaceholder')`. This is NOT dead code.
+ *   ⚠ Do not confuse this file with `apps/editor/src/ui/familyCreatorPlaceholder.ts`,
+ *   a DIFFERENT and much smaller console.log stub reached from
+ *   `ui/layout/CreatePanelLayout.ts:350`. Two files, same name, different callers.
+ *   The third copy (`src/familyCreatorPlaceholder.ts`) was DELETED 2026-08-15 as
+ *   dead — it had no importer anywhere in the repo.
+ *
+ * RETIRING ASSERTION (executable, not prose) —
+ *   `apps/editor/__tests__/FamilyCreatorPlaceholderScaffold.test.ts`, the test
+ *   named "THE SCAFFOLD: the create rail still routes Component to a
+ *   placeholder, not an editor", asserts that CreateRailPanel.ts still carries
+ *   the `import('../../../familyCreatorPlaceholder')` call. A sibling test
+ *   asserts this module still ships the "under construction" title and still
+ *   dispatches no command and writes no `.pryzm-family` artefact. When the real
+ *   handoff lands, the create rail points at `apps/component-editor` instead and
+ *   the first assertion FAILS — which forces this header and the placeholder to
+ *   be retired in the same change. It cannot rot quietly: the pair is
+ *   all-or-nothing. (Source-scan, not DOM: `apps/editor/vitest.config.ts` runs
+ *   `environment: 'node'` and its header forbids switching.)
+ *
+ * EXIT CONDITION — `apps/component-editor` reaches standalone deploy and the
+ *   create rail hands off to it (S58 per
+ *   docs/00_NEW_ARCHITECTURE/phases/PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN.md).
+ *   ⚠ MILESTONE HONESTY (C74 §4.2(c)): the "S58" above is the PLAN's number,
+ *   restated, not a fresh promise. The legacy `src/component-editor/` prototype
+ *   was removed 2026-04-28 and no replacement has shipped since; treat S58 as
+ *   UNSCHEDULED until `apps/component-editor` has a deploy target.
  */
 
 const PLAN_PATH =

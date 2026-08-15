@@ -176,13 +176,47 @@ const LEDGER: readonly string[] = [
   // apps/editor/src/familyCreatorPlaceholder.ts — the same scaffold twice, in
   // the transitional client root and the L7 app, which is itself the two-copies
   // anti-pattern (C74 §5.e) wearing a scaffold header.
-  'M-B::src/familyCreatorPlaceholder.ts',
+  // ─── CO-06 lane C4, 2026-08-15 — the familyCreatorPlaceholder PAIR, paid two
+  // DIFFERENT ways because they are two DIFFERENT files that merely share a name.
+  // The note above called them "the same scaffold twice"; that was true of the
+  // BYTES and false of the WIRING, and the difference is the whole disposition.
+  //
+  // M-B::src/familyCreatorPlaceholder.ts STRUCK — paid by DELETION (C74 §3.8).
+  //   DEAD-PROOF, not "looks unused": (a) repo-wide search for the module name
+  //   and for `openFamilyCreatorPlaceholder` returns exactly two importers, and
+  //   BOTH relative specifiers resolve elsewhere — CreateRailPanel.ts:1105's
+  //   `../../../familyCreatorPlaceholder` from apps/editor/src/ui/tools-panel/
+  //   panels/ lands on apps/editor/src/, and CreatePanelLayout.ts:350's
+  //   `../familyCreatorPlaceholder` from apps/editor/src/ui/layout/ lands on
+  //   apps/editor/src/ui/. Neither can reach src/. (b) `src/main.ts` is the ONLY
+  //   HTML entry (index.html:429) and never imports it, statically or
+  //   dynamically. (c) EXECUTION: the committed build output
+  //   (reports/.build-clean.txt:47,58) emits exactly TWO familyCreatorPlaceholder
+  //   chunks — 0.13 kB (the ui/ console.log stub) and 2.35 kB (the apps/editor
+  //   modal). Three copies existed; two shipped. The third was never in the
+  //   bundle. Its non-return is now asserted, not merely asserted-about:
+  //   apps/editor/__tests__/FamilyCreatorPlaceholderScaffold.test.ts.
+  //
+  // M-B::apps/editor/src/familyCreatorPlaceholder.ts STRUCK — paid by the §3.2/
+  //   §3.4 header, NOT by deletion: it is LIVE from CreateRailPanel.ts:1105.
+  //   Header now carries owner + date 2026-08-15 + WHAT IS FAKE / WHAT IS REAL +
+  //   an executable retiring assertion, and names the S58 milestone as the PLAN's
+  //   number restated rather than a fresh promise (C74 §4.2(c)) — the prototype
+  //   was removed 2026-04-28 and nothing has shipped since.
+  //
+  // ⚠ NAMED, not silently left: a THIRD file, apps/editor/src/ui/
+  //   familyCreatorPlaceholder.ts, is also a placeholder (a console.log no-op
+  //   reached from ui/layout/CreatePanelLayout.ts:350) and is NOT on this ledger
+  //   and NOT a finding — its header carries no SCAFFOLD_MARK, so M-B never saw
+  //   it. That is a gap in the ARM's reach, not an estate that is clean. Recorded
+  //   here so the omission is deliberate; it is the next honest edit in that file.
   'M-B::apps/ai-worker/src/pdf-to-bim/stage2-openings.ts',
   'M-B::apps/bench/src/benches/constraint-solver.bench.ts',
   'M-B::apps/component-editor/src/sketch/SketchCanvas.ts',
   'M-B::apps/component-editor/src/sketch/tools/FilletTool.ts',
   'M-B::apps/component-editor/src/sketch/tools/TrimTool.ts',
-  'M-B::apps/editor/src/familyCreatorPlaceholder.ts',
+  // 'M-B::apps/editor/src/familyCreatorPlaceholder.ts' — STRUCK 2026-08-15, see
+  // the CO-06 lane C4 block above.
   // ─── CO-06v2 — 6 ROWS STRUCK 2026-08-14: the FOURTH round of the same
   // ratified reclassification (lanes E, F, core-app-model above). All six are
   // live production modules whose HEADER carried inline `// TODO(TASK-08)`
