@@ -130,10 +130,23 @@ describe('§OPEN-TOP · 6 — AN INDICATIVE ENVELOPE NEVER RENDERS AS A DETERMIN
             {
                 ...baseEnv,
                 publicationPosture: 'open-top-indicative',
+                // Full tier members, so the CAST CAN GO. The previous
+                // `as BuildableEnvelopeMassingInput['tiers']` was hiding three missing
+                // required fields (label, maxFloors, ordinanceRef) behind an assertion —
+                // which is how a fixture drifts out of shape with the type it claims to be.
+                // maxFloors/ordinanceRef are null on purpose: this fixture asserts that an
+                // indicative envelope carries no determination, and a cited ordinanceRef
+                // would be exactly such a determination.
                 tiers: [
-                    { id: 'a', polygon: rect(20, 10), areaM2: 200, baseHeight_m: 0, maxHeight_m: 12 },
-                    { id: 'b', polygon: rect(20, 6), areaM2: 120, baseHeight_m: 12, maxHeight_m: null },
-                ] as BuildableEnvelopeMassingInput['tiers'],
+                    {
+                        id: 'a', label: 'tier A', polygon: rect(20, 10), areaM2: 200,
+                        baseHeight_m: 0, maxHeight_m: 12, maxFloors: null, ordinanceRef: null,
+                    },
+                    {
+                        id: 'b', label: 'tier B', polygon: rect(20, 6), areaM2: 120,
+                        baseHeight_m: 12, maxHeight_m: null, maxFloors: null, ordinanceRef: null,
+                    },
+                ],
             },
         ];
         let solidsSeen = 0;

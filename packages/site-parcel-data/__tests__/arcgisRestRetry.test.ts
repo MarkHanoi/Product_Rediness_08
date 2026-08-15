@@ -21,6 +21,14 @@ function fetchSequence(...responses: Array<'throw' | { status: number; body?: un
     return (async () => {
         const r = responses[Math.min(call, responses.length - 1)];
         call++;
+        // noUncheckedIndexedAccess types this as possibly-undefined. The index is
+        // in range for any NON-EMPTY responses list, so the only way here is a
+        // fetchSequence() call with no responses at all — a test-authoring bug.
+        // Throw loudly rather than assert it away: a stub that silently returns
+        // undefined would make the test pass for the wrong reason.
+        if (r === undefined) {
+            throw new Error('fetchSequence: called with no responses configured');
+        }
         if (r === 'throw') throw new Error('ECONNRESET');
         return {
             ok: r.status >= 200 && r.status < 300,

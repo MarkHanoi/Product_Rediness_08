@@ -160,7 +160,11 @@ describe('§COR-RASTER-ZONE — family ≠ subzone', () => {
         const r = resolveCordobaRasterClassifiedZoneFromRecords(OUTSIDE_PILOT, [record()]);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect((r.resolution as Record<string, unknown>).zoneCode).toBeUndefined();
+        // Via `unknown`: the resolution type has no `zoneCode`, which is precisely
+        // what this test asserts, so a direct cast is the error TS2352 describes.
+        // Widening through unknown keeps the assertion (the field must be absent
+        // at RUNTIME too) without claiming the two types overlap.
+        expect((r.resolution as unknown as Record<string, unknown>).zoneCode).toBeUndefined();
     });
 });
 
