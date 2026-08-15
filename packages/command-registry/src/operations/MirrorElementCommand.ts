@@ -109,6 +109,13 @@ export class MirrorElementCommand implements Command {
         mirrored.openings    = [];
         mirrored.childrenIds = [];
         mirrored._renderVersion = 1;
+        // §WALL-JOIN-INTENT (L-927) — DROP the source wall's join gesture; see the fuller
+        // note in CopyElementCommand. `serializeWallSnapshot` is a `{...wall}` spread, so
+        // the mirrored wall would otherwise assert, about ITS endpoints, what the author
+        // did at the original's. Mirroring makes that especially wrong: a reflection can
+        // land the wall against entirely different neighbours, or against none.
+        // `WallStore.add()` re-derives from the mirrored wall's own neighbourhood.
+        delete (mirrored as { joinIntent?: unknown }).joinIntent;
 
         ctx.stores.wallStore.add(mirrored);
 

@@ -33,7 +33,7 @@
  */
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { WallData, WallCurve, WallLayer, WallBaseline } from '@pryzm/geometry-wall';
+import { WallData, WallCurve, WallLayer, WallBaseline, WallJoinIntent } from '@pryzm/geometry-wall';
 // §C83-S1 — the wall-side occupancy predicate. Already a dependency of this
 // package (`CreateWallOpeningCommand` imports `wallOccupancyStore` from it), so
 // this adds no edge and no layer violation.
@@ -140,6 +140,33 @@ export class CreateWallCommand implements Command {
              * before — see §WALL-AUDIT-2026-M9 above.
              */
             ifcGuid?: string,
+            /**
+             * §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — an ALREADY-DECIDED join
+             * intent, supplied by the project loader when re-hydrating a persisted wall.
+             *
+             * WHY THIS MUST BE CARRIED AND CANNOT BE RE-DERIVED. The stamp below answers a
+             * HISTORICAL question — *at the moment this wall was drawn, did a committed
+             * junction already exist at that endpoint?* L-923 proved no predicate over
+             * geometry, type, thickness or `createdAt` can recover that answer afterwards:
+             * the founder's mitred-L-plus-newcomer and a legitimate collinear pass-through
+             * are the SAME three segments, differing only in draw order. Once the fact is
+             * lost it is gone.
+             *
+             * Re-deriving it at load is therefore not a safe fallback, it is a COIN FLIP —
+             * and a biased one. `ProjectLoader` replays walls in FILE order against a
+             * partially-populated store, so wall N is judged against only walls 1..N-1;
+             * and the baselines it judges are the UNTRIMMED `_sourceBaseLine` the
+             * serializer writes, not the trimmed geometry the live editor stamped against.
+             * Neither input matches creation time.
+             *
+             * So: when supplied it WINS over the derivation below (it is the wall's own
+             * frozen record of what the author did). When absent — a genuinely new wall,
+             * or a project saved before this field existed — the derivation runs exactly as
+             * before, which is what keeps legacy snapshots behaving identically.
+             *
+             * Same shape and same rationale as `layers` above: persisted-value-wins.
+             */
+            joinIntent?: WallJoinIntent,
         }
     ) {
         this.targetIds = [wallId];
@@ -355,6 +382,16 @@ export class CreateWallCommand implements Command {
                 ifcClass: 'IfcWall',
             },
 
+            // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — forward a PERSISTED gesture,
+            // never a derived one. Present only when the project loader supplied it (the
+            // wall's own frozen record of what the author did); `undefined` for every
+            // interactive create, which is the signal for `WallStore.add()` to derive.
+            //
+            // This literal is a WHITELIST — the same shape that silently dropped
+            // materialColor, layers and curve elsewhere in this pipeline — so the field has
+            // to be named here or the loader's value dies one frame after it is read.
+            joinIntent: this.wallData.joinIntent,
+
             // §VIEW-DIRTY-CHECK §2.2: stamp initial render version = 1 so the
             // builder's dirty check can distinguish this wall from an un-versioned
             // legacy wall and correctly skip rebuild after view switches.
@@ -409,39 +446,32 @@ export class CreateWallCommand implements Command {
         //
         // Captured ONCE, at creation, and thereafter carried on the record — never
         // re-inferred from geometry on a later resolve pass, which is what made every
-        // previous attempt a heuristic. This is the single element-creation chokepoint
-        // (C11), so it is captured identically for the 3D tool, the plan tool, batch
-        // generators and AI — one path, not five.
-        {
-            const EPS = 0.02;                       // 20 mm — the endpoint-coincidence radius
-            const levelWalls = ctx.stores.wallStore.getAll()
-                .filter(w => w.levelId === newWall.levelId && w.id !== newWall.id);
-
-            /** How many EXISTING wall endpoints already meet at this point. */
-            const committedEndpointsAt = (p: { x: number; z: number }): number => {
-                let n = 0;
-                for (const w of levelWalls) {
-                    for (const e of [w.baseLine[0], w.baseLine[1]]) {
-                        if (Math.hypot(e.x - p.x, e.z - p.z) <= EPS) n++;
-                    }
-                }
-                return n;
-            };
-
-            // ≥2 existing endpoints at the node ⇒ a corner was already committed there.
-            // (Exactly 1 means we are meeting a lone wall end — that may be the author
-            // FORMING a corner, or continuing a run, and it stays ambiguous by design:
-            // we leave the intent undefined and behaviour is exactly as before.)
-            const startIsOntoCommitted = committedEndpointsAt(newWall.baseLine[0]) >= 2;
-            const endIsOntoCommitted   = committedEndpointsAt(newWall.baseLine[1]) >= 2;
-
-            if (startIsOntoCommitted || endIsOntoCommitted) {
-                (newWall as { joinIntent?: { start?: 'butt'; end?: 'butt' } }).joinIntent = {
-                    ...(startIsOntoCommitted ? { start: 'butt' as const } : {}),
-                    ...(endIsOntoCommitted   ? { end:   'butt' as const } : {}),
-                };
-            }
-        }
+        // previous attempt a heuristic.
+        //
+        // ─── WHERE THE DERIVATION ACTUALLY LIVES NOW (L-927) ──────────────────────
+        //
+        // This block used to derive the stamp inline, under a comment claiming it was
+        // *"the single element-creation chokepoint (C11) … one path, not five."*
+        // L-927 MEASURED that claim and it was FALSE: **1 of 6** wall producers reached
+        // this line. The plan-view tool and every `wall.batch.create` land instead in the
+        // §P2.1 `wall.created` bridge (apps/editor/src/engine/initTools.ts), which rebuilds
+        // the record from a field whitelist — so the stamp could never arrive there. The
+        // founder kept seeing the corrupted joint because the path he actually draws on
+        // was never the path that stamped.
+        //
+        // The derivation therefore moved DOWN to `WallStore.add()`, which is the only
+        // mutator that can introduce a wall record (`update()` returns undefined on a
+        // missing id, `updateWall()` throws). Every producer necessarily passes through
+        // it, so the chokepoint is now true BY CONSTRUCTION rather than by enumeration —
+        // and enumeration is precisely what failed here.
+        //
+        // Nothing is stamped in this command any more. `wallData.joinIntent`, when the
+        // project loader supplies it, is forwarded on `newWall` above and WINS over
+        // derivation at the store; when it is absent the store derives. Both branches
+        // are one code path in one place: @pryzm/geometry-wall → WallJoinIntentStamp.ts.
+        //
+        // §MEASURED-JOININTENT-PRODUCER-CENSUS pins the producer count so this cannot
+        // silently regress to a claim again.
 
         // 1️⃣ Store first — triggers Store Event Bus → subscriber in main.ts
         //    handles WallJoinResolver + geometry rebuild (§2.7 compliant).

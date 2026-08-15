@@ -426,6 +426,20 @@ function serializeWall(wall: any): any {
         // lock-step deliberately: these two allow-lists diverging is how `function` was
         // silently dropped on reload (see §FEAT-ELEMENT-TYPE-AUTHORING root cause 3).
         rakeAngleDeg: wall.rakeAngleDeg,
+        // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — mirrors apps/editor
+        // ProjectSerializer.serializeWall, kept in lock-step for exactly the reason the
+        // comment above gives. What the AUTHOR DID at each endpoint: 'butt' (snapped onto
+        // an already-committed junction) or 'through' (continuing a run).
+        //
+        // This is the one field here that is UNRECOVERABLE if dropped — L-923 proved no
+        // predicate over geometry, type, thickness or createdAt can reconstruct the
+        // gesture, because a mitred-L-plus-newcomer and a legitimate collinear
+        // pass-through are the same three segments differing only in draw order. Dropping
+        // it is what made the L-251 fix worthless in practice: computed at creation,
+        // destroyed by the next save, so the founder's mitred corner came back square on
+        // every reload. Emitted only when present ⇒ byte-identical to a pre-L-927 snapshot
+        // for any wall that never got a stamp (C47 §1.2 additive-optional).
+        joinIntent: wall.joinIntent,
         properties: wall.properties ? { ...wall.properties } : {},
         ifcData: wall.ifcData ? { ...wall.ifcData } : undefined,
         metadata: wall.metadata ? { ...wall.metadata } : undefined,

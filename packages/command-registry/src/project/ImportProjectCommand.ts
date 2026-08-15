@@ -538,6 +538,28 @@ export class ImportProjectCommand implements Command {
 
             // ── Step 4: Walls + per-wall openings (priority 20) ──────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.walls.length} walls`);
+            // §WALL-JOIN-INTENT HYDRATION (L-927) — suppress joinIntent DERIVATION for the
+            // duration of the wall restore. A PERSISTED stamp still flows through
+            // untouched; only the store's fallback derivation is disabled.
+            //
+            // WHY LOADING MUST NOT DERIVE. The stamp answers "did a committed junction
+            // exist when the author drew this wall?" — and at load neither input to that
+            // question is available. Walls are replayed in FILE order, so wall N is judged
+            // against only walls 1..N-1, an order that undo/redo and delete have already
+            // permuted away from creation order. And they are replayed at the UNTRIMMED
+            // `_sourceBaseLine` the serializer writes (§WALL-JOIN-SAVE-FIX), not the
+            // trimmed geometry the live editor stamped against. Deriving on those inputs
+            // is a coin flip wearing the costume of a recovery.
+            //
+            // So a project saved before L-927 loads with NO stamp and behaves EXACTLY as
+            // it did — which is the compatibility promise `joinIntent`'s undefined case
+            // makes — and a project saved after carries the real gesture and needs no
+            // derivation. Neither case is improved by a guess.
+            const _wallStoreForHydration = (ctx.stores as {
+                wallStore?: { beginHydration?: () => () => void };
+            }).wallStore;
+            const _endHydration = _wallStoreForHydration?.beginHydration?.();
+            try {
             let _wallChunk = 0;
             for (const wall of snapshot.walls) {
                 // §LOAD-CHUNKED — yield a frame every CHUNK walls (+ their openings)
@@ -561,6 +583,16 @@ export class ImportProjectCommand implements Command {
                     // IFC round-trip join key survives reload. Absent (legacy snapshot
                     // written before ifcData was serialised) the command mints one.
                     ifcGuid:       (wall as { ifcData?: { guid?: string } }).ifcData?.guid,
+                    // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — restore what the
+                    // AUTHOR DID at each endpoint. Unrecoverable if dropped: L-923 proved
+                    // no predicate over geometry, type, thickness or createdAt separates a
+                    // mitred-L-plus-newcomer from a legitimate collinear pass-through, so a
+                    // gesture lost on load is lost for good and the founder's corner comes
+                    // back square. Absent in any pre-L-927 snapshot, and absent is exactly
+                    // the legacy behaviour — see the hydration note at the loop below.
+                    joinIntent:    (wall as {
+                        joinIntent?: { start?: 'butt' | 'through'; end?: 'butt' | 'through' };
+                    }).joinIntent,
                 });
                 const r = runSub(cmd);
                 if (r.success) {
@@ -579,6 +611,13 @@ export class ImportProjectCommand implements Command {
                 } else {
                     recordFail(`Wall ${wall.id}`, r);
                 }
+            }
+            } finally {
+                // Always leave hydration, including on the cancellation returns and the
+                // generator's early exits — a leaked flag would silently disable stamping
+                // for every wall the user draws afterwards, which is the original defect
+                // with extra steps.
+                _endHydration?.();
             }
 
             if (isCancel()) {

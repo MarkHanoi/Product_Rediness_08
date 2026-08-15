@@ -109,6 +109,12 @@ export class OffsetElementCommand implements Command {
         offset.openings    = [];
         offset.childrenIds = [];
         offset._renderVersion = 1;
+        // §WALL-JOIN-INTENT (L-927) — DROP the source wall's join gesture; see the fuller
+        // note in CopyElementCommand. `serializeWallSnapshot` is a `{...wall}` spread. An
+        // offset wall is the clearest case of all: it is deliberately displaced OFF the
+        // junction the stamp describes, so inheriting it asserts a snap onto a node the
+        // wall no longer touches. `WallStore.add()` re-derives from its own neighbourhood.
+        delete (offset as { joinIntent?: unknown }).joinIntent;
 
         ctx.stores.wallStore.add(offset);
 

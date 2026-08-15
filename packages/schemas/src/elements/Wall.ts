@@ -109,6 +109,30 @@ export const Wall = defineElement('wall', {
   layers: z.array(WallLayer).optional(),
   frontSide: WallSide.optional(),
   backSide: WallSide.optional(),
+  /**
+   * §WALL-JOIN-INTENT (L-251 → L-923 → L-927) — what the AUTHOR DID at each endpoint.
+   *
+   * A mitred corner and a T-junction are the SAME GEOMETRY: two collinear walls meeting a
+   * third at a node is either a through-wall plus a stem (square caps) or a committed
+   * mitred L plus a butting newcomer (freeze the corner). L-923 proved they are not
+   * separable after the fact — identical topology, identical types, differing ONLY in
+   * draw order — so this records the gesture at creation instead of asking the resolver
+   * to guess. `'butt'` = snapped onto an already-committed junction; `'through'` =
+   * continuing a run.
+   *
+   * OPTIONAL, AND DELIBERATELY WITHOUT A DEFAULT (C47 §1.2 additive-optional). Absent
+   * means "unknown / legacy", and the resolver's behaviour for absent is EXACTLY what it
+   * was before this field existed — which is what lets every snapshot written before
+   * L-927 parse unchanged. A default would be worse than useless here: it would assert a
+   * gesture the author never made, and (unlike provenance/confidence above) there is no
+   * honest UNKNOWN member to land on, because the resolver branches on presence.
+   */
+  joinIntent: z
+    .object({
+      start: z.enum(['butt', 'through']).optional(),
+      end: z.enum(['butt', 'through']).optional(),
+    })
+    .optional(),
 })
   // (1) MIN_WALL_LEN: planar baseline length must clear the join-resolver
   //     minimum so the wall is non-degenerate. Y axis is intentionally ignored

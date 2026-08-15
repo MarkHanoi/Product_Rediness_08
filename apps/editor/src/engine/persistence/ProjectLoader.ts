@@ -838,6 +838,21 @@ export class ProjectLoader {
 
             // ── Step 4: Walls (priority 20) ───────────────────────────────────
             console.log(`[ProjectLoader] Loading ${snapshot.walls.length} walls`);
+            // §WALL-JOIN-INTENT HYDRATION (L-927) — suppress joinIntent DERIVATION for the
+            // wall restore; a PERSISTED stamp still flows through untouched. Walls are
+            // replayed in FILE order against a partially-populated store, and at the
+            // UNTRIMMED `_sourceBaseLine` the serializer writes (§WALL-JOIN-SAVE-FIX) —
+            // neither input matches authoring time, so deriving here would be a guess
+            // dressed as a recovery. Legacy snapshots load with no stamp and therefore
+            // behave EXACTLY as they did before this field existed.
+            const _wallStoreForHydration = (this as unknown as {
+                _stores?: { wallStore?: { beginHydration?: () => () => void } };
+            })._stores?.wallStore
+                ?? (window as unknown as {
+                    wallStore?: { beginHydration?: () => () => void };
+                }).wallStore;
+            const _endHydration = _wallStoreForHydration?.beginHydration?.();
+            try {
             for (const wall of snapshot.walls) {
                 const bl = wall.baseLine;
                 const cmd = new CreateWallCommand(wall.id, {
@@ -867,6 +882,18 @@ export class ProjectLoader {
                     // catalogue (upgrading legacy walls saved before layers were stamped) and
                     // falls back safely to an unlayered wall if the type is gone.
                     layers: (wall as { layers?: any[] }).layers,
+                    // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — restore what the
+                    // AUTHOR DID at each endpoint, for exactly the reason `layers` above is
+                    // threaded through: the persisted value is the wall's own frozen record
+                    // and re-derivation cannot reproduce it. Stronger here, in fact — a
+                    // layer stack CAN be rebuilt from the catalogue, whereas L-923 proved
+                    // the join gesture cannot be recovered from geometry at all. Absent in
+                    // any pre-L-927 snapshot; absent is the legacy behaviour, and the
+                    // hydration guard around this loop keeps it that way rather than
+                    // guessing from file order.
+                    joinIntent: (wall as {
+                        joinIntent?: { start?: 'butt' | 'through'; end?: 'butt' | 'through' };
+                    }).joinIntent,
                 });
                 const r = exec(cmd);
                 if (r.success) {
@@ -887,6 +914,12 @@ export class ProjectLoader {
                 } else {
                     this.recordFail(result, `Wall ${wall.id}`, r);
                 }
+            }
+            } finally {
+                // Always leave hydration — a leaked flag would silently disable stamping
+                // for every wall the user draws afterwards, i.e. the original defect with
+                // extra steps.
+                _endHydration?.();
             }
 
             // ── Cancellation check (before Step 5) ────────────────────────────

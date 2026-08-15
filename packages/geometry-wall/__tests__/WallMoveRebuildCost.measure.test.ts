@@ -264,7 +264,22 @@ function measureMove(n: number, doorEveryNth = 0, incremental = true): Measureme
     const builder = new WallFragmentBuilder(scene, makeLevelProvider());
     const lastBuildKey = new Map<string, string>();
 
-    for (const w of walls) store.add({ ...w } as WallData);
+    // §WALL-JOIN-INTENT (L-927) — seed under HYDRATION, because that is what this
+    // fixture models. `buildLevel` emits a synthetic 200-wall GRID in loop order, and the
+    // settle step below states its own intent: "an initial whole-level build, exactly as
+    // project-open does". Project-open IS hydration.
+    //
+    // Without this, `WallStore.add()` would read the loop's emission order as an
+    // AUTHORING GESTURE and stamp `joinIntent: 'butt'` across the grid's 3- and 4-way
+    // junctions — freezing those corners, skipping their mitre-prism extrusions, and
+    // quietly dropping `denseBefore.extrudes` from >10 to 4. That would not be a cheaper
+    // BEFORE column, it would be a DIFFERENT one: the cliff this test exists to pin is
+    // the pre-fix rebuild cost, and it must not move because a fixture's array order was
+    // reinterpreted as intent. A loaded project carries no derived stamps by design (see
+    // WallStore._hydrating), so this also matches what the measured scenario really is.
+    store.hydrate(() => {
+        for (const w of walls) store.add({ ...w } as WallData);
+    });
 
     // Settle: an initial whole-level build, exactly as project-open does. Its cost
     // is NOT part of the measurement. It also primes the `_lastBuildKey` memo — which

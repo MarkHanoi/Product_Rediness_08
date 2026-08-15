@@ -112,6 +112,20 @@ export class CopyElementCommand implements Command {
         copy.openings    = [];
         copy.childrenIds = [];
         copy._renderVersion = 1;
+        // §WALL-JOIN-INTENT (L-927) — DROP the source wall's join gesture.
+        //
+        // `serializeWallSnapshot` is a `{...wall}` spread, so without this the copy
+        // inherits `joinIntent` verbatim — a record of what the author did at the ORIGINAL
+        // wall's endpoints, now asserted about a wall standing somewhere else entirely. A
+        // stamp that says "I was snapped onto a committed junction" is a statement about a
+        // PLACE; carrying it to a new place makes it a lie, and the resolver would freeze
+        // or square-cap a corner on the strength of it.
+        //
+        // Deleting is not "losing" the field: `WallStore.add()` re-derives it against the
+        // copy's OWN neighbourhood, which is the honest answer to the same question. That
+        // is why this is a delete and not a re-computation here — there is exactly one
+        // derivation site (§WALL-JOIN-INTENT, WallJoinIntentStamp.ts) and this is not it.
+        delete (copy as { joinIntent?: unknown }).joinIntent;
 
         ctx.stores.wallStore.add(copy);
 

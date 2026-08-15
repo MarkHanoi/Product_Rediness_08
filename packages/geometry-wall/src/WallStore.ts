@@ -1,4 +1,5 @@
-import { WallData, Opening, Level, ILevelProvider, WindowData, DoorData } from './WallTypes';
+import { WallData, Opening, Level, ILevelProvider, WindowData, DoorData, WallJoinIntent } from './WallTypes';
+import { deriveJoinIntent, type JoinIntentCandidate } from './WallJoinIntentStamp';
 import { Point3D } from '@pryzm/core-app-model';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { BimManager } from '@pryzm/core-app-model';
@@ -163,6 +164,57 @@ export class WallStore implements ILevelProvider {
      * Reduces getByLevel() from O(n) linear scan to O(1) Set lookup.
      */
     private _levelIndex: Map<string, Set<string>> = new Map();
+
+    /**
+     * §WALL-JOIN-INTENT HYDRATION GUARD (L-927).
+     *
+     * True while a persisted project is being re-hydrated. It suppresses `joinIntent`
+     * DERIVATION in `add()` — it does NOT suppress a persisted stamp, which flows through
+     * untouched.
+     *
+     * WHY LOADING MUST NOT DERIVE. The stamp records a HISTORICAL fact: did a committed
+     * junction exist when the author drew this wall? At load, neither input to that
+     * question is available. `ProjectLoader` replays walls in FILE order, so wall N is
+     * judged against only walls 1..N-1; and it replays them at the UNTRIMMED
+     * `_sourceBaseLine` the serializer writes (§WALL-JOIN-SAVE-FIX), not the trimmed
+     * geometry the live editor stamped against. A derivation on those inputs is a coin
+     * flip dressed as a recovery.
+     *
+     * So a project saved BEFORE this field existed loads with no stamp at all and behaves
+     * EXACTLY as it did before — which is the compatibility promise `joinIntent`'s
+     * `undefined` case makes. Projects saved AFTER carry the real gesture and need no
+     * derivation. Neither case wants a guess.
+     */
+    private _hydrating = false;
+
+    /**
+     * Enter hydration mode. Returns a disposer; prefer `store.hydrate(fn)` over calling
+     * this directly so the flag cannot leak on an exception.
+     */
+    beginHydration(): () => void {
+        this._hydrating = true;
+        let done = false;
+        return () => {
+            if (done) return;
+            done = true;
+            this._hydrating = false;
+        };
+    }
+
+    /** True while a persisted project is being re-hydrated (see `_hydrating`). */
+    get isHydrating(): boolean { return this._hydrating; }
+
+    /**
+     * Run `fn` with joinIntent derivation suppressed, restoring the previous mode
+     * afterwards even if `fn` throws. NESTS safely — an inner call cannot clear an outer
+     * hydration, which matters because the loader wraps a routine that itself batches.
+     */
+    hydrate<T>(fn: () => T): T {
+        const prev = this._hydrating;
+        this._hydrating = true;
+        try { return fn(); }
+        finally { this._hydrating = prev; }
+    }
 
     /**
      * §WALL-DEEP-2026 O1 (RESOLVED 2026-04-24) — re-entrancy depth counter.
@@ -335,10 +387,67 @@ export class WallStore implements ILevelProvider {
             throw new LevelResolveError(`Level ${levelId} not found`);
         }
 
+        // ─── §WALL-JOIN-INTENT — THE SINGLE CHOKEPOINT (L-927) ───────────────────
+        //
+        // THE CLAIM THIS REPLACES. `CreateWallCommand` used to derive `joinIntent`
+        // inline, under a comment calling itself *"the single element-creation
+        // chokepoint (C11) … one path, not five."* L-927's census measured that claim
+        // and it was FALSE: **1 of 6** wall producers reached it. The plan-view tool and
+        // every `wall.batch.create` land in the §P2.1 `wall.created` bridge
+        // (apps/editor/src/engine/initTools.ts), which rebuilds the record from a FIELD
+        // WHITELIST — so the stamp was not merely missing there, it could never arrive.
+        // `materialColor`, `layers` and `curve` were each a separate founder-visible
+        // defect fixed one field at a time in that same literal.
+        //
+        // WHY HERE. `add()` is the ONLY WallStore mutator that can introduce a record —
+        // `update()` returns undefined on a missing id and `updateWall()` throws — so
+        // every producer, present and future, necessarily passes through this line.
+        // Deriving here makes the chokepoint claim TRUE BY CONSTRUCTION instead of by
+        // enumeration, which is the whole defect (P1/P6). A new producer added next year
+        // is covered without knowing this field exists.
+        //
+        // AND WHY THIS IS THE SEMANTICALLY RIGHT MOMENT, not merely a convenient one:
+        // the question is *"did a committed junction already exist when this wall was
+        // created?"* — and "the moment it entered the store" is precisely when this
+        // wall's creation is true and the set of already-committed walls is exact.
+        //
+        // THREE GUARDS, each load-bearing:
+        //   1. An EXPLICIT intent always wins. Restores (DeleteElementCommand.undo,
+        //      CommandManagerImpl.restoreSnapshot) and the loader's persisted stamp carry
+        //      the ORIGINAL gesture; re-deriving would overwrite a known fact with a guess.
+        //   2. HYDRATION suppresses derivation entirely — see `beginHydration()`. During a
+        //      project load, walls arrive in FILE order against a partially-populated store
+        //      and at their UNTRIMMED baselines, so a derivation there is a coin flip, not
+        //      a recovery. A legacy project (saved before this field existed) must keep
+        //      behaving EXACTLY as it did, which means no stamp at all.
+        //   3. No walls on the level ⇒ `undefined` (cheap exit, and correct: nothing can
+        //      be committed yet).
+        //
+        // Cost: O(k) in the walls on this level, off `_levelIndex` — the same cost
+        // `CreateWallCommand` already paid, now paid once for every producer.
+        let derivedJoinIntent: WallJoinIntent | undefined;
+        if (wall.joinIntent === undefined && !this._hydrating) {
+            const ids = this._levelIndex.get(levelId);
+            if (ids && ids.size > 0) {
+                const siblings: JoinIntentCandidate[] = [];
+                for (const id of ids) {
+                    const w = this.walls.get(id);
+                    if (w) siblings.push(w);
+                }
+                derivedJoinIntent = deriveJoinIntent(siblings, wall);
+            }
+        }
+
         // Prepare wall data before freezing with safe baseline copy
         const now = Date.now();
         const preparedWall: WallData = {
             ...wall,
+            // Explicit (persisted / restored) intent wins; derived only fills a gap.
+            ...(wall.joinIntent !== undefined
+                ? { joinIntent: wall.joinIntent }
+                : derivedJoinIntent !== undefined
+                    ? { joinIntent: derivedJoinIntent }
+                    : {}),
             // Phase B DTO migration: baseLine is [Point3D, Point3D] — plain spread.
             baseLine: [
                 { x: wall.baseLine[0].x, y: wall.baseLine[0].y, z: wall.baseLine[0].z },

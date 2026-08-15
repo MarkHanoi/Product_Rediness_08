@@ -529,6 +529,21 @@ function serializeWall(wall: any): any {
         // has never been raked re-serialises byte-identically to a pre-rake snapshot
         // (C47 §1.2: an additive optional field is forward-compatible, no MAJOR bump).
         rakeAngleDeg: wall.rakeAngleDeg,
+        // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — what the AUTHOR DID at each
+        // endpoint: 'butt' (snapped onto an already-committed junction) or 'through'
+        // (continuing a run). This is the ONLY field on a wall that cannot be recovered
+        // if it is dropped. Every other field here is either measurable from the geometry
+        // or re-derivable from a catalogue; this one records a HISTORICAL gesture, and
+        // L-923 proved no predicate over geometry, type, thickness or createdAt can
+        // reconstruct it — the founder's mitred-L-plus-newcomer and a legitimate collinear
+        // pass-through are the same three segments differing only in draw order.
+        //
+        // Omitting it from this whitelist is what made the fix worthless in practice: the
+        // stamp was computed correctly at creation and then destroyed by the next save, so
+        // the founder's corner came back square on every reload. Emitted only when present,
+        // so a wall that never got a stamp re-serialises byte-identically to a pre-L-927
+        // snapshot (C47 §1.2: additive optional field, no MAJOR bump).
+        joinIntent: wall.joinIntent,
         properties: wall.properties ? { ...wall.properties } : {},
         ifcData: wall.ifcData ? { ...wall.ifcData } : undefined,
         metadata: wall.metadata ? { ...wall.metadata } : undefined,
