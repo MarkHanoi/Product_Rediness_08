@@ -4747,3 +4747,52 @@ Sequenced behind the L-914 parity work (same surface family). No engine change; 
 8. **Deploy contract §6.5.6 amended in place**: `/tmp`-shaped DOCKER_CONFIG is an MSYS path native flyctl cannot resolve → the guard silently no-ops; use a Windows-shaped path. Measured on the first 2026-08-15 attempt (exit 1), verified by the retry.
 
 **Fleet-kill count is now THREE sessions**: the A1 (L-912) lane was killed mid-commit by a chat interrupt; the orchestrator landed its verified work. Type and send, never Esc.
+
+---
+
+## L-916 — OPEN, FOUNDER-URGENT (wall-move family) — a hosted window is described by TWO records and the cascade re-seats only ONE: the VOID stays put, the FRAME walks away
+
+**Reported 2026-08-15 by the founder on deploy `9e780581`**, with a screenshot showing a clean
+rectangular void in a wall and **no frame in it**. Their words:
+
+> *"the wall moves and a window (or door) hosted on the connected wall that needs to join the wall
+> that moved — the opening remains in the correct place — but the window / door frame element
+> itself moves (error)"*
+
+**The console names the mechanism, so this entry does not need to guess.** The founder dragged wall
+`wall_01M028VYZYSE966WFR46KCY8X0`:
+
+```
+[CommandManager] EXECUTE: UPDATE_WALL_BASELINE
+[CommandManager] EXECUTE: CASCADE_WALL_BASELINE
+[CascadeWallBaselineCommand] §HOSTED-OPENING-HOST-MOVE re-seated window c790eba6-…
+    on wall wall_01M028VZJ8BX90ZT46CQXXMS6F: offset 4.113 → 6.375 m (cause 'slab-connectivity')
+[UpdateWallBaselineCommand] §GR12-BOUNDARY-INVALIDATION — wall wall_01M028VYZYSE966WFR46KCY8X0 moved …
+```
+
+**The re-seat itself is CORRECT and must not be "fixed" away.** The window sits on
+`…VZJ8BX90…`, a DIFFERENT wall from the one dragged — a connected wall whose own baseline moved as
+a consequence (`cause 'slab-connectivity'`). When a host's endpoints move, a hosted opening's
+along-wall offset MUST change to hold its world position. 4.113 → 6.375 m is the cascade doing its
+job. The defect is that **only one of the two records describing that window was updated.**
+
+**A hosted opening is described TWICE**: the wall's own `openings[]` array (drives the CSG void, and
+is the record that PERSISTS) and the hosted element's own record in its store (drives the frame
+mesh). The founder observed the void correct and the frame displaced, so the cascade wrote the
+element and not the wall — or the two writes disagree about which frame of reference they are in.
+
+⚠ **This is `MT-06` arriving as a visible product defect.** That register row already says there are
+RIVAL OPENING AUTHORITIES — `WallData.openings[]` versus `core-app-model/src/stores/OpeningStore.ts`
+— and its recommended fix is to declare `WallData.openings[]` the single authority (it is the one
+that persists) and delete the rival, exactly as `PR-13` did for Column/Door/Window. **A row that was
+a tidiness argument this morning is a user-visible hole in a wall this afternoon.** That is worth
+recording as its own lesson: rival authorities do not stay theoretical.
+
+**Owner:** lane L916, opened same-turn. Discipline: MEASURE FIRST — a failing test driving the real
+`CascadeWallBaselineCommand` over a two-wall L-junction, asserting both records describe the same
+world position, committed ALONE before any fix (the `59bc6f71` → `966686cc` pattern that closed
+L-912). Undo must restore BOTH records in one Ctrl+Z.
+
+**The lane is briefed to be able to refute this**: if measurement shows both records ARE updated and
+the frame is rebuilt from a stale RENDER cache, that is a different defect in a different package
+and the honest deliverable is the refutation, not a forced fix.
