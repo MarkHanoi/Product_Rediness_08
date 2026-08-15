@@ -430,9 +430,74 @@ describe('§JOINT-AUTHORITY-IS-THE-INCUMBENT — creating a wall must not re-sol
     });
 });
 
-describe('§JOINT-AUTHORITY-IS-THE-INCUMBENT — MEASURED-OPEN in V2 (owned by lane L920)', () => {
+describe('§JOINT-AUTHORITY-IS-THE-INCUMBENT — V2 (L-919 measured, L-923 fixed)', () => {
 
-    it('MEASURED-OPEN — V2 RE-SOLVES an incumbent L corner when a 3rd wall lands on it', () => {
+    it('§MEASURED-EXACT-VERTEX-INCUMBENT — FIXED: V2 leaves the incumbent L byte-identical when the newcomer DECLARES incumbency', () => {
+        // THE FLIP of the MEASURED-OPEN pin below (L-919 → L-923). Same three walls, same exact
+        // landing on the committed vertex; the ONLY difference is that the newcomer carries the
+        // creation-time fact `joinIntent.start = 'butt'` — "when I was created, a committed
+        // junction already existed here" — which `CreateWallCommand.ts:415-444` stamps at the
+        // single element-creation chokepoint (L-251) and which V2 now reads.
+        //
+        // Keyed on INCUMBENCY, never on type: all three walls share one (absent) systemTypeId and
+        // one thickness, which is precisely the founder's case and the one every type-keyed proxy
+        // (L-122 / L-130) misses. C83 §10.1 — "NO MATTER the type of wall."
+        //
+        // 0.000 mm, not "small": the guest takes the barrier seat at the frozen vertex, where the
+        // committed arms enter as PASSTHROUGH barriers and the sweep never writes into a
+        // passthrough's own footprint — byte-identical BY CONSTRUCTION, not by tolerance.
+        const armA: WallInput = { id: 'A', start: { x: 0, z: 0 }, end: { x: 6, z: 0 }, thickness: TH };
+        const armB: WallInput = { id: 'B', start: { x: 0, z: 0 }, end: { x: 0, z: 6 }, thickness: TH };
+        const newcomer: WallInput = {
+            id: 'C', start: { x: 0, z: 0 }, end: { x: 3, z: 3 }, thickness: TH,
+            joinIntent: { start: 'butt' },
+        };
+
+        const before = new Map(buildAllFootprints([armA, armB], resolveJunctions([armA, armB])).map(f => [f.id, f.polygon]));
+        const after = new Map(buildAllFootprints([armA, armB, newcomer], resolveJunctions([armA, armB, newcomer])).map(f => [f.id, f.polygon]));
+
+        for (const id of ['A', 'B']) {
+            const p = before.get(id)!, q = after.get(id)!;
+            expect(p.length, `${id} vertex count`).toBe(q.length);
+            let worstMm = 0;
+            for (let i = 0; i < p.length; i++) {
+                worstMm = Math.max(worstMm, Math.hypot(p[i]!.x - q[i]!.x, p[i]!.z - q[i]!.z) * 1000);
+            }
+            expect(worstMm, `${id}: incumbent arm byte-identical (C83 §10.4)`).toBeLessThan(0.001);
+        }
+    });
+
+    it('§MEASURED-EXACT-VERTEX-INCUMBENT — the RESIDUE: an UNDECLARED newcomer still re-solves it', () => {
+        // The honest bound on the fix above, and the reason it is not claimed as "V2 closed".
+        // `joinIntent` has exactly ONE writer (CreateWallCommand). A wall reaching V2 by any other
+        // route — a generator/importer that builds records directly, or a wall persisted before
+        // L-251 landed — declares nothing, and for it the L-919 measurement stands UNCHANGED at
+        // halfT × √2 = 141.42 mm.
+        //
+        // Pinned rather than "fixed" in the resolver, because the only resolver-side fix would be
+        // re-inferring history from geometry — and the figure does not contain it: an incumbent L
+        // plus a newcomer on its vertex and three arms drawn as one fresh Y are the SAME three
+        // segments. This is a CREATION-PATH coverage gap. WHEN CLOSED (every route stamps the
+        // field): this test's subject disappears rather than flipping.
+        const armA: WallInput = { id: 'A', start: { x: 0, z: 0 }, end: { x: 6, z: 0 }, thickness: TH };
+        const armB: WallInput = { id: 'B', start: { x: 0, z: 0 }, end: { x: 0, z: 6 }, thickness: TH };
+        const newcomer: WallInput = { id: 'C', start: { x: 0, z: 0 }, end: { x: 3, z: 3 }, thickness: TH };
+
+        const before = new Map(buildAllFootprints([armA, armB], resolveJunctions([armA, armB])).map(f => [f.id, f.polygon]));
+        const after = new Map(buildAllFootprints([armA, armB, newcomer], resolveJunctions([armA, armB, newcomer])).map(f => [f.id, f.polygon]));
+
+        for (const id of ['A', 'B']) {
+            const p = before.get(id)!, q = after.get(id)!;
+            let worstMm = 0;
+            for (let i = 0; i < p.length; i++) {
+                worstMm = Math.max(worstMm, Math.hypot(p[i]!.x - q[i]!.x, p[i]!.z - q[i]!.z) * 1000);
+            }
+            expect(worstMm, `${id}: undeclared newcomer — residue, halfT × √2`).toBeGreaterThan(100);
+            expect(worstMm, `${id}: magnitude pinned (halfT × √2 = 141.42 mm)`).toBeLessThan(150);
+        }
+    });
+
+    it('HISTORICAL (L-919, superseded by the two above) — V2 RE-SOLVES an incumbent L corner when a 3rd wall lands on it', () => {
         // THE MEASURED FACT the founder is reporting as "creating a third wall corrupts a
         // previously-correct L-junction (a triangular prism in 3D)". The two pipelines DISAGREE,
         // and that disagreement is the defect:
@@ -452,9 +517,13 @@ describe('§JOINT-AUTHORITY-IS-THE-INCUMBENT — MEASURED-OPEN in V2 (owned by l
         //   explicitly — "NO MATTER the mitre joint. NO MATTER the type of wall." Incumbency is
         //   established by EXISTING, not by differing in type.
         //
-        //   NOT FIXED HERE. `JunctionResolverV2.ts` is lane L920's file; this lane pins the
-        //   measurement so the fix has an oracle and cannot be declared done by inspection.
-        //   WHEN FIXED: invert to `toBeLessThan(0.001)` and move into the block above.
+        //   SUPERSEDED (L-923). This pin did its job — it was the oracle the fix was measured
+        //   against. The seam it names is now closed WHERE INCUMBENCY IS DECLARED
+        //   (§MEASURED-EXACT-VERTEX-INCUMBENT, first test above, 0.000 mm), and the diagnosis
+        //   here was right on the substance and wrong only on the KEY: V2's freeze did key on
+        //   `systemTypeId`, but re-keying it on incumbency needed a fact the figure does not
+        //   contain, so it is declared per-wall at creation (`joinIntent`) rather than inferred.
+        //   Kept, unchanged, as the UNDECLARED reading — identical to the residue test above.
         const TH_ = TH;
         const armA: WallInput = { id: 'A', start: { x: 0, z: 0 }, end: { x: 6, z: 0 }, thickness: TH_ };
         const armB: WallInput = { id: 'B', start: { x: 0, z: 0 }, end: { x: 0, z: 6 }, thickness: TH_ };

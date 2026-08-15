@@ -55,6 +55,28 @@ export interface WallInput {
      */
     readonly systemTypeId?: string;
 
+    /**
+     * §MEASURED-EXACT-VERTEX-INCUMBENT (L-923, C83 §10.2.1, founder 2026-08-15) — the
+     * creation-time record of INCUMBENCY, mirrored from `WallData.joinIntent` (L-251,
+     * stamped at the single element-creation chokepoint, `CreateWallCommand.ts:415-444`).
+     * `'butt'` at an endpoint means: **when this wall was created, a committed junction
+     * already existed there** — so at that endpoint this wall is the NEWCOMER and every
+     * other arm is an incumbent.
+     *
+     * WHY THIS FIELD AND NOT A GEOMETRIC TEST. C83 §10 keys the freeze on INCUMBENCY, and
+     * the founder closed the type hatch explicitly ("NO MATTER the type of wall"). But
+     * incumbency is not recoverable from the figure: an incumbent L plus a newcomer landing
+     * on its vertex and three arms drawn as one fresh Y are the SAME three segments — the
+     * dead-zone note below says so in as many words ("legitimate for a Y — but only because
+     * there all three arms are being solved TOGETHER, FOR THE FIRST TIME"). The
+     * disambiguating fact is historical and is knowable only at creation, which is exactly
+     * why L-251 captured it there rather than re-deriving it on each resolve.
+     *
+     * OPTIONAL: absent on every wall ⇒ every consumer below is a strict no-op and V2 is
+     * byte-identical to its pre-L-923 behaviour (the same contract `systemTypeId` carries).
+     */
+    readonly joinIntent?: { readonly start?: 'butt'; readonly end?: 'butt' };
+
     // ─── §FIX-WALL-ARC-LINEAR-MITRE (founder 2026-08-06) ─────────────────────────────
     // THE founder defect (#2): "CURVED WALLS JOINING LINEAR WALLS DON'T JOIN PROPERLY IN
     // MITRE" — a V-shaped notch / open wedge at the arc↔straight junction, overlapping
@@ -787,9 +809,44 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
                 }
                 tightGroups.push(g);
             }
+            // ── §MEASURED-EXACT-VERTEX-INCUMBENT (L-923 / C83 §10.2.1, founder 2026-08-15) ──
+            // THE HOLE THIS CLOSES, measured by L-919 and pinned MEASURED-OPEN in
+            // `WallCreateOnHostBody.measure.test.ts`: when the newcomer lands EXACTLY on the
+            // committed vertex it is tight WITH the corner arms, so it joined the corner group,
+            // `newcomers` came out empty, and this guard fell through on "exact N-way Y — leave
+            // as-is". The ring sweep then solved a fresh 3-way Y and moved BOTH committed arms by
+            // 141.421 mm (= halfT × √2, the mitre-vertex diagonal) on 200 mm walls.
+            //
+            // The dead-zone note below already adjudicates this exact case and reaches the
+            // opposite conclusion to the fall-through: the exact-vertex Y "MOVES BOTH COMMITTED
+            // ARMS ... legitimate for a Y — but only because there all three arms are being solved
+            // TOGETHER, FOR THE FIRST TIME. A near newcomer arriving at an ALREADY-COMMITTED
+            // corner is a different problem." C83 §10.1 makes that binding and removes the
+            // remaining discretion: the incumbents come out BYTE-IDENTICAL, and "a symmetric,
+            // undistorted 3-way Y" is not an exemption — a moved arm is a moved arm.
+            //
+            // So: peel the DECLARED newcomers out of the tight groups BEFORE classifying, and the
+            // whole existing machinery does the rest — the corner freezes and the guest takes the
+            // barrier seat at the frozen vertex (arms as passthrough BARRIERS ⇒ byte-identical by
+            // construction, not by assertion). Keyed on INCUMBENCY, never on type or thickness:
+            // this fires for a SAME-type, SAME-thickness newcomer, which is the founder's case and
+            // the one every type-keyed proxy (L-122/L-130) misses.
+            //
+            // INERT BY CONSTRUCTION when no wall carries the stamp: `tightGroupsForCorner` is then
+            // the identical array, so every V2 caller that predates the field — and every existing
+            // V2 test — is byte-identical. It cannot fire on a genuine first-time Y either, because
+            // a first-time Y has no wall declaring it arrived onto a COMMITTED junction.
+            const isDeclaredNewcomer = (r: EndpointRef): boolean => {
+                const ji = walls[r.wallIdx]!.joinIntent;
+                return (r.isStart ? ji?.start : ji?.end) === 'butt';
+            };
+            const anyDeclared = refs.some(isDeclaredNewcomer);
+            const tightGroupsForCorner = anyDeclared
+                ? tightGroups.map(g => g.filter(r => !isDeclaredNewcomer(r)))
+                : tightGroups;
             // Require EXACTLY ONE tight group that forms a genuine corner; ambiguous clusters
             // (≥2 corner groups, or none) are left untouched.
-            const cornerGroups = tightGroups.filter(g => g.length >= 2 && formsCorner(g));
+            const cornerGroups = tightGroupsForCorner.filter(g => g.length >= 2 && formsCorner(g));
             if (cornerGroups.length !== 1) continue;
             const cornerRefs = cornerGroups[0]!;
             const cornerSet = new Set<EndpointRef>(cornerRefs);
