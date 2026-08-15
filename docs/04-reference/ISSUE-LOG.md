@@ -4857,3 +4857,53 @@ headless."* When a human finally ran that probe against production, the evidence
 Both halves bind. The first is why founder-reported findings (L-903…L-916) outrank synthetic sweeps
 and are laned the same turn they arrive. The second is why a clean founder session may never be
 cited as coverage of anything they did not exercise.
+
+---
+
+## L-918 — OPEN, FOUNDER-REPORTED (plan tools) — floor/ceiling AUTO mode is unreachable in plan view: the draw mode is dropped at tool activation
+
+**Reported 2026-08-15 by the founder on deploy `023d903a`**, in their words:
+
+> *"slab creation by region can be created in 3d view but also in plan view (correct) — however
+> **floor and ceiling Auto mode doesn't work on plan view**"*
+
+**The console names the seam, two consecutive lines:**
+
+```
+[SlabTool] §SLAB-3D-PREVIEW pointermove tool=REGION_SLAB firstPointSet=false polylinePoints=0
+[SlabPlanToolHandler] activated — overlay ready, waiting for first click drawMode=linear
+```
+
+The 3D side holds `REGION_SLAB`. One line later the PLAN handler activates at **`drawMode=linear`**.
+The same pair appears earlier in the session with `tool=POLYLINE_SLAB` → `drawMode=linear`, which
+settles it: **`linear` is a hardcoded default, not a translation of the mode.** The mode does not
+cross the activation boundary.
+
+⚠ **THIS DEFECT WAS FOUND BY MEASUREMENT EARLIER THE SAME DAY AND FILED AS LATENT.** Lane A8, wiring
+L-906's chat→placement capability, refused to claim drawing-mode coverage and said why:
+
+> *"Drawing modes deliberately NOT enumerated — **`ToolsAreaLayout.ts:94/:101` floor/ceiling
+> activators drop the mode arg**, so mode claims would overstate."* — tagged
+> **§FIX-FINISH-MODE-PLAN-UNREACHABLE**, *"latent for any programmatic caller."*
+
+**That refusal is now vindicated, and the sequence is the lesson.** A lane declined to overstate its
+coverage, wrote down precisely why, and the founder hit the exact defect from the UI hours later. A
+lane that had instead claimed "all element modes supported" would have buried it. **Record this as
+evidence for the standing rule that a scoped, reasoned refusal outranks a convenient claim.**
+
+**Owner:** lane L918, opened same-turn. Discipline: MEASURE FIRST — a failing test driving the REAL
+activation path (activator → `runtime.tools.activate` → `ToolManager.activateTool` →
+`SlabPlanToolHandler`) asserting the plan handler receives the region mode, committed ALONE before
+any fix, exactly as `59bc6f71`→`966686cc` (L-912) and `fc88e454`→`c100df8f` (L-916) did today.
+
+**Design constraints given to the lane:**
+- **The mode must be first-class in tool activation, not a second channel.** If slab already carries
+  it correctly, mirror THAT mechanism for floor and ceiling — no rival wiring (P1/P6).
+- **Verify slab rather than inherit it.** The founder reports slab as correct; the lane must confirm
+  it is genuinely correct and not merely appearing so.
+- **A silent fallback to `linear` is the defect, not the workaround.** If a mode truly cannot be
+  honoured in plan view for an element, the tool must SAY so. Falling back silently is the
+  failure-vs-emptiness class this programme exists to kill.
+- The lane is briefed to be able to REFUTE this: if the mode IS delivered and the plan handler
+  simply cannot render a region preview, that is a different defect elsewhere and the refutation
+  with its measurement is the correct deliverable.
