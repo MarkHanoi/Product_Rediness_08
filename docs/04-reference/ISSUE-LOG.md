@@ -4972,3 +4972,60 @@ that is the fourth instance of the authored-but-unwired class found this session
    restoring both.
 5. **No overclaiming** — if only the T case is proven, say so; X-junctions, oblique angles and
    curved hosts must be named as unproven rather than implied.
+
+---
+
+## L-920 — OPEN, FOUNDER-URGENT, **RAISED MANY TIMES** — the junction-infill TRIANGLE: a 3-wall cluster of LAYERED walls emits a corrupted spike in 3D and an unresolved joint in plan
+
+**Reported again 2026-08-15 on deploy `023d903a`**, founder's words:
+
+> *"TWO WALLS CONNECTED (LAYERED WALLS) IN L SHAPE, ANOTHER WALL JOINS — LOOK THE JOINT, REALLY BAD.
+> AND CHECK THE SECOND PHOTO — IN 3D WE GET A **CORRUPTED GEOMETRY — TRIANGLE** CORRUPTED GEOMETRY.
+> THIS HAS BEEN RAISED MANY TIMES."*
+
+Photo 1 (plan): the T-joint between the L-pair and the joining wall does not resolve — layer lines
+run past each other instead of terminating at the face. Photo 3 is the founder's own reference for
+the correct result: a clean T, layers terminating at the face. Photo 2 (3D): a large **triangular
+spike** of corrupted solid at the junction.
+
+### ⚠ THIS IS NOT A NEW DIAGNOSIS. THE MECHANISM WAS NAMED IN L-909a AND THE FIX WAS LEFT OWED.
+
+L-909a recorded it in full, and the clamp it specified was never landed:
+
+> `WallJunctionInfill.computeJunctionInfills` builds a **literal extruded TRIANGLE per 3-wall
+> cluster** with **UNCLAMPED line-line intersection vertices** (denominator guard `1e-9`, **no
+> distance cap**). A near-collinear pass-through T sends a vertex **metres** out. **LIVE in
+> production for opening/layered walls** (`WallRebuildCoordinator.ts` ~2184). It also hardcodes
+> `SNAP_RADIUS 0.5` and clusters a **filtered subset** of walls.
+> **Successor recipe:** a ~175° pass-through T fixture → assert vertices ≤ ~2× the consensus
+> thickness → clamp, mirroring **§MITER-T-CLAMP**.
+
+**The founder's configuration is precisely the named trigger**: two LAYERED walls in an L plus a
+third joining = a 3-wall cluster, and *layered walls are the live production path*.
+
+**The lesson, and it is uncomfortable: a mechanism can be correctly named, written down with a
+recipe, and still ship for weeks because naming is not fixing.** L-909a closed its emission
+half (`c5d3d4f5`) and explicitly recorded the prism half as *"mechanism NAMED, executed repro
+owed"*. The owed repro was never written, so nothing gated it, so it shipped. **A named-but-owed
+defect with no test is indistinguishable from an unknown one at deploy time.** That is the same
+family as this session's other finding that a gate registered in no runner protects nothing.
+
+**Related and distinct — do not merge these three:**
+- **L-919** — a wall CREATED on another wall's body passes through it (no junction step between snap
+  and dispatch). Different seam: creation, not infill.
+- **L-920** (this) — the infill geometry emitted AT an already-formed 3-wall junction.
+- **L-916** (closed `c100df8f`) — hosted-opening records desyncing on host move. Unrelated mechanism.
+
+**Owner:** lane L920, opened same-turn. Instructions: execute the OWED recipe rather than re-derive
+it (verify it still holds at HEAD first — several row claims proved stale this session in both
+directions); measure vertex distance from the cluster consensus in metres and pin it
+§MEASURED-PRISM-SPIKE, committed alone; clamp mirroring §MITER-T-CLAMP, no second clamping idiom;
+**a degenerate cluster must emit NO infill and say why, typed** — emitting a spike is strictly worse
+than emitting nothing, because a missing mitre is workable and corrupted solid geometry is not;
+interrogate and REPORT (not silently change) the hardcoded `SNAP_RADIUS 0.5` and the `1e-9`
+denominator guard — a near-parallel pair passes that guard and then divides by ~0, which IS the
+spike; any tolerance touched must be CONSUMED from `@pryzm/geometry-kernel` (C73 §2.2), never minted.
+
+**Honesty requirement given to the lane:** if the fix covers the 3-wall cluster but leaves 4-wall
+clusters, curved hosts or differing-thickness stacks unproven, it must say so by name. *That is how
+this stops returning a fifth time.*
