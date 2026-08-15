@@ -241,8 +241,49 @@
     "     control; that was caught and fixed before this ledger was pinned."
   ],
 
-  "declaredFindings": [
-    "roof·region · the region attribution reaches a reference-capable field on the roof record"
+  "declaredFindings": [],
+
+  "declaredFindingsStruck": [
+    "STRUCK 2026-08-15 — 'roof·region · the region attribution reaches a reference-capable",
+    "field on the roof record'. Paid by f5a2c726 (L0 `Roof.boundingWallIds`, additive-optional",
+    "so snapshot v3 does not break) + 6cd4e8e5 (`RoofData.boundingWallIds`), and struck here",
+    "per this gate's own instruction: 'debt that has been paid must LEAVE the ledger in the",
+    "commit that pays it, or the next regression hides inside it.' The gate ran [3] STALE",
+    "LEDGER from the moment those two landed until this line; it is now 0 findings / 0",
+    "declared.",
+    "",
+    "⚠ READ THIS BEFORE TREATING A7's GREEN AS 'ROOF FOLLOWS'. It does not say that, and the",
+    "distinction is the whole reason this note is longer than one line.",
+    "",
+    "A7 is a STRUCTURAL arm, not an executed one. It is a single regex over the",
+    "comment-stripped text of RoofTypes.ts (gate line 523):",
+    "    /hostReference|HostReferenceEdge|boundingWallIds|sketch\\s*\\??\\s*:/",
+    "so it goes green the moment that file DECLARES such a field — which is exactly what it",
+    "was written to measure ('the attribution reaches a reference-capable FIELD'), and exactly",
+    "what was paid. It is not a false green for its own claim. But it is a WEAKER claim than",
+    "the row it sits under, and the gate's own header still carries the premise that justified",
+    "the shortcut: '(e) The roof arm reads the roof DATA MODEL. It does not execute a roof",
+    "move, because RoofData has no field a reference could occupy, so there is no reference",
+    "for a move to consume.' f5a2c726 made that premise false. A7 has NOT been rewritten to",
+    "execute a move — that is a gate change, owned by whoever next touches this harness, and",
+    "the honest state is recorded here rather than left for the next reader to discover.",
+    "",
+    "WHAT IS ACTUALLY TRUE OF ROOF AS OF 16ef37b0, measured rather than inferred:",
+    "  · The re-derivation EXISTS and is executed. `recomputeRoofForWall` (geometry-roof)",
+    "    re-traces at the roof's stored anchor and reports one of C79 §5.2's five states with",
+    "    both area numbers. `roofFollowsMovedWall.test.ts` drives a real 6x6 region through a",
+    "    real 2 m wall move: 36.000 m² -> 48.000 m². It was committed RED at 86d1d4e0",
+    "    ('expected 36 to be close to 48, received difference is 12') before it was green.",
+    "  · `undetermined` carries a typed C78 §8.1 reason and NO ring — never an empty polygon",
+    "    meaning 'cannot answer'.",
+    "  · IT IS NOT REACHABLE IN PRODUCTION. `boundingWallIds` is still not populated at",
+    "    creation on EITHER by-region path (RoofTool -> CreateRoofCommand in command-registry;",
+    "    RoofPlanToolHandler.ts:205 in apps/editor), there is no `UpdateRoofBoundaryCommand`,",
+    "    and nothing constructs `RoofDependencyTracker` in initTools.ts. C70 §4.2 — machinery",
+    "    present, capability unreachable — the same sentence A5/A6 carry for floor and ceiling.",
+    "",
+    "So: do not re-declare this finding (it is paid), and do not read A7's tick as the",
+    "founder's question answered for roof. The arm that would answer it does not exist yet."
   ],
 
   "declaredFindingNotes": {
