@@ -218,3 +218,159 @@ describe('§MEASURED-INCUMBENT-RESOLVE — is an existing junction authoritative
         expect(after.infills[0].clusterKey).toBe('W1|W2|W3');
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §MEASURED-PRODUCTION-FAITHFUL (L-923, 2026-08-15) — THE REFUTATION.
+//
+// Everything above builds `WallData` BY HAND and omits ONE field: `joinIntent`.
+// That field is not decoration. L-251 added it at the single element-creation
+// chokepoint (C11) — `CreateWallCommand.ts:415-444` — for EXACTLY this defect,
+// and its comment records the same numbers this file measures:
+//
+//   "L-251: the corner's miter normals went `707107,707107` -> `null` the instant
+//    a same-type wall joined it ... The disambiguating fact is not geometric, it
+//    is HISTORICAL, and it is knowable exactly HERE and nowhere else: at the
+//    moment this wall is created, did a committed junction already exist at that
+//    endpoint? ... Captured ONCE, at creation, and thereafter carried on the
+//    record — never re-inferred from geometry on a later resolve pass, which is
+//    what made every previous attempt a heuristic."
+//
+// The resolver reads it back as `_buttsHere` -> `newcomerButtsOntoCorner`, one of
+// the `freezeExistingCorner` terms. So a newcomer that PRODUCTION creates onto a
+// committed corner carries `joinIntent.start = 'butt'` and the corner is frozen.
+// A hand-built newcomer that omits the field does not — and that, measured below,
+// is the whole of the L-920 "defect". The figure measured a wall production never
+// emits.
+//
+// This is stated as a REFUTATION rather than a fix because it is falsifiable in
+// one line: stamp the field the way the chokepoint stamps it, change nothing else,
+// and the mitre survives byte-identical at HEAD.
+//
+// WHY IT STILL MATTERS (do not read this as "nothing is wrong"): the ONLY writer
+// of `joinIntent` is `CreateWallCommand`. Any wall reaching the store by another
+// route — generators/importers that write the store directly, and any wall created
+// BEFORE L-251 landed and persisted without the field — is a newcomer production
+// cannot distinguish, and for those the mitre still dies exactly as pinned above.
+// That residue is a CREATION-PATH coverage gap, not a resolver defect, and it is
+// named in §MEASURED-JOININTENT-COVERAGE below rather than "fixed" in the resolver
+// by re-inferring history from geometry — the move L-251 explicitly forbids.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Replicates `CreateWallCommand.ts:415-444` EXACTLY (EPS 20 mm, ">= 2 existing
+ * endpoints at the node ⇒ a corner was already committed there"). Kept as a
+ * faithful copy rather than an import because the command lives in
+ * `@pryzm/command-registry` (L2) and this is an L1-package test — the copy is the
+ * thing under test, so a drift between them is itself a finding.
+ */
+function stampJoinIntentAsProductionDoes(newWall: WallData, existing: readonly WallData[]): WallData {
+    const EPS = 0.02;                       // 20 mm — the endpoint-coincidence radius
+    const levelWalls = existing.filter(w => w.levelId === newWall.levelId && w.id !== newWall.id);
+    const committedEndpointsAt = (p: { x: number; z: number }): number => {
+        let n = 0;
+        for (const w of levelWalls) {
+            for (const e of [w.baseLine[0], w.baseLine[1]]) {
+                if (Math.hypot(e!.x - p.x, e!.z - p.z) <= EPS) n++;
+            }
+        }
+        return n;
+    };
+    const startIsOntoCommitted = committedEndpointsAt(newWall.baseLine[0] as { x: number; z: number }) >= 2;
+    const endIsOntoCommitted   = committedEndpointsAt(newWall.baseLine[1] as { x: number; z: number }) >= 2;
+    if (startIsOntoCommitted || endIsOntoCommitted) {
+        (newWall as { joinIntent?: { start?: 'butt'; end?: 'butt' } }).joinIntent = {
+            ...(startIsOntoCommitted ? { start: 'butt' as const } : {}),
+            ...(endIsOntoCommitted   ? { end:   'butt' as const } : {}),
+        };
+    }
+    return newWall;
+}
+
+describe('§MEASURED-PRODUCTION-FAITHFUL — is the L-920 figure what production emits? (L-923)', () => {
+
+    it('the newcomer production emits carries joinIntent.start = butt (the L-251 stamp fires here)', () => {
+        const inc = incumbentL();
+        const w3 = stampJoinIntentAsProductionDoes(newcomer(-90), inc);
+        // W1's END and W2's START both sit at (5,0) ⇒ 2 committed endpoints ⇒ butt.
+        expect((w3 as unknown as { joinIntent?: unknown }).joinIntent).toEqual({ start: 'butt' });
+    });
+
+    it('§MEASURED-MITRE-DEATH does NOT reproduce on the production-faithful newcomer — the incumbent mitre SURVIVES', () => {
+        const beforeW1 = corner(incumbentL(), 'W1');
+        const beforeW2 = corner(incumbentL(), 'W2');
+        expect(beforeW1).toBe('s=(0.000000,0.000000) e=(5.000000,0.000000) sMN=null eMN=(0.707107,0.707107)');
+
+        const inc = incumbentL();
+        const withW3 = [...inc, stampJoinIntentAsProductionDoes(newcomer(-90), inc)];
+
+        // BYTE-IDENTICAL — C83 §10.4's incumbent-unchanged assertion, on the MITRE
+        // NORMALS and not merely the baselines (a baseline-only assertion reads green
+        // straight through this defect, which is how it survived previous fixes).
+        expect(corner(withW3, 'W1')).toBe(beforeW1);
+        expect(corner(withW3, 'W2')).toBe(beforeW2);
+        expect(withW3[0]!.baseLine).toEqual(incumbentL()[0]!.baseLine);
+        expect(withW3[1]!.baseLine).toEqual(incumbentL()[1]!.baseLine);
+    });
+
+    it('holds on BOTH thickness directions — same-thickness AND thicker AND thinner newcomer', () => {
+        // L-920 measured the thickness axis as the hot trigger: a THINNER newcomer
+        // survived (the §FIX-WALL-LCORNER-COLLINEAR-STEP term) while SAME-thickness
+        // died. With the production stamp the axis goes flat — pinned in all three
+        // directions so no successor re-keys the freeze on thickness.
+        const before = { w1: corner(incumbentL(), 'W1'), w2: corner(incumbentL(), 'W2') };
+        for (const th of [T, T * 2, 0.1]) {           // same, thicker, thinner
+            const inc = incumbentL();
+            const withW3 = [...inc, stampJoinIntentAsProductionDoes(newcomer(-90, th), inc)];
+            expect({ w1: corner(withW3, 'W1'), w2: corner(withW3, 'W2') },
+                `newcomer thickness=${th}`).toEqual(before);
+        }
+    });
+
+    it('holds for the ACUTE newcomer (the spike geometry) too', () => {
+        const before = { w1: corner(incumbentL(), 'W1'), w2: corner(incumbentL(), 'W2') };
+        const inc = incumbentL();
+        const withW3 = [...inc, stampJoinIntentAsProductionDoes(newcomer(85), inc)];
+        expect({ w1: corner(withW3, 'W1'), w2: corner(withW3, 'W2') }).toEqual(before);
+    });
+
+    it('AXIS (c) PLAN — the plan footprint does NOT collapse for the production-faithful newcomer', () => {
+        // The founder's photo 1. The plan footprint of a layered wall is baseLine +
+        // thickness projected onto the MITRE PLANES, so a dead mitre collapses
+        // `4.812500,0.187500 | 5.187500,-0.187500` to a flat `5.000000,… | 5.000000,…`
+        // square cap. Proving the plan half rather than assuming both photos share a
+        // root: this asserts the collapse does not happen.
+        const planCorner = (walls: WallData[], id: string): string => {
+            const jd: any = WallJoinResolver.resolveLevel(walls, { snapRadius: SNAP }).get(id);
+            const [s, e] = jd.baseLine;
+            const dx = e.x - s.x, dz = e.z - s.z;
+            const len = Math.hypot(dx, dz);
+            const ux = dx / len, uz = dz / len;
+            const nx = -uz * (T / 2), nz = ux * (T / 2);
+            const proj = (px: number, pz: number): string => {
+                const mn = jd.endMN;
+                if (!mn) return `${px.toFixed(6)},${pz.toFixed(6)}`;
+                const dot = mn.nx * ux + mn.nz * uz;
+                const t = ((e.x - px) * mn.nx + (e.z - pz) * mn.nz) / dot;
+                return `${(px + t * ux).toFixed(6)},${(pz + t * uz).toFixed(6)}`;
+            };
+            return `${proj(e.x + nx, e.z + nz)} | ${proj(e.x - nx, e.z - nz)}`;
+        };
+        const inc = incumbentL();
+        const before = planCorner(incumbentL(), 'W1');
+        const after  = planCorner([...inc, stampJoinIntentAsProductionDoes(newcomer(-90), inc)], 'W1');
+        expect(before).toBe('4.812500,0.187500 | 5.187500,-0.187500');
+        expect(after).toBe(before);                        // NOT the 5.000000 collapse
+    });
+
+    it('§MEASURED-JOININTENT-COVERAGE — the residue: an UNSTAMPED newcomer still kills the mitre', () => {
+        // The honest bound on the refutation. `joinIntent` has exactly ONE writer
+        // (CreateWallCommand). A wall that reaches the store by any other route —
+        // generator/importer direct writes, or a wall persisted BEFORE L-251 landed —
+        // carries no stamp, and for it the L-920 measurement stands unchanged. This is
+        // the OPEN half, pinned so it cannot be mistaken for closed, and it is a
+        // creation-path coverage gap rather than a resolver defect.
+        const withUnstamped = [...incumbentL(), newcomer(-90)];   // no stamp
+        expect(corner(withUnstamped, 'W1'))
+            .toBe('s=(0.000000,0.000000) e=(5.000000,0.000000) sMN=null eMN=null');
+    });
+});
