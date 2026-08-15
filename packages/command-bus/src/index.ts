@@ -205,3 +205,30 @@ export type {
 } from './commands.js';
 // §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — compile-time-checked dispatch helper.
 export { dispatchTyped } from './commands.js';
+
+// GE-06 — the twelve declared `clash-*` verbs REFUSE by name instead of being
+// registered ids with no handler (C70 L-INV-1). No clash engine is exported
+// here: GE-06 is OPEN. See `./clashCapability.ts`.
+export {
+  CLASH_COMMAND_IDS,
+  CLASH_PAIR_COVERAGE,
+  REGISTERED_CLASH_PAIRS,
+  UNCHECKED_CLASH_PAIRS,
+  IMPLEMENTED_CLASH_COMMAND_IDS,
+  UNIMPLEMENTED_CLASH_COMMAND_IDS,
+  isClashCommandId,
+  clashCommandStatus,
+  clashRefusalText,
+  clashCapabilityRefusal,
+  createClashRefusalHandler,
+  registerClashRefusalHandlers,
+} from './clashCapability.js';
+export type {
+  ClashCommandId,
+  ClashDetectorState,
+  ClashPairCoverage,
+  ClashFinding,
+  ClashRunReport,
+  ClashRunOutcome,
+  ClashHandlerRegistrar,
+} from './clashCapability.js';
