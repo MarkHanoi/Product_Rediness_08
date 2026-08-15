@@ -467,6 +467,34 @@ describe('§JOINT-AUTHORITY-IS-THE-INCUMBENT — V2 (L-919 measured, L-923 fixed
         }
     });
 
+    it('§MEASURED-EXACT-VERTEX-INCUMBENT — holds across the THICKNESS axis (thinner, same, thicker)', () => {
+        // The thickness axis is this defect family's historical hot trigger: in the LEGACY
+        // resolver a THINNER newcomer survived (§FIX-WALL-LCORNER-COLLINEAR-STEP) while a
+        // same-thickness one destroyed the mitre, and differing thickness re-arms the junction
+        // infill. Pinned in all three directions so that no successor re-keys this freeze on
+        // thickness — the key is INCUMBENCY and nothing else (C83 §10.1).
+        const armA: WallInput = { id: 'A', start: { x: 0, z: 0 }, end: { x: 6, z: 0 }, thickness: TH };
+        const armB: WallInput = { id: 'B', start: { x: 0, z: 0 }, end: { x: 0, z: 6 }, thickness: TH };
+        const before = new Map(buildAllFootprints([armA, armB], resolveJunctions([armA, armB])).map(f => [f.id, f.polygon]));
+
+        for (const th of [TH * 0.5, TH, TH * 2]) {
+            const newcomer: WallInput = {
+                id: 'C', start: { x: 0, z: 0 }, end: { x: 3, z: 3 }, thickness: th,
+                joinIntent: { start: 'butt' },
+            };
+            const after = new Map(buildAllFootprints([armA, armB, newcomer], resolveJunctions([armA, armB, newcomer])).map(f => [f.id, f.polygon]));
+            for (const id of ['A', 'B']) {
+                const p = before.get(id)!, q = after.get(id)!;
+                expect(p.length, `${id} vertex count @ th=${th}`).toBe(q.length);
+                let worstMm = 0;
+                for (let i = 0; i < p.length; i++) {
+                    worstMm = Math.max(worstMm, Math.hypot(p[i]!.x - q[i]!.x, p[i]!.z - q[i]!.z) * 1000);
+                }
+                expect(worstMm, `${id}: byte-identical @ newcomer thickness=${th}`).toBeLessThan(0.001);
+            }
+        }
+    });
+
     it('§MEASURED-EXACT-VERTEX-INCUMBENT — the RESIDUE: an UNDECLARED newcomer still re-solves it', () => {
         // The honest bound on the fix above, and the reason it is not claimed as "V2 closed".
         // `joinIntent` has exactly ONE writer (CreateWallCommand). A wall reaching V2 by any other
