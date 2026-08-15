@@ -22,6 +22,27 @@ import { describe, it, expect } from 'vitest';
 // weakened to make a count go green: where a test's assertion is now forbidden
 // it asserts the REFUSAL instead, and where a test had a still-true half (the
 // moved host must not be shortened) that half is kept verbatim.
+//
+// ⚠⚠ RE-RECONCILED 2026-08-15 (§L-926, fix `bea6e819`). THE RECONCILIATION
+// ABOVE WENT TOO FAR, AND THIS SUITE IS WHERE IT SHOWED. The C83 §10.2.2 rule
+// is about a CORNER incumbent; it was applied to every partner, so the three
+// T-JUNCTION tests below were rewritten to pin "the stem does not follow" —
+// and a stem that does not follow its host is the founder's regression, logged
+// as L-926 hours later (stems 773 mm off their host, rooms 6 → 4,
+// §OPENED-REGION offering to build a wall across a gap the stem should simply
+// have extended across).
+//
+// The reconciling rule is WELD AUTHORSHIP (C83 §10.6): the wall whose ENDPOINT
+// terminates on the other's BODY is the DEPENDENT and follows; the wall whose
+// endpoint sits at the other's ENDPOINT is the INCUMBENT and never moves. The
+// corner tests in this file were always about incumbents and are untouched by
+// the re-reconciliation. The T tests were always about dependents and are put
+// back — with the host THICKNESS they were always missing, since that is what
+// the discriminator is derived from and no verdict is possible without it.
+//
+// THE LESSON THIS FILE NOW CARRIES: a suite that pins one side of a branch
+// certifies a change that deletes the branch. Both directions are measured
+// together in `L926StemFollowAuthorship.measure.test.ts`.
 import {
   computeMoveReweld,
   computeMoveReweldPlan,
@@ -127,26 +148,55 @@ describe('computeMoveReweld — L-corner', () => {
 });
 
 describe('computeMoveReweld — T-junction', () => {
-  // RECONCILED (was: "extends the stem start onto the moved host centreline").
-  // THIS IS L-922'S EXACT SHAPE, in miniature. The host moves and the STEM — a
-  // wall the user never touched, already correctly joined, therefore the
-  // incumbent — was dragged 1.1 m to chase it. In production that stem was a
-  // perimeter carrying three doors, and dragging it re-seated all three by the
-  // same delta and clamped one to offset 0.000 (C83 §10.2.4). Refused now.
-  it('§C83-10.2.2: the stem is an INCUMBENT — a moving host does not drag it onto its new centreline', () => {
-    const moved = { id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]) };
+  // RE-RECONCILED §L-926 (was, at a248585d: "the stem is an INCUMBENT — a moving
+  // host does not drag it onto its new centreline"; originally: "extends the
+  // stem start onto the moved host centreline").
+  //
+  // THE MIDDLE VERSION HAD IT BACKWARDS, and this fixture is why. The stem's
+  // START terminates ON the host's BODY, 5 m from either host end — it is the
+  // DEPENDENT, not an incumbent. L-922's shape is the OPPOSITE assignment: there
+  // the wall carrying the three doors was a perimeter whose ENDPOINT met the
+  // moved wall's endpoint, i.e. a corner incumbent, and the corner tests above
+  // pin that case. Conflating the two deleted the follow.
+  //
+  // The original assertion is therefore restored — with one correction it never
+  // had: the stem returns to the FACE it was seated on (z = 0.1 = +t/2 off the
+  // host centreline), not to the centreline. Its displacement is the host's own
+  // 1.0 m; the 1.1 m the middle version pinned was the centreline distance, and
+  // seating there would have lengthened a wall the user never touched by t/2.
+  it('§C83-10.6: the stem TERMINATES on the host body — it is the DEPENDENT and follows, at its own seating depth', () => {
+    const moved = {
+      id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]),
+      thickness: 0.2,
+    };
     const stem = { id: 'S', baseLine: bl([5, 0.1], [5, 4]) };
     const plan = computeMoveReweldPlan(moved, [stem]);
-    expect(plan.entries.find(e => e.wallId === 'S')).toBeUndefined();
-    expect(plan.refusals).toHaveLength(1);
-    expect(plan.refusals[0]!.partnerId).toBe('S');
-    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
-    // 1.1 m: from the stem's start at z=0.1 down to the host's new z=−1.
-    expect(plan.refusals[0]!.beyondMm).toBe(1100);
+
+    expect(plan.refusals).toEqual([]);
+    const eS = plan.entries.find(e => e.wallId === 'S')!;
+    expect(eS).toBeTruthy();
+    // Seated back on the same face: 0.1 m off the host's NEW centreline (−1).
+    // (`toBeCloseTo`, not `toEqual`: −1 + 0.1 is −0.8999999999999999 in binary
+    // floating point. The seat is an offset construction, so it carries that
+    // last-ulp noise honestly rather than being rounded to look tidy.)
+    expect(eS.newBaseLine[0].x).toBe(5);
+    expect(eS.newBaseLine[0].z).toBeCloseTo(-0.9, 12);
+    // Axial only — far endpoint and direction untouched, and untouched EXACTLY:
+    // this one is a copy, not a computation, so it must be byte-equal.
+    expect(eS.newBaseLine[1]).toEqual({ x: 5, y: 0, z: 4 });
+    // The host is NOT re-baselined onto its own stem's foot (§L-872).
+    expect(plan.entries.find(e => e.wallId === 'H')).toBeUndefined();
   });
 
+  // Unchanged by §L-926, and it is the ASYMMETRY the rule is made of: authorship
+  // is not reciprocal. When the STEM is the subject, the host has no endpoint on
+  // the stem's body, so there is no dependent to follow in that direction —
+  // exactly as it should be, since the stem slides ALONG the host's face.
   it('host is a NO-OP partner when the stem is what moved (no host endpoint was welded)', () => {
-    const moved = { id: 'S', prevBaseLine: bl([5, 0.1], [5, 4]), newBaseLine: bl([7, 0.1], [7, 4]) };
+    const moved = {
+      id: 'S', prevBaseLine: bl([5, 0.1], [5, 4]), newBaseLine: bl([7, 0.1], [7, 4]),
+      thickness: 0.2,
+    };
     const host = { id: 'H', baseLine: bl([0, 0], [10, 0]) };
     // Host endpoints (0,0)/(10,0) are far from the stem's old segment → refuse.
     const entries = computeMoveReweld(moved, [host]);
@@ -159,20 +209,31 @@ describe('computeMoveReweld — T-junction', () => {
     // the host's end endpoint onto the stem's foot (d=1 ≤ cap 1.5), silently
     // shortening the host to 9 m. The stem must still be re-welded; the host's
     // own baseline must come through byte-unchanged (no seat on a body corner).
-    const moved = { id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]) };
+    const moved = {
+      id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]),
+      thickness: 0.2,
+    };
     const stem = { id: 'S', baseLine: bl([9, 0.1], [9, 4]) };
     const plan = computeMoveReweldPlan(moved, [stem]);
     // ── THE STILL-TRUE HALF, KEPT VERBATIM ────────────────────────────────
     // §L-872's guard protects the MOVED HOST from being shortened onto a stem's
-    // foot. That is about the SUBJECT, not an incumbent, so §10.2.2 does not
-    // touch it and it must keep holding. This is the assertion the guard exists
-    // for and it is unchanged.
+    // foot. That is about the SUBJECT, not an incumbent, so neither §10.2.2 nor
+    // §10.6 touches it and it must keep holding. Under §10.6 it holds even more
+    // strongly: a stem's foot is never offered as a corner for the host to seat
+    // on at all, so there is nothing for the guard to catch.
     expect(plan.entries.find(e => e.wallId === 'H')).toBeUndefined(); // host NEVER shortened
-    // ── THE HALF §C83-10.2.2 REVERSES ─────────────────────────────────────
-    // "the stem follows the host" was the other assertion. The stem is the
-    // incumbent; it no longer follows, and the refusal says so.
-    expect(plan.entries.find(e => e.wallId === 'S')).toBeUndefined();
-    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+    // ── RE-RECONCILED §L-926 ───────────────────────────────────────────────
+    // "the stem follows the host" is the other assertion, and it is restored.
+    // The stem's foot is 1.0 m from the host's END — a whole host thickness
+    // clear of the 0.201 m stem band, so it is a stem and not a near-corner.
+    // (0.15 m from the end would land in the AMBIGUOUS band and refuse; that
+    // boundary is measured in L926StemFollowAuthorship.measure.test.ts.)
+    const eS = plan.entries.find(e => e.wallId === 'S')!;
+    expect(eS).toBeTruthy();
+    expect(eS.newBaseLine[0].x).toBe(9);
+    expect(eS.newBaseLine[0].z).toBeCloseTo(-0.9, 12);
+    expect(eS.newBaseLine[1]).toEqual({ x: 9, y: 0, z: 4 });
+    expect(plan.refusals).toEqual([]);
   });
 
   // RECONCILED (was: "§L-872 CONTROL: the L-corner seat still fires"). The
@@ -240,8 +301,17 @@ describe('computeMoveReweld — refusals (the scars)', () => {
   // strictly stronger guarantee — a partner's baseline is never proposed AT ALL,
   // laterally or otherwise — so the invariant is restated at that strength
   // rather than at the old one. `distToLine` stays in use below.
-  it('§C83-10.2.2 (supersedes §CLAMP-COSHARE-WELD): NO partner baseline is ever proposed', () => {
-    const moved = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0], [6, 5]) };
+  // RE-SCOPED §L-926: the guarantee is about CORNER partners, which is what both
+  // fixtures here are (each is welded exactly AT B's prev endpoint (5,0), i.e.
+  // axial distance 0 from the host's end — an incumbent under any thickness).
+  // Stating it unqualified is what let the T-stem follow be deleted, so the
+  // scope is now in the title and the thickness is supplied so the authorship
+  // branch is genuinely exercised rather than skipped for want of an input.
+  it('§C83-10.2.2 (supersedes §CLAMP-COSHARE-WELD): no CORNER partner\'s baseline is ever proposed', () => {
+    const moved = {
+      id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0], [6, 5]),
+      thickness: 0.2,
+    };
     const longA = { id: 'A', baseLine: bl([5, 0], [10, 0]) };
     for (const partner of [partnerA, longA]) {
       const plan = computeMoveReweldPlan(moved, [partner]);
