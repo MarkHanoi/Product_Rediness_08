@@ -120,13 +120,37 @@ cuts both ways: carrying is still not verifying; this one happened to be right.
 - **With the founder's CB-01 / CB-02 / CB-05 deferral: 79 of 82.** The authority for that deferral
   is [`L-391-COLLAB-DEPLOY-DECISION.md`](L-391-COLLAB-DEPLOY-DECISION.md) — **that file is not
   being deleted; read it there.** It is not restated here and must not be.
-- **Verified today: 30 of 79 = 38 %.**
-- **Best case if every carry holds: 58 of 79 = 73 % — and 28 of that 58 are CARRIED, NOT
-  VERIFIED.** The 58 figure is offered for contrast only and is explicitly not the finding.
-- Remaining closable: **21**. 58 + 21 = 79 ✓
+### §1.2.1 — ⚠ TWO NUMBERS, AND CONFLATING THEM IS AN ERROR THIS FILE ALREADY MADE
 
-> **The honest headline is 30 verified of 79 achievable.** Never quote **55** again — that was the
-> `a75e8e1e` reading and it was 92 commits stale by the time this pass ran.
+**Corrected 2026-08-15, after the founder challenged the reading.** An earlier draft of this section
+reported *"30 of 79 = 38 %"* as the completion figure. **That was wrong, and it was wrong in a way
+worth naming**, because the mistake is subtle and reputable-looking: 30 is the number of closures
+**re-proven by execution in this pass**, not the number of rows that are closed. Reporting it as
+completion implies 29 closures evaporated. They did not. **Nothing regressed except MT-10**, which
+was fixed the same day (`0064df08`).
+
+The two numbers answer different questions and both belong in any status report:
+
+| Measure | Value | The question it answers |
+|---|---|---|
+| **COMPLETION** | **59 of 79 = 75 %** | *Where is the product?* Rows whose status is CLOSED. |
+| **VERIFICATION COVERAGE** | **30 of 59 = 51 %** | *How much of that can this pass personally vouch for?* |
+
+**Completion is 59 / 79 = 75 %.** Counted mechanically over the Status column of §2:
+**59 CLOSED · 16 OPEN · 6 UNPROVEN**. Of the 59, **30 were re-measured this pass** and **29 are
+carried** — every carried row is named individually in §2 with `NOT RE-MEASURED — last known …`, so
+a reader can always separate earned from inherited without doing arithmetic.
+
+The arithmetic reconciles with history exactly, which is itself a check on the recount:
+**55** at the `a75e8e1e` stamp **+ 4 newly closed this pass** (PR-05, PR-13, MT-03, CE-04) = **59**.
+Progression across stamps: **25 → 34 → 51 → 55 → 59.**
+
+- Remaining closable: **20** (16 OPEN + 6 UNPROVEN − 2 CB rows already inside those, per §1.2's
+  deferral). 59 + 20 = 79 ✓
+
+> **Quote 59 / 79 for completion and 30 / 59 for confidence. Never quote one alone.** The earlier
+> "30 of 79" understated two sessions of real work by half, and the older habit of quoting **55**
+> without saying it was 92 commits stale is the same defect facing the other way.
 
 ### §1.3 — The 84-vs-82 reconciliation, stated once so it is never re-litigated
 
@@ -1192,3 +1216,78 @@ at all.** `row-paths.json` now carries that correction in the gate entry's own n
 | `check-no-dark-test-files` | `b76e5d91` | 2026-08-14 | 188 | ⚠ **188 commits old** — re-run before quoting |
 
 <!-- TRACKER:AUTO:END -->
+
+---
+
+# §12 — SESSION DELTA 2026-08-15 (afternoon fleet) — measured movement AFTER the §1 restamp
+
+> **These readings post-date the §1 distribution.** They are recorded here rather than folded into
+> §1 because folding them in without re-running every row's instrument is exactly the inheritance
+> §0 forbids. **§1 remains the counted position; §12 is what moved since, each line with the SHA
+> and the reading its lane measured.** The next restamp reconciles them.
+
+## §12.1 — Rows that moved, with executed evidence
+
+| Row | Movement | SHA | Reading the lane measured |
+|---|---|---|---|
+| **MT-10** | REGRESSED → **FIXED** | `0064df08` | `check-xss-guards` GREW OverridePanel 1→3 (exit 3) → ✅ 0 new unguarded sinks, 547 baselined over 142 files. The breach was COMMITTED and shipped in `9e780581`; found by the recount, not by a gate run in CI |
+| **GE-09** | 71 → **67** | `ebaf651f` · `1f1df248` | `check-refusal-identity` exit **0**, arm A 38→34, arm B 33, **zero stale**. `packages/command-registry` is now FULLY drained — zero baseline rows in the whole package. Remaining 67 are `plugins/slab` ×9, `apps/editor/ui/apartment-layout` ×7, `site-parcel-data` ×6, … |
+| **Bar 3** (GR-12 family) | 126 → **125** | `d572fb7e` | `check-relationship-determination` (now runner-registered) exit 1 DECLARED-LEVEL; reaching verbs 9→10, refusal-BLOCKED 315→350, structurally-answerable 54→60 |
+| **plan-determinism** | 6/5 → **6/6** | `d572fb7e` | exit **0 CLEAN**, ARM 4 debt paid in the same commit; all three ARM 2 pairs verified BY MUTATION |
+| **GR-12** (roof) | blocker half-cleared | `f5a2c726` · `6cd4e8e5` | the L0 field landed additive-optional; *"the roof reference was never missing — L0 had nowhere to put it"* |
+| **PR-11** | handler half real | `278b99e5` | tri-state determination with 4 reasons reused from C78 §8.1; differentiation PROVEN by running against a no-op (6 fail) and a wrong-impact stand-in (6 fail, DIFFERENT set) |
+| **GE-06** | 12 verbs now REFUSE | `8de42e12` · `c2162b05` · `2bcc07ce` | 0 implemented / 12 refusing, `ENGINE_NOT_AVAILABLE` (C80 §1.4). **Row stays OPEN — refusals are not detectors** |
+| **CO-06** | familyCreatorPlaceholder resolved | `a646eb94` | *"the twins were never twins; one is DEAD, one is LIVE"* |
+| **MT-07** | decision transcribed | `e9f4f2b1` | **ADR-0327**. The row undercounted: **two real authorities, one PHANTOM, two miscounts** |
+| **L-916** (no row — see §12.3) | founder defect CLOSED | `fc88e454` · `c100df8f` | measurement alone first, then §L-916-FRAME-RECORD-SYNC at all six `updateOpening()` call sites; pins flipped, one Ctrl+Z restores both records |
+| **CE-05** | census landed | `e08869f9` | exit 1 at a shrink-only ledger of 80. **`EXECUTED-REACHED 0 / 230` BY CONSTRUCTION** — the census is done, the driving is not |
+| **13 orphan gates** | 11 registered | `df0f6692` | 2 REFUSED (`check-index-can-refuse`, `check-region-reference-frame`) — both at exit 3, which no ledger may absorb |
+| **verb-register · secrets-register** | RED → clean | `3afcac71` | derived documents had drifted from the code they describe; verb-register is hard-0 on NO ledger |
+| **epsilon · predicate-canonical** | breaches paid AT SOURCE | `703d9404` | both back to declared/hard-0 — the debt this session's own feature work minted |
+
+## §12.2 — ⭐ FINDINGS THAT CHANGE WHAT A ROW MEANS (each contradicts its row's premise)
+
+Every lane that closed today found its row's premise **partly wrong**. That is the instrument
+working, and it is the most important output of the fleet:
+
+1. **PR-11's registry does not exist.** `new CascadeRunner()` appears **only in test files,
+   repo-wide.** `registerCrossHandlers` having zero callers was never a wiring oversight — there is
+   no live registry in production to register into. The row said "implement the handler first"; the
+   handler is now real and the residual is a composition-root capability that was never stood up.
+   **This is a C72 concern and it is recorded there.**
+2. **GE-09's gate was silently RED.** The inherited work paid four baseline rows at source and
+   struck ONE, leaving 3 stale entries and exit 3. Direction matters: a dead row cannot pass a real
+   regression, but **it can absorb a NEW violation at the same file silently.**
+3. **GE-06's detector already exists, unwired.** `geometry-roof` carries an oracle-tested roof×wall
+   detector in state **`EXISTS_BUT_UNWIRED`** — deliberately kept a distinct third state from
+   `REGISTERED` so it cannot be counted as coverage. This is what PR-10 needs.
+4. **Two rival clash id sets.** The bus declares 12 `clash-*` ids; the toolbar declares a
+   *different* 12, and **only 3 overlap.**
+5. **A driver-parity defect in refusal rendering.** `executeChunked` rendered the machine token
+   `'WALLS_PARALLEL'` where `execute()` rendered the sentence — **the load path and the interactive
+   path disagreed about what the same refusal says.** Only a parity arm could catch it.
+6. **The wall.delete inheritance did not compile.** A backtick-quoted `relationship:*/cannot-refuse`
+   inside a JSDoc block terminated the comment (40+ TS1434/TS1005), and `BoundingWallsQuery` was
+   imported from a barrel that does not export it. **"It is in the tree" and "it works" are
+   different claims.**
+7. **MT-09's skip list is a hard-coded map, not a measurement.** So the true position is **35 of 94
+   tsconfig-bearing packages unproven in isolation, not 26** — and the list contains
+   `command-registry`, `core-app-model`, `runtime-composer`, `ai-host`.
+
+## §12.3 — MT-06 stopped being theoretical
+
+**MT-06 (rival opening authorities) arrived as a user-visible production defect the same day it was
+listed as a tidiness row.** The founder moved a wall; a window's VOID stayed correct while its FRAME
+walked 2.26 m, leaving a clean hole with no frame in it (ISSUE-LOG L-916). Root cause measured: a
+hosted opening is described TWICE — `WallData.openings[]` (drives the void, PERSISTS) and
+`windowStore`/`doorStore` (drives the frame mesh) — and `WallStore.updateOpening()` writes the first
+only, because `geometry-window`/`geometry-door` import `geometry-wall` and the reverse edge would be
+circular.
+
+`c100df8f` is the **"written together"** half: one seam, all six call sites, both records or
+neither. **It is explicitly NOT MT-06.** MT-06's own fix — one authority, the rival deleted — would
+make the defect **unrepresentable** rather than corrected, because no second number would exist to
+disagree.
+
+> **The lesson, recorded because it will recur: rival authorities do not stay theoretical.** A row
+> that reads as architectural tidiness in the morning is a hole in a wall by the afternoon.
