@@ -79,6 +79,9 @@ import { registerSectionHandlers } from '@pryzm/plugin-section-view';
 import { registerViewHandlers } from '@pryzm/plugin-view';
 import { registerLevelHandlers } from '@pryzm/plugin-levels';
 import { registerSelectionHandlers, type SelectionPastePort } from '@pryzm/plugin-selection';
+// GE-06 — the twelve declared `clash-*` verbs, which have no implementation and
+// therefore REFUSE rather than dispatch into nothing. Not a clash engine.
+import { registerClashRefusalHandlers } from '@pryzm/command-bus';
 
 // ── Task 5.2 extracted subsystems ─────────────────────────────────────────────
 import { initAnnotationTools }        from './initAnnotationTools';
@@ -639,6 +642,27 @@ export async function bootstrap(
         };
         try { registerSelectionHandlers(_bus, { pastePort: copyPastePort }); console.log('[EngineBootstrap] §FIX-COPY-PASTE: selection handlers (copy/paste) registered.'); }
         catch (e: any) { console.error('[EngineBootstrap] §FIX-COPY-PASTE: registerSelectionHandlers failed (non-fatal):', e?.message ?? e); }
+
+        // ── GE-06 — the twelve `clash-*` verbs REFUSE instead of dispatching
+        // into nothing. Same defect as §C-B1 below, one step worse: those verbs
+        // had no handler but DO have an implementation to write; these have no
+        // implementation at all. There is no clash engine in this build.
+        //
+        // Registering a refusing handler is deliberately NOT a stub — nothing
+        // here returns "no clashes found", because a clean report from an
+        // engine that inspected nothing is the lie being removed (ADR-0322 §5).
+        // Each verb answers with a typed CapabilityRefusal naming itself and
+        // the element pairs nothing looked at, on the `HandlerResult.refusal`
+        // channel, so a caller reads a value instead of a thrown "no handler
+        // registered for: clash-run" that says nothing about clash detection.
+        //
+        // Defers to any real detector: an id already registered is skipped, so
+        // the lane that lands one simply wins. **GE-06 stays OPEN.**
+        try {
+            const refusing = registerClashRefusalHandlers(_bus);
+            console.log(`[EngineBootstrap] GE-06: ${refusing.length} clash verb(s) registered as REFUSING — no clash engine in this build.`);
+        }
+        catch (e: any) { console.error('[EngineBootstrap] GE-06: registerClashRefusalHandlers failed (non-fatal):', e?.message ?? e); }
 
         // ── §C-B1 (DAILY-USE-AUDIT 2026-05-20) — register zoom-fit/zoom-selected ─
         // The MainToolbar buttons dispatched these bus commands (declared in
