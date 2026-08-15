@@ -3004,11 +3004,97 @@ export class WallJoinResolver {
         //   host face so the room loop closes — never reject a genuine near-miss.
         //   A generous along-axis runaway cap (3× MAX_CORNER_OFFSET) still rejects
         //   pathological grazing trims that would stretch a small wall across a room.
-        const perpGap = Math.abs(
-            new THREE.Vector3().subVectors(secJoinEp, faceO).dot(faceN),
-        );
+        // §FIX-T-JOIN-PENETRATION-IS-NOT-A-REACH (L-919, founder — reported REPEATEDLY)
+        //   — the first implementation of C83 §10 (§JOINT-AUTHORITY-IS-THE-INCUMBENT).
+        //   Specifically C83 §10.2.3: a snap onto a wall's body may NOT be interpreted as
+        //   "start my centreline here"; it means "join here", and the newcomer terminates at
+        //   the incumbent's FACE. C83 §10.3 (refusal) is the `return` arms below — a newcomer
+        //   that cannot be resolved against the host face is left un-trimmed and reported with
+        //   both numbers, never resolved by moving the incumbent. C83 §10.4 (mandatory
+        //   incumbent-unchanged assertion) is discharged in
+        //   `WallCreateOnHostBody.measure.test.ts` §JOINT-AUTHORITY-IS-THE-INCUMBENT.
+        //
+        //   the gate above was written with `Math.abs`, and THAT is the founder's defect:
+        //
+        //     "even if the insertion point is mid a wall it should ALWAYS connect with the face
+        //      of the wall — never create a clash — never should the created wall go THROUGH
+        //      the other wall."
+        //
+        //   `MAX_CORNER_OFFSET` is `snapRadius`, and in the app that is CAMERA-DERIVED —
+        //   `getWorldToleranceForActiveCamera(8 px, …)` clamped to [0.05, 1.0] m
+        //   (WallRebuildCoordinator.ts ~:1570). Snapping to a wall's Midpoint — or to ANY point
+        //   on its body — resolves to that wall's CENTRELINE, because that is what a wall
+        //   feature IS geometrically. So the endpoint starts one host HALF-THICKNESS inside the
+        //   host's solid, and the absolute gap it is measured by is EXACTLY `hostHalfT`, always.
+        //   Zoomed in — which is when walls get drawn — the radius falls to its 0.05 m clamp and
+        //   every host thicker than 100 mm exceeds the bound, so the trim was SKIPPED and the new
+        //   wall kept its centreline endpoint: half the host's thickness occupied by the new
+        //   wall's body at the moment of creation. Nothing downstream re-asks. That is why this
+        //   reproduces for the founder and not in review, and why every previous fix measured
+        //   green: every T-join test in this package calls `resolveLevel` with no options, at
+        //   DEFAULT_SNAP_RADIUS = 0.5 m, where this gate never fires.
+        //   `WallCreateOnHostBody.measure.test.ts` pins all of it.
+        //
+        //   THE DISTINCTION THE `Math.abs` DESTROYED. The two signs are different questions:
+        //
+        //     signedGap > 0 — the endpoint sits OUTSIDE the host's face, in OPEN SPACE. Closing
+        //       that is a REACH, and how far we may reach is properly a question about how close
+        //       the user aimed — so bounding it by the (zoom-dependent) snap radius is exactly
+        //       right. This is what §T-JOIN-PERP-GATE was written for and it is UNCHANGED below.
+        //
+        //     signedGap < 0 — the endpoint is INSIDE the host's SOLID. That is not a reach, it is
+        //       a CLASH, and it needs no snap radius to prove it is not a stray wall: its depth is
+        //       bounded BY CONSTRUCTION by the host's own thickness. Two solids cannot share a
+        //       volume at any zoom, so the camera must not get a vote. This branch is NEW.
+        //
+        //   NOT FIXED BY MOVING THE SNAP POINT, deliberately. Snapping to a Midpoint is correct
+        //   and useful — the user is aiming at a real feature of the host, and the dimension
+        //   readouts in the UI are driven by that snap. Offsetting the snap to a face would break
+        //   both the user's intent and the numbers they are reading. The snap stays exactly where
+        //   it lands; it is the CREATION that must interpret "on the body" as "join here" rather
+        //   than "start my centreline here". So the endpoint is trimmed, never refused, and never
+        //   displaced laterally off its own axis.
+        //
+        //   HOST-IMMUTABLE BY CONSTRUCTION. This is `_applyT`, which only ever moves the
+        //   SECONDARY (the approaching newcomer) and never the host. That is precisely the
+        //   PRIORITY rule §FIX-WALL-FACE-TRIM-NO-CLASH lacks and is default-OFF for (its
+        //   symmetric retreat destroys committed mitres — see `_faceTrimNoClashEnabled`). Fixing
+        //   the clash HERE therefore needs no second, parallel trimming routine and cannot
+        //   re-open that cascade. The flag stays OFF and untouched.
+        const signedGap   = new THREE.Vector3().subVectors(secJoinEp, faceO).dot(faceN);
+        const reach       = Math.max(0,  signedGap);   // endpoint short of the face — open space
+        const penetration = Math.max(0, -signedGap);   // endpoint inside the host solid — a clash
+        const alongTrim   = trimPt.distanceTo(secJoinEp);
         const ALONG_RUNAWAY_CAP = MAX_CORNER_OFFSET * 3;
-        if (perpGap > MAX_CORNER_OFFSET || trimPt.distanceTo(secJoinEp) > ALONG_RUNAWAY_CAP) {
+
+        if (penetration > 0) {
+            // The endpoint is inside the host's band. `faceO` sits on the face the secondary
+            // approaches from, so a penetration beyond the FULL host thickness means the wall has
+            // emerged out the far side and terminates past it — a CROSSING, not a T-join, and not
+            // something an axial trim to this face expresses. Left alone (declared, not silently
+            // mis-handled).
+            //
+            // The along-axis retreat is not free to choose: clearing `penetration` costs
+            // `penetration / sin(approach)` along the secondary's own axis. It is therefore
+            // DETERMINED, and the only thing worth bounding is the approach angle — at a grazing
+            // approach the retreat grows without limit, and a wall running nearly ALONG its host
+            // is an authoring collision rather than a junction (the same case
+            // §FIX-WALL-FACE-TRIM-NO-CLASH declares out of scope as "trimming would delete the
+            // wall"). Capping the retreat at one host THICKNESS expresses exactly that: with a
+            // penetration of at most `hostHalfT` it admits every approach down to 30° off the
+            // host axis and refuses the grazing tail. Derived from the HOST, never from the
+            // camera — so the same drawing resolves identically at every zoom.
+            const PENETRATION_ALONG_CAP = hostWall.thickness;
+            if (penetration > hostWall.thickness + this.CLASH_EPS_M || alongTrim > PENETRATION_ALONG_CAP) {
+                console.warn(
+                    `[WallJoinResolver] §FIX-T-JOIN-PENETRATION T-JOIN: ${secondary.wallId}(${secondary.side}) ` +
+                    `penetrates host=${hostWallId} by ${(penetration * 1000).toFixed(1)} mm but the axial ` +
+                    `retreat (${(alongTrim * 1000).toFixed(1)} mm) exceeds one host thickness — grazing or ` +
+                    `through-crossing, not a T-join. Left un-trimmed.`,
+                );
+                return;
+            }
+        } else if (reach > MAX_CORNER_OFFSET || alongTrim > ALONG_RUNAWAY_CAP) {
             console.warn('[WallJoinResolver] T-JOIN: trim distance exceeds safety bound, skipping');
             return;
         }
