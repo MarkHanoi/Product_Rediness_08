@@ -49,7 +49,7 @@ import {
 import {
     buildRoomElementGroups,
     countRoomElements,
-    FACET_LABEL,
+    facetRefusalText,
     type RoomElement,
     type RoomElementCount,
     type RoomElementGroup,
@@ -538,7 +538,10 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         row.title =
             `${d.scope}\n\nreason: ${d.reason}\n${d.detail}` +
             `\n\nThis is NOT "the room has none" — the relationship was never recorded.`;
-        row.textContent = `⚠ ${FACET_LABEL[d.field]} — cannot determine (${d.reason})`;
+        // §REFUSAL-IDENTITY — rendered through the shared facetRefusalText()
+        // so the visible text carries the closed reason token (the refusal's
+        // identity) and cannot silently drop it in an inline template.
+        row.textContent = facetRefusalText(d);
         return row;
     }
 

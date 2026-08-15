@@ -15,6 +15,8 @@ import {
     buildRoomElementGroups,
     countRoomElements,
     facetIdsOrUnknown,
+    facetRefusal,
+    facetRefusalText,
     hostedOnWall,
     type HostedByWallStore,
 } from '../roomContentsFacets';
@@ -37,6 +39,23 @@ describe('facetIdsOrUnknown — absent is unknown, present-empty is an answer', 
         const unknown = facetIdsOrUnknown({ id: 'r' }, 'boundingColumnIds');
         const empty = facetIdsOrUnknown({ id: 'r', boundingColumnIds: [] }, 'boundingColumnIds');
         expect(unknown).not.toEqual(empty);
+    });
+});
+
+describe('facetRefusalText — the rendered refusal CARRIES its identity (§REFUSAL-IDENTITY, C58 §1.13 arm B)', () => {
+    it('the visible text contains the closed reason token verbatim, not just prose', () => {
+        const text = facetRefusalText(facetRefusal('r1', 'boundingSlabIds'));
+        // DIFFERENTIATING: a generic "cannot determine" sentence without the
+        // token would pass a prose check but is unattributable — the exact
+        // defect check-refusal-identity arm B names. The token is the identity.
+        expect(text).toContain('RELATIONSHIP_NOT_RECORDED');
+        expect(text).toContain('Bounding slabs');
+    });
+
+    it('the two facets render DISTINGUISHABLE refusals (identity is per-facet, not one shrug)', () => {
+        const slabs = facetRefusalText(facetRefusal('r1', 'boundingSlabIds'));
+        const cols = facetRefusalText(facetRefusal('r1', 'boundingColumnIds'));
+        expect(slabs).not.toEqual(cols);
     });
 });
 

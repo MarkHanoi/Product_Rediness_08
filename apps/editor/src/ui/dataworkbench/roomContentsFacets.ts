@@ -92,6 +92,19 @@ export function facetRefusal(roomId: string | undefined, field: RoomFacetField):
     };
 }
 
+/**
+ * §REFUSAL-IDENTITY (C58 §1.13 arm B) — THE render for a facet refusal row.
+ * The visible text carries the refusal's IDENTITY — the closed
+ * `RELATIONSHIP_NOT_RECORDED` reason token — verbatim, so the user can
+ * attribute the refusal to its rule rather than reading a generic
+ * "not applicable". Pure and shared so the panel cannot drift back to an
+ * inline template that drops the token (the exact regression
+ * check-refusal-identity names).
+ */
+export function facetRefusalText(d: RoomFacetRefusal): string {
+    return `⚠ ${FACET_LABEL[d.field]} — cannot determine (${d.reason})`;
+}
+
 // ── Hosted elements via bounding walls ───────────────────────────────────────
 
 /** Minimal store shape for door/window hosted lookups. */
