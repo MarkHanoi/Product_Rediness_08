@@ -3,7 +3,7 @@
 > **Stamp**: 2026-08-14 · **Status**: CANONICAL
 > **Authority**: subordinate to [STR-01-manifesto.md](./STR-01-manifesto.md), [STR-02-product-vision.md](./STR-02-product-vision.md) and [STR-03-engineering-vision.md](./STR-03-engineering-vision.md). **Defers entirely to [C70](../02-decisions/contracts/C70-BIM30-TARGET-AND-GOLDEN-CHAIN.md) on what BIM 3.0 IS** — this document restates none of C70's invariants, it translates them. Where this document and C70 disagree, **C70 wins**; where this document and a gate run disagree, **the run wins** (C70 §0.2).
 > **Scope**: the founder-facing, non-engineer explanation of the BIM 3.0 programme — what the target means, why the reporting is worded the way it is, what the two halves of "100 %" buy, what a user can do today, and what the twelve pillars mean in one sentence each. It exists because that explanation was reconstructed from scratch three times in three sessions and lost each time.
-> **What this document is NOT**: a status board. It carries **no counted figure**, by rule (§0.1). The counted figure lives in [`BIM30-GAP-REGISTER.md`](../04-reference/BIM30-GAP-REGISTER.md) §9.0 and in the gates.
+> **What this document is NOT**: a status board. It carries **no counted figure**, by rule (§0.1). The counted figure lives in [`BIM30-MASTER-COMPLETION-TRACKER.md`](../03-execution/plans/BIM30-MASTER-COMPLETION-TRACKER.md) — which absorbed the gap register's 82 rows — and in the gates.
 > **Origin**: founder question, 2026-08-14 — *"in plain words, what has been done, what are we meant to do, what is in Half 1 and Half 2, and what would the user gain?"*
 
 ---
@@ -19,7 +19,8 @@
 > The reason is not pedantry. This repository has measured the cost twice: a forecast of "~74 of
 > 82 rows closable" was **23 rows high** because it counted rows for which *a lane had produced
 > evidence* rather than rows for which *the recount had re-run the gate*
-> ([`BIM30-NEXT-SESSION-BRIEF.md`](../03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md) §12.7). A
+> ([`BIM30-IMPLEMENTATION-ROADMAP.md`](../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md)
+> §7B.3, which absorbed `BIM30-NEXT-SESSION-BRIEF.md` §12.7). A
 > plain-words document is exactly where a stale number does the most damage, because it is the
 > document a non-engineer quotes.
 
@@ -102,8 +103,9 @@ number to a client and defend it.
 cannot design at 100 % of Half 1. That capability lives in the typology packs and the executors —
 a different axis with its own roadmap ([typology-expansion-roadmap](../03-execution/plans/typology-expansion-roadmap.md)).
 
-*Instrument*: [`BIM30-GAP-REGISTER.md`](../04-reference/BIM30-GAP-REGISTER.md) §9.0 — the counted
-status distribution, re-stamped only from executed gate runs (its own §0.0 rule 2).
+*Instrument*: [`BIM30-MASTER-COMPLETION-TRACKER.md`](../03-execution/plans/BIM30-MASTER-COMPLETION-TRACKER.md)
+— the counted status distribution over the 82 gap-register rows it absorbed, re-stamped only from
+executed gate runs.
 
 ### §3.2 — Half 2: "know what your change breaks" — bar 3
 
@@ -184,8 +186,9 @@ These stop being "no":
 **An architect's week is mostly modification, not generation.** You do not design a building once;
 you iterate it fifty times. That is the difference between a product that wins a demo and one that
 wins a renewal. The full scenario-by-scenario assessment is
-[`BIM30-NEXT-SESSION-BRIEF.md`](../03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md) §9 — read it there
-rather than restating its verdicts here.
+carried in [`BIM30-MASTER-COMPLETION-TRACKER.md`](../03-execution/plans/BIM30-MASTER-COMPLETION-TRACKER.md)
+(absorbed from `BIM30-NEXT-SESSION-BRIEF.md` §9) — read it there rather than restating its
+verdicts here.
 
 ### §4.4 — Collaboration is a purchase decision, not an engineering one
 
@@ -263,6 +266,6 @@ Half 2 makes it worth working in.
 - [C78 — Universal relationship & consequence contract](../02-decisions/contracts/C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) — the three legal answers; bar 3's subject.
 - [C81 — Design edit & intent preservation](../02-decisions/contracts/C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md) — the edit layer, and §0.2(b)'s correction that bar 3 is necessary but not sufficient.
 - [C75 — Provenance](../02-decisions/contracts/C75-PROVENANCE.md) · [C66 — Concurrency & scale](../02-decisions/contracts/C66-CONCURRENCY-AND-SCALE.md) · [C82 — Ribbon capability surface](../02-decisions/contracts/C82-RIBBON-CAPABILITY-SURFACE.md).
-- [`BIM30-GAP-REGISTER.md`](../04-reference/BIM30-GAP-REGISTER.md) — the counted status. **The number lives there, not here.**
-- [`BIM30-NEXT-SESSION-BRIEF.md`](../03-execution/plans/BIM30-NEXT-SESSION-BRIEF.md) §9 — the 32-scenario assessment; §13 — the strategic path.
+- [`BIM30-MASTER-COMPLETION-TRACKER.md`](../03-execution/plans/BIM30-MASTER-COMPLETION-TRACKER.md) — the counted status over the 82 gap-register rows, and the 32-scenario assessment. **The number lives there, not here.**
+- [`BIM30-IMPLEMENTATION-ROADMAP.md`](../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md) — the plan: §3 Half 1 phases A–H, §4 Half 2 bar 3, §10.5 the strategic read.
 - [STR-05-bim30-founder-directive.md](./STR-05-bim30-founder-directive.md) · [STR-06-bim30-reasoning-loop-directive.md](./STR-06-bim30-reasoning-loop-directive.md) — the two founder directives this document explains the shape of.

@@ -5,8 +5,9 @@
 > chain has a root before anything cites it (the STR-05 lesson).
 >
 > **Reading rule**: this file is the intent; ADR-0322/0323/0324 and
-> [`BIM30-REASONING-LOOP-PLAN.md`](../03-execution/plans/BIM30-REASONING-LOOP-PLAN.md) are the
-> binding interpretation. Where they disagree, raise a finding — do not pick.
+> [`BIM30-IMPLEMENTATION-ROADMAP.md`](../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md) §5
+> — the R0–R9 loop, which absorbed `BIM30-REASONING-LOOP-PLAN.md` when that document was deleted
+> 2026-08-15 — are the binding interpretation. Where they disagree, raise a finding — do not pick.
 
 ## The principle at the top
 

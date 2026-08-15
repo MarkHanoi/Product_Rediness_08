@@ -6,7 +6,9 @@
   `tools/rac-conformance/gesture-reach/results/gesturereach.json`) · the Phase-1 verb backing
   census (`ae659c96`, `results/verb-census.json`) · the Phase-3 refusal machinery (`4bfe86f0`) ·
   `BIM30-NEXT-SESSION-BRIEF.md` §11.3 item 2, where the decision sat OPEN as *"Toolbar
-  mount-or-delete (267 dead verbs)"*
+  mount-or-delete (267 dead verbs)"* (that brief was deleted in the 2026-08-15 corpus collapse —
+  see git history; the open founder decisions it carried are now in
+  [`BIM30-IMPLEMENTATION-ROADMAP.md`](../../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md) §9)
 - **Constrains**: the 30 toolbar surfaces in `apps/editor/src/ui/toolbar/*.ts` and every mount PR
   over them; governed in the ongoing tense by
   [C82](../contracts/C82-RIBBON-CAPABILITY-SURFACE.md), which this ADR is the decision behind —

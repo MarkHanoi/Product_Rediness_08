@@ -15,8 +15,10 @@
 > of it.
 >
 > **Reading rule**: this is the founder's own wording. Where it disagrees with a derived
-> document (`BIM30-TARGET-DEFINITION.md`, `BIM30-CAPABILITY-MODEL.md`, the C70–C75 contracts,
-> the gap register, the roadmap, the architecture-impact statement), **this file is the intent
+> document (the C70–C75 contracts, `BIM30-IMPLEMENTATION-ROADMAP.md`,
+> `BIM30-MASTER-COMPLETION-TRACKER.md` — the two documents the derived corpus was collapsed into
+> on 2026-08-15, absorbing the target definition, the capability model, the gap register and the
+> architecture-impact statement), **this file is the intent
 > and the derived document is the interpretation** — but the CONTRACTS remain binding on
 > implementation, per the conflict-resolution order in `CLAUDE.md`. A disagreement between the
 > two is a finding to raise, not a licence to pick whichever is convenient.
@@ -156,7 +158,9 @@ remains authoritative).
 
 ## 8. Architecture decision gate
 
-Before ANY architecture/topology rewrite, `BIM30-ARCHITECTURE-IMPACT.md` must answer: why can't
+Before ANY architecture/topology rewrite, a row in the architecture-impact register — now held at
+[`BIM30-IMPLEMENTATION-ROADMAP.md`](../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md) §6.4,
+which absorbed `BIM30-ARCHITECTURE-IMPACT.md` — must answer: why can't
 the existing system do this · what existing subsystem was attempted · what extension was
 attempted · why did extension fail · what is the smallest architectural change · what existing
 projects break · what persistence changes · what migration is required · what collaboration
@@ -213,6 +217,12 @@ create, modify, save, reload, undo, redo, regeneration, and collaboration where 
 session, preserving its normative content, its wording where load-bearing, and its emphases. It
 is not a paraphrase-for-brevity: every MUST, MUST NOT and default stated in the original is
 carried. Where the original enumerated examples at greater length (the capability inventory of
-§5, the canonical operation list, the candidate gate list), the derived documents —
-`BIM30-CAPABILITY-MODEL.md`, `BIM30-CERTIFICATION-PLAN.md`, `BIM30-READINESS-GATES.md` — carry
-those enumerations in full and are the working reference for them.*
+§5, the canonical operation list, the candidate gate list), those enumerations were carried in full
+by three derived documents — `BIM30-CAPABILITY-MODEL.md`, `BIM30-CERTIFICATION-PLAN.md`,
+`BIM30-READINESS-GATES.md` — **all three deleted in the 2026-08-15 corpus collapse**. Two were
+absorbed and their content is the working reference at
+[`BIM30-IMPLEMENTATION-ROADMAP.md`](../03-execution/plans/BIM30-IMPLEMENTATION-ROADMAP.md): the
+gate-engineering rules and the candidate gate list at **§7**, the certification-suite sequence at
+**§7.8**. ⚠ **The capability inventory was NOT carried forward by either surviving document** —
+it is recoverable from `BIM30-CAPABILITY-MODEL.md` in git history only, and no live document is
+its working reference.*
