@@ -15,7 +15,7 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1240 (floor 900) |
+| Handler files read | 1248 (floor 900) |
 | **Verbs** | **325** (floor 250) |
 | LIVE | 117 |
 | REFUSES | 36 |
@@ -229,7 +229,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `room.setMaterial` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `room.setName` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (last-writer-wins) | classified D |
 | `room.setNumber` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | capability: set-room-number |
-| `room.setOccupancy` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | classified B |
+| `room.setOccupancy` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | capability: set-room-occupancy |
 | `room.updateBoundary` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified C |
 | `schedule.column.add` | plugins/schedules | UNKNOWN | UNKNOWN | patch-pair → schedule | n/a (not a property verb) | classified B |
 | `schedule.column.remove` | plugins/schedules | UNKNOWN | UNKNOWN | patch-pair → schedule | n/a (not a property verb) | classified B |
