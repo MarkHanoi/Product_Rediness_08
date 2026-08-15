@@ -118,19 +118,27 @@ describe('§ROOF-FOLLOWS-WALL — a roof and a wall that moves under it', () => 
     });
 
     /**
-     * The baseline, as a NUMBER rather than as a missing import — so the red is
-     * legible without reference to any module that does not exist yet. The only
-     * wall-move machinery reachable from a roof is none: `packages/geometry-roof`
-     * has no `wallStore.subscribe` site (the complete census of the 16 that exist
-     * is door ×2, window ×2, slab ×2, wall ×3, room-topology, finish-host and
-     * four snap providers — no roof entry), so nothing observes the move at all.
+     * THE BASELINE THIS SUITE WAS COMMITTED RED ON (86d1d4e0), kept as the
+     * regression pin so the number that made the case cannot quietly return:
+     *
+     *   × MEASURED TODAY — a bounding wall moves 2 m and the roof record does not change
+     *     AssertionError: expected 36 to be close to 48, received difference is 12
+     *
+     * Both halves are asserted together, because the point was never that 36 is
+     * wrong — it is the correct authoring-time area — but that NOTHING carried
+     * the record from 36 to 48 when the region did. The un-recomputed record
+     * still reads 36 (data is not magic); routing it through the re-derivation
+     * now reads 48.
      */
-    it('MEASURED TODAY — a bounding wall moves 2 m and the roof record does not change', () => {
+    it('REGRESSION PIN — the 36 m² record now reaches 48 m² through the re-derivation', async () => {
         const roof = roofFromTrace(room6x6(), 3, 3);
-        moveNorthWall(room6x6(), 2); // the move happens; no roof code observes it
+        expect(areaOf(roof.footprint.polygon)).toBeCloseTo(36, 6); // the old value
 
-        // DESIRED: the record follows the region it was derived from, 36 → 48 m².
-        expect(areaOf(roof.footprint.polygon)).toBeCloseTo(48, 6);
+        const { recomputeRoofForWall } = await import('../src/RoofDependencyTracker');
+        const [verdict] = recomputeRoofForWall([roof], moveNorthWall(room6x6(), 2), 'w-north');
+
+        expect(areaOf(verdict!.footprint!.polygon)).toBeCloseTo(48, 6); // the new one
+        expect(verdict!.numbers).toEqual({ oldAreaM2: 36, newAreaM2: 48 });
     });
 
     it("ARM 1 — the roof's STORED footprint follows a 2 m move of a bounding wall", async () => {

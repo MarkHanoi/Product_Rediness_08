@@ -48,6 +48,48 @@ export type {
     RegionWallLike,
 } from './RoofRegionTrace';
 
+// §ROOF-FOLLOWS-WALL (GR-12 · C79 §5.1/§5.2 · C78 §8.1) — a roof FOLLOWS the
+// walls it was traced from, or says `undetermined` with a typed reason.
+//
+// Exported from the barrel because the three sites that must call it all live
+// OUTSIDE this package and cannot be written from inside it: an
+// `UpdateRoofBoundaryCommand` in `packages/command-registry`, the tracker's
+// construction in `apps/editor/src/engine/initTools.ts` beside the other three
+// families, and the population of `boundingWallIds` at creation on BOTH
+// by-region paths (C79 §7.4 — one path alone is worse than none). See
+// `RoofDependencyTracker.ts`'s header for the exact contract each owes.
+export {
+    RoofDependencyTracker,
+    recomputeRoofForWall,
+    roofRegionReferenceFromTrace,
+} from './RoofDependencyTracker';
+export type {
+    RoofRecordLike,
+    RoofBoundaryWritePayload,
+    RoofBoundaryCommandFactory,
+    RoofBoundaryCommandLike,
+    RoofCommandExecutor,
+    RoofWallStoreRef,
+    RoofStoreLike,
+} from './RoofDependencyTracker';
+export {
+    classifyRoofRecompute,
+    worstRoofRecomputeState,
+    ringsEqualCyclicXZ,
+    signedAreaXZ,
+    selfIntersectsXZ,
+    toStoredFootprint,
+    toWorldRing,
+    ROOF_RECOMPUTE_STATE_ORDER,
+} from './roofRecomputeVerdict';
+export type {
+    RoofRecomputeState,
+    RoofRecomputeUndeterminedReason,
+    RoofRecomputeVerdict,
+    RoofRegionResolution,
+    RoofXZ,
+} from './roofRecomputeVerdict';
+
 export { RoofSnapEngine } from './RoofSnapEngine';
 export type { SnapType, SnapResult } from './RoofSnapEngine';
 
