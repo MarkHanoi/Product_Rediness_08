@@ -210,6 +210,10 @@ let compiled = 0;
 
 let anyFailed = false;
 const failures: string[] = [];
+/** Failures with ≥1 error in the package's OWN source — real, actionable work. */
+const ownSourceFailures: string[] = [];
+/** Failures with ZERO own-source errors — they fail only via a broken dependency. */
+const cascadeOnlyFailures: string[] = [];
 /** Ledgered exclusions that were compiled and DID fail — the expected state. */
 const excludedStillFailing: string[] = [];
 /** Ledgered exclusions that compiled CLEANLY — paid debt that never left the ledger. */
@@ -279,6 +283,45 @@ for (const pkgName of pkgNames) {
   // downstream. Same class of win32 defect as §PER-PACKAGE-COMPILE-WAS-GREEN-AND-BLIND.
   const errorLines = output.split(/\r?\n/).filter((l) => l.includes(': error TS'));
 
+  /**
+   * §MT-09-ISOLATION-IS-NOT-ISOLATED (2026-08-15, S3) — OWN vs FOREIGN errors.
+   *
+   * Every workspace package sets `"types": "./src/index.ts"` in its package.json —
+   * raw TypeScript SOURCE, not built declarations. So compiling package X does not
+   * compile X; it compiles X plus the ENTIRE TRANSITIVE SOURCE CLOSURE of everything
+   * X imports. The consequence is that this gate's failure count has never measured
+   * per-package health:
+   *
+   *   editor-ui       1855 errors — ZERO of them its own
+   *   engine          1854 errors — ZERO of them its own
+   *   geometry-beam     45 errors — ZERO of them its own
+   *   geometry-column 1854 errors — ONE of them its own
+   *
+   * A package with no defect of its own reads FAIL because something it imports has
+   * one. "26 packages fail isolated compilation" therefore measures REACHABILITY TO A
+   * BROKEN DEPENDENCY, not 26 broken packages — and the dependencies doing the
+   * breaking (command-registry, core-app-model, constraint-solver) are already on the
+   * skip ledger. The number was counting the ledger's own contents, reflected.
+   *
+   * tsc reports foreign files by a path that escapes the package root, so the split is
+   * decidable from the error text alone. Both halves are printed. The EXIT CODE IS
+   * UNCHANGED — a cascade failure is still a failure, because a package that cannot be
+   * compiled cannot be shipped in isolation either. This reports what the red MEANS;
+   * it does not make any of it green.
+   *
+   * The structural fix is packages consuming built .d.ts (composite + references +
+   * `types: ./dist/index.d.ts`) rather than each other's source — the same fix the
+   * `headless` ledger row already names as its exit condition. That is an
+   * architecture-wide change, not a per-package one, and it is NOT taken here.
+   */
+  const foreignErrorLines = errorLines.filter((l) => /^\.\.[\\/]/.test(l.trim()));
+  const ownErrorCount = errorLines.length - foreignErrorLines.length;
+  const foreignPkgs = [...new Set(
+    foreignErrorLines
+      .map((l) => /^\.\.[\\/]([^\\/]+)[\\/]/.exec(l.trim())?.[1])
+      .filter((n): n is string => n !== undefined),
+  )].sort();
+
   if (isExcluded) {
     // Measured, but not counted against the exit code. Both outcomes are reported —
     // a clean compile here is a LEDGER VIOLATION, not a quiet success.
@@ -300,8 +343,26 @@ for (const pkgName of pkgNames) {
   }
 
   if (hasErrors) {
-    console.error(`  FAIL  packages/${pkgName}`);
-    for (const line of errorLines.slice(0, 8)) {
+    console.error(
+      `  FAIL  packages/${pkgName}`
+      + `  [own ${ownErrorCount} · foreign ${foreignErrorLines.length}`
+      + `${foreignPkgs.length > 0 ? ` via ${foreignPkgs.join(',')}` : ''}]`,
+    );
+    if (ownErrorCount === 0) {
+      cascadeOnlyFailures.push(pkgName);
+      console.error(
+        '        ⤷ CASCADE ONLY — zero errors in this package\'s own source. It fails'
+        + ' because\n          it imports a package that fails. See §MT-09-ISOLATION-IS-NOT-ISOLATED.',
+      );
+    } else {
+      ownSourceFailures.push(pkgName);
+    }
+    // Show OWN errors first — they are the only ones this package can act on.
+    const ownFirst = [
+      ...errorLines.filter((l) => !/^\.\.[\\/]/.test(l.trim())),
+      ...foreignErrorLines,
+    ];
+    for (const line of ownFirst.slice(0, 8)) {
       console.error(`        ${line.trim()}`);
     }
     failures.push(pkgName);
@@ -338,6 +399,8 @@ console.log(`[per-package-compile]   tsconfig-bearing packages : ${tsconfigBeari
 console.log(`[per-package-compile]   compiled (tsc actually ran): ${compiled}   · floor ${MIN_COMPILED_SUBJECTS}`);
 console.log(`[per-package-compile]   excluded by ledger         : ${excluded}   · ceiling ${SKIP_CEILING}`);
 console.log(`[per-package-compile]   FAILED                     : ${failures.length}`);
+console.log(`[per-package-compile]     ├ own-source errors      : ${ownSourceFailures.length}   (actionable here)`);
+console.log(`[per-package-compile]     └ CASCADE ONLY           : ${cascadeOnlyFailures.length}   (zero own errors — a dependency's fault)`);
 console.log(`[per-package-compile]   passing in isolation       : ${passing}`);
 console.log(
   `[per-package-compile]   NOT PROVEN to compile      : ${excluded + failures.length}`
@@ -371,6 +434,25 @@ if (anyFailed) {
   console.error(
     `[per-package-compile] ❌ ${failures.length} of ${tsconfigBearing.length} package(s) failed: ${failures.join(', ')}`,
   );
+  if (ownSourceFailures.length > 0) {
+    console.error(
+      `[per-package-compile]    ${ownSourceFailures.length} with OWN-SOURCE errors (fixable in the package): `
+      + `${ownSourceFailures.join(', ')}`,
+    );
+  }
+  if (cascadeOnlyFailures.length > 0) {
+    console.error(
+      `[per-package-compile]    ${cascadeOnlyFailures.length} CASCADE-ONLY — zero own errors, red purely via a `
+      + `broken dependency:\n[per-package-compile]      ${cascadeOnlyFailures.join(', ')}`,
+    );
+    console.error(
+      '[per-package-compile]    Fixing these packages is not possible IN these packages. See'
+      + '\n[per-package-compile]    §MT-09-ISOLATION-IS-NOT-ISOLATED: every workspace package sets'
+      + '\n[per-package-compile]    "types": "./src/index.ts", so each compile drags in the full source'
+      + '\n[per-package-compile]    closure of its dependencies. The fix is built .d.ts + project'
+      + '\n[per-package-compile]    references, repo-wide.',
+    );
+  }
   console.error('[per-package-compile] Fix TypeScript errors above before merging.');
   process.exit(1);
 }
