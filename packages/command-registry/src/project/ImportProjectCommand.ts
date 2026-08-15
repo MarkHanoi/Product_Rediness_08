@@ -86,6 +86,11 @@ import {
     buildAIElementRestorePayload,
     buildLightingRestorePayload,
 } from './projectLoaderUtils';
+// §REFUSAL-IDENTITY (GE-09, C58 §1.13.8) — the ONE renderer for a child command's
+// refusal at an orchestrating seam. `runSub` IS such a seam: it validates and runs
+// N per-element sub-commands and folds each outcome into `stats.errors`, which is
+// what the load report shows the user.
+import { childRefusalText } from '../refusal/childRefusalText';
 import { ClearProjectCommand } from './ClearProjectCommand';
 import { AddLevelCommand } from '../levels/AddLevelCommand';
 import { AddGridCommand } from '../grids/AddGridCommand';
@@ -136,6 +141,34 @@ import { windowStore } from '@pryzm/geometry-window';
  * residential building (≈ 800 elements → ≈ 7 chunks/yields).
  */
 export const IMPORT_CHUNK_SIZE = 120;
+
+/**
+ * §REFUSAL-IDENTITY (GE-09) — name the sub-command that refused.
+ *
+ * Prefers the CLASS name (`CreateWallCommand`) over `cmd.type`
+ * (`CREATE_WALL`), because the class name is what a reader greps for when the
+ * absence marker sends them to find the under-reporting validator — which is
+ * the entire point of naming a silence. Falls back to `type`, then to a stated
+ * unknown; it must never throw inside a refusal renderer.
+ */
+function subCommandName(cmd: Command): string {
+    const ctorName = (cmd as { constructor?: { name?: string } }).constructor?.name;
+    if (ctorName && ctorName !== 'Object') return ctorName;
+    return String(cmd.type ?? 'unknown sub-command');
+}
+
+/**
+ * §REFUSAL-IDENTITY (GE-09) — name WHAT the sub-command declined, so N grouped
+ * import-error lines stay attributable per element rather than collapsing into
+ * N identical sentences about a class.
+ */
+function subCommandSubject(cmd: Command): string {
+    const ids = cmd.targetIds;
+    if (Array.isArray(ids) && ids.length > 0) {
+        return ids.length === 1 ? `element ${ids[0]}` : `elements ${ids.join(', ')}`;
+    }
+    return `a ${String(cmd.type ?? 'unknown')} sub-command with no declared targetIds`;
+}
 
 /**
  * Mutable bookkeeping owned by the command and read by the caller after
@@ -264,10 +297,23 @@ export class ImportProjectCommand implements Command {
             try {
                 const validation = cmd.canExecute(ctx);
                 if (!validation.ok) {
+                    // §REFUSAL-IDENTITY (GE-09) — SEAM 1, the canExecute aggregation.
+                    // Was `validation.reason ?? 'Sub-command validation failed'`, which
+                    // collapsed two different facts onto one sentence: the sub-command
+                    // refused AND said why, versus it refused AND SAID NOTHING. On a
+                    // project import that second case is the expensive one — it is the
+                    // only signal that a per-element validator is under-reporting, and
+                    // the manufactured sentence hid it behind the grammar of an
+                    // explanation. A stated reason now passes VERBATIM; a silent one is
+                    // NAMED as a silence, attributed to the sub-command that went quiet.
                     return {
                         success: false,
                         affectedElementIds: [],
-                        info: [validation.reason ?? 'Sub-command validation failed'],
+                        info: [childRefusalText(
+                            validation.reason,
+                            `${subCommandName(cmd)}.canExecute`,
+                            subCommandSubject(cmd),
+                        )],
                     };
                 }
                 return cmd.execute(ctx);
@@ -281,7 +327,17 @@ export class ImportProjectCommand implements Command {
         };
         const recordFail = (label: string, r: CommandResult) => {
             stats.failed++;
-            const msg = `${label}: ${r.error ?? r.info?.join(', ') ?? 'failed'}`;
+            // §REFUSAL-IDENTITY (GE-09) — SEAM 2, the execute-failure fold. Was
+            // `r.error ?? r.info?.join(', ') ?? 'failed'`. A sub-command whose
+            // execute() returns `success: false` carrying NO error and NO info is
+            // exactly the silent child this doctrine exists for, and 'failed' is the
+            // canonical manufactured verdict: it reads as information about the
+            // element when it is in fact information about the validator.
+            // `r.info?.join(', ')` on an EMPTY array yields '', which `??` would have
+            // passed through as a real (blank) reason — so the emptiness is folded to
+            // `undefined` before the renderer sees it.
+            const stated = r.error ?? (r.info && r.info.length > 0 ? r.info.join(', ') : undefined);
+            const msg = `${label}: ${childRefusalText(stated, 'ImportProjectCommand.runSub', label)}`;
             stats.errors.push(msg);
             console.warn(`[ImportProjectCommand] Failed: ${msg}`);
         };
@@ -364,7 +420,19 @@ export class ImportProjectCommand implements Command {
             // the bim-X-added events that follow.
             const clearResult = runSub(new ClearProjectCommand());
             if (!clearResult.success) {
-                const msg = 'ClearProjectCommand failed: ' + (clearResult.error ?? 'unknown');
+                // §REFUSAL-IDENTITY (GE-09) — SEAM 3, and the one that would have
+                // DEFEATED seam 1. This read `clearResult.error` only, and `runSub`
+                // reports a validation refusal in `info`, never in `error` — so a
+                // ClearProjectCommand that refused with a perfectly good stated
+                // reason arrived here as the word 'unknown', and the whole project
+                // load aborted with a message that named nothing. Read BOTH channels
+                // in the order runSub writes them, then render through the shared
+                // renderer so a genuinely silent refusal is named rather than
+                // relabelled 'unknown'.
+                const stated = clearResult.error
+                    ?? (clearResult.info && clearResult.info.length > 0 ? clearResult.info.join(', ') : undefined);
+                const msg = 'ClearProjectCommand failed: '
+                    + childRefusalText(stated, 'ClearProjectCommand', 'the whole-project clear step');
                 stats.errors.push(msg);
                 return { success: false, affectedElementIds: [], error: msg };
             }

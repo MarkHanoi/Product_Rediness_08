@@ -31,6 +31,11 @@ import { resolveElementRebuildDescriptor, isGeometryAffectingChange } from './El
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812/L-814) — the SINGLE rake gate, shared with
 // WallDataSchema / WallStore.update / WallStore.addOpening / UpdateWallSystemTypeCommand.
 import { rakeAuthorability } from '@pryzm/geometry-wall';
+// §REFUSAL-IDENTITY (GE-09, C58 §1.13.8) — the ONE renderer for a refusal arriving
+// from a validator this command orchestrates but does not own (`validateParameters`,
+// `rakeAuthorability`). A stated reason passes VERBATIM; a silent validator is NAMED
+// as silent instead of being papered over with a manufactured verdict.
+import { childRefusalText } from '../refusal/childRefusalText';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -145,11 +150,23 @@ export class UpdateElementParameterCommand implements Command {
         } as Parameters<typeof rakeAuthorability>[0]);
         if (auth.ok) return null;
 
+        // §REFUSAL-IDENTITY (GE-09) — the same doctrine at the canExecute seam. The
+        // rake gate is `@pryzm/geometry-wall`'s `rakeAuthorability`, a validator this
+        // command orchestrates but does not own; when it refuses it normally states a
+        // precise sentence ("…not supported on a LAYERED wall"), and that sentence
+        // must reach the user VERBATIM. The old fallback
+        // (`'the rake is not authorable on this wall.'`) restated the refusal's
+        // premise as though it were its cause — the user learns nothing and the
+        // silent gate stays hidden.
         return {
             ok: false,
             reason:
                 `This wall can't be angled (raked) as it is now — ` +
-                `${auth.reason ?? 'the rake is not authorable on this wall.'}`,
+                childRefusalText(
+                    auth.reason,
+                    'rakeAuthorability',
+                    `wall ${this.input.elementId}`,
+                ),
         };
     }
 
@@ -181,10 +198,23 @@ export class UpdateElementParameterCommand implements Command {
 
         const validated = this.validateParameters(parameters, elementType);
         if (!validated.ok) {
+            // §REFUSAL-IDENTITY (GE-09) — the EXECUTE-time validation seam. Was
+            // `validated.reason ?? 'Parameter validation failed'`. `info[0]` is
+            // rendered straight into the operation overlay and the RAC chat, so that
+            // literal was a sentence with the grammatical shape of an explanation and
+            // the information content of a shrug — and, being indistinguishable from a
+            // real reason, it HID the under-reporting validator. `validateParameters`
+            // states a reason on every branch it has TODAY; the point of routing
+            // through the shared renderer is that the first branch which forgets to
+            // becomes visible instead of invisible.
             return {
                 success: false,
                 affectedElementIds: [],
-                info: [validated.reason ?? 'Parameter validation failed']
+                info: [childRefusalText(
+                    validated.reason,
+                    'UpdateElementParameterCommand.validateParameters',
+                    `${elementType}/${elementId}`,
+                )]
             };
         }
 

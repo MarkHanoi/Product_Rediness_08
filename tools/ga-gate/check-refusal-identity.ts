@@ -228,14 +228,35 @@ const BASELINE: readonly Offender[] = [
     // FIXED + DE-LISTED 2026-08-14 (GE-09v3, ceilings family): all three seams of
     // UpdateCeilingsSystemTypeBatchCommand render through the shared
     // childRefusalText(). Baseline 81 → 79.
-    { file: "packages/command-registry/src/CommandManagerImpl.ts", fragment: "const _human = validation.blockingIssues?.[0] || validation.reason || 'Validation failed';", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/CommandManagerImpl.ts", fragment: "return { success: false, affectedElementIds: [], info: [validation.reason || 'Validation failed'] };", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-15 (GE-09v4, DISPATCHER family — the WIDEST refusal
+    // seam in the product: every command in the app passes through CommandManager, so
+    // the manufactured 'Validation failed' both its drivers emitted was the single
+    // most-rendered laundered refusal in PRYZM). BOTH drivers (`execute` and the
+    // chunked `executeChunked`) now render through the shared childRefusalText(), and
+    // the chunked one additionally gained the L-813 blockingIssues preference it had
+    // silently lacked — the two drivers had DISAGREED about what the same refusal
+    // says. Baseline 70 → 68.
+    // ⚠ These two rows were paid at source by the same in-tree work that struck the
+    // project row below, but were left LISTED — the gate reported them as stale and
+    // exited 3. A dead row is the safe direction (it cannot pass a real regression)
+    // but it can absorb a NEW violation at the same file silently. Struck here.
     // FIXED + DE-LISTED 2026-08-14 (GE-09v2, doors family): UpdateDoorsSystemTypeBatchCommand
     // now renders child refusals through the shared childRefusalText() — a stated reason
     // passes VERBATIM; a silent child arrives as [REFUSED_WITHOUT_REASON] + validator +
     // subject instead of the manufactured 'refused'. Baseline 85 → 83.
-    { file: "packages/command-registry/src/generic/UpdateElementParameterCommand.ts", fragment: "info: [validated.reason ?? 'Parameter validation failed']", why: "arm A — measured 2026-08-11" },
-    { file: "packages/command-registry/src/project/ImportProjectCommand.ts", fragment: "info: [validation.reason ?? 'Sub-command validation failed'],", why: "arm A — measured 2026-08-11" },
+    // FIXED + DE-LISTED 2026-08-15 (GE-09v4, GENERIC-PARAMETER family). Both seams of
+    // UpdateElementParameterCommand render through the shared childRefusalText(): the
+    // execute-time `validateParameters` fold, and the canExecute rake gate — whose old
+    // fallback ('the rake is not authorable on this wall.') restated the refusal's
+    // PREMISE as though it were its CAUSE. Baseline 68 → 67, and this row too was paid
+    // at source but left listed by the same in-tree work. Struck here.
+    // FIXED + DE-LISTED 2026-08-15 (GE-09v4, project family — the FIRST of the
+    // ORCHESTRATOR families, after the five BATCH families). All three seams of
+    // ImportProjectCommand's sub-command runner render through the shared
+    // childRefusalText(): the canExecute fold, the recordFail execute-failure fold
+    // (which also stopped treating an EMPTY info array as a stated blank reason),
+    // and the ClearProjectCommand step — which read `.error` only and so relabelled
+    // every stated validation refusal as the word 'unknown'. Baseline 71 → 70.
     // FIXED + DE-LISTED 2026-08-14 (GE-09v3, slabs family): all three seams of
     // UpdateSlabsSystemTypeBatchCommand render through the shared
     // childRefusalText(). Baseline 79 → 77.

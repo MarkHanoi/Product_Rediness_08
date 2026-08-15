@@ -1,6 +1,12 @@
 import { enablePatches } from 'immer';
 import { Command, CommandResult, CommandContext } from './types';
 import { CompositeCommand } from './composite/CompositeCommand';
+// §REFUSAL-IDENTITY (GE-09, C58 §1.13.8) — the ONE renderer for a refusal arriving
+// from a command this dispatcher orchestrates but does not own. This is the WIDEST
+// such seam in the product: every command in the app passes through it, so the
+// manufactured 'Validation failed' it used to emit was the single most-rendered
+// laundered refusal in PRYZM.
+import { childRefusalText } from './refusal/childRefusalText';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 
@@ -16,6 +22,40 @@ enablePatches();
 // never admitted it. Naming it lets execute() compose cascades into their
 // spawning gesture instead of comparing against a value the type denies.
 export type CommandSource = 'HUMAN_DIRECT' | 'AI_PROPOSAL' | 'REMOTE' | 'PROJECT_LOAD' | 'STRUCTURAL_CASCADE';
+
+/**
+ * §REFUSAL-IDENTITY (GE-09) — name the command that refused without stating why.
+ *
+ * Prefers the CLASS name (`UpdateWallSystemTypeCommand`) over `type`
+ * (`UPDATE_WALL_SYSTEM_TYPE`): the class name is what a reader greps for when the
+ * absence marker sends them to find the command with the missing refusal message,
+ * which is the whole purpose of naming a silence. Falls back to `type`.
+ *
+ * Never throws — a refusal renderer that can crash turns a refusal into a crash,
+ * which is the exact inversion §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH was raised about.
+ */
+function commandIdentity(command: Command): string {
+    try {
+        const ctorName = (command as { constructor?: { name?: string } }).constructor?.name;
+        if (ctorName && ctorName !== 'Object') return ctorName;
+        return String(command.type ?? 'unknown command');
+    } catch {
+        return 'unknown command';
+    }
+}
+
+/** §REFUSAL-IDENTITY (GE-09) — name WHAT was declined, so the line stays attributable. */
+function commandSubject(command: Command): string {
+    try {
+        const ids = command.targetIds;
+        if (Array.isArray(ids) && ids.length > 0) {
+            return ids.length === 1 ? `element ${ids[0]}` : `${ids.length} elements (${ids.join(', ')})`;
+        }
+        return `a ${String(command.type ?? 'unknown')} command with no declared targetIds`;
+    } catch {
+        return 'an unnamed subject';
+    }
+}
 
 export interface CommandMetadata {
     source: CommandSource;
@@ -214,7 +254,23 @@ export class CommandManager {
             // the token was what the founder saw — when the message survived at all.
             // `reason` remains the fallback, so commands that set no blockingIssues are
             // unchanged.
-            const _human = validation.blockingIssues?.[0] || validation.reason || 'Validation failed';
+            //
+            // §REFUSAL-IDENTITY (GE-09, C58 §1.13.8) — the `|| 'Validation failed'`
+            // tail is gone. The L-813 PREFERENCE above is unchanged (blockingIssues
+            // first, reason second); what changed is the third case, where the
+            // command refused and stated NOTHING AT ALL. That used to become
+            // 'Validation failed' — a sentence indistinguishable from a real reason,
+            // rendered into the operation overlay, which meant a command with a
+            // missing refusal message looked exactly like one with a deliberate
+            // terse one. Now the absence is NAMED and attributed to the command
+            // that went quiet, so it points at the defect instead of impersonating
+            // an explanation.
+            const _stated = validation.blockingIssues?.[0] || validation.reason;
+            const _human = childRefusalText(
+                _stated,
+                `${commandIdentity(command)}.canExecute`,
+                commandSubject(command),
+            );
             console.warn(`[CommandManager] REFUSED ${command.type}: ${validation.reason ?? 'unspecified'} — ${_human}`);
             return { success: false, affectedElementIds: [], info: [_human] };
         }
@@ -444,7 +500,22 @@ export class CommandManager {
     ): Promise<CommandResult> {
         const validation = command.canExecute(this.context);
         if (!validation.ok) {
-            return { success: false, affectedElementIds: [], info: [validation.reason || 'Validation failed'] };
+            // §REFUSAL-IDENTITY (GE-09) — the chunked driver's copy of the seam
+            // above. It ALSO honours the L-813 blockingIssues preference now: the
+            // two drivers must not disagree about what a refusal says, and this one
+            // silently didn't (it read `reason` only, so a command whose human
+            // sentence lived in `blockingIssues` rendered its machine token here and
+            // its sentence in `execute()` — for the same refusal).
+            const stated = validation.blockingIssues?.[0] || validation.reason;
+            return {
+                success: false,
+                affectedElementIds: [],
+                info: [childRefusalText(
+                    stated,
+                    `${commandIdentity(command)}.canExecute`,
+                    commandSubject(command),
+                )],
+            };
         }
         try {
             const result = await command.executeChunked(this.context, yieldFn);
