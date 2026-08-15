@@ -147,7 +147,7 @@ export class OverridePanel {
                             `).join('')}
                         </select>
                         <span class="ov-intent-badge ${customised ? 'ov-intent-badge--custom' : ''}"
-                              ${det.kind === 'undetermined' ? `data-refusal-reason="${det.reason}"` : ''}>
+                              ${det.kind === 'undetermined' ? `data-refusal-reason="${this.escape(det.reason)}"` : ''}>
                             ${customised ? 'Customised' : det.kind === 'determined' ? 'Clean' : 'Undetermined'}
                         </span>
                     </div>
@@ -164,7 +164,7 @@ export class OverridePanel {
                         ? `<div class="ov-list">${rows.join('')}</div>`
                         : det.kind === 'determined'
                             ? '<div class="vg-empty">No active overrides for this view.</div>'
-                            : `<div class="vg-empty ov-undetermined" data-refusal-reason="${det.reason}">${this.escape(overrideLayerRefusalText(det))}</div>`}
+                            : `<div class="vg-empty ov-undetermined" data-refusal-reason="${this.escape(det.reason)}">${this.escape(overrideLayerRefusalText(det))}</div>`}
                 </section>
 
                 <div class="ov-actions">
