@@ -107,8 +107,17 @@ export type { IInstancedRenderer } from './IInstancedRenderer';
 export type { EndpointSide, ClusterEndpoint, JunctionCluster } from './WallJunctionClustering';
 export { detectJunctionClusters } from './WallJunctionClustering';
 
-export type { JunctionInfillData } from './WallJunctionInfill';
-export { computeJunctionInfills } from './WallJunctionInfill';
+export type {
+    JunctionInfillData,
+    JunctionInfillRefusal,
+    JunctionInfillRefusalReason,
+    JunctionInfillResult,
+} from './WallJunctionInfill';
+// §JUNCTION-INFILL-REFUSAL (L-920) — `computeJunctionInfills` is the infills-only
+// wrapper kept for existing call sites; `…Detailed` is the same single pass with
+// the typed refusals visible, for any consumer that must SEE a degenerate
+// junction rather than silently render nothing there.
+export { computeJunctionInfills, computeJunctionInfillsDetailed } from './WallJunctionInfill';
 
 export { WallJunctionInfillManager } from './WallJunctionInfillManager';
 

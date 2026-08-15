@@ -167,6 +167,41 @@ describe('§MEASURED-INCUMBENT-RESOLVE — is an existing junction authoritative
         expect({ w1: corner(withW3, 'W1'), w2: corner(withW3, 'W2') }).toEqual(before);
     });
 
+    it('AXIS (c) PLAN — the incumbent\'s rendered PLAN FOOTPRINT changes too', () => {
+        // Which VIEWS are proven, measured rather than assumed. The plan footprint of
+        // a legacy-resolved (layered) wall is baseLine + thickness projected onto the
+        // MITRE PLANES — so destroying the mitre normals changes the plan polygon,
+        // not just the 3D prism. This is the founder's photo 1 (layer lines failing
+        // to resolve into a clean T) and photo 2 (the 3D triangle) sharing ONE root.
+        const planCorner = (walls: WallData[], id: string): string => {
+            const jd: any = WallJoinResolver.resolveLevel(walls, { snapRadius: SNAP }).get(id);
+            const [s, e] = jd.baseLine;
+            const dx = e.x - s.x, dz = e.z - s.z;
+            const len = Math.hypot(dx, dz);
+            const ux = dx / len, uz = dz / len;
+            const nx = -uz * (T / 2), nz = ux * (T / 2);
+            // The two cap corners at the JOINING end (W1's end), projected onto the
+            // mitre plane when one exists, square-capped when it does not.
+            const proj = (px: number, pz: number): string => {
+                const mn = jd.endMN;
+                if (!mn) return `${px.toFixed(6)},${pz.toFixed(6)}`;
+                const dot = mn.nx * ux + mn.nz * uz;
+                const t = ((e.x - px) * mn.nx + (e.z - pz) * mn.nz) / dot;
+                return `${(px + t * ux).toFixed(6)},${(pz + t * uz).toFixed(6)}`;
+            };
+            return `${proj(e.x + nx, e.z + nz)} | ${proj(e.x - nx, e.z - nz)}`;
+        };
+
+        const before = planCorner(incumbentL(), 'W1');
+        const after  = planCorner([...incumbentL(), newcomer(-90)], 'W1');
+
+        // PINNED WRONG — the mitred end face (one corner pulled forward to the
+        // bisector) collapses to a flat square cap the moment the newcomer arrives.
+        expect(before).toBe('4.812500,0.187500 | 5.187500,-0.187500');
+        expect(after).toBe('5.000000,0.187500 | 5.000000,-0.187500');
+        expect(after).not.toBe(before);   // DESIRED: identical
+    });
+
     it('AXIS (b) — the incumbent corner had NO infill prism; does one appear?', () => {
         // Two walls never produce an infill: `wallIdsInCluster.length < 3` skips.
         const before = computeJunctionInfillsDetailed(incumbentL());
