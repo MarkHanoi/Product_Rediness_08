@@ -19,60 +19,471 @@
     "              changed. If none resolve, the row renders NOT DETERMINED with the",
     "              reason — never '0', which would read as 'freshly measured'.",
     "",
-    "DELIBERATELY INCOMPLETE. Two example rows only, both verified against real paths.",
-    "The full row set is the TRACKER LANE's to fill in: it owns the row ids and knows",
-    "which paths each row governs. Guessing the other ~80 mappings here would have",
-    "produced confident-looking ownership claims nobody measured — the failure mode",
-    "this repo logs most often. An unmapped path is disclosed loudly; a WRONG mapping",
-    "is invisible. So we ship two right ones and a mechanism that shouts about the rest."
+    "FILLED IN 2026-08-15 by the tracker lane, at HEAD 3afcac71.",
+    "  · The two provisional ids the file shipped with ('bar-3', 'epsilon-policy') have been",
+    "    RE-KEYED to real gap-register row ids: 'epsilon-policy' -> GE-01; 'bar-3' -> GR-12,",
+    "    with the caveat recorded in that gate entry's note (bar 3 is a roadmap-level",
+    "    PROGRAMME spanning GR-12 and CE-05, not a single register row).",
+    "  · Every glob below was validated against `git ls-files` at 3afcac71 and matches at",
+    "    least one tracked path. A glob that matched nothing was DELETED, not left hopeful.",
+    "  · 50 of the 82 classified rows are mapped (validated: 0 glob misses, 0 evidence",
+    "    misses, 0 duplicate ids). THE OTHER 32 ARE DELIBERATELY OMITTED,",
+    "    because no path in the tree could be attributed to them without guessing. They are",
+    "    named in the tracker (§2, the rows whose Reading cell says NOT DETERMINED), and an",
+    "    unmapped path is disclosed loudly by the hook's UNMAPPED section. AN UNMAPPED PATH",
+    "    IS DISCLOSED; A WRONG MAPPING IS INVISIBLE. Omission is the safe direction.",
+    "  · GR-02 and GR-03 are never mapped: they are not gaps (PARKED / an anti-recount note).",
+    "",
+    "CORRECTION TO THIS FILE'S OWN PRIOR NOTE: it said check-relationship-determination",
+    "'does not exist yet'. That is FALSE at 3afcac71 — both",
+    "tools/rac-conformance/certification/gates/check-relationship-determination.ts and its",
+    "ledger relationship-determination.json exist. The real defect is worse and is why the",
+    "entry is kept: the gate is registered in NEITHER run-all.ts NOR certify.ts, so it RUNS",
+    "NOWHERE (tracker §5). Its staleness is therefore a real, meaningful number — the age of",
+    "a reading nothing in CI defends."
   ],
   "version": 1,
   "rows": [
     {
-      "id": "bar-3",
-      "title": "Relationship determination under change (consequence propagation)",
+      "id": "GR-01",
+      "title": "`contains` has no first-party writer",
       "globs": [
-        "apps/editor/src/engine/consequence/**",
-        "packages/command-registry/src/walls/**"
-      ],
-      "note": "PROVISIONAL ID. 'bar-3' is the roadmap's name (roadmap §3.1), not a gap-register row id. The tracker lane must re-key this to the register row(s) that actually carry it."
+        "packages/command-registry/src/furniture/CreateFurnitureCommand.ts",
+        "packages/core-app-model/src/SemanticGraph.ts",
+        "packages/room-topology/src/RoomContentsService.ts"
+      ]
     },
     {
-      "id": "epsilon-policy",
-      "title": "Numeric tolerance policy — one declared epsilon per comparison site",
+      "id": "GR-04",
+      "title": "`joinedTo` decided (ADR-0321) and unlanded; C-INV-2 unproven",
       "globs": [
-        "tools/ga-gate/check-epsilon-policy.ts",
-        "tools/ga-gate/epsilon-policy-baseline.json",
-        "packages/geometry-kernel/**"
+        "packages/geometry-wall/src/WallJunction*.ts",
+        "packages/geometry-wall/src/WallFragmentBuilder.ts",
+        "apps/editor/src/engine/WallRebuildCoordinator.ts"
+      ]
+    },
+    {
+      "id": "GR-05",
+      "title": "`sitsOn` — most-written edge, typed reader",
+      "globs": [
+        "packages/command-registry/src/levels/DeleteLevelCommand.ts",
+        "packages/command-registry/src/walls/CreateWallCommand.ts"
+      ]
+    },
+    {
+      "id": "GR-06",
+      "title": "rebuild regenerates 5 of 25 types — persist-or-lose",
+      "globs": [
+        "packages/persistence-client/src/loader/rebuildSemanticGraph.ts",
+        "packages/persistence-client/src/loader/ProjectLoader.ts",
+        "apps/editor/src/engine/persistence/ProjectLoader.ts"
+      ]
+    },
+    {
+      "id": "GR-07",
+      "title": "the persist-or-lose ledger must be mechanical, not prose",
+      "globs": ["packages/persistence-client/src/loader/rebuildSemanticGraph.ts"]
+    },
+    {
+      "id": "GR-08",
+      "title": "`_rebuildSemanticGraph` existed in two byte-identical copies",
+      "globs": [
+        "packages/persistence-client/src/loader/ProjectLoader.ts",
+        "apps/editor/src/engine/persistence/ProjectLoader.ts",
+        "packages/persistence-client/src/loader/rebuildSemanticGraph.ts"
+      ]
+    },
+    {
+      "id": "GR-09",
+      "title": "`CreateWallCommand` wrote no graph edges",
+      "globs": ["packages/command-registry/src/walls/CreateWallCommand.ts"]
+    },
+    {
+      "id": "GR-10",
+      "title": "`deserialize` silently drops malformed edges",
+      "globs": ["packages/core-app-model/src/SemanticGraph.ts"]
+    },
+    {
+      "id": "GR-12",
+      "title": "mutation-update on MOVE — boundedBy invalidation, roof cannot follow",
+      "globs": [
+        "apps/editor/src/engine/consequence/**",
+        "packages/command-registry/src/walls/**",
+        "apps/editor/src/engine/WallRebuildCoordinator.ts",
+        "packages/schemas/src/elements/Roof.ts",
+        "packages/geometry-roof/**"
       ],
-      "note": "PROVISIONAL ID, same caveat as bar-3."
+      "note": "The first two globs are inherited from the provisional 'bar-3' row and are correct for GR-12: apps/editor/src/engine/consequence/** and the wall command family ARE the move-propagation surface. The last two are the row's named blocker (RoofTypes declares no field that can carry a boundary reference; Roof.ts types boundary as Vec3[] so Zod strips the reference)."
+    },
+    {
+      "id": "GR-13",
+      "title": "room identity recovered by centroid proximity, not preserved",
+      "globs": ["packages/room-topology/src/RoomDetectionEngine.ts"]
+    },
+    {
+      "id": "GR-14",
+      "title": "`[]` conflates empty with unknown across read paths",
+      "globs": [
+        "packages/spatial-index/src/RoomGraphService.ts",
+        "packages/room-topology/src/RoomContentsService.ts",
+        "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts"
+      ]
+    },
+    {
+      "id": "GR-15",
+      "title": "`measuredAt`'s writer was a positional call against an object signature",
+      "globs": ["packages/physics-host/src/PhysicsEngine.ts"]
+    },
+    {
+      "id": "GR-16",
+      "title": "the three `graph.*` bus verbs",
+      "globs": [
+        "apps/editor/src/engine/graphQueryBusHandlers.ts",
+        "apps/editor/src/engine/initBusHandlers.ts"
+      ]
+    },
+    {
+      "id": "GR-17",
+      "title": "the UBG header claimed persistence it does not have",
+      "globs": ["packages/building-graph/**"]
+    },
+    {
+      "id": "GR-18",
+      "title": "runtime probe against a live graph (H5)",
+      "globs": ["tools/rac-conformance/certification/__tests__/graphruntime.cert.ts"]
+    },
+
+    {
+      "id": "PR-01",
+      "title": "the dead cascade, arm A — four typed events, zero listeners",
+      "globs": [
+        "packages/core-app-model/src/DependencyResolver.ts",
+        "apps/editor/src/engine/initDependencyCascade.ts"
+      ]
+    },
+    {
+      "id": "PR-02",
+      "title": "the dead cascade, arm B — no pre-mutation state on the payload",
+      "globs": ["packages/core-app-model/src/DependencyResolver.ts"]
+    },
+    {
+      "id": "PR-04",
+      "title": "`operation === 'delete'` returned `[]`",
+      "globs": ["packages/core-app-model/src/DependencyResolver.ts"]
+    },
+    {
+      "id": "PR-05",
+      "title": "`clearGraphAuthoritative` — generated levels keep rooms suppressed",
+      "globs": ["packages/room-topology/src/RoomTopologyObserver.ts"]
+    },
+    {
+      "id": "PR-06",
+      "title": "pause/resume without a `finally` leaves observation off for the session",
+      "globs": ["apps/editor/src/engine/initPersistence.ts"]
+    },
+    {
+      "id": "PR-11",
+      "title": "the wall→room cascade rule is authored and never registered",
+      "globs": ["plugins/cross/**"]
+    },
+    {
+      "id": "PR-12",
+      "title": "schedules have no geometry subscription — stale areas in open panels",
+      "globs": [
+        "apps/editor/src/ui/SchedulePanel/**",
+        "apps/editor/src/ui/SchedulePanel.ts"
+      ]
+    },
+    {
+      "id": "PR-13",
+      "title": "duplicated Column/Door/Window stores — a cascade blind to one fork",
+      "globs": ["packages/core-app-model/src/stores/**"]
+    },
+
+    {
+      "id": "GE-01",
+      "title": "no tolerance policy — one declared epsilon per comparison site",
+      "globs": [
+        "packages/geometry-kernel/**",
+        "apps/editor/src/ui/apartment-layout/boundaryGuard.ts"
+      ],
+      "note": "Re-keyed from the provisional id 'epsilon-policy'. The gate file and its baseline moved to gates[] below, where staleness artefacts belong."
+    },
+    {
+      "id": "GE-02",
+      "title": "point-in-polygon rivals — one canonical predicate per family",
+      "globs": [
+        "packages/geometry-kernel/src/pure/**",
+        "apps/editor/src/ui/apartment-layout/boundaryGuard.ts"
+      ],
+      "note": "CONTRADICTED AT HEAD — see tracker §6.4. The row's carried CLOSED rests on C1 reading 0; check-predicate-canonical reads C1 = 2 at 0ba90dc7, both rivals minted this session."
+    },
+    {
+      "id": "GE-04",
+      "title": "duplicated resolver / diagnostics / store families",
+      "globs": [
+        "packages/ai-host/src/WallIntersectionResolver.ts",
+        "packages/core-app-model/src/ai/WallIntersectionResolver.ts",
+        "packages/room-topology/src/WallIntersectionResolver.ts",
+        "packages/ai-host/src/FloorPlanDiagnostics.ts"
+      ]
+    },
+    {
+      "id": "GE-05",
+      "title": "the general 2-D boolean (construction, landed)",
+      "globs": ["packages/geometry-kernel/src/pure/polygonBoolean.ts"]
+    },
+    {
+      "id": "GE-06",
+      "title": "clash detection — declared ids, no handler, no detector",
+      "globs": [
+        "apps/editor/src/ui/toolbar/ClashDetectionToolbar.ts",
+        "packages/command-bus/src/commands.ts"
+      ]
+    },
+    {
+      "id": "GE-10",
+      "title": "`wall.split` over the opening-aware cut path",
+      "globs": [
+        "plugins/wall/src/handlers/SplitWall.ts",
+        "plugins/wall/src/handlers/CutWall.ts"
+      ]
+    },
+    {
+      "id": "GE-11",
+      "title": "the room spatial index was fed two incompatible AABB definitions",
+      "globs": ["packages/spatial-index/**"]
+    },
+    {
+      "id": "GE-12",
+      "title": "triangulation collapsed; the planar-topology family has no canonical file",
+      "globs": [
+        "packages/geometry-kernel/src/pure/triangulatePolygon.ts",
+        "packages/room-topology/src/PlanarTopologyEngine.ts",
+        "packages/ai-host/src/PlanarTopologyEngine.ts",
+        "packages/core-app-model/src/ai/PlanarTopologyEngine.ts"
+      ]
+    },
+
+    {
+      "id": "CO-01",
+      "title": "the adapter named an engine it does not run",
+      "globs": ["packages/constraint-solver/src/PlanegcsAdapter.ts"]
+    },
+    {
+      "id": "CO-02",
+      "title": "`loadSolver()` returned the mock on every path",
+      "globs": ["packages/constraint-solver/**"]
+    },
+    {
+      "id": "CO-03",
+      "title": "the passing tests tested the injected mock",
+      "globs": ["packages/constraint-solver/**"]
+    },
+    {
+      "id": "CO-07",
+      "title": "one `StairValidationAuthority` owner",
+      "globs": ["packages/geometry-stair/src/StairValidationAuthority.ts"]
+    },
+
+    {
+      "id": "PV-01",
+      "title": "provenance invented at deserialisation",
+      "globs": ["packages/room-topology/src/roomSnapshotUtils.ts"]
+    },
+    {
+      "id": "PV-02",
+      "title": "element schemas carry no provenance",
+      "globs": ["packages/schemas/src/elements/**"]
+    },
+    {
+      "id": "PV-03",
+      "title": "the repair path stamped invented geometry as detected",
+      "globs": ["packages/room-topology/src/RoomDetectionEngine.ts"]
+    },
+    {
+      "id": "PV-05",
+      "title": "`ProvenanceStore` was destroyed on every reload",
+      "globs": [
+        "packages/stores/src/ProvenanceStore.ts",
+        "packages/persistence-client/src/loader/ProjectSerializer.ts"
+      ]
+    },
+    {
+      "id": "PV-06",
+      "title": "`confidence` absent on the element side",
+      "globs": ["packages/schemas/src/elements/**"]
+    },
+
+    {
+      "id": "MT-02",
+      "title": "registered verbs no handler answers",
+      "globs": [
+        "apps/editor/src/engine/initBusHandlers.ts",
+        "docs/04-reference/API-VERB-REGISTER.md"
+      ]
+    },
+    {
+      "id": "MT-03",
+      "title": "SHADOWED verbs — the dead-route class",
+      "globs": [
+        "apps/editor/src/engine/initBusHandlers.ts",
+        "docs/04-reference/API-VERB-REGISTER.md"
+      ]
+    },
+    {
+      "id": "MT-05",
+      "title": "the `window.X ?? instance` serializer/registry identity risk",
+      "globs": ["apps/editor/src/engine/engineLauncher.ts"]
+    },
+    {
+      "id": "MT-06",
+      "title": "openings have two authoritative copies",
+      "globs": [
+        "packages/core-app-model/src/stores/OpeningStore.ts",
+        "packages/geometry-wall/src/WallOccupancyStore.ts"
+      ]
+    },
+    {
+      "id": "MT-07",
+      "title": "FOUR rival level records (the row counted three)",
+      "globs": [
+        "packages/stores/src/LevelStore.ts",
+        "plugins/plan-view/src/LevelStore.ts",
+        "packages/core-app-model/src/hierarchy/HierarchyStore.ts"
+      ]
+    },
+    {
+      "id": "MT-10",
+      "title": "unguarded HTML-sink interpolations",
+      "globs": [
+        "apps/editor/src/ui/OverridePanel.ts",
+        "apps/editor/src/ui/overridePanelModel.ts"
+      ]
+    },
+
+    {
+      "id": "CB-01",
+      "title": "leg C — no CRDT transport deployed in any environment",
+      "globs": ["apps/sync-server/**"]
+    },
+    {
+      "id": "CB-02",
+      "title": "authz — nothing hydrates project membership",
+      "globs": ["apps/sync-server/src/authz/**"]
+    },
+
+    {
+      "id": "CE-03",
+      "title": "browser I/O certified on a Node shim only",
+      "globs": ["tools/rac-conformance/certification/__tests__/persistence.cert.ts"]
+    },
+    {
+      "id": "CE-04",
+      "title": "the unified performUndoRedo path, certify-enrolled",
+      "globs": ["tools/rac-conformance/certification/__tests__/undoredo.cert.ts"]
     }
   ],
   "gates": [
     {
-      "id": "epsilon-policy",
+      "id": "GE-01",
       "gate": "check-epsilon-policy",
       "evidence": ["tools/ga-gate/epsilon-policy-baseline.json"],
-      "note": "Shrink-only ratchet; the baseline json is rewritten only by --write-baseline, so its last commit IS the last recorded reading."
+      "note": "Shrink-only ratchet; the baseline json is rewritten only by --write-baseline, so its last commit IS the last recorded reading. RED at 0ba90dc7 (324 vs 322) and re-reddened twice — see tracker §3.1."
     },
     {
-      "id": "deterministic-regeneration",
-      "gate": "check-deterministic-regeneration",
-      "evidence": ["tools/ga-gate/deterministic-regeneration-baseline.json"]
-    },
-    {
-      "id": "predicate-canonical",
+      "id": "GE-02",
       "gate": "check-predicate-canonical",
-      "evidence": ["tools/ga-gate/predicate-canonical-baseline.json"]
+      "evidence": ["tools/ga-gate/predicate-canonical-baseline.json"],
+      "note": "GE-02 is carried CLOSED on this gate reading 0. It reads exit 3 with C1 = 2 at 0ba90dc7. Tracker §6.4."
     },
     {
-      "id": "bar-3",
+      "id": "GE-07",
+      "gate": "check-deterministic-regeneration",
+      "evidence": ["tools/ga-gate/deterministic-regeneration-baseline.json"],
+      "note": "STALE LEDGER — 21 pinned file:line rows no longer resolve (was 16). Needs RE-ANCHORING, not a fix. Tracker §6.1."
+    },
+    {
+      "id": "GE-12",
+      "gate": "check-triangulation-canonical",
+      "evidence": ["tools/ga-gate/triangulation-canonical-baseline.json"]
+    },
+    {
+      "id": "MT-10",
+      "gate": "check-xss-guards",
+      "evidence": ["tools/ga-gate/xss-sink-baseline.json"]
+    },
+    {
+      "id": "GR-06",
+      "gate": "check-graph-persistence",
+      "evidence": ["tools/rac-conformance/certification/gates/graph-persistence-debt.json"],
+      "note": "RUNS IN NO RUNNER (tracker §5). Four rows rest on it — GR-06, GR-07, GR-08, GR-10."
+    },
+    {
+      "id": "GR-11",
+      "gate": "check-graph-delete-integrity",
+      "evidence": ["tools/rac-conformance/certification/gates/graph-delete-integrity-debt.json"],
+      "note": "RUNS IN NO RUNNER (tracker §5)."
+    },
+    {
+      "id": "GR-12",
+      "gate": "check-move-propagation",
+      "evidence": ["tools/rac-conformance/certification/gates/move-propagation.json"],
+      "note": "RUNS IN NO RUNNER (tracker §5). The 3/3 -> 1/1 movement is the most valuable of the pass and nothing in CI defends it."
+    },
+    {
+      "id": "GR-12",
       "gate": "check-relationship-determination",
       "evidence": [
-        "tools/ga-gate/check-relationship-determination.ts",
-        "tools/ga-gate/relationship-determination-baseline.json"
+        "tools/rac-conformance/certification/gates/check-relationship-determination.ts",
+        "tools/rac-conformance/certification/gates/relationship-determination.json"
       ],
-      "note": "EXPECTED TO RENDER 'NOT DETERMINED' TODAY, and that is the point. This gate does not exist yet (tracker §bar 3). A staleness table that quietly omitted it, or printed 0, would let a reader believe bar 3 was measured. It must read NOT DETERMINED until the gate is built."
+      "note": "THIS IS THE BAR-3 GATE, and it replaces the file's former provisional 'bar-3' entry. Two corrections carried here. (1) The old note said the gate 'does not exist yet' — FALSE at 3afcac71; both the .ts and its ledger json exist. (2) The real defect is that it is registered in NEITHER run-all.ts NOR certify.ts, so it RUNS NOWHERE — every bar-3 number in every document is a hand-run reading with nothing defending it (tracker §5). Keyed to GR-12 because that is the nearest register row; bar 3 is a roadmap-level PROGRAMME spanning GR-12 and CE-05, not a single row, and the roadmap owns its phases."
+    },
+    {
+      "id": "GR-14",
+      "gate": "check-no-empty-means-unknown",
+      "evidence": ["tools/rac-conformance/certification/gates/no-empty-means-unknown-debt.json"],
+      "note": "RUNS IN NO RUNNER (tracker §5). The 95 -> 63 drain is entirely undefended; one PR can put it back."
+    },
+    {
+      "id": "GE-11",
+      "gate": "check-room-aabb-canonical",
+      "evidence": ["tools/rac-conformance/certification/gates/room-aabb-canonical-ledger.json"]
+    },
+    {
+      "id": "CB-04",
+      "gate": "check-conflict-surfacing",
+      "evidence": ["tools/rac-conformance/certification/gates/conflict-surfacing-ledger.json"]
+    },
+    {
+      "id": "PR-09",
+      "gate": "check-propagation-trackers-reach",
+      "evidence": ["tools/rac-conformance/certification/gates/tracker-pairs.json"],
+      "note": "Graded by certify.ts, not run-all.ts — run-all explicitly declines to report its reading."
+    },
+    {
+      "id": "MT-04",
+      "gate": "check-authoritative-state",
+      "evidence": ["tools/rac-conformance/certification/gates/authoritative-state-ledger.json"],
+      "note": "Graded by certify.ts, not run-all.ts."
+    },
+    {
+      "id": "CE-06",
+      "gate": "check-derived-classification",
+      "evidence": ["tools/rac-conformance/certification/gates/classification-ledger.json"],
+      "note": "Graded by certify.ts. Prints 'THE SEED, NOT THE USER'S PROJECT' in its own output — which is why CE-06 is correctly unclosable."
+    },
+    {
+      "id": "PV-07",
+      "gate": "check-derived-not-authored",
+      "evidence": ["tools/rac-conformance/certification/gates/derived-ledger.json"]
+    },
+    {
+      "id": "CE-05",
+      "gate": "check-no-dark-test-files",
+      "evidence": ["tools/ga-gate/dark-test-files-ledger.json"],
+      "note": "The dark-test-files ledger is the reachability instrument class CE-05 names; the gesture half of CE-05 remains uninstrumented."
     }
   ]
 }
