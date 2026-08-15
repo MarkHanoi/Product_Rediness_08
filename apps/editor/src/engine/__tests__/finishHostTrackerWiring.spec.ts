@@ -28,6 +28,8 @@
  * → 33.64 m²) so the two suites can be cross-read.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 
 // FACT 1 — these specifiers resolving from apps/editor IS part of the assertion.
 import {
@@ -269,5 +271,128 @@ describe('§FINISH-FOLLOWS-WALL editor wiring — the initTools construction sha
         expect(areaOf(ceilingStore.getById('cl-wired')!.boundary.polygon)).toBeCloseTo(33.64, 6);
         expect(cmRef.executions).toBe(1);
         tracker.dispose();
+    });
+});
+
+// ── FACT 4 — the wiring itself cannot vanish silently ────────────────────────
+//
+// WHY THIS BLOCK EXISTS, and why the three tests above do not already cover it.
+// The tests above REPLICATE the initTools.ts construction shape; they do not READ
+// it. Measured 2026-08-15, repo-wide: if the wiring block at initTools.ts:853-890
+// were deleted, NOTHING in this estate would turn red —
+//   · these three specs construct their own trackers (L198/L227/L255) and stay green;
+//   · no test anywhere imports or executes initTools / the composition root;
+//   · the three specs that DO read initTools.ts as source text grep for
+//     `__pryzmInitComplete`, the `floor.created` bridge, and a `window.*Store`
+//     writer allowlist — none for these trackers;
+//   · check-move-propagation A5/A6 count consumers of the SYMBOLS
+//     `Floor/CeilingHostReferenceEdge`, which initTools.ts does not contain at all
+//     — its whole count comes from packages/finish-host-tracker/, which survives
+//     the deletion untouched.
+// The only breakage would be `noUnusedLocals` complaining about dangling imports —
+// compiler hygiene, not a behavioural guard, and it disappears if the imports are
+// deleted alongside the block.
+//
+// That is the EXACT recurrence path of L-860 ("floor finish and ceiling DO NOT
+// ADAPT when the wall moves"), whose diagnosis was that this package had zero
+// wiring sites. The package was authored, correct, tested — and reachable from
+// nothing, which every static instrument read as present. This block makes the
+// reachability itself an assertion, so the capability cannot be un-wired in
+// silence a second time.
+//
+// This is a SOURCE-TEXT guard, which is weaker than execution — it proves the
+// call sites are written, not that they run. It is here because the alternative
+// (booting the real composition root in a unit test) is not available, and a weak
+// guard over an ungated capability beats none. The `#4b` control below is what
+// keeps it from being a tautology.
+
+// `import.meta.url` is NOT a file: URL under this vite/happy-dom runner, so the
+// path is resolved from cwd instead. This spec is claimed by the ROOT
+// vitest.config.ts (`apps/editor/src/engine/__tests__/**/*.spec.ts`), i.e. cwd is
+// the repo root; the second candidate keeps it working if it is ever run from
+// apps/editor. Resolution FAILING LOUDLY is deliberate — a guard that silently
+// skipped when it could not find its subject would be the very defect class this
+// block exists to catch.
+const INIT_TOOLS_PATH = (() => {
+    const candidates = [
+        resolvePath(process.cwd(), 'apps/editor/src/engine/initTools.ts'),
+        resolvePath(process.cwd(), 'src/engine/initTools.ts'),
+    ];
+    const found = candidates.find((p) => existsSync(p));
+    if (!found) throw new Error(`initTools.ts not found; looked in:\n  ${candidates.join('\n  ')}`);
+    return found;
+})();
+
+/**
+ * Comments are stripped before matching, for the reason
+ * check-no-empty-means-unknown's own control states: a gate must not measure its
+ * own changelog. The prose at initTools.ts:853-861 names these very trackers, so
+ * an un-wiring that left the comment behind would otherwise still read as wired.
+ *
+ * The `//` scan is string-naive: a `//` inside a string literal truncates that
+ * line early. Stated rather than hidden — the error direction is SAFE, because
+ * removing text can only make a needle harder to find, i.e. it can produce a
+ * false FAILURE and never a false pass.
+ */
+function stripComments(src: string): string {
+    return src
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .map((line) => {
+            const i = line.indexOf('//');
+            return i === -1 ? line : line.slice(0, i);
+        })
+        .join('\n');
+}
+
+/** The facts that together mean "a moved wall reaches a finish, through a command". */
+const WIRING_NEEDLES = [
+    'new FloorHostDependencyTracker(',
+    'floorHostDependencyTracker.bootstrap()',
+    'new CeilingHostDependencyTracker(',
+    'ceilingHostDependencyTracker.bootstrap()',
+    // The COMMAND path (P6 / C79 §4.2) — without these the trackers could still be
+    // constructed while every write silently degraded to the declared
+    // non-undoable direct-store fallback.
+    'new UpdateFloorBoundaryCommand(',
+    'new UpdateCeilingBoundaryCommand(',
+] as const;
+
+describe('§FINISH-FOLLOWS-WALL — initTools.ts reachability is itself asserted (L-860 recurrence guard)', () => {
+    const code = stripComments(readFileSync(INIT_TOOLS_PATH, 'utf8'));
+
+    it('#4a — initTools.ts constructs BOTH finish trackers, bootstraps both, and routes both through the boundary COMMANDS', () => {
+        for (const needle of WIRING_NEEDLES) {
+            expect(code, `initTools.ts no longer contains \`${needle}\` — §FINISH-FOLLOWS-WALL has been un-wired`).toContain(needle);
+        }
+
+        // bootstrap() is what FILLS the dependency graph (check-move-propagation:364
+        // — the event path alone never populates it), so a construction whose
+        // bootstrap was dropped would leave the graph permanently empty: wired to
+        // the eye, dead in the product. Assert the ORDER, not merely the presence.
+        expect(code.indexOf('floorHostDependencyTracker.bootstrap()'))
+            .toBeGreaterThan(code.indexOf('new FloorHostDependencyTracker('));
+        expect(code.indexOf('ceilingHostDependencyTracker.bootstrap()'))
+            .toBeGreaterThan(code.indexOf('new CeilingHostDependencyTracker('));
+    });
+
+    it('#4b — EXECUTED CONTROL: the same predicate FAILS on a copy with the wiring block excised (this guard can fail)', () => {
+        // A guard that cannot fail asserts nothing — the lesson of edec6838 in this
+        // very package, where the §REENTRANT-SET guard was UNPROVEN because a thrown
+        // cap could not escape a DOM event listener. Build the mutant this guard is
+        // meant to catch and prove the predicate rejects it.
+        const start = code.indexOf('const finishGeometryServices');
+        const endAnchor = 'ceilingHostDependencyTracker.bootstrap();';
+        const end = code.indexOf(endAnchor);
+        expect(start, 'wiring block start anchor not found').toBeGreaterThan(-1);
+        expect(end, 'wiring block end anchor not found').toBeGreaterThan(start);
+
+        const mutant = code.slice(0, start) + code.slice(end + endAnchor.length);
+
+        // The mutant is the real un-wiring: block gone, everything else intact.
+        expect(mutant.length).toBeLessThan(code.length);
+        for (const needle of WIRING_NEEDLES) {
+            expect(mutant, `control failed: \`${needle}\` survived excision, so #4a would pass an un-wired tree`).not.toContain(needle);
+        }
     });
 });
