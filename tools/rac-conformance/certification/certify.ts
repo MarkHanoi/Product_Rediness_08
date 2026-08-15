@@ -432,7 +432,36 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // stops reproducing the 1.277 m maxX disagreement the gate exits 2 MISCONFIGURED, which certify
 // never absorbs as debt. Enrolling it changed no other gate's verdict (before/after runs
 // compared line by line: 13 CLEAN + 5 DECLARED-LEVEL + two-client, exit 1, identical).
-const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-plan-determinism', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification', 'check-room-aabb-canonical'];
+// §GATE-AUTHORED-BUT-UNWIRED round 3 — check-move-propagation ENROLLED 2026-08-15.
+// It was one of THIRTEEN files in this directory registered in NEITHER runner, and
+// therefore never executed in any automated run since it was committed. GR-12 — the
+// founder's originating C79 question, "move a wall, does the slab follow?" — was
+// being measured by nothing.
+//
+// IT BELONGS HERE AND NOT IN run-all, by the §2.1a boundary test (does it need
+// something that does not exist until something runs?). Twelve of the thirteen
+// answered NO and went to run-all's GATES array as static source scans; this one
+// answers YES and is the only one that does. It composes the REAL SlabStore, the
+// REAL SlabDependencyTracker (as initTools.ts:825 constructs it), the REAL
+// traceRegionSketchAtPoint and SlabFragmentBuilder.resolveLoop under a happy-dom
+// window, `await import`s @pryzm/geometry-slab, then MOVES A WALL and reads the
+// effect back. Its own header quotes C79 §8.3(b): no static gate can answer this.
+//
+// This list is an EXPLICIT ALLOWLIST, not directory discovery, so enrolment is a
+// hand edit and omission is silent — which is exactly how the omission survived.
+// (run-all parses this array FROM SOURCE to detect orphans, so this comment stays
+// OUTSIDE the brackets: a quoted string inside them would be read as a gate name.)
+//
+// RE-RUN AT HEAD by the registering commit rather than taken on report: exit 1
+// DECLARED-LEVEL, 1 finding against a declared level of 1 in move-propagation.json,
+// all 7 floors met — PC1 positive control observed the re-projection (24 m² → 36 m²),
+// N1/N2/N3 negative controls all behaved, 7 arms driven to a verdict, 0 harness
+// throws, 4638 source files walked. Since certify already exits 1 DECLARED-LEVEL,
+// enrolling it does not change this runner's aggregate exit code — it changes
+// whether GR-12 is measured at all. Carries a gate-newly-measured.json entry with
+// runner:'certify' (added in the same commit) so its reviewBy is enforced by
+// run-all even though its READING is not run-all's to report.
+const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-plan-determinism', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification', 'check-room-aabb-canonical', 'check-move-propagation'];
 const gateCodes: Record<string, number | null> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {

@@ -458,6 +458,139 @@
       "exitCondition": "per the gate's own C73 §6 print: D1 and D2 read 0 across every geometry package AND the persist-or-lose ledger is empty; the baseline file is then deleted with the finding path and the gate flips hard-0. NOT PROVEN by this gate, printed on every run (C73 §5.4b/c): cross-machine floating-point determinism, GPU-side geometry, and forbidden values passed ACROSS a function boundary into a stamper. ⚠ Also printed every run and repeated here so a green reading is never over-read: the GEOMETRY level of C73 §1.3 has NO classification input in this repo today — the A1→A2→A3 cycle serialises MODEL FIELDS; no entry classifies a vertex buffer, a triangle winding, or a mesh transform. Closing that needs a harness comparing BUILT GEOMETRY across a save/reload, which does not exist.",
       "territory": "packages/geometry-*/src — 15 packages at the reading. NOT tools/. The gate lane measures and reports; the D1/D2 drain is production-geometry work.",
       "reviewBy": "2026-11-14"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-relationship-determination.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-15",
+      "builtBy": "C78 §20 · U-INV-1 · tracker §-3 (BAR 3) · registered by the §GATE-AUTHORED-BUT-UNWIRED round-3 lane, which found THIRTEEN certification-gate files registered in NEITHER runner",
+      "addedLateAndWhy": "⚠ The gate FILE predates this entry, and the deterministic-regeneration precedent above governs: the rule exists because a late entry usually means the gate ran and something changed. Here the gate ran in NO RUNNER from the day it was committed. run-all's cross-home orphan pre-flight named it on every run; its readings were real but were enforcement only for as long as a human remembered to type the command, so not one of the 126 was ever a shipping decision. THIS commit introduces the gate to a runner, and the entry lands in it — a first reading in the only sense that matters. THIS IS THE MOST CONSEQUENTIAL OF THE THIRTEEN: the programme's headline metric, 126 findings, came from a gate nothing invoked, so nothing prevented it regressing.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 126 findings against a declared level of 126, EXECUTED AT HEAD by the registering commit: 91 silent-dispatch verbs + 35 refusal-less relationships. This CONFIRMS the hand-run bar-3 reading of 126 from a runner that now actually invokes it. All 13 floors met.",
+      "pinnedTo": "tools/rac-conformance/certification/gates/relationship-determination.json — 126 NAMED keys (`verb:<name>/silent-dispatch`, relationship rows), checked in BOTH directions by the shared contract.ts: a new finding exits 3 EXCEEDED, a ledgered finding no longer measured exits 3 STALE.",
+      "predatesTheGate": [
+        "All 91 silent-dispatch verbs are the estate's standing dispatch shape, written long before this gate could see them: no normaliser, a composed planner that reaches the verb, and a preview entry point returning bare null (§0.e) — so every one of the verb's 41 cells yields C78 §1.1's forbidden fourth answer: no plan, no typed UNDETERMINED, no report. annotation.create/delete/move/update and beam.create/beam.batch.create are the alphabetical head of that list.",
+        "The 35 refusal-less relationships likewise. Nothing measured any of this in an automated run, so there was no decision to make.",
+        "The gate was committed and left unregistered; the 126 was quoted as a programme metric while being produced by nothing on a schedule."
+      ],
+      "exitCondition": "the 126 named keys drain to 0 — each silent verb gains a normaliser and a planner route that yields a plan or a typed UNDETERMINED rather than bare null, and each refusal-less relationship gains a typed refusal path (C78 §1.1/§1.4). relationship-determination.json reaches 0 entries and the gate flips hard-0, at which point this entry is struck. It may NOT be struck by narrowing the verb sweep.",
+      "territory": "the verb handlers across plugins/ and packages/command-registry/, plus apps/editor/src/engine/consequence/ (the planner + preview entry point). NOT tools/ — the registration lane measures and reports; the drain is production work.",
+      "reviewBy": "2027-02-15",
+      "reviewByNote": "Longer than the 2026-11-15 siblings in this round, and argued rather than assumed on the epsilon-policy precedent: this is 126 keys spanning 91 distinct bus verbs, whose first step is a planner/normaliser route that does not exist for most of them. A three-month bound on 91 verbs would expire before anyone could honestly act on it, and an expiry nobody can meet teaches date-extension rather than compliance."
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-no-empty-means-unknown.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-15",
+      "builtBy": "C78 §20 · U-INV-4 · §1.4/§5 (the GR-14 drain) · §GATE-AUTHORED-BUT-UNWIRED round 3",
+      "addedLateAndWhy": "Same shape as the entry above and same justification: committed, registered in neither runner, never executed in an automated run. Hand-run at 63; this commit is the first time a runner invokes it.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 63 findings against a declared level of 63, EXECUTED AT HEAD by the registering commit. Confirms the GR-14 hand-run reading of 63. All 5 floors met.",
+      "pinnedTo": "tools/rac-conformance/certification/gates/no-empty-means-unknown-debt.json — 63 NAMED file-keyed rows with per-site line references, checked in both directions by the shared contract.ts.",
+      "predatesTheGate": [
+        "Every ARM C site is the estate's standing `?? []` habit at a query boundary, where an absent answer and an empty answer collapse to the same value — the §CONTEXT-DATA-HONESTY defect this repo keeps paying for, in the small.",
+        "WallRebuildCoordinator.ts (3 sites: @33, @1173, @1278 on wall.openings), buildBuildingGraph.ts (3 sites incl. `topology.getAdjacencyRelationships(id) ?? []`), ConsequenceExecutionService.ts (2 sites on predictedGeometry), WallMoveConsequencePlanner.ts:251, apartmentLayoutWallMapper.ts:38, initBusHandlers.ts:2088 are the head of the list. All predate the gate; nothing measured them."
+      ],
+      "exitCondition": "each of the 63 sites either distinguishes absent from empty (a typed UNDETERMINED / refusal per C78 §1.4) or is struck with a recorded argument that the collapse is safe at that site. no-empty-means-unknown-debt.json reaches 0 and the gate flips hard-0; the entry is struck then. It may NOT be struck by adding exclusions to the scan.",
+      "territory": "apps/editor/src/engine/** and the packages/ query surfaces named in the ledger. NOT tools/.",
+      "reviewBy": "2027-02-15",
+      "reviewByNote": "Aligned with relationship-determination's date for the same argued reason: 63 sites across many files, each needing a per-site judgement about whether absent and empty are genuinely the same fact there. That is not a mechanical strike-list."
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-dependency-fields-honoured.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-15",
+      "builtBy": "C79 §7.1/§7.3/§8 · C78 U-INV-6 · §GATE-AUTHORED-BUT-UNWIRED round 3",
+      "addedLateAndWhy": "Committed, registered in neither runner, never executed in an automated run until this commit.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 13 findings against a declared level of 13, EXECUTED AT HEAD by the registering commit. Floors met: dependency-fields.json ledger present 1/1, 15 dependency-naming fields in the census (min 14, the C79 §0.1(5) count).",
+      "pinnedTo": "tools/rac-conformance/certification/gates/dependency-fields.json — 13 NAMED `field@Type` rows in declaredFindings, checked in both directions.",
+      "predatesTheGate": [
+        "boundingWallIds@FloorData and @CeilingData — UNREACTED. Every boundingWallIds reactor in the tree (SyncStateEngine.ts:722,749,779,856,1051) is keyed on ROOMS, so a wall moved, split or deleted leaves the array stale. (The older C79 §7.1 EMPTY-literal half was already paid by 9fd9c5b6; the unreacted half was never measured.)",
+        "hostRoomId@FloorData/@CeilingData — PARTIAL: populated and reacted to, but the reactor propagates FINISH COLOUR only (RoomFinishResolver.ts:91/:151, RoomFinishSyncService.ts:77); the BOUNDARY is never re-derived. C79 §7.3's partial-honouring-recorded-as-full.",
+        "coveredRoomIds@FloorData/@CeilingData — written from hostRoomId, read for colour, no reactor on room change.",
+        "roomId@LightingData — resolved when the LIGHT moves (MoveLightingCommand.ts:50), never when the ROOM changes.",
+        "hostId@LightingData — declared on the type (LightingTypes.ts) with NO writer and NO reader: C72 §0's mechanism in the schema layer, reading like wiring to anyone auditing by grep."
+      ],
+      "exitCondition": "per C78 U-INV-6 the unhonoured fields reach 0 by HONOURING (a reactor re-derives the field when the named element changes) OR by DELETION (the field stops promising a dependency it does not carry). declaredFindings reaches 0 and the gate flips hard-0; the entry is struck then.",
+      "territory": "packages/command-registry/src/{floors,ceilings,lighting}/, packages/core-app-model/src/stores/, the SyncStateEngine reactors. NOT tools/.",
+      "reviewBy": "2026-11-15"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-graph-delete-integrity.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-15",
+      "builtBy": "C71 §6 · C70 F-INV-2 (deletes propagate; never an empty cascade BY DESIGN) · §GATE-AUTHORED-BUT-UNWIRED round 3",
+      "addedLateAndWhy": "Committed, registered in neither runner, never executed in an automated run until this commit.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 10 findings against a declared level of 10, EXECUTED AT HEAD by the registering commit. All 9 floors met (every parsed ElementType kind has a mapping row; every mapped file exists).",
+      "pinnedTo": "tools/rac-conformance/certification/gates/graph-delete-integrity-debt.json — 10 NAMED `kind/finding:file` rows, checked in both directions.",
+      "predatesTheGate": [
+        "ARM B RECONSTRUCTED (slab, column, beam, furniture, …): undo RE-AUTHORS edges from the kind's own snapshot instead of restoring the captured set verbatim, so edges authored by OTHER elements' commands (boundedBy from room detection, supports from AssignBeamSupports, contains) are invisible in that snapshot and are silently dropped by delete+undo. Commit 3ee632f6 established the correct verbatim shape for walls; the other kinds never followed.",
+        "ARM B NONE · curtain-wall: DeleteElementCommand.ts (branch 'curtainwall') purges ALL relationships on delete and undo restores NONE — delete+undo permanently deletes the kind's graph presence, and it looks correct while doing it.",
+        "curtain-panel has no delete path at all; the mapping DECLARES the absence rather than skipping the kind (panels are REPLACED, never deleted)."
+      ],
+      "exitCondition": "each RECONSTRUCTED kind adopts the 3ee632f6 capture/restore pair so undo restores the purged edge set VERBATIM; curtain-wall's undo restores what its purge removed. graph-delete-integrity-debt.json reaches 0 and the gate flips hard-0. ⚠ Printed by the gate on every run and repeated here so a future green is never over-read: this gate is STATIC — ARM B's VERBATIM reading proves the RESTORE CALL EXISTS, never that the restored edges are byte-equal to the purged ones, and ARM C cannot see a cascade that computes empty at runtime. Both halves print UNPROVEN.",
+      "territory": "packages/command-registry/src/**/Delete*Command.ts. NOT tools/.",
+      "reviewBy": "2026-11-15"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-graph-persistence.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-15",
+      "builtBy": "C71 §6 · C70 I-INV-2 (persist-or-lose enumerated BY NAME) + I-INV-3 (a pre-graph snapshot loses nothing SILENTLY) · §GATE-AUTHORED-BUT-UNWIRED round 3",
+      "addedLateAndWhy": "Committed, registered in neither runner, never executed in an automated run until this commit.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 3 findings against a declared level of 3, EXECUTED AT HEAD by the registering commit. Floors met: 26 RelationshipType members parsed (min 20), 4638 production source files scanned (min 1500), 1 rebuild implementation located, serialize/deserialize pair located, 2 loader call sites, 6/6 executed controls passed.",
+      "pinnedTo": "tools/rac-conformance/certification/gates/graph-persistence-debt.json — 3 NAMED persist-only-with-a-live-writer rows, checked in both directions (an unlisted persist-or-lose family exits 3; a stale row exits 3).",
+      "predatesTheGate": [
+        "C71 §5.4 measured the persist-or-lose list as PROSE in EV-05 §3 with NO GATE — §7.k's 'a ledger in a document is not a ledger'. The families were known and unmeasured; this gate makes the list mechanical, and the 3 rows are what it found on the first automated run.",
+        "Every row predates the instrument: nothing has ever compared the declared RelationshipType union against the rebuild's reconstructable set in CI."
+      ],
+      "exitCondition": "each of the 3 persist-only-with-a-writer families is either persisted through the snapshot slice or regenerated by rebuildSemanticGraphFromSnapshot, AND named by the rebuild's `unreconstructable` push set so a load that drops it REPORTS the named loss (I-INV-3). graph-persistence-debt.json reaches 0 and the gate flips hard-0. ⚠ Printed every run: the record-level half is a named UNPROVEN residual — this gate compares NO live snapshot records (that comparison belongs to check-derived-regenerable and the persistence cert suite), and whether the loss report reaches a USER is not statically decidable and never prints green.",
+      "territory": "packages/core-app-model/src/SemanticGraph.ts and the loader/rebuild path. NOT tools/.",
+      "reviewBy": "2026-11-15"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-no-silent-partial.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-15",
+      "builtBy": "C68 §5 (a batch that drops items must SAY SO) · §GATE-AUTHORED-BUT-UNWIRED round 3",
+      "addedLateAndWhy": "Committed, registered in neither runner, never executed in an automated run until this commit.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 3 findings against a declared level of 3, EXECUTED AT HEAD by the registering commit. Floors met: 36 candidate batch files established from the union of two independent conventions (min 20), 25 batch commands actually CLASSIFIED (min 15), 13 with at least one per-item DROP site (min 1 — zero would make every arm vacuous), ledger loaded 1/1.",
+      "pinnedTo": "tools/rac-conformance/certification/gates/no-silent-partial-debt.json — 3 NAMED rows, checked in both directions.",
+      "predatesTheGate": [
+        "All 3 are batch commands that drop items per-item without surfacing the partial to the caller — the same family of defect as R4's report-payload discard, one layer earlier. They were written before any instrument measured the drop sites, and nothing ran this gate to notice."
+      ],
+      "exitCondition": "each of the 3 batch commands reports its dropped items to the caller (count + identities), so a partial application can never render as a completed one. no-silent-partial-debt.json reaches 0 and the gate flips hard-0.",
+      "territory": "packages/command-registry/src/** batch commands. NOT tools/.",
+      "reviewBy": "2026-11-15"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-generation-is-consequential.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-15",
+      "builtBy": "C80 §7 · GEN-GAP-1 (named UNBUILT at C80's stamp) · §GATE-AUTHORED-BUT-UNWIRED round 3",
+      "addedLateAndWhy": "Committed, registered in neither runner, never executed in an automated run until this commit.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 1 finding against a declared level of 1, EXECUTED AT HEAD by the registering commit. Floors met: 284 handler files swept (min 150), 1 generation-family bus verb discovered (min 1 — C80 §7 is emphatic that a run reading 0 is MISCONFIGURED, not passing), 1 verb whose plan-or-typed-refusal route was PROVEN (min 1).",
+      "pinnedTo": "the gate's own declared level (C80 §7), checked in both directions by the shared contract.ts.",
+      "predatesTheGate": [
+        "The finding is the C80 §0.1(1) coverage gap itself: the NINE UI-controller generators are not bus verbs and are therefore invisible to a bus-verb sweep — including HouseLayoutExecutor.ts:1757-1766, the §GRAPH-CLEAR-FIRST loop MEASURED destroying a hand-drawn room. The gate reports this as a finding on every run rather than as a silence. It long predates the instrument."
+      ],
+      "exitCondition": "the generation surface is reachable as bus verbs so the sweep can see it — or the nine UI-controller generators are routed through plan-or-typed-refusal and the finding is struck with the argument. The gate flips hard-0 when its declared level reaches 0. ⚠ Printed every run: arm (b) is a SOURCE check and proves the handler CONTAINS no mutation site, never that dispatching it mutates nothing; the executed half lives in plugins/rooms/__tests__/roomRegenerate.test.ts, which this gate CITES rather than duplicates.",
+      "territory": "apps/editor/src/engine/** (the nine UI-controller generators incl. HouseLayoutExecutor) and plugins/rooms/. NOT tools/.",
+      "reviewBy": "2026-11-15"
+    },
+    {
+      "gate": "../rac-conformance/certification/gates/check-move-propagation.ts",
+      "runner": "certify",
+      "addedAt": "2026-08-15",
+      "builtBy": "GR-12 · C79 §5.5/§8.3(b) · C78 §6 ('move: the unmeasured lifecycle phase') · C71 §6.2 · §GATE-AUTHORED-BUT-UNWIRED round 3",
+      "addedLateAndWhy": "Committed, registered in neither runner, never executed in an automated run until this commit. It is the ONE of the thirteen that answers YES to the §2.1a residency question, so it is registered in certify.ts, not run-all.",
+      "firstReading": "exit 1 DECLARED-LEVEL — 1 finding against a declared level of 1, EXECUTED AT HEAD by the registering commit. All 7 floors met: PC1 positive control observed the re-projection (24 m² → 36 m²) so the harness can see a follow at all, N1/N2/N3 negative controls all behaved, 7 arms driven to a verdict, 0 harness throws, 4638 source files walked for the consumer scan, 4 region-derived families enumerated.",
+      "pinnedTo": "tools/rac-conformance/certification/gates/move-propagation.json — 1 NAMED row, checked in both directions.",
+      "predatesTheGate": [
+        "roof·region — the region attribution has nowhere to land: RoofTypes.ts declares NO field that can carry a boundary reference (RoofFootprint.polygon is a bare [number, number][]). RoofRegionTrace.ts computes and RETURNS the five attribution counts, which are then DISCARDED for want of anywhere to put them. The L0 bus schema compounds it — packages/schemas/src/elements/Roof.ts types `boundary` as Vec3[] and Zod strips unknown keys, so a reference cannot even TRANSIT the bus. Roof does not follow, cannot follow, and unlike the finishes has no correct data sitting unread. A NAMED gap with an owner, not a silent one."
+      ],
+      "exitCondition": "RoofFootprint (and the L0 Roof schema's `boundary`) gain a field that can carry a HostReferenceEdge, so the attribution RoofRegionTrace already computes has somewhere to land and a roof can follow its walls. move-propagation.json reaches 0 and the gate flips hard-0. ⚠ Printed every run: A5–A7 (floor finish · ceiling · roof) are STRUCTURAL, not executed, because there is no listener to drive — driving a move at a family with no subscriber would produce a zero meaning 'I built no harness'. The gate also cannot see rendered correctness, collaboration merge, undo/redo of a move, multi-level moves, or whether a USER is told which edges follow (C79 §10.6).",
+      "territory": "packages/geometry-roof/ and packages/schemas/src/elements/Roof.ts. NOT tools/.",
+      "runnerNote": "GRADED BY certify.ts, NOT BY run-all. run-all does not execute this gate — it composes real stores and drives a real wall move, which is why it lives in and now runs from the certification tree (§2.1a). run-all reports this entry as INFORMATIONAL and enforces only its `reviewBy`, because a date is runner-agnostic and a reading is not.",
+      "reviewBy": "2026-11-15"
     }
   ]
 }

@@ -402,6 +402,86 @@ const GATES: Gate[] = [
   // per PR); this row is the arm that makes a sixth triangulator or a fifth
   // engine copy fail loudly in the meantime.
   { name: 'triangulation-canonical (GE-12 · C73 §3)',   script: 'check-triangulation-canonical.ts' },
+  // §GATE-AUTHORED-BUT-UNWIRED, round 3 (2026-08-15) — THIRTEEN gate files under
+  // tools/rac-conformance/certification/gates/ were registered in NEITHER runner
+  // and had therefore NEVER EXECUTED in any automated run. This is §2.1d recurring
+  // with the hole moved: last time the DETECTOR could not see the second gate home,
+  // and extending it (above) is what made these thirteen visible. The detector has
+  // been shouting `❌ 13 gate file(s) … registered in NEITHER runner` on every run
+  // since; this array is the other half of that complaint.
+  //
+  // ⚠ WHY IT MATTERS MORE THAN A COUNT: `check-relationship-determination` IS THE
+  // BAR-3 GATE. The programme's headline metric — 126 findings — comes from a gate
+  // nothing invoked, so nothing prevented it regressing; the number was enforcement
+  // only for as long as a human remembered to type the command. Same for
+  // `check-no-empty-means-unknown` (the GR-14 drain, hand-run at 63) and
+  // `check-move-propagation` (GR-12, 1/1).
+  //
+  // RESIDENCY (§7.4 / §2.1a — the boundary test is ONE question: does the gate need
+  // something that does not exist until something runs?). Decided PER GATE by reading
+  // each file's imports and header, NOT batched:
+  //   • TWELVE answer NO. They import `node:fs` + `node:path` + `../contract.js`
+  //     (+ `./scan.js`) and NOTHING ELSE: no dynamic import of a package, no store
+  //     composition, no runtime, and no read of `results/` (verified — zero hits).
+  //     They scan committed source at HEAD, so they are STATIC and belong to THIS
+  //     runner. Four of them say so in their own headers, in their own words:
+  //     graph-delete-integrity ("Discovery is static"), graph-persistence ("This is a
+  //     STATIC gate"), generation-is-consequential ("WHY THE CHECK IS STATIC, SAID
+  //     PLAINLY" — its execSync is `git rev-parse --show-toplevel`, not a harness),
+  //     relationship-determination. Their DIRECTORY is the certification tree and
+  //     stays there beside the ledgers they read — residency is about the RUNNER; the
+  //     PATH is what is registered, never a copy (§2.1a, the check-propagation-reaches
+  //     precedent). They import the ONE exit-code contract, which is what §2.1b asks.
+  //   • ONE answers YES: `check-move-propagation` composes the REAL SlabStore, the
+  //     REAL SlabDependencyTracker, `await import('@pryzm/geometry-slab')` and a
+  //     happy-dom window, then MOVES A WALL and reads the effect back. It is
+  //     EXECUTED and is registered in certify.ts instead.
+  //
+  // TWO OF THE THIRTEEN ARE DELIBERATELY NOT REGISTERED, and the absence is recorded
+  // rather than dropped — "we looked and it was not registrable" and "nobody looked"
+  // must not print the same:
+  //   ✗ check-index-can-refuse      exit 3 STALE LEDGER at HEAD. Its own
+  //     index-can-refuse-debt.json declares DoorDependencyTracker unable to refuse
+  //     and it now can (paid, unstruck), while Ceiling/FloorHostDependencyTracker are
+  //     measured UNLEDGERED — 10 findings against a named 9.
+  //   ✗ check-region-reference-frame exit 3 RATCHET EXCEEDED at HEAD, 1 finding
+  //     against a declared HARD-0: FinishSegmentAdapter.ts:150 constructs a
+  //     hostReference edge with no readable `reference` member.
+  //   Exit 3 is NEVER absorbable by either ledger (§RATCHET-EXCEEDED-IS-NEVER-DEBT,
+  //   R7 / L-836 / C70 §5.1), so registering either would hard-block this suite for
+  //   every lane on a defect this registration lane's fence forbids it to fix. The
+  //   deterministic-regeneration precedent above is the rule being followed, not
+  //   bent: registration WAITS at exit 3 until the finding is fixed or its ledger is
+  //   honestly re-anchored. Each needs its own lane. Until then the orphan check
+  //   above still names them, which is the correct residual signal.
+  //
+  // Every row below was RE-RUN AT HEAD by the registering commit — a gate registered
+  // on a reading someone else reported is a gate registered on hearsay. All floors
+  // met on all eleven; no gate exited 2.
+  //   ✓ provenance-export-boundary  exit 0 CLEAN, hard-0, no baseline.
+  //   ✓ region-fallback-populated   exit 0 CLEAN, hard-0, no baseline.
+  //   ✓ region-host-attribution     exit 0 CLEAN, hard-0, no baseline.
+  //   ● relationship-determination  exit 1, 126/126 — THE BAR-3 READING, CONFIRMED
+  //                                 by a runner that now invokes it.
+  //   ● no-empty-means-unknown      exit 1, 63/63 (GR-14 hand-run reading confirmed).
+  //   ● dependency-fields-honoured  exit 1, 13/13.
+  //   ● graph-delete-integrity      exit 1, 10/10.
+  //   ● graph-persistence           exit 1, 3/3.
+  //   ● no-silent-partial           exit 1, 3/3.
+  //   ● generation-is-consequential exit 1, 1/1.
+  // The seven `●` rows land RED on defects that PREDATE them and that nobody chose
+  // to ship, so each carries a gate-newly-measured.json entry added in THIS commit
+  // (§2.4 / §7.6) — NOT gate-debt.json, which requires the founder.
+  { name: 'provenance-export-boundary (C75 §5 · PV-04)',        script: '../rac-conformance/certification/gates/check-provenance-export-boundary.ts' },
+  { name: 'region-fallback-populated (C79 §8)',                 script: '../rac-conformance/certification/gates/check-region-fallback-populated.ts' },
+  { name: 'region-host-attribution (C79 §6.3)',                 script: '../rac-conformance/certification/gates/check-region-host-attribution.ts' },
+  { name: 'relationship-determination (C78 §20 · U-INV-1 · BAR-3)', script: '../rac-conformance/certification/gates/check-relationship-determination.ts' },
+  { name: 'no-empty-means-unknown (C78 §20 · U-INV-4 · GR-14)', script: '../rac-conformance/certification/gates/check-no-empty-means-unknown.ts' },
+  { name: 'dependency-fields-honoured (C79 §8)',                script: '../rac-conformance/certification/gates/check-dependency-fields-honoured.ts' },
+  { name: 'graph-delete-integrity (C71 §6 · C70 F-INV-2)',      script: '../rac-conformance/certification/gates/check-graph-delete-integrity.ts' },
+  { name: 'graph-persistence (C71 §6 · C70 I-INV-2/3)',         script: '../rac-conformance/certification/gates/check-graph-persistence.ts' },
+  { name: 'no-silent-partial (C68 §5 · batch partials)',        script: '../rac-conformance/certification/gates/check-no-silent-partial.ts' },
+  { name: 'generation-is-consequential (C80 §7 · GEN-GAP-1)',   script: '../rac-conformance/certification/gates/check-generation-is-consequential.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
