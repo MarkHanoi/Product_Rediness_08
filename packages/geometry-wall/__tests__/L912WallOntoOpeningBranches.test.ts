@@ -28,6 +28,17 @@
  * defect are asserted AT their measured value and tagged §MEASURED-SILENT, so
  * this file is a measurement first and a regression pin second. The fix commit
  * flips those assertions and says so.
+ *
+ * ── THE FIX LANDED (same tree as §SOLID-OVERLAP-IS-THE-QUESTION) ──────────────
+ * The §MEASURED-SILENT pins are now FLIPPED, each saying so at the arm:
+ *   §B-a  COLLINEAR over the door      0 → 1 violation (solid overlap, exact stations)
+ *   §B-a2 PARALLEL 0.10 m solid overlap 0 → 1 violation (the centreline-clip hole)
+ *   §B-g  §PRE-WELD-TRANSIENT slide     0 → 1 violation (§WELD-EXCUSES-A-JUNCTION-
+ *         NOT-A-CROSSING: a clean pass-through is never a junction) — the
+ *         founder's own gesture, now a hard regression pin.
+ * §B-d (shared endpoint, no crossing) and §B-f (shared endpoint, near-parallel
+ * body) remain EXCUSED BY DESIGN — the junction exclusions are narrowed, not
+ * removed — and §B-f is now pinned at that value rather than merely measured.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -148,7 +159,10 @@ describe('L-912 §B — which GEOMETRY CLASS is silent?', () => {
       [host('door')],
     );
     report('B-a COLLINEAR OVERLAP', v);
-    expect(v.violations.length).toBe(0);
+    // §MEASURED-SILENT → FLIPPED by the fix: the solid model gives the
+    // collinear case an exact station interval, so lying over the door FIRES.
+    expect(v.violations.length).toBe(1);
+    expect(v.valid).toBe(false);
   });
 
   it('§B-a2 PARALLEL, offset by less than a half-thickness (solids still overlap)', () => {
@@ -165,7 +179,11 @@ describe('L-912 §B — which GEOMETRY CLASS is silent?', () => {
       [host('door')],
     );
     report('B-a2 PARALLEL near-collinear', v);
-    expect(v.violations.length).toBe(0);
+    // §MEASURED-SILENT → FLIPPED by the fix: 0.10 m of shared SOLID straight
+    // over the door — invisible to the centreline clip, refused by the solid
+    // overlap. This was the founder's total-silence branch.
+    expect(v.violations.length).toBe(1);
+    expect(v.valid).toBe(false);
   });
 
   it('§B-b T-TOUCH: the moved wall ENDS inside the door span (no shared endpoint)', () => {
@@ -246,10 +264,12 @@ describe('L-912 §B — which GEOMETRY CLASS is silent?', () => {
       [host('door')],
     );
     report('B-f SHARED ENDPOINT + near-parallel body over the door', v);
-    // MEASUREMENT ONLY — recorded at whatever the shipped rule does.
-    // eslint-disable-next-line no-console
-    console.log(`[L-912 §MEASURE] B-f measured violations = ${v.violations.length}`);
-    expect(typeof v.valid).toBe('boolean');
+    // EXCUSED BY DESIGN, now pinned: the body does NOT pass clean through the
+    // host (its endpoint lies ON the host), so §CORNER-JOIN-IS-NOT-A-CROSSING
+    // still excuses it — the junction exclusions were narrowed, not removed.
+    // If this ever fires, the narrowing widened; that is a finding, not a fix.
+    expect(v.violations.length).toBe(0);
+    expect(v.valid).toBe(true);
   });
 
   it('§B-g §PRE-WELD-TRANSIENT: the moved wall CURRENTLY shares the host endpoint', () => {
@@ -273,8 +293,14 @@ describe('L-912 §B — which GEOMETRY CLASS is silent?', () => {
       [host('door')],
     );
     report('B-g PRE-WELD-TRANSIENT slide-along', v);
-    console.log(`[L-912 §MEASURE] B-g measured violations = ${v.violations.length}`);
-    expect(typeof v.valid).toBe('boolean');
+    // §MEASURED-SILENT → FLIPPED by the fix (§WELD-EXCUSES-A-JUNCTION-NOT-A-
+    // CROSSING): the moved wall passes CLEAN THROUGH the host — both endpoints
+    // outside the host band, opposite sides — so no junction reading excuses
+    // it, and the door refusal FIRES with offers. This is the founder's own
+    // gesture, and it is now a hard regression pin.
+    expect(v.violations.length).toBe(1);
+    expect(v.valid).toBe(false);
+    expect(v.offers.length).toBeGreaterThan(0);
   });
 });
 

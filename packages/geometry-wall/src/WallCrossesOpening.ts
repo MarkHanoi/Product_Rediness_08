@@ -29,26 +29,44 @@
  * The naive test is "does the new wall's CENTRELINE pass through the opening's
  * interval?". That is wrong in the direction that matters: a 0.3 m wall whose
  * centreline clears a door jamb by 0.1 m still drives 50 mm of solid through
- * the door. So the test clips the HOST's centreline segment against the
- * candidate's FOOTPRINT RECTANGLE (centreline swept ±thickness/2), yielding an
+ * the door.
+ *
+ * ⚠ REWRITTEN 2026-08-14 (ISSUE-LOG L-912). This section used to describe a
+ * clip of the HOST'S CENTRELINE against the candidate's footprint, and named
+ * two "deliberate conservatisms" — the host's own half-thickness excluded, and
+ * near-parallel never judged. **The founder's report refuted both**, on the
+ * deploy that shipped L-904: they moved a wall onto a DOOR and got *"no
+ * notification, no message, no refusal"*, while the same gesture onto a WINDOW
+ * produced the full card and the chat offer. Both conservatisms were measured
+ * to be the cause (`__tests__/L912WallOntoOpeningBranches.test.ts`), and the
+ * type hypothesis — that doors were filtered out of the opening set — was
+ * REFUTED by the same run: all four cells of type × gesture fire identically.
+ *
+ * The test is now a SOLID/INTERVAL OVERLAP, which is what C83 §1.2's IMPOSSIBLE
+ * test actually asks: two mutually exclusive claims about one VOLUME. The
+ * host's footprint rectangle is intersected with the candidate's footprint
+ * rectangle and the shared area is projected onto the host axis, yielding an
  * INTERVAL of host stations, never a point. That interval is then compared with
  * the host's occupied spans on exactly the convention `canPlace` already uses.
  *
- * Two deliberate CONSERVATISMS, named rather than hidden — both push toward
- * FEWER findings, which is the correct direction for a rule that refuses
- * (C83 §5, false positives are the primary risk):
+ *  1. The host's OWN half-thickness IS now part of the question — because two
+ *     0.30 m walls whose centrelines are 0.20 m apart overlap by 0.10 m of real
+ *     material, and the old test called that clear. For the perpendicular case
+ *     that dominates real plans the interval is UNCHANGED (measured), so this
+ *     is a strict generalisation, not a re-tuning.
+ *  2. A PARALLEL relationship is now judged, because the solid model answers it
+ *     exactly — with no `1/sin θ` divisor anywhere, which was the real reason
+ *     the old model had to bail out. A wall lying ALONG a host, over a door, is
+ *     the founder's own phrase *"a wall placed in front of a door"* and it is a
+ *     violation. A parallel overlap that misses every opening remains SILENT:
+ *     that is the wall×wall solid clash question, which lives behind
+ *     `__pryzmWallFaceTrimNoClash` (L-94) and is NOT absorbed here.
  *
- *  1. The host's OWN half-thickness is not added to the interval. Including it
- *     would widen the station range by (hostThickness/2)·|cot θ| — exactly ZERO
- *     for the perpendicular case that dominates real plans, and a small
- *     widening for oblique ones. Narrower means a grazing oblique wall is not
- *     refused; that is the side to err on.
- *  2. A NEAR-PARALLEL relationship is never a violation. Two walls running
- *     along each other are not "crossing", the 1-D station model does not
- *     describe their interaction, and forcing it to would make the longest,
- *     loudest findings the least trustworthy ones. It is reported as
- *     UNDETERMINED when the bodies actually overlap, and silently ignored when
- *     they do not.
+ * The direction of erring is preserved where it counts: GRAZING contact (faces
+ * touching, shared boundary and no shared volume) is rejected via COINCIDENT_M,
+ * and a wall JOINED to the host is still excused — see
+ * §WELD-EXCUSES-A-JUNCTION-NOT-A-CROSSING for the one case that stopped being
+ * excused, and why.
  *
  * ── TOLERANCES ARE CONSUMED, NEVER MINTED (C73 §2.2) ──────────────────────────
  * Every comparison below imports its role from `@pryzm/geometry-kernel`:
@@ -76,7 +94,6 @@ import {
   COINCIDENT_M,
   arePointsCoincident2D,
   isNumericallyZero,
-  isParallel,
 } from '@pryzm/geometry-kernel';
 import type { WallData } from './WallTypes';
 import type { CanPlaceRefusalCode } from './WallOccupancyStore';
@@ -201,73 +218,118 @@ interface V2 {
 
 const sub = (a: PlanPoint | V2, b: PlanPoint | V2): V2 => ({ x: a.x - b.x, z: a.z - b.z });
 const dot = (a: V2, b: V2): number => a.x * b.x + a.z * b.z;
-const cross2 = (a: V2, b: V2): number => a.x * b.z - a.z * b.x;
 const len = (a: V2): number => Math.hypot(a.x, a.z);
 
 // ─── The crossing interval ────────────────────────────────────────────────────
 
 /**
- * Clip the host centreline segment `q → q2` against the candidate's footprint
- * rectangle, returning the station interval `[s0, s1]` in metres from the host's
- * start, or `null` when the segment misses the rectangle entirely.
- *
- * The rectangle is the intersection of four half-planes — two along the
- * candidate axis (0 ≤ t ≤ L) and two across it (|n| ≤ thickness/2) — so this is
- * an ordinary parametric clip. Choosing the clip over an
- * "intersect-then-widen-by-thickness/sin θ" formula is deliberate: the latter
- * divides by sin θ and detonates as the walls approach parallel, exactly where
- * a refusal is least trustworthy. The clip has no such divisor.
+ * §SOLID-OVERLAP-IS-THE-QUESTION (L-912) — clip one convex polygon against the
+ * half-plane `dot(v, n) ≤ limit`, Sutherland–Hodgman. Pure, allocation-light,
+ * no tolerance of its own: the caller decides what a thin sliver means.
  */
-function clipHostAgainstCandidateFootprint(
-  q: PlanPoint,
-  q2: PlanPoint,
+function clipHalfPlane(poly: readonly V2[], n: V2, limit: number): V2[] {
+  const out: V2[] = [];
+  const m = poly.length;
+  if (m === 0) return out;
+  for (let i = 0; i < m; i++) {
+    const cur = poly[i]!;
+    const nxt = poly[(i + 1) % m]!;
+    const fc = dot(cur, n) - limit;
+    const fn = dot(nxt, n) - limit;
+    if (fc <= 0) out.push(cur);
+    if ((fc < 0 && fn > 0) || (fc > 0 && fn < 0)) {
+      const t = fc / (fc - fn);
+      out.push({ x: cur.x + (nxt.x - cur.x) * t, z: cur.z + (nxt.z - cur.z) * t });
+    }
+  }
+  return out;
+}
+
+/** The four corners of a wall's plan footprint: centreline `p0 → p1` swept ±half. */
+function footprintRect(p0: PlanPoint, p1: PlanPoint, normal: V2, halfM: number): V2[] {
+  return [
+    { x: p0.x + normal.x * halfM, z: p0.z + normal.z * halfM },
+    { x: p1.x + normal.x * halfM, z: p1.z + normal.z * halfM },
+    { x: p1.x - normal.x * halfM, z: p1.z - normal.z * halfM },
+    { x: p0.x - normal.x * halfM, z: p0.z - normal.z * halfM },
+  ];
+}
+
+/**
+ * §SOLID-OVERLAP-IS-THE-QUESTION (L-912) — over WHICH host stations does the
+ * candidate's SOLID occupy the host's SOLID?
+ *
+ * ── WHY THIS REPLACED THE CENTRELINE CLIP ────────────────────────────────────
+ * The shipped L-904 predicate clipped the host's **centreline** against the
+ * candidate's footprint. Measured (`L912WallOntoOpeningBranches` §B-a2): two
+ * 0.30 m walls whose centrelines are 0.20 m apart have solids that overlap by
+ * 0.10 m — straight over a door — and the centreline test returns **null**,
+ * because the host's centreline lies outside the candidate's rectangle. The
+ * founder's report is that silence: *"no notification, no message, no refusal"*.
+ *
+ * C83 §1.2's IMPOSSIBLE test is about VOLUMES — "material here" against "void
+ * here" — so the honest question is whether the two FOOTPRINTS share plan area,
+ * not whether two lines cross. This intersects the host's footprint rectangle
+ * with the candidate's (four half-planes: 0 ≤ t ≤ L along the candidate axis,
+ * |n| ≤ thickness/2 across it) and projects the resulting convex polygon onto
+ * the HOST axis.
+ *
+ * It is a STRICT GENERALISATION, not a re-tuning:
+ *   • a perpendicular crossing yields exactly the interval the centreline clip
+ *     yielded (the candidate's own thickness) — the shipped behaviour, byte for
+ *     byte, which is why the L-904 corpus is unmoved;
+ *   • a host with zero thickness degenerates to the old test exactly;
+ *   • the parallel/collinear case, which the old model could only DECLARE as
+ *     `NEAR_PARALLEL_OVERLAP` and refuse nothing about, now has an exact station
+ *     interval — no `1/sin θ` divisor appears anywhere, so nothing detonates as
+ *     the walls approach parallel. That divisor is precisely why the old model
+ *     had to bail out there.
+ *
+ * NO TOLERANCE IS WIDENED to make anything fire (C73 §2.5). `lateralDepthM` is
+ * returned so the caller can reject GRAZING contact — two walls whose faces
+ * touch share a boundary, not a volume — using `COINCIDENT_M`, the same kernel
+ * tolerance in the same role as the station-overlap test downstream.
+ *
+ * @returns `null` when the footprints do not meet at all.
+ */
+function solidOverlapHostStations(
+  hb0: PlanPoint,
+  hostAxis: V2,
+  hostNormal: V2,
+  hostRect: readonly V2[],
   aStart: PlanPoint,
   axis: V2,
   axisLenM: number,
   normal: V2,
   halfThicknessM: number,
-): readonly [number, number] | null {
-  const d = sub(q2, q);
-  const hostLenM = len(d);
-  if (isNumericallyZero(hostLenM)) return null;
+): { readonly stations: readonly [number, number]; readonly lateralDepthM: number } | null {
+  const aV: V2 = { x: aStart.x, z: aStart.z };
+  const alongA = dot(aV, axis);
+  const acrossA = dot(aV, normal);
 
-  const rel = sub(q, aStart);
+  let poly: readonly V2[] = hostRect;
+  poly = clipHalfPlane(poly, { x: -axis.x, z: -axis.z }, -alongA); //            t ≥ 0
+  poly = clipHalfPlane(poly, axis, alongA + axisLenM); //                        t ≤ L
+  poly = clipHalfPlane(poly, normal, acrossA + halfThicknessM); //               n ≤ +h
+  poly = clipHalfPlane(poly, { x: -normal.x, z: -normal.z }, -acrossA + halfThicknessM); // n ≥ −h
+  if (poly.length === 0) return null;
 
-  // Each half-plane as f(u) = f0 + u·fd ≤ 0.
-  const alongAtQ = dot(rel, axis);
-  const alongPerU = dot(d, axis);
-  const acrossAtQ = dot(rel, normal);
-  const acrossPerU = dot(d, normal);
-
-  const planes: readonly (readonly [number, number])[] = [
-    [-alongAtQ, -alongPerU], //   -(t)            ≤ 0   ⇒ t ≥ 0
-    [alongAtQ - axisLenM, alongPerU], //  t - L    ≤ 0   ⇒ t ≤ L
-    [acrossAtQ - halfThicknessM, acrossPerU], //  n - h ≤ 0
-    [-acrossAtQ - halfThicknessM, -acrossPerU], // -n - h ≤ 0
-  ];
-
-  let u0 = 0;
-  let u1 = 1;
-  for (const [f0, fd] of planes) {
-    if (isNumericallyZero(fd)) {
-      // Parallel to this boundary: either wholly inside or wholly outside.
-      // `> 0` (strict) so a segment lying exactly ON the boundary is treated as
-      // inside — the COINCIDENT_M overlap test downstream is what decides
-      // whether that grazing contact matters, and it must not be pre-empted here.
-      if (f0 > 0) return null;
-      continue;
-    }
-    const u = -f0 / fd;
-    if (fd > 0) {
-      if (u < u1) u1 = u;
-    } else if (u > u0) {
-      u0 = u;
-    }
-    if (u0 > u1) return null;
+  let s0 = Infinity;
+  let s1 = -Infinity;
+  let l0 = Infinity;
+  let l1 = -Infinity;
+  for (const v of poly) {
+    const rel = sub(v, hb0);
+    const s = dot(rel, hostAxis);
+    const l = dot(rel, hostNormal);
+    if (s < s0) s0 = s;
+    if (s > s1) s1 = s;
+    if (l < l0) l0 = l;
+    if (l > l1) l1 = l;
   }
-
-  return [u0 * hostLenM, u1 * hostLenM];
+  return { stations: [s0, s1], lateralDepthM: l1 - l0 };
 }
+
 
 // ─── The predicate ────────────────────────────────────────────────────────────
 
@@ -387,26 +449,76 @@ export function findWallOpeningCrossings(
       arePointsCoincident2D(p.x, p.z, hb[0].x, hb[0].z) ||
       arePointsCoincident2D(p.x, p.z, hb[1].x, hb[1].z);
 
-    if (touchesEndpoint(a) || touchesEndpoint(b)) continue;
+    const hd = sub(hb[1], hb[0]);
+    const hostLenM = len(hd);
+    if (isNumericallyZero(hostLenM)) continue;
+    const hostAxis: V2 = { x: hd.x / hostLenM, z: hd.z / hostLenM };
+    const hostNormal: V2 = { x: -hostAxis.z, z: hostAxis.x };
+    const hostHalfM =
+      Math.max(0, typeof host.thickness === 'number' ? host.thickness : 0) / 2;
 
-    // §PRE-WELD-TRANSIENT — the same exclusion, asked of where the wall IS rather
-    // than where it is going. A host joined to the subject at its CURRENT pose is
-    // about to be re-welded by the cascade half of this very gesture, so its
-    // present geometry is a transient the rule must not judge. See
-    // `CandidateWall.currentBaseLine` for the measured case this closes.
+    // ── §WELD-EXCUSES-A-JUNCTION-NOT-A-CROSSING (L-912) ──────────────────────
+    //
+    // The two exclusions above were written as `continue` past the WHOLE host,
+    // and that is the hole the founder fell into. MEASURED
+    // (`L912WallOntoOpeningBranches` §B-g): a partition welded into the door's
+    // host wall is excluded from that host at EVERY station, so sliding it
+    // along until it lands PERPENDICULAR ACROSS the door 8.7 m from the joint
+    // is completely silent — `UPDATE_WALL_BASELINE` executes clean, which is
+    // the founder's report verbatim.
+    //
+    // What both exclusions are actually about is a JUNCTION: a corner mitre
+    // (§CORNER-JOIN) or a joint about to be re-welded by the cascade half of
+    // this same gesture (§PRE-WELD-TRANSIENT). A wall that passes CLEAN THROUGH
+    // the host — both endpoints strictly outside the host's solid band, on
+    // OPPOSITE sides — is not a junction under any reading. No weld produces
+    // that, no mitre explains it: it is material driven through the host, and
+    // if an opening is there it is C83 §1.2 IMPOSSIBLE.
+    //
+    // NARROW BY CONSTRUCTION, and this is the load-bearing part. When the NEW
+    // baseline shares the endpoint (§CORNER-JOIN), that endpoint lies ON the
+    // host, so `passesCleanThrough` is false by construction and the corner
+    // exclusion is UNCHANGED. The override can only ever bite the
+    // §PRE-WELD-TRANSIENT case where the wall used to be joined and its new
+    // pose crosses the host outright — which is exactly §B-g and nothing else.
+    // `hostedOpeningHostMoveSeam` §Z-5, the fixture that refuted this rule
+    // twice, has the moved wall TERMINATING on its host (lateral offset 0), so
+    // it is still excluded and still passes.
+    const lateralOf = (p: PlanPoint): number => dot(sub(p, hb[0]), hostNormal);
+    const outsideHostBand = (p: PlanPoint): boolean =>
+      Math.abs(lateralOf(p)) > hostHalfM + COINCIDENT_M;
+    const passesCleanThrough =
+      outsideHostBand(a) && outsideHostBand(b) && lateralOf(a) * lateralOf(b) < 0;
+
     const cur = candidate.currentBaseLine;
-    if (cur && (touchesEndpoint(cur[0]) || touchesEndpoint(cur[1]))) continue;
+    const joinedNow = touchesEndpoint(a) || touchesEndpoint(b);
+    const joinedCurrently =
+      cur !== undefined && (touchesEndpoint(cur[0]) || touchesEndpoint(cur[1]));
+    if ((joinedNow || joinedCurrently) && !passesCleanThrough) continue;
 
-    const span = clipHostAgainstCandidateFootprint(
+    // §SOLID-OVERLAP-IS-THE-QUESTION (L-912) — footprint × footprint, not
+    // centreline × footprint. See `solidOverlapHostStations` for the measured
+    // case (§B-a2: 0.10 m of shared solid straight over a door, invisible to the
+    // centreline test) and for why this is a strict generalisation of the
+    // shipped behaviour rather than a re-tuning of it.
+    const overlap = solidOverlapHostStations(
       hb[0],
-      hb[1],
+      hostAxis,
+      hostNormal,
+      footprintRect(hb[0], hb[1], hostNormal, hostHalfM),
       a,
       axis,
       axisLenM,
       normal,
       halfThicknessM,
     );
-    if (span === null) continue;
+    if (overlap === null) continue;
+
+    // GRAZING IS NOT SHARING. Two walls whose faces touch share a boundary, not
+    // a volume — a partition run flush against the host's face is ordinary
+    // construction and must stay silent. `COINCIDENT_M` in the same role it
+    // plays in the station test below; no new constant, nothing widened.
+    if (overlap.lateralDepthM <= COINCIDENT_M) continue;
 
     // The host is curved: its opening offsets are ARC-length stations while the
     // clip above produced CHORD stations. Comparing the two would be measuring
@@ -423,27 +535,7 @@ export function findWallOpeningCrossings(
       continue;
     }
 
-    const hd = sub(hb[1], hb[0]);
-    const hostLenM = len(hd);
-    if (isNumericallyZero(hostLenM)) continue;
-    const hostAxis: V2 = { x: hd.x / hostLenM, z: hd.z / hostLenM };
-
-    // Near-parallel: see the module header. The bodies may genuinely overlap, but
-    // "crossing at a station" is the wrong description of that, so it is declared
-    // rather than refused.
-    if (isParallel(cross2(axis, hostAxis))) {
-      undetermined.push({
-        hostWallId: host.id,
-        reason: 'NEAR_PARALLEL_OVERLAP',
-        detail:
-          `the new wall runs parallel to wall ${host.id} and their footprints overlap over ` +
-          `${(span[1] - span[0]).toFixed(3)} m. A parallel overlap is not a crossing at a ` +
-          'station, so this rule does not judge it — it is reported, not refused.',
-      });
-      continue;
-    }
-
-    const [c0, c1] = span;
+    const [c0, c1] = overlap.stations;
     for (const o of openings) {
       // The SAME overlap convention `canPlace` uses, to the same tolerance role:
       // touching edges are not an overlap. A wall stopping exactly at a door jamb

@@ -430,7 +430,15 @@ describe('grazing — COINCIDENT_M decides, and it decides the same way canPlace
   });
 
   it('an OBLIQUE crossing widens the interval, as the geometry requires', () => {
-    // A 45° wall of thickness t covers t·√2 of the host, not t.
+    // ⚠ UPDATED 2026-08-14 (ISSUE-LOG L-912). This test used to pin t·√2 — the
+    // CENTRELINE-CLIP reading, which excluded the host's own half-thickness as a
+    // "deliberate conservatism". L-912 measured that conservatism to be one of
+    // the silences behind the founder's wall-onto-door report, and the model is
+    // now a SOLID/INTERVAL overlap (§SOLID-OVERLAP-IS-THE-QUESTION): a strip of
+    // width w_c crossing a strip of width w_h at angle θ shares a parallelogram
+    // spanning w_c/sin θ + w_h/tan θ of the host axis. At 45° with w_c = 0.2 and
+    // the host's w_h = 0.3, that is 0.2·√2 + 0.3 — the extra 0.3 is the host's
+    // OWN material, which the old model pretended was not there.
     const oblique: CandidateWall = {
       levelId: LEVEL,
       thickness: 0.2,
@@ -442,7 +450,7 @@ describe('grazing — COINCIDENT_M decides, and it decides the same way canPlace
     const verdict = evaluateWallPlacement(oblique, [hostWallWithDoor()]);
     expect(verdict.valid).toBe(false);
     const [c0, c1] = verdict.violations[0].crossingSpanM;
-    expect(c1 - c0).toBeCloseTo(0.2 * Math.SQRT2, 6);
+    expect(c1 - c0).toBeCloseTo(0.2 * Math.SQRT2 + 0.3, 6);
   });
 });
 
@@ -470,7 +478,15 @@ describe('UNDETERMINED — no finding, reason recorded, never a refusal and neve
     expect(verdict.undetermined[0].reason).toBe('CURVED_HOST');
   });
 
-  it('a PARALLEL overlap is reported, not refused', () => {
+  it('a PARALLEL overlap over a door is REFUSED — the old bail-out WAS the L-912 silence', () => {
+    // ⚠ FLIPPED 2026-08-14 (ISSUE-LOG L-912 §B-a). This test used to pin the
+    // NEAR_PARALLEL_OVERLAP bail-out: "a PARALLEL overlap is reported, not
+    // refused". That bail-out existed because the centreline clip's 1/sin θ
+    // divisor detonated near parallel — and it is exactly the branch through
+    // which the founder placed a wall ALONG a host, over its door, in silence:
+    // "a wall placed in front of a door", their own phrase. The solid-overlap
+    // model has no divisor, answers the parallel case exactly, and refuses it.
+    // NEAR_PARALLEL_OVERLAP is no longer minted for straight hosts.
     const parallel: CandidateWall = {
       levelId: LEVEL,
       thickness: 0.2,
@@ -480,9 +496,17 @@ describe('UNDETERMINED — no finding, reason recorded, never a refusal and neve
       ],
     };
     const verdict = evaluateWallPlacement(parallel, [hostWallWithDoor()]);
-    expect(verdict.valid).toBe(true);
-    expect(verdict.violations).toHaveLength(0);
-    expect(verdict.undetermined[0].reason).toBe('NEAR_PARALLEL_OVERLAP');
+    expect(verdict.valid).toBe(false);
+    expect(verdict.code).toBe('OCC_CROSSES_HOSTED_OPENING');
+    expect(verdict.undetermined).toHaveLength(0);
+    expect(verdict.violations).toHaveLength(1);
+    expect(verdict.violations[0].openingType).toBe('door');
+    // The candidate lies along the host from x=2 to x=6; the door [3.005, 3.931]
+    // is fully inside, so the overlap is the door's whole 0.926 m width.
+    const [c0, c1] = verdict.violations[0].crossingSpanM;
+    expect(c0).toBeCloseTo(2, 9);
+    expect(c1).toBeCloseTo(6, 9);
+    expect(verdict.violations[0].overlapM).toBeCloseTo(0.926, 9);
   });
 
   it('a DEGENERATE candidate is undetermined, and claims nothing', () => {
