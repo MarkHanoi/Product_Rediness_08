@@ -382,6 +382,24 @@ export class SlabWallConnectivityService {
             // entry's CHANGED endpoint(s) (diffed against its own prevBaseLine)
             // onto the accumulated baseline, so loop A's snap of one endpoint
             // and loop B's snap of the other both survive.
+            //
+            // ⚠ §L-925 INTERACTION, DECLARED RATHER THAN SILENTLY CHANGED. This
+            // fold decides "which endpoint did THIS entry change?" by comparing
+            // index-for-index against the entry's own `prevBaseLine`. A
+            // §L-925-DIRECTION-STABLE entry is emitted with its two points
+            // SWAPPED relative to `prevBaseLine`, so both indices read as
+            // changed and the swapped entry contributes its WHOLE segment
+            // instead of one endpoint.
+            //
+            // That is the safe direction — a swapped entry rewrites the whole
+            // span, and merging half of it with half of another loop's entry
+            // would produce a segment neither loop asked for. The residual is
+            // narrow and UNMEASURED: two region slabs sharing one wall, where
+            // one loop's weld crosses past that wall's far endpoint AND the
+            // other loop legitimately welds its opposite end. In that case the
+            // crossing loop wins the whole wall. Recorded here rather than
+            // guarded, because building a segment-merge model for a case nobody
+            // has produced would be inventing a rule from an unmeasured input.
             const dedupedMap = new Map<string, CascadeWallBaselineEntry>();
             for (const e of batch) {
                 const prior = dedupedMap.get(e.wallId);
