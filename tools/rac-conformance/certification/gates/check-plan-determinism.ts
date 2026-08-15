@@ -92,6 +92,7 @@ import { WallMoveConsequencePlanner } from '../../../../apps/editor/src/engine/c
 import { WallCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallCreateConsequencePlanner.js';
 import { OpeningMoveConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/OpeningMoveConsequencePlanner.js';
 import { WallOpeningCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallOpeningCreateConsequencePlanner.js';
+import { OpeningDeleteConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/OpeningDeleteConsequencePlanner.js';
 import { ConsequencePreviewService } from '../../../../apps/editor/src/engine/consequence/ConsequencePreviewService.js';
 import { predictRoomGeometry } from '../../../../packages/room-topology/src/predictRoomGeometry.js';
 import { resolveJunctionsWithRecords } from '../../../../packages/geometry-wall/src/JunctionResolverV2.js';
@@ -1602,11 +1603,417 @@ async function wallOpeningCreateHarness(): Promise<{ floors: Floor[]; lines: str
   return { floors, lines, findings };
 }
 
+// ─── opening.delete — the hosted-opening DELETE family (the FIFTH registered row) ────────
+//
+// ── THE SEAMS ARE THIS FAMILY'S OWN — RECORDED RELATIONSHIPS + VALIDATOR, NO CLAMP ──────
+// The planner's own header states the doctrine: a delete cannot collide (it strictly
+// REMOVES an interval from the host's occupancy), so this family has NO occupancy seam at
+// all and `refused` is a literal [] with no parameter that could populate it. Inheriting
+// the create row's `boundsRefusal` doubles would certify an injection point the production
+// composition never fills. The seams here are the planner's OWN two:
+//
+//   relationships  `semanticGraphManager.getRelationships` — the RECORDED edge index the
+//                  commit path purges and restores verbatim (3ee632f6, C78 §5.1). Its
+//                  answer is edges, never a verdict; the planner decides what an edge set
+//                  MEANS (counterparts affected; EMPTY = RELATIONSHIP_NOT_RECORDED;
+//                  ABSENT = NO_DEPENDENCY_INDEX; THREW = declared, not swallowed).
+//   validator      the violation core, diffed before/after the REMOVE (clone → filter the
+//                  CLONE's openings → validateAll → diff). On this row
+//                  `violationsResolved` is the half that normally carries bytes — the
+//                  exact mirror of the create row's `violationsCreated`.
+//
+// ── THE stateHash CONSTRAINT, RE-DERIVED FOR THIS ROW ────────────────────────
+// `fnv1a({openingDelete: payload, walls: allWalls})`. ARM 2 may move neither the payload
+// nor the wall store; every pair varies ONE injected seam over byte-identical state,
+// asserts stateHash equality as a FLOOR, and names the one body section it moves:
+//   2a changed-set-only          a recorded edge to room-7 present vs absent → `changed`
+//                                membership alone (excluded/topology held identical) — the
+//                                move row's 2c shape, driven through the RELATIONSHIP seam
+//                                because that is the only seam that feeds `changed` here.
+//   2b validation-only           validator fires vs quiet, both sides PROCEED →
+//                                `validation.violationsResolved` alone (the delete row's
+//                                signature half; the create row certifies the other).
+//   2c undetermined-detail-only  the SAME NO_DEPENDENCY_INDEX verdict over the SAME scope
+//                                by two routes (no reader composed vs the reader THREW) →
+//                                `undetermined[].detail` alone. C78 §1.4 as a hash claim.
+//
+// ── ALL THREE VERIFIED BY MUTATION, ONE SECTION AT A TIME (measured 2026-08-15) ────────
+// `assemble`'s hashed body was stripped of ONE section per run and the gate re-run:
+//   `undetermined` dropped from hash → 2c RED, 2a and 2b still green
+//   `validation` dropped from hash   → 2b RED, 2a and 2c still green
+//   `changed` dropped from hash      → 2a RED, 2b and 2c still green
+// So each pair fails for its OWN section and no other — the arms are load-bearing and
+// mutually independent, not three readings of one difference. The mutations were reverted;
+// this note is the record (the create row's discipline: "the arm printed green" is not
+// evidence that the arm can go red).
+//
+// ── THE TERMINAL BRANCHES REPEATED (this row's analogue of the create row's refusals) ───
+// This family's most consequential alternative answers are its typed UNDETERMINED bails —
+// host-not-found (RELATIONSHIP_NOT_READABLE over the reverse scan) and the corrupt
+// two-hosts case — which take the `bail` path through `assemble` (no changed, no metrics,
+// empty cascade). Each is repeated for byte-identity exactly as the create row repeats its
+// two refusal branches, because the sentence the user is shown must be a pure function of
+// state on the failure paths too.
+
+interface OpeningDeleteWorld {
+  walls: any[];
+}
+
+/** A 6 m host carrying the doomed 0.9 m door at [0.500, 1.400] AND a 1.2 m sibling window
+ *  at [3.000, 4.200] — so the PROCEED plan carries changed / excluded / topology.removed /
+ *  violationsResolved at once (no metrics, structurally — see the floor below).
+ *  `doorOffset` is the NEGATIVE CONTROL's one knob. */
+const freshOpeningDeleteWorld = (doorOffset = 0.5): OpeningDeleteWorld => ({
+  walls: [
+    {
+      id: 'wall-1', type: 'wall', levelId: 'L1', height: 2.7, thickness: 0.2,
+      baseLine: [{ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }],
+      openings: [
+        { id: 'op-d1', elementId: 'door-1', type: 'door', offset: doorOffset, width: 0.9, height: 2.1, sillHeight: 0 },
+        { id: 'op-w1', elementId: 'win-1', type: 'window', offset: 3.0, width: 1.2, height: 1.2, sillHeight: 0.9 },
+      ],
+    },
+  ],
+});
+
+/** Read-only PlanningContext double — this family's OWN (the file's doctrine: no shared
+ *  fixtures between families). The room/door/window/stair stores are EMPTY arrays: the
+ *  planner consults no room predictor (disposition (iii)) but its violation diff clones
+ *  them as validator fodder, which an empty array serves honestly. */
+const openingDeleteContextFor = (world: OpeningDeleteWorld) => () => ({
+  getStore(storeId: string) {
+    const items: any[] | undefined =
+      storeId === 'wall' ? world.walls
+        : storeId === 'room' || storeId === 'door' || storeId === 'window' || storeId === 'stair' ? []
+          : undefined;
+    if (!items) return undefined;
+    return {
+      getAll: () => items as readonly unknown[],
+      getById: (id: string) => items.find((i) => i.id === id) ?? null,
+    };
+  },
+}) as any;
+
+// The command in its FLAT semantic form. No wallId — the REVERSE-SCAN branch is the
+// production path (neither live verb carries a host), so that is the branch certified.
+const OD_COMMAND = {
+  type: 'opening.delete' as const,
+  payload: { id: 'door-1', openingType: 'door' as const },
+};
+
+/** Recorded edges as the graph holds them — the double answers EDGES, never a verdict. */
+const OD_EDGES = [
+  { id: 'e1', type: 'hostedBy', sourceId: 'door-1', targetId: 'wall-1' },
+  { id: 'e2', type: 'hosts', sourceId: 'wall-1', targetId: 'door-1' },
+];
+
+/** Fires on any wall carrying MORE than one opening: present BEFORE the delete (two) and
+ *  absent AFTER (one), so `violationsResolved` carries bytes on the default plan. */
+const odMaxOpeningsValidator = {
+  validateAll: (ctx: any) =>
+    (ctx.wallStore.getAll() as any[])
+      .filter((wl) => (wl.openings?.length ?? 0) > 1)
+      .map((wl) => ({ ruleId: 'WALL_MAX_OPENINGS', elementId: wl.id, message: `wall ${wl.id} carries ${wl.openings.length} openings, above the 1 permitted` })),
+};
+const odQuietValidator = { validateAll: () => [] as any[] };
+
+/** Build the REAL service over the REAL delete planner. `omitRelationships` is an explicit
+ *  ABSENCE (distinct from "not overridden"), which 2c needs and `?? default` cannot say. */
+function buildOpeningDeleteService(world: OpeningDeleteWorld, opts?: {
+  relationships?: any;
+  omitRelationships?: boolean;
+  validator?: { validateAll: (c: any) => any[] };
+  plannerWrap?: (p: OpeningDeleteConsequencePlanner) => { plan: (c: any, ctx: any) => Promise<any> };
+}): ConsequencePreviewService {
+  const planner = new OpeningDeleteConsequencePlanner({
+    ...(opts?.omitRelationships ? {} : { relationships: (opts?.relationships ?? { getRelationships: () => OD_EDGES }) as any }),
+    validator: (opts?.validator ?? odMaxOpeningsValidator) as any,
+  });
+  const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
+  const planners = new Map<string, any>();
+  planners.set('opening.delete', subject);
+  return new ConsequencePreviewService(planners as any, openingDeleteContextFor(world));
+}
+
+async function openingDeleteHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
+  const floors: Floor[] = [];
+  const lines: string[] = [];
+  const findings: string[] = [];
+
+  // ── ARM 1 · REPEAT — the PROCEED plan, through the REAL planner and service ─────────
+  const service = buildOpeningDeleteService(freshOpeningDeleteWorld());
+  const runA = await service.preview(OD_COMMAND);
+  const runB = await service.preview(OD_COMMAND);
+  floors.push({ what: 'opening.delete: real preview produced a plan (run A)', measured: runA ? 1 : 0, min: 1 });
+  floors.push({ what: 'opening.delete: real preview produced a plan (run B)', measured: runB ? 1 : 0, min: 1 });
+  if (runA && runB) {
+    floors.push({ what: 'opening.delete: plan carries changed entries (the subject AND its host)', measured: runA.changed.length, min: 2 });
+    // C70 F-INV-2, asserted in the GATE: a delete never answers with an empty cascade —
+    // the subject itself is the floor of `removed`.
+    floors.push({ what: 'opening.delete: C70 F-INV-2 — topology.removed carries the subject (a delete never plans an empty cascade)', measured: (runA as any).topology?.removed?.length ?? 0, min: 1 });
+    floors.push({ what: 'opening.delete: topology.added is EMPTY (a delete creates nothing — structural, not asserted-and-hoped)', measured: ((runA as any).topology?.added?.length ?? 0) === 0 ? 1 : 0, min: 1 });
+    floors.push({ what: 'opening.delete: plan carries topology.modified (the host whose openings array loses a member)', measured: (runA as any).topology?.modified?.length ?? 0, min: 1 });
+    floors.push({ what: 'opening.delete: plan carries excluded entries (the sibling CHECKED and found unaffected — the positive verdict)', measured: (runA as any).excluded?.length ?? 0, min: 1 });
+    // MetricTransition.after is a NON-optional number (command-bus consequence.ts), so a
+    // delete's determined absence is UNTYPEABLE as a metric line: the plan must carry NO
+    // metrics key AND the typed declaration naming that contract seam — never after: 0.
+    floors.push({ what: 'opening.delete: plan carries NO metrics key (a determined absence is untypeable under MetricTransition — declared, never fabricated as after:0)', measured: 'metrics' in (runA as any) ? 0 : 1, min: 1 });
+    floors.push({ what: 'opening.delete: the untypeable metric lines are DECLARED (AGGREGATE_SCOPE_UNSUPPORTED entry naming MetricTransition)', measured: (runA as any).undetermined?.some((u: any) => u.scope.includes('metric lines') && u.reason === 'AGGREGATE_SCOPE_UNSUPPORTED') ? 1 : 0, min: 1 });
+    floors.push({ what: 'opening.delete: plan carries violationsResolved (the delete row\'s signature validation half)', measured: runA.validation.violationsResolved.length, min: 1 });
+    floors.push({ what: 'opening.delete: plan carries undetermined entries (declared blind spots, not silent emptiness)', measured: (runA as any).undetermined?.length ?? 0, min: 4 });
+    floors.push({ what: 'opening.delete: refused is EMPTY on the PROCEED plan (structurally — no commit path declines a hosted-opening delete on geometric grounds)', measured: ((runA as any).refused?.length ?? 0) === 0 ? 1 : 0, min: 1 });
+    const c = compareRuns(runA, runB);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [opening.delete][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · opening.delete REPEAT: ${c.detail}`);
+  }
+
+  // ── ARM 1b · THE TERMINAL-BRANCH REPEATS — this row's analogue of the create row's
+  // refusal repeats. A delete's terminal answers are typed UNDETERMINED bails, they take a
+  // DIFFERENT branch through `assemble` (no changed, no metrics, empty cascade), and they
+  // are what the user is shown when the record cannot answer.
+  const lostWorld: OpeningDeleteWorld = { walls: [{ ...freshOpeningDeleteWorld().walls[0], openings: [] }] };
+  const lostService = buildOpeningDeleteService(lostWorld);
+  const l1 = await lostService.preview(OD_COMMAND);
+  const l2 = await lostService.preview(OD_COMMAND);
+  floors.push({ what: 'opening.delete: host-not-found repeat produced both plans', measured: l1 && l2 ? 1 : 0, min: 1 });
+  if (l1 && l2) {
+    floors.push({ what: 'opening.delete: host-not-found is a typed UNDETERMINED (RELATIONSHIP_NOT_READABLE over the reverse scan), never a determined no-op', measured: (l1 as any).undetermined?.some((u: any) => u.reason === 'RELATIONSHIP_NOT_READABLE') ? 1 : 0, min: 1 });
+    floors.push({ what: 'opening.delete: host-not-found plans an EMPTY cascade with indirect UNDETERMINED (nothing is claimed removed)', measured: ((l1 as any).topology?.removed?.length ?? 0) === 0 && (l1 as any).indirect?.kind === 'undetermined' ? 1 : 0, min: 1 });
+    const c = compareRuns(l1, l2);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [opening.delete · host-not-found][${c.verdict}]: the same unanswerable delete planned twice produced two different declarations — the sentence the user is shown is not a pure function of state. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · opening.delete HOST-NOT-FOUND repeat: ${c.detail}`);
+  }
+
+  // The corrupt two-hosts case — a DIFFERENT bail branch (the ambiguity is declared, not
+  // resolved by taking the first hit), so its determinism is a separate claim.
+  const twinWorld = (order: 'ab' | 'ba'): OpeningDeleteWorld => {
+    const a = freshOpeningDeleteWorld().walls[0];
+    const b = { ...freshOpeningDeleteWorld().walls[0], id: 'wall-2' };
+    return { walls: order === 'ab' ? [a, b] : [b, a] };
+  };
+  const ambService = buildOpeningDeleteService(twinWorld('ab'));
+  const a1 = await ambService.preview(OD_COMMAND);
+  const a2 = await ambService.preview(OD_COMMAND);
+  floors.push({ what: 'opening.delete: two-hosts repeat produced both plans', measured: a1 && a2 ? 1 : 0, min: 1 });
+  if (a1 && a2) {
+    const detail = (a1 as any).undetermined?.find((u: any) => u.reason === 'RELATIONSHIP_NOT_READABLE')?.detail ?? '';
+    floors.push({ what: 'opening.delete: the corrupt-edge declaration names BOTH claimant walls, sorted', measured: detail.includes('wall-1, wall-2') ? 1 : 0, min: 1 });
+    const c = compareRuns(a1, a2);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [opening.delete · two-hosts][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · opening.delete TWO-HOSTS repeat: ${c.detail}`);
+  }
+
+  // ── ARM 5 · NONDETERMINISM SOURCES — 30 ms apart, clock AND RNG spoofed ─────
+  const realNow = Date.now;
+  const realRandom = Math.random;
+  let clockReads = 0;
+  let rngReads = 0;
+  const planUnder = async (now: number, rand: number): Promise<Plan | null> => {
+    Date.now = () => { clockReads++; return now; };
+    Math.random = () => { rngReads++; return rand; };
+    try { return await buildOpeningDeleteService(freshOpeningDeleteWorld()).preview(OD_COMMAND); }
+    finally { Date.now = realNow; Math.random = realRandom; }
+  };
+  const t1 = await planUnder(1_000_000_000, 0.1111);
+  await sleep(30);
+  const t2 = await planUnder(9_999_999_999, 0.9999);
+  floors.push({ what: 'opening.delete: time-arm produced both plans', measured: t1 && t2 ? 1 : 0, min: 1 });
+  if (t1 && t2) {
+    const c = compareRuns(t1, t2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · TIME/RNG [opening.delete][${c.verdict}]: plans planned 30 ms apart under DIFFERENT spoofed Date.now/Math.random diverged — a clock or RNG read reaches the plan. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · opening.delete TIME/RNG: 30 ms apart, Date.now spoofed 1000000000 vs 9999999999, Math.random 0.1111 vs 0.9999 → ${c.verdict} (planner path observed ${clockReads} Date.now / ${rngReads} Math.random reads)`);
+  }
+
+  // The WALL-STORE-ORDER arm — this family's real ordering risk. The production path is a
+  // REVERSE SCAN over the whole wall list (no wallId in either live payload), so a plan
+  // that depended on store iteration order would explain one situation two ways. The host
+  // and a decoy are presented in both orders. stateHash DOES move (the walls array is part
+  // of the hashed state), so this is a plan-BODY claim, not a byte-identity claim.
+  const decoyWorld = (order: 'ab' | 'ba'): OpeningDeleteWorld => {
+    const host = freshOpeningDeleteWorld().walls[0];
+    const decoy = { ...freshOpeningDeleteWorld().walls[0], id: 'wall-0', openings: [] };
+    return { walls: order === 'ab' ? [host, decoy] : [decoy, host] };
+  };
+  const s1 = await buildOpeningDeleteService(decoyWorld('ab')).preview(OD_COMMAND);
+  const s2 = await buildOpeningDeleteService(decoyWorld('ba')).preview(OD_COMMAND);
+  floors.push({ what: 'opening.delete: store-order arm produced both plans', measured: s1 && s2 ? 1 : 0, min: 1 });
+  if (s1 && s2) {
+    const same =
+      JSON.stringify({ c: s1.changed, e: s1.excluded, t: s1.topology, u: (s1 as any).undetermined }) ===
+      JSON.stringify({ c: s2.changed, e: s2.excluded, t: s2.topology, u: (s2 as any).undetermined });
+    floors.push({ what: 'opening.delete: the element sets and declarations are independent of the wall-store iteration order (the reverse scan sorts before it scans)', measured: same ? 1 : 0, min: 1 });
+    if (!same) findings.push('ARM 5 · TIME/RNG [opening.delete · store-order]: the plan depends on the order the store yields walls — the reverse scan is not deterministic, and one situation would be explained two ways.');
+    lines.push(`${same ? '✓ ' : '❌'} ARM 5 · opening.delete store-order: walls [host,decoy] vs [decoy,host] → same element sets and declarations`);
+  }
+
+  // ── ARM 2 · SENSITIVITY — one consequential fact each, stateHash held EQUAL ──
+  const odPairHash = async (
+    label: string,
+    a: ConsequencePreviewService,
+    b: ConsequencePreviewService,
+    fact: string,
+    section: { name: string; read: (p: Plan) => number },
+    opts?: { setsMayDiffer?: boolean },
+  ): Promise<void> => {
+    const setsOf = (p: Plan): string =>
+      JSON.stringify({ e: p.excluded, t: p.topology });
+    const pa = await a.preview(OD_COMMAND);
+    const pb = await b.preview(OD_COMMAND);
+    floors.push({ what: `opening.delete: sensitivity pair "${label}" produced both plans`, measured: pa && pb ? 1 : 0, min: 1 });
+    if (!pa || !pb) return;
+    floors.push({ what: `opening.delete: sensitivity pair "${label}" holds stateHash EQUAL (the difference rides in the BODY)`, measured: pa.stateHash === pb.stateHash ? 1 : 0, min: 1 });
+    const populated = Math.max(section.read(pa), section.read(pb));
+    floors.push({ what: `opening.delete: sensitivity pair "${label}" is NOT INERT — the body section it names (${section.name}) is populated on at least one side`, measured: populated, min: 1 });
+    if (!opts?.setsMayDiffer) {
+      floors.push({
+        what: `opening.delete: sensitivity pair "${label}" holds changed AND the element sets identical — so the planHash can only move via ${section.name}`,
+        measured: JSON.stringify(pa.changed) === JSON.stringify(pb.changed) && setsOf(pa) === setsOf(pb) ? 1 : 0,
+        min: 1,
+      });
+    } else {
+      // 2a IS the changed-set pair: `changed` must differ (that is the fact), while
+      // excluded/topology stay identical so no second set co-varies.
+      floors.push({ what: `opening.delete: sensitivity pair "${label}" — changed DIFFERS (the planted fact) while excluded/topology are held identical`, measured: JSON.stringify(pa.changed) !== JSON.stringify(pb.changed) && setsOf(pa) === setsOf(pb) ? 1 : 0, min: 1 });
+    }
+    if (pa.planHash === pb.planHash) {
+      findings.push(`ARM 2 · SENSITIVITY [opening.delete · ${label}]: two plans differing in ${fact} share planHash ${pa.planHash} — the d63e7954 collision class is OPEN on the opening-delete row.`);
+      lines.push(`❌ ARM 2 · opening.delete ${label}: planHash DID NOT MOVE (${pa.planHash}) for a difference in ${fact}`);
+    } else {
+      lines.push(`✓  ARM 2 · opening.delete ${label}: planHash moved (${pa.planHash} → ${pb.planHash}) on ${fact}, stateHash equal (${pa.stateHash}), section ${section.name} populated (${populated})`);
+    }
+  };
+
+  // 2a · changed-set-only. The RECORDED edge index answers with vs without an edge to
+  // room-7 — the one seam that feeds `changed` on this row. Both sides proceed;
+  // excluded/topology/metrics/validation are byte-identical; only the changed membership
+  // (and the counterpart it names) differs.
+  await odPairHash('changed-set-only',
+    buildOpeningDeleteService(freshOpeningDeleteWorld(), { validator: odQuietValidator }),
+    buildOpeningDeleteService(freshOpeningDeleteWorld(), {
+      validator: odQuietValidator,
+      relationships: { getRelationships: () => [...OD_EDGES, { id: 'e3', type: 'connectedBy', sourceId: 'room-7', targetId: 'door-1' }] },
+    }),
+    'ONLY the changed-set membership (a recorded edge to room-7 present vs absent), with excluded/topology identical',
+    { name: 'changed', read: (p) => p.changed.length },
+    { setsMayDiffer: true });
+
+  // 2b · validation-only. Both sides PROCEED over identical state; only the validator's
+  // verdict differs — quiet vs WALL_MAX_OPENINGS resolved by the removal.
+  await odPairHash('validation-only',
+    buildOpeningDeleteService(freshOpeningDeleteWorld(), { validator: odQuietValidator }),
+    buildOpeningDeleteService(freshOpeningDeleteWorld()),
+    'ONLY validation.violationsResolved (the removal cures WALL_MAX_OPENINGS vs a validator that finds nothing)',
+    { name: 'validation.violationsResolved', read: (p) => p.validation.violationsResolved.length });
+
+  // 2c · undetermined-detail-only. C78 §1.4 as a HASH claim: the SAME NO_DEPENDENCY_INDEX
+  // verdict over the SAME scope, reached by two routes — no relationship reader composed
+  // vs the composed reader THREW. Every element set, metric and validation entry is
+  // byte-identical; the only differing bytes are inside `undetermined[].detail`. An
+  // approval that could not tell them apart would bind "the graph was never asked" to
+  // "the graph crashed mid-answer" — two different states of knowledge, one hash.
+  await odPairHash('undetermined-detail-only',
+    buildOpeningDeleteService(freshOpeningDeleteWorld(), { omitRelationships: true }),
+    buildOpeningDeleteService(freshOpeningDeleteWorld(), {
+      relationships: { getRelationships: () => { throw new Error('index unavailable'); } },
+    }),
+    'ONLY undetermined[].detail — the SAME NO_DEPENDENCY_INDEX verdict over the SAME scope reached by two different routes (no reader composed vs the composed reader threw)',
+    { name: 'undetermined', read: (p) => (p as any).undetermined?.length ?? 0 });
+
+  // ── ARM 3 · INSENSITIVITY ────────────────────────────────────────────────────
+  const svcKeys = buildOpeningDeleteService(freshOpeningDeleteWorld());
+  const orderedA = await svcKeys.preview(OD_COMMAND);
+  const orderedB = await svcKeys.preview({
+    type: 'opening.delete',
+    payload: { openingType: 'door', id: 'door-1' },
+  } as any);
+  floors.push({ what: 'opening.delete: key-order pair produced both plans', measured: orderedA && orderedB ? 1 : 0, min: 1 });
+  if (orderedA && orderedB) {
+    if (orderedA.planHash !== orderedB.planHash) {
+      findings.push(`ARM 3 · INSENSITIVITY [opening.delete · key-order]: permuting payload key insertion order moved the planHash (${orderedA.planHash} → ${orderedB.planHash}) — stableStringify is not doing its one job on the opening-delete row.`);
+      lines.push('❌ ARM 3 · opening.delete key-order: payload key permutation MOVED the planHash');
+    } else {
+      lines.push(`✓  ARM 3 · opening.delete key-order: payload written forwards vs reversed → same planHash (${orderedA.planHash})`);
+    }
+  }
+
+  // VERB-SPELLING insensitivity — THREE spellings, TWO payload shapes ({doorId}/{windowId}
+  // vs the flat semantic {id}). One physical operation must plan BYTE-identically under
+  // every spelling, or an approval minted under one could not bind a plan re-minted by the
+  // AI path dispatching another.
+  const doorSpellings: { label: string; cmd: any }[] = [
+    { label: 'opening.delete (flat semantic)', cmd: OD_COMMAND },
+    { label: 'door.delete ({doorId})', cmd: { type: 'door.delete', payload: { doorId: 'door-1' } } },
+  ];
+  const spelt: (Plan | null)[] = [];
+  for (const s of doorSpellings) spelt.push(await buildOpeningDeleteService(freshOpeningDeleteWorld()).preview(s.cmd));
+  floors.push({ what: 'opening.delete: both door spellings produced a plan (none silently unroutable)', measured: spelt.filter(Boolean).length, min: 2 });
+  if (spelt[0] && spelt[1]) {
+    const c = compareRuns(spelt[0], spelt[1]);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [opening.delete · verb-spelling]: the SAME operation dispatched as '${doorSpellings[0]!.label}' and as '${doorSpellings[1]!.label}' produced different plans — the dispatch shape is leaking into the semantic command. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · opening.delete verb-spelling: ${doorSpellings[0]!.label} vs ${doorSpellings[1]!.label} → ${c.verdict}`);
+  }
+  // And the WINDOW spelling against its own semantic form — the other register verb of the
+  // family, deleting the OTHER element (the win-1 sibling), through the same one planner.
+  const wSem = await buildOpeningDeleteService(freshOpeningDeleteWorld()).preview({ type: 'opening.delete', payload: { id: 'win-1', openingType: 'window' } } as any);
+  const wBus = await buildOpeningDeleteService(freshOpeningDeleteWorld()).preview({ type: 'window.delete', payload: { windowId: 'win-1' } } as any);
+  floors.push({ what: 'opening.delete: both window spellings produced a plan', measured: wSem && wBus ? 1 : 0, min: 1 });
+  if (wSem && wBus) {
+    const c = compareRuns(wSem, wBus);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [opening.delete · verb-spelling]: window.delete and its semantic form produced different plans for one operation. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · opening.delete verb-spelling: opening.delete (flat semantic, win-1) vs window.delete ({windowId}) → ${c.verdict}`);
+  }
+
+  // Envelope provenance — same shape of proof as all four earlier harnesses.
+  const envelopes = [
+    { actor: 'human', origin: 'direct-manipulation', timestamp: 1_111_111, gestureId: 'g-human-1' },
+    { actor: 'ai', origin: 'ai-proposal', timestamp: 9_999_999, gestureId: 'g-ai-2', approval: { approvedBy: 'user-7', planHash: 'stale-cafe' } },
+  ] as const;
+  const envPlans: (Plan | null)[] = [];
+  for (const env of envelopes) {
+    Date.now = () => env.timestamp;
+    try { envPlans.push(await buildOpeningDeleteService(freshOpeningDeleteWorld()).preview(OD_COMMAND)); }
+    finally { Date.now = realNow; }
+  }
+  floors.push({ what: 'opening.delete: envelope pair produced both plans', measured: envPlans[0] && envPlans[1] ? 1 : 0, min: 1 });
+  if (envPlans[0] && envPlans[1]) {
+    const c = compareRuns(envPlans[0], envPlans[1]);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [opening.delete · envelope]: actor/origin/timestamp/approval differences leaked into the plan — provenance must stay OFF the plan (C78 §9). ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · opening.delete envelope: human/direct vs ai/proposal+approval, clocks 1111111 vs 9999999 → ${c.verdict}`);
+  }
+
+  // ── POSITIVE CONTROL (floor) — a nondeterministic delete planner MUST be flagged ──
+  const noisy = buildOpeningDeleteService(freshOpeningDeleteWorld(), {
+    plannerWrap: (real) => ({
+      plan: async (c: any, ctx: any) => {
+        const p = await real.plan(c, ctx);
+        return { ...p, undetermined: [...p.undetermined, { scope: 'noise', reason: 'ENGINE_NOT_AVAILABLE', detail: `t=${realNow()}·r=${realRandom()}` }] };
+      },
+    }),
+  });
+  const n1 = await noisy.preview(OD_COMMAND);
+  const n2 = await noisy.preview(OD_COMMAND);
+  const noisyVerdict = n1 && n2 ? compareRuns(n1, n2) : null;
+  floors.push({ what: 'POSITIVE control (opening.delete): a deliberately NONDETERMINISTIC planner is FLAGGED by the repeat checker', measured: noisyVerdict && noisyVerdict.verdict !== 'identical' ? 1 : 0, min: 1 });
+  floors.push({ what: 'POSITIVE control (opening.delete): the checker CLASSIFIES it as the hash-bug shape (bodies differ, hash equal)', measured: noisyVerdict?.verdict === 'hash-bug' ? 1 : 0, min: 1 });
+  lines.push(`${noisyVerdict && noisyVerdict.verdict !== 'identical' ? '✓ ' : '❌'} POSITIVE control (opening.delete): nondeterministic planner → ${noisyVerdict?.verdict ?? 'NO PLANS'}`);
+
+  // ── NEGATIVE CONTROL (floor) — genuinely different states must hash apart ────
+  const g1 = await buildOpeningDeleteService(freshOpeningDeleteWorld(0.5)).preview(OD_COMMAND);
+  const g2 = await buildOpeningDeleteService(freshOpeningDeleteWorld(2.5)).preview(OD_COMMAND);
+  const negSeen = g1 && g2 && g1.planHash !== g2.planHash ? 1 : 0;
+  floors.push({ what: 'NEGATIVE control (opening.delete): two GENUINELY different states produce different planHashes (the sensitivity arms can see)', measured: negSeen, min: 1 });
+  floors.push({ what: 'NEGATIVE control (opening.delete): and their stateHashes differ too, confirming the difference is in the AUTHORITATIVE state, not only the body', measured: g1 && g2 && g1.stateHash !== g2.stateHash ? 1 : 0, min: 1 });
+  lines.push(`${negSeen ? '✓ ' : '❌'} NEGATIVE control (opening.delete): doomed door at offset 0.5 vs 2.5 → planHash ${g1?.planHash} vs ${g2?.planHash}`);
+
+  return { floors, lines, findings };
+}
+
 const HARNESSES: Record<string, Harness> = {
   'wall.move': wallMoveHarness,
   'wall.create': wallCreateHarness,
   'opening.move': openingMoveHarness,
   'wall.opening.create': wallOpeningCreateHarness,
+  'opening.delete': openingDeleteHarness,
 };
 
 // ─── Run ──────────────────────────────────────────────────────────────────────

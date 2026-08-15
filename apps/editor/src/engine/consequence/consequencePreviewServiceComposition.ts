@@ -17,6 +17,7 @@ import { createWallMoveConsequencePlanner } from './wallMovePlannerComposition.j
 import { createWallCreateConsequencePlanner } from './wallCreatePlannerComposition.js';
 import { createOpeningMoveConsequencePlanner } from './openingMovePlannerComposition.js';
 import { createWallOpeningCreateConsequencePlanner } from './wallOpeningCreatePlannerComposition.js';
+import { createOpeningDeleteConsequencePlanner } from './openingDeletePlannerComposition.js';
 import { ConsequencePreviewService } from './ConsequencePreviewService.js';
 
 /**
@@ -94,6 +95,17 @@ export function createConsequencePlanners(): ReadonlyMap<string, ConsequencePlan
   planners.set(
     'wall.opening.create',
     createWallOpeningCreateConsequencePlanner() as ConsequencePlanner<never>,
+  );
+  // THE FIFTH FAMILY, 2026-08-14 — hosted-opening DELETE (`door.delete` / `window.delete`,
+  // the two C69 register verbs, plus the semantic `opening.delete` spelling). This ONE
+  // entry plus three normaliser rules; NO service edit, so all three surfaces (preview /
+  // execution / confirmation) inherit the family here. It is also the FIRST row whose
+  // discovery runs off the RECORDED relationship index (C78 §5.1) rather than off geometry
+  // alone — the planner takes `semanticGraphManager.getRelationships`, the same index the
+  // commit path purges and restores verbatim (3ee632f6).
+  planners.set(
+    'opening.delete',
+    createOpeningDeleteConsequencePlanner() as ConsequencePlanner<never>,
   );
   return planners;
 }

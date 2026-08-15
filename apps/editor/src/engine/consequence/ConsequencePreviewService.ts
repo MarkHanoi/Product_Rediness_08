@@ -464,6 +464,99 @@ export function normalizeToWallOpeningCreateFromWindow(
   );
 }
 
+// ─── opening.delete — the hosted-opening DELETE family (2026-08-14) ───────────────────
+//
+// The C69 register carries TWO consequential delete-class verbs for wall-hosted openings —
+// `door.delete` (plugins/door DeleteDoorHandler, payload `{ doorId }`) and `window.delete`
+// (plugins/window DeleteWindowHandler, payload `{ windowId }`). Both name ONE atomic
+// semantic operation: remove a hosted opening from whichever wall records it in
+// `openings[]`. check-relationship-determination counted both as silent-dispatch — every
+// one of their 41 relationship cells yielded C78 §1.1's forbidden fourth answer — because
+// no rule mapped them onto a composed planner.
+//
+// The family lands WHOLE (C78 §19.1: both verbs or neither) onto ONE planner,
+// `OpeningDeleteConsequencePlanner`, exactly as the move row landed `door.setOffset` /
+// `window.setOffset` and the create row landed its four spellings. The rules are KEY
+// RENAMES and nothing else: neither payload carries a host (the planner's reverse-scan
+// branch over the C15 §1 record is the resolution path, and inventing a `wallId` here
+// would move a real UNDETERMINED out of reach), neither carries geometry, and neither
+// needs a registry lookup. `openingType` is set from the VERB, which is the one fact the
+// verb spelling genuinely determines — it reaches only the declaration sentences and never
+// decides anything geometric.
+//
+// NOT mapped here, deliberately: `wall.delete` (deletes the HOST — a different
+// relationship set and the next family) and `element.delete` (the generic
+// type-dispatching legacy verb, which would hand this planner a beam).
+
+/** The `door.delete` payload (plugins/door DeleteDoorPayload). */
+interface DoorDeletePayload {
+  readonly doorId: string;
+  /** Some call sites carry the host; neither live verb requires it. Forwarded when present. */
+  readonly wallId?: string;
+}
+
+/** The `window.delete` payload (plugins/window DeleteWindowPayload). Same shape, different key. */
+interface WindowDeletePayload {
+  readonly windowId: string;
+  readonly wallId?: string;
+}
+
+/**
+ * Build the semantic `opening.delete` command from a hosted-element delete dispatch, or
+ * `null` when no well-formed delete can be stated. The element id is REQUIRED and is the
+ * ONLY required field: a delete needs no span, no offset and no host to be a well-posed
+ * question, which is exactly why this family's rules are shorter than the create family's.
+ */
+function openingDeleteFrom(
+  elementId: unknown,
+  openingType: 'door' | 'window' | undefined,
+  wallId: unknown,
+): SemanticCommand | null {
+  if (typeof elementId !== 'string' || elementId.length === 0) return null;
+  return {
+    type: 'opening.delete',
+    payload: {
+      id: elementId,
+      ...(typeof wallId === 'string' && wallId.length > 0 ? { wallId } : {}),
+      ...(openingType ? { openingType } : {}),
+    },
+  };
+}
+
+/** `door.delete` → the semantic `opening.delete`. */
+export function normalizeToOpeningDeleteFromDoor(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'door.delete') return null;
+  const p = command.payload as Partial<DoorDeletePayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  return openingDeleteFrom(p.doorId, 'door', p.wallId);
+}
+
+/** `window.delete` → the semantic `opening.delete`. */
+export function normalizeToOpeningDeleteFromWindow(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'window.delete') return null;
+  const p = command.payload as Partial<WindowDeletePayload> | undefined | null;
+  if (!p || typeof p !== 'object') return null;
+  return openingDeleteFrom(p.windowId, 'window', p.wallId);
+}
+
+/**
+ * `opening.delete` dispatched under its own SEMANTIC name — a validating pass-through, the
+ * same shape as `normalizeToOpeningMove` and `normalizeToWallCreate`, and present for the
+ * same reason: the AI/parity surfaces and the certification harnesses dispatch the semantic
+ * verb directly, and a family reachable only through its two plugin bus spellings would be
+ * a family the reasoning surfaces cannot address.
+ */
+export function normalizeToOpeningDelete(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'opening.delete') return null;
+  const p = command.payload as
+    | Partial<{ id: string; wallId: string; openingType: 'door' | 'window' }>
+    | undefined
+    | null;
+  if (!p || typeof p !== 'object') return null;
+  const t = p.openingType === 'door' || p.openingType === 'window' ? p.openingType : undefined;
+  return openingDeleteFrom(p.id, t, p.wallId);
+}
+
 /**
  * THE canonical normaliser registry — bus verb → rule. The three composition roots share
  * this ONE map, for the same reason preview and execute shared ONE normaliser function
@@ -491,6 +584,12 @@ export const CONSEQUENCE_NORMALIZERS: ReadonlyMap<string, NormalizerRule> = new 
   ['wall.createOpening', normalizeToWallOpeningCreateFromLegacy],
   ['door.create', normalizeToWallOpeningCreateFromDoor],
   ['window.create', normalizeToWallOpeningCreateFromWindow],
+  // The hosted-opening DELETE family (2026-08-14) — the two C69 register verbs plus the
+  // semantic spelling, ONE planner key, one host-resolution rule (the SAME reverse scan
+  // over the C15 §1 record the move row uses), one answer.
+  ['opening.delete', normalizeToOpeningDelete],
+  ['door.delete', normalizeToOpeningDeleteFromDoor],
+  ['window.delete', normalizeToOpeningDeleteFromWindow],
 ]);
 
 /**
