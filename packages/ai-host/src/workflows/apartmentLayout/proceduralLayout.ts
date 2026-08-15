@@ -22,6 +22,10 @@ import type {
 import type { ShellAnalysis } from './shellAnalysis.js';
 import { polygonAreaM2 } from './shellAnalysis.js';
 import { scoreLayout } from './score.js';
+// C73 §3.1 — THE point-in-polygon predicate. This file used to carry its own
+// even-odd ray cast; it is the same body, so it delegates. Sibling migrations:
+// `tgl/enumerate.ts`, `tgl/subdivide.ts`, `environment/daylightDepthField.ts`.
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 
 const M = 1000; // metres → mm (LayoutWall coords are mm; buildLayoutPlan maps /1000 back)
 const DOOR_W_MM = 900;
@@ -44,19 +48,6 @@ const RECT_AREA_RATIO = 0.98;
 const INSCRIBE_GRID = 64;
 /** Smallest inscribed rectangle side (m) worth planning rooms into. */
 const MIN_INSCRIBED_SIDE_M = 3;
-
-function pointInPolygonXZ(
-    pt: { x: number; z: number },
-    poly: ReadonlyArray<{ x: number; z: number }>,
-): boolean {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const a = poly[i]!, b = poly[j]!;
-        if ((a.z > pt.z) !== (b.z > pt.z) &&
-            pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
-    }
-    return inside;
-}
 
 /**
  * Largest inscribed AXIS-ALIGNED rectangle of a simple polygon (world metres,
@@ -86,11 +77,11 @@ export function largestInscribedAxisRect(
         for (let c = 0; c < n; c++) {
             const x0 = minX + c * cw, x1 = x0 + cw, xc = x0 + cw / 2;
             row.push(
-                pointInPolygonXZ({ x: x0, z: z0 }, perimeter) &&
-                pointInPolygonXZ({ x: x1, z: z0 }, perimeter) &&
-                pointInPolygonXZ({ x: x0, z: z1 }, perimeter) &&
-                pointInPolygonXZ({ x: x1, z: z1 }, perimeter) &&
-                pointInPolygonXZ({ x: xc, z: zc }, perimeter),
+                pointInPolygonXZ(x0, z0, perimeter) &&
+                pointInPolygonXZ(x1, z0, perimeter) &&
+                pointInPolygonXZ(x0, z1, perimeter) &&
+                pointInPolygonXZ(x1, z1, perimeter) &&
+                pointInPolygonXZ(xc, zc, perimeter),
             );
         }
         inside.push(row);

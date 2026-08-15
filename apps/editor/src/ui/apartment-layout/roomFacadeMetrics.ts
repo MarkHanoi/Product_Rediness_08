@@ -73,8 +73,24 @@ interface P { readonly x: number; readonly y: number }
  * — half a thick shell (~150 mm) plus mitre/weld residual. 350 mm covers both
  * conventions while staying far below any room's depth, so an interior room
  * one corridor away from the façade can never be mistaken for a fronting one.
+ *
+ * A DOMAIN BAND under this module's own ownership (C73 §2.1), not a numeric
+ * epsilon — the same kind as `defaultJunctionBandM` (0.20 m, geometry-wall),
+ * which the epsilon gate names as the precedent. It was called
+ * `ON_WALL_PERP_TOL_MM`; at 350 mm — a third of a metre, derived from WALL
+ * THICKNESS, not from float noise — "TOL" claimed a generality it never had.
+ * It does NOT migrate onto a kernel role: the kernel's metre-valued role is
+ * `COINCIDENT_M` at 1 mm, and this band is 350× that because it is measuring a
+ * construction offset, not an identity. The value is unchanged.
+ *
+ * ⚠ NOT ONLY A PERPENDICULAR BAND, despite the name. `glazedAreaByRoom` below
+ * reuses it as an ALONG-wall slack when matching a window midpoint into a
+ * room's frontage span. That is a different axis and arguably wants its own
+ * constant; it is left alone here because this pass is value-identical by
+ * mandate and re-deriving that slack would change which room a window counts
+ * toward. Recorded rather than silently carried.
  */
-const ON_WALL_PERP_TOL_MM = 350;
+const ON_WALL_PERP_BAND_MM = 350;
 
 /** Overlaps shorter than this are numerical dust, not frontage. */
 const MIN_FRONTAGE_MM = 50;
@@ -134,7 +150,7 @@ function edgeOnWall(a: P, b: P, wa: P, wb: P): Span | null {
     // Perpendicular distance of BOTH edge endpoints from the wall LINE.
     const perpA = Math.abs((a.x - wa.x) * uy - (a.y - wa.y) * ux);
     const perpB = Math.abs((b.x - wa.x) * uy - (b.y - wa.y) * ux);
-    if (perpA > ON_WALL_PERP_TOL_MM || perpB > ON_WALL_PERP_TOL_MM) return null;
+    if (perpA > ON_WALL_PERP_BAND_MM || perpB > ON_WALL_PERP_BAND_MM) return null;
 
     // Along-wall projections, clamped to the wall's own extent.
     const tA = (a.x - wa.x) * ux + (a.y - wa.y) * uy;
@@ -226,8 +242,8 @@ export function measureRoomFacades(
                 const spans = perWall.get(win.wallRef);
                 if (!spans) continue;
                 const hit = spans.some(s =>
-                    midMm >= s.start - ON_WALL_PERP_TOL_MM
-                    && midMm <= s.end + ON_WALL_PERP_TOL_MM);
+                    midMm >= s.start - ON_WALL_PERP_BAND_MM
+                    && midMm <= s.end + ON_WALL_PERP_BAND_MM);
                 if (!hit) continue;
                 const areaM2 = (win.width / 1000) * (win.height / 1000);
                 glazedByRoom.set(roomName, (glazedByRoom.get(roomName) ?? 0) + areaM2);

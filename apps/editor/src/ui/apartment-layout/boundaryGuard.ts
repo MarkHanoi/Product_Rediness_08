@@ -7,13 +7,23 @@
 // EVERY path into the executor (AI relay, D-TGL, procedural, hand-built
 // options), because the executor is the one place all of them converge.
 //
-// PURE + ZERO imports: chains the shell wall baselines into a perimeter ring
-// (same 50 mm endpoint tolerance as ai-host's `wallsToPolygon` — deliberately
-// NOT imported: the `@pryzm/ai-host` root barrel drags runtime modules that
-// break plain-Node tests, see layoutCardModel.ts header), then tests each
-// planned wall's endpoints + midpoint against the ring with a small outward
-// tolerance. Three-state result (C75 §1.4): 'inside' / 'outside' /
-// 'unmeasurable' — an unclosed perimeter refuses to claim either way.
+// PURE: chains the shell wall baselines into a perimeter ring (same 50 mm
+// endpoint band as ai-host's `wallsToPolygon` — deliberately NOT imported: the
+// `@pryzm/ai-host` root barrel drags runtime modules that break plain-Node
+// tests, see layoutCardModel.ts header), then tests each planned wall's
+// endpoints + midpoint against the ring with a small outward tolerance.
+// Three-state result (C75 §1.4): 'inside' / 'outside' / 'unmeasurable' — an
+// unclosed perimeter refuses to claim either way.
+//
+// The one import is `@pryzm/geometry-kernel`'s canonical point-in-polygon
+// (C73 §3.1). The header used to say "ZERO imports" and this file carried its
+// own even-odd ray cast; that made it the 52nd rival body of a predicate the
+// kernel already owns. The kernel is PURE (no THREE, no DOM, no I/O) so it
+// costs the plain-Node test path nothing — the barrel this file must avoid is
+// ai-host's, not the kernel's. `matchDetectedRooms.ts`, in this same
+// directory, already imports it.
+
+import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 
 export interface GuardShellSeg {
     readonly start: { readonly x: number; readonly z: number };
@@ -46,10 +56,31 @@ export type BoundaryCheck =
         readonly reason: string;
     };
 
-const CHAIN_EPS_M = 0.05;   // 50 mm endpoint-match tolerance (= wallsToPolygon)
+/**
+ * Shell-chaining endpoint BAND — 50 mm, metres. A DOMAIN BAND under this
+ * module's own ownership (C73 §2.1), NOT a numeric epsilon, and deliberately
+ * not named one.
+ *
+ * It was called `CHAIN_EPS_M`, which claimed a generality it does not have.
+ * The question it answers is "did the generator author these two shell
+ * baselines as meeting?", and the band exists to absorb the authored-endpoint
+ * slop of `wallsToPolygon`, whose 50 mm convention it mirrors exactly. That is
+ * not the kernel's `COINCIDENT_M` question: `COINCIDENT_M` is 1 mm and means
+ * "these are THE SAME POINT in the model", and 50 mm is fifty times that — in
+ * a model whose thinnest wall layer is ~12 mm you cannot call two points 50 mm
+ * apart the same place. `tolerance.ts`'s own header names the 0.05 m family as
+ * domain bands and says in terms: do NOT fold them onto `COINCIDENT_M`.
+ *
+ * So this does NOT migrate onto a kernel role, and the value does NOT move.
+ * Adopting `COINCIDENT_M` here would TIGHTEN the band 50×, perimeters that
+ * close today would stop closing, and `checkPlannedWallsInsideBoundary` would
+ * return 'unmeasurable' on ordinary plans — a silent behaviour change shipped
+ * as a tidy-up, which is the one thing C73 forbids.
+ */
+const CHAIN_ENDPOINT_BAND_M = 0.05;
 
 const near = (a: { x: number; z: number }, b: { x: number; z: number }): boolean =>
-    Math.hypot(a.x - b.x, a.z - b.z) < CHAIN_EPS_M;
+    Math.hypot(a.x - b.x, a.z - b.z) < CHAIN_ENDPOINT_BAND_M;
 
 /** Chain shell wall baselines into an ordered ring (greedy walk over shared
  *  endpoints). Returns null when the segments do not close into a ring of ≥3
@@ -74,19 +105,6 @@ export function chainShellPerimeter(
         if (near(tail, ring[0]!)) { ring.pop(); closed = true; break; }
     }
     return closed && ring.length >= 3 ? ring : null;
-}
-
-function pointInRing(
-    pt: { x: number; z: number },
-    ring: ReadonlyArray<{ x: number; z: number }>,
-): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const a = ring[i]!, b = ring[j]!;
-        if ((a.z > pt.z) !== (b.z > pt.z) &&
-            pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
-    }
-    return inside;
 }
 
 function distToRing(
@@ -136,7 +154,7 @@ export function checkPlannedWallsInsideBoundary(
         let wallOutside = false;
         for (const p of pts) {
             samplesTotal++;
-            if (!pointInRing(p, ring) && distToRing(p, ring) > tolM) {
+            if (!pointInPolygonXZ(p.x, p.z, ring) && distToRing(p, ring) > tolM) {
                 samplesOutside++;
                 wallOutside = true;
             }
