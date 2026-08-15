@@ -6,6 +6,7 @@ import { storeEventBus } from '@pryzm/core-app-model';
 import { WallDataAddSchema, WallDataUpdateSchema, OpeningSchema, formatZodError } from './WallDataSchema';
 import { wallOccupancyStore } from './WallOccupancyStore';
 import { rakeAuthorability } from './WallRake';
+import type { HostedOpeningGeometry } from './HostedOpeningAuthority';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 import {
@@ -1174,6 +1175,34 @@ export class WallStore implements ILevelProvider {
                 // (DeleteElementCommand.undo) is responsible for registering in elementRegistry.
             }
         }
+    }
+
+    /**
+     * §MT-06-ONE-AUTHORITY — the four geometry numbers this store is
+     * AUTHORITATIVE for, by hosted-element id, for either kind.
+     *
+     * This is the read that `windowStore` / `doorStore` derive their geometry
+     * through, so it is on the builders' hot path. It therefore does NOT clone
+     * the whole record the way `getWindow()` / `getDoor()` do — a wall rebuild
+     * that touches every hosted element would pay a full `cloneWindowData` per
+     * element for four numbers it is about to discard. Returning a fresh
+     * four-field object still hands the caller nothing it can use to mutate
+     * store state, which is the invariant `getWindow`'s clone exists to protect.
+     *
+     * Returns `undefined` when no hosted element of that id is known — which the
+     * consumer must treat as "no authority", NOT as zero. See
+     * `withAuthoritativeGeometry` §2.
+     */
+    hostedOpeningGeometry(elementId: string): HostedOpeningGeometry | undefined {
+        const w = this.windows.get(elementId);
+        if (w) {
+            return { offset: w.offset, width: w.width, height: w.height, sillHeight: w.sillHeight };
+        }
+        const d = this.doors.get(elementId);
+        if (d) {
+            return { offset: d.offset, width: d.width, height: d.height, sillHeight: d.sillHeight };
+        }
+        return undefined;
     }
 
     // Window management

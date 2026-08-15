@@ -22,6 +22,11 @@ export * from './errors';
 
 // ── Stores ────────────────────────────────────────────────────────────────────
 export * from './WallStore';
+// §MT-06-ONE-AUTHORITY — the derivation contract geometry-window / geometry-door
+// resolve their four geometry fields through. Exported from geometry-wall (not
+// duplicated in each element package) so there is ONE implementation to keep
+// honest — the PR-13 lesson: a copied store is a store that will diverge.
+export * from './HostedOpeningAuthority';
 export * from './WallSystemTypeStore';
 export * from './WallOccupancyStore';
 // §C83-S1 — the WALL-side occupancy gate (a proposed wall vs existing hosted
