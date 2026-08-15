@@ -5087,3 +5087,60 @@ alone.
 
 **Related, kept separate on purpose:** L-916 (opening record desync, CLOSED `c100df8f`) · L-919
 (wall CREATED through another wall) · L-920 (junction-infill prism) · L-918 (draw mode dropped).
+
+---
+
+## §JOINT-AUTHORITY-IS-THE-INCUMBENT — a founder-stated INVARIANT governing L-919, L-920 and L-921
+
+**Stated 2026-08-15, verbatim, and it is an invariant rather than a preference:**
+
+> *"The perimeter wall joints — **NEVER** should be changed after creation because an interior wall
+> is created. **NO MATTER the mitre joint. NO MATTER the type of wall.** The 3rd wall created in
+> this case needs to **ADAPT and connect with the FACE of the wall originally there.**"*
+
+### The rule
+
+**An existing junction is AUTHORITATIVE. A wall created later ADAPTS to it — it never modifies it.**
+
+1. When a new wall's endpoint lands on an existing wall or an existing L/T junction, resolution is
+   **ONE-SIDED**: the NEWCOMER is trimmed/terminated at the incumbent's **FACE**. The walls that
+   were already joined come out **byte-identical**.
+2. Holds regardless of wall TYPE (layered or not), regardless of the incumbent's mitre style, and
+   regardless of angle. The founder closed both escape hatches explicitly — *"no matter the mitre
+   joint, no matter the type of wall"*.
+3. If a newcomer cannot be resolved against the host's face, **REFUSE the creation with both
+   numbers.** Never resolve it by moving the incumbent.
+
+### Why this is the ROOT and not a preference
+
+The founder is simultaneously reporting (L-920) that creating a third wall **corrupts a
+previously-correct L junction** into a triangular prism. Those are one root, not two symptoms:
+**the junction solver is treating an incumbent joint as re-solvable the moment a newcomer appears.**
+`computeJunctionInfills` clusters walls (`SNAP_RADIUS 0.5`, filtered subset) and emits a triangle
+per 3-wall cluster — so a third wall arriving re-clusters an already-correct 2-wall junction into a
+3-wall problem and re-solves it. **A clamp alone would treat the symptom**: a clamped-but-still-
+re-solved incumbent is still wrong, it merely looks less broken.
+
+**The missing test is the incumbent-unchanged assertion.** Capture the incumbent walls' resolved
+geometry BEFORE the newcomer is created, create it, and assert the incumbents are UNCHANGED. That
+half has been silently failing, and no suite asserts it — which is why the defect survives fix after
+fix aimed only at the newcomer.
+
+**Dispatched to lanes L919 (CREATE path), L920 (infill geometry) and L921 (accepted-offer reweld)
+the turn it was stated**, with instructions to measure whether incumbents are currently re-solved and
+to report that measurement even where fixing it exceeds the lane.
+
+### Also observed in the same session, recorded not chased
+
+- **A VIEWPORT CRASH** — `PIPELINE_FAILURE: Failed to execute 'setIndexBuffer' … parameter 1 is not
+  of type 'GPUBuffer'` → `§GPU-RESOURCE-LIFETIME destroyed/dangling GPU resource RECURRED after a
+  full reconstruction` → `[ViewportCrashGuard] Viewport crash`. **This is the L-908 WebGPU
+  resource-lifetime family, not a junction defect.** Worth stating that the system behaved
+  CORRECTLY: it refused to hide the failure behind a silent retry or a blank viewport, failed loudly
+  at `phase=error`, then recovered through a real pipeline rebuild. That is §RECOVERY-MUST-REFUSE
+  working as designed. ⚠ One consequence for L-921: a crashed-and-rebuilt pipeline is a plausible
+  explanation for a STALE RENDER, which is precisely the alternative hypothesis L-921 must
+  distinguish for *"the door moves without the wall"*.
+- **`§OPENED-REGION` worked correctly**: it detected that Room 00-005 (43.4 m²) had stopped being a
+  room, named the **4.32 m** of boundary with no wall on it, and anchored both ends on surviving
+  walls. The detect→ask loop doing its job — do not regress it.
