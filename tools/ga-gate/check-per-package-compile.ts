@@ -266,9 +266,40 @@ for (const pkgName of pkgNames) {
   compiled++;
 
   const output = (result.stdout ?? '') + (result.stderr ?? '');
-  const hasErrors =
-    output.includes(': error TS') ||
-    (result.status !== 0 && output.trim().length > 0);
+
+  /**
+   * §MT-09-NONZERO-AND-SILENT (2026-08-16, M7) — A COMPILER THAT FAILED AND SAID
+   * NOTHING IS NOT A PASS.
+   *
+   * The predicate here used to read:
+   *
+   *     hasErrors = output.includes(': error TS')
+   *              || (result.status !== 0 && output.trim().length > 0)
+   *
+   * so a `tsc` that exited NON-ZERO with EMPTY output fell through BOTH arms and
+   * printed `  PASS  packages/x`. That is §PER-PACKAGE-COMPILE-WAS-GREEN-AND-BLIND
+   * surviving inside the residue of its own fix: that section closed the SPAWN-level
+   * case (`result.error`, `status === null` — the compiler never started) and left the
+   * RUN-level case (the compiler started, failed, and emitted nothing) reading as
+   * health. Same law, one layer in — "tsc found no errors" and "tsc failed and told us
+   * nothing" must never print the same line.
+   *
+   * This is exit 2 MISCONFIGURED, not exit 1: there is no finding to fix, only a
+   * measurement that did not produce one. NEVER absorbable as declared debt.
+   */
+  if (result.status !== 0 && output.trim().length === 0) {
+    console.error(
+      `\n[per-package-compile] MISCONFIGURED (exit 2) — tsc exited ${result.status} for packages/${pkgName} and produced NO output.`
+      + `\n  A non-zero status with an empty stdout+stderr is a compiler that failed without`
+      + `\n  reporting why. It is not "no errors": there is no measurement here at all, and the`
+      + `\n  old predicate printed PASS for exactly this shape. See §MT-09-NONZERO-AND-SILENT.`
+      + `\n  This is NOT a pass and NOT declarable debt.`,
+    );
+    process.exit(2);
+  }
+
+  // Non-zero status now implies non-empty output, so the second arm needs no length test.
+  const hasErrors = output.includes(': error TS') || result.status !== 0;
 
   // §MT-09-AUTOSKIP-ABSORBED-A-FAILURE — the auto-skip branch that used to sit here
   // has been DELETED. It read the error text of an ALREADY-FAILED package and, if every
