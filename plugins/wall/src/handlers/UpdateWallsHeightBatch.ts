@@ -249,12 +249,35 @@ export const UpdateWallsHeightBatchHandler: CommandHandler<
           }
           if (result?.error) info.push(result.error);
 
-          const report: WallHeightBatchReport = {
-            success: result?.success ?? false,
-            info: result?.success ? info : (result?.info ?? info),
-            affectedElementIds: result?.affectedElementIds ?? [],
-            outcome: result?.success ? 'applied' : 'refused',
-          };
+          // §BATCH-UNREADABLE-RESULT-IS-NOT-ZERO (C78 §20 · U-INV-4).
+          // The SHARPEST instance in this family, because this block did not
+          // merely under-report — it MINTED A REFUSAL IDENTITY. With an
+          // unreadable `result`, `?? []` claimed zero walls changed AND
+          // `result?.success ? 'applied' : 'refused'` stamped the report
+          // `outcome: 'refused'`, asserting that the system considered the
+          // request and declined it. Nothing of the sort was determined. C73's
+          // rule is that a refusal carries identity and BOTH numbers; a refusal
+          // fabricated from an unread result carries neither and is worse than
+          // silence. `'indeterminate'` — already in this file's vocabulary — is
+          // the honest outcome.
+          const readable = !!result && Array.isArray(result.affectedElementIds);
+          const report: WallHeightBatchReport = readable
+            ? {
+                success: result.success ?? false,
+                info: result.success ? info : (result.info ?? info),
+                affectedElementIds: result.affectedElementIds,
+                outcome: result.success ? 'applied' : 'refused',
+              }
+            : {
+                success: false,
+                info: [
+                  `'wall.updateHeightBatch' RAN but the command manager returned no readable ` +
+                  `result. WHICH walls changed is not known — this is NOT a report that none ` +
+                  `did, and it is NOT a refusal.`,
+                ],
+                affectedElementIds: [],
+                outcome: 'indeterminate',
+              };
           window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
         } catch (e) {
           console.error('[wall.updateHeightBatch.handler] bridge failed:', e);

@@ -139,11 +139,28 @@ export const AddWallLayerBatchHandler: CommandHandler<
                 ...(cmd.layerFunction !== undefined ? { layerFunction: cmd.layerFunction } : {}),
               }),
             );
-            const report: WallLayerBatchReport = {
-              success: result?.success ?? false,
-              info: result?.info ?? [],
-              affectedElementIds: result?.affectedElementIds ?? [],
-            };
+            // §BATCH-UNREADABLE-RESULT-IS-NOT-ZERO (C78 §20 · U-INV-4) — see
+            // UpdateWallsColorBatch for the full statement. `?? []` announced
+            // "zero walls changed" for an unreadable result, which is the same
+            // payload an honestly-empty batch emits; the command may have
+            // mutated the model before returning junk. Now routed into the
+            // `'indeterminate'` outcome this file already carries.
+            const readable = !!result && Array.isArray(result.affectedElementIds);
+            const report: WallLayerBatchReport = readable
+              ? {
+                  success: result.success ?? false,
+                  info: result.info ?? [],
+                  affectedElementIds: result.affectedElementIds,
+                }
+              : {
+                  success: false,
+                  info: [
+                    `'wall.addLayerBatch' RAN but the command manager returned no readable ` +
+                    `result. WHICH walls changed is not known — this is NOT a report that none did.`,
+                  ],
+                  affectedElementIds: [],
+                  outcome: 'indeterminate',
+                };
             window.dispatchEvent(
               new CustomEvent(WALL_LAYER_BATCH_REPORT_EVENT, { detail: report }),
             );

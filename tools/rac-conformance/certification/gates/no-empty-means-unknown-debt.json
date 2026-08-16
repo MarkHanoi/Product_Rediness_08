@@ -804,11 +804,6 @@
       "why": "C@129 `affectedElementIds: result?.affectedElementIds ?? [],`"
     },
     {
-      "site": "plugins/wall/src/handlers/AddWallLayerBatch.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@145 `affectedElementIds: result?.affectedElementIds ?? [],`"
-    },
-    {
       "site": "plugins/wall/src/handlers/CreateWallOpening.ts",
       "arm": "C (2 site(s))",
       "why": "C@110 `if ((wall.openings ?? []).some((o) => o.id === shape.opening.id)) {` · C@150 `w.openings = [...(w.openings ?? []), opening];`"
@@ -822,26 +817,6 @@
       "site": "plugins/wall/src/handlers/CutWall.ts",
       "arm": "C (4 site(s))",
       "why": "C@118 `for (const op of wall.openings ?? []) {` · C@154 `for (const op of wall.openings ?? []) {` · C@190 `const sharedChildren = new Set((wall.childrenIds ?? []).map((c) => c));` · C@191 `for (const op of wall.openings ?? []) {`"
-    },
-    {
-      "site": "plugins/wall/src/handlers/UpdateWallsColorBatch.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@154 `affectedElementIds: result?.affectedElementIds ?? [],`"
-    },
-    {
-      "site": "plugins/wall/src/handlers/UpdateWallsHeightBatch.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@255 `affectedElementIds: result?.affectedElementIds ?? [],`"
-    },
-    {
-      "site": "plugins/wall/src/handlers/UpdateWallsRakeBatch.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@137 `affectedElementIds: result?.affectedElementIds ?? [],`"
-    },
-    {
-      "site": "plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts",
-      "arm": "C (1 site(s))",
-      "why": "C@140 `affectedElementIds: result?.affectedElementIds ?? [],`"
     },
     {
       "site": "plugins/wall/src/occupancy.ts",

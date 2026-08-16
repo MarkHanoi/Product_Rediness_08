@@ -148,11 +148,32 @@ export const UpdateWallsColorBatchHandler: CommandHandler<
             );
             // Visible partial-failure reporting, same contract as the type batch:
             // a refusal and a success are never the same observable at the UI.
-            const report: WallColorBatchReport = {
-              success: result?.success ?? false,
-              info: result?.info ?? [],
-              affectedElementIds: result?.affectedElementIds ?? [],
-            };
+            // §BATCH-UNREADABLE-RESULT-IS-NOT-ZERO (C78 §20 · U-INV-4).
+            // This block read `affectedElementIds: result?.affectedElementIds ?? []`,
+            // which announced "this batch changed zero walls" whenever the
+            // command manager returned something unreadable — the SAME payload a
+            // batch that genuinely changed nothing emits. `window.commandManager`
+            // is a foreign global, so that branch is reachable, and the command
+            // may well have MUTATED the model on the way to returning junk.
+            // "I could not read the result" is not "nothing happened".
+            // Routed into the `'indeterminate'` outcome this file already
+            // carries for its other two blind paths — no new vocabulary.
+            const readable = !!result && Array.isArray(result.affectedElementIds);
+            const report: WallColorBatchReport = readable
+              ? {
+                  success: result.success ?? false,
+                  info: result.info ?? [],
+                  affectedElementIds: result.affectedElementIds,
+                }
+              : {
+                  success: false,
+                  info: [
+                    `'wall.updateColorBatch' RAN but the command manager returned no readable ` +
+                    `result. WHICH walls changed is not known — this is NOT a report that none did.`,
+                  ],
+                  affectedElementIds: [],
+                  outcome: 'indeterminate',
+                };
             window.dispatchEvent(
               new CustomEvent(WALL_COLOR_BATCH_REPORT_EVENT, { detail: report }),
             );
