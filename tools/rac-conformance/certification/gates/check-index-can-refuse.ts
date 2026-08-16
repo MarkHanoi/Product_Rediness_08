@@ -30,12 +30,17 @@
 //           subject would be self-refuting*).
 //   ARM B · REFUSAL PATH. Each index must have a TYPED refusal path: a way to
 //           answer *"cannot determine"* distinctly from *"empty"*. The accepted
-//           shapes are enumerated in REFUSAL_SHAPES below and are drawn from
-//           what the estate actually does where it does it right — the
-//           `AffectedSet` discriminated union at `DependencyResolver.ts:91–93`
-//           being the reference. Prose in a comment earns nothing: every file is
-//           comment-stripped before it is searched, so a tracker that merely
-//           *documents* that it should refuse does not pass.
+//           shapes are the fixed discriminated shapes in REFUSAL_SHAPES_FIXED
+//           below PLUS C78 §8.1's closed `UndeterminedReason` union, which is
+//           PARSED FROM SOURCE rather than copied here — see
+//           §HAND-COPIED-VOCABULARY-ROTS. The `AffectedSet` discriminated union
+//           at `DependencyResolver.ts:91–93` is the reference implementation.
+//           Prose in a comment earns nothing: every file is comment-stripped
+//           before it is searched, so a tracker that merely *documents* that it
+//           should refuse does not pass. ARM B follows `extends`: capability is
+//           inherited even though the FILE is not — see
+//           §CAPABILITY-IS-INHERITED-THE-FILE-IS-NOT — and an inherited shape
+//           always NAMES the ancestor that supplied it.
 //   ARM C · SOLE ANSWER SHAPE. An index whose dependency-answering surface
 //           returns `T[]` / `Set<T>` / `null` / `undefined` / a number as its
 //           ONLY answer shape is a finding, named by index. This is the arm
@@ -123,15 +128,50 @@ const INDEX_CLASS_RE =
  * adopt instead. Anything here answers "cannot determine" DISTINCTLY from
  * "empty" — which is the entire content of U-INV-7.
  */
-const REFUSAL_SHAPES: { id: string; re: RegExp }[] = [
+const REFUSAL_SHAPES_FIXED: { id: string; re: RegExp }[] = [
   { id: "status:'cannot-determine'",   re: /['"]cannot-determine['"]/ },
   { id: 'CANNOT_DETERMINE',            re: /\bCANNOT_DETERMINE\b/ },
   { id: "status:'determined' union",   re: /status\s*:\s*['"]determined['"]/ },
   { id: 'AffectedSet return type',     re: /:\s*AffectedSet\b/ },
-  { id: 'UNDETERMINED reason member',  re: /\b(NO_DEPENDENCY_INDEX|RELATIONSHIP_NOT_RECORDED|RELATIONSHIP_NOT_READABLE|AGGREGATE_SCOPE_UNSUPPORTED|STALE_DERIVED_STATE)\b/ },
   { id: "kind:'undetermined'",         re: /kind\s*:\s*['"]undetermined['"]/i },
   { id: 'Determination<> wrapper',     re: /\bDetermination\s*</ },
 ];
+
+// ── C78 §8.1's ONE CLOSED UNION, PARSED FROM SOURCE — never hand-copied ──────
+//
+// ⚠ §HAND-COPIED-VOCABULARY-ROTS (lane G2, A.12). This list used to be five
+// SCREAMING_SNAKE literals written inline above. C78 §8.1 declares ELEVEN, and
+// the five chosen were a subset nobody re-checked: `ENGINE_NOT_AVAILABLE` — §8.1
+// member #2, "exists", ~14 producing sites — was NOT among them. The measured
+// consequence was a FALSE POSITIVE: `RoofDependencyTracker` refuses with
+// `ENGINE_NOT_AVAILABLE` at RoofDependencyTracker.ts:137, distinguishing "I could
+// not look" from "I looked and it is gone" exactly as U-INV-7 requires, and this
+// gate reported it CANNOT REFUSE. A gate that polices a closed union against a
+// private copy of that union measures its own copy — which is §7.4's rule
+// ("a hand-copied list rots") arriving in the one place it was not applied.
+//
+// The union is now READ from the type that defines it. A parse that returns
+// materially fewer members than the contract declares means the PARSER broke,
+// and a broken parser exits 2 MISCONFIGURED rather than quietly policing less.
+const REASON_UNION_SOURCE = 'packages/command-bus/src/consequence.ts';
+
+export function parseUndeterminedReasons(text: string): string[] {
+  const m = /export\s+type\s+UndeterminedReason\s*=([\s\S]*?);/.exec(stripComments(text));
+  if (!m) return [];
+  return [...m[1]!.matchAll(/['"]([A-Z][A-Z0-9_]+)['"]/g)].map((x) => x[1]!);
+}
+
+/** The full shape table = the fixed shapes + the union read from source. */
+export function refusalShapeTable(reasons: string[]): { id: string; re: RegExp }[] {
+  if (reasons.length === 0) return REFUSAL_SHAPES_FIXED;
+  return [
+    ...REFUSAL_SHAPES_FIXED,
+    { id: 'UNDETERMINED reason member', re: new RegExp(`\\b(${reasons.join('|')})\\b`) },
+  ];
+}
+
+/** Populated once in main() from REASON_UNION_SOURCE; the controls pass their own. */
+let REFUSAL_SHAPES: { id: string; re: RegExp }[] = REFUSAL_SHAPES_FIXED;
 
 /** Bare answer shapes — the sole-answer defect ARM C names. */
 const BARE_RETURN_RE =
@@ -166,6 +206,80 @@ export function refusalShapesIn(src: string): string[] {
 /** ARM C — does its dependency-answering surface have a bare-set-only shape? */
 export function hasBareAnswerShape(src: string): boolean {
   return BARE_RETURN_RE.test(stripComments(src));
+}
+
+// ── INHERITED CAPABILITY — ARM B follows `extends` ───────────────────────────
+//
+// ⚠ §CAPABILITY-IS-INHERITED-THE-FILE-IS-NOT (lane G2, A.12). ARM B used to read
+// ONE FILE per subject. A class that gets its refusal path from a BASE CLASS
+// therefore read as CANNOT REFUSE, because the refusal lives in the base's file.
+//
+// This produced two measured FALSE POSITIVES at HEAD 3785eae6:
+// `CeilingHostDependencyTracker` (65 lines) and `FloorHostDependencyTracker`
+// (71 lines) are CONSTRUCTOR-ONLY bindings — `class X extends
+// FinishHostDependencyTracker<T>` plus a `super(...)` call and one exported
+// narrowing helper. They hold no dependency-answering surface of their own AT
+// ALL. Their base, `FinishHostDependencyTracker`, is scored ✓ CAN REFUSE by THIS
+// GATE in THIS RUN. The gate was therefore reporting that an index cannot refuse
+// while simultaneously reporting that the only code it has can.
+//
+// Note what it was NOT: the two files DO name `RELATIONSHIP_NOT_RECORDED` — but
+// only inside docstrings, which are stripped. Comment-stripping was working
+// exactly as designed; the defect was reading one file for a capability that TS
+// inheritance puts in another. The chain is walked with a cycle guard and a
+// depth cap, and the ancestor that supplied the shape is NAMED in the output, so
+// an inherited ✓ can never be mistaken for a local one.
+const MAX_EXTENDS_DEPTH = 8;
+
+/** `class X ... extends Y` → `Y`. Generic args and `implements` are ignored. */
+export function baseClassOf(src: string, className: string): string | null {
+  const re = new RegExp(`\\bclass\\s+${className}\\b[^{]*?\\bextends\\s+([A-Za-z0-9_$]+)`);
+  const m = re.exec(stripComments(src));
+  return m ? m[1]! : null;
+}
+
+/** name → source text, for every `class` declared anywhere in the sweep. */
+export function indexClassSources(sources: SourceFile[]): Map<string, string> {
+  const out = new Map<string, string>();
+  const re = /\bclass\s+([A-Za-z0-9_$]+)/g;
+  for (const f of sources) {
+    const clean = stripComments(f.text);
+    re.lastIndex = 0;
+    for (let m = re.exec(clean); m !== null; m = re.exec(clean)) {
+      if (!out.has(m[1]!)) out.set(m[1]!, f.text);
+    }
+  }
+  return out;
+}
+
+/**
+ * ARM B, inheritance-aware. Returns the shapes found on the subject itself, plus
+ * any found on an ancestor — each ancestor-sourced shape tagged with its origin.
+ */
+export function refusalShapesInherited(
+  className: string,
+  ownText: string,
+  classSources: Map<string, string>,
+): string[] {
+  const own = refusalShapesIn(ownText);
+  if (own.length > 0) return own;
+
+  const seen = new Set<string>([className]);
+  let currentName = className;
+  let currentText = ownText;
+
+  for (let depth = 0; depth < MAX_EXTENDS_DEPTH; depth++) {
+    const base = baseClassOf(currentText, currentName);
+    if (base === null || seen.has(base)) return [];
+    seen.add(base);
+    const baseText = classSources.get(base);
+    if (baseText === undefined) return [];
+    const shapes = refusalShapesIn(baseText);
+    if (shapes.length > 0) return shapes.map((s) => `${s} (inherited from ${base})`);
+    currentName = base;
+    currentText = baseText;
+  }
+  return [];
 }
 
 // ── Discovery (ARM A) ────────────────────────────────────────────────────────
@@ -220,6 +334,33 @@ function selfTest(): { ok: boolean; lines: string[] } {
   if (!notDiscovered.some((d) => d.name === 'ZedDependencyGraph')) pass('discovery does NOT count an index class named inside a comment');
   else fail('discovery counts commented-out classes — the floor could be met by prose');
 
+  // 6 · INHERITED CAPABILITY, both directions. The subclass carries NO refusal
+  //     text of its own in either case; only the base differs.
+  const refusingBase = `class BaseTracker { plan(): void { this.r = 'RELATIONSHIP_NOT_RECORDED'; } }`;
+  const bareBase = `class PlainBase { getIdsForWall(id: string): string[] { return []; } }`;
+  const sub = `class SubDependencyTracker extends BaseTracker { constructor() { super('ceiling'); } }`;
+  const subOfBare = `class OtherDependencyTracker extends PlainBase { constructor() { super(); } }`;
+  const chain = new Map<string, string>([['BaseTracker', refusingBase], ['PlainBase', bareBase]]);
+
+  const inherited = refusalShapesInherited('SubDependencyTracker', sub, chain);
+  if (inherited.length > 0 && inherited[0]!.includes('inherited from BaseTracker')) {
+    pass('a constructor-only subclass IS credited with its BASE class\'s refusal path, and the origin is named');
+  } else fail('ARM B cannot see an inherited refusal path — a thin subclass of a refusing base reads as a finding (the Ceiling/Floor false positive)');
+
+  if (refusalShapesInherited('OtherDependencyTracker', subOfBare, chain).length === 0) {
+    pass('a subclass of a base that CANNOT refuse is still NOT credited — inheritance does not launder a missing path');
+  } else fail('inheritance credits a subclass whose base has no refusal path — every finding could be hidden behind an `extends`');
+
+  // 7 · THE UNION IS READ FROM SOURCE, not from a copy in this file.
+  const unionFixture = `export type UndeterminedReason =\n  | 'NO_DEPENDENCY_INDEX'\n  | 'ENGINE_NOT_AVAILABLE'\n  | 'PLANNER_THREW';`;
+  const parsed = parseUndeterminedReasons(unionFixture);
+  if (parsed.length === 3 && parsed.includes('ENGINE_NOT_AVAILABLE')) {
+    pass('the §8.1 UndeterminedReason union PARSES from source (a hand-copied vocabulary is what missed ENGINE_NOT_AVAILABLE)');
+  } else fail(`the union parser is broken — it read [${parsed.join(', ')}] from a 3-member fixture`);
+  if (parseUndeterminedReasons('export type Something = string;').length === 0) {
+    pass('the union parser returns EMPTY for a source with no UndeterminedReason — a broken parse forces the floor, never a silent smaller vocabulary');
+  } else fail('the union parser invents members from unrelated source');
+
   return { ok, lines };
 }
 
@@ -228,11 +369,29 @@ function main(): number {
   const floors: Floor[] = [];
   const lines: string[] = [];
 
+  // C78 §8.1's closed union, read from the type that defines it. Done BEFORE the
+  // controls so the run policing the estate and the run policing itself use the
+  // same table — two vocabularies is the defect this replaced.
+  const unionPath = resolve(REPO, REASON_UNION_SOURCE);
+  const unionReasons = existsSync(unionPath)
+    ? parseUndeterminedReasons(readFileSync(unionPath, 'utf8')) : [];
+  REFUSAL_SHAPES = refusalShapeTable(unionReasons);
+
   const control = selfTest();
   lines.push('EXECUTED CONTROLS (both directions, every run — C78 §20.3):');
   lines.push(...control.lines);
   lines.push('');
-  floors.push({ what: 'executed controls passed', measured: control.ok ? 7 : 0, min: 7 });
+  floors.push({ what: 'executed controls passed', measured: control.ok ? 11 : 0, min: 11 });
+  // A parse that finds materially fewer than the ELEVEN members C78 §8.1
+  // declares means THIS PARSER broke, not that the contract shrank — and a
+  // broken parser must exit 2 MISCONFIGURED, never police a smaller vocabulary
+  // quietly. The floor sits below 11 so a legitimate contract edit is not
+  // reported as a harness fault, and far above the 0/1 a broken parse returns.
+  floors.push({
+    what: `C78 §8.1 UndeterminedReason members parsed from ${REASON_UNION_SOURCE}`,
+    measured: unionReasons.length,
+    min: 8,
+  });
 
   const ledger: Ledger | null = existsSync(LEDGER_PATH)
     ? (JSON.parse(readFileSync(LEDGER_PATH, 'utf8')) as Ledger) : null;
@@ -272,9 +431,12 @@ function main(): number {
     const ordered = [...subjects.values()].sort((a, b) => a.name.localeCompare(b.name));
     lines.push(`ARM A — ${ordered.length} dependency index(es) established (${discovered.length} discovered from source, ${DECLARED_SUBJECTS.length} declared by 0B §3):`);
 
+    const classSources = indexClassSources(sources);
     const canRefuse: string[] = [];
     for (const s of ordered) {
-      const shapes = refusalShapesIn(s.text);
+      // ARM B follows `extends`: a constructor-only subclass of a refusing base
+      // CAN refuse. The origin is carried in the shape id, never elided.
+      const shapes = refusalShapesInherited(s.name, s.text, classSources);
       const bare = hasBareAnswerShape(s.text);
       const origin = s.discovered && s.declared ? 'discovered+declared' : s.discovered ? 'discovered' : 'declared';
       if (shapes.length > 0) {
