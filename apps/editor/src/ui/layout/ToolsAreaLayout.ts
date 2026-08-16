@@ -52,6 +52,26 @@ export function ceilingPickerToToolMode(m: CeilingPickerMode): CeilingToolMode {
     return floorPickerToToolMode(m as unknown as FloorPickerMode);
 }
 
+/**
+ * §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — the guard that comes WITH letting
+ * a caller-supplied mode string through.
+ *
+ * Before L-918 the floor / ceiling activators accepted no mode at all, so the only
+ * value that ever reached the picker was the hard-coded `'auto'` of the `:auto`
+ * pseudo-families. Forwarding `runtime.tools.activate(family, mode)` widens that to
+ * ANY string, and `setActiveMode` stores whatever it is handed — an unrecognised
+ * mode would be silently retained and every plan handler comparison would miss,
+ * dropping the tool into its linear/ortho fallback. That is the same silent-wrong
+ * shape this fix exists to remove, so it is REFUSED, loudly, with identity and both
+ * values: what was asked for, and what the tool is actually left in.
+ *
+ * The authority is `elementCreationMatrix` — the declared capability table the
+ * `DrawingModeBar` is already driven from — never a second hand-maintained list.
+ */
+export function isDeclaredCreationMode(tool: 'floor' | 'ceiling', mode: string): boolean {
+    return creationModes(tool).some(m => m.id === mode);
+}
+
 export function mountToolsArea(
     props: UIProps,
     service: BimService,
@@ -91,14 +111,31 @@ export function mountToolsArea(
         runtime.tools.register('stair',         (m?) => service.activateStairPathTool((m as StairShapeChoice) ?? 'I'));
         runtime.tools.register('handrail',      (m?) => service.activateHandrailTool(m));
         runtime.tools.register('ramp',          ()   => { const t = window.rampTool; if (t) t.activate?.(); else console.warn('[runtime.tools/ramp] rampTool not ready'); }); // TODO(E.6): legacy window.rampTool bridge — delete when plugins/ramp lands per §16.5
-        runtime.tools.register('ceiling',       ()   => service.activateCeilingTool());
+        // §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918, founder 2026-08-15) — these two
+        // activators were declared `() => service.activateX()`. Nineteen of the
+        // twenty-one families below forward the mode as `(m?) => …`; FLOOR and
+        // CEILING were the only multi-mode creation families that SWALLOWED it, so
+        // `runtime.tools.activate('floor', 'auto')` activated the tool and threw the
+        // mode away. Measured before the fix: the picker the plan handler reads was
+        // left at 'linear' for floor(auto), ceiling(auto), floor(rectangle) and
+        // ceiling(rectangle) alike — the founder's "Auto is unreachable in plan
+        // view", because a plan click then took the vertex-add branch instead of
+        // AUTO-from-room. Pinned by `plantools/__tests__/planAutoModeReachability.spec.ts`.
+        runtime.tools.register('ceiling',       (m?) => service.activateCeilingTool(undefined, m));
         // §FIX-FINISH-MODE-PLAN-UNREACHABLE (founder 2026-08-06) — the AUTO
         // activators used to set the mode on `window.<x>Tool` (the 3D tool
         // INSTANCE) only, which the PLAN handler cannot read: AUTO worked in 3D
         // and was silently inert in plan view. The mode now goes through the ONE
         // activation argument, which writes the 3D tool AND the picker.
+        //
+        // The `:auto` pseudo-families are RETAINED, not folded away: `CreateRailPanel`
+        // and any other caller that names them keeps working unchanged, and they were
+        // the CONTROL that proved the activation argument itself was sound (they were
+        // the two cases measuring GREEN while every mode-carrying call measured RED).
+        // They are now expressed as the generic activator with the mode bound, so
+        // there is one applying path and not two.
         runtime.tools.register('ceiling:auto',  ()   => service.activateCeilingTool(undefined, 'auto'));
-        runtime.tools.register('floor',         ()   => service.activateFloorTool());
+        runtime.tools.register('floor',         (m?) => service.activateFloorTool(undefined, m));
         runtime.tools.register('floor:auto',    ()   => service.activateFloorTool(undefined, 'auto'));
         runtime.tools.register('room',          ()   => { const t = window.roomTool; if (t) t.activate?.(); else tm.activateRoom?.(); }); // TODO(E.16): legacy window.roomTool bridge — delete when plugins/room lands per §16.5
         runtime.tools.register('room:level',    ()   => {
@@ -323,7 +360,19 @@ export function mountToolsArea(
         // was reachable in 3D and silently inert in plan view — the founder's
         // "floor finish cannot be created in plan view". Any entry point that
         // wants a mode now passes it here rather than reaching into the 3D tool.
-        if (mode) _switchFloor(mode as FloorPickerMode);
+        //
+        // §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — since 'floor' now forwards
+        // an arbitrary caller string, an UNDECLARED mode is refused here instead of
+        // being stored and silently missing every handler comparison.
+        if (mode) {
+            if (isDeclaredCreationMode('floor', mode)) _switchFloor(mode as FloorPickerMode);
+            else console.warn(
+                `[ToolsAreaLayout] REFUSED floor activation mode "${mode}" — not declared in `
+                + `elementCreationMatrix('floor'); declared modes are `
+                + `[${creationModes('floor').map(m => m.id).join(', ')}]. `
+                + `Mode NOT applied; the floor tool stays in "${floorModePicker.getActiveMode()}".`,
+            );
+        }
 
         const initialMode: FloorPickerMode = floorModePicker.getActiveMode();
 
@@ -356,7 +405,16 @@ export function mountToolsArea(
 
         // §FIX-FINISH-MODE-PLAN-UNREACHABLE — see the floor wrapper above. Applies
         // the requested mode to the 3D tool AND the picker the plan handler reads.
-        if (mode) _switchCeiling(mode as CeilingPickerMode);
+        // §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — same refusal as floor.
+        if (mode) {
+            if (isDeclaredCreationMode('ceiling', mode)) _switchCeiling(mode as CeilingPickerMode);
+            else console.warn(
+                `[ToolsAreaLayout] REFUSED ceiling activation mode "${mode}" — not declared in `
+                + `elementCreationMatrix('ceiling'); declared modes are `
+                + `[${creationModes('ceiling').map(m => m.id).join(', ')}]. `
+                + `Mode NOT applied; the ceiling tool stays in "${ceilingModePicker.getActiveMode()}".`,
+            );
+        }
 
         const initialMode: CeilingPickerMode = ceilingModePicker.getActiveMode();
 

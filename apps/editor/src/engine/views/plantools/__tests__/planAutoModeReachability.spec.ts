@@ -157,6 +157,27 @@ describe('§FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive to
         expect((h as unknown as { _points: unknown[] })._points).toHaveLength(0);
     });
 
+    // ── THE GUARD THAT COMES WITH THE WIDENING ───────────────────────────────
+    //
+    // Forwarding the caller's string means an unrecognised one could be stored and
+    // then silently miss every handler comparison — the same silent-wrong shape
+    // this fix removes. It must refuse, and the refusal must carry identity and
+    // BOTH values: what was asked for, and what the tool is actually left in.
+    it('REFUSAL: an undeclared mode is refused loudly and leaves the stored mode untouched', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const { tools } = mountForTest();
+        tools.activate('floor', 'auto');            // known-good state first
+        tools.activate('floor', 'not-a-real-mode'); // then the undeclared one
+
+        expect(window.floorModePicker?.getActiveMode()).toBe('auto');
+
+        const said = warn.mock.calls.map(c => String(c[0])).join('\n');
+        expect(said).toContain('ToolsAreaLayout');    // identity
+        expect(said).toContain('not-a-real-mode');    // what was asked for
+        expect(said).toContain('stays in "auto"');    // what it is actually left in
+        warn.mockRestore();
+    });
+
     // ── THE CENSUS, AS AN ASSERTION ──────────────────────────────────────────
     //
     // Not a hand-counted comment: every registered creation family is driven with
