@@ -5359,3 +5359,80 @@ exact-equality fixture at 100 mm AND at 200 mm (so the perimeter behaviour the f
 confirmed is pinned as a control that must not move); no rescuer tuning; C83 §10 authorship still
 governs (dependents follow, incumbents never move); tolerances consumed from `@pryzm/geometry-kernel`
 per C73 §2.2.
+
+---
+
+## L-930 — VIEWPORT DIES ON A DESTROYED `ShadowDepthTexture`, and the RECOVERY is the prime suspect
+
+**Reported by the founder, 2026-08-16, from PRODUCTION (`app.pryzm.so`, WebGPU, phase4).**
+**Severity: HIGH — the user loses the viewport entirely.** `ViewportCrashGuard` reports
+*"Render pipeline retries exhausted — phase=error"* and the surface does not come back.
+
+### The failure, in the order the console printed it
+
+```
+1  [PlatformSaveController] Version saved: "Auto-save" (27 elements)
+2  [RenderPipelineManager] §GPU-RESOURCE-LIFETIME recoverFromRenderFailure — reconciling size
+                           and rebuilding the render pipeline
+3  [RenderPipelineManager] §RECOVERY-MUST-REFUSE companion — signalled 1 shadow-casting light(s)
+                           to RE-OWN FRESH SHADOW MAPS before the pipeline rebuild
+4  [RenderPipelineManager] §L-819 compiled node states reset (4/4 caches)
+5  [RenderPipelineManager] §FIX-DISPOSE-USEDTIMES — old pipeline dispose error (non-fatal):
+                           Cannot read properties of undefined (reading 'usedTimes')
+6  [RenderPipelineManager] Phase: phase4 | WebGPU: true          ← FIRST recovery SUCCEEDED
+7  [RenderPipelineManager] §RECOVERY-MUST-REFUSE a SHADOW depth resource was destroyed while
+                           still referenced by an in-flight submit … REFUSING the pipeline
+                           reconstruction … Failing loudly now. Root cause is a shadow-map
+                           realloc not ordered against submission — see §GPU-RESOURCE-LIFETIME L2
+8  [RenderPipelineManager] Phase: error
+9  [ViewportCrashGuard]    Render pipeline retries exhausted — phase=error
+   ×4  Destroyed texture [Texture "ShadowDepthTexture"] used in a submit
+       (renderContext_4, renderContext_1, renderContext_4, renderContext_1)
+```
+
+### ⭐ The lead, and the reason this is not simply "a WebGPU race"
+
+**There were TWO failures, and the first one's RECOVERY is the leading suspect for the second.**
+
+Step 2 is a recovery from an EARLIER render failure that is not in the captured log — so something
+already went wrong before this excerpt begins, and **that first fault is itself unexplained.**
+Step 3 is the recovery *deliberately destroying and re-minting shadow maps*: it signals lights to
+"re-own fresh shadow maps". Step 7 is a destroyed `ShadowDepthTexture` being used in a submit.
+
+> **The repair that exists to survive a render failure appears to CAUSE the render failure that
+> kills the viewport** — by freeing a light-owned shadow texture while frames referencing it are
+> still in flight. `renderContext_1` and `renderContext_4` both re-fault, i.e. at least two
+> in-flight command encoders held the freed texture.
+
+That must be **measured, not assumed** — but if it holds, tuning the refusal is the wrong fix and
+the ordering is the right one.
+
+### What is behaving CORRECTLY and must not be "fixed"
+
+- **The refusal is right and its reasoning is right.** It states that a light-owned shadow map is
+  unreachable from `_rebuildPipeline()`, so reconstruction *cannot* repair this and would burn a
+  multi-second rebuild before failing anyway. It refuses **loudly**, with identity and cause.
+  ⚠ Do not weaken it into a retry. A refusal that names why it cannot help is the system working.
+- **`§FIX-DISPOSE-USEDTIMES` (step 5) is correctly non-fatal** — but it is a SECOND lifetime defect
+  in the same teardown (`usedTimes` read off `undefined`), and two lifetime bugs in one path is a
+  signal about the path, not two coincidences.
+
+### Where to look
+
+`§GPU-RESOURCE-LIFETIME` is **ADR-0297 INVARIANT L2** — *DETACH now, RELEASE at the boundary*. The
+invariant already exists and is honoured by element builders (`InstanceGroup.ts:173`,
+`ColumnFragmentBuilder.ts:41/511`, `CurtainWallBuilder.ts:110`, `ViewTechnicalDrawingCache.ts:24`,
+each with tests). **The open question is whether the shadow-map path obeys it at all** — the log
+says the realloc is "not ordered against submission", which is L2 stated as a violation.
+
+### Related, and why this is probably a family rather than an incident
+
+`ADR-0297` · `§L-819` (compiled node state reset) · `§RECOVERY-MUST-REFUSE` ·
+`§GPU-RESOURCE-LIFETIME L2` · the prior device-loss work. Memory records that device-loss,
+first-load and project-switch **all** need a full GPU reset, and that WebGL is the demo backend —
+this is the WebGPU path. The crash follows an **auto-save + version-persist**, which is worth
+testing as the trigger: a save that touches the render graph while frames are in flight.
+
+**Owner:** unassigned at filing → lane **L930**. Discipline: reproduce and MEASURE the ordering
+before changing anything; prove at the layer the user experiences (the viewport survives), never at
+a function's return; do NOT weaken `§RECOVERY-MUST-REFUSE`; ADR-0297 L2 governs.
