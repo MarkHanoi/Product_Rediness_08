@@ -257,6 +257,31 @@ function selfTest(): { ok: boolean; lines: string[] } {
   if (analyseFile('x.ts', unrelated).length === 0) pass('a NON-relationship optional default is out of scope and NOT flagged (this is C78\'s gate, not a repo-wide census)');
   else fail('an unrelated array default is flagged — the scope is not holding');
 
+  // 8 · MEASURED 2026-08-16 — the flagged shape inside a STRING LITERAL must NOT
+  //     be counted. This is control 2's rule (a gate must not measure its own
+  //     changelog) applied to the OTHER place prose lives. It was RED when
+  //     written: `stripComments` blanked comments but not strings, so
+  //     `WallDeleteConsequencePlanner.ts:603` — the `detail:` prose of an
+  //     `undetermined` refusal that QUOTES the defect while itself honouring
+  //     U-INV-4 — was the gate's 65th finding. C78 §20's exit condition binds a
+  //     "discovery path"; a sentence in a refusal message is not one.
+  const inString = [
+    'const detail =',
+    "  'the commit path reads `wall.childrenIds ?? []` to decide the child cascade';",
+  ].join('\n');
+  if (analyseFile('x.ts', inString).length === 0) pass('the same defect quoted inside a STRING LITERAL is NOT counted (prose in a refusal message is not a discovery path)');
+  else fail('a `?? []` quoted inside a string is counted — a refusal that DOCUMENTS the defect is flagged for describing it');
+
+  // 9 · MEASURED 2026-08-16 — a relationship call whose ARGUMENT LIST CONTAINS
+  //     PARENTHESES must still be seen. It was RED when written: `BARE_OR_EMPTY`
+  //     matched the call arguments with `[^)]*`, so the first inner `)` ended
+  //     the match and any nested call hid the site completely. Two real sites
+  //     were invisible for this reason alone
+  //     (`CreateWindowInAllWindowsCommand.ts:98`, `BriefInputPanel.ts:349`).
+  const nested = `const childOpeningIds = this.subCommands?.map(c => (c as any).openingElementId) ?? [];`;
+  if (analyseFile('x.ts', nested).some((s) => s.arm === 'C')) pass('a relationship call with NESTED PARENTHESES in its arguments IS flagged (the site does not hide behind an inner `)`)');
+  else fail('a nested-paren call defaulted to [] is invisible — the left-hand matcher stops at the first inner `)`');
+
   return { ok, lines };
 }
 
@@ -269,7 +294,7 @@ function main(): number {
   lines.push('EXECUTED CONTROLS (both directions, every run — C78 §20.3):');
   lines.push(...control.lines);
   lines.push('');
-  floors.push({ what: 'executed controls passed', measured: control.ok ? 7 : 0, min: 7 });
+  floors.push({ what: 'executed controls passed', measured: control.ok ? 9 : 0, min: 9 });
 
   const ledger: Ledger | null = existsSync(LEDGER_PATH)
     ? (JSON.parse(readFileSync(LEDGER_PATH, 'utf8')) as Ledger) : null;
